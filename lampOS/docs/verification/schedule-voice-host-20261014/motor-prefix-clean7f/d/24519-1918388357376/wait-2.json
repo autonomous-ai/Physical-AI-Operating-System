@@ -1,0 +1,2886 @@
+{
+  "child_markers": [
+    {
+      "marker": {
+        "at_us": 1918388913495,
+        "pid": 25286,
+        "sequence": 0,
+        "stage": "child_entry"
+      },
+      "received_us": 1918388914408
+    },
+    {
+      "marker": {
+        "at_us": 1918388913586,
+        "pid": 25286,
+        "sequence": 1,
+        "stage": "config_read_enter"
+      },
+      "received_us": 1918388914426
+    },
+    {
+      "marker": {
+        "at_us": 1918388913930,
+        "pid": 25286,
+        "sequence": 2,
+        "stage": "config_read_done"
+      },
+      "received_us": 1918388914434
+    },
+    {
+      "marker": {
+        "at_us": 1918388913941,
+        "pid": 25286,
+        "sequence": 3,
+        "stage": "config_validate_enter"
+      },
+      "received_us": 1918388914441
+    },
+    {
+      "marker": {
+        "at_us": 1918388913955,
+        "pid": 25286,
+        "sequence": 4,
+        "stage": "config_validated"
+      },
+      "received_us": 1918388914448
+    },
+    {
+      "marker": {
+        "at_us": 1918388913963,
+        "pid": 25286,
+        "sequence": 5,
+        "stage": "channels_bind_enter"
+      },
+      "received_us": 1918388914455
+    },
+    {
+      "marker": {
+        "at_us": 1918388914234,
+        "pid": 25286,
+        "sequence": 6,
+        "stage": "channels_bound"
+      },
+      "received_us": 1918388914462
+    },
+    {
+      "marker": {
+        "at_us": 1918388914303,
+        "pid": 25286,
+        "sequence": 7,
+        "stage": "channels_connected"
+      },
+      "received_us": 1918388914469
+    },
+    {
+      "marker": {
+        "at_us": 1918388914322,
+        "pid": 25286,
+        "sequence": 8,
+        "stage": "core_new_enter"
+      },
+      "received_us": 1918388914476
+    },
+    {
+      "marker": {
+        "at_us": 1918388914341,
+        "pid": 25286,
+        "sequence": 9,
+        "stage": "core_new_done"
+      },
+      "received_us": 1918388914483
+    },
+    {
+      "marker": {
+        "at_us": 1918388914348,
+        "pid": 25286,
+        "sequence": 10,
+        "stage": "core_qualify_enter"
+      },
+      "received_us": 1918388914490
+    },
+    {
+      "marker": {
+        "at_us": 1918388914367,
+        "pid": 25286,
+        "sequence": 11,
+        "stage": "core_qualify_done"
+      },
+      "received_us": 1918388914497
+    },
+    {
+      "marker": {
+        "at_us": 1918388914383,
+        "pid": 25286,
+        "sequence": 12,
+        "stage": "worker_run_enter"
+      },
+      "received_us": 1918388914504
+    },
+    {
+      "marker": {
+        "at_us": 1918388917772,
+        "pid": 25286,
+        "sequence": 13,
+        "stage": "ready_send_enter"
+      },
+      "received_us": 1918388917873
+    },
+    {
+      "marker": {
+        "at_us": 1918388917842,
+        "pid": 25286,
+        "sequence": 14,
+        "stage": "ready_sent"
+      },
+      "received_us": 1918388917893
+    },
+    {
+      "marker": {
+        "at_us": 1918388917863,
+        "pid": 25286,
+        "sequence": 15,
+        "stage": "hang_enter"
+      },
+      "received_us": 1918388917908
+    }
+  ],
+  "event_count": 1,
+  "events": [
+    {
+      "event_us": 1918388917436,
+      "observed_us": 1918388917977,
+      "stage": "ready"
+    }
+  ],
+  "first_samples": [
+    {
+      "adapter_failure": null,
+      "at_us": 1918388398461,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 41085,
+      "ready": false,
+      "reaped": true,
+      "stage": "before_start"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388400143,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 1682,
+      "ready": false,
+      "reaped": false,
+      "stage": "after_start"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388400169,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 26,
+      "ready": false,
+      "reaped": false,
+      "stage": "wait_enter"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388400179,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 10,
+      "ready": false,
+      "reaped": false,
+      "stage": "iteration_enter"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388400194,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 15,
+      "ready": false,
+      "reaped": false,
+      "stage": "after_publish"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388400250,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 56,
+      "ready": false,
+      "reaped": false,
+      "stage": "after_poll"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388401791,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 1541,
+      "ready": false,
+      "reaped": false,
+      "stage": "iteration_enter"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388401832,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 41,
+      "ready": false,
+      "reaped": false,
+      "stage": "after_poll"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388402901,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 1069,
+      "ready": false,
+      "reaped": false,
+      "stage": "iteration_enter"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388402939,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 38,
+      "ready": false,
+      "reaped": false,
+      "stage": "after_poll"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388404516,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 1577,
+      "ready": false,
+      "reaped": false,
+      "stage": "iteration_enter"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388404558,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 42,
+      "ready": false,
+      "reaped": false,
+      "stage": "after_poll"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388406110,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 1552,
+      "ready": false,
+      "reaped": false,
+      "stage": "iteration_enter"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388406194,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 84,
+      "ready": false,
+      "reaped": false,
+      "stage": "after_poll"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388407748,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 1554,
+      "ready": false,
+      "reaped": false,
+      "stage": "iteration_enter"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388407833,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 85,
+      "ready": false,
+      "reaped": false,
+      "stage": "after_poll"
+    }
+  ],
+  "fixture_started_us": 1918388357376,
+  "maximum_gap_us": 41085,
+  "mode": "hang",
+  "outcome": "predicate_satisfied",
+  "recent_samples": [
+    {
+      "adapter_failure": null,
+      "at_us": 1918388774140,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 1511,
+      "ready": false,
+      "reaped": false,
+      "stage": "iteration_enter"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388774170,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 30,
+      "ready": false,
+      "reaped": false,
+      "stage": "after_poll"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388775227,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 1057,
+      "ready": false,
+      "reaped": false,
+      "stage": "iteration_enter"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388775251,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 24,
+      "ready": false,
+      "reaped": false,
+      "stage": "after_poll"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388776761,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 1510,
+      "ready": false,
+      "reaped": false,
+      "stage": "iteration_enter"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388776776,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 15,
+      "ready": false,
+      "reaped": false,
+      "stage": "after_publish"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388776797,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 21,
+      "ready": false,
+      "reaped": false,
+      "stage": "after_poll"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388777881,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 1084,
+      "ready": false,
+      "reaped": false,
+      "stage": "iteration_enter"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388777910,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 29,
+      "ready": false,
+      "reaped": false,
+      "stage": "after_poll"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388779227,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 1317,
+      "ready": false,
+      "reaped": false,
+      "stage": "iteration_enter"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388779263,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 36,
+      "ready": false,
+      "reaped": false,
+      "stage": "after_poll"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388780549,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 1286,
+      "ready": false,
+      "reaped": false,
+      "stage": "iteration_enter"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388780573,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 24,
+      "ready": false,
+      "reaped": false,
+      "stage": "after_poll"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388782083,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 1510,
+      "ready": false,
+      "reaped": false,
+      "stage": "iteration_enter"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388782106,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 23,
+      "ready": false,
+      "reaped": false,
+      "stage": "after_poll"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388783607,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 1501,
+      "ready": false,
+      "reaped": false,
+      "stage": "iteration_enter"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388783635,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 28,
+      "ready": false,
+      "reaped": false,
+      "stage": "after_poll"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388785147,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 1512,
+      "ready": false,
+      "reaped": false,
+      "stage": "iteration_enter"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388785169,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 22,
+      "ready": false,
+      "reaped": false,
+      "stage": "after_poll"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388786679,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 1510,
+      "ready": false,
+      "reaped": false,
+      "stage": "iteration_enter"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388786705,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 26,
+      "ready": false,
+      "reaped": false,
+      "stage": "after_poll"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388787947,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 1242,
+      "ready": false,
+      "reaped": false,
+      "stage": "iteration_enter"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388787962,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 15,
+      "ready": false,
+      "reaped": false,
+      "stage": "after_publish"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388787983,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 21,
+      "ready": false,
+      "reaped": false,
+      "stage": "after_poll"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388789272,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 1289,
+      "ready": false,
+      "reaped": false,
+      "stage": "iteration_enter"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388789306,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 34,
+      "ready": false,
+      "reaped": false,
+      "stage": "after_poll"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388790816,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 1510,
+      "ready": false,
+      "reaped": false,
+      "stage": "iteration_enter"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388790836,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 20,
+      "ready": false,
+      "reaped": false,
+      "stage": "after_poll"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388792095,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 1259,
+      "ready": false,
+      "reaped": false,
+      "stage": "iteration_enter"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388792128,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 33,
+      "ready": false,
+      "reaped": false,
+      "stage": "after_poll"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388793454,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 1326,
+      "ready": false,
+      "reaped": false,
+      "stage": "iteration_enter"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388793481,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 27,
+      "ready": false,
+      "reaped": false,
+      "stage": "after_poll"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388794991,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 1510,
+      "ready": false,
+      "reaped": false,
+      "stage": "iteration_enter"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388795017,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 26,
+      "ready": false,
+      "reaped": false,
+      "stage": "after_poll"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388796527,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 1510,
+      "ready": false,
+      "reaped": false,
+      "stage": "iteration_enter"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388796550,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 23,
+      "ready": false,
+      "reaped": false,
+      "stage": "after_poll"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388798060,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 1510,
+      "ready": false,
+      "reaped": false,
+      "stage": "iteration_enter"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388798075,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 15,
+      "ready": false,
+      "reaped": false,
+      "stage": "after_publish"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388798095,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 20,
+      "ready": false,
+      "reaped": false,
+      "stage": "after_poll"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388799604,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 1509,
+      "ready": false,
+      "reaped": false,
+      "stage": "iteration_enter"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388799624,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 20,
+      "ready": false,
+      "reaped": false,
+      "stage": "after_poll"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388801160,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 1536,
+      "ready": false,
+      "reaped": false,
+      "stage": "iteration_enter"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388801190,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 30,
+      "ready": false,
+      "reaped": false,
+      "stage": "after_poll"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388802273,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 1083,
+      "ready": false,
+      "reaped": false,
+      "stage": "iteration_enter"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388802302,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 29,
+      "ready": false,
+      "reaped": false,
+      "stage": "after_poll"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388803812,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 1510,
+      "ready": false,
+      "reaped": false,
+      "stage": "iteration_enter"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388803836,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 24,
+      "ready": false,
+      "reaped": false,
+      "stage": "after_poll"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388805373,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 1537,
+      "ready": false,
+      "reaped": false,
+      "stage": "iteration_enter"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388805396,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 23,
+      "ready": false,
+      "reaped": false,
+      "stage": "after_poll"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388806905,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 1509,
+      "ready": false,
+      "reaped": false,
+      "stage": "iteration_enter"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388806927,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 22,
+      "ready": false,
+      "reaped": false,
+      "stage": "after_poll"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388808322,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 1395,
+      "ready": false,
+      "reaped": false,
+      "stage": "iteration_enter"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388808341,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 19,
+      "ready": false,
+      "reaped": false,
+      "stage": "after_publish"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388808371,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 30,
+      "ready": false,
+      "reaped": false,
+      "stage": "after_poll"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388809913,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 1542,
+      "ready": false,
+      "reaped": false,
+      "stage": "iteration_enter"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388809947,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 34,
+      "ready": false,
+      "reaped": false,
+      "stage": "after_poll"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388810994,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 1047,
+      "ready": false,
+      "reaped": false,
+      "stage": "iteration_enter"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388811028,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 34,
+      "ready": false,
+      "reaped": false,
+      "stage": "after_poll"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388812540,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 1512,
+      "ready": false,
+      "reaped": false,
+      "stage": "iteration_enter"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388812570,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 30,
+      "ready": false,
+      "reaped": false,
+      "stage": "after_poll"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388814106,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 1536,
+      "ready": false,
+      "reaped": false,
+      "stage": "iteration_enter"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388814134,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 28,
+      "ready": false,
+      "reaped": false,
+      "stage": "after_poll"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388815644,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 1510,
+      "ready": false,
+      "reaped": false,
+      "stage": "iteration_enter"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388815668,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 24,
+      "ready": false,
+      "reaped": false,
+      "stage": "after_poll"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388817203,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 1535,
+      "ready": false,
+      "reaped": false,
+      "stage": "iteration_enter"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388817221,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 18,
+      "ready": false,
+      "reaped": false,
+      "stage": "after_poll"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388818758,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 1537,
+      "ready": false,
+      "reaped": false,
+      "stage": "iteration_enter"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388818771,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 13,
+      "ready": false,
+      "reaped": false,
+      "stage": "after_publish"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388818792,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 21,
+      "ready": false,
+      "reaped": false,
+      "stage": "after_poll"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388820133,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 1341,
+      "ready": false,
+      "reaped": false,
+      "stage": "iteration_enter"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388820169,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 36,
+      "ready": false,
+      "reaped": false,
+      "stage": "after_poll"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388821260,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 1091,
+      "ready": false,
+      "reaped": false,
+      "stage": "iteration_enter"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388821309,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 49,
+      "ready": false,
+      "reaped": false,
+      "stage": "after_poll"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388822392,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 1083,
+      "ready": false,
+      "reaped": false,
+      "stage": "iteration_enter"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388822425,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 33,
+      "ready": false,
+      "reaped": false,
+      "stage": "after_poll"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388823551,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 1126,
+      "ready": false,
+      "reaped": false,
+      "stage": "iteration_enter"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388823586,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 35,
+      "ready": false,
+      "reaped": false,
+      "stage": "after_poll"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388825098,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 1512,
+      "ready": false,
+      "reaped": false,
+      "stage": "iteration_enter"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388825127,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 29,
+      "ready": false,
+      "reaped": false,
+      "stage": "after_poll"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388826546,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 1419,
+      "ready": false,
+      "reaped": false,
+      "stage": "iteration_enter"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388826585,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 39,
+      "ready": false,
+      "reaped": false,
+      "stage": "after_poll"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388828096,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 1511,
+      "ready": false,
+      "reaped": false,
+      "stage": "iteration_enter"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388828118,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 22,
+      "ready": false,
+      "reaped": false,
+      "stage": "after_poll"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388829627,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 1509,
+      "ready": false,
+      "reaped": false,
+      "stage": "iteration_enter"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388829638,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 11,
+      "ready": false,
+      "reaped": false,
+      "stage": "after_publish"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388829656,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 18,
+      "ready": false,
+      "reaped": false,
+      "stage": "after_poll"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388831166,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 1510,
+      "ready": false,
+      "reaped": false,
+      "stage": "iteration_enter"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388831191,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 25,
+      "ready": false,
+      "reaped": false,
+      "stage": "after_poll"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388832214,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 1023,
+      "ready": false,
+      "reaped": false,
+      "stage": "iteration_enter"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388832236,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 22,
+      "ready": false,
+      "reaped": false,
+      "stage": "after_poll"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388833445,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 1209,
+      "ready": false,
+      "reaped": false,
+      "stage": "iteration_enter"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388833468,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 23,
+      "ready": false,
+      "reaped": false,
+      "stage": "after_poll"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388834977,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 1509,
+      "ready": false,
+      "reaped": false,
+      "stage": "iteration_enter"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388834995,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 18,
+      "ready": false,
+      "reaped": false,
+      "stage": "after_poll"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388836504,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 1509,
+      "ready": false,
+      "reaped": false,
+      "stage": "iteration_enter"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388836526,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 22,
+      "ready": false,
+      "reaped": false,
+      "stage": "after_poll"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388838036,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 1510,
+      "ready": false,
+      "reaped": false,
+      "stage": "iteration_enter"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388838060,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 24,
+      "ready": false,
+      "reaped": false,
+      "stage": "after_poll"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388839568,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 1508,
+      "ready": false,
+      "reaped": false,
+      "stage": "iteration_enter"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388839587,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 19,
+      "ready": false,
+      "reaped": false,
+      "stage": "after_poll"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388840772,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 1185,
+      "ready": false,
+      "reaped": false,
+      "stage": "iteration_enter"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388840789,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 17,
+      "ready": false,
+      "reaped": false,
+      "stage": "after_publish"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388840815,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 26,
+      "ready": false,
+      "reaped": false,
+      "stage": "after_poll"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388842326,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 1511,
+      "ready": false,
+      "reaped": false,
+      "stage": "iteration_enter"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388842351,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 25,
+      "ready": false,
+      "reaped": false,
+      "stage": "after_poll"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388843623,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 1272,
+      "ready": false,
+      "reaped": false,
+      "stage": "iteration_enter"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388843653,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 30,
+      "ready": false,
+      "reaped": false,
+      "stage": "after_poll"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388844761,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 1108,
+      "ready": false,
+      "reaped": false,
+      "stage": "iteration_enter"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388844788,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 27,
+      "ready": false,
+      "reaped": false,
+      "stage": "after_poll"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388846069,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 1281,
+      "ready": false,
+      "reaped": false,
+      "stage": "iteration_enter"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388846102,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 33,
+      "ready": false,
+      "reaped": false,
+      "stage": "after_poll"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388847609,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 1507,
+      "ready": false,
+      "reaped": false,
+      "stage": "iteration_enter"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388847633,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 24,
+      "ready": false,
+      "reaped": false,
+      "stage": "after_poll"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388849143,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 1510,
+      "ready": false,
+      "reaped": false,
+      "stage": "iteration_enter"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388849167,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 24,
+      "ready": false,
+      "reaped": false,
+      "stage": "after_poll"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388850676,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 1509,
+      "ready": false,
+      "reaped": false,
+      "stage": "iteration_enter"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388850694,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 18,
+      "ready": false,
+      "reaped": false,
+      "stage": "after_poll"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388852202,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 1508,
+      "ready": false,
+      "reaped": false,
+      "stage": "iteration_enter"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388852213,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 11,
+      "ready": false,
+      "reaped": false,
+      "stage": "after_publish"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388852231,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 18,
+      "ready": false,
+      "reaped": false,
+      "stage": "after_poll"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388853307,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 1076,
+      "ready": false,
+      "reaped": false,
+      "stage": "iteration_enter"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388853335,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 28,
+      "ready": false,
+      "reaped": false,
+      "stage": "after_poll"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388854405,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 1070,
+      "ready": false,
+      "reaped": false,
+      "stage": "iteration_enter"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388854438,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 33,
+      "ready": false,
+      "reaped": false,
+      "stage": "after_poll"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388855686,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 1248,
+      "ready": false,
+      "reaped": false,
+      "stage": "iteration_enter"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388855706,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 20,
+      "ready": false,
+      "reaped": false,
+      "stage": "after_poll"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388856992,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 1286,
+      "ready": false,
+      "reaped": false,
+      "stage": "iteration_enter"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388857020,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 28,
+      "ready": false,
+      "reaped": false,
+      "stage": "after_poll"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388858220,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 1200,
+      "ready": false,
+      "reaped": false,
+      "stage": "iteration_enter"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388858248,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 28,
+      "ready": false,
+      "reaped": false,
+      "stage": "after_poll"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388859758,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 1510,
+      "ready": false,
+      "reaped": false,
+      "stage": "iteration_enter"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388859777,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 19,
+      "ready": false,
+      "reaped": false,
+      "stage": "after_poll"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388861289,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 1512,
+      "ready": false,
+      "reaped": false,
+      "stage": "iteration_enter"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388861326,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 37,
+      "ready": false,
+      "reaped": false,
+      "stage": "after_poll"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388862836,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 1510,
+      "ready": false,
+      "reaped": false,
+      "stage": "iteration_enter"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388862847,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 11,
+      "ready": false,
+      "reaped": false,
+      "stage": "after_publish"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388862866,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 19,
+      "ready": false,
+      "reaped": false,
+      "stage": "after_poll"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388864374,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 1508,
+      "ready": false,
+      "reaped": false,
+      "stage": "iteration_enter"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388864394,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 20,
+      "ready": false,
+      "reaped": false,
+      "stage": "after_poll"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388865905,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 1511,
+      "ready": false,
+      "reaped": false,
+      "stage": "iteration_enter"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388865934,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 29,
+      "ready": false,
+      "reaped": false,
+      "stage": "after_poll"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388867445,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 1511,
+      "ready": false,
+      "reaped": false,
+      "stage": "iteration_enter"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388867471,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 26,
+      "ready": false,
+      "reaped": false,
+      "stage": "after_poll"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388868818,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 1347,
+      "ready": false,
+      "reaped": false,
+      "stage": "iteration_enter"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388868836,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 18,
+      "ready": false,
+      "reaped": false,
+      "stage": "after_poll"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388870342,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 1506,
+      "ready": false,
+      "reaped": false,
+      "stage": "iteration_enter"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388870367,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 25,
+      "ready": false,
+      "reaped": false,
+      "stage": "after_poll"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388871877,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 1510,
+      "ready": false,
+      "reaped": false,
+      "stage": "iteration_enter"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388871906,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 29,
+      "ready": false,
+      "reaped": false,
+      "stage": "after_poll"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388873416,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 1510,
+      "ready": false,
+      "reaped": false,
+      "stage": "iteration_enter"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388873459,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 43,
+      "ready": false,
+      "reaped": false,
+      "stage": "after_publish"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388873503,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 44,
+      "ready": false,
+      "reaped": false,
+      "stage": "after_poll"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388875044,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 1541,
+      "ready": false,
+      "reaped": false,
+      "stage": "iteration_enter"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388875067,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 23,
+      "ready": false,
+      "reaped": false,
+      "stage": "after_poll"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388876142,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 1075,
+      "ready": false,
+      "reaped": false,
+      "stage": "iteration_enter"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388876171,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 29,
+      "ready": false,
+      "reaped": false,
+      "stage": "after_poll"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388877681,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 1510,
+      "ready": false,
+      "reaped": false,
+      "stage": "iteration_enter"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388877699,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 18,
+      "ready": false,
+      "reaped": false,
+      "stage": "after_poll"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388878988,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 1289,
+      "ready": false,
+      "reaped": false,
+      "stage": "iteration_enter"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388879021,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 33,
+      "ready": false,
+      "reaped": false,
+      "stage": "after_poll"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388880534,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 1513,
+      "ready": false,
+      "reaped": false,
+      "stage": "iteration_enter"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388880563,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 29,
+      "ready": false,
+      "reaped": false,
+      "stage": "after_poll"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388882075,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 1512,
+      "ready": false,
+      "reaped": false,
+      "stage": "iteration_enter"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388882102,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 27,
+      "ready": false,
+      "reaped": false,
+      "stage": "after_poll"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388883149,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 1047,
+      "ready": false,
+      "reaped": false,
+      "stage": "iteration_enter"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388883174,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 25,
+      "ready": false,
+      "reaped": false,
+      "stage": "after_poll"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388884195,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 1021,
+      "ready": false,
+      "reaped": false,
+      "stage": "iteration_enter"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388884211,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 16,
+      "ready": false,
+      "reaped": false,
+      "stage": "after_publish"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388884233,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 22,
+      "ready": false,
+      "reaped": false,
+      "stage": "after_poll"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388885742,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 1509,
+      "ready": false,
+      "reaped": false,
+      "stage": "iteration_enter"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388885762,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 20,
+      "ready": false,
+      "reaped": false,
+      "stage": "after_poll"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388886809,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 1047,
+      "ready": false,
+      "reaped": false,
+      "stage": "iteration_enter"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388886844,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 35,
+      "ready": false,
+      "reaped": false,
+      "stage": "after_poll"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388888360,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 1516,
+      "ready": false,
+      "reaped": false,
+      "stage": "iteration_enter"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388888395,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 35,
+      "ready": false,
+      "reaped": false,
+      "stage": "after_poll"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388889725,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 1330,
+      "ready": false,
+      "reaped": false,
+      "stage": "iteration_enter"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388889762,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 37,
+      "ready": false,
+      "reaped": false,
+      "stage": "after_poll"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388891298,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 1536,
+      "ready": false,
+      "reaped": false,
+      "stage": "iteration_enter"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388891321,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 23,
+      "ready": false,
+      "reaped": false,
+      "stage": "after_poll"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388892858,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 1537,
+      "ready": false,
+      "reaped": false,
+      "stage": "iteration_enter"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388892879,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 21,
+      "ready": false,
+      "reaped": false,
+      "stage": "after_poll"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388894416,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 1537,
+      "ready": false,
+      "reaped": false,
+      "stage": "iteration_enter"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388894434,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 18,
+      "ready": false,
+      "reaped": false,
+      "stage": "after_publish"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388894460,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 26,
+      "ready": false,
+      "reaped": false,
+      "stage": "after_poll"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388895642,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 1182,
+      "ready": false,
+      "reaped": false,
+      "stage": "iteration_enter"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388895668,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 26,
+      "ready": false,
+      "reaped": false,
+      "stage": "after_poll"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388897178,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 1510,
+      "ready": false,
+      "reaped": false,
+      "stage": "iteration_enter"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388897207,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 29,
+      "ready": false,
+      "reaped": false,
+      "stage": "after_poll"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388898309,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 1102,
+      "ready": false,
+      "reaped": false,
+      "stage": "iteration_enter"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388898346,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 37,
+      "ready": false,
+      "reaped": false,
+      "stage": "after_poll"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388899682,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 1336,
+      "ready": false,
+      "reaped": false,
+      "stage": "iteration_enter"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388899716,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 34,
+      "ready": false,
+      "reaped": false,
+      "stage": "after_poll"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388900728,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 1012,
+      "ready": false,
+      "reaped": false,
+      "stage": "iteration_enter"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388900759,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 31,
+      "ready": false,
+      "reaped": false,
+      "stage": "after_poll"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388901858,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 1099,
+      "ready": false,
+      "reaped": false,
+      "stage": "iteration_enter"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388901884,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 26,
+      "ready": false,
+      "reaped": false,
+      "stage": "after_poll"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388903420,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 1536,
+      "ready": false,
+      "reaped": false,
+      "stage": "iteration_enter"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388903453,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 33,
+      "ready": false,
+      "reaped": false,
+      "stage": "after_poll"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388904901,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 1448,
+      "ready": false,
+      "reaped": false,
+      "stage": "iteration_enter"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388904913,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 12,
+      "ready": false,
+      "reaped": false,
+      "stage": "after_publish"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388904932,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 19,
+      "ready": false,
+      "reaped": false,
+      "stage": "after_poll"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388905963,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 1031,
+      "ready": false,
+      "reaped": false,
+      "stage": "iteration_enter"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388905985,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 22,
+      "ready": false,
+      "reaped": false,
+      "stage": "after_poll"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388907025,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 1040,
+      "ready": false,
+      "reaped": false,
+      "stage": "iteration_enter"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388907049,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 24,
+      "ready": false,
+      "reaped": false,
+      "stage": "after_poll"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388908561,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 1512,
+      "ready": false,
+      "reaped": false,
+      "stage": "iteration_enter"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388908590,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 29,
+      "ready": false,
+      "reaped": false,
+      "stage": "after_poll"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388909691,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 1101,
+      "ready": false,
+      "reaped": false,
+      "stage": "iteration_enter"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388909720,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 29,
+      "ready": false,
+      "reaped": false,
+      "stage": "after_poll"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388911261,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 1541,
+      "ready": false,
+      "reaped": false,
+      "stage": "iteration_enter"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388911295,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 34,
+      "ready": false,
+      "reaped": false,
+      "stage": "after_poll"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388912806,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 1511,
+      "ready": false,
+      "reaped": false,
+      "stage": "iteration_enter"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388912826,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 20,
+      "ready": false,
+      "reaped": false,
+      "stage": "after_poll"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388914377,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 1551,
+      "ready": false,
+      "reaped": false,
+      "stage": "iteration_enter"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388914634,
+      "child_failure": null,
+      "connected": true,
+      "gap_us": 257,
+      "ready": false,
+      "reaped": false,
+      "stage": "after_poll"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388916182,
+      "child_failure": null,
+      "connected": true,
+      "gap_us": 1548,
+      "ready": false,
+      "reaped": false,
+      "stage": "iteration_enter"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388916291,
+      "child_failure": null,
+      "connected": true,
+      "gap_us": 109,
+      "ready": false,
+      "reaped": false,
+      "stage": "after_publish"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388916315,
+      "child_failure": null,
+      "connected": true,
+      "gap_us": 24,
+      "ready": false,
+      "reaped": false,
+      "stage": "after_poll"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388917855,
+      "child_failure": null,
+      "connected": true,
+      "gap_us": 1540,
+      "ready": false,
+      "reaped": false,
+      "stage": "iteration_enter"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388917995,
+      "child_failure": null,
+      "connected": true,
+      "gap_us": 140,
+      "ready": true,
+      "reaped": false,
+      "stage": "after_poll"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388919459,
+      "child_failure": null,
+      "connected": true,
+      "gap_us": 1464,
+      "ready": true,
+      "reaped": false,
+      "stage": "wait_complete"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388925101,
+      "child_failure": null,
+      "connected": true,
+      "gap_us": 5642,
+      "ready": false,
+      "reaped": false,
+      "stage": "wait_enter"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388925111,
+      "child_failure": null,
+      "connected": true,
+      "gap_us": 10,
+      "ready": false,
+      "reaped": false,
+      "stage": "iteration_enter"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388925118,
+      "child_failure": null,
+      "connected": true,
+      "gap_us": 7,
+      "ready": false,
+      "reaped": false,
+      "stage": "after_publish"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388925136,
+      "child_failure": null,
+      "connected": true,
+      "gap_us": 18,
+      "ready": false,
+      "reaped": false,
+      "stage": "after_poll"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388926649,
+      "child_failure": null,
+      "connected": true,
+      "gap_us": 1513,
+      "ready": false,
+      "reaped": false,
+      "stage": "iteration_enter"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388926697,
+      "child_failure": null,
+      "connected": true,
+      "gap_us": 48,
+      "ready": false,
+      "reaped": false,
+      "stage": "after_poll"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388928240,
+      "child_failure": null,
+      "connected": true,
+      "gap_us": 1543,
+      "ready": false,
+      "reaped": false,
+      "stage": "iteration_enter"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388928314,
+      "child_failure": null,
+      "connected": true,
+      "gap_us": 74,
+      "ready": false,
+      "reaped": false,
+      "stage": "after_poll"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388929796,
+      "child_failure": null,
+      "connected": true,
+      "gap_us": 1482,
+      "ready": false,
+      "reaped": false,
+      "stage": "iteration_enter"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388929854,
+      "child_failure": null,
+      "connected": true,
+      "gap_us": 58,
+      "ready": false,
+      "reaped": false,
+      "stage": "after_poll"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388931080,
+      "child_failure": null,
+      "connected": true,
+      "gap_us": 1226,
+      "ready": false,
+      "reaped": false,
+      "stage": "iteration_enter"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388931138,
+      "child_failure": null,
+      "connected": true,
+      "gap_us": 58,
+      "ready": false,
+      "reaped": false,
+      "stage": "after_poll"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388932681,
+      "child_failure": null,
+      "connected": true,
+      "gap_us": 1543,
+      "ready": false,
+      "reaped": false,
+      "stage": "iteration_enter"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388932754,
+      "child_failure": null,
+      "connected": true,
+      "gap_us": 73,
+      "ready": false,
+      "reaped": false,
+      "stage": "after_poll"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388934350,
+      "child_failure": null,
+      "connected": true,
+      "gap_us": 1596,
+      "ready": false,
+      "reaped": false,
+      "stage": "iteration_enter"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388934441,
+      "child_failure": null,
+      "connected": true,
+      "gap_us": 91,
+      "ready": false,
+      "reaped": false,
+      "stage": "after_poll"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388935987,
+      "child_failure": null,
+      "connected": true,
+      "gap_us": 1546,
+      "ready": false,
+      "reaped": false,
+      "stage": "iteration_enter"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388936045,
+      "child_failure": null,
+      "connected": true,
+      "gap_us": 58,
+      "ready": false,
+      "reaped": false,
+      "stage": "after_publish"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388936086,
+      "child_failure": null,
+      "connected": true,
+      "gap_us": 41,
+      "ready": false,
+      "reaped": false,
+      "stage": "after_poll"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388937636,
+      "child_failure": null,
+      "connected": true,
+      "gap_us": 1550,
+      "ready": false,
+      "reaped": false,
+      "stage": "iteration_enter"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388937676,
+      "child_failure": null,
+      "connected": true,
+      "gap_us": 40,
+      "ready": false,
+      "reaped": false,
+      "stage": "after_poll"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388939229,
+      "child_failure": null,
+      "connected": true,
+      "gap_us": 1553,
+      "ready": false,
+      "reaped": false,
+      "stage": "iteration_enter"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388939313,
+      "child_failure": null,
+      "connected": true,
+      "gap_us": 84,
+      "ready": false,
+      "reaped": false,
+      "stage": "after_poll"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388940876,
+      "child_failure": null,
+      "connected": true,
+      "gap_us": 1563,
+      "ready": false,
+      "reaped": false,
+      "stage": "iteration_enter"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388940994,
+      "child_failure": null,
+      "connected": true,
+      "gap_us": 118,
+      "ready": false,
+      "reaped": false,
+      "stage": "after_poll"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388942544,
+      "child_failure": null,
+      "connected": true,
+      "gap_us": 1550,
+      "ready": false,
+      "reaped": false,
+      "stage": "iteration_enter"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388942595,
+      "child_failure": null,
+      "connected": true,
+      "gap_us": 51,
+      "ready": false,
+      "reaped": false,
+      "stage": "after_poll"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388943705,
+      "child_failure": null,
+      "connected": true,
+      "gap_us": 1110,
+      "ready": false,
+      "reaped": false,
+      "stage": "iteration_enter"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388943763,
+      "child_failure": null,
+      "connected": true,
+      "gap_us": 58,
+      "ready": false,
+      "reaped": false,
+      "stage": "after_poll"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918388945315,
+      "child_failure": null,
+      "connected": true,
+      "gap_us": 1552,
+      "ready": false,
+      "reaped": false,
+      "stage": "iteration_enter"
+    },
+    {
+      "adapter_failure": "motor inhibit acknowledgement timed out",
+      "at_us": 1918388945388,
+      "child_failure": "motor inhibit acknowledgement timed out",
+      "connected": true,
+      "gap_us": 73,
+      "ready": false,
+      "reaped": false,
+      "stage": "after_poll"
+    },
+    {
+      "adapter_failure": "motor inhibit acknowledgement timed out",
+      "at_us": 1918388946935,
+      "child_failure": "motor inhibit acknowledgement timed out",
+      "connected": true,
+      "gap_us": 1547,
+      "ready": false,
+      "reaped": false,
+      "stage": "iteration_enter"
+    },
+    {
+      "adapter_failure": "motor inhibit acknowledgement timed out",
+      "at_us": 1918388946959,
+      "child_failure": "motor inhibit acknowledgement timed out",
+      "connected": true,
+      "gap_us": 24,
+      "ready": false,
+      "reaped": false,
+      "stage": "after_publish"
+    },
+    {
+      "adapter_failure": "motor inhibit acknowledgement timed out",
+      "at_us": 1918388947213,
+      "child_failure": "motor inhibit acknowledgement timed out",
+      "connected": true,
+      "gap_us": 254,
+      "ready": false,
+      "reaped": true,
+      "stage": "after_poll"
+    },
+    {
+      "adapter_failure": "motor inhibit acknowledgement timed out",
+      "at_us": 1918388948805,
+      "child_failure": "motor inhibit acknowledgement timed out",
+      "connected": true,
+      "gap_us": 1592,
+      "ready": false,
+      "reaped": true,
+      "stage": "wait_complete"
+    }
+  ],
+  "recorded_us": 1918388948836,
+  "sample_count": 798
+}

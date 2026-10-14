@@ -1,0 +1,62 @@
+{
+  "all_staged_check": {
+    "command": [
+      "git",
+      "diff",
+      "--cached",
+      "--check"
+    ],
+    "exit_code": 2,
+    "raw_output": "/private/tmp/lamp-third-schedule-room-policy-cached-whitespace-raw.txt",
+    "raw_output_sha256": "328ab7306d6d14ed46174b9c240176beabeed00646d60897248ad4567130dd11",
+    "diagnostic_lines": 855
+  },
+  "authored_files_check": {
+    "command": [
+      "git",
+      "diff",
+      "--cached",
+      "--check",
+      "--",
+      "lampOS/crates/voice/src/admission.rs",
+      "lampOS/crates/voice/src/provider_worker.rs",
+      "lampOS/crates/voice/src/provider_worker/reminder_policy.rs",
+      "lampOS/crates/voice/src/provider_worker/tests/reminders.rs",
+      "lampOS/crates/voice/src/provider_worker/tests/review_2026_10_14.rs",
+      "lampOS/crates/voice/src/reminders/transport.rs",
+      "lampOS/docs/reuse-decisions.md",
+      "lampOS/docs/schedule.md",
+      "lampOS/docs/tools.md",
+      "lampOS/docs/verification/schedule-voice-host-20261014/README.md",
+      "lampOS/docs/verification/schedule-voice-host-20261014/native-c0/README.md",
+      "lampOS/docs/verification/schedule-voice-host-20261014/native-c0/result.json",
+      "lampOS/docs/verification/schedule-voice-host-20261014/native-c0/retention.json",
+      "lampOS/docs/verification/schedule-voice-host-20261014/room-policy-6573/README.md",
+      "lampOS/docs/verification/schedule-voice-host-20261014/room-policy-6573/focused-retention.json",
+      "lampOS/docs/verification/schedule-voice-host-20261014/room-policy-6573/focused.json",
+      "lampOS/docs/verification/schedule-voice-host-20261014/room-policy-6573/format-record.json",
+      "lampOS/docs/verification/schedule-voice-host-20261014/room-policy-6573/issue-709-answers.json",
+      "lampOS/docs/verification/schedule-voice-host-20261014/room-policy-6573/issue-739-ownership.json",
+      "lampOS/docs/verification/schedule-voice-host-20261014/room-policy-6573/provider-edit-audit-before-format.json",
+      "lampOS/docs/verification/schedule-voice-host-20261014/room-policy-6573/queue.json",
+      "lampOS/docs/verification/schedule-voice-host-20261014/room-policy-6573/rebase.json",
+      "lampOS/docs/verification/schedule-voice-host-20261014/room-policy-6573/retention-pre-validation.json",
+      "lampOS/docs/verification/schedule-voice-host-20261014/room-policy-6573/review-ledger-recovery-c0.md",
+      "lampOS/docs/verification/schedule-voice-host-20261014/room-policy-6573/review-native-boundary-c0.md",
+      "lampOS/docs/verification/schedule-voice-host-20261014/room-policy-6573/source.json"
+    ],
+    "exit_code": 0
+  },
+  "preserved_raw_logs": [
+    "lampOS/docs/verification/schedule-voice-host-20261014/native-c0/run.txt",
+    "lampOS/docs/verification/schedule-voice-host-20261014/room-policy-6573/raw/lamp-third-schedule-room-policy-focused-first-agent-tasks.txt",
+    "lampOS/docs/verification/schedule-voice-host-20261014/room-policy-6573/raw/lamp-third-schedule-room-policy-focused-first-clippy.txt",
+    "lampOS/docs/verification/schedule-voice-host-20261014/room-policy-6573/raw/lamp-third-schedule-room-policy-focused-first-early-end.txt",
+    "lampOS/docs/verification/schedule-voice-host-20261014/room-policy-6573/raw/lamp-third-schedule-room-policy-focused-first-format.txt",
+    "lampOS/docs/verification/schedule-voice-host-20261014/room-policy-6573/raw/lamp-third-schedule-room-policy-focused-first-reminder.txt",
+    "lampOS/docs/verification/schedule-voice-host-20261014/room-policy-6573/raw/lamp-third-schedule-room-policy-focused-first-task-news.txt",
+    "lampOS/docs/verification/schedule-voice-host-20261014/room-policy-6573/raw/lamp-third-schedule-room-policy-focused-first-tools.txt",
+    "lampOS/docs/verification/schedule-voice-host-20261014/room-policy-6573/raw/lamp-third-schedule-room-policy-focused-first-workspace-build.txt"
+  ],
+  "reason": "Only exact retained command output has trailing whitespace or blank EOF lines. Original log bytes and hashes are preserved. No code or authored-doc whitespace diagnostic is waived."
+}

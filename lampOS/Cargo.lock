@@ -1672,11 +1672,14 @@ dependencies = [
 name = "lamp-actions"
 version = "0.1.0"
 dependencies = [
+ "getrandom 0.4.3",
  "lamp-bus",
  "lamp-ipc",
  "lamp-msgs",
+ "lamp-schedule",
  "serde",
  "serde_json",
+ "tempfile",
 ]
 
 [[package]]
@@ -2064,6 +2067,7 @@ version = "0.1.0"
 dependencies = [
  "gpiocdev",
  "hound",
+ "lamp-actions",
  "lamp-audio",
  "lamp-body",
  "lamp-bus",
@@ -2074,6 +2078,7 @@ dependencies = [
  "lamp-ipc",
  "lamp-msgs",
  "lamp-ring",
+ "lamp-schedule",
  "lamp-turn-end-wire",
  "lamp-turn-owner",
  "rtrb",
@@ -2084,6 +2089,7 @@ dependencies = [
  "signal-hook",
  "sonora-agc2",
  "sonora-simd",
+ "thread-priority",
  "tokio",
 ]
 
@@ -3610,6 +3616,20 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 3.0.7",
+]
+
+[[package]]
+name = "thread-priority"
+version = "3.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8d2e834949be5111506bb252643498af1514f600d9e1dceedaa42afae155b67f"
+dependencies = [
+ "bitflags 2.13.2",
+ "cfg-if",
+ "libc",
+ "log",
+ "rustversion",
+ "windows",
 ]
 
 [[package]]

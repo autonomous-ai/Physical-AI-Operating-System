@@ -1,0 +1,24 @@
+{
+  "kind": "filesystem-only evidence verification",
+  "created_at": "2026-10-14T17:16:52.167300+00:00",
+  "status": "passed",
+  "complete_host_gate": "not_ready",
+  "frozen_main_source_paths_verified": 675,
+  "standalone_source_files_verified": 1454,
+  "scratch_helper_files_verified": 2,
+  "exact_original_retained_pairs_verified": 681,
+  "standalone_test_execution_totals_recomputed_from_raw_logs": {
+    "passed": 280,
+    "failed": 0,
+    "ignored": 2
+  },
+  "baseline_cases": 72,
+  "final_cases": 72,
+  "byte_comparisons_verified": 144,
+  "distinct_stdout_payloads": 3,
+  "empty_final_stderr_readings_verified": 144,
+  "local_markdown_links_resolved": 57,
+  "utf8_nul_free_evidence_files_checked": 128,
+  "no_cargo_helpers_tests_or_benchmarks_run": true,
+  "source_map_sha256": "0312a1dbbef6fd5a3374272454123dfc1b5d7eaf6633a98b948aa8ccf79a48d4"
+}

@@ -1,0 +1,1179 @@
+{
+  "scope": "Preparation and static filesystem/source/manifest inspection only; no Cargo, tests, metadata or helper execution",
+  "verified_at": "2026-10-14T18:31:50.628385+00:00",
+  "base": "d8e9556dea3f1867a5af5297d1ebddbd165d9102",
+  "frozen_map": {
+    "path": "/private/tmp/lamp-third-schedule-voice-d8-source-frozen.json",
+    "sha256": "d14cdfb15ec1e03142fdc48e7e8de71ad30448895cbe891578a8ceaae38e8512",
+    "paths": 697
+  },
+  "copies": {
+    "baseline": {
+      "report": "/private/tmp/lamp-third-schedule-d8e9556dea-baseline.json",
+      "report_sha256_at_preparation": "738c41cca66b6dd940e4721b4164d8a062acaeeffd0cf9c0671e257681678a13",
+      "root": "/private/tmp/lamp-third-schedule-d8e9556dea-baseline-5qvw62kj/lampOS",
+      "source_files": 1596,
+      "source_bytes": 25397904,
+      "helper_files": 2,
+      "helper_bytes_combined": 1755,
+      "helper_hashes": {
+        "crates/actions/examples/schedule_off_actions.rs": "8fc55e05703d1aa5ca58348132e3f4b0d7eed202e443f608f0d5af562c8f35e1",
+        "crates/voice/examples/schedule_off_voice.rs": "12d36f2d201b1117df21a55574855c8b44bcd2ec06f7b6fa980603e809b41695"
+      },
+      "manifest_files_including_workspace": 35,
+      "static_manifest_path_occurrences": 89,
+      "declared_paths": [
+        {
+          "manifest": "Cargo.toml",
+          "declared_path": "vendor/tough",
+          "resolved_relative": "vendor/tough",
+          "exists": true
+        },
+        {
+          "manifest": "crates/actions/Cargo.toml",
+          "declared_path": "src/main.rs",
+          "resolved_relative": "crates/actions/src/main.rs",
+          "exists": true
+        },
+        {
+          "manifest": "crates/actions/Cargo.toml",
+          "declared_path": "../bus",
+          "resolved_relative": "crates/bus",
+          "exists": true
+        },
+        {
+          "manifest": "crates/actions/Cargo.toml",
+          "declared_path": "../msgs",
+          "resolved_relative": "crates/msgs",
+          "exists": true
+        },
+        {
+          "manifest": "crates/actions/Cargo.toml",
+          "declared_path": "../ipc",
+          "resolved_relative": "crates/ipc",
+          "exists": true
+        },
+        {
+          "manifest": "crates/air/Cargo.toml",
+          "declared_path": "../msgs",
+          "resolved_relative": "crates/msgs",
+          "exists": true
+        },
+        {
+          "manifest": "crates/air/Cargo.toml",
+          "declared_path": "../bus",
+          "resolved_relative": "crates/bus",
+          "exists": true
+        },
+        {
+          "manifest": "crates/audio/Cargo.toml",
+          "declared_path": "../turn-owner",
+          "resolved_relative": "crates/turn-owner",
+          "exists": true
+        },
+        {
+          "manifest": "crates/audio/Cargo.toml",
+          "declared_path": "../ipc",
+          "resolved_relative": "crates/ipc",
+          "exists": true
+        },
+        {
+          "manifest": "crates/body/Cargo.toml",
+          "declared_path": "../ipc",
+          "resolved_relative": "crates/ipc",
+          "exists": true
+        },
+        {
+          "manifest": "crates/body/Cargo.toml",
+          "declared_path": "../turn-owner",
+          "resolved_relative": "crates/turn-owner",
+          "exists": true
+        },
+        {
+          "manifest": "crates/body/Cargo.toml",
+          "declared_path": "../bus",
+          "resolved_relative": "crates/bus",
+          "exists": true
+        },
+        {
+          "manifest": "crates/body/Cargo.toml",
+          "declared_path": "../msgs",
+          "resolved_relative": "crates/msgs",
+          "exists": true
+        },
+        {
+          "manifest": "crates/body/Cargo.toml",
+          "declared_path": "../keeper",
+          "resolved_relative": "crates/keeper",
+          "exists": true
+        },
+        {
+          "manifest": "crates/bus/Cargo.toml",
+          "declared_path": "src/main.rs",
+          "resolved_relative": "crates/bus/src/main.rs",
+          "exists": true
+        },
+        {
+          "manifest": "crates/camera/Cargo.toml",
+          "declared_path": "../turn-owner",
+          "resolved_relative": "crates/turn-owner",
+          "exists": true
+        },
+        {
+          "manifest": "crates/camera/Cargo.toml",
+          "declared_path": "../ipc",
+          "resolved_relative": "crates/ipc",
+          "exists": true
+        },
+        {
+          "manifest": "crates/controls/Cargo.toml",
+          "declared_path": "../msgs",
+          "resolved_relative": "crates/msgs",
+          "exists": true
+        },
+        {
+          "manifest": "crates/controls/Cargo.toml",
+          "declared_path": "../bus",
+          "resolved_relative": "crates/bus",
+          "exists": true
+        },
+        {
+          "manifest": "crates/controls/Cargo.toml",
+          "declared_path": "../ipc",
+          "resolved_relative": "crates/ipc",
+          "exists": true
+        },
+        {
+          "manifest": "crates/ears/Cargo.toml",
+          "declared_path": "../msgs",
+          "resolved_relative": "crates/msgs",
+          "exists": true
+        },
+        {
+          "manifest": "crates/ears/Cargo.toml",
+          "declared_path": "../bus",
+          "resolved_relative": "crates/bus",
+          "exists": true
+        },
+        {
+          "manifest": "crates/environment/Cargo.toml",
+          "declared_path": "../turn-owner",
+          "resolved_relative": "crates/turn-owner",
+          "exists": true
+        },
+        {
+          "manifest": "crates/expression/Cargo.toml",
+          "declared_path": "../msgs",
+          "resolved_relative": "crates/msgs",
+          "exists": true
+        },
+        {
+          "manifest": "crates/expression/Cargo.toml",
+          "declared_path": "../bus",
+          "resolved_relative": "crates/bus",
+          "exists": true
+        },
+        {
+          "manifest": "crates/expression/Cargo.toml",
+          "declared_path": "../ipc",
+          "resolved_relative": "crates/ipc",
+          "exists": true
+        },
+        {
+          "manifest": "crates/eyes/Cargo.toml",
+          "declared_path": "src/main.rs",
+          "resolved_relative": "crates/eyes/src/main.rs",
+          "exists": true
+        },
+        {
+          "manifest": "crates/eyes/Cargo.toml",
+          "declared_path": "../bus",
+          "resolved_relative": "crates/bus",
+          "exists": true
+        },
+        {
+          "manifest": "crates/eyes/Cargo.toml",
+          "declared_path": "../msgs",
+          "resolved_relative": "crates/msgs",
+          "exists": true
+        },
+        {
+          "manifest": "crates/eyes/Cargo.toml",
+          "declared_path": "../camera",
+          "resolved_relative": "crates/camera",
+          "exists": true
+        },
+        {
+          "manifest": "crates/eyes/Cargo.toml",
+          "declared_path": "../turn-owner",
+          "resolved_relative": "crates/turn-owner",
+          "exists": true
+        },
+        {
+          "manifest": "crates/eyes/Cargo.toml",
+          "declared_path": "../ipc",
+          "resolved_relative": "crates/ipc",
+          "exists": true
+        },
+        {
+          "manifest": "crates/health/Cargo.toml",
+          "declared_path": "src/main.rs",
+          "resolved_relative": "crates/health/src/main.rs",
+          "exists": true
+        },
+        {
+          "manifest": "crates/health/Cargo.toml",
+          "declared_path": "../bus",
+          "resolved_relative": "crates/bus",
+          "exists": true
+        },
+        {
+          "manifest": "crates/health/Cargo.toml",
+          "declared_path": "../msgs",
+          "resolved_relative": "crates/msgs",
+          "exists": true
+        },
+        {
+          "manifest": "crates/keeper/Cargo.toml",
+          "declared_path": "src/main.rs",
+          "resolved_relative": "crates/keeper/src/main.rs",
+          "exists": true
+        },
+        {
+          "manifest": "crates/keeper/Cargo.toml",
+          "declared_path": "../bus",
+          "resolved_relative": "crates/bus",
+          "exists": true
+        },
+        {
+          "manifest": "crates/keeper/Cargo.toml",
+          "declared_path": "../msgs",
+          "resolved_relative": "crates/msgs",
+          "exists": true
+        },
+        {
+          "manifest": "crates/lean/Cargo.toml",
+          "declared_path": "../msgs",
+          "resolved_relative": "crates/msgs",
+          "exists": true
+        },
+        {
+          "manifest": "crates/lean/Cargo.toml",
+          "declared_path": "../expression",
+          "resolved_relative": "crates/expression",
+          "exists": true
+        },
+        {
+          "manifest": "crates/memory/Cargo.toml",
+          "declared_path": "src/main.rs",
+          "resolved_relative": "crates/memory/src/main.rs",
+          "exists": true
+        },
+        {
+          "manifest": "crates/memory/Cargo.toml",
+          "declared_path": "../bus",
+          "resolved_relative": "crates/bus",
+          "exists": true
+        },
+        {
+          "manifest": "crates/memory/Cargo.toml",
+          "declared_path": "../msgs",
+          "resolved_relative": "crates/msgs",
+          "exists": true
+        },
+        {
+          "manifest": "crates/memory/Cargo.toml",
+          "declared_path": "../ipc",
+          "resolved_relative": "crates/ipc",
+          "exists": true
+        },
+        {
+          "manifest": "crates/mood/Cargo.toml",
+          "declared_path": "../bus",
+          "resolved_relative": "crates/bus",
+          "exists": true
+        },
+        {
+          "manifest": "crates/mood/Cargo.toml",
+          "declared_path": "../msgs",
+          "resolved_relative": "crates/msgs",
+          "exists": true
+        },
+        {
+          "manifest": "crates/msgs/Cargo.toml",
+          "declared_path": "../bus",
+          "resolved_relative": "crates/bus",
+          "exists": true
+        },
+        {
+          "manifest": "crates/name/Cargo.toml",
+          "declared_path": "src/main.rs",
+          "resolved_relative": "crates/name/src/main.rs",
+          "exists": true
+        },
+        {
+          "manifest": "crates/name/Cargo.toml",
+          "declared_path": "../bus",
+          "resolved_relative": "crates/bus",
+          "exists": true
+        },
+        {
+          "manifest": "crates/name/Cargo.toml",
+          "declared_path": "../msgs",
+          "resolved_relative": "crates/msgs",
+          "exists": true
+        },
+        {
+          "manifest": "crates/observer/Cargo.toml",
+          "declared_path": "../ipc",
+          "resolved_relative": "crates/ipc",
+          "exists": true
+        },
+        {
+          "manifest": "crates/policy/Cargo.toml",
+          "declared_path": "src/main.rs",
+          "resolved_relative": "crates/policy/src/main.rs",
+          "exists": true
+        },
+        {
+          "manifest": "crates/policy/Cargo.toml",
+          "declared_path": "../bus",
+          "resolved_relative": "crates/bus",
+          "exists": true
+        },
+        {
+          "manifest": "crates/policy/Cargo.toml",
+          "declared_path": "../msgs",
+          "resolved_relative": "crates/msgs",
+          "exists": true
+        },
+        {
+          "manifest": "crates/records/Cargo.toml",
+          "declared_path": "../bus",
+          "resolved_relative": "crates/bus",
+          "exists": true
+        },
+        {
+          "manifest": "crates/records/Cargo.toml",
+          "declared_path": "../msgs",
+          "resolved_relative": "crates/msgs",
+          "exists": true
+        },
+        {
+          "manifest": "crates/ring/Cargo.toml",
+          "declared_path": "../turn-owner",
+          "resolved_relative": "crates/turn-owner",
+          "exists": true
+        },
+        {
+          "manifest": "crates/ring/Cargo.toml",
+          "declared_path": "../ipc",
+          "resolved_relative": "crates/ipc",
+          "exists": true
+        },
+        {
+          "manifest": "crates/schedule/Cargo.toml",
+          "declared_path": "../bus",
+          "resolved_relative": "crates/bus",
+          "exists": true
+        },
+        {
+          "manifest": "crates/schedule/Cargo.toml",
+          "declared_path": "../msgs",
+          "resolved_relative": "crates/msgs",
+          "exists": true
+        },
+        {
+          "manifest": "crates/surround/Cargo.toml",
+          "declared_path": "../bus",
+          "resolved_relative": "crates/bus",
+          "exists": true
+        },
+        {
+          "manifest": "crates/surround/Cargo.toml",
+          "declared_path": "../msgs",
+          "resolved_relative": "crates/msgs",
+          "exists": true
+        },
+        {
+          "manifest": "crates/surround/Cargo.toml",
+          "declared_path": "../ipc",
+          "resolved_relative": "crates/ipc",
+          "exists": true
+        },
+        {
+          "manifest": "crates/surround/Cargo.toml",
+          "declared_path": "../gemini",
+          "resolved_relative": "crates/gemini",
+          "exists": true
+        },
+        {
+          "manifest": "crates/tasks/Cargo.toml",
+          "declared_path": "../bus",
+          "resolved_relative": "crates/bus",
+          "exists": true
+        },
+        {
+          "manifest": "crates/tasks/Cargo.toml",
+          "declared_path": "../msgs",
+          "resolved_relative": "crates/msgs",
+          "exists": true
+        },
+        {
+          "manifest": "crates/tasks/Cargo.toml",
+          "declared_path": "tests/fixtures/harness_cli.rs",
+          "resolved_relative": "crates/tasks/tests/fixtures/harness_cli.rs",
+          "exists": true
+        },
+        {
+          "manifest": "crates/turn-end/Cargo.toml",
+          "declared_path": "src/main.rs",
+          "resolved_relative": "crates/turn-end/src/main.rs",
+          "exists": true
+        },
+        {
+          "manifest": "crates/turn-end/Cargo.toml",
+          "declared_path": "../turn-end-wire",
+          "resolved_relative": "crates/turn-end-wire",
+          "exists": true
+        },
+        {
+          "manifest": "crates/turn-end-wire/Cargo.toml",
+          "declared_path": "../ipc",
+          "resolved_relative": "crates/ipc",
+          "exists": true
+        },
+        {
+          "manifest": "crates/voice/Cargo.toml",
+          "declared_path": "../turn-owner",
+          "resolved_relative": "crates/turn-owner",
+          "exists": true
+        },
+        {
+          "manifest": "crates/voice/Cargo.toml",
+          "declared_path": "../ipc",
+          "resolved_relative": "crates/ipc",
+          "exists": true
+        },
+        {
+          "manifest": "crates/voice/Cargo.toml",
+          "declared_path": "../audio",
+          "resolved_relative": "crates/audio",
+          "exists": true
+        },
+        {
+          "manifest": "crates/voice/Cargo.toml",
+          "declared_path": "../camera",
+          "resolved_relative": "crates/camera",
+          "exists": true
+        },
+        {
+          "manifest": "crates/voice/Cargo.toml",
+          "declared_path": "../ring",
+          "resolved_relative": "crates/ring",
+          "exists": true
+        },
+        {
+          "manifest": "crates/voice/Cargo.toml",
+          "declared_path": "../body",
+          "resolved_relative": "crates/body",
+          "exists": true
+        },
+        {
+          "manifest": "crates/voice/Cargo.toml",
+          "declared_path": "../gemini",
+          "resolved_relative": "crates/gemini",
+          "exists": true
+        },
+        {
+          "manifest": "crates/voice/Cargo.toml",
+          "declared_path": "../turn-end-wire",
+          "resolved_relative": "crates/turn-end-wire",
+          "exists": true
+        },
+        {
+          "manifest": "crates/voice/Cargo.toml",
+          "declared_path": "../bus",
+          "resolved_relative": "crates/bus",
+          "exists": true
+        },
+        {
+          "manifest": "crates/voice/Cargo.toml",
+          "declared_path": "../msgs",
+          "resolved_relative": "crates/msgs",
+          "exists": true
+        },
+        {
+          "manifest": "crates/voice/Cargo.toml",
+          "declared_path": "../controls",
+          "resolved_relative": "crates/controls",
+          "exists": true
+        },
+        {
+          "manifest": "crates/voice/Cargo.toml",
+          "declared_path": "../expression",
+          "resolved_relative": "crates/expression",
+          "exists": true
+        },
+        {
+          "manifest": "crates/voice-eval/Cargo.toml",
+          "declared_path": "../sound-fixtures",
+          "resolved_relative": "crates/sound-fixtures",
+          "exists": true
+        },
+        {
+          "manifest": "crates/voice-eval/Cargo.toml",
+          "declared_path": "../audio",
+          "resolved_relative": "crates/audio",
+          "exists": true
+        },
+        {
+          "manifest": "crates/voice-eval/Cargo.toml",
+          "declared_path": "../turn-owner",
+          "resolved_relative": "crates/turn-owner",
+          "exists": true
+        },
+        {
+          "manifest": "crates/voice-eval/Cargo.toml",
+          "declared_path": "../ipc",
+          "resolved_relative": "crates/ipc",
+          "exists": true
+        },
+        {
+          "manifest": "crates/voice-eval/Cargo.toml",
+          "declared_path": "../voice",
+          "resolved_relative": "crates/voice",
+          "exists": true
+        },
+        {
+          "manifest": "crates/voice-eval/Cargo.toml",
+          "declared_path": "../observer",
+          "resolved_relative": "crates/observer",
+          "exists": true
+        },
+        {
+          "manifest": "vendor/tough/Cargo.toml",
+          "declared_path": "src/lib.rs",
+          "resolved_relative": "vendor/tough/src/lib.rs",
+          "exists": true
+        }
+      ],
+      "exact_file_set_and_hashes": true,
+      "no_target_git_or_invalid_relative_path": true,
+      "status": "prepared; build not yet run"
+    },
+    "implementation": {
+      "report": "/private/tmp/lamp-third-schedule-voice-d8-standalone.json",
+      "report_sha256_at_preparation": "6cd2e0123974694a5bbdf2d920f50cb49c3a241c506ba84707ace1760fbcf0d8",
+      "root": "/private/tmp/lamp-third-schedule-voice-d8-standalone-8r3lfpw_/lampOS",
+      "source_files": 1614,
+      "source_bytes": 25829091,
+      "helper_files": 2,
+      "helper_bytes_combined": 1755,
+      "helper_hashes": {
+        "crates/actions/examples/schedule_off_actions.rs": "8fc55e05703d1aa5ca58348132e3f4b0d7eed202e443f608f0d5af562c8f35e1",
+        "crates/voice/examples/schedule_off_voice.rs": "12d36f2d201b1117df21a55574855c8b44bcd2ec06f7b6fa980603e809b41695"
+      },
+      "manifest_files_including_workspace": 35,
+      "static_manifest_path_occurrences": 92,
+      "declared_paths": [
+        {
+          "manifest": "Cargo.toml",
+          "declared_path": "vendor/tough",
+          "resolved_relative": "vendor/tough",
+          "exists": true
+        },
+        {
+          "manifest": "crates/actions/Cargo.toml",
+          "declared_path": "src/main.rs",
+          "resolved_relative": "crates/actions/src/main.rs",
+          "exists": true
+        },
+        {
+          "manifest": "crates/actions/Cargo.toml",
+          "declared_path": "../bus",
+          "resolved_relative": "crates/bus",
+          "exists": true
+        },
+        {
+          "manifest": "crates/actions/Cargo.toml",
+          "declared_path": "../msgs",
+          "resolved_relative": "crates/msgs",
+          "exists": true
+        },
+        {
+          "manifest": "crates/actions/Cargo.toml",
+          "declared_path": "../ipc",
+          "resolved_relative": "crates/ipc",
+          "exists": true
+        },
+        {
+          "manifest": "crates/actions/Cargo.toml",
+          "declared_path": "../schedule",
+          "resolved_relative": "crates/schedule",
+          "exists": true
+        },
+        {
+          "manifest": "crates/air/Cargo.toml",
+          "declared_path": "../msgs",
+          "resolved_relative": "crates/msgs",
+          "exists": true
+        },
+        {
+          "manifest": "crates/air/Cargo.toml",
+          "declared_path": "../bus",
+          "resolved_relative": "crates/bus",
+          "exists": true
+        },
+        {
+          "manifest": "crates/audio/Cargo.toml",
+          "declared_path": "../turn-owner",
+          "resolved_relative": "crates/turn-owner",
+          "exists": true
+        },
+        {
+          "manifest": "crates/audio/Cargo.toml",
+          "declared_path": "../ipc",
+          "resolved_relative": "crates/ipc",
+          "exists": true
+        },
+        {
+          "manifest": "crates/body/Cargo.toml",
+          "declared_path": "../ipc",
+          "resolved_relative": "crates/ipc",
+          "exists": true
+        },
+        {
+          "manifest": "crates/body/Cargo.toml",
+          "declared_path": "../turn-owner",
+          "resolved_relative": "crates/turn-owner",
+          "exists": true
+        },
+        {
+          "manifest": "crates/body/Cargo.toml",
+          "declared_path": "../bus",
+          "resolved_relative": "crates/bus",
+          "exists": true
+        },
+        {
+          "manifest": "crates/body/Cargo.toml",
+          "declared_path": "../msgs",
+          "resolved_relative": "crates/msgs",
+          "exists": true
+        },
+        {
+          "manifest": "crates/body/Cargo.toml",
+          "declared_path": "../keeper",
+          "resolved_relative": "crates/keeper",
+          "exists": true
+        },
+        {
+          "manifest": "crates/bus/Cargo.toml",
+          "declared_path": "src/main.rs",
+          "resolved_relative": "crates/bus/src/main.rs",
+          "exists": true
+        },
+        {
+          "manifest": "crates/camera/Cargo.toml",
+          "declared_path": "../turn-owner",
+          "resolved_relative": "crates/turn-owner",
+          "exists": true
+        },
+        {
+          "manifest": "crates/camera/Cargo.toml",
+          "declared_path": "../ipc",
+          "resolved_relative": "crates/ipc",
+          "exists": true
+        },
+        {
+          "manifest": "crates/controls/Cargo.toml",
+          "declared_path": "../msgs",
+          "resolved_relative": "crates/msgs",
+          "exists": true
+        },
+        {
+          "manifest": "crates/controls/Cargo.toml",
+          "declared_path": "../bus",
+          "resolved_relative": "crates/bus",
+          "exists": true
+        },
+        {
+          "manifest": "crates/controls/Cargo.toml",
+          "declared_path": "../ipc",
+          "resolved_relative": "crates/ipc",
+          "exists": true
+        },
+        {
+          "manifest": "crates/ears/Cargo.toml",
+          "declared_path": "../msgs",
+          "resolved_relative": "crates/msgs",
+          "exists": true
+        },
+        {
+          "manifest": "crates/ears/Cargo.toml",
+          "declared_path": "../bus",
+          "resolved_relative": "crates/bus",
+          "exists": true
+        },
+        {
+          "manifest": "crates/environment/Cargo.toml",
+          "declared_path": "../turn-owner",
+          "resolved_relative": "crates/turn-owner",
+          "exists": true
+        },
+        {
+          "manifest": "crates/expression/Cargo.toml",
+          "declared_path": "../msgs",
+          "resolved_relative": "crates/msgs",
+          "exists": true
+        },
+        {
+          "manifest": "crates/expression/Cargo.toml",
+          "declared_path": "../bus",
+          "resolved_relative": "crates/bus",
+          "exists": true
+        },
+        {
+          "manifest": "crates/expression/Cargo.toml",
+          "declared_path": "../ipc",
+          "resolved_relative": "crates/ipc",
+          "exists": true
+        },
+        {
+          "manifest": "crates/eyes/Cargo.toml",
+          "declared_path": "src/main.rs",
+          "resolved_relative": "crates/eyes/src/main.rs",
+          "exists": true
+        },
+        {
+          "manifest": "crates/eyes/Cargo.toml",
+          "declared_path": "../bus",
+          "resolved_relative": "crates/bus",
+          "exists": true
+        },
+        {
+          "manifest": "crates/eyes/Cargo.toml",
+          "declared_path": "../msgs",
+          "resolved_relative": "crates/msgs",
+          "exists": true
+        },
+        {
+          "manifest": "crates/eyes/Cargo.toml",
+          "declared_path": "../camera",
+          "resolved_relative": "crates/camera",
+          "exists": true
+        },
+        {
+          "manifest": "crates/eyes/Cargo.toml",
+          "declared_path": "../turn-owner",
+          "resolved_relative": "crates/turn-owner",
+          "exists": true
+        },
+        {
+          "manifest": "crates/eyes/Cargo.toml",
+          "declared_path": "../ipc",
+          "resolved_relative": "crates/ipc",
+          "exists": true
+        },
+        {
+          "manifest": "crates/health/Cargo.toml",
+          "declared_path": "src/main.rs",
+          "resolved_relative": "crates/health/src/main.rs",
+          "exists": true
+        },
+        {
+          "manifest": "crates/health/Cargo.toml",
+          "declared_path": "../bus",
+          "resolved_relative": "crates/bus",
+          "exists": true
+        },
+        {
+          "manifest": "crates/health/Cargo.toml",
+          "declared_path": "../msgs",
+          "resolved_relative": "crates/msgs",
+          "exists": true
+        },
+        {
+          "manifest": "crates/keeper/Cargo.toml",
+          "declared_path": "src/main.rs",
+          "resolved_relative": "crates/keeper/src/main.rs",
+          "exists": true
+        },
+        {
+          "manifest": "crates/keeper/Cargo.toml",
+          "declared_path": "../bus",
+          "resolved_relative": "crates/bus",
+          "exists": true
+        },
+        {
+          "manifest": "crates/keeper/Cargo.toml",
+          "declared_path": "../msgs",
+          "resolved_relative": "crates/msgs",
+          "exists": true
+        },
+        {
+          "manifest": "crates/lean/Cargo.toml",
+          "declared_path": "../msgs",
+          "resolved_relative": "crates/msgs",
+          "exists": true
+        },
+        {
+          "manifest": "crates/lean/Cargo.toml",
+          "declared_path": "../expression",
+          "resolved_relative": "crates/expression",
+          "exists": true
+        },
+        {
+          "manifest": "crates/memory/Cargo.toml",
+          "declared_path": "src/main.rs",
+          "resolved_relative": "crates/memory/src/main.rs",
+          "exists": true
+        },
+        {
+          "manifest": "crates/memory/Cargo.toml",
+          "declared_path": "../bus",
+          "resolved_relative": "crates/bus",
+          "exists": true
+        },
+        {
+          "manifest": "crates/memory/Cargo.toml",
+          "declared_path": "../msgs",
+          "resolved_relative": "crates/msgs",
+          "exists": true
+        },
+        {
+          "manifest": "crates/memory/Cargo.toml",
+          "declared_path": "../ipc",
+          "resolved_relative": "crates/ipc",
+          "exists": true
+        },
+        {
+          "manifest": "crates/mood/Cargo.toml",
+          "declared_path": "../bus",
+          "resolved_relative": "crates/bus",
+          "exists": true
+        },
+        {
+          "manifest": "crates/mood/Cargo.toml",
+          "declared_path": "../msgs",
+          "resolved_relative": "crates/msgs",
+          "exists": true
+        },
+        {
+          "manifest": "crates/msgs/Cargo.toml",
+          "declared_path": "../bus",
+          "resolved_relative": "crates/bus",
+          "exists": true
+        },
+        {
+          "manifest": "crates/name/Cargo.toml",
+          "declared_path": "src/main.rs",
+          "resolved_relative": "crates/name/src/main.rs",
+          "exists": true
+        },
+        {
+          "manifest": "crates/name/Cargo.toml",
+          "declared_path": "../bus",
+          "resolved_relative": "crates/bus",
+          "exists": true
+        },
+        {
+          "manifest": "crates/name/Cargo.toml",
+          "declared_path": "../msgs",
+          "resolved_relative": "crates/msgs",
+          "exists": true
+        },
+        {
+          "manifest": "crates/observer/Cargo.toml",
+          "declared_path": "../ipc",
+          "resolved_relative": "crates/ipc",
+          "exists": true
+        },
+        {
+          "manifest": "crates/policy/Cargo.toml",
+          "declared_path": "src/main.rs",
+          "resolved_relative": "crates/policy/src/main.rs",
+          "exists": true
+        },
+        {
+          "manifest": "crates/policy/Cargo.toml",
+          "declared_path": "../bus",
+          "resolved_relative": "crates/bus",
+          "exists": true
+        },
+        {
+          "manifest": "crates/policy/Cargo.toml",
+          "declared_path": "../msgs",
+          "resolved_relative": "crates/msgs",
+          "exists": true
+        },
+        {
+          "manifest": "crates/records/Cargo.toml",
+          "declared_path": "../bus",
+          "resolved_relative": "crates/bus",
+          "exists": true
+        },
+        {
+          "manifest": "crates/records/Cargo.toml",
+          "declared_path": "../msgs",
+          "resolved_relative": "crates/msgs",
+          "exists": true
+        },
+        {
+          "manifest": "crates/ring/Cargo.toml",
+          "declared_path": "../turn-owner",
+          "resolved_relative": "crates/turn-owner",
+          "exists": true
+        },
+        {
+          "manifest": "crates/ring/Cargo.toml",
+          "declared_path": "../ipc",
+          "resolved_relative": "crates/ipc",
+          "exists": true
+        },
+        {
+          "manifest": "crates/schedule/Cargo.toml",
+          "declared_path": "../bus",
+          "resolved_relative": "crates/bus",
+          "exists": true
+        },
+        {
+          "manifest": "crates/schedule/Cargo.toml",
+          "declared_path": "../msgs",
+          "resolved_relative": "crates/msgs",
+          "exists": true
+        },
+        {
+          "manifest": "crates/surround/Cargo.toml",
+          "declared_path": "../bus",
+          "resolved_relative": "crates/bus",
+          "exists": true
+        },
+        {
+          "manifest": "crates/surround/Cargo.toml",
+          "declared_path": "../msgs",
+          "resolved_relative": "crates/msgs",
+          "exists": true
+        },
+        {
+          "manifest": "crates/surround/Cargo.toml",
+          "declared_path": "../ipc",
+          "resolved_relative": "crates/ipc",
+          "exists": true
+        },
+        {
+          "manifest": "crates/surround/Cargo.toml",
+          "declared_path": "../gemini",
+          "resolved_relative": "crates/gemini",
+          "exists": true
+        },
+        {
+          "manifest": "crates/tasks/Cargo.toml",
+          "declared_path": "../bus",
+          "resolved_relative": "crates/bus",
+          "exists": true
+        },
+        {
+          "manifest": "crates/tasks/Cargo.toml",
+          "declared_path": "../msgs",
+          "resolved_relative": "crates/msgs",
+          "exists": true
+        },
+        {
+          "manifest": "crates/tasks/Cargo.toml",
+          "declared_path": "tests/fixtures/harness_cli.rs",
+          "resolved_relative": "crates/tasks/tests/fixtures/harness_cli.rs",
+          "exists": true
+        },
+        {
+          "manifest": "crates/turn-end/Cargo.toml",
+          "declared_path": "src/main.rs",
+          "resolved_relative": "crates/turn-end/src/main.rs",
+          "exists": true
+        },
+        {
+          "manifest": "crates/turn-end/Cargo.toml",
+          "declared_path": "../turn-end-wire",
+          "resolved_relative": "crates/turn-end-wire",
+          "exists": true
+        },
+        {
+          "manifest": "crates/turn-end-wire/Cargo.toml",
+          "declared_path": "../ipc",
+          "resolved_relative": "crates/ipc",
+          "exists": true
+        },
+        {
+          "manifest": "crates/voice/Cargo.toml",
+          "declared_path": "../turn-owner",
+          "resolved_relative": "crates/turn-owner",
+          "exists": true
+        },
+        {
+          "manifest": "crates/voice/Cargo.toml",
+          "declared_path": "../ipc",
+          "resolved_relative": "crates/ipc",
+          "exists": true
+        },
+        {
+          "manifest": "crates/voice/Cargo.toml",
+          "declared_path": "../audio",
+          "resolved_relative": "crates/audio",
+          "exists": true
+        },
+        {
+          "manifest": "crates/voice/Cargo.toml",
+          "declared_path": "../camera",
+          "resolved_relative": "crates/camera",
+          "exists": true
+        },
+        {
+          "manifest": "crates/voice/Cargo.toml",
+          "declared_path": "../ring",
+          "resolved_relative": "crates/ring",
+          "exists": true
+        },
+        {
+          "manifest": "crates/voice/Cargo.toml",
+          "declared_path": "../body",
+          "resolved_relative": "crates/body",
+          "exists": true
+        },
+        {
+          "manifest": "crates/voice/Cargo.toml",
+          "declared_path": "../gemini",
+          "resolved_relative": "crates/gemini",
+          "exists": true
+        },
+        {
+          "manifest": "crates/voice/Cargo.toml",
+          "declared_path": "../turn-end-wire",
+          "resolved_relative": "crates/turn-end-wire",
+          "exists": true
+        },
+        {
+          "manifest": "crates/voice/Cargo.toml",
+          "declared_path": "../bus",
+          "resolved_relative": "crates/bus",
+          "exists": true
+        },
+        {
+          "manifest": "crates/voice/Cargo.toml",
+          "declared_path": "../msgs",
+          "resolved_relative": "crates/msgs",
+          "exists": true
+        },
+        {
+          "manifest": "crates/voice/Cargo.toml",
+          "declared_path": "../controls",
+          "resolved_relative": "crates/controls",
+          "exists": true
+        },
+        {
+          "manifest": "crates/voice/Cargo.toml",
+          "declared_path": "../schedule",
+          "resolved_relative": "crates/schedule",
+          "exists": true
+        },
+        {
+          "manifest": "crates/voice/Cargo.toml",
+          "declared_path": "../actions",
+          "resolved_relative": "crates/actions",
+          "exists": true
+        },
+        {
+          "manifest": "crates/voice/Cargo.toml",
+          "declared_path": "../expression",
+          "resolved_relative": "crates/expression",
+          "exists": true
+        },
+        {
+          "manifest": "crates/voice-eval/Cargo.toml",
+          "declared_path": "../sound-fixtures",
+          "resolved_relative": "crates/sound-fixtures",
+          "exists": true
+        },
+        {
+          "manifest": "crates/voice-eval/Cargo.toml",
+          "declared_path": "../audio",
+          "resolved_relative": "crates/audio",
+          "exists": true
+        },
+        {
+          "manifest": "crates/voice-eval/Cargo.toml",
+          "declared_path": "../turn-owner",
+          "resolved_relative": "crates/turn-owner",
+          "exists": true
+        },
+        {
+          "manifest": "crates/voice-eval/Cargo.toml",
+          "declared_path": "../ipc",
+          "resolved_relative": "crates/ipc",
+          "exists": true
+        },
+        {
+          "manifest": "crates/voice-eval/Cargo.toml",
+          "declared_path": "../voice",
+          "resolved_relative": "crates/voice",
+          "exists": true
+        },
+        {
+          "manifest": "crates/voice-eval/Cargo.toml",
+          "declared_path": "../observer",
+          "resolved_relative": "crates/observer",
+          "exists": true
+        },
+        {
+          "manifest": "vendor/tough/Cargo.toml",
+          "declared_path": "src/lib.rs",
+          "resolved_relative": "vendor/tough/src/lib.rs",
+          "exists": true
+        }
+      ],
+      "exact_file_set_and_hashes": true,
+      "no_target_git_or_invalid_relative_path": true,
+      "status": "prepared; Cargo execution awaits explicit parent release"
+    }
+  },
+  "overlays": 46,
+  "omitted_untracked_nonruntime_paths": 467,
+  "historical_paths_unchanged": 1481,
+  "scripts": [
+    {
+      "path": "/private/tmp/lamp-third-schedule-d8e9556dea-baseline-prepare.py",
+      "bytes": 4315,
+      "sha256": "daa549d9fb80d6a25085ba6afef9521a491527e3febb2a322eac4ebcc7d7232e",
+      "python_ast_valid": true
+    },
+    {
+      "path": "/private/tmp/lamp-third-schedule-d8e9556dea-baseline-capture.py",
+      "bytes": 9634,
+      "sha256": "a13f3453706decfbb7ebe3826ba7b846b522014503be7c527236696b838598c7",
+      "python_ast_valid": true
+    },
+    {
+      "path": "/private/tmp/lamp-third-schedule-voice-d8-standalone-prepare.py",
+      "bytes": 8423,
+      "sha256": "f73d6d4a5c1e3e839536a1d4b6a6a0f0cf44fb5f4e5b353ae0f85fa50d3aaf7f",
+      "python_ast_valid": true
+    },
+    {
+      "path": "/private/tmp/lamp-third-schedule-voice-d8-standalone-run.py",
+      "bytes": 11225,
+      "sha256": "02d385bab8a956069b94672d0ecfc19cee5074e2c1180feb358c854392a4a8f8",
+      "python_ast_valid": true
+    },
+    {
+      "path": "/private/tmp/lamp-third-schedule-voice-d8-standalone-audit.py",
+      "bytes": 2950,
+      "sha256": "18baddabee4a49376417cd54a2db67bd338c0910f01c39bf0769c52f5160521b",
+      "python_ast_valid": true
+    }
+  ],
+  "cargo_metadata_containment": "Pending execution authorization; static declared path containment passed, not a Cargo resolution result",
+  "planned_case_count": 72,
+  "planned_stdout_readings_per_copy": 144,
+  "planned_empty_stderr_readings_per_copy": 144,
+  "baseline_pass_required_before_implementation_execution": true,
+  "baseline_report_sealing": "Preparation snapshot remains immutable; implementation runner validates source/root/helpers/matrix/fixture/archive against that snapshot, requires passed 72-case baseline, then records final baseline SHA before any Cargo stage."
+}

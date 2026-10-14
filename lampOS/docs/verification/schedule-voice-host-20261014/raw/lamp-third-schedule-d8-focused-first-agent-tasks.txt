@@ -1,0 +1,12 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.19s
+     Running unittests src/lib.rs (target/debug/deps/lamp_voice-a714350f33563503)
+
+running 5 tests
+test agent_tasks::tests::a_task_is_prepared_on_the_request_socket_and_started_only_on_the_voice_socket_after_a_yes ... ok
+test agent_tasks::tests::a_yes_counts_only_when_heard_after_the_task_and_soon ... ok
+test agent_tasks::tests::an_empty_or_option_like_task_is_refused_before_anything_is_asked ... ok
+test agent_tasks::tests::asked_how_it_is_going_the_lamp_answers_from_the_last_look_and_keeps_it_told ... ok
+test agent_tasks::tests::the_switch_is_an_absolute_directory_and_an_alias_and_is_taken_from_the_front ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 932 filtered out; finished in 0.00s
+

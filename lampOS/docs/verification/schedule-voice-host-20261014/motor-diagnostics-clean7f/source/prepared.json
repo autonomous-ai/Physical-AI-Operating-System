@@ -1,0 +1,20 @@
+{
+  "base": "7fbb03e1f2e61ad6dfaf184cd768bad6524c2d76",
+  "source_root": "/private/tmp/lm709-src-qhqu_pyi",
+  "cwd": "/private/tmp/lm709-src-qhqu_pyi/lampOS",
+  "evidence": "/private/tmp/lm709-e-y5uq6td4",
+  "diagnostic_root": "/private/tmp/lm709-d-bxvzktai",
+  "source_files": 1436,
+  "changed_files": [
+    "crates/voice/src/coordinator/motor/tests.rs"
+  ],
+  "production_changes": [],
+  "source_original_sha256": "62d1f0b5746ecca1167bc02ce0377cf24d2a94ff3e1e73b92aa972d2ab67af33",
+  "source_instrumented_sha256": "3e8146db4a627c2d6ef307191e70df7e0fd33143ac7526ae94d840fee2c557e3",
+  "archive_sha256": "a0e9064cb86c48e39bf2b97354eb917b6fc9a058292a5116319bb1811adfdb43",
+  "cargo_started": false,
+  "runner": "/private/tmp/lm709-e-y5uq6td4/run.py",
+  "runner_sha256": "ea5fe0e8112161518387e3d99ca8c7024f2be7ef84823db00197af70b7c14bda",
+  "runner_syntax_checked": true,
+  "runner_started": false
+}

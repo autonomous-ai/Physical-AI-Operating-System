@@ -1,0 +1,475 @@
+{
+  "scope": "Host-only d8 clean-baseline and bounded implementation source-copy check; not the complete affected-package gate or lamp qualification",
+  "base": "d8e9556dea3f1867a5af5297d1ebddbd165d9102",
+  "machine": {
+    "system": "Darwin",
+    "release": "25.6.0",
+    "architecture": "x86_64",
+    "rustc": "rustc 1.96.0 (ac68faa20 2026-05-25)"
+  },
+  "source_corpora": {
+    "baseline": {
+      "root": "/private/tmp/lamp-third-schedule-d8e9556dea-baseline-5qvw62kj/lampOS",
+      "source_files": 1596,
+      "source_bytes": 25397904,
+      "helper_files": 2,
+      "helper_bytes_combined": 1755,
+      "helpers": [
+        {
+          "original": "/private/tmp/lamp-third-schedule-d8e9556dea-baseline-5qvw62kj/lampOS/crates/actions/examples/schedule_off_actions.rs",
+          "retained": "helpers/schedule_off_actions.rs.txt",
+          "bytes": 179,
+          "sha256": "8fc55e05703d1aa5ca58348132e3f4b0d7eed202e443f608f0d5af562c8f35e1",
+          "purpose": "Exact helper bytes retained as text, not runtime Rust source"
+        },
+        {
+          "original": "/private/tmp/lamp-third-schedule-d8e9556dea-baseline-5qvw62kj/lampOS/crates/voice/examples/schedule_off_voice.rs",
+          "retained": "helpers/schedule_off_voice.rs.txt",
+          "bytes": 1576,
+          "sha256": "12d36f2d201b1117df21a55574855c8b44bcd2ec06f7b6fa980603e809b41695",
+          "purpose": "Exact helper bytes retained as text, not runtime Rust source"
+        }
+      ]
+    },
+    "implementation": {
+      "root": "/private/tmp/lamp-third-schedule-voice-d8-standalone-8r3lfpw_/lampOS",
+      "source_files": 1614,
+      "source_bytes": 25829091,
+      "helper_files": 2,
+      "helper_bytes_combined": 1755,
+      "helpers": [
+        {
+          "original": "/private/tmp/lamp-third-schedule-voice-d8-standalone-8r3lfpw_/lampOS/crates/actions/examples/schedule_off_actions.rs",
+          "retained": "helpers/schedule_off_actions.rs.txt",
+          "bytes": 179,
+          "sha256": "8fc55e05703d1aa5ca58348132e3f4b0d7eed202e443f608f0d5af562c8f35e1",
+          "purpose": "Exact helper bytes retained as text, not runtime Rust source"
+        },
+        {
+          "original": "/private/tmp/lamp-third-schedule-voice-d8-standalone-8r3lfpw_/lampOS/crates/voice/examples/schedule_off_voice.rs",
+          "retained": "helpers/schedule_off_voice.rs.txt",
+          "bytes": 1576,
+          "sha256": "12d36f2d201b1117df21a55574855c8b44bcd2ec06f7b6fa980603e809b41695",
+          "purpose": "Exact helper bytes retained as text, not runtime Rust source"
+        }
+      ]
+    }
+  },
+  "frozen_runtime_paths": 697,
+  "frozen_map_sha256": "d14cdfb15ec1e03142fdc48e7e8de71ad30448895cbe891578a8ceaae38e8512",
+  "task_overlays": 46,
+  "omitted_untracked_nonruntime_paths": 467,
+  "local_manifests_per_copy": 34,
+  "all_local_manifests_inside_their_copy": true,
+  "baseline_build": {
+    "command": [
+      "cargo",
+      "build",
+      "--offline",
+      "--locked",
+      "-p",
+      "lamp-actions",
+      "-p",
+      "lamp-voice",
+      "--example",
+      "schedule_off_actions",
+      "--example",
+      "schedule_off_voice"
+    ],
+    "cwd": "/private/tmp/lamp-third-schedule-d8e9556dea-baseline-5qvw62kj/lampOS",
+    "exit_code": 0,
+    "elapsed_seconds": 29.346817001,
+    "log": "/private/tmp/lamp-third-schedule-d8e9556dea-baseline-build-first.txt",
+    "target_directory": "/private/tmp/lamp-third-schedule-d8e9556dea-baseline-5qvw62kj/lampOS/target"
+  },
+  "implementation_stages": [
+    {
+      "name": "workspace-build-first",
+      "command": [
+        "cargo",
+        "build",
+        "--offline",
+        "--locked",
+        "--workspace"
+      ],
+      "cwd": "/private/tmp/lamp-third-schedule-voice-d8-standalone-8r3lfpw_/lampOS",
+      "log": "/private/tmp/lamp-third-schedule-voice-d8-standalone-8r3lfpw_/evidence/workspace-build-first.txt",
+      "exit_code": 0,
+      "elapsed_seconds": 81.328243692,
+      "timed_out": false
+    },
+    {
+      "name": "helper-build-first",
+      "command": [
+        "cargo",
+        "build",
+        "--offline",
+        "--locked",
+        "-p",
+        "lamp-actions",
+        "-p",
+        "lamp-voice",
+        "--example",
+        "schedule_off_actions",
+        "--example",
+        "schedule_off_voice"
+      ],
+      "cwd": "/private/tmp/lamp-third-schedule-voice-d8-standalone-8r3lfpw_/lampOS",
+      "log": "/private/tmp/lamp-third-schedule-voice-d8-standalone-8r3lfpw_/evidence/helper-build-first.txt",
+      "exit_code": 0,
+      "elapsed_seconds": 26.886553336000006,
+      "timed_out": false
+    },
+    {
+      "name": "actions-tests-first",
+      "command": [
+        "cargo",
+        "test",
+        "--offline",
+        "--locked",
+        "-p",
+        "lamp-actions",
+        "--all-targets",
+        "--",
+        "--test-threads=1"
+      ],
+      "cwd": "/private/tmp/lamp-third-schedule-voice-d8-standalone-8r3lfpw_/lampOS",
+      "log": "/private/tmp/lamp-third-schedule-voice-d8-standalone-8r3lfpw_/evidence/actions-tests-first.txt",
+      "exit_code": 0,
+      "elapsed_seconds": 30.280789030999983,
+      "timed_out": false,
+      "test_summaries": [
+        {
+          "passed": 14,
+          "failed": 0,
+          "ignored": 0,
+          "measured": 0,
+          "filtered_out": 0
+        },
+        {
+          "passed": 1,
+          "failed": 0,
+          "ignored": 0,
+          "measured": 0,
+          "filtered_out": 0
+        },
+        {
+          "passed": 14,
+          "failed": 0,
+          "ignored": 0,
+          "measured": 0,
+          "filtered_out": 0
+        },
+        {
+          "passed": 4,
+          "failed": 0,
+          "ignored": 0,
+          "measured": 0,
+          "filtered_out": 0
+        },
+        {
+          "passed": 0,
+          "failed": 0,
+          "ignored": 0,
+          "measured": 0,
+          "filtered_out": 0
+        }
+      ],
+      "test_totals": {
+        "passed": 33,
+        "failed": 0,
+        "ignored": 0,
+        "measured": 0,
+        "filtered_out": 0
+      }
+    },
+    {
+      "name": "schedule-tests-first",
+      "command": [
+        "cargo",
+        "test",
+        "--offline",
+        "--locked",
+        "-p",
+        "lamp-schedule",
+        "--all-targets",
+        "--",
+        "--test-threads=1"
+      ],
+      "cwd": "/private/tmp/lamp-third-schedule-voice-d8-standalone-8r3lfpw_/lampOS",
+      "log": "/private/tmp/lamp-third-schedule-voice-d8-standalone-8r3lfpw_/evidence/schedule-tests-first.txt",
+      "exit_code": 0,
+      "elapsed_seconds": 35.574009613999976,
+      "timed_out": false,
+      "test_summaries": [
+        {
+          "passed": 1,
+          "failed": 0,
+          "ignored": 0,
+          "measured": 0,
+          "filtered_out": 0
+        },
+        {
+          "passed": 0,
+          "failed": 0,
+          "ignored": 0,
+          "measured": 0,
+          "filtered_out": 0
+        },
+        {
+          "passed": 37,
+          "failed": 0,
+          "ignored": 0,
+          "measured": 0,
+          "filtered_out": 0
+        },
+        {
+          "passed": 7,
+          "failed": 0,
+          "ignored": 0,
+          "measured": 0,
+          "filtered_out": 0
+        },
+        {
+          "passed": 24,
+          "failed": 0,
+          "ignored": 0,
+          "measured": 0,
+          "filtered_out": 0
+        },
+        {
+          "passed": 36,
+          "failed": 0,
+          "ignored": 0,
+          "measured": 0,
+          "filtered_out": 0
+        },
+        {
+          "passed": 4,
+          "failed": 0,
+          "ignored": 0,
+          "measured": 0,
+          "filtered_out": 0
+        },
+        {
+          "passed": 18,
+          "failed": 0,
+          "ignored": 0,
+          "measured": 0,
+          "filtered_out": 0
+        },
+        {
+          "passed": 2,
+          "failed": 0,
+          "ignored": 0,
+          "measured": 0,
+          "filtered_out": 0
+        },
+        {
+          "passed": 21,
+          "failed": 0,
+          "ignored": 0,
+          "measured": 0,
+          "filtered_out": 0
+        },
+        {
+          "passed": 10,
+          "failed": 0,
+          "ignored": 0,
+          "measured": 0,
+          "filtered_out": 0
+        }
+      ],
+      "test_totals": {
+        "passed": 160,
+        "failed": 0,
+        "ignored": 0,
+        "measured": 0,
+        "filtered_out": 0
+      }
+    },
+    {
+      "name": "voice-reminder-tests-first",
+      "command": [
+        "cargo",
+        "test",
+        "--offline",
+        "--locked",
+        "-p",
+        "lamp-voice",
+        "--lib",
+        "reminder",
+        "--",
+        "--test-threads=1"
+      ],
+      "cwd": "/private/tmp/lamp-third-schedule-voice-d8-standalone-8r3lfpw_/lampOS",
+      "log": "/private/tmp/lamp-third-schedule-voice-d8-standalone-8r3lfpw_/evidence/voice-reminder-tests-first.txt",
+      "exit_code": 0,
+      "elapsed_seconds": 33.45753222099998,
+      "timed_out": false,
+      "test_summaries": [
+        {
+          "passed": 70,
+          "failed": 0,
+          "ignored": 2,
+          "measured": 0,
+          "filtered_out": 865
+        }
+      ],
+      "test_totals": {
+        "passed": 70,
+        "failed": 0,
+        "ignored": 2,
+        "measured": 0,
+        "filtered_out": 865
+      }
+    },
+    {
+      "name": "voice-tools-tests-first",
+      "command": [
+        "cargo",
+        "test",
+        "--offline",
+        "--locked",
+        "-p",
+        "lamp-voice",
+        "--lib",
+        "tools",
+        "--",
+        "--test-threads=1"
+      ],
+      "cwd": "/private/tmp/lamp-third-schedule-voice-d8-standalone-8r3lfpw_/lampOS",
+      "log": "/private/tmp/lamp-third-schedule-voice-d8-standalone-8r3lfpw_/evidence/voice-tools-tests-first.txt",
+      "exit_code": 0,
+      "elapsed_seconds": 2.3523094319999984,
+      "timed_out": false,
+      "test_summaries": [
+        {
+          "passed": 19,
+          "failed": 0,
+          "ignored": 0,
+          "measured": 0,
+          "filtered_out": 918
+        }
+      ],
+      "test_totals": {
+        "passed": 19,
+        "failed": 0,
+        "ignored": 0,
+        "measured": 0,
+        "filtered_out": 918
+      }
+    }
+  ],
+  "test_execution_totals": {
+    "passed": 282,
+    "failed": 0,
+    "ignored": 2
+  },
+  "comparison": {
+    "cases": 72,
+    "baseline_stdout_readings": 144,
+    "implementation_stdout_readings": 144,
+    "baseline_empty_stderr_readings": 144,
+    "implementation_empty_stderr_readings": 144,
+    "baseline_stdout_bytes": 562392,
+    "implementation_stdout_bytes": 562392,
+    "distinct_stdout_payloads": 3,
+    "distinct_stdout_bytes": 14428,
+    "exact_byte_comparisons_passed": 144,
+    "output_normalization": "none"
+  },
+  "older_evidence_paths_verified_unchanged": 1481,
+  "executed_once_per_runner": true,
+  "stage_skips": [],
+  "excluded_files": [
+    {
+      "path": "/private/tmp/lamp-third-schedule-d8e9556dea-baseline-prepare.py",
+      "bytes": 4315,
+      "sha256": "daa549d9fb80d6a25085ba6afef9521a491527e3febb2a322eac4ebcc7d7232e",
+      "reason": "Scratch Python orchestration is excluded; exact commands and outputs are retained."
+    },
+    {
+      "path": "/private/tmp/lamp-third-schedule-d8e9556dea-baseline-capture.py",
+      "bytes": 9634,
+      "sha256": "a13f3453706decfbb7ebe3826ba7b846b522014503be7c527236696b838598c7",
+      "reason": "Scratch Python orchestration is excluded; exact commands and outputs are retained."
+    },
+    {
+      "path": "/private/tmp/lamp-third-schedule-voice-d8-standalone-prepare.py",
+      "bytes": 8423,
+      "sha256": "f73d6d4a5c1e3e839536a1d4b6a6a0f0cf44fb5f4e5b353ae0f85fa50d3aaf7f",
+      "reason": "Scratch Python orchestration is excluded; exact commands and outputs are retained."
+    },
+    {
+      "path": "/private/tmp/lamp-third-schedule-voice-d8-standalone-run.py",
+      "bytes": 11225,
+      "sha256": "02d385bab8a956069b94672d0ecfc19cee5074e2c1180feb358c854392a4a8f8",
+      "reason": "Scratch Python orchestration is excluded; exact commands and outputs are retained."
+    },
+    {
+      "path": "/private/tmp/lamp-third-schedule-voice-d8-standalone-audit.py",
+      "bytes": 2950,
+      "sha256": "18baddabee4a49376417cd54a2db67bd338c0910f01c39bf0769c52f5160521b",
+      "reason": "Scratch Python orchestration is excluded; exact commands and outputs are retained."
+    },
+    {
+      "path": "/private/tmp/lamp-third-schedule-d8e9556dea-baseline.tar",
+      "sha256": "f9ab7c646575ef0ce6d6492d1f4d4af939ce7d45aa195ca77f2d567eee16f854",
+      "command": [
+        "git",
+        "archive",
+        "--format=tar",
+        "--output=/private/tmp/lamp-third-schedule-d8e9556dea-baseline.tar",
+        "d8e9556dea3f1867a5af5297d1ebddbd165d9102",
+        "lampOS"
+      ],
+      "cwd": "/Users/d/code/autonomous-os",
+      "reason": "Source tar archive excluded; exact archive identity and source maps retained."
+    },
+    {
+      "path": "/private/tmp/lamp-third-schedule-d8e9556dea-baseline-5qvw62kj/lampOS/target/debug/examples/schedule_off_actions",
+      "sha256": "9119d8fe62cbb8bcf8074614463942e6915828127246d9bea38dcd2fdcc26a59",
+      "reason": "Compiled binary excluded; original identity retained without copying a target directory."
+    },
+    {
+      "path": "/private/tmp/lamp-third-schedule-d8e9556dea-baseline-5qvw62kj/lampOS/target/debug/examples/schedule_off_voice",
+      "sha256": "d8c673f5ab1ad55c9d4daa95fc34737829245da2ff3cd9abae489a32850f8834",
+      "reason": "Compiled binary excluded; original identity retained without copying a target directory."
+    },
+    {
+      "path": "/private/tmp/lamp-third-schedule-voice-d8-standalone-head.tar",
+      "sha256": "f9ab7c646575ef0ce6d6492d1f4d4af939ce7d45aa195ca77f2d567eee16f854",
+      "command": [
+        "git",
+        "archive",
+        "--format=tar",
+        "--output=/private/tmp/lamp-third-schedule-voice-d8-standalone-head.tar",
+        "d8e9556dea3f1867a5af5297d1ebddbd165d9102",
+        "lampOS"
+      ],
+      "cwd": "/Users/d/code/autonomous-os",
+      "reason": "Source tar archive excluded; exact archive identity and source maps retained."
+    },
+    {
+      "path": "/private/tmp/lamp-third-schedule-voice-d8-standalone-8r3lfpw_/lampOS/target/debug/examples/schedule_off_actions",
+      "sha256": "436207240c030c072cbf215c130568d988ebb83c89db7e1a4e508bf1190a45f3",
+      "reason": "Compiled binary excluded; original identity retained without copying a target directory."
+    },
+    {
+      "path": "/private/tmp/lamp-third-schedule-voice-d8-standalone-8r3lfpw_/lampOS/target/debug/examples/schedule_off_voice",
+      "sha256": "31f0a4c635c3058333f6ed5f168f748e5e7c31b2f1fa340974669e8681ae7406",
+      "reason": "Compiled binary excluded; original identity retained without copying a target directory."
+    }
+  ],
+  "limits": [
+    "All results are from the recorded x86_64 Darwin host, with no lamp, provider or ARM64 execution.",
+    "The complete host gate remains failed; these bounded checks do not qualify Task31.",
+    "Filtered test suites may overlap; pass counts are executions, not unique-test totals.",
+    "Ignored probes were not executed by these commands.",
+    "The unchanged helper covers old fixed route names and ordinary Written serialization, not End.sound or other new wire variants, provider/audio/motor execution, or direct check_agent_task routing.",
+    "Same absolute fixture paths are used on both sides; exact output hashes are specific to this paired run.",
+    "Historical raw reports preserve their original absolute paths and prior status wording. The pre-execution plan is historical, not the final execution status.",
+    "Every runner used the authorized local Unix-socket permission. No runtime source, assertion or timeout was changed and no test was retried."
+  ]
+}

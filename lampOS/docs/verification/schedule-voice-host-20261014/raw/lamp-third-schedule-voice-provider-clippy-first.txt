@@ -1,0 +1,82 @@
+    Checking lamp-bus v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/bus)
+    Checking lamp-turn-owner v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/turn-owner)
+    Checking lamp-turn-end-wire v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/turn-end-wire)
+    Checking lamp-gemini v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/gemini)
+    Checking lamp-msgs v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/msgs)
+    Checking lamp-audio v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/audio)
+    Checking lamp-camera v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/camera)
+    Checking lamp-ring v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/ring)
+    Checking lamp-schedule v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/schedule)
+    Checking lamp-keeper v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/keeper)
+    Checking lamp-controls v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/controls)
+    Checking lamp-expression v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/expression)
+    Checking lamp-body v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/body)
+    Checking lamp-actions v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/actions)
+    Checking lamp-voice v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/voice)
+error: this boolean expression can be simplified
+  --> crates/voice/src/reminders/consumer.rs:56:16
+   |
+56 |               || !now
+   |  ________________^
+57 | |                 .checked_sub(due.stamp.at_us)
+58 | |                 .is_some_and(|age| age <= DUE_AGE_US)
+   | |_____________________________________________________^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.96.0/index.html#nonminimal_bool
+   = note: `-D clippy::nonminimal-bool` implied by `-D warnings`
+   = help: to override `-D warnings` add `#[allow(clippy::nonminimal_bool)]`
+help: try
+   |
+56 ~             || now
+57 +                 .checked_sub(due.stamp.at_us).is_none_or(|age| age > DUE_AGE_US)
+   |
+
+error: could not compile `lamp-voice` (lib) due to 1 previous error
+warning: build failed, waiting for other jobs to finish...
+error: using `contains()` instead of `iter().any()` is more efficient
+   --> crates/voice/src/reminders/consumer/tests.rs:924:13
+    |
+924 |       assert!(socket.requests().iter().any(|r| *r
+    |  _____________^
+925 | |         == Request::List {
+926 | |             after_id: 0,
+927 | |             limit: 1,
+928 | |             pending_only: false
+929 | |         }));
+    | |__________^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.96.0/index.html#manual_contains
+    = note: `-D clippy::manual-contains` implied by `-D warnings`
+    = help: to override `-D warnings` add `#[allow(clippy::manual_contains)]`
+help: try
+    |
+924 ~     assert!(socket.requests().contains(&Request::List {
+925 +             after_id: 0,
+926 +             limit: 1,
+927 +             pending_only: false
+928 ~         }));
+    |
+
+error: using `contains()` instead of `iter().any()` is more efficient
+    --> crates/voice/src/reminders/consumer/tests.rs:1010:13
+     |
+1010 |       assert!(socket.requests().iter().any(|r| *r
+     |  _____________^
+1011 | |         == Request::List {
+1012 | |             after_id: 0,
+1013 | |             limit: 8,
+1014 | |             pending_only: true
+1015 | |         }));
+     | |__________^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.96.0/index.html#manual_contains
+help: try
+     |
+1010 ~     assert!(socket.requests().contains(&Request::List {
+1011 +             after_id: 0,
+1012 +             limit: 8,
+1013 +             pending_only: true
+1014 ~         }));
+     |
+
+error: could not compile `lamp-voice` (lib test) due to 3 previous errors

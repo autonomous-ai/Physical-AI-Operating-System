@@ -1,0 +1,25 @@
+{
+  "source_difference_from_bc3": [
+    "crates/tasks/tests/harness.rs"
+  ],
+  "files": [
+    {
+      "original": "/private/tmp/lamp-third-schedule-voice-1a-source-frozen.json",
+      "retained": "source-1a.json",
+      "bytes": 73280,
+      "sha256": "7e923d68853fa071d975cca729e59369a27d552185ee0f9310ca3d4e7832700b"
+    },
+    {
+      "original": "/private/tmp/lamp-third-schedule-pre-rebase-1a38f2f3e.json",
+      "retained": "rebase-1a.json",
+      "bytes": 83480,
+      "sha256": "f2b71070652c65971a3a82f80541e5266306bcf4de3f8eaf3b174107be1b1c68"
+    },
+    {
+      "original": "/private/tmp/lamp-third-schedule-pre-rebase-1a38f2f3e-apply.txt",
+      "retained": "raw/lamp-third-schedule-pre-rebase-1a38f2f3e-apply.txt",
+      "bytes": 2472,
+      "sha256": "7a0fe5def7496dc03f0e2b92649a7812c9ff645b2ea5daf237a25017d0f4fecc"
+    }
+  ]
+}

@@ -1,0 +1,80 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.18s
+     Running unittests src/lib.rs (target/debug/deps/lamp_voice-f8d4411d6fb5688c)
+
+running 1 test
+test provider_worker::tests::reminders::reminder_tools_are_denied_even_in_quiet_and_do_not_change_the_next_turn ... lamp-voice provider: request 1: first sound, and the model has not said it heard its name
+
+thread 'provider_worker::tests::reminders::reminder_tools_are_denied_even_in_quiet_and_do_not_change_the_next_turn' (112628599) panicked at crates/voice/src/provider_worker.rs:4616:17:
+no provider output in time
+stack backtrace:
+   0: __rustc::rust_begin_unwind
+             at /rustc/ac68faa20c58cbccd01ee7208bf3b6e93a7d7f96/library/std/src/panicking.rs:689:5
+   1: core::panicking::panic_fmt
+             at /rustc/ac68faa20c58cbccd01ee7208bf3b6e93a7d7f96/library/core/src/panicking.rs:80:14
+   2: lamp_voice::provider_worker::tests::LiveRig::wire::{{closure}}
+             at ./src/provider_worker.rs:4616:17
+   3: lamp_voice::provider_worker::tests::LiveRig::output::{{closure}}
+             at ./src/provider_worker.rs:4593:31
+   4: lamp_voice::provider_worker::tests::reminders::reminder_tools_are_denied_even_in_quiet_and_do_not_change_the_next_turn::{{closure}}
+             at ./src/provider_worker/tests/reminders.rs:441:31
+   5: <core::pin::Pin<P> as core::future::future::Future>::poll
+             at /rustc/ac68faa20c58cbccd01ee7208bf3b6e93a7d7f96/library/core/src/future/future.rs:133:9
+   6: <core::pin::Pin<P> as core::future::future::Future>::poll
+             at /rustc/ac68faa20c58cbccd01ee7208bf3b6e93a7d7f96/library/core/src/future/future.rs:133:9
+   7: tokio::runtime::scheduler::current_thread::CoreGuard::block_on::{{closure}}::{{closure}}::{{closure}}
+             at /Users/d/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tokio-1.53.1/src/runtime/scheduler/current_thread/mod.rs:830:70
+   8: tokio::task::coop::with_budget
+             at /Users/d/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tokio-1.53.1/src/task/coop/mod.rs:167:5
+   9: tokio::task::coop::budget
+             at /Users/d/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tokio-1.53.1/src/task/coop/mod.rs:133:5
+  10: tokio::runtime::scheduler::current_thread::CoreGuard::block_on::{{closure}}::{{closure}}
+             at /Users/d/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tokio-1.53.1/src/runtime/scheduler/current_thread/mod.rs:830:25
+  11: tokio::runtime::scheduler::current_thread::Context::enter
+             at /Users/d/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tokio-1.53.1/src/runtime/scheduler/current_thread/mod.rs:488:19
+  12: tokio::runtime::scheduler::current_thread::CoreGuard::block_on::{{closure}}
+             at /Users/d/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tokio-1.53.1/src/runtime/scheduler/current_thread/mod.rs:829:44
+  13: tokio::runtime::scheduler::current_thread::CoreGuard::enter::{{closure}}
+             at /Users/d/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tokio-1.53.1/src/runtime/scheduler/current_thread/mod.rs:906:68
+  14: tokio::runtime::context::scoped::Scoped<T>::set
+             at /Users/d/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tokio-1.53.1/src/runtime/context/scoped.rs:40:9
+  15: tokio::runtime::context::set_scheduler::{{closure}}
+             at /Users/d/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tokio-1.53.1/src/runtime/context.rs:187:38
+  16: std::thread::local::LocalKey<T>::try_with
+             at /rustc/ac68faa20c58cbccd01ee7208bf3b6e93a7d7f96/library/std/src/thread/local.rs:462:12
+  17: std::thread::local::LocalKey<T>::with
+             at /rustc/ac68faa20c58cbccd01ee7208bf3b6e93a7d7f96/library/std/src/thread/local.rs:426:20
+  18: tokio::runtime::context::set_scheduler
+             at /Users/d/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tokio-1.53.1/src/runtime/context.rs:187:17
+  19: tokio::runtime::scheduler::current_thread::CoreGuard::enter
+             at /Users/d/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tokio-1.53.1/src/runtime/scheduler/current_thread/mod.rs:906:27
+  20: tokio::runtime::scheduler::current_thread::CoreGuard::block_on
+             at /Users/d/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tokio-1.53.1/src/runtime/scheduler/current_thread/mod.rs:817:24
+  21: tokio::runtime::scheduler::current_thread::CurrentThread::block_on::{{closure}}
+             at /Users/d/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tokio-1.53.1/src/runtime/scheduler/current_thread/mod.rs:218:33
+  22: tokio::runtime::context::runtime::enter_runtime
+             at /Users/d/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tokio-1.53.1/src/runtime/context/runtime.rs:65:16
+  23: tokio::runtime::scheduler::current_thread::CurrentThread::block_on
+             at /Users/d/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tokio-1.53.1/src/runtime/scheduler/current_thread/mod.rs:206:9
+  24: tokio::runtime::runtime::Runtime::block_on_inner
+             at /Users/d/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tokio-1.53.1/src/runtime/runtime.rs:374:52
+  25: tokio::runtime::runtime::Runtime::block_on
+             at /Users/d/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tokio-1.53.1/src/runtime/runtime.rs:343:18
+  26: lamp_voice::provider_worker::tests::reminders::reminder_tools_are_denied_even_in_quiet_and_do_not_change_the_next_turn
+             at ./src/provider_worker/tests/reminders.rs:462:21
+  27: lamp_voice::provider_worker::tests::reminders::reminder_tools_are_denied_even_in_quiet_and_do_not_change_the_next_turn::{{closure}}
+             at ./src/provider_worker/tests/reminders.rs:382:83
+  28: core::ops::function::FnOnce::call_once
+             at /rustc/ac68faa20c58cbccd01ee7208bf3b6e93a7d7f96/library/core/src/ops/function.rs:250:5
+  29: <fn() -> core::result::Result<(), alloc::string::String> as core::ops::function::FnOnce<()>>::call_once
+             at /rustc/ac68faa20c58cbccd01ee7208bf3b6e93a7d7f96/library/core/src/ops/function.rs:250:5
+note: Some details are omitted, run with `RUST_BACKTRACE=full` for a verbose backtrace.
+FAILED
+
+failures:
+
+failures:
+    provider_worker::tests::reminders::reminder_tools_are_denied_even_in_quiet_and_do_not_change_the_next_turn
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 853 filtered out; finished in 5.48s
+
+error: test failed, to rerun pass `-p lamp-voice --lib`

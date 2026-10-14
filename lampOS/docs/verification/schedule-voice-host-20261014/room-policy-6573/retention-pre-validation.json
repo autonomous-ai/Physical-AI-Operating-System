@@ -1,0 +1,59 @@
+{
+  "scope": "Policy decision, frozen revision, rebase and read-only review records; validation results have separate records",
+  "originals": [
+    {
+      "original": "/private/tmp/lamp-third-schedule-room-policy-source-frozen.json",
+      "retained": "source.json",
+      "bytes": 75691,
+      "sha256": "e0c5985563535bf46d6af76d3bae71634ab3f1f03d8c713d55f202f95972ca7f"
+    },
+    {
+      "original": "/private/tmp/lamp-third-schedule-pre-rebase-6573ce6c1.json",
+      "retained": "rebase.json",
+      "bytes": 247095,
+      "sha256": "d8b506a64eb64563be8e402354f47d887b7be29ed67c99b7d028ef720b0777e6"
+    },
+    {
+      "original": "/private/tmp/lamp-third-schedule-room-policy-format-record.json",
+      "retained": "format-record.json",
+      "bytes": 151317,
+      "sha256": "18cfad7e43bf9b2a6fd42866ba6bf5e463c4d8587336b05ce668b5828e4cd561"
+    },
+    {
+      "original": "/private/tmp/lamp-third-reminder-room-policy-edit-audit.json",
+      "retained": "provider-edit-audit-before-format.json",
+      "bytes": 2886,
+      "sha256": "6d0bdf6539f53ed0787a177364c68e275f1dbeb487bf4ef02842d990622d050f"
+    },
+    {
+      "original": "/private/tmp/lamp-third-schedule-c0-native-boundary-review.md",
+      "retained": "review-native-boundary-c0.md",
+      "bytes": 5049,
+      "sha256": "c861c9d867d55730cd879e89054384496f95c4b8a6490d7295f09d38bb8420e1"
+    },
+    {
+      "original": "/private/tmp/lamp-third-schedule-c0-ledger-recovery-review.md",
+      "retained": "review-ledger-recovery-c0.md",
+      "bytes": 2567,
+      "sha256": "cac08f7f29eb6be5d53ab6058396a3868742d632771d686090adbd5b78fcab98"
+    },
+    {
+      "original": "/private/tmp/lamp-third-issue-709-20261014T191736Z.json",
+      "retained": "issue-709-answers.json",
+      "bytes": 17370,
+      "sha256": "1d41166d90e6660c4cd0a445870ed3b060d16dd047d28addf7a4e0f008ea027d"
+    },
+    {
+      "original": "/private/tmp/lamp-third-issue-739-20261014T191736Z.json",
+      "retained": "issue-739-ownership.json",
+      "bytes": 3204,
+      "sha256": "18dafc75546c2c32b3701fe512df50a6fc0e7bb95e491859404061debda1427f"
+    },
+    {
+      "original": "/private/tmp/lamp-third-issue-705-20261014T191736Z.json",
+      "retained": "queue.json",
+      "bytes": 9667,
+      "sha256": "7011e3e1fd92fb925458694bce5acae398ecbc8fe62ea32892ccaf81c5343277"
+    }
+  ]
+}

@@ -1,0 +1,65 @@
+{
+  "source_base": "bc3fccb546a22baaef180fcd57b3291a44e0e4c1",
+  "files": [
+    {
+      "original": "/private/tmp/lamp-third-schedule-voice-bc3-source-frozen.json",
+      "retained": "source-bc3.json",
+      "bytes": 73280,
+      "sha256": "5a838e0329e14d9880e2e151003ea5721394682df62e24717014231263b25059"
+    },
+    {
+      "original": "/private/tmp/lamp-third-schedule-bc3-focused-first.json",
+      "retained": "focused-bc3.json",
+      "bytes": 3390,
+      "sha256": "8827860545148f5bdbc7ab4afbeb97eeb975b6b79243549c5fbe80b0973f72d2"
+    },
+    {
+      "original": "/private/tmp/lamp-third-schedule-bc3-merge-review.md",
+      "retained": "merge-review-bc3.md",
+      "bytes": 2356,
+      "sha256": "f95857cca78d76821ae7867e74708b1ad8417884ec8782814b6666dca4699bb0"
+    },
+    {
+      "original": "/private/tmp/lamp-third-schedule-pre-rebase-bc3fccb54.json",
+      "retained": "rebase-bc3.json",
+      "bytes": 81759,
+      "sha256": "88b0fd3ad46616018b2a5fa85c62ecc4bdc48c7750994462d0e0bf41ae8c7182"
+    },
+    {
+      "original": "/private/tmp/lamp-third-schedule-pre-rebase-bc3fccb54-apply.txt",
+      "retained": "raw/lamp-third-schedule-pre-rebase-bc3fccb54-apply.txt",
+      "bytes": 2614,
+      "sha256": "933d5e281bb80124717e0511899600f4eeeb7bbe71513f9201cca4830153f3be"
+    },
+    {
+      "original": "/private/tmp/lamp-third-schedule-bc3-focused-first-format.txt",
+      "retained": "raw/lamp-third-schedule-bc3-focused-first-format.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "original": "/private/tmp/lamp-third-schedule-bc3-focused-first-clippy.txt",
+      "retained": "raw/lamp-third-schedule-bc3-focused-first-clippy.txt",
+      "bytes": 417,
+      "sha256": "4ae023c274224b2ef5383540d6e7c5bb46f5380498bbdc30d721d951d82fef46"
+    },
+    {
+      "original": "/private/tmp/lamp-third-schedule-bc3-focused-first-reminder.txt",
+      "retained": "raw/lamp-third-schedule-bc3-focused-first-reminder.txt",
+      "bytes": 8511,
+      "sha256": "f0846b730d1fa6156f6b5c7bb257ed458e5aa262a6970e9f85dbcebc6e0afa80"
+    },
+    {
+      "original": "/private/tmp/lamp-third-schedule-bc3-focused-first-second-look.txt",
+      "retained": "raw/lamp-third-schedule-bc3-focused-first-second-look.txt",
+      "bytes": 1028,
+      "sha256": "5bcde32a91dec9f8aa29f074dca5f9689db1c674d3f259753ee2277bea4a5c81"
+    },
+    {
+      "original": "/private/tmp/lamp-third-schedule-bc3-focused-first-tools.txt",
+      "retained": "raw/lamp-third-schedule-bc3-focused-first-tools.txt",
+      "bytes": 2192,
+      "sha256": "0e7a6ac37a8005a696ad8ade757dbfddab73066f7740900ed0ea0bbe8d969b4b"
+    }
+  ]
+}

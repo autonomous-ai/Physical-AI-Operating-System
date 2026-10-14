@@ -1,0 +1,31 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.19s
+     Running unittests src/lib.rs (target/debug/deps/lamp_voice-a714350f33563503)
+
+running 24 tests
+test remember::tests::a_call_becomes_the_memorys_request_and_nothing_to_keep_becomes_none ... ok
+test remember::tests::a_call_is_one_request_to_the_memory_and_a_memory_that_is_gone_is_said_so ... ok
+test remember::tests::a_days_snapshot_requires_its_identity_and_complete_bounded_provenance ... ok
+test remember::tests::a_full_unix_listen_queue_cannot_hold_the_days_client_in_connect ... ok
+test remember::tests::a_held_background_write_cannot_block_or_grow_the_foreground_queue ... ok
+test remember::tests::a_slow_days_reply_is_an_honest_failure_within_the_total_budget ... ok
+test remember::tests::an_answer_too_long_for_the_link_is_told_as_no_answer ... ok
+test remember::tests::an_earlier_conversation_cannot_consume_a_later_queued_loss ... ok
+test remember::tests::an_incomplete_conversation_is_never_submitted_as_complete ... ok
+test remember::tests::conservative_context_and_conversation_are_bounded_without_silent_truncation ... ok
+test remember::tests::days_environment_child ... ok
+test remember::tests::days_search_preserves_rank_and_observations_and_uses_the_named_local_day ... ok
+test remember::tests::finished_exchanges_are_queued_with_when_they_began_but_for_those_kept_out ... ok
+test remember::tests::keeping_and_forgetting_are_told_as_what_the_memory_established ... ok
+test remember::tests::kept_out_reminder_is_not_journalled_by_days_but_next_exchange_is ... ok
+test remember::tests::malformed_ranked_entries_are_not_disguised_as_empty_recall ... ok
+test remember::tests::the_days_environment_switch_is_exact_in_separate_processes ... ok
+test remember::tests::the_days_writer_submits_after_idle_without_waiting_for_a_model ... ok
+test remember::tests::the_note_says_there_is_a_memory_and_lists_what_is_kept ... ok
+test remember::tests::the_three_functions_are_ones_the_link_takes_and_no_others_are_the_memorys ... ok
+test remember::tests::the_writer_reads_what_is_kept_then_journals_and_ends_with_its_queue ... ok
+test remember::tests::trickled_and_oversized_lines_cannot_extend_the_days_transport_deadline ... ok
+test remember::tests::what_is_kept_is_read_in_one_request_and_a_memory_that_is_gone_gives_none ... ok
+test remember::tests::what_was_found_is_told_with_how_long_ago_and_never_a_clock_time ... ok
+
+test result: ok. 24 passed; 0 failed; 0 ignored; 0 measured; 932 filtered out; finished in 8.42s
+

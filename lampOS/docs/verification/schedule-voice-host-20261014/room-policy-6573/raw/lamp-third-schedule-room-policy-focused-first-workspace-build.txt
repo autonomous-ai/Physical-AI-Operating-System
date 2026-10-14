@@ -1,0 +1,7 @@
+   Compiling lamp-schedule v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/schedule)
+   Compiling lamp-tasks v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/tasks)
+   Compiling lamp-body v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/body)
+   Compiling lamp-voice v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/voice)
+   Compiling lamp-actions v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/actions)
+   Compiling lamp-voice-eval v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/voice-eval)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 18.49s

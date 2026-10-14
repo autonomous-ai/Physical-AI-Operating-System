@@ -1,0 +1,25 @@
+{
+  "result": "pass",
+  "scanned_payload_files_before_this_record": 125,
+  "all_files_strict_utf8": true,
+  "nul_bytes": 0,
+  "allowed_extensions": [
+    ".json",
+    ".txt",
+    ".md",
+    ".diff"
+  ],
+  "credential_pattern_classes": [
+    "private_key_material",
+    "github_token",
+    "google_api_key",
+    "aws_access_key",
+    "openai_api_key",
+    "authorization_value",
+    "credential_url",
+    "secret_assignment"
+  ],
+  "credential_candidates": [],
+  "inspection_scope": "Selected local test logs, diagnostic records, source/hash metadata and Rust-only diff; no inherited environment dump or provider session output.",
+  "limit": "Pattern scan and scoped content inspection, not a general secret-detection proof."
+}

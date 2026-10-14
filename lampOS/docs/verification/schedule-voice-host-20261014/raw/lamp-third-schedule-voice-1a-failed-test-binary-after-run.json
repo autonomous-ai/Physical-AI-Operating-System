@@ -1,0 +1,28 @@
+{
+  "scope": "After-run preservation of the executable path named by the failed 1a gate log. No test execution; no repository binary added.",
+  "captured_at": "2026-10-14T18:19:59.581199+00:00",
+  "base": "1a38f2f3e6b8afd1e7896761a0da6149a2400f67",
+  "original": "/Users/d/code/autonomous-os/lampOS/target/debug/deps/lamp_voice-04f83e70e13d855a",
+  "retained": "/private/tmp/lamp-third-schedule-voice-1a-failed-test-binary-7ltazaph/lamp_voice-04f83e70e13d855a",
+  "sha256_after_run": "1a773923516b7c48789d09e72fd5e09f5a657d45fbe615c18bb2c9e1a080a1f6",
+  "original_stat_before_copy": {
+    "bytes": 42826408,
+    "mtime_ns": 1792001084849586374,
+    "ctime_ns": 1792001084849586374,
+    "inode": 263710749
+  },
+  "original_stat_after_copy": {
+    "bytes": 42826408,
+    "mtime_ns": 1792001084849586374,
+    "ctime_ns": 1792001084849586374,
+    "inode": 263710749
+  },
+  "retained_stat": {
+    "bytes": 42826408,
+    "mtime_ns": 1792001084849586000,
+    "ctime_ns": 1792001999430780447,
+    "inode": 263729068
+  },
+  "failed_gate_log": "/private/tmp/lamp-third-schedule-voice-1a-gate-tests.txt",
+  "identity_limit": "The gate log names this executable path but records no pre-run binary hash. This is an after-run hash/copy only; it does not independently prove the exact bytes loaded while the failed gate ran."
+}

@@ -1,0 +1,19 @@
+{
+  "reason": "The only upstream change is docs/tasks.md; all697 Rust/manifest hashes equal the completed d8 checks",
+  "base": "c1b8c75916cb2d6861a0c5c38d178f9dffeed4bb",
+  "source_manifest_sha256": "96980bb77c8e2c05925caddb3c58adf3feeffd8d264e7ff62dff4bb7591ff081",
+  "files": [
+    {
+      "original": "/private/tmp/lamp-third-schedule-voice-c1-source-frozen.json",
+      "retained": "source-c1.json",
+      "bytes": 75585,
+      "sha256": "96980bb77c8e2c05925caddb3c58adf3feeffd8d264e7ff62dff4bb7591ff081"
+    },
+    {
+      "original": "/private/tmp/lamp-third-schedule-pre-rebase-c1b8c7591.json",
+      "retained": "rebase-c1.json",
+      "bytes": 122085,
+      "sha256": "9dfb2111801603c17dcd29e188e4b1f441a26f2e40f1472d008e38cc208dcb17"
+    }
+  ]
+}

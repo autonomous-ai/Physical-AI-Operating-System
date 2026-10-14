@@ -1,0 +1,155 @@
+{
+  "child_markers": [],
+  "event_count": 0,
+  "events": [],
+  "first_samples": [
+    {
+      "adapter_failure": null,
+      "at_us": 1914030610796,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 45363,
+      "ready": false,
+      "reaped": true,
+      "stage": "before_start"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1914030612406,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 1610,
+      "ready": false,
+      "reaped": false,
+      "stage": "after_start"
+    },
+    {
+      "adapter_failure": "endpoint is not connected",
+      "at_us": 1914030612487,
+      "child_failure": "endpoint is not connected",
+      "connected": false,
+      "gap_us": 81,
+      "ready": false,
+      "reaped": false,
+      "stage": "wait_enter"
+    },
+    {
+      "adapter_failure": "endpoint is not connected",
+      "at_us": 1914030612507,
+      "child_failure": "endpoint is not connected",
+      "connected": false,
+      "gap_us": 20,
+      "ready": false,
+      "reaped": false,
+      "stage": "iteration_enter"
+    },
+    {
+      "adapter_failure": "endpoint is not connected",
+      "at_us": 1914030612525,
+      "child_failure": "endpoint is not connected",
+      "connected": false,
+      "gap_us": 18,
+      "ready": false,
+      "reaped": false,
+      "stage": "after_publish"
+    },
+    {
+      "adapter_failure": "endpoint is not connected",
+      "at_us": 1914030612609,
+      "child_failure": "endpoint is not connected",
+      "connected": false,
+      "gap_us": 84,
+      "ready": false,
+      "reaped": true,
+      "stage": "after_poll"
+    },
+    {
+      "adapter_failure": "endpoint is not connected",
+      "at_us": 1914030613906,
+      "child_failure": "endpoint is not connected",
+      "connected": false,
+      "gap_us": 1297,
+      "ready": false,
+      "reaped": true,
+      "stage": "wait_complete"
+    }
+  ],
+  "fixture_started_us": 1914030565433,
+  "maximum_gap_us": 45363,
+  "mode": "normal",
+  "outcome": "predicate_satisfied",
+  "recent_samples": [
+    {
+      "adapter_failure": null,
+      "at_us": 1914030610796,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 45363,
+      "ready": false,
+      "reaped": true,
+      "stage": "before_start"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1914030612406,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 1610,
+      "ready": false,
+      "reaped": false,
+      "stage": "after_start"
+    },
+    {
+      "adapter_failure": "endpoint is not connected",
+      "at_us": 1914030612487,
+      "child_failure": "endpoint is not connected",
+      "connected": false,
+      "gap_us": 81,
+      "ready": false,
+      "reaped": false,
+      "stage": "wait_enter"
+    },
+    {
+      "adapter_failure": "endpoint is not connected",
+      "at_us": 1914030612507,
+      "child_failure": "endpoint is not connected",
+      "connected": false,
+      "gap_us": 20,
+      "ready": false,
+      "reaped": false,
+      "stage": "iteration_enter"
+    },
+    {
+      "adapter_failure": "endpoint is not connected",
+      "at_us": 1914030612525,
+      "child_failure": "endpoint is not connected",
+      "connected": false,
+      "gap_us": 18,
+      "ready": false,
+      "reaped": false,
+      "stage": "after_publish"
+    },
+    {
+      "adapter_failure": "endpoint is not connected",
+      "at_us": 1914030612609,
+      "child_failure": "endpoint is not connected",
+      "connected": false,
+      "gap_us": 84,
+      "ready": false,
+      "reaped": true,
+      "stage": "after_poll"
+    },
+    {
+      "adapter_failure": "endpoint is not connected",
+      "at_us": 1914030613906,
+      "child_failure": "endpoint is not connected",
+      "connected": false,
+      "gap_us": 1297,
+      "ready": false,
+      "reaped": true,
+      "stage": "wait_complete"
+    }
+  ],
+  "recorded_us": 1914030613926,
+  "sample_count": 7
+}

@@ -1,0 +1,43 @@
+[
+  {
+    "name": "exact",
+    "command": [
+      "cargo",
+      "test",
+      "--offline",
+      "--locked",
+      "-p",
+      "lamp-voice",
+      "--lib",
+      "coordinator::motor::tests::frozen_config_and_executable_are_exact_and_source_changes_are_not_adopted",
+      "--",
+      "--test-threads=1",
+      "--nocapture",
+      "--exact"
+    ],
+    "log": "/private/tmp/lamp-third-schedule-motor-exact-first.txt",
+    "exit_code": 0,
+    "elapsed_seconds": 3.67886018,
+    "source_unchanged": true
+  },
+  {
+    "name": "module",
+    "command": [
+      "cargo",
+      "test",
+      "--offline",
+      "--locked",
+      "-p",
+      "lamp-voice",
+      "--lib",
+      "coordinator::motor::tests::",
+      "--",
+      "--test-threads=1",
+      "--nocapture"
+    ],
+    "log": "/private/tmp/lamp-third-schedule-motor-module-first.txt",
+    "exit_code": 0,
+    "elapsed_seconds": 38.499790905,
+    "source_unchanged": true
+  }
+]

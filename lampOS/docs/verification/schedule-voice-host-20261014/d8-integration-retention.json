@@ -1,0 +1,28 @@
+{
+  "files": [
+    {
+      "original": "/private/tmp/lamp-third-schedule-voice-d8-source-frozen.json",
+      "retained": "source-d8.json",
+      "bytes": 75585,
+      "sha256": "d14cdfb15ec1e03142fdc48e7e8de71ad30448895cbe891578a8ceaae38e8512"
+    },
+    {
+      "original": "/private/tmp/lamp-third-schedule-pre-rebase-d8e9556de.json",
+      "retained": "rebase-d8.json",
+      "bytes": 93415,
+      "sha256": "0dba3b3a45767c2dff02cd4ac2d32be4b77d662e181ae4e1ed9b1af7832df802"
+    },
+    {
+      "original": "/private/tmp/lamp-third-schedule-incoming-8c-review.md",
+      "retained": "incoming-8c-review.md",
+      "bytes": 3886,
+      "sha256": "8f94a8a6b5a81951046f457a1f75f851e5839d2442c7452bf120fcdf1e7149cd"
+    },
+    {
+      "original": "/private/tmp/lamp-third-schedule-d8-merge-review.md",
+      "retained": "merge-review-d8.md",
+      "bytes": 4102,
+      "sha256": "85e6be19251e31b439744cf06a879220ab7c1941d06572cfc4017dfef6eee1b1"
+    }
+  ]
+}

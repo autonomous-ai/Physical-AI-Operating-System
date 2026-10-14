@@ -1,0 +1,235 @@
+{
+  "child_markers": [],
+  "event_count": 0,
+  "events": [],
+  "first_samples": [
+    {
+      "adapter_failure": null,
+      "at_us": 1918372036017,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 42813,
+      "ready": false,
+      "reaped": true,
+      "stage": "before_start"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918372036977,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 960,
+      "ready": false,
+      "reaped": false,
+      "stage": "after_start"
+    },
+    {
+      "adapter_failure": "endpoint is not connected",
+      "at_us": 1918372037047,
+      "child_failure": "endpoint is not connected",
+      "connected": false,
+      "gap_us": 70,
+      "ready": false,
+      "reaped": false,
+      "stage": "wait_enter"
+    },
+    {
+      "adapter_failure": "endpoint is not connected",
+      "at_us": 1918372037056,
+      "child_failure": "endpoint is not connected",
+      "connected": false,
+      "gap_us": 9,
+      "ready": false,
+      "reaped": false,
+      "stage": "iteration_enter"
+    },
+    {
+      "adapter_failure": "endpoint is not connected",
+      "at_us": 1918372037064,
+      "child_failure": "endpoint is not connected",
+      "connected": false,
+      "gap_us": 8,
+      "ready": false,
+      "reaped": false,
+      "stage": "after_publish"
+    },
+    {
+      "adapter_failure": "endpoint is not connected",
+      "at_us": 1918372037099,
+      "child_failure": "endpoint is not connected",
+      "connected": false,
+      "gap_us": 35,
+      "ready": false,
+      "reaped": false,
+      "stage": "after_poll"
+    },
+    {
+      "adapter_failure": "endpoint is not connected",
+      "at_us": 1918372038611,
+      "child_failure": "endpoint is not connected",
+      "connected": false,
+      "gap_us": 1512,
+      "ready": false,
+      "reaped": false,
+      "stage": "iteration_enter"
+    },
+    {
+      "adapter_failure": "endpoint is not connected",
+      "at_us": 1918372038660,
+      "child_failure": "endpoint is not connected",
+      "connected": false,
+      "gap_us": 49,
+      "ready": false,
+      "reaped": true,
+      "stage": "after_poll"
+    },
+    {
+      "adapter_failure": "endpoint is not connected",
+      "at_us": 1918372040043,
+      "child_failure": "endpoint is not connected",
+      "connected": false,
+      "gap_us": 1383,
+      "ready": false,
+      "reaped": true,
+      "stage": "wait_complete"
+    },
+    {
+      "adapter_failure": "motor not started: original permissions/configured camera unavailable",
+      "at_us": 1918372040837,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 794,
+      "ready": false,
+      "reaped": true,
+      "stage": "wait_enter"
+    },
+    {
+      "adapter_failure": "motor not started: original permissions/configured camera unavailable",
+      "at_us": 1918372040846,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 9,
+      "ready": false,
+      "reaped": true,
+      "stage": "wait_complete"
+    }
+  ],
+  "fixture_started_us": 1918371993204,
+  "maximum_gap_us": 42813,
+  "mode": "normal",
+  "outcome": "predicate_satisfied",
+  "recent_samples": [
+    {
+      "adapter_failure": null,
+      "at_us": 1918372036017,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 42813,
+      "ready": false,
+      "reaped": true,
+      "stage": "before_start"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918372036977,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 960,
+      "ready": false,
+      "reaped": false,
+      "stage": "after_start"
+    },
+    {
+      "adapter_failure": "endpoint is not connected",
+      "at_us": 1918372037047,
+      "child_failure": "endpoint is not connected",
+      "connected": false,
+      "gap_us": 70,
+      "ready": false,
+      "reaped": false,
+      "stage": "wait_enter"
+    },
+    {
+      "adapter_failure": "endpoint is not connected",
+      "at_us": 1918372037056,
+      "child_failure": "endpoint is not connected",
+      "connected": false,
+      "gap_us": 9,
+      "ready": false,
+      "reaped": false,
+      "stage": "iteration_enter"
+    },
+    {
+      "adapter_failure": "endpoint is not connected",
+      "at_us": 1918372037064,
+      "child_failure": "endpoint is not connected",
+      "connected": false,
+      "gap_us": 8,
+      "ready": false,
+      "reaped": false,
+      "stage": "after_publish"
+    },
+    {
+      "adapter_failure": "endpoint is not connected",
+      "at_us": 1918372037099,
+      "child_failure": "endpoint is not connected",
+      "connected": false,
+      "gap_us": 35,
+      "ready": false,
+      "reaped": false,
+      "stage": "after_poll"
+    },
+    {
+      "adapter_failure": "endpoint is not connected",
+      "at_us": 1918372038611,
+      "child_failure": "endpoint is not connected",
+      "connected": false,
+      "gap_us": 1512,
+      "ready": false,
+      "reaped": false,
+      "stage": "iteration_enter"
+    },
+    {
+      "adapter_failure": "endpoint is not connected",
+      "at_us": 1918372038660,
+      "child_failure": "endpoint is not connected",
+      "connected": false,
+      "gap_us": 49,
+      "ready": false,
+      "reaped": true,
+      "stage": "after_poll"
+    },
+    {
+      "adapter_failure": "endpoint is not connected",
+      "at_us": 1918372040043,
+      "child_failure": "endpoint is not connected",
+      "connected": false,
+      "gap_us": 1383,
+      "ready": false,
+      "reaped": true,
+      "stage": "wait_complete"
+    },
+    {
+      "adapter_failure": "motor not started: original permissions/configured camera unavailable",
+      "at_us": 1918372040837,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 794,
+      "ready": false,
+      "reaped": true,
+      "stage": "wait_enter"
+    },
+    {
+      "adapter_failure": "motor not started: original permissions/configured camera unavailable",
+      "at_us": 1918372040846,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 9,
+      "ready": false,
+      "reaped": true,
+      "stage": "wait_complete"
+    }
+  ],
+  "recorded_us": 1918372040854,
+  "sample_count": 11
+}

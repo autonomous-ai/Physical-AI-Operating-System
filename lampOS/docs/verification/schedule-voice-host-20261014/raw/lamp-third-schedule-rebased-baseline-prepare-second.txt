@@ -1,0 +1,10 @@
+{
+  "report": "/private/tmp/lamp-third-schedule-rebased-baseline.json",
+  "root": "/private/tmp/lamp-third-schedule-rebased-baseline-bihzuwg7/lampOS",
+  "source_file_count": 1354,
+  "scratch_helpers": {
+    "crates/actions/examples/schedule_off_actions.rs": "8fc55e05703d1aa5ca58348132e3f4b0d7eed202e443f608f0d5af562c8f35e1",
+    "crates/voice/examples/schedule_off_voice.rs": "12d36f2d201b1117df21a55574855c8b44bcd2ec06f7b6fa980603e809b41695"
+  },
+  "local_manifests_from_tree": 34
+}

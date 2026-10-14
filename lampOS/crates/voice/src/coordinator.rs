@@ -143,11 +143,41 @@ struct Reply {
     start: StartGate,
     need: StartNeed,
     notice: NoticeDelivery,
+    reminder: Option<crate::reminders::Receipt>,
     /// How loud the block last handed to the speaker is, for the ring's face.
     voice_level: u8,
 }
 impl Reply {
+    fn settled(&self, speaker_pending: &Option<PendingSpeaker>) -> bool {
+        self.provider_idle
+            && self.cloud.outcome.is_some()
+            && self.local_input_ended
+            && self.pcm.is_empty()
+            && speaker_pending.is_none()
+            && self.playback.is_none()
+            && self.notice.settled()
+    }
+
+    fn complete_reminder(&mut self, speaker_pending: &Option<PendingSpeaker>, snapshot: Snapshot) {
+        if self.settled(speaker_pending)
+            && snapshot.owner().is_none()
+            && snapshot.microphone_permission() == Permission::Allowed
+            && matches!(self.cloud.outcome, Some(RequestOutcome::Complete))
+            && self.had_audio
+            && self.playback_gaps == 0
+            && self.notice.origin() == SpeechOrigin::Provider
+            && let Some(reminder) = &mut self.reminder
+        {
+            reminder.completed();
+        }
+    }
+
     fn append_provider_audio(&mut self, samples: Vec<i16>, received_at_us: u64) {
+        if !samples.is_empty()
+            && let Some(reminder) = &mut self.reminder
+        {
+            reminder.audio();
+        }
         // The gate counts frames to measure the service's lead. A plain gate
         // only records it; a continuity gate starts a new hold with the first
         // audio after a generation's final block left.
@@ -911,6 +941,15 @@ fn run_source(
     lifetime.validate()?;
     // Restore the software latch before any worker, including metadata/GPIO.
     let controls = RefCell::new(HandControls::restore(controls_options)?);
+    // One optional storage/IPC process across every privacy cycle. Its failure
+    // only withdraws reminder authority; healthy capture and conversation stay.
+    let reminders = RefCell::new(match crate::reminders::Reminders::from_environment() {
+        Ok(reminders) => reminders,
+        Err(_) => {
+            eprintln!("lamp-voice: Schedule consumer unavailable; reminders remain pending");
+            None
+        }
+    });
     if lifetime.continuous() && options.diagnostics {
         return Err(io::Error::other("serve does not allow raw audio diagnostics").into());
     }
@@ -980,6 +1019,9 @@ fn run_source(
                             Ok(())
                         },
                         || {
+                            if let Some(reminders) = reminders.borrow_mut().as_mut() {
+                                reminders.poll(monotonic_us());
+                            }
                             let Some(controls) = &mut *controls.borrow_mut() else {
                                 return Ok(true);
                             };
@@ -1003,6 +1045,7 @@ fn run_source(
                         cues,
                         termination,
                         &mut controls.borrow_mut(),
+                        &mut reminders.borrow_mut(),
                     )
                 },
             )
@@ -1020,6 +1063,7 @@ fn run_source(
                 &mut cues,
                 termination,
                 &mut controls.borrow_mut(),
+                &mut reminders.borrow_mut(),
             )
         }
     })();
@@ -1292,6 +1336,10 @@ fn service_speaker_control(
                 observed_at_us,
             } => {
                 playback_mask.clock_reset(previous, next_epoch, observed_at_us, monotonic_us())?;
+                if let Some(reminder) = reply.as_mut().and_then(|current| current.reminder.as_mut())
+                {
+                    reminder.invalidate();
+                }
                 trace.receipts.reset(previous);
                 record(
                     trace,
@@ -1331,6 +1379,11 @@ fn service_speaker_control(
                     }
                     let token = current.retire_playback(sequence, final_sample.frame)?;
                     owner.playback_ended(now(), token)?;
+                    if origin == SpeechOrigin::Provider
+                        && let Some(reminder) = &mut current.reminder
+                    {
+                        reminder.retired(token.sequence(), final_sample.epoch, final_sample.frame);
+                    }
                     if origin == SpeechOrigin::FailureNotice {
                         current.notice.retire(observed_at_us)?;
                     }
@@ -1513,6 +1566,7 @@ fn observe_provider_output(
         // changes no request's delivery state.
         ProviderOutput::Ready { .. }
         | ProviderOutput::Transcript { .. }
+        | ProviderOutput::ReminderDeferred { .. }
         | ProviderOutput::InputDiscarded { .. } => {}
         // Only a provider configured to take a silent earlier response as
         // over reports this. It grants nothing here: the request still needs
@@ -1594,6 +1648,7 @@ fn flush_provider_input_with(
             ProviderInput::Start { request, .. }
             | ProviderInput::Audio { request, .. }
             | ProviderInput::End { request, .. }
+            | ProviderInput::Reminder { request, .. }
             | ProviderInput::Written { request, .. } => *request,
         };
         if request != current.owner.turn() {
@@ -2031,6 +2086,7 @@ fn run_inner(
     cues: &mut Option<CueSink>,
     termination: &Termination,
     controls: &mut Option<HandControls>,
+    reminders: &mut Option<crate::reminders::Reminders>,
 ) -> Result<()> {
     termination.check()?;
     if let Some(controls) = controls.as_mut() {
@@ -2167,6 +2223,7 @@ fn run_inner(
             termination,
             notices,
             controls,
+            reminders,
         )
     })();
     let privacy_mute = result
@@ -2301,6 +2358,7 @@ fn conversation(
         termination,
         notices,
         &mut None,
+        &mut None,
     )
 }
 
@@ -2316,6 +2374,7 @@ fn conversation_with_controls(
     termination: &Termination,
     notices: &FailureNotices,
     controls: &mut Option<HandControls>,
+    reminders: &mut Option<crate::reminders::Reminders>,
 ) -> Result<()> {
     let mut cloud = startup.cloud;
     let mut output_flow = startup.output_flow;
@@ -2346,6 +2405,7 @@ fn conversation_with_controls(
     let mut speech_levels: VecDeque<(u64, u8)> = VecDeque::new();
     // When the detector last called a block speech.
     let mut last_speech_us = 0u64;
+    let reminder_cycle_started_us = monotonic_us();
     // A service that runs all day may also tell a body what it is doing.
     let mut body_link = if lifetime.continuous() {
         crate::body_link::BodyLink::from_environment()
@@ -2429,6 +2489,9 @@ fn conversation_with_controls(
         && std::env::var_os(crate::sight::LOOK_ENVIRONMENT).is_some_and(|path| !path.is_empty());
     let mut answer_opening: Option<(u64, String)> = None;
     let mut look_wanted: Option<(u64, u64)> = None;
+    // A due reminder's quoted words cannot authorize a later camera turn.
+    // Turn IDs increase within this conversation; fence older late words too.
+    let mut last_reminder_turn: Option<u64> = None;
     let mut gesture_cue = crate::body_link::Cue::default();
     // What the voice is doing, heard and said, for whoever listens on the
     // lamp's bus. Nothing here waits for a listener.
@@ -2691,6 +2754,19 @@ fn conversation_with_controls(
             record_hand_pats(trace, observation.pets)?;
         }
         let can_open = privacy_state == PrivacyState::Allowed;
+        if let Some(reminders) = reminders.as_mut() {
+            reminders.poll(monotonic_us());
+            if reply.as_ref().is_some_and(|current| {
+                current.reminder.is_some() && !reminders.active_valid(current.owner, monotonic_us())
+            }) {
+                cancel_reply(owner, reply, trace, "reminder_authority_lost")?;
+                provider_queue.clear();
+                speaker_pending = None;
+                snapshot = owner.snapshot(now())?;
+                rig.publish(snapshot)?;
+                last_publish = monotonic_us();
+            }
+        }
         if permitted && !can_open {
             return Err(io::Error::other("physical privacy closed or lost freshness").into());
         }
@@ -2787,6 +2863,38 @@ fn conversation_with_controls(
             }
             observe_provider_output(&mut cloud, reply, &event)?;
             match event {
+                ProviderOutput::ReminderDeferred {
+                    request,
+                    session,
+                    reason,
+                } => {
+                    if reply.as_ref().is_some_and(|current| {
+                        current.reminder.is_some()
+                            && current.owner.turn() == request
+                            && current.cloud.session == session
+                    }) {
+                        // Keep the receipt out of Reply's destructor until the
+                        // real owner has been revoked and published. No PCM
+                        // ever received is the only automatic retry case.
+                        let mut reminder =
+                            reply.as_mut().and_then(|current| current.reminder.take());
+                        cancel_reply(owner, reply, trace, "reminder_deferred")?;
+                        provider_queue.clear();
+                        speaker_pending = None;
+                        snapshot = owner.snapshot(now())?;
+                        rig.publish(snapshot)?;
+                        if let Some(reminder) = &mut reminder {
+                            reminder.deferred_before_audio();
+                        }
+                        last_publish = monotonic_us();
+                    }
+                    record(
+                        trace,
+                        json!({"kind":"reminder_deferred", "at_us":monotonic_us(),
+                        "request":request,"provider_session":session,"reason":reason,
+                        "acknowledged":false}),
+                    )?;
+                }
                 ProviderOutput::Ready { setup_us } => {
                     record(
                         trace,
@@ -2922,26 +3030,15 @@ fn conversation_with_controls(
                             last_publish = monotonic_us();
                         }
                     }
-                    // The lamp saying it will look is the lamp asking to.
-                    if looks && let Some(turn) = request {
-                        if answer_opening.as_ref().map(|(of, _)| *of) != Some(turn) {
-                            answer_opening = Some((turn, String::new()));
-                        }
-                        if let Some((_, opening)) = answer_opening.as_mut()
-                            && opening.len() < 64
-                        {
-                            opening.push_str(&text);
-                            if look_wanted.map(|(of, _)| of) != Some(turn)
-                                && crate::speak_up::asks_to_look(opening)
-                            {
-                                look_wanted = Some((turn, monotonic_us()));
-                                record(
-                                    trace,
-                                    json!({"kind":"look_asked","turn":turn,"at_us":monotonic_us()}),
-                                )?;
-                            }
-                        }
-                    }
+                    record_look_intent(
+                        looks,
+                        request,
+                        &text,
+                        last_reminder_turn,
+                        &mut answer_opening,
+                        &mut look_wanted,
+                        trace,
+                    )?;
                     // The lamp's own words, as its answer begins: a nod
                     // with a yes, a shake with a no, when it has a body.
                     // Held words are not its own yet.
@@ -3848,6 +3945,18 @@ fn conversation_with_controls(
             &mut submission_draining,
             trace,
         )?;
+        if let Some(reminders) = reminders.as_mut()
+            && reply.as_ref().is_some_and(|current| {
+                current.reminder.is_some() && !reminders.active_valid(current.owner, monotonic_us())
+            })
+        {
+            cancel_reply(owner, reply, trace, "reminder_lease_expired")?;
+            provider_queue.clear();
+            speaker_pending = None;
+            snapshot = owner.snapshot(now())?;
+            rig.publish(snapshot)?;
+            last_publish = monotonic_us();
+        }
         if provider_control_empty {
             flush_provider_input(
                 &cloud,
@@ -3897,13 +4006,7 @@ fn conversation_with_controls(
             &mut rig.provider.channels.control,
         )?;
         if let Some(current) = reply.as_mut()
-            && current.provider_idle
-            && current.cloud.outcome.is_some()
-            && current.local_input_ended
-            && current.pcm.is_empty()
-            && speaker_pending.is_none()
-            && current.playback.is_none()
-            && current.notice.settled()
+            && current.settled(&speaker_pending)
         {
             let turn = current.owner.turn();
             owner.complete_turn(now(), current.owner)?;
@@ -3912,6 +4015,7 @@ fn conversation_with_controls(
             admission.owner_completed(current.owner, snapshot, monotonic_us())?;
             rig.publish(snapshot)?;
             last_publish = monotonic_us();
+            current.complete_reminder(&speaker_pending, snapshot);
             record(
                 trace,
                 json!({"kind":"turn_finished","turn":turn,"generation":current.owner.generation(),"at_us":monotonic_us(),"outcome":current.delivery_outcome(),"playback_gaps":current.playback_gaps,
@@ -4197,6 +4301,50 @@ fn conversation_with_controls(
                     json!({"kind":"second_look_dropped","turn":turn,"at_us":monotonic_us(),"why":"session_gone"}),
                 )?;
             }
+        }
+        // Finish the camera/name follow-ups owed above before a reminder can
+        // take the next turn. A reminder is not someone speaking first.
+        let reminder_now_us = if reminders.is_some() {
+            monotonic_us()
+        } else {
+            clock
+        };
+        if let Some(reminders) = reminders.as_mut()
+            && reply.is_none()
+            && provider_queue.is_empty()
+            && speaker_pending.is_none()
+            && admission.idle_for_reminder()
+            && !submission_draining
+            && snapshot.listening_ready(MonoTime::from_micros(reminder_now_us))
+            && reminder_quiet(
+                reminder_now_us,
+                reminder_cycle_started_us,
+                last_speech_us,
+                last_capture,
+            )
+            && playback_mask.available(reminder_now_us)
+            && let Some(provider_session) = cloud.ready_session()
+            && let Some(offer) = idle_reminder_offer(
+                reminders,
+                reply,
+                look_wanted,
+                &mut second_look,
+                reminder_now_us,
+            )
+        {
+            snapshot = commit_reminder_turn(
+                owner,
+                reply,
+                &mut provider_queue,
+                offer,
+                reminders,
+                provider_session,
+                rig.playout_start,
+                trace,
+                |state| rig.publish(state),
+            )?;
+            last_reminder_turn = reply.as_ref().map(|current| current.owner.turn());
+            last_publish = monotonic_us();
         }
         if let Some(arrival) = arrival.as_mut() {
             arrival.watch(clock);
@@ -4625,9 +4773,123 @@ fn decide_prospective_input(
     accepted_decision(admission.decide(evidence, context, at_us)?, trace)
 }
 
+fn reminder_quiet(
+    now_us: u64,
+    cycle_started_us: u64,
+    last_speech_us: u64,
+    last_capture_us: Option<u64>,
+) -> bool {
+    last_capture_us.is_some_and(|captured| {
+        now_us
+            .checked_sub(captured)
+            .is_some_and(|age| age <= INPUT_LEASE_US)
+    }) && now_us
+        .checked_sub(last_speech_us.max(cycle_started_us))
+        .is_some_and(|age| age >= 1_000_000)
+}
+
+/// A prepared reminder waits behind an existing turn's promised follow-up,
+/// including the gap after its final PCM retires and before the next owner.
+fn idle_reminder_offer(
+    reminders: &crate::reminders::Reminders,
+    reply: &Option<Reply>,
+    look_wanted: Option<(u64, u64)>,
+    second_look: &mut crate::second_look::SecondLook,
+    now_us: u64,
+) -> Option<crate::reminders::Offer> {
+    if reply.is_some() || look_wanted.is_some() || second_look.due(now_us).is_some() {
+        return None;
+    }
+    reminders.offer(now_us)
+}
+
+fn record_look_intent(
+    enabled: bool,
+    request: Option<u64>,
+    text: &str,
+    last_reminder_turn: Option<u64>,
+    answer_opening: &mut Option<(u64, String)>,
+    look_wanted: &mut Option<(u64, u64)>,
+    trace: &mut SessionState,
+) -> Result<()> {
+    let Some(turn) = request
+        .filter(|turn| enabled && last_reminder_turn.is_none_or(|reminder| *turn > reminder))
+    else {
+        return Ok(());
+    };
+    // Ordinary answer words retain the existing camera-request policy. Stored
+    // reminder text, including a delayed transcript, is never that authority.
+    if answer_opening.as_ref().map(|(of, _)| *of) != Some(turn) {
+        *answer_opening = Some((turn, String::new()));
+    }
+    if let Some((_, opening)) = answer_opening.as_mut()
+        && opening.len() < 64
+    {
+        opening.push_str(text);
+        if look_wanted.map(|(of, _)| of) != Some(turn) && crate::speak_up::asks_to_look(opening) {
+            *look_wanted = Some((turn, monotonic_us()));
+            record(
+                trace,
+                json!({"kind":"look_asked","turn":turn,"at_us":monotonic_us()}),
+            )?;
+        }
+    }
+    Ok(())
+}
+
 /// A turn the lamp begins itself. Nothing was heard: the request is a
 /// written note, started and ended at once, and what comes back is spoken
 /// like any answer. The caller has checked that nothing else owns the lamp.
+#[allow(clippy::too_many_arguments)]
+fn commit_reminder_turn(
+    owner: &mut Controller,
+    reply: &mut Option<Reply>,
+    provider_queue: &mut VecDeque<ProviderInput>,
+    offer: crate::reminders::Offer,
+    reminders: &mut crate::reminders::Reminders,
+    provider_session: u64,
+    playout_start: PlayoutStart,
+    trace: &mut SessionState,
+    publish: impl FnMut(Snapshot) -> io::Result<()>,
+) -> Result<Snapshot> {
+    // Reuse the existing local owner transition. This call only queues input;
+    // replace that unsent item with the reminder-only provider purpose before
+    // any flush can run. Ordinary Written bytes and behavior are unchanged.
+    let snapshot = commit_written_turn(
+        owner,
+        reply,
+        provider_queue,
+        &offer.text,
+        false,
+        "schedule_reminder",
+        provider_session,
+        playout_start,
+        trace,
+        publish,
+    )?;
+    let current = reply
+        .as_mut()
+        .ok_or_else(|| io::Error::other("reminder owner missing"))?;
+    let command = provider_queue
+        .back_mut()
+        .ok_or_else(|| io::Error::other("reminder input missing"))?;
+    *command = ProviderInput::Reminder {
+        request: current.owner.turn(),
+        session: provider_session,
+        privacy_generation: snapshot.microphone_generation(),
+        text: offer.text.clone(),
+        late: offer.late,
+        late_by_ms: offer.late_by_ms,
+    };
+    current.reminder = Some(reminders.admitted(
+        offer,
+        current.owner,
+        snapshot.microphone_generation(),
+        provider_session,
+    ));
+    Ok(snapshot)
+}
+
 #[allow(clippy::too_many_arguments)]
 fn commit_written_turn(
     owner: &mut Controller,
@@ -4677,6 +4939,7 @@ fn commit_written_turn(
         final_chunk: None,
         playback_gaps: 0,
         notice: NoticeDelivery::default(),
+        reminder: None,
         last_provider_audio_at_us: None,
         start: playout_start.gate(),
         need: StartNeed::default(),
@@ -4742,6 +5005,7 @@ fn commit_admitted_input(
         final_chunk: None,
         playback_gaps: 0,
         notice: NoticeDelivery::default(),
+        reminder: None,
         last_provider_audio_at_us: None,
         start: playout_start.gate(),
         need: StartNeed::default(),
@@ -4832,6 +5096,7 @@ fn continue_after_early_end(
         final_chunk: None,
         playback_gaps: 0,
         notice: NoticeDelivery::default(),
+        reminder: None,
         last_provider_audio_at_us: None,
         start: playout_start.gate(),
         need: StartNeed::default(),
@@ -5389,6 +5654,8 @@ mod tests {
     mod playout_start;
     mod provider_pair;
     mod provider_terminal;
+    mod reminder_roundtrip;
+    mod reminders;
     mod service;
     mod service_mute;
     mod startup_cues;
@@ -5812,6 +6079,7 @@ mod tests {
                 final_chunk: None,
                 playback_gaps: 0,
                 notice: NoticeDelivery::default(),
+                reminder: None,
                 last_provider_audio_at_us: None,
                 start: StartGate::new(0),
                 need: StartNeed::default(),
@@ -6591,6 +6859,7 @@ mod tests {
             final_chunk: None,
             playback_gaps: 0,
             notice: NoticeDelivery::default(),
+            reminder: None,
             last_provider_audio_at_us: None,
             start: StartGate::new(0),
             need: StartNeed::default(),
@@ -6817,6 +7086,7 @@ mod tests {
             final_chunk: None,
             playback_gaps: 0,
             notice: NoticeDelivery::default(),
+            reminder: None,
             last_provider_audio_at_us: None,
             start: StartGate::new(0),
             need: StartNeed::default(),

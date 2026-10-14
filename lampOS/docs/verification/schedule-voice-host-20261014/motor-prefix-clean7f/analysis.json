@@ -1,0 +1,2111 @@
+{
+  "source": "/private/tmp/lm709-prefix-aw1tbo9w/results.json",
+  "interpretation": "One passing instrumented prefix run; no failing phase or historical cause established.",
+  "summary": {
+    "executed_names_and_order_match_selection": true,
+    "executed_test_count": 157,
+    "record_count": 78,
+    "recorded_fixture_count": 29,
+    "recorded_fixture_mode_counts": {
+      "normal": 16,
+      "crash": 1,
+      "hang": 2,
+      "gated_exit_failure": 1,
+      "gate_segment": 3,
+      "startup": 2,
+      "profile": 1,
+      "gate": 1,
+      "discard": 1,
+      "bad_cleanup": 1
+    },
+    "outcomes": {
+      "predicate_satisfied": 78
+    },
+    "markerless_fixtures": [
+      {
+        "fixture_directory": "/private/tmp/lm709-prefix-aw1tbo9w/d/24519-1918371993204",
+        "test": "coordinator::motor::tests::configured_camera_or_original_permissions_are_required_before_spawn",
+        "mode": "normal"
+      },
+      {
+        "fixture_directory": "/private/tmp/lm709-prefix-aw1tbo9w/d/24519-1918372041821",
+        "test": "coordinator::motor::tests::configured_camera_or_original_permissions_are_required_before_spawn",
+        "mode": "normal"
+      },
+      {
+        "fixture_directory": "/private/tmp/lm709-prefix-aw1tbo9w/d/24519-1918372089928",
+        "test": "coordinator::motor::tests::configured_camera_or_original_permissions_are_required_before_spawn",
+        "mode": "normal"
+      },
+      {
+        "fixture_directory": "/private/tmp/lm709-prefix-aw1tbo9w/d/24519-1918383961771",
+        "test": "coordinator::motor::tests::native_head::native_head_startup_announcement_has_no_input_or_motion_authority",
+        "mode": "startup"
+      }
+    ],
+    "ranges_us": {
+      "after_start_to_entry_us": {
+        "count": 25,
+        "min": 509030,
+        "max": 877122
+      },
+      "entry_to_ready_us": {
+        "count": 25,
+        "min": 1048,
+        "max": 4702
+      },
+      "ready_to_parent_observation_us": {
+        "count": 25,
+        "min": 126,
+        "max": 1650
+      },
+      "config_read_us": {
+        "count": 25,
+        "min": 316,
+        "max": 359
+      },
+      "config_validate_us": {
+        "count": 25,
+        "min": 14,
+        "max": 16
+      },
+      "channels_bind_us": {
+        "count": 25,
+        "min": 258,
+        "max": 291
+      },
+      "channels_connect_us": {
+        "count": 25,
+        "min": 67,
+        "max": 86
+      },
+      "core_new_us": {
+        "count": 25,
+        "min": 18,
+        "max": 20
+      },
+      "core_qualify_us": {
+        "count": 25,
+        "min": 16,
+        "max": 60
+      },
+      "first_maximum_gap_us": {
+        "count": 29,
+        "min": 38464,
+        "max": 42813
+      },
+      "first_retained_wait_sample_maximum_gap_us": {
+        "count": 29,
+        "min": 181,
+        "max": 1659
+      },
+      "all_recorded_maximum_gap_us": {
+        "count": 29,
+        "min": 38464,
+        "max": 402545
+      }
+    },
+    "actual_fixture_start_to_entry_range_us": {
+      "count": 24,
+      "min": 512248,
+      "max": 877122
+    },
+    "first_record_maximum_is_fixture_setup_for_all": true,
+    "all_captured_marker_sequences_contiguous": true
+  },
+  "fixtures": [
+    {
+      "fixture_directory": "/private/tmp/lm709-prefix-aw1tbo9w/d/24519-1918371993204",
+      "test": "coordinator::motor::tests::configured_camera_or_original_permissions_are_required_before_spawn",
+      "test_raw_line": 133,
+      "mode": "normal",
+      "records": [
+        "/private/tmp/lm709-prefix-aw1tbo9w/d/24519-1918371993204/wait-1.json",
+        "/private/tmp/lm709-prefix-aw1tbo9w/d/24519-1918371993204/wait-2.json"
+      ],
+      "record_count": 2,
+      "outcomes": [
+        "predicate_satisfied",
+        "predicate_satisfied"
+      ],
+      "after_start_checkpoint_us": 1918372036977,
+      "checkpoint_is_after_actual_fixture_start_call": true,
+      "after_start_to_entry_us": null,
+      "entry_to_ready_us": null,
+      "config_read_us": null,
+      "config_validate_us": null,
+      "channels_bind_us": null,
+      "channels_connect_us": null,
+      "core_new_us": null,
+      "core_qualify_us": null,
+      "ready_to_parent_observation_us": null,
+      "child_marker_count": 0,
+      "child_marker_sequences_contiguous": true,
+      "last_child_stage": null,
+      "first_sample_count": 9,
+      "last_sample_count": 11,
+      "first_maximum_gap_us": 42813,
+      "first_max_is_fixture_setup": true,
+      "first_retained_wait_sample_maximum_gap_us": 1512,
+      "all_recorded_maximum_gap_us": 42813,
+      "retained_samples_matching_global_maximum": [
+        {
+          "adapter_failure": null,
+          "at_us": 1918372036017,
+          "child_failure": null,
+          "connected": false,
+          "gap_us": 42813,
+          "ready": false,
+          "reaped": true,
+          "stage": "before_start"
+        }
+      ],
+      "first_final_state": {
+        "adapter_failure": "endpoint is not connected",
+        "at_us": 1918372040043,
+        "child_failure": "endpoint is not connected",
+        "connected": false,
+        "gap_us": 1383,
+        "ready": false,
+        "reaped": true,
+        "stage": "wait_complete"
+      },
+      "last_final_state": {
+        "adapter_failure": "motor not started: original permissions/configured camera unavailable",
+        "at_us": 1918372040846,
+        "child_failure": null,
+        "connected": false,
+        "gap_us": 9,
+        "ready": false,
+        "reaped": true,
+        "stage": "wait_complete"
+      }
+    },
+    {
+      "fixture_directory": "/private/tmp/lm709-prefix-aw1tbo9w/d/24519-1918372041821",
+      "test": "coordinator::motor::tests::configured_camera_or_original_permissions_are_required_before_spawn",
+      "test_raw_line": 133,
+      "mode": "normal",
+      "records": [
+        "/private/tmp/lm709-prefix-aw1tbo9w/d/24519-1918372041821/wait-1.json",
+        "/private/tmp/lm709-prefix-aw1tbo9w/d/24519-1918372041821/wait-2.json"
+      ],
+      "record_count": 2,
+      "outcomes": [
+        "predicate_satisfied",
+        "predicate_satisfied"
+      ],
+      "after_start_checkpoint_us": 1918372084793,
+      "checkpoint_is_after_actual_fixture_start_call": true,
+      "after_start_to_entry_us": null,
+      "entry_to_ready_us": null,
+      "config_read_us": null,
+      "config_validate_us": null,
+      "channels_bind_us": null,
+      "channels_connect_us": null,
+      "core_new_us": null,
+      "core_qualify_us": null,
+      "ready_to_parent_observation_us": null,
+      "child_marker_count": 0,
+      "child_marker_sequences_contiguous": true,
+      "last_child_stage": null,
+      "first_sample_count": 9,
+      "last_sample_count": 11,
+      "first_maximum_gap_us": 42047,
+      "first_max_is_fixture_setup": true,
+      "first_retained_wait_sample_maximum_gap_us": 1560,
+      "all_recorded_maximum_gap_us": 42047,
+      "retained_samples_matching_global_maximum": [
+        {
+          "adapter_failure": null,
+          "at_us": 1918372083868,
+          "child_failure": null,
+          "connected": false,
+          "gap_us": 42047,
+          "ready": false,
+          "reaped": true,
+          "stage": "before_start"
+        }
+      ],
+      "first_final_state": {
+        "adapter_failure": "endpoint is not connected",
+        "at_us": 1918372087998,
+        "child_failure": "endpoint is not connected",
+        "connected": false,
+        "gap_us": 1560,
+        "ready": false,
+        "reaped": true,
+        "stage": "wait_complete"
+      },
+      "last_final_state": {
+        "adapter_failure": "motor not started: original permissions/configured camera unavailable",
+        "at_us": 1918372088811,
+        "child_failure": null,
+        "connected": false,
+        "gap_us": 11,
+        "ready": false,
+        "reaped": true,
+        "stage": "wait_complete"
+      }
+    },
+    {
+      "fixture_directory": "/private/tmp/lm709-prefix-aw1tbo9w/d/24519-1918372089928",
+      "test": "coordinator::motor::tests::configured_camera_or_original_permissions_are_required_before_spawn",
+      "test_raw_line": 133,
+      "mode": "normal",
+      "records": [
+        "/private/tmp/lm709-prefix-aw1tbo9w/d/24519-1918372089928/wait-1.json",
+        "/private/tmp/lm709-prefix-aw1tbo9w/d/24519-1918372089928/wait-2.json"
+      ],
+      "record_count": 2,
+      "outcomes": [
+        "predicate_satisfied",
+        "predicate_satisfied"
+      ],
+      "after_start_checkpoint_us": 1918372129240,
+      "checkpoint_is_after_actual_fixture_start_call": true,
+      "after_start_to_entry_us": null,
+      "entry_to_ready_us": null,
+      "config_read_us": null,
+      "config_validate_us": null,
+      "channels_bind_us": null,
+      "channels_connect_us": null,
+      "core_new_us": null,
+      "core_qualify_us": null,
+      "ready_to_parent_observation_us": null,
+      "child_marker_count": 0,
+      "child_marker_sequences_contiguous": true,
+      "last_child_stage": null,
+      "first_sample_count": 9,
+      "last_sample_count": 11,
+      "first_maximum_gap_us": 38464,
+      "first_max_is_fixture_setup": true,
+      "first_retained_wait_sample_maximum_gap_us": 1526,
+      "all_recorded_maximum_gap_us": 38464,
+      "retained_samples_matching_global_maximum": [
+        {
+          "adapter_failure": null,
+          "at_us": 1918372128392,
+          "child_failure": null,
+          "connected": false,
+          "gap_us": 38464,
+          "ready": false,
+          "reaped": true,
+          "stage": "before_start"
+        }
+      ],
+      "first_final_state": {
+        "adapter_failure": "endpoint is not connected",
+        "at_us": 1918372132072,
+        "child_failure": "endpoint is not connected",
+        "connected": false,
+        "gap_us": 1109,
+        "ready": false,
+        "reaped": true,
+        "stage": "wait_complete"
+      },
+      "last_final_state": {
+        "adapter_failure": "motor not started: original permissions/configured camera unavailable",
+        "at_us": 1918372132863,
+        "child_failure": null,
+        "connected": false,
+        "gap_us": 10,
+        "ready": false,
+        "reaped": true,
+        "stage": "wait_complete"
+      }
+    },
+    {
+      "fixture_directory": "/private/tmp/lm709-prefix-aw1tbo9w/d/24519-1918372133947",
+      "test": "coordinator::motor::tests::crash_and_stalled_control_never_allow_replacement_or_false_cleanup",
+      "test_raw_line": 140,
+      "mode": "crash",
+      "records": [
+        "/private/tmp/lm709-prefix-aw1tbo9w/d/24519-1918372133947/wait-1.json",
+        "/private/tmp/lm709-prefix-aw1tbo9w/d/24519-1918372133947/wait-2.json"
+      ],
+      "record_count": 2,
+      "outcomes": [
+        "predicate_satisfied",
+        "predicate_satisfied"
+      ],
+      "after_start_checkpoint_us": 1918372175526,
+      "checkpoint_is_after_actual_fixture_start_call": true,
+      "after_start_to_entry_us": 877122,
+      "entry_to_ready_us": 4138,
+      "config_read_us": 329,
+      "config_validate_us": 14,
+      "channels_bind_us": 267,
+      "channels_connect_us": 69,
+      "core_new_us": 18,
+      "core_qualify_us": 18,
+      "ready_to_parent_observation_us": 1650,
+      "child_marker_count": 16,
+      "child_marker_sequences_contiguous": true,
+      "last_child_stage": "crash_exit_7",
+      "first_sample_count": 1261,
+      "last_sample_count": 1263,
+      "first_maximum_gap_us": 40068,
+      "first_max_is_fixture_setup": true,
+      "first_retained_wait_sample_maximum_gap_us": 1583,
+      "all_recorded_maximum_gap_us": 40068,
+      "retained_samples_matching_global_maximum": [
+        {
+          "adapter_failure": null,
+          "at_us": 1918372174015,
+          "child_failure": null,
+          "connected": false,
+          "gap_us": 40068,
+          "ready": false,
+          "reaped": true,
+          "stage": "before_start"
+        }
+      ],
+      "first_final_state": {
+        "adapter_failure": "Connection reset by peer (os error 54)",
+        "at_us": 1918373059979,
+        "child_failure": "motor child failed or was killed",
+        "connected": true,
+        "gap_us": 1528,
+        "ready": false,
+        "reaped": true,
+        "stage": "wait_complete"
+      },
+      "last_final_state": {
+        "adapter_failure": "Connection reset by peer (os error 54)",
+        "at_us": 1918373065870,
+        "child_failure": "motor child failed or was killed",
+        "connected": true,
+        "gap_us": 17,
+        "ready": false,
+        "reaped": true,
+        "stage": "wait_complete"
+      }
+    },
+    {
+      "fixture_directory": "/private/tmp/lm709-prefix-aw1tbo9w/d/24519-1918373070303",
+      "test": "coordinator::motor::tests::crash_and_stalled_control_never_allow_replacement_or_false_cleanup",
+      "test_raw_line": 140,
+      "mode": "hang",
+      "records": [
+        "/private/tmp/lm709-prefix-aw1tbo9w/d/24519-1918373070303/wait-1.json",
+        "/private/tmp/lm709-prefix-aw1tbo9w/d/24519-1918373070303/wait-2.json"
+      ],
+      "record_count": 2,
+      "outcomes": [
+        "predicate_satisfied",
+        "predicate_satisfied"
+      ],
+      "after_start_checkpoint_us": 1918373109949,
+      "checkpoint_is_after_actual_fixture_start_call": true,
+      "after_start_to_entry_us": 519513,
+      "entry_to_ready_us": 4291,
+      "config_read_us": 325,
+      "config_validate_us": 15,
+      "channels_bind_us": 266,
+      "channels_connect_us": 68,
+      "core_new_us": 19,
+      "core_qualify_us": 17,
+      "ready_to_parent_observation_us": 225,
+      "child_marker_count": 16,
+      "child_marker_sequences_contiguous": true,
+      "last_child_stage": "hang_enter",
+      "first_sample_count": 814,
+      "last_sample_count": 816,
+      "first_maximum_gap_us": 38865,
+      "first_max_is_fixture_setup": true,
+      "first_retained_wait_sample_maximum_gap_us": 1659,
+      "all_recorded_maximum_gap_us": 38865,
+      "retained_samples_matching_global_maximum": [
+        {
+          "adapter_failure": null,
+          "at_us": 1918373109168,
+          "child_failure": null,
+          "connected": false,
+          "gap_us": 38865,
+          "ready": false,
+          "reaped": true,
+          "stage": "before_start"
+        }
+      ],
+      "first_final_state": {
+        "adapter_failure": "motor worker progress timed out",
+        "at_us": 1918373687841,
+        "child_failure": "motor worker progress timed out",
+        "connected": true,
+        "gap_us": 1653,
+        "ready": false,
+        "reaped": true,
+        "stage": "wait_complete"
+      },
+      "last_final_state": {
+        "adapter_failure": "motor worker progress timed out",
+        "at_us": 1918373693587,
+        "child_failure": "motor worker progress timed out",
+        "connected": true,
+        "gap_us": 17,
+        "ready": false,
+        "reaped": true,
+        "stage": "wait_complete"
+      }
+    },
+    {
+      "fixture_directory": "/private/tmp/lm709-prefix-aw1tbo9w/d/24519-1918373698175",
+      "test": "coordinator::motor::tests::explicit_current_segment_reaches_inert_counts_without_completing_voice",
+      "test_raw_line": 145,
+      "mode": "normal",
+      "records": [
+        "/private/tmp/lm709-prefix-aw1tbo9w/d/24519-1918373698175/wait-1.json",
+        "/private/tmp/lm709-prefix-aw1tbo9w/d/24519-1918373698175/wait-2.json",
+        "/private/tmp/lm709-prefix-aw1tbo9w/d/24519-1918373698175/wait-3.json",
+        "/private/tmp/lm709-prefix-aw1tbo9w/d/24519-1918373698175/wait-4.json",
+        "/private/tmp/lm709-prefix-aw1tbo9w/d/24519-1918373698175/wait-5.json"
+      ],
+      "record_count": 5,
+      "outcomes": [
+        "predicate_satisfied",
+        "predicate_satisfied",
+        "predicate_satisfied",
+        "predicate_satisfied",
+        "predicate_satisfied"
+      ],
+      "after_start_checkpoint_us": 1918373740516,
+      "checkpoint_is_after_actual_fixture_start_call": true,
+      "after_start_to_entry_us": 533498,
+      "entry_to_ready_us": 4107,
+      "config_read_us": 332,
+      "config_validate_us": 15,
+      "channels_bind_us": 273,
+      "channels_connect_us": 71,
+      "core_new_us": 19,
+      "core_qualify_us": 18,
+      "ready_to_parent_observation_us": 1524,
+      "child_marker_count": 17,
+      "child_marker_sequences_contiguous": true,
+      "last_child_stage": "worker_run_ok",
+      "first_sample_count": 781,
+      "last_sample_count": 1028,
+      "first_maximum_gap_us": 40815,
+      "first_max_is_fixture_setup": true,
+      "first_retained_wait_sample_maximum_gap_us": 1599,
+      "all_recorded_maximum_gap_us": 40815,
+      "retained_samples_matching_global_maximum": [
+        {
+          "adapter_failure": null,
+          "at_us": 1918373738990,
+          "child_failure": null,
+          "connected": false,
+          "gap_us": 40815,
+          "ready": false,
+          "reaped": true,
+          "stage": "before_start"
+        }
+      ],
+      "first_final_state": {
+        "adapter_failure": null,
+        "at_us": 1918374281252,
+        "child_failure": null,
+        "connected": true,
+        "gap_us": 1588,
+        "ready": true,
+        "reaped": false,
+        "stage": "wait_complete"
+      },
+      "last_final_state": {
+        "adapter_failure": null,
+        "at_us": 1918374477233,
+        "child_failure": null,
+        "connected": true,
+        "gap_us": 10,
+        "ready": false,
+        "reaped": true,
+        "stage": "wait_complete"
+      }
+    },
+    {
+      "fixture_directory": "/private/tmp/lm709-prefix-aw1tbo9w/d/24519-1918374482010",
+      "test": "coordinator::motor::tests::failed_reap_after_stopped_is_latched_and_reported_once",
+      "test_raw_line": 152,
+      "mode": "gated_exit_failure",
+      "records": [
+        "/private/tmp/lm709-prefix-aw1tbo9w/d/24519-1918374482010/wait-1.json"
+      ],
+      "record_count": 1,
+      "outcomes": [
+        "predicate_satisfied"
+      ],
+      "after_start_checkpoint_us": 1918374524152,
+      "checkpoint_is_after_actual_fixture_start_call": true,
+      "after_start_to_entry_us": 524071,
+      "entry_to_ready_us": 1080,
+      "config_read_us": 336,
+      "config_validate_us": 15,
+      "channels_bind_us": 285,
+      "channels_connect_us": 78,
+      "core_new_us": 19,
+      "core_qualify_us": 16,
+      "ready_to_parent_observation_us": 1276,
+      "child_marker_count": 15,
+      "child_marker_sequences_contiguous": true,
+      "last_child_stage": "ready_sent",
+      "first_sample_count": 772,
+      "last_sample_count": 772,
+      "first_maximum_gap_us": 40517,
+      "first_max_is_fixture_setup": true,
+      "first_retained_wait_sample_maximum_gap_us": 1592,
+      "all_recorded_maximum_gap_us": 40517,
+      "retained_samples_matching_global_maximum": [
+        {
+          "adapter_failure": null,
+          "at_us": 1918374522527,
+          "child_failure": null,
+          "connected": false,
+          "gap_us": 40517,
+          "ready": false,
+          "reaped": true,
+          "stage": "before_start"
+        }
+      ],
+      "first_final_state": {
+        "adapter_failure": null,
+        "at_us": 1918375051816,
+        "child_failure": null,
+        "connected": true,
+        "gap_us": 1228,
+        "ready": true,
+        "reaped": false,
+        "stage": "wait_complete"
+      },
+      "last_final_state": {
+        "adapter_failure": null,
+        "at_us": 1918375051816,
+        "child_failure": null,
+        "connected": true,
+        "gap_us": 1228,
+        "ready": true,
+        "reaped": false,
+        "stage": "wait_complete"
+      }
+    },
+    {
+      "fixture_directory": "/private/tmp/lm709-prefix-aw1tbo9w/d/24519-1918375093071",
+      "test": "coordinator::motor::tests::frozen_config_and_executable_are_exact_and_source_changes_are_not_adopted",
+      "test_raw_line": 154,
+      "mode": "normal",
+      "records": [
+        "/private/tmp/lm709-prefix-aw1tbo9w/d/24519-1918375093071/wait-1.json",
+        "/private/tmp/lm709-prefix-aw1tbo9w/d/24519-1918375093071/wait-2.json"
+      ],
+      "record_count": 2,
+      "outcomes": [
+        "predicate_satisfied",
+        "predicate_satisfied"
+      ],
+      "after_start_checkpoint_us": 1918375134326,
+      "checkpoint_is_after_actual_fixture_start_call": true,
+      "after_start_to_entry_us": 517700,
+      "entry_to_ready_us": 3756,
+      "config_read_us": 333,
+      "config_validate_us": 14,
+      "channels_bind_us": 283,
+      "channels_connect_us": 74,
+      "core_new_us": 18,
+      "core_qualify_us": 19,
+      "ready_to_parent_observation_us": 126,
+      "child_marker_count": 17,
+      "child_marker_sequences_contiguous": true,
+      "last_child_stage": "worker_run_ok",
+      "first_sample_count": 775,
+      "last_sample_count": 788,
+      "first_maximum_gap_us": 40396,
+      "first_max_is_fixture_setup": true,
+      "first_retained_wait_sample_maximum_gap_us": 1602,
+      "all_recorded_maximum_gap_us": 40396,
+      "retained_samples_matching_global_maximum": [
+        {
+          "adapter_failure": null,
+          "at_us": 1918375133467,
+          "child_failure": null,
+          "connected": false,
+          "gap_us": 40396,
+          "ready": false,
+          "reaped": true,
+          "stage": "before_start"
+        }
+      ],
+      "first_final_state": {
+        "adapter_failure": null,
+        "at_us": 1918375657154,
+        "child_failure": null,
+        "connected": true,
+        "gap_us": 1236,
+        "ready": true,
+        "reaped": false,
+        "stage": "wait_complete"
+      },
+      "last_final_state": {
+        "adapter_failure": null,
+        "at_us": 1918375668121,
+        "child_failure": null,
+        "connected": true,
+        "gap_us": 1377,
+        "ready": false,
+        "reaped": true,
+        "stage": "wait_complete"
+      }
+    },
+    {
+      "fixture_directory": "/private/tmp/lm709-prefix-aw1tbo9w/d/24519-1918375672969",
+      "test": "coordinator::motor::tests::idle_ready_never_inspects_moves_or_claims_listening",
+      "test_raw_line": 157,
+      "mode": "normal",
+      "records": [
+        "/private/tmp/lm709-prefix-aw1tbo9w/d/24519-1918375672969/wait-1.json",
+        "/private/tmp/lm709-prefix-aw1tbo9w/d/24519-1918375672969/wait-2.json",
+        "/private/tmp/lm709-prefix-aw1tbo9w/d/24519-1918375672969/wait-3.json"
+      ],
+      "record_count": 3,
+      "outcomes": [
+        "predicate_satisfied",
+        "predicate_satisfied",
+        "predicate_satisfied"
+      ],
+      "after_start_checkpoint_us": 1918375715116,
+      "checkpoint_is_after_actual_fixture_start_call": true,
+      "after_start_to_entry_us": 587607,
+      "entry_to_ready_us": 3191,
+      "config_read_us": 325,
+      "config_validate_us": 15,
+      "channels_bind_us": 273,
+      "channels_connect_us": 68,
+      "core_new_us": 18,
+      "core_qualify_us": 18,
+      "ready_to_parent_observation_us": 1404,
+      "child_marker_count": 17,
+      "child_marker_sequences_contiguous": true,
+      "last_child_stage": "worker_run_ok",
+      "first_sample_count": 851,
+      "last_sample_count": 864,
+      "first_maximum_gap_us": 40597,
+      "first_max_is_fixture_setup": true,
+      "first_retained_wait_sample_maximum_gap_us": 1580,
+      "all_recorded_maximum_gap_us": 40597,
+      "retained_samples_matching_global_maximum": [
+        {
+          "adapter_failure": null,
+          "at_us": 1918375713566,
+          "child_failure": null,
+          "connected": false,
+          "gap_us": 40597,
+          "ready": false,
+          "reaped": true,
+          "stage": "before_start"
+        }
+      ],
+      "first_final_state": {
+        "adapter_failure": null,
+        "at_us": 1918376308567,
+        "child_failure": null,
+        "connected": true,
+        "gap_us": 1238,
+        "ready": true,
+        "reaped": false,
+        "stage": "wait_complete"
+      },
+      "last_final_state": {
+        "adapter_failure": null,
+        "at_us": 1918376321491,
+        "child_failure": null,
+        "connected": true,
+        "gap_us": 10,
+        "ready": false,
+        "reaped": true,
+        "stage": "wait_complete"
+      }
+    },
+    {
+      "fixture_directory": "/private/tmp/lm709-prefix-aw1tbo9w/d/24519-1918376326291",
+      "test": "coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement",
+      "test_raw_line": 162,
+      "mode": "gate_segment",
+      "records": [
+        "/private/tmp/lm709-prefix-aw1tbo9w/d/24519-1918376326291/wait-1.json",
+        "/private/tmp/lm709-prefix-aw1tbo9w/d/24519-1918376326291/wait-2.json",
+        "/private/tmp/lm709-prefix-aw1tbo9w/d/24519-1918376326291/wait-3.json",
+        "/private/tmp/lm709-prefix-aw1tbo9w/d/24519-1918376326291/wait-4.json"
+      ],
+      "record_count": 4,
+      "outcomes": [
+        "predicate_satisfied",
+        "predicate_satisfied",
+        "predicate_satisfied",
+        "predicate_satisfied"
+      ],
+      "after_start_checkpoint_us": 1918376367461,
+      "checkpoint_is_after_actual_fixture_start_call": true,
+      "after_start_to_entry_us": 519020,
+      "entry_to_ready_us": 3459,
+      "config_read_us": 359,
+      "config_validate_us": 15,
+      "channels_bind_us": 273,
+      "channels_connect_us": 69,
+      "core_new_us": 19,
+      "core_qualify_us": 18,
+      "ready_to_parent_observation_us": 1464,
+      "child_marker_count": 17,
+      "child_marker_sequences_contiguous": true,
+      "last_child_stage": "worker_run_ok",
+      "first_sample_count": 765,
+      "last_sample_count": 877,
+      "first_maximum_gap_us": 39590,
+      "first_max_is_fixture_setup": true,
+      "first_retained_wait_sample_maximum_gap_us": 1593,
+      "all_recorded_maximum_gap_us": 39590,
+      "retained_samples_matching_global_maximum": [
+        {
+          "adapter_failure": null,
+          "at_us": 1918376365881,
+          "child_failure": null,
+          "connected": false,
+          "gap_us": 39590,
+          "ready": false,
+          "reaped": true,
+          "stage": "before_start"
+        }
+      ],
+      "first_final_state": {
+        "adapter_failure": null,
+        "at_us": 1918376893002,
+        "child_failure": null,
+        "connected": true,
+        "gap_us": 1588,
+        "ready": true,
+        "reaped": false,
+        "stage": "wait_complete"
+      },
+      "last_final_state": {
+        "adapter_failure": "original motor owner/permit was revoked",
+        "at_us": 1918376986618,
+        "child_failure": null,
+        "connected": true,
+        "gap_us": 26,
+        "ready": false,
+        "reaped": true,
+        "stage": "wait_complete"
+      }
+    },
+    {
+      "fixture_directory": "/private/tmp/lm709-prefix-aw1tbo9w/d/24519-1918377290757",
+      "test": "coordinator::motor::tests::native_head::native_head_absence_of_explicit_next_action_never_schedules_return",
+      "test_raw_line": 169,
+      "mode": "normal",
+      "records": [
+        "/private/tmp/lm709-prefix-aw1tbo9w/d/24519-1918377290757/wait-1.json",
+        "/private/tmp/lm709-prefix-aw1tbo9w/d/24519-1918377290757/wait-2.json",
+        "/private/tmp/lm709-prefix-aw1tbo9w/d/24519-1918377290757/wait-3.json",
+        "/private/tmp/lm709-prefix-aw1tbo9w/d/24519-1918377290757/wait-4.json"
+      ],
+      "record_count": 4,
+      "outcomes": [
+        "predicate_satisfied",
+        "predicate_satisfied",
+        "predicate_satisfied",
+        "predicate_satisfied"
+      ],
+      "after_start_checkpoint_us": 1918377333314,
+      "checkpoint_is_after_actual_fixture_start_call": true,
+      "after_start_to_entry_us": 518265,
+      "entry_to_ready_us": 3179,
+      "config_read_us": 332,
+      "config_validate_us": 15,
+      "channels_bind_us": 281,
+      "channels_connect_us": 69,
+      "core_new_us": 19,
+      "core_qualify_us": 18,
+      "ready_to_parent_observation_us": 1160,
+      "child_marker_count": 17,
+      "child_marker_sequences_contiguous": true,
+      "last_child_stage": "worker_run_ok",
+      "first_sample_count": 751,
+      "last_sample_count": 863,
+      "first_maximum_gap_us": 40911,
+      "first_max_is_fixture_setup": true,
+      "first_retained_wait_sample_maximum_gap_us": 1586,
+      "all_recorded_maximum_gap_us": 40911,
+      "retained_samples_matching_global_maximum": [
+        {
+          "adapter_failure": null,
+          "at_us": 1918377331668,
+          "child_failure": null,
+          "connected": false,
+          "gap_us": 40911,
+          "ready": false,
+          "reaped": true,
+          "stage": "before_start"
+        }
+      ],
+      "first_final_state": {
+        "adapter_failure": null,
+        "at_us": 1918377857393,
+        "child_failure": null,
+        "connected": true,
+        "gap_us": 1465,
+        "ready": true,
+        "reaped": false,
+        "stage": "wait_complete"
+      },
+      "last_final_state": {
+        "adapter_failure": "qualification authority or finite deadline expired",
+        "at_us": 1918377949671,
+        "child_failure": null,
+        "connected": true,
+        "gap_us": 11,
+        "ready": false,
+        "reaped": true,
+        "stage": "wait_complete"
+      }
+    },
+    {
+      "fixture_directory": "/private/tmp/lm709-prefix-aw1tbo9w/d/24519-1918377954834",
+      "test": "coordinator::motor::tests::native_head::native_head_four_explicit_actions_use_original_owner_and_reap",
+      "test_raw_line": 175,
+      "mode": "normal",
+      "records": [
+        "/private/tmp/lm709-prefix-aw1tbo9w/d/24519-1918377954834/wait-1.json",
+        "/private/tmp/lm709-prefix-aw1tbo9w/d/24519-1918377954834/wait-2.json",
+        "/private/tmp/lm709-prefix-aw1tbo9w/d/24519-1918377954834/wait-3.json"
+      ],
+      "record_count": 3,
+      "outcomes": [
+        "predicate_satisfied",
+        "predicate_satisfied",
+        "predicate_satisfied"
+      ],
+      "after_start_checkpoint_us": 1918377996583,
+      "checkpoint_is_after_actual_fixture_start_call": true,
+      "after_start_to_entry_us": 514037,
+      "entry_to_ready_us": 3843,
+      "config_read_us": 337,
+      "config_validate_us": 15,
+      "channels_bind_us": 273,
+      "channels_connect_us": 69,
+      "core_new_us": 19,
+      "core_qualify_us": 19,
+      "ready_to_parent_observation_us": 1354,
+      "child_marker_count": 17,
+      "child_marker_sequences_contiguous": true,
+      "last_child_stage": "worker_run_ok",
+      "first_sample_count": 777,
+      "last_sample_count": 790,
+      "first_maximum_gap_us": 40977,
+      "first_max_is_fixture_setup": true,
+      "first_retained_wait_sample_maximum_gap_us": 1567,
+      "all_recorded_maximum_gap_us": 272551,
+      "retained_samples_matching_global_maximum": [
+        {
+          "adapter_failure": null,
+          "at_us": 1918378789948,
+          "child_failure": null,
+          "connected": true,
+          "gap_us": 272551,
+          "ready": false,
+          "reaped": false,
+          "stage": "wait_enter"
+        }
+      ],
+      "first_final_state": {
+        "adapter_failure": null,
+        "at_us": 1918378517397,
+        "child_failure": null,
+        "connected": true,
+        "gap_us": 1567,
+        "ready": true,
+        "reaped": false,
+        "stage": "wait_complete"
+      },
+      "last_final_state": {
+        "adapter_failure": null,
+        "at_us": 1918378799985,
+        "child_failure": null,
+        "connected": true,
+        "gap_us": 10,
+        "ready": false,
+        "reaped": true,
+        "stage": "wait_complete"
+      }
+    },
+    {
+      "fixture_directory": "/private/tmp/lm709-prefix-aw1tbo9w/d/24519-1918378804852",
+      "test": "coordinator::motor::tests::native_head::native_head_initial_privacy_acquisition_is_not_a_revoke_or_grant",
+      "test_raw_line": 179,
+      "mode": "startup",
+      "records": [
+        "/private/tmp/lm709-prefix-aw1tbo9w/d/24519-1918378804852/wait-1.json",
+        "/private/tmp/lm709-prefix-aw1tbo9w/d/24519-1918378804852/wait-2.json"
+      ],
+      "record_count": 2,
+      "outcomes": [
+        "predicate_satisfied",
+        "predicate_satisfied"
+      ],
+      "after_start_checkpoint_us": 1918378846031,
+      "checkpoint_is_after_actual_fixture_start_call": false,
+      "after_start_to_entry_us": 509030,
+      "entry_to_ready_us": 4208,
+      "config_read_us": 325,
+      "config_validate_us": 15,
+      "channels_bind_us": 258,
+      "channels_connect_us": 67,
+      "core_new_us": 18,
+      "core_qualify_us": 17,
+      "ready_to_parent_observation_us": 1131,
+      "child_marker_count": 17,
+      "child_marker_sequences_contiguous": true,
+      "last_child_stage": "worker_run_ok",
+      "first_sample_count": 737,
+      "last_sample_count": 744,
+      "first_maximum_gap_us": 41153,
+      "first_max_is_fixture_setup": true,
+      "first_retained_wait_sample_maximum_gap_us": 1604,
+      "all_recorded_maximum_gap_us": 41153,
+      "retained_samples_matching_global_maximum": [
+        {
+          "adapter_failure": null,
+          "at_us": 1918378846005,
+          "child_failure": null,
+          "connected": false,
+          "gap_us": 41153,
+          "ready": false,
+          "reaped": true,
+          "stage": "before_start"
+        }
+      ],
+      "first_final_state": {
+        "adapter_failure": null,
+        "at_us": 1918379361974,
+        "child_failure": null,
+        "connected": true,
+        "gap_us": 1556,
+        "ready": true,
+        "reaped": false,
+        "stage": "wait_complete"
+      },
+      "last_final_state": {
+        "adapter_failure": null,
+        "at_us": 1918379370506,
+        "child_failure": null,
+        "connected": true,
+        "gap_us": 1513,
+        "ready": false,
+        "reaped": true,
+        "stage": "wait_complete"
+      }
+    },
+    {
+      "fixture_directory": "/private/tmp/lm709-prefix-aw1tbo9w/d/24519-1918379375483",
+      "test": "coordinator::motor::tests::native_head::native_head_no_owner_no_capture_or_no_frame_never_grants",
+      "test_raw_line": 182,
+      "mode": "normal",
+      "records": [
+        "/private/tmp/lm709-prefix-aw1tbo9w/d/24519-1918379375483/wait-1.json",
+        "/private/tmp/lm709-prefix-aw1tbo9w/d/24519-1918379375483/wait-2.json"
+      ],
+      "record_count": 2,
+      "outcomes": [
+        "predicate_satisfied",
+        "predicate_satisfied"
+      ],
+      "after_start_checkpoint_us": 1918379417978,
+      "checkpoint_is_after_actual_fixture_start_call": true,
+      "after_start_to_entry_us": 514772,
+      "entry_to_ready_us": 4171,
+      "config_read_us": 316,
+      "config_validate_us": 15,
+      "channels_bind_us": 280,
+      "channels_connect_us": 70,
+      "core_new_us": 19,
+      "core_qualify_us": 17,
+      "ready_to_parent_observation_us": 1198,
+      "child_marker_count": 17,
+      "child_marker_sequences_contiguous": true,
+      "last_child_stage": "worker_run_ok",
+      "first_sample_count": 757,
+      "last_sample_count": 768,
+      "first_maximum_gap_us": 40905,
+      "first_max_is_fixture_setup": true,
+      "first_retained_wait_sample_maximum_gap_us": 1547,
+      "all_recorded_maximum_gap_us": 40905,
+      "retained_samples_matching_global_maximum": [
+        {
+          "adapter_failure": null,
+          "at_us": 1918379416388,
+          "child_failure": null,
+          "connected": false,
+          "gap_us": 40905,
+          "ready": false,
+          "reaped": true,
+          "stage": "before_start"
+        }
+      ],
+      "first_final_state": {
+        "adapter_failure": null,
+        "at_us": 1918379939625,
+        "child_failure": null,
+        "connected": true,
+        "gap_us": 1495,
+        "ready": true,
+        "reaped": false,
+        "stage": "wait_complete"
+      },
+      "last_final_state": {
+        "adapter_failure": null,
+        "at_us": 1918379949443,
+        "child_failure": null,
+        "connected": true,
+        "gap_us": 1514,
+        "ready": false,
+        "reaped": true,
+        "stage": "wait_complete"
+      }
+    },
+    {
+      "fixture_directory": "/private/tmp/lm709-prefix-aw1tbo9w/d/24519-1918379955746",
+      "test": "coordinator::motor::tests::native_head::native_head_owner_cancel_between_ticket_and_action_never_dispatches",
+      "test_raw_line": 185,
+      "mode": "normal",
+      "records": [
+        "/private/tmp/lm709-prefix-aw1tbo9w/d/24519-1918379955746/wait-1.json",
+        "/private/tmp/lm709-prefix-aw1tbo9w/d/24519-1918379955746/wait-2.json",
+        "/private/tmp/lm709-prefix-aw1tbo9w/d/24519-1918379955746/wait-3.json"
+      ],
+      "record_count": 3,
+      "outcomes": [
+        "predicate_satisfied",
+        "predicate_satisfied",
+        "predicate_satisfied"
+      ],
+      "after_start_checkpoint_us": 1918379997110,
+      "checkpoint_is_after_actual_fixture_start_call": true,
+      "after_start_to_entry_us": 513907,
+      "entry_to_ready_us": 3455,
+      "config_read_us": 327,
+      "config_validate_us": 15,
+      "channels_bind_us": 271,
+      "channels_connect_us": 67,
+      "core_new_us": 19,
+      "core_qualify_us": 19,
+      "ready_to_parent_observation_us": 1506,
+      "child_marker_count": 17,
+      "child_marker_sequences_contiguous": true,
+      "last_child_stage": "worker_run_ok",
+      "first_sample_count": 753,
+      "last_sample_count": 764,
+      "first_maximum_gap_us": 39778,
+      "first_max_is_fixture_setup": true,
+      "first_retained_wait_sample_maximum_gap_us": 1571,
+      "all_recorded_maximum_gap_us": 39778,
+      "retained_samples_matching_global_maximum": [
+        {
+          "adapter_failure": null,
+          "at_us": 1918379995524,
+          "child_failure": null,
+          "connected": false,
+          "gap_us": 39778,
+          "ready": false,
+          "reaped": true,
+          "stage": "before_start"
+        }
+      ],
+      "first_final_state": {
+        "adapter_failure": null,
+        "at_us": 1918380517303,
+        "child_failure": null,
+        "connected": true,
+        "gap_us": 1312,
+        "ready": true,
+        "reaped": false,
+        "stage": "wait_complete"
+      },
+      "last_final_state": {
+        "adapter_failure": null,
+        "at_us": 1918380530801,
+        "child_failure": null,
+        "connected": true,
+        "gap_us": 11,
+        "ready": false,
+        "reaped": true,
+        "stage": "wait_complete"
+      }
+    },
+    {
+      "fixture_directory": "/private/tmp/lm709-prefix-aw1tbo9w/d/24519-1918380535521",
+      "test": "coordinator::motor::tests::native_head::native_head_privacy_at_dispatch_closes_optional_only",
+      "test_raw_line": 189,
+      "mode": "normal",
+      "records": [
+        "/private/tmp/lm709-prefix-aw1tbo9w/d/24519-1918380535521/wait-1.json",
+        "/private/tmp/lm709-prefix-aw1tbo9w/d/24519-1918380535521/wait-2.json"
+      ],
+      "record_count": 2,
+      "outcomes": [
+        "predicate_satisfied",
+        "predicate_satisfied"
+      ],
+      "after_start_checkpoint_us": 1918380577334,
+      "checkpoint_is_after_actual_fixture_start_call": true,
+      "after_start_to_entry_us": 522653,
+      "entry_to_ready_us": 4702,
+      "config_read_us": 342,
+      "config_validate_us": 15,
+      "channels_bind_us": 291,
+      "channels_connect_us": 68,
+      "core_new_us": 20,
+      "core_qualify_us": 60,
+      "ready_to_parent_observation_us": 1078,
+      "child_marker_count": 17,
+      "child_marker_sequences_contiguous": true,
+      "last_child_stage": "worker_run_ok",
+      "first_sample_count": 758,
+      "last_sample_count": 767,
+      "first_maximum_gap_us": 40094,
+      "first_max_is_fixture_setup": true,
+      "first_retained_wait_sample_maximum_gap_us": 1586,
+      "all_recorded_maximum_gap_us": 40094,
+      "retained_samples_matching_global_maximum": [
+        {
+          "adapter_failure": null,
+          "at_us": 1918380575615,
+          "child_failure": null,
+          "connected": false,
+          "gap_us": 40094,
+          "ready": false,
+          "reaped": true,
+          "stage": "before_start"
+        }
+      ],
+      "first_final_state": {
+        "adapter_failure": null,
+        "at_us": 1918381107170,
+        "child_failure": null,
+        "connected": true,
+        "gap_us": 1394,
+        "ready": true,
+        "reaped": false,
+        "stage": "wait_complete"
+      },
+      "last_final_state": {
+        "adapter_failure": null,
+        "at_us": 1918381116757,
+        "child_failure": null,
+        "connected": true,
+        "gap_us": 1569,
+        "ready": false,
+        "reaped": true,
+        "stage": "wait_complete"
+      }
+    },
+    {
+      "fixture_directory": "/private/tmp/lm709-prefix-aw1tbo9w/d/24519-1918381123671",
+      "test": "coordinator::motor::tests::native_head::native_head_replayed_receipt_and_changed_camera_grant_are_terminal",
+      "test_raw_line": 192,
+      "mode": "normal",
+      "records": [
+        "/private/tmp/lm709-prefix-aw1tbo9w/d/24519-1918381123671/wait-1.json",
+        "/private/tmp/lm709-prefix-aw1tbo9w/d/24519-1918381123671/wait-2.json"
+      ],
+      "record_count": 2,
+      "outcomes": [
+        "predicate_satisfied",
+        "predicate_satisfied"
+      ],
+      "after_start_checkpoint_us": 1918381165726,
+      "checkpoint_is_after_actual_fixture_start_call": true,
+      "after_start_to_entry_us": 519033,
+      "entry_to_ready_us": 4327,
+      "config_read_us": 349,
+      "config_validate_us": 15,
+      "channels_bind_us": 282,
+      "channels_connect_us": 69,
+      "core_new_us": 19,
+      "core_qualify_us": 18,
+      "ready_to_parent_observation_us": 411,
+      "child_marker_count": 17,
+      "child_marker_sequences_contiguous": true,
+      "last_child_stage": "worker_run_ok",
+      "first_sample_count": 764,
+      "last_sample_count": 771,
+      "first_maximum_gap_us": 40397,
+      "first_max_is_fixture_setup": true,
+      "first_retained_wait_sample_maximum_gap_us": 1585,
+      "all_recorded_maximum_gap_us": 40397,
+      "retained_samples_matching_global_maximum": [
+        {
+          "adapter_failure": null,
+          "at_us": 1918381164068,
+          "child_failure": null,
+          "connected": false,
+          "gap_us": 40397,
+          "ready": false,
+          "reaped": true,
+          "stage": "before_start"
+        }
+      ],
+      "first_final_state": {
+        "adapter_failure": null,
+        "at_us": 1918381691101,
+        "child_failure": null,
+        "connected": true,
+        "gap_us": 1585,
+        "ready": true,
+        "reaped": false,
+        "stage": "wait_complete"
+      },
+      "last_final_state": {
+        "adapter_failure": null,
+        "at_us": 1918381699806,
+        "child_failure": null,
+        "connected": true,
+        "gap_us": 1208,
+        "ready": false,
+        "reaped": true,
+        "stage": "wait_complete"
+      }
+    },
+    {
+      "fixture_directory": "/private/tmp/lm709-prefix-aw1tbo9w/d/24519-1918381704648",
+      "test": "coordinator::motor::tests::native_head::native_head_replayed_receipt_and_changed_camera_grant_are_terminal",
+      "test_raw_line": 192,
+      "mode": "normal",
+      "records": [
+        "/private/tmp/lm709-prefix-aw1tbo9w/d/24519-1918381704648/wait-1.json",
+        "/private/tmp/lm709-prefix-aw1tbo9w/d/24519-1918381704648/wait-2.json"
+      ],
+      "record_count": 2,
+      "outcomes": [
+        "predicate_satisfied",
+        "predicate_satisfied"
+      ],
+      "after_start_checkpoint_us": 1918381745993,
+      "checkpoint_is_after_actual_fixture_start_call": true,
+      "after_start_to_entry_us": 535177,
+      "entry_to_ready_us": 1068,
+      "config_read_us": 332,
+      "config_validate_us": 15,
+      "channels_bind_us": 267,
+      "channels_connect_us": 83,
+      "core_new_us": 18,
+      "core_qualify_us": 18,
+      "ready_to_parent_observation_us": 1542,
+      "child_marker_count": 17,
+      "child_marker_sequences_contiguous": true,
+      "last_child_stage": "worker_run_ok",
+      "first_sample_count": 787,
+      "last_sample_count": 794,
+      "first_maximum_gap_us": 39751,
+      "first_max_is_fixture_setup": true,
+      "first_retained_wait_sample_maximum_gap_us": 1586,
+      "all_recorded_maximum_gap_us": 39751,
+      "retained_samples_matching_global_maximum": [
+        {
+          "adapter_failure": null,
+          "at_us": 1918381744399,
+          "child_failure": null,
+          "connected": false,
+          "gap_us": 39751,
+          "ready": false,
+          "reaped": true,
+          "stage": "before_start"
+        }
+      ],
+      "first_final_state": {
+        "adapter_failure": null,
+        "at_us": 1918382285374,
+        "child_failure": null,
+        "connected": true,
+        "gap_us": 1586,
+        "ready": true,
+        "reaped": false,
+        "stage": "wait_complete"
+      },
+      "last_final_state": {
+        "adapter_failure": null,
+        "at_us": 1918382292716,
+        "child_failure": null,
+        "connected": true,
+        "gap_us": 1047,
+        "ready": false,
+        "reaped": true,
+        "stage": "wait_complete"
+      }
+    },
+    {
+      "fixture_directory": "/private/tmp/lm709-prefix-aw1tbo9w/d/24519-1918382297654",
+      "test": "coordinator::motor::tests::native_head::native_head_six_explicit_actions_prepare_profile_then_new_requests",
+      "test_raw_line": 197,
+      "mode": "profile",
+      "records": [
+        "/private/tmp/lm709-prefix-aw1tbo9w/d/24519-1918382297654/wait-1.json",
+        "/private/tmp/lm709-prefix-aw1tbo9w/d/24519-1918382297654/wait-2.json",
+        "/private/tmp/lm709-prefix-aw1tbo9w/d/24519-1918382297654/wait-3.json"
+      ],
+      "record_count": 3,
+      "outcomes": [
+        "predicate_satisfied",
+        "predicate_satisfied",
+        "predicate_satisfied"
+      ],
+      "after_start_checkpoint_us": 1918382340724,
+      "checkpoint_is_after_actual_fixture_start_call": true,
+      "after_start_to_entry_us": 558099,
+      "entry_to_ready_us": 3871,
+      "config_read_us": 340,
+      "config_validate_us": 16,
+      "channels_bind_us": 268,
+      "channels_connect_us": 68,
+      "core_new_us": 18,
+      "core_qualify_us": 17,
+      "ready_to_parent_observation_us": 1646,
+      "child_marker_count": 17,
+      "child_marker_sequences_contiguous": true,
+      "last_child_stage": "worker_run_ok",
+      "first_sample_count": 806,
+      "last_sample_count": 817,
+      "first_maximum_gap_us": 41391,
+      "first_max_is_fixture_setup": true,
+      "first_retained_wait_sample_maximum_gap_us": 1615,
+      "all_recorded_maximum_gap_us": 402545,
+      "retained_samples_matching_global_maximum": [
+        {
+          "adapter_failure": null,
+          "at_us": 1918383308514,
+          "child_failure": null,
+          "connected": true,
+          "gap_us": 402545,
+          "ready": false,
+          "reaped": false,
+          "stage": "wait_enter"
+        }
+      ],
+      "first_final_state": {
+        "adapter_failure": null,
+        "at_us": 1918382905969,
+        "child_failure": null,
+        "connected": true,
+        "gap_us": 1615,
+        "ready": true,
+        "reaped": false,
+        "stage": "wait_complete"
+      },
+      "last_final_state": {
+        "adapter_failure": null,
+        "at_us": 1918383319118,
+        "child_failure": null,
+        "connected": true,
+        "gap_us": 14,
+        "ready": false,
+        "reaped": true,
+        "stage": "wait_complete"
+      }
+    },
+    {
+      "fixture_directory": "/private/tmp/lm709-prefix-aw1tbo9w/d/24519-1918383324023",
+      "test": "coordinator::motor::tests::native_head::native_head_stale_or_foreign_frame_cannot_grant",
+      "test_raw_line": 201,
+      "mode": "normal",
+      "records": [
+        "/private/tmp/lm709-prefix-aw1tbo9w/d/24519-1918383324023/wait-1.json",
+        "/private/tmp/lm709-prefix-aw1tbo9w/d/24519-1918383324023/wait-2.json"
+      ],
+      "record_count": 2,
+      "outcomes": [
+        "predicate_satisfied",
+        "predicate_satisfied"
+      ],
+      "after_start_checkpoint_us": 1918383366182,
+      "checkpoint_is_after_actual_fixture_start_call": true,
+      "after_start_to_entry_us": 572094,
+      "entry_to_ready_us": 4314,
+      "config_read_us": 322,
+      "config_validate_us": 15,
+      "channels_bind_us": 276,
+      "channels_connect_us": 69,
+      "core_new_us": 20,
+      "core_qualify_us": 18,
+      "ready_to_parent_observation_us": 1494,
+      "child_marker_count": 17,
+      "child_marker_sequences_contiguous": true,
+      "last_child_stage": "worker_run_ok",
+      "first_sample_count": 838,
+      "last_sample_count": 847,
+      "first_maximum_gap_us": 40573,
+      "first_max_is_fixture_setup": true,
+      "first_retained_wait_sample_maximum_gap_us": 1607,
+      "all_recorded_maximum_gap_us": 40573,
+      "retained_samples_matching_global_maximum": [
+        {
+          "adapter_failure": null,
+          "at_us": 1918383364596,
+          "child_failure": null,
+          "connected": false,
+          "gap_us": 40573,
+          "ready": false,
+          "reaped": true,
+          "stage": "before_start"
+        }
+      ],
+      "first_final_state": {
+        "adapter_failure": null,
+        "at_us": 1918383945709,
+        "child_failure": null,
+        "connected": true,
+        "gap_us": 1607,
+        "ready": true,
+        "reaped": false,
+        "stage": "wait_complete"
+      },
+      "last_final_state": {
+        "adapter_failure": null,
+        "at_us": 1918383956308,
+        "child_failure": null,
+        "connected": true,
+        "gap_us": 1542,
+        "ready": false,
+        "reaped": true,
+        "stage": "wait_complete"
+      }
+    },
+    {
+      "fixture_directory": "/private/tmp/lm709-prefix-aw1tbo9w/d/24519-1918383961771",
+      "test": "coordinator::motor::tests::native_head::native_head_startup_announcement_has_no_input_or_motion_authority",
+      "test_raw_line": 204,
+      "mode": "startup",
+      "records": [
+        "/private/tmp/lm709-prefix-aw1tbo9w/d/24519-1918383961771/wait-1.json"
+      ],
+      "record_count": 1,
+      "outcomes": [
+        "predicate_satisfied"
+      ],
+      "after_start_checkpoint_us": 1918384002854,
+      "checkpoint_is_after_actual_fixture_start_call": false,
+      "after_start_to_entry_us": null,
+      "entry_to_ready_us": null,
+      "config_read_us": null,
+      "config_validate_us": null,
+      "channels_bind_us": null,
+      "channels_connect_us": null,
+      "core_new_us": null,
+      "core_qualify_us": null,
+      "ready_to_parent_observation_us": null,
+      "child_marker_count": 0,
+      "child_marker_sequences_contiguous": true,
+      "last_child_stage": null,
+      "first_sample_count": 4,
+      "last_sample_count": 4,
+      "first_maximum_gap_us": 41053,
+      "first_max_is_fixture_setup": true,
+      "first_retained_wait_sample_maximum_gap_us": 181,
+      "all_recorded_maximum_gap_us": 41053,
+      "retained_samples_matching_global_maximum": [
+        {
+          "adapter_failure": null,
+          "at_us": 1918384002824,
+          "child_failure": null,
+          "connected": false,
+          "gap_us": 41053,
+          "ready": false,
+          "reaped": true,
+          "stage": "before_start"
+        }
+      ],
+      "first_final_state": {
+        "adapter_failure": null,
+        "at_us": 1918384003050,
+        "child_failure": null,
+        "connected": false,
+        "gap_us": 15,
+        "ready": false,
+        "reaped": true,
+        "stage": "wait_complete"
+      },
+      "last_final_state": {
+        "adapter_failure": null,
+        "at_us": 1918384003050,
+        "child_failure": null,
+        "connected": false,
+        "gap_us": 15,
+        "ready": false,
+        "reaped": true,
+        "stage": "wait_complete"
+      }
+    },
+    {
+      "fixture_directory": "/private/tmp/lm709-prefix-aw1tbo9w/d/24519-1918384005401",
+      "test": "coordinator::motor::tests::pending_inspection_is_revoked_before_worker_data_and_release_is_separate",
+      "test_raw_line": 206,
+      "mode": "gate",
+      "records": [
+        "/private/tmp/lm709-prefix-aw1tbo9w/d/24519-1918384005401/wait-1.json",
+        "/private/tmp/lm709-prefix-aw1tbo9w/d/24519-1918384005401/wait-2.json",
+        "/private/tmp/lm709-prefix-aw1tbo9w/d/24519-1918384005401/wait-3.json"
+      ],
+      "record_count": 3,
+      "outcomes": [
+        "predicate_satisfied",
+        "predicate_satisfied",
+        "predicate_satisfied"
+      ],
+      "after_start_checkpoint_us": 1918384047238,
+      "checkpoint_is_after_actual_fixture_start_call": true,
+      "after_start_to_entry_us": 512248,
+      "entry_to_ready_us": 3296,
+      "config_read_us": 325,
+      "config_validate_us": 14,
+      "channels_bind_us": 279,
+      "channels_connect_us": 69,
+      "core_new_us": 19,
+      "core_qualify_us": 18,
+      "ready_to_parent_observation_us": 1108,
+      "child_marker_count": 17,
+      "child_marker_sequences_contiguous": true,
+      "last_child_stage": "worker_run_error",
+      "first_sample_count": 745,
+      "last_sample_count": 754,
+      "first_maximum_gap_us": 40170,
+      "first_max_is_fixture_setup": true,
+      "first_retained_wait_sample_maximum_gap_us": 1590,
+      "all_recorded_maximum_gap_us": 40170,
+      "retained_samples_matching_global_maximum": [
+        {
+          "adapter_failure": null,
+          "at_us": 1918384045571,
+          "child_failure": null,
+          "connected": false,
+          "gap_us": 40170,
+          "ready": false,
+          "reaped": true,
+          "stage": "before_start"
+        }
+      ],
+      "first_final_state": {
+        "adapter_failure": null,
+        "at_us": 1918384565484,
+        "child_failure": null,
+        "connected": true,
+        "gap_us": 1584,
+        "ready": true,
+        "reaped": false,
+        "stage": "wait_complete"
+      },
+      "last_final_state": {
+        "adapter_failure": "motor privacy revoked",
+        "at_us": 1918384577713,
+        "child_failure": "motor inhibited: ControlLost",
+        "connected": true,
+        "gap_us": 12,
+        "ready": false,
+        "reaped": true,
+        "stage": "wait_complete"
+      }
+    },
+    {
+      "fixture_directory": "/private/tmp/lm709-prefix-aw1tbo9w/d/24519-1918384582641",
+      "test": "coordinator::motor::tests::pending_segment_privacy_revoke_wins_before_any_position_write",
+      "test_raw_line": 211,
+      "mode": "gate_segment",
+      "records": [
+        "/private/tmp/lm709-prefix-aw1tbo9w/d/24519-1918384582641/wait-1.json",
+        "/private/tmp/lm709-prefix-aw1tbo9w/d/24519-1918384582641/wait-2.json",
+        "/private/tmp/lm709-prefix-aw1tbo9w/d/24519-1918384582641/wait-3.json",
+        "/private/tmp/lm709-prefix-aw1tbo9w/d/24519-1918384582641/wait-4.json"
+      ],
+      "record_count": 4,
+      "outcomes": [
+        "predicate_satisfied",
+        "predicate_satisfied",
+        "predicate_satisfied",
+        "predicate_satisfied"
+      ],
+      "after_start_checkpoint_us": 1918384624230,
+      "checkpoint_is_after_actual_fixture_start_call": true,
+      "after_start_to_entry_us": 518930,
+      "entry_to_ready_us": 4204,
+      "config_read_us": 336,
+      "config_validate_us": 15,
+      "channels_bind_us": 270,
+      "channels_connect_us": 69,
+      "core_new_us": 19,
+      "core_qualify_us": 17,
+      "ready_to_parent_observation_us": 1623,
+      "child_marker_count": 17,
+      "child_marker_sequences_contiguous": true,
+      "last_child_stage": "worker_run_error",
+      "first_sample_count": 768,
+      "last_sample_count": 884,
+      "first_maximum_gap_us": 39867,
+      "first_max_is_fixture_setup": true,
+      "first_retained_wait_sample_maximum_gap_us": 1590,
+      "all_recorded_maximum_gap_us": 39867,
+      "retained_samples_matching_global_maximum": [
+        {
+          "adapter_failure": null,
+          "at_us": 1918384622508,
+          "child_failure": null,
+          "connected": false,
+          "gap_us": 39867,
+          "ready": false,
+          "reaped": true,
+          "stage": "before_start"
+        }
+      ],
+      "first_final_state": {
+        "adapter_failure": null,
+        "at_us": 1918385150546,
+        "child_failure": null,
+        "connected": true,
+        "gap_us": 1545,
+        "ready": true,
+        "reaped": false,
+        "stage": "wait_complete"
+      },
+      "last_final_state": {
+        "adapter_failure": "motor privacy revoked",
+        "at_us": 1918385241919,
+        "child_failure": "motor inhibited: ControlLost",
+        "connected": true,
+        "gap_us": 12,
+        "ready": false,
+        "reaped": true,
+        "stage": "wait_complete"
+      }
+    },
+    {
+      "fixture_directory": "/private/tmp/lm709-prefix-aw1tbo9w/d/24519-1918385247024",
+      "test": "coordinator::motor::tests::privacy_does_not_hide_actual_discard_or_close_failure",
+      "test_raw_line": 216,
+      "mode": "discard",
+      "records": [
+        "/private/tmp/lm709-prefix-aw1tbo9w/d/24519-1918385247024/wait-1.json",
+        "/private/tmp/lm709-prefix-aw1tbo9w/d/24519-1918385247024/wait-2.json",
+        "/private/tmp/lm709-prefix-aw1tbo9w/d/24519-1918385247024/wait-3.json"
+      ],
+      "record_count": 3,
+      "outcomes": [
+        "predicate_satisfied",
+        "predicate_satisfied",
+        "predicate_satisfied"
+      ],
+      "after_start_checkpoint_us": 1918385288606,
+      "checkpoint_is_after_actual_fixture_start_call": true,
+      "after_start_to_entry_us": 515671,
+      "entry_to_ready_us": 4302,
+      "config_read_us": 323,
+      "config_validate_us": 15,
+      "channels_bind_us": 268,
+      "channels_connect_us": 70,
+      "core_new_us": 19,
+      "core_qualify_us": 18,
+      "ready_to_parent_observation_us": 1583,
+      "child_marker_count": 17,
+      "child_marker_sequences_contiguous": true,
+      "last_child_stage": "worker_run_error",
+      "first_sample_count": 758,
+      "last_sample_count": 767,
+      "first_maximum_gap_us": 40589,
+      "first_max_is_fixture_setup": true,
+      "first_retained_wait_sample_maximum_gap_us": 1576,
+      "all_recorded_maximum_gap_us": 40589,
+      "retained_samples_matching_global_maximum": [
+        {
+          "adapter_failure": null,
+          "at_us": 1918385287613,
+          "child_failure": null,
+          "connected": false,
+          "gap_us": 40589,
+          "ready": false,
+          "reaped": true,
+          "stage": "before_start"
+        }
+      ],
+      "first_final_state": {
+        "adapter_failure": null,
+        "at_us": 1918385811756,
+        "child_failure": null,
+        "connected": true,
+        "gap_us": 1576,
+        "ready": true,
+        "reaped": false,
+        "stage": "wait_complete"
+      },
+      "last_final_state": {
+        "adapter_failure": "motor privacy revoked",
+        "at_us": 1918385824243,
+        "child_failure": "motor inhibited: ControlLost",
+        "connected": true,
+        "gap_us": 16,
+        "ready": false,
+        "reaped": true,
+        "stage": "wait_complete"
+      }
+    },
+    {
+      "fixture_directory": "/private/tmp/lm709-prefix-aw1tbo9w/d/24519-1918385829017",
+      "test": "coordinator::motor::tests::privacy_does_not_hide_actual_discard_or_close_failure",
+      "test_raw_line": 216,
+      "mode": "bad_cleanup",
+      "records": [
+        "/private/tmp/lm709-prefix-aw1tbo9w/d/24519-1918385829017/wait-1.json",
+        "/private/tmp/lm709-prefix-aw1tbo9w/d/24519-1918385829017/wait-2.json",
+        "/private/tmp/lm709-prefix-aw1tbo9w/d/24519-1918385829017/wait-3.json"
+      ],
+      "record_count": 3,
+      "outcomes": [
+        "predicate_satisfied",
+        "predicate_satisfied",
+        "predicate_satisfied"
+      ],
+      "after_start_checkpoint_us": 1918385870570,
+      "checkpoint_is_after_actual_fixture_start_call": true,
+      "after_start_to_entry_us": 526105,
+      "entry_to_ready_us": 4076,
+      "config_read_us": 333,
+      "config_validate_us": 16,
+      "channels_bind_us": 274,
+      "channels_connect_us": 69,
+      "core_new_us": 18,
+      "core_qualify_us": 19,
+      "ready_to_parent_observation_us": 1226,
+      "child_marker_count": 17,
+      "child_marker_sequences_contiguous": true,
+      "last_child_stage": "worker_run_error",
+      "first_sample_count": 778,
+      "last_sample_count": 787,
+      "first_maximum_gap_us": 39875,
+      "first_max_is_fixture_setup": true,
+      "first_retained_wait_sample_maximum_gap_us": 1586,
+      "all_recorded_maximum_gap_us": 39875,
+      "retained_samples_matching_global_maximum": [
+        {
+          "adapter_failure": null,
+          "at_us": 1918385868892,
+          "child_failure": null,
+          "connected": false,
+          "gap_us": 39875,
+          "ready": false,
+          "reaped": true,
+          "stage": "before_start"
+        }
+      ],
+      "first_final_state": {
+        "adapter_failure": null,
+        "at_us": 1918386403576,
+        "child_failure": null,
+        "connected": true,
+        "gap_us": 1586,
+        "ready": true,
+        "reaped": false,
+        "stage": "wait_complete"
+      },
+      "last_final_state": {
+        "adapter_failure": "motor privacy revoked",
+        "at_us": 1918386415970,
+        "child_failure": "motor inhibited: ControlLost",
+        "connected": true,
+        "gap_us": 9,
+        "ready": false,
+        "reaped": true,
+        "stage": "wait_complete"
+      }
+    },
+    {
+      "fixture_directory": "/private/tmp/lm709-prefix-aw1tbo9w/d/24519-1918386420779",
+      "test": "coordinator::motor::tests::readback_and_original_placement_are_required_and_bad_offers_do_not_enqueue",
+      "test_raw_line": 223,
+      "mode": "normal",
+      "records": [
+        "/private/tmp/lm709-prefix-aw1tbo9w/d/24519-1918386420779/wait-1.json",
+        "/private/tmp/lm709-prefix-aw1tbo9w/d/24519-1918386420779/wait-2.json",
+        "/private/tmp/lm709-prefix-aw1tbo9w/d/24519-1918386420779/wait-3.json",
+        "/private/tmp/lm709-prefix-aw1tbo9w/d/24519-1918386420779/wait-4.json",
+        "/private/tmp/lm709-prefix-aw1tbo9w/d/24519-1918386420779/wait-5.json"
+      ],
+      "record_count": 5,
+      "outcomes": [
+        "predicate_satisfied",
+        "predicate_satisfied",
+        "predicate_satisfied",
+        "predicate_satisfied",
+        "predicate_satisfied"
+      ],
+      "after_start_checkpoint_us": 1918386464106,
+      "checkpoint_is_after_actual_fixture_start_call": true,
+      "after_start_to_entry_us": 529228,
+      "entry_to_ready_us": 1048,
+      "config_read_us": 316,
+      "config_validate_us": 15,
+      "channels_bind_us": 268,
+      "channels_connect_us": 86,
+      "core_new_us": 19,
+      "core_qualify_us": 19,
+      "ready_to_parent_observation_us": 1488,
+      "child_marker_count": 17,
+      "child_marker_sequences_contiguous": true,
+      "last_child_stage": "worker_run_ok",
+      "first_sample_count": 762,
+      "last_sample_count": 882,
+      "first_maximum_gap_us": 41754,
+      "first_max_is_fixture_setup": true,
+      "first_retained_wait_sample_maximum_gap_us": 1617,
+      "all_recorded_maximum_gap_us": 41754,
+      "retained_samples_matching_global_maximum": [
+        {
+          "adapter_failure": null,
+          "at_us": 1918386462533,
+          "child_failure": null,
+          "connected": false,
+          "gap_us": 41754,
+          "ready": false,
+          "reaped": true,
+          "stage": "before_start"
+        }
+      ],
+      "first_final_state": {
+        "adapter_failure": null,
+        "at_us": 1918386997500,
+        "child_failure": null,
+        "connected": true,
+        "gap_us": 1617,
+        "ready": true,
+        "reaped": false,
+        "stage": "wait_complete"
+      },
+      "last_final_state": {
+        "adapter_failure": null,
+        "at_us": 1918387089685,
+        "child_failure": null,
+        "connected": true,
+        "gap_us": 12,
+        "ready": false,
+        "reaped": true,
+        "stage": "wait_complete"
+      }
+    },
+    {
+      "fixture_directory": "/private/tmp/lm709-prefix-aw1tbo9w/d/24519-1918387094736",
+      "test": "coordinator::motor::tests::same_owner_input_end_cancels_queued_gesture_before_inert_bus_write",
+      "test_raw_line": 230,
+      "mode": "gate_segment",
+      "records": [
+        "/private/tmp/lm709-prefix-aw1tbo9w/d/24519-1918387094736/wait-1.json",
+        "/private/tmp/lm709-prefix-aw1tbo9w/d/24519-1918387094736/wait-2.json",
+        "/private/tmp/lm709-prefix-aw1tbo9w/d/24519-1918387094736/wait-3.json",
+        "/private/tmp/lm709-prefix-aw1tbo9w/d/24519-1918387094736/wait-4.json"
+      ],
+      "record_count": 4,
+      "outcomes": [
+        "predicate_satisfied",
+        "predicate_satisfied",
+        "predicate_satisfied",
+        "predicate_satisfied"
+      ],
+      "after_start_checkpoint_us": 1918387137673,
+      "checkpoint_is_after_actual_fixture_start_call": true,
+      "after_start_to_entry_us": 514611,
+      "entry_to_ready_us": 3075,
+      "config_read_us": 320,
+      "config_validate_us": 15,
+      "channels_bind_us": 267,
+      "channels_connect_us": 69,
+      "core_new_us": 20,
+      "core_qualify_us": 17,
+      "ready_to_parent_observation_us": 1498,
+      "child_marker_count": 17,
+      "child_marker_sequences_contiguous": true,
+      "last_child_stage": "worker_run_ok",
+      "first_sample_count": 753,
+      "last_sample_count": 867,
+      "first_maximum_gap_us": 41934,
+      "first_max_is_fixture_setup": true,
+      "first_retained_wait_sample_maximum_gap_us": 1609,
+      "all_recorded_maximum_gap_us": 41934,
+      "retained_samples_matching_global_maximum": [
+        {
+          "adapter_failure": null,
+          "at_us": 1918387136670,
+          "child_failure": null,
+          "connected": false,
+          "gap_us": 41934,
+          "ready": false,
+          "reaped": true,
+          "stage": "before_start"
+        }
+      ],
+      "first_final_state": {
+        "adapter_failure": null,
+        "at_us": 1918387658478,
+        "child_failure": null,
+        "connected": true,
+        "gap_us": 1609,
+        "ready": true,
+        "reaped": false,
+        "stage": "wait_complete"
+      },
+      "last_final_state": {
+        "adapter_failure": "original motor owner/permit was revoked",
+        "at_us": 1918387748536,
+        "child_failure": null,
+        "connected": true,
+        "gap_us": 11,
+        "ready": false,
+        "reaped": true,
+        "stage": "wait_complete"
+      }
+    },
+    {
+      "fixture_directory": "/private/tmp/lm709-prefix-aw1tbo9w/d/24519-1918387753318",
+      "test": "coordinator::motor::tests::stale_snapshot_does_not_revoke_newer_idle_authority",
+      "test_raw_line": 235,
+      "mode": "normal",
+      "records": [
+        "/private/tmp/lm709-prefix-aw1tbo9w/d/24519-1918387753318/wait-1.json",
+        "/private/tmp/lm709-prefix-aw1tbo9w/d/24519-1918387753318/wait-2.json"
+      ],
+      "record_count": 2,
+      "outcomes": [
+        "predicate_satisfied",
+        "predicate_satisfied"
+      ],
+      "after_start_checkpoint_us": 1918387795813,
+      "checkpoint_is_after_actual_fixture_start_call": true,
+      "after_start_to_entry_us": 540872,
+      "entry_to_ready_us": 3164,
+      "config_read_us": 320,
+      "config_validate_us": 14,
+      "channels_bind_us": 273,
+      "channels_connect_us": 69,
+      "core_new_us": 19,
+      "core_qualify_us": 17,
+      "ready_to_parent_observation_us": 1197,
+      "child_marker_count": 17,
+      "child_marker_sequences_contiguous": true,
+      "last_child_stage": "worker_run_ok",
+      "first_sample_count": 797,
+      "last_sample_count": 806,
+      "first_maximum_gap_us": 40811,
+      "first_max_is_fixture_setup": true,
+      "first_retained_wait_sample_maximum_gap_us": 1620,
+      "all_recorded_maximum_gap_us": 40811,
+      "retained_samples_matching_global_maximum": [
+        {
+          "adapter_failure": null,
+          "at_us": 1918387794129,
+          "child_failure": null,
+          "connected": false,
+          "gap_us": 40811,
+          "ready": false,
+          "reaped": true,
+          "stage": "before_start"
+        }
+      ],
+      "first_final_state": {
+        "adapter_failure": null,
+        "at_us": 1918388342684,
+        "child_failure": null,
+        "connected": true,
+        "gap_us": 1620,
+        "ready": true,
+        "reaped": false,
+        "stage": "wait_complete"
+      },
+      "last_final_state": {
+        "adapter_failure": null,
+        "at_us": 1918388352219,
+        "child_failure": null,
+        "connected": true,
+        "gap_us": 1517,
+        "ready": false,
+        "reaped": true,
+        "stage": "wait_complete"
+      }
+    },
+    {
+      "fixture_directory": "/private/tmp/lm709-prefix-aw1tbo9w/d/24519-1918388357376",
+      "test": "coordinator::motor::tests::unresolved_cleanup_removes_the_service_mute_restart_token",
+      "test_raw_line": 238,
+      "mode": "hang",
+      "records": [
+        "/private/tmp/lm709-prefix-aw1tbo9w/d/24519-1918388357376/wait-1.json",
+        "/private/tmp/lm709-prefix-aw1tbo9w/d/24519-1918388357376/wait-2.json",
+        "/private/tmp/lm709-prefix-aw1tbo9w/d/24519-1918388357376/wait-3.json"
+      ],
+      "record_count": 3,
+      "outcomes": [
+        "predicate_satisfied",
+        "predicate_satisfied",
+        "predicate_satisfied"
+      ],
+      "after_start_checkpoint_us": 1918388400143,
+      "checkpoint_is_after_actual_fixture_start_call": true,
+      "after_start_to_entry_us": 513352,
+      "entry_to_ready_us": 4347,
+      "config_read_us": 344,
+      "config_validate_us": 14,
+      "channels_bind_us": 271,
+      "channels_connect_us": 69,
+      "core_new_us": 19,
+      "core_qualify_us": 19,
+      "ready_to_parent_observation_us": 135,
+      "child_marker_count": 16,
+      "child_marker_sequences_contiguous": true,
+      "last_child_stage": "hang_enter",
+      "first_sample_count": 763,
+      "last_sample_count": 800,
+      "first_maximum_gap_us": 41085,
+      "first_max_is_fixture_setup": true,
+      "first_retained_wait_sample_maximum_gap_us": 1577,
+      "all_recorded_maximum_gap_us": 41085,
+      "retained_samples_matching_global_maximum": [
+        {
+          "adapter_failure": null,
+          "at_us": 1918388398461,
+          "child_failure": null,
+          "connected": false,
+          "gap_us": 41085,
+          "ready": false,
+          "reaped": true,
+          "stage": "before_start"
+        }
+      ],
+      "first_final_state": {
+        "adapter_failure": null,
+        "at_us": 1918388919459,
+        "child_failure": null,
+        "connected": true,
+        "gap_us": 1464,
+        "ready": true,
+        "reaped": false,
+        "stage": "wait_complete"
+      },
+      "last_final_state": {
+        "adapter_failure": "motor inhibit acknowledgement timed out",
+        "at_us": 1918388954516,
+        "child_failure": "motor inhibit acknowledgement timed out",
+        "connected": true,
+        "gap_us": 17,
+        "ready": false,
+        "reaped": true,
+        "stage": "wait_complete"
+      }
+    }
+  ],
+  "limits": [
+    "Best-effort nonblocking child markers may be absent despite execution.",
+    "First 16 and last 256 parent samples per save are retained; the global gap maximum includes setup and work between waits.",
+    "Retained wait sample maxima are not complete-loop maxima.",
+    "The after_start checkpoint does not follow a start call for startup mode; that test may start later or never start.",
+    "Custom loops outside the instrumented wait helper are not continuously sampled or necessarily saved.",
+    "This run did not count live threads or descriptors and cannot measure the suspected task-helper residue.",
+    "The clean-7f instrumented binary lacks Task 31 changes and differs from failed full-suite binaries.",
+    "No lamp, provider, actual motor, camera hardware, or acoustic path was exercised."
+  ]
+}

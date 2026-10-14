@@ -1,0 +1,296 @@
+{
+  "purpose": "Focused validation after d8 integration; inherited complete host gate remains failed, not a passing full gate",
+  "machine": "Intel i7-10700K x86_64 Mac; macOS 26.6.2/Darwin 25.6.0; 64 GiB RAM; no lamp or live provider",
+  "extra_environment": {
+    "RUST_BACKTRACE": "1"
+  },
+  "source_manifest": "/private/tmp/lamp-third-schedule-voice-d8-source-frozen.json",
+  "source_sha256": "d14cdfb15ec1e03142fdc48e7e8de71ad30448895cbe891578a8ceaae38e8512",
+  "steps": [
+    {
+      "name": "format",
+      "command": [
+        "cargo",
+        "fmt",
+        "--all",
+        "--check"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 3.883625644,
+      "log": "/private/tmp/lamp-third-schedule-d8-focused-first-format.txt",
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "source_unchanged": true
+    },
+    {
+      "name": "clippy",
+      "command": [
+        "cargo",
+        "clippy",
+        "--offline",
+        "--locked",
+        "-p",
+        "lamp-actions",
+        "-p",
+        "lamp-schedule",
+        "-p",
+        "lamp-voice",
+        "-p",
+        "lamp-voice-eval",
+        "--all-targets",
+        "--",
+        "-D",
+        "warnings"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 51.395485418999996,
+      "log": "/private/tmp/lamp-third-schedule-d8-focused-first-clippy.txt",
+      "log_sha256": "6666ed573513bab12969678f5119918f40cacf9888dbcafd8f57bbca5a22c030",
+      "source_unchanged": true
+    },
+    {
+      "name": "actions-schedule",
+      "command": [
+        "cargo",
+        "test",
+        "--offline",
+        "--locked",
+        "-p",
+        "lamp-actions",
+        "-p",
+        "lamp-schedule",
+        "--",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 160.634666557,
+      "log": "/private/tmp/lamp-third-schedule-d8-focused-first-actions-schedule.txt",
+      "log_sha256": "5b2a027aa1e48a3b9927ed9517878fb4a2e141fb7a3b282e874d3107decd16ec",
+      "counts": {
+        "harnesses": 17,
+        "passed": 193,
+        "failed": 0,
+        "ignored": 0
+      },
+      "source_unchanged": true
+    },
+    {
+      "name": "reminder",
+      "command": [
+        "cargo",
+        "test",
+        "--offline",
+        "--locked",
+        "-p",
+        "lamp-voice",
+        "--lib",
+        "reminder",
+        "--",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 60.51728202699999,
+      "log": "/private/tmp/lamp-third-schedule-d8-focused-first-reminder.txt",
+      "log_sha256": "3ae7c9bdd939b36ac0f3c525da157b09b704f8d76df891825e658b9a2e05e176",
+      "counts": {
+        "harnesses": 1,
+        "passed": 70,
+        "failed": 0,
+        "ignored": 2
+      },
+      "source_unchanged": true
+    },
+    {
+      "name": "second-look",
+      "command": [
+        "cargo",
+        "test",
+        "--offline",
+        "--locked",
+        "-p",
+        "lamp-voice",
+        "--lib",
+        "second_look::",
+        "--",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 1.3462572079999973,
+      "log": "/private/tmp/lamp-third-schedule-d8-focused-first-second-look.txt",
+      "log_sha256": "cd7af3b5c4ec902adf2d03054808094d60ae56758ca551560db1bd24e36a73d0",
+      "counts": {
+        "harnesses": 1,
+        "passed": 8,
+        "failed": 0,
+        "ignored": 0
+      },
+      "source_unchanged": true
+    },
+    {
+      "name": "tools",
+      "command": [
+        "cargo",
+        "test",
+        "--offline",
+        "--locked",
+        "-p",
+        "lamp-voice",
+        "--lib",
+        "tools::",
+        "--",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 3.2905643969999687,
+      "log": "/private/tmp/lamp-third-schedule-d8-focused-first-tools.txt",
+      "log_sha256": "3ecafb88abe7efd2263020867d2d9fb089d0ced855d92bd8c1116d6d0592242a",
+      "counts": {
+        "harnesses": 1,
+        "passed": 18,
+        "failed": 0,
+        "ignored": 0
+      },
+      "source_unchanged": true
+    },
+    {
+      "name": "task-news",
+      "command": [
+        "cargo",
+        "test",
+        "--offline",
+        "--locked",
+        "-p",
+        "lamp-voice",
+        "--lib",
+        "task_news::tests",
+        "--",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 1.3542863460000376,
+      "log": "/private/tmp/lamp-third-schedule-d8-focused-first-task-news.txt",
+      "log_sha256": "9d1f437e471a91eb7ba90eaaebebb68f93316bd8cf4b47295e2ab7a11fa3f209",
+      "counts": {
+        "harnesses": 1,
+        "passed": 5,
+        "failed": 0,
+        "ignored": 0
+      },
+      "source_unchanged": true
+    },
+    {
+      "name": "agent-tasks",
+      "command": [
+        "cargo",
+        "test",
+        "--offline",
+        "--locked",
+        "-p",
+        "lamp-voice",
+        "--lib",
+        "agent_tasks::tests",
+        "--",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 1.3551728900000057,
+      "log": "/private/tmp/lamp-third-schedule-d8-focused-first-agent-tasks.txt",
+      "log_sha256": "3ef9b2e81add483c9a5696aee656b0e8f5c1e58cb1687b49e0918d395c86227f",
+      "counts": {
+        "harnesses": 1,
+        "passed": 5,
+        "failed": 0,
+        "ignored": 0
+      },
+      "source_unchanged": true
+    },
+    {
+      "name": "early-end",
+      "command": [
+        "cargo",
+        "test",
+        "--offline",
+        "--locked",
+        "-p",
+        "lamp-voice",
+        "--lib",
+        "coordinator::tests::early_end",
+        "--",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 63.14334876800001,
+      "log": "/private/tmp/lamp-third-schedule-d8-focused-first-early-end.txt",
+      "log_sha256": "0792a9954a7a9d3886adf6263c14a93da645dfccd5f5d0eb1a4c57d85089b621",
+      "counts": {
+        "harnesses": 1,
+        "passed": 11,
+        "failed": 0,
+        "ignored": 0
+      },
+      "source_unchanged": true
+    },
+    {
+      "name": "body",
+      "command": [
+        "cargo",
+        "test",
+        "--offline",
+        "--locked",
+        "-p",
+        "lamp-body",
+        "--",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 156.968959568,
+      "log": "/private/tmp/lamp-third-schedule-d8-focused-first-body.txt",
+      "log_sha256": "6f43e8eab836992541d734fafeba0389c1003b068b4be7465a6e0eb78bcae6ee",
+      "counts": {
+        "harnesses": 13,
+        "passed": 276,
+        "failed": 0,
+        "ignored": 0
+      },
+      "source_unchanged": true
+    },
+    {
+      "name": "voice-eval",
+      "command": [
+        "cargo",
+        "test",
+        "--offline",
+        "--locked",
+        "-p",
+        "lamp-voice-eval",
+        "--",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 900.3915164010001,
+      "log": "/private/tmp/lamp-third-schedule-d8-focused-first-voice-eval.txt",
+      "log_sha256": "bb27fb79b580c4e2fd26a1db8c2c47e389a75123c7041565f2d74ab00916411b",
+      "counts": {
+        "harnesses": 24,
+        "passed": 284,
+        "failed": 0,
+        "ignored": 0
+      },
+      "source_unchanged": true
+    },
+    {
+      "name": "workspace-build",
+      "command": [
+        "cargo",
+        "build",
+        "--offline",
+        "--locked",
+        "--workspace"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 72.98210070100004,
+      "log": "/private/tmp/lamp-third-schedule-d8-focused-first-workspace-build.txt",
+      "log_sha256": "e50ef31553166f949ca49c61beda1f09cb2b42d32eb6e534936960084bb56f12",
+      "source_unchanged": true
+    }
+  ]
+}

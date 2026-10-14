@@ -1,0 +1,134 @@
+ M lampOS/Cargo.lock
+ M lampOS/crates/actions/Cargo.toml
+ M lampOS/crates/actions/src/lib.rs
+ M lampOS/crates/actions/src/main.rs
+ M lampOS/crates/actions/src/server.rs
+ M lampOS/crates/schedule/src/lib.rs
+ M lampOS/crates/voice/Cargo.toml
+ M lampOS/crates/voice/src/admission.rs
+ M lampOS/crates/voice/src/coordinator.rs
+ M lampOS/crates/voice/src/coordinator/cloud.rs
+ M lampOS/crates/voice/src/coordinator/hand.rs
+ M lampOS/crates/voice/src/coordinator/notices.rs
+ M lampOS/crates/voice/src/coordinator/tests/endpoint_session.rs
+ M lampOS/crates/voice/src/coordinator/tests/hand_controls.rs
+ M lampOS/crates/voice/src/coordinator/tests/pilot_faults.rs
+ M lampOS/crates/voice/src/coordinator/tests/provider_terminal.rs
+ M lampOS/crates/voice/src/coordinator/tests/turn_taking.rs
+ M lampOS/crates/voice/src/fixture_provider.rs
+ M lampOS/crates/voice/src/lib.rs
+ M lampOS/crates/voice/src/main.rs
+ M lampOS/crates/voice/src/provider_worker.rs
+ M lampOS/crates/voice/src/provider_worker/tests/review_2026_10_14.rs
+ M lampOS/crates/voice/src/thread.rs
+ M lampOS/crates/voice/src/tools.rs
+ M lampOS/docs/actions.md
+ M lampOS/docs/reuse-decisions.md
+ M lampOS/docs/schedule.md
+ M lampOS/docs/tools.md
+?? lampOS/crates/actions/src/schedule.rs
+?? lampOS/crates/actions/tests/schedule.rs
+?? lampOS/crates/schedule/src/client.rs
+?? lampOS/crates/schedule/src/delivery.rs
+?? lampOS/crates/schedule/tests/client.rs
+?? lampOS/crates/schedule/tests/delivery_ledger.rs
+?? lampOS/crates/voice/src/coordinator/tests/reminder_roundtrip.rs
+?? lampOS/crates/voice/src/coordinator/tests/reminders.rs
+?? lampOS/crates/voice/src/provider_worker/reminder_policy.rs
+?? lampOS/crates/voice/src/provider_worker/tests/reminders.rs
+?? lampOS/crates/voice/src/reminders.rs
+?? lampOS/crates/voice/src/reminders/consumer.rs
+?? lampOS/crates/voice/src/reminders/consumer/roundtrip_tests.rs
+?? lampOS/crates/voice/src/reminders/consumer/tests.rs
+?? lampOS/crates/voice/src/reminders/scheduling.rs
+?? lampOS/crates/voice/src/reminders/tests.rs
+?? lampOS/crates/voice/src/reminders/transport.rs
+?? lampOS/crates/voice/src/tools/schedule_integration_tests.rs
+?? lampOS/docs/verification/schedule-voice-host-20261014/default-off-baseline-files.json
+?? lampOS/docs/verification/schedule-voice-host-20261014/default-off-baseline.json
+?? lampOS/docs/verification/schedule-voice-host-20261014/default-off-bytes/070db46db7c382032946d1c574b24085e5a45e3567905267544d08a0e823d698.json
+?? lampOS/docs/verification/schedule-voice-host-20261014/default-off-bytes/1ccc5e2fc72e869defabee27a994d57567c827190219d4f4942a139ccb3086a8.json
+?? lampOS/docs/verification/schedule-voice-host-20261014/default-off-bytes/7a2c314940ec89528081ae6607b8feeb5338284781d788f583593e92c16dfc40.json
+?? lampOS/docs/verification/schedule-voice-host-20261014/default-off-bytes/86e2d2bd148df7f1521f2123b59e4566d72948350d2a3cb2f7e3996c5872a2c3.json
+?? lampOS/docs/verification/schedule-voice-host-20261014/default-off-bytes/c957309f2c35027771e1a47b64a4743fd324cbc01be653578d76a0c7123e2daf.json
+?? lampOS/docs/verification/schedule-voice-host-20261014/default-off-probes.md
+?? lampOS/docs/verification/schedule-voice-host-20261014/earlier-3773c1fb/default-off-baseline-files.json
+?? lampOS/docs/verification/schedule-voice-host-20261014/earlier-3773c1fb/default-off-baseline.json
+?? lampOS/docs/verification/schedule-voice-host-20261014/earlier-3773c1fb/default-off-probes.md
+?? lampOS/docs/verification/schedule-voice-host-20261014/early-raw-files.json
+?? lampOS/docs/verification/schedule-voice-host-20261014/focused-results.json
+?? lampOS/docs/verification/schedule-voice-host-20261014/linux-scheduler-audit.md
+?? lampOS/docs/verification/schedule-voice-host-20261014/linux-scheduler-compile.json
+?? lampOS/docs/verification/schedule-voice-host-20261014/machine.json
+?? lampOS/docs/verification/schedule-voice-host-20261014/motor-failure-audit.md
+?? lampOS/docs/verification/schedule-voice-host-20261014/parent-poll.json
+?? lampOS/docs/verification/schedule-voice-host-20261014/raw/lamp-third-709-actions-clippy-first.txt
+?? lampOS/docs/verification/schedule-voice-host-20261014/raw/lamp-third-709-actions-first.txt
+?? lampOS/docs/verification/schedule-voice-host-20261014/raw/lamp-third-709-actions-fixture-second.txt
+?? lampOS/docs/verification/schedule-voice-host-20261014/raw/lamp-third-709-client-clippy-first.txt
+?? lampOS/docs/verification/schedule-voice-host-20261014/raw/lamp-third-709-client-first.txt
+?? lampOS/docs/verification/schedule-voice-host-20261014/raw/lamp-third-709-consumer-first.txt
+?? lampOS/docs/verification/schedule-voice-host-20261014/raw/lamp-third-709-roundtrip-clippy-first.txt
+?? lampOS/docs/verification/schedule-voice-host-20261014/raw/lamp-third-709-roundtrip-first.txt
+?? lampOS/docs/verification/schedule-voice-host-20261014/raw/lamp-third-709-roundtrip-format-first.txt
+?? lampOS/docs/verification/schedule-voice-host-20261014/raw/lamp-third-709-scoped-format-final.txt
+?? lampOS/docs/verification/schedule-voice-host-20261014/raw/lamp-third-709-voice-clippy-final.txt
+?? lampOS/docs/verification/schedule-voice-host-20261014/raw/lamp-third-schedule-child-scheduler-format.txt
+?? lampOS/docs/verification/schedule-voice-host-20261014/raw/lamp-third-schedule-consumer-transport-clippy-first.txt
+?? lampOS/docs/verification/schedule-voice-host-20261014/raw/lamp-third-schedule-consumer-transport-cost-first.txt
+?? lampOS/docs/verification/schedule-voice-host-20261014/raw/lamp-third-schedule-consumer-transport-first.txt
+?? lampOS/docs/verification/schedule-voice-host-20261014/raw/lamp-third-schedule-consumer-transport-format-check.txt
+?? lampOS/docs/verification/schedule-voice-host-20261014/raw/lamp-third-schedule-consumer-transport-second.txt
+?? lampOS/docs/verification/schedule-voice-host-20261014/raw/lamp-third-schedule-consumer-voice-check-first.txt
+?? lampOS/docs/verification/schedule-voice-host-20261014/raw/lamp-third-schedule-consumer-voice-lib-check-first.txt
+?? lampOS/docs/verification/schedule-voice-host-20261014/raw/lamp-third-schedule-d5d765862-baseline-build-first.txt
+?? lampOS/docs/verification/schedule-voice-host-20261014/raw/lamp-third-schedule-d5d765862-baseline-capture-first.txt
+?? lampOS/docs/verification/schedule-voice-host-20261014/raw/lamp-third-schedule-delivery-clippy-first.txt
+?? lampOS/docs/verification/schedule-voice-host-20261014/raw/lamp-third-schedule-delivery-first.txt
+?? lampOS/docs/verification/schedule-voice-host-20261014/raw/lamp-third-schedule-delivery-format-check.txt
+?? lampOS/docs/verification/schedule-voice-host-20261014/raw/lamp-third-schedule-delivery-second.txt
+?? lampOS/docs/verification/schedule-voice-host-20261014/raw/lamp-third-schedule-motor-exact-first.txt
+?? lampOS/docs/verification/schedule-voice-host-20261014/raw/lamp-third-schedule-motor-module-first.txt
+?? lampOS/docs/verification/schedule-voice-host-20261014/raw/lamp-third-schedule-motor-retry.json
+?? lampOS/docs/verification/schedule-voice-host-20261014/raw/lamp-third-schedule-parent-cost-first.txt
+?? lampOS/docs/verification/schedule-voice-host-20261014/raw/lamp-third-schedule-post-rebase-flags-first.txt
+?? lampOS/docs/verification/schedule-voice-host-20261014/raw/lamp-third-schedule-post-rebase-focused.json
+?? lampOS/docs/verification/schedule-voice-host-20261014/raw/lamp-third-schedule-post-rebase-reminders-first.txt
+?? lampOS/docs/verification/schedule-voice-host-20261014/raw/lamp-third-schedule-priority-arm-clippy-first.txt
+?? lampOS/docs/verification/schedule-voice-host-20261014/raw/lamp-third-schedule-priority-arm-compile-first.txt
+?? lampOS/docs/verification/schedule-voice-host-20261014/raw/lamp-third-schedule-priority-check-first.txt
+?? lampOS/docs/verification/schedule-voice-host-20261014/raw/lamp-third-schedule-priority-fetch-first.txt
+?? lampOS/docs/verification/schedule-voice-host-20261014/raw/lamp-third-schedule-rebased-baseline-build-first.txt
+?? lampOS/docs/verification/schedule-voice-host-20261014/raw/lamp-third-schedule-rebased-baseline-capture-first.txt
+?? lampOS/docs/verification/schedule-voice-host-20261014/raw/lamp-third-schedule-rebased-baseline-prepare-first.txt
+?? lampOS/docs/verification/schedule-voice-host-20261014/raw/lamp-third-schedule-rebased-baseline-prepare-second.txt
+?? lampOS/docs/verification/schedule-voice-host-20261014/raw/lamp-third-schedule-rebased-baseline.json
+?? lampOS/docs/verification/schedule-voice-host-20261014/raw/lamp-third-schedule-voice-final-gate-clippy.txt
+?? lampOS/docs/verification/schedule-voice-host-20261014/raw/lamp-third-schedule-voice-final-gate-format.txt
+?? lampOS/docs/verification/schedule-voice-host-20261014/raw/lamp-third-schedule-voice-final-gate-results.json
+?? lampOS/docs/verification/schedule-voice-host-20261014/raw/lamp-third-schedule-voice-final-gate-source.json
+?? lampOS/docs/verification/schedule-voice-host-20261014/raw/lamp-third-schedule-voice-final-gate-tests.txt
+?? lampOS/docs/verification/schedule-voice-host-20261014/raw/lamp-third-schedule-voice-fixture-first.txt
+?? lampOS/docs/verification/schedule-voice-host-20261014/raw/lamp-third-schedule-voice-fixture-second.txt
+?? lampOS/docs/verification/schedule-voice-host-20261014/raw/lamp-third-schedule-voice-gate-clippy.txt
+?? lampOS/docs/verification/schedule-voice-host-20261014/raw/lamp-third-schedule-voice-gate-first-results.json
+?? lampOS/docs/verification/schedule-voice-host-20261014/raw/lamp-third-schedule-voice-gate-first-tests.txt
+?? lampOS/docs/verification/schedule-voice-host-20261014/raw/lamp-third-schedule-voice-gate-format.txt
+?? lampOS/docs/verification/schedule-voice-host-20261014/raw/lamp-third-schedule-voice-machine.json
+?? lampOS/docs/verification/schedule-voice-host-20261014/raw/lamp-third-schedule-voice-provider-check.txt
+?? lampOS/docs/verification/schedule-voice-host-20261014/raw/lamp-third-schedule-voice-provider-check2.txt
+?? lampOS/docs/verification/schedule-voice-host-20261014/raw/lamp-third-schedule-voice-provider-clippy-first.txt
+?? lampOS/docs/verification/schedule-voice-host-20261014/raw/lamp-third-schedule-voice-reminder-path-first.txt
+?? lampOS/docs/verification/schedule-voice-host-20261014/raw/lamp-third-schedule-voice-reminder-path-second.txt
+?? lampOS/docs/verification/schedule-voice-host-20261014/raw/lamp-third-schedule-voice-reminder-tools-red.txt
+?? lampOS/docs/verification/schedule-voice-host-20261014/raw/lamp-third-schedule-voice-reminders-first.txt
+?? lampOS/docs/verification/schedule-voice-host-20261014/raw/lamp-third-schedule-voice-reminders-fourth.txt
+?? lampOS/docs/verification/schedule-voice-host-20261014/raw/lamp-third-schedule-voice-reminders-second.txt
+?? lampOS/docs/verification/schedule-voice-host-20261014/raw/lamp-third-schedule-voice-reminders-third.txt
+?? lampOS/docs/verification/schedule-voice-host-20261014/raw/lamp-third-schedule-voice-tools-first.txt
+?? lampOS/docs/verification/schedule-voice-host-20261014/rebase-d5.json
+?? lampOS/docs/verification/schedule-voice-host-20261014/scheduler-host-check.json
+?? lampOS/docs/verification/schedule-voice-host-20261014/source-d5-intermediate.json
+?? lampOS/docs/verification/schedule-voice-host-20261014/source-final.json
+?? lampOS/docs/verification/schedule-voice-host-20261014/source-first.json
+?? lampOS/docs/verification/schedule-voice-host-20261014/transport-poll.json

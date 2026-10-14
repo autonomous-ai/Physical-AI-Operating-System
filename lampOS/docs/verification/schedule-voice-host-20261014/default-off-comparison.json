@@ -1,0 +1,2470 @@
+{
+  "status": "passed",
+  "scope": "Exact default-off metadata stdout comparisons only; no audio, live provider, device or runtime latency claim.",
+  "baseline_commit": "7fbb03e1f2e61ad6dfaf184cd768bad6524c2d76",
+  "baseline_report": {
+    "original_file": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline.json",
+    "retained_file": "default-off-baseline.json",
+    "sha256": "6304d8fb2486646e7bd4320a048b01a4ad05a5220f8827f85e74a613c45e8926"
+  },
+  "final_report": {
+    "original_file": "/private/tmp/lamp-third-schedule-voice-7f-standalone.json",
+    "retained_file": "standalone-final.json",
+    "sha256": "5accebf0f8081168cce97f9aba081e2a11217a2a1a30fc796b39fd7621c3dd1f"
+  },
+  "source_identity": {
+    "base": "7fbb03e1f2e61ad6dfaf184cd768bad6524c2d76",
+    "frozen_map_retained_file": "source-7f-standalone.json",
+    "frozen_map_sha256": "0312a1dbbef6fd5a3374272454123dfc1b5d7eaf6633a98b948aa8ccf79a48d4",
+    "frozen_paths": 675,
+    "source_files": 1454,
+    "task_overlays": 46,
+    "local_manifests": 34,
+    "source_and_helpers_unchanged": true
+  },
+  "scratch_helpers": {
+    "crates/actions/examples/schedule_off_actions.rs": "8fc55e05703d1aa5ca58348132e3f4b0d7eed202e443f608f0d5af562c8f35e1",
+    "crates/voice/examples/schedule_off_voice.rs": "12d36f2d201b1117df21a55574855c8b44bcd2ec06f7b6fa980603e809b41695"
+  },
+  "machine": {
+    "system": "Darwin",
+    "release": "25.6.0",
+    "architecture": "x86_64",
+    "rustc": "rustc 1.96.0 (ac68faa20 2026-05-25)"
+  },
+  "case_count": 72,
+  "stdout_comparison_count": 144,
+  "distinct_stdout_payloads": 3,
+  "all_stdout_exactly_equal": true,
+  "all_stderr_empty": true,
+  "baseline_evidence_unchanged": true,
+  "invalid_relative_paths_not_created": true,
+  "final_files_mapping": "default-off-final-files.json",
+  "baseline_files_mapping": "default-off-baseline-files.json",
+  "cases": [
+    {
+      "index": 0,
+      "profile": "ordinary",
+      "schedule_tools": null,
+      "schedule_speak": null,
+      "actions_command": [
+        "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/lampOS/target/debug/examples/schedule_off_actions"
+      ],
+      "voice_command": [
+        "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/lampOS/target/debug/examples/schedule_off_voice",
+        "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/executive",
+        "ordinary"
+      ],
+      "environment": {
+        "LAMP_TOOLS": "on",
+        "LAMP_ACTIONS_DIR": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/executive",
+        "LAMP_MEMORY_SOCKET": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/absent-memory.sock",
+        "LAMP_CLOCK": "on",
+        "LAMP_SCHEDULE_SOCKET": "relative/invalid-schedule.sock",
+        "LAMP_SCHEDULE_DELIVERY_DIR": "relative/invalid-delivery"
+      },
+      "actions_file": "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/evidence/comparison/case-00-ordinary-actions.json",
+      "baseline_actions_file": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/evidence/ordinary-tools-absent-speak-absent-actions.json",
+      "actions_sha256": "86e2d2bd148df7f1521f2123b59e4566d72948350d2a3cb2f7e3996c5872a2c3",
+      "actions_equal": true,
+      "voice_file": "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/evidence/comparison/case-00-ordinary-voice.json",
+      "baseline_voice_file": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/evidence/ordinary-tools-absent-speak-absent-voice.json",
+      "voice_sha256": "5e1e530917c10b54da2a5e091b7b909aa8e9afbfe017f8a3b9081a4f9d7e7385",
+      "voice_equal": true,
+      "stderr_empty": true
+    },
+    {
+      "index": 1,
+      "profile": "ordinary",
+      "schedule_tools": null,
+      "schedule_speak": "off",
+      "actions_command": [
+        "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/lampOS/target/debug/examples/schedule_off_actions"
+      ],
+      "voice_command": [
+        "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/lampOS/target/debug/examples/schedule_off_voice",
+        "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/executive",
+        "ordinary"
+      ],
+      "environment": {
+        "LAMP_TOOLS": "on",
+        "LAMP_ACTIONS_DIR": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/executive",
+        "LAMP_MEMORY_SOCKET": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/absent-memory.sock",
+        "LAMP_CLOCK": "on",
+        "LAMP_SCHEDULE_SOCKET": "relative/invalid-schedule.sock",
+        "LAMP_SCHEDULE_DELIVERY_DIR": "relative/invalid-delivery",
+        "LAMP_SCHEDULE_SPEAK": "off"
+      },
+      "actions_file": "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/evidence/comparison/case-01-ordinary-actions.json",
+      "baseline_actions_file": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/evidence/ordinary-tools-absent-speak-off-actions.json",
+      "actions_sha256": "86e2d2bd148df7f1521f2123b59e4566d72948350d2a3cb2f7e3996c5872a2c3",
+      "actions_equal": true,
+      "voice_file": "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/evidence/comparison/case-01-ordinary-voice.json",
+      "baseline_voice_file": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/evidence/ordinary-tools-absent-speak-off-voice.json",
+      "voice_sha256": "5e1e530917c10b54da2a5e091b7b909aa8e9afbfe017f8a3b9081a4f9d7e7385",
+      "voice_equal": true,
+      "stderr_empty": true
+    },
+    {
+      "index": 2,
+      "profile": "ordinary",
+      "schedule_tools": null,
+      "schedule_speak": "ON",
+      "actions_command": [
+        "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/lampOS/target/debug/examples/schedule_off_actions"
+      ],
+      "voice_command": [
+        "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/lampOS/target/debug/examples/schedule_off_voice",
+        "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/executive",
+        "ordinary"
+      ],
+      "environment": {
+        "LAMP_TOOLS": "on",
+        "LAMP_ACTIONS_DIR": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/executive",
+        "LAMP_MEMORY_SOCKET": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/absent-memory.sock",
+        "LAMP_CLOCK": "on",
+        "LAMP_SCHEDULE_SOCKET": "relative/invalid-schedule.sock",
+        "LAMP_SCHEDULE_DELIVERY_DIR": "relative/invalid-delivery",
+        "LAMP_SCHEDULE_SPEAK": "ON"
+      },
+      "actions_file": "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/evidence/comparison/case-02-ordinary-actions.json",
+      "baseline_actions_file": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/evidence/ordinary-tools-absent-speak-upper-on-actions.json",
+      "actions_sha256": "86e2d2bd148df7f1521f2123b59e4566d72948350d2a3cb2f7e3996c5872a2c3",
+      "actions_equal": true,
+      "voice_file": "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/evidence/comparison/case-02-ordinary-voice.json",
+      "baseline_voice_file": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/evidence/ordinary-tools-absent-speak-upper-on-voice.json",
+      "voice_sha256": "5e1e530917c10b54da2a5e091b7b909aa8e9afbfe017f8a3b9081a4f9d7e7385",
+      "voice_equal": true,
+      "stderr_empty": true
+    },
+    {
+      "index": 3,
+      "profile": "ordinary",
+      "schedule_tools": null,
+      "schedule_speak": "true",
+      "actions_command": [
+        "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/lampOS/target/debug/examples/schedule_off_actions"
+      ],
+      "voice_command": [
+        "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/lampOS/target/debug/examples/schedule_off_voice",
+        "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/executive",
+        "ordinary"
+      ],
+      "environment": {
+        "LAMP_TOOLS": "on",
+        "LAMP_ACTIONS_DIR": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/executive",
+        "LAMP_MEMORY_SOCKET": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/absent-memory.sock",
+        "LAMP_CLOCK": "on",
+        "LAMP_SCHEDULE_SOCKET": "relative/invalid-schedule.sock",
+        "LAMP_SCHEDULE_DELIVERY_DIR": "relative/invalid-delivery",
+        "LAMP_SCHEDULE_SPEAK": "true"
+      },
+      "actions_file": "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/evidence/comparison/case-03-ordinary-actions.json",
+      "baseline_actions_file": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/evidence/ordinary-tools-absent-speak-true-actions.json",
+      "actions_sha256": "86e2d2bd148df7f1521f2123b59e4566d72948350d2a3cb2f7e3996c5872a2c3",
+      "actions_equal": true,
+      "voice_file": "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/evidence/comparison/case-03-ordinary-voice.json",
+      "baseline_voice_file": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/evidence/ordinary-tools-absent-speak-true-voice.json",
+      "voice_sha256": "5e1e530917c10b54da2a5e091b7b909aa8e9afbfe017f8a3b9081a4f9d7e7385",
+      "voice_equal": true,
+      "stderr_empty": true
+    },
+    {
+      "index": 4,
+      "profile": "ordinary",
+      "schedule_tools": null,
+      "schedule_speak": "1",
+      "actions_command": [
+        "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/lampOS/target/debug/examples/schedule_off_actions"
+      ],
+      "voice_command": [
+        "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/lampOS/target/debug/examples/schedule_off_voice",
+        "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/executive",
+        "ordinary"
+      ],
+      "environment": {
+        "LAMP_TOOLS": "on",
+        "LAMP_ACTIONS_DIR": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/executive",
+        "LAMP_MEMORY_SOCKET": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/absent-memory.sock",
+        "LAMP_CLOCK": "on",
+        "LAMP_SCHEDULE_SOCKET": "relative/invalid-schedule.sock",
+        "LAMP_SCHEDULE_DELIVERY_DIR": "relative/invalid-delivery",
+        "LAMP_SCHEDULE_SPEAK": "1"
+      },
+      "actions_file": "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/evidence/comparison/case-04-ordinary-actions.json",
+      "baseline_actions_file": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/evidence/ordinary-tools-absent-speak-one-actions.json",
+      "actions_sha256": "86e2d2bd148df7f1521f2123b59e4566d72948350d2a3cb2f7e3996c5872a2c3",
+      "actions_equal": true,
+      "voice_file": "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/evidence/comparison/case-04-ordinary-voice.json",
+      "baseline_voice_file": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/evidence/ordinary-tools-absent-speak-one-voice.json",
+      "voice_sha256": "5e1e530917c10b54da2a5e091b7b909aa8e9afbfe017f8a3b9081a4f9d7e7385",
+      "voice_equal": true,
+      "stderr_empty": true
+    },
+    {
+      "index": 5,
+      "profile": "ordinary",
+      "schedule_tools": null,
+      "schedule_speak": " on ",
+      "actions_command": [
+        "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/lampOS/target/debug/examples/schedule_off_actions"
+      ],
+      "voice_command": [
+        "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/lampOS/target/debug/examples/schedule_off_voice",
+        "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/executive",
+        "ordinary"
+      ],
+      "environment": {
+        "LAMP_TOOLS": "on",
+        "LAMP_ACTIONS_DIR": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/executive",
+        "LAMP_MEMORY_SOCKET": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/absent-memory.sock",
+        "LAMP_CLOCK": "on",
+        "LAMP_SCHEDULE_SOCKET": "relative/invalid-schedule.sock",
+        "LAMP_SCHEDULE_DELIVERY_DIR": "relative/invalid-delivery",
+        "LAMP_SCHEDULE_SPEAK": " on "
+      },
+      "actions_file": "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/evidence/comparison/case-05-ordinary-actions.json",
+      "baseline_actions_file": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/evidence/ordinary-tools-absent-speak-spaced-on-actions.json",
+      "actions_sha256": "86e2d2bd148df7f1521f2123b59e4566d72948350d2a3cb2f7e3996c5872a2c3",
+      "actions_equal": true,
+      "voice_file": "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/evidence/comparison/case-05-ordinary-voice.json",
+      "baseline_voice_file": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/evidence/ordinary-tools-absent-speak-spaced-on-voice.json",
+      "voice_sha256": "5e1e530917c10b54da2a5e091b7b909aa8e9afbfe017f8a3b9081a4f9d7e7385",
+      "voice_equal": true,
+      "stderr_empty": true
+    },
+    {
+      "index": 6,
+      "profile": "ordinary",
+      "schedule_tools": "off",
+      "schedule_speak": null,
+      "actions_command": [
+        "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/lampOS/target/debug/examples/schedule_off_actions"
+      ],
+      "voice_command": [
+        "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/lampOS/target/debug/examples/schedule_off_voice",
+        "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/executive",
+        "ordinary"
+      ],
+      "environment": {
+        "LAMP_TOOLS": "on",
+        "LAMP_ACTIONS_DIR": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/executive",
+        "LAMP_MEMORY_SOCKET": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/absent-memory.sock",
+        "LAMP_CLOCK": "on",
+        "LAMP_SCHEDULE_SOCKET": "relative/invalid-schedule.sock",
+        "LAMP_SCHEDULE_DELIVERY_DIR": "relative/invalid-delivery",
+        "LAMP_SCHEDULE_TOOLS": "off"
+      },
+      "actions_file": "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/evidence/comparison/case-06-ordinary-actions.json",
+      "baseline_actions_file": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/evidence/ordinary-tools-off-speak-absent-actions.json",
+      "actions_sha256": "86e2d2bd148df7f1521f2123b59e4566d72948350d2a3cb2f7e3996c5872a2c3",
+      "actions_equal": true,
+      "voice_file": "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/evidence/comparison/case-06-ordinary-voice.json",
+      "baseline_voice_file": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/evidence/ordinary-tools-off-speak-absent-voice.json",
+      "voice_sha256": "5e1e530917c10b54da2a5e091b7b909aa8e9afbfe017f8a3b9081a4f9d7e7385",
+      "voice_equal": true,
+      "stderr_empty": true
+    },
+    {
+      "index": 7,
+      "profile": "ordinary",
+      "schedule_tools": "off",
+      "schedule_speak": "off",
+      "actions_command": [
+        "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/lampOS/target/debug/examples/schedule_off_actions"
+      ],
+      "voice_command": [
+        "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/lampOS/target/debug/examples/schedule_off_voice",
+        "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/executive",
+        "ordinary"
+      ],
+      "environment": {
+        "LAMP_TOOLS": "on",
+        "LAMP_ACTIONS_DIR": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/executive",
+        "LAMP_MEMORY_SOCKET": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/absent-memory.sock",
+        "LAMP_CLOCK": "on",
+        "LAMP_SCHEDULE_SOCKET": "relative/invalid-schedule.sock",
+        "LAMP_SCHEDULE_DELIVERY_DIR": "relative/invalid-delivery",
+        "LAMP_SCHEDULE_TOOLS": "off",
+        "LAMP_SCHEDULE_SPEAK": "off"
+      },
+      "actions_file": "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/evidence/comparison/case-07-ordinary-actions.json",
+      "baseline_actions_file": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/evidence/ordinary-tools-off-speak-off-actions.json",
+      "actions_sha256": "86e2d2bd148df7f1521f2123b59e4566d72948350d2a3cb2f7e3996c5872a2c3",
+      "actions_equal": true,
+      "voice_file": "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/evidence/comparison/case-07-ordinary-voice.json",
+      "baseline_voice_file": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/evidence/ordinary-tools-off-speak-off-voice.json",
+      "voice_sha256": "5e1e530917c10b54da2a5e091b7b909aa8e9afbfe017f8a3b9081a4f9d7e7385",
+      "voice_equal": true,
+      "stderr_empty": true
+    },
+    {
+      "index": 8,
+      "profile": "ordinary",
+      "schedule_tools": "off",
+      "schedule_speak": "ON",
+      "actions_command": [
+        "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/lampOS/target/debug/examples/schedule_off_actions"
+      ],
+      "voice_command": [
+        "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/lampOS/target/debug/examples/schedule_off_voice",
+        "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/executive",
+        "ordinary"
+      ],
+      "environment": {
+        "LAMP_TOOLS": "on",
+        "LAMP_ACTIONS_DIR": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/executive",
+        "LAMP_MEMORY_SOCKET": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/absent-memory.sock",
+        "LAMP_CLOCK": "on",
+        "LAMP_SCHEDULE_SOCKET": "relative/invalid-schedule.sock",
+        "LAMP_SCHEDULE_DELIVERY_DIR": "relative/invalid-delivery",
+        "LAMP_SCHEDULE_TOOLS": "off",
+        "LAMP_SCHEDULE_SPEAK": "ON"
+      },
+      "actions_file": "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/evidence/comparison/case-08-ordinary-actions.json",
+      "baseline_actions_file": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/evidence/ordinary-tools-off-speak-upper-on-actions.json",
+      "actions_sha256": "86e2d2bd148df7f1521f2123b59e4566d72948350d2a3cb2f7e3996c5872a2c3",
+      "actions_equal": true,
+      "voice_file": "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/evidence/comparison/case-08-ordinary-voice.json",
+      "baseline_voice_file": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/evidence/ordinary-tools-off-speak-upper-on-voice.json",
+      "voice_sha256": "5e1e530917c10b54da2a5e091b7b909aa8e9afbfe017f8a3b9081a4f9d7e7385",
+      "voice_equal": true,
+      "stderr_empty": true
+    },
+    {
+      "index": 9,
+      "profile": "ordinary",
+      "schedule_tools": "off",
+      "schedule_speak": "true",
+      "actions_command": [
+        "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/lampOS/target/debug/examples/schedule_off_actions"
+      ],
+      "voice_command": [
+        "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/lampOS/target/debug/examples/schedule_off_voice",
+        "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/executive",
+        "ordinary"
+      ],
+      "environment": {
+        "LAMP_TOOLS": "on",
+        "LAMP_ACTIONS_DIR": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/executive",
+        "LAMP_MEMORY_SOCKET": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/absent-memory.sock",
+        "LAMP_CLOCK": "on",
+        "LAMP_SCHEDULE_SOCKET": "relative/invalid-schedule.sock",
+        "LAMP_SCHEDULE_DELIVERY_DIR": "relative/invalid-delivery",
+        "LAMP_SCHEDULE_TOOLS": "off",
+        "LAMP_SCHEDULE_SPEAK": "true"
+      },
+      "actions_file": "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/evidence/comparison/case-09-ordinary-actions.json",
+      "baseline_actions_file": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/evidence/ordinary-tools-off-speak-true-actions.json",
+      "actions_sha256": "86e2d2bd148df7f1521f2123b59e4566d72948350d2a3cb2f7e3996c5872a2c3",
+      "actions_equal": true,
+      "voice_file": "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/evidence/comparison/case-09-ordinary-voice.json",
+      "baseline_voice_file": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/evidence/ordinary-tools-off-speak-true-voice.json",
+      "voice_sha256": "5e1e530917c10b54da2a5e091b7b909aa8e9afbfe017f8a3b9081a4f9d7e7385",
+      "voice_equal": true,
+      "stderr_empty": true
+    },
+    {
+      "index": 10,
+      "profile": "ordinary",
+      "schedule_tools": "off",
+      "schedule_speak": "1",
+      "actions_command": [
+        "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/lampOS/target/debug/examples/schedule_off_actions"
+      ],
+      "voice_command": [
+        "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/lampOS/target/debug/examples/schedule_off_voice",
+        "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/executive",
+        "ordinary"
+      ],
+      "environment": {
+        "LAMP_TOOLS": "on",
+        "LAMP_ACTIONS_DIR": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/executive",
+        "LAMP_MEMORY_SOCKET": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/absent-memory.sock",
+        "LAMP_CLOCK": "on",
+        "LAMP_SCHEDULE_SOCKET": "relative/invalid-schedule.sock",
+        "LAMP_SCHEDULE_DELIVERY_DIR": "relative/invalid-delivery",
+        "LAMP_SCHEDULE_TOOLS": "off",
+        "LAMP_SCHEDULE_SPEAK": "1"
+      },
+      "actions_file": "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/evidence/comparison/case-10-ordinary-actions.json",
+      "baseline_actions_file": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/evidence/ordinary-tools-off-speak-one-actions.json",
+      "actions_sha256": "86e2d2bd148df7f1521f2123b59e4566d72948350d2a3cb2f7e3996c5872a2c3",
+      "actions_equal": true,
+      "voice_file": "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/evidence/comparison/case-10-ordinary-voice.json",
+      "baseline_voice_file": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/evidence/ordinary-tools-off-speak-one-voice.json",
+      "voice_sha256": "5e1e530917c10b54da2a5e091b7b909aa8e9afbfe017f8a3b9081a4f9d7e7385",
+      "voice_equal": true,
+      "stderr_empty": true
+    },
+    {
+      "index": 11,
+      "profile": "ordinary",
+      "schedule_tools": "off",
+      "schedule_speak": " on ",
+      "actions_command": [
+        "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/lampOS/target/debug/examples/schedule_off_actions"
+      ],
+      "voice_command": [
+        "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/lampOS/target/debug/examples/schedule_off_voice",
+        "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/executive",
+        "ordinary"
+      ],
+      "environment": {
+        "LAMP_TOOLS": "on",
+        "LAMP_ACTIONS_DIR": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/executive",
+        "LAMP_MEMORY_SOCKET": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/absent-memory.sock",
+        "LAMP_CLOCK": "on",
+        "LAMP_SCHEDULE_SOCKET": "relative/invalid-schedule.sock",
+        "LAMP_SCHEDULE_DELIVERY_DIR": "relative/invalid-delivery",
+        "LAMP_SCHEDULE_TOOLS": "off",
+        "LAMP_SCHEDULE_SPEAK": " on "
+      },
+      "actions_file": "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/evidence/comparison/case-11-ordinary-actions.json",
+      "baseline_actions_file": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/evidence/ordinary-tools-off-speak-spaced-on-actions.json",
+      "actions_sha256": "86e2d2bd148df7f1521f2123b59e4566d72948350d2a3cb2f7e3996c5872a2c3",
+      "actions_equal": true,
+      "voice_file": "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/evidence/comparison/case-11-ordinary-voice.json",
+      "baseline_voice_file": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/evidence/ordinary-tools-off-speak-spaced-on-voice.json",
+      "voice_sha256": "5e1e530917c10b54da2a5e091b7b909aa8e9afbfe017f8a3b9081a4f9d7e7385",
+      "voice_equal": true,
+      "stderr_empty": true
+    },
+    {
+      "index": 12,
+      "profile": "ordinary",
+      "schedule_tools": "ON",
+      "schedule_speak": null,
+      "actions_command": [
+        "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/lampOS/target/debug/examples/schedule_off_actions"
+      ],
+      "voice_command": [
+        "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/lampOS/target/debug/examples/schedule_off_voice",
+        "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/executive",
+        "ordinary"
+      ],
+      "environment": {
+        "LAMP_TOOLS": "on",
+        "LAMP_ACTIONS_DIR": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/executive",
+        "LAMP_MEMORY_SOCKET": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/absent-memory.sock",
+        "LAMP_CLOCK": "on",
+        "LAMP_SCHEDULE_SOCKET": "relative/invalid-schedule.sock",
+        "LAMP_SCHEDULE_DELIVERY_DIR": "relative/invalid-delivery",
+        "LAMP_SCHEDULE_TOOLS": "ON"
+      },
+      "actions_file": "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/evidence/comparison/case-12-ordinary-actions.json",
+      "baseline_actions_file": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/evidence/ordinary-tools-upper-on-speak-absent-actions.json",
+      "actions_sha256": "86e2d2bd148df7f1521f2123b59e4566d72948350d2a3cb2f7e3996c5872a2c3",
+      "actions_equal": true,
+      "voice_file": "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/evidence/comparison/case-12-ordinary-voice.json",
+      "baseline_voice_file": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/evidence/ordinary-tools-upper-on-speak-absent-voice.json",
+      "voice_sha256": "5e1e530917c10b54da2a5e091b7b909aa8e9afbfe017f8a3b9081a4f9d7e7385",
+      "voice_equal": true,
+      "stderr_empty": true
+    },
+    {
+      "index": 13,
+      "profile": "ordinary",
+      "schedule_tools": "ON",
+      "schedule_speak": "off",
+      "actions_command": [
+        "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/lampOS/target/debug/examples/schedule_off_actions"
+      ],
+      "voice_command": [
+        "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/lampOS/target/debug/examples/schedule_off_voice",
+        "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/executive",
+        "ordinary"
+      ],
+      "environment": {
+        "LAMP_TOOLS": "on",
+        "LAMP_ACTIONS_DIR": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/executive",
+        "LAMP_MEMORY_SOCKET": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/absent-memory.sock",
+        "LAMP_CLOCK": "on",
+        "LAMP_SCHEDULE_SOCKET": "relative/invalid-schedule.sock",
+        "LAMP_SCHEDULE_DELIVERY_DIR": "relative/invalid-delivery",
+        "LAMP_SCHEDULE_TOOLS": "ON",
+        "LAMP_SCHEDULE_SPEAK": "off"
+      },
+      "actions_file": "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/evidence/comparison/case-13-ordinary-actions.json",
+      "baseline_actions_file": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/evidence/ordinary-tools-upper-on-speak-off-actions.json",
+      "actions_sha256": "86e2d2bd148df7f1521f2123b59e4566d72948350d2a3cb2f7e3996c5872a2c3",
+      "actions_equal": true,
+      "voice_file": "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/evidence/comparison/case-13-ordinary-voice.json",
+      "baseline_voice_file": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/evidence/ordinary-tools-upper-on-speak-off-voice.json",
+      "voice_sha256": "5e1e530917c10b54da2a5e091b7b909aa8e9afbfe017f8a3b9081a4f9d7e7385",
+      "voice_equal": true,
+      "stderr_empty": true
+    },
+    {
+      "index": 14,
+      "profile": "ordinary",
+      "schedule_tools": "ON",
+      "schedule_speak": "ON",
+      "actions_command": [
+        "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/lampOS/target/debug/examples/schedule_off_actions"
+      ],
+      "voice_command": [
+        "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/lampOS/target/debug/examples/schedule_off_voice",
+        "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/executive",
+        "ordinary"
+      ],
+      "environment": {
+        "LAMP_TOOLS": "on",
+        "LAMP_ACTIONS_DIR": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/executive",
+        "LAMP_MEMORY_SOCKET": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/absent-memory.sock",
+        "LAMP_CLOCK": "on",
+        "LAMP_SCHEDULE_SOCKET": "relative/invalid-schedule.sock",
+        "LAMP_SCHEDULE_DELIVERY_DIR": "relative/invalid-delivery",
+        "LAMP_SCHEDULE_TOOLS": "ON",
+        "LAMP_SCHEDULE_SPEAK": "ON"
+      },
+      "actions_file": "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/evidence/comparison/case-14-ordinary-actions.json",
+      "baseline_actions_file": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/evidence/ordinary-tools-upper-on-speak-upper-on-actions.json",
+      "actions_sha256": "86e2d2bd148df7f1521f2123b59e4566d72948350d2a3cb2f7e3996c5872a2c3",
+      "actions_equal": true,
+      "voice_file": "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/evidence/comparison/case-14-ordinary-voice.json",
+      "baseline_voice_file": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/evidence/ordinary-tools-upper-on-speak-upper-on-voice.json",
+      "voice_sha256": "5e1e530917c10b54da2a5e091b7b909aa8e9afbfe017f8a3b9081a4f9d7e7385",
+      "voice_equal": true,
+      "stderr_empty": true
+    },
+    {
+      "index": 15,
+      "profile": "ordinary",
+      "schedule_tools": "ON",
+      "schedule_speak": "true",
+      "actions_command": [
+        "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/lampOS/target/debug/examples/schedule_off_actions"
+      ],
+      "voice_command": [
+        "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/lampOS/target/debug/examples/schedule_off_voice",
+        "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/executive",
+        "ordinary"
+      ],
+      "environment": {
+        "LAMP_TOOLS": "on",
+        "LAMP_ACTIONS_DIR": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/executive",
+        "LAMP_MEMORY_SOCKET": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/absent-memory.sock",
+        "LAMP_CLOCK": "on",
+        "LAMP_SCHEDULE_SOCKET": "relative/invalid-schedule.sock",
+        "LAMP_SCHEDULE_DELIVERY_DIR": "relative/invalid-delivery",
+        "LAMP_SCHEDULE_TOOLS": "ON",
+        "LAMP_SCHEDULE_SPEAK": "true"
+      },
+      "actions_file": "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/evidence/comparison/case-15-ordinary-actions.json",
+      "baseline_actions_file": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/evidence/ordinary-tools-upper-on-speak-true-actions.json",
+      "actions_sha256": "86e2d2bd148df7f1521f2123b59e4566d72948350d2a3cb2f7e3996c5872a2c3",
+      "actions_equal": true,
+      "voice_file": "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/evidence/comparison/case-15-ordinary-voice.json",
+      "baseline_voice_file": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/evidence/ordinary-tools-upper-on-speak-true-voice.json",
+      "voice_sha256": "5e1e530917c10b54da2a5e091b7b909aa8e9afbfe017f8a3b9081a4f9d7e7385",
+      "voice_equal": true,
+      "stderr_empty": true
+    },
+    {
+      "index": 16,
+      "profile": "ordinary",
+      "schedule_tools": "ON",
+      "schedule_speak": "1",
+      "actions_command": [
+        "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/lampOS/target/debug/examples/schedule_off_actions"
+      ],
+      "voice_command": [
+        "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/lampOS/target/debug/examples/schedule_off_voice",
+        "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/executive",
+        "ordinary"
+      ],
+      "environment": {
+        "LAMP_TOOLS": "on",
+        "LAMP_ACTIONS_DIR": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/executive",
+        "LAMP_MEMORY_SOCKET": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/absent-memory.sock",
+        "LAMP_CLOCK": "on",
+        "LAMP_SCHEDULE_SOCKET": "relative/invalid-schedule.sock",
+        "LAMP_SCHEDULE_DELIVERY_DIR": "relative/invalid-delivery",
+        "LAMP_SCHEDULE_TOOLS": "ON",
+        "LAMP_SCHEDULE_SPEAK": "1"
+      },
+      "actions_file": "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/evidence/comparison/case-16-ordinary-actions.json",
+      "baseline_actions_file": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/evidence/ordinary-tools-upper-on-speak-one-actions.json",
+      "actions_sha256": "86e2d2bd148df7f1521f2123b59e4566d72948350d2a3cb2f7e3996c5872a2c3",
+      "actions_equal": true,
+      "voice_file": "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/evidence/comparison/case-16-ordinary-voice.json",
+      "baseline_voice_file": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/evidence/ordinary-tools-upper-on-speak-one-voice.json",
+      "voice_sha256": "5e1e530917c10b54da2a5e091b7b909aa8e9afbfe017f8a3b9081a4f9d7e7385",
+      "voice_equal": true,
+      "stderr_empty": true
+    },
+    {
+      "index": 17,
+      "profile": "ordinary",
+      "schedule_tools": "ON",
+      "schedule_speak": " on ",
+      "actions_command": [
+        "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/lampOS/target/debug/examples/schedule_off_actions"
+      ],
+      "voice_command": [
+        "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/lampOS/target/debug/examples/schedule_off_voice",
+        "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/executive",
+        "ordinary"
+      ],
+      "environment": {
+        "LAMP_TOOLS": "on",
+        "LAMP_ACTIONS_DIR": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/executive",
+        "LAMP_MEMORY_SOCKET": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/absent-memory.sock",
+        "LAMP_CLOCK": "on",
+        "LAMP_SCHEDULE_SOCKET": "relative/invalid-schedule.sock",
+        "LAMP_SCHEDULE_DELIVERY_DIR": "relative/invalid-delivery",
+        "LAMP_SCHEDULE_TOOLS": "ON",
+        "LAMP_SCHEDULE_SPEAK": " on "
+      },
+      "actions_file": "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/evidence/comparison/case-17-ordinary-actions.json",
+      "baseline_actions_file": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/evidence/ordinary-tools-upper-on-speak-spaced-on-actions.json",
+      "actions_sha256": "86e2d2bd148df7f1521f2123b59e4566d72948350d2a3cb2f7e3996c5872a2c3",
+      "actions_equal": true,
+      "voice_file": "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/evidence/comparison/case-17-ordinary-voice.json",
+      "baseline_voice_file": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/evidence/ordinary-tools-upper-on-speak-spaced-on-voice.json",
+      "voice_sha256": "5e1e530917c10b54da2a5e091b7b909aa8e9afbfe017f8a3b9081a4f9d7e7385",
+      "voice_equal": true,
+      "stderr_empty": true
+    },
+    {
+      "index": 18,
+      "profile": "ordinary",
+      "schedule_tools": "true",
+      "schedule_speak": null,
+      "actions_command": [
+        "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/lampOS/target/debug/examples/schedule_off_actions"
+      ],
+      "voice_command": [
+        "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/lampOS/target/debug/examples/schedule_off_voice",
+        "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/executive",
+        "ordinary"
+      ],
+      "environment": {
+        "LAMP_TOOLS": "on",
+        "LAMP_ACTIONS_DIR": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/executive",
+        "LAMP_MEMORY_SOCKET": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/absent-memory.sock",
+        "LAMP_CLOCK": "on",
+        "LAMP_SCHEDULE_SOCKET": "relative/invalid-schedule.sock",
+        "LAMP_SCHEDULE_DELIVERY_DIR": "relative/invalid-delivery",
+        "LAMP_SCHEDULE_TOOLS": "true"
+      },
+      "actions_file": "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/evidence/comparison/case-18-ordinary-actions.json",
+      "baseline_actions_file": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/evidence/ordinary-tools-true-speak-absent-actions.json",
+      "actions_sha256": "86e2d2bd148df7f1521f2123b59e4566d72948350d2a3cb2f7e3996c5872a2c3",
+      "actions_equal": true,
+      "voice_file": "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/evidence/comparison/case-18-ordinary-voice.json",
+      "baseline_voice_file": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/evidence/ordinary-tools-true-speak-absent-voice.json",
+      "voice_sha256": "5e1e530917c10b54da2a5e091b7b909aa8e9afbfe017f8a3b9081a4f9d7e7385",
+      "voice_equal": true,
+      "stderr_empty": true
+    },
+    {
+      "index": 19,
+      "profile": "ordinary",
+      "schedule_tools": "true",
+      "schedule_speak": "off",
+      "actions_command": [
+        "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/lampOS/target/debug/examples/schedule_off_actions"
+      ],
+      "voice_command": [
+        "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/lampOS/target/debug/examples/schedule_off_voice",
+        "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/executive",
+        "ordinary"
+      ],
+      "environment": {
+        "LAMP_TOOLS": "on",
+        "LAMP_ACTIONS_DIR": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/executive",
+        "LAMP_MEMORY_SOCKET": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/absent-memory.sock",
+        "LAMP_CLOCK": "on",
+        "LAMP_SCHEDULE_SOCKET": "relative/invalid-schedule.sock",
+        "LAMP_SCHEDULE_DELIVERY_DIR": "relative/invalid-delivery",
+        "LAMP_SCHEDULE_TOOLS": "true",
+        "LAMP_SCHEDULE_SPEAK": "off"
+      },
+      "actions_file": "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/evidence/comparison/case-19-ordinary-actions.json",
+      "baseline_actions_file": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/evidence/ordinary-tools-true-speak-off-actions.json",
+      "actions_sha256": "86e2d2bd148df7f1521f2123b59e4566d72948350d2a3cb2f7e3996c5872a2c3",
+      "actions_equal": true,
+      "voice_file": "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/evidence/comparison/case-19-ordinary-voice.json",
+      "baseline_voice_file": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/evidence/ordinary-tools-true-speak-off-voice.json",
+      "voice_sha256": "5e1e530917c10b54da2a5e091b7b909aa8e9afbfe017f8a3b9081a4f9d7e7385",
+      "voice_equal": true,
+      "stderr_empty": true
+    },
+    {
+      "index": 20,
+      "profile": "ordinary",
+      "schedule_tools": "true",
+      "schedule_speak": "ON",
+      "actions_command": [
+        "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/lampOS/target/debug/examples/schedule_off_actions"
+      ],
+      "voice_command": [
+        "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/lampOS/target/debug/examples/schedule_off_voice",
+        "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/executive",
+        "ordinary"
+      ],
+      "environment": {
+        "LAMP_TOOLS": "on",
+        "LAMP_ACTIONS_DIR": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/executive",
+        "LAMP_MEMORY_SOCKET": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/absent-memory.sock",
+        "LAMP_CLOCK": "on",
+        "LAMP_SCHEDULE_SOCKET": "relative/invalid-schedule.sock",
+        "LAMP_SCHEDULE_DELIVERY_DIR": "relative/invalid-delivery",
+        "LAMP_SCHEDULE_TOOLS": "true",
+        "LAMP_SCHEDULE_SPEAK": "ON"
+      },
+      "actions_file": "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/evidence/comparison/case-20-ordinary-actions.json",
+      "baseline_actions_file": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/evidence/ordinary-tools-true-speak-upper-on-actions.json",
+      "actions_sha256": "86e2d2bd148df7f1521f2123b59e4566d72948350d2a3cb2f7e3996c5872a2c3",
+      "actions_equal": true,
+      "voice_file": "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/evidence/comparison/case-20-ordinary-voice.json",
+      "baseline_voice_file": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/evidence/ordinary-tools-true-speak-upper-on-voice.json",
+      "voice_sha256": "5e1e530917c10b54da2a5e091b7b909aa8e9afbfe017f8a3b9081a4f9d7e7385",
+      "voice_equal": true,
+      "stderr_empty": true
+    },
+    {
+      "index": 21,
+      "profile": "ordinary",
+      "schedule_tools": "true",
+      "schedule_speak": "true",
+      "actions_command": [
+        "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/lampOS/target/debug/examples/schedule_off_actions"
+      ],
+      "voice_command": [
+        "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/lampOS/target/debug/examples/schedule_off_voice",
+        "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/executive",
+        "ordinary"
+      ],
+      "environment": {
+        "LAMP_TOOLS": "on",
+        "LAMP_ACTIONS_DIR": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/executive",
+        "LAMP_MEMORY_SOCKET": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/absent-memory.sock",
+        "LAMP_CLOCK": "on",
+        "LAMP_SCHEDULE_SOCKET": "relative/invalid-schedule.sock",
+        "LAMP_SCHEDULE_DELIVERY_DIR": "relative/invalid-delivery",
+        "LAMP_SCHEDULE_TOOLS": "true",
+        "LAMP_SCHEDULE_SPEAK": "true"
+      },
+      "actions_file": "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/evidence/comparison/case-21-ordinary-actions.json",
+      "baseline_actions_file": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/evidence/ordinary-tools-true-speak-true-actions.json",
+      "actions_sha256": "86e2d2bd148df7f1521f2123b59e4566d72948350d2a3cb2f7e3996c5872a2c3",
+      "actions_equal": true,
+      "voice_file": "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/evidence/comparison/case-21-ordinary-voice.json",
+      "baseline_voice_file": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/evidence/ordinary-tools-true-speak-true-voice.json",
+      "voice_sha256": "5e1e530917c10b54da2a5e091b7b909aa8e9afbfe017f8a3b9081a4f9d7e7385",
+      "voice_equal": true,
+      "stderr_empty": true
+    },
+    {
+      "index": 22,
+      "profile": "ordinary",
+      "schedule_tools": "true",
+      "schedule_speak": "1",
+      "actions_command": [
+        "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/lampOS/target/debug/examples/schedule_off_actions"
+      ],
+      "voice_command": [
+        "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/lampOS/target/debug/examples/schedule_off_voice",
+        "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/executive",
+        "ordinary"
+      ],
+      "environment": {
+        "LAMP_TOOLS": "on",
+        "LAMP_ACTIONS_DIR": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/executive",
+        "LAMP_MEMORY_SOCKET": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/absent-memory.sock",
+        "LAMP_CLOCK": "on",
+        "LAMP_SCHEDULE_SOCKET": "relative/invalid-schedule.sock",
+        "LAMP_SCHEDULE_DELIVERY_DIR": "relative/invalid-delivery",
+        "LAMP_SCHEDULE_TOOLS": "true",
+        "LAMP_SCHEDULE_SPEAK": "1"
+      },
+      "actions_file": "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/evidence/comparison/case-22-ordinary-actions.json",
+      "baseline_actions_file": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/evidence/ordinary-tools-true-speak-one-actions.json",
+      "actions_sha256": "86e2d2bd148df7f1521f2123b59e4566d72948350d2a3cb2f7e3996c5872a2c3",
+      "actions_equal": true,
+      "voice_file": "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/evidence/comparison/case-22-ordinary-voice.json",
+      "baseline_voice_file": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/evidence/ordinary-tools-true-speak-one-voice.json",
+      "voice_sha256": "5e1e530917c10b54da2a5e091b7b909aa8e9afbfe017f8a3b9081a4f9d7e7385",
+      "voice_equal": true,
+      "stderr_empty": true
+    },
+    {
+      "index": 23,
+      "profile": "ordinary",
+      "schedule_tools": "true",
+      "schedule_speak": " on ",
+      "actions_command": [
+        "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/lampOS/target/debug/examples/schedule_off_actions"
+      ],
+      "voice_command": [
+        "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/lampOS/target/debug/examples/schedule_off_voice",
+        "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/executive",
+        "ordinary"
+      ],
+      "environment": {
+        "LAMP_TOOLS": "on",
+        "LAMP_ACTIONS_DIR": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/executive",
+        "LAMP_MEMORY_SOCKET": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/absent-memory.sock",
+        "LAMP_CLOCK": "on",
+        "LAMP_SCHEDULE_SOCKET": "relative/invalid-schedule.sock",
+        "LAMP_SCHEDULE_DELIVERY_DIR": "relative/invalid-delivery",
+        "LAMP_SCHEDULE_TOOLS": "true",
+        "LAMP_SCHEDULE_SPEAK": " on "
+      },
+      "actions_file": "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/evidence/comparison/case-23-ordinary-actions.json",
+      "baseline_actions_file": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/evidence/ordinary-tools-true-speak-spaced-on-actions.json",
+      "actions_sha256": "86e2d2bd148df7f1521f2123b59e4566d72948350d2a3cb2f7e3996c5872a2c3",
+      "actions_equal": true,
+      "voice_file": "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/evidence/comparison/case-23-ordinary-voice.json",
+      "baseline_voice_file": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/evidence/ordinary-tools-true-speak-spaced-on-voice.json",
+      "voice_sha256": "5e1e530917c10b54da2a5e091b7b909aa8e9afbfe017f8a3b9081a4f9d7e7385",
+      "voice_equal": true,
+      "stderr_empty": true
+    },
+    {
+      "index": 24,
+      "profile": "ordinary",
+      "schedule_tools": "1",
+      "schedule_speak": null,
+      "actions_command": [
+        "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/lampOS/target/debug/examples/schedule_off_actions"
+      ],
+      "voice_command": [
+        "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/lampOS/target/debug/examples/schedule_off_voice",
+        "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/executive",
+        "ordinary"
+      ],
+      "environment": {
+        "LAMP_TOOLS": "on",
+        "LAMP_ACTIONS_DIR": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/executive",
+        "LAMP_MEMORY_SOCKET": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/absent-memory.sock",
+        "LAMP_CLOCK": "on",
+        "LAMP_SCHEDULE_SOCKET": "relative/invalid-schedule.sock",
+        "LAMP_SCHEDULE_DELIVERY_DIR": "relative/invalid-delivery",
+        "LAMP_SCHEDULE_TOOLS": "1"
+      },
+      "actions_file": "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/evidence/comparison/case-24-ordinary-actions.json",
+      "baseline_actions_file": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/evidence/ordinary-tools-one-speak-absent-actions.json",
+      "actions_sha256": "86e2d2bd148df7f1521f2123b59e4566d72948350d2a3cb2f7e3996c5872a2c3",
+      "actions_equal": true,
+      "voice_file": "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/evidence/comparison/case-24-ordinary-voice.json",
+      "baseline_voice_file": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/evidence/ordinary-tools-one-speak-absent-voice.json",
+      "voice_sha256": "5e1e530917c10b54da2a5e091b7b909aa8e9afbfe017f8a3b9081a4f9d7e7385",
+      "voice_equal": true,
+      "stderr_empty": true
+    },
+    {
+      "index": 25,
+      "profile": "ordinary",
+      "schedule_tools": "1",
+      "schedule_speak": "off",
+      "actions_command": [
+        "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/lampOS/target/debug/examples/schedule_off_actions"
+      ],
+      "voice_command": [
+        "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/lampOS/target/debug/examples/schedule_off_voice",
+        "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/executive",
+        "ordinary"
+      ],
+      "environment": {
+        "LAMP_TOOLS": "on",
+        "LAMP_ACTIONS_DIR": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/executive",
+        "LAMP_MEMORY_SOCKET": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/absent-memory.sock",
+        "LAMP_CLOCK": "on",
+        "LAMP_SCHEDULE_SOCKET": "relative/invalid-schedule.sock",
+        "LAMP_SCHEDULE_DELIVERY_DIR": "relative/invalid-delivery",
+        "LAMP_SCHEDULE_TOOLS": "1",
+        "LAMP_SCHEDULE_SPEAK": "off"
+      },
+      "actions_file": "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/evidence/comparison/case-25-ordinary-actions.json",
+      "baseline_actions_file": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/evidence/ordinary-tools-one-speak-off-actions.json",
+      "actions_sha256": "86e2d2bd148df7f1521f2123b59e4566d72948350d2a3cb2f7e3996c5872a2c3",
+      "actions_equal": true,
+      "voice_file": "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/evidence/comparison/case-25-ordinary-voice.json",
+      "baseline_voice_file": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/evidence/ordinary-tools-one-speak-off-voice.json",
+      "voice_sha256": "5e1e530917c10b54da2a5e091b7b909aa8e9afbfe017f8a3b9081a4f9d7e7385",
+      "voice_equal": true,
+      "stderr_empty": true
+    },
+    {
+      "index": 26,
+      "profile": "ordinary",
+      "schedule_tools": "1",
+      "schedule_speak": "ON",
+      "actions_command": [
+        "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/lampOS/target/debug/examples/schedule_off_actions"
+      ],
+      "voice_command": [
+        "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/lampOS/target/debug/examples/schedule_off_voice",
+        "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/executive",
+        "ordinary"
+      ],
+      "environment": {
+        "LAMP_TOOLS": "on",
+        "LAMP_ACTIONS_DIR": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/executive",
+        "LAMP_MEMORY_SOCKET": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/absent-memory.sock",
+        "LAMP_CLOCK": "on",
+        "LAMP_SCHEDULE_SOCKET": "relative/invalid-schedule.sock",
+        "LAMP_SCHEDULE_DELIVERY_DIR": "relative/invalid-delivery",
+        "LAMP_SCHEDULE_TOOLS": "1",
+        "LAMP_SCHEDULE_SPEAK": "ON"
+      },
+      "actions_file": "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/evidence/comparison/case-26-ordinary-actions.json",
+      "baseline_actions_file": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/evidence/ordinary-tools-one-speak-upper-on-actions.json",
+      "actions_sha256": "86e2d2bd148df7f1521f2123b59e4566d72948350d2a3cb2f7e3996c5872a2c3",
+      "actions_equal": true,
+      "voice_file": "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/evidence/comparison/case-26-ordinary-voice.json",
+      "baseline_voice_file": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/evidence/ordinary-tools-one-speak-upper-on-voice.json",
+      "voice_sha256": "5e1e530917c10b54da2a5e091b7b909aa8e9afbfe017f8a3b9081a4f9d7e7385",
+      "voice_equal": true,
+      "stderr_empty": true
+    },
+    {
+      "index": 27,
+      "profile": "ordinary",
+      "schedule_tools": "1",
+      "schedule_speak": "true",
+      "actions_command": [
+        "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/lampOS/target/debug/examples/schedule_off_actions"
+      ],
+      "voice_command": [
+        "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/lampOS/target/debug/examples/schedule_off_voice",
+        "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/executive",
+        "ordinary"
+      ],
+      "environment": {
+        "LAMP_TOOLS": "on",
+        "LAMP_ACTIONS_DIR": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/executive",
+        "LAMP_MEMORY_SOCKET": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/absent-memory.sock",
+        "LAMP_CLOCK": "on",
+        "LAMP_SCHEDULE_SOCKET": "relative/invalid-schedule.sock",
+        "LAMP_SCHEDULE_DELIVERY_DIR": "relative/invalid-delivery",
+        "LAMP_SCHEDULE_TOOLS": "1",
+        "LAMP_SCHEDULE_SPEAK": "true"
+      },
+      "actions_file": "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/evidence/comparison/case-27-ordinary-actions.json",
+      "baseline_actions_file": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/evidence/ordinary-tools-one-speak-true-actions.json",
+      "actions_sha256": "86e2d2bd148df7f1521f2123b59e4566d72948350d2a3cb2f7e3996c5872a2c3",
+      "actions_equal": true,
+      "voice_file": "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/evidence/comparison/case-27-ordinary-voice.json",
+      "baseline_voice_file": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/evidence/ordinary-tools-one-speak-true-voice.json",
+      "voice_sha256": "5e1e530917c10b54da2a5e091b7b909aa8e9afbfe017f8a3b9081a4f9d7e7385",
+      "voice_equal": true,
+      "stderr_empty": true
+    },
+    {
+      "index": 28,
+      "profile": "ordinary",
+      "schedule_tools": "1",
+      "schedule_speak": "1",
+      "actions_command": [
+        "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/lampOS/target/debug/examples/schedule_off_actions"
+      ],
+      "voice_command": [
+        "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/lampOS/target/debug/examples/schedule_off_voice",
+        "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/executive",
+        "ordinary"
+      ],
+      "environment": {
+        "LAMP_TOOLS": "on",
+        "LAMP_ACTIONS_DIR": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/executive",
+        "LAMP_MEMORY_SOCKET": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/absent-memory.sock",
+        "LAMP_CLOCK": "on",
+        "LAMP_SCHEDULE_SOCKET": "relative/invalid-schedule.sock",
+        "LAMP_SCHEDULE_DELIVERY_DIR": "relative/invalid-delivery",
+        "LAMP_SCHEDULE_TOOLS": "1",
+        "LAMP_SCHEDULE_SPEAK": "1"
+      },
+      "actions_file": "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/evidence/comparison/case-28-ordinary-actions.json",
+      "baseline_actions_file": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/evidence/ordinary-tools-one-speak-one-actions.json",
+      "actions_sha256": "86e2d2bd148df7f1521f2123b59e4566d72948350d2a3cb2f7e3996c5872a2c3",
+      "actions_equal": true,
+      "voice_file": "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/evidence/comparison/case-28-ordinary-voice.json",
+      "baseline_voice_file": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/evidence/ordinary-tools-one-speak-one-voice.json",
+      "voice_sha256": "5e1e530917c10b54da2a5e091b7b909aa8e9afbfe017f8a3b9081a4f9d7e7385",
+      "voice_equal": true,
+      "stderr_empty": true
+    },
+    {
+      "index": 29,
+      "profile": "ordinary",
+      "schedule_tools": "1",
+      "schedule_speak": " on ",
+      "actions_command": [
+        "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/lampOS/target/debug/examples/schedule_off_actions"
+      ],
+      "voice_command": [
+        "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/lampOS/target/debug/examples/schedule_off_voice",
+        "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/executive",
+        "ordinary"
+      ],
+      "environment": {
+        "LAMP_TOOLS": "on",
+        "LAMP_ACTIONS_DIR": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/executive",
+        "LAMP_MEMORY_SOCKET": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/absent-memory.sock",
+        "LAMP_CLOCK": "on",
+        "LAMP_SCHEDULE_SOCKET": "relative/invalid-schedule.sock",
+        "LAMP_SCHEDULE_DELIVERY_DIR": "relative/invalid-delivery",
+        "LAMP_SCHEDULE_TOOLS": "1",
+        "LAMP_SCHEDULE_SPEAK": " on "
+      },
+      "actions_file": "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/evidence/comparison/case-29-ordinary-actions.json",
+      "baseline_actions_file": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/evidence/ordinary-tools-one-speak-spaced-on-actions.json",
+      "actions_sha256": "86e2d2bd148df7f1521f2123b59e4566d72948350d2a3cb2f7e3996c5872a2c3",
+      "actions_equal": true,
+      "voice_file": "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/evidence/comparison/case-29-ordinary-voice.json",
+      "baseline_voice_file": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/evidence/ordinary-tools-one-speak-spaced-on-voice.json",
+      "voice_sha256": "5e1e530917c10b54da2a5e091b7b909aa8e9afbfe017f8a3b9081a4f9d7e7385",
+      "voice_equal": true,
+      "stderr_empty": true
+    },
+    {
+      "index": 30,
+      "profile": "ordinary",
+      "schedule_tools": " on ",
+      "schedule_speak": null,
+      "actions_command": [
+        "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/lampOS/target/debug/examples/schedule_off_actions"
+      ],
+      "voice_command": [
+        "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/lampOS/target/debug/examples/schedule_off_voice",
+        "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/executive",
+        "ordinary"
+      ],
+      "environment": {
+        "LAMP_TOOLS": "on",
+        "LAMP_ACTIONS_DIR": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/executive",
+        "LAMP_MEMORY_SOCKET": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/absent-memory.sock",
+        "LAMP_CLOCK": "on",
+        "LAMP_SCHEDULE_SOCKET": "relative/invalid-schedule.sock",
+        "LAMP_SCHEDULE_DELIVERY_DIR": "relative/invalid-delivery",
+        "LAMP_SCHEDULE_TOOLS": " on "
+      },
+      "actions_file": "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/evidence/comparison/case-30-ordinary-actions.json",
+      "baseline_actions_file": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/evidence/ordinary-tools-spaced-on-speak-absent-actions.json",
+      "actions_sha256": "86e2d2bd148df7f1521f2123b59e4566d72948350d2a3cb2f7e3996c5872a2c3",
+      "actions_equal": true,
+      "voice_file": "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/evidence/comparison/case-30-ordinary-voice.json",
+      "baseline_voice_file": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/evidence/ordinary-tools-spaced-on-speak-absent-voice.json",
+      "voice_sha256": "5e1e530917c10b54da2a5e091b7b909aa8e9afbfe017f8a3b9081a4f9d7e7385",
+      "voice_equal": true,
+      "stderr_empty": true
+    },
+    {
+      "index": 31,
+      "profile": "ordinary",
+      "schedule_tools": " on ",
+      "schedule_speak": "off",
+      "actions_command": [
+        "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/lampOS/target/debug/examples/schedule_off_actions"
+      ],
+      "voice_command": [
+        "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/lampOS/target/debug/examples/schedule_off_voice",
+        "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/executive",
+        "ordinary"
+      ],
+      "environment": {
+        "LAMP_TOOLS": "on",
+        "LAMP_ACTIONS_DIR": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/executive",
+        "LAMP_MEMORY_SOCKET": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/absent-memory.sock",
+        "LAMP_CLOCK": "on",
+        "LAMP_SCHEDULE_SOCKET": "relative/invalid-schedule.sock",
+        "LAMP_SCHEDULE_DELIVERY_DIR": "relative/invalid-delivery",
+        "LAMP_SCHEDULE_TOOLS": " on ",
+        "LAMP_SCHEDULE_SPEAK": "off"
+      },
+      "actions_file": "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/evidence/comparison/case-31-ordinary-actions.json",
+      "baseline_actions_file": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/evidence/ordinary-tools-spaced-on-speak-off-actions.json",
+      "actions_sha256": "86e2d2bd148df7f1521f2123b59e4566d72948350d2a3cb2f7e3996c5872a2c3",
+      "actions_equal": true,
+      "voice_file": "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/evidence/comparison/case-31-ordinary-voice.json",
+      "baseline_voice_file": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/evidence/ordinary-tools-spaced-on-speak-off-voice.json",
+      "voice_sha256": "5e1e530917c10b54da2a5e091b7b909aa8e9afbfe017f8a3b9081a4f9d7e7385",
+      "voice_equal": true,
+      "stderr_empty": true
+    },
+    {
+      "index": 32,
+      "profile": "ordinary",
+      "schedule_tools": " on ",
+      "schedule_speak": "ON",
+      "actions_command": [
+        "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/lampOS/target/debug/examples/schedule_off_actions"
+      ],
+      "voice_command": [
+        "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/lampOS/target/debug/examples/schedule_off_voice",
+        "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/executive",
+        "ordinary"
+      ],
+      "environment": {
+        "LAMP_TOOLS": "on",
+        "LAMP_ACTIONS_DIR": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/executive",
+        "LAMP_MEMORY_SOCKET": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/absent-memory.sock",
+        "LAMP_CLOCK": "on",
+        "LAMP_SCHEDULE_SOCKET": "relative/invalid-schedule.sock",
+        "LAMP_SCHEDULE_DELIVERY_DIR": "relative/invalid-delivery",
+        "LAMP_SCHEDULE_TOOLS": " on ",
+        "LAMP_SCHEDULE_SPEAK": "ON"
+      },
+      "actions_file": "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/evidence/comparison/case-32-ordinary-actions.json",
+      "baseline_actions_file": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/evidence/ordinary-tools-spaced-on-speak-upper-on-actions.json",
+      "actions_sha256": "86e2d2bd148df7f1521f2123b59e4566d72948350d2a3cb2f7e3996c5872a2c3",
+      "actions_equal": true,
+      "voice_file": "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/evidence/comparison/case-32-ordinary-voice.json",
+      "baseline_voice_file": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/evidence/ordinary-tools-spaced-on-speak-upper-on-voice.json",
+      "voice_sha256": "5e1e530917c10b54da2a5e091b7b909aa8e9afbfe017f8a3b9081a4f9d7e7385",
+      "voice_equal": true,
+      "stderr_empty": true
+    },
+    {
+      "index": 33,
+      "profile": "ordinary",
+      "schedule_tools": " on ",
+      "schedule_speak": "true",
+      "actions_command": [
+        "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/lampOS/target/debug/examples/schedule_off_actions"
+      ],
+      "voice_command": [
+        "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/lampOS/target/debug/examples/schedule_off_voice",
+        "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/executive",
+        "ordinary"
+      ],
+      "environment": {
+        "LAMP_TOOLS": "on",
+        "LAMP_ACTIONS_DIR": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/executive",
+        "LAMP_MEMORY_SOCKET": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/absent-memory.sock",
+        "LAMP_CLOCK": "on",
+        "LAMP_SCHEDULE_SOCKET": "relative/invalid-schedule.sock",
+        "LAMP_SCHEDULE_DELIVERY_DIR": "relative/invalid-delivery",
+        "LAMP_SCHEDULE_TOOLS": " on ",
+        "LAMP_SCHEDULE_SPEAK": "true"
+      },
+      "actions_file": "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/evidence/comparison/case-33-ordinary-actions.json",
+      "baseline_actions_file": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/evidence/ordinary-tools-spaced-on-speak-true-actions.json",
+      "actions_sha256": "86e2d2bd148df7f1521f2123b59e4566d72948350d2a3cb2f7e3996c5872a2c3",
+      "actions_equal": true,
+      "voice_file": "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/evidence/comparison/case-33-ordinary-voice.json",
+      "baseline_voice_file": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/evidence/ordinary-tools-spaced-on-speak-true-voice.json",
+      "voice_sha256": "5e1e530917c10b54da2a5e091b7b909aa8e9afbfe017f8a3b9081a4f9d7e7385",
+      "voice_equal": true,
+      "stderr_empty": true
+    },
+    {
+      "index": 34,
+      "profile": "ordinary",
+      "schedule_tools": " on ",
+      "schedule_speak": "1",
+      "actions_command": [
+        "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/lampOS/target/debug/examples/schedule_off_actions"
+      ],
+      "voice_command": [
+        "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/lampOS/target/debug/examples/schedule_off_voice",
+        "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/executive",
+        "ordinary"
+      ],
+      "environment": {
+        "LAMP_TOOLS": "on",
+        "LAMP_ACTIONS_DIR": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/executive",
+        "LAMP_MEMORY_SOCKET": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/absent-memory.sock",
+        "LAMP_CLOCK": "on",
+        "LAMP_SCHEDULE_SOCKET": "relative/invalid-schedule.sock",
+        "LAMP_SCHEDULE_DELIVERY_DIR": "relative/invalid-delivery",
+        "LAMP_SCHEDULE_TOOLS": " on ",
+        "LAMP_SCHEDULE_SPEAK": "1"
+      },
+      "actions_file": "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/evidence/comparison/case-34-ordinary-actions.json",
+      "baseline_actions_file": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/evidence/ordinary-tools-spaced-on-speak-one-actions.json",
+      "actions_sha256": "86e2d2bd148df7f1521f2123b59e4566d72948350d2a3cb2f7e3996c5872a2c3",
+      "actions_equal": true,
+      "voice_file": "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/evidence/comparison/case-34-ordinary-voice.json",
+      "baseline_voice_file": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/evidence/ordinary-tools-spaced-on-speak-one-voice.json",
+      "voice_sha256": "5e1e530917c10b54da2a5e091b7b909aa8e9afbfe017f8a3b9081a4f9d7e7385",
+      "voice_equal": true,
+      "stderr_empty": true
+    },
+    {
+      "index": 35,
+      "profile": "ordinary",
+      "schedule_tools": " on ",
+      "schedule_speak": " on ",
+      "actions_command": [
+        "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/lampOS/target/debug/examples/schedule_off_actions"
+      ],
+      "voice_command": [
+        "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/lampOS/target/debug/examples/schedule_off_voice",
+        "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/executive",
+        "ordinary"
+      ],
+      "environment": {
+        "LAMP_TOOLS": "on",
+        "LAMP_ACTIONS_DIR": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/executive",
+        "LAMP_MEMORY_SOCKET": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/absent-memory.sock",
+        "LAMP_CLOCK": "on",
+        "LAMP_SCHEDULE_SOCKET": "relative/invalid-schedule.sock",
+        "LAMP_SCHEDULE_DELIVERY_DIR": "relative/invalid-delivery",
+        "LAMP_SCHEDULE_TOOLS": " on ",
+        "LAMP_SCHEDULE_SPEAK": " on "
+      },
+      "actions_file": "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/evidence/comparison/case-35-ordinary-actions.json",
+      "baseline_actions_file": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/evidence/ordinary-tools-spaced-on-speak-spaced-on-actions.json",
+      "actions_sha256": "86e2d2bd148df7f1521f2123b59e4566d72948350d2a3cb2f7e3996c5872a2c3",
+      "actions_equal": true,
+      "voice_file": "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/evidence/comparison/case-35-ordinary-voice.json",
+      "baseline_voice_file": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/evidence/ordinary-tools-spaced-on-speak-spaced-on-voice.json",
+      "voice_sha256": "5e1e530917c10b54da2a5e091b7b909aa8e9afbfe017f8a3b9081a4f9d7e7385",
+      "voice_equal": true,
+      "stderr_empty": true
+    },
+    {
+      "index": 36,
+      "profile": "tasks",
+      "schedule_tools": null,
+      "schedule_speak": null,
+      "actions_command": [
+        "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/lampOS/target/debug/examples/schedule_off_actions"
+      ],
+      "voice_command": [
+        "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/lampOS/target/debug/examples/schedule_off_voice",
+        "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/executive",
+        "tasks"
+      ],
+      "environment": {
+        "LAMP_TOOLS": "on",
+        "LAMP_ACTIONS_DIR": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/executive",
+        "LAMP_MEMORY_SOCKET": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/absent-memory.sock",
+        "LAMP_CLOCK": "on",
+        "LAMP_SCHEDULE_SOCKET": "relative/invalid-schedule.sock",
+        "LAMP_SCHEDULE_DELIVERY_DIR": "relative/invalid-delivery",
+        "LAMP_TASKS_DIR": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/absent-tasks",
+        "LAMP_TASKS_TARGET": "office"
+      },
+      "actions_file": "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/evidence/comparison/case-36-tasks-actions.json",
+      "baseline_actions_file": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/evidence/tasks-tools-absent-speak-absent-actions.json",
+      "actions_sha256": "86e2d2bd148df7f1521f2123b59e4566d72948350d2a3cb2f7e3996c5872a2c3",
+      "actions_equal": true,
+      "voice_file": "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/evidence/comparison/case-36-tasks-voice.json",
+      "baseline_voice_file": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/evidence/tasks-tools-absent-speak-absent-voice.json",
+      "voice_sha256": "791b69cdf68ccb7071536d5e6ec6f4c63a57de32f83e8c0fbac359f8b9d008da",
+      "voice_equal": true,
+      "stderr_empty": true
+    },
+    {
+      "index": 37,
+      "profile": "tasks",
+      "schedule_tools": null,
+      "schedule_speak": "off",
+      "actions_command": [
+        "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/lampOS/target/debug/examples/schedule_off_actions"
+      ],
+      "voice_command": [
+        "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/lampOS/target/debug/examples/schedule_off_voice",
+        "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/executive",
+        "tasks"
+      ],
+      "environment": {
+        "LAMP_TOOLS": "on",
+        "LAMP_ACTIONS_DIR": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/executive",
+        "LAMP_MEMORY_SOCKET": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/absent-memory.sock",
+        "LAMP_CLOCK": "on",
+        "LAMP_SCHEDULE_SOCKET": "relative/invalid-schedule.sock",
+        "LAMP_SCHEDULE_DELIVERY_DIR": "relative/invalid-delivery",
+        "LAMP_TASKS_DIR": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/absent-tasks",
+        "LAMP_TASKS_TARGET": "office",
+        "LAMP_SCHEDULE_SPEAK": "off"
+      },
+      "actions_file": "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/evidence/comparison/case-37-tasks-actions.json",
+      "baseline_actions_file": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/evidence/tasks-tools-absent-speak-off-actions.json",
+      "actions_sha256": "86e2d2bd148df7f1521f2123b59e4566d72948350d2a3cb2f7e3996c5872a2c3",
+      "actions_equal": true,
+      "voice_file": "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/evidence/comparison/case-37-tasks-voice.json",
+      "baseline_voice_file": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/evidence/tasks-tools-absent-speak-off-voice.json",
+      "voice_sha256": "791b69cdf68ccb7071536d5e6ec6f4c63a57de32f83e8c0fbac359f8b9d008da",
+      "voice_equal": true,
+      "stderr_empty": true
+    },
+    {
+      "index": 38,
+      "profile": "tasks",
+      "schedule_tools": null,
+      "schedule_speak": "ON",
+      "actions_command": [
+        "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/lampOS/target/debug/examples/schedule_off_actions"
+      ],
+      "voice_command": [
+        "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/lampOS/target/debug/examples/schedule_off_voice",
+        "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/executive",
+        "tasks"
+      ],
+      "environment": {
+        "LAMP_TOOLS": "on",
+        "LAMP_ACTIONS_DIR": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/executive",
+        "LAMP_MEMORY_SOCKET": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/absent-memory.sock",
+        "LAMP_CLOCK": "on",
+        "LAMP_SCHEDULE_SOCKET": "relative/invalid-schedule.sock",
+        "LAMP_SCHEDULE_DELIVERY_DIR": "relative/invalid-delivery",
+        "LAMP_TASKS_DIR": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/absent-tasks",
+        "LAMP_TASKS_TARGET": "office",
+        "LAMP_SCHEDULE_SPEAK": "ON"
+      },
+      "actions_file": "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/evidence/comparison/case-38-tasks-actions.json",
+      "baseline_actions_file": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/evidence/tasks-tools-absent-speak-upper-on-actions.json",
+      "actions_sha256": "86e2d2bd148df7f1521f2123b59e4566d72948350d2a3cb2f7e3996c5872a2c3",
+      "actions_equal": true,
+      "voice_file": "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/evidence/comparison/case-38-tasks-voice.json",
+      "baseline_voice_file": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/evidence/tasks-tools-absent-speak-upper-on-voice.json",
+      "voice_sha256": "791b69cdf68ccb7071536d5e6ec6f4c63a57de32f83e8c0fbac359f8b9d008da",
+      "voice_equal": true,
+      "stderr_empty": true
+    },
+    {
+      "index": 39,
+      "profile": "tasks",
+      "schedule_tools": null,
+      "schedule_speak": "true",
+      "actions_command": [
+        "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/lampOS/target/debug/examples/schedule_off_actions"
+      ],
+      "voice_command": [
+        "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/lampOS/target/debug/examples/schedule_off_voice",
+        "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/executive",
+        "tasks"
+      ],
+      "environment": {
+        "LAMP_TOOLS": "on",
+        "LAMP_ACTIONS_DIR": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/executive",
+        "LAMP_MEMORY_SOCKET": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/absent-memory.sock",
+        "LAMP_CLOCK": "on",
+        "LAMP_SCHEDULE_SOCKET": "relative/invalid-schedule.sock",
+        "LAMP_SCHEDULE_DELIVERY_DIR": "relative/invalid-delivery",
+        "LAMP_TASKS_DIR": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/absent-tasks",
+        "LAMP_TASKS_TARGET": "office",
+        "LAMP_SCHEDULE_SPEAK": "true"
+      },
+      "actions_file": "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/evidence/comparison/case-39-tasks-actions.json",
+      "baseline_actions_file": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/evidence/tasks-tools-absent-speak-true-actions.json",
+      "actions_sha256": "86e2d2bd148df7f1521f2123b59e4566d72948350d2a3cb2f7e3996c5872a2c3",
+      "actions_equal": true,
+      "voice_file": "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/evidence/comparison/case-39-tasks-voice.json",
+      "baseline_voice_file": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/evidence/tasks-tools-absent-speak-true-voice.json",
+      "voice_sha256": "791b69cdf68ccb7071536d5e6ec6f4c63a57de32f83e8c0fbac359f8b9d008da",
+      "voice_equal": true,
+      "stderr_empty": true
+    },
+    {
+      "index": 40,
+      "profile": "tasks",
+      "schedule_tools": null,
+      "schedule_speak": "1",
+      "actions_command": [
+        "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/lampOS/target/debug/examples/schedule_off_actions"
+      ],
+      "voice_command": [
+        "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/lampOS/target/debug/examples/schedule_off_voice",
+        "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/executive",
+        "tasks"
+      ],
+      "environment": {
+        "LAMP_TOOLS": "on",
+        "LAMP_ACTIONS_DIR": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/executive",
+        "LAMP_MEMORY_SOCKET": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/absent-memory.sock",
+        "LAMP_CLOCK": "on",
+        "LAMP_SCHEDULE_SOCKET": "relative/invalid-schedule.sock",
+        "LAMP_SCHEDULE_DELIVERY_DIR": "relative/invalid-delivery",
+        "LAMP_TASKS_DIR": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/absent-tasks",
+        "LAMP_TASKS_TARGET": "office",
+        "LAMP_SCHEDULE_SPEAK": "1"
+      },
+      "actions_file": "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/evidence/comparison/case-40-tasks-actions.json",
+      "baseline_actions_file": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/evidence/tasks-tools-absent-speak-one-actions.json",
+      "actions_sha256": "86e2d2bd148df7f1521f2123b59e4566d72948350d2a3cb2f7e3996c5872a2c3",
+      "actions_equal": true,
+      "voice_file": "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/evidence/comparison/case-40-tasks-voice.json",
+      "baseline_voice_file": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/evidence/tasks-tools-absent-speak-one-voice.json",
+      "voice_sha256": "791b69cdf68ccb7071536d5e6ec6f4c63a57de32f83e8c0fbac359f8b9d008da",
+      "voice_equal": true,
+      "stderr_empty": true
+    },
+    {
+      "index": 41,
+      "profile": "tasks",
+      "schedule_tools": null,
+      "schedule_speak": " on ",
+      "actions_command": [
+        "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/lampOS/target/debug/examples/schedule_off_actions"
+      ],
+      "voice_command": [
+        "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/lampOS/target/debug/examples/schedule_off_voice",
+        "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/executive",
+        "tasks"
+      ],
+      "environment": {
+        "LAMP_TOOLS": "on",
+        "LAMP_ACTIONS_DIR": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/executive",
+        "LAMP_MEMORY_SOCKET": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/absent-memory.sock",
+        "LAMP_CLOCK": "on",
+        "LAMP_SCHEDULE_SOCKET": "relative/invalid-schedule.sock",
+        "LAMP_SCHEDULE_DELIVERY_DIR": "relative/invalid-delivery",
+        "LAMP_TASKS_DIR": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/absent-tasks",
+        "LAMP_TASKS_TARGET": "office",
+        "LAMP_SCHEDULE_SPEAK": " on "
+      },
+      "actions_file": "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/evidence/comparison/case-41-tasks-actions.json",
+      "baseline_actions_file": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/evidence/tasks-tools-absent-speak-spaced-on-actions.json",
+      "actions_sha256": "86e2d2bd148df7f1521f2123b59e4566d72948350d2a3cb2f7e3996c5872a2c3",
+      "actions_equal": true,
+      "voice_file": "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/evidence/comparison/case-41-tasks-voice.json",
+      "baseline_voice_file": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/evidence/tasks-tools-absent-speak-spaced-on-voice.json",
+      "voice_sha256": "791b69cdf68ccb7071536d5e6ec6f4c63a57de32f83e8c0fbac359f8b9d008da",
+      "voice_equal": true,
+      "stderr_empty": true
+    },
+    {
+      "index": 42,
+      "profile": "tasks",
+      "schedule_tools": "off",
+      "schedule_speak": null,
+      "actions_command": [
+        "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/lampOS/target/debug/examples/schedule_off_actions"
+      ],
+      "voice_command": [
+        "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/lampOS/target/debug/examples/schedule_off_voice",
+        "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/executive",
+        "tasks"
+      ],
+      "environment": {
+        "LAMP_TOOLS": "on",
+        "LAMP_ACTIONS_DIR": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/executive",
+        "LAMP_MEMORY_SOCKET": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/absent-memory.sock",
+        "LAMP_CLOCK": "on",
+        "LAMP_SCHEDULE_SOCKET": "relative/invalid-schedule.sock",
+        "LAMP_SCHEDULE_DELIVERY_DIR": "relative/invalid-delivery",
+        "LAMP_TASKS_DIR": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/absent-tasks",
+        "LAMP_TASKS_TARGET": "office",
+        "LAMP_SCHEDULE_TOOLS": "off"
+      },
+      "actions_file": "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/evidence/comparison/case-42-tasks-actions.json",
+      "baseline_actions_file": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/evidence/tasks-tools-off-speak-absent-actions.json",
+      "actions_sha256": "86e2d2bd148df7f1521f2123b59e4566d72948350d2a3cb2f7e3996c5872a2c3",
+      "actions_equal": true,
+      "voice_file": "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/evidence/comparison/case-42-tasks-voice.json",
+      "baseline_voice_file": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/evidence/tasks-tools-off-speak-absent-voice.json",
+      "voice_sha256": "791b69cdf68ccb7071536d5e6ec6f4c63a57de32f83e8c0fbac359f8b9d008da",
+      "voice_equal": true,
+      "stderr_empty": true
+    },
+    {
+      "index": 43,
+      "profile": "tasks",
+      "schedule_tools": "off",
+      "schedule_speak": "off",
+      "actions_command": [
+        "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/lampOS/target/debug/examples/schedule_off_actions"
+      ],
+      "voice_command": [
+        "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/lampOS/target/debug/examples/schedule_off_voice",
+        "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/executive",
+        "tasks"
+      ],
+      "environment": {
+        "LAMP_TOOLS": "on",
+        "LAMP_ACTIONS_DIR": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/executive",
+        "LAMP_MEMORY_SOCKET": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/absent-memory.sock",
+        "LAMP_CLOCK": "on",
+        "LAMP_SCHEDULE_SOCKET": "relative/invalid-schedule.sock",
+        "LAMP_SCHEDULE_DELIVERY_DIR": "relative/invalid-delivery",
+        "LAMP_TASKS_DIR": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/absent-tasks",
+        "LAMP_TASKS_TARGET": "office",
+        "LAMP_SCHEDULE_TOOLS": "off",
+        "LAMP_SCHEDULE_SPEAK": "off"
+      },
+      "actions_file": "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/evidence/comparison/case-43-tasks-actions.json",
+      "baseline_actions_file": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/evidence/tasks-tools-off-speak-off-actions.json",
+      "actions_sha256": "86e2d2bd148df7f1521f2123b59e4566d72948350d2a3cb2f7e3996c5872a2c3",
+      "actions_equal": true,
+      "voice_file": "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/evidence/comparison/case-43-tasks-voice.json",
+      "baseline_voice_file": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/evidence/tasks-tools-off-speak-off-voice.json",
+      "voice_sha256": "791b69cdf68ccb7071536d5e6ec6f4c63a57de32f83e8c0fbac359f8b9d008da",
+      "voice_equal": true,
+      "stderr_empty": true
+    },
+    {
+      "index": 44,
+      "profile": "tasks",
+      "schedule_tools": "off",
+      "schedule_speak": "ON",
+      "actions_command": [
+        "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/lampOS/target/debug/examples/schedule_off_actions"
+      ],
+      "voice_command": [
+        "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/lampOS/target/debug/examples/schedule_off_voice",
+        "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/executive",
+        "tasks"
+      ],
+      "environment": {
+        "LAMP_TOOLS": "on",
+        "LAMP_ACTIONS_DIR": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/executive",
+        "LAMP_MEMORY_SOCKET": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/absent-memory.sock",
+        "LAMP_CLOCK": "on",
+        "LAMP_SCHEDULE_SOCKET": "relative/invalid-schedule.sock",
+        "LAMP_SCHEDULE_DELIVERY_DIR": "relative/invalid-delivery",
+        "LAMP_TASKS_DIR": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/absent-tasks",
+        "LAMP_TASKS_TARGET": "office",
+        "LAMP_SCHEDULE_TOOLS": "off",
+        "LAMP_SCHEDULE_SPEAK": "ON"
+      },
+      "actions_file": "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/evidence/comparison/case-44-tasks-actions.json",
+      "baseline_actions_file": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/evidence/tasks-tools-off-speak-upper-on-actions.json",
+      "actions_sha256": "86e2d2bd148df7f1521f2123b59e4566d72948350d2a3cb2f7e3996c5872a2c3",
+      "actions_equal": true,
+      "voice_file": "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/evidence/comparison/case-44-tasks-voice.json",
+      "baseline_voice_file": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/evidence/tasks-tools-off-speak-upper-on-voice.json",
+      "voice_sha256": "791b69cdf68ccb7071536d5e6ec6f4c63a57de32f83e8c0fbac359f8b9d008da",
+      "voice_equal": true,
+      "stderr_empty": true
+    },
+    {
+      "index": 45,
+      "profile": "tasks",
+      "schedule_tools": "off",
+      "schedule_speak": "true",
+      "actions_command": [
+        "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/lampOS/target/debug/examples/schedule_off_actions"
+      ],
+      "voice_command": [
+        "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/lampOS/target/debug/examples/schedule_off_voice",
+        "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/executive",
+        "tasks"
+      ],
+      "environment": {
+        "LAMP_TOOLS": "on",
+        "LAMP_ACTIONS_DIR": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/executive",
+        "LAMP_MEMORY_SOCKET": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/absent-memory.sock",
+        "LAMP_CLOCK": "on",
+        "LAMP_SCHEDULE_SOCKET": "relative/invalid-schedule.sock",
+        "LAMP_SCHEDULE_DELIVERY_DIR": "relative/invalid-delivery",
+        "LAMP_TASKS_DIR": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/absent-tasks",
+        "LAMP_TASKS_TARGET": "office",
+        "LAMP_SCHEDULE_TOOLS": "off",
+        "LAMP_SCHEDULE_SPEAK": "true"
+      },
+      "actions_file": "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/evidence/comparison/case-45-tasks-actions.json",
+      "baseline_actions_file": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/evidence/tasks-tools-off-speak-true-actions.json",
+      "actions_sha256": "86e2d2bd148df7f1521f2123b59e4566d72948350d2a3cb2f7e3996c5872a2c3",
+      "actions_equal": true,
+      "voice_file": "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/evidence/comparison/case-45-tasks-voice.json",
+      "baseline_voice_file": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/evidence/tasks-tools-off-speak-true-voice.json",
+      "voice_sha256": "791b69cdf68ccb7071536d5e6ec6f4c63a57de32f83e8c0fbac359f8b9d008da",
+      "voice_equal": true,
+      "stderr_empty": true
+    },
+    {
+      "index": 46,
+      "profile": "tasks",
+      "schedule_tools": "off",
+      "schedule_speak": "1",
+      "actions_command": [
+        "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/lampOS/target/debug/examples/schedule_off_actions"
+      ],
+      "voice_command": [
+        "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/lampOS/target/debug/examples/schedule_off_voice",
+        "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/executive",
+        "tasks"
+      ],
+      "environment": {
+        "LAMP_TOOLS": "on",
+        "LAMP_ACTIONS_DIR": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/executive",
+        "LAMP_MEMORY_SOCKET": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/absent-memory.sock",
+        "LAMP_CLOCK": "on",
+        "LAMP_SCHEDULE_SOCKET": "relative/invalid-schedule.sock",
+        "LAMP_SCHEDULE_DELIVERY_DIR": "relative/invalid-delivery",
+        "LAMP_TASKS_DIR": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/absent-tasks",
+        "LAMP_TASKS_TARGET": "office",
+        "LAMP_SCHEDULE_TOOLS": "off",
+        "LAMP_SCHEDULE_SPEAK": "1"
+      },
+      "actions_file": "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/evidence/comparison/case-46-tasks-actions.json",
+      "baseline_actions_file": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/evidence/tasks-tools-off-speak-one-actions.json",
+      "actions_sha256": "86e2d2bd148df7f1521f2123b59e4566d72948350d2a3cb2f7e3996c5872a2c3",
+      "actions_equal": true,
+      "voice_file": "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/evidence/comparison/case-46-tasks-voice.json",
+      "baseline_voice_file": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/evidence/tasks-tools-off-speak-one-voice.json",
+      "voice_sha256": "791b69cdf68ccb7071536d5e6ec6f4c63a57de32f83e8c0fbac359f8b9d008da",
+      "voice_equal": true,
+      "stderr_empty": true
+    },
+    {
+      "index": 47,
+      "profile": "tasks",
+      "schedule_tools": "off",
+      "schedule_speak": " on ",
+      "actions_command": [
+        "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/lampOS/target/debug/examples/schedule_off_actions"
+      ],
+      "voice_command": [
+        "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/lampOS/target/debug/examples/schedule_off_voice",
+        "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/executive",
+        "tasks"
+      ],
+      "environment": {
+        "LAMP_TOOLS": "on",
+        "LAMP_ACTIONS_DIR": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/executive",
+        "LAMP_MEMORY_SOCKET": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/absent-memory.sock",
+        "LAMP_CLOCK": "on",
+        "LAMP_SCHEDULE_SOCKET": "relative/invalid-schedule.sock",
+        "LAMP_SCHEDULE_DELIVERY_DIR": "relative/invalid-delivery",
+        "LAMP_TASKS_DIR": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/absent-tasks",
+        "LAMP_TASKS_TARGET": "office",
+        "LAMP_SCHEDULE_TOOLS": "off",
+        "LAMP_SCHEDULE_SPEAK": " on "
+      },
+      "actions_file": "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/evidence/comparison/case-47-tasks-actions.json",
+      "baseline_actions_file": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/evidence/tasks-tools-off-speak-spaced-on-actions.json",
+      "actions_sha256": "86e2d2bd148df7f1521f2123b59e4566d72948350d2a3cb2f7e3996c5872a2c3",
+      "actions_equal": true,
+      "voice_file": "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/evidence/comparison/case-47-tasks-voice.json",
+      "baseline_voice_file": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/evidence/tasks-tools-off-speak-spaced-on-voice.json",
+      "voice_sha256": "791b69cdf68ccb7071536d5e6ec6f4c63a57de32f83e8c0fbac359f8b9d008da",
+      "voice_equal": true,
+      "stderr_empty": true
+    },
+    {
+      "index": 48,
+      "profile": "tasks",
+      "schedule_tools": "ON",
+      "schedule_speak": null,
+      "actions_command": [
+        "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/lampOS/target/debug/examples/schedule_off_actions"
+      ],
+      "voice_command": [
+        "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/lampOS/target/debug/examples/schedule_off_voice",
+        "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/executive",
+        "tasks"
+      ],
+      "environment": {
+        "LAMP_TOOLS": "on",
+        "LAMP_ACTIONS_DIR": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/executive",
+        "LAMP_MEMORY_SOCKET": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/absent-memory.sock",
+        "LAMP_CLOCK": "on",
+        "LAMP_SCHEDULE_SOCKET": "relative/invalid-schedule.sock",
+        "LAMP_SCHEDULE_DELIVERY_DIR": "relative/invalid-delivery",
+        "LAMP_TASKS_DIR": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/absent-tasks",
+        "LAMP_TASKS_TARGET": "office",
+        "LAMP_SCHEDULE_TOOLS": "ON"
+      },
+      "actions_file": "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/evidence/comparison/case-48-tasks-actions.json",
+      "baseline_actions_file": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/evidence/tasks-tools-upper-on-speak-absent-actions.json",
+      "actions_sha256": "86e2d2bd148df7f1521f2123b59e4566d72948350d2a3cb2f7e3996c5872a2c3",
+      "actions_equal": true,
+      "voice_file": "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/evidence/comparison/case-48-tasks-voice.json",
+      "baseline_voice_file": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/evidence/tasks-tools-upper-on-speak-absent-voice.json",
+      "voice_sha256": "791b69cdf68ccb7071536d5e6ec6f4c63a57de32f83e8c0fbac359f8b9d008da",
+      "voice_equal": true,
+      "stderr_empty": true
+    },
+    {
+      "index": 49,
+      "profile": "tasks",
+      "schedule_tools": "ON",
+      "schedule_speak": "off",
+      "actions_command": [
+        "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/lampOS/target/debug/examples/schedule_off_actions"
+      ],
+      "voice_command": [
+        "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/lampOS/target/debug/examples/schedule_off_voice",
+        "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/executive",
+        "tasks"
+      ],
+      "environment": {
+        "LAMP_TOOLS": "on",
+        "LAMP_ACTIONS_DIR": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/executive",
+        "LAMP_MEMORY_SOCKET": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/absent-memory.sock",
+        "LAMP_CLOCK": "on",
+        "LAMP_SCHEDULE_SOCKET": "relative/invalid-schedule.sock",
+        "LAMP_SCHEDULE_DELIVERY_DIR": "relative/invalid-delivery",
+        "LAMP_TASKS_DIR": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/absent-tasks",
+        "LAMP_TASKS_TARGET": "office",
+        "LAMP_SCHEDULE_TOOLS": "ON",
+        "LAMP_SCHEDULE_SPEAK": "off"
+      },
+      "actions_file": "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/evidence/comparison/case-49-tasks-actions.json",
+      "baseline_actions_file": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/evidence/tasks-tools-upper-on-speak-off-actions.json",
+      "actions_sha256": "86e2d2bd148df7f1521f2123b59e4566d72948350d2a3cb2f7e3996c5872a2c3",
+      "actions_equal": true,
+      "voice_file": "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/evidence/comparison/case-49-tasks-voice.json",
+      "baseline_voice_file": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/evidence/tasks-tools-upper-on-speak-off-voice.json",
+      "voice_sha256": "791b69cdf68ccb7071536d5e6ec6f4c63a57de32f83e8c0fbac359f8b9d008da",
+      "voice_equal": true,
+      "stderr_empty": true
+    },
+    {
+      "index": 50,
+      "profile": "tasks",
+      "schedule_tools": "ON",
+      "schedule_speak": "ON",
+      "actions_command": [
+        "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/lampOS/target/debug/examples/schedule_off_actions"
+      ],
+      "voice_command": [
+        "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/lampOS/target/debug/examples/schedule_off_voice",
+        "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/executive",
+        "tasks"
+      ],
+      "environment": {
+        "LAMP_TOOLS": "on",
+        "LAMP_ACTIONS_DIR": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/executive",
+        "LAMP_MEMORY_SOCKET": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/absent-memory.sock",
+        "LAMP_CLOCK": "on",
+        "LAMP_SCHEDULE_SOCKET": "relative/invalid-schedule.sock",
+        "LAMP_SCHEDULE_DELIVERY_DIR": "relative/invalid-delivery",
+        "LAMP_TASKS_DIR": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/absent-tasks",
+        "LAMP_TASKS_TARGET": "office",
+        "LAMP_SCHEDULE_TOOLS": "ON",
+        "LAMP_SCHEDULE_SPEAK": "ON"
+      },
+      "actions_file": "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/evidence/comparison/case-50-tasks-actions.json",
+      "baseline_actions_file": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/evidence/tasks-tools-upper-on-speak-upper-on-actions.json",
+      "actions_sha256": "86e2d2bd148df7f1521f2123b59e4566d72948350d2a3cb2f7e3996c5872a2c3",
+      "actions_equal": true,
+      "voice_file": "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/evidence/comparison/case-50-tasks-voice.json",
+      "baseline_voice_file": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/evidence/tasks-tools-upper-on-speak-upper-on-voice.json",
+      "voice_sha256": "791b69cdf68ccb7071536d5e6ec6f4c63a57de32f83e8c0fbac359f8b9d008da",
+      "voice_equal": true,
+      "stderr_empty": true
+    },
+    {
+      "index": 51,
+      "profile": "tasks",
+      "schedule_tools": "ON",
+      "schedule_speak": "true",
+      "actions_command": [
+        "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/lampOS/target/debug/examples/schedule_off_actions"
+      ],
+      "voice_command": [
+        "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/lampOS/target/debug/examples/schedule_off_voice",
+        "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/executive",
+        "tasks"
+      ],
+      "environment": {
+        "LAMP_TOOLS": "on",
+        "LAMP_ACTIONS_DIR": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/executive",
+        "LAMP_MEMORY_SOCKET": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/absent-memory.sock",
+        "LAMP_CLOCK": "on",
+        "LAMP_SCHEDULE_SOCKET": "relative/invalid-schedule.sock",
+        "LAMP_SCHEDULE_DELIVERY_DIR": "relative/invalid-delivery",
+        "LAMP_TASKS_DIR": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/absent-tasks",
+        "LAMP_TASKS_TARGET": "office",
+        "LAMP_SCHEDULE_TOOLS": "ON",
+        "LAMP_SCHEDULE_SPEAK": "true"
+      },
+      "actions_file": "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/evidence/comparison/case-51-tasks-actions.json",
+      "baseline_actions_file": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/evidence/tasks-tools-upper-on-speak-true-actions.json",
+      "actions_sha256": "86e2d2bd148df7f1521f2123b59e4566d72948350d2a3cb2f7e3996c5872a2c3",
+      "actions_equal": true,
+      "voice_file": "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/evidence/comparison/case-51-tasks-voice.json",
+      "baseline_voice_file": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/evidence/tasks-tools-upper-on-speak-true-voice.json",
+      "voice_sha256": "791b69cdf68ccb7071536d5e6ec6f4c63a57de32f83e8c0fbac359f8b9d008da",
+      "voice_equal": true,
+      "stderr_empty": true
+    },
+    {
+      "index": 52,
+      "profile": "tasks",
+      "schedule_tools": "ON",
+      "schedule_speak": "1",
+      "actions_command": [
+        "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/lampOS/target/debug/examples/schedule_off_actions"
+      ],
+      "voice_command": [
+        "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/lampOS/target/debug/examples/schedule_off_voice",
+        "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/executive",
+        "tasks"
+      ],
+      "environment": {
+        "LAMP_TOOLS": "on",
+        "LAMP_ACTIONS_DIR": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/executive",
+        "LAMP_MEMORY_SOCKET": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/absent-memory.sock",
+        "LAMP_CLOCK": "on",
+        "LAMP_SCHEDULE_SOCKET": "relative/invalid-schedule.sock",
+        "LAMP_SCHEDULE_DELIVERY_DIR": "relative/invalid-delivery",
+        "LAMP_TASKS_DIR": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/absent-tasks",
+        "LAMP_TASKS_TARGET": "office",
+        "LAMP_SCHEDULE_TOOLS": "ON",
+        "LAMP_SCHEDULE_SPEAK": "1"
+      },
+      "actions_file": "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/evidence/comparison/case-52-tasks-actions.json",
+      "baseline_actions_file": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/evidence/tasks-tools-upper-on-speak-one-actions.json",
+      "actions_sha256": "86e2d2bd148df7f1521f2123b59e4566d72948350d2a3cb2f7e3996c5872a2c3",
+      "actions_equal": true,
+      "voice_file": "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/evidence/comparison/case-52-tasks-voice.json",
+      "baseline_voice_file": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/evidence/tasks-tools-upper-on-speak-one-voice.json",
+      "voice_sha256": "791b69cdf68ccb7071536d5e6ec6f4c63a57de32f83e8c0fbac359f8b9d008da",
+      "voice_equal": true,
+      "stderr_empty": true
+    },
+    {
+      "index": 53,
+      "profile": "tasks",
+      "schedule_tools": "ON",
+      "schedule_speak": " on ",
+      "actions_command": [
+        "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/lampOS/target/debug/examples/schedule_off_actions"
+      ],
+      "voice_command": [
+        "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/lampOS/target/debug/examples/schedule_off_voice",
+        "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/executive",
+        "tasks"
+      ],
+      "environment": {
+        "LAMP_TOOLS": "on",
+        "LAMP_ACTIONS_DIR": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/executive",
+        "LAMP_MEMORY_SOCKET": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/absent-memory.sock",
+        "LAMP_CLOCK": "on",
+        "LAMP_SCHEDULE_SOCKET": "relative/invalid-schedule.sock",
+        "LAMP_SCHEDULE_DELIVERY_DIR": "relative/invalid-delivery",
+        "LAMP_TASKS_DIR": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/absent-tasks",
+        "LAMP_TASKS_TARGET": "office",
+        "LAMP_SCHEDULE_TOOLS": "ON",
+        "LAMP_SCHEDULE_SPEAK": " on "
+      },
+      "actions_file": "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/evidence/comparison/case-53-tasks-actions.json",
+      "baseline_actions_file": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/evidence/tasks-tools-upper-on-speak-spaced-on-actions.json",
+      "actions_sha256": "86e2d2bd148df7f1521f2123b59e4566d72948350d2a3cb2f7e3996c5872a2c3",
+      "actions_equal": true,
+      "voice_file": "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/evidence/comparison/case-53-tasks-voice.json",
+      "baseline_voice_file": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/evidence/tasks-tools-upper-on-speak-spaced-on-voice.json",
+      "voice_sha256": "791b69cdf68ccb7071536d5e6ec6f4c63a57de32f83e8c0fbac359f8b9d008da",
+      "voice_equal": true,
+      "stderr_empty": true
+    },
+    {
+      "index": 54,
+      "profile": "tasks",
+      "schedule_tools": "true",
+      "schedule_speak": null,
+      "actions_command": [
+        "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/lampOS/target/debug/examples/schedule_off_actions"
+      ],
+      "voice_command": [
+        "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/lampOS/target/debug/examples/schedule_off_voice",
+        "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/executive",
+        "tasks"
+      ],
+      "environment": {
+        "LAMP_TOOLS": "on",
+        "LAMP_ACTIONS_DIR": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/executive",
+        "LAMP_MEMORY_SOCKET": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/absent-memory.sock",
+        "LAMP_CLOCK": "on",
+        "LAMP_SCHEDULE_SOCKET": "relative/invalid-schedule.sock",
+        "LAMP_SCHEDULE_DELIVERY_DIR": "relative/invalid-delivery",
+        "LAMP_TASKS_DIR": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/absent-tasks",
+        "LAMP_TASKS_TARGET": "office",
+        "LAMP_SCHEDULE_TOOLS": "true"
+      },
+      "actions_file": "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/evidence/comparison/case-54-tasks-actions.json",
+      "baseline_actions_file": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/evidence/tasks-tools-true-speak-absent-actions.json",
+      "actions_sha256": "86e2d2bd148df7f1521f2123b59e4566d72948350d2a3cb2f7e3996c5872a2c3",
+      "actions_equal": true,
+      "voice_file": "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/evidence/comparison/case-54-tasks-voice.json",
+      "baseline_voice_file": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/evidence/tasks-tools-true-speak-absent-voice.json",
+      "voice_sha256": "791b69cdf68ccb7071536d5e6ec6f4c63a57de32f83e8c0fbac359f8b9d008da",
+      "voice_equal": true,
+      "stderr_empty": true
+    },
+    {
+      "index": 55,
+      "profile": "tasks",
+      "schedule_tools": "true",
+      "schedule_speak": "off",
+      "actions_command": [
+        "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/lampOS/target/debug/examples/schedule_off_actions"
+      ],
+      "voice_command": [
+        "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/lampOS/target/debug/examples/schedule_off_voice",
+        "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/executive",
+        "tasks"
+      ],
+      "environment": {
+        "LAMP_TOOLS": "on",
+        "LAMP_ACTIONS_DIR": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/executive",
+        "LAMP_MEMORY_SOCKET": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/absent-memory.sock",
+        "LAMP_CLOCK": "on",
+        "LAMP_SCHEDULE_SOCKET": "relative/invalid-schedule.sock",
+        "LAMP_SCHEDULE_DELIVERY_DIR": "relative/invalid-delivery",
+        "LAMP_TASKS_DIR": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/absent-tasks",
+        "LAMP_TASKS_TARGET": "office",
+        "LAMP_SCHEDULE_TOOLS": "true",
+        "LAMP_SCHEDULE_SPEAK": "off"
+      },
+      "actions_file": "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/evidence/comparison/case-55-tasks-actions.json",
+      "baseline_actions_file": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/evidence/tasks-tools-true-speak-off-actions.json",
+      "actions_sha256": "86e2d2bd148df7f1521f2123b59e4566d72948350d2a3cb2f7e3996c5872a2c3",
+      "actions_equal": true,
+      "voice_file": "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/evidence/comparison/case-55-tasks-voice.json",
+      "baseline_voice_file": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/evidence/tasks-tools-true-speak-off-voice.json",
+      "voice_sha256": "791b69cdf68ccb7071536d5e6ec6f4c63a57de32f83e8c0fbac359f8b9d008da",
+      "voice_equal": true,
+      "stderr_empty": true
+    },
+    {
+      "index": 56,
+      "profile": "tasks",
+      "schedule_tools": "true",
+      "schedule_speak": "ON",
+      "actions_command": [
+        "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/lampOS/target/debug/examples/schedule_off_actions"
+      ],
+      "voice_command": [
+        "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/lampOS/target/debug/examples/schedule_off_voice",
+        "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/executive",
+        "tasks"
+      ],
+      "environment": {
+        "LAMP_TOOLS": "on",
+        "LAMP_ACTIONS_DIR": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/executive",
+        "LAMP_MEMORY_SOCKET": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/absent-memory.sock",
+        "LAMP_CLOCK": "on",
+        "LAMP_SCHEDULE_SOCKET": "relative/invalid-schedule.sock",
+        "LAMP_SCHEDULE_DELIVERY_DIR": "relative/invalid-delivery",
+        "LAMP_TASKS_DIR": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/absent-tasks",
+        "LAMP_TASKS_TARGET": "office",
+        "LAMP_SCHEDULE_TOOLS": "true",
+        "LAMP_SCHEDULE_SPEAK": "ON"
+      },
+      "actions_file": "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/evidence/comparison/case-56-tasks-actions.json",
+      "baseline_actions_file": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/evidence/tasks-tools-true-speak-upper-on-actions.json",
+      "actions_sha256": "86e2d2bd148df7f1521f2123b59e4566d72948350d2a3cb2f7e3996c5872a2c3",
+      "actions_equal": true,
+      "voice_file": "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/evidence/comparison/case-56-tasks-voice.json",
+      "baseline_voice_file": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/evidence/tasks-tools-true-speak-upper-on-voice.json",
+      "voice_sha256": "791b69cdf68ccb7071536d5e6ec6f4c63a57de32f83e8c0fbac359f8b9d008da",
+      "voice_equal": true,
+      "stderr_empty": true
+    },
+    {
+      "index": 57,
+      "profile": "tasks",
+      "schedule_tools": "true",
+      "schedule_speak": "true",
+      "actions_command": [
+        "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/lampOS/target/debug/examples/schedule_off_actions"
+      ],
+      "voice_command": [
+        "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/lampOS/target/debug/examples/schedule_off_voice",
+        "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/executive",
+        "tasks"
+      ],
+      "environment": {
+        "LAMP_TOOLS": "on",
+        "LAMP_ACTIONS_DIR": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/executive",
+        "LAMP_MEMORY_SOCKET": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/absent-memory.sock",
+        "LAMP_CLOCK": "on",
+        "LAMP_SCHEDULE_SOCKET": "relative/invalid-schedule.sock",
+        "LAMP_SCHEDULE_DELIVERY_DIR": "relative/invalid-delivery",
+        "LAMP_TASKS_DIR": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/absent-tasks",
+        "LAMP_TASKS_TARGET": "office",
+        "LAMP_SCHEDULE_TOOLS": "true",
+        "LAMP_SCHEDULE_SPEAK": "true"
+      },
+      "actions_file": "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/evidence/comparison/case-57-tasks-actions.json",
+      "baseline_actions_file": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/evidence/tasks-tools-true-speak-true-actions.json",
+      "actions_sha256": "86e2d2bd148df7f1521f2123b59e4566d72948350d2a3cb2f7e3996c5872a2c3",
+      "actions_equal": true,
+      "voice_file": "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/evidence/comparison/case-57-tasks-voice.json",
+      "baseline_voice_file": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/evidence/tasks-tools-true-speak-true-voice.json",
+      "voice_sha256": "791b69cdf68ccb7071536d5e6ec6f4c63a57de32f83e8c0fbac359f8b9d008da",
+      "voice_equal": true,
+      "stderr_empty": true
+    },
+    {
+      "index": 58,
+      "profile": "tasks",
+      "schedule_tools": "true",
+      "schedule_speak": "1",
+      "actions_command": [
+        "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/lampOS/target/debug/examples/schedule_off_actions"
+      ],
+      "voice_command": [
+        "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/lampOS/target/debug/examples/schedule_off_voice",
+        "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/executive",
+        "tasks"
+      ],
+      "environment": {
+        "LAMP_TOOLS": "on",
+        "LAMP_ACTIONS_DIR": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/executive",
+        "LAMP_MEMORY_SOCKET": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/absent-memory.sock",
+        "LAMP_CLOCK": "on",
+        "LAMP_SCHEDULE_SOCKET": "relative/invalid-schedule.sock",
+        "LAMP_SCHEDULE_DELIVERY_DIR": "relative/invalid-delivery",
+        "LAMP_TASKS_DIR": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/absent-tasks",
+        "LAMP_TASKS_TARGET": "office",
+        "LAMP_SCHEDULE_TOOLS": "true",
+        "LAMP_SCHEDULE_SPEAK": "1"
+      },
+      "actions_file": "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/evidence/comparison/case-58-tasks-actions.json",
+      "baseline_actions_file": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/evidence/tasks-tools-true-speak-one-actions.json",
+      "actions_sha256": "86e2d2bd148df7f1521f2123b59e4566d72948350d2a3cb2f7e3996c5872a2c3",
+      "actions_equal": true,
+      "voice_file": "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/evidence/comparison/case-58-tasks-voice.json",
+      "baseline_voice_file": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/evidence/tasks-tools-true-speak-one-voice.json",
+      "voice_sha256": "791b69cdf68ccb7071536d5e6ec6f4c63a57de32f83e8c0fbac359f8b9d008da",
+      "voice_equal": true,
+      "stderr_empty": true
+    },
+    {
+      "index": 59,
+      "profile": "tasks",
+      "schedule_tools": "true",
+      "schedule_speak": " on ",
+      "actions_command": [
+        "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/lampOS/target/debug/examples/schedule_off_actions"
+      ],
+      "voice_command": [
+        "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/lampOS/target/debug/examples/schedule_off_voice",
+        "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/executive",
+        "tasks"
+      ],
+      "environment": {
+        "LAMP_TOOLS": "on",
+        "LAMP_ACTIONS_DIR": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/executive",
+        "LAMP_MEMORY_SOCKET": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/absent-memory.sock",
+        "LAMP_CLOCK": "on",
+        "LAMP_SCHEDULE_SOCKET": "relative/invalid-schedule.sock",
+        "LAMP_SCHEDULE_DELIVERY_DIR": "relative/invalid-delivery",
+        "LAMP_TASKS_DIR": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/absent-tasks",
+        "LAMP_TASKS_TARGET": "office",
+        "LAMP_SCHEDULE_TOOLS": "true",
+        "LAMP_SCHEDULE_SPEAK": " on "
+      },
+      "actions_file": "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/evidence/comparison/case-59-tasks-actions.json",
+      "baseline_actions_file": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/evidence/tasks-tools-true-speak-spaced-on-actions.json",
+      "actions_sha256": "86e2d2bd148df7f1521f2123b59e4566d72948350d2a3cb2f7e3996c5872a2c3",
+      "actions_equal": true,
+      "voice_file": "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/evidence/comparison/case-59-tasks-voice.json",
+      "baseline_voice_file": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/evidence/tasks-tools-true-speak-spaced-on-voice.json",
+      "voice_sha256": "791b69cdf68ccb7071536d5e6ec6f4c63a57de32f83e8c0fbac359f8b9d008da",
+      "voice_equal": true,
+      "stderr_empty": true
+    },
+    {
+      "index": 60,
+      "profile": "tasks",
+      "schedule_tools": "1",
+      "schedule_speak": null,
+      "actions_command": [
+        "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/lampOS/target/debug/examples/schedule_off_actions"
+      ],
+      "voice_command": [
+        "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/lampOS/target/debug/examples/schedule_off_voice",
+        "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/executive",
+        "tasks"
+      ],
+      "environment": {
+        "LAMP_TOOLS": "on",
+        "LAMP_ACTIONS_DIR": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/executive",
+        "LAMP_MEMORY_SOCKET": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/absent-memory.sock",
+        "LAMP_CLOCK": "on",
+        "LAMP_SCHEDULE_SOCKET": "relative/invalid-schedule.sock",
+        "LAMP_SCHEDULE_DELIVERY_DIR": "relative/invalid-delivery",
+        "LAMP_TASKS_DIR": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/absent-tasks",
+        "LAMP_TASKS_TARGET": "office",
+        "LAMP_SCHEDULE_TOOLS": "1"
+      },
+      "actions_file": "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/evidence/comparison/case-60-tasks-actions.json",
+      "baseline_actions_file": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/evidence/tasks-tools-one-speak-absent-actions.json",
+      "actions_sha256": "86e2d2bd148df7f1521f2123b59e4566d72948350d2a3cb2f7e3996c5872a2c3",
+      "actions_equal": true,
+      "voice_file": "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/evidence/comparison/case-60-tasks-voice.json",
+      "baseline_voice_file": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/evidence/tasks-tools-one-speak-absent-voice.json",
+      "voice_sha256": "791b69cdf68ccb7071536d5e6ec6f4c63a57de32f83e8c0fbac359f8b9d008da",
+      "voice_equal": true,
+      "stderr_empty": true
+    },
+    {
+      "index": 61,
+      "profile": "tasks",
+      "schedule_tools": "1",
+      "schedule_speak": "off",
+      "actions_command": [
+        "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/lampOS/target/debug/examples/schedule_off_actions"
+      ],
+      "voice_command": [
+        "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/lampOS/target/debug/examples/schedule_off_voice",
+        "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/executive",
+        "tasks"
+      ],
+      "environment": {
+        "LAMP_TOOLS": "on",
+        "LAMP_ACTIONS_DIR": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/executive",
+        "LAMP_MEMORY_SOCKET": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/absent-memory.sock",
+        "LAMP_CLOCK": "on",
+        "LAMP_SCHEDULE_SOCKET": "relative/invalid-schedule.sock",
+        "LAMP_SCHEDULE_DELIVERY_DIR": "relative/invalid-delivery",
+        "LAMP_TASKS_DIR": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/absent-tasks",
+        "LAMP_TASKS_TARGET": "office",
+        "LAMP_SCHEDULE_TOOLS": "1",
+        "LAMP_SCHEDULE_SPEAK": "off"
+      },
+      "actions_file": "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/evidence/comparison/case-61-tasks-actions.json",
+      "baseline_actions_file": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/evidence/tasks-tools-one-speak-off-actions.json",
+      "actions_sha256": "86e2d2bd148df7f1521f2123b59e4566d72948350d2a3cb2f7e3996c5872a2c3",
+      "actions_equal": true,
+      "voice_file": "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/evidence/comparison/case-61-tasks-voice.json",
+      "baseline_voice_file": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/evidence/tasks-tools-one-speak-off-voice.json",
+      "voice_sha256": "791b69cdf68ccb7071536d5e6ec6f4c63a57de32f83e8c0fbac359f8b9d008da",
+      "voice_equal": true,
+      "stderr_empty": true
+    },
+    {
+      "index": 62,
+      "profile": "tasks",
+      "schedule_tools": "1",
+      "schedule_speak": "ON",
+      "actions_command": [
+        "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/lampOS/target/debug/examples/schedule_off_actions"
+      ],
+      "voice_command": [
+        "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/lampOS/target/debug/examples/schedule_off_voice",
+        "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/executive",
+        "tasks"
+      ],
+      "environment": {
+        "LAMP_TOOLS": "on",
+        "LAMP_ACTIONS_DIR": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/executive",
+        "LAMP_MEMORY_SOCKET": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/absent-memory.sock",
+        "LAMP_CLOCK": "on",
+        "LAMP_SCHEDULE_SOCKET": "relative/invalid-schedule.sock",
+        "LAMP_SCHEDULE_DELIVERY_DIR": "relative/invalid-delivery",
+        "LAMP_TASKS_DIR": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/absent-tasks",
+        "LAMP_TASKS_TARGET": "office",
+        "LAMP_SCHEDULE_TOOLS": "1",
+        "LAMP_SCHEDULE_SPEAK": "ON"
+      },
+      "actions_file": "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/evidence/comparison/case-62-tasks-actions.json",
+      "baseline_actions_file": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/evidence/tasks-tools-one-speak-upper-on-actions.json",
+      "actions_sha256": "86e2d2bd148df7f1521f2123b59e4566d72948350d2a3cb2f7e3996c5872a2c3",
+      "actions_equal": true,
+      "voice_file": "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/evidence/comparison/case-62-tasks-voice.json",
+      "baseline_voice_file": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/evidence/tasks-tools-one-speak-upper-on-voice.json",
+      "voice_sha256": "791b69cdf68ccb7071536d5e6ec6f4c63a57de32f83e8c0fbac359f8b9d008da",
+      "voice_equal": true,
+      "stderr_empty": true
+    },
+    {
+      "index": 63,
+      "profile": "tasks",
+      "schedule_tools": "1",
+      "schedule_speak": "true",
+      "actions_command": [
+        "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/lampOS/target/debug/examples/schedule_off_actions"
+      ],
+      "voice_command": [
+        "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/lampOS/target/debug/examples/schedule_off_voice",
+        "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/executive",
+        "tasks"
+      ],
+      "environment": {
+        "LAMP_TOOLS": "on",
+        "LAMP_ACTIONS_DIR": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/executive",
+        "LAMP_MEMORY_SOCKET": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/absent-memory.sock",
+        "LAMP_CLOCK": "on",
+        "LAMP_SCHEDULE_SOCKET": "relative/invalid-schedule.sock",
+        "LAMP_SCHEDULE_DELIVERY_DIR": "relative/invalid-delivery",
+        "LAMP_TASKS_DIR": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/absent-tasks",
+        "LAMP_TASKS_TARGET": "office",
+        "LAMP_SCHEDULE_TOOLS": "1",
+        "LAMP_SCHEDULE_SPEAK": "true"
+      },
+      "actions_file": "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/evidence/comparison/case-63-tasks-actions.json",
+      "baseline_actions_file": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/evidence/tasks-tools-one-speak-true-actions.json",
+      "actions_sha256": "86e2d2bd148df7f1521f2123b59e4566d72948350d2a3cb2f7e3996c5872a2c3",
+      "actions_equal": true,
+      "voice_file": "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/evidence/comparison/case-63-tasks-voice.json",
+      "baseline_voice_file": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/evidence/tasks-tools-one-speak-true-voice.json",
+      "voice_sha256": "791b69cdf68ccb7071536d5e6ec6f4c63a57de32f83e8c0fbac359f8b9d008da",
+      "voice_equal": true,
+      "stderr_empty": true
+    },
+    {
+      "index": 64,
+      "profile": "tasks",
+      "schedule_tools": "1",
+      "schedule_speak": "1",
+      "actions_command": [
+        "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/lampOS/target/debug/examples/schedule_off_actions"
+      ],
+      "voice_command": [
+        "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/lampOS/target/debug/examples/schedule_off_voice",
+        "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/executive",
+        "tasks"
+      ],
+      "environment": {
+        "LAMP_TOOLS": "on",
+        "LAMP_ACTIONS_DIR": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/executive",
+        "LAMP_MEMORY_SOCKET": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/absent-memory.sock",
+        "LAMP_CLOCK": "on",
+        "LAMP_SCHEDULE_SOCKET": "relative/invalid-schedule.sock",
+        "LAMP_SCHEDULE_DELIVERY_DIR": "relative/invalid-delivery",
+        "LAMP_TASKS_DIR": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/absent-tasks",
+        "LAMP_TASKS_TARGET": "office",
+        "LAMP_SCHEDULE_TOOLS": "1",
+        "LAMP_SCHEDULE_SPEAK": "1"
+      },
+      "actions_file": "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/evidence/comparison/case-64-tasks-actions.json",
+      "baseline_actions_file": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/evidence/tasks-tools-one-speak-one-actions.json",
+      "actions_sha256": "86e2d2bd148df7f1521f2123b59e4566d72948350d2a3cb2f7e3996c5872a2c3",
+      "actions_equal": true,
+      "voice_file": "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/evidence/comparison/case-64-tasks-voice.json",
+      "baseline_voice_file": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/evidence/tasks-tools-one-speak-one-voice.json",
+      "voice_sha256": "791b69cdf68ccb7071536d5e6ec6f4c63a57de32f83e8c0fbac359f8b9d008da",
+      "voice_equal": true,
+      "stderr_empty": true
+    },
+    {
+      "index": 65,
+      "profile": "tasks",
+      "schedule_tools": "1",
+      "schedule_speak": " on ",
+      "actions_command": [
+        "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/lampOS/target/debug/examples/schedule_off_actions"
+      ],
+      "voice_command": [
+        "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/lampOS/target/debug/examples/schedule_off_voice",
+        "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/executive",
+        "tasks"
+      ],
+      "environment": {
+        "LAMP_TOOLS": "on",
+        "LAMP_ACTIONS_DIR": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/executive",
+        "LAMP_MEMORY_SOCKET": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/absent-memory.sock",
+        "LAMP_CLOCK": "on",
+        "LAMP_SCHEDULE_SOCKET": "relative/invalid-schedule.sock",
+        "LAMP_SCHEDULE_DELIVERY_DIR": "relative/invalid-delivery",
+        "LAMP_TASKS_DIR": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/absent-tasks",
+        "LAMP_TASKS_TARGET": "office",
+        "LAMP_SCHEDULE_TOOLS": "1",
+        "LAMP_SCHEDULE_SPEAK": " on "
+      },
+      "actions_file": "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/evidence/comparison/case-65-tasks-actions.json",
+      "baseline_actions_file": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/evidence/tasks-tools-one-speak-spaced-on-actions.json",
+      "actions_sha256": "86e2d2bd148df7f1521f2123b59e4566d72948350d2a3cb2f7e3996c5872a2c3",
+      "actions_equal": true,
+      "voice_file": "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/evidence/comparison/case-65-tasks-voice.json",
+      "baseline_voice_file": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/evidence/tasks-tools-one-speak-spaced-on-voice.json",
+      "voice_sha256": "791b69cdf68ccb7071536d5e6ec6f4c63a57de32f83e8c0fbac359f8b9d008da",
+      "voice_equal": true,
+      "stderr_empty": true
+    },
+    {
+      "index": 66,
+      "profile": "tasks",
+      "schedule_tools": " on ",
+      "schedule_speak": null,
+      "actions_command": [
+        "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/lampOS/target/debug/examples/schedule_off_actions"
+      ],
+      "voice_command": [
+        "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/lampOS/target/debug/examples/schedule_off_voice",
+        "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/executive",
+        "tasks"
+      ],
+      "environment": {
+        "LAMP_TOOLS": "on",
+        "LAMP_ACTIONS_DIR": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/executive",
+        "LAMP_MEMORY_SOCKET": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/absent-memory.sock",
+        "LAMP_CLOCK": "on",
+        "LAMP_SCHEDULE_SOCKET": "relative/invalid-schedule.sock",
+        "LAMP_SCHEDULE_DELIVERY_DIR": "relative/invalid-delivery",
+        "LAMP_TASKS_DIR": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/absent-tasks",
+        "LAMP_TASKS_TARGET": "office",
+        "LAMP_SCHEDULE_TOOLS": " on "
+      },
+      "actions_file": "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/evidence/comparison/case-66-tasks-actions.json",
+      "baseline_actions_file": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/evidence/tasks-tools-spaced-on-speak-absent-actions.json",
+      "actions_sha256": "86e2d2bd148df7f1521f2123b59e4566d72948350d2a3cb2f7e3996c5872a2c3",
+      "actions_equal": true,
+      "voice_file": "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/evidence/comparison/case-66-tasks-voice.json",
+      "baseline_voice_file": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/evidence/tasks-tools-spaced-on-speak-absent-voice.json",
+      "voice_sha256": "791b69cdf68ccb7071536d5e6ec6f4c63a57de32f83e8c0fbac359f8b9d008da",
+      "voice_equal": true,
+      "stderr_empty": true
+    },
+    {
+      "index": 67,
+      "profile": "tasks",
+      "schedule_tools": " on ",
+      "schedule_speak": "off",
+      "actions_command": [
+        "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/lampOS/target/debug/examples/schedule_off_actions"
+      ],
+      "voice_command": [
+        "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/lampOS/target/debug/examples/schedule_off_voice",
+        "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/executive",
+        "tasks"
+      ],
+      "environment": {
+        "LAMP_TOOLS": "on",
+        "LAMP_ACTIONS_DIR": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/executive",
+        "LAMP_MEMORY_SOCKET": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/absent-memory.sock",
+        "LAMP_CLOCK": "on",
+        "LAMP_SCHEDULE_SOCKET": "relative/invalid-schedule.sock",
+        "LAMP_SCHEDULE_DELIVERY_DIR": "relative/invalid-delivery",
+        "LAMP_TASKS_DIR": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/absent-tasks",
+        "LAMP_TASKS_TARGET": "office",
+        "LAMP_SCHEDULE_TOOLS": " on ",
+        "LAMP_SCHEDULE_SPEAK": "off"
+      },
+      "actions_file": "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/evidence/comparison/case-67-tasks-actions.json",
+      "baseline_actions_file": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/evidence/tasks-tools-spaced-on-speak-off-actions.json",
+      "actions_sha256": "86e2d2bd148df7f1521f2123b59e4566d72948350d2a3cb2f7e3996c5872a2c3",
+      "actions_equal": true,
+      "voice_file": "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/evidence/comparison/case-67-tasks-voice.json",
+      "baseline_voice_file": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/evidence/tasks-tools-spaced-on-speak-off-voice.json",
+      "voice_sha256": "791b69cdf68ccb7071536d5e6ec6f4c63a57de32f83e8c0fbac359f8b9d008da",
+      "voice_equal": true,
+      "stderr_empty": true
+    },
+    {
+      "index": 68,
+      "profile": "tasks",
+      "schedule_tools": " on ",
+      "schedule_speak": "ON",
+      "actions_command": [
+        "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/lampOS/target/debug/examples/schedule_off_actions"
+      ],
+      "voice_command": [
+        "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/lampOS/target/debug/examples/schedule_off_voice",
+        "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/executive",
+        "tasks"
+      ],
+      "environment": {
+        "LAMP_TOOLS": "on",
+        "LAMP_ACTIONS_DIR": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/executive",
+        "LAMP_MEMORY_SOCKET": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/absent-memory.sock",
+        "LAMP_CLOCK": "on",
+        "LAMP_SCHEDULE_SOCKET": "relative/invalid-schedule.sock",
+        "LAMP_SCHEDULE_DELIVERY_DIR": "relative/invalid-delivery",
+        "LAMP_TASKS_DIR": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/absent-tasks",
+        "LAMP_TASKS_TARGET": "office",
+        "LAMP_SCHEDULE_TOOLS": " on ",
+        "LAMP_SCHEDULE_SPEAK": "ON"
+      },
+      "actions_file": "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/evidence/comparison/case-68-tasks-actions.json",
+      "baseline_actions_file": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/evidence/tasks-tools-spaced-on-speak-upper-on-actions.json",
+      "actions_sha256": "86e2d2bd148df7f1521f2123b59e4566d72948350d2a3cb2f7e3996c5872a2c3",
+      "actions_equal": true,
+      "voice_file": "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/evidence/comparison/case-68-tasks-voice.json",
+      "baseline_voice_file": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/evidence/tasks-tools-spaced-on-speak-upper-on-voice.json",
+      "voice_sha256": "791b69cdf68ccb7071536d5e6ec6f4c63a57de32f83e8c0fbac359f8b9d008da",
+      "voice_equal": true,
+      "stderr_empty": true
+    },
+    {
+      "index": 69,
+      "profile": "tasks",
+      "schedule_tools": " on ",
+      "schedule_speak": "true",
+      "actions_command": [
+        "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/lampOS/target/debug/examples/schedule_off_actions"
+      ],
+      "voice_command": [
+        "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/lampOS/target/debug/examples/schedule_off_voice",
+        "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/executive",
+        "tasks"
+      ],
+      "environment": {
+        "LAMP_TOOLS": "on",
+        "LAMP_ACTIONS_DIR": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/executive",
+        "LAMP_MEMORY_SOCKET": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/absent-memory.sock",
+        "LAMP_CLOCK": "on",
+        "LAMP_SCHEDULE_SOCKET": "relative/invalid-schedule.sock",
+        "LAMP_SCHEDULE_DELIVERY_DIR": "relative/invalid-delivery",
+        "LAMP_TASKS_DIR": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/absent-tasks",
+        "LAMP_TASKS_TARGET": "office",
+        "LAMP_SCHEDULE_TOOLS": " on ",
+        "LAMP_SCHEDULE_SPEAK": "true"
+      },
+      "actions_file": "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/evidence/comparison/case-69-tasks-actions.json",
+      "baseline_actions_file": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/evidence/tasks-tools-spaced-on-speak-true-actions.json",
+      "actions_sha256": "86e2d2bd148df7f1521f2123b59e4566d72948350d2a3cb2f7e3996c5872a2c3",
+      "actions_equal": true,
+      "voice_file": "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/evidence/comparison/case-69-tasks-voice.json",
+      "baseline_voice_file": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/evidence/tasks-tools-spaced-on-speak-true-voice.json",
+      "voice_sha256": "791b69cdf68ccb7071536d5e6ec6f4c63a57de32f83e8c0fbac359f8b9d008da",
+      "voice_equal": true,
+      "stderr_empty": true
+    },
+    {
+      "index": 70,
+      "profile": "tasks",
+      "schedule_tools": " on ",
+      "schedule_speak": "1",
+      "actions_command": [
+        "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/lampOS/target/debug/examples/schedule_off_actions"
+      ],
+      "voice_command": [
+        "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/lampOS/target/debug/examples/schedule_off_voice",
+        "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/executive",
+        "tasks"
+      ],
+      "environment": {
+        "LAMP_TOOLS": "on",
+        "LAMP_ACTIONS_DIR": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/executive",
+        "LAMP_MEMORY_SOCKET": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/absent-memory.sock",
+        "LAMP_CLOCK": "on",
+        "LAMP_SCHEDULE_SOCKET": "relative/invalid-schedule.sock",
+        "LAMP_SCHEDULE_DELIVERY_DIR": "relative/invalid-delivery",
+        "LAMP_TASKS_DIR": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/absent-tasks",
+        "LAMP_TASKS_TARGET": "office",
+        "LAMP_SCHEDULE_TOOLS": " on ",
+        "LAMP_SCHEDULE_SPEAK": "1"
+      },
+      "actions_file": "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/evidence/comparison/case-70-tasks-actions.json",
+      "baseline_actions_file": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/evidence/tasks-tools-spaced-on-speak-one-actions.json",
+      "actions_sha256": "86e2d2bd148df7f1521f2123b59e4566d72948350d2a3cb2f7e3996c5872a2c3",
+      "actions_equal": true,
+      "voice_file": "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/evidence/comparison/case-70-tasks-voice.json",
+      "baseline_voice_file": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/evidence/tasks-tools-spaced-on-speak-one-voice.json",
+      "voice_sha256": "791b69cdf68ccb7071536d5e6ec6f4c63a57de32f83e8c0fbac359f8b9d008da",
+      "voice_equal": true,
+      "stderr_empty": true
+    },
+    {
+      "index": 71,
+      "profile": "tasks",
+      "schedule_tools": " on ",
+      "schedule_speak": " on ",
+      "actions_command": [
+        "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/lampOS/target/debug/examples/schedule_off_actions"
+      ],
+      "voice_command": [
+        "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/lampOS/target/debug/examples/schedule_off_voice",
+        "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/executive",
+        "tasks"
+      ],
+      "environment": {
+        "LAMP_TOOLS": "on",
+        "LAMP_ACTIONS_DIR": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/executive",
+        "LAMP_MEMORY_SOCKET": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/absent-memory.sock",
+        "LAMP_CLOCK": "on",
+        "LAMP_SCHEDULE_SOCKET": "relative/invalid-schedule.sock",
+        "LAMP_SCHEDULE_DELIVERY_DIR": "relative/invalid-delivery",
+        "LAMP_TASKS_DIR": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/fixed-comparison-context/absent-tasks",
+        "LAMP_TASKS_TARGET": "office",
+        "LAMP_SCHEDULE_TOOLS": " on ",
+        "LAMP_SCHEDULE_SPEAK": " on "
+      },
+      "actions_file": "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/evidence/comparison/case-71-tasks-actions.json",
+      "baseline_actions_file": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/evidence/tasks-tools-spaced-on-speak-spaced-on-actions.json",
+      "actions_sha256": "86e2d2bd148df7f1521f2123b59e4566d72948350d2a3cb2f7e3996c5872a2c3",
+      "actions_equal": true,
+      "voice_file": "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/evidence/comparison/case-71-tasks-voice.json",
+      "baseline_voice_file": "/private/tmp/lamp-third-schedule-7fbb03e1f-baseline-kg0lzf0c/evidence/tasks-tools-spaced-on-speak-spaced-on-voice.json",
+      "voice_sha256": "791b69cdf68ccb7071536d5e6ec6f4c63a57de32f83e8c0fbac359f8b9d008da",
+      "voice_equal": true,
+      "stderr_empty": true
+    }
+  ]
+}

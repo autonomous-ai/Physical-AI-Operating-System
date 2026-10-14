@@ -298,6 +298,9 @@ fn run_with_notice_policy(
                                     });
                                 }
                                 Some(ProviderInput::End { .. }) => evidence.provider_ends += 1,
+                                Some(ProviderInput::Reminder { .. }) => {
+                                    panic!("reminders are disabled in this fixture")
+                                }
                                 Some(
                                     ProviderInput::Audio { .. } | ProviderInput::Written { .. },
                                 ) => {}

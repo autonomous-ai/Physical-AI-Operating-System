@@ -19,6 +19,11 @@ serde_json.workspace = true
 lamp-bus = { path = "../bus" }
 lamp-msgs = { path = "../msgs" }
 lamp-ipc = { path = "../ipc" }
+lamp-schedule = { path = "../schedule" }
+getrandom = "0.4"
+
+[dev-dependencies]
+tempfile = "3"
 
 [lints]
 workspace = true

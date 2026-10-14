@@ -223,6 +223,7 @@ pub struct FixtureProvider {
     retained_input: Option<RetainedInput>,
     highest_seen: u64,
     retired_through: u64,
+    reminder_refused_through: u64,
     output_sequence: u64,
     output_flow: OutputSender,
     last_control_us: u64,
@@ -243,6 +244,7 @@ impl FixtureProvider {
             retained_input: None,
             highest_seen: 0,
             retired_through: 0,
+            reminder_refused_through: 0,
             output_sequence: 0,
             output_flow: OutputSender::default(),
             last_control_us: now_us,
@@ -291,7 +293,9 @@ impl FixtureProvider {
             if owner.turn() <= self.retired_through || owner.turn() < self.highest_seen {
                 return Err(invalid("fixture authority resurrected a retired owner"));
             }
-            self.first_owner.get_or_insert(owner);
+            if owner.turn() > self.reminder_refused_through {
+                self.first_owner.get_or_insert(owner);
+            }
             self.highest_seen = owner.turn();
             self.retired_through = self.retired_through.max(owner.turn() - 1);
         } else {
@@ -381,6 +385,11 @@ impl FixtureProvider {
                 request,
                 privacy_generation,
                 ..
+            }
+            | ProviderInput::Reminder {
+                request,
+                privacy_generation,
+                ..
             } => (*request, *privacy_generation),
         };
         if request == 0
@@ -389,7 +398,7 @@ impl FixtureProvider {
         {
             return Err(invalid("fixture input lost privacy or retention authority"));
         }
-        if request <= self.retired_through {
+        if request <= self.retired_through || request <= self.reminder_refused_through {
             return Ok(());
         }
         let owner = state
@@ -397,6 +406,24 @@ impl FixtureProvider {
             .filter(|owner| owner.turn() == request)
             .ok_or_else(|| invalid("fixture input has no matching admitted owner"))?;
         match command {
+            ProviderInput::Reminder { session, .. } => {
+                if self.input.is_none() && self.reply.is_none() && self.first_owner == Some(owner) {
+                    self.first_owner = None;
+                }
+                self.reminder_refused_through = request;
+                self.input = None;
+                self.reply = None;
+                if self.pending.as_ref().and_then(output_request) == Some(request) {
+                    self.pending = None;
+                }
+                self.events
+                    .retain(|event| output_request(event) != Some(request));
+                self.event(ProviderOutput::ReminderDeferred {
+                    request,
+                    session,
+                    reason: crate::provider_worker::ReminderDeferral::Disabled,
+                })?;
+            }
             ProviderInput::Start { session, .. } => {
                 if session != 1 {
                     return Err(invalid(
@@ -644,6 +671,7 @@ fn output_request(event: &ProviderOutput) -> Option<u64> {
     match event {
         ProviderOutput::Ready { .. }
         | ProviderOutput::TurnFailed { .. }
+        | ProviderOutput::ReminderDeferred { .. }
         // A fixture keeps no input and never reports one.
         | ProviderOutput::InputDiscarded { .. }
         | ProviderOutput::OwnershipAssumed { .. }
@@ -654,6 +682,101 @@ fn output_request(event: &ProviderOutput) -> Option<u64> {
         | ProviderOutput::Interrupted { request }
         | ProviderOutput::TurnComplete { request, .. } => Some(*request),
         ProviderOutput::Transcript { request, .. } => *request,
+    }
+}
+
+#[cfg(test)]
+mod reminder_tests {
+    use super::*;
+    use lamp_turn_owner::{AdmissionState, AdmittedInput, CaptureState, Controller};
+
+    #[test]
+    fn fixture_refuses_a_reminder_once_without_audio_or_disabling_later_ordinary_input() {
+        let now_us = 10_000;
+        let at = MonoTime::from_micros(now_us);
+        let boot = BootId::new([7; 16]).unwrap();
+        let mut owner = Controller::new(boot, at);
+        owner
+            .set_microphone_permission(at, Permission::Allowed)
+            .unwrap();
+        owner
+            .set_capture(
+                at,
+                CaptureState::RetainingUntil(MonoTime::from_micros(now_us + 100_000)),
+            )
+            .unwrap();
+        owner
+            .set_admission(
+                at,
+                AdmissionState::OpenUntil(MonoTime::from_micros(now_us + 100_000)),
+            )
+            .unwrap();
+        let mut fixture = FixtureProvider::new(
+            Fixture {
+                info: FixtureInfo {
+                    wav_sha256: String::new(),
+                    pcm_sha256: String::new(),
+                    rate: 24_000,
+                    channels: 1,
+                    frames: 240,
+                    rail_samples: 0,
+                },
+                samples: vec![1; 240],
+            },
+            boot,
+            now_us,
+        );
+        let first = owner.admit(at, AdmittedInput::NewTurn).unwrap();
+        let state = owner.snapshot(at).unwrap();
+        fixture.install(now_us, state).unwrap();
+        for _ in 0..3 {
+            fixture
+                .submit(
+                    now_us,
+                    ProviderInput::Reminder {
+                        request: first.turn(),
+                        session: 1,
+                        privacy_generation: state.microphone_generation(),
+                        text: "Tea".into(),
+                        late: false,
+                        late_by_ms: None,
+                    },
+                )
+                .unwrap();
+            fixture
+                .install(now_us, owner.snapshot(at).unwrap())
+                .unwrap();
+        }
+        assert!(!fixture.stopped);
+        assert!(fixture.input.is_none() && fixture.reply.is_none());
+        assert_eq!(fixture.events.len(), 1);
+        assert!(matches!(
+            fixture.events.front(),
+            Some(ProviderOutput::ReminderDeferred {
+                reason: crate::provider_worker::ReminderDeferral::Disabled,
+                ..
+            })
+        ));
+        owner.input_ended(at, first).unwrap();
+        owner.complete_turn(at, first).unwrap();
+        fixture
+            .install(now_us, owner.snapshot(at).unwrap())
+            .unwrap();
+        let next = owner.admit(at, AdmittedInput::NewTurn).unwrap();
+        let state = owner.snapshot(at).unwrap();
+        fixture.install(now_us, state).unwrap();
+        fixture
+            .submit(
+                now_us,
+                ProviderInput::Start {
+                    request: next.turn(),
+                    session: 1,
+                    privacy_generation: state.microphone_generation(),
+                },
+            )
+            .unwrap();
+        assert_eq!(fixture.first_owner, Some(next));
+        assert_eq!(fixture.input.as_ref().unwrap().owner, next);
     }
 }
 

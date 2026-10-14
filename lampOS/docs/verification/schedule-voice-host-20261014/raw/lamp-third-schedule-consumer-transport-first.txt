@@ -1,0 +1,39 @@
+   Compiling lamp-voice v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/voice)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 9.90s
+     Running unittests src/lib.rs (target/debug/deps/lamp_voice-04f83e70e13d855a)
+
+running 18 tests
+test reminders::transport::tests::child_fixture ... ok
+test reminders::transport::tests::claim_path_traps_are_refused_without_replacing_existing_data ... ok
+test reminders::transport::tests::claim_without_descriptor_and_rights_with_ordinary_json_are_rejected ... ok
+test reminders::transport::tests::duplicate_claim_does_not_replace_or_release_existing_lock ... ok
+test reminders::transport::tests::exact_packet_bound_and_bidirectional_json_roundtrip ... ok
+test reminders::transport::tests::excess_ancillary_descriptors_fault_without_installing_a_claim ... ok
+test reminders::transport::tests::flood_is_backpressured_and_poll_retains_only_one_ordered_packet ... FAILED
+test reminders::transport::tests::in_process_test_helper_transfers_and_releases_the_real_claim ... ok
+test reminders::transport::tests::malformed_or_unknown_json_shape_faults_the_receiver ... ok
+test reminders::transport::tests::messages_before_claim_are_never_delivered ... ok
+test reminders::transport::tests::oversize_preflight_sends_nothing_and_leaves_valid_sender_usable ... ok
+test reminders::transport::tests::oversized_raw_datagram_is_rejected_instead_of_truncated_json ... ok
+test reminders::transport::tests::poll_cost ... ignored, host-only timing probe; run alone with --ignored --exact --nocapture
+test reminders::transport::tests::production_retention_survives_drop_until_the_parent_process_exits ... ok
+test reminders::transport::tests::real_child_exit_does_not_drop_the_parent_claim_or_start_replacement ... ok
+test reminders::transport::tests::releasing_a_claim_preserves_its_inode_and_private_mode ... ok
+test reminders::transport::tests::stop_signals_once_and_actual_child_exit_can_be_polled_without_waiting ... ok
+test reminders::transport::tests::transferred_claim_survives_child_side_close_and_is_cloexec ... ok
+
+failures:
+
+---- reminders::transport::tests::flood_is_backpressured_and_poll_retains_only_one_ordered_packet stdout ----
+
+thread 'reminders::transport::tests::flood_is_backpressured_and_poll_retains_only_one_ordered_packet' (112725259) panicked at crates/voice/src/reminders/transport.rs:741:66:
+called `Result::unwrap()` on an `Err` value: Os { code: 55, kind: Uncategorized, message: "No buffer space available" }
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    reminders::transport::tests::flood_is_backpressured_and_poll_retains_only_one_ordered_packet
+
+test result: FAILED. 16 passed; 1 failed; 1 ignored; 0 measured; 895 filtered out; finished in 4.85s
+
+error: test failed, to rerun pass `-p lamp-voice --lib`

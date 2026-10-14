@@ -1,0 +1,122 @@
+{
+  "scope": "Exact first failed complete 1a gate; evidence-only retention, no Cargo/test rerun",
+  "base": "1a38f2f3e6b8afd1e7896761a0da6149a2400f67",
+  "retained_at": "2026-10-14T18:22:13.154855+00:00",
+  "originals": [
+    {
+      "original": "/private/tmp/lamp-third-schedule-voice-1a-gate-results.json",
+      "retained": "raw/lamp-third-schedule-voice-1a-gate-results.json",
+      "bytes": 3172,
+      "sha256": "956228e5e16e47c4c9d39a4af9568b6f0167b53e90ee8033c9b7aad1e9d48ba3"
+    },
+    {
+      "original": "/private/tmp/lamp-third-schedule-voice-1a-gate-source.json",
+      "retained": "raw/lamp-third-schedule-voice-1a-gate-source.json",
+      "bytes": 73280,
+      "sha256": "7e923d68853fa071d975cca729e59369a27d552185ee0f9310ca3d4e7832700b"
+    },
+    {
+      "original": "/private/tmp/lamp-third-schedule-voice-1a-gate-format.txt",
+      "retained": "raw/lamp-third-schedule-voice-1a-gate-format.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "original": "/private/tmp/lamp-third-schedule-voice-1a-gate-clippy.txt",
+      "retained": "raw/lamp-third-schedule-voice-1a-gate-clippy.txt",
+      "bytes": 417,
+      "sha256": "53fd9224b90f1eaa923b56e81c082323dd2ee8e55a0214ef842aa56d408c1f58"
+    },
+    {
+      "original": "/private/tmp/lamp-third-schedule-voice-1a-gate-tests.txt",
+      "retained": "raw/lamp-third-schedule-voice-1a-gate-tests.txt",
+      "bytes": 123113,
+      "sha256": "f4da9c74fa504cd39cfe584d050a0b8193c5edd343ed14037afd0aa1d1691194"
+    },
+    {
+      "original": "/private/tmp/lamp-third-schedule-voice-1a-failed-test-binary-after-run.json",
+      "retained": "raw/lamp-third-schedule-voice-1a-failed-test-binary-after-run.json",
+      "bytes": 1313,
+      "sha256": "e0a5bdd234faafd5781cfab59ac0e8fa133fbeb12a800fc78cfaff0a00cfba66"
+    }
+  ],
+  "counts_verified_from_raw_test_summaries": {
+    "harnesses": 16,
+    "passed": 1116,
+    "failed": 5,
+    "ignored": 8
+  },
+  "voice_counts_verified_from_raw": {
+    "passed": 923,
+    "failed": 5,
+    "ignored": 8,
+    "seconds": 491.89
+  },
+  "frozen_paths": 676,
+  "gate_report_records_all_completed_stage_source_hashes_unchanged": true,
+  "existing_source_1a_map_json_equals_gate_map": true,
+  "failure_source_file": {
+    "path": "crates/voice/src/coordinator/motor/tests.rs",
+    "sha256": "62d1f0b5746ecca1167bc02ce0377cf24d2a94ff3e1e73b92aa972d2ab67af33"
+  },
+  "failure_callers": [
+    {
+      "case": "crash_and_stalled_control_never_allow_replacement_or_false_cleanup",
+      "line": 645,
+      "predicate": "OptionalMotor::reaped",
+      "phase": "The crash/hang loop does not record which mode failed."
+    },
+    {
+      "case": "explicit_current_segment_reaches_inert_counts_without_completing_voice",
+      "line": 905,
+      "predicate": "OptionalMotor::is_ready",
+      "phase": "Initial Ready wait, before inspection or segment offer."
+    },
+    {
+      "case": "failed_reap_after_stopped_is_latched_and_reported_once",
+      "line": 1001,
+      "predicate": "OptionalMotor::is_ready",
+      "phase": "Initial Ready wait, before begin_shutdown or Stopped/reap assertions."
+    },
+    {
+      "case": "frozen_config_and_executable_are_exact_and_source_changes_are_not_adopted",
+      "line": 782,
+      "predicate": "OptionalMotor::is_ready",
+      "phase": "Initial Ready wait, before config/executable identity assertions."
+    },
+    {
+      "case": "idle_ready_never_inspects_moves_or_claims_listening",
+      "line": 503,
+      "predicate": "OptionalMotor::is_ready",
+      "phase": "Initial Ready wait, before idle/no-listening assertions."
+    }
+  ],
+  "build_not_reached": true,
+  "raw_files_bytes": 201295,
+  "failure_summary": {
+    "retained": "1a-gate-failure-summary.md",
+    "path": "/Users/d/code/autonomous-os/lampOS/docs/verification/schedule-voice-host-20261014/1a-gate-failure-summary.md",
+    "bytes": 4479,
+    "sha256": "56dda7cebafb45b1b7166d73751ba8fa0df952f33a38024c402feb5708424358"
+  },
+  "readme_transition": {
+    "before_backup": {
+      "path": "/private/tmp/lamp-third-schedule-voice-readme-before-1a-failure.md",
+      "bytes": 30174,
+      "sha256": "91a50e7c5a3bd549795de7fe328ebcd4eafe5a5f77b3ebd85db5d5c29a41e056"
+    },
+    "after": {
+      "path": "/Users/d/code/autonomous-os/lampOS/docs/verification/schedule-voice-host-20261014/README.md",
+      "bytes": 31810,
+      "sha256": "4ddfbbb8d6e4aceddf77182eaf98cc4168c05126486c26dde7e0fee5b449565f"
+    }
+  },
+  "binary_retention": {
+    "outside_repository": true,
+    "path": "/private/tmp/lamp-third-schedule-voice-1a-failed-test-binary-7ltazaph/lamp_voice-04f83e70e13d855a",
+    "bytes": 42826408,
+    "sha256_after_run": "1a773923516b7c48789d09e72fd5e09f5a657d45fbe615c18bb2c9e1a080a1f6",
+    "identity_limit": "The gate log names this executable path but records no pre-run binary hash. This is an after-run hash/copy only; it does not independently prove the exact bytes loaded while the failed gate ran."
+  },
+  "preservation_policy": "Original five gate artifacts and after-run binary provenance copied byte-for-byte. Existing source-1a/rebase files, prior gate evidence and bc3 checks are not overwritten or relabeled. Only the top-level README was updated; summary and index are new."
+}

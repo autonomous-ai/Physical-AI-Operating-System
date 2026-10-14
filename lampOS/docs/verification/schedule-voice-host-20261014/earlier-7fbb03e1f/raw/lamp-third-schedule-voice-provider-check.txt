@@ -1,0 +1,211 @@
+    Checking serde v1.0.229
+    Checking lamp-ipc v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/ipc)
+   Compiling lamp-camera v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/camera)
+    Checking lamp-turn-end-wire v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/turn-end-wire)
+    Checking lamp-bus v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/bus)
+    Checking lamp-turn-owner v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/turn-owner)
+    Checking lamp-gemini v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/gemini)
+    Checking lamp-msgs v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/msgs)
+    Checking lamp-audio v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/audio)
+    Checking lamp-ring v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/ring)
+    Checking lamp-keeper v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/keeper)
+    Checking lamp-controls v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/controls)
+    Checking lamp-schedule v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/schedule)
+    Checking lamp-expression v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/expression)
+    Checking lamp-body v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/body)
+    Checking lamp-voice v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/voice)
+error[E0004]: non-exhaustive patterns: `&provider_worker::ProviderOutput::ReminderDeferred { .. }` not covered
+   --> crates/voice/src/fixture_provider.rs:660:11
+    |
+660 |     match event {
+    |           ^^^^^ pattern `&provider_worker::ProviderOutput::ReminderDeferred { .. }` not covered
+    |
+note: `provider_worker::ProviderOutput` defined here
+   --> crates/voice/src/provider_worker.rs:317:10
+    |
+317 | pub enum ProviderOutput {
+    |          ^^^^^^^^^^^^^^
+...
+358 |     ReminderDeferred {
+    |     ---------------- not covered
+    = note: the matched value is of type `&provider_worker::ProviderOutput`
+help: ensure that all possible cases are being handled by adding a match arm with a wildcard pattern or an explicit pattern as shown
+    |
+672 ~         ProviderOutput::Transcript { request, .. } => *request,
+673 ~         &provider_worker::ProviderOutput::ReminderDeferred { .. } => todo!(),
+    |
+
+error[E0063]: missing fields `schedule_speak` and `schedule_tools` in initializer of `tools::Settings`
+    --> crates/voice/src/provider_worker.rs:5215:24
+     |
+5215 |             typed_with(crate::tools::Settings {
+     |                        ^^^^^^^^^^^^^^^^^^^^^^ missing `schedule_speak` and `schedule_tools`
+
+error[E0063]: missing field `reminder_room` in initializer of `provider_worker::Options`
+   --> crates/voice/src/provider_worker/tests/review_2026_10_14.rs:104:5
+    |
+104 |     Options {
+    |     ^^^^^^^ missing `reminder_room`
+
+error[E0004]: non-exhaustive patterns: `&provider_worker::ProviderOutput::ReminderDeferred { .. }` not covered
+   --> crates/voice/src/coordinator/hand.rs:65:25
+    |
+ 65 |     let request = match event {
+    |                         ^^^^^ pattern `&provider_worker::ProviderOutput::ReminderDeferred { .. }` not covered
+    |
+note: `provider_worker::ProviderOutput` defined here
+   --> crates/voice/src/provider_worker.rs:317:10
+    |
+317 | pub enum ProviderOutput {
+    |          ^^^^^^^^^^^^^^
+...
+358 |     ReminderDeferred {
+    |     ---------------- not covered
+    = note: the matched value is of type `&provider_worker::ProviderOutput`
+help: ensure that all possible cases are being handled by adding a match arm with a wildcard pattern or an explicit pattern as shown
+    |
+ 75 ~         ProviderOutput::Ready { .. } | ProviderOutput::Ended { .. } => None,
+ 76 ~         &provider_worker::ProviderOutput::ReminderDeferred { .. } => todo!(),
+    |
+
+error[E0004]: non-exhaustive patterns: `&provider_worker::ProviderOutput::ReminderDeferred { .. }` not covered
+    --> crates/voice/src/coordinator.rs:1511:11
+     |
+1511 |     match event {
+     |           ^^^^^ pattern `&provider_worker::ProviderOutput::ReminderDeferred { .. }` not covered
+     |
+note: `provider_worker::ProviderOutput` defined here
+    --> crates/voice/src/provider_worker.rs:317:10
+     |
+ 317 | pub enum ProviderOutput {
+     |          ^^^^^^^^^^^^^^
+...
+ 358 |     ReminderDeferred {
+     |     ---------------- not covered
+     = note: the matched value is of type `&provider_worker::ProviderOutput`
+help: ensure that all possible cases are being handled by adding a match arm with a wildcard pattern or an explicit pattern as shown
+     |
+1561 ~         },
+1562 +         &provider_worker::ProviderOutput::ReminderDeferred { .. } => todo!()
+     |
+
+error[E0004]: non-exhaustive patterns: `&provider_worker::ProviderInput::Reminder { .. }` not covered
+    --> crates/voice/src/coordinator.rs:1593:29
+     |
+1593 |         let request = match command {
+     |                             ^^^^^^^ pattern `&provider_worker::ProviderInput::Reminder { .. }` not covered
+     |
+note: `provider_worker::ProviderInput` defined here
+    --> crates/voice/src/provider_worker.rs:244:10
+     |
+ 244 | pub enum ProviderInput {
+     |          ^^^^^^^^^^^^^
+...
+ 276 |     Reminder {
+     |     -------- not covered
+     = note: the matched value is of type `&provider_worker::ProviderInput`
+help: ensure that all possible cases are being handled by adding a match arm with a wildcard pattern or an explicit pattern as shown
+     |
+1597 ~             | ProviderInput::Written { request, .. } => *request,
+1598 ~             &provider_worker::ProviderInput::Reminder { .. } => todo!(),
+     |
+
+error[E0004]: non-exhaustive patterns: `provider_worker::ProviderOutput::ReminderDeferred { .. }` not covered
+    --> crates/voice/src/coordinator.rs:2773:19
+     |
+2773 |             match event {
+     |                   ^^^^^ pattern `provider_worker::ProviderOutput::ReminderDeferred { .. }` not covered
+     |
+note: `provider_worker::ProviderOutput` defined here
+    --> crates/voice/src/provider_worker.rs:317:10
+     |
+ 317 | pub enum ProviderOutput {
+     |          ^^^^^^^^^^^^^^
+...
+ 358 |     ReminderDeferred {
+     |     ---------------- not covered
+     = note: the matched value is of type `provider_worker::ProviderOutput`
+help: ensure that all possible cases are being handled by adding a match arm with a wildcard pattern or an explicit pattern as shown
+     |
+3047 ~                 },
+3048 +                 provider_worker::ProviderOutput::ReminderDeferred { .. } => todo!()
+     |
+
+For more information about this error, try `rustc --explain E0004`.
+error: could not compile `lamp-voice` (lib) due to 5 previous errors
+warning: build failed, waiting for other jobs to finish...
+error[E0004]: non-exhaustive patterns: `provider_worker::ProviderInput::Reminder { .. }` not covered
+   --> crates/voice/src/coordinator/tests/endpoint_session.rs:246:19
+    |
+246 |             match input {
+    |                   ^^^^^ pattern `provider_worker::ProviderInput::Reminder { .. }` not covered
+    |
+note: `provider_worker::ProviderInput` defined here
+   --> crates/voice/src/provider_worker.rs:244:10
+    |
+244 | pub enum ProviderInput {
+    |          ^^^^^^^^^^^^^
+...
+276 |     Reminder {
+    |     -------- not covered
+    = note: the matched value is of type `provider_worker::ProviderInput`
+help: ensure that all possible cases are being handled by adding a match arm with a wildcard pattern or an explicit pattern as shown
+    |
+277 ~                 ProviderInput::Written { .. } => seen.provider.push("written"),
+278 ~                 provider_worker::ProviderInput::Reminder { .. } => todo!(),
+    |
+
+error[E0004]: non-exhaustive patterns: `Ok(Some(provider_worker::ProviderInput::Reminder { .. }))` not covered
+   --> crates/voice/src/coordinator/tests/pilot_faults.rs:787:19
+    |
+787 |             match self.peers[index].channels.data.receive::<ProviderInput>() {
+    |                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ pattern `Ok(Some(provider_worker::ProviderInput::Reminder { .. }))` not covered
+    |
+note: `std::result::Result<std::option::Option<provider_worker::ProviderInput>, std::io::Error>` defined here
+   --> /rustc/ac68faa20c58cbccd01ee7208bf3b6e93a7d7f96/library/core/src/result.rs:557:0
+   ::: /rustc/ac68faa20c58cbccd01ee7208bf3b6e93a7d7f96/library/core/src/result.rs:561:4
+    |
+    = note: not covered
+    = note: the matched value is of type `std::result::Result<std::option::Option<provider_worker::ProviderInput>, std::io::Error>`
+help: ensure that all possible cases are being handled by adding a match arm with a wildcard pattern or an explicit pattern as shown
+    |
+830 ~                 Ok(None) | Err(_) => break,
+831 ~                 Ok(Some(provider_worker::ProviderInput::Reminder { .. })) => todo!(),
+    |
+
+error[E0004]: non-exhaustive patterns: `Some(provider_worker::ProviderInput::Reminder { .. })` not covered
+   --> crates/voice/src/coordinator/tests/provider_terminal.rs:289:35
+    |
+289 | ...                   match peer.channels.data.receive::<ProviderInput>().unwrap() {
+    |                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ pattern `Some(provider_worker::ProviderInput::Reminder { .. })` not covered
+    |
+note: `std::option::Option<provider_worker::ProviderInput>` defined here
+   --> /rustc/ac68faa20c58cbccd01ee7208bf3b6e93a7d7f96/library/core/src/option.rs:600:0
+   ::: /rustc/ac68faa20c58cbccd01ee7208bf3b6e93a7d7f96/library/core/src/option.rs:608:4
+    |
+    = note: not covered
+    = note: the matched value is of type `std::option::Option<provider_worker::ProviderInput>`
+help: ensure that all possible cases are being handled by adding a match arm with a wildcard pattern or an explicit pattern as shown
+    |
+304 ~                                 None => break,
+305 ~                                 Some(provider_worker::ProviderInput::Reminder { .. }) => todo!(),
+    |
+
+warning: unused variable: `maximum_played`
+  --> crates/voice/src/coordinator/tests/provider_terminal.rs:55:9
+   |
+55 |     let maximum_played = 480
+   |         ^^^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_maximum_played`
+   |
+   = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused variable: `request`
+   --> crates/voice/src/coordinator/tests/provider_terminal.rs:121:9
+    |
+121 |     let request = reply.as_ref().map_or(1, |r| r.owner.turn());
+    |         ^^^^^^^ help: if this is intentional, prefix it with an underscore: `_request`
+
+Some errors have detailed explanations: E0004, E0063.
+For more information about an error, try `rustc --explain E0004`.
+warning: `lamp-voice` (lib test) generated 2 warnings
+error: could not compile `lamp-voice` (lib test) due to 10 previous errors; 2 warnings emitted

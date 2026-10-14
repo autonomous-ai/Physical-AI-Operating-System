@@ -237,6 +237,11 @@ pub(super) fn select_failure_notice(
     let Some(current) = reply.as_mut() else {
         return Ok(());
     };
+    // An autonomous reminder that cannot be delivered stays pending silently.
+    // A local failure recording cannot stand in for the intended reminder.
+    if current.reminder.is_some() {
+        return Ok(());
+    }
     if !matches!(current.notice, NoticeDelivery::Unselected)
         || !matches!(current.cloud.outcome, Some(RequestOutcome::Failed { .. }))
         || !current.local_input_ended

@@ -1,0 +1,16 @@
+   Compiling lamp-msgs v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/msgs)
+   Compiling lamp-schedule v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/schedule)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 9.89s
+     Running tests/client.rs (target/debug/deps/client-2c7be275ab7518c7)
+
+running 7 tests
+test a_second_hop_keeps_the_original_absolute_deadline ... ok
+test absent_reply_after_complete_request_is_uncertain_and_not_retried ... ok
+test closed_truncated_nonobject_and_invalid_replies_are_unknown_after_send ... ok
+test exact_reply_bound_is_accepted_and_one_byte_more_is_rejected ... ok
+test expired_deadline_never_connects_and_missing_socket_is_not_sent ... ok
+test fragmented_reply_and_escaped_content_are_one_bounded_object ... ok
+test validates_path_object_and_size_before_opening_a_socket ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.17s
+

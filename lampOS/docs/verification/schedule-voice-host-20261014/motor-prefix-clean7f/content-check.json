@@ -1,0 +1,51 @@
+{
+  "status": "passed",
+  "safe_payload_files_checked_excluding_this_record": 97,
+  "strict_utf8": true,
+  "nul_bytes_absent": true,
+  "json_files_parse": true,
+  "allowed_suffixes": [
+    ".diff",
+    ".json",
+    ".md",
+    ".txt"
+  ],
+  "credential_pattern_rules": [
+    "private_key",
+    "aws_access_key_id",
+    "github_token",
+    "provider_token",
+    "authorization_value",
+    "credential_json_value",
+    "credential_url"
+  ],
+  "credential_pattern_matches": [],
+  "environment_deliberate_allowlist": [
+    "CARGO_TARGET_DIR",
+    "DYLD_FRAMEWORK_PATH",
+    "DYLD_INSERT_LIBRARIES",
+    "DYLD_LIBRARY_PATH",
+    "LAMP_MOTOR_DIAGNOSTICS",
+    "LANG",
+    "LC_ALL",
+    "LC_CTYPE",
+    "LD_LIBRARY_PATH",
+    "PATH",
+    "RUSTUP_TOOLCHAIN",
+    "RUST_BACKTRACE",
+    "RUST_LIB_BACKTRACE",
+    "RUST_TEST_NOCAPTURE",
+    "RUST_TEST_THREADS",
+    "RUST_TEST_TIME_DOCTEST",
+    "RUST_TEST_TIME_INTEGRATION",
+    "RUST_TEST_TIME_UNIT",
+    "TMPDIR",
+    "TZ"
+  ],
+  "full_environment_dump_retained": false,
+  "environment_records_equal": true,
+  "loader_and_internal_motor_environment_absent": true,
+  "binary_or_python_payload_in_safe_set": false,
+  "unix_socket_payload_in_safe_set": false,
+  "limits": "Pattern scans are supplemental; explicit environment allowlisting and review of the actual retained values are the principal controls."
+}

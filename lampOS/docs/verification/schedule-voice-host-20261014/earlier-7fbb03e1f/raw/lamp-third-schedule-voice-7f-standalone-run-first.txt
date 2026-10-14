@@ -1,0 +1,294 @@
+{"name": "workspace-build-first", "command": ["cargo", "build", "--offline", "--locked", "--workspace"], "cwd": "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/lampOS", "log": "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/evidence/workspace-build-first.txt", "exit_code": 0, "elapsed_seconds": 99.15726607900001, "timed_out": false}
+{"name": "helper-build-first", "command": ["cargo", "build", "--offline", "--locked", "-p", "lamp-actions", "-p", "lamp-voice", "--example", "schedule_off_actions", "--example", "schedule_off_voice"], "cwd": "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/lampOS", "log": "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/evidence/helper-build-first.txt", "exit_code": 0, "elapsed_seconds": 30.819302379000007, "timed_out": false}
+{"name": "actions-tests-first", "command": ["cargo", "test", "--offline", "--locked", "-p", "lamp-actions", "--all-targets", "--", "--test-threads=1"], "cwd": "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/lampOS", "log": "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/evidence/actions-tests-first.txt", "exit_code": 0, "elapsed_seconds": 30.73899276199998, "timed_out": false, "test_summaries": [{"passed": 14, "failed": 0, "ignored": 0, "measured": 0, "filtered_out": 0}, {"passed": 1, "failed": 0, "ignored": 0, "measured": 0, "filtered_out": 0}, {"passed": 14, "failed": 0, "ignored": 0, "measured": 0, "filtered_out": 0}, {"passed": 4, "failed": 0, "ignored": 0, "measured": 0, "filtered_out": 0}, {"passed": 0, "failed": 0, "ignored": 0, "measured": 0, "filtered_out": 0}], "test_totals": {"passed": 33, "failed": 0, "ignored": 0, "measured": 0, "filtered_out": 0}}
+{"name": "schedule-tests-first", "command": ["cargo", "test", "--offline", "--locked", "-p", "lamp-schedule", "--all-targets", "--", "--test-threads=1"], "cwd": "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/lampOS", "log": "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/evidence/schedule-tests-first.txt", "exit_code": 0, "elapsed_seconds": 35.476678719999995, "timed_out": false, "test_summaries": [{"passed": 1, "failed": 0, "ignored": 0, "measured": 0, "filtered_out": 0}, {"passed": 0, "failed": 0, "ignored": 0, "measured": 0, "filtered_out": 0}, {"passed": 37, "failed": 0, "ignored": 0, "measured": 0, "filtered_out": 0}, {"passed": 7, "failed": 0, "ignored": 0, "measured": 0, "filtered_out": 0}, {"passed": 24, "failed": 0, "ignored": 0, "measured": 0, "filtered_out": 0}, {"passed": 36, "failed": 0, "ignored": 0, "measured": 0, "filtered_out": 0}, {"passed": 4, "failed": 0, "ignored": 0, "measured": 0, "filtered_out": 0}, {"passed": 18, "failed": 0, "ignored": 0, "measured": 0, "filtered_out": 0}, {"passed": 2, "failed": 0, "ignored": 0, "measured": 0, "filtered_out": 0}, {"passed": 21, "failed": 0, "ignored": 0, "measured": 0, "filtered_out": 0}, {"passed": 10, "failed": 0, "ignored": 0, "measured": 0, "filtered_out": 0}], "test_totals": {"passed": 160, "failed": 0, "ignored": 0, "measured": 0, "filtered_out": 0}}
+{"name": "voice-reminder-tests-first", "command": ["cargo", "test", "--offline", "--locked", "-p", "lamp-voice", "--lib", "reminder", "--", "--test-threads=1"], "cwd": "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/lampOS", "log": "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/evidence/voice-reminder-tests-first.txt", "exit_code": 0, "elapsed_seconds": 33.16166001600001, "timed_out": false, "test_summaries": [{"passed": 68, "failed": 0, "ignored": 2, "measured": 0, "filtered_out": 858}], "test_totals": {"passed": 68, "failed": 0, "ignored": 2, "measured": 0, "filtered_out": 858}}
+{"name": "voice-tools-tests-first", "command": ["cargo", "test", "--offline", "--locked", "-p", "lamp-voice", "--lib", "tools", "--", "--test-threads=1"], "cwd": "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/lampOS", "log": "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/evidence/voice-tools-tests-first.txt", "exit_code": 0, "elapsed_seconds": 2.238466614999993, "timed_out": false, "test_summaries": [{"passed": 19, "failed": 0, "ignored": 0, "measured": 0, "filtered_out": 909}], "test_totals": {"passed": 19, "failed": 0, "ignored": 0, "measured": 0, "filtered_out": 909}}
+{
+  "status": "passed",
+  "report": "/private/tmp/lamp-third-schedule-voice-7f-standalone.json",
+  "root": "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/lampOS",
+  "gate_paths": 675,
+  "source_files": 1454,
+  "local_manifests": 34,
+  "baseline_cases": 72,
+  "stages": [
+    {
+      "name": "workspace-build-first",
+      "command": [
+        "cargo",
+        "build",
+        "--offline",
+        "--locked",
+        "--workspace"
+      ],
+      "cwd": "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/lampOS",
+      "log": "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/evidence/workspace-build-first.txt",
+      "exit_code": 0,
+      "elapsed_seconds": 99.15726607900001,
+      "timed_out": false
+    },
+    {
+      "name": "helper-build-first",
+      "command": [
+        "cargo",
+        "build",
+        "--offline",
+        "--locked",
+        "-p",
+        "lamp-actions",
+        "-p",
+        "lamp-voice",
+        "--example",
+        "schedule_off_actions",
+        "--example",
+        "schedule_off_voice"
+      ],
+      "cwd": "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/lampOS",
+      "log": "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/evidence/helper-build-first.txt",
+      "exit_code": 0,
+      "elapsed_seconds": 30.819302379000007,
+      "timed_out": false
+    },
+    {
+      "name": "actions-tests-first",
+      "command": [
+        "cargo",
+        "test",
+        "--offline",
+        "--locked",
+        "-p",
+        "lamp-actions",
+        "--all-targets",
+        "--",
+        "--test-threads=1"
+      ],
+      "cwd": "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/lampOS",
+      "log": "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/evidence/actions-tests-first.txt",
+      "exit_code": 0,
+      "elapsed_seconds": 30.73899276199998,
+      "timed_out": false,
+      "test_summaries": [
+        {
+          "passed": 14,
+          "failed": 0,
+          "ignored": 0,
+          "measured": 0,
+          "filtered_out": 0
+        },
+        {
+          "passed": 1,
+          "failed": 0,
+          "ignored": 0,
+          "measured": 0,
+          "filtered_out": 0
+        },
+        {
+          "passed": 14,
+          "failed": 0,
+          "ignored": 0,
+          "measured": 0,
+          "filtered_out": 0
+        },
+        {
+          "passed": 4,
+          "failed": 0,
+          "ignored": 0,
+          "measured": 0,
+          "filtered_out": 0
+        },
+        {
+          "passed": 0,
+          "failed": 0,
+          "ignored": 0,
+          "measured": 0,
+          "filtered_out": 0
+        }
+      ],
+      "test_totals": {
+        "passed": 33,
+        "failed": 0,
+        "ignored": 0,
+        "measured": 0,
+        "filtered_out": 0
+      }
+    },
+    {
+      "name": "schedule-tests-first",
+      "command": [
+        "cargo",
+        "test",
+        "--offline",
+        "--locked",
+        "-p",
+        "lamp-schedule",
+        "--all-targets",
+        "--",
+        "--test-threads=1"
+      ],
+      "cwd": "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/lampOS",
+      "log": "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/evidence/schedule-tests-first.txt",
+      "exit_code": 0,
+      "elapsed_seconds": 35.476678719999995,
+      "timed_out": false,
+      "test_summaries": [
+        {
+          "passed": 1,
+          "failed": 0,
+          "ignored": 0,
+          "measured": 0,
+          "filtered_out": 0
+        },
+        {
+          "passed": 0,
+          "failed": 0,
+          "ignored": 0,
+          "measured": 0,
+          "filtered_out": 0
+        },
+        {
+          "passed": 37,
+          "failed": 0,
+          "ignored": 0,
+          "measured": 0,
+          "filtered_out": 0
+        },
+        {
+          "passed": 7,
+          "failed": 0,
+          "ignored": 0,
+          "measured": 0,
+          "filtered_out": 0
+        },
+        {
+          "passed": 24,
+          "failed": 0,
+          "ignored": 0,
+          "measured": 0,
+          "filtered_out": 0
+        },
+        {
+          "passed": 36,
+          "failed": 0,
+          "ignored": 0,
+          "measured": 0,
+          "filtered_out": 0
+        },
+        {
+          "passed": 4,
+          "failed": 0,
+          "ignored": 0,
+          "measured": 0,
+          "filtered_out": 0
+        },
+        {
+          "passed": 18,
+          "failed": 0,
+          "ignored": 0,
+          "measured": 0,
+          "filtered_out": 0
+        },
+        {
+          "passed": 2,
+          "failed": 0,
+          "ignored": 0,
+          "measured": 0,
+          "filtered_out": 0
+        },
+        {
+          "passed": 21,
+          "failed": 0,
+          "ignored": 0,
+          "measured": 0,
+          "filtered_out": 0
+        },
+        {
+          "passed": 10,
+          "failed": 0,
+          "ignored": 0,
+          "measured": 0,
+          "filtered_out": 0
+        }
+      ],
+      "test_totals": {
+        "passed": 160,
+        "failed": 0,
+        "ignored": 0,
+        "measured": 0,
+        "filtered_out": 0
+      }
+    },
+    {
+      "name": "voice-reminder-tests-first",
+      "command": [
+        "cargo",
+        "test",
+        "--offline",
+        "--locked",
+        "-p",
+        "lamp-voice",
+        "--lib",
+        "reminder",
+        "--",
+        "--test-threads=1"
+      ],
+      "cwd": "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/lampOS",
+      "log": "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/evidence/voice-reminder-tests-first.txt",
+      "exit_code": 0,
+      "elapsed_seconds": 33.16166001600001,
+      "timed_out": false,
+      "test_summaries": [
+        {
+          "passed": 68,
+          "failed": 0,
+          "ignored": 2,
+          "measured": 0,
+          "filtered_out": 858
+        }
+      ],
+      "test_totals": {
+        "passed": 68,
+        "failed": 0,
+        "ignored": 2,
+        "measured": 0,
+        "filtered_out": 858
+      }
+    },
+    {
+      "name": "voice-tools-tests-first",
+      "command": [
+        "cargo",
+        "test",
+        "--offline",
+        "--locked",
+        "-p",
+        "lamp-voice",
+        "--lib",
+        "tools",
+        "--",
+        "--test-threads=1"
+      ],
+      "cwd": "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/lampOS",
+      "log": "/private/tmp/lamp-third-schedule-voice-7f-standalone-ttewwzqn/evidence/voice-tools-tests-first.txt",
+      "exit_code": 0,
+      "elapsed_seconds": 2.238466614999993,
+      "timed_out": false,
+      "test_summaries": [
+        {
+          "passed": 19,
+          "failed": 0,
+          "ignored": 0,
+          "measured": 0,
+          "filtered_out": 909
+        }
+      ],
+      "test_totals": {
+        "passed": 19,
+        "failed": 0,
+        "ignored": 0,
+        "measured": 0,
+        "filtered_out": 909
+      }
+    }
+  ]
+}

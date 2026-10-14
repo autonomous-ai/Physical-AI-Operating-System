@@ -1,0 +1,62 @@
+[
+  {
+    "name": "post-rebase-reminders",
+    "command": [
+      "cargo",
+      "test",
+      "--offline",
+      "--locked",
+      "-p",
+      "lamp-voice",
+      "--lib",
+      "reminder",
+      "--",
+      "--test-threads=1",
+      "--nocapture"
+    ],
+    "exit_code": 0,
+    "elapsed_seconds": 16.442882057,
+    "log": "/private/tmp/lamp-third-schedule-post-rebase-reminders-first.txt"
+  },
+  {
+    "name": "post-rebase-flags",
+    "command": [
+      "cargo",
+      "test",
+      "--offline",
+      "--locked",
+      "-p",
+      "lamp-voice",
+      "--lib",
+      "tools::tests::tasks_then_schedule_flags_keep_both_owners_and_their_declarations",
+      "--",
+      "--exact",
+      "--test-threads=1",
+      "--nocapture"
+    ],
+    "exit_code": 0,
+    "elapsed_seconds": 1.2101108610000004,
+    "log": "/private/tmp/lamp-third-schedule-post-rebase-flags-first.txt"
+  },
+  {
+    "name": "parent-cost",
+    "command": [
+      "cargo",
+      "test",
+      "--offline",
+      "--locked",
+      "-p",
+      "lamp-voice",
+      "--lib",
+      "reminders::tests::parent_poll_cost",
+      "--",
+      "--ignored",
+      "--exact",
+      "--test-threads=1",
+      "--nocapture"
+    ],
+    "exit_code": 0,
+    "elapsed_seconds": 1.2356593659999966,
+    "log": "/private/tmp/lamp-third-schedule-parent-cost-first.txt"
+  }
+]

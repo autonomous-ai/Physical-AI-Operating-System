@@ -1,0 +1,13 @@
+Command: python3 /private/tmp/lamp-third-schedule-rebased-baseline-prepare.py
+Working directory: /Users/d/code/autonomous-os
+Exit: 1
+Traceback (most recent call last):
+  File "/private/tmp/lamp-third-schedule-rebased-baseline-prepare.py", line 29, in <module>
+    archive.extractall(workspace, filter='data')
+TypeError: extractall() got an unexpected keyword argument 'filter'
+
+Scratch preparation compatibility failure, before examples or Cargo ran.
+The system Python tarfile predates filter=. The second preparation retains
+the explicit checks rejecting links, nonregular files and path traversal,
+then uses extractall without that unsupported keyword. No repository edits.
+The first archive and empty scratch directory are preserved.

@@ -1,0 +1,9 @@
+   Compiling lamp-voice v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/voice)
+error[E0425]: cannot find function `mknodat` in module `rustix::fs`
+   --> crates/voice/src/reminders/transport.rs:733:21
+    |
+733 |         rustix::fs::mknodat(
+    |                     ^^^^^^^ not found in `rustix::fs`
+
+For more information about this error, try `rustc --explain E0425`.
+error: could not compile `lamp-voice` (lib test) due to 1 previous error

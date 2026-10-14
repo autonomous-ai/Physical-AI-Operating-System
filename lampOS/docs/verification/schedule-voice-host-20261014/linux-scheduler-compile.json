@@ -1,0 +1,59 @@
+{
+  "steps": [
+    {
+      "name": "fetch",
+      "command": [
+        "cargo",
+        "fetch",
+        "--locked",
+        "--target",
+        "aarch64-unknown-linux-gnu"
+      ],
+      "cwd": "/Users/d/code/autonomous-os/lampOS",
+      "exit_code": 0,
+      "elapsed_seconds": 0.57425448,
+      "log": "/private/tmp/lamp-third-schedule-priority-fetch-first.txt"
+    },
+    {
+      "name": "arm-compile",
+      "command": [
+        "cargo",
+        "+1.96.0",
+        "check",
+        "--offline",
+        "--target",
+        "aarch64-unknown-linux-gnu",
+        "--tests"
+      ],
+      "cwd": "/private/tmp/lamp-third-schedule-priority-arm-mye86tiq",
+      "exit_code": 0,
+      "elapsed_seconds": 3.887204222,
+      "log": "/private/tmp/lamp-third-schedule-priority-arm-compile-first.txt"
+    },
+    {
+      "name": "arm-clippy",
+      "command": [
+        "cargo",
+        "+1.96.0",
+        "clippy",
+        "--offline",
+        "--locked",
+        "--target",
+        "aarch64-unknown-linux-gnu",
+        "--all-targets",
+        "--",
+        "-D",
+        "warnings"
+      ],
+      "cwd": "/private/tmp/lamp-third-schedule-priority-arm-mye86tiq",
+      "exit_code": 0,
+      "elapsed_seconds": 0.24602394899999958,
+      "log": "/private/tmp/lamp-third-schedule-priority-arm-clippy-first.txt"
+    }
+  ],
+  "root": "/private/tmp/lamp-third-schedule-priority-arm-mye86tiq",
+  "source": "crates/voice/src/reminders/scheduling.rs",
+  "source_sha256": "1e168a42221dddd2352a99ef636311156c98bcf1f693e4a31b081aae7f34caac",
+  "copied_source_byte_identical": true,
+  "scope": "Cross-compile and strict Clippy for the exact isolated Linux scheduling module and its Linux test only. No Linux execution, linking, full Voice build, RR transition or lamp result."
+}

@@ -1,0 +1,74 @@
+   Compiling lamp-actions v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/actions)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.46s
+     Running tests/schedule.rs (target/debug/deps/schedule-01024e2bdab4e700)
+
+running 14 tests
+test all_adapter_hops_share_one_deadline_and_uncertain_call_is_not_reissued ... ok
+test all_six_tools_reach_real_schedule_through_the_real_actions_server ... lamp-actions: serving; can do now: set_timer set_reminder repeat_reminder list_reminders cancel_reminder snooze_reminder
+lamp-actions: set_timer: done in 83 ms
+lamp-actions: set_reminder: done in 87 ms
+lamp-actions: repeat_reminder: done in 85 ms
+lamp-actions: repeat_reminder: done in 87 ms
+lamp-actions: list_reminders: done in 7 ms
+lamp-actions: snooze_reminder: done in 157 ms
+lamp-actions: cancel_reminder: done in 91 ms
+ok
+test definite_conflicts_are_not_retried_and_storage_failures_stay_uncertain ... ok
+test disabled_switch_preserves_the_old_catalog_and_refuses_all_six_names ... lamp-actions: serving; can do now: 
+lamp-actions: set_timer: not done in 0 ms: I can't do that.
+lamp-actions: set_reminder: not done in 0 ms: I can't do that.
+lamp-actions: repeat_reminder: not done in 0 ms: I can't do that.
+lamp-actions: list_reminders: not done in 0 ms: I can't do that.
+lamp-actions: cancel_reminder: not done in 0 ms: I can't do that.
+lamp-actions: snooze_reminder: not done in 0 ms: I can't do that.
+ok
+test empty_filtered_list_and_service_pagination_remain_explicit ... ok
+test host_first_and_repeated_actions_to_durable_schedule_receipts_are_measured ... lamp-actions: serving; can do now: set_timer set_reminder repeat_reminder list_reminders cancel_reminder snooze_reminder
+lamp-actions: set_timer: done in 83 ms
+lamp-actions: set_timer: done in 87 ms
+lamp-actions: set_timer: done in 85 ms
+lamp-actions: set_timer: done in 93 ms
+lamp-actions: set_timer: done in 85 ms
+lamp-actions: set_timer: done in 90 ms
+lamp-actions: set_timer: done in 88 ms
+lamp-actions: set_timer: done in 88 ms
+lamp-actions: set_timer: done in 93 ms
+lamp-actions: set_timer: done in 94 ms
+lamp-actions: set_timer: done in 87 ms
+lamp-actions: set_timer: done in 91 ms
+lamp-actions: set_timer: done in 87 ms
+lamp-actions: set_timer: done in 90 ms
+lamp-actions: set_timer: done in 84 ms
+lamp-actions: set_timer: done in 92 ms
+lamp-actions: set_timer: done in 93 ms
+lamp-actions: set_timer: done in 85 ms
+lamp-actions: set_timer: done in 90 ms
+lamp-actions: set_timer: done in 87 ms
+lamp-actions: set_timer: done in 88 ms
+schedule_actions_timing {"boundary":"client entry before real Actions socket connect to parsed durable Schedule response through Actions","cold_scope":"first mutation after both newly started host services published readiness; process/store startup excluded","failures":0,"first_us":134044,"fixture":"real Actions server and real Schedule service, private SQLite FULL store, injected Schedule clock; no provider or lamp","machine_arch":"x86_64","machine_os":"macos","repeated_count":20,"repeated_max_us":146297,"repeated_p50_us":89074,"repeated_p95_us":146202,"target_is_not_a_functional_assertion":true,"target_us":250000,"total_count":21}
+ok
+test incorrect_success_identity_revision_or_deadline_never_becomes_confirmation ... ok
+test listing_keeps_complete_escaped_labels_and_returns_the_actual_remaining_cursor ... lamp-actions: serving; can do now: set_timer set_reminder repeat_reminder list_reminders cancel_reminder snooze_reminder
+lamp-actions: list_reminders: done in 6 ms
+lamp-actions: list_reminders: done in 6 ms
+ok
+test lost_commit_reply_is_unknown_and_never_retried_with_another_guard ... lamp-actions: serving; can do now: set_timer set_reminder repeat_reminder list_reminders cancel_reminder snooze_reminder
+lamp-actions: set_timer: uncertain in 3 ms
+ok
+test malformed_arguments_and_unknown_fields_open_no_schedule_connection ... lamp-actions: serving; can do now: set_timer set_reminder repeat_reminder list_reminders cancel_reminder snooze_reminder
+lamp-actions: set_timer: bad_arguments in 0 ms
+ok
+test malformed_lists_and_snooze_nonpending_state_never_make_a_mutation ... ok
+test missing_schedule_socket_is_truthful_and_mutation_free ... lamp-actions: serving; can do now: set_timer set_reminder repeat_reminder list_reminders cancel_reminder snooze_reminder
+lamp-actions: set_timer: unavailable in 0 ms
+lamp-actions: list_reminders: unavailable in 0 ms
+ok
+test new_schemas_use_the_small_provider_vocabulary ... ok
+test real_engine_failure_before_or_after_snapshot_commit_is_never_confirmed ... lamp-actions: serving; can do now: set_timer set_reminder repeat_reminder list_reminders cancel_reminder snooze_reminder
+lamp-actions: set_timer: uncertain in 4 ms
+lamp-actions: serving; can do now: set_timer set_reminder repeat_reminder list_reminders cancel_reminder snooze_reminder
+lamp-actions: set_timer: uncertain in 3 ms
+ok
+
+test result: ok. 14 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 5.60s
+

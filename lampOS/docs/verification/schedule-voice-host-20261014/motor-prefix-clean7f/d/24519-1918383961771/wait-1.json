@@ -1,0 +1,95 @@
+{
+  "child_markers": [],
+  "event_count": 0,
+  "events": [],
+  "first_samples": [
+    {
+      "adapter_failure": null,
+      "at_us": 1918384002824,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 41053,
+      "ready": false,
+      "reaped": true,
+      "stage": "before_start"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918384002854,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 30,
+      "ready": false,
+      "reaped": true,
+      "stage": "after_start"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918384003035,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 181,
+      "ready": false,
+      "reaped": true,
+      "stage": "wait_enter"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918384003050,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 15,
+      "ready": false,
+      "reaped": true,
+      "stage": "wait_complete"
+    }
+  ],
+  "fixture_started_us": 1918383961771,
+  "maximum_gap_us": 41053,
+  "mode": "startup",
+  "outcome": "predicate_satisfied",
+  "recent_samples": [
+    {
+      "adapter_failure": null,
+      "at_us": 1918384002824,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 41053,
+      "ready": false,
+      "reaped": true,
+      "stage": "before_start"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918384002854,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 30,
+      "ready": false,
+      "reaped": true,
+      "stage": "after_start"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918384003035,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 181,
+      "ready": false,
+      "reaped": true,
+      "stage": "wait_enter"
+    },
+    {
+      "adapter_failure": null,
+      "at_us": 1918384003050,
+      "child_failure": null,
+      "connected": false,
+      "gap_us": 15,
+      "ready": false,
+      "reaped": true,
+      "stage": "wait_complete"
+    }
+  ],
+  "recorded_us": 1918384003065,
+  "sample_count": 4
+}

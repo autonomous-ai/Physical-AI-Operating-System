@@ -1,0 +1,58 @@
+{
+  "scope": "Four permitted provider reminder files only; no Cargo, rustfmt, tests, network, Git mutation, docs, transport.rs, or device operations.",
+  "checks": [
+    "Read-only diff against saved pre-edit bytes",
+    "git diff --check on the four paths: exit 0",
+    "Obsolete reminder room seam and Busy/Unknown deferral Rust references: zero matches"
+  ],
+  "files": [
+    {
+      "path": "lampOS/crates/voice/src/provider_worker.rs",
+      "bytes": 350361,
+      "before_sha256": "69c06a80c5f1a902718bbc38ea321ef97f4994379afc799248261dc1e14b22ef",
+      "after_sha256": "bacad732366216e2dac5acf90b56b17be9966adba6ff31fe0f21d0e6f541f5dc",
+      "added_lines": 7,
+      "removed_lines": 35
+    },
+    {
+      "path": "lampOS/crates/voice/src/provider_worker/reminder_policy.rs",
+      "bytes": 3725,
+      "before_sha256": "a5a9b7e441e3d365125f7fefede73c40e9fab73ea089b0bd1481e4f409155498",
+      "after_sha256": "9f1f99a48ae3c20b615e342f5766479ce6c78ea3223fe7eb9a43c6a094a9e046",
+      "added_lines": 6,
+      "removed_lines": 62
+    },
+    {
+      "path": "lampOS/crates/voice/src/provider_worker/tests/reminders.rs",
+      "bytes": 32324,
+      "before_sha256": "61bae532ae0f18b59a86592b99d987d3be70b31d227eb13ace3613320de952c0",
+      "after_sha256": "ce0e3b032d46f8a57288e2bc12425a2e06515add0d4e184322b9216590882e61",
+      "added_lines": 297,
+      "removed_lines": 176
+    },
+    {
+      "path": "lampOS/crates/voice/src/provider_worker/tests/review_2026_10_14.rs",
+      "bytes": 8616,
+      "before_sha256": "b41ab52fa316da58e2ce3fbb8a84ba0ade6c8591d08de5fdadbf393753d832a1",
+      "after_sha256": "5ff1bc2fcbc8efa75d7833394efdbce21160c5eebaab6e23d52b8d701a1eff1e",
+      "added_lines": 0,
+      "removed_lines": 1
+    }
+  ],
+  "tests_run": false,
+  "limits": "Compilation, formatting, behavior, timing and on-lamp verification remain unperformed for this edit.",
+  "reminder_test_names": [
+    "ordinary_written_wire_bytes_stay_exact_and_reminder_is_a_separate_variant",
+    "disabled_and_invalid_reminders_never_reach_the_input_sink_in_any_room",
+    "reminder_preserves_authority_and_session_validation_before_policy",
+    "reminder_text_is_quoted_data_and_lateness_is_preserved_with_no_picture",
+    "pending_deferral_survives_full_output_and_retirement_without_becoming_completion",
+    "an_older_reminder_tool_event_cannot_escape_after_a_new_reminder_replaces_it",
+    "due_reminders_work_in_every_room_with_or_without_attention_and_the_next_turn_works",
+    "disabled_and_invalid_refusals_keep_the_worker_alive_in_every_room_without_submission",
+    "unanswered_reminders_and_sounds_are_not_talk_but_speech_and_actual_audio_are",
+    "room_changes_during_a_reminder_allow_speech_and_completion_but_never_tools",
+    "a_reminder_does_not_exempt_the_next_ordinary_busy_room_answer",
+    "reminder_tools_are_denied_even_in_quiet_and_do_not_change_the_next_turn"
+  ]
+}

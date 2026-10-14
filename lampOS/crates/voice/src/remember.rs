@@ -1669,6 +1669,137 @@ mod tests {
         std::fs::remove_file(socket).unwrap();
     }
 
+    #[test]
+    fn kept_out_reminder_is_not_journalled_by_days_but_next_exchange_is() {
+        const CHILD: &str = "LAMP_MEMORY_REMINDER_TEST_CHILD";
+        if std::env::var(CHILD).ok().as_deref() != Some("1") {
+            // Days mode and the real recap/journal globals belong to this
+            // process only; other memory tests retain their own environment.
+            let output = std::process::Command::new(std::env::current_exe().unwrap())
+                .args([
+                    "--exact",
+                    "remember::tests::kept_out_reminder_is_not_journalled_by_days_but_next_exchange_is",
+                    "--nocapture",
+                ])
+                .env(CHILD, "1")
+                .env(DAYS_ENVIRONMENT, "on")
+                .output()
+                .unwrap();
+            assert!(
+                output.status.success(),
+                "{}\n{}",
+                String::from_utf8_lossy(&output.stdout),
+                String::from_utf8_lossy(&output.stderr)
+            );
+            assert!(String::from_utf8_lossy(&output.stdout).contains("1 passed"));
+            return;
+        }
+
+        struct RemoveSocket(PathBuf);
+        impl Drop for RemoveSocket {
+            fn drop(&mut self) {
+                let _ = std::fs::remove_file(&self.0);
+            }
+        }
+        let socket = std::env::temp_dir().join(format!("lv-days-rem-{}.sock", std::process::id()));
+        let listener = UnixListener::bind(&socket).unwrap();
+        let _remove_socket = RemoveSocket(socket.clone());
+        listener.set_nonblocking(true).unwrap();
+        let peer = std::thread::spawn(move || {
+            // Fixture progress limits, not latency measurements. Existing
+            // production session/writer deadlines and the 45 s idle stay put.
+            let until = Instant::now() + Duration::from_secs(10);
+            let mut read = Vec::new();
+            loop {
+                assert!(
+                    Instant::now() < until,
+                    "Days reminder fixture did not finish"
+                );
+                assert!(read.len() < 8, "unexpected extra Days requests");
+                let (mut stream, _) = match listener.accept() {
+                    Ok(accepted) => accepted,
+                    Err(error) if error.kind() == io::ErrorKind::WouldBlock => {
+                        std::thread::sleep(Duration::from_millis(1));
+                        continue;
+                    }
+                    Err(error) => panic!("{error}"),
+                };
+                stream
+                    .set_read_timeout(Some(Duration::from_secs(1)))
+                    .unwrap();
+                stream
+                    .set_write_timeout(Some(Duration::from_secs(1)))
+                    .unwrap();
+                let mut line = String::new();
+                BufReader::new(stream.try_clone().unwrap().take(4097))
+                    .read_line(&mut line)
+                    .unwrap();
+                assert!(line.ends_with('\n') && line.len() <= 4096);
+                let request: Value = serde_json::from_str(&line).unwrap();
+                let ended = request["op"] == "conversation_end";
+                let answer = match request["op"].as_str() {
+                    Some("session_open") => {
+                        json!({"ok":true,"snapshot":snapshot(request["session"].as_str().unwrap())})
+                    }
+                    Some("append_linked") => json!({"ok":true,"id":42}),
+                    Some("conversation_end") => {
+                        json!({"ok":true,"submitted":false,"reason":"model_unconfigured"})
+                    }
+                    other => panic!("unexpected Days operation: {other:?}"),
+                };
+                stream.write_all(format!("{answer}\n").as_bytes()).unwrap();
+                read.push(request);
+                if ended {
+                    return read;
+                }
+            }
+        });
+
+        start(socket.clone());
+        assert_eq!(DAYS_MODE.get(), Some(&true));
+        let note = told_for_session(&socket, 1);
+        assert!(note.contains("coffee black") && note.contains("source_ids"));
+        {
+            let mut thread = crate::thread::THREAD.lock().unwrap();
+            clear_forgotten_thread(&mut thread);
+        }
+
+        let (reminder, ordinary) = (401, 402);
+        // The typed reminder path marks this request before its transcript
+        // arrives. It supplies no invented person transcript.
+        keep_out(reminder);
+        crate::thread::THREAD
+            .lock()
+            .unwrap()
+            .lamp(reminder, "Your tea is ready.", Instant::now());
+        finished(reminder);
+        {
+            let mut thread = crate::thread::THREAD.lock().unwrap();
+            thread.person("How is the weather?", true, Instant::now());
+            thread.lamp(ordinary, "The forecast says sunny.", Instant::now());
+        }
+        finished(ordinary);
+
+        let client = DAYS.get().and_then(Option::as_ref).unwrap();
+        // End is queued after both completions on the real FIFO. Seeing it at
+        // the peer proves all earlier journal work was observed; no absence
+        // assertion depends on sleeping for an arbitrary quiet interval.
+        assert!(client.end_conversation());
+        let read = peer.join().unwrap();
+        assert_eq!(
+            read.iter()
+                .map(|request| request["op"].as_str().unwrap())
+                .collect::<Vec<_>>(),
+            ["session_open", "append_linked", "conversation_end"]
+        );
+        assert_eq!(read[1]["heard"], "How is the weather?");
+        assert_eq!(read[1]["said"], "The forecast says sunny.");
+        assert_eq!(read[1]["source_ids"], json!([7]));
+        assert_eq!(read[2]["source_ids"], json!([42]));
+        assert_eq!(read[2]["submit"], true);
+        assert_eq!(client.lost.load(Ordering::Relaxed), 0);
+    }
+
     fn call(name: &str, args: Value) -> ToolCall {
         ToolCall {
             id: "c1".into(),

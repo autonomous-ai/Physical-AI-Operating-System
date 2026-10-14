@@ -1,0 +1,15 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.19s
+     Running unittests src/lib.rs (target/debug/deps/lamp_voice-a714350f33563503)
+
+running 8 tests
+test thread::tests::a_finished_exchange_is_given_out_once_and_forgetting_drops_them_all ... ok
+test thread::tests::a_function_named_aloud_is_not_something_the_lamp_said ... ok
+test thread::tests::a_new_session_is_told_the_thread_and_an_empty_one_changes_nothing ... ok
+test thread::tests::a_saved_thread_is_told_again_by_the_process_that_reads_it_back ... ok
+test thread::tests::a_session_is_opened_with_the_functions_the_model_may_call_now ... ok
+test thread::tests::it_forgets_what_is_old_and_holds_only_so_much ... ok
+test thread::tests::it_keeps_what_was_asked_and_answered_and_not_the_talk_around_it ... ok
+test thread::tests::words_of_a_request_given_up_before_its_answer_played_were_never_said ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 948 filtered out; finished in 0.00s
+

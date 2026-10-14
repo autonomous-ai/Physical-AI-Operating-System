@@ -24,6 +24,7 @@
 //! built.
 
 pub mod light;
+pub mod schedule;
 pub mod server;
 pub mod sound;
 

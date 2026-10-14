@@ -1,0 +1,19 @@
+   Compiling lamp-voice v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/voice)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 24.97s
+     Running unittests src/lib.rs (target/debug/deps/lamp_voice-04f83e70e13d855a)
+
+running 11 tests
+test provider_worker::tests::reminders::an_older_reminder_tool_event_cannot_escape_after_a_new_reminder_replaces_it ... ok
+test provider_worker::tests::reminders::becoming_busy_before_audio_transcript_or_tool_output_defers_and_suppresses_terminal ... ok
+test provider_worker::tests::reminders::busy_refusal_is_independent_of_attention_and_the_next_ordinary_turn_works ... ok
+test provider_worker::tests::reminders::disabled_and_unknown_refusals_keep_the_worker_alive_without_model_submission ... ok
+test provider_worker::tests::reminders::disabled_busy_unknown_and_invalid_reminders_never_reach_the_input_sink ... ok
+test provider_worker::tests::reminders::ordinary_written_wire_bytes_stay_exact_and_reminder_is_a_separate_variant ... ok
+test provider_worker::tests::reminders::pending_deferral_survives_full_output_and_retirement_without_becoming_completion ... ok
+test provider_worker::tests::reminders::reminder_preserves_authority_and_session_validation_before_policy ... ok
+test provider_worker::tests::reminders::reminder_text_is_quoted_data_and_lateness_is_preserved_with_no_picture ... ok
+test provider_worker::tests::reminders::reminder_tools_are_denied_even_in_quiet_and_do_not_change_the_next_turn ... ok
+test provider_worker::tests::reminders::unanswered_reminders_are_not_room_activity_but_their_actual_audio_is ... ok
+
+test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 873 filtered out; finished in 0.60s
+

@@ -381,11 +381,15 @@ an everyday event there.
 ## Questions
 
 1. **2026-10-14, task 20.** `cargo test -p lamp-voice` does not compile on
-   `lamp-voice` at `1766259f3`: `crates/voice/tests/capture_hold_worker.rs`
+   `lamp-voice` at `d83834cb2`: `crates/voice/tests/capture_hold_worker.rs`
    line 161 calls `capture_on` with nine arguments; since the steady
    reference was wired it takes ten (the echo reference). Adding
-   `EchoReference::AsGiven` there is likely all it needs; `crates/voice` is
-   yours, so it is left to you.
+   `lamp_audio::Reference::AsGiven` there is likely all it needs;
+   `crates/voice` is yours, so it is left to you. That test's harness runs
+   the real capture worker against scripted devices in a capture-clocked
+   session; given a diagnostics directory (its sixth argument, `None`
+   now) it would make exactly the kind of recording task 20 replays, from
+   the voice's own recorder, and a test there could replay it.
 2. **2026-10-14, task 20.** Two of the lamp's capture-clocked recordings,
    with played voices only, to check the replay against: where can I
    fetch them? (A `.tar` on a draft release of this repository would do.)

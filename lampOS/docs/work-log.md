@@ -15,8 +15,8 @@ the lamp, and nothing here was run on a lamp.
 | 2 | Try to break last night's changes to the voice | `second/voice-review` | 2026-10-14 | on its own branch, 2026-10-14 (`1d737f8e5`); taken into `lamp-voice` with its mends |
 | 3 | A listener for "stop" under the lamp's own voice | `second/stop-word` | 2026-10-14 | being built |
 | 9 | Faster answers: what exists | `second/faster-answers` | 2026-10-14 | on `lamp-second`, 2026-10-14 (a study, done beside 5 and 10) |
-| 10 | A reference that follows the microphone's clock | `second/reference-clock` | 2026-10-14 | on `lamp-second`, 2026-10-14; taken into `lamp-voice` behind `--echo-reference steady` |
-| 20 | The replay takes the lamp's own recordings | `second/replay-capture-clocked` | 2026-10-14 | on `lamp-second`, 2026-10-14 |
+| 10 | A reference that follows the microphone's clock | `second/reference-clock` | 2026-10-14 | on `lamp-second`, 2026-10-14; taken into `lamp-voice` behind `--echo-reference steady`; on the lamp's recordings, mixed (two up, two down, one held) |
+| 20 | The replay takes the lamp's own recordings | `second/replay-capture-clocked` | 2026-10-14 | on `lamp-second`; taken into `lamp-voice`: five of the lamp's recordings followed sample for sample |
 | 19 | The end sent early, the answer played only when sure | `second/early-end` | 2026-10-14 | on `lamp-second`, 2026-10-14 |
 
 ## Handed back
@@ -474,7 +474,7 @@ an everyday event there.
 
 ## Questions
 
-1. **2026-10-14, task 20.** `cargo test -p lamp-voice` does not compile on
+1. **Answered 2026-10-14 (mended in `46403ffbd`).** **2026-10-14, task 20.** `cargo test -p lamp-voice` does not compile on
    `lamp-voice` at `d83834cb2`: `crates/voice/tests/capture_hold_worker.rs`
    line 161 calls `capture_on` with nine arguments; since the steady
    reference was wired it takes ten (the echo reference). Adding
@@ -484,6 +484,6 @@ an everyday event there.
    session; given a diagnostics directory (its sixth argument, `None`
    now) it would make exactly the kind of recording task 20 replays, from
    the voice's own recorder, and a test there could replay it.
-2. **2026-10-14, task 20.** Two of the lamp's capture-clocked recordings,
+2. **Answered 2026-10-14 (not needed: the replay was run on the lamp's own).** **2026-10-14, task 20.** Two of the lamp's capture-clocked recordings,
    with played voices only, to check the replay against: where can I
    fetch them? (A `.tar` on a draft release of this repository would do.)

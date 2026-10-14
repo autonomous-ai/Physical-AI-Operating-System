@@ -1,7 +1,8 @@
 //! Sole, bounded ring writer. Control authority is never renewed by frame data.
 use crate::{
-    ring_face::{Face, Mood},
+    ring_face::{Face, Lit, Mood},
     ring_light::RingLight,
+    ring_sight::RingSight,
     ring_wire::{RingBlankReason, RingFeedback, RingFrame, RingPhase, RingRejection},
     transport::WorkerChannels,
     wire::{Control, WorkerEvent},
@@ -49,6 +50,17 @@ fn now() -> MonoTime {
     MonoTime::from_micros(monotonic_us())
 }
 
+/// What a ring that runs all day takes from the bus: the lamp's own light
+/// ([`crate::ring_light`]), and with the eye ([`crate::ring_face`], task 34),
+/// where the person is ([`crate::ring_sight`]). A ring with neither has
+/// [`Senses::default`].
+#[derive(Default)]
+pub struct Senses {
+    pub light: Option<(RingLight, Lit)>,
+    pub eye: bool,
+    pub sight: Option<RingSight>,
+}
+
 /// Startup Ready is emitted only after the sink accepted its initial black frame.
 /// The caller owns process supervision; a kernel SPI write cannot be preempted.
 pub fn run_with_sink(
@@ -73,7 +85,14 @@ pub fn run_with_sink_resting(
         Err(error) => return report_start_failure(&mut link, io::Error::other(error)),
     };
     match GuardedRing::new(sink, controller_boot) {
-        Ok(ring) => run_guarded(link, controller_boot, ring, false, resting, None),
+        Ok(ring) => run_guarded(
+            link,
+            controller_boot,
+            ring,
+            false,
+            resting,
+            Senses::default(),
+        ),
         Err(error) => report_start_failure(&mut link, io::Error::other(error)),
     }
 }
@@ -81,7 +100,9 @@ pub fn run_with_sink_resting(
 #[cfg(target_os = "linux")]
 pub fn run(mut link: WorkerChannels, controller_boot: BootId) -> io::Result<()> {
     match lamp_ring::linux::open(controller_boot) {
-        Ok((ring, _configuration)) => run_guarded(link, controller_boot, ring, false, None, None),
+        Ok((ring, _configuration)) => {
+            run_guarded(link, controller_boot, ring, false, None, Senses::default())
+        }
         Err(error) => report_start_failure(&mut link, error),
     }
 }
@@ -90,13 +111,16 @@ pub fn run(mut link: WorkerChannels, controller_boot: BootId) -> io::Result<()> 
 /// not the installed authority, parent transport or initial-lease watchdogs.
 /// With `bus_root`, the lamp's own light is taken from the bus there and
 /// what the ring shows is said on it ([`crate::ring_light`]); a bus that
-/// cannot be used is said once and the ring runs without.
+/// cannot be used is said once and the ring runs without. With `eye`, the
+/// face is the eye ([`crate::ring_face`]), and looks where the eyes on the
+/// same bus see a person ([`crate::ring_sight`]).
 #[cfg(target_os = "linux")]
 pub fn run_continuous(
     mut link: WorkerChannels,
     controller_boot: BootId,
     resting: Option<u16>,
     bus_root: Option<&std::path::Path>,
+    eye: bool,
 ) -> io::Result<()> {
     let light = bus_root.and_then(|root| match RingLight::on(root) {
         Ok(light) => Some(light),
@@ -105,13 +129,23 @@ pub fn run_continuous(
             None
         }
     });
+    let sight = bus_root
+        .filter(|_| eye)
+        .and_then(|root| match RingSight::on(root) {
+            Ok(sight) => Some(sight),
+            Err(error) => {
+                eprintln!("lamp-voice ring: the eye cannot see where people are: {error}");
+                None
+            }
+        });
+    let senses = Senses { light, eye, sight };
     let resting = match resting.map(ChannelCeiling::new).transpose() {
         Ok(resting) => resting,
         Err(error) => return report_start_failure(&mut link, io::Error::other(error)),
     };
     match lamp_ring::linux::open(controller_boot) {
         Ok((ring, _configuration)) => {
-            run_guarded(link, controller_boot, ring, true, resting, light)
+            run_guarded(link, controller_boot, ring, true, resting, senses)
         }
         Err(error) => report_start_failure(&mut link, error),
     }
@@ -156,7 +190,7 @@ fn run_guarded(
     mut ring: GuardedRing<impl FrameSink>,
     continuous: bool,
     resting: Option<ChannelCeiling>,
-    light: Option<(RingLight, crate::ring_face::Lit)>,
+    senses: Senses,
 ) -> io::Result<()> {
     let result = (|| {
         link.publish(WorkerEvent::Ready)?;
@@ -166,7 +200,7 @@ fn run_guarded(
             controller_boot,
             continuous,
             resting,
-            light,
+            senses,
         )
     })();
     if let Err(original) = result {
@@ -292,7 +326,7 @@ fn service(
     controller_boot: BootId,
     continuous: bool,
     resting: Option<ChannelCeiling>,
-    light: Option<(RingLight, crate::ring_face::Lit)>,
+    senses: Senses,
 ) -> io::Result<()> {
     let started = monotonic_us();
     let mut guard = BoundaryGuard::new(controller_boot, now());
@@ -301,10 +335,16 @@ fn service(
     let mut face = Face::new();
     // The lamp's own light, which is that face at rest: the one last asked
     // for on the bus, and from here on whatever is asked for.
+    let Senses {
+        light,
+        eye,
+        mut sight,
+    } = senses;
     let mut light = light.map(|(light, begins)| {
         face.light(begins);
         light
     });
+    face.eye(eye);
     let mut rested_at = 0u64;
     loop {
         let tick = monotonic_us();
@@ -374,6 +414,9 @@ fn service(
                     } else {
                         let ceiling =
                             ChannelCeiling::new(frame.ceiling).map_err(io::Error::other)?;
+                        if let Some(sight) = sight.as_mut() {
+                            face.toward(sight.tick(monotonic_us()));
+                        }
                         let pixels: [_; PIXEL_COUNT] =
                             face.render(frame.mood(), frame.level, monotonic_us(), ceiling.get());
                         match ring.show(&pixels, ceiling, frame.permit) {

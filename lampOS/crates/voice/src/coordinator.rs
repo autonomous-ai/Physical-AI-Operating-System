@@ -1879,8 +1879,12 @@ fn spawn_rig(
     // that runs all day (`ring_light`). A worker is started with no
     // environment, so it is told where the bus is.
     let ring_bus = crate::bus_out::worker_arguments_from_environment();
+    // And whether its face is the eye (`LAMP_RING_EYE=on`, task 34), which
+    // needs that bus to see where people are.
+    let ring_eye = crate::ring_sight::arguments_from_environment();
     if lifetime.continuous() {
         ring_arguments.extend(ring_bus.iter().map(String::as_str));
+        ring_arguments.extend(ring_eye.iter().map(String::as_str));
     }
     let mut ring = if options.ring_channel_ceiling.is_some() {
         OptionalRing::spawn(&executable, directory, boot, &ring_arguments, || {

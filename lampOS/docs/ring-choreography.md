@@ -28,8 +28,8 @@ mood (resting, listening, thinking, speaking), a voice level and a time go in,
 I/O, no clock and no authority. The ring worker keeps one face and renders
 every frame it is allowed to write from it, so a change of mood eases over
 about 70 ms instead of jumping, and the first frame of a cue is already
-visible. Every pattern is symmetric around the ring or travels around it, so
-none depends on which pixel is at the top of the head.
+visible. Every pattern but the eye's (below) is symmetric around the ring or
+travels around it, so none depends on which pixel is at the top of the head.
 
 The voice level is one byte in each `RingFrame`: the root mean square of the
 last 10 ms block, 0 at -48 dBFS and 255 at -14 dBFS, of the person's captured
@@ -48,6 +48,41 @@ A level between two brightness steps is shown by rounding each pixel at its
 own fixed point, so some pixels sit one step higher. That keeps a dim breath
 smooth where a ceiling of 24 leaves the resting face two or three steps to
 work with. Nothing is dithered in time.
+
+### The eye (task 34, #712)
+
+Off unless set: `LAMP_RING_EYE=on` in the voice's unit, which the voice
+passes to its all-day ring worker as `--eye` (`crates/voice/src/ring_sight.rs`).
+Without it every frame is what it was (a test renders every mood with and
+without the switch, with a face seen, and compares them pixel for pixel). With
+it the face is the lamp's eye in two ways:
+
+- **It looks at the person while it listens.** The ring worker reads the
+  eyes' newest look (`humans/faces/tracked`) ten times a second, takes the
+  largest face no older than 0.7 s, and the face eases its look toward it
+  over about a quarter of a second. Looking to one side, the half of the ring
+  away from the person dims, by up to three quarters, and the half toward them
+  keeps its light; a person within 6 % of the middle of the camera's picture,
+  or no face at all, has the whole ring, as before. So when the body turns the
+  head to a face, the look should lead and fade as the face comes to the
+  middle of the picture (not yet seen on a lamp). Only listening looks;
+  thinking and speaking keep their own faces.
+- **It blinks at rest,** now and then: every 7 to 16 s, not on a beat, the
+  resting face dims to a quarter for 150 ms, eased in and out.
+
+Which way the ring counts was measured on lamp-4ace on 2026-10-14 at 19:54:
+with the voice stopped, `crates/ring/examples/pixel_map.rs` lit pixel 0 red,
+1 and 2 orange and yellow, 8 green, 16 blue and 24 white, and a photograph
+from in front showed them at the top, just after it, and at three, six and
+nine o'clock. So pixel 0 is at the top and they count clockwise as a person
+facing the lamp sees them. The camera sits in the middle of the ring looking
+out, so a person on the left of its picture is on the lamp's left, which that
+person sees on their right; the look goes there.
+
+Not done, from the task: a muted or asleep look (a muted lamp shows no
+resting face at all, by the guard below, and sleep comes with the touch
+strip's Sleep and Wake, #711), and the mood's pace and warmth (from the inner
+state, #713, when it publishes).
 
 ### The resting face and its authority
 

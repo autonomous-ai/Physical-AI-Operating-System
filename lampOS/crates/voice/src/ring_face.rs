@@ -3,8 +3,12 @@
 //! no I/O, no clock of its own and no authority. The ring worker decides
 //! whether a frame may be written at all; this only says what it would show.
 //!
-//! Every pattern here is symmetric around the ring or moves around it, so
-//! none depends on which pixel is at the top of the head.
+//! Every pattern here but the eye's is symmetric around the ring or moves
+//! around it, so none depends on which pixel is at the top of the head. The
+//! eye's look does: on lamp-4ace on 2026-10-14 pixel 0 was at the top and
+//! they counted clockwise as a person facing the lamp sees them (pixels 8,
+//! 16 and 24 at three, six and nine o'clock), and every angle here is
+//! counted that way.
 use lamp_ring::{PIXEL_COUNT, Rgb};
 use std::f32::consts::TAU;
 
@@ -152,6 +156,24 @@ const LEVEL_FALL_US: f32 = 170_000.0;
 /// How long the face takes to close and open again after a turn it let go.
 const LET_GO_US: u64 = 900_000;
 
+/// The eye's look follows the person this fast, so that it moves as an eye
+/// does and never jumps when a face comes, goes or is found again.
+const GAZE_US: f32 = 250_000.0;
+/// A person this near the middle of the camera's picture (as a share of
+/// it, either way) is looked at straight: the whole eye is open to them.
+/// The look leans to their side from here, fully at [`GAZE_FULL`].
+const GAZE_STRAIGHT: f32 = 0.06;
+const GAZE_FULL: f32 = 0.22;
+/// Looking to one side, the far side of the eye dims by this much at most;
+/// the side toward the person keeps its light.
+const LOOK_DIM: f32 = 0.75;
+/// A blink at rest: this long, this far down, and the next one this many
+/// microseconds later, from the first to the first plus the second, so
+/// that blinks never come as a clock's would.
+const BLINK_US: u64 = 150_000;
+const BLINK_LOW: f32 = 0.25;
+const BLINK_EVERY_US: (u64, u64) = (7_000_000, 9_000_000);
+
 /// One face. It keeps what is on the ring now, so that a change of mood, or
 /// a resting frame after a spoken one, eases from one look into the other.
 #[derive(Clone, Debug)]
@@ -165,6 +187,18 @@ pub struct Face {
     let_go_us: Option<u64>,
     /// The lamp's own light, which is its face at rest.
     lit: Lit,
+    /// The eye (task 34, #712), off unless set: listening, the face looks
+    /// toward the person, and at rest it blinks now and then.
+    eye: bool,
+    /// Where the person is, as how far right and how far up of the middle
+    /// of the camera's picture they are, seen from in front of the lamp,
+    /// each from -0.5 to 0.5: `None` while no fresh face is seen.
+    toward: Option<[f32; 2]>,
+    /// The look as shown, easing toward `toward` (or straight ahead).
+    gaze: [f32; 2],
+    /// When the next blink at rest begins, and how many there have been.
+    next_blink_us: Option<u64>,
+    blinks: u64,
 }
 
 impl Default for Face {
@@ -182,6 +216,47 @@ impl Face {
             mood: None,
             let_go_us: None,
             lit: Lit::first(),
+            eye: false,
+            toward: None,
+            gaze: [0.0; 2],
+            next_blink_us: None,
+            blinks: 0,
+        }
+    }
+
+    /// Switch the eye on or off ([`Face::eye`]'s field says what it does).
+    pub fn eye(&mut self, on: bool) {
+        self.eye = on;
+    }
+
+    /// Where the person the eye looks at is, as [`toward`] gives it, or
+    /// `None` when no fresh face is seen. Only the eye uses it.
+    pub fn toward(&mut self, at: Option<[f32; 2]>) {
+        self.toward = at;
+    }
+
+    /// How open the eye is at rest now: 1, or [`BLINK_LOW`] during a blink.
+    fn blink(&mut self, mood: Mood, now_us: u64) -> f32 {
+        if mood != Mood::Resting {
+            self.next_blink_us = None;
+            return 1.0;
+        }
+        let spacing = |count: u64| {
+            let spread = (count.wrapping_add(1).wrapping_mul(0x9E37_79B9_7F4A_7C15) >> 40)
+                % BLINK_EVERY_US.1;
+            BLINK_EVERY_US.0 + spread
+        };
+        let next = *self
+            .next_blink_us
+            .get_or_insert_with(|| now_us + spacing(self.blinks));
+        if now_us < next {
+            1.0
+        } else if now_us - next < BLINK_US {
+            BLINK_LOW
+        } else {
+            self.blinks += 1;
+            self.next_blink_us = Some(now_us + spacing(self.blinks));
+            1.0
         }
     }
 
@@ -238,12 +313,29 @@ impl Face {
                 (through - 0.2) / 0.8
             }
         });
+        // The eye: a look eased toward the person, as an angle around the
+        // ring and how far it leans, and a blink at rest.
+        let (look_to, blink) = if self.eye {
+            let wanted = self.toward.unwrap_or([0.0; 2]);
+            let pace = follow(step_us, GAZE_US);
+            for (shown, wanted) in self.gaze.iter_mut().zip(wanted) {
+                *shown += (wanted - *shown) * pace;
+            }
+            let [right, up] = self.gaze;
+            let lean =
+                ((right.hypot(up) - GAZE_STRAIGHT) / (GAZE_FULL - GAZE_STRAIGHT)).clamp(0.0, 1.0);
+            let look_to = (lean > 0.0).then(|| (right.atan2(up).rem_euclid(TAU), lean));
+            (look_to, self.blink(mood, now_us))
+        } else {
+            (None, 1.0)
+        };
+        let open = open * blink;
         let seconds = (now_us % 3_600_000_000) as f32 / 1_000_000.0;
         let ease = follow(step_us, EASE_US);
         let mut frame = [Rgb::BLACK; PIXEL_COUNT];
         for (pixel, (shown, out)) in self.shown.iter_mut().zip(&mut frame).enumerate() {
             let angle = TAU * pixel as f32 / PIXEL_COUNT as f32;
-            let wanted = look(mood, self.level, seconds, angle, self.lit, ceiling);
+            let wanted = look(mood, self.level, seconds, angle, self.lit, ceiling, look_to);
             for (channel, target) in shown.iter_mut().zip(wanted) {
                 *channel += (target * open - *channel) * ease;
             }
@@ -281,8 +373,32 @@ fn wave(seconds: f32, period: f32, lobes: f32, angle: f32) -> f32 {
     0.5 - 0.5 * (TAU * seconds / period - lobes * angle).cos()
 }
 
+/// Where the person is for the eye ([`Face::toward`]): the middle of a face
+/// in the camera's picture, its edges as fractions of the picture with
+/// (0, 0) at the top left, as how far right and up of the middle it is seen
+/// from in front of the lamp. The camera sits in the middle of the ring
+/// looking out, so a person on the left of its picture is on the lamp's
+/// left, which someone facing the lamp sees on their right.
+pub fn toward(xmin: f32, ymin: f32, xmax: f32, ymax: f32) -> [f32; 2] {
+    let (across, down) = ((xmin + xmax) / 2.0, (ymin + ymax) / 2.0);
+    [
+        (0.5 - across).clamp(-0.5, 0.5),
+        (0.5 - down).clamp(-0.5, 0.5),
+    ]
+}
+
 /// The wanted colour of one pixel, each channel as a share of the ceiling.
-fn look(mood: Mood, level: f32, seconds: f32, angle: f32, lit: Lit, ceiling: u8) -> [f32; 3] {
+/// `look_to`: the eye's look, as the angle around the ring toward the
+/// person and how far it leans, from 0 to 1.
+fn look(
+    mood: Mood,
+    level: f32,
+    seconds: f32,
+    angle: f32,
+    lit: Lit,
+    ceiling: u8,
+    look_to: Option<(f32, f32)>,
+) -> [f32; 3] {
     let (tint, glow) = match mood {
         Mood::Resting => {
             // The lamp's own light, in a slow breath, with a soft brighter
@@ -312,7 +428,14 @@ fn look(mood: Mood, level: f32, seconds: f32, angle: f32, lit: Lit, ceiling: u8)
             // Cool and open at once, brighter with the person's voice, with
             // a slow three-lobed shimmer so it is alive when they pause.
             let shimmer = wave(seconds, 1.7, 3.0, angle);
-            ([0.50, 0.85, 1.0], 0.42 + 0.40 * level + 0.07 * shimmer)
+            let glow = 0.42 + 0.40 * level + 0.07 * shimmer;
+            // The eye looks toward the person: the side toward them keeps
+            // its light and the far side dims, as much as the look leans.
+            let looking = look_to.map_or(1.0, |(toward, lean)| {
+                let near = (0.5 + 0.5 * (angle - toward).cos()).powi(2);
+                1.0 - LOOK_DIM * lean * (1.0 - near)
+            });
+            ([0.50, 0.85, 1.0], glow * looking)
         }
         Mood::Thinking => {
             // An amber point circling the ring with a fading tail behind it.
@@ -677,5 +800,146 @@ mod tests {
             (0..PIXEL_COUNT - 1)
                 .all(|pixel| pixel_order(pixel).abs_diff(pixel_order(pixel + 1)) >= 8)
         );
+    }
+
+    fn glow(pixel: &Rgb) -> u32 {
+        u32::from(pixel.red) + u32::from(pixel.green) + u32::from(pixel.blue)
+    }
+
+    /// The light on a quarter of the ring around one pixel.
+    fn around(frame: &[Rgb; PIXEL_COUNT], middle: usize) -> u32 {
+        (0..9)
+            .map(|offset| glow(&frame[(middle + PIXEL_COUNT + offset - 4) % PIXEL_COUNT]))
+            .sum()
+    }
+
+    /// A person on the left of the camera's picture, one in its middle, and
+    /// one on its right, as the eyes would see them.
+    const ON_THE_LEFT: [f32; 4] = [0.05, 0.40, 0.25, 0.60];
+    const IN_THE_MIDDLE: [f32; 4] = [0.42, 0.40, 0.58, 0.60];
+    const ON_THE_RIGHT: [f32; 4] = [0.75, 0.40, 0.95, 0.60];
+
+    fn at(face: [f32; 4]) -> Option<[f32; 2]> {
+        Some(toward(face[0], face[1], face[2], face[3]))
+    }
+
+    #[test]
+    fn without_the_eye_every_frame_is_as_before_whatever_is_seen() {
+        let (mut before, mut now) = (Face::new(), Face::new());
+        now.toward(at(ON_THE_LEFT));
+        now.eye(false);
+        for (mood, from) in [
+            (Mood::Resting, 1_000),
+            (Mood::Listening, 21_000_000),
+            (Mood::Thinking, 23_000_000),
+            (Mood::Speaking, 25_000_000),
+            (Mood::Resting, 27_000_000),
+        ] {
+            assert_eq!(
+                play(&mut before, mood, 140, from, 100),
+                play(&mut now, mood, 140, from, 100),
+                "{mood:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn listening_the_eye_looks_toward_the_person_and_leaves_them_the_light() {
+        let mut face = Face::new();
+        face.eye(true);
+        face.toward(at(ON_THE_LEFT));
+        let frames = play(&mut face, Mood::Listening, 120, 1_000, 100);
+        let last = frames.last().unwrap();
+        // On the lamp's left, which is three o'clock seen from in front: pixel
+        // 8. The far side, nine o'clock, is dimmer; top and bottom between.
+        let (near, far) = (around(last, 8), around(last, 24));
+        assert!(near > far * 2, "{near} {far}");
+        assert!(around(last, 0) < near && around(last, 0) > far);
+        // The side toward the person is as bright as without the eye.
+        let mut plain = Face::new();
+        let plain = play(&mut plain, Mood::Listening, 120, 1_000, 100);
+        let plain = around(plain.last().unwrap(), 8);
+        assert!(near * 10 >= plain * 9, "{near} {plain}");
+        // A person on the right of the picture is looked at the other way.
+        face.toward(at(ON_THE_RIGHT));
+        let frames = play(&mut face, Mood::Listening, 120, 2_001_000, 100);
+        let last = frames.last().unwrap();
+        assert!(around(last, 24) > around(last, 8) * 2);
+    }
+
+    #[test]
+    fn a_person_straight_ahead_or_none_has_the_whole_eye() {
+        let mut plain = Face::new();
+        let plain = play(&mut plain, Mood::Listening, 120, 1_000, 100);
+        for seen in [at(IN_THE_MIDDLE), None] {
+            let mut face = Face::new();
+            face.eye(true);
+            face.toward(seen);
+            assert_eq!(play(&mut face, Mood::Listening, 120, 1_000, 100), plain);
+        }
+    }
+
+    #[test]
+    fn the_look_eases_from_one_side_to_the_other_and_never_jumps() {
+        let mut face = Face::new();
+        face.eye(true);
+        face.toward(at(ON_THE_LEFT));
+        play(&mut face, Mood::Listening, 120, 1_000, 100);
+        face.toward(at(ON_THE_RIGHT));
+        let frames = play(&mut face, Mood::Listening, 120, 2_001_000, 100);
+        // A tenth of a second on, it still leans the old way.
+        assert!(around(&frames[5], 8) > around(&frames[5], 24));
+        // From frame to frame no pixel changes by much.
+        for pair in frames.windows(2) {
+            for (before, after) in pair[0].iter().zip(&pair[1]) {
+                assert!(
+                    glow(before).abs_diff(glow(after)) <= 12,
+                    "{before:?} {after:?}"
+                );
+            }
+        }
+        assert!(around(&frames[99], 24) > around(&frames[99], 8) * 2);
+    }
+
+    #[test]
+    fn at_rest_the_eye_blinks_now_and_then_and_briefly() {
+        let mut face = Face::new();
+        face.light(Lit::of(true, "white", 3).unwrap());
+        face.eye(true);
+        // Forty seconds at fifty frames a second, after the first, in which
+        // the face eases in from dark.
+        let frames = play(&mut face, Mood::Resting, 0, 1_000, 2_050);
+        let lights: Vec<u32> = frames[50..].iter().map(brightness).collect();
+        let mut sorted = lights.clone();
+        sorted.sort_unstable();
+        let usual = sorted[sorted.len() / 2];
+        let dim: Vec<bool> = lights.iter().map(|light| *light * 10 < usual * 7).collect();
+        let blinks = dim.windows(2).filter(|pair| !pair[0] && pair[1]).count();
+        // Every 7 to 16 s: between two and five in forty seconds.
+        assert!((2..=5).contains(&blinks), "{blinks}");
+        // Each under a third of a second, eased in and out.
+        let longest = dim.split(|dim| !dim).map(<[bool]>::len).max().unwrap_or(0);
+        assert!(longest <= 16, "{longest}");
+        // Without the eye, no blink.
+        let mut plain = Face::new();
+        plain.light(Lit::of(true, "white", 3).unwrap());
+        let plain: Vec<u32> = play(&mut plain, Mood::Resting, 0, 1_000, 2_050)[50..]
+            .iter()
+            .map(brightness)
+            .collect();
+        assert!(plain.iter().all(|light| *light * 10 >= usual * 7));
+    }
+
+    #[test]
+    fn a_face_is_placed_as_seen_from_in_front() {
+        let [right, up] = toward(
+            ON_THE_LEFT[0],
+            ON_THE_LEFT[1],
+            ON_THE_LEFT[2],
+            ON_THE_LEFT[3],
+        );
+        assert!(right > 0.3 && up.abs() < 0.01);
+        let [right, up] = toward(0.4, 0.0, 0.6, 0.2);
+        assert!(right.abs() < 0.01 && up > 0.3);
     }
 }

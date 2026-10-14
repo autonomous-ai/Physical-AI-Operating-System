@@ -373,7 +373,7 @@ fn run() -> Result<()> {
                 _ => return Err(io::Error::other("unknown worker role").into()),
             }
         }
-        // worker ring DIR PARENT WORKER --continuous [--resting CEILING] [--bus-root DIR]
+        // worker ring DIR PARENT WORKER --continuous [--resting CEILING] [--bus-root DIR] [--eye]
         #[cfg(target_os = "linux")]
         [command, role, dir, parent, worker, mode, flags @ ..] if command == "worker" && role == "ring" && mode == "--continuous" => {
             let parent = parse_boot(parent)?;
@@ -386,12 +386,13 @@ fn run() -> Result<()> {
                 rest => (None, rest),
             };
             let (bus_root, flags) = lamp_voice::bus_out::take_root(flags)?;
+            let (eye, flags) = lamp_voice::ring_sight::take(flags);
             if !flags.is_empty() {
                 return Err(io::Error::new(io::ErrorKind::InvalidInput, "unknown ring worker option").into());
             }
             let mut channels = WorkerChannels::bind(Path::new(dir), role, parent, worker, true)?;
             channels.connect(Path::new(dir), role, true)?;
-            lamp_voice::ring_worker::run_continuous(channels, parent, ceiling, bus_root.as_deref())?;
+            lamp_voice::ring_worker::run_continuous(channels, parent, ceiling, bus_root.as_deref(), eye)?;
         }
         [command,role,dir,parent,worker] if command=="worker" => {
             let parent=parse_boot(parent)?;

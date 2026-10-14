@@ -170,14 +170,16 @@ has it:
 | 9 | Faster answers: what exists | `faster-answers` | Second | open |
 | 4 | Expression: one part that authors what the lamp shows | `expression` | Third | done 2026-10-14: on `lamp-voice`, run on the lamp watching only; the wiring is the first builder's |
 | 7 | The button and the touch pad | `controls` | Third | taken 2026-10-14 |
+| 18 | Expression: holding back for someone, and a lamp at rest | `expression-rest` | Third | open |
 | 12 | Starting, setting up and updating a lamp | `surround` | Third | open |
 | 6 | Reminders and timers | `schedule` | Third | open |
 | 8 | A shared log, settings, and reports from the parts that give none | `defaults` | Third | open |
 | 11 | One task out to an agent and back, through Harness | `tasks` | Third | open |
-| 13 | Memory across days | `memory-days` | Fourth | done on `lamp-fourth` 2026-10-14; the first builder takes it next |
-| 14 | Whom is it said to: what exists | `said-to-whom` | Fourth | taken 2026-10-14 |
-| 15 | The lamp keeps its own records within a bound | `records-bound` | Fourth | open |
+| 13 | Memory across days | `memory-days` | Fourth | done 2026-10-14: on `lamp-voice`, built for the lamp and timed on it; on the lamp in its old mode, the new store not switched on |
+| 14 | Whom is it said to: what exists | `said-to-whom` | Fourth | done 2026-10-14: on `lamp-voice` ([said-to-whom.md](said-to-whom.md)); task 17 follows from it |
+| 15 | The lamp keeps its own records within a bound | `records-bound` | Fourth | taken 2026-10-14 |
 | 16 | A check that the lamp cannot lean too far | `lean-check` | Fourth | open |
+| 17 | A second judge for the Policy: the lamp's own signs | `local-judge` | Fourth | open |
 
 ## 1. The end-of-turn model in a tenth of a second
 
@@ -685,9 +687,114 @@ safer; nonsense in is refused.
 would call it, described and not written. Most likely wrong on the
 lamp: the masses.
 
+## 17. A second judge for the Policy: the lamp's own signs
+
+Crate: `crates/policy` (the first builder's; this task is given leave to
+add to it, in new files, and to touch `policy.rs` only where a second
+judge is asked and combined). Documents: `docs/policy.md` and
+`docs/said-to-whom.md`, which this task follows from.
+
+**Why.** The owner's rule: several decision models may be used, each a
+judge, and one policy combines them. Today there is one judge, Jev, asked
+over the network in 0.5 to 1.1 s, which is too slow to stop an answer
+before the lamp speaks. The study of whom speech is for (task 14)
+recommends a local judge that fuses the signs the lamp already has and
+answers in milliseconds, with the slow judge adding to it when it is in
+time.
+
+**Wanted.** A second implementation of `Decider` that asks nobody: from
+the state the policy already builds (was the name heard and how surely,
+is a conversation with the lamp going on, how the room is, is a face
+turned to the lamp and how fresh is that, how long since the lamp spoke,
+how long the utterance was) it answers the same typed questions with
+probabilities. Weights in one data file, with "not known" a value of its
+own for every sign. Then the combining: the policy asks both, takes the
+local judge's answer at once and the slow one's if it arrives before a
+deadline, and logs each judge's answer beside the choice. Watching only,
+as every new judge starts. Time one decision, first and repeated, and
+say so with the machine.
+
+**Tests.** Each sign alone moves the answer the right way and "not known"
+moves it not at all; a slow judge that answers late is logged and changes
+nothing; a judge that fails leaves the other's answer standing; the log
+has both. The fit itself needs labelled records, which the first builder
+supplies from played scenes: write the fitting as a small program that
+takes such a file, and say exactly what one line of it must hold.
+
+**Hand back:** the judge, the combining, the fitting program, the
+documents, and the one command that shows both judges' answers for what
+the lamp hears. Most likely wrong on the lamp: the weights, until they
+are fitted on its own records.
+
+## 18. Expression: holding back for someone, and a lamp at rest
+
+Crate: `crates/expression` and its message types in `crates/msgs`.
+Document: `docs/expression.md`, "What the voice says, as built".
+
+**Why.** Three things showed when the voice's real messages were put
+through the planner (2026-10-14). The planner cannot be told "I have
+paused for someone and may go on": a step back from speaking retires the
+turn's sound, so the voice says "speaking" through such a pause and the
+planner shows a speaking face to someone who has just cut in. The planner
+lists "explicit concentration setting" as missing for ever, because
+nothing publishes it. And with nothing to say between turns, what a lamp
+at rest looks like is one fixed pose.
+
+**Wanted.** A way for the voice to say a turn is held back for someone
+and may resume (a state or an event of its own, with the sound already
+queued dropped and new sound after it accepted), with the listening face
+within 100 ms and the look to the speaker, and the return to speaking if
+it resumes. A default for concentration that is "not concentrating" until
+something says otherwise, so a switched-on planner is not left waiting.
+And rest that reads as a living thing and not as a machine switched off:
+small, slow and rare, never a scan of the room, quiet-only, and still
+when someone is working (the repository's own rule 8 in `CLAUDE.md`).
+Each behind the catalogue, so it is data.
+
+**Tests.** Held back and resumed: the face goes to listening and back,
+later sound is taken, and nothing queued before the hold is played
+after it. Held back and given up: as an interruption today. The planner
+switched on with nothing publishing concentration reports itself well.
+Rest: bounded, never in a busy room, never when concentrating.
+
+**Hand back:** the change with its tests, the message contract the voice
+must then follow, and a replay fixture for each case. Most likely wrong
+on the lamp: how the rest behaviour looks, which only the camera shows.
+
 ## What the lamp showed
 
 Newest first. Each builder's own notes are in its log, on its branch.
+
+**2026-10-14, task 13, memory across days.** Taken onto `lamp-voice`
+unchanged (`2defa611b`). The thing the log named as most likely to go
+wrong, building its bundled database for the lamp, went right the first
+time in the lamp's build container; the 106 tests pass on the Mac and
+under emulation. On lamp-4ace: the timing test on the lamp's own disk
+(every repeated read under 30 ms; the first import of 6,000 exchanges
+2.3 s, once), and the new store beside today's on a copy of the lamp's
+real records (the same answers for the newest, the kept and a day; for a
+recall by word, other entries in three cases of six, because it ranks).
+All of it is in [memory-days.md](memory-days.md), "Built for the lamp and
+run on it". The new build runs on the lamp in its old mode since 09:50;
+the new store is not switched on, because switching it on cannot be
+undone without a restore and the voice does not yet use what it adds.
+
+**2026-10-14, task 14, whom is it said to.** The study is on `lamp-voice`
+([said-to-whom.md](said-to-whom.md)). Its recommendation, one local
+decision per turn from the signs the lamp already has, with the slow
+judge adding to it when in time, is task 17.
+
+**2026-10-14, task 4, Expression, first ten minutes with people in the
+office.** Eight things were taken as said and none answered. The planner
+took 16,971 inputs and refused one (a kept value older than its limit,
+read as it started). Two things were wrong and are mended (`93ec362c4`,
+on the lamp since 09:43): the lamp's own health report read "The lamp has
+a warning: expression: voice turn cancelled" after a colleague's remark,
+because the voice ended an unanswered turn as `Cancelled` and the planner
+reports that, and any note about one turn, as a warning. The voice now
+ends such a turn as `Finished`, the planner warns only for a fault of its
+own or an input it lacks once switched on, and it says in its journal
+which input it refused and why. What is left of it is task 18.
 
 **2026-10-14, task 4, Expression: its inputs from the voice.** The voice
 now publishes `voice/timing`, `voice/activity` and `voice/playout`

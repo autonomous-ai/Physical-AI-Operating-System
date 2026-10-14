@@ -294,9 +294,65 @@ an extractor proposing an unjustified correction, or a caller failing to
 send source IDs and discard an already populated provider context. Check
 these before enabling the switch on the live store.
 
+## Built for the lamp and run on it (first builder, 2026-10-14)
+
+Taken onto `lamp-voice` unchanged (`2defa611b`). On the first builder's
+Mac the crate's 106 tests pass and clippy is clean.
+
+**The native build works.** Cross-built for `aarch64-unknown-linux-gnu`
+in the lamp's build container, with `CC_aarch64_unknown_linux_gnu=aarch64-linux-gnu-gcc`
+and the matching `ar`: the bundled database compiles and links, the
+binary is 3.5 MB, and the 106 tests pass under emulation.
+
+**Timing on lamp-4ace's own storage.** The timing test's executable, run
+on the lamp with its store on the lamp's disk (`/dev/mmcblk1p1`) and the
+voice, eyes, body and the rest running as usual. The same fixture as the
+development timing: 30 days, 6,000 exchanges, 200 kept. Milliseconds,
+from connecting to the whole reply read; first, then 50 repeats:
+
+| Request | Files: first, median, p95 | New store: first, median, p95 |
+|---|---|---|
+| Opening the store | 24.0 | 2,346.5 with the import, once; 36.7 opened again |
+| Recall by words | 57.3, 35.1, 36.8 | 37.2, 24.8, 26.7 |
+| Recall, newest | 1.2, 1.1, 1.2 | 11.2, 10.9, 12.2 |
+| Recall, a day | 0.9, 0.9, 0.9 | 12.9, 12.3, 13.9 |
+| Kept | 0.3, 0.2, 0.4 | 4.0, 4.2, 5.1 |
+| Search (ranked) | not there | 24.5, 24.8, 26.0 |
+| Session note | not there | 52.9, 3.8, 4.6 |
+| Recall with a model's answer pending | not there | 26.6, 24.9, 26.5 |
+
+The new store's file was 6.0 MB. Every repeated read is under 30 ms,
+against the 300 ms the voice allows for a session's note and the 1.5 s it
+allows a request. About twice the development Mac's times for the word
+searches.
+
+**On a copy of the lamp's real records** (347 journal lines from two days,
+nothing kept; the copy made in `/var/tmp`, used and removed; ids and counts
+looked at, no text): the new store was listening 11 ms after starting and
+its first request took 291 ms; after that 4 to 6 ms. The newest entries,
+the kept things and one day's entries came back with the same ids in the
+same order from both stores. A recall by one word, for each of the six
+commonest longer words: three gave the same ids in the same order, and
+three gave 37 entries where today's store gives 36, about ten of them
+different ones. So the old request, put to the new store, can answer with
+other entries when more match than fit: it ranks, where today's takes the
+newest. Search and the session note answered.
+
+**What is on the lamp:** the new build, in its old mode, since 09:50
+(`99df4a52…`). `--memory-days` is not switched on. Switching it on turns
+the lamp's real records into the new store and the build then refuses to
+run without the flag, so it waits for two things: the voice using what the
+new store adds (the ranked search, the session note, the tidy-up after a
+conversation), and an evening with nobody in the office to play the
+memory scenes to it before and after.
+
+Not shown on the lamp: a power cut during an import, an append or a
+forget; Vietnamese; the tidy-up with a real model.
+
 ## Not shown
 
-No new code has run on the lamp, on Linux ARM64, or under physical power
+What follows is as Fourth wrote it, before the above. No new code had run
+on the lamp, on Linux ARM64, or under physical power
 loss here. No actual model extraction, natural multi-day spoken interaction,
 speaker identification, cloud-context deletion, or end-to-end response
 latency has been tested. Lexical Vietnamese fixtures do not establish

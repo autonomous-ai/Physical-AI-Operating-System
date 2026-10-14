@@ -26,7 +26,7 @@ log and nothing a lamp runs ([joining.md](joining.md),
 | 20 | The replay takes the lamp's own recordings | `second/replay-capture-clocked` | 2026-10-14 | on `lamp-voice`: five of the lamp's recordings followed sample for sample |
 | 19 | The end sent early, the answer played only when sure | `second/early-end` | 2026-10-14 | on `lamp-voice`, behind `--early-end-ms`; played on lamp-4ace at 200 ms: worse; switched off |
 | 36 | Always alive: the idle layer, sleep and waking (issue #714) | `second/always-alive` | 2026-10-14 | on `lamp-voice` (#729, merged 23:03); on lamp-4ace since 23:07 |
-| second-P1 | The early end taken back (issue #723) | `second/early-end-back`, then `second/early-end-labelled` | 2026-10-14 | step 1 on `lamp-voice` (#731, merged 23:06); on lamp-4ace at 23:10 (a) did not hold and (b) did; step 2, (b) behind `--early-end-ms`, being built |
+| second-P1 | The early end taken back (issue #723) | `second/early-end-back`, then `second/early-end-labelled` | 2026-10-14 | step 1 on `lamp-voice` (#731, merged 23:06); on lamp-4ace at 23:10 (a) did not hold and (b) did; step 2 as pull request #738 into `lamp-voice`, 2026-10-15 |
 | 40 | Progress news through the tasks part and Jev (issue #732, `second-P2`) | `second/progress-news` | 2026-10-15 | being built |
 | 41 | Codex and the others: the person names who gets the work (issue #733, `second-P3`) | `second/who-gets-the-work` | 2026-10-15 | being built |
 | 43 | The person's phone over Bluetooth (issue #735, `second-P4`) | none | 2026-10-15 | cancelled by the owner the same night before any work was kept; released on #735 |
@@ -54,6 +54,51 @@ log and nothing a lamp runs ([joining.md](joining.md),
 ## Handed back
 
 Newest first.
+
+### second-P1, step 2: the note after an early end (2026-10-15, issue #723)
+
+Ready for lamp-voice: yes (#738)
+
+**Kind: off unless set.** Only with `--early-end-ms`, which no unit sets
+since 13:46: the successor of a request whose end was sent early and given
+up starts with `continues_cut_off`, and the provider worker writes
+`CUT_OFF_NOTE` beside it ("... this is the rest of it. Answer all of it as
+one request."), with any other note for that request. The flag is left off
+the wire when false: a start without it is byte for byte as before (a
+test). One commit, `9417bcfcc`, on `lamp-voice` at `dcc2e6b1e`.
+
+**The rest, not the whole.** Lamp-4ace answered the whole question with
+its note as one, but the voice cannot send a piece's sound again: the
+transport takes no sound older than 2.5 s (`MAX_INPUT_AGE`), and the pizza
+question came in four pieces. So the successor carries the rest with the
+note, and the probe now asks exactly that (`rest-labelled`, a new
+`rest.wav`, in place of `resume-late`); a test holds the voice's note and
+the probe's `REST_NOTE` to the same words. The probe also reads the voice's
+own provider file as it is, as the first builder asked.
+
+**Tested, on the M2 Max:** the early-end session tests see the note once,
+just before the successor's end, when speech resumes 0.3 s after the end
+and in "Lamp, stop." over an answer, and none on a request quiet to the
+end; the probe's six tests (the voice's provider file read; a loose
+credential refused). **Gate:** `cargo fmt --all --check`; strict clippy
+on `lamp-gemini`, `lamp-voice`, `lamp-voice-eval`, `lamp-policy`,
+`lamp-surround`; tests one at a time: gemini 256 (2 ignored), voice 1,037
+(6 ignored), voice-eval 284, policy 144 (2 ignored), surround 260; the
+workspace build. Some voice session tests fail on this Mac only while it
+is loaded by other work; they passed alone and on quieter runs. Native
+ARM64 run 38604441393 on `9417bcfcc`: green, 3,953 passed, 0 failed, 31
+ignored.
+
+**What to run on the lamp:** `rest.wav` ("Japan?", `say -v Daniel` and
+`afconvert`), the probe once more with the voice's own provider file, and
+`rest-labelled` must answer Tokyo without answering "the capital of" on
+its own. Only then the five pause scenes with `--early-end-ms 200`
+against a run without it, by the table in `docs/early-end-taken-back.md`.
+
+**Where it is most likely wrong on the lamp:** the rest alone being weaker
+than the whole; the note arriving after the given-up answer has begun
+under `kept-start` (where the moon thought went wrong at 13:45); thoughts
+in several pieces; short pieces heard as another language.
 
 ### second-P1, step 1: the early end taken back, study and probe (2026-10-14, issue #723)
 

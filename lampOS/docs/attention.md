@@ -544,7 +544,7 @@ None of the three is known to have been said to it. From its own records:
 - **The time.** A session is told the time when it opens; this one opened
   at 10:48 and was told to give the time "roughly".
 
-What was changed, each behind a switch, all on lamp-4ace since 11:52 the same day (`0ca828c67`), none yet played to:
+What was changed, each behind a switch, 1 to 5 on lamp-4ace since 11:52 the same day (`0ca828c67`) and 6 since 12:10, none yet played to:
 
 | | Change | Switch |
 |---|---|---|
@@ -552,6 +552,7 @@ What was changed, each behind a switch, all on lamp-4ace since 11:52 the same da
 | 2 | When the room changes and no quiet moment comes, it is told inside the request being heard, beside what is said, as the name is; a request's name and room go as one note | `LAMP_ROOM_FACTS=on`, as before |
 | 3 | In a busy room the name note is given only when the eyes' newest look, under two seconds old, has a face turned to the lamp (`humans/faces/tracked`, [eyes.md](eyes.md)); otherwise it is held and the journal says why | `LAMP_NAME_NOTE_BUSY=face`, beside `LAMP_NAME_NOTE=on` |
 | 4 | The model asks the lamp's clock for the time ([tools.md](tools.md), "`the_time`") | `LAMP_CLOCK=on` |
+| 6 | The rule is decided at a call for something to be done, too, and a held request's call is answered and not run: at 11:57, with the busy form on, the model asked for the light during the table's talk and the light was switched on while the answer's sound was held. On the lamp since 12:10 (`46403ffbd`) | `LAMP_ATTENTION=on` or `busy` |
 | 5 | The rule's busy form: in a busy room every answer is held, not only a new session's first two, unless a conversation with the lamp is going on, the text shows it was called, or the eyes' newest fresh look has someone turned to the lamp; the name heard in the sound counts only with someone turned to it | `LAMP_ATTENTION=busy` in place of `on` |
 
 Against this meeting, by its records: with 1 the room would have been busy

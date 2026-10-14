@@ -292,6 +292,22 @@ Ready for lamp-voice: yes (the commit that adds this entry)
 - Kind: changes only what the keeper does when it is the updater's
   service; nothing on lamp-4ace.
 
+## 2026-10-14 — the state of tasks 22 to 27, by the ready line
+
+Ready for lamp-voice: as each line says (`fifth-P4`, proposed).
+
+- 22 body-second-lamp: yes (`568a27c6a`).
+- 27 keeper: yes for what is built (`82a3b8752`); the update choreography and
+  the pause are not built.
+- 23 wake: no. On `lamp-fifth` up to `e4d1180e4` (the drooped head, the
+  settle) and running on lamp-52e6; being mended for a shoulder left up by a
+  standing power cut, a head held short at rest, and the two ends lamp-4ace
+  showed (the base sticking at a slow goal, the shoulder's 7-count sway).
+- 24 give-way: no. `--give-way` and `--overload release` are on
+  `lamp-fifth` (`3a148c740`); no hand has tried either.
+- 25 head-follow: no. Measured; the nod's speed switch is still to make.
+- 26 weigh: no. Only the whole lamp's weight.
+
 ## Proposed tasks
 
 Work found while doing a listed task that cannot be folded into it. One
@@ -308,6 +324,7 @@ use the same form without their ids meeting.
 | fifth-P1 | `builder-with-a-lamp` | Not a task: how a builder with its own lamp proves a result and when a piece is taken into `lamp-voice` without running it again on lamp-4ace (off unless set, with a test that it is unchanged when off). Written so that later builders with lamps work the same way. | [builder-with-a-lamp.md](builder-with-a-lamp.md); work-split.md, if taken | |
 | fifth-P2 | `lamp-owner-file` | Not a task: so that any number of builders and lamps can tell from Git alone who owns a lamp and what it runs: a `LAMP.md` of three lines in each `deploy/<lamp>/`. | [builder-with-a-lamp.md](builder-with-a-lamp.md), "Which lamp is whose"; one file per lamp folder | |
 | fifth-P3 | `tasks-as-issues` | Not a task: track the builders' tasks as GitHub issues (one per task, `slot:` and `status:` labels, questions as comments) instead of one 1,400-line file every builder reads each loop. At the fifth builder's person's request. Make no issue or label until the owner says yes. | [tasks-as-issues.md](tasks-as-issues.md); work-split.md would shrink to the rules and loops | |
+| fifth-P4 | `ready-line` | Not a task: the first builder takes only what a log entry marked `Ready for lamp-voice: yes (<commit>)` names; code being made stays on the task branch. So that unfinished work is not taken onto `lamp-voice`. | [builder-with-a-lamp.md](builder-with-a-lamp.md), "Taken only when ready"; every log entry from now on | |
 
 ## Found, not mine
 

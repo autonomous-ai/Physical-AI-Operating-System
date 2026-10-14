@@ -1,0 +1,33 @@
+    Checking lamp-schedule v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/schedule)
+error: returning the result of a `let` binding from a block
+   --> crates/schedule/src/runtime.rs:279:17
+    |
+270 | / ...   let reply=match owner.try_send(queued) {
+271 | | ...       Ok(())=>match remaining(deadline).and_then(|left|rx.recv_timeout(left).map_err(io::Error::other)) {
+272 | | ...           Ok(Ok(reply))=>reply,
+273 | | ...           Ok(Err(error))=>refusal(error.code,error.message),
+...   |
+277 | | ...       Err(TrySendError::Disconnected(_))=>refusal("unavailable","Schedule's store is unavailable; this request did not start."),
+278 | | ...   };
+    | |________- unnecessary `let` binding
+279 |   ...   reply
+    |         ^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.96.0/index.html#let_and_return
+    = note: `-D clippy::let-and-return` implied by `-D warnings`
+    = help: to override `-D warnings` add `#[allow(clippy::let_and_return)]`
+help: return the expression directly
+    |
+270 ~                 
+271 ~                 match owner.try_send(queued) {
+272 +                     Ok(())=>match remaining(deadline).and_then(|left|rx.recv_timeout(left).map_err(io::Error::other)) {
+273 +                         Ok(Ok(reply))=>reply,
+274 +                         Ok(Err(error))=>refusal(error.code,error.message),
+275 +                         Err(_)=>refusal("uncertain","No receipt arrived. Read status and retry only the exact guarded request; it may have committed."),
+276 +                     },
+277 +                     Err(TrySendError::Full(_))=>refusal("busy","Schedule's request queue is full; this request did not start."),
+278 +                     Err(TrySendError::Disconnected(_))=>refusal("unavailable","Schedule's store is unavailable; this request did not start."),
+279 +                 }
+    |
+
+error: could not compile `lamp-schedule` (lib) due to 1 previous error

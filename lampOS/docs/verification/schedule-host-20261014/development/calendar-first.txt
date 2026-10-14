@@ -1,0 +1,33 @@
+   Compiling lamp-schedule v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/schedule)
+error[E0425]: cannot find function `connect_unix` in module `rustix::net`
+   --> crates/schedule/src/runtime.rs:157:32
+    |
+157 |             match rustix::net::connect_unix(&probe,&address).map_err(io::Error::from) {
+    |                                ^^^^^^^^^^^^
+    |
+   ::: /Users/d/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/rustix-1.1.5/src/net/socket.rs:197:1
+    |
+197 | pub fn connect_unspec<Fd: AsFd>(sockfd: Fd) -> io::Result<()> {
+    | ------------------------------------------------------------- similarly named function `connect_unspec` defined here
+    |
+help: a function with a similar name exists
+    |
+157 -             match rustix::net::connect_unix(&probe,&address).map_err(io::Error::from) {
+157 +             match rustix::net::connect_unspec(&probe,&address).map_err(io::Error::from) {
+    |
+
+error[E0599]: no associated function or constant named `NONBLOCK` found for struct `SocketFlags` in the current scope
+   --> crates/schedule/src/runtime.rs:155:75
+    |
+155 |                 rustix::net::SocketType::STREAM,rustix::net::SocketFlags::NONBLOCK|rustix::net::SocketFlags::CLOEXEC,None)?;
+    |                                                                           ^^^^^^^^ associated function or constant not found in `SocketFlags`
+
+error[E0599]: no associated function or constant named `CLOEXEC` found for struct `SocketFlags` in the current scope
+   --> crates/schedule/src/runtime.rs:155:110
+    |
+155 |                 rustix::net::SocketType::STREAM,rustix::net::SocketFlags::NONBLOCK|rustix::net::SocketFlags::CLOEXEC,None)?;
+    |                                                                                                              ^^^^^^^ associated function or constant not found in `SocketFlags`
+
+Some errors have detailed explanations: E0425, E0599.
+For more information about an error, try `rustc --explain E0425`.
+error: could not compile `lamp-schedule` (lib) due to 3 previous errors

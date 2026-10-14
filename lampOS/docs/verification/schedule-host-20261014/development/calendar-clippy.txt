@@ -1,0 +1,12 @@
+    Checking lamp-schedule v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/schedule)
+error: this boolean expression can be simplified
+   --> crates/schedule/src/runtime.rs:341:44
+    |
+341 |     while !stop.load(Ordering::Acquire) && !config.run_for.is_some_and(|limit|started.elapsed()>=limit) {
+    |                                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: try: `config.run_for.is_none_or(|limit| started.elapsed() < limit)`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.96.0/index.html#nonminimal_bool
+    = note: `-D clippy::nonminimal-bool` implied by `-D warnings`
+    = help: to override `-D warnings` add `#[allow(clippy::nonminimal_bool)]`
+
+error: could not compile `lamp-schedule` (lib) due to 1 previous error

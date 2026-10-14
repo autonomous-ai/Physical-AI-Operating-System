@@ -1,0 +1,39 @@
+    Checking lamp-ipc v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/ipc)
+    Checking lamp-bus v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/bus)
+    Checking lamp-turn-owner v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/turn-owner)
+    Checking jiff v0.2.38
+   Compiling lamp-camera v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/camera)
+    Checking lamp-gemini v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/gemini)
+    Checking lamp-sound-fixtures v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/sound-fixtures)
+   Compiling libsqlite3-sys v0.38.2
+    Checking lamp-turn-end-wire v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/turn-end-wire)
+    Checking lamp-observer v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/observer)
+    Checking lamp-msgs v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/msgs)
+    Checking lamp-audio v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/audio)
+    Checking lamp-ring v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/ring)
+    Checking tough v0.24.0 (/Users/d/code/autonomous-os/lampOS/vendor/tough)
+    Checking lamp-body v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/body)
+    Checking lamp-controls v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/controls)
+    Checking lamp-expression v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/expression)
+    Checking lamp-lean v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/lean)
+    Checking lamp-health v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/health)
+    Checking lamp-policy v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/policy)
+    Checking lamp-name v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/name)
+    Checking lamp-records v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/records)
+    Checking lamp-actions v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/actions)
+    Checking lamp-eyes v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/eyes)
+    Checking rusqlite v0.40.2
+    Checking lamp-schedule v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/schedule)
+    Checking lamp-voice v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/voice)
+error: unnecessary `>= y + 1` or `x - 1 >=`
+   --> crates/schedule/examples/schedule_check.rs:634:41
+    |
+634 |         (1..=100).contains(&samples) && samples + 1 <= MAX_ITEMS,
+    |                                         ^^^^^^^^^^^^^^^^^^^^^^^^ help: change it to: `samples < MAX_ITEMS`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.96.0/index.html#int_plus_one
+    = note: `-D clippy::int-plus-one` implied by `-D warnings`
+    = help: to override `-D warnings` add `#[allow(clippy::int_plus_one)]`
+
+error: could not compile `lamp-schedule` (example "schedule_check") due to 1 previous error
+warning: build failed, waiting for other jobs to finish...

@@ -1,0 +1,45 @@
+   Compiling lamp-schedule v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/schedule)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 2.08s
+     Running tests/calendar.rs (target/debug/deps/calendar-ce1523bc38afc30d)
+
+running 37 tests
+test creation_always_requires_a_trusted_wall_clock ... ok
+test boot_identity_is_bounded_and_matches_the_bus_alphabet ... ok
+test errors_have_static_messages_without_echoing_supplied_private_text ... ok
+test clock_text_is_exact_ascii_hh_mm_for_every_calendar_kind ... ok
+test elapsed_difference_uses_checked_signed_conversion ... ok
+test boot_clock_order_is_deliberately_the_owners_responsibility ... ok
+test calendar_deadlines_require_wall_trust_even_on_the_original_boot ... ok
+test duration_bounds_are_inclusive_and_never_wrap ... ok
+test another_boot_waits_for_trusted_wall_time_and_then_reports_lateness ... ok
+test calendar_creation_and_advancement_fail_closed_at_the_upper_range ... ok
+test exact_date_syntax_rejects_bad_dates_and_unrecognized_relative_words ... ok
+test explicit_zone_overrides_the_default_and_recurrence_freezes_its_zone ... ok
+test advancement_retains_every_past_occurrence_without_delivery_time_drift ... ok
+test duration_keeps_milliseconds_and_both_clock_anchors ... ok
+test omitted_and_next_days_are_strictly_future_including_exact_equality ... ok
+test ho_chi_minh_local_request_resolves_without_model_date_arithmetic ... ok
+test apia_skipped_day_retains_two_distinct_civil_occurrences_at_one_instant ... ok
+test persisted_deadline_validation_rejects_inconsistent_or_unbounded_descriptors ... ok
+test recurrence_calendar_arithmetic_handles_leap_month_and_year_boundaries ... ok
+test same_boot_wall_jumps_neither_end_nor_extend_a_duration_timer ... ok
+test half_hour_dst_gap_uses_database_rules_without_assuming_one_hour ... ok
+test serialized_elapsed_timer_survives_process_restart_without_trusted_wall_time ... ok
+test today_and_explicit_dates_refuse_equal_or_past_requests ... ok
+test omitted_optionals_and_full_lowercase_weekdays_round_trip ... ok
+test serde_rejects_unknown_fields_wrong_case_and_unrecognized_words ... ok
+test utc_limits_match_jiff_and_arithmetic_rejects_the_next_millisecond ... ok
+test tomorrow_uses_local_dates_across_leap_month_and_year_boundaries ... ok
+test daily_gap_moves_one_occurrence_forward_without_changing_requested_clock ... ok
+test weekly_initial_selection_covers_all_weekdays_and_exact_time_rollover ... ok
+test next_occurrence_rejects_an_upcoming_gap_but_can_pass_a_past_gap ... ok
+test lower_utc_boundary_can_select_next_occurrence_from_a_previous_local_year ... ok
+test one_off_gap_is_rejected_even_when_a_fold_preference_is_supplied ... ok
+test next_occurrence_distinguishes_remaining_fold_from_a_wholly_past_fold ... ok
+test one_off_fold_requires_choice_and_resolves_both_instants ... ok
+test repeating_fold_uses_earlier_instant_once_and_next_creation_skips_spent_fold ... ok
+test zones_must_be_bounded_names_in_the_bundled_database ... ok
+test weekly_gap_stays_on_the_requested_weekday_and_clock ... ok
+
+test result: ok. 37 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

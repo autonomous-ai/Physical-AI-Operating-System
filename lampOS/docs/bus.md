@@ -437,6 +437,37 @@ is a microphone/camera permit, an applied-mute receipt or proof of silence.
 First wires the physical adapter and final owners; these topics have not been
 observed on the lamp in this review.
 
+## Optional Schedule topic (Third, 2026-10-14)
+
+| Topic | Kind | Published by | Intended reader |
+|---|---|---|---|
+| `schedule/due` | latest, 1 s period, 3 s lifespan | `lamp-schedule` | Voice, to discover due work before asking Schedule's private socket |
+
+The additive [`ScheduleDue` message](msgs.md#optional-schedule-contract)
+carries a shared monotonic `ClockStamp`, persistent store identity and
+revision, enabled/ready status, bounded pending/waiting counts, and at most
+one oldest notice. That notice contains only its item/delivery identity,
+scheduled Unix time and lateness metadata. Reminder text stays off this
+topic. A disabled or unavailable Schedule reports no oldest notice, even
+when pending work remains.
+
+Schedule's own persistent queue survives Voice being busy or down. The bus
+does not supply that durability: an event can be lost and a latest value
+replaces its predecessor. Publishing a value, reading it, or observing a
+new heartbeat is not an acknowledgement of speech. The unchanged delivery
+token remains offered until an explicit durable acknowledgement, cancel or
+snooze is accepted over the private socket.
+
+Before considering speech, the consumer checks the current host boot and
+stamp, publisher identity and ordering, enabled/ready status, and expiry,
+then retrieves the exact `store_id`/`id`/`delivery` from that socket. This
+second check prevents a cancelled or superseded retained offer from being
+treated as current work. It acknowledges only confirmed completion. Voice
+remains the owner of privacy, turn admission and actual speaker output;
+this topic grants none of them. First owns that integration. The existing
+bus header clock, delivery statistics, lifespan grace and transport behavior
+are unchanged.
+
 ## Not shown
 
 Everything in this section was run on one development Mac (x86_64); what
@@ -486,3 +517,7 @@ is not known.
 The Controls topic addition has not been measured on a lamp. This source review
 does not establish hardware acquisition, consumer integration or hand-to-silence
 latency, and adds no test or benchmark result to those above.
+
+The Schedule topic adds a discovery contract, not a measured delivery path.
+No Voice integration, power-loss recovery, clock accuracy or due-to-speech
+latency on a lamp is established by this topic declaration.

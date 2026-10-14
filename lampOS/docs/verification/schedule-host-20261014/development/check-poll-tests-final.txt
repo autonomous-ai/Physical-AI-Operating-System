@@ -1,0 +1,18 @@
+   Compiling lamp-schedule v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/schedule)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.88s
+     Running unittests examples/schedule_check.rs (target/debug/examples/schedule_check-df5e1d7c353a982a)
+
+running 10 tests
+test tests::eof_without_newline_does_not_complete_a_valid_json_value ... ok
+test tests::bytes_after_the_reply_frame_are_rejected ... ok
+test tests::malformed_json_is_rejected_after_complete_framing ... ok
+test tests::an_oversized_reply_is_rejected_without_waiting_for_eof ... ok
+test tests::a_buffered_reply_larger_than_one_read_survives_peer_close ... ok
+test tests::a_reply_at_the_byte_limit_is_accepted ... ok
+test tests::nonblocking_partial_writes_deliver_every_byte ... ok
+test tests::a_fragmented_reply_waits_for_the_same_complete_frame ... ok
+test tests::an_unread_peer_cannot_extend_the_absolute_write_deadline ... ok
+test tests::incoming_fragments_do_not_extend_the_absolute_read_deadline ... ok
+
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.16s
+

@@ -1,0 +1,92 @@
+{
+  "packages": [
+    "lamp-actions",
+    "lamp-body",
+    "lamp-controls",
+    "lamp-expression",
+    "lamp-eyes",
+    "lamp-health",
+    "lamp-lean",
+    "lamp-msgs",
+    "lamp-name",
+    "lamp-policy",
+    "lamp-records",
+    "lamp-schedule",
+    "lamp-surround",
+    "lamp-voice",
+    "lamp-voice-eval"
+  ],
+  "task_base": "d0a2b5c00092087763d1e001bfe26fefa7a16dce",
+  "claim": "ffd111fde",
+  "gates": [
+    {
+      "name": "format",
+      "command": [
+        "cargo",
+        "fmt",
+        "--all",
+        "--check"
+      ],
+      "cwd": "/Users/d/code/autonomous-os/lampOS",
+      "started_utc": "2026-10-14T07:46:05.935777+00:00",
+      "elapsed_seconds": 3.092837898,
+      "exit_code": 0,
+      "log": "/private/tmp/lamp-third-schedule-gate-attempt1-format.txt"
+    },
+    {
+      "name": "clippy",
+      "command": [
+        "cargo",
+        "clippy",
+        "--offline",
+        "--locked",
+        "-p",
+        "lamp-actions",
+        "-p",
+        "lamp-body",
+        "-p",
+        "lamp-controls",
+        "-p",
+        "lamp-expression",
+        "-p",
+        "lamp-eyes",
+        "-p",
+        "lamp-health",
+        "-p",
+        "lamp-lean",
+        "-p",
+        "lamp-msgs",
+        "-p",
+        "lamp-name",
+        "-p",
+        "lamp-policy",
+        "-p",
+        "lamp-records",
+        "-p",
+        "lamp-schedule",
+        "-p",
+        "lamp-surround",
+        "-p",
+        "lamp-voice",
+        "-p",
+        "lamp-voice-eval",
+        "--all-targets",
+        "--",
+        "-D",
+        "warnings"
+      ],
+      "cwd": "/Users/d/code/autonomous-os/lampOS",
+      "started_utc": "2026-10-14T07:46:09.029719+00:00",
+      "elapsed_seconds": 29.624527341999997,
+      "exit_code": 101,
+      "log": "/private/tmp/lamp-third-schedule-gate-attempt1-clippy.txt"
+    }
+  ],
+  "baseline": {
+    "command": "cargo build --workspace --offline --locked",
+    "cwd": "/Users/d/code/autonomous-os/lampOS",
+    "exit_code": 0,
+    "elapsed_seconds": 23.52436648,
+    "log": "/private/tmp/lamp-third-schedule-baseline-build.txt"
+  }
+}

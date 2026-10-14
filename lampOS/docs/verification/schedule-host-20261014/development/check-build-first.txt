@@ -1,0 +1,2 @@
+    Checking lamp-schedule v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/schedule)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 1.43s

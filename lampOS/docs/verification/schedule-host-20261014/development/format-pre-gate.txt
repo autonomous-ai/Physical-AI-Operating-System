@@ -1,0 +1,2 @@
+cargo fmt --all --check
+Exit 1: crates/schedule/src/lib.rs declarations were not alphabetized by rustfmt: store/time preceded engine/protocol/runtime. Corrected with cargo fmt -p lamp-schedule -p lamp-msgs before the final gate. Tool output preserved in session as format check cb882a/d871e0.

@@ -139,7 +139,7 @@ class TestMPR121(unittest.TestCase):
     def test_stop_and_poll_fault_stop_feedback(self):
         for fault in (False, True):
             with self.subTest(fault=fault):
-                handler = self.make_handler(poll_ms=1)
+                handler = self.make_handler(poll_ms=1, i2c_recover_attempts=0)
                 handler._hold_led = feedback = mock.Mock()
                 if fault:
                     with mock.patch.object(handler, '_read_touched', side_effect=OSError('disconnected')), \
@@ -339,7 +339,7 @@ class TestMPR121(unittest.TestCase):
         self.assertNotIn('event=gesture', output)
 
     def test_poll_failure_closes_bus_and_stops_dispatch(self):
-        handler = self.make_handler(poll_ms=1)
+        handler = self.make_handler(poll_ms=1, i2c_recover_attempts=0)
         bus = mock.Mock()
         bus.read_regs.side_effect = [b'\x24', b'\x00\x00', OSError('disconnected')]
         with mock.patch('hal.drivers.mpr121.I2CBus', return_value=bus):
@@ -351,7 +351,7 @@ class TestMPR121(unittest.TestCase):
         self.assertFalse(handler._action_thread.is_alive())
 
     def test_poll_fault_cancels_pending_gesture_and_actions(self):
-        handler = self.make_handler(poll_ms=1, debounce_ms=0)
+        handler = self.make_handler(poll_ms=1, debounce_ms=0, i2c_recover_attempts=0)
         handler._bus = bus = mock.Mock()
         handler._process_touch(False, 0)
         handler._process_touch(True, 1)

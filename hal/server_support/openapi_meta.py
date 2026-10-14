@@ -21,6 +21,10 @@ OPENAPI_TAGS = [
         "description": "WS2812 RGB LED strip (64 LEDs). Set solid color, paint individual pixels, or turn off.",
     },
     {
+        "name": "Touch",
+        "description": "MPR121 touch strip tuning: live per-pad signal (SSE), sensitivity, auto-calibration. Per-unit tuning lives in /var/lib/hal and survives updates.",
+    },
+    {
         "name": "Camera",
         "description": "USB camera for snapshots and MJPEG streaming.",
     },

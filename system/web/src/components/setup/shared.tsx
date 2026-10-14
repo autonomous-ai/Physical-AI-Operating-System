@@ -268,7 +268,7 @@ export function ConfiguredHint({ label, editPath = "/setting" }: { label: string
 }
 
 export function SectionCard({ id, title, description, icon, active, children }: {
-  id: SectionId | "runtime" | "timezone" | "led" | "privacy" | "mcp" | "plugins" | "scheduled"; title: string; description?: string; icon?: React.ReactNode; active: boolean; children: React.ReactNode;
+  id: SectionId | "runtime" | "timezone" | "led" | "touch" | "privacy" | "mcp" | "plugins" | "scheduled"; title: string; description?: string; icon?: React.ReactNode; active: boolean; children: React.ReactNode;
 }) {
   // Stay mounted when inactive (display:none) so inputs keep refs and state.
   return (

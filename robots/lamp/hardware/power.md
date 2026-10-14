@@ -25,7 +25,7 @@ Single 12 V input. One step-down to 5 V for the SBC and ring. 3.3 V comes from t
                        │
                   3.3V (from SBC, sensors only)
                        │
-                  TTP223 ×4 (~0.02A)
+                  TTP223 ×2 + MPR121 (~0.02A)
 ```
 
 ## Current budget
@@ -40,7 +40,7 @@ Single 12 V input. One step-down to 5 V for the SBC and ring. 3.3 V comes from t
 | SBC (Pi 5 or OPi 4 Pro) | 1.8 A | 2.5 A | Spikes during boot + camera + servo activity |
 | WS2812 ring (capped) | 0.5 A | 1.0 A | Brightness cap in software; full white 32 px = 1.92 A which is **not allowed** |
 | Nidec 5 V fan | 0.15 A | 0.20 A | |
-| **3.3 V** (from SBC) | < 0.05 A | < 0.10 A | TTP223 ×4 + headroom |
+| **3.3 V** (from SBC) | < 0.05 A | < 0.10 A | TTP223 ×2–4 + MPR121 + headroom |
 
 ## Grounding
 

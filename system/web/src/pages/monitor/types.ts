@@ -141,7 +141,7 @@ export interface DisplayEvent extends MonitorEvent {
   _seq: number;
 }
 
-export type Section = "overview" | "system" | "flow" | "camera" | "servo" | "face-owners" | "analytics" | "logs" | "chat" | "pairing" | "cli" | "sensing" | "bluetooth" | "api-docs" | "agent-config" | "settings:device" | "settings:wifi" | "settings:llm" | "settings:runtime" | "settings:voice" | "settings:face" | "settings:privacy" | "settings:tts" | "settings:realtime" | "settings:stt" | "settings:channel" | "settings:mqtt" | "settings:mcp" | "settings:plugins" | "settings:timezone" | "settings:led" | "settings:scheduled" | "settings:facebook";
+export type Section = "overview" | "system" | "flow" | "camera" | "servo" | "face-owners" | "analytics" | "logs" | "chat" | "pairing" | "cli" | "sensing" | "bluetooth" | "api-docs" | "agent-config" | "settings:device" | "settings:wifi" | "settings:llm" | "settings:runtime" | "settings:voice" | "settings:face" | "settings:privacy" | "settings:tts" | "settings:realtime" | "settings:stt" | "settings:channel" | "settings:mqtt" | "settings:mcp" | "settings:plugins" | "settings:timezone" | "settings:led" | "settings:touch" | "settings:scheduled" | "settings:facebook";
 
 export type Area = "monitor" | "setting";
 
@@ -172,6 +172,7 @@ const SHORT_TO_SETTING: Record<string, Section> = {
   plugins: "settings:plugins",
   timezone: "settings:timezone",
   led: "settings:led",
+  touch: "settings:touch",
   privacy: "settings:privacy",
   scheduled: "settings:scheduled",
   facebook: "settings:facebook",
@@ -250,6 +251,7 @@ export const NAV: NavEntry[] = [
       { id: "settings:plugins",  label: "Plugins",   icon: "⧉" },
       { id: "settings:timezone", label: "Timezone",  icon: "◷" },
       { id: "settings:led",      label: "Resting light", icon: "☀", cap: Cap.Light },
+      { id: "settings:touch",    label: "Touch pad", icon: "☰", cap: Cap.Light },
       { id: "settings:scheduled", label: "Scheduled", icon: "⏰" },
       // Third-party integrations grouped under a collapsible header inside
       // Settings, mirroring the Connectors menu on autonomous.ai admin. Leaf

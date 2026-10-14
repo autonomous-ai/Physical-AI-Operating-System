@@ -428,6 +428,61 @@ chứng từng phiên bản phần cứng; một ngưỡng chung không chứng 
 in 3D phản ứng giống nhau. Thay đổi phải vừa loại chạm giả khi để yên vừa giữ
 thời gian phản hồi chạm/nhả nhanh.
 
+### Tinh chỉnh từng máy, giữ qua các bản cập nhật
+
+`mpr121.json` thuộc device package và bị OTA thay thế, nên tinh chỉnh riêng cho
+từng máy nằm ở hai lớp thêm trong `/var/lib/hal`, gộp theo từng key lên entry
+của package (lớp thấp trước):
+
+| Lớp | File | Ai ghi |
+|---|---|---|
+| package | `<DEVICES_DIR>/lamp/mpr121.json` | device package (OTA) |
+| factory | `/var/lib/hal/mpr121.factory.json` (`HAL_MPR121_FACTORY_PATH`) | hiệu chỉnh tại bàn test, bằng root, rồi `POST /touch/reload` |
+| user | `/var/lib/hal/mpr121.user.json` (`HAL_MPR121_USER_PATH`) | trang **Touch pad** trên web UI (`/touch/*`) |
+
+Một lớp chỉ được đặt các key tinh chỉnh: `touch_threshold`, `release_threshold`,
+`touch_thresholds` / `release_thresholds` (12 phần tử, mỗi điện cực một giá trị;
+ưu tiên hơn cặp ngưỡng chung), `chip_debounce`, các thanh ghi baseline tracking
+`nhdf`, `nclf`, `fdlf` (falling, 0x30-0x32) và `nhdt`, `nclt`, `fdlt` (touched,
+0x33-0x35), và `stuck_reset_s`. Key wiring và gesture vẫn thuộc package; key khác
+bị ghi log và bỏ qua, còn các key ghi chú `updated_at`, `source`, `sensitivity`,
+`noise`, `calibrated` và `note` được giữ nhưng không bao giờ áp vào chip. Ngưỡng
+chung ở lớp cao hơn thay thế danh sách theo từng điện cực ở lớp thấp hơn. Lớp
+không đọc được hoặc gộp xong không hợp lệ bị ghi log và bỏ cả lớp (file user lỗi
+thì quay về tinh chỉnh factory, file factory lỗi thì về package); không bao giờ
+làm HAL không khởi động được. Dòng log `MPR121 tuning from layers` cho biết lớp
+nào đặt từng key.
+
+**Reset khi chạm bị kẹt.** Một pad báo đang chạm liên tục `stuck_reset_s` giây
+(mặc định 30, `0` = tắt) sẽ khởi tạo lại chip, nạp lại mọi baseline từ giá trị
+đo hiện tại. Với falling tracking chậm như trên và touched tracking tắt, điện dung
+trôi chậm có thể vượt ngưỡng chạm và giữ một chạm ảo cho tới khi HAL restart.
+Reset cũng xoá các gesture đang chờ; các cú giữ dùng cho gesture (2 s) thấp hơn
+nhiều so với mặc định.
+
+**Khôi phục lỗi I²C.** Lỗi I²C hoặc over-current không còn dừng polling vĩnh
+viễn: luồng poll mở lại bus và khởi tạo lại với backoff 1, 2, 4, 8, 16 s
+(`i2c_recover_attempts`, mặc định 5, `0` = dừng ngay ở lỗi đầu như trước), rồi
+mới dừng nếu mọi lần đều thất bại.
+
+**Touch API** (`hal/routes/touch.py`, được mount khi có khai báo wiring MPR121,
+cũng qua `/api/hardware/touch/*`):
+
+| Endpoint | Mục đích |
+|---|---|
+| `GET /touch/config` | `touch` / `release` đang áp dụng cho từng pad, `sensitivity`, `noise`, `warnings` (pad có ngưỡng không quá nhiễu nền + 1), `sources`, cả hai lớp |
+| `GET /touch/stream` | SSE ~10 Hz: `delta`, `touched`, `touch`, `release` từng pad |
+| `PUT /touch/config` | `{"sensitivity": 1..9}` nhân ngưỡng đã hiệu chỉnh của từng pad (`1.15^(s-5)`; 5 = giá trị hiệu chỉnh, thấp hơn = chạm nhẹ hơn), hoặc gửi trực tiếp `touch_thresholds` + `release_thresholds`; áp dụng ngay và lưu vào lớp user |
+| `POST /touch/calibrate` | `{"seconds": 3..30, "save": true}`: đo nhiễu nền từng pad và đặt touch = max(6, 2 x noise + 2), release khoảng một nửa; `save: false` chỉ trả về đề xuất; 409 nếu dải bị chạm (noise >= 30) |
+| `DELETE /touch/config/user` | xoá lớp user: quay về tinh chỉnh factory |
+| `POST /touch/reload` | đọc lại mọi lớp và áp dụng |
+
+Áp tinh chỉnh mới diễn ra ngay: luồng poll ghi lại chip giữa hai lần lấy mẫu
+(dừng, ngưỡng và tracking, chạy), đồng thời nạp lại baseline; không restart HAL.
+Driver chỉ đọc filtered data và baseline (0x04-0x1D, 0x1E-0x29) khi có người
+xem `/touch/stream` hoặc đang hiệu chỉnh, tối đa mỗi 50 ms, nên polling chạm bình
+thường vẫn chỉ đọc một thanh ghi trạng thái.
+
 Thiếu file, thiếu entry board, hoặc `"enabled": false` thì bỏ qua MPR121 và
 giữ các handler GPIO/TTP223 hiện có. Không có bus MPR121 cũ để fallback.
 Cấu hình bật nhưng sai bị từ chối khi startup; chế độ mô phỏng bỏ qua phần cứng.

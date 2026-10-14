@@ -445,6 +445,17 @@ class MPR121Handler:
         self._gesture_lock = threading.Lock()
         self._hold_led = None
         self._mode_toggle = None
+        # Live per-pad signal for tuning UIs: only read while someone is watching.
+        self._signal_lock = threading.Lock()
+        self._signal = None
+        self._signal_at = 0.0
+        self._watch_until = 0.0
+        self._reconfig = None
+        self._touch_since = None
+
+    @property
+    def config(self) -> MPR121Config:
+        return self._config
 
     def _new_detector(self):
         factory = _GestureRecognizer
@@ -498,12 +509,12 @@ class MPR121Handler:
             raise RuntimeError("MPR121 CONFIG2 reset value is not 0x24")
         ffi = FFI_CODES[config.ffi]  # autoconfig FFI must match CONFIG1
         for electrode in range(12):
-            write(0x41 + 2 * electrode, config.touch_threshold)
-            write(0x42 + 2 * electrode, config.release_threshold)
+            write(0x41 + 2 * electrode, config.touch_for(electrode))
+            write(0x42 + 2 * electrode, config.release_for(electrode))
         for register, value in (
             (0x2B, 1), (0x2C, 1), (0x2D, 14), (0x2E, 0),
-            (0x2F, 1), (0x30, 1), (0x31, 0xFF), (0x32, 0x02),
-            (0x33, 0), (0x34, 0), (0x35, 0),
+            (0x2F, 1), (0x30, config.nhdf), (0x31, config.nclf), (0x32, config.fdlf),
+            (0x33, config.nhdt), (0x34, config.nclt), (0x35, config.fdlt),
             # CONFIG1: FFI from config, 16 uA. CONFIG2: CDT 0.5 us, SFI/ESI from config.
             # Debounce: DR (release) and DT (touch) both from chip_debounce; contact and
             # footprint debounce in software still apply on top.
@@ -536,6 +547,126 @@ class MPR121Handler:
             self._last_raw_mask = raw_mask
         return bool(raw_mask & self._mask)
 
+    SIGNAL_INTERVAL_S = 0.05
+    SETTLE_S = 0.3
+
+    def _read_signal(self, now):
+        """Filtered data (10-bit) and baseline (upper 8 of 10 bits) per electrode."""
+        address = self._config.address
+        raw = self._bus.read_regs(address, 0x04, 24)
+        base = self._bus.read_regs(address, 0x1E, 12)
+        filtered = [int.from_bytes(raw[2 * i:2 * i + 2], "little") & 0x3FF for i in range(12)]
+        baseline = [b << 2 for b in base]
+        mask = self._last_raw_mask or 0
+        config = self._config
+        snapshot = {
+            "t": now,
+            "filtered": filtered,
+            "baseline": baseline,
+            # Touch lowers the filtered count; the chip compares baseline - filtered.
+            "delta": [baseline[i] - filtered[i] for i in range(12)],
+            "touched": [bool(mask & (1 << i)) for i in range(12)],
+            "touch": [config.touch_for(i) for i in range(12)],
+            "release": [config.release_for(i) for i in range(12)],
+        }
+        with self._signal_lock:
+            self._signal, self._signal_at = snapshot, now
+
+    def signal(self, watch_s=2.0):
+        """Latest per-pad snapshot (None until the poll thread has read one).
+
+        Each call keeps the extra register reads going for `watch_s`; without a
+        watcher the poll loop only reads the touch status.
+        """
+        with self._signal_lock:
+            self._watch_until = max(self._watch_until, time.monotonic() + watch_s)
+            return self._signal
+
+    def reconfigure(self, config: MPR121Config, timeout=2.0) -> bool:
+        """Apply new tuning live: the poll thread rewrites the chip (baseline reload).
+
+        Wiring (bus, address) cannot change at runtime. Returns False when polling
+        is not running; the config is then used on the next start().
+        """
+        if (config.bus, config.address) != (self._config.bus, self._config.address):
+            raise ValueError("MPR121 bus/address cannot change at runtime")
+        thread = self._poll_thread
+        if thread is None or not thread.is_alive() or self._stop.is_set():
+            self._config = config
+            return False
+        done = threading.Event()
+        self._reconfig = (config, done)
+        return done.wait(timeout)
+
+    def _apply_pending(self, now):
+        pending, self._reconfig = self._reconfig, None
+        if pending is None:
+            return
+        config, done = pending
+        self._config = config
+        self._mask = sum(1 << electrode for electrode in set(config.electrodes))
+        self._reinitialize(now, "reconfigure")
+        logger.info("MPR121 event=reconfigured touch=%s release=%s",
+                    [config.touch_for(i) for i in range(12)], [config.release_for(i) for i in range(12)])
+        done.set()
+
+    def _reinitialize(self, now, reason):
+        """Rewrite the chip in place; the gesture state restarts from the next sample."""
+        self._invalidate_pending(reason)
+        if self._hold_led is not None:
+            self._hold_led.release()
+        self._initialize()
+        self._last_raw_mask = None
+        self._touch_since = None
+        self._detector = self._new_detector()
+        # Filtered data reads ~0 right after a reset (delta ~700): publish no signal until
+        # the first baseline has settled.
+        with self._signal_lock:
+            self._signal = None
+            self._signal_at = now + self.SETTLE_S
+
+    def _check_stuck(self, now):
+        stuck_s = self._config.stuck_reset_s
+        if not (self._last_raw_mask or 0) & self._mask:
+            self._touch_since = None
+            return
+        if self._touch_since is None:
+            self._touch_since = now
+        elif stuck_s and now - self._touch_since >= stuck_s:
+            logger.warning("MPR121 event=stuck_reset raw_mask=0x%03x held_s=%.1f; re-initializing (baseline reload)",
+                           self._last_raw_mask, now - self._touch_since)
+            self._reinitialize(now, "stuck_reset")
+
+    def _recover(self, exc):
+        """Re-open the bus and re-initialize with backoff; False = give up."""
+        attempts = self._config.i2c_recover_attempts
+        if not attempts:
+            return False
+        logger.warning("MPR121 event=i2c_fault error=%s; recovering (%d attempts)", exc, attempts)
+        self._detector.cancel()
+        self._invalidate_pending("i2c_fault")
+        for attempt in range(attempts):
+            if self._stop.wait(min(60, 2 ** attempt)):
+                return False
+            try:
+                self._close_bus()
+                self._bus = I2CBus(self._config.bus)
+                self._reinitialize(time.monotonic(), "i2c_recover")
+                time.sleep(0.1)
+                logger.info("MPR121 event=i2c_recovered attempt=%d", attempt + 1)
+                return True
+            except (OSError, RuntimeError) as retry_exc:
+                logger.warning("MPR121 event=i2c_recover_failed attempt=%d error=%s", attempt + 1, retry_exc)
+        return False
+
+    def _poll_once(self):
+        now = time.monotonic()
+        self._apply_pending(now)
+        self._process_touch(self._sample(), now)
+        self._check_stuck(now)
+        if now < self._watch_until and now - self._signal_at >= self.SIGNAL_INTERVAL_S:
+            self._read_signal(now)
+
     def start(self):
         toggle_thread = self._mode_toggle._thread if self._mode_toggle is not None else None
         if any(thread and thread.is_alive() for thread in (self._poll_thread, self._action_thread, toggle_thread)):
@@ -549,6 +680,8 @@ class MPR121Handler:
         )
         logger.info("MPR121 event=swipe_config axis=%s release_ms=120 max_gap_ms=150 min_travel_ms=30 footprint_debounce_ms=5", self._config.swipe_axis)
         self._last_raw_mask = None
+        self._touch_since = None
+        self._reconfig = None
         if self._hold_led is not None:
             self._hold_led.stop()
         self._hold_led = None
@@ -673,7 +806,11 @@ class MPR121Handler:
         logger.info("MPR121 event=worker_started worker=poll")
         try:
             while not self._stop.wait(self._config.poll_ms / 1000):
-                self._process_touch(self._sample(), time.monotonic())
+                try:
+                    self._poll_once()
+                except (OSError, RuntimeError) as exc:
+                    if not self._recover(exc):
+                        raise
         except Exception:
             logger.exception("MPR121 polling stopped after hardware error")
             self._stop.set()

@@ -56,7 +56,7 @@ ChartJS.register(CategoryScale, LinearScale, BarElement, PointElement, LineEleme
 const EMBED_SECTIONS = new Set<Section>(["api-docs", "agent-config"]);
 
 // Sections shown without ?debug=true.
-const PUBLIC_SECTIONS = new Set<Section>(["sensing", "chat", "pairing", "overview", "system", "flow", "camera", "face-owners", "bluetooth", "logs", "cli", "settings:device", "settings:wifi", "settings:voice", "settings:face", "settings:privacy", "settings:mcp", "settings:plugins", "settings:timezone", "settings:led", "settings:scheduled", "settings:facebook"]);
+const PUBLIC_SECTIONS = new Set<Section>(["sensing", "chat", "pairing", "overview", "system", "flow", "camera", "face-owners", "bluetooth", "logs", "cli", "settings:device", "settings:wifi", "settings:voice", "settings:face", "settings:privacy", "settings:mcp", "settings:plugins", "settings:timezone", "settings:led", "settings:touch", "settings:scheduled", "settings:facebook"]);
 
 // Prune a group's children by debug mode and capability; drops subgroups left empty.
 function filterNavChildren(

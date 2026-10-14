@@ -785,6 +785,7 @@ async def lifespan(app: FastAPI):
 
             _mpr121_handler = MPR121Handler(_mpr121_config)
             _mpr121_handler.start()
+            state.mpr121_handler = _mpr121_handler
         except Exception as e:
             logger.warning(
                 "MPR121 init failed on i2c-%d address 0x%02x: %s",
@@ -880,6 +881,7 @@ async def lifespan(app: FastAPI):
         handler.stop()
     _gpio_button_handlers = []
     if _mpr121_handler is not None:
+        state.mpr121_handler = None
         _mpr121_handler.stop()
 
     # Voice/sensing stops (~3s) run concurrently with the announce+park below.
@@ -1162,6 +1164,8 @@ from hal.board.mpr121 import load_mpr121_config
 _mpr121_config = (
     None if _board_id in {"sim", "host"} else load_mpr121_config(_device_dir, _board_id)
 )
+if _mpr121_config is not None:
+    state.mpr121_source = (_device_dir, _board_id)
 
 from hal.board.servo_overload import load_servo_overload_config
 
@@ -1202,6 +1206,12 @@ if not _plan.ok:
     )
 for _name in _plan.mounted:
     app.include_router(_ROUTERS_BY_NAME[_name])
+# Touch strip tuning follows the declared MPR121 wiring, not a ROBOT.md route, so
+# it works with device packages that predate it.
+if _mpr121_config is not None:
+    from hal.routes.touch import router as _touch_router
+
+    app.include_router(_touch_router)
 
 # Self-hosted Swagger assets (no CDN) for the strict CSP.
 _STATIC_DIR = Path(__file__).parent / "static"

@@ -28,7 +28,7 @@ run on a lamp.
 - It writes three registers: the goal position (42) of those three joints,
   in one sync write, and once at start their goal speed (46) and acceleration
   (41), so that the servo itself is slow whatever this process sends. Unless
-  it was given a pose to stand in it never writes torque. With
+  it was given a pose to stand in, or `--torque on`, it never writes torque. With
   `--force-limit` it writes one more, once at start: the force limit (48)
   of the joints that carry the lamp (below, "The force its servos are
   allowed").
@@ -37,6 +37,19 @@ run on a lamp.
   the head's pitch is found between 1,760 and 2,020. A head pressed on the
   base (found at 2,095 on lamp-4ace on 2026-10-12) is refused, with nothing
   written.
+- With `--torque on` (off unless given) it first takes hold of a joint it
+  would otherwise refuse because its torque is off: the three it commands
+  always, the shoulder and the elbow only for a lamp given `--stand`. A
+  servo whose torque went off keeps an old goal (on lamp-52e6 on 2026-10-14,
+  after the old runtime stopped, all five had torque off and goals 18 to 39
+  counts from where they were), and torque on alone would send it there. So
+  for each such joint it writes the goal (42) as the position just read,
+  then torque on (40), each acknowledged. About 100 ms later it reads all
+  five again; a joint it gave torque that moved more than 12 counts ends the
+  run refused, its goal written where it went ("wrist_roll moved 30 counts
+  when its torque came on"). Otherwise it starts as usual. The report counts
+  the torque writes (`torque_writes`) and names the joints
+  (`torque_given`).
 - Every goal is within a fixed reach of its home: pitch 45 counts up and 15
   down, roll 30 either way, yaw 40 either way (11.4 counts to a degree). Home
   is the pose given with `--home PITCH,ROLL,YAW`, in encoder counts, or else
@@ -254,8 +267,9 @@ the shoulder (servo 2) and the elbow (servo 3):
   cannot carry the lamp, so at start the body writes torque on (register 40)
   to it once, and if the flag is still there, off and on. If it stays, the
   body does not stand and runs as a folded lamp; the report says why
-  (`standing_refused`) and counts the writes (`torque_writes`). This is the
-  only write of torque there is.
+  (`standing_refused`) and counts the writes (`torque_writes`). Besides
+  `--torque on` (in "What it may do"), this is the only write of torque
+  there is.
 - It also does not stand, and says why, when it was given no home, when
   either joint has torque off, another flag, or is at 62 or warmer, or when
   the two are not found within 80 counts of one point on the way between
@@ -528,6 +542,7 @@ Reach and speed can be chosen at start, each inside a cap fixed in the code:
 | `--awake-seconds N` | how long it stays up after the last mood that was not rest | 90 | 5 to 3,600 |
 | `--arm-load S,E` | load that sends it back down | 950,950, or 40 under `--force-limit` when that is given | 50 to 1,000, and under `--force-limit` |
 | `--force-limit N` | the most force the base's turn and, for a lamp that may stand, the shoulder and the elbow may push with, of 1,000 | not written: each servo keeps what it holds | 300 to 1,000 |
+| `--torque on` | take hold of a joint found without torque: its goal written as where it is, then torque on, and refused if it then moves more than 12 counts | a joint without torque is refused, and torque is not written | on or off |
 | `--gaze-socket PATH` with `--gaze Y,P` | where the eyes report, and the signed counts of yaw and pitch that a half-picture is worth | never looks | 900 either way |
 | `--gaze-reach Y,P` | the farthest the gaze takes yaw and pitch; the yaw may be wider than `--reach`'s | 250,120 | 500, 200 |
 | `--idle on` | a standing lamp at rest shifts a little now and then | off | on or off |
@@ -767,7 +782,7 @@ that acts on warmth needs a whole second of it.
 
 ## Verification without a lamp
 
-Host tests, `cargo test -p lamp-body` (221 passed, 0 failed, on macOS):
+Host tests, `cargo test -p lamp-body` (240 passed, 0 failed, on macOS):
 `body::tests` runs the engine against five simulated servos on a simulated
 clock. They show that it writes only the three packets above, byte for byte;
 that over a scripted exchange every goal names servos 5, 4 and 1, stays within
@@ -779,7 +794,12 @@ changed flag or a nine-count move on the elbow, a head servo that stays hot,
 and a silent wire each end it, while one hot reading does not; that a head
 found 43 counts from a given home is brought there in small steps and never
 away from it, and one found 100 counts away is refused; and that a mood that
-stops arriving returns it home.
+stops arriving returns it home. With `--torque on`: that three joints found
+without torque and with stale goals each get the goal, then the torque, byte
+for byte, and none moves; that a joint whose goal write is not kept moves 30
+counts and ends the run refused before any other motion; and that the
+shoulder and the elbow are taken hold of on a lamp given `--stand` and never
+written on one that is not.
 `gesture::tests` bounds every wanted pose. `body_link::tests` in `lamp-voice`
 checks the datagram.
 

@@ -60,6 +60,12 @@ struct Lamp {
     /// torque on, 2 only torque off and then on, 3 being told to stop
     /// pushing (a goal that is where it is), a few steps later.
     overload_clears: u8,
+    /// Torque and a goal by itself may be written to any joint, as a body
+    /// told to take hold does. Off, only to the shoulder or the elbow.
+    may_take_hold: bool,
+    /// One servo acknowledges the next goal written to it by itself and
+    /// keeps the goal it had.
+    drops_goal: Option<usize>,
 }
 
 struct Clock {
@@ -117,6 +123,8 @@ fn folded(cancel_at: Duration) -> (Lamp, Clock) {
             simulated_to: Duration::ZERO,
             arm_moves: false,
             overload_clears: 0,
+            may_take_hold: false,
+            drops_goal: None,
         },
         Clock { time, cancel_at },
     )
@@ -279,16 +287,24 @@ impl Lamp {
                 0x03 => {
                     let (address, data) = (parameters[0], parameters[1..].to_vec());
                     let clears = self.overload_clears;
+                    let arm_or_held = id == 2 || id == 3 || self.may_take_hold;
+                    let dropped = address == 42 && self.drops_goal == Some(usize::from(id) - 1);
+                    if dropped {
+                        self.drops_goal = None;
+                    }
                     let servo = &mut self.servos[usize::from(id) - 1];
                     match (address, data.as_slice()) {
                         (41, [value]) => servo.acceleration = *value,
                         (46, [low, high]) => servo.speed = u16::from_le_bytes([*low, *high]),
-                        // A goal by itself: only ever to the shoulder or the elbow.
-                        (42, [low, high]) if id == 2 || id == 3 => {
-                            servo.goal = u16::from_le_bytes([*low, *high]);
+                        // A goal by itself: only ever to the shoulder or the
+                        // elbow, or to a joint the body takes hold of.
+                        (42, [low, high]) if arm_or_held => {
+                            if !dropped {
+                                servo.goal = u16::from_le_bytes([*low, *high]);
+                            }
                         }
-                        // Torque: only ever to the shoulder or the elbow.
-                        (40, [value]) if id == 2 || id == 3 => {
+                        // Torque: the same.
+                        (40, [value]) if arm_or_held => {
                             let was = servo.torque;
                             servo.torque = *value;
                             if *value == 1 && (clears == 1 || (clears == 2 && was == 0)) {
@@ -2392,4 +2408,159 @@ fn it_stands_up_for_somebody_in_front_of_it_and_stays_up_while_they_are_there() 
     // A face for half a second, somebody walking past, wakes nothing.
     let passed = company(2, 2);
     assert!(passed.iter().all(|step| step.1 == 0.0));
+}
+
+/// Told to take hold: what would refuse it for want of torque is given
+/// torque, each joint's goal first set to where it is. Without the switch
+/// such a lamp is refused as before (see the test of a lamp that is not as
+/// expected) and nothing is written.
+#[test]
+fn a_joint_found_without_torque_is_given_it_goal_first_and_does_not_move() {
+    let hex = |bytes: &[u8]| bytes.iter().map(|b| format!("{b:02x}")).collect::<String>();
+    assert_eq!(
+        hex(&goal_write(Joint::WristPitch, 2_000)),
+        "ffff0505032ad007f1"
+    );
+    assert_eq!(hex(&torque_write(Joint::WristPitch, 1)), "ffff0504032801ca");
+    let holding = Limits {
+        torque_on: true,
+        ..Limits::FOLDED
+    };
+    let (mut lamp, mut clock) = folded(Duration::from_secs(1));
+    lamp.may_take_hold = true;
+    // As on lamp-52e6 after its old runtime stopped: torque off, and each
+    // goal some way from where the joint is.
+    for (index, stale) in [(PITCH, 2_025), (ROLL, 2_014), (YAW, 2_033)] {
+        lamp.servos[index].torque = 0;
+        lamp.servos[index].goal = stale;
+    }
+    let found = lamp.servos.map(|servo| servo.position);
+    let report = run(
+        &mut lamp,
+        &mut clock,
+        holding,
+        None,
+        || Some((Mood::Resting, 0)),
+        |_| {},
+    );
+    assert_eq!(report.stop, Stop::Cancelled, "{report:?}");
+    assert_eq!(report.torque_writes, 3);
+    assert_eq!(
+        report.torque_given,
+        vec!["wrist_pitch", "wrist_roll", "base_yaw"]
+    );
+    // Goal, then torque, for each in turn, before anything else.
+    let goal = |value: u16| value.to_le_bytes().to_vec();
+    assert_eq!(
+        lamp.registers[..6],
+        [
+            (5, 42, goal(2_000)),
+            (5, 40, vec![1]),
+            (4, 42, goal(2_044)),
+            (4, 40, vec![1]),
+            (1, 42, goal(2_015)),
+            (1, 40, vec![1]),
+        ]
+    );
+    assert!(lamp.servos.iter().all(|servo| servo.torque == 1));
+    assert_eq!(lamp.servos.map(|servo| servo.position), found);
+}
+
+/// A goal that was not taken shows as a joint that moves when its torque
+/// comes on: the run ends there, naming it, with its goal where it went.
+#[test]
+fn a_joint_that_moves_when_its_torque_comes_on_ends_the_run() {
+    let holding = Limits {
+        torque_on: true,
+        ..Limits::FOLDED
+    };
+    let (mut lamp, mut clock) = folded(Duration::from_secs(2));
+    lamp.may_take_hold = true;
+    lamp.servos[ROLL].torque = 0;
+    lamp.servos[ROLL].goal = 2_074;
+    lamp.drops_goal = Some(ROLL);
+    let report = run(
+        &mut lamp,
+        &mut clock,
+        holding,
+        None,
+        || Some((Mood::Resting, 0)),
+        |_| {},
+    );
+    assert_eq!(
+        report.stop,
+        Stop::Refused {
+            why: "wrist_roll moved 30 counts when its torque came on".into()
+        }
+    );
+    assert!(!report.moved && lamp.goals.is_empty());
+    // Goal, torque, and the goal that stops it pushing; nothing else.
+    let goal = |value: u16| value.to_le_bytes().to_vec();
+    assert_eq!(
+        lamp.registers,
+        [(4, 42, goal(2_044)), (4, 40, vec![1]), (4, 42, goal(2_074))]
+    );
+    assert_eq!(lamp.servos[ROLL].goal, 2_074);
+}
+
+/// The shoulder and the elbow are taken hold of only on a lamp that may
+/// stand; on any other they are never written.
+#[test]
+fn the_arm_is_taken_hold_of_only_on_a_lamp_that_may_stand() {
+    let holding = Limits {
+        torque_on: true,
+        ..Limits::FOLDED
+    };
+    let without_torque = || {
+        let (mut lamp, clock) = folded(Duration::from_secs(1));
+        lamp.may_take_hold = true;
+        lamp.arm_moves = true;
+        lamp.overload_clears = 1;
+        lamp.servos[1].torque = 0;
+        lamp.servos[1].goal = 2_070;
+        lamp.servos[2].torque = 0;
+        lamp.servos[2].goal = 2_022;
+        (lamp, clock)
+    };
+
+    let (mut lamp, mut clock) = without_torque();
+    let report = run_standing(
+        &mut lamp,
+        &mut clock,
+        holding,
+        Some(HOME),
+        Some(standing(100, 5)),
+        || Some((Mood::Resting, 0)),
+        |_| {},
+    );
+    assert_eq!(report.stop, Stop::Cancelled, "{report:?}");
+    assert!(report.standing.is_some(), "{report:?}");
+    assert_eq!(report.torque_given, vec!["base_pitch", "elbow_pitch"]);
+    let goal = |value: u16| value.to_le_bytes().to_vec();
+    assert_eq!(
+        lamp.registers[..4],
+        [
+            (2, 42, goal(2_050)),
+            (2, 40, vec![1]),
+            (3, 42, goal(2_047)),
+            (3, 40, vec![1]),
+        ]
+    );
+    assert_eq!(
+        (lamp.servos[1].position, lamp.servos[2].position),
+        (2_050.0, 2_047.0)
+    );
+
+    let (mut lamp, mut clock) = without_torque();
+    let report = run(
+        &mut lamp,
+        &mut clock,
+        holding,
+        None,
+        || Some((Mood::Resting, 0)),
+        |_| {},
+    );
+    assert_eq!(report.stop, Stop::Cancelled, "{report:?}");
+    assert_eq!(report.torque_writes, 0);
+    assert!(lamp.registers.iter().all(|(id, _, _)| *id != 2 && *id != 3));
 }

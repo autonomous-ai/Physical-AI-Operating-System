@@ -191,7 +191,14 @@ The loops in work-split.md, in short, with the names from your role file:
    cargo build --workspace
    ```
 
-   and the lamp build above for any crate the lamp runs.
+   and the lamp build above for any crate the lamp runs. Since 2026-10-14
+   every push of `lamp-<name>` or `<name>/*` also builds and tests the whole
+   workspace natively on Linux ARM64 in Debian 12, as the lamps run
+   (`.github/workflows/lampos-arm64.yml`), and keeps the binaries with their
+   SHA-256 for a week: `gh run list --branch lamp-<name> --workflow "lampOS
+   on ARM64"`. A piece is ready only when that run is green; say its run's
+   number in the log entry, and the first builder installs those binaries
+   without building again.
 5. **Run on the lamp**, if you have one: install as above, `sudo sync`, run,
    keep the raw readings.
 6. **Log.** Put the finished piece on `lamp-<name>` as a fast-forward and,

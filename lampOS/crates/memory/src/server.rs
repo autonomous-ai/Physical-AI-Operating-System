@@ -44,6 +44,12 @@ pub const PATIENCE: Duration = Duration::from_secs(2);
 /// A single owner answers requests; expensive model work never enters here.
 pub trait Memory {
     fn answer(&mut self, line: &[u8], now_unix_ms: u64) -> protocol::Answer;
+
+    /// Only called with reporting enabled. Legacy files are counted by the
+    /// reporter; Days reads its connection-local aggregate, without a scan.
+    fn health_counts(&self) -> Option<io::Result<crate::health_counts::Counts>> {
+        None
+    }
 }
 
 impl Memory for Store {
@@ -55,6 +61,10 @@ impl Memory for Store {
 impl Memory for crate::days::Days {
     fn answer(&mut self, line: &[u8], now_unix_ms: u64) -> protocol::Answer {
         crate::days_protocol::answer(self, line, now_unix_ms)
+    }
+
+    fn health_counts(&self) -> Option<io::Result<crate::health_counts::Counts>> {
+        Some(self.health_counts().map_err(io::Error::other))
     }
 }
 
@@ -176,6 +186,16 @@ impl Server {
         clock: &mut dyn FnMut() -> u64,
         log: &mut dyn FnMut(&str),
     ) -> io::Result<()> {
+        self.run_reporting(store, clock, log, None)
+    }
+
+    pub fn run_reporting(
+        self,
+        store: &mut (impl Memory + ?Sized),
+        clock: &mut dyn FnMut() -> u64,
+        log: &mut dyn FnMut(&str),
+        health: Option<&crate::health::State>,
+    ) -> io::Result<()> {
         // Written whole beside its place and moved there, so nobody reads
         // half of it.
         let writing = self.ready.with_extension("new");
@@ -190,13 +210,16 @@ impl Server {
             .inspect_err(|_| {
                 let _ = fs::remove_file(&writing);
             })?;
+        if let Some(health) = health {
+            health.serving();
+        }
         loop {
             let accepted = self.listener.accept();
             if self.stop.load(Ordering::Relaxed) {
                 return Ok(());
             }
             match accepted {
-                Ok((stream, _)) => self.serve(&stream, store, clock, log),
+                Ok((stream, _)) => self.serve(&stream, store, clock, log, health),
                 Err(error)
                     if matches!(
                         error.kind(),
@@ -215,11 +238,22 @@ impl Server {
         store: &mut (impl Memory + ?Sized),
         clock: &mut dyn FnMut() -> u64,
         log: &mut dyn FnMut(&str),
+        health: Option<&crate::health::State>,
     ) {
         let mut held = Vec::new();
         loop {
             let answer = match self.line(stream, &mut held) {
-                Line::Whole(line) => store.answer(&line, clock()),
+                Line::Whole(line) => {
+                    if let Some(health) = health {
+                        let ticket = health.begin(&line);
+                        let answer = store.answer(&line, clock());
+                        let ended = health.answered_at();
+                        health.finish(ticket, ended, &answer, store.health_counts());
+                        answer
+                    } else {
+                        store.answer(&line, clock())
+                    }
+                }
                 Line::TooLong => protocol::too_long(),
                 Line::Late { unfinished: true } => {
                     log("a client did not finish its request in time and was dropped");

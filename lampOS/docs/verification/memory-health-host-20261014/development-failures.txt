@@ -1,0 +1,58 @@
+Strict Clippy, first implementation pass:
+    Checking lamp-ipc v0.1.0 (/Users/autonomous/harnesses/worktrees/autonomous-os/brave-fjord/lampOS/crates/ipc)
+    Checking rusqlite v0.40.2
+    Checking lamp-bus v0.1.0 (/Users/autonomous/harnesses/worktrees/autonomous-os/brave-fjord/lampOS/crates/bus)
+    Checking lamp-msgs v0.1.0 (/Users/autonomous/harnesses/worktrees/autonomous-os/brave-fjord/lampOS/crates/msgs)
+    Checking lamp-memory v0.1.0 (/Users/autonomous/harnesses/worktrees/autonomous-os/brave-fjord/lampOS/crates/memory)
+error: manual implementation of `.is_multiple_of()`
+   --> crates/memory/src/health.rs:215:16
+    |
+215 |             if before % 2 != 0 {
+    |                ^^^^^^^^^^^^^^^ help: replace with: `!before.is_multiple_of(2)`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.96.0/index.html#manual_is_multiple_of
+    = note: `-D clippy::manual-is-multiple-of` implied by `-D warnings`
+    = help: to override `-D warnings` add `#[allow(clippy::manual_is_multiple_of)]`
+
+error: manual implementation of `.is_multiple_of()`
+   --> crates/memory/src/health.rs:327:47
+    |
+327 |     if state.phase.load(SeqCst) != SERVING || generation % 2 != 0 {
+    |                                               ^^^^^^^^^^^^^^^^^^^ help: replace with: `!generation.is_multiple_of(2)`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.96.0/index.html#manual_is_multiple_of
+
+error: could not compile `lamp-memory` (lib) due to 2 previous errors
+warning: build failed, waiting for other jobs to finish...
+error: could not compile `lamp-memory` (lib test) due to 2 previous errors
+
+Formatting check after CLI-test addition:
+Diff in /Users/autonomous/harnesses/worktrees/autonomous-os/brave-fjord/lampOS/crates/memory/src/main.rs:304:
+         let base = ["--dir", "/m", "--socket", "/s"];
+         let with = |more: &[&str]| arguments(&[&base[..], more].concat());
+         assert_eq!(with(&[]).unwrap().unwrap().bus_root, None);
+-        assert_eq!(with(&["--bus-root", "/b"]).unwrap().unwrap().bus_root, Some("/b".into()));
++        assert_eq!(
++            with(&["--bus-root", "/b"]).unwrap().unwrap().bus_root,
++            Some("/b".into())
++        );
+         for bad in [
+             &["--bus-root"][..],
+             &["--bus-root", "relative"],
+Diff in /Users/autonomous/harnesses/worktrees/autonomous-os/brave-fjord/lampOS/crates/memory/src/main.rs:311:
+             &["--bus-root", ""],
+             &["--bus-root", "/b", "--bus-root", "/b"],
+             &["--bus-root", "/b", "--help"],
+-        ] { assert!(with(bad).is_err(), "{bad:?}"); }
++        ] {
++            assert!(with(bad).is_err(), "{bad:?}");
++        }
+     }
+
+     #[test]
+
+Pre-commit evidence whitespace check (exit 2; no commit made):
+corpus-run.txt:24: new blank line at EOF.
+development-failures.txt:51: trailing whitespace.
+held-publisher.txt:12: new blank line at EOF.
+Trimmed trailing whitespace in these text captures; numeric results and diagnostics are unchanged.

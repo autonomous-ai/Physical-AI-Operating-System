@@ -1,0 +1,30 @@
+{
+  "copy": "/private/tmp/lamp-fourth-memory-health-source-33d_i_9q",
+  "files": 1086,
+  "hashes": {
+    "crates/memory/Cargo.toml": "5ffc0886b4731c7e991bcce1b6d764193104a8f6cdfd080a7342c40337385620",
+    "crates/memory/src/bin/lamp-memory-eval.rs": "d6ba55483223d64e5c1234bc4e9daa1718b09a9718f92084e71c0ac77739e958",
+    "crates/memory/src/days.rs": "64c726b293e6e120a0750af48977bb0b800199b569d06ab9d69c1e0eb67bd9d7",
+    "crates/memory/src/days.sql": "21adad4285005af9a9cfccf1b0a0043c81b63884c31847c29df4ea67b4f32e43",
+    "crates/memory/src/days_protocol.rs": "ddb3586bf7840afcb10f9f262f4acc9e3583abfcb6bf715881478de56f054e84",
+    "crates/memory/src/health.rs": "1b4f0c7b7f4a1f598e630a3f4611e081792eaaa67b1e750c70ed3a96ebb67ba0",
+    "crates/memory/src/health_counts.rs": "ad0149f213869776300b23cef56e35e2b219a7a3bb677125b6bcd39e126e783a",
+    "crates/memory/src/lib.rs": "2ea82ae2aa210d56a51179832c8c3de16fe54ebce0b069c449b427604c7e50ed",
+    "crates/memory/src/main.rs": "953d1d74024579b30ba48c4c699de5ddf941f78aec28ec16ce93af78986fc44b",
+    "crates/memory/src/protocol.rs": "00466c75247882df3ae7325b61c77636dc5547b023c8d21db23d46b1dedc6c85",
+    "crates/memory/src/search.rs": "fd6bd5ad1120ff4f17780f14d33a689b57de9e095e01b2d349d06dd17d08f637",
+    "crates/memory/src/server.rs": "b48779f789ac85d7025c237a772889fa13f1f167240bfecc4a21d717d6c6ea45",
+    "crates/memory/src/store.rs": "9c533de3156102d747b87cba55538ad8132959b04ed1c075d8fb22dcec8cd357",
+    "crates/memory/src/tidy.rs": "6dab713f5059a91d4dae0d04fc60b0bea83fb12442ad5798552cfdc69a0cba27",
+    "crates/memory/tests/binary.rs": "0a4629a0547ed7d8e0f8920d7bba773f1fca6732eca09e6154610cb8ee0546e5",
+    "crates/memory/tests/days.rs": "c1c35a7199829fb4b515595aadf8d0c2b1d1cb2a3a321fcb10672a2b0b78e5df",
+    "crates/memory/tests/days_timing.rs": "e3802e2614dae1c94333571344b40315cfca5d2238112092a5bc7d4577733b24",
+    "crates/memory/tests/health.rs": "31add261e22dda578ca5f5c0b9016a1382f7a1e3d87f6968a1d083ec722e394d",
+    "crates/memory/tests/health_timing.rs": "cd7efc4197dd1e6901d50d1d4eaa5d3afcbeb425be8a13a4d9944d25a7be795d",
+    "crates/memory/tests/retrieval.rs": "bbbbb5b6df0ba47647453b4489e43c8a5389ff9cfb25e6e0a335679040c89921",
+    "crates/memory/tests/server.rs": "063a42a70a9167f4b8bbef65e56f65d349f5a9ca2970a82e1d4ed24ab358fe54",
+    "crates/memory/tests/timing.rs": "5896c754d0b2902c91472a8ee755f950dc531565968c70b361c8748d2270016d",
+    "Cargo.toml": "54c4b36a96c61db41f20fc5959d6ac8ac0ee9207fc94b56184062ebb789c2035",
+    "Cargo.lock": "b2cd1d46db42d010257f00007d52d4487a7ed3596a579bc7ae5eef4acf9bf00d"
+  }
+}

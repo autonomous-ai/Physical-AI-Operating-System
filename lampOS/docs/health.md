@@ -149,6 +149,38 @@ of seconds in `not heard from for N s` is an age too, so a part that stays
 quiet is news once and not again with every second. A health that is no
 news is published when five seconds have passed since the last.
 
+## Memory reports
+
+Memory opts in with `--bus-root ABSOLUTE_DIR` on its existing command, in
+either JSONL or `--memory-days` mode. First adds this argument to the
+existing Health `serve` command, preserving its other expected parts:
+
+    --expect memory
+
+Memory reports `name: "memory"` on `diagnostics` once per second. Its values
+include retained exchange/kept counts, their snapshot age, and the slowest
+recent handler duration. Warnings describe its own storage/count failure or
+an answer above 300 ms for a session note or 1.5 s for other requests. An
+in-flight request is monitored too; a fresh reporter cannot conceal a hung
+handler. A write fault remains until an append/remember succeeds. The full
+window, exclusions and recovery rules are in
+[Memory's report contract](memory.md#optional-health-reports).
+
+Health's aggregate retains level, message and receipt age, **not** Diagnostic
+key/value pairs. Read `diagnostics` to inspect counts and timings:
+
+    lamp-bus --root /run/lampos-bus tap diagnostics
+
+Use the bus root actually configured for that lamp. `lamp-health --bus-root
+/run/lampos-bus --json` shows Memory's level/message/age in the aggregate.
+With the Memory flag absent, an expected Memory stays missing; after a
+previous report, silence is handled by the existing stale/warning rules.
+Memory's socket loop performs no bus I/O. Bus failure does not imply its
+store failed and does not stop its socket service.
+
+No unit is edited by task 28. This reporting addition has host tests only;
+its cadence and request cost under the lamp's flash load still need a lamp.
+
 ## The board
 
 Every five seconds `serve` reads the board. Each place is an option, so
@@ -400,4 +432,7 @@ Not exercised:
   cannot be published was played with a file in its way. A root that
   cannot be subscribed to at the start was played and ends the program.
 - **SIGTERM.** The built program was killed with SIGKILL.
-- **A unit in the repository.** Nothing in `deploy/` installs or starts it.
+- **Memory reporting in a unit.** The templates under `deploy/units/` do
+  not enable Memory's new report by themselves. First adds the Memory bus
+  argument and Health's expected name to the lamp's existing commands;
+  task 28 edits no unit.

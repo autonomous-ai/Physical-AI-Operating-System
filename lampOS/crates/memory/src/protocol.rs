@@ -406,6 +406,12 @@ fn done(store: &mut Store, request: Request, now_unix_ms: u64) -> Result<Respons
 pub struct Answer {
     pub line: String,
     pub log: String,
+    /// The typed response reports a storage failure, not a caller refusal.
+    /// This is internal health evidence and is not added to the wire or log.
+    pub storage_fault: bool,
+    /// A successful append, remember or append_linked committed a new record.
+    /// Reads and removals do not establish that adding records works.
+    pub wrote: bool,
 }
 
 /// Answer one request line.
@@ -417,6 +423,14 @@ pub fn answer(store: &mut Store, line: &[u8], now_unix_ms: u64) -> Answer {
             Answer {
                 line: response.line(),
                 log: format!("{asked} {}", response.outcome()),
+                storage_fault: matches!(
+                    &response,
+                    Response::Refused {
+                        error: "storage",
+                        ..
+                    }
+                ),
+                wrote: matches!(&response, Response::Added { .. }),
             }
         }
         // A line that is no request has no op worth naming: what stands
@@ -424,6 +438,14 @@ pub fn answer(store: &mut Store, line: &[u8], now_unix_ms: u64) -> Answer {
         Err(refusal) => Answer {
             line: refusal.line(),
             log: format!("? {}", refusal.outcome()),
+            storage_fault: matches!(
+                &refusal,
+                Response::Refused {
+                    error: "storage",
+                    ..
+                }
+            ),
+            wrote: false,
         },
     }
 }
@@ -437,6 +459,8 @@ pub fn too_long() -> Answer {
     Answer {
         line: refusal.line(),
         log: format!("? {}", refusal.outcome()),
+        storage_fault: false,
+        wrote: false,
     }
 }
 
@@ -525,6 +549,99 @@ mod tests {
             .iter()
             .map(|entry| entry["id"].as_u64().unwrap())
             .collect()
+    }
+
+    #[test]
+    fn only_successful_additions_report_write_evidence_without_changing_the_wire_or_log() {
+        let (_scratch, mut store) = Scratch::new("answer-metadata");
+        for (request, op, id) in [
+            (
+                json!({"op":"append","at_unix_ms":NOON,"heard":"hello"}),
+                "append",
+                1,
+            ),
+            (
+                json!({"op":"remember","at_unix_ms":NOON,"text":"coffee"}),
+                "remember",
+                2,
+            ),
+        ] {
+            let answer = answer(&mut store, request.to_string().as_bytes(), NOON);
+            assert!(answer.wrote);
+            assert!(!answer.storage_fault);
+            assert_eq!(answer.line, format!(r#"{{"ok":true,"id":{id}}}"#));
+            assert_eq!(answer.log, format!("{op} person=everyone ok id={id}"));
+        }
+        for request in [
+            json!({"op":"kept"}),
+            json!({"op":"recall"}),
+            json!({"op":"status"}),
+            json!({"op":"forget_last"}),
+            json!({"op":"forget_all"}),
+            json!({"op":"forget_last"}),
+        ] {
+            let answer = answer(&mut store, request.to_string().as_bytes(), NOON);
+            assert!(!answer.wrote, "{request}");
+            assert!(!answer.storage_fault, "{request}");
+            let response: Value = serde_json::from_str(&answer.line).unwrap();
+            assert_eq!(response["ok"], true, "{request}: {}", answer.line);
+            assert!(response.get("wrote").is_none());
+            assert!(response.get("storage_fault").is_none());
+        }
+    }
+
+    #[test]
+    fn caller_refusals_and_overlong_lines_do_not_report_storage_or_write_evidence() {
+        let (_scratch, mut store) = Scratch::new("refusal-metadata");
+        for (request, code) in [
+            ("not JSON".to_owned(), "bad_json"),
+            (json!({"op":"missing"}).to_string(), "unknown_op"),
+            (
+                json!({"op":"remember","person":"../other","at_unix_ms":NOON,"text":"coffee"})
+                    .to_string(),
+                "bad_person",
+            ),
+            (
+                json!({"op":"append","at_unix_ms":NOON,"heard":" "}).to_string(),
+                "empty",
+            ),
+            (
+                json!({"op":"remember","at_unix_ms":NOON,"text":" "}).to_string(),
+                "empty",
+            ),
+        ] {
+            let answer = answer(&mut store, request.as_bytes(), NOON);
+            assert!(!answer.storage_fault, "{request}");
+            assert!(!answer.wrote, "{request}");
+            let response: Value = serde_json::from_str(&answer.line).unwrap();
+            assert_eq!(response["error"], code);
+        }
+        let answer = too_long();
+        assert!(!answer.storage_fault);
+        assert!(!answer.wrote);
+        assert_eq!(answer.log, "? refused error=too_long");
+    }
+
+    #[test]
+    fn an_actual_store_write_failure_reports_storage_but_no_write_evidence() {
+        let (scratch, mut store) = Scratch::new("storage-metadata");
+        // Replacing the store directory with a regular file makes its child
+        // paths unusable even when this test runs with elevated privileges.
+        fs::rename(scratch.0.join("store"), scratch.0.join("saved")).unwrap();
+        fs::write(scratch.0.join("store"), b"not a directory").unwrap();
+        for request in [
+            json!({"op":"append","at_unix_ms":NOON,"heard":"hello"}),
+            json!({"op":"remember","at_unix_ms":NOON,"text":"coffee"}),
+        ] {
+            let answer = answer(&mut store, request.to_string().as_bytes(), NOON);
+            assert!(answer.storage_fault, "{}", answer.line);
+            assert!(!answer.wrote);
+            let response: Value = serde_json::from_str(&answer.line).unwrap();
+            assert_eq!(response["ok"], false);
+            assert_eq!(response["error"], "storage");
+            assert!(response.get("storage_fault").is_none());
+            assert!(answer.log.contains("refused error=storage ("));
+        }
     }
 
     #[test]

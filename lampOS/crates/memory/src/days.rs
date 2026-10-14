@@ -574,6 +574,20 @@ impl Days {
         Ok(count)
     }
 
+    /// Enable connection-local counters for health reports. Their table and
+    /// triggers are temporary; the durable schema and records are unchanged.
+    /// Repeated calls do nothing, and reopening the store disables them.
+    pub fn enable_health_counts(&mut self) -> Result<()> {
+        crate::health_counts::enable(&mut self.db)?;
+        Ok(())
+    }
+
+    /// Constant-time counts on this connection, after `enable_health_counts`.
+    /// Call between requests so the snapshot describes committed records.
+    pub fn health_counts(&self) -> Result<crate::health_counts::Counts> {
+        Ok(crate::health_counts::sqlite(&self.db)?)
+    }
+
     pub fn status(&self, person: Option<&Person>) -> Result<Vec<Status>> {
         let mut statement=self.db.prepare("SELECT p.person,sum(CASE WHEN e.kind='exchange' THEN 1 ELSE 0 END),sum(CASE WHEN e.kind='kept' THEN 1 ELSE 0 END),coalesce(sum(length(CAST(e.heard AS BLOB))+length(CAST(e.said AS BLOB))+length(CAST(e.text AS BLOB))),0),min(CASE WHEN e.kind='exchange' THEN e.day END),max(CASE WHEN e.kind='exchange' THEN e.day END),p.skipped FROM people p LEFT JOIN entries e ON e.person=p.person WHERE ?1 IS NULL OR p.person=?1 GROUP BY p.person ORDER BY p.person")?;
         Ok(statement

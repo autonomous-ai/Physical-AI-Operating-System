@@ -1,0 +1,11 @@
+   Compiling lamp-memory v0.1.0 (/Users/autonomous/harnesses/worktrees/autonomous-os/brave-fjord/lampOS/crates/memory)
+    Finished `release` profile [optimized] target(s) in 6.34s
+     Running unittests src/lib.rs (target/release/deps/lamp_memory-f46eca9d41c39f39)
+
+running 1 test
+test health::tests::measure_health_update_and_socket_with_a_held_publisher ... health_update_ns first=24771 samples=10000 median=533 p95=546 p99=556 max=1921
+socket_kept_ns reporting=false first=361051 samples=100 median=35081 p95=51550 p99=75939 max=75939
+socket_kept_ns reporting=true first=280598 samples=100 median=36018 p95=42263 p99=49091 max=49091
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 69 filtered out; finished in 0.12s

@@ -1835,6 +1835,9 @@ dependencies = [
 name = "lamp-memory"
 version = "0.1.0"
 dependencies = [
+ "lamp-bus",
+ "lamp-ipc",
+ "lamp-msgs",
  "rusqlite",
  "serde",
  "serde_json",

@@ -898,3 +898,43 @@ survival, real clock synchronization, Linux suspend/reboot timing, future zone
 migration, privacy/admission integration, audible completion or due-to-speech
 latency. The separate host test and timing evidence is reported as host
 results, and First still owns Voice integration and lamp qualification.
+
+## Memory health (task 28, 2026-10-14)
+
+Keep the existing `lamp_msgs::Diagnostic` contract: component name, level,
+fixed message and string key/value pairs. Actions already reports once a
+second, but its `serve_reporting` publishes from the socket loop. Memory
+changes that ownership: one bounded worker owns all bus work and retries;
+the socket owner writes fixed atomic state. A bus publisher's directory
+scan is filesystem I/O even when its datagrams are nonblocking.
+
+V1's `hal/runtime.py` health response reports hardware availability, not a
+Memory service. `system/healthwatch/service.go` qualifies failures and spaces
+restarts; this task adds no restart policy. The context manager in
+`hal/realtime/context_manager/base.py` preserves unsummarized records after
+empty model output, with regression cases in
+`hal/test/test_realtime_summarizer_health.py`. Keep that safeguard and do not
+call an unconfigured summarizer a Memory fault. The bounded telemetry queues
+in `hal/telemetry/client.py` and `system/telemetry/telemetry.go` distinguish
+delivery failures from operation failures. Keep that distinction, with no
+queue of per-request health events and no V1 runtime dependency.
+
+Current ROS 2's [DiagnosticStatus definition](https://raw.githubusercontent.com/ros2/common_interfaces/rolling/diagnostic_msgs/msg/DiagnosticStatus.msg),
+[Updater](https://raw.githubusercontent.com/ros/diagnostics/ros2/diagnostic_updater/diagnostic_updater/_diagnostic_updater.py)
+and [windowed checks](https://raw.githubusercontent.com/ros/diagnostics/ros2/diagnostic_updater/diagnostic_updater/_update_functions.py)
+support reusing this component-level report and explicit recent window.
+No ROS client, new message type or external crate is needed. Use the existing
+SQLite transaction machinery for optional TEMP aggregate counters, so
+reporting adds no competing database reader. Legacy counts stream off the
+socket thread and reject snapshots overlapping a request.
+
+The [Memory contract](memory.md#optional-health-reports) distinguishes
+handler time from client deadlines, completed answers from in-flight work,
+and unknown counts from zero. Tests cover real socket/bus behavior, rollback,
+count expiry/cascades, typed storage failure/recovery and a held publisher.
+First enables Memory's explicit flag and adds `--expect memory` to Health;
+no deployment files are changed here.
+
+Not shown: report cost on lamp flash, long-lived filesystem stalls, physical
+power loss or the actual Health unit. Host results belong to Fourth's log;
+they do not establish the lamp's response deadlines.

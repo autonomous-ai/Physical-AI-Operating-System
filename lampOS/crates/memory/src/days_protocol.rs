@@ -261,29 +261,188 @@ pub fn answer(store: &mut Days, line: &[u8], now: u64) -> protocol::Answer {
             )
         }
     })();
-    let (response, outcome) = match result {
+    let (response, outcome, storage_fault, wrote) = match result {
         Ok(response) => {
             let count = response
                 .get("entries")
                 .and_then(Value::as_array)
                 .map_or(0, Vec::len);
             let outcome = format!("ok entries={count}");
-            (response, outcome)
+            // Reads, maintenance and successful no-op removals must not
+            // clear an earlier failure to add a record.
+            let wrote = matches!(op.as_str(), "append" | "remember" | "append_linked");
+            (response, outcome, false, wrote)
         }
         Err(e) => (
             json!({"ok":false,"error":e.code,"message":e.message}),
             format!("refused error={}", e.code),
+            e.code == "storage",
+            false,
         ),
     };
     protocol::Answer {
         line: response.to_string(),
         log: format!("{op} person={who} {outcome}"),
+        storage_fault,
+        wrote,
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::{days::DATABASE, store::Options};
+    use std::{fs, path::PathBuf};
+
+    const NOW: u64 = 1_791_892_800_000;
+
+    struct Scratch(PathBuf);
+
+    impl Scratch {
+        fn new(name: &str) -> (Self, Days) {
+            let dir = std::env::temp_dir()
+                .join(format!("lamp-days-protocol-{}-{name}", std::process::id()));
+            let _ = fs::remove_dir_all(&dir);
+            let scratch = Self(dir);
+            let store = scratch.open();
+            (scratch, store)
+        }
+
+        fn open(&self) -> Days {
+            Days::open(
+                Options {
+                    dir: self.0.clone(),
+                    keep_days: 30,
+                    utc_offset_minutes: 0,
+                },
+                NOW,
+            )
+            .unwrap()
+        }
+    }
+
+    impl Drop for Scratch {
+        fn drop(&mut self) {
+            let _ = fs::remove_dir_all(&self.0);
+        }
+    }
+
+    #[test]
+    fn only_successful_additions_report_write_evidence_without_changing_the_wire_or_log() {
+        let (_scratch, mut store) = Scratch::new("answer-metadata");
+        for (request, id) in [
+            (json!({"op":"append","at_unix_ms":NOW,"heard":"hello"}), 1),
+            (json!({"op":"remember","at_unix_ms":NOW,"text":"coffee"}), 2),
+            (
+                json!({"op":"append_linked","at_unix_ms":NOW,"heard":"again","source_ids":[1]}),
+                3,
+            ),
+        ] {
+            let answer = answer(&mut store, request.to_string().as_bytes(), NOW);
+            assert!(answer.wrote, "{}", answer.line);
+            assert!(!answer.storage_fault);
+            assert_eq!(answer.line, json!({"ok":true,"id":id}).to_string());
+            assert_eq!(
+                answer.log,
+                format!(
+                    "{} person=everyone ok entries=0",
+                    request["op"].as_str().unwrap()
+                )
+            );
+        }
+        for request in [
+            json!({"op":"kept"}),
+            json!({"op":"recall"}),
+            json!({"op":"status"}),
+            json!({"op":"search","query":"hello"}),
+            json!({"op":"session_open","session":"first"}),
+            json!({"op":"session_close","session":"first"}),
+            json!({"op":"conversation_end","conversation":"talk","source_ids":[1]}),
+            json!({"op":"forget_last"}),
+            json!({"op":"forget_all"}),
+            json!({"op":"forget_last"}),
+            json!({"op":"forget","id":999}),
+        ] {
+            let answer = answer(&mut store, request.to_string().as_bytes(), NOW);
+            assert!(!answer.wrote, "{request}");
+            assert!(!answer.storage_fault, "{request}: {}", answer.line);
+            let response: Value = serde_json::from_str(&answer.line).unwrap();
+            assert_eq!(response["ok"], true, "{request}: {}", answer.line);
+            assert!(response.get("wrote").is_none());
+            assert!(response.get("storage_fault").is_none());
+        }
+    }
+
+    #[test]
+    fn caller_refusals_and_overlong_lines_do_not_report_storage_or_write_evidence() {
+        let (_scratch, mut store) = Scratch::new("refusal-metadata");
+        for (request, code) in [
+            ("not JSON".to_owned(), "bad_json"),
+            (json!({"op":"missing"}).to_string(), "unknown_op"),
+            (
+                json!({"op":"remember","person":"../other","at_unix_ms":NOW,"text":"coffee"})
+                    .to_string(),
+                "bad_person",
+            ),
+            (
+                json!({"op":"append","at_unix_ms":NOW,"heard":" "}).to_string(),
+                "empty",
+            ),
+            (
+                json!({"op":"remember","at_unix_ms":NOW,"text":" "}).to_string(),
+                "empty",
+            ),
+            (
+                json!({"op":"append_linked","at_unix_ms":NOW,"heard":"hello","source_ids":[999]})
+                    .to_string(),
+                "bad_request",
+            ),
+            (" ".repeat(protocol::MOST_LINE_BYTES + 1), "too_long"),
+        ] {
+            let answer = answer(&mut store, request.as_bytes(), NOW);
+            assert!(!answer.storage_fault, "{code}");
+            assert!(!answer.wrote, "{code}");
+            let response: Value = serde_json::from_str(&answer.line).unwrap();
+            assert_eq!(response["error"], code);
+        }
+    }
+
+    #[test]
+    fn a_sqlite_write_failure_reports_storage_but_no_write_evidence() {
+        let (scratch, store) = Scratch::new("storage-metadata");
+        drop(store);
+        let database = rusqlite::Connection::open(scratch.0.join(DATABASE)).unwrap();
+        database
+            .execute_batch(
+                "CREATE TRIGGER refuse_insert BEFORE INSERT ON entries BEGIN SELECT RAISE(ABORT,'private_abort_payload'); END;",
+            )
+            .unwrap();
+        drop(database);
+        let mut store = scratch.open();
+        for request in [
+            json!({"op":"append","at_unix_ms":NOW,"heard":"hello"}),
+            json!({"op":"remember","at_unix_ms":NOW,"text":"coffee"}),
+            json!({"op":"append_linked","at_unix_ms":NOW,"heard":"hello","source_ids":[]}),
+        ] {
+            let answer = answer(&mut store, request.to_string().as_bytes(), NOW);
+            assert!(answer.storage_fault, "{}", answer.line);
+            assert!(!answer.wrote);
+            assert_eq!(
+                answer.line,
+                json!({"ok":false,"error":"storage","message":"the memory transaction could not be completed"})
+                    .to_string()
+            );
+            assert_eq!(
+                answer.log,
+                format!(
+                    "{} person=everyone refused error=storage",
+                    request["op"].as_str().unwrap()
+                )
+            );
+            assert!(!answer.log.contains("private_abort_payload"));
+        }
+        assert!(store.status(None).unwrap().is_empty());
+    }
 
     #[test]
     fn every_opt_in_request_shape_in_the_document_parses() {

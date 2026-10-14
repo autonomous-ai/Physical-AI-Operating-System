@@ -15,6 +15,9 @@ name = "lamp-memory"
 path = "src/main.rs"
 
 [dependencies]
+lamp-bus = { path = "../bus" }
+lamp-msgs = { path = "../msgs" }
+lamp-ipc = { path = "../ipc" }
 serde.workspace = true
 serde_json.workspace = true
 sha2.workspace = true

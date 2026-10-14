@@ -15,10 +15,17 @@ choice are recorded below. The implementation and public retrieval
 comparison are in [memory-days.md](memory-days.md) and
 [memory-evaluation.md](memory-evaluation.md).
 
+Health reporting reuses the existing `Diagnostic` message and its one-second
+cadence, following Actions and ROS diagnostics. It keeps V1 telemetry's
+separation of delivery failures from component failures, with one worker
+instead of synchronous publication in the request loop. The source review is
+in [reuse-decisions.md](reuse-decisions.md#memory-health-task-28-2026-10-14).
+
 **Two modes.** The JSONL mode described first below remains the default.
-`--memory-days` enables the new store and request extensions. It has host
-tests and measurements, but has not run on a lamp. No voice caller or
-deployment is changed by this task, and no real model is configured.
+`--memory-days` enables the new store and request extensions. Its current
+host results and First's lamp runs are in [memory-days.md](memory-days.md).
+The optional health report below changes no Voice caller or deployment,
+and configures no model.
 
 ## The process
 
@@ -26,7 +33,7 @@ Its own process, so that the lamp talks on, without recalling earlier days,
 when this one has stopped, hung or crashed. Others ask over a Unix stream
 socket and never read its files.
 
-    lamp-memory --dir ABSOLUTE_DIR --socket ABSOLUTE_SOCKET_PATH [--keep-days N] [--utc-offset-minutes M] [--memory-days]
+    lamp-memory --dir ABSOLUTE_DIR --socket ABSOLUTE_SOCKET_PATH [--keep-days N] [--utc-offset-minutes M] [--memory-days] [--bus-root ABSOLUTE_DIR]
 
 `--dir` is made with mode 0700 if missing, `--socket` with mode 0600, and a
 socket file nobody answers on is replaced. A relative path, an unknown option
@@ -43,6 +50,82 @@ word of what was said or kept. The process registers no signal handler:
 SIGTERM ends it where it stands. A successful write is synced before its
 request is answered, but the socket and `ready` stay until the next start
 clears them or systemd removes the runtime directory.
+
+## Optional health reports
+
+`--bus-root ABSOLUTE_DIR` enables one `lamp_msgs/Diagnostic` on `diagnostics`
+each second, named `memory`. Without this flag, even `LAMP_BUS_ROOT` does
+nothing: there is no reporting thread, counter initialization or bus I/O.
+Both store modes support the flag. Add `--expect memory` to Health's existing
+command when enabling it; [health.md](health.md#memory-reports) explains what
+the aggregate can show.
+
+The report is `ok` when serving without an observed fault. It is `warn` after
+a typed storage failure, a count-read failure, an answer over its budget, or
+a server/store-open failure after taking the socket. Invalid requests, empty
+results, a full kept list, an unconfigured model and clients disconnecting
+are not storage failures. A storage warning persists until a successful
+`append`, `append_linked` or `remember`; a read or a no-op deletion cannot
+prove writing works. A count warning clears on a successful count read.
+Messages contain fixed descriptions only, with no paths, people or memory
+text. Internal Days corruption currently classified as `bad_request` is not
+automatically promoted to a storage warning.
+
+| Value | Meaning |
+|---|---|
+| `exchanges`, `kept` | Retained records across all people; observations, jobs and session snapshots are excluded. `unknown` means no trustworthy count is available |
+| `counts_age_ms` | Age of the accepted count snapshot, or `unknown`. A busy legacy store can retain an older count |
+| `answered` | Complete request lines whose handler returned, including refusals; excludes oversized lines rejected by the framing layer |
+| `recent_answers`, `recent_seconds` | Answers completed in the current monotonic second and the previous 59 seconds; a fixed 60-bucket window |
+| `slowest_answer_ms`, `slowest_note_ms`, `slowest_call_ms` | Largest completed handler duration in that window, with three decimal places; `none` if that class has no observation |
+| `active_answer_ms` | Elapsed duration of a request still being handled, or `none` |
+| `note_budget_ms`, `call_budget_ms` | 300 and 1500. Equality is allowed; greater than the budget warns |
+| `timing` | The boundary described below, also carried in the report |
+
+The note class is `kept` or `session_open`; other complete lines use the
+1.5-second service budget. Voice's explicit calls use 1.5 seconds, but its
+background append writer has a different deadline: this service rule does
+not claim every caller waits 1.5 seconds. Timing starts after a complete
+request line arrives, before classifying/parsing it, and ends when its
+serialized answer exists. It includes store maintenance and durable writes.
+It excludes connection queueing, request transfer, the health counter read,
+logging and response delivery. It therefore does not prove Voice's total
+deadline was met. An active handler over budget also warns, even if it never
+finishes. Completed slow-answer warnings age out with their bucket.
+
+One worker owns publisher construction, retries, publication and legacy
+count scans. The socket owner writes fixed atomic state; it never locks or
+waits for that worker. A legacy count is accepted only when no request
+overlapped its scan. The scan streams one line at a time, at most 64 KiB;
+larger lines make counts unknown and warn, without changing the store's
+existing reader or files. This assumes the store's single owner; external
+file edits are not fenced. Scanning a large store can delay reports and
+compete for disk bandwidth, but never creates another worker or queues
+requests for it.
+
+Days enables a TEMP count table and TEMP triggers on its owning connection,
+initialized once before readiness. They follow the same transactions,
+rollbacks and deletions as the records; reading the two totals after an
+answer takes constant work. No second database reader holds a lock against
+the writer. No durable schema changes, second database or persistent health
+records are created. Reopening without `--bus-root` creates none of these
+counters.
+Both counting methods assume the service is the only writer; editing its
+files or database from another process bypasses that ownership contract.
+
+Nothing is reported before the ready file is written. A store-open failure
+after socket ownership gets one best-effort final warning. Invalid arguments,
+private-directory validation and refusal of an already owned socket still
+exit before reporting; this avoids a rejected second process speaking for
+the real owner. A missing/unusable bus does not stop Memory. The worker
+retries once per reporting cycle and logs delivery failure/recovery separately;
+Health detects missing or stale reports. There is no catch-up queue.
+Shutdown waits at most 100 ms for the worker. Filesystem calls cannot be
+cancelled, so a held worker can outlive that wait until its call returns or
+the process exits; it is never replaced. SIGTERM behavior is unchanged.
+An already blocked publication can finish with its earlier snapshot; a final
+warning is not guaranteed, and Health's missing/stale detection remains
+necessary.
 
 ## On the disk
 
@@ -308,3 +391,9 @@ The opt-in implementation's host results and current limitations are in
 [memory-days.md](memory-days.md#not-shown). The historical lamp and emulation
 runs above do not validate SQLite, its native ARM64 build, the new protocol,
 a real extraction model, or any changed voice behavior.
+
+Task 28's health report has no lamp measurements. Its host gate, failure
+fixtures and exact timing boundaries are in
+[the host evidence](verification/memory-health-host-20261014/README.md) and
+[Fourth's log](work-log-fourth.md). Flash contention during count scans,
+long-lived bus filesystem stalls and the real Health unit remain for First.

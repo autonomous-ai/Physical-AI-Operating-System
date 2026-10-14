@@ -1,0 +1,51 @@
+{
+  "base": "17d312147908c04c97a9d433775844387ff89a5d",
+  "claim": "bf8a34924d1b410d82fbb1659e6723351bd3dac6",
+  "baseline_mac": {
+    "passed": 106,
+    "failed": 0,
+    "ignored": 2
+  },
+  "development_mac": {
+    "passed": 130,
+    "failed": 0,
+    "ignored": 3
+  },
+  "before_edge_mac": {
+    "passed": 134,
+    "failed": 0,
+    "ignored": 4
+  },
+  "before_edge_linux": {
+    "passed": 134,
+    "failed": 0,
+    "ignored": 4
+  },
+  "final_mac": {
+    "passed": 135,
+    "failed": 0,
+    "ignored": 4
+  },
+  "final_linux": {
+    "passed": 135,
+    "failed": 0,
+    "ignored": 4
+  },
+  "manual_held": {
+    "passed": 1,
+    "failed": 0,
+    "ignored": 0
+  },
+  "manual_corpus": {
+    "passed": 1,
+    "failed": 0,
+    "ignored": 0
+  },
+  "development_failures": [
+    "first strict clippy: two manual_is_multiple_of diagnostics; fixed",
+    "first formatting check after adding CLI test: main.rs formatting; fixed",
+    "pre-commit whitespace gate: trailing spaces/blank lines in three text captures; trimmed before commit"
+  ],
+  "unrelated_linux_workspace_warning": "crates/body/src/bin/lamp-body.rs:632 unused_mut; no Body changes",
+  "final_gates_and_manual_measurements_exit_code": 0
+}

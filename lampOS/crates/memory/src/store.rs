@@ -24,7 +24,7 @@ use std::{
     collections::BTreeMap,
     fmt,
     fs::{self, DirBuilder, File, OpenOptions, TryLockError},
-    io::{self, Write},
+    io::{self, BufRead, BufReader, Read, Write},
     os::unix::fs::{DirBuilderExt, FileExt, OpenOptionsExt, PermissionsExt},
     path::{Path, PathBuf},
 };
@@ -551,6 +551,117 @@ fn days(dir: &Path) -> io::Result<Vec<Day>> {
     Ok(days)
 }
 
+fn people(dir: &Path) -> io::Result<Vec<Person>> {
+    let mut people = Vec::new();
+    for entry in fs::read_dir(dir)? {
+        let entry = entry?;
+        if let Some(person) = entry.file_name().to_str().and_then(Person::new)
+            && entry.file_type()?.is_dir()
+        {
+            people.push(person);
+        }
+    }
+    people.sort();
+    Ok(people)
+}
+
+const HEALTH_LINE_BYTES: usize = 64 * 1024;
+
+fn health_file_count<T: DeserializeOwned>(path: &Path) -> io::Result<u64> {
+    match fs::symlink_metadata(path) {
+        Ok(metadata) if !metadata.file_type().is_file() => {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidData,
+                "a memory count probe requires a regular file",
+            ));
+        }
+        Ok(_) => {}
+        Err(error) if error.kind() == io::ErrorKind::NotFound => return Ok(0),
+        Err(error) => return Err(error),
+    }
+    let file = match File::open(path) {
+        Ok(file) => file,
+        Err(error) if error.kind() == io::ErrorKind::NotFound => return Ok(0),
+        Err(error) => return Err(error),
+    };
+    if !file.metadata()?.is_file() {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidData,
+            "a memory count probe requires a regular file",
+        ));
+    }
+    let mut reader = BufReader::new(file);
+    let mut line = Vec::with_capacity(HEALTH_LINE_BYTES + 1);
+    let mut count = 0u64;
+    loop {
+        line.clear();
+        let read = (&mut reader)
+            .take((HEALTH_LINE_BYTES + 1) as u64)
+            .read_until(b'\n', &mut line)?;
+        if read == 0 {
+            return Ok(count);
+        }
+        if line.last() == Some(&b'\n') {
+            line.pop();
+        }
+        if line.len() > HEALTH_LINE_BYTES {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidData,
+                "a memory count probe line exceeds 64 KiB",
+            ));
+        }
+        if !blank(&line) && serde_json::from_slice::<T>(&line).is_ok() {
+            count = count
+                .checked_add(1)
+                .ok_or_else(|| io::Error::other("the memory count overflowed"))?;
+        }
+    }
+}
+
+/// Read-only counts for the reporting worker. Retains at most one 64 KiB line
+/// (excluding its newline); an oversized line makes counts unknown with an
+/// error. Uses the store's valid person/day names and serde entry semantics,
+/// including a valid final unterminated line. Does not follow person or journal
+/// symlinks; refuses a nonregular or symlinked kept file. A mutation can race
+/// this multi-file snapshot, so the caller must discard a raced sample.
+pub(crate) fn health_counts(dir: &Path) -> io::Result<crate::health_counts::Counts> {
+    let mut counts = crate::health_counts::Counts::default();
+    for entry in fs::read_dir(dir)? {
+        let entry = entry?;
+        if entry.file_name().to_str().and_then(Person::new).is_none()
+            || !entry.file_type()?.is_dir()
+        {
+            continue;
+        }
+        let dir = entry.path();
+        counts.kept = counts
+            .kept
+            .checked_add(health_file_count::<Kept>(&dir.join(KEPT_FILE))?)
+            .ok_or_else(|| io::Error::other("the kept count overflowed"))?;
+        let entries = match fs::read_dir(&dir) {
+            Ok(entries) => entries,
+            Err(error) if error.kind() == io::ErrorKind::NotFound => continue,
+            Err(error) => return Err(error),
+        };
+        for entry in entries {
+            let entry = entry?;
+            let name = entry.file_name();
+            let day = name
+                .to_str()
+                .and_then(|name| name.strip_prefix("journal-"))
+                .and_then(|name| name.strip_suffix(".jsonl"))
+                .and_then(Day::parse);
+            if day.is_some() && entry.file_type()?.is_file() {
+                counts.exchanges = counts
+                    .exchanges
+                    .checked_add(health_file_count::<Exchange>(&entry.path())?)
+                    .ok_or_else(|| io::Error::other("the exchange count overflowed"))?;
+            }
+        }
+    }
+    Ok(counts)
+}
+
 /// The entries chosen for an answer: the best first, until the count or the
 /// bytes asked for are reached.
 struct Chosen {
@@ -641,17 +752,7 @@ impl Store {
     /// Everyone with a directory here, in the order of their ids. Anything
     /// else in the directory is not this store's and is left alone.
     fn people(&self) -> io::Result<Vec<Person>> {
-        let mut people = Vec::new();
-        for entry in fs::read_dir(&self.dir)? {
-            let entry = entry?;
-            if let Some(person) = entry.file_name().to_str().and_then(Person::new)
-                && entry.file_type()?.is_dir()
-            {
-                people.push(person);
-            }
-        }
-        people.sort();
-        Ok(people)
+        people(&self.dir)
     }
 
     /// The highest id this person has on the disk, and the lines skipped in

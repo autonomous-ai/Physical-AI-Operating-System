@@ -1,0 +1,12 @@
+{
+  "base": "ce7abae79c06c53c8ea1dfb03c42622c41f8f135",
+  "files": {
+    "crates/policy/src/policy/baseline.rs": "c9508ffca964b7f15ddc0612f2ca820c7e326a84282d3f5ef90f539201c50761",
+    "crates/policy/tests/fit_lamp_scenes.rs": "48e39b0887aae223a397b317b9f7c22085a2e5e1a59c6bb97f7ec30fdd711ed3",
+    "crates/policy/src/policy/local.rs": "4e177da620205b0df54d5033a28c6acb9ad9dd979828eaa7bdcb8a3a9f41e239",
+    "crates/policy/src/policy/fit.rs": "7707f6afd62c7d47c77606f7b03630d00bee50b527934695a752ab9b2d9d6541",
+    "crates/policy/src/attention.rs": "bace42a8712ddf038e3d028f0485e9338ca4f6677dd721e7cd68057ce0d03aa2",
+    "Cargo.lock": "d74891a7cbac8666938849f5c6c2f99647e4e2872250beabec0a36a15b266233",
+    "Cargo.toml": "5e97cc342c62c54e52fe00beb87e872641235950ef92da7496af631e06ee3398"
+  }
+}

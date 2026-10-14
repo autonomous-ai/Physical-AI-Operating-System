@@ -1,0 +1,23 @@
+    Checking libc v0.2.190
+    Checking serde_core v1.0.229
+    Checking zeroize v1.9.1
+    Checking cfg-if v1.0.5
+    Checking zmij v1.0.23
+    Checking rustls-pki-types v1.15.1
+    Checking itoa v1.0.18
+    Checking untrusted v0.9.0
+    Checking memchr v2.8.3
+    Checking once_cell v1.21.4
+    Checking subtle v2.6.1
+    Checking httparse v1.10.1
+    Checking getrandom v0.2.17
+    Checking webpki-roots v1.0.9
+    Checking ring v0.17.14
+    Checking rustls-webpki v0.103.15
+    Checking serde v1.0.229
+    Checking serde_json v1.0.151
+    Checking rustls v0.23.45
+    Checking lamp-bus v0.1.0 (/private/tmp/lamp-fourth-judge/lampOS/crates/bus)
+    Checking lamp-msgs v0.1.0 (/private/tmp/lamp-fourth-judge/lampOS/crates/msgs)
+    Checking lamp-policy v0.1.0 (/private/tmp/lamp-fourth-judge/lampOS/crates/policy)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 6.84s

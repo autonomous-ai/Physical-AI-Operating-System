@@ -838,6 +838,9 @@ within 15 counts of where it listened about two seconds after the voice
 began. The warmth guard read single steps of 65 to 109 on joints that read
 46 to 50 either side of them, as on lamp-4ace, and never acted on them.
 
+The raw readings are in
+[`verification/body-lamp-52e6-20261014/`](verification/body-lamp-52e6-20261014/README.md).
+
 **Not shown on this lamp:** that a power cut leaves the servos as stopping
 the old runtime did (task 23); how the arm gives way against a hand (task
 24); the head's roll in use: it moves when folded here, but stays at a reach

@@ -292,22 +292,6 @@ Ready for lamp-voice: yes (the commit that adds this entry)
 - Kind: changes only what the keeper does when it is the updater's
   service; nothing on lamp-4ace.
 
-## 2026-10-14 — the state of tasks 22 to 27, by the ready line
-
-Ready for lamp-voice: as each line says (`fifth-P4`, proposed).
-
-- 22 body-second-lamp: yes (`568a27c6a`).
-- 27 keeper: yes for what is built (`82a3b8752`); the update choreography and
-  the pause are not built.
-- 23 wake: no. On `lamp-fifth` up to `e4d1180e4` (the drooped head, the
-  settle) and running on lamp-52e6; being mended for a shoulder left up by a
-  standing power cut, a head held short at rest, and the two ends lamp-4ace
-  showed (the base sticking at a slow goal, the shoulder's 7-count sway).
-- 24 give-way: no. `--give-way` and `--overload release` are on
-  `lamp-fifth` (`3a148c740`); no hand has tried either.
-- 25 head-follow: no. Measured; the nod's speed switch is still to make.
-- 26 weigh: no. Only the whole lamp's weight.
-
 ## Proposed tasks
 
 Work found while doing a listed task that cannot be folded into it. One

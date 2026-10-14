@@ -606,6 +606,40 @@ In the order I would look:
    dBFS and touches the microphone's ceiling; clipped sound is outside
    most of what was trained.
 
+**First look on lamp-4ace, 2026-10-14, 13:48 to 13:54 (the first
+builder).** Seven played scenes of `shorts.sh`, each a story asked for and
+then a short word from the Mac's loudspeaker about twelve seconds later,
+were recorded from `mic2/audio` (after the canceller; voice in duplex
+mode, no steady reference): 329.8 s. Played times were taken from the
+scenes' `#PLAY_US` lines, on the same clock as the recording. `lamp-name
+check` on the lamp, with `stop.onnx` as `name.onnx`, over the whole file
+and over a window from 2.5 s before each word to 3 s after:
+
+| Played word | Lamp's reply playing | Level before / loudest 250 ms (dBFS) | Highest score |
+|---|---|---|---|
+| "Stop." | yes | -36.0 / -18.5 | 0.24 |
+| "Lamp, stop." | yes | -19.6 / -11.3 (touches the ceiling) | 0.36 |
+| "Stop!" | no (the model's connection had failed; no story) | -75.6 / -13.4 | 0.54 |
+| "Lamp, stop talking." | yes | -29.2 / -22.1 | 0.12 |
+| "Stop." | yes | -68.3 / -63.1 | 0.34 |
+| "Wait." | no (its reply had ended) | -85.6 / -22.4 | 0.04 |
+| "Mm-hm." (not a target) | yes | -65.9 / -17.9 | 0.10 |
+
+- **No word was heard.** None of the four "stop" that reached the
+  recording, nor the "wait", came near 0.9. The plainest case, "Stop!"
+  at -13.4 dBFS with the room quiet and the lamp silent, reached 0.54.
+  The fifth "stop" never reached the recording: the stream stayed under
+  -63 dBFS through it, so it says nothing about the model.
+- **Two false alarms**, 0.94 and 0.92, in 5.5 minutes. Both began while a
+  played request ("Hey Lamp, tell me a story about …") was being said;
+  none came during the lamp's own voice.
+- **A step took 6.98 ms** over the whole file on the lamp (4,098 steps).
+- **What it means.** One look, of played words from one loudspeaker: not
+  a rate. But it gives no reason to wire the listener now, and tonight's
+  stop work goes on without it. What would change that: a person's live
+  "stop" at the lamp, recorded the same way, and the same played words
+  with the steady reference on.
+
 **On the lamp, with no code change**, the lamp's own code and tract can run
 the model over recordings: put `melspectrogram.onnx`,
 `embedding_model.onnx` and `stop.onnx` renamed `name.onnx` in a directory
@@ -640,8 +674,9 @@ file for it.
 
 ## Not shown
 
-- **The lamp.** No sound from the lamp's microphones went into training
-  or testing. Its second microphone's chip treats a live voice
+- **The lamp.** No sound from the lamp's microphones went into training,
+  and the only test on it is the one look of played words above. Its
+  second microphone's chip treats a live voice
   differently from a played one, and no mixture made elsewhere copies it.
 - **The canceller.** "Suppressed" here is a suppressor that is told the
   other voice exactly. AEC3 on the lamp estimates its echo from a

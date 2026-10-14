@@ -1243,6 +1243,15 @@ builder (`~/lamp-voice-data/tools/memory.sh`) with what each should show.
 
 Newest first. Each builder's own notes are in its log, on its branch.
 
+**2026-10-14, task 3, the stop listener's first look on lamp-4ace.** Over
+5.5 minutes of the second microphone after the canceller, recorded while
+seven short words were played at a story, the model (run by `lamp-name
+check` on the lamp) heard none of four "stop" and one "wait"; the best
+score was 0.54, for a "Stop!" said with the lamp silent. Two false alarms
+(0.94, 0.92) came during played requests. Not wired; tonight's stop work
+goes on without it. A person's live "stop" is the next look
+([stop-word.md](stop-word.md), "First look on lamp-4ace").
+
 **2026-10-14 afternoon, played on lamp-4ace from 13:30 (the owner:
 "test 24/7").** The fast end-of-turn worker (task 1) is on since 13:21:
 it took "Hey Lamp," for a finished turn and cut the name off its question

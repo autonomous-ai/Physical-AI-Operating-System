@@ -12,9 +12,10 @@ the lamp, and nothing here was run on a lamp.
 | # | Task | Branch | Taken | State |
 |---|---|---|---|---|
 | 1 | The end-of-turn model in a tenth of a second | `second/turn-end-fast` | 2026-10-14 | on `lamp-second`, 2026-10-14 |
-| 2 | Try to break last night's changes to the voice | `second/voice-review` | 2026-10-14 | on its own branch, 2026-10-14 (`1d737f8e5`) |
+| 2 | Try to break last night's changes to the voice | `second/voice-review` | 2026-10-14 | on its own branch, 2026-10-14 (`1d737f8e5`); taken into `lamp-voice` with its mends |
 | 3 | A listener for "stop" under the lamp's own voice | `second/stop-word` | 2026-10-14 | being built |
 | 9 | Faster answers: what exists | `second/faster-answers` | 2026-10-14 | being built (taken before 5 and 10: it is a study, done beside them) |
+| 10 | A reference that follows the microphone's clock | `second/reference-clock` | 2026-10-14 | being built |
 
 ## Handed back
 

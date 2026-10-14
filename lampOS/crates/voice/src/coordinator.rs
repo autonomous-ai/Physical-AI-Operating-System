@@ -2362,6 +2362,9 @@ fn conversation_with_controls(
     // The same count kept whether or not there is a body to tell: whether
     // the talk in the room has been for the lamp lately.
     let mut room = crate::body_link::Attention::default();
+    // Short utterances in a room that is not busy go to the model after all
+    // (`LAMP_SHORT_SOUNDS=quiet-room`, off unless set).
+    let short_sounds = crate::not_speech::short_sounds_from_environment();
     // The turn whose speech last ended and when, and the turn for which the
     // floor was last held, so that the record says so once.
     let mut speech_ended: Option<(u64, u64)> = None;
@@ -3628,7 +3631,7 @@ fn conversation_with_controls(
                             took_over_turn == Some(current.owner.turn()),
                             last_spoke_us.map(|at| monotonic_us().saturating_sub(at)),
                         )
-                    }) =>
+                    }) && !crate::not_speech::sent_anyway(short_sounds, room.busy()) =>
                 {
                     // A sound, not something said. It is not sent on as a
                     // finished question: the turn ends here, unanswered.

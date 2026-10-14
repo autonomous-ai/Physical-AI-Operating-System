@@ -21,6 +21,27 @@ pub const SHORT_BLOCKS: usize = 80;
 /// each sound the lamp answered then excused the next one, eight seconds on.
 pub const AFTER_OWN_WORDS_US: u64 = 4_000_000;
 
+/// Where the coordinator reads whether an utterance judged a sound still goes
+/// to the model in a room that is not busy (`quiet-room`), for the model to
+/// judge by its sound. Off unless set. Measured on lamp-4ace on 2026-10-14:
+/// the gate threw out 13 of 36 short words said into quiet ("Hi.", "Yes.",
+/// "Hello?") and no count of their blocks tells them from tonal sounds
+/// (`docs/not-speech.md`).
+pub const SHORT_ENVIRONMENT: &str = "LAMP_SHORT_SOUNDS";
+
+/// Whether the environment lets a short utterance through in a quiet room.
+pub fn short_sounds_from_environment() -> bool {
+    std::env::var(SHORT_ENVIRONMENT).ok().as_deref() == Some("quiet-room")
+}
+
+/// Whether an utterance judged a sound is still sent on: with the switch,
+/// in a room that is not busy. A room where the last three things heard went
+/// unanswered is busy, so a run of sounds the model leaves alone closes the
+/// door again by itself.
+pub fn sent_anyway(switch: bool, busy: bool) -> bool {
+    switch && !busy
+}
+
 /// Whether speech that begins over a turn in progress is excused from being
 /// judged a sound. Over the lamp's own answer it is someone cutting in, and
 /// over something that was itself said it is someone going on with it. Over
@@ -65,6 +86,14 @@ pub fn names_a_function(opening: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_sound_goes_on_only_with_the_switch_and_only_in_a_room_that_is_not_busy() {
+        assert!(sent_anyway(true, false));
+        assert!(!sent_anyway(true, true));
+        assert!(!sent_anyway(false, false));
+        assert!(!sent_anyway(false, true));
+    }
 
     #[test]
     fn a_function_named_aloud_is_told_from_something_said() {

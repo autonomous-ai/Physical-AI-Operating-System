@@ -780,6 +780,70 @@ two of the three head and base joints, which no servo here has been; a
 single bad reading counted as a peak is the likely cause, and the guard
 that acts on warmth needs a whole second of it.
 
+## lamp-52e6
+
+The fifth builder's lamp, from 2026-10-14. The old runtime was stopped and
+disabled there the same morning; the units it runs are in
+[`deploy/lamp-52e6/`](../deploy/lamp-52e6/README.md). How it differs from
+lamp-4ace, as read on it with the old runtime stopped:
+
+| | lamp-4ace | lamp-52e6 | Where it was read |
+|---|---|---|---|
+| Joints found at rest: yaw, shoulder, elbow, roll, pitch | 2023, 2052, 2047, 2053, 1950 | 2035, 2053, 2069, 2035, 1771 | `lamp-body-inspect`, torque off |
+| Torque when the body starts | on, left so by the old runtime | off on all five once the old runtime stopped; the body refused ("torque is not on") | `lamp-body-inspect`; the body's own refusal |
+| `--home` | 1950, 2043, 2015 | 1771, 2035, 2035 | found at rest. lamp-4ace's head rests leaning toward the base; this one's rests at the old runtime's rest pose (1770), which is why 1950 is refused here |
+| `--folded-arm` | 2048, 2047 | 2053, 2069 | found at rest |
+| `--stand` | 1772, 2043, 2015, 2657, 2602 | 1772, 2035, 2035, 2657, 2602 | lamp-4ace's pose with this lamp's roll and yaw |
+| `--gaze` | 727, 553 | 782, 557 | measured here the same way, below |
+| Servo limits in each servo's memory (yaw, shoulder, elbow, roll, pitch) | pitch's lower limit 1657; the rest not read | 809–3239, 2047–3799, 0–4095, 1065–2413, 1451–3067 | read without moving |
+| Gains each servo holds, P, D, I (yaw, shoulder, elbow, roll, pitch) | not read | 16/32/0, 16/32/0, 32/32/10, 16/32/0, 32/32/10: the old runtime's, kept in the servos; this body writes none | read with the body stopped |
+| Head roll, folded | meets something four counts from where it rests | moves 23 counts one way and 27 the other from 2,040 and stops 13 to 17 short of a goal 40 away, at a load of 64 to 80 | a goal stepped by hand with the body stopped |
+| The shoulder standing | | rests 22 to 34 counts short of 2657, pushing at a load of 100 to 150 for as long as it stands | the body's log, two runs |
+| The elbow folded | | at its goal, still reading a load of 120 to 140 | the body's log, two runs |
+
+What follows from it:
+
+- **Torque.** With nothing of the old runtime left to give its servos
+  torque, the body takes hold itself: `--torque on` sets the goal of a joint
+  found without torque to where it is, then writes torque on. Tried on
+  2026-10-14 with the yaw and roll servos' torque switched off and their
+  goals 12 and 16 counts from where they stood: without the option the body
+  refused ("wrist_roll torque is not on"); with it, two torque writes, both
+  joints read the same position after as before (2061 and 2049), and the
+  run went on for 282 steps until it was stopped. A goal written to these
+  servos while their torque is off turns their torque back on, so a stale
+  goal cannot be made by hand that way; the 12 and 16 counts were the ones
+  the servos held.
+- **The start window.** The head must be found between 1,760 and 2,020; on
+  this lamp it rests at 1,770 to 1,773, ten counts inside. The pitch floor
+  of 1,670 is lamp-4ace's servo limit; this lamp's is 1,451, so the floor
+  takes a few counts off the standing lamp's thinking lift (asked 1,667, held
+  at 1,680) and nothing else.
+- **The gaze.** Measured as on lamp-4ace, with its eyes stopped and the face
+  told to the body on its own socket: a face at 0.5 across brought 254
+  counts of yaw, and the picture (640 by 480, one frame before and one
+  after, its shift found by phase correlation and checked by eye) moved 104
+  of 320 pixels to the left; a face at 0.3 down brought 116 counts of pitch
+  and the picture moved 50 of 240 pixels up. So a half-picture is 782 counts
+  of yaw and 557 of pitch, both positive. Once each.
+- **Driven by mood.** With its voice stopped and a script telling the body
+  what the voice would (listening 6 s, thinking 4 s, speaking 5 s with a
+  nod once, resting 4 s, three times; then left at rest until it folded,
+  spoken to until it stood, and left again), twice, 13:46 to 13:51 on the
+build it was installed with and 14:05 to 14:11 on this one with
+`--torque on`: eleven exchanges, five nods asked for and played, folded
+four times and stood up twice. No stop, no joint gave way, no arm was sent
+back down. Thinking turned the base 170 to 190 counts and it was back
+within 15 counts of where it listened about two seconds after the voice
+began. The warmth guard read single steps of 65 to 109 on joints that read
+46 to 50 either side of them, as on lamp-4ace, and never acted on them.
+
+**Not shown on this lamp:** that a power cut leaves the servos as stopping
+the old runtime did (task 23); how the arm gives way against a hand (task
+24); the head's roll in use: it moves when folded here, but stays at a reach
+of one count as on lamp-4ace until a tilt is chosen and watched; and
+anything about leaning.
+
 ## Verification without a lamp
 
 Host tests, `cargo test -p lamp-body` (240 passed, 0 failed, on macOS):

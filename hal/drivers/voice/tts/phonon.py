@@ -14,7 +14,7 @@ import queue
 import subprocess
 import threading
 import time
-from typing import Iterator, List, Optional
+from typing import Callable, Iterator, List, Optional, Tuple
 
 from hal.drivers.voice.tts.backend import TTS_SAMPLE_RATE, TTSBackend
 
@@ -28,6 +28,11 @@ PHONON_LANG = os.environ.get("HAL_PHONON_LANG", "en")
 PHONON_QUANT = os.environ.get("HAL_PHONON_QUANT", "q8")
 # 0 = the engine's default (all cores).
 PHONON_THREADS = int(os.environ.get("HAL_PHONON_THREADS", "0") or 0)
+# Head start before a sentence starts playing. Phonon opens each sentence with 80 ms
+# chunks that take 100-330 ms each to make, then switches to larger chunks that run
+# ahead of real time. Measured on a lamp with HAL busy: playing the first chunk at
+# once fell up to 1.1 s behind, heard as holes in the first second of speech.
+PHONON_PREBUFFER_S = max(0.0, float(os.environ.get("HAL_PHONON_PREBUFFER_MS", "1200") or 0) / 1000.0)
 
 WORKER_SCRIPT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "phonon_worker.py")
 
@@ -36,6 +41,8 @@ _READY_TIMEOUT_S = 60.0
 # Longest silence between two frames before the worker is treated as hung.
 _FRAME_TIMEOUT_S = 30.0
 _RESTART_BACKOFF_S = 10.0
+# How often a waiting request checks whether the caller cancelled it.
+_CANCEL_POLL_S = 0.1
 
 _FRAME_HEADER = 9  # struct ">IBI": request id, kind, payload length
 _READY, _PCM, _END, _ERROR = 0, 1, 2, 3
@@ -162,7 +169,7 @@ class _Worker:
                     logger.info("Phonon: ready (rate=%dHz, voices=%s)", self.sample_rate, self.voices)
                     self._ready.set()
                     continue
-                frames.put((req_id, kind, payload))
+                frames.put((req_id, kind, payload, time.monotonic()))
         except Exception as e:
             logger.warning("Phonon: frame reader stopped: %s", e)
         finally:
@@ -199,7 +206,9 @@ class _Worker:
         finally:
             self._request_lock.release()
 
-    def synth(self, text: str, voice: str) -> Iterator[bytes]:
+    def synth(self, text: str, voice: str,
+              cancelled: Optional[Callable[[], bool]] = None) -> Iterator[Tuple[float, bytes]]:
+        """Yield (arrival time, PCM) per chunk; stops early once `cancelled()` is true."""
         if not self.ensure_started():
             return
         self._request_lock.acquire()
@@ -211,10 +220,15 @@ class _Worker:
             if not self._write({"id": req_id, "text": text, "voice": voice}):
                 finished = True
                 return
+            last_frame = time.monotonic()
             while True:
+                if cancelled is not None and cancelled():
+                    return
                 try:
-                    item = frames.get(timeout=_FRAME_TIMEOUT_S)
+                    item = frames.get(timeout=_CANCEL_POLL_S)
                 except queue.Empty:
+                    if time.monotonic() - last_frame < _FRAME_TIMEOUT_S:
+                        continue
                     logger.warning("Phonon: no audio for %.0fs, restarting worker", _FRAME_TIMEOUT_S)
                     self.kill()
                     finished = True
@@ -222,11 +236,12 @@ class _Worker:
                 if item is None:
                     finished = True
                     return
-                rid, kind, payload = item
+                rid, kind, payload, arrived = item
                 if rid != req_id:
                     continue
+                last_frame = arrived
                 if kind == _PCM:
-                    yield payload
+                    yield arrived, payload
                 elif kind == _ERROR:
                     logger.warning("Phonon: synthesis failed: %s", payload.decode("utf-8", "replace"))
                 elif kind == _END:
@@ -266,8 +281,13 @@ def _shared_worker(model_dir: str, lang: str, quant: str, threads: int) -> _Work
 class PhononTTSBackend(TTSBackend):
     """Local Phonon synthesis, streamed as raw PCM int16 at 24 kHz."""
 
-    def __init__(self, model_dir: str = "", lang: str = "", quant: str = "", threads: Optional[int] = None):
+    # Stop is honoured while a sentence is still buffering its head start.
+    supports_synthesis_cancellation = True
+
+    def __init__(self, model_dir: str = "", lang: str = "", quant: str = "",
+                 threads: Optional[int] = None, prebuffer_s: Optional[float] = None):
         self._model_dir = model_dir or PHONON_MODEL_DIR
+        self._prebuffer_s = PHONON_PREBUFFER_S if prebuffer_s is None else prebuffer_s
         self._worker = _shared_worker(
             self._model_dir, lang or PHONON_LANG, quant or PHONON_QUANT,
             PHONON_THREADS if threads is None else threads,
@@ -306,8 +326,13 @@ class PhononTTSBackend(TTSBackend):
         model: str,
         speed: float,
         instructions: Optional[str] = None,
+        cancelled: Optional[Callable[[], bool]] = None,
     ) -> Iterator[bytes]:
-        """Yield raw PCM int16 chunks as Phonon produces them."""
+        """Yield raw PCM int16 chunks, held back until the sentence has a head start.
+
+        Chunks are buffered until they have been arriving for `prebuffer_s` (or the
+        sentence ends, so short replies play whole), then released and streamed.
+        """
         text = _strip_audio_tags(text or "")
         if not text or not self.available:
             return
@@ -319,5 +344,43 @@ class PhononTTSBackend(TTSBackend):
         if voice and known and voice not in known:
             logger.warning("Phonon: voice %r not in model (%s), using the default", voice, known)
             voice = ""
-        yield from self._worker.synth(text, voice)
+
+        bytes_per_s = 2.0 * self.sample_rate
+        pending: List[bytes] = []
+        first_at: Optional[float] = None
+        play_start: Optional[float] = None
+        audio_s = 0.0
+        worst_lead: Optional[float] = None
+        for arrived, pcm in self._worker.synth(text, voice, cancelled):
+            if first_at is None:
+                first_at = arrived
+            if play_start is None:
+                pending.append(pcm)
+                if arrived - first_at < self._prebuffer_s:
+                    continue
+                play_start = time.monotonic()
+                for held in pending:
+                    audio_s += len(held) / bytes_per_s
+                    yield held
+                pending = []
+                continue
+            # Where this chunk is due on the playback clock vs when it arrived;
+            # negative = the speaker ran dry waiting for it.
+            lead = play_start + audio_s - arrived
+            worst_lead = lead if worst_lead is None else min(worst_lead, lead)
+            audio_s += len(pcm) / bytes_per_s
+            yield pcm
+        if play_start is None:
+            # Sentence finished inside the head start: play it whole.
+            for held in pending:
+                audio_s += len(held) / bytes_per_s
+                yield held
+        if first_at is not None:
+            held_ms = ((play_start or time.monotonic()) - first_at) * 1000.0
+            logger.info(
+                "Phonon: %.2fs audio, held %.0f ms before playback, worst lead %s",
+                audio_s, held_ms,
+                "n/a (played whole)" if worst_lead is None
+                else f"{worst_lead * 1000:+.0f} ms{' (GAP)' if worst_lead < 0 else ''}",
+            )
 

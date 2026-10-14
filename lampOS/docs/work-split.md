@@ -227,6 +227,7 @@ has it:
 | 21 | The voice stops and mutes on the hand controls | `controls-voice` | Fourth | taken 2026-10-14 |
 | 22 | The body on a second lamp | `body-second-lamp` | Fifth | open |
 | 23 | Waking up after the power comes back | `wake` | Fifth | open |
+| 27 | The keeper: one lamp of many parts, started, watched, stopped and resumed | `keeper` | Fifth | open |
 | 24 | Giving way to a hand, and not hurting itself | `give-way` | Fifth | open |
 | 25 | How the head follows, and a nod a person can see | `head-follow` | Fifth | open |
 | 26 | Weighing and measuring the lamp for the lean check | `weigh` | Fifth | open |
@@ -1031,6 +1032,68 @@ joints took, the highest load and temperature on the way.
 **Hand back:** the wake, the unit, the ten unplugs' table. Most likely
 wrong: a servo that reports a position before its torque is on, and a
 head that drops when torque comes on.
+
+## 27. The keeper: one lamp of many parts, started, watched, stopped and resumed
+
+Take it after task 23 (owner, 2026-10-14: "let's send that task to 5th
+builder"). Crate: new `crates/keeper` (`lamp-keeper`), yours. Units: your
+lamp's folder under `deploy/`, and templates for every lamp in
+`deploy/units/`. Document: a new `docs/keeper.md`.
+
+**Why.** The lamp is a dozen processes (voice, body, eyes, name,
+Expression, controls, memory, policy, health, actions, and setup and
+updates when it is installed), each its own systemd unit. systemd starts
+each and restarts one whose process dies. Nothing more: a part that is
+alive but stuck (its loop hung, its link down) runs on; the lamp has no
+single "start" or "stop"; there is no order between parts; and the
+update and reset choreography of task 12 (`docs/surround.md`, "the
+owner protocol") needs a supervisor that does not exist, so no update can
+be installed for real. `lamp-health` already folds every part's
+`diagnostics` into one report on the bus (`lamp/health`), and nothing
+acts on it.
+
+**What exists and what we take.** systemd is the process manager: do not
+write another. Study first, briefly, how ROS 2's managed nodes and its
+diagnostics aggregator, Android's init and watchdog, and launchd do this,
+and say what is taken.
+
+**Wanted.**
+1. A `lampos.target` and the units' order and dependencies, so the lamp
+   starts and stops as one, in order, at power-up and by one command; the
+   voice in a slice that keeps its priority; restart limits, so a part
+   that keeps failing is stopped and reported, not restarted forever.
+2. A watchdog for each part: "ready" said when it really is, "alive"
+   from its main loop (systemd's notify protocol), so a hung part is
+   restarted, not only a dead one. A small helper in `crates/keeper` that
+   any part can call; you wire it into the body (yours); the first
+   builder wires it into the others when it takes this.
+3. `lamp-keeper`, its own process: reads `lamp/health`; restarts a part
+   that has been in error for a while, with a bound; reports one that will
+   not stay up; and runs task 12's choreography for an update or a reset
+   (quiet for 45 s, the voice closed to new turns, the body at rest, stop
+   in order, swap, start, check, roll back), against the owner protocol in
+   `docs/surround.md`.
+4. One place to ask and command: what runs, which build, whether it is
+   well; start, stop, restart a part, or the lamp. A command line and a
+   topic on the bus.
+5. A few named states each part says on the bus (starting, ready,
+   paused, stopping), and a "pause" each honours, so stop and resume can
+   be done without cutting anyone off: the voice stops taking new turns,
+   the body goes to rest, Expression holds still.
+
+Every action behind a switch, off unless set, as always; nothing restarts
+the voice while someone is speaking to the lamp.
+
+**Tests.** A hung part restarted; one that keeps failing stopped and
+reported; the order at start and stop; an update and a rollback through
+the choreography with stand-in parts; nothing done while someone speaks.
+On your lamp: power-up to every part ready, timed; a part killed and a
+part hung, each recovered, timed.
+
+**Hand back:** the crate, the units, the document, and the one command
+that shows the lamp's parts and their state. Most likely wrong on a lamp:
+the order the parts need at power-up (the body before the eyes? the
+voice before the light?), which only a lamp shows.
 
 ## 24. Giving way to a hand, and not hurting itself
 

@@ -3425,3 +3425,209 @@ fn a_force_limited_arm_lets_go_at_80_percent_of_its_limit() {
     assert!(report.released.is_empty());
     assert!(lamp.servos.iter().all(|servo| servo.torque == 1));
 }
+
+/// lamp-52e6 unplugged while it stood, on 2026-10-14: the shoulder stayed
+/// up at 2,633 on its gears and the elbow fell folded, to 2,074; every
+/// servo without torque and with a goal of 0; the head drooped.
+#[test]
+fn a_shoulder_left_up_by_a_power_cut_is_lowered_first_and_the_lamp_may_then_stand() {
+    let (mut lamp, mut clock) = folded(Duration::from_secs(70));
+    lamp.may_take_hold = true;
+    lamp.arm_moves = true;
+    for (index, at) in [
+        (YAW, 1_979.0),
+        (1, 2_633.0),
+        (2, 2_074.0),
+        (ROLL, 2_101.0),
+        (PITCH, 2_029.0),
+    ] {
+        let servo = &mut lamp.servos[index];
+        (servo.position, servo.goal, servo.torque, servo.status) = (at, 0, 0, 0);
+    }
+    lamp.heavy = Some((PITCH, 1_850.0, 37.0, 232));
+    let limits = Limits {
+        force: Some(600),
+        torque_on: true,
+        wake: true,
+        ..Limits::folded_with(Tuning {
+            reach: [150, 15, 1, 250],
+            speed: 120,
+            servo_speed: 1_000,
+            servo_acceleration: 60,
+        })
+        .unwrap()
+    };
+    let up = Standing::new(
+        [2_053, 2_069],
+        [1_772, 2_035, 2_035, 2_657, 2_602],
+        100,
+        5,
+        90,
+        [560, 560],
+    )
+    .unwrap();
+    // Spoken to once it is awake.
+    let time = clock.time.clone();
+    let news = move || {
+        Some(if time.get() > Duration::from_secs(50) {
+            (Mood::Listening, 120)
+        } else {
+            (Mood::Resting, 0)
+        })
+    };
+    let report = run_standing(
+        &mut lamp,
+        &mut clock,
+        limits,
+        Some([1_771, 2_035, 2_035]),
+        Some(up),
+        news,
+        |_| {},
+    );
+    assert_eq!(report.stop, Stop::Cancelled, "{report:?}");
+    assert_eq!(report.standing_refused, None, "{report:?}");
+    let lowered = report.lowered.clone().unwrap();
+    assert_eq!((lowered.from, lowered.to), (vec![2_633], vec![2_053]));
+    // 580 counts eased at 40 a second at most: a little under 22 s.
+    assert!(
+        (21.5..23.0).contains(&lowered.seconds),
+        "{}",
+        lowered.seconds
+    );
+    assert!(report.woke.is_some());
+    assert!(report.stood, "{report:?}");
+    // On the way down the shoulder only ever went down, under a count a
+    // write, and the elbow was never asked to move.
+    let shoulder = goals_of(&lamp, Joint::BasePitch);
+    let down = shoulder.iter().position(|goal| *goal == 2_053).unwrap();
+    assert!(
+        shoulder[..=down]
+            .windows(2)
+            .all(|two| two[1] <= two[0] && two[0] - two[1] <= 1),
+        "{shoulder:?}"
+    );
+    assert!(
+        goals_of(&lamp, Joint::ElbowPitch)[..=down]
+            .iter()
+            .all(|goal| *goal == 2_074)
+    );
+
+    // Without waking it is refused standing, as before.
+    let (mut lamp, mut clock) = folded(Duration::from_secs(2));
+    lamp.servos[1].position = 2_633.0;
+    lamp.servos[1].goal = 2_633;
+    lamp.servos[2].status = 0;
+    let report = run_standing(
+        &mut lamp,
+        &mut clock,
+        Limits::FOLDED,
+        Some(HOME),
+        Some(standing(100, 60)),
+        || None,
+        |_| {},
+    );
+    assert!(report.lowered.is_none());
+    assert!(report.standing_refused.unwrap().contains("off the way"));
+}
+
+/// A head held 35 counts short of its goal by its own weight, at rest:
+/// with `--wake on` it rests where it is; without, the run ends as before.
+#[test]
+fn with_waking_a_head_held_35_short_at_rest_rests_where_it_is() {
+    let held = |limits: Limits| {
+        let (mut lamp, mut clock) = folded(Duration::from_secs(8));
+        lamp.servos[PITCH].position = 2_035.0;
+        lamp.servos[PITCH].goal = 2_035;
+        lamp.servos[PITCH].load = 120;
+        lamp.short = Some((PITCH, 35.0));
+        let report = run(
+            &mut lamp,
+            &mut clock,
+            limits,
+            Some(HOME),
+            || Some((Mood::Resting, 0)),
+            |_| {},
+        );
+        (report, lamp.servos[PITCH].position)
+    };
+    let (report, _) = held(Limits {
+        pitch_home: (1_760, 2_040),
+        pitch_window: (1_740, 2_040),
+        ..Limits::FOLDED
+    });
+    assert!(
+        matches!(report.stop, Stop::Tracking { joint: 5, .. }),
+        "{:?}",
+        report.stop
+    );
+    let (report, at) = held(Limits {
+        pitch_home: (1_760, 2_040),
+        pitch_window: (1_740, 2_040),
+        ..waking()
+    });
+    assert_eq!(report.stop, Stop::Cancelled, "{report:?}");
+    assert!(report.rested_short[0] >= 1, "{report:?}");
+    assert!(report.woke.is_none());
+    assert_eq!(at, 2_035.0);
+}
+
+/// lamp-4ace woken toward a base home 286 counts round on 2026-10-14: the
+/// base stuck 34 behind its slow goal. Led and given room, it comes round.
+#[test]
+fn a_base_that_sticks_34_behind_a_slow_goal_is_led_round_and_settles() {
+    let (mut lamp, mut clock) = folded(Duration::from_secs(40));
+    lamp.servos[YAW].position = 2_029.0;
+    lamp.servos[YAW].goal = 2_029;
+    lamp.short = Some((YAW, 34.0));
+    let home = [2_000, 2_044, 2_315];
+    let report = run(
+        &mut lamp,
+        &mut clock,
+        waking(),
+        Some(home),
+        || Some((Mood::Resting, 0)),
+        |_| {},
+    );
+    assert_eq!(report.stop, Stop::Cancelled, "{report:?}");
+    let woke = report.woke.unwrap();
+    assert_eq!((woke.from, woke.to), (vec![2_029], vec![2_315]));
+    assert_eq!(woke.settled, vec![2_281]);
+    // It runs from where it settled, and nothing pushes at the gap.
+    assert_eq!(report.home, Some([2_000, 2_044, 2_281]));
+    assert_eq!(lamp.servos[YAW].position, 2_281.0);
+    // Its goal never went back on the way round.
+    let yaw = goals_of(&lamp, Joint::BaseYaw);
+    let round = yaw.iter().position(|goal| *goal == 2_315).unwrap();
+    assert!(yaw[..=round].windows(2).all(|two| two[1] >= two[0]));
+}
+
+/// lamp-4ace woken the other way: as the base turned, the shoulder swayed
+/// 7 counts. That is a sway, not a move; 20 is a move.
+#[test]
+fn an_arm_that_sways_7_counts_as_the_base_wakes_is_let_and_one_that_moves_20_is_not() {
+    let swayed = |by: f32| {
+        let (mut lamp, mut clock) = folded(Duration::from_secs(40));
+        lamp.servos[YAW].position = 2_029.0;
+        lamp.servos[YAW].goal = 2_029;
+        lamp.event = Some((Duration::from_secs(10), 1, Event::Push(by)));
+        run(
+            &mut lamp,
+            &mut clock,
+            waking(),
+            Some([2_000, 2_044, 1_729]),
+            || Some((Mood::Resting, 0)),
+            |_| {},
+        )
+    };
+    let report = swayed(7.0);
+    assert_eq!(report.stop, Stop::Cancelled, "{report:?}");
+    assert_eq!(report.woke.unwrap().settled, vec![1_729]);
+    assert_eq!(
+        swayed(20.0).stop,
+        Stop::Drift {
+            joint: 2,
+            found: 2_050,
+            now: 2_070
+        }
+    );
+}

@@ -167,6 +167,22 @@ const WAKE_MOVED: u16 = 3;
 /// (pitch gain P 32, roll and yaw 16) do not close the last 30 to 40
 /// counts. Farther than this from home it has not woken, and the run ends.
 const WAKE_SETTLE: u16 = 50;
+/// How far the shoulder or the elbow may sway while the lamp wakes before
+/// that is taken for a move: on lamp-4ace on 2026-10-14 the shoulder moved
+/// from 2,050 to 2,057 as the base turned 189 counts of its wake, one over
+/// the run's 6. Twice what was seen, about a degree and a third; an arm
+/// that falls or is pushed moves far more.
+const WAKE_SWAY: u16 = 15;
+/// The fastest a shoulder found up by itself is lowered while the lamp
+/// wakes, counts a second. On lamp-52e6 on 2026-10-14, unplugged standing,
+/// the shoulder stayed up at 2,633 on its gears and the elbow fell folded;
+/// eased by hand from 2,633 to 2,053 over 15 s (39 a second on average,
+/// about 58 at its fastest) it reached 2,059 at a load of 172 at most. This
+/// is a little slower than that at its fastest: 580 counts take about 22 s,
+/// and with a head's wake after it the lamp is up well inside the 90 s
+/// systemd allows a service to say it is ready. The wake's own 20 would
+/// take 44 s for the shoulder alone.
+const ARM_LOWER_SPEED: f32 = 40.0;
 
 /// Under `--overload release` (`Limits::overload_release`), the old
 /// runtime's cut-off (`hal/drivers/motors/overload.py`,
@@ -666,6 +682,12 @@ pub struct BodyReport {
     /// With `--give-way`, times each joint (pitch, roll, yaw, shoulder,
     /// elbow) pushed without moving and was told to stop.
     pub stalls: [u16; 5],
+    /// With `--wake on`, times each commanded joint stopped a little short
+    /// of its goal and was let rest there.
+    pub rested_short: [u16; 3],
+    /// With `--wake on`, the shoulder found up by itself and lowered onto
+    /// its folded count before anything else.
+    pub lowered: Option<Woke>,
     /// The goals written to stop pushing, when the run ended on a surprise.
     pub held_at: Option<[u16; 3]>,
     pub last: Option<[Sample; 5]>,
@@ -737,7 +759,7 @@ pub struct Woke {
 fn wake_pose(from: [u16; 3], to: [u16; 3], elapsed: f32) -> ([f32; 3], bool) {
     let way: [f32; 3] = std::array::from_fn(|index| f32::from(to[index]) - f32::from(from[index]));
     let stir: [f32; 3] = std::array::from_fn(|index| {
-        let most = if lifts(from, to, index) {
+        let most = if leads(from, to, index) {
             WAKE_LIFT_LEAD
         } else {
             WAKE_STIR
@@ -769,6 +791,14 @@ fn wake_pose(from: [u16; 3], to: [u16; 3], elapsed: f32) -> ([f32; 3], bool) {
 /// The head's pitch, going to fewer counts: lifting, against its weight.
 fn lifts(from: [u16; 3], to: [u16; 3], index: usize) -> bool {
     index == 0 && to[0] < from[0]
+}
+
+/// A joint whose goal must lead it to move at all while it wakes: the head
+/// lifting, and the base either way. On lamp-4ace on 2026-10-14 (base gain
+/// P 16), woken toward a home 286 counts round, the base turned 72 counts
+/// and stuck at 2,101, 34 behind a goal moving at the wake's speed.
+fn leads(from: [u16; 3], to: [u16; 3], index: usize) -> bool {
+    lifts(from, to, index) || (index == 2 && to[2] != from[2])
 }
 
 fn checksum(body: &[u8]) -> u8 {
@@ -1177,10 +1207,11 @@ fn wake<P: PortIo, R: Runtime>(
                         });
                     }
                 }
-                // The wake never moves the arm.
+                // The wake never moves the arm, though it sways as the base
+                // turns.
                 for joint in ARM {
                     let (was, is) = (found[joint.index()], now[joint.index()]);
-                    if was.position.abs_diff(is.position) > limits.bystander_drift {
+                    if was.position.abs_diff(is.position) > limits.bystander_drift.max(WAKE_SWAY) {
                         surprise.get_or_insert(Stop::Drift {
                             joint: joint.id(),
                             found: was.position,
@@ -1261,6 +1292,169 @@ fn wake<P: PortIo, R: Runtime>(
         }
         bus.sleep_until(due);
     }
+}
+
+/// Lower a shoulder found up with its elbow folded onto the folded
+/// shoulder count, eased at both ends at [`ARM_LOWER_SPEED`] at most, the
+/// head, the base and the elbow held at `head` and `elbow`. Every step it
+/// reads all five joints: a changed status byte, the head, the base or
+/// the elbow moving more than `Limits::tracking`, the shoulder over its
+/// load for `Limits::load_steps` steps or farther than
+/// `Standing::TRACKING` from its goal for `Standing::TRACKING_STEPS`, or
+/// a wire that fails for half a second ends it. Once its goal is folded
+/// it waits for the shoulder to come within `Standing::FOUND_SLACK`; one
+/// that stops farther away for half a second ends it too.
+#[allow(clippy::too_many_arguments)]
+fn lower_shoulder<P: PortIo, R: Runtime>(
+    bus: &mut Bus<'_, P, R>,
+    report: &mut BodyReport,
+    limits: &Limits,
+    up: Standing,
+    head: [u16; 3],
+    elbow: u16,
+    found: [Sample; 5],
+) -> Result<[Sample; 5], Stop> {
+    let shoulder = Joint::BasePitch;
+    let (from, to) = (found[shoulder.index()].position, up.folded[0]);
+    let way = f32::from(to) - f32::from(from);
+    let length = 1.5 * way.abs() / ARM_LOWER_SPEED;
+    let started = bus.runtime.now();
+    let (mut ticks, mut done, mut misses) = (0u32, 0u32, 0u8);
+    let (mut written, mut over, mut off, mut still) = (from, 0u8, 0u8, 0u8);
+    let mut closest = u16::MAX;
+    let outcome = loop {
+        ticks += 1;
+        let due = started + TICK * ticks;
+        if !matches!(bus.runtime.cancelled(), Ok(false)) {
+            break Err(Stop::Cancelled);
+        }
+        let share = smooth(TICK.as_secs_f32() * done as f32 / length.max(TICK.as_secs_f32()));
+        let goal = (f32::from(from) + way * share).round() as u16;
+        let sent = if goal == written && done > 0 {
+            Ok(())
+        } else {
+            bus.send(&all_goals_write(head, [goal, elbow])).map(|()| {
+                written = goal;
+                report.goal_writes += 1;
+                report.moved = true;
+            })
+        };
+        let now = match sent.and_then(|()| bus.samples()) {
+            Ok(now) => now,
+            Err(detail) => {
+                report.missed_reads += 1;
+                misses += 1;
+                if misses >= WIRE_STEPS {
+                    break Err(Stop::Bus {
+                        detail: format!("lowering the shoulder: {detail}"),
+                    });
+                }
+                bus.sleep_until(due);
+                continue;
+            }
+        };
+        misses = 0;
+        report.last = Some(now);
+        let mut surprise = None;
+        for joint in Joint::ALL {
+            let (was, is) = (found[joint.index()], now[joint.index()]);
+            if is.status != was.status {
+                surprise.get_or_insert(Stop::Status {
+                    joint: joint.id(),
+                    found: was.status,
+                    now: is.status,
+                });
+            }
+            if joint != shoulder && was.position.abs_diff(is.position) > limits.tracking {
+                surprise.get_or_insert(Stop::Drift {
+                    joint: joint.id(),
+                    found: was.position,
+                    now: is.position,
+                });
+            }
+        }
+        let is = now[shoulder.index()];
+        report.arm_peak_load[0] = report.arm_peak_load[0].max(is.load);
+        over = if is.load > up.load[0] { over + 1 } else { 0 };
+        let apart = written.abs_diff(is.position);
+        off = if apart > Standing::TRACKING {
+            off + 1
+        } else {
+            0
+        };
+        let over_now = share >= 1.0;
+        if apart + WAKE_MOVED <= closest || !over_now {
+            (closest, still) = (apart, 0);
+        } else {
+            still += 1;
+        }
+        if over >= limits.load_steps.max(1) {
+            surprise.get_or_insert(Stop::Load {
+                joint: shoulder.id(),
+                load: is.load,
+            });
+        } else if off >= Standing::TRACKING_STEPS
+            || (still >= WAKE_STILL_STEPS && apart > Standing::FOUND_SLACK)
+        {
+            surprise.get_or_insert(Stop::Tracking {
+                joint: shoulder.id(),
+                goal: written,
+                position: is.position,
+            });
+        }
+        if let Some(surprise) = surprise {
+            break Err(surprise);
+        }
+        if over_now && apart <= Standing::FOUND_SLACK {
+            break Ok(now);
+        }
+        if !over_now {
+            done += 1;
+        }
+        bus.sleep_until(due);
+    };
+    report.lowered = Some(Woke {
+        joints: vec![shoulder.name()],
+        from: vec![from],
+        to: vec![written],
+        settled: report
+            .last
+            .map_or_else(Vec::new, |last| vec![last[shoulder.index()].position]),
+        seconds: bus.runtime.now().saturating_sub(started).as_secs_f32(),
+    });
+    outcome
+}
+
+/// With `--wake on`, one step of a commanded joint that may be held short
+/// of its goal by its own weight: farther than `Limits::tracking` from
+/// `goal` but within [`WAKE_SETTLE`], under its load bound (`over` is the
+/// steps in a row it has read over it), the goal unchanged and the joint
+/// not moving [`WAKE_MOVED`] counts. `steps` counts the steps it has been
+/// so, from 1, and is 0 while it is not short in this way; after more than
+/// [`WAKE_STILL_STEPS`] it rests where it is (true). On lamp-52e6 woken
+/// with its shoulder up, the head held 30 to 37 counts short of goals of
+/// 1,759 and 1,775 and the run ended on tracking three times in a row.
+fn rests_short(
+    limits: &Limits,
+    (goal, position, over): (u16, u16, u8),
+    at: &mut (u16, u16),
+    steps: &mut u8,
+) -> bool {
+    let apart = goal.abs_diff(position);
+    if !limits.wake || apart <= limits.tracking || apart > WAKE_SETTLE || over > 0 {
+        *steps = 0;
+        return false;
+    }
+    if *steps == 0 || at.0 != goal || at.1.abs_diff(position) >= WAKE_MOVED {
+        (*at, *steps) = ((goal, position), 1);
+        return false;
+    }
+    *steps = steps.saturating_add(1);
+    if *steps > WAKE_STILL_STEPS {
+        *steps = 0;
+        return true;
+    }
+    false
 }
 
 /// Where the head and the base are at home with the arm `stand` of its way
@@ -1639,6 +1833,8 @@ pub(crate) fn run_alive(
         eased: [0; 3],
         kept_where_put: [0; 3],
         stalls: [0; 5],
+        rested_short: [0; 3],
+        lowered: None,
         peak_temperature: [0; 3],
         held_at: None,
         last: None,
@@ -1768,7 +1964,59 @@ pub(crate) fn run_alive(
                 return report;
             }
         };
-        let (lift, offs) = on_the_way(up, ARM.map(|joint| found[joint.index()].position));
+        let (mut lift, mut offs) = on_the_way(up, ARM.map(|joint| found[joint.index()].position));
+        // A power cut on a standing lamp leaves the shoulder up on its gears
+        // and lets the elbow fall folded: woken, such a shoulder is lowered
+        // onto its folded count before anything else, and the lamp may then
+        // stand as it would have. Any other arm off its way stays as it is.
+        let slack = Standing::FOUND_SLACK;
+        let [shoulder, elbow] = ARM.map(|joint| found[joint.index()]);
+        let lowered = limits.wake
+            && offs.iter().any(|off| *off > f32::from(slack))
+            && shoulder.position.abs_diff(up.folded[0]) > slack
+            && elbow.position.abs_diff(up.folded[1]) <= slack
+            && (0..2).all(|index| {
+                let sample = [shoulder, elbow][index];
+                arm_profiles[index].0 == 1
+                    && sample.status == 0
+                    && sample.temperature < Standing::TEMPERATURE
+            });
+        if lowered {
+            let head = COMMANDED.map(|joint| found[joint.index()].position);
+            match lower_shoulder(
+                &mut bus,
+                &mut report,
+                &limits,
+                up,
+                head,
+                elbow.position,
+                found,
+            ) {
+                Ok(now) => found = now,
+                Err(stop) => {
+                    if let Some(last) = report.last {
+                        let at = |joint: Joint| last[joint.index()].position;
+                        let hold = COMMANDED.map(at);
+                        if bus.send(&all_goals_write(hold, ARM.map(at))).is_ok() {
+                            report.goal_writes += 1;
+                            report.held_at = Some(hold);
+                        }
+                    }
+                    report.stop = stop;
+                    return report;
+                }
+            }
+            arm_profiles = match bus.arm_profiles() {
+                Ok(profiles) => profiles,
+                Err(detail) => {
+                    report.stop = Stop::Bus {
+                        detail: format!("after lowering the shoulder: {detail}"),
+                    };
+                    return report;
+                }
+            };
+            (lift, offs) = on_the_way(up, ARM.map(|joint| found[joint.index()].position));
+        }
         let mut why = None;
         for (index, joint) in ARM.iter().enumerate() {
             let sample = found[joint.index()];
@@ -2185,6 +2433,10 @@ pub(crate) fn run_alive(
     let mut heard: Option<(Mood, u8, Duration)> = None;
     let mut over_load = [0u8; 3];
     let mut off_track = [0u8; 3];
+    // With `--wake on`: the goal and the position a joint short of its goal
+    // was last seen at, and the steps since, while it stays short.
+    let mut short_at = [(0u16, 0u16); 3];
+    let mut short_steps = [0u8; 3];
     // Steps left for which a joint that met resistance is not asked to move,
     // and the steps on which any joint last did.
     let mut easing = [0u16; 3];
@@ -2913,7 +3165,24 @@ pub(crate) fn run_alive(
                     eased_at[EASES_ALLOWED - 1] = report.steps;
                     report.eased[index] = report.eased[index].saturating_add(1);
                 }
-            } else if off_track[index] >= limits.tracking_steps {
+            } else if rests_short(
+                &limits,
+                (written[index], is.position, over_load[index]),
+                &mut short_at[index],
+                &mut short_steps[index],
+            ) {
+                // Held a little short of its goal by its own weight, still,
+                // and not straining: it rests where it is, and later moods
+                // are laid from there, as for a joint a hand left.
+                commanded[index] = f32::from(is.position).clamp(
+                    low[index].min(commanded[index]),
+                    high[index].max(commanded[index]),
+                );
+                kept[index] = commanded[index] - home_now[index] - offsets[index];
+                velocity[index] = 0.0;
+                off_track[index] = 0;
+                report.rested_short[index] = report.rested_short[index].saturating_add(1);
+            } else if off_track[index] >= limits.tracking_steps && short_steps[index] == 0 {
                 surprise.get_or_insert(Stop::Tracking {
                     joint: joint.id(),
                     goal: written[index],

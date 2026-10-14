@@ -50,7 +50,7 @@ fn run() -> Result<()> {
         // Every call is answered as done. Nothing is captured or played,
         // and nothing on the lamp is changed.
         [command,path,flag,then,note] if command=="provider-check" && flag=="--tools" && then=="--written" => {
-            let own=lamp_voice::tools::declared(&lamp_voice::tools::Settings{decline:true,exec:None,memory:None,clock:false});
+            let own=lamp_voice::tools::declared(&lamp_voice::tools::Settings{decline:true,exec:None,memory:None,clock:false,tasks:None});
             let colour=lamp_gemini::Tool{name:"light_colour".into(),description:"Set the colour of your own light when you are asked to.".into(),parameters:Some(serde_json::json!({"type":"object","properties":{"colour":{"type":"string","enum":["white","warm","red","green","blue","purple"]}},"required":["colour"]})),silent:false};
             // LAMP_PROBE_PLAIN set: the voice's own function is declared as an ordinary one, to compare.
             let own:Vec<lamp_gemini::Tool>=own.into_iter().map(|mut tool|{tool.silent=std::env::var_os("LAMP_PROBE_PLAIN").is_none();tool}).collect();

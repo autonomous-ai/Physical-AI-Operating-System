@@ -1370,7 +1370,7 @@ impl ToolDesk {
         if held
             && matches!(
                 crate::tools::route(&self.settings, &call.name),
-                Route::Executive(_) | Route::Memory(_)
+                Route::Executive(_) | Route::Memory(_) | Route::Tasks(_)
             )
         {
             tell(&crate::tools::declined());
@@ -1418,7 +1418,7 @@ impl ToolDesk {
                     "lamp-voice provider: request {request}: the model said it was not for it"
                 );
             }
-            route @ (Route::Executive(_) | Route::Memory(_))
+            route @ (Route::Executive(_) | Route::Memory(_) | Route::Tasks(_))
                 if self.waiting < lamp_gemini::MAX_TOOL_CALLS =>
             {
                 // Being asked to keep or forget something is not itself
@@ -1426,9 +1426,14 @@ impl ToolDesk {
                 if matches!(route, Route::Memory(_)) && call.name != crate::remember::RECALL {
                     crate::remember::keep_out(request);
                 }
-                if matches!(route, Route::Executive(_)) {
+                if matches!(route, Route::Executive(_) | Route::Tasks(_)) {
                     self.acted = Some(request);
                 }
+                // A request the lamp wrote itself was not heard from anyone:
+                // a yes to a task cannot come in one.
+                let heard = crate::attention::OWN_REQUEST
+                    .load(std::sync::atomic::Ordering::Acquire)
+                    != request;
                 let asked = self.asked.clone();
                 let session = lineage.session;
                 let work = call.clone();
@@ -1444,6 +1449,10 @@ impl ToolDesk {
                             Route::Executive(directory) => (
                                 "the executive",
                                 crate::tools::ask(directory, &work, deadline),
+                            ),
+                            Route::Tasks(place) => (
+                                "the tasks part",
+                                crate::agent_tasks::run(place, &work, request, heard, deadline),
                             ),
                             Route::Decline | Route::Clock | Route::Nobody => {
                                 ("nobody", (crate::tools::unavailable(), false))
@@ -1464,7 +1473,7 @@ impl ToolDesk {
                     Err(_) => tell(&crate::tools::unavailable()),
                 }
             }
-            Route::Executive(_) | Route::Memory(_) | Route::Nobody => {
+            Route::Executive(_) | Route::Memory(_) | Route::Tasks(_) | Route::Nobody => {
                 tell(&crate::tools::unavailable());
                 eprintln!(
                     "lamp-voice provider: request {request} asked for {}, which nobody here runs; told so",
@@ -4988,6 +4997,7 @@ mod tests {
                 exec: None,
                 memory: None,
                 clock: false,
+                tasks: None,
             }),
         );
         let mut dial = rig.ready().await;
@@ -5055,6 +5065,7 @@ mod tests {
                 exec: None,
                 memory: None,
                 clock: true,
+                tasks: None,
             }),
         );
         let mut dial = rig.ready().await;
@@ -5120,6 +5131,7 @@ mod tests {
                 exec: None,
                 memory: Some(socket),
                 clock: false,
+                tasks: None,
             }),
         );
         let mut dial = rig.ready().await;
@@ -5176,6 +5188,7 @@ mod tests {
                     exec: Some(home.path.clone()),
                     memory: None,
                     clock: false,
+                    tasks: None,
                 },
                 attention: Some(busy),
                 name_signal: false,
@@ -5228,6 +5241,7 @@ mod tests {
                 exec: Some(home.path.clone()),
                 memory: None,
                 clock: false,
+                tasks: None,
             }),
         );
         let mut dial = rig.ready().await;
@@ -5283,6 +5297,7 @@ mod tests {
                 exec: Some(home.path.clone()),
                 memory: None,
                 clock: false,
+                tasks: None,
             }),
         );
         let mut dial = rig.ready().await;
@@ -5354,6 +5369,7 @@ mod tests {
                     exec: Some(home.path.clone()),
                     memory: None,
                     clock: false,
+                    tasks: None,
                 },
                 "light_on",
             ),

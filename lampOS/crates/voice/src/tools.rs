@@ -80,16 +80,20 @@ pub struct Settings {
     pub memory: Option<PathBuf>,
     /// The model may call [`THE_TIME`].
     pub clock: bool,
+    /// Work handed to an agent elsewhere ([`crate::agent_tasks`]).
+    pub tasks: Option<crate::agent_tasks::Place>,
 }
 
 /// The provider worker's arguments for what the environment says.
 pub fn arguments_from_environment() -> Vec<String> {
-    arguments(
+    let mut arguments = arguments(
         std::env::var(ENVIRONMENT).ok().as_deref(),
         std::env::var(ACTIONS_ENVIRONMENT).ok().as_deref(),
         std::env::var(crate::remember::ENVIRONMENT).ok().as_deref(),
         std::env::var(CLOCK_ENVIRONMENT).ok().as_deref(),
-    )
+    );
+    arguments.extend(crate::agent_tasks::arguments_from_environment());
+    arguments
 }
 
 fn arguments(
@@ -157,6 +161,8 @@ pub fn take(flags: &[String]) -> std::io::Result<(Settings, &[String])> {
         settings.clock = true;
         flags = rest;
     }
+    let (tasks, flags) = crate::agent_tasks::take(flags)?;
+    settings.tasks = tasks;
     Ok((settings, flags))
 }
 
@@ -215,6 +221,9 @@ pub fn declared(settings: &Settings) -> Vec<Tool> {
     if settings.memory.is_some() {
         tools.extend(crate::remember::tools());
     }
+    if settings.tasks.is_some() {
+        tools.extend(crate::agent_tasks::tools());
+    }
     if let Some(directory) = &settings.exec {
         let room = lamp_gemini::MAX_TOOLS - tools.len();
         tools.extend(
@@ -224,6 +233,7 @@ pub fn declared(settings: &Settings) -> Vec<Tool> {
                     tool.name != NOT_FOR_ME
                         && tool.name != THE_TIME
                         && !crate::remember::is_tool(&tool.name)
+                        && !crate::agent_tasks::is_tool(&tool.name)
                 })
                 .take(room),
         );
@@ -270,6 +280,8 @@ pub enum Route {
     Memory(PathBuf),
     /// The time: answered here, at once.
     Clock,
+    /// Work for an agent elsewhere, through the tasks part.
+    Tasks(crate::agent_tasks::Place),
     /// Nobody here runs that.
     Nobody,
 }
@@ -278,11 +290,17 @@ pub fn route(settings: &Settings, name: &str) -> Route {
     if let (Some(socket), true) = (&settings.memory, crate::remember::is_tool(name)) {
         return Route::Memory(socket.clone());
     }
+    if crate::agent_tasks::is_tool(name) {
+        return settings.tasks.clone().map_or(Route::Nobody, Route::Tasks);
+    }
     match (&settings.exec, name) {
         (_, NOT_FOR_ME) if settings.decline => Route::Decline,
         (_, THE_TIME) if settings.clock => Route::Clock,
         (Some(directory), name)
-            if name != NOT_FOR_ME && name != THE_TIME && !crate::remember::is_tool(name) =>
+            if name != NOT_FOR_ME
+                && name != THE_TIME
+                && !crate::remember::is_tool(name)
+                && !crate::agent_tasks::is_tool(name) =>
         {
             Route::Executive(directory.clone())
         }
@@ -422,6 +440,7 @@ mod tests {
             exec: Some(dir.clone()),
             memory: Some("/run/lampos-memory/memory.sock".into()),
             clock: false,
+            tasks: None,
         };
         let names: Vec<String> = declared(&with).into_iter().map(|tool| tool.name).collect();
         assert_eq!(
@@ -488,6 +507,7 @@ mod tests {
                 exec: Some("/run/lampos-actions".into()),
                 memory: Some("/run/lampos-memory/memory.sock".into()),
                 clock: false,
+                tasks: None,
             }
         );
         assert_eq!(rest, ["rest"]);
@@ -515,6 +535,7 @@ mod tests {
             exec: None,
             memory: None,
             clock: false,
+            tasks: None,
         };
         let told = declared(&own);
         assert_eq!(told.len(), 1);
@@ -528,6 +549,7 @@ mod tests {
             exec: Some(dir.clone()),
             memory: None,
             clock: false,
+            tasks: None,
         };
         // No file yet: the executive has not started.
         assert_eq!(declared(&with).len(), 1);
@@ -545,6 +567,7 @@ mod tests {
             exec: Some(dir.clone()),
             memory: None,
             clock: false,
+            tasks: None,
         };
         assert_eq!(declared(&alone).len(), 2);
         // One function the link would refuse, a name twice, a file that is
@@ -575,6 +598,7 @@ mod tests {
             exec: Some(dir.clone()),
             memory: None,
             clock: false,
+            tasks: None,
         };
         assert_eq!(route(&all, NOT_FOR_ME), Route::Decline);
         assert_eq!(route(&all, "light_on"), Route::Executive(dir.clone()));
@@ -583,6 +607,7 @@ mod tests {
             exec: None,
             memory: None,
             clock: false,
+            tasks: None,
         };
         assert_eq!(route(&own, "light_on"), Route::Nobody);
         // Not declared, so not meant: it is never handed to the executive.
@@ -591,9 +616,36 @@ mod tests {
             exec: Some(dir),
             memory: None,
             clock: false,
+            tasks: None,
         };
         assert_eq!(route(&exec, NOT_FOR_ME), Route::Nobody);
         assert_eq!(route(&Settings::default(), "light_on"), Route::Nobody);
+    }
+
+    #[test]
+    fn work_for_an_agent_is_declared_and_routed_only_with_its_directory() {
+        let place = crate::agent_tasks::Place {
+            directory: "/run/lampos-tasks".into(),
+            target: "office".into(),
+        };
+        let with = Settings {
+            tasks: Some(place.clone()),
+            ..Settings::default()
+        };
+        let names: Vec<String> = declared(&with).into_iter().map(|tool| tool.name).collect();
+        assert_eq!(
+            names,
+            [crate::agent_tasks::START, crate::agent_tasks::CONFIRM]
+        );
+        assert_eq!(
+            route(&with, crate::agent_tasks::CONFIRM),
+            Route::Tasks(place)
+        );
+        assert_eq!(
+            route(&Settings::default(), crate::agent_tasks::START),
+            Route::Nobody
+        );
+        assert!(declared(&Settings::default()).is_empty());
     }
 
     #[test]

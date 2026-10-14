@@ -403,6 +403,27 @@ the lamp listed ten machines, the lamp itself among them ("current").
   the owner's to turn on; the earlier call worked because it carried no such
   mark. Not worked around.
 
+## The voice's side (first builder, 2026-10-14 evening)
+
+`crates/voice/src/agent_tasks.rs`, off unless the voice's unit sets
+`LAMP_TASKS_DIR` (the directory holding `request.sock` and `voice.sock`;
+`LAMP_TASKS_TARGET` names the alias, `office` unless set). The model is told
+of two functions:
+
+- `start_agent_task(task)`: for computer work the person asks to have done
+  on the office computer. The voice reads `status` and sends `prepare` on the
+  request socket with the target alias. Nothing runs. The model is told to
+  say the task back in one short sentence and ask whether to start it.
+- `confirm_agent_task()`: the voice, not the model, decides whether it may.
+  Only when a task is waiting, in a request after the one that prepared it,
+  which the lamp heard rather than wrote itself (`OWN_REQUEST`), within two
+  minutes of preparing it. Then `status` again and `confirm` on the voice
+  socket with that store's guard and session. The model is told it has
+  started and that the answer will be on that computer.
+
+A request whose answer is held back (the busy-room rule) has neither run, as
+for the other functions. Hearing the answer back waits on Harness (above).
+
 ## Real Harness and Voice qualification still required
 
 After the account owner authorizes a disposable task and confirms its exact

@@ -543,11 +543,12 @@ of it.
 
 ## Turning to a call
 
-With `--look-at-name on` the body reads `name/heard` on the bus
+Unless `--look-at-name off`, the body reads `name/heard` on the bus
 ([name.md](name.md)): the lamp's name, heard, subscribed to as `body`
 whether or not `LAMP_BUS` is on; a bus it cannot use is said once in its
-log and no call is taken. Off unless given, and without
-it a call changes nothing the body writes (test
+log and no call is taken. On by default since 2026-10-15, after its minute
+on lamp-4ace (joining.md, "The switch is for that first minute"); with
+`off` a call changes nothing the body writes (test
 `without_the_switch_a_called_lamp_writes_exactly_as_one_never_called`).
 
 - A hearing whose name began more than 1.5 s before it arrived is not a call.
@@ -828,7 +829,7 @@ Reach and speed can be chosen at start, each inside a cap fixed in the code:
 | `--overload release` | any joint at a load of 800 (80% of `--force-limit` for a joint held to one) for 1.5 s: torque off on all five for 120 s, then held where they are and the head brought home slowly; a second time within ten minutes ends the run, torque off (see "Letting go under overload") | torque is never written off | release |
 | `--gaze-socket PATH` with `--gaze Y,P` | where the eyes report, and the signed counts of yaw and pitch that a half-picture is worth | never looks | 900 either way |
 | `--gaze-reach Y,P` | the farthest the gaze takes yaw and pitch; the yaw may be wider than `--reach`'s | 250,120 | 500, 200 |
-| `--look-at-name on` | the lamp's name heard on the bus taken as being spoken to for two seconds, and with nobody in view one small glance once it stands (see "Turning to a call") | a call is not taken | on or off |
+| `--look-at-name off` | the lamp's name heard on the bus is not taken as a call | heard on the bus, taken as being spoken to for two seconds, and with nobody in view one small glance once it stands (see "Turning to a call") | on or off |
 | `--idle on` | a standing lamp at rest shifts a little now and then | off | on or off |
 | `--stand-roll N` | the head's tilt reach once the lamp has stood up, where that is more than the roll of `--reach` | no more than folded | 200 |
 | `--pitch-window LOW,HIGH` | the window the head's pitch goal is kept in while the head is beside the base, this lamp's own; checked at start against the head pitch servo's own limits (registers 9 and 11), and the run refused with nothing written if it is not inside them | lamp-4ace's, 1,740 to 2,030, and the servo's limits are not read | LOW at least 1,670 (the head's floor) and under HIGH, and around `--home`'s pitch |

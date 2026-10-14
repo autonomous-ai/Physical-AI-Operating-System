@@ -441,6 +441,61 @@ threshold. Tune and validate each physical revision; one global threshold is
 not evidence that every printed base behaves identically. Changes must retain
 responsive tap/release timing as well as reject idle false actions.
 
+### Per-unit tuning that survives updates
+
+`mpr121.json` belongs to the device package and is replaced by OTA, so per-unit
+tuning lives in two extra layers under `/var/lib/hal`, merged per key over the
+package entry (lowest first):
+
+| Layer | File | Written by |
+|---|---|---|
+| package | `<DEVICES_DIR>/lamp/mpr121.json` | device package (OTA) |
+| factory | `/var/lib/hal/mpr121.factory.json` (`HAL_MPR121_FACTORY_PATH`) | bench calibration, as root, then `POST /touch/reload` |
+| user | `/var/lib/hal/mpr121.user.json` (`HAL_MPR121_USER_PATH`) | web UI **Touch pad** page (`/touch/*`) |
+
+A layer may set only tuning keys: `touch_threshold`, `release_threshold`,
+`touch_thresholds` / `release_thresholds` (12 entries, one per electrode; they
+win over the global pair), `chip_debounce`, the baseline-tracking registers
+`nhdf`, `nclf`, `fdlf` (falling, 0x30-0x32) and `nhdt`, `nclt`, `fdlt` (touched,
+0x33-0x35), and `stuck_reset_s`. Wiring and gesture keys stay with the package;
+other keys are logged and ignored, and the bookkeeping keys `updated_at`,
+`source`, `sensitivity`, `noise`, `calibrated` and `note` are kept but never
+applied. A global threshold in a higher layer replaces lower per-electrode
+lists. A layer that is unreadable or whose merged result does not validate is
+logged and skipped as a whole (a bad user file falls back to the factory
+tuning, a bad factory file to the package); it never stops HAL booting. The
+log line `MPR121 tuning from layers` names which layer set each key.
+
+**Stuck-touch reset.** A pad reported touched for `stuck_reset_s` seconds
+(default 30, `0` = off) re-initializes the chip, which reloads every baseline
+from the current reading. With the slow falling tracking above and touched-state
+tracking off, a slow capacitance drift can otherwise cross the touch threshold
+and hold a phantom touch until HAL restarts. The reset also clears pending
+gestures; holds used by gestures (2 s) are far below the default.
+
+**I²C fault recovery.** An I²C error or over-current fault no longer stops
+polling for good: the poll thread re-opens the bus and re-initializes with
+1, 2, 4, 8, 16 s backoff (`i2c_recover_attempts`, default 5, `0` = stop at the
+first fault as before), then stops if every attempt fails.
+
+**Touch API** (`hal/routes/touch.py`, mounted whenever MPR121 wiring is
+declared, also via `/api/hardware/touch/*`):
+
+| Endpoint | Purpose |
+|---|---|
+| `GET /touch/config` | per-pad `touch` / `release` in effect, `sensitivity`, `noise`, `warnings` (pads whose threshold is at most idle noise + 1), `sources`, both layers |
+| `GET /touch/stream` | SSE ~10 Hz: per-pad `delta`, `touched`, `touch`, `release` |
+| `PUT /touch/config` | `{"sensitivity": 1..9}` scales the calibrated per-pad thresholds (`1.15^(s-5)`; 5 = calibrated, lower = lighter touch), or explicit `touch_thresholds` + `release_thresholds`; applied live and saved as the user layer |
+| `POST /touch/calibrate` | `{"seconds": 3..30, "save": true}`: measures idle noise per pad and sets touch = max(6, 2 x noise + 2), release about half; `save: false` only returns the suggestion; 409 if the strip was touched (noise >= 30) |
+| `DELETE /touch/config/user` | drop the user layer: back to the factory tuning |
+| `POST /touch/reload` | re-read all layers and apply them |
+
+Applying new tuning is live: the poll thread rewrites the chip between samples
+(stop, thresholds and tracking, run), which also reloads baselines; there is no
+HAL restart. The driver reads filtered data and baseline (0x04-0x1D, 0x1E-0x29)
+only while someone watches `/touch/stream` or calibration runs, at most every
+50 ms, so normal touch polling keeps its single status read.
+
 A missing file or board entry, or `"enabled": false`, skips MPR121 and retains
 the existing GPIO/TTP223 handlers. There is no legacy MPR121 bus fallback.
 Malformed enabled configuration rejects startup; simulation skips the hardware.

@@ -51,6 +51,10 @@ music_service = None
 tracker_service = None
 # Logging-only PolicyService until a body supplies a safety-gated executor.
 policy_service = None
+# MPR121 touch strip (None when absent or failed to start) and the
+# (device_dir, board_id) its tuning layers are loaded for; used by /touch/*.
+mpr121_handler = None
+mpr121_source = None
 
 # Resolved SAFETY.md bounds, or None when the device declares none.
 safety_policy = None

@@ -847,6 +847,45 @@ the old runtime did (task 23); how the arm gives way against a hand (task
 of one count as on lamp-4ace until a tilt is chosen and watched; and
 anything about leaning.
 
+## How the head follows (lamp-52e6, 2026-10-14)
+
+Read from the servos themselves, about every 16 ms, with the body stopped
+and the lamp standing, at the profile the body writes (goal speed 1000,
+acceleration 60). Once each.
+
+| Joint, goal moved | First movement | 90% of the way | Farthest | Comes to rest |
+|---|---|---|---|---|
+| Head pitch, 40 down | 85 ms | 181 ms | 108% | 3 counts past |
+| Head pitch, 40 up | 95 ms | 727 ms | 98% | 1 count short |
+| Head roll, 40 either way | 116 to 118 ms | never | 52 to 60% | 16 to 19 counts short |
+| Base yaw, 60 | 114 ms | never | 83% | 10 counts short |
+
+Roll and yaw hold a proportional gain of 16 (pitch 32); a servo with it
+stops well short of a small goal and pushes there, which is why the body
+gives a joint that has arrived its own position.
+
+A nod, head pitch down and back, asked of the servo directly:
+
+| Asked | Reached | When | Back within 3 counts |
+|---|---|---|---|
+| 25 counts (2.2 degrees), held 0.15 or 0.3 s | 12 to 14 counts, once 24 | 146 to 283 ms | 0.27 to 1.2 s |
+| 45 counts (4 degrees), held 0.15 s | 34 to 35 counts (3 degrees) | 179 to 210 ms | 0.31 to 0.37 s |
+| 45 counts, held 0.3 s | 38 to 41 counts | 158 to 212 ms | 0.62 s, or not within the second watched |
+
+The acceleration written (60, 100 or 150) changed little; the highest load
+was 320, under the 600 the joints that carry the lamp are allowed. So the
+quickest nod this head shows clearly is about 3 degrees down and back in
+about a third of a second, when the servo is asked 45 counts for 0.15 s. The
+body itself is slower than that: its commanded pose moves at `--speed`
+(120 counts a second on this lamp), so 45 counts take 0.375 s each way
+before the servo is involved, and anything under 20 counts from where a
+joint rests is not asked at all.
+
+**Not shown:** whether such a nod looks soft and natural to a person (no one
+has watched it), its cost in heat over many nods, and the folded lamp's
+nods. The raw readings are in
+[`verification/head-follow-lamp-52e6-20261014/`](verification/head-follow-lamp-52e6-20261014/README.md).
+
 ## Verification without a lamp
 
 Host tests, `cargo test -p lamp-body` (240 passed, 0 failed, on macOS):

@@ -18,7 +18,9 @@
 //! - Every goal is within a fixed reach of its home (a pose given at start,
 //!   or else the pose found), and the head's pitch also within a fixed
 //!   absolute window short of the base. A head found outside the reach of a
-//!   given home is first brought into it, never moved away from it.
+//!   given home is first brought into it, never moved away from it. Told
+//!   to wake (`Limits::wake`), a joint found out of where it may start, up
+//!   to [`WAKE_REACH`] from that home, is first brought there slowly.
 //! - After every step it reads all five joints. A load over its bound, a
 //!   joint that does not follow, a status byte that changes, a shoulder or
 //!   elbow that moves, a joint that stays hot or a wire that is not exactly
@@ -91,6 +93,22 @@ const WIRE_STEPS: u8 = 25;
 /// lamp with the folded reach (nine tenths of 40 counts). More than
 /// [`WAKE_COUNTS`], or it would not be made at all.
 const GLANCE: f32 = 36.0;
+
+/// Waking (`Limits::wake`): the farthest a commanded joint may be found
+/// from its home and still be brought there, about 35 degrees. A head
+/// resting on the base was found 145 counts below lamp-4ace's home (2,095
+/// for 1,950); lamp-52e6's home is 1,771, so its head on the base would be
+/// some 300 away. Beyond this a joint is somewhere no lamp has been seen,
+/// and it is refused as before. At the wake's speed the whole of it takes
+/// 31 s, inside the 90 s systemd allows a service to say it is ready.
+pub const WAKE_REACH: u16 = 400;
+/// The fastest a joint moves while it wakes, counts a second: two fifths of
+/// the body's own 50, under two degrees a second.
+const WAKE_SPEED: f32 = 20.0;
+/// A wake begins with a stir of at most this many counts toward home, more
+/// than [`WAKE_COUNTS`] so that a servo starts for it, and then a pause.
+const WAKE_STIR: f32 = 24.0;
+const WAKE_PAUSE: f32 = 1.0;
 
 pub const COMMANDED: [Joint; 3] = [Joint::WristPitch, Joint::WristRoll, Joint::BaseYaw];
 /// A gesture asked for while the lamp is still rising waits this long for it
@@ -298,6 +316,11 @@ pub struct Limits {
     /// were 18 to 39 counts from where the joints were. Off: torque is
     /// never written to such a joint.
     pub torque_on: bool,
+    /// Bring a commanded joint found out of where it may start, up to
+    /// [`WAKE_REACH`] from a home given at start, back to that home slowly
+    /// before anything else, instead of refusing: see [`wake_pose`]. Off:
+    /// such a joint is refused.
+    pub wake: bool,
     /// A load above this on `load_steps` steps in a row makes the joint give
     /// way, and ends the run if it stays or comes back too often.
     pub load: [u16; 3],
@@ -417,6 +440,7 @@ impl Limits {
         start_reach: 60,
         force: None,
         torque_on: false,
+        wake: false,
     };
 }
 
@@ -531,6 +555,8 @@ pub struct BodyReport {
     pub torque_writes: u8,
     /// The joints found without torque that it took hold of.
     pub torque_given: Vec<&'static str>,
+    /// What waking did, if it had to.
+    pub woke: Option<Woke>,
     /// Writes of the force limit, and the limit every joint it was written
     /// to read back with.
     pub force_writes: u8,
@@ -550,6 +576,47 @@ pub struct BodyReport {
     /// Times it shifted by itself while standing at rest.
     pub idles: u32,
     pub stop: Stop,
+}
+
+/// What the wake did: the joints it moved, where each was found and where
+/// it brought it, in counts, and how long that took.
+#[derive(Clone, Debug, PartialEq, Serialize)]
+pub struct Woke {
+    pub joints: Vec<&'static str>,
+    pub from: Vec<u16>,
+    pub to: Vec<u16>,
+    pub seconds: f32,
+}
+
+/// Where a waking lamp has its three joints `elapsed` seconds into the
+/// wake from `from` to `to`, and whether the wake is over. First a stir of
+/// up to [`WAKE_STIR`] counts, then [`WAKE_PAUSE`], then the rest of the
+/// way, each eased at both ends and timed so that the joint with the
+/// farthest to go moves at [`WAKE_SPEED`] at most. Every joint only ever
+/// moves from where it was found toward where it goes.
+fn wake_pose(from: [u16; 3], to: [u16; 3], elapsed: f32) -> ([f32; 3], bool) {
+    let way: [f32; 3] = std::array::from_fn(|index| f32::from(to[index]) - f32::from(from[index]));
+    let stir = way.map(|way| way.clamp(-WAKE_STIR, WAKE_STIR));
+    let rest: [f32; 3] = std::array::from_fn(|index| way[index] - stir[index]);
+    // An eased move peaks at one and a half times its mean speed.
+    let length =
+        |moves: [f32; 3]| 1.5 * moves.iter().fold(0.0f32, |m, d| m.max(d.abs())) / WAKE_SPEED;
+    let (first, last) = (length(stir), length(rest));
+    let share = |time: f32, length: f32| {
+        if length > 0.0 {
+            smooth(time / length)
+        } else {
+            1.0
+        }
+    };
+    let (stirred, risen) = (
+        share(elapsed, first),
+        share(elapsed - first - WAKE_PAUSE, last),
+    );
+    let pose = std::array::from_fn(|index| {
+        f32::from(from[index]) + stir[index] * stirred + rest[index] * risen
+    });
+    (pose, elapsed >= first + WAKE_PAUSE + last)
 }
 
 fn checksum(body: &[u8]) -> u8 {
@@ -875,6 +942,122 @@ impl<P: PortIo, R: Runtime> Bus<'_, P, R> {
     }
 }
 
+/// Bring the three joints from `from` to `to` along [`wake_pose`], the arm
+/// held at `arm` for a body that may stand. Every step it reads all five
+/// joints: a status byte that changes, a shoulder or an elbow that moves, a
+/// commanded joint over its load or off its goal for as many steps as in
+/// the run, or a wire that fails for half a second ends it. The wake goes
+/// on only on steps whose write and read both went through, so a missed
+/// step never makes the next goal jump. Returns what the joints read at
+/// the end.
+fn wake<P: PortIo, R: Runtime>(
+    bus: &mut Bus<'_, P, R>,
+    report: &mut BodyReport,
+    limits: &Limits,
+    (from, to): ([u16; 3], [u16; 3]),
+    arm: Option<[u16; 2]>,
+    found: [Sample; 5],
+) -> Result<[Sample; 5], Stop> {
+    let started = bus.runtime.now();
+    let (mut ticks, mut done) = (0u32, 0u32);
+    let mut written = from;
+    let (mut misses, mut over, mut off) = (0u8, [0u8; 3], [0u8; 3]);
+    loop {
+        ticks += 1;
+        let due = started + TICK * ticks;
+        if !matches!(bus.runtime.cancelled(), Ok(false)) {
+            return Err(Stop::Cancelled);
+        }
+        let (pose, over_now) = wake_pose(from, to, TICK.as_secs_f32() * done as f32);
+        let goals = pose.map(|goal| goal.round() as u16);
+        let outcome = if goals == written {
+            Ok(())
+        } else {
+            bus.send_goals(goals, arm).map(|()| {
+                written = goals;
+                report.goal_writes += 1;
+                report.moved = true;
+            })
+        };
+        match outcome.and_then(|()| bus.samples()) {
+            Err(detail) => {
+                report.missed_reads += 1;
+                misses += 1;
+                if misses >= WIRE_STEPS {
+                    return Err(Stop::Bus {
+                        detail: format!("waking: {detail}"),
+                    });
+                }
+            }
+            Ok(now) => {
+                misses = 0;
+                report.last = Some(now);
+                for joint in Joint::ALL {
+                    let (was, is) = (found[joint.index()], now[joint.index()]);
+                    if is.status != was.status {
+                        return Err(Stop::Status {
+                            joint: joint.id(),
+                            found: was.status,
+                            now: is.status,
+                        });
+                    }
+                }
+                // The wake never moves the arm.
+                for joint in ARM {
+                    let (was, is) = (found[joint.index()], now[joint.index()]);
+                    if was.position.abs_diff(is.position) > limits.bystander_drift {
+                        return Err(Stop::Drift {
+                            joint: joint.id(),
+                            found: was.position,
+                            now: is.position,
+                        });
+                    }
+                }
+                for (index, joint) in COMMANDED.iter().enumerate() {
+                    let is = now[joint.index()];
+                    report.peak_load[index] = report.peak_load[index].max(is.load);
+                    over[index] = if is.load > limits.load[index] {
+                        over[index].saturating_add(1)
+                    } else {
+                        0
+                    };
+                    off[index] = if written[index].abs_diff(is.position) > limits.tracking {
+                        off[index].saturating_add(1)
+                    } else {
+                        0
+                    };
+                    if over[index] >= limits.load_steps.max(1) {
+                        return Err(Stop::Load {
+                            joint: joint.id(),
+                            load: is.load,
+                        });
+                    }
+                    if off[index] >= limits.tracking_steps {
+                        return Err(Stop::Tracking {
+                            joint: joint.id(),
+                            goal: written[index],
+                            position: is.position,
+                        });
+                    }
+                }
+                if over_now {
+                    let moved: Vec<usize> =
+                        (0..3).filter(|index| from[*index] != to[*index]).collect();
+                    report.woke = Some(Woke {
+                        joints: moved.iter().map(|index| COMMANDED[*index].name()).collect(),
+                        from: moved.iter().map(|index| from[*index]).collect(),
+                        to: moved.iter().map(|index| to[*index]).collect(),
+                        seconds: (bus.runtime.now() - started).as_secs_f32(),
+                    });
+                    return Ok(now);
+                }
+                done += 1;
+            }
+        }
+        bus.sleep_until(due);
+    }
+}
+
 /// Run the body until it is cancelled or something is not as expected.
 /// `news` is asked once a step for the latest mood and never waits. `home`
 /// is the pitch, roll and yaw every gesture is an offset from; without one
@@ -989,6 +1172,7 @@ pub(crate) fn run_alive(
         standing_refused: None,
         torque_writes: 0,
         torque_given: Vec::new(),
+        woke: None,
         force_writes: 0,
         force: None,
         stood: false,
@@ -1113,6 +1297,9 @@ pub(crate) fn run_alive(
         }
     }
     let found_pose = COMMANDED.map(|joint| found[joint.index()].position);
+    // Only a home that was given is one to wake to: without it, the home is
+    // wherever the lamp was found.
+    let may_wake = limits.wake && home.is_some();
     let home = home.unwrap_or(found_pose);
     report.home = Some(home);
     for (index, joint) in COMMANDED.iter().enumerate() {
@@ -1168,9 +1355,14 @@ pub(crate) fn run_alive(
             } else if sample.temperature >= Standing::TEMPERATURE {
                 why.get_or_insert(format!("{joint} is at {} already", sample.temperature));
             } else if off > f32::from(Standing::FOUND_SLACK) {
-                why.get_or_insert(format!(
-                    "{joint} is {off:.0} counts off the way between folded and stood up"
-                ));
+                let mut said =
+                    format!("{joint} is {off:.0} counts off the way between folded and stood up");
+                // Which way down from there clears the head, the base and
+                // the desk is not known, and these two carry the lamp.
+                if limits.wake {
+                    said.push_str("; waking does not lower an arm found off its way");
+                }
+                why.get_or_insert(said);
             }
         }
         match why {
@@ -1199,8 +1391,15 @@ pub(crate) fn run_alive(
     };
     // The window beside the base is for a head that is beside the base.
     let beside_base = head_share(stand) <= 0.0;
-    for pitch in [home[0], found_pose[0]] {
+    // Waking: a joint found where it may not start, but within WAKE_REACH
+    // of its home, is brought there before anything else (below).
+    let mut to_wake = false;
+    for (pitch, woken) in [(home[0], false), (found_pose[0], may_wake)] {
         if beside_base && !(limits.pitch_home.0..=limits.pitch_home.1).contains(&pitch) {
+            if woken {
+                to_wake = true;
+                continue;
+            }
             report.stop = refused(format!(
                 "head pitch {pitch} is outside {}..={}",
                 limits.pitch_home.0, limits.pitch_home.1
@@ -1217,7 +1416,15 @@ pub(crate) fn run_alive(
         } else {
             limits.start_reach.max(150)
         };
-        if apart > f32::from(allowed) {
+        if may_wake && apart > f32::from(allowed.max(WAKE_REACH)) {
+            report.stop = refused(format!(
+                "{joint} is {apart:.0} counts from its home, more than waking brings back ({WAKE_REACH})"
+            ));
+            return report;
+        }
+        if may_wake && apart > f32::from(allowed) {
+            to_wake = true;
+        } else if apart > f32::from(allowed) {
             report.stop = refused(format!("{joint} is {apart:.0} counts from its home"));
             return report;
         }
@@ -1422,6 +1629,39 @@ pub(crate) fn run_alive(
             }
         }
     }
+
+    // Woken from wherever it was found: brought home slowly, the way
+    // something alive wakes, before the body takes it as found.
+    let found_pose = if to_wake {
+        let to = home_found.map(|count| count.round() as u16);
+        match wake(
+            &mut bus,
+            &mut report,
+            &limits,
+            (found_pose, to),
+            standing.map(|_| arm_written),
+            found,
+        ) {
+            Ok(now) => {
+                found = now;
+                COMMANDED.map(|joint| found[joint.index()].position)
+            }
+            Err(stop) => {
+                // Stop pushing: each goal becomes where its joint is now.
+                if let Some(last) = report.last {
+                    let hold = COMMANDED.map(|joint| last[joint.index()].position);
+                    if bus.send_goals(hold, standing.map(|_| arm_written)).is_ok() {
+                        report.goal_writes += 1;
+                        report.held_at = Some(hold);
+                    }
+                }
+                report.stop = stop;
+                return report;
+            }
+        }
+    } else {
+        found_pose
+    };
 
     // The reach around home, and the absolute window for the head's pitch
     // while the head is beside the base. A lamp that stands carries its

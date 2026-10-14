@@ -4,7 +4,7 @@
 use lamp_body::calibration::UnitId;
 use std::{ffi::OsString, path::PathBuf};
 
-const USAGE: &str = "lamp-body --device ABSOLUTE_PATH --unit-id EXPLICIT_ID --lock-directory PRIVATE_ABSOLUTE_DIRECTORY --mood-socket ABSOLUTE_PATH [--home PITCH,ROLL,YAW] [--reach UP,DOWN,ROLL,YAW] [--speed COUNTS_PER_SECOND] [--servo-speed N] [--servo-acceleration N] [--stand PITCH,ROLL,YAW,SHOULDER,ELBOW --folded-arm SHOULDER,ELBOW [--stand-share PERCENT] [--stand-seconds N] [--awake-seconds N] [--arm-load SHOULDER,ELBOW] [--idle on|off]] [--gaze-socket ABSOLUTE_PATH --gaze YAW,PITCH [--gaze-reach YAW,PITCH]] [--stand-roll COUNTS] [--force-limit N] [--torque on|off]\n\nOwns the servo port and moves head pitch, head roll and base yaw a few degrees around\na home pose (the one given, in encoder counts, or else where they are found), for the mood\nit is told on the socket. Without --stand it never touches the shoulder or the elbow, and\nwithout --stand or --torque on it never touches torque. With --stand (which needs --home and --folded-arm) it also raises the shoulder and\nthe elbow to that pose when a mood other than rest arrives, folds them down again\n--awake-seconds after the last one, and writes torque once to a shoulder or elbow found\nwith an old overload latched. With --gaze-socket and --gaze it takes where a face is from\nlamp-eyes on that socket ({\"face\":{...}} or {\"face\":null}) and, while the lamp listens\nor speaks, turns the head to it in small corrections: --gaze is the counts of base yaw and of\nhead pitch, signed, that bring a face from the right and from the bottom edge of the picture\nto its middle. Refuses to start unless the three joints have torque on, a clear\nstatus and the head is inside its start window. With --torque on it first takes hold of a\njoint found without torque (the three always, the shoulder and the elbow with --stand):\nits goal is written as where it is, then torque on, and if it then moves more than 12 counts\nit does not start. Stops at the first surprise, holding\nwhere it is. Ends on SIGINT or SIGTERM after easing back to where it started.\nThe mood socket takes datagrams of JSON: {\"mood\":\"resting|listening|thinking|speaking\",\"level\":0..255}.\nA lamp standing at its full height also makes a gesture asked for there: {\"gesture\":\"nod\"}\n(nod, headshake, greeting, laugh, shy, stretching).\nPrints one JSON report when it ends.\n";
+const USAGE: &str = "lamp-body --device ABSOLUTE_PATH --unit-id EXPLICIT_ID --lock-directory PRIVATE_ABSOLUTE_DIRECTORY --mood-socket ABSOLUTE_PATH [--home PITCH,ROLL,YAW] [--reach UP,DOWN,ROLL,YAW] [--speed COUNTS_PER_SECOND] [--servo-speed N] [--servo-acceleration N] [--stand PITCH,ROLL,YAW,SHOULDER,ELBOW --folded-arm SHOULDER,ELBOW [--stand-share PERCENT] [--stand-seconds N] [--awake-seconds N] [--arm-load SHOULDER,ELBOW] [--idle on|off]] [--gaze-socket ABSOLUTE_PATH --gaze YAW,PITCH [--gaze-reach YAW,PITCH]] [--stand-roll COUNTS] [--force-limit N] [--torque on|off] [--wake on|off]\n\nOwns the servo port and moves head pitch, head roll and base yaw a few degrees around\na home pose (the one given, in encoder counts, or else where they are found), for the mood\nit is told on the socket. Without --stand it never touches the shoulder or the elbow, and\nwithout --stand or --torque on it never touches torque. With --stand (which needs --home and --folded-arm) it also raises the shoulder and\nthe elbow to that pose when a mood other than rest arrives, folds them down again\n--awake-seconds after the last one, and writes torque once to a shoulder or elbow found\nwith an old overload latched. With --gaze-socket and --gaze it takes where a face is from\nlamp-eyes on that socket ({\"face\":{...}} or {\"face\":null}) and, while the lamp listens\nor speaks, turns the head to it in small corrections: --gaze is the counts of base yaw and of\nhead pitch, signed, that bring a face from the right and from the bottom edge of the picture\nto its middle. Refuses to start unless the three joints have torque on, a clear\nstatus and the head is inside its start window. With --torque on it first takes hold of a\njoint found without torque (the three always, the shoulder and the elbow with --stand):\nits goal is written as where it is, then torque on, and if it then moves more than 12 counts\nit does not start. With --wake on and --home, a joint found outside where it may start\n(the head out of its start window, or a joint farther from home than it may be found) but within\n400 counts of home is not refused: before anything else it is brought home slowly, a small stir,\na pause, then an eased rise at 20 counts a second at most, never away from home; an arm found off\nits way is not lowered, and the lamp runs folded. Stops at the first surprise, holding\nwhere it is. Ends on SIGINT or SIGTERM after easing back to where it started.\nThe mood socket takes datagrams of JSON: {\"mood\":\"resting|listening|thinking|speaking\",\"level\":0..255}.\nA lamp standing at its full height also makes a gesture asked for there: {\"gesture\":\"nod\"}\n(nod, headshake, greeting, laugh, shy, stretching).\nPrints one JSON report when it ends.\n";
 
 #[derive(Debug)]
 struct Arguments {
@@ -22,6 +22,7 @@ struct Arguments {
     stand_roll: Option<u16>,
     force_limit: Option<u16>,
     torque_on: bool,
+    wake: bool,
 }
 
 /// What `--gaze-socket`, `--gaze` and `--gaze-reach` said.
@@ -84,6 +85,7 @@ fn parse(args: impl IntoIterator<Item = OsString>) -> Result<Option<Arguments>, 
     let mut stand_roll = None;
     let mut force_limit = None;
     let mut torque = None;
+    let mut wake = None;
     while let Some(key) = args.next() {
         if key == "--help" {
             if device.is_some()
@@ -108,6 +110,7 @@ fn parse(args: impl IntoIterator<Item = OsString>) -> Result<Option<Arguments>, 
                 || stand_roll.is_some()
                 || force_limit.is_some()
                 || torque.is_some()
+                || wake.is_some()
                 || args.next().is_some()
             {
                 return Err("--help must be used alone");
@@ -244,6 +247,13 @@ fn parse(args: impl IntoIterator<Item = OsString>) -> Result<Option<Arguments>, 
                     _ => return Err("--torque is on or off"),
                 });
             }
+            Some("--wake") if wake.is_none() => {
+                wake = Some(match value.to_str() {
+                    Some("on") => true,
+                    Some("off") => false,
+                    _ => return Err("--wake is on or off"),
+                });
+            }
             Some("--stand-roll") if stand_roll.is_none() => {
                 stand_roll = Some(
                     value
@@ -334,6 +344,7 @@ fn parse(args: impl IntoIterator<Item = OsString>) -> Result<Option<Arguments>, 
         stand_roll,
         force_limit,
         torque_on: torque.unwrap_or(false),
+        wake: wake.unwrap_or(false),
     };
     if result.stand_roll.is_some() && result.standing.is_none() {
         return Err("--stand-roll needs --stand");
@@ -428,6 +439,7 @@ fn run(arguments: Arguments) -> Result<bool, Box<dyn std::error::Error>> {
         arguments.stand_roll,
         arguments.force_limit,
         arguments.torque_on,
+        arguments.wake,
     );
     Err("the body requires Linux; no device was opened".into())
 }
@@ -508,6 +520,7 @@ fn run(arguments: Arguments) -> Result<bool, Box<dyn std::error::Error>> {
         stand_roll: arguments.stand_roll.map_or(folded.stand_roll, f32::from),
         force: arguments.force_limit,
         torque_on: arguments.torque_on,
+        wake: arguments.wake,
         ..limits
     };
     // One line to the journal on each change of mood, and twice a second
@@ -685,6 +698,12 @@ fn run(arguments: Arguments) -> Result<bool, Box<dyn std::error::Error>> {
     );
     // Again for a body that stopped by itself; a second time is harmless.
     notify.stopping();
+    if let Some(woke) = result.body.as_ref().and_then(|body| body.woke.as_ref()) {
+        eprintln!(
+            "lamp-body: woke {:?} from {:?} to {:?} in {:.1} s",
+            woke.joints, woke.from, woke.to, woke.seconds
+        );
+    }
     let _ = std::fs::remove_file(&arguments.mood_socket);
     if let Some(choice) = &arguments.gaze {
         let _ = std::fs::remove_file(&choice.socket);
@@ -948,6 +967,25 @@ mod tests {
             &["--torque"],
             &["--torque", "on", "--torque", "on"],
             &["--torque", "off", "--torque", "on"],
+        ] {
+            assert!(with(refused).is_err(), "{refused:?}");
+        }
+    }
+
+    /// Waking from wherever the lamp is found is off unless asked for.
+    #[test]
+    fn wake_is_on_or_off_and_off_unless_given() {
+        let with = |more: &[&'static str]| parse(args(&[&FULL[..], more].concat()));
+        assert!(!with(&[]).unwrap().unwrap().wake);
+        assert!(with(&["--wake", "on"]).unwrap().unwrap().wake);
+        assert!(!with(&["--wake", "off"]).unwrap().unwrap().wake);
+        for refused in [
+            &["--wake", "1"][..],
+            &["--wake", "ON"],
+            &["--wake", ""],
+            &["--wake"],
+            &["--wake", "on", "--wake", "on"],
+            &["--wake", "on", "--help"],
         ] {
             assert!(with(refused).is_err(), "{refused:?}");
         }

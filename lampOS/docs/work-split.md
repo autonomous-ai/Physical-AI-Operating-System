@@ -164,18 +164,20 @@ has it:
 |---|---|---|---|---|
 | 1 | The end-of-turn model in a tenth of a second | `turn-end-fast` | Second | taken 2026-10-14 |
 | 2 | Try to break last night's changes to the voice | `voice-review` | Second | done 2026-10-14: on `lamp-voice` with its mends |
-| 3 | A listener for "stop" under the lamp's own voice | `stop-word` | Second | open |
+| 3 | A listener for "stop" under the lamp's own voice | `stop-word` | Second | taken 2026-10-14 |
 | 5 | The name, heard as a bare "Lamp" | `bare-name` | Second | open |
 | 10 | A reference that follows the microphone's clock | `reference-clock` | Second | open |
 | 9 | Faster answers: what exists | `faster-answers` | Second | open |
-| 4 | Expression: one part that authors what the lamp shows | `expression` | Third | taken 2026-10-14 |
-| 7 | The button and the touch pad | `controls` | Third | open |
+| 4 | Expression: one part that authors what the lamp shows | `expression` | Third | done 2026-10-14: on `lamp-voice`, run on the lamp watching only; the wiring is the first builder's |
+| 7 | The button and the touch pad | `controls` | Third | taken 2026-10-14 |
 | 12 | Starting, setting up and updating a lamp | `surround` | Third | open |
 | 6 | Reminders and timers | `schedule` | Third | open |
 | 8 | A shared log, settings, and reports from the parts that give none | `defaults` | Third | open |
 | 11 | One task out to an agent and back, through Harness | `tasks` | Third | open |
-| 13 | Memory across days | `memory-days` | Fourth | taken 2026-10-14 |
-| 14 | Whom is it said to: what exists | `said-to-whom` | Fourth | open |
+| 13 | Memory across days | `memory-days` | Fourth | done on `lamp-fourth` 2026-10-14; the first builder takes it next |
+| 14 | Whom is it said to: what exists | `said-to-whom` | Fourth | taken 2026-10-14 |
+| 15 | The lamp keeps its own records within a bound | `records-bound` | Fourth | open |
+| 16 | A check that the lamp cannot lean too far | `lean-check` | Fourth | open |
 
 ## 1. The end-of-turn model in a tenth of a second
 
@@ -615,9 +617,97 @@ camera that reports whether a face is turned to it, the name heard, a
 decision model that is asked typed questions) and what it would take.
 Figures that are published and not measured here are marked as such.
 
+## 15. The lamp keeps its own records within a bound
+
+Document: `docs/records.md` (new). Crate: new `crates/records`
+(`lamp-records`).
+
+**Why.** Found on lamp-4ace on 2026-10-14: its disk is 88% full. The
+voice makes a folder for every start of its service under
+`/var/lib/lampOS/voice/sessions/` (612 folders, 1.1 GB, about 0.4 GB a
+day in an office) and nothing ever removes one. Other parts write too
+(`lamp-bus record`, the journal). A customer's lamp runs for years and
+nobody logs in to it.
+
+**Wanted.** One small part, run on a timer, that keeps what the lamp
+writes for itself within a bound of size and of age, set in one file,
+with defaults a customer's lamp can live with (propose them and say why;
+500 MB and 14 days for the voice's records is a place to start). Oldest
+first. It never touches the folder of a service that is running (the
+voice's is `…/sessions/${INVOCATION_ID}`; find a way to know which that
+does not rest on a guess), never follows a link out of the folders it
+was given, never deletes anything outside them, and refuses a folder
+that is not of a kind it knows. It says what it removed and how full the
+disk is on `diagnostics`. A dry run prints what it would remove and
+removes nothing. What the lamp remembers is not its business: the memory
+keeps and forgets by its own rules.
+
+**Tests.** On a made-up tree, with the clock and the sizes passed in:
+the bound by size and the bound by age; the running session kept
+however old it is; a link that points out; a folder that goes away
+while it works; a disk that says it is full; a dry run that changes
+nothing.
+
+**Hand back:** the crate, a unit and a timer for `deploy/`, the
+document, and the one command to run on the lamp (the dry run) with what
+it should print there. Most likely wrong on the lamp: what counts as in
+use.
+
+## 16. A check that the lamp cannot lean too far
+
+Crate: new `crates/lean` (`lamp-lean`), a library the body can call;
+`crates/body` itself is the first builder's. Document: `docs/lean.md`
+(new).
+
+**Why.** The old software refused any recorded movement that leaned the
+lamp too far, after a lamp tipped onto its side on 4 September
+(`docs/v1-verdicts.md` names the check). This one has none. Its
+movements today are a few small poses; Expression (task 4) and
+everything after it add more.
+
+**Wanted.** From the five joint angles, the lengths of the lamp's parts
+and their masses: where the lamp's centre of mass is over its base, and
+whether that is inside the base's footprint by a margin. Arithmetic
+only, no hardware. The lengths, masses and footprint are data in one
+file. The first builder measures the real ones, so use stand-ins marked
+as stand-ins, and say exactly which measurements are needed and how to
+take each with a ruler and a kitchen scale. One function for a pose,
+one for every step of a planned movement, and one for a whole clip of
+Expression's offsets on top of a posture, so that a catalogue can be
+checked before it is used; each answers with how far inside or outside
+the margin it is. Read V1's check first and say what is taken from it.
+
+**Tests.** Poses with answers worked out by hand; folded and standing
+are inside; an arm stretched out level is outside; farther out is never
+safer; nonsense in is refused.
+
+**Hand back:** the crate, the list of measurements, and where the body
+would call it, described and not written. Most likely wrong on the
+lamp: the masses.
+
 ## What the lamp showed
 
 Newest first. Each builder's own notes are in its log, on its branch.
+
+**2026-10-14, task 4, Expression.** Taken onto `lamp-voice` as the third
+builder made it (`6226dae33`), nothing in it changed. On the first
+builder's Mac its 67 tests and the message types' 25 pass and clippy is
+clean; built for the lamp, they pass under emulation too. On lamp-4ace
+itself, at 08:56:
+
+| What was run | What the log said to expect | What the lamp showed |
+|---|---|---|
+| `lamp-expression replay` of the written scenario, switched on, two simulated seconds | 42 inputs, 101 steps, none refused; the glance back at zero at 1.16 s, 40 ms before the written first sound | The same: 42 taken, 0 refused, 101 steps, yaw at zero from 1,160,000 us |
+| `replay_cost 100` (make the planner, read the scenario, plan two seconds, write the plan to nowhere) | On a desktop: median 0.19 ms | Median 0.78 ms, worst 1.26 ms; held to the board's small cores, 1.15 ms and 1.74 ms |
+
+So the planner is no load on the board: a hundred steps cost what one
+step is allowed. Nothing moved and nothing was lit; it opens no
+hardware. What is not there yet is the first builder's: the voice's
+three publications (`voice/timing`, `voice/activity`, `voice/playout`),
+and the body and the ring taking its requests, each behind its own
+switch. Noted for that: the written nod rises 0.035 rad at its highest,
+about 23 counts of the head's servo, just over the body's 20-count
+deadband, which is the first thing the log says to look at.
 
 **2026-10-14, task 2, the review of the voice changes
 ([voice-review-2026-10-14.md](voice-review-2026-10-14.md)).** Taken onto

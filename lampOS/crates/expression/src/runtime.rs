@@ -215,10 +215,18 @@ pub fn standing(counts: &Counts, fault: Option<&str>, state: &ExpressionState) -
         (Level::Warn, fault.to_owned())
     } else if !state.enabled {
         (Level::Ok, noted("shadow mode; no actuator requests"))
-    } else if !state.missing.is_empty() {
+    } else if state.missing.iter().any(|item| !waits_within_a_turn(item)) {
         (
             Level::Warn,
             format!("waiting for {}", state.missing.join(", ")),
+        )
+    } else if !state.missing.is_empty() {
+        (
+            Level::Ok,
+            noted(&format!(
+                "planning; this turn waits for {}",
+                state.missing.join(", ")
+            )),
         )
     } else {
         (
@@ -226,6 +234,21 @@ pub fn standing(counts: &Counts, fault: Option<&str>, state: &ExpressionState) -
             noted("planning expression; hardware execution is not confirmed"),
         )
     }
+}
+
+/// What a turn waits for in its ordinary course: the first sound of an
+/// answer not yet scheduled, the level of sound not yet heard. Neither is
+/// something the planner lacks, and neither is a warning for the lamp. On
+/// lamp-4ace on 2026-10-14, acting in a talkative office where most turns
+/// get no answer, "waiting for scheduled first audio" had the lamp report
+/// a warning most of the time.
+fn waits_within_a_turn(item: &str) -> bool {
+    matches!(
+        item,
+        "scheduled first audio"
+            | "current actual playout level"
+            | "fresh current or recent playout level"
+    )
 }
 
 #[derive(Default)]

@@ -320,6 +320,25 @@ fn a_note_about_one_turn_is_not_a_warning_and_a_fault_or_a_lacking_input_is() {
     let (level, message) = runtime::standing(&well, None, &state(true, &[], &[note]));
     assert_eq!(level, Level::Ok);
     assert!(message.ends_with(&format!("noted: {note}")), "{message}");
+    // What a turn waits for in its ordinary course is no warning: most
+    // turns in an office get no answer and never schedule a first sound.
+    let (level, message) =
+        runtime::standing(&well, None, &state(true, &["scheduled first audio"], &[]));
+    assert_eq!(level, Level::Ok);
+    assert_eq!(
+        message,
+        "planning; this turn waits for scheduled first audio"
+    );
+    // With an input really missing beside it, still a warning.
+    assert_eq!(
+        runtime::standing(
+            &well,
+            None,
+            &state(true, &["scheduled first audio", "measured body lag"], &[])
+        )
+        .0,
+        Level::Warn
+    );
     // A fault of the planner's own is a warning in either mode, and so is
     // a bus that fails.
     for enabled in [false, true] {

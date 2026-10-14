@@ -21,7 +21,7 @@ Group=root
 Slice=system.slice
 WorkingDirectory=/
 UMask=0077
-ExecStart=/opt/lampOS/releases/02474c28a0ed0daa99973f2e54959e977e1abda3780d059385c34ab1830a2e91/lamp-voice serve /etc/lampOS/voice/provider.json /var/lib/lampOS/voice/sessions/${INVOCATION_ID} --noise-suppression off --turn-taking duplex --faint-floor-db -28 --microphone mic2 --reference-clock capture --reference-recovery off --provider-continuation kept-start --playout-start-ms 350 --ring-channel-ceiling 24 --end-silence-ms 600
+ExecStart=/opt/lampOS/releases/beb2ecdfc75fee3b6662620054effeab30da491b512e094364827e85deceb95f/lamp-voice serve /etc/lampOS/voice/provider.json /var/lib/lampOS/voice/sessions/${INVOCATION_ID} --noise-suppression off --turn-taking duplex --faint-floor-db -28 --microphone mic2 --reference-clock capture --reference-recovery off --provider-continuation kept-start --playout-start-ms 350 --ring-channel-ceiling 24 --end-silence-ms 600 --controls-stop --endpoint smart-turn-fast
 # The microphone and speaker workers may not wait behind other work on the lamp: a read held up
 # for 10 ms, or a reference 20 ms late, ends the service (by design: the echo canceller's timing
 # is then unknown). With every core busy for 40 s (2026-10-13, twelve busy loops) the service
@@ -48,6 +48,32 @@ RuntimeDirectory=lampos-voice
 RuntimeDirectoryMode=0700
 RuntimeDirectoryPreserve=yes
 Environment=LAMP_THREAD_FILE=/run/lampos-voice/thread.json
+# Since 2026-10-14: in a busy room every answer needs a sign it was meant for the lamp (docs/attention.md).
+Environment=LAMP_ATTENTION=busy-near
+# Since 2026-10-14 18:46 (the build of 41d09542f): busy-near is busy, and a name heard at 0.95 or more
+# with the room microphone 18 dB over its floor during the request is a call (docs/attention.md).
+# A stuffy room is told to the model once, beside a request, in a room that is not busy, at most every 3 h (docs/air.md).
+Environment=LAMP_AIR_FACTS=on
+# Said to the lamp by name and nothing answered: the model is told the name was heard (docs/attention.md).
+Environment=LAMP_SECOND_LOOK=on
+# The lamp's name heard as a request begins: the model is told so beside what it hears (docs/attention.md).
+# Off on 2026-10-14 from 08:15 until the build of a3e36ce93: a note sent in a request that was then given up reached the next request (docs/voice-review-2026-10-14.md). Mended: the note is written just before the end of its request's sound.
+Environment=LAMP_NAME_NOTE=on
+Environment=LAMP_NAME_NOTE_BUSY=face
+# The voice says its timing, the person's speech and its own sound on the bus, for the part that plans what the lamp shows (docs/expression.md). Nothing acts on it yet.
+Environment=LAMP_EXPRESSION_OUT=on
+Environment=LAMP_ACTIONS_DIR=/run/lampos-actions
+Environment=LAMP_MEMORY_SOCKET=/run/lampos-memory/memory.sock
+Environment=LAMP_FAINT_HOLD_MS=400
+Environment=LAMP_BUS=on
+# What the microphone hears also goes on the bus (mic2/audio), for the part that hears the lamp's name
+# (lampOS/docs/name.md). The one topic that carries sound; nothing on the lamp writes it down.
+Environment=LAMP_BUS_AUDIO=on
+Environment=LAMP_TOOLS=on
+# The model asks the lamp's clock for the time (docs/tools.md).
+Environment=LAMP_CLOCK=on
+Environment=LAMP_SESSION_FACT=on
+Environment=LAMP_ROOM_FACTS=on
 Environment=LAMP_BODY_MOOD_SOCKET=/run/lampos-body/mood.sock
 # And tell the eyes (lamp-eyes.service) they may look, while the microphone is permitted.
 Environment=LAMP_EYES_PERMIT_SOCKET=/run/lampos-eyes/permit.sock

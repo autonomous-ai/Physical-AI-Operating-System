@@ -252,6 +252,21 @@ since 15:21: a wake that ends early ends no worse than the refusal
 before it, and each of systemd's three restarts begins from where the
 last one held.
 
+Again on lamp-4ace that evening, 19:47 to 19:49 (first builder), with the
+body then running there (`638cb63c…`, built from `fc22bb107`, which has
+the fifth builder's wake mends), folded, its voice running: **the wake
+reached home both ways.** Run by hand with the unit's options less its
+standing, gaze and idle ones and a base home 292 counts round (found at
+2,023, home 2,315): it said it woke the base, the head's pitch and its roll
+"in 22.9 s", and held the base at 2,289, 26 short of its goal, at a load
+of 116 (a read the report of that run would have had more of was lost: the
+second run's folder replaced it). Then the service itself, started at its
+own home (base 2,015) with the base found at 2,289, brought it to 2,027,
+262 counts, and was running as usual 21.6 s after it started. A second
+hand run toward a home 300 counts the other way (1,715) was refused, as it
+should be, because the base was then 574 counts from it, past the 400 a
+wake brings back: the test's own mistake, not the body's.
+
 After a real unplug on lamp-52e6 on 2026-10-14, every servo read torque 0
 and a goal register of 0, all five, when power came back. The head had
 drooped in the cut, its pitch from 1,771 to 2,022 to 2,034 (toward the

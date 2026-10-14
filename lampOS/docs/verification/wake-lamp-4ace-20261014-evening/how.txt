@@ -1,0 +1,15 @@
+#!/bin/zsh
+# The wake's 300-count base test on lamp-4ace: the body stopped, then run by hand twice with a base home 300 counts
+# round from where it is (one way, then the other), each for 45 s and ended with SIGINT, then the service started again.
+D=~/lamp-4ace-v2-deploy-20261012
+BIN=$(grep -o '/opt/lampOS/body/[0-9a-f]*/lamp-body' $D/lamp-body.service)
+OPTS="--device /dev/ttyACM0 --unit-id lamp-4ace --lock-directory /home/orangepi/.local/share/lampOS-voice/motor-locks --mood-socket /tmp/wake-test/mood.sock --reach 150,15,1,250 --speed 120 --servo-speed 1000 --servo-acceleration 60 --force-limit 600 --wake on"
+echo "binary $BIN"
+$D/body_stop.sh 2>&1 | tail -1 | cut -c1-120
+for home in 1950,2043,2315 1950,2043,1715; do
+  echo "## home $home $(date +%T)"
+  ssh-to-the-lamp "rm -rf /tmp/wake-test; mkdir -m 700 /tmp/wake-test; timeout -s INT 50 $BIN $OPTS --home $home > /tmp/wake-test/report.json 2> /tmp/wake-test/log.txt; echo exit=\$?; grep -vE 'step [0-9]*[1-9]0 |step [0-9]*[1-9]5 ' /tmp/wake-test/log.txt | grep -E 'step|wake|woke|stop|refus|found' | cut -c1-230 | head -40; echo; head -c 1500 /tmp/wake-test/report.json" </dev/null
+  /bin/sleep 5
+done
+$D/body_start.sh 2>&1 | tail -2 | cut -c1-200
+echo "## end $(date +%T)"

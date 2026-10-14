@@ -321,6 +321,22 @@ Ready for lamp-voice: no (on `fifth/head-follow` only)
 - Not ready because nothing has shown it on a lamp: lamp-52e6 runs no
   Expression yet, and how the nod looks to a person has not been watched.
 
+## 2026-10-14 — give-way — a joint goes limp under a hand, as V1 did
+
+Ready for lamp-voice: no (on `fifth/give-way` only; needs a hand)
+
+- The hand test on lamp-52e6 with `--give-way stay --overload release`
+  failed: the person could not push the head at all (roll moved 61 counts
+  at load 256, yaw 49 at 188, held stiff, since giving way kept torque on).
+  The hardware team's rule is the old runtime's, so it is now built as V1
+  did it: `fifth/give-way`, `lampOS: let a joint go limp under a hand as the
+  old runtime did, and take it again where it is left` (V1's contact floors
+  650/750/550, still pushed 1.0 s: that joint's torque off; left still 2 s:
+  taken again where it is; shoulder and elbow never). Gate green,
+  `cargo test -p lamp-body` 266 passed.
+- Not shown, and why not tonight: it needs a hand; the body never pushes
+  into anything by itself, so nothing on the lamp can stand in for one.
+
 ## Proposed tasks
 
 Work found while doing a listed task that cannot be folded into it. One

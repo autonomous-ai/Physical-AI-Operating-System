@@ -1,0 +1,33 @@
+{
+  "command": [
+    "cargo",
+    "metadata",
+    "--offline",
+    "--locked",
+    "--format-version",
+    "1",
+    "--filter-platform",
+    "x86_64-apple-darwin"
+  ],
+  "touched": [
+    "lamp-expression",
+    "lamp-msgs"
+  ],
+  "transitive_workspace_dependents_including_touched": [
+    "lamp-actions",
+    "lamp-body",
+    "lamp-controls",
+    "lamp-expression",
+    "lamp-eyes",
+    "lamp-health",
+    "lamp-lean",
+    "lamp-msgs",
+    "lamp-name",
+    "lamp-policy",
+    "lamp-records",
+    "lamp-surround",
+    "lamp-voice",
+    "lamp-voice-eval"
+  ],
+  "gate_matches": true
+}

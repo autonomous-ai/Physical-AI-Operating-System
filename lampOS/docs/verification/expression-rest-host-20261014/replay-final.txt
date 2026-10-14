@@ -1,0 +1,77 @@
+   Compiling lamp-expression v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/expression)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.32s
+     Running tests/program.rs (target/debug/deps/program-4f7b7e0fdb072189)
+
+running 3 tests
+test catalogue_and_clock_commands_need_no_bus_or_hardware ... ok
+test malformed_cli_and_existing_output_are_refused ... ok
+test built_service_is_shadow_by_default_and_its_lock_survives_second_start ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.38s
+
+     Running tests/replay.rs (target/debug/deps/replay-f1e246e89f7f64af)
+
+running 21 tests
+test a_failed_output_write_is_an_error_and_never_a_successful_summary ... ok
+test an_invalid_semantic_payload_is_fatal_instead_of_an_ignored_event ... ok
+test all_equal_time_arrivals_precede_the_tick_and_keep_file_order ... ok
+test events_between_ticks_arrive_at_their_own_time_before_the_next_tick ... ok
+test bus_file_count_and_imported_time_horizon_are_bounded_before_replay ... ok
+test old_bus_recordings_require_an_explicit_clock_anchor ... ok
+test earlier_legacy_wall_times_map_backwards_from_the_anchor_without_underflow ... ok
+test old_payloads_arriving_late_are_reported_and_never_sorted_into_the_past ... ok
+test gaps_and_explicit_ends_cannot_request_unbounded_ticks ... ok
+test duplicate_old_boots_and_dropped_bus_sequences_are_reported_not_resurrected ... ok
+test actual_bus_declarations_import_on_the_shared_anchor_not_private_header_clocks ... ok
+test a_terminal_event_precedes_later_audio_even_when_playout_was_already_queued ... ok
+test nonzero_origin_is_preserved_without_replaying_the_time_before_the_recording ... ok
+test input_validation_is_atomic_before_any_tick_or_engine_mutation ... ok
+test unsupported_bus_topics_are_reported_and_ties_keep_input_file_order ... ok
+test the_default_tail_is_one_lease_and_empty_input_has_explicit_semantics ... ok
+test bus_import_rejects_clock_conflicts_bad_declarations_encoding_and_wall_reversal ... ok
+test the_same_written_scenario_in_default_shadow_never_commands_an_owner ... ok
+test cli_import_and_replay_keep_stdout_as_jsonl_and_default_to_shadow ... ok
+test written_five_behaviour_scenario_is_repeatable_and_declares_requests_only ... ok
+test huge_lines_blank_line_floods_and_record_floods_are_bounded ... ok
+
+test result: ok. 21 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.68s
+
+     Running tests/rest_replay.rs (target/debug/deps/rest_replay-7fe0504d336e0cc5)
+
+running 18 tests
+test no_concentration_publication_means_not_concentrating_and_healthy_with_other_inputs_known ... ok
+test bus_import_keeps_new_generations_declarations_sequence_loss_and_estimated_arrival_limits ... ok
+test runtime_adapts_additive_topics_without_replacing_shared_stamps_or_generation ... ok
+test a_held_turn_without_input_admission_never_claims_listening_readiness ... ok
+test a_missed_hold_snapshot_still_discards_pre_generation_audio_on_resume ... ok
+test bad_new_contracts_fail_before_output_or_engine_mutation ... ok
+test interrupted_and_cancelled_held_turns_cannot_be_resumed_even_with_a_new_generation ... ok
+test held_face_is_next_tick_and_resume_accepts_only_new_generation_sound ... ok
+test built_cli_uses_explicit_catalogue_and_default_shadow_for_the_new_fixtures ... ok
+test renewed_speech_cancels_the_carried_nod_and_thinking_alone_cannot_start_one ... ok
+test a_started_finish_nod_continues_into_thinking_and_ends_once_without_more_activity ... ok
+test real_service_subscribes_to_exactly_one_complete_voice_protocol ... ok
+test quiet_expiry_stops_an_active_rest_at_the_exact_boundary ... ok
+test all_opted_in_fixtures_remain_shadow_without_the_enable_switch ... ok
+test busy_and_explicit_concentration_never_start_rest_even_after_the_delay ... ok
+test rest_requests_stop_when_joints_or_voice_expire_and_later_receipts_do_not_retroactively_extend_them ... ok
+test quiet_rest_is_finite_small_pitch_only_and_waits_ninety_seconds_after_completion ... ok
+test every_authored_fixture_has_exact_counts_and_only_its_declared_refusals ... ok
+
+test result: ok. 18 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.50s
+
+     Running tests/runtime.rs (target/debug/deps/runtime-d4084e4f0d6d3c5a)
+
+running 10 tests
+test a_note_about_one_turn_is_not_a_warning_and_a_fault_or_a_lacking_input_is ... ok
+test boot_identity_cannot_be_empty_or_a_path ... ok
+test a_saved_light_setting_remains_valid_after_days_without_a_change ... ok
+test older_topics_are_aged_by_wall_time_not_private_publisher_time ... ok
+test a_full_output_record_stops_growing_and_counts_loss ... ok
+test typed_timing_keeps_its_shared_stamp_and_bad_inputs_are_counted ... ok
+test shadow_mode_has_diagnostics_but_never_an_actuator_request ... ok
+test slow_input_draining_does_not_make_old_joints_fresh ... ok
+test two_expression_processes_cannot_own_one_bus ... ok
+test enabled_output_uses_a_new_session_and_expires_after_input_loss ... ok
+
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.05s

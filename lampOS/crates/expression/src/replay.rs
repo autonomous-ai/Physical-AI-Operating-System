@@ -323,12 +323,14 @@ struct Captured {
 fn topic(topic: &str) -> Option<(&'static str, &'static str, Kind, bool)> {
     use lamp_msgs::{
         Concentration, Faces, JointState, Light, NameHeard, PersonActivity, RoomState, Speech,
-        VoicePlayout, VoiceState, VoiceTiming,
+        VoicePlayout, VoiceProgress, VoiceSound, VoiceState, VoiceTiming,
     };
     Some(match topic {
         VoiceTiming::TOPIC => ("voice", VoiceTiming::TYPE, Kind::Latest, true),
+        VoiceProgress::TOPIC => ("progress", VoiceProgress::TYPE, Kind::Latest, true),
         PersonActivity::TOPIC => ("activity", PersonActivity::TYPE, Kind::Latest, true),
         VoicePlayout::TOPIC => ("playout", VoicePlayout::TYPE, Kind::Event, true),
+        VoiceSound::TOPIC => ("sound", VoiceSound::TYPE, Kind::Event, true),
         Concentration::TOPIC => ("concentration", Concentration::TYPE, Kind::Latest, true),
         VoiceState::TOPIC => ("voice_state", VoiceState::TYPE, Kind::Latest, false),
         JointState::TOPIC => ("joints", JointState::TYPE, Kind::Latest, false),

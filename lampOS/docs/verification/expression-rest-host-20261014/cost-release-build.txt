@@ -1,0 +1,4 @@
+   Compiling lamp-msgs v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/msgs)
+   Compiling lamp-expression v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/expression)
+    Finished `release` profile [optimized] target(s) in 9.32s
+     Running `target/release/examples/rest_cost 100`

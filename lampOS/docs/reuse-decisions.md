@@ -586,3 +586,82 @@ none of these source decisions establishes lamp response time.
 
 Not shown: physical press/pat behavior, acoustic Stop latency or fault-recovery
 qualification on the lamp.
+
+## Expression: held turns and sparse rest (2026-10-14)
+
+This source review supports task 18 in [Expression](expression.md), starting
+from `origin/lamp-voice` at `d83834cb2`. It reuses the earlier Expression
+review rather than introducing another motion runtime. First's lamp results
+in [Body](body.md#what-expression-may-add) are inherited evidence; Third
+performed no physical measurement.
+
+**Keep temporary yield separate from cancellation.** V1
+`hal/drivers/voice/voice_service.py` ducks a local speech candidate without
+cancelling its reply; a qualified provider interruption cancels the matching
+turn. `hal/test/test_aec_live_reply.py` covers that distinction and a late
+interrupt that must preserve a newer reply. The generation boundary in
+`hal/realtime/voice_agent/openai_realtime.py` and
+`hal/realtime/voice_agent/base.py`, together with
+`hal/test/test_tts_turn_supersession.py`, protects against old queued or
+deferred speech returning. Keep that ownership invariant, not the old
+wall-clock turn-string cutoff or Python callback pipeline.
+
+Task 18 uses a complete opt-in pair, `VoiceProgress` and `VoiceSound`, with
+positive per-turn audio generations. Holding drops queued sound and the
+producer's unpublished accumulator before advancing its generation. Latest
+heartbeats retain hold state; resume accepts newly committed sound in that
+generation. A missed hold still cannot admit a previous generation, and a
+terminal event or expired Voice cannot be undone by resume. The original
+pair remains the default because First owns the actual Voice publisher.
+
+**Keep stillness and owner-specific release.** V1's named claims in
+`hal/drivers/motors/hold.py` release only their own holder.
+`hal/routes/emotion.py` rechecks stillness before its delayed idle release,
+and `hal/drivers/tracking/body.py` rechecks tracking and holds before handing
+the body back. Their regressions are `hal/test/test_still_idle_hold.py` and
+`hal/test/test_body_release.py`. Do not copy a timer that can clear another
+owner's hold, a growing callback queue or a random idle oscillator. Current
+Rust Body already suppresses expression at settled rest and has its own
+optional idle author. This task changes neither; First must choose and
+qualify the eventual final-writer boundary.
+
+**Change the authored motion, behind a catalogue.** First's five silent
+lamp-4ace trials on 2026-10-14 measured 17–38 counts of actual head dip for
+40/55-count requests, with roughly 0.3 seconds from requested peak to
+observed peak. This is not a universal onset lag or a result from Third.
+The new 1.2-second nod carries an already-qualified Listening pause into
+Thinking and tapers to a committed audio schedule without delaying speech.
+Its +0.08-radian clip is added to existing layers; it is not a promise of a
+55-count total dip. New speech, stale evidence and concentration cancel it.
+`body_lag_us` remains unknown.
+
+Rest is one four-second +0.045-radian pitch shift after 45 continuous
+eligible seconds, with 90 seconds after completion before another. It needs
+fresh Resting/input-admission, Quiet-room and joint evidence, and no explicit
+concentration. Losing eligibility cancels and restarts the dwell. Validation
+requires zero endpoints, quiet/focus gates, finite duration, no arm/yaw/light
+modulation or repetition, and bounded segment speed/acceleration. Explicit
+concentration remains latched; absence now defaults false without a warning.
+Quiet is not a claim that nobody is working. The original built-in catalogue
+is unchanged, and actual rest motion is still outside this task's authority.
+
+| Primary source rechecked | What is taken and what is not |
+|---|---|
+| [Reachy Mini SDK](https://huggingface.co/docs/reachy_mini/API/reachymini) and [conversation motion worker](https://raw.githubusercontent.com/pollen-robotics/reachy_mini_conversation_app/main/src/reachy_mini_conversation_app/moves.py) | Explicit sampling/cancellation and one motion owner. Its breathing after a short idle interval is not copied; this lamp's rest is finite and sparse. No Python dependency is added. |
+| [Pipecat frame processor](https://raw.githubusercontent.com/pipecat-ai/pipecat/main/src/pipecat/processors/frame_processor.py) | Separate pause/resume from interruption and remove interruptible queued work. Independent lamp bus topics additionally require the generation and creation-time fences above. |
+| [BML 1.0](https://projects.cs.ru.is/projects/behavior-markup-language/wiki/Wiki) and [ROS twist_mux](https://raw.githubusercontent.com/ros-teleop/twist_mux/rolling/include/twist_mux/topic_handle.hpp) | BML's historical start/stroke/relaxation vocabulary and current actuator priority/expiry semantics. Neither missed motion nor lease expiry may clear a safety or privacy denial. No BML compliance claim. |
+| [Murray et al.](https://proceedings.mlr.press/v164/murray22a.html) and [ELEGNT](https://arxiv.org/html/2501.12493v1) | Motivation to test turn-linked cues and retain stillness during functional work. Published studies do not validate this 240 ms pause rule, rest frequency, amplitude or comfort at a customer's desk. |
+
+The new [replay cases](expression.md#commands-and-replay) use authored arrival
+times for hold/resume, give-up, a carried nod, default concentration, quiet
+rest, busy/focus suppression and expired evidence. They test requested
+behavior. They cannot demonstrate speaker cancellation or resting motor
+motion; the associated host gate belongs in Third's log.
+
+## What this Expression rest review has not shown
+
+V1 regressions were inspected, not rerun for this review. No new lamp test,
+relative V1/V2 speed measurement, acoustic or optical response measurement,
+physical rest, combined-nod appearance or long-term comfort was established.
+First must wire the producer, preserve the actual output owners, qualify
+the rest author and film the resulting movement. Body lag remains unknown.

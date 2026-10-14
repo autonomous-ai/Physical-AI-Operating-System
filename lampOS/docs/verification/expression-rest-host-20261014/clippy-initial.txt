@@ -1,0 +1,31 @@
+    Checking lamp-ipc v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/ipc)
+    Checking lamp-expression v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/expression)
+error: this boolean expression can be simplified
+   --> crates/expression/src/engine.rs:536:21
+    |
+536 | /                     !(v.state == Voice::Listening && v.accepting_input)
+537 | |                         && !(v.state == Voice::Thinking
+538 | |                             && activity.speaking
+539 | |                             && self.catalogue.behaviours.iter().zip(&self.clips).any(
+...   |
+544 | |                                 },
+545 | |                             ))
+    | |______________________________^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.96.0/index.html#nonminimal_bool
+    = note: `-D clippy::nonminimal-bool` implied by `-D warnings`
+    = help: to override `-D warnings` add `#[allow(clippy::nonminimal_bool)]`
+help: try
+    |
+536 ~                     !(v.state == Voice::Listening && v.accepting_input || v.state == Voice::Thinking && activity.speaking && self.catalogue.behaviours.iter().zip(&self.clips).any(
+537 +                                 |(clip, runtime)| {
+538 +                                     clip.trigger == Trigger::Pause
+539 +                                         && clip.continue_in.contains(&Voice::Thinking)
+540 +                                         && runtime.started.is_some()
+541 +                                 },
+542 +                             ))
+    |
+
+error: could not compile `lamp-expression` (lib) due to 1 previous error
+warning: build failed, waiting for other jobs to finish...
+error: could not compile `lamp-expression` (lib test) due to 1 previous error

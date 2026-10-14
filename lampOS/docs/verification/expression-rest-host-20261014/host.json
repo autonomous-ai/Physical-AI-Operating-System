@@ -1,0 +1,96 @@
+{
+  "recorded_utc": "2026-10-14T05:07:47.783763+00:00",
+  "cwd": "/Users/d/code/autonomous-os/lampOS",
+  "host_role": "Third development host, not the lamp",
+  "commands": [
+    {
+      "command": [
+        "uname",
+        "-srm"
+      ],
+      "exit_code": 0,
+      "output": "Darwin 25.6.0 x86_64\n"
+    },
+    {
+      "command": [
+        "sw_vers"
+      ],
+      "exit_code": 0,
+      "output": "ProductName:\t\tmacOS\nProductVersion:\t\t26.6.2\nBuildVersion:\t\t25G83\n"
+    },
+    {
+      "command": [
+        "sysctl",
+        "-n",
+        "machdep.cpu.brand_string"
+      ],
+      "exit_code": 1,
+      "output": "sysctl: sysctl fmt -1 1024 1: Operation not permitted\n"
+    },
+    {
+      "command": [
+        "sysctl",
+        "-n",
+        "hw.memsize"
+      ],
+      "exit_code": 1,
+      "output": "sysctl: sysctl fmt -1 1024 1: Operation not permitted\n"
+    },
+    {
+      "command": [
+        "rustc",
+        "--version",
+        "--verbose"
+      ],
+      "exit_code": 0,
+      "output": "rustc 1.96.0 (ac68faa20 2026-05-25)\nbinary: rustc\ncommit-hash: ac68faa20c58cbccd01ee7208bf3b6e93a7d7f96\ncommit-date: 2026-05-25\nhost: x86_64-apple-darwin\nrelease: 1.96.0\nLLVM version: 22.1.2\n"
+    },
+    {
+      "command": [
+        "cargo",
+        "--version"
+      ],
+      "exit_code": 0,
+      "output": "cargo 1.96.0 (30a34c682 2026-05-25)\n"
+    },
+    {
+      "command": [
+        "git",
+        "rev-parse",
+        "HEAD"
+      ],
+      "exit_code": 0,
+      "output": "3df8d89e66c96702e36befa623e82f6c770cc9e2\n"
+    },
+    {
+      "command": [
+        "git",
+        "rev-parse",
+        "origin/lamp-voice"
+      ],
+      "exit_code": 0,
+      "output": "d83834cb2a96f8db72e84e3bbee7c4c6a0de4422\n"
+    }
+  ],
+  "host_permission_recheck_utc": "2026-10-14T05:14:49.435158+00:00",
+  "host_permission_recheck": [
+    {
+      "command": [
+        "sysctl",
+        "-n",
+        "machdep.cpu.brand_string"
+      ],
+      "exit_code": 0,
+      "output": "Intel(R) Core(TM) i7-10700K CPU @ 3.80GHz\n"
+    },
+    {
+      "command": [
+        "sysctl",
+        "-n",
+        "hw.memsize"
+      ],
+      "exit_code": 0,
+      "output": "68719476736\n"
+    }
+  ]
+}

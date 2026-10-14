@@ -3,15 +3,15 @@ use crate::{Catalogue, Error, LEASE_US, Trigger};
 use lamp_msgs::{
     BodyOffsets, ClockStamp, Concentration, ExpressionBody, ExpressionFace, ExpressionGaze,
     ExpressionLease, ExpressionLight, ExpressionState, Faces, JointState, Light, NameHeard,
-    PersonActivity, Room, RoomState, Speech, Voice, VoiceEvent, VoicePlayout, VoiceState,
-    VoiceTiming,
+    PersonActivity, Room, RoomState, Speech, Voice, VoiceEvent, VoicePlayout, VoiceProgress,
+    VoiceSound, VoiceState, VoiceTiming,
 };
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeSet, VecDeque};
 
 pub const MAX_PLAYOUT_FRAMES: usize = 128;
 pub const MAX_VOICE_SESSIONS: usize = 32;
-const STREAMS: usize = 12;
+const STREAMS: usize = 14;
 const CONTEXT_BYTES: usize = 16 * 1024;
 
 /// Arrival time is supplied separately to ingest. Stamps retain the source
@@ -20,8 +20,10 @@ const CONTEXT_BYTES: usize = 16 * 1024;
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum Input {
     Voice(VoiceTiming),
+    Progress(VoiceProgress),
     Activity(PersonActivity),
     Playout(VoicePlayout),
+    Sound(VoiceSound),
     Concentration(Concentration),
     VoiceState {
         stamp: ClockStamp,
@@ -61,8 +63,10 @@ impl Input {
     pub fn stamp(&self) -> &ClockStamp {
         match self {
             Self::Voice(v) => &v.stamp,
+            Self::Progress(v) => &v.timing.stamp,
             Self::Activity(v) => &v.stamp,
             Self::Playout(v) => &v.stamp,
+            Self::Sound(v) => &v.playout.stamp,
             Self::Concentration(v) => &v.stamp,
             Self::VoiceState { stamp, .. }
             | Self::Joints { stamp, .. }
@@ -78,8 +82,10 @@ impl Input {
     pub fn topic(&self) -> &'static str {
         match self {
             Self::Voice(_) => VoiceTiming::TOPIC,
+            Self::Progress(_) => VoiceProgress::TOPIC,
             Self::Activity(_) => PersonActivity::TOPIC,
             Self::Playout(_) => VoicePlayout::TOPIC,
+            Self::Sound(_) => VoiceSound::TOPIC,
             Self::Concentration(_) => Concentration::TOPIC,
             Self::VoiceState { .. } => VoiceState::TOPIC,
             Self::Joints { .. } => JointState::TOPIC,
@@ -106,6 +112,8 @@ impl Input {
             Self::Heard { .. } => 9,
             Self::Said { .. } => 10,
             Self::Name { .. } => 11,
+            Self::Progress(_) => 12,
+            Self::Sound(_) => 13,
         }
     }
 
@@ -114,8 +122,10 @@ impl Input {
         self.stamp().check()?;
         match self {
             Self::Voice(v) => v.check()?,
+            Self::Progress(v) => v.check()?,
             Self::Activity(v) => v.check()?,
             Self::Playout(v) => v.check()?,
+            Self::Sound(v) => v.check()?,
             Self::Concentration(v) => v.check()?,
             Self::Joints { value, .. } => {
                 value.check()?;
@@ -189,6 +199,16 @@ struct ClipState {
     pause_seen: Option<u64>,
     started: Option<u64>,
     last_started: Option<u64>,
+    last_completed: Option<u64>,
+}
+
+#[derive(Clone, Copy)]
+struct Delivery {
+    generation: u64,
+    held: bool,
+    // The first accepted active edge in this generation, or its resume edge.
+    // Later heartbeats cannot make an old sound fresh again.
+    active_since: u64,
 }
 
 #[derive(Clone)]
@@ -209,6 +229,7 @@ pub struct Engine {
     fault: Option<&'static str>,
     marks: [Option<(u64, u64)>; STREAMS],
     voice: Option<VoiceTiming>,
+    delivery: Option<Delivery>,
     voice_since: u64,
     retired_turn: bool,
     cancelled: bool,
@@ -229,6 +250,7 @@ pub struct Engine {
     room: Option<(u64, Room)>,
     light: Option<Light>,
     concentration: Option<Concentration>,
+    rest_since: Option<u64>,
     legacy_voice: Option<VoiceState>,
     rejected: u64,
 }
@@ -258,6 +280,7 @@ impl Engine {
             fault: None,
             marks: [None; STREAMS],
             voice: None,
+            delivery: None,
             voice_since: 0,
             retired_turn: false,
             cancelled: false,
@@ -278,6 +301,7 @@ impl Engine {
             room: None,
             light: None,
             concentration: None,
+            rest_since: None,
             legacy_voice: None,
             rejected: 0,
         })
@@ -351,14 +375,32 @@ impl Engine {
             self.activity = None;
             self.has_speech = false;
             self.pause_since = None;
-            for clip in &mut self.clips {
-                clip.started = None;
+            for (clip, runtime) in self.catalogue.behaviours.iter().zip(&mut self.clips) {
+                // A finishing nod has already observed a genuine pause. Once
+                // its allowed Thinking transition happens, Voice need not keep
+                // publishing the Listening detector's quiet heartbeat.
+                if !self.voice.as_ref().is_some_and(|voice| {
+                    voice.state == Voice::Thinking
+                        && clip.trigger == Trigger::Pause
+                        && clip.continue_in.contains(&Voice::Thinking)
+                }) {
+                    runtime.started = None;
+                }
             }
         }
+        if !self.joints_fresh(now_us) || self.room_at(now_us) != Room::Quiet {
+            for (clip, runtime) in self.catalogue.behaviours.iter().zip(&mut self.clips) {
+                if clip.trigger == Trigger::Pause {
+                    runtime.started = None;
+                }
+            }
+        }
+        self.update_rest_eligibility(now_us);
         Ok(())
     }
 
     fn clear_transients(&mut self) {
+        self.reset_rest(self.now.unwrap_or(0));
         self.activity = None;
         self.has_speech = false;
         self.pause_since = None;
@@ -373,6 +415,50 @@ impl Engine {
         self.late_schedule = false;
     }
 
+    fn held(&self) -> bool {
+        self.delivery.is_some_and(|delivery| delivery.held)
+    }
+
+    fn joints_fresh(&self, now_us: u64) -> bool {
+        self.joints_at
+            .is_some_and(|at| now_us.saturating_sub(at) < self.catalogue.timing.joints_stale_us)
+    }
+
+    fn room_at(&self, now_us: u64) -> Room {
+        self.room
+            .filter(|(at, _)| now_us.saturating_sub(*at) < self.catalogue.timing.context_stale_us)
+            .map_or(Room::Unknown, |(_, room)| room)
+    }
+
+    fn reset_rest(&mut self, now_us: u64) {
+        self.rest_since = None;
+        for (clip, runtime) in self.catalogue.behaviours.iter().zip(&mut self.clips) {
+            if clip.trigger == Trigger::Rest && runtime.started.take().is_some() {
+                runtime.last_completed = Some(now_us);
+            }
+        }
+    }
+
+    fn update_rest_eligibility(&mut self, now_us: u64) {
+        let eligible = self.fault.is_none()
+            && !self.cancelled
+            && !self.held()
+            && self.voice.as_ref().is_some_and(|voice| {
+                voice.state == Voice::Resting
+                    && voice.accepting_input
+                    && now_us.saturating_sub(voice.stamp.at_us)
+                        < self.catalogue.timing.voice_stale_us
+            })
+            && self.joints_fresh(now_us)
+            && self.room_at(now_us) == Room::Quiet
+            && !self.concentration.as_ref().is_some_and(|v| v.concentrating);
+        if eligible {
+            self.rest_since.get_or_insert(now_us);
+        } else {
+            self.reset_rest(now_us);
+        }
+    }
+
     pub fn ingest(&mut self, now_us: u64, input: Input) -> Result<(), Error> {
         let result = self.ingest_checked(now_us, input);
         if result.is_err() {
@@ -384,15 +470,27 @@ impl Engine {
     fn ingest_checked(&mut self, now_us: u64, input: Input) -> Result<(), Error> {
         self.advance(now_us)?;
         input.check()?;
+        let wrong_protocol = match &input {
+            Input::Voice(_) | Input::Playout(_) => self.catalogue.resumable_voice,
+            Input::Progress(_) | Input::Sound(_) => !self.catalogue.resumable_voice,
+            _ => false,
+        };
+        if wrong_protocol {
+            return Err(Error(
+                "voice input does not match the selected catalogue protocol".into(),
+            ));
+        }
         let stamp = input.stamp().clone();
         if stamp.clock_id != self.clock_id {
             return Err(Error("input clock_id differs from this boot".into()));
         }
         let age_limit = match &input {
             Input::Concentration(_) | Input::Light { .. } => u64::MAX,
-            Input::Voice(_) | Input::VoiceState { .. } => self.catalogue.timing.voice_stale_us,
+            Input::Voice(_) | Input::Progress(_) | Input::VoiceState { .. } => {
+                self.catalogue.timing.voice_stale_us
+            }
             Input::Activity(_) => self.catalogue.timing.activity_stale_us,
-            Input::Playout(_) => LEASE_US,
+            Input::Playout(_) | Input::Sound(_) => LEASE_US,
             Input::Joints { .. } => self.catalogue.timing.joints_stale_us,
             Input::Faces { .. } => self.catalogue.timing.faces_stale_us,
             _ => self.catalogue.timing.context_stale_us,
@@ -408,6 +506,10 @@ impl Engine {
                 .voice
                 .as_ref()
                 .is_some_and(|old| voice.session_id != old.session_id),
+            Input::Progress(progress) => self
+                .voice
+                .as_ref()
+                .is_some_and(|old| progress.timing.session_id != old.session_id),
             _ => false,
         };
         if let Some((at, sequence)) = self.marks[stream] {
@@ -422,16 +524,35 @@ impl Engine {
             }
         }
         match input {
-            Input::Voice(voice) => self.accept_voice(now_us, voice)?,
+            Input::Voice(voice) => self.accept_voice(now_us, voice, None)?,
+            Input::Progress(progress) => self.accept_voice(
+                now_us,
+                progress.timing,
+                Some((progress.audio_generation, progress.held)),
+            )?,
             Input::Activity(activity) => {
                 self.check_turn(&activity.session_id, activity.turn, activity.request, false)?;
-                if self
-                    .voice
-                    .as_ref()
-                    .is_none_or(|v| v.state != Voice::Listening || !v.accepting_input)
-                {
+                let allowed = self.voice.as_ref().is_some_and(|v| {
+                    let retained_listening = v.state == Voice::Listening && v.accepting_input;
+                    let cancelling_carried_nod = v.state == Voice::Thinking
+                        && activity.speaking
+                        && self.catalogue.behaviours.iter().zip(&self.clips).any(
+                            |(clip, runtime)| {
+                                clip.trigger == Trigger::Pause
+                                    && clip.continue_in.contains(&Voice::Thinking)
+                                    && runtime.started.is_some()
+                            },
+                        );
+                    retained_listening || cancelling_carried_nod
+                });
+                if !allowed {
                     return Err(Error(
-                        "person activity requires a voice that can retain listening input".into(),
+                        "person activity requires retained listening input or a carried finishing nod".into(),
+                    ));
+                }
+                if activity.stamp.at_us < self.voice_since {
+                    return Err(Error(
+                        "person activity predates the current voice phase".into(),
                     ));
                 }
                 if activity.speaking {
@@ -446,39 +567,28 @@ impl Engine {
                 }
                 self.activity = Some(activity);
             }
-            Input::Playout(frame) => {
-                self.check_turn(&frame.session_id, frame.turn, frame.request, true)?;
-                if self
-                    .voice
-                    .as_ref()
-                    .is_none_or(|v| !matches!(v.state, Voice::Thinking | Voice::Speaking))
+            Input::Playout(frame) => self.accept_playout(now_us, frame)?,
+            Input::Sound(sound) => {
+                let delivery = self.delivery.ok_or_else(|| {
+                    Error("voice/progress has not established an audio generation".into())
+                })?;
+                if delivery.held || sound.audio_generation != delivery.generation {
+                    return Err(Error(
+                        "sound is held or belongs to an inactive audio generation".into(),
+                    ));
+                }
+                if sound.playout.stamp.at_us < delivery.active_since
+                    || sound.playout.start_us < delivery.active_since
                 {
                     return Err(Error(
-                        "playout requires the active thinking or speaking turn".into(),
+                        "sound predates the accepted generation or resume edge".into(),
                     ));
                 }
-                if frame.end_us <= now_us
-                    || frame.start_us
-                        > now_us.saturating_add(self.catalogue.timing.max_future_audio_us)
-                    || self
-                        .last_playout_end
-                        .is_some_and(|end| frame.start_us < end)
-                {
-                    return Err(Error(
-                        "playout is expired, too far ahead, overlapping or out of order".into(),
-                    ));
-                }
-                if self.playout.len() >= MAX_PLAYOUT_FRAMES {
-                    return Err(Error(
-                        "playout queue is full; refusing more future frames".into(),
-                    ));
-                }
-                self.last_playout_end = Some(frame.end_us);
-                self.playout_since.get_or_insert(frame.start_us);
-                self.playout.push_back(frame);
+                self.accept_playout(now_us, sound.playout)?;
             }
             Input::Concentration(value) => {
                 if value.concentrating {
+                    self.reset_rest(now_us);
                     self.pause_since = None;
                     for clip in &mut self.clips {
                         clip.started = None;
@@ -495,7 +605,40 @@ impl Engine {
             // a timing cue or proof that anything has reached the loudspeaker.
             Input::Heard { .. } | Input::Said { .. } | Input::Name { .. } => {}
         }
+        self.update_rest_eligibility(now_us);
         self.marks[stream] = Some((stamp.at_us, stamp.sequence));
+        Ok(())
+    }
+
+    fn accept_playout(&mut self, now_us: u64, frame: VoicePlayout) -> Result<(), Error> {
+        self.check_turn(&frame.session_id, frame.turn, frame.request, true)?;
+        if self
+            .voice
+            .as_ref()
+            .is_none_or(|v| !matches!(v.state, Voice::Thinking | Voice::Speaking))
+        {
+            return Err(Error(
+                "playout requires the active thinking or speaking turn".into(),
+            ));
+        }
+        if frame.end_us <= now_us
+            || frame.start_us > now_us.saturating_add(self.catalogue.timing.max_future_audio_us)
+            || self
+                .last_playout_end
+                .is_some_and(|end| frame.start_us < end)
+        {
+            return Err(Error(
+                "playout is expired, too far ahead, overlapping or out of order".into(),
+            ));
+        }
+        if self.playout.len() >= MAX_PLAYOUT_FRAMES {
+            return Err(Error(
+                "playout queue is full; refusing more future frames".into(),
+            ));
+        }
+        self.last_playout_end = Some(frame.end_us);
+        self.playout_since.get_or_insert(frame.start_us);
+        self.playout.push_back(frame);
         Ok(())
     }
 
@@ -519,7 +662,12 @@ impl Engine {
         Ok(())
     }
 
-    fn accept_voice(&mut self, now_us: u64, voice: VoiceTiming) -> Result<(), Error> {
+    fn accept_voice(
+        &mut self,
+        now_us: u64,
+        voice: VoiceTiming,
+        progress: Option<(u64, bool)>,
+    ) -> Result<(), Error> {
         let new_session = self
             .voice
             .as_ref()
@@ -528,6 +676,19 @@ impl Engine {
             .voice
             .as_ref()
             .is_none_or(|old| new_session || old.turn < voice.turn);
+        let was_held = !new_turn && self.held();
+        let held = progress.is_some_and(|(_, held)| held);
+        let new_generation = progress.is_some_and(|(generation, _)| {
+            new_turn || self.delivery.is_none_or(|old| old.generation != generation)
+        });
+        if !new_turn
+            && let (Some((generation, held)), Some(old)) = (progress, self.delivery)
+            && (generation < old.generation || (generation == old.generation && held && !old.held))
+        {
+            return Err(Error(
+                "audio generation moved backwards or a resumed generation was held again".into(),
+            ));
+        }
         let repeated_terminal = !new_turn
             && self.retired_turn
             && matches!(
@@ -578,6 +739,7 @@ impl Engine {
                     .push(self.voice.as_ref().unwrap().session_id.clone());
                 self.marks[1] = None;
                 self.marks[2] = None;
+                self.marks[13] = None;
             }
             // Whoever cuts the lamp off is heard at once, as a turn of
             // their own. The lamp is still turning from what it was doing
@@ -590,20 +752,53 @@ impl Engine {
             self.cancelled = false;
             self.last_playout_end = None;
             self.voice_since = voice.stamp.at_us;
+        } else if new_generation {
+            self.clear_transients();
+            self.last_playout_end = None;
+            self.voice_since = voice.stamp.at_us;
         } else if self
             .voice
             .as_ref()
             .is_some_and(|old| old.state != voice.state)
         {
+            self.reset_rest(now_us);
             self.voice_since = voice.stamp.at_us;
             if voice.state != Voice::Listening {
                 self.pause_since = None;
                 self.activity = None;
                 self.has_speech = false;
-                for clip in &mut self.clips {
-                    clip.started = None;
+                for (clip, runtime) in self.catalogue.behaviours.iter().zip(&mut self.clips) {
+                    let carry = !was_held
+                        && self
+                            .voice
+                            .as_ref()
+                            .is_some_and(|old| old.state == Voice::Listening)
+                        && voice.state == Voice::Thinking
+                        && clip.trigger == Trigger::Pause
+                        && clip.continue_in.contains(&Voice::Thinking);
+                    if !carry {
+                        runtime.started = None;
+                    }
                 }
             }
+        }
+        if held && (new_generation || !was_held) {
+            let from = self.last_offsets;
+            self.clear_transients();
+            self.last_playout_end = None;
+            self.interruption = Some(Interruption {
+                at_us: voice.stamp.at_us,
+                from,
+            });
+        } else if was_held
+            && !held
+            && matches!(voice.event, VoiceEvent::State | VoiceEvent::Scheduled)
+        {
+            // Resume starts a new active interval in the same generation. No
+            // detector history or delayed sound from the hold may enter it.
+            self.voice_since = voice.stamp.at_us;
+            self.clear_transients();
+            self.last_playout_end = None;
         }
         match voice.event {
             VoiceEvent::Scheduled => {
@@ -620,12 +815,17 @@ impl Engine {
                 // listening. The body's executor remains responsible for its
                 // actual physical starting pose and velocity limits.
                 let from = self.last_offsets;
+                let held_yield = was_held.then(|| self.interruption.clone()).flatten();
                 self.clear_transients();
                 self.retired_turn = true;
-                self.interruption = Some(Interruption {
-                    at_us: voice.stamp.at_us,
-                    from,
-                });
+                self.interruption = if was_held {
+                    held_yield
+                } else {
+                    Some(Interruption {
+                        at_us: voice.stamp.at_us,
+                        from,
+                    })
+                };
             }
             VoiceEvent::Cancelled | VoiceEvent::Finished if !repeated_terminal => {
                 self.clear_transients();
@@ -633,9 +833,12 @@ impl Engine {
                 self.cancelled |= voice.event == VoiceEvent::Cancelled;
             }
             VoiceEvent::State => {
-                // A normal Listening/Resting edge also invalidates queued
-                // audio. An omitted cancellation event cannot keep it alive.
+                // An unfenced Listening/Resting edge retires queued audio. A
+                // newer tagged generation instead proves a missed hold: its
+                // queue was cleared above, and it may still resume this turn.
                 if !new_turn
+                    && !held
+                    && !new_generation
                     && matches!(voice.state, Voice::Listening | Voice::Resting)
                     && self
                         .voice
@@ -648,6 +851,16 @@ impl Engine {
             }
             VoiceEvent::Interrupted | VoiceEvent::Cancelled | VoiceEvent::Finished => {}
         }
+        self.delivery = progress.map(|(generation, held)| Delivery {
+            generation,
+            held,
+            active_since: if new_generation || (was_held && !held) {
+                voice.stamp.at_us
+            } else {
+                self.delivery
+                    .map_or(voice.stamp.at_us, |old| old.active_since)
+            },
+        });
         self.voice = Some(voice);
         Ok(())
     }
@@ -680,9 +893,6 @@ impl Engine {
         };
         if self.catalogue.timing.body_lag_us.is_none() {
             state.missing.push("measured body lag".into());
-        }
-        if self.concentration.is_none() {
-            state.missing.push("explicit concentration setting".into());
         }
         if self.light.is_none() {
             state.missing.push("light setting".into());
@@ -728,20 +938,16 @@ impl Engine {
                 .warnings
                 .push("legacy voice state differs; timed owner wins".into());
         }
-        let joints_fresh = self
-            .joints_at
-            .is_some_and(|at| now_us - at < self.catalogue.timing.joints_stale_us);
+        let joints_fresh = self.joints_fresh(now_us);
         if !joints_fresh {
             state.missing.push("fresh measured joints".into());
         }
-        let room = self
-            .room
-            .filter(|(at, _)| now_us - at < self.catalogue.timing.context_stale_us)
-            .map_or(Room::Unknown, |(_, room)| room);
+        let room = self.room_at(now_us);
         if room == Room::Unknown {
             state.missing.push("fresh room state".into());
         }
         let concentrating = self.concentration.as_ref().is_some_and(|v| v.concentrating);
+        let held = self.held();
         let playout = self
             .playout
             .front()
@@ -781,6 +987,8 @@ impl Engine {
         }
         let can_pause = mode == Voice::Listening
             && voice.accepting_input
+            && !held
+            && joints_fresh
             && activity_fresh
             && self.activity.as_ref().is_some_and(|a| !a.speaking);
         let (face, mut brightness) = self.face(mode, voice.accepting_input);
@@ -803,10 +1011,14 @@ impl Engine {
             } else {
                 mode
             };
+            let continuing = clip.trigger == Trigger::Pause
+                && self.clips[index].started.is_some()
+                && clip.continue_in.contains(&clip_mode);
             if clip.weight == 0.0
-                || !clip.states.contains(&clip_mode)
+                || (!clip.states.contains(&clip_mode) && !continuing)
                 || (clip.quiet_only && room != Room::Quiet)
                 || (clip.stop_when_concentrating && concentrating)
+                || (clip.trigger == Trigger::Pause && (held || !joints_fresh))
             {
                 self.clips[index].started = None;
                 continue;
@@ -861,6 +1073,32 @@ impl Engine {
                     }
                     runtime.started.and_then(|at| now_us.checked_sub(at))
                 }
+                Trigger::Pause if continuing => self.clips[index]
+                    .started
+                    .and_then(|at| now_us.checked_sub(at)),
+                Trigger::Rest => {
+                    let runtime = &mut self.clips[index];
+                    if let Some(started) = runtime.started
+                        && now_us >= started.saturating_add(clip.duration_us())
+                    {
+                        runtime.started = None;
+                        runtime.last_completed = Some(started.saturating_add(clip.duration_us()));
+                    }
+                    if runtime.started.is_none()
+                        && self
+                            .rest_since
+                            .is_some_and(|since| now_us.saturating_sub(since) >= clip.delay_us)
+                        && runtime.last_completed.is_none_or(|completed| {
+                            now_us.saturating_sub(completed) >= clip.cooldown_us
+                        })
+                    {
+                        // Rest has no external beat to catch up with. A late
+                        // tick starts one small clip now, never a backlog.
+                        runtime.started = Some(now_us);
+                        runtime.last_started = Some(now_us);
+                    }
+                    runtime.started.and_then(|at| now_us.checked_sub(at))
+                }
                 Trigger::Playout if playing => self
                     .playout_since
                     .and_then(|at| now_us.checked_sub(at.saturating_add(clip.delay_us))),
@@ -878,11 +1116,13 @@ impl Engine {
                 continue;
             };
             let Some((pose, light)) = clip.sample(elapsed) else {
+                self.clips[index].started = None;
                 continue;
             };
             let weight = clip.weight
                 * match clip.trigger {
                     Trigger::Thinking => return_scale,
+                    Trigger::Pause if continuing => return_scale,
                     Trigger::Playout => f64::from(actual_level),
                     _ => 1.0,
                 };
@@ -922,9 +1162,9 @@ impl Engine {
             valid_until_us: now_us + LEASE_US,
         };
         let gaze = if !concentrating
-            && self.interruption.is_none()
+            && (self.interruption.is_none() || held)
             && matches!(mode, Voice::Listening | Voice::Speaking)
-            && (!self.catalogue.gaze.quiet_only || room == Room::Quiet)
+            && (held || !self.catalogue.gaze.quiet_only || room == Room::Quiet)
         {
             self.gaze(now_us, &lease)
         } else {

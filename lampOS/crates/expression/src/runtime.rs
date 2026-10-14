@@ -4,7 +4,7 @@ use lamp_bus::{Bus, Message, Publisher, Subscriber};
 use lamp_msgs::{
     ClockStamp, Concentration, Diagnostic, ExpressionBody, ExpressionLight, ExpressionState, Faces,
     JointState, Level, Light, NameHeard, PersonActivity, RoomState, Speech, VoicePlayout,
-    VoiceState, VoiceTiming,
+    VoiceProgress, VoiceSound, VoiceState, VoiceTiming,
 };
 use std::{
     fs::{self, File, OpenOptions},
@@ -21,11 +21,13 @@ use std::{
 };
 
 /// Every input has a separate bounded drain so noisy text cannot starve a stop.
-pub const INPUTS: [(&str, &str); 12] = [
+pub const INPUTS: [(&str, &str); 14] = [
     (VoiceTiming::TOPIC, VoiceTiming::TYPE),
+    (VoiceProgress::TOPIC, VoiceProgress::TYPE),
     (PersonActivity::TOPIC, PersonActivity::TYPE),
     (Concentration::TOPIC, Concentration::TYPE),
     (VoicePlayout::TOPIC, VoicePlayout::TYPE),
+    (VoiceSound::TOPIC, VoiceSound::TYPE),
     (JointState::TOPIC, JointState::TYPE),
     (Faces::TOPIC, Faces::TYPE),
     (VoiceState::TOPIC, VoiceState::TYPE),
@@ -127,8 +129,10 @@ pub fn input_from_message(
     };
     Ok(match topic {
         VoiceTiming::TOPIC => Input::Voice(message.parse()?),
+        VoiceProgress::TOPIC => Input::Progress(message.parse()?),
         PersonActivity::TOPIC => Input::Activity(message.parse()?),
         VoicePlayout::TOPIC => Input::Playout(message.parse()?),
+        VoiceSound::TOPIC => Input::Sound(message.parse()?),
         Concentration::TOPIC => Input::Concentration(message.parse()?),
         JointState::TOPIC => Input::Joints {
             stamp,
@@ -253,6 +257,7 @@ pub struct Service {
 
 impl Service {
     pub fn new(bus: &Bus, catalogue: Catalogue, enabled: bool, clock: &str) -> io::Result<Self> {
+        let resumable = catalogue.resumable_voice;
         // Make the root using the bus's directory permissions before locking.
         let state = bus.publisher_declared(
             ExpressionState::TOPIC,
@@ -268,6 +273,14 @@ impl Service {
             clock: clock.to_owned(),
             inputs: INPUTS
                 .iter()
+                // A process selects one complete protocol. The other Voice
+                // publications can continue serving legacy consumers without
+                // becoming input refusals here or acquiring mixed authority.
+                .filter(|(topic, _)| match *topic {
+                    VoiceTiming::TOPIC | VoicePlayout::TOPIC => !resumable,
+                    VoiceProgress::TOPIC | VoiceSound::TOPIC => resumable,
+                    _ => true,
+                })
                 .map(|(topic, kind)| bus.subscribe_typed(topic, "expression", kind))
                 .collect::<io::Result<_>>()?,
             body: bus.publisher_declared(

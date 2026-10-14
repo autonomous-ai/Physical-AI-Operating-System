@@ -82,7 +82,9 @@ at the crate root. Their new topics do not change any existing type:
 | `VoiceTiming` | `voice/timing` | latest | 100 / 500 ms | Explicit voice session/turn/readiness and scheduled/terminal edges |
 | `PersonActivity` | `voice/activity` | latest | 100 / 300 ms | Actual admitted human speech or pause, with session and turn |
 | `VoicePlayout` | `voice/playout` | event | 20 / 200 ms | Committed speaker interval and its level, with cancellation identity |
-| `Concentration` | `attention/concentration` | latest | none | Explicit concentration, never inferred from a quiet room |
+| `VoiceProgress` | `voice/progress` | latest | 100 / 500 ms | Optional complete timing heartbeat with a positive audio generation and explicit resumable hold |
+| `VoiceSound` | `voice/sound` | event | 20 / 200 ms | Optional committed playout interval belonging to one matching audio generation |
+| `Concentration` | `attention/concentration` | latest | none | Explicit concentration, initially false until supplied; never inferred from a quiet room |
 | `ExpressionBody` | `expression/body` | latest | 20 / 200 ms | Relative radian offsets, hold or a normalized calibrated-owner gaze request |
 | `ExpressionLight` | `expression/light` | latest | 20 / 200 ms | Face and brightness multiplier preserving the lasting `Light` setting |
 | `ExpressionState` | `expression/state` | latest | 200 / 500 ms | Planned behaviors, shadow/enabled status, missing facts and warnings |
@@ -93,8 +95,16 @@ microseconds. It is distinct from the bus header's private `at_us`.
 turn, increasing sequence and an apply/expiry interval of at most 200 ms.
 `valid_at()` checks the stateless clock/expiry part of the consumer gate;
 the actuator owner must also fence prior sessions/turns/sequences and enforce
-privacy and safety. These types are optional, with no production publishers
-or consumers added to the existing owners by this task. See
+privacy and safety. The optional `resumable_voice` catalogue setting chooses
+the complete `VoiceProgress`/`VoiceSound` pair instead of
+`VoiceTiming`/`VoicePlayout`; mixing the two cannot refresh a held turn or
+restore its old sound. `PersonActivity` remains shared. The wrappers flatten
+the existing timing/playout fields into their JSON object, adding required
+`audio_generation` and, for progress, `held`. A hold advances the generation
+after the owner discards old sound and unpublished observations; resumption
+keeps that generation. Terminal retirement and freshness still take priority.
+New generation messages require First's Voice publisher integration; this
+task changes no hardware owner. See
 [Expression](expression.md) for exact integration and evidence limits.
 
 ## Optional controls contracts
@@ -164,7 +174,13 @@ yaw is positive is written down and no detector has been held to it.
 Eight additional Expression contract tests passed on Third's x86_64 Mac:
 declarations and compatibility, required identities, clock/schedule bounds,
 terminal states, finite offsets, normalized gaze, light settings and lease
-expiry. None of the new Expression types has been qualified on the lamp.
+expiry. Those initial host tests did not qualify hardware; First's later
+legacy-contract integration is recorded in [Expression](expression.md).
+The added resumable progress/sound contracts have no lamp qualification.
+Their six new contract tests passed on the same development Mac, together
+with all 44 message tests including the doctest and the 2,353-test dependent
+gate. The source-copy run also passed all 44. Commands and skipped inherited
+cases are in the [task 18 evidence](verification/expression-rest-host-20261014/results.json).
 
 The Controls rows describe the source contract, not a measured deployment or a
 test result. No Controls publisher/consumer integration, GPIO/I2C behavior or

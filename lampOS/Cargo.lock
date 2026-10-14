@@ -1531,6 +1531,7 @@ dependencies = [
  "defmt",
  "jiff-core",
  "jiff-static",
+ "jiff-tzdb",
  "jiff-tzdb-platform",
  "log",
  "portable-atomic",
@@ -1909,6 +1910,22 @@ dependencies = [
  "lamp-ipc",
  "lamp-turn-owner",
  "spidev",
+]
+
+[[package]]
+name = "lamp-schedule"
+version = "0.1.0"
+dependencies = [
+ "getrandom 0.4.3",
+ "jiff",
+ "lamp-bus",
+ "lamp-msgs",
+ "rusqlite",
+ "rustix",
+ "serde",
+ "serde_json",
+ "signal-hook",
+ "tempfile",
 ]
 
 [[package]]

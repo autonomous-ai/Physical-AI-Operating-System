@@ -1,0 +1,771 @@
+use lamp_msgs::{ClockStamp, ScheduleDue};
+use lamp_schedule::{
+    engine::{Engine, MAX_ITEMS, Persistence},
+    protocol::{Guard, MAX_REPLY_BYTES, Request},
+    time::{ClockSample, When},
+};
+use serde_json::{Value, json};
+use std::{
+    io,
+    sync::{Arc, Mutex},
+};
+
+const STORE: &str = "0123456789abcdef0123456789abcdef";
+const WALL: i64 = 1_791_964_800_000;
+
+#[derive(Default)]
+struct Data {
+    bytes: Option<Vec<u8>>,
+    fail: bool,
+    after_commit: bool,
+    writes: usize,
+}
+#[derive(Clone, Default)]
+struct Disk(Arc<Mutex<Data>>);
+impl Persistence for Disk {
+    fn load(&self) -> io::Result<Option<Vec<u8>>> {
+        Ok(self.0.lock().unwrap().bytes.clone())
+    }
+    fn commit(&mut self, bytes: &[u8]) -> io::Result<()> {
+        let mut state = self.0.lock().unwrap();
+        if state.fail {
+            state.fail = false;
+            return Err(io::Error::other("injected disk failure"));
+        }
+        state.bytes = Some(bytes.into());
+        state.writes += 1;
+        if state.after_commit {
+            state.after_commit = false;
+            return Err(io::Error::other("injected directory sync failure"));
+        }
+        Ok(())
+    }
+}
+fn now(ms: u64) -> ClockSample {
+    ClockSample {
+        unix_ms: WALL + ms as i64,
+        boot_ms: ms,
+        boot_id: "boot-a".into(),
+        wall_trusted: true,
+    }
+}
+fn open(disk: Disk, at: &ClockSample) -> Engine<Disk> {
+    Engine::open(disk, "Etc/UTC", at, STORE).unwrap()
+}
+fn guard(engine: &Engine<Disk>) -> Guard {
+    Guard {
+        store_id: engine.store_id().into(),
+        revision: engine.revision(),
+        request_id: format!("r{}", engine.revision()),
+    }
+}
+fn set(engine: &mut Engine<Disk>, at: &ClockSample, seconds: u64) -> Value {
+    engine.tick(at).unwrap();
+    engine
+        .answer(
+            Request::Set {
+                guard: guard(engine),
+                text: "Call Maria".into(),
+                when: When::After { seconds },
+            },
+            at,
+        )
+        .unwrap()
+}
+fn create(engine: &mut Engine<Disk>, at: &ClockSample, when: When) -> Value {
+    engine.tick(at).unwrap();
+    engine
+        .answer(
+            Request::Set {
+                guard: guard(engine),
+                text: "Check the calendar".into(),
+                when,
+            },
+            at,
+        )
+        .unwrap()
+}
+fn get(engine: &mut Engine<Disk>, at: &ClockSample, id: u64) -> Value {
+    engine.answer(Request::Get { id }, at).unwrap()["item"].clone()
+}
+fn due(engine: &Engine<Disk>, at: &ClockSample) -> ScheduleDue {
+    engine.due(
+        at,
+        ClockStamp {
+            clock_id: at.boot_id.clone(),
+            at_us: at.boot_ms * 1000,
+            sequence: 1,
+        },
+        true,
+    )
+}
+fn ack(engine: &mut Engine<Disk>, at: &ClockSample, id: u64, delivery: u64) -> Value {
+    engine.tick(at).unwrap();
+    engine
+        .answer(
+            Request::Ack {
+                guard: guard(engine),
+                id,
+                delivery,
+            },
+            at,
+        )
+        .unwrap()
+}
+
+#[test]
+fn a_new_store_is_empty_and_identified_before_any_request() {
+    let disk = Disk::default();
+    let mut e = open(disk.clone(), &now(0));
+    let status = e.answer(Request::Status {}, &now(0)).unwrap();
+    assert_eq!(status["items"], 0);
+    assert_eq!(status["store_id"], STORE);
+    assert_eq!(disk.0.lock().unwrap().writes, 1);
+}
+#[test]
+fn create_reopen_and_new_ids_preserve_the_committed_timer() {
+    let disk = Disk::default();
+    let mut e = open(disk.clone(), &now(0));
+    assert_eq!(set(&mut e, &now(0), 600)["id"], 1);
+    drop(e);
+    let mut e = open(disk, &now(1000));
+    assert_eq!(get(&mut e, &now(1000), 1)["remaining_ms"], 599_000);
+    assert_eq!(set(&mut e, &now(1000), 20)["id"], 2);
+}
+#[test]
+fn even_a_one_millisecond_overdue_restart_is_marked_late() {
+    let disk = Disk::default();
+    let mut e = open(disk.clone(), &now(0));
+    set(&mut e, &now(0), 1);
+    drop(e);
+    let mut e = open(disk, &now(1001));
+    e.tick(&now(1001)).unwrap();
+    let notice = due(&e, &now(1001)).oldest.unwrap();
+    assert!(notice.late);
+    assert_eq!(notice.late_by_ms, Some(1));
+}
+#[test]
+fn exact_due_time_is_pending_without_lateness() {
+    let mut e = open(Disk::default(), &now(0));
+    set(&mut e, &now(0), 1);
+    e.tick(&now(1000)).unwrap();
+    let notice = due(&e, &now(1000)).oldest.unwrap();
+    assert!(!notice.late);
+    assert_eq!(notice.late_by_ms, Some(0));
+}
+#[test]
+fn ordinary_poll_jitter_is_reported_but_does_not_make_a_spoken_late_claim() {
+    let mut e = open(Disk::default(), &now(0));
+    set(&mut e, &now(0), 1);
+    e.tick(&now(1050)).unwrap();
+    assert!(!due(&e, &now(2000)).oldest.unwrap().late);
+    assert!(due(&e, &now(2001)).oldest.unwrap().late);
+}
+#[test]
+fn absent_voice_neither_consumes_due_nor_rewrites_the_store_on_every_tick() {
+    let disk = Disk::default();
+    let mut e = open(disk.clone(), &now(0));
+    set(&mut e, &now(0), 1);
+    e.tick(&now(1000)).unwrap();
+    let writes = disk.0.lock().unwrap().writes;
+    for t in 2..102 {
+        e.tick(&now(t * 1000)).unwrap();
+        let notice = due(&e, &now(t * 1000)).oldest.unwrap();
+        assert_eq!((notice.id, notice.delivery), (1, 1));
+    }
+    assert_eq!(disk.0.lock().unwrap().writes, writes);
+}
+#[test]
+fn due_items_are_oldest_first_and_ack_does_not_consume_its_neighbours() {
+    let mut e = open(Disk::default(), &now(0));
+    set(&mut e, &now(0), 3);
+    set(&mut e, &now(0), 1);
+    set(&mut e, &now(0), 2);
+    e.tick(&now(5000)).unwrap();
+    assert_eq!(due(&e, &now(5000)).pending, 3);
+    for id in [2, 3, 1] {
+        assert_eq!(due(&e, &now(5000)).oldest.unwrap().id, id);
+        ack(&mut e, &now(5000), id, 1);
+    }
+    assert_eq!(e.counts(&now(5000)), (0, 0, 0));
+}
+#[test]
+fn ack_requires_the_current_pending_delivery() {
+    let mut e = open(Disk::default(), &now(0));
+    set(&mut e, &now(0), 1);
+    let r = Request::Ack {
+        guard: guard(&e),
+        id: 1,
+        delivery: 1,
+    };
+    assert_eq!(e.answer(r, &now(0)).unwrap_err().code, "stale_delivery");
+    e.tick(&now(1000)).unwrap();
+    let r = Request::Ack {
+        guard: guard(&e),
+        id: 1,
+        delivery: 2,
+    };
+    assert_eq!(e.answer(r, &now(1000)).unwrap_err().code, "stale_delivery");
+    assert_eq!(e.counts(&now(1000)), (1, 1, 0));
+}
+#[test]
+fn cancelling_before_or_after_due_removes_only_the_named_item() {
+    for elapsed in [0, 2000] {
+        let mut e = open(Disk::default(), &now(0));
+        set(&mut e, &now(0), 1);
+        set(&mut e, &now(0), 3);
+        e.tick(&now(elapsed)).unwrap();
+        let r = Request::Cancel {
+            guard: guard(&e),
+            id: 1,
+        };
+        assert_eq!(e.answer(r, &now(elapsed)).unwrap()["cancelled"], true);
+        e.tick(&now(4000)).unwrap();
+        assert_eq!(due(&e, &now(4000)).oldest.unwrap().id, 2);
+    }
+}
+#[test]
+fn a_lost_create_reply_is_replayed_after_restart_without_a_second_timer() {
+    let disk = Disk::default();
+    let mut e = open(disk.clone(), &now(0));
+    let r = Request::Set {
+        guard: guard(&e),
+        text: "Tea".into(),
+        when: When::After { seconds: 1 },
+    };
+    let original = e.answer(r.clone(), &now(0)).unwrap();
+    drop(e);
+    let mut e = open(disk, &now(2000));
+    assert_eq!(e.answer(r, &now(2000)).unwrap(), original);
+    assert_eq!(e.counts(&now(2000)), (1, 1, 0));
+}
+#[test]
+fn changing_the_payload_of_a_retried_guard_is_a_conflict() {
+    let mut e = open(Disk::default(), &now(0));
+    let old = guard(&e);
+    set(&mut e, &now(0), 10);
+    let r = Request::Set {
+        guard: old,
+        text: "Different".into(),
+        when: When::After { seconds: 10 },
+    };
+    assert_eq!(e.answer(r, &now(0)).unwrap_err().code, "conflict");
+    assert_eq!(e.counts(&now(0)).0, 1);
+}
+#[test]
+fn an_old_retry_after_another_mutation_cannot_recreate_a_cancelled_timer() {
+    let mut e = open(Disk::default(), &now(0));
+    let r = Request::Set {
+        guard: guard(&e),
+        text: "Tea".into(),
+        when: When::After { seconds: 10 },
+    };
+    e.answer(r.clone(), &now(0)).unwrap();
+    let cancel = Request::Cancel {
+        guard: guard(&e),
+        id: 1,
+    };
+    e.answer(cancel, &now(0)).unwrap();
+    assert_eq!(e.answer(r, &now(0)).unwrap_err().code, "conflict");
+    assert_eq!(e.counts(&now(0)).0, 0);
+}
+#[test]
+fn automatic_due_updates_preserve_the_last_mutation_receipt() {
+    let mut e = open(Disk::default(), &now(0));
+    let r = Request::Set {
+        guard: guard(&e),
+        text: "Tea".into(),
+        when: When::After { seconds: 1 },
+    };
+    let first = e.answer(r.clone(), &now(0)).unwrap();
+    e.tick(&now(2000)).unwrap();
+    assert_eq!(e.answer(r, &now(2000)).unwrap(), first);
+}
+
+#[test]
+fn a_lost_recurring_ack_receipt_cannot_ack_the_next_occurrence_after_restart() {
+    let disk = Disk::default();
+    let mut e = open(disk.clone(), &now(0));
+    create(
+        &mut e,
+        &now(0),
+        When::Daily {
+            time: "09:00".into(),
+            zone: None,
+        },
+    );
+    let first = get(&mut e, &now(0), 1)["due_unix_ms"].as_i64().unwrap();
+    let mut at = now(1000);
+    at.unix_ms = first + 2 * 86_400_000;
+    e.tick(&at).unwrap();
+    let request = Request::Ack {
+        guard: guard(&e),
+        id: 1,
+        delivery: 1,
+    };
+    let receipt = e.answer(request.clone(), &at).unwrap();
+    drop(e);
+    let mut e = open(disk, &at);
+    e.tick(&at).unwrap();
+    assert_eq!(due(&e, &at).oldest.unwrap().delivery, 2);
+    assert_eq!(e.answer(request, &at).unwrap(), receipt);
+    assert_eq!(due(&e, &at).oldest.unwrap().delivery, 2);
+}
+
+#[test]
+fn a_lost_snooze_receipt_does_not_extend_the_timer_after_restart() {
+    let disk = Disk::default();
+    let mut e = open(disk.clone(), &now(0));
+    set(&mut e, &now(0), 1);
+    e.tick(&now(1000)).unwrap();
+    let request = Request::Snooze {
+        guard: guard(&e),
+        id: 1,
+        delivery: 1,
+        seconds: 10,
+    };
+    let receipt = e.answer(request.clone(), &now(1000)).unwrap();
+    drop(e);
+    let mut e = open(disk, &now(12000));
+    e.tick(&now(12000)).unwrap();
+    assert_eq!(due(&e, &now(12000)).oldest.unwrap().delivery, 2);
+    assert_eq!(e.answer(request, &now(12000)).unwrap(), receipt);
+    assert_eq!(
+        due(&e, &now(12000)).oldest.unwrap().due_unix_ms,
+        WALL + 11000
+    );
+}
+#[test]
+fn a_commit_error_before_write_stops_the_owner_and_does_not_announce_the_candidate() {
+    let disk = Disk::default();
+    let mut e = open(disk.clone(), &now(0));
+    disk.0.lock().unwrap().fail = true;
+    let r = Request::Set {
+        guard: guard(&e),
+        text: "Tea".into(),
+        when: When::After { seconds: 1 },
+    };
+    assert_eq!(e.answer(r, &now(0)).unwrap_err().code, "storage");
+    assert!(e.failed());
+    assert!(!due(&e, &now(0)).ready);
+    drop(e);
+    assert_eq!(open(disk, &now(0)).counts(&now(0)).0, 0);
+}
+#[test]
+fn a_commit_then_sync_error_recovers_the_receipt_without_duplicate_creation() {
+    let disk = Disk::default();
+    let mut e = open(disk.clone(), &now(0));
+    disk.0.lock().unwrap().after_commit = true;
+    let r = Request::Set {
+        guard: guard(&e),
+        text: "Tea".into(),
+        when: When::After { seconds: 1 },
+    };
+    assert!(e.answer(r.clone(), &now(0)).is_err());
+    assert!(e.answer(Request::Status {}, &now(0)).is_err());
+    drop(e);
+    let mut e = open(disk, &now(0));
+    assert_eq!(e.answer(r, &now(0)).unwrap()["id"], 1);
+    assert_eq!(e.counts(&now(0)).0, 1);
+}
+#[test]
+fn due_storage_failure_never_publishes_an_uncommitted_notice() {
+    let disk = Disk::default();
+    let mut e = open(disk.clone(), &now(0));
+    set(&mut e, &now(0), 1);
+    disk.0.lock().unwrap().fail = true;
+    assert!(e.tick(&now(1000)).is_err());
+    assert!(due(&e, &now(1000)).oldest.is_none());
+    drop(e);
+    let mut e = open(disk, &now(2000));
+    e.tick(&now(2000)).unwrap();
+    assert!(due(&e, &now(2000)).oldest.is_some());
+}
+#[test]
+fn pending_calendar_work_is_not_retracted_by_a_backwards_wall_clock() {
+    let mut e = open(Disk::default(), &now(0));
+    create(
+        &mut e,
+        &now(0),
+        When::At {
+            time: "00:01".into(),
+            day: None,
+            zone: None,
+            fold: None,
+        },
+    );
+    let due_at = get(&mut e, &now(0), 1)["due_unix_ms"].as_i64().unwrap();
+    let mut at = now(1000);
+    at.unix_ms = due_at + 10;
+    e.tick(&at).unwrap();
+    at.boot_ms += 1;
+    at.unix_ms = WALL - 86_400_000;
+    e.tick(&at).unwrap();
+    assert_eq!(due(&e, &at).pending, 1);
+    assert!(due(&e, &at).oldest.is_some());
+}
+#[test]
+fn wall_clock_corrections_do_not_shorten_same_boot_elapsed_timers() {
+    let mut e = open(Disk::default(), &now(0));
+    set(&mut e, &now(0), 600);
+    let mut at = now(1000);
+    at.unix_ms += 86_400_000;
+    e.tick(&at).unwrap();
+    assert_eq!(due(&e, &at).pending, 0);
+    at.wall_trusted = false;
+    at.boot_ms = 600_000;
+    e.tick(&at).unwrap();
+    assert_eq!(due(&e, &at).pending, 1);
+}
+#[test]
+fn a_new_boot_waits_for_wall_trust_then_recovers_the_overdue_timer() {
+    let disk = Disk::default();
+    let mut e = open(disk.clone(), &now(0));
+    set(&mut e, &now(0), 1);
+    drop(e);
+    let mut at = now(5000);
+    at.boot_id = "boot-b".into();
+    at.boot_ms = 100;
+    at.wall_trusted = false;
+    let mut e = open(disk, &at);
+    e.tick(&at).unwrap();
+    assert_eq!(e.counts(&at), (1, 0, 1));
+    at.wall_trusted = true;
+    e.tick(&at).unwrap();
+    assert!(due(&e, &at).oldest.unwrap().late);
+}
+#[test]
+fn untrusted_wall_time_cannot_create_a_false_reboot_deadline() {
+    let mut at = now(0);
+    at.wall_trusted = false;
+    let mut e = open(Disk::default(), &at);
+    let r = Request::Set {
+        guard: guard(&e),
+        text: "Tea".into(),
+        when: When::After { seconds: 1 },
+    };
+    assert_eq!(e.answer(r, &at).unwrap_err().code, "bad_time");
+}
+#[test]
+fn backward_elapsed_clock_or_boot_replacement_is_refused_within_one_owner() {
+    let mut e = open(Disk::default(), &now(100));
+    assert_eq!(e.tick(&now(99)).unwrap_err().code, "clock");
+    let mut at = now(101);
+    at.boot_id = "other".into();
+    assert_eq!(e.tick(&at).unwrap_err().code, "clock");
+}
+#[test]
+fn long_downtime_retains_each_recurring_occurrence_until_acknowledged() {
+    let disk = Disk::default();
+    let mut e = open(disk.clone(), &now(0));
+    create(
+        &mut e,
+        &now(0),
+        When::Daily {
+            time: "09:00".into(),
+            zone: None,
+        },
+    );
+    let first = get(&mut e, &now(0), 1)["due_unix_ms"].as_i64().unwrap();
+    drop(e);
+    let mut at = now(1);
+    at.unix_ms = first + 25 * 86_400_000;
+    let mut e = open(disk, &at);
+    for occurrence in 1..=26 {
+        e.tick(&at).unwrap();
+        let n = due(&e, &at).oldest.unwrap();
+        assert_eq!(n.delivery, occurrence);
+        assert_eq!(n.due_unix_ms, first + (occurrence as i64 - 1) * 86_400_000);
+        ack(&mut e, &at, 1, occurrence);
+    }
+    e.tick(&at).unwrap();
+    assert!(due(&e, &at).oldest.is_none());
+    assert_eq!(e.counts(&at).0, 1);
+}
+#[test]
+fn snoozing_invalidates_old_delivery_but_does_not_shift_the_repeat_anchor() {
+    let mut e = open(Disk::default(), &now(0));
+    create(
+        &mut e,
+        &now(0),
+        When::Daily {
+            time: "09:00".into(),
+            zone: None,
+        },
+    );
+    let first = get(&mut e, &now(0), 1)["due_unix_ms"].as_i64().unwrap();
+    let mut at = now(1000);
+    at.unix_ms = first;
+    e.tick(&at).unwrap();
+    let r = Request::Snooze {
+        guard: guard(&e),
+        id: 1,
+        delivery: 1,
+        seconds: 600,
+    };
+    e.answer(r, &at).unwrap();
+    assert!(due(&e, &at).oldest.is_none());
+    at.boot_ms += 600_000;
+    at.unix_ms += 600_000;
+    e.tick(&at).unwrap();
+    let stale = Request::Ack {
+        guard: guard(&e),
+        id: 1,
+        delivery: 1,
+    };
+    assert_eq!(e.answer(stale, &at).unwrap_err().code, "stale_delivery");
+    ack(&mut e, &at, 1, 2);
+    assert_eq!(get(&mut e, &at, 1)["due_unix_ms"], first + 86_400_000);
+}
+#[test]
+fn snooze_requires_a_due_occurrence() {
+    let mut e = open(Disk::default(), &now(0));
+    set(&mut e, &now(0), 60);
+    let r = Request::Snooze {
+        guard: guard(&e),
+        id: 1,
+        delivery: 1,
+        seconds: 1,
+    };
+    assert_eq!(e.answer(r, &now(0)).unwrap_err().code, "stale_delivery");
+}
+#[test]
+fn capacity_refuses_new_work_without_evicting_a_due_reminder() {
+    let mut e = open(Disk::default(), &now(0));
+    for _ in 0..MAX_ITEMS {
+        set(&mut e, &now(0), 1);
+    }
+    e.tick(&now(2000)).unwrap();
+    let r = Request::Set {
+        guard: guard(&e),
+        text: "Extra".into(),
+        when: When::After { seconds: 1 },
+    };
+    assert_eq!(e.answer(r, &now(2000)).unwrap_err().code, "full");
+    assert_eq!(e.counts(&now(2000)), (128, 128, 0));
+}
+#[test]
+fn removing_a_timer_frees_capacity_without_reusing_its_id() {
+    let mut e = open(Disk::default(), &now(0));
+    set(&mut e, &now(0), 1);
+    e.tick(&now(1000)).unwrap();
+    ack(&mut e, &now(1000), 1, 1);
+    assert_eq!(set(&mut e, &now(1000), 1)["id"], 2);
+}
+#[test]
+fn wrong_store_or_invalid_request_identity_cannot_mutate() {
+    for bad in [
+        Guard {
+            store_id: "fedcba9876543210fedcba9876543210".into(),
+            revision: 0,
+            request_id: "x".into(),
+        },
+        Guard {
+            store_id: STORE.into(),
+            revision: 0,
+            request_id: "bad request".into(),
+        },
+    ] {
+        let mut e = open(Disk::default(), &now(0));
+        let r = Request::Set {
+            guard: bad,
+            text: "Tea".into(),
+            when: When::After { seconds: 1 },
+        };
+        assert_eq!(e.answer(r, &now(0)).unwrap_err().code, "bad_guard");
+        assert_eq!(e.counts(&now(0)).0, 0);
+    }
+}
+#[test]
+fn text_is_unicode_preserving_and_never_silently_truncated() {
+    let mut e = open(Disk::default(), &now(0));
+    let text = "Nhắc tôi gọi Maria";
+    let r = Request::Set {
+        guard: guard(&e),
+        text: text.into(),
+        when: When::After { seconds: 1 },
+    };
+    e.answer(r, &now(0)).unwrap();
+    assert_eq!(get(&mut e, &now(0), 1)["text"], text);
+    for text in [" ".into(), "a\nb".into(), "a\0b".into(), "é".repeat(151)] {
+        let r = Request::Set {
+            guard: guard(&e),
+            text,
+            when: When::After { seconds: 1 },
+        };
+        assert_eq!(e.answer(r, &now(0)).unwrap_err().code, "bad_text");
+    }
+}
+#[test]
+fn paginated_listing_visits_each_item_once_without_mutation() {
+    let mut e = open(Disk::default(), &now(0));
+    for _ in 0..19 {
+        set(&mut e, &now(0), 60);
+    }
+    let before = e.revision();
+    let mut after_id = 0;
+    let mut ids = Vec::new();
+    loop {
+        let page = e
+            .answer(
+                Request::List {
+                    after_id,
+                    limit: 8,
+                    pending_only: false,
+                },
+                &now(0),
+            )
+            .unwrap();
+        ids.extend(
+            page["items"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .map(|i| i["id"].as_u64().unwrap()),
+        );
+        match page["next_after_id"].as_u64() {
+            Some(id) => after_id = id,
+            None => break,
+        }
+    }
+    assert_eq!(ids, (1..=19).collect::<Vec<_>>());
+    assert_eq!(e.revision(), before);
+}
+#[test]
+fn pending_filter_and_page_bounds_are_explicit() {
+    let mut e = open(Disk::default(), &now(0));
+    set(&mut e, &now(0), 1);
+    set(&mut e, &now(0), 10);
+    let page = e
+        .answer(
+            Request::List {
+                after_id: 0,
+                limit: 8,
+                pending_only: true,
+            },
+            &now(2000),
+        )
+        .unwrap();
+    assert_eq!(page["items"].as_array().unwrap().len(), 1);
+    for limit in [0, 9, u16::MAX] {
+        assert_eq!(
+            e.answer(
+                Request::List {
+                    after_id: 0,
+                    limit,
+                    pending_only: false
+                },
+                &now(2000)
+            )
+            .unwrap_err()
+            .code,
+            "bad_request"
+        );
+    }
+}
+#[test]
+fn maximum_text_and_repeat_metadata_fit_a_whole_list_reply() {
+    let mut e = open(Disk::default(), &now(0));
+    for _ in 0..8 {
+        let mut g = guard(&e);
+        g.request_id = "x".repeat(64);
+        let r = Request::Set {
+            guard: g,
+            text: "\"".repeat(300),
+            when: When::Weekly {
+                weekday: lamp_schedule::time::Weekday::Monday,
+                time: "09:00".into(),
+                zone: Some("America/Argentina/ComodRivadavia".into()),
+            },
+        };
+        e.answer(r, &now(0)).unwrap();
+    }
+    let before = e.revision();
+    let mut after_id = 0;
+    let mut ids = Vec::new();
+    loop {
+        let page = e
+            .answer(
+                Request::List {
+                    after_id,
+                    limit: 8,
+                    pending_only: false,
+                },
+                &now(0),
+            )
+            .unwrap();
+        assert!(serde_json::to_vec(&page).unwrap().len() <= MAX_REPLY_BYTES);
+        let items = page["items"].as_array().unwrap();
+        assert!(!items.is_empty());
+        for item in items {
+            assert_eq!(item["text"], "\"".repeat(300));
+            assert_eq!(item["request_id"], "x".repeat(64));
+            ids.push(item["id"].as_u64().unwrap());
+        }
+        match page["next_after_id"].as_u64() {
+            Some(id) => {
+                assert!(id > after_id);
+                after_id = id;
+            }
+            None => break,
+        }
+    }
+    assert_eq!(ids, (1..=8).collect::<Vec<_>>());
+    assert_eq!(e.revision(), before);
+}
+#[test]
+fn malformed_or_future_state_is_not_replaced_by_an_empty_store() {
+    for bytes in [
+        b"{cut".to_vec(),
+        serde_json::to_vec(&json!({"schema":99})).unwrap(),
+    ] {
+        let disk = Disk::default();
+        disk.0.lock().unwrap().bytes = Some(bytes.clone());
+        assert!(Engine::open(disk.clone(), "Etc/UTC", &now(0), STORE).is_err());
+        assert_eq!(disk.load().unwrap(), Some(bytes));
+    }
+}
+#[test]
+fn corrupt_persisted_item_ids_deadlines_and_receipts_fail_closed() {
+    let disk = Disk::default();
+    let mut e = open(disk.clone(), &now(0));
+    set(&mut e, &now(0), 1);
+    drop(e);
+    let original: Value = serde_json::from_slice(&disk.load().unwrap().unwrap()).unwrap();
+    let mut variants = Vec::new();
+    let mut v = original.clone();
+    v["items"][0]["id"] = 0.into();
+    variants.push(v);
+    let mut v = original.clone();
+    v["items"][0]["deadline"]["local"] = "incoherent".into();
+    variants.push(v);
+    let mut v = original.clone();
+    v["last_receipt"]["request"] = json!({"op":"status"});
+    variants.push(v);
+    let mut v = original.clone();
+    v["next_id"] = 1.into();
+    variants.push(v);
+    let mut v = original.clone();
+    v["last_receipt"]["response"]["id"] = 2.into();
+    variants.push(v);
+    let mut v = original.clone();
+    v["last_receipt"]["response"]["extra"] = "bad".into();
+    variants.push(v);
+    let mut v = original.clone();
+    v["last_receipt"]["response"]["delivery"] = 2.into();
+    variants.push(v);
+    let mut v = original;
+    v["items"][0]["text"] = "".into();
+    variants.push(v);
+    for v in variants {
+        let d = Disk::default();
+        d.0.lock().unwrap().bytes = Some(serde_json::to_vec(&v).unwrap());
+        assert!(Engine::open(d, "Etc/UTC", &now(0), STORE).is_err());
+    }
+}
+#[test]
+fn a_bad_default_zone_cannot_create_or_open_a_store() {
+    let disk = Disk::default();
+    assert!(Engine::open(disk.clone(), "Bad/Zone", &now(0), STORE).is_err());
+    assert!(disk.load().unwrap().is_none());
+}

@@ -815,3 +815,86 @@ revision. Neither comparison is a live Voice replay or an accuracy claim.
 Not shown: fitted lamp accuracy, improvement over the busy-room floor,
 acoustic response or interruption latency, speaker-to-face association,
 actual ARM64 execution, or any lamp action qualification.
+
+## Schedule: durable reminders and timers (2026-10-14)
+
+Task 6 starts from `origin/lamp-voice` at `d0a2b5c00`. The implementation
+and local interfaces are in [Schedule](schedule.md). Third inspected the
+parent V1 sources; no V1 schedule test or lamp experiment was run for this
+review. The 108 top-level test functions counted in `system/schedule` are
+an inventory, not 108 passing comparisons.
+
+**Keep useful calendar cases, change delivery ownership.** V1's
+`system/schedule/spec.go`, `spec_test.go`, `times_test.go`, `runner.go`,
+`runner_test.go`, `store.go`, `intent.go` and schedule handlers explain
+[GO-3.19](v1-verdicts.md): a backend-confirmed list delivered over MQTT,
+local intents with retry identities, strict future selection, calendar
+recurrence, busy deferral and honest reporting that success is a handoff.
+The runner skips work more than 30 minutes late. Its minute poll, five-minute
+interval floor and roughly five-minute daily jitter serve paid agent prompts;
+they do not suit a requested short timer. The new task explicitly preserves
+missed reminders, so none of those three delays or the discard window carries
+over. Atomic file replacement without syncing, and speech before saving its
+result, do not prove power-loss durability or heard-once delivery. EXT.16's
+unrequested wellbeing prompts remain excluded.
+
+**Use familiar controls, make their limits explicit.** The published
+[HomePod guide](https://support.apple.com/en-nz/guide/homepod/apd82db5cb0d/homepod)
+describes named timers, remaining time and pause/resume; snooze there is an
+alarm feature. Google's [Tasks guide](https://support.google.com/googlehome/answer/16722329)
+describes dated/repeating requests and rescheduling. Amazon's
+[reminder guide](https://digprjsurvey.amazon.com/csad/help/node/GVMW5E8YCNR6AC6E)
+describes explicit snooze and missed-reminder indications. Take identifiable
+items, a clear date/time confirmation, explicit cancel and due-item snooze,
+and daily/weekly repetition. This first component does not implement paused
+countdowns, alarms that ring continuously, monthly rules or personal identity.
+None of those vendor pages establishes an outage replay or acoustic receipt
+contract for this lamp.
+
+**Reuse Jiff, not a current-offset date calculator.** Voice's
+`local_time.rs` formats the present offset from TZif; it has neither named
+future civil-time resolution nor a trust proof. Jiff 0.2.38 is already in the
+workspace. Use its calendar and explicit
+[disambiguation](https://docs.rs/jiff/0.2.38/jiff/tz/enum.Disambiguation.html),
+with the locked bundled IANA database so the same build uses the same rules
+on this host and the lamp. A one-off gap is refused; a fold requires a choice.
+Repeats use the documented Compatible policy while retaining the requested
+civil date and time. Even two dates mapped to one instant by a whole-day
+zone skip retain separate delivery tokens. Elapsed timers use Linux BOOTTIME,
+with a stored wall deadline only for recovery on another boot after clock
+trust is available. SystemTime corrections do not retime same-boot countdowns.
+Changing bundled zone rules requires qualification of existing descriptors;
+there is no silent rule migration. Jiff's MIT/Unlicense licensing and bundled
+data provenance remain upstream; no custom timezone parser is added.
+
+**Reuse SQLite transactions and typed IPC, retain the pending work.** The
+workspace already uses rusqlite 0.40.2 with bundled SQLite. For the small
+128-item bound, Schedule stores one versioned snapshot in a private SQLite
+file with DELETE journalling, FULL synchronization, `fullfsync` where supported,
+and directory synchronization before acknowledgement. See SQLite's
+[synchronization contract](https://www.sqlite.org/pragma.html#pragma_synchronous)
+and [atomic-commit assumptions](https://www.sqlite.org/atomiccommit.html).
+It rejects unknown/corrupt schema and insecure paths instead of treating
+errors as an empty schedule. A failed post-commit sync is ambiguous: the
+owner stops, and restart/load discovers what committed.
+
+The local JSON-line boundary resembles Memory and Actions, but bounded client
+workers keep a slow reader away from due work; a separate observer withdraws
+readiness when the storage owner stalls. The socket returns a durable receipt.
+Compare-and-set guards prevent late or reordered mutations from silently
+repeating an action; the exact last mutation's receipt survives restart.
+The typed `schedule/due` Latest value carries only the oldest pending token
+and counts. It is a discovery hint, not the queue, speech permission or an
+acknowledgement. Voice may be busy, gone, muted or offline without consuming
+it. First retrieves a current token privately, owns all speech admission,
+and acknowledges completed output. A crash between output and acknowledgement
+can repeat a notice; exactly-once audible delivery is not claimed.
+
+## What this Schedule review has not shown
+
+Vendor documentation was studied, not benchmarked. V1 tests were read, not
+rerun. This source review establishes no lamp flash flush behavior, power-cut
+survival, real clock synchronization, Linux suspend/reboot timing, future zone
+migration, privacy/admission integration, audible completion or due-to-speech
+latency. The separate host test and timing evidence is reported as host
+results, and First still owns Voice integration and lamp qualification.

@@ -1,0 +1,7 @@
+{
+  "command": "cargo build --workspace --offline --locked",
+  "cwd": "/Users/d/code/autonomous-os/lampOS",
+  "exit_code": 0,
+  "elapsed_seconds": 23.52436648,
+  "log": "/private/tmp/lamp-third-schedule-baseline-build.txt"
+}

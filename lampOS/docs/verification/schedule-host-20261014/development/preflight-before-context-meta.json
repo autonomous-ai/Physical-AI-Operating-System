@@ -1,0 +1,13 @@
+{
+  "command": [
+    "target/release/examples/schedule_check",
+    "--scratch-parent",
+    "/private/tmp",
+    "--samples",
+    "1"
+  ],
+  "started_utc": "2026-10-14T08:31:22.276174+00:00",
+  "exit_code": 0,
+  "elapsed_seconds": 1.3121393940000001,
+  "scope": "functional diagnosis of failed qualification; original binary, two items per stage, not the reported measurement"
+}

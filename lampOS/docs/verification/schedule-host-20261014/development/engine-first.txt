@@ -1,0 +1,65 @@
+   Compiling lamp-schedule v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/schedule)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 3.12s
+     Running tests/engine.rs (target/debug/deps/engine-4ea9850d05481b65)
+
+running 34 tests
+test a_bad_default_zone_cannot_create_or_open_a_store ... ok
+test backward_elapsed_clock_or_boot_replacement_is_refused_within_one_owner ... ok
+test a_new_store_is_empty_and_identified_before_any_request ... ok
+test changing_the_payload_of_a_retried_guard_is_a_conflict ... ok
+test a_commit_error_before_write_stops_the_owner_and_does_not_announce_the_candidate ... ok
+test an_old_retry_after_another_mutation_cannot_recreate_a_cancelled_timer ... ok
+test automatic_due_updates_preserve_the_last_mutation_receipt ... ok
+test ack_requires_the_current_pending_delivery ... ok
+test a_commit_then_sync_error_recovers_the_receipt_without_duplicate_creation ... ok
+test malformed_or_future_state_is_not_replaced_by_an_empty_store ... ok
+test a_lost_create_reply_is_replayed_after_restart_without_a_second_timer ... ok
+test even_a_one_millisecond_overdue_restart_is_marked_late ... ok
+test a_new_boot_waits_for_wall_trust_then_recovers_the_overdue_timer ... ok
+test exact_due_time_is_pending_without_lateness ... ok
+test create_reopen_and_new_ids_preserve_the_committed_timer ... ok
+test due_storage_failure_never_publishes_an_uncommitted_notice ... ok
+test corrupt_persisted_item_ids_deadlines_and_receipts_fail_closed ... ok
+test ordinary_poll_jitter_is_reported_but_does_not_make_a_spoken_late_claim ... ok
+test snooze_requires_a_due_occurrence ... ok
+test due_items_are_oldest_first_and_ack_does_not_consume_its_neighbours ... ok
+test untrusted_wall_time_cannot_create_a_false_reboot_deadline ... ok
+test pending_calendar_work_is_not_retracted_by_a_backwards_wall_clock ... ok
+test wrong_store_or_invalid_request_identity_cannot_mutate ... ok
+test cancelling_before_or_after_due_removes_only_the_named_item ... ok
+test removing_a_timer_frees_capacity_without_reusing_its_id ... ok
+test text_is_unicode_preserving_and_never_silently_truncated ... ok
+test absent_voice_neither_consumes_due_nor_rewrites_the_store_on_every_tick ... ok
+test pending_filter_and_page_bounds_are_explicit ... ok
+test wall_clock_corrections_do_not_shorten_same_boot_elapsed_timers ... ok
+test snoozing_invalidates_old_delivery_but_does_not_shift_the_repeat_anchor ... ok
+test maximum_text_and_repeat_metadata_fit_a_whole_list_reply ... ok
+test long_downtime_retains_each_recurring_occurrence_until_acknowledged ... ok
+test paginated_listing_visits_each_item_once_without_mutation ... ok
+test capacity_refuses_new_work_without_evicting_a_due_reminder ... ok
+
+test result: ok. 34 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.19s
+
+     Running tests/protocol.rs (target/debug/deps/protocol-a37c66dbacb8817d)
+
+running 4 tests
+test request_size_and_utf8_are_checked_without_lossy_conversion ... ok
+test list_defaults_are_bounded_and_roundtrip_preserves_request_identity ... ok
+test mutations_require_a_complete_caller_guard ... ok
+test one_line_requests_reject_unknown_and_duplicate_fields ... FAILED
+
+failures:
+
+---- one_line_requests_reject_unknown_and_duplicate_fields stdout ----
+
+thread 'one_line_requests_reject_unknown_and_duplicate_fields' (110836113) panicked at crates/schedule/tests/protocol.rs:6:9:
+{"op":"status","extra":true}
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    one_line_requests_reject_unknown_and_duplicate_fields
+
+test result: FAILED. 3 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+error: test failed, to rerun pass `-p lamp-schedule --test protocol`

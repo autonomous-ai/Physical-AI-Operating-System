@@ -1,0 +1,15 @@
+   Compiling lamp-msgs v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/msgs)
+error[E0624]: method `check` is private
+   --> crates/msgs/tests/schedule.rs:324:17
+    |
+324 |     declaration.check().unwrap();
+    |                 ^^^^^ private method
+    |
+   ::: crates/bus/src/declare.rs:86:5
+    |
+ 86 |     pub(crate) fn check(&self) -> io::Result<()> {
+    |     -------------------------------------------- private method defined here
+
+For more information about this error, try `rustc --explain E0624`.
+error: could not compile `lamp-msgs` (test "schedule") due to 1 previous error
+warning: build failed, waiting for other jobs to finish...

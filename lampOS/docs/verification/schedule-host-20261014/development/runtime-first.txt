@@ -1,0 +1,117 @@
+   Compiling lamp-schedule v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/schedule)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.51s
+     Running tests/runtime.rs (target/debug/deps/runtime-ddec40dbc50bd995)
+
+running 18 tests
+test a_finite_service_stops_and_releases_its_owner ... FAILED
+test a_full_client_pool_does_not_stop_due_publication ... FAILED
+test a_second_owner_cannot_replace_the_live_socket_or_database ... FAILED
+test a_silent_connection_does_not_hold_due_work_or_other_clients ... FAILED
+test a_socket_symlink_is_preserved_and_refused ... FAILED
+test a_trickling_client_has_a_cumulative_read_deadline ... FAILED
+test bus_recovery_is_from_durable_pending_work_not_just_the_latest_file ... FAILED
+test cancellation_and_ack_update_the_retained_notice ... FAILED
+test cli_default_off_does_not_require_a_clock_or_touch_paths ... ok
+test cli_rejects_unknown_and_repeated_options ... ok
+test diagnostics_name_the_owner_and_do_not_include_personal_text ... FAILED
+test disabled_service_never_reads_clock_or_creates_any_path ... ok
+test host_clock_requires_an_identity_and_reports_explicit_trust ... ok
+test killed_process_reopens_the_same_store_and_recovers_its_stale_socket ... FAILED
+test malformed_oversized_and_partial_lines_never_mutate_the_store ... FAILED
+test socket_is_private_and_request_receipt_survives_service_restart ... FAILED
+test two_guarded_mutations_from_the_same_snapshot_do_not_both_win ... FAILED
+test unsafe_socket_parent_is_rejected ... FAILED
+
+failures:
+
+---- a_finite_service_stops_and_releases_its_owner stdout ----
+
+thread 'a_finite_service_stops_and_releases_its_owner' (110849936) panicked at crates/schedule/tests/runtime.rs:42:62:
+service start failed: Err(Os { code: 1, kind: PermissionDenied, message: "Operation not permitted" })
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+---- a_full_client_pool_does_not_stop_due_publication stdout ----
+
+thread 'a_full_client_pool_does_not_stop_due_publication' (110849940) panicked at crates/schedule/tests/runtime.rs:42:62:
+service start failed: Err(Os { code: 1, kind: PermissionDenied, message: "Operation not permitted" })
+
+---- a_second_owner_cannot_replace_the_live_socket_or_database stdout ----
+
+thread 'a_second_owner_cannot_replace_the_live_socket_or_database' (110849952) panicked at crates/schedule/tests/runtime.rs:42:62:
+service start failed: Err(Os { code: 1, kind: PermissionDenied, message: "Operation not permitted" })
+
+---- a_silent_connection_does_not_hold_due_work_or_other_clients stdout ----
+
+thread 'a_silent_connection_does_not_hold_due_work_or_other_clients' (110849961) panicked at crates/schedule/tests/runtime.rs:42:62:
+service start failed: Err(Os { code: 1, kind: PermissionDenied, message: "Operation not permitted" })
+
+---- a_socket_symlink_is_preserved_and_refused stdout ----
+
+thread 'a_socket_symlink_is_preserved_and_refused' (110849967) panicked at crates/schedule/tests/runtime.rs:42:62:
+service start failed: Err(Os { code: 1, kind: PermissionDenied, message: "Operation not permitted" })
+
+---- a_trickling_client_has_a_cumulative_read_deadline stdout ----
+
+thread 'a_trickling_client_has_a_cumulative_read_deadline' (110849988) panicked at crates/schedule/tests/runtime.rs:42:62:
+service start failed: Err(Os { code: 1, kind: PermissionDenied, message: "Operation not permitted" })
+
+---- bus_recovery_is_from_durable_pending_work_not_just_the_latest_file stdout ----
+
+thread 'bus_recovery_is_from_durable_pending_work_not_just_the_latest_file' (110849991) panicked at crates/schedule/tests/runtime.rs:42:62:
+service start failed: Err(Os { code: 1, kind: PermissionDenied, message: "Operation not permitted" })
+
+---- cancellation_and_ack_update_the_retained_notice stdout ----
+
+thread 'cancellation_and_ack_update_the_retained_notice' (110849993) panicked at crates/schedule/tests/runtime.rs:42:62:
+service start failed: Err(Os { code: 1, kind: PermissionDenied, message: "Operation not permitted" })
+
+---- diagnostics_name_the_owner_and_do_not_include_personal_text stdout ----
+
+thread 'diagnostics_name_the_owner_and_do_not_include_personal_text' (110850049) panicked at crates/schedule/tests/runtime.rs:42:62:
+service start failed: Err(Os { code: 1, kind: PermissionDenied, message: "Operation not permitted" })
+
+---- killed_process_reopens_the_same_store_and_recovers_its_stale_socket stdout ----
+
+thread 'killed_process_reopens_the_same_store_and_recovers_its_stale_socket' (110850063) panicked at crates/schedule/tests/runtime.rs:42:62:
+service start failed: Err(Os { code: 1, kind: PermissionDenied, message: "Operation not permitted" })
+
+---- malformed_oversized_and_partial_lines_never_mutate_the_store stdout ----
+
+thread 'malformed_oversized_and_partial_lines_never_mutate_the_store' (110850069) panicked at crates/schedule/tests/runtime.rs:42:62:
+service start failed: Err(Os { code: 1, kind: PermissionDenied, message: "Operation not permitted" })
+
+---- socket_is_private_and_request_receipt_survives_service_restart stdout ----
+
+thread 'socket_is_private_and_request_receipt_survives_service_restart' (110850071) panicked at crates/schedule/tests/runtime.rs:42:62:
+service start failed: Err(Os { code: 1, kind: PermissionDenied, message: "Operation not permitted" })
+
+---- two_guarded_mutations_from_the_same_snapshot_do_not_both_win stdout ----
+
+thread 'two_guarded_mutations_from_the_same_snapshot_do_not_both_win' (110850078) panicked at crates/schedule/tests/runtime.rs:42:62:
+service start failed: Err(Os { code: 1, kind: PermissionDenied, message: "Operation not permitted" })
+
+---- unsafe_socket_parent_is_rejected stdout ----
+
+thread 'unsafe_socket_parent_is_rejected' (110850085) panicked at crates/schedule/tests/runtime.rs:42:62:
+service start failed: Err(Os { code: 1, kind: PermissionDenied, message: "Operation not permitted" })
+
+
+failures:
+    a_finite_service_stops_and_releases_its_owner
+    a_full_client_pool_does_not_stop_due_publication
+    a_second_owner_cannot_replace_the_live_socket_or_database
+    a_silent_connection_does_not_hold_due_work_or_other_clients
+    a_socket_symlink_is_preserved_and_refused
+    a_trickling_client_has_a_cumulative_read_deadline
+    bus_recovery_is_from_durable_pending_work_not_just_the_latest_file
+    cancellation_and_ack_update_the_retained_notice
+    diagnostics_name_the_owner_and_do_not_include_personal_text
+    killed_process_reopens_the_same_store_and_recovers_its_stale_socket
+    malformed_oversized_and_partial_lines_never_mutate_the_store
+    socket_is_private_and_request_receipt_survives_service_restart
+    two_guarded_mutations_from_the_same_snapshot_do_not_both_win
+    unsafe_socket_parent_is_rejected
+
+test result: FAILED. 4 passed; 14 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.70s
+
+error: test failed, to rerun pass `-p lamp-schedule --test runtime`

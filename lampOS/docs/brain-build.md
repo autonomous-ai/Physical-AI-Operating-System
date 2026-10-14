@@ -167,7 +167,7 @@ killed, and what the others do is counted.
 | Harness | the Harness team's own service, installed on the lamp | The account's session and the way to its other machines | Harness team | As for Tasks |
 | Memory | `lamp-memory` ([memory.md](memory.md)) | The journal, what it was told to keep, a store for each person, forgetting | open | The lamp talks without recalling earlier days, and says so. Running today; its next layer ([memory-days.md](memory-days.md) on `lamp-fourth`) is built and not on a lamp |
 | Controls | `lamp-controls` (being built by the third builder) | The touch pad and the button: stop, mute, privacy | open | The lamp is spoken to as before and cannot be tapped |
-| Schedules | `lamp-schedule` (new) | Reminders and timers | open | The lamp says it cannot set one just now; one already set is said late, when the component is back |
+| Schedules | `lamp-schedule` ([schedule.md](schedule.md); built by Third, off unless enabled) | Durable reminders, elapsed timers and pending delivery receipts | open | The lamp says it cannot set one just now; pending work survives and is offered late after recovery. First still wires Voice to retrieve and acknowledge it |
 | Name | `lamp-name` ([name.md](name.md)) | Hearing "Hey Lamp" and "Lamp ơi" in what the microphone hears, and saying so on the bus. It decides nothing | open | The lamp talks as before. A new session in a busy room goes by the service's text alone, and no second look is taken at a call that got nothing ([attention.md](attention.md)). Running today |
 | Policy | `lamp-policy` ([policy.md](policy.md); this table's first form called it Decisions, `lamp-decide`) | The choices where there is a real choice or nobody spoke. One policy makes each choice; it may ask several decision models, each a judge behind one common way of asking, and no judge acts by itself. The first judge is Jev. For now only a record: what it would have decided about each thing heard, beside what the lamp did | open | The rules alone decide, as they do today: it decides nothing yet. Running today, watching only |
 | Health | `lamp-health` ([health.md](health.md)) | Every part's own report gathered into one answer to "how is the lamp", and the board's temperature, load, memory and disk | open | Each part goes on as it was, and nobody is told how the lamp is. Running today |
@@ -913,3 +913,7 @@ two-minute wait.
   hears, as it changed how it treated a written line.
 - How long this takes. It is weeks; the voice itself is not finished
   (interrupting it, a group at the lamp, speaking first are open).
+- Schedule's host checks do not establish lamp storage durability, clock
+  accuracy, privacy/admission integration or due-to-speech latency. Its
+  durable socket and bus handoff are built; no reminder is spoken by this
+  component, and First's Voice wiring remains to be qualified on the lamp.

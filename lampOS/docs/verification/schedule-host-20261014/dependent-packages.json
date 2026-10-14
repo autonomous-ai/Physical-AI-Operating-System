@@ -1,0 +1,108 @@
+{
+  "touched": [
+    "lamp-msgs",
+    "lamp-schedule"
+  ],
+  "packages": [
+    "lamp-actions",
+    "lamp-body",
+    "lamp-controls",
+    "lamp-expression",
+    "lamp-eyes",
+    "lamp-health",
+    "lamp-lean",
+    "lamp-msgs",
+    "lamp-name",
+    "lamp-policy",
+    "lamp-records",
+    "lamp-schedule",
+    "lamp-surround",
+    "lamp-voice",
+    "lamp-voice-eval"
+  ],
+  "dependency_kinds": "all declared local manifest dependencies, including dev and optional",
+  "edges": {
+    "lamp-actions": [
+      "lamp-bus",
+      "lamp-msgs"
+    ],
+    "lamp-body": [
+      "lamp-bus",
+      "lamp-ipc",
+      "lamp-msgs",
+      "lamp-turn-owner"
+    ],
+    "lamp-controls": [
+      "lamp-bus",
+      "lamp-ipc",
+      "lamp-msgs"
+    ],
+    "lamp-expression": [
+      "lamp-bus",
+      "lamp-ipc",
+      "lamp-msgs"
+    ],
+    "lamp-eyes": [
+      "lamp-bus",
+      "lamp-camera",
+      "lamp-ipc",
+      "lamp-msgs",
+      "lamp-turn-owner"
+    ],
+    "lamp-health": [
+      "lamp-bus",
+      "lamp-msgs"
+    ],
+    "lamp-lean": [
+      "lamp-expression",
+      "lamp-msgs"
+    ],
+    "lamp-msgs": [
+      "lamp-bus"
+    ],
+    "lamp-name": [
+      "lamp-bus",
+      "lamp-msgs"
+    ],
+    "lamp-policy": [
+      "lamp-bus",
+      "lamp-msgs"
+    ],
+    "lamp-records": [
+      "lamp-bus",
+      "lamp-msgs"
+    ],
+    "lamp-schedule": [
+      "lamp-bus",
+      "lamp-msgs"
+    ],
+    "lamp-surround": [
+      "lamp-bus",
+      "lamp-gemini",
+      "lamp-ipc",
+      "lamp-msgs"
+    ],
+    "lamp-voice": [
+      "lamp-audio",
+      "lamp-body",
+      "lamp-bus",
+      "lamp-camera",
+      "lamp-controls",
+      "lamp-expression",
+      "lamp-gemini",
+      "lamp-ipc",
+      "lamp-msgs",
+      "lamp-ring",
+      "lamp-turn-end-wire",
+      "lamp-turn-owner"
+    ],
+    "lamp-voice-eval": [
+      "lamp-audio",
+      "lamp-ipc",
+      "lamp-observer",
+      "lamp-sound-fixtures",
+      "lamp-turn-owner",
+      "lamp-voice"
+    ]
+  }
+}

@@ -1,0 +1,4 @@
+   Compiling rustix v1.1.5
+   Compiling lamp-schedule v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/schedule)
+   Compiling tempfile v3.27.0
+    Finished `release` profile [optimized] target(s) in 8.96s

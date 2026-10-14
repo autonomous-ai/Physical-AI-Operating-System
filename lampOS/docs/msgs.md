@@ -133,6 +133,46 @@ or Controls restart. Physical privacy stays with Voice. These are typed
 handoff contracts; see [Controls](controls.md) for the consumer obligations and
 [service privacy](service-privacy.md) for the existing physical authority.
 
+## Optional Schedule contract
+
+Schedule's additive types live in `crates/msgs/src/schedule.rs` and are
+re-exported at the crate root. `schedule_topics()` and `declaration_of()`
+discover the topic; `first_topics()` remains the original seventeen topics.
+
+| Type | Topic | Kind | Period / lifespan | Meaning |
+|---|---|---|---|---|
+| `ScheduleDue` | `schedule/due` | latest | 1 / 3 s | Counts and, only while enabled and ready, the oldest pending occurrence's identity and timing; no reminder text |
+
+`ScheduleDue` is version 1 of `lamp_msgs/ScheduleDue`. It carries a
+`ClockStamp`, a persistent `store_id` of exactly 32 lowercase hexadecimal
+characters, a `revision`, `enabled`, `ready`, `pending`,
+`waiting_for_clock`, and optional `oldest`. The two counts are each from 0
+through 128 and together cannot exceed 128. `oldest` is present exactly when
+`pending > 0`, `enabled` and `ready` are all true. An unavailable or shadow
+publisher may keep its counts visible but cannot advertise a notice.
+`ready` describes Schedule's ability to serve due work, not Voice readiness.
+
+A `ScheduleNotice` contains positive `id` and `delivery` numbers,
+`due_unix_ms` from 0 through 253402300799999 (the last millisecond of
+9999-12-31 UTC), a `late` flag, and optional `late_by_ms`. The latter is an
+unsigned millisecond count when lateness is currently known; its absence
+does not mean zero. No text or instructions are carried on this topic.
+Unknown additive fields are ignored; required fields, numeric types and
+the checks above are enforced. `check()` validates structure, including
+the existing `ClockStamp` identifier contract. It does not read a clock,
+establish current boot/freshness, or deduplicate deliveries.
+
+Schedule owns the persistent queue. It advertises the same delivery token
+until an explicit durable socket acknowledgement, cancellation or snooze
+changes that occurrence; another heartbeat does not mean another delivery.
+The bus's one latest file is neither the durable queue nor permission to
+speak. A consumer must validate current host boot, stamp, publisher identity
+and ordering, refuse an expired or superseded offer, then retrieve the exact
+`store_id`/`id`/`delivery` from Schedule's private socket before speech.
+Only confirmed completion may be acknowledged. Voice still owns admission,
+privacy, interruption and the final speaker check; First wires that path.
+See [the bus contract](bus.md#optional-schedule-topic-third-2026-10-14).
+
 ## Adding one
 
 1. Write the structure in `crates/msgs/src/lib.rs` with `Serialize` and
@@ -199,3 +239,7 @@ topic catalogue. Neither carries any sound.
 
 Levels are dBFS from -120 (digital silence) to 0; `check()` refuses
 anything else, and a peak under its quiet.
+
+The Schedule contract tests establish message shape and declaration rules
+only. They do not establish durable delivery, Voice integration, clock
+accuracy, acoustic completion or reminder latency on a lamp.

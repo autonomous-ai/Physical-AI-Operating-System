@@ -1,0 +1,19 @@
+{
+  "document": "docs/schedule.md",
+  "json_examples": 9,
+  "local_links_checked": 8,
+  "balanced_fences": true,
+  "no_trailing_whitespace": true,
+  "new_test_inventory": {
+    "crates/schedule/src/store.rs": 1,
+    "crates/schedule/tests/calendar.rs": 37,
+    "crates/schedule/tests/engine.rs": 36,
+    "crates/schedule/tests/protocol.rs": 4,
+    "crates/schedule/tests/runtime.rs": 18,
+    "crates/schedule/tests/runtime_failures.rs": 2,
+    "crates/schedule/tests/storage.rs": 21,
+    "crates/msgs/tests/schedule.rs": 12
+  },
+  "new_test_functions": 131,
+  "scope": "source/document validation, not a test execution"
+}

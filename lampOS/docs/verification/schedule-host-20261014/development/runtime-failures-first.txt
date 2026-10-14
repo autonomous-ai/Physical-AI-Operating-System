@@ -1,0 +1,24 @@
+   Compiling lamp-schedule v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/schedule)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 2.20s
+     Running tests/runtime_failures.rs (target/debug/deps/runtime_failures-d77980b48c74d8eb)
+
+running 2 tests
+
+thread 'a_blocked_owner_withdraws_due_readiness_then_recovers_the_same_delivery' (110877170) panicked at crates/schedule/tests/runtime_failures.rs:369:10:
+called `Result::unwrap()` on an `Err` value: Custom { kind: InvalidInput, error: "subscriber name \"sf-due\" is not [a-z][a-z0-9_]{0,31}" }
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test a_blocked_owner_withdraws_due_readiness_then_recovers_the_same_delivery ... FAILED
+
+thread 'a_full_stderr_sink_cannot_hold_status_or_sigterm_shutdown' (110877171) panicked at crates/schedule/tests/runtime_failures.rs:180:9:
+CLI did not bind its fixture socket
+test a_full_stderr_sink_cannot_hold_status_or_sigterm_shutdown ... FAILED
+
+failures:
+
+failures:
+    a_blocked_owner_withdraws_due_readiness_then_recovers_the_same_delivery
+    a_full_stderr_sink_cannot_hold_status_or_sigterm_shutdown
+
+test result: FAILED. 0 passed; 2 failed; 0 ignored; 0 measured; 0 filtered out; finished in 5.01s
+
+error: test failed, to rerun pass `-p lamp-schedule --test runtime_failures`

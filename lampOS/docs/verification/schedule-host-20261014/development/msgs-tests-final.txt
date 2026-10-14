@@ -1,0 +1,41 @@
+   Compiling lamp-msgs v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/msgs)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.81s
+     Running unittests src/lib.rs (target/debug/deps/lamp_msgs-1da7f47a1b5b65d5)
+
+running 15 tests
+test tests::the_voice_says_which_of_four_things_it_is_doing ... ok
+test tests::the_room_is_unknown_quiet_or_busy ... ok
+test tests::an_image_reference_names_a_file_every_process_can_find ... ok
+test tests::a_joint_state_has_ros_lists_and_what_was_commanded ... ok
+test tests::the_name_heard_is_a_score_and_how_long_ago_it_began ... ok
+test tests::speech_is_text_that_is_finished_or_still_coming ... ok
+test tests::the_board_says_numbers_and_leaves_out_what_it_cannot_measure ... ok
+test tests::audio_is_a_header_line_and_then_the_samples_as_they_are ... ok
+test tests::faces_are_a_list_of_boxes_in_fractions_of_the_picture ... ok
+test tests::a_light_is_on_or_off_in_one_of_ten_colours_at_one_of_five_levels ... ok
+test tests::the_lamps_health_is_its_parts_worst_first_and_the_worst_is_its_level ... ok
+test tests::a_diagnostic_is_a_level_a_name_a_message_and_a_few_facts ... ok
+test tests::the_link_is_ready_or_says_why_it_is_not ... ok
+test tests::every_first_topic_is_declared_as_the_table_of_first_topics_has_it ... ok
+test tests::a_decision_says_what_was_chosen_how_likely_by_whom_and_from_which_answers ... ok
+
+test result: ok. 15 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/schedule.rs (target/debug/deps/schedule-dd7b5cb5d3c2b9e6)
+
+running 12 tests
+test clock_shape_uses_the_existing_contract_without_inventing_a_clock_or_sequence ... ok
+test notice_ids_are_positive_and_due_dates_have_explicit_inclusive_bounds ... ok
+test counts_share_one_bound_and_extreme_unsigned_values_cannot_overflow_the_check ... ok
+test oldest_is_present_if_and_only_if_enabled_ready_and_pending ... ok
+test optional_unknown_lateness_and_withdrawn_notice_are_omitted_and_round_trip ... ok
+test missing_optional_notice_still_fails_validation_when_due_work_is_offered ... ok
+test store_identity_is_exact_lowercase_hex_not_an_arbitrary_identifier ... ok
+test discovery_is_additive_and_declares_one_latest_topic_with_a_three_second_lifespan ... ok
+test unknown_lateness_is_not_converted_to_an_on_time_claim ... ok
+test due_round_trip_carries_metadata_and_ignores_additive_fields_at_every_level ... ok
+test all_nonoptional_fields_are_required_including_nested_clock_and_notice ... ok
+test malformed_numeric_or_enum_like_boolean_values_are_not_guessed ... ok
+
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

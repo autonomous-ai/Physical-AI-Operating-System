@@ -52,6 +52,8 @@ mod controls;
 pub use controls::*;
 mod ears;
 pub use ears::*;
+mod schedule;
+pub use schedule::*;
 
 /// Why a message is not one its type allows, in words.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -888,6 +890,7 @@ pub fn declaration_of(topic: &str) -> Option<Declaration> {
         .into_iter()
         .chain(expression_topics())
         .chain(controls_topics())
+        .chain(schedule_topics())
         .find_map(|(name, declaration)| (name == topic).then_some(declaration))
 }
 

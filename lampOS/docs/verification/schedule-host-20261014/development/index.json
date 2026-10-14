@@ -1,0 +1,405 @@
+{
+  "note": "Development outputs and read-only studies, including failures. Not all provisional logs capture exact invocation flags. Final gate and measurement commands are recorded in results.json and measurement.json.",
+  "files": [
+    {
+      "file": "alternatives.md",
+      "bytes": 13236,
+      "sha256": "b3666b44702ba64dedcc0ea450d779478fbaabb6daffb706b7770d97aadb22a8"
+    },
+    {
+      "file": "audit.md",
+      "bytes": 6020,
+      "sha256": "f835f415a5ab3ac95d90d70bddeb685de90244fad86557073a6268a7e75f006b"
+    },
+    {
+      "file": "calendar-clippy-final.txt",
+      "bytes": 1957,
+      "sha256": "2d1f64cebc8d0ecaa83d70621ddaa3c149ad1aa437c2e3b3f0a428564fa29c40"
+    },
+    {
+      "file": "calendar-clippy.txt",
+      "bytes": 826,
+      "sha256": "87d02f264ddf44630945c9d4937b17c5ed44b05a0f33061f879399e92144c327"
+    },
+    {
+      "file": "calendar-first.txt",
+      "bytes": 2044,
+      "sha256": "af30acd8bb0cbf2678ff6ec5e94b089daf3765b8fba84e7cf6267d4fe47ea027"
+    },
+    {
+      "file": "calendar-fmt.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "file": "calendar-second.txt",
+      "bytes": 3657,
+      "sha256": "2ded7dc5b26942256402c3b74f64033358f8952957b4b371abcd9ffcbfe2a669",
+      "reported_tests": {
+        "passed": 36,
+        "failed": 1,
+        "ignored": 0
+      }
+    },
+    {
+      "file": "calendar-third.txt",
+      "bytes": 3127,
+      "sha256": "aea69d2321a13cb55ff90f6721412e7f2ab1f5f294b5e2959ac71a0c847119e9",
+      "reported_tests": {
+        "passed": 37,
+        "failed": 0,
+        "ignored": 0
+      }
+    },
+    {
+      "file": "check-build-final.txt",
+      "bytes": 159,
+      "sha256": "a7a66310fb0f54d7a6bb5c97793ca4d8ec67af8db87105ce890150ea356070b2"
+    },
+    {
+      "file": "check-build-first.txt",
+      "bytes": 159,
+      "sha256": "3b5fbc953a0c84ee6041d19ad9a709f85be8c3070981f3e5503cfe47ecb40805"
+    },
+    {
+      "file": "check-context-clippy.txt",
+      "bytes": 159,
+      "sha256": "780662d3d009e74b777bb9bcf0af69f6314b59168399674f800c928c9532e356"
+    },
+    {
+      "file": "check-context-format.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "file": "check-format-final.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "file": "check-poll-clippy-final.txt",
+      "bytes": 159,
+      "sha256": "f80ead3bdeabce70f5c81121f809df26979be09a3d15c1f63a7e36fbb355d6df"
+    },
+    {
+      "file": "check-poll-clippy.txt",
+      "bytes": 159,
+      "sha256": "fc256ab22233b816d51c4032f9976ef6ba53000b3a9521edcced1511c889ae00"
+    },
+    {
+      "file": "check-poll-format.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "file": "check-poll-tests-final.txt",
+      "bytes": 1086,
+      "sha256": "f7ee0990557c09f0414db07ed553703886284ea09d7f476317135713d9b2525e",
+      "reported_tests": {
+        "passed": 10,
+        "failed": 0,
+        "ignored": 0
+      }
+    },
+    {
+      "file": "check-poll-tests-first.txt",
+      "bytes": 1355,
+      "sha256": "173970ef502ad9e1f3de1f50bca05e31980c5b75923e5ce479335fcbaf3796f1"
+    },
+    {
+      "file": "clippy-pre-gate.txt",
+      "bytes": 159,
+      "sha256": "86c961fccf5c4853094b593c057b09df19e6f49fb29abd17bf5896224c98324a"
+    },
+    {
+      "file": "context-diagnosis-qualification.json",
+      "bytes": 179,
+      "sha256": "2f9a87c4a37230a86aa503e1af688ee4308b22846d355afe3431f93746e4910c"
+    },
+    {
+      "file": "context-diagnosis-release-build.txt",
+      "bytes": 149,
+      "sha256": "2eb2b28211595b29ffceb2813f6775c3de977ac6b343bf3315b985f0b79175ba"
+    },
+    {
+      "file": "context-diagnosis-results.json",
+      "bytes": 953,
+      "sha256": "55b9fcb76067958e297a9a1b27ffd1ffdea6a0679296024d280663f8dbc0eaba"
+    },
+    {
+      "file": "core-runtime-final.txt",
+      "bytes": 4780,
+      "sha256": "c829b4889af59a6265672049c01f75c111c6b9b099906434f773494fbccf772b",
+      "reported_tests": {
+        "passed": 58,
+        "failed": 0,
+        "ignored": 0
+      }
+    },
+    {
+      "file": "document-check-final.json",
+      "bytes": 167,
+      "sha256": "1a621cb5529521de3d85af350421215bd485c239d240a98836e7cb3995e99f27"
+    },
+    {
+      "file": "document-check-pre-gate.json",
+      "bytes": 622,
+      "sha256": "2aafe9df75a894648155128a5928e67397a4406772b0ad3bcba28345b38202a6"
+    },
+    {
+      "file": "engine-first.txt",
+      "bytes": 3701,
+      "sha256": "9f32f0d29bbeaf873f5fb7f59773cab4ce2b5b58232882cad9d54629e046454b",
+      "reported_tests": {
+        "passed": 37,
+        "failed": 1,
+        "ignored": 0
+      }
+    },
+    {
+      "file": "engine-second.txt",
+      "bytes": 3237,
+      "sha256": "5c4ae7e2ce2b245a3272b449d2e37c309164438ed7482abdd16063af8339dae8",
+      "reported_tests": {
+        "passed": 38,
+        "failed": 0,
+        "ignored": 0
+      }
+    },
+    {
+      "file": "engine-third.txt",
+      "bytes": 3508,
+      "sha256": "ba7d544cdc146f8ae38ecb83786657c47bda012e0271c07d1567c569efd9e69e",
+      "reported_tests": {
+        "passed": 35,
+        "failed": 1,
+        "ignored": 0
+      }
+    },
+    {
+      "file": "format-pre-gate.txt",
+      "bytes": 293,
+      "sha256": "dde2a629f6ce53265f6434a7eef4e8dbc4f148dade9539e9bee5da3b6635147a"
+    },
+    {
+      "file": "gate-attempt1-clippy.txt",
+      "bytes": 2806,
+      "sha256": "abe5b4d2c849f5e9d281279e04b0a0adeff9fe022c3bf25222ea2778fd77f958"
+    },
+    {
+      "file": "gate-attempt1-format.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "file": "gate-attempt1-results.json",
+      "bytes": 2061,
+      "sha256": "2b5147e26364183b442a303e5c3826734c407cbc1fc68b1fdc553ee7badf5cb7"
+    },
+    {
+      "file": "initial-check.txt",
+      "bytes": 2556,
+      "sha256": "1ad92b72aa0d27ca0cf0f434263b9527256c5a563e94e3fbd30a586eaa83e80a"
+    },
+    {
+      "file": "measurement-attempt1.json",
+      "bytes": 1193,
+      "sha256": "db0be3d9e68cc83274f54ceb7138d5d4bcfae67d8edf51649ad9cabff323681b"
+    },
+    {
+      "file": "msgs-clippy-final.txt",
+      "bytes": 151,
+      "sha256": "23a0d1e74ab7cba75a0b4172627444d2124cb0af8eda346700dd0e0afe9e3f52"
+    },
+    {
+      "file": "msgs-clippy.txt",
+      "bytes": 667,
+      "sha256": "7ac334f9d17c9e1025192a3ea3d086957015a9734cb31a0dfea9fc35fe09356b"
+    },
+    {
+      "file": "msgs-format.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "file": "msgs-tests-final.txt",
+      "bytes": 2635,
+      "sha256": "04bccc4e54a5bd14992c82c15b72c04e220b81b805512a7361c42b9a86bec50d",
+      "reported_tests": {
+        "passed": 27,
+        "failed": 0,
+        "ignored": 0
+      }
+    },
+    {
+      "file": "msgs-tests.txt",
+      "bytes": 649,
+      "sha256": "feae728ff8e51b4bd356e5fe835b4f67a7d4a7f9acfa88458cc1b42c60e749b0"
+    },
+    {
+      "file": "preflight-before-context-meta.json",
+      "bytes": 377,
+      "sha256": "d9a79aabd9d878fc57b693de013b126408cae871d0d0b2e6f8032889c6a10479"
+    },
+    {
+      "file": "preflight-before-context.json",
+      "bytes": 5310,
+      "sha256": "afd83a4246e69d0cc9ebba9e9919f2f4ef905bbaeea610198e236de605705c8d"
+    },
+    {
+      "file": "qualification-attempt1.json",
+      "bytes": 83,
+      "sha256": "6974fe62ebf3b6c7c1761555827932ac393e2f3ab3e38a28f057c89dd53e26b5"
+    },
+    {
+      "file": "reuse-draft.md",
+      "bytes": 3205,
+      "sha256": "4fa5601632c5d591645601b615c5013d6da28f012f3a5114f6f6eb88879a38f5"
+    },
+    {
+      "file": "runtime-failures-clippy.txt",
+      "bytes": 159,
+      "sha256": "3fa86b945dc76ec694f261c517d37175fee808559be7a59e6c3cb18e43d5ba3a"
+    },
+    {
+      "file": "runtime-failures-final.txt",
+      "bytes": 792,
+      "sha256": "0d40c7e5b5e6247e286acfb545f240eeddfe17748541cfca3b4288717662d06f",
+      "reported_tests": {
+        "passed": 2,
+        "failed": 0,
+        "ignored": 0
+      }
+    },
+    {
+      "file": "runtime-failures-first.txt",
+      "bytes": 1320,
+      "sha256": "56387a561a8e0b439987fdf2d17878f8a71003f5cb762aac8508610049d3314b",
+      "reported_tests": {
+        "passed": 0,
+        "failed": 2,
+        "ignored": 0
+      }
+    },
+    {
+      "file": "runtime-failures-format.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "file": "runtime-failures-host.txt",
+      "bytes": 742,
+      "sha256": "17d4a00d347d02c3fca95a889dd5e22804391eb51faf59afaa56d41d0d8f1e60",
+      "reported_tests": {
+        "passed": 2,
+        "failed": 0,
+        "ignored": 0
+      }
+    },
+    {
+      "file": "runtime-failures-verified.txt",
+      "bytes": 791,
+      "sha256": "73afd5a054ba24e51dc32aa965cd7091b7892a2bb915b0822cf662a0cec93d06",
+      "reported_tests": {
+        "passed": 2,
+        "failed": 0,
+        "ignored": 0
+      }
+    },
+    {
+      "file": "runtime-first.txt",
+      "bytes": 6842,
+      "sha256": "f5be53328e29839134c3871e3bc73c7bc9db108c43d7a34f0694b3bed9d2ea79",
+      "reported_tests": {
+        "passed": 4,
+        "failed": 14,
+        "ignored": 0
+      }
+    },
+    {
+      "file": "runtime-host.txt",
+      "bytes": 4155,
+      "sha256": "03f4a78d67a4b26359bc10bd98d39e550d0a7fb37e2734fc0e3293b4cbb72a7c",
+      "reported_tests": {
+        "passed": 12,
+        "failed": 6,
+        "ignored": 0
+      }
+    },
+    {
+      "file": "source-review.md",
+      "bytes": 19077,
+      "sha256": "bc35ec24d53c89d4bd72b415a5d22860d6c1a1e5db117e6f473936097cd8fa94"
+    },
+    {
+      "file": "storage-clippy-final.txt",
+      "bytes": 1957,
+      "sha256": "2d1f64cebc8d0ecaa83d70621ddaa3c149ad1aa437c2e3b3f0a428564fa29c40"
+    },
+    {
+      "file": "storage-clippy-first.txt",
+      "bytes": 1012,
+      "sha256": "ec9acbd13abac9e8163dca16d7853231d3193401f7b038c310cdc6001956ccab"
+    },
+    {
+      "file": "storage-compile.txt",
+      "bytes": 123,
+      "sha256": "5d9bae3723c906f27383bf8c4e72c19f0f4a496c3e3e6d80ade124e57d5fc12d"
+    },
+    {
+      "file": "storage-final.txt",
+      "bytes": 1947,
+      "sha256": "f714562cc46bdc842cb719b44659c2f2ca36996bd05635bc932337bf55fdb76f",
+      "reported_tests": {
+        "passed": 21,
+        "failed": 0,
+        "ignored": 0
+      }
+    },
+    {
+      "file": "storage-first.txt",
+      "bytes": 123,
+      "sha256": "5d9bae3723c906f27383bf8c4e72c19f0f4a496c3e3e6d80ade124e57d5fc12d"
+    },
+    {
+      "file": "storage-integration-first.txt",
+      "bytes": 2469,
+      "sha256": "79939fd8613e318f9639e75ea5c8d7e9ee4f5d68da10866780ba167b5b697b8b"
+    },
+    {
+      "file": "storage-integration-second.txt",
+      "bytes": 941,
+      "sha256": "82a5b74aed8333592c6367ab143eaec1be2f965facfec4f38e5af1bbc87663da"
+    },
+    {
+      "file": "storage-integration-third.txt",
+      "bytes": 1869,
+      "sha256": "8b669c84a02d5042691435ad0c7c5e2d8bfb6e23f4eb09c8eed06ec4ea838c39",
+      "reported_tests": {
+        "passed": 20,
+        "failed": 0,
+        "ignored": 0
+      }
+    },
+    {
+      "file": "storage-unit.txt",
+      "bytes": 447,
+      "sha256": "ddb5a4314be0f1140834fca4c7303009ccf5bf3bfb6cb08acbe453c301c0caa2",
+      "reported_tests": {
+        "passed": 1,
+        "failed": 0,
+        "ignored": 0
+      }
+    },
+    {
+      "file": "timeout-repro.rs",
+      "bytes": 1896,
+      "sha256": "7b29a3c31cef918dac87539f1e83b0428dac4c3d1e52d9ed41df372c395f6e9e"
+    },
+    {
+      "file": "timeout-repro.txt",
+      "bytes": 9284,
+      "sha256": "2fc0e6d7ff64d64438373c04c92ab43c02015f2f0b0e989350b08d714be18335"
+    }
+  ]
+}

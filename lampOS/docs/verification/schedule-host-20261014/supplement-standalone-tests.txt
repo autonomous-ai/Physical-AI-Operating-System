@@ -1,0 +1,292 @@
+   Compiling rustix v1.1.5
+   Compiling lamp-schedule v0.1.0 (/private/tmp/lamp-schedule-standalone-8mwn7xax/lampOS/crates/schedule)
+   Compiling tempfile v3.27.0
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 10.93s
+     Running unittests src/lib.rs (/private/tmp/lamp-schedule-standalone-8mwn7xax/target/debug/deps/lamp_msgs-bba1a6706001e459)
+
+running 15 tests
+test tests::a_decision_says_what_was_chosen_how_likely_by_whom_and_from_which_answers ... ok
+test tests::a_diagnostic_is_a_level_a_name_a_message_and_a_few_facts ... ok
+test tests::a_joint_state_has_ros_lists_and_what_was_commanded ... ok
+test tests::a_light_is_on_or_off_in_one_of_ten_colours_at_one_of_five_levels ... ok
+test tests::an_image_reference_names_a_file_every_process_can_find ... ok
+test tests::audio_is_a_header_line_and_then_the_samples_as_they_are ... ok
+test tests::every_first_topic_is_declared_as_the_table_of_first_topics_has_it ... ok
+test tests::faces_are_a_list_of_boxes_in_fractions_of_the_picture ... ok
+test tests::speech_is_text_that_is_finished_or_still_coming ... ok
+test tests::the_board_says_numbers_and_leaves_out_what_it_cannot_measure ... ok
+test tests::the_lamps_health_is_its_parts_worst_first_and_the_worst_is_its_level ... ok
+test tests::the_link_is_ready_or_says_why_it_is_not ... ok
+test tests::the_name_heard_is_a_score_and_how_long_ago_it_began ... ok
+test tests::the_room_is_unknown_quiet_or_busy ... ok
+test tests::the_voice_says_which_of_four_things_it_is_doing ... ok
+
+test result: ok. 15 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/bus.rs (/private/tmp/lamp-schedule-standalone-8mwn7xax/target/debug/deps/bus-07ca63bb1a1384f7)
+
+running 1 test
+test every_first_topic_is_declared_on_the_bus_and_carries_its_type ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.04s
+
+     Running tests/controls.rs (/private/tmp/lamp-schedule-standalone-8mwn7xax/target/debug/deps/controls-a6239cdb12818b1f)
+
+running 13 tests
+test an_old_one_way_mute_can_be_retained_during_input_fault ... ok
+test base_feedback_needs_ready_observed_contact_and_matching_hold_tier ... ok
+test controls_contracts_roundtrip_with_future_fields_without_privacy_grants ... ok
+test controls_topics_are_additive_with_bounded_event_and_status_freshness ... ok
+test fault_status_cannot_claim_ready_or_retain_active_hold_feedback ... ok
+test future_zero_identity_and_impossible_edge_durations_are_rejected ... ok
+test held_feedback_requires_fresh_armed_press_and_matching_tier ... ok
+test intentional_pet_decision_delay_does_not_make_a_new_pet_event_stale ... ok
+test retained_requests_cannot_change_session_boot_intent_time_or_enabled_state ... ok
+test safe_source_gesture_intent_combinations_are_the_only_accepted_actions ... ok
+test status_arrays_and_names_are_bounded_and_unknown_action_names_fail ... ok
+test stop_cannot_refresh_itself_by_republishing_an_old_release ... ok
+test tap_and_hold_intents_enforce_the_release_duration_boundary ... ok
+
+test result: ok. 13 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/expression.rs (/private/tmp/lamp-schedule-standalone-8mwn7xax/target/debug/deps/expression-bdbe662fa71b0314)
+
+running 8 tests
+test every_new_wire_type_round_trips_and_ignores_future_fields ... ok
+test finite_si_offsets_and_normalized_gaze_are_checked_at_the_boundary ... ok
+test invalid_playout_levels_intervals_and_identity_are_refused ... ok
+test lease_expiry_is_half_open_and_cannot_be_extended_by_apply_time ... ok
+test off_setting_stays_off_and_shadow_reports_cannot_claim_outputs ... ok
+test optional_expression_topics_have_own_types_and_do_not_replace_light_setting ... ok
+test required_identity_is_not_guessed_and_unknown_states_are_errors ... ok
+test schedules_require_a_future_device_clock_time_and_terminal_states_are_explicit ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/expression_rest.rs (/private/tmp/lamp-schedule-standalone-8mwn7xax/target/debug/deps/expression_rest-080f40aa75335885)
+
+running 6 tests
+test additive_wire_is_flat_and_future_fields_remain_compatible ... ok
+test duplicate_generation_or_nested_identity_cannot_override_an_earlier_field ... ok
+test generation_fences_do_not_relax_schedules_intervals_or_identity_validation ... ok
+test held_progress_is_listening_but_readiness_remains_the_owners_fact ... ok
+test new_topics_have_distinct_types_and_original_contracts_are_unchanged ... ok
+test required_fences_are_never_inferred_from_legacy_messages ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/schedule.rs (/private/tmp/lamp-schedule-standalone-8mwn7xax/target/debug/deps/schedule-19b00d63d831133b)
+
+running 12 tests
+test all_nonoptional_fields_are_required_including_nested_clock_and_notice ... ok
+test clock_shape_uses_the_existing_contract_without_inventing_a_clock_or_sequence ... ok
+test counts_share_one_bound_and_extreme_unsigned_values_cannot_overflow_the_check ... ok
+test discovery_is_additive_and_declares_one_latest_topic_with_a_three_second_lifespan ... ok
+test due_round_trip_carries_metadata_and_ignores_additive_fields_at_every_level ... ok
+test malformed_numeric_or_enum_like_boolean_values_are_not_guessed ... ok
+test missing_optional_notice_still_fails_validation_when_due_work_is_offered ... ok
+test notice_ids_are_positive_and_due_dates_have_explicit_inclusive_bounds ... ok
+test oldest_is_present_if_and_only_if_enabled_ready_and_pending ... ok
+test optional_unknown_lateness_and_withdrawn_notice_are_omitted_and_round_trip ... ok
+test store_identity_is_exact_lowercase_hex_not_an_arbitrary_identifier ... ok
+test unknown_lateness_is_not_converted_to_an_on_time_claim ... ok
+
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/lib.rs (/private/tmp/lamp-schedule-standalone-8mwn7xax/target/debug/deps/lamp_schedule-c99a2b2d5bf1f530)
+
+running 1 test
+test store::tests::live_connection_uses_full_sync_delete_journal_and_bounded_pages ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.13s
+
+     Running unittests src/main.rs (/private/tmp/lamp-schedule-standalone-8mwn7xax/target/debug/deps/lamp_schedule-4468f27c34065c34)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/calendar.rs (/private/tmp/lamp-schedule-standalone-8mwn7xax/target/debug/deps/calendar-0afd9a82ddab00bc)
+
+running 37 tests
+test advancement_retains_every_past_occurrence_without_delivery_time_drift ... ok
+test another_boot_waits_for_trusted_wall_time_and_then_reports_lateness ... ok
+test apia_skipped_day_retains_two_distinct_civil_occurrences_at_one_instant ... ok
+test boot_clock_order_is_deliberately_the_owners_responsibility ... ok
+test boot_identity_is_bounded_and_matches_the_bus_alphabet ... ok
+test calendar_creation_and_advancement_fail_closed_at_the_upper_range ... ok
+test calendar_deadlines_require_wall_trust_even_on_the_original_boot ... ok
+test clock_text_is_exact_ascii_hh_mm_for_every_calendar_kind ... ok
+test creation_always_requires_a_trusted_wall_clock ... ok
+test daily_gap_moves_one_occurrence_forward_without_changing_requested_clock ... ok
+test duration_bounds_are_inclusive_and_never_wrap ... ok
+test duration_keeps_milliseconds_and_both_clock_anchors ... ok
+test elapsed_difference_uses_checked_signed_conversion ... ok
+test errors_have_static_messages_without_echoing_supplied_private_text ... ok
+test exact_date_syntax_rejects_bad_dates_and_unrecognized_relative_words ... ok
+test explicit_zone_overrides_the_default_and_recurrence_freezes_its_zone ... ok
+test half_hour_dst_gap_uses_database_rules_without_assuming_one_hour ... ok
+test ho_chi_minh_local_request_resolves_without_model_date_arithmetic ... ok
+test lower_utc_boundary_can_select_next_occurrence_from_a_previous_local_year ... ok
+test next_occurrence_distinguishes_remaining_fold_from_a_wholly_past_fold ... ok
+test next_occurrence_rejects_an_upcoming_gap_but_can_pass_a_past_gap ... ok
+test omitted_and_next_days_are_strictly_future_including_exact_equality ... ok
+test omitted_optionals_and_full_lowercase_weekdays_round_trip ... ok
+test one_off_fold_requires_choice_and_resolves_both_instants ... ok
+test one_off_gap_is_rejected_even_when_a_fold_preference_is_supplied ... ok
+test persisted_deadline_validation_rejects_inconsistent_or_unbounded_descriptors ... ok
+test recurrence_calendar_arithmetic_handles_leap_month_and_year_boundaries ... ok
+test repeating_fold_uses_earlier_instant_once_and_next_creation_skips_spent_fold ... ok
+test same_boot_wall_jumps_neither_end_nor_extend_a_duration_timer ... ok
+test serde_rejects_unknown_fields_wrong_case_and_unrecognized_words ... ok
+test serialized_elapsed_timer_survives_process_restart_without_trusted_wall_time ... ok
+test today_and_explicit_dates_refuse_equal_or_past_requests ... ok
+test tomorrow_uses_local_dates_across_leap_month_and_year_boundaries ... ok
+test utc_limits_match_jiff_and_arithmetic_rejects_the_next_millisecond ... ok
+test weekly_gap_stays_on_the_requested_weekday_and_clock ... ok
+test weekly_initial_selection_covers_all_weekdays_and_exact_time_rollover ... ok
+test zones_must_be_bounded_names_in_the_bundled_database ... ok
+
+test result: ok. 37 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/engine.rs (/private/tmp/lamp-schedule-standalone-8mwn7xax/target/debug/deps/engine-aa208a66ea68504b)
+
+running 36 tests
+test a_bad_default_zone_cannot_create_or_open_a_store ... ok
+test a_commit_error_before_write_stops_the_owner_and_does_not_announce_the_candidate ... ok
+test a_commit_then_sync_error_recovers_the_receipt_without_duplicate_creation ... ok
+test a_lost_create_reply_is_replayed_after_restart_without_a_second_timer ... ok
+test a_lost_recurring_ack_receipt_cannot_ack_the_next_occurrence_after_restart ... ok
+test a_lost_snooze_receipt_does_not_extend_the_timer_after_restart ... ok
+test a_new_boot_waits_for_wall_trust_then_recovers_the_overdue_timer ... ok
+test a_new_store_is_empty_and_identified_before_any_request ... ok
+test absent_voice_neither_consumes_due_nor_rewrites_the_store_on_every_tick ... ok
+test ack_requires_the_current_pending_delivery ... ok
+test an_old_retry_after_another_mutation_cannot_recreate_a_cancelled_timer ... ok
+test automatic_due_updates_preserve_the_last_mutation_receipt ... ok
+test backward_elapsed_clock_or_boot_replacement_is_refused_within_one_owner ... ok
+test cancelling_before_or_after_due_removes_only_the_named_item ... ok
+test capacity_refuses_new_work_without_evicting_a_due_reminder ... ok
+test changing_the_payload_of_a_retried_guard_is_a_conflict ... ok
+test corrupt_persisted_item_ids_deadlines_and_receipts_fail_closed ... ok
+test create_reopen_and_new_ids_preserve_the_committed_timer ... ok
+test due_items_are_oldest_first_and_ack_does_not_consume_its_neighbours ... ok
+test due_storage_failure_never_publishes_an_uncommitted_notice ... ok
+test even_a_one_millisecond_overdue_restart_is_marked_late ... ok
+test exact_due_time_is_pending_without_lateness ... ok
+test long_downtime_retains_each_recurring_occurrence_until_acknowledged ... ok
+test malformed_or_future_state_is_not_replaced_by_an_empty_store ... ok
+test maximum_text_and_repeat_metadata_fit_a_whole_list_reply ... ok
+test ordinary_poll_jitter_is_reported_but_does_not_make_a_spoken_late_claim ... ok
+test paginated_listing_visits_each_item_once_without_mutation ... ok
+test pending_calendar_work_is_not_retracted_by_a_backwards_wall_clock ... ok
+test pending_filter_and_page_bounds_are_explicit ... ok
+test removing_a_timer_frees_capacity_without_reusing_its_id ... ok
+test snooze_requires_a_due_occurrence ... ok
+test snoozing_invalidates_old_delivery_but_does_not_shift_the_repeat_anchor ... ok
+test text_is_unicode_preserving_and_never_silently_truncated ... ok
+test untrusted_wall_time_cannot_create_a_false_reboot_deadline ... ok
+test wall_clock_corrections_do_not_shorten_same_boot_elapsed_timers ... ok
+test wrong_store_or_invalid_request_identity_cannot_mutate ... ok
+
+test result: ok. 36 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.21s
+
+     Running tests/protocol.rs (/private/tmp/lamp-schedule-standalone-8mwn7xax/target/debug/deps/protocol-74bd660b47b7bb83)
+
+running 4 tests
+test list_defaults_are_bounded_and_roundtrip_preserves_request_identity ... ok
+test mutations_require_a_complete_caller_guard ... ok
+test one_line_requests_reject_unknown_and_duplicate_fields ... ok
+test request_size_and_utf8_are_checked_without_lossy_conversion ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/runtime.rs (/private/tmp/lamp-schedule-standalone-8mwn7xax/target/debug/deps/runtime-43f4215537e56b35)
+
+running 18 tests
+test a_finite_service_stops_and_releases_its_owner ... ok
+test a_full_client_pool_does_not_stop_due_publication ... ok
+test a_second_owner_cannot_replace_the_live_socket_or_database ... ok
+test a_silent_connection_does_not_hold_due_work_or_other_clients ... ok
+test a_socket_symlink_is_preserved_and_refused ... ok
+test a_trickling_client_has_a_cumulative_read_deadline ... ok
+test bus_recovery_is_from_durable_pending_work_not_just_the_latest_file ... ok
+test cancellation_and_ack_update_the_retained_notice ... ok
+test cli_default_off_does_not_require_a_clock_or_touch_paths ... ok
+test cli_rejects_unknown_and_repeated_options ... ok
+test diagnostics_name_the_owner_and_do_not_include_personal_text ... ok
+test disabled_service_never_reads_clock_or_creates_any_path ... ok
+test host_clock_requires_an_identity_and_reports_explicit_trust ... ok
+test killed_process_reopens_the_same_store_and_recovers_its_stale_socket ... ok
+test malformed_oversized_and_partial_lines_never_mutate_the_store ... ok
+test socket_is_private_and_request_receipt_survives_service_restart ... ok
+test two_guarded_mutations_from_the_same_snapshot_do_not_both_win ... ok
+test unsafe_socket_parent_is_rejected ... ok
+
+test result: ok. 18 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 7.30s
+
+     Running tests/runtime_failures.rs (/private/tmp/lamp-schedule-standalone-8mwn7xax/target/debug/deps/runtime_failures-b1a96065a69a3d5c)
+
+running 2 tests
+test a_blocked_owner_withdraws_due_readiness_then_recovers_the_same_delivery ... ok
+test a_full_stderr_sink_cannot_hold_status_or_sigterm_shutdown ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.24s
+
+     Running tests/storage.rs (/private/tmp/lamp-schedule-standalone-8mwn7xax/target/debug/deps/storage-27295ead5926dca7)
+
+running 21 tests
+test a_busy_failed_commit_poisoned_owner_cannot_continue_and_reopen_keeps_previous ... ok
+test a_nonempty_initialization_file_is_preserved_for_explicit_recovery ... ok
+test a_wal_database_without_sidecars_is_rejected_without_converting_it ... ok
+test changed_permissions_after_open_stop_writes_without_repairing_the_path ... ok
+test database_symlinks_hardlinks_directories_and_public_modes_are_refused ... ok
+test empty_store_and_last_committed_opaque_bytes_survive_reopen ... ok
+test even_private_wal_and_shm_sidecars_are_not_silently_converted ... ok
+test exact_byte_bound_works_and_invalid_sizes_preserve_the_previous_value ... ok
+test exclusive_ownership_blocks_another_process_and_is_released_on_drop ... ok
+test existing_empty_or_non_database_files_are_never_reinitialized ... ok
+test interrupted_initialization_recovers_only_an_unpublished_empty_schema ... ok
+test interrupted_transaction_recovers_the_last_committed_snapshot ... ok
+test invalid_singleton_and_unbounded_rows_are_not_returned_as_state ... ok
+test load_bounds_values_even_if_an_external_writer_bypasses_checks_after_open ... ok
+test orphan_journals_never_authorize_a_new_empty_database ... ok
+test oversized_database_and_journal_are_refused_without_truncation ... ok
+test relative_paths_and_linked_or_public_directories_are_refused ... ok
+test replacing_an_open_database_or_directory_never_redirects_the_writer ... ok
+test the_directory_and_all_created_files_are_private ... ok
+test unknown_versions_and_extra_schema_objects_fail_closed ... ok
+test unsafe_journal_wal_and_shm_paths_are_refused_before_sqlite_uses_them ... ok
+
+test result: ok. 21 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 12.67s
+
+     Running unittests examples/schedule_check.rs (/private/tmp/lamp-schedule-standalone-8mwn7xax/target/debug/examples/schedule_check-df5e1d7c353a982a)
+
+running 10 tests
+test tests::a_buffered_reply_larger_than_one_read_survives_peer_close ... ok
+test tests::a_fragmented_reply_waits_for_the_same_complete_frame ... ok
+test tests::a_reply_at_the_byte_limit_is_accepted ... ok
+test tests::an_oversized_reply_is_rejected_without_waiting_for_eof ... ok
+test tests::an_unread_peer_cannot_extend_the_absolute_write_deadline ... ok
+test tests::bytes_after_the_reply_frame_are_rejected ... ok
+test tests::eof_without_newline_does_not_complete_a_valid_json_value ... ok
+test tests::incoming_fragments_do_not_extend_the_absolute_read_deadline ... ok
+test tests::malformed_json_is_rejected_after_complete_framing ... ok
+test tests::nonblocking_partial_writes_deliver_every_byte ... ok
+
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.30s
+
+   Doc-tests lamp_msgs
+
+running 1 test
+test crates/msgs/src/lib.rs - (line 24) - compile ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+all doctests ran in 0.98s; merged doctests compilation took 0.40s
+   Doc-tests lamp_schedule
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

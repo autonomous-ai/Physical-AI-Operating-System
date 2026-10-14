@@ -1,0 +1,12 @@
+   Compiling lamp-schedule v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/schedule)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.77s
+     Running tests/runtime_failures.rs (target/debug/deps/runtime_failures-d77980b48c74d8eb)
+
+running 2 tests
+host fixture: prefilled stderr=8192 bytes; status round trip=9.085012ms; SIGTERM to exit=12.7126ms
+test a_full_stderr_sink_cannot_hold_status_or_sigterm_shutdown ... ok
+host injected-clock fixture: blocked worker to unavailable due=1.448542026s; release to ready due=6.037371ms; token=(1, 1)
+test a_blocked_owner_withdraws_due_readiness_then_recovers_the_same_delivery ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.06s
+

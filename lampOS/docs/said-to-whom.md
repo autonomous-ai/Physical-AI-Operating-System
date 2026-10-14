@@ -1,8 +1,11 @@
 # Whom is it said to?
 
-Research by Fourth, 14 October 2026. Repository observations below refer to
-`origin/lamp-voice` at `8335dfbce`. This task changes documentation only. No
-classifier was built, no model was run, and no measurement was made on a lamp.
+Task 14 research by Fourth, 14 October 2026. Its repository observations below
+refer to `origin/lamp-voice` at `8335dfbce`. That task changed documentation
+only: no classifier was built, no model was run, and no lamp measurement was
+made. The later [task 17 implementation](#task-17-local-judge-and-busy-rule-comparison)
+is described separately; it does not turn the published research results into
+measurements of this lamp.
 
 ## What exists and what we take
 
@@ -297,8 +300,9 @@ Neither is supplied by simply comparing the two existing USB levels.
 
 ## A sequence the first builder could qualify
 
-These are proposals for later tasks. Nothing here enables a feature, changes
-a default or assigns another builder's files to Fourth.
+These were task 14's proposals for later tasks. Task 17 begins the local shadow
+comparison described below; the remaining collection and qualification steps
+still apply. These proposals themselves enable no feature or default.
 
 1. **Make the evidence belong to a turn.** Give each candidate speech turn,
    including rejected candidates, a stable ID and monotonic capture interval.
@@ -345,6 +349,92 @@ reply, including endpointing and any hold introduced by this gate.
 The decision must be final for the current turn before its first audible
 sample if it is to prevent that answer. Do not announce listening readiness
 until input is accepted. A late reject cannot erase speech already played.
+
+## Task 17: local judge and busy-rule comparison
+
+Task 17 adds an optional local implementation of the Policy's seven typed
+questions, an authored weights file and offline fitting, alongside the slow
+judge. It remains **shadow only**: a Policy choice does not grant Voice,
+speaker or motor permission. The [Policy documentation](policy.md) owns the
+run command, deadline and combining contract, fitting-row schema, gates and
+machine timings. The local signs cannot establish the semantic answer to
+every question; the initial weights are explicitly unfitted priors. They
+are not a calibrated probability of intended address.
+
+The comparison in
+[`policy/baseline.rs`](../crates/policy/src/policy/baseline.rs) mirrors the
+binary result of Voice's `called` and `decide_busy(strict = true)`, audited
+at task 17's starting commit `574c2e5ed`. It has no dependency on the Voice
+crate. In a busy room, it permits proposed output for an own turn, an ongoing
+conversation, a transcript name match or a fresh facing face. Quiet and
+unknown rooms permit output. An acoustic name score alone does not open this
+strict gate. Request freshness and acoustic name detections affect its reason
+text, but not this binary result. `Play` is permission for an output the
+provider proposes, not proof that an answer occurred.
+
+Two tracks remain separate:
+
+| Track | Evidence needed | Claim it supports |
+|---|---|---|
+| `same_snapshot` | Explicit inputs at a declared comparison point; the runtime uses the Policy's completed text, 20-second conversation and near-face view | What the two decision rules choose on those supplied inputs |
+| `voice_first_output` | Actual inputs available when Voice first proposes output: its transcript prefix, own-turn flag, 45-second conversation flag, room and newest fresh **any-face** result | Reproduction of that gate's permission, provided the input provenance and time join are established independently |
+
+Do not substitute one track for the other. Policy counts only facing faces
+whose boxes are at least 15% of the image height; Voice accepts any facing
+face. Voice uses the latest message's expiry, normally the eyes' two-second
+lifespan with the bus's 50 ms grace; Policy's existing summary uses receipt
+age. Policy and Voice can also see different text at their different decision
+times. None of these differences is fixed by labelling a row
+`voice_first_output`.
+
+The optional `baseline` member of a fitting row has this complete shape:
+
+```json
+{"kind":"same_snapshot","room":"busy","own_turn":false,"going_on":false,"text":"And tomorrow?","facing":null}
+```
+
+This is an **authored schema example**, not a captured utterance. Every
+member is required; unknown members are rejected. `facing: null` explicitly
+means the gate had no fresh eyes result. If the observation itself is absent
+from the record, omit the whole baseline snapshot rather than inventing that
+null. `text` is valid UTF-8, at most 2,048 bytes; oversized input is rejected,
+not truncated by the comparison. The containing fitting input has its own
+file, row and count limits. Source and rights metadata do not independently
+prove labels, clock alignment or first-output provenance.
+
+Counts retain separate 2×3 tables for the two tracks. The columns are the
+supplied Policy choices `answer`, `look_up` and `stay_quiet`; rows are the
+baseline's `play` and `hold`. Permission disagrees for `play/look_up`,
+`play/stay_quiet` and `hold/answer`. `hold/look_up` and `hold/stay_quiet` agree
+only about speech permission: the Voice gate makes no corresponding movement
+choice. Missing or invalid snapshots are counted and excluded from both
+decisions' paired error denominators. Unknown labels can show disagreement
+but create no error. To report rates for independently labelled eligible
+rows, divide false-answer counts by not-for-lamp rows and missed-call counts
+by for-lamp rows; a zero denominator has no rate.
+Here those names mean **counterfactual permission errors**, not audible
+events or false answers per hour. The fitter compares held-out test rows;
+session groups must remain separate from training and calibration.
+
+The [comparison tests](../crates/policy/tests/baseline.rs) contain authored
+truth tables, all exact name aliases and nonmatches, a late name appearing
+only in the completed transcript, a small facing face, a 30-second-old
+exchange, and independent counting examples. These test cases are neither
+First's working-morning and meeting rows nor the earlier 346-example corpus.
+The repository's 42-scenario Voice evaluation plan supplies useful scene
+ideas, not captured attention features or independent addressee labels for
+this comparison. No accuracy gain follows from agreement on authored cases.
+
+The current collection has specific unknowns. Face direction is head yaw,
+not gaze or association with the speaker; a missing pose must not become a
+measured turned-away face. The live local cue's acoustic `duration_ms` stays
+null: `Gather` measures first-to-last transcript receipt, which is zero for
+a single-piece transcript and is not speech duration. `voice/heard` can have
+`request: null`, and the current Voice publisher uses that form. Policy's
+existing receipt-time joins discard bus source timestamps; a delayed name
+or face update can therefore attach to the wrong speech. Publisher monotonic
+timestamps do not automatically share an epoch. A log snapshot and a fitting
+program make these limitations visible; they do not repair the attribution.
 
 ## A bounded first lamp observation
 
@@ -409,8 +499,11 @@ utterance tests and independent positive-call tests are also necessary.
 
 ## Not shown
 
-No lamp trial, runtime change, new model, trained weights, acoustic benchmark,
-power measurement or end-to-end latency measurement was made for this study.
+Task 14 performed no lamp trial, runtime change, new model training, acoustic
+benchmark, power measurement or end-to-end latency measurement. Task 17's
+local model and comparison do not establish lamp accuracy, calibrated real
+probabilities or causal improvement over `LAMP_ATTENTION=busy`. No independently
+labelled lamp corpus is supplied with these authored comparison tests.
 Published private-corpus results were not reproduced. No account, key or paid
 service was obtained, and no restricted corpus was downloaded. Public access
 does not by itself permit training a model for distribution; record the

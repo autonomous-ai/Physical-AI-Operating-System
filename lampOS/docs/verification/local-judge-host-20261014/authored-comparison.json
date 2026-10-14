@@ -1,0 +1,318 @@
+{
+  "counts": {
+    "invalid_snapshot": 0,
+    "missing_snapshot": 0,
+    "rows": 8,
+    "same_snapshot": {
+      "compared": 8,
+      "labels": {
+        "baseline": {
+          "false_answers": 2,
+          "missed_calls": 0
+        },
+        "for_lamp": 4,
+        "not_for_lamp": 4,
+        "policy": {
+          "false_answers": 0,
+          "missed_calls": 3
+        },
+        "unknown": 0
+      },
+      "permission_disagreements": 5,
+      "table": {
+        "hold": {
+          "answer": 0,
+          "look_up": 2,
+          "stay_quiet": 0
+        },
+        "play": {
+          "answer": 1,
+          "look_up": 5,
+          "stay_quiet": 0
+        }
+      }
+    },
+    "voice_first_output": {
+      "compared": 0,
+      "labels": {
+        "baseline": {
+          "false_answers": 0,
+          "missed_calls": 0
+        },
+        "for_lamp": 0,
+        "not_for_lamp": 0,
+        "policy": {
+          "false_answers": 0,
+          "missed_calls": 0
+        },
+        "unknown": 0
+      },
+      "permission_disagreements": 0,
+      "table": {
+        "hold": {
+          "answer": 0,
+          "look_up": 0,
+          "stay_quiet": 0
+        },
+        "play": {
+          "answer": 0,
+          "look_up": 0,
+          "stay_quiet": 0
+        }
+      }
+    }
+  },
+  "records": [
+    {
+      "baseline": {
+        "facing": false,
+        "going_on": false,
+        "kind": "same_snapshot",
+        "own_turn": false,
+        "room": "quiet",
+        "text": "okay"
+      },
+      "baseline_permission": "play",
+      "choice": "look_up",
+      "cues": {
+        "conversation": false,
+        "duration_ms": null,
+        "face_age_ms": 0,
+        "facing": false,
+        "name_score": 0.0,
+        "room": "quiet",
+        "schema": 1,
+        "since_lamp_spoke_ms": null,
+        "text_called": false,
+        "word_count": 1
+      },
+      "directed": false,
+      "guard": "no_timely_slow_no_call",
+      "id": "quiet_short_not_called",
+      "local_probability": 0.1079372689127922,
+      "permission_differs": true,
+      "rights": "Apache-2.0 project fixture",
+      "source": "authored numerical cue fixture; not recorded speech"
+    },
+    {
+      "baseline": {
+        "facing": false,
+        "going_on": false,
+        "kind": "same_snapshot",
+        "own_turn": false,
+        "room": "busy",
+        "text": "the plan follows tomorrow"
+      },
+      "baseline_permission": "hold",
+      "choice": "look_up",
+      "cues": {
+        "conversation": false,
+        "duration_ms": null,
+        "face_age_ms": 0,
+        "facing": false,
+        "name_score": 0.9929999709129333,
+        "room": "busy",
+        "schema": 1,
+        "since_lamp_spoke_ms": null,
+        "text_called": false,
+        "word_count": 4
+      },
+      "directed": false,
+      "guard": "no_timely_slow_no_call",
+      "id": "meeting_name_in_talk",
+      "local_probability": 0.21909551322460175,
+      "permission_differs": false,
+      "rights": "Apache-2.0 project fixture",
+      "source": "authored numerical cue fixture; not recorded speech"
+    },
+    {
+      "baseline": {
+        "facing": null,
+        "going_on": false,
+        "kind": "same_snapshot",
+        "own_turn": false,
+        "room": "busy",
+        "text": "Lamp, what time is it"
+      },
+      "baseline_permission": "play",
+      "choice": "look_up",
+      "cues": {
+        "conversation": false,
+        "duration_ms": null,
+        "face_age_ms": null,
+        "facing": null,
+        "name_score": null,
+        "room": "busy",
+        "schema": 1,
+        "since_lamp_spoke_ms": null,
+        "text_called": true,
+        "word_count": 5
+      },
+      "directed": true,
+      "guard": null,
+      "id": "busy_explicit_call_no_pose",
+      "local_probability": 0.7712250351905823,
+      "permission_differs": true,
+      "rights": "Apache-2.0 project fixture",
+      "source": "authored numerical cue fixture; not recorded speech"
+    },
+    {
+      "baseline": {
+        "facing": true,
+        "going_on": false,
+        "kind": "same_snapshot",
+        "own_turn": false,
+        "room": "busy",
+        "text": "Lamp, what time is it"
+      },
+      "baseline_permission": "play",
+      "choice": "answer",
+      "cues": {
+        "conversation": false,
+        "duration_ms": null,
+        "face_age_ms": 0,
+        "facing": true,
+        "name_score": null,
+        "room": "busy",
+        "schema": 1,
+        "since_lamp_spoke_ms": null,
+        "text_called": true,
+        "word_count": 5
+      },
+      "directed": true,
+      "guard": null,
+      "id": "busy_explicit_call_facing",
+      "local_probability": 0.884921133518219,
+      "permission_differs": false,
+      "rights": "Apache-2.0 project fixture",
+      "source": "authored numerical cue fixture; not recorded speech"
+    },
+    {
+      "baseline": {
+        "facing": null,
+        "going_on": true,
+        "kind": "same_snapshot",
+        "own_turn": false,
+        "room": "busy",
+        "text": "and tomorrow"
+      },
+      "baseline_permission": "play",
+      "choice": "look_up",
+      "cues": {
+        "conversation": true,
+        "duration_ms": null,
+        "face_age_ms": null,
+        "facing": null,
+        "name_score": null,
+        "room": "busy",
+        "schema": 1,
+        "since_lamp_spoke_ms": null,
+        "text_called": false,
+        "word_count": 2
+      },
+      "directed": true,
+      "guard": null,
+      "id": "busy_followup",
+      "local_probability": 0.48150143027305603,
+      "permission_differs": true,
+      "rights": "Apache-2.0 project fixture",
+      "source": "authored numerical cue fixture; not recorded speech"
+    },
+    {
+      "baseline": {
+        "facing": null,
+        "going_on": false,
+        "kind": "same_snapshot",
+        "own_turn": false,
+        "room": "unknown",
+        "text": "uh huh"
+      },
+      "baseline_permission": "play",
+      "choice": "look_up",
+      "cues": {
+        "conversation": null,
+        "duration_ms": null,
+        "face_age_ms": null,
+        "facing": null,
+        "name_score": null,
+        "room": null,
+        "schema": 1,
+        "since_lamp_spoke_ms": null,
+        "text_called": false,
+        "word_count": 2
+      },
+      "directed": false,
+      "guard": "no_timely_slow_no_call",
+      "id": "unknown_room_scrap",
+      "local_probability": 0.32312050461769104,
+      "permission_differs": true,
+      "rights": "Apache-2.0 project fixture",
+      "source": "authored numerical cue fixture; not recorded speech"
+    },
+    {
+      "baseline": {
+        "facing": false,
+        "going_on": false,
+        "kind": "same_snapshot",
+        "own_turn": false,
+        "room": "busy",
+        "text": "send the invoices tomorrow"
+      },
+      "baseline_permission": "hold",
+      "choice": "look_up",
+      "cues": {
+        "conversation": false,
+        "duration_ms": null,
+        "face_age_ms": 0,
+        "facing": false,
+        "name_score": 0.0,
+        "room": "busy",
+        "schema": 1,
+        "since_lamp_spoke_ms": null,
+        "text_called": false,
+        "word_count": 4
+      },
+      "directed": false,
+      "guard": "no_timely_slow_no_call",
+      "id": "busy_colleague_no_call",
+      "local_probability": 0.0740797370672226,
+      "permission_differs": false,
+      "rights": "Apache-2.0 project fixture",
+      "source": "authored numerical cue fixture; not recorded speech"
+    },
+    {
+      "baseline": {
+        "facing": null,
+        "going_on": false,
+        "kind": "same_snapshot",
+        "own_turn": false,
+        "room": "quiet",
+        "text": "what time is it"
+      },
+      "baseline_permission": "play",
+      "choice": "look_up",
+      "cues": {
+        "conversation": false,
+        "duration_ms": null,
+        "face_age_ms": null,
+        "facing": null,
+        "name_score": 0.9900000095367432,
+        "room": "quiet",
+        "schema": 1,
+        "since_lamp_spoke_ms": null,
+        "text_called": false,
+        "word_count": 4
+      },
+      "directed": true,
+      "guard": null,
+      "id": "quiet_name_heard",
+      "local_probability": 0.6946128606796265,
+      "permission_differs": true,
+      "rights": "Apache-2.0 project fixture",
+      "source": "authored numerical cue fixture; not recorded speech"
+    }
+  ],
+  "schema": 1,
+  "scope": "local-only final shadow choices with required no-call guard; synthetic records only; no Jev service",
+  "weights": "lamp-local-seed-v1-unfitted"
+}

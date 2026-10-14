@@ -1,0 +1,15 @@
+{
+  "arch": "x86_64",
+  "boundary": "eligible utterance to final internal choice immediately before bus publish; includes local answer, bounded log enqueue and callback; excludes gather, bus delivery and acoustics",
+  "decision_budget_ms": 100,
+  "first_us": 100223,
+  "median_us": 16,
+  "os": "macos",
+  "p95_us": 23,
+  "p99_us": 37,
+  "profile": "release",
+  "samples_repeated": 100,
+  "scenario": "first choice waits to its deadline; following 100 are local-only while the same slow request remains explicitly held",
+  "schema": 1,
+  "worst_us": 47
+}

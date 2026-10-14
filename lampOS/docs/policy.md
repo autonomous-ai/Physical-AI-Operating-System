@@ -5,6 +5,11 @@ does. This is its first version. It makes one decision, "is this said to the
 lamp?", and it makes it in shadow mode: it says what it would do, on
 [the bus](bus.md) and in a log, and nothing acts on it.
 
+The normal `lamp-policy` entry point keeps its existing behavior. Task 17
+adds the explicitly enabled [local second judge](#the-local-second-judge-task-17)
+through `lamp-policy-judges`; its deadlines, fallback and logs are described
+separately below. Neither entry point authorizes Voice or Body to act.
+
 ## What it is for
 
 Today the model that holds the conversation also decides, by answering or
@@ -605,7 +610,298 @@ comes from the sound. What follows for the design:
 None of this is built. The policy on the lamp is still the one that
 judges texts, in shadow mode.
 
+## The local second judge (task 17)
+
+**What exists and what we take.** The [addressee study](said-to-whom.md)
+compares the alternatives and recommends a small local model of the signs
+already available. This implementation reuses `Decider`, the exact seven
+typed questions, Serde, the private record format and the existing bus. It
+uses eight bounded numerical features and logistic heads; it needs no new
+crate, downloaded model, inference process or provider. It preserves Jev's
+byte-pinned state and its separately fitted combining coefficients. V1's
+addressed-speech and follow-up safeguards, and the limits of retaining them
+here, are recorded in [reuse decisions](reuse-decisions.md#local-policy-judge-task-17-2026-10-14).
+
+### Run and inspect
+
+`lamp-policy-judges` is a new executable in the same crate. **It refuses to
+start without `--local-judge` and always publishes `shadow: true`.** It
+subscribes and publishes as `policy`, so First must stop the existing Policy
+owner before replacing it for a played-scene check, then restore that owner
+afterward. Do not start two Policy owners on the same bus. This command
+does not stop, restart or configure any other process.
+
+Build with `cargo build --release -p lamp-policy`. With the existing bus,
+the already provisioned decision-service key and authorization for the
+played scene, this one foreground command shows both judges:
+
+```sh
+./target/release/lamp-policy-judges --local-judge --show-judges \
+  --key-file /ABSOLUTE/EXISTING/DECISIONS_KEY \
+  --log-dir /ABSOLUTE/PRIVATE/JUDGE_LOG \
+  --bus-root /run/lampos-bus --deadline-ms 100 --request-ms 3000 --seconds 60
+```
+
+The uppercase paths are operator substitutions, not supplied credentials or
+deployment paths. An existing directory must be private; a new one is made
+0700 and each JSONL file is 0600. Real text goes to Jev in network mode and
+into these private logs. `--show-judges` prints question probabilities,
+choices, kinds and microsecond timings; it does not print heard text, keys
+or service-supplied model names. Use `--offline` **instead of** the key
+option for a local-only check: the slow judge then explicitly reports
+unavailable and no service is contacted. Offline mode refuses key,
+endpoint and model options.
+
+| Option | Meaning | Default |
+|---|---|---|
+| `--local-judge` | Explicitly enable this path | required |
+| `--key-file` / `--offline` | Existing service key, or deliberately unavailable slow judge | exactly one mode |
+| `--weights` | Absolute path to a validated weights JSON | embedded authored, unfitted seed |
+| `--deadline-ms` | Final-choice budget from release by the utterance gatherer, 1–1000 ms | 100 |
+| `--request-ms` | Separate slow-request timeout, 1–60000 ms | 3000 |
+| `--seconds` | Finite qualification duration, 1–600 seconds | 60 |
+| `--show-judges` | Print numeric judge notices | off |
+| `--log-dir`, `--bus-root`, `--endpoint`, `--model` | Same path/service meanings as above | private log required; existing bus/Jev defaults |
+
+The library API is `policy::run_with_local` with `judges::Options`; the old
+`policy::run` has no second judge. A normal finite stop allows up to 100 ms
+for log completion. SIGTERM still kills the process immediately, as with
+the old executable; it does not produce a graceful receipt.
+
+### Inputs and weights
+
+The single data file is [`local-weights.json`](../models/policy/local-weights.json),
+with licence, SHA-256 and reproduction in its [SOURCE.md](../models/policy/SOURCE.md).
+Each question has an intercept and eight feature coefficients; a separate
+local choice head combines its seven probabilities after subtracting their
+all-unknown priors. Every unknown feature contributes **exactly zero**.
+Thus all-unknown input returns the head's prior, not an observed negative.
+The initial numbers are authored heuristics, **not fitted or calibrated**.
+
+| JSON cue | Known encoding; missing or `null` is zero contribution |
+|---|---|
+| `name_score` | Finite 0–1, mapped to −1–1; no listening source is unknown, not score zero |
+| `conversation` | True +1, false −1; unknown until a Voice state was received before the first transcript piece |
+| `room` | `quiet` +1, `busy` −1; otherwise null; the existing context's room at gather release |
+| `facing`, `face_age_ms` | True/false × freshness `1-age/2000`; either missing or age ≥2000 ms contributes zero |
+| `since_lamp_spoke_ms` | `1-min(ms,40000)/20000`, from the frozen first-piece context |
+| `word_count` | `min(words,12)/6-1`; count of alphanumeric runs; null when the utterance was cut at its byte bound |
+| `duration_ms` | `min(ms,6000)/3000-1`; **always null in the live path**, since transcript receipt intervals are not speech duration |
+| `text_called` | +1 only when true; false/unknown zero; exact positive name predicate mirrored from Voice |
+
+The face observation is the newest retained receipt no later than the last
+transcript piece, at most two seconds old. Only valid near boxes (height
+at least 0.15) count. A known facing face wins; observed-away requires a
+nonempty set of known-away near faces. Missing pose, invalid geometry,
+empty view and no near face are not treated as evidence of looking away.
+Voice-known and face histories retain at most 32 observations apiece.
+Source disappearance makes later cues unknown. These are **receipt-time
+associations**, not microphone-clock alignment, gaze or speaker identity;
+the face may belong to a listener rather than the speaker. They do not
+fix the current absence of stable request IDs on `voice/heard`.
+
+Local implements `Decider::ask` with the exact seven question definitions.
+It parses at most 4 KiB of cues, performs bounded arithmetic and returns
+seven finite typed probabilities without filesystem or network calls.
+Weights are validated before the run, at most 64 KiB, with finite bounded
+coefficients and fixed names/order. `names_someone_else` and `asks_to_stop`
+have constant priors in the seed: these cues cannot establish their
+semantics. This judge supplies no new stop-word or interrupt authority.
+
+### One final choice and a late reply
+
+The local answer is calculated immediately when an utterance becomes
+eligible and recorded before waiting for the slow answer. One worker asks
+Jev with the unchanged state. A slow answer contributes only if it is
+complete **and observed by the loop strictly before the original choice
+deadline**, and the choice is still open. The 3-second request timeout
+allows a genuinely late result to be audited after the 100 ms choice.
+The two durations are independent. The new path skips the old warm-up
+request, which could occupy that worker before the first asking.
+
+Each judge has its own calibrated-or-seeded choice calculation. With both
+valid, the choice probability is `local_share * local_probability +
+(1-local_share) * Jev_probability`; the shipped share is 0.5 and remains
+unfitted. With only one valid, its probability stands unchanged. Jev's
+fitted coefficients are **never applied to local question probabilities**.
+With neither, the stand-in probability is 0.5. Thresholds remain 0.4 for
+`look_up` and 0.8 for `answer`, with this explicit operational guard:
+
+**If no timely slow answer and no sign of a call, choose `look_up`.** This
+holds in quiet rooms too, even if the local probability would have crossed
+the answer threshold or fallen below the look-up threshold. A call sign is
+a known conversation, a positive transcript-name match, a known facing
+face younger than 2000 ms, or name confidence ≥0.9 when the room is not
+known busy. Acoustic name confidence alone in a busy room is insufficient.
+The probability is retained; `guard` records why its usual threshold
+choice was overridden. `from_rule` means neither model supplied a valid
+probability, not that this guard fired. These remain hypothetical choices:
+`look_up` sends no motion command, and cannot prevent Voice speaking.
+
+There is only one outstanding slow request. Later utterances use the local
+judge while it is occupied. If a newer utterance overtakes an older open
+choice, the older choice closes first using its local result; the newer
+one follows in utterance order. The old slow reply is logged under the old
+run/decision ID and cannot change a published choice, a later utterance or
+its outcome watch. A failed or disconnected slow judge leaves local
+decisions running. The existing waiting queue stays bounded at eight.
+Stopping closes an open choice locally and names the unobserved slow
+request; it does not invent that request's result. One misbehaving worker
+can remain detached for that process run; no replacement is spawned.
+
+The 100 ms target is an internal decision budget after gathering, not a
+real-time guarantee. The loop revisits an open choice every at most 5 ms,
+shortening its last wait to the remaining budget;
+OS scheduling, bus work and caller-provided note handling can add delay.
+The normal 300 ms gather pause (80 ms after Voice stops listening), ASR,
+audio transport and speaker latency are outside it. At startup and in the
+library API, weights/directory validation can perform I/O before listening.
+
+### Audit and comparison
+
+`models-YYYY-MM-DD.jsonl` records immutable weights, question names, run ID,
+budget and requested slow model. `judges-YYYY-MM-DD.jsonl` contains:
+
+- `local`: immediate seven answers, frozen cues and measured local time.
+- `slow`: seven answers or a sanitized failure kind, worker completion and
+  loop receipt times, `used`, `after_final` and any earlier close reason.
+  `late_or_closed` also includes a reply after an early superseding choice;
+  the times distinguish it from a wall-clock deadline miss.
+- `choice`: exactly one final choice per decided utterance, both judge
+  slots (which may say pending, failed or busy), probabilities, guard,
+  context, request if supplied, comparison snapshot and exact boundaries.
+- `shutdown`: comparison totals, failures, any unobserved slow request and
+  still-open outcome. These are not silently labelled completed/silent.
+
+Join judge rows by `(run, number)`. The existing outcome records retain
+their timestamp-based association and can be ambiguous; they are not proof
+of a stable acoustic turn join. The bus `Decision.answers` is a descriptive
+share-weighted blend when both judges contribute, or the one valid set.
+The final probability comes from the separate choice calculations above,
+not from reapplying a fitted head to that blended map. `Decision.by` is
+`local`, `jev`, `local+jev` or `rule` in this mode.
+
+A bounded writer has one worker, 64 queued records, at most 64 KiB per
+record and one in-flight append. The decision loop serializes within the
+bound and attempts the queue without waiting on disk. A full/failing log
+does not stop decisions. Queue acceptance is not a completed write: in
+this mode `Outcome.logged` and `Totals.unlogged` describe queue admission
+(the latter counts rejected final-choice rows). Once a second diagnostics
+report queued/written/failed/dropped/pending counts; the finite shutdown
+receipt also distinguishes abandoned work. `written` is a successful append,
+**not fsync or power-loss durability**. A stalled write may remain pending
+after the 100 ms grace; the worker is cancelled without spawning another.
+An abruptly killed process can lose queued evidence.
+This bounds memory and pending work, not the daily archive's disk size.
+Like the original Policy records, these dated files have no Records deletion
+adapter; the finite command does not authorize removing an active writer's
+files. Provision and retain the private qualification directory deliberately.
+
+The mirrored strict busy-room rule is compared on each runtime snapshot,
+with separate 2×3 tables for `play`/`hold` against the three Policy choices.
+Runtime rows are labelled `same_snapshot`: completed text, Policy's
+20-second conversation and near-face receipt view, with `own_turn:false`
+because this is an utterance being judged. This is a declared proxy, not
+Voice's actual first-output gate. Recorded `voice_first_output` snapshots
+need Voice's real prefix, 45-second state, own-turn flag and fresh any-face
+result. The [comparison contract](said-to-whom.md#task-17-local-judge-and-busy-rule-comparison)
+keeps the tracks and missing-evidence denominators separate. Permission is
+not an observed audible answer. No independently labelled lamp dataset was
+available to Fourth; synthetic differences do not establish improvement.
+
+### Fitting from First's labelled scenes
+
+The offline executable takes one JSON object per line:
+
+```sh
+cargo run --release -p lamp-policy --bin lamp-policy-fit --offline -- \
+  /ABSOLUTE/SCENES.jsonl /ABSOLUTE/NEW_WEIGHTS.json /ABSOLUTE/NEW_REPORT.json
+```
+
+An authored schema example, not a lamp recording:
+
+```json
+{"schema":1,"id":"scene-a-turn-1","session":"scene-a","split":"train","source":"authored schema example; no recording","rights":"Apache-2.0 example","cues":{"schema":1,"name_score":null,"conversation":false,"room":"busy","facing":null,"face_age_ms":null,"since_lamp_spoke_ms":null,"word_count":4,"duration_ms":null,"text_called":true},"labels":{"calls_lamp":true,"names_someone_else":null,"others_business":false,"lamp_could_answer":true,"follows_lamp":null,"listening_noise":false,"asks_to_stop":null},"directed":true,"baseline":{"kind":"same_snapshot","room":"busy","own_turn":false,"going_on":false,"text":"Lamp, what time now?","facing":null}}
+```
+
+`schema`, unique `id`, `session`, `split`, `source`, `rights`, `cues` and
+`labels` are required. Split is `train`, `calibration` or `test`; supply at
+least one session in each, with **no session in more than one split**.
+IDs/sessions are nonempty, at most 128 bytes; source/rights declarations
+at most 256 bytes each, with no control characters and at most 64 distinct
+values of each. They declare provenance; the program cannot verify rights
+or whether two names secretly refer to the same encounter. Keep related
+people, sessions and days together when assigning groups.
+
+Each of the seven semantic labels is an independent boolean or null;
+omitting a nullable cue/label also means unknown. `directed` is the
+independent intended-addressee label, required on calibration/test rows
+and optional on training rows. Do not derive labels from what either judge
+or the lamp did. `baseline` is optional; if present, every one of its
+members is required, including explicitly nullable `facing`. Missing
+baseline evidence is excluded from paired error counts. All object schemas
+reject unknown fields. Cues use schema 1 (default when omitted), as above.
+Live rows must leave duration null unless acoustic boundaries were actually
+measured. The example alone is insufficient to fit a model.
+
+The reader caps input at 16 MiB, 10,000 rows and 16 KiB per line including
+its newline. Empty, malformed or oversized input fails without echoing it.
+It fits question heads on **train** only. A head without both positive and
+negative labels becomes a clearly reported prior-only constant with zero
+feature weights. It then freezes those heads and fits the separate local
+choice on **calibration** only; both directed classes are required there.
+The deterministic full-batch optimizer uses 300 steps, learning rate 0.25,
+L2 0.01 on coefficients, clipping each coefficient/intercept to ±16; the
+library caps steps at 500. The 0.5 judge mixture remains unfitted.
+
+Only **test** rows contribute to the reported Brier/log loss, threshold
+choices, per-question metrics and paired baseline errors. Those scores
+describe the fitted local model without the runtime fallback guard or a
+timely Jev contribution. They do not measure the fused runtime. Reports
+include class counts, unlabelled heads, source/rights and snapshot coverage.
+Unlabelled per-question metrics are null, not zero loss. Outputs use
+create-new 0600 files and never overwrite an existing path or symlink.
+The two output files are not one atomic transaction: a later write failure
+can leave a partial/new first file, and the command exits unsuccessfully.
+Accept a model only with a successful run and its matching report.
+
+### Host verification and what First still must show
+
+The reproducible commands, machine, first/repeated timings, synthetic
+permission differences and full gate are retained in the
+[task 17 verification record](verification/local-judge-host-20261014/README.md).
+All Fourth measurements are development-host measurements. No provider was
+used beyond local HTTP/TLS test stand-ins; no lamp or real key was accessed.
+
+For First: run the foreground command during played scenes, with one Policy
+owner. Start with a quiet-room scrap and no call, then a name inside busy
+table talk: absent a timely slow answer both should show `look_up`. Compare
+an explicit call, a nameless follow-up and known/unknown/away face poses.
+Keep the separate Voice first-output snapshot and independently annotate
+the addressee; inspect both seven-answer records and every late result.
+Measure first use and repeated eligible-to-choice time on that lamp,
+separately from last sound to final audible response. Stop normally to retain
+the queue/write receipt. Do not infer absence of speech from shadow choices.
+
+**Most likely wrong on the lamp:** the unfitted feature/choice weights,
+conversation carryover, and receipt-time association of a face or acoustic
+name with the utterance. No test here establishes intended-addressee
+accuracy, semantic stop detection, privacy in a shared room, or improvement
+over the current busy-room floor. Fitting and a held-out lamp comparison
+remain necessary before any action wiring.
+The retained verification also reproduces an existing name-association
+fixture's timing sensitivity: a preceding detection can still lie inside
+the next utterance's one-second pre-roll window. That existing behavior
+and test were not changed by this task.
+
 ## Not shown
+
+The historical measurements below belong to First's original Jev-only
+implementation. They are not measurements of task 17 or of Fourth's host.
+Task 17's new judge has not run on a lamp, used a real service, or been fitted
+to independently labelled lamp records. Its new entry point is opt-in and
+shadow only; no existing lamp behavior, deployment or actuator boundary is
+changed by leaving the switch unset.
 
 Host tests on one development Mac (x86_64); the same tests as a Linux
 ARM64 build under emulation in a container, each time a build went to the

@@ -734,3 +734,71 @@ gate result. Third did not receive or replay First's 353-message recording.
 No acoustic, optical or motor timing, 100 ms tail appearance, or improvement
 on a lamp was measured. The grace window and fade need physical observation;
 First's planned earlier publication remains separate work.
+
+## Local Policy judge (task 17, 2026-10-14)
+
+The existing [addressee study](said-to-whom.md) is the alternatives review:
+retain a small local classifier of available signs, then qualify a slower
+semantic judge separately. This implementation adds no inference library,
+downloaded asset or Rust dependency. Serde, the existing `Decider` contract,
+private JSONL writer and bus already provide the required interfaces. Seven
+small logistic heads and a separate local combination make missing features,
+coefficients and fitting partitions directly inspectable. A larger model is
+not justified by independently labelled data available in this checkout.
+
+**Keep V1's distinction between evidence and ownership.** At task base
+`574c2e5ed`, V1's `hal/drivers/voice/_internal/wakeword_focus.py` grants
+follow-up focus only after a caller enforces the wake gate, keeps turn/run
+identity and cancellation, and waits for authorized processing/playback to
+settle. Its `is_addressed` returns wake/focus evidence when wake gating is
+enabled. V1's `hal/realtime/resources/system_prompt.md` additionally says
+an open conversation window or a name mentioned to someone else is not
+sufficient to establish address. The local judge therefore does not become
+an actuator gate. Its 20-second Policy context is only a sign; stable source
+identity, playback completion and semantic attribution are not ported by
+adding this model. Existing Voice ownership/privacy/cancellation stay at
+their final boundaries. No behavior parity with that whole V1 path is claimed.
+
+**Reuse the existing question contract, keep the calibrations separate.**
+The local `Decider` answers the exact same seven typed questions, but the
+signs cannot recover all their semantics. Initial coefficients are authored
+and marked unfitted; two unsupported semantic heads remain constant priors.
+Jev's byte-pinned text and fitted coefficients are unchanged. A separate
+local choice head operates on centered local probabilities; only the two
+resulting choice probabilities are mixed. Session-disjoint train,
+calibration and test partitions prevent the fitter's measured test labels
+from selecting model weights. The seed mixture is not passed off as fitted.
+
+**Change the stand-in explicitly.** The original Policy fallback can answer
+when the room is quiet. The new opt-in path chooses `look_up` when there is
+no timely slow answer and no call evidence. It publishes that hypothetical
+choice once. One outstanding slow request and a fixed admission deadline
+prevent a late reply from revising an older choice or attaching to a newer
+utterance. No new worker is created for an overdue request. The deadline
+tests hold the slow request explicitly; they are not measurements of a
+cloud service or of a lamp speaker.
+
+**Reuse the strict busy floor as an explicit comparison.** The source
+mirror in `policy/baseline.rs` is audited against Voice's `called` and
+`decide_busy(strict=true)` at `574c2e5ed`. Tests cover its token matches,
+fail-open unknown room, acoustic-name insufficiency and explicit snapshot
+requirements. Policy's completed text, 20-second conversation and near-face
+receipt view differ from Voice's first-output prefix, 45-second state and
+any-face expiry. The comparison keeps those two evidence tracks separate
+instead of claiming a replay of the live gate from missing inputs.
+
+**Keep filesystem work away from the new decision path.** The opt-in log
+writer retains the existing private file behavior but adds one bounded
+worker and nonblocking queue admission. Tests exercise a deliberately held
+append, queue overflow, cancellation, real append failure and private modes.
+Successful queue admission, successful append and durable storage are three
+different facts; only the first two are measured here. The legacy synchronous
+recording path remains unchanged unless the second judge is enabled.
+
+The exact workloads, machine, timings and failures are in the
+[task 17 verification record](verification/local-judge-host-20261014/README.md).
+No comparable V1/V2 workload or labelled real-office dataset was run here.
+
+Not shown: fitted lamp accuracy, improvement over the busy-room floor,
+acoustic response or interruption latency, speaker-to-face association,
+actual ARM64 execution, or any lamp action qualification.

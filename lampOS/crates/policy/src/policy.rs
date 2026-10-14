@@ -39,6 +39,12 @@ use std::{
     time::{Duration, Instant, SystemTime, UNIX_EPOCH},
 };
 
+pub mod baseline;
+pub mod fit;
+mod judge_log;
+pub mod judges;
+pub mod local;
+
 /// The name the policy subscribes and publishes under.
 pub const NAME: &str = "policy";
 /// Nothing acts on what this version decides.
@@ -86,7 +92,9 @@ pub struct Totals {
     pub by_rule: u64,
     /// Utterances let go unjudged because eight later ones were waiting.
     pub dropped: u64,
-    /// Decisions that could not be published, and that are not in the log.
+    /// Decisions that could not be published, and failed decision-log writes.
+    /// In the opt-in path `unlogged` counts final-row queue rejections;
+    /// `JudgesFinished` separately accounts for asynchronous write results.
     pub unpublished: u64,
     pub unlogged: u64,
     /// Messages on the bus that could not be read as their type.
@@ -101,6 +109,20 @@ pub struct Totals {
 /// of topics and of kinds of failure that this program was built with.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Note {
+    /// The opt-in path retains its local judge after losing the slow worker.
+    SlowGone,
+    /// Numeric answers from the opt-in judges; never speech or a key.
+    Judge(judges::Notice),
+    /// Accepted log records and completed writes are separate facts.
+    JudgesFinished {
+        queued: u64,
+        written: u64,
+        failed: u64,
+        dropped: u64,
+        abandoned: u64,
+        pending: u64,
+        drained: bool,
+    },
     /// A decision was made.
     Decided {
         number: u64,
@@ -177,6 +199,8 @@ pub enum Note {
         spoke_after_ms: Option<i64>,
         heard_to_sound_ms: Option<i64>,
         overtaken: bool,
+        /// Original path: append completed. Opt-in path: queue accepted;
+        /// consult `JudgesFinished` for actual append results.
         logged: bool,
     },
 }
@@ -196,6 +220,22 @@ impl fmt::Display for Perhaps {
 impl fmt::Display for Note {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match *self {
+            Self::SlowGone => {
+                f.write_str("the slow judge worker has ended: the local judge continues")
+            }
+            Self::Judge(notice) => fmt::Display::fmt(&notice, f),
+            Self::JudgesFinished {
+                queued,
+                written,
+                failed,
+                dropped,
+                abandoned,
+                pending,
+                drained,
+            } => write!(
+                f,
+                "judges log queued={queued} written={written} failed={failed} dropped={dropped} abandoned={abandoned} pending={pending} drained={drained}; written is append completion, not power-loss durability",
+            ),
             Self::Decided {
                 number,
                 choice,
@@ -409,8 +449,12 @@ impl Ear {
 struct Waiting {
     utterance: Utterance,
     context: Context,
+    /// When gathering released it, before any judge or queue could delay it.
+    eligible: Instant,
     /// What the eyes saw as it ended, if they said anything lately.
     seen: Option<Seen>,
+    /// The new judge's separate frozen input; absent in the original mode.
+    local: Option<local::Cues>,
 }
 
 /// What the eyes saw: how many faces, how many of them near enough to be
@@ -477,7 +521,7 @@ const READY_WITHIN: Duration = Duration::from_millis(1_500);
 /// The thread that asks the decision model, and the way to it.
 struct Asker {
     states: mpsc::SyncSender<Ask>,
-    answers: mpsc::Receiver<(Result<Asked, Failed>, Duration)>,
+    answers: mpsc::Receiver<(Result<Asked, Failed>, Duration, Instant)>,
     thread: thread::JoinHandle<()>,
 }
 
@@ -497,7 +541,10 @@ impl Asker {
                 };
                 let started = Instant::now();
                 let answer = decider.ask(&state, &questions, deadline);
-                if answered.send((answer, started.elapsed())).is_err() {
+                if answered
+                    .send((answer, started.elapsed(), Instant::now()))
+                    .is_err()
+                {
                     break;
                 }
             }
@@ -634,6 +681,9 @@ struct Policy<'a> {
     publishing: Trouble,
     dropping: Trouble,
     totals: Totals,
+    /// These exist only through the explicitly enabled second-judge entry point.
+    judges: Option<judges::Judges>,
+    judge_log: Option<judge_log::Writer>,
 }
 
 impl Policy<'_> {
@@ -668,18 +718,29 @@ impl Policy<'_> {
                 age_ms: millis(age),
             })
         });
+        let local = self
+            .judges
+            .as_ref()
+            .map(|judges| judges.cues(&context, &utterance));
         self.waiting.push_back(Waiting {
             utterance,
             context,
+            eligible: Instant::now(),
             seen,
+            local,
         });
     }
 
     /// Take up an answer if one has come, and ask the next question if
     /// none is out.
     fn judge(&mut self, now: Instant) {
+        if let Some(mut judges) = self.judges.take() {
+            judges.tick(self, now);
+            self.judges = Some(judges);
+            return;
+        }
         match self.asker.answers.try_recv() {
-            Ok((answer, took)) => {
+            Ok((answer, took, _completed)) => {
                 if let Some((waiting, sent)) = self.asking.take() {
                     self.decide(waiting, answer, took, sent);
                 }
@@ -749,6 +810,8 @@ impl Policy<'_> {
             utterance,
             context,
             seen,
+            local: _,
+            eligible: _,
         } = waiting;
         let connection = answer.as_ref().ok().and_then(|asked| asked.connection);
         let (judgement, answers, by, failed, usage) = match answer {
@@ -903,7 +966,10 @@ impl Policy<'_> {
             said,
             overtaken,
         };
-        let logged = self.outcomes.write(at_unix_ms, &line).is_ok();
+        let logged = match self.judge_log.as_mut() {
+            Some(writer) => writer.write(judge_log::Kind::Outcomes, at_unix_ms, &line),
+            None => self.outcomes.write(at_unix_ms, &line).is_ok(),
+        };
         (self.say)(Note::Outcome {
             number,
             choice: outcome.choice,
@@ -968,6 +1034,9 @@ impl Policy<'_> {
     /// It is well while a model answers and the log is written; with
     /// either gone it still decides, and says which it is without.
     fn report(&self) -> Diagnostic {
+        if let Some(judges) = self.judges.as_ref() {
+            return judges.report(self);
+        }
         let (level, message) = if self.asker_gone {
             (
                 Level::Error,
@@ -1061,6 +1130,30 @@ pub fn run<D: Decider + Send + 'static>(
     stop: &AtomicBool,
     say: &mut dyn FnMut(Note),
 ) -> io::Result<Totals> {
+    run_inner(bus, decider, options, stop, say, None)
+}
+
+/// The separate, explicitly enabled second-judge path. It is always shadow.
+pub fn run_with_local<D: Decider + Send + 'static>(
+    bus: &Bus,
+    decider: D,
+    options: &Options,
+    stop: &AtomicBool,
+    say: &mut dyn FnMut(Note),
+    local: judges::Options,
+) -> io::Result<Totals> {
+    local.validate()?;
+    run_inner(bus, decider, options, stop, say, Some(local))
+}
+
+fn run_inner<D: Decider + Send + 'static>(
+    bus: &Bus,
+    decider: D,
+    options: &Options,
+    stop: &AtomicBool,
+    say: &mut dyn FnMut(Note),
+    local: Option<judges::Options>,
+) -> io::Result<Totals> {
     let mut heard = Ear::new(bus, HEARD, Speech::TYPE)?;
     let mut said = Ear::new(bus, SAID, Speech::TYPE)?;
     let mut voice = Ear::new(bus, VoiceState::TOPIC, VoiceState::TYPE)?;
@@ -1068,6 +1161,13 @@ pub fn run<D: Decider + Send + 'static>(
     let mut eyes = Ear::new(bus, Faces::TOPIC, Faces::TYPE)?;
     let mut names = Ear::new(bus, NameHeard::TOPIC, NameHeard::TYPE)?;
     let judge_name = decider.name().to_owned();
+    let (judges, judge_log) = match local {
+        Some(local_options) => (
+            Some(judges::Judges::new(local_options)),
+            Some(judge_log::Writer::start(&options.log_dir)?),
+        ),
+        None => (None, None),
+    };
     let mut policy = Policy {
         bus,
         say,
@@ -1095,8 +1195,14 @@ pub fn run<D: Decider + Send + 'static>(
         publishing: Trouble::default(),
         dropping: Trouble::default(),
         totals: Totals::default(),
+        judges,
+        judge_log,
     };
     policy.second();
+    if let Some(judges) = policy.judges.take() {
+        judges.record_model(&mut policy);
+        policy.judges = Some(judges);
+    }
     let mut shown = Instant::now();
     let mut was_listening = false;
     while !stop.load(Ordering::Relaxed) {
@@ -1108,6 +1214,9 @@ pub fn run<D: Decider + Send + 'static>(
         let now = Instant::now();
         let unreadable = &mut policy.totals.unreadable;
         for state in voice.take::<VoiceState>(Duration::ZERO, unreadable, policy.say) {
+            if let Some(judges) = policy.judges.as_mut() {
+                judges.voice_seen(now);
+            }
             let speaking = state.state == Voice::Speaking;
             policy.lamp.state(speaking, now);
             if policy.begun.state(speaking, now)
@@ -1125,12 +1234,20 @@ pub fn run<D: Decider + Send + 'static>(
             if began {
                 policy.spoke_from = Some(now);
             }
-            if began && policy.asking.is_none() && policy.waiting.is_empty() && !policy.asker_gone {
+            if began
+                && policy.judges.is_none()
+                && policy.asking.is_none()
+                && policy.waiting.is_empty()
+                && !policy.asker_gone
+            {
                 let _ = policy.asker.states.try_send(Ask::Ready);
             }
             was_listening = listening;
         }
         if voice.source(policy.say) {
+            if let Some(judges) = policy.judges.as_mut() {
+                judges.voice_gone(now);
+            }
             policy.lamp.gone();
             policy.begun.gone();
             policy.gather.person_stopped(false);
@@ -1158,9 +1275,15 @@ pub fn run<D: Decider + Send + 'static>(
             policy.room = Room::Unknown;
         }
         for faces in eyes.take::<Faces>(Duration::ZERO, unreadable, policy.say) {
+            if let Some(judges) = policy.judges.as_mut() {
+                judges.faces(&faces, now);
+            }
             policy.seen = Some((counted(&faces), now));
         }
         if eyes.source(policy.say) {
+            if let Some(judges) = policy.judges.as_mut() {
+                judges.eyes_gone(now);
+            }
             policy.seen = None;
         }
         // Each hearing of the lamp's name, dated from when it began.
@@ -1179,7 +1302,9 @@ pub fn run<D: Decider + Send + 'static>(
             policy.names.pop_front();
         }
         // The wait of the loop is here: for something to be heard.
-        let wait = if policy.asking.is_some() {
+        let wait = if let Some(judges) = policy.judges.as_ref() {
+            judges.wait(Instant::now())
+        } else if policy.asking.is_some() {
             TICK_WHILE_ASKING
         } else {
             TICK
@@ -1207,9 +1332,30 @@ pub fn run<D: Decider + Send + 'static>(
             policy.second();
         }
     }
-    // The thread ends with its question, which is its deadline at most.
+    // The original path waits for its Decider contract. The opt-in path
+    // never lets one broken/slow remote judge hold shutdown or later local
+    // decisions; its single outstanding worker may finish after this run.
+    let was_local = policy.judges.is_some();
+    if let Some(mut judges) = policy.judges.take() {
+        judges.finish(&mut policy);
+    }
+    if let Some(writer) = policy.judge_log.take() {
+        let finished = writer.finish(Duration::from_millis(100));
+        let counts = finished.stats;
+        (policy.say)(Note::JudgesFinished {
+            queued: counts.queued,
+            written: counts.written,
+            failed: counts.failed,
+            dropped: counts.dropped,
+            abandoned: counts.abandoned,
+            pending: counts.pending,
+            drained: finished.drained,
+        });
+    }
     let Policy { asker, totals, .. } = policy;
     drop(asker.states);
-    let _ = asker.thread.join();
+    if !was_local || asker.thread.is_finished() {
+        let _ = asker.thread.join();
+    }
     Ok(totals)
 }

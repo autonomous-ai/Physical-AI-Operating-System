@@ -1,0 +1,291 @@
+{
+  "schema": 1,
+  "date_utc": "2026-10-14",
+  "task_branch": "fourth/local-judge",
+  "claim_base": "574c2e5edd238196d8c1dbc67b25c478c195a080",
+  "devices_accessed": [],
+  "external_providers_called": false,
+  "mac": {
+    "os": "macOS 26.6.2 (25G83)",
+    "architecture": "x86_64",
+    "cpu": "Intel Core i7-10700K @ 3.80 GHz",
+    "logical_cpus": 16,
+    "ram_bytes": 68719476736,
+    "rust": "1.96.0 (ac68faa20c58cbccd01ee7208bf3b6e93a7d7f96)",
+    "commands": {
+      "format": "cargo fmt --all --check",
+      "clippy": "cargo clippy -p lamp-policy --all-targets --offline -- -D warnings",
+      "tests": "RUST_TEST_THREADS=1 cargo test -p lamp-policy --offline",
+      "workspace": "cargo build --workspace --offline"
+    },
+    "exit_codes": {
+      "format": 0,
+      "clippy": 0,
+      "tests": 0,
+      "workspace": 0
+    },
+    "tests": {
+      "totals": {
+        "passed": 142,
+        "failed": 0,
+        "ignored": 2
+      },
+      "targets": [
+        {
+          "target": "unittests src/lib.rs",
+          "passed": 76,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "target": "unittests src/main.rs",
+          "passed": 2,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "target": "unittests src/bin/lamp-policy-fit.rs",
+          "passed": 0,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "target": "unittests src/bin/lamp-policy-judges.rs",
+          "passed": 3,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "target": "tests/baseline.rs",
+          "passed": 15,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "target": "tests/judges.rs",
+          "passed": 7,
+          "failed": 0,
+          "ignored": 1
+        },
+        {
+          "target": "tests/judges_program.rs",
+          "passed": 3,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "target": "tests/local_comparison.rs",
+          "passed": 1,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "target": "tests/local_fit.rs",
+          "passed": 7,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "target": "tests/local_model.rs",
+          "passed": 7,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "target": "tests/local_timing.rs",
+          "passed": 0,
+          "failed": 0,
+          "ignored": 1
+        },
+        {
+          "target": "tests/policy.rs",
+          "passed": 18,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "target": "tests/program.rs",
+          "passed": 3,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "target": "Doc-tests lamp_policy",
+          "passed": 0,
+          "failed": 0,
+          "ignored": 0
+        }
+      ]
+    },
+    "clippy_cargo_elapsed_s": 2.54,
+    "workspace_cargo_elapsed_s": 2.17
+  },
+  "linux_source_copy": {
+    "os": "Linux 6.12.13-200.fc41.x86_64",
+    "architecture": "x86_64",
+    "vm_name": "lampos-arm64 (name does not describe actual architecture)",
+    "vcpus": 6,
+    "ram_mib": 8192,
+    "source_path": "/private/tmp/lamp-fourth-local-source-1i6460fw",
+    "parent_repository_present": false,
+    "git_metadata_present": false,
+    "network": "podman --network none; tests still use container-local loopback",
+    "rust": "1.96.0 (ac68faa20c58cbccd01ee7208bf3b6e93a7d7f96)",
+    "target": "x86_64-unknown-linux-gnu",
+    "cargo_build_jobs": 4,
+    "RUST_TEST_THREADS": "1",
+    "commands": [
+      "cargo clippy -p lamp-policy --all-targets --offline --locked --target x86_64-unknown-linux-gnu -- -D warnings",
+      "cargo test -p lamp-policy --offline --locked --target x86_64-unknown-linux-gnu",
+      "cargo build --workspace --offline --locked --target x86_64-unknown-linux-gnu"
+    ],
+    "exit_codes": [
+      0,
+      0,
+      0
+    ],
+    "tests": {
+      "totals": {
+        "passed": 142,
+        "failed": 0,
+        "ignored": 2
+      },
+      "targets": [
+        {
+          "target": "unittests src/lib.rs",
+          "passed": 76,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "target": "unittests src/main.rs",
+          "passed": 2,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "target": "unittests src/bin/lamp-policy-fit.rs",
+          "passed": 0,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "target": "unittests src/bin/lamp-policy-judges.rs",
+          "passed": 3,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "target": "tests/baseline.rs",
+          "passed": 15,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "target": "tests/judges.rs",
+          "passed": 7,
+          "failed": 0,
+          "ignored": 1
+        },
+        {
+          "target": "tests/judges_program.rs",
+          "passed": 3,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "target": "tests/local_comparison.rs",
+          "passed": 1,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "target": "tests/local_fit.rs",
+          "passed": 7,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "target": "tests/local_model.rs",
+          "passed": 7,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "target": "tests/local_timing.rs",
+          "passed": 0,
+          "failed": 0,
+          "ignored": 1
+        },
+        {
+          "target": "tests/policy.rs",
+          "passed": 18,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "target": "tests/program.rs",
+          "passed": 3,
+          "failed": 0,
+          "ignored": 0
+        },
+        {
+          "target": "Doc-tests lamp_policy",
+          "passed": 0,
+          "failed": 0,
+          "ignored": 0
+        }
+      ]
+    },
+    "inherited_workspace_build_warnings": [
+      "crates/body/src/inspection.rs:615 unused run",
+      "crates/body/src/bin/lamp-body.rs:592 unused mut"
+    ],
+    "full_first_build_cargo_elapsed_s": 116,
+    "final_workspace_cargo_elapsed_s": 4.22,
+    "cache_preparation": "cargo clean -p lamp-policy --target x86_64-unknown-linux-gnu after comparing another source at the same /source mount; no source change"
+  },
+  "manual_ignored_tests_executed_on_mac": [
+    "measure_local_first_and_repeated",
+    "measure_shadow_choices_while_slow_is_held (before and after wait fix)"
+  ],
+  "development_failures": "development-failures.txt, linux-name-gate-failure.txt, name-fixture-investigation.txt, linux-stale-cache.txt; final gates passed without skipping or relaxing any test",
+  "source_manifest": "source-sha256.json",
+  "seed_sha256": "3de494c07557f99b6da4a52fcd145d32b76cbcf8ebaa230bf7812b4eac6ad075",
+  "limits": [
+    "no ARM64 execution",
+    "no physical lamp or acoustic timing",
+    "no real labelled lamp corpus",
+    "seed and 0.5 mixture unfitted",
+    "snapshot comparison is not live Voice gate reproduction",
+    "append completion is not fsync durability"
+  ],
+  "local_log_sha256": {
+    "lamp-fourth-local-final-fmt.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "lamp-fourth-local-final-clippy.log": "d4251e5295f0623c0678068673e53c001b9c5d7dd25720b10fffce78dc6f1b89",
+    "lamp-fourth-local-final-tests.log": "1752216b68a7d25debdf5157d6460b4300f886dd374e5b725b79e1c0c491285b",
+    "lamp-fourth-local-final-build.log": "2aeba28faba75e0fb942bf43c12ff9fa6dfef65cdc2a790e53cc07f3f0c9c40b",
+    "lamp-fourth-local-linux-final.log": "6da24009504ab1e750f1b5c3e4d4b1fe0b080e3760d271896ca6d3630b54427f",
+    "lamp-fourth-local-timing.log": "7b0b8b9da1d78c1ecd3fdac763484391f06a6d4119fb63ef110ca3f36478c8e9",
+    "lamp-fourth-shadow-timing-before.log": "2881b887b1c34c713b1a3877c691082fe7b7bca631ea730598307aa578b55d60",
+    "lamp-fourth-shadow-timing-after.log": "e72bccb859c9e6298e84d7fe78d013ae4f977b4183fd154c8a199ccc95cf25dc",
+    "lamp-fourth-local-comparison.log": "7fec4a34c0755a1302f6a5da89f4ec24279fec8da77a25db208dbf40f918769b",
+    "lamp-fourth-local-linux-name-failure.log": "db2b9be8517045e74e4ee89ce8742a6f6121d18dc787043193357c59a19d1ecd",
+    "lamp-fourth-local-linux-name-isolated.log": "74c3c22b8d97dcca355a6da5b1de4856feca9123a75cc088707a2b39db83c203",
+    "lamp-fourth-local-linux-name-baseline.log": "9d963094c55d9d543ee610f2e6c1de4d0338f28b7bf06e022693f07dab6d512b",
+    "lamp-fourth-name-diagnostic.log": "3ae6a6acfa960732018b6a9e1ee41bc2525528f419add71b775598e61f6a424d",
+    "lamp-fourth-local-linux-stale-cache.log": "de0f68bac6d66e961c41a636228c06096632c231f34c93a8b0c9652c62554325"
+  },
+  "legacy_name_fixture": {
+    "actual_gate_failures": 1,
+    "actual_gate_assertion": "tests/policy.rs:727: expected 0.0, observed 0.97",
+    "unchanged_task_source_isolated_passes": 1,
+    "unchanged_baseline_574c2e5ed_isolated_passes": 5,
+    "baseline_diagnostic_receipt_order": "40 ms delay between third Thinking state and transcript; same assertion reproduced with unchanged production code",
+    "diagnostic_patch_applied_to_worktree": false,
+    "production_name_or_gather_behavior_changed": false,
+    "final_complete_gate": "passed",
+    "original_failure_timestamps": "not retained; reproduced trigger is not proof of exact failing schedule"
+  },
+  "timing_revision_note": "Shadow timing after the final-wait correction preceded the subsequent diagnostic-only worker-exit wording change; the measured held-worker decision path and local model are unchanged."
+}

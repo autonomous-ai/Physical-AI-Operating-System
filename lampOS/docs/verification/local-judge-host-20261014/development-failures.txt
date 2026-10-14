@@ -1,0 +1,68 @@
+CLIPPY DEVELOPMENT ATTEMPT 1
+    Checking lamp-policy v0.1.0 (<lampOS source>/crates/policy)
+error: variable does not need to be mutable
+    --> crates/policy/src/policy.rs:1193:17
+     |
+1193 |     if let Some(mut judges) = policy.judges.take() {
+     |                 ----^^^^^^
+     |                 |
+     |                 help: remove this `mut`
+     |
+     = note: `-D unused-mut` implied by `-D warnings`
+     = help: to override `-D warnings` add `#[allow(unused_mut)]`
+
+error: this function has too many arguments (8/7)
+   --> crates/policy/src/policy/judges.rs:406:5
+    |
+406 | /     fn answer_log(
+407 | |         &self,
+408 | |         policy: &mut Policy<'_>,
+409 | |         flight: &Flight,
+...   |
+414 | |         phase: &'static str,
+415 | |     ) {
+    | |_____^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.96.0/index.html#too_many_arguments
+    = note: `-D clippy::too-many-arguments` implied by `-D warnings`
+    = help: to override `-D warnings` add `#[allow(clippy::too_many_arguments)]`
+
+error: could not compile `lamp-policy` (lib) due to 2 previous errors
+warning: build failed, waiting for other jobs to finish...
+error: could not compile `lamp-policy` (lib test) due to 2 previous errors
+
+CLIPPY DEVELOPMENT ATTEMPT 3
+    Checking lamp-policy v0.1.0 (<lampOS source>/crates/policy)
+error[E0599]: no method named `decode` found for struct `lamp_bus::Message` in the current scope
+   --> crates/policy/tests/judges.rs:198:14
+    |
+194 | /         self.decisions
+195 | |             .recv(WAIT)
+196 | |             .unwrap()
+197 | |             .expect("one final choice")
+198 | |             .decode()
+    | |             -^^^^^^ method not found in `lamp_bus::Message`
+    | |_____________|
+    |
+
+For more information about this error, try `rustc --explain E0599`.
+error: could not compile `lamp-policy` (test "judges") due to 1 previous error
+
+CLIPPY DEVELOPMENT ATTEMPT 6
+    Checking lamp-policy v0.1.0 (<lampOS source>/crates/policy)
+error: this assertion has a constant value
+  --> crates/policy/tests/local_timing.rs:17:5
+   |
+17 | /     assert!(
+18 | |         !cfg!(debug_assertions),
+19 | |         "use --release for the declared measurement"
+20 | |     );
+   | |_____^
+   |
+   = help: consider moving this into a const block: `const { assert!(..) }`
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.96.0/index.html#assertions_on_constants
+   = note: `-D clippy::assertions-on-constants` implied by `-D warnings`
+   = help: to override `-D warnings` add `#[allow(clippy::assertions_on_constants)]`
+
+error: could not compile `lamp-policy` (test "local_timing") due to 1 previous error
+warning: build failed, waiting for other jobs to finish...

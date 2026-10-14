@@ -1,0 +1,182 @@
+{
+  "schema": 1,
+  "name": "lamp-local-seed-v1-unfitted",
+  "feature_schema": 1,
+  "local_share": 0.5,
+  "questions": [
+    {
+      "name": "calls_lamp",
+      "head": {
+        "bias": -1.5,
+        "weights": [
+          2.0,
+          0.4,
+          0.3,
+          0.6,
+          0.2,
+          0.2,
+          0.15,
+          3.0
+        ],
+        "state": "seeded_unfitted",
+        "labels": {
+          "yes": 0,
+          "no": 0
+        }
+      }
+    },
+    {
+      "name": "names_someone_else",
+      "head": {
+        "bias": -1.3862943611198906,
+        "weights": [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "state": "seeded_unfitted",
+        "labels": {
+          "yes": 0,
+          "no": 0
+        }
+      }
+    },
+    {
+      "name": "others_business",
+      "head": {
+        "bias": -0.4,
+        "weights": [
+          0.0,
+          -0.4,
+          -0.6,
+          -0.4,
+          -0.2,
+          0.0,
+          0.0,
+          -0.8
+        ],
+        "state": "seeded_unfitted",
+        "labels": {
+          "yes": 0,
+          "no": 0
+        }
+      }
+    },
+    {
+      "name": "lamp_could_answer",
+      "head": {
+        "bias": -0.2,
+        "weights": [
+          0.3,
+          0.3,
+          0.2,
+          0.4,
+          0.15,
+          0.4,
+          0.3,
+          0.5
+        ],
+        "state": "seeded_unfitted",
+        "labels": {
+          "yes": 0,
+          "no": 0
+        }
+      }
+    },
+    {
+      "name": "follows_lamp",
+      "head": {
+        "bias": -1.0,
+        "weights": [
+          0.0,
+          1.8,
+          0.0,
+          0.4,
+          1.2,
+          0.0,
+          0.0,
+          0.2
+        ],
+        "state": "seeded_unfitted",
+        "labels": {
+          "yes": 0,
+          "no": 0
+        }
+      }
+    },
+    {
+      "name": "listening_noise",
+      "head": {
+        "bias": -0.8,
+        "weights": [
+          0.0,
+          -0.1,
+          0.0,
+          -0.1,
+          0.0,
+          -0.8,
+          -0.8,
+          -0.3
+        ],
+        "state": "seeded_unfitted",
+        "labels": {
+          "yes": 0,
+          "no": 0
+        }
+      }
+    },
+    {
+      "name": "asks_to_stop",
+      "head": {
+        "bias": -2.1972245773362196,
+        "weights": [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "state": "seeded_unfitted",
+        "labels": {
+          "yes": 0,
+          "no": 0
+        }
+      }
+    }
+  ],
+  "local_choice": {
+    "bias": -0.4,
+    "weights": [
+      4.0,
+      -1.0,
+      -1.8,
+      1.2,
+      1.5,
+      -1.5,
+      0.2
+    ],
+    "state": "seeded_unfitted",
+    "labels": {
+      "yes": 0,
+      "no": 0
+    }
+  },
+  "provenance": {
+    "method": "authored heuristic seed; no training or calibration",
+    "sources": [
+      "Fourth builder authored signs-only priors; no recordings"
+    ],
+    "rights": [
+      "Apache-2.0 project contribution"
+    ],
+    "rows": 0
+  }
+}

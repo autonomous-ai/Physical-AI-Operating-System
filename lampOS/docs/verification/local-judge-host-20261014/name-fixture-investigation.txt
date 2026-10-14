@@ -1,0 +1,90 @@
+One isolated unchanged task-branch run: passed
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.71s
+     Running tests/policy.rs (/target/x86_64-unknown-linux-gnu/debug/deps/policy-faf36df6f9a16d3b)
+
+running 1 test
+test the_lamps_name_heard_while_someone_spoke_is_joined_to_what_they_said ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 17 filtered out; finished in 3.53s
+
+
+Five unchanged baseline runs at 574c2e5ed: passed
+   Compiling lamp-bus v0.1.0 (/source/crates/bus)
+   Compiling lamp-msgs v0.1.0 (/source/crates/msgs)
+   Compiling lamp-policy v0.1.0 (/source/crates/policy)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 3.75s
+     Running tests/policy.rs (/target/x86_64-unknown-linux-gnu/debug/deps/policy-b59f355d3648c8c3)
+
+running 1 test
+test the_lamps_name_heard_while_someone_spoke_is_joined_to_what_they_said ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 17 filtered out; finished in 3.53s
+
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.71s
+     Running tests/policy.rs (/target/x86_64-unknown-linux-gnu/debug/deps/policy-b59f355d3648c8c3)
+
+running 1 test
+test the_lamps_name_heard_while_someone_spoke_is_joined_to_what_they_said ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 17 filtered out; finished in 3.56s
+
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.57s
+     Running tests/policy.rs (/target/x86_64-unknown-linux-gnu/debug/deps/policy-b59f355d3648c8c3)
+
+running 1 test
+test the_lamps_name_heard_while_someone_spoke_is_joined_to_what_they_said ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 17 filtered out; finished in 3.53s
+
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.74s
+     Running tests/policy.rs (/target/x86_64-unknown-linux-gnu/debug/deps/policy-b59f355d3648c8c3)
+
+running 1 test
+test the_lamps_name_heard_while_someone_spoke_is_joined_to_what_they_said ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 17 filtered out; finished in 3.53s
+
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.69s
+     Running tests/policy.rs (/target/x86_64-unknown-linux-gnu/debug/deps/policy-b59f355d3648c8c3)
+
+running 1 test
+test the_lamps_name_heard_while_someone_spoke_is_joined_to_what_they_said ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 17 filtered out; finished in 3.54s
+
+
+Diagnostic-only patch in a second baseline copy; not applied to this repository
+--- baseline/crates/policy/tests/policy.rs
++++ diagnostic-copy/crates/policy/tests/policy.rs
+@@ -696,6 +696,8 @@
+     .unwrap();
+     thread::sleep(ms(200));
+     rig.voice(Voice::Thinking);
++    // Diagnostic copy only: force the valid state-before-text receipt order.
++    thread::sleep(ms(40));
+     rig.hear("What time is it?");
+     let called = rig.decision();
+     rig.done_with(3);
+
+Baseline production code with the diagnostic receipt ordering: expected failure reproduced
+   Compiling lamp-policy v0.1.0 (/source/crates/policy)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.89s
+     Running tests/policy.rs (/target/x86_64-unknown-linux-gnu/debug/deps/policy-b59f355d3648c8c3)
+
+running 1 test
+test the_lamps_name_heard_while_someone_spoke_is_joined_to_what_they_said ...
+thread 'the_lamps_name_heard_while_someone_spoke_is_joined_to_what_they_said' (43) panicked at crates/policy/tests/policy.rs:729:5:
+assertion `left == right` failed
+  left: Number(0.97)
+ right: 0.0
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+FAILED
+
+failures:
+
+failures:
+    the_lamps_name_heard_while_someone_spoke_is_joined_to_what_they_said
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 17 filtered out; finished in 3.34s
+
+error: test failed, to rerun pass `-p lamp-policy --test policy`

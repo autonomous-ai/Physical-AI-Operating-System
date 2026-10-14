@@ -1,0 +1,43 @@
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.81s
+   Compiling lamp-policy v0.1.0 (/source/crates/policy)
+error[E0432]: unresolved imports `lamp_policy::policy::fit`, `lamp_policy::policy::local`
+ --> crates/policy/src/bin/lamp-policy-fit.rs:3:5
+  |
+3 |     fit::{self, Options},
+  |     ^^^ could not find `fit` in `policy`
+4 |     local::{MOST_WEIGHTS_BYTES, Weights},
+  |     ^^^^^ could not find `local` in `policy`
+
+error[E0432]: unresolved import `lamp_policy::policy::baseline`
+ --> crates/policy/tests/baseline.rs:6:9
+  |
+6 |         baseline::{
+  |         ^^^^^^^^ could not find `baseline` in `policy`
+
+error[E0432]: unresolved imports `lamp_policy::policy::judges`, `lamp_policy::policy::local`
+ --> crates/policy/src/bin/lamp-policy-judges.rs:7:26
+  |
+7 |     policy::{self, Note, judges, local::Weights},
+  |                          ^^^^^^  ^^^^^ could not find `local` in `policy`
+  |                          |
+  |                          no `judges` in `policy`
+
+error[E0425]: cannot find function `run_with_local` in module `policy`
+   --> crates/policy/src/bin/lamp-policy-judges.rs:189:26
+    |
+189 |     let result = policy::run_with_local(
+    |                          ^^^^^^^^^^^^^^ not found in `policy`
+
+For more information about this error, try `rustc --explain E0432`.
+error: could not compile `lamp-policy` (bin "lamp-policy-fit") due to 1 previous error
+warning: build failed, waiting for other jobs to finish...
+error[E0599]: no variant, associated function, or constant named `Judge` found for enum `Note` in the current scope
+   --> crates/policy/src/bin/lamp-policy-judges.rs:199:51
+    |
+199 |             if args.show || !matches!(note, Note::Judge(_)) {
+    |                                                   ^^^^^ variant, associated function, or constant not found in `Note`
+
+Some errors have detailed explanations: E0425, E0432, E0599.
+For more information about an error, try `rustc --explain E0425`.
+error: could not compile `lamp-policy` (bin "lamp-policy-judges") due to 3 previous errors
+error: could not compile `lamp-policy` (test "baseline") due to 1 previous error

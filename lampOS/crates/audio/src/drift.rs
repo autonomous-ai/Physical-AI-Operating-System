@@ -25,11 +25,11 @@ use crate::{RENDER_RATE, RENDER_SAMPLES, RenderBlock};
 
 /// Interpolator length. Sample `CENTRE` of the sixteen is the one at or just
 /// before the point being read.
-const TAPS: usize = 16;
-const CENTRE: usize = 7;
+pub(crate) const TAPS: usize = 16;
+pub(crate) const CENTRE: usize = 7;
 /// Fractional positions the interpolator is tabulated at. Coefficients for a
 /// position between two of them are interpolated linearly.
-const PHASES: usize = 256;
+pub(crate) const PHASES: usize = 256;
 /// Frames of ring. A power of two, and more than [`CAPACITY_FRAMES`].
 const RING: usize = 4_096;
 
@@ -201,7 +201,7 @@ impl Resampler {
 
 /// Kaiser-windowed sinc, one row per fractional position from 0 to 1
 /// inclusive, each normalised to unit gain at zero frequency.
-fn kernel() -> Box<[[f32; TAPS]; PHASES + 1]> {
+pub(crate) fn kernel() -> Box<[[f32; TAPS]; PHASES + 1]> {
     let mut table = Box::new([[0.0_f32; TAPS]; PHASES + 1]);
     let half = TAPS as f64 / 2.0;
     for (phase, row) in table.iter_mut().enumerate() {

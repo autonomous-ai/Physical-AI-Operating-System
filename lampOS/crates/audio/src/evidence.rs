@@ -302,6 +302,19 @@ impl EchoObserver {
         self.latest
     }
 
+    /// How long after the newest render the echo of the alignment held
+    /// arrives, in analysis samples (a quarter of a millisecond each), and
+    /// the capture blocks since that alignment last explained
+    /// [`MATCH_PERCENT`] of the capture. `None` while nothing is matched.
+    pub fn echo_delay(&self) -> Option<(i64, u16)> {
+        self.alignment.as_ref().map(|alignment| {
+            (
+                self.render.total as i64 - self.captured as i64 - alignment.offset,
+                alignment.age_blocks,
+            )
+        })
+    }
+
     /// One block of PCM the speaker device accepted, in acceptance order.
     pub fn render(&mut self, samples: &RenderBlock) {
         let mut energy = 0u64;

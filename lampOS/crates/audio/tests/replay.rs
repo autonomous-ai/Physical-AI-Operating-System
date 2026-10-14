@@ -317,6 +317,46 @@ fn certified_partial_writes_reproduce_recorded_call_order_and_exact_ns_pcm() {
     );
 }
 #[test]
+fn the_steady_reference_is_replayed_only_when_asked_for_and_says_so() {
+    let fixture = Fixture::new();
+    let given = fixture.replay("given", ReplayOptions::default()).unwrap();
+    let steady = fixture
+        .replay(
+            "steady",
+            ReplayOptions {
+                reference: lamp_audio::Reference::Steady,
+                ..Default::default()
+            },
+        )
+        .unwrap();
+    assert_eq!(given.segments[0].reference, "as_given");
+    assert_eq!(given.segments[0].steady_delay_ms, None);
+    assert_eq!(steady.segments[0].reference, "steady");
+    assert!(steady.source_certified && steady.replay_complete_for_recorded_capture);
+    assert_eq!(
+        steady.replayed_capture_frames,
+        given.replayed_capture_frames
+    );
+    let rows = |name: &str| -> Vec<Value> {
+        fs::read_to_string(fixture.output(name).join("operations.jsonl"))
+            .unwrap()
+            .lines()
+            .map(|l| serde_json::from_str(l).unwrap())
+            .filter(|row: &Value| row["kind"] == "capture_pair")
+            .collect()
+    };
+    for row in rows("given") {
+        assert!(row["steady_reference"].is_null());
+    }
+    // Nothing is matched in so short a recording: the reference passes
+    // half a millisecond late, and says that it does.
+    for row in rows("steady") {
+        assert_eq!(row["steady_reference"]["delay_ms"], 0.5);
+        assert!(row["steady_reference"]["echo_ms"].is_null());
+    }
+}
+
+#[test]
 fn replay_preserves_alignment_observations_without_using_them_as_delay_hints() {
     let mut fixture = Fixture::new();
     let mut baseline = Vec::new();
@@ -451,6 +491,7 @@ fn fault_prefix_requires_explicit_opt_in_and_missing_mode_is_not_inferred() {
                     noise_suppression: true,
                     source_evidence: evidence,
                 }),
+                ..Default::default()
             },
         )
         .unwrap();

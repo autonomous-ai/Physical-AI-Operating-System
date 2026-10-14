@@ -26,6 +26,9 @@ fn run() -> Result<()> {
             let mut options = ReplayOptions::default();
             while let Some(flag) = args.next() {
                 match flag.as_str() {
+                    "--steady-reference" if options.reference == lamp_audio::Reference::AsGiven => {
+                        options.reference = lamp_audio::Reference::Steady
+                    }
                     "--exploratory-prefix" if !options.exploratory_prefix => {
                         options.exploratory_prefix = true
                     }
@@ -117,7 +120,7 @@ fn run() -> Result<()> {
         }
         _ => {
             return Err(usage(
-                "usage: lamp-audio replay-aec RUN NEW_OUT [--exploratory-prefix] [--historical-processing on|off SOURCE_EVIDENCE.json] | notices DIR [--accept-test] | bench-aec [500..60000 blocks] | export-aec-fixture NEW_DIR [blocks] | bench-aec-fixture FIXTURE_DIR NEW_REPORT.json",
+                "usage: lamp-audio replay-aec RUN NEW_OUT [--exploratory-prefix] [--historical-processing on|off SOURCE_EVIDENCE.json] [--steady-reference] | notices DIR [--accept-test] | bench-aec [500..60000 blocks] | export-aec-fixture NEW_DIR [blocks] | bench-aec-fixture FIXTURE_DIR NEW_REPORT.json",
             ));
         }
     }

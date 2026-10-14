@@ -1,0 +1,981 @@
+use crate::catalogue::{add, blend, clamp, ease};
+use crate::{Catalogue, Error, LEASE_US, Trigger};
+use lamp_msgs::{
+    BodyOffsets, ClockStamp, Concentration, ExpressionBody, ExpressionFace, ExpressionGaze,
+    ExpressionLease, ExpressionLight, ExpressionState, Faces, JointState, Light, NameHeard,
+    PersonActivity, Room, RoomState, Speech, Voice, VoiceEvent, VoicePlayout, VoiceState,
+    VoiceTiming,
+};
+use serde::{Deserialize, Serialize};
+use std::collections::{BTreeSet, VecDeque};
+
+pub const MAX_PLAYOUT_FRAMES: usize = 128;
+pub const MAX_VOICE_SESSIONS: usize = 32;
+const STREAMS: usize = 12;
+const CONTEXT_BYTES: usize = 16 * 1024;
+
+/// Arrival time is supplied separately to ingest. Stamps retain the source
+/// observation time, so replay and a busy receiver cannot make old data fresh.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum Input {
+    Voice(VoiceTiming),
+    Activity(PersonActivity),
+    Playout(VoicePlayout),
+    Concentration(Concentration),
+    VoiceState {
+        stamp: ClockStamp,
+        value: VoiceState,
+    },
+    Joints {
+        stamp: ClockStamp,
+        value: JointState,
+    },
+    Faces {
+        stamp: ClockStamp,
+        value: Faces,
+    },
+    Room {
+        stamp: ClockStamp,
+        value: RoomState,
+    },
+    Light {
+        stamp: ClockStamp,
+        value: Light,
+    },
+    Heard {
+        stamp: ClockStamp,
+        value: Speech,
+    },
+    Said {
+        stamp: ClockStamp,
+        value: Speech,
+    },
+    Name {
+        stamp: ClockStamp,
+        value: NameHeard,
+    },
+}
+
+impl Input {
+    pub fn stamp(&self) -> &ClockStamp {
+        match self {
+            Self::Voice(v) => &v.stamp,
+            Self::Activity(v) => &v.stamp,
+            Self::Playout(v) => &v.stamp,
+            Self::Concentration(v) => &v.stamp,
+            Self::VoiceState { stamp, .. }
+            | Self::Joints { stamp, .. }
+            | Self::Faces { stamp, .. }
+            | Self::Room { stamp, .. }
+            | Self::Light { stamp, .. }
+            | Self::Heard { stamp, .. }
+            | Self::Said { stamp, .. }
+            | Self::Name { stamp, .. } => stamp,
+        }
+    }
+
+    pub fn topic(&self) -> &'static str {
+        match self {
+            Self::Voice(_) => VoiceTiming::TOPIC,
+            Self::Activity(_) => PersonActivity::TOPIC,
+            Self::Playout(_) => VoicePlayout::TOPIC,
+            Self::Concentration(_) => Concentration::TOPIC,
+            Self::VoiceState { .. } => VoiceState::TOPIC,
+            Self::Joints { .. } => JointState::TOPIC,
+            Self::Faces { .. } => Faces::TOPIC,
+            Self::Room { .. } => RoomState::TOPIC,
+            Self::Light { .. } => Light::TOPICS[0],
+            Self::Heard { .. } => Speech::TOPICS[0],
+            Self::Said { .. } => Speech::TOPICS[1],
+            Self::Name { .. } => NameHeard::TOPIC,
+        }
+    }
+
+    fn stream(&self) -> usize {
+        match self {
+            Self::Voice(_) => 0,
+            Self::Activity(_) => 1,
+            Self::Playout(_) => 2,
+            Self::Concentration(_) => 3,
+            Self::VoiceState { .. } => 4,
+            Self::Joints { .. } => 5,
+            Self::Faces { .. } => 6,
+            Self::Room { .. } => 7,
+            Self::Light { .. } => 8,
+            Self::Heard { .. } => 9,
+            Self::Said { .. } => 10,
+            Self::Name { .. } => 11,
+        }
+    }
+
+    /// Structural and finite-value validation, independent of arrival order.
+    pub fn check(&self) -> Result<(), Error> {
+        self.stamp().check()?;
+        match self {
+            Self::Voice(v) => v.check()?,
+            Self::Activity(v) => v.check()?,
+            Self::Playout(v) => v.check()?,
+            Self::Concentration(v) => v.check()?,
+            Self::Joints { value, .. } => {
+                value.check()?;
+                let names: BTreeSet<_> = value.name.iter().collect();
+                if value.name.len() > 16
+                    || names.len() != value.name.len()
+                    || value
+                        .name
+                        .iter()
+                        .any(|name| name.is_empty() || name.len() > 128)
+                    || value.position.len() != value.name.len()
+                    || !["base_yaw", "shoulder", "elbow", "head_roll", "head_pitch"]
+                        .iter()
+                        .all(|name| value.name.iter().any(|n| n == name))
+                    || value
+                        .position
+                        .iter()
+                        .chain(&value.commanded)
+                        .chain(&value.velocity)
+                        .any(|v| !v.is_finite())
+                    || value.effort.iter().any(|v| !(0.0..=1.0).contains(v))
+                {
+                    return Err(Error(
+                        "joint state needs five named measured joints and finite SI values".into(),
+                    ));
+                }
+            }
+            Self::Faces { value, .. } => {
+                if value.faces.len() > 64
+                    || value.faces.iter().any(|face| {
+                        face.id.is_empty()
+                            || face.id.len() > 128
+                            || face.id.chars().any(char::is_control)
+                            || face.yaw.is_some_and(|yaw| !yaw.is_finite())
+                    })
+                {
+                    return Err(Error(
+                        "face list exceeds bounds or has invalid identity/yaw".into(),
+                    ));
+                }
+                value.check()?;
+            }
+            Self::Light { value, .. } => value.check()?,
+            Self::Name { value, .. } => value.check()?,
+            Self::Heard { value, .. } | Self::Said { value, .. } => {
+                if value.text.len() > CONTEXT_BYTES
+                    || value.locale.as_ref().is_some_and(|v| v.len() > 64)
+                {
+                    return Err(Error(
+                        "speech context exceeds 16 KiB / 64-byte locale".into(),
+                    ));
+                }
+            }
+            Self::VoiceState { .. } | Self::Room { .. } => {}
+        }
+        Ok(())
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct Output {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub body: Option<ExpressionBody>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub light: Option<ExpressionLight>,
+    pub state: ExpressionState,
+}
+
+#[derive(Clone, Copy, Default)]
+struct ClipState {
+    pause_seen: Option<u64>,
+    started: Option<u64>,
+    last_started: Option<u64>,
+}
+
+#[derive(Clone)]
+struct Interruption {
+    at_us: u64,
+    from: BodyOffsets,
+}
+
+/// Bounded state with no wall clock, sleeping, I/O or randomness. All times
+/// supplied by the embedding process must be on the same monotonic boot clock.
+pub struct Engine {
+    catalogue: Catalogue,
+    enabled: bool,
+    clock_id: String,
+    session_id: String,
+    now: Option<u64>,
+    sequence: u64,
+    fault: Option<&'static str>,
+    marks: [Option<(u64, u64)>; STREAMS],
+    voice: Option<VoiceTiming>,
+    voice_since: u64,
+    retired_turn: bool,
+    cancelled: bool,
+    retired_sessions: Vec<String>,
+    activity: Option<PersonActivity>,
+    has_speech: bool,
+    pause_since: Option<u64>,
+    clips: Vec<ClipState>,
+    playout: VecDeque<VoicePlayout>,
+    last_playout_end: Option<u64>,
+    playout_since: Option<u64>,
+    first_audio: Option<u64>,
+    late_schedule: bool,
+    interruption: Option<Interruption>,
+    last_offsets: BodyOffsets,
+    joints_at: Option<u64>,
+    faces: Option<(ClockStamp, Faces)>,
+    room: Option<(u64, Room)>,
+    light: Option<Light>,
+    concentration: Option<Concentration>,
+    legacy_voice: Option<VoiceState>,
+    rejected: u64,
+}
+
+impl Engine {
+    pub fn new(
+        catalogue: Catalogue,
+        enabled: bool,
+        clock_id: impl Into<String>,
+    ) -> Result<Self, Error> {
+        catalogue.check()?;
+        let clock_id = clock_id.into();
+        ClockStamp {
+            clock_id: clock_id.clone(),
+            at_us: 0,
+            sequence: 0,
+        }
+        .check()?;
+        let clips = vec![ClipState::default(); catalogue.behaviours.len()];
+        Ok(Self {
+            catalogue,
+            enabled,
+            clock_id,
+            session_id: "expression".into(),
+            now: None,
+            sequence: 0,
+            fault: None,
+            marks: [None; STREAMS],
+            voice: None,
+            voice_since: 0,
+            retired_turn: false,
+            cancelled: false,
+            retired_sessions: Vec::new(),
+            activity: None,
+            has_speech: false,
+            pause_since: None,
+            clips,
+            playout: VecDeque::new(),
+            last_playout_end: None,
+            playout_since: None,
+            first_audio: None,
+            late_schedule: false,
+            interruption: None,
+            last_offsets: BodyOffsets::ZERO,
+            joints_at: None,
+            faces: None,
+            room: None,
+            light: None,
+            concentration: None,
+            legacy_voice: None,
+            rejected: 0,
+        })
+    }
+
+    /// Live publishers must use a fresh process identifier; replay may keep
+    /// the deterministic default. This is allowed only before the first tick.
+    pub fn with_session_id(mut self, session_id: impl Into<String>) -> Result<Self, Error> {
+        let session_id = session_id.into();
+        ClockStamp {
+            clock_id: session_id.clone(),
+            at_us: 0,
+            sequence: 0,
+        }
+        .check()?;
+        if self.now.is_some() {
+            return Err(Error("planner session must be set before clock use".into()));
+        }
+        self.session_id = session_id;
+        Ok(self)
+    }
+
+    pub fn clock_id(&self) -> &str {
+        &self.clock_id
+    }
+
+    pub fn rejected_inputs(&self) -> u64 {
+        self.rejected
+    }
+
+    pub fn queued_playout_frames(&self) -> usize {
+        self.playout.len()
+    }
+
+    fn advance(&mut self, now_us: u64) -> Result<(), Error> {
+        if self.now.is_some_and(|last| now_us < last) {
+            self.fault = Some("clock moved backwards; restart expression with the new clock");
+            self.clear_transients();
+        }
+        if now_us > u64::MAX - LEASE_US {
+            self.fault = Some("clock cannot represent another command lease");
+            self.clear_transients();
+        }
+        if let Some(fault) = self.fault {
+            return Err(Error(fault.into()));
+        }
+        self.now = Some(now_us);
+        if self.voice.as_ref().is_some_and(|voice| {
+            now_us.saturating_sub(voice.stamp.at_us) >= self.catalogue.timing.voice_stale_us
+        }) {
+            self.retired_turn = true;
+            self.clear_transients();
+        }
+        while self
+            .playout
+            .front()
+            .is_some_and(|frame| frame.end_us <= now_us)
+        {
+            self.playout.pop_front();
+        }
+        if self.activity.as_ref().is_some_and(|activity| {
+            now_us.saturating_sub(activity.stamp.at_us) >= self.catalogue.timing.activity_stale_us
+        }) {
+            self.activity = None;
+            self.has_speech = false;
+            self.pause_since = None;
+            for clip in &mut self.clips {
+                clip.started = None;
+            }
+        }
+        Ok(())
+    }
+
+    fn clear_transients(&mut self) {
+        self.activity = None;
+        self.has_speech = false;
+        self.pause_since = None;
+        for clip in &mut self.clips {
+            clip.started = None;
+            clip.pause_seen = None;
+        }
+        self.playout.clear();
+        self.first_audio = None;
+        self.playout_since = None;
+        self.interruption = None;
+        self.late_schedule = false;
+    }
+
+    pub fn ingest(&mut self, now_us: u64, input: Input) -> Result<(), Error> {
+        let result = self.ingest_checked(now_us, input);
+        if result.is_err() {
+            self.rejected = self.rejected.saturating_add(1);
+        }
+        result
+    }
+
+    fn ingest_checked(&mut self, now_us: u64, input: Input) -> Result<(), Error> {
+        self.advance(now_us)?;
+        input.check()?;
+        let stamp = input.stamp().clone();
+        if stamp.clock_id != self.clock_id {
+            return Err(Error("input clock_id differs from this boot".into()));
+        }
+        let age_limit = match &input {
+            Input::Concentration(_) | Input::Light { .. } => u64::MAX,
+            Input::Voice(_) | Input::VoiceState { .. } => self.catalogue.timing.voice_stale_us,
+            Input::Activity(_) => self.catalogue.timing.activity_stale_us,
+            Input::Playout(_) => LEASE_US,
+            Input::Joints { .. } => self.catalogue.timing.joints_stale_us,
+            Input::Faces { .. } => self.catalogue.timing.faces_stale_us,
+            _ => self.catalogue.timing.context_stale_us,
+        };
+        if stamp.at_us > now_us || now_us - stamp.at_us >= age_limit {
+            return Err(Error(
+                "input observation is future or stale at arrival".into(),
+            ));
+        }
+        let stream = input.stream();
+        let changed_session = match &input {
+            Input::Voice(voice) => self
+                .voice
+                .as_ref()
+                .is_some_and(|old| voice.session_id != old.session_id),
+            _ => false,
+        };
+        if let Some((at, sequence)) = self.marks[stream] {
+            // Concentration's setting publisher may restart; an actually newer
+            // monotonic observation is its authority, not a reset counter.
+            let can_reset = changed_session || matches!(input, Input::Concentration(_));
+            if stamp.at_us < at
+                || (stamp.sequence <= sequence && (!can_reset || stamp.at_us == at))
+                || (changed_session && stamp.at_us == at)
+            {
+                return Err(Error("input is duplicate or out of order".into()));
+            }
+        }
+        match input {
+            Input::Voice(voice) => self.accept_voice(now_us, voice)?,
+            Input::Activity(activity) => {
+                self.check_turn(&activity.session_id, activity.turn, activity.request, false)?;
+                if self
+                    .voice
+                    .as_ref()
+                    .is_none_or(|v| v.state != Voice::Listening || !v.accepting_input)
+                {
+                    return Err(Error(
+                        "person activity requires a voice that can retain listening input".into(),
+                    ));
+                }
+                if activity.speaking {
+                    self.has_speech = true;
+                    self.pause_since = None;
+                    for clip in &mut self.clips {
+                        clip.started = None;
+                    }
+                } else if self.has_speech && self.activity.as_ref().is_some_and(|old| old.speaking)
+                {
+                    self.pause_since = Some(activity.stamp.at_us);
+                }
+                self.activity = Some(activity);
+            }
+            Input::Playout(frame) => {
+                self.check_turn(&frame.session_id, frame.turn, frame.request, true)?;
+                if self
+                    .voice
+                    .as_ref()
+                    .is_none_or(|v| !matches!(v.state, Voice::Thinking | Voice::Speaking))
+                {
+                    return Err(Error(
+                        "playout requires the active thinking or speaking turn".into(),
+                    ));
+                }
+                if frame.end_us <= now_us
+                    || frame.start_us
+                        > now_us.saturating_add(self.catalogue.timing.max_future_audio_us)
+                    || self
+                        .last_playout_end
+                        .is_some_and(|end| frame.start_us < end)
+                {
+                    return Err(Error(
+                        "playout is expired, too far ahead, overlapping or out of order".into(),
+                    ));
+                }
+                if self.playout.len() >= MAX_PLAYOUT_FRAMES {
+                    return Err(Error(
+                        "playout queue is full; refusing more future frames".into(),
+                    ));
+                }
+                self.last_playout_end = Some(frame.end_us);
+                self.playout_since.get_or_insert(frame.start_us);
+                self.playout.push_back(frame);
+            }
+            Input::Concentration(value) => {
+                if value.concentrating {
+                    self.pause_since = None;
+                    for clip in &mut self.clips {
+                        clip.started = None;
+                    }
+                }
+                self.concentration = Some(value);
+            }
+            Input::VoiceState { value, .. } => self.legacy_voice = Some(value),
+            Input::Joints { stamp, .. } => self.joints_at = Some(stamp.at_us),
+            Input::Faces { stamp, value } => self.faces = Some((stamp, value)),
+            Input::Room { stamp, value } => self.room = Some((stamp.at_us, value.state)),
+            Input::Light { value, .. } => self.light = Some(value),
+            // These are context only. No word is invented as a pause, readiness,
+            // a timing cue or proof that anything has reached the loudspeaker.
+            Input::Heard { .. } | Input::Said { .. } | Input::Name { .. } => {}
+        }
+        self.marks[stream] = Some((stamp.at_us, stamp.sequence));
+        Ok(())
+    }
+
+    fn check_turn(&self, session: &str, turn: u64, request: u64, audio: bool) -> Result<(), Error> {
+        let Some(voice) = &self.voice else {
+            return Err(Error("voice/timing has not established a session".into()));
+        };
+        if session != voice.session_id || turn != voice.turn || request != voice.request {
+            return Err(Error(
+                "input does not belong to the active voice session/turn/request".into(),
+            ));
+        }
+        if audio && self.retired_turn {
+            return Err(Error(
+                "turn audio was cancelled, finished or expired".into(),
+            ));
+        }
+        if self.cancelled {
+            return Err(Error("turn was cancelled".into()));
+        }
+        Ok(())
+    }
+
+    fn accept_voice(&mut self, now_us: u64, voice: VoiceTiming) -> Result<(), Error> {
+        let new_session = self
+            .voice
+            .as_ref()
+            .is_some_and(|old| old.session_id != voice.session_id);
+        let new_turn = self
+            .voice
+            .as_ref()
+            .is_none_or(|old| new_session || old.turn < voice.turn);
+        let repeated_terminal = !new_turn
+            && self.retired_turn
+            && matches!(
+                voice.event,
+                VoiceEvent::Interrupted | VoiceEvent::Cancelled | VoiceEvent::Finished
+            )
+            && (voice.event != VoiceEvent::Cancelled || self.cancelled);
+        if self.retired_sessions.contains(&voice.session_id) {
+            return Err(Error("voice session is retired".into()));
+        }
+        if new_session && self.retired_sessions.len() >= MAX_VOICE_SESSIONS {
+            self.fault = Some(
+                "voice restarted over 32 times; restart expression to renew its session fence",
+            );
+            self.clear_transients();
+            return Err(Error(self.fault.unwrap().into()));
+        }
+        if let Some(old) = &self.voice {
+            if !new_session
+                && (voice.turn < old.turn
+                    || (voice.turn == old.turn && voice.request != old.request))
+            {
+                return Err(Error(
+                    "voice turn moved backwards or changed request identity".into(),
+                ));
+            }
+            if !new_turn
+                && self.retired_turn
+                && matches!(voice.state, Voice::Thinking | Voice::Speaking)
+            {
+                return Err(Error(
+                    "a retired voice turn cannot resume audio or thinking".into(),
+                ));
+            }
+        }
+        if voice.event == VoiceEvent::Scheduled
+            && voice.first_audio_us.is_none_or(|at| {
+                at <= now_us || at - now_us > self.catalogue.timing.max_future_audio_us
+            })
+        {
+            return Err(Error(
+                "scheduled first audio is already due or too far ahead at arrival".into(),
+            ));
+        }
+        if new_turn {
+            if new_session {
+                self.retired_sessions
+                    .push(self.voice.as_ref().unwrap().session_id.clone());
+                self.marks[1] = None;
+                self.marks[2] = None;
+            }
+            self.clear_transients();
+            self.retired_turn = false;
+            self.cancelled = false;
+            self.last_playout_end = None;
+            self.voice_since = voice.stamp.at_us;
+        } else if self
+            .voice
+            .as_ref()
+            .is_some_and(|old| old.state != voice.state)
+        {
+            self.voice_since = voice.stamp.at_us;
+            if voice.state != Voice::Listening {
+                self.pause_since = None;
+                self.activity = None;
+                self.has_speech = false;
+                for clip in &mut self.clips {
+                    clip.started = None;
+                }
+            }
+        }
+        match voice.event {
+            VoiceEvent::Scheduled => {
+                let first = voice.first_audio_us.unwrap();
+                let t = self.catalogue.timing;
+                self.late_schedule = first - now_us
+                    < t.return_us
+                        .saturating_add(t.return_before_us)
+                        .saturating_add(t.body_lag_us.unwrap_or(0));
+                self.first_audio = Some(first);
+            }
+            VoiceEvent::Interrupted if !repeated_terminal => {
+                // Preserve the currently requested offset, then interpolate to
+                // listening. The body's executor remains responsible for its
+                // actual physical starting pose and velocity limits.
+                let from = self.last_offsets;
+                self.clear_transients();
+                self.retired_turn = true;
+                self.interruption = Some(Interruption {
+                    at_us: voice.stamp.at_us,
+                    from,
+                });
+            }
+            VoiceEvent::Cancelled | VoiceEvent::Finished if !repeated_terminal => {
+                self.clear_transients();
+                self.retired_turn = true;
+                self.cancelled |= voice.event == VoiceEvent::Cancelled;
+            }
+            VoiceEvent::State => {
+                // A normal Listening/Resting edge also invalidates queued
+                // audio. An omitted cancellation event cannot keep it alive.
+                if !new_turn
+                    && matches!(voice.state, Voice::Listening | Voice::Resting)
+                    && self
+                        .voice
+                        .as_ref()
+                        .is_some_and(|old| matches!(old.state, Voice::Thinking | Voice::Speaking))
+                {
+                    self.clear_transients();
+                    self.retired_turn = true;
+                }
+            }
+            VoiceEvent::Interrupted | VoiceEvent::Cancelled | VoiceEvent::Finished => {}
+        }
+        self.voice = Some(voice);
+        Ok(())
+    }
+
+    /// One requested frame. Catch-up ticks are never generated internally;
+    /// skipping time skips obsolete gestures rather than playing them late.
+    pub fn tick(&mut self, now_us: u64) -> Output {
+        let _ = self.advance(now_us);
+        self.sequence = match self.sequence.checked_add(1) {
+            Some(value) => value,
+            None => {
+                self.fault = Some("expression command sequence exhausted");
+                self.sequence
+            }
+        };
+        let mut state = ExpressionState {
+            stamp: ClockStamp {
+                clock_id: self.clock_id.clone(),
+                at_us: self.now.unwrap_or(now_us),
+                sequence: self.sequence,
+            },
+            enabled: self.enabled,
+            turn: self.voice.as_ref().map(|v| v.turn),
+            request: self.voice.as_ref().map(|v| v.request),
+            behaviours: Vec::new(),
+            missing: Vec::new(),
+            warnings: Vec::new(),
+            body: false,
+            light: false,
+        };
+        if self.catalogue.timing.body_lag_us.is_none() {
+            state.missing.push("measured body lag".into());
+        }
+        if self.concentration.is_none() {
+            state.missing.push("explicit concentration setting".into());
+        }
+        if self.light.is_none() {
+            state.missing.push("light setting".into());
+        }
+        if self.rejected != 0 {
+            state
+                .warnings
+                .push(format!("{} inputs rejected", self.rejected));
+        }
+        if let Some(fault) = self.fault {
+            state.warnings.push(fault.into());
+            return Output {
+                body: None,
+                light: None,
+                state,
+            };
+        }
+        let Some(voice) = self
+            .voice
+            .clone()
+            .filter(|v| now_us - v.stamp.at_us < self.catalogue.timing.voice_stale_us)
+        else {
+            state.missing.push("fresh voice timing".into());
+            return Output {
+                body: None,
+                light: None,
+                state,
+            };
+        };
+        if self.cancelled {
+            state.warnings.push("voice turn cancelled".into());
+            return Output {
+                body: None,
+                light: None,
+                state,
+            };
+        }
+        if self
+            .legacy_voice
+            .is_some_and(|old| old.state != voice.state)
+        {
+            state
+                .warnings
+                .push("legacy voice state differs; timed owner wins".into());
+        }
+        let joints_fresh = self
+            .joints_at
+            .is_some_and(|at| now_us - at < self.catalogue.timing.joints_stale_us);
+        if !joints_fresh {
+            state.missing.push("fresh measured joints".into());
+        }
+        let room = self
+            .room
+            .filter(|(at, _)| now_us - at < self.catalogue.timing.context_stale_us)
+            .map_or(Room::Unknown, |(_, room)| room);
+        if room == Room::Unknown {
+            state.missing.push("fresh room state".into());
+        }
+        let concentrating = self.concentration.as_ref().is_some_and(|v| v.concentrating);
+        let playout = self
+            .playout
+            .front()
+            .filter(|f| f.start_us <= now_us && now_us < f.end_us);
+        let actual_level = playout.map_or(0.0, |f| f.level);
+        let playing = playout.is_some() && !self.retired_turn;
+        let body_at = now_us.saturating_add(self.catalogue.timing.body_lag_us.unwrap_or(0));
+        let body_playout = self
+            .playout
+            .iter()
+            .find(|f| f.start_us <= body_at && body_at < f.end_us);
+        let body_level = body_playout.map_or(0.0, |f| f.level);
+        let body_playing = body_playout.is_some() && !self.retired_turn;
+        let mode = if playing {
+            Voice::Speaking
+        } else {
+            voice.state
+        };
+        let body_mode = if body_playing { Voice::Speaking } else { mode };
+        if mode == Voice::Speaking && !playing {
+            state.missing.push("current actual playout level".into());
+        }
+        if mode == Voice::Thinking && self.first_audio.is_none() {
+            state.missing.push("scheduled first audio".into());
+        }
+        if self.late_schedule {
+            state
+                .warnings
+                .push("short audio notice; return shortened, arrival unverified".into());
+        }
+        let activity_fresh = self
+            .activity
+            .as_ref()
+            .is_some_and(|a| now_us - a.stamp.at_us < self.catalogue.timing.activity_stale_us);
+        if mode == Voice::Listening && !activity_fresh {
+            state.missing.push("fresh person activity".into());
+        }
+        let can_pause = mode == Voice::Listening
+            && voice.accepting_input
+            && activity_fresh
+            && self.activity.as_ref().is_some_and(|a| !a.speaking);
+        let (face, mut brightness) = self.face(mode, voice.accepting_input);
+        let mut offsets = self.catalogue.postures.for_voice(body_mode);
+        let return_scale = self.first_audio.map_or(1.0, |first| {
+            let t = self.catalogue.timing;
+            let back_by = first.saturating_sub(
+                t.return_before_us
+                    .saturating_add(t.body_lag_us.unwrap_or(0)),
+            );
+            ease(back_by.saturating_sub(now_us) as f64 / t.return_us as f64)
+        });
+        if body_mode == Voice::Thinking && self.first_audio.is_some() {
+            // The base tilt returns with the authored away layer.
+            offsets = blend(self.catalogue.postures.speaking, offsets, return_scale);
+        }
+        for (index, clip) in self.catalogue.behaviours.iter().enumerate() {
+            let clip_mode = if clip.trigger == Trigger::Playout {
+                body_mode
+            } else {
+                mode
+            };
+            if clip.weight == 0.0
+                || !clip.states.contains(&clip_mode)
+                || (clip.quiet_only && room != Room::Quiet)
+                || (clip.stop_when_concentrating && concentrating)
+            {
+                self.clips[index].started = None;
+                continue;
+            }
+            if clip.trigger == Trigger::Playout {
+                // The body may anticipate only committed device-clock frames
+                // by its measured lag. Light stays on the current sample.
+                let start = self
+                    .playout_since
+                    .map(|at| at.saturating_add(clip.delay_us));
+                let mut active = false;
+                if body_playing
+                    && let Some(elapsed) = start.and_then(|at| body_at.checked_sub(at))
+                    && let Some((pose, _)) = clip.sample(elapsed)
+                {
+                    offsets = add(offsets, pose, clip.weight * f64::from(body_level));
+                    active |= body_level > 0.0;
+                }
+                if playing
+                    && let Some(elapsed) = start.and_then(|at| now_us.checked_sub(at))
+                    && let Some((_, light)) = clip.sample(elapsed)
+                {
+                    brightness += light * clip.weight as f32 * actual_level;
+                    active |= actual_level > 0.0;
+                }
+                if active {
+                    state.behaviours.push(clip.name.clone());
+                }
+                continue;
+            }
+            let elapsed = match clip.trigger {
+                Trigger::Thinking if mode == Voice::Thinking && !self.retired_turn => {
+                    now_us.checked_sub(self.voice_since.saturating_add(clip.delay_us))
+                }
+                Trigger::Pause if can_pause => {
+                    let runtime = &mut self.clips[index];
+                    if let Some(pause) = self.pause_since {
+                        let start = pause.saturating_add(clip.delay_us);
+                        if runtime.pause_seen != Some(pause) && now_us >= start {
+                            runtime.pause_seen = Some(pause);
+                            // Skip a stroke missed by a stalled loop, rather
+                            // than starting a fresh full nod after the pause.
+                            if now_us <= start.saturating_add(clip.stroke_us)
+                                && runtime.last_started.is_none_or(|last| {
+                                    now_us.saturating_sub(last) >= clip.cooldown_us
+                                })
+                            {
+                                runtime.started = Some(start);
+                                runtime.last_started = Some(now_us);
+                            }
+                        }
+                    }
+                    runtime.started.and_then(|at| now_us.checked_sub(at))
+                }
+                Trigger::Playout if playing => self
+                    .playout_since
+                    .and_then(|at| now_us.checked_sub(at.saturating_add(clip.delay_us))),
+                Trigger::Interrupted => self
+                    .interruption
+                    .as_ref()
+                    .and_then(|v| now_us.checked_sub(v.at_us.saturating_add(clip.delay_us))),
+                Trigger::Concentrating if concentrating => Some(0),
+                _ => {
+                    self.clips[index].started = None;
+                    None
+                }
+            };
+            let Some(elapsed) = elapsed else {
+                continue;
+            };
+            let Some((pose, light)) = clip.sample(elapsed) else {
+                continue;
+            };
+            let weight = clip.weight
+                * match clip.trigger {
+                    Trigger::Thinking => return_scale,
+                    Trigger::Playout => f64::from(actual_level),
+                    _ => 1.0,
+                };
+            offsets = add(offsets, pose, weight);
+            brightness += light * weight as f32;
+            if weight > 0.0 {
+                state.behaviours.push(clip.name.clone());
+            }
+        }
+        if let Some(interruption) = &self.interruption {
+            let elapsed = now_us.saturating_sub(interruption.at_us);
+            offsets = blend(
+                interruption.from,
+                offsets,
+                ease(elapsed as f64 / self.catalogue.timing.interrupt_us as f64),
+            );
+            if elapsed >= self.catalogue.timing.interrupt_us {
+                self.interruption = None;
+            }
+        }
+        offsets = clamp(offsets, self.catalogue.limits);
+        if concentrating {
+            offsets = BodyOffsets::ZERO;
+            // Stillness is also a still light: ignore all level modulation.
+            brightness = self.face(mode, voice.accepting_input).1;
+        }
+        self.last_offsets = offsets;
+        let lease = ExpressionLease {
+            clock_id: self.clock_id.clone(),
+            session_id: self.session_id.clone(),
+            voice_session_id: voice.session_id.clone(),
+            sequence: self.sequence,
+            turn: voice.turn,
+            request: voice.request,
+            issued_us: now_us,
+            apply_us: now_us,
+            valid_until_us: now_us + LEASE_US,
+        };
+        let gaze = if !concentrating
+            && self.interruption.is_none()
+            && matches!(mode, Voice::Listening | Voice::Speaking)
+            && (!self.catalogue.gaze.quiet_only || room == Room::Quiet)
+        {
+            self.gaze(now_us, &lease)
+        } else {
+            None
+        };
+        let body = (self.enabled && joints_fresh).then(|| ExpressionBody {
+            lease: lease.clone(),
+            offsets,
+            hold: concentrating,
+            gaze,
+        });
+        let light = if self.enabled {
+            self.light.clone().map(|setting| ExpressionLight {
+                lease,
+                brightness: if setting.on {
+                    brightness.clamp(0.0, 1.0)
+                } else {
+                    0.0
+                },
+                setting,
+                face,
+            })
+        } else {
+            None
+        };
+        state.body = body.is_some();
+        state.light = light.is_some();
+        Output { body, light, state }
+    }
+
+    fn face(&self, voice: Voice, ready: bool) -> (ExpressionFace, f32) {
+        let levels = self.catalogue.face_levels;
+        match voice {
+            Voice::Resting => (ExpressionFace::Resting, levels.resting),
+            Voice::Listening if ready => (ExpressionFace::Listening, levels.listening),
+            Voice::Listening => (ExpressionFace::Unavailable, levels.unavailable),
+            Voice::Thinking => (ExpressionFace::Thinking, levels.thinking),
+            Voice::Speaking => (ExpressionFace::Speaking, levels.speaking),
+        }
+    }
+
+    fn gaze(&self, now_us: u64, lease: &ExpressionLease) -> Option<ExpressionGaze> {
+        let (stamp, faces) = self.faces.as_ref()?;
+        let until = stamp
+            .at_us
+            .saturating_add(self.catalogue.timing.faces_stale_us)
+            .min(lease.valid_until_us);
+        if until <= now_us {
+            return None;
+        }
+        let face = faces
+            .faces
+            .iter()
+            .filter(|face| face.confidence >= self.catalogue.gaze.minimum_confidence)
+            .max_by(|a, b| {
+                let area = |f: &lamp_msgs::Face| (f.xmax - f.xmin) * (f.ymax - f.ymin);
+                area(a).total_cmp(&area(b)).then_with(|| b.id.cmp(&a.id))
+            })?;
+        Some(ExpressionGaze {
+            face_id: face.id.clone(),
+            x: face.xmin + face.xmax - 1.0,
+            y: face.ymin + face.ymax - 1.0,
+            observed_us: stamp.at_us,
+            valid_until_us: until,
+        })
+    }
+}

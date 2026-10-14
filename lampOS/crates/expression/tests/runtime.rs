@@ -1,0 +1,276 @@
+use lamp_bus::{Bus, Header, Kind, Message};
+use lamp_expression::{Catalogue, runtime};
+use lamp_msgs::{
+    ClockStamp, Diagnostic, ExpressionBody, ExpressionLight, ExpressionState, JointState, Light,
+    Voice, VoiceEvent, VoiceTiming,
+};
+use std::{
+    fs,
+    path::PathBuf,
+    sync::atomic::{AtomicU64, Ordering},
+};
+
+static NEXT: AtomicU64 = AtomicU64::new(0);
+struct Root(PathBuf);
+impl Root {
+    fn new() -> Self {
+        let path = PathBuf::from(format!(
+            "/tmp/ex-{}-{}",
+            std::process::id(),
+            NEXT.fetch_add(1, Ordering::Relaxed)
+        ));
+        fs::create_dir(&path).unwrap();
+        Self(path)
+    }
+}
+impl Drop for Root {
+    fn drop(&mut self) {
+        let _ = fs::remove_dir_all(&self.0);
+    }
+}
+
+fn voice(at_us: u64) -> VoiceTiming {
+    VoiceTiming {
+        stamp: ClockStamp {
+            clock_id: "test".into(),
+            at_us,
+            sequence: 1,
+        },
+        session_id: "voice_session".into(),
+        turn: 1,
+        request: 1,
+        state: Voice::Listening,
+        accepting_input: true,
+        event: VoiceEvent::State,
+        first_audio_us: None,
+    }
+}
+
+fn populate(bus: &Bus, at_us: u64) {
+    let joints = JointState {
+        name: ["base_yaw", "shoulder", "elbow", "head_roll", "head_pitch"]
+            .map(str::to_owned)
+            .to_vec(),
+        position: vec![0.; 5],
+        velocity: vec![0.; 5],
+        effort: vec![0.; 5],
+        commanded: vec![0.; 5],
+    };
+    bus.publisher_declared(JointState::TOPIC, &JointState::declaration(), "body")
+        .unwrap()
+        .publish_json(7, &joints)
+        .unwrap();
+    bus.publisher_declared(Light::TOPICS[0], &Light::declaration(), "actions")
+        .unwrap()
+        .publish_json(900_000_000, &Light::new(true, "warm", 2).unwrap())
+        .unwrap();
+    bus.publisher_declared(VoiceTiming::TOPIC, &VoiceTiming::declaration(), "voice")
+        .unwrap()
+        .publish_json(5, &voice(at_us))
+        .unwrap();
+}
+
+#[test]
+fn shadow_mode_has_diagnostics_but_never_an_actuator_request() {
+    let root = Root::new();
+    let bus = Bus::new(&root.0).unwrap();
+    populate(&bus, 10_000_000);
+    let mut service = runtime::Service::new(&bus, Catalogue::builtin(), false, "test").unwrap();
+    let output = service.step(|| 10_000_000, runtime::unix_ms());
+    assert!(output.body.is_none() && output.light.is_none());
+    assert!(!output.state.enabled);
+    assert!(bus.latest(ExpressionBody::TOPIC).unwrap().is_none());
+    assert!(bus.latest(ExpressionLight::TOPIC).unwrap().is_none());
+    let state: ExpressionState = bus
+        .latest(ExpressionState::TOPIC)
+        .unwrap()
+        .unwrap()
+        .parse()
+        .unwrap();
+    assert!(!state.enabled);
+    assert!(bus.declaration(Diagnostic::TOPIC).unwrap().is_some());
+}
+
+#[test]
+fn enabled_output_uses_a_new_session_and_expires_after_input_loss() {
+    let root = Root::new();
+    let bus = Bus::new(&root.0).unwrap();
+    populate(&bus, 10_000_000);
+    let mut service = runtime::Service::new(&bus, Catalogue::builtin(), true, "test").unwrap();
+    let output = service.step(|| 10_000_000, runtime::unix_ms());
+    let body = output.body.expect("fresh voice and joints");
+    body.check().unwrap();
+    let light = output.light.expect("fresh light setting");
+    light.check().unwrap();
+    assert_ne!(body.lease.session_id, "expression");
+    assert_eq!(body.lease.session_id, light.lease.session_id);
+    assert_eq!(body.lease.clock_id, "test");
+    assert!(body.lease.valid_until_us <= 10_200_000);
+    let expired = service.step(|| 12_000_000, runtime::unix_ms() + 2_000);
+    assert!(expired.body.is_none() && expired.light.is_none());
+    drop(service);
+    let mut restarted = runtime::Service::new(&bus, Catalogue::builtin(), true, "test").unwrap();
+    // Kept old voice and joints cannot acquire authority after a restart.
+    let empty = restarted.step(|| 12_000_000, runtime::unix_ms() + 2_000);
+    assert!(empty.body.is_none() && empty.light.is_none());
+    populate(&bus, 12_100_000);
+    let fresh = restarted.step(|| 12_100_000, runtime::unix_ms());
+    assert_ne!(fresh.body.unwrap().lease.session_id, body.lease.session_id);
+}
+
+#[test]
+fn two_expression_processes_cannot_own_one_bus() {
+    let root = Root::new();
+    let bus = Bus::new(&root.0).unwrap();
+    let first = runtime::Service::new(&bus, Catalogue::builtin(), false, "test").unwrap();
+    assert!(runtime::Service::new(&bus, Catalogue::builtin(), true, "test").is_err());
+    drop(first);
+    assert!(runtime::Service::new(&bus, Catalogue::builtin(), false, "test").is_ok());
+}
+
+fn message(topic: &str, kind: &str, payload: serde_json::Value) -> Message {
+    Message {
+        header: Header {
+            topic: topic.into(),
+            kind: Kind::Latest,
+            enc: "json".into(),
+            type_name: Some(kind.into()),
+            source: "part".into(),
+            boot: "0000000000000001".into(),
+            seq: 1,
+            at_us: 987_654_321,
+            at_unix_ms: 1_000,
+            expires_ms: None,
+        },
+        payload: serde_json::to_vec(&payload).unwrap(),
+        gap: 0,
+        publisher_restarted: false,
+        expired: false,
+    }
+}
+
+#[test]
+fn older_topics_are_aged_by_wall_time_not_private_publisher_time() {
+    let item = message(
+        "voice/state",
+        "lamp_msgs/VoiceState",
+        serde_json::json!({"state":"listening"}),
+    );
+    let input = runtime::input_from_message(&item, 500_000, 1_020, "test", 8).unwrap();
+    assert_eq!(input.stamp().at_us, 480_000);
+    assert_eq!(input.stamp().sequence, 8);
+    assert_eq!(input.stamp().clock_id, "test");
+    let mut future = item.clone();
+    future.header.at_unix_ms = 1_100;
+    assert!(runtime::input_from_message(&future, 500_000, 1_020, "test", 8).is_err());
+    assert!(runtime::input_from_message(&item, 500_000, 4_000, "test", 8).is_err());
+    let mut untyped = item;
+    untyped.header.type_name = None;
+    assert!(runtime::input_from_message(&untyped, 500_000, 1_020, "test", 8).is_err());
+}
+
+#[test]
+fn typed_timing_keeps_its_shared_stamp_and_bad_inputs_are_counted() {
+    let item = message(
+        VoiceTiming::TOPIC,
+        VoiceTiming::TYPE,
+        serde_json::to_value(voice(400_000)).unwrap(),
+    );
+    assert_eq!(
+        runtime::input_from_message(&item, 500_000, 1_020, "test", 8)
+            .unwrap()
+            .stamp()
+            .at_us,
+        400_000
+    );
+    let root = Root::new();
+    let bus = Bus::new(&root.0).unwrap();
+    let mut service = runtime::Service::new(&bus, Catalogue::builtin(), true, "test").unwrap();
+    let mut publisher = bus
+        .publisher_declared(VoiceTiming::TOPIC, &VoiceTiming::declaration(), "voice")
+        .unwrap();
+    publisher
+        .publish_json(0, &serde_json::json!({"unexpected":"shape"}))
+        .unwrap();
+    let output = service.step(|| 1_000_000, runtime::unix_ms());
+    assert_eq!(service.counts.refused, 1);
+    assert!(output.body.is_none() && output.light.is_none());
+}
+
+#[test]
+fn boot_identity_cannot_be_empty_or_a_path() {
+    assert_eq!(
+        runtime::clock_id(Some("test-boot_1")).unwrap(),
+        "test-boot_1"
+    );
+    for id in ["", "two words", "../boot", "new\nboot"] {
+        assert!(runtime::clock_id(Some(id)).is_err());
+    }
+}
+
+#[test]
+fn a_saved_light_setting_remains_valid_after_days_without_a_change() {
+    let mut item = message(
+        "light/command",
+        Light::TYPE,
+        serde_json::json!({"on":false,"colour":"blue","level":2}),
+    );
+    item.header.at_unix_ms = 1;
+    let input = runtime::input_from_message(&item, 90_000_000_000, 100_000_000, "test", 1).unwrap();
+    assert_eq!(input.stamp().at_us, 90_000_000_000);
+    let lamp_expression::Input::Light { value, .. } = input else {
+        panic!("not a setting");
+    };
+    assert!(!value.on);
+    assert_eq!(value.colour, "blue");
+    // An explicit producer expiry still wins over persistence.
+    item.header.expires_ms = Some(500);
+    assert!(runtime::input_from_message(&item, 90_000_000_000, 100_000_000, "test", 1).is_err());
+}
+
+#[test]
+fn slow_input_draining_does_not_make_old_joints_fresh() {
+    let root = Root::new();
+    let bus = Bus::new(&root.0).unwrap();
+    let mut service = runtime::Service::new(&bus, Catalogue::builtin(), true, "test").unwrap();
+    populate(&bus, 10_000_000);
+    let clock = std::cell::Cell::new(10_000_000_u64);
+    let output = service.step(
+        || {
+            let at = clock.get();
+            clock.set(at + 100_000);
+            at
+        },
+        runtime::unix_ms(),
+    );
+    // Voice is still under its 500 ms limit, but joints are over their 300 ms
+    // limit. Stamping them at receive time would wrongly issue a body command.
+    assert!(output.light.is_some());
+    assert!(output.body.is_none());
+    assert!(
+        output
+            .state
+            .missing
+            .iter()
+            .any(|reason| reason.contains("joints"))
+    );
+}
+
+#[test]
+fn a_full_output_record_stops_growing_and_counts_loss() {
+    let root = Root::new();
+    let path = root.0.join("output.jsonl");
+    let recorder = runtime::Recorder::new(&path, 0).unwrap();
+    let mut engine = lamp_expression::Engine::new(Catalogue::builtin(), false, "test").unwrap();
+    recorder.record(0, engine.tick(0));
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
+    while recorder.lost.load(Ordering::Relaxed) == 0 {
+        assert!(
+            std::time::Instant::now() < deadline,
+            "record worker did not report limit"
+        );
+        std::thread::yield_now();
+    }
+    assert_eq!(fs::metadata(&path).unwrap().len(), 0);
+    assert!(runtime::Recorder::new(&path, 1_000).is_err());
+}

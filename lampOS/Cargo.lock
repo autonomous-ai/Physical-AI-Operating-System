@@ -849,6 +849,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "lamp-expression"
+version = "0.1.0"
+dependencies = [
+ "base64",
+ "lamp-bus",
+ "lamp-ipc",
+ "lamp-msgs",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "lamp-eyes"
 version = "0.1.0"
 dependencies = [

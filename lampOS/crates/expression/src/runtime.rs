@@ -1,0 +1,447 @@
+//! Bus transport around the injected-clock engine. No hardware is opened.
+use crate::{Catalogue, Engine, Input, Output};
+use lamp_bus::{Bus, Message, Publisher, Subscriber};
+use lamp_msgs::{
+    ClockStamp, Concentration, Diagnostic, ExpressionBody, ExpressionLight, ExpressionState, Faces,
+    JointState, Level, Light, NameHeard, PersonActivity, RoomState, Speech, VoicePlayout,
+    VoiceState, VoiceTiming,
+};
+use std::{
+    fs::{self, File, OpenOptions},
+    io::{self, Write},
+    os::unix::fs::OpenOptionsExt,
+    path::Path,
+    sync::{
+        Arc,
+        atomic::{AtomicU64, Ordering},
+        mpsc::{SyncSender, TrySendError, sync_channel},
+    },
+    thread,
+    time::{Duration, SystemTime, UNIX_EPOCH},
+};
+
+/// Every input has a separate bounded drain so noisy text cannot starve a stop.
+pub const INPUTS: [(&str, &str); 12] = [
+    (VoiceTiming::TOPIC, VoiceTiming::TYPE),
+    (PersonActivity::TOPIC, PersonActivity::TYPE),
+    (Concentration::TOPIC, Concentration::TYPE),
+    (VoicePlayout::TOPIC, VoicePlayout::TYPE),
+    (JointState::TOPIC, JointState::TYPE),
+    (Faces::TOPIC, Faces::TYPE),
+    (VoiceState::TOPIC, VoiceState::TYPE),
+    (RoomState::TOPIC, RoomState::TYPE),
+    (Light::TOPICS[0], Light::TYPE),
+    (Speech::TOPICS[0], Speech::TYPE),
+    (Speech::TOPICS[1], Speech::TYPE),
+    (NameHeard::TOPIC, NameHeard::TYPE),
+];
+const DRAIN_LIMIT: usize = 32;
+
+fn invalid(why: impl Into<String>) -> io::Error {
+    io::Error::new(io::ErrorKind::InvalidData, why.into())
+}
+
+/// The host boot identity is independent of a publisher's process identity.
+/// On non-Linux development hosts the caller must supply a test identity.
+pub fn clock_id(given: Option<&str>) -> io::Result<String> {
+    let id = match given {
+        Some(id) => id.to_owned(),
+        None => fs::read_to_string("/proc/sys/kernel/random/boot_id")
+            .map_err(|error| {
+                io::Error::new(
+                    error.kind(),
+                    format!("read boot clock identity (use --clock-id on a test host): {error}"),
+                )
+            })?
+            .trim()
+            .to_owned(),
+    };
+    if id.is_empty()
+        || id.len() > 128
+        || !id
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || b"_-.".contains(&byte))
+    {
+        return Err(invalid(
+            "clock identity must be 1..128 letters, digits, '_', '-' or '.'",
+        ));
+    }
+    Ok(id)
+}
+
+pub fn unix_ms() -> u64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map_or(0, |elapsed| {
+            elapsed.as_millis().min(u64::MAX as u128) as u64
+        })
+}
+
+/// Adapt older topics with millisecond wall-clock age, never their private
+/// `header.at_us`. New timing messages keep their explicit monotonic stamps.
+pub fn input_from_message(
+    message: &Message,
+    now_us: u64,
+    now_unix_ms: u64,
+    clock: &str,
+    sequence: u64,
+) -> io::Result<Input> {
+    let topic = message.header.topic.as_str();
+    let expected = INPUTS
+        .iter()
+        .find(|(name, _)| *name == topic)
+        .ok_or_else(|| invalid(format!("unsupported expression input {topic}")))?
+        .1;
+    if message.header.type_name.as_deref() != Some(expected) {
+        return Err(invalid(format!(
+            "{topic} requires declared type {expected}"
+        )));
+    }
+    if message.expired || message.header.expired_at(now_unix_ms) {
+        return Err(invalid(format!("expired {topic}")));
+    }
+    let persistent_setting = topic == "light/command" || topic == Concentration::TOPIC;
+    if !persistent_setting && message.header.at_unix_ms > now_unix_ms.saturating_add(50) {
+        return Err(invalid(format!("future wall timestamp on {topic}")));
+    }
+    let age_ms = now_unix_ms.saturating_sub(message.header.at_unix_ms);
+    let limit_ms = match topic {
+        JointState::TOPIC => 500,
+        Faces::TOPIC => 2_000,
+        "light/command" => 10_000,
+        _ => 2_000,
+    };
+    if !persistent_setting && age_ms > limit_ms {
+        return Err(invalid(format!("stale {topic}: {age_ms} ms")));
+    }
+    let stamp = ClockStamp {
+        clock_id: clock.to_owned(),
+        // A persistent setting was loaded now; it is not an observation
+        // whose original age establishes authority over a live action.
+        at_us: if persistent_setting {
+            now_us
+        } else {
+            now_us.saturating_sub(age_ms.saturating_mul(1_000))
+        },
+        sequence,
+    };
+    Ok(match topic {
+        VoiceTiming::TOPIC => Input::Voice(message.parse()?),
+        PersonActivity::TOPIC => Input::Activity(message.parse()?),
+        VoicePlayout::TOPIC => Input::Playout(message.parse()?),
+        Concentration::TOPIC => Input::Concentration(message.parse()?),
+        JointState::TOPIC => Input::Joints {
+            stamp,
+            value: message.parse()?,
+        },
+        Faces::TOPIC => Input::Faces {
+            stamp,
+            value: message.parse()?,
+        },
+        VoiceState::TOPIC => Input::VoiceState {
+            stamp,
+            value: message.parse()?,
+        },
+        RoomState::TOPIC => Input::Room {
+            stamp,
+            value: message.parse()?,
+        },
+        "light/command" => Input::Light {
+            stamp,
+            value: message.parse()?,
+        },
+        "voice/heard" => Input::Heard {
+            stamp,
+            value: message.parse()?,
+        },
+        "voice/said" => Input::Said {
+            stamp,
+            value: message.parse()?,
+        },
+        NameHeard::TOPIC => Input::Name {
+            stamp,
+            value: message.parse()?,
+        },
+        _ => unreachable!("INPUTS and this match list the same topics"),
+    })
+}
+
+/// One owner, held by the OS even when the process is killed. The file is
+/// deliberately not unlinked: another process may already be waiting on it.
+pub fn owner_lock(root: &Path) -> io::Result<File> {
+    let file = OpenOptions::new()
+        .create(true)
+        .truncate(false)
+        .write(true)
+        .mode(0o660)
+        .open(root.join("expression.lock"))?;
+    file.try_lock().map_err(|error| {
+        io::Error::new(
+            io::ErrorKind::AlreadyExists,
+            format!("expression owner lock: {error}"),
+        )
+    })?;
+    Ok(file)
+}
+
+#[derive(Default)]
+pub struct Counts {
+    pub accepted: u64,
+    pub refused: u64,
+    pub input_errors: u64,
+    pub output_errors: u64,
+    pub dropped: u64,
+    pub steps: u64,
+    pub longest_step_us: u64,
+    pub records_lost: u64,
+}
+
+pub struct Service {
+    engine: Engine,
+    clock: String,
+    inputs: Vec<Subscriber>,
+    body: Publisher,
+    light: Publisher,
+    state: Publisher,
+    diagnostic: Publisher,
+    sequence: u64,
+    last_report: Option<u64>,
+    last_state: Option<u64>,
+    pub counts: Counts,
+    _lock: File,
+}
+
+impl Service {
+    pub fn new(bus: &Bus, catalogue: Catalogue, enabled: bool, clock: &str) -> io::Result<Self> {
+        // Make the root using the bus's directory permissions before locking.
+        let state = bus.publisher_declared(
+            ExpressionState::TOPIC,
+            &ExpressionState::declaration(),
+            "expression",
+        )?;
+        let lock = owner_lock(bus.root())?;
+        let engine = Engine::new(catalogue, enabled, clock)
+            .and_then(|engine| engine.with_session_id(state.boot().to_owned()))
+            .map_err(|error| invalid(error.to_string()))?;
+        Ok(Self {
+            engine,
+            clock: clock.to_owned(),
+            inputs: INPUTS
+                .iter()
+                .map(|(topic, kind)| bus.subscribe_typed(topic, "expression", kind))
+                .collect::<io::Result<_>>()?,
+            body: bus.publisher_declared(
+                ExpressionBody::TOPIC,
+                &ExpressionBody::declaration(),
+                "expression",
+            )?,
+            light: bus.publisher_declared(
+                ExpressionLight::TOPIC,
+                &ExpressionLight::declaration(),
+                "expression",
+            )?,
+            diagnostic: bus.publisher_declared(
+                Diagnostic::TOPIC,
+                &Diagnostic::declaration(),
+                "expression",
+            )?,
+            state,
+            sequence: 0,
+            last_report: None,
+            last_state: None,
+            counts: Counts::default(),
+            _lock: lock,
+        })
+    }
+
+    /// The clock is injected here too: tests can use real sockets without
+    /// sleeping through any behavior. Each valid topic has a bounded budget.
+    pub fn step(&mut self, now: impl Fn() -> u64, wall_ms: u64) -> Output {
+        let began = now();
+        for input in &mut self.inputs {
+            for _ in 0..DRAIN_LIMIT {
+                let message = match input.recv(Duration::ZERO) {
+                    Ok(Some(message)) => message,
+                    Ok(None) => break,
+                    Err(_) => {
+                        self.counts.input_errors += 1;
+                        break;
+                    }
+                };
+                self.sequence = self.sequence.saturating_add(1);
+                let received = now();
+                // The wall sample belongs to `began`, not this later receive.
+                // Slow draining must age observations rather than renew them.
+                let observed_wall_ms =
+                    wall_ms.saturating_add(received.saturating_sub(began) / 1_000);
+                let parsed = input_from_message(
+                    &message,
+                    received,
+                    observed_wall_ms,
+                    &self.clock,
+                    self.sequence,
+                );
+                let accepted = parsed.and_then(|value| {
+                    self.engine
+                        .ingest(received, value)
+                        .map_err(|error| invalid(error.to_string()))
+                });
+                if accepted.is_ok() {
+                    self.counts.accepted += 1;
+                } else {
+                    self.counts.refused += 1;
+                }
+            }
+        }
+        let at_us = now();
+        let output = self.engine.tick(at_us);
+        // Publish face first. Consumers still enforce lease/time/ownership;
+        // datagram order between topics is not a physical timing guarantee.
+        if let Some(light) = &output.light {
+            account(&mut self.counts, self.light.publish_json(at_us, light));
+        }
+        if let Some(body) = &output.body {
+            account(&mut self.counts, self.body.publish_json(at_us, body));
+        }
+        if self
+            .last_state
+            .is_none_or(|last| at_us.saturating_sub(last) >= 200_000)
+        {
+            account(
+                &mut self.counts,
+                self.state.publish_json(at_us, &output.state),
+            );
+            self.last_state = Some(at_us);
+        }
+        if self
+            .last_report
+            .is_none_or(|last| at_us.saturating_sub(last) >= 1_000_000)
+        {
+            let report = self.report(&output);
+            account(
+                &mut self.counts,
+                self.diagnostic.publish_json(at_us, &report),
+            );
+            for publisher in [&mut self.body, &mut self.light] {
+                if publisher.alive().is_err() {
+                    self.counts.output_errors += 1;
+                }
+            }
+            self.last_report = Some(at_us);
+        }
+        self.counts.steps += 1;
+        self.counts.longest_step_us = self.counts.longest_step_us.max(now().saturating_sub(began));
+        output
+    }
+
+    fn report(&self, output: &Output) -> Diagnostic {
+        let missing = output.state.missing.join(", ");
+        let (level, message) = if self.counts.input_errors > 0 || self.counts.output_errors > 0 {
+            (
+                Level::Warn,
+                "bus operations have failed; see error counters".to_owned(),
+            )
+        } else if self.counts.records_lost > 0 {
+            (
+                Level::Warn,
+                "output record is incomplete; see records_lost".to_owned(),
+            )
+        } else if !output.state.warnings.is_empty() {
+            (Level::Warn, output.state.warnings.join(", "))
+        } else if !output.state.enabled {
+            (Level::Ok, "shadow mode; no actuator requests".to_owned())
+        } else if !missing.is_empty() {
+            (Level::Warn, format!("waiting for {missing}"))
+        } else {
+            (
+                Level::Ok,
+                "planning expression; hardware execution is not confirmed".to_owned(),
+            )
+        };
+        let mut report = Diagnostic::new(level, "expression", &message);
+        for (key, value) in [
+            ("accepted", self.counts.accepted),
+            ("refused", self.counts.refused),
+            ("input_errors", self.counts.input_errors),
+            ("output_errors", self.counts.output_errors),
+            ("dropped", self.counts.dropped),
+            ("steps", self.counts.steps),
+            ("longest_step_us", self.counts.longest_step_us),
+            ("records_lost", self.counts.records_lost),
+        ] {
+            report.values.push(lamp_msgs::KeyValue {
+                key: key.into(),
+                value: value.to_string(),
+            });
+        }
+        report
+    }
+}
+
+fn account(counts: &mut Counts, result: io::Result<lamp_bus::Published>) {
+    match result {
+        Ok(sent) => counts.dropped += sent.dropped as u64,
+        Err(_) => counts.output_errors += 1,
+    }
+}
+
+/// Optional bounded output record. A slow/full disk never holds the engine.
+/// On shutdown the detached writer is not awaited; pending records may be lost.
+pub struct Recorder {
+    sender: SyncSender<crate::replay::TickRecord>,
+    pub lost: Arc<AtomicU64>,
+}
+
+impl Recorder {
+    pub fn new(path: &Path, max_bytes: u64) -> io::Result<Self> {
+        let mut file = OpenOptions::new()
+            .create_new(true)
+            .write(true)
+            .mode(0o600)
+            .open(path)?;
+        let (sender, receiver) = sync_channel::<crate::replay::TickRecord>(16);
+        let lost = Arc::new(AtomicU64::new(0));
+        let worker_lost = Arc::clone(&lost);
+        thread::Builder::new()
+            .name("expression_record".into())
+            .spawn(move || {
+                let mut written = 0_u64;
+                let mut failed = false;
+                for record in receiver {
+                    if failed {
+                        worker_lost.fetch_add(1, Ordering::Relaxed);
+                        continue;
+                    }
+                    let result = (|| -> io::Result<()> {
+                        let mut bytes = serde_json::to_vec(&record)?;
+                        bytes.push(b'\n');
+                        if written.saturating_add(bytes.len() as u64) > max_bytes {
+                            return Err(io::Error::other(
+                                "expression record reached its size limit",
+                            ));
+                        }
+                        file.write_all(&bytes)?;
+                        written += bytes.len() as u64;
+                        Ok(())
+                    })();
+                    if result.is_err() {
+                        failed = true;
+                        worker_lost.fetch_add(1, Ordering::Relaxed);
+                    }
+                }
+            })?;
+        Ok(Self { sender, lost })
+    }
+
+    pub fn record(&self, at_us: u64, output: Output) {
+        match self
+            .sender
+            .try_send(crate::replay::TickRecord { at_us, output })
+        {
+            Ok(()) => {}
+            Err(TrySendError::Full(_) | TrySendError::Disconnected(_)) => {
+                self.lost.fetch_add(1, Ordering::Relaxed);
+            }
+        }
+    }
+}

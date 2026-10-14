@@ -388,6 +388,23 @@ seconds (it loses it for a second or two at every start and every
 renewal of its session), and otherwise `it cannot reach the speech
 service, and keeps trying`, with for how long.
 
+## Optional Expression topics (Third, 2026-10-14)
+
+The new `lamp-expression` process subscribes to existing context and new
+`voice/timing`, `voice/activity`, `voice/playout` and
+`attention/concentration` messages. It publishes `expression/state` and
+its `diagnostics`, and only with `--enable` may publish leased
+`expression/body` and `expression/light` requests. It does not publish on
+the existing Actions-owned `light/command`. Their types, periods and
+lifespans are in [msgs.md](msgs.md), with the contract in
+[expression.md](expression.md). First still wires the Voice inputs and
+actuator consumers; these are not topics observed on the lamp.
+
+The new payload timestamps explicitly use the shared host monotonic clock
+and boot identity. This does not change the meaning of existing bus header
+`at_us`: that remains a publisher-private timestamp. Expression's replay
+importer warns when it estimates a shared timeline from legacy wall stamps.
+
 ## Not shown
 
 Everything in this section was run on one development Mac (x86_64); what

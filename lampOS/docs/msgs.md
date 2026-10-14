@@ -29,8 +29,9 @@ and nothing else: no process, no socket, no clock.
 
 Each type has `TYPE`, the name the bus compares (`lamp_msgs/JointState`),
 `VERSION`, `TOPIC` or `TOPICS`, and `declaration()`, which its publisher
-hands to `Bus::publisher_declared`. `first_topics()` lists every topic with
-its declaration.
+hands to `Bus::publisher_declared`. `first_topics()` keeps the original
+seventeen topics; `expression_topics()` lists the optional Expression
+contracts separately. `declaration_of()` recognizes both catalogues.
 
 ## The types
 
@@ -70,13 +71,39 @@ whoever wrote it.
 error. A part never says of itself that it is stale; whoever writes
 `lamp/health` says it of a part not heard from.
 
+## Optional expression contracts
+
+Expression's additive types live in `src/expression.rs` and are re-exported
+at the crate root. Their new topics do not change any existing type:
+
+| Type | Topic | Kind | Period / lifespan | Meaning |
+|---|---|---|---|---|
+| `VoiceTiming` | `voice/timing` | latest | 100 / 500 ms | Explicit voice session/turn/readiness and scheduled/terminal edges |
+| `PersonActivity` | `voice/activity` | latest | 100 / 300 ms | Actual admitted human speech or pause, with session and turn |
+| `VoicePlayout` | `voice/playout` | event | 20 / 200 ms | Committed speaker interval and its level, with cancellation identity |
+| `Concentration` | `attention/concentration` | latest | none | Explicit concentration, never inferred from a quiet room |
+| `ExpressionBody` | `expression/body` | latest | 20 / 200 ms | Relative radian offsets, hold or a normalized calibrated-owner gaze request |
+| `ExpressionLight` | `expression/light` | latest | 20 / 200 ms | Face and brightness multiplier preserving the lasting `Light` setting |
+| `ExpressionState` | `expression/state` | latest | 200 / 500 ms | Planned behaviors, shadow/enabled status, missing facts and warnings |
+
+`ClockStamp` identifies the host boot and shared `CLOCK_MONOTONIC` time in
+microseconds. It is distinct from the bus header's private `at_us`.
+`ExpressionLease` identifies both the planner and Voice sessions, request,
+turn, increasing sequence and an apply/expiry interval of at most 200 ms.
+`valid_at()` checks the stateless clock/expiry part of the consumer gate;
+the actuator owner must also fence prior sessions/turns/sequences and enforce
+privacy and safety. These types are optional, with no production publishers
+or consumers added to the existing owners by this task. See
+[Expression](expression.md) for exact integration and evidence limits.
+
 ## Adding one
 
 1. Write the structure in `crates/msgs/src/lib.rs` with `Serialize` and
    `Deserialize`: flat, no generics, each field's unit in its comment, and
    without `deny_unknown_fields`.
 2. Give it `TYPE` (`lamp_msgs/` and its name), `VERSION` 1, `TOPIC` and
-   `declaration()`, and add it to `first_topics()`.
+   `declaration()`, and add it to the appropriate topic catalogue and
+   `declaration_of()` lookup.
 3. Test that it is written as the JSON intended, reads back, ignores an
    unknown field and refuses a missing one. Add its row to the test of
    declarations, to the table above and to the first topics in bus.md.
@@ -89,7 +116,7 @@ topic can be published as that.
 
 ## Not shown
 
-The crate's own tests run on a development Mac (x86_64): 15 of the types
+The original type tests run on a development Mac (x86_64): 15 of the types
 and one that declares the seventeen topics on a real bus and sends six of
 the types through it. The example in the crate's documentation is
 compiled, not run. On lamp-4ace five of the types travel: the voice
@@ -106,3 +133,8 @@ publishes `Health`, `BoardState` and the board's own `Diagnostic`
 `VoiceLink`'s seven reasons group the voice program's
 fault categories and have not been agreed with its owner. Which way a face's
 yaw is positive is written down and no detector has been held to it.
+
+Eight additional Expression contract tests passed on Third's x86_64 Mac:
+declarations and compatibility, required identities, clock/schedule bounds,
+terminal states, finite offsets, normalized gaze, light settings and lease
+expiry. None of the new Expression types has been qualified on the lamp.

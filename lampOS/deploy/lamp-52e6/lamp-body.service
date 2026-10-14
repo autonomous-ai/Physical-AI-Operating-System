@@ -1,6 +1,6 @@
 # lamp-52e6: deploy/lamp-4ace/lamp-body.service with this lamp's own readings (2026-10-14,
 # the fifth builder): home, stand roll and yaw and folded arm as found at rest; --gaze
-# measured on this lamp; --torque on, since nothing else gives its servos torque after a
+# measured on this lamp; --torque on --wake on, since nothing else gives its servos torque after a
 # power cut or after the old runtime stops. See docs/body.md, "lamp-52e6".
 # lampOS body on lamp-52e6: small head motion for what the lamp is doing.
 # It owns the servo port; lamp-voice.service cannot open it and only tells this unit a mood.
@@ -28,7 +28,7 @@ SupplementaryGroups=dialout
 WorkingDirectory=/
 RuntimeDirectory=lampos-body
 RuntimeDirectoryMode=0755
-ExecStart=/opt/lampOS/body/91a9d458e8f47c2c64e00c2e4c4d181255c52eb8663e84d1bdadf24734eeffcf/lamp-body --device /dev/ttyACM0 --unit-id lamp-52e6 --lock-directory /home/orangepi/.local/share/lampOS-voice/motor-locks --mood-socket /run/lampos-body/mood.sock --reach 150,15,1,250 --speed 120 --servo-speed 1000 --servo-acceleration 60 --gaze-socket /run/lampos-body/gaze.sock --gaze 782,557 --gaze-reach 480,120 --stand 1772,2035,2035,2657,2602 --folded-arm 2053,2069 --stand-share 100 --stand-seconds 6 --awake-seconds 90 --idle on --home 1771,2035,2035 --force-limit 600 --torque on
+ExecStart=/opt/lampOS/body/255e618ba23b3f171af62d09699512a5d0a15561f1cafbc5eacbef552ee7a6ac/lamp-body --device /dev/ttyACM0 --unit-id lamp-52e6 --lock-directory /home/orangepi/.local/share/lampOS-voice/motor-locks --mood-socket /run/lampos-body/mood.sock --reach 150,15,1,250 --speed 120 --servo-speed 1000 --servo-acceleration 60 --gaze-socket /run/lampos-body/gaze.sock --gaze 782,557 --gaze-reach 480,120 --stand 1772,2035,2035,2657,2602 --folded-arm 2053,2069 --stand-share 100 --stand-seconds 6 --awake-seconds 90 --idle on --home 1771,2035,2035 --force-limit 600 --torque on --wake on
 Restart=on-failure
 RestartSec=15s
 KillMode=mixed

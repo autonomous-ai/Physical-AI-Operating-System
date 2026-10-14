@@ -91,6 +91,12 @@ class TestTouchRoutes(unittest.TestCase):
         firmer = self.client.put("/touch/config", json={"sensitivity": 6}).json()
         self.assertEqual(firmer["touch"][10], 12)  # scales the calibration, not the package
 
+    def test_calibrate_ignores_negative_swings(self):
+        self.handler.deltas = [-25] * 11 + [3]
+        result = self.client.post("/touch/calibrate", json={"seconds": 3, "save": False}).json()
+        self.assertEqual(result["noise"], [0] * 11 + [3])
+        self.assertEqual(result["touch"], [6] * 11 + [8])
+
     def test_calibrate_without_save_and_touched(self):
         result = self.client.post("/touch/calibrate", json={"seconds": 3, "save": False}).json()
         self.assertFalse(result["saved"])

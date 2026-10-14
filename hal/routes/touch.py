@@ -207,7 +207,10 @@ async def calibrate_touch(req: TouchCalibrateRequest = TouchCalibrateRequest()):
         if snap is not None and snap["t"] != last_t:
             last_t = snap["t"]
             samples += 1
-            peak = [max(p, abs(d)) for p, d in zip(peak, snap["delta"])]
+            # Only baseline - filtered > 0 becomes a touch. Negative swings (e.g. the baseline
+            # still settling after a chip reset, which starts up to ~31 counts low) never
+            # trigger one and must not inflate the thresholds.
+            peak = [max(p, d) for p, d in zip(peak, snap["delta"])]
         await asyncio.sleep(0.05)
     if samples < 10:
         raise HTTPException(status_code=503, detail="No touch strip readings - is the MPR121 polling?")

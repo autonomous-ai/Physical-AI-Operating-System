@@ -42,7 +42,8 @@ lamp-4ace since 2026-10-14 17:43: CO2 1,856 to 1,872 ppm ("stuffy"), PM2.5
 ## What the creature does with it
 
 See [creature.md](creature.md). The voice's part, behind
-`LAMP_AIR_FACTS=on` in its unit (off unless set; `crates/voice/src/air_told.rs`):
+`LAMP_AIR_FACTS=on` in its unit (off unless set; `crates/voice/src/air_told.rs`;
+on lamp-4ace since 2026-10-14, 18:46, when the room read 1,560 ppm, "stuffy"):
 it reads `air/state` every five seconds; once the air has felt stuffy (or
 very stuffy) for ten minutes, the model is told so beside the next thing a
 person says to the lamp, in a room that is not busy, with leave to suggest

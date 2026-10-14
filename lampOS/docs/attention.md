@@ -587,7 +587,8 @@ seventeen. A second played check at 14:05 does not count: colleagues were
 talking beside the lamp and the service wrote their words.
 
 **A name heard close to the lamp (built 2026-10-14 evening, switch
-`LAMP_ATTENTION=busy-near`, off unless set).** The calls held in the
+`LAMP_ATTENTION=busy-near`, off unless set; on lamp-4ace since 18:46 that
+day, build `41d09542f`).** The calls held in the
 afternoon's played rounds had their name heard at 0.97 to 0.99 with no face
 seen. With the owner at lamp-4ace the same evening, the room microphone
 (the ears, `docs/ears.md`) rose 19.5 to 26.5 dB over the room's quiet for

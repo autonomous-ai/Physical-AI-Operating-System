@@ -1258,6 +1258,21 @@ builder (`~/lamp-voice-data/tools/memory.sh`) with what each should show.
 
 Newest first. Each builder's own notes are in its log, on its branch.
 
+**2026-10-14, 16:10 to 16:57, on lamp-4ace.** New parts and pieces, each
+built for the lamp and running there: the ears (`lamp-ears`, the first
+builder's: the room microphone's level and sudden sounds, 30 dB over the
+quiet, [ears.md](ears.md)); reminders and timers (task 6, `lamp-schedule`:
+its lamp check passed, ack median 25 ms; running empty until the voice is
+wired, #695); memory's health report (task 28, #697, done); the fifth
+builder's wake mends and the keeper's clean-up (#702, #701; the wake runs on
+lamp-4ace's body, its 300-count base test waits for an empty room).
+Expression can glance at a sudden sound (catalogue switch, on in lamp-4ace's
+catalogue) but did not on the lamp when one was published by hand; being
+found. Health hears twelve parts: "The lamp is well." The hourly records
+job failed once at 16:00 on a process that ended mid-scan, removing nothing
+(#707, the fourth builder's). The lamp's disk: 89 % used by the first
+builder's old build caches; 57 % free after removing them.
+
 **2026-10-14, task 3, the stop listener's first look on lamp-4ace.** Over
 5.5 minutes of the second microphone after the canceller, recorded while
 seven short words were played at a story, the model (run by `lamp-name

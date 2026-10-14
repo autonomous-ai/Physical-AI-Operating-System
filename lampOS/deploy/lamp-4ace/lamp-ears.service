@@ -1,0 +1,26 @@
+# lampOS ears: hears the room on the room microphone (mic1, the plain one in the base) and says how loud the room is
+# against its own quiet (ears/level) and when a sound rises suddenly out of it (ears/sudden) (lampOS/docs/ears.md).
+# It decides nothing and keeps no sound: only levels leave it. Its own process and unit: with it stopped the lamp
+# talks on as before. The voice uses the other microphone (mic2), so the two never share a device.
+[Unit]
+Description=lampOS ears (lamp-ears)
+After=sound.target local-fs.target
+
+[Service]
+Type=simple
+User=orangepi
+Group=orangepi
+SupplementaryGroups=audio
+ExecStart=/opt/lampOS/ears/5f5fc5b27005c8399f2e44960bcd8054ddad882e1ac45d6f966b7b6556f4a1e0/lamp-ears --device plug:device_micro1 --rise-db 30 --bus-root /run/lampos-bus
+Restart=on-failure
+RestartSec=5s
+SyslogIdentifier=lamp-ears
+Nice=5
+NoNewPrivileges=yes
+ProtectSystem=strict
+ReadWritePaths=/run/lampos-bus
+ProtectHome=yes
+PrivateTmp=yes
+
+[Install]
+WantedBy=multi-user.target

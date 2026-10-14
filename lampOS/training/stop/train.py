@@ -1,21 +1,33 @@
 """Step 5 of make.sh: train the listener and write `stop.onnx`.
 
-    python train.py [--hidden 128] [--steps 20000] [--lowest -20] [--out PATH]
+    python train.py [--out PATH]
 
-The model is small and plain, so that tract runs it as it runs name.onnx:
+With no options it makes the model in models/stop (docs/stop-word.md):
+the "time" shape, 64 filters, 12,000 steps, targets that are alone, through
+the suppressor, or plainly 3 dB and more over the other voice, negatives
+weighed 3 to 1, no extra draw of hard negatives. The other options are the
+ones tried before it.
+
+The model is small and plain, so that tract runs it as it runs name.onnx.
+"time" (the one chosen):
+
+    input [1, 16, 96] -> Transpose -> Conv (96 -> H, 3 wide) -> Relu -> Conv (H -> H, 3 wide)
+                      -> Relu -> ReduceMax over time -> Gemm (H -> 1) -> Sigmoid -> output [1, 1]
+
+"flat":
 
     input [1, 16, 96] -> Flatten -> Gemm (1536 -> H) -> Relu -> Gemm (H -> 64) -> Relu
                       -> Gemm (64 -> 1) -> Sigmoid -> output [1, 1]
 
 opset 13. The shift and scale the embeddings are given while training are
-folded into the first Gemm, so the file takes the embeddings exactly as
+folded into the first layer, so the file takes the embeddings exactly as
 `hear.rs` makes them.
 
 Each batch is a quarter target inputs, a quarter inputs with near misses or
-other words, and half inputs of talk alone or of two voices. After half the
-steps, the negatives the model then scores highest are drawn as often as
-the rest. `--lowest` leaves out of training the targets put more than that
-many dB under the other voice.
+other words, and half inputs of talk alone or of two voices. With `--hard 1`,
+after half the steps the negatives the model then scores highest are drawn
+as often as the rest. `--lowest` leaves out the targets put more than that
+many dB under the other voice; `--heard` those plainly mixed under it.
 """
 
 from __future__ import annotations
@@ -203,15 +215,15 @@ def validate(model, check: dict, check_x: torch.Tensor, talk_x: torch.Tensor) ->
 
 def main() -> None:
     p = argparse.ArgumentParser()
-    p.add_argument("--hidden", type=int, default=128)
-    p.add_argument("--shape", choices=["flat", "time"], default="flat")
-    p.add_argument("--hard", type=int, default=1, help="draw the negatives scored highest more often after half the steps (1) or not (0)")
-    p.add_argument("--steps", type=int, default=20000)
+    p.add_argument("--hidden", type=int, default=64)
+    p.add_argument("--shape", choices=["flat", "time"], default="time")
+    p.add_argument("--hard", type=int, default=0, help="draw the negatives scored highest more often after half the steps (1) or not (0)")
+    p.add_argument("--steps", type=int, default=12000)
     p.add_argument("--batch", type=int, default=1024)
     p.add_argument("--lowest", type=float, default=-20.0)
     p.add_argument("--latest", type=int, default=8, help="train on target inputs up to this many steps after the first")
-    p.add_argument("--heard", type=float, default=None, help="leave out targets mixed plainly (no suppressor) lower than this many dB")
-    p.add_argument("--against", type=float, default=2.0, help="weight of a negative input against a target input in the loss")
+    p.add_argument("--heard", type=float, default=3.0, help="leave out targets mixed plainly (no suppressor) lower than this many dB")
+    p.add_argument("--against", type=float, default=3.0, help="weight of a negative input against a target input in the loss")
     p.add_argument("--out", default=str(MODEL_DIR / "stop.onnx"))
     p.add_argument("--seed", type=int, default=0)
     args = p.parse_args()

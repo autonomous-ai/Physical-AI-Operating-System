@@ -68,7 +68,11 @@ sh run.sh clips.py sc mswc words libri more piper
 # 4. Training inputs, three processes of two threads.
 sh make_inputs.sh
 # 5. Train and write the model.
-sh run.sh train.py --out "$here/../../models/stop/stop.onnx"
+# Three threads, as it was made; one seed (0). Another thread count may change the last bits.
+OMP_NUM_THREADS=3 sh run.sh train.py --out "$here/../../models/stop/stop.onnx"
 # 6. Measure it on held-out speakers.
-sh run.sh evaluate.py "$here/../../models/stop/stop.onnx"
-sh run.sh tables.py "$cache/runs/stop-catches-talk-ami-near.eval.json"
+# Two halves side by side, three threads each.
+OMP_NUM_THREADS=3 sh run.sh evaluate.py "$here/../../models/stop/stop.onnx" --only catches &
+OMP_NUM_THREADS=3 sh run.sh evaluate.py "$here/../../models/stop/stop.onnx" --only talk,ami,near &
+wait
+sh run.sh tables.py "$cache/runs/stop-catches.eval.json" "$cache/runs/stop-talk-ami-near.eval.json" --point 0.9/1 --stricter 0.98/1

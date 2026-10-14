@@ -1,6 +1,9 @@
 """Step 7 of make.sh: the tables of docs/stop-word.md, from what evaluate.py wrote.
 
-    python tables.py EVAL.json [--point 0.9/1] [--stricter 0.98/1]
+    python tables.py EVAL.json... [--point 0.9/1] [--stricter 0.98/1]
+
+Several files from evaluate.py of the same model (say one with --only catches
+and one with --only talk,ami,near) are read as one.
 """
 
 from __future__ import annotations
@@ -107,11 +110,13 @@ def phrase_table(rows, point: str) -> list[str]:
 
 def main() -> None:
     p = argparse.ArgumentParser()
-    p.add_argument("eval")
+    p.add_argument("eval", nargs="+")
     p.add_argument("--point", default="0.9/1")
     p.add_argument("--stricter", default="0.98/1")
     a = p.parse_args()
-    result = json.load(open(a.eval))
+    result = {}
+    for path in a.eval:
+        result.update(json.load(open(path)))
     rows = result["catches"]
     print(f"## Catches at {a.point}, under a LibriSpeech test reader\n")
     print("\n".join(catch_table(rows, a.point, "reader")))

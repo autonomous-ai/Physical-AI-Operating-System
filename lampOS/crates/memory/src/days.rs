@@ -712,6 +712,58 @@ impl Days {
         self.conversation_end_with(person, conversation, source_ids, &[])
     }
 
+    /// Check a handoff without preparing model input. There is currently no
+    /// model adapter, so the protocol reports a successful skip and retains no
+    /// job. Only bounded IDs and scalar record metadata are read here; neither
+    /// remembered text, related observations nor existing job payloads are read.
+    pub(crate) fn validate_conversation_submission(
+        &self,
+        person: &Person,
+        conversation: &str,
+        source_ids: &[u64],
+        previous_ids: &[u64],
+    ) -> Result<()> {
+        identifier(conversation)?;
+        if previous_ids.len() > 32
+            || previous_ids.iter().collect::<BTreeSet<_>>().len() != previous_ids.len()
+        {
+            return Err(bad(
+                "at most 32 distinct previous observation IDs may be selected",
+            ));
+        }
+        if source_ids
+            .iter()
+            .chain(previous_ids)
+            .any(|id| *id == 0 || *id > i64::MAX as u64)
+        {
+            return Err(bad("record IDs must be positive SQLite integers"));
+        }
+        validate_sources(&self.db, person, source_ids, true)?;
+        for id in source_ids {
+            let valid: bool = self.db.query_row(
+                "SELECT kind='exchange' AND at_unix_ms<=?3 FROM entries WHERE person=?1 AND id=?2",
+                params![person.as_str(), id, self.now],
+                |row| row.get(0),
+            )?;
+            if !valid {
+                return Err(bad(
+                    "tidy sources must be journal exchanges that have already happened",
+                ));
+            }
+        }
+        for id in previous_ids {
+            let valid: bool = self.db.query_row(
+                "SELECT EXISTS(SELECT 1 FROM entries WHERE person=?1 AND id=?2 AND kind='observation' AND active=1)",
+                params![person.as_str(), id],
+                |row| row.get(0),
+            )?;
+            if !valid {
+                return Err(bad("only current observations can be selected as previous"));
+            }
+        }
+        Ok(())
+    }
+
     pub fn conversation_end_with(
         &mut self,
         person: &Person,

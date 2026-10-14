@@ -26,3 +26,9 @@ unicode-normalization = "0.1"
 
 [lints]
 workspace = true
+
+[dev-dependencies]
+# Exercise Voice's actual client through this process's real temporary store.
+# Runtime ownership stays separate; Memory does not link Voice in production.
+lamp-voice = { path = "../voice" }
+lamp-gemini = { path = "../gemini" }

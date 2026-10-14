@@ -1,0 +1,98 @@
+    Checking libc v0.2.190
+    Checking typenum v1.20.1
+    Checking serde v1.0.229
+    Checking rustix v1.1.5
+    Checking cpufeatures v0.3.1
+    Checking once_cell v1.21.4
+    Checking pin-project-lite v0.2.17
+    Checking lamp-bus v0.1.0 (/source/crates/bus)
+    Checking generic-array v0.14.7
+    Checking lamp-msgs v0.1.0 (/source/crates/msgs)
+    Checking block-buffer v0.10.4
+    Checking crypto-common v0.1.7
+    Checking digest v0.10.7
+    Checking getrandom v0.2.17
+    Checking hybrid-array v0.4.15
+    Checking sha2 v0.10.9
+    Checking ring v0.17.14
+    Checking thiserror v2.0.21
+    Checking rand_core v0.10.1
+    Checking bytes v1.12.1
+    Checking derive_more v2.1.1
+    Checking crypto-common v0.2.2
+    Checking block-buffer v0.12.1
+    Checking sonora-simd v0.2.0
+    Checking rustls-webpki v0.103.15
+    Checking const-oid v0.10.2
+    Checking log v0.4.34
+    Checking sonora-fft v0.2.0
+    Checking digest v0.11.3
+    Checking rustls v0.23.45
+    Checking sonora-common-audio v0.2.0
+    Checking getrandom v0.4.3
+    Checking chacha20 v0.10.2
+    Checking lamp-ipc v0.1.0 (/source/crates/ipc)
+    Checking mio v1.2.4
+    Checking socket2 v0.6.5
+    Checking tracing-core v0.1.36
+    Checking lamp-turn-owner v0.1.0 (/source/crates/turn-owner)
+    Checking bytemuck v1.25.2
+    Checking tracing v0.1.44
+    Checking tokio v1.53.1
+    Checking rand v0.10.3
+    Checking nix v0.29.0
+    Checking sha1 v0.11.0
+    Checking http v1.5.0
+    Checking errno v0.3.14
+    Checking futures-task v0.3.34
+    Checking ioctl-sys v0.8.0
+    Checking hound v3.5.1
+    Checking data-encoding v2.11.1
+    Checking futures-sink v0.3.34
+    Checking slab v0.4.12
+    Checking futures-core v0.3.34
+    Checking gpiocdev-uapi v0.7.0
+    Checking futures-util v0.3.34
+    Checking thiserror v1.0.69
+    Checking webpki-roots v0.26.11
+    Checking signal-hook-registry v1.4.8
+    Checking nix v0.28.0
+    Checking tungstenite v0.30.0
+    Checking alsa-sys v0.6.1
+    Checking sonora-agc2 v0.2.0
+    Checking anyhow v1.0.104
+   Compiling lamp-camera v0.1.0 (/source/crates/camera)
+    Checking sonora-aec3 v0.2.0
+    Checking tokio-rustls v0.26.6
+    Checking sonora-ns v0.2.0
+    Checking base64 v0.22.1
+    Checking v4l2r v0.0.8
+    Checking tokio-tungstenite v0.30.0
+    Checking alsa v0.12.1
+    Checking signal-hook v0.4.4
+    Checking gpiocdev v0.8.0
+    Checking sonora v0.2.0
+    Checking spidev v0.7.1
+    Checking lamp-keeper v0.1.0 (/source/crates/keeper)
+    Checking rtrb v0.4.0
+    Checking lamp-body v0.1.0 (/source/crates/body)
+    Checking lamp-audio v0.1.0 (/source/crates/audio)
+    Checking lamp-ring v0.1.0 (/source/crates/ring)
+    Checking lamp-controls v0.1.0 (/source/crates/controls)
+    Checking lamp-gemini v0.1.0 (/source/crates/gemini)
+    Checking lamp-turn-end-wire v0.1.0 (/source/crates/turn-end-wire)
+    Checking lamp-observer v0.1.0 (/source/crates/observer)
+error: function `run` is never used
+   --> crates/body/src/inspection.rs:615:15
+    |
+615 | pub(crate) fn run(io: &mut impl PortIo, runtime: &mut impl Runtime) -> InspectionReport {
+    |               ^^^
+    |
+    = note: `-D dead-code` implied by `-D warnings`
+    = help: to override `-D warnings` add `#[expect(dead_code)]` or `#[allow(dead_code)]`
+
+    Checking lamp-expression v0.1.0 (/source/crates/expression)
+    Checking lamp-sound-fixtures v0.1.0 (/source/crates/sound-fixtures)
+    Checking lamp-memory v0.1.0 (/source/crates/memory)
+error: could not compile `lamp-body` (lib) due to 1 previous error
+warning: build failed, waiting for other jobs to finish...

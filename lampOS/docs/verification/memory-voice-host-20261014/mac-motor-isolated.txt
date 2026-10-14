@@ -1,0 +1,46 @@
+Five isolated repetitions; no other local builds/tests running. Existing binary from the failed full Mac gate.
+
+Run 1
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 842 filtered out; finished in 0.78s
+
+Exit code: 0
+
+Run 2
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 842 filtered out; finished in 0.41s
+
+Exit code: 0
+
+Run 3
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 842 filtered out; finished in 0.41s
+
+Exit code: 0
+
+Run 4
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 842 filtered out; finished in 0.40s
+
+Exit code: 0
+
+Run 5
+
+running 1 test
+test coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 842 filtered out; finished in 0.39s
+
+Exit code: 0

@@ -1,0 +1,2 @@
+    Checking lamp-memory v0.1.0 (/Users/autonomous/harnesses/worktrees/autonomous-os/brave-fjord/lampOS/crates/memory)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 3.20s

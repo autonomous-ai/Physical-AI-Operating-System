@@ -59,6 +59,8 @@ enum Extra {
         source_ids: Vec<u64>,
         #[serde(default)]
         previous_ids: Vec<u64>,
+        #[serde(default)]
+        submit: bool,
     },
     TidyApply {
         #[serde(default)]
@@ -192,8 +194,22 @@ fn extra(store: &mut Days, request: Extra) -> Result<Value> {
             conversation,
             source_ids,
             previous_ids,
+            submit,
         } => {
-            json!({"ok":true,"input":store.conversation_end_with(&one(person)?,&conversation,&source_ids,&previous_ids)?})
+            let person = one(person)?;
+            if submit {
+                store.validate_conversation_submission(
+                    &person,
+                    &conversation,
+                    &source_ids,
+                    &previous_ids,
+                )?;
+                // There is no adapter to take this work. Do not fill the
+                // preparation queue or build model input that nobody uses.
+                json!({"ok":true,"submitted":false,"reason":"model_unconfigured"})
+            } else {
+                json!({"ok":true,"input":store.conversation_end_with(&person,&conversation,&source_ids,&previous_ids)?})
+            }
         }
         Extra::TidyApply {
             person,
@@ -451,6 +467,7 @@ mod tests {
             .split_once("### Additional requests with `--memory-days`")
             .unwrap();
         let mut names = Vec::new();
+        let mut submissions = Vec::new();
         for line in optional
             .lines()
             .map(str::trim)
@@ -458,7 +475,11 @@ mod tests {
         {
             let request: Value = serde_json::from_str(line).unwrap();
             names.push(request["op"].as_str().unwrap().to_owned());
-            serde_json::from_value::<Extra>(request).unwrap();
+            if let Extra::ConversationEnd { submit, .. } =
+                serde_json::from_value::<Extra>(request).unwrap()
+            {
+                submissions.push(submit);
+            }
         }
         assert_eq!(
             names,
@@ -469,8 +490,10 @@ mod tests {
                 "session_open",
                 "session_close",
                 "conversation_end",
+                "conversation_end",
                 "tidy_apply"
             ]
         );
+        assert_eq!(submissions, [false, true]);
     }
 }

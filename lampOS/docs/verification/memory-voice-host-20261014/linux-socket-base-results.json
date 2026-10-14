@@ -1,0 +1,19 @@
+{
+  "head": "10e4ba509f2d1cbb97a52979c09deb0d2d1a371e",
+  "base": "7fbb03e1f2e61ad6dfaf184cd768bad6524c2d76",
+  "machine": "x86_64 Linux 6.12.13 in local Podman VM; UID 0; Rust 1.96.0; no lamp",
+  "exit_code": 0,
+  "format": "passed",
+  "strict_workspace_clippy": "passed",
+  "capture_hold_worker": {
+    "passed": 3,
+    "failed": 0,
+    "ignored": 0
+  },
+  "arm64_cross_built_not_executed": {
+    "lamp-memory": "f2907b9024a21e373f723f97342daacc475ac9c4e51d236365ab5e40c1ef557f",
+    "lamp-voice": "3f49bdf06bac92ccec7f4b36792639a45fce0fdca53c681b0b1617643ff674c4",
+    "lamp-tasks": "47f105d7d79ba7216daf3bbf42be2b65432008c80ee4b31faaaf822d0f9c5d89"
+  },
+  "raw_sha256": "fd773c254f61acf5865dedcd67e5134eef4faa6a788d063aaa0584ef2f66e5ce"
+}

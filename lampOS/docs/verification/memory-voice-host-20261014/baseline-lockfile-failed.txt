@@ -1,0 +1,2 @@
+error: cannot update the lock file /Users/autonomous/harnesses/worktrees/autonomous-os/brave-fjord/lampOS/Cargo.lock because --locked was passed to prevent this
+help: to generate the lock file without accessing the network, remove the --locked flag and use --offline instead.

@@ -1,0 +1,227 @@
+    Checking lamp-voice v0.1.0 (/Users/autonomous/harnesses/worktrees/autonomous-os/brave-fjord/lampOS/crates/voice)
+    Checking lamp-memory v0.1.0 (/Users/autonomous/harnesses/worktrees/autonomous-os/brave-fjord/lampOS/crates/memory)
+    Checking lamp-voice-eval v0.1.0 (/Users/autonomous/harnesses/worktrees/autonomous-os/brave-fjord/lampOS/crates/voice-eval)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 16.57s
+   Compiling lamp-voice v0.1.0 (/Users/autonomous/harnesses/worktrees/autonomous-os/brave-fjord/lampOS/crates/voice)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 19.79s
+     Running unittests src/lib.rs (target/debug/deps/lamp_voice-aa71406c48dac12a)
+
+running 4 tests
+test first_output::tests::a_directory_others_can_enter_is_refused_and_the_switch_is_an_absolute_directory ... ok
+test first_output::tests::a_full_queue_is_counted_and_never_waited_on ... ok
+test first_output::tests::each_decision_is_one_line_with_the_seven_fields_and_the_run_ends_with_its_counts ... ok
+test first_output::tests::opening_reads_nothing_large_on_the_callers_thread ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 851 filtered out; finished in 5.10s
+
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.23s
+     Running unittests src/lib.rs (target/debug/deps/lamp_voice-aa71406c48dac12a)
+
+running 12 tests
+test attention::tests::a_name_counts_for_a_request_only_if_it_began_before_the_requests_sound_ended ... ok
+test attention::tests::a_name_heard_close_to_the_lamp_is_a_call_in_a_busy_room ... ok
+test attention::tests::busy_adds_its_flag_after_the_rules_own ... ok
+test attention::tests::busy_near_is_the_busy_rule_with_the_near_call ... ok
+test attention::tests::in_a_busy_room_a_name_heard_plainly_is_a_call_without_a_face ... ok
+test attention::tests::in_its_busy_form_a_busy_room_needs_a_sign_on_every_request ... ok
+test attention::tests::only_a_new_sessions_first_requests_in_a_busy_room_are_held_and_every_doubt_plays ... ok
+test attention::tests::only_on_turns_it_on_and_the_flag_is_taken_from_the_front ... ok
+test attention::tests::the_first_two_requests_of_each_session_are_the_ones_held ... ok
+test attention::tests::the_name_heard_as_a_request_began_plays_it_and_is_not_carried_to_the_next ... ok
+test attention::tests::the_text_can_show_a_call_by_the_name_or_by_what_the_service_writes_in_its_place ... ok
+test attention::tests::what_is_kept_of_one_request_is_bounded_and_cut_at_a_character ... ok
+
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 843 filtered out; finished in 0.00s
+
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.17s
+     Running unittests src/lib.rs (target/debug/deps/lamp_voice-aa71406c48dac12a)
+
+running 96 tests
+test provider_worker::tests::a_call_for_the_executive_is_asked_over_its_socket_and_its_answer_goes_back ... ok
+test provider_worker::tests::a_call_for_the_time_is_answered_at_once_from_the_lamps_clock ... ok
+test provider_worker::tests::a_call_in_a_request_whose_answer_is_held_is_answered_and_not_run ... ok
+test provider_worker::tests::a_call_nobody_can_run_is_answered_as_unavailable_and_the_worker_goes_on ... ok
+test provider_worker::tests::a_call_to_remember_is_asked_of_the_memory_and_what_it_established_goes_back ... ok
+test provider_worker::tests::a_delay_between_the_two_clock_readings_never_puts_a_later_block_before_an_earlier_one ... ok
+test provider_worker::tests::a_future_or_unknown_request_cannot_borrow_current_authority ... ok
+test provider_worker::tests::a_kept_link_outlives_a_dropping_connection_and_a_long_outage_with_reports_that_pass ... ok
+test provider_worker::tests::a_kept_link_whose_first_connection_fails_reports_no_connection_then_a_fresh_ready ... ok
+test provider_worker::tests::a_new_sessions_first_answers_to_talk_in_a_busy_room_are_held_and_later_ones_are_the_models ... ok
+test provider_worker::tests::a_request_the_lamp_acted_on_is_not_one_it_can_then_call_not_for_it ... ok
+test provider_worker::tests::a_request_the_model_says_was_not_for_it_lets_no_sound_out_and_the_next_is_answered ... ok
+test provider_worker::tests::a_requests_note_keeps_what_it_was_given ... ok
+test provider_worker::tests::a_stalled_link_fails_the_request_in_hand_and_the_worker_serves_the_next ... ok
+test provider_worker::tests::an_already_submitted_end_is_not_repeated_on_retirement ... ok
+test provider_worker::tests::an_overrun_input_queue_is_an_outage_and_not_the_end_of_the_worker ... ok
+test provider_worker::tests::answer_generated_before_the_service_closed_is_settled_not_failed ... ok
+test provider_worker::tests::audit_accepted_start_can_fail_before_started_acknowledgement ... ok
+test provider_worker::tests::audit_delayed_start_selected_on_a_must_not_reach_recovered_b ... ok
+test provider_worker::tests::audit_shared_clock_regression_cannot_be_hidden_by_a_later_clock_gap ... ok
+test provider_worker::tests::capture_order_is_decided_per_request_and_a_refusal_changes_nothing ... ok
+test provider_worker::tests::checked_session_refusal_is_typed_only_and_never_spends_the_live_input ... ok
+test provider_worker::tests::close_backpressure_revokes_output_but_never_starts_a_successor ... ok
+test provider_worker::tests::coalesced_owner_then_cancellation_retires_a_start_not_yet_received ... ok
+test provider_worker::tests::complete_answer_then_idle_provider_loss_recovers_with_context_and_a_second_ready ... ok
+test provider_worker::tests::coordinated_full_control_send_is_bounded_and_does_not_consume_stop ... ok
+test provider_worker::tests::coordinated_memory_blocked_link_send_keeps_latest_source_stamp_and_shutdown ... ok
+test provider_worker::tests::coordinated_memory_control_reconnects_while_prior_answer_is_unconsumed ... ok
+test provider_worker::tests::coordinated_memory_terminal_control_does_not_erase_the_answer_or_turn_failure ... ok
+test provider_worker::tests::coordinated_privacy_revocation_stops_a_pending_connection ... ok
+test provider_worker::tests::coordinated_reconnect_and_link_status_progress_without_any_pcm_credit ... ok
+test provider_worker::tests::coordinated_stop_does_not_wait_for_hung_reconnect_or_data_credit ... ok
+test provider_worker::tests::coordinated_terminal_and_failure_receipts_keep_the_existing_full_output_bound ... ok
+test provider_worker::tests::coordinated_terminal_link_precedes_ordered_pcm_outcome_and_single_ended ... ok
+test provider_worker::tests::event_eof_distinguishes_client_lifecycle_failure_from_local_shutdown ... ok
+test provider_worker::tests::event_eof_preserves_sanitized_peer_close_code ... ok
+test provider_worker::tests::exhausted_output_credit_preserves_input_and_priority_stop ... ok
+test provider_worker::tests::exhausted_recovery_and_quota_end_with_fixed_categories ... ok
+test provider_worker::tests::fast_provider_burst_is_held_by_flow_control_and_arrives_complete_in_order ... ok
+test provider_worker::tests::full_control_budget_defers_one_original_input_and_expires_at_original_receipt ... ok
+test provider_worker::tests::input_admitted_during_an_outage_ends_the_worker_instead_of_being_held ... ok
+test provider_worker::tests::input_requires_a_successful_start_and_cannot_reopen_after_end ... ok
+test provider_worker::tests::intake_does_not_extend_snapshot_capture_or_controller_leases ... ok
+test provider_worker::tests::intake_keeps_eight_command_slice_and_does_not_wait_for_unknown_authority ... ok
+test provider_worker::tests::interrupting_a_capacity_paced_answer_is_not_delayed_by_its_queued_audio ... ok
+test provider_worker::tests::keep_link_is_taken_from_the_front_of_a_workers_flags ... ok
+test provider_worker::tests::kept_start::a_first_answer_that_completes_with_nothing_lets_the_resumed_question_start ... ok
+test provider_worker::tests::kept_start::a_resumed_question_is_kept_and_delivered_through_the_coordinated_contract ... ok
+test provider_worker::tests::kept_start::a_resumed_question_is_kept_until_the_first_answer_begins_and_exactly_it_is_delivered ... ok
+test provider_worker::tests::kept_start::a_stop_or_a_mute_while_the_question_is_kept_writes_none_of_it ... ok
+test provider_worker::tests::kept_start::a_stop_while_the_kept_question_is_being_written_ends_the_writing ... ok
+test provider_worker::tests::kept_start::an_abandoned_kept_question_is_dropped_unsent_and_the_next_one_is_heard_alone ... ok
+test provider_worker::tests::kept_start::an_abandonment_after_the_words_were_written_is_reported_as_sent_not_discarded ... ok
+test provider_worker::tests::kept_start::the_service_closing_while_the_question_is_kept_writes_none_of_it_and_replays_none ... ok
+test provider_worker::tests::kept_start::two_resumed_utterances_are_delivered_in_order_as_one_question_with_one_end ... ok
+test provider_worker::tests::kept_start::with_no_first_answer_the_patience_ends_in_the_strict_timeout_and_no_end ... ok
+test provider_worker::tests::kept_start::without_the_option_a_resumed_question_is_written_at_once_as_before ... ok
+test provider_worker::tests::late_provider_events_never_reach_the_coordinator_for_a_newer_request ... ok
+test provider_worker::tests::only_a_request_given_up_before_the_lamp_was_sure_is_unsaid ... ok
+test provider_worker::tests::outage_after_accepted_start_never_reports_that_request_as_not_delivered ... ok
+test provider_worker::tests::outage_before_start_reports_not_delivered_once_and_never_replays_input ... ok
+test provider_worker::tests::output_capacity_cannot_renew_authority_or_controller_heartbeat ... ok
+test provider_worker::tests::overtaken_start_never_creates_a_phantom_old_input_or_end ... ok
+test provider_worker::tests::pending_not_delivered_report_cannot_be_overwritten_by_a_new_refused_start ... ok
+test provider_worker::tests::priority_transfer_closes_old_input_before_successor_and_discards_queued_old_data ... ok
+test provider_worker::tests::privacy_generation_and_expired_authority_still_prevent_audio ... ok
+test provider_worker::tests::production_policy_never_commits_a_successor_without_a_terminal_barrier ... ok
+test provider_worker::tests::proposed_status_events_have_a_fixed_wire_shape_beside_provider_output ... ok
+test provider_worker::tests::provider_loss_before_an_answer_completes_ends_the_worker_naming_request_and_stage ... ok
+test provider_worker::tests::refused_start_outcome_waits_for_capacity_without_growing_output ... ok
+test provider_worker::tests::refused_start_pauses_intake_before_more_pcm_but_does_not_block_stop ... ok
+test provider_worker::tests::rejected_start_is_not_later_closed_as_if_it_had_been_submitted ... ok
+test provider_worker::tests::resumed_question_survives_a_silent_service_and_the_assumption_is_reported ... ok
+test provider_worker::tests::retained_prefix_keeps_capture_age_and_rejects_stale_or_future_samples ... ok
+test provider_worker::tests::retired_capture_metadata_does_not_poison_successor_sequence_or_prefix ... ok
+test provider_worker::tests::retired_output_is_removed_before_new_output_without_changing_survivor_order ... ok
+test provider_worker::tests::review_2026_10_14::review_a_name_heard_after_a_requests_sound_ended_does_not_let_out_its_answer ... ok
+test provider_worker::tests::review_2026_10_14::review_sound_a_name_heard_as_a_request_began_lets_out_the_answer_the_rule_would_hold ... ok
+test provider_worker::tests::selected_session_survives_mixed_control_deferral_and_refused_tail_drain ... ok
+test provider_worker::tests::separate_socket_authority_in_empty_drain_gap_precedes_new_start ... ok
+test provider_worker::tests::separate_socket_interruption_retires_old_data_and_keeps_new_prefix ... ok
+test provider_worker::tests::separate_socket_stop_privacy_and_coalesced_reopen_precede_input ... ok
+test provider_worker::tests::sixty_second_answer_follows_output_capacity ... ignored, one minute of real time; run explicitly
+test provider_worker::tests::start_wire_requires_an_explicit_selected_session ... ok
+test provider_worker::tests::started_wire_retains_actual_source_session_and_requires_it_on_decode ... ok
+test provider_worker::tests::stop_and_heartbeat_are_serviced_while_a_reconnect_hangs ... ok
+test provider_worker::tests::the_models_sign_that_it_heard_its_name_is_answered_silently_and_changes_nothing_played ... ok
+test provider_worker::tests::three_minute_answer_follows_output_capacity ... ignored, three minutes of real time; run explicitly
+test provider_worker::tests::twenty_second_answer_through_a_five_second_reply_buffer_follows_capacity ... ok
+test provider_worker::tests::typed_recovery_does_not_swallow_an_unproven_stale_request ... ok
+test provider_worker::tests::typed_replaced_session_drops_old_input_without_failing_the_new_connection ... ok
+test provider_worker::tests::typed_reporting_fails_a_question_admitted_during_an_outage_once_and_never_sends_it ... ok
+test provider_worker::tests::typed_reporting_fails_one_turn_and_keeps_serving_after_a_lost_answer ... ok
+test provider_worker::tests::visual_camera_missing_or_closed_before_first_frame_preserves_complete_audio ... ok
+test provider_worker::tests::visual_real_camera_link_reaches_same_input_without_blocking_its_audio_or_end ... ok
+test provider_worker::tests::zero_session_fails_without_a_submission_or_not_delivered_receipt ... ok
+
+test result: ok. 94 passed; 0 failed; 2 ignored; 0 measured; 759 filtered out; finished in 60.76s
+
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.24s
+     Running unittests src/lib.rs (target/debug/deps/lamp_voice-aa71406c48dac12a)
+
+running 7 tests
+test tools::tests::a_call_goes_to_whoever_runs_it_and_to_nobody_when_that_is_switched_off ... ok
+test tools::tests::a_session_is_told_of_the_voices_own_function_and_of_a_whole_readable_catalog_or_none_of_it ... ok
+test tools::tests::an_executive_that_is_gone_late_or_unreadable_costs_one_deadline_and_an_honest_answer ... ok
+test tools::tests::only_on_and_an_absolute_path_become_flags_and_they_are_taken_from_the_front ... ok
+test tools::tests::the_executive_is_asked_in_one_line_and_its_result_or_its_words_go_to_the_model ... ok
+test tools::tests::the_time_is_declared_and_answered_here_only_when_switched_on ... ok
+test tools::tests::with_a_memory_its_three_functions_are_declared_and_go_to_it_and_to_nobody_without ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 848 filtered out; finished in 0.61s
+
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.18s
+     Running unittests src/lib.rs (target/debug/deps/lamp_voice-aa71406c48dac12a)
+
+running 19 tests
+test process::fixture_tests::exec_barrier_closes_earlier_peer_descriptors_without_exiting_workers ... ok
+test process::fixture_tests::exec_barrier_rejects_wrong_marker_and_reaps_child ... ok
+test process::fixture_tests::exec_barrier_timeout_reaps_only_its_owned_child ... ok
+test process::ring_startup_tests::child_exit_before_ready_is_optional_but_abnormal_exit_is_retained ... ok
+test process::ring_startup_tests::cleanup_refuses_replaced_peer_inode_and_retains_failure ... ok
+test process::ring_startup_tests::cleanup_refuses_unexpected_file_without_erasing_it ... ok
+test process::ring_startup_tests::connected_but_unready_ring_times_out_and_remains_owned ... ok
+test process::ring_startup_tests::failed_handshake_retains_owned_child_and_cleans_only_its_socket_namespace ... ok
+test process::ring_startup_tests::instant_optional_exec_failure_cannot_mask_new_mandatory_fault ... ok
+test process::ring_startup_tests::mandatory_interrupt_during_ring_startup_preserves_kind_and_reaps ... ok
+test process::ring_startup_tests::missing_socket_deadline_is_unchanged_and_does_not_lose_the_child ... ok
+test process::ring_startup_tests::permanently_nonprivate_peers_timeout_without_connecting_or_chmod ... ok
+test process::ring_startup_tests::ready_ring_keeps_private_handshake_and_control_contract ... ok
+test process::startup_tests::startup_rejects_files_and_symlinks_instead_of_calling_them_ready ... ok
+test process::startup_tests::startup_waits_for_both_sockets_to_finish_becoming_private ... ok
+test process::tests::cleared_worker_environment_passes_only_the_exact_provider_opt_in ... ok
+test process::tests::shutdown_kills_and_reaps_a_hung_child_but_never_reports_success ... ok
+test process::tests::shutdown_reports_an_already_exited_nonzero_child ... ok
+test process::tests::signal_only_termination_leaves_reaping_to_final_shutdown ... ok
+
+test result: ok. 19 passed; 0 failed; 0 ignored; 0 measured; 836 filtered out; finished in 13.61s
+
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.18s
+     Running unittests src/lib.rs (target/debug/deps/lamp_voice-aa71406c48dac12a)
+
+running 23 tests
+test remember::tests::a_call_becomes_the_memorys_request_and_nothing_to_keep_becomes_none ... ok
+test remember::tests::a_call_is_one_request_to_the_memory_and_a_memory_that_is_gone_is_said_so ... ok
+test remember::tests::a_days_snapshot_requires_its_identity_and_complete_bounded_provenance ... ok
+test remember::tests::a_full_unix_listen_queue_cannot_hold_the_days_client_in_connect ... ok
+test remember::tests::a_held_background_write_cannot_block_or_grow_the_foreground_queue ... ok
+test remember::tests::a_slow_days_reply_is_an_honest_failure_within_the_total_budget ... ok
+test remember::tests::an_answer_too_long_for_the_link_is_told_as_no_answer ... ok
+test remember::tests::an_earlier_conversation_cannot_consume_a_later_queued_loss ... ok
+test remember::tests::an_incomplete_conversation_is_never_submitted_as_complete ... ok
+test remember::tests::conservative_context_and_conversation_are_bounded_without_silent_truncation ... ok
+test remember::tests::days_environment_child ... ok
+test remember::tests::days_search_preserves_rank_and_observations_and_uses_the_named_local_day ... ok
+test remember::tests::finished_exchanges_are_queued_with_when_they_began_but_for_those_kept_out ... ok
+test remember::tests::keeping_and_forgetting_are_told_as_what_the_memory_established ... ok
+test remember::tests::malformed_ranked_entries_are_not_disguised_as_empty_recall ... ok
+test remember::tests::the_days_environment_switch_is_exact_in_separate_processes ... ok
+test remember::tests::the_days_writer_submits_after_idle_without_waiting_for_a_model ... ok
+test remember::tests::the_note_says_there_is_a_memory_and_lists_what_is_kept ... ok
+test remember::tests::the_three_functions_are_ones_the_link_takes_and_no_others_are_the_memorys ... ok
+test remember::tests::the_writer_reads_what_is_kept_then_journals_and_ends_with_its_queue ... ok
+test remember::tests::trickled_and_oversized_lines_cannot_extend_the_days_transport_deadline ... ok
+test remember::tests::what_is_kept_is_read_in_one_request_and_a_memory_that_is_gone_gives_none ... ok
+test remember::tests::what_was_found_is_told_with_how_long_ago_and_never_a_clock_time ... ok
+
+test result: ok. 23 passed; 0 failed; 0 ignored; 0 measured; 832 filtered out; finished in 0.37s
+
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.18s
+     Running unittests src/lib.rs (target/debug/deps/lamp_voice-aa71406c48dac12a)
+
+running 8 tests
+test thread::tests::a_finished_exchange_is_given_out_once_and_forgetting_drops_them_all ... ok
+test thread::tests::a_function_named_aloud_is_not_something_the_lamp_said ... ok
+test thread::tests::a_new_session_is_told_the_thread_and_an_empty_one_changes_nothing ... ok
+test thread::tests::a_saved_thread_is_told_again_by_the_process_that_reads_it_back ... ok
+test thread::tests::a_session_is_opened_with_the_functions_the_model_may_call_now ... ok
+test thread::tests::it_forgets_what_is_old_and_holds_only_so_much ... ok
+test thread::tests::it_keeps_what_was_asked_and_answered_and_not_the_talk_around_it ... ok
+test thread::tests::words_of_a_request_given_up_before_its_answer_played_were_never_said ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 847 filtered out; finished in 0.00s
+
+   Compiling lamp-voice v0.1.0 (/Users/autonomous/harnesses/worktrees/autonomous-os/brave-fjord/lampOS/crates/voice)
+   Compiling lamp-memory v0.1.0 (/Users/autonomous/harnesses/worktrees/autonomous-os/brave-fjord/lampOS/crates/memory)
+   Compiling lamp-voice-eval v0.1.0 (/Users/autonomous/harnesses/worktrees/autonomous-os/brave-fjord/lampOS/crates/voice-eval)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 16.41s

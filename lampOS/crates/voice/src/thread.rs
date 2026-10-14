@@ -512,16 +512,19 @@ impl Recalling {
 impl Connect for Recalling {
     fn connect(&mut self, session: SessionId, resume: Option<ResumptionHandle>) -> Attempt {
         let mut time = crate::local_time::told_here(self.tools.clock);
-        // What it was asked to remember, as the memory last gave it: held
-        // in this process, so that opening a session waits for nobody.
-        if self.tools.memory.is_some() {
-            let kept = crate::remember::told();
+        // The legacy cached note, or an explicitly opted-in Days snapshot
+        // with its provenance and a total acquisition budget of 300 ms.
+        if let Some(socket) = &self.tools.memory {
+            let kept = crate::remember::told_for_session(socket, session.get());
             if !kept.is_empty() {
                 time = Some(time.unwrap_or_default() + &kept);
             }
         }
         let config = match THREAD.lock() {
-            Ok(thread) => self.recalled(&thread, Instant::now(), time.as_deref()),
+            Ok(mut thread) => {
+                crate::remember::clear_forgotten_thread(&mut thread);
+                self.recalled(&thread, Instant::now(), time.as_deref())
+            }
             Err(_) => self.config.clone(),
         };
         Dialer::new(self.equipped(config)).connect(session, resume)

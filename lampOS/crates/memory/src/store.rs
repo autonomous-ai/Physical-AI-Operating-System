@@ -592,6 +592,13 @@ impl Store {
                 format!("{} is open in another lamp-memory", options.dir.display()),
             ));
         }
+        // Check under the same directory lock used by the opt-in importer.
+        // Otherwise a completed migration could race this legacy opener.
+        if options.dir.join(crate::days::DATABASE).try_exists()? {
+            return Err(io::Error::other(
+                "this directory uses memory across days; reopen it with --memory-days",
+            ));
+        }
         let mut store = Self {
             dir: options.dir,
             keep_days: i64::from(options.keep_days),

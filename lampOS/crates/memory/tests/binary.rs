@@ -8,11 +8,11 @@ use std::{
     path::{Path, PathBuf},
     process::{Child, Command, Output, Stdio},
     thread,
-    time::Duration,
+    time::{Duration, SystemTime, UNIX_EPOCH},
 };
 
 const BINARY: &str = env!("CARGO_BIN_EXE_lamp-memory");
-const USAGE: &str = "usage: lamp-memory --dir ABSOLUTE_DIR --socket ABSOLUTE_SOCKET_PATH [--keep-days N] [--utc-offset-minutes M]";
+const USAGE: &str = "usage: lamp-memory --dir ABSOLUTE_DIR --socket ABSOLUTE_SOCKET_PATH [--keep-days N] [--utc-offset-minutes M] [--memory-days]";
 
 struct Scratch(PathBuf);
 
@@ -59,6 +59,10 @@ struct Process(Child);
 impl Process {
     /// Start it with its log in a file: a pipe nobody reads would fill.
     fn start(scratch: &Scratch, dir: &str, socket: &str, log: &str) -> Self {
+        Self::start_with(scratch, dir, socket, log, &[])
+    }
+
+    fn start_with(scratch: &Scratch, dir: &str, socket: &str, log: &str, extra: &[&str]) -> Self {
         let log = fs::File::create(scratch.0.join(log)).unwrap();
         let child = Command::new(BINARY)
             .args([
@@ -68,6 +72,7 @@ impl Process {
                 &scratch.path(socket),
             ])
             .args(["--utc-offset-minutes", "420"])
+            .args(extra)
             .stdin(Stdio::null())
             .stdout(Stdio::null())
             .stderr(log)
@@ -305,4 +310,206 @@ fn a_killed_process_leaves_a_store_the_next_one_loads_and_a_socket_it_replaces()
     for log in [log1, log2] {
         assert!(!log.contains("orchid") && !log.contains("fern") && !log.contains("sill"));
     }
+}
+
+#[test]
+fn opted_in_memory_migrates_and_forgets_linked_facts_across_sigkill_restarts() {
+    let scratch = Scratch::new("days-killed");
+    let socket = scratch.0.join("m.sock");
+    let database = scratch.0.join("store").join(lamp_memory::days::DATABASE);
+    let now = || {
+        u64::try_from(
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_millis(),
+        )
+        .unwrap()
+    };
+    let ids = |answer: Value| {
+        assert_eq!(answer["ok"], true, "{answer}");
+        let mut ids: Vec<u64> = answer["entries"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|entry| entry["id"].as_u64().unwrap())
+            .collect();
+        ids.sort_unstable();
+        ids
+    };
+
+    // Start in the unchanged default mode so the opt-in process really imports
+    // an existing store. A current wall-clock stamp cannot age out as this test
+    // is rerun in a later month.
+    let legacy = Process::start(&scratch, "store", "m.sock", "legacy.log");
+    let source = ask(&socket, json!({"op":"append","at_unix_ms":now(),"heard":"My heliotrope ritual uses saffron","said":"Saffron ritual noted"}))["id"].as_u64().unwrap();
+    let kept = ask(
+        &socket,
+        json!({"op":"remember","at_unix_ms":now(),"text":"An orchid lives on the sill"}),
+    )["id"]
+        .as_u64()
+        .unwrap();
+    assert!(scratch.0.join("store/everyone/kept.jsonl").exists());
+    assert!(!database.exists());
+    legacy.kill();
+    assert!(UnixStream::connect(&socket).is_err());
+
+    let first = Process::start_with(&scratch, "store", "m.sock", "days1.log", &["--memory-days"]);
+    assert_eq!(
+        ids(ask(&socket, json!({"op":"recall","query":"heliotrope"}))),
+        [source]
+    );
+    assert!(database.exists());
+    assert!(!scratch.0.join("store/everyone").exists());
+    assert_eq!(mode(&scratch.0.join("store")), 0o700);
+    assert_eq!(mode(&database), 0o600);
+    assert_eq!(mode(&socket), 0o600);
+    assert_eq!(mode(&scratch.0.join("ready")), 0o600);
+    assert_eq!(
+        fs::read_to_string(scratch.0.join("ready")).unwrap(),
+        "ready\n"
+    );
+    let prepared = ask(
+        &socket,
+        json!({"op":"conversation_end","conversation":"first","source_ids":[source]}),
+    );
+    assert_eq!(prepared["ok"], true, "{prepared}");
+    let job = prepared["input"]["job"].as_str().unwrap();
+    // The only model in this test is this fixed proposal, submitted through the
+    // real protocol. The running memory process never calls a model itself.
+    let proposed = ask(
+        &socket,
+        json!({"op":"tidy_apply","job":job,"observations":[{"text":"Heliotrope ritual uses saffron","category":"preference","source_ids":[source],"supersedes":null}]}),
+    );
+    assert_eq!(proposed["ok"], true, "{proposed}");
+    let fact = proposed["ids"][0].as_u64().unwrap();
+    let linked = ask(&socket, json!({"op":"append_linked","at_unix_ms":now(),"heard":"What is my heliotrope ritual?","said":"It uses saffron","source_ids":[fact]}))["id"].as_u64().unwrap();
+    assert!(source < kept && kept < fact && fact < linked);
+    let frozen = ask(
+        &socket,
+        json!({"op":"session_open","session":"before-forgetting"}),
+    );
+    assert_eq!(frozen["snapshot"]["invalidated"], false);
+    let delayed = ask(
+        &socket,
+        json!({"op":"conversation_end","conversation":"later","source_ids":[linked]}),
+    );
+    assert_eq!(delayed["ok"], true, "{delayed}");
+    let delayed_job = delayed["input"]["job"].as_str().unwrap().to_owned();
+    assert_eq!(
+        ids(ask(&socket, json!({"op":"search","query":"heliotrope"}))),
+        [source, fact, linked]
+    );
+    first.kill();
+    assert!(UnixStream::connect(&socket).is_err());
+
+    // Every acknowledged record and the prepared context survive SIGKILL.
+    let second = Process::start_with(&scratch, "store", "m.sock", "days2.log", &["--memory-days"]);
+    assert_eq!(
+        ids(ask(&socket, json!({"op":"search","query":"heliotrope"}))),
+        [source, fact, linked]
+    );
+    assert_eq!(
+        ask(
+            &socket,
+            json!({"op":"session_open","session":"before-forgetting"})
+        ),
+        frozen
+    );
+    let status = ask(&socket, json!({"op":"status","person":"everyone"}));
+    assert_eq!(status["people"][0]["exchanges"], 2);
+    assert_eq!(status["people"][0]["kept"], 1);
+    assert_eq!(
+        ask(&socket, json!({"op":"forget","id":fact})),
+        json!({"ok":true,"removed":3})
+    );
+    assert!(ids(ask(&socket, json!({"op":"search","query":"heliotrope"}))).is_empty());
+    let cleared = ask(
+        &socket,
+        json!({"op":"session_open","session":"before-forgetting"}),
+    );
+    assert_eq!(cleared["snapshot"]["invalidated"], true);
+    assert_eq!(cleared["snapshot"]["note"], "");
+    second.kill();
+    assert!(UnixStream::connect(&socket).is_err());
+
+    // Deletion, snapshot invalidation and job invalidation also survive a kill.
+    let third = Process::start_with(&scratch, "store", "m.sock", "days3.log", &["--memory-days"]);
+    assert!(ids(ask(&socket, json!({"op":"search","query":"heliotrope"}))).is_empty());
+    assert!(ids(ask(&socket, json!({"op":"recall","query":"heliotrope"}))).is_empty());
+    let status = ask(&socket, json!({"op":"status","person":"everyone"}));
+    assert_eq!(status["people"][0]["exchanges"], 0);
+    assert_eq!(status["people"][0]["kept"], 1);
+    assert_eq!(ids(ask(&socket, json!({"op":"kept"}))), [kept]);
+    assert_eq!(
+        ask(
+            &socket,
+            json!({"op":"session_open","session":"before-forgetting"})
+        ),
+        cleared
+    );
+    let stale = ask(
+        &socket,
+        json!({"op":"tidy_apply","job":delayed_job,"observations":[{"text":"Heliotrope ritual uses saffron","category":"preference","source_ids":[linked],"supersedes":null}]}),
+    );
+    assert_eq!(stale["ok"], false);
+    assert_eq!(stale["error"], "stale");
+    let fresh = ask(&socket, json!({"op":"append","at_unix_ms":now(),"heard":"A pear grows in the orchard","said":"Noted"}))["id"].as_u64().unwrap();
+    assert!(fresh > linked);
+    assert!(ids(ask(&socket, json!({"op":"search","query":"heliotrope"}))).is_empty());
+    third.kill();
+
+    // Turning the option off must not silently revive the removed JSONL store
+    // or make an empty legacy store beside the authoritative SQLite database.
+    let no_flag = run(
+        &scratch,
+        &[
+            "--dir",
+            &scratch.path("store"),
+            "--socket",
+            &scratch.path("disabled.sock"),
+        ],
+    );
+    assert_eq!(no_flag.status.code(), Some(1));
+    let refusal = String::from_utf8(no_flag.stderr).unwrap();
+    assert!(
+        refusal.contains("reopen it with --memory-days"),
+        "{refusal}"
+    );
+    assert!(!scratch.0.join("store/everyone").exists());
+    assert_eq!(mode(&database), 0o600);
+
+    for name in ["legacy.log", "days1.log", "days2.log", "days3.log"] {
+        let log = fs::read_to_string(scratch.0.join(name)).unwrap();
+        assert!(!log.is_empty());
+        for private_word in [
+            "heliotrope",
+            "saffron",
+            "ritual",
+            "orchid",
+            "sill",
+            "pear",
+            "orchard",
+        ] {
+            assert!(
+                !log.to_lowercase().contains(private_word),
+                "private text in {name}"
+            );
+        }
+    }
+    assert!(
+        fs::read_to_string(scratch.0.join("days1.log"))
+            .unwrap()
+            .contains("append_linked person=everyone ok")
+    );
+    assert!(
+        fs::read_to_string(scratch.0.join("days2.log"))
+            .unwrap()
+            .contains("forget person=everyone ok")
+    );
+    assert!(
+        fs::read_to_string(scratch.0.join("days3.log"))
+            .unwrap()
+            .contains("tidy_apply person=everyone refused error=stale")
+    );
 }

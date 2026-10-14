@@ -41,6 +41,23 @@ use std::{
 /// its answer.
 pub const PATIENCE: Duration = Duration::from_secs(2);
 
+/// A single owner answers requests; expensive model work never enters here.
+pub trait Memory {
+    fn answer(&mut self, line: &[u8], now_unix_ms: u64) -> protocol::Answer;
+}
+
+impl Memory for Store {
+    fn answer(&mut self, line: &[u8], now_unix_ms: u64) -> protocol::Answer {
+        protocol::answer(self, line, now_unix_ms)
+    }
+}
+
+impl Memory for crate::days::Days {
+    fn answer(&mut self, line: &[u8], now_unix_ms: u64) -> protocol::Answer {
+        crate::days_protocol::answer(self, line, now_unix_ms)
+    }
+}
+
 pub struct Server {
     listener: UnixListener,
     socket: PathBuf,
@@ -155,7 +172,7 @@ impl Server {
     /// one line for each.
     pub fn run(
         self,
-        store: &mut Store,
+        store: &mut (impl Memory + ?Sized),
         clock: &mut dyn FnMut() -> u64,
         log: &mut dyn FnMut(&str),
     ) -> io::Result<()> {
@@ -195,14 +212,14 @@ impl Server {
     fn serve(
         &self,
         stream: &UnixStream,
-        store: &mut Store,
+        store: &mut (impl Memory + ?Sized),
         clock: &mut dyn FnMut() -> u64,
         log: &mut dyn FnMut(&str),
     ) {
         let mut held = Vec::new();
         loop {
             let answer = match self.line(stream, &mut held) {
-                Line::Whole(line) => protocol::answer(store, &line, clock()),
+                Line::Whole(line) => store.answer(&line, clock()),
                 Line::TooLong => protocol::too_long(),
                 Line::Late { unfinished: true } => {
                     log("a client did not finish its request in time and was dropped");

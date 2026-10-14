@@ -528,10 +528,13 @@ mod tests {
     }
 
     #[test]
-    fn every_request_written_in_the_document_is_read_and_done() {
+    fn every_default_request_written_in_the_document_is_read_and_done() {
         let (_scratch, mut store) = Scratch::new("document");
         let document = include_str!("../../../docs/memory.md");
-        let requests = document
+        let (default, _) = document
+            .split_once("### Additional requests with `--memory-days`")
+            .expect("the document distinguishes default and opt-in requests");
+        let requests = default
             .lines()
             .map(str::trim)
             .filter(|line| line.starts_with("{\"op\""));

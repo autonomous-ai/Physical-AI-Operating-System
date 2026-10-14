@@ -5,7 +5,7 @@
 //! recalling earlier days, when this one has stopped.
 //!
 //! It runs until it is killed. The standard library cannot catch a signal
-//! and this crate takes in nothing that can, so SIGTERM ends it where it
+//! and this binary registers no signal handler, so SIGTERM ends it where it
 //! stands. Nothing remembered is lost by that: a line is on the disk before
 //! its request is answered. The socket file and `ready` are left behind, and
 //! the next process clears them as it starts.
@@ -22,9 +22,9 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
-const USAGE: &str = "usage: lamp-memory --dir ABSOLUTE_DIR --socket ABSOLUTE_SOCKET_PATH [--keep-days N] [--utc-offset-minutes M]";
+const USAGE: &str = "usage: lamp-memory --dir ABSOLUTE_DIR --socket ABSOLUTE_SOCKET_PATH [--keep-days N] [--utc-offset-minutes M] [--memory-days]";
 
-const HELP: &str = "Keeps what the lamp remembers under --dir, a directory only its owner can enter (made\nwith mode 0700 if it is not there; refused if its group or everyone can enter it): one\ndirectory for each person, with a journal file for each local day and a file of what\nthe lamp was asked to keep. Text only. Answers requests, one JSON object on a line each,\non the Unix stream socket at --socket (mode 0600), and keeps a file named ready beside\nthe socket while it is taking them. --keep-days N (default 30, at least 1): a journal\nday is deleted once it is more than N days before today. --utc-offset-minutes M\n(default 0, from -720 to 840): how far east of UTC the lamp's clock is, which decides\nwhere one day ends and the next begins. See docs/memory.md.";
+const HELP: &str = "Keeps what the lamp remembers under --dir, a directory only its owner can enter (made\nwith mode 0700 if it is not there; refused if its group or everyone can enter it).\nThe default stores a journal file for each local day and a kept file per person.\n--memory-days opts into SQLite, ranked search and linked observations, importing and\nremoving the old files before serving. That directory then requires --memory-days;\nno model is configured or called. See docs/memory-days.md before enabling it.\nAnswers one JSON object per line on --socket (mode 0600), with ready beside the\nsocket while taking requests. --keep-days N (default 30, at least 1): delete journal\ndays more than N days before today. --utc-offset-minutes M (default 0, -720 to 840):\nminutes east of UTC for day boundaries. See docs/memory.md.";
 
 #[derive(Debug, Eq, PartialEq)]
 struct Arguments {
@@ -32,23 +32,33 @@ struct Arguments {
     socket: PathBuf,
     keep_days: u32,
     utc_offset_minutes: i32,
+    memory_days: bool,
 }
 
 fn parse(args: impl IntoIterator<Item = OsString>) -> Result<Option<Arguments>, &'static str> {
     let mut args = args.into_iter();
     let (mut dir, mut socket, mut keep_days, mut utc_offset_minutes) = (None, None, None, None);
+    let mut memory_days = false;
     while let Some(key) = args.next() {
         if key == "--help" {
             let alone = dir.is_none()
                 && socket.is_none()
                 && keep_days.is_none()
                 && utc_offset_minutes.is_none()
+                && !memory_days
                 && args.next().is_none();
             return if alone {
                 Ok(None)
             } else {
                 Err("--help must be used alone")
             };
+        }
+        if key == "--memory-days" {
+            if memory_days {
+                return Err("an option was given twice");
+            }
+            memory_days = true;
+            continue;
         }
         let known = matches!(
             key.to_str(),
@@ -84,6 +94,7 @@ fn parse(args: impl IntoIterator<Item = OsString>) -> Result<Option<Arguments>, 
         socket: socket.ok_or("--socket is required")?,
         keep_days: keep_days.unwrap_or(30),
         utc_offset_minutes: utc_offset_minutes.unwrap_or(0),
+        memory_days,
     };
     if !arguments.dir.is_absolute() || !arguments.socket.is_absolute() {
         return Err("--dir and --socket are absolute paths");
@@ -110,6 +121,19 @@ fn run(arguments: &Arguments) -> io::Result<()> {
     // The socket first, so that a second process started by mistake stops
     // here, before it has touched the store; the store before `ready`.
     let server = Server::bind(&arguments.socket)?;
+    if arguments.memory_days {
+        let mut store = lamp_memory::days::Days::open(
+            Options {
+                dir: arguments.dir.clone(),
+                keep_days: arguments.keep_days,
+                utc_offset_minutes: arguments.utc_offset_minutes,
+            },
+            now_unix_ms(),
+        )
+        .map_err(io::Error::other)?;
+        log("started memory_days=true; the model adapter is not configured");
+        return server.run(&mut store, &mut now_unix_ms, &mut log);
+    }
     let mut store = Store::open(
         Options {
             dir: arguments.dir.clone(),
@@ -182,6 +206,7 @@ mod tests {
                 socket: "/run/lamp/memory.sock".into(),
                 keep_days: 30,
                 utc_offset_minutes: 0,
+                memory_days: false,
             }))
         );
         assert_eq!(
@@ -200,6 +225,7 @@ mod tests {
                 socket: "/run/m.sock".into(),
                 keep_days: 7,
                 utc_offset_minutes: 420,
+                memory_days: false,
             }))
         );
         let west = arguments(&[
@@ -212,6 +238,24 @@ mod tests {
         ]);
         assert_eq!(west.unwrap().unwrap().utc_offset_minutes, -300);
         assert_eq!(arguments(&["--help"]), Ok(None));
+        assert!(
+            arguments(&["--dir", "/m", "--socket", "/s", "--memory-days"])
+                .unwrap()
+                .unwrap()
+                .memory_days
+        );
+        assert!(
+            arguments(&[
+                "--dir",
+                "/m",
+                "--socket",
+                "/s",
+                "--memory-days",
+                "--memory-days"
+            ])
+            .is_err()
+        );
+        assert!(arguments(&["--memory-days", "--help"]).is_err());
     }
 
     #[test]

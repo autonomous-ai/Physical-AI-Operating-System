@@ -1,0 +1,164 @@
+{
+  "date": "2026-10-14",
+  "machine": "Fourth development Mac; macOS 26.6.2 (25G83); x86_64 Intel Core i7-10700K 3.80 GHz; 16 logical CPUs; 64 GiB; not the lamp",
+  "rust": "1.96.0",
+  "sqlite": "3.53.2",
+  "durability": {
+    "journal_mode": "DELETE",
+    "synchronous": "EXTRA",
+    "fullfsync": true
+  },
+  "command": "/Users/autonomous/.cargo/bin/cargo test -p lamp-memory --release --test days_timing -- --ignored --nocapture",
+  "invocations": 1,
+  "exit_code": 0,
+  "measurement": [
+    {
+      "arch": "x86_64",
+      "boundary": "connect, serialize/send request, read full newline-terminated response; excludes JSON decoding",
+      "build": "release",
+      "corpus": "30 days, 6000 exchanges, 200 kept; same fixture as legacy timing",
+      "first": "fresh store and first request; filesystem cache is not evicted",
+      "os": "macos"
+    },
+    {
+      "backend": "files",
+      "ms": 11.348102,
+      "op": "first_open",
+      "runs": 1
+    },
+    {
+      "backend": "files",
+      "first_ms": 15.984374999999998,
+      "max_ms": 16.26002,
+      "median_ms": 15.64996,
+      "op": "recall_words",
+      "p95_ms": 15.974664999999998,
+      "repeated": 50,
+      "response_bytes": 20065
+    },
+    {
+      "backend": "files",
+      "first_ms": 0.512976,
+      "max_ms": 0.5052089999999999,
+      "median_ms": 0.459787,
+      "op": "recall_newest",
+      "p95_ms": 0.49770200000000003,
+      "repeated": 50,
+      "response_bytes": 3296
+    },
+    {
+      "backend": "files",
+      "first_ms": 0.465896,
+      "max_ms": 0.472453,
+      "median_ms": 0.456295,
+      "op": "recall_day",
+      "p95_ms": 0.469618,
+      "repeated": 50,
+      "response_bytes": 20065
+    },
+    {
+      "backend": "files",
+      "first_ms": 0.161677,
+      "max_ms": 0.164793,
+      "median_ms": 0.143263,
+      "op": "kept",
+      "p95_ms": 0.15256899999999998,
+      "repeated": 50,
+      "response_bytes": 2976
+    },
+    {
+      "backend": "days",
+      "ms": 1848.618001,
+      "op": "first_open_with_import",
+      "runs": 1
+    },
+    {
+      "backend": "days",
+      "first_ms": 11.948815999999999,
+      "max_ms": 13.107543,
+      "median_ms": 11.4513,
+      "op": "recall_words",
+      "p95_ms": 12.843475999999999,
+      "repeated": 50,
+      "response_bytes": 20065
+    },
+    {
+      "backend": "days",
+      "first_ms": 4.946443,
+      "max_ms": 5.30926,
+      "median_ms": 4.478074,
+      "op": "recall_newest",
+      "p95_ms": 4.924582,
+      "repeated": 50,
+      "response_bytes": 3296
+    },
+    {
+      "backend": "days",
+      "first_ms": 5.774867,
+      "max_ms": 6.538631,
+      "median_ms": 6.0636730000000005,
+      "op": "recall_day",
+      "p95_ms": 6.525016,
+      "repeated": 50,
+      "response_bytes": 20065
+    },
+    {
+      "backend": "days",
+      "first_ms": 1.5875819999999998,
+      "max_ms": 1.9712929999999997,
+      "median_ms": 1.486545,
+      "op": "kept",
+      "p95_ms": 1.694707,
+      "repeated": 50,
+      "response_bytes": 2976
+    },
+    {
+      "backend": "days",
+      "first_ms": 10.828324,
+      "max_ms": 14.303086,
+      "median_ms": 11.324397999999999,
+      "op": "search",
+      "p95_ms": 12.923701,
+      "repeated": 50,
+      "response_bytes": 24671
+    },
+    {
+      "backend": "days",
+      "first_ms": 75.34323699999999,
+      "max_ms": 2.034567,
+      "median_ms": 1.5895329999999999,
+      "op": "session_snapshot",
+      "p95_ms": 1.765441,
+      "repeated": 50,
+      "response_bytes": 1565
+    },
+    {
+      "backend": "days",
+      "first_ms": 11.061923,
+      "max_ms": 14.489272,
+      "median_ms": 11.518006000000002,
+      "op": "recall_while_model_pending",
+      "p95_ms": 13.011550999999999,
+      "repeated": 50,
+      "response_bytes": 20065
+    },
+    {
+      "backend": "days",
+      "database_bytes": 6004736,
+      "ms": 80.085512,
+      "op": "reopen_after_import",
+      "runs": 1
+    }
+  ],
+  "release_binary_bytes": {
+    "lamp-memory": 3267704,
+    "lamp-memory-eval": 2839096
+  },
+  "limits": [
+    "Filesystem cache was not evicted",
+    "First snapshot call includes durable creation; repeat calls read the same snapshot",
+    "No model inference; pending job only",
+    "No lamp or Linux ARM64 measurement",
+    "No physical power interruption"
+  ]
+}

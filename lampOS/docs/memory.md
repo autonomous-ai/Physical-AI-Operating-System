@@ -8,13 +8,25 @@ asked to keep ("remember that I take my coffee black"). It is decision 12 of
 tell people apart everything is under the person id `everyone`, and no request
 gives one person's memory in answer to another's.
 
+**What exists and what we take.** Keep the raw journal as evidence, use
+SQLite FTS5 for ranked keyword retrieval, and let a separate model propose
+small observations with explicit source links. The studies behind that
+choice are recorded below. The implementation and public retrieval
+comparison are in [memory-days.md](memory-days.md) and
+[memory-evaluation.md](memory-evaluation.md).
+
+**Two modes.** The JSONL mode described first below remains the default.
+`--memory-days` enables the new store and request extensions. It has host
+tests and measurements, but has not run on a lamp. No voice caller or
+deployment is changed by this task, and no real model is configured.
+
 ## The process
 
 Its own process, so that the lamp talks on, without recalling earlier days,
 when this one has stopped, hung or crashed. Others ask over a Unix stream
 socket and never read its files.
 
-    lamp-memory --dir ABSOLUTE_DIR --socket ABSOLUTE_SOCKET_PATH [--keep-days N] [--utc-offset-minutes M]
+    lamp-memory --dir ABSOLUTE_DIR --socket ABSOLUTE_SOCKET_PATH [--keep-days N] [--utc-offset-minutes M] [--memory-days]
 
 `--dir` is made with mode 0700 if missing, `--socket` with mode 0600, and a
 socket file nobody answers on is replaced. A relative path, an unknown option
@@ -27,13 +39,18 @@ One connection is served at a time. A client has two seconds to send a whole
 request line and two to take its answer, or it is dropped; a silent open
 connection makes the next client wait, so close when you have your answer.
 Each request is logged in one line (op, person, outcome, counts), never with a
-word of what was said or kept. The process cannot catch a signal (the standard
-library has no way and the crate takes in nothing else): SIGTERM ends it where
-it stands. A line is on the disk before its request is answered, so nothing
-remembered is lost, but the socket and `ready` stay until the next start
+word of what was said or kept. The process registers no signal handler:
+SIGTERM ends it where it stands. A successful write is synced before its
+request is answered, but the socket and `ready` stay until the next start
 clears them or systemd removes the runtime directory.
 
 ## On the disk
+
+This layout is the default. Enabling `--memory-days` imports it into one
+private SQLite database, then removes the imported files before serving.
+The conversion is one way: later starts on that directory require the flag.
+Read the [migration and durability contract](memory-days.md#storage-and-migration)
+before using an existing store.
 
     <dir>/<person>/journal-YYYY-MM-DD.jsonl   {"id":1,"at_unix_ms":1791892800000,"heard":"...","said":"..."}
     <dir>/<person>/kept.jsonl                 {"id":2,"at_unix_ms":1791892800000,"text":"..."}
@@ -84,6 +101,30 @@ result, or `"ok":false`, an `"error"` (`bad_json`, `bad_request`, `unknown_op`,
 - `status`: `people`, each `{person, exchanges, kept, bytes, oldest_day,
   newest_day, skipped_lines}`, everyone's unless one is named.
 
+### Additional requests with `--memory-days`
+
+The old request and response shapes remain accepted. `recall` now selects
+by FTS5 rank and still returns the selected raw entries in chronological
+order; it does not return observations. New operations are:
+
+```json
+{"op":"search","person":"everyone","query":"cà phê","limit":8,"max_bytes":4096,"history":false}
+{"op":"append_linked","at_unix_ms":1791892800000,"heard":"My coffee?","said":"Black.","source_ids":[2]}
+{"op":"forget","id":2}
+{"op":"session_open","session":"voice_1","max_bytes":1200}
+{"op":"session_close","session":"voice_1"}
+{"op":"conversation_end","conversation":"turn_1","source_ids":[1],"previous_ids":[]}
+{"op":"tidy_apply","job":"j1","observations":[{"text":"Prefers black coffee","category":"preference","source_ids":[1],"supersedes":null}]}
+```
+
+These are shapes, not an ordered script: IDs must come from successful
+responses in the same person's store. `search` returns ranked records with
+their provenance; `forget` returns a count after removal and index checks.
+`session_open` returns a frozen `snapshot`; `conversation_end` returns
+bounded model `input`, without invoking a model; `tidy_apply` returns the
+new observation `ids`. See [the full wire contract](memory-days.md#request-contract)
+for fields, errors, retries, invalidation and caller responsibilities.
+
 ## Limits, and what happens at each
 
 - A request line over 64 KiB: `too_long`; the next line is read as usual.
@@ -91,6 +132,8 @@ result, or `"ok":false`, an `"error"` (`bad_json`, `bad_request`, `unknown_op`,
   Whitespace and control characters become single spaces first; an entry with
   nothing left is refused (`empty`).
 - 200 kept things for a person: the oldest is dropped as the next arrives.
+  With `--memory-days`, the next write is refused as `full` instead;
+  explicit memories are never silently evicted.
 - `--keep-days N` (default 30): a journal day is deleted once it is more than
   N days before today by the lamp's clock, at start and at the first request
   of a new local day. Kept things have no age. A clock set far ahead empties
@@ -140,7 +183,8 @@ Without it the voice knows nothing of this process.
   lamp says ("it is off my list"). A later conversation in which the thing
   came up is still in the journal until it is 30 days old. Forgetting that
   reaches everything derived from a thing needs each entry to say what it
-  came from, which is in the table below and is not built.
+  came from. The opt-in store now supports those links and transitive
+  deletion; the voice does not yet send them or use the new snapshots.
 
 ### Played on the lamp
 
@@ -201,16 +245,16 @@ record and not what the crate does.**
 
 | What the best of them do, and the evidence | What the lamp's memory does about it | In the crate |
 |---|---|---|
-| Keep the raw record and search it; treat extracted facts as an index over it, never a replacement (the best-supported finding: replacing sessions with summaries lowered accuracy in LongMemEval) | The journal is the truth. Anything derived points back to the lines it came from and can be rebuilt | The journal, yes. Nothing derived yet |
+| Keep the raw record and search it; treat extracted facts as an index over it, never a replacement (the best-supported finding: replacing sessions with summaries lowered accuracy in LongMemEval) | The journal is the truth. Anything derived points back to the lines it came from and can be rebuilt | Opt-in raw records plus validated observation source links; scripted tests |
 | A fast path for "remember this" | The kept list, written at once | Yes |
-| A small part always in the prompt, under a hard cap, as it stood when the session opened | The note for a new session: today the newest kept things in 1,200 bytes. To become a curated block: open promises, recent threads, lasting preferences | The simple form |
-| Tidy up in the background, never during a reply (Codex, ChatGPT, Letta, OpenClaw) | A pass after a conversation has ended, with a model off the voice path: dated observations, each with its source lines | No |
-| Stamp time on everything; a newer fact supersedes an older one by a link, and both are kept (overwriting and model-decided deletion were wrong often enough that mem0 gave them up) | Supersession as a link. Nothing derived is destroyed by the pass that made it | Times only |
-| Keyword search first; meaning-based search only where it is measured to help | SQLite's FTS5 with ranking in place of whole-word match. Embeddings only if they beat it on the lamp's own questions, Vietnamese included, inside the time allowed | Whole-word match |
-| Forgetting that is real: it reaches every summary and index (regulators acted against a product that kept transcripts of "deleted" recordings) | "Forget that" removes the thing and, through the source links, all that was derived from it; checked by a search before the lamp says so | The kept thing only (above) |
-| Age out what goes unused (Copilot 28 days, Codex 30) | Derived facts lapse when unused; the journal goes at 30 days; what a person asked to be kept has no age | Journal age only |
-| Scope by person, and never tell one person what another said (rated the most damaging failure for a shared room) | Until someone asks to be recognised, everything is "said in this room": used when its subject comes up, never attributed, never volunteered | In the note's wording only |
-| Treat what is heard as untrusted, and check a fact before leaning on it (the recorded errors of a deployed voice agent's memory came from mishearing) | The lamp says back what it kept, so that a mishearing is corrected at once. Names, times and promises are confirmed before they are relied on | The saying back, as an instruction to the model |
+| A small part always in the prompt, under a hard cap, as it stood when the session opened | Open promises, recent threads, lasting preferences | Opt-in frozen snapshot, at most 1,200 UTF-8 bytes including its JSON framing; voice integration pending |
+| Tidy up in the background, never during a reply (Codex, ChatGPT, Letta, OpenClaw) | A pass after a conversation has ended, with a model off the voice path: dated observations, each with its source lines | Bounded prepare/apply protocol and cancellable model interface with scripted tests; real adapter absent |
+| Stamp time on everything; a newer fact supersedes an older one by a link, and both are kept (overwriting and model-decided deletion were wrong often enough that mem0 gave them up) | Supersession as a link. Nothing derived is destroyed by the pass that made it | Opt-in source-dated observations; correction links preserve history; stale results refused |
+| Keyword search first; meaning-based search only where it is measured to help | SQLite FTS5 ranking; no embeddings without evidence | Opt-in Unicode-normalized English/Vietnamese retrieval; LongMemEval user-session recall-all@5: 69.69% whole-word, 81.86% FTS5, 419 questions on the development Mac |
+| Forgetting that is real: it reaches every summary and index (regulators acted against a product that kept transcripts of "deleted" recordings) | Remove the thing and linked derivatives, and verify the index before acknowledging | Opt-in transaction covers records, source/replacement links, FTS, pending jobs and stored notes; callers must drop already supplied model context |
+| Age out what goes unused (Copilot 28 days, Codex 30) | Derived facts lapse when unused; the journal goes at 30 days; what a person asked to be kept has no age | Opt-in observations lapse after 30 unused days or when their evidence expires; explicit kept facts do not age |
+| Scope by person, and never tell one person what another said (rated the most damaging failure for a shared room) | Until someone asks to be recognised, everything is "said in this room": used when its subject comes up, never attributed, never volunteered | All records, jobs, links and snapshots scoped by person; default is everyone; identity remains caller-supplied |
+| Treat what is heard as untrusted, and check a fact before leaning on it (the recorded errors of a deployed voice agent's memory came from mishearing) | The lamp says back what it kept; names, times and promises need confirmation | Structured untrusted snapshot and strict output/provenance validation; no semantic truth check or new voice confirmation flow |
 | Reminders are not memories: their own store, and a clock outside the model | Not part of this crate: a part of its own | No |
 | A page where people see what is kept and can delete it | With the operator pages | No |
 
@@ -228,14 +272,19 @@ model) beside three baselines on the same harness: the whole
 conversation in the prompt, today's whole-word match, and ranked keyword
 search. And a set of the lamp's own: scripted conversations over several
 days played to it, with questions whose right answer is "I don't
-remember" or "that was someone else". None of this has been run.
+remember" or "that was someone else". The public retrieval comparison and
+scripted multi-day store tests now run on the development Mac; see
+[memory-evaluation.md](memory-evaluation.md). Full context is a retrieval
+ceiling only, not a measured answer score. No daily provider traffic or
+new lamp performance has been measured.
 
 ## What it deliberately does not do
 
 No audio, no pictures. Nothing is sent anywhere from here, though a line
 leaves the lamp, to the voice provider, whenever the voice uses one in an
-answer. No summaries and no model: text is matched word for word, without
-stemming or Unicode normalisation. It does not know who speaks: the person is
+answer. The default has whole-word matching; the opt-in mode normalizes
+Unicode and ranks with FTS5, with no embeddings or semantic answer model.
+Its observation pass has only a scripted adapter here. It does not know who speaks: the person is
 whoever the caller says. Files are not encrypted; forgotten text is unlinked,
 not scrubbed from the flash. The offset from UTC is fixed: no summer time.
 
@@ -253,3 +302,9 @@ a file short. Moving the socket to its path after binding it has run on macOS an
 that emulated Linux run. Times, on that Mac through the socket with thirty days of 200 exchanges
 (`tests/timing.rs`): `append` 19 ms, `recall` by words 15 ms, by day or newest
 under 1 ms, `forget_last` 50 ms. None is known for the lamp.
+
+The opt-in implementation's host results and current limitations are in
+[memory-evaluation.md](memory-evaluation.md) and
+[memory-days.md](memory-days.md#not-shown). The historical lamp and emulation
+runs above do not validate SQLite, its native ARM64 build, the new protocol,
+a real extraction model, or any changed voice behavior.

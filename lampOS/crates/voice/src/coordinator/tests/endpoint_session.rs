@@ -30,7 +30,7 @@ const QUIET: f32 = 0.05;
 /// slot before it starts its endpoint worker, whose timing it asserts.
 static ONE_SESSION: Mutex<()> = Mutex::new(());
 
-fn one_session() -> std::sync::MutexGuard<'static, ()> {
+pub(super) fn one_session() -> std::sync::MutexGuard<'static, ()> {
     ONE_SESSION
         .lock()
         .unwrap_or_else(|poisoned| poisoned.into_inner())
@@ -430,6 +430,7 @@ fn run_policy(
     let mut rig = Rig {
         microphone: crate::options::Microphone::Mic2,
         end_silence_blocks: None,
+        early_end_blocks: None,
         faint_level: None,
         provider,
         capture,
@@ -796,6 +797,7 @@ fn mute_with_endpoint(endpoint: EndpointRig) -> (Result<()>, SessionState) {
     let mut rig = Rig {
         microphone: crate::options::Microphone::Mic2,
         end_silence_blocks: None,
+        early_end_blocks: None,
         faint_level: None,
         speaker,
         capture,

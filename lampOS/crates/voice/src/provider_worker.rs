@@ -1850,8 +1850,27 @@ impl InputHandoff {
             self.retired_through = self.retired_through.max(self.highest_seen);
             self.abandoned_through = self.abandoned_through.max(self.highest_seen);
         }
+        if let Some(request) = self.given_up_before_sure(state) {
+            crate::thread::unsay(request);
+        }
         self.authority = Some(state);
         Ok(())
+    }
+
+    /// A request whose end was handed on here while the lamp's authority
+    /// still said it was listening was ended early (the coordinator's
+    /// `--early-end-ms`): the lamp was not yet sure the person had
+    /// finished, and it plays nothing until it is. Given up before that,
+    /// its answer was never played and its words were never the lamp's.
+    /// Without that option this cannot happen: a request's end is sent only
+    /// after the authority that stops listening for it.
+    fn given_up_before_sure(&self, state: Snapshot) -> Option<u64> {
+        let previous = self.authority?;
+        let was = previous.owner()?;
+        (previous.input_active()
+            && state.owner() != Some(was)
+            && self.ended.is_some_and(|(request, _)| request == was.turn()))
+        .then_some(was.turn())
     }
 
     fn synchronize(&mut self, input: &impl InputSink) -> Result<()> {
@@ -3485,6 +3504,68 @@ mod tests {
         assert_eq!(
             *sink.calls.borrow(),
             vec![Call::Retire(old), Call::Start(new)]
+        );
+    }
+
+    /// The end sent early (`--early-end-ms`): a request ended here while
+    /// the lamp still listened is told apart from every request ended as
+    /// before, and only it, when it is given up, has its words unsaid.
+    #[test]
+    fn only_a_request_given_up_before_the_lamp_was_sure_is_unsaid() {
+        let mut owner = controller();
+        let mut handoff = InputHandoff::default();
+        let sink = RecordingSink::default();
+        // As always: the authority stops listening, then the end comes, and
+        // the request is later replaced by a new one.
+        let first = authorize(&mut owner, &mut handoff);
+        handoff.submit(start(first, &handoff), NOW, &sink).unwrap();
+        let held = owner.snapshot(time()).unwrap().owner().unwrap();
+        owner.input_ended(time(), held).unwrap();
+        handoff
+            .observe_authority(owner.snapshot(time()).unwrap())
+            .unwrap();
+        handoff.submit(end(first, &handoff), NOW, &sink).unwrap();
+        owner.cancel_turn(time(), held).unwrap();
+        let next = owner.admit(time(), AdmittedInput::Interruption).unwrap();
+        assert_eq!(
+            handoff.given_up_before_sure(owner.snapshot(time()).unwrap()),
+            None
+        );
+        handoff
+            .observe_authority(owner.snapshot(time()).unwrap())
+            .unwrap();
+        // Ended early: the end comes while the authority still listens.
+        handoff
+            .submit(start(next.turn(), &handoff), NOW, &sink)
+            .unwrap();
+        handoff
+            .submit(end(next.turn(), &handoff), NOW, &sink)
+            .unwrap();
+        // Confirmed: the authority stops listening. Nothing is unsaid.
+        owner.input_ended(time(), next).unwrap();
+        assert_eq!(
+            handoff.given_up_before_sure(owner.snapshot(time()).unwrap()),
+            None
+        );
+        // Given up before that, and continued: unsaid. (The handoff has
+        // seen only the authority that still listened.)
+        owner.cancel_turn(time(), next).unwrap();
+        let third = owner.admit(time(), AdmittedInput::Interruption).unwrap();
+        assert_eq!(
+            handoff.given_up_before_sure(owner.snapshot(time()).unwrap()),
+            Some(next.turn())
+        );
+        // And given up with nobody after it.
+        owner.cancel_turn(time(), third).unwrap();
+        assert_eq!(
+            handoff.given_up_before_sure(owner.snapshot(time()).unwrap()),
+            Some(next.turn())
+        );
+        // A request that never got as far as its end is not this.
+        handoff.ended = None;
+        assert_eq!(
+            handoff.given_up_before_sure(owner.snapshot(time()).unwrap()),
+            None
         );
     }
 

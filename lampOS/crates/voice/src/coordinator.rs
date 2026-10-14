@@ -62,11 +62,13 @@ mod camera;
 pub mod motor;
 use motor::{OptionalMotor, PreparedMotor};
 mod cloud;
+mod early_end;
 mod endpoint;
 mod hand;
 mod notices;
 mod service;
 use camera::{OptionalCamera, PreparedCamera, service_camera};
+use early_end::{EarlyEnd, Heard as HeardAfterEnd};
 use endpoint::EndpointRig;
 mod optional_ring;
 mod ring_trace;
@@ -302,6 +304,8 @@ struct Rig {
     noise_suppression: NoiseSuppression,
     turn_taking: TurnTaking,
     end_silence_blocks: Option<u16>,
+    /// The end sent early, after this many blocks of quiet (`--early-end-ms`).
+    early_end_blocks: Option<u16>,
     faint_level: Option<u8>,
     playout_start: PlayoutStart,
     /// Which microphone the capture worker reads.
@@ -858,6 +862,38 @@ pub fn run_serve(config: &Path, output: &Path, options: SessionOptions) -> Resul
     result
 }
 
+/// The first record of a run: what it was asked to do.
+fn run_start_record(
+    options: &DirectedOptions,
+    lifetime: Lifetime,
+    camera_requested: bool,
+    motor_requested: bool,
+    fixture: Option<&FixtureInfo>,
+    cue_requested: bool,
+) -> Value {
+    let mut run_start = json!({"kind":"run_start","at_us":monotonic_us(),"scope":if options.ring_channel_ceiling.is_some(){"directed_voice_with_ring"}else{"directed_voice_only"},"seconds":lifetime.seconds(),"mode":if lifetime.continuous(){"serve"}else{"finite"},"acoustic_score":null,"audio_diagnostics_requested":options.diagnostics,
+        "ring_channel_ceiling_requested":options.ring_channel_ceiling,
+        "camera_context_requested":camera_requested,
+        "motor_worker_requested":motor_requested,
+        "microphone":options.microphone,
+        "capture_device_requested":options.microphone.device(),
+        "software_processing_requested":options.noise_suppression.software_processing(),
+        "playout_start_horizon_us":options.playout_start.as_micros(),
+        "playout_continuity":options.playout_start.policy().map(|policy| json!({"margin_us":policy.margin_us,"hold_us":policy.hold_us,"cover_us":policy.cover_us})),
+        "turn_taking":options.turn_taking,"turn_taking_tail_us":if matches!(options.turn_taking, TurnTaking::V1Baseline | TurnTaking::Duplex) { Some(crate::turn_taking::TAIL_US) } else { None },
+        "reference_clock":options.reference_clock,
+        "reference_recovery":options.reference_recovery,
+        "echo_reference":options.echo_reference,
+        "provider_continuation":options.provider_continuation,
+        "provider_kind":if fixture.is_some(){"one_cached_reply"}else{"gemini"},
+        "fixture":fixture,"cue_requested":cue_requested});
+    // Without the option the record keeps exactly its existing fields.
+    if let Some(blocks) = options.early_end_blocks {
+        run_start["early_end_ms"] = json!(u64::from(blocks) * 10);
+    }
+    run_start
+}
+
 #[allow(clippy::too_many_arguments)]
 fn run_source(
     source: ProviderSource<'_>,
@@ -892,22 +928,14 @@ fn run_source(
     };
     record(
         &mut trace,
-        json!({"kind":"run_start","at_us":monotonic_us(),"scope":if options.ring_channel_ceiling.is_some(){"directed_voice_with_ring"}else{"directed_voice_only"},"seconds":lifetime.seconds(),"mode":if lifetime.continuous(){"serve"}else{"finite"},"acoustic_score":null,"audio_diagnostics_requested":options.diagnostics,
-        "ring_channel_ceiling_requested":options.ring_channel_ceiling,
-        "camera_context_requested":camera_config.is_some(),
-        "motor_worker_requested":motor_options.is_some(),
-        "microphone":options.microphone,
-        "capture_device_requested":options.microphone.device(),
-        "software_processing_requested":options.noise_suppression.software_processing(),
-        "playout_start_horizon_us":options.playout_start.as_micros(),
-        "playout_continuity":options.playout_start.policy().map(|policy| json!({"margin_us":policy.margin_us,"hold_us":policy.hold_us,"cover_us":policy.cover_us})),
-        "turn_taking":options.turn_taking,"turn_taking_tail_us":if matches!(options.turn_taking, TurnTaking::V1Baseline | TurnTaking::Duplex) { Some(crate::turn_taking::TAIL_US) } else { None },
-        "reference_clock":options.reference_clock,
-        "reference_recovery":options.reference_recovery,
-        "echo_reference":options.echo_reference,
-        "provider_continuation":options.provider_continuation,
-        "provider_kind":if fixture.is_some(){"one_cached_reply"}else{"gemini"},
-        "fixture":fixture,"cue_requested":cues.is_some()}),
+        run_start_record(
+            &options,
+            lifetime,
+            camera_config.is_some(),
+            motor_options.is_some(),
+            fixture.as_ref(),
+            cues.is_some(),
+        ),
     )?;
     // Bounded local reads happen once before any capture/speaker worker.
     let notices = FailureNotices::load(notice_options);
@@ -1732,6 +1760,38 @@ fn record_hand_pats(trace: &mut SessionState, count: u64) -> Result<()> {
     Ok(())
 }
 
+/// The provider worker's arguments. Every one comes from the options the
+/// worker acts on or from the environment; the coordinator's own settings,
+/// such as when it sends the end (`--early-end-ms`), are not among them.
+fn provider_arguments(
+    source: ProviderSource<'_>,
+    options: &DirectedOptions,
+    lifetime: Lifetime,
+    camera: Option<&PreparedCamera>,
+) -> io::Result<Vec<String>> {
+    // A service that runs all day never gives its provider link up.
+    let keep_link = lifetime.continuous() && matches!(source, ProviderSource::Gemini(_));
+    let mut arguments = source.arguments()?;
+    // Before the camera context, which the worker reads as the rest.
+    arguments.extend(options.provider_continuation.arguments());
+    arguments.extend(crate::sight::arguments_from_environment());
+    arguments.extend(crate::thread::arguments_from_environment());
+    arguments.extend(crate::session_fact::arguments_from_environment());
+    arguments.extend(crate::room_told::arguments_from_environment());
+    if keep_link {
+        arguments.push(crate::provider_worker::KEEP_LINK_FLAG.to_owned());
+    }
+    arguments.extend(crate::tools::arguments_from_environment());
+    arguments.extend(crate::attention::arguments_from_environment());
+    arguments.extend(crate::attention::name_arguments_from_environment());
+    arguments.extend(crate::called::arguments_from_environment());
+    arguments.extend(crate::bus_out::worker_arguments_from_environment());
+    if let Some(camera) = camera {
+        arguments.extend(camera.source.arguments());
+    }
+    Ok(arguments)
+}
+
 #[allow(clippy::too_many_arguments)]
 fn spawn_rig(
     source: ProviderSource<'_>,
@@ -1752,26 +1812,7 @@ fn spawn_rig(
     // Model loading overlaps the remaining startup; nothing waits for it.
     let endpoint = EndpointRig::start(&options, &executable);
     let provider_boot = new_boot()?;
-    // A service that runs all day never gives its provider link up.
-    let keep_link = lifetime.continuous() && matches!(source, ProviderSource::Gemini(_));
-    let mut arguments = source.arguments()?;
-    // Before the camera context, which the worker reads as the rest.
-    arguments.extend(options.provider_continuation.arguments());
-    arguments.extend(crate::sight::arguments_from_environment());
-    arguments.extend(crate::thread::arguments_from_environment());
-    arguments.extend(crate::session_fact::arguments_from_environment());
-    arguments.extend(crate::room_told::arguments_from_environment());
-    if keep_link {
-        arguments.push(crate::provider_worker::KEEP_LINK_FLAG.to_owned());
-    }
-    arguments.extend(crate::tools::arguments_from_environment());
-    arguments.extend(crate::attention::arguments_from_environment());
-    arguments.extend(crate::attention::name_arguments_from_environment());
-    arguments.extend(crate::called::arguments_from_environment());
-    arguments.extend(crate::bus_out::worker_arguments_from_environment());
-    if let Some(camera) = &camera {
-        arguments.extend(camera.source.arguments());
-    }
+    let arguments = provider_arguments(source, &options, lifetime, camera.as_ref())?;
     let arguments: Vec<&str> = arguments.iter().map(String::as_str).collect();
     let mut provider = Worker::spawn_with_boot_and_tick(
         &executable,
@@ -1962,6 +2003,7 @@ fn spawn_rig(
         noise_suppression: options.noise_suppression,
         turn_taking: options.turn_taking,
         end_silence_blocks: options.end_silence_blocks,
+        early_end_blocks: options.early_end_blocks,
         faint_level: options.faint_level,
         playout_start: options.playout_start,
         microphone: options.microphone,
@@ -2399,6 +2441,22 @@ fn conversation_with_controls(
         },
     )?;
     record(trace, endpoint_policy)?;
+    // The end sent early, if that is switched on: the request is ended to
+    // the provider after a short quiet, and its answer held until the
+    // detector's own end of speech confirms it (`early_end`).
+    let mut early = rig.early_end_blocks.map(EarlyEnd::new);
+    if let Some(early) = early.as_ref() {
+        record(
+            trace,
+            json!({"kind":"early_end_policy","at_us":monotonic_us(),
+                "early_end_ms":u64::from(early.blocks()) * 10,
+                "confirmed_by":"the endpoint policy: its silence wait, or the end-of-turn verdict",
+                "speaking_again_after_blocks":crate::activity::START_BLOCKS,
+                "speaking_again_score":crate::activity::START_PROBABILITY,
+                "opening_kept_blocks":crate::activity::PRE_ROLL_BLOCKS,
+                "given_up_as":"user_interrupted, continued by the next request"}),
+        )?;
+    }
     let mut endpoint_watch = endpoint::Watch::default();
     // Duplex is the conservative mask with ears. A candidate that began over
     // the lamp is held until the lamp's own sound has gone, so its decision
@@ -2773,7 +2831,17 @@ fn conversation_with_controls(
                     text,
                     finished,
                 } => {
-                    if let Some(bus) = bus_out.as_mut() {
+                    // Words for an answer whose end was sent early are not
+                    // the lamp's until it is sure the person has finished:
+                    // held, and said then, or dropped with the request.
+                    let held = match (early.as_mut(), request) {
+                        (Some(early), Some(turn)) => {
+                            early.keep_current(reply.as_ref().map(|current| current.owner.turn()));
+                            early.hold_words(turn, &text, finished)
+                        }
+                        _ => false,
+                    };
+                    if !held && let Some(bus) = bus_out.as_mut() {
                         bus.speech(request, &text, finished, monotonic_us());
                     }
                     // The model keeping quiet aloud: an answer that opens
@@ -2794,9 +2862,16 @@ fn conversation_with_controls(
                             && (named || (!worded && !text.trim().is_empty()))
                             && reply.as_ref().is_some_and(|current| {
                                 current.owner.turn() == turn
-                                    && current.local_input_ended
+                                    && (current.local_input_ended || held)
                                     && current.playback.is_none()
                             })
+                            // Not yet sure the person has finished: noted,
+                            // and it ends unheard at that moment unless they
+                            // go on first.
+                            && !(held
+                                && early
+                                    .as_mut()
+                                    .is_some_and(|early| early.nothing_said(turn, named)))
                         {
                             if named {
                                 record(
@@ -2847,7 +2922,9 @@ fn conversation_with_controls(
                     }
                     // The lamp's own words, as its answer begins: a nod
                     // with a yes, a shake with a no, when it has a body.
-                    if let (Some(turn), Some(body)) = (request, body_link.as_mut())
+                    // Held words are not its own yet.
+                    if !held
+                        && let (Some(turn), Some(body)) = (request, body_link.as_mut())
                         && let Some(gesture) = gesture_cue.heard(turn, &text, finished)
                     {
                         body.gesture(gesture);
@@ -3196,6 +3273,11 @@ fn conversation_with_controls(
                     .try_into()
                     .map_err(|_| io::Error::other("invalid capture block"))?,
             };
+            // What was kept for an end sent early goes with its request,
+            // whatever ended that request.
+            if let Some(early) = early.as_mut() {
+                early.keep_current(reply.as_ref().map(|current| current.owner.turn()));
+            }
             let observed_at_us = monotonic_us();
             let (update, input_ended) = observe_prospective_input(
                 &mut playback_mask,
@@ -3211,6 +3293,11 @@ fn conversation_with_controls(
             let discarded_endpoint = submission_draining && input_ended;
             if discarded_endpoint {
                 submission_draining = false;
+                // The utterance whose rest was discarded has ended; nothing
+                // kept for an end sent early in it is wanted any more.
+                if let Some(early) = early.as_mut() {
+                    early.forget();
+                }
                 if let Some(current) = reply.as_mut()
                     && current.cloud.input_abandoned
                     && !current.local_input_ended
@@ -3379,7 +3466,24 @@ fn conversation_with_controls(
                     turn_blocks.extend(loose_blocks.drain(..).map(|(_, level)| level));
                 }
                 AdmissionStep::Audio(audio) => {
-                    if let Some(current) = reply.as_mut() {
+                    let Some(current) = reply.as_mut() else {
+                        return Err(io::Error::other("speech continuation lost its owner").into());
+                    };
+                    let turn = current.owner.turn();
+                    let mut resumed = None;
+                    if early.as_ref().is_some_and(|early| early.holds(turn)) {
+                        // The end was sent early: nothing more goes to the
+                        // provider for this request. Someone speaking again
+                        // gives it up, and what they go on to say is its
+                        // successor.
+                        if let Some(early) = early.as_mut()
+                            && let HeardAfterEnd::Resumed { given_up, opening } =
+                                early.hear(audio, heard)
+                        {
+                            resumed = Some((given_up, opening));
+                        }
+                    } else {
+                        let captured_at_us = audio.captured_at_us;
                         queue_input(
                             &mut provider_queue,
                             current,
@@ -3387,8 +3491,128 @@ fn conversation_with_controls(
                             audio,
                             provider_queue_bound,
                         )?;
-                    } else {
-                        return Err(io::Error::other("speech continuation lost its owner").into());
+                        // The end sent early, after a short quiet. Not for
+                        // what would be thrown out as a sound if the quiet
+                        // went on: that is judged when the lamp is sure, as
+                        // it always was, so that a lone "Lamp," is never
+                        // thrown out for a pause before its question.
+                        if let Some(early) = early.as_mut()
+                            && early.due(turn, detector.pause_blocks())
+                            && !crate::not_speech::was_a_sound(
+                                speech_levels.len(),
+                                took_over_turn == Some(turn),
+                                last_spoke_us.map(|at| monotonic_us().saturating_sub(at)),
+                            )
+                        {
+                            let sent_at = monotonic_us();
+                            queue_input_end(
+                                &mut provider_queue,
+                                current,
+                                snapshot.microphone_generation(),
+                                provider_queue_bound,
+                            )?;
+                            early.send(turn, sent_at, captured_at_us);
+                            // The request's sound has ended, for the floor,
+                            // the second look and the room. The lamp's own
+                            // authority still says it is listening.
+                            speech_ended = Some((turn, sent_at));
+                            second_look.speech_ended(turn, sent_at);
+                            if speech_levels.len() >= crate::not_speech::SCRAP_BLOCKS {
+                                said_turn = Some(turn);
+                            }
+                            asked_in_busy_room = room.busy().then_some(turn);
+                            record(
+                                trace,
+                                json!({"kind":"early_end","owner":current.owner,"turn":turn,"at_us":sent_at,
+                                    "last_block_host_read_us":captured_at_us,
+                                    "pause_ms":u64::from(early.blocks()) * 10,
+                                    "speech_blocks":speech_levels.len(),
+                                    "boundary":"request ended to the provider queue; not yet the lamp's end of speech, which still decides playback"}),
+                            )?;
+                        }
+                    }
+                    if let Some((given_up, opening)) = resumed {
+                        // Whether the provider can take the successor now,
+                        // checked as for any new input.
+                        provider_control_empty = service_provider_control(
+                            &mut rig.provider.channels.control,
+                            &mut cloud,
+                            &mut provider_control_budget,
+                            trace,
+                        )?;
+                        apply_submission_gate(
+                            &cloud,
+                            reply,
+                            &mut provider_queue,
+                            &mut admission,
+                            &mut submission_draining,
+                            trace,
+                        )?;
+                        let took_over = reply.as_ref().is_some_and(|current| {
+                            crate::not_speech::takes_over(
+                                current.had_audio || current.playback.is_some(),
+                                said_turn == Some(current.owner.turn()),
+                            )
+                        });
+                        let resumed_at = monotonic_us();
+                        let opening_blocks = opening.len();
+                        match cloud
+                            .ready_session()
+                            .filter(|_| provider_control_empty && !submission_draining)
+                        {
+                            Some(provider_session) => {
+                                snapshot = continue_after_early_end(
+                                    owner,
+                                    reply,
+                                    &mut speaker_pending,
+                                    &mut provider_queue,
+                                    opening,
+                                    provider_session,
+                                    rig.playout_start,
+                                    trace,
+                                    |state| rig.publish(state),
+                                )?;
+                                if took_over {
+                                    took_over_turn =
+                                        reply.as_ref().map(|current| current.owner.turn());
+                                }
+                                if let Some(current) = reply.as_ref() {
+                                    second_look.request_began(current.owner.turn(), monotonic_us());
+                                }
+                            }
+                            None => {
+                                // No provider to take it: given up all the
+                                // same, and the rest of the utterance is
+                                // drained, as for any input it cannot take.
+                                let displaced = reply.as_ref().map(|current| current.owner);
+                                cancel_reply(owner, reply, trace, "user_interrupted")?;
+                                admission.discard_stream_until_end(monotonic_us())?;
+                                submission_draining = true;
+                                provider_queue.clear();
+                                speaker_pending = None;
+                                record(
+                                    trace,
+                                    json!({"kind":"input_not_submitted","at_us":monotonic_us(),
+                                    "candidate":null,"admission_basis":"continued_after_early_end",
+                                    "interrupted_owner":displaced,"reason":"provider_unavailable_or_pending_control",
+                                    "provider_request":null,"provider_session":null,
+                                    "outcome":RequestOutcome::Failed { stage:crate::provider_worker::FailedStage::NotDelivered,
+                                        reason:crate::provider_worker::Fault::Local, local_not_submitted:true },
+                                    "prefix_first_host_read_us":null}),
+                                )?;
+                                snapshot = owner.snapshot(now())?;
+                                rig.publish(snapshot)?;
+                            }
+                        }
+                        last_publish = monotonic_us();
+                        record(
+                            trace,
+                            json!({"kind":"early_end_given_up","turn":given_up.turn,"at_us":resumed_at,
+                                "early_end_at_us":given_up.at_us,"after_early_end_ms":given_up.ago_us(resumed_at) / 1_000,
+                                "successor":reply.as_ref().map(|current| current.owner.turn()),
+                                "opening_blocks":opening_blocks,
+                                "boundary":"someone spoke again before the lamp was sure: given up as a continued utterance"}),
+                        )?;
                     }
                 }
                 AdmissionStep::End(audio)
@@ -3403,15 +3627,22 @@ fn conversation_with_controls(
                     // A sound, not something said. It is not sent on as a
                     // finished question: the turn ends here, unanswered.
                     if let Some(current) = reply.as_ref() {
-                        record(
-                            trace,
-                            json!({"kind":"local_endpoint","owner":current.owner,"turn":current.owner.turn(),"at_us":at,
+                        let mut endpoint_record = json!({"kind":"local_endpoint","owner":current.owner,"turn":current.owner.turn(),"at_us":at,
                                 "last_block_host_read_us":audio.captured_at_us,
                                 "includes_silence_wait_ms":detector.last_endpoint().map_or(detector.endpoint_silence_ms(), |decision| decision.silence_ms),
                                 "acoustic_speech_end":null,
                                 "not_speech":{"speech_blocks":speech_levels.len(),"fewer_than":crate::not_speech::SCRAP_BLOCKS,
-                                    "last_blocks":last_blocks(&judged_blocks)}}),
-                        )?;
+                                    "last_blocks":last_blocks(&judged_blocks)}});
+                        // Its end went early, while it was not yet a sound
+                        // (the lamp's own words were still near); its
+                        // answer is never played.
+                        if let Some(sent) = early
+                            .as_mut()
+                            .and_then(|early| early.confirm(current.owner.turn()))
+                        {
+                            endpoint_record["early_end"] = early_end_json(&sent, at);
+                        }
+                        record(trace, endpoint_record)?;
                     }
                     speech_levels.clear();
                     cancel_reply(owner, reply, trace, "not_speech")?;
@@ -3426,30 +3657,41 @@ fn conversation_with_controls(
                         .as_mut()
                         .ok_or_else(|| io::Error::other("speech end lost its owner"))?;
                     let input_end_us = audio.captured_at_us;
+                    // The lamp is sure the person has finished. A request
+                    // whose end went early sends nothing more: what it
+                    // waited for was this moment, and from here its answer
+                    // may be played.
+                    let sent = early
+                        .as_mut()
+                        .and_then(|early| early.confirm(current.owner.turn()));
                     current.local_input_ended = true;
-                    speech_ended = Some((current.owner.turn(), monotonic_us()));
-                    second_look.speech_ended(current.owner.turn(), monotonic_us());
-                    if speech_levels.len() >= crate::not_speech::SCRAP_BLOCKS {
-                        said_turn = Some(current.owner.turn());
+                    if sent.is_none() {
+                        speech_ended = Some((current.owner.turn(), monotonic_us()));
+                        second_look.speech_ended(current.owner.turn(), monotonic_us());
+                        if speech_levels.len() >= crate::not_speech::SCRAP_BLOCKS {
+                            said_turn = Some(current.owner.turn());
+                        }
+                        asked_in_busy_room = room.busy().then(|| current.owner.turn());
+                        queue_input(
+                            &mut provider_queue,
+                            current,
+                            snapshot.microphone_generation(),
+                            audio,
+                            provider_queue_bound,
+                        )?;
                     }
-                    asked_in_busy_room = room.busy().then(|| current.owner.turn());
-                    queue_input(
-                        &mut provider_queue,
-                        current,
-                        snapshot.microphone_generation(),
-                        audio,
-                        provider_queue_bound,
-                    )?;
                     owner.input_ended(now(), current.owner)?;
                     snapshot = owner.snapshot(now())?;
                     rig.publish(snapshot)?;
                     last_publish = monotonic_us();
-                    queue_input_end(
-                        &mut provider_queue,
-                        current,
-                        snapshot.microphone_generation(),
-                        provider_queue_bound,
-                    )?;
+                    if sent.is_none() {
+                        queue_input_end(
+                            &mut provider_queue,
+                            current,
+                            snapshot.microphone_generation(),
+                            provider_queue_bound,
+                        )?;
+                    }
                     let mut endpoint_record = json!({"kind":"local_endpoint","owner":current.owner,"turn":current.owner.turn(),"at_us":at,"last_block_host_read_us":input_end_us,
                         "includes_silence_wait_ms":detector.last_endpoint().map_or(detector.endpoint_silence_ms(), |decision| decision.silence_ms),
                         "acoustic_speech_end":null});
@@ -3457,6 +3699,10 @@ fn conversation_with_controls(
                     if detector.confirmation_policy().is_some() {
                         endpoint_record["endpoint"] = json!(detector.last_endpoint());
                     }
+                    if let Some(sent) = sent.as_ref() {
+                        endpoint_record["early_end"] = early_end_json(sent, at);
+                    }
+                    let confirmed = sent.map(|sent| (current.owner.turn(), sent));
                     // How loud this utterance was at the microphone after
                     // cancellation, on the face's scale (0 is -48 dBFS or
                     // under, 255 is -14 or over): the middle and the upper
@@ -3481,6 +3727,53 @@ fn conversation_with_controls(
                         speech_levels.clear();
                     }
                     record(trace, endpoint_record)?;
+                    if let Some((turn, mut sent)) = confirmed {
+                        // The words held for its answer are the lamp's now.
+                        for (text, finished) in sent.take_words() {
+                            if let Some(bus) = bus_out.as_mut() {
+                                bus.speech(Some(turn), &text, finished, monotonic_us());
+                            }
+                            if let Some(body) = body_link.as_mut()
+                                && let Some(gesture) = gesture_cue.heard(turn, &text, finished)
+                            {
+                                body.gesture(gesture);
+                                record(
+                                    trace,
+                                    json!({"kind":"body_gesture_asked","turn":turn,"gesture":gesture,"at_us":monotonic_us()}),
+                                )?;
+                            }
+                        }
+                        // An answer that opened with nothing said ends
+                        // unheard now, as it would have when it came.
+                        if let Some(named) = sent.nothing_said()
+                            && reply.as_ref().is_some_and(|current| {
+                                current.owner.turn() == turn && current.playback.is_none()
+                            })
+                        {
+                            if named {
+                                record(
+                                    trace,
+                                    json!({"kind":"function_named","turn":turn,"at_us":monotonic_us()}),
+                                )?;
+                            }
+                            let heard_on = reply.as_ref().map(|current| current.cloud.session);
+                            cancel_reply(owner, reply, trace, "nothing_said")?;
+                            if let Some(score) = second_look.finished(turn, true, monotonic_us()) {
+                                if let Some(session) = heard_on {
+                                    second_look.heard_on(session);
+                                }
+                                record(
+                                    trace,
+                                    json!({"kind":"second_look_due","turn":turn,"at_us":monotonic_us(),"name_score":score,"after":"nothing_said"}),
+                                )?;
+                            }
+                            speaker_pending = None;
+                            provider_queue.clear();
+                            snapshot = owner.snapshot(now())?;
+                            rig.publish(snapshot)?;
+                            last_publish = monotonic_us();
+                        }
+                    }
                 }
             }
         }
@@ -4383,6 +4676,88 @@ fn commit_admitted_input(
     Ok(snapshot)
 }
 
+/// Someone spoke again after the end was sent early and before the lamp was
+/// sure they had finished. The request is given up exactly as a continued
+/// utterance is in `commit_admitted_input`: cancelled as `user_interrupted`
+/// and its successor admitted at once, with no authority published between
+/// the two, which the provider worker reads as a continuation (with
+/// `--provider-continuation kept-start` its start then waits for the given-up
+/// request's answer to begin, and stops it). Nothing of that answer was
+/// played: the lamp's authority never stopped listening. The blocks heard
+/// since the end are the successor's opening, and the utterance goes on in
+/// the detector, so its further blocks come as the admitted stream's.
+#[allow(clippy::too_many_arguments)]
+fn continue_after_early_end(
+    owner: &mut Controller,
+    reply: &mut Option<Reply>,
+    speaker_pending: &mut Option<PendingSpeaker>,
+    provider_queue: &mut VecDeque<ProviderInput>,
+    opening: Vec<ObservedAudio>,
+    provider_session: u64,
+    playout_start: PlayoutStart,
+    trace: &mut SessionState,
+    mut publish: impl FnMut(Snapshot) -> io::Result<()>,
+) -> Result<Snapshot> {
+    cancel_reply(owner, reply, trace, "user_interrupted")?;
+    *speaker_pending = None;
+    provider_queue.clear();
+    let turn = owner.admit(now(), AdmittedInput::Interruption)?;
+    let plan = owner.plan_output(now(), turn, OutputKind::Speech, None)?;
+    let snapshot = owner.snapshot(now())?;
+    publish(snapshot)?;
+    let admitted_at_us = monotonic_us();
+    trace
+        .receipts
+        .admitted(turn, snapshot.issued_at().as_micros())?;
+    record(
+        trace,
+        json!({"kind":"input_admitted","owner":turn,"turn":turn.turn(),"at_us":admitted_at_us,"authority_issued_at_us":snapshot.issued_at().as_micros(),"prefix_first_host_read_us":opening.first().map(|p|p.captured_at_us),"candidate":null,"admission_basis":"continued_after_early_end","provider_session":provider_session}),
+    )?;
+    provider_queue.push_back(ProviderInput::Start {
+        session: provider_session,
+        request: turn.turn(),
+        privacy_generation: snapshot.microphone_generation(),
+    });
+    let mut current = Reply {
+        owner: turn,
+        cloud: CloudRequest::new(provider_session)?,
+        local_input_ended: false,
+        plan,
+        playback: None,
+        pcm: VecDeque::new(),
+        generation_done: false,
+        provider_idle: false,
+        input_sequence: 0,
+        had_audio: false,
+        voice_level: 0,
+        final_chunk: None,
+        playback_gaps: 0,
+        notice: NoticeDelivery::default(),
+        last_provider_audio_at_us: None,
+        start: playout_start.gate(),
+        need: StartNeed::default(),
+    };
+    // At most a pre-roll, as a new candidate's opening is.
+    let bound = PROVIDER_QUEUE_BOUND.max(opening.len() + 2);
+    for audio in opening {
+        queue_input(
+            provider_queue,
+            &mut current,
+            snapshot.microphone_generation(),
+            audio,
+            bound,
+        )?;
+    }
+    *reply = Some(current);
+    Ok(snapshot)
+}
+
+/// What a record says of an end sent early, by the time `at_us`.
+fn early_end_json(sent: &early_end::Sent, at_us: u64) -> Value {
+    json!({"at_us":sent.at_us,"last_block_host_read_us":sent.last_block_host_read_us,
+        "before_this_ms":sent.ago_us(at_us) / 1_000})
+}
+
 /// Presentation failure disables only the optional ring. Cleanup is observed
 /// in bounded slices; no wait, restart or hardware write runs on this path.
 fn service_optional_ring(
@@ -4904,6 +5279,7 @@ fn handle_playback_gap(
 #[cfg(test)]
 mod tests {
     mod duplex;
+    mod early_end;
     mod endpoint_session;
     mod failure_notice;
     mod hand_controls;
@@ -5023,6 +5399,7 @@ mod tests {
         let (ring, _ring_peer) = Worker::sleeping_fixture(&directory.path, "ring");
         let mut rig = Rig {
             end_silence_blocks: None,
+            early_end_blocks: None,
             faint_level: None,
             microphone: crate::options::Microphone::Mic2,
             speaker,

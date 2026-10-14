@@ -1153,6 +1153,7 @@ fn run_in(script: Script, trace: &mut SessionState) -> Run {
     let mut rig = Rig {
         microphone: crate::options::Microphone::Mic2,
         end_silence_blocks: None,
+        early_end_blocks: None,
         faint_level: None,
         speaker: spawn("speaker"),
         capture: spawn("capture"),

@@ -20,6 +20,8 @@ pub const MIN_END_SILENCE_BLOCKS: u16 = 30;
 pub const MAX_END_SILENCE_BLOCKS: u16 = 200;
 /// Scores below this are a low-activity block for every endpoint policy.
 pub(crate) const SILENCE_PROBABILITY: f32 = 0.35;
+/// [`START_BLOCKS`] blocks in a row scoring this or more begin an utterance.
+pub(crate) const START_PROBABILITY: f32 = 0.80;
 
 pub struct SpeechProbability {
     vad: VoiceActivityDetectorWrapper,
@@ -157,6 +159,13 @@ impl TurnDetector {
         self.decision.as_ref()
     }
 
+    /// The pause the utterance in hand is in, in blocks, including the last
+    /// block pushed: low-score blocks in a row, counted exactly as the
+    /// silence window counts them. Zero with no utterance in hand.
+    pub fn pause_blocks(&self) -> u16 {
+        if self.active { self.silence_count } else { 0 }
+    }
+
     pub fn push(&mut self, frame: ObservedAudio, probability: f32) -> Activity {
         if let Err(reason) = self.validate(&frame, probability) {
             return Activity::Fault(reason);
@@ -196,7 +205,7 @@ impl TurnDetector {
             self.prefix.pop_front();
         }
         self.prefix.push_back(frame);
-        self.start_count = if probability >= 0.80 {
+        self.start_count = if probability >= START_PROBABILITY {
             self.start_count + 1
         } else {
             0

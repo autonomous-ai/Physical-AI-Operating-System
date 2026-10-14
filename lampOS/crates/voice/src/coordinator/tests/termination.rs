@@ -253,6 +253,7 @@ fn isolated_signal_child() {
     let mut rig = Rig {
         microphone: crate::options::Microphone::Mic2,
         end_silence_blocks: None,
+        early_end_blocks: None,
         faint_level: None,
         camera: None,
         motor: None,
@@ -463,6 +464,7 @@ fn service_signal_child(
     let mut rig = Rig {
         microphone: crate::options::Microphone::Mic2,
         end_silence_blocks: None,
+        early_end_blocks: None,
         faint_level: None,
         camera: None,
         motor: None,

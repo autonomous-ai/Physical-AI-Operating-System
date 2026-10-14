@@ -1,6 +1,6 @@
-# Two builders: the running list
+# Three builders: the running list
 
-Since 2026-10-14 two sessions build lampOS at once, at the product
+Since 2026-10-14 three sessions build lampOS at once, at the product
 owner's request: "keep a running list of todos on github so that once
 it's done it reads that list for new tasks and continue working. you
 also read that list and see what's done and add more tasks. it will get
@@ -11,73 +11,82 @@ settled with the owner the same morning: each builder has a branch only
 it writes to, so that the branch the lamp is installed from holds nothing
 that has not been on the lamp.
 
-| Branch | Who writes to it | What it holds |
-|---|---|---|
-| `lamp-voice` | The first builder | What is on the lamp or about to be, and this list: every task, its brief, and what the lamp showed |
-| `lamp-second` | The second builder | Everything it has built and tested, one task on top of the next, and `lampOS/docs/work-log.md`: what it has taken, what it hands back, its questions |
-| `second/<task>` | The second builder | One task while it is being built |
+| Builder | Where | Its branch | A task while it is built | Its log |
+|---|---|---|---|---|
+| First | At the office, with lamp-4ace | `lamp-voice` | | this file |
+| Second | Another machine, no lamp | `lamp-second` | `second/<task>` | `lampOS/docs/work-log.md` on `lamp-second` |
+| Third | Another machine, no lamp | `lamp-third` | `third/<task>` | `lampOS/docs/work-log-third.md` on `lamp-third` |
 
-- **The first builder** is at the office with lamp-4ace. It is the only
-  one who can build for the lamp, install on it and measure there. It
-  writes the tasks here, takes finished work from `lamp-second` into
-  `lamp-voice` when it can run it on the lamp, mends there whatever does
-  not work on the lamp, and writes here what the lamp showed.
-- **The second builder** is on another machine with no lamp. It takes
-  tasks from the list below, top first, and for each: builds, tests, puts
-  it on `lamp-second`, records it in its log, and takes the next. It never
-  pushes to `lamp-voice`. (Its first push, taking tasks 1 and 2, went
-  there under the first form of these rules, and stands.)
+- **The first builder** is the only one who can build for the lamp,
+  install on it and measure there. It writes the tasks here, takes
+  finished work from `lamp-second` and `lamp-third` into `lamp-voice` when
+  it can run it on the lamp, mends there whatever does not work on the
+  lamp, and writes here what the lamp showed.
+- **The second and the third builder** each take the tasks in the list
+  below that carry their name, top first, and for each: build, test, put
+  it on their own branch, record it in their own log, and take the next.
+  Neither ever pushes to `lamp-voice`, or to the other's branch. (The
+  second builder's first push, taking tasks 1 and 2, went to `lamp-voice`
+  under the first form of these rules, and stands.)
 
-## The loop, for the second builder
+The second builder has the tasks about sound and speed. The third has
+the tasks that are parts of their own. That is so that their work does
+not meet: the third builder is the one who adds crates to the workspace
+and message types to `crates/msgs`; the second adds neither.
+
+## The loop, for the second and the third builder
+
+"Your branch" and "your log" are the ones in the table above.
 
 1. `git fetch origin`. Read this file as it is on `origin/lamp-voice`,
-   and your own log on `lamp-second`.
-2. Bring `lamp-second` up to date: rebase it on the newest
+   and your own log on your branch.
+2. Bring your branch up to date: rebase it on the newest
    `origin/lamp-voice` (the first time, create it there). Work the first
    builder has already taken drops out of it by itself. Push it with
-   `--force-with-lease`: it is the one branch where that is allowed,
-   because nobody else writes to it.
-3. Take the first task in the list that your log does not show as taken
-   or done. Write it into `lampOS/docs/work-log.md` as taken, with the
-   date, and push.
-4. Work on a branch `second/<task>` from `lamp-second`. Read what the task
-   points to before writing anything.
+   `--force-with-lease`: your own branch is the one place where that is
+   allowed, because nobody else writes to it.
+3. Take the first task in the list that carries your name and that your
+   log does not show as taken or done. Write it into your log as taken,
+   with the date, and push.
+4. Work on a task branch (`second/<task>` or `third/<task>`, the task's
+   short name from the list) from your branch. Read what the task points
+   to before writing anything.
 5. Test. The gate, run in `lampOS/`: `cargo fmt --all --check`;
    `cargo clippy -p <crate> --all-targets -- -D warnings` and
    `cargo test -p <crate>` for every crate touched and every crate that
    depends on one touched; `cargo build --workspace`. If the workspace did
    not build on that machine before the change, say so in the log and use
    the other three.
-6. Put it on `lamp-second` as a fast-forward, and in the same push write
-   the task's entry in the log: what was built, what was tested and on
+6. Put it on your branch as a fast-forward, and in the same push write
+   the task's entry in your log: what was built, what was tested and on
    which machine, what was not shown, and what the first builder has to
    do on the lamp.
 7. Take the next. With nothing left to take, look again every half hour.
 
-What never goes onto `lamp-second`: a failing test (the review task
-stays on its own branch); a change to a crate listed as hands off, unless
-its task says so; anything that changes what the lamp does without a
-switch that is off unless set; anything under `deploy/`.
+What never goes onto your branch: a failing test (the review task stays
+on its own branch); a change to a crate listed as hands off, unless its
+task says so; anything that changes what the lamp does without a switch
+that is off unless set; anything under `deploy/`.
 
-What the first builder does with it: reads the log, takes a finished task
-from `lamp-second` into `lamp-voice`, builds it for the lamp and runs it
-there. **What does not work on the lamp, the first builder mends itself,
-there and then.** Nothing is sent back to be reworked: the owner's
-instruction is that the second builder "build the best it can and if
-there are issues you fix it yourself so we can reduce communications cost
-back and forth". The mend is one line under "What the lamp showed", and
-`lamp-second` picks it up at its next rebase. Only a piece that is wrong
-at its root comes back, and then as a new task in the list.
+What the first builder does with it: reads the logs, takes a finished
+task into `lamp-voice`, builds it for the lamp and runs it there. **What
+does not work on the lamp, the first builder mends itself, there and
+then.** Nothing is sent back to be reworked: the owner's instruction is
+that a builder without the lamp "build the best it can and if there are
+issues you fix it yourself so we can reduce communications cost back and
+forth". The mend is one line under "What the lamp showed", and your
+branch picks it up at its next rebase. Only a piece that is wrong at its
+root comes back, and then as a new task in the list.
 
-So, for the second builder: **build each piece as if nobody will come
-back to you about it.** Finish it. Write every test that can be written
-without a lamp. Leave the part that needs the lamp as small as it can be,
-one command if possible. In the log, say exactly what to run on the lamp,
-what it should show, and where you think it is most likely to be wrong
-there: that last line is worth more than any other, because it is where
-the first builder will look first.
+So: **build each piece as if nobody will come back to you about it.**
+Finish it. Write every test that can be written without a lamp. Leave the
+part that needs the lamp as small as it can be, one command if possible.
+In your log, say exactly what to run on the lamp, what it should show,
+and where you think it is most likely to be wrong there: that last line
+is worth more than any other, because it is where the first builder will
+look first.
 
-## Rules for both
+## Rules for all
 
 - **The repository's own rules apply** (`CLAUDE.md` at the root): a commit
   message is one imperative line beginning `lampOS: `, with nothing after
@@ -113,9 +122,9 @@ the first builder will look first.
   `deploy/`. The first builder changes these by the hour, on the lamp.
 - **No spending, no accounts, no keys.** A task that needs one says so
   in the log and the next task is taken.
-- **Questions** go in the second builder's log, pushed, and work goes on
-  with whatever does not depend on the answer. The first builder answers
-  them here, under "Answers".
+- **Questions** go in your own log, pushed, and work goes on with
+  whatever does not depend on the answer. The first builder answers them
+  here, under "Answers".
 
 The workspace is `lampOS/` (`cargo test -p <crate>` from there). The
 lamp is an Orange Pi 4 Pro (Linux ARM64, eight cores: two at 2.0 GHz, six
@@ -125,24 +134,24 @@ you in the office", whose voice "must be perfect".
 
 ## The list
 
-Top first. The last column is the first builder's: `open`; `taken` and
-`on lamp-second` as the second builder's log reports them; then `on the
-lamp <date>`.
+Top first, each builder taking its own. The last column is the first
+builder's: `open`; `taken` and `on its builder's branch` as that
+builder's log reports them; then `on the lamp <date>`.
 
-| # | Task | Branch | State |
-|---|---|---|---|
-| 1 | The end-of-turn model in a tenth of a second | `second/turn-end-fast` | taken 2026-10-14 |
-| 2 | Try to break last night's changes to the voice | `second/voice-review` | taken 2026-10-14 |
-| 3 | A listener for "stop" under the lamp's own voice | `second/stop-word` | open |
-| 4 | Expression: one part that authors what the lamp shows | `second/expression` | open |
-| 5 | The name, heard as a bare "Lamp" | `second/bare-name` | open |
-| 6 | Reminders and timers | `second/schedule` | open |
-| 7 | The button and the touch pad | `second/controls` | open |
-| 8 | A shared log, settings, and reports from the parts that give none | `second/defaults` | open |
-| 9 | Faster answers: what exists | `second/faster-answers` | open |
-| 10 | A reference that follows the microphone's clock | `second/reference-clock` | open |
-| 11 | One task out to an agent and back, through Harness | `second/tasks` | open |
-| 12 | Starting, setting up and updating a lamp | `second/surround` | open |
+| # | Task | Short name | Builder | State |
+|---|---|---|---|---|
+| 1 | The end-of-turn model in a tenth of a second | `turn-end-fast` | Second | taken 2026-10-14 |
+| 2 | Try to break last night's changes to the voice | `voice-review` | Second | taken 2026-10-14 |
+| 3 | A listener for "stop" under the lamp's own voice | `stop-word` | Second | open |
+| 4 | Expression: one part that authors what the lamp shows | `expression` | Third | open |
+| 5 | The name, heard as a bare "Lamp" | `bare-name` | Second | open |
+| 6 | Reminders and timers | `schedule` | Third | open |
+| 7 | The button and the touch pad | `controls` | Third | open |
+| 8 | A shared log, settings, and reports from the parts that give none | `defaults` | Third | open |
+| 9 | Faster answers: what exists | `faster-answers` | Second | open |
+| 10 | A reference that follows the microphone's clock | `reference-clock` | Second | open |
+| 11 | One task out to an agent and back, through Harness | `tasks` | Third | open |
+| 12 | Starting, setting up and updating a lamp | `surround` | Third | open |
 
 ## 1. The end-of-turn model in a tenth of a second
 
@@ -510,8 +519,7 @@ who is not a builder. Then build what can be built without a lamp.
 
 ## What the lamp showed
 
-Newest first. The second builder's own notes are in
-`lampOS/docs/work-log.md` on `lamp-second`.
+Newest first. Each builder's own notes are in its log, on its branch.
 
 ## Answers
 

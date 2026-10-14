@@ -12,8 +12,10 @@ voice in its microphone, docs/duplex-listening.md). "Clean" is the word
 alone at -20 dBFS. A catch is a hearing (hearing.py) that begins between
 the target's start and 1 s after its end. The other voice is a LibriSpeech
 test reader (real) or a held-out Piper voice (generated), and the same
-stretch of it is used at every level. "Suppressed" is -10 dB with the
-suppressor of mix.py at strength 1 and floor 0.1.
+stretch of it is used at every level. Each level is measured twice:
+plainly mixed, and then through the suppressor of mix.py at strength 1
+and floor 0.1 (it is told the other voice exactly: a canceller that
+knows its echo, which a real one does not). Those are "-10 s" and so on.
 
 False alarms. Hearings an hour in long streams with no target in them:
 LibriSpeech test readers (each utterance at -14 dBFS), held-out Piper
@@ -45,7 +47,8 @@ from mix import FULL, RATE, active_level, gain_for, mixture, place, suppress
 from store import CACHE, Store
 
 THREADS = int(os.environ.get("OMP_NUM_THREADS", "6"))
-LEVELS = ["clean", 0, -5, -10, -15, "suppressed"]
+# "alone", then each relative level plainly mixed, then each through the suppressor.
+LEVELS = ["alone", "0", "-5", "-10", "-15", "0 s", "-5 s", "-10 s", "-15 s"]
 OTHER_DB = -14.0
 CLEAN_DB = -20.0
 LEASTS = [0.5, 0.7, 0.8, 0.9, 0.95, 0.98, 0.99, 0.995]
@@ -129,17 +132,16 @@ def catches(front, model, every: int) -> list[dict]:
                 o = int(rng.integers(0, len(other) - length))
                 other = other[o : o + length]
                 for level in LEVELS:
-                    if level == "clean":
+                    if level == "alone":
                         if other_name != "reader":
                             continue
                         sound = mixture(person, None)
-                    elif level == "suppressed":
-                        p = person * gain_for(CLEAN_DB, OTHER_DB - 10)
-                        sound = suppress(p, other, strength=1.0, floor=0.1)
-                        sound = mixture(sound, None)
                     else:
-                        p = person * gain_for(CLEAN_DB, OTHER_DB + level)
-                        sound = mixture(p, other)
+                        p = person * gain_for(CLEAN_DB, OTHER_DB + float(level.split()[0]))
+                        if level.endswith(" s"):
+                            sound = mixture(suppress(p, other, strength=1.0, floor=0.1), None)
+                        else:
+                            sound = mixture(p, other)
                     scores = stream_scores(front, model, sound)
                     found = {}
                     for least in LEASTS:

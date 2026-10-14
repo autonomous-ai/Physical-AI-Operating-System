@@ -1,0 +1,229 @@
+"""Step 4 of make.sh: the training inputs, as `lamp-name` would give them to the model.
+
+    python make_data.py words|talk|check|check-talk --part I/K
+
+Each example is a stretch of sound of 2.59 s, long enough for nine model
+inputs 80 ms apart. Input j sees the sound up to (1280 j + 31712) / 16000 s
+(features.py). Its label:
+
+- 1 when a target ended 0.02 to 0.74 s before the end of what it sees;
+- left out of training when a target is still being said at its end, or
+  ended 0.74 to 1.2 s before (the word is in view, but old);
+- 0 otherwise.
+
+"words": each target clip put under another voice (or alone), and each
+near miss, short reply or other word likewise, labelled 0.
+"talk": long stretches of the other voice alone, and of two voices, all 0.
+"check", "check-talk": the same for validation: Speech Commands' validation
+speakers under LibriSpeech readers held out of training, and an hour of
+those readers alone.
+
+LibriSpeech dev readers whose number ends in 3 are held out for validation.
+"""
+
+from __future__ import annotations
+
+import argparse
+import os
+from pathlib import Path
+
+import numpy as np
+
+from features import STEP, WINDOW, FrontEnd, stacks
+from mix import RATE, active_level, gain_for, mixture, place
+from store import CACHE, Store
+
+INPUTS = 9
+LENGTH = WINDOW + STEP * (INPUTS - 1)
+SEEN_UNTIL = (STEP * np.arange(INPUTS) + 31_712) / RATE
+OUT = CACHE / "inputs"
+
+
+def labels(targets: list[tuple[float, float]]) -> np.ndarray:
+    """Label of each input for targets (start, end) in seconds into the example: 1, 0, or -1 (left out)."""
+    out = np.zeros(INPUTS, np.int8)
+    for j, seen in enumerate(SEEN_UNTIL):
+        for start, end in targets:
+            since = seen - end
+            if 0.02 <= since <= 0.74:
+                out[j] = 1
+                break
+            if (since < 0.02 and seen > start) or 0.74 < since <= 1.2:
+                out[j] = -1
+    return out
+
+
+def held_out_reader(meta: dict) -> bool:
+    return meta.get("speaker", "").startswith("libri-") and meta["speaker"].endswith("3")
+
+
+class Voices:
+    """Stretches of another voice, taken from a set of clips one after another."""
+
+    def __init__(self, store: Store, keep):
+        self.store = store
+        self.index = [i for i, m in enumerate(store.meta) if keep(m)]
+
+    def stretch(self, rng: np.random.Generator, length: int) -> np.ndarray:
+        parts, have = [], 0
+        while have < length + RATE:
+            clip = self.store.audio(self.index[rng.integers(len(self.index))])
+            gap = np.zeros(int(rng.uniform(0.05, 0.4) * RATE), np.float32)
+            parts += [clip, gap]
+            have += len(clip) + len(gap)
+        whole = np.concatenate(parts)
+        at = rng.integers(0, len(whole) - length)
+        return whole[at : at + length]
+
+
+def scaled(x: np.ndarray, level_now: float, level_wanted: float) -> np.ndarray:
+    return x * gain_for(level_now, level_wanted)
+
+
+def example_with(clip, targets, others, noise, rng, positive: bool):
+    """One example: the clip under another voice (or alone), its sound and its labels."""
+    if positive:
+        start, end = targets[rng.integers(len(targets))]
+        anchor = SEEN_UNTIL[0] - rng.uniform(0.02, 0.10)
+        at = int(round((anchor - end) * RATE))
+    else:
+        # Anywhere, as long as some of it is heard.
+        at = int(rng.integers(-len(clip) // 2, LENGTH - len(clip) // 2))
+    person = place(clip, at, LENGTH)
+    if targets:
+        s, e = targets[0]
+        word_level = active_level(clip[int(s * RATE) : int(e * RATE)])
+    else:
+        word_level = active_level(clip)
+    other = None
+    noise_part = None
+    if rng.random() < 0.12:
+        person = scaled(person, word_level, rng.uniform(-35, -10))
+    else:
+        voices = others[0] if rng.random() < 0.6 else others[1]
+        other = voices.stretch(rng, LENGTH)
+        other_level = rng.uniform(-30, -10)
+        other = scaled(other, active_level(other), other_level)
+        relative = rng.uniform(-20, 6) if positive else rng.uniform(-20, 10)
+        person = scaled(person, word_level, other_level + relative)
+        if rng.random() < 0.1:
+            n = noise.stretch(rng, LENGTH)
+            noise_part = scaled(n, active_level(n), other_level - rng.uniform(5, 25))
+    sound = mixture(person, other, rng, noise_part)
+    shifted = [(s + at / RATE, e + at / RATE) for s, e in targets]
+    return sound, (labels(shifted) if positive else np.zeros(INPUTS, np.int8))
+
+
+def words(part: int, parts: int, check: bool) -> None:
+    front = FrontEnd(CACHE / "oww", threads=int(os.environ.get("OMP_NUM_THREADS", "2")))
+    keep_train = lambda m: not held_out_reader(m)  # noqa: E731
+    keep_check = held_out_reader
+    libri = Store("libri-talk-train")
+    piper_talk = Store("piper-talk-train")
+    keep = keep_check if check else keep_train
+    others = (Voices(libri, keep), Voices(piper_talk, lambda m: True))
+    noise = Voices(Store("sc-noise"), lambda m: True)
+    if check:
+        positives = [("sc-stop-val", 1)]
+        negatives = [("libri-talk-train", 1500)]
+    else:
+        positives = [
+            ("sc-stop-train", 2), ("mswc-stop-train", 2), ("mswc-wait-train", 2),
+            ("libri-asking-train", 3), ("piper-asking-train", 1),
+        ]
+        negatives = [
+            ("piper-near-train", 4500 * 2), ("mswc-near-train", 6000), ("sc-other-train", 8000),
+            ("piper-listening-train", 1200), ("libri-talk-train", 4000),
+        ]
+    jobs = []
+    for name, repeat in positives:
+        store = Store(name)
+        for i, m in enumerate(store.meta):
+            if (check or keep_train(m)) and m.get("targets"):
+                jobs += [(name, i, r, True) for r in range(repeat)]
+    for name, count in negatives:
+        store = Store(name)
+        index = [i for i, m in enumerate(store.meta) if keep(m) and not (name == "mswc-near-train" and m["text"] == "hold")]
+        jobs += [(name, int(index[k % len(index)]), k // len(index), False) for k in range(count if not check else min(count, len(index)))]
+    stores = {}
+    xs, ys, srcs = [], [], []
+    batch, batch_y, batch_src = [], [], []
+    names = sorted({j[0] for j in jobs})
+
+    def flush():
+        if not batch:
+            return
+        for sound, y, src in zip(batch, batch_y, batch_src):
+            emb = front.of(sound)
+            x = stacks(emb)
+            assert len(x) == INPUTS, (len(x), len(sound))
+            keep_rows = y >= 0
+            xs.append(x[keep_rows].astype(np.float16))
+            ys.append(y[keep_rows])
+            srcs.append(np.full(int(keep_rows.sum()), src, np.int16))
+        batch.clear(), batch_y.clear(), batch_src.clear()
+
+    for n, (name, i, r, positive) in enumerate(jobs):
+        if n % parts != part:
+            continue
+        rng = np.random.default_rng([n, r, 7 if check else 1])
+        store = stores.setdefault(name, Store(name))
+        clip = store.audio(i)
+        targets = [(t[1], t[2]) for t in store.meta[i].get("targets", [])]
+        sound, y = example_with(clip, targets, others, noise, rng, positive)
+        batch.append(sound), batch_y.append(y), batch_src.append(names.index(name))
+        if len(batch) >= 64:
+            flush()
+        if n % 5000 < parts:
+            print(f"part {part}: {n}/{len(jobs)}", flush=True)
+    flush()
+    OUT.mkdir(parents=True, exist_ok=True)
+    tag = "check" if check else "words"
+    np.savez(OUT / f"{tag}-{part}.npz", x=np.concatenate(xs), y=np.concatenate(ys), source=np.concatenate(srcs), names=np.array(names))
+    print(f"{tag} part {part}: {sum(len(v) for v in ys)} inputs, {int(sum(v.sum() for v in ys))} positive")
+
+
+def talk(part: int, parts: int, check: bool) -> None:
+    """Long stretches of the other voice alone, or of two voices, every input labelled 0."""
+    front = FrontEnd(CACHE / "oww", threads=int(os.environ.get("OMP_NUM_THREADS", "2")))
+    libri = Voices(Store("libri-talk-train"), held_out_reader if check else (lambda m: not held_out_reader(m)))
+    piper_talk = Voices(Store("piper-talk-train"), lambda m: True)
+    minute = 60 * RATE
+    if check:
+        # One hour of the held-out readers.
+        plan = [("one", libri)] * 60
+    else:
+        # About 10 h of single voices and 2 h of two voices at once.
+        plan = [("one", libri)] * 450 + [("one", piper_talk)] * 150 + [("two", libri)] * 120
+    xs = []
+    for n, (how, voices) in enumerate(plan):
+        if n % parts != part:
+            continue
+        rng = np.random.default_rng([n, 4 if check else 3])
+        a = voices.stretch(rng, minute)
+        a = scaled(a, active_level(a), rng.uniform(-30, -10))
+        b = None
+        if how == "two":
+            other = piper_talk if rng.random() < 0.5 else libri
+            b = other.stretch(rng, minute)
+            b = scaled(b, active_level(b), active_level(a) + rng.uniform(-20, 0))
+        sound = mixture(a, b, rng) if b is not None else mixture(None, a, rng)
+        xs.append(stacks(front.of(sound)).astype(np.float16))
+        if n % 50 < parts:
+            print(f"talk part {part}: {n}/{len(plan)}", flush=True)
+    OUT.mkdir(parents=True, exist_ok=True)
+    x = np.concatenate(xs)
+    np.savez(OUT / f"{'check-talk' if check else 'talk'}-{part}.npz", x=x, y=np.zeros(len(x), np.int8), source=np.full(len(x), -1, np.int16), names=np.array([]))
+    print(f"talk part {part}: {len(x)} inputs")
+
+
+if __name__ == "__main__":
+    p = argparse.ArgumentParser()
+    p.add_argument("what", choices=["words", "talk", "check", "check-talk"])
+    p.add_argument("--part", default="0/1")
+    a = p.parse_args()
+    part, parts = (int(v) for v in a.part.split("/"))
+    if a.what in ("talk", "check-talk"):
+        talk(part, parts, a.what == "check-talk")
+    else:
+        words(part, parts, a.what == "check")

@@ -76,19 +76,35 @@ def main() -> None:
     os.environ["OMP_NUM_THREADS"] = str(args.threads)
     from piper import PiperVoice, SynthesisConfig
 
+    import onnxruntime
+
     voice = PiperVoice.load(str(VOICE))
+    # Piper's own session takes every core; this one keeps to its share.
+    options = onnxruntime.SessionOptions()
+    options.intra_op_num_threads = args.threads
+    options.inter_op_num_threads = 1
+    voice.session = onnxruntime.InferenceSession(str(VOICE), sess_options=options, providers=["CPUExecutionProvider"])
     if args.kind == "asking":
         from align import Aligner, target_ends
 
         aligner = Aligner(threads=args.threads)
     out = OUT / f"{args.kind}-{args.split}"
     out.mkdir(parents=True, exist_ok=True)
-    index = open(out / f"index-{part}.jsonl", "w")
+    # Lines already made by an earlier run of this part are kept and not made again.
+    index_path = out / f"index-{part}.jsonl"
+    done = set()
+    if index_path.exists():
+        for line in index_path.read_text().splitlines():
+            try:
+                done.add(json.loads(line)["path"])
+            except (ValueError, KeyError):
+                pass
+    index = open(index_path, "a")
     who = speakers(args.split)
     talk = talk_lines(args.split) if args.kind == "talk" else None
     made = 0
     for n in range(args.count):
-        if n % parts != part:
+        if n % parts != part or f"{n:06d}.wav" in done:
             continue
         rng = random.Random(f"{args.kind}-{args.split}-{n}")
         if talk is not None:
@@ -115,6 +131,7 @@ def main() -> None:
             row["targets"] = ends
         sf.write(out / row["path"], np.clip(audio * 32768, -32768, 32767).astype(np.int16), 16_000)
         index.write(json.dumps(row) + "\n")
+        index.flush()
         made += 1
     index.close()
     print(f"{args.kind} {args.split} part {part}/{parts}: {made} made")

@@ -463,6 +463,57 @@ Mac over the recordings. What is needed next is real voices through the
 lamp's microphone, which the same recording procedure gives, and the
 microphone's sound on the bus so that a part of its own can listen.
 
+## A working morning in the office (lamp-4ace, 2026-10-14, 07:45 to 10:59)
+
+The first hours with people at work around the lamp and nobody playing
+anything to it. Read from the lamp's own records afterwards
+(`morning.sh`): counts and the service's text, no sound. Nobody was asked
+to speak to it and, as far as the records show, nobody did.
+
+| | |
+|---|---|
+| Sounds that reached the voice as possible speech | 156 |
+| Thrown out as sounds, not sent to the service | 71 |
+| Taken as said and sent | 85, of which the service wrote no text for 72 |
+| The lamp's name heard in one | 1, at 0.963, in half a second of sound with no text; the model was told and said nothing |
+| Second looks taken | 0 |
+| Answered | 1 |
+| Times it stopped or paused for someone | 0 |
+
+**The one answer.** At 10:04:33 someone near the lamp said one short,
+loud word (0.31 s of speech) that the service wrote as "Oye.", and 2.3 s
+later the lamp said "Hey, I'm here." Nothing in the lamp's rule stood in
+the way, and by the rule as decided it was not meant to: the room was
+judged quiet at that moment, and in a quiet room the lamp answers what is
+said near it. Its name was not heard. The eyes saw no face. The session
+had been running since 09:43, so it was not one of a new session's first
+two requests. What it came down to was the model taking a short word like
+"hey" (in Vietnamese, the word people call each other with, and the
+lamp, with: "ơi") for a call.
+
+**What the watching policy made of the same morning**
+([policy.md](policy.md)). It judged the 13 of these that had text. For
+12 the decision model answered, in 0.6 to 2.5 s, and chose to look up
+six times and to stay quiet six times, never to answer. For the
+thirteenth, which was this one, the model did not answer within its 3 s
+and the policy's fallback rule said to answer (0.74). So the judge that
+would probably have kept the lamp quiet was late for the one case that
+mattered, and the rule that stood in for it agreed with the mistake.
+
+**What it says about the design.** One answer to someone else's word in
+three and a quarter hours is the best the lamp has done in an office,
+and it is still a lamp speaking to nobody. The signs that were there and
+unused: nobody was facing it, and it was one word. A person at the next
+desk who hears "hey" with nobody looking at them looks up; they do not
+answer. That is the policy's middle choice, and the body can already do
+it. It needs the eyes' evidence where the decision is made in time,
+which is what the local judge is for (task 17 of the running list), and
+a fallback rule that looks up, and does not speak, when the judge is
+late.
+
+Not shown: someone who did call the lamp that morning and was ignored.
+Nobody is known to have tried.
+
 ## Switch
 
 `LAMP_ATTENTION=on` in the voice unit (the worker's `--attention`). Off by

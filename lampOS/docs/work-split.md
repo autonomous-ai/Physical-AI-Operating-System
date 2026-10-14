@@ -177,8 +177,8 @@ has it:
 | 11 | One task out to an agent and back, through Harness | `tasks` | Third | open |
 | 13 | Memory across days | `memory-days` | Fourth | done 2026-10-14: on `lamp-voice`, built for the lamp and timed on it; on the lamp in its old mode, the new store not switched on |
 | 14 | Whom is it said to: what exists | `said-to-whom` | Fourth | done 2026-10-14: on `lamp-voice` ([said-to-whom.md](said-to-whom.md)); task 17 follows from it |
-| 15 | The lamp keeps its own records within a bound | `records-bound` | Fourth | taken 2026-10-14 |
-| 16 | A check that the lamp cannot lean too far | `lean-check` | Fourth | open |
+| 15 | The lamp keeps its own records within a bound | `records-bound` | Fourth | done 2026-10-14: on `lamp-voice`; its dry run works on the lamp's real records; removal not switched on |
+| 16 | A check that the lamp cannot lean too far | `lean-check` | Fourth | taken 2026-10-14 |
 | 17 | A second judge for the Policy: the lamp's own signs | `local-judge` | Fourth | open |
 
 ## 1. The end-of-turn model in a tenth of a second
@@ -773,6 +773,33 @@ on the lamp: how the rest behaviour looks, which only the camera shows.
 ## What the lamp showed
 
 Newest first. Each builder's own notes are in its log, on its branch.
+
+**2026-10-14, task 15, the bound on the lamp's records.** Taken onto
+`lamp-voice` (`c998cd75e`; the workspace's list of crates merged by hand
+with the controls'). On the first builder's Mac its 96 tests pass, one
+at a time (one failed once in a parallel run and passed alone), and
+clippy is clean. Built for the lamp.
+
+| Where the library's 88 tests ran | Passed | Why the rest did not |
+|---|---|---|
+| Under emulation | 66 | 22 stop at "Function not implemented": the emulator lacks a system call the store uses. Says nothing of a lamp |
+| On lamp-4ace itself (kernel 5.15.147), as an ordinary user | 85 | Two stop at "Operation not permitted" in the report's atomic write: it opens every folder from `/` down without touching access times, which only the folder's owner or root may ask for. The job runs as root, so this is the tests assuming root, not a fault on the lamp. One (`interrupted_unlinks_report_actual_progress…`) failed in one of two runs |
+
+The first command the log asks for, on the lamp's real records, as root,
+with the configuration as shipped (switched off):
+`lamp-records check /etc/lampOS/records.json` printed `mode:"dry_run"`,
+`enabled:false`, 1.15 GB before against the 500 MB bound, 480 of the 614
+session folders planned for removal, 667 MB of them, nothing removed, and
+as the one active session the running voice's own invocation, which
+matches what systemd says it is. The folders were counted before and
+after: 614 and 614.
+
+On the lamp: the program at `/opt/lampOS/records/lamp-records` and the
+switched-off configuration at `/etc/lampOS/records.json`. No timer and no
+unit are installed, and removal is not switched on: those 480 folders are
+three days of this lamp's measurements, the disk has 7.5 GB free, and
+this lamp's bound should be larger than a customer's before anything is
+removed from it.
 
 **2026-10-14, task 10, the steady reference.** Taken onto `lamp-voice`
 (`64ebb8b33`). The replay the log says to run first does not take the

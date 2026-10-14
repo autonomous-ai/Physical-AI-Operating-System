@@ -82,6 +82,15 @@ fn authored_snapshots_show_where_local_only_choices_differ_from_the_busy_floor()
             false,
         ),
         (
+            "busy_sure_name_no_pose",
+            "what time is it",
+            Room::Busy,
+            Some(false),
+            None,
+            Some(0.999),
+            true,
+        ),
+        (
             "quiet_name_heard",
             "what time is it",
             Room::Quiet,
@@ -97,6 +106,7 @@ fn authored_snapshots_show_where_local_only_choices_differ_from_the_busy_floor()
             room,
             own_turn: false,
             going_on: conversation.unwrap_or(false),
+            named_sure: baseline::sure_name(name_score),
             text: text.into(),
             facing,
         };
@@ -142,11 +152,16 @@ fn authored_snapshots_show_where_local_only_choices_differ_from_the_busy_floor()
     }
     println!(
         "LOCAL_COMPARISON {}",
-        json!({"schema":1,"weights":local.weights().name(),
+        json!({"schema":1,"weights":local.weights().name(),"baseline_source":baseline::SOURCE,
         "scope":"local-only final shadow choices with required no-call guard; synthetic records only; no Jev service",
         "records":records,"counts":counts})
     );
-    assert_eq!(counts.rows, 8);
-    assert_eq!(counts.same_snapshot.compared, 8);
+    assert_eq!(counts.rows, 9);
+    assert_eq!(counts.same_snapshot.compared, 9);
+    assert_eq!(counts.same_snapshot.permission_disagreements, 6);
+    assert_eq!(counts.same_snapshot.labels.baseline.false_answers, 2);
+    assert_eq!(counts.same_snapshot.labels.baseline.missed_calls, 0);
+    assert_eq!(counts.same_snapshot.labels.policy.false_answers, 0);
+    assert_eq!(counts.same_snapshot.labels.policy.missed_calls, 4);
     assert_eq!(counts.voice_first_output.compared, 0);
 }

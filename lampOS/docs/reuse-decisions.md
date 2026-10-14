@@ -799,6 +799,19 @@ The exact workloads, machine, timings and failures are in the
 [task 17 verification record](verification/local-judge-host-20261014/README.md).
 No comparable V1/V2 workload or labelled real-office dataset was run here.
 
+**Re-audit after the next fetch.** First added a `named_sure` per-request
+latch in `e07449e13`, before calling the earlier busy rule: an eligible score
+of at least 0.999 permits output even without a facing face. Task 17's
+initial mirror was correct for its pinned base, but omitting this new branch
+would make the current comparison stale. The follow-up therefore audits
+`first_output_busy` too, requires the actual latch in a captured first-output
+snapshot, and uses a declared threshold projection only for Policy's
+`same_snapshot` track. Missing latch data is rejected rather than defaulted.
+The local no-call guard accepts the same strong evidence; the weights and
+judge combination are unchanged. A nine-case authored comparison adds a
+sure-name call, with the old eight-case evidence retained under its original
+revision. Neither comparison is a live Voice replay or an accuracy claim.
+
 Not shown: fitted lamp accuracy, improvement over the busy-room floor,
 acoustic response or interruption latency, speaker-to-face association,
 actual ARM64 execution, or any lamp action qualification.

@@ -260,6 +260,7 @@ pub struct Report {
     pub local_share: f32,
     pub test: Metrics,
     pub test_questions: BTreeMap<String, QuestionMetric>,
+    pub baseline_source: &'static str,
     pub baseline: Counts,
     pub sources: Vec<String>,
     pub rights: Vec<String>,
@@ -439,6 +440,7 @@ pub fn fit(rows: &[Row], options: &Options) -> io::Result<FitResult> {
             .map(str::to_owned)
             .zip(question_metrics)
             .collect(),
+        baseline_source: super::baseline::SOURCE,
         baseline,
         sources,
         rights,

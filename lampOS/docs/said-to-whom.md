@@ -363,21 +363,28 @@ are not a calibrated probability of intended address.
 
 The comparison in
 [`policy/baseline.rs`](../crates/policy/src/policy/baseline.rs) mirrors the
-binary result of Voice's `called` and `decide_busy(strict = true)`, audited
-at task 17's starting commit `574c2e5ed`. It has no dependency on the Voice
-crate. In a busy room, it permits proposed output for an own turn, an ongoing
-conversation, a transcript name match or a fresh facing face. Quiet and
-unknown rooms permit output. An acoustic name score alone does not open this
-strict gate. Request freshness and acoustic name detections affect its reason
-text, but not this binary result. `Play` is permission for an output the
-provider proposes, not proof that an answer occurred.
+binary result of Voice's `first_output_busy`, `called` and
+`decide_busy(strict = true)`, audited at `e07449e13` after rebasing onto
+`e93b96849`. It has no dependency on the Voice crate. In a busy room it
+permits proposed output for an own turn, an ongoing conversation, a
+transcript name match, a fresh facing face, or the per-request `named_sure`
+latch. Voice sets that latch for an eligible acoustic name score ≥0.999;
+a later weaker hearing does not clear it. Quiet and unknown rooms permit
+output. An ordinary 0.993 acoustic detection still cannot open the busy
+gate. Request freshness affects the explanation, not this permission.
+`Play` is permission for a proposed output, not proof that an answer occurred.
+
+The original task 17 eight-case evidence was pinned to `574c2e5ed`, before
+First added the sure-name exception. It remains historical evidence of that
+rule. Current comparisons require the new latch field explicitly and identify
+the newer source; no old record is silently assigned a false latch.
 
 Two tracks remain separate:
 
 | Track | Evidence needed | Claim it supports |
 |---|---|---|
 | `same_snapshot` | Explicit inputs at a declared comparison point; the runtime uses the Policy's completed text, 20-second conversation and near-face view | What the two decision rules choose on those supplied inputs |
-| `voice_first_output` | Actual inputs available when Voice first proposes output: its transcript prefix, own-turn flag, 45-second conversation flag, room and newest fresh **any-face** result | Reproduction of that gate's permission, provided the input provenance and time join are established independently |
+| `voice_first_output` | Actual inputs available when Voice first proposes output: its transcript prefix, own-turn flag, retained `named_sure` bit, 45-second conversation flag, room and newest fresh **any-face** result | Reproduction of that gate's permission, provided the input provenance and time join are established independently |
 
 Do not substitute one track for the other. Policy counts only facing faces
 whose boxes are at least 15% of the image height; Voice accepts any facing
@@ -390,15 +397,20 @@ times. None of these differences is fixed by labelling a row
 The optional `baseline` member of a fitting row has this complete shape:
 
 ```json
-{"kind":"same_snapshot","room":"busy","own_turn":false,"going_on":false,"text":"And tomorrow?","facing":null}
+{"kind":"same_snapshot","room":"busy","own_turn":false,"going_on":false,"named_sure":false,"text":"And tomorrow?","facing":null}
 ```
 
 This is an **authored schema example**, not a captured utterance. Every
 member is required; unknown members are rejected. `facing: null` explicitly
 means the gate had no fresh eyes result. If the observation itself is absent
 from the record, omit the whole baseline snapshot rather than inventing that
-null. `text` is valid UTF-8, at most 2,048 bytes; oversized input is rejected,
-not truncated by the comparison. The containing fitting input has its own
+null. `named_sure` is a required boolean, not an optional score. For
+`voice_first_output`, record Voice's actual retained bit; a missing bit
+is not false. For `same_snapshot`, declare the bit from the supplied
+score at the 0.999 threshold, which does not reconstruct Voice's name
+window. Older snapshots lacking this member are rejected. `text` is valid
+UTF-8, at most 2,048 bytes; oversized input is rejected, not truncated by
+the comparison. The containing fitting input has its own
 file, row and count limits. Source and rights metadata do not independently
 prove labels, clock alignment or first-output provenance.
 

@@ -122,6 +122,7 @@ pub fn combine(
     let called = cues.conversation == Some(true)
         || cues.text_called == Some(true)
         || (cues.facing == Some(true) && cues.face_age_ms.is_some_and(|age| age < 2000))
+        || baseline::sure_name(cues.name_score)
         || (cues.room != Some(local::RoomCue::Busy)
             && cues.name_score.is_some_and(|score| score >= 0.9));
     let guard = (slow.is_none() && !called).then_some("no_timely_slow_no_call");
@@ -398,7 +399,7 @@ impl Judges {
                 "questions": local::QUESTION_NAMES, "slow_requested": policy.judge_name,
                 "decision_budget_us": micros(self.deadline),
                 "local_budget_us": micros(self.local_deadline),
-                "baseline_source": "574c2e5ed:crates/voice/src/attention.rs",
+                "baseline_source": baseline::SOURCE,
             }),
         );
     }
@@ -674,6 +675,7 @@ impl Judges {
             },
             own_turn: false,
             going_on: waiting.context.in_conversation(),
+            named_sure: baseline::sure_name(cues.name_score),
             text: waiting.context.heard.clone(),
             facing: cues.facing,
         };

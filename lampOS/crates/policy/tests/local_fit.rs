@@ -58,6 +58,7 @@ fn rows() -> Vec<Row> {
                         room: Room::Busy,
                         own_turn: false,
                         going_on: false,
+                        named_sure: false,
                         text: if positive {
                             "Lamp, authored call"
                         } else {
@@ -117,6 +118,10 @@ fn deterministic_fit_roundtrips_and_never_uses_test_labels_to_fit() {
         "authored separable mechanics fixture"
     );
     assert_eq!(first.report.local_share, 0.5);
+    assert_eq!(
+        first.report.baseline_source,
+        lamp_policy::policy::baseline::SOURCE
+    );
 }
 
 #[test]

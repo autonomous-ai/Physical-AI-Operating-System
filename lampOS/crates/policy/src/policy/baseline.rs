@@ -1,15 +1,15 @@
 //! A comparison with Voice's strict busy-room permission, without linking Voice.
 //!
-//! Audited source: task 17 starting commit `574c2e5ed`,
-//! `crates/voice/src/attention.rs::{called, decide_busy}`. This mirrors the
-//! binary result with `strict = true`; request freshness and a name heard in
-//! sound only change that rule's explanation, not its permission. Re-audit
+//! Audited source: `e07449e13`, `crates/voice/src/attention.rs`:
+//! `first_output_busy`, `called` and `decide_busy`. This mirrors the binary
+//! result with `strict = true`, including the per-request sure-name latch.
+//! Request freshness only changes the rule's explanation. Re-audit
 //! this copy when the Voice rule changes. A permission does not establish that
 //! the provider answered or that a speaker played anything.
 //!
 //! A Policy snapshot is a counterfactual application of the rule. Reproducing
 //! the actual Voice gate instead needs its first-output transcript prefix,
-//! its own-turn flag, its 45-second conversation state and its newest fresh
+//! its own-turn flag, sure-name latch, 45-second conversation and newest fresh
 //! *any*-face result. Policy's completed text, 20-second conversation and
 //! near-face summary are not interchangeable with those observations.
 use crate::attention::Choice;
@@ -17,6 +17,17 @@ use serde::{Deserialize, Deserializer, Serialize, de};
 
 /// Voice retains at most this many UTF-8 bytes of a request's transcript.
 pub const MOST_TEXT_BYTES: usize = 2_048;
+/// The upstream revision whose permission semantics are mirrored here.
+pub const SOURCE: &str = "e07449e13:crates/voice/src/attention.rs";
+/// Voice's threshold for a name heard plainly enough to open a busy room.
+pub const SURE_SCORE: f32 = 0.999;
+
+/// Apply the score threshold to a declared Policy snapshot. This does not
+/// reconstruct Voice's timestamp window or per-request latch. Missing or
+/// invalid scores supply no positive evidence, not a measured negative cue.
+pub fn sure_name(score: Option<f32>) -> bool {
+    score.is_some_and(|score| (SURE_SCORE..=1.0).contains(&score))
+}
 
 /// Which evidence was supplied. Counts from these tracks are never pooled.
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
@@ -43,7 +54,9 @@ pub enum Room {
 /// Every field is required in JSON. `facing: null` means the rule itself had
 /// no fresh eyes result; an unrecorded result instead makes the snapshot
 /// unavailable. For a live-gate comparison, `going_on` must be Voice's value,
-/// and `text` must be its prefix at first output, not a later transcript.
+/// `named_sure` must be its retained per-request latch, and `text` must be its
+/// prefix at first output, not a later transcript. Missing latch evidence
+/// cannot be converted to false; omit the snapshot instead.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Snapshot {
@@ -51,6 +64,7 @@ pub struct Snapshot {
     pub room: Room,
     pub own_turn: bool,
     pub going_on: bool,
+    pub named_sure: bool,
     #[serde(deserialize_with = "bounded_text")]
     pub text: String,
     #[serde(deserialize_with = "required_facing")]
@@ -123,6 +137,7 @@ pub fn judge(snapshot: &Snapshot) -> Permission {
     if snapshot.own_turn
         || snapshot.room != Room::Busy
         || snapshot.going_on
+        || snapshot.named_sure
         || called(&snapshot.text)
         || snapshot.facing == Some(true)
     {

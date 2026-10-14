@@ -77,7 +77,7 @@ fn one_judge_failure_preserves_the_other_probability_and_both_use_separate_proba
 }
 
 #[test]
-fn busy_name_alone_is_not_a_call_but_conversation_text_and_fresh_pose_are() {
+fn busy_weak_name_is_not_a_call_but_sure_name_conversation_text_and_fresh_pose_are() {
     let weights = local::Weights::seed();
     let base = local::Cues {
         room: Some(local::RoomCue::Busy),
@@ -91,6 +91,10 @@ fn busy_name_alone_is_not_a_call_but_conversation_text_and_fresh_pose_are() {
         Choice::LookUp
     );
     for cues in [
+        local::Cues {
+            name_score: Some(0.999),
+            ..base.clone()
+        },
         local::Cues {
             text_called: Some(true),
             ..base.clone()

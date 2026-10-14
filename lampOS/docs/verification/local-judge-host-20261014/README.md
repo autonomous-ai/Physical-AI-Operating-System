@@ -5,6 +5,10 @@ for the task to the upstream cycle at `1750c3d08`. This is **development-host
 evidence, not a lamp measurement**. No device, real provider, account or
 credential was accessed. HTTP/TLS services in the tests are local fixtures.
 
+This evidence remains pinned to the original task implementation. The
+[next-fetch follow-up](../local-judge-floor-20261014/README.md) preserves it
+and separately records the newer busy-room rule, source hashes and gates.
+
 The implementation, exact operator command, fitting schema and failure
 semantics are in [Policy](../../policy.md#the-local-second-judge-task-17).
 The machine-readable [results](results.json) include counts and log hashes;

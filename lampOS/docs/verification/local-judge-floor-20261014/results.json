@@ -1,0 +1,94 @@
+{
+  "schema": 1,
+  "upstream": "e93b9684929d62248394d61c87ec57120db43229",
+  "task_base": "207648519",
+  "baseline_source": "e07449e13:crates/voice/src/attention.rs",
+  "mac": {
+    "tests": {
+      "passed": 143,
+      "failed": 0,
+      "ignored": 2
+    },
+    "commands": {
+      "format": "cargo fmt --all --check",
+      "clippy": "cargo clippy -p lamp-policy --all-targets --offline -- -D warnings",
+      "tests": "RUST_TEST_THREADS=1 cargo test -p lamp-policy --offline",
+      "workspace": "cargo build --workspace --offline"
+    },
+    "exit_codes": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "machine": {
+      "os": "macOS 26.6.2 (25G83)",
+      "architecture": "x86_64",
+      "cpu": "Intel Core i7-10700K @ 3.80 GHz",
+      "logical_cpus": 16,
+      "rust": "1.96.0 (ac68faa20c58cbccd01ee7208bf3b6e93a7d7f96)",
+      "ram_gib": 64,
+      "llvm": "22.1.2"
+    },
+    "strict_clippy_cargo_elapsed_s": 5.06,
+    "workspace_cargo_elapsed_s": 24.08
+  },
+  "linux_source_copy": {
+    "tests": {
+      "passed": 143,
+      "failed": 0,
+      "ignored": 2
+    },
+    "commands": [
+      "cargo clippy -p lamp-policy --all-targets --offline --locked --target x86_64-unknown-linux-gnu -- -D warnings",
+      "cargo test -p lamp-policy --offline --locked --target x86_64-unknown-linux-gnu",
+      "cargo build --workspace --offline --locked --target x86_64-unknown-linux-gnu"
+    ],
+    "exit_codes": [
+      0,
+      0,
+      0
+    ],
+    "machine": {
+      "os": "Linux 6.12.13-200.fc41.x86_64",
+      "architecture": "x86_64",
+      "vm_name": "lampos-arm64 (name does not describe actual architecture)",
+      "vcpus": 6,
+      "ram_mib": 8192,
+      "rust": "1.96.0 (ac68faa20c58cbccd01ee7208bf3b6e93a7d7f96)",
+      "target": "x86_64-unknown-linux-gnu"
+    },
+    "source_path": "/private/tmp/lamp-fourth-floor-source-a23d3bfh",
+    "cache_preparation": "cargo clean -p lamp-policy --target x86_64-unknown-linux-gnu",
+    "network": "external networking disabled with --network none; container-local test loopback available",
+    "parent_repository_present": false,
+    "git_metadata_present": false,
+    "CARGO_BUILD_JOBS": 4,
+    "RUST_TEST_THREADS": "1",
+    "cargo_finished_lines": [
+      "Finished `dev` profile [unoptimized + debuginfo] target(s) in 3.63s",
+      "Finished `test` profile [unoptimized + debuginfo] target(s) in 7.17s",
+      "Finished `dev` profile [unoptimized + debuginfo] target(s) in 21.50s"
+    ]
+  },
+  "local_logs": {
+    "lamp-fourth-local-floor-fmt.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "lamp-fourth-local-floor-clippy.log": "8874f7e5b0edfb5a2736825d96acdd144bf93802c1f69ca0d40d44620d15bc6f",
+    "lamp-fourth-local-floor-tests.log": "b019835eb03849ef850d152b3495a555b0ee47ce6ffe1b1c244c85cdbdea9066",
+    "lamp-fourth-local-floor-build.log": "2ad5ee150e04dd6d1b53aa737eae4b150b0954d75d70620f8b898430dbceb625",
+    "lamp-fourth-local-floor-arithmetic.log": "37b7b0c9c4c751f469fc1eed8b5e02cabf088e06389657c9d016cda50b32b3df",
+    "lamp-fourth-local-floor-shadow.log": "33d98373dcbfce3514cc81b4cde2e27466c96f134265e363a5d47c74170d0e9a",
+    "lamp-fourth-local-floor-comparison.log": "c589a58e935716e226b4eb34f74d8731ca8a6feeb2816ba990eef50c04aeceef",
+    "lamp-fourth-local-floor-linux.log": "93e7e96d681d00d594eda73dc5e4d8ab8c8cf1fb75b5ef6d223b7c8c4982c36f"
+  },
+  "source_manifest": "source-sha256.json",
+  "limitations": [
+    "development hosts only, no lamp or ARM64 execution",
+    "seed weights and mixture remain unfitted",
+    "nine authored snapshots, not recorded first-output Voice inputs",
+    "100 ms admission cutoff is not a hard real-time completion guarantee",
+    "no real remote-service result or real key used"
+  ],
+  "manual_measurement_tests": "both normal-gate ignored measurements ran separately in release mode on the Mac; passed",
+  "failures": "No failed gate or test in this follow-up. Original failures are retained in ../local-judge-host-20261014/."
+}

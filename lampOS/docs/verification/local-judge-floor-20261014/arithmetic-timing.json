@@ -1,0 +1,16 @@
+{
+  "arch": "x86_64",
+  "boundary": "Decider::ask including JSON parsing and seven typed answer allocation; excludes weights loading, cue gathering, final combining, logging and bus scheduling",
+  "cache": "OS file cache not cleared; fresh test process, no previous Local::ask",
+  "first_ns": 8427,
+  "median_ns": 1425,
+  "model": "lamp-local-seed-v1-unfitted",
+  "os": "macos",
+  "p95_ns": 1442,
+  "p99_ns": 1454,
+  "profile": "release",
+  "samples_repeated": 1000,
+  "schema": 1,
+  "weights_load_ns": 102271,
+  "worst_ns": 2149
+}

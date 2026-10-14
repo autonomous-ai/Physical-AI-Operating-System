@@ -731,8 +731,11 @@ With neither, the stand-in probability is 0.5. Thresholds remain 0.4 for
 holds in quiet rooms too, even if the local probability would have crossed
 the answer threshold or fallen below the look-up threshold. A call sign is
 a known conversation, a positive transcript-name match, a known facing
-face younger than 2000 ms, or name confidence ≥0.9 when the room is not
-known busy. Acoustic name confidence alone in a busy room is insufficient.
+face younger than 2000 ms, name confidence ≥0.9 when the room is not
+known busy, or a valid name score ≥0.999 in any room. The last condition
+follows First's sure-name change in `e07449e13`; a 0.993 meeting detection
+still cannot open the busy-room guard. These are call evidence conditions,
+not a claim that the seed's probability will exceed the answer threshold.
 The probability is retained; `guard` records why its usual threshold
 choice was overridden. `from_rule` means neither model supplied a valid
 probability, not that this guard fired. These remain hypothetical choices:
@@ -799,12 +802,20 @@ files. Provision and retain the private qualification directory deliberately.
 
 The mirrored strict busy-room rule is compared on each runtime snapshot,
 with separate 2×3 tables for `play`/`hold` against the three Policy choices.
+The source is now `e07449e13` (`first_output_busy` as well as `decide_busy`
+and `called`), including the retained sure-name condition introduced after
+the original task 17 host run. Model records and fitting reports identify
+this revision.
 Runtime rows are labelled `same_snapshot`: completed text, Policy's
 20-second conversation and near-face receipt view, with `own_turn:false`
-because this is an utterance being judged. This is a declared proxy, not
+because this is an utterance being judged. `named_sure` is computed from
+the supplied Policy name score at 0.999; no positive score means no
+positive sure-name evidence in that proxy. This is a declared proxy, not
 Voice's actual first-output gate. Recorded `voice_first_output` snapshots
-need Voice's real prefix, 45-second state, own-turn flag and fresh any-face
-result. The [comparison contract](said-to-whom.md#task-17-local-judge-and-busy-rule-comparison)
+need Voice's real prefix, 45-second state, own-turn flag, retained
+`named_sure` bit and fresh any-face result. Voice can retain an earlier
+qualifying hearing even after a weaker one arrives; do not recompute that
+bit from the latest score. The [comparison contract](said-to-whom.md#task-17-local-judge-and-busy-rule-comparison)
 keeps the tracks and missing-evidence denominators separate. Permission is
 not an observed audible answer. No independently labelled lamp dataset was
 available to Fourth; synthetic differences do not establish improvement.
@@ -821,7 +832,7 @@ cargo run --release -p lamp-policy --bin lamp-policy-fit --offline -- \
 An authored schema example, not a lamp recording:
 
 ```json
-{"schema":1,"id":"scene-a-turn-1","session":"scene-a","split":"train","source":"authored schema example; no recording","rights":"Apache-2.0 example","cues":{"schema":1,"name_score":null,"conversation":false,"room":"busy","facing":null,"face_age_ms":null,"since_lamp_spoke_ms":null,"word_count":4,"duration_ms":null,"text_called":true},"labels":{"calls_lamp":true,"names_someone_else":null,"others_business":false,"lamp_could_answer":true,"follows_lamp":null,"listening_noise":false,"asks_to_stop":null},"directed":true,"baseline":{"kind":"same_snapshot","room":"busy","own_turn":false,"going_on":false,"text":"Lamp, what time now?","facing":null}}
+{"schema":1,"id":"scene-a-turn-1","session":"scene-a","split":"train","source":"authored schema example; no recording","rights":"Apache-2.0 example","cues":{"schema":1,"name_score":null,"conversation":false,"room":"busy","facing":null,"face_age_ms":null,"since_lamp_spoke_ms":null,"word_count":4,"duration_ms":null,"text_called":true},"labels":{"calls_lamp":true,"names_someone_else":null,"others_business":false,"lamp_could_answer":true,"follows_lamp":null,"listening_noise":false,"asks_to_stop":null},"directed":true,"baseline":{"kind":"same_snapshot","room":"busy","own_turn":false,"going_on":false,"named_sure":false,"text":"Lamp, what time now?","facing":null}}
 ```
 
 `schema`, unique `id`, `session`, `split`, `source`, `rights`, `cues` and
@@ -838,8 +849,11 @@ omitting a nullable cue/label also means unknown. `directed` is the
 independent intended-addressee label, required on calibration/test rows
 and optional on training rows. Do not derive labels from what either judge
 or the lamp did. `baseline` is optional; if present, every one of its
-members is required, including explicitly nullable `facing`. Missing
-baseline evidence is excluded from paired error counts. All object schemas
+members is required, including explicitly nullable `facing` and boolean
+`named_sure`. The latter has no default: old task 17 snapshots without it
+are rejected, not silently reinterpreted under the newer rule. Preserve
+those original records and their old source revision; omit the baseline
+when this observation was not recorded. Missing baseline evidence is excluded from paired error counts. All object schemas
 reject unknown fields. Cues use schema 1 (default when omitted), as above.
 Live rows must leave duration null unless acoustic boundaries were actually
 measured. The example alone is insufficient to fit a model.
@@ -869,13 +883,19 @@ Accept a model only with a successful run and its matching report.
 
 The reproducible commands, machine, first/repeated timings, synthetic
 permission differences and full gate are retained in the
-[task 17 verification record](verification/local-judge-host-20261014/README.md).
+[original task 17 verification record](verification/local-judge-host-20261014/README.md).
+The [post-rebase comparison record](verification/local-judge-floor-20261014/README.md)
+audits First's new sure-name exception, passes 143 tests on each host, and
+retains the new nine-case comparison and repeated measurements.
 All Fourth measurements are development-host measurements. No provider was
 used beyond local HTTP/TLS test stand-ins; no lamp or real key was accessed.
 
 For First: run the foreground command during played scenes, with one Policy
 owner. Start with a quiet-room scrap and no call, then a name inside busy
-table talk: absent a timely slow answer both should show `look_up`. Compare
+table talk with a score below 0.999: absent a timely slow answer both should
+show `look_up`. Also compare a score of at least 0.999 without a facing
+observation: the current baseline permits it, while the seed can still choose
+`look_up` from its probability without a guard override. Compare
 an explicit call, a nameless follow-up and known/unknown/away face poses.
 Keep the separate Voice first-output snapshot and independently annotate
 the addressee; inspect both seven-answer records and every late result.

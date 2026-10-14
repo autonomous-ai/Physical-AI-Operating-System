@@ -5,6 +5,7 @@ use lamp_policy::{
         Seen,
         baseline::{
             Counts, MOST_TEXT_BYTES, Permission, Room, Snapshot, SnapshotKind, called, judge,
+            sure_name,
         },
     },
 };
@@ -16,6 +17,7 @@ fn snapshot() -> Snapshot {
         room: Room::Busy,
         own_turn: false,
         going_on: false,
+        named_sure: false,
         text: String::new(),
         facing: None,
     }
@@ -23,35 +25,80 @@ fn snapshot() -> Snapshot {
 
 #[test]
 fn strict_busy_truth_table_covers_each_permission_and_unknown() {
-    // All inputs to the binary gate, independently enumerated. No freshness
-    // or acoustic name bit can make a closed strict-busy row play.
+    // The actual first-output rule includes its separate sure-name latch.
     for kind in [SnapshotKind::SameSnapshot, SnapshotKind::VoiceFirstOutput] {
         for room in [Room::Busy, Room::Quiet, Room::Unknown] {
             for own_turn in [false, true] {
                 for going_on in [false, true] {
-                    for text_called in [false, true] {
-                        for facing in [None, Some(false), Some(true)] {
-                            let row = Snapshot {
-                                kind,
-                                room,
-                                own_turn,
-                                going_on,
-                                text: if text_called { "Lamp" } else { "a report" }.into(),
-                                facing,
-                            };
-                            let expected = match (room, own_turn, going_on, text_called, facing) {
-                                (Room::Busy, false, false, false, None | Some(false)) => {
-                                    Permission::Hold
-                                }
-                                _ => Permission::Play,
-                            };
-                            assert_eq!(judge(&row), expected, "{row:?}");
+                    for named_sure in [false, true] {
+                        for text_called in [false, true] {
+                            for facing in [None, Some(false), Some(true)] {
+                                let row = Snapshot {
+                                    kind,
+                                    room,
+                                    own_turn,
+                                    going_on,
+                                    named_sure,
+                                    text: if text_called { "Lamp" } else { "a report" }.into(),
+                                    facing,
+                                };
+                                let expected = match (
+                                    room,
+                                    own_turn,
+                                    going_on,
+                                    named_sure,
+                                    text_called,
+                                    facing,
+                                ) {
+                                    (
+                                        Room::Busy,
+                                        false,
+                                        false,
+                                        false,
+                                        false,
+                                        None | Some(false),
+                                    ) => Permission::Hold,
+                                    _ => Permission::Play,
+                                };
+                                assert_eq!(judge(&row), expected, "{row:?}");
+                            }
                         }
                     }
                 }
             }
         }
     }
+}
+
+#[test]
+fn sure_name_threshold_preserves_unknown_and_the_upstream_score_boundary() {
+    for score in [
+        None,
+        Some(f32::NAN),
+        Some(f32::INFINITY),
+        Some(-0.1),
+        Some(1.1),
+        Some(0.997),
+        Some(0.9989999),
+    ] {
+        assert!(!sure_name(score), "{score:?}");
+    }
+    for score in [Some(0.999), Some(1.0)] {
+        assert!(sure_name(score), "{score:?}");
+        let row = Snapshot {
+            named_sure: sure_name(score),
+            ..snapshot()
+        };
+        assert_eq!(judge(&row), Permission::Play);
+    }
+    // This is an explicitly supplied latch, not recomputed from the latest
+    // score. Voice retains a qualifying hearing even if a weaker one follows.
+    let row = Snapshot {
+        kind: SnapshotKind::VoiceFirstOutput,
+        named_sure: true,
+        ..snapshot()
+    };
+    assert_eq!(judge(&row), Permission::Play);
 }
 
 #[test]
@@ -222,7 +269,15 @@ fn every_snapshot_field_is_required_and_explicit_null_facing_round_trips() {
     assert_eq!(value["room"], "busy");
     let decoded: Snapshot = serde_json::from_value(value.clone()).unwrap();
     assert_eq!(decoded, snapshot());
-    for field in ["kind", "room", "own_turn", "going_on", "text", "facing"] {
+    for field in [
+        "kind",
+        "room",
+        "own_turn",
+        "going_on",
+        "named_sure",
+        "text",
+        "facing",
+    ] {
         let mut missing = value.clone();
         missing.as_object_mut().unwrap().remove(field);
         assert!(
@@ -250,6 +305,7 @@ fn unknown_duplicate_mistyped_and_invalid_unicode_fields_are_rejected() {
         ("room", json!("calm")),
         ("own_turn", json!(0)),
         ("going_on", Value::Null),
+        ("named_sure", Value::Null),
         ("text", json!([])),
         ("facing", json!("unknown")),
         ("name_heard", json!(0.99)),

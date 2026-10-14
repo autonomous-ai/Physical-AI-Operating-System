@@ -1,0 +1,54 @@
+16388.91 servo min 1451 max 3067 torque 1 accel 60 speed 1000 force 1000 pos 1813 load 100 goal 1791
+16389.23 goal 1812 pos 1813 load 76
+16389.39 goal 1811 pos 1813 load 44
+16389.55 goal 1810 pos 1813 load 24
+16389.71 goal 1809 pos 1813 load 28
+16389.87 goal 1808 pos 1813 load 32
+16390.03 goal 1807 pos 1813 load 36
+16390.19 goal 1806 pos 1813 load 40
+16390.35 goal 1805 pos 1813 load 44
+16390.51 goal 1804 pos 1813 load 48
+16390.67 goal 1803 pos 1813 load 52
+16390.83 goal 1802 pos 1813 load 56
+16390.99 goal 1801 pos 1813 load 60
+16391.15 goal 1800 pos 1813 load 64
+16391.31 goal 1799 pos 1813 load 68
+16391.47 goal 1798 pos 1813 load 72
+16391.63 goal 1797 pos 1813 load 76
+16391.79 goal 1796 pos 1813 load 80
+16391.95 goal 1795 pos 1813 load 84
+16392.11 goal 1794 pos 1813 load 88
+16392.27 goal 1793 pos 1813 load 92
+16392.43 goal 1792 pos 1813 load 96
+16392.59 goal 1791 pos 1813 load 100
+16392.75 goal 1790 pos 1813 load 104
+16392.91 goal 1789 pos 1813 load 108
+16393.07 goal 1788 pos 1813 load 112
+16393.23 goal 1787 pos 1813 load 116
+16393.39 goal 1786 pos 1813 load 120
+16393.55 goal 1785 pos 1813 load 124
+16393.71 goal 1784 pos 1813 load 128
+16393.87 goal 1783 pos 1813 load 132
+16394.03 goal 1782 pos 1813 load 136
+16394.19 goal 1781 pos 1813 load 140
+16394.35 goal 1780 pos 1813 load 144
+16394.51 goal 1779 pos 1813 load 148
+16394.67 goal 1778 pos 1813 load 152
+16394.83 goal 1777 pos 1813 load 156
+16394.99 goal 1776 pos 1806 load 120
+16395.15 goal 1775 pos 1797 load 100
+16395.31 goal 1774 pos 1795 load 96
+16395.47 goal 1773 pos 1795 load 100
+16395.63 goal 1772 pos 1793 load 92
+16395.79 goal 1771 pos 1793 load 100
+16395.95 goal 1770 pos 1793 load 104
+16396.11 goal 1769 pos 1793 load 108
+16396.27 goal 1768 pos 1793 load 112
+16396.43 goal 1767 pos 1793 load 116
+16396.59 goal 1766 pos 1793 load 120
+16396.75 goal 1765 pos 1793 load 124
+16396.91 goal 1764 pos 1793 load 128
+16397.07 goal 1763 pos 1793 load 132
+16397.18 END dir -1 reason stall at 1793 pos 1793 goal_was 1763 peak_load 156
+16403.88 BACK goal 1813 pos 1800 load 64
+16404.27 DONE restored accel 60 speed 1000 force 1000 pos 1800 load 64

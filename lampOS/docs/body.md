@@ -59,7 +59,9 @@ run on a lamp.
   home at the same speed as every other move, and until it is inside the
   reach it is never moved away from it. The head's pitch goal is also never over 2,030: on lamp-4ace
   the head crossed 1,766 to 2,043 with no load and met the base near 2,045 to
-  2,056.
+  2,056. That window, 1,740 to 2,030 while the head is beside the base, is
+  lamp-4ace's, in absolute counts; `--pitch-window LOW,HIGH` gives a lamp
+  its own (below, "Running it", and "lamp-52e6").
 - The commanded pose moves at 50 counts a second at most (about 4 degrees a
   second). That is the speed the head was moved at when it was backed off the
   base on lamp-4ace on 2026-10-12 (47 counts a second at most), which it
@@ -672,7 +674,11 @@ tilt, back by 1.6 s):
   `pitch_window` (1,740) while folded, 30 counts over where lamp-52e6's
   head rests (1,770), and a goal 30 ahead does not lift it. A folded
   lamp-52e6 glances only if that window is widened, which is not done
-  here.
+  here. With this lamp's own window (`--pitch-window 1670,1995`, task 38,
+  "lamp-52e6" below) the same request at 20:41 lifted the folded head 57
+  counts (1,764 to 1,707, about 5 degrees) within half a second; it was
+  back at 1,758 two seconds later, roll goal one count, base and arm not
+  written.
 
 **On lamp-4ace, 2026-10-14, 18:40 to 18:44** (the first builder,
 [readings](verification/rest-glance-lamp-4ace-20261014/README.md)), on by
@@ -687,7 +693,8 @@ counts inside the folded window. Seen once, not explained: about 7 s
 later the resting head was held 4 to 5 counts from its goal with its load
 rising to 163, until its goal moved 8 counts and the load fell to 25.
 Whether a folded lamp-52e6 should have its own window: #710's answer is a
-lamp's own `--pitch-window`, a separate task.
+lamp's own `--pitch-window` (#719, task 38), in lamp-52e6's unit since
+2026-10-14 20:43.
 
 ## Gestures
 
@@ -788,6 +795,7 @@ Reach and speed can be chosen at start, each inside a cap fixed in the code:
 | `--gaze-reach Y,P` | the farthest the gaze takes yaw and pitch; the yaw may be wider than `--reach`'s | 250,120 | 500, 200 |
 | `--idle on` | a standing lamp at rest shifts a little now and then | off | on or off |
 | `--stand-roll N` | the head's tilt reach once the lamp has stood up, where that is more than the roll of `--reach` | no more than folded | 200 |
+| `--pitch-window LOW,HIGH` | the window the head's pitch goal is kept in while the head is beside the base, this lamp's own; checked at start against the head pitch servo's own limits (registers 9 and 11), and the run refused with nothing written if it is not inside them | lamp-4ace's, 1,740 to 2,030, and the servo's limits are not read | LOW at least 1,670 (the head's floor) and under HIGH, and around `--home`'s pitch |
 
 Every gesture is a share of the reach (listening lifts 40% of the way up and
 tilts 85% of the roll; thinking lifts 70%, turns 90% of the yaw and rolls 40%
@@ -1246,6 +1254,21 @@ What follows from it:
   of 1,670 is lamp-4ace's servo limit; this lamp's is 1,451, so the floor
   takes a few counts off the standing lamp's thinking lift (asked 1,667, held
   at 1,680) and nothing else.
+- **The folded head's window.** lamp-4ace's window (1,740 to 2,030) left
+  this head, resting at 1,764 to 1,800, 30 counts of lift, too little to
+  start it from below. Measured on 2026-10-14 at 20:30 with the body
+  stopped, the lamp folded, only the head's pitch moved, a count at a time
+  at about six counts a second with its force held to half: going down it
+  met the base at 2,010 (still from 2,009 to 2,013 while its goal went on
+  to 2,029, its load rising from 20 to 76, and stopped there); going up it
+  rose freely from 1,811 to 1,474, a load of 76 to 120 all the way, as far
+  as the servo's own lower limit (1,451) allows. So its own window is
+  `--pitch-window 1670,1995`: 15 counts short of the base, as lamp-4ace's
+  2,030 is of its 2,045, and the head's floor at the top. It holds
+  `--home`'s 1,771. FOLDED's start window (1,760 to 2,020) is kept: a head
+  found past 1,995 is brought into the window at the body's speed. In the
+  unit since 20:43
+  ([readings](verification/pitch-window-lamp-52e6-20261014/README.md)).
 - **The gaze.** Measured as on lamp-4ace, with its eyes stopped and the face
   told to the body on its own socket: a face at 0.5 across brought 254
   counts of yaw, and the picture (640 by 480, one frame before and one

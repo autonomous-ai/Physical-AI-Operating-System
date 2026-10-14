@@ -4,7 +4,7 @@
 use lamp_body::calibration::UnitId;
 use std::{ffi::OsString, path::PathBuf};
 
-const USAGE: &str = "lamp-body --device ABSOLUTE_PATH --unit-id EXPLICIT_ID --lock-directory PRIVATE_ABSOLUTE_DIRECTORY --mood-socket ABSOLUTE_PATH [--home PITCH,ROLL,YAW] [--reach UP,DOWN,ROLL,YAW] [--speed COUNTS_PER_SECOND] [--servo-speed N] [--servo-acceleration N] [--stand PITCH,ROLL,YAW,SHOULDER,ELBOW --folded-arm SHOULDER,ELBOW [--stand-share PERCENT] [--stand-seconds N] [--awake-seconds N] [--arm-load SHOULDER,ELBOW] [--idle on|off]] [--gaze-socket ABSOLUTE_PATH --gaze YAW,PITCH [--gaze-reach YAW,PITCH]] [--stand-roll COUNTS] [--force-limit N] [--torque on|off] [--wake on|off] [--give-way return|stay] [--overload release] [--rest-glance on|off]\n\nOwns the servo port and moves head pitch, head roll and base yaw a few degrees around\na home pose (the one given, in encoder counts, or else where they are found), for the mood\nit is told on the socket. Without --stand it never touches the shoulder or the elbow, and\nwithout --stand or --torque on it never touches torque. With --stand (which needs --home and --folded-arm) it also raises the shoulder and\nthe elbow to that pose when a mood other than rest arrives, folds them down again\n--awake-seconds after the last one, and writes torque once to a shoulder or elbow found\nwith an old overload latched. With --gaze-socket and --gaze it takes where a face is from\nlamp-eyes on that socket ({\"face\":{...}} or {\"face\":null}) and, while the lamp listens\nor speaks, turns the head to it in small corrections: --gaze is the counts of base yaw and of\nhead pitch, signed, that bring a face from the right and from the bottom edge of the picture\nto its middle. Refuses to start unless the three joints have torque on, a clear\nstatus and the head is inside its start window. With --torque on it first takes hold of a\njoint found without torque (the three always, the shoulder and the elbow with --stand):\nits goal is written as where it is, then torque on, and if it then moves more than 12 counts\nit does not start. With --wake on and --home, a joint found outside where it may start\n(the head out of its start window, or a joint farther from home than it may be found) but within\n400 counts of home is not refused: before anything else it is brought home slowly, a small stir,\na pause, then an eased rise at 20 counts a second at most, never away from home; an arm found off\nits way is not lowered, and the lamp runs folded. With --give-way, a joint that pushes at its goal without moving for\n1.5 s is told to stop (its goal becomes where it is; torque is never written off); with\n--give-way stay, a head or base joint that gave way and is moved more than 15 counts by\na hand for over a second stays where it was put. With --overload release, any joint that\nreads a load of 800 of 1000 (80% of --force-limit for a joint held to one) for 1.5 s has\ntorque switched off on all five, so the lamp slumps; 120 s later each is held where it is\n(its goal, then torque on) and the head is brought home as --wake does, while the arm\nwaits where it slumped until the lamp is next asked to stand; a second time within ten\nminutes ends the run with torque off. With --rest-glance on, a lamp at rest takes what\nExpression asks of the head (50 counts of pitch, 25 of roll at most, never the base or the arm)\nand comes back to rest when it runs out. Stops at the first surprise, holding\nwhere it is. Ends on SIGINT or SIGTERM after easing back to where it started.\nThe mood socket takes datagrams of JSON: {\"mood\":\"resting|listening|thinking|speaking\",\"level\":0..255}.\nA lamp standing at its full height also makes a gesture asked for there: {\"gesture\":\"nod\"}\n(nod, headshake, greeting, laugh, shy, stretching).\nPrints one JSON report when it ends.\n";
+const USAGE: &str = "lamp-body --device ABSOLUTE_PATH --unit-id EXPLICIT_ID --lock-directory PRIVATE_ABSOLUTE_DIRECTORY --mood-socket ABSOLUTE_PATH [--home PITCH,ROLL,YAW] [--reach UP,DOWN,ROLL,YAW] [--speed COUNTS_PER_SECOND] [--servo-speed N] [--servo-acceleration N] [--stand PITCH,ROLL,YAW,SHOULDER,ELBOW --folded-arm SHOULDER,ELBOW [--stand-share PERCENT] [--stand-seconds N] [--awake-seconds N] [--arm-load SHOULDER,ELBOW] [--idle on|off]] [--gaze-socket ABSOLUTE_PATH --gaze YAW,PITCH [--gaze-reach YAW,PITCH]] [--stand-roll COUNTS] [--force-limit N] [--torque on|off] [--wake on|off] [--give-way return|stay] [--overload release] [--rest-glance on|off] [--pitch-window LOW,HIGH]\n\nOwns the servo port and moves head pitch, head roll and base yaw a few degrees around\na home pose (the one given, in encoder counts, or else where they are found), for the mood\nit is told on the socket. Without --stand it never touches the shoulder or the elbow, and\nwithout --stand or --torque on it never touches torque. With --stand (which needs --home and --folded-arm) it also raises the shoulder and\nthe elbow to that pose when a mood other than rest arrives, folds them down again\n--awake-seconds after the last one, and writes torque once to a shoulder or elbow found\nwith an old overload latched. With --gaze-socket and --gaze it takes where a face is from\nlamp-eyes on that socket ({\"face\":{...}} or {\"face\":null}) and, while the lamp listens\nor speaks, turns the head to it in small corrections: --gaze is the counts of base yaw and of\nhead pitch, signed, that bring a face from the right and from the bottom edge of the picture\nto its middle. Refuses to start unless the three joints have torque on, a clear\nstatus and the head is inside its start window. With --torque on it first takes hold of a\njoint found without torque (the three always, the shoulder and the elbow with --stand):\nits goal is written as where it is, then torque on, and if it then moves more than 12 counts\nit does not start. With --wake on and --home, a joint found outside where it may start\n(the head out of its start window, or a joint farther from home than it may be found) but within\n400 counts of home is not refused: before anything else it is brought home slowly, a small stir,\na pause, then an eased rise at 20 counts a second at most, never away from home; an arm found off\nits way is not lowered, and the lamp runs folded. With --give-way, a joint that pushes at its goal without moving for\n1.5 s is told to stop (its goal becomes where it is; torque is never written off); with\n--give-way stay, a head or base joint that gave way and is moved more than 15 counts by\na hand for over a second stays where it was put. With --overload release, any joint that\nreads a load of 800 of 1000 (80% of --force-limit for a joint held to one) for 1.5 s has\ntorque switched off on all five, so the lamp slumps; 120 s later each is held where it is\n(its goal, then torque on) and the head is brought home as --wake does, while the arm\nwaits where it slumped until the lamp is next asked to stand; a second time within ten\nminutes ends the run with torque off. With --rest-glance on, a lamp at rest takes what\nExpression asks of the head (50 counts of pitch, 25 of roll at most, never the base or the arm)\nand comes back to rest when it runs out. --pitch-window is this lamp's own window for the\nhead's pitch while it is beside the base (by default lamp-4ace's, 1740,2030): never under\nthe head's floor (1670), around --home's pitch, and inside the servo's own limits or it does\nnot start. Stops at the first surprise, holding\nwhere it is. Ends on SIGINT or SIGTERM after easing back to where it started.\nThe mood socket takes datagrams of JSON: {\"mood\":\"resting|listening|thinking|speaking\",\"level\":0..255}.\nA lamp standing at its full height also makes a gesture asked for there: {\"gesture\":\"nod\"}\n(nod, headshake, greeting, laugh, shy, stretching).\nPrints one JSON report when it ends.\n";
 
 #[derive(Debug)]
 struct Arguments {
@@ -26,6 +26,7 @@ struct Arguments {
     give_way: Option<GiveWay>,
     overload_release: bool,
     rest_glance: bool,
+    pitch_window: Option<(u16, u16)>,
 }
 
 /// What `--give-way` said; the body's own type is built for Linux only.
@@ -99,6 +100,7 @@ fn parse(args: impl IntoIterator<Item = OsString>) -> Result<Option<Arguments>, 
     let mut give_way = None;
     let mut overload = None;
     let mut rest_glance = None;
+    let mut pitch_window = None;
     while let Some(key) = args.next() {
         if key == "--help" {
             if device.is_some()
@@ -127,6 +129,7 @@ fn parse(args: impl IntoIterator<Item = OsString>) -> Result<Option<Arguments>, 
                 || give_way.is_some()
                 || overload.is_some()
                 || rest_glance.is_some()
+                || pitch_window.is_some()
                 || args.next().is_some()
             {
                 return Err("--help must be used alone");
@@ -277,6 +280,21 @@ fn parse(args: impl IntoIterator<Item = OsString>) -> Result<Option<Arguments>, 
                     _ => return Err("--rest-glance is on or off"),
                 });
             }
+            Some("--pitch-window") if pitch_window.is_none() => {
+                // The head's floor, `Limits::FOLDED.pitch_floor` (built for
+                // Linux only).
+                let floor = 1_670;
+                pitch_window = Some(
+                    value
+                        .to_str()
+                        .and_then(counts_of::<2>)
+                        .filter(|[low, high]| floor <= *low && low < high && *high <= 4_095)
+                        .map(|[low, high]| (low, high))
+                        .ok_or(
+                            "--pitch-window is LOW,HIGH in counts, LOW under HIGH, 1670 or over",
+                        )?,
+                );
+            }
             Some("--give-way") if give_way.is_none() => {
                 give_way = Some(match value.to_str() {
                     Some("return") => GiveWay::Return,
@@ -365,6 +383,12 @@ fn parse(args: impl IntoIterator<Item = OsString>) -> Result<Option<Arguments>, 
         }
         _ => return Err("--stand needs --home and --folded-arm, and its options need --stand"),
     };
+    // A window the home's pitch is outside would push the head off home.
+    if let (Some((low, high)), Some(home)) = (pitch_window, home)
+        && !(low..=high).contains(&home[0])
+    {
+        return Err("--pitch-window must contain --home's pitch");
+    }
     let result = Arguments {
         device: device.ok_or("--device is required")?,
         unit_id: unit_id.ok_or("--unit-id is required")?,
@@ -384,6 +408,7 @@ fn parse(args: impl IntoIterator<Item = OsString>) -> Result<Option<Arguments>, 
         give_way,
         overload_release: overload.unwrap_or(false),
         rest_glance: rest_glance.unwrap_or(false),
+        pitch_window,
     };
     if result.stand_roll.is_some() && result.standing.is_none() {
         return Err("--stand-roll needs --stand");
@@ -482,6 +507,7 @@ fn run(arguments: Arguments) -> Result<bool, Box<dyn std::error::Error>> {
         arguments.give_way,
         arguments.overload_release,
         arguments.rest_glance,
+        arguments.pitch_window,
     );
     Err("the body requires Linux; no device was opened".into())
 }
@@ -569,6 +595,7 @@ fn run(arguments: Arguments) -> Result<bool, Box<dyn std::error::Error>> {
         }),
         overload_release: arguments.overload_release,
         rest_glance: arguments.rest_glance,
+        pitch_window: arguments.pitch_window.unwrap_or(folded.pitch_window),
         ..limits
     };
     // One line to the journal on each change of mood, and twice a second
@@ -1098,6 +1125,38 @@ mod tests {
             &["--rest-glance"],
             &["--rest-glance", "on", "--rest-glance", "on"],
             &["--rest-glance", "on", "--help"],
+        ] {
+            assert!(with(refused).is_err(), "{refused:?}");
+        }
+    }
+
+    /// A lamp's own window for the head beside the base, lamp-4ace's
+    /// unless given.
+    #[test]
+    fn pitch_window_is_low_and_high_and_lamp_4ace_s_unless_given() {
+        let with = |more: &[&'static str]| parse(args(&[&FULL[..], more].concat()));
+        assert_eq!(with(&[]).unwrap().unwrap().pitch_window, None);
+        assert_eq!(
+            with(&["--pitch-window", "1670,1995"])
+                .unwrap()
+                .unwrap()
+                .pitch_window,
+            Some((1_670, 1_995))
+        );
+        let home = ["--home", "1771,2035,2035"];
+        assert!(with(&[&home[..], &["--pitch-window", "1700,1995"]].concat()).is_ok());
+        for refused in [
+            &["--pitch-window", "1669,1995"][..],
+            &["--pitch-window", "1995,1700"],
+            &["--pitch-window", "1700,1700"],
+            &["--pitch-window", "1700,4096"],
+            &["--pitch-window", "1700"],
+            &["--pitch-window", "+1700,1995"],
+            &["--pitch-window"],
+            &["--pitch-window", "1700,1995", "--pitch-window", "1700,1995"],
+            &["--pitch-window", "1700,1995", "--help"],
+            &["--home", "1771,2035,2035", "--pitch-window", "1800,1995"],
+            &["--home", "1771,2035,2035", "--pitch-window", "1700,1770"],
         ] {
             assert!(with(refused).is_err(), "{refused:?}");
         }

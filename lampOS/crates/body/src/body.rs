@@ -388,6 +388,8 @@ pub struct Limits {
     /// The head's pitch must be found inside this window to start at all.
     pub pitch_home: (u16, u16),
     /// And is never commanded outside this one, whatever the reach allows.
+    /// A lamp's own (`--pitch-window`) is checked against the servo's own
+    /// limits before anything is written.
     pub pitch_window: (u16, u16),
     /// The head's pitch is never asked to go under this, folded or stood
     /// up, whatever a mood, the eyes and a gesture add up to: the servo's
@@ -1045,6 +1047,19 @@ impl<P: PortIo, R: Runtime> Bus<'_, P, R> {
             Ok(())
         })?;
         Ok(profiles)
+    }
+
+    /// The servo's own lower and upper position limits (registers 9 and 11).
+    fn position_limits(&mut self, joint: Joint) -> Result<(u16, u16), String> {
+        let request = ReadOnlyRequest::sync_read(&[joint], ReadWindow::POSITION_LIMITS)
+            .map_err(|error| error.to_string())?;
+        let mut limits = (0, 0);
+        self.read(&request, |reply| {
+            let read = reply.position_limits().map_err(|error| error.to_string())?;
+            limits = (read.min().raw(), read.max().raw());
+            Ok(())
+        })?;
+        Ok(limits)
     }
 
     /// The force limit each of `joints` holds, in their order.
@@ -1892,6 +1907,23 @@ pub(crate) fn run_alive(
             return report;
         }
     };
+    // A lamp's own window for the head is one the servo can reach.
+    if limits.pitch_window != Limits::FOLDED.pitch_window {
+        let (low, high) = limits.pitch_window;
+        match bus.position_limits(Joint::WristPitch) {
+            Ok((min, max)) if min <= low && high <= max => {}
+            Ok((min, max)) => {
+                report.stop = refused(format!(
+                    "pitch window {low}..={high} is outside the head pitch servo's own {min}..={max}"
+                ));
+                return report;
+            }
+            Err(detail) => {
+                report.stop = refused(format!("first read: {detail}"));
+                return report;
+            }
+        }
+    }
     if standing.is_some() && home.is_none() {
         standing = None;
         report.standing_refused = Some("a lamp that stands needs a home".into());

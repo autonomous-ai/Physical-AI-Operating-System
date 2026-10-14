@@ -16,6 +16,8 @@ struct Servo {
     /// Its force limit (register 48), and whether a write of it is kept.
     force: u16,
     keeps_force: bool,
+    /// Its own lower and upper position limits (registers 9 and 11).
+    range: (u16, u16),
 }
 
 /// Something that happens to one servo at a given time.
@@ -108,6 +110,7 @@ fn folded(cancel_at: Duration) -> (Lamp, Clock) {
         answers: true,
         force: 1_000,
         keeps_force: true,
+        range: (0, 4_095),
     };
     let time = Rc::new(Cell::new(Duration::ZERO));
     (
@@ -245,6 +248,10 @@ impl Lamp {
         let position = servo.position.round() as u16;
         (address..address + count)
             .map(|register| match register {
+                9 => servo.range.0.to_le_bytes()[0],
+                10 => servo.range.0.to_le_bytes()[1],
+                11 => servo.range.1.to_le_bytes()[0],
+                12 => servo.range.1.to_le_bytes()[1],
                 40 => servo.torque,
                 41 => servo.acceleration,
                 42 => servo.goal.to_le_bytes()[0],
@@ -1128,6 +1135,57 @@ fn the_heads_pitch_never_passes_its_window_however_it_is_found() {
         .max()
         .unwrap();
     assert!(highest <= 2_030, "{highest}");
+}
+
+/// A lamp's own window holds the head inside it as lamp-4ace's does, and is
+/// taken only inside the head pitch servo's own limits.
+#[test]
+fn a_lamp_s_own_pitch_window_holds_the_head_and_must_fit_its_servo() {
+    let own = Limits {
+        pitch_window: (1_670, 1_995),
+        ..Limits::FOLDED
+    };
+    let (mut lamp, mut clock) = folded(Duration::from_secs(8));
+    lamp.servos[PITCH].position = 1_990.0;
+    lamp.servos[PITCH].goal = 1_990;
+    let news = script(&clock.time);
+    let report = run(&mut lamp, &mut clock, own, None, news, |_| {});
+    assert_eq!(report.stop, Stop::Cancelled, "{report:?}");
+    let pitches: Vec<u16> = lamp
+        .goals
+        .iter()
+        .map(|write| goal_of(write, Joint::WristPitch))
+        .collect();
+    // Found five counts under the window's top: every goal stays inside it.
+    assert!(
+        pitches.iter().all(|pitch| (1_670..=1_995).contains(pitch)),
+        "{pitches:?}"
+    );
+    // A servo that may not reach the low end refuses the run, writing nothing.
+    let (mut lamp, mut clock) = folded(Duration::from_secs(2));
+    lamp.servos[PITCH].range = (1_700, 3_000);
+    let news = script(&clock.time);
+    let report = run(&mut lamp, &mut clock, own, None, news, |_| {});
+    match &report.stop {
+        Stop::Refused { why } => assert!(why.contains("1700..=3000"), "{why}"),
+        stop => panic!("{stop:?}"),
+    }
+    assert!(lamp.nothing_was_written());
+}
+
+/// Without a window of its own, a servo's limits are not even read: a lamp
+/// whose servo says it can reach nothing runs exactly as before.
+#[test]
+fn without_a_window_of_its_own_the_lamp_runs_exactly_as_before() {
+    let writes = |range: (u16, u16)| {
+        let (mut lamp, mut clock) = folded(Duration::from_secs(8));
+        lamp.servos[PITCH].range = range;
+        let news = script(&clock.time);
+        let report = run(&mut lamp, &mut clock, Limits::FOLDED, None, news, |_| {});
+        assert_eq!(report.stop, Stop::Cancelled, "{report:?}");
+        (lamp.goals, lamp.registers)
+    };
+    assert_eq!(writes((0, 0)), writes((0, 4_095)));
 }
 
 /// A pose to stand in for the simulated lamp, whose arm is found folded at

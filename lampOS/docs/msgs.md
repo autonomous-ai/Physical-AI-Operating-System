@@ -185,3 +185,17 @@ cases are in the [task 18 evidence](verification/expression-rest-host-20261014/r
 The Controls rows describe the source contract, not a measured deployment or a
 test result. No Controls publisher/consumer integration, GPIO/I2C behavior or
 physical stop/mute latency has been established by this documentation review.
+
+## The ears' contracts
+
+The ears' types live in `src/ears.rs` and are re-exported at the crate root
+([ears.md](ears.md)). Like the controls', they do not change the original
+topic catalogue. Neither carries any sound.
+
+| Type | Topic | Kind | Period / lifespan | Meaning |
+|---|---|---|---|---|
+| `RoomSound` | `ears/level` | latest | 100 ms / none | The room microphone's last 100 ms in dBFS, the room's quiet (none for the first two seconds), whether the lamp's own voice is in it |
+| `SuddenSound` | `ears/sudden` | event | none / none | A sound that rose suddenly out of the quiet: its loudest 20 ms, the quiet, how long it stayed loud in 300 ms, whether that was short, how long ago it began |
+
+Levels are dBFS from -120 (digital silence) to 0; `check()` refuses
+anything else, and a peak under its quiet.

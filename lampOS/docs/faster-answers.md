@@ -881,6 +881,12 @@ worker alone. Switched off again at 13:46. The second builder has the
 findings; the likely cause is that each early end is a finished request to
 the service, which then hears half-sentences as whole ones.
 
+Whether the service can be made to forget such a request, by resuming the
+session from the handle it gave before it or by a note on the whole
+request after it, is the study and probe of `second-P1`
+([early-end-taken-back.md](early-end-taken-back.md)); until it says yes,
+`--early-end-ms` stays off.
+
 ## What was not shown
 
 - **Nothing was timed.** No service was called, nothing ran on a lamp,

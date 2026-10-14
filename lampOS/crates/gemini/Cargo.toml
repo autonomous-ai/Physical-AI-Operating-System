@@ -23,3 +23,8 @@ tokio = { version = "=1.53.1", features = ["test-util"] }
 
 [lints]
 workspace = true
+
+# Its trials are tested against the scripted service by `cargo test`.
+[[example]]
+name = "early_end_probe"
+test = true

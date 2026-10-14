@@ -355,6 +355,29 @@ Ready for lamp-voice: yes (#718)
   `pitch_window` (1,740), 30 over where this head rests. lamp-52e6 runs
   its recorded unit again.
 
+## 2026-10-14 — look-at-name (task 37, #715) — called, it looks up and glances
+
+Ready for lamp-voice: yes (#724)
+
+- `fifth/look-at-name`, cut from and rebased on `lamp-voice`, one commit:
+  `--look-at-name on` lets the body take `name/heard` as being spoken to
+  for two seconds (it rises, looks up, the gaze turns it to a face), and
+  with no face in view glance once it stands (`clips::CALLED`, about 60
+  counts of base each way in a second). At most once in ten seconds, never
+  while it speaks. Off: exactly as before (a test says so). Gate green,
+  `cargo test -p lamp-body` 273 passed, native ARM64 run green.
+- On lamp-52e6 (`docs/verification/look-at-name-lamp-52e6-20261014/`, on
+  the branch), nobody in view: said aloud from the Mac ("Hey Lamp, ...",
+  real turns, `lamp-name` running for the trial), the name was heard in 4
+  of 6 lines, 0.55 to 0.95 s after it ended, and the glance began 83 to
+  135 ms after that; the voice had already lifted the head 0.45 s into each
+  line. Published by hand: the glance 135 to 204 ms after the call on a
+  standing lamp; folded, up at once and the glance once stood. lamp-52e6
+  runs its recorded units again.
+- Left for a person (Leo): a call with somebody in view. A portrait on the
+  Mac's screen was too small in the lamp's picture (about 15% of its
+  height; the eyes take a face from 19.2%).
+
 
 Work found while doing a listed task that cannot be folded into it. One
 line each, proposed once; the first builder answers once under "Answers"
@@ -389,3 +412,6 @@ for its owner, not mended here.
   "bus topic /run/lampos-bus/diagnostics: Permission denied" (that folder
   is root:root 0770), so `body/joint_states` is not published on
   lamp-52e6.
+- `lamp-eyes` on lamp-52e6, 2026-10-14 evening: "camera did not open:
+  DeadlineExceeded (StreamOn)" every few seconds for minutes at a time
+  between permitted spells (journal from 18:00), then open again.

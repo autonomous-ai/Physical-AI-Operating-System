@@ -770,8 +770,8 @@ unchanged (`2defa611b`). The thing the log named as most likely to go
 wrong, building its bundled database for the lamp, went right the first
 time in the lamp's build container; the 106 tests pass on the Mac and
 under emulation. On lamp-4ace: the timing test on the lamp's own disk
-(every repeated read under 30 ms; the first import of 6,000 exchanges
-2.3 s, once), and the new store beside today's on a copy of the lamp's
+(of the repeated reads the slowest took 30.1 ms; the first import of
+6,000 exchanges 2.3 s, once), and the new store beside today's on a copy of the lamp's
 real records (the same answers for the newest, the kept and a day; for a
 recall by word, other entries in three cases of six, because it ranks).
 All of it is in [memory-days.md](memory-days.md), "Built for the lamp and

@@ -321,15 +321,15 @@ from connecting to the whole reply read; first, then 50 repeats:
 | Session note | not there | 52.9, 3.8, 4.6 |
 | Recall with a model's answer pending | not there | 26.6, 24.9, 26.5 |
 
-The new store's file was 6.0 MB. Every repeated read is under 30 ms,
-against the 300 ms the voice allows for a session's note and the 1.5 s it
+The new store's file was 6.0 MB. Of the repeated reads the slowest single
+one took 30.1 ms and no 95th percentile is over 27 ms, against the 300 ms the voice allows for a session's note and the 1.5 s it
 allows a request. About twice the development Mac's times for the word
 searches.
 
 **On a copy of the lamp's real records** (347 journal lines from two days,
 nothing kept; the copy made in `/var/tmp`, used and removed; ids and counts
 looked at, no text): the new store was listening 11 ms after starting and
-its first request took 291 ms; after that 4 to 6 ms. The newest entries,
+its first request took 291 ms; after that under 6 ms. The newest entries,
 the kept things and one day's entries came back with the same ids in the
 same order from both stores. A recall by one word, for each of the six
 commonest longer words: three gave the same ids in the same order, and

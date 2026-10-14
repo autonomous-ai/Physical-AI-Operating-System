@@ -6,45 +6,64 @@ it's done it reads that list for new tasks and continue working. you
 also read that list and see what's done and add more tasks. it will get
 todo, build, test, merge."
 
-This file, on the branch `lamp-voice`, is that list.
+This file, on the branch `lamp-voice`, is that list. The setup was
+settled with the owner the same morning: each builder has a branch only
+it writes to, so that the branch the lamp is installed from holds nothing
+that has not been on the lamp.
+
+| Branch | Who writes to it | What it holds |
+|---|---|---|
+| `lamp-voice` | The first builder | What is on the lamp or about to be, and this list: every task, its brief, and what the lamp showed |
+| `lamp-second` | The second builder | Everything it has built and tested, one task on top of the next, and `lampOS/docs/work-log.md`: what it has taken, what it hands back, its questions |
+| `second/<task>` | The second builder | One task while it is being built |
 
 - **The first builder** is at the office with lamp-4ace. It is the only
   one who can build for the lamp, install on it and measure there. It
-  adds tasks here, runs what the second builder merged on the lamp, and
-  writes what the lamp showed under "Handed back".
+  writes the tasks here, takes finished work from `lamp-second` into
+  `lamp-voice` when it can run it on the lamp, and writes here what the
+  lamp showed.
 - **The second builder** is on another machine with no lamp. It takes
-  tasks from the list below, top first, and for each: builds, tests,
-  merges, records it here, and takes the next.
+  tasks from the list below, top first, and for each: builds, tests, puts
+  it on `lamp-second`, records it in its log, and takes the next. It never
+  pushes to `lamp-voice`. (Its first push, taking tasks 1 and 2, went
+  there under the first form of these rules, and stands.)
 
 ## The loop, for the second builder
 
-1. `git fetch origin` and read this file as it is on `origin/lamp-voice`.
-2. Take the first task whose state is `open`. Change its state to `taken`
-   with the date, in a commit of this file alone, pushed to `lamp-voice`
-   at once, so that the other builder sees it.
-3. Work on a branch `second/<task>` from the current `origin/lamp-voice`.
-   Read what the task points to before writing anything.
-4. Test. The gate before any merge, run in `lampOS/`:
-   `cargo fmt --all --check`; `cargo clippy -p <crate> --all-targets -- -D warnings`
-   and `cargo test -p <crate>` for every crate touched and every crate
-   that depends on one touched; `cargo build --workspace`. If the
-   workspace did not build on that machine before the change, say so
-   under "Questions" and use the other three.
-5. Merge: rebase the branch on the newest `origin/lamp-voice`, run the
-   gate again, and push it to `lamp-voice` as a fast-forward
-   (`git push origin second/<task>:lamp-voice`). Never force a push, and
-   never make a merge commit. If the push is refused, fetch, rebase, run
-   the gate and try again.
-6. In the same push: the task's state becomes `merged` with the date, and
-   one entry goes under "Handed back": what was built, what was tested
-   and on which machine, what was not shown, and what the first builder
-   has to do on the lamp.
-7. Take the next. With nothing `open`, look again every half hour.
+1. `git fetch origin`. Read this file as it is on `origin/lamp-voice`,
+   and your own log on `lamp-second`.
+2. Bring `lamp-second` up to date: rebase it on the newest
+   `origin/lamp-voice` (the first time, create it there). Work the first
+   builder has already taken drops out of it by itself. Push it with
+   `--force-with-lease`: it is the one branch where that is allowed,
+   because nobody else writes to it.
+3. Take the first task in the list that your log does not show as taken
+   or done. Write it into `lampOS/docs/work-log.md` as taken, with the
+   date, and push.
+4. Work on a branch `second/<task>` from `lamp-second`. Read what the task
+   points to before writing anything.
+5. Test. The gate, run in `lampOS/`: `cargo fmt --all --check`;
+   `cargo clippy -p <crate> --all-targets -- -D warnings` and
+   `cargo test -p <crate>` for every crate touched and every crate that
+   depends on one touched; `cargo build --workspace`. If the workspace did
+   not build on that machine before the change, say so in the log and use
+   the other three.
+6. Put it on `lamp-second` as a fast-forward, and in the same push write
+   the task's entry in the log: what was built, what was tested and on
+   which machine, what was not shown, and what the first builder has to
+   do on the lamp.
+7. Take the next. With nothing left to take, look again every half hour.
 
-What is never merged: a failing test (the review task stays on its
-branch); a change to a crate listed as hands off, unless its task says
-so; anything that changes what the lamp does without a switch that is off
-unless set; anything under `deploy/`.
+What never goes onto `lamp-second`: a failing test (the review task
+stays on its own branch); a change to a crate listed as hands off, unless
+its task says so; anything that changes what the lamp does without a
+switch that is off unless set; anything under `deploy/`.
+
+What the first builder does with it: reads the log, takes a finished task
+from `lamp-second` into `lamp-voice`, builds it for the lamp and runs it
+there, and writes the result in the list's last column: `on the lamp`
+with what it showed, or `sent back` with what the lamp did and the
+records to work from. A task sent back is taken again like any other.
 
 ## Rules for both
 
@@ -81,9 +100,10 @@ unless set; anything under `deploy/`.
   `crates/eyes`, `crates/actions`, `crates/policy`, `crates/health` and
   `deploy/`. The first builder changes these by the hour, on the lamp.
 - **No spending, no accounts, no keys.** A task that needs one says so
-  under "Questions" and the next task is taken.
-- **Questions** go under "Questions" at the end, pushed, and work goes on
-  with whatever does not depend on the answer.
+  in the log and the next task is taken.
+- **Questions** go in the second builder's log, pushed, and work goes on
+  with whatever does not depend on the answer. The first builder answers
+  them here, under "Answers".
 
 The workspace is `lampOS/` (`cargo test -p <crate>` from there). The
 lamp is an Orange Pi 4 Pro (Linux ARM64, eight cores: two at 2.0 GHz, six
@@ -93,8 +113,9 @@ you in the office", whose voice "must be perfect".
 
 ## The list
 
-Top first. States: `open`, `taken <date>`, `merged <date>`, `on its
-branch <date>` (the review), `set aside <date>` with the reason.
+Top first. The last column is the first builder's: `open`; `taken` and
+`on lamp-second` as the second builder's log reports them; then `on the
+lamp <date>` or `sent back <date>`.
 
 | # | Task | Branch | State |
 |---|---|---|---|
@@ -174,8 +195,8 @@ costs: size, how it is built for Linux ARM64, its licence.
 
 ## 2. Try to break last night's changes to the voice
 
-Not merged: it stays on its branch, and its state becomes `on its
-branch`. It adds tests only, to crates otherwise hands off.
+It stays on its own branch and never goes onto `lamp-second`. It adds
+tests only, to crates otherwise hands off.
 
 **What changed on the night of 2026-10-14**, all of it live on the lamp
 and described in `docs/attention.md` and `docs/name.md`:
@@ -195,8 +216,8 @@ connection, so a note sent at the wrong moment is such a fault). Clocks
 are passed in everywhere, so no test needs to sleep. No fixes: the first
 builder fixes, because only it can run the result on the lamp.
 
-**Hand back:** the findings, most serious first, each with the name of
-its test; and what was looked at and found sound.
+**Hand back,** in the log: the findings, most serious first, each with
+the name of its test; and what was looked at and found sound.
 
 ## 3. A listener for "stop" under the lamp's own voice
 
@@ -453,8 +474,8 @@ it, tested with a Harness that is scripted. The repository's rule stands:
 this side is the client only, the contract is the Harness team's, and no
 other pairing, transport or credential is invented. Where the documents
 leave the contract open, check the Harness team's own code if that
-machine can read it, and otherwise list each assumption under
-"Questions".
+machine can read it, and otherwise list each assumption in the
+log.
 
 **Hand back:** the part with its tests, `docs/tasks.md`, and the list of
 what has to be checked against a real Harness.
@@ -475,9 +496,10 @@ what V1 does, what the verdict says, what V2 keeps as it is, rebuilds or
 leaves, and the smallest thing that would let a lamp be handed to someone
 who is not a builder. Then build what can be built without a lamp.
 
-## Handed back
+## What the lamp showed
 
-Newest first.
+Newest first. The second builder's own notes are in
+`lampOS/docs/work-log.md` on `lamp-second`.
 
-## Questions
+## Answers
 

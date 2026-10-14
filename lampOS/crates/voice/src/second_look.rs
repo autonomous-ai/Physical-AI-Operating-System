@@ -26,11 +26,15 @@ pub const ENVIRONMENT: &str = "LAMP_SECOND_LOOK";
 /// What the model is given in place of something heard.
 pub const NOTE: &str = "(Your own ears caught your name, Lamp, at the start of what was just said to you, so you were being called. If it is something a lamp on a desk could answer or chat about, answer it now in your usual way, as if you had not waited, and do not mention the wait or your name. If it is other people's own business, say nothing.)";
 
-/// The least a hearing scores for the lamp to ask again on the strength
-/// of it. The part that listens says a hearing from 0.9; lines to a name
-/// like the lamp's ("Hey Lan") reached that in five of ten, and 0.999 in
-/// two (`docs/name.md`).
-pub const LEAST_SCORE: f32 = 0.98;
+/// The least a hearing scores for the lamp to pass it on: the score from
+/// which the part that listens reports one at all (`docs/name.md`). It was
+/// 0.98 for a morning. On lamp-4ace on 2026-10-14 about a quarter of the
+/// hearings of played calls scored 0.91 to 0.98, one at 0.967 got no answer
+/// and no second look, and lines to a name like the lamp's ("Hey Lan")
+/// scored 1.000 as often as real calls did: the score does not tell the
+/// two apart, and what keeps the lamp out of other people's business is
+/// the note's own last sentence and the model's judgement.
+pub const LEAST_SCORE: f32 = 0.9;
 /// The name counts for a request if it began no longer than this before
 /// the request did (`crate::attention::NAME_BEFORE_US`).
 pub const BEFORE_US: u64 = crate::attention::NAME_BEFORE_US;
@@ -149,7 +153,7 @@ mod tests {
         assert_eq!(look.finished(2, true, 26 * SECOND), None);
         // The name was heard, under the score a second look asks for.
         let mut look = SecondLook::default();
-        look.name_heard(30 * SECOND, 0.93);
+        look.name_heard(30 * SECOND, 0.85);
         look.request_began(3, 30 * SECOND + 200_000);
         assert_eq!(look.finished(3, true, 36 * SECOND), None);
         // The name was heard long before: it was for an earlier request.

@@ -133,7 +133,7 @@ mod tests {
     #[test]
     fn a_faint_hearing_or_an_old_one_tells_nothing() {
         let mut called = Called::default();
-        called.name_heard(10 * SECOND, 0.93);
+        called.name_heard(10 * SECOND, 0.85);
         assert_eq!(called.due(Some(1), 10 * SECOND + 200_000), None);
         // Heard plainly, but long before this request began.
         let mut called = Called::default();

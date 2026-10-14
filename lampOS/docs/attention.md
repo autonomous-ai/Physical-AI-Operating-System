@@ -185,7 +185,9 @@ So the lamp now tells the model what its own ears heard
 `LAMP_SECOND_LOOK=on` in the voice unit, with the bus on). When a request
 that was heard ends with nothing said, and the name began to be heard in
 the sound no more than 1.5 s before that request began or at any time in
-it, with a score of 0.98 or more, the voice begins one turn of its own
+it (with a score of 0.98 or more at first; any hearing the name part
+reports, since 07:45 the same day: see the end of the next section), the
+voice begins one turn of its own
 with a written note in place of speech, as it does for a hello:
 
 > (Your own ears caught your name, Lamp, at the start of what was just
@@ -269,6 +271,18 @@ one asking is enough.
 The rule has five tests of its own, and the note inside a request one
 against a scripted service (it goes in order with the sound and the link
 goes on). The worker's wiring has none; it was exercised on the lamp.
+
+**The score asked for was lowered the same morning, from 0.98 to the 0.9
+the name part reports from.** A played "Hey Lamp, tell me two interesting
+things about the ocean." was heard at 0.967; the service wrote "Hey mom,
+tell me…"; no note was sent and no second look taken; and the lamp said
+nothing. About a quarter of that morning's hearings of played calls
+scored between 0.91 and 0.98 (five of the twenty in the logs read), while
+lines to a name like the lamp's scored 1.000 as often as real calls did. So the higher bar kept the sign from real calls and
+kept nothing out. What keeps the lamp out of a line to "Lan" is the note's
+last sentence and the model's judgement, which held in each of the five
+such lines it has been tried on. Not shown: the lower bar on the lamp;
+people were arriving and nothing more was played.
 
 Played on lamp-4ace on the evening of 2026-10-13, with two synthetic
 voices and nobody in the office:

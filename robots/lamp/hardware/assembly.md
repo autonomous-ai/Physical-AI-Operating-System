@@ -20,7 +20,10 @@ Build order for one lamp. Skeleton — fill in photos and torque values as we bu
 4. **Mount the LED ring** on the top cap.
    - 3 wires out: 5 V, GND, DIN
    - Route through the strain-relief slot (don't pinch under the cap).
-5. **Wire the button** to the chosen header pin (see [`wiring.md`](wiring.md)). Solder + heat-shrink, no breadboard joints.
+5. **Wire the controls** (see [`wiring.md`](wiring.md)). Solder + heat-shrink, no breadboard joints.
+   - Primary button → header pin 35, reset button → pin 37, mic privacy slide switch → pin 11 (all to GND when pressed / muted).
+   - MPR121 board → pins 1 (3.3 V), 3 (SDA), 5 (SCL), 6 (GND); its 12 electrodes to the base touch strip.
+   - TTP223 head pads → two of pins 27/29/31/33, VCC from 3.3 V (never 5 V).
 6. **Mount speakers** in their grilles. Wire PAM8610 → speakers with twisted pair.
 7. **Mount the SBC** (Pi 5 or OPi 4 Pro) on its standoffs.
    - Standoff height: TODO
@@ -30,15 +33,19 @@ Build order for one lamp. Skeleton — fill in photos and torque values as we bu
    - 12 V → PAM8610
    - 12 V → MP2482 buck → 5 V to SBC and LED ring
    - All grounds to star point at buck output (see [`power.md`](power.md))
-9. **Plug USB devices**: camera, mic, servo control board.
-   - **Mic 2 (sensing) rework**: the OrangePi 4 Pro's onboard MEMS mic must be desoldered from its pads and re-mounted in the lamp base, wired back to the same pads with an extended (twisted) cord. Do this before mounting the SBC if possible — the pads are easier to reach with the board out.
+9. **Plug USB devices**: camera, Jieli voice mic, C-Media USB adapter (sensing mic + line-out to the PAM8610), servo control board.
+   - The onboard MEMS mic is no longer used; no desoldering is needed.
 10. **Smoke test before closing the body**:
     - Power on with current meter inline if possible.
     - Confirm SBC boots (LEDs on board).
     - Confirm fan spins.
     - SSH in, run `aplay -D plug:device_speaker /home/orangepi/tiger.wav` (or similar).
     - LED ring should breathe boot animation.
-11. **Calibrate** — see [`calibration.md`](../../../hal/calibration/calibration.md).
+11. **Calibrate**
+    - Servos — see [`calibration.md`](../../../hal/calibration/calibration.md).
+    - MPR121 touch strip — per-unit thresholds at the bench, then a hands-off phantom watch; see
+      [per-unit tuning](../docs/physical-controls.md#per-unit-tuning-that-survives-updates).
+    - Run the bench hardware test (coverage in [`wiring.md`](wiring.md#bench-hardware-test-coverage)).
 12. **Close enclosure**.
 
 ## Screw / fastener spec

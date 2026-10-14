@@ -416,6 +416,27 @@ use the same form without their ids meeting.
 | fifth-P4 | `ready-line` | Not a task: the first builder takes only what a log entry marked `Ready for lamp-voice: yes (<commit>)` names; code being made stays on the task branch. So that unfinished work is not taken onto `lamp-voice`. | [builder-with-a-lamp.md](builder-with-a-lamp.md), "Taken only when ready"; every log entry from now on | |
 | fifth-P5 | `joining` | Not a task: one document for joining as a builder ([joining.md](joining.md)) and a role file per builder (`builders/<name>.md`), gathering fifth-P1 to P4 and what the fifth builder had to find out by hand on 2026-10-14, so that the next builder, with any person or lamp, starts where this one ended. | [joining.md](joining.md); [builders/](../builders/TEMPLATE.md); work-split.md's loops would point to it | |
 
+## 2026-10-14 — mouth-moving (task 39, #720) — whether a face's mouth moves
+
+Ready for lamp-voice: no (the recordings with a person are not done; draft pull request)
+
+- `fifth/mouth-moving`, cut from `lamp-voice`, one commit (dc7b28997): with
+  `LAMP_EYES_MOUTH=on` beside `LAMP_BUS=on` the eyes say on
+  `humans/faces/mouths` how much each face's mouth moves, 0 to 1 over
+  0.5 s, under its id. Frame differences of the lower face less those of
+  the eyes, from every frame while a face is in view; no new model. Off,
+  nothing is read and `humans/faces/tracked` is byte for byte as before (a
+  test). The study and its sources are in `docs/eyes.md`, "Whether a mouth
+  moves".
+- On lamp-52e6: 0.6 to 1.1 ms a frame against 61 to 89 ms a look for the
+  detector, 116 to 135 ms from a frame's taking, 22 MB, 51 to 52 degrees.
+  A talking face on the Mac's display was found too seldom (16 to 18% of
+  the picture, 20 of 178 looks) to judge the score; the path works end to
+  end. The eyes run their recorded unit again.
+- Left for a person, about ten minutes: `mouths.sh` in
+  `docs/verification/mouth-moving-lamp-52e6-20261014/` (on the branch),
+  with the build already installed on lamp-52e6.
+
 ## Found, not mine
 
 Seen on lamp-52e6 while working on the body, outside `crates/body`; left

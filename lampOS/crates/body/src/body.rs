@@ -159,6 +159,14 @@ const WAKE_LIFT_LOAD: u16 = 400;
 /// steps (half a second) ends the run: it has stopped short.
 const WAKE_STILL_STEPS: u8 = 25;
 const WAKE_MOVED: u16 = 3;
+/// A joint that has stopped coming nearer within this many counts of home
+/// has woken where it settled. On lamp-52e6 on 2026-10-14, woken from a
+/// real droop (found yaw 1,979, roll 2,101, pitch 2,029 for a home of
+/// 2,035, 2,035, 1,771), the head lifted 226 counts in 20.8 s and stayed 32
+/// short of home, the yaw 11 and the roll 17: from below, these servos
+/// (pitch gain P 32, roll and yaw 16) do not close the last 30 to 40
+/// counts. Farther than this from home it has not woken, and the run ends.
+const WAKE_SETTLE: u16 = 50;
 
 pub const COMMANDED: [Joint; 3] = [Joint::WristPitch, Joint::WristRoll, Joint::BaseYaw];
 /// A gesture asked for while the lamp is still rising waits this long for it
@@ -663,6 +671,9 @@ pub struct Woke {
     pub joints: Vec<&'static str>,
     pub from: Vec<u16>,
     pub to: Vec<u16>,
+    /// Where each was when the wake ended: short of `to` by up to
+    /// [`WAKE_SETTLE`] when it settled there.
+    pub settled: Vec<u16>,
     pub seconds: f32,
 }
 
@@ -1053,14 +1064,18 @@ fn wake<P: PortIo, R: Runtime>(
     let (mut ticks, mut done) = (0u32, 0u32);
     let mut written = from;
     let (mut misses, mut over, mut off) = (0u8, [0u8; 3], [0u8; 3]);
-    // How near each joint has come to its goal since the goal got home, and
-    // the steps since it last came nearer.
-    let (mut closest, mut still) = ([u16::MAX; 3], [0u8; 3]);
+    // How near each joint has come to its goal since the goal got home, the
+    // steps since it last came nearer, and whether it has settled short.
+    let (mut closest, mut still, mut settled) = ([u16::MAX; 3], [0u8; 3], [false; 3]);
     loop {
         ticks += 1;
         let due = started + TICK * ticks;
         if !matches!(bus.runtime.cancelled(), Ok(false)) {
-            report.woke = Some(woke_from(from, to, written, started, bus.runtime.now()));
+            report.woke = Some(woke_from(
+                (from, to, written),
+                report.last,
+                bus.runtime.now().saturating_sub(started),
+            ));
             return Err(Stop::Cancelled);
         }
         let (pose, over_now) = wake_pose(from, to, TICK.as_secs_f32() * done as f32);
@@ -1079,7 +1094,11 @@ fn wake<P: PortIo, R: Runtime>(
                 report.missed_reads += 1;
                 misses += 1;
                 if misses >= WIRE_STEPS {
-                    report.woke = Some(woke_from(from, to, written, started, bus.runtime.now()));
+                    report.woke = Some(woke_from(
+                        (from, to, written),
+                        report.last,
+                        bus.runtime.now().saturating_sub(started),
+                    ));
                     return Err(Stop::Bus {
                         detail: format!("waking: {detail}"),
                     });
@@ -1140,6 +1159,11 @@ fn wake<P: PortIo, R: Runtime>(
                     } else if apart > limits.tracking {
                         still[index] = still[index].saturating_add(1);
                     }
+                    // Stopped short, but near enough home: woken there.
+                    if still[index] >= WAKE_STILL_STEPS && apart <= WAKE_SETTLE {
+                        settled[index] = true;
+                        still[index] = 0;
+                    }
                     let stop = if over[index] >= limits.load_steps.max(1) {
                         Some(Stop::Load {
                             joint: joint.id(),
@@ -1159,11 +1183,16 @@ fn wake<P: PortIo, R: Runtime>(
                     surprise = surprise.or(stop);
                 }
                 let arrived = (0..3).all(|index| {
-                    written[index].abs_diff(now[COMMANDED[index].index()].position)
-                        <= limits.tracking
+                    settled[index]
+                        || written[index].abs_diff(now[COMMANDED[index].index()].position)
+                            <= limits.tracking
                 });
                 if surprise.is_some() || (over_now && arrived) {
-                    report.woke = Some(woke_from(from, to, written, started, bus.runtime.now()));
+                    report.woke = Some(woke_from(
+                        (from, to, written),
+                        report.last,
+                        bus.runtime.now().saturating_sub(started),
+                    ));
                     return surprise.map_or(Ok(now), Err);
                 }
                 if !over_now {
@@ -1175,21 +1204,41 @@ fn wake<P: PortIo, R: Runtime>(
     }
 }
 
+/// Where the head and the base are at home with the arm `stand` of its way
+/// up: the folded `home`, carried toward the standing pose with the head.
+fn home_with(home: [u16; 3], standing: Option<Standing>, stand: f32) -> [f32; 3] {
+    let folded = home.map(f32::from);
+    match standing {
+        Some(up) => {
+            let share = head_share(stand);
+            std::array::from_fn(|index| {
+                folded[index] + (f32::from(up.pose[index]) - folded[index]) * share
+            })
+        }
+        None => folded,
+    }
+}
+
 /// What the wake did, as far as it got: the joints it set out to move,
-/// where each was found and where its goal had got to.
+/// where each was found, where its goal had got to and where it was last
+/// read.
 fn woke_from(
-    from: [u16; 3],
-    to: [u16; 3],
-    written: [u16; 3],
-    started: Duration,
-    now: Duration,
+    (from, to, written): ([u16; 3], [u16; 3], [u16; 3]),
+    last: Option<[Sample; 5]>,
+    took: Duration,
 ) -> Woke {
     let moved: Vec<usize> = (0..3).filter(|index| from[*index] != to[*index]).collect();
     Woke {
         joints: moved.iter().map(|index| COMMANDED[*index].name()).collect(),
         from: moved.iter().map(|index| from[*index]).collect(),
         to: moved.iter().map(|index| written[*index]).collect(),
-        seconds: now.saturating_sub(started).as_secs_f32(),
+        settled: last.map_or_else(Vec::new, |last| {
+            moved
+                .iter()
+                .map(|index| last[COMMANDED[*index].index()].position)
+                .collect()
+        }),
+        seconds: took.as_secs_f32(),
     }
 }
 
@@ -1572,18 +1621,7 @@ pub(crate) fn run_alive(
             }
         }
     }
-    let home_of = |standing: Option<Standing>, stand: f32| -> [f32; 3] {
-        let folded = home.map(f32::from);
-        match standing {
-            Some(up) => {
-                let share = head_share(stand);
-                std::array::from_fn(|index| {
-                    folded[index] + (f32::from(up.pose[index]) - folded[index]) * share
-                })
-            }
-            None => folded,
-        }
-    };
+    let home_of = |standing: Option<Standing>, stand: f32| home_with(home, standing, stand);
     // The window beside the base is for a head that is beside the base.
     let beside_base = head_share(stand) <= 0.0;
     // Waking: a joint found where it may not start, but within WAKE_REACH
@@ -1827,6 +1865,7 @@ pub(crate) fn run_alive(
 
     // Woken from wherever it was found: brought home slowly, the way
     // something alive wakes, before the body takes it as found.
+    let mut home = home;
     let found_pose = if to_wake {
         let to = home_found.map(|count| count.round() as u16);
         match wake(
@@ -1839,10 +1878,33 @@ pub(crate) fn run_alive(
         ) {
             // The run takes over the goals the wake left, home, where the
             // servos have them: a head that still lags its goal by a few
-            // counts is not asked to drop back to where it is.
+            // counts is not asked to drop back to where it is. A joint that
+            // settled farther short than the run's own bound runs from where
+            // it settled: its goal becomes where it is, so that nothing keeps
+            // pushing, and its home moves there by as much, so that moods
+            // are laid on the pose it has and the gap is not tried again.
             Ok(now) => {
                 found = now;
-                to
+                let mut goals = to;
+                for (index, joint) in COMMANDED.iter().enumerate() {
+                    let at = found[joint.index()].position;
+                    if at.abs_diff(to[index]) > limits.tracking {
+                        goals[index] = at;
+                        let shifted = i32::from(home[index]) + i32::from(at) - i32::from(to[index]);
+                        home[index] = shifted.clamp(0, 4_095) as u16;
+                    }
+                }
+                if goals != to {
+                    if let Err(detail) = bus.send_goals(goals, standing.map(|_| arm_written)) {
+                        report.stop = Stop::Bus {
+                            detail: format!("waking: {detail}"),
+                        };
+                        return report;
+                    }
+                    report.goal_writes += 1;
+                    report.home = Some(home);
+                }
+                goals
             }
             Err(stop) => {
                 // Stop pushing: each goal becomes where its joint is now.
@@ -1860,6 +1922,9 @@ pub(crate) fn run_alive(
     } else {
         found_pose
     };
+    // Home as the wake left it.
+    let home = home;
+    let home_of = |standing: Option<Standing>, stand: f32| home_with(home, standing, stand);
 
     // The reach around home, and the absolute window for the head's pitch
     // while the head is beside the base. A lamp that stands carries its

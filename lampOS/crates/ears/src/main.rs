@@ -6,10 +6,11 @@ use std::{
     process::ExitCode,
 };
 
-const USAGE: &str = "usage: lamp-ears [--device ALSA_NAME] [--bus-root ABSOLUTE_DIR]\n       lamp-ears check FILE...";
+const USAGE: &str = "usage: lamp-ears [--device ALSA_NAME] [--rise-db DB] [--bus-root ABSOLUTE_DIR]\n       lamp-ears check [--rise-db DB] FILE...";
 const HELP: &str = "Listens to the room microphone and says how loud the room is. See docs/ears.md.
 
   --device    the room microphone (plug:device_micro1)
+  --rise-db   how far over the room's quiet a sound must rise to be sudden, 10 to 60 (30)
   --bus-root  the bus's directory (LAMP_BUS_ROOT, or /run/lampos-bus)
 
 It publishes ears/level ten times a second (the last 100 ms against the room's quiet),
@@ -33,11 +34,12 @@ fn log(line: &str) {
 #[derive(Debug, PartialEq)]
 struct Arguments {
     device: String,
+    rise_db: f32,
     bus: Option<std::path::PathBuf>,
 }
 
 fn parse(mut arguments: impl Iterator<Item = String>) -> Result<Option<Arguments>, String> {
-    let (mut device, mut bus) = (None, None);
+    let (mut device, mut rise, mut bus) = (None, None, None);
     while let Some(option) = arguments.next() {
         if option == "--help" || option == "-h" {
             return Ok(None);
@@ -47,6 +49,7 @@ fn parse(mut arguments: impl Iterator<Item = String>) -> Result<Option<Arguments
             .ok_or_else(|| format!("{option} needs a value"))?;
         let twice = match option.as_str() {
             "--device" if !value.is_empty() => device.replace(value).is_some(),
+            "--rise-db" => rise.replace(rise_db(&value)?).is_some(),
             "--bus-root" => {
                 let path = std::path::PathBuf::from(&value);
                 if !path.is_absolute() {
@@ -62,8 +65,17 @@ fn parse(mut arguments: impl Iterator<Item = String>) -> Result<Option<Arguments
     }
     Ok(Some(Arguments {
         device: device.unwrap_or_else(|| "plug:device_micro1".to_owned()),
+        rise_db: rise.unwrap_or(Settings::default().rise_db),
         bus,
     }))
+}
+
+fn rise_db(value: &str) -> Result<f32, String> {
+    value
+        .parse::<f32>()
+        .ok()
+        .filter(|db| (10.0..=60.0).contains(db))
+        .ok_or_else(|| "--rise-db is from 10 to 60".to_owned())
 }
 
 /// The samples of a file of sound: raw, or after a WAV file's 44 bytes.
@@ -80,10 +92,13 @@ fn samples_of(bytes: &[u8]) -> Vec<i16> {
 }
 
 /// `check`: the listening over files, 20 ms at a time, the lamp silent.
-fn check(files: &[String]) -> io::Result<()> {
+fn check(rise_db: f32, files: &[String]) -> io::Result<()> {
     for file in files {
         let samples = samples_of(&std::fs::read(file)?);
-        let mut listener = Listener::new(Settings::default());
+        let mut listener = Listener::new(Settings {
+            rise_db,
+            ..Settings::default()
+        });
         let (mut loudest, mut sudden) = (f32::MIN, 0u32);
         for block in samples.chunks_exact(BLOCK) {
             let heard = listener.block(block, false);
@@ -184,11 +199,15 @@ mod serve {
         let mut health: Publisher =
             bus.publisher_declared(Diagnostic::TOPIC, &Diagnostic::declaration(), NAME)?;
         log(&format!(
-            "started device={} bus_root={}",
+            "started device={} rise_db={} bus_root={}",
             arguments.device,
+            arguments.rise_db,
             bus.root().display()
         ));
-        let mut listener = Listener::new(Settings::default());
+        let mut listener = Listener::new(Settings {
+            rise_db: arguments.rise_db,
+            ..Settings::default()
+        });
         let mut counted = Counted::default();
         let mut total_sudden = 0u64;
         let mut lamp_speaking = false;
@@ -296,11 +315,21 @@ mod serve {
 
 fn main() -> ExitCode {
     let given: Vec<String> = std::env::args().skip(1).collect();
-    if let [command, files @ ..] = given.as_slice()
+    if let [command, rest @ ..] = given.as_slice()
         && command == "check"
-        && !files.is_empty()
+        && !rest.is_empty()
     {
-        return match check(files) {
+        let (rise, files) = match rest {
+            [option, value, files @ ..] if option == "--rise-db" => match rise_db(value) {
+                Ok(rise) => (rise, files),
+                Err(why) => {
+                    eprintln!("lamp-ears: {why}");
+                    return ExitCode::from(2);
+                }
+            },
+            files => (Settings::default().rise_db, files),
+        };
+        return match check(rise, files) {
             Ok(()) => ExitCode::SUCCESS,
             Err(error) => {
                 eprintln!("lamp-ears: {error}");
@@ -353,15 +382,17 @@ mod tests {
             of("").unwrap().unwrap(),
             Arguments {
                 device: "plug:device_micro1".into(),
+                rise_db: 30.0,
                 bus: None,
             }
         );
         assert_eq!(
-            of("--device hw:2,0 --bus-root /run/lampos-bus")
+            of("--device hw:2,0 --rise-db 25 --bus-root /run/lampos-bus")
                 .unwrap()
                 .unwrap(),
             Arguments {
                 device: "hw:2,0".into(),
+                rise_db: 25.0,
                 bus: Some("/run/lampos-bus".into()),
             }
         );
@@ -370,6 +401,8 @@ mod tests {
             "--bus-root relative",
             "--device a --device b",
             "--loud 3",
+            "--rise-db 5",
+            "--rise-db loud",
             "--device",
         ] {
             assert!(of(refused).is_err(), "{refused:?}");

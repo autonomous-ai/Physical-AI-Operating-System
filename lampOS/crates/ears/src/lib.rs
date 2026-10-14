@@ -41,7 +41,9 @@ pub struct Settings {
 impl Default for Settings {
     fn default() -> Self {
         Self {
-            rise_db: 20.0,
+            // 20 dB gave 2 to 7 a minute in an office at work (keys, cups,
+            // the start of a word); 30 dB, about one in twenty minutes.
+            rise_db: 30.0,
             least_db: -40.0,
             before_db: 10.0,
             watch_ms: 300,
@@ -301,7 +303,7 @@ mod tests {
     fn a_voice_beginning_close_by_is_sudden_and_not_short() {
         let mut run = Run::new();
         run.play(-52.0, 3_000, false);
-        run.play(-22.0, 1_500, false);
+        run.play(-18.0, 1_500, false);
         assert_eq!(run.sudden.len(), 1);
         let voice = run.sudden[0].1;
         assert!(!voice.short && voice.loud_ms == 300, "{voice:?}");

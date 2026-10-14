@@ -36,18 +36,23 @@ The voice keeps mic2 to itself; the two parts never share a device.
 | `ears/sudden` | `SuddenSound` | event | Its loudest 20 ms, the quiet it rose out of, how long it stayed 10 dB over the quiet in the 300 ms it was watched, whether that was under 200 ms ("short": a knock, a clap) or not (a voice, a chair, music), and how long ago it began |
 | `diagnostics` | `Diagnostic` | every second | `ears`: ok, or an error with why the microphone does not open; the quiet now, how many sudden sounds, overruns |
 
-**When a sound is sudden.** A 20 ms block at least 20 dB over the quiet and
-at least -40 dBFS, after 200 ms that averaged under 10 dB over the quiet.
+**When a sound is sudden.** A 20 ms block at least 30 dB over the quiet
+(`--rise-db`, 10 to 60) and at least -40 dBFS, after 200 ms that averaged under 10 dB over the quiet.
 It is watched for 300 ms and then said. After one, none for a second.
 While the voice says it is speaking (`voice/state`, if no older than 3 s)
 and for half a second after, nothing is sudden and the quiet is not
 learned: the lamp's own voice reaches mic1 at -13 to -17 dBFS.
 
-These numbers are first choices, not measured ones.
+These numbers are first choices except the 30 dB: with 20 dB, the office at
+work gave 2 to 7 sudden sounds a minute between 16:15 and 16:33 on
+2026-10-14 (52 in 18 minutes, all but 7 short, peaks -28 to -33 dBFS:
+keys, cups, the start of a word); a glance at those would be a twitch, not
+a living thing. One of the 52 rose more than 30 dB (-18.1 dBFS out of
+-52.7).
 
 ## On the lamp
 
-    lamp-ears --device plug:device_micro1 --bus-root /run/lampos-bus
+    lamp-ears --device plug:device_micro1 --rise-db 30 --bus-root /run/lampos-bus
 
 Unit `lamp-ears.service` (in the first builder's deploy folder for
 lamp-4ace). `lamp-ears check FILE...` runs the same listening over
@@ -61,7 +66,7 @@ tenth percentile, -44.3 at the median and -32.6 at the loudest 100 ms.
 macOS's "Bottle", "Pop" and "Glass" played from the office iMac about a
 metre away: 2 of 6 were said as sudden (peaks -32.4 and -32.8, both short);
 those sounds peak about -37 to -39 dBFS over 100 ms at mic1, at the edge of
-the rule. A "Hey Lamp" played from the same place reached about -37 to -45
+the first rule of 20 dB and under the present one. A "Hey Lamp" played from the same place reached about -37 to -45
 dBFS: no louder at mic1 than the office's own talk.
 
 ## What exists, and what is taken

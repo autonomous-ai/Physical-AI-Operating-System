@@ -167,6 +167,8 @@ pub fn health(glimpse: &Glimpse, resisted: u32) -> Diagnostic {
                 "resisted_since_start",
                 glimpse.eased.iter().map(|n| u32::from(*n)).sum::<u32>(),
             ),
+            // A step has run: the start checks are behind it.
+            fact(lamp_keeper::STATE, lamp_keeper::PartState::Ready.as_str()),
         ],
     }
 }
@@ -234,7 +236,10 @@ pub fn stopped(stop: &Stop) -> Diagnostic {
         level,
         name: SOURCE.to_owned(),
         message,
-        values: Vec::new(),
+        values: vec![fact(
+            lamp_keeper::STATE,
+            lamp_keeper::PartState::Stopping.as_str(),
+        )],
     }
 }
 
@@ -491,6 +496,7 @@ mod tests {
                 ("warmest_reading", "44"),
                 ("resisted_last_minute", "0"),
                 ("resisted_since_start", "0"),
+                ("state", "ready"),
             ]
         );
         // One under warm is well, warm is not.
@@ -640,6 +646,13 @@ mod tests {
             .parse()
             .unwrap();
         assert_eq!((report.level, report.name.as_str()), (Level::Ok, "body"));
+        assert_eq!(
+            (
+                report.values[6].key.as_str(),
+                report.values[6].value.as_str()
+            ),
+            ("state", "ready")
+        );
         // What is kept for whoever comes later is the newest. A message
         // reaches its subscribers a moment before it is the kept one.
         let since = Instant::now();
@@ -669,6 +682,7 @@ mod tests {
             .unwrap();
         assert_eq!(last.level, Level::Error);
         assert_eq!(last.message, "stopped: shoulder is too warm (it reads 62)");
+        assert_eq!(last.values[0].value, "stopping");
         std::fs::remove_dir_all(root).unwrap();
     }
 

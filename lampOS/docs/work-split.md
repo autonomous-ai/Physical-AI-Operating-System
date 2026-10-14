@@ -20,8 +20,8 @@ that has not been on the lamp.
 - **The first builder** is at the office with lamp-4ace. It is the only
   one who can build for the lamp, install on it and measure there. It
   writes the tasks here, takes finished work from `lamp-second` into
-  `lamp-voice` when it can run it on the lamp, and writes here what the
-  lamp showed.
+  `lamp-voice` when it can run it on the lamp, mends there whatever does
+  not work on the lamp, and writes here what the lamp showed.
 - **The second builder** is on another machine with no lamp. It takes
   tasks from the list below, top first, and for each: builds, tests, puts
   it on `lamp-second`, records it in its log, and takes the next. It never
@@ -61,9 +61,21 @@ switch that is off unless set; anything under `deploy/`.
 
 What the first builder does with it: reads the log, takes a finished task
 from `lamp-second` into `lamp-voice`, builds it for the lamp and runs it
-there, and writes the result in the list's last column: `on the lamp`
-with what it showed, or `sent back` with what the lamp did and the
-records to work from. A task sent back is taken again like any other.
+there. **What does not work on the lamp, the first builder mends itself,
+there and then.** Nothing is sent back to be reworked: the owner's
+instruction is that the second builder "build the best it can and if
+there are issues you fix it yourself so we can reduce communications cost
+back and forth". The mend is one line under "What the lamp showed", and
+`lamp-second` picks it up at its next rebase. Only a piece that is wrong
+at its root comes back, and then as a new task in the list.
+
+So, for the second builder: **build each piece as if nobody will come
+back to you about it.** Finish it. Write every test that can be written
+without a lamp. Leave the part that needs the lamp as small as it can be,
+one command if possible. In the log, say exactly what to run on the lamp,
+what it should show, and where you think it is most likely to be wrong
+there: that last line is worth more than any other, because it is where
+the first builder will look first.
 
 ## Rules for both
 
@@ -115,7 +127,7 @@ you in the office", whose voice "must be perfect".
 
 Top first. The last column is the first builder's: `open`; `taken` and
 `on lamp-second` as the second builder's log reports them; then `on the
-lamp <date>` or `sent back <date>`.
+lamp <date>`.
 
 | # | Task | Branch | State |
 |---|---|---|---|

@@ -1,0 +1,99 @@
+{
+  "boundaries": "parse: parse_ps on the listing's bytes; signs: signs_in on every about; track: Tracker::read for 16 watched tasks and take of the status; scripted read: Cli::status from spawn to parsed rows, this executable standing in for harness (no network, no daemon, no Harness work)",
+  "parsing_by_rows": {
+    "1": {
+      "bytes": 856,
+      "parse_us": {
+        "first": 79.3,
+        "max": 79.3,
+        "median": 1.5,
+        "samples": 200
+      },
+      "signs_us": {
+        "first": 50.4,
+        "max": 82.2,
+        "median": 9.4,
+        "samples": 200
+      },
+      "track_16_tasks_us": {
+        "first": 37.5,
+        "max": 37.5,
+        "median": 1.0,
+        "samples": 200
+      }
+    },
+    "16": {
+      "bytes": 12878,
+      "parse_us": {
+        "first": 27.8,
+        "max": 63.8,
+        "median": 22.2,
+        "samples": 200
+      },
+      "signs_us": {
+        "first": 190.5,
+        "max": 431.7,
+        "median": 157.5,
+        "samples": 200
+      },
+      "track_16_tasks_us": {
+        "first": 180.7,
+        "max": 180.7,
+        "median": 3.0,
+        "samples": 200
+      }
+    },
+    "256": {
+      "bytes": 205634,
+      "parse_us": {
+        "first": 370.3,
+        "max": 742.9,
+        "median": 342.3,
+        "samples": 200
+      },
+      "signs_us": {
+        "first": 2689.8,
+        "max": 6670.8,
+        "median": 2581.4,
+        "samples": 200
+      },
+      "track_16_tasks_us": {
+        "first": 175.9,
+        "max": 175.9,
+        "median": 11.7,
+        "samples": 200
+      }
+    },
+    "40": {
+      "bytes": 32138,
+      "parse_us": {
+        "first": 61.3,
+        "max": 132.6,
+        "median": 55.3,
+        "samples": 200
+      },
+      "signs_us": {
+        "first": 399.1,
+        "max": 851.1,
+        "median": 397.6,
+        "samples": 200
+      },
+      "track_16_tasks_us": {
+        "first": 164.5,
+        "max": 164.5,
+        "median": 4.0,
+        "samples": 200
+      }
+    }
+  },
+  "platform": {
+    "arch": "aarch64",
+    "os": "macos"
+  },
+  "scripted_ps_read_40_rows_ms": {
+    "first": 13.7,
+    "max": 18.4,
+    "median": 4.2,
+    "samples": 50
+  }
+}

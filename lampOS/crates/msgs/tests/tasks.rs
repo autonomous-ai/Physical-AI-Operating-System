@@ -1,0 +1,183 @@
+//! `tasks/status`: how the work handed over is going, as typed state.
+use lamp_bus::Kind;
+use lamp_msgs::{
+    AgentState, Decision, Sign, TASK_STATUS_MOST_TASKS, TaskProgress, TaskStatus, declaration_of,
+    first_topics, tasks_topics,
+};
+use serde_json::{Value, json};
+use std::collections::BTreeMap;
+
+fn progress() -> TaskProgress {
+    TaskProgress {
+        task: 3,
+        engine: "claude".into(),
+        state: AgentState::Working,
+        working_s: Some(754),
+        last_active_unix_ms: Some(1_791_964_800_000),
+        read_unix_ms: 1_791_964_812_345,
+        changes: 4,
+        changed: true,
+        new_share: 0.5,
+        signs: vec![Sign::TestsPass],
+        signs_seen: vec![Sign::TestsPass, Sign::Found],
+    }
+}
+
+fn status() -> TaskStatus {
+    TaskStatus {
+        store_id: "0123456789abcdef0123456789abcdef".into(),
+        tasks: vec![progress()],
+    }
+}
+
+#[test]
+fn a_status_is_typed_state_without_words_and_ignores_fields_added_later() {
+    let expected = status();
+    expected.check().unwrap();
+    let text = serde_json::to_string(&expected).unwrap();
+    assert_eq!(
+        text,
+        r#"{"store_id":"0123456789abcdef0123456789abcdef","tasks":[{"task":3,"engine":"claude","state":"working","working_s":754,"last_active_unix_ms":1791964800000,"read_unix_ms":1791964812345,"changes":4,"changed":true,"new_share":0.5,"signs":["tests_pass"],"signs_seen":["tests_pass","found"]}]}"#
+    );
+    assert_eq!(serde_json::from_str::<TaskStatus>(&text).unwrap(), expected);
+    let mut value: Value = serde_json::from_str(&text).unwrap();
+    value["future"] = json!(1);
+    value["tasks"][0]["future"] = json!("a newer field");
+    assert_eq!(
+        serde_json::from_value::<TaskStatus>(value).unwrap(),
+        expected
+    );
+    // Not known is left out.
+    let mut unknown = progress();
+    unknown.working_s = None;
+    unknown.last_active_unix_ms = None;
+    let value = serde_json::to_value(&unknown).unwrap();
+    assert!(value.get("working_s").is_none() && value.get("last_active_unix_ms").is_none());
+    // A state or a sign this version does not know is not guessed.
+    let mut value = serde_json::to_value(status()).unwrap();
+    value["tasks"][0]["state"] = json!("thinking");
+    assert!(serde_json::from_value::<TaskStatus>(value).is_err());
+    let mut value = serde_json::to_value(status()).unwrap();
+    value["tasks"][0]["signs_seen"] = json!(["shipped"]);
+    assert!(serde_json::from_value::<TaskStatus>(value).is_err());
+    // Every other field has to be there.
+    let value = serde_json::to_value(progress()).unwrap();
+    for field in [
+        "task",
+        "engine",
+        "state",
+        "read_unix_ms",
+        "changes",
+        "changed",
+        "new_share",
+        "signs",
+        "signs_seen",
+    ] {
+        let mut without = value.clone();
+        without.as_object_mut().unwrap().remove(field);
+        assert!(
+            serde_json::from_value::<TaskProgress>(without).is_err(),
+            "{field}"
+        );
+    }
+    assert_eq!(
+        serde_json::to_value(AgentState::NeedsInput).unwrap(),
+        json!("needs_input")
+    );
+    assert_eq!(
+        serde_json::to_value(Sign::PullRequest).unwrap(),
+        json!("pull_request")
+    );
+}
+
+#[test]
+fn the_check_holds_the_bounds_and_the_signs_to_their_sense() {
+    let wrong = |change: fn(&mut TaskStatus)| {
+        let mut value = status();
+        change(&mut value);
+        value.check().unwrap_err().0
+    };
+    assert!(wrong(|s| s.store_id = "XYZ".into()).contains("store_id"));
+    assert!(
+        wrong(|s| s.tasks = vec![progress(); TASK_STATUS_MOST_TASKS + 1]).contains("at most 16")
+    );
+    assert!(wrong(|s| s.tasks = vec![progress(), progress()]).contains("once each"));
+    assert!(wrong(|s| s.tasks[0].task = 0).contains("positive"));
+    assert!(wrong(|s| s.tasks[0].engine = "Claude Code".into()).contains("engine"));
+    assert!(wrong(|s| s.tasks[0].new_share = 1.5).contains("new_share"));
+    assert!(wrong(|s| s.tasks[0].new_share = f32::NAN).contains("new_share"));
+    assert!(
+        wrong(|s| s.tasks[0].signs_seen = vec![Sign::Found, Sign::TestsPass]).contains("in order")
+    );
+    assert!(wrong(|s| s.tasks[0].signs = vec![Sign::Done]).contains("also a sign seen"));
+    assert!(wrong(|s| s.tasks[0].read_unix_ms = u64::MAX).contains("9999"));
+    assert!(
+        wrong(|s| {
+            s.tasks[0].changes = 0;
+        })
+        .contains("counted")
+    );
+    // Nothing watched is a status too.
+    let empty = TaskStatus {
+        tasks: Vec::new(),
+        ..status()
+    };
+    empty.check().unwrap();
+}
+
+#[test]
+fn the_topic_is_kept_latest_apart_from_the_first_topics() {
+    let declared = TaskStatus::declaration();
+    assert_eq!(declared.type_name, "lamp_msgs/TaskStatus");
+    assert_eq!((declared.kind, declared.period()), (Kind::Latest, None));
+    assert_eq!(tasks_topics(), vec![(TaskStatus::TOPIC, declared.clone())]);
+    assert_eq!(declaration_of("tasks/status"), Some(declared));
+    assert!(
+        first_topics()
+            .iter()
+            .all(|(topic, _)| *topic != TaskStatus::TOPIC)
+    );
+}
+
+#[test]
+fn a_progress_decision_names_its_work_and_an_attention_one_is_written_as_before() {
+    let attention = Decision {
+        about: "attention".into(),
+        choice: "answer".into(),
+        probability: 0.9,
+        answers: BTreeMap::new(),
+        by: "rule".into(),
+        took_ms: 0,
+        shadow: true,
+        request: None,
+        task: None,
+    };
+    // Without a task the bytes are the ones written before the field was.
+    assert_eq!(
+        serde_json::to_string(&attention).unwrap(),
+        "{\"about\":\"attention\",\"choice\":\"answer\",\"probability\":0.9,\"answers\":{},\"by\":\"rule\",\"took_ms\":0,\"shadow\":true}"
+    );
+    let progress = Decision {
+        about: "progress".into(),
+        choice: "say_now".into(),
+        task: Some("0123456789abcdef0123456789abcdef:3:4".into()),
+        ..attention
+    };
+    progress.check().unwrap();
+    let text = serde_json::to_string(&progress).unwrap();
+    assert!(text.ends_with(",\"task\":\"0123456789abcdef0123456789abcdef:3:4\"}"));
+    assert_eq!(serde_json::from_str::<Decision>(&text).unwrap(), progress);
+    for task in [
+        "0123456789abcdef0123456789abcdef:3",
+        "0123456789ABCDEF0123456789ABCDEF:3:4",
+        "0123456789abcdef0123456789abcdef:x:4",
+        "0123456789abcdef0123456789abcdef:3:4:5",
+        "",
+    ] {
+        let wrong = Decision {
+            task: Some(task.into()),
+            ..progress.clone()
+        };
+        assert!(wrong.check().unwrap_err().0.contains("task"), "{task:?}");
+    }
+}

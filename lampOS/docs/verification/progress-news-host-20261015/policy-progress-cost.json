@@ -1,0 +1,19 @@
+{
+  "boundaries": "state_and_combine: progress::state_text and progress::combine; status_to_decision: a TaskStatus published on a bus in /tmp to its Decision received there, through the policy's loop (20 ms tick), its asking thread and a stand-in that answers at once, and the decision's line written to a log in the temporary directory",
+  "platform": {
+    "arch": "aarch64",
+    "os": "macos"
+  },
+  "state_and_combine_us": {
+    "first": 139.4,
+    "max": 139.4,
+    "median": 2.4,
+    "samples": 1000
+  },
+  "status_to_decision_ms": {
+    "first": 48.1,
+    "max": 58.9,
+    "median": 52.7,
+    "samples": 30
+  }
+}

@@ -1,8 +1,8 @@
 use lamp_bus::Bus;
-use lamp_msgs::Diagnostic;
+use lamp_msgs::{AgentState, Diagnostic, Sign, TaskStatus};
 use lamp_tasks::{
     engine::Clock as Sample,
-    harness::{EngineKind, Launch, LaunchOutcome, Observation, Target},
+    harness::{EngineKind, Launch, LaunchOutcome, Listed, Observation, Target},
     runtime::{Adapter, Clock, Config, request, serve_with_adapter},
 };
 use serde_json::{Value, json};
@@ -32,6 +32,9 @@ impl Clock for Injected {
 struct Counts {
     launches: AtomicUsize,
     reads: AtomicUsize,
+    listings: AtomicUsize,
+    /// What `ps` lists next: the agent's progress line.
+    about: Mutex<Option<String>>,
 }
 struct Script {
     counts: Arc<Counts>,
@@ -67,6 +70,16 @@ impl Adapter for Script {
             tools: 2,
         })
     }
+    fn status(&self, machine: &str) -> Result<Vec<Listed>, String> {
+        self.counts.listings.fetch_add(1, Ordering::SeqCst);
+        assert_eq!(machine, "0123456789abcdef0123456789abcdef");
+        Ok(vec![Listed {
+            agent_id: AGENT.into(),
+            state: "working".into(),
+            last_active_unix_ms: Some(1_792_022_712_345),
+            about: self.counts.about.lock().unwrap().clone(),
+        }])
+    }
 }
 
 struct Running {
@@ -80,6 +93,9 @@ struct Running {
 }
 impl Running {
     fn new(slow: bool) -> Self {
+        Self::with(slow, false)
+    }
+    fn with(slow: bool, progress: bool) -> Self {
         let root = tempfile::Builder::new()
             .prefix("tsk-")
             .tempdir_in("/private/tmp")
@@ -101,6 +117,7 @@ impl Running {
             )]),
             run_for: None,
             watch: false,
+            progress,
         };
         let mut running = Self {
             root,
@@ -407,4 +424,158 @@ fn command_line_rejects_duplicate_fields_before_connecting() {
         assert!(output.stdout.is_empty());
         assert!(String::from_utf8_lossy(&output.stderr).contains("bad_request"));
     }
+}
+
+/// The next status on the bus, checked.
+fn next_status(watch: &mut lamp_bus::Subscriber) -> TaskStatus {
+    let message = watch
+        .recv(Duration::from_secs(5))
+        .unwrap()
+        .expect("a status on the bus");
+    assert_eq!(message.header.source, "tasks");
+    let text = String::from_utf8(message.payload.clone()).unwrap();
+    // Typed state only: no word an agent wrote, no task text.
+    for words in [
+        "Reading the brief",
+        "tests pass",
+        "Fixed",
+        "Private scripted",
+    ] {
+        assert!(!text.contains(words), "{text}");
+    }
+    let status: TaskStatus = message.parse().unwrap();
+    status.check().unwrap();
+    status
+}
+
+#[test]
+fn with_progress_each_machine_is_listed_on_the_watchs_schedule_and_the_words_stay_here() {
+    let s = Running::with(false, true);
+    let bus = Bus::new(&s.config.bus_root).unwrap();
+    let mut watch = bus
+        .subscribe_typed(TaskStatus::TOPIC, "tasks_test", TaskStatus::TYPE)
+        .unwrap();
+    *s.counts.about.lock().unwrap() = Some("Reading the brief".into());
+    let prepared = s.prepare();
+    assert_eq!(s.trusted(s.confirmation(&prepared))["ok"], true);
+    s.wait(&prepared["id"], |v| {
+        v["task"]["dispatch"]["state"] == "accepted"
+    });
+    // Not before half a minute after it was handed over.
+    thread::sleep(Duration::from_millis(100));
+    assert_eq!(s.counts.listings.load(Ordering::SeqCst), 0);
+    s.clock.0.lock().unwrap().monotonic_ms = 30_000;
+    let first = next_status(&mut watch);
+    let task = &first.tasks[0];
+    assert_eq!(first.store_id, s.status()["store_id"]);
+    assert_eq!(
+        (
+            task.task,
+            task.engine.as_str(),
+            task.state,
+            task.changes,
+            task.changed
+        ),
+        (
+            prepared["id"].as_u64().unwrap(),
+            "codex",
+            AgentState::Working,
+            0,
+            false
+        )
+    );
+    assert_eq!(task.working_s, Some(30));
+    assert_eq!(task.last_active_unix_ms, Some(1_792_022_712_345));
+    // The line changes; the next read is half a minute later.
+    *s.counts.about.lock().unwrap() = Some("Fixed it; all tests pass".into());
+    s.clock.0.lock().unwrap().monotonic_ms = 59_999;
+    thread::sleep(Duration::from_millis(100));
+    assert_eq!(s.counts.listings.load(Ordering::SeqCst), 1);
+    s.clock.0.lock().unwrap().monotonic_ms = 60_000;
+    let changed = next_status(&mut watch);
+    let task = &changed.tasks[0];
+    assert_eq!((task.changes, task.changed), (1, true));
+    assert_eq!(task.signs, vec![Sign::TestsPass, Sign::Fixed]);
+    assert_eq!(task.new_share, 1.0);
+    // The words are handed over on the socket, for the lamp about to say them.
+    let words = s.ask(json!({"op":"get_progress","id":prepared["id"]}));
+    assert_eq!(words["ok"], true, "{words}");
+    assert_eq!(words["progress"]["about"], "Fixed it; all tests pass");
+    assert_eq!(words["progress"]["changes"], 1);
+    assert_eq!(words["store_id"], changed.store_id);
+    assert_eq!(
+        s.ask(json!({"op":"get_progress","id":99}))["error"],
+        "not_found"
+    );
+    // The reads are counted in the diagnostics.
+    let mut diagnostic = bus
+        .subscribe_typed(Diagnostic::TOPIC, "tasks_test", Diagnostic::TYPE)
+        .unwrap();
+    let start = Instant::now();
+    loop {
+        if let Some(message) = diagnostic.recv(Duration::from_millis(50)).unwrap() {
+            let value: Value = message.parse().unwrap();
+            if value.to_string().contains("status_reads") {
+                assert!(!value.to_string().contains("tests pass"));
+                break;
+            }
+        }
+        assert!(start.elapsed() < Duration::from_secs(3), "no status_reads");
+    }
+}
+
+#[test]
+fn without_progress_nothing_is_listed_the_topic_is_untouched_and_the_report_is_as_before() {
+    let s = Running::new(false);
+    let prepared = s.prepare();
+    assert_eq!(s.trusted(s.confirmation(&prepared))["ok"], true);
+    s.wait(&prepared["id"], |v| {
+        v["task"]["dispatch"]["state"] == "accepted"
+    });
+    s.clock.0.lock().unwrap().monotonic_ms = 3 * 60_000;
+    let bus = Bus::new(&s.config.bus_root).unwrap();
+    let mut diagnostic = bus
+        .subscribe_typed(Diagnostic::TOPIC, "tasks_test", Diagnostic::TYPE)
+        .unwrap();
+    let message = loop {
+        if let Some(message) = diagnostic.recv(Duration::from_secs(3)).unwrap() {
+            break message;
+        }
+    };
+    let report: Value = message.parse().unwrap();
+    let keys: Vec<String> = report["values"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|pair| pair["key"].as_str().unwrap().to_owned())
+        .collect();
+    assert_eq!(
+        keys,
+        [
+            "store_ready",
+            "cli_busy",
+            "requests",
+            "publish_errors",
+            "clients_refused",
+            "completion_supported",
+            "retained",
+            "queued",
+            "attempting",
+            "accepted",
+            "pending",
+            "uncertain",
+            "observations",
+            "speech_spoken",
+            "speech_uncertain"
+        ]
+    );
+    assert_eq!(s.counts.listings.load(Ordering::SeqCst), 0);
+    // The topic was never made: no publisher, no declaration, no value.
+    assert!(!s.config.bus_root.join("tasks").exists());
+    assert!(bus.latest(TaskStatus::TOPIC).unwrap().is_none());
+    // Asked for anyway, the words are not there.
+    assert_eq!(
+        s.ask(json!({"op":"get_progress","id":prepared["id"]}))["error"],
+        "progress_off"
+    );
 }

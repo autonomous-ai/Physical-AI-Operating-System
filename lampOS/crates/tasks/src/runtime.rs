@@ -1,12 +1,13 @@
 //! Bounded local sockets, one durable owner and one independent Harness worker.
 use crate::{
     engine::{Clock as ClockSample, Engine, Error as EngineError, LaunchJob, ObservationJob},
-    harness::{Cli, CliConfig, Launch, LaunchOutcome, Observation, Target},
+    harness::{Cli, CliConfig, Launch, LaunchOutcome, Listed, Observation, Target},
+    progress::{Reads, Tracker},
     protocol::{MAX_LINE_BYTES, MAX_REPLY_BYTES, Request},
     store::Store,
 };
 use lamp_bus::{Bus, Publisher};
-use lamp_msgs::{Diagnostic, Level};
+use lamp_msgs::{Diagnostic, Level, TaskStatus};
 use rustix::event::{PollFd, PollFlags, Timespec, poll};
 use serde::Deserialize;
 use serde_json::{Value, json};
@@ -106,6 +107,10 @@ pub struct Config {
     /// Look at each task handed over on its own until its agent has
     /// finished or asks something (on unless `serve --no-watch`, [`Engine::watch`]).
     pub watch: bool,
+    /// Read how each task being watched is going with one `harness ps` a
+    /// machine, on the watch's schedule, and say so on `tasks/status`
+    /// (`serve --progress`, [`crate::progress`]). Off unless set.
+    pub progress: bool,
 }
 
 /// An operator-owned file selects targets; a model supplies only an alias.
@@ -192,6 +197,12 @@ pub fn read_targets(path: &Path) -> io::Result<BTreeMap<String, Target>> {
 pub trait Adapter: Send + 'static {
     fn launch(&self, launch: &Launch) -> LaunchOutcome;
     fn observe(&self, machine_id: &str, agent_id: &str) -> Result<Observation, String>;
+    /// Every harness on one machine (`harness ps`), for progress. Asked only
+    /// with `serve --progress`; an adapter without it says so.
+    fn status(&self, machine_id: &str) -> Result<Vec<Listed>, String> {
+        let _ = machine_id;
+        Err("unsupported".into())
+    }
 }
 impl Adapter for Cli {
     fn launch(&self, launch: &Launch) -> LaunchOutcome {
@@ -199,6 +210,9 @@ impl Adapter for Cli {
     }
     fn observe(&self, machine_id: &str, agent_id: &str) -> Result<Observation, String> {
         Cli::observe(self, machine_id, agent_id)
+    }
+    fn status(&self, machine_id: &str) -> Result<Vec<Listed>, String> {
+        Cli::status(self, machine_id)
     }
 }
 
@@ -214,14 +228,20 @@ struct Report {
     summary: Value,
     requests: u64,
     cli_busy: bool,
+    /// With `--progress`: the newest status and its number, to publish
+    /// once, and how the reads have gone.
+    status: Option<(u64, Arc<TaskStatus>)>,
+    reads: Option<Reads>,
 }
 enum Job {
     Launch(LaunchJob),
     Observe(ObservationJob),
+    Status(String),
 }
 enum Outcome {
     Launch(u64, LaunchOutcome),
     Observe(ObservationJob, Result<Observation, String>),
+    Status(String, Result<Vec<Listed>, String>),
 }
 struct Binding {
     path: PathBuf,
@@ -342,10 +362,15 @@ fn owner<C: Clock>(
     (jobs, outcomes): (SyncSender<Job>, Receiver<Outcome>),
     current: Arc<Mutex<Report>>,
     stop: Arc<AtomicBool>,
-    watch: bool,
+    (watch, progress): (bool, bool),
 ) -> io::Result<()> {
     let mut requests = 0u64;
     let mut busy = false;
+    // Progress lives here, beside the engine, and only in memory: what an
+    // agent says while it works is not part of the durable record.
+    let mut tracker = progress.then(Tracker::default);
+    let mut status: Option<(u64, Arc<TaskStatus>)> = None;
+    let mut status_began = Instant::now();
     while !stop.load(Ordering::Acquire) {
         if let Ok(outcome) = outcomes.try_recv() {
             let now = clock.sample()?;
@@ -353,6 +378,19 @@ fn owner<C: Clock>(
                 Outcome::Launch(id, result) => engine.finish_launch(id, result, &now),
                 Outcome::Observe(job, Ok(value)) => engine.finish_observation(&job, value, &now),
                 Outcome::Observe(job, Err(code)) => engine.observation_failed(&job, &code, &now),
+                Outcome::Status(machine, listed) => {
+                    if let Some(tracker) = tracker.as_mut() {
+                        let took = status_began.elapsed().as_millis();
+                        tracker.read(
+                            &machine,
+                            listed,
+                            &engine.watched(&now),
+                            unix_ms(),
+                            u64::try_from(took).unwrap_or(u64::MAX),
+                        );
+                    }
+                    Ok(())
+                }
             }
             .map_err(io::Error::other)?;
             busy = false;
@@ -364,6 +402,18 @@ fn owner<C: Clock>(
                         code: "timeout",
                         message: "The queued request expired before it started.",
                     }));
+                } else if let (Request::GetProgress { id }, Some(tracker)) =
+                    (&work.request, tracker.as_ref())
+                {
+                    let answer = match tracker.words(*id) {
+                        Some(progress) => engine.identified(json!({"id":id,"progress":progress})),
+                        None => Err(EngineError {
+                            code: "not_found",
+                            message: "No task with that ID is being read for progress.",
+                        }),
+                    };
+                    requests = requests.saturating_add(1);
+                    let _ = work.response.try_send(answer);
                 } else {
                     let answer = engine.handle(&work.request, &clock.sample()?, work.trusted);
                     requests = requests.saturating_add(1);
@@ -384,10 +434,19 @@ fn owner<C: Clock>(
                     if watch {
                         engine.watch(&now).map_err(io::Error::other)?;
                     }
-                    engine
+                    let observe = engine
                         .begin_observation(&now)
                         .map_err(io::Error::other)?
-                        .map(Job::Observe)
+                        .map(Job::Observe);
+                    // One `ps` a machine, after launches and reads: it is a
+                    // read only and takes nothing from them.
+                    observe.or_else(|| {
+                        let tracker = tracker.as_mut()?;
+                        let machine = tracker.due(&engine.watched(&now), now.monotonic_ms)?;
+                        tracker.asked(&machine, now.monotonic_ms);
+                        status_began = Instant::now();
+                        Some(Job::Status(machine))
+                    })
                 }
             };
             if let Some(job) = next {
@@ -399,6 +458,12 @@ fn owner<C: Clock>(
                 busy = true;
             }
         }
+        if let Some(tracker) = tracker.as_mut()
+            && let Some(fresh) = tracker.take(engine.store_id())
+        {
+            let number = status.as_ref().map_or(1, |(number, _)| number + 1);
+            status = Some((number, Arc::new(fresh)));
+        }
         *current
             .lock()
             .map_err(|_| io::Error::other("Tasks report lock poisoned"))? = Report {
@@ -406,9 +471,19 @@ fn owner<C: Clock>(
             summary: engine.summary(),
             requests,
             cli_busy: busy,
+            status: status.clone(),
+            reads: tracker.as_ref().map(Tracker::reads),
         };
     }
     Ok(())
+}
+
+fn unix_ms() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_or(0, |since| {
+            u64::try_from(since.as_millis()).unwrap_or(u64::MAX)
+        })
 }
 
 fn remaining(deadline: Instant) -> io::Result<Duration> {
@@ -594,7 +669,7 @@ fn random_id() -> io::Result<String> {
     Ok(bytes.iter().map(|b| format!("{b:02x}")).collect())
 }
 
-fn publish(out: &mut Publisher, value: &Diagnostic, errors: &mut u64) {
+fn publish<T: serde::Serialize>(out: &mut Publisher, value: &T, errors: &mut u64) {
     let now = rustix::time::clock_gettime(rustix::time::ClockId::Monotonic);
     let at_us = (now.tv_sec.max(0) as u64)
         .saturating_mul(1_000_000)
@@ -652,12 +727,21 @@ pub fn serve_with_adapter<C: Clock, A: Adapter>(
         summary: engine.summary(),
         requests: 0,
         cli_busy: false,
+        status: None,
+        reads: None,
     }));
     let (public, _public_binding) = bind(&config.socket)?;
     let (trusted, _trusted_binding) = bind(&config.voice_socket)?;
     let bus = Bus::new(&config.bus_root)?;
     let mut diagnostic =
         bus.publisher_declared(Diagnostic::TOPIC, &Diagnostic::declaration(), "tasks")?;
+    // Without `--progress` the topic is not touched at all.
+    let mut status_out = if config.progress {
+        Some(bus.publisher_declared(TaskStatus::TOPIC, &TaskStatus::declaration(), "tasks")?)
+    } else {
+        None
+    };
+    let mut status_published = 0u64;
     let _stopping = StopOnDrop(stop.clone());
     let (jobs_tx, jobs_rx) = mpsc::sync_channel(1);
     let (outcomes_tx, outcomes_rx) = mpsc::sync_channel(1);
@@ -676,6 +760,10 @@ pub fn serve_with_adapter<C: Clock, A: Adapter>(
                                 let result = adapter.observe(&job.machine_id, &job.agent_id);
                                 Outcome::Observe(job, result)
                             }
+                            Job::Status(machine) => {
+                                let result = adapter.status(&machine);
+                                Outcome::Status(machine, result)
+                            }
                         };
                         if outcomes_tx.try_send(result).is_err() {
                             break;
@@ -688,7 +776,7 @@ pub fn serve_with_adapter<C: Clock, A: Adapter>(
         })?;
     let (owner_tx, owner_rx) = mpsc::sync_channel(REQUEST_QUEUE);
     let owner_stop = stop.clone();
-    let watch = config.watch;
+    let switches = (config.watch, config.progress);
     let report = current.clone();
     let owner = thread::Builder::new()
         .name("tasks-store".into())
@@ -700,7 +788,7 @@ pub fn serve_with_adapter<C: Clock, A: Adapter>(
                 (jobs_tx, outcomes_rx),
                 report,
                 owner_stop,
-                watch,
+                switches,
             )
         })?;
     let (clients_tx, clients_rx) = mpsc::sync_channel::<(UnixStream, Instant, bool)>(CLIENT_QUEUE);
@@ -757,6 +845,12 @@ pub fn serve_with_adapter<C: Clock, A: Adapter>(
         if let Ok(locked) = current.try_lock() {
             let report = locked.clone();
             drop(locked);
+            if let (Some(out), Some((number, status))) = (status_out.as_mut(), &report.status)
+                && *number > status_published
+            {
+                publish(out, status.as_ref(), &mut errors);
+                status_published = *number;
+            }
             let ready = report.updated.elapsed() <= STALE_AFTER
                 && !owner.is_finished()
                 && !cli.is_finished();
@@ -799,7 +893,22 @@ pub fn serve_with_adapter<C: Clock, A: Adapter>(
                         value = value.with(field, count);
                     }
                 }
+                // Only with `--progress`: without it the report is as it was.
+                if let Some(reads) = report.reads {
+                    value = value
+                        .with("status_reads", reads.reads)
+                        .with("status_failures", reads.failures)
+                        .with("status_last_ms", reads.last_ms)
+                        .with("status_most_ms", reads.most_ms)
+                        .with("status_published", status_published);
+                }
                 publish(&mut diagnostic, &value, &mut errors);
+                // The status topic promises no period: it says it is alive.
+                if let Some(out) = status_out.as_mut()
+                    && out.alive().is_err()
+                {
+                    errors = errors.saturating_add(1);
+                }
                 last_publish = Some(Instant::now());
                 last_ready = Some(ready);
             }
@@ -971,6 +1080,7 @@ mod tests {
             targets: BTreeMap::new(),
             run_for: None,
             watch: false,
+            progress: false,
         };
         serve_with_adapter::<_, Never>(config, Never, Arc::new(AtomicBool::new(false)), |_| {
             panic!("adapter configured while disabled")

@@ -1,6 +1,9 @@
 //! Scripted local executable fixtures. No installed Harness, daemon, account,
 //! remote agent, credentials or provider is invoked by these tests.
-use lamp_tasks::harness::{Cli, CliConfig, EngineKind, Launch, LaunchOutcome, Target};
+use lamp_tasks::harness::{
+    Cli, CliConfig, EngineKind, Launch, LaunchOutcome, Listed, MOST_ABOUT_BYTES, MOST_LISTED,
+    PS_STDOUT_LIMIT, Target, iso_unix_ms, parse_ps,
+};
 use serde_json::{Value, json};
 use std::{
     collections::BTreeMap,
@@ -744,4 +747,172 @@ fn read_timeout_and_output_cap_never_retry_show() {
         assert!(began.elapsed() < Duration::from_secs(2));
         assert_eq!(rig.calls().len(), 1);
     }
+}
+
+/// A `harness ps --machine <id> --json` reply, written by hand in the shape
+/// Harness 0.4.2's CLI makes (`JSON.stringify(..., null, 1)` of `{you,
+/// machine, harnesses}`), read from its source, not from any real session:
+/// the ids, names, folders and lines are invented.
+fn listing() -> Value {
+    json!({"you":null,"machine":"office","harnesses":[
+        {"name":"lamp-0a1b","id":AGENT,"agent":"Claude Code","machine":"office","state":"working",
+         "folder":"/home/person/harnesses/lamp-tasks","branch":null,"startedBy":"person","yours":false,"self":false,
+         "lastActive":"2026-10-15T00:05:12.345Z","asks":["Suggest three names for a desk lamp"],
+         "about":"Read the brief / Wrote three names to names.md / All 3 tests pass"},
+        {"name":"other","id":"33333333-3333-4333-8333-333333333333","agent":"Codex","machine":"office","state":"idle",
+         "folder":null,"branch":null,"startedBy":"person","yours":false,"self":false,"lastActive":null},
+        // Still being made: listed by its creation id, which is passed over.
+        {"name":"lamp-9z","id":"creation-abcdef0123456789","agent":"Claude Code","machine":"office","state":"starting",
+         "folder":null,"branch":null,"startedBy":"you","yours":true,"self":false,"lastActive":"2026-10-15T00:06:00.000Z",
+         "about":"lamp-9z has not started yet: it is starting."}
+    ]})
+}
+
+#[test]
+fn a_listing_is_read_for_state_last_activity_and_the_line_and_nothing_else() {
+    let text = serde_json::to_string_pretty(&listing()).unwrap();
+    let listed = parse_ps(text.as_bytes()).unwrap();
+    assert_eq!(
+        listed,
+        vec![
+            Listed {
+                agent_id: AGENT.into(),
+                state: "working".into(),
+                last_active_unix_ms: Some(1_792_022_712_345),
+                about: Some(
+                    "Read the brief / Wrote three names to names.md / All 3 tests pass".into()
+                ),
+            },
+            Listed {
+                agent_id: "33333333-3333-4333-8333-333333333333".into(),
+                state: "idle".into(),
+                last_active_unix_ms: None,
+                about: None,
+            },
+        ]
+    );
+    // A long line is cut at a whole character; control characters go.
+    let mut long = listing();
+    long["harnesses"][0]["about"] = json!(format!("é\n{}", "ü".repeat(MOST_ABOUT_BYTES)));
+    let about = parse_ps(long.to_string().as_bytes()).unwrap()[0]
+        .about
+        .clone()
+        .unwrap();
+    assert!(
+        about.len() <= MOST_ABOUT_BYTES && about.starts_with("é ü"),
+        "{}",
+        about.len()
+    );
+    // A time in another form is not known; the rest is read.
+    let mut local = listing();
+    local["harnesses"][0]["lastActive"] = json!("2026-10-15 07:05:12+07:00");
+    let read = parse_ps(local.to_string().as_bytes()).unwrap();
+    assert_eq!(
+        (read[0].last_active_unix_ms, read[0].state.as_str()),
+        (None, "working")
+    );
+    // Refused whole: not the shape, too many, a state that is no word.
+    let mut many = listing();
+    many["harnesses"] = json!(vec![listing()["harnesses"][1].clone(); MOST_LISTED + 1]);
+    let mut spaced = listing();
+    spaced["harnesses"][0]["state"] = json!("hard at work");
+    for wrong in [
+        json!([]),
+        json!({"machine":"office"}),
+        json!({"harnesses":[{"id":AGENT}]}),
+        many,
+        spaced,
+    ] {
+        assert_eq!(
+            parse_ps(wrong.to_string().as_bytes()),
+            Err("status_invalid_reply"),
+            "{wrong}"
+        );
+    }
+    assert_eq!(parse_ps(b"not json"), Err("status_invalid_reply"));
+}
+
+#[test]
+fn times_are_read_only_in_the_form_harness_writes() {
+    for (text, ms) in [
+        ("1970-01-01T00:00:00.000Z", 0),
+        ("2026-10-15T00:05:12.345Z", 1_792_022_712_345),
+        ("2026-10-14T17:31:02.000Z", 1_791_999_062_000),
+        ("2000-02-29T12:00:00Z", 951_825_600_000),
+        ("9999-12-31T23:59:59.999Z", 253_402_300_799_999),
+    ] {
+        assert_eq!(iso_unix_ms(text), Some(ms), "{text}");
+    }
+    for text in [
+        "",
+        "2026-10-15",
+        "2026-13-01T00:00:00.000Z",
+        "2026-10-15T24:00:00.000Z",
+        "2026-10-15T00:05:12.345",
+        "2026-10-15T00:05:12.34Z",
+        "2026-10-15 00:05:12.345Z",
+        "1969-12-31T23:59:59.999Z",
+        "+2026-10-15T00:05:12Z",
+        "2026-10-15T00:05:12.345+07:00",
+    ] {
+        assert_eq!(iso_unix_ms(text), None, "{text}");
+    }
+}
+
+#[test]
+fn status_is_one_ps_of_the_full_machine_id_bounded_and_never_retried() {
+    let rig = Rig::new();
+    rig.plan(json!({"ps":step(listing())}));
+    let listed = rig.cli().status(MACHINE).unwrap();
+    assert_eq!(listed.len(), 2);
+    let calls = rig.calls();
+    assert_eq!(calls.len(), 1);
+    assert_eq!(
+        calls[0]["args"],
+        json!(["ps", "--machine", MACHINE, "--json"])
+    );
+    // The same caller identity and environment as every other call.
+    assert_eq!(calls[0]["environment"]["AI_AGENT"], "lampos");
+    assert!(calls[0]["environment"].get("OPENAI_API_KEY").is_none());
+    // A listing larger than a read of one agent may be is taken, up to its
+    // own bound.
+    let rig = Rig::new();
+    let mut large = listing();
+    large["harnesses"] = json!(vec![listing()["harnesses"][0].clone(); 200]);
+    let text = large.to_string();
+    assert!(
+        text.len() > 64 * 1024 && text.len() < PS_STDOUT_LIMIT,
+        "{}",
+        text.len()
+    );
+    rig.plan(json!({"ps":{"stdout":text}}));
+    assert_eq!(rig.cli().status(MACHINE).unwrap().len(), 200);
+    for (step, code) in [
+        (
+            json!({"stdout":"x".repeat(PS_STDOUT_LIMIT + 1)}),
+            "stdout_limit",
+        ),
+        (json!({"delay_ms":5000}), "timeout"),
+        (
+            json!({"exit":1,"stdout":"{\"error\":\"private account detail\"}"}),
+            "status_failed",
+        ),
+        (
+            json!({"stdout":"{\"harnesses\":7}"}),
+            "status_invalid_reply",
+        ),
+    ] {
+        let mut rig = Rig::new();
+        if code == "timeout" {
+            rig.config.read_timeout = Duration::from_millis(500);
+        }
+        rig.plan(json!({"ps":step}));
+        let began = Instant::now();
+        assert_eq!(rig.cli().status(MACHINE), Err(code.into()));
+        assert!(began.elapsed() < Duration::from_secs(2));
+        assert_eq!(rig.calls().len(), 1);
+    }
+    let rig = Rig::new();
+    assert_eq!(rig.cli().status("office"), Err("invalid_machine".into()));
+    assert!(rig.calls().is_empty());
 }

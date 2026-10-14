@@ -36,6 +36,14 @@ pub const MAX_PROMPT_BYTES: usize = 1000;
 pub const MAX_ANSWER_BYTES: usize = 16 * 1024;
 pub const MAX_ASK_BYTES: usize = 4 * 1024;
 const STDOUT_LIMIT: usize = 64 * 1024;
+/// `ps` lists every harness on a machine with its progress line: more than
+/// one agent's answer, so it is given more room, still bounded.
+pub const PS_STDOUT_LIMIT: usize = 256 * 1024;
+/// No more harnesses than this are taken from one `ps` reply.
+pub const MOST_LISTED: usize = 256;
+/// A progress line longer than this is cut, at a whole character. Harness
+/// 0.4.2 makes one of at most three events of 140 characters each.
+pub const MOST_ABOUT_BYTES: usize = 2048;
 const STDERR_LIMIT: usize = 16 * 1024;
 const POLL_INTERVAL: Duration = Duration::from_millis(10);
 const DRAIN_LIMIT: Duration = Duration::from_millis(100);
@@ -104,6 +112,16 @@ pub enum LaunchOutcome {
     Pending { creation_id: String },
     NotSent { code: String },
     Uncertain { code: String },
+}
+
+/// One harness as `harness ps --json` lists it: only what progress needs.
+/// `about` is the agent's own words; they stay in the tasks part.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Listed {
+    pub agent_id: String,
+    pub state: String,
+    pub last_active_unix_ms: Option<u64>,
+    pub about: Option<String>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
@@ -418,7 +436,42 @@ impl Cli {
         parse_observation(&reply.stdout, agent_id).map_err(str::to_string)
     }
 
+    /// Every harness on one machine, with its state and progress line:
+    /// one `ps` for all of a machine's tasks (`serve --progress`). A read
+    /// only: it starts, stops and answers nothing.
+    pub fn status(&self, machine: &str) -> Result<Vec<Listed>, String> {
+        if !machine_id(machine) {
+            return Err("invalid_machine".into());
+        }
+        let _guard = self.operation.try_lock().map_err(|_| "busy".to_string())?;
+        let reply = self
+            .run_bounded(
+                &[
+                    "ps".into(),
+                    "--machine".into(),
+                    machine.into(),
+                    "--json".into(),
+                ],
+                self.config.read_timeout,
+                PS_STDOUT_LIMIT,
+            )
+            .map_err(|error| error.code.to_string())?;
+        if !reply.success {
+            return Err("status_failed".into());
+        }
+        parse_ps(&reply.stdout).map_err(str::to_string)
+    }
+
     fn run(&self, args: &[OsString], timeout: Duration) -> Result<Reply, RunError> {
+        self.run_bounded(args, timeout, STDOUT_LIMIT)
+    }
+
+    fn run_bounded(
+        &self,
+        args: &[OsString],
+        timeout: Duration,
+        stdout_limit: usize,
+    ) -> Result<Reply, RunError> {
         let error = |code, spawned| RunError { code, spawned };
         if self.poisoned.load(Ordering::Acquire) {
             return Err(error("cleanup_incomplete", false));
@@ -453,7 +506,7 @@ impl Cli {
         }
         let child = command.spawn().map_err(|_| error("spawn_failed", false))?;
         let mut owned = OwnedChild::new(child);
-        let result = self.capture(&mut owned, deadline);
+        let result = self.capture(&mut owned, deadline, stdout_limit);
         if !owned.finish() {
             self.poisoned.store(true, Ordering::Release);
             return Err(error("cleanup_incomplete", true));
@@ -461,7 +514,12 @@ impl Cli {
         result.map_err(|code| error(code, true))
     }
 
-    fn capture(&self, owned: &mut OwnedChild, deadline: Instant) -> Result<Reply, &'static str> {
+    fn capture(
+        &self,
+        owned: &mut OwnedChild,
+        deadline: Instant,
+        stdout_limit: usize,
+    ) -> Result<Reply, &'static str> {
         let mut stdout = owned.child.stdout.take().ok_or("pipe_failed")?;
         let mut stderr = owned.child.stderr.take().ok_or("pipe_failed")?;
         nonblocking(&stdout).map_err(|_| "pipe_failed")?;
@@ -480,7 +538,7 @@ impl Cli {
                 return Err("timeout");
             }
             if !stdout_done {
-                stdout_done = drain(&mut stdout, &mut output, STDOUT_LIMIT, "stdout_limit")?;
+                stdout_done = drain(&mut stdout, &mut output, stdout_limit, "stdout_limit")?;
             }
             if !stderr_done {
                 stderr_done = drain(&mut stderr, &mut errors, STDERR_LIMIT, "stderr_limit")?;
@@ -830,4 +888,122 @@ fn parse_observation(bytes: &[u8], expected: &str) -> Result<Observation, &'stat
         truncated: reply.truncated,
         tools: reply.tools,
     })
+}
+
+#[derive(Deserialize)]
+struct PsReply {
+    harnesses: Vec<PsRow>,
+}
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct PsRow {
+    id: String,
+    state: String,
+    #[serde(default)]
+    last_active: Option<String>,
+    #[serde(default)]
+    about: Option<String>,
+}
+
+/// What `harness ps --json` says (Harness 0.4.2): an object whose
+/// `harnesses` each have `id`, `state`, `lastActive` (ISO 8601 in UTC, or
+/// null) and, while the agent is not stopped, an `about` line made of its
+/// last few events. A harness still being created is listed by its
+/// creation id, which is not an agent id: it is passed over. Unknown fields
+/// are allowed, since the listing is for people and may grow.
+pub fn parse_ps(bytes: &[u8]) -> Result<Vec<Listed>, &'static str> {
+    if bytes.len() > PS_STDOUT_LIMIT {
+        return Err("status_invalid_reply");
+    }
+    let reply: PsReply = serde_json::from_slice(bytes).map_err(|_| "status_invalid_reply")?;
+    if reply.harnesses.len() > MOST_LISTED {
+        return Err("status_invalid_reply");
+    }
+    let mut listed = Vec::new();
+    for row in reply.harnesses {
+        if !uuid(&row.id) {
+            continue;
+        }
+        if !token(&row.state, 32) {
+            return Err("status_invalid_reply");
+        }
+        // A time in a form this does not read is not known, rather than a
+        // reason to lose the whole listing.
+        let last_active_unix_ms = row.last_active.as_deref().and_then(iso_unix_ms);
+        let about = row
+            .about
+            .map(|about| clip(about.trim(), MOST_ABOUT_BYTES))
+            .filter(|about| !about.is_empty());
+        listed.push(Listed {
+            agent_id: row.id,
+            state: row.state,
+            last_active_unix_ms,
+            about,
+        });
+    }
+    Ok(listed)
+}
+
+/// At most `most` bytes of `text`, ended at a whole character, without
+/// control characters other than line ends and tabs, which become spaces.
+fn clip(text: &str, most: usize) -> String {
+    let mut end = text.len().min(most);
+    while !text.is_char_boundary(end) {
+        end -= 1;
+    }
+    text[..end]
+        .chars()
+        .map(|c| if c.is_control() { ' ' } else { c })
+        .collect()
+}
+
+/// `2026-10-15T00:05:12.345Z` as milliseconds since 1970: the form
+/// JavaScript's `toISOString` writes, which is what Harness sends. Anything
+/// else is not read.
+pub fn iso_unix_ms(text: &str) -> Option<u64> {
+    let bytes = text.as_bytes();
+    if !(20..=24).contains(&bytes.len()) || bytes[bytes.len() - 1] != b'Z' {
+        return None;
+    }
+    let digits = |from: usize, to: usize| -> Option<u64> {
+        let part = text.get(from..to)?;
+        (!part.is_empty() && part.bytes().all(|b| b.is_ascii_digit()))
+            .then(|| part.parse().ok())
+            .flatten()
+    };
+    if [4, 7].iter().any(|at| bytes[*at] != b'-')
+        || bytes[10] != b'T'
+        || [13, 16].iter().any(|at| bytes[*at] != b':')
+    {
+        return None;
+    }
+    let (year, month, day) = (digits(0, 4)?, digits(5, 7)?, digits(8, 10)?);
+    let (hour, minute, second) = (digits(11, 13)?, digits(14, 16)?, digits(17, 19)?);
+    let millis = match bytes[19] {
+        b'Z' if bytes.len() == 20 => 0,
+        b'.' if bytes.len() == 24 => digits(20, 23)?,
+        _ => return None,
+    };
+    if !(1970..=9999).contains(&year)
+        || !(1..=12).contains(&month)
+        || !(1..=31).contains(&day)
+        || hour > 23
+        || minute > 59
+        || second > 60
+    {
+        return None;
+    }
+    // Days since 1970 from a civil date: the usual arithmetic on eras of
+    // 400 years that begin on 1 March.
+    let (y, m) = if month <= 2 {
+        (year - 1, month + 9)
+    } else {
+        (year, month - 3)
+    };
+    let era = y / 400;
+    let of_era = y - era * 400;
+    let of_year = (153 * m + 2) / 5 + day - 1;
+    let of_era_days = of_era * 365 + of_era / 4 - of_era / 100 + of_year;
+    let days = (era * 146_097 + of_era_days).checked_sub(719_468)?;
+    Some(((days * 24 + hour) * 60 + minute) * 60_000 + second * 1_000 + millis)
 }

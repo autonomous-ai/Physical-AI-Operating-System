@@ -654,6 +654,7 @@ impl Judges {
             took_ms,
             shadow: SHADOW,
             request: waiting.utterance.request,
+            task: None,
         });
         let at = unix_ms();
         policy.watch = Some((

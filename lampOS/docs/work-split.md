@@ -714,6 +714,18 @@ Wanted from this task besides: when the slow judge has not answered,
 and nothing shows the lamp was called, the choice is to look up and not
 to answer.
 
+A second case, the same day, and what the voice does about it until the
+policy acts ([attention.md](attention.md), "A meeting beside the lamp"):
+a meeting at the table beside the lamp, 75 things heard in twenty
+minutes, the name heard four times in people's talk (0.928 to 0.993),
+three answers to the table. Since 11:52 the voice itself holds every
+answer in a busy room unless the text shows it was called, a
+conversation with the lamp is going on, or the eyes' newest fresh look
+has a face turned to the lamp (`LAMP_ATTENTION=busy`, reading
+`humans/faces/tracked` as the policy does). That rule is the floor this
+judge has to beat: compare against it on the same records, and say for
+which of the policy's choices the two would differ.
+
 **Wanted.** A second implementation of `Decider` that asks nobody: from
 the state the policy already builds (was the name heard and how surely,
 is a conversation with the lamp going on, how the room is, is a face
@@ -897,6 +909,24 @@ head pads, which is set from the lines at rest and not from a touch.
 ## What the lamp showed
 
 Newest first. Each builder's own notes are in its log, on its branch.
+
+**2026-10-14, a meeting beside the lamp (the first builder's own part,
+for task 17).** From 11:08 a meeting at the next table: 75 things taken
+as said in twenty minutes, the name heard four times in people's talk,
+and three answers to the table, none known to have been for the lamp. The
+room was still taken for quiet until 11:14:50 and the model was told it
+was busy only at 11:16:30. Changed, all on the lamp since 11:52
+(`0ca828c67`), none yet played to: a quiet room becomes busy at two
+unanswered things inside a minute; the room is told inside the request
+when no quiet moment comes; in a busy room every answer needs the name in
+the text, a conversation going on, or a face turned to the lamp; the name
+note in a busy room waits for such a face; and the model asks the lamp's
+clock for the time (it had told the table "roughly ten forty-five" at
+11:17). Silent probes the same hour, with the busy note beside the sound:
+colleagues' work talk left alone, "Hey Lamp, ... lunch?" answered, but
+"What is 2 + 2?" and "How was your weekend?" answered too, which is why
+the rule and not the note decides. All in
+[attention.md](attention.md), "A meeting beside the lamp".
 
 **2026-10-14, task 16, the lean check.** Taken onto `lamp-voice`
 unchanged (`bbbd82fc9`). Its 63 tests pass on the first builder's Mac and,

@@ -3152,3 +3152,52 @@ fn a_head_that_cannot_lift_ends_the_wake_held_where_it_is_and_says_how_far_it_go
     assert_eq!(woke.to, vec![2_000]);
     assert_eq!(report.held_at.map(|held| held[0]), Some(2_095));
 }
+
+/// lamp-52e6 woken from a real droop on 2026-10-14: the head lifted and
+/// stayed 32 counts short of home. It has woken there, and runs from there.
+#[test]
+fn a_head_that_settles_32_short_of_home_wakes_there_and_runs_from_where_it_is() {
+    let (mut lamp, mut clock) = folded(Duration::from_secs(40));
+    lamp.may_take_hold = true;
+    for (index, at) in [(YAW, 1_979.0), (ROLL, 2_101.0), (PITCH, 2_029.0)] {
+        let servo = &mut lamp.servos[index];
+        (servo.position, servo.goal, servo.torque) = (at, 0, 0);
+    }
+    lamp.servos[2].status = 0;
+    // Lifting, it always stops 32 short of its goal.
+    lamp.heavy = Some((PITCH, 0.0, 32.0, 232));
+    let limits = Limits {
+        torque_on: true,
+        wake: true,
+        ..Limits::folded_with(Tuning {
+            reach: [150, 15, 1, 250],
+            speed: 120,
+            servo_speed: 1_000,
+            servo_acceleration: 60,
+        })
+        .unwrap()
+    };
+    let report = run(
+        &mut lamp,
+        &mut clock,
+        limits,
+        Some([1_771, 2_035, 2_035]),
+        || Some((Mood::Resting, 0)),
+        |_| {},
+    );
+    assert_eq!(report.stop, Stop::Cancelled, "{report:?}");
+    let woke = report.woke.unwrap();
+    assert_eq!(woke.to, vec![1_771, 2_035, 2_035]);
+    assert_eq!(woke.settled, vec![1_803, 2_035, 2_035]);
+    // Its home is where it settled; nothing pushes at the gap.
+    assert_eq!(report.home, Some([1_803, 2_035, 2_035]));
+    let pitch = goals_of(&lamp, Joint::WristPitch);
+    let settled = pitch.iter().position(|goal| *goal == 1_771).unwrap() + 1;
+    assert_eq!(pitch[settled], 1_803);
+    assert!(
+        pitch[settled..].iter().all(|goal| *goal >= 1_803),
+        "{pitch:?}"
+    );
+    assert_eq!(lamp.servos[PITCH].goal, 1_803);
+    assert_eq!(lamp.servos[PITCH].position, 1_803.0);
+}

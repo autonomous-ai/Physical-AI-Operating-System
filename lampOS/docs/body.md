@@ -300,9 +300,15 @@ is found is its home and there is nothing to wake to):
   ten steps while the goal is on its way, or a wire that fails for half a
   second ends the run, holding each joint where it is. Once every goal is
   home the wake waits for the joints: it is over when each is within the
-  run's own 30 counts of its goal, and a joint farther than that that has
-  not come 3 counts nearer in half a second ends the run. The run then
-  takes over the goals the wake left. A step whose write or read failed
+  run's own 30 counts of its goal or has settled. A joint farther than 30
+  that has not come 3 counts nearer in half a second has settled if it is
+  within 50 counts of home, and otherwise ends the run. The run then takes
+  over the goals the wake left, except that a joint settled more than 30
+  short runs from where it is: its goal is written as its position, so that
+  nothing keeps pushing, and its home moves there by as much, so that moods
+  are laid on the pose it has and the gap is not tried again. The 50 is
+  from lamp-52e6 (below): from below, these servos do not close the last
+  30 to 40 counts. A step whose write or read failed
   does not advance the wake, so the next goal cannot jump. Asked to stop
   while waking, it holds where it is and ends.
 - Farther than 400 counts from its home it still refuses, saying why
@@ -320,18 +326,21 @@ is found is its home and there is nothing to wake to):
   the way between folded and stood up; waking does not lower an arm found
   off its way"). The head still wakes.
 - The report says what the wake did (`woke`: the joints it moved, where
-  each was found, where their goals had got to and the seconds it took),
+  each was found, where their goals had got to, where they were when it
+  ended (`settled`) and the seconds it took),
   whether it finished or not, and the journal has a line with the same when
   the body ends.
 
 A lamp found where it may start writes exactly what it wrote without
 `--wake on`.
 
-Not shown: that the led wake lifts a real drooped head home. If lamp-52e6's
-head again stops 37 short of its goal once the goal is home, the wake ends
-there on the stopped-short rule rather than leaving the run to end on its
-30-count bound; whether the servo's integral gain (10) closes that gap in
-half a second is not known. Nor whether a head pressed on the base reads
+The led wake was then run on lamp-52e6 from a real droop (found yaw 1,979,
+roll 2,101, pitch 2,029): it woke for 20.8 s at peak loads of 232, 140 and
+76, the head lifted 226 counts and stayed 32 short of home (the yaw 11, the
+roll 17), and that build ended there on the stopped-short rule ("tracking",
+goal 1,771, head 1,803). Settling within 50 of home, above, is the answer
+to that; it has run only against simulated servos. Not shown: that the
+head stays where it settled once its goal is its position, nor whether a head pressed on the base reads
 under the start load bound (170), which waking does not relax; nor how the
 wake looks to somebody beside the lamp. Folded with its torque switched off
 by hand, lamp-52e6's head did not droop in 10 s; it drooped in the cut.
@@ -1095,7 +1104,7 @@ nods. The raw readings are in
 
 ## Verification without a lamp
 
-Host tests, `cargo test -p lamp-body` (255 passed, 0 failed, on macOS):
+Host tests, `cargo test -p lamp-body` (256 passed, 0 failed, on macOS):
 `body::tests` runs the engine against five simulated servos on a simulated
 clock. They show that it writes only the three packets above, byte for byte;
 that over a scripted exchange every goal names servos 5, 4 and 1, stays within
@@ -1120,7 +1129,7 @@ moving away from home, the way itself never over 20 counts a second; that
 one found 450 away is refused with nothing written, as is a head on the base
 without a home given; that an arm off its way is never written and the lamp
 runs folded, saying why; and that a lamp found where it may start writes
-exactly what it writes without the option. And lamp-52e6 as found after its power cut (torque off and goal 0 on all five, head drooped to 2,034), with its unit's options and `--stand` and `--torque on`, in a simulation whose head lags 37 counts at a load of 320 while it lifts: the head is lifted home, never toward the base, and the run goes on; a head that will not lift ends the wake held where it is, the report saying how far its goal got.
+exactly what it writes without the option. And lamp-52e6 as found after its power cut (torque off and goal 0 on all five, head drooped to 2,034), with its unit's options and `--stand` and `--torque on`, in a simulation whose head lags 37 counts at a load of 320 while it lifts: the head is lifted home, never toward the base, and the run goes on; a head that will not lift ends the wake held where it is, the report saying how far its goal got. And a head that stops 32 short of home settles there: its goal and its home become where it is, and the run goes on.
 `gesture::tests` bounds every wanted pose. `body_link::tests` in `lamp-voice`
 checks the datagram.
 

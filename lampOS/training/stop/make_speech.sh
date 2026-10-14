@@ -4,7 +4,7 @@
 here=$(cd "$(dirname "$0")" && pwd)
 cd "$here" || exit 1
 kinds=${*:-asking near listening talk}
-for kind_split_count in asking:train:9000 asking:test:1200 near:train:4500 near:test:1400 listening:train:600 listening:test:200 talk:train:1500 talk:test:600; do
+for kind_split_count in asking:train:9000 asking:test:1200 near:train:3000 near:test:1400 listening:train:600 listening:test:200 talk:train:1000 talk:test:600; do
   kind=$(echo "$kind_split_count" | cut -d: -f1)
   split=$(echo "$kind_split_count" | cut -d: -f2)
   count=$(echo "$kind_split_count" | cut -d: -f3)

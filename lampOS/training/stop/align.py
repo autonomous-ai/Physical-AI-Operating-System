@@ -33,8 +33,8 @@ class Word:
 
 
 class Aligner:
-    def __init__(self, threads: int = 6):
-        torch.set_num_threads(threads)
+    def __init__(self, threads: int | None = None):
+        torch.set_num_threads(threads or int(os.environ.get("OMP_NUM_THREADS", "6")))
         bundle = torchaudio.pipelines.WAV2VEC2_ASR_BASE_960H
         self.model = bundle.get_model().eval()
         self.labels = bundle.get_labels()

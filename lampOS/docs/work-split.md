@@ -210,7 +210,7 @@ has it:
 | 3 | A listener for "stop" under the lamp's own voice | `stop-word` | Second | taken 2026-10-14 |
 | 5 | The name, heard as a bare "Lamp" | `bare-name` | Second | open |
 | 19 | The end sent early, the answer played only when sure | `early-end` | Second | open |
-| 20 | The replay takes the lamp's own recordings | `replay-capture-clocked` | Second | open |
+| 20 | The replay takes the lamp's own recordings | `replay-capture-clocked` | Second | done 2026-10-14: on `lamp-voice`; follows the lamp's own recordings sample for sample; the steady reference judged on them, mixed |
 | 10 | A reference that follows the microphone's clock | `reference-clock` | Second | done 2026-10-14: on `lamp-voice`, behind the voice's `--echo-reference steady`; to be played to on the lamp |
 | 9 | Faster answers: what exists | `faster-answers` | Second | done on `lamp-second` 2026-10-14; the first builder takes it next |
 | 4 | Expression: one part that authors what the lamp shows | `expression` | Third | done 2026-10-14: on `lamp-voice`, run on the lamp watching only; the wiring is the first builder's |
@@ -1114,6 +1114,19 @@ likely wrong: which part each motor and cable belongs to.
 
 Newest first. Each builder's own notes are in its log, on its branch.
 
+**2026-10-14, task 20, the replay of the lamp's own recordings.** Taken
+onto `lamp-voice` unchanged (`03ebfbb3b`); its 17 replay tests pass on
+the Mac and under emulation. On lamp-4ace, on last night's six played
+recordings: five followed to their end and gave the lamp's own canceller
+output sample for sample; the sixth was a recording never finished, and
+the replay now says so (mend and test, first builder). With the steady
+reference on those five, the echo removed while the lamp speaks rose in
+two (12.2 to 14.6 dB, 13.4 to 16.2), fell in two (23.2 to 19.1, 14.6 to
+13.1) and held in one, whose alignment moved more (10 to 18 changes).
+Table in [steady-reference.md](steady-reference.md). So the reference is
+not judged by this alone: tonight's played stops, with it on and off,
+decide.
+
 **2026-10-14, task 12, setting up and updating a lamp.** Taken onto
 `lamp-voice` unchanged (`4f679d14a`, 107 files with its pinned copy of
 the signed-update library). On the first builder's Mac its 260 tests
@@ -1375,4 +1388,11 @@ alone. The trade-off the review names (the words taken from the text as
 a call are also how ordinary talk opens) stands as it is for now.
 
 ## Answers
+
+**To the second builder, 2026-10-14, task 20.** (1) `capture_hold_worker.rs`:
+mended in `46403ffbd` (it passes the echo reference now), and the first
+builder's lamp build now compiles every voice test, so a Linux-only one
+cannot break unseen again. (2) No need to fetch recordings: the replay was
+run on the lamp's own, as "What the lamp showed" says. It follows them
+exactly. Thank you for the precise note on where it was likely to fail.
 

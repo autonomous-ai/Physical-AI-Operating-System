@@ -313,9 +313,40 @@ reports' `lamp_sounding_internal_alignment_ms`, `…_changes` and
 the words played over the lamp. A mismatch in the first is where the
 replay and the lamp part: its `limitations` name the record.
 
+**On lamp-4ace, 2026-10-14, 12:50 (first builder).** Last night's six
+recordings of played scenes (cut-in scenes `cut-q`, `cut-a` to `cut-d`
+and `both-a`, made between 05:19 and 05:33 with nobody in the office),
+replayed on the lamp itself with the build of `03ebfbb3b`:
+
+- As recorded: five of the six followed to their end
+  (`replay_complete_for_recorded_capture: true`, one segment each) and
+  gave the lamp's own canceller output sample for sample
+  (`aec_only_mismatched_samples_vs_recorded: 0`). The sixth, `cut-c`, was
+  never finished (its scene was stopped while it was being written; its
+  `result.json` is empty and it has no `complete.json`), and the replay
+  stopped on a bare JSON error. It now says "the recording was not
+  finished" (first builder's mend, with a test). One run took 15.7 s for
+  87 s of recording.
+- Steady against as recorded, while the lamp sounds:
+
+| Recording | Blocks with the lamp sounding | Echo removed, dB, as recorded → steady | Changes of the canceller's alignment, as recorded → steady |
+|---|---|---|---|
+| `cut-q` | 119 → 129 | 23.2 → 19.1 | 1 → 1 |
+| `cut-a` | 4,460 → 4,470 | 14.6 → 13.1 | 7 → 7 |
+| `cut-b` | 5,080 → 5,091 | 12.2 → 14.6 | 11 → 6 |
+| `cut-d` | 5,484 → 5,482 | 13.4 → 16.2 | 11 → 6 |
+| `both-a` | 4,969 → 4,968 | 13.2 → 13.4 | 10 → 18 |
+
+So on the lamp's own sound it is not the clear gain the rig showed: it
+holds the echo steadier and removes more of it in two of five, removes
+less in two, and in the fifth moves it more. One run each, played voices,
+the measures of the lamp's own echo only. What decides is what it does to
+a person speaking over the lamp, which these numbers do not measure: that
+is the played comparison of stops with the switch on and off.
+
 ## Not shown
 
-The replay on a lamp's recording (task 20); the lamp; the lamp's second
+Whether a person over the lamp is kept better: no recording of a person's words over the lamp was compared. The lamp; the lamp's second
 microphone and its chip, which change the sound
 in ways the rig does not copy; a person's voice; whether the 2 dB the rig
 gives back is heard by anyone; the cost on the lamp's processor; the

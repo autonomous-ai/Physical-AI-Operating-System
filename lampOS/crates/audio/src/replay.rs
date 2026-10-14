@@ -475,6 +475,13 @@ fn load_bundle(directory: &Path, stream: &str) -> Result<Bundle> {
         hashes.insert(name.to_owned(), digest(&bytes));
         files.insert(name.to_owned(), bytes);
     }
+    // A recording stopped part way leaves its result empty (lamp-4ace,
+    // 2026-10-14: one of five cut-in scenes): say so, not a JSON error.
+    if files["result.json"].is_empty() {
+        return Err(invalid(
+            "the recording was not finished: its result.json is empty",
+        ));
+    }
     let header: Header = serde_json::from_slice(&files["manifest.pending.json"])?;
     let result: Value = serde_json::from_slice(&files["result.json"])?;
     if header.schema_version != 1

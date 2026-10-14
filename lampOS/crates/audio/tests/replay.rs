@@ -486,6 +486,20 @@ fn certified_partial_writes_reproduce_recorded_call_order_and_exact_ns_pcm() {
         ]
     );
 }
+/// A scene stopped while its recording was being written leaves an empty
+/// result (lamp-4ace, 2026-10-14, the third of five cut-in scenes): the
+/// replay says the recording was not finished.
+#[test]
+fn an_unfinished_recording_is_named_as_one() {
+    let fixture = Fixture::new();
+    write(&fixture.run.join("capture-audio").join("result.json"), b"");
+    let Err(error) = fixture.replay("unfinished", ReplayOptions::default()) else {
+        panic!("an unfinished recording was replayed");
+    };
+    let error = error.to_string();
+    assert!(error.contains("not finished"), "{error}");
+}
+
 #[test]
 fn the_steady_reference_is_replayed_only_when_asked_for_and_says_so() {
     let fixture = Fixture::new();

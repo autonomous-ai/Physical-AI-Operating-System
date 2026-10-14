@@ -1,0 +1,12 @@
+    Checking lamp-tasks v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/tasks)
+warning: unused import: `Guard`
+ --> crates/tasks/src/engine.rs:5:16
+  |
+5 |     protocol::{Guard, MAX_PAGE_SIZE, MAX_REPLY_BYTES, Request},
+  |                ^^^^^
+  |
+  = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: `lamp-tasks` (lib) generated 1 warning (run `cargo fix --lib -p lamp-tasks` to apply 1 suggestion)
+warning: `lamp-tasks` (lib test) generated 1 warning (1 duplicate)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 2.87s

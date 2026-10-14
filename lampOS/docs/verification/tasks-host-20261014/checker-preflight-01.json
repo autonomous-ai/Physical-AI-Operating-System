@@ -1,0 +1,19 @@
+{
+  "command": [
+    "cargo",
+    "run",
+    "--locked",
+    "-p",
+    "lamp-tasks",
+    "--example",
+    "tasks_check",
+    "--",
+    "--scratch-parent",
+    "/private/tmp",
+    "--samples",
+    "1"
+  ],
+  "at": "2026-10-14T09:39:34.186304+00:00",
+  "elapsed_s": 5.441092895,
+  "exit": 0
+}

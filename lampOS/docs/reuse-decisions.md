@@ -938,3 +938,51 @@ no deployment files are changed here.
 Not shown: report cost on lamp flash, long-lived filesystem stalls, physical
 power loss or the actual Health unit. Host results belong to Fourth's log;
 they do not establish the lamp's response deadlines.
+
+## Task 11: keep Harness's client policy and V1's uncertainty rules
+
+Reviewed on 2026-10-14 at OpenHarness
+`748269145cb76d1a164141f6bc55758e013334b0`, refreshed to
+`0e6b16d78fd80697dea252376f19d7acf49d240f`.
+[The pinned contract review](tasks-contract.md) records the response variants,
+caller identity, source links and unresolved boundaries. Use the installed
+CLI with its [account and caller policy](https://github.com/autonomous-ai/openharness/blob/0e6b16d78fd80697dea252376f19d7acf49d240f/cli/src/agentClient/commands.ts)
+and existing machine trust. Do not port V1's
+Device pairing/crypto or bypass CLI policy with a raw daemon mutation.
+
+Take V1's reservation-before-send, durable result-before-cursor ordering,
+identity-bound replay handling, permission-notice rules and distinction
+between admission and played speech. Rebuild those as bounded Rust state
+and fixtures, without copying the old shared runtime or assuming its Device
+result correlation exists for CLI tasks. Existing `new`, `show` and `wait`
+provide launch/state/transcript observations, not a correlated completion
+receipt. A lost initial launch reply remains uncertain and never authorizes
+automatic resend. A known pending creation ID also has a source-identified
+lookup gap after reconciliation to a started agent.
+
+Two checks remain especially easy to overstate. Explicit `ask` preserves
+Codex/OpenCode's installed permission configuration; it does not create a
+fresh sandbox. A full machine ID and listing preflight do not close the
+CLI resolver's later label-fallback race. Returned-ID validation can detect
+a mismatch after launch. These need upstream/owner qualification, not more
+confident local wording.
+
+Reuse the reviewed Schedule storage semantics in Tasks without depending on
+the Schedule service: a private locked SQLite snapshot, strict schema, bounded
+reads/pages, DELETE/FULL synchronization and directory sync, and a poisoned
+owner after uncertain commits until drop/reopen recovery. Tasks raises the
+snapshot/database bounds to 8/32 MiB, with a 40 MiB journal bound. Harness's
+[MIT CLI](https://github.com/autonomous-ai/openharness/blob/0e6b16d78fd80697dea252376f19d7acf49d240f/cli/package.json)
+remains an external provisioned dependency; existing serde,
+rusqlite and rustix supply local serialization/storage/platform primitives.
+No new MCP/WebSocket client or copied authentication material is needed.
+
+## What this Tasks review has not shown
+
+The contract review exercised no real Harness, account, agent or lamp.
+Scripted tests cannot establish the installed release, strict target binding,
+remote completion correlation, permission behavior, flash power-cut survival,
+audible delivery or end-to-end latency. Storage test evidence and runtime
+limits are reported separately in [tasks.md](tasks.md); V1 tests cited here
+were inspected as cases, not rerun. No permission, completion or successful
+speech is inferred from a process exit or observed transcript.

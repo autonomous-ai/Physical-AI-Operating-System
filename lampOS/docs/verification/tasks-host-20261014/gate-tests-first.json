@@ -1,0 +1,15 @@
+{
+  "command": [
+    "cargo",
+    "test",
+    "--locked",
+    "-p",
+    "lamp-tasks",
+    "--",
+    "--test-threads=1"
+  ],
+  "cwd": "/Users/d/code/autonomous-os/lampOS",
+  "started_utc": "2026-10-14T09:43:03.647900+00:00",
+  "elapsed_s": 5.904378965,
+  "exit": 101
+}

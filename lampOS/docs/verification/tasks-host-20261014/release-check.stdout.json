@@ -1,0 +1,294 @@
+{
+  "all_assertions_passed": true,
+  "boundaries": "real local SQLite, sockets, process spawn and scripted JSON; fresh private store per cycle; confirmation, boot identity and played receipts authored; no account, remote execution, physical reboot or sound",
+  "cycles": [
+    {
+      "all_assertions_passed": true,
+      "authored_playout_ack_ms": 83.40535,
+      "confirm_receipt_ms": 132.784766,
+      "confirm_to_scripted_created_ms": 309.901767,
+      "new_calls": 1,
+      "observe_to_stored_ms": 306.758039,
+      "prepare_receipt_ms": 98.45918400000001,
+      "restart_ms": 101.30445300000001,
+      "show_calls": 2,
+      "speech_claim_ms": 78.916394,
+      "startup_ms": 220.371124,
+      "status_beside_silent_ms": 7.562603999999999
+    },
+    {
+      "all_assertions_passed": true,
+      "authored_playout_ack_ms": 82.147861,
+      "confirm_receipt_ms": 82.716055,
+      "confirm_to_scripted_created_ms": 242.55253900000002,
+      "new_calls": 1,
+      "observe_to_stored_ms": 247.24654500000003,
+      "prepare_receipt_ms": 86.907053,
+      "restart_ms": 101.89093000000001,
+      "show_calls": 2,
+      "speech_claim_ms": 84.278012,
+      "startup_ms": 218.52273399999999,
+      "status_beside_silent_ms": 5.990699
+    },
+    {
+      "all_assertions_passed": true,
+      "authored_playout_ack_ms": 78.89976399999999,
+      "confirm_receipt_ms": 81.359054,
+      "confirm_to_scripted_created_ms": 246.515372,
+      "new_calls": 1,
+      "observe_to_stored_ms": 243.42282200000002,
+      "prepare_receipt_ms": 82.88384599999999,
+      "restart_ms": 108.621201,
+      "show_calls": 2,
+      "speech_claim_ms": 78.56576999999999,
+      "startup_ms": 220.448241,
+      "status_beside_silent_ms": 6.107353000000001
+    },
+    {
+      "all_assertions_passed": true,
+      "authored_playout_ack_ms": 81.719521,
+      "confirm_receipt_ms": 82.51876399999999,
+      "confirm_to_scripted_created_ms": 250.18081599999996,
+      "new_calls": 1,
+      "observe_to_stored_ms": 275.754903,
+      "prepare_receipt_ms": 79.145197,
+      "restart_ms": 95.820776,
+      "show_calls": 2,
+      "speech_claim_ms": 80.827056,
+      "startup_ms": 221.19626,
+      "status_beside_silent_ms": 8.704806000000001
+    },
+    {
+      "all_assertions_passed": true,
+      "authored_playout_ack_ms": 83.31652700000001,
+      "confirm_receipt_ms": 80.385651,
+      "confirm_to_scripted_created_ms": 264.60075900000004,
+      "new_calls": 1,
+      "observe_to_stored_ms": 259.748563,
+      "prepare_receipt_ms": 81.14318800000001,
+      "restart_ms": 111.36697199999999,
+      "show_calls": 2,
+      "speech_claim_ms": 83.195296,
+      "startup_ms": 221.77984,
+      "status_beside_silent_ms": 7.539896
+    },
+    {
+      "all_assertions_passed": true,
+      "authored_playout_ack_ms": 78.002253,
+      "confirm_receipt_ms": 83.08554699999999,
+      "confirm_to_scripted_created_ms": 244.567415,
+      "new_calls": 1,
+      "observe_to_stored_ms": 252.03638299999997,
+      "prepare_receipt_ms": 86.01781199999999,
+      "restart_ms": 105.184206,
+      "show_calls": 2,
+      "speech_claim_ms": 78.039854,
+      "startup_ms": 219.478985,
+      "status_beside_silent_ms": 11.670755
+    },
+    {
+      "all_assertions_passed": true,
+      "authored_playout_ack_ms": 84.971112,
+      "confirm_receipt_ms": 83.13221,
+      "confirm_to_scripted_created_ms": 254.58341299999998,
+      "new_calls": 1,
+      "observe_to_stored_ms": 245.574767,
+      "prepare_receipt_ms": 87.184938,
+      "restart_ms": 101.893772,
+      "show_calls": 2,
+      "speech_claim_ms": 79.40038200000001,
+      "startup_ms": 215.12441900000002,
+      "status_beside_silent_ms": 7.6524030000000005
+    },
+    {
+      "all_assertions_passed": true,
+      "authored_playout_ack_ms": 81.42978,
+      "confirm_receipt_ms": 86.182955,
+      "confirm_to_scripted_created_ms": 262.13569199999995,
+      "new_calls": 1,
+      "observe_to_stored_ms": 250.70572,
+      "prepare_receipt_ms": 87.837577,
+      "restart_ms": 112.867036,
+      "show_calls": 2,
+      "speech_claim_ms": 83.009378,
+      "startup_ms": 215.248714,
+      "status_beside_silent_ms": 5.878602
+    }
+  ],
+  "elapsed_ms": 13303.342271,
+  "malformed_reply": {
+    "new_calls": 1,
+    "observation_refused": true,
+    "restarted_without_resend": true,
+    "state": "uncertain"
+  },
+  "pending": {
+    "new_calls": 1,
+    "observation_refused": true,
+    "restarted_without_resend": true,
+    "state": "pending"
+  },
+  "platform": {
+    "arch": "x86_64",
+    "os": "macos"
+  },
+  "samples": 8,
+  "scratch": "/private/tmp/tasks-check-5cfd1e87c148",
+  "scratch_removed": true,
+  "statistics": {
+    "authored_playout_ack_ms": {
+      "all_ms": [
+        83.40535,
+        82.147861,
+        78.89976399999999,
+        81.719521,
+        83.31652700000001,
+        78.002253,
+        84.971112,
+        81.42978
+      ],
+      "count": 8,
+      "first_ms": 83.40535,
+      "warm_count": 7,
+      "warm_max_ms": 84.971112,
+      "warm_median_ms": 81.719521
+    },
+    "confirm_receipt_ms": {
+      "all_ms": [
+        132.784766,
+        82.716055,
+        81.359054,
+        82.51876399999999,
+        80.385651,
+        83.08554699999999,
+        83.13221,
+        86.182955
+      ],
+      "count": 8,
+      "first_ms": 132.784766,
+      "warm_count": 7,
+      "warm_max_ms": 86.182955,
+      "warm_median_ms": 82.716055
+    },
+    "confirm_to_scripted_created_ms": {
+      "all_ms": [
+        309.901767,
+        242.55253900000002,
+        246.515372,
+        250.18081599999996,
+        264.60075900000004,
+        244.567415,
+        254.58341299999998,
+        262.13569199999995
+      ],
+      "count": 8,
+      "first_ms": 309.901767,
+      "warm_count": 7,
+      "warm_max_ms": 264.60075900000004,
+      "warm_median_ms": 250.18081599999996
+    },
+    "observe_to_stored_ms": {
+      "all_ms": [
+        306.758039,
+        247.24654500000003,
+        243.42282200000002,
+        275.754903,
+        259.748563,
+        252.03638299999997,
+        245.574767,
+        250.70572
+      ],
+      "count": 8,
+      "first_ms": 306.758039,
+      "warm_count": 7,
+      "warm_max_ms": 275.754903,
+      "warm_median_ms": 250.70572
+    },
+    "prepare_receipt_ms": {
+      "all_ms": [
+        98.45918400000001,
+        86.907053,
+        82.88384599999999,
+        79.145197,
+        81.14318800000001,
+        86.01781199999999,
+        87.184938,
+        87.837577
+      ],
+      "count": 8,
+      "first_ms": 98.45918400000001,
+      "warm_count": 7,
+      "warm_max_ms": 87.837577,
+      "warm_median_ms": 86.01781199999999
+    },
+    "restart_ms": {
+      "all_ms": [
+        101.30445300000001,
+        101.89093000000001,
+        108.621201,
+        95.820776,
+        111.36697199999999,
+        105.184206,
+        101.893772,
+        112.867036
+      ],
+      "count": 8,
+      "first_ms": 101.30445300000001,
+      "warm_count": 7,
+      "warm_max_ms": 112.867036,
+      "warm_median_ms": 105.184206
+    },
+    "speech_claim_ms": {
+      "all_ms": [
+        78.916394,
+        84.278012,
+        78.56576999999999,
+        80.827056,
+        83.195296,
+        78.039854,
+        79.40038200000001,
+        83.009378
+      ],
+      "count": 8,
+      "first_ms": 78.916394,
+      "warm_count": 7,
+      "warm_max_ms": 84.278012,
+      "warm_median_ms": 80.827056
+    },
+    "startup_ms": {
+      "all_ms": [
+        220.371124,
+        218.52273399999999,
+        220.448241,
+        221.19626,
+        221.77984,
+        219.478985,
+        215.12441900000002,
+        215.248714
+      ],
+      "count": 8,
+      "first_ms": 220.371124,
+      "warm_count": 7,
+      "warm_max_ms": 221.77984,
+      "warm_median_ms": 219.478985
+    },
+    "status_beside_silent_ms": {
+      "all_ms": [
+        7.562603999999999,
+        5.990699,
+        6.107353000000001,
+        8.704806000000001,
+        7.539896,
+        11.670755,
+        7.6524030000000005,
+        5.878602
+      ],
+      "count": 8,
+      "first_ms": 7.562603999999999,
+      "warm_count": 7,
+      "warm_max_ms": 11.670755,
+      "warm_median_ms": 7.539896
+    }
+  },
+  "unit": "milliseconds"
+}

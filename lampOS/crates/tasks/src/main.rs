@@ -1,0 +1,132 @@
+use lamp_tasks::runtime::{Config, SystemClock, read_targets, request, serve};
+use std::{
+    io::{self, Read},
+    path::PathBuf,
+    sync::{Arc, atomic::AtomicBool},
+    time::Duration,
+};
+
+fn run() -> Result<(), Box<dyn std::error::Error>> {
+    let mut args = std::env::args().skip(1);
+    let command = args
+        .next()
+        .ok_or("usage: lamp-tasks serve [--enable ...] | request --socket ABS")?;
+    if command == "request" {
+        if args.next().as_deref() != Some("--socket") {
+            return Err("request requires --socket ABS".into());
+        }
+        let path = PathBuf::from(args.next().ok_or("--socket needs a path")?);
+        if args.next().is_some() {
+            return Err("unexpected request option".into());
+        }
+        let mut bytes = Vec::new();
+        io::stdin()
+            .take(lamp_tasks::protocol::MAX_LINE_BYTES as u64 + 2)
+            .read_to_end(&mut bytes)?;
+        if bytes.last() == Some(&b'\n') {
+            bytes.pop();
+        }
+        if bytes.len() > lamp_tasks::protocol::MAX_LINE_BYTES {
+            return Err("request exceeds 8192 bytes".into());
+        }
+        // Validate before converting to Value, whose map would silently keep
+        // only the last copy of a duplicated operation or guard field.
+        let typed = lamp_tasks::protocol::Request::parse(&bytes).map_err(io::Error::other)?;
+        let value = serde_json::to_value(typed)?;
+        println!("{}", request(&path, &value, Duration::from_millis(1500))?);
+        return Ok(());
+    }
+    if command != "serve" {
+        return Err("expected serve or request".into());
+    }
+    let mut enabled = false;
+    let mut dir = None;
+    let mut socket = None;
+    let mut voice_socket = None;
+    let mut executable = None;
+    let mut targets = None;
+    let mut boot_id = None;
+    let mut bus_root = PathBuf::from(lamp_bus::DEFAULT_ROOT);
+    let mut run_for = None;
+    let mut seen = std::collections::BTreeSet::new();
+    while let Some(arg) = args.next() {
+        if !seen.insert(arg.clone()) {
+            return Err("duplicate option".into());
+        }
+        match arg.as_str() {
+            "--enable" => enabled = true,
+            "--dir" => dir = Some(PathBuf::from(args.next().ok_or("--dir needs a path")?)),
+            "--socket" => socket = Some(PathBuf::from(args.next().ok_or("--socket needs a path")?)),
+            "--voice-socket" => {
+                voice_socket = Some(PathBuf::from(
+                    args.next().ok_or("--voice-socket needs a path")?,
+                ))
+            }
+            "--harness" => {
+                executable = Some(PathBuf::from(
+                    args.next()
+                        .ok_or("--harness needs an absolute executable path")?,
+                ))
+            }
+            "--targets" => {
+                targets = Some(PathBuf::from(args.next().ok_or("--targets needs a path")?))
+            }
+            "--bus-root" => bus_root = PathBuf::from(args.next().ok_or("--bus-root needs a path")?),
+            "--boot-id" => boot_id = Some(args.next().ok_or("--boot-id needs an identity")?),
+            "--run-for-ms" => {
+                let ms = args
+                    .next()
+                    .ok_or("--run-for-ms needs milliseconds")?
+                    .parse::<u64>()?;
+                if !(1..=86_400_000).contains(&ms) {
+                    return Err("--run-for-ms must be 1..86400000".into());
+                }
+                run_for = Some(Duration::from_millis(ms));
+            }
+            _ => return Err("unknown option".into()),
+        }
+    }
+    if !enabled {
+        println!(
+            "{{\"enabled\":false,\"message\":\"Tasks is off; supply --enable to start it.\"}}"
+        );
+        return Ok(());
+    }
+    let config = Config {
+        enabled,
+        dir: dir.ok_or("--dir is required")?,
+        socket: socket.ok_or("--socket is required")?,
+        voice_socket: voice_socket.ok_or("--voice-socket is required")?,
+        bus_root,
+        targets: read_targets(&targets.ok_or("--targets is required")?)?,
+        run_for,
+    };
+    let clock = SystemClock::new(boot_id.as_deref())?;
+    let executable = executable.ok_or("--harness is required")?;
+    let stop = Arc::new(AtomicBool::new(false));
+    signal_hook::flag::register(signal_hook::consts::SIGTERM, stop.clone())?;
+    signal_hook::flag::register(signal_hook::consts::SIGINT, stop.clone())?;
+    serve(config, clock, executable, stop)?;
+    Ok(())
+}
+
+fn main() {
+    if let Err(error) = run() {
+        // An error is also a shutdown path. A full stderr pipe or blocked
+        // logging filesystem must not keep the service alive after it has
+        // withdrawn readiness. Exit even if this one writer cannot finish.
+        let message = format!("tasks: {error}");
+        let (done, received) = std::sync::mpsc::sync_channel(1);
+        if std::thread::Builder::new()
+            .name("tasks-exit-report".into())
+            .spawn(move || {
+                eprintln!("{message}");
+                let _ = done.try_send(());
+            })
+            .is_ok()
+        {
+            let _ = received.recv_timeout(Duration::from_millis(10));
+        }
+        std::process::exit(1);
+    }
+}

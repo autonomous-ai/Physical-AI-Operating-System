@@ -1,0 +1,40 @@
+   Compiling lamp-tasks v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/tasks)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 2.01s
+     Running unittests src/lib.rs (target/debug/deps/lamp_tasks-8bb8be952fe771dc)
+
+running 32 tests
+test engine::tests::attempt_is_durable_before_job_and_is_never_issued_twice ... ok
+test engine::tests::automatic_expiry_preserves_last_mutation_receipt_but_never_requeues_it ... ok
+test engine::tests::boot_restart_preserves_history_but_cannot_fabricate_observation_age ... ok
+test engine::tests::cancellation_is_local_and_only_before_the_attempt ... ok
+test engine::tests::clock_regression_boot_change_and_reused_process_identity_fail_closed ... ok
+test engine::tests::duplicate_observation_after_restart_does_not_rejuvenate_speech_age ... ok
+test engine::tests::duplicate_observation_preserves_identity_first_age_and_speech_state ... ok
+test engine::tests::failed_attempt_commit_releases_no_job_and_latches_failure ... ok
+test engine::tests::failed_prepare_or_observation_commit_is_not_installed_in_memory ... ok
+test engine::tests::final_dispatch_outcomes_never_automatically_resend ... ok
+test engine::tests::guards_refuse_changed_retry_old_revision_and_wrong_store ... ok
+test engine::tests::invalid_or_oversized_transcripts_do_not_enter_the_ledger ... ok
+test engine::tests::jobs_are_serial_and_queued_launches_expire_while_a_read_is_inflight ... ok
+test engine::tests::list_and_diagnostics_are_bounded_metadata_and_get_returns_one_observation ... ok
+test engine::tests::lost_speech_claim_reply_and_voice_only_restart_never_reissue_playback_grant ... ok
+test engine::tests::malformed_launch_reply_is_uncertain_without_leaking_private_text ... ok
+test engine::tests::malformed_snapshots_fail_closed_before_writing ... ok
+test engine::tests::observations_are_explicit_exact_identity_and_current_job_only ... ok
+test engine::tests::pending_creation_is_unresolved_and_cannot_be_observed_by_name ... ok
+test engine::tests::preparation_is_immutable_and_exact_retry_is_a_receipt_not_another_task ... ok
+test engine::tests::prompt_target_speech_and_checked_arithmetic_bounds_are_enforced ... ok
+test engine::tests::qualified_playout_receipt_requires_exact_tuple_digest_and_completed_flag ... ok
+test engine::tests::receipt_revision_must_identify_the_actual_committed_effect ... ok
+test engine::tests::restart_cancels_requested_and_inflight_reads_without_automatic_poll ... ok
+test engine::tests::restart_invalidates_unattempted_work_and_marks_inflight_uncertain ... ok
+test engine::tests::retained_task_and_observation_limits_refuse_without_eviction ... ok
+test engine::tests::reused_remote_agent_and_creation_ids_never_bind_distinct_tasks ... ok
+test engine::tests::speech_requires_trusted_route_and_recent_original_observation ... ok
+test engine::tests::tasks_restart_never_accepts_old_claim_or_playout_acknowledgement ... ok
+test engine::tests::trusted_confirmation_binds_digest_session_and_exact_expiry ... ok
+test engine::tests::uncertain_claim_commit_never_grants_and_recovers_as_uncertain ... ok
+test engine::tests::worst_case_json_escaped_observation_fits_reply_bound ... ok
+
+test result: ok. 32 passed; 0 failed; 0 ignored; 0 measured; 14 filtered out; finished in 0.13s
+

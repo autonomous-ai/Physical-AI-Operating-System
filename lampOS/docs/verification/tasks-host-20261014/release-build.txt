@@ -1,0 +1,13 @@
+   Compiling version_check v0.9.5
+   Compiling typenum v1.20.1
+   Compiling rustix v1.1.5
+   Compiling cpufeatures v0.2.17
+   Compiling lamp-msgs v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/msgs)
+   Compiling generic-array v0.14.7
+   Compiling block-buffer v0.10.4
+   Compiling crypto-common v0.1.7
+   Compiling digest v0.10.7
+   Compiling sha2 v0.10.9
+   Compiling lamp-tasks v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/tasks)
+   Compiling tempfile v3.27.0
+    Finished `release` profile [optimized] target(s) in 10.40s

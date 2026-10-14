@@ -1,0 +1,148 @@
+{
+  "checked_local_links": [
+    {
+      "document": "docs/tasks.md",
+      "target": "brain-build.md#step-5-in-more-detail-tasks-through-harness-on-the-lamp"
+    },
+    {
+      "document": "docs/tasks.md",
+      "target": "tasks-contract.md"
+    },
+    {
+      "document": "docs/tasks.md",
+      "target": "schedule.md"
+    },
+    {
+      "document": "docs/tasks.md",
+      "target": "../crates/tasks/src/protocol.rs"
+    },
+    {
+      "document": "docs/tasks.md",
+      "target": "../crates/tasks/src/engine.rs"
+    },
+    {
+      "document": "docs/tasks.md",
+      "target": "verification/tasks-host-20261014/README.md"
+    },
+    {
+      "document": "docs/tasks-contract.md",
+      "target": "work-split.md#11-one-task-out-to-an-agent-and-back-through-harness"
+    },
+    {
+      "document": "docs/tasks-contract.md",
+      "target": "brain-build.md#step-5-in-more-detail-tasks-through-harness-on-the-lamp"
+    },
+    {
+      "document": "docs/tasks-contract.md",
+      "target": "brain-build.md#the-other-route-not-taken-v1s-device-protocol"
+    },
+    {
+      "document": "docs/tasks-contract.md",
+      "target": "tasks.md"
+    },
+    {
+      "document": "docs/verification/tasks-host-20261014/README.md",
+      "target": "gate-source-sha256.json"
+    },
+    {
+      "document": "docs/verification/tasks-host-20261014/README.md",
+      "target": "host.json"
+    },
+    {
+      "document": "docs/verification/tasks-host-20261014/README.md",
+      "target": "host.json"
+    },
+    {
+      "document": "docs/verification/tasks-host-20261014/README.md",
+      "target": "filesystem-mount.json"
+    },
+    {
+      "document": "docs/verification/tasks-host-20261014/README.md",
+      "target": "host-sandbox-root-context.json"
+    },
+    {
+      "document": "docs/verification/tasks-host-20261014/README.md",
+      "target": "filesystem.json"
+    },
+    {
+      "document": "docs/verification/tasks-host-20261014/README.md",
+      "target": "source-copy-manifest.json"
+    },
+    {
+      "document": "docs/verification/tasks-host-20261014/README.md",
+      "target": "standalone-metadata-check.json"
+    },
+    {
+      "document": "docs/verification/tasks-host-20261014/README.md",
+      "target": "standalone-workspace-build.txt"
+    },
+    {
+      "document": "docs/verification/tasks-host-20261014/README.md",
+      "target": "standalone-tests.txt"
+    },
+    {
+      "document": "docs/verification/tasks-host-20261014/README.md",
+      "target": "release-check.stdout.json"
+    },
+    {
+      "document": "docs/verification/tasks-host-20261014/README.md",
+      "target": "release-check.json"
+    },
+    {
+      "document": "docs/verification/tasks-host-20261014/README.md",
+      "target": "harness-check-first.txt"
+    },
+    {
+      "document": "docs/verification/tasks-host-20261014/README.md",
+      "target": "store-tests-first.txt"
+    },
+    {
+      "document": "docs/verification/tasks-host-20261014/README.md",
+      "target": "harness-tests-host.txt"
+    },
+    {
+      "document": "docs/verification/tasks-host-20261014/README.md",
+      "target": "check-02.txt"
+    },
+    {
+      "document": "docs/verification/tasks-host-20261014/README.md",
+      "target": "runtime-01.txt"
+    },
+    {
+      "document": "docs/verification/tasks-host-20261014/README.md",
+      "target": "runtime-02.txt"
+    },
+    {
+      "document": "docs/verification/tasks-host-20261014/README.md",
+      "target": "process-repro.rs"
+    },
+    {
+      "document": "docs/verification/tasks-host-20261014/README.md",
+      "target": "process-repro-v2.txt"
+    },
+    {
+      "document": "docs/verification/tasks-host-20261014/README.md",
+      "target": "harness-tests-fourth.txt"
+    },
+    {
+      "document": "docs/verification/tasks-host-20261014/README.md",
+      "target": "gate-tests-first.txt"
+    },
+    {
+      "document": "docs/verification/tasks-host-20261014/README.md",
+      "target": "runtime-storage-failure-first.txt"
+    },
+    {
+      "document": "docs/verification/tasks-host-20261014/README.md",
+      "target": "development-evidence-manifest.json"
+    },
+    {
+      "document": "docs/verification/tasks-host-20261014/README.md",
+      "target": "../../tasks.md"
+    }
+  ],
+  "valid_json_examples": 2,
+  "valid_evidence_json_files": 27,
+  "reverse_dependents": [],
+  "source_hashes_match_gate_and_source_copy": true
+}

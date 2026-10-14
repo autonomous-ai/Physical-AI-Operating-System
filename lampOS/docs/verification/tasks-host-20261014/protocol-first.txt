@@ -1,0 +1,10 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.13s
+     Running unittests src/lib.rs (target/debug/deps/lamp_tasks-8bb8be952fe771dc)
+
+running 3 tests
+test protocol::tests::malformed_duplicate_and_oversized_input_is_refused ... ok
+test protocol::tests::reads_have_no_authority_or_target_override_fields ... ok
+test protocol::tests::trusted_operations_require_explicit_fields_and_a_separate_route ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 43 filtered out; finished in 0.00s
+

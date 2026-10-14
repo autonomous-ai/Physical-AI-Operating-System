@@ -1,0 +1,73 @@
+   Compiling lamp-tasks v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/tasks)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 3.07s
+     Running unittests src/lib.rs (target/debug/deps/lamp_tasks-8bb8be952fe771dc)
+
+running 46 tests
+test engine::tests::attempt_is_durable_before_job_and_is_never_issued_twice ... ok
+test engine::tests::automatic_expiry_preserves_last_mutation_receipt_but_never_requeues_it ... ok
+test engine::tests::boot_restart_preserves_history_but_cannot_fabricate_observation_age ... ok
+test engine::tests::cancellation_is_local_and_only_before_the_attempt ... ok
+test engine::tests::clock_regression_boot_change_and_reused_process_identity_fail_closed ... ok
+test engine::tests::duplicate_observation_after_restart_does_not_rejuvenate_speech_age ... ok
+test engine::tests::duplicate_observation_preserves_identity_first_age_and_speech_state ... ok
+test engine::tests::failed_attempt_commit_releases_no_job_and_latches_failure ... ok
+test engine::tests::failed_prepare_or_observation_commit_is_not_installed_in_memory ... ok
+test engine::tests::final_dispatch_outcomes_never_automatically_resend ... ok
+test engine::tests::guards_refuse_changed_retry_old_revision_and_wrong_store ... ok
+test engine::tests::invalid_or_oversized_transcripts_do_not_enter_the_ledger ... ok
+test engine::tests::jobs_are_serial_and_queued_launches_expire_while_a_read_is_inflight ... ok
+test engine::tests::list_and_diagnostics_are_bounded_metadata_and_get_returns_one_observation ... ok
+test engine::tests::lost_speech_claim_reply_and_voice_only_restart_never_reissue_playback_grant ... ok
+test engine::tests::malformed_launch_reply_is_uncertain_without_leaking_private_text ... ok
+test engine::tests::malformed_snapshots_fail_closed_before_writing ... ok
+test engine::tests::observations_are_explicit_exact_identity_and_current_job_only ... ok
+test engine::tests::pending_creation_is_unresolved_and_cannot_be_observed_by_name ... ok
+test engine::tests::preparation_is_immutable_and_exact_retry_is_a_receipt_not_another_task ... ok
+test engine::tests::prompt_target_speech_and_checked_arithmetic_bounds_are_enforced ... ok
+test engine::tests::qualified_playout_receipt_requires_exact_tuple_digest_and_completed_flag ... ok
+test engine::tests::receipt_revision_must_identify_the_actual_committed_effect ... ok
+test engine::tests::restart_cancels_requested_and_inflight_reads_without_automatic_poll ... ok
+test engine::tests::restart_invalidates_unattempted_work_and_marks_inflight_uncertain ... ok
+test engine::tests::retained_task_and_observation_limits_refuse_without_eviction ... ok
+test engine::tests::reused_remote_agent_and_creation_ids_never_bind_distinct_tasks ... ok
+test engine::tests::speech_requires_trusted_route_and_recent_original_observation ... ok
+test engine::tests::tasks_restart_never_accepts_old_claim_or_playout_acknowledgement ... ok
+test engine::tests::trusted_confirmation_binds_digest_session_and_exact_expiry ... ok
+test engine::tests::uncertain_claim_commit_never_grants_and_recovers_as_uncertain ... ok
+test engine::tests::worst_case_json_escaped_observation_fits_reply_bound ... ok
+test protocol::tests::malformed_duplicate_and_oversized_input_is_refused ... ok
+test protocol::tests::reads_have_no_authority_or_target_override_fields ... ok
+test protocol::tests::trusted_operations_require_explicit_fields_and_a_separate_route ... ok
+test runtime::tests::binding_cleanup_does_not_delete_a_replacement ... FAILED
+test runtime::tests::binding_preserves_foreign_files_and_live_sockets ... FAILED
+test runtime::tests::configuration_is_private_bounded_strict_and_has_explicit_targets ... ok
+test runtime::tests::configuration_never_silently_selects_the_last_duplicate_alias ... ok
+test runtime::tests::disabled_service_does_not_read_clock_adapter_or_storage ... ok
+test runtime::tests::fragmented_line_and_absolute_silent_deadline_are_bounded ... ok
+test runtime::tests::line_reader_drains_buffered_bytes_after_peer_close ... ok
+test runtime::tests::newline_and_byte_bounds_precede_parsing ... ok
+test runtime::tests::output_to_a_nonreading_client_has_one_deadline ... ok
+test runtime::tests::request_rejects_oversized_input_before_connecting ... ok
+test store::tests::live_connection_uses_full_sync_delete_journal_and_bounded_pages ... ok
+
+failures:
+
+---- runtime::tests::binding_cleanup_does_not_delete_a_replacement stdout ----
+
+thread 'runtime::tests::binding_cleanup_does_not_delete_a_replacement' (111287210) panicked at crates/tasks/src/runtime.rs:924:48:
+called `Result::unwrap()` on an `Err` value: Custom { kind: InvalidInput, error: "socket parent must be a private directory owned by this user" }
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+---- runtime::tests::binding_preserves_foreign_files_and_live_sockets stdout ----
+
+thread 'runtime::tests::binding_preserves_foreign_files_and_live_sockets' (111287211) panicked at crates/tasks/src/runtime.rs:912:47:
+called `Result::unwrap()` on an `Err` value: Custom { kind: InvalidInput, error: "socket parent must be a private directory owned by this user" }
+
+
+failures:
+    runtime::tests::binding_cleanup_does_not_delete_a_replacement
+    runtime::tests::binding_preserves_foreign_files_and_live_sockets
+
+test result: FAILED. 44 passed; 2 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.37s
+
+error: test failed, to rerun pass `-p lamp-tasks --lib`

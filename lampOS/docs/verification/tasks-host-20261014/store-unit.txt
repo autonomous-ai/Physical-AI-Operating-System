@@ -1,0 +1,18 @@
+   Compiling lamp-tasks v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/tasks)
+warning: unused import: `Guard`
+ --> crates/tasks/src/engine.rs:5:16
+  |
+5 |     protocol::{Guard, MAX_PAGE_SIZE, MAX_REPLY_BYTES, Request},
+  |                ^^^^^
+  |
+  = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: `lamp-tasks` (lib test) generated 1 warning (run `cargo fix --lib -p lamp-tasks --tests` to apply 1 suggestion)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 3.09s
+     Running unittests src/lib.rs (target/debug/deps/lamp_tasks-8bb8be952fe771dc)
+
+running 1 test
+test store::tests::live_connection_uses_full_sync_delete_journal_and_bounded_pages ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 13 filtered out; finished in 0.15s
+

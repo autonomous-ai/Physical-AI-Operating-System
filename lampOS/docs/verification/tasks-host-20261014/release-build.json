@@ -1,0 +1,18 @@
+{
+  "command": [
+    "cargo",
+    "build",
+    "--release",
+    "--locked",
+    "-p",
+    "lamp-tasks",
+    "--bin",
+    "lamp-tasks",
+    "--example",
+    "tasks_check"
+  ],
+  "cwd": "/Users/d/code/autonomous-os/lampOS",
+  "started_utc": "2026-10-14T09:44:58.296189+00:00",
+  "elapsed_s": 10.465184337000004,
+  "exit": 0
+}

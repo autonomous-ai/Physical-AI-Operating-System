@@ -1,0 +1,16 @@
+{
+  "command": [
+    "cargo",
+    "test",
+    "--offline",
+    "--locked",
+    "-p",
+    "lamp-tasks",
+    "--",
+    "--test-threads=1"
+  ],
+  "cwd": "/private/tmp/lamp-third-tasks-source-20261014",
+  "started_utc": "2026-10-14T09:47:18.495541+00:00",
+  "elapsed_s": 41.92916832,
+  "exit": 0
+}

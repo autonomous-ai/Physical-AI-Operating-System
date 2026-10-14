@@ -1,0 +1,13 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.13s
+     Running tests/runtime_failures.rs (target/debug/deps/runtime_failures-54cd24a1c80cf3a4)
+
+running 3 tests
+test blocked_owner_expires_queued_preparation_and_withdraws_then_restores_readiness ... host injected-clock fixture: blocked owner to uncertain receipt=1.107601373s; blocked owner to unavailable diagnostic=1.490495521s; release to ready diagnostic=7.621241ms; no CLI calls
+ok
+test full_unread_stderr_cannot_block_production_status_or_sigterm_cleanup ... host fixture: prefilled stderr=8192 bytes; status round trip=1.222545ms; SIGTERM to exit=19.12724ms; no CLI calls
+ok
+test full_unread_stderr_cannot_hold_storage_failure_exit_or_socket_cleanup ... host storage-failure fixture: prefilled stderr=8192 bytes; Prepare start to error exit=27.02934ms; both sockets removed; replacement untouched; no CLI calls
+ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.86s
+

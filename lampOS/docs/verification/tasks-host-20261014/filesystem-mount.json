@@ -1,0 +1,12 @@
+{
+  "command": [
+    "mount"
+  ],
+  "selection": "only /dev/disk1s2, the df-reported /private/tmp backing device",
+  "exit": 0,
+  "lines": [
+    "/dev/disk1s2 on /System/Volumes/Data (apfs, local, journaled, nobrowse, root data)"
+  ],
+  "stderr": "",
+  "observed_utc": "2026-10-14T09:47:21.805371+00:00"
+}

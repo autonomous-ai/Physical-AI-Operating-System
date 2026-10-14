@@ -1,0 +1,135 @@
+//! Scripted executable for adapter tests only. This never contacts Harness,
+//! opens an account, or starts an agent. Its plan and logs live under test HOME.
+use serde_json::{Value, json};
+use std::{
+    env, fs,
+    io::{self, Read, Write},
+    os::unix::fs::OpenOptionsExt,
+    path::PathBuf,
+    process::{Command, Stdio},
+    thread,
+    time::{Duration, Instant},
+};
+
+fn private_write(path: PathBuf, bytes: &[u8]) -> io::Result<()> {
+    fs::OpenOptions::new()
+        .write(true)
+        .create(true)
+        .truncate(true)
+        .mode(0o600)
+        .open(path)?
+        .write_all(bytes)
+}
+
+pub fn main() -> io::Result<()> {
+    let home =
+        PathBuf::from(env::var_os("HOME").ok_or_else(|| io::Error::other("fixture HOME missing"))?);
+    let args: Vec<String> = env::args().skip(1).collect();
+    if args.first().is_some_and(|arg| arg == "__hold") {
+        private_write(
+            home.join("descendant.pid"),
+            std::process::id().to_string().as_bytes(),
+        )?;
+        let began = Instant::now();
+        while began.elapsed() < Duration::from_secs(5) {
+            private_write(
+                home.join("heartbeat"),
+                began.elapsed().as_nanos().to_string().as_bytes(),
+            )?;
+            thread::sleep(Duration::from_millis(10));
+        }
+        return Ok(());
+    }
+    let plan: Value = serde_json::from_slice(&fs::read(home.join("plan.json"))?)?;
+    let operation = args.first().map_or("", String::as_str);
+    let step = &plan[operation];
+    let environment = env::vars().collect::<std::collections::BTreeMap<_, _>>();
+    let mut calls = fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .mode(0o600)
+        .open(home.join("calls.jsonl"))?;
+    writeln!(
+        calls,
+        "{}",
+        json!({"args":args,"environment":environment,"pid":std::process::id()})
+    )?;
+    calls.flush()?;
+    if step["stdin_eof"] == true {
+        let mut input = Vec::new();
+        io::stdin().read_to_end(&mut input)?;
+        if !input.is_empty() {
+            return Err(io::Error::other("fixture stdin was not null"));
+        }
+    }
+    if step["remove_executable"] == true {
+        let path = env::current_exe()?.canonicalize()?;
+        if !path.starts_with(home.canonicalize()?) {
+            return Err(io::Error::other(
+                "fixture refuses to remove a shared binary",
+            ));
+        }
+        fs::remove_file(path)?;
+    }
+    if step["held_descendant"] == true {
+        let output = || {
+            if step["redirect_descendant"] == true {
+                Stdio::null()
+            } else {
+                Stdio::inherit()
+            }
+        };
+        let _descendant = Command::new(env::current_exe()?)
+            .arg("__hold")
+            .stdin(Stdio::null())
+            .stdout(output())
+            .stderr(output())
+            .spawn()?;
+        let until = Instant::now() + Duration::from_secs(1);
+        while !home.join("descendant.pid").exists() && Instant::now() < until {
+            thread::sleep(Duration::from_millis(1));
+        }
+    }
+    if let Some(ms) = step["delay_ms"].as_u64() {
+        thread::sleep(Duration::from_millis(ms.min(5000)));
+    }
+    if let Some(count) = step["stderr_bytes"].as_u64() {
+        io::stderr().write_all(&vec![b's'; count.min(128 * 1024) as usize])?;
+    }
+    if let Some(count) = step["stdout_bytes"].as_u64() {
+        io::stdout().write_all(&vec![b'x'; count.min(128 * 1024) as usize])?;
+    } else if let Some(text) = step["stdout"].as_str() {
+        io::stdout().write_all(text.as_bytes())?;
+    } else if step["default"] == true {
+        let flag = |name: &str| {
+            args.iter()
+                .position(|arg| arg == name)
+                .and_then(|at| args.get(at + 1))
+                .cloned()
+                .unwrap_or_default()
+        };
+        match operation {
+            "machines" => println!(
+                "{}",
+                json!({"machineId":"0123456789abcdef0123456789abcdef","current":true})
+            ),
+            "new" => println!(
+                "{}",
+                json!({"ok":true,"machineId":args.get(2).unwrap().trim_start_matches('@'),"agent":{
+                    "id":"11111111-1111-4111-8111-111111111111","name":flag("--name"),"engine":args.get(1),"permissionMode":"ask","bypassPermission":null
+                }})
+            ),
+            "show" => println!(
+                "{}",
+                json!({"id":args.get(1),"state":"idle","ask":"Earlier unrelated question","answer":"Observed answer","truncated":false,"tools":2})
+            ),
+            _ => return Err(io::Error::other("fixture operation unknown")),
+        }
+    }
+    io::stdout().flush()?;
+    io::stderr().flush()?;
+    if let Some(ms) = step["after_output_ms"].as_u64() {
+        thread::sleep(Duration::from_millis(ms.min(5000)));
+    }
+    std::process::exit(step["exit"].as_i64().unwrap_or(0).clamp(0, 255) as i32);
+}

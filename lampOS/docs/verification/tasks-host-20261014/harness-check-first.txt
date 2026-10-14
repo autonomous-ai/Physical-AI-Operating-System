@@ -1,0 +1,13 @@
+    Checking lamp-msgs v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/msgs)
+    Checking lamp-tasks v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/tasks)
+error[E0583]: file not found for module `engine`
+ --> crates/tasks/src/lib.rs:3:1
+  |
+3 | pub mod engine;
+  | ^^^^^^^^^^^^^^^
+  |
+  = help: to create the module `engine`, create file "crates/tasks/src/engine.rs" or "crates/tasks/src/engine/mod.rs"
+  = note: if there is a `mod engine` elsewhere in the crate already, import it with `use crate::...` instead
+
+For more information about this error, try `rustc --explain E0583`.
+error: could not compile `lamp-tasks` (lib) due to 1 previous error

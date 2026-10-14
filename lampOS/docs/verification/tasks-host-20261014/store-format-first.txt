@@ -1,0 +1,37 @@
+Diff in /Users/d/code/autonomous-os/lampOS/crates/tasks/src/store.rs:69:
+ fn check_sidecars(path: &Path, name: &str) -> io::Result<()> {
+     // A hot rollback journal is legitimate and SQLite must recover it. Check
+     // its ownership/type/size before allowing the library to open it.
+-    check_file(
+-        &path.join(format!("{name}-journal")),
+-        MAX_JOURNAL_BYTES,
+-    )?;
++    check_file(&path.join(format!("{name}-journal")), MAX_JOURNAL_BYTES)?;
+     for suffix in ["-wal", "-shm"] {
+         if check_file(&path.join(format!("{name}{suffix}")), MAX_DATABASE_BYTES)?.is_some() {
+             return Err(invalid("tasks storage does not accept WAL sidecars"));
+Diff in /Users/d/code/autonomous-os/lampOS/crates/tasks/src/store.rs:196:
+         .query_row("PRAGMA page_count", [], |row| row.get(0))
+         .map_err(sql)?;
+     if page_size != PAGE_SIZE || pages > MAX_DATABASE_BYTES / PAGE_SIZE {
+-        return Err(invalid(
+-            "tasks database exceeds its page bound or format",
+-        ));
++        return Err(invalid("tasks database exceeds its page bound or format"));
+     }
+     db.pragma_update(None, "max_page_count", MAX_DATABASE_BYTES / PAGE_SIZE)
+         .map_err(sql)?;
+Diff in /Users/d/code/autonomous-os/lampOS/crates/tasks/src/store.rs:229:
+ }
+ 
+ fn initialize(path: &Path, held: &File) -> io::Result<()> {
+-    if check_file(
+-        &path.join(format!("{DATABASE}-journal")),
+-        MAX_JOURNAL_BYTES,
+-    )?
+-    .is_some()
+-    {
++    if check_file(&path.join(format!("{DATABASE}-journal")), MAX_JOURNAL_BYTES)?.is_some() {
+         return Err(invalid(
+             "rollback journal exists without the tasks database",
+         ));

@@ -1,0 +1,15 @@
+{
+  "command": [
+    "cargo",
+    "test",
+    "-p",
+    "lamp-tasks",
+    "--test",
+    "runtime",
+    "--",
+    "--test-threads=1"
+  ],
+  "at": "2026-10-14T09:25:40.611644+00:00",
+  "elapsed_s": 7.865065498,
+  "exit": 0
+}

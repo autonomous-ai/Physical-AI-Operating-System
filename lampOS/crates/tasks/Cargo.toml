@@ -1,0 +1,33 @@
+[package]
+name = "lamp-tasks"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+sha2.workspace = true
+lamp-bus = { path = "../bus" }
+lamp-msgs = { path = "../msgs" }
+rusqlite = { version = "0.40.2", features = ["bundled", "fallible_uint"] }
+rustix = { version = "1", features = ["fs", "process", "time", "net", "event", "pipe"] }
+getrandom = "0.4"
+signal-hook = "0.4"
+
+[dev-dependencies]
+tempfile = "3"
+
+[[bin]]
+name = "lamp-tasks-harness-fixture"
+path = "tests/fixtures/harness_cli.rs"
+test = false
+bench = false
+
+[[example]]
+name = "tasks_check"
+test = true
+
+[lints]
+workspace = true

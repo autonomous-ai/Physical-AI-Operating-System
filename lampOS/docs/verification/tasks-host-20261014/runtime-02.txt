@@ -1,0 +1,23 @@
+warning: unused import: `Guard`
+ --> crates/tasks/src/engine.rs:5:16
+  |
+5 |     protocol::{Guard, MAX_PAGE_SIZE, MAX_REPLY_BYTES, Request},
+  |                ^^^^^
+  |
+  = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: `lamp-tasks` (lib) generated 1 warning (run `cargo fix --lib -p lamp-tasks` to apply 1 suggestion)
+   Compiling lamp-tasks v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/tasks)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.75s
+     Running tests/runtime.rs (target/debug/deps/runtime-72a9aa20550d78f3)
+
+running 6 tests
+test a_silent_client_uses_only_one_bounded_worker ... ok
+test a_slow_cli_does_not_block_status_diagnostics_or_bounded_shutdown ... ok
+test command_line_is_off_without_loading_any_provisioned_paths ... ok
+test expired_and_restarted_preparations_never_reach_harness ... ok
+test model_cannot_confirm_and_restart_keeps_exact_dispatch_without_resending ... ok
+test observed_output_and_reported_playout_remain_separate_and_survive_restart ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 4.80s
+

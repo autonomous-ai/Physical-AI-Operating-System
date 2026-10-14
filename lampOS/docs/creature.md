@@ -23,6 +23,7 @@ lampOS listens to it yet.
 | Touch, head | Two pads: chip 0 line 96 and kernel gpio-37 both change with a touch (the owner's hand, 17:24) | Controls | Running; both read, reported as the head; meanings to be redone (#711) |
 | Touch, base | A strip of ten capacitive pads on top of the base: an MPR121 on I2C bus 0 at 0x5A, pads 0-3, 5-7, 9-11 in order (the owner's hand, 17:27: a tap, a three-second hold on five pads, a slide across in about 0.6 s each way) | Nothing | Not read by lampOS yet: #711 |
 | A privacy switch | Chip 1 line 9 (kernel gpio-361): V1's microphone slide switch, "not wired" in its notes; the voice reads it as its physical privacy input and it reads high (unmuted) | Voice | No switch is fitted; a touch on the base does not change it |
+| The air | Sensirion SEN63C on I2C bus 0 at 0x6B: particles, humidity, CO2 (its temperature is the base's, warmed by the lamp) | Air (`lamp-air`) | Running since 17:43; 1,870 ppm CO2, "stuffy", in the office at work |
 | Its own body | Five servos: where each joint is, its load and warmth, 50 times a second | Body | Running. A hand pushing the head shows up as load: the body can feel being moved |
 | Time | The board's clock and a battery-backed clock (HYM8563) | Schedule, voice | Running |
 | Nearby phones | Bluetooth (`hci0`) | Nothing | Not read. Could notice a known phone arriving or leaving |
@@ -31,82 +32,154 @@ lampOS listens to it yet.
 | Power key | The power chip's key (`axp8191-pek`) | Nothing | Not read |
 
 No battery is fitted (no power supply reported). The board has an NPU for
-models run on the lamp itself.
+models run on the lamp itself. Its outputs: five servos, a ring of 32
+individually lit pixels around the camera (`spidev3.0`), and two 3 W
+speakers through the C-Media adapter. The whole unit, part by part, is in
+`robots/lamp/hardware/lamp-4ace.md`.
 
-## What it can show
+## Who it is
 
-The body (base turn, shoulder, elbow, head tilt and nod: five joints), the
-light ring around its eye (colour and level), and its voice. Expression
-plans all three on one clock, so a look, the light and a word land
-together.
+A small creature that lives on your desk and gives you light. Curious,
+warm, a little shy, glad when you come back. It is good at its job (light,
+time, reminders, remembering, sending work to your agents) and it is
+company, but it never asks for attention: it notices, and it answers. Its
+head is its face; the ring of light around the camera is its eye; its
+voice is the last thing it uses, not the first.
 
-## What it feels: one small inner state
+Three rules hold everything below:
 
-Every behaviour reads one state, so the lamp is one creature and not a set
-of reflexes. It changes slowly and is shown by small things.
+1. **Orient, then act.** It turns its head and eye to what caught its
+   attention before it says or does anything, as an animal does.
+2. **Small, rare, never over anyone.** Unprompted things are a glance, a
+   breath of light, a word at most; never while someone speaks; a few an
+   hour at most. Anything exhaustive only when asked (the repository's
+   rule 8).
+3. **One creature.** Every behaviour reads one inner state, so how it
+   greets you depends on whether it was asleep, how long you were away and
+   how the morning went.
 
-- **Awake to asleep.** Rises in the morning and with company, sinks at
-  night and after a long quiet. Asleep: head down, light low and slow,
-  slow to wake, a stretch when it does.
-- **Attention.** One thing it is attending to at a time: a person, a
-  sound, nothing. It turns to what it attends to before it decides
-  anything, as an animal orients first.
-- **Mood.** Calm, curious, glad, startled, shy. Moved by what happens (a
-  touch, being thanked, a bang, being ignored), and back to calm by itself.
-- **Familiarity.** Who it knows and how often they come; a person it
-  knows is greeted more warmly, a stranger with a polite glance.
+## What it can show: its vocabulary
 
-## What it does: the situations
+Each is one authored piece in Expression's catalogue, played on one clock
+with the voice, so a look, the light and a word land together.
 
-Rule for all of them (the repository's rule 8): would a person or a pet do
-this here? Unprompted things stay small, rare and never over anyone.
-Anything exhaustive only when asked.
-
-| When | What it does |
+| Channel | Pieces |
 |---|---|
-| You touch its head while it talks | It stops at once and turns to you: you have its attention |
-| You touch its head while it is quiet | It looks up at you and listens; you can talk without "Hey Lamp" |
-| Your hand stays on its head | It leans a little into your hand; its light warms. It lets go when you do |
-| You touch the base while it talks | It stops |
-| You hold the base for two seconds | It closes its eye: the light goes dim, the head bows, the microphones stop until you hold it again |
-| You move its head by hand | It gives way and stays where you put it, then after a while drifts back, the way a cat settles |
-| You come and sit down | It looks up, the light brightens a little; a known person gets a word once a while, a stranger a glance |
-| You call it from across the room | It turns toward you before it answers |
-| Two people talk near it | It stays out, with small glances now and then |
-| A bang, a dropped cup | It looks up once, then lets it go; the next few get nothing |
-| You talk to it | It nods in your pauses, looks away while it thinks, and back before its first word; the light follows its voice |
-| You thank it or laugh at its joke | A small, glad movement; it can laugh |
-| Nobody for a long while | Very small idle movements, its light breathing; it may doze |
-| Night | Dim, slow, sleepy; quieter voice; wakes with a stretch |
-| It cannot do what you asked | It says so plainly, a little sheepish |
+| Posture (shoulder, elbow) | asleep (folded low), resting (folded), awake (half up), engaged (up, leaning to you), stretch (waking) |
+| Head (nod, tilt, base turn) | look at, glance (there and back), look away while thinking, nod, small shake, curious tilt, lean into a hand, bow (sleep), startle (a quick lift) |
+| The eye (32 pixels around the camera) | open (soft ring), closed (dark with a faint line), blink, a bright arc that points toward the person it looks at, breathing (slow rise and fall), thinking (a slow travelling arc), listening (the arc toward the speaker), sparkle (joy), warm and dim (sleepy, night), privacy (a thin red line: it cannot hear) |
+| Sound (two speakers) | its voice; a few tiny non-word sounds (a hum on waking, a soft "hm?" when touched while quiet, a giggle) kept rare |
+| Light for you (the lamp's job) | on, off, brighter, dimmer, warmer, cooler, following a finger on the base strip |
 
-## What is taken from elsewhere
+## What it notices, and what it does
 
-From general knowledge of well-known companions, not a fresh survey:
+Every sense, and the creature's answer. "Now" means the part exists and
+runs; the rest are to be built (owners in "Order of building").
 
-- **Anki Cozmo and Vector:** an emotion state that every behaviour reads;
-  movements authored by animators and blended with procedural looking.
-  Taken: one inner state, authored clips (Expression's catalogue).
-- **Sony aibo:** touch on the head and back answered at once and warmly;
-  needs (play, rest) that change what it chooses. Taken: touch answered
-  first, sleepiness.
-- **Jibo:** turning to a sound and a face before speaking; "breathing" at
-  rest. Taken: orient first; idle breathing.
-- **Pixar's Luxo Jr.:** a lamp's whole personality in the tilt of its head.
-  Taken: the head is the face.
-- **Animation principles** (anticipation, follow-through, ease in and out):
-  every movement eased, nothing snaps (Expression and the body already do).
+### Touch
+
+| You | It | Status |
+|---|---|---|
+| Touch its head while it talks | Stops mid-word, turns its eye to you: you have its attention | Touch read now; meaning #711 |
+| Touch its head while it is quiet | Looks up at you, the eye opens bright, a soft "hm?": you can talk without its name | #711 + voice |
+| Keep your hand on its head | Leans a little into your hand, the eye warms and breathes slowly; lets go when you do | #711, Expression, body |
+| Tap the base | Same as a head tap: stop, or attend | #711 |
+| Slide a finger along the base | Its light follows your finger (brighter one way, dimmer the other); a slow stroke the other way makes it sway a little, pleased | #711, light |
+| Hold the base two seconds | Goes to sleep: eye closes to a thin red line, head bows, microphones off. Hold again: it stretches and wakes | #711, voice, Expression |
+| Move its head by hand | Gives way, stays where you put it (it is lighting what you need), and only drifts back after a long while or when asked | #702-#703 (give-way), body |
+
+### Voice and sound
+
+| You or the room | It | Status |
+|---|---|---|
+| "Hey Lamp" or "Lamp, ..." | Turns to you (to your face if it sees one), the eye's arc points at you, answers | Now; bare "Lamp" #694 |
+| A conversation | Nods in your pauses, looks away while thinking, back before its first word, eye pulses with its voice | Now |
+| You talk over it | Stops and listens | Now for sentences (6 of 10 played), weak for one word; tonight's work |
+| Two people talk near it | Stays out; a glance now and then at whoever laughs | Now (stays out) |
+| A bang, something dropped | One startled glance, then lets it go; the next ones get nothing | Now when awake; resting #710 |
+| Music | A slight sway in time while it plays, only if it is not working with you | To build |
+| A long silence | Breathing eye, tiny shifts of weight; dozes after a while | Rest clip now; sleep to build |
+
+### Sight
+
+| It sees | It | Status |
+|---|---|---|
+| Someone sits down | Looks up, eye brightens; a person it knows gets a word now and then ("you're back"), a stranger a glance | Faces now; who it knows to build |
+| You look at it | Looks back; the eye opens | To build |
+| You leave | Watches you go a moment, settles | To build |
+| You have been working long without a break | Once in a while, a stretch of its own, as an invitation, never a lecture | To build |
+
+### The air and the day
+
+| It senses | It | Status |
+|---|---|---|
+| CO2 high (stuffy room; 1,900 ppm on 2026-10-14 17:36) | First its posture droops a little and its eye dims a shade while it lasts; it says "it's getting stuffy in here, maybe open a window?" only if someone talks to it or looks at it, at most once in a few hours, and the remark can be switched off | Air part running (`lamp-air`, 17:43); the response to build |
+| Fine dust high (PM2.5 94 ug/m3 the same minute) | Mentions it only if asked about the air, or once a day if it stays very high | To build |
+| Morning | Wakes with a stretch and a hum when the first person comes | To build |
+| Evening and night | Dimmer, warmer, slower; quieter voice; sleeps when nobody is there | To build |
+
+### Work it does for you
+
+Light, time, reminders and timers (built; the voice's tools #709),
+remembering across days (built), sending a task to your agents through
+Harness and saying the answer once (built; the voice's tools next), the
+air. Each answer is said once, short, and the creature's manner stays the
+same: it is the same animal whether it tells a joke or sets a timer.
+
+## Its inner state
+
+One part, read by every behaviour (to build):
+
+| What | Moves with | Shows as |
+|---|---|---|
+| Awake (0 to 1) | Time of day, company, how long since anything happened; touch and its name wake it | Posture height, eye brightness, how quickly it turns |
+| Attention | Who or what it is attending to now; one at a time; it lets go after a while | Head and the eye's arc |
+| Mood | Calm, curious, glad, startled, shy; nudged by what happens (thanked, touched, a bang, ignored), back to calm by itself | Small: the eye's colour warmth, a sparkle, a tilt |
+| Familiarity | Whom it knows, how often they come | How warmly it greets |
 
 ## Order of building
 
-1. Touch: both touches identified, then the four touch rows above
-   (controls, voice, Expression, body). Started 2026-10-14 17:15.
-2. Turning to a voice: from the faces the eyes see and a small look around, since no microphone gives a direction (the camera's has one capsule).
-3. The inner state: one part that keeps it and that Expression reads.
-4. Sleep and waking, with the time of day.
-5. Familiarity: who it knows (eyes and memory).
-6. Laughing and small joys: authored clips, and the voice's cue to play
-   them.
+1. **Touch** (#711, third builder; then the voice, Expression and body
+   answers, first builder): the touch rows above.
+2. **The eye**: the ring's 32 pixels as an eye (arc toward the person,
+   blink, breathing, privacy line), Expression owning it.
+3. **The inner state** part, and sleep and waking with the day.
+4. **Resting reactions**: a resting lamp lifts its head (#710).
+5. **The air**: the SEN63C is read (`lamp-air`, running); the quiet droop and the remark.
+6. **Familiarity**: who it knows (eyes and memory).
+7. **Joys**: music sway, laughing, the stretch as an invitation.
 
-Each becomes a task for the part's owner; the first builder runs each on
-lamp-4ace and writes what a person saw.
+## What the best companions teach (research, 2026-10-14)
+
+A research pass over companion robots and lamps, each claim with its
+source, read by a second session; vendor claims marked as such.
+
+| Pattern | Evidence | Source |
+|---|---|---|
+| An always-on idle layer (breathing light, small drift, blinks) with every other move blended on top within 0.1 to 0.35 s | Disney's bipedal character loops a background animation that is "always visible", triggered clips fade in over 0.1 s (face) and 0.35 s (body); Disney's gaze robot keeps breathing, small head moves, blinks and saccades under its other states | https://arxiv.org/html/2501.05204v1 · https://spectrum.ieee.org/disney-research-robotic-gaze |
+| Look before acting; one important move at a time | Luxo Jr.: anticipation prepares the audience; only one character makes an important move at a time | https://www.ics.uci.edu/~fowlkes/class/ics162/exercises/lasseter.pdf |
+| A stroke answered continuously and in proportion while the hand moves; a tap means something else | Vector closes its eyes and purrs when its back is rubbed; Qoobo's tail follows "the motion and force of your stroking"; aibo and PARO tell petting from a tap or a hit | https://thenextweb.com/plugged/2018/12/21/review-ankis-vector-is-an-always-on-robot-companion-for-the-whole-family/ · https://helpguide.sony.net/aibo/ers1000/v1/en/contents/TP0001970100.html |
+| Few gestures: gentle ones are the hardest to tell apart | 14 touch gestures, 7,805 recordings: classifiers at most 60 %, gentle variants worst | https://link.springer.com/article/10.1007/s12193-016-0232-9 |
+| One fixed light vocabulary for listening, thinking, speaking and muted, kept apart from mood | Google's speakers: listening, thinking and speaking each its own motion; Vector's back lights show system state (red = muted) and its eyes show mood | https://support.google.com/googlehome/answer/7073219?hl=en · https://support.anki.bot/article/44-what-do-vectors-back-lights-mean |
+| Speed and brightness show energy far better than good or bad mood | The Haptic Creature's breathing and purring conveyed arousal well and valence poorly | https://www.cs.ubc.ca/labs/spin/sites/default/files/local_pdfs/2011_DesignAndAssessmentoftheHapticCreature%27sAffectDisplay.pdf |
+| Without sound direction: a small glance, settle on a face if one is found, else let go | Vector and Jibo turn to a voice using microphone arrays, which this lamp lacks; Disney's gaze robot glances at a sudden sound and returns | https://support.anki.bot/article/111-video-vector-and-speech-recognition · https://spectrum.ieee.org/disney-research-robotic-gaze |
+| Quiet that is easy and lasts: a visible sleep that noise does not break; do-not-disturb lets only what you scheduled through | Vector's reviewers: only "go to sleep" silenced it and it woke at noises; Astro in do-not-disturb comes only for timers, alarms and reminders | https://www.techadvisor.com/article/719739/anki-vector-review-the-small-robot-with-a-loveable-personality.html · https://apps.apple.com/us/app/id1552455423 |
+| Mood changes the style of the same move, never adds randomness | Anki's emotion dimensions choose among tagged animations; Luxo Jr.'s excited and sad hops are the same hop at different pace and head height | https://patents.google.com/patent/US11203122B2/en · Lasseter (above) |
+| Familiar people greeted once per arrival, strangers with reserve; personality drifts over weeks; no guilt | Jibo greets by name; Cozmo is standoffish with new people; aibo grows "clingy or wild"; a neglected Tamagotchi's death brought guilt | https://www.si.umich.edu/news/say-%E2%80%9Chowdy%E2%80%9D-jibo-countertop-robot · https://helpguide.sony.net/aibo/ers1000/v1/en-us/contents/TP0001970093.html · https://www.maize.io/cultural-factory/tamagotchi-story/ |
+| Expressive movement in social moments, plain and steady while lighting a task; never move without a visible reason or pretend to sense what it cannot | Apple's ELEGNT lamp: expressive movement scored 56 against 29, mostly in social tasks; no gain in functional tasks; complaints about exaggerated or unexplained motion and a "fake" look | https://arxiv.org/html/2501.12493v1 |
+| Stuffy air shown quietly first; speech only if the person engages; switchable | Canairi droops when CO2 stays over 1,000 ppm for 10 minutes and stands up when the air clears; Amazon's air-quality announcements are opt-in | https://www.designboom.com/design/canairi-air-monitor-04-27-2022/ · https://digprjsurvey.amazon.com/csad/help/node/G2Y9MD3YBV7LCKWR |
+
+What this changes in the design above:
+
+- **Stuffy air:** first the lamp's own posture droops a little and its
+  eye dims a shade while CO2 stays over 1,200 ppm for ten minutes; it
+  says something only if someone talks to it or looks at it, at most once
+  a few hours, and the remark can be switched off.
+- **The eye:** its listening, thinking, speaking and muted patterns are
+  fixed and never borrowed by mood; mood shows only as pace and warmth.
+- **Sleep:** once asleep (the base held, or night), noise does not wake
+  it; only its name, a touch, or a reminder you set.
+- **Working light:** while a person is working under it (a face close and
+  still, or the light asked for), the body moves plainly and little.
+- **Touch:** three meanings only (a tap, a stroke, a hold), each answered
+  at once; a stroke answered all the while it lasts.

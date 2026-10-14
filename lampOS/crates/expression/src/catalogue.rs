@@ -402,10 +402,9 @@ impl Catalogue {
             if clip.trigger == Trigger::Sudden
                 && (clip.repeat
                     || clip.hold
-                    || clip
-                        .states
-                        .iter()
-                        .any(|state| !matches!(state, Voice::Resting | Voice::Listening))
+                    || clip.states.iter().any(|state| {
+                        !matches!(state, Voice::Resting | Voice::Listening | Voice::Thinking)
+                    })
                     || !clip.continue_in.is_empty()
                     || clip.duration_us() > 2_000_000
                     || clip.cooldown_us < 5_000_000
@@ -419,7 +418,7 @@ impl Catalogue {
                     }))
             {
                 return Err(Error(
-                    "a glance at a sudden sound is one head clip of at most 2 s from and back to rest, only resting or listening, with a 5 s cooldown or longer".into(),
+                    "a glance at a sudden sound is one head clip of at most 2 s from and back to rest, never while speaking, with a 5 s cooldown or longer".into(),
                 ));
             }
             if clip.repeat && clip.trigger != Trigger::Playout {

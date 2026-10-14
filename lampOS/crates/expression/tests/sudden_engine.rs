@@ -33,7 +33,7 @@ fn glance() -> Behaviour {
         hold: false,
         quiet_only: false,
         stop_when_concentrating: true,
-        states: vec![Voice::Resting, Voice::Listening],
+        states: vec![Voice::Resting, Voice::Listening, Voice::Thinking],
         continue_in: vec![],
         keyframes: vec![
             frame(0, BodyOffsets::ZERO),
@@ -192,13 +192,13 @@ fn a_sound_that_went_on_gets_no_glance() {
 }
 
 #[test]
-fn a_sound_while_the_lamp_thinks_gets_no_glance() {
+fn a_sound_while_the_lamp_thinks_gets_a_glance_as_a_person_would() {
     let mut lamp = Lamp::new(true, Voice::Listening);
     lamp.step(100_000);
     lamp.state = Voice::Thinking;
     lamp.step(200_000);
     lamp.sound(300_000, true);
-    assert!(!lamp.watch(300_000, 1_900_000).0);
+    assert!(lamp.watch(300_000, 1_900_000).0);
 }
 
 #[test]
@@ -240,4 +240,35 @@ fn lamp_4ace_catalogue_is_valid_and_glances_at_a_sound() {
         .find(|behaviour| behaviour.trigger == Trigger::Sudden)
         .expect("lamp-4ace glances at a sudden sound");
     assert!(glance.cooldown_us >= 30_000_000);
+}
+
+#[test]
+fn a_glance_under_way_finishes_when_the_voice_turns_from_thinking_to_listening() {
+    let mut lamp = Lamp::new(true, Voice::Listening);
+    lamp.step(100_000);
+    lamp.state = Voice::Thinking;
+    lamp.step(200_000);
+    lamp.sound(300_000, true);
+    assert!(lamp.watch(300_000, 600_000).0);
+    // The turn ends: back to listening, as on lamp-4ace when the glance was cut at 0.48 s.
+    lamp.state = Voice::Listening;
+    let (ran, lifted) = lamp.watch(700_000, 1_400_000);
+    assert!(ran && lifted < -0.05, "{ran} {lifted}");
+}
+
+#[test]
+fn someone_beginning_to_speak_does_not_cut_a_glance_short() {
+    let mut lamp = Lamp::new(true, Voice::Listening);
+    lamp.sound(300_000, true);
+    assert!(lamp.watch(300_000, 500_000).0);
+    let stamp = lamp.stamp(550_000);
+    lamp.send(Input::Activity(lamp_msgs::PersonActivity {
+        stamp,
+        session_id: "voice-one".into(),
+        turn: 1,
+        request: 11,
+        speaking: true,
+    }));
+    let (ran, lifted) = lamp.watch(600_000, 1_300_000);
+    assert!(ran && lifted < -0.05, "{ran} {lifted}");
 }

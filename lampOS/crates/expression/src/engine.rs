@@ -406,11 +406,14 @@ impl Engine {
                 // A finishing nod has already observed a genuine pause. Once
                 // its allowed Thinking transition happens, Voice need not keep
                 // publishing the Listening detector's quiet heartbeat.
-                if !self.voice.as_ref().is_some_and(|voice| {
-                    voice.state == Voice::Thinking
-                        && clip.trigger == Trigger::Pause
-                        && clip.continue_in.contains(&Voice::Thinking)
-                }) {
+                // A glance at a sudden sound is the room's and finishes.
+                if clip.trigger != Trigger::Sudden
+                    && !self.voice.as_ref().is_some_and(|voice| {
+                        voice.state == Voice::Thinking
+                            && clip.trigger == Trigger::Pause
+                            && clip.continue_in.contains(&Voice::Thinking)
+                    })
+                {
                     runtime.started = None;
                 }
             }
@@ -431,10 +434,13 @@ impl Engine {
         self.activity = None;
         self.has_speech = false;
         self.pause_since = None;
-        // A sudden sound is the room's, not the voice's: it outlives a turn
-        // (a glance already under way stops with the clips below).
-        for clip in &mut self.clips {
-            clip.started = None;
+        // A sudden sound is the room's, not the voice's: it outlives a turn,
+        // and a glance already under way finishes. It still stops if the lamp
+        // begins to speak, since its clip is not allowed while speaking.
+        for (behaviour, clip) in self.catalogue.behaviours.iter().zip(&mut self.clips) {
+            if behaviour.trigger != Trigger::Sudden {
+                clip.started = None;
+            }
             clip.pause_seen = None;
         }
         self.playout.clear();
@@ -588,8 +594,12 @@ impl Engine {
                 if activity.speaking {
                     self.has_speech = true;
                     self.pause_since = None;
-                    for clip in &mut self.clips {
-                        clip.started = None;
+                    // Speech stops what the lamp was doing for the voice; a
+                    // glance at a sudden sound is the room's and finishes.
+                    for (behaviour, clip) in self.catalogue.behaviours.iter().zip(&mut self.clips) {
+                        if behaviour.trigger != Trigger::Sudden {
+                            clip.started = None;
+                        }
                     }
                 } else if self.has_speech && self.activity.as_ref().is_some_and(|old| old.speaking)
                 {
@@ -839,7 +849,7 @@ impl Engine {
                         && voice.state == Voice::Thinking
                         && clip.trigger == Trigger::Pause
                         && clip.continue_in.contains(&Voice::Thinking);
-                    if !carry {
+                    if !carry && clip.trigger != Trigger::Sudden {
                         runtime.started = None;
                     }
                 }

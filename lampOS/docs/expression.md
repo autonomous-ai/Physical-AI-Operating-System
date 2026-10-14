@@ -162,11 +162,16 @@ clip once, on the tick it is received, if that tick is inside the clip's
 stroke; a second sound inside the clip's cooldown gets nothing. A sound
 that went on (a voice, a chair) starts nothing. The catalogue refuses a
 `sudden` clip unless it moves the head only, begins and ends at rest, lasts
-at most 2 s, is allowed only while resting or listening, does not repeat or
+at most 2 s, is never allowed while speaking (resting, listening or
+thinking, since a person thinking still looks up at a bang), does not repeat or
 hold, and has a cooldown of at least 5 s. Like the pause nod it needs fresh
 joints and an unheld turn. The sound itself is not one of the voice's
-transients: it outlives a turn ending, though a glance under way stops with
-the other clips.
+transients: it outlives a turn ending, and a glance under way finishes when
+the voice's turn changes or someone begins to speak; it stops only if the
+lamp begins to speak or is asked to stay still for work. Replaying
+lamp-4ace's own inputs from 2026-10-14 16:44 (a sound published by hand
+while the lamp was thinking in a busy office) gives the whole glance, from
+19 ms after the sound to 1.62 s.
 
 lamp-4ace's catalogue (`deploy/lamp-4ace/expression-rest-lamp-4ace.json`)
 has "glance at a sound": the head up 0.07 rad in 250 ms, a slight tilt

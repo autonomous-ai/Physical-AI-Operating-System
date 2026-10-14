@@ -380,7 +380,8 @@
       "stop_when_concentrating": true,
       "states": [
         "resting",
-        "listening"
+        "listening",
+        "thinking"
       ],
       "keyframes": [
         {

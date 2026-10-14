@@ -246,6 +246,7 @@ mod tests {
             planned: vec!["private-planned-invocation".into()],
             removed: vec!["private-removed-invocation".into()],
             refused: vec![],
+            processes: crate::ProcessObservations::default(),
             disk: Some(Disk {
                 total_bytes: 1_000,
                 available_bytes: 470,

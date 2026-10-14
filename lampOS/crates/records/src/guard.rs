@@ -6,20 +6,25 @@
 //! existing candidate. This is not protection against arbitrary privileged
 //! writers or a producer that changes that creation contract.
 
+use crate::ProcessObservations;
 use std::{collections::BTreeSet, io, path::Path};
 
 /// Return protected direct-child session names, or refuse if ownership cannot
 /// be established. One successful call protects one fixed, pinned inventory;
 /// retain its entire returned set throughout that pass. Never reuse its result
 /// with a refreshed inventory. No environment/config contents are inspected.
-pub fn live_sessions(unit: &str, root: &Path) -> io::Result<BTreeSet<String>> {
+pub fn live_sessions(
+    unit: &str,
+    root: &Path,
+    observations: &mut ProcessObservations,
+) -> io::Result<BTreeSet<String>> {
     #[cfg(target_os = "linux")]
     {
-        implementation::live(unit, root)
+        implementation::live(unit, root, observations)
     }
     #[cfg(not(target_os = "linux"))]
     {
-        let _ = (unit, root);
+        let _ = (unit, root, observations);
         Err(io::Error::new(
             io::ErrorKind::Unsupported,
             "live session protection requires Linux systemd and host procfs",
@@ -29,6 +34,7 @@ pub fn live_sessions(unit: &str, root: &Path) -> io::Result<BTreeSet<String>> {
 
 #[cfg(any(target_os = "linux", test))]
 mod implementation {
+    use crate::{ProcessObservations, ProcessSkipReason};
     use rustix::fs::{Dir, Mode, OFlags, openat, readlinkat_raw};
     use std::{
         collections::{BTreeMap, BTreeSet},
@@ -367,12 +373,14 @@ mod implementation {
         Ok(PathBuf::from(OsString::from_vec(bytes[..count].to_vec())))
     }
 
-    #[derive(Debug, Eq, PartialEq)]
+    #[derive(Clone, Debug, Eq, PartialEq)]
     struct Identity {
         pid: u32,
         start: u64,
         kernel_thread: bool,
         zombie: bool,
+        exiting: bool,
+        threads: u32,
     }
 
     fn identity(bytes: &[u8], expected_pid: u32) -> io::Result<Identity> {
@@ -401,12 +409,79 @@ mod implementation {
         let start = fields[19]
             .parse::<u64>()
             .map_err(|_| refused("invalid process start time"))?;
+        let threads = fields[17]
+            .parse::<u32>()
+            .map_err(|_| refused("invalid process thread count"))?;
         Ok(Identity {
             pid,
             start,
             kernel_thread: flags & 0x20_0000 != 0,
             zombie: fields[0] == "Z" || fields[0] == "X",
+            exiting: flags & 0x000004 != 0,
+            threads,
         })
+    }
+
+    fn gone(error: &io::Error) -> bool {
+        error.kind() == io::ErrorKind::NotFound
+            || error.raw_os_error() == Some(rustix::io::Errno::SRCH.raw_os_error())
+    }
+
+    /// Only the process stat lookup establishes that a pinned process is gone.
+    /// ENOENT for exe/cwd/fd/cmdline alone is not evidence of process exit.
+    fn read_identity(process: &OwnedFd, pid: u32) -> io::Result<Identity> {
+        identity(&read_at(process, "stat", 8192)?, pid)
+    }
+
+    fn zombie(before: &Identity) -> io::Result<bool> {
+        if before.zombie && before.threads != 1 {
+            return Err(refused("exited process leader still has other threads"));
+        }
+        Ok(before.zombie)
+    }
+
+    /// One final observation after a failed inspection. No delay or retry loop:
+    /// hidden arguments, partial metadata and an alive process still refuse.
+    fn after_failure(
+        before: &Identity,
+        mut latest: impl FnMut() -> io::Result<Identity>,
+        mut cmdline: impl FnMut() -> io::Result<Vec<u8>>,
+    ) -> io::Result<Option<ProcessSkipReason>> {
+        let after = match latest() {
+            Ok(after) => after,
+            Err(error) if gone(&error) => return Ok(Some(ProcessSkipReason::Gone)),
+            Err(error) => return Err(error),
+        };
+        if before.pid != after.pid
+            || before.start != after.start
+            || before.kernel_thread != after.kernel_thread
+        {
+            return Err(refused("process identity changed during exit check"));
+        }
+        if after.kernel_thread {
+            return Ok(None);
+        }
+        if after.threads == 0 {
+            return Err(refused("process thread count is unavailable"));
+        }
+        if zombie(&after)? {
+            return Ok(Some(ProcessSkipReason::Zombie));
+        }
+        // PF_EXITING is set before exit_mm and exit_files in Linux do_exit.
+        // Require an empty command line as well. A surviving thread can still
+        // own the session even if its group leader has already exited.
+        if after.exiting && after.threads == 1 {
+            return match cmdline() {
+                Ok(bytes) if bytes.is_empty() => Ok(Some(ProcessSkipReason::Exiting)),
+                Err(error)
+                    if error.raw_os_error() == Some(rustix::io::Errno::SRCH.raw_os_error()) =>
+                {
+                    Ok(Some(ProcessSkipReason::Gone))
+                }
+                _ => Ok(None),
+            };
+        }
+        Ok(None)
     }
 
     fn arguments(bytes: &[u8]) -> io::Result<Vec<OsString>> {
@@ -613,22 +688,16 @@ mod implementation {
         Ok(())
     }
 
-    fn inspect_process(
+    fn inspect_live_process(
         process: &OwnedFd,
         pid: u32,
         snapshot: &Snapshot,
         root: &Path,
         scan: &mut Scan,
         deadline: Instant,
+        before: &Identity,
     ) -> io::Result<()> {
-        let before = identity(&read_at(process, "stat", 8192)?, pid)?;
         let argv_bytes = read_at(process, "cmdline", MAX_PROCESS_BYTES)?;
-        if before.zombie || before.kernel_thread {
-            if pid == snapshot.main_pid {
-                return Err(refused("voice main process is not live"));
-            }
-            return Ok(());
-        }
         let argv = arguments(&argv_bytes)?;
         if argv.is_empty() {
             return Err(refused("live process has no inspectable arguments"));
@@ -696,8 +765,13 @@ mod implementation {
             // layout. Unrelated services are not parsed as voice processes.
             inspect_fds(process, root, scan, deadline)?;
         }
-        let after = identity(&read_at(process, "stat", 8192)?, pid)?;
-        if before != after
+        let after = read_identity(process, pid)?;
+        if before.pid != after.pid
+            || before.start != after.start
+            || before.kernel_thread != after.kernel_thread
+            || before.zombie != after.zombie
+            || before.exiting != after.exiting
+            || after.threads == 0
             || argv_bytes != read_at(process, "cmdline", MAX_PROCESS_BYTES)?
             || executable != executable_path(link_at(process, OsStr::new("exe"))?)
             || groups != read_at(process, "cgroup", 8192)?
@@ -709,11 +783,81 @@ mod implementation {
         Ok(())
     }
 
+    fn inspect_process(
+        process: &OwnedFd,
+        pid: u32,
+        snapshot: &Snapshot,
+        root: &Path,
+        scan: &mut Scan,
+        observations: &mut ProcessObservations,
+        deadline: Instant,
+    ) -> io::Result<()> {
+        check_deadline(deadline)?;
+        let before = match read_identity(process, pid) {
+            Ok(before) => before,
+            Err(error) if gone(&error) => {
+                return skipped(pid, snapshot, observations, ProcessSkipReason::Gone);
+            }
+            Err(error) => return Err(error),
+        };
+        // Preserve the existing explicit PF_KTHREAD exclusion. Empty argv is
+        // never enough to classify a process as a kernel thread or as exited.
+        if before.kernel_thread {
+            observations.kernel_threads += 1;
+            return if pid == snapshot.main_pid {
+                Err(refused("voice main process is a kernel thread"))
+            } else {
+                Ok(())
+            };
+        }
+        let inspection = if before.threads == 0 {
+            // do_task_stat can leave num_threads at zero if it cannot lock
+            // sighand while the task is being reaped. Zero alone proves
+            // nothing; route it through the same one-shot exit observation.
+            Err(refused("process thread count is unavailable"))
+        } else {
+            match zombie(&before) {
+                Ok(true) => return skipped(pid, snapshot, observations, ProcessSkipReason::Zombie),
+                Ok(false) => {
+                    inspect_live_process(process, pid, snapshot, root, scan, deadline, &before)
+                }
+                Err(error) => Err(error),
+            }
+        };
+        if let Err(error) = inspection {
+            check_deadline(deadline)?;
+            match after_failure(
+                &before,
+                || read_identity(process, pid),
+                || read_at(process, "cmdline", MAX_PROCESS_BYTES),
+            )? {
+                Some(reason) => skipped(pid, snapshot, observations, reason)?,
+                None => return Err(error),
+            }
+        }
+        check_deadline(deadline)
+    }
+
+    fn skipped(
+        pid: u32,
+        snapshot: &Snapshot,
+        observations: &mut ProcessObservations,
+        reason: ProcessSkipReason,
+    ) -> io::Result<()> {
+        observations.record(pid, reason);
+        if pid == snapshot.main_pid {
+            Err(refused("voice main process is no longer live"))
+        } else {
+            Ok(())
+        }
+    }
+
     fn scan_processes(
         proc_root: &Path,
         snapshot: &Snapshot,
         root: &Path,
         deadline: Instant,
+        observations: &mut ProcessObservations,
     ) -> io::Result<BTreeSet<String>> {
         let proc_root = directory_at(rustix::fs::CWD, proc_root.as_os_str())?;
         let mut scan = Scan {
@@ -739,17 +883,27 @@ mod implementation {
             )?;
             let process = match directory_at(&proc_root, OsStr::from_bytes(name)) {
                 Ok(process) => process,
-                Err(error) if error.kind() == io::ErrorKind::NotFound => continue,
+                Err(error) if gone(&error) => {
+                    skipped(pid, snapshot, observations, ProcessSkipReason::Gone)?;
+                    continue;
+                }
                 Err(_) => return Err(refused("cannot pin a process directory")),
             };
-            inspect_process(&process, pid, snapshot, root, &mut scan, deadline).map_err(
-                |error| {
-                    io::Error::new(
-                        error.kind(),
-                        format!("process {pid} protection is incomplete: {error}"),
-                    )
-                },
-            )?;
+            inspect_process(
+                &process,
+                pid,
+                snapshot,
+                root,
+                &mut scan,
+                observations,
+                deadline,
+            )
+            .map_err(|error| {
+                io::Error::new(
+                    error.kind(),
+                    format!("process {pid} protection is incomplete: {error}"),
+                )
+            })?;
         }
         if !scan.main_found {
             return Err(refused("manager main process was not found in host procfs"));
@@ -779,7 +933,11 @@ mod implementation {
     }
 
     #[cfg(target_os = "linux")]
-    pub(super) fn live(unit: &str, root: &Path) -> io::Result<BTreeSet<String>> {
+    pub(super) fn live(
+        unit: &str,
+        root: &Path,
+        observations: &mut ProcessObservations,
+    ) -> io::Result<BTreeSet<String>> {
         let deadline = Instant::now() + TOTAL_BUDGET;
         validate_root(root)?;
         if !rustix::process::geteuid().is_root() {
@@ -805,7 +963,7 @@ mod implementation {
                     run_bounded(&mut command, deadline.min(Instant::now() + COMMAND_BUDGET))?;
                 Snapshot::parse(&bytes, unit, root)
             },
-            |snapshot| scan_processes(Path::new("/proc"), snapshot, root, deadline),
+            |snapshot| scan_processes(Path::new("/proc"), snapshot, root, deadline, observations),
         )
     }
 
@@ -861,8 +1019,14 @@ mod implementation {
         }
 
         fn stat(pid: u32, start: u64, state: &str) -> String {
+            stat_with(pid, start, state, 0, 1)
+        }
+
+        fn stat_with(pid: u32, start: u64, state: &str, flags: u64, threads: u32) -> String {
             let mut fields = vec!["0".to_owned(); 20];
             fields[0] = state.to_owned();
+            fields[6] = flags.to_string();
+            fields[17] = threads.to_string();
             fields[19] = start.to_string();
             format!("{pid} (lamp ) voice) {}\n", fields.join(" "))
         }
@@ -1048,6 +1212,7 @@ mod implementation {
                 &snapshot(&root),
                 &root,
                 Instant::now() + TOTAL_BUDGET,
+                &mut ProcessObservations::default(),
             )
             .unwrap();
             assert_eq!(
@@ -1085,6 +1250,7 @@ mod implementation {
                     &snapshot(&root),
                     &root,
                     Instant::now() + TOTAL_BUDGET,
+                    &mut ProcessObservations::default(),
                 )
             };
             assert!(check().is_err());
@@ -1114,7 +1280,8 @@ mod implementation {
                     &tree.0.join("proc"),
                     &snapshot(&root),
                     &root,
-                    Instant::now() + TOTAL_BUDGET
+                    Instant::now() + TOTAL_BUDGET,
+                    &mut ProcessObservations::default(),
                 )
                 .is_err()
             );
@@ -1136,6 +1303,7 @@ mod implementation {
                 &snapshot,
                 &root,
                 Instant::now() + TOTAL_BUDGET,
+                &mut ProcessObservations::default(),
             )
             .unwrap();
             assert_eq!(got, BTreeSet::from([CURRENT.to_owned(), OLD.to_owned()]));
@@ -1167,7 +1335,8 @@ mod implementation {
                     &tree.0.join("proc"),
                     &snapshot(&root),
                     &root,
-                    Instant::now() + TOTAL_BUDGET
+                    Instant::now() + TOTAL_BUDGET,
+                    &mut ProcessObservations::default(),
                 )
                 .is_ok()
             );
@@ -1196,7 +1365,8 @@ mod implementation {
                     &tree.0.join("proc"),
                     &snapshot(&root),
                     &root,
-                    Instant::now() + TOTAL_BUDGET
+                    Instant::now() + TOTAL_BUDGET,
+                    &mut ProcessObservations::default(),
                 )
                 .is_err()
             );
@@ -1238,6 +1408,7 @@ mod implementation {
                 &snapshot(&root),
                 &root,
                 Instant::now() + TOTAL_BUDGET,
+                &mut ProcessObservations::default(),
             )
             .unwrap();
             assert_eq!(got, BTreeSet::from([CURRENT.to_owned()]));
@@ -1274,6 +1445,7 @@ mod implementation {
                 &snapshot(&root),
                 &root,
                 Instant::now() + TOTAL_BUDGET,
+                &mut ProcessObservations::default(),
             )
             .unwrap();
             assert_eq!(got, BTreeSet::from([CURRENT.to_owned(), OLD.to_owned()]));
@@ -1295,6 +1467,7 @@ mod implementation {
                     &snapshot(&root),
                     &root,
                     Instant::now() + TOTAL_BUDGET,
+                    &mut ProcessObservations::default(),
                 )
             };
             fs::remove_file(current.join("cmdline")).unwrap();
@@ -1330,6 +1503,573 @@ mod implementation {
             fs::write(path.join("stat"), stat(42, 200, "S")).unwrap();
             let got = identity(&read_at(&pinned, "stat", 8192).unwrap(), 42).unwrap();
             assert_eq!(got.start, 100);
+        }
+
+        #[test]
+        fn a_single_recheck_distinguishes_exit_from_empty_live_arguments() {
+            use std::cell::Cell;
+            let before = identity(stat(42, 100, "S").as_bytes(), 42).unwrap();
+            for (state, flags, bytes, expected, command_reads) in [
+                ("Z", 0, b"".as_slice(), Some(ProcessSkipReason::Zombie), 0),
+                ("X", 0, b"".as_slice(), Some(ProcessSkipReason::Zombie), 0),
+                ("S", 4, b"".as_slice(), Some(ProcessSkipReason::Exiting), 1),
+                ("S", 4, b"live\0".as_slice(), None, 1),
+                ("S", 0, b"".as_slice(), None, 0),
+                ("T", 0, b"".as_slice(), None, 0),
+                ("D", 0, b"".as_slice(), None, 0),
+            ] {
+                let reads = Cell::new(0);
+                let commands = Cell::new(0);
+                let after = identity(stat_with(42, 100, state, flags, 1).as_bytes(), 42).unwrap();
+                let result = after_failure(
+                    &before,
+                    || {
+                        reads.set(reads.get() + 1);
+                        Ok(after.clone())
+                    },
+                    || {
+                        commands.set(commands.get() + 1);
+                        Ok(bytes.to_vec())
+                    },
+                )
+                .unwrap();
+                assert_eq!(result, expected, "state={state}, flags={flags}");
+                assert_eq!(reads.get(), 1);
+                assert_eq!(commands.get(), command_reads);
+            }
+        }
+
+        #[test]
+        fn absent_stat_and_esrch_are_gone_but_denied_or_invalid_stat_refuse() {
+            let before = identity(stat(42, 100, "S").as_bytes(), 42).unwrap();
+            for errno in [rustix::io::Errno::NOENT, rustix::io::Errno::SRCH] {
+                assert_eq!(
+                    after_failure(&before, || Err(errno.into()), || panic!("no cmdline retry"))
+                        .unwrap(),
+                    Some(ProcessSkipReason::Gone)
+                );
+            }
+            for errno in [
+                rustix::io::Errno::ACCESS,
+                rustix::io::Errno::PERM,
+                rustix::io::Errno::IO,
+            ] {
+                assert!(
+                    after_failure(&before, || Err(errno.into()), || panic!("no cmdline retry"))
+                        .is_err()
+                );
+            }
+            assert!(
+                after_failure(
+                    &before,
+                    || identity(b"broken", 42),
+                    || panic!("no cmdline retry")
+                )
+                .is_err()
+            );
+        }
+
+        #[test]
+        fn an_exiting_flag_does_not_hide_unreadable_arguments_or_other_live_threads() {
+            let before = identity(stat(42, 100, "S").as_bytes(), 42).unwrap();
+            let exiting = identity(stat_with(42, 100, "S", 4, 1).as_bytes(), 42).unwrap();
+            for errno in [
+                rustix::io::Errno::NOENT,
+                rustix::io::Errno::ACCESS,
+                rustix::io::Errno::IO,
+            ] {
+                assert_eq!(
+                    after_failure(&before, || Ok(exiting.clone()), || Err(errno.into())).unwrap(),
+                    None
+                );
+            }
+            assert_eq!(
+                after_failure(
+                    &before,
+                    || Ok(exiting.clone()),
+                    || Err(rustix::io::Errno::SRCH.into())
+                )
+                .unwrap(),
+                Some(ProcessSkipReason::Gone)
+            );
+            let threaded = identity(stat_with(42, 100, "S", 4, 2).as_bytes(), 42).unwrap();
+            assert_eq!(
+                after_failure(
+                    &before,
+                    || Ok(threaded.clone()),
+                    || panic!("no cmdline retry")
+                )
+                .unwrap(),
+                None
+            );
+            for state in ["Z", "X"] {
+                let threaded = identity(stat_with(42, 100, state, 4, 2).as_bytes(), 42).unwrap();
+                assert!(
+                    after_failure(
+                        &before,
+                        || Ok(threaded.clone()),
+                        || panic!("no cmdline retry")
+                    )
+                    .is_err()
+                );
+            }
+        }
+
+        #[test]
+        fn pid_reuse_or_changed_process_kind_cannot_be_reclassified_as_exit() {
+            let before = identity(stat(42, 100, "S").as_bytes(), 42).unwrap();
+            for after in [
+                identity(stat(42, 101, "Z").as_bytes(), 42).unwrap(),
+                identity(stat(43, 100, "Z").as_bytes(), 43).unwrap(),
+                identity(stat_with(42, 100, "S", 0x20_0000 | 4, 1).as_bytes(), 42).unwrap(),
+            ] {
+                assert!(
+                    after_failure(&before, || Ok(after.clone()), || panic!("no cmdline retry"))
+                        .is_err()
+                );
+            }
+            let kernel =
+                identity(stat_with(42, 100, "S", 0x20_0000 | 4, 1).as_bytes(), 42).unwrap();
+            assert_eq!(
+                after_failure(
+                    &kernel,
+                    || Ok(kernel.clone()),
+                    || panic!("kernel is not exited")
+                )
+                .unwrap(),
+                None
+            );
+            assert_eq!(
+                identity(stat_with(42, 100, "S", 0, 0).as_bytes(), 42)
+                    .unwrap()
+                    .threads,
+                0
+            );
+        }
+
+        #[test]
+        fn zero_threads_require_one_followup_that_positively_establishes_exit() {
+            use std::cell::Cell;
+            for state in ["S", "Z", "X"] {
+                let before = identity(stat_with(42, 100, state, 0, 0).as_bytes(), 42).unwrap();
+                for errno in [rustix::io::Errno::NOENT, rustix::io::Errno::SRCH] {
+                    let reads = Cell::new(0);
+                    let reason = after_failure(
+                        &before,
+                        || {
+                            reads.set(reads.get() + 1);
+                            Err(errno.into())
+                        },
+                        || panic!("zero is not proof of missing arguments"),
+                    )
+                    .unwrap();
+                    assert_eq!(reason, Some(ProcessSkipReason::Gone));
+                    assert_eq!(reads.get(), 1);
+                }
+                assert!(
+                    after_failure(
+                        &before,
+                        || Ok(before.clone()),
+                        || panic!("zero remains ambiguous")
+                    )
+                    .is_err()
+                );
+                assert!(
+                    after_failure(
+                        &before,
+                        || identity(b"malformed", 42),
+                        || panic!("invalid stat remains ambiguous")
+                    )
+                    .is_err()
+                );
+                let live = identity(stat(42, 100, "S").as_bytes(), 42).unwrap();
+                assert_eq!(
+                    after_failure(&before, || Ok(live.clone()), || panic!("still alive")).unwrap(),
+                    None
+                );
+                let dead = identity(stat(42, 100, "Z").as_bytes(), 42).unwrap();
+                assert_eq!(
+                    after_failure(&before, || Ok(dead.clone()), || panic!("no cmdline needed"))
+                        .unwrap(),
+                    Some(ProcessSkipReason::Zombie)
+                );
+            }
+        }
+
+        #[test]
+        fn persistent_zero_thread_metadata_never_passes_process_inspection() {
+            for state in ["S", "Z", "X"] {
+                let tree = Tree::new();
+                let root = tree.directory("sessions");
+                let path = serve(&tree, 42, &root.join(OLD), "/unrelated");
+                fs::write(path.join("stat"), stat_with(42, 44, state, 4, 0)).unwrap();
+                let pinned = directory_at(rustix::fs::CWD, path.as_os_str()).unwrap();
+                let mut observations = ProcessObservations::default();
+                let error = inspect_process(
+                    &pinned,
+                    42,
+                    &snapshot(&root),
+                    &root,
+                    &mut empty_scan(),
+                    &mut observations,
+                    Instant::now() + TOTAL_BUDGET,
+                )
+                .unwrap_err();
+                assert!(error.to_string().contains("thread count is unavailable"));
+                assert_eq!(observations, ProcessObservations::default());
+            }
+        }
+
+        fn empty_scan() -> Scan {
+            Scan {
+                sessions: BTreeSet::new(),
+                main_found: false,
+                fds: 0,
+            }
+        }
+
+        #[test]
+        fn process_exits_and_known_kernel_threads_are_reported_without_reading_hidden_arguments() {
+            for (state, flags, threads, expected) in [
+                ("Z", 0, 1, Some(ProcessSkipReason::Zombie)),
+                ("X", 0, 1, Some(ProcessSkipReason::Zombie)),
+                ("S", 4, 1, Some(ProcessSkipReason::Exiting)),
+                ("S", 0x20_0000, 1, None),
+                ("Z", 0x20_0000, 2, None),
+                ("X", 0x20_0004, 0, None),
+            ] {
+                let tree = Tree::new();
+                let root = tree.directory("sessions");
+                let path = process(&tree, 42, &[], "/unrelated");
+                fs::write(path.join("stat"), stat_with(42, 44, state, flags, threads)).unwrap();
+                if state == "Z" || state == "X" || flags == 0x20_0000 {
+                    fs::remove_file(path.join("cmdline")).unwrap();
+                }
+                let pinned = directory_at(rustix::fs::CWD, path.as_os_str()).unwrap();
+                let mut observations = ProcessObservations::default();
+                inspect_process(
+                    &pinned,
+                    42,
+                    &snapshot(&root),
+                    &root,
+                    &mut empty_scan(),
+                    &mut observations,
+                    Instant::now() + TOTAL_BUDGET,
+                )
+                .unwrap();
+                assert_eq!(observations.kernel_threads, u32::from(expected.is_none()));
+                assert_eq!(
+                    observations.examples.first().map(|item| item.reason),
+                    expected
+                );
+                assert!(observations.examples.iter().all(|item| item.pid == 42));
+            }
+        }
+
+        #[test]
+        fn a_live_empty_command_or_missing_metadata_still_refuses() {
+            for missing in ["empty_cmdline", "cmdline", "exe", "cgroup", "cwd", "fd"] {
+                let tree = Tree::new();
+                let root = tree.directory("sessions");
+                let path = serve(&tree, 42, &root.join(OLD), "/unrelated");
+                match missing {
+                    "empty_cmdline" => fs::write(path.join("cmdline"), b"").unwrap(),
+                    "fd" => fs::remove_dir(path.join("fd")).unwrap(),
+                    _ => fs::remove_file(path.join(missing)).unwrap(),
+                }
+                let pinned = directory_at(rustix::fs::CWD, path.as_os_str()).unwrap();
+                let mut observations = ProcessObservations::default();
+                assert!(
+                    inspect_process(
+                        &pinned,
+                        42,
+                        &snapshot(&root),
+                        &root,
+                        &mut empty_scan(),
+                        &mut observations,
+                        Instant::now() + TOTAL_BUDGET
+                    )
+                    .is_err(),
+                    "missing={missing}"
+                );
+                assert_eq!(observations, ProcessObservations::default());
+            }
+        }
+
+        #[test]
+        fn disappearing_pinned_process_is_reported_and_never_follows_a_reused_pid() {
+            let tree = Tree::new();
+            let root = tree.directory("sessions");
+            let path = serve(&tree, 42, &root.join(OLD), "/unrelated");
+            let pinned = directory_at(rustix::fs::CWD, path.as_os_str()).unwrap();
+            fs::remove_dir_all(&path).unwrap();
+            serve(&tree, 42, &root.join(MANUAL), "/unrelated");
+            let mut observations = ProcessObservations::default();
+            let mut scan = empty_scan();
+            inspect_process(
+                &pinned,
+                42,
+                &snapshot(&root),
+                &root,
+                &mut scan,
+                &mut observations,
+                Instant::now() + TOTAL_BUDGET,
+            )
+            .unwrap();
+            assert!(scan.sessions.is_empty());
+            assert_eq!(observations.gone, 1);
+            assert_eq!(observations.examples[0].pid, 42);
+        }
+
+        #[test]
+        fn an_exited_main_process_still_refuses_even_if_its_invocation_is_known() {
+            for (state, flags, remove) in [
+                ("Z", 0, false),
+                ("S", 4, false),
+                ("S", 0x20_0000, false),
+                ("S", 0, true),
+            ] {
+                let tree = Tree::new();
+                let root = tree.directory("sessions");
+                let path = process(&tree, 123, &[], "/system.slice/lamp-voice.service");
+                fs::write(path.join("stat"), stat_with(123, 44, state, flags, 1)).unwrap();
+                let pinned = directory_at(rustix::fs::CWD, path.as_os_str()).unwrap();
+                if remove {
+                    fs::remove_dir_all(&path).unwrap();
+                }
+                let mut observations = ProcessObservations::default();
+                assert!(
+                    inspect_process(
+                        &pinned,
+                        123,
+                        &snapshot(&root),
+                        &root,
+                        &mut empty_scan(),
+                        &mut observations,
+                        Instant::now() + TOTAL_BUDGET
+                    )
+                    .is_err()
+                );
+                assert_eq!(
+                    observations.gone
+                        + observations.zombie
+                        + observations.exiting
+                        + observations.kernel_threads,
+                    1
+                );
+            }
+        }
+
+        #[test]
+        fn ending_a_process_does_not_remove_protection_already_discovered() {
+            let tree = Tree::new();
+            let root = tree.directory("sessions");
+            let path = serve(&tree, 42, &root.join(OLD), "/unrelated");
+            fs::remove_dir(path.join("fd")).unwrap();
+            let pinned = directory_at(rustix::fs::CWD, path.as_os_str()).unwrap();
+            let before = read_identity(&pinned, 42).unwrap();
+            let mut scan = empty_scan();
+            assert!(
+                inspect_live_process(
+                    &pinned,
+                    42,
+                    &snapshot(&root),
+                    &root,
+                    &mut scan,
+                    Instant::now() + TOTAL_BUDGET,
+                    &before
+                )
+                .is_err()
+            );
+            assert!(scan.sessions.contains(OLD));
+            fs::write(path.join("stat"), stat(42, 44, "Z")).unwrap();
+            let reason = after_failure(
+                &before,
+                || read_identity(&pinned, 42),
+                || panic!("zombie has no argv read"),
+            )
+            .unwrap()
+            .unwrap();
+            let mut observations = ProcessObservations::default();
+            skipped(42, &snapshot(&root), &mut observations, reason).unwrap();
+            assert!(scan.sessions.contains(OLD));
+            assert_eq!(observations.zombie, 1);
+        }
+
+        #[test]
+        fn exits_in_a_scan_do_not_weaken_protection_for_a_live_file_holder() {
+            let tree = Tree::new();
+            let root = tree.directory("sessions");
+            serve(
+                &tree,
+                123,
+                &root.join(CURRENT),
+                "/system.slice/lamp-voice.service",
+            );
+            let held = serve(&tree, 42, &root.join(OLD), "/unrelated");
+            symlink(
+                root.join(MANUAL).join("metadata/events-0.jsonl"),
+                held.join("fd/3"),
+            )
+            .unwrap();
+            let exited = process(&tree, 43, &[], "/unrelated");
+            fs::write(exited.join("stat"), stat(43, 44, "Z")).unwrap();
+            let mut observations = ProcessObservations::default();
+            let found = scan_processes(
+                &tree.0.join("proc"),
+                &snapshot(&root),
+                &root,
+                Instant::now() + TOTAL_BUDGET,
+                &mut observations,
+            )
+            .unwrap();
+            assert_eq!(
+                found,
+                BTreeSet::from([CURRENT.to_owned(), OLD.to_owned(), MANUAL.to_owned()])
+            );
+            assert_eq!(observations.zombie, 1);
+        }
+
+        #[test]
+        fn an_expired_budget_cannot_turn_a_failed_inspection_into_a_skip() {
+            let tree = Tree::new();
+            let root = tree.directory("sessions");
+            let path = tree.directory("proc/42");
+            let pinned = directory_at(rustix::fs::CWD, path.as_os_str()).unwrap();
+            let mut observations = ProcessObservations::default();
+            assert_eq!(
+                inspect_process(
+                    &pinned,
+                    42,
+                    &snapshot(&root),
+                    &root,
+                    &mut empty_scan(),
+                    &mut observations,
+                    Instant::now()
+                )
+                .unwrap_err()
+                .kind(),
+                io::ErrorKind::TimedOut
+            );
+            assert_eq!(observations, ProcessObservations::default());
+        }
+
+        #[cfg(target_os = "linux")]
+        #[test]
+        fn real_linux_file_holder_zombie_and_reaped_process_are_distinct() {
+            use std::os::unix::process::CommandExt;
+            let tree = Tree::new();
+            let root = tree.directory("sessions");
+            let metadata = tree.directory(&format!("sessions/{OLD}/metadata"));
+            let file = metadata.join("events-0.jsonl");
+            fs::write(&file, b"disposable fixture\n").unwrap();
+            let mut command = Command::new("/bin/sh");
+            command
+                .arg0("lamp-turn-end")
+                .args([
+                    "-c",
+                    "exec 3<\"$FOURTH_TEST_RECORD_PATH\"; printf R; read value",
+                ])
+                .env("FOURTH_TEST_RECORD_PATH", &file)
+                .stdin(Stdio::piped())
+                .stdout(Stdio::piped());
+            let mut child = Reap {
+                child: command.spawn().unwrap(),
+                reaped: false,
+            };
+            let mut stdout = child.child.stdout.take().unwrap();
+            let flags = rustix::fs::fcntl_getfl(&stdout).unwrap();
+            rustix::fs::fcntl_setfl(&stdout, flags | OFlags::NONBLOCK).unwrap();
+            let ready_deadline = Instant::now() + Duration::from_secs(2);
+            loop {
+                check_deadline(ready_deadline).unwrap();
+                let mut ready = [0];
+                match stdout.read(&mut ready) {
+                    Ok(1) => {
+                        assert_eq!(ready[0], b'R');
+                        break;
+                    }
+                    Err(error) if error.kind() == io::ErrorKind::WouldBlock => {
+                        thread::sleep(Duration::from_millis(1))
+                    }
+                    other => panic!("fixture did not open its record: {other:?}"),
+                }
+            }
+            let pid = child.child.id();
+            let path = PathBuf::from(format!("/proc/{pid}"));
+            let pinned = directory_at(rustix::fs::CWD, path.as_os_str()).unwrap();
+            let mut cmdline = File::from(
+                openat(
+                    &pinned,
+                    "cmdline",
+                    OFlags::RDONLY | OFlags::CLOEXEC,
+                    Mode::empty(),
+                )
+                .unwrap(),
+            );
+            let mut manager = snapshot(&root);
+            manager.main_pid = 0;
+            let cgroups = fs::read_to_string("/proc/self/cgroup").unwrap();
+            manager.control_group = cgroups
+                .lines()
+                .next()
+                .unwrap()
+                .splitn(3, ':')
+                .nth(2)
+                .unwrap()
+                .to_owned();
+            let mut scan = empty_scan();
+            let mut observations = ProcessObservations::default();
+            inspect_process(
+                &pinned,
+                pid,
+                &manager,
+                &root,
+                &mut scan,
+                &mut observations,
+                Instant::now() + TOTAL_BUDGET,
+            )
+            .unwrap();
+            assert_eq!(scan.sessions, BTreeSet::from([OLD.to_owned()]));
+            assert_eq!(observations, ProcessObservations::default());
+            assert!(child.child.try_wait().unwrap().is_none());
+
+            child.child.kill().unwrap();
+            let exit_deadline = Instant::now() + Duration::from_secs(2);
+            while !read_identity(&pinned, pid).unwrap().zombie {
+                check_deadline(exit_deadline).unwrap();
+                thread::sleep(Duration::from_millis(1));
+            }
+            inspect_process(
+                &pinned,
+                pid,
+                &manager,
+                &root,
+                &mut scan,
+                &mut observations,
+                Instant::now() + TOTAL_BUDGET,
+            )
+            .unwrap();
+            assert_eq!(observations.zombie, 1);
+            child.child.wait().unwrap();
+            child.reaped = true;
+            let error = cmdline.read_to_end(&mut Vec::new()).unwrap_err();
+            assert_eq!(
+                error.raw_os_error(),
+                Some(rustix::io::Errno::SRCH.raw_os_error())
+            );
+            inspect_process(
+                &pinned,
+                pid,
+                &manager,
+                &root,
+                &mut scan,
+                &mut observations,
+                Instant::now() + TOTAL_BUDGET,
+            )
+            .unwrap();
+            assert_eq!(observations.gone, 1);
+            assert_eq!(scan.sessions, BTreeSet::from([OLD.to_owned()]));
         }
 
         #[test]
@@ -1383,9 +2123,13 @@ mod platform_tests {
     #[test]
     fn unsupported_platform_never_claims_an_empty_live_set() {
         assert_eq!(
-            super::live_sessions("lamp-voice.service", std::path::Path::new("/sessions"))
-                .unwrap_err()
-                .kind(),
+            super::live_sessions(
+                "lamp-voice.service",
+                std::path::Path::new("/sessions"),
+                &mut crate::ProcessObservations::default()
+            )
+            .unwrap_err()
+            .kind(),
             std::io::ErrorKind::Unsupported
         );
     }

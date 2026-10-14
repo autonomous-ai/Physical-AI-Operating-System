@@ -1,0 +1,182 @@
+   Compiling rustix v1.1.5
+    Checking lamp-bus v0.1.0 (/source/crates/bus)
+    Checking linux-raw-sys v0.12.1
+    Checking lamp-msgs v0.1.0 (/source/crates/msgs)
+    Checking lamp-records v0.1.0 (/source/crates/records)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 3.97s
+   Compiling lamp-bus v0.1.0 (/source/crates/bus)
+   Compiling linux-raw-sys v0.12.1
+   Compiling rustix v1.1.5
+   Compiling lamp-msgs v0.1.0 (/source/crates/msgs)
+   Compiling lamp-records v0.1.0 (/source/crates/records)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 5.63s
+     Running unittests src/lib.rs (/target/x86_64-unknown-linux-gnu/debug/deps/lamp_records-f976f494bacd3549)
+
+running 104 tests
+test config::tests::broad_ambiguous_and_overlapping_paths_are_rejected ... ok
+test config::tests::customer_defaults_are_explicit_and_off ... ok
+test config::tests::malformed_service_and_limits_are_rejected ... ok
+test config::tests::unknown_fields_and_kinds_do_not_enable_generic_cleanup ... ok
+test guard::implementation::tests::a_live_empty_command_or_missing_metadata_still_refuses ... ok
+test guard::implementation::tests::a_single_recheck_distinguishes_exit_from_empty_live_arguments ... ok
+test guard::implementation::tests::absent_stat_and_esrch_are_gone_but_denied_or_invalid_stat_refuse ... ok
+test guard::implementation::tests::an_exited_main_process_still_refuses_even_if_its_invocation_is_known ... ok
+test guard::implementation::tests::an_exiting_flag_does_not_hide_unreadable_arguments_or_other_live_threads ... ok
+test guard::implementation::tests::an_expired_budget_cannot_turn_a_failed_inspection_into_a_skip ... ok
+test guard::implementation::tests::any_manager_change_or_failure_refuses ... ok
+test guard::implementation::tests::both_process_passes_keep_their_protected_paths ... ok
+test guard::implementation::tests::deadline_and_metadata_limits_refuse ... ok
+test guard::implementation::tests::disappearing_pinned_process_is_reported_and_never_follows_a_reused_pid ... ok
+test guard::implementation::tests::ending_a_process_does_not_remove_protection_already_discovered ... ok
+test guard::implementation::tests::exits_in_a_scan_do_not_weaken_protection_for_a_live_file_holder ... ok
+test guard::implementation::tests::failed_service_still_protects_an_old_live_coordinator ... ok
+test guard::implementation::tests::fake_manager_success_failure_timeout_and_output_cap ... ok
+test guard::implementation::tests::incomplete_process_evidence_and_unknown_workers_refuse ... ok
+test guard::implementation::tests::main_executable_mismatch_refuses_even_with_the_right_binary_name ... ok
+test guard::implementation::tests::main_process_must_match_the_manager_and_be_present ... ok
+test guard::implementation::tests::manager_identity_and_invocation_are_strict ... ok
+test guard::implementation::tests::pid_reuse_and_parenthesized_comm_do_not_confuse_identity ... ok
+test guard::implementation::tests::pid_reuse_or_changed_process_kind_cannot_be_reclassified_as_exit ... ok
+test guard::implementation::tests::pinned_proc_directory_does_not_switch_to_reused_name ... ok
+test guard::implementation::tests::process_exits_and_known_kernel_threads_are_reported_without_reading_hidden_arguments ... ok
+test guard::implementation::tests::real_linux_file_holder_zombie_and_reaped_process_are_distinct ... ok
+test guard::implementation::tests::relative_and_alias_outputs_are_resolved ... ok
+test guard::implementation::tests::renamed_manual_binary_uses_direct_root_evidence_without_voice_parsing ... ok
+test guard::implementation::tests::retained_invocation_is_protected_in_all_known_states ... ok
+test guard::implementation::tests::scan_keeps_current_old_survivor_manual_and_diagnostic_child ... ok
+test guard::implementation::tests::the_voices_end_of_turn_worker_is_known_and_its_files_still_checked ... ok
+test guard::implementation::tests::unit_argument_cannot_be_a_pattern_or_option ... ok
+test guard::implementation::tests::unknown_same_cgroup_process_refuses ... ok
+test guard::implementation::tests::unrelated_serve_commands_do_not_use_the_voice_argument_layout ... ok
+test json_file::tests::atomic_result_replaces_only_known_file_and_cache_detects_change ... ok
+test json_file::tests::one_private_reserved_temporary_is_recovered_after_an_interrupted_write ... ok
+test json_file::tests::result_symlink_and_hardlink_are_refused_without_touching_target ... ok
+test plan::tests::age_is_strict_and_independent_from_size ... ok
+test plan::tests::clock_reversal_preserves_future_records_and_reports_pressure ... ok
+test plan::tests::duplicates_bad_names_and_overflow_are_errors_not_empty_success ... ok
+test plan::tests::live_session_is_kept_even_if_alone_older_and_larger_than_both_limits ... ok
+test plan::tests::recent_quarantine_is_resumed_but_never_while_protected ... ok
+test plan::tests::size_removes_oldest_whole_sessions_until_within_bound ... ok
+test plan::tests::tied_times_use_stable_names_and_both_bounds_apply ... ok
+test report::tests::a_disabled_flag_does_not_hide_a_failure_or_impossible_removal ... ok
+test report::tests::disabled_cleanup_is_visible_without_claiming_a_disk_scan ... ok
+test report::tests::dry_run_never_claims_enforced_retention_or_removals ... ok
+test report::tests::exact_disk_boundaries_do_not_round_a_warning_away ... ok
+test report::tests::healthy_report_identifies_snapshot_age_and_aggregates_without_record_ids ... ok
+test report::tests::invalid_in_memory_reports_never_become_ok_or_publish_unvalidated_counters ... ok
+test report::tests::large_counts_and_private_strings_do_not_overflow_or_expand_the_message ... ok
+test report::tests::missing_zero_or_impossible_disk_values_are_errors ... ok
+test report::tests::no_report_and_an_enabled_empty_report_are_errors ... ok
+test report::tests::refusals_byte_overruns_and_root_failures_remain_visible ... ok
+test report::tests::repeated_reports_do_not_refresh_the_cleanup_timestamp ... ok
+test report::tests::reporter_refuses_a_relative_bus_without_creating_a_directory ... ok
+test report::tests::stale_warning_or_error_is_not_downgraded ... ok
+test report::tests::the_worst_root_disk_is_not_hidden_by_averaging_or_double_counting ... ok
+test report::tests::two_hour_boundary_is_exact_and_large_clock_jumps_do_not_wrap ... ok
+test report::tests::unsupported_schema_invalid_mode_and_clock_rollback_are_errors ... ok
+test run::tests::disabled_apply_does_not_even_open_a_configured_root ... ok
+test run::tests::dry_run_plans_but_never_mutates_and_protects_old_live_session ... ok
+test run::tests::expired_budget_cannot_reach_protection_or_deletion ... ok
+test run::tests::full_disk_is_not_permission_to_bypass_safe_mutation_failures ... ok
+test run::tests::partial_unlinks_are_accounted_without_claiming_complete_session_removal ... ok
+test run::tests::unknown_protection_refuses_entire_root_but_reports_full_disk ... ok
+test store::tests::a_mutated_record_invalidates_the_whole_candidate_before_any_unlink ... ok
+test store::tests::accounting_rejects_overflow_and_snapshots_include_ctime_but_not_atime ... ok
+test store::tests::changed_file_inode_even_with_same_size_and_mtime_is_refused ... ok
+test store::tests::cleaner_lock_is_nonblocking_and_does_not_create_a_file ... ok
+test store::tests::combined_live_and_quarantine_entry_budget_is_enforced_and_clears_prior_authority ... ok
+test store::tests::conflicting_quarantine_id_never_overwrites_and_duplicate_inventory_refuses_both ... ok
+test store::tests::fifo_is_refused_without_opening_a_blocking_stream ... ok
+test store::tests::fsync_failures_keep_truthful_counts_and_a_recognizable_remainder ... ok
+test store::tests::full_disk_before_mutation_never_falls_back_to_in_place_deletion ... ok
+test store::tests::interrupted_unlinks_report_actual_progress_and_every_remainder_recovers ... ok
+test store::tests::invalid_quarantine_shares_the_total_entry_budget_and_clears_prior_authority ... ok
+test store::tests::inventory_is_read_only_and_uses_allocated_bytes_and_newest_mtime ... ok
+test store::tests::links_specials_unknown_layouts_and_permissions_are_refused_without_reads ... ok
+test store::tests::linux_inventory_preserves_directory_and_record_atime ... ok
+test store::tests::moved_or_replaced_root_is_detected_before_mutation ... ok
+test store::tests::partial_start_with_empty_metadata_is_known_but_empty_live_session_is_not ... ok
+test store::tests::public_constructor_accepts_a_private_tree_below_root_owned_sticky_temp ... ok
+test store::tests::public_constructor_rejects_writable_nonsticky_ancestors_open_root_and_symlinks ... ok
+test store::tests::refusal_limit_is_utf8_bytes_including_escaped_name_and_prefix ... ok
+test store::tests::removes_only_inventoried_sessions_and_requires_fresh_inventory_for_retry ... ok
+test store::tests::replaced_session_and_metadata_directory_keep_both_trees_intact ... ok
+test store::tests::sparse_file_allocation_is_not_confused_with_logical_length ... ok
+test store::tests::sticky_exception_requires_root_ownership_and_never_relaxes_final_root ... ok
+test store::tests::traversal_ids_invalid_roots_and_bounded_enumeration_fail_closed ... ok
+test store::tests::unknown_or_linked_quarantine_is_preserved ... ok
+test store::tests::vanished_candidate_is_not_recreated_or_confused_with_a_replacement ... ok
+test tests::fingerprint_is_required_and_exactly_lowercase_sha256_hex ... ok
+test tests::overflow_stops_before_reading_or_allocating_the_extra_value_or_tail ... ok
+test tests::paths_units_and_error_strings_have_byte_limits ... ok
+test tests::process_examples_are_bounded_and_remain_in_a_failed_root_report ... ok
+test tests::process_observations_are_optional_for_old_receipts_and_empty_output_is_unchanged ... ok
+test tests::process_report_counts_examples_and_unknown_reasons_fail_closed ... ok
+test tests::record_strings_are_bounded_by_decoded_utf8_bytes ... ok
+test tests::root_and_all_record_arrays_have_exact_count_bounds_even_for_empty_strings ... ok
+test tests::schema_mode_unknown_fields_and_numeric_types_fail_closed ... ok
+test tests::valid_report_round_trips_without_imposing_counter_relationships ... ok
+test tests::values_built_in_memory_follow_the_same_resource_limits ... ok
+
+test result: ok. 104 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.18s
+
+     Running unittests src/main.rs (/target/x86_64-unknown-linux-gnu/debug/deps/lamp_records-f6ceb20b3d1c31af)
+
+running 5 tests
+test tests::check_defaults_to_dry_and_never_accepts_a_live_override ... ok
+test tests::old_result_does_not_match_a_changed_age_policy_or_enable_switch ... ok
+test tests::output_cannot_overwrite_config_or_an_unrelated_file ... ok
+test tests::oversized_result_leaves_readable_failure_and_next_cleanup_can_replace_it ... {"schema_version":1,"config_fingerprint":"9da4e81a001e0412d2acc5aa8c273ddd175ccb5a20999d1807133040b056b99d","at_unix_s":1791973149,"mode":"apply","enabled":false,"roots":[],"error":null}
+ok
+test tests::reporter_has_explicit_bounded_test_lifetime ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.39s
+
+     Running tests/records.rs (/target/x86_64-unknown-linux-gnu/debug/deps/records-87559bb833930263)
+
+running 6 tests
+test bind_mounts_are_refused_even_on_the_same_filesystem ... ignored, requires an isolated disposable Linux container with CAP_SYS_ADMIN
+test diagnostic_is_delivered_over_the_real_local_bus_without_record_contents ... ok
+test public_tree_pipeline_dry_then_apply_keeps_live_memory_and_outside_link ... ok
+test real_cli_apply_with_unknown_service_cannot_delete_any_fixture_record ... ok
+test real_reporter_reloads_switch_and_policy_and_requires_a_matching_receipt ... ok
+test records_cost ... ignored, finite release timing of disposable records; report machine separately
+
+test result: ok. 4 passed; 0 failed; 2 ignored; 0 measured; 0 filtered out; finished in 5.01s
+
+   Doc-tests lamp_records
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Compiling proc-macro2 v1.0.107
+   Compiling unicode-ident v1.0.26
+   Compiling quote v1.0.47
+   Compiling version_check v0.9.5
+   Compiling serde_core v1.0.229
+   Compiling typenum v1.20.1
+   Compiling generic-array v0.14.7
+   Compiling zmij v1.0.23
+   Compiling libc v0.2.190
+   Compiling syn v3.0.7
+   Compiling serde_json v1.0.151
+   Compiling serde v1.0.229
+   Compiling memchr v2.8.3
+   Compiling itoa v1.0.18
+   Compiling crypto-common v0.1.7
+   Compiling block-buffer v0.10.4
+   Compiling rustix v1.1.5
+   Compiling digest v0.10.7
+   Compiling bitflags v2.13.2
+   Compiling cpufeatures v0.2.17
+   Compiling linux-raw-sys v0.12.1
+   Compiling cfg-if v1.0.5
+   Compiling sha2 v0.10.9
+   Compiling serde_derive v1.0.229
+   Compiling lamp-bus v0.1.0 (/source/crates/bus)
+   Compiling lamp-msgs v0.1.0 (/source/crates/msgs)
+   Compiling lamp-records v0.1.0 (/source/crates/records)
+    Finished `release` profile [optimized] target(s) in 11.51s
+/target/aarch64-unknown-linux-gnu/release/lamp-records: ELF 64-bit LSB pie executable, ARM aarch64, version 1 (SYSV), dynamically linked, interpreter /lib/ld-linux-aarch64.so.1, BuildID[sha1]=a3d25e187557a74cef1b80b5dae9ca063bc261a6, for GNU/Linux 3.7.0, not stripped
+71fce1815765d6d5ae095005dc35ee2ed68f48137367fb26aad786367bb62b0d  /target/aarch64-unknown-linux-gnu/release/lamp-records

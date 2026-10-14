@@ -45,6 +45,7 @@ fn empty_root(config: &RootConfig) -> RootReport {
         planned: vec![],
         removed: vec![],
         refused: vec![],
+        processes: crate::ProcessObservations::default(),
         disk: None,
         error: None,
     }
@@ -206,13 +207,14 @@ pub fn execute(config: &Config, now_unix_s: u64, apply: bool) -> RunReport {
             report.roots.push(value);
             continue;
         }
-        let result = match Store::open(&root.path) {
+        let mut observations = crate::ProcessObservations::default();
+        let mut result = match Store::open(&root.path) {
             Ok(mut store) => root_with(
                 root,
                 now_unix_s,
                 apply,
                 &mut store,
-                || guard::live_sessions(&root.unit, &root.path),
+                || guard::live_sessions(&root.unit, &root.path, &mut observations),
                 deadline,
             ),
             Err(error) => {
@@ -221,6 +223,8 @@ pub fn execute(config: &Config, now_unix_s: u64, apply: bool) -> RunReport {
                 value
             }
         };
+        // Retain observed exits even if a later live process refuses the root.
+        result.processes = observations;
         report.roots.push(result);
     }
     report

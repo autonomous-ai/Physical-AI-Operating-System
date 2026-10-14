@@ -17,6 +17,20 @@ removes dated flow JSONL older than seven days at startup, without a total
 byte budget. Keep writer-owned rotation and finite retention; add a byte
 budget across completed service invocations and report failures.
 
+For the process-exit repair in [task 30](https://github.com/autonomous-ai/lampOS/issues/707),
+V1's same writer-owned rotation and dated-flow cleanup were inspected again;
+they contain no equivalent cross-process session guard to port. The relevant
+Linux 5.15 sources are [`fs/proc/base.c`](https://github.com/torvalds/linux/blob/v5.15/fs/proc/base.c)
+(`proc_pid_cmdline_read`, `get_task_cmdline`),
+[`kernel/exit.c`](https://github.com/torvalds/linux/blob/v5.15/kernel/exit.c)
+(`do_exit`), [`fs/proc/array.c`](https://github.com/torvalds/linux/blob/v5.15/fs/proc/array.c)
+(`do_task_stat`) and [`include/linux/sched.h`](https://github.com/torvalds/linux/blob/v5.15/include/linux/sched.h).
+They distinguish a vanished task (`ESRCH`), a released address space (empty
+command line), `PF_EXITING` (`0x00000004`) and `PF_KTHREAD` (`0x00200000`).
+Keep the existing descriptor-pinned procfs guard and known kernel-thread
+exclusion; add one bounded exit observation after an incomplete inspection.
+An empty command line by itself is never proof of exit.
+
 Maintained alternatives were inspected on 2026-10-14:
 
 - [systemd-tmpfiles](https://github.com/systemd/systemd/blob/v257/man/systemd-tmpfiles.xml)
@@ -102,6 +116,59 @@ host PID namespace. It is not a container escape detector: an installation
 must give it the actual host view, not a systemd container's private world.
 The shipped unit does not hide processes or create a private PID namespace.
 On macOS, the real guard refuses; tests supply made-up ownership evidence.
+
+### Processes that end during inspection
+
+An unrelated process ending during a scan need not refuse the entire cleanup.
+The guard distinguishes these positive observations from a live process whose
+metadata cannot be inspected:
+
+- A PID directory cannot be opened because it is gone (`ENOENT` or `ESRCH`),
+  or the **pinned process's `stat`** returns either error: record `gone`.
+  A missing `exe`, `cwd`, `cmdline` or `fd` entry alone is insufficient.
+- `stat` says `Z` (zombie) or `X` (dead), with exactly one thread: record
+  `zombie` before attempting to read arguments. A terminated group leader
+  with other threads still present refuses; its workers may own live records.
+- An inspection fails: read the pinned process's `stat` once more. The PID,
+  start time and process kind must still match. It may now be gone or a
+  single-thread zombie, or have `PF_EXITING` set, exactly one thread and a
+  newly read **empty** `cmdline`. The last case records `exiting`; an `ESRCH`
+  from that final command-line read records `gone`. A flag alone, stopped or
+  blocked state, unreadable metadata or a changed identity still refuses.
+- Linux may report zero threads when reaping races with `stat`'s signal-state
+  lock. Zero is ambiguous, so it uses that same single follow-up observation;
+  only positive gone/zombie/exiting evidence passes. Persistent zero, a
+  malformed follow-up or a live follow-up still refuses.
+- The existing positive `PF_KTHREAD` check remains a separate
+  `kernel_threads` observation. Kernel threads are not reported as dead, and
+  an empty command line cannot establish that flag. This explicit exclusion
+  is checked before thread count or zombie state, so even a dying kernel
+  thread stays out of the exit examples. A manager main PID
+  classified as gone, dead, exiting or a kernel thread always refuses the root.
+
+There is no sleep or retry loop in this recovery, at most one extra `stat`
+read and one extra `cmdline` read per failed inspection, under the same
+ten-second work budget. Kernel I/O still cannot be preempted by that budget.
+Paths already protected before an exit remain protected, and both complete
+process passes retain their union. A live file holder remains protected.
+
+Each root's JSON result may now include `processes`, with `gone`, `zombie`,
+`exiting` and `kernel_threads` counts, plus at most 16 `examples` of
+`{"pid":42,"reason":"gone"}` (also `zombie` or `exiting`). Examples exclude
+kernel threads so they cannot displace exit evidence. These are observations,
+not unique-process totals: the same zombie can appear in both passes. Only
+the first 16 exit observations are sampled; counts cover all observations,
+including those made before a later root failure. A live unreadable process
+still appears in `error` with its PID, and no deletion plan is made.
+
+The empty `processes` object is omitted, and old receipts without this field
+remain readable. The total observation bound is 131,072 (two passes of at
+most 65,536 processes); receipt reading bounds the example list before
+allocating extra entries. These details stay in stdout and the private
+receipt, not the one-second bus diagnostic. Use the matching Records binary
+for cleanup and reporting: an older reporter rejects the added field rather
+than trusting a result it does not understand. The supplied `enabled:false`
+default and the requirement for explicit `--apply` are unchanged.
 
 ### Removal and recovery
 
@@ -442,6 +509,33 @@ helper by name and still checks its open files (`136e23c09`, with a test;
 the guard's 19 Linux tests pass under emulation). Then the dry run and the
 first real run: 1.18 GB of sessions, nothing planned and nothing removed,
 no error. The timer runs every hour.
+
+## Process-exit repair, development host, 2026-10-14
+
+Task 30 follows the first builder's failed 16:00:28 hourly run: PID 1738165
+had no inspectable arguments, while a 16:57 dry run passed. No state snapshot
+for that PID survived, so exit remains an inferred cause of that particular
+failure. The repair above establishes the safe cases explicitly and keeps
+live ambiguous processes as errors.
+
+On the same development Mac and Rust/Cargo 1.96.0, the final formatting and
+strict Records Clippy checks passed. `RUST_TEST_THREADS=1 cargo test -p
+lamp-records --offline --locked` passed **113 tests**, with zero failures and
+one ignored existing manual inventory timing. The unchanged baseline passed
+97 tests; the pre-review implementation passed 111. The additional cases
+cover exit races, zero thread counts, positive kernel-thread identification,
+bounded report examples and continued live-file protection. A Linux-only
+owned-child test also distinguishes a live fd holder, a zombie and a reaped
+process; macOS does not execute it. Commands, verbatim outputs and source
+hashes are in the [host verification folder](verification/records-exit-host-20261014/).
+The standalone Debian 12 Linux x86_64 run passed strict Clippy and **115
+tests**, including the live fd-holder/zombie/reaped test; zero failed, two
+manual tests were ignored (cost measurement and privileged bind mounts).
+The Linux ARM64 release cross-build and Mac workspace build passed without
+warnings. The required native ARM64 GitHub gate is still outstanding after
+an inherited Controls test could not find `/bin/kill` in CI; the task remains
+unready for integration. No guard timing or lamp measurement is claimed by
+these checks.
 
 ## Not shown
 

@@ -1,0 +1,16 @@
+{
+  "Cargo.lock": "85d10aca660433a01d288dc95db0e8b0548575b4f2ccd5b0767a3e10cb30033b",
+  "Cargo.toml": "c57770c91f5e3169f031ee99ce76daab2318cd035d4c44e8421719e676f1fa54",
+  "crates/records/Cargo.toml": "92f90b54a3690be6cd6843a9cabb20c300468a9e716c09e58f874c0cdc7bdcfc",
+  "crates/records/src/config.rs": "b57c20226ed8898d1f7f43f6499d32dd623392db7871d3b1f3782b3afc916d80",
+  "crates/records/src/guard.rs": "1aea3fe9ade47a6565c1ff0c1d295d7e6501ad8a7f0d8079d65d64fa3b81a53b",
+  "crates/records/src/json_file.rs": "292e7b7a9c378bbeee56a42443dc2929145c150fd0991f62fdb5ead86c09bbd4",
+  "crates/records/src/lib.rs": "ede122aef027cc8010a25401d14b682542859d2ad8d94110f56f1f73a56f7471",
+  "crates/records/src/main.rs": "bae0df20da9c890ed0fcb3255150abbc01c1a70c47f685131d02ea8593d7a569",
+  "crates/records/src/plan.rs": "5442c93db91cd27559be4f152e0bf58476699b3bde23c63dc424a8ed095b6801",
+  "crates/records/src/report.rs": "7dd0fca735054fc095d867ca54238aa978a80d741681bf0a7368b5f097ef6c5c",
+  "crates/records/src/run.rs": "4c0dd2b3c845ec31ad75d60a21c04ae823e02174bb214cfa503b9bbeaf732419",
+  "crates/records/src/store.rs": "c20e2a9d3a3abac7e16756208cb98f4460ab84d285839122bd62dd89be9af693",
+  "crates/records/tests/records.rs": "b40cf09e6c77e4dfd5876e381a75d2878e2589b115345c2832ce6623f14370bd",
+  "rust-toolchain.toml": "fb0a56ca2fc09db10159f6983e9d747f4afeb64e1d6d941dc36a3c20bf3a5749"
+}

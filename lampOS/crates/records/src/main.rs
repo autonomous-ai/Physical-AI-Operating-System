@@ -428,6 +428,7 @@ mod tests {
             planned: vec![],
             removed: vec![],
             refused: vec!["x".repeat(1024); 9000],
+            processes: lamp_records::ProcessObservations::default(),
             disk: Some(Disk {
                 total_bytes: 100,
                 available_bytes: 100,

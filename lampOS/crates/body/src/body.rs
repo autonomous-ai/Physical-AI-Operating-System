@@ -74,6 +74,35 @@ const TAKE_HOLD_SLACK: u16 = 12;
 /// minute. With 12 here it did the same for nods of 11 and 12 counts, four
 /// times in ten minutes: from rest that joint does not start for so little.
 const WAKE_COUNTS: f32 = 20.0;
+/// Under `--give-way stay`: a joint that gave way and is then moved more
+/// than `HAND_MOVED` counts from where it gave way, while its load stays
+/// over its bound for `HAND_STEPS` steps in a row (a second), is taken to be
+/// in a hand and is left where it was put. V1's lesson: a bump wants the
+/// lamp to come back; a person holding or adjusting the head for longer
+/// than about a second wants it to stay.
+const HAND_STEPS: u16 = 50;
+const HAND_MOVED: u16 = 15;
+/// With `--give-way`, a joint whose goal is more than `STALL_SLACK` counts
+/// from where it is, whose load is over `STALL_LOAD` and which moves no
+/// more than `STALL_SLACK` counts for `STALL_STEPS` steps is told to stop
+/// pushing: its goal becomes where it is, until what is wanted of it moves
+/// `WAKE_COUNTS` or more. Never torque off: on V1 a shoulder or an elbow let
+/// go dropped the arm with nobody touching it.
+///
+/// One and a half seconds. Longer than a joint takes to be put to rest by
+/// what it already has (arrived for 0.3 s, at rest for 1 s), so that only
+/// a joint those leave pushing is caught. Shorter than the servo's own
+/// protection (80% load for 2 s, then 20% of its force: on the shoulder or
+/// the elbow that is the arm dropping), so that this acts first. Heat comes
+/// from pushing for minutes, not seconds (the elbow on lamp-4ace reached
+/// 69 degrees one day with the head resting on the base), so a second and a
+/// half of it costs nothing. 100 of 1,000 is over what a resting joint
+/// reads at its goal on lamp-4ace (68 for the head, 44 to 72 for the base
+/// resting short) and under the 100 to 150 lamp-52e6's shoulder pushes with
+/// for as long as it stands, 22 to 34 counts short of its goal.
+const STALL_STEPS: u16 = 75;
+const STALL_LOAD: u16 = 100;
+const STALL_SLACK: u16 = 6;
 /// Arrived: this close to the wanted pose and this slow, for this many steps.
 const ARRIVED_COUNTS: f32 = 6.0;
 const ARRIVED_SPEED: f32 = 15.0;
@@ -321,6 +350,10 @@ pub struct Limits {
     /// before anything else, instead of refusing: see [`wake_pose`]. Off:
     /// such a joint is refused.
     pub wake: bool,
+    /// How a joint gives way to a hand, and whether a joint that pushes
+    /// without moving is told to stop (see [`GiveWay`]). `None`: as before
+    /// this was chosen, exactly.
+    pub give_way: Option<GiveWay>,
     /// A load above this on `load_steps` steps in a row makes the joint give
     /// way, and ends the run if it stays or comes back too often.
     pub load: [u16; 3],
@@ -441,7 +474,20 @@ impl Limits {
         force: None,
         torque_on: false,
         wake: false,
+        give_way: None,
     };
+}
+
+/// What a commanded joint does after it gave way. With either, a joint that
+/// pushes at a goal without moving is told to stop pushing.
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum GiveWay {
+    /// It comes back two seconds later, as without the option.
+    Return,
+    /// It comes back from a bump; moved by a hand for over a second it
+    /// stays where it was put, and later moods are laid relative to that.
+    Stay,
 }
 
 /// What one joint said on one step.
@@ -467,6 +513,11 @@ pub struct Glimpse {
     pub temperatures: [u8; 3],
     /// Times so far that each joint met resistance and was left where it was.
     pub eased: [u16; 3],
+    /// Times so far that a hand left each joint where it put it, and that
+    /// each joint was told to stop pushing without moving (pitch, roll, yaw,
+    /// shoulder, elbow).
+    pub kept_where_put: [u16; 3],
+    pub stalls: [u16; 5],
     /// Whether this body may stand at all, how far it has stood up, 0
     /// folded to 1, and the shoulder and the elbow: their goals as this
     /// body last wrote them, or else as found.
@@ -542,6 +593,12 @@ pub struct BodyReport {
     pub peak_temperature: [u8; 3],
     /// Times each commanded joint met resistance and was left where it was.
     pub eased: [u16; 3],
+    /// With `--give-way stay`, times a hand left each commanded joint where
+    /// it put it.
+    pub kept_where_put: [u16; 3],
+    /// With `--give-way`, times each joint (pitch, roll, yaw, shoulder,
+    /// elbow) pushed without moving and was told to stop.
+    pub stalls: [u16; 5],
     /// The goals written to stop pushing, when the run ended on a surprise.
     pub held_at: Option<[u16; 3]>,
     pub last: Option<[Sample; 5]>,
@@ -1058,6 +1115,64 @@ fn wake<P: PortIo, R: Runtime>(
     }
 }
 
+/// One step of a joint that gave way at `from` and is still held, under
+/// `--give-way stay`: `steps` counts the steps in a row its load has been
+/// over `bound`. After a second of that, `Some(true)` if it has been moved
+/// more than `HAND_MOVED` counts (a hand moved it), `Some(false)` if not
+/// (something pushes it and it does not move).
+fn in_hand_after(steps: &mut u16, is: Sample, bound: u16, from: u16) -> Option<bool> {
+    *steps = if is.load > bound { *steps + 1 } else { 0 };
+    if *steps < HAND_STEPS {
+        return None;
+    }
+    *steps = 0;
+    Some(is.position.abs_diff(from) > HAND_MOVED)
+}
+
+/// One joint pushing at a goal it does not reach, under `--give-way`.
+#[derive(Clone, Copy, Debug, Default)]
+struct Stall {
+    /// Steps in a row it has pushed without moving, and where it was when
+    /// they began.
+    steps: u16,
+    at: u16,
+    /// Told to stop pushing: the goal wanted of it then, and where it is
+    /// held instead.
+    hold: Option<(u16, u16)>,
+}
+
+impl Stall {
+    /// One step of a joint whose goal is `goal` and of which `wanted` is
+    /// wanted. True when it has just been told to stop pushing.
+    fn step(&mut self, goal: u16, is: Sample, wanted: u16) -> bool {
+        let pushing = goal.abs_diff(is.position) > STALL_SLACK && is.load > STALL_LOAD;
+        if !pushing || self.steps == 0 || is.position.abs_diff(self.at) > STALL_SLACK {
+            self.at = is.position;
+            self.steps = u16::from(pushing);
+            return false;
+        }
+        self.steps += 1;
+        if self.steps < STALL_STEPS {
+            return false;
+        }
+        self.steps = 0;
+        self.hold = Some((wanted, is.position));
+        true
+    }
+
+    /// Where it is held, while what is wanted of it has not moved
+    /// `WAKE_COUNTS` from what was wanted when it stalled.
+    fn holding(&mut self, wanted: u16) -> Option<u16> {
+        match self.hold {
+            Some((was, at)) if f32::from(wanted.abs_diff(was)) < WAKE_COUNTS => Some(at),
+            _ => {
+                self.hold = None;
+                None
+            }
+        }
+    }
+}
+
 /// Run the body until it is cancelled or something is not as expected.
 /// `news` is asked once a step for the latest mood and never waits. `home`
 /// is the pitch, roll and yaw every gesture is an offset from; without one
@@ -1165,6 +1280,8 @@ pub(crate) fn run_alive(
         missed_reads: 0,
         peak_load: [0; 3],
         eased: [0; 3],
+        kept_where_put: [0; 3],
+        stalls: [0; 5],
         peak_temperature: [0; 3],
         held_at: None,
         last: None,
@@ -1747,6 +1864,13 @@ pub(crate) fn run_alive(
     // and the steps on which any joint last did.
     let mut easing = [0u16; 3];
     let mut eased_at = [0u64; EASES_ALLOWED];
+    // Under `--give-way`: where each joint last gave way, steps in a row a
+    // hand has held it since, the offset from home a hand left each where
+    // it put it, and each of the five joints' pushing without moving.
+    let mut gave_at = [0u16; 3];
+    let mut in_hand = [0u16; 3];
+    let mut kept = [0.0f32; 3];
+    let mut stalls = [Stall::default(); 5];
     let mut misses = 0u8;
     let mut unsent = 0u8;
     let mut leaving: Option<Duration> = None;
@@ -1998,6 +2122,12 @@ pub(crate) fn run_alive(
         for left in &mut easing {
             *left = left.saturating_sub(1);
         }
+        // Asked to stop, it goes home: not to where a hand put it.
+        let stay = limits.give_way == Some(GiveWay::Stay) && leaving.is_none();
+        if leaving.is_some() {
+            kept = [0.0; 3];
+            stalls.iter_mut().for_each(|stall| stall.hold = None);
+        }
         for (index, offset) in offsets.into_iter().enumerate() {
             if blind {
                 continue;
@@ -2011,7 +2141,7 @@ pub(crate) fn run_alive(
                 continue;
             }
             commanded[index] += carried[index];
-            let wanted = (home_now[index] + offset).clamp(low[index], high[index]);
+            let wanted = (home_now[index] + kept[index] + offset).clamp(low[index], high[index]);
             wanted_of[index] = wanted;
             if asleep[index] {
                 if (wanted - commanded[index]).abs() < WAKE_COUNTS && leaving.is_none() {
@@ -2044,6 +2174,24 @@ pub(crate) fn run_alive(
                 gesture_now[index]
             };
             goals[index] = (commanded[index] + over).round().clamp(least, 4_095.0) as u16;
+        }
+        // A joint told to stop pushing is held where it was until something
+        // else is wanted of it.
+        if limits.give_way.is_some() && !blind {
+            for index in 0..3 {
+                if let Some(at) = stalls[index].holding(wanted_of[index].round() as u16) {
+                    goals[index] = at;
+                    commanded[index] = f32::from(at);
+                    velocity[index] = 0.0;
+                }
+            }
+            if standing.is_some() {
+                for index in 0..2 {
+                    if let Some(at) = stalls[3 + index].holding(arm_goals[index]) {
+                        arm_goals[index] = at;
+                    }
+                }
+            }
         }
         still_steps = if goals != written || arm_goals != arm_written {
             0
@@ -2190,7 +2338,27 @@ pub(crate) fn run_alive(
             look,
             face,
             gesture: playing.map(|(clip, _)| clip.name),
+            kept_where_put: report.kept_where_put,
+            stalls: report.stalls,
         });
+        // A joint pushing at a goal it does not reach, and not moving, is
+        // told to stop: its goal becomes where it is. Never torque off.
+        if limits.give_way.is_some() && leaving.is_none() {
+            for index in 0..3 {
+                let is = samples[COMMANDED[index].index()];
+                if stalls[index].step(written[index], is, wanted_of[index].round() as u16) {
+                    report.stalls[index] = report.stalls[index].saturating_add(1);
+                }
+            }
+            if standing.is_some() {
+                for (index, joint) in ARM.iter().enumerate() {
+                    let is = samples[joint.index()];
+                    if stalls[3 + index].step(arm_written[index], is, arm_written[index]) {
+                        report.stalls[3 + index] = report.stalls[3 + index].saturating_add(1);
+                    }
+                }
+            }
+        }
         let mut surprise = None;
         for joint in Joint::ALL {
             let (was, is) = (found[joint.index()], samples[joint.index()]);
@@ -2320,6 +2488,45 @@ pub(crate) fn run_alive(
             } else {
                 0
             };
+            if stay && held[index] {
+                // It gave way, and a hand may be on it: a load and a
+                // tracking that would end the run are what a hand moving
+                // it looks like, so they are judged over a second instead.
+                over_load[index] = 0;
+                off_track[index] = 0;
+                match in_hand_after(&mut in_hand[index], is, strained, gave_at[index]) {
+                    Some(true) => {
+                        // Left where it was put, inside the same reach and
+                        // window as every goal, and later moods are laid
+                        // from there.
+                        commanded[index] = f32::from(is.position).clamp(
+                            low[index].min(commanded[index]),
+                            high[index].max(commanded[index]),
+                        );
+                        kept[index] = commanded[index] - home_now[index] - offsets[index];
+                        velocity[index] = 0.0;
+                        easing[index] = EASE_STEPS;
+                        gave_at[index] = is.position;
+                        report.kept_where_put[index] =
+                            report.kept_where_put[index].saturating_add(1);
+                    }
+                    // Pushed for a second, and it did not move.
+                    Some(false) => {
+                        surprise.get_or_insert(Stop::Load {
+                            joint: joint.id(),
+                            load: is.load,
+                        });
+                    }
+                    None => {}
+                }
+                if hot[index] >= limits.temperature_steps.max(1) {
+                    surprise.get_or_insert(Stop::Temperature {
+                        joint: joint.id(),
+                        temperature: is.temperature,
+                    });
+                }
+                continue;
+            }
             if over_load[index] >= limits.load_steps.max(1) {
                 // Something resists. A living thing stops pushing; it does
                 // not faint. The joint's goal becomes where it is and it is
@@ -2341,6 +2548,8 @@ pub(crate) fn run_alive(
                     );
                     velocity[index] = 0.0;
                     easing[index] = EASE_STEPS;
+                    gave_at[index] = is.position;
+                    in_hand[index] = 0;
                     over_load[index] = 0;
                     eased_at.rotate_left(1);
                     eased_at[EASES_ALLOWED - 1] = report.steps;

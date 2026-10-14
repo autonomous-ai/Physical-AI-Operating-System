@@ -4,7 +4,7 @@
 use lamp_body::calibration::UnitId;
 use std::{ffi::OsString, path::PathBuf};
 
-const USAGE: &str = "lamp-body --device ABSOLUTE_PATH --unit-id EXPLICIT_ID --lock-directory PRIVATE_ABSOLUTE_DIRECTORY --mood-socket ABSOLUTE_PATH [--home PITCH,ROLL,YAW] [--reach UP,DOWN,ROLL,YAW] [--speed COUNTS_PER_SECOND] [--servo-speed N] [--servo-acceleration N] [--stand PITCH,ROLL,YAW,SHOULDER,ELBOW --folded-arm SHOULDER,ELBOW [--stand-share PERCENT] [--stand-seconds N] [--awake-seconds N] [--arm-load SHOULDER,ELBOW] [--idle on|off]] [--gaze-socket ABSOLUTE_PATH --gaze YAW,PITCH [--gaze-reach YAW,PITCH]] [--stand-roll COUNTS] [--force-limit N] [--torque on|off] [--wake on|off]\n\nOwns the servo port and moves head pitch, head roll and base yaw a few degrees around\na home pose (the one given, in encoder counts, or else where they are found), for the mood\nit is told on the socket. Without --stand it never touches the shoulder or the elbow, and\nwithout --stand or --torque on it never touches torque. With --stand (which needs --home and --folded-arm) it also raises the shoulder and\nthe elbow to that pose when a mood other than rest arrives, folds them down again\n--awake-seconds after the last one, and writes torque once to a shoulder or elbow found\nwith an old overload latched. With --gaze-socket and --gaze it takes where a face is from\nlamp-eyes on that socket ({\"face\":{...}} or {\"face\":null}) and, while the lamp listens\nor speaks, turns the head to it in small corrections: --gaze is the counts of base yaw and of\nhead pitch, signed, that bring a face from the right and from the bottom edge of the picture\nto its middle. Refuses to start unless the three joints have torque on, a clear\nstatus and the head is inside its start window. With --torque on it first takes hold of a\njoint found without torque (the three always, the shoulder and the elbow with --stand):\nits goal is written as where it is, then torque on, and if it then moves more than 12 counts\nit does not start. With --wake on and --home, a joint found outside where it may start\n(the head out of its start window, or a joint farther from home than it may be found) but within\n400 counts of home is not refused: before anything else it is brought home slowly, a small stir,\na pause, then an eased rise at 20 counts a second at most, never away from home; an arm found off\nits way is not lowered, and the lamp runs folded. Stops at the first surprise, holding\nwhere it is. Ends on SIGINT or SIGTERM after easing back to where it started.\nThe mood socket takes datagrams of JSON: {\"mood\":\"resting|listening|thinking|speaking\",\"level\":0..255}.\nA lamp standing at its full height also makes a gesture asked for there: {\"gesture\":\"nod\"}\n(nod, headshake, greeting, laugh, shy, stretching).\nPrints one JSON report when it ends.\n";
+const USAGE: &str = "lamp-body --device ABSOLUTE_PATH --unit-id EXPLICIT_ID --lock-directory PRIVATE_ABSOLUTE_DIRECTORY --mood-socket ABSOLUTE_PATH [--home PITCH,ROLL,YAW] [--reach UP,DOWN,ROLL,YAW] [--speed COUNTS_PER_SECOND] [--servo-speed N] [--servo-acceleration N] [--stand PITCH,ROLL,YAW,SHOULDER,ELBOW --folded-arm SHOULDER,ELBOW [--stand-share PERCENT] [--stand-seconds N] [--awake-seconds N] [--arm-load SHOULDER,ELBOW] [--idle on|off]] [--gaze-socket ABSOLUTE_PATH --gaze YAW,PITCH [--gaze-reach YAW,PITCH]] [--stand-roll COUNTS] [--force-limit N] [--torque on|off] [--wake on|off] [--give-way return|stay]\n\nOwns the servo port and moves head pitch, head roll and base yaw a few degrees around\na home pose (the one given, in encoder counts, or else where they are found), for the mood\nit is told on the socket. Without --stand it never touches the shoulder or the elbow, and\nwithout --stand or --torque on it never touches torque. With --stand (which needs --home and --folded-arm) it also raises the shoulder and\nthe elbow to that pose when a mood other than rest arrives, folds them down again\n--awake-seconds after the last one, and writes torque once to a shoulder or elbow found\nwith an old overload latched. With --gaze-socket and --gaze it takes where a face is from\nlamp-eyes on that socket ({\"face\":{...}} or {\"face\":null}) and, while the lamp listens\nor speaks, turns the head to it in small corrections: --gaze is the counts of base yaw and of\nhead pitch, signed, that bring a face from the right and from the bottom edge of the picture\nto its middle. Refuses to start unless the three joints have torque on, a clear\nstatus and the head is inside its start window. With --torque on it first takes hold of a\njoint found without torque (the three always, the shoulder and the elbow with --stand):\nits goal is written as where it is, then torque on, and if it then moves more than 12 counts\nit does not start. With --wake on and --home, a joint found outside where it may start\n(the head out of its start window, or a joint farther from home than it may be found) but within\n400 counts of home is not refused: before anything else it is brought home slowly, a small stir,\na pause, then an eased rise at 20 counts a second at most, never away from home; an arm found off\nits way is not lowered, and the lamp runs folded. With --give-way, a joint that pushes at its goal without moving for\n1.5 s is told to stop (its goal becomes where it is; torque is never written off); with\n--give-way stay, a head or base joint that gave way and is moved more than 15 counts by\na hand for over a second stays where it was put. Stops at the first surprise, holding\nwhere it is. Ends on SIGINT or SIGTERM after easing back to where it started.\nThe mood socket takes datagrams of JSON: {\"mood\":\"resting|listening|thinking|speaking\",\"level\":0..255}.\nA lamp standing at its full height also makes a gesture asked for there: {\"gesture\":\"nod\"}\n(nod, headshake, greeting, laugh, shy, stretching).\nPrints one JSON report when it ends.\n";
 
 #[derive(Debug)]
 struct Arguments {
@@ -23,6 +23,14 @@ struct Arguments {
     force_limit: Option<u16>,
     torque_on: bool,
     wake: bool,
+    give_way: Option<GiveWay>,
+}
+
+/// What `--give-way` said; the body's own type is built for Linux only.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum GiveWay {
+    Return,
+    Stay,
 }
 
 /// What `--gaze-socket`, `--gaze` and `--gaze-reach` said.
@@ -86,6 +94,7 @@ fn parse(args: impl IntoIterator<Item = OsString>) -> Result<Option<Arguments>, 
     let mut force_limit = None;
     let mut torque = None;
     let mut wake = None;
+    let mut give_way = None;
     while let Some(key) = args.next() {
         if key == "--help" {
             if device.is_some()
@@ -111,6 +120,7 @@ fn parse(args: impl IntoIterator<Item = OsString>) -> Result<Option<Arguments>, 
                 || force_limit.is_some()
                 || torque.is_some()
                 || wake.is_some()
+                || give_way.is_some()
                 || args.next().is_some()
             {
                 return Err("--help must be used alone");
@@ -254,6 +264,13 @@ fn parse(args: impl IntoIterator<Item = OsString>) -> Result<Option<Arguments>, 
                     _ => return Err("--wake is on or off"),
                 });
             }
+            Some("--give-way") if give_way.is_none() => {
+                give_way = Some(match value.to_str() {
+                    Some("return") => GiveWay::Return,
+                    Some("stay") => GiveWay::Stay,
+                    _ => return Err("--give-way is return or stay"),
+                });
+            }
             Some("--stand-roll") if stand_roll.is_none() => {
                 stand_roll = Some(
                     value
@@ -345,6 +362,7 @@ fn parse(args: impl IntoIterator<Item = OsString>) -> Result<Option<Arguments>, 
         force_limit,
         torque_on: torque.unwrap_or(false),
         wake: wake.unwrap_or(false),
+        give_way,
     };
     if result.stand_roll.is_some() && result.standing.is_none() {
         return Err("--stand-roll needs --stand");
@@ -440,6 +458,7 @@ fn run(arguments: Arguments) -> Result<bool, Box<dyn std::error::Error>> {
         arguments.force_limit,
         arguments.torque_on,
         arguments.wake,
+        arguments.give_way,
     );
     Err("the body requires Linux; no device was opened".into())
 }
@@ -521,6 +540,10 @@ fn run(arguments: Arguments) -> Result<bool, Box<dyn std::error::Error>> {
         force: arguments.force_limit,
         torque_on: arguments.torque_on,
         wake: arguments.wake,
+        give_way: arguments.give_way.map(|choice| match choice {
+            GiveWay::Return => lamp_body::body::GiveWay::Return,
+            GiveWay::Stay => lamp_body::body::GiveWay::Stay,
+        }),
         ..limits
     };
     // One line to the journal on each change of mood, and twice a second
@@ -531,6 +554,7 @@ fn run(arguments: Arguments) -> Result<bool, Box<dyn std::error::Error>> {
     let mut face_said = 0u64;
     let mut gesture_said: Option<&'static str> = None;
     let mut eased = [0u16; 3];
+    let mut handled = ([0u16; 3], [0u16; 5]);
     // Where the joints are and how the body is, for the rest of the lamp,
     // if the unit says so. Offered and never waited for.
     let mut bus = lamp_body::bus_out::BusOut::from_environment(|why| eprintln!("lamp-body: {why}"));
@@ -556,6 +580,19 @@ fn run(arguments: Arguments) -> Result<bool, Box<dyn std::error::Error>> {
             eprintln!(
                 "lamp-body: step {} met resistance and stopped pushing; so far {:?}; positions {:?} loads {:?}",
                 glimpse.step, glimpse.eased, glimpse.positions, glimpse.loads
+            );
+        }
+        if (glimpse.kept_where_put, glimpse.stalls) != handled {
+            handled = (glimpse.kept_where_put, glimpse.stalls);
+            eprintln!(
+                "lamp-body: step {} left where a hand put it {:?}; stopped pushing without moving {:?}; positions {:?} loads {:?} arm positions {:?} loads {:?}",
+                glimpse.step,
+                glimpse.kept_where_put,
+                glimpse.stalls,
+                glimpse.positions,
+                glimpse.loads,
+                glimpse.arm_positions,
+                glimpse.arm_loads
             );
         }
         if glimpse.gesture != gesture_said {
@@ -986,6 +1023,30 @@ mod tests {
             &["--wake"],
             &["--wake", "on", "--wake", "on"],
             &["--wake", "on", "--help"],
+        ] {
+            assert!(with(refused).is_err(), "{refused:?}");
+        }
+    }
+
+    /// Giving way is return or stay, and as before unless given.
+    #[test]
+    fn give_way_is_return_or_stay_and_as_before_unless_given() {
+        let with = |more: &[&'static str]| parse(args(&[&FULL[..], more].concat()));
+        assert_eq!(with(&[]).unwrap().unwrap().give_way, None);
+        assert_eq!(
+            with(&["--give-way", "return"]).unwrap().unwrap().give_way,
+            Some(GiveWay::Return)
+        );
+        assert_eq!(
+            with(&["--give-way", "stay"]).unwrap().unwrap().give_way,
+            Some(GiveWay::Stay)
+        );
+        for refused in [
+            &["--give-way", "STAY"][..],
+            &["--give-way", "on"],
+            &["--give-way", ""],
+            &["--give-way"],
+            &["--give-way", "stay", "--give-way", "return"],
         ] {
             assert!(with(refused).is_err(), "{refused:?}");
         }

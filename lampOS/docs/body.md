@@ -617,6 +617,7 @@ Reach and speed can be chosen at start, each inside a cap fixed in the code:
 | `--awake-seconds N` | how long it stays up after the last mood that was not rest | 90 | 5 to 3,600 |
 | `--arm-load S,E` | load that sends it back down | 950,950, or 40 under `--force-limit` when that is given | 50 to 1,000, and under `--force-limit` |
 | `--force-limit N` | the most force the base's turn and, for a lamp that may stand, the shoulder and the elbow may push with, of 1,000 | not written: each servo keeps what it holds | 300 to 1,000 |
+| `--give-way return\|stay` | what a joint does after it gave way, and a joint that pushes without moving told to stop (below, "Giving way to a hand") | as before the option: no stall rule, a joint that gave way always comes back | return or stay |
 | `--torque on` | take hold of a joint found without torque: its goal written as where it is, then torque on, and refused if it then moves more than 12 counts | a joint without torque is refused, and torque is not written | on or off |
 | `--wake on` | with `--home`, a joint found out of where it may start but within 400 counts of home is brought home slowly before anything else (see "Waking") | such a joint is refused | on or off |
 | `--gaze-socket PATH` with `--gaze Y,P` | where the eyes report, and the signed counts of yaw and pitch that a half-picture is worth | never looks | 900 either way |
@@ -856,6 +857,92 @@ two of the three head and base joints, which no servo here has been; a
 single bad reading counted as a peak is the likely cause, and the guard
 that acts on warmth needs a whole second of it.
 
+## Giving way to a hand
+
+Not yet tried by a hand on any lamp. Everything in this section is what
+the code does against simulated servos.
+
+V1's lessons, kept by the fifth builder's person: a short bump should
+give way and come back gently; a person who holds or adjusts the head for
+longer than about a second wants it to stay where they put it; the joints
+that carry the lamp's weight (the shoulder, the elbow) must never go limp,
+since on V1 releasing them dropped the arm with nobody touching it; and a
+joint held still against its goal must not cook.
+
+`--give-way return|stay`, off unless given. Without it the body does
+exactly what it did before, write for write.
+
+**Both modes: a joint that pushes without moving is told to stop.** Any
+of the five joints the body writes (the three it commands; the shoulder
+and the elbow of a lamp given `--stand`) whose goal is more than 6 counts
+from where it is, whose load is over 100 and which moves no more than 6
+counts for 1.5 s, is given its own position as its goal. It is held there
+until what is wanted of it moves 20 counts or more from what was wanted
+when it stalled (a new mood, the arm rising or folding), and then follows
+again. Torque is never written off for it. Why these numbers:
+
+- 1.5 s is longer than the rules already there take to stop a joint
+  pushing at rest (arrived for 0.3 s, at rest for 1 s), so it catches only
+  what they leave pushing, and shorter than the servos' own protection
+  (80% load for 2 s, then 20% of their force: on the shoulder or the elbow
+  that is the arm dropping), so this acts first. Heat comes from minutes
+  of pushing, not seconds: the elbow on lamp-4ace reached 69 °C one day
+  with the head resting on the base.
+- 100 of 1,000 is over what a joint at rest at its goal reads on
+  lamp-4ace (the head 68, the base resting short 44 to 72) and under the
+  100 to 150 that lamp-52e6's shoulder pushes with for as long as it
+  stands, 22 to 34 counts short of its goal.
+
+The report counts each joint's (`stalls`: head pitch, head roll, base yaw,
+shoulder, elbow) and the log says each one with the joints' positions and
+loads.
+
+**`return`: a joint that gave way comes back,** as without the option
+("When it stops").
+
+**`stay`: moved by a hand, it stays where it was put.** For the three
+commanded joints. While a joint that gave way is held, its load and
+tracking are judged over a second instead of 120 ms and half a second,
+since that is what a hand moving it looks like:
+
+- Its load over its bound for a second in a row, and it has been moved
+  more than 15 counts from where it gave way: a hand moved it. Where it
+  is becomes where it is left, inside the same reach and window as every
+  goal (a hand that takes it past the reach leaves it at the edge, where
+  the servo takes it at its own speed), and what the lamp is doing then
+  is laid from there: later moods are relative to it. It is held two
+  seconds more, so a hand still on it can go on moving it. The report
+  counts each (`kept_where_put`) and the log says it.
+- The same second and it has not moved: something pushes it and it does
+  not give; the run ends as it does without the option, but after a
+  second rather than 120 ms.
+- A bump that does not move it, or a hand that moves it for under a
+  second, gives way and comes back as with `return`. A hand that lets go
+  before the second sees the joint go back at the servo's own speed to
+  where it gave way, and then to the pose its mood wants.
+
+Asked to stop, the body still goes home, not to where a hand put it.
+
+Five tests against the simulated servos and one for the option: a short
+push gives way and comes back, and so does a head moved for half a
+second; a head moved 30 counts by a hand for 1.5 s stays there while the
+lamp rests and the next mood lifts it 40 counts from there, no goal
+jumping; a head pushed 150 counts up with a reach of 100 is kept at 100;
+a head stopping 27 counts short of its goal at a load of 130 is told to
+stop 75 to 78 steps after it stopped moving and is not pushed at again
+while the mood is the same, and without the option goes on pushing; a
+standing shoulder 30 counts short at 150 is held where it is, and no
+torque write is ever anything but on.
+
+**Not shown:** that any of it is right against a hand. Whether a real
+hand reads over the load bounds while it moves a joint (a servo whose
+goal is where it gave way pushes back at the hand for that second, at
+whatever force it is allowed), how hard that is to the hand, whether
+1.5 s and 100 suit lamp-4ace's or lamp-52e6's servos, and what the
+temperature of a joint held for minutes does with and without it. The
+measurements task 24 asks for (by hand, standing and folded, through a
+kitchen scale) have not been made.
+
 ## lamp-52e6
 
 The fifth builder's lamp, from 2026-10-14. The old runtime was stopped and
@@ -964,7 +1051,7 @@ nods. The raw readings are in
 
 ## Verification without a lamp
 
-Host tests, `cargo test -p lamp-body` (247 passed, 0 failed, on macOS):
+Host tests, `cargo test -p lamp-body` (253 passed, 0 failed, on macOS):
 `body::tests` runs the engine against five simulated servos on a simulated
 clock. They show that it writes only the three packets above, byte for byte;
 that over a scripted exchange every goal names servos 5, 4 and 1, stays within

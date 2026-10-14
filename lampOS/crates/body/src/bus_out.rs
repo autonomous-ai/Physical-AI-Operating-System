@@ -405,6 +405,8 @@ mod tests {
             loads: [120, 0, 40],
             temperatures: [38, 36, 41],
             eased: [0, 0, 0],
+            kept_where_put: [0, 0, 0],
+            stalls: [0; 5],
             stands: true,
             stand: 1.0,
             // Shoulder, elbow.

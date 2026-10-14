@@ -28,7 +28,8 @@ run on a lamp.
 - It writes three registers: the goal position (42) of those three joints,
   in one sync write, and once at start their goal speed (46) and acceleration
   (41), so that the servo itself is slow whatever this process sends. Unless
-  it was given a pose to stand in, or `--torque on`, it never writes torque. With
+  it was given a pose to stand in, `--torque on` or `--overload release`, it
+  never writes torque. With
   `--force-limit` it writes one more, once at start: the force limit (48)
   of the joints that carry the lamp (below, "The force its servos are
   allowed").
@@ -673,6 +674,7 @@ Reach and speed can be chosen at start, each inside a cap fixed in the code:
 | `--give-way return\|stay` | what a joint does after it gave way, and a joint that pushes without moving told to stop (below, "Giving way to a hand") | as before the option: no stall rule, a joint that gave way always comes back | return or stay |
 | `--torque on` | take hold of a joint found without torque: its goal written as where it is, then torque on, and refused if it then moves more than 12 counts | a joint without torque is refused, and torque is not written | on or off |
 | `--wake on` | with `--home`, a joint found out of where it may start but within 400 counts of home is brought home slowly before anything else (see "Waking") | such a joint is refused | on or off |
+| `--overload release` | any joint at a load of 800 (80% of `--force-limit` for a joint held to one) for 1.5 s: torque off on all five for 120 s, then held where they are and the head brought home slowly; a second time within ten minutes ends the run, torque off (see "Letting go under overload") | torque is never written off | release |
 | `--gaze-socket PATH` with `--gaze Y,P` | where the eyes report, and the signed counts of yaw and pitch that a half-picture is worth | never looks | 900 either way |
 | `--gaze-reach Y,P` | the farthest the gaze takes yaw and pitch; the yaw may be wider than `--reach`'s | 250,120 | 500, 200 |
 | `--idle on` | a standing lamp at rest shifts a little now and then | off | on or off |
@@ -996,6 +998,106 @@ temperature of a joint held for minutes does with and without it. The
 measurements task 24 asks for (by hand, standing and folded, through a
 kitchen scale) have not been made.
 
+## Letting go under overload
+
+Not yet tried on any lamp, by a hand or otherwise. Everything in this
+section is what the code does against simulated servos.
+
+`--overload release`, off unless given. Without it the body does exactly
+what it did before, write for write, and never writes torque off.
+
+The hardware team's view, given through the owner's builder: the old
+runtime's answer to a servo pushed hard is the best protection these
+servos have. That runtime (`hal/drivers/motors/overload.py`,
+`robots/lamp/servo_overload.json` on `main`) cut torque when a joint read
+at least 800 of 1,000 for 1.5 s, kept it off for 120 s and then tried
+again. V1 measured what it guards against: free motion peaks at 87% for
+under 0.3 s; a hand holding a joint reads 94 to 100%
+([v1-verdicts.md](v1-verdicts.md), HAL-4.4). This body does the same:
+
+- **When.** Any of the five joints reads a load of at least 800 on 75
+  steps in a row (1.5 s). A step whose read or write failed breaks the
+  row, as in V1. A joint held to a force limit (`--force-limit`) cannot
+  read much more than that limit, so 800 would never trip on it; V1 says
+  so of itself ("a force-limited joint can never read the 800 that trips
+  the cut-off"). For those joints (the base's turn, and the shoulder and
+  the elbow of a lamp that may stand) the level is 80% of the limit, the
+  same share of what the joint may push with that 800 is of a joint
+  without one: 480 at lamp-4ace's 600. lamp-4ace's own movements reached
+  508 at the elbow for moments in a scene with the cap; none held 480 for
+  1.5 s, but nothing longer than one scene has been read.
+- **Letting go.** Nothing more is asked of the joints. Torque off
+  (register 40, 0) is written to all five, each acknowledged; one that
+  does not acknowledge is tried again on the next step. The lamp slumps.
+  The report lists each time (`released`: the joint, the load that
+  tripped it, the seconds since the body started) and the journal has a
+  line when it lets go and one when it takes hold again.
+- **Resting, 120 s.** It reads all five every step, so the report and the
+  bus go on showing positions, status and warmth, and tells systemd it is
+  alive. Moods, gestures and what the eyes see are taken and dropped. No
+  goal is written: a goal written to one of these servos turns its torque
+  back on (lamp-52e6). Asked to stop (SIGINT, SIGTERM), it ends there with
+  torque left off; so does a wire that fails for half a second.
+- **Taking the lamp up again.** Every joint is taken hold of exactly as
+  `--torque on` does at start: its goal written as where it is, then
+  torque on, each acknowledged; one that then moves more than 12 counts
+  ends the run. What the servos read now is what later reads are judged
+  against, since torque off and on may change a flag. A commanded joint
+  left with a flag ends the run. Then the head, its roll and the base are
+  brought home along the `--wake` path, whether or not `--wake` was given,
+  exactly as after a power cut ("Waking"): a stir, a pause, then the rest
+  at 20 counts a second at most, never away from home; a head that drooped
+  and must lift has its goal led up to 80 counts ahead of it, may lag up
+  to 100 on the way, and one that stops within 50 counts of home is woken
+  where it settles, the run then starting from there with its home moved
+  by as much (`home` in the report). The wake's record is in `released`
+  (`woke`), not in the start's `woke`. The arm is not lifted by that. It stays where it
+  slumped until a mood or a person in front of the lamp next asks it to
+  stand, and then rises by the ordinary way up from where it is, if that
+  is on the way between folded and stood up; if not, the lamp runs folded
+  and says why (`standing_refused`), as at start.
+- **A second time within ten minutes** of the first, it lets go as before
+  and the run ends there, torque off (`overload` in the report): a joint
+  that keeps fighting should be looked at, not tried again.
+
+**With `--give-way`.** Both rules time 1.5 s, and the order is this. A
+commanded joint over its load bound (150 to 240) for 120 ms gives way long
+before either; one still loaded ends the run as before. The stall rule
+counts from a load of 100 while the joint does not move, and a load
+climbing to 800 passes 100 first, so the stall rule normally acts first
+and the joint stops pushing. A joint told to stop on the very step it
+would trip starts its count again, and trips only if it stays loaded for
+another 1.5 s: something is pushing it. A standing arm over its own load
+bound for 120 ms is sent back down first; at 1.5 s, before the 2 s that
+would end the run, it lets go. So on the head and the base this rule is
+the last of the guards, and on the shoulder and the elbow, which carry
+the lamp, it is the one that acts on a sustained push.
+
+Three tests against the simulated servos: an elbow at 800 for 1.6 s lets
+go of all five, the torque-off packets byte for byte; nothing is written
+for 120 s although the lamp is spoken to; each joint is then given its
+goal where it slumped and then its torque; a head that drooped 250 counts,
+and like lamp-52e6's stops 32 short of a goal it lifts to, is lifted a
+count a write at most, never away from home, and woken where it settles,
+its home moved 32; the arm stays where it slumped; and the same load
+again some 7 s after it woke ends the run with torque off. 800 for 1.4 s
+does nothing, and the writes are those of a run without the option. A
+standing lamp's elbow at 500 under a force limit of 600 lets go, and ends
+with torque off when asked to stop while it rests; without the limit 500
+does nothing. One for the option.
+
+**Not shown:** that any of it is right on a lamp. No hand has tried it;
+whether a slumping lamp falls somewhere it should not (on V1 an arm let
+go dropped with nobody touching it, which is why `--give-way` never
+writes torque off), how far the head drops onto the base and whether the
+wake then brings it back as tested (after a power cut on lamp-52e6 the
+head drooped some 250 counts, and a standing lamp's shoulder stayed up
+at 2,633 while the elbow fell folded: an arm left like that is off its
+way, so a standing lamp that lets go would most likely run folded
+afterwards), and what heat does: whether 1.5 s at
+80% warms a joint at all, and whether two minutes off cools one. The
+level of 80% of a force limit is reasoned, not measured.
+
 ## lamp-52e6
 
 The fifth builder's lamp, from 2026-10-14. The old runtime was stopped and
@@ -1104,7 +1206,7 @@ nods. The raw readings are in
 
 ## Verification without a lamp
 
-Host tests, `cargo test -p lamp-body` (256 passed, 0 failed, on macOS):
+Host tests, `cargo test -p lamp-body` (260 passed, 0 failed, on macOS):
 `body::tests` runs the engine against five simulated servos on a simulated
 clock. They show that it writes only the three packets above, byte for byte;
 that over a scripted exchange every goal names servos 5, 4 and 1, stays within

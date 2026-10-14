@@ -38,6 +38,9 @@ struct Lamp {
     goals: Vec<Vec<(u8, u16)>>,
     /// Every single-servo register write: (servo id, address, bytes).
     registers: Vec<(u8, u8, Vec<u8>)>,
+    /// When each of `goals` and of `registers` was written.
+    goal_times: Vec<Duration>,
+    register_times: Vec<Duration>,
     /// One servo cannot pass this position and presses on it instead.
     wall: Option<(usize, f32)>,
     /// One servo stops this many counts short of any goal, as a real one
@@ -121,6 +124,8 @@ fn folded(cancel_at: Duration) -> (Lamp, Clock) {
             accepted: Vec::new(),
             goals: Vec::new(),
             registers: Vec::new(),
+            goal_times: Vec::new(),
+            register_times: Vec::new(),
             wall: None,
             short: None,
             heavy: None,
@@ -311,6 +316,7 @@ impl Lamp {
                         written.push((entry[0], goal));
                     }
                     self.goals.push(written);
+                    self.goal_times.push(self.time.get());
                 }
                 0x03 => {
                     let (address, data) = (parameters[0], parameters[1..].to_vec());
@@ -349,6 +355,7 @@ impl Lamp {
                         other => panic!("a write this body must never send: {other:?}"),
                     }
                     self.registers.push((id, address, data));
+                    self.register_times.push(self.time.get());
                     self.answer(id, &[]);
                 }
                 other => panic!("an instruction this body must never send: {other:#04x}"),
@@ -3200,4 +3207,221 @@ fn a_head_that_settles_32_short_of_home_wakes_there_and_runs_from_where_it_is() 
     );
     assert_eq!(lamp.servos[PITCH].goal, 1_803);
     assert_eq!(lamp.servos[PITCH].position, 1_803.0);
+}
+
+/// The folded limits, letting go under overload.
+fn releasing() -> Limits {
+    Limits {
+        overload_release: true,
+        ..Limits::FOLDED
+    }
+}
+
+/// A joint at 800 for a second and a half: torque off to all five, byte
+/// for byte; nothing written for two minutes, whatever it is told; then
+/// each joint held where it slumped, goal first; a head that drooped 250
+/// counts lifted as a lamp wakes from a power cut, its goal leading, and
+/// woken where it settles 32 short; the arm left where it slumped.
+/// Overloaded again within ten minutes, it lets go and the run ends there.
+#[test]
+fn a_joint_at_800_for_a_second_and_a_half_lets_go_of_all_five_and_is_taken_up_again_slowly() {
+    let hex = |bytes: &[u8]| bytes.iter().map(|b| format!("{b:02x}")).collect::<String>();
+    assert_eq!(hex(&torque_write(Joint::BaseYaw, 0)), "ffff0104032800cf");
+    let secs = Duration::from_secs_f32;
+    let (mut lamp, mut clock) = folded(Duration::from_secs(200));
+    lamp.may_take_hold = true;
+    // The elbow at 800 for 1.6 s, and again once the lamp is up again.
+    lamp.strains = vec![
+        (secs(1.0), secs(2.6), 2, 800),
+        (secs(150.0), secs(151.6), 2, 800),
+    ];
+    // Let go, the head droops 250 counts and the elbow falls 40. This head,
+    // as lamp-52e6's does, stops 32 counts short of a goal it lifts to.
+    lamp.hand = Some((secs(5.0), secs(8.0), PITCH, 2_250.0));
+    lamp.short = Some((PITCH, 32.0));
+    lamp.event = Some((secs(9.0), 2, Event::Push(-40.0)));
+    // Spoken to while it rests: nothing is done for it.
+    let time = clock.time.clone();
+    let news = move || {
+        Some(if (secs(30.0)..secs(60.0)).contains(&time.get()) {
+            (Mood::Listening, 120)
+        } else {
+            (Mood::Resting, 0)
+        })
+    };
+    let mut limp = Vec::new();
+    let report = run(&mut lamp, &mut clock, releasing(), Some(HOME), news, |g| {
+        if g.limp {
+            limp.push(*g);
+        }
+    });
+    assert_eq!(
+        report.stop,
+        Stop::Overload {
+            joint: 3,
+            load: 800,
+            detail: "let go a second time within ten minutes; torque left off".into()
+        },
+        "{report:?}"
+    );
+    assert_eq!(report.released.len(), 2);
+    let first = &report.released[0];
+    assert_eq!((first.joint, first.load), ("elbow_pitch", 800));
+    // 75 steps of 20 ms after the load began at 1 s.
+    assert!((2.45..2.6).contains(&first.seconds), "{}", first.seconds);
+    let tripped = secs(first.seconds);
+
+    // Torque off to the five, in servo order, before anything else.
+    let off: Vec<(u8, u8, Vec<u8>)> = Joint::ALL.iter().map(|j| (j.id(), 40, vec![0])).collect();
+    let at = lamp
+        .registers
+        .iter()
+        .position(|(_, address, data)| *address == 40 && data == &vec![0])
+        .unwrap();
+    assert_eq!(lamp.registers[at..at + 5], off[..]);
+    assert!(lamp.register_times[..at].iter().all(|t| *t < tripped));
+    // Nothing written for two minutes: no goal, no register.
+    let rest = tripped..tripped + OVERLOAD_REST;
+    assert!(lamp.goal_times.iter().all(|t| !rest.contains(t)));
+    assert!(
+        lamp.register_times[at + 5..]
+            .iter()
+            .all(|t| *t >= tripped + OVERLOAD_REST)
+    );
+    // It watched every step of it, at rest whatever it was told.
+    assert!(limp.len() >= 6_000, "{}", limp.len());
+    assert!(
+        limp.iter()
+            .filter(|g| g.released == 1)
+            .all(|g| g.mood == Mood::Resting && g.goals == HOME)
+    );
+
+    // Then each joint held where it slumped: its goal, then its torque.
+    let goal = |value: u16| value.to_le_bytes().to_vec();
+    assert_eq!(
+        lamp.registers[at + 5..at + 15],
+        [
+            (5, 42, goal(2_250)),
+            (5, 40, vec![1]),
+            (4, 42, goal(2_044)),
+            (4, 40, vec![1]),
+            (1, 42, goal(2_015)),
+            (1, 40, vec![1]),
+            (2, 42, goal(2_050)),
+            (2, 40, vec![1]),
+            (3, 42, goal(2_007)),
+            (3, 40, vec![1]),
+        ]
+    );
+    // And the head lifted as a lamp wakes from a power cut: a count a
+    // write at most, never away from home, the goal leading the head; it
+    // settled 32 short, and runs from there, its home moved by as much.
+    let woke = first.woke.as_ref().unwrap();
+    assert_eq!(
+        (&woke.joints, &woke.from, &woke.to, &woke.settled),
+        (
+            &vec!["wrist_pitch"],
+            &vec![2_250],
+            &vec![2_000],
+            &vec![2_032]
+        )
+    );
+    // A stir of 80 counts, a second's pause, the other 170, and settling.
+    assert!((19.0..22.5).contains(&woke.seconds), "{}", woke.seconds);
+    assert_eq!(report.home, Some([2_032, 2_044, 2_015]));
+    let taken = lamp.register_times[at + 14];
+    let pitch: Vec<u16> = lamp
+        .goals
+        .iter()
+        .zip(&lamp.goal_times)
+        .filter(|(_, t)| (taken..secs(150.0)).contains(*t))
+        .map(|(write, _)| goal_of(write, Joint::WristPitch))
+        .collect();
+    assert_eq!(pitch[0], 2_249);
+    let home = pitch.iter().position(|goal| *goal == 2_000).unwrap();
+    assert!(
+        pitch[..=home]
+            .windows(2)
+            .all(|two| two[1] <= two[0] && two[0] - two[1] <= 1),
+        "{pitch:?}"
+    );
+    assert_eq!(pitch[home + 1], 2_032);
+    // Nothing pushes at the gap: a count of the run's own easing at most.
+    assert!(
+        pitch[home + 1..].iter().all(|goal| *goal >= 2_031),
+        "{pitch:?}"
+    );
+    assert_eq!(lamp.servos[PITCH].position, 2_032.0);
+    // The arm of a lamp that does not stand stays where it slumped.
+    assert!(lamp.goals.iter().all(|write| write.len() == 3));
+    assert_eq!(lamp.servos[2].position, 2_007.0);
+
+    // The second time: let go, and nothing after it.
+    let second = secs(report.released[1].seconds);
+    assert!((151.4..151.7).contains(&report.released[1].seconds));
+    assert_eq!(lamp.registers[lamp.registers.len() - 5..], off[..]);
+    assert!(lamp.goal_times.iter().all(|t| *t < second));
+    assert!(lamp.servos.iter().all(|servo| servo.torque == 0));
+    serde_json::to_string(&report).unwrap();
+}
+
+/// 800 for 1.4 s is not an overload, and with the option a run where none
+/// comes writes exactly what it writes without it.
+#[test]
+fn a_load_of_800_for_less_than_a_second_and_a_half_changes_nothing() {
+    let writes = |limits: Limits| {
+        let (mut lamp, mut clock) = folded(Duration::from_secs(8));
+        lamp.strains = vec![(Duration::from_secs(1), Duration::from_millis(2_400), 2, 800)];
+        let news = script(&clock.time);
+        let report = run(&mut lamp, &mut clock, limits, None, news, |_| {});
+        assert_eq!(report.stop, Stop::Cancelled, "{report:?}");
+        assert!(report.released.is_empty());
+        (lamp.goals, lamp.registers)
+    };
+    assert_eq!(writes(releasing()), writes(Limits::FOLDED));
+}
+
+/// An elbow held to a force limit of 600 trips at 480, 80% of it, where
+/// 800 could never be read; without the limit 500 is not an overload.
+/// Asked to stop while it rests, it ends with torque left off.
+#[test]
+fn a_force_limited_arm_lets_go_at_80_percent_of_its_limit() {
+    let ran = |force: Option<u16>| {
+        let (mut lamp, mut clock) = folded(Duration::from_secs(5));
+        lamp.arm_moves = true;
+        lamp.overload_clears = 1;
+        lamp.may_take_hold = true;
+        lamp.strains = vec![(Duration::from_secs(1), Duration::from_secs(3), 2, 500)];
+        let limits = Limits {
+            force,
+            ..releasing()
+        };
+        let report = run_standing(
+            &mut lamp,
+            &mut clock,
+            limits,
+            Some(HOME),
+            Some(standing(100, 5)),
+            || Some((Mood::Resting, 0)),
+            |_| {},
+        );
+        (report, lamp)
+    };
+    let (report, lamp) = ran(Some(600));
+    assert_eq!(report.stop, Stop::Cancelled, "{report:?}");
+    assert_eq!(report.released.len(), 1);
+    let released = &report.released[0];
+    assert_eq!((released.joint, released.load), ("elbow_pitch", 500));
+    assert!((2.45..2.6).contains(&released.seconds));
+    assert!(lamp.servos.iter().all(|servo| servo.torque == 0));
+    assert!(
+        lamp.goal_times
+            .iter()
+            .all(|t| *t < Duration::from_secs_f32(released.seconds))
+    );
+
+    let (report, lamp) = ran(None);
+    assert_eq!(report.stop, Stop::Cancelled, "{report:?}");
+    assert!(report.released.is_empty());
+    assert!(lamp.servos.iter().all(|servo| servo.torque == 1));
 }

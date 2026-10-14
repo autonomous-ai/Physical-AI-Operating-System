@@ -103,6 +103,9 @@ pub struct Config {
     pub bus_root: PathBuf,
     pub targets: BTreeMap<String, Target>,
     pub run_for: Option<Duration>,
+    /// Look at each task handed over on its own until its agent has
+    /// finished or asks something (`serve --watch`, [`Engine::watch`]).
+    pub watch: bool,
 }
 
 /// An operator-owned file selects targets; a model supplies only an alias.
@@ -336,10 +339,10 @@ fn owner<C: Clock>(
     mut engine: Engine<Store>,
     clock: C,
     incoming: Receiver<Work>,
-    jobs: SyncSender<Job>,
-    outcomes: Receiver<Outcome>,
+    (jobs, outcomes): (SyncSender<Job>, Receiver<Outcome>),
     current: Arc<Mutex<Report>>,
     stop: Arc<AtomicBool>,
+    watch: bool,
 ) -> io::Result<()> {
     let mut requests = 0u64;
     let mut busy = false;
@@ -377,10 +380,15 @@ fn owner<C: Clock>(
             let now = clock.sample()?;
             let next = match engine.begin_launch(&now).map_err(io::Error::other)? {
                 Some(job) => Some(Job::Launch(job)),
-                None => engine
-                    .begin_observation(&now)
-                    .map_err(io::Error::other)?
-                    .map(Job::Observe),
+                None => {
+                    if watch {
+                        engine.watch(&now).map_err(io::Error::other)?;
+                    }
+                    engine
+                        .begin_observation(&now)
+                        .map_err(io::Error::other)?
+                        .map(Job::Observe)
+                }
             };
             if let Some(job) = next {
                 // The durable attempt precedes this handoff. If this queue or
@@ -680,6 +688,7 @@ pub fn serve_with_adapter<C: Clock, A: Adapter>(
         })?;
     let (owner_tx, owner_rx) = mpsc::sync_channel(REQUEST_QUEUE);
     let owner_stop = stop.clone();
+    let watch = config.watch;
     let report = current.clone();
     let owner = thread::Builder::new()
         .name("tasks-store".into())
@@ -688,10 +697,10 @@ pub fn serve_with_adapter<C: Clock, A: Adapter>(
                 engine,
                 clock,
                 owner_rx,
-                jobs_tx,
-                outcomes_rx,
+                (jobs_tx, outcomes_rx),
                 report,
                 owner_stop,
+                watch,
             )
         })?;
     let (clients_tx, clients_rx) = mpsc::sync_channel::<(UnixStream, Instant, bool)>(CLIENT_QUEUE);
@@ -961,6 +970,7 @@ mod tests {
             bus_root: dir.path().join("bus"),
             targets: BTreeMap::new(),
             run_for: None,
+            watch: false,
         };
         serve_with_adapter::<_, Never>(config, Never, Arc::new(AtomicBool::new(false)), |_| {
             panic!("adapter configured while disabled")

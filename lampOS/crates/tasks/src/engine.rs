@@ -18,6 +18,13 @@ pub const MAX_ASK_BYTES: usize = 4096;
 pub const MAX_SPEECH_BYTES: usize = 1000;
 pub const CONFIRM_MS: u64 = 120_000;
 pub const SPEECH_AGE_MS: u64 = 600_000;
+/// How often a task handed over is looked at on its own (`serve --watch`):
+/// every half minute for its first ten minutes, then every two, until the
+/// agent has finished or asks something, and for at most a day.
+pub const WATCH_EARLY_MS: u64 = 30_000;
+pub const WATCH_EARLY_FOR_MS: u64 = 600_000;
+pub const WATCH_LATER_MS: u64 = 120_000;
+pub const WATCH_AT_MOST_MS: u64 = 86_400_000;
 
 pub trait Persistence {
     fn load(&self) -> io::Result<Option<Vec<u8>>>;
@@ -155,6 +162,10 @@ struct Read {
     finished: Option<Audit>,
     observation_id: Option<u64>,
     code: Option<String>,
+    /// Asked for by the watch, not by anyone: an agent still at work is
+    /// not kept as an observation, and the read ends `working`.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    watch: bool,
 }
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
@@ -291,6 +302,16 @@ fn valid_observation(value: &Observation) -> bool {
         )
         && value.answer.len() <= MAX_ANSWER_BYTES
         && value.ask.as_ref().is_none_or(|v| v.len() <= MAX_ASK_BYTES)
+}
+/// Whether an agent has finished with what it was given, or stopped to
+/// ask: what the person would want to hear about. An idle agent with no
+/// answer has not begun.
+fn settled(value: &Observation) -> bool {
+    match value.state.as_str() {
+        "idle" => !value.answer.trim().is_empty(),
+        "needs-input" | "stopped" | "failed" => true,
+        _ => false,
+    }
 }
 fn digest(value: &impl Serialize) -> String {
     let bytes = serde_json::to_vec(value).expect("owned serializable data");
@@ -1058,6 +1079,7 @@ impl<P: Persistence> Engine<P> {
                     finished: None,
                     observation_id: None,
                     code: None,
+                    watch: false,
                 });
                 task.updated = at.clone();
             }
@@ -1253,6 +1275,81 @@ impl<P: Persistence> Engine<P> {
         self.save(next)
     }
 
+    /// Ask, on the watch's own account, for a read of one task handed over
+    /// whose look is due: accepted, nothing being read, nothing settled
+    /// kept yet, and its last look (or its acceptance) longer ago than
+    /// [`WATCH_EARLY_MS`] or [`WATCH_LATER_MS`] in this boot. A task
+    /// accepted more than [`WATCH_AT_MOST_MS`] ago in this boot is left.
+    /// Whether one was asked for. The read itself goes as any other.
+    pub fn watch(&mut self, now: &Clock) -> Result<bool, Error> {
+        if self.active() {
+            return Ok(false);
+        }
+        let since = |audit: &Audit| {
+            (audit.boot_id == now.boot_id)
+                .then(|| now.monotonic_ms.saturating_sub(audit.monotonic_ms))
+        };
+        let due = self.state.tasks.iter().position(|task| {
+            let Some(accepted) = task.dispatch.finished.as_ref() else {
+                return false;
+            };
+            if task.dispatch.state != DispatchState::Accepted
+                || task.observations.len() >= MAX_OBSERVATIONS
+                || task.observations.iter().any(|o| settled(&o.data))
+                || task.read.as_ref().is_some_and(|r| {
+                    matches!(r.state, ReadState::Requested | ReadState::Attempting)
+                })
+            {
+                return false;
+            }
+            let age = since(accepted);
+            if age.is_some_and(|age| age > WATCH_AT_MOST_MS) {
+                return false;
+            }
+            let every = if age.is_some_and(|age| age < WATCH_EARLY_FOR_MS) {
+                WATCH_EARLY_MS
+            } else {
+                WATCH_LATER_MS
+            };
+            let last = task
+                .read
+                .as_ref()
+                .and_then(|r| r.finished.as_ref())
+                .unwrap_or(accepted);
+            since(last).is_none_or(|ago| ago >= every)
+        });
+        let Some(index) = due else {
+            return Ok(false);
+        };
+        self.clock(now)?;
+        let mut next = self.state.clone();
+        let at = next_audit(&mut next, now)?;
+        let request_id = take(&mut next.next_read_id)?;
+        // A receipt for the read this one replaces no longer describes the
+        // store. A retry of that request finds the revision moved on and is
+        // refused, so it is never run twice.
+        let task_id = next.tasks[index].id;
+        if next.last_receipt.as_ref().is_some_and(
+            |receipt| matches!(&receipt.request, Request::Observe { id, .. } if *id == task_id),
+        ) {
+            next.last_receipt = None;
+        }
+        let task = &mut next.tasks[index];
+        task.read = Some(Read {
+            request_id,
+            state: ReadState::Requested,
+            requested: at.clone(),
+            started: None,
+            finished: None,
+            observation_id: None,
+            code: None,
+            watch: true,
+        });
+        task.updated = at;
+        self.save(next)?;
+        Ok(true)
+    }
+
     pub fn begin_observation(&mut self, now: &Clock) -> Result<Option<ObservationJob>, Error> {
         self.tick(now)?;
         if self.active() {
@@ -1294,6 +1391,16 @@ impl<P: Persistence> Engine<P> {
             return self.observation_failed(job, "invalid_reply", now);
         }
         let index = find(&self.state, job.task_id)?;
+        // The watch keeps only what the person would want to hear about:
+        // an agent still at work is looked at again later.
+        if self.state.tasks[index]
+            .read
+            .as_ref()
+            .is_some_and(|read| read.watch)
+            && !settled(&observation)
+        {
+            return self.observation_failed(job, "working", now);
+        }
         let mut next = self.state.clone();
         let at = next_audit(&mut next, now)?;
         let observed_digest = digest(&observation);
@@ -2702,5 +2809,124 @@ mod tests {
         let receipt = invalid.last_receipt.as_mut().unwrap();
         receipt.at.monotonic_ms = 9;
         assert_eq!(invalid.check().unwrap_err().code, "storage");
+    }
+
+    #[test]
+    fn the_watch_looks_on_its_own_keeps_only_what_is_settled_and_then_stops() {
+        let (mut engine, memory) = opened();
+        let id = accepted(&mut engine, 10);
+        let task =
+            |engine: &Engine<Memory>| engine.state.tasks[find(&engine.state, id).unwrap()].clone();
+        let at_work = || Observation {
+            state: "working".into(),
+            tools: 0,
+            ..data("")
+        };
+        // Half a minute after it was handed over, not before.
+        assert!(!engine.watch(&clock(10 + WATCH_EARLY_MS - 1)).unwrap());
+        assert!(engine.watch(&clock(10 + WATCH_EARLY_MS)).unwrap());
+        // One read at a time.
+        assert!(!engine.watch(&clock(10 + WATCH_EARLY_MS)).unwrap());
+        let job = engine
+            .begin_observation(&clock(10 + WATCH_EARLY_MS))
+            .unwrap()
+            .unwrap();
+        assert!(!engine.watch(&clock(10 + 3 * WATCH_EARLY_MS)).unwrap());
+        // Still at work: nothing is kept, and the read ends `working`.
+        let first = WATCH_EARLY_MS + 20;
+        engine
+            .finish_observation(&job, at_work(), &clock(first))
+            .unwrap();
+        assert!(task(&engine).observations.is_empty());
+        assert_eq!(task(&engine).read.unwrap().code.as_deref(), Some("working"));
+        // The next look half a minute after that one ended. An idle agent
+        // with no answer has not begun.
+        assert!(!engine.watch(&clock(first + WATCH_EARLY_MS - 1)).unwrap());
+        assert!(engine.watch(&clock(first + WATCH_EARLY_MS)).unwrap());
+        let job = engine
+            .begin_observation(&clock(first + WATCH_EARLY_MS))
+            .unwrap()
+            .unwrap();
+        let second = first + WATCH_EARLY_MS + 5;
+        engine
+            .finish_observation(&job, data("  "), &clock(second))
+            .unwrap();
+        assert!(task(&engine).observations.is_empty());
+        // After ten minutes, every two.
+        let late = 10 + WATCH_EARLY_FOR_MS;
+        assert!(engine.watch(&clock(late)).unwrap());
+        let job = engine.begin_observation(&clock(late)).unwrap().unwrap();
+        engine
+            .finish_observation(&job, at_work(), &clock(late))
+            .unwrap();
+        assert!(!engine.watch(&clock(late + WATCH_LATER_MS - 1)).unwrap());
+        assert!(engine.watch(&clock(late + WATCH_LATER_MS)).unwrap());
+        // Finished: kept, and the watch stops.
+        let job = engine
+            .begin_observation(&clock(late + WATCH_LATER_MS))
+            .unwrap()
+            .unwrap();
+        let done = late + WATCH_LATER_MS + 3_000;
+        engine
+            .finish_observation(&job, data("Lumi, Sunny and Archie."), &clock(done))
+            .unwrap();
+        assert_eq!(task(&engine).observations.len(), 1);
+        assert_eq!(
+            task(&engine).observations[0].data.answer,
+            "Lumi, Sunny and Archie."
+        );
+        assert!(!engine.watch(&clock(done + WATCH_AT_MOST_MS / 2)).unwrap());
+        // The watch's reads are stored as such and reopen.
+        assert!(stored(&memory).tasks[0].read.as_ref().unwrap().watch);
+        let reopened = Engine::open(memory, targets(), STORE, RESTART, &clock(done + 1)).unwrap();
+        assert_eq!(reopened.state.tasks[0].observations.len(), 1);
+    }
+
+    #[test]
+    fn the_watch_hears_a_question_leaves_a_day_old_task_and_an_asked_read_keeps_work_in_progress() {
+        let (mut engine, _) = opened();
+        let id = accepted(&mut engine, 10);
+        // Someone asked for the read: what it finds is kept, at work or not.
+        let asked = Request::Observe {
+            guard: guard(&engine, "observe"),
+            id,
+        };
+        engine.handle(&asked, &clock(20), false).unwrap();
+        let job = engine.begin_observation(&clock(20)).unwrap().unwrap();
+        let at_work = Observation {
+            state: "working".into(),
+            ..data("Halfway through.")
+        };
+        engine
+            .finish_observation(&job, at_work, &clock(30))
+            .unwrap();
+        assert_eq!(engine.state.tasks[0].observations.len(), 1);
+        // The agent stops to ask: settled, kept, and the watch stops.
+        assert!(engine.watch(&clock(30 + WATCH_EARLY_MS)).unwrap());
+        // The asked read's receipt went with it: the same request again is
+        // refused, never run a second time.
+        assert!(
+            engine
+                .handle(&asked, &clock(30 + WATCH_EARLY_MS), false)
+                .is_err()
+        );
+        let job = engine
+            .begin_observation(&clock(30 + WATCH_EARLY_MS))
+            .unwrap()
+            .unwrap();
+        let question = Observation {
+            state: "needs-input".into(),
+            ..data("Which folder should the names go in?")
+        };
+        engine
+            .finish_observation(&job, question, &clock(40 + WATCH_EARLY_MS))
+            .unwrap();
+        assert_eq!(engine.state.tasks[0].observations.len(), 2);
+        assert!(!engine.watch(&clock(40 + 10 * WATCH_LATER_MS)).unwrap());
+        // A task handed over more than a day ago in this boot is left.
+        let (mut old, _) = opened();
+        accepted(&mut old, 10);
+        assert!(!old.watch(&clock(11 + WATCH_AT_MOST_MS)).unwrap());
+        assert!(old.watch(&clock(10 + WATCH_AT_MOST_MS)).unwrap());
     }
 }

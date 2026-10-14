@@ -73,6 +73,7 @@ impl Running {
                 },
             )]),
             run_for: None,
+            watch: false,
         };
         let mut running = Self {
             config,

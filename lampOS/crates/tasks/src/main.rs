@@ -49,6 +49,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     let mut bus_root = PathBuf::from(lamp_bus::DEFAULT_ROOT);
     let mut run_for = None;
     let mut as_person = false;
+    let mut watch = false;
     let mut seen = std::collections::BTreeSet::new();
     while let Some(arg) = args.next() {
         if !seen.insert(arg.clone()) {
@@ -57,6 +58,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         match arg.as_str() {
             "--enable" => enabled = true,
             "--harness-as-person" => as_person = true,
+            "--watch" => watch = true,
             "--dir" => dir = Some(PathBuf::from(args.next().ok_or("--dir needs a path")?)),
             "--socket" => socket = Some(PathBuf::from(args.next().ok_or("--socket needs a path")?)),
             "--voice-socket" => {
@@ -102,6 +104,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         bus_root,
         targets: read_targets(&targets.ok_or("--targets is required")?)?,
         run_for,
+        watch,
     };
     let clock = SystemClock::new(boot_id.as_deref())?;
     let executable = executable.ok_or("--harness is required")?;

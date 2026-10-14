@@ -59,7 +59,9 @@ Offsets are in radians relative to the owner's calibrated safe posture and
 attended heading. They are **not** absolute `JointState` positions, encoder
 counts or shares of the body's configured reach. Every sum is clamped before
 it leaves the planner; the body still applies its stricter physical bounds.
-No autonomous room search or random idle motion is authored.
+No autonomous room search or random idle motion is authored. The optional
+idle layer, sleep and waking ([alive.md](alive.md)) are small, slow and
+not random: a catalogue without an `alive` part plans exactly as before.
 
 `behaviours.json` is the unchanged built-in catalogue: the original 320 ms
 nod and no rest clip. `--catalogue FILE` replaces it at startup after
@@ -179,6 +181,20 @@ has "glance at a sound": the head up 0.07 rad in 250 ms, a slight tilt
 so a run of knocks gets one glance, as a person glances at the first and
 lets the rest go (rule 8). Tests: `tests/sudden_engine.rs`.
 
+## Optional idle layer, sleep and waking
+
+Task 36 (#714), in [alive.md](alive.md): with an `alive` part in the
+catalogue ([`alive-behaviours.json`](../crates/expression/alive-behaviours.json),
+lamp-4ace's catalogue with one), a resting lamp's head lifts and settles
+with the ring's own breath and now and then drifts a little, none of it
+while a face stays close and still under the light; late at night with
+nobody seen for 15 minutes it bows into a slow breath that no sound or talk
+breaks; its name, a touch, a reminder coming due or its own answer wake it
+with a 2.7 s stretch. Asleep, no clip begins and the voice's posture gives
+way to the sleeping pose. It reads two more topics, `controls/gesture` and
+`schedule/due`, and a local time of day the service makes itself from
+`--utc-offset-minutes`, which `serve` requires of a catalogue with sleep.
+
 ## Optional recent playout level
 
 First's task 18 addendum reports 565 cumulative refusals on lamp-4ace since
@@ -271,6 +287,9 @@ legacy observation age; it does not convert transcripts into audio timing.
 | `room/state` | Voice: fresh quiet evidence permits optional nods, sway, unsolicited gaze and rest; unknown, busy or expired evidence suppresses them. A held turn's reactive face target is the gaze exception |
 | `name/heard` | Name listener: contextual evidence only, never proof of admission or readiness |
 | `ears/sudden` / `SuddenSound` | Ears ([ears.md](ears.md)): a short sound that rose suddenly out of the room's quiet starts the optional `sudden` clip; a sound that went on starts nothing |
+| `controls/gesture` / `ControlGesture` | Controls: with an `alive` part, an enabled tap or stroke wakes a sleeping lamp ([alive.md](alive.md)); a long press does not |
+| `schedule/due` / `ScheduleDue` | Schedule: with an `alive` part, a notice newly due wakes a sleeping lamp, once for each delivery |
+| The local time of day (not a topic) | `serve --utc-offset-minutes N` itself, at start and every minute; `import --utc-offset-minutes N` from a recording's wall clock. Only sleep reads it |
 | `light/command` | Actions: the user's lasting on/color/level setting. No light request is emitted before a valid setting is known |
 
 The existing `voice/state` does not carry the private BodyLink's pre-audio
@@ -578,6 +597,11 @@ publication. Its time is configuration loading, not a physical observation.
 
 A replay is bounded to 32 MiB, 100,000 lines, 50,000 inputs and ten minutes of
 simulated time, with a 128 KiB line limit. Import accepts at most 32 files.
+With `--long`, replay and import take an hour and five minutes: 384 MiB,
+1,000,000 lines and 600,000 inputs, for a recorded quiet hour
+([alive.md](alive.md)). The replay's summary also says in how many ticks
+each behaviour was planned and how often it began, the largest change in
+one tick and the farthest the body was asked.
 Malformed records fail with a location; rejected engine inputs are reported.
 Live input drain is bounded per topic. `--record FILE` records requested
 output through a bounded queue; a slow/full disk drops records and never

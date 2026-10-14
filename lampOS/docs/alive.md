@@ -1,0 +1,259 @@
+# Always alive: the idle layer, sleep and waking
+
+Task 36 (#714), the first piece of [creature.md](creature.md)'s order of
+building that the research ranks first: an idle layer that never stops,
+with everything else laid over it, a sleep that noise does not break, and
+a small stretch on waking. It is part of Expression
+([expression.md](expression.md)) and off unless a catalogue has an
+`alive` part: [`crates/expression/alive-behaviours.json`](../crates/expression/alive-behaviours.json)
+is lamp-4ace's catalogue with one. Everything here was built and measured
+on a laptop (Apple M2 Max, macOS); nothing was run on a lamp, and no
+number here is a lamp's.
+
+## What exists and what we take
+
+**The research** ([creature.md](creature.md), "What the best companions
+teach"): an always-on idle layer of breathing, a little drift and blinks,
+with other moves blended in over 0.1 to 0.35 s (Disney); a visible sleep
+that noise does not break, only the name, a touch or a reminder (Vector,
+Astro); mood as the style of the same move, never as added randomness
+(Anki, Luxo Jr.); and a body that moves plainly and little while someone
+works under the light (Apple's ELEGNT).
+
+- Taken: all four, as written below.
+
+**The ring breathes and blinks already.** At rest the ring shows "a slow,
+dim, warm breath (5.2 s)" and, with `LAMP_RING_EYE=on`, blinks every 7 to
+16 s ([ring-choreography.md](ring-choreography.md)). Its breath is a pure
+function of the boot clock: `0.5 - 0.5 cos(2 pi s / 5.2)` with `s` the
+seconds of `CLOCK_MONOTONIC` within the hour (`crates/voice/src/ring_face.rs`).
+
+- Taken: the body's breath is the same function of the same clock, so the
+  head lifts as the ring brightens, with no message between them. The
+  blink stays the ring's.
+
+**What the body does with Expression's head offsets** (read in
+`crates/body/src/body.rs`; the body is the fifth builder's and was not
+changed):
+
+- At rest, only with the body's `--rest-glance on`: head pitch and roll,
+  cut to 50 and 25 counts, then to each joint's reach. lamp-4ace runs
+  `--reach 150,15,1,250`: a resting head may lift 50 counts but dip only
+  15 (1.3 degrees), and its roll moves 1 count. So at rest the idle layer
+  can show itself only by lifting the head.
+- The planner asks every 20 ms. Against simulated servos (the body's own
+  test harness, with the planner's stream of zero offsets before and after
+  as on the lamp, in a scratch test not kept), a resting head given slow
+  lifts follows them a count a step with no jumps, and a zero stream writes
+  nothing. Its "glance from rest" lead never engages under that stream
+  ("Found on the way", below).
+- In the other moods: pitch, roll and the base's turn, cut to 60, 45 and
+  70 counts, and the body's 20-count rest applies.
+- The body has its own idle (`--idle on`, on lamp-4ace): a standing lamp at
+  rest plays the old runtime's 10 s `idle` clip (the arm sways about 40
+  counts, the head lifts 47) every 18 s or so. While a body clip plays,
+  Expression's offsets are not added.
+
+- Taken: the breath and the drift lift the head only, within what lamp-4ace's
+  body takes at rest. Which idle author a lamp keeps is the first builder's
+  choice ("What to run on the lamp").
+
+## What it does
+
+| | When | What the body is asked |
+|---|---|---|
+| Breath | The voice resting, the body free (no hold, no concentration, fresh joints), and nobody working under the light | The head lifts and settles with the ring's breath: 0 to 0.03 rad (about 20 counts, 1.7 degrees) over 5.2 s |
+| Drift | As the breath | Every 30 to 90 s (not on a beat), the head eases over 3 s to a new small lift (0 to 0.035 rad, about 23 counts) and tilt (up to 0.02 rad either way), and stays there until the next |
+| Coming in and going out | When the breath may begin or must stop | Over 0.35 s (the catalogue's `blend_us`); over the 4 s of settling when it falls asleep |
+| Still for work | A face of at least 0.04 of the picture (about a fifth of it each way) whose middle has stayed within 0.05 of the picture for 5 s; held 30 s after (a head bent over work is often no face) | Nothing from this layer: the body moves plainly and little |
+| Falling asleep | 23:00 to 06:00 local time, the voice resting, the body free, and the eyes reporting nobody for 15 minutes | Over 4 s, everything else gives way to the sleeping pose: the head bowed 0.023 rad (15 counts, all lamp-4ace's down reach allows) |
+| Asleep | Until woken | Only a slow breath: the head lifts 0.015 rad (10 counts) over 9 s. No clip begins: a bang, talk in the room, the voice listening are not answered by Expression |
+| Waking | Its name; a tap, double tap or stroke (an enabled `controls/gesture` that is not a long press); a reminder newly due (`schedule/due`, once each); the voice thinking or speaking; outside the night, the first face seen | A stretch of 2.7 s: the head rises 0.065 rad by 0.9 s, tilts 0.04 and turns 0.03 by 1.5 s (the turn only where the body takes it, outside rest), and settles, while the bow and the rest of the plan cross back over |
+| Energy | Always | One number, 0 to 1 (0.5 in the catalogue): the same moves 0.7 to 1.3 times as large and 1.25 to 0.75 times as long. The breath's period never changes, so it stays with the ring |
+
+Woken, it falls asleep again only after nobody again for the whole 15
+minutes. A long hold of the base is the mute today and will be Sleep when
+#711 makes it so; it does not wake the lamp. A face seen at night does not
+wake it either: only its name, a touch, a reminder or its own answer.
+
+Nothing is random. A drift's wait and size come from a fixed hash of how
+many drifts came before, so a replay gives the same plan every time. All
+of it runs on the planner's injected clock and the inputs it was given.
+
+## The catalogue
+
+The `alive` part of `alive-behaviours.json`, every field checked when the
+catalogue is read (`crates/expression/src/alive.rs`):
+
+| Field | lamp-4ace's | Allowed |
+|---|---|---|
+| `states` | `["resting"]` | 1 to 3 voice states, never speaking: the lamp keeps its head still while it talks |
+| `blend_us` | 350,000 | 100,000 to 350,000 |
+| `energy` | 0.5 | 0 to 1 |
+| `breath.period_us`, `breath.inhale` | 5,200,000; head pitch -0.03 | 2 to 20 s; the head only, at most 0.06 rad, 0.06 rad/s and 0.12 rad/s² at the largest energy |
+| `drift.every_us`, `drift.move_us` | 30 to 90 s; 3 s | waits of 5 to 600 s, moves of 1 to 10 s |
+| `drift.low`, `drift.high` | pitch -0.035 to 0, roll -0.02 to 0.02 | the head only, zero between them, within 0.06 rad and the same speed and acceleration as the breath at the quickest energy |
+| `work.face_area`, `still`, `still_us`, `hold_us` | 0.04, 0.05, 5 s, 30 s | (0, 1], (0, 0.5], 1 to 60 s, at most 600 s |
+| `sleep.night` | `[1380, 360]`: 23:00 to 06:00 | minutes of the local day, past midnight allowed |
+| `sleep.nobody_us`, `settle_us` | 15 minutes; 4 s | 1 minute to 2 hours; 1 to 10 s |
+| `sleep.pose`, `sleep.breath` | head pitch +0.023; 9 s, -0.015 | the head only, within 0.06 rad, reached slowly |
+| `wake.keyframes` | five, over 2.7 s | 1 to 5 s, from and back to nothing, the head and the base only, no light, within the catalogue's limits, at most 0.35 rad/s and 2 rad/s² |
+
+lamp-4ace's own "settle at rest" clip is left out of this catalogue: the
+drift does what it did, and two authors of rest would be more movement,
+not more life.
+
+## What it reads
+
+| Input | From | For |
+|---|---|---|
+| `voice/progress` (or `voice/timing`) | The voice | Resting or not; thinking or speaking wakes it |
+| `body/joint_states` | The body | Fresh joints, as every request needs |
+| `attention/concentration` | Its owner | Explicit concentration stops it all, as before |
+| `humans/faces/tracked` | The eyes | Nobody there, someone working close and still, the first face of the morning |
+| `name/heard` | The name listener | Waking |
+| `controls/gesture` | Controls | Waking, by an enabled tap or stroke. New to Expression |
+| `schedule/due` | Schedule | Waking, once for each notice that comes due. New to Expression |
+| The local time of day | The live service itself, from the wall clock and `--utc-offset-minutes` (420 in Vietnam), at start and every minute | Night. Not a bus topic. `serve` refuses a catalogue with sleep without it |
+
+`lamp-expression import --utc-offset-minutes N` adds the same time of day
+to an imported recording, from the recording's own wall clock, so that a
+replay can see night.
+
+## Measured
+
+On the M2 Max, Rust 1.96.0.
+
+**Tests through the engine**, `crates/expression/tests/alive_engine.rs`
+(16) and `alive_replay.rs` (6), with the catalogue above: the breath
+equals the ring's function to 1e-9 and only lifts; it is in within 0.35 s
+and out within 0.35 s, leaving exactly the listening posture; over 15
+minutes, nine or more drifts, each 33 to 93 s from the last, with no tick
+asking more than 0.75 milliradians of pitch more than the tick before
+(0.4 of roll), also across the hour where the ring's phase jumps; a face
+close and still stops the layer, and a moving one does not; asleep after
+15 minutes of nobody at 23:30, into the pose in exactly 4 s, under a
+milliradian a tick; not asleep by day, with the eyes silent, without the
+time of day, or with someone passing every ten minutes; a bang and talk
+do not wake it; its name, a tap, a stroke, a new reminder and its own
+answer do, a long press and a shadow touch do not, the same reminder only
+once, and the first face after 06:00; waking takes 2.7 s with no tick over
+10 milliradians and ends at exactly the listening posture; energy 0 and 1
+give 0.7 and 1.3 times the breath and waits 1.25 and 0.75 times as long;
+and nineteen kinds of catalogue that could twitch or reach too far are
+refused. A replay longer than ten minutes is refused without `--long`; an
+import takes touch and reminders and is given the time of day; the live
+service tells the planner the time every minute.
+
+**A written hour through the built `lamp-expression replay --long`**
+(debug build; the voice resting, joints and the room every 100 ms, the
+eyes reporting nobody every 600 ms; inputs written, not recorded):
+
+| The hour | Inputs | Planned | Largest change in one tick | Farthest |
+|---|---|---|---|---|
+| From 10:00 | 114,065, none refused | Breathing in all but the first of 180,011 ticks; 53 drifts (8,003 ticks) | Pitch 0.0022 rad, the layer coming in; roll 0.00036 | Pitch 0.065, roll 0.0195 |
+| From 22:45 | 114,065, none refused | Breathing for 15 minutes and 14 drifts; falling asleep at 23:00 (200 ticks), the breath fading over the same 4 s and no drift beginning; asleep for the remaining 45 minutes | Pitch 0.0022 rad, the layer coming in; falling asleep less | Pitch 0.054, roll 0.0195 |
+
+An hour took about 100 s to replay in the debug build.
+
+None of this says how it looks, whether the head moves at all for such
+small asks, or how it sounds.
+
+## What to run on the lamp
+
+Smallest first. Nothing below moves the lamp until step 3.
+
+1. **A quiet hour, recorded and replayed** (nothing moves). On lamp-4ace,
+   with nobody talking to it:
+
+   ```sh
+   lamp-bus record /tmp/quiet-hour voice/progress voice/activity voice/sound \
+     body/joint_states humans/faces/tracked room/state light/command \
+     attention/concentration name/heard ears/sudden controls/gesture schedule/due \
+     --seconds 3600 --max-mb 128
+   ```
+
+   (An hour of `body/joint_states` at 12.5 a second is about 45,000
+   messages; `--max-mb 128` keeps any one topic's file from stopping at the
+   default 64 MiB.)
+
+   then, on a laptop or the lamp:
+
+   ```sh
+   lamp-expression import --clock-id "$(cat /proc/sys/kernel/random/boot_id)" \
+     --long --utc-offset-minutes 420 /tmp/quiet-hour/*.jsonl > hour.jsonl
+   lamp-expression replay --long --enable --clock-id "$(cat /proc/sys/kernel/random/boot_id)" \
+     --catalogue alive-behaviours.json --input hour.jsonl > /dev/null
+   ```
+
+   The summary (on standard error) says in how many ticks each behaviour
+   was planned and how often it began, the largest change in one tick and
+   the farthest the body was asked. Expected: no input refused, breathing
+   in nearly every tick of the hour, about a drift a minute, the largest
+   step under 0.003 rad. Run at night with nobody seen for 15 minutes, it
+   should fall asleep. (The import needs the boot of the recording: run it
+   before the lamp restarts, or give that boot's id.)
+2. **Install the catalogue** (copied to
+   `/opt/lampOS/expression/catalogues/alive-lamp-4ace.json`) and add to
+   the `lamp-expression serve` command lamp-4ace runs (the unit made from
+   `deploy/units/lamp-expression.service`, with `--enable`):
+   `--catalogue /opt/lampOS/expression/catalogues/alive-lamp-4ace.json --utc-offset-minutes 420`.
+   The body keeps `LAMP_EXPRESSION_BODY=on` and `--rest-glance on` (without
+   it a resting lamp takes nothing from Expression). For one idle author,
+   the body's `--idle on` should go off.
+3. **Watch it at rest**, standing and folded, ten minutes each: does the
+   head lift and settle with the ring, or not move, or move in steps? Does
+   a drift read as a creature shifting, or as a servo hunting? Is the servo
+   heard? Then once at night (or with `sleep.night` set to include now and
+   `nobody_us` at one minute): it bows and breathes slowly; say "Lamp" and
+   it stretches.
+
+## Where it is most likely to be wrong on the lamp
+
+1. **Too small to show, or shown in steps.** The breath asks about 20
+   counts of the head at 12 counts a second at most. On lamp-52e6 a
+   25-count ask of the head reached 12 to 14 ([body.md](body.md), "How the
+   head follows"), and a servo with a proportional gain stops short of a
+   small goal and pushes there. If nothing moves, `breath.inhale` can go to
+   -0.045 (the rest clip's size); if it moves in steps that read as a servo
+   hunting, the breath goes to 0 and the ring breathes alone.
+2. **The servo heard.** A head always moving a little at rest is heard in a
+   quiet room, and the name listener and the voice listen at rest. Ten
+   minutes of the microphone at rest, with and without the layer, through
+   `lamp-name check`, would say whether it matters.
+3. **Sleep broken by a voice.** Expression holds its own plan, but the
+   body's listening pose answers any speech the voice takes as a turn: a
+   lamp asleep still looks up when two people talk near it, until the
+   voice's busy-room rule gives up. A sleep that holds needs the voice or
+   the body to know it is asleep; the inner state (#713) is where that
+   belongs.
+4. **A bow nobody sees.** 15 counts, all lamp-4ace's down reach allows.
+5. **Working light guessed.** A face of 0.04 of the picture and 5 s still
+   are guesses; the eyes see little of a head bent over a desk.
+6. **The time of day.** From the board's clock and the battery-backed one,
+   at UTC+7; a clock not yet set at boot would make a wrong night.
+
+## Not shown
+
+- Anything on a lamp: how any of it looks or sounds, the servo's own
+  response to small slow asks, and the ring and the head together.
+- A real quiet hour of lamp-4ace: the hours above are written.
+- The inner state (#713): energy is a constant here, and the lamp's
+  "asleep" is Expression's alone; nothing else on the lamp knows it.
+- The full-body stretch: the body's `stretching` clip moves the arm, which
+  Expression cannot; waking with it would be the voice's or the body's.
+- The ring's look while asleep (the eye, #712, has none yet). Its breath
+  should take this catalogue's sleep period when it does.
+
+## Found on the way, not mine
+
+The body's glance from rest (task 32, `--rest-glance on`) is laid "from
+where it rested", with a head lifting from rest led 40 counts ahead. Both
+need the body to have counted 50 steps at rest, and every request from
+Expression resets that count. Expression asks every 20 ms, zero offsets
+at rest included, so on a lamp neither ever engages: a glance is followed
+as in any other mood. Against simulated servos, with zero requests before
+and after the glance as on the lamp, the glance lifted the goal 50 counts,
+against 80 to 90 in the body's own test that asks only during the glance;
+lamp-4ace lifted 49 at 18:40, the same. lamp-52e6's head needs the lead to
+start from below. Said on #714 for the fifth builder.

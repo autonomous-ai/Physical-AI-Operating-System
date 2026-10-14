@@ -2,9 +2,10 @@
 use crate::{Catalogue, Engine, Input, Output};
 use lamp_bus::{Bus, Message, Publisher, Subscriber};
 use lamp_msgs::{
-    ClockStamp, Concentration, Diagnostic, ExpressionBody, ExpressionLight, ExpressionState, Faces,
-    JointState, Level, Light, NameHeard, PersonActivity, RoomState, Speech, SuddenSound,
-    VoicePlayout, VoiceProgress, VoiceSound, VoiceState, VoiceTiming,
+    ClockStamp, Concentration, ControlGesture, Diagnostic, ExpressionBody, ExpressionLight,
+    ExpressionState, Faces, JointState, Level, Light, NameHeard, PersonActivity, RoomState,
+    ScheduleDue, Speech, SuddenSound, VoicePlayout, VoiceProgress, VoiceSound, VoiceState,
+    VoiceTiming,
 };
 use std::{
     fs::{self, File, OpenOptions},
@@ -21,7 +22,7 @@ use std::{
 };
 
 /// Every input has a separate bounded drain so noisy text cannot starve a stop.
-pub const INPUTS: [(&str, &str); 15] = [
+pub const INPUTS: [(&str, &str); 17] = [
     (VoiceTiming::TOPIC, VoiceTiming::TYPE),
     (VoiceProgress::TOPIC, VoiceProgress::TYPE),
     (PersonActivity::TOPIC, PersonActivity::TYPE),
@@ -37,7 +38,11 @@ pub const INPUTS: [(&str, &str); 15] = [
     (Speech::TOPICS[1], Speech::TYPE),
     (NameHeard::TOPIC, NameHeard::TYPE),
     (SuddenSound::TOPIC, SuddenSound::TYPE),
+    (ControlGesture::TOPIC, ControlGesture::TYPE),
+    (ScheduleDue::TOPIC, ScheduleDue::TYPE),
 ];
+/// How often the live service tells the planner the local time of day.
+pub const DAYTIME_EVERY_US: u64 = 60_000_000;
 const DRAIN_LIMIT: usize = 32;
 
 fn invalid(why: impl Into<String>) -> io::Error {
@@ -70,6 +75,13 @@ pub fn clock_id(given: Option<&str>) -> io::Result<String> {
         ));
     }
     Ok(id)
+}
+
+/// The local minute of the day at `unix_ms`, `utc_offset_minutes` east of
+/// UTC (420 for the lamps in Vietnam, which keep no summer time).
+pub fn minute_of_day(unix_ms: u64, utc_offset_minutes: i32) -> u16 {
+    let minutes = (unix_ms / 60_000) as i64 + i64::from(utc_offset_minutes);
+    minutes.rem_euclid(1_440) as u16
 }
 
 pub fn unix_ms() -> u64 {
@@ -168,6 +180,14 @@ pub fn input_from_message(
             value: message.parse()?,
         },
         SuddenSound::TOPIC => Input::Sudden {
+            stamp,
+            value: message.parse()?,
+        },
+        ControlGesture::TOPIC => Input::Touch {
+            stamp,
+            value: message.parse()?,
+        },
+        ScheduleDue::TOPIC => Input::Due {
             stamp,
             value: message.parse()?,
         },
@@ -279,6 +299,8 @@ pub struct Service {
     sequence: u64,
     last_report: Option<u64>,
     last_state: Option<u64>,
+    utc_offset_minutes: Option<i32>,
+    last_daytime: Option<u64>,
     pub counts: Counts,
     _lock: File,
 }
@@ -330,15 +352,48 @@ impl Service {
             sequence: 0,
             last_report: None,
             last_state: None,
+            utc_offset_minutes: None,
+            last_daytime: None,
             counts: Counts::default(),
             _lock: lock,
         })
+    }
+
+    /// Tell the planner the local time of day, from the wall clock this many
+    /// minutes east of UTC, at once and every minute: sleep comes only at
+    /// night (docs/alive.md).
+    pub fn with_local_time(mut self, utc_offset_minutes: i32) -> Self {
+        self.utc_offset_minutes = Some(utc_offset_minutes);
+        self
     }
 
     /// The clock is injected here too: tests can use real sockets without
     /// sleeping through any behavior. Each valid topic has a bounded budget.
     pub fn step(&mut self, now: impl Fn() -> u64, wall_ms: u64) -> Output {
         let began = now();
+        if let Some(offset) = self.utc_offset_minutes
+            && self
+                .last_daytime
+                .is_none_or(|last| began.saturating_sub(last) >= DAYTIME_EVERY_US)
+        {
+            self.sequence = self.sequence.saturating_add(1);
+            let daytime = Input::DayTime {
+                stamp: ClockStamp {
+                    clock_id: self.clock.clone(),
+                    at_us: began,
+                    sequence: self.sequence,
+                },
+                minute: minute_of_day(wall_ms, offset),
+            };
+            match self.engine.ingest(began, daytime) {
+                Ok(()) => self.counts.accepted += 1,
+                Err(why) => {
+                    self.counts.refused += 1;
+                    eprintln!("lamp-expression: refused the time of day: {why}");
+                }
+            }
+            self.last_daytime = Some(began);
+        }
         for input in &mut self.inputs {
             for _ in 0..DRAIN_LIMIT {
                 let message = match input.recv(Duration::ZERO) {

@@ -1,17 +1,18 @@
+use crate::alive::{self, Life};
 use crate::catalogue::{add, blend, clamp, ease};
 use crate::{Catalogue, Error, LEASE_US, Trigger};
 use lamp_msgs::{
-    BodyOffsets, ClockStamp, Concentration, ExpressionBody, ExpressionFace, ExpressionGaze,
-    ExpressionLease, ExpressionLight, ExpressionState, Faces, JointState, Light, NameHeard,
-    PersonActivity, Room, RoomState, Speech, SuddenSound, Voice, VoiceEvent, VoicePlayout,
-    VoiceProgress, VoiceSound, VoiceState, VoiceTiming,
+    BodyOffsets, ClockStamp, Concentration, ControlGesture, ExpressionBody, ExpressionFace,
+    ExpressionGaze, ExpressionLease, ExpressionLight, ExpressionState, Faces, JointState, Light,
+    NameHeard, PersonActivity, Room, RoomState, ScheduleDue, Speech, SuddenSound, Voice,
+    VoiceEvent, VoicePlayout, VoiceProgress, VoiceSound, VoiceState, VoiceTiming,
 };
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeSet, VecDeque};
 
 pub const MAX_PLAYOUT_FRAMES: usize = 128;
 pub const MAX_VOICE_SESSIONS: usize = 32;
-const STREAMS: usize = 15;
+const STREAMS: usize = 18;
 const CONTEXT_BYTES: usize = 16 * 1024;
 
 /// Arrival time is supplied separately to ingest. Stamps retain the source
@@ -62,7 +63,27 @@ pub enum Input {
         stamp: ClockStamp,
         value: SuddenSound,
     },
+    /// A hand on the lamp (`controls/gesture`): a tap or a stroke wakes it.
+    Touch {
+        stamp: ClockStamp,
+        value: ControlGesture,
+    },
+    /// The schedule's oldest due notice (`schedule/due`): a reminder wakes it.
+    Due {
+        stamp: ClockStamp,
+        value: ScheduleDue,
+    },
+    /// The local time of day, in minutes since local midnight, at `stamp`.
+    /// Not a bus topic: the live service makes it from the wall clock and
+    /// its `--utc-offset-minutes`, and an import from the recording's.
+    DayTime {
+        stamp: ClockStamp,
+        minute: u16,
+    },
 }
+
+/// The name `Input::DayTime` goes by where a topic is asked for.
+pub const DAYTIME_TOPIC: &str = "expression/daytime";
 
 impl Input {
     pub fn stamp(&self) -> &ClockStamp {
@@ -81,7 +102,10 @@ impl Input {
             | Self::Heard { stamp, .. }
             | Self::Said { stamp, .. }
             | Self::Name { stamp, .. }
-            | Self::Sudden { stamp, .. } => stamp,
+            | Self::Sudden { stamp, .. }
+            | Self::Touch { stamp, .. }
+            | Self::Due { stamp, .. }
+            | Self::DayTime { stamp, .. } => stamp,
         }
     }
 
@@ -102,6 +126,9 @@ impl Input {
             Self::Said { .. } => Speech::TOPICS[1],
             Self::Name { .. } => NameHeard::TOPIC,
             Self::Sudden { .. } => SuddenSound::TOPIC,
+            Self::Touch { .. } => ControlGesture::TOPIC,
+            Self::Due { .. } => ScheduleDue::TOPIC,
+            Self::DayTime { .. } => DAYTIME_TOPIC,
         }
     }
 
@@ -122,6 +149,9 @@ impl Input {
             Self::Progress(_) => 12,
             Self::Sound(_) => 13,
             Self::Sudden { .. } => 14,
+            Self::Touch { .. } => 15,
+            Self::Due { .. } => 16,
+            Self::DayTime { .. } => 17,
         }
     }
 
@@ -179,6 +209,13 @@ impl Input {
             Self::Light { value, .. } => value.check()?,
             Self::Name { value, .. } => value.check()?,
             Self::Sudden { value, .. } => value.check()?,
+            Self::Touch { value, .. } => value.check()?,
+            Self::Due { value, .. } => value.check()?,
+            Self::DayTime { minute, .. } => {
+                if *minute >= 1_440 {
+                    return Err(Error("a minute of the day is 0..1439".into()));
+                }
+            }
             Self::Heard { value, .. } | Self::Said { value, .. } => {
                 if value.text.len() > CONTEXT_BYTES
                     || value.locale.as_ref().is_some_and(|v| v.len() > 64)
@@ -272,6 +309,8 @@ pub struct Engine {
     rest_since: Option<u64>,
     legacy_voice: Option<VoiceState>,
     rejected: u64,
+    /// The idle layer, sleep and waking, when the catalogue has them.
+    life: Option<Life>,
 }
 
 impl Engine {
@@ -289,6 +328,7 @@ impl Engine {
         }
         .check()?;
         let clips = vec![ClipState::default(); catalogue.behaviours.len()];
+        let life = catalogue.alive.clone().map(Life::new);
         Ok(Self {
             catalogue,
             enabled,
@@ -325,6 +365,7 @@ impl Engine {
             rest_since: None,
             legacy_voice: None,
             rejected: 0,
+            life,
         })
     }
 
@@ -638,12 +679,38 @@ impl Engine {
             }
             Input::VoiceState { value, .. } => self.legacy_voice = Some(value),
             Input::Joints { stamp, .. } => self.joints_at = Some(stamp.at_us),
-            Input::Faces { stamp, value } => self.faces = Some((stamp, value)),
+            Input::Faces { stamp, value } => {
+                if let Some(life) = &mut self.life {
+                    life.faces(stamp.at_us, &value, self.catalogue.gaze.minimum_confidence);
+                }
+                self.faces = Some((stamp, value));
+            }
             Input::Room { stamp, value } => self.room = Some((stamp.at_us, value.state)),
             Input::Light { value, .. } => self.light = Some(value),
             // These are context only. No word is invented as a pause, readiness,
             // a timing cue or proof that anything has reached the loudspeaker.
-            Input::Heard { .. } | Input::Said { .. } | Input::Name { .. } => {}
+            // The name wakes a sleeping lamp, and that is all it does here.
+            Input::Heard { .. } | Input::Said { .. } => {}
+            Input::Name { .. } => {
+                if let Some(life) = &mut self.life {
+                    life.name();
+                }
+            }
+            Input::Touch { value, .. } => {
+                if let Some(life) = &mut self.life {
+                    life.touch(&value);
+                }
+            }
+            Input::Due { value, .. } => {
+                if let Some(life) = &mut self.life {
+                    life.due(&value);
+                }
+            }
+            Input::DayTime { stamp, minute } => {
+                if let Some(life) = &mut self.life {
+                    life.daytime(stamp.at_us, minute);
+                }
+            }
             // Only a short one (a knock, a clap, something dropped) is a
             // reason to glance; a sound that goes on is a voice or a chair.
             Input::Sudden { stamp, value } => {
@@ -1085,6 +1152,18 @@ impl Engine {
             && activity_fresh
             && self.activity.as_ref().is_some_and(|a| !a.speaking);
         let (face, mut brightness) = self.face(mode, voice.accepting_input);
+        // The idle layer, sleep and waking, when the catalogue has them.
+        // Asleep, no clip may begin and the voice's posture gives way.
+        let planned = self.life.as_mut().map(|life| {
+            life.step(
+                now_us,
+                &alive::Context {
+                    voice: Some(voice.state),
+                    free: !held && !concentrating && joints_fresh,
+                },
+            )
+        });
+        let asleep = planned.as_ref().is_some_and(|planned| planned.asleep);
         let mut offsets = self.catalogue.postures.for_voice(body_mode);
         let return_scale = self.first_audio.map_or(1.0, |first| {
             let t = self.catalogue.timing;
@@ -1108,6 +1187,7 @@ impl Engine {
                 && self.clips[index].started.is_some()
                 && clip.continue_in.contains(&clip_mode);
             if clip.weight == 0.0
+                || asleep
                 || (!clip.states.contains(&clip_mode) && !continuing)
                 || (clip.quiet_only && room != Room::Quiet)
                 || (clip.stop_when_concentrating && concentrating)
@@ -1248,6 +1328,16 @@ impl Engine {
             if weight > 0.0 {
                 state.behaviours.push(clip.name.clone());
             }
+        }
+        if let Some(planned) = planned {
+            offsets = add(
+                add(BodyOffsets::ZERO, offsets, planned.keep),
+                planned.offsets,
+                1.0,
+            );
+            state
+                .behaviours
+                .extend(planned.names.iter().map(|name| (*name).to_owned()));
         }
         if let Some(interruption) = &self.interruption {
             let elapsed = now_us.saturating_sub(interruption.at_us);

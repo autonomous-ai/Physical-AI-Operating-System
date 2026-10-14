@@ -4,7 +4,7 @@
 use crate::{Engine, Input, LEASE_US, Output, TICK_US};
 use base64::{Engine as _, engine::general_purpose::STANDARD};
 use lamp_bus::{Declaration, Header, Kind};
-use lamp_msgs::ClockStamp;
+use lamp_msgs::{BodyOffsets, ClockStamp};
 use serde::{Deserialize, Serialize};
 use std::{
     collections::{BTreeMap, BTreeSet},
@@ -21,6 +21,32 @@ pub const MAX_RECORDS: usize = 50_000;
 pub const MAX_FILES: usize = 32;
 /// Ten minutes of simulated time, including the requested tail.
 pub const MAX_DURATION_US: u64 = 600_000_000;
+
+/// How much a replay or an import may read: by default the bounds above;
+/// with `--long`, an hour of a lamp at rest (docs/alive.md), which carries
+/// some 45,000 voice heartbeats, as many joint readings and 6,000 looks.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Bounds {
+    pub bytes: usize,
+    pub lines: usize,
+    pub records: usize,
+    pub duration_us: u64,
+}
+
+pub const DEFAULT_BOUNDS: Bounds = Bounds {
+    bytes: MAX_BYTES,
+    lines: MAX_LINES,
+    records: MAX_RECORDS,
+    duration_us: MAX_DURATION_US,
+};
+
+/// An hour and five minutes: room for an hour recorded and its margins.
+pub const LONG_BOUNDS: Bounds = Bounds {
+    bytes: 384 * 1024 * 1024,
+    lines: 1_000_000,
+    records: 600_000,
+    duration_us: 3_900_000_000,
+};
 
 /// One explicitly authored or imported arrival. Payload stamps are independent:
 /// a late event keeps its old stamp when injected later at `at_us`.
@@ -71,6 +97,47 @@ pub struct Summary {
     pub first_tick_us: Option<u64>,
     pub last_tick_us: Option<u64>,
     pub warnings: Vec<Warning>,
+    /// For each behaviour planned: in how many ticks, and how many times it
+    /// began (a tick with it after a tick without).
+    pub behaviours: BTreeMap<String, Planned>,
+    /// The largest change from one tick to the next in what the body was
+    /// asked, each axis on its own, in radians: where a twitch would show.
+    pub largest_step: Option<BodyOffsets>,
+    /// The farthest the body was asked to go, each axis on its own.
+    pub farthest: Option<BodyOffsets>,
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize)]
+pub struct Planned {
+    pub ticks: usize,
+    pub starts: usize,
+}
+
+impl Summary {
+    fn note(&mut self, output: &Output, previous: &mut Option<(Vec<String>, Option<BodyOffsets>)>) {
+        let (before, last) = previous.take().unwrap_or_default();
+        for name in &output.state.behaviours {
+            let entry = self.behaviours.entry(name.clone()).or_default();
+            entry.ticks += 1;
+            if !before.contains(name) {
+                entry.starts += 1;
+            }
+        }
+        let asked = output.body.as_ref().map(|body| body.offsets);
+        if let Some(now) = asked {
+            let largest = |a: Option<BodyOffsets>, b: [f64; 5]| {
+                let a = a.map_or([0.0; 5], BodyOffsets::values);
+                BodyOffsets::from_values(std::array::from_fn(|axis| a[axis].max(b[axis])))
+            };
+            self.farthest = Some(largest(self.farthest, now.values().map(f64::abs)));
+            if let Some(last) = last {
+                let step: [f64; 5] =
+                    std::array::from_fn(|axis| (now.values()[axis] - last.values()[axis]).abs());
+                self.largest_step = Some(largest(self.largest_step, step));
+            }
+        }
+        *previous = Some((output.state.behaviours.clone(), asked));
+    }
 }
 
 #[derive(Debug)]
@@ -96,18 +163,30 @@ impl From<serde_json::Error> for Error {
     }
 }
 
-#[derive(Default)]
 struct Budget {
+    bounds: Bounds,
     bytes: usize,
     lines: usize,
     records: usize,
 }
 
 impl Budget {
+    fn new(bounds: Bounds) -> Self {
+        Self {
+            bounds,
+            bytes: 0,
+            lines: 0,
+            records: 0,
+        }
+    }
+
     fn record(&mut self) -> Result<(), Error> {
         self.records += 1;
-        if self.records > MAX_RECORDS {
-            return Err(Error(format!("more than {MAX_RECORDS} input records")));
+        if self.records > self.bounds.records {
+            return Err(Error(format!(
+                "more than {} input records",
+                self.bounds.records
+            )));
         }
         Ok(())
     }
@@ -139,9 +218,10 @@ fn read_lines(
         if read > MAX_LINE_BYTES {
             return Err(wrong(format!("line exceeds {MAX_LINE_BYTES} bytes")));
         }
-        if budget.lines > MAX_LINES || budget.bytes > MAX_BYTES {
+        if budget.lines > budget.bounds.lines || budget.bytes > budget.bounds.bytes {
             return Err(wrong(format!(
-                "recording exceeds {MAX_LINES} lines or {MAX_BYTES} bytes"
+                "recording exceeds {} lines or {} bytes",
+                budget.bounds.lines, budget.bounds.bytes
             )));
         }
         if line.iter().all(u8::is_ascii_whitespace) {
@@ -173,12 +253,23 @@ fn ceil_tick(at_us: u64) -> Result<u64, Error> {
 /// unless an end is supplied, in which case ticks begin at zero.
 pub fn run(
     reader: impl BufRead,
-    mut writer: impl Write,
+    writer: impl Write,
     engine: &mut Engine,
     until_us: Option<u64>,
 ) -> Result<Summary, Error> {
+    run_bounded(reader, writer, engine, until_us, DEFAULT_BOUNDS)
+}
+
+/// [`run`] within other bounds: [`LONG_BOUNDS`] for an hour.
+pub fn run_bounded(
+    reader: impl BufRead,
+    mut writer: impl Write,
+    engine: &mut Engine,
+    until_us: Option<u64>,
+    bounds: Bounds,
+) -> Result<Summary, Error> {
     let mut records = Vec::new();
-    let mut budget = Budget::default();
+    let mut budget = Budget::new(bounds);
     read_lines(reader, "scenario", &mut budget, |line, bytes, budget| {
         budget.record()?;
         let record: Record = serde_json::from_slice(bytes)?;
@@ -227,13 +318,15 @@ pub fn run(
                 .ok_or_else(|| Error("last timestamp plus lease overflows".into()))?,
         )?,
     };
-    if end.saturating_sub(start) > MAX_DURATION_US {
+    if end.saturating_sub(start) > bounds.duration_us {
         return Err(Error(format!(
-            "replay horizon exceeds {MAX_DURATION_US} microseconds"
+            "replay horizon exceeds {} microseconds",
+            bounds.duration_us
         )));
     }
     let mut pending = records.into_iter().peekable();
     let mut at_us = start;
+    let mut previous = None;
     loop {
         while pending
             .peek()
@@ -258,6 +351,7 @@ pub fn run(
             at_us,
             output: engine.tick(at_us),
         };
+        summary.note(&tick.output, &mut previous);
         serde_json::to_writer(&mut writer, &tick)?;
         writer.write_all(b"\n")?;
         summary.first_tick_us.get_or_insert(at_us);
@@ -322,8 +416,9 @@ struct Captured {
 
 fn topic(topic: &str) -> Option<(&'static str, &'static str, Kind, bool)> {
     use lamp_msgs::{
-        Concentration, Faces, JointState, Light, NameHeard, PersonActivity, RoomState, Speech,
-        SuddenSound, VoicePlayout, VoiceProgress, VoiceSound, VoiceState, VoiceTiming,
+        Concentration, ControlGesture, Faces, JointState, Light, NameHeard, PersonActivity,
+        RoomState, ScheduleDue, Speech, SuddenSound, VoicePlayout, VoiceProgress, VoiceSound,
+        VoiceState, VoiceTiming,
     };
     Some(match topic {
         VoiceTiming::TOPIC => ("voice", VoiceTiming::TYPE, Kind::Latest, true),
@@ -341,6 +436,8 @@ fn topic(topic: &str) -> Option<(&'static str, &'static str, Kind, bool)> {
         "voice/said" => ("said", Speech::TYPE, Kind::Event, false),
         NameHeard::TOPIC => ("name", NameHeard::TYPE, Kind::Event, false),
         SuddenSound::TOPIC => ("sudden", SuddenSound::TYPE, Kind::Event, false),
+        ControlGesture::TOPIC => ("touch", ControlGesture::TYPE, Kind::Event, false),
+        ScheduleDue::TOPIC => ("due", ScheduleDue::TYPE, Kind::Latest, false),
         _ => return None,
     })
 }
@@ -355,13 +452,13 @@ fn captured_warning(captured: &Captured, kind: WarningKind, detail: String) -> W
     }
 }
 
-fn capture(paths: &[PathBuf]) -> Result<(Vec<Captured>, Vec<Warning>), Error> {
+fn capture(paths: &[PathBuf], bounds: Bounds) -> Result<(Vec<Captured>, Vec<Warning>), Error> {
     if paths.is_empty() || paths.len() > MAX_FILES {
         return Err(Error(format!(
             "supply from 1 to {MAX_FILES} bus recordings"
         )));
     }
-    let mut budget = Budget::default();
+    let mut budget = Budget::new(bounds);
     let mut captured = Vec::new();
     let mut warnings = Vec::new();
     let mut declarations: BTreeMap<String, Declaration> = BTreeMap::new();
@@ -532,7 +629,16 @@ fn typed_input(row: &Captured) -> Result<Input, Error> {
 /// deterministic file/line order supplies that anchor. Private header `at_us`
 /// values are never used. Unknown input clocks are fatal.
 pub fn import_bus(paths: &[PathBuf], clock_id: &str) -> Result<Imported, Error> {
-    let (captured, warnings) = capture(paths)?;
+    import_bus_bounded(paths, clock_id, DEFAULT_BOUNDS)
+}
+
+/// [`import_bus`] within other bounds: [`LONG_BOUNDS`] for an hour.
+pub fn import_bus_bounded(
+    paths: &[PathBuf],
+    clock_id: &str,
+    bounds: Bounds,
+) -> Result<Imported, Error> {
+    let (captured, warnings) = capture(paths, bounds)?;
     let anchor_row = captured
         .iter()
         .find(|row| row.typed)
@@ -549,20 +655,56 @@ pub fn import_bus(paths: &[PathBuf], clock_id: &str) -> Result<Imported, Error> 
         at_us: input.stamp().at_us,
         at_unix_ms: anchor_row.header.at_unix_ms,
     };
-    convert(captured, warnings, anchor)
+    convert(captured, warnings, anchor, bounds)
 }
 
 /// Explicit mapping for older recordings that contain no shared-clock payload.
 /// Supplying this anchor asserts a replay origin, not a measured clock sync.
 pub fn import_bus_with_anchor(paths: &[PathBuf], anchor: &ClockAnchor) -> Result<Imported, Error> {
-    let (captured, warnings) = capture(paths)?;
-    convert(captured, warnings, anchor.clone())
+    let (captured, warnings) = capture(paths, DEFAULT_BOUNDS)?;
+    convert(captured, warnings, anchor.clone(), DEFAULT_BOUNDS)
+}
+
+/// Add the local time of day to an import, as the live service tells it,
+/// at its first record and every minute after: the recording's wall clock
+/// through its anchor, `utc_offset_minutes` east of UTC. A recording has no
+/// time of day of its own; without this a replay never sees night.
+pub fn add_daytime(imported: &mut Imported, utc_offset_minutes: i32) -> Result<(), Error> {
+    let (Some(first), Some(last)) = (imported.records.first(), imported.records.last()) else {
+        return Ok(());
+    };
+    let (first, last) = (first.at_us, last.at_us);
+    let anchor = &imported.anchor;
+    let mut at_us = first;
+    let mut sequence = 0;
+    while at_us <= last {
+        let wall =
+            i128::from(anchor.at_unix_ms) + (i128::from(at_us) - i128::from(anchor.at_us)) / 1_000;
+        let wall =
+            u64::try_from(wall).map_err(|_| Error("the time of day falls before 1970".into()))?;
+        sequence += 1;
+        imported.records.push(Record {
+            at_us,
+            input: Input::DayTime {
+                stamp: ClockStamp {
+                    clock_id: anchor.clock_id.clone(),
+                    at_us,
+                    sequence,
+                },
+                minute: crate::runtime::minute_of_day(wall, utc_offset_minutes),
+            },
+        });
+        at_us = at_us.saturating_add(crate::runtime::DAYTIME_EVERY_US);
+    }
+    imported.records.sort_by_key(|record| record.at_us);
+    Ok(())
 }
 
 fn convert(
     captured: Vec<Captured>,
     mut warnings: Vec<Warning>,
     anchor: ClockAnchor,
+    bounds: Bounds,
 ) -> Result<Imported, Error> {
     ClockStamp {
         clock_id: anchor.clock_id.clone(),
@@ -632,16 +774,19 @@ fn convert(
         | Input::Light { stamp, .. }
         | Input::Heard { stamp, .. }
         | Input::Said { stamp, .. }
-        | Input::Name { stamp, .. } = &mut record.input
+        | Input::Name { stamp, .. }
+        | Input::Touch { stamp, .. }
+        | Input::Due { stamp, .. } = &mut record.input
         {
             stamp.sequence = index as u64 + 1;
         }
     }
     if let (Some(first), Some(last)) = (records.first(), records.last())
-        && last.at_us - first.at_us > MAX_DURATION_US
+        && last.at_us - first.at_us > bounds.duration_us
     {
         return Err(Error(format!(
-            "imported time horizon exceeds {MAX_DURATION_US} microseconds"
+            "imported time horizon exceeds {} microseconds",
+            bounds.duration_us
         )));
     }
     Ok(Imported {

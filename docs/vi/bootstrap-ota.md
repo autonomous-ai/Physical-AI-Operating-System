@@ -1296,6 +1296,7 @@ service thực tế được phát hành:
     "url": "https://updates.example/lamp-os/0.1.0.zip",
     "sha256": "<artifact SHA-256>",
     "min_version_by_device": {"lamp": "0.1.0"},
+    "activate_by_device": {"lamp": true},
     "service": "lamp-os",
     "replaces": ["hal", "os-server"]
   }
@@ -1308,18 +1309,34 @@ không phải service hệ thống tùy ý. Bản này chưa hỗ trợ thay cá
 sở hữu và metadata đã ký được kiểm tra trước khi chuyển service. Các trường này
 không được chứa lệnh shell hay hook thực thi tùy ý.
 
-Publish hoặc promote một mục không tự chuyển máy V1. Lần cài đầu cần thao tác
-kích hoạt rõ ràng:
+Máy tự chuyển lần đầu khi mục service trong metadata đã ký đặt
+`activate_by_device[device_type]` thành `true` và có ngưỡng
+`min_version_by_device[device_type]` hợp lệ, không rỗng, không lớn hơn version
+đang phát hành. Người vận hành release bật bằng promote; người dùng device
+không cần SSH hay chạy CLI:
 
 ```bash
-sudo software-update lamp-os --activate
+make promote-service COMPONENT=lamp-os FOR=lamp V=0.1.0 ACTIVATE=1
 ```
 
-Những lần sau dùng `software-update lamp-os` hoặc bootstrap cập nhật theo version
-như hiện tại, bao gồm `min_version_by_device`. Cập nhật thường không được âm thầm
-đổi tên service hoặc danh sách thay thế đã cài. Muốn đổi tổ chức service, phát
-hành component mới với predecessor trong `replaces` rồi kích hoạt rõ ràng. Các
-component khai báo service độc lập có thể cùng tồn tại.
+Bootstrap tìm các service được promote rồi gọi
+`software-update lamp-os --activate-promoted`. Updater kiểm tra lại metadata
+đã ký vừa tải và loại device thực tế trước khi dùng giao dịch chuyển service
+hiện có. Metadata không ký, thiếu chỉ định loại máy, ngưỡng không hợp lệ,
+xung đột quyền sở hữu hoặc updater cũ không cho phép cài lần đầu. Phải đưa
+bootstrap và updater tương thích xuống device trước khi bật chỉ định trên feed.
+
+Chỉ publish không tự kích hoạt. Promote không truyền `ACTIVATE` giữ nguyên
+chỉ định kích hoạt đã có. `ACTIVATE=0 FOR=lamp` ngừng các lần cài đầu tiếp theo
+cho Lamp; không gỡ hay rollback service đã hoạt động. Phạm vi là loại device,
+không phải ID từng máy hoặc tỷ lệ rollout.
+
+Các version tiếp theo dùng bootstrap cập nhật theo ngưỡng như hiện tại, bao gồm
+`min_version_by_device`. Không được âm thầm đổi tổ chức service đã cài: phát
+hành component mới với predecessor trong `replaces`, rồi promote kích hoạt nó.
+Các component độc lập có thể cùng tồn tại. Lệnh thủ công
+`sudo software-update lamp-os --activate` vẫn dùng được để kiểm thử, nhưng
+không phải bước bắt buộc khi chuyển toàn bộ thiết bị.
 
 ### Hợp đồng adapter của gói
 
@@ -1355,7 +1372,7 @@ dữ liệu V1 dùng chung rồi coi rollback hoàn tất chỉ vì binary cũ k
 
 Bootstrap vẫn độc lập và nâng cấp được. Khai báo tương thích ngăn thay bootstrap
 hoặc updater bằng bản cũ không hiểu quyền sở hữu service và phục hồi. Kiểm tra
-tương thích không thay thế xác thực artifact. Refresh updater và kích hoạt qua CLI
+tương thích không thay thế xác thực artifact. Refresh updater và kích hoạt service
 dùng chung khóa cài đặt; sau khi tải xong, kiểm tra tương thích lại dưới khóa đó.
 Trước rollout vẫn cần kiểm chứng
 kích hoạt trên device, reboot/mất điện và hành vi voice/hardware thực tế.
@@ -1367,7 +1384,7 @@ Build và kiểm chứng gói riêng, sau đó phát hành bằng thông tin ký
 
 ```bash
 make upload-service COMPONENT=lamp-os V=0.1.0 PACKAGE=/path/lamp-os.zip REPLACES='hal os-server'
-make promote-service COMPONENT=lamp-os FOR=lamp V=0.1.0
+make promote-service COMPONENT=lamp-os FOR=lamp V=0.1.0 ACTIVATE=1
 ```
 
 Publisher bắt buộc metadata đã ký, kiểm tra gói, giữ nguyên ngưỡng promote và các
@@ -1375,5 +1392,9 @@ component khác, đồng thời từ chối đổi tổ chức service dưới k
 hash nội dung. Không được dùng lại version với nội dung khác khi version đó đang
 là bản hiện tại trên feed. Chạy các lần publish tuần tự như các script release
 hiện có; cập nhật metadata chưa phải giao dịch hỗ trợ nhiều người ghi đồng thời.
-Promote cập nhật các máy đã kích hoạt service, không tự kích hoạt service mới
-trên máy V1.
+Promote với `ACTIVATE=1` cho phép tự cài lần đầu trên loại device được chọn;
+các lần cập nhật tiếp theo vẫn tuân theo ngưỡng promote.
+Nếu kích hoạt tự động lỗi sau khi bắt đầu chuyển, recovery khôi phục service cũ
+và ghi nhận version bị từ chối để polling không thử lại liên tục. Nếu không ghi
+được thông tin từ chối, journal recovery vẫn được giữ lại. `ACTIVATE=0` giữ
+nguyên các ngưỡng version hiện có.

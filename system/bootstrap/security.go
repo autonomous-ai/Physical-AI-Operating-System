@@ -88,7 +88,7 @@ func decodeOTAMetadata(data []byte, encodedPublicKey string) (domain.OTAMetadata
 
 func validateOTAMetadata(metadata domain.OTAMetadata) error {
 	for key, component := range metadata {
-		if component.Service != "" || len(component.Replaces) > 0 {
+		if component.Service != "" || len(component.Replaces) > 0 || len(component.ActivateByDevice) > 0 {
 			if err := domain.ValidateOTAServiceComponent(key, component); err != nil {
 				return err
 			}

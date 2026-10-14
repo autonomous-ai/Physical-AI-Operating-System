@@ -9,8 +9,10 @@ type OTAComponent struct {
 	MinVersion string   `json:"min_version,omitempty"`
 	// MinVersionByDevice overrides MinVersion per device_type; types not listed fall back to MinVersion.
 	MinVersionByDevice map[string]string `json:"min_version_by_device,omitempty"`
-	URL                string            `json:"url"`
-	SHA256             string            `json:"sha256,omitempty"`
+	// ActivateByDevice authorizes first installation of a service for an exact device type.
+	ActivateByDevice map[string]bool `json:"activate_by_device,omitempty"`
+	URL              string          `json:"url"`
+	SHA256           string          `json:"sha256,omitempty"`
 	// Commit pins a git-installed component (hermes) to an upstream commit; empty = unpinned (HEAD).
 	Commit string `json:"commit,omitempty"`
 }

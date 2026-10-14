@@ -66,6 +66,10 @@ struct Lamp {
     /// One servo acknowledges the next goal written to it by itself and
     /// keeps the goal it had.
     drops_goal: Option<usize>,
+    /// A hand moves one servo toward a position at 100 counts a second,
+    /// whatever its goal: from, until, servo, position. Its load is a
+    /// strain of the same time.
+    hand: Option<(Duration, Duration, usize, f32)>,
 }
 
 struct Clock {
@@ -125,6 +129,7 @@ fn folded(cancel_at: Duration) -> (Lamp, Clock) {
             overload_clears: 0,
             may_take_hold: false,
             drops_goal: None,
+            hand: None,
         },
         Clock { time, cancel_at },
     )
@@ -175,6 +180,13 @@ impl Lamp {
                 && (f32::from(servo.goal) - servo.position).abs() < 1.0
             {
                 servo.status &= !0x20;
+            }
+            if let Some((from, until, handled, to)) = self.hand
+                && handled == index
+                && (from..until).contains(&now)
+            {
+                servo.position += (to - servo.position).clamp(-100.0 * step, 100.0 * step);
+                continue;
             }
             if servo.torque != 1 || ((index == 1 || index == 2) && !self.arm_moves) {
                 continue;
@@ -2753,4 +2765,267 @@ fn waking_on_a_lamp_found_as_expected_writes_exactly_what_it_did_without() {
         (lamp.goals, lamp.registers)
     };
     assert_eq!(writes(waking()), writes(Limits::FOLDED));
+}
+
+/// The folded limits with room to lift the head 100 counts, and a choice of
+/// how it gives way.
+fn giving_way(give_way: GiveWay) -> Limits {
+    Limits {
+        give_way: Some(give_way),
+        ..Limits::folded_with(Tuning {
+            reach: [100, 15, 30, 40],
+            speed: 50,
+            servo_speed: 150,
+            servo_acceleration: 50,
+        })
+        .unwrap()
+    }
+}
+
+/// Resting for six seconds, then listening.
+fn rest_then_listen(time: &Rc<Cell<Duration>>) -> impl FnMut() -> Option<(Mood, u8)> + use<> {
+    let time = time.clone();
+    move || {
+        Some(if time.get() < Duration::from_secs(6) {
+            (Mood::Resting, 0)
+        } else {
+            (Mood::Listening, 100)
+        })
+    }
+}
+
+/// The time of a step, from its number.
+fn clock_of(glimpse: &Glimpse) -> Duration {
+    TICK * glimpse.step as u32
+}
+
+/// Told to stay, a bump that does not move the head, and a hand that moves
+/// it for under a second, each give way and come back as without it.
+#[test]
+fn told_to_stay_a_short_push_still_gives_way_and_comes_back() {
+    let ms = Duration::from_millis;
+    let (mut lamp, mut clock) = folded(Duration::from_secs(8));
+    lamp.strains = vec![(ms(1_200), ms(1_400), ROLL, 217)];
+    let news = script(&clock.time);
+    let mut seen = Vec::new();
+    let report = run(
+        &mut lamp,
+        &mut clock,
+        Limits {
+            give_way: Some(GiveWay::Stay),
+            ..Limits::FOLDED
+        },
+        None,
+        news,
+        |glimpse| seen.push(*glimpse),
+    );
+    assert_eq!(report.stop, Stop::Cancelled, "{report:?}");
+    assert_eq!((report.eased, report.kept_where_put), ([0, 1, 0], [0; 3]));
+    let gave = seen.iter().position(|g| g.eased[1] == 1).unwrap();
+    let held = seen[gave].goals[1];
+    assert!(
+        seen[gave + usize::from(EASE_STEPS)..]
+            .iter()
+            .any(|g| g.goals[1].abs_diff(held) >= 10),
+        "it came back"
+    );
+
+    // A hand lifts the head 40 counts for half a second, while it listens.
+    let (mut lamp, mut clock) = folded(Duration::from_secs(12));
+    lamp.hand = Some((ms(7_200), ms(7_700), PITCH, 1_920.0));
+    lamp.strains = vec![(ms(7_200), ms(7_700), PITCH, 300)];
+    let news = rest_then_listen(&clock.time);
+    let mut seen = Vec::new();
+    let report = run(
+        &mut lamp,
+        &mut clock,
+        giving_way(GiveWay::Stay),
+        None,
+        news,
+        |glimpse| seen.push(*glimpse),
+    );
+    assert_eq!(report.stop, Stop::Cancelled, "{report:?}");
+    assert_eq!((report.eased, report.kept_where_put), ([1, 0, 0], [0; 3]));
+    // Listening lifts it 40 counts; it is back near there once the hold is
+    // over, and not where the hand had it, 40 counts further.
+    let back = seen
+        .iter()
+        .rev()
+        .find(|g| clock_of(g) < ms(11_900))
+        .unwrap();
+    assert!(back.goals[0].abs_diff(1_960) <= 12, "{back:?}");
+    assert!(back.positions[0].abs_diff(1_960) <= 12, "{back:?}");
+}
+
+/// Told to stay, a hand that moves the head for a second and a half leaves
+/// it there, and the next mood is laid from where it was put.
+#[test]
+fn told_to_stay_a_head_moved_by_hand_stays_and_the_next_mood_is_relative_to_it() {
+    let ms = Duration::from_millis;
+    let (mut lamp, mut clock) = folded(Duration::from_secs(10));
+    // Lifted 30 counts, held there, let go.
+    lamp.hand = Some((ms(1_500), ms(3_000), PITCH, 1_970.0));
+    lamp.strains = vec![(ms(1_500), ms(3_000), PITCH, 300)];
+    let news = rest_then_listen(&clock.time);
+    let mut seen = Vec::new();
+    let report = run(
+        &mut lamp,
+        &mut clock,
+        giving_way(GiveWay::Stay),
+        None,
+        news,
+        |glimpse| seen.push(*glimpse),
+    );
+    assert_eq!(report.stop, Stop::Cancelled, "{report:?}");
+    assert_eq!(report.eased, [1, 0, 0]);
+    assert_eq!(report.kept_where_put, [1, 0, 0]);
+    // Let go, it stays where it was put while it rests.
+    let resting: Vec<_> = seen
+        .iter()
+        .filter(|g| (ms(3_500)..ms(6_000)).contains(&clock_of(g)))
+        .collect();
+    assert!(
+        resting.iter().all(|g| g.goals[0].abs_diff(1_970) <= 1),
+        "{:?}",
+        resting.iter().map(|g| g.goals[0]).collect::<Vec<_>>()
+    );
+    // Listening lifts it 40 counts from there, not from home, and on the way
+    // no goal jumps.
+    let listening = seen
+        .iter()
+        .rev()
+        .find(|g| (ms(8_500)..ms(10_000)).contains(&clock_of(g)))
+        .unwrap();
+    assert!(listening.goals[0].abs_diff(1_930) <= 2, "{listening:?}");
+    let after: Vec<_> = seen.iter().filter(|g| clock_of(g) > ms(3_500)).collect();
+    assert!(
+        after
+            .windows(2)
+            .all(|pair| pair[1].goals[0].abs_diff(pair[0].goals[0]) <= 2),
+        "it jumped"
+    );
+    // Asked to stop, it goes home, not to where it was put.
+    assert_eq!(lamp.servos[PITCH].goal, HOME[0]);
+}
+
+/// A hand that takes the head past its reach leaves it at the edge of it.
+#[test]
+fn told_to_stay_a_head_pushed_past_its_reach_is_kept_at_the_edge() {
+    let ms = Duration::from_millis;
+    let (mut lamp, mut clock) = folded(Duration::from_secs(8));
+    // 150 counts up where the reach is 100.
+    lamp.hand = Some((ms(1_500), ms(3_000), PITCH, 1_850.0));
+    lamp.strains = vec![(ms(1_500), ms(3_000), PITCH, 300)];
+    let news = rest_then_listen(&clock.time);
+    let mut seen = Vec::new();
+    let report = run(
+        &mut lamp,
+        &mut clock,
+        giving_way(GiveWay::Stay),
+        None,
+        news,
+        |glimpse| seen.push(*glimpse),
+    );
+    assert_eq!(report.stop, Stop::Cancelled, "{report:?}");
+    assert_eq!(report.kept_where_put[0], 1, "{report:?}");
+    assert!(
+        lamp.goals
+            .iter()
+            .all(|write| goal_of(write, Joint::WristPitch) >= 1_900)
+    );
+    let rested = seen.iter().find(|g| clock_of(g) >= ms(5_500)).unwrap();
+    assert_eq!(rested.goals[0], 1_900, "{rested:?}");
+    assert!(rested.positions[0].abs_diff(1_900) <= 1, "{rested:?}");
+}
+
+/// A head that pushes at a goal it does not reach, without moving, is told
+/// to stop after a second and a half; without the option it goes on.
+#[test]
+fn a_joint_pushing_without_moving_is_told_to_stop_after_a_second_and_a_half() {
+    let ran = |give_way: Option<GiveWay>| {
+        let (mut lamp, mut clock) = folded(Duration::from_secs(6));
+        // It stops 27 counts short of any goal, pushing at 130: past where
+        // a joint that has arrived is let rest, short of a tracking stop.
+        lamp.short = Some((PITCH, 27.0));
+        lamp.strains = vec![(Duration::ZERO, Duration::from_secs(60), PITCH, 130)];
+        let news = || Some((Mood::Listening, 100));
+        let mut seen = Vec::new();
+        let limits = Limits {
+            give_way,
+            ..giving_way(GiveWay::Return)
+        };
+        let report = run(&mut lamp, &mut clock, limits, None, news, |glimpse| {
+            seen.push(*glimpse)
+        });
+        assert_eq!(report.stop, Stop::Cancelled, "{report:?}");
+        (report, seen)
+    };
+    let (report, seen) = ran(Some(GiveWay::Return));
+    assert_eq!(report.stalls, [1, 0, 0, 0, 0]);
+    // Pushing without moving from the step it came within six counts of
+    // where it stops...
+    let began = seen
+        .iter()
+        .position(|g| g.positions[0] <= 1_987 + STALL_SLACK)
+        .unwrap();
+    // ...to the step its goal became where it is.
+    let stopped = seen
+        .iter()
+        .position(|g| g.goals[0] == g.positions[0] && g.stalls[0] == 1)
+        .unwrap();
+    let steps = stopped - began;
+    assert!((75..=78).contains(&steps), "{steps}");
+    // And it is not pushed at again while it listens.
+    assert!(
+        seen[stopped..]
+            .iter()
+            .filter(|g| clock_of(g) < Duration::from_secs(6))
+            .all(|g| g.goals[0] == 1_987)
+    );
+    // Without the option it pushes for as long as it listens.
+    let (report, seen) = ran(None);
+    assert_eq!(report.stalls, [0; 5]);
+    assert!(
+        seen.iter()
+            .filter(|g| (Duration::from_secs(3)..Duration::from_secs(6)).contains(&clock_of(g)))
+            .all(|g| g.goals[0] == 1_960)
+    );
+}
+
+/// A standing shoulder that rests short of its goal and pushes is told to
+/// stop: its goal becomes where it is, and torque is never written off.
+#[test]
+fn a_standing_shoulder_pushing_short_of_its_goal_is_told_to_stop_and_keeps_its_torque() {
+    let (mut lamp, mut clock) = folded(Duration::from_secs(12));
+    lamp.arm_moves = true;
+    lamp.overload_clears = 1;
+    // As lamp-52e6's did: 30 counts short of where it stands, at 150.
+    lamp.short = Some((1, 30.0));
+    lamp.strains = vec![(Duration::ZERO, Duration::from_secs(60), 1, 150)];
+    let news = || Some((Mood::Listening, 100));
+    let mut seen = Vec::new();
+    let report = run_standing(
+        &mut lamp,
+        &mut clock,
+        giving_way(GiveWay::Stay),
+        Some(HOME),
+        Some(standing(100, 60)),
+        news,
+        |glimpse| seen.push(*glimpse),
+    );
+    assert_eq!(report.stop, Stop::Cancelled, "{report:?}");
+    assert!(report.stood && report.retreats.is_empty(), "{report:?}");
+    assert_eq!(report.stalls, [0, 0, 0, 1, 0]);
+    let held = seen.iter().find(|g| g.stalls[3] == 1).unwrap();
+    assert_eq!(held.arm_goals[0], 2_620, "{held:?}");
+    // Torque was written once, on, to clear the elbow's old flag; never off.
+    assert!(
+        lamp.registers
+            .iter()
+            .filter(|(_, address, _)| *address == 40)
+            .all(|(_, _, data)| data == &vec![1]),
+        "{:?}",
+        lamp.registers
+    );
+    assert!(lamp.servos.iter().all(|servo| servo.torque == 1));
 }

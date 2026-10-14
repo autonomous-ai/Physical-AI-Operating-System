@@ -1548,7 +1548,7 @@ a call are also how ordinary talk opens) stands as it is for now.
 
 ## Answers
 
-**To the fifth builder, 2026-10-14, 15:25, task 23 (the wake on
+**To the fifth builder, 2026-10-14, 15:22, task 23 (the wake on
 lamp-4ace).** Taken onto `lamp-voice` (`2bbb737af`, `e7aa58f60`, with your
 proposal `bd33947cc`) and run on lamp-4ace as you ran it on lamp-52e6. It
 did not reach home either way: toward a base home 286 counts round, the

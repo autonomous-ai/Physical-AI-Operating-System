@@ -1,6 +1,6 @@
 """Step 3 of make.sh: the recordings of real people, cut and sorted into sets of clips.
 
-    python clips.py sc|mswc|words|libri|piper
+    python clips.py sc|mswc|words|libri|more|piper
 
 Every set is split by speaker, never by clip, and a speaker in a "test" set
 is in no "train" set:
@@ -9,12 +9,14 @@ is in no "train" set:
   which put all of one speaker's clips in one list.
 - MSWC: its splits share speakers, so here a speaker is "test" when the
   first byte of SHA-1 of its id is under 39 (about 15 %), across all three.
-- LibriSpeech: dev-clean and dev-other to train; test-clean and test-other
-  to test (different readers by construction).
+- LibriSpeech: dev-clean, dev-other and (talk only) train-clean-100 to
+  train; test-clean and test-other to test (different readers by
+  construction).
 - Piper: speakers 7, 15, 23, ... (see speak.py).
 
 A clip that holds a target keeps where it is in `targets`: (target, start,
-end) in seconds from the clip's start, the end where its sound fades.
+end) in seconds from the clip's start, the end where its sound fades. A
+clip of one word that is not a target keeps where the word is in `span`.
 """
 
 from __future__ import annotations
@@ -274,6 +276,32 @@ def librispeech() -> None:
         save(f"libri-asking-{split}", asking, asking_meta)
 
 
+def librispeech_more() -> None:
+    """More talk to train against: LibriSpeech train-clean-100 (251 readers, none in dev or test),
+    from the Hugging Face copy's parquet files, six minutes of each reader (about 25 h), leaving
+    out every utterance that holds a target."""
+    import io
+
+    import pyarrow.parquet as pq
+
+    talk, talk_meta = [], []
+    seconds = defaultdict(float)
+    for path in sorted((CACHE / "downloads" / "train-clean-100-parquet").glob("*.parquet")):
+        table = pq.read_table(path, columns=["audio", "text", "speaker_id", "id"])
+        for row in table.to_pylist():
+            text = row["text"].lower()
+            speaker = f"libri-{row['speaker_id']}"
+            if has_target(text) or seconds[speaker] >= 360:
+                continue
+            x, rate = sf.read(io.BytesIO(row["audio"]["bytes"]), dtype="int16")
+            assert rate == RATE
+            seconds[speaker] += len(x) / RATE
+            talk.append(x)
+            talk_meta.append({"id": f"train-clean-100/{row['id']}", "speaker": speaker, "text": text, "near": near_words(text)})
+        print(f"{path.name} read", flush=True)
+    save("libri-more-talk-train", talk, talk_meta)
+
+
 def piper() -> None:
     """The generated speech of speak.py, gathered into sets."""
     for kind in ["asking", "near", "listening", "talk"]:
@@ -292,4 +320,4 @@ def piper() -> None:
 
 if __name__ == "__main__":
     for what in sys.argv[1:]:
-        {"sc": speech_commands, "mswc": mswc, "words": other_words, "libri": librispeech, "piper": piper}[what]()
+        {"sc": speech_commands, "mswc": mswc, "words": other_words, "libri": librispeech, "more": librispeech_more, "piper": piper}[what]()

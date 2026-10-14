@@ -1,6 +1,6 @@
 """Step 4 of make.sh: the training inputs, as `lamp-name` would give them to the model.
 
-    python make_data.py words|talk|check|check-talk --part I/K
+    python make_data.py words|talk|talk-more|check|check-talk --part I/K
 
 Each example is a stretch of sound of 2.59 s, long enough for nine model
 inputs 80 ms apart. Input j sees the sound up to (1280 j + 31712) / 16000 s
@@ -13,7 +13,8 @@ inputs 80 ms apart. Input j sees the sound up to (1280 j + 31712) / 16000 s
 
 "words": each target clip put under another voice (or alone), and each
 near miss, short reply or other word likewise, labelled 0.
-"talk": long stretches of the other voice alone, and of two voices, all 0.
+"talk", "talk-more": long stretches of the other voice alone, and of two
+voices, all 0.
 "check", "check-talk": the same for validation: Speech Commands' validation
 speakers under LibriSpeech readers held out of training, and an hour of
 those readers alone.
@@ -208,23 +209,31 @@ def words(part: int, parts: int, check: bool) -> None:
     print(f"{tag} part {part}: {sum(len(v) for v in ys)} inputs, {int(sum(v.sum() for v in ys))} positive")
 
 
-def talk(part: int, parts: int, check: bool) -> None:
-    """Long stretches of the other voice alone, or of two voices, every input labelled 0."""
+def talk(part: int, parts: int, what: str) -> None:
+    """Long stretches of the other voice alone, or of two voices, every input labelled 0.
+
+    "talk": 10 h of single voices (LibriSpeech dev readers and generated)
+    and 2 h of two at once. "talk-more": 21 h of train-clean-100's readers
+    and 4 h of two at once. "check-talk": one hour of the held-out readers.
+    """
     front = FrontEnd(CACHE / "oww", threads=int(os.environ.get("OMP_NUM_THREADS", "2")))
+    check = what == "check-talk"
     libri = Voices(Store("libri-talk-train"), held_out_reader if check else (lambda m: not held_out_reader(m)))
     piper_talk = Voices(Store("piper-talk-train"), lambda m: True)
     minute = 60 * RATE
     if check:
-        # One hour of the held-out readers.
         plan = [("one", libri)] * 60
+    elif what == "talk-more":
+        more = Voices(Store("libri-more-talk-train"), lambda m: True)
+        plan = [("one", more)] * 1260 + [("two", more)] * 240
     else:
-        # About 10 h of single voices and 2 h of two voices at once.
         plan = [("one", libri)] * 450 + [("one", piper_talk)] * 150 + [("two", libri)] * 120
+    seed = {"check-talk": 4, "talk": 3, "talk-more": 5}[what]
     xs = []
     for n, (how, voices) in enumerate(plan):
         if n % parts != part:
             continue
-        rng = np.random.default_rng([n, 4 if check else 3])
+        rng = np.random.default_rng([n, seed])
         a = voices.stretch(rng, minute)
         a = scaled(a, active_level(a), rng.uniform(-30, -10))
         b = None
@@ -238,17 +247,17 @@ def talk(part: int, parts: int, check: bool) -> None:
             print(f"talk part {part}: {n}/{len(plan)}", flush=True)
     OUT.mkdir(parents=True, exist_ok=True)
     x = np.concatenate(xs)
-    np.savez(OUT / f"{'check-talk' if check else 'talk'}-{part}.npz", x=x, y=np.zeros(len(x), np.int8), source=np.full(len(x), -1, np.int16), names=np.array([]))
-    print(f"talk part {part}: {len(x)} inputs")
+    np.savez(OUT / f"{what}-{part}.npz", x=x, y=np.zeros(len(x), np.int8), source=np.full(len(x), -1, np.int16), names=np.array([]))
+    print(f"{what} part {part}: {len(x)} inputs")
 
 
 if __name__ == "__main__":
     p = argparse.ArgumentParser()
-    p.add_argument("what", choices=["words", "talk", "check", "check-talk"])
+    p.add_argument("what", choices=["words", "talk", "talk-more", "check", "check-talk"])
     p.add_argument("--part", default="0/1")
     a = p.parse_args()
     part, parts = (int(v) for v in a.part.split("/"))
-    if a.what in ("talk", "check-talk"):
-        talk(part, parts, a.what == "check-talk")
+    if a.what in ("talk", "talk-more", "check-talk"):
+        talk(part, parts, a.what)
     else:
         words(part, parts, a.what == "check")

@@ -1,6 +1,8 @@
 //! Offline paired AEC/NS replay of bounded local diagnostic evidence.
 //! No audio device, provider connection, inferred silence, or acoustic verdict.
-use crate::{CAPTURE_RATE, CaptureBlock, EchoProcessor, RENDER_SAMPLES, Result};
+use crate::{
+    CAPTURE_RATE, CaptureBlock, EchoProcessor, RENDER_SAMPLES, Reference as Given, Result,
+};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
@@ -33,6 +35,9 @@ pub struct ReplayOptions {
     /// Explicit operator assertion backed by a pinned source evidence file.
     /// Never substitutes for a diagnostic completion receipt.
     pub historical_processing: Option<HistoricalProcessing>,
+    /// How the replayed cancellers are given the recorded render
+    /// (`--steady-reference`; docs/steady-reference.md).
+    pub reference: Given,
 }
 pub struct HistoricalProcessing {
     pub noise_suppression: bool,
@@ -227,6 +232,21 @@ pub struct SegmentReport {
     pub aec_only_mismatched_samples_vs_recorded: u64,
     pub aec_ns_mismatched_samples_vs_recorded: u64,
     pub wav_pcm_sha256: BTreeMap<String, String>,
+    /// How the replayed cancellers were given the render.
+    pub reference: &'static str,
+    /// Over the capture blocks during and within 500 ms of non-silent
+    /// render, as the replayed AEC-only canceller's evidence counts them:
+    /// how many, and the energy of the capture before cancellation against
+    /// its AEC-only output, in dB. Anyone speaking over the lamp is in it.
+    pub lamp_sounding_blocks: u64,
+    pub lamp_sounding_echo_removed_db: Option<f64>,
+    /// The AEC-only canceller's own estimate of the delay over those blocks:
+    /// lowest, highest, and how many times it changed.
+    pub lamp_sounding_internal_alignment_ms: Option<[i32; 2]>,
+    pub lamp_sounding_internal_alignment_changes: u64,
+    /// With the steady reference: the delay it applied to the render over
+    /// those blocks, lowest and highest, in ms.
+    pub steady_delay_ms: Option<[f64; 2]>,
 }
 #[derive(Serialize)]
 pub struct ReplayReport {
@@ -301,7 +321,10 @@ pub fn replay(
     )?;
     let mut operations = output.file("operations.jsonl")?;
     let mut state: Option<Segment> = None;
-    let mut completed = Vec::new();
+    let mut completed = Completed {
+        segments: Vec::new(),
+        reference: options.reference,
+    };
     for step in steps {
         let result = apply_step(
             step,
@@ -321,9 +344,9 @@ pub fn replay(
         }
     }
     if let Some(segment) = state {
-        completed.push(segment);
+        completed.segments.push(segment);
     }
-    for segment in completed {
+    for segment in completed.segments {
         finish_segment(segment, &output, &mut report)?;
     }
     if report.replayed_capture_frames != source_capture_frames {
@@ -776,9 +799,63 @@ struct Segment {
     ns_processor: EchoProcessor,
     /// Evidence for the cancellation the recording itself contains.
     recorded_observer: crate::evidence::EchoObserver,
+    reference: Given,
+    sounding: Sounding,
+}
+/// Segments replayed, and how their cancellers are given the render.
+struct Completed {
+    segments: Vec<Segment>,
+    reference: Given,
+}
+/// What the replayed AEC-only canceller did while the lamp was sounding.
+#[derive(Default)]
+struct Sounding {
+    blocks: u64,
+    before: f64,
+    after: f64,
+    alignment: Option<[i32; 2]>,
+    last_alignment: Option<i32>,
+    alignment_changes: u64,
+    steady: Option<[f64; 2]>,
+}
+impl Sounding {
+    fn observe(&mut self, pre: &CaptureBlock, aec: &CaptureBlock, processor: &EchoProcessor) {
+        if processor
+            .evidence()
+            .is_none_or(|evidence| evidence.render_active_blocks == 0)
+        {
+            return;
+        }
+        let energy =
+            |block: &CaptureBlock| block.iter().map(|&v| f64::from(v).powi(2)).sum::<f64>();
+        self.blocks += 1;
+        self.before += energy(pre);
+        self.after += energy(aec);
+        if let Some(alignment) = processor.internal_alignment_ms() {
+            self.alignment = Some(match self.alignment {
+                Some([low, high]) => [low.min(alignment), high.max(alignment)],
+                None => [alignment, alignment],
+            });
+            if self.last_alignment.is_some_and(|last| last != alignment) {
+                self.alignment_changes += 1;
+            }
+            self.last_alignment = Some(alignment);
+        }
+        if let Some(steadiness) = processor.steadiness() {
+            let delay = steadiness.delay_ms;
+            self.steady = Some(match self.steady {
+                Some([low, high]) => [low.min(delay), high.max(delay)],
+                None => [delay, delay],
+            });
+        }
+    }
+    fn echo_removed_db(&self) -> Option<f64> {
+        (self.blocks > 0 && self.before > 0.0)
+            .then(|| 10.0 * (self.before / self.after.max(1.0)).log10())
+    }
 }
 impl Segment {
-    fn new(reset: Reset, next_sequence: u64) -> Self {
+    fn new(reset: Reset, next_sequence: u64, reference: Given) -> Self {
         Self {
             reset,
             next_sequence,
@@ -796,9 +873,11 @@ impl Segment {
             post: Vec::new(),
             aec: Vec::new(),
             ns: Vec::new(),
-            aec_processor: EchoProcessor::new(false),
-            ns_processor: EchoProcessor::new(true),
+            aec_processor: EchoProcessor::with_reference(false, reference),
+            ns_processor: EchoProcessor::with_reference(true, reference),
             recorded_observer: crate::evidence::EchoObserver::new(),
+            reference,
+            sounding: Sounding::default(),
         }
     }
 }
@@ -808,7 +887,7 @@ fn apply_step(
     render: &Bundle,
     epochs: &BTreeMap<u64, Epoch>,
     state: &mut Option<Segment>,
-    completed: &mut Vec<Segment>,
+    completed: &mut Completed,
     operations: &mut File,
 ) -> Result<()> {
     match step {
@@ -818,7 +897,7 @@ fn apply_step(
                     "capture boundary lacks a supported recorded cold-prime transition",
                 ));
             }
-            if completed.len() + usize::from(state.is_some()) >= MAX_SEGMENTS
+            if completed.segments.len() + usize::from(state.is_some()) >= MAX_SEGMENTS
                 || reset.capture_epoch == 0
                 || reset.dsp_epoch == 0
                 || reset.playback_epoch == 0
@@ -848,7 +927,10 @@ fn apply_step(
                 }
                 old.next_sequence
             } else {
-                if reset.reason != "start" || !completed.is_empty() || reset.discarded.is_some() {
+                if reset.reason != "start"
+                    || !completed.segments.is_empty()
+                    || reset.discarded.is_some()
+                {
                     return Err(invalid("replay has no known cold initial state"));
                 }
                 1
@@ -865,13 +947,13 @@ fn apply_step(
                 return Err(invalid("missing or late actually accepted 480-frame prime"));
             }
             if let Some(old) = state.take() {
-                completed.push(old);
+                completed.segments.push(old);
             }
             line(
                 operations,
                 &json!({"kind":"dsp_reset","source_reset":reset,"next_capture_sequence":next_sequence}),
             )?;
-            *state = Some(Segment::new(reset, next_sequence));
+            *state = Some(Segment::new(reset, next_sequence, completed.reference));
         }
         CaptureStep::Boundary {
             kind,
@@ -967,6 +1049,9 @@ fn apply_step(
             segment.next_sequence += 1;
             segment.pre.extend_from_slice(&pre);
             segment.post.extend_from_slice(&post);
+            segment
+                .sounding
+                .observe(&pre, &only, &segment.aec_processor);
             segment.aec.extend_from_slice(&only);
             segment.ns.extend_from_slice(&ns);
             line(
@@ -976,6 +1061,9 @@ fn apply_step(
                         "aec_only": segment.aec_processor.internal_alignment_ms(),
                         "aec_ns": segment.ns_processor.internal_alignment_ms(),
                     },
+                    "steady_reference": segment.aec_processor.steadiness().map(|s| json!({
+                        "delay_ms": s.delay_ms, "target_ms": s.target_ms, "echo_ms": s.echo_ms,
+                    })),
                     // Measurements, not verdicts; see `crate::evidence`.
                     // `recorded` compares the microphone with what the
                     // device's own run produced after cancellation.
@@ -1095,6 +1183,15 @@ fn finish_segment(segment: Segment, output: &Output, report: &mut ReplayReport) 
             .filter(|(a, b)| a != b)
             .count() as u64,
         wav_pcm_sha256: files,
+        reference: match segment.reference {
+            Given::AsGiven => "as_given",
+            Given::Steady => "steady",
+        },
+        lamp_sounding_blocks: segment.sounding.blocks,
+        lamp_sounding_echo_removed_db: segment.sounding.echo_removed_db(),
+        lamp_sounding_internal_alignment_ms: segment.sounding.alignment,
+        lamp_sounding_internal_alignment_changes: segment.sounding.alignment_changes,
+        steady_delay_ms: segment.sounding.steady,
     });
     Ok(())
 }

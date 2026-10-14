@@ -131,6 +131,10 @@ listener for the few words that mean stop, trained on recordings like
 these of words under the lamp's own voice; and the lamp's own level,
 which is at its microphone's ceiling.
 
+The reference that follows the second microphone is built, off unless
+set, with a rig that reproduces the moving echo and a replay option for
+these recordings: [steady-reference.md](steady-reference.md).
+
 ## Answer
 
 - **The lamp can keep hearing while it speaks, on one of the two lamps

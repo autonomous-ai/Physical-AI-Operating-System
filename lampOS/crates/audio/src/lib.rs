@@ -26,6 +26,7 @@ pub mod playout;
 pub mod qualification;
 #[cfg(unix)]
 pub mod replay;
+pub mod steady;
 #[cfg(unix)]
 pub mod testing;
 
@@ -39,10 +40,22 @@ pub type CaptureBlock = [i16; CAPTURE_SAMPLES];
 pub type RenderBlock = [i16; RENDER_SAMPLES];
 pub type Result<T> = std::result::Result<T, Box<dyn std::error::Error + Send + Sync>>;
 
+/// How the echo canceller is given the speaker's sound.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum Reference {
+    /// As the speaker accepted it. The default.
+    #[default]
+    AsGiven,
+    /// Through a [`steady::SteadyReference`], which holds the lamp's echo in
+    /// one place as the canceller sees it (docs/steady-reference.md).
+    Steady,
+}
+
 /// A single microphone worker owns this processor; no shared mutex or network I/O.
 pub struct EchoProcessor {
     inner: AudioProcessing,
     observer: evidence::EchoObserver,
+    steady: Option<Box<steady::SteadyReference>>,
     noise_suppression: bool,
     render_input: [f32; RENDER_SAMPLES],
     render_output: [f32; RENDER_SAMPLES],
@@ -52,9 +65,14 @@ pub struct EchoProcessor {
 
 impl EchoProcessor {
     pub fn new(noise_suppression: bool) -> Self {
+        Self::with_reference(noise_suppression, Reference::AsGiven)
+    }
+
+    pub fn with_reference(noise_suppression: bool, reference: Reference) -> Self {
         Self {
             inner: Self::build(noise_suppression),
             observer: evidence::EchoObserver::new(),
+            steady: (reference == Reference::Steady).then(Box::default),
             noise_suppression,
             render_input: [0.0; RENDER_SAMPLES],
             render_output: [0.0; RENDER_SAMPLES],
@@ -81,6 +99,9 @@ impl EchoProcessor {
     pub fn reset(&mut self) {
         self.inner = Self::build(self.noise_suppression);
         self.observer.reset();
+        if let Some(steady) = self.steady.as_mut() {
+            steady.reset();
+        }
         self.render_input.fill(0.0);
         self.render_output.fill(0.0);
         self.capture_input.fill(0.0);
@@ -88,6 +109,14 @@ impl EchoProcessor {
     }
 
     pub fn render(&mut self, samples: &RenderBlock) -> Result<()> {
+        let steadied;
+        let samples = match self.steady.as_mut() {
+            Some(steady) => {
+                steadied = *steady.render(samples);
+                &steadied
+            }
+            None => samples,
+        };
         pcm_to_float(samples, &mut self.render_input);
         self.inner
             .process_render_f32(&[&self.render_input], &mut [&mut self.render_output])
@@ -111,6 +140,16 @@ impl EchoProcessor {
             )
             .into());
         }
+        // With the steady reference, the canceller is handed the speaker's
+        // sound that much later, and the delay it is told shrinks to match.
+        let device_delay_ms = match self.steady.as_mut() {
+            Some(steady) => {
+                steady.capture(samples);
+                let applied = steady.steadiness().delay_ms.round() as u16;
+                device_delay_ms.saturating_sub(applied)
+            }
+            None => device_delay_ms,
+        };
         self.inner
             .set_stream_delay_ms(i32::from(device_delay_ms))
             .map_err(|e| io::Error::other(format!("AEC delay: {e:?}")))?;
@@ -140,6 +179,11 @@ impl EchoProcessor {
     /// have values. A new/reset processor reports `None` until capture runs.
     pub fn internal_alignment_ms(&self) -> Option<i32> {
         self.inner.statistics().delay_ms
+    }
+
+    /// What the steady reference is doing, when it was chosen.
+    pub fn steadiness(&self) -> Option<steady::Steadiness> {
+        self.steady.as_ref().map(|steady| steady.steadiness())
     }
 }
 

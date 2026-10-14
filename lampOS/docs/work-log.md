@@ -27,7 +27,7 @@ log and nothing a lamp runs ([joining.md](joining.md),
 | 19 | The end sent early, the answer played only when sure | `second/early-end` | 2026-10-14 | on `lamp-voice`, behind `--early-end-ms`; played on lamp-4ace at 200 ms: worse; switched off |
 | 36 | Always alive: the idle layer, sleep and waking (issue #714) | `second/always-alive` | 2026-10-14 | on `lamp-voice` (#729, merged 23:03); on lamp-4ace since 23:07 |
 | second-P1 | The early end taken back (issue #723) | `second/early-end-back`, then `second/early-end-labelled` | 2026-10-14 | step 1 on `lamp-voice` (#731, merged 23:06); on lamp-4ace at 23:10 (a) did not hold and (b) did; step 2 as pull request #738 into `lamp-voice`, 2026-10-15 |
-| 45 | Updates: a lamp keeps its lampOS current by itself (issue #737, MVP) | `second/updates` | 2026-10-15 | being built |
+| 45 | Updates: a lamp keeps its lampOS current by itself (issue #737, MVP) | `second/updates` | 2026-10-15 | pull request #741 into `lamp-voice`, 2026-10-15; the publishing proposal and three questions on #737 |
 | 44 | A yes said in two breaths still starts the task (issue #736, MVP) | `second/two-breath-yes` | 2026-10-15 | pull request #740 into `lamp-voice`, 2026-10-15 |
 | 40 | Progress news through the tasks part and Jev (issue #732, `second-P2`) | `second/progress-news` | 2026-10-15 | being built |
 | 41 | Codex and the others: the person names who gets the work (issue #733, `second-P3`) | `second/who-gets-the-work` | 2026-10-15 | being built |
@@ -56,6 +56,59 @@ log and nothing a lamp runs ([joining.md](joining.md),
 ## Handed back
 
 Newest first.
+
+### Task 45: updates, a lamp keeps its lampOS current by itself (2026-10-15, issue #737, MVP)
+
+Ready for lamp-voice: yes (#741)
+
+**Kind: off unless set:** a new part, `lamp-update` (`crates/update`), its
+unit template (`deploy/units/lamp-update.service`, not in `lampos.target`),
+and `--apply on|off`, default `off`. With it off it writes nothing, not
+even its records, and never calls systemd or the bus (a test holds every
+file under the lamp root byte for byte). One commit, `01ff1faeb`, on
+`lamp-voice` at `c1b8c7591`; built by a sub-agent of this session and
+reviewed here (the signature checked over the exact manifest bytes before
+anything is read from it; names restricted to `lamp-<plain>` and
+`lamp-<plain>.service`; files' URL signed, https or `file:///` only, no
+`..`; downloads only to https, bounded by the listed size, hashed as they
+come; no new crate in the lock).
+
+**One round:** the signed channel envelope read (Ed25519 with `ring`, the
+lamp's key from setup), only a newer build and never one put back once;
+each changed part installed beside the old in `/opt/lampOS/<part>/<sha256>/`
+after a disk check (a whole second copy plus 256 MB); the units switched
+at a quiet moment (voice resting, 45 s with nothing heard or said), the
+voice first; 60 s of systemd and `lamp/health` watched; every changed unit
+put back in reverse if a part is unwell. V1's OTA weighed in the
+`v1-verdicts.md` form. The publishing proposal (a prerelease per tested
+`lamp-voice` push, one channel-head release with the newest signed
+envelope, the secret `LAMPOS_UPDATE_KEY` named and not added, the CI job's
+YAML in `docs/updates.md`) and three questions are on #737.
+
+**Tests** (M2 Max): 29 unit (1 more ignored, the network) and 15 whole
+rounds against stand-ins (switched; a carried unit; bad signature and
+checksum refused; a dying part and one in error put back; no network; not
+switched while someone talks; a full disk; an older build; a switch cut
+short put back; its own folders removed, hand-installed kept). The
+network test run once by hand against the real `models/ambernet` asset;
+`manifest` on run 144's real artifact (31 binaries, 146.95 MB) and `check`
+against lamp-4ace's units (nine changes planned, nothing written).
+**Gate:** fmt; strict clippy on `lamp-update`; its tests; the workspace
+build. Native ARM64 run 38616519206 on `01ff1faeb`: green, 4,251 passed,
+0 failed, 32 ignored.
+
+**What to run on the lamp** (`docs/updates.md`): `df -h` and the units
+written down; a throwaway key and a local `file:///var/tmp/lampos-channel/`
+from the next `lamp-voice` run; `lamp-update check`; the minute with
+`--apply off`; one attended `once --apply on`; optionally a deliberate
+rollback.
+
+**Where it is most likely wrong on the lamp:** a minute of health missing a
+bad but running voice; carried units from the repository's
+`deploy/lamp-4ace/`, which disagrees with the lamp, undoing a setting made
+there; the disk (14% free on 2026-10-14); quiet needing the voice's bus;
+`daemon-reload` and `restart` from inside `ProtectSystem=strict`, never
+tried.
 
 ### Task 44: a yes said in two breaths still starts the task (2026-10-15, issue #736, MVP)
 

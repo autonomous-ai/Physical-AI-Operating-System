@@ -689,6 +689,32 @@ lamp: the masses.
 
 Newest first. Each builder's own notes are in its log, on its branch.
 
+**2026-10-14, task 4, Expression: its inputs from the voice.** The voice
+now publishes `voice/timing`, `voice/activity` and `voice/playout`
+(`crates/voice/src/expression_out.rs`, `40e9b1c00`; what each is made
+from is in [expression.md](expression.md), "What the voice says, as
+built"). Passed through `lamp_expression::Engine` in a test on the Mac
+before it went on the lamp, twelve made-up seconds of the voice gave 264
+messages, none refused, and the planner planned its nod, glance, sway and
+yield. That test found one fault in the planner, mended in
+`crates/expression/src/engine.rs` with a test of its own: a new turn
+cleared an interruption's transition, and on a lamp the person who
+interrupts is heard at once as a new turn, so the yield would never have
+shown. On lamp-4ace since 09:26, with `lamp-expression serve` as a unit
+of its own and no `--enable`:
+
+| Looked at on the lamp | What it showed |
+|---|---|
+| `voice/timing` | Said every 80 ms: turn 0, resting, able to keep what is said, the kernel's boot identity as its clock and the service's `INVOCATION_ID` as its session |
+| `expression/state` | Not enabled; no behaviours; missing: measured body lag, explicit concentration setting, fresh room state (the room was still "unknown" a minute after the voice started, and is said again every second) |
+| `lamp-health` | "The lamp is well.", with `expression  shadow mode; no actuator requests` beside the six other reports |
+
+Not shown: a turn through it. Nobody had spoken to the lamp since the
+deploy and nothing is played while people are in. One limit is known and
+written in [expression.md](expression.md): the planner cannot be told
+"paused for someone, may go on", so the voice says "speaking" through
+such a pause and its own listening face has to win there.
+
 **2026-10-14, task 4, Expression.** Taken onto `lamp-voice` as the third
 builder made it (`6226dae33`), nothing in it changed. On the first
 builder's Mac its 67 tests and the message types' 25 pass and clippy is

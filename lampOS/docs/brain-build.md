@@ -159,19 +159,19 @@ killed, and what the others do is counted.
 | Component | Process | Owns | Owner | With it gone |
 |---|---|---|---|---|
 | Voice | `lamp-voice` and its workers (capture, speaker, ring, provider) | Both microphones, the speaker, the ring light; the conversation with the provider; whose turn it is | open | The body rests and the eyes go on looking. Running today |
-| Body | `lamp-body` | The servo bus; standing, turning to a face, gestures | open | The lamp talks and does not move. Running today |
+| Body | `lamp-body` | The servo bus; standing, turning to a face, gestures; the force its joints may use | open | The lamp talks and does not move. Running today |
+| Expression | `lamp-expression` ([expression.md](expression.md); built by the third builder) | The plan of what the lamp shows while it listens, thinks and speaks: posture, glances, nods and the light on one clock, as requests to the body and the ring's owner that run out unless renewed | open | The lamp moves and lights as it does without it, by the voice's own state. On lamp-4ace since 2026-10-14, watching only: nothing takes its requests yet |
 | Eyes | `lamp-eyes` | The camera; whether a face is there, where, and later whose; the picture for a look | open | The lamp talks and moves without looking at anyone, says no hello, and says its eye is shut when asked to look. Running today |
-| Executive | `lamp-actions` (new; what the voice expects of it is written in [tools.md](tools.md)) | Every action the Live model asks for: checking it, asking "shall I?" where decision 7 requires it, sending it to the component that carries it out, and returning what was established so that it can be said | open | The lamp chats and can do nothing it is asked to do, and says so |
+| Actions (the page's executive) | `lamp-actions` ([actions.md](actions.md); what the voice expects of it is in [tools.md](tools.md)) | Every action the Live model asks for: checking it, asking "shall I?" where decision 7 requires it, sending it to the component that carries it out, and returning what was established so that it can be said | open | The lamp chats and can do nothing it is asked to do, and says so. Running today, for its volume and its light |
 | Tasks | `lamp-tasks` (new) | Work handed to agents through Harness: what was sent, to whom, what came back, what has been said of it | open | The lamp chats, and says it cannot reach the agents just now |
 | Harness | the Harness team's own service, installed on the lamp | The account's session and the way to its other machines | Harness team | As for Tasks |
-| Memory | `lamp-memory` ([memory.md](memory.md); written and tested, not on a lamp) | The journal, what it was told to keep, a store for each person, forgetting | open | The lamp talks without recalling earlier days, and says so |
-| Decisions | `lamp-decide` (new) | The choices no utterance starts, and the decision model behind them | open | The rules alone decide: no hello it is unsure of, no interruption with a result |
-| Controls | `lamp-controls` (new) | The touch pad and the button: stop, mute, privacy | open | The lamp is spoken to as before and cannot be tapped |
+| Memory | `lamp-memory` ([memory.md](memory.md)) | The journal, what it was told to keep, a store for each person, forgetting | open | The lamp talks without recalling earlier days, and says so. Running today; its next layer ([memory-days.md](memory-days.md) on `lamp-fourth`) is built and not on a lamp |
+| Controls | `lamp-controls` (being built by the third builder) | The touch pad and the button: stop, mute, privacy | open | The lamp is spoken to as before and cannot be tapped |
 | Schedules | `lamp-schedule` (new) | Reminders and timers | open | The lamp says it cannot set one just now; one already set is said late, when the component is back |
 | Name | `lamp-name` ([name.md](name.md)) | Hearing "Hey Lamp" and "Lamp ơi" in what the microphone hears, and saying so on the bus. It decides nothing | open | The lamp talks as before. A new session in a busy room goes by the service's text alone, and no second look is taken at a call that got nothing ([attention.md](attention.md)). Running today |
-| Policy | `lamp-policy` ([policy.md](policy.md)) | For now only a record: what a decision model would have decided about each thing heard, beside what the lamp did | open | Nothing changes: it decides nothing yet. Running today |
+| Policy | `lamp-policy` ([policy.md](policy.md); this table's first form called it Decisions, `lamp-decide`) | The choices where there is a real choice or nobody spoke. One policy makes each choice; it may ask several decision models, each a judge behind one common way of asking, and no judge acts by itself. The first judge is Jev. For now only a record: what it would have decided about each thing heard, beside what the lamp did | open | The rules alone decide, as they do today: it decides nothing yet. Running today, watching only |
 | Health | `lamp-health` ([health.md](health.md)) | Every part's own report gathered into one answer to "how is the lamp", and the board's temperature, load, memory and disk | open | Each part goes on as it was, and nobody is told how the lamp is. Running today |
-| The bus | No process of its own: `lamp-bus` ([bus.md](bus.md)) is a library in each publisher and subscriber and a tool; written and tested, not on a lamp | Carrying what each component senses and derives to whoever subscribes | open | There is nothing to be gone: a publisher or subscriber that dies takes only its own topics or its own copies with it |
+| The bus | No process of its own: `lamp-bus` ([bus.md](bus.md)) is a library in each publisher and subscriber and a tool; on lamp-4ace since 2026-10-13, with twenty topics on 2026-10-14 | Carrying what each component senses and derives to whoever subscribes | open | There is nothing to be gone: a publisher or subscriber that dies takes only its own topics or its own copies with it |
 | The surround | setup, network, updates, reset, the operator's pages (last) | Getting a lamp onto a network and keeping its software current | open | The lamp goes on as it is until it next needs one of them |
 
 What keeps one failure from becoming all of them, and each is a rule the
@@ -283,6 +283,13 @@ By the page's own section numbers.
 - **15 (decisions).** Closed as above once approved.
 
 ## Who builds what
+
+Since 2026-10-14 there are four builders. The first, with the lamp, is
+the one this section was written about. Three more, without a lamp, build
+parts to a written brief on branches of their own, and the first puts
+each finished part on the lamp and mends there what fails: the list,
+the rules and what the lamp showed of each part are in
+[work-split.md](work-split.md). What follows is how it stood before.
 
 The product owner's decision, in their words: "i'm leaning toward to have
 you build the entire thing end to end so no communication overhead between

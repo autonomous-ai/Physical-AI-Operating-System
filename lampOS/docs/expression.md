@@ -294,8 +294,16 @@ transition, stillness during work, and fallback after killing Expression.
 
 ## Not shown
 
-No Expression process, new input publisher or actuator consumer has run on a
-lamp in this task. No physical motion, camera calibration, optical latency,
+Since this page was written by Third, First has run the written scenario
+and the cost example on lamp-4ace, added the voice's three publications,
+and put `lamp-expression serve` on the lamp without `--enable` (2026-10-14,
+09:26; what it showed is under "What the lamp showed" in
+[work-split.md](work-split.md)). No turn has yet passed through it on the
+lamp, and no actuator consumer exists.
+
+What follows is as Third wrote it, of its own task. No Expression process,
+new input publisher or actuator consumer had run on a lamp in that task.
+No physical motion, camera calibration, optical latency,
 audio onset, acceptable expressiveness or safe motor trajectory is established
 by the host tests. The inherited robot studies are not lampOS measurements.
 Body lag is unknown by default. No real recorded bus stretch was supplied;

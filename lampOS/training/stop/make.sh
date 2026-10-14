@@ -53,6 +53,8 @@ for meeting in ES2004a ES2004b ES2004c ES2004d IS1009a IS1009b IS1009c TS3003a T
   get "$d/ami/$meeting.Mix-Headset.wav" "https://groups.inf.ed.ac.uk/ami/AMICorpusMirror/amicorpus/$meeting/audio/$meeting.Mix-Headset.wav"
 done
 get "$d/ami/ami_public_manual_1.6.2.zip" https://groups.inf.ed.ac.uk/ami/AMICorpusAnnotations/ami_public_manual_1.6.2.zip
+# The files are the ones this model was made from (SHA-256 recorded on 2026-10-14).
+(cd "$d" && shasum -a 256 -c "$here/downloads.sha256")
 
 # 1. Unpack.
 mkdir -p "$cache/data/speech_commands" "$cache/data/mswc_splits"

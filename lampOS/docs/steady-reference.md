@@ -344,9 +344,41 @@ the measures of the lamp's own echo only. What decides is what it does to
 a person speaking over the lamp, which these numbers do not measure: that
 is the played comparison of stops with the switch on and off.
 
+## Played on lamp-4ace, off and on (2026-10-14, 18:00 to 19:35)
+
+The measure the section above asked for. The voice `e93b96849` for the first
+two runs and `41d09542f` for the other four (between them only the
+attention and air notes changed, nothing in the audio crate or the
+voice's hearing), with the fast end-of-turn model, in the office after hours with a few people still about; played
+voices from the Mac's loudspeaker a metre away. Six runs, alternating
+after the first two: off (`base2`), on (`steady2`), off, on, off, on. Each
+run is ten story requests with a sentence spoken over the story about
+four seconds into it (`cutins.sh`) and ten with one short word
+(`shorts.sh`: seven that ask it to stop or wait, three listening sounds,
+"Mm-hm", "Yeah", "Uh-huh"). Counted by `stops_count.py` (kept with the
+played-test tools) from each scene's record: only scenes in which the lamp
+had begun its answer before the second line are trials; it **stopped** if
+it committed to the new turn within 4 s of the line; a **pause for
+nothing** is a yield at any other time while it spoke; it **stopped
+itself** if it committed before the line or more than 4 s after it.
+
+| Echo reference | Sentences: stopped | Stop words: stopped | Listening sounds: stopped (should not) | Pauses for nothing | Stopped itself |
+|---|---|---|---|---|---|
+| As recorded (off), 3 runs | 13 of 28 | 5 of 17 | 2 of 8 | 3 in 53 trials | 0 |
+| Steady (on), 3 runs | 14 of 27 | 5 of 16 | 2 of 9 | 35 in 52 trials | 6 |
+
+Per run, sentences stopped: off 3 of 8, 4 of 10, 6 of 10; on 5 of 9, 5 of
+8, 4 of 10. So with the steady reference the lamp is stopped by a person
+no more often, and it hears its own voice far more: about one pause for
+nothing in every scene and a half (each a halt of about a second, then the
+story goes on), and six times it gave up its own story after hearing
+itself as a word ("¿Qué haces?", "¿Qué?"). **It stays off on lamp-4ace.**
+The rig's gain is real for the echo the rig makes; on the lamp, the echo
+it leaves is the more speech-like.
+
 ## Not shown
 
-Whether a person over the lamp is kept better: no recording of a person's words over the lamp was compared. The lamp; the lamp's second
+Whether a person over the lamp is kept better: no recording of a person's words over the lamp was compared, and the played comparison above is loudspeaker voices only. The lamp; the lamp's second
 microphone and its chip, which change the sound
 in ways the rig does not copy; a person's voice; whether the 2 dB the rig
 gives back is heard by anyone; the cost on the lamp's processor; the

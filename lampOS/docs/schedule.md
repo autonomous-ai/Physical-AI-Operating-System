@@ -429,7 +429,17 @@ obtains current guards and the current pending delivery for snooze. Neither
 guards, delivery acknowledgements, wall-clock trust, nor boot-clock arithmetic
 belong in the model's arguments.
 
-Example model arguments are `set_timer {"text":"Check the pasta","seconds":480}`,
+Relative requests use `set_timer` even when phrased as a reminder:
+"remind me in two minutes to stretch my legs" becomes
+`set_timer {"text":"Stretch my legs","seconds":120}`. "In ten minutes" uses
+600 seconds and "in an hour" uses 3600 seconds, with the requested label.
+Both tool descriptions distinguish these elapsed durations from clock times;
+they must not be rounded into `set_reminder`'s minute-only `HH:MM` argument.
+Only a requested clock time, such as "at nine tomorrow morning", uses
+`set_reminder`. This is model guidance, not a deterministic natural-language
+parser: the actual selected tool still needs lamp qualification.
+
+Other example model arguments are `set_timer {"text":"Check the pasta","seconds":480}`,
 `set_reminder {"text":"Water the plant","time":"09:00","day":"tomorrow"}`,
 and `repeat_reminder {"text":"Take the bins out","time":"19:00","every":"weekly","weekday":"thursday"}`.
 “Snooze that for ten minutes” can become
@@ -449,6 +459,40 @@ There is no automatic fresh-guard mutation retry and no exactly-once promise
 for repeated model calls. List current state before deciding whether to ask
 again. Item IDs are meaningful only in the current store: replacing Schedule's
 store requires listing again before selecting an old remembered ID.
+
+### Relative-time follow-up on the lamp
+
+First reported on lamp-4ace that "in two minutes" fired about 73 seconds
+after its request because the model used a rounded `set_reminder` clock time
+([PR #747](https://github.com/autonomous-ai/lampOS/pull/747#issuecomment-6179199142)).
+The follow-up changes the two enabled descriptions and tests the catalog
+published by Actions. The schemas, service timing, gates and deadlines stay
+the same. It adds no network or storage operation; the healthy local tool-call
+target remains 250 ms, separate from provider and audio latency.
+
+First installs the follow-up's native CI `lamp-actions` binary while retaining
+the current lamp-owned settings, character, Schedule store and Voice delivery
+ledger. Use the existing Task 31 off-minute procedure. After restoring the
+enabled settings, restart Actions before Voice so its next provider session
+reads the new `tools.json`; this follow-up requires no new Voice binary.
+
+1. Start away from a whole-minute boundary. Say "remind me in one minute to
+   stretch" and "remind me in two minutes to check the tea" in separate trials.
+   Record the selected tool/arguments, accepted Schedule deadline, confirmation
+   and audible due time. Expect `set_timer` with 60 and 120 seconds and the
+   requested labels. Neither may fire before its elapsed deadline; delivery
+   may wait for the existing local-silence, privacy and readiness conditions.
+2. Ask for "in ten minutes" and "in an hour". Verify `set_timer` with 600 and
+   3600 seconds and the requested labels, then list and cancel those items.
+   These checks do not require waiting an hour or claim an hour-long timing run.
+3. Ask for a reminder "at nine tomorrow morning". Verify `set_reminder` with
+   `time:"09:00"` and `day:"tomorrow"`, then list and cancel it. Check a normal
+   explicit timer, light/volume, interruption and privacy as before.
+
+The likely remaining gap is the live model choosing or converting the wrong
+tool despite its descriptions. Host catalog assertions cannot establish that
+choice or acoustic delivery timing. Third has no lamp or live-provider result
+for this follow-up.
 
 ## First's Voice integration contract
 

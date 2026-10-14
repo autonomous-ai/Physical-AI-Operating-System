@@ -1,0 +1,12 @@
+Diff in /Users/d/code/autonomous-os/lampOS/crates/actions/tests/schedule.rs:365:
+         "120, 600, or 3600 respectively",
+         "never round to a clock time",
+     ] {
+-        assert!(timer.contains(guidance), "missing timer guidance: {guidance}");
++        assert!(
++            timer.contains(guidance),
++            "missing timer guidance: {guidance}"
++        );
+     }
+     let reminder = description("set_reminder");
+     for guidance in [

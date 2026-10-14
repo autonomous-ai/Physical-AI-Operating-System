@@ -1,0 +1,16 @@
+[
+  {
+    "step": "catalog-regression",
+    "passed": 1,
+    "failed": 0,
+    "ignored": 0,
+    "harnesses": 1
+  },
+  {
+    "step": "voice-tools",
+    "passed": 18,
+    "failed": 0,
+    "ignored": 0,
+    "harnesses": 1
+  }
+]

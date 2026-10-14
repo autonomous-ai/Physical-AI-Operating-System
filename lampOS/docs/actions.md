@@ -72,6 +72,15 @@ honest failure when called. It does not disable unrelated volume/light calls.
 | `cancel_reminder` | Positive `id` from the current list | Cancel that timer or whole series |
 | `snooze_reminder` | Positive `id`, whole `seconds` | Get the exact current pending delivery, then snooze it |
 
+The catalog directs relative requests to `set_timer`, even when the person
+says "remind me": "in two minutes" uses the requested label and `seconds:120`,
+"in ten minutes" uses 600, and "in an hour" uses 3600. `set_reminder` is for
+a requested clock time such as "at nine tomorrow morning". Converting a
+duration to its minute-only `HH:MM` argument can make it fire almost a minute
+early. Both descriptions explicitly rule out that conversion. The published
+catalog regression checks this guidance; live model selection still needs
+the [lamp follow-up](schedule.md#relative-time-follow-up-on-the-lamp).
+
 Labels contain 1–300 UTF-8 bytes, nonblank, with no control characters.
 Durations are 1–31,536,000 seconds. Time is exactly `00:00` through `23:59`.
 `day` is `today`, `tomorrow`, `next`, or a valid `YYYY-MM-DD`; omission means

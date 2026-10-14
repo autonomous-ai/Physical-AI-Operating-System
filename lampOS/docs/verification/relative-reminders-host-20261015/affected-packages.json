@@ -1,0 +1,13 @@
+{
+  "touched": [
+    "lamp-actions"
+  ],
+  "affected": [
+    "lamp-actions",
+    "lamp-memory",
+    "lamp-voice",
+    "lamp-voice-eval"
+  ],
+  "includes_dev_dependencies": true,
+  "local_packages": 34
+}

@@ -1577,6 +1577,71 @@ async fn go_away_ends_an_idle_connection_and_lets_an_unfinished_answer_complete(
     assert_eq!(connection.state(), State::Disconnected(Error::ServerGoAway));
 }
 
+/// A note beside what is being said goes inside the request's activity, in
+/// order with its sound, and the request is answered as any other.
+#[tokio::test]
+async fn a_note_beside_what_is_said_goes_inside_the_activity_in_order_with_its_sound() {
+    let (mut connection, mut server) = mock(Timeouts::default()).await;
+    let input = connection.input();
+    let one = request(1);
+    input.try_start(one).unwrap();
+    assert!(
+        receive(&mut server).await["realtimeInput"]
+            .get("activityStart")
+            .is_some()
+    );
+    assert!(
+        matches!(event(&mut connection).await, Event::InputStarted { lineage, .. } if lineage.request == one)
+    );
+    input.try_audio(one, 10, Instant::now(), &[1; 160]).unwrap();
+    input
+        .try_note(one, "(For you to know: your name was heard.)")
+        .unwrap();
+    input.try_audio(one, 11, Instant::now(), &[2; 160]).unwrap();
+    input.try_end(one).unwrap();
+    assert!(
+        receive(&mut server).await["realtimeInput"]
+            .get("audio")
+            .is_some()
+    );
+    assert_eq!(
+        receive(&mut server).await["realtimeInput"]["text"],
+        "(For you to know: your name was heard.)"
+    );
+    assert!(
+        receive(&mut server).await["realtimeInput"]
+            .get("audio")
+            .is_some()
+    );
+    assert!(
+        receive(&mut server).await["realtimeInput"]
+            .get("activityEnd")
+            .is_some()
+    );
+    // The answer is the request's own, and the connection goes on.
+    send_json(&mut server, audio(5)).await;
+    assert!(
+        matches!(event(&mut connection).await, Event::Audio { lineage, pcm, .. } if lineage.request == one && pcm == [5])
+    );
+    // Refused before anything is sent: an empty note, and a request that
+    // has been retired.
+    assert!(input.try_note(request(2), "  ").is_err());
+    send_json(&mut server, generated()).await;
+    send_json(&mut server, idle()).await;
+    assert!(matches!(
+        event(&mut connection).await,
+        Event::GenerationComplete { .. }
+    ));
+    assert!(matches!(
+        event(&mut connection).await,
+        Event::TurnComplete { idle: true, .. }
+    ));
+    let next = ended_turn(&mut connection, &mut server, 2).await;
+    assert_eq!(next, request(2));
+    assert!(input.try_note(one, "too late").is_err());
+    silent(&mut server).await;
+}
+
 #[tokio::test]
 async fn a_written_request_is_one_message_outside_any_activity_and_its_answer_is_its_own() {
     let (mut connection, mut server) = mock(Timeouts::default()).await;

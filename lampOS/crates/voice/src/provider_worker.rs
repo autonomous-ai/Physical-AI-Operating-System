@@ -729,6 +729,10 @@ async fn serve_with_visual<C: Connect>(
     let mut name_in = BUS_ROOT
         .get()
         .and_then(|root| crate::bus_out::NameIn::on(root).ok());
+    // And, if that is switched on, the model is told so while the person
+    // is still speaking.
+    let name_note = crate::called::on();
+    let mut called = crate::called::Called::default();
     let mut desk = ToolDesk::new(options.tools.clone());
     desk.name_signal = options.name_signal;
     let mut attention = crate::attention::Attention::default();
@@ -768,9 +772,28 @@ async fn serve_with_visual<C: Connect>(
                     out.tell(room.at(now), now);
                 }
                 if let Some(names) = name_in.as_mut()
-                    && let Some(began) = names.newest(monotonic_us())
+                    && let Some((began, score)) = names.newest_scored(monotonic_us())
                 {
                     attention.name_heard(began);
+                    called.name_heard(began, score);
+                }
+                // Heard plainly as this request began: the model is told,
+                // beside what it is hearing, once.
+                if name_note {
+                    let open = intake.handoff.visual_turn().map(|turn| turn.request);
+                    if let Some(request) = called.due(open.map(RequestId::get), monotonic_us())
+                        && let Some(open) = open
+                    {
+                        called.told(request);
+                        match provider.try_note(open, crate::called::NOTE) {
+                            Ok(()) => eprintln!(
+                                "lamp-voice provider: request {request}: the model is told the lamp's name was heard"
+                            ),
+                            Err(error) => eprintln!(
+                                "lamp-voice provider: request {request}: the lamp's name was heard and the model could not be told: {error}"
+                            ),
+                        }
+                    }
                 }
                 // The session is told how the room is when that changes,
                 // and a new session how it is now, unless a conversation is

@@ -742,6 +742,21 @@ impl<C: Connect> Supervisor<C> {
         self.submitted_input(request)?
             .try_audio(request, sequence, captured_at, samples)
     }
+    /// See [`InputSender::try_note`]: a written note beside what is being
+    /// said. Accepted only for the request that was submitted on the
+    /// connection that is live now, and only while its input is open; at
+    /// any other moment it is refused here and nothing is sent.
+    pub fn try_note(&self, request: RequestId, text: &str) -> Result<()> {
+        let input = self.submitted_input(request)?;
+        match self.tracked.get() {
+            Some(tracked)
+                if tracked.lineage.request == request && tracked.stage == Stage::InputOpen =>
+            {
+                input.try_note(request, text)
+            }
+            _ => Err(Error::StaleRequest),
+        }
+    }
     pub fn try_end(&self, request: RequestId) -> Result<()> {
         self.submitted_input(request)?.try_end(request)?;
         if let Some(mut tracked) = self.tracked.get()

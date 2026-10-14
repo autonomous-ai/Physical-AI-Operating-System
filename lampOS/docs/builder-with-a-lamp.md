@@ -93,6 +93,22 @@ An agent that finds no `LAMP.md`, or another owner in it, does not touch
 the lamp. A change of owner is a line in work-split.md by the first
 builder. A lamp that is lent for one test says so in `runs:` and goes back.
 
+## Taken only when ready (`fifth-P4`)
+
+A piece with its evidence is not yet a task done: the first builder took
+the wake onto `lamp-voice` while it was still being mended, and ran it on
+lamp-4ace before its fixes. So:
+
+- Code being made stays on its task branch (`<name>/<task>`). It reaches
+  `lamp-<name>` only when the task, or a part the log names, is finished
+  and shown.
+- Every log entry opens with one line the first builder can read without
+  judging: `Ready for lamp-voice: no`, or `Ready for lamp-voice: yes
+  (<commit>)`.
+- The first builder takes only what an entry marked `yes` names, and only
+  up to that commit. Running a `no` piece early to help is welcome; it is
+  then said in the answer, and the piece is not on `lamp-voice`.
+
 ## The lamp and its person
 
 - Every ssh is to its own lamp only. Before installing, it writes down what

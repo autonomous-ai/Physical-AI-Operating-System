@@ -182,8 +182,9 @@ fn the_time() -> Tool {
         description:
             "Call this whenever you need the time or the date now: when someone asks what \
                       time it is, what day it is, or how long until something. The time you were \
-                      told when you woke may be hours old; this one is exact. Then say it the way \
-                      a person would, \"twenty past eleven\", not as a clock reads."
+                      told when you woke may be hours old; this one is exact. Then say it as it \
+                      gives it \"said aloud\", with its hour. Not for \"now\" or \"today\" in a \
+                      question about something else, such as how you are feeling right now."
                 .into(),
         parameters: None,
         silent: false,

@@ -136,7 +136,7 @@ With `LAMP_CLOCK=on` in the voice unit (the worker's `--clock`, after
 voice itself and answered at once: `the_time`, which the model is to call
 whenever someone asks the time or the date or how long until something.
 It is told `{"now":"It is 11:47 in the morning, Wednesday 14 October
-2026."}` from the lamp's clock and zone (`crates/voice/src/local_time.rs`),
+2026. Said aloud: thirteen to twelve in the morning."}` from the lamp's clock and zone (`crates/voice/src/local_time.rs`),
 or `{"error":"My clock could not be read just now."}`. Unlike
 `not_for_me`, it is not silent: the model says what it was told.
 
@@ -160,6 +160,17 @@ would say at 13:47 ("quarter to two"); the function's description asks
 for a person's way of saying it, and the model rounded to ten minutes.
 At 12:08 someone at the lamp asked it, and it said "It's a little past
 twelve.", which was right.
+
+Played at 18:23 that day (`checks.sh steady2-1014`), "Hey Lamp, how are
+you feeling right now?" made the model call the clock, and it answered
+"It's twenty-three past in the evening.": not what was asked, and the hour
+lost from "6:23 in the evening". So since `lamp-voice` after `d50d9c822`
+the clock's answer carries the time in the words a person says it in
+("Said aloud: twenty-three past six in the evening": o'clock, past up to
+half past, then to the next hour, quarter and half by name), and the
+function's description says it is not for "now" or "today" in a question
+about something else, such as how the lamp is feeling right now. Not yet
+played.
 
 ## What the voice promises, and what it does not
 

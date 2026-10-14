@@ -380,7 +380,7 @@ fn parse(args: impl IntoIterator<Item = OsString>) -> Result<Option<Arguments>, 
             // limit, or the limit would switch that guard off.
             load: arm_load
                 .unwrap_or_else(|| force_limit.map_or([950, 950], |force| [force - 40; 2])),
-            idle: idle.unwrap_or(false),
+            idle: idle.unwrap_or(true),
         }),
         (None, None)
             if arm_load.is_none()
@@ -414,12 +414,12 @@ fn parse(args: impl IntoIterator<Item = OsString>) -> Result<Option<Arguments>, 
         stand_roll,
         force_limit,
         torque_on: torque.unwrap_or(false),
-        wake: wake.unwrap_or(false),
+        wake: wake.unwrap_or(true),
         give_way,
         overload_release: overload.unwrap_or(false),
-        rest_glance: rest_glance.unwrap_or(false),
+        rest_glance: rest_glance.unwrap_or(true),
         pitch_window,
-        look_at_name: look_at_name.unwrap_or(false),
+        look_at_name: look_at_name.unwrap_or(true),
     };
     if result.stand_roll.is_some() && result.standing.is_none() {
         return Err("--stand-roll needs --stand");
@@ -1037,7 +1037,8 @@ mod tests {
                 seconds: 6,
                 awake: 45,
                 load: [950, 950],
-                idle: false,
+                // On unless turned off (docs/joining.md).
+                idle: true,
             }
         );
         assert!(with(&[]).unwrap().unwrap().standing.is_none());
@@ -1121,9 +1122,10 @@ mod tests {
 
     /// Waking from wherever the lamp is found is off unless asked for.
     #[test]
-    fn wake_is_on_or_off_and_off_unless_given() {
+    fn wake_is_on_or_off_and_on_unless_turned_off() {
         let with = |more: &[&'static str]| parse(args(&[&FULL[..], more].concat()));
-        assert!(!with(&[]).unwrap().unwrap().wake);
+        // On unless turned off: confirmed on lamp-4ace (docs/joining.md).
+        assert!(with(&[]).unwrap().unwrap().wake);
         assert!(with(&["--wake", "on"]).unwrap().unwrap().wake);
         assert!(!with(&["--wake", "off"]).unwrap().unwrap().wake);
         for refused in [
@@ -1140,9 +1142,9 @@ mod tests {
 
     /// A glance from rest is off unless asked for.
     #[test]
-    fn rest_glance_is_on_or_off_and_off_unless_given() {
+    fn rest_glance_is_on_or_off_and_on_unless_turned_off() {
         let with = |more: &[&'static str]| parse(args(&[&FULL[..], more].concat()));
-        assert!(!with(&[]).unwrap().unwrap().rest_glance);
+        assert!(with(&[]).unwrap().unwrap().rest_glance);
         assert!(with(&["--rest-glance", "on"]).unwrap().unwrap().rest_glance);
         assert!(
             !with(&["--rest-glance", "off"])
@@ -1242,9 +1244,9 @@ mod tests {
 
     /// Turning to a call is on or off, and off unless given.
     #[test]
-    fn look_at_name_is_on_or_off_and_off_unless_given() {
+    fn look_at_name_is_on_or_off_and_on_unless_turned_off() {
         let with = |more: &[&'static str]| parse(args(&[&FULL[..], more].concat()));
-        assert!(!with(&[]).unwrap().unwrap().look_at_name);
+        assert!(with(&[]).unwrap().unwrap().look_at_name);
         assert!(
             with(&["--look-at-name", "on"])
                 .unwrap()

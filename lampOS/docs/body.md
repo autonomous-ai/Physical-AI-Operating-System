@@ -666,7 +666,7 @@ needs film, or someone watching.
 ### A glance from rest
 
 Task 32 (#710), on lamp-52e6 since 2026-10-14, 18:11, for the trial only;
-off unless set. With `--rest-glance on` (and `LAMP_EXPRESSION_BODY=on`), a
+on unless given `off` (since 2026-10-15; it was off unless set). With `--rest-glance on` (and `LAMP_EXPRESSION_BODY=on`), a
 lamp at rest takes what Expression asks of its head, so that a resting
 lamp lifts its head at a sudden sound and lets it go (the repository's
 rule 8). Without it, a lamp at rest is not stirred, exactly as before.
@@ -810,6 +810,11 @@ lamp-body --device /dev/EXPLICIT_SERVO_ALIAS --unit-id PROVISIONED_UNIT --lock-d
 
 Reach and speed can be chosen at start, each inside a cap fixed in the code:
 
+Since 2026-10-15, `--wake`, `--rest-glance`, `--look-at-name` and `--idle`
+are on unless given `off`: each passed its minute on lamp-4ace and runs
+there (`docs/joining.md`, "The switch is for that first minute"). For those
+four rows, "Without it" is what `off` leaves.
+
 | Option | Meaning | Without it | Cap |
 | --- | --- | --- | --- |
 | `--reach UP,DOWN,ROLL,YAW` | farthest a goal may be from home, in counts | 45,15,30,40 | 180,25,100,250 |
@@ -824,12 +829,12 @@ Reach and speed can be chosen at start, each inside a cap fixed in the code:
 | `--force-limit N` | the most force the base's turn and, for a lamp that may stand, the shoulder and the elbow may push with, of 1,000 | not written: each servo keeps what it holds | 300 to 1,000 |
 | `--give-way return\|stay` | what a joint does after it gave way, and a joint that pushes without moving told to stop (below, "Giving way to a hand") | as before the option: no stall rule, a joint that gave way always comes back | return or stay |
 | `--torque on` | take hold of a joint found without torque: its goal written as where it is, then torque on, and refused if it then moves more than 12 counts | a joint without torque is refused, and torque is not written | on or off |
-| `--wake on` | with `--home`, a joint found out of where it may start but within 400 counts of home is brought home slowly before anything else; a shoulder left up with its elbow folded is lowered first; in the run, a joint held 30 to 50 counts short of its goal, still, rests where it is (see "Waking") | such a joint is refused | on or off |
+| `--wake on` (default) | with `--home`, a joint found out of where it may start but within 400 counts of home is brought home slowly before anything else; a shoulder left up with its elbow folded is lowered first; in the run, a joint held 30 to 50 counts short of its goal, still, rests where it is (see "Waking") | such a joint is refused | on or off |
 | `--overload release` | any joint at a load of 800 (80% of `--force-limit` for a joint held to one) for 1.5 s: torque off on all five for 120 s, then held where they are and the head brought home slowly; a second time within ten minutes ends the run, torque off (see "Letting go under overload") | torque is never written off | release |
 | `--gaze-socket PATH` with `--gaze Y,P` | where the eyes report, and the signed counts of yaw and pitch that a half-picture is worth | never looks | 900 either way |
 | `--gaze-reach Y,P` | the farthest the gaze takes yaw and pitch; the yaw may be wider than `--reach`'s | 250,120 | 500, 200 |
-| `--look-at-name on` | the lamp's name heard on the bus taken as being spoken to for two seconds, and with nobody in view one small glance once it stands (see "Turning to a call") | a call is not taken | on or off |
-| `--idle on` | a standing lamp at rest shifts a little now and then | off | on or off |
+| `--look-at-name on` (default) | the lamp's name heard on the bus taken as being spoken to for two seconds, and with nobody in view one small glance once it stands (see "Turning to a call") | a call is not taken | on or off |
+| `--idle on` (default) | a standing lamp at rest shifts a little now and then | off | on or off |
 | `--stand-roll N` | the head's tilt reach once the lamp has stood up, where that is more than the roll of `--reach` | no more than folded | 200 |
 | `--pitch-window LOW,HIGH` | the window the head's pitch goal is kept in while the head is beside the base, this lamp's own; checked at start against the head pitch servo's own limits (registers 9 and 11), and the run refused with nothing written if it is not inside them | lamp-4ace's, 1,740 to 2,030, and the servo's limits are not read | LOW at least 1,670 (the head's floor) and under HIGH, and around `--home`'s pitch |
 

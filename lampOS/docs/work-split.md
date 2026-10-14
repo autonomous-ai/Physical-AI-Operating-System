@@ -1,6 +1,6 @@
-# Three builders: the running list
+# The builders: the running list
 
-Since 2026-10-14 three sessions build lampOS at once, at the product
+Since 2026-10-14 four sessions build lampOS at once, at the product
 owner's request: "keep a running list of todos on github so that once
 it's done it reads that list for new tasks and continue working. you
 also read that list and see what's done and add more tasks. it will get
@@ -16,25 +16,31 @@ that has not been on the lamp.
 | First | At the office, with lamp-4ace | `lamp-voice` | | this file |
 | Second | Another machine, no lamp | `lamp-second` | `second/<task>` | `lampOS/docs/work-log.md` on `lamp-second` |
 | Third | Another machine, no lamp | `lamp-third` | `third/<task>` | `lampOS/docs/work-log-third.md` on `lamp-third` |
+| Fourth | Another machine, no lamp | `lamp-fourth` | `fourth/<task>` | `lampOS/docs/work-log-fourth.md` on `lamp-fourth` |
 
 - **The first builder** is the only one who can build for the lamp,
   install on it and measure there. It writes the tasks here, takes
-  finished work from `lamp-second` and `lamp-third` into `lamp-voice` when
-  it can run it on the lamp, mends there whatever does not work on the
-  lamp, and writes here what the lamp showed.
-- **The second and the third builder** each take the tasks in the list
-  below that carry their name, top first, and for each: build, test, put
-  it on their own branch, record it in their own log, and take the next.
-  Neither ever pushes to `lamp-voice`, or to the other's branch. (The
+  finished work from the others' branches into `lamp-voice` when it can
+  run it on the lamp, mends there whatever does not work on the lamp, and
+  writes here what the lamp showed.
+- **The second, third and fourth builder** each take the tasks in the
+  list below that carry their name, top first, and for each: build, test,
+  put it on their own branch, record it in their own log, and take the
+  next. None ever pushes to `lamp-voice`, or to another's branch. (The
   second builder's first push, taking tasks 1 and 2, went to `lamp-voice`
   under the first form of these rules, and stands.)
 
 The second builder has the tasks about sound and speed. The third has
-the tasks that are parts of their own. That is so that their work does
-not meet: the third builder is the one who adds crates to the workspace
-and message types to `crates/msgs`; the second adds neither.
+the tasks that are parts of their own. The fourth has the lamp's memory.
+That is so that their work does not meet: the third builder is the one
+who adds crates to the workspace and message types to `crates/msgs`; the
+second adds neither; the fourth works inside `crates/memory`.
 
-## The loop, for the second and the third builder
+That is as many as the lamp can take. Every piece has to be run on the
+one lamp by the one builder who has it, and with three others building,
+what waits for the lamp already grows faster than it can be cleared.
+
+## The loop, for the builders without a lamp
 
 "Your branch" and "your log" are the ones in the table above.
 
@@ -48,8 +54,8 @@ and message types to `crates/msgs`; the second adds neither.
 3. Take the first task in the list that carries your name and that your
    log does not show as taken or done. Write it into your log as taken,
    with the date, and push.
-4. Work on a task branch (`second/<task>` or `third/<task>`, the task's
-   short name from the list) from your branch. Read what the task points
+4. Work on a task branch (your name, a slash, and the task's short name
+   from the list) from your branch. Read what the task points
    to before writing anything.
 5. Test. The gate, run in `lampOS/`: `cargo fmt --all --check`;
    `cargo clippy -p <crate> --all-targets -- -D warnings` and
@@ -152,6 +158,8 @@ builder's log reports them; then `on the lamp <date>`.
 | 10 | A reference that follows the microphone's clock | `reference-clock` | Second | open |
 | 11 | One task out to an agent and back, through Harness | `tasks` | Third | open |
 | 12 | Starting, setting up and updating a lamp | `surround` | Third | open |
+| 13 | Memory across days | `memory-days` | Fourth | open |
+| 14 | Whom is it said to: what exists | `said-to-whom` | Fourth | open |
 
 ## 1. The end-of-turn model in a tenth of a second
 
@@ -516,6 +524,80 @@ first setup and Wi-Fi, updates and going back from a bad one, reset):
 what V1 does, what the verdict says, what V2 keeps as it is, rebuilds or
 leaves, and the smallest thing that would let a lamp be handed to someone
 who is not a builder. Then build what can be built without a lamp.
+
+## 13. Memory across days
+
+Document: `docs/memory.md`. Read it whole, and in `docs/brain-build.md`
+"Decision 12 in more detail: memory across days". This task owns
+`crates/memory`. (Task 8 adds one thing there, the part's report on
+`diagnostics`; leave that to it.)
+
+**Why.** A person at the next desk remembers yesterday. The lamp keeps a
+journal of what it took part in and a list of what it was asked to keep,
+and finds things in them by whole-word match. `docs/memory.md` has, under
+"What is taken from how others do memory", a table of what the best
+memory systems do, what this one should do about each, and a last column
+that says "No" for most of it. This task is that column.
+
+**What to build,** each behind tests, none of it on the path of a reply:
+
+- Ranked search over the journal and the kept list in place of whole-word
+  match, Vietnamese included, inside the time the document allows a read.
+- Dated observations derived from the journal, each pointing at the lines
+  it came from. A newer one replaces an older one by a link, and both are
+  kept.
+- Forgetting that is real: "forget that" removes the thing and, through
+  those links, everything derived from it, and a search afterwards finds
+  none of it.
+- What goes unused lapses, by the ages the document gives; what a person
+  asked to be kept does not.
+- The note a new session starts with: a small block under a hard cap
+  (open promises, recent threads, lasting preferences), as it stood when
+  the session opened.
+- The pass that tidies up after a conversation has ended. It needs a
+  model, and no model, key or money is to be had here: build it behind
+  one small interface, with a scripted model for the tests, and say in
+  the document what a real one would be asked and what would leave the
+  lamp.
+- Room for a person on everything kept, used by nothing yet: until the
+  lamp knows who is speaking, everything is "said in this room".
+
+**And the measure the document asks for and nobody has run:** the
+retrieval score on LongMemEval-S (public, and its retrieval score needs
+no model) for today's whole-word match, for ranked search, and for
+whatever else is built, on one harness; and a small set of the lamp's
+own, scripted conversations over several days with questions whose right
+answer is "I don't remember" or "that was someone else".
+
+**Hand back:** the crate with its tests, the document's table brought up
+to date with what was measured, the request lines the voice would send
+for anything new (`docs/memory.md`, "Requests"), and what it costs to
+build for Linux ARM64 if a native library comes with it.
+
+## 14. Whom is it said to: what exists
+
+Document: `docs/said-to-whom.md` (new). Nothing is built. Read
+`docs/attention.md`, `docs/policy.md`, `docs/group-talk.md` and
+`docs/name.md` first: they are what this lamp has tried and measured.
+
+**Why.** The owner's goal names it: the lamp should "know when the user
+is not talking to lamp" and "know when to speak up and when not to". In
+an office most speech near the lamp is for someone else. Today the lamp
+goes by its name heard in the sound, by how busy the room is, by whether
+a conversation with it is going on, and by the speech model's own
+judgement; the next step planned is one judge that decides for each turn
+from the signs of that moment.
+
+**Wanted.** A study, with its sources, of how this is solved where it is
+solved best: what the research calls device-directed speech detection and
+addressee detection, what the shipped assistants and the social robots
+do, what each uses (the sound alone, the words, where the person is
+looking, who spoke last, how far away they are), how well each does and
+measured how, and which public recordings exist to train or test on. Then
+what of it this lamp could use with what it has (two microphones, a
+camera that reports whether a face is turned to it, the name heard, a
+decision model that is asked typed questions) and what it would take.
+Figures that are published and not measured here are marked as such.
 
 ## What the lamp showed
 

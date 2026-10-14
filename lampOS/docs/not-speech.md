@@ -135,6 +135,31 @@ the lamp on 2026-10-13 had 34 to 41 blocks, so a word said at a person's
 pace may well pass where this clip does not. Nothing here has measured
 it. The new field is not covered by a test.
 
+**Measured on lamp-4ace on the evening of 2026-10-14** (nobody in the office;
+played from the Mac's loudspeaker a metre away; `noises.sh` and
+`shortwords.sh` with the played-test tools):
+
+- *Noises at an idle lamp:* the fourteen macOS system sounds, a knock and a
+  bang, three times each, 8 to 14 s apart. The lamp said nothing after any
+  of the 48. The detector took six tonal ones (Glass, Hero, Submarine, Blow,
+  Bottle, Funk) for a voice 16 times and the lamp began to listen; the gate
+  threw out 15 of those records here as sounds, with 12 to 26 blocks of
+  speech and an unbroken run of 2 to 18 blocks scored 0.9 or more.
+- *Short words into quiet, not after the lamp's own:* "Hello?", "Hi.", "Hey.",
+  "Yes.", "No.", "Thanks.", "Okay.", "Lamp?", "Sorry?", "What?", "Hey Lamp.",
+  "Good morning." in three voices, 14 s apart: 6 of 36 answered, 4 more
+  heard and not answered, 26 not heard at all. Of the 26, 13 reached the
+  gate and were thrown out as sounds (12 to 29 blocks of speech, runs of 3 to
+  19), and 13 never started an utterance: the detector did not take them
+  for speech.
+
+So neither the count nor the longest sure run tells these words from those
+sounds: every threshold that keeps "Hi." keeps "Glass" too. The next thing to
+try is to let a short utterance in a quiet room go to the model with a note
+that it may not be words said to the lamp, and that if it is not it says
+nothing (`not_for_me`), since the model hears the sound itself. The same two
+played sets measure it: words answered against noises answered.
+
 ## An answer with no word in it
 
 Told to stay quiet, the model sometimes says so aloud: an answer whose

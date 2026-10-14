@@ -231,6 +231,17 @@ pub fn stopped(stop: &Stop) -> Diagnostic {
             Level::Error,
             "stopped: the servos did not answer as expected".to_owned(),
         ),
+        Stop::Overload {
+            joint,
+            load,
+            detail,
+        } => (
+            Level::Error,
+            format!(
+                "stopped with its torque off: {} was overloaded (load {load}); {detail}",
+                joint_word(*joint)
+            ),
+        ),
     };
     Diagnostic {
         level,
@@ -417,6 +428,8 @@ mod tests {
             look: [0.0, 0.0],
             face: None,
             gesture: None,
+            released: 0,
+            limp: false,
         }
     }
 

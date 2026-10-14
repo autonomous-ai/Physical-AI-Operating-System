@@ -1,0 +1,3 @@
+   Compiling lamp-expression v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/expression)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.72s
+     Running `target/debug/examples/rest_cost 100`

@@ -1,0 +1,25 @@
+    Checking lamp-expression v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/expression)
+error: very complex type used. Consider factoring parts into `type` definitions
+  --> crates/expression/examples/rest_cost.rs:20:20
+   |
+20 |     let scenarios: [(&str, &[u8], u64, usize, usize, usize); 2] = [
+   |                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.96.0/index.html#type_complexity
+   = note: `-D clippy::type-complexity` implied by `-D warnings`
+   = help: to override `-D warnings` add `#[allow(clippy::type_complexity)]`
+
+error: could not compile `lamp-expression` (example "rest_cost") due to 1 previous error
+warning: build failed, waiting for other jobs to finish...
+error: this assertion has a constant value
+   --> crates/expression/tests/rest_engine.rs:272:5
+    |
+272 |     assert!(TICK_US <= 100_000);
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: consider moving this into a const block: `const { assert!(..) }`
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.96.0/index.html#assertions_on_constants
+    = note: `-D clippy::assertions-on-constants` implied by `-D warnings`
+    = help: to override `-D warnings` add `#[allow(clippy::assertions_on_constants)]`
+
+error: could not compile `lamp-expression` (test "rest_engine") due to 1 previous error

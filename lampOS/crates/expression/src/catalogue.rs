@@ -17,6 +17,7 @@ pub enum Trigger {
     Playout,
     Interrupted,
     Concentrating,
+    Rest,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
@@ -44,6 +45,11 @@ pub struct Behaviour {
     pub quiet_only: bool,
     pub stop_when_concentrating: bool,
     pub states: Vec<Voice>,
+    /// States in which a clip that already began may finish. This does not
+    /// authorize starting a new clip there. Only a pause nod may continue into
+    /// Thinking; new speech and retired turns still cancel it.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub continue_in: Vec<Voice>,
     pub keyframes: Vec<Keyframe>,
 }
 
@@ -145,6 +151,10 @@ pub struct GazeRules {
 #[serde(deny_unknown_fields)]
 pub struct Catalogue {
     pub version: u32,
+    /// Select the complete generation-fenced VoiceProgress/VoiceSound contract.
+    /// False keeps the original VoiceTiming/VoicePlayout contract unchanged.
+    #[serde(default)]
+    pub resumable_voice: bool,
     pub limits: BodyOffsets,
     pub postures: Postures,
     pub face_levels: FaceLevels,
@@ -248,6 +258,7 @@ impl Catalogue {
         }
         let mut names = BTreeSet::new();
         let mut triggers = BTreeSet::new();
+        let mut rest_clips = 0;
         for clip in &self.behaviours {
             if clip.name.is_empty()
                 || clip.name.len() > 64
@@ -274,7 +285,26 @@ impl Catalogue {
                     clip.name
                 )));
             }
-            if clip.delay_us > 1_000_000 || clip.cooldown_us > 60_000_000 {
+            if clip
+                .states
+                .iter()
+                .enumerate()
+                .any(|(index, value)| clip.states[..index].contains(value))
+            {
+                return Err(Error(format!("{}: voice states must be unique", clip.name)));
+            }
+            if !clip.continue_in.is_empty()
+                && (clip.trigger != Trigger::Pause
+                    || clip.states != [Voice::Listening]
+                    || clip.continue_in != [Voice::Thinking])
+            {
+                return Err(Error(
+                    "only a listening pause nod may continue into Thinking".into(),
+                ));
+            }
+            if clip.trigger != Trigger::Rest
+                && (clip.delay_us > 1_000_000 || clip.cooldown_us > 60_000_000)
+            {
                 return Err(Error(format!("{}: unbounded delay or cooldown", clip.name)));
             }
             if clip.keyframes.len() < 2
@@ -302,12 +332,60 @@ impl Catalogue {
             if clip.trigger == Trigger::Pause
                 && (clip.repeat
                     || clip.hold
-                    || clip.duration_us() > 600_000
+                    || clip.duration_us()
+                        > if clip.continue_in.is_empty() {
+                            600_000
+                        } else {
+                            2_000_000
+                        }
                     || clip.cooldown_us < 2_000_000)
             {
                 return Err(Error(
-                    "a pause nod must relax within 600 ms and have at least a 2 s cooldown".into(),
+                    "a pause nod needs a 2 s cooldown and at most 600 ms, or 2 s with Thinking continuation".into(),
                 ));
+            }
+            if clip.trigger == Trigger::Rest {
+                rest_clips += 1;
+                if rest_clips > 1
+                    || clip.states != [Voice::Resting]
+                    || !clip.continue_in.is_empty()
+                    || !clip.quiet_only
+                    || !clip.stop_when_concentrating
+                    || clip.repeat
+                    || clip.hold
+                    || !(20_000_000..=3_600_000_000).contains(&clip.delay_us)
+                    || !(60_000_000..=3_600_000_000).contains(&clip.cooldown_us)
+                    || !(2_000_000..=6_000_000).contains(&clip.duration_us())
+                    || clip.keyframes.first().unwrap().offsets != BodyOffsets::ZERO
+                    || clip.keyframes.last().unwrap().offsets != BodyOffsets::ZERO
+                    || clip.keyframes.iter().any(|frame| {
+                        frame.offsets.base_yaw != 0.0
+                            || frame.offsets.shoulder != 0.0
+                            || frame.offsets.elbow != 0.0
+                            || frame.offsets.head_pitch.abs() > 0.06
+                            || frame.offsets.head_roll.abs() > 0.06
+                            || frame.brightness != 0.0
+                    })
+                    || clip.keyframes.windows(2).any(|pair| {
+                        let seconds = (pair[1].at_us - pair[0].at_us) as f64 / 1_000_000.0;
+                        [
+                            pair[1].offsets.head_pitch - pair[0].offsets.head_pitch,
+                            pair[1].offsets.head_roll - pair[0].offsets.head_roll,
+                        ]
+                        .into_iter()
+                        .any(|delta| {
+                            // Smoothstep's maximum speed is 1.5 * displacement
+                            // / duration; maximum acceleration is 6 * displacement
+                            // / duration squared. A long clip cannot hide a snap.
+                            1.5 * delta.abs() / seconds > 0.06
+                                || 6.0 * delta.abs() / (seconds * seconds) > 0.12
+                        })
+                    })
+                {
+                    return Err(Error(
+                        "rest needs one slow quiet-only head clip, zero endpoints, 20 s delay and 60 s cooldown or longer".into(),
+                    ));
+                }
             }
             if clip.repeat && clip.trigger != Trigger::Playout {
                 return Err(Error("only actual playout may repeat a clip".into()));

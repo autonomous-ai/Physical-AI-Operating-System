@@ -1,0 +1,13 @@
+   Compiling lamp-expression v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/expression)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.47s
+     Running tests/catalogue_rest.rs (target/debug/deps/catalogue_rest-babd40cf489b2f87)
+
+running 6 tests
+test a_continuation_is_not_permission_to_start_in_thinking_or_carry_into_speech ... ok
+test rest_cannot_be_a_scan_unbounded_oscillation_or_light_pulse ... ok
+test existing_default_is_legacy_and_new_motion_needs_explicit_catalogue_selection ... ok
+test long_nod_must_have_a_bounded_approved_continuation ... ok
+test a_long_rest_clip_cannot_hide_a_fast_step_between_adjacent_frames ... ok
+test rest_has_zero_endpoints_and_no_more_than_one_author ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s

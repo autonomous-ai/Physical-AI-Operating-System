@@ -1,0 +1,13 @@
+   Compiling lamp-msgs v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/msgs)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 2.21s
+     Running tests/expression_rest.rs (target/debug/deps/expression_rest-317dd70a182271ea)
+
+running 6 tests
+test held_progress_is_listening_but_readiness_remains_the_owners_fact ... ok
+test generation_fences_do_not_relax_schedules_intervals_or_identity_validation ... ok
+test new_topics_have_distinct_types_and_original_contracts_are_unchanged ... ok
+test additive_wire_is_flat_and_future_fields_remain_compatible ... ok
+test duplicate_generation_or_nested_identity_cannot_override_an_earlier_field ... ok
+test required_fences_are_never_inferred_from_legacy_messages ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s

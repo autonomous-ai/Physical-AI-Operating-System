@@ -65,6 +65,11 @@ sh run.sh unpack.py mswc test-clean test-other dev-clean dev-other
 sh make_speech.sh
 # 3. Real speech, aligned, cut and split by speaker.
 sh run.sh clips.py sc mswc words libri more piper
+# training/name's make.sh stops here, with the hour of validation talk it shares.
+if [ -n "$STOP_ONLY_CLIPS" ]; then
+  sh make_inputs.sh check-talk
+  exit 0
+fi
 # 4. Training inputs, three processes of two threads.
 sh make_inputs.sh
 # 5. Train and write the model.

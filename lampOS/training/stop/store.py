@@ -1,4 +1,9 @@
-"""A set of clips on disk: their samples (16 kHz, 16 bits) laid end to end, and what each is."""
+"""A set of clips on disk: their samples (16 kHz, 16 bits) laid end to end, and what each is.
+
+Sets live in lampOS/.cache/stop/clips unless another folder is given
+(training/name keeps its own sets in lampOS/.cache/name/clips and reads
+the shared ones from here).
+"""
 
 from __future__ import annotations
 
@@ -12,25 +17,25 @@ CACHE = HERE.parent.parent / ".cache" / "stop"
 CLIPS = CACHE / "clips"
 
 
-def save(name: str, clips: list[np.ndarray], meta: list[dict]) -> None:
+def save(name: str, clips: list[np.ndarray], meta: list[dict], root: Path = CLIPS) -> None:
     assert len(clips) == len(meta)
-    CLIPS.mkdir(parents=True, exist_ok=True)
+    root.mkdir(parents=True, exist_ok=True)
     offsets = np.zeros(len(clips) + 1, np.int64)
     offsets[1:] = np.cumsum([len(c) for c in clips])
     audio = np.concatenate(clips).astype(np.int16) if clips else np.zeros(0, np.int16)
-    np.save(CLIPS / f"{name}.audio.npy", audio)
-    np.save(CLIPS / f"{name}.offsets.npy", offsets)
-    (CLIPS / f"{name}.json").write_text("\n".join(json.dumps(m) for m in meta) + "\n")
+    np.save(root / f"{name}.audio.npy", audio)
+    np.save(root / f"{name}.offsets.npy", offsets)
+    (root / f"{name}.json").write_text("\n".join(json.dumps(m) for m in meta) + "\n")
     hours = len(audio) / 16_000 / 3600
     print(f"{name}: {len(clips)} clips, {hours:.2f} h")
 
 
 class Store:
-    def __init__(self, name: str):
+    def __init__(self, name: str, root: Path = CLIPS):
         self.name = name
-        self.samples = np.load(CLIPS / f"{name}.audio.npy", mmap_mode="r")
-        self.offsets = np.load(CLIPS / f"{name}.offsets.npy")
-        self.meta = [json.loads(line) for line in (CLIPS / f"{name}.json").read_text().splitlines() if line]
+        self.samples = np.load(root / f"{name}.audio.npy", mmap_mode="r")
+        self.offsets = np.load(root / f"{name}.offsets.npy")
+        self.meta = [json.loads(line) for line in (root / f"{name}.json").read_text().splitlines() if line]
 
     def __len__(self) -> int:
         return len(self.meta)
@@ -43,5 +48,5 @@ class Store:
         return len(self.samples) / 16_000
 
 
-def exists(name: str) -> bool:
-    return (CLIPS / f"{name}.json").exists()
+def exists(name: str, root: Path = CLIPS) -> bool:
+    return (root / f"{name}.json").exists()

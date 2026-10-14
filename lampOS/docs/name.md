@@ -162,6 +162,9 @@ With it the lamp's health has six parts reporting.
   it reported a hearing in none
   ([conversation-latency.md](conversation-latency.md)). One syllable is
   little to go on, and the study found the same of every spotter it tried.
+  A model of the same shape that also hears a bare "Lamp" was trained and
+  measured off the lamp, to be tried in place of `name.onnx`:
+  [bare-name.md](bare-name.md).
 - **A person.** Every voice was synthetic and played through a
   loudspeaker near the lamp. Real voices, accents, distance and a full
   office are untried, and are what the classifier has to be trained for.

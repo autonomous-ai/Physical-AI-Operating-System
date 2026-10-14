@@ -333,6 +333,13 @@ pub struct ConfirmPolicy {
     pub result_timeout_blocks: u16,
     /// Pause endpoint without a decisive verdict: the detector's own window.
     pub fallback_blocks: u16,
+    /// A complete verdict ends the turn at `commit_blocks` only for an
+    /// utterance with at least this many speech blocks; a shorter one waits
+    /// for `fallback_blocks`, as if the verdict were uncertain. On lamp-4ace
+    /// on 2026-10-14 the 400 ms commit took "Hey Lamp," on its own for a
+    /// finished turn (p 0.99) and cut the name off its question; in a busy
+    /// room the question was then held for want of its name. 0: no floor.
+    pub least_speech_blocks: u16,
 }
 
 impl Default for ConfirmPolicy {
@@ -345,6 +352,7 @@ impl Default for ConfirmPolicy {
             incomplete_blocks: 150,
             result_timeout_blocks: 50,
             fallback_blocks: V1_END_SILENCE_BLOCKS,
+            least_speech_blocks: 0,
         }
     }
 }
@@ -356,6 +364,9 @@ impl ConfirmPolicy {
     pub fn responsive() -> Self {
         Self {
             commit_blocks: 40,
+            // Longer than the lamp's name said alone ("Hey Lamp," is about
+            // 0.6 s), shorter than most questions.
+            least_speech_blocks: 80,
             ..Self::default()
         }
     }
@@ -453,6 +464,8 @@ struct Confirmation {
     generation: u64,
     pause: Pause,
     pause_blocks: u16,
+    /// Speech blocks heard in this utterance.
+    speech_blocks: u16,
 }
 
 impl Confirmation {
@@ -465,6 +478,7 @@ impl Confirmation {
             generation: 0,
             pause: Pause::Listening,
             pause_blocks: 0,
+            speech_blocks: 0,
         }
     }
 
@@ -483,6 +497,7 @@ impl Confirmation {
         self.generation = 0;
         self.pause = Pause::Listening;
         self.pause_blocks = 0;
+        self.speech_blocks = 0;
         self.audio.clear();
     }
 
@@ -564,6 +579,7 @@ impl Confirmation {
             self.accept(outcome);
         }
         if speech {
+            self.speech_blocks = self.speech_blocks.saturating_add(1);
             if !matches!(self.pause, Pause::Listening) {
                 self.generation = self.generation.wrapping_add(1);
                 self.pause = Pause::Listening;
@@ -594,7 +610,12 @@ impl Confirmation {
         match self.pause {
             Pause::Heard(heard)
                 if heard.probability >= policy.complete_probability
-                    && pause >= policy.commit_blocks =>
+                    && pause
+                        >= if self.speech_blocks >= policy.least_speech_blocks {
+                            policy.commit_blocks
+                        } else {
+                            policy.fallback_blocks
+                        } =>
             {
                 Some(decide("model_complete", Some(heard), None))
             }

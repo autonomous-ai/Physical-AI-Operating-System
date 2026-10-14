@@ -263,9 +263,10 @@ fn default_profile_holds_unfinished_speech_but_resumes_on_speech() {
 fn responsive_profile_is_explicit_and_commits_at_400_ms() {
     let policy = ConfirmPolicy::responsive();
     assert_eq!(policy.commit_blocks, 40);
+    assert_eq!(policy.least_speech_blocks, 80);
     assert_ne!(policy, ConfirmPolicy::default());
     let mut rig = Rig::with(policy);
-    rig.speak(50);
+    rig.speak(90);
     rig.quiet(20);
     rig.script.reply(rig.script.submissions()[0], 0.95);
     assert_eq!(rig.quiet_until_end(200), Some(20));
@@ -307,6 +308,34 @@ fn retained_snapshot_is_the_latest_model_window() {
     assert_eq!(pcm.len(), WINDOW_SAMPLES);
     assert_eq!(*pcm.last().unwrap(), rig.sequence as i16);
     assert_eq!(pcm[0], (rig.sequence - 799) as i16);
+}
+
+/// The lamp's name said alone, then a pause: a confident verdict ends it
+/// only at the full silence window, so the question that follows stays in
+/// the same turn. A long enough utterance still ends at the early commit.
+#[test]
+fn a_complete_verdict_on_a_few_words_waits_for_the_silence_window() {
+    let floor = ConfirmPolicy {
+        least_speech_blocks: 80,
+        ..mechanics()
+    };
+    let mut short = Rig::with(floor);
+    short.speak(60);
+    short.quiet(20);
+    short.script.reply(short.script.submissions()[0], 0.99);
+    let window = floor.fallback_blocks;
+    assert_eq!(short.quiet_until_end(400), Some(window - 20));
+    let decision = short.decision();
+    assert_eq!(
+        (decision.basis, decision.silence_ms),
+        ("model_complete", u64::from(window) * 10)
+    );
+    let mut long = Rig::with(floor);
+    long.speak(120);
+    long.quiet(20);
+    long.script.reply(long.script.submissions()[0], 0.99);
+    assert_eq!(long.quiet_until_end(200), Some(20));
+    assert_eq!(long.decision().silence_ms, 400);
 }
 
 #[test]

@@ -172,10 +172,15 @@ Three things about it that a reader of this page should know:
   Expression may add"). It takes the head's pitch and roll and the base's
   turn, adds them to the pose its own mood wants, and holds them to its
   own reach and speed. The sign it reads: a positive `head_pitch` dips the
-  head. Not yet run on a lamp. On lamp-4ace the head follows a pose at
-  120 counts a second and leaves a move under 20 counts unmade, so the
-  built-in nod (23 counts at its highest, over 0.15 s) will not show
-  there: the lamp needs a catalogue of its own with a slower, larger nod.
+  head. On lamp-4ace since 2026-10-14, 10:05. Asked there for dips of 40
+  and 55 counts over about a second, the head dipped 17 to 38 counts (1.5
+  to 3.3 degrees), farthest about 0.3 s after the request was, with the
+  base still. The head follows a pose at 120 counts a second and leaves a
+  move under 20 counts unmade, so the built-in nod (23 counts at its
+  highest, over 0.15 s) cannot be made there, and a nod of a second does
+  not fit inside a pause when 0.6 s of quiet ends the turn: this lamp can
+  nod as someone finishes, if the planner carries a move begun while
+  listening on into thinking. That is part of task 18.
 - **The room is said again every second** (`RoomOut::tell`), so that the
   planner's five-second limit on that evidence is met by a room that is
   judged all the time and seldom changes.

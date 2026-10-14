@@ -740,8 +740,17 @@ lists "explicit concentration setting" as missing for ever, because
 nothing publishes it. And with nothing to say between turns, what a lamp
 at rest looks like is one fixed pose.
 
-**Wanted.** A way for the voice to say a turn is held back for someone
-and may resume (a state or an event of its own, with the sound already
+What the body showed the same morning also belongs here: lamp-4ace's head
+makes a dip of two to three degrees in about a second and starts 0.3 s
+after it is asked ([body.md](body.md), "What Expression may add"). The
+built-in nod is too small and too quick for it, and no nod of a second
+fits in a pause when 0.6 s of quiet ends the turn.
+
+**Wanted.** A nod as someone finishes speaking: begun in the pause that
+ends their turn and carried on into thinking, sized and timed in the
+catalogue for a head like this one (a clip that begins in one state may
+go on in the next if the catalogue says so). A way for the voice to say
+a turn is held back for someone and may resume (a state or an event of its own, with the sound already
 queued dropped and new sound after it accepted), with the listening face
 within 100 ms and the look to the speaker, and the return to speaking if
 it resumes. A default for concentration that is "not concentrating" until

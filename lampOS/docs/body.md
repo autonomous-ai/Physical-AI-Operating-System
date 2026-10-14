@@ -353,8 +353,8 @@ of it.
 
 ## What Expression may add
 
-Not yet run on a lamp. This is what the code does against simulated
-servos.
+On lamp-4ace since 2026-10-14, 10:05, switched on. What it did there is
+at the end of this section.
 
 The part that plans what the lamp shows ([expression.md](expression.md))
 may ask the body to add a little to the pose it is in: a nod while the
@@ -396,6 +396,46 @@ back within 6 of where it listened from, no goal moving more than 3
 counts in a step, and neither the tilt nor the turn moved. Asked for 500
 counts of dip and of turn, it dipped no more than 60 and never under its
 own reach, and turned 60 to 70. Asked while at rest, nothing was written.
+
+**On lamp-4ace, 2026-10-14, 10:09, without a sound.** The lamp was made to
+stand and listen through its mood socket (a socket of its own for the
+trial, so that the voice's own word of its mood did not mix with it), and
+its head was asked for five dips the way Expression asks: requests on
+`expression/body` every 20 ms, each lasting a fifth of a second, easing
+out to an offset and back (`cargo run -p lamp-body --example
+expression_ask`). The joints were recorded from `body/joint_states`, one
+reading every 80 ms.
+
+| Asked | The goal dipped | The head itself dipped | Farthest, after the asking began | Back within 6 counts |
+|---|---|---|---|---|
+| 40 counts, out in 0.4 s and back in 0.4 s | 28 | 20 (1.8 degrees) | 0.72 s | 1.12 s |
+| the same | 24 | 17 (1.5 degrees) | 0.65 s | 1.13 s |
+| the same | 25 | 30 (2.7 degrees) | 0.73 s | it came to rest 11 counts from where it began |
+| 55 counts, out in 0.5 s, held 0.15 s, back in 0.5 s | 37 | 26 (2.3 degrees) | 0.78 s | 1.42 s |
+| the same | 49 | 38 (3.3 degrees) | 0.78 s | 1.89 s |
+
+The base's turn did not move. The body took every request (it says when
+it does not) and met no resistance.
+
+What that shows: the way from a request on the bus to the head moving
+works on the lamp, the head makes about half to two thirds of a dip
+asked at this pace, it is at its farthest about 0.3 s after the request
+is, and a dip and its way back take a little over a second. The head
+does not start until 20 counts are asked of it, which is the first
+150 ms of an eased move, and then it has to catch up. It can end up to
+12 counts from where it began: a joint that is within 20 counts of
+where it is wanted rests there.
+
+What it means for a nod: the built-in one (23 counts, over 0.32 s) cannot
+be made by this head. And a nod that takes a second cannot be made inside
+a pause in someone's speech here, because 0.6 s of quiet ends their turn;
+what this head can do is nod once as someone finishes, on its way to
+looking aside to think. That needs the planner to carry a move begun
+while listening on into thinking.
+
+Not shown: what it looks like. Five photographs were taken during the
+trial, one every five seconds; a move of a second and three degrees
+needs film, or someone watching.
 
 ## Gestures
 

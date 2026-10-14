@@ -684,6 +684,7 @@ fn motor_crash_preserves_actual_voice_owner_and_next_audio_dispatch() {
     let mut rig = Rig {
         microphone: crate::options::Microphone::Mic2,
         end_silence_blocks: None,
+        early_end_blocks: None,
         faint_level: None,
         speaker,
         capture,
@@ -1049,6 +1050,7 @@ fn failed_reap_after_stopped_is_latched_and_reported_once() {
     let mut rig = Rig {
         microphone: crate::options::Microphone::Mic2,
         end_silence_blocks: None,
+        early_end_blocks: None,
         faint_level: None,
         speaker,
         capture,

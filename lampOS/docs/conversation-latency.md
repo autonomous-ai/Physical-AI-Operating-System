@@ -89,6 +89,48 @@ that listens for the name heard it in none of the eight. It hears "Hey
 Lamp" and "Lamp ơi" ([name.md](name.md)), and a bare "Lamp" is not one
 of them.
 
+## The end sent early (`--early-end-ms`): built, not yet on the lamp
+
+Task 19 of [work-split.md](work-split.md), by the second builder,
+2026-10-14 ([faster-answers.md](faster-answers.md), way 2, "Built: the end
+sent early"). Off unless given. With `--early-end-ms 200` the request is
+ended to the service after 200 ms of quiet, and the answer is held until
+the lamp's own end of speech (the 600 ms, or the end-of-turn model's
+verdict) confirms that the person has finished. If they speak again first,
+the request is given up as a continued utterance is, and nothing of its
+answer is played.
+
+The path from the person's last sound to the first block handed to the
+speaker, without and with it:
+
+| | Without (today) | With `--early-end-ms 200` |
+|---|---|---|
+| The end reaches the service | 600 ms after the last sound | 200 ms after |
+| The lamp is sure the person has finished | 600 ms | 600 ms, unchanged |
+| First block to the speaker | 600 ms + service + start hold | the later of 600 ms and 200 ms + service + start hold |
+
+Measured where the clocks are injected (`coordinator::early_end::tests`:
+the real detector at 600 ms, the real start gate at 350 ms, a service
+whose sound comes as fast as it plays, so the start hold is 160 ms): at
+the lamp's median service time of 1.15 s, 1,910 ms without and 1,510 ms
+with. An answer ready before the lamp is sure begins at the 600 ms, never
+before. Through the coordinator's own loop, the real provider worker and
+session, and a scripted service answering 900 ms after each end, on the
+second builder's laptop, once each: 1,670 ms without and 1,269 ms with;
+the end left 604 and 203 ms after the last sound. Neither is a lamp, the
+real service or a first audible word.
+
+So with this service the lamp's half-within would go from about 1.98 s to
+about 1.58 s, if the service's own time does not change with requests
+given up and continued. That is an estimate from medians, not a
+measurement.
+
+Not shown: anything on lamp-4ace; the real service's handling of a
+request given up a third of a second after its end; how often people
+pause 200 to 600 ms and go on, each of which is now a request given up;
+what the model makes of a thought sent in two pieces with a stopped
+answer between them.
+
 ## Latest ordinary conversation, 2026-10-12
 
 The [newest ordinary attempt](verification/pilot-readiness-20261012/README.md)

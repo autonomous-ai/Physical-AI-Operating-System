@@ -12,6 +12,7 @@ fn cleanup_failure_cannot_leave_a_restartable_physical_mute() {
     let mut rig = Rig {
         microphone: crate::options::Microphone::Mic2,
         end_silence_blocks: None,
+        early_end_blocks: None,
         faint_level: None,
         speaker,
         capture,
@@ -149,6 +150,7 @@ fn active_mute(trace: &mut SessionState, invalid: bool) -> Result<()> {
     let mut rig = Rig {
         microphone: crate::options::Microphone::Mic2,
         end_silence_blocks: None,
+        early_end_blocks: None,
         faint_level: None,
         speaker,
         capture,

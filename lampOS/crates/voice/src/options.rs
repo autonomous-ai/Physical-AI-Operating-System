@@ -329,6 +329,13 @@ pub struct DirectedOptions {
     /// Explicit end-of-speech wait in 10 ms blocks. None keeps each
     /// turn-taking policy's own window.
     pub end_silence_blocks: Option<u16>,
+    /// The end sent early (`--early-end-ms`), in 10 ms blocks of quiet:
+    /// the request is ended to the provider after this much quiet, and its
+    /// answer is held until the end-of-speech wait (or the end-of-turn
+    /// model) confirms that the person has finished. None, the default,
+    /// sends the end at that confirming moment, as always
+    /// (docs/faster-answers.md, way 2).
+    pub early_end_blocks: Option<u16>,
     /// A capture block quieter than this, on the face's scale of loudness
     /// after cancellation (`ring_face::level_of`), is not speech whatever
     /// the detector scores it. None leaves every block to the detector.
@@ -428,6 +435,16 @@ impl DirectedOptions {
                     }
                     options.end_silence_blocks = Some(value / 10);
                 }
+                EARLY_END_FLAG if options.early_end_blocks.is_none() => {
+                    let value = required_value(&mut arguments)?
+                        .parse::<u16>()
+                        .map_err(|_| invalid_options())?;
+                    if value % 10 != 0 || !(EARLY_END_LEAST_MS..=EARLY_END_MOST_MS).contains(&value)
+                    {
+                        return Err(invalid_options());
+                    }
+                    options.early_end_blocks = Some(value / 10);
+                }
                 "--faint-floor-db" if options.faint_level.is_none() => {
                     // In dBFS, -47 to -20: the face's scale runs from -48
                     // to -14, 255 steps.
@@ -455,9 +472,35 @@ impl DirectedOptions {
         if options.endpoint.confirms() && options.turn_taking == TurnTaking::VadOnly {
             return Err(invalid_options());
         }
+        // The end sent early comes before the wait that confirms it, and a
+        // person who goes on is a request given up and continued. Without
+        // the kept start a continuation written at once behind an answer
+        // that has not begun times out (docs/gemini-session-reliability.md).
+        if let Some(early) = options.early_end_blocks
+            && (early >= options.end_silence_window_blocks()
+                || options.provider_continuation != Continuation::KeptStart)
+        {
+            return Err(invalid_options());
+        }
         Ok(options)
     }
+
+    /// The end-of-speech wait in force, in 10 ms blocks: the explicit one,
+    /// or the turn-taking policy's own.
+    pub fn end_silence_window_blocks(self) -> u16 {
+        self.end_silence_blocks.unwrap_or(match self.turn_taking {
+            TurnTaking::V1Baseline | TurnTaking::Duplex => crate::activity::V1_END_SILENCE_BLOCKS,
+            TurnTaking::VadOnly => crate::activity::END_SILENCE_BLOCKS,
+        })
+    }
 }
+
+/// The option that sends the end early, and the quiet it may be set to, in
+/// milliseconds and a multiple of ten. It must also be shorter than the
+/// end-of-speech wait in force.
+pub const EARLY_END_FLAG: &str = "--early-end-ms";
+pub const EARLY_END_LEAST_MS: u16 = 100;
+pub const EARLY_END_MOST_MS: u16 = 1_000;
 
 /// Optional local failure speech. Both values are explicit; this grants no
 /// output authority and never creates or downloads recordings.
@@ -1422,6 +1465,7 @@ mod tests {
                     DirectedOptions::parse(&args(&flags)).unwrap(),
                     DirectedOptions {
                         end_silence_blocks: None,
+                        early_end_blocks: None,
                         faint_level: None,
                         microphone: Microphone::Mic2,
                         playout_start: PlayoutStart::default(),
@@ -1670,6 +1714,135 @@ mod end_silence_tests {
         for arguments in refused {
             assert!(parse(arguments).is_err(), "{arguments:?}");
         }
+    }
+}
+
+#[cfg(test)]
+mod early_end_tests {
+    use super::*;
+
+    fn parse(args: &[&str]) -> io::Result<DirectedOptions> {
+        DirectedOptions::parse(&args.iter().map(|s| s.to_string()).collect::<Vec<_>>())
+    }
+
+    /// What lamp-4ace's unit passes today (`deploy/lamp-4ace/lamp-voice.service`),
+    /// less the provider configuration and the output directory.
+    const LAMP: [&str; 18] = [
+        "--noise-suppression",
+        "off",
+        "--turn-taking",
+        "duplex",
+        "--faint-floor-db",
+        "-28",
+        "--microphone",
+        "mic2",
+        "--reference-clock",
+        "capture",
+        "--reference-recovery",
+        "off",
+        "--provider-continuation",
+        "kept-start",
+        "--playout-start-ms",
+        "350",
+        "--end-silence-ms",
+        "600",
+    ];
+
+    #[test]
+    fn without_the_option_nothing_is_sent_early_and_the_lamps_flags_parse_as_before() {
+        assert_eq!(parse(&[]).unwrap().early_end_blocks, None);
+        let lamp = parse(&LAMP).unwrap();
+        assert_eq!(lamp.early_end_blocks, None);
+        // Everything else the lamp sets is what it was.
+        assert_eq!(
+            DirectedOptions {
+                early_end_blocks: None,
+                ..lamp
+            },
+            lamp
+        );
+        assert_eq!(lamp.end_silence_window_blocks(), 60);
+        // The option belongs to the coordinator alone: the capture worker
+        // is started with the same arguments either way.
+        let mut on = LAMP.to_vec();
+        on.extend(["--early-end-ms", "200"]);
+        let on = parse(&on).unwrap();
+        assert_eq!(on.early_end_blocks, Some(20));
+        assert_eq!(
+            DirectedOptions {
+                early_end_blocks: None,
+                ..on
+            },
+            lamp
+        );
+        assert_eq!(
+            on.capture_arguments(None).unwrap(),
+            lamp.capture_arguments(None).unwrap()
+        );
+    }
+
+    #[test]
+    fn the_early_end_is_explicit_bounded_shorter_than_the_wait_and_needs_the_kept_start() {
+        let kept = ["--provider-continuation", "kept-start"];
+        let with = |extra: &[&str]| {
+            let mut all = kept.to_vec();
+            all.extend(extra);
+            parse(&all)
+        };
+        assert_eq!(
+            with(&["--early-end-ms", "200"]).unwrap().early_end_blocks,
+            Some(20)
+        );
+        // `vad-only` waits 600 ms by itself, the baseline and duplex 1,200.
+        assert_eq!(
+            with(&["--early-end-ms", "590"]).unwrap().early_end_blocks,
+            Some(59)
+        );
+        assert_eq!(
+            with(&["--turn-taking", "duplex", "--early-end-ms", "1000"])
+                .unwrap()
+                .early_end_blocks,
+            Some(100)
+        );
+        assert_eq!(
+            with(&["--early-end-ms", "100", "--end-silence-ms", "300"])
+                .unwrap()
+                .early_end_blocks,
+            Some(10)
+        );
+        let refused: [&[&str]; 10] = [
+            &["--early-end-ms"],
+            &["--early-end-ms", "90"],
+            &["--early-end-ms", "1010"],
+            &["--early-end-ms", "205"],
+            &["--early-end-ms", "soon"],
+            &["--early-end-ms", "200", "--early-end-ms", "200"],
+            // Not shorter than the wait that confirms it.
+            &["--early-end-ms", "600"],
+            &["--early-end-ms", "300", "--end-silence-ms", "300"],
+            &[
+                "--turn-taking",
+                "duplex",
+                "--end-silence-ms",
+                "600",
+                "--early-end-ms",
+                "700",
+            ],
+            &[
+                "--early-end-ms",
+                "1000",
+                "--turn-taking",
+                "v1-baseline",
+                "--end-silence-ms",
+                "1000",
+            ],
+        ];
+        for arguments in refused {
+            assert!(with(arguments).is_err(), "{arguments:?}");
+        }
+        // And never without the kept start.
+        assert!(parse(&["--early-end-ms", "200"]).is_err());
+        assert!(parse(&["--early-end-ms", "200", "--provider-continuation", "off"]).is_err());
     }
 }
 

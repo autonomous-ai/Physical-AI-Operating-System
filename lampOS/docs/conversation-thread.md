@@ -30,6 +30,15 @@ each, with whitespace collapsed. Talk around the lamp that it did not answer
 is not kept: it is dropped when the next thing is heard, or when an answer
 begins more than 20 seconds later.
 
+With the end sent early (`--early-end-ms`, [faster-answers.md](faster-answers.md),
+way 2) an answer's words can arrive before the lamp is sure the person has
+finished. If the request is then given up, because they went on or for any
+other reason, its exchange is taken out again (`Thread::unsay`): the lamp
+never said those words. What the person had said before it waits, as heard,
+for the next answer. The worker knows such a request by its authority: its
+end was sent while the lamp still said it was listening, which without that
+option never happens.
+
 `Recalling`, which replaces the plain dialer in `run_with_continuation`, opens
 every session through the same `Dialer` as before. When the thread holds an
 exchange from the last ten minutes it first adds this to the end of the

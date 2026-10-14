@@ -376,7 +376,21 @@ that one, following the talk that is not for the lamp
 waits in quiet before it decides that a person has finished. Without it
 `v1-baseline` and `duplex` wait 1,200 ms and `vad-only` 600 ms. In the first
 recording of a person speaking to the lamp, the longest pause inside thirteen
-of fourteen utterances was 620 ms or less and one was 920 ms. See [matched-model configuration](gemini-comparison-config.md). Use the actual provider endpoint; a proxy base URL alone is not
+of fourteen utterances was 620 ms or less and one was 920 ms.
+
+`--early-end-ms 100..1000` (a multiple of 10, shorter than that wait, and
+only with `--provider-continuation kept-start`) sends the end of a request
+to the provider after that much quiet, while the lamp goes on listening.
+The answer's sound is taken in and held, and played only once the wait
+above (or the end-of-turn model's verdict) says the person has finished.
+If they speak again first (six blocks in a row scoring 0.8 or more), the
+request is given up as a continued utterance is and nothing of its answer
+is played. An utterance short enough to be thrown out as a sound is not
+ended early. Without it the end is sent when the wait ends, as always. See
+[faster answers](faster-answers.md), way 2, "Built: the end sent early".
+Not yet run on a lamp.
+
+See [matched-model configuration](gemini-comparison-config.md). Use the actual provider endpoint; a proxy base URL alone is not
 the complete WebSocket route. The provider-check command opens no microphone and
 sends no speech. It establishes only that setup was accepted, not that a complete
 answer or account quota will succeed.

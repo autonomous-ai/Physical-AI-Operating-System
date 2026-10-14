@@ -2,7 +2,8 @@
 
 Task 9 of the running list ([work-split.md](work-split.md)), by the second
 builder, 2026-10-14. A study. Nothing is built, nothing was run on a lamp,
-and no paid service was called. Everything here comes from the lamp's own
+and no paid service was called. (Way 2 was built afterwards, as task 19:
+see "Built: the end sent early" under way 2. That part is not a study.) Everything here comes from the lamp's own
 records already in this repository and from published pages, read on
 2026-10-14 (the lamp's date; 13 October in the United States). A figure
 from outside the repository is marked **published, not measured here**,
@@ -29,7 +30,7 @@ from the user's side was found answering within 1 s.
 | Way | What it would save here | Evidence | Cost | What it does to the lamp | Take it? |
 |---|---|---|---|---|---|
 | 1. End the turn sooner when the sentence is plainly finished (task 1) | 0.3 s on turns judged finished, three in four to nine in ten finished turns in recorded clips by the bar used; nothing on the rest | The fast model's times on a VM, its agreement on 1,167 clips; an estimate for the lamp | Built. A 25 MB library. No money, no keys | More turns ended too soon, each a request given up and sent again, rarely heard. The model is weakest in Vietnamese (published) | **Yes, first** |
-| 2. Send the end sooner, play only when sure | Up to 0.4 s on every answer (the end sent at 0.2 s of quiet in place of 0.6 s) | The lamp's records: no answer has arrived sooner than about 0.85 s after the end was sent, so holding it costs nothing. Two of three continuation probes answered rightly | Code in the voice, the first builder's. About one turn's input charged again for each request given up | Many more fragments sent: the name said alone must not be thrown away as a sound; more given-up turns in the model's memory of the talk | **Yes, after 1**, behind a switch |
+| 2. Send the end sooner, play only when sure | Up to 0.4 s on every answer (the end sent at 0.2 s of quiet in place of 0.6 s) | The lamp's records: no answer has arrived sooner than about 0.85 s after the end was sent, so holding it costs nothing. Two of three continuation probes answered rightly | Code in the voice: built as task 19 (`--early-end-ms`), not yet on the lamp. About one turn's input charged again for each request given up | Many more fragments sent: the name said alone must not be thrown away as a sound; more given-up turns in the model's memory of the talk | **Yes, after 1**, behind a switch |
 | 3. A shorter hold before the first sound | About 0.1 s at 200 ms; up to 0.25 s with none | The lamp's records: the hold is most of its setting | A setting | More gaps in an answer's first second; the check that drops a wordless "..." answer needs its text before it plays | **Measure, then try 200 ms** |
 | 4. The same service, reached directly | Not known; at most the relay's detour; probably small | No round trip from the lamp is recorded. Google says direct is "generally" better. The published time is about the lamp's whole wait | A Google key on each lamp, or short-lived keys from the company's server. The relay's limits and metering move | None on what it says. Sessions could resume, which the relay does not pass on, so the lamp would keep its thread | **Measure the road first** |
 | 5. The same service, set differently | Up to about 0.5 s by published times of older models; nothing from the rest | Published, boundary not stated; other benchmarks order the models differently | Configuration; the same voice. The faster models are older, preview or retiring | The character file was tuned on 3.8 Live. Proactive audio, always on in 3.8 Live, is not supported in 3.1 Flash Live | **Not now** |
@@ -301,6 +302,180 @@ four. That is all; it is not a rate.
   judgement decides.
 - **Being interrupted:** unchanged; the lamp stops its speaker by
   itself, whatever the service does.
+
+### Built: the end sent early (`--early-end-ms`, task 19)
+
+Built by the second builder on 2026-10-14, task 19 of
+[work-split.md](work-split.md), on the branch `second/early-end`. Not on
+the lamp yet. The code is `crates/voice/src/coordinator/early_end.rs` and
+the coordinator's handling of the end of speech around it.
+
+**The option.** `--early-end-ms 200`, off unless given. 100 to 1,000 ms
+in steps of 10, shorter than the end-of-speech wait in force (600 ms on
+lamp-4ace), and only with `--provider-continuation kept-start`, which the
+lamp runs. Without the kept start a continuation written at once behind an
+answer that has not begun times out (2026-10-11 probe, above). It is the
+coordinator's alone: the provider worker's arguments do not change.
+
+**What it does.**
+
+1. After 200 ms of quiet the request is ended to the service
+   (`activityEnd`). The detector does not stop. It goes on counting the
+   same quiet exactly as before, with the end-of-turn model if that is on.
+2. The lamp's own authority still says it is listening. The controller
+   refuses speech while that is so, so nothing can be played. The answer's
+   sound is taken in and held.
+3. When the detector's end of speech comes (the 600 ms, or the model's
+   verdict) the lamp is sure. Playback may start then: at once if the
+   answer is in hand and the start gate is open, otherwise as soon as it
+   is.
+4. If six blocks in a row score 0.8 or more before that (the detector's
+   own bar for the start of an utterance), the person has spoken again.
+   The request is given up exactly as a continued utterance is today:
+   cancelled as `user_interrupted`, the next request admitted at once,
+   which the provider worker reads as a continuation. With the kept start
+   the next request's start waits until the given-up request's answer
+   begins, and stops it. The blocks heard since the end (at most 300 ms)
+   open the next request, and the rest of what they say follows. Nothing
+   of the first answer is played.
+5. A breath, a click or soft speech that does not reach that bar does not
+   give the request up. Like any speech-scored block it moves the
+   confirming moment later, as it moves today's end. Such soft words are
+   then not in the request; today they would be.
+
+**The two things this way needed** (above, "What it costs"), both done:
+
+- **The sound rule judges only when the lamp is sure.** An utterance that
+  would be thrown out as a sound if the quiet went on (fewer than 30
+  blocks of speech, not over or just after the lamp's own words) gets no
+  early end, and its pause stays part of the utterance, as it always was.
+  So a lone "Lamp," with a 450 ms pause before its question goes in one
+  request with it. At the confirming moment the rule is applied as
+  before; a request ended early that has become a sound by then (the
+  lamp's own words more than 4 s ago) is ended unheard.
+- **The rest of a thought follows its first piece as kept-start does.**
+  It is the same path: same cancellation, same authority, same worker.
+
+**What else it holds back.**
+
+- **The model's words** for an answer that is not yet the lamp's: they go
+  to `voice/said` and to the body's nod or shake only once the lamp is
+  sure, and are dropped if the request is given up. In the provider
+  worker a request given up after its end was sent and before the lamp was
+  sure has its exchange taken out of the thread the next session is told
+  (`thread::unsay`); the person's words wait for the next answer.
+- **An answer that opens with nothing said** ("...", or a function's name)
+  before the lamp is sure is noted, and ended unheard at that moment,
+  unless the person goes on first.
+- **A name note** ([voice-review-2026-10-14.md](voice-review-2026-10-14.md),
+  finding 1). The link writes a note just before its request's end, as
+  since that review. A request ended early carries it inside its own
+  activity. If that request is given up, the next one is an activity of
+  its own and carries no note of it: a hearing that began before the next
+  request does not count for it, and a note offered after an early end is
+  refused like any note for an ended request.
+- **The busy-room floor** is held only once the lamp is sure. Before that,
+  more speech is the person going on.
+
+**Records.** `run_start` gains `early_end_ms`, and there are three new
+records: `early_end_policy`; `early_end` (when the end went, the pause,
+the speech blocks); `early_end_given_up` (the request, its successor, how
+long after the end, the opening's blocks). The successor's
+`input_admitted` says `continued_after_early_end` where a candidate's says
+how it was accepted. `local_endpoint` keeps its meaning, the lamp's own
+end of speech, and gains `early_end` (when the end went and how long
+before). With the option on, the service part of an
+answer is `provider_first_audio` less `early_end.at_us`. Without the
+option none of these appear and every other record is as it was.
+
+**Tests**, on the second builder's laptop (Apple M2 Max, macOS 26.6.2,
+Rust 1.96.0), each run once with every other test of the voice, and the
+session tests also on their own:
+
+- `coordinator::early_end::tests`: the bookkeeping, and the path from the
+  last sound to the first block handed to the speaker with every clock
+  injected (the real detector at 600 ms, the real start gate at 350 ms, a
+  service whose sound arrives at the rate it plays). At the lamp's median
+  service time, 1.15 s: 1,910 ms without the option and 1,510 ms with
+  `--early-end-ms 200`. For every setting from 100 to 500 ms and service
+  times from 0 to 1.5 s, never before the lamp is sure and never later
+  than without.
+- `coordinator::tests::early_end`: the coordinator's own loop, capture
+  in real 10 ms blocks, the real provider worker and Gemini session
+  started as kept-start starts them, against the scripted service of
+  `lamp_gemini::testing`. Counted at the service (one request is one
+  `activityStart` and one `activityEnd`):
+
+| Case | What the service received | Given up | Answers begun / played | Last sound to first block to the speaker |
+|---|---|---|---|---|
+| Quiet to the end, answer 150 ms after the end | 1 start, 145 blocks, 1 end | 0 | 1 / 1 | 604 ms: the confirming moment, not before |
+| Speech resumed after 0.3 s ("Hey Lamp," then the question), answer 900 ms after each end | 2 starts, 235 blocks, 2 ends | 1 | 2 / 1 (the second) | 1,272 ms after the question |
+| The same with the lamp's policy, duplex at 600 ms | the same | 1 | 2 / 1 | 1,271 ms |
+| An answer whole before the lamp is sure | 1 start, 145 blocks, 1 end | 0 | 1 / 1 | 603 ms |
+| An answer of "..." before the lamp is sure | 2 starts (the second stops the answer nobody wants), 145 blocks, 1 end | 0 | 1 / 0 | nothing played |
+| An answer 900 ms after the end, with the option | 1 start, 145 blocks, 1 end | 0 | 1 / 1 | 1,269 ms |
+| The same without it | 1 start, 185 blocks, 1 end | 0 | 1 / 1 | 1,670 ms |
+| The link drops 100 ms after the early end; a second question later | first link: 1 start, 145 blocks, 1 end; second: the second question only | 0 | 1 / 1 | first turn `provider_failed`, nothing played; second 603 ms |
+| "Lamp, stop." over an answer, 0.3 s between the words | 3 starts, 270 blocks, 3 ends | 1 | 3 / 2 (the first answer until "Lamp," cut in, then the answer to "Lamp, stop.") | 602 ms after "stop." |
+| A lone "Lamp," (25 blocks), 450 ms, the question | 1 start, 215 blocks, 1 end | 0 | 1 / 1 | 1,273 ms |
+| Without the option: "Hey Lamp," 0.3 s, the question | 1 start, 275 blocks, 1 end, sent 600 ms after the last sound | 0 | 1 / 1 | 920 ms |
+
+So with the option, each turn in which the person went on cost one
+request given up; none was given up when they did not. The early end also
+sends 40 blocks less of quiet in each request.
+
+Also tested: `a_name_note_told_with_a_request_ended_early_does_not_survive_it`
+(the supervisor and a real session set up as kept-start, called as the
+worker calls them for an early end: the note goes out once, just before the
+early request's end, and never in the next request's activity, whether the
+request was continued or abandoned; a note offered after the early end is
+refused and the link stays); `only_a_request_given_up_before_the_lamp_was_sure_is_unsaid`
+in the provider worker and `words_of_a_request_given_up_before_its_answer_played_were_never_said`
+in the thread; and, for the option off, `options::early_end_tests` (the
+lamp's own flags parse to what they did, the capture worker's arguments do
+not change) and `without_the_option_every_message_and_record_is_what_it_was`
+(the session above with nothing of the option in its records, the end at
+600 ms, and the provider worker's arguments and the `run_start` record the
+same with the option as without, but for `early_end_ms`).
+
+**Where it is most likely to be wrong on the lamp.**
+
+1. **How the real service treats a request given up a third of a
+   second in.** It has its end: it is committed, the model begins an
+   answer, and that answer is stopped by the next request's start. Seen
+   only in two probes on 2026-10-11. What the model then makes of the
+   rest (two activities, the first with a cut-off answer of its own) is
+   the open question. In a long conversation of such pieces, more so.
+2. **A first piece the service does not answer at all** (the character
+   keeps quiet for talk not addressed to it). The next request's start
+   then waits the kept start's 2.5 s, and its end waits for the first
+   answer to settle, which never comes: with the provider file's
+   `silent_response` at `fail` the link ends (`BarrierTimeout`) and the
+   thought is lost. With `assume_over` and `no_reply_after_ms` it does not
+   wait beyond that (above, [live-runtime.md](live-runtime.md)). Which of
+   these lamp-4ace's provider file sets is not in the repository.
+3. **More give-ups in a busy room**: every pause of 200 to 600 ms in
+   anyone's talk near the lamp is now a request given up and continued.
+4. **A turn in which the person went on is not sooner.** The next
+   request's start waits for the first piece's answer to begin, and its
+   end for that answer to stop. After a short continuation ("Lamp, ...
+   stop.") its end goes about when the first answer began, which is about
+   when today's single end would have gone. If the real service is slower
+   to stop an answer than the scripted one, such a turn is later than
+   today's.
+
+**What was not shown.** Anything on the lamp: its microphone, the real
+service, the relay. The times above are a laptop's, against a scripted
+service that answers every request and stops an answer at once when asked;
+the real service's times and its handling of a request given up are not
+known. How often people pause 200 to 600 ms and go on. Whether a
+continuation's answer is as good as the answer to the whole sentence in
+one request. The memory journal: an answer received whole and completed
+before the lamp was sure is journalled when it completes, as every answer
+is today, and stays there if the request is then given up. With
+lamp-4ace's 600 ms and no end-of-turn model this cannot happen (no answer
+has come sooner than 0.85 s after the end); with the model holding an
+unfinished turn to 1.5 s it can.
 
 ## 3. A shorter hold before the first sound
 
@@ -655,13 +830,15 @@ audible word.
    "..." is still caught before it plays.
    - What it should show: the hold about 0.1 s shorter, as on
      2026-10-11; no more gaps in the first second.
-4. **The end sent sooner, the answer held until sure** (way 2). Built by
-   the first builder behind a switch that is off unless set, with the two
-   changes above (the sound rule judged only when the turn is sure;
-   `kept-start`). The wait lowered in steps: 400, 300, 200 ms, with
-   `pauses.sh` and `plain.sh` at each. Count beside the times: requests
-   per answer (given up and sent), prompt tokens per answer from the usage
-   lines, and thoughts answered whole. Watch the quota.
+4. **The end sent sooner, the answer held until sure** (way 2). Built
+   by the second builder as task 19 (above, "Built: the end sent early"):
+   `--early-end-ms MS`, off unless set, with the two changes above (the
+   sound rule judged only when the turn is sure; `kept-start`). The
+   setting lowered in steps: 400, 300, 200 ms, with `pauses.sh` and
+   `plain.sh` at each. Count beside the times: requests per answer (the
+   `early_end_given_up` records, and the requests sent), prompt tokens per
+   answer from the usage lines, and thoughts answered whole. Watch the
+   quota.
    - What it should show: the median total lower by the step taken from
      600 ms, on every answer; requests per answer above one, more so at
      each step.
@@ -713,6 +890,9 @@ audible word.
   and one played test, and how often a piece is given up at 200 to 400 ms
   on the lamp's own microphone. The 23% is from recorded clips replayed
   digitally, mostly long English recordings.
+- **The end sent early, as built (task 19)**, on the lamp or against the
+  real service: only on a laptop, against a scripted service. Its own list
+  of what was not shown is under way 2.
 - **The fast end-of-turn model in Vietnamese.** Only Smart Turn v3's
   published per-language figures exist; v3.2's are not published.
 - **The hold at today's 350 ms** is a difference of two medians; at

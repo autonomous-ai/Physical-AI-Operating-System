@@ -98,6 +98,13 @@ struct Kept {
 /// session supervisor.
 pub static THREAD: Mutex<Thread> = Mutex::new(Thread::new());
 
+/// [`Thread::unsay`] on this process's thread.
+pub fn unsay(request: u64) {
+    if let Ok(mut thread) = THREAD.lock() {
+        thread.unsay(request);
+    }
+}
+
 /// Text of at most `most` bytes, with every run of whitespace or control
 /// characters one space.
 fn add(to: &mut String, text: &str, most: usize) {
@@ -273,6 +280,35 @@ impl Thread {
                 })
             })
             .collect()
+    }
+
+    /// The lamp's words for `request` were never said: the request was
+    /// given up before its answer could be played (its end was sent early,
+    /// and the person went on). Its exchange is dropped, and what the person
+    /// had said before it waits again, as heard, for the answer that
+    /// follows, before anything heard since.
+    pub fn unsay(&mut self, request: u64) {
+        let Some(index) = self
+            .exchanges
+            .iter()
+            .rposition(|exchange| exchange.request == request)
+        else {
+            return;
+        };
+        let exchange = self.exchanges.remove(index).expect("found above");
+        if self.unsaid == Some(request) {
+            self.unsaid = None;
+        }
+        let mut heard = exchange.person;
+        if !self.heard.is_empty() {
+            add(&mut heard, " ", PERSON_BYTES);
+            add(&mut heard, &self.heard, PERSON_BYTES);
+        }
+        self.heard = heard;
+        self.heard_at = Some(self.heard_at.map_or(exchange.at, |at| at.max(exchange.at)));
+        // Whatever comes next of what they say belongs with it.
+        self.heard_done = false;
+        self.changed = true;
     }
 
     /// Drop everything: a person has had something forgotten, and what was
@@ -589,6 +625,37 @@ mod tests {
             "{recalled}"
         );
         assert!(!recalled.contains("lunch") && !recalled.contains("Maybe"));
+    }
+
+    /// The end sent early (`--early-end-ms`): an answer that began to
+    /// arrive before the lamp was sure, for a request then given up because
+    /// the person went on, was never said. The person's words wait for the
+    /// answer to what they went on to say.
+    #[test]
+    fn words_of_a_request_given_up_before_its_answer_played_were_never_said() {
+        let mut thread = Thread::new();
+        let start = Instant::now();
+        let at = |seconds: u64| start + Duration::from_secs(seconds);
+        thread.person("Hey Lamp,", true, at(1));
+        thread.lamp(1, "Yes? How can", at(2));
+        thread.person(" what time", false, at(2));
+        thread.unsay(1);
+        assert_eq!(thread.recall(at(3), ROOM), None);
+        assert!(!thread.going_on(at(3)));
+        thread.person(" is it?", true, at(3));
+        thread.lamp(2, "It's three.", at(4));
+        let recalled = thread.recall(at(5), ROOM).unwrap();
+        assert!(
+            recalled.ends_with("Person: Hey Lamp, what time is it?\nYou: It's three.\n"),
+            "{recalled}"
+        );
+        assert!(!recalled.contains("How can"));
+        // Nothing for a request that has no words, and nothing else moves.
+        thread.unsay(7);
+        assert_eq!(thread.recall(at(5), ROOM).unwrap(), recalled);
+        let finished = thread.finished(2, at(5));
+        assert_eq!(finished.len(), 1);
+        assert_eq!(finished[0].0, 2);
     }
 
     #[test]

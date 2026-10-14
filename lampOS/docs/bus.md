@@ -399,7 +399,18 @@ its `diagnostics`, and only with `--enable` may publish leased
 the existing Actions-owned `light/command`. Their types, periods and
 lifespans are in [msgs.md](msgs.md), with the contract in
 [expression.md](expression.md). The voice publishes its three since
-2026-10-14 when switched on; the actuator consumers are still to be wired.
+2026-10-14 when switched on. First has added Body's optional consumer;
+the light and the resumable Voice contract still need First's integration.
+
+The task 18 catalogue option `resumable_voice: true` selects the additive
+`voice/progress` latest topic and `voice/sound` event topic in place of the
+original timing/playout pair. The process subscribes to only its selected
+pair; replay recognizes both but rejects a protocol mismatch. Progress carries
+the complete state/readiness heartbeat, a positive audio generation and a
+held flag. Sound carries that generation on each committed interval. A hold
+discards earlier queued sound; a later resume cannot revive the old generation.
+This is an optional producer/consumer contract, not a changed lamp publisher.
+The existing bus transport and its per-topic ordering are unchanged.
 
 The new payload timestamps explicitly use the shared host monotonic clock
 and boot identity. This does not change the meaning of existing bus header

@@ -2,21 +2,28 @@
 
 `lamp-expression` (`crates/expression`) plans posture, gaze, small gestures
 and the light on one injected clock. It opens no hardware. It starts in
-**shadow mode**; only `serve --enable` publishes actuator requests. The body
-and voice on `lamp-voice` do not yet subscribe to those requests. First owns
-that opt-in integration and its physical qualification.
+**shadow mode**; only `serve --enable` publishes actuator requests. Body has
+an opt-in consumer, `LAMP_EXPRESSION_BODY=on`, used by First on lamp-4ace
+since 2026-10-14, 10:05. Voice's ring integration and all physical
+qualification remain First's work.
 
 Since 2026-10-14 the voice publishes the three inputs it owes
 (`voice/timing`, `voice/activity`, `voice/playout`) when its unit has
 `LAMP_EXPRESSION_OUT=on`: see "What the voice says, as built" below.
+Task 18 adds the separate `voice/progress` and `voice/sound` contract and
+the optional [`rest-behaviours.json`](../crates/expression/rest-behaviours.json)
+catalogue. The current Voice publisher still uses the original contract;
+First must wire the new pair before selecting that catalogue on the lamp.
 
 ## What exists and what we take
 
 The [reuse decisions](reuse-decisions.md#expression-authored-timing-and-bounded-requests-2026-10-14)
-record the V1 and current Rust paths inspected for this change. V1's movement
-bounds, playback cancellation and separation of a persistent light setting
-from a transient face remain the owners' responsibilities. Today's body
-already has calibrated gaze, joint protection and smoothing; Expression must
+record the V1 and current Rust paths inspected for the original planner. The
+[task 18 addition](reuse-decisions.md#expression-held-turns-and-sparse-rest-2026-10-14)
+records the pause, cancellation and idle safeguards reviewed for this change.
+V1's movement bounds, playback cancellation and separation of a persistent
+light setting from a transient face remain the owners' responsibilities.
+Today's body already has calibrated gaze, joint protection and smoothing; Expression must
 not replace those with a guessed camera-to-servo conversion.
 
 The external evidence is published research or source inspection, not a
@@ -51,15 +58,16 @@ counts or shares of the body's configured reach. Every sum is clamped before
 it leaves the planner; the body still applies its stricter physical bounds.
 No autonomous room search or random idle motion is authored.
 
-`behaviours.json` is the built-in catalogue. `--catalogue FILE` replaces it
-at startup after validation. Postures, offset bounds, face levels, freshness,
-clip weights, triggers, states, delays, cooldowns and keyframes are data.
+`behaviours.json` is the unchanged built-in catalogue: the original 320 ms
+nod and no rest clip. `--catalogue FILE` replaces it at startup after
+validation. Postures, offset bounds, face levels, freshness, clip weights,
+triggers, states, delays, cooldowns and keyframes are data.
 A clip using an existing trigger can be added without changing the engine.
 A new evidence source requires a new typed input and engine rule. There are
 at most 24 behaviors and 64 keyframes per behavior; catalogues are at most
 128 KiB. A repeating clip is allowed only on actual playout.
 
-| Initial behavior | Default plan |
+| Initial behavior | Built-in plan |
 |---|---|
 | Look away and back | A small thinking glance develops over 250 ms. A committed first-audio schedule causes return over up to 250 ms, reaching the planned speaking posture 40 ms before that schedule. A measured body lag can be supplied; the default is unknown |
 | Nod in a pause | Only after true human activity followed by a pause in the same turn. Begin after 120 ms quiet, authored stroke at 150 ms into the 320 ms clip, no more than once per 4 s. Resume speech cancels the nod |
@@ -72,6 +80,73 @@ signs have not been tuned on the lamp. Small offsets can fall below the
 body's 20-count movement deadband; a synthetic nod can therefore be invisible.
 First should inspect that before increasing any amplitude. Motor speed,
 clearance, calibration and acoustic onset remain the hardware owners' checks.
+
+## Optional finishing nod and quiet rest
+
+Select `--catalogue crates/expression/rest-behaviours.json` explicitly for
+the task 18 plan. It also selects the new Voice protocol described below;
+`serve --enable` remains a separate requirement for actuator requests. No
+installed lamp setting or hardware owner is changed by this catalogue.
+
+**A nod as speech ends.** The new clip still needs admitted true human
+activity followed by a false edge in the same turn, fresh Listening readiness,
+fresh joints and a quiet room. It starts 240 ms into that pause, rises to a
+`head_pitch` offset of +0.08 radians at 500 ms into the clip, holds that
+offset through 650 ms, and returns to zero at 1.2 seconds. The start-to-start
+cooldown is four seconds. The shape changes only head pitch and has no light
+modulation.
+
+`Behaviour.continue_in` defaults to `[]`. Its only permitted extension is
+`["thinking"]` on a Pause clip whose starting state is Listening. A clip
+already begun may finish from its original start time after that transition;
+Thinking cannot start a new nod. The old Listening activity heartbeat may
+expire while it finishes. Fresh same-turn speech evidence cancels a carried
+nod even if Thinking is no longer admitting input; that denial cannot start
+a new nod or claim readiness. A held or retired turn, Speaking, concentration,
+a busy/unknown room or stale joints/Voice also cancels it. A committed first
+audio time attenuates the carried nod with the Thinking return envelope, to
+reach the requested speaking posture before that time; a corrected earlier
+schedule shortens the return. The planner never delays audio for the nod.
+Physical arrival remains unverified. A stalled loop skips a missed stroke
+instead of delivering a late full nod.
+
+The +0.08 radians is one additive clip, about 52 requested encoder counts
+using Body's conversion. It is not the final requested dip: the Listening or
+Thinking base posture, the thinking glance and the planner's sum clamp also
+apply. Body then applies its own reach, speed and deadband. First's five
+silent trials below inform the longer envelope; they did not test this
+combined catalogue or establish a general body lag. `body_lag_us` remains
+`null`.
+
+**Small, slow, rare rest.** One four-second head-pitch clip rises to
++0.045 radians over two seconds and returns to zero over two seconds. It
+starts only after 45 seconds continuously eligible: fresh Resting Voice with
+`accepting_input=true`, fresh joints, a fresh Quiet room, no held turn and no
+explicit concentration. Input inhibition cancels it and requires a new dwell.
+It then waits at least 90 seconds after completion before another clip.
+Normal heartbeats preserve the dwell; lost eligibility cancels the clip and
+requires a new continuous dwell. An interrupted rest clip also starts its
+cooldown. A late tick starts at most one clip, with no catch-up queue.
+
+Catalogue validation permits at most one Rest clip: only Resting, mandatory
+quiet/concentration gates, two to six seconds long, zero offsets at both
+ends, at least 20 seconds dwell and 60 seconds cooldown, at most 0.06 radians
+on either head axis, and no yaw, arm, light, repeat or held final pose. The
+shipped clip uses only pitch. These are bounds on requested offsets, not a
+motor-safety or naturalness qualification.
+
+Each smoothstep keyframe segment is also checked analytically against
+0.06 radians/second and 0.12 radians/second² on either head axis. A long clip
+cannot hide an abrupt short segment. The shipped two-second rise requests
+at most 0.03375 radians/second and 0.0675 radians/second² before composition
+with other layers; these are calculated trajectory bounds, not measurements.
+
+**Current Body boundary.** Body deliberately ignores Expression offsets
+when settled at rest. It also has a separate optional idle author. This task
+therefore supplies a rest plan, not resting motion on the lamp. First must
+choose one author, decide how an eligible rest request reaches the final
+writer, and preserve Body's local safety and privacy rules. See
+[What Expression may add](body.md#what-expression-may-add).
 
 ## Clock and input contract
 
@@ -97,11 +172,13 @@ legacy observation age; it does not convert transcripts into audio timing.
 | `voice/timing` / `VoiceTiming` | Voice: heartbeat every 100 ms; current state, input readiness, voice session, turn and request. `Scheduled` includes the first committed sample time within 2 s; `Interrupted`, `Cancelled` and `Finished` retire that turn's audio |
 | `voice/activity` / `PersonActivity` | Voice: actual admitted human activity edges and heartbeats at least every 100 ms, under the same session/turn/request. A pause requires a preceding true activity observation |
 | `voice/playout` / `VoicePlayout` | Voice: non-overlapping committed speaker intervals, at most 200 ms each and at most 2 s ahead, with a normalized level. Revisions/cancellation must retire old scheduled intervals |
-| `attention/concentration` / `Concentration` | An explicit user/attention owner: concentration on or off. Room state or missing speech is never substituted |
+| `voice/progress` / `VoiceProgress` | Opt-in replacement for `voice/timing`: the same timing fields, plus positive `audio_generation` and durable `held` state; Latest, 100 ms heartbeat, 500 ms lifespan |
+| `voice/sound` / `VoiceSound` | Opt-in replacement for `voice/playout`: the same interval fields plus matching positive `audio_generation`; Event, 20 ms declaration, 200 ms lifespan |
+| `attention/concentration` / `Concentration` | An explicit user/attention owner: concentration on or off, default false until received. Room state or missing speech is never substituted |
 | `voice/state`, `voice/heard`, `voice/said` | Existing Voice context; none can establish playback timing or safe listening readiness |
 | `humans/faces/tracked` | Eyes: largest fresh confident face can supply normalized gaze; the body still owns camera calibration and its stillness/observation filter |
 | `body/joint_states` | Body: fresh readback is required for body requests; absolute servo-middle angles are not reused as relative offsets |
-| `room/state` | Voice: fresh quiet evidence permits optional nods, sway and gaze; unknown, busy or expired evidence suppresses them |
+| `room/state` | Voice: fresh quiet evidence permits optional nods, sway, unsolicited gaze and rest; unknown, busy or expired evidence suppresses them. A held turn's reactive face target is the gaze exception |
 | `name/heard` | Name listener: contextual evidence only, never proof of admission or readiness |
 | `light/command` | Actions: the user's lasting on/color/level setting. No light request is emitted before a valid setting is known |
 
@@ -114,6 +191,71 @@ accepted frames and queue observation. The coordinator labels the first write
 publishes keeps that distinction: it is dated from the device's own count of
 what is queued, never from a microphone.
 
+### Held turns: the protocol First must publish
+
+`Catalogue.resumable_voice` defaults to `false`: read `voice/timing` and
+`voice/playout`. When true, read the complete `voice/progress` and
+`voice/sound` pair instead, with the same `voice/activity` input. The live
+service subscribes only to the selected pair; the engine refuses the other
+pair, including in replay. There is no legacy fallback that could overwrite
+a held state or admit untagged sound.
+
+In JSON, `VoiceProgress` flattens `VoiceTiming` and adds `audio_generation`
+and `held`; `VoiceSound` flattens `VoicePlayout` and adds `audio_generation`.
+There is no nested `timing` or `playout` object. Both keep the original
+boot-clock, publisher-session, turn, request and per-topic sequence checks.
+Generation is at least one and never decreases within the same turn.
+
+The producer and planner must agree on these boundaries:
+
+1. On a temporary hold, discard the turn's queued audio and its unpublished
+   playout accumulator (`Piece`) before publishing. Advance its audio
+   generation, then publish a `VoiceProgress` with `held=true`,
+   `state="listening"`, `event="state"`. Preserve the same session, turn
+   and request. Continue publishing that held state and generation in every
+   heartbeat; a one-shot hold could be lost on a Latest topic.
+2. On accepting that hold, Expression clears its queued sound, schedule and
+   prior sway, and begins one 350 ms blend from its last requested offsets.
+   Repeated held heartbeats do not restart it. The next planner tick requests
+   a Listening face only when `accepting_input=true`; otherwise it requests
+   Unavailable. The 20 ms planner cadence supports a requested-face target
+   within 100 ms, but does not measure bus or optical latency. Fresh face
+   evidence can supply a normalized gaze request even in a busy room because
+   the hold is a response to someone. Missing/stale face evidence gives no
+   guessed target. Body currently ignores this request and keeps its own
+   face tracking.
+3. To resume, publish active progress with `held=false` in the same generation,
+   and only then publish newly committed matching `VoiceSound`. The interval
+   and its creation stamp must not predate the accepted generation/resume
+   edge. Sound received before matching fresh progress, while held, from an
+   older generation or from before resume is refused, not buffered for later.
+   Never relabel discarded audio as new sound. Resume also advances the
+   activity observation boundary, so delayed speech/pause evidence from the
+   hold cannot reconstruct a nod after it.
+4. A higher generation clears the previous queued sound even when Expression
+   missed the intermediate hold. Another hold after resume requires another
+   generation; re-holding an active generation is refused. Sequence numbers
+   on different topics are not comparable, and cross-topic publication order
+   is not a delivery guarantee.
+5. Give-up still uses `Interrupted`, `Cancelled` or `Finished`, with
+   `held=false`. These retire the whole turn. A later resume, including one
+   with a higher generation, cannot revive it. Voice freshness expiry also
+   retires its sound. Keep terminal events in Latest heartbeats until a new
+   turn replaces them. An interruption following a hold keeps the blend
+   already underway instead of starting it again.
+
+Until First implements those producer rules, use the built-in catalogue and
+legacy pair on the lamp. Selecting the new catalogue against the current
+publisher leaves required progress missing; it does not manufacture a hold
+from `voice/state` or a transcript.
+
+Concentration now starts false without a missing-input warning. Once an
+explicit true setting is accepted it remains true until a newer accepted
+false setting, including while the setting publisher is absent. Room Quiet
+does not mean a person is free from work. Other missing-input reports remain,
+including the unmeasured body lag; removing the concentration warning is not
+a claim that the whole planner is ready without its required inputs.
+
 ### What the voice says, as built
 
 `crates/voice/src/expression_out.rs`, switched on with
@@ -122,6 +264,8 @@ in `Timing`, which has no bus and takes its clock from the caller; the
 coordinator looks at itself once each pass of its loop and hands that over.
 `clock_id` is the kernel's boot identity, `session_id` the service's
 `INVOCATION_ID`, and `request` is the turn's own number.
+This is First's existing legacy publisher. It does not yet publish
+`VoiceProgress` or `VoiceSound`.
 
 | Said | From what | When |
 |---|---|---|
@@ -131,18 +275,20 @@ coordinator looks at itself once each pass of its loop and hands that over.
 | `voice/activity` | Whether the detector called a block speech within the last 120 ms | Only while the turn is being heard by a voice that can keep it; on each change and every 80 ms |
 | `voice/playout` | Each write the speaker took: it ends when the queue as counted after the write has played, and is as long as its frames (`sounds`). The level is the ring's own (0 at -48 dBFS, 1 at -14 dBFS) | Gathered into stretches of 20 ms; a last odd piece after 15 ms. Never overlapping, never for a turn not said to be speaking, never one that has already sounded |
 
-Three things about it that a reader of this page should know:
+The integration findings below are First's records, preserved separately
+from the task 18 host implementation:
 
-- **A turn's state never goes back.** The planner takes a step from
-  thinking or speaking back to listening as the end of that turn's sound
-  and then refuses the turn's later sound. So while the lamp holds its
-  sound back for someone speaking over it (a duplex yield, which may yet
+- **In the legacy protocol, a turn's state never goes back.** The planner
+  takes a step from thinking or speaking back to listening as the end of
+  that turn's sound and then refuses the turn's later sound. So while the
+  lamp holds its sound back for someone speaking over it (a duplex yield, which may yet
   resume), the voice goes on saying "speaking", and says `Interrupted`
   only when the turn is given up. The voice's own ring and body show
   listening from the first moment of a yield, as they did before; a
   consumer of `expression/light` and `expression/body` inside the voice or
-  the body must let that local knowledge win. A way for the planner to be
-  told "paused, may resume" is the piece that is missing.
+  the body must let that local knowledge win. The new progress/sound pair
+  above supplies the missing "paused, may resume" contract; First still has
+  to connect it to this publisher.
 - **The turn that cuts the lamp off begins in the same moment.** On the lamp
   the person who interrupts is heard at once as a turn of their own, so
   `Interrupted` and the next turn's first state arrive together. As first
@@ -180,12 +326,13 @@ Three things about it that a reader of this page should know:
   highest, over 0.15 s) cannot be made there, and a nod of a second does
   not fit inside a pause when 0.6 s of quiet ends the turn: this lamp can
   nod as someone finishes, if the planner carries a move begun while
-  listening on into thinking. That is part of task 18.
+  listening on into thinking. Task 18 implements that optional continuation;
+  the new combined plan has not been tried in these lamp measurements.
 - **The room is said again every second** (`RoomOut::tell`), so that the
   planner's five-second limit on that evidence is met by a room that is
   judged all the time and seldom changes.
 
-Tested on a development Mac: `Timing` by itself (eight tests: a turn from
+First tested on a development Mac: `Timing` by itself (eight tests: a turn from
 listening to its end with its first sound foretold, the repeats, the three
 endings, the listening after a cut-off, nothing a reader would refuse, the
 person's speech and pauses, the stretches of sound, the dating of a write),
@@ -197,16 +344,16 @@ the nod in the pause (120 ms into it), the glance while the answer was
 awaited, the sway while it played, the yield when it was cut off, and a
 resting face after a turn nobody answered.
 
-On lamp-4ace in its first ten minutes (2026-10-14, 09:26 to 09:36, people
-in the office): the planner took 16,971 inputs and refused 1, ran 30,600
-steps with the longest 2.4 ms, and no bus error. Which input was refused
-is not known; the planner now says so in its journal when it refuses one.
+First recorded on lamp-4ace in its first ten minutes (2026-10-14, 09:26 to
+09:36, people in the office): the planner took 16,971 inputs and refused 1,
+ran 30,600 steps with the longest 2.4 ms, and no bus error. Which input was
+refused is not known; the planner now says so in its journal when it refuses one.
 
-`voice/timing` is a latest topic, so a terminal edge must remain in its
-heartbeats until a new turn replaces it. A one-shot event followed immediately
-by an ordinary state can be missed by a subscriber. Cancellation is sticky
-within a turn; stale voice input also retires its audio, and refreshing the
-same turn cannot revive it. Session retirement is bounded: after 32 Voice
+`voice/timing` and `voice/progress` are Latest topics, so a terminal edge must
+remain in their heartbeats until a new turn replaces it. A one-shot event
+followed immediately by an ordinary state can be missed by a subscriber.
+Cancellation is sticky within a turn; stale voice input also retires its
+audio, and refreshing the same turn cannot revive it. Session retirement is bounded: after 32 Voice
 restarts, Expression stops issuing requests and reports that it needs a
 restart to renew its session fence.
 
@@ -223,7 +370,7 @@ channel and does not change type or ownership.
 
 | Topic / type | Subscriber and action |
 |---|---|
-| `expression/body` / `ExpressionBody` | Body: apply bounded relative offsets or hold current pose; an optional normalized gaze is passed through its calibrated gaze solver |
+| `expression/body` / `ExpressionBody` | Body: bounded relative offsets or a stillness request. The current consumer takes head pitch/roll and base yaw, ignores arms and the optional normalized gaze, and does not stir settled rest |
 | `expression/light` / `ExpressionLight` | Voice's ring owner: draw the face and brightness multiplier using the included persistent `Light` setting; preserve off and explicit settings |
 | `expression/state` / `ExpressionState` | Operator/model/recorder: enabled/shadow, planned behaviors, missing inputs and warnings; not proof of execution |
 | `diagnostics` / `Diagnostic` | Health: readiness, accepted/refused input, transport losses/errors and measured host service-loop time |
@@ -256,6 +403,7 @@ cargo run -p lamp-expression -- catalogue
 cargo run -p lamp-expression -- clock --clock-id development
 cargo run -p lamp-expression -- serve --clock-id development --bus-root /tmp/expression-bus --seconds 5
 cargo run -p lamp-expression -- replay --input crates/expression/fixtures/five-behaviours.jsonl --clock-id written-scenario --enable --until-us 2000000 --output /tmp/expression-plan.jsonl
+cargo run --offline -p lamp-expression -- replay --input crates/expression/fixtures/held-resumed.jsonl --clock-id expression-rest-fixture --catalogue crates/expression/rest-behaviours.json --enable
 ```
 
 The server above is shadow-only. `serve --enable` enables planner output,
@@ -293,6 +441,28 @@ blocks the planner. Files are created new, mode 0600, capped at 64 MiB.
 Pending records can be lost at process shutdown. Bus failures do not grant
 new authority; commands already sent expire.
 
+The task 18 fixtures all use `expression-rest-fixture` and the explicit
+`rest-behaviours.json` catalogue. Substitute their path in the last command:
+
+| Authored fixture | Case to inspect |
+|---|---|
+| [`held-resumed.jsonl`](../crates/expression/fixtures/held-resumed.jsonl) | Listening on hold, then new sound on resume; four deliberately refused old, held or pre-resume intervals |
+| [`held-cancelled.jsonl`](../crates/expression/fixtures/held-cancelled.jsonl) | A held turn ends with `Interrupted`; three deliberately refused revival attempts. The separate test also checks `Cancelled` |
+| [`finish-nod.jsonl`](../crates/expression/fixtures/finish-nod.jsonl) | One qualified nod continues from Listening into Thinking without new activity heartbeats |
+| [`no-concentration.jsonl`](../crates/expression/fixtures/no-concentration.jsonl) | No concentration publisher and no concentration warning |
+| [`rest-quiet.jsonl`](../crates/expression/fixtures/rest-quiet.jsonl) | 140 authored seconds: first rest at 45 seconds, completion at 49, next start at 139 |
+| [`rest-busy.jsonl`](../crates/expression/fixtures/rest-busy.jsonl) | 50 authored seconds with no rest in Busy |
+| [`rest-concentrating.jsonl`](../crates/expression/fixtures/rest-concentrating.jsonl) | 50 authored seconds with no rest during explicit concentration |
+| [`rest-expired.jsonl`](../crates/expression/fixtures/rest-expired.jsonl) | Quiet-room evidence expires at 47 seconds, cancelling the active rest clip |
+
+These are written inputs, not lamp recordings. The
+[`rest_replay` tests](../crates/expression/tests/rest_replay.rs) also exercise
+loss, expiry, shadow mode, real local bus adaptation and the built CLI.
+Their isolated healthy-status case supplies an authored zero body lag;
+the shipped catalogue leaves lag unknown, so the CLI still reports that
+missing measurement. A refused interval in the two adversarial fixtures is
+the intended result, not permission to ignore refusals in a lamp recording.
+
 ## Verification and lamp checklist
 
 Host gate results and source identity are recorded in
@@ -300,8 +470,10 @@ Host gate results and source identity are recorded in
 real temporary Unix sockets for transport, and separate processes for CLI
 and ownership checks. A replay establishes planned timing only.
 
-On Third's Intel i7-10700K x86_64 Mac (64 GiB, Darwin 25.6.0, Rust 1.96.0),
-the full dependent gate passed 1,701 tests with five existing ignored tests.
+The following counts and cost measurements are the **original task 4
+gate**, not a new task 18 result. On Third's Intel i7-10700K x86_64 Mac
+(64 GiB, Darwin 25.6.0, Rust 1.96.0), the full dependent gate passed 1,701
+tests with five existing ignored tests.
 Expression's 67 tests and eight new message-contract tests have no ignored
 cases. The standalone source copy built the workspace and passed 92
 Expression/message checks, including a doctest. The initial parallel run's
@@ -317,32 +489,89 @@ timing. This is host computation, excluding process startup, bus transport,
 disk recording, scheduler jitter and physical response. Both 100-run series
 are retained in the evidence; no lamp or before/after improvement is claimed.
 
+For the new catalogue, run
+`cargo run --release --locked -p lamp-expression --example rest_cost -- 100`.
+It measures one first run and 100 warm runs of each held/resumed and finishing
+nod fixture: Engine construction, JSONL parsing, injected-clock planning and
+JSON serialization to a sink. Catalogue parsing, I/O, hardware and physical
+timing are outside that boundary. The reported warm median is the upper
+middle sorted sample (`warm_runs / 2`); the first iteration is not a measure
+of process startup. Task 18's measured results and final gate
+belong in [Third's log](work-log-third.md).
+
+**Task 18 host results, 2026-10-14.** On that same development Mac, with
+Rust/Cargo 1.96.0, formatting, strict all-target Clippy for all 14 touched or
+dependent packages, the workspace build and the serial dependent test gate
+passed: **2,353 tests, zero failures, eight inherited ignored cases**.
+Expression passed 125 tests; messages passed 44 including the doctest.
+The 62 added tests have no skips. A source-only copy outside the parent
+repository built all 27 workspace members, resolved all 28 local packages
+inside the copy, and passed the same 169 Expression/message tests.
+Runtime source hashes matched after the gates and timing run. Commands,
+outputs, skipped names and the earlier failures are retained in the
+[task 18 evidence](verification/expression-rest-host-20261014/results.json)
+and [failure ledger](verification/expression-rest-host-20261014/failures.md).
+
+One release-profile invocation ran a first iteration and 100 warm iterations
+of each authored scenario, with no other Third-owned build or test running;
+unrelated host load was not controlled:
+
+| Scenario | Inputs / deliberately refused / ticks per run | First iteration | Warm upper median | Warm maximum |
+|---|---|---|---|---|
+| Held and resumed, 300 ms of authored time | 18 / 4 / 16 | 0.172494 ms | 0.059406 ms | 0.124608 ms |
+| Finishing nod, 1.8 s of authored time | 37 / 0 / 91 | 0.195416 ms | 0.185896 ms | 0.353597 ms |
+
+The timed boundary is the computation described above. Separately, the
+injected-clock replay requests Listening at 60,000 us after hold receipt at
+41,001 us, and Speaking at 140,000 us after resume receipt at 120,001 us:
+18,999 and 19,999 us respectively. Neither those authored intervals nor the
+host cost establishes transport, optical, acoustic or motor timing. A direct
+built-CLI replay also produced the expected 16 ticks, 14 accepted inputs and
+four intentional refusals; its exact requested output is retained with the
+evidence. No Linux/ARM64 or Rust 1.91 MSRV run was made by Third.
+
 First can run the written fixture with the built `lamp-expression` binary
 and compare the JSONL to the host's replay. Then record the lamp's real bus,
-including the new timing/activity/playout inputs, and import/replay it. Before
-letting either consumer act on it, inspect the requested offsets and expired
-commands with offline `replay --enable`. Live shadow mode records state,
-behaviors and missing inputs, but deliberately omits actuator payloads. To
+including whichever complete Voice protocol is selected, and import/replay
+it. Before enabling a changed plan on the lamp, inspect requested offsets
+and expired commands with offline `replay --enable`. Live shadow mode records
+state, behaviors and missing inputs, but deliberately omits actuator payloads. To
 inspect live actuator requests, explicitly enable the planner while both
 actuator-consumer switches remain off. Once both consumers are enabled,
 check: look back by first audible word, nod only in a person's pause,
 immediate cancellation when speech resumes, light leading the interruption
 transition, stillness during work, and fallback after killing Expression.
 
+For task 18, First must additionally:
+
+- Implement the progress/sound producer fence, including clearing a pending
+  `Piece`, then record hold→resume and hold→give-up with delayed old sound.
+  Check the face request within 100 ms of hold receipt separately from actual
+  ring response and acoustic silence. Preserve local privacy/readiness.
+- Film the carried nod and ring together, with joint feedback and the
+  committed audio time. Measure request→peak and request→return separately;
+  interrupt the nod with renewed speech and an earlier audio schedule. The
+  roughly 0.3-second peak delay in First's earlier silent trials is not an
+  acoustic offset or universal motion-onset lag.
+- Choose the rest author before changing Body's settled-rest rule. Compare
+  the optional rest with disabled rest during real desk work, with focus,
+  busy room, input inhibition and expired evidence. Confirm no competing
+  idle writer, arm motion, room scan or misleading listening face. The new
+  rest shape's appearance and deadband losses are the likeliest mismatch.
+
 ## Not shown
 
-Since this page was written by Third, First has run the written scenario
-and the cost example on lamp-4ace, added the voice's three publications,
-and put `lamp-expression serve` on the lamp without `--enable` (2026-10-14,
-09:26; what it showed is under "What the lamp showed" in
-[work-split.md](work-split.md)). No turn has yet passed through it on the
-lamp, and no actuator consumer exists.
+First's legacy publisher, shadow planner and Body consumer measurements are
+recorded above and in [Body](body.md#what-expression-may-add) and
+[work-split.md](work-split.md). Third has not accessed the lamp. Those earlier
+measurements do not qualify the new hold/resume contract, the combined
+finishing nod or rest. Voice does not yet publish the new pair, and Body
+still suppresses settled-rest offsets.
 
-What follows is as Third wrote it, of its own task. No Expression process,
-new input publisher or actuator consumer had run on a lamp in that task.
-No physical motion, camera calibration, optical latency,
-audio onset, acceptable expressiveness or safe motor trajectory is established
-by the host tests. The inherited robot studies are not lampOS measurements.
-Body lag is unknown by default. No real recorded bus stretch was supplied;
-the checked fixture is written. Transport age estimates cannot repair clock
-steps or recover receipt timing. First owns all device wiring and measurement.
+Host tests and authored replays do not establish physical motion, camera
+calibration, optical latency, acoustic onset/cancellation, safe motor
+trajectories or acceptable expressiveness. Published robot studies are not
+lampOS measurements. Body lag remains unknown; the new fixtures are written,
+not captured from the lamp. Transport age estimates cannot repair clock
+steps or recover receipt timing. First owns the remaining device wiring,
+choice of idle author, timing measurements and observation of how it looks.

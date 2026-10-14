@@ -1,0 +1,4 @@
+{
+  "stopped_utc": "2026-10-14T05:06:19.604607+00:00",
+  "reason": "Superseded during standalone build: final engine audit added a resume activity timestamp fence and regression test after source copy. Format/clippy were successful on previous source; this attempt is not the final gate."
+}

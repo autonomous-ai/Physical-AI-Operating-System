@@ -186,6 +186,82 @@ impl VoicePlayout {
     }
 }
 
+/// Opt-in replacement for `voice/timing` for a planner that understands a
+/// temporarily held turn. The complete heartbeat is atomic on one topic;
+/// an untagged legacy state must never refresh or override this contract.
+///
+/// The owner discards queued sound and unpublished playout observations before
+/// advancing `audio_generation` on each hold. Resume keeps that generation.
+/// Heartbeats retain both the generation and held state. Generation is positive
+/// and never decreases within a session/turn; terminal events retire the whole
+/// turn, even if a later message claims a higher generation.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct VoiceProgress {
+    #[serde(flatten)]
+    pub timing: VoiceTiming,
+    pub audio_generation: u64,
+    pub held: bool,
+}
+
+impl VoiceProgress {
+    pub const TYPE: &str = "lamp_msgs/VoiceProgress";
+    pub const VERSION: u32 = 1;
+    pub const TOPIC: &str = "voice/progress";
+
+    pub fn declaration() -> Declaration {
+        Declaration::new(Self::TYPE, Self::VERSION, Kind::Latest)
+            .every(Duration::from_millis(100))
+            .lasting(Duration::from_millis(500))
+    }
+
+    pub fn check(&self) -> Result<(), Invalid> {
+        self.timing.check()?;
+        if self.audio_generation == 0 {
+            return Err(Invalid("audio generation must be positive".into()));
+        }
+        if self.held
+            && (self.timing.state != Voice::Listening || self.timing.event != VoiceEvent::State)
+        {
+            return Err(Invalid(
+                "a held turn needs Listening and a nonterminal State heartbeat".into(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+/// An actual committed playout interval belonging to exactly one generation
+/// of a resumable Voice turn. The planner accepts it only after fresh matching
+/// `VoiceProgress`, while not held, and never mixes it with `VoicePlayout`.
+/// A generation labels newly committed sound; it must not relabel sound that
+/// the owner discarded on a hold. This is evidence, not a speaker command.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct VoiceSound {
+    #[serde(flatten)]
+    pub playout: VoicePlayout,
+    pub audio_generation: u64,
+}
+
+impl VoiceSound {
+    pub const TYPE: &str = "lamp_msgs/VoiceSound";
+    pub const VERSION: u32 = 1;
+    pub const TOPIC: &str = "voice/sound";
+
+    pub fn declaration() -> Declaration {
+        Declaration::new(Self::TYPE, Self::VERSION, Kind::Event)
+            .every(Duration::from_millis(20))
+            .lasting(Duration::from_millis(200))
+    }
+
+    pub fn check(&self) -> Result<(), Invalid> {
+        self.playout.check()?;
+        if self.audio_generation == 0 {
+            return Err(Invalid("audio generation must be positive".into()));
+        }
+        Ok(())
+    }
+}
+
 /// An explicit setting from a trusted attention/user input owner. Quiet room,
 /// silence, a transcript and a wake word must never be substituted for it.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -484,6 +560,8 @@ pub fn expression_topics() -> Vec<(&'static str, Declaration)> {
         (VoiceTiming::TOPIC, VoiceTiming::declaration()),
         (PersonActivity::TOPIC, PersonActivity::declaration()),
         (VoicePlayout::TOPIC, VoicePlayout::declaration()),
+        (VoiceProgress::TOPIC, VoiceProgress::declaration()),
+        (VoiceSound::TOPIC, VoiceSound::declaration()),
         (Concentration::TOPIC, Concentration::declaration()),
         (ExpressionBody::TOPIC, ExpressionBody::declaration()),
         (ExpressionLight::TOPIC, ExpressionLight::declaration()),

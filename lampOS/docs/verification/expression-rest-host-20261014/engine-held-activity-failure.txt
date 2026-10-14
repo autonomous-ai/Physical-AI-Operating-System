@@ -1,0 +1,22 @@
+   Compiling lamp-expression v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/expression)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.70s
+     Running tests/rest_engine.rs (target/debug/deps/rest_engine-c54e05d153ce6b60)
+
+running 1 test
+test delayed_hold_activity_cannot_reconstruct_a_pause_after_a_listening_resume ... FAILED
+
+failures:
+
+---- delayed_hold_activity_cannot_reconstruct_a_pause_after_a_listening_resume stdout ----
+
+thread 'delayed_hold_activity_cannot_reconstruct_a_pause_after_a_listening_resume' (110387337) panicked at crates/expression/tests/rest_engine.rs:333:9:
+assertion failed: h.engine.ingest(at, input).is_err()
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    delayed_hold_activity_cannot_reconstruct_a_pause_after_a_listening_resume
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 31 filtered out; finished in 0.00s
+
+error: test failed, to rerun pass `-p lamp-expression --test rest_engine`

@@ -1,0 +1,71 @@
+   Compiling lamp-expression v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/expression)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 3.76s
+     Running tests/engine.rs (target/debug/deps/engine-7f4f8e3682ed8820)
+
+running 33 tests
+test an_expired_schedule_at_arrival_is_not_a_new_future_cue ... ok
+test busy_room_restrains_unsolicited_motion_but_never_infers_concentration ... ok
+test extreme_clock_values_fail_closed_without_panicking_or_wrapping_a_lease ... ok
+test a_stale_voice_cannot_revive_queued_audio_by_renewing_the_same_turn ... ok
+test duplicate_sequence_backdated_input_and_future_stamp_do_not_change_the_pose ... ok
+test cancelled_is_sticky_through_finished_acknowledgement_and_state_heartbeat ... ok
+test actual_playout_is_half_open_and_a_cloud_state_never_fabricates_levels ... ok
+test cancellation_fences_old_audio_old_turns_and_state_heartbeats ... ok
+test a_pause_requires_actual_speech_then_quiet_and_resumption_cancels_the_nod ... ok
+test explicit_concentration_holds_actual_pose_and_remains_a_setting_across_silence ... ok
+test a_later_false_heartbeat_cannot_turn_expired_speech_into_a_pause ... ok
+test interruption_must_not_show_listening_until_input_can_be_retained ... ok
+test interrupted_light_changes_first_and_body_blend_finishes_in_350ms_despite_heartbeats ... ok
+test future_playout_queue_is_bounded_and_expired_frames_cannot_reappear ... ok
+test generated_messages_always_pass_their_final_boundary_checks ... ok
+test layers_add_then_clamp_and_joint_feedback_never_accumulates_an_offset ... ok
+test catalogue_compatible_extra_clips_need_no_engine_changes ... ok
+test largest_fresh_face_is_a_normalized_target_without_invented_geometry ... ok
+test measured_lag_advances_only_the_body_and_only_on_committed_playout ... ok
+test many_voice_restarts_hit_a_bounded_fail_closed_session_fence ... ok
+test persistent_settings_can_be_read_long_after_they_were_published ... ok
+test session_restart_clears_queue_and_rejects_even_a_newly_stamped_retired_session ... ok
+test shadow_runs_the_same_clips_but_emits_no_actuator_commands ... ok
+test repeated_interruption_through_state_heartbeat_preserves_the_original_blend ... ok
+test stale_activity_and_stalled_ticks_never_deliver_a_late_nod ... ok
+test short_notice_shrinks_the_remaining_look_and_reports_that_arrival_is_unverified ... ok
+test stale_joints_release_body_and_stale_voice_releases_both ... ok
+test pause_heartbeats_do_not_repeat_a_nod_or_bypass_its_cooldown ... ok
+test thinking_returns_its_requested_pose_before_scheduled_first_audio ... ok
+test words_a_name_and_legacy_state_cannot_establish_timing_or_readiness ... ok
+test wrong_clock_rejects_only_the_input_but_clock_regression_latches_safe_stop ... ok
+test the_turn_that_cut_the_lamp_off_does_not_end_the_yield_it_caused ... ok
+test malformed_catalogues_and_nonfinite_measurements_are_refused ... ok
+
+test result: ok. 33 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/rest_engine.rs (target/debug/deps/rest_engine-c54e05d153ce6b60)
+
+running 25 tests
+test held_does_not_claim_listening_before_capture_can_retain_input ... ok
+test expired_voice_cannot_resume_with_a_fresh_higher_generation ... ok
+test new_session_resets_stream_sequences_but_never_accepts_the_retired_session ... ok
+test hold_discards_the_previous_audio_schedule ... ok
+test hold_shows_listening_and_fresh_gaze_on_the_next_tick ... ok
+test default_catalogue_has_no_unsolicited_rest_motion ... ok
+test hold_drops_queued_and_delayed_old_sound_then_accepts_new_sound ... ok
+test protocols_are_selected_once_and_cannot_refresh_each_other ... ok
+test late_join_held_then_resume_has_an_observation_floor ... ok
+test new_turn_can_reuse_generation_but_old_turn_sound_cannot_follow ... ok
+test missed_hold_is_fenced_by_the_next_active_generation ... ok
+test held_heartbeats_and_final_interruption_do_not_restart_the_body_return ... ok
+test rehold_requires_a_new_generation_and_regressions_do_not_mutate_state ... ok
+test all_terminal_events_fence_every_later_generation ... ok
+test concentration_is_false_without_a_publisher_and_true_until_explicitly_cleared ... ok
+test stale_joints_cancel_a_finishing_nod_even_after_feedback_recovers ... ok
+test finishing_nod_starts_at_a_genuine_pause_and_continues_without_thinking_activity ... ok
+test resumed_person_speech_cancels_a_carried_nod_without_restarting_it ... ok
+test thinking_never_starts_a_nod_that_did_not_start_while_listening ... ok
+test focus_busy_room_hold_and_speaking_cancel_carried_nods ... ok
+test rest_is_small_and_never_commands_yaw_or_the_arm ... ok
+test rest_stalls_never_emit_a_catchup_backlog_and_shadow_never_commands ... ok
+test rest_waits_for_45_seconds_and_cooldown_starts_after_clip_completion ... ok
+test rest_eligibility_does_not_accumulate_across_a_turn_or_input_gap ... ok
+test rest_aborts_for_busy_unknown_or_concentration_and_needs_new_quiet_time ... ok
+
+test result: ok. 25 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.04s

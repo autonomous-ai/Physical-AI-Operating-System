@@ -4,10 +4,12 @@
 use lamp_bus::{Bus, Publisher};
 use lamp_keeper::{
     Keeper, NAME, Notify, PartState, Rules, STATE,
+    package::{self, Answer, Release},
     units::{self, Systemctl, Systemd},
 };
 use lamp_msgs::{Diagnostic, Health, Level, Voice, VoiceState};
 use std::{
+    path::{Path, PathBuf},
     process::ExitCode,
     thread,
     time::{Duration, Instant},
@@ -16,6 +18,7 @@ use std::{
 const USAGE: &str = "\
 lamp-keeper [serve] [--act] [--unwell-seconds N] [--most N]
 lamp-keeper status
+lamp-keeper health
 lamp-keeper start|stop|restart PART|lamp
 
 serve watches lamp/health on the bus (LAMP_BUS_ROOT, or /run/lampos-bus).
@@ -24,6 +27,12 @@ With --act it restarts a part in error or stale for --unwell-seconds
 (default 30), at most --most times in ten minutes (default 3), and then
 leaves it alone and reports it. The voice is restarted only when it says
 it is resting: never in a turn.
+Started by the old runtime's updater as a service package's bin/service
+(AUTONOMOUS_SERVICE_NAME set), serve first brings the lamp up: it links the
+units in the release's units/ folder, ties lampos.target to its own unit so
+that stopping it stops the lamp, and starts lampos.target. health prints
+its ready, version and pid as JSON for the updater: ready once every part the release
+carries runs.
 status prints every lampOS unit: its state, its build and its health.
 start, stop and restart act on lamp-PART.service, or lampos.target for lamp.
 ";
@@ -37,6 +46,11 @@ fn main() -> ExitCode {
             ExitCode::SUCCESS
         }
         ["status"] => status(),
+        ["health"] => {
+            let answer = package::read_answer(&data_folder());
+            println!("{}", serde_json::to_string(&answer).unwrap_or_default());
+            ExitCode::SUCCESS
+        }
         [verb @ ("start" | "stop" | "restart"), part] if units::is_part_name(part) => {
             match Systemctl.command(verb, &units::unit_of(part)) {
                 Ok(()) => ExitCode::SUCCESS,
@@ -74,13 +88,46 @@ fn serve_with(options: &[&str]) -> ExitCode {
             _ => return usage(),
         }
     }
-    match Bus::from_environment() {
-        Ok(bus) => serve(&bus, rules),
-        Err(error) => {
-            eprintln!("lamp-keeper: the bus cannot be used: {error}");
-            ExitCode::FAILURE
+    // Installed by the updater: the lamp is this service's to bring up.
+    let package = match std::env::var(package::NAME_VARIABLE) {
+        Ok(service) => {
+            let Some(release) = Release::of_this_program() else {
+                eprintln!("lamp-keeper: cannot tell which release it runs from");
+                return ExitCode::FAILURE;
+            };
+            // Not ready until this run has looked: an answer left by the run
+            // before must not be taken for this one.
+            let not_yet = Answer {
+                ready: false,
+                version: release.version(),
+                pid: std::process::id(),
+                waiting_for: Vec::new(),
+            };
+            if let Err(why) = package::write_answer(&data_folder(), &not_yet) {
+                eprintln!("lamp-keeper: {why}");
+            }
+            let drop_ins = Path::new("/etc/systemd/system").join(format!("{}.d", units::LAMP));
+            if let Err(why) = package::bring_up(&mut Systemctl, &release, &service, &drop_ins) {
+                eprintln!("lamp-keeper: bringing the lamp up: {why}");
+                return ExitCode::FAILURE;
+            }
+            eprintln!(
+                "lamp-keeper: the lamp is started from {}",
+                release.root.display()
+            );
+            Some(release)
         }
-    }
+        Err(_) => None,
+    };
+    serve(rules, package)
+}
+
+/// Where `serve` leaves its answer for `health`: the service's data folder,
+/// or where it was started.
+fn data_folder() -> PathBuf {
+    std::env::var_os(package::DATA_VARIABLE)
+        .map(PathBuf::from)
+        .unwrap_or_else(|| PathBuf::from("."))
 }
 
 /// The lamp's health, if someone keeps it fresh.
@@ -99,7 +146,7 @@ fn voice_resting(bus: &Bus) -> bool {
         .is_some_and(|said| said.state == Voice::Resting)
 }
 
-fn serve(bus: &Bus, rules: Rules) -> ExitCode {
+fn serve(rules: Rules, package: Option<Release>) -> ExitCode {
     // ponytail: no signal handling (the standard library has none, as for
     // lamp-health): SIGTERM ends it where it stands, between two looks.
     let notify = Notify::from_environment();
@@ -111,10 +158,28 @@ fn serve(bus: &Bus, rules: Rules) -> ExitCode {
         if rules.act { "acting" } else { "watching only" }
     );
     notify.ready();
+    // The bus is made by the voice; a keeper that started the lamp itself
+    // may look before it exists.
+    let mut bus: Option<Bus> = None;
     loop {
         let now = Instant::now();
-        let health = health(bus);
-        if let Some(health) = &health {
+        if bus.is_none() {
+            bus = Bus::from_environment().ok();
+        }
+        if let Some(release) = &package {
+            let waiting_for = package::waiting_for(&mut Systemctl, release);
+            let answer = Answer {
+                ready: waiting_for.is_empty(),
+                version: release.version(),
+                pid: std::process::id(),
+                waiting_for,
+            };
+            if let Err(why) = package::write_answer(&data_folder(), &answer) {
+                eprintln!("lamp-keeper: {why}");
+            }
+        }
+        let health = bus.as_ref().and_then(health);
+        if let (Some(health), Some(bus)) = (&health, &bus) {
             for done in keeper.look(health, voice_resting(bus), now, &mut Systemctl) {
                 eprintln!("lamp-keeper: {done}");
             }
@@ -136,9 +201,10 @@ fn serve(bus: &Bus, rules: Rules) -> ExitCode {
             .with("act", rules.act)
             .with("restarts_last_ten_minutes", keeper.restarts(now));
         if out.is_none() {
-            out = bus
-                .publisher_declared(Diagnostic::TOPIC, &Diagnostic::declaration(), NAME)
-                .ok();
+            out = bus.as_ref().and_then(|bus| {
+                bus.publisher_declared(Diagnostic::TOPIC, &Diagnostic::declaration(), NAME)
+                    .ok()
+            });
         }
         let at_us = started.elapsed().as_micros() as u64;
         if out

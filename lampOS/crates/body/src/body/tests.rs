@@ -43,6 +43,11 @@ struct Lamp {
     /// One servo stops this many counts short of any goal, as a real one
     /// does against its own friction.
     short: Option<(usize, f32)>,
+    /// One servo lifting a drooped head: while above this position and
+    /// asked to go lower it stops this many counts short of its goal, and
+    /// reads this load while it does, as lamp-52e6's head pitch did after a
+    /// power cut. Servo, above, counts, load.
+    heavy: Option<(usize, f32, f32, u16)>,
     silent_from: Option<Duration>,
     silent_until: Option<Duration>,
     event: Option<(Duration, usize, Event)>,
@@ -118,6 +123,7 @@ fn folded(cancel_at: Duration) -> (Lamp, Clock) {
             registers: Vec::new(),
             wall: None,
             short: None,
+            heavy: None,
             silent_from: None,
             silent_until: None,
             event: None,
@@ -207,6 +213,16 @@ impl Lamp {
                 } else {
                     wanted - by * gap.signum()
                 };
+            }
+            if let Some((lifted, above, by, load)) = self.heavy
+                && lifted == index
+            {
+                let lifting = wanted < servo.position && servo.position > above;
+                // At rest it reads what the folded head reads here.
+                servo.load = if lifting { load } else { 25 };
+                if lifting {
+                    wanted = (wanted + by).min(servo.position);
+                }
             }
             let moved = (wanted - servo.position).clamp(-fastest * step, fastest * step);
             servo.position += moved;
@@ -3028,4 +3044,111 @@ fn a_standing_shoulder_pushing_short_of_its_goal_is_told_to_stop_and_keeps_its_t
         lamp.registers
     );
     assert!(lamp.servos.iter().all(|servo| servo.torque == 1));
+}
+
+/// lamp-52e6 after its power was cut and came back on 2026-10-14: every
+/// servo with torque off and a goal of 0, the head drooped from 1,771 to
+/// 2,034, the base and the roll moved. Its unit's options, with `--wake on`.
+#[test]
+fn a_head_that_drooped_in_a_power_cut_is_lifted_home_with_lamp_52e6s_options() {
+    let (mut lamp, mut clock) = folded(Duration::from_secs(40));
+    lamp.may_take_hold = true;
+    lamp.arm_moves = true;
+    for (index, at) in [
+        (YAW, 1_958.0),
+        (1, 2_045.0),
+        (2, 2_083.0),
+        (ROLL, 2_100.0),
+        (PITCH, 2_034.0),
+    ] {
+        let servo = &mut lamp.servos[index];
+        (servo.position, servo.goal, servo.torque, servo.status) = (at, 0, 0, 0);
+    }
+    // Lifting from the droop it lags its goal by 37 counts at a load of
+    // 280, and does not move for a goal less far ahead.
+    lamp.heavy = Some((PITCH, 1_850.0, 37.0, 320));
+    let limits = Limits {
+        force: Some(600),
+        torque_on: true,
+        wake: true,
+        ..Limits::folded_with(Tuning {
+            reach: [150, 15, 1, 250],
+            speed: 120,
+            servo_speed: 1_000,
+            servo_acceleration: 60,
+        })
+        .unwrap()
+    };
+    let up = Standing::new(
+        [2_053, 2_069],
+        [1_772, 2_035, 2_035, 2_657, 2_602],
+        100,
+        5,
+        90,
+        [560, 560],
+    )
+    .unwrap();
+    let report = run_standing(
+        &mut lamp,
+        &mut clock,
+        limits,
+        Some([1_771, 2_035, 2_035]),
+        Some(up),
+        || Some((Mood::Resting, 0)),
+        |_| {},
+    );
+    assert_eq!(report.stop, Stop::Cancelled, "{report:?}");
+    assert!(report.standing.is_some(), "{report:?}");
+    let woke = report.woke.unwrap();
+    // All three come home with the head, at its pace.
+    assert_eq!(woke.joints, vec!["wrist_pitch", "wrist_roll", "base_yaw"]);
+    assert_eq!(
+        (woke.from, woke.to),
+        (vec![2_034, 2_100, 1_958], vec![1_771, 2_035, 2_035])
+    );
+    // A stir that reaches 80 counts ahead, a pause, then the rest of 263.
+    assert!((19.0..23.0).contains(&woke.seconds), "{}", woke.seconds);
+    // Lifting, it read 320 and lagged its goal by 37, and was let.
+    assert!(report.peak_load[0] >= 320, "{:?}", report.peak_load);
+    // Never toward the base.
+    let pitch = goals_of(&lamp, Joint::WristPitch);
+    let home = pitch.iter().position(|goal| *goal == 1_771).unwrap();
+    assert!(
+        pitch[..=home].windows(2).all(|two| two[1] <= two[0]),
+        "{pitch:?}"
+    );
+    assert!(pitch.iter().all(|goal| *goal <= 2_034));
+    assert!((lamp.servos[PITCH].position - 1_771.0).abs() <= 30.0);
+}
+
+#[test]
+fn a_head_that_cannot_lift_ends_the_wake_held_where_it_is_and_says_how_far_it_got() {
+    let (mut lamp, mut clock) = folded(Duration::from_secs(40));
+    lamp.servos[PITCH].position = 2_095.0;
+    lamp.servos[PITCH].goal = 2_095;
+    // It never moves for a goal less than 150 counts ahead: its goal gets
+    // home, it stays still for half a second, and the run ends.
+    lamp.heavy = Some((PITCH, 1_850.0, 150.0, 200));
+    let report = run(
+        &mut lamp,
+        &mut clock,
+        waking(),
+        Some(HOME),
+        || Some((Mood::Resting, 0)),
+        |_| panic!("a lamp that did not wake does not run"),
+    );
+    assert!(
+        report.stop
+            == Stop::Tracking {
+                joint: 5,
+                goal: 2_000,
+                position: 2_095
+            },
+        "{:?}",
+        report.stop
+    );
+    let woke = report.woke.unwrap();
+    assert_eq!(woke.from, vec![2_095]);
+    assert_eq!(woke.to, vec![2_000]);
+    assert_eq!(report.held_at.map(|held| held[0]), Some(2_095));
 }

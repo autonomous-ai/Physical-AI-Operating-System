@@ -226,6 +226,38 @@ check exits 0. Then, to use it, the voice starts the worker with
 (`crates/voice/src/coordinator/endpoint.rs`, `EndpointRig::start`), for
 example behind an `--endpoint smart-turn-fast` value beside `smart-turn`.
 
+### Measured on lamp-4ace (first builder, 2026-10-14, 10:19)
+
+The worker cross-built in the lamp's build container (`bf3c0221…`, from
+`a98e18a3f`), Microsoft's library fetched from the address above and
+found to be the pinned one (the archive `e16a27a8…3e3da`; the library
+25,135,496 bytes, `64e903a4…612a4b`), both in a directory of their own on
+the lamp with a copy of the model the lamp already has. The voice, the
+name part, the eyes, the body and the rest were running as usual. Thirty
+runs each, milliseconds for one verdict, features and model:
+
+| | Median | Worst | Processor time a verdict | Cores | Peak address space |
+|---|---|---|---|---|---|
+| As it is (exact) | 381.6 | 391.9 | 383 | all eight | 114 MiB |
+| Exact, held to the fast cores | 386.2 | 391.0 | 386 | 6, 7 | 114 MiB |
+| Fast | 148.3 | 160.5 | 280 | 6, 7 | 243 MiB of the 544 allowed |
+| Fast, one thread | 213.1 | 221.6 | 215 | 6, 7 | 152 MiB |
+
+The first verdict after loading took 147 ms fast (453 ms exact); loading
+took 0.59 s fast and 0.40 s exact. On the test clip the fast model said
+0.96844 and the exact one 0.96853; `--check-model … --fast` exited 0, its
+own warm median 146.7 ms. The kernel gives the cores' kinds (`0xd0b` for
+cpu6 and cpu7) and the worker chose those two.
+
+So of the five things below: the time is 148 ms where 130 was reckoned
+and under 150 was hoped; the fast cores were found; the library loads on
+the lamp's system; the memory cap holds; loading takes 0.6 s. With the
+name part on the same two cores, two threads still beat one by 65 ms.
+
+What it makes possible: asked 200 ms into a pause, a verdict about 350 ms
+after someone stops, where the silence rule alone needs 600 ms. Not shown
+here: any of it in the voice. Nothing uses the fast worker yet.
+
 ### Where this is most likely to be wrong on the lamp
 
 1. **The time.** The 130 ms is the VM's time scaled by the exact model's
@@ -249,6 +281,7 @@ example behind an `--endpoint smart-turn-fast` value beside `smart-turn`.
 
 ### Not shown
 
+(Written before the measurement above, which settles the first sentence.)
 Anything on the lamp: its time, its memory, its cores, its loader. Speech
 through the lamp's microphone and its processing; the clips are recordings
 replayed digitally. Whether a 300 or 400 ms end for a finished sentence

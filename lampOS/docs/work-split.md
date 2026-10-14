@@ -162,16 +162,16 @@ has it:
 
 | # | Task | Short name | Builder | State |
 |---|---|---|---|---|
-| 1 | The end-of-turn model in a tenth of a second | `turn-end-fast` | Second | taken 2026-10-14 |
+| 1 | The end-of-turn model in a tenth of a second | `turn-end-fast` | Second | done 2026-10-14: on `lamp-voice`; 148 ms on the lamp against 382; the voice does not use it yet |
 | 2 | Try to break last night's changes to the voice | `voice-review` | Second | done 2026-10-14: on `lamp-voice` with its mends |
 | 3 | A listener for "stop" under the lamp's own voice | `stop-word` | Second | taken 2026-10-14 |
 | 5 | The name, heard as a bare "Lamp" | `bare-name` | Second | open |
-| 10 | A reference that follows the microphone's clock | `reference-clock` | Second | open |
-| 9 | Faster answers: what exists | `faster-answers` | Second | open |
+| 10 | A reference that follows the microphone's clock | `reference-clock` | Second | taken 2026-10-14 |
+| 9 | Faster answers: what exists | `faster-answers` | Second | done on `lamp-second` 2026-10-14; the first builder takes it next |
 | 4 | Expression: one part that authors what the lamp shows | `expression` | Third | done 2026-10-14: on `lamp-voice`, run on the lamp watching only; the wiring is the first builder's |
-| 7 | The button and the touch pad | `controls` | Third | taken 2026-10-14 |
+| 7 | The button and the touch pad | `controls` | Third | done on `lamp-third` 2026-10-14; the first builder takes it next |
 | 18 | Expression: holding back for someone, and a lamp at rest | `expression-rest` | Third | open |
-| 12 | Starting, setting up and updating a lamp | `surround` | Third | open |
+| 12 | Starting, setting up and updating a lamp | `surround` | Third | taken 2026-10-14 |
 | 6 | Reminders and timers | `schedule` | Third | open |
 | 8 | A shared log, settings, and reports from the parts that give none | `defaults` | Third | open |
 | 11 | One task out to an agent and back, through Harness | `tasks` | Third | open |
@@ -773,6 +773,21 @@ on the lamp: how the rest behaviour looks, which only the camera shows.
 ## What the lamp showed
 
 Newest first. Each builder's own notes are in its log, on its branch.
+
+**2026-10-14, task 1, the fast end-of-turn model.** Taken onto
+`lamp-voice` (`a98e18a3f`); one test mended for a machine no library is
+pinned for (`6a1d2745c`). Cross-built for the lamp, and Microsoft's
+library found to be the pinned one. On lamp-4ace, thirty runs each with
+everything else running: 382 ms as it was, 148 ms fast (160 at worst),
+213 ms fast on one thread; the check exits 0. Every one of the five
+things the log named as likely to go wrong went right: the table is in
+[endpoint-pilot.md](endpoint-pilot.md), "Measured on lamp-4ace". Under
+emulation one older test of the worker's client fails
+(`missing_executable_fails_at_once`: the emulator starts a missing
+program and then reports it gone, where a real system refuses to start
+it); it is not a fault of this change and was not run on the lamp.
+Nothing uses the fast worker yet: the voice's switch for it, and the
+played scenes that must come before it is on, are the first builder's.
 
 **2026-10-14, task 13, memory across days.** Taken onto `lamp-voice`
 unchanged (`2defa611b`). The thing the log named as most likely to go

@@ -7,11 +7,14 @@
 //! person "goes on to say", sent one of three ways:
 //!
 //! - `control`: the piece is answered in full first, as a request of its own;
-//! - `resume`, `resume-late`, `whole-resumed`: the session is given up and
-//!   resumed from the handle the service gave before the piece, right after
-//!   the early end or after the piece's whole answer;
-//! - `whole-labelled`: on the same session, with a written note that the
-//!   request before was cut off and this is the whole of it.
+//! - `resume`, `whole-resumed`: the session is given up and resumed from the
+//!   handle the service gave before the piece, right after the early end;
+//! - `whole-labelled`: on the same session, the whole question with a
+//!   written note that the request before was cut off and this is the
+//!   whole of it;
+//! - `rest-labelled`: on the same session, only the rest of the question
+//!   with the note the voice sends (`--early-end-ms`): the request before
+//!   was cut off and this is the rest of it.
 //!
 //! Nothing here prints a handle, a credential or the person's own words: a
 //! trial's row holds timings and the service's text.
@@ -34,22 +37,28 @@ pub struct Speech {
     pub half: Vec<i16>,
     /// "What is the capital of Japan?"
     pub whole: Vec<i16>,
+    /// "Japan?", the rest of the question after `half`.
+    pub rest: Vec<i16>,
 }
 
 /// The files a speech directory holds, in the order of [`Speech`].
-pub const FILES: [&str; 5] = [
+pub const FILES: [&str; 6] = [
     "seed.wav",
     "piece.wav",
     "check.wav",
     "half.wav",
     "whole.wav",
+    "rest.wav",
 ];
+/// `resume-late` (resumed after the piece's whole answer) ran once on
+/// lamp-4ace at 23:10 on 2026-10-14 and is no longer asked: resuming did
+/// not forget the piece even at once (docs/early-end-taken-back.md).
 pub const TRIALS: [&str; 5] = [
     "control",
     "resume",
-    "resume-late",
     "whole-resumed",
     "whole-labelled",
+    "rest-labelled",
 ];
 /// No more requests than this in a run (the first builder's bound).
 pub const MAX_REQUESTS: u32 = 20;
@@ -62,15 +71,15 @@ pub const DEADLINE: Duration = Duration::from_secs(115);
 /// speech goes on: long enough for an answer to begin, as it began at
 /// 13:45 on lamp-4ace with `--early-end-ms 200`.
 pub const EARLY_WINDOW: Duration = Duration::from_millis(1_000);
-/// After the piece's whole answer, how long before resuming (`resume-late`):
-/// time for the service to give a newer handle than the one resumed from.
-pub const LATE_WAIT: Duration = Duration::from_secs(2);
 /// The longest one answer is waited for.
 pub const ANSWER_WAIT: Duration = Duration::from_secs(15);
 /// The longest a handle is waited for after the first answer.
 pub const HANDLE_WAIT: Duration = Duration::from_secs(3);
 /// The note sent with the whole question after a piece ended early.
 pub const NOTE: &str = "The person paused and then went on: the request just before this one was cut off by that pause, and this is the whole of it. Answer only this.";
+/// The note sent with the rest of the question: the voice's own
+/// (`CUT_OFF_NOTE` in `lamp-voice`'s provider worker), word for word.
+pub const REST_NOTE: &str = "The person paused and then went on: the request just before this one was cut off by that pause, and this is the rest of it. Answer all of it as one request.";
 
 /// What one request heard back.
 #[derive(Default)]
@@ -248,7 +257,8 @@ impl<'a, C: Connect> Probe<'a, C> {
         let mut row = json!({"trial": name, "seed_answer": seed.row(),
             "handle_before_piece": before.is_some()});
         let (piece, rest) = match name {
-            "control" | "resume" | "resume-late" => (&speech.piece, &speech.check),
+            "control" | "resume" => (&speech.piece, &speech.check),
+            "rest-labelled" => (&speech.half, &speech.rest),
             _ => (&speech.half, &speech.whole),
         };
         if name == "control" {
@@ -257,20 +267,12 @@ impl<'a, C: Connect> Probe<'a, C> {
             row["answer"] = self.ask(&mut first, rest, None).await?.row();
         } else {
             let id = self.say(&mut first, piece, None).await?;
-            let mut early = Self::listen(&mut first, id, EARLY_WINDOW, false).await;
-            if name == "resume-late" {
-                // The rest of the piece's answer, unless it is already whole.
-                if !early.complete {
-                    let more = Self::listen(&mut first, id, ANSWER_WAIT, true).await;
-                    early.text.push_str(&more.text);
-                    early.complete = more.complete;
-                    early.first_audio_ms = early.first_audio_ms.or(more.first_audio_ms);
-                }
-                Self::listen(&mut first, id, LATE_WAIT, false).await;
-            }
+            let early = Self::listen(&mut first, id, EARLY_WINDOW, false).await;
             row["piece_answer_before_going_on"] = early.row();
             if name == "whole-labelled" {
                 row["answer"] = self.ask(&mut first, rest, Some(NOTE)).await?.row();
+            } else if name == "rest-labelled" {
+                row["answer"] = self.ask(&mut first, rest, Some(REST_NOTE)).await?.row();
             } else {
                 first.connection.shutdown();
                 drop(first);
@@ -331,21 +333,20 @@ pub fn plan(speech: &Speech) -> Value {
                     resume.clone(),
                     say("check.wav", &speech.check),
                 ]),
-                "resume-late" => steps.extend([
-                    early("piece.wav", &speech.piece),
-                    json!({"wait": format!("for the piece's whole answer, then {} s", LATE_WAIT.as_secs())}),
-                    resume.clone(),
-                    say("check.wav", &speech.check),
-                ]),
                 "whole-resumed" => steps.extend([
                     early("half.wav", &speech.half),
                     resume.clone(),
                     say("whole.wav", &speech.whole),
                 ]),
-                _ => steps.extend([
+                "whole-labelled" => steps.extend([
                     early("half.wav", &speech.half),
                     json!({"say": "whole.wav", "seconds": seconds(&speech.whole),
                         "note": NOTE, "then": "end the request"}),
+                ]),
+                _ => steps.extend([
+                    early("half.wav", &speech.half),
+                    json!({"say": "rest.wav", "seconds": seconds(&speech.rest),
+                        "note": REST_NOTE, "then": "end the request"}),
                 ]),
             }
             json!({"trial": name, "steps": steps})

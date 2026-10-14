@@ -385,10 +385,14 @@ The answer's sound is taken in and held, and played only once the wait
 above (or the end-of-turn model's verdict) says the person has finished.
 If they speak again first (six blocks in a row scoring 0.8 or more), the
 request is given up as a continued utterance is and nothing of its answer
-is played. An utterance short enough to be thrown out as a sound is not
-ended early. Without it the end is sent when the wait ends, as always. See
+is played; its successor, what they go on to say, carries a note that the
+request before it was cut off by the pause and this is the rest of it, to
+be answered as one ([early-end-taken-back.md](early-end-taken-back.md)).
+An utterance short enough to be thrown out as a sound is not ended early.
+Without it the end is sent when the wait ends, as always. See
 [faster answers](faster-answers.md), way 2, "Built: the end sent early".
-Not yet run on a lamp.
+Played on lamp-4ace once without the note (worse, and switched off); with
+the note, not yet.
 
 See [matched-model configuration](gemini-comparison-config.md). Use the actual provider endpoint; a proxy base URL alone is not
 the complete WebSocket route. The provider-check command opens no microphone and

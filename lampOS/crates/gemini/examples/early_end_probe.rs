@@ -1,16 +1,17 @@
 //! Can the live service be made to forget a request ended too early
-//! (second-P1, #723; docs/early-end-taken-back.md)? It runs five trials of
-//! three requests each, from recorded speech, and prints one JSON line a
-//! trial of timings and the service's own words.
+//! (second-P1, #723; docs/early-end-taken-back.md), and does the note the
+//! voice sends after one get the rest of it answered as one? It runs five
+//! trials of three requests each, from recorded speech, and prints one JSON
+//! line a trial of timings and the service's own words.
 //!
 //! ```sh
 //! cargo run --locked --release -p lamp-gemini --example early_end_probe -- \
 //!     /etc/lampOS/voice/provider.json SPEECH_DIR [--dry-run]
 //! ```
 //!
-//! The provider file is the voice's own (`service_probe` reads the same
-//! fields), passed as a path; it is never printed and nothing is written
-//! anywhere. `SPEECH_DIR` holds the five 16-bit WAV files named in
+//! The provider file is the voice's own, read as it is (fields a probe does
+//! not use are ignored), passed as a path; it is never printed and nothing
+//! is written anywhere. `SPEECH_DIR` holds the six 16-bit WAV files named in
 //! [`trials::FILES`]. Nothing is played or recorded: no microphone or
 //! speaker is opened. At most twenty requests, ended within two minutes.
 //! `--dry-run` reads the files and the provider file, connects to nothing,
@@ -35,15 +36,15 @@ fn load(directory: &Path) -> Outcome<Speech> {
         }
         each.push(spoken.to_vec());
     }
-    let [seed, piece, check, half, whole]: [Vec<i16>; 5] = each
-        .try_into()
-        .map_err(|_| "five speech files are needed")?;
+    let [seed, piece, check, half, whole, rest]: [Vec<i16>; 6] =
+        each.try_into().map_err(|_| "six speech files are needed")?;
     Ok(Speech {
         seed,
         piece,
         check,
         half,
         whole,
+        rest,
     })
 }
 

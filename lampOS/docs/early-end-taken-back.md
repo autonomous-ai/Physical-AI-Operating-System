@@ -1,12 +1,18 @@
-# The early end taken back: study and probe
+# The early end taken back
 
-`second-P1` (#723), step 1 of 2: can the live service be made to forget a
+`second-P1` (#723): can the service be made to forget, or set aside, a
 request that was ended too early, so that an early end can be sent and
-then taken back when the person goes on? This is the study and a probe of
-the service for lamp-4ace. Step 2, building it behind `--early-end-ms`,
-comes only if the probe shows that one way holds. Nothing here was run
-against the service or on a lamp; the probe was run against a scripted
-service on a laptop (Apple M2 Max).
+taken back when the person goes on?
+
+- **Step 1, the study and the probe.** The probe ran once on lamp-4ace on
+  2026-10-14 at 23:10. Resuming from before the piece (a) does not make
+  the service forget it. A note on the whole question (b) does make it
+  answered as one.
+- **Step 2, built.** The voice's early end (`--early-end-ms`, off unless
+  given) now sends that note with what the person goes on to say. The
+  probe has a trial for exactly that note on the rest of a question,
+  which lamp-4ace has not run yet. Nothing in step 2 was run against the
+  service or on a lamp; it was built and tested on a laptop (Apple M2 Max).
 
 ## Why
 
@@ -68,13 +74,14 @@ aside.
 ## The probe
 
 `crates/gemini/examples/early_end_probe.rs`, with its trials in
-`early_end_probe/trials.rs`. It reads the voice's own provider file (the
-same fields as `service_probe`, which now shares its loaders with it in
-`examples/shared/provider.rs`) and five recorded utterances, then runs
-five trials. Each trial is a new session with three requests: 15 in all,
-never more than 20. The run ends within 115 s whatever the service does.
-It plays and records nothing, and prints one JSON line a trial of timings
-and the service's own words; it prints no handle, credential or file path.
+`early_end_probe/trials.rs`. It reads the voice's own provider file as it
+is (fields it does not use are ignored; loaders shared with
+`service_probe` in `examples/shared/provider.rs`) and six recorded
+utterances. Then it runs five trials, each a new session with three
+requests: 15 in all, never more than 20. The run ends within 115 s
+whatever the service does. It plays and records nothing, and prints one
+JSON line a trial of timings and the service's own words; it prints no
+handle, credential or file path.
 
 | File | Says |
 |---|---|
@@ -83,6 +90,7 @@ and the service's own words; it prints no handle, credential or file path.
 | `check.wav` | "Which words did I ask you to remember?" |
 | `half.wav` | "What is the capital of" (ended early) |
 | `whole.wav` | "What is the capital of Japan?" |
+| `rest.wav` | "Japan?" |
 
 Every trial first says `seed.wav` and waits up to 3 s for a current
 handle: the handle from before the piece. Then:
@@ -91,105 +99,173 @@ handle: the handle from before the piece. Then:
 |---|---|---|
 | `control` | `piece.wav`, answered in full; then `check.wav` | The service names purple when it was told it (so its silence elsewhere means something) |
 | `resume` | `piece.wav` ended early, 1 s for its answer to begin; the session given up and a new one resumed from the handle before the piece; `check.wav` | (a): the older handle resumes, how long setup takes, and whether purple is forgotten |
-| `resume-late` | The same, but after the piece's whole answer and 2 s more | The same, with a newer handle surely given before resuming |
 | `whole-resumed` | `half.wav` ended early, 1 s; resumed from before it; `whole.wav` | (a) with a question: Tokyo, and nothing about half a question |
 | `whole-labelled` | `half.wav` ended early, 1 s; on the same session `whole.wav` with the note | (b): Tokyo, the half set aside |
+| `rest-labelled` | `half.wav` ended early, 1 s; on the same session `rest.wav` with the voice's own note | (b) as the voice does it: Tokyo from the two pieces |
 
-The note: "The person paused and then went on: the request just before
-this one was cut off by that pause, and this is the whole of it. Answer
-only this." The 1 s after an early end is about when the answer began at
-13:45; the probe does not end early itself, it says the piece and ends it.
+`resume-late`, the same as `resume` but after the piece's whole answer
+and 2 s more, ran once on lamp-4ace and is no longer asked: (a) failed
+there even at once. `rest-labelled` and `rest.wav` took its place after
+that run.
 
-Each row has `answer.text` (the service's words) and `answer_mentions`
-(whether they contain orange, purple, Tokyo), the piece's answer so far
-(`piece_answer_before_going_on`), `resumed` and `resume_setup_ms`, or
-`resume_refused` with the reason, and `trial_ms`. The mentions only help:
-the words decide.
+The two notes:
+- **With the whole question** (`whole-labelled`): "The person paused and
+  then went on: the request just before this one was cut off by that
+  pause, and this is the whole of it. Answer only this."
+- **With the rest** (`rest-labelled`, the voice's `CUT_OFF_NOTE`, the
+  same words, which a test holds): "The person paused and then went on:
+  the request just before this one was cut off by that pause, and this is
+  the rest of it. Answer all of it as one request."
+
+The 1 s after an early end is about when the answer began at 13:45. The
+probe does not end early itself: it says the piece and ends it.
+
+Each row has:
+- `answer.text`, the service's words, and `answer_mentions` (whether they
+  contain orange, purple, Tokyo);
+- the piece's answer so far, `piece_answer_before_going_on`;
+- `resumed` and `resume_setup_ms`, or `resume_refused` with the reason;
+- `trial_ms`.
+
+The mentions only help: the words decide.
 
 **Tested here** (`cargo test -p lamp-gemini --example early_end_probe`,
-five tests, run by `cargo test` through `test = true`), against
+six tests, run by `cargo test` through `test = true`), against
 `lamp_gemini::testing`'s scripted service given a memory: what it was told
 is kept with each handle it gives, and a session resumed from a handle
-knows what was said up to then and no more. That is how the service would
-behave if (a) holds.
+knows what was said up to then and no more.
 - All five trials ran with 15 requests.
-- `control` named orange and purple.
-- `resume` and `resume-late` named orange only.
-- Both whole trials said Tokyo.
-- Every resumed setup presented the handle given after `seed.wav`, never
-  the newer one.
-- The note went once, inside the whole question, before its end.
+- `control` named orange and purple; `resume` orange only.
+- The three Tokyo trials said Tokyo.
+- Every resumed setup presented the handle given after `seed.wav`.
+- Each note went once, inside its question, before its end.
 - No handle or credential was printed.
-- A service that refuses resumed setups gives `resumed: false` with the
-  reason and no second attempt.
-- A service that never answers ends the run within 115 s, at most 20
-  requests.
-- The dry run shows the 15 requests and the note.
+- A refused resume is reported and not tried again.
+- A silent service ends the run within 115 s and 20 requests.
+- The dry run shows the 15 requests and both notes.
+- A provider file with the voice's other fields (`instruction_file`,
+  `resumption`, `search`) is read, and its credential file is still
+  refused unless private.
 
-`--dry-run` was also run here through the built example, with a provider
-file of a placeholder key, and printed the plan without the key or the
-path. None of this says what the live service does.
+## What the lamp showed (2026-10-14, 23:10)
+
+The first builder ran the probe of step 1 once on lamp-4ace
+([readings](verification/early-end-probe-lamp-4ace-20261014/README.md)):
+15 requests in 95 s, five recordings made with `say -v Daniel`, and the
+voice's provider file reduced to the six fields the probe then took.
+
+| Trial | The answer | Resumed, and setup |
+|---|---|---|
+| `control` | "You asked me to remember orange and purple." | no |
+| `resume` | "You asked me to remember the words orange and purple." | yes, 2,209 ms |
+| `resume-late` | "You asked me to remember orange and purple." | yes, 2,360 ms |
+| `whole-resumed` | "The capital of Japan is Tokyo." | yes, 2,134 ms |
+| `whole-labelled` | "The capital of Japan is Tokyo." | no |
+
+- **(a) does not hold.** A session resumed from the handle given before
+  the piece still named purple. In `resume` the piece's answer had not
+  even begun in its second. A resumed setup took over two seconds as well,
+  longer than the rest of most sentences.
+- **(b) holds.** The whole question with its note was answered as one,
+  and "the capital of" was not answered as a question of its own.
+
+One run.
+
+## Step 2: the note, behind `--early-end-ms`
+
+**What the voice does now.** With `--early-end-ms`, when the person
+speaks again after the end was sent early, the request is given up and
+what they go on to say becomes its successor, as before. Two things are
+new:
+- **The flag.** The successor's start carries `continues_cut_off`
+  (`ProviderInput::Start`, set only in `continue_after_early_end`).
+- **The note.** The provider worker writes `CUT_OFF_NOTE` beside that
+  request, inside its activity just before its end, together with any
+  other note it is given (the name heard, the room), once.
+
+A chain of pieces gives each successor the note. Without `--early-end-ms`
+no request is ever marked, and every start is written exactly as before:
+the flag is left off the wire when false, which a test holds.
+
+**Why the rest and not the whole.** Sending the whole utterance again, as
+`whole-labelled` did, would mean sending the piece's sound a second time.
+The transport takes no sound older than 2.5 s (`MAX_INPUT_AGE`), and the
+pizza question at 13:45 came in four pieces. So the successor carries what
+the person goes on to say, as it always did, and the note says it is the
+rest. `rest-labelled` tries exactly that on the service; lamp-4ace has not
+run it yet.
+
+**Tested here** (`lamp-voice`, M2 Max):
+- The early-end session tests, against the scripted service: when speech
+  resumes 0.3 s after the end ("Hey Lamp," then the question), the
+  successor's wire is its sound and then the note, just before its end.
+  The same in "Lamp, stop." over an answer. A request quiet to the end
+  carries no note.
+- `a_start_is_written_as_before_unless_it_goes_on_from_one_cut_off`: a
+  plain start serializes exactly as before the flag, and an old one reads
+  as not cut off.
+- `the_cut_off_note_is_the_one_tried_on_the_service`: the voice's note is
+  the probe's `REST_NOTE`, word for word.
+
+On this Mac some of these session tests fail when the machine is loaded
+by other work ("stale, reordered or wrong-boot runtime message"). They
+passed each time it was not, and alone.
 
 ## What to run on the lamp
 
-The first builder, once, on lamp-4ace:
+The first builder, on lamp-4ace, smallest first:
 
-1. **The five files.** On a Mac:
+1. **The probe once more**, for `rest-labelled`.
+   1. Make `rest.wav` beside the five from last time. On a Mac:
+      `say -v Daniel -o rest.aiff "Japan?" && afconvert -f WAVE -d LEI16@16000 rest.aiff rest.wav`
+      (check that it is not a few milliseconds long).
+   2. Build: `cargo build --locked --release -p lamp-gemini --example early_end_probe`.
+   3. As the voice's user, with the voice's own provider file:
+      `early_end_probe /etc/lampOS/voice/provider.json DIR --dry-run`, then
+      the same without `--dry-run`.
+   4. Read `rest-labelled`. It holds if its answer is Tokyo and "the
+      capital of" was not answered as a question of its own. If it does
+      not hold, `--early-end-ms` stays off.
+2. **The five pause scenes** (`pauses.sh`), with `--early-end-ms 200`
+   added to the voice's unit beside `--endpoint smart-turn-fast` and
+   `--provider-continuation kept-start`, once, against a run without it.
+   The scenes' own words are on the office iMac; the documents name them
+   by their subjects.
 
-   ```sh
-   for pair in "seed:Please remember the word orange." "piece:Also remember the word purple." \
-       "check:Which words did I ask you to remember?" "half:What is the capital of" \
-       "whole:What is the capital of Japan?"; do
-     say -o "${pair%%:*}.aiff" "${pair#*:}" && afconvert -f WAVE -d LEI16@16000 "${pair%%:*}.aiff" "${pair%%:*}.wav"
-   done
-   ```
+| Scene | Expected with the note | It is wrong if |
+|---|---|---|
+| The question about Tokyo, said without a pause | One answer, about Tokyo, its first word sooner than without the early end by up to the time between the 200 ms early end and the lamp's own end of speech (about 0.2 s with the fast worker, which ended these at about 0.4 s of quiet) | Any note on its wire, or a later first word than without |
+| The question about spiders, said without a pause | The same | The same |
+| The beach thought, 450 ms of silence inside | One answer to the whole thought, or none if the busy-room rule holds it, as without the early end | An answer to "we could go to the beach" alone, or two answers |
+| The pizza question, 650 ms inside | One answer, to the pizza question; a successor's note in the journal ("the model is told it goes on from the request given up") | The question in pieces with none answered, a provider failure, or an answer to a piece |
+| The moon thought, 900 ms inside | One answer, about the moon | An answer to the first half ("Tell me about the movie"), or two answers |
 
-   (Here `say` gave files of 5 ms, from a session without the speech
-   service; check that each is a second or two.) Any recording of a
-   person saying the five lines does as well, 16-bit WAV at any rate.
-   Copy them to a directory on the lamp.
-2. **Build** for the lamp, as `service_probe` is:
-   `cargo build --locked --release -p lamp-gemini --example early_end_probe`.
-3. **As the voice's user** (the provider file is mode 0600), first
-   `early_end_probe /etc/lampOS/voice/provider.json DIR --dry-run`, then
-   the same without `--dry-run`. It needs the voice's network, not its
-   microphone or speaker; the voice can keep running.
-
-**How to read it:**
-
-| If | Then |
-|---|---|
-| `control` names purple; `resume` and `resume-late` resume and name orange but not purple; `whole-resumed` says Tokyo; `resume_setup_ms` is well under the rest of a sentence (under 500 ms, say) | (a) holds: step 2 builds it |
-| A resumed setup is refused (`resume_refused`), or `resume`/`resume-late` still name purple | (a) does not hold |
-| `whole-labelled` says Tokyo and does not answer "the capital of" as a question of its own | (b) holds: step 2 builds it if (a) does not |
-| Neither | (c): `--early-end-ms` is withdrawn |
-
-Step 2 would measure "sooner" from the person's last word to the first
-sound, as [conversation-latency.md](conversation-latency.md) does.
+"Sooner" is measured from the person's last word to the first sound, as
+[conversation-latency.md](conversation-latency.md) does: for the plain
+questions against the run without the early end, for the thoughts only
+that they are answered once and whole.
 
 ## Where it is most likely wrong on the lamp
 
-1. **The relay.** lamp-4ace reaches the service through its configured
-   endpoint. Whether that endpoint passes `sessionResumption` both ways
-   has not been seen in this repository; a refused or silent resume would
-   look like (a) failing when it is the road.
-2. **Handles given while the piece is answered.** While the model
-   generates, `resumable` is false. If the service gives no current
-   handle within 3 s of the seed's answer, a trial says so
-   (`handle_before_piece: false`) and goes no further.
-3. **The model guessing.** A resumed session that does not remember
-   purple might still say it, from the check question's own words; and
-   the transcript may spell Tokyo or orange otherwise. The words in each
-   row decide, not `answer_mentions`.
-4. **Two minutes on a slow link.** At about 15 s a trial the run takes
-   some 75 s; a slow service ends the last trials as `skipped`.
+1. **The rest alone.** Step 1 showed the whole question with its note
+   answered as one. Whether the rest with its note is, the rest being
+   "Japan?" alone, is what `rest-labelled` asks first.
+2. **A note after the answer has begun.** With
+   `--provider-continuation kept-start` a successor's start waits for the
+   given-up request's answer to begin and stops it. The model then has
+   begun to answer the piece before it hears the rest and the note. At
+   13:45 that is where the moon thought was answered by its first half.
+3. **Several pieces.** Each successor is told only that the request just
+   before it was cut off. A thought in four pieces relies on the model
+   joining all four from that.
+4. **Short pieces heard as another language.** At 13:45 the service wrote
+   two pieces as Spanish. A note in English beside the rest says nothing
+   of that; whether it still matters shows in the pizza scene.
 
 ## Not shown
 
-- Anything from the live service: every result above is the scripted
-  service's.
-- A person's own voice: the five lines are synthesized.
-- How long resuming takes on the lamp's link, and whether it fits inside
-  the rest of a sentence.
-- What a session resumed from an earlier handle keeps of tools, the
-  camera's context or the voice's own instruction beyond the probe's.
+- `rest-labelled`, or any of step 2, against the live service or on a
+  lamp.
+- A person's own voice and pauses: every recording is synthesized.
+- How much sooner an answer comes with the early end and the note on the
+  lamp.

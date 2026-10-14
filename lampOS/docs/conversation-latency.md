@@ -98,7 +98,11 @@ ended to the service after 200 ms of quiet, and the answer is held until
 the lamp's own end of speech (the 600 ms, or the end-of-turn model's
 verdict) confirms that the person has finished. If they speak again first,
 the request is given up as a continued utterance is, and nothing of its
-answer is played.
+answer is played. Since the probe of `second-P1`, what they go on to say
+carries a note that it is the rest of the request cut off, to be answered
+as one ([early-end-taken-back.md](early-end-taken-back.md)); played on
+lamp-4ace without that note, at 13:45, the early end made the pause scenes
+worse ([faster-answers.md](faster-answers.md)).
 
 The path from the person's last sound to the first block handed to the
 speaker, without and with it:

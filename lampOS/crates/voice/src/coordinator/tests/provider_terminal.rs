@@ -116,6 +116,7 @@ fn run_with_notice_policy(
                     session: 1,
                     privacy_generation: 2,
                     continues: false,
+                    continues_cut_off: false,
                 })
                 .unwrap();
         }

@@ -241,6 +241,7 @@ impl Paired {
             session: current.cloud.session,
             privacy_generation,
             continues: false,
+            continues_cut_off: false,
         });
         self.queue.push_back(ProviderInput::Audio {
             request,
@@ -786,6 +787,7 @@ mod continuation_or_discard {
                 session: current.cloud.session,
                 privacy_generation,
                 continues: false,
+                continues_cut_off: false,
             });
             self.publish();
             self.flush(selected);
@@ -1591,6 +1593,7 @@ mod duplex_through_the_worker {
                 session,
                 privacy_generation,
                 continues: false,
+                continues_cut_off: false,
             },
             ProviderInput::Audio {
                 request: old,

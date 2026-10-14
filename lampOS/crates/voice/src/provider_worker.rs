@@ -310,6 +310,11 @@ pub enum ProviderInput {
         /// Without the switch it is never sent, and the Start is as it was.
         #[serde(default, skip_serializing_if = "std::ops::Not::not")]
         continues: bool,
+        /// The request goes on from one whose end was sent early and given
+        /// up when the person spoke again (`--early-end-ms`): the model is
+        /// told so beside it ([`CUT_OFF_NOTE`]). Left off the wire when false.
+        #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+        continues_cut_off: bool,
     },
     Audio {
         request: u64,
@@ -1110,6 +1115,21 @@ async fn serve_with_visual<C: Connect>(
                                 ),
                             },
                         }
+                    }
+                }
+                // A request that goes on from one whose end was sent early
+                // and given up: the model is told so, beside what it hears
+                // (`--early-end-ms`; docs/early-end-taken-back.md).
+                if let Some(request) = intake.handoff.take_cut_off() {
+                    match add_note(&provider, &mut noted, request, CUT_OFF_NOTE) {
+                        Ok(()) => eprintln!(
+                            "lamp-voice provider: request {}: the model is told it goes on from the request given up",
+                            request.get()
+                        ),
+                        Err(error) => eprintln!(
+                            "lamp-voice provider: request {}: the model could not be told it goes on from the request given up: {error}",
+                            request.get()
+                        ),
                     }
                 }
                 // The session is told how the room is when that changes,
@@ -2474,6 +2494,9 @@ struct InputHandoff {
     abandoned_through: u64,
     abandoned_sent_through: u64,
     submitted: Option<SubmittedInput>,
+    /// A started request that goes on from one ended early and given up,
+    /// until the model has been told so.
+    cut_off: Option<RequestId>,
     /// The newest request whose sound was ended here, and when: a name
     /// heard after that was not said in it (`crate::attention`).
     ended: Option<(u64, u64)>,
@@ -2514,6 +2537,15 @@ impl InputHandoff {
         // Local revocation is synchronous and independent of provider queue
         // capacity, even when a refused input has already been retired.
         input.discard(RequestId::new(request).expect("validated reminder request"));
+    }
+
+    /// The open request that goes on from one ended early, once: the model
+    /// is to be told so beside what it hears.
+    fn take_cut_off(&mut self) -> Option<RequestId> {
+        let request = self.cut_off.take()?;
+        self.visual_turn()
+            .filter(|turn| turn.request == request)
+            .map(|_| request)
     }
 
     fn visual_turn(&self) -> Option<VisualTurn> {
@@ -2747,7 +2779,10 @@ impl InputHandoff {
                 });
             }
             ProviderInput::Start {
-                session, continues, ..
+                session,
+                continues,
+                continues_cut_off,
+                ..
             } => {
                 if self.submitted.is_some() {
                     return Err(io::Error::other("provider input already started").into());
@@ -2765,6 +2800,7 @@ impl InputHandoff {
                     open: true,
                     captured: None,
                 });
+                self.cut_off = continues_cut_off.then_some(request);
             }
             ProviderInput::Audio {
                 sequence,
@@ -2932,6 +2968,13 @@ trait InputSink {
         false
     }
 }
+
+/// What the model is told beside a request that goes on from one whose end
+/// was sent early and given up when the person spoke again
+/// (`--early-end-ms`; docs/early-end-taken-back.md). The same words as
+/// `REST_NOTE` in `lamp-gemini`'s `early_end_probe`, which tried them on
+/// the service.
+pub(crate) const CUT_OFF_NOTE: &str = "The person paused and then went on: the request just before this one was cut off by that pause, and this is the rest of it. Answer all of it as one request.";
 
 /// Give `request` a note beside what is being said, keeping what it was
 /// given already: a request sends only its newest note, so the name and
@@ -3393,6 +3436,7 @@ mod tests {
             request,
             privacy_generation: generation(handoff),
             continues: false,
+            continues_cut_off: false,
         }
     }
 
@@ -3407,7 +3451,8 @@ mod tests {
                 request: 1,
                 session: 7,
                 privacy_generation: 2,
-                continues: false
+                continues: false,
+                continues_cut_off: false,
             }
         ));
         for field in ["request", "session", "privacy_generation"] {
@@ -3427,6 +3472,7 @@ mod tests {
             session: 7,
             privacy_generation: 2,
             continues,
+            continues_cut_off: false,
         };
         // Without `LAMP_CUT_KEEPS_NAME` the coordinator never sets it, and
         // the line on the worker's socket is the one it always was.
@@ -3443,6 +3489,57 @@ mod tests {
                 ..
             }
         ));
+    }
+
+    /// A request that goes on from one ended early says so on the wire;
+    /// every other Start is written exactly as it was before the flag, and
+    /// a Start written without it reads as not going on from anything.
+    #[test]
+    fn a_start_is_written_as_before_unless_it_goes_on_from_one_cut_off() {
+        let plain = ProviderInput::Start {
+            request: 1,
+            session: 7,
+            privacy_generation: 2,
+            continues: false,
+            continues_cut_off: false,
+        };
+        assert_eq!(
+            serde_json::to_string(&plain).unwrap(),
+            r#"{"kind":"start","request":1,"session":7,"privacy_generation":2}"#
+        );
+        let cut_off = ProviderInput::Start {
+            request: 2,
+            session: 7,
+            privacy_generation: 2,
+            continues: false,
+            continues_cut_off: true,
+        };
+        let written = serde_json::to_value(&cut_off).unwrap();
+        assert_eq!(written["continues_cut_off"], true);
+        assert!(matches!(
+            serde_json::from_value::<ProviderInput>(written).unwrap(),
+            ProviderInput::Start {
+                continues_cut_off: true,
+                ..
+            }
+        ));
+        let old =
+            serde_json::json!({"kind":"start","request":1,"session":7,"privacy_generation":2});
+        assert!(matches!(
+            serde_json::from_value::<ProviderInput>(old).unwrap(),
+            ProviderInput::Start {
+                continues_cut_off: false,
+                ..
+            }
+        ));
+    }
+
+    /// The note is the one `early_end_probe` tried on the service, word for
+    /// word (docs/early-end-taken-back.md).
+    #[test]
+    fn the_cut_off_note_is_the_one_tried_on_the_service() {
+        let probe = include_str!("../../gemini/examples/early_end_probe/trials.rs");
+        assert!(probe.contains(&format!("pub const REST_NOTE: &str = \"{CUT_OFF_NOTE}\";")));
     }
 
     /// A block's capture time is carried over to the transport's clock by
@@ -3612,7 +3709,8 @@ mod tests {
                         request,
                         session: 0,
                         privacy_generation: generation(&handoff),
-                        continues: false
+                        continues: false,
+                        continues_cut_off: false,
                     },
                     NOW,
                     &sink
@@ -3728,6 +3826,7 @@ mod tests {
                                 request: turn.turn(),
                                 privacy_generation: state.microphone_generation(),
                                 continues: false,
+                                continues_cut_off: false,
                             })?;
                         }
                         Ok(control)
@@ -3785,6 +3884,7 @@ mod tests {
                     request: 1,
                     privacy_generation: state.microphone_generation(),
                     continues: false,
+                    continues_cut_off: false,
                 })
                 .unwrap();
             assert_eq!(rig.tick(NOW).unwrap(), ControlDrain::Empty);
@@ -3855,6 +3955,7 @@ mod tests {
                                     request: new.turn(),
                                     privacy_generation: state.microphone_generation(),
                                     continues: false,
+                                    continues_cut_off: false,
                                 },
                                 ProviderInput::Audio {
                                     request: new.turn(),
@@ -3994,6 +4095,7 @@ mod tests {
                     request: 2,
                     privacy_generation: privacy,
                     continues: false,
+                    continues_cut_off: false,
                 })
                 .unwrap();
             rig.parent
@@ -4094,6 +4196,7 @@ mod tests {
                 request: 2,
                 privacy_generation: generation(&rig.intake.handoff),
                 continues: false,
+                continues_cut_off: false,
             })
             .unwrap();
         let error = rig.tick(NOW).unwrap_err();
@@ -4216,6 +4319,7 @@ mod tests {
                 session: 2,
                 privacy_generation,
                 continues: false,
+                continues_cut_off: false,
             },
             ProviderInput::Audio {
                 request: next.turn(),
@@ -5294,6 +5398,7 @@ mod tests {
                     request,
                     privacy_generation,
                     continues: false,
+                    continues_cut_off: false,
                 })
                 .unwrap();
             self.parent
@@ -6293,6 +6398,7 @@ mod tests {
             session: selected.session,
             privacy_generation: generation(&handoff),
             continues: false,
+            continues_cut_off: false,
         };
 
         first.service.send(resumable()).await;
@@ -6370,6 +6476,7 @@ mod tests {
                     session: replacement.session,
                     privacy_generation: generation(&handoff),
                     continues: false,
+                    continues_cut_off: false,
                 },
                 NOW,
                 &provider,
@@ -6843,6 +6950,7 @@ mod tests {
                 request: newer.turn(),
                 privacy_generation,
                 continues: false,
+                continues_cut_off: false,
             })
             .unwrap();
         assert!(
@@ -7171,6 +7279,7 @@ mod tests {
                     session: replacement.session.get(),
                     privacy_generation: generation(&handoff),
                     continues: false,
+                    continues_cut_off: false,
                 },
                 NOW,
                 &provider,
@@ -7242,6 +7351,7 @@ mod tests {
                 request: next.turn(),
                 privacy_generation,
                 continues: false,
+                continues_cut_off: false,
             })
             .unwrap();
         rig.parent
@@ -7440,6 +7550,7 @@ mod tests {
                 request: owner.turn(),
                 privacy_generation: rig.snapshot.microphone_generation(),
                 continues: false,
+                continues_cut_off: false,
             })
             .unwrap();
         let message = rig.exit().await.0.unwrap_err().to_string();
@@ -7954,6 +8065,7 @@ mod tests {
                 request: new,
                 privacy_generation,
                 continues: false,
+                continues_cut_off: false,
             })
             .unwrap();
         rig.parent
@@ -8297,6 +8409,7 @@ mod tests {
                 request,
                 privacy_generation,
                 continues: false,
+                continues_cut_off: false,
             })
             .unwrap();
         assert!(matches!(
@@ -8477,6 +8590,7 @@ mod tests {
                         request,
                         privacy_generation: self.snapshot.microphone_generation(),
                         continues,
+                        continues_cut_off: false,
                     })
                     .unwrap();
                 loop {

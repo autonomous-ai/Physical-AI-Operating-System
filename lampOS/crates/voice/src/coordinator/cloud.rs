@@ -274,7 +274,8 @@ mod tests {
                         request: 7,
                         session,
                         privacy_generation: 1,
-                        continues: false
+                        continues: false,
+                        continues_cut_off: false,
                     })
                     .is_err()
             );
@@ -288,6 +289,7 @@ mod tests {
                 session: 2,
                 privacy_generation: 1,
                 continues: false,
+                continues_cut_off: false,
             })
             .unwrap();
         assert!(request.confirm_start(3).is_err());
@@ -308,6 +310,7 @@ mod tests {
                     request: 1,
                     privacy_generation: 1,
                     continues: false,
+                    continues_cut_off: false,
                 })
                 .unwrap();
             if stage == FailedStage::AwaitingResponse {
@@ -349,6 +352,7 @@ mod tests {
                 request: 1,
                 privacy_generation: 1,
                 continues: false,
+                continues_cut_off: false,
             })
             .unwrap();
         if ended {
@@ -701,6 +705,7 @@ mod tests {
                             request: next.turn(),
                             privacy_generation: capture.privacy_generation,
                             continues: false,
+                            continues_cut_off: false,
                         })
                         .unwrap();
                     fresh.confirm_start(2).unwrap();

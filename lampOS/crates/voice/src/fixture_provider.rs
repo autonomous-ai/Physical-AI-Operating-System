@@ -773,6 +773,7 @@ mod reminder_tests {
                     session: 1,
                     privacy_generation: state.microphone_generation(),
                     continues: false,
+                    continues_cut_off: false,
                 },
             )
             .unwrap();

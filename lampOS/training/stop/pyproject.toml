@@ -1,0 +1,18 @@
+[project]
+name = "lamp-stop-training"
+version = "0.1.0"
+description = "Trains stop.onnx, the lamp's listener for stop, wait and hold on. Never runs on the lamp."
+requires-python = ">=3.11,<3.13"
+dependencies = [
+    "numpy>=1.26,<2.3",
+    "scipy>=1.13",
+    "soundfile>=0.12",
+    "onnxruntime>=1.19",
+    "onnx>=1.16",
+    "torch>=2.4",
+    "torchaudio>=2.4",
+    "piper-tts>=1.3.0",
+]
+
+[tool.uv]
+package = false

@@ -733,6 +733,10 @@ pub async fn run_with_continuation(
                 .map(crate::known_faces::known_file_of),
         );
     }
+    // Who work can go to, if the person may name them.
+    if let Some(place) = &files.tools.tasks {
+        crate::agent_tasks::start(place);
+    }
     let provider_config = ProviderConfig::load(config_path)?;
     let barrier = provider_config.barrier_policy();
     let recovery = if files.keep_link {

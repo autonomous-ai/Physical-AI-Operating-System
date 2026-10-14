@@ -912,6 +912,10 @@ impl<P: Persistence> Engine<P> {
                     json!({"request_id":r.request.guard().expect("checked receipt").request_id,"op":r.request.name(),"response":response})
                 })}),
             ),
+            // In alias order, as loaded. The machine and project stay here.
+            Request::Targets {} => Some(json!({"targets":self.targets.iter()
+                .map(|(alias, target)| json!({"alias":alias,"engine":target.engine}))
+                .collect::<Vec<_>>()})),
             Request::List { after_id, limit } => {
                 if !(1..=MAX_PAGE_SIZE).contains(limit) {
                     return Err(err("bad_request", "Page size must be between 1 and 8."));
@@ -2553,6 +2557,35 @@ mod tests {
                 .code,
             "bad_request"
         );
+    }
+
+    #[test]
+    fn the_targets_are_named_by_alias_and_engine_and_never_by_machine_or_project() {
+        let target = |engine| Target {
+            machine_id: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb".into(),
+            project: "lamp-tasks".into(),
+            engine,
+        };
+        let staff = BTreeMap::from([
+            ("office-codex".to_owned(), target(EngineKind::Codex)),
+            ("office-claude".to_owned(), target(EngineKind::Claude)),
+            ("office-opencode".to_owned(), target(EngineKind::Opencode)),
+        ]);
+        let mut engine = Engine::open(Memory::default(), staff, STORE, SESSION, &clock(0)).unwrap();
+        let before = engine.revision();
+        let reply = engine
+            .handle(&Request::Targets {}, &clock(0), false)
+            .unwrap();
+        assert_eq!(
+            reply["targets"],
+            json!([{"alias":"office-claude","engine":"claude"},{"alias":"office-codex","engine":"codex"},
+                {"alias":"office-opencode","engine":"opencode"}])
+        );
+        assert_eq!(reply["store_id"], STORE);
+        assert!(!reply.to_string().contains("bbbbbbbb"));
+        assert!(!reply.to_string().contains("lamp-tasks"));
+        // A read: nothing is written.
+        assert_eq!(engine.revision(), before);
     }
 
     #[test]

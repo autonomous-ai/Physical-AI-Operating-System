@@ -229,6 +229,19 @@ fn model_cannot_confirm_and_restart_keeps_exact_dispatch_without_resending() {
 }
 
 #[test]
+fn who_can_be_given_work_is_read_on_the_request_socket_and_runs_nothing() {
+    let s = Running::new(false);
+    let told = s.ask(json!({"op":"targets"}));
+    assert_eq!(told["ok"], true, "{told}");
+    assert_eq!(
+        told["targets"],
+        json!([{"alias":"coding","engine":"codex"}])
+    );
+    assert_eq!(s.status()["revision"], told["revision"]);
+    assert_eq!(s.counts.launches.load(Ordering::SeqCst), 0);
+}
+
+#[test]
 fn observed_output_and_reported_playout_remain_separate_and_survive_restart() {
     let mut s = Running::new(false);
     let prepared = s.prepare();

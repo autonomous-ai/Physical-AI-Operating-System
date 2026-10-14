@@ -231,6 +231,11 @@ const COMPANY_SIGHTS: u8 = 6;
 /// itself, and waits this long after one shift before the next.
 const IDLE_AFTER: Duration = Duration::from_secs(4);
 const IDLE_EVERY: Duration = Duration::from_secs(8);
+/// Under `Limits::look_at_name`: a call is taken as being spoken to for
+/// this long, which the voice's own listening takes over if the person
+/// goes on; and a call this soon after the last one is let go.
+const CALLED_FOR: Duration = Duration::from_secs(2);
+const CALLED_EVERY: Duration = Duration::from_secs(10);
 
 /// What reaches the body from outside in one step, besides the mood: what
 /// its eyes saw, and a gesture it was asked to make.
@@ -244,6 +249,9 @@ pub struct Asked {
     /// base's turn, in that order. `None` when it asks nothing or what it
     /// asked has run out.
     pub expression: Option<[f32; 3]>,
+    /// The lamp's name was heard since the last step (`name/heard`), and
+    /// was fresh when it came. Taken only under `Limits::look_at_name`.
+    pub called: bool,
 }
 
 /// The most that may be added to a pose for [`Asked::expression`], in
@@ -441,6 +449,13 @@ pub struct Limits {
     /// resting lamp lifts its head at a sudden sound. The arm is not
     /// stirred. Off: a lamp at rest is not stirred by Expression.
     pub rest_glance: bool,
+    /// Turn to a call: the lamp's name heard ([`Asked::called`]) while it
+    /// does not speak is taken as being spoken to, so that it rises and
+    /// looks up as it does to be listened to and the gaze turns it to a
+    /// face at once; with no face in view it glances a little to one side
+    /// and the other ([`clips::CALLED`]) and lets it go. At most once in
+    /// ten seconds. Off: a call is not taken.
+    pub look_at_name: bool,
     /// A load above this on `load_steps` steps in a row makes the joint give
     /// way, and ends the run if it stays or comes back too often.
     pub load: [u16; 3],
@@ -564,6 +579,7 @@ impl Limits {
         give_way: None,
         overload_release: false,
         rest_glance: false,
+        look_at_name: false,
     };
 }
 
@@ -739,6 +755,8 @@ pub struct BodyReport {
     pub expression_steps: u64,
     /// Times it shifted by itself while standing at rest.
     pub idles: u32,
+    /// Under `Limits::look_at_name`, calls taken.
+    pub calls: u32,
     /// Under `--overload release`, each time it let go.
     pub released: Vec<Released>,
     pub stop: Stop,
@@ -1824,6 +1842,7 @@ pub(crate) fn run_looking(
         seen: eyes(),
         gesture: None,
         expression: None,
+        called: false,
     };
     run_alive(
         io, runtime, limits, home, standing, looking, news, asked, watch,
@@ -1884,6 +1903,7 @@ pub(crate) fn run_alive(
         gestures_dropped: 0,
         expression_steps: 0,
         idles: 0,
+        calls: 0,
         released: Vec::new(),
         stop: Stop::Cancelled,
     };
@@ -2479,6 +2499,8 @@ pub(crate) fn run_alive(
     let mut written = found_pose;
     let mut hot = [0u8; 3];
     let mut heard: Option<(Mood, u8, Duration)> = None;
+    // Under `Limits::look_at_name`: when the last call was taken.
+    let mut called_at: Option<Duration> = None;
     let mut over_load = [0u8; 3];
     let mut off_track = [0u8; 3];
     // With `--wake on`: the goal and the position a joint short of its goal
@@ -2565,6 +2587,32 @@ pub(crate) fn run_alive(
         let (mood, level) = match (leaving, heard) {
             (None, Some((mood, level, at))) if now.saturating_sub(at) < MOOD_STALE => (mood, level),
             _ => (Mood::Resting, 0),
+        };
+        // Called by its name, and not speaking: spoken to, for a moment.
+        // With nobody in view it also glances, once it stands: as long as
+        // rising takes is added to the wait for it.
+        if limits.look_at_name
+            && asked_now.called
+            && leaving.is_none()
+            && mood != Mood::Speaking
+            && called_at.is_none_or(|at| now.saturating_sub(at) >= CALLED_EVERY)
+        {
+            called_at = Some(now);
+            report.calls += 1;
+            // Not over a gesture under way; over shifting at rest, yes.
+            if faces_running == 0
+                && playing.is_none_or(|(clip, _)| clip.name == clips::IDLE.name)
+                && pending.is_none()
+            {
+                let rising = standing.map_or(0.0, |up| up.seconds);
+                pending = Some((&clips::CALLED, now + Duration::from_secs_f32(rising)));
+            }
+        }
+        let mood = match called_at {
+            Some(at) if mood == Mood::Resting && now.saturating_sub(at) < CALLED_FOR => {
+                Mood::Listening
+            }
+            _ => mood,
         };
         let Pose { pitch, roll, yaw } =
             gestures.target(mood, level, now.as_micros().try_into().unwrap_or(u64::MAX));
@@ -2707,6 +2755,14 @@ pub(crate) fn run_alive(
                 report.gestures += 1;
             } else if now.saturating_sub(since) >= GESTURE_WAIT {
                 pending = None;
+            }
+        }
+        // A face found while it glances for its caller: the gaze has them.
+        if faces_running > 0 {
+            for clip in [&mut playing, &mut pending] {
+                if clip.is_some_and(|(clip, _)| clip.name == clips::CALLED.name) {
+                    *clip = None;
+                }
             }
         }
         let mut gesture_wanted = [0.0f32; 5];

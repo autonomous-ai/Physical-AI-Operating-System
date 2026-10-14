@@ -208,6 +208,19 @@ Smallest first. Nothing below moves the lamp until step 3.
    `nobody_us` at one minute): it bows and breathes slowly; say "Lamp" and
    it stretches.
 
+## On lamp-4ace (first builder, 2026-10-14)
+
+Merged at 23:03 (pull request #729). Its CI build of `lamp-expression`
+(`321e44e3…`, run 38581248942) ran on lamp-4ace from 23:02 with lamp-4ace's
+catalogue as it was, without an `alive` part: a minute, no restart,
+Expression `ok`. From 23:07 it runs `deploy/lamp-4ace/expression-alive-lamp-4ace.json`
+(this catalogue, copied unchanged) with `--utc-offset-minutes 420`. Against
+the catalogue it replaces, the only difference besides `alive` is that
+"settle at rest" is gone. The body runs with `--rest-glance on`, so a resting
+head takes the breath and the drift. What it looks like, and the first night
+asleep, are not yet seen: at 23:08 the lamp was standing for the played
+checks of the overnight soak.
+
 ## Where it is most likely to be wrong on the lamp
 
 1. **Too small to show, or shown in steps.** The breath asks about 20

@@ -1,5 +1,5 @@
 # lampOS controls: reads the lamp's button and the touch pads on its head and says on the bus what a hand did
-# (a tap, a hold, a pat; lampOS/docs/controls.md). Watching only: without --enable nothing it says may be acted on.
+# (a tap, a hold, a pat; lampOS/docs/controls.md). Acting since 2026-10-14 17:15 (--enable), for the owner's hand-stop test; without it nothing it says may be acted on.
 # Its own process and unit: with it stopped the lamp talks and moves as before.
 # Its two settings files hold no secret and sit beside the build, because /etc/lampOS is readable by root alone and this runs as orangepi.
 [Unit]
@@ -11,7 +11,7 @@ ConditionHost=lamp-4ace
 Type=simple
 User=orangepi
 Group=orangepi
-ExecStart=/opt/lampOS/controls/375b9e8122324bc375c49aadd32142a0a01e5361fe60bb928ee853cce8d0fd01/lamp-controls serve --config /opt/lampOS/controls/375b9e8122324bc375c49aadd32142a0a01e5361fe60bb928ee853cce8d0fd01/controls.json --pins /opt/lampOS/controls/375b9e8122324bc375c49aadd32142a0a01e5361fe60bb928ee853cce8d0fd01/controls-pins.json --bus-root /run/lampos-bus
+ExecStart=/opt/lampOS/controls/37924f2bfea364a214243e7b935a85ca1e8302167393c34590530a2908fc18f1/lamp-controls serve --config /opt/lampOS/controls/37924f2bfea364a214243e7b935a85ca1e8302167393c34590530a2908fc18f1/controls.json --pins /opt/lampOS/controls/37924f2bfea364a214243e7b935a85ca1e8302167393c34590530a2908fc18f1/controls-pins.json --bus-root /run/lampos-bus --enable
 Restart=on-failure
 RestartSec=5s
 SyslogIdentifier=lamp-controls

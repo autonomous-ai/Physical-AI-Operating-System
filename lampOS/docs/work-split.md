@@ -242,6 +242,8 @@ has it:
 | 25 | How the head follows, and a nod a person can see | `head-follow` | Fifth | measured 2026-10-14 on lamp-52e6: a clear nod is about 3° in 0.35 s; the body's speed makes it 0.75 s (answer below) |
 | 26 | Weighing and measuring the lamp for the lean check | `weigh` | Fifth | first figure 2026-10-14: lamp-52e6 weighs 3.0 kg whole (the specification says 7) |
 | 17 | A second judge for the Policy: the lamp's own signs | `local-judge` | Fourth | done 2026-10-14: on `lamp-voice`; `lamp-policy-judges` is a played-scene tool (at most ten minutes, watching only), on lamp-4ace beside the service for the evening's scenes; its weights wait for labelled records |
+| 28 | Memory says it is well, for the lamp's health | `memory-health` | Fourth | open |
+| 29 | The voice uses what memory across days adds | `memory-voice` | Fourth | open |
 
 ## 1. The end-of-turn model in a tenth of a second
 
@@ -1185,6 +1187,57 @@ part hung, each recovered, timed.
 that shows the lamp's parts and their state. Most likely wrong on a lamp:
 the order the parts need at power-up (the body before the eyes? the
 voice before the light?), which only a lamp shows.
+
+## 28. Memory says it is well, for the lamp's health
+
+Crate: `crates/memory` (yours). Document: [health.md](health.md) and
+[memory.md](memory.md).
+
+**Why.** Since 2026-10-14 the lamp's health hears from nine parts and
+says "The lamp is well." only when every expected one is; memory is the
+one that does not report, so a memory that has stopped answering goes
+unnoticed until someone asks the lamp to remember.
+
+**Wanted.** Once a second on the bus's `diagnostics` (`lamp_msgs::Diagnostic`,
+name `memory`), as the actions part does since that afternoon
+(`crates/actions/src/server.rs`, `report`): well, with how many exchanges
+and kept things it holds and its slowest recent answer; a warning only for
+what is wrong with it (the store failing to open or write, answers slower
+than the voice allows, 300 ms for the note and 1.5 s for a call). Behind
+`--bus-root`, as the other parts. Its socket loop must not wait on the bus.
+
+**Hand back:** the change, a test of the report, and the line the first
+builder adds to the health unit (`--expect memory`).
+
+## 29. The voice uses what memory across days adds
+
+Crates: `crates/memory` (yours) and, with leave for this task,
+`crates/voice/src/remember.rs` and the place in `crates/voice/src/thread.rs`
+that asks for the session note; nothing else in the voice. Documents:
+[memory-days.md](memory-days.md), [memory.md](memory.md).
+
+**Why.** Memory across days is on, on lamp-4ace, since 14:50 that day
+([memory-days.md](memory-days.md), "Switched on"): 415 exchanges over two
+days, a recall in 4 to 6 ms. The voice still asks as it did before the new
+store: the newest entries for a recall, the kept list for a new session's
+note, and nothing after a conversation. What the store adds is unused.
+
+**Wanted.** The voice asking the new store what it is best at: a recall
+ranked by what was asked (with the day when the person names one), a new
+session's note as the store freezes it with its provenance, and the
+tidy-up after a conversation sent where the store expects it (no model is
+configured on the lamp; the request must cost the voice nothing when none
+is). Off unless set (one switch in the voice's environment), and the
+voice's latency rules kept: the note within 300 ms when a session opens,
+a call within 1.5 s, the voice never waiting on memory for anything else.
+
+**Tests.** Through the real store in a temporary directory: a recall by
+word returns the right exchange from an earlier day; the note a new
+session gets; a conversation's end reaches the store; memory gone or slow
+costs the voice its deadline and an honest answer, nothing more.
+
+**Hand back:** the change, the tests, and the played scenes for the first
+builder (`~/lamp-voice-data/tools/memory.sh`) with what each should show.
 
 ## What the lamp showed
 

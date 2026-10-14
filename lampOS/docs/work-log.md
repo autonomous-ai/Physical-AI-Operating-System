@@ -20,16 +20,16 @@ log and nothing a lamp runs ([joining.md](joining.md),
 | 1 | The end-of-turn model in a tenth of a second | `second/turn-end-fast` | 2026-10-14 | on `lamp-voice`; on the lamp 148 ms against 382; the voice does not use it yet |
 | 2 | Try to break last night's changes to the voice | `second/voice-review` | 2026-10-14 | on its own branch, 2026-10-14 (`1d737f8e5`); taken into `lamp-voice` with its mends |
 | 3 | A listener for "stop" under the lamp's own voice | `second/stop-word` | 2026-10-14 | on `lamp-voice`: hears the word alone; under the lamp's voice only through the canceller, partly; a first look on lamp-4ace heard no played stop; not wired |
-| 5 | The name, heard as a bare "Lamp" (issue #694) | `second/bare-name`, then `second/bare-name-2` | 2026-10-14 | #725's model on `lamp-voice`; on lamp-4ace at 23:56 it heard 1 of 6 played calls against the installed model's 3 to 4: not installed; a better model being trained |
+| 5 | The name, heard as a bare "Lamp" (issue #694) | `second/bare-name`, then `second/bare-name-2` | 2026-10-14 | #725's model on `lamp-voice`; on lamp-4ace at 23:56 it heard 1 of 6 played calls against the installed model's 3 to 4: not installed; the second model as pull request #750 into `lamp-voice`, 2026-10-15, to be checked offline beside the installed one |
 | 9 | Faster answers: what exists | `second/faster-answers` | 2026-10-14 | on `lamp-voice` (a study, done beside 5 and 10) |
 | 10 | A reference that follows the microphone's clock | `second/reference-clock` | 2026-10-14 | on `lamp-voice`, behind `--echo-reference steady`; on the lamp's recordings, mixed (two up, two down, one held) |
 | 20 | The replay takes the lamp's own recordings | `second/replay-capture-clocked` | 2026-10-14 | on `lamp-voice`: five of the lamp's recordings followed sample for sample |
 | 19 | The end sent early, the answer played only when sure | `second/early-end` | 2026-10-14 | on `lamp-voice`, behind `--early-end-ms`; played on lamp-4ace at 200 ms: worse; switched off |
 | 36 | Always alive: the idle layer, sleep and waking (issue #714) | `second/always-alive` | 2026-10-14 | on `lamp-voice` (#729, merged 23:03); on lamp-4ace since 23:07 |
 | second-P1 | The early end taken back (issue #723) | `second/early-end-back`, then `second/early-end-labelled` | 2026-10-14 | step 1 on `lamp-voice` (#731, merged 23:06); on lamp-4ace at 23:10 (a) did not hold and (b) did; step 2 as pull request #738 into `lamp-voice`, 2026-10-15 |
-| 45 | Updates: a lamp keeps its lampOS current by itself (issue #737, MVP) | `second/updates` | 2026-10-15 | pull request #741 into `lamp-voice`, 2026-10-15; the publishing proposal and three questions on #737 |
+| 45 | Updates: a lamp keeps its lampOS current by itself (issue #737, MVP) | `second/updates` | 2026-10-15 | on `lamp-voice` (#741, `78b984b69`); the publishing proposal agreed on #737; the CI job left to the first builder or the owner (it holds the signing secret) |
 | 44 | A yes said in two breaths still starts the task (issue #736, MVP) | `second/two-breath-yes` | 2026-10-15 | pull request #740 into `lamp-voice`, 2026-10-15 |
-| 40 | Progress news through the tasks part and Jev (issue #732, `second-P2`) | `second/progress-news` | 2026-10-15 | being built |
+| 40 | Progress news through the tasks part and Jev (issue #732, `second-P2`) | `second/progress-news` | 2026-10-15 | pull request #751 into `lamp-voice`, 2026-10-15; the voice's wiring proposed and three questions on #732 |
 | 41 | Codex and the others: the person names who gets the work (issue #733, `second-P3`) | `second/who-gets-the-work` | 2026-10-15 | being built |
 | 43 | The person's phone over Bluetooth (issue #735, `second-P4`) | none | 2026-10-15 | cancelled by the owner the same night before any work was kept; released on #735 |
 
@@ -56,6 +56,96 @@ log and nothing a lamp runs ([joining.md](joining.md),
 ## Handed back
 
 Newest first.
+
+### Task 40: progress news through the tasks part and Jev (2026-10-15, issue #732, `second-P2`)
+
+Ready for lamp-voice: yes (#751)
+
+**Kind: off unless set:** `lamp-tasks serve --progress` and `lamp-policy
+--progress [--utc-offset-minutes N]`. Without them no `ps` is run, the
+`tasks/status` topic is never made, the policy subscribes to nothing new,
+both diagnostics are exactly as before, `get_progress` is refused with
+`progress_off`, and an attention decision's bytes are unchanged (tests).
+One commit, `a3d10489b`, on `lamp-voice` at `1337e7e1d`; built by a
+sub-agent of this session and reviewed here (no free text on the bus; the
+`about` line kept only in the tasks part's memory; `ps` bounded in time,
+bytes, rows and line length; the progress judge on its own thread and
+connection). Rebased here once (a `docs/tasks.md` section beside the first
+builder's).
+
+**What it is:** `tasks/status` (`lamp-msgs` `TaskStatus`), one kept value
+for every watched task: engine, state, seconds working, last active, how
+often the progress line changed and how much, and signs read from it
+without a model (`tests_pass`, `build_works`, `fixed`, `found`, `done`,
+`pull_request`; a phrase table with words that cancel a phrase). One
+`harness ps --machine <id> --json` per machine on the watch's schedule. In
+the policy, "say this progress now?" asked of Jev in shadow (worth telling,
+good moment, too much), with hard rules: never while anyone talks or within
+15 s of speech, at most one note per task per 15 minutes, a yes that comes
+back once someone talks turned to `wait`. Decisions on `policy/decisions`
+with `about: "progress"` and `task: <store>:<task>:<change>`.
+
+**Tests and measures** (M2 Max): 4 new in `lamp-msgs`, 11 in `lamp-tasks`,
+10 in `lamp-policy`. `parse_ps` 55 µs for 40 harnesses; one read through
+the adapter against a scripted `harness`, 4.2 ms median; status published
+to decision on the bus with a stand-in judge, 52.7 ms median (folder
+`docs/verification/progress-news-host-20261015/`). **Gate:** on the agent's
+head, fmt, strict clippy on the 20 crates that are or use `lamp-msgs`, the
+workspace build, and 3,159 tests passed with one Mac-only failure
+(`lamp-health`, the Mac's disk 95% full); after the rebase, fmt, the same
+clippy, `lamp-msgs` 79, `lamp-tasks` 115, `lamp-policy` 154 (2 ignored),
+the build; merged onto `cf2f5b43c`, `cargo check --workspace
+--all-targets`. Native ARM64 run 38632666318 on `a3d10489b`: green, 4,258
+passed, 0 failed, 32 ignored.
+
+**What to run on the lamp** (`docs/tasks.md`, `docs/policy.md`): time `harness
+ps --machine office --json` ten times as `orangepi`; `--progress` on the
+tasks part and `lamp-bus info tasks/status` before and after; one real
+task with `tasks/status` tapped for two hours, its changes and signs
+counted and each sign checked against `get_progress` by hand; the read
+times from diagnostics; then a day of the policy with `--progress
+--utc-offset-minutes 420`, its latency and choices, the disagreements
+marked.
+
+**Where it is most likely wrong on the lamp:** `about` being the person's
+ask, not the agent's progress; `ps` (Node, up to 40 agents) costly every 2
+minutes; English phrases not matching the agents' own summaries; Jev
+uncalibrated for this question; "spoke up unasked" read from
+`voice/state`; bus permissions between `orangepi` and the policy's dynamic
+user, not checked.
+
+### Task 5, the second model: the bare "Lamp" in voices it never learned from (2026-10-15, issue #694)
+
+Ready for lamp-voice: yes (#750)
+
+**Kind:** a model file, off unless installed: `models/name/name.onnx`
+replaced (1,233,449 bytes, `a8453aeb…`), no crate changed. Two commits
+on `lamp-voice` at `78b984b69`, ending `928803b08`; built by a sub-agent of
+this session and reviewed here (sources and licences in `SOURCE.md`; no
+recordings kept; `say` and Kokoro voices for testing only). Training code
+under `lampOS/training/`, the exception flagged on #725.
+
+**Why the first failed, and the change:** near misses were 54% of its
+other-word negatives; now 10% of each batch's other words, and three seeds
+averaged in one graph. `training/name/played.py` imitates the lamp's played
+check in 33 `say` speakers it never trained on. At 0.9 (pass: 3 of 6
+calls, at most 1 of 8 near misses) the first passes 9/33 as said and 8/33
+played; this one 22/33 and 12/33, hearing 4.0 and 3.5 calls against 2.3
+and 2.0. False alarms per hour lower on every set (LibriSpeech 1.4 against
+3.3); near misses in Piper voices higher (Lan 40% against 25%). Scores
+under tract through `hear.rs` match onnxruntime within 4e-6. **Gate:** fmt
+and the workspace build (no crate changed). Native ARM64 run 38637337785
+on `928803b08`: green, 4,277 passed, 0 failed, 33 ignored.
+
+**What to run on the lamp:** `lamp-name check DIR RECORDING.wav` on the
+23:47 recording, beside the installed model; install only if it hears at
+least as many calls (3 of 6 offline) with no more false hits. Asked on
+#694: the installed `name.onnx` (`1d238ca7…`), and the `say` voice, speed
+and full lines played.
+
+**Where it is most likely wrong on the lamp:** colleagues called Lan or
+Lâm; played through a speaker only 12 of 33 speakers pass; no real person
+and not the lamp's own voice tried.
 
 ### Task 45: updates, a lamp keeps its lampOS current by itself (2026-10-15, issue #737, MVP)
 

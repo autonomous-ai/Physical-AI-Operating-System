@@ -2378,8 +2378,10 @@ fn conversation_with_controls(
     let mut last_spoke_us: Option<u64> = None;
     let mut spoke_in_turn: Option<u64> = None;
     let mut took_over_turn: Option<u64> = None;
-    // The turn whose speech last ended as something said, not a sound.
+    // The turn whose speech last ended as something said, not a sound, and
+    // when: someone was there then.
     let mut said_turn: Option<u64> = None;
+    let mut said_at_us: Option<u64> = None;
     // The turn last judged a sound and sent on only for the model to judge
     // (`LAMP_SHORT_SOUNDS`): until it is answered the lamp does not ponder
     // it, and the room and the provider do not count it as talk.
@@ -3691,6 +3693,7 @@ fn conversation_with_controls(
                         second_look.speech_ended(current.owner.turn(), monotonic_us());
                         if speech_levels.len() >= crate::not_speech::SCRAP_BLOCKS {
                             said_turn = Some(current.owner.turn());
+                            said_at_us = Some(monotonic_us());
                         } else if crate::not_speech::was_a_sound(
                             speech_levels.len(),
                             took_over_turn == Some(current.owner.turn()),
@@ -4229,8 +4232,11 @@ fn conversation_with_controls(
             }
         }
         // News from an agent, told the way a chief of staff would: when
-        // someone is at the lamp (its eyes say so, or they spoke to it a
-        // moment ago), nothing has been said for a little while, nothing is
+        // someone is at the lamp (its eyes say so, or a person said
+        // something a moment ago; a bump is not a person, and a restart is
+        // not someone speaking: on lamp-4ace on 2026-10-15 the first build
+        // took the start of the service for it and told the empty office at
+        // 00:49:48), nothing has been said for a little while, nothing is
         // owed, and the room is not busy with other talk.
         if let Some(news) = task_news.as_mut()
             && news.waiting().is_some()
@@ -4238,7 +4244,8 @@ fn conversation_with_controls(
             && (arrival
                 .as_ref()
                 .is_some_and(|arrival| arrival.present(clock))
-                || clock.saturating_sub(last_turn_us) < crate::task_news::HEARD_WITHIN_US)
+                || said_at_us
+                    .is_some_and(|at| clock.saturating_sub(at) < crate::task_news::HEARD_WITHIN_US))
             && !room.busy()
             && reply.is_none()
             && provider_queue.is_empty()

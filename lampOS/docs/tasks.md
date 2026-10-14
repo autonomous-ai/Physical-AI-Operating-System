@@ -509,6 +509,32 @@ The voice's side is on wherever the tasks part is (`LAMP_TASKS_DIR`). The
 watch is `--watch` on the tasks service for its first minute on lamp-4ace,
 and then the default, as `docs/joining.md` now asks.
 
+### The first run end to end on lamp-4ace (2026-10-15, 00:49 to 00:56)
+
+`lamp-tasks` `45a1e4d2c` with `--watch` and the voice `55e92e3d8`, both
+installed at 00:49. Played at 00:50:48: "Hey Lamp, can you ask Claude Code on
+my office computer to suggest three names for a cat?" got "Shall I ask Claude
+Code to suggest three names for a cat?" (1.75 s after the end of speech);
+"Yes, go ahead." got "Done, Claude Code's on it. I'll let you know when it's
+finished." (1.82 s). Three faults, all mended the same night:
+
+- **The hand-over failed and the lamp said it had not.** `harness new` ended
+  `new_failed`. By hand: since 0.4.2 a project *name* that already exists
+  is refused ("A project with that name already exists. Name its folder
+  instead."), and the 22:39 task had made `lamp-tasks` on the office Mac.
+  lamp-4ace's target is now the folder, `~/harnesses/lamp-tasks` (started by
+  hand from the lamp with it at 00:55: `ok` in about 2 s). The voice is told
+  that it is handing the work over now, not that it is done, and a hand-over
+  the person said yes to that fails is told as news within ten minutes, in
+  plain words, with an offer to try again (`task_news::failed_hand_over`).
+- **News told to an empty office.** At 00:49:48, 11 s after the restart, the
+  lamp told the 22:39 task's names with nobody there: the presence check took
+  the start of the service for someone speaking. Now only something a person
+  said (an utterance of at least the gate's 30 blocks) in the last two
+  minutes, or the eyes, count as someone there.
+- The model, given that news, called `check_agent_task` by itself to read
+  the answer (the tasks part answered in 19 ms); both kept it as told.
+
 ## Real Harness and Voice qualification still required
 
 After the account owner authorizes a disposable task and confirms its exact

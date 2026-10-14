@@ -294,9 +294,9 @@ pub fn run(
                     }
                     (
                         json!({
-                            "started": true,
+                            "handing_over": true,
                             "who": "Claude Code",
-                            "next": "Tell them in a few natural words that you have handed it to Claude Code and will let them know when it is done, the way a chief of staff would (\"Done, Claude Code's on it. I'll tell you when it's finished.\")."
+                            "next": "Tell them in a few natural words that you are handing it to Claude Code now and will let them know when it is done, the way a chief of staff would (\"Sure, I'm giving that to Claude Code. I'll tell you when it's done.\"). It has not been taken up yet: do not say it has."
                         }),
                         true,
                     )
@@ -559,7 +559,7 @@ mod tests {
         assert!(told.get("error").is_some(), "{told}");
         // The next thing the person said can.
         let (told, answered) = run(&place, &call(CONFIRM, json!({})), 4, true, deadline);
-        assert!(answered && told["started"] == json!(true), "{told}");
+        assert!(answered && told["handing_over"] == json!(true), "{told}");
         assert_eq!(seen.recv().unwrap()["op"], "status");
         let confirm = seen.recv().unwrap();
         assert_eq!(confirm["op"], "confirm");

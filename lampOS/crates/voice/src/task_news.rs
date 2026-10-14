@@ -209,12 +209,25 @@ fn read_once(
         };
         let store = page["store_id"].as_str().unwrap_or_default().to_owned();
         for item in page["items"].as_array().into_iter().flatten() {
-            if item["observations"].as_u64().unwrap_or(0) == 0 {
-                continue;
-            }
             let Some(id) = item["id"].as_u64() else {
                 continue;
             };
+            // Work the person said yes to that never reached its agent is
+            // news too: the lamp said it was handing it over.
+            if let Some(failed) = failed_hand_over(item, now) {
+                let key = format!("{store}:{id}:hand-over");
+                if !told.contains(&key)
+                    && !offered.contains(&key)
+                    && let Some(task) = ask(socket, &json!({"op":"get_task","id":id}))
+                    && let Some(note) = note_failed(&task, failed)
+                {
+                    news.push(News { key, note });
+                }
+                continue;
+            }
+            if item["observations"].as_u64().unwrap_or(0) == 0 {
+                continue;
+            }
             let Some(task) = ask(socket, &json!({"op":"get_task","id":id})) else {
                 continue;
             };
@@ -264,6 +277,39 @@ fn newest_settled(task: &Value, now: &BootClock) -> Option<(u64, u64)> {
             ))
         })
         .max_by_key(|(id, _)| *id)
+}
+
+/// Whether a task the person said yes to failed to reach its agent within
+/// the last [`JUST_MS`] of this boot: `false` when it surely did not start,
+/// `true` when it may have.
+fn failed_hand_over(item: &Value, now: &BootClock) -> Option<bool> {
+    let dispatch = &item["dispatch"];
+    let unsure = match dispatch["state"].as_str()? {
+        "not_sent" => false,
+        "uncertain" => true,
+        _ => return None,
+    };
+    if dispatch["confirmed"].is_null() {
+        return None;
+    }
+    let finished = &dispatch["finished"];
+    (finished["boot_id"].as_str() == Some(now.boot_id.as_str())
+        && now.ms.saturating_sub(finished["monotonic_ms"].as_u64()?) <= JUST_MS)
+        .then_some(unsure)
+}
+
+fn note_failed(task: &Value, unsure: bool) -> Option<String> {
+    let who = who(task);
+    let (asked, _) = quoted(task["text"].as_str()?, MOST_TASK_CHARS);
+    let what = if unsure {
+        format!("may not have reached {who}: you cannot tell whether it started")
+    } else {
+        format!("did not reach {who}: it could not be started just now")
+    };
+    Some(format!(
+        "(Nobody has spoken. The work the person asked you to hand over, \"{asked}\", {what}. \
+         Tell them in one plain, light sentence, with no technical words, and offer to try again.)"
+    ))
 }
 
 /// Who the work went to, as the person calls them.
@@ -475,6 +521,50 @@ mod tests {
         };
         assert!(read_once(&socket, &late, &BTreeSet::new(), &BTreeSet::new()).is_empty());
         std::fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn work_said_yes_to_that_never_reached_its_agent_is_told_soon_after() {
+        let item = |state: &str, confirmed: bool, boot: &str, ms: u64| {
+            json!({"id":3,"observations":0,"dispatch":{"state":state,
+                "confirmed": if confirmed { json!({"boot_id":boot}) } else { Value::Null },
+                "finished":{"boot_id":boot,"monotonic_ms":ms}}})
+        };
+        assert_eq!(
+            failed_hand_over(&item("not_sent", true, "boot-a", NOW - 5_000), &now()),
+            Some(false)
+        );
+        assert_eq!(
+            failed_hand_over(&item("uncertain", true, "boot-a", NOW - 5_000), &now()),
+            Some(true)
+        );
+        // Never said yes to, long ago, another boot, or started: not news.
+        assert_eq!(
+            failed_hand_over(&item("not_sent", false, "boot-a", NOW), &now()),
+            None
+        );
+        assert_eq!(
+            failed_hand_over(&item("not_sent", true, "boot-a", NOW - JUST_MS - 1), &now()),
+            None
+        );
+        assert_eq!(
+            failed_hand_over(&item("not_sent", true, "boot-b", NOW), &now()),
+            None
+        );
+        assert_eq!(
+            failed_hand_over(&item("accepted", true, "boot-a", NOW), &now()),
+            None
+        );
+        let told = note_failed(&task("claude", json!([])), false).unwrap();
+        assert!(
+            told.contains("did not reach Claude Code") && told.contains("offer to try again"),
+            "{told}"
+        );
+        assert!(
+            note_failed(&task("codex", json!([])), true)
+                .unwrap()
+                .contains("may not have reached Codex")
+        );
     }
 
     #[test]

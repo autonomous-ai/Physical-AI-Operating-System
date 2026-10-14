@@ -1659,6 +1659,7 @@ fn spawn_rig(
     arguments.extend(crate::tools::arguments_from_environment());
     arguments.extend(crate::attention::arguments_from_environment());
     arguments.extend(crate::attention::name_arguments_from_environment());
+    arguments.extend(crate::called::arguments_from_environment());
     arguments.extend(crate::bus_out::worker_arguments_from_environment());
     if let Some(camera) = &camera {
         arguments.extend(camera.source.arguments());

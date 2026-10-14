@@ -76,6 +76,9 @@ static THREAD_FILE: std::sync::OnceLock<std::path::PathBuf> = std::sync::OnceLoc
 static SESSION_FACT: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 /// Whether the session is told how busy the room is.
 static ROOM_FACTS: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+/// Whether the model is told, while a person is still speaking, that the
+/// lamp's name was heard (`crate::called`).
+static NAME_NOTE: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 
 /// Files the provider worker is told of by its flags.
 #[derive(Default)]
@@ -98,6 +101,9 @@ pub struct Files {
     /// Whether the model is asked to say when it hears the lamp's name
     /// (`--name-signal`).
     pub name_signal: bool,
+    /// Whether the model is told beside what it hears that the lamp's
+    /// name was heard (`--name-note`).
+    pub name_note: bool,
     /// The lamp's bus, if how the room is gets published on it
     /// (`--bus-root`).
     pub bus_root: Option<std::path::PathBuf>,
@@ -610,6 +616,7 @@ pub async fn run_with_continuation(
     }
     SESSION_FACT.store(files.session_fact, std::sync::atomic::Ordering::Relaxed);
     ROOM_FACTS.store(files.room_facts, std::sync::atomic::Ordering::Relaxed);
+    NAME_NOTE.store(files.name_note, std::sync::atomic::Ordering::Relaxed);
     // The conversation a service that ended a moment ago was in.
     if let Some(path) = files.thread {
         if let Ok(text) = std::fs::read_to_string(&path)
@@ -731,7 +738,7 @@ async fn serve_with_visual<C: Connect>(
         .and_then(|root| crate::bus_out::NameIn::on(root).ok());
     // And, if that is switched on, the model is told so while the person
     // is still speaking.
-    let name_note = crate::called::on();
+    let name_note = NAME_NOTE.load(std::sync::atomic::Ordering::Relaxed);
     let mut called = crate::called::Called::default();
     let mut desk = ToolDesk::new(options.tools.clone());
     desk.name_signal = options.name_signal;

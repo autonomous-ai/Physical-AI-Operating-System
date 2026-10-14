@@ -26,9 +26,25 @@ pub const LEAST_SCORE: f32 = crate::second_look::LEAST_SCORE;
 /// the request's sound began to be sent.
 pub const BEFORE_US: u64 = crate::attention::NAME_BEFORE_US;
 
-/// Whether the environment switches it on.
-pub fn on() -> bool {
-    std::env::var(ENVIRONMENT).ok().as_deref() == Some("on")
+/// The provider worker's flag for it: the worker is started with a clean
+/// environment and is told everything by its arguments.
+pub const FLAG: &str = "--name-note";
+
+/// The provider worker's argument for that switch in the environment.
+pub fn arguments_from_environment() -> Vec<String> {
+    if std::env::var(ENVIRONMENT).ok().as_deref() == Some("on") {
+        vec![FLAG.to_owned()]
+    } else {
+        Vec::new()
+    }
+}
+
+/// Take a leading `--name-note` off a worker's flags.
+pub fn take(flags: &[String]) -> (bool, &[String]) {
+    match flags {
+        [flag, rest @ ..] if flag == FLAG => (true, rest),
+        _ => (false, flags),
+    }
 }
 
 #[derive(Debug, Default)]
@@ -129,6 +145,20 @@ mod tests {
         let mut called = Called::default();
         called.name_heard(10 * SECOND, 1.0);
         assert_eq!(called.due(Some(3), 10 * SECOND + BEFORE_US), Some(3));
+    }
+
+    #[test]
+    fn only_its_own_flag_at_the_front_turns_it_on() {
+        let flags = |list: &[&str]| list.iter().map(|flag| flag.to_string()).collect::<Vec<_>>();
+        let given = flags(&[FLAG, "--bus-root", "/run/lampos-bus"]);
+        let (on, rest) = take(&given);
+        assert!(on);
+        assert_eq!(rest, &given[1..]);
+        let given = flags(&["--bus-root", "/run/lampos-bus", FLAG]);
+        let (on, rest) = take(&given);
+        assert!(!on);
+        assert_eq!(rest, &given[..]);
+        assert!(!take(&[]).0);
     }
 
     /// A note that could not be sent is not offered again and again.

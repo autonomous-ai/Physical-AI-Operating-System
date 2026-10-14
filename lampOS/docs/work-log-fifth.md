@@ -451,6 +451,25 @@ Ready for lamp-voice: yes (#742)
   9 ms after `name/heard`, base +45/-44 counts; folded: rose, glanced once
   up 5.6 s later, while already answering). Recorded units back on after.
 
+## 2026-10-15 — whole-lamp (#702, the MVP) — every part from power on lamp-52e6
+
+Ready for lamp-voice: no (the real unplug with every part is today, with the person; draft #745)
+
+- The MVP (#705, 00:37) puts #702, #701 and #703 first; #720 is paused
+  (said on it, draft #730 as it stands).
+- `fifth/whole-lamp`, cut from `lamp-voice` (6573ce6c1): lamp-52e6 runs
+  every part lamp-4ace runs but policy (no key), tasks (nothing to hand work
+  to) and records (no settings), lamp-4ace's units with this lamp's name and
+  the binaries of ARM64 run 38615783378, under the keeper's release
+  `0.2.0-fifth`. The body is this lamp's own unit, now on the bus.
+- A soft reboot at 02:42, nobody at the lamp: every part active 18.6 s after
+  the kernel started, the body 19.1 s, `lamp/health` with none missing, no
+  restarts (`docs/verification/whole-lamp-lamp-52e6-20261015/`).
+- The person's two-minute unplug, and #703's hand protocol with a recorder
+  (`docs/verification/give-way-hand-lamp-52e6/`), are written for today.
+- Decided on #702: lamp-4ace's body starts at boot once #703's hand test
+  passes, not before.
+
 ## Found, not mine
 
 Seen on lamp-52e6 while working on the body, outside `crates/body`; left
@@ -470,3 +489,5 @@ for its owner, not mended here.
 - `lamp-eyes` on lamp-52e6, 2026-10-14 evening: "camera did not open:
   DeadlineExceeded (StreamOn)" every few seconds for minutes at a time
   between permitted spells (journal from 18:00), then open again.
+- 2026-10-15, lamp-52e6: `lamp-air` cannot read its sensor ("word 0 fails its CRC", once "command 0xd014: Invalid argument"), though `i2cdetect -y 0` shows it at 0x6b. Seen in `journalctl -u lamp-air`.
+- 2026-10-15, lamp-52e6: `lamp-expression` warns "waiting for light setting, fresh room state" with every part running.

@@ -57,7 +57,11 @@ away unless a line says otherwise. One evening, one room, one lamp.
 lamp runs and three with the steady reference, gave 13 of 28 sentences and
 5 of 17 stop words as it runs, with 3 pauses for nothing in 53 trials:
 [steady-reference.md](steady-reference.md), "Played on lamp-4ace, off and
-on".)
+on". One more run, at 19:36, with the lamp's voice 3.9 dB quieter (its
+soft volume from 75 to 62, -7.5 to -11.4 dB) so that it reaches the
+second microphone further from that microphone's ceiling: 6 of 10
+sentences, 0 of 6 stop words, no pause for nothing. One run, no sign that
+it helps; the volume was put back.)
 
 Played again that night, with nobody in the office, the checks gave what
 they had given: the lamp stopped for six of ten sentences spoken over it,

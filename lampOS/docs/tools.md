@@ -177,6 +177,10 @@ it?" and "Lamp, what time is it now?" each called it, were told "Said
 aloud: nine to eight in the evening.", and said "It's just about nine to
 eight in the evening." and "It's right around nine to eight in the
 evening." (the hedge is the model's: the minute was exact). One run each.
+In the soak at 20:30 that evening "Good night." got "Night! It's
+twenty-eight past eight in the evening. I'll keep the desk company while
+you rest.": the time, unasked. So the description now ends "and never say
+the time unless you were asked for it" (not yet played).
 
 ## What the voice promises, and what it does not
 

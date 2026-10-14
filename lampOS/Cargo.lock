@@ -1686,6 +1686,7 @@ version = "0.1.0"
 dependencies = [
  "lamp-bus",
  "lamp-ipc",
+ "lamp-keeper",
  "lamp-msgs",
  "lamp-turn-owner",
  "nix 0.29.0",

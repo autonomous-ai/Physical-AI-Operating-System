@@ -404,6 +404,17 @@ fn main() -> std::process::ExitCode {
     }
 }
 
+/// What each step tells systemd: ready at the first, which comes only once
+/// the start checks have passed, and alive at every one (sent at most twice
+/// in a watchdog interval, and never without `$NOTIFY_SOCKET`).
+#[cfg_attr(not(target_os = "linux"), allow(dead_code))]
+fn step_said(notify: &lamp_keeper::Notify, ready: &std::cell::Cell<bool>) {
+    if !ready.replace(true) {
+        notify.ready();
+    }
+    notify.alive();
+}
+
 #[cfg(not(target_os = "linux"))]
 fn run(arguments: Arguments) -> Result<bool, Box<dyn std::error::Error>> {
     let _ = (arguments.unit_id, arguments.mood_socket, arguments.home);
@@ -510,7 +521,10 @@ fn run(arguments: Arguments) -> Result<bool, Box<dyn std::error::Error>> {
     // Where the joints are and how the body is, for the rest of the lamp,
     // if the unit says so. Offered and never waited for.
     let mut bus = lamp_body::bus_out::BusOut::from_environment(|why| eprintln!("lamp-body: {why}"));
+    let notify = lamp_keeper::Notify::from_environment();
+    let ready = std::cell::Cell::new(false);
     let watch = |glimpse: &lamp_body::body::Glimpse| {
+        step_said(&notify, &ready);
         if let Some(bus) = bus.as_mut() {
             bus.offer(glimpse);
         }
@@ -661,10 +675,16 @@ fn run(arguments: Arguments) -> Result<bool, Box<dyn std::error::Error>> {
                     .read_signal()
                     .map_err(|error| std::io::Error::from_raw_os_error(error as i32))?
                     .is_some();
+                if cancelled {
+                    // It eases back from here.
+                    notify.stopping();
+                }
             }
             Ok(cancelled)
         },
     );
+    // Again for a body that stopped by itself; a second time is harmless.
+    notify.stopping();
     let _ = std::fs::remove_file(&arguments.mood_socket);
     if let Some(choice) = &arguments.gaze {
         let _ = std::fs::remove_file(&choice.socket);
@@ -698,6 +718,34 @@ fn run(arguments: Arguments) -> Result<bool, Box<dyn std::error::Error>> {
 mod tests {
     use super::*;
     use lamp_body::gesture::Mood;
+
+    #[test]
+    fn each_step_says_alive_and_the_first_says_ready() {
+        use std::os::unix::net::UnixDatagram;
+        let directory =
+            std::env::temp_dir().join(format!("lamp-body-notify-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&directory);
+        std::fs::create_dir_all(&directory).unwrap();
+        let path = directory.join("notify");
+        let ear = UnixDatagram::bind(&path).unwrap();
+        ear.set_nonblocking(true).unwrap();
+        let notify = lamp_keeper::Notify::new(
+            Some(path.to_str().unwrap().to_owned()),
+            Some(std::time::Duration::from_secs(10)),
+        );
+        let ready = std::cell::Cell::new(false);
+        for _ in 0..3 {
+            step_said(&notify, &ready);
+        }
+        let mut heard = Vec::new();
+        let mut buffer = [0u8; 64];
+        while let Ok(length) = ear.recv(&mut buffer) {
+            heard.push(String::from_utf8_lossy(&buffer[..length]).into_owned());
+        }
+        // Three steps within one watchdog interval: alive is sent once.
+        assert_eq!(heard, ["READY=1", "WATCHDOG=1"]);
+        std::fs::remove_dir_all(directory).unwrap();
+    }
 
     fn args(values: &[&str]) -> Vec<OsString> {
         values.iter().map(OsString::from).collect()

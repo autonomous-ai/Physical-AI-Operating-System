@@ -278,7 +278,8 @@ async fn an_older_reminder_tool_event_cannot_escape_after_a_new_reminder_replace
             call: lamp_gemini::ToolCall {
                 id: "old".into(),
                 name: "light_on".into(),
-                args: json!({})
+                args: json!({}),
+                carried_from: None,
             },
         }),
         &provider
@@ -303,7 +304,8 @@ async fn an_older_reminder_tool_event_cannot_escape_after_a_new_reminder_replace
             call: lamp_gemini::ToolCall {
                 id: "current".into(),
                 name: "light_on".into(),
-                args: json!({})
+                args: json!({}),
+                carried_from: None,
             },
         }),
         &provider

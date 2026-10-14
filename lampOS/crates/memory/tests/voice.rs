@@ -143,6 +143,7 @@ fn call(name: &str, args: Value) -> ToolCall {
         id: "voice-memory-test".into(),
         name: name.into(),
         args,
+        carried_from: None,
     }
 }
 

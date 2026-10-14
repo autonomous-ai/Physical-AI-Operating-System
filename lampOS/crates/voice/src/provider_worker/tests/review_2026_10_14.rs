@@ -106,6 +106,7 @@ fn in_a_busy_room() -> Options {
         tools: crate::tools::Settings::default(),
         attention: Some(busy),
         name_signal: false,
+        carry_calls: false,
     }
 }
 

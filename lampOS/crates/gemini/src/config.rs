@@ -281,6 +281,7 @@ pub struct SessionConfig {
     pub(crate) barrier_wait: BarrierWait,
     pub(crate) barrier_reports: bool,
     pub(crate) successor_start: SuccessorStart,
+    pub(crate) carry_calls: bool,
     pub(crate) output_buffer: usize,
 }
 impl SessionConfig {
@@ -308,6 +309,7 @@ impl SessionConfig {
             barrier_wait: BarrierWait::FromInterruption,
             barrier_reports: false,
             successor_start: SuccessorStart::AtOnce,
+            carry_calls: false,
             output_buffer: OUTPUT_BUFFER_BYTES,
         })
     }
@@ -444,6 +446,24 @@ impl SessionConfig {
     /// default, so that a caller's event stream is what it was.
     pub fn barrier_reports(mut self, reports: bool) -> Self {
         self.barrier_reports = reports;
+        self
+    }
+    /// Carry a function call into the request that replaced its own. A
+    /// person says "Yes." and, a moment later, "please start it.": the first
+    /// is committed and then given up as continued by the second, and the
+    /// call the model makes for the first comes while the second is still
+    /// being heard. Without this the call is answered as not done
+    /// ([`crate::NOT_DONE_STILL_SPEAKING`]) and dropped
+    /// ([`crate::Discard::UnownedToolCall`]). With it, a call that
+    /// comes while the request it was made for is the earlier response the
+    /// open request replaced, that request was continued (retired, not
+    /// discarded) and replaced no more than [`crate::CARRIED_CALL_WINDOW`]
+    /// before, is reported as the open request's call, marked
+    /// [`crate::ToolCall::carried_from`], and its answer is written when it
+    /// is given. Every other call nobody owns is answered as not done, as
+    /// before. Off by default, so that a caller's calls are what they were.
+    pub fn carry_calls(mut self, carry: bool) -> Self {
+        self.carry_calls = carry;
         self
     }
     /// When the next request's `activityStart` is written if it starts

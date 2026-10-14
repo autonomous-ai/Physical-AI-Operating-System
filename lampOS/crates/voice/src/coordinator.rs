@@ -1542,6 +1542,27 @@ fn apply_submission_gate(
     }
     Ok(())
 }
+/// What the session's records say of a function call the provider worker
+/// carried over or dropped (`LAMP_CARRY_CALLS`, #736). Kept here because a
+/// lamp's journal holds about half an hour, and the worker writes no
+/// records of its own. The call's name only, never its arguments.
+fn call_record(output: &ProviderOutput) -> Option<Value> {
+    match output {
+        ProviderOutput::CallCarried {
+            request,
+            from,
+            name,
+            taken,
+        } => Some(
+            json!({"kind":"provider_call_carried","at_us":monotonic_us(),
+            "turn":request,"from_turn":from,"name":name,"taken":taken}),
+        ),
+        ProviderOutput::CallDropped => Some(json!({"kind":"provider_call_dropped",
+            "at_us":monotonic_us()})),
+        _ => None,
+    }
+}
+
 /// Validate ordered model evidence before it can mutate playback. Availability
 /// is solely the priority register: a stale credited Ready has no effect here.
 fn observe_provider_output(
@@ -1555,6 +1576,8 @@ fn observe_provider_output(
             ProviderOutput::TurnFailed { .. }
                 | ProviderOutput::OwnershipAssumed { .. }
                 | ProviderOutput::Ready { .. }
+                | ProviderOutput::CallCarried { .. }
+                | ProviderOutput::CallDropped
         )
     {
         return Err(io::Error::other("model output followed ordered Ended"));
@@ -1568,6 +1591,8 @@ fn observe_provider_output(
         | ProviderOutput::Transcript { .. }
         | ProviderOutput::ReminderDeferred { .. }
         | ProviderOutput::InputDiscarded { .. } => {}
+        // What happened to a function call: a record, and nothing more.
+        ProviderOutput::CallCarried { .. } | ProviderOutput::CallDropped => {}
         // Only a provider configured to take a silent earlier response as
         // over reports this. It grants nothing here: the request still needs
         // its own Started before any of its output is usable.
@@ -2955,6 +2980,11 @@ fn conversation_with_controls(
                         trace,
                         json!({"kind":"provider_turn_complete","turn":request,"idle":idle,"at_us":monotonic_us()}),
                     )?;
+                }
+                call @ (ProviderOutput::CallCarried { .. } | ProviderOutput::CallDropped) => {
+                    if let Some(row) = call_record(&call) {
+                        record(trace, row)?;
+                    }
                 }
                 ProviderOutput::Transcript {
                     request,
@@ -5668,6 +5698,51 @@ mod tests {
         wire::CaptureTiming,
     };
     use lamp_turn_owner::BoundaryGuard;
+
+    /// What happened to a function call (#736) is a record and nothing
+    /// more: written whatever was stopped, after the stream ended too, and
+    /// no request's evidence changes.
+    #[test]
+    fn a_carried_or_dropped_call_is_only_written_down() {
+        let carried = ProviderOutput::CallCarried {
+            request: 41,
+            from: 40,
+            name: "confirm_agent_task".into(),
+            taken: true,
+        };
+        let row = call_record(&carried).unwrap();
+        assert_eq!(row["kind"], "provider_call_carried");
+        assert_eq!(
+            (row["turn"].as_u64(), row["from_turn"].as_u64()),
+            (Some(41), Some(40))
+        );
+        assert_eq!(row["name"], "confirm_agent_task");
+        assert_eq!(row["taken"], true);
+        assert_eq!(
+            call_record(&ProviderOutput::CallDropped).unwrap()["kind"],
+            "provider_call_dropped"
+        );
+        assert!(call_record(&ProviderOutput::GenerationComplete { request: 41 }).is_none());
+        // Never cut away with a request's stopped output.
+        assert!(!hand::cancelled_output(&carried, Some(100)));
+        assert!(!hand::cancelled_output(
+            &ProviderOutput::CallDropped,
+            Some(100)
+        ));
+        // Taken after the stream ended, and no request is touched.
+        let mut cloud = CloudAvailability::default();
+        cloud.end_output().unwrap();
+        let mut reply = None;
+        observe_provider_output(&mut cloud, &mut reply, &carried).unwrap();
+        observe_provider_output(&mut cloud, &mut reply, &ProviderOutput::CallDropped).unwrap();
+        assert!(reply.is_none());
+        // The worker's wire form reads back as the same record.
+        for output in [carried, ProviderOutput::CallDropped] {
+            let text = serde_json::to_string(&output).unwrap();
+            let back: ProviderOutput = serde_json::from_str(&text).unwrap();
+            assert_eq!(serde_json::to_string(&back).unwrap(), text);
+        }
+    }
 
     #[test]
     fn ring_lifetime_includes_startup_and_shutdown_around_maximum_active_session() {

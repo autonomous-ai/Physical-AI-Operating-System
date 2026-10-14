@@ -63,6 +63,12 @@ pub const MAX_TOOL_CALLS: usize = 8;
 /// changing their mind: in three of five two-breath yeses it never asked
 /// again and the task was not started.
 pub const NOT_DONE_STILL_SPEAKING: &str = "Not done: the person was still speaking when this was asked, so nothing was done. Listen to what they say now; if it still asks for this, call it again.";
+/// How soon after a request was replaced by more speech a function call for
+/// it may still be carried into the request that replaced it
+/// ([`SessionConfig::carry_calls`]): a person who says "Yes." and goes on
+/// "please start it." is answered within this, and a call later than it
+/// belongs to something else.
+pub const CARRIED_CALL_WINDOW: Duration = Duration::from_secs(3);
 /// The most a call's identifier may be.
 pub const MAX_TOOL_ID_BYTES: usize = 128;
 /// The most a function's declared parameters, a call's arguments or an
@@ -171,6 +177,11 @@ pub struct ToolCall {
     pub id: String,
     pub name: String,
     pub args: serde_json::Value,
+    /// The request this call was made for, when that request had just been
+    /// replaced by more speech from the same person and the call was carried
+    /// into the one that replaced it ([`SessionConfig::carry_calls`]).
+    /// `None` for every call made for the request it is reported with.
+    pub carried_from: Option<RequestId>,
 }
 
 #[derive(Debug)]

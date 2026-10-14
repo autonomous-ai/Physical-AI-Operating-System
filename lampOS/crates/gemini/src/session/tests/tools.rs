@@ -127,6 +127,7 @@ async fn a_call_belongs_to_the_committed_request_and_its_answer_goes_back_by_ide
             id: "call-1".into(),
             name: "light_colour".into(),
             args: json!({"colour":"blue"}),
+            carried_from: None,
         }
     );
     // The service ends its turn as soon as it has asked, as the real one
@@ -456,4 +457,121 @@ fn a_call_message_outside_its_bounds_is_refused_by_the_codec() {
     let frame = decode(json!({"toolCallCancellation":{"ids":["a","b"]}})).unwrap();
     assert_eq!(frame.tool_cancellations, ["a", "b"]);
     assert!(frame.tool_calls.is_empty());
+}
+
+/// "Yes." and, a moment later, "please start it." (lamp-4ace, 2026-10-14,
+/// 22:37, #736): the first request is committed, then given up as continued
+/// by the second, and the call the model makes for the first comes while the
+/// second is still being heard. `carry` says whether the session carries it.
+async fn two_breaths(carry: bool, abandon: bool) -> (Connection, MockSocket, RequestId) {
+    two_breaths_with(carry, abandon, Timeouts::default()).await
+}
+
+async fn two_breaths_with(
+    carry: bool,
+    abandon: bool,
+    timeouts: Timeouts,
+) -> (Connection, MockSocket, RequestId) {
+    let (mut connection, mut server) = mock_with(configuration(timeouts).carry_calls(carry)).await;
+    let yes = ended_turn(&mut connection, &mut server, 1).await;
+    let input = connection.input();
+    if abandon {
+        input.discard(yes);
+    } else {
+        input.retire(yes);
+    }
+    let going_on = request(2);
+    input.try_start(going_on).unwrap();
+    sent(&mut server, "activityStart").await;
+    assert!(
+        matches!(event(&mut connection).await, Event::InputStarted { lineage, .. } if lineage.request == going_on)
+    );
+    (connection, server, yes)
+}
+
+#[tokio::test]
+async fn a_call_for_a_request_just_continued_is_carried_into_the_one_that_replaced_it() {
+    let (mut connection, mut server, yes) = two_breaths(true, false).await;
+    send_json(
+        &mut server,
+        call("confirm-1", "confirm_agent_task", json!({})),
+    )
+    .await;
+    // Reported as the open request's call, marked as made for the first.
+    let made = called(&mut connection, request(2)).await;
+    assert_eq!(made.carried_from, Some(yes));
+    assert_eq!(made.name, "confirm_agent_task");
+    // Not answered as cancelled: the service hears nothing until it is
+    // answered, and then the answer.
+    silent(&mut server).await;
+    connection
+        .input()
+        .try_tool_response("confirm-1", "confirm_agent_task", &json!({"started":true}))
+        .unwrap();
+    assert_eq!(
+        receive(&mut server).await,
+        json!({"toolResponse":{"functionResponses":[
+            {"id":"confirm-1","name":"confirm_agent_task","response":{"started":true}}
+        ]}})
+    );
+    // Answered once.
+    connection
+        .input()
+        .try_tool_response("confirm-1", "confirm_agent_task", &json!({"started":true}))
+        .unwrap();
+    discarded(&mut connection, Discard::StaleToolResponse).await;
+}
+
+/// Without the setting the same call is answered as not done and dropped,
+/// exactly as before.
+#[tokio::test]
+async fn without_carrying_the_same_call_is_answered_as_before() {
+    let (mut connection, mut server, _) = two_breaths(false, false).await;
+    send_json(
+        &mut server,
+        call("confirm-1", "confirm_agent_task", json!({})),
+    )
+    .await;
+    assert_eq!(
+        receive(&mut server).await,
+        json!({"toolResponse":{"functionResponses":[
+            {"id":"confirm-1","name":"confirm_agent_task","response":{"error":crate::NOT_DONE_STILL_SPEAKING}}
+        ]}})
+    );
+    discarded(&mut connection, Discard::UnownedToolCall).await;
+}
+
+/// A request given up for something else (abandoned, not continued) keeps
+/// nothing: its call is answered as not done even with the setting.
+#[tokio::test]
+async fn a_call_for_a_request_abandoned_is_not_carried() {
+    let (mut connection, mut server, _) = two_breaths(true, true).await;
+    send_json(&mut server, call("light-1", "light_on", json!({}))).await;
+    assert_eq!(
+        receive(&mut server).await["toolResponse"]["functionResponses"][0]["response"],
+        json!({"error":crate::NOT_DONE_STILL_SPEAKING})
+    );
+    discarded(&mut connection, Discard::UnownedToolCall).await;
+}
+
+/// A call that comes later than the window after the request was replaced
+/// belongs to something else, and is answered as not done. The barrier's
+/// own quiet bound is set past the window here: at its default (2 s) the
+/// session would end on the standing barrier before the call is read.
+#[tokio::test]
+async fn a_call_later_than_the_window_is_not_carried() {
+    let timeouts = Timeouts {
+        barrier: Duration::from_secs(5),
+        ..Timeouts::default()
+    };
+    let (mut connection, mut server, _) = two_breaths_with(true, false, timeouts).await;
+    tokio::time::pause();
+    tokio::time::advance(crate::CARRIED_CALL_WINDOW + Duration::from_millis(100)).await;
+    tokio::time::resume();
+    send_json(&mut server, call("late-1", "light_on", json!({}))).await;
+    assert_eq!(
+        receive(&mut server).await["toolResponse"]["functionResponses"][0]["response"],
+        json!({"error":crate::NOT_DONE_STILL_SPEAKING})
+    );
+    discarded(&mut connection, Discard::UnownedToolCall).await;
 }

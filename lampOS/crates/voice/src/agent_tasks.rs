@@ -538,6 +538,7 @@ mod tests {
             id: "c".into(),
             name: name.into(),
             args,
+            carried_from: None,
         };
         let deadline = Duration::from_secs(2);
         let (told, answered) = run(
@@ -583,6 +584,7 @@ mod tests {
             id: "c".into(),
             name: START.into(),
             args: json!({"task": task}),
+            carried_from: None,
         };
         assert!(
             run(&place, &call("  "), 1, true, Duration::from_secs(1))

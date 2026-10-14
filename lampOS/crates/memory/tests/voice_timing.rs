@@ -248,6 +248,7 @@ fn legacy_and_days_voice_requests_over_matched_synthetic_stores() {
             id: "synthetic-timing-recall".into(),
             name: RECALL.into(),
             args: json!({"about":QUERY}),
+            carried_from: None,
         };
         match case {
             "legacy_kept" => {

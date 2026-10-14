@@ -501,6 +501,7 @@ fn decode_tool_calls(raw: RawToolCall) -> Result<Vec<ToolCall>> {
                 id,
                 name: call.name,
                 args,
+                carried_from: None,
             })
         })
         .collect()

@@ -380,6 +380,15 @@ pub fn declined() -> Value {
     json!({"ok": true})
 }
 
+/// What the model is told of a call that changes something the person can
+/// see, made for what they said before they went on speaking
+/// (`LAMP_CARRY_CALLS`): not done, since what they went on to say may take
+/// it back ("Turn the light off... no, wait"). The model hears all of it
+/// and can make the call again in its answer.
+pub fn went_on() -> Value {
+    json!({"not_done": "The person went on speaking before this was done. If what they said next still asks for it, call it again."})
+}
+
 /// Ask the executive to run one call and wait at most `deadline` for its
 /// answer, connecting included. Blocking: for a thread of its own. Always
 /// returns what to tell the model; the second value says whether the
@@ -742,6 +751,7 @@ mod tests {
             id: "provider-call-1".into(),
             name: "set_timer".into(),
             args: json!({"text":"Tea","seconds":60}),
+            carried_from: None,
         };
         assert_eq!(
             ask_schedule(&dir, &request, ASK_DEADLINE),
@@ -766,6 +776,7 @@ mod tests {
                 id: "1".into(),
                 name: "cancel_reminder".into(),
                 args: json!({"id":7}),
+                carried_from: None,
             };
             assert_eq!(
                 ask_schedule(&dir, &request, ASK_DEADLINE),
@@ -798,6 +809,7 @@ mod tests {
             id: "c1".into(),
             name: name.into(),
             args: json!({"colour":"blue"}),
+            carried_from: None,
         }
     }
     /// An executive that reads one request and answers what it is given,

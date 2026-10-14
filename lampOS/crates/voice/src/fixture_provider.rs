@@ -672,8 +672,11 @@ fn output_request(event: &ProviderOutput) -> Option<u64> {
         ProviderOutput::Ready { .. }
         | ProviderOutput::TurnFailed { .. }
         | ProviderOutput::ReminderDeferred { .. }
-        // A fixture keeps no input and never reports one.
+        // A fixture keeps no input and never reports one, and makes no
+        // function call.
         | ProviderOutput::InputDiscarded { .. }
+        | ProviderOutput::CallCarried { .. }
+        | ProviderOutput::CallDropped
         | ProviderOutput::OwnershipAssumed { .. }
         | ProviderOutput::Ended { .. } => None,
         ProviderOutput::Started { request, .. }

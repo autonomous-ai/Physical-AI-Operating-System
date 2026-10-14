@@ -382,6 +382,21 @@ pub enum ProviderOutput {
         request: Option<u64>,
         superseded: Option<u64>,
     },
+    /// A function call made for `from` came after the person went on, and
+    /// was carried into `request` (`LAMP_CARRY_CALLS`). `taken` is false
+    /// when it was not done because what they went on to say may take it
+    /// back. Only the call's name, never its arguments. Written in the
+    /// session's records, which outlive the journal (#736).
+    CallCarried {
+        request: u64,
+        from: u64,
+        name: String,
+        taken: bool,
+    },
+    /// A function call no request could own was answered as not done and
+    /// dropped. Said only with `LAMP_CARRY_CALLS`, so that without it the
+    /// records are as they were.
+    CallDropped,
     /// The upstream output stream has ended, after its retained PCM and turn
     /// outcomes. This is not process EOF: a later local Start refusal can
     /// still produce TurnFailed(NotDelivered), until explicit Stop.
@@ -553,6 +568,10 @@ pub(crate) struct Options {
     pub(crate) attention: Option<fn() -> (crate::room_told::Room, bool)>,
     /// The model is asked to say when it hears the lamp's name.
     pub(crate) name_signal: bool,
+    /// Calls are carried into the request that replaced their own
+    /// (`LAMP_CARRY_CALLS`), and what happens to a call carried or dropped
+    /// is written in the session's records.
+    pub(crate) carry_calls: bool,
 }
 /// How the room is and whether the lamp is in a conversation, now.
 fn attention_now() -> (crate::room_told::Room, bool) {
@@ -575,6 +594,7 @@ impl Options {
             tools: crate::tools::Settings::default(),
             attention: None,
             name_signal: false,
+            carry_calls: false,
         }
     }
 }
@@ -600,6 +620,9 @@ fn prune_retired_output(output: &mut VecDeque<Outbound>, retired_through: u64) {
             | ProviderOutput::ReminderDeferred { .. }
             // About a retired request by definition, and still owed.
             | ProviderOutput::InputDiscarded { .. }
+            // Records of what happened to a call, kept whatever retired.
+            | ProviderOutput::CallCarried { .. }
+            | ProviderOutput::CallDropped
             | ProviderOutput::OwnershipAssumed { .. }
             | ProviderOutput::Ended { .. } => None,
             ProviderOutput::Transcript { request, .. } => *request,
@@ -732,11 +755,16 @@ pub async fn run_with_continuation(
     } else {
         provider_config.recovery_policy()
     };
-    let config = continuation.apply(
-        provider_config
-            .into_session_with_camera(visual.is_some())?
-            .barrier_policy(barrier),
-    )?;
+    // Read once, at start: the sessions carry calls over and the records
+    // say what happened to them.
+    let carry_calls = carry_calls_from_environment();
+    let config = continuation
+        .apply(
+            provider_config
+                .into_session_with_camera(visual.is_some())?
+                .barrier_policy(barrier),
+        )?
+        .carry_calls(carry_calls);
     // Each session it opens is told how the conversation went until then.
     let provider = Supervisor::new(
         crate::thread::Recalling::new(config)
@@ -749,6 +777,7 @@ pub async fn run_with_continuation(
         tools: files.tools,
         attention: files.attention.then_some(attention_now),
         name_signal: files.name_signal,
+        carry_calls,
     };
     let visual = visual
         .map(|(source, worker)| ContextDelivery::new(source, boot, worker))
@@ -806,7 +835,10 @@ async fn serve_with_visual<C: Connect>(
     let mut urgent: VecDeque<Outbound> = VecDeque::with_capacity(4);
     let mut output = VecDeque::with_capacity(MAX_QUEUED_OUTPUT);
     let mut output_sequence = 0u64;
-    let mut discards = DiscardLog::default();
+    let mut discards = DiscardLog {
+        calls: options.carry_calls,
+        ..DiscardLog::default()
+    };
     let mut renewed_at = Instant::now();
     let mut thread_saved_at = Instant::now();
     // The session last told how things stand, if new ones are.
@@ -1284,6 +1316,9 @@ async fn serve_with_visual<C: Connect>(
                     })),
                     Ok(Notice::Event(Event::ToolCall { lineage, call })) => {
                         let held = attention.holds(lineage.request.get());
+                        if let Some(carried) = desk.carried(lineage.request.get(), &call) {
+                            output.push_back(Outbound::Output(carried));
+                        }
                         desk.called(&provider, lineage, call, held)
                     }
                     // The model said this request was not for it: none of
@@ -1441,6 +1476,28 @@ impl ToolDesk {
     fn declined(&self, request: RequestId) -> bool {
         self.declined == Some(request.get())
     }
+    /// What the session's records say of a call made for an earlier
+    /// request and carried into `request` (`LAMP_CARRY_CALLS`): its name,
+    /// cut to a word, and whether it is taken up. `None` for any other call.
+    fn carried(&self, request: u64, call: &lamp_gemini::ToolCall) -> Option<ProviderOutput> {
+        let from = call.carried_from?;
+        let name = call
+            .name
+            .chars()
+            .filter(|c| c.is_ascii_alphanumeric() || *c == '_')
+            .take(64)
+            .collect();
+        Some(ProviderOutput::CallCarried {
+            request,
+            from: from.get(),
+            name,
+            // As `called` decides: what the person would see is not done.
+            taken: !matches!(
+                crate::tools::route(&self.settings, &call.name),
+                crate::tools::Route::Executive(_)
+            ),
+        })
+    }
     /// One call from the model. Names only are logged, never arguments.
     fn called<C: Connect>(
         &mut self,
@@ -1454,6 +1511,29 @@ impl ToolDesk {
         let tell = |told: &serde_json::Value| {
             let _ = provider.try_tool_response(lineage.session, &call.id, &call.name, told);
         };
+        // Made for what the person said before they went on (`LAMP_CARRY_CALLS`).
+        // Something they would see change is not done: what they went on
+        // to say may take it back. The rest goes on as for this request: a
+        // yes to a task is still checked as a yes (`agent_tasks`).
+        if let Some(from) = call.carried_from {
+            if matches!(
+                crate::tools::route(&self.settings, &call.name),
+                Route::Executive(_)
+            ) {
+                tell(&crate::tools::went_on());
+                eprintln!(
+                    "lamp-voice provider: request {request}: {} made for request {} before the person went on; not done, the model is told",
+                    call.name,
+                    from.get()
+                );
+                return;
+            }
+            eprintln!(
+                "lamp-voice provider: request {request}: {} made for request {} before the person went on; carried over",
+                call.name,
+                from.get()
+            );
+        }
         // A request whose answer is held back has nothing done for it
         // either: the call is answered, and not run.
         if held
@@ -1803,7 +1883,14 @@ fn forward_origin(
             "lamp-voice provider: service announced a close; time_left_ms={:?}",
             time_left.map(|left| left.as_millis())
         ),
-        Event::Discarded { reason, .. } => discards.note(reason),
+        Event::Discarded { reason, .. } => {
+            discards.note(reason);
+            // With `LAMP_CARRY_CALLS`, a call no request could own is also
+            // written in the session's records, which outlive the journal.
+            if discards.calls && reason == Discard::UnownedToolCall {
+                push(ProviderOutput::CallDropped);
+            }
+        }
         Event::InputDiscarded {
             through,
             dropped_samples,
@@ -1872,6 +1959,9 @@ fn forward_origin(
 #[derive(Default)]
 struct DiscardLog {
     seen: [bool; 6],
+    /// A dropped function call is reported to the coordinator as well
+    /// (`LAMP_CARRY_CALLS`).
+    calls: bool,
 }
 impl DiscardLog {
     fn note(&mut self, reason: Discard) {
@@ -2571,6 +2661,16 @@ trait InputSink {
     fn belongs_to_replaced_connection(&self, _request: RequestId) -> bool {
         false
     }
+}
+
+/// The switch that carries a function call into the request that replaced
+/// its own (`lamp_gemini::SessionConfig::carry_calls`): "Yes." and, a moment
+/// later, "please start it." still start the task (#736). Off unless `on`.
+pub const CARRY_ENVIRONMENT: &str = "LAMP_CARRY_CALLS";
+
+/// Whether the environment carries calls over.
+pub fn carry_calls_from_environment() -> bool {
+    std::env::var(CARRY_ENVIRONMENT).ok().as_deref() == Some("on")
 }
 
 /// Give `request` a note beside what is being said, keeping what it was
@@ -4551,6 +4651,23 @@ mod tests {
                 lamp_gemini::MAX_WIRE_BYTES * 2,
             )
         }
+        /// With calls carried into the request that replaced their own, as
+        /// `LAMP_CARRY_CALLS=on` makes the worker's own sessions.
+        fn start_carrying(options: Options) -> Self {
+            Self::start_configured(
+                quick_policy(),
+                // The worker's records follow the same switch.
+                Options {
+                    carry_calls: true,
+                    ..options
+                },
+                BARRIER,
+                false,
+                Continuation::Off,
+                lamp_gemini::MAX_WIRE_BYTES * 2,
+                |config| config.carry_calls(true),
+            )
+        }
         /// With this many bytes between the worker and the scripted service.
         fn start_capacity(
             policy: RecoveryPolicy,
@@ -4723,6 +4840,47 @@ mod tests {
                     return message;
                 }
                 assert!(Instant::now() < deadline, "service saw no client message");
+            }
+        }
+        /// The next record of a call carried over or dropped, past any
+        /// other output (`LAMP_CARRY_CALLS`).
+        async fn call_record(&mut self) -> ProviderOutput {
+            loop {
+                let output = self.output().await;
+                if matches!(
+                    output,
+                    ProviderOutput::CallCarried { .. } | ProviderOutput::CallDropped
+                ) {
+                    return output;
+                }
+            }
+        }
+        /// Whether, for a while of heartbeats, no record of a call came.
+        async fn no_call_record(&mut self) -> bool {
+            let until = Instant::now() + Duration::from_millis(200);
+            let mut none = true;
+            while Instant::now() < until {
+                self.publish();
+                while let Some(wire) = self.take() {
+                    none &= !matches!(
+                        wire,
+                        Wire::Output(
+                            ProviderOutput::CallCarried { .. } | ProviderOutput::CallDropped
+                        )
+                    );
+                }
+                tokio::time::sleep(Duration::from_millis(5)).await;
+            }
+            none
+        }
+        /// The next answer to a function call the service is sent, past the
+        /// requests' own starts and sound.
+        async fn tool_response(&mut self, dial: &mut Dial) -> serde_json::Value {
+            loop {
+                let message = self.service_message(dial).await;
+                if message.get("toolResponse").is_some() {
+                    return message;
+                }
             }
         }
         async fn ready(&mut self) -> Dial {
@@ -5087,6 +5245,7 @@ mod tests {
             tools,
             attention: None,
             name_signal: false,
+            carry_calls: false,
         }
     }
 
@@ -5103,6 +5262,7 @@ mod tests {
                 tools: crate::tools::Settings::default(),
                 attention: None,
                 name_signal: true,
+                carry_calls: false,
             },
         );
         let mut dial = rig.ready().await;
@@ -5144,6 +5304,7 @@ mod tests {
                 tools: crate::tools::Settings::default(),
                 attention: Some(busy),
                 name_signal: false,
+                carry_calls: false,
             },
         );
         let mut dial = rig.ready().await;
@@ -5286,23 +5447,83 @@ mod tests {
     /// has it, and the model then speaks in the same request.
     #[tokio::test]
     async fn a_call_for_the_time_is_answered_at_once_from_the_lamps_clock() {
-        let mut rig = LiveRig::start_with(
-            quick_policy(),
-            typed_with(crate::tools::Settings {
-                decline: false,
-                exec: None,
-                memory: None,
-                clock: true,
-                ..Default::default()
-            }),
-        );
+        a_call_for_the_time_is_answered(false).await;
+    }
+
+    /// "Turn on the light." and, a moment later, more ("... no, wait"):
+    /// the first request is committed and continued by the second, and the
+    /// call the model makes for the first comes while the second is being
+    /// heard (#736, `LAMP_CARRY_CALLS`). Carried over, a call that changes
+    /// what the person sees is not done, since what they went on to say may
+    /// take it back, and the model is told so; the executive is not asked.
+    #[tokio::test]
+    async fn a_carried_call_that_would_change_what_the_person_sees_is_not_done_and_the_model_is_told()
+     {
+        let home = crate::process::SessionDirectory::create().unwrap();
+        let listener =
+            std::os::unix::net::UnixListener::bind(home.path.join(crate::tools::CALL_SOCKET))
+                .unwrap();
+        listener.set_nonblocking(true).unwrap();
+        let mut rig = LiveRig::start_carrying(typed_with(crate::tools::Settings {
+            decline: false,
+            exec: Some(home.path.clone()),
+            memory: None,
+            clock: false,
+            ..Default::default()
+        }));
         let mut dial = rig.ready().await;
-        let request = rig.speak(&mut dial, false, true).await;
+        let first = rig.speak(&mut dial, false, true).await;
+        let second = rig.speak(&mut dial, true, false).await;
+        assert!(second > first);
+        dial.service.send(function_call("c1", "light_on")).await;
+        let answer = rig.tool_response(&mut dial).await;
+        let response = &answer["toolResponse"]["functionResponses"][0];
+        assert_eq!(response["id"], "c1");
+        assert_eq!(response["response"], crate::tools::went_on());
+        assert!(listener.accept().is_err());
+        // The session's records say so, beyond the journal (#736).
+        assert!(matches!(
+            rig.call_record().await,
+            ProviderOutput::CallCarried { request, from, ref name, taken: false }
+                if request == second && from == first && name == "light_on"
+        ));
+        rig.stop().await;
+    }
+
+    /// The same with a call that changes nothing the person sees: carried
+    /// over, it is run as the replacing request's, as a yes to a task is
+    /// still checked as a yes.
+    #[tokio::test]
+    async fn a_carried_call_that_changes_nothing_seen_is_run_for_the_request_that_replaced_it() {
+        a_call_for_the_time_is_answered(true).await;
+    }
+
+    async fn a_call_for_the_time_is_answered(carried: bool) {
+        let tools = typed_with(crate::tools::Settings {
+            decline: false,
+            exec: None,
+            memory: None,
+            clock: true,
+            ..Default::default()
+        });
+        let mut rig = if carried {
+            LiveRig::start_carrying(tools)
+        } else {
+            LiveRig::start_with(quick_policy(), tools)
+        };
+        let mut dial = rig.ready().await;
+        let mut request = rig.speak(&mut dial, false, true).await;
+        let first = request;
+        if carried {
+            // The person went on: the call comes for the first request while
+            // the second is still being heard, and is the second's.
+            request = rig.speak(&mut dial, true, false).await;
+        }
         let asked = Instant::now();
         dial.service
             .send(function_call("t1", crate::tools::THE_TIME))
             .await;
-        let answer = rig.service_message(&mut dial).await;
+        let answer = rig.tool_response(&mut dial).await;
         assert!(asked.elapsed() < Duration::from_secs(1));
         let response = &answer["toolResponse"]["functionResponses"][0];
         assert_eq!(response["id"], "t1");
@@ -5317,12 +5538,68 @@ mod tests {
                 || told["error"].is_string(),
             "{answer}"
         );
-        dial.service.send(provider_audio(9, 480)).await;
-        assert!(matches!(
-            rig.output().await,
-            ProviderOutput::Audio { request: heard, .. } if heard == request
-        ));
+        // What the model then says is the asking request's. (Carried, the
+        // request it was carried into is still being heard: what is said
+        // then is the earlier response's, which settles its barrier.)
+        if !carried {
+            dial.service.send(provider_audio(9, 480)).await;
+            assert!(matches!(
+                rig.output().await,
+                ProviderOutput::Audio { request: heard, .. } if heard == request
+            ));
+            // A call that was its own request's leaves no record.
+            assert!(rig.no_call_record().await);
+        } else {
+            assert!(matches!(
+                rig.call_record().await,
+                ProviderOutput::CallCarried { request: into, from, ref name, taken: true }
+                    if into == request && from == first && name == "the_time"
+            ));
+        }
         rig.stop().await;
+    }
+
+    /// A call that comes while the only request is still being heard has no
+    /// request to own it: it is answered as not done and dropped, with the
+    /// switch or without. With `LAMP_CARRY_CALLS` the session's records
+    /// also say a call was dropped, since the journal that said so on
+    /// lamp-4ace was gone by morning (#736); without it nothing more
+    /// reaches the coordinator.
+    #[tokio::test]
+    async fn a_dropped_call_is_recorded_only_when_calls_are_carried() {
+        for carry in [false, true] {
+            let tools = typed_with(crate::tools::Settings {
+                decline: false,
+                exec: None,
+                memory: None,
+                clock: true,
+                ..Default::default()
+            });
+            let mut rig = if carry {
+                LiveRig::start_carrying(tools)
+            } else {
+                LiveRig::start_with(quick_policy(), tools)
+            };
+            let mut dial = rig.ready().await;
+            rig.speak(&mut dial, false, false).await;
+            dial.service
+                .send(function_call("early", crate::tools::THE_TIME))
+                .await;
+            let answer = rig.tool_response(&mut dial).await;
+            assert_eq!(
+                answer["toolResponse"]["functionResponses"][0]["response"],
+                json!({"error": lamp_gemini::NOT_DONE_STILL_SPEAKING})
+            );
+            if carry {
+                assert!(matches!(
+                    rig.call_record().await,
+                    ProviderOutput::CallDropped
+                ));
+            } else {
+                assert!(rig.no_call_record().await, "a record without the switch");
+            }
+            rig.stop().await;
+        }
     }
 
     /// The model asks for something the lamp can do. The executive, in a
@@ -5420,6 +5697,7 @@ mod tests {
                 },
                 attention: Some(busy),
                 name_signal: false,
+                carry_calls: false,
             },
         );
         let mut dial = rig.ready().await;

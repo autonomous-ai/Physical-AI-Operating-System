@@ -458,6 +458,103 @@ first arrived after the second had taken over and was dropped
 (`UnownedToolCall`), and the model then said it could not start the task. A
 yes said in one breath worked.
 
+**Why, and the fix (#736, the second builder, 2026-10-15).** The cause is in
+the transport (`crates/gemini/src/session.rs`, `tool_calls`). A function call
+belongs to the request whose input has ended: "Yes." was committed, and when
+"please start it." began a moment later, "Yes." was given up as continued
+and its response became the earlier stream that must settle (the barrier).
+The model's call for "Yes." came while "please start it." was still being
+heard, an open request that cannot own anything, so it was answered on the
+wire as `{"error":"cancelled"}` and dropped. The model, told the start was
+cancelled, said it could not start the task. The code path was the only one
+that answered a call as cancelled with `UnownedToolCall`; since `d128c458a`
+it answers that the person was still speaking and the model may ask again
+(`NOT_DONE_STILL_SPEAKING`).
+
+The coordinator's records of that session, shared by the first builder on
+#736 (the journal line itself was gone by morning), fit this. They hold no
+words, so which request was which is read from the times. Request 40 was
+admitted at 22:38:36.26 and ended by the 600 ms silence fallback at
+22:38:36.99; 79 ms later it finished as `user_interrupted` and request 41
+began with `waiting_for_barrier: true`, ended at 22:38:38.50 and was
+answered by 22:38:42.03. A call for request 40 coming after its end could
+then only come while request 41 was open, with request 40's barrier
+standing and within 3 s of the replacement: the case carried below.
+Requests 42 and 43 at 22:39:29-30 show the same split, and the yes then
+worked: a call made after the whole of what was said has a request to own
+it.
+
+A second shape, not carried. In #740's first minute on lamp-4ace
+(2026-10-15, 02:29 to 02:36, "Yes. [700 ms] Please start it." in macOS
+`say`) the call came about 2 s before the second half's request, while
+"Yes." itself was still being heard: a request whose own input was open,
+with nothing committed and replaced. No request can own such a call, so it
+is answered as not done because the person was still speaking
+(`d128c458a`, the first builder), and the model asked again in two runs of
+five. Carrying is only for a call made for a request that was committed
+and then continued.
+
+With `LAMP_CARRY_CALLS=on` in the voice's unit
+(`lamp_gemini::SessionConfig::carry_calls`), such a call is carried into
+the request that replaced its own, under all of these conditions:
+- it comes while the barrier stands for the request the open one
+  replaced;
+- that request was continued, not discarded;
+- it comes no more than 3 s after it was replaced (`CARRIED_CALL_WINDOW`).
+  The barrier's own bound can end it sooner: after 2 s of quiet by default
+  it is assumed settled, or the session fails, as before, and then nothing
+  is carried.
+
+It is reported as the open request's call, marked `carried_from`, and its
+answer is written when the voice gives it. Every other call nobody owns is
+answered as not done, as before. The voice then does it as for that
+request, with one exception:
+- **A yes to a task** is still checked as a yes by the voice
+  (`confirm_agent_task`: a heard request after the one that prepared the
+  task, within 120 s).
+- **A call that changes what the person sees** (the executive: the light,
+  the volume) is not done, because what they went on to say may take it
+  back ("Turn the light off... no, wait"). The model is told the person
+  went on and to call it again if they still want it
+  (`crate::tools::went_on`).
+
+With the switch, the session's records (`metadata/events-*.jsonl`, kept by
+the voice, unlike the journal, which holds about half an hour on lamp-4ace)
+also say what happened to each such call: `provider_call_carried` with the
+request it was carried into (`turn`), the one it was made for
+(`from_turn`), the function's name and whether it was `taken` (false for
+the light and the volume), and `provider_call_dropped` for every call
+nobody could own. The name only, never what the call asked for.
+
+Off unless set: without the switch every call is answered and dropped
+exactly as before, and nothing more is recorded (tests). Tests on the
+second builder's laptop: the
+transport carries the 22:37 case and answers it back; it refuses the same
+call without the switch, for a request abandoned rather than continued,
+and after the window. Through the voice's worker against a scripted
+service, a carried `light_on` is answered "not done" and the executive is
+not asked, and a carried call for the time is answered; each is recorded as
+carried, and a call while the only request is still being heard is
+recorded as dropped only with the switch.
+
+**On the lamp** (the first builder): with `LAMP_CARRY_CALLS=on`, play the
+two-breath yes ("Yes." then, 300 ms later, "please start it.") five times
+and a one-breath yes five times, each after a prepared task. Count the tasks
+started and what the lamp said, and look in the journal for "made for
+request ... before the person went on; carried over". The same is in the
+session's records, which outlive the journal:
+`grep -h '"provider_call_' /var/lib/lampOS/voice/sessions/*/metadata/events-*.jsonl`
+gives one line per call carried or dropped, with its request.
+
+**Where it is most likely wrong:**
+- **"Yes... no, wait" for a task.** The carried confirmation passes the
+  voice's check on "Yes." and starts the task, whatever the second breath
+  says. Only the light and the volume are held back.
+- **A slow answer under `kept-start`.** The next request's start waits for
+  the earlier response at most 2.5 s; a task call answered later than that
+  may be withdrawn by the service when the start interrupts, and its answer
+  then dropped as stale.
+
 ## The lamp as chief of staff: watching and telling (2026-10-15)
 
 The owner, just after midnight: the lamp is the person's chief of staff at

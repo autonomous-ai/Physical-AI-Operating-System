@@ -73,7 +73,11 @@ pub(super) fn cancelled_output(event: &ProviderOutput, through: Option<u64>) -> 
         | ProviderOutput::InputDiscarded { request, .. } => Some(*request),
         ProviderOutput::Transcript { request, .. }
         | ProviderOutput::OwnershipAssumed { request, .. } => *request,
-        ProviderOutput::Ready { .. } | ProviderOutput::Ended { .. } => None,
+        // Records of what happened to a function call are always written.
+        ProviderOutput::Ready { .. }
+        | ProviderOutput::Ended { .. }
+        | ProviderOutput::CallCarried { .. }
+        | ProviderOutput::CallDropped => None,
     };
     through
         .zip(request)

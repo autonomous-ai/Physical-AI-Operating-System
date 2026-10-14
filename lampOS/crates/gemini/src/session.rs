@@ -716,6 +716,8 @@ where
         timeouts: config.timeouts,
         retain: config.resumption != Resumption::Off,
         silent_calls: Vec::new(),
+        carry_calls: config.carry_calls,
+        carried_calls: Vec::new(),
         shapes: std::env::var_os(SHAPES_ENVIRONMENT).is_some(),
         last_shape: String::new(),
         policy: config.barrier,
@@ -960,6 +962,12 @@ struct Actor<S> {
     session: SessionId,
     timeouts: Timeouts,
     retain: bool,
+    /// Carry a call into the request that replaced its own
+    /// ([`SessionConfig::carry_calls`]).
+    carry_calls: bool,
+    /// Calls carried into the request that replaced theirs, still to be
+    /// answered: owed to the service whatever becomes of either request.
+    carried_calls: Vec<String>,
     /// Calls of silent functions still to be answered. Their request may
     /// have ended; the answer is owed to the service all the same.
     silent_calls: Vec<String>,
@@ -1889,7 +1897,13 @@ impl<S: AsyncRead + AsyncWrite + Unpin> Actor<S> {
                     .position(|pending| *pending == id)
                     .map(|index| self.silent_calls.swap_remove(index))
                     .is_some();
-                if !waiting && !silent {
+                let carried = self
+                    .carried_calls
+                    .iter()
+                    .position(|pending| *pending == id)
+                    .map(|index| self.carried_calls.swap_remove(index))
+                    .is_some();
+                if !waiting && !silent && !carried {
                     self.discard(Discard::StaleToolResponse);
                     return Ok(());
                 }
@@ -1906,10 +1920,14 @@ impl<S: AsyncRead + AsyncWrite + Unpin> Actor<S> {
     async fn tool_calls(&mut self, calls: Vec<crate::ToolCall>) -> Result<()> {
         // Apply any local retirement first so ownership below is current.
         self.retire_active().await?;
-        let owner = self
-            .current
-            .as_mut()
-            .filter(|turn| turn.ended_at.is_some() && turn.tools.len() < crate::MAX_TOOL_CALLS);
+        let owned = self.current.as_ref().is_some_and(|turn| {
+            turn.ended_at.is_some() && turn.tools.len() < crate::MAX_TOOL_CALLS
+        });
+        if !owned && let Some((lineage, from)) = self.carried_into() {
+            self.carry(calls, lineage, from);
+            return Ok(());
+        }
+        let owner = self.current.as_mut().filter(|_| owned);
         let Some(turn) = owner else {
             for call in &calls {
                 let silent = self.shared.silent_tools.contains(&call.name);
@@ -1951,6 +1969,45 @@ impl<S: AsyncRead + AsyncWrite + Unpin> Actor<S> {
             self.emit(Event::ToolCall { lineage, call });
         }
         Ok(())
+    }
+    /// The open request a call nobody owns is carried into, and the request
+    /// it was made for ([`SessionConfig::carry_calls`]): only while the
+    /// barrier stands for the request the open one replaced, which was
+    /// continued and not discarded, no more than
+    /// [`crate::CARRIED_CALL_WINDOW`] ago, on this connection.
+    fn carried_into(&self) -> Option<(Lineage, RequestId)> {
+        if !self.carry_calls || self.carried_calls.len() >= crate::MAX_TOOL_CALLS {
+            return None;
+        }
+        let turn = self.current.as_ref()?;
+        let barrier = self.barrier.as_ref()?;
+        let old = barrier.old?;
+        let discarded = self.shared.discarded_through.load(Ordering::Acquire);
+        (turn.ended_at.is_none()
+            && !turn.retired
+            && old.session == turn.lineage.session
+            && old.request.get() < turn.lineage.request.get()
+            && old.request.get() > discarded
+            && barrier.since.elapsed() <= crate::CARRIED_CALL_WINDOW)
+            .then_some((turn.lineage, old.request))
+    }
+    /// Report calls made for `from`, which the open request replaced, as
+    /// that request's, and owe their answers. The earlier response has made
+    /// them: it is not unanswered, and what it sends next still settles the
+    /// barrier and releases a kept start as it would have.
+    fn carry(&mut self, calls: Vec<crate::ToolCall>, lineage: Lineage, from: RequestId) {
+        if let Some(barrier) = self.barrier.as_mut() {
+            barrier.last_event_at = Clock::now();
+            barrier.unanswered_since = None;
+        }
+        for mut call in calls {
+            if self.carried_calls.len() == crate::MAX_TOOL_CALLS {
+                self.carried_calls.remove(0);
+            }
+            self.carried_calls.push(call.id.clone());
+            call.carried_from = Some(from);
+            self.emit(Event::ToolCall { lineage, call });
+        }
     }
     fn decode(&mut self, bytes: &[u8]) -> Result<wire::ServerFrame> {
         if self.shapes {
@@ -2062,6 +2119,8 @@ impl<S: AsyncRead + AsyncWrite + Unpin> Actor<S> {
                     .retain(|pending| !frame.tool_cancellations.contains(pending));
             }
             self.silent_calls
+                .retain(|pending| !frame.tool_cancellations.contains(pending));
+            self.carried_calls
                 .retain(|pending| !frame.tool_cancellations.contains(pending));
             self.emit(Event::ToolCallsCancelled {
                 session: self.session,

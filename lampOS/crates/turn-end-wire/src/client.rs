@@ -54,6 +54,18 @@ impl WorkerCommand {
             model_sha256: crate::sha256_bytes(crate::SMART_TURN_MODEL_SHA256),
         }
     }
+
+    /// The same worker and pinned model, run fast: its weight
+    /// multiplications in 8 bits by ONNX Runtime on two threads, kept on the
+    /// fastest cores. The worker loads the pinned ONNX Runtime library from
+    /// its own directory and fails at startup without it, which leaves every
+    /// pause on the silence window (docs/endpoint-pilot.md, "The fast
+    /// model"). The model identity in `Ready` is the same file's.
+    pub fn smart_turn_fast(program: PathBuf, model: PathBuf) -> Self {
+        let mut command = Self::smart_turn(program, model);
+        command.args.push("--fast".into());
+        command
+    }
 }
 
 /// Whether the classifier's worker processes are confirmed gone.

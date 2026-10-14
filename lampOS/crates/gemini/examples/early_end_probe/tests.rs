@@ -21,6 +21,7 @@ fn speech() -> Speech {
         check: vec![3_000; 12_000],
         half: vec![4_000; 8_000],
         whole: vec![5_000; 12_000],
+        rest: vec![6_000; 6_000],
     }
 }
 
@@ -81,6 +82,7 @@ async fn serve(mut dial: Dial, script: Arc<Mutex<Script>>, refuse_resumed: bool,
             }
             3_000 => format!("You asked me to remember {}.", memory.join(" and ")),
             4_000 => "The capital of what?".to_owned(),
+            // "What is the capital of Japan?", or "Japan?" after its half.
             _ => "The capital of Japan is Tokyo.".to_owned(),
         };
         dial.service.send(audio(300, 2_400)).await;
@@ -134,30 +136,27 @@ async fn resuming_from_before_the_piece_forgets_it_where_the_service_does() {
     let control = row(&rows, "control");
     assert_eq!(control["answer_mentions"]["orange"], true);
     assert_eq!(control["answer_mentions"]["purple"], true);
-    // Resumed from before the piece, it knows only the first, whether
-    // resumed at once or after the piece's whole answer.
-    for name in ["resume", "resume-late"] {
-        let trial = row(&rows, name);
-        assert_eq!(trial["resumed"], true, "{trial}");
-        assert_eq!(trial["answer_mentions"]["orange"], true, "{trial}");
-        assert_eq!(trial["answer_mentions"]["purple"], false, "{trial}");
-        assert!(trial["resume_setup_ms"].is_u64());
-    }
-    assert_eq!(
-        row(&rows, "resume-late")["piece_answer_before_going_on"]["complete"],
-        true
-    );
-    // The whole question, after a resume or with the note.
-    for name in ["whole-resumed", "whole-labelled"] {
+    // Resumed from before the piece, it knows only the first.
+    let trial = row(&rows, "resume");
+    assert_eq!(trial["resumed"], true, "{trial}");
+    assert_eq!(trial["answer_mentions"]["orange"], true, "{trial}");
+    assert_eq!(trial["answer_mentions"]["purple"], false, "{trial}");
+    assert!(trial["resume_setup_ms"].is_u64());
+    // The whole question after a resume or with its note, and the rest of
+    // it with the voice's note.
+    for name in ["whole-resumed", "whole-labelled", "rest-labelled"] {
         assert_eq!(row(&rows, name)["answer_mentions"]["tokyo"], true);
     }
     // Every resumed session presented the handle given just after the
     // first answer (orange), never the newer one given after the piece.
-    assert_eq!(script.presented, [1_000, 1_000, 1_000]);
-    // The note went once, inside the whole question, before its end.
-    assert_eq!(script.notes, [(NOTE.to_owned(), 5_000)]);
-    // Five sessions and three resumed.
-    assert_eq!(script.dials, 8);
+    assert_eq!(script.presented, [1_000, 1_000]);
+    // Each note went once, inside its question, before its end.
+    assert_eq!(
+        script.notes,
+        [(NOTE.to_owned(), 5_000), (REST_NOTE.to_owned(), 6_000)]
+    );
+    // Five sessions and two resumed.
+    assert_eq!(script.dials, 7);
 }
 
 #[tokio::test(start_paused = true)]
@@ -173,13 +172,13 @@ async fn nothing_private_is_printed() {
 #[tokio::test(start_paused = true)]
 async fn a_handle_refused_on_resume_is_said_and_not_tried_again() {
     let (rows, _, script) = probe_with(true, false).await;
-    for name in ["resume", "resume-late", "whole-resumed"] {
+    for name in ["resume", "whole-resumed"] {
         let trial = row(&rows, name);
         assert_eq!(trial["resumed"], false, "{trial}");
         assert!(trial["resume_refused"].is_string());
     }
-    // One session for each trial and one refused resume for three of them.
-    assert_eq!(script.dials, 8);
+    // One session for each trial and one refused resume for two of them.
+    assert_eq!(script.dials, 7);
 }
 
 #[tokio::test(start_paused = true)]
@@ -206,11 +205,42 @@ fn the_dry_run_shows_fifteen_requests_and_the_note() {
     assert_eq!(shown["requests"], 15);
     assert_eq!(shown["at_most_requests"], 20);
     assert_eq!(shown["trials"].as_array().unwrap().len(), 5);
-    let labelled = &shown["trials"][4];
+    let labelled = &shown["trials"][3];
     assert_eq!(labelled["trial"], "whole-labelled");
     assert!(labelled.to_string().contains(NOTE));
+    let rest = &shown["trials"][4];
+    assert_eq!(rest["trial"], "rest-labelled");
+    assert!(rest.to_string().contains(REST_NOTE));
     assert_eq!(
         shown["trials"][1]["steps"][4]["connect"],
         "a new session, resumed from the handle given before the piece"
     );
+}
+
+/// The voice's own provider file has fields a probe does not use; it is
+/// read as it is, its credential file still held to mode 0600.
+#[test]
+fn the_voices_own_provider_file_is_read_as_it_is() {
+    use std::os::unix::fs::PermissionsExt;
+    let folder = std::env::temp_dir().join(format!("early-end-provider-{}", std::process::id()));
+    std::fs::create_dir_all(&folder).unwrap();
+    let key = folder.join("key");
+    std::fs::write(&key, "placeholder-key\n").unwrap();
+    std::fs::set_permissions(&key, std::fs::Permissions::from_mode(0o600)).unwrap();
+    let file = folder.join("provider.json");
+    std::fs::write(
+        &file,
+        json!({"endpoint": GOOGLE_ENDPOINT, "model": "gemini-3.8-live", "voice": "Kore",
+            "credential_file": key, "instruction_file": "/etc/lampOS/voice/instruction.txt",
+            "resumption": "retain", "search": true})
+        .to_string(),
+    )
+    .unwrap();
+    std::fs::set_permissions(&file, std::fs::Permissions::from_mode(0o600)).unwrap();
+    let read = crate::provider::session(&file);
+    std::fs::set_permissions(&key, std::fs::Permissions::from_mode(0o644)).unwrap();
+    let loose = crate::provider::session(&file);
+    let _ = std::fs::remove_dir_all(&folder);
+    assert!(read.is_ok());
+    assert!(loose.is_err());
 }

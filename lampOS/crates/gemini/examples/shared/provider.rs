@@ -7,8 +7,10 @@ use std::{error::Error, fs, os::unix::fs::PermissionsExt, path::Path};
 
 pub type Outcome<T> = Result<T, Box<dyn Error + Send + Sync>>;
 
+/// The fields of the voice's provider file a probe uses; the voice's own
+/// file has more (`instruction_file`, `resumption`, `search`, ...), which a
+/// probe ignores, so that it reads that file as it is.
 #[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
 pub struct Provider {
     endpoint: String,
     model: String,

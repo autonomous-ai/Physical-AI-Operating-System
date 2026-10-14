@@ -5163,6 +5163,7 @@ fn commit_admitted_input(
         request: turn.turn(),
         privacy_generation: snapshot.microphone_generation(),
         continues: false,
+        continues_cut_off: false,
     });
     let mut current = Reply {
         owner: turn,
@@ -5257,6 +5258,8 @@ fn continue_after_early_end(
         // The same utterance going on: with the switch, the busy-room rule
         // keeps what it knew of the first part (#782).
         continues: crate::attention::cut_keeps_name(),
+        // The model is told this goes on from the request given up.
+        continues_cut_off: true,
     });
     let mut current = Reply {
         owner: turn,
@@ -6248,6 +6251,7 @@ mod tests {
                 request: 1,
                 privacy_generation: 1,
                 continues: false,
+                continues_cut_off: false,
             })
             .unwrap();
         request.confirm_start(1).unwrap();
@@ -7402,6 +7406,7 @@ mod tests {
             request: reply.as_ref().unwrap().owner.turn(),
             privacy_generation: 1,
             continues: false,
+            continues_cut_off: false,
         }
     }
 

@@ -52,6 +52,8 @@ enum Wire {
     /// A capture block, by its number.
     Audio(i16),
     End,
+    /// A note written inside the request's activity.
+    Note(String),
     Other(String),
 }
 
@@ -154,6 +156,8 @@ fn wire(message: &Value) -> Wire {
     } else if let Some(samples) = sent_audio(message) {
         assert!(samples.iter().all(|sample| *sample == samples[0]));
         Wire::Audio(samples[0])
+    } else if let Some(text) = input.get("text").and_then(Value::as_str) {
+        Wire::Note(text.to_owned())
     } else {
         Wire::Other(message.to_string())
     }
@@ -944,8 +948,15 @@ fn resumed_at_three_tenths(name: &str, setup: Setup) {
     assert_eq!(session.given_up(), 1);
     let given_up = &session.events("early_end_given_up")[0];
     assert_eq!(given_up["opening_blocks"], 16);
+    // The successor is told, just before its end, that it goes on from
+    // the request given up (docs/early-end-taken-back.md).
     let mut expected = request(76, 180);
-    expected.extend(request(181, 290 + 20));
+    let mut successor = request(181, 290 + 20);
+    successor.insert(
+        successor.len() - 1,
+        Wire::Note(crate::provider_worker::CUT_OFF_NOTE.to_owned()),
+    );
+    expected.extend(successor);
     assert_eq!(seen.heard(1), expected, "{:?}", seen.heard(1));
     assert_eq!(seen.count(&Wire::Start), 2);
     assert_eq!(seen.count(&Wire::End), 2);
@@ -1194,7 +1205,20 @@ fn lamp_stop_over_an_answer_stops_it_and_only_the_answer_to_the_whole_is_played(
     assert_eq!(heard[starts[1] + 1], Wire::Audio(276));
     assert_eq!(heard[starts[2] + 1], Wire::Audio(346));
     assert_eq!(*heard.last().unwrap(), Wire::End);
-    assert_eq!(heard[heard.len() - 2], Wire::Audio(380 + 20));
+    // "stop." goes on from "Lamp," given up: the model is told so just
+    // before its end, and no other request is.
+    assert_eq!(
+        heard[heard.len() - 2],
+        Wire::Note(crate::provider_worker::CUT_OFF_NOTE.to_owned())
+    );
+    assert_eq!(
+        heard
+            .iter()
+            .filter(|what| matches!(what, Wire::Note(_)))
+            .count(),
+        1
+    );
+    assert_eq!(heard[heard.len() - 3], Wire::Audio(380 + 20));
     // The first answer played until "Lamp," was heard over it, and not a
     // block of it after: every one came before any block of a later turn,
     // and was taken by the speaker within its permit's lease of the
@@ -1369,6 +1393,9 @@ async fn a_name_note_told_with_a_request_ended_early_does_not_survive_it() {
                     Wire::Start => "start".to_owned(),
                     Wire::End => "end".to_owned(),
                     Wire::Audio(value) => format!("audio of {value}"),
+                    // As this test read any other note before notes had
+                    // a kind of their own.
+                    Wire::Note(_) => message.to_string(),
                     Wire::Other(other) => other,
                 }
             });

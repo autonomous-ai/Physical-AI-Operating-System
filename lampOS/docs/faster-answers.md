@@ -893,9 +893,12 @@ the service, which then hears half-sentences as whole ones.
 
 Whether the service can be made to forget such a request, by resuming the
 session from the handle it gave before it or by a note on the whole
-request after it, is the study and probe of `second-P1`
-([early-end-taken-back.md](early-end-taken-back.md)); until it says yes,
-`--early-end-ms` stays off.
+request after it, was the study and probe of `second-P1`
+([early-end-taken-back.md](early-end-taken-back.md)). On lamp-4ace at
+23:10, resuming did not make it forget, and a note made a whole question
+answered as one. Since then the successor of a request given up carries a
+note that it is the rest of it; `--early-end-ms` stays off until the
+probe's `rest-labelled` and the five pause scenes have been run with it.
 
 ## What was not shown
 

@@ -7643,4 +7643,8 @@ mod tests {
             assert_eq!(rig.heard(&mut dial, QUIET).await, expected);
         }
     }
+
+    /// Review of the night of 2026-10-14: tests only
+    /// (`docs/voice-review-2026-10-14.md`).
+    mod review_2026_10_14;
 }

@@ -1,6 +1,6 @@
 """Step 3 of make.sh: the recordings of real people, cut and sorted into sets of clips.
 
-    python clips.py sc|mswc|libri|piper|ami
+    python clips.py sc|mswc|words|libri|piper
 
 Every set is split by speaker, never by clip, and a speaker in a "test" set
 is in no "train" set:
@@ -175,6 +175,78 @@ def mswc() -> None:
         save(name, clips, metas)
 
 
+def word_cuts(aligner, items, name: str) -> None:
+    """Clips of single words that are not targets, cut as the targets are (aligned, a quarter
+    second each side, faded), with where the word is in `span`. `items`: (split, path, word, meta)."""
+    sets = defaultdict(lambda: ([], []))
+    why = Counter()
+    for split, path, word, meta in items:
+        x, rate = sf.read(path, dtype="float32")
+        x = resample_poly(x, 1, rate // RATE).astype(np.float32) if rate != RATE else x
+        words = aligner.words(x, word)
+        if words is None or words[0].score < 0.2 or not (0.08 <= words[0].end - words[0].start <= 1.2):
+            why["poor alignment"] += 1
+            continue
+        w = words[0]
+        y, at = cut(x, w.start, w.end)
+        clips, metas = sets[f"{name}-{split}"]
+        clips.append(to_int16(y))
+        metas.append({**meta, "span": [w.start - at, w.end - at]})
+        why["ok"] += 1
+    print(f"{name}:", dict(why))
+    for set_name, (clips, metas) in sorted(sets.items()):
+        save(set_name, clips, metas)
+
+
+def other_words() -> None:
+    """Words that are not targets, from Speech Commands' other 34 and from MSWC's other words."""
+    from align import Aligner
+
+    aligner = Aligner()
+    root = DATA / "speech_commands"
+    test_list = set((root / "testing_list.txt").read_text().split())
+    val_list = set((root / "validation_list.txt").read_text().split())
+    items = []
+    rng = np.random.default_rng(2)
+    for word in sorted(p.name for p in root.iterdir() if p.is_dir() and not p.name.startswith("_") and p.name != "stop"):
+        files = sorted((root / word).glob("*.wav"))
+        rng.shuffle(files)
+        taken = Counter()
+        for path in files:
+            rel = f"{word}/{path.name}"
+            split = "test" if rel in test_list else "val" if rel in val_list else "train"
+            if split == "val" or taken[split] >= (150 if split == "train" else 30):
+                continue
+            taken[split] += 1
+            items.append((split, path, word, {"id": rel, "speaker": "sc-" + path.name.split("_nohash_")[0], "text": word}))
+    word_cuts(aligner, items, "sc-word")
+
+    speaker_of = {}
+    for split in ["train", "dev", "test"]:
+        with open(DATA / "mswc_splits" / f"{split}.csv") as f:
+            for row in csv.DictReader(f):
+                speaker_of[row["LINK"]] = row["SPEAKER"]
+    items = []
+    count = Counter()
+    for folder in sorted((DATA / "mswc_other").iterdir()):
+        word = folder.name
+        for path in sorted(folder.glob("*.opus")):
+            link = f"{word}/{path.name}"
+            speaker = speaker_of.get(link, "")
+            split = mswc_split(speaker)
+            # At most two clips of a word to train on and one to test on.
+            if count[(word, split)] >= (2 if split == "train" else 1):
+                continue
+            count[(word, split)] += 1
+            items.append((split, path, word, {"id": link, "speaker": "mswc-" + (speaker[:16] or "unknown"), "text": word}))
+    # Every form of a target is left out: those are near misses, kept apart.
+    items = [it for it in items if it[2] not in {"stop", "wait", "hold", *NEAR_MSWC} and len(it[2]) >= 3]
+    # Then 10,000 to train on and 2,500 to test on, chosen by a hash of the clip's name.
+    order = sorted(items, key=lambda it: hashlib.sha1(it[3]["id"].encode()).digest())
+    items = [it for it in order if it[0] == "train"][:10_000] + [it for it in order if it[0] == "test"][:2_500]
+    word_cuts(aligner, items, "mswc-word")
+
+
 def librispeech() -> None:
     from align import Aligner
 
@@ -220,4 +292,4 @@ def piper() -> None:
 
 if __name__ == "__main__":
     for what in sys.argv[1:]:
-        {"sc": speech_commands, "mswc": mswc, "libri": librispeech, "piper": piper}[what]()
+        {"sc": speech_commands, "mswc": mswc, "words": other_words, "libri": librispeech, "piper": piper}[what]()

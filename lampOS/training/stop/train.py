@@ -50,47 +50,101 @@ def load(pattern: str) -> dict:
     return out
 
 
+def steps_since_first(x: np.ndarray) -> np.ndarray:
+    """For each input, how many 80 ms steps after the first input of its example it is.
+
+    The inputs of one example are kept in order, 80 ms apart, so each holds
+    fifteen of the sixteen embeddings of the one before it. A target
+    example's first input sees 0.02 to 0.10 s past the word's end, so this
+    says how long ago the word ended.
+    """
+    same = np.zeros(len(x), bool)
+    for i in range(1, len(x), 65536):
+        j = min(len(x), i + 65536)
+        same[i:j] = np.all(x[i:j, :15] == x[i - 1 : j - 1, 1:], axis=(1, 2))
+    out = np.zeros(len(x), np.int16)
+    for i in range(1, len(x)):
+        if same[i]:
+            out[i] = out[i - 1] + 1
+    return out
+
+
 class Listener(torch.nn.Module):
-    def __init__(self, hidden: int, mean: np.ndarray, scale: np.ndarray):
+    """`flat`: two Gemm layers on all sixteen embeddings at once. `time`: the
+    same small filters slid along the sixteen (two 1-D convolutions, three
+    embeddings wide), the largest of each filter's answers kept, then one Gemm."""
+
+    def __init__(self, hidden: int, mean: np.ndarray, scale: np.ndarray, shape: str = "flat"):
         super().__init__()
+        self.shape = shape
         self.register_buffer("mean", torch.from_numpy(mean.astype(np.float32)))
         self.register_buffer("scale", torch.from_numpy(scale.astype(np.float32)))
-        self.first = torch.nn.Linear(16 * 96, hidden)
-        self.second = torch.nn.Linear(hidden, 64)
-        self.last = torch.nn.Linear(64, 1)
+        if shape == "flat":
+            self.first = torch.nn.Linear(16 * 96, hidden)
+            self.second = torch.nn.Linear(hidden, 64)
+            self.last = torch.nn.Linear(64, 1)
+        else:
+            self.first = torch.nn.Conv1d(96, hidden, 3)
+            self.second = torch.nn.Conv1d(hidden, hidden, 3)
+            self.last = torch.nn.Linear(hidden, 1)
         self.drop = torch.nn.Dropout(0.2)
 
     def logits(self, x: torch.Tensor) -> torch.Tensor:
-        x = ((x - self.mean) / self.scale).reshape(len(x), -1)
+        x = (x - self.mean) / self.scale
+        if self.shape == "flat":
+            x = x.reshape(len(x), -1)
+            x = self.drop(torch.relu(self.first(x)))
+            x = self.drop(torch.relu(self.second(x)))
+            return self.last(x)[:, 0]
+        x = x.transpose(1, 2)
         x = self.drop(torch.relu(self.first(x)))
         x = self.drop(torch.relu(self.second(x)))
-        return self.last(x)[:, 0]
+        return self.last(x.amax(dim=2))[:, 0]
 
 
 def export(model: Listener, path: Path) -> None:
-    """Write the model as plain ONNX ops, the shift and scale folded into the first Gemm."""
+    """Write the model as plain ONNX ops, the shift and scale folded into the first layer."""
     import onnx
     from onnx import TensorProto, helper, numpy_helper
 
-    mean = np.broadcast_to(model.mean.numpy(), (16, 96)).reshape(-1)
-    scale = np.broadcast_to(model.scale.numpy(), (16, 96)).reshape(-1)
-    w1 = model.first.weight.detach().numpy() / scale[None, :]
-    b1 = model.first.bias.detach().numpy() - w1 @ mean
+    mean = model.mean.numpy()
+    scale = model.scale.numpy()
+    w1 = model.first.weight.detach().numpy()
+    b1 = model.first.bias.detach().numpy()
+    if model.shape == "flat":
+        mean16 = np.broadcast_to(mean, (16, 96)).reshape(-1)
+        w1 = w1 / np.broadcast_to(scale, (16, 96)).reshape(-1)[None, :]
+        b1 = b1 - w1 @ mean16
+    else:
+        w1 = w1 / scale[None, :, None]
+        b1 = b1 - (w1 * mean[None, :, None]).sum(axis=(1, 2))
     weights = {
         "w1": w1, "b1": b1,
         "w2": model.second.weight.detach().numpy(), "b2": model.second.bias.detach().numpy(),
         "w3": model.last.weight.detach().numpy(), "b3": model.last.bias.detach().numpy(),
     }
     inits = [numpy_helper.from_array(v.astype(np.float32), k) for k, v in weights.items()]
-    nodes = [
-        helper.make_node("Flatten", ["input"], ["flat"], axis=1),
-        helper.make_node("Gemm", ["flat", "w1", "b1"], ["h1"], transB=1),
-        helper.make_node("Relu", ["h1"], ["r1"]),
-        helper.make_node("Gemm", ["r1", "w2", "b2"], ["h2"], transB=1),
-        helper.make_node("Relu", ["h2"], ["r2"]),
-        helper.make_node("Gemm", ["r2", "w3", "b3"], ["h3"], transB=1),
-        helper.make_node("Sigmoid", ["h3"], ["output"]),
-    ]
+    if model.shape == "flat":
+        nodes = [
+            helper.make_node("Flatten", ["input"], ["flat"], axis=1),
+            helper.make_node("Gemm", ["flat", "w1", "b1"], ["h1"], transB=1),
+            helper.make_node("Relu", ["h1"], ["r1"]),
+            helper.make_node("Gemm", ["r1", "w2", "b2"], ["h2"], transB=1),
+            helper.make_node("Relu", ["h2"], ["r2"]),
+            helper.make_node("Gemm", ["r2", "w3", "b3"], ["h3"], transB=1),
+            helper.make_node("Sigmoid", ["h3"], ["output"]),
+        ]
+    else:
+        nodes = [
+            helper.make_node("Transpose", ["input"], ["channels"], perm=[0, 2, 1]),
+            helper.make_node("Conv", ["channels", "w1", "b1"], ["h1"], kernel_shape=[3]),
+            helper.make_node("Relu", ["h1"], ["r1"]),
+            helper.make_node("Conv", ["r1", "w2", "b2"], ["h2"], kernel_shape=[3]),
+            helper.make_node("Relu", ["h2"], ["r2"]),
+            helper.make_node("ReduceMax", ["r2"], ["most"], axes=[2], keepdims=0),
+            helper.make_node("Gemm", ["most", "w3", "b3"], ["h3"], transB=1),
+            helper.make_node("Sigmoid", ["h3"], ["output"]),
+        ]
     graph = helper.make_graph(
         nodes,
         "stop",
@@ -116,20 +170,23 @@ def scores_of(model: Listener, x: torch.Tensor) -> np.ndarray:
 
 
 def validate(model, check: dict, check_x: torch.Tensor, talk_x: torch.Tensor) -> dict:
-    """On held-out speakers: the share of target inputs scored at least each threshold, by level,
-    and hearings an hour in an hour of held-out readers."""
+    """On held-out speakers: the share of target examples whose best score of their nine inputs
+    reaches each threshold, by level, and hearings an hour in an hour of held-out readers."""
     s = scores_of(model, check_x)
     talk = scores_of(model, talk_x)
     hours = len(talk) * 0.08 / 3600
-    pos = check["y"] == 1
-    level = check["level"].astype(np.float32)
+    pos = np.flatnonzero(check["y"] == 1)
+    example = np.cumsum(check["since"][pos] == 0) - 1
+    best = np.full(example[-1] + 1, -1.0)
+    np.maximum.at(best, example, s[pos])
+    level = np.zeros(len(best), np.float32)
+    level[example] = check["level"].astype(np.float32)[pos]
     bands = {"alone": level > 50, "0..6": (level >= 0) & (level <= 6), "-10..0": (level >= -10) & (level < 0), "-15..-10": (level >= -15) & (level < -10), "-20..-15": level < -15}
     out = {}
     for least in [0.5, 0.8, 0.9, 0.95, 0.98, 0.99]:
         row = {"fa_per_h": len(hearings(talk, least)) / hours}
         for band, sel in bands.items():
-            sel = sel & pos
-            row[band] = float(np.mean(s[sel] >= least)) if sel.any() else float("nan")
+            row[band] = float(np.mean(best[sel] >= least)) if sel.any() else float("nan")
         out[least] = row
     return out
 
@@ -137,9 +194,12 @@ def validate(model, check: dict, check_x: torch.Tensor, talk_x: torch.Tensor) ->
 def main() -> None:
     p = argparse.ArgumentParser()
     p.add_argument("--hidden", type=int, default=128)
+    p.add_argument("--shape", choices=["flat", "time"], default="flat")
+    p.add_argument("--hard", type=int, default=1, help="draw the negatives scored highest more often after half the steps (1) or not (0)")
     p.add_argument("--steps", type=int, default=20000)
     p.add_argument("--batch", type=int, default=1024)
     p.add_argument("--lowest", type=float, default=-20.0)
+    p.add_argument("--latest", type=int, default=8, help="train on target inputs up to this many steps after the first")
     p.add_argument("--out", default=str(MODEL_DIR / "stop.onnx"))
     p.add_argument("--seed", type=int, default=0)
     args = p.parse_args()
@@ -149,10 +209,12 @@ def main() -> None:
     words = load("words-*.npz")
     talk = load("talk-*.npz")
     check = load("check-[0-9]*.npz")
+    check["since"] = steps_since_first(check["x"])
     check_talk = load("check-talk-*.npz")
     wy = words["y"]
     wl = words["level"].astype(np.float32)
-    pos = np.flatnonzero((wy == 1) & (wl >= args.lowest))
+    since = steps_since_first(words["x"])
+    pos = np.flatnonzero((wy == 1) & (wl >= args.lowest) & (since <= args.latest))
     near = np.flatnonzero(wy == 0)
     wx = torch.from_numpy(words["x"])
     tx = torch.from_numpy(talk["x"])
@@ -167,7 +229,7 @@ def main() -> None:
     sample = np.concatenate([words["x"][rng.choice(len(wy), 20000)], talk["x"][rng.choice(len(tx), 20000)]]).astype(np.float32)
     mean = sample.mean(axis=(0, 1))
     scale = sample.std(axis=(0, 1)) + 1e-3
-    model = Listener(args.hidden, mean, scale)
+    model = Listener(args.hidden, mean, scale, args.shape)
     opt = torch.optim.AdamW(model.parameters(), lr=1e-3, weight_decay=1e-3)
     sched = torch.optim.lr_scheduler.OneCycleLR(opt, max_lr=2e-3, total_steps=args.steps, pct_start=0.1)
     loss_fn = torch.nn.BCEWithLogitsLoss(reduction="none")
@@ -175,7 +237,7 @@ def main() -> None:
     q = args.batch // 4
     hard_talk = hard_near = None
     for step in range(args.steps):
-        if step == args.steps // 2:
+        if args.hard and step == args.steps // 2:
             ts = scores_of(model, tx)
             ns = scores_of(model, wx[near])
             hard_talk = np.argsort(ts)[-max(1000, len(ts) // 50) :]
@@ -208,7 +270,7 @@ def main() -> None:
     export(model, out)
     runs = CACHE / "runs"
     runs.mkdir(parents=True, exist_ok=True)
-    torch.save({"state": model.state_dict(), "hidden": args.hidden, "args": vars(args)}, runs / f"{out.stem}.pt")
+    torch.save({"state": model.state_dict(), "hidden": args.hidden, "shape": args.shape, "args": vars(args)}, runs / f"{out.stem}.pt")
     (runs / f"{out.stem}.validation.json").write_text(json.dumps({str(k): v for k, v in validate(model, check, cx, ctx).items()}, indent=1))
     print(f"wrote {out} ({out.stat().st_size} bytes)")
 

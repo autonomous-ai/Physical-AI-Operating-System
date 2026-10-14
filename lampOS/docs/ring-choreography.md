@@ -84,8 +84,9 @@ started with `--eye`). Played a request at 20:16 with no face in view, the
 lamp stood and listened with the whole ring lit, as before. The look toward
 a face is not yet seen on the lamp: a face photograph on the screen in front
 of the lamp, which the eyes found in every look on 2026-10-13, was found in
-none that evening, at any size or place on the screen; it needs a person at
-the lamp. The blink at rest has not been watched on the lamp either.
+none that evening, because the screen was locked and showed only its clock
+(the eyes' own frame showed it), so the photograph never appeared. It needs
+the screen unlocked, or a person at the lamp. The blink at rest has not been watched on the lamp either.
 
 Not done, from the task: a muted or asleep look (a muted lamp shows no
 resting face at all, by the guard below, and sleep comes with the touch

@@ -184,6 +184,12 @@ pub struct CliConfig {
     pub read_timeout: Duration,
     pub environment: BTreeMap<String, OsString>,
     pub cancel: Option<Arc<AtomicBool>>,
+    /// Call Harness as the person, without marking the caller as an agent
+    /// (`--harness-as-person`). Off unless set: marked, Harness refuses to
+    /// start a harness until the person lets agents start agents (seen on
+    /// lamp-4ace on 2026-10-14). The person's spoken yes to each exact task
+    /// is still required either way.
+    pub as_person: bool,
 }
 
 impl CliConfig {
@@ -197,6 +203,7 @@ impl CliConfig {
                 .filter_map(|name| std::env::var_os(name).map(|value| ((*name).into(), value)))
                 .collect(),
             cancel: None,
+            as_person: false,
         }
     }
 }
@@ -409,9 +416,13 @@ impl Cli {
         command
             .args(args)
             .env_clear()
-            .envs(&self.config.environment)
-            .env("AI_AGENT", "lampos")
-            .env("HARNESS_AGENT_SESSION", &self.caller_session)
+            .envs(&self.config.environment);
+        if !self.config.as_person {
+            command
+                .env("AI_AGENT", "lampos")
+                .env("HARNESS_AGENT_SESSION", &self.caller_session);
+        }
+        command
             .current_dir(&self.config.environment["HOME"])
             .stdin(Stdio::null())
             .stdout(Stdio::piped())

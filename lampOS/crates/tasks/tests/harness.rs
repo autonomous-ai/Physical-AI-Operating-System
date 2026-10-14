@@ -41,6 +41,7 @@ impl Rig {
                 ("LANG".into(), OsString::from("C")),
             ]),
             cancel: None,
+            as_person: false,
         };
         let rig = Self { root, config };
         rig.plan(
@@ -173,6 +174,28 @@ fn launch_uses_exact_argv_ask_mode_null_stdin_and_stable_generic_identity() {
         }
     }
     assert!(!rig.root.path().join("never").exists());
+}
+
+#[test]
+fn as_the_person_the_call_carries_no_agent_mark_and_is_otherwise_the_same() {
+    let mut rig = Rig::new();
+    rig.config.as_person = true;
+    rig.plan(json!({"machines":{"default":true,"stdin_eof":true},"new":{"default":true,"stdin_eof":true}}));
+    assert_eq!(
+        rig.cli().launch(&launch()),
+        LaunchOutcome::Created {
+            agent_id: AGENT.into()
+        }
+    );
+    let calls = rig.calls();
+    assert_eq!(calls.len(), 2);
+    assert_eq!(calls[1]["args"][0], "new");
+    for call in calls {
+        let environment = call["environment"].as_object().unwrap();
+        assert_eq!(environment.len(), 3, "{environment:?}");
+        assert!(!environment.contains_key("AI_AGENT"));
+        assert!(!environment.contains_key("HARNESS_AGENT_SESSION"));
+    }
 }
 
 #[test]

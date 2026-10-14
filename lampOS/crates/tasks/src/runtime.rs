@@ -602,12 +602,14 @@ pub fn serve<C: Clock>(
     config: Config,
     clock: C,
     executable: PathBuf,
+    as_person: bool,
     stop: Arc<AtomicBool>,
 ) -> io::Result<()> {
     let cancelled = stop.clone();
     serve_with_adapter(config, clock, stop, move |session| {
         let mut cli = CliConfig::new(executable);
         cli.cancel = Some(cancelled);
+        cli.as_person = as_person;
         Cli::new(cli, session.into())
     })
 }

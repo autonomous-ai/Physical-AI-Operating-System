@@ -63,6 +63,15 @@ directories and run the explicitly enabled service:
   --targets /etc/lampOS/tasks.json --harness /absolute/provisioned/harness
 ```
 
+`--harness-as-person` (off unless set; added 2026-10-14 by the first
+builder) calls Harness without `AI_AGENT` and `HARNESS_AGENT_SESSION`, so
+Harness takes the call as the person's own. Marked as an agent, `harness new`
+is refused until the person turns on "Agents can start other agents", an
+account-wide setting (see "First real Harness check" below). The owner chose
+the plain CLI on 2026-10-14 ("just use the harness cli to create a new
+claude code session"); the person's spoken yes to each exact task is still
+what lets a task start.
+
 `--bus-root ABS` selects an isolated bus for qualification. `--run-for-ms N`
 bounds an operator run to 1–86,400,000 ms; it does not cancel remote work.
 Linux reads its boot identity itself; development hosts require `--boot-id ID`.

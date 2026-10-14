@@ -48,6 +48,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     let mut boot_id = None;
     let mut bus_root = PathBuf::from(lamp_bus::DEFAULT_ROOT);
     let mut run_for = None;
+    let mut as_person = false;
     let mut seen = std::collections::BTreeSet::new();
     while let Some(arg) = args.next() {
         if !seen.insert(arg.clone()) {
@@ -55,6 +56,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         }
         match arg.as_str() {
             "--enable" => enabled = true,
+            "--harness-as-person" => as_person = true,
             "--dir" => dir = Some(PathBuf::from(args.next().ok_or("--dir needs a path")?)),
             "--socket" => socket = Some(PathBuf::from(args.next().ok_or("--socket needs a path")?)),
             "--voice-socket" => {
@@ -106,7 +108,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     let stop = Arc::new(AtomicBool::new(false));
     signal_hook::flag::register(signal_hook::consts::SIGTERM, stop.clone())?;
     signal_hook::flag::register(signal_hook::consts::SIGINT, stop.clone())?;
-    serve(config, clock, executable, stop)?;
+    serve(config, clock, executable, as_person, stop)?;
     Ok(())
 }
 

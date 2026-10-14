@@ -1549,15 +1549,10 @@ class TTSService:
         return out
 
     def _resample(self, audio, src_rate: int, dst_rate: int):
-        """Linear interpolation resample (no scipy needed)."""
-        np = self._np
+        """Band-limited whole-clip resample, same filter as streamed TTS."""
         if src_rate == dst_rate:
             return audio
-        ratio = dst_rate / src_rate
-        n_out = math.ceil(len(audio) * ratio)
-        x_old = np.linspace(0, 1, len(audio))
-        x_new = np.linspace(0, 1, n_out)
-        return np.interp(x_new, x_old, audio).astype(np.float32)
+        return PCMResampler(src_rate, dst_rate).process(audio, final=True)
 
     def _split_text_into_growing_sentence_chunks(
         self,

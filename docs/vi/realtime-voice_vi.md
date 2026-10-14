@@ -1277,14 +1277,20 @@ Khoảng cách giữa hai lần kiểm tra stop có thể tăng tối đa 30 ms 
 Đây không phải giới hạn thời gian loa ngừng tiếng: audio đã xếp trong buffer
 thiết bị vẫn có thể còn phát sau khi stop.
 
-TTS thông thường qua provider (gồm ElevenLabs PCM 24 kHz phát ở 44.1 kHz)
-dùng nội suy tuyến tính liên tục qua các chunk PCM từ mạng trong từng yêu cầu
-tổng hợp. Bộ resample giữ mẫu tại biên và clock mẫu thay vì bắt đầu lại nội suy
-ở mỗi chunk. Khi EOF bình thường, mẫu cuối được giữ lại sẽ được xuất để bảo đảm
+TTS thông thường qua provider (gồm ElevenLabs và Phonon PCM 24 kHz phát ở
+44.1 kHz) dùng resample giới hạn băng tần liên tục qua các chunk PCM từ mạng
+trong từng yêu cầu tổng hợp: sinc có cửa sổ Kaiser (24 điểm cắt không mỗi bên,
+tần số cắt 45% tần số lấy mẫu thấp hơn, beta 8) tính theo từng pha polyphase.
+Nội suy tuyến tính trước đây phản chiếu giọng 24 kHz lên dải 12–22 kHz chỉ thấp
+hơn phần cao thật ~10 dB, nghe như tiếng rít với giọng sáng; bộ lọc đưa các ảnh
+này xuống dưới −95 dB và tốn ~2.4% một nhân CPU của đèn theo thời gian thực. Bộ
+resample giữ lịch sử bộ lọc và clock mẫu thay vì bắt đầu lại ở mỗi chunk, và giữ
+lại đầu ra một nửa độ rộng bộ lọc (27 mẫu đầu vào, ~1 ms ở 24 kHz). Khi EOF bình
+thường, phần đuôi được giữ lại sẽ được xuất để bảo đảm
 `ceil(N * output_rate / input_rate)` mẫu đầu ra với `N` mẫu đầu vào; khi hủy thì
 không xuất phần đuôi này. Các yêu cầu tổng hợp phần đầu, phần đuôi và trong hàng
-đợi có trạng thái resample riêng. Resample native realtime và resample toàn
-file WAV cache không đổi.
+đợi có trạng thái resample riêng. Câu WAV cache dùng cùng bộ lọc trên cả clip.
+Resample native realtime không đổi (tuyến tính).
 
 Resample tham chiếu AEC cache hệ số FIR Kaiser mặc định của SciPy theo tỉ lệ
 tần số lấy mẫu đã rút gọn và dtype (tối đa 32 mục), tránh thiết kế lại bộ lọc

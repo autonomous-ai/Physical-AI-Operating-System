@@ -1321,14 +1321,20 @@ cancellation between blocks. This can add up to 30 ms to the interval between
 stop checks compared with the old loop. This is not an acoustic stop bound:
 audio already queued in the output device can remain audible after a stop.
 
-Regular provider TTS (including ElevenLabs PCM at 24 kHz played at 44.1 kHz)
-uses continuous linear resampling across network PCM chunks within each
-synthesis request. It retains the boundary sample and sample clock instead of
-restarting interpolation at every chunk. Normal EOF flushes the held final
-sample to preserve `ceil(N * output_rate / input_rate)` output samples for `N`
-input samples; cancellation does not flush a tail. Head, tail, and queued
-synthesis requests each have independent resampling state. Native realtime
-resampling and whole-file cached WAV resampling are unchanged.
+Regular provider TTS (including ElevenLabs and Phonon PCM at 24 kHz played at
+44.1 kHz) uses continuous band-limited resampling across network PCM chunks
+within each synthesis request: a Kaiser-windowed sinc (24 zero crossings per
+side, cutoff at 45% of the lower rate, beta 8) evaluated per polyphase phase.
+Linear interpolation mirrored 24 kHz speech into 12–22 kHz only ~10 dB under
+the real top end, heard as a squeak with bright voices; the filter puts those
+images below −95 dB and costs ~2.4% of one lamp core in real time. It keeps the
+filter history and sample clock instead of restarting at every chunk, and holds
+output back by the filter half-width (27 input samples, ~1 ms at 24 kHz).
+Normal EOF flushes the held tail to preserve `ceil(N * output_rate / input_rate)`
+output samples for `N` input samples; cancellation does not flush a tail. Head,
+tail, and queued synthesis requests each have independent resampling state.
+Cached WAV phrases use the same filter on the whole clip. Native realtime
+resampling is unchanged (linear).
 
 AEC reference resampling caches SciPy's default Kaiser FIR coefficients by
 reduced sample-rate ratio and dtype (up to 32 entries), avoiding filter design

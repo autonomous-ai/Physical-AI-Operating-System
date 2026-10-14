@@ -25,7 +25,7 @@ log and nothing a lamp runs ([joining.md](joining.md),
 | 10 | A reference that follows the microphone's clock | `second/reference-clock` | 2026-10-14 | on `lamp-voice`, behind `--echo-reference steady`; on the lamp's recordings, mixed (two up, two down, one held) |
 | 20 | The replay takes the lamp's own recordings | `second/replay-capture-clocked` | 2026-10-14 | on `lamp-voice`: five of the lamp's recordings followed sample for sample |
 | 19 | The end sent early, the answer played only when sure | `second/early-end` | 2026-10-14 | on `lamp-voice`, behind `--early-end-ms`; played on lamp-4ace at 200 ms: worse; switched off |
-| 36 | Always alive: the idle layer, sleep and waking (issue #714) | `second/always-alive` | 2026-10-14 | being built |
+| 36 | Always alive: the idle layer, sleep and waking (issue #714) | `second/always-alive` | 2026-10-14 | pull request #729 into `lamp-voice`, 2026-10-14 |
 
 ## Proposed tasks
 
@@ -33,9 +33,118 @@ log and nothing a lamp runs ([joining.md](joining.md),
 |---|---|---|---|
 | second-P1 | The early end taken back: resumed from the session's state before the piece, or a labelled continuation, probed once against the service before anything is built | #723 | yes, but (first builder on #723, 20:20): the study and the probe first, the probe's lamp step read-only of the voice's settings, recorded speech, at most 20 requests, `--dry-run`; next after #714 |
 
+## Found, not mine
+
+- **The body's glance from rest gets neither its lead nor its "from where
+  it rested" on a lamp** (2026-10-14, the body's, the fifth builder's;
+  said on #714). Under `--rest-glance on` both need the body to have
+  counted 50 steps at rest, and every request from Expression resets that
+  count; `lamp-expression serve --enable` asks every 20 ms, zero offsets at
+  rest included. How to see it: the body's own `expression_run_with` with
+  zero requests before and after the glance, as on a lamp (a scratch test,
+  not kept), lifts the goal 50 counts, against 80 to 90 in
+  `a_resting_lamp_glances_with_the_switch_and_comes_back_to_rest`, which
+  asks only during the glance; lamp-4ace lifted 49 at 18:40. lamp-52e6's
+  head needs the lead to start from below.
+
 ## Handed back
 
 Newest first.
+
+### Task 36: always alive, the idle layer, sleep and waking (2026-10-14, issue #714)
+
+Ready for lamp-voice: yes (#729)
+
+**Kind: off unless set.** Nothing changes unless Expression is started
+with a catalogue that has an `alive` part
+(`crates/expression/alive-behaviours.json`, lamp-4ace's catalogue with
+one). Without it the engine has no idle layer at all (`life` is `None`)
+and every existing Expression test passes unchanged; the new inputs it
+subscribes to (`controls/gesture`, `schedule/due`) are read and ignored.
+`serve` refuses a catalogue with sleep unless `--utc-offset-minutes` is
+given.
+
+**Built** (one commit, `928ad1a57` on `second/always-alive`, on `lamp-voice`
+at `b9eadf847`), all in `crates/expression` (the third builder's crate; the
+task names it) and its documents:
+
+- `src/alive.rs`: the `alive` catalogue part with its bounds, and the
+  layer: a breath phase-locked to the ring's own (the same function of the
+  boot clock as `ring_face.rs`, so no message between them), drifts every
+  30 to 90 s from a fixed hash (no randomness), in and out over 0.35 s,
+  none while a face stays close and still under the light; sleep at night
+  after 15 minutes of nobody, a slow breath and a bow, no clip begins;
+  waking by the name, an enabled tap or stroke, a newly due reminder, its
+  own answer, or the first face of the morning, with a 2.7 s stretch that
+  crosses back to the normal plan; energy as size and pace.
+- `engine.rs`: three inputs (`Touch`, `Due`, `DayTime`), the layer laid
+  under the plan, clips held while asleep. `runtime.rs` subscribes to the
+  two topics and tells the time of day every minute (`with_local_time`).
+  `main.rs`: `serve --utc-offset-minutes`, `replay --long`,
+  `import --long --utc-offset-minutes`. `replay.rs`: the long bounds (an
+  hour and five minutes), the time of day added to an import, and a
+  summary of each behaviour's ticks and starts, the largest change in one
+  tick and the farthest asked.
+- `docs/alive.md` (new), `docs/expression.md` (a section, the inputs,
+  the long replay).
+
+**Measured, on the M2 Max laptop, not on a lamp.** The tests: 16 through
+the engine and 6 of replay, import and the live service (in
+`docs/alive.md`, "Measured"). A written hour through the built
+`lamp-expression replay --long`: by day, breathing all hour and 53 drifts,
+the largest change in one tick 0.0022 rad (the layer coming in); at night
+from 22:45, asleep at 23:00 after 15 minutes of nobody, 14 drifts before
+it, none while it nodded off, and no change in one tick larger than the
+layer's coming in.
+
+**Read in the body, not changed:** at rest lamp-4ace's head may lift 50
+counts but dip only 15 and roll 1, so the resting layer only lifts the
+head; with the planner asking every 20 ms the body follows small slow
+lifts a count a step, and a zero stream writes nothing (a scratch test on
+the body's own harness, not kept).
+
+**Gate**, on the M2 Max: `cargo fmt --all --check` passes; `cargo clippy
+-p lamp-expression -p lamp-lean -p lamp-voice --all-targets -- -D
+warnings` clean; `cargo test -p lamp-expression` 203 passed (23 new);
+`cargo test -p lamp-voice -- --test-threads=1` 1,027 passed, 6 ignored;
+`cargo test -p lamp-lean` 61 passed, 2 ignored; `cargo build --workspace`
+passes. The voice and lean tests ran before the last two changes inside
+`alive.rs` (the slow fade into sleep, no drift while the layer goes out),
+which neither uses. Native ARM64 run 38581248942 on `928ad1a57`: green,
+3,838 tests passed, 0 failed, 29 ignored (its 255 `test result` lines).
+
+**What to run on the lamp**, smallest first (`docs/alive.md`, "What to
+run on the lamp"): (1) record a quiet hour with `lamp-bus record ...
+--seconds 3600 --max-mb 128`, `lamp-expression import --long
+--utc-offset-minutes 420`, `lamp-expression replay --long --enable
+--catalogue alive-behaviours.json`, and read the summary: no input
+refused, breathing nearly every tick, about a drift a minute, the largest
+step under 0.003 rad; (2) install the catalogue and add `--catalogue ...
+--utc-offset-minutes 420` to the `serve --enable` command, the body
+keeping `LAMP_EXPRESSION_BODY=on` and `--rest-glance on`, and its own
+`--idle on` off for one idle author; (3) ten minutes at rest standing and
+folded, and once at night (or with `night` and `nobody_us` set short).
+
+**Where it is most likely wrong on the lamp:** (1) the breath too small
+for the head servo to show (20 counts asked at 12 counts a second; a
+25-count ask reached 12 to 14 on lamp-52e6), or shown in steps that read
+as a servo hunting: `breath.inhale` to -0.045, or to 0; (2) the servo
+heard at rest by the microphones the name listener uses; (3) sleep broken
+by talk: Expression holds its own plan, but the body's listening pose
+answers any turn the voice takes, so a sleep that holds needs the voice or
+the body to know it (#713); (4) the 15-count bow unseen; (5) the work
+light's face size and 5 s guessed.
+
+**Found, not mine** (said on #714): with `--rest-glance on` and Expression
+serving, the body never counts 50 steps at rest, so the rest glance's
+"from where it rested" and 40-count lift lead never engage; the glance
+lifts 50 counts against 80 to 90 in the body's own test (simulated
+servos), as lamp-4ace's 49 at 18:40. It matters for lamp-52e6's head.
+
+**Not shown:** anything on a lamp; a real quiet hour (asked on #714; the
+hours above are written); energy and "asleep" from the inner state
+(#713); the arm's stretch (the body's `stretching` clip); the ring's look
+while asleep.
 
 ### Task 5: the name, heard as a bare "Lamp" (2026-10-14, issue #694)
 

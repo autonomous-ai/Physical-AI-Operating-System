@@ -28,7 +28,7 @@ jobs:
         run: |
           apt-get update
           DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-            ca-certificates curl git build-essential pkg-config clang libclang-dev libasound2-dev
+            ca-certificates curl git build-essential pkg-config clang libclang-dev libasound2-dev procps file
       - uses: actions/checkout@v4
       - name: Rust 1.96.0
         run: |

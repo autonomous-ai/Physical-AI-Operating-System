@@ -252,11 +252,28 @@ open-vocabulary prompt; omit to use the detector's default class list.
 ```json
 // request  (ObjectDetectRequest)
 {"image_b64": "<base64 image>", "classes": ["person", "chair"]}
+// or, with a server-side prompt preset
+{"image_b64": "<base64 image>", "preset": "fire_hazard_v1"}
 // response (ObjectDetectResponse)
 {"detections": [{"class_name": "chair", "xywh": [cx, cy, w, h], "confidence": 0.91}]}
 ```
 
-`POST /api/dl/{detector_name}` is the legacy form: identical body, but the response
+| Field | Type | Meaning |
+|-------|------|---------|
+| `image_b64` | string | Base64 image (required) |
+| `classes` | list of strings, max 500 | Open-vocabulary prompts; omit for the detector's default class list |
+| `preset` | string, max 64 chars | Named prompt list held by the server. A known preset wins over `classes` (they are ignored). A preset the detector does not serve returns **400** (`Unknown preset '<name>' for detector '<detector>'`), checked after the 503 not-loaded check |
+
+Only `owlv2` serves presets today: `fire_hazard_v1`, the 46 prompts HAL's fire-hazard
+check uses (`src/core/perception/object/resources/presets/fire_hazard_v1.txt`). Their
+embeddings are computed once at startup and kept in memory, so a preset request runs only
+the image graph, and each `class_name` in the reply is one of the preset's prompts. Any
+preset sent to `yoloworld` returns 400. Preset requests are batched only with other
+requests for the same preset. A server older than this field ignores it and answers 200
+with its default classes, so deploy the server before clients that send `preset`. The
+WebSocket config message has no `preset`.
+
+`POST /api/dl/{detector_name}` is the legacy form: identical body (including `preset` and its 400 rule), but the response
 is a **flat array** of detection items instead of the `{"detections": [...]}` wrapper.
 
 `GET /api/dl/object-detect/models` → `{"models": [{"name": "yoloworld", "ready": true}, ...]}`.

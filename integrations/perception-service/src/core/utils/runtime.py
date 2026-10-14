@@ -15,6 +15,7 @@ def prepare_ort_session(
     model_path: Path,
     *,
     warmup_inputs: dict[str, np.ndarray] | Sequence[dict[str, np.ndarray]] | None = None,
+    trt_profile: dict[str, tuple[str, str, str]] | None = None,
 ) -> ort.InferenceSession:
     """Create an ONNX Runtime session with TensorRT > CUDA > CPU fallback.
 
@@ -22,6 +23,12 @@ def prepare_ort_session(
         model_path: Path to the ONNX model file.
         warmup_inputs: One or more input dicts to run after creation, pre-allocating
             buffers at peak size.
+        trt_profile: Optional explicit TensorRT optimization profile: input name ->
+            (min, opt, max) shape strings such as ``"46x16"``. Without it, TensorRT sizes
+            the profile from the shapes it has seen and rebuilds the engine (minutes, in
+            the middle of a request) the first time a larger shape arrives. With it, the
+            engine is built once for the whole range, and an input outside ``[min, max]``
+            fails instead of rebuilding. Ignored when TensorRT is not available.
     """
     opts = ort.SessionOptions()
     opts.intra_op_num_threads = 0
@@ -37,23 +44,22 @@ def prepare_ort_session(
     if "TensorrtExecutionProvider" in available:
         trt_cache: str = str(settings.cache_dir / "trt_engines")
         Path(trt_cache).mkdir(parents=True, exist_ok=True)
-        providers.append(
-            (
-                "TensorrtExecutionProvider",
-                {
-                    "device_id": 0,
-                    "trt_fp16_enable": True,
-                    "trt_engine_cache_enable": True,
-                    "trt_engine_cache_path": trt_cache,
-                    "trt_timing_cache_enable": True,
-                    "trt_timing_cache_path": trt_cache,
-                    "trt_builder_optimization_level": 3,
-                    "trt_max_workspace_size": 2 << 30,
-                    "trt_layer_norm_fp32_fallback": True,
-                    "trt_cuda_graph_enable": False,
-                },
-            )
-        )
+        trt_options: dict[str, object] = {
+            "device_id": 0,
+            "trt_fp16_enable": True,
+            "trt_engine_cache_enable": True,
+            "trt_engine_cache_path": trt_cache,
+            "trt_timing_cache_enable": True,
+            "trt_timing_cache_path": trt_cache,
+            "trt_builder_optimization_level": 3,
+            "trt_max_workspace_size": 2 << 30,
+            "trt_layer_norm_fp32_fallback": True,
+            "trt_cuda_graph_enable": False,
+        }
+        if trt_profile:
+            for i, key in enumerate(("trt_profile_min_shapes", "trt_profile_opt_shapes", "trt_profile_max_shapes")):
+                trt_options[key] = ",".join(f"{name}:{shapes[i]}" for name, shapes in trt_profile.items())
+        providers.append(("TensorrtExecutionProvider", trt_options))
 
     if "CUDAExecutionProvider" in available:
         providers.append(

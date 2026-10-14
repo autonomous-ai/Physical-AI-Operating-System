@@ -5,6 +5,7 @@ import logging
 from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect
 from pydantic import TypeAdapter, ValidationError
 
+from core.perception.object.perception import ObjectPerception
 from dlserver.models.object import (
     ObjectConfigRequest,
     ObjectDetectionItemResponse,
@@ -76,7 +77,7 @@ async def object_detection_ws(websocket: WebSocket, detector_name: str):
                         logger.warning("Unknown object WS message type: %s", raw[:200])
             except WebSocketDisconnect:
                 raise
-            except Exception as e:
+            except Exception:
                 logger.exception("Error processing object detection WS message")
                 await websocket.send_json({"error": "Processing failed"})
 
@@ -89,16 +90,25 @@ async def object_detection_ws(websocket: WebSocket, detector_name: str):
             await session.stop()
 
 
+def _check_preset(object_model: ObjectPerception, detector_name: str, req: ObjectDetectRequest) -> None:
+    """400 for a preset this detector does not serve. A known preset wins over ``classes``."""
+    if req.preset is not None and not object_model.has_preset(req.preset):
+        raise HTTPException(status_code=400, detail=f"Unknown preset '{req.preset}' for detector '{detector_name}'")
+
+
 @http_router.post("/object-detect/{detector_name}", response_model=ObjectDetectResponse)
 async def object_detect(detector_name: str, req: ObjectDetectRequest):
     """Single-shot object detection from a base64-encoded image."""
     object_model = get_object_model(detector_name)
     if object_model is None or not object_model.is_ready():
         raise HTTPException(status_code=503, detail=f"Object detector '{detector_name}' not loaded")
+    _check_preset(object_model, detector_name, req)
 
     try:
         frame = decode_image(req.image_b64)
-        result = await object_model.predict_image(frame, classes=req.classes)
+        result = await object_model.predict_image(
+            frame, classes=None if req.preset is not None else req.classes, preset=req.preset
+        )
 
         logger.info("[Object/%s] Detected %d objects", detector_name, len(result.detections))
         return ObjectDetectResponse.from_object_detection(result)
@@ -117,10 +127,13 @@ async def object_detect_compat(detector_name: str, req: ObjectDetectRequest):
     object_model = get_object_model(detector_name)
     if object_model is None or not object_model.is_ready():
         raise HTTPException(status_code=503, detail=f"Object detector '{detector_name}' not loaded")
+    _check_preset(object_model, detector_name, req)
 
     try:
         frame = decode_image(req.image_b64)
-        result = await object_model.predict_image(frame, classes=req.classes)
+        result = await object_model.predict_image(
+            frame, classes=None if req.preset is not None else req.classes, preset=req.preset
+        )
 
         logger.info("[Object/%s] Detected %d objects", detector_name, len(result.detections))
         return [

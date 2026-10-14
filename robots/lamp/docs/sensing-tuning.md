@@ -464,6 +464,75 @@ The `flushing` line shows the raw label list — that's the mode-over-samples th
 
 ---
 
+## Fire Hazard
+
+**Files:** `hal/config.py`, `hal/drivers/sensing/perceptions/processors/fire_hazard.py`,
+`hal/drivers/sensing/perceptions/processors/fire_gate.py`. How the pipeline behaves:
+[Sensing behavior](sensing-behavior.md#fire-hazard). Runs only with the owner's
+`cloud_perception.fire_hazard` opt-in (not an env var).
+
+| Env var | Default | What it does |
+|---|---|---|
+| `HAL_FIRE_HAZARD_CHECK_INTERVAL_S` | `5.0` | Min gap between checks. Checks run on the 2 s sensing tick, so 5 s means about every 6 s; 0 checks every tick |
+| `HAL_FIRE_HAZARD_GATE_SCORE_THRESHOLD` | `0.2` | On-lamp gate: a `fire`/`smoke` score at or above this sends the frame to OWLv2 and starts escalation |
+| `HAL_FIRE_HAZARD_GATE_MODEL_PATH` | `/root/local/models/yolo26s_fire_e2e_320.onnx` | Gate model file (the directory follows `HAL_FACE_MODEL_PATH` when that is set) |
+| `HAL_FIRE_HAZARD_GATE_MODEL_URL` | model CDN `onnx_models/yolo26s_fire_e2e_320.onnx` | Where the gate model is downloaded from on first use |
+| `HAL_FIRE_HAZARD_GATE_THREADS` | `2` | ONNX Runtime intra-op threads for the gate (CPU, slow cores) |
+| `HAL_FIRE_HAZARD_ESCALATION_HOLD_S` | `10.0` | OWLv2 keeps running every check until this long after its last fire/smoke sighting |
+| `HAL_FIRE_HAZARD_PRESET` | `fire_hazard_v1` | Server prompt preset sent instead of the 46 class strings; empty = always send the classes |
+| `HAL_FIRE_HAZARD_DETECTOR` | `owlv2` | Detector name in the default endpoint path |
+| `DL_FIRE_HAZARD_ENDPOINT` | `/detect/<detector>` | Endpoint path appended to `DL_BACKEND_URL` |
+| `HAL_FIRE_HAZARD_API_TIMEOUT_S` | `15.0` | OWLv2 HTTP timeout |
+| `HAL_FIRE_HAZARD_CONFIDENCE_THRESHOLD` | `0.3` | OWLv2 detections below this are dropped |
+| `HAL_FIRE_HAZARD_OVERLAP_THRESHOLD` | `0.2` | Min fire/object overlap for `safe_fire` or `hazard_fire`; below it a flame is `unsure_fire` |
+| `HAL_FIRE_HAZARD_CONFIRM_S` | `10.0` | How long OWLv2 must keep seeing flame (or smoke) before it alerts |
+| `HAL_FIRE_HAZARD_FLUSH_S` | `10.0` | Min gap between `fire_hazard.detected` events |
+| `HAL_FIRE_HAZARD_DEDUP_WINDOW_S` | `1800.0` | Re-alert pace for a still-confirmed `safe_fire` (30 min) |
+| `HAL_FIRE_HAZARD_REALERT_S` | `60.0` | Re-alert pace for a still-confirmed `hazard_fire`, `unsure_fire` or `smoke` |
+
+Fixed in code, not env: a streak whose last sighting is over 30 s old starts over
+(`_STREAK_MAX_GAP_S`); the 429 pause is 5 s doubling per 429 in a row up to 60 s with
+±20 % jitter (`_RATE_LIMIT_BACKOFF_*`); a gate model that fails to load is retried every
+10 min (`_LOAD_RETRY_S` in `fire_gate.py`).
+
+**How to read the log:**
+
+```bash
+tail -f /var/log/hal/server.log | grep -E '\[fire_(hazard|gate)\]'
+```
+
+```
+[fire_gate] model ready in <ms> ms (/root/local/models/yolo26s_fire_e2e_320.onnx, 320x320, 2 threads, threshold 0.20, names {...})
+[fire_hazard] gate hit: fire 0.41 — escalating to OWLv2
+[fire_hazard] Fire hazard detected: hazard_fire (1 snapshots)
+[fire_gate] model unavailable (...); OWLv2 runs every check until it loads
+[fire_hazard] preset fire_hazard_v1 rejected (400), retrying with classes
+[fire_hazard] preset response has no known classes; is the server older than the preset?
+[fire_hazard] HTTP 429 (quota) — pausing detection for 6s: ...
+```
+
+The hourly `fire_hazard_stats` telemetry row (fields in
+[Sensing behavior](sensing-behavior.md#fire-hazard)) shows the same picture across a
+fleet: `gate_hits`, `escalations`, `owlv2_calls` and their failure counts.
+
+**Tuning:**
+
+| Symptom | Fix |
+|---------|-----|
+| A visible flame never logs `gate hit` | Lower `HAL_FIRE_HAZARD_GATE_SCORE_THRESHOLD` (0.2 → 0.15); more frames go to OWLv2 |
+| One lamp escalates all the time (`gate_hits` / `escalations` high, `owlv2_calls` close to one per check) | Look at what is in view (TV, glare, a lit candle); raise `HAL_FIRE_HAZARD_GATE_SCORE_THRESHOLD` (0.2 → 0.3) only if the scene is not a real flame |
+| `gate_unavailable` high, or `model unavailable` in the log | Check the download from `HAL_FIRE_HAZARD_GATE_MODEL_URL` and the file at `HAL_FIRE_HAZARD_GATE_MODEL_PATH`; until it loads, OWLv2 runs every check |
+| Gate CPU load too high | Lower `HAL_FIRE_HAZARD_GATE_THREADS` (2 → 1); each frame takes longer |
+| Alert comes too late | Lower `HAL_FIRE_HAZARD_CONFIRM_S` (10 → 6) or `HAL_FIRE_HAZARD_CHECK_INTERVAL_S` (5 → 3, about every 4 s); both raise false alerts or uploads |
+| False alerts from a brief flicker | Raise `HAL_FIRE_HAZARD_CONFIRM_S` (10 → 15) or `HAL_FIRE_HAZARD_CONFIDENCE_THRESHOLD` (0.3 → 0.4) |
+| A real hazard repeats too often | Raise `HAL_FIRE_HAZARD_REALERT_S` (60 → 120) |
+| A fireplace or candle alerts too often | Raise `HAL_FIRE_HAZARD_DEDUP_WINDOW_S` (1800 → 3600) |
+| `owlv2_preset_fallback` > 0, or `rejected (400)` in the log | The server does not know the preset: deploy the server, or set `HAL_FIRE_HAZARD_PRESET=` to send classes |
+| `preset response has no known classes` warning | The server is older than the preset and ignores it: deploy the server first |
+| `owlv2_timeout` high | Check DL backend latency; raise `HAL_FIRE_HAZARD_API_TIMEOUT_S` only if replies are slow but arrive |
+
+---
+
 ## Apply Changes
 
 After editing `hal/config.py` or `voice_service.py` on the Pi:

@@ -231,7 +231,7 @@ also uploads and needs the `motion` opt-in:
 | `motion` | full frames (action recognition WS) | every sensing tick unless presence is `AWAY` |
 | `emotion` | face crops | every tick a face is detected locally |
 | `pose` | full frames (pose/RULA WS) | one frame per `HAL_POSE_SAMPLE_INTERVAL_S` (30 s) while presence is `PRESENT`; nothing while away |
-| `fire_hazard` | full frames (OWLv2) | every `HAL_FIRE_HAZARD_CHECK_INTERVAL_S` (5 s), no presence gate |
+| `fire_hazard` | full frames (OWLv2) | only when the on-lamp gate sees fire or smoke, during the escalation that follows, or every check (about every 6 s) while the gate model is unavailable; no presence gate ([Fire hazard](#fire-hazard)) |
 | `speaker_id` | a clip of each utterance, up to `HAL_SPEAKER_MAX_EMBED_AUDIO_S` (20 s) of cleaned speech, including voices of people not enrolled; plus enrollment samples | every utterance, and on each voice enrollment |
 | `speech_emotion` | the audio of each conversation turn (session buffer) | every turn long enough for SER |
 
@@ -249,6 +249,92 @@ deliberate privacy choice: it uploads frames even when nobody in the room asked
 the lamp for anything. Turning one off unregisters its processor before the request
 returns: a check still queued is dropped, an upload already in progress finishes, then
 its connection closes.
+
+## Fire hazard
+
+Runs only with the `fire_hazard` opt-in above. Code:
+`hal/drivers/sensing/perceptions/processors/fire_hazard.py` (`FireHazardPerception`,
+`RemoteFireHazardDetector`) and `fire_gate.py` (`FireGate`). Every knob and its default:
+[Sensing tuning](sensing-tuning.md#fire-hazard).
+
+**Check cadence.** The perception gets a camera frame on each 2 s sensing tick and runs
+a check once `HAL_FIRE_HAZARD_CHECK_INTERVAL_S` (5 s) has passed since the last one, so
+in practice a check runs about every 6 s (every third tick). There is no presence gate:
+fire checks run with nobody home. With the camera off (sleep, privacy) there are no
+frames, so there are no checks.
+
+**On-lamp gate.** Each check first runs a small local model on the frame: YOLO26-S
+end-to-end at 320×320, ONNX Runtime on the CPU with `HAL_FIRE_HAZARD_GATE_THREADS` (2)
+threads pinned to the slow cores. Class names come from the ONNX metadata. The gate hits
+when the best `fire` or `smoke` score is at least `HAL_FIRE_HAZARD_GATE_SCORE_THRESHOLD`
+(0.2). Measured at about 170 ms per frame with 2 threads on a lamp with HAL running. The
+model is downloaded on first use to `/root/local/models/yolo26s_fire_e2e_320.onnx`
+(`onnx_models/yolo26s_fire_e2e_320.onnx` on the model CDN). Loading runs in the
+background and never blocks a check. A lamp downloads the file only when it is missing,
+so replacing the file on the CDN does not update lamps that already have it: delete the
+local file (the next load fetches the new one) or change the file name.
+
+| Gate result | What the check does |
+|---|---|
+| hit | Calls OWLv2 on the same frame and opens an escalation window |
+| miss | No cloud call. Streaks stay as they are: a miss is not an OWLv2 observation |
+| unavailable (still loading, failed to load, or inference error) | Fail-open: calls OWLv2, as before the gate existed. After a failed load the gate retries every 10 min |
+
+**Escalation.** While escalated, every check calls OWLv2 directly, without the gate.
+The window closes `HAL_FIRE_HAZARD_ESCALATION_HOLD_S` (10 s) after the last OWLv2 reply
+that contained any fire or smoke; each such reply extends it. There is no periodic
+backstop call: while the gate is loaded and misses, no frame leaves the lamp.
+
+**OWLv2 call.** HAL sends `{"image_b64": …, "preset": "fire_hazard_v1"}`
+(`HAL_FIRE_HAZARD_PRESET`). The server keeps the 46 prompts of that preset encoded in
+memory ([DL Backend](../../../docs/perception-service.md#what-it-provides)). If the server
+answers 400 (it does not know the preset), HAL resends the same frame with the 46 class
+strings. An empty `HAL_FIRE_HAZARD_PRESET` always sends the class strings. A server
+older than the preset ignores the field and answers 200 with its own default classes, so
+HAL would see no fire; HAL logs a one-time warning when a preset reply names none of its
+prompts. That is why the server must be deployed before a HAL build that sends the
+preset. HAL's prompt files (`resources/{fire,smoke,flammable,safe}_classes.txt`) must
+match the server preset line for line (`hal/test/test_fire_hazard_preset_parity.py`).
+
+The call runs on the perception's own single worker thread, not the shared camera
+pool, with a `HAL_FIRE_HAZARD_API_TIMEOUT_S` (15 s) timeout. At most one call is in
+flight; a check that comes due while one is in flight is skipped.
+
+Detections below `HAL_FIRE_HAZARD_CONFIDENCE_THRESHOLD` (0.3) are dropped. Each smoke
+box becomes `smoke`. Each flame box becomes `safe_fire` when it overlaps a safe object
+(fireplace, candle, gas stove, …) more than any flammable object and that overlap is above
+`HAL_FIRE_HAZARD_OVERLAP_THRESHOLD` (0.2); `hazard_fire` when it overlaps a flammable
+object at least as much and above 0.2; otherwise `unsure_fire`.
+
+**Failed calls.** A timeout, network error, non-200 reply, unreadable reply, unavailable
+encryption or a 429 pause is "no observation": streaks and escalation stay as they were.
+After an HTTP 429 HAL pauses calls for 5 s × 2^(n−1) for the n-th 429 in a row, capped at
+60 s, with ±20 % jitter. Any other reply resets the count.
+
+**Confirm.** Streaks are kept per kind: flame (any of the three fire labels) and smoke.
+A flame streak survives a `safe_fire`/`hazard_fire`/`unsure_fire` label flip; the alert
+type is taken from the confirming reply. A kind is confirmed once OWLv2 has kept seeing
+it for `HAL_FIRE_HAZARD_CONFIRM_S` (10 s). A real reply without that kind ends its
+streak. A streak whose last sighting is more than 30 s old starts over, so a sighting
+long after a run of failed calls cannot confirm at once. At the ~6 s cadence, a steady
+fire is usually confirmed on the third OWLv2 reply, about 12 s after the first gate hit.
+
+**Alerts and repeats.** Confirmed hazards and an annotated snapshot are buffered and sent
+at most every `HAL_FIRE_HAZARD_FLUSH_S` (10 s) as one `fire_hazard.detected` event
+("Fire hazard detected: <types>", with the snapshots). Per type, `safe_fire` re-alerts at
+most every `HAL_FIRE_HAZARD_DEDUP_WINDOW_S` (30 min), while `hazard_fire`, `unsure_fire`
+and `smoke` re-alert every `HAL_FIRE_HAZARD_REALERT_S` (60 s) as long as they stay
+confirmed. A type not sent recently alerts on the next flush. `fire_hazard.detected` is
+never floored by the event cooldown.
+
+**Telemetry.** `hal/telemetry/fire_hazard_metrics.py` reports through the HAL telemetry
+client ([Device telemetry](../../../docs/telemetry.md)). Counts, durations and enum
+values only, never frames:
+
+| Event | When | Params |
+|---|---|---|
+| `fire_hazard_stats` | Once an hour, plus a final row with `observation_complete: false` when the processor is removed | `window_s`, `observation_complete`, `owlv2_calls` (sum of `owlv2_ok`, `owlv2_timeout`, `owlv2_error`, `owlv2_http_error`, `owlv2_rate_limited`, `owlv2_encryption_unavailable`), `owlv2_preset_fallback` (counted on top of the fallback call's own outcome), `owlv2_backoff_skipped` (rounds inside a 429 pause, nothing sent), `owlv2_other`, `owlv2_ms_p50` / `owlv2_ms_max` (successful calls only; null with no sample), `gate_runs`, `gate_hits`, `gate_unavailable`, `gate_ms_p50`, `escalations`, `samples_dropped` (latency samples beyond 720 per window), `gate_state` (`loading`, `ready` or `unavailable`) |
+| `fire_hazard_alert` | Each sent `fire_hazard.detected` | `types` (sorted hazard types), `first_seen_age_ms` (how long the confirming streak had been running when the alert was sent; -1 when unknown), `gate_state` |
 
 ## Motion
 

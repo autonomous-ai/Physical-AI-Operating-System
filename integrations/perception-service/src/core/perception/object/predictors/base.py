@@ -14,11 +14,12 @@ from core.utils.common import get_or_default
 
 
 class ObjectDetector(PredictorBase[cv2t.MatLike, RawObjectDetection], ABC):
-    """Base interface for zero-shot object detectors; predict() takes a typed `classes`."""
+    """Base interface for zero-shot object detectors; predict() takes a typed `classes` or `preset`."""
 
     DEFAULT_MODEL_PATH: Path | None = None
     DEFAULT_REMOTE_URL: str | None = None
     DEFAULT_CLASSES_PATH: Path = RESOURCES_DIR / "default_classes.txt"
+    PRESETS_DIR: Path = RESOURCES_DIR / "presets"
     DEFAULT_THRESHOLD: float = 0.25
 
     def __init__(
@@ -46,6 +47,11 @@ class ObjectDetector(PredictorBase[cv2t.MatLike, RawObjectDetection], ABC):
     def class_names(self) -> list[str]:
         return self._class_names
 
+    @property
+    def preset_names(self) -> frozenset[str]:
+        """Named prompt lists this detector serves without a ``classes`` list; none by default."""
+        return frozenset()
+
     def _load_classes(self, classes_path: Path) -> list[str]:
         return classes_path.read_text().strip().split("\n")
 
@@ -56,6 +62,8 @@ class ObjectDetector(PredictorBase[cv2t.MatLike, RawObjectDetection], ABC):
         *,
         preprocess: bool = True,
         classes: list[str] | None = None,
+        preset: str | None = None,
         **kwargs: Any,
     ) -> list[RawObjectDetection]:
-        return super().predict(input, preprocess=preprocess, classes=classes, **kwargs)
+        """Detect ``classes`` (or the defaults); a ``preset`` from ``preset_names`` replaces them."""
+        return super().predict(input, preprocess=preprocess, classes=classes, preset=preset, **kwargs)

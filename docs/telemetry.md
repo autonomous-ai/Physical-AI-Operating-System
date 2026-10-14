@@ -139,6 +139,7 @@ hostname; `platform` is `device`.
 | `hal/telemetry/voice_metrics.py` | How fast the device acknowledges speech, and whether it ever plays a reply the user moved past | [`docs/voice-metrics.md`](voice-metrics.md) |
 | `hal/telemetry/live_voice.py` | Same voice KPIs for realtime (live) sessions: maps each provider turn to one HAL interaction and feeds `voice_metrics` without guessing audio ownership | [`docs/voice-metrics.md`](voice-metrics.md) |
 | `system/telemetry/voice_task.go` | Whether an accepted voice/chat task actually executed (start, run binding, lifecycle end or local-intent return) | [`docs/voice-metrics.md`](voice-metrics.md) |
+| `hal/telemetry/fire_hazard_metrics.py` | How often fire hazard calls OWLv2, how those calls fail and how long they take, how often the on-lamp gate fires and escalates, and which hazard types alert (`fire_hazard_stats` hourly, `fire_hazard_alert` per alert) | [`robots/lamp/docs/sensing-behavior.md`](../robots/lamp/docs/sensing-behavior.md#fire-hazard) |
 
 ## Validation
 

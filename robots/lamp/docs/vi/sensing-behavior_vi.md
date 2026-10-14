@@ -232,7 +232,7 @@ cũng upload và cần opt-in `motion`:
 | `motion` | nguyên frame (WS nhận dạng hành động) | mỗi tick sensing trừ khi presence là `AWAY` |
 | `emotion` | ảnh mặt đã cắt | mỗi tick có mặt được phát hiện cục bộ |
 | `pose` | nguyên frame (WS pose/RULA) | một frame mỗi `HAL_POSE_SAMPLE_INTERVAL_S` (30 s) khi presence là `PRESENT`; vắng người thì không gửi |
-| `fire_hazard` | nguyên frame (OWLv2) | mỗi `HAL_FIRE_HAZARD_CHECK_INTERVAL_S` (5 s), không kiểm tra presence |
+| `fire_hazard` | nguyên frame (OWLv2) | chỉ khi gate trên đèn thấy lửa hoặc khói, trong lúc escalation sau đó, hoặc mỗi lượt kiểm tra (khoảng 6 s một lần) khi model gate không dùng được; không kiểm tra presence ([Nguy cơ cháy](#fire-hazard)) |
 | `speaker_id` | clip mỗi câu nói, tối đa `HAL_SPEAKER_MAX_EMBED_AUDIO_S` (20 s) tiếng nói đã làm sạch, kể cả giọng người chưa đăng ký; cộng mẫu khi đăng ký giọng | mỗi câu nói VAD bắt được, và mỗi lần enroll / re-embed |
 | `speech_emotion` | audio của mỗi lượt hội thoại (session buffer) | cuối mỗi phiên mic đủ dài |
 
@@ -249,6 +249,93 @@ sáng, mức âm thanh) không bị ảnh hưởng. Bật một cờ là lựa c
 gửi frame lên kể cả khi không ai trong phòng gọi đèn. Tắt một luồng thì processor của nó
 bị gỡ trước khi request trả về: lượt kiểm tra còn trong hàng đợi bị bỏ, upload đang chạy
 dở thì xong rồi kết nối mới đóng.
+
+<a id="fire-hazard"></a>
+## Nguy cơ cháy (Fire hazard)
+
+Chỉ chạy khi đã bật opt-in `fire_hazard` ở trên. Code:
+`hal/drivers/sensing/perceptions/processors/fire_hazard.py` (`FireHazardPerception`,
+`RemoteFireHazardDetector`) và `fire_gate.py` (`FireGate`). Mọi tham số và giá trị mặc định:
+[Tinh chỉnh sensing](sensing-tuning_vi.md#fire-hazard).
+
+**Nhịp kiểm tra.** Perception nhận một frame camera ở mỗi tick sensing 2 s và chạy một
+lượt kiểm tra khi đã qua `HAL_FIRE_HAZARD_CHECK_INTERVAL_S` (5 s) kể từ lượt trước, nên
+thực tế khoảng 6 s mới có một lượt (cứ ba tick một lần). Không kiểm tra presence: kiểm
+tra cháy vẫn chạy khi không có ai ở nhà. Khi camera tắt (ngủ, privacy) thì không có
+frame, nên không có lượt kiểm tra nào.
+
+**Gate trên đèn.** Mỗi lượt kiểm tra trước hết chạy một model nhỏ tại chỗ trên frame:
+YOLO26-S end-to-end 320×320, ONNX Runtime trên CPU với `HAL_FIRE_HAZARD_GATE_THREADS` (2)
+thread, ghim vào các core chậm. Tên class lấy từ metadata của ONNX. Gate "hit" khi điểm
+`fire` hoặc `smoke` cao nhất từ `HAL_FIRE_HAZARD_GATE_SCORE_THRESHOLD` (0.2) trở lên. Đo
+được khoảng 170 ms mỗi frame với 2 thread trên đèn đang chạy HAL. Model được tải ở lần
+dùng đầu tiên về `/root/local/models/yolo26s_fire_e2e_320.onnx`
+(`onnx_models/yolo26s_fire_e2e_320.onnx` trên CDN model). Việc nạp model chạy nền và
+không bao giờ chặn lượt kiểm tra. Đèn chỉ tải file khi chưa có, nên thay file trên CDN
+không cập nhật những đèn đã có file: xoá file trên đèn (lần nạp sau sẽ tải file mới) hoặc
+đổi tên file.
+
+| Kết quả gate | Lượt kiểm tra làm gì |
+|---|---|
+| hit | Gọi OWLv2 trên chính frame đó và mở một cửa sổ escalation |
+| miss | Không gọi cloud. Streak giữ nguyên: một lần miss không phải là quan sát OWLv2 |
+| unavailable (đang nạp, nạp lỗi, hoặc suy luận lỗi) | Fail-open: gọi OWLv2, như trước khi có gate. Sau một lần nạp lỗi, gate thử lại mỗi 10 phút |
+
+**Escalation.** Trong lúc escalation, mỗi lượt kiểm tra gọi thẳng OWLv2, bỏ qua gate.
+Cửa sổ đóng sau `HAL_FIRE_HAZARD_ESCALATION_HOLD_S` (10 s) kể từ reply OWLv2 cuối cùng có
+lửa hoặc khói; mỗi reply như vậy kéo dài nó thêm. Không có lời gọi backstop định kỳ: khi
+gate đã nạp và miss, không frame nào rời khỏi đèn.
+
+**Lời gọi OWLv2.** HAL gửi `{"image_b64": …, "preset": "fire_hazard_v1"}`
+(`HAL_FIRE_HAZARD_PRESET`). Server giữ 46 prompt của preset này dưới dạng đã encode trong
+bộ nhớ ([DL Backend](../../../../docs/vi/perception-service_vi.md#cung-cấp-những-gì)). Nếu
+server trả 400 (không biết preset), HAL gửi lại chính frame đó kèm 46 chuỗi class.
+`HAL_FIRE_HAZARD_PRESET` rỗng thì luôn gửi chuỗi class. Server cũ hơn preset sẽ bỏ qua
+field này và trả 200 với class mặc định của nó, nên HAL sẽ không thấy lửa; HAL ghi một
+cảnh báo duy nhất khi reply của preset không chứa prompt nào của nó. Vì vậy phải deploy
+server trước bản HAL gửi preset. Các file prompt của HAL
+(`resources/{fire,smoke,flammable,safe}_classes.txt`) phải khớp từng dòng với preset của
+server (`hal/test/test_fire_hazard_preset_parity.py`).
+
+Lời gọi chạy trên worker thread riêng của perception, không chiếm pool camera dùng chung,
+với timeout `HAL_FIRE_HAZARD_API_TIMEOUT_S` (15 s). Tối đa một lời gọi đang chạy; lượt
+kiểm tra đến hạn trong lúc đó bị bỏ qua.
+
+Detection dưới `HAL_FIRE_HAZARD_CONFIDENCE_THRESHOLD` (0.3) bị bỏ. Mỗi box khói thành
+`smoke`. Mỗi box lửa thành `safe_fire` khi nó chồng lên một vật an toàn (lò sưởi, nến, bếp
+gas, …) nhiều hơn mọi vật dễ cháy và mức chồng đó trên `HAL_FIRE_HAZARD_OVERLAP_THRESHOLD`
+(0.2); thành `hazard_fire` khi nó chồng lên vật dễ cháy ít nhất ngang bằng và trên 0.2;
+còn lại là `unsure_fire`.
+
+**Lời gọi lỗi.** Timeout, lỗi mạng, reply khác 200, reply không đọc được, mã hóa không
+dùng được hoặc đang tạm dừng vì 429 đều là "không có quan sát": streak và escalation giữ
+nguyên. Sau HTTP 429, HAL tạm dừng gọi 5 s × 2^(n−1) cho lần 429 thứ n liên tiếp, tối đa
+60 s, jitter ±20 %. Mọi reply khác đặt lại bộ đếm.
+
+**Xác nhận.** Streak được giữ theo loại: flame (bất kỳ nhãn lửa nào trong ba nhãn) và
+smoke. Streak flame vẫn giữ khi nhãn đổi qua lại giữa `safe_fire`/`hazard_fire`/
+`unsure_fire`; loại cảnh báo lấy từ reply xác nhận. Một loại được xác nhận khi OWLv2 liên
+tục thấy nó trong `HAL_FIRE_HAZARD_CONFIRM_S` (10 s). Một reply thật không có loại đó sẽ
+kết thúc streak của nó. Streak có lần thấy cuối cũ hơn 30 s thì bắt đầu lại, nên một lần
+thấy rất lâu sau chuỗi lời gọi lỗi không thể xác nhận ngay. Với nhịp ~6 s, đám cháy ổn
+định thường được xác nhận ở reply OWLv2 thứ ba, khoảng 12 s sau lần gate hit đầu tiên.
+
+**Cảnh báo và nhắc lại.** Nguy cơ đã xác nhận cùng ảnh chụp có đánh dấu được buffer và
+gửi tối đa mỗi `HAL_FIRE_HAZARD_FLUSH_S` (10 s) thành một event `fire_hazard.detected`
+("Fire hazard detected: <types>", kèm ảnh chụp). Theo từng loại, `safe_fire` nhắc lại tối
+đa mỗi `HAL_FIRE_HAZARD_DEDUP_WINDOW_S` (30 phút), còn `hazard_fire`, `unsure_fire` và
+`smoke` nhắc lại mỗi `HAL_FIRE_HAZARD_REALERT_S` (60 s) chừng nào còn được xác nhận. Loại
+chưa gửi gần đây sẽ cảnh báo ở lần flush kế tiếp. `fire_hazard.detected` không bao giờ bị
+floor bởi cooldown event.
+
+**Telemetry.** `hal/telemetry/fire_hazard_metrics.py` gửi qua telemetry client của HAL
+([Device telemetry](../../../../docs/vi/telemetry_vi.md)). Chỉ có số đếm, thời lượng và giá
+trị enum, không bao giờ có frame:
+
+| Event | Khi nào | Params |
+|---|---|---|
+| `fire_hazard_stats` | Mỗi giờ một lần, cộng một dòng cuối với `observation_complete: false` khi processor bị gỡ | `window_s`, `observation_complete`, `owlv2_calls` (tổng của `owlv2_ok`, `owlv2_timeout`, `owlv2_error`, `owlv2_http_error`, `owlv2_rate_limited`, `owlv2_encryption_unavailable`), `owlv2_preset_fallback` (đếm thêm, ngoài kết quả của chính lời gọi fallback), `owlv2_backoff_skipped` (lượt rơi vào lúc tạm dừng vì 429, không gửi gì), `owlv2_other`, `owlv2_ms_p50` / `owlv2_ms_max` (chỉ lời gọi thành công; null khi không có mẫu), `gate_runs`, `gate_hits`, `gate_unavailable`, `gate_ms_p50`, `escalations`, `samples_dropped` (mẫu latency vượt 720 mỗi cửa sổ), `gate_state` (`loading`, `ready` hoặc `unavailable`) |
+| `fire_hazard_alert` | Mỗi lần gửi `fire_hazard.detected` | `types` (các loại nguy cơ đã sắp xếp), `first_seen_age_ms` (streak xác nhận đã chạy bao lâu khi cảnh báo được gửi; -1 khi không rõ), `gate_state` |
 
 ## Chuyển động (Motion)
 

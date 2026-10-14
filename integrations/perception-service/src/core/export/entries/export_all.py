@@ -95,21 +95,13 @@ def export_all(output_dir: Path | None = None, opset: int = 17):
         ),
     )
 
-    results["owlv2_raw"] = _run(
-        "owlv2 (raw)",
+    results["owlv2_split"] = _run(
+        "owlv2 (text + image)",
         lambda: export_owlv2.export(
             "google/owlv2-large-patch14-ensemble",
-            output=_output(output_dir, "owlv2_raw.onnx"),
-            opset=opset, nms=False,
-        ),
-        required=True,
-    )
-    results["owlv2_nms"] = _run(
-        "owlv2 (nms)",
-        lambda: export_owlv2.export(
-            "google/owlv2-large-patch14-ensemble",
-            output=_output(output_dir, "owlv2.onnx"),
-            opset=opset, nms=True,
+            text_output=_output(output_dir, "owlv2_text_v1.onnx"),
+            image_output=_output(output_dir, "owlv2_image_v1.onnx"),
+            opset=opset,
         ),
         required=True,
     )

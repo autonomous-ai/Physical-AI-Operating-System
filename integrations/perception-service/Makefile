@@ -10,7 +10,7 @@
        test-fer test-fer-api test-fer-local \
        test-ser test-ser-unit test-ser-api test-ser-local test-embed-unit \
        test-pose test-pose-api test-pose-local \
-       test-object test-object-api test-object-local \
+       test-object test-object-unit test-object-api test-object-local \
        test-audio test-audio-api test-audio-local \
        test-crypto test-crypto-api test-crypto-local \
        test-lb test-lb-local \
@@ -356,7 +356,11 @@ test-pose-api:
 test-pose-local:
 	-python -m pytest tests/pose_local/ -v
 
-test-object: test-object-api test-object-local
+test-object: test-object-unit test-object-api test-object-local
+
+# No leading '-': a failing unit test fails the target.
+test-object-unit:
+	DL_API_KEY=$${DL_API_KEY:-test} python -m pytest tests/object_unit/ -v
 
 test-object-api:
 	-python -m pytest tests/object_api/ -v

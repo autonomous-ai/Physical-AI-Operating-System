@@ -1330,6 +1330,7 @@ A component describes the actual service being shipped:
     "url": "https://updates.example/lamp-os/0.1.0.zip",
     "sha256": "<artifact SHA-256>",
     "min_version_by_device": {"lamp": "0.1.0"},
+    "activate_by_device": {"lamp": true},
     "service": "lamp-os",
     "replaces": ["hal", "os-server"]
   }
@@ -1342,18 +1343,35 @@ system services. Other legacy components are not replacement targets in this rev
 ownership and signed metadata are validated before a service transition. No
 command line or shell hook is accepted from these fields.
 
-Publishing or promoting an entry does not migrate a legacy device. The first
-installation requires an explicit operator action:
+Initial migration is automatic when the signed service entry explicitly sets
+`activate_by_device[device_type]` to `true` and has a nonempty, valid
+`min_version_by_device[device_type]` no greater than the published version.
+The release operator enables this through promotion; the device user does not
+need SSH or a CLI command:
 
 ```bash
-sudo software-update lamp-os --activate
+make promote-service COMPONENT=lamp-os FOR=lamp V=0.1.0 ACTIVATE=1
 ```
 
-Subsequent updates use `software-update lamp-os` or ordinary bootstrap version
-reconciliation, including `min_version_by_device`. The installed service and
-replacement list cannot silently change during an ordinary update. To change
-service topology, publish a new component naming the predecessor in `replaces`
-and explicitly activate it. Independent service-defined components can coexist.
+Bootstrap discovers promoted service components and invokes
+`software-update lamp-os --activate-promoted`. The updater checks the freshly
+fetched signed metadata and actual device type again before using the existing
+service transition transaction. Unsigned metadata, missing device targeting,
+invalid promotion floors, conflicting ownership, and obsolete updater support
+cannot authorize a first installation. Compatible bootstrap and updater releases
+must reach devices before enabling activation in the feed.
+
+Publishing alone does not activate a service. Promotion without `ACTIVATE`
+preserves existing activation settings. `ACTIVATE=0 FOR=lamp` disables future
+first installations for Lamp; it does not uninstall or roll back an active
+service. The flag targets a device type, not a device ID or percentage rollout.
+
+Subsequent versions use ordinary bootstrap version reconciliation, including
+`min_version_by_device`. An installed service's topology cannot silently change:
+publish a new component naming its predecessor in `replaces`, then promote its
+activation. Independent service components can coexist. The manual operator
+command `sudo software-update lamp-os --activate` remains available for testing;
+it is not required for fleet migration.
 
 ### Package adapter contract
 
@@ -1393,7 +1411,7 @@ complete merely because the old binary starts.
 Bootstrap remains independent and updateable. A compatibility declaration prevents
 replacing it or the updater with an older implementation that does not understand
 service ownership and recovery. This compatibility check does not substitute for
-artifact authentication. Updater refresh and CLI activation share the installation
+artifact authentication. Updater refresh and service activation share the installation
 lock; compatibility is rechecked under that lock after download. Real-device
 activation, reboot/power-loss recovery and
 voice/hardware acceptance remain required before rollout.
@@ -1405,7 +1423,7 @@ credentials (`OTA_SIGNING_PRIVATE_KEY`, `OTA_SIGNING_KEY_ID`):
 
 ```bash
 make upload-service COMPONENT=lamp-os V=0.1.0 PACKAGE=/path/lamp-os.zip REPLACES='hal os-server'
-make promote-service COMPONENT=lamp-os FOR=lamp V=0.1.0
+make promote-service COMPONENT=lamp-os FOR=lamp V=0.1.0 ACTIVATE=1
 ```
 
 The publisher requires signed metadata, validates the package, preserves existing
@@ -1413,5 +1431,9 @@ promotion floors and other components, and rejects topology changes under an
 existing key. Package URLs include the content hash. A version cannot be reused
 with different content while it is the feed's current version. Serialize release
 publishing as with the existing release scripts; metadata publishing is not a
-concurrent multi-writer transaction. Promotion updates already activated devices;
-it does not activate a new service on V1 devices.
+concurrent multi-writer transaction. Promotion with `ACTIVATE=1` authorizes automatic first installation on the
+selected device type; later updates continue to follow the promotion floor.
+If an automatic activation fails after the transition starts, recovery restores
+the previous services and records the rejected version so polling does not keep
+retrying it. A pending recovery journal is retained if that rejection cannot be
+persisted. `ACTIVATE=0` preserves existing version floors.

@@ -293,7 +293,10 @@ func (b *Bootstrap) checkOnce(ctx context.Context) error {
 
 	b.announcedThisCycle = false
 
-	changed := false
+	changed, activationErr := b.activatePromotedServices(ctx, meta)
+	if activationErr != nil {
+		slog.Error("service activation deferred", "component", "bootstrap", "error", activationErr)
+	}
 	var devicePrerequisiteErr error
 	// Agent-runtime CLIs are gated by componentInstalled; hermes also needs a commit pin.
 	for _, key := range append([]string{
@@ -333,7 +336,7 @@ func (b *Bootstrap) checkOnce(ctx context.Context) error {
 			return fmt.Errorf("save state: %w", err)
 		}
 	}
-	return devicePrerequisiteErr
+	return errors.Join(devicePrerequisiteErr, activationErr)
 }
 
 // resolveSTTLanguage returns the configured stt_language code, or "".
@@ -580,7 +583,7 @@ func decodeOTAMetadataPayload(payload []byte, requireChecksums bool) (domain.OTA
 		return nil, fmt.Errorf("decode verified metadata payload: %w", err)
 	}
 	for key, c := range meta {
-		if c.Service != "" || len(c.Replaces) > 0 {
+		if c.Service != "" || len(c.Replaces) > 0 || len(c.ActivateByDevice) > 0 {
 			if !requireChecksums {
 				delete(meta, key)
 				continue

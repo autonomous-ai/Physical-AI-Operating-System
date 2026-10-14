@@ -406,6 +406,76 @@ Dòng `flushing` hiển thị danh sách label thô — đó là mode trên các
 
 ---
 
+<a id="fire-hazard"></a>
+## Nguy cơ cháy (Fire Hazard)
+
+**File:** `hal/config.py`, `hal/drivers/sensing/perceptions/processors/fire_hazard.py`,
+`hal/drivers/sensing/perceptions/processors/fire_gate.py`. Pipeline hoạt động thế nào:
+[Hành vi cảm nhận](sensing-behavior_vi.md#fire-hazard). Chỉ chạy khi chủ máy bật opt-in
+`cloud_perception.fire_hazard` (không phải biến env).
+
+| Biến env | Mặc định | Tác dụng |
+|---|---|---|
+| `HAL_FIRE_HAZARD_CHECK_INTERVAL_S` | `5.0` | Khoảng cách tối thiểu giữa hai lượt kiểm tra. Lượt kiểm tra chạy theo tick sensing 2 s, nên 5 s nghĩa là khoảng 6 s một lần; 0 thì kiểm tra mỗi tick |
+| `HAL_FIRE_HAZARD_GATE_SCORE_THRESHOLD` | `0.2` | Gate trên đèn: điểm `fire`/`smoke` từ mức này trở lên thì gửi frame tới OWLv2 và bắt đầu escalation |
+| `HAL_FIRE_HAZARD_GATE_MODEL_PATH` | `/root/local/models/yolo26s_fire_e2e_320.onnx` | File model gate (thư mục theo `HAL_FACE_MODEL_PATH` nếu biến đó được đặt) |
+| `HAL_FIRE_HAZARD_GATE_MODEL_URL` | CDN model `onnx_models/yolo26s_fire_e2e_320.onnx` | Nơi tải model gate ở lần dùng đầu tiên |
+| `HAL_FIRE_HAZARD_GATE_THREADS` | `2` | Số thread intra-op của ONNX Runtime cho gate (CPU, core chậm) |
+| `HAL_FIRE_HAZARD_ESCALATION_HOLD_S` | `10.0` | OWLv2 tiếp tục chạy mỗi lượt kiểm tra cho tới chừng này giây sau lần cuối nó thấy lửa/khói |
+| `HAL_FIRE_HAZARD_PRESET` | `fire_hazard_v1` | Preset prompt của server, gửi thay cho 46 chuỗi class; rỗng = luôn gửi class |
+| `HAL_FIRE_HAZARD_DETECTOR` | `owlv2` | Tên detector trong đường dẫn endpoint mặc định |
+| `DL_FIRE_HAZARD_ENDPOINT` | `/detect/<detector>` | Đường dẫn endpoint nối vào sau `DL_BACKEND_URL` |
+| `HAL_FIRE_HAZARD_API_TIMEOUT_S` | `15.0` | Timeout HTTP của OWLv2 |
+| `HAL_FIRE_HAZARD_CONFIDENCE_THRESHOLD` | `0.3` | Detection của OWLv2 dưới mức này bị bỏ |
+| `HAL_FIRE_HAZARD_OVERLAP_THRESHOLD` | `0.2` | Mức chồng lấn lửa/vật tối thiểu để thành `safe_fire` hoặc `hazard_fire`; dưới mức này lửa là `unsure_fire` |
+| `HAL_FIRE_HAZARD_CONFIRM_S` | `10.0` | OWLv2 phải liên tục thấy lửa (hoặc khói) trong bao lâu mới cảnh báo |
+| `HAL_FIRE_HAZARD_FLUSH_S` | `10.0` | Khoảng cách tối thiểu giữa hai event `fire_hazard.detected` |
+| `HAL_FIRE_HAZARD_DEDUP_WINDOW_S` | `1800.0` | Nhịp nhắc lại cho `safe_fire` còn được xác nhận (30 phút) |
+| `HAL_FIRE_HAZARD_REALERT_S` | `60.0` | Nhịp nhắc lại cho `hazard_fire`, `unsure_fire` hoặc `smoke` còn được xác nhận |
+
+Cố định trong code, không có env: streak có lần thấy cuối cũ hơn 30 s thì bắt đầu lại
+(`_STREAK_MAX_GAP_S`); thời gian tạm dừng sau 429 là 5 s, gấp đôi sau mỗi lần 429 liên
+tiếp, tối đa 60 s, jitter ±20 % (`_RATE_LIMIT_BACKOFF_*`); model gate nạp lỗi được thử lại
+mỗi 10 phút (`_LOAD_RETRY_S` trong `fire_gate.py`).
+
+**Cách đọc log:**
+
+```bash
+tail -f /var/log/hal/server.log | grep -E '\[fire_(hazard|gate)\]'
+```
+
+```
+[fire_gate] model ready in <ms> ms (/root/local/models/yolo26s_fire_e2e_320.onnx, 320x320, 2 threads, threshold 0.20, names {...})
+[fire_hazard] gate hit: fire 0.41 — escalating to OWLv2
+[fire_hazard] Fire hazard detected: hazard_fire (1 snapshots)
+[fire_gate] model unavailable (...); OWLv2 runs every check until it loads
+[fire_hazard] preset fire_hazard_v1 rejected (400), retrying with classes
+[fire_hazard] preset response has no known classes; is the server older than the preset?
+[fire_hazard] HTTP 429 (quota) — pausing detection for 6s: ...
+```
+
+Dòng telemetry `fire_hazard_stats` mỗi giờ (các field ở
+[Hành vi cảm nhận](sensing-behavior_vi.md#fire-hazard)) cho cùng bức tranh trên cả đội
+máy: `gate_hits`, `escalations`, `owlv2_calls` và các số đếm lỗi.
+
+**Tuning:**
+
+| Triệu chứng | Cách chỉnh |
+|-------------|------------|
+| Lửa nhìn thấy rõ mà không bao giờ có log `gate hit` | Giảm `HAL_FIRE_HAZARD_GATE_SCORE_THRESHOLD` (0.2 → 0.15); nhiều frame tới OWLv2 hơn |
+| Một đèn escalation liên tục (`gate_hits` / `escalations` cao, `owlv2_calls` gần bằng số lượt kiểm tra) | Xem trong khung hình có gì (TV, chói sáng, nến đang cháy); chỉ tăng `HAL_FIRE_HAZARD_GATE_SCORE_THRESHOLD` (0.2 → 0.3) nếu đó không phải lửa thật |
+| `gate_unavailable` cao, hoặc log có `model unavailable` | Kiểm tra việc tải từ `HAL_FIRE_HAZARD_GATE_MODEL_URL` và file ở `HAL_FIRE_HAZARD_GATE_MODEL_PATH`; cho tới khi nạp được, OWLv2 chạy mỗi lượt kiểm tra |
+| Gate tốn CPU quá | Giảm `HAL_FIRE_HAZARD_GATE_THREADS` (2 → 1); mỗi frame chạy lâu hơn |
+| Cảnh báo đến quá muộn | Giảm `HAL_FIRE_HAZARD_CONFIRM_S` (10 → 6) hoặc `HAL_FIRE_HAZARD_CHECK_INTERVAL_S` (5 → 3, khoảng 4 s một lần); cả hai đều làm tăng cảnh báo sai hoặc lượt upload |
+| Cảnh báo sai vì lửa lóe lên chốc lát | Tăng `HAL_FIRE_HAZARD_CONFIRM_S` (10 → 15) hoặc `HAL_FIRE_HAZARD_CONFIDENCE_THRESHOLD` (0.3 → 0.4) |
+| Nguy cơ thật nhắc lại quá dày | Tăng `HAL_FIRE_HAZARD_REALERT_S` (60 → 120) |
+| Lò sưởi hoặc nến cảnh báo quá thường xuyên | Tăng `HAL_FIRE_HAZARD_DEDUP_WINDOW_S` (1800 → 3600) |
+| `owlv2_preset_fallback` > 0, hoặc log có `rejected (400)` | Server không biết preset: deploy server, hoặc đặt `HAL_FIRE_HAZARD_PRESET=` để gửi class |
+| Cảnh báo `preset response has no known classes` | Server cũ hơn preset nên bỏ qua nó: deploy server trước |
+| `owlv2_timeout` cao | Kiểm tra độ trễ DL backend; chỉ tăng `HAL_FIRE_HAZARD_API_TIMEOUT_S` nếu reply chậm nhưng vẫn về |
+
+---
+
 ## Áp dụng thay đổi
 
 Sau khi sửa `hal/config.py` hoặc `voice_service.py` trên Pi:

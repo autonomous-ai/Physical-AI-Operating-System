@@ -62,6 +62,19 @@ việc build lại engine trong lúc xử lý request.
 Tương tự, đầu vào speaker embedding bị cắt còn 3000 frame (30 giây) trước khi
 suy luận, thấp hơn giới hạn 5546 frame của engine đã cache, nên clip dài được
 embed từ 30 giây đầu thay vì phải build lại engine (#555).
+Phát hiện vật thể OWLv2 chạy bằng hai graph ONNX: graph text biến prompt thành query
+embedding, graph ảnh dùng các embedding đó để phát hiện. Các preset prompt có tên (hiện chỉ
+có `fire_hazard_v1`, 46 prompt nguy cơ cháy mà HAL dùng) được encode một lần khi dlserver
+khởi động và giữ trong bộ nhớ, không lưu xuống đĩa, nên mỗi lần restart sẽ encode lại, và
+request dùng preset chỉ chạy graph ảnh. Request detect qua HTTP nhận field `preset` tùy
+chọn (tối đa 64 ký tự): preset đã biết được ưu tiên hơn `classes`, preset không biết bị trả
+400. Đổi prompt nghĩa là đặt tên preset mới và đưa ra cùng một lần deploy server, và phải
+deploy server trước bản HAL gửi tên mới (server cũ bỏ qua `preset` và trả 200 với class mặc
+định của nó). Cả hai graph dùng profile TensorRT tường minh (1–500 query, tối ưu cho 46) và
+được warm ở 46 và 1 query, nên engine được build lúc khởi động, trên slot đang rảnh khi
+deploy hai slot (khoảng 97 s trên GPU hiện tại), không bao giờ giữa chừng một request.
+Schema request:
+[`integrations/perception-service/docs/api.md`](../../integrations/perception-service/docs/api.md#object-detection--websocket--http).
 Lựa chọn model và output:
 [`integrations/perception-service/docs/perceptions.md`](../../integrations/perception-service/docs/perceptions.md).
 

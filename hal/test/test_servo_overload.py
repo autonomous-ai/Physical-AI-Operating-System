@@ -1,6 +1,7 @@
 """Servo overload cut-off: the guard's timing, and the service's cut / lockout / retry."""
 
 import sys
+import time
 import types
 from unittest import mock
 
@@ -190,6 +191,7 @@ class _FakeBus:
         self.goals = dict(self.positions)
         self.fail_read = False
         self.writes = []
+        self.reads = []
         self.raw_writes = []
         self.port_handler = object()
         self.packet_handler = self
@@ -197,6 +199,7 @@ class _FakeBus:
     def sync_read(self, name, normalize=True):
         if self.fail_read:
             raise ConnectionError("no status packet")
+        self.reads.append(name)
         if name == "Present_Position":
             return dict(self.positions)
         if name == "Goal_Position":
@@ -228,6 +231,11 @@ class _FakeRobot:
         self.bus = _FakeBus()
         self.goal_writes_blocked = False
         self.sent = []
+        self.last_goal = {}
+        self.last_write_monotonic = 0.0
+
+    def forget_goals(self):
+        self.last_goal = {}
 
     def send_action(self, action):
         # Mirrors LeLampFollower.send_action's overload gate.
@@ -528,12 +536,71 @@ def test_the_follower_drops_goals_while_blocked():
     robot = types.SimpleNamespace(
         is_connected=True, goal_writes_blocked=True, bus=mock.Mock(),
         config=types.SimpleNamespace(max_relative_target=None), last_write_monotonic=0.0, joint_limits={},
+        last_goal={},
     )
     assert LeLampFollower.send_action(robot, {"base_yaw.pos": 5.0}) == {}
     robot.bus.sync_write.assert_not_called()
+    assert robot.last_goal == {}
     robot.goal_writes_blocked = False
     LeLampFollower.send_action(robot, {"base_yaw.pos": 5.0})
     robot.bus.sync_write.assert_called_once_with("Goal_Position", {"base_yaw": 5.0})
+    assert robot.last_goal == {"base_yaw": 5.0}
+
+
+def test_the_follower_forgets_its_goals_when_a_write_fails():
+    pytest.importorskip("lerobot")
+    from hal.follower.hal_follower import LeLampFollower
+
+    robot = types.SimpleNamespace(
+        is_connected=True, goal_writes_blocked=False, bus=mock.Mock(),
+        config=types.SimpleNamespace(max_relative_target=None), last_write_monotonic=0.0, joint_limits={},
+        last_goal={"base_yaw": 5.0},
+    )
+    robot.forget_goals = lambda: setattr(robot, "last_goal", {})
+    robot.bus.sync_write.side_effect = ConnectionError("port gone")
+    with pytest.raises(ConnectionError):
+        LeLampFollower.send_action(robot, {"base_yaw.pos": 9.0})
+    assert robot.last_goal == {}
+
+
+# --- Lag from the goals just written ---------------------------------------------
+
+
+def _written(rig, goal=12.5, age=0.0):
+    rig.svc.robot.last_goal = {joint: goal for joint in JOINTS}
+    rig.svc.robot.last_write_monotonic = time.monotonic() - age
+
+
+def test_lag_takes_the_goals_just_written_without_reading_them_back(rig):
+    _written(rig)
+    assert rig.svc._read_lags() == {"lag:" + joint: 25 for joint in JOINTS}
+    assert rig.bus.reads == ["Present_Position"]
+
+
+def test_lag_reads_the_register_for_a_joint_with_no_written_goal(rig):
+    _written(rig)
+    del rig.svc.robot.last_goal["wrist_pitch"]
+    assert rig.svc._read_lags() == {"lag:" + joint: 0 for joint in JOINTS}
+    assert "Goal_Position" in rig.bus.reads
+
+
+def test_lag_reads_the_register_once_no_goal_was_written_for_a_while(rig):
+    """A sync_write has no reply: a goal a servo missed is not trusted for long."""
+    _written(rig, age=2.0)
+    assert rig.svc._read_lags() == {"lag:" + joint: 0 for joint in JOINTS}
+    assert "Goal_Position" in rig.bus.reads
+
+
+def test_a_raw_move_forgets_the_written_goals(rig):
+    _written(rig)
+    rig.svc.move_to_raw({"base_yaw": 2048}, duration=0.05)
+    assert rig.svc.robot.last_goal == {}
+
+
+def test_a_torque_cut_forgets_the_written_goals(rig):
+    _written(rig)
+    _stall(rig)
+    assert rig.svc.robot.last_goal == {}
 
 
 # --- Contact stop (halt in place on a short hit) --------------------------------
@@ -874,6 +941,54 @@ def test_learning_needs_a_profile(contact_rig):
         contact_rig.svc.learn_contact_profile(["nod"])
 
 
+def _wait_with(svc, frames, timeout=90.0):
+    """Run _wait_recording_done while each poll steps the playback to the next frame index.
+
+    `frames` is the frame index seen at each poll; past its end the state stays put.
+    Returns (result, polls).
+    """
+    svc._current_actions = [{}] * 10
+    svc._idle_settled = False
+    clock = [0.0]
+    polls = [0]
+
+    def sleep(dt):
+        clock[0] += dt
+        polls[0] += 1
+        if polls[0] < len(frames):
+            svc._current_frame_index = frames[polls[0]]
+
+    svc._current_frame_index = frames[0]
+    fake_time = types.SimpleNamespace(monotonic=lambda: clock[0], sleep=sleep)
+    with mock.patch("hal.drivers.motors.animation_service.time", fake_time):
+        return svc._wait_recording_done(svc._current_recording, timeout), polls[0]
+
+
+def test_a_recording_holding_its_final_pose_is_done_once_played_through(contact_rig):
+    # sleepy never falls back to idle: a learn run used to wait out the 90 s timeout,
+    # three attempts per run, then log "never played through".
+    svc = contact_rig.svc
+    svc._current_recording = "sleepy"
+    done, polls = _wait_with(svc, [0, 3, 6, 9, 10])
+    assert done is True
+    assert polls == 4
+
+
+def test_a_held_final_pose_left_from_before_the_play_is_not_played_through(contact_rig):
+    svc = contact_rig.svc
+    svc._current_recording = "sleepy"
+    done, _ = _wait_with(svc, [10], timeout=2.0)
+    assert done is False
+
+
+def test_a_stale_held_pose_then_a_fresh_play_waits_for_the_fresh_one(contact_rig):
+    svc = contact_rig.svc
+    svc._current_recording = "sleepy"
+    done, polls = _wait_with(svc, [10, 10, 0, 5, 10])
+    assert done is True
+    assert polls == 4
+
+
 def test_a_joint_trailing_its_learned_lag_stops_even_at_the_torque_cap(profile_rig):
     profile_rig.profile.lag_margin = 40
     # Learned: base_pitch at the 70 % cap here already, 3 deg behind its goal.
@@ -984,3 +1099,82 @@ def test_settled_idle_uses_this_units_envelope_over_off_playback(profile_rig):
     profile_rig.profile.forget("idle")
     ticks()
     assert svc.contact_active, "not learned: the off_playback floor still watches"
+
+
+# --- Passive learning wired into the monitor --------------------------------------
+
+
+@pytest.fixture
+def passive_rig(profile_rig):
+    from hal.drivers.motors.contact_profile import PassiveLearner
+    profile_rig.svc._passive = PassiveLearner(profile_rig.profile)
+    profile_rig.svc._current_actions = [{}] * 8
+    profile_rig.svc._current_frame_index = 0
+    return profile_rig
+
+
+def _play_through(rig, frames=8):
+    for frame in range(frames):
+        rig.svc._current_frame_index = frame
+        rig.svc._overload_tick()
+        rig.clock.advance(0.05)
+    rig.svc._current_frame_index = frames   # finished: no recording owns its frames
+    rig.svc._overload_tick()
+
+
+def test_a_free_run_feeds_the_passive_learner(passive_rig):
+    _play_through(passive_rig)
+    assert passive_rig.svc._passive.runs() == {"stretching": 1}
+    assert passive_rig.svc.overload_status()["contact"]["profile"]["passive_runs"] == {"stretching": 1}
+
+
+def test_a_run_with_a_contact_stop_is_not_learned(passive_rig):
+    svc = passive_rig.svc
+    svc._current_frame_index = 2
+    svc._overload_tick()
+    passive_rig.bus.loads = _stalled("base_yaw", 1000)
+    for _ in range(4):
+        svc._overload_tick()
+        passive_rig.clock.advance(0.05)
+    assert svc.contact_active
+    svc._current_frame_index = 8
+    svc._overload_tick()
+    assert svc._passive.runs() == {}
+
+
+def test_a_run_during_a_learn_run_is_left_to_the_learn_run(passive_rig):
+    passive_rig.svc._learning = {"stretching"}
+    _play_through(passive_rig)
+    assert passive_rig.svc._passive.runs() == {}
+
+
+def _stop_on_envelope(rig):
+    """A learned base_pitch envelope of 30 % (floor 45 %) stops the arm at 50 %."""
+    for frame in range(8):
+        rig.profile.learn("stretching", frame, {**IDLE, "base_pitch": 300})
+    rig.svc._current_frame_index = 4
+    rig.bus.loads = {**IDLE, "base_pitch": 500}
+    for _ in range(4):
+        rig.svc._overload_tick()
+        rig.clock.advance(0.05)
+    assert rig.svc.contact_active
+
+
+def test_a_stop_nobody_holds_through_loosens_the_envelope_there(passive_rig):
+    _stop_on_envelope(passive_rig)
+    passive_rig.bus.loads = dict(IDLE)
+    passive_rig.clock.advance(3.0)
+    passive_rig.svc._overload_tick()
+    assert not passive_rig.svc.contact_active
+    assert passive_rig.profile.envelope("stretching")["base_pitch"][4] == 500 - 150 + 1
+
+
+def test_a_stop_held_into_a_torque_release_leaves_the_envelope(passive_rig):
+    passive_rig.svc._contact_release_s = 0.5
+    _stop_on_envelope(passive_rig)
+    for _ in range(12):
+        passive_rig.svc._overload_tick()
+        passive_rig.clock.advance(0.05)
+    assert passive_rig.svc.overload_active
+    passive_rig.svc._contact_recover()
+    assert passive_rig.profile.envelope("stretching")["base_pitch"][4] == 300

@@ -325,6 +325,25 @@ FIRE_HAZARD_DETECTOR = os.environ.get("HAL_FIRE_HAZARD_DETECTOR", "owlv2")
 FIRE_HAZARD_ENDPOINT = os.environ.get("DL_FIRE_HAZARD_ENDPOINT", f"/detect/{FIRE_HAZARD_DETECTOR}")
 FIRE_HAZARD_BACKEND_URL: str = DL_BACKEND_URL.rstrip("/") + "/" + FIRE_HAZARD_ENDPOINT.strip("/") if DL_BACKEND_URL else ""
 FIRE_HAZARD_API_TIMEOUT_S = float(os.environ.get("HAL_FIRE_HAZARD_API_TIMEOUT_S", "15.0"))
+# Server-side prompt preset sent instead of the 46 class strings; empty = send classes.
+FIRE_HAZARD_PRESET = os.environ.get("HAL_FIRE_HAZARD_PRESET", "fire_hazard_v1")
+# On-lamp gate: a fire/smoke score at or above this sends the frame to OWLv2.
+FIRE_HAZARD_GATE_SCORE_THRESHOLD = float(os.environ.get("HAL_FIRE_HAZARD_GATE_SCORE_THRESHOLD", "0.2"))
+# Gate model file; downloaded from FIRE_HAZARD_GATE_MODEL_URL on first use.
+FIRE_HAZARD_GATE_MODEL_PATH = os.environ.get(
+    "HAL_FIRE_HAZARD_GATE_MODEL_PATH",
+    os.path.join(os.environ.get("HAL_FACE_MODEL_PATH", "/root/local/models"), "yolo26s_fire_e2e_320.onnx"),
+)
+FIRE_HAZARD_GATE_MODEL_URL = os.environ.get(
+    "HAL_FIRE_HAZARD_GATE_MODEL_URL",
+    "https://storage.googleapis.com/autonomous-models/onnx_models/yolo26s_fire_e2e_320.onnx",
+)
+# ORT intra-op threads for the gate (CPU, slow cores).
+FIRE_HAZARD_GATE_THREADS = int(os.environ.get("HAL_FIRE_HAZARD_GATE_THREADS", "2"))
+# OWLv2 keeps running every check until this long after its last fire/smoke sighting.
+FIRE_HAZARD_ESCALATION_HOLD_S = float(os.environ.get("HAL_FIRE_HAZARD_ESCALATION_HOLD_S", "10.0"))
+# Re-alert pace for a still-confirmed hazard_fire/unsure_fire/smoke (safe_fire uses DEDUP_WINDOW_S).
+FIRE_HAZARD_REALERT_S = float(os.environ.get("HAL_FIRE_HAZARD_REALERT_S", "60.0"))
 
 POSE_MOTION_ENABLED = (
     os.environ.get("HAL_POSE_MOTION_ENABLED", "true").lower() == "true"

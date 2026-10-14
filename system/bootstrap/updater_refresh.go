@@ -101,6 +101,10 @@ func (b *Bootstrap) refreshUpdater(ctx context.Context) {
 		slog.Warn("updater refresh: service OTA protocol unsupported")
 		return
 	}
+	if updaterSupportsActivationProtocol(current) && !updaterSupportsActivationProtocol(published) {
+		slog.Warn("updater refresh: promoted activation protocol unsupported")
+		return
+	}
 	if sha256.Sum256(published) == sha256.Sum256(current) {
 		return
 	}

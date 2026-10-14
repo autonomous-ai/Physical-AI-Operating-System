@@ -1,5 +1,6 @@
 #!/bin/bash
 # Service OTA protocol: 1
+# Service OTA activation protocol: 1
 set -e
 # Metadata URL from the bootstrap config; OTA_METADATA_URL env overrides. No default.
 BOOTSTRAP_JSON="/root/config/bootstrap.json"
@@ -391,6 +392,11 @@ def recover():
         finalize(journal)
         return
     switch(journal, 'before')
+    if journal.get('promoted_activation') is True:
+        config = Path('/root/config/bootstrap.json')
+        settings = json.loads(config.read_text())
+        settings.setdefault('rollback_versions', {})[journal['key']] = journal['after']['components'][journal['key']]['version']
+        durable(config, json.dumps(settings))
     remove(JOURNAL)
 
 
@@ -477,7 +483,43 @@ def prune():
                     shutil.rmtree(path)
 
 
-def install(key, entry, archive, activate):
+def promoted_activation(key, entry):
+    # Recheck the freshly verified feed, not the bootstrap process's older copy.
+    if not name(key) or key in RESERVED or entry.get('service') != key:
+        raise RuntimeError('Activation promotion requires a service component')
+    activations = entry.get('activate_by_device')
+    if not isinstance(activations, dict) or any(not isinstance(k, str) or not k or type(v) is not bool for k, v in activations.items()):
+        raise RuntimeError('Invalid activate_by_device map')
+    # Match bootstrap's resolveDeviceType: inherited process environment, then config.
+    device_type = os.environ.get('DEVICE_TYPE', '').strip()
+    if not device_type:
+        config = Path('/root/config/config.json')
+        if config.exists():
+            device_type = json.loads(config.read_text()).get('device_type', '')
+            if isinstance(device_type, str):
+                device_type = device_type.strip()
+    if not isinstance(device_type, str) or not device_type or activations.get(device_type) is not True:
+        raise RuntimeError('Service activation is not promoted for this device type')
+    floors = entry.get('min_version_by_device')
+    if not isinstance(floors, dict) or any(not isinstance(k, str) or not isinstance(v, str) for k, v in floors.items()):
+        raise RuntimeError('Invalid min_version_by_device map')
+    def version(value):
+        if not isinstance(value, str) or re.fullmatch(r'[0-9]+\.[0-9]+\.[0-9]+', value) is None:
+            raise RuntimeError('Invalid promoted activation version')
+        return tuple(map(int, value.split('.')))
+    floor = version(floors.get(device_type))
+    if floor == (0, 0, 0) or floor > version(entry.get('version')):
+        raise RuntimeError('Invalid promoted activation floor')
+    settings = json.loads(Path('/root/config/bootstrap.json').read_text())
+    blocked = settings.get('rollback_versions', {})
+    if not isinstance(blocked, dict):
+        raise RuntimeError('Invalid rollback_versions map')
+    if blocked.get(key) == entry['version']:
+        raise RuntimeError('Promoted version blocked after rollback')
+    return True
+
+
+def install(key, entry, archive, activate, promoted=False):
     before = load()
     replaces = metadata(key, entry, before)
     old = before['components'].get(key)
@@ -514,7 +556,7 @@ def install(key, entry, archive, activate):
     for owner in replaces:
         after['blocked'][owner] = key
     validate(after)
-    journal = dict(format=1, phase='pending', action='install', key=key, before=before, after=after, affected=affected,
+    journal = dict(format=1, phase='pending', action='install', promoted_activation=promoted, key=key, before=before, after=after, affected=affected,
                    before_running=before_running, after_running=[key])
     os.sync()
     durable(JOURNAL, json.dumps(journal))
@@ -602,7 +644,8 @@ if __name__ == '__main__':
         elif action == 'install':
             key, payload, archive, flag = sys.argv[2:]
             entry = json.loads(Path(payload).read_text())[key]
-            install(key, entry, archive, flag == '--activate')
+            activate = promoted_activation(key, entry) if flag == '--activate-promoted' else flag == '--activate'
+            install(key, entry, archive, activate, promoted=flag == '--activate-promoted')
         else:
             raise RuntimeError('Unknown service OTA action')
     except Exception as error:
@@ -1577,6 +1620,9 @@ download_verified() {
   progress_report installing
 }
 
+if [ "${2:-}" = --activate-promoted ] && [ "$LEGACY_TARGET" != 0 ]; then
+  echo "Promoted activation requires a service component" >&2; exit 1
+fi
 progress_report installing
 SERVICE_NAME=$(jq -r --arg a "$APP" '.[$a].service // empty' "$METADATA_PAYLOAD")
 if [ "$LEGACY_TARGET" = 0 ] && [ -z "$SERVICE_NAME" ]; then
@@ -1586,7 +1632,7 @@ if [ "$SERVICE_STATUS" = managed ] && [ -z "$SERVICE_NAME" ]; then
   echo "Registered service lost its metadata declaration" >&2; exit 1
 fi
 if [ -n "$SERVICE_NAME" ]; then
-  [ $# -le 2 ] && { [ $# -eq 1 ] || [ "$2" = --activate ]; } || { echo "Usage: software-update <component> [--activate]" >&2; exit 1; }
+  [ $# -le 2 ] && { [ $# -eq 1 ] || [ "$2" = --activate ] || [ "$2" = --activate-promoted ]; } || { echo "Usage: software-update <component> [--activate|--activate-promoted]" >&2; exit 1; }
   [ -n "$OTA_SIGNING_PUBLIC_KEY" ] && [ -n "$URL" ] && [[ "$SHA256" =~ ^[a-fA-F0-9]{64}$ ]] || { echo "Service OTA requires signed metadata, URL and SHA-256" >&2; exit 1; }
   [ "$(timeout 5 /usr/local/bin/bootstrap-server --ota-service-protocol)" = 1 ] || { echo "Upgrade bootstrap for service OTA recovery before activation" >&2; exit 1; }
   ZIP_TMP=$(mktemp)

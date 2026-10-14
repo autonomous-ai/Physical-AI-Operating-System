@@ -85,5 +85,5 @@ def test_fire_client_sends_nothing_without_a_key(no_key, monkeypatch):
     posts = []
     monkeypatch.setattr(fire_hazard.requests, "post", lambda *a, **k: posts.append(a) or None)
     det = fire_hazard.RemoteFireHazardDetector(base_url="https://dl.example", api_key="k")
-    assert det.detect(np.zeros((64, 64, 3), dtype=np.uint8)) == []
+    assert det.detect(np.zeros((64, 64, 3), dtype=np.uint8)) is None
     assert posts == [], "a camera frame was sent without encryption"

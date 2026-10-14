@@ -2,6 +2,7 @@
 
 import asyncio
 
+import cv2.typing as cv2t
 from typing_extensions import override
 
 from core.models.object import (
@@ -15,8 +16,6 @@ from core.perception.base.batching import InputBatcher
 from core.perception.object.predictors.base import ObjectDetector
 from core.perception.object.session import ObjectPerceptionSession
 from core.perception.object.utils import ObjectDetectorFactory
-
-import cv2.typing as cv2t
 
 
 class ObjectPerception(PerceptionBase[ObjectPerceptionSession]):
@@ -90,20 +89,29 @@ class ObjectPerception(PerceptionBase[ObjectPerceptionSession]):
             config=config,
         )
 
+    def has_preset(self, name: str) -> bool:
+        """True when the loaded detector serves the named prompt preset."""
+        if self._object_detector is None:
+            return False
+        return name in self._object_detector.preset_names
 
     async def predict_image(
         self,
         image: cv2t.MatLike,
         classes: list[str] | None = None,
+        preset: str | None = None,
     ) -> ObjectDetection:
-        """Detect objects in a single image."""
+        """Detect objects in a single image. A ``preset`` replaces ``classes``."""
         if self._batcher is None:
             raise RuntimeError("ObjectPerception not started")
 
         H, W = image.shape[:2]
 
+        # The batcher groups by kwargs, so preset requests batch only with each other.
         kwargs = {}
-        if classes is not None:
+        if preset is not None:
+            kwargs["preset"] = preset
+        elif classes is not None:
             kwargs["classes"] = classes
 
         futures = await self._batcher.submit([image], **kwargs)

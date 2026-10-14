@@ -56,7 +56,7 @@ Base URL: `https://storage.googleapis.com/autonomous-models/`
 | YOLO person (ONNX) | `…/onnx_models/yolo12x_raw.onnx`, `…/onnx_models/yolo12x.onnx` |
 | YOLO-World (PyTorch) | `…/pytorch_models/yolov8x-worldv2.pt` |
 | YOLO-World (ONNX) | `…/onnx_models/yolov8x-worldv2_raw.onnx`, `…/onnx_models/yolov8x-worldv2.onnx` |
-| OWLv2 (ONNX) | `…/onnx_models/owlv2_raw.onnx`, `…/onnx_models/owlv2.onnx` |
+| OWLv2 (ONNX) | `…/onnx_models/owlv2_text_v1.onnx` (text graph), `…/onnx_models/owlv2_image_v1.onnx` (image graph) |
 
 (`…` = the base URL above. The mapping lives in `CDN_PATHS` in
 `src/core/utils/files.py` — keep this table in sync with it.)
@@ -77,7 +77,13 @@ Base URL: `https://storage.googleapis.com/autonomous-models/`
 
 Object detector **OWLv2** has both ONNX (default, from CDN) and HuggingFace
 (`google/owlv2-large-patch14-ensemble`) backends. The ONNX backend is used when
-`USE_ONNX=true` (the default).
+`USE_ONNX=true` (the default). It loads two graphs, both downloaded on first start:
+`owlv2_text_v1.onnx` (prompt tokens → query embeddings) and `owlv2_image_v1.onnx`
+(image + query embeddings → detections). `OBJECT_DETECTOR__OWLV2__MODEL_PATH` /
+`__REMOTE_URL` point at the **image** graph; the text graph always uses its default cache
+path and CDN URL. Startup fails fast if a path still points at the old single graph
+(wrong graph inputs), and the detector is not served until both graphs are loaded and
+every preset is encoded.
 
 ### Notes for self-hosting / forks
 
@@ -167,7 +173,7 @@ Recommended values for an RTX A5000 (24 GB) with all models loaded:
 | YOLO person | 2 | 0.05 | ~200 MB model, 640×640 input |
 | ECAPA-TDNN (audio) | 8 | 0.05 | ~50 MB model, small mel input |
 | YOLO-World (object) | 2 | 0.05 | ~500 MB model + CLIP encoder |
-| OWLv2 (object) | 1 | 0.05 | ~600 MB model, 960×960 ViT |
+| OWLv2 (object) | 1 | 0.05 | ~600 MB model, 1008×1008 ViT |
 
 ### Object detectors (all opt-in)
 
@@ -179,7 +185,7 @@ where `<NAME>` ∈ `YOLO_WORLD`, `OWLV2`. All default to
 |---------|---------|---------|
 | `OBJECT_DETECTOR__<NAME>__ENABLED` | `false` | Enable this detector |
 | `OBJECT_DETECTOR__<NAME>__USE_ONNX` | `true` | Use ONNX Runtime backend (when `false`, falls back to PyTorch/HF) |
-| `OBJECT_DETECTOR__<NAME>__MODEL_PATH` | _(auto)_ | Local model weights override |
+| `OBJECT_DETECTOR__<NAME>__MODEL_PATH` | _(auto)_ | Local model weights override (OWLv2: the image graph) |
 | `OBJECT_DETECTOR__<NAME>__REMOTE_URL` | _(auto)_ | Custom download URL (overrides CDN default) |
 | `OBJECT_DETECTOR__<NAME>__CLASSES_PATH` | _(none)_ | Default class list file |
 | `OBJECT_DETECTOR__<NAME>__THRESHOLD` | per-model | Confidence threshold |

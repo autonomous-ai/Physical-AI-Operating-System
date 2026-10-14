@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { S } from "./styles";
 import { HW } from "./types";
 import type { ServoState } from "./types";
-import { StatusDot } from "./components";
+import { ConfirmDialog, StatusDot } from "./components";
 import { usePolling } from "../../hooks/usePolling";
 import "./servo.css";
 
@@ -25,6 +25,26 @@ interface ContactProfileState {
   learning: string | null;
 }
 
+// What is still on before a learn run: a live mic turns the lamp toward voices and a
+// live camera toward faces, and either move cuts the animation being learned.
+interface LearnSensors {
+  mic: boolean;
+  camera: boolean;
+}
+
+// A learn run that has not shown up in /health this long after it started has already
+// ended (it failed or was stopped between two polls).
+const LEARN_UNSEEN_MS = 15000;
+
+// Turn back on what the learn dialog turned off; true when every request succeeded.
+async function restoreSensors(sensors: LearnSensors): Promise<boolean> {
+  const results = await Promise.all([
+    sensors.mic ? fetch(`${HW}/voice/unmute`, { method: "POST" }).then((r) => r.ok).catch(() => false) : true,
+    sensors.camera ? fetch(`${HW}/camera/enable`, { method: "POST" }).then((r) => r.ok).catch(() => false) : true,
+  ]);
+  return results.every(Boolean);
+}
+
 export function ServoSection() {
   const [servo, setServo] = useState<ServoState | null>(null);
   const [servos, setServos] = useState<Record<string, ServoDetail> | null>(null);
@@ -37,6 +57,11 @@ export function ServoSection() {
   const [moving, setMoving] = useState(false);
   const [liveDrag, setLiveDrag] = useState(false);
   const [touch, setTouch] = useState<ContactProfileState | null>(null);
+  const [learnSensors, setLearnSensors] = useState<LearnSensors | null>(null);
+  const [learnBusy, setLearnBusy] = useState(false);
+  // What the learn dialog turned off, restored once that run ends (finished or aborted).
+  // Only this page knows it: closing the tab before the run ends leaves them off.
+  const learnRestore = useRef<{ sensors: LearnSensors; startedAt: number; seen: boolean } | null>(null);
   // Throttle live drag; a trailing send guarantees the final value lands.
   const liveLastSent = useRef(0);
   const liveTrailing = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -146,7 +171,7 @@ export function ServoSection() {
     await fetch(`${HW}/servo/hold`, { method: "POST", headers: { accept: "application/json" } }).catch(() => {});
     setTimeout(refresh, 500);
   };
-  const learnTouch = async () => {
+  const startLearn = async (): Promise<boolean> => {
     const resp = await fetch(`${HW}/servo/contact/learn`, {
       method: "POST",
       headers: { "Content-Type": "application/json", accept: "application/json" },
@@ -154,10 +179,79 @@ export function ServoSection() {
     }).catch(() => null);
     if (resp?.ok) {
       flash("Learning — the lamp plays each animation twice");
-    } else {
-      const err = await resp?.json().catch(() => null);
-      flash(`Learn failed: ${err?.detail ?? "HAL unreachable"}`);
+      return true;
     }
+    const err = await resp?.json().catch(() => null);
+    flash(`Learn failed: ${err?.detail ?? "HAL unreachable"}`);
+    return false;
+  };
+  // Ask to turn the camera and mic off first when either is on; otherwise learn now.
+  const learnTouch = async () => {
+    setLearnBusy(true);
+    try {
+      const [voice, camera] = await Promise.all([
+        fetch(`${HW}/voice/status`).then((r) => (r.ok ? r.json() : null)).catch(() => null),
+        fetch(`${HW}/camera`).then((r) => (r.ok ? r.json() : null)).catch(() => null),
+      ]);
+      // A failed or missing status counts as off: there is nothing to turn off there.
+      const sensors = {
+        mic: voice != null && !voice.mic_muted,
+        camera: camera != null && !!camera.available && !camera.disabled,
+      };
+      if (sensors.mic || sensors.camera) {
+        setLearnSensors(sensors);
+        return;
+      }
+      await startLearn();
+    } finally {
+      setLearnBusy(false);
+    }
+  };
+  const learnAfterPrivacy = async () => {
+    const sensors = learnSensors;
+    setLearnSensors(null);
+    if (!sensors) return;
+    setLearnBusy(true);
+    try {
+      const [micOff, cameraOff] = await Promise.all([
+        sensors.mic ? fetch(`${HW}/voice/mute`, { method: "POST" }).then((r) => r.ok).catch(() => false) : false,
+        sensors.camera ? fetch(`${HW}/camera/disable`, { method: "POST" }).then((r) => r.ok).catch(() => false) : false,
+      ]);
+      const turnedOff = { mic: micOff, camera: cameraOff };
+      if (micOff !== sensors.mic || cameraOff !== sensors.camera) {
+        await restoreSensors(turnedOff);
+        flash("Could not turn off the camera or mic; learning not started");
+        return;
+      }
+      if (await startLearn()) {
+        learnRestore.current = { sensors: turnedOff, startedAt: Date.now(), seen: false };
+      } else {
+        await restoreSensors(turnedOff);
+      }
+    } finally {
+      setLearnBusy(false);
+    }
+  };
+  // Restore once the run is over: seen in /health and gone again, or never seen at all.
+  // Keyed on `touch`, a fresh object every poll, so the unseen timeout is re-checked.
+  useEffect(() => {
+    const pending = learnRestore.current;
+    if (!pending || !touch) return;
+    const learning = touch.learning;
+    if (learning) {
+      pending.seen = true;
+      return;
+    }
+    if (!pending.seen && Date.now() - pending.startedAt < LEARN_UNSEEN_MS) return;
+    learnRestore.current = null;
+    void restoreSensors(pending.sensors).then((ok) => {
+      setActionMsg(ok ? "Learning done — turned the camera/mic back on" : "Learning done — could not turn the camera or mic back on");
+      setTimeout(() => setActionMsg(null), 4000);
+    });
+  }, [touch]);
+  const learnAnyway = () => {
+    setLearnSensors(null);
+    void startLearn();
   };
   const resumeServos = async () => {
     flash("Resuming animation");
@@ -345,8 +439,8 @@ export function ServoSection() {
               alignItems: "center",
             }}>
               <ControlButton
-                onClick={learnTouch}
-                disabled={!!touch.learning}
+                onClick={() => { void learnTouch(); }}
+                disabled={!!touch.learning || learnBusy}
                 color="var(--lm-teal)"
                 title={touch.learning ? "Learning…" : "Learn"}
                 hint="Clear the space around the lamp first; it plays every animation twice (a few minutes)."
@@ -488,6 +582,22 @@ export function ServoSection() {
           boxShadow: "0 4px 16px rgba(0,0,0,0.3)",
           maxWidth: "min(360px, calc(100vw - 40px))",
         }}>{actionMsg}</div>
+      )}
+
+      {learnSensors && (
+        <ConfirmDialog
+          title={`Turn off the ${learnSensors.mic && learnSensors.camera ? "camera and mic" : learnSensors.mic ? "mic" : "camera"} while learning?`}
+          message={
+            "While the mic or camera is on, the lamp turns toward voices and faces, which cuts the animation "
+            + "being learned and leaves gaps in what it learns. Turning them off keeps the run clean. "
+            + "They turn back on when learning ends, as long as this page stays open."
+          }
+          confirmLabel="Turn off and learn"
+          extraLabel="Learn anyway"
+          onConfirm={() => { void learnAfterPrivacy(); }}
+          onExtra={learnAnyway}
+          onCancel={() => setLearnSensors(null)}
+        />
       )}
     </div>
   );

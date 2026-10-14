@@ -458,7 +458,11 @@ Six conditions are enforced today; setup-incomplete is reserved.
       "lag:<joint>": [max |goal - present| per frame, 0.1 deg]}}`. The lag entries
       matter where load cannot help: a joint at its torque cap, or a soft one a hand
       simply slows, falls behind its goal. With `contact.lag_margin` set (Lamp: `35` =
-      3.5°) a joint trailing its learned lag by that much is a hit too.
+      3.5°) a joint trailing its learned lag by that much is a hit too. The goal is
+      the one `LeLampFollower.send_action` last wrote when every joint has one from
+      the last second (`GOAL_CACHE_S`), so a playback tick reads only `Present_Load`
+      and `Present_Position`; after a raw move or a torque change, or with no write
+      that recent, `Goal_Position` is read back from the servos.
       `POST /servo/contact/learn` (or **Learn** under Touch Sensitivity on the web
       Monitor Servo page; `{"recordings": [...], "runs": 2}`; default every
       recording except `music_*`) plays each recording free `runs` times in the
@@ -483,9 +487,40 @@ Six conditions are enforced today; setup-incomplete is reserved.
       own envelope instead of `off_playback` (lamp-a0ae's heavier elbow idles at
       54-60 % against the 52 % taken from lamp-52e6). On
       lamp-52e6 the gaze cut most recordings short within a second whenever someone
-      sat in front of it, so this is where a hand usually meets the arm. Re-learn after recalibrating the arm or changing `torque_limit`.
+      sat in front of it, so this is where a hand usually meets the arm. Re-learn after recalibrating the arm.
+      **Passive learning** (`PassiveLearner` in `hal/drivers/motors/contact_profile.py`)
+      keeps the envelope current without a learn run: every play of a recording
+      (`music_*` included) is sampled like a learn run, and counts only when it ran from
+      its first frame to its last with no contact stop, cut-off, direct move or learn
+      run in it. The last 5 clean runs per recording stay in RAM, and from 2 on (as many
+      as a learn run plays) each clean run updates that recording's envelope toward
+      them: their per-frame max while fewer than 5 (the loosest), then the second
+      highest, so one run a hand brushed does not count. A higher value replaces the
+      envelope at once, so a heavy frame stops the arm only once, up to the cut-off's
+      80 % for load and 30° for lag; a lower one comes down a quarter of the gap per
+      update, so a few cool runs do not make it touchy. A recording's first envelope
+      comes down the same way from the fixed floors it ran under before (Lamp: the
+      contact `load` floors, then `off_playback` load and lag, then a capped joint's
+      `torque_limit`), so it starts where the lamp stood. A frame a later run reaches for
+      the first time (20 Hz sampling skips some 30 fps frames on each run) falls from
+      its learned neighbours within ±3 frames instead, so it does not hold its whole
+      floor window up at the fixed floor. A run that trips never
+      counts, so a contact pause nobody holds through (it ends without a torque
+      release) is taken as a false stop instead: the envelope within ±3 frames of it
+      rises at once to where that sample would not have stopped it, at most 10 times
+      a day per recording, and does not come down for 24 h after. A capped joint
+      stopped at its `torque_limit` (within 1 %) rises to the cap across the whole
+      recording instead, leaving that joint to its lag there: lamp-c0a4's elbow
+      reaches its 60 % cap at varying `idle` frames, and stopped `idle` every 5 s on a
+      41 % floor. Updates are saved at most once a minute (the file is overwritten,
+      about 100 KB a write). The envelope is saved with the `torque_limit`
+      it was learned under (`contact_profile.json.signature`); after a `torque_limit`
+      change it is dropped at startup and the fixed floors apply until it is learned
+      again (an envelope learned at 60 % tripped lamp-c0a4's idle `base_pitch` about
+      300 times in 25 min at 70 %).
       `GET /health.servo_overload.contact.profile` shows `margin`, how many recordings
-      are learned and which one a learn run is on.
+      are learned, which one a learn run is on and `passive_runs` (clean runs held per
+      recording).
       **Limits:** nothing is seen before the touch, and a light object the arm can
       simply push, such as a cup or a photo frame, may never load a joint enough to trip.
 - [x] **Servo torque cap → a softer arm.** An optional `torque_limit` map

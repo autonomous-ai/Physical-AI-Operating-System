@@ -41,6 +41,8 @@ class ObjectDetectRequest(BaseModel):
 
     image_b64: str
     classes: list[str] | None = Field(None, max_length=500)
+    # Named server-side prompt list (e.g. "fire_hazard_v1"); wins over `classes`, unknown -> 400.
+    preset: str | None = Field(None, max_length=64)
 
 
 class ObjectDetectionItemResponse(BaseModel):

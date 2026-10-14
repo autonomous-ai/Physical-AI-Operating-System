@@ -6,7 +6,7 @@ import threading
 from typing import Any, Callable, Dict, List, Optional, Set
 from hal.follower import LeLampFollowerConfig, LeLampFollower
 from hal.presets import EMO_SLEEPY, SERVO_CMD_PLAY, SERVO_CMD_MUSIC_START, SERVO_CMD_MUSIC_STOP, SERVO_IDLE, SERVO_MUSIC_GROOVE
-from hal.drivers.motors.contact_profile import LAG_PREFIX, ContactProfile
+from hal.drivers.motors.contact_profile import LAG_PREFIX, ContactProfile, PassiveLearner
 from hal.drivers.motors.overload import OverloadGuard, load_magnitude
 from hal.drivers.motors.tracking_wedge import TrackingWedgeWatchdog
 
@@ -66,6 +66,12 @@ LEARN_ATTEMPTS = 3
 # five servos takes ~2.5 ms on the Lamp bus, so 20 Hz costs little and keeps the
 # contact stop's detection delay near its hold time.
 OVERLOAD_POLL_S = 0.05
+
+# The lag check takes each joint's goal from the follower's last write while one landed
+# this recently, instead of reading Goal_Position back: one of the three reads a tick
+# makes during playback. A sync_write has no reply, so a goal a servo missed is only
+# trusted this long; with no write since, the register is read as before.
+GOAL_CACHE_S = 1.0
 
 from hal.drivers.motors.recording_timing import (  # noqa: E402
     RECORDING_TIME_COLUMN,
@@ -195,6 +201,8 @@ class AnimationService:
         # joint's contact floor is that envelope plus the profile margin. None keeps
         # the fixed floors everywhere.
         self._contact_profile = contact_profile
+        # (recording, frame, channel, sample) of the last contact stop during playback.
+        self._contact_stop_at: Optional[tuple] = None
         self._learning: Optional[Set[str]] = None
         self._learn_current: Optional[str] = None
         self._learn_thread: Optional[threading.Thread] = None
@@ -202,6 +210,16 @@ class AnimationService:
         # holds): {joint or "lag:<joint>": floor}. Those moves have no envelope, and
         # without these the weight-bearing joints are not watched there at all.
         self._contact_off_playback = dict(contact_off_playback or {})
+        # Keeps the envelope up to date from the recordings the lamp plays anyway.
+        self._passive = (
+            PassiveLearner(
+                contact_profile, self._passive_defaults(),
+                load_ceiling=overload_guard.threshold
+                if overload_guard is not None and isinstance(overload_guard.threshold, int) else 1000,
+                caps=self._torque_limits,
+            )
+            if contact_profile is not None else None
+        )
         # on_contact(joint, load) runs after a contact stop (its own chime); without
         # it the contact stop falls back to on_overload.
         self._on_contact = on_contact
@@ -220,6 +238,22 @@ class AnimationService:
         # Joints whose Torque_Enable=0 write failed at the cut; retried every tick until
         # confirmed, so a dropped packet cannot leave one joint pushing for the lockout.
         self._overload_pending_off: Set[str] = set()
+
+    def _passive_defaults(self) -> Dict[str, int]:
+        """The floor each envelope channel starts from: what applied before it learned.
+
+        The contact stop's fixed load floors, then the off_playback ones (load and lag),
+        then a capped joint's torque cap (its load cannot reach past it).
+        """
+        defaults: Dict[str, int] = {}
+        threshold = self._contact.threshold if self._contact is not None else None
+        if isinstance(threshold, dict):
+            defaults.update(threshold)
+        for name, floor in self._contact_off_playback.items():
+            defaults.setdefault(name, floor)
+        for joint, cap in self._torque_limits.items():
+            defaults.setdefault(joint, cap)
+        return defaults
 
     @property
     def _tracking_active(self) -> bool:
@@ -290,6 +324,7 @@ class AnimationService:
             ph = self.robot.bus.port_handler
             pk = self.robot.bus.packet_handler
             from scservo_sdk import COMM_SUCCESS
+            self._forget_goals()
             for motor_name, motor_obj in self.robot.bus.motors.items():
                 sid = motor_obj.id
                 pgain = self._SERVO_PGAIN.get(sid, 32)
@@ -878,6 +913,9 @@ class AnimationService:
         try:
             return self._move_to_raw(target_raw, duration, should_abort)
         finally:
+            # Raw writes bypass send_action, and one may land after a tracker frame.
+            with self.bus_lock:
+                self._forget_goals()
             self._direct_move = False
             self._direct_move_ended = self._contact_now()
 
@@ -1049,6 +1087,7 @@ class AnimationService:
             return errors
         bus = self.robot.bus
         with self.bus_lock:
+            self._forget_goals()
             for motor_name in bus.motors:
                 try:
                     bus.write("Torque_Enable", motor_name, 0)
@@ -1142,6 +1181,7 @@ class AnimationService:
                 "margin": self._contact_profile.margin,
                 "recordings": len(self._contact_profile.recordings()),
                 "learning": self._learn_current,
+                "passive_runs": self._passive.runs() if self._passive is not None else {},
             },
         }
 
@@ -1212,6 +1252,7 @@ class AnimationService:
             joint, value / 10.0, unit, self._contact_release_s, self._overload.retry_s,
         )
         self._contact_hold = None
+        self._contact_stop_at = None
         self._contact.clear()
         self._overload.trip(joint, value)
         self._overload_cut(joint, value, logged=True)
@@ -1219,6 +1260,8 @@ class AnimationService:
     def _overload_cut(self, joint: str, load: int, logged: bool = False) -> None:
         """Stop motion and cut torque on every servo. No park move: the arm is blocked."""
         guard = self._overload
+        if self._passive is not None:
+            self._passive.discard()
         if not logged:
             logger.warning(
                 "[overload] %s load %.1f%% >= %.1f%% for %.1fs — cutting torque, retry in %.0fs",
@@ -1244,6 +1287,7 @@ class AnimationService:
     def _write_torque_off(self, motors: List[str]) -> Set[str]:
         """Torque_Enable=0 on each motor; returns the ones whose write failed. Lock held by caller."""
         failed: Set[str] = set()
+        self._forget_goals()
         for motor_name in motors:
             try:
                 self.robot.bus.write("Torque_Enable", motor_name, 0)
@@ -1282,15 +1326,21 @@ class AnimationService:
         """
         if not loads:
             return loads, None
-        off = self._contact_off_playback
-        if off and (
+        passive = self._passive
+        moving_direct = (
             self._direct_move
             or self._contact_now() - self._direct_move_ended < OFF_PLAYBACK_SETTLE_S
-        ):
+        )
+        if passive is not None and moving_direct:
+            passive.discard()
+        off = self._contact_off_playback
+        if off and moving_direct:
             return loads, None
         profile = self._contact_profile
         position = self._playback_position()
         learning = self._learning
+        if passive is not None and (position is None or learning is not None):
+            passive.end()
         if profile is not None and position is not None:
             samples = dict(loads)
             lags = self._read_lags()
@@ -1300,6 +1350,8 @@ class AnimationService:
                 if position[0] in learning:
                     profile.learn(position[0], position[1], samples)
                 return loads, None
+            if passive is not None:
+                passive.observe(position[0], position[1], len(self._current_actions), samples)
             # This unit's envelope wins over off_playback, settled idle included: the
             # fixed floors came from lamp-52e6, and lamp-a0ae's heavier elbow idles at
             # 54-60 % against their 52 %.
@@ -1318,7 +1370,9 @@ class AnimationService:
         """Per-joint |goal - present| in 0.1 deg, or None when the bus read fails."""
         try:
             with self.bus_lock:
-                goal = self.robot.bus.sync_read("Goal_Position")
+                goal = self._written_goals()
+                if goal is None:
+                    goal = self.robot.bus.sync_read("Goal_Position")
                 present = self.robot.bus.sync_read("Present_Position")
         except Exception as e:
             logger.debug("[contact] lag read failed: %s", e)
@@ -1327,6 +1381,21 @@ class AnimationService:
             LAG_PREFIX + motor: int(round(abs(goal[motor] - present[motor]) * 10))
             for motor in goal if motor in present
         }
+
+    def _written_goals(self) -> Optional[Dict[str, float]]:
+        """Every joint's goal as last written, or None to read the register instead."""
+        goal = getattr(self.robot, "last_goal", None)
+        if not goal or any(motor not in goal for motor in self.robot.bus.motors):
+            return None
+        if time.monotonic() - getattr(self.robot, "last_write_monotonic", 0.0) > GOAL_CACHE_S:
+            return None
+        return goal
+
+    def _forget_goals(self) -> None:
+        """Goal_Position was or may be written outside send_action. Bus lock held by caller."""
+        forget = getattr(self.robot, "forget_goals", None)
+        if forget is not None:
+            forget()
 
     def learn_contact_profile(self, recordings: List[str], runs: int = 2) -> None:
         """Start a learn run: play each recording `runs` times free, then save."""
@@ -1346,6 +1415,8 @@ class AnimationService:
         profile = self._contact_profile
         for rec in recordings:
             profile.forget(rec)
+            if self._passive is not None:
+                self._passive.forget(rec)
         self._learning = set(recordings)
         logger.info("[contact] learn run: %d recordings x %d", len(recordings), runs)
         try:
@@ -1374,17 +1445,27 @@ class AnimationService:
     def _wait_recording_done(self, rec: str, timeout: float = 90.0) -> bool:
         """Block until `rec` started and then ended (or settled, for idle).
 
-        True when it reached its last frame, False when something cut it short.
+        True when it reached its last frame, False when something cut it short. A
+        recording that holds its final pose (sleepy) never ends, so it is done once it
+        has played through to that pose.
         """
         deadline = time.monotonic() + timeout
         started = False
+        # Seen mid-playback: a held final pose left over from before this play
+        # (frame index already at the end) does not count as played through.
+        played = False
         reached = 0
         while time.monotonic() < deadline and self._running.is_set():
             current = self._current_recording
             if current == rec and not self._idle_settled:
                 started = True
-                reached = max(reached, self._current_frame_index)
+                frame = self._current_frame_index
                 total = len(self._current_actions)
+                reached = max(reached, frame)
+                if frame < total:
+                    played = True
+                elif played and rec in self._no_idle_recordings:
+                    return True
             elif started:
                 return reached >= total - 1
             time.sleep(0.05)
@@ -1392,7 +1473,13 @@ class AnimationService:
 
     def _contact_stop(self, joint: str, load: int) -> None:
         """Stop where the arm is and keep it there (torque ON) for the pause."""
+        # Where it stopped, read before the halt ends playback: a pause nobody holds
+        # through loosens the envelope there (_contact_recover).
+        position = self._playback_position() if self._learning is None else None
+        self._contact_stop_at = (*position, joint, load) if position is not None else None
         self._halt.set()
+        if self._passive is not None:
+            self._passive.discard()
         # Pin the pose and block goal writes under one lock hold, so no playback or
         # tracker frame lands in between and drives back into the obstacle.
         with self.bus_lock:
@@ -1454,9 +1541,13 @@ class AnimationService:
             held = " (%s peaked %.1f while held, release at %.1f; lag peaked %.1f deg)" % (
                 joint, hold.peak[joint] / 10.0, self._contact_hold_floors[joint] / 10.0,
                 hold.peak.get(LAG_PREFIX + motor, 0) / 10.0)
+        stop_at, self._contact_stop_at = self._contact_stop_at, None
         if self.overload_active:
             # The cut-off took over meanwhile; its own recovery unblocks the goals.
             return
+        if stop_at is not None and self._passive is not None:
+            # Nobody held it through the pause: most likely a false stop.
+            self._passive.loosen(*stop_at)
         with self.bus_lock:
             if self.robot:
                 self.robot.goal_writes_blocked = False

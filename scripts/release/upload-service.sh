@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Publish a prebuilt service package; activation remains an explicit device action.
+# Publish a prebuilt service package; activation is controlled by signed per-device promotion.
 set -euo pipefail
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/ota-config.sh"
 source "${RELEASE_DIR}/ota-metadata.sh"
@@ -65,4 +65,4 @@ PY
 ota_metadata_sign "$tmp/payload.json" "$tmp/envelope.json"
 gsutil cp "$tmp/package.zip" "gs://${GCS_BUCKET}/${BUCKET_PREFIX}/services/${COMPONENT}/${sha}.zip"
 gsutil -h 'Content-Type:application/json' -h 'Cache-Control:no-cache, no-store, must-revalidate' cp "$tmp/envelope.json" "$metadata"
-printf 'Published %s %s. Initial migration requires software-update %s --activate.\n' "$COMPONENT" "$V" "$COMPONENT"
+printf 'Published %s %s. Promote automatic migration with make promote-service COMPONENT=%s FOR=<device_type> V=%s ACTIVATE=1.\n' "$COMPONENT" "$V" "$COMPONENT" "$V"

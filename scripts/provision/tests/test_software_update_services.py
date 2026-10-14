@@ -21,7 +21,7 @@ class ServiceOTATests(unittest.TestCase):
         self.addCleanup(temporary.cleanup)
         self.root = Path(temporary.name).resolve()
         self.m = types.ModuleType('service_ota_test')
-        exec(compile(SOURCE.replace('/root/config/bootstrap.json', str(self.root / 'bootstrap.json')), str(SCRIPT), 'exec'), self.m.__dict__)
+        exec(compile(SOURCE.replace('/root/config/bootstrap.json', str(self.root / 'bootstrap.json')).replace('/opt/hal/.env', str(self.root / 'hal.env')).replace('/root/config/config.json', str(self.root / 'config.json')), str(SCRIPT), 'exec'), self.m.__dict__)
         self.m.STATE = self.root / 'state'
         self.m.ROOT = self.root / 'code'
         self.m.DATA = self.root / 'data'
@@ -96,6 +96,86 @@ class ServiceOTATests(unittest.TestCase):
         self.assertFalse(self.m.JOURNAL.exists())
         self.assertEqual(self.states['hal'], 'active')
         self.assertEqual(self.states['os-server'], 'active')
+
+    def test_promoted_activation_requires_actual_device_and_floor(self):
+        patcher = patch.dict(os.environ, {'DEVICE_TYPE': ' lamp '})
+        patcher.start()
+        self.addCleanup(patcher.stop)
+        entry = dict(service='lamp-os', version='1.2.3', activate_by_device={'lamp': True},
+                     min_version_by_device={'lamp': '1.0.0'})
+        self.assertTrue(self.m.promoted_activation('lamp-os', entry))
+        for change in ({'activate_by_device': {'lamp': False}}, {'activate_by_device': {'lamp': 'true'}},
+                       {'activate_by_device': {'other': True}}, {'activate_by_device': []},
+                       {'min_version_by_device': {}}, {'min_version_by_device': {'lamp': '0.0.0'}},
+                       {'min_version_by_device': {'lamp': '2.0.0'}}, {'min_version_by_device': {'lamp': 1}},
+                       {'service': 'hal'}):
+            with self.subTest(change=change), self.assertRaises(RuntimeError):
+                self.m.promoted_activation('lamp-os', dict(entry, **change))
+        self.assertEqual(self.events, [])
+
+    def test_fresh_promoted_version_respects_rollback_guard(self):
+        entry = dict(service='lamp-os', version='1.2.3', activate_by_device={'lamp': True},
+                     min_version_by_device={'lamp': '1.0.0'})
+        config = self.root / 'bootstrap.json'
+        config.write_text(json.dumps({'rollback_versions': {'lamp-os': '1.2.3'}}))
+        with patch.dict(os.environ, {'DEVICE_TYPE': 'lamp'}):
+            with self.assertRaisesRegex(RuntimeError, 'blocked after rollback'):
+                self.m.promoted_activation('lamp-os', entry)
+            entry['version'] = '1.2.4'
+            self.assertTrue(self.m.promoted_activation('lamp-os', entry))
+            config.write_text('{"rollback_versions": []}')
+            with self.assertRaisesRegex(RuntimeError, 'Invalid rollback_versions'):
+                self.m.promoted_activation('lamp-os', entry)
+        self.assertEqual(self.events, [])
+
+    def test_promoted_activation_device_config_fallback(self):
+        patcher = patch.dict(os.environ, {'DEVICE_TYPE': ''})
+        patcher.start()
+        self.addCleanup(patcher.stop)
+        (self.root / 'config.json').write_text('{"device_type":" lamp "}')
+        entry = dict(service='lamp-os', version='1.2.3', activate_by_device={'lamp': True},
+                     min_version_by_device={'lamp': '1.0.0'})
+        self.assertTrue(self.m.promoted_activation('lamp-os', entry))
+        os.environ['DEVICE_TYPE'] = 'other'
+        with self.assertRaises(RuntimeError):
+            self.m.promoted_activation('lamp-os', entry)
+
+    def test_failed_promoted_activation_blocks_retry_and_restores_legacy(self):
+        self.fail_health.add(('lamp-os', '0.1.0'))
+        entry = dict(service='lamp-os', version='0.1.0', replaces=['hal', 'os-server'])
+        with self.assertRaisesRegex(RuntimeError, 'health failure'):
+            self.m.install('lamp-os', entry, str(self.package()), True, promoted=True)
+        self.assert_legacy()
+        self.assertEqual(json.loads((self.root / 'bootstrap.json').read_text())['rollback_versions'],
+                         {'lamp-os': '0.1.0'})
+
+    def test_interrupted_promoted_activation_blocks_retry_on_recovery(self):
+        entry = dict(service='lamp-os', version='0.1.0', replaces=['hal', 'os-server'])
+        original = self.m.recover
+        self.m.recover = lambda: None
+        self.fail_health.add(('lamp-os', '0.1.0'))
+        with self.assertRaises(RuntimeError):
+            self.m.install('lamp-os', entry, str(self.package()), True, promoted=True)
+        self.m.recover = original
+        original()
+        self.assert_legacy()
+        self.assertEqual(json.loads((self.root / 'bootstrap.json').read_text())['rollback_versions'],
+                         {'lamp-os': '0.1.0'})
+
+    def test_recovery_restores_legacy_even_when_rejection_marker_cannot_be_written(self):
+        entry = dict(service='lamp-os', version='0.1.0', replaces=['hal', 'os-server'])
+        self.fail_health.add(('lamp-os', '0.1.0'))
+        (self.root / 'bootstrap.json').write_text('invalid-json')
+        with self.assertRaises(ValueError):
+            self.m.install('lamp-os', entry, str(self.package()), True, promoted=True)
+        self.assertEqual(self.states['hal'], 'active')
+        self.assertEqual(self.states['os-server'], 'active')
+        self.assertTrue(self.m.JOURNAL.exists())
+        (self.root / 'bootstrap.json').write_text('{}')
+        self.m.recover()
+        self.assert_legacy()
+        self.assertEqual(json.loads((self.root / 'bootstrap.json').read_text())['rollback_versions'],
+                         {'lamp-os': '0.1.0'})
 
     def test_metadata_does_not_activate_device(self):
         with self.assertRaisesRegex(RuntimeError, 'requires --activate'):

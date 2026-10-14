@@ -59,7 +59,21 @@ at batch 1 server-side, which stays inside the cached TensorRT engine's shape
 range, so no clip length can trigger an engine rebuild during a request.
 Speaker-embedding input is likewise cropped to 3000 frames (30 s) before
 inference, below the cached engine's 5546-frame limit, so a long clip is
-embedded from its first 30 s instead of rebuilding the engine (#555). Model choices and outputs:
+embedded from its first 30 s instead of rebuilding the engine (#555).
+OWLv2 object detection runs as two ONNX graphs: a text graph turns prompts into query
+embeddings and an image graph detects with them. Named prompt presets (today only
+`fire_hazard_v1`, the 46 fire-hazard prompts HAL uses) are encoded once when dlserver
+starts and kept in memory, not on disk, so they are re-encoded on every restart and a
+preset request runs only the image graph. The HTTP detect request takes an optional
+`preset` (up to 64 characters): a known preset wins over `classes`, an unknown one gets
+a 400. Changing the prompts means a new preset name shipped with a server deploy, and the
+server must be deployed before a HAL build that sends the new name (an older server
+ignores `preset` and answers 200 with its default classes). Both graphs use explicit
+TensorRT profiles (1–500 queries, optimized for 46) and are warmed at 46 and 1 queries,
+so engines are built at startup, on the idle slot during a two-slot deploy (about 97 s
+on the current GPU), never in the middle of a request. Request schema:
+[`integrations/perception-service/docs/api.md`](../integrations/perception-service/docs/api.md#object-detection--websocket--http).
+Model choices and outputs:
 [`integrations/perception-service/docs/perceptions.md`](../integrations/perception-service/docs/perceptions.md).
 
 ## Using it from a device

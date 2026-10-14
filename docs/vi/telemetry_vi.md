@@ -135,6 +135,7 @@ credential. Chỉ id, outcome trong danh sách cố định, và các khoảng t
 | `hal/telemetry/voice_metrics.py` | Thiết bị báo đã nghe nhanh cỡ nào, và có bao giờ phát câu trả lời mà người dùng đã bỏ qua không | [`docs/vi/voice-metrics_vi.md`](voice-metrics_vi.md) |
 | `hal/telemetry/live_voice.py` | Cùng các KPI voice cho phiên realtime (live): gán mỗi turn của provider vào đúng một interaction HAL và cấp dữ liệu cho `voice_metrics` mà không đoán quyền sở hữu audio | [`docs/vi/voice-metrics_vi.md`](voice-metrics_vi.md) |
 | `system/telemetry/voice_task.go` | Tác vụ voice/chat đã được nhận có thực sự chạy không (bắt đầu, gắn run, lifecycle end hoặc local intent trả về) | [`docs/vi/voice-metrics_vi.md`](voice-metrics_vi.md) |
+| `hal/telemetry/fire_hazard_metrics.py` | Fire hazard gọi OWLv2 bao thường xuyên, các lời gọi đó lỗi ra sao và mất bao lâu, gate trên đèn hit và escalation bao thường xuyên, và loại nguy cơ nào được cảnh báo (`fire_hazard_stats` mỗi giờ, `fire_hazard_alert` mỗi cảnh báo) | [`robots/lamp/docs/vi/sensing-behavior_vi.md`](../../robots/lamp/docs/vi/sensing-behavior_vi.md#fire-hazard) |
 
 ## Lệnh kiểm chứng
 

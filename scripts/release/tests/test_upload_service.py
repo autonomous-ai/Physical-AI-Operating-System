@@ -33,11 +33,13 @@ class ServicePublisherTests(unittest.TestCase):
     def test_preserves_other_components_and_promotion_floors(self):
         before = {'hal': {'version': '9.0.0'}, 'lamp-os': {
             'service': 'lamp-os', 'replaces': ['os-server', 'hal'], 'version': '1.0.0',
-            'min_version': '0.9.0', 'min_version_by_device': {'lamp': '1.0.0'}}}
+            'min_version': '0.9.0', 'min_version_by_device': {'lamp': '1.0.0'},
+            'activate_by_device': {'lamp': True}}}
         result, after = self.run_case(before)
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(after['hal'], before['hal'])
         self.assertEqual(after['lamp-os']['min_version'], '0.9.0')
+        self.assertEqual(after['lamp-os']['activate_by_device'], {'lamp': True})
         self.assertEqual(after['lamp-os']['min_version_by_device'], {'lamp': '1.0.0'})
 
     def test_rejects_topology_mutation(self):

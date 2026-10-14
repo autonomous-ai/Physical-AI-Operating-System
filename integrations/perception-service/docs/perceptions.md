@@ -137,7 +137,19 @@ selected by URL path segment (`{detector_name}`).
 - Output `ObjectDetection` → items `{class_name, xywh:[cx,cy,w,h], confidence}`.
   All object detectors return **normalized [0,1] bbox_xywh**; the session/perception
   layer rescales coordinates to pixel dimensions before returning to the client.
-- `classes` is supplied per request (the open-vocabulary prompt). All detectors are
+- `classes` is supplied per request (the open-vocabulary prompt). OWLv2 also serves
+  named **presets** (`PRESETS` in `onnx/owlv2.py`, prompt files in
+  `perception/object/resources/presets/`; today only `fire_hazard_v1`, 46 prompts). Each
+  preset is encoded by the text graph once at startup and kept in memory (re-encoded on
+  every restart, never cached on disk); a request with `preset` skips the text graph and
+  wins over `classes`. A prompt change needs a new preset name. Other detectors serve no
+  presets (`ObjectDetector.preset_names` is empty).
+- OWLv2 TensorRT profiles are explicit: text `class_tokens` 1–500 queries (opt 46),
+  image `images` batch 1..`BATCH_SIZE` at 1008×1008 and `query_embeds` 1–500 queries
+  (opt 46). Both sessions are warmed at 46 and 1 queries, so the engines are built at
+  startup, not mid-request; a shape outside the profile fails instead of rebuilding the
+  engine (the request schema already caps `classes` at 500).
+- All detectors are
   **disabled by default** — enable the ones you need via `OBJECT_DETECTOR__<NAME>__ENABLED`.
 
 ## 6. Audio embedder (speaker)
@@ -206,7 +218,7 @@ on first use. Override with `<NAME>__CKPT_PATH` (local) or `<NAME>__REMOTE_URL` 
 | YOLO person (PyTorch) | `yolo12x.pt` | PyTorch | `pytorch_models/` |
 | YOLO-World v2 (ONNX) | `yolov8x-worldv2_raw.onnx` / `yolov8x-worldv2.onnx` | ONNX | `onnx_models/` |
 | YOLO-World v2 (PyTorch) | `yolov8x-worldv2.pt` | PyTorch | `pytorch_models/` |
-| OWLv2 (ONNX) | `owlv2_raw.onnx` / `owlv2.onnx` | ONNX | `onnx_models/` |
+| OWLv2 (ONNX) | `owlv2_text_v1.onnx` (text) + `owlv2_image_v1.onnx` (image) | ONNX | `onnx_models/` |
 | OWLv2 (HuggingFace) | `google/owlv2-large-patch14-ensemble` | HuggingFace | (HF Hub) |
 
 ---
@@ -225,14 +237,22 @@ export-emonet           # EmoNet facial emotion (5 or 8 class)
 export-emoaffectnet     # Emo-AffectNet facial emotion (ResNet-50, downloads from HF)
 export-emotion2vec      # emotion2vec+ speech emotion (downloads from HF)
 export-tcpformer        # TCPFormer 3D pose lifter
-export-owlv2            # OWLv2 zero-shot object detection (downloads from HF)
+export-owlv2            # OWLv2 text + image graphs (downloads from HF)
+                        #   --text-output <path> --image-output <path>
 export-yolo             # YOLO person detection
 export-yolo-world       # YOLO-World zero-shot object detection
 ```
 
-Detection models (OWLv2, YOLO, YOLO-World) default to `nms=False` (raw export).
-`export-all` exports **both** raw and NMS-baked variants for each detection model.
-Individual scripts accept `--nms` / `--no-nms` flags (default: `--no-nms`).
+Detection models YOLO and YOLO-World default to `nms=False` (raw export).
+`export-all` exports **both** raw and NMS-baked variants for each of them.
+Their scripts accept `--nms` / `--no-nms` flags (default: `--no-nms`).
+`export-owlv2` has no NMS variant: it always writes the text graph and the image graph
+(`--text-output`, `--image-output`; defaults are the model cache paths), and `export-all`
+writes `owlv2_text_v1.onnx` + `owlv2_image_v1.onnx`. NMS runs in the predictor.
+`scripts/owlv2_split_parity.py --old <old single graph> --text … --image …
+--provider cpu|cuda|trt` compares the split graphs with the old single graph on the fire
+fixtures using the 46 fire-hazard prompts (fp32 strict parity on `cpu`/`cuda`; on `trt`,
+fp16 gated on detections at conf ≥ 0.3, what HAL acts on).
 
 ### Model I/O specifications
 
@@ -246,22 +266,23 @@ All models export with ONNX opset 17. `B` = batch, `T` = variable time, `K` = nu
 | **Emo-AffectNet** | `images` | `[B,3,224,224]` | RGB→BGR flip, ×255, VGGFace2 mean subtract — all baked into ONNX (caller passes [0,1] RGB) | `probs` | `[B, 7]` softmax |
 | **emotion2vec+** | `audio` | `[B, T]` (16kHz mono) | Optional mean/var normalize | `probs` | `[B, 9]` softmax |
 | **TCPFormer** | `keypoints` | `[B,243,17,3]` | Raw 2D skeleton (x,y,conf) | `poses` | `[B,243,17,3]` 3D coords |
-| **OWLv2** | `images`, `class_tokens` | `[B,3,H,W]`, `[K,16]` int64 | OWLv2Processor | `boxes`, `probs`, `labels` | `[B,N,4]` xywh, `[B,N,K]`, `[B,N]` |
+| **OWLv2 text** | `class_tokens` | `[K,16]` int64 | `Owlv2Processor` tokenizer, prompt `a photo of <class>` | `query_embeds` | `[K,768]` L2-normalized |
+| **OWLv2 image** | `images`, `query_embeds` | `[B,3,1008,1008]` (static), `[K,768]` | Pad to square, resize to 1008, CLIP mean/std (`owlv2_preprocess`) | `boxes`, `probs`, `labels` | `[B,N,4]` xywh, `[B,N,K]`, `[B,N]` |
 | **YOLO** | `images` | `[B,3,640,640]` | Raw tensor | `boxes`, `probs`, `labels` | `[B,N,4]` xywh, `[B,N]`, `[B,N]` |
 | **YOLO-World** | `images`, `class_tokens` | `[B,3,640,640]`, `[K,L]` int64 | CLIP tokenize + L2 norm | `boxes`, `probs`, `labels` | `[B,N,4]` xywh, `[B,N,K]`, `[B,N]` |
 
 **Image input convention:** All image inputs expect float32 in [0, 1] range (rescale from uint8 [0, 255] before inference). Models that require further normalization (ImageNet mean/std, custom mean/std) bake it into the ONNX graph — the caller only needs to rescale to [0, 1].
 
-**Models with external preprocessors:** OWLv2 uses its HuggingFace processor (`Owlv2Processor`) for image preprocessing and text tokenization — do NOT manually rescale, the processor handles it. UniformerV2 bakes normalization into the ONNX wrapper. YOLO models accept raw [0, 1] tensors resized to 640×640.
+**Models with external preprocessors:** OWLv2 uses its HuggingFace processor (`Owlv2Processor`) for text tokenization; its image input is padded, resized to 1008×1008 and CLIP-normalized by `owlv2_preprocess` (the size is static because OWLv2 adds a fixed box bias for its 72×72 patch grid). UniformerV2 bakes normalization into the ONNX wrapper. YOLO models accept raw [0, 1] tensors resized to 640×640.
 
 **Detection outputs:** `boxes` are normalized [0,1] xywh. `labels` use -1 for padding. Export scripts default to `nms=False` (raw); the NMS variant bakes NMS into the graph. The ONNX runtime predictors apply NMS in postprocessing by default.
 
-**Text encoders:** OWLv2 embeds the full text encoder (CLIP) in the ONNX; YOLO-World uses CLIP ViT-B/32.
+**Text encoders:** OWLv2's text encoder is a separate graph (`owlv2_text_v1.onnx`); preset embeddings are computed once at startup and kept in memory. YOLO-World uses CLIP ViT-B/32.
 
 `ModelEnum` entries (`enums/files.py`) use suffixes to distinguish formats:
 `_ONNX` (raw ONNX), `_NMS_ONNX` (ONNX with NMS baked in), `_PTH` (PyTorch
 checkpoint). For example: `YOLO_WORLD_ONNX`, `YOLO_WORLD_NMS_ONNX`,
-`YOLO_WORLD_PTH`.
+`YOLO_WORLD_PTH`. OWLv2 uses `OWLV2_TEXT_ONNX` and `OWLV2_IMAGE_ONNX`.
 
 ### Script → checkpoint mapping
 
@@ -273,7 +294,7 @@ checkpoint). For example: `YOLO_WORLD_ONNX`, `YOLO_WORLD_NMS_ONNX`,
 | `export-emoaffectnet` | HuggingFace | `ElenaRyumina/face_emotion_recognition` (`FER_static_ResNet50_AffectNet.pt`) | `models/onnx/emoaffectnet_resnet50.onnx` |
 | `export-emotion2vec` | HuggingFace | `iic/emotion2vec_plus_large` | `models/onnx/emotion2vec.onnx` |
 | `export-tcpformer` | PyTorch `.pth.tr` | `models/pretrained/TCPFormer_h36m_243_379.pth.tr` | `models/onnx/tcpformer_h36m_243.onnx` |
-| `export-owlv2` | HuggingFace | `google/owlv2-large-patch14-ensemble` | `models/onnx/owlv2_raw.onnx` (raw) / `owlv2.onnx` (NMS) |
+| `export-owlv2` | HuggingFace | `google/owlv2-large-patch14-ensemble` | `owlv2_text_v1.onnx` (text) + `owlv2_image_v1.onnx` (image) |
 | `export-yolo` | Ultralytics `.pt` | `yolo12x.pt` | `models/onnx/yolo12x_raw.onnx` (raw) / `yolo12x.onnx` (NMS) |
 | `export-yolo-world` | Ultralytics `.pt` | `yolov8x-worldv2.pt` | `models/onnx/yolov8x-worldv2_raw.onnx` (raw) / `yolov8x-worldv2.onnx` (NMS) |
 

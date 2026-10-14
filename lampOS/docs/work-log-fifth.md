@@ -112,6 +112,37 @@ lamp-4ace.
   switching every servo's torque off on the folded lamp; the ten unplugs
   wait for the fifth builder's person.
 
+## 2026-10-14 — head-follow — measured on lamp-52e6, the person's eye still to come
+
+- Task: 25. Base `origin/lamp-voice` at `e93b9684929d62248394d61c87ec57120db43229`; branch
+  `fifth/head-follow`. No code: numbers in [body.md](body.md), "How the head
+  follows (lamp-52e6, 2026-10-14)", raw in
+  `docs/verification/head-follow-lamp-52e6-20261014/`.
+- Run on lamp-52e6, standing, the body stopped (killed and its restart
+  cancelled, so that it did not fold), each step and each of twelve nods
+  once, read from the servos about every 16 ms.
+- What came out: pitch starts 85 to 95 ms after the goal, 90% of a 40-count
+  step down in 181 ms, up in 727 ms; roll and yaw rest 10 to 19 counts short
+  (gain 16). A nod asked 45 counts for 0.15 s reaches 34 to 35 counts
+  (3 degrees) in about 0.2 s and is back in 0.31 to 0.37 s; asked 25 counts
+  it moves about half of that. Acceleration 60 to 150 changed little.
+- Proposal for Expression's catalogue (the third builder's; not changed
+  here): a nod at a pause is head pitch 45 counts toward the base, held
+  0.15 s, then back: about 3 degrees in about 0.35 s on this lamp. The body
+  as it stands cannot pass it that fast: its commanded pose moves at
+  `--speed` (120 on both lamps), so the nod takes 0.75 s there; a nod asked
+  through Expression would need the body to allow about 300 counts a second
+  for that one movement (its cap is 300). Smaller than 20 counts is never
+  asked by the body at all, so a nod under about 2 degrees cannot be made.
+- Not shown: how it looks to a person; heat over many nods; folded.
+
+## 2026-10-14 — weigh — first figure
+
+- Task 26, not taken yet: the fifth builder's person weighed the whole lamp
+  at 6.6 lb, 3.0 kg, on 2026-10-14 (how, and whether with its cable, to be
+  written when the task is done). The specification quoted in the task says
+  7 kg; the old runtime's model adds up to 1.5 kg.
+
 ## Proposed tasks
 
 Work found while doing a listed task that cannot be folded into it. One

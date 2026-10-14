@@ -1,0 +1,26 @@
+# lampOS name: hears the lamp's name ("Hey Lamp", "Lamp oi") in what the microphone hears, as the voice puts it
+# on the bus, and says so on name/heard (lampOS/docs/name.md). It decides nothing and keeps no sound.
+# Its own process and unit: with it stopped the lamp talks on as before.
+[Unit]
+Description=lampOS name (lamp-name)
+After=local-fs.target
+
+[Service]
+Type=simple
+User=orangepi
+Group=orangepi
+ExecStart=/opt/lampOS/name/a604571552dcb1c6c2d6b9f46abf2b90002560113c987ab2ed286ebc9b9551c9/lamp-name --models /opt/lampOS/name/models --microphone mic2 --least 0.9 --bus-root /run/lampos-bus
+Restart=on-failure
+RestartSec=5s
+SyslogIdentifier=lamp-name
+# The two fast cores: a step is 80 ms of sound and must not fall behind it.
+CPUAffinity=6 7
+Nice=5
+NoNewPrivileges=yes
+ProtectSystem=strict
+ReadWritePaths=/run/lampos-bus
+ProtectHome=yes
+PrivateTmp=yes
+
+[Install]
+WantedBy=multi-user.target

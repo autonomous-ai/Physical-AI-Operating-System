@@ -4,7 +4,7 @@
 # the microphone is permitted; it closes within 1.5 s of that stopping. With --sight-file the
 # newest frame, and only that one, is kept in /run (memory) for lamp-voice to show the model with
 # what a person says; take the option out and no frame leaves the process (lampOS/docs/eyes.md).
-# Not enabled at boot.
+# Started at boot since 2026-10-15 (the V2 MVP: every part comes back after power).
 [Unit]
 Description=lampOS eyes (lamp-eyes)
 ConditionHost=lamp-4ace
@@ -20,7 +20,8 @@ RuntimeDirectory=lampos-eyes
 RuntimeDirectoryMode=0755
 # Looking is never worth a late word: below the voice service.
 Nice=10
-ExecStart=/opt/lampOS/eyes/6c286cc55f24b5e508986849652227e3165d6296246a74baac72066d124cda2a/lamp-eyes --device /dev/video0 --lock-directory /home/orangepi/.local/share/lampOS-voice/camera-locks --usb 01da:5875@3-1.1.4 --model /opt/lampOS/eyes/face_detection_yunet_2023mar.onnx --permit-socket /run/lampos-eyes/permit.sock --body-socket /run/lampos-body/gaze.sock --presence-file /run/lampos-eyes/present --sight-file /run/lampos-eyes/sight.jpg
+Environment=LAMP_BUS=on
+ExecStart=/opt/lampOS/eyes/9799bf8f813c2978009febbf552a9223be678cf984ab9aed986755f925d27fe1/lamp-eyes --device /dev/video0 --lock-directory /home/orangepi/.local/share/lampOS-voice/camera-locks --usb 01da:5875@3-1.1.4 --model /opt/lampOS/eyes/face_detection_yunet_2023mar.onnx --permit-socket /run/lampos-eyes/permit.sock --body-socket /run/lampos-body/gaze.sock --presence-file /run/lampos-eyes/present --sight-file /run/lampos-eyes/sight.jpg
 Restart=on-failure
 RestartSec=5s
 StandardInput=null
@@ -28,3 +29,6 @@ StandardOutput=journal
 StandardError=journal
 SyslogIdentifier=lamp-eyes
 NoNewPrivileges=yes
+
+[Install]
+WantedBy=multi-user.target

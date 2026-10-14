@@ -1,0 +1,27 @@
+# lampOS actions: carries out what the lamp is asked to do to itself (lampOS/docs/actions.md).
+# Its own process and unit. With it stopped the voice goes on and says it cannot do the thing just now.
+# It is the only writer of the speaker's volume control. It never opens a microphone, the speaker or the ring.
+[Unit]
+Description=lampOS actions (lamp-actions)
+After=sound.target
+
+[Service]
+Type=simple
+User=orangepi
+Group=orangepi
+SupplementaryGroups=audio
+RuntimeDirectory=lampos-actions
+RuntimeDirectoryMode=0755
+ExecStart=/opt/lampOS/actions/d5266611b5d7895dc4f5471f65dc1b8ce317ef9d73cfe69e9062e49631e620c1/lamp-actions --dir /run/lampos-actions --mixer-card allwinnerhdmi --mixer-control Speaker --volume-ceiling 100 --bus-root /run/lampos-bus
+Restart=on-failure
+RestartSec=2s
+SyslogIdentifier=lamp-actions
+NoNewPrivileges=yes
+ProtectSystem=strict
+# The bus, where it asks for the lamp's light and reads back what the ring shows.
+ReadWritePaths=/run/lampos-bus
+ProtectHome=yes
+PrivateTmp=yes
+
+[Install]
+WantedBy=multi-user.target

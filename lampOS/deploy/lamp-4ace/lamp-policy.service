@@ -1,0 +1,30 @@
+# lampOS policy: decides what the lamp should do, with a decision model (lampOS/docs/policy.md).
+# Shadow mode: it listens on the bus, decides, publishes and logs its decision, and nothing acts on it.
+# Its own process and unit. With it stopped the lamp behaves exactly as it does without it.
+# It sends the recognised text of what was heard to the decision model's service (approved by the owner on
+# 2026-10-14). Its log, which holds that text, is in a directory only it can read.
+[Unit]
+Description=lampOS policy (lamp-policy), shadow mode
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=orangepi
+Group=orangepi
+StateDirectory=lampos-policy
+StateDirectoryMode=0700
+# The key stays readable by root alone; systemd hands this service its own copy.
+LoadCredential=jev.key:/etc/lampOS/policy/jev.key
+ExecStart=/opt/lampOS/policy/2f422ad160b0c5bf81932f786c4675bff251819734101729ba59d9d5cee0b433/lamp-policy --key-file %d/jev.key --log-dir /var/lib/lampos-policy
+Restart=on-failure
+RestartSec=5s
+SyslogIdentifier=lamp-policy
+NoNewPrivileges=yes
+ProtectSystem=strict
+ReadWritePaths=/run/lampos-bus
+ProtectHome=yes
+PrivateTmp=yes
+
+[Install]
+WantedBy=multi-user.target

@@ -230,7 +230,7 @@ has it:
 | 11 | One task out to an agent and back, through Harness | `tasks` | Third | open |
 | 8 | A shared log, settings, and reports from the parts that give none | `defaults` | Third | open |
 | 18 | Expression: holding back for someone, and a lamp at rest | `expression-rest` | Third | open |
-| 13 | Memory across days | `memory-days` | Fourth | done 2026-10-14: on `lamp-voice`, built for the lamp and timed on it; on the lamp in its old mode, the new store not switched on |
+| 13 | Memory across days | `memory-days` | Fourth | done 2026-10-14: on `lamp-voice`, built for the lamp and timed on it; switched on on the lamp at 14:50 (backed up first); the voice does not yet use its additions |
 | 14 | Whom is it said to: what exists | `said-to-whom` | Fourth | done 2026-10-14: on `lamp-voice` ([said-to-whom.md](said-to-whom.md)); task 17 follows from it |
 | 15 | The lamp keeps its own records within a bound | `records-bound` | Fourth | done 2026-10-14: on `lamp-voice`; its dry run works on the lamp's real records; removal not switched on |
 | 16 | A check that the lamp cannot lean too far | `lean-check` | Fourth | done 2026-10-14: on `lamp-voice`, run and timed on the lamp; a stand-in body model until the lamp is weighed; not wired to the body |

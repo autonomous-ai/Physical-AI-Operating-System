@@ -349,6 +349,33 @@ memory scenes to it before and after.
 Not shown on the lamp: a power cut during an import, an append or a
 forget; Vietnamese; the tidy-up with a real model.
 
+## Switched on, lamp-4ace (first builder, 2026-10-14, 14:50)
+
+The owner asked that afternoon for parts to be finished before the hard
+ones. So memory across days went on before the voice uses what it adds:
+the voice's existing requests (remember, recall, forget, the kept note)
+work unchanged in the new mode.
+
+1. The memory scenes played before (`memory.sh`, 14:46): kept "I take my
+   coffee black", used it, recalled the earlier conversation ("coffee,
+   the sky's color, and how many days are in a week"), forgot it.
+2. The folder backed up with its permissions,
+   `/home/orangepi/lamp-memory-backup-20261014T1449.tar` (two journals,
+   85 and 5 KB; nothing kept at that moment). Restoring that folder with
+   the old flag brings the old mode back.
+3. `--memory-days` added to the unit, same build (`99df4a52…`). It started
+   with "memory_days=true; the model adapter is not configured", imported
+   the journals into `memory-days.sqlite3` (360 KB) and cleared them.
+4. Asked over its socket, with nothing played: status, 415 exchanges over
+   two days; recall "coffee", three in 6.1 ms; recall "Tokyo", this
+   afternoon's answer in 4.3 ms; search "spider", ranked, 5.3 ms.
+
+The scenes played again at 14:50 do not count: the office was loud, the
+room was busy, and the voice's busy-room rule held the requests (including
+the call to remember: "asked for remember; not done"). To be played in a
+quiet room. Not used yet by the voice: the ranked search in place of the
+newest, the frozen session note and the tidy-up after a conversation.
+
 ## Not shown
 
 What follows is as Fourth wrote it, before the above. No new code had run

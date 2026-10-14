@@ -27,6 +27,8 @@ log and nothing a lamp runs ([joining.md](joining.md),
 | 19 | The end sent early, the answer played only when sure | `second/early-end` | 2026-10-14 | on `lamp-voice`, behind `--early-end-ms`; played on lamp-4ace at 200 ms: worse; switched off |
 | 36 | Always alive: the idle layer, sleep and waking (issue #714) | `second/always-alive` | 2026-10-14 | on `lamp-voice` (#729, merged 23:03); on lamp-4ace since 23:07 |
 | second-P1 | The early end taken back (issue #723) | `second/early-end-back`, then `second/early-end-labelled` | 2026-10-14 | step 1 on `lamp-voice` (#731, merged 23:06); on lamp-4ace at 23:10 (a) did not hold and (b) did; step 2 as pull request #738 into `lamp-voice`, 2026-10-15 |
+| 45 | Updates: a lamp keeps its lampOS current by itself (issue #737, MVP) | `second/updates` | 2026-10-15 | being built |
+| 44 | A yes said in two breaths still starts the task (issue #736, MVP) | `second/two-breath-yes` | 2026-10-15 | being built |
 | 40 | Progress news through the tasks part and Jev (issue #732, `second-P2`) | `second/progress-news` | 2026-10-15 | being built |
 | 41 | Codex and the others: the person names who gets the work (issue #733, `second-P3`) | `second/who-gets-the-work` | 2026-10-15 | being built |
 | 43 | The person's phone over Bluetooth (issue #735, `second-P4`) | none | 2026-10-15 | cancelled by the owner the same night before any work was kept; released on #735 |

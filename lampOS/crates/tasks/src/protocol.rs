@@ -34,6 +34,11 @@ pub enum Request {
         id: u64,
         observation_id: u64,
     },
+    /// The agent's progress line and what was read with it, kept in memory
+    /// with `serve --progress`: for the lamp about to say it.
+    GetProgress {
+        id: u64,
+    },
     Prepare {
         guard: Guard,
         text: String,
@@ -118,6 +123,7 @@ impl Request {
             Self::List { .. } => "list",
             Self::GetTask { .. } => "get_task",
             Self::GetObservation { .. } => "get_observation",
+            Self::GetProgress { .. } => "get_progress",
             Self::Prepare { .. } => "prepare",
             Self::Confirm { .. } => "confirm",
             Self::Cancel { .. } => "cancel",
@@ -143,6 +149,8 @@ mod tests {
             br#"{"op":"get_task","id":1,"machine_id":"other"}"#,
             br#"{"op":"list","limit":1,"engine":"claude"}"#,
             br#"{"op":"targets","engine":"codex"}"#,
+            br#"{"op":"get_progress","id":1,"about":"anything"}"#,
+            br#"{"op":"get_progress"}"#,
         ] {
             assert_eq!(Request::parse(bytes), Err("bad_request"));
         }
@@ -150,6 +158,10 @@ mod tests {
         assert_eq!(targets, Request::Targets {});
         assert!(targets.guard().is_none() && !targets.trusted());
         assert_eq!(targets.name(), "targets");
+        let progress = Request::parse(br#"{"op":"get_progress","id":3}"#).unwrap();
+        assert_eq!(progress, Request::GetProgress { id: 3 });
+        assert!(!progress.trusted() && progress.guard().is_none());
+        assert_eq!(progress.name(), "get_progress");
         assert_eq!(
             Request::parse(br#"{"op":"list"}"#).unwrap(),
             Request::List {

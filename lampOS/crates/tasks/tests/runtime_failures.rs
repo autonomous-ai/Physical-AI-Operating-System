@@ -54,6 +54,7 @@ fn config(root: &Path) -> Config {
         )]),
         run_for: Some(Duration::from_secs(20)),
         watch: false,
+        progress: false,
     }
 }
 

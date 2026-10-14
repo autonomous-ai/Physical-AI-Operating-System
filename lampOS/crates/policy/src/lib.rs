@@ -17,6 +17,8 @@
 //! - [`record`]: the decisions log.
 //! - [`outcome`]: what the lamp did after a decision, and how long before
 //!   its first sound the decision was known.
+//! - [`progress`]: the second decision, "say this progress now?", about
+//!   the work the lamp handed over (`lamp-policy --progress`).
 //! - [`policy`]: the loop that listens on the bus and does the rest.
 
 // Nothing in this library prints. What it has to say about itself leaves
@@ -30,4 +32,5 @@ pub mod decide;
 pub mod gather;
 pub mod outcome;
 pub mod policy;
+pub mod progress;
 pub mod record;

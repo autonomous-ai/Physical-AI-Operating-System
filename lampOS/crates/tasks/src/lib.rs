@@ -2,6 +2,7 @@
 //! Tasks never opens an output device or implements Harness authentication.
 pub mod engine;
 pub mod harness;
+pub mod progress;
 pub mod protocol;
 pub mod runtime;
 pub mod store;

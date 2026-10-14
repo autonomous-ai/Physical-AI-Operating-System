@@ -20,11 +20,12 @@ use crate::{
     decide::{Asked, Connection, Decider, Failed, Usage},
     gather::{Gather, Lamp, Utterance},
     outcome::{Begun, Watch},
+    progress::{self, Progress},
     record::Record,
 };
 use lamp_bus::{Bus, Notice, Publisher, Subscriber};
 use lamp_msgs::{
-    Decision, Diagnostic, Faces, Level, NameHeard, RoomState, Speech, Voice, VoiceState,
+    Decision, Diagnostic, Faces, Level, NameHeard, RoomState, Speech, TaskStatus, Voice, VoiceState,
 };
 use serde::{Serialize, de::DeserializeOwned};
 use std::{
@@ -122,6 +123,19 @@ pub enum Note {
         abandoned: u64,
         pending: u64,
         drained: bool,
+    },
+    /// A progress decision was made (`lamp-policy --progress`): for the
+    /// task and change of its progress line it was about.
+    ProgressDecided {
+        number: u64,
+        task: u64,
+        change: u32,
+        choice: progress::Choice,
+        probability: f32,
+        by_rule: bool,
+        took_ms: u32,
+        /// A hard rule that turned the answer to `wait`.
+        guard: Option<progress::Hold>,
     },
     /// A decision was made.
     Decided {
@@ -235,6 +249,22 @@ impl fmt::Display for Note {
             } => write!(
                 f,
                 "judges log queued={queued} written={written} failed={failed} dropped={dropped} abandoned={abandoned} pending={pending} drained={drained}; written is append completion, not power-loss durability",
+            ),
+            Self::ProgressDecided {
+                number,
+                task,
+                change,
+                choice,
+                probability,
+                by_rule,
+                took_ms,
+                guard,
+            } => write!(
+                f,
+                "progress decision {number} task={task} change={change} choice={} probability={probability:.3} by={} took_ms={took_ms} guard={}",
+                choice.as_str(),
+                if by_rule { RULE } else { "model" },
+                guard.map_or("none", progress::Hold::as_str),
             ),
             Self::Decided {
                 number,
@@ -684,6 +714,8 @@ struct Policy<'a> {
     /// These exist only through the explicitly enabled second-judge entry point.
     judges: Option<judges::Judges>,
     judge_log: Option<judge_log::Writer>,
+    /// The progress question, only with `--progress` (`run_with_progress`).
+    progress: Option<Progress>,
 }
 
 impl Policy<'_> {
@@ -874,6 +906,7 @@ impl Policy<'_> {
             took_ms,
             shadow: SHADOW,
             request: utterance.request,
+            task: None,
         });
         let at_unix_ms = unix_ms();
         self.watch = Some((
@@ -981,6 +1014,49 @@ impl Policy<'_> {
         });
     }
 
+    /// Take up a progress answer, or put the next progress question, and
+    /// publish and write down a decision that comes of it.
+    fn progress_turn(&mut self, now: Instant) {
+        let room = self.room;
+        let someone_here = self.seen.and_then(|((_, near, _), at)| {
+            (now.saturating_duration_since(at) <= SEEN_FOR).then_some(near > 0)
+        });
+        let Some(decided) = self
+            .progress
+            .as_mut()
+            .and_then(|progress| progress.turn(now, unix_ms(), room, someone_here))
+        else {
+            return;
+        };
+        // Published before it is written down, as every decision is.
+        self.publish(&decided.decision);
+        let line = &decided.line;
+        match self.record.write(line.at_unix_ms, line) {
+            Ok(()) => {
+                if let Some(missing) = self.log.right() {
+                    (self.say)(Note::LogWriting { missing });
+                }
+            }
+            Err(error) => {
+                self.totals.unlogged += 1;
+                if self.log.wrong(1) {
+                    (self.say)(Note::LogFailing { kind: error.kind() });
+                }
+            }
+        }
+        let number = self.progress.as_ref().map_or(0, |p| p.totals().decided);
+        (self.say)(Note::ProgressDecided {
+            number,
+            task: line.context.task,
+            change: line.context.change,
+            choice: line.judgement.choice,
+            probability: line.judgement.probability,
+            by_rule: line.judgement.from_rule,
+            took_ms: line.took_ms,
+            guard: line.guard,
+        });
+    }
+
     fn publish(&mut self, decision: &Decision) {
         let at_us = self.started.elapsed().as_micros() as u64;
         let sent = match self.out.as_mut() {
@@ -1055,10 +1131,20 @@ impl Policy<'_> {
         } else {
             (Level::Ok, "")
         };
-        Diagnostic::new(level, NAME, message)
+        let report = Diagnostic::new(level, NAME, message)
             .with("decided", self.totals.decided)
             .with("by_rule", self.totals.by_rule)
-            .with("shadow", SHADOW)
+            .with("shadow", SHADOW);
+        // Only with `--progress`: without it the report is as it was.
+        match self.progress.as_ref().map(Progress::totals) {
+            Some(totals) => report
+                .with("progress_decided", totals.decided)
+                .with("progress_by_rule", totals.by_rule)
+                .with("progress_said", totals.said)
+                .with("progress_held_talking", totals.held_talking)
+                .with("progress_held_recent", totals.held_recent),
+            None => report,
+        }
     }
 
     /// Once a second: say how the policy is, and show the bus that it is
@@ -1130,7 +1216,28 @@ pub fn run<D: Decider + Send + 'static>(
     stop: &AtomicBool,
     say: &mut dyn FnMut(Note),
 ) -> io::Result<Totals> {
-    run_inner(bus, decider, options, stop, say, None)
+    run_inner(bus, decider, options, stop, say, None, None)
+}
+
+/// [`run`], and beside it the progress question ([`crate::progress`]):
+/// `tasks/status` is listened to, and `progress_decider`, a judge of its
+/// own on a thread of its own, is asked whether a change is worth telling
+/// now. Always shadow. Only `lamp-policy --progress` comes here.
+pub fn run_with_progress<D, P>(
+    bus: &Bus,
+    decider: D,
+    options: &Options,
+    stop: &AtomicBool,
+    say: &mut dyn FnMut(Note),
+    progress_decider: P,
+    progress: progress::Options,
+) -> io::Result<Totals>
+where
+    D: Decider + Send + 'static,
+    P: Decider + Send + 'static,
+{
+    let progress = Progress::start(progress_decider, progress)?;
+    run_inner(bus, decider, options, stop, say, None, Some(progress))
 }
 
 /// The separate, explicitly enabled second-judge path. It is always shadow.
@@ -1143,7 +1250,7 @@ pub fn run_with_local<D: Decider + Send + 'static>(
     local: judges::Options,
 ) -> io::Result<Totals> {
     local.validate()?;
-    run_inner(bus, decider, options, stop, say, Some(local))
+    run_inner(bus, decider, options, stop, say, Some(local), None)
 }
 
 fn run_inner<D: Decider + Send + 'static>(
@@ -1153,6 +1260,7 @@ fn run_inner<D: Decider + Send + 'static>(
     stop: &AtomicBool,
     say: &mut dyn FnMut(Note),
     local: Option<judges::Options>,
+    progress: Option<Progress>,
 ) -> io::Result<Totals> {
     let mut heard = Ear::new(bus, HEARD, Speech::TYPE)?;
     let mut said = Ear::new(bus, SAID, Speech::TYPE)?;
@@ -1160,6 +1268,11 @@ fn run_inner<D: Decider + Send + 'static>(
     let mut room = Ear::new(bus, RoomState::TOPIC, RoomState::TYPE)?;
     let mut eyes = Ear::new(bus, Faces::TOPIC, Faces::TYPE)?;
     let mut names = Ear::new(bus, NameHeard::TOPIC, NameHeard::TYPE)?;
+    // Without `--progress` the topic is not subscribed to at all.
+    let mut tasks = match progress {
+        Some(_) => Some(Ear::new(bus, TaskStatus::TOPIC, TaskStatus::TYPE)?),
+        None => None,
+    };
     let judge_name = decider.name().to_owned();
     let (judges, judge_log) = match local {
         Some(local_options) => (
@@ -1197,6 +1310,7 @@ fn run_inner<D: Decider + Send + 'static>(
         totals: Totals::default(),
         judges,
         judge_log,
+        progress,
     };
     policy.second();
     if let Some(judges) = policy.judges.take() {
@@ -1216,6 +1330,9 @@ fn run_inner<D: Decider + Send + 'static>(
         for state in voice.take::<VoiceState>(Duration::ZERO, unreadable, policy.say) {
             if let Some(judges) = policy.judges.as_mut() {
                 judges.voice_seen(now);
+            }
+            if let Some(progress) = policy.progress.as_mut() {
+                progress.voice(state.state, now);
             }
             let speaking = state.state == Voice::Speaking;
             policy.lamp.state(speaking, now);
@@ -1252,8 +1369,14 @@ fn run_inner<D: Decider + Send + 'static>(
             policy.begun.gone();
             policy.gather.person_stopped(false);
             was_listening = false;
+            if let Some(progress) = policy.progress.as_mut() {
+                progress.voice_gone();
+            }
         }
         for piece in said.take::<Speech>(Duration::ZERO, unreadable, policy.say) {
+            if let Some(progress) = policy.progress.as_mut() {
+                progress.talk(now);
+            }
             policy.lamp.said(&piece.text, piece.request, now);
             if policy.begun.said(piece.request, now)
                 && let Some((watch, _)) = policy.watch.as_mut()
@@ -1294,6 +1417,19 @@ fn run_inner<D: Decider + Send + 'static>(
             policy.names.push_back((began, heard.score));
         }
         names.source(policy.say);
+        // How the work handed over is going, with `--progress` only.
+        if let Some(tasks) = tasks.as_mut() {
+            for status in tasks.take::<TaskStatus>(Duration::ZERO, unreadable, policy.say) {
+                if let Some(progress) = policy.progress.as_mut() {
+                    progress.status(status);
+                }
+            }
+            if tasks.source(policy.say)
+                && let Some(progress) = policy.progress.as_mut()
+            {
+                progress.gone();
+            }
+        }
         while policy
             .names
             .front()
@@ -1312,6 +1448,11 @@ fn run_inner<D: Decider + Send + 'static>(
         let pieces = heard.take::<Speech>(wait, unreadable, policy.say);
         heard.source(policy.say);
         let now = Instant::now();
+        if !pieces.is_empty()
+            && let Some(progress) = policy.progress.as_mut()
+        {
+            progress.talk(now);
+        }
         for piece in pieces {
             policy.gather.piece(
                 &piece.text,
@@ -1326,6 +1467,7 @@ fn run_inner<D: Decider + Send + 'static>(
             policy.heard(utterance);
         }
         policy.judge(now);
+        policy.progress_turn(now);
         policy.after(now);
         if now.saturating_duration_since(shown) >= EVERY_SECOND {
             shown = now;

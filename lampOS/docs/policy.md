@@ -8,7 +8,9 @@ lamp?", and it makes it in shadow mode: it says what it would do, on
 The normal `lamp-policy` entry point keeps its existing behavior. Task 17
 adds the explicitly enabled [local second judge](#the-local-second-judge-task-17)
 through `lamp-policy-judges`; its deadlines, fallback and logs are described
-separately below. Neither entry point authorizes Voice or Body to act.
+separately below. `lamp-policy --progress` adds a second question, [say this
+progress now?](#progress-news-say-this-progress-now-732), about the work the
+lamp handed over. None of them authorizes Voice or Body to act.
 
 ## What it is for
 
@@ -33,7 +35,7 @@ owner's rules for this part:
 
 ## The process
 
-    lamp-policy --key-file ABSOLUTE_PATH --log-dir ABSOLUTE_DIR [--endpoint URL] [--model NAME] [--deadline-ms N] [--bus-root ABSOLUTE_DIR]
+    lamp-policy --key-file ABSOLUTE_PATH --log-dir ABSOLUTE_DIR [--endpoint URL] [--model NAME] [--deadline-ms N] [--bus-root ABSOLUTE_DIR] [--progress [--utc-offset-minutes N]]
 
 | Option | What it is | If left out |
 |---|---|---|
@@ -43,6 +45,8 @@ owner's rules for this part:
 | `--model` | The model asked for | `typesafe/jev-1.13` |
 | `--deadline-ms` | How long one asking may take, from 1 to 60000 | 3000 |
 | `--bus-root` | The bus's directory | `LAMP_BUS_ROOT`, or `/run/lampos-bus` |
+| `--progress` | Also ask, in shadow, whether progress of the work handed over is worth telling now ([below](#progress-news-say-this-progress-now-732)) | off |
+| `--utc-offset-minutes` | The lamp's local time east of UTC, for that question's hour of the day | the hour is null |
 
 A wrong or missing option prints the usage and exits with 2. So does a
 `--log-dir` that cannot be made, or that its group or everyone can enter. A
@@ -953,6 +957,172 @@ The retained verification also reproduces an existing name-association
 fixture's timing sensitivity: a preceding detection can still lie inside
 the next utterance's one-second pre-roll window. That existing behavior
 and test were not changed by this task.
+
+## Progress news: "say this progress now?" (#732)
+
+Built by the second builder on 2026-10-15 (`second-P2`). **Off unless
+`lamp-policy --progress` is given**, and shadow: it decides, publishes and
+writes down, and nothing acts on it.
+
+**What it is for.** The lamp hands computer work to Claude Code or Codex
+and, like a good chief of staff, tells the person how it went
+([tasks.md](tasks.md#the-lamp-as-chief-of-staff-watching-and-telling-2026-10-15)).
+Finished work and questions are told by the voice's own rules. Progress
+while the agent works is this question: the tasks part says on
+`tasks/status` how each piece of work is going, as typed state without the
+agent's words ([tasks.md](tasks.md#progress-on-the-bus-serve---progress-732));
+the policy asks a decision model whether a change is worth telling now. The
+owner's design: watching and deciding cost no tokens of the realtime model,
+which is used only to say it. Jev is the first judge, asked through the same
+`Decider` as the attention question, by a second `Jev` with its own
+connection, on a thread of its own: a progress question never waits for an
+attention one, nor the other way round.
+
+| Option | What it is | If left out |
+|---|---|---|
+| `--progress` | Listen to `tasks/status` and ask the progress question | off |
+| `--utc-offset-minutes` | The lamp's local time east of UTC, -720 to 840, for the hour of the day the model is shown | the hour is null |
+
+**When it asks.** For a task whose agent is `working` and whose progress
+line has changed (`changes`) since it was last judged. What a task says the
+first time the policy sees it is where judging begins, not news. One
+progress question is out at a time.
+
+**Two hard rules, around the decider and not left to it.** A question is
+not asked while either holds, and is asked once it no longer does, about
+the newest change:
+
+- **Never while anyone is talking to the lamp:** the voice is listening,
+  thinking or speaking, or something was heard or said by the lamp in the
+  last 15 s (the voice's own news waits the same 15 s).
+- **At most one note per task in 15 minutes:** a `say_now` for a task holds
+  every later change of it for 15 minutes from that choice.
+
+An answer that comes back once a rule holds (someone began to talk while
+the model was asked) is turned to `wait`, written down with `guard`, and the
+change is asked about again later. Each hold is counted once for each
+change it holds.
+
+**What is known** (the log's `context`):
+
+| Field | Where it comes from |
+|---|---|
+| `store_id`, `task`, `change` | `tasks/status`: whose work, and which change of its line |
+| `engine`, `state`, `working_s` | `tasks/status` |
+| `idle_s` | The policy's wall clock less the agent's `last_active_unix_ms` |
+| `changed_now`, `new_share` | `tasks/status` |
+| `new_signs`, `told_signs` | Signs seen (`signs_seen`) less those of the notes already chosen for this task, and those |
+| `notes_told`, `since_note_s` | Notes chosen for this task, and how long ago the last |
+| `someone_here` | The eyes: a near face (as tall as 15% of the picture) in a list no older than 2 s; null without one |
+| `quiet_s` | Seconds since anything was heard or said, or the voice listened, thought or spoke; null if nothing since the policy began |
+| `room` | `room/state` |
+| `spoke_up_last_hour` | Turns the lamp began itself in the last hour, and the notes this chose in it (below) |
+| `hour` | The local hour, by `--utc-offset-minutes` |
+
+A turn the lamp began itself is told from `voice/state` alone: it began to
+speak with nobody listened to in the 10 s before. Nothing on the bus says
+so outright (task news and hellos are told as written turns inside the
+voice), so this is a stand-in for that, and a late or missed `listening`
+would count an answer as unasked. In shadow nothing is said, so the notes
+this part chose are counted too; once it acts, they would be counted
+twice, and that sum is to change with the wiring.
+
+**What the model is shown**, its fields in this order (made-up numbers):
+
+    {"lamp":"A small desk lamp robot on the desk of the person it works for. It hands computer work to coding agents and tells the person how it is going, like a thoughtful chief of staff: only what they would be glad to hear, at a moment that suits them.","work":{"agent":"Claude Code","state":"working","minutes_at_it":12.6,"minutes_since_it_last_did_anything":0.2,"its_progress_line_just_changed":true,"share_of_the_line_that_is_new":0.67,"new_signs_of_a_step_forward":["the tests pass","a pull request was opened"],"signs_the_person_was_already_told_about":["something was found"],"progress_notes_told_for_this_work":1,"minutes_since_the_last_note_for_this_work":20.0},"room":{"someone_at_the_lamp":true,"seconds_since_anything_was_said":340,"room":"quiet: nobody else has been talking","times_the_lamp_spoke_up_unasked_in_the_last_hour":1,"hour_of_day":14}}
+
+Not known is null. No word of the agent's or the person's is in it: the
+policy never has them.
+
+**What the model is asked.** Three questions, each answered with the
+probability of yes. Every one begins "state.work is how a piece of
+computer work that the lamp handed to a coding agent is going while the
+agent is still at it, read from the agent's own progress line without its
+words; state.room is how things are around the lamp now." and goes on:
+
+| Name | The question |
+|---|---|
+| `worth_telling` | Is there a real step forward in state.work that the person who asked for the work would be glad to hear about, such as the tests now passing, a build that works, a bug found or fixed, or a pull request opened, rather than routine work going on? |
+| `good_moment` | Is this a good moment for the lamp to speak up unasked with one short piece of news: someone is at the lamp, nobody has spoken for a little while, the room is not busy with other people's talk, the lamp has not spoken up unasked often in the last hour, and it is not late at night or early in the morning? |
+| `too_much` | Would one more note about this work now be too much for the person: notes about it were told often or a short while ago, or its new signs are only ones they were already told about? |
+
+**How they are combined.** As if the three were independent:
+`probability = worth_telling × good_moment × (1 − too_much)`; `say_now`
+from 0.5, `wait` below. Authored, not fitted: no progress decision has been
+labelled. The log is what a fit is to be made from.
+
+**When no model answers.** A rule: `say_now` only with a sign not told yet,
+someone seen at the lamp, a minute of quiet or more (or nothing said since
+the start), a room not known to be busy, fewer than two turns begun unasked
+in the hour, and between eight in the morning and ten at night if the hour
+is known; probability 0.6 for yes and 0.1 for no, authored and unmeasured.
+
+**What is published** on `policy/decisions` (`lamp_msgs/Decision`):
+`about` `progress`, `choice` `say_now` or `wait`, `probability`, the three
+`answers` (empty when the rule decided), `by`, `took_ms`, `shadow: true`,
+and `task`, `<store>:<task>:<change>`, which tells a later reader which
+piece of progress it was about ([msgs.md](msgs.md)). An attention decision
+has no `task` and is written as before.
+
+**What is written down**, one line in the same `decisions-YYYY-MM-DD.jsonl`
+with `about` `progress`: `at_unix_ms`, `shadow`, `context` (above), `state`
+(what the model was shown), `asked`, `answers`, `judgement` (probability,
+choice, `from_rule`), `by`, `took_ms`, and when there is one `guard`
+(`talking` or `told_recently`), `connection`, `failed`, `failed_why`,
+`usage`. The journal gets one line with no words:
+
+    lamp-policy: progress decision 4 task=3 change=7 choice=wait probability=0.214 by=model took_ms=561 guard=none
+
+The diagnostics add `progress_decided`, `progress_by_rule`,
+`progress_said`, `progress_held_talking` and `progress_held_recent`.
+
+**Without the switch** `tasks/status` is not subscribed to (no socket is
+made in its directory), no second judge or thread is made, and the
+diagnostics carry `decided`, `by_rule` and `shadow` only, as before
+(`without_the_switch_the_tasks_topic_is_not_listened_to_and_the_report_is_as_before`,
+`crates/policy/tests/progress.rs`). An attention decision's bytes on the bus
+are those it had (`crates/msgs/tests/tasks.rs`).
+
+**Measured on the development Mac** (Apple M2 Max, macOS 26.6.2, release
+build, other sessions running: load average 14 to 20), with
+`cargo run --release -p lamp-policy --example progress_cost -- --samples 30`
+and a stand-in that answers at once. The state and the arithmetic: 2.4 µs
+in the middle of 1,000 (139 µs the first). A status published on a bus in
+`/tmp` to its decision received there, through the loop, the asking thread
+and the log: 52.7 ms in the middle of 30, 48.1 ms the first, 58.9 ms the
+largest, most of it the loop's two 20 ms waits. A real Jev adds its own
+0.5 to 1 s (above). **These are the Mac's, not the lamp's.**
+
+**On the lamp** (the first builder): add `--progress --utc-offset-minutes
+420` to `lamp-policy`'s `ExecStart` beside `lamp-tasks --progress`, and
+after a day of real work handed over:
+
+```sh
+journalctl -u lamp-policy --since yesterday | grep 'progress decision'
+sudo cat /var/lib/lampos-policy/decisions-*.jsonl | grep '"about":"progress"' > /var/tmp/progress-decisions.jsonl
+grep -o '"took_ms":[0-9]*' /var/tmp/progress-decisions.jsonl | cut -d: -f2 | sort -n \
+  | awk '{t[NR]=$1} END {print "decisions="NR, "median_ms="t[int((NR+1)/2)], "max_ms="t[NR]}'
+grep -o '"choice":"[a-z_]*"' /var/tmp/progress-decisions.jsonl | sort | uniq -c
+grep -o '"guard":"[a-z_]*"' /var/tmp/progress-decisions.jsonl | sort | uniq -c
+```
+
+For the ones a person would disagree with: each line's `state` beside the
+progress line it was about (`get_progress` while the task runs, kept by
+hand and not committed, since it is the person's work), marked `agree` or
+`disagree` with a word why. The log itself holds no word of the agent's or
+the person's.
+
+**Most likely wrong.** That Jev, asked a question it was not built for, is
+calibrated without examples, and that the product of three answers is a
+fair probability. That `voice/state` tells an unasked turn from an answer.
+That the 15 s of quiet and the hold of a `yes` that comes back while
+someone talks are the person's sense of "talking to the lamp". That the
+signs in the state are what made the step worth telling.
+
+**Not shown.** No real model was asked: every test and measurement used a
+stand-in. Nothing ran on a lamp, against real `tasks/status`, or for longer
+than a few seconds. Nothing acts on these decisions, and no voice reads
+them.
 
 ## Not shown
 

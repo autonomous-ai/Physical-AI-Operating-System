@@ -52,6 +52,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     // On unless `--no-watch`: confirmed on lamp-4ace on 2026-10-15
     // (docs/joining.md). `--watch` is still taken, and changes nothing.
     let mut watch = true;
+    let mut progress = false;
     let mut seen = std::collections::BTreeSet::new();
     while let Some(arg) = args.next() {
         if !seen.insert(arg.clone()) {
@@ -62,6 +63,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             "--harness-as-person" => as_person = true,
             "--watch" => watch = true,
             "--no-watch" => watch = false,
+            "--progress" => progress = true,
             "--dir" => dir = Some(PathBuf::from(args.next().ok_or("--dir needs a path")?)),
             "--socket" => socket = Some(PathBuf::from(args.next().ok_or("--socket needs a path")?)),
             "--voice-socket" => {
@@ -108,6 +110,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         targets: read_targets(&targets.ok_or("--targets is required")?)?,
         run_for,
         watch,
+        progress,
     };
     let clock = SystemClock::new(boot_id.as_deref())?;
     let executable = executable.ok_or("--harness is required")?;

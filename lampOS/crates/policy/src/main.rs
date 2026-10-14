@@ -17,6 +17,7 @@ use lamp_policy::{
     decide::{DEFAULT_DEADLINE, DEFAULT_ENDPOINT, DEFAULT_MODEL, Endpoint, Jev},
     gather::PAUSE,
     policy::{self, Options},
+    progress,
     record::private_dir,
 };
 use std::{
@@ -27,7 +28,7 @@ use std::{
     time::Duration,
 };
 
-const USAGE: &str = "usage: lamp-policy --key-file ABSOLUTE_PATH --log-dir ABSOLUTE_DIR [--endpoint URL] [--model NAME] [--deadline-ms N] [--bus-root ABSOLUTE_DIR]";
+const USAGE: &str = "usage: lamp-policy --key-file ABSOLUTE_PATH --log-dir ABSOLUTE_DIR [--endpoint URL] [--model NAME] [--deadline-ms N] [--bus-root ABSOLUTE_DIR] [--progress [--utc-offset-minutes N]]";
 const HELP: &str = "The lamp's policy, in shadow mode: judges whether each thing the voice hears was said to\n\
 the lamp, publishes the decision on the bus (policy/decisions) and writes it down. Nothing\n\
 acts on it. See docs/policy.md.\n\
@@ -40,6 +41,10 @@ acts on it. See docs/policy.md.\n\
   --model        the model asked for (default typesafe/jev-1.13)\n\
   --deadline-ms  how long one asking may take, from 1 to 60000 (default 3000); after it a rule decides\n\
   --bus-root     the bus's directory (default LAMP_BUS_ROOT, or /run/lampos-bus)\n\
+  --progress     also judge, in shadow, whether progress of the work handed over (tasks/status)\n\
+                 is worth telling now, with a second connection to the same model. Off unless set\n\
+  --utc-offset-minutes  the lamp's local time east of UTC, for the hour of the day the progress\n\
+                 question is shown (-720 to 840); without it the hour is not known\n\
 What is heard is sent to the decision model's service. Do not run this on real speech in the\n\
 office until the owner has said so: it is for played tests.";
 
@@ -51,15 +56,26 @@ struct Arguments {
     model: String,
     deadline: Duration,
     bus: Option<PathBuf>,
+    /// The progress question beside the attention one: off unless set.
+    progress: bool,
+    utc_offset_minutes: Option<i32>,
 }
 
 fn parse(arguments: impl Iterator<Item = String>) -> Result<Option<Arguments>, String> {
     let (mut key_file, mut log_dir, mut endpoint, mut model, mut deadline, mut bus) =
         (None, None, None, None, None, None);
+    let (mut progress, mut utc_offset_minutes) = (false, None);
     let mut arguments = arguments;
     while let Some(option) = arguments.next() {
         if option == "--help" || option == "-h" {
             return Ok(None);
+        }
+        // The one option without a value.
+        if option == "--progress" {
+            if std::mem::replace(&mut progress, true) {
+                return Err("--progress was given twice".into());
+            }
+            continue;
         }
         let value = arguments
             .next()
@@ -84,6 +100,14 @@ fn parse(arguments: impl Iterator<Item = String>) -> Result<Option<Arguments>, S
                 }
                 model.replace(value).is_some()
             }
+            "--utc-offset-minutes" => {
+                let minutes = value
+                    .parse::<i32>()
+                    .ok()
+                    .filter(|minutes| (-720..=840).contains(minutes))
+                    .ok_or("--utc-offset-minutes is a whole number from -720 to 840")?;
+                utc_offset_minutes.replace(minutes).is_some()
+            }
             "--deadline-ms" => {
                 let milliseconds = value
                     .parse::<u64>()
@@ -107,6 +131,8 @@ fn parse(arguments: impl Iterator<Item = String>) -> Result<Option<Arguments>, S
         model: model.unwrap_or_else(|| DEFAULT_MODEL.to_owned()),
         deadline: deadline.unwrap_or(DEFAULT_DEADLINE),
         bus,
+        progress,
+        utc_offset_minutes,
     }))
 }
 
@@ -125,7 +151,7 @@ fn run(arguments: &Arguments) -> io::Result<()> {
         None => Bus::from_environment()?,
     };
     log(&format!(
-        "started endpoint={} model={} deadline_ms={} pause_ms={} log_dir={} bus_root={} shadow={}",
+        "started endpoint={} model={} deadline_ms={} pause_ms={} log_dir={} bus_root={} shadow={}{}",
         arguments.endpoint,
         arguments.model,
         arguments.deadline.as_millis(),
@@ -133,6 +159,11 @@ fn run(arguments: &Arguments) -> io::Result<()> {
         arguments.log_dir.display(),
         bus.root().display(),
         policy::SHADOW,
+        if arguments.progress {
+            " progress=true"
+        } else {
+            ""
+        },
     ));
     let options = Options {
         log_dir: arguments.log_dir.clone(),
@@ -141,6 +172,22 @@ fn run(arguments: &Arguments) -> io::Result<()> {
     };
     // Nothing sets the flag: the process runs until it is killed.
     let stop = AtomicBool::new(false);
+    if arguments.progress {
+        // A judge of its own, on its own connection: a progress question
+        // never waits for an attention one.
+        let second = Jev::new(&arguments.endpoint, &arguments.model, &arguments.key_file)?;
+        let progress = progress::Options::new(arguments.deadline, arguments.utc_offset_minutes);
+        return policy::run_with_progress(
+            &bus,
+            jev,
+            &options,
+            &stop,
+            &mut |note| log(&note.to_string()),
+            second,
+            progress,
+        )
+        .map(|_| ());
+    }
     policy::run(&bus, jev, &options, &stop, &mut |note| {
         log(&note.to_string());
     })
@@ -199,6 +246,8 @@ mod tests {
                 model: "typesafe/jev-2".into(),
                 deadline: Duration::from_millis(1_500),
                 bus: Some("/run/lampos-bus".into()),
+                progress: false,
+                utc_offset_minutes: None,
             }
         );
         let least = of("--log-dir /d --key-file /k").unwrap().unwrap();
@@ -211,7 +260,22 @@ mod tests {
                 model: "typesafe/jev-1.13".into(),
                 deadline: Duration::from_millis(3_000),
                 bus: None,
+                progress: false,
+                utc_offset_minutes: None,
             }
+        );
+        // The progress question, and the lamp's local time for it.
+        let progress = of("--log-dir /d --progress --key-file /k --utc-offset-minutes 420")
+            .unwrap()
+            .unwrap();
+        assert!(progress.progress);
+        assert_eq!(progress.utc_offset_minutes, Some(420));
+        assert_eq!(
+            of("--log-dir /d --key-file /k --utc-offset-minutes -300")
+                .unwrap()
+                .unwrap()
+                .utc_offset_minutes,
+            Some(-300)
         );
         assert_eq!(of("--help").unwrap(), None);
         assert_eq!(of("-h").unwrap(), None);
@@ -242,6 +306,11 @@ mod tests {
             "--key-file /k --log-dir /d --shadow off",
             "--key-file /k --log-dir /d extra",
             "--key-file /k --log-dir",
+            "--key-file /k --log-dir /d --progress --progress",
+            "--key-file /k --log-dir /d --utc-offset-minutes 841",
+            "--key-file /k --log-dir /d --utc-offset-minutes -721",
+            "--key-file /k --log-dir /d --utc-offset-minutes 7h",
+            "--key-file /k --log-dir /d --utc-offset-minutes 1 --utc-offset-minutes 1",
         ] {
             assert!(of(refused).is_err(), "{refused:?}");
         }

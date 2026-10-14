@@ -72,6 +72,11 @@ the plain CLI on 2026-10-14 ("just use the harness cli to create a new
 claude code session"); the person's spoken yes to each exact task is still
 what lets a task start.
 
+`--progress` (off unless set; #732, the second builder, 2026-10-15) reads
+how each task handed over is going with one `harness ps` a machine and puts
+it on the bus as `tasks/status`, without the agent's words: ["Progress on
+the bus"](#progress-on-the-bus-serve---progress-732) below.
+
 `--bus-root ABS` selects an isolated bus for qualification. `--run-for-ms N`
 bounds an operator run to 1–86,400,000 ms; it does not cancel remote work.
 Linux reads its boot identity itself; development hosts require `--boot-id ID`.
@@ -164,6 +169,7 @@ inspection evidence, not a playback grant.
 | `list` | optional `after_id` (default 0), `limit` (1–8, default 8) | Metadata page; follow `next_after_id` |
 | `get_task` | `id` | Exact task, configured target, dispatch and observation metadata |
 | `get_observation` | `id`, `observation_id` | One stored observation plus its speech record |
+| `get_progress` | `id` | With `serve --progress` only: the agent's progress line as last read, and what was read with it (["Progress on the bus"](#progress-on-the-bus-serve---progress-732)) |
 | `prepare` | `guard`, `text`, `target` alias | Immutable proposal; no CLI call |
 | `confirm` | `guard`, `id`, `prepared_digest`, `session_id` | Trusted person's spoken confirmation |
 | `cancel` | `guard`, `id` | Only before dispatch attempt |
@@ -184,12 +190,14 @@ for a mutation. It is not evidence that no commit or dispatch occurred.
 
 ## Harness adapter
 
-Only three argv forms are constructed, without a shell:
+Only four argv forms are constructed, without a shell; the last only with
+`serve --progress`:
 
 ```text
 harness machines --json
 harness new codex --machine <full-machine-id> <project> --name <unique-label> --mode auto --json --task <exact-text>
 harness show --machine <full-machine-id> <full-agent-id> --chars 4000 --json
+harness ps --machine <full-machine-id> --json
 ```
 
 `--mode auto` (Harness's default) since 2026-10-15, approved by the owner: the
@@ -299,6 +307,7 @@ rather than voicing a question it does not have.
 | Client deadlines | 300 ms complete request, 1,100 ms owner receipt, 1,200 ms total server service |
 | CLI | One worker, one job/result slot; preflight/read 10 s each, new 60 s |
 | CLI capture | 64 KiB stdout, 16 KiB stderr; individual poll waits capped at 10 ms |
+| Progress (`--progress`) | One `ps` per machine per watch period, 10 s each; 256 KiB stdout; 256 harnesses a reply; a progress line cut to 2 KiB; memory only, at most 16 tasks |
 | Private persistence | 8 MiB snapshot, 32 MiB database, 40 MiB journal; 4,096-byte pages |
 | SQLite | DELETE journal, FULL sync, fullfsync requested, 2 MiB cache, 50 ms busy wait, no mmap/WAL |
 | Diagnostics | Once a second, with early readiness changes; owner stale after 1,500 ms |
@@ -534,9 +543,11 @@ used only to say it.
   finished answer heard this way is kept as told, so it is not told again
   unasked.
 - **Progress** is #732: `show` is empty while an agent works (measured
-  2026-10-15, 00:05), so the progress signal will be `ps --machine`, put on
-  the bus as typed state, with Jev deciding whether a step is worth telling
-  now, and the model used only to say it.
+  2026-10-15, 00:05), so the progress signal is `ps --machine`, put on the
+  bus as typed state, with Jev deciding whether a step is worth telling
+  now, and the model used only to say it: ["Progress on the
+  bus"](#progress-on-the-bus-serve---progress-732) below, and the policy's
+  [progress question](policy.md#progress-news-say-this-progress-now-732).
 
 The voice's side is on wherever the tasks part is (`LAMP_TASKS_DIR`). The
 watch was `--watch` for its first run on lamp-4ace (00:49 on 2026-10-15) and
@@ -850,6 +861,214 @@ Codex.
 **Not shown.** No task was started anywhere for this; no Harness session,
 receipt or answer from Codex or OpenCode was seen. Nothing was run on a lamp.
 How often the model names the right one from speech is not measured.
+
+## Progress on the bus (`serve --progress`, #732)
+
+Built by the second builder on 2026-10-15 (`second-P2`). **Off unless
+`lamp-tasks serve --progress` is given**; with the watch on or off
+(`--no-watch`).
+
+**What exists and what was taken.** `harness show` is empty while an agent
+works (above). `harness ps --machine <id> --json` lists every harness on one
+machine. Its shape was read from the installed Harness 0.4.2 CLI's own
+source (`~/.harness/cli/cli.js` on the development Mac), not from any
+session: one JSON object `{you, machine, harnesses}`, printed with one space
+of indent. Each harness has `name`, `id` (the agent's id; one still being
+made is listed by its creation id), `agent` (the engine's display name),
+`machine` (its label), `state` (`working`, `idle`, `unknown` or `offline`;
+`starting`, `installing` or `failed` for one being made; a stopped one is
+left out unless `--all`), `folder`, `branch`, `startedBy`, `yours`, `self`,
+`lastActive` (ISO 8601 in UTC, or null) and, for at most 40 that are not
+stopped, `asks` (the last two things it was asked, 200 characters each) and
+`about`: the summaries of its last three events, 140 characters each, joined
+by ` / `. For those, `ps` asks the agent's machine (`agent_recent`, 3 s
+each, in parallel). So one `ps` reads every task on a machine at once.
+Nothing new is taken in: the existing adapter, process bounds and caller
+identity run it, and `serde_json` reads it.
+
+**What was built** (`crates/tasks/src/progress.rs`, `harness.rs`,
+`runtime.rs`):
+
+- **Which tasks.** The ones the watch looks at (`Engine::watched`):
+  accepted, nothing settled kept, handed over at most a day ago in this boot
+  (or in an earlier one, which cannot be dated). Listing them reads and
+  changes nothing in the store.
+- **When.** One `ps` for each machine with such tasks, on the watch's
+  schedule: every 30 s while any of that machine's tasks is in its first ten
+  minutes, then every two minutes, counted from when that machine was last
+  asked (a failed read waits its turn too); a machine's first read waits
+  until its youngest task was handed over 30 s before. Launches and `show` reads go first: a `ps`
+  takes the one CLI worker only when they have nothing to do.
+- **Bounds.** 10 s a read (the read deadline), 256 KiB of standard output
+  (four times a `show`'s, since forty agents' lines can come back), 16 KiB of
+  standard error, at most 256 harnesses in a reply, a progress line cut to
+  2 KiB at a whole character with control characters made spaces, and at
+  most the store's 16 tasks. A reply that breaks a bound or is not of the
+  shape is a failed read: counted, and nothing changes. A `lastActive` in
+  another form is not known, rather than a reason to lose the whole reply.
+  The read is never retried.
+- **What is kept.** The latest progress line of each task, in memory only:
+  never in the store's files and never on the bus. A restart begins again
+  from the next read.
+- **What is put on the bus.** `tasks/status` (`lamp_msgs/TaskStatus`,
+  [msgs.md](msgs.md#the-tasks-contract)), a kept (`latest`) value with no
+  period, published after every read and when a task leaves the watch; its
+  publisher says once a second that it is alive. One message holds every
+  task being read, so the one kept value is always all of them:
+
+  | Field | What it says |
+  |---|---|
+  | `store_id` | The store the task numbers belong to |
+  | `task` | The task's number (`get_task`, `get_progress`) |
+  | `engine` | Who has it: `claude` or `codex`, as its target names it |
+  | `state` | `working`, `idle`, `needs_input`, `starting`, `installing`, `stopped`, `offline`, `failed`, `unknown`, or `missing` when the agent is not in the list (stopped, or gone). A state Harness may add later is `unknown` |
+  | `working_s` | Seconds since it was handed over, if that was in this boot |
+  | `last_active_unix_ms` | When Harness last saw the agent do anything |
+  | `read_unix_ms` | When it was read |
+  | `changes` | How many times its progress line changed since reading began. The first line read is where counting begins, not a change |
+  | `changed` | Whether the line changed at the read this message was made from. A read of one machine sets it only for that machine's tasks |
+  | `new_share` | At the latest change, the share of the line's distinct words that were not in the line before, 0 to 1 |
+  | `signs` | Signs in the line at its latest change that were not in the line before |
+  | `signs_seen` | Every sign seen since reading began |
+
+  No word of the agent's, the task's text or the asks is in it: a test reads
+  every message and looks for them.
+- **Signs**, cheap and without a model (`progress::SIGNS`): phrases matched
+  as whole words, regardless of case, `#` for any number. A phrase with one
+  of `not`, `no`, `never`, `cannot`, `can't`, `don't`, `doesn't`, `didn't`,
+  `isn't`, `aren't`, `wasn't`, `weren't`, `won't`, `hasn't`, `haven't`,
+  `couldn't`, `shouldn't`, `without`, `until`, `unless`, `if`, `once`,
+  `when`, `whether`, `to`, `will`, `would`, `should`, `might`, `may`, `must`,
+  `need`, `needs`, `try`, `trying`, `next`, `I'll`, `we'll`, `let's`,
+  `going` or `before` among the three words before it is not taken (denied,
+  hoped for, still to come), nor one followed by a question mark.
+
+  | Sign | Phrases |
+  |---|---|
+  | `tests_pass` | tests pass, tests passed, tests passing, tests are passing, tests now pass, tests all pass, all tests pass(ed), test suite passes, suite passes, tests (are) green, # passed, # passing, # tests pass(ed), 0 failed |
+  | `build_works` | build succeeds/succeeded/passes/passed/works, build is green, builds cleanly/successfully, compiles, compiles cleanly, compiled successfully, clippy (is) clean |
+  | `fixed` | fixed, resolved, (the) fix works |
+  | `found` | found, root cause, the cause, the culprit, identified, tracked down, figured out |
+  | `done` | done, finished, completed, implemented, all set, wrapped up |
+  | `pull_request` | pull request, opened (a) pr, created a pr, pr opened, pr is up, pr #, and any link with `/pull/` in it |
+
+  Chosen from how coding agents describe their own work; not measured on
+  the lamp's own tasks yet (the hand-back below).
+- **The words, when the lamp will speak.** `get_progress` on the request
+  socket: `{"op":"get_progress","id":3}` answers `{"ok":true,"store_id":…,
+  "revision":…,"completion":"unverified","id":3,"progress":{"engine","state",
+  "about","changes","signs_seen","last_active_unix_ms","read_unix_ms"}}`;
+  `not_found` for a task not being read, and `progress_off` without the
+  switch. That is the only way the line leaves the tasks part.
+- **Health.** With the switch, the `tasks` diagnostics add `status_reads`,
+  `status_failures`, `status_last_ms` and `status_most_ms` (the last and
+  the longest read, from handing it to the CLI worker to its outcome) and
+  `status_published`.
+
+**Without the switch** nothing of this runs: no `ps`, the `tasks/status`
+topic is never made (no directory, declaration or value on the bus), the
+diagnostics carry exactly the keys they did, and `get_progress` is refused
+with `progress_off`, which no client sent before. The store's files are
+untouched either way: progress is memory only. Tests:
+`without_progress_nothing_is_listed_the_topic_is_untouched_and_the_report_is_as_before`
+and, with it,
+`with_progress_each_machine_is_listed_on_the_watchs_schedule_and_the_words_stay_here`
+(`crates/tasks/tests/runtime.rs`).
+
+**For the voice (proposed, not wired; to agree on #732).** The first
+builder wires the voice. The proposal, so that `task_news` can take a
+progress note:
+
+- **Topic:** `policy/decisions`, `about` `progress`, `choice` `say_now`,
+  `shadow` false (it is `true` until the first builder makes it act), and
+  `task` = `<store>:<task>:<change>` ([policy.md](policy.md#progress-news-say-this-progress-now-732)).
+  A decision older than 60 s, of another store than `status` says, or whose
+  change is older than the newest `changes` on `tasks/status`, is let go.
+- **Words:** `get_progress` with that task, on the request socket, at once.
+  The key `<store>:<task>:<change>` goes into the told file as task news'
+  keys do, so each piece of progress is told once.
+- **Note fields** given to the model, in the style of `task_news::note`:
+  who (`Claude Code`/`Codex` from `engine`), the task's words (`get_task`
+  `text`, 300 characters), the progress line (`about`, 400 characters, its
+  ` / ` parts as separate sentences), the new signs in words (`the tests
+  pass`, …, from `signs_seen` less those already told), and how long it has
+  been at it (`working_s`). Asked for: one short natural sentence, "Oh,
+  Claude Code got the tests passing on …", nothing read out verbatim, no
+  question, and nothing said if the line is only routine.
+- **Gates** stay the voice's: someone at the lamp, 15 s quiet, nothing
+  owed, the room not busy; the policy's two hard rules hold before that.
+
+**Measured on the development Mac** (Apple M2 Max, macOS 26.6.2, Rust
+1.96.0 release build, other sessions running: load average 14 to 20), with
+`cargo run --release -p lamp-tasks --example progress_cost -- --samples 200`
+on listings made up in Harness 0.4.2's shape, each line three events of
+about 130 characters. Medians of 200 (first, largest):
+
+| Harnesses in the reply | Bytes | `parse_ps` | Signs over every line | Tracking 16 tasks |
+|---|---|---|---|---|
+| 1 | 856 | 1.5 µs (79, 79) | 9.4 µs | 1.0 µs |
+| 16 | 12,878 | 22 µs (28, 64) | 158 µs | 3.0 µs |
+| 40 | 32,138 | 55 µs (61, 133) | 398 µs | 4.0 µs |
+| 256 | 205,634 | 342 µs (370, 743) | 2.6 ms | 11.7 µs |
+
+Signs are found only for the watched tasks' own lines at a change, at most
+16, not for every harness listed. One whole read through the adapter, the
+example standing in for `harness` with a 40-harness listing (spawn, capture,
+parse; no network, no daemon): 4.2 ms median, 13.7 ms first, 18.4 ms the
+largest of 50. The raw output is in
+[the verification folder](verification/progress-news-host-20261015/README.md).
+**This is the Mac's, not the lamp's**: the real `ps` starts Node and asks
+another machine, and its cost on the lamp is the hand-back below.
+
+**On the lamp** (the first builder; the smallest step first; nothing here
+starts, shows or closes a session):
+
+1. The cost of one `ps` there, as the service user, ten times:
+
+   ```sh
+   TIMEFORMAT='%R s real, %U s user, %S s sys'
+   for i in $(seq 10); do time ~/.local/bin/harness ps --machine office --json >/dev/null; done
+   ```
+
+2. Install the ARM64 run's `lamp-tasks`, add `--progress` to
+   `lamp-tasks.service`'s `ExecStart`, `sudo systemctl daemon-reload`,
+   restart it, and see the switch off first: `lamp-bus info tasks/status`
+   says `declaration none` before the switch and `type=lamp_msgs/TaskStatus`
+   after.
+3. Hand over one real task to Claude Code on `office` by voice, as on
+   2026-10-14, and keep the statuses for its life:
+
+   ```sh
+   lamp-bus tap tasks/status --seconds 7200 > /var/tmp/progress-status.txt
+   ```
+
+   Each line is a header and the message, its fields in the order of the
+   alphabet. About changes per hour: `grep -o '"changed":true'
+   /var/tmp/progress-status.txt | wc -l` over the hours it ran (each change
+   is flagged at one read only). Signs firing: `grep -o '"signs":\[[^]]*\]'
+   /var/tmp/progress-status.txt | sort | uniq -c`. Whether each sign was
+   right: the line it came from, kept by hand and not committed (it is the
+   person's work), with
+   `printf '{"op":"get_progress","id":N}\n' | ./lamp-tasks request --socket /run/lampos-tasks/request.sock`.
+4. The read's own cost inside the tasks part: `lamp-bus tap diagnostics
+   --seconds 5 | grep '"name":"tasks"'` shows `status_last_ms` and
+   `status_most_ms`; `top -b -n 1 -p "$(pgrep -f 'lamp-tasks serve')"` its
+   CPU between reads.
+
+**Most likely wrong on the lamp.** That `about` says what the agent did
+rather than the person's own last words: when an agent has had no event
+since it was asked, its recent events may be the ask itself. That a `ps`
+of a machine every two minutes is cheap on the lamp: it starts Node and
+asks the office machine about up to 40 agents each time. That the English
+phrases carry over to how Claude Code and Codex word their own summaries
+(a `found` in "found no problem" fires; a summary in another language never
+does). That `lastActive` and the lamp's clock agree: `idle_s` is the
+difference of two machines' wall clocks.
+
+**Not shown.** No real `ps` was run: the shape is from the CLI's source and
+the replies are made up. No lamp, no Harness account, no real agent's
+lines. The bus permissions between the tasks part (as `orangepi`) and the
+policy (a dynamic user) on lamp-4ace were not looked at.
 
 ## Real Harness and Voice qualification still required
 

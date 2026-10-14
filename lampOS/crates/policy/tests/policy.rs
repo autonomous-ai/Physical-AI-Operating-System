@@ -411,6 +411,7 @@ fn pieces_become_one_utterance_and_one_decision_is_published_and_logged() {
             took_ms: decision.took_ms,
             shadow: true,
             request: None,
+            task: None,
         }
     );
     assert!(decision.took_ms < 500);
@@ -1011,6 +1012,7 @@ fn when_the_model_fails_the_rule_decides_and_the_failure_is_said_once() {
             took_ms: ruled.took_ms,
             shadow: true,
             request: Some(3),
+            task: None,
         }
     );
     // In conversation, the rule answers.

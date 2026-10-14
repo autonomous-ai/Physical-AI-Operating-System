@@ -60,6 +60,8 @@ mod mood;
 pub use mood::*;
 mod attention;
 pub use attention::*;
+mod tasks;
+pub use tasks::*;
 
 /// Why a message is not one its type allows, in words.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -830,10 +832,11 @@ impl Pause {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Decision {
     /// Which decision this is, by name: `attention` is "is this said to
-    /// the lamp?".
+    /// the lamp?", `progress` "say this progress now?".
     pub about: String,
     /// What was chosen, by the decision's own names: for `attention`,
-    /// `answer`, `look_up` or `stay_quiet`.
+    /// `answer`, `look_up` or `stay_quiet`; for `progress`, `say_now` or
+    /// `wait`.
     pub choice: String,
     /// How likely the policy holds it that the lamp should act, from 0 to
     /// 1: what the choice was made from.
@@ -854,6 +857,12 @@ pub struct Decision {
     /// The number of the request this is about, if it is known.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub request: Option<u64>,
+    /// The work this is about, for `progress` ("say this progress now?"):
+    /// `<store>:<task>:<change>`, the tasks part's store, the task's number
+    /// in it, and the count of changes of its progress line that was
+    /// judged (`tasks/status`). Not there for any other decision.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub task: Option<String>,
 }
 
 impl Decision {
@@ -868,7 +877,8 @@ impl Decision {
         Declaration::new(Self::TYPE, Self::VERSION, Kind::Event)
     }
 
-    /// The probability and every answer are probabilities.
+    /// The probability and every answer are probabilities, and the work
+    /// named is `<store>:<task>:<change>`.
     pub fn check(&self) -> Result<(), Invalid> {
         let unit = |value: f32| (0.0..=1.0).contains(&value);
         if !unit(self.probability) {
@@ -876,6 +886,23 @@ impl Decision {
                 "a decision's probability is {}: from 0 to 1",
                 self.probability
             ));
+        }
+        if let Some(task) = &self.task {
+            let parts: Vec<&str> = task.split(':').collect();
+            let number = |part: &str| {
+                !part.is_empty() && part.len() <= 20 && part.bytes().all(|b| b.is_ascii_digit())
+            };
+            let store = |part: &str| {
+                part.len() == 32
+                    && part
+                        .bytes()
+                        .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
+            };
+            if parts.len() != 3 || !store(parts[0]) || !number(parts[1]) || !number(parts[2]) {
+                return invalid(
+                    "a decision's task is <32 hexadecimal characters>:<task>:<change>".into(),
+                );
+            }
         }
         match self.answers.iter().find(|(_, answer)| !unit(**answer)) {
             Some((question, answer)) => {
@@ -924,6 +951,7 @@ pub fn declaration_of(topic: &str) -> Option<Declaration> {
         .chain(touch_topics())
         .chain(schedule_topics())
         .chain(keeper_topics())
+        .chain(tasks_topics())
         .find_map(|(name, declaration)| (name == topic).then_some(declaration))
 }
 
@@ -1406,6 +1434,7 @@ mod tests {
             took_ms: 612,
             shadow: true,
             request: Some(7),
+            task: None,
         };
         // The answers are written by the question's name, in the order of
         // the names.

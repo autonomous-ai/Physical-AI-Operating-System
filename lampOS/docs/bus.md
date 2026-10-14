@@ -468,6 +468,19 @@ this topic grants none of them. First owns that integration. The existing
 bus header clock, delivery statistics, lifespan grace and transport behavior
 are unchanged.
 
+## Optional tasks topic (second builder, 2026-10-15)
+
+| Topic | Kind | Published by | Intended reader |
+|---|---|---|---|
+| `tasks/status` | latest, no period, no lifespan | `lamp-tasks serve --progress` | The policy's progress question (`lamp-policy --progress`) |
+
+The [`TaskStatus` message](msgs.md#the-tasks-contract) says, as typed state,
+how each piece of work the lamp handed over is going; the agent's words stay
+in the tasks part and are read from its socket only when the lamp will speak
+([tasks.md](tasks.md#progress-on-the-bus-serve---progress-732)). One value
+holds every task, so a subscriber that starts late has them all. Without
+`--progress` the topic is never made.
+
 ## Not shown
 
 Everything in this section was run on one development Mac (x86_64); what

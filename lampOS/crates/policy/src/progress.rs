@@ -1,0 +1,1038 @@
+//! The decision "say this progress now?" (`docs/policy.md`, "Progress
+//! news").
+//!
+//! The lamp hands computer work to Claude Code or Codex and, like a good
+//! chief of staff, tells the person how it is going when a real step was
+//! taken and the moment suits them. The tasks part says how each piece of
+//! work is going on `tasks/status`, as typed state without the agent's
+//! words; this asks a decision model whether a change is worth telling now,
+//! from that state and the room. Watching and deciding cost no model
+//! tokens of the realtime model: it is used only to say it, later, and not
+//! by this.
+//!
+//! Two hard rules sit around the decider and are not left to it: at most
+//! one note per task in [`Options::note_every`] (15 minutes), and never
+//! while anyone is talking to the lamp: while the voice listens, thinks or
+//! speaks, or within [`Options::quiet_for`] (15 s) of anything heard or
+//! said. A question is not asked while either holds; an answer that comes
+//! back once one holds is turned to `wait`, and asked again later.
+//!
+//! Shadow first: decisions are published on `policy/decisions` and written
+//! down with the state they were made from, and nothing acts on them.
+use crate::{
+    attention::Room,
+    decide::{Answer, Asked, Connection, Decider, Failed, Question, Usage},
+};
+use lamp_msgs::{AgentState, Decision, Sign, TaskProgress, TaskStatus, Voice};
+use serde::Serialize;
+use serde_json::{Value, json};
+use std::{
+    collections::{BTreeMap, BTreeSet, VecDeque},
+    io,
+    sync::mpsc,
+    thread,
+    time::{Duration, Instant},
+};
+
+/// What this decision is called on the bus and in the log.
+pub const ABOUT: &str = "progress";
+/// From this probability up, the lamp would say it now.
+pub const SAY_FROM: f32 = 0.5;
+/// At most one progress note per task in this long (#732).
+pub const NOTE_EVERY: Duration = Duration::from_secs(15 * 60);
+/// Nothing heard or said for this long, and the voice neither listening,
+/// thinking nor speaking: nobody is talking to the lamp. The same quiet as
+/// the voice's own news (`task_news::QUIET_US`).
+pub const QUIET_FOR: Duration = Duration::from_secs(15);
+/// A turn of the lamp's that began with nobody listened to in this long
+/// before it is one it began itself, unasked.
+pub const UNASKED_AFTER: Duration = Duration::from_secs(10);
+const HOUR: Duration = Duration::from_secs(3_600);
+/// What the rule gives when no model answers, yes and no. Authored, not
+/// measured: nothing has been labelled yet to say how often it is right.
+pub const RULE_YES: f32 = 0.6;
+pub const RULE_NO: f32 = 0.1;
+
+/// How the progress question is asked (`lamp-policy --progress`).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Options {
+    /// How long the decision model has for one asking.
+    pub deadline: Duration,
+    /// The lamp's local time, east of UTC, for the hour of the day. Without
+    /// it the hour is not known and is shown as null.
+    pub utc_offset_minutes: Option<i32>,
+    /// The two hard rules ([`NOTE_EVERY`], [`QUIET_FOR`]); shorter only in
+    /// a test.
+    pub note_every: Duration,
+    pub quiet_for: Duration,
+}
+
+impl Options {
+    pub fn new(deadline: Duration, utc_offset_minutes: Option<i32>) -> Self {
+        Self {
+            deadline,
+            utc_offset_minutes,
+            note_every: NOTE_EVERY,
+            quiet_for: QUIET_FOR,
+        }
+    }
+}
+
+/// What the lamp would do with a piece of progress.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Choice {
+    /// Tell the person now.
+    SayNow,
+    /// Keep it for now.
+    Wait,
+}
+
+impl Choice {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::SayNow => "say_now",
+            Self::Wait => "wait",
+        }
+    }
+}
+
+/// A hard rule that kept a question from being asked, or turned an answer
+/// to `wait`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Hold {
+    /// Someone is talking to the lamp, or was a moment ago.
+    Talking,
+    /// A note about this task was chosen less than 15 minutes ago.
+    ToldRecently,
+}
+
+impl Hold {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Talking => "talking",
+            Self::ToldRecently => "told_recently",
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Serialize)]
+pub struct Judgement {
+    pub probability: f32,
+    pub choice: Choice,
+    /// No model's answers are behind it: the rule decided.
+    pub from_rule: bool,
+}
+
+/// Everything known when the question was put: the work, from
+/// `tasks/status`, and the room, from the lamp's own topics.
+#[derive(Clone, Debug, PartialEq, Serialize)]
+pub struct Context {
+    pub store_id: String,
+    pub task: u64,
+    /// The count of changes of the progress line that is judged.
+    pub change: u32,
+    pub engine: String,
+    pub state: AgentState,
+    pub working_s: Option<u64>,
+    /// Seconds since the agent last did anything, by the two machines'
+    /// wall clocks.
+    pub idle_s: Option<u64>,
+    pub changed_now: bool,
+    pub new_share: f32,
+    /// Signs seen since the last note about this task, and those told.
+    pub new_signs: Vec<Sign>,
+    pub told_signs: Vec<Sign>,
+    pub notes_told: u32,
+    pub since_note_s: Option<u64>,
+    /// Whether the eyes see someone near the lamp; not known without a
+    /// list of faces younger than two seconds.
+    pub someone_here: Option<bool>,
+    /// Seconds since anything was heard or said, or the voice listened,
+    /// thought or spoke; none since the policy began.
+    pub quiet_s: Option<u64>,
+    pub room: Room,
+    /// Turns the lamp began itself in the last hour ([`UNASKED_AFTER`]),
+    /// and the notes this chose in it, which in shadow nobody hears.
+    pub spoke_up_last_hour: u32,
+    pub hour: Option<u8>,
+}
+
+impl Context {
+    /// `<store>:<task>:<change>`, as `Decision::task` has it.
+    pub fn key(&self) -> String {
+        format!("{}:{}:{}", self.store_id, self.task, self.change)
+    }
+}
+
+const LAMP: &str = "A small desk lamp robot on the desk of the person it works for. It hands computer work to coding agents and tells the person how it is going, like a thoughtful chief of staff: only what they would be glad to hear, at a moment that suits them.";
+
+/// What the agent's maker calls it, as the person does.
+fn agent(engine: &str) -> &str {
+    match engine {
+        "claude" => "Claude Code",
+        "codex" => "Codex",
+        other => other,
+    }
+}
+
+fn sign(sign: Sign) -> &'static str {
+    match sign {
+        Sign::TestsPass => "the tests pass",
+        Sign::BuildWorks => "the build works",
+        Sign::Fixed => "something was fixed",
+        Sign::Found => "something was found",
+        Sign::Done => "a part was done",
+        Sign::PullRequest => "a pull request was opened",
+    }
+}
+
+fn state_word(state: AgentState) -> &'static str {
+    match state {
+        AgentState::Working => "working",
+        AgentState::Idle => "idle",
+        AgentState::NeedsInput => "waiting for the person",
+        AgentState::Starting => "starting",
+        AgentState::Installing => "installing",
+        AgentState::Stopped => "stopped",
+        AgentState::Offline => "offline",
+        AgentState::Failed => "failed",
+        AgentState::Unknown => "unknown",
+        AgentState::Missing => "not listed",
+    }
+}
+
+/// Minutes to a tenth.
+fn minutes(seconds: Option<u64>) -> Value {
+    json!(seconds.map(|s| (s as f64 / 6.0).round() / 10.0))
+}
+
+fn room_told(room: Room) -> &'static str {
+    match room {
+        Room::Quiet => "quiet: nobody else has been talking",
+        Room::Busy => "busy: people are talking to each other",
+        Room::Unknown => "unknown",
+    }
+}
+
+/// The state as the text that is sent, its fields in this order. A JSON
+/// value keeps no order, and whatever is fitted to a model's answers later
+/// belongs to the text it was shown, so it is put together here.
+pub fn state_text(context: &Context) -> String {
+    let signs = |signs: &[Sign]| json!(signs.iter().map(|s| sign(*s)).collect::<Vec<_>>());
+    format!(
+        "{{\"lamp\":{},\"work\":{{\"agent\":{},\"state\":{},\"minutes_at_it\":{},\
+         \"minutes_since_it_last_did_anything\":{},\"its_progress_line_just_changed\":{},\
+         \"share_of_the_line_that_is_new\":{},\"new_signs_of_a_step_forward\":{},\
+         \"signs_the_person_was_already_told_about\":{},\"progress_notes_told_for_this_work\":{},\
+         \"minutes_since_the_last_note_for_this_work\":{}}},\"room\":{{\"someone_at_the_lamp\":{},\
+         \"seconds_since_anything_was_said\":{},\"room\":{},\
+         \"times_the_lamp_spoke_up_unasked_in_the_last_hour\":{},\"hour_of_day\":{}}}}}",
+        json!(LAMP),
+        json!(agent(&context.engine)),
+        json!(state_word(context.state)),
+        minutes(context.working_s),
+        minutes(context.idle_s),
+        context.changed_now,
+        json!((f64::from(context.new_share) * 100.0).round() / 100.0),
+        signs(&context.new_signs),
+        signs(&context.told_signs),
+        context.notes_told,
+        minutes(context.since_note_s),
+        json!(context.someone_here),
+        json!(context.quiet_s),
+        json!(room_told(context.room)),
+        context.spoke_up_last_hour,
+        json!(context.hour),
+    )
+}
+
+/// [`state_text`] as a value, for the log.
+pub fn state(context: &Context) -> Value {
+    serde_json::from_str(&state_text(context)).expect("the state is JSON")
+}
+
+const OPENING: &str = "state.work is how a piece of computer work that the lamp handed to a coding agent is going while the agent is still at it, read from the agent's own progress line without its words; state.room is how things are around the lamp now. ";
+
+/// The three questions: each one's name and the rest of its instruction
+/// after [`OPENING`]. Authored, not fitted: no example has been labelled.
+const ASKED: [(&str, &str); 3] = [
+    (
+        "worth_telling",
+        "Is there a real step forward in state.work that the person who asked for the work would be glad to hear about, such as the tests now passing, a build that works, a bug found or fixed, or a pull request opened, rather than routine work going on?",
+    ),
+    (
+        "good_moment",
+        "Is this a good moment for the lamp to speak up unasked with one short piece of news: someone is at the lamp, nobody has spoken for a little while, the room is not busy with other people's talk, the lamp has not spoken up unasked often in the last hour, and it is not late at night or early in the morning?",
+    ),
+    (
+        "too_much",
+        "Would one more note about this work now be too much for the person: notes about it were told often or a short while ago, or its new signs are only ones they were already told about?",
+    ),
+];
+
+/// The three questions, in the order they are asked in.
+pub fn questions() -> Vec<(String, Question)> {
+    ASKED
+        .iter()
+        .map(|(name, rest)| {
+            (
+                (*name).to_owned(),
+                Question::Noul {
+                    instructions: format!("{OPENING}{rest}"),
+                },
+            )
+        })
+        .collect()
+}
+
+/// The probability that the lamp should say it now: worth telling, at a
+/// good moment, and not too much, as if the three were independent. Each
+/// answer by its name, or the name of the first that is missing.
+pub fn combine(
+    answers: &BTreeMap<String, Answer>,
+) -> Result<(Judgement, BTreeMap<String, f32>), &'static str> {
+    let mut three = [0.0f32; 3];
+    for (to, (name, _)) in three.iter_mut().zip(ASKED) {
+        match answers.get(name) {
+            Some(Answer::Noul(yes)) if (0.0..=1.0).contains(yes) => *to = *yes,
+            _ => return Err(name),
+        }
+    }
+    let [worth, moment, too_much] = three;
+    let probability = (worth * moment * (1.0 - too_much)).clamp(0.0, 1.0);
+    let by_name = ASKED
+        .iter()
+        .zip(three)
+        .map(|((name, _), yes)| ((*name).to_owned(), yes))
+        .collect();
+    Ok((
+        Judgement {
+            probability,
+            choice: if probability >= SAY_FROM {
+                Choice::SayNow
+            } else {
+                Choice::Wait
+            },
+            from_rule: false,
+        },
+        by_name,
+    ))
+}
+
+/// The judgement when no model answers: say it only with a sign not told
+/// yet, someone seen at the lamp, a minute of quiet or more, a room not
+/// known to be busy, fewer than two turns begun unasked in the hour, and
+/// between eight in the morning and ten at night if the hour is known.
+pub fn fallback(context: &Context) -> Judgement {
+    let yes = !context.new_signs.is_empty()
+        && context.someone_here == Some(true)
+        && context.quiet_s.is_none_or(|quiet| quiet >= 60)
+        && context.room != Room::Busy
+        && context.spoke_up_last_hour < 2
+        && context.hour.is_none_or(|hour| (8..22).contains(&hour));
+    Judgement {
+        probability: if yes { RULE_YES } else { RULE_NO },
+        choice: if yes { Choice::SayNow } else { Choice::Wait },
+        from_rule: true,
+    }
+}
+
+/// The hour of the day at `unix_ms`, `offset` minutes east of UTC.
+pub fn hour_of_day(unix_ms: u64, offset: i32) -> u8 {
+    let minutes = (unix_ms / 60_000) as i64 + i64::from(offset);
+    (minutes.rem_euclid(1_440) / 60) as u8
+}
+
+/// One line of the decisions log for this decision: what was known, what
+/// the model was shown and answered, and what was chosen.
+#[derive(Clone, Debug, Serialize)]
+pub struct Line {
+    pub at_unix_ms: u64,
+    pub about: &'static str,
+    pub shadow: bool,
+    pub context: Context,
+    pub state: Value,
+    pub asked: String,
+    pub answers: BTreeMap<String, f32>,
+    pub judgement: Judgement,
+    pub by: String,
+    pub took_ms: u32,
+    /// A hard rule that turned the answer to `wait` after it was asked.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub guard: Option<Hold>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub connection: Option<Connection>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub failed: Option<&'static str>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub failed_why: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub usage: Option<Usage>,
+}
+
+/// A decision made: what goes on the bus, what is written down.
+#[derive(Clone, Debug)]
+pub struct Decided {
+    pub decision: Decision,
+    pub line: Line,
+}
+
+/// What was counted from start to stop.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct Totals {
+    pub decided: u64,
+    pub by_rule: u64,
+    pub said: u64,
+    /// Questions kept back by each hard rule, once for each change.
+    pub held_talking: u64,
+    pub held_recent: u64,
+}
+
+#[derive(Debug)]
+struct Tracked {
+    last: TaskProgress,
+    /// The newest change asked about and decided.
+    judged: u32,
+    /// The hold last counted for this change, so each is counted once.
+    held: Option<(u32, Hold)>,
+    told_at: Option<Instant>,
+    told: BTreeSet<Sign>,
+    notes: u32,
+}
+
+type Answered = (Result<Asked, Failed>, Duration);
+
+/// The progress question as it runs beside the policy's loop, with its own
+/// thread and its own decision model: a progress question never waits for
+/// an attention one, nor the other way round.
+pub struct Progress {
+    options: Options,
+    judge_name: String,
+    states: mpsc::SyncSender<String>,
+    answers: mpsc::Receiver<Answered>,
+    asker_gone: bool,
+    asking: Option<(Context, Instant)>,
+    store_id: Option<String>,
+    tasks: BTreeMap<u64, Tracked>,
+    voice: Option<Voice>,
+    last_talk: Option<Instant>,
+    last_listening: Option<Instant>,
+    unasked: VecDeque<Instant>,
+    notes: VecDeque<Instant>,
+    totals: Totals,
+}
+
+impl Progress {
+    /// Start the thread that asks `decider`.
+    pub fn start<D: Decider + Send + 'static>(
+        mut decider: D,
+        options: Options,
+    ) -> io::Result<Self> {
+        let judge_name = decider.name().to_owned();
+        let (states, asked) = mpsc::sync_channel::<String>(1);
+        let (answered, answers) = mpsc::channel();
+        let deadline = options.deadline;
+        thread::Builder::new()
+            .name("ask-progress".into())
+            .spawn(move || {
+                let questions = questions();
+                for state in asked {
+                    let started = Instant::now();
+                    let answer = decider.ask(&state, &questions, deadline);
+                    if answered.send((answer, started.elapsed())).is_err() {
+                        break;
+                    }
+                }
+            })?;
+        Ok(Self {
+            options,
+            judge_name,
+            states,
+            answers,
+            asker_gone: false,
+            asking: None,
+            store_id: None,
+            tasks: BTreeMap::new(),
+            voice: None,
+            last_talk: None,
+            last_listening: None,
+            unasked: VecDeque::new(),
+            notes: VecDeque::new(),
+            totals: Totals::default(),
+        })
+    }
+
+    pub fn totals(&self) -> Totals {
+        self.totals
+    }
+
+    /// A new status from the tasks part. A message that fails its check is
+    /// passed over. Another store begins again.
+    pub fn status(&mut self, status: TaskStatus) {
+        if status.check().is_err() {
+            return;
+        }
+        if self.store_id.as_deref() != Some(status.store_id.as_str()) {
+            self.tasks.clear();
+            self.store_id = Some(status.store_id.clone());
+        }
+        self.tasks
+            .retain(|task, _| status.tasks.iter().any(|t| t.task == *task));
+        for progress in status.tasks {
+            match self.tasks.get_mut(&progress.task) {
+                Some(tracked) => {
+                    // The tasks part began counting again (it restarted):
+                    // what it says now is where judging begins again.
+                    if progress.changes < tracked.last.changes {
+                        tracked.judged = progress.changes;
+                    }
+                    tracked.last = progress;
+                }
+                None => {
+                    // What it says now is where judging begins: a change
+                    // seen before the policy was is not news to it.
+                    let judged = progress.changes;
+                    self.tasks.insert(
+                        progress.task,
+                        Tracked {
+                            judged,
+                            held: None,
+                            told_at: None,
+                            told: BTreeSet::new(),
+                            notes: 0,
+                            last: progress,
+                        },
+                    );
+                }
+            }
+        }
+    }
+
+    /// The tasks part has gone: how the work stands is not known.
+    pub fn gone(&mut self) {
+        self.tasks.clear();
+    }
+
+    /// What the voice is doing. A turn the lamp begins to speak with nobody
+    /// listened to in the [`UNASKED_AFTER`] before is one it began itself.
+    pub fn voice(&mut self, state: Voice, now: Instant) {
+        match state {
+            Voice::Listening => {
+                self.last_listening = Some(now);
+                self.last_talk = Some(now);
+            }
+            Voice::Speaking => {
+                if self.voice != Some(Voice::Speaking)
+                    && self
+                        .last_listening
+                        .is_none_or(|at| now.saturating_duration_since(at) > UNASKED_AFTER)
+                {
+                    self.unasked.push_back(now);
+                }
+                self.last_talk = Some(now);
+            }
+            Voice::Thinking => self.last_talk = Some(now),
+            Voice::Resting => {}
+        }
+        self.voice = Some(state);
+    }
+
+    pub fn voice_gone(&mut self) {
+        self.voice = None;
+    }
+
+    /// Something was heard, or said by the lamp.
+    pub fn talk(&mut self, now: Instant) {
+        self.last_talk = Some(now);
+    }
+
+    fn talking(&self, now: Instant) -> bool {
+        matches!(
+            self.voice,
+            Some(Voice::Listening | Voice::Thinking | Voice::Speaking)
+        ) || self
+            .last_talk
+            .is_some_and(|at| now.saturating_duration_since(at) < self.options.quiet_for)
+    }
+
+    fn hold(&self, tracked: &Tracked, now: Instant) -> Option<Hold> {
+        if self.talking(now) {
+            Some(Hold::Talking)
+        } else if tracked
+            .told_at
+            .is_some_and(|at| now.saturating_duration_since(at) < self.options.note_every)
+        {
+            Some(Hold::ToldRecently)
+        } else {
+            None
+        }
+    }
+
+    /// Take up an answer if one has come; else put the next question, if
+    /// there is new progress and no hard rule holds. At most one decision
+    /// a turn, which the caller publishes and writes down.
+    pub fn turn(
+        &mut self,
+        now: Instant,
+        unix_ms: u64,
+        room: Room,
+        someone_here: Option<bool>,
+    ) -> Option<Decided> {
+        while self
+            .unasked
+            .front()
+            .is_some_and(|at| now.saturating_duration_since(*at) > HOUR)
+        {
+            self.unasked.pop_front();
+        }
+        while self
+            .notes
+            .front()
+            .is_some_and(|at| now.saturating_duration_since(*at) > HOUR)
+        {
+            self.notes.pop_front();
+        }
+        if self.asking.is_some() {
+            return match self.answers.try_recv() {
+                Ok((answer, took)) => {
+                    let (context, _) = self.asking.take().expect("a question is out");
+                    Some(self.decide(context, Some(answer), took, now, unix_ms))
+                }
+                Err(mpsc::TryRecvError::Empty) => None,
+                Err(mpsc::TryRecvError::Disconnected) => {
+                    self.asker_gone = true;
+                    let (context, sent) = self.asking.take().expect("a question is out");
+                    let took = now.saturating_duration_since(sent);
+                    Some(self.decide(context, None, took, now, unix_ms))
+                }
+            };
+        }
+        let task = self.next(now)?;
+        let context = self.context(task, now, unix_ms, room, someone_here);
+        if self.asker_gone {
+            return Some(self.decide(context, None, Duration::ZERO, now, unix_ms));
+        }
+        match self.states.try_send(state_text(&context)) {
+            Ok(()) => {
+                self.asking = Some((context, now));
+                None
+            }
+            Err(mpsc::TrySendError::Full(_)) => None,
+            Err(mpsc::TrySendError::Disconnected(_)) => {
+                self.asker_gone = true;
+                Some(self.decide(context, None, Duration::ZERO, now, unix_ms))
+            }
+        }
+    }
+
+    /// The task with new progress to ask about: still at work, its line
+    /// changed since it was last judged, and no hard rule holding it. Each
+    /// hold is counted once for each change it holds.
+    fn next(&mut self, now: Instant) -> Option<u64> {
+        let mut found = None;
+        let mut holds = Vec::new();
+        for (task, tracked) in &self.tasks {
+            if tracked.last.state != AgentState::Working || tracked.last.changes <= tracked.judged {
+                continue;
+            }
+            match self.hold(tracked, now) {
+                Some(hold) => holds.push((*task, hold)),
+                None => {
+                    found.get_or_insert(*task);
+                }
+            }
+        }
+        for (task, hold) in holds {
+            let tracked = self.tasks.get_mut(&task).expect("listed");
+            let change = tracked.last.changes;
+            if tracked.held != Some((change, hold)) {
+                tracked.held = Some((change, hold));
+                match hold {
+                    Hold::Talking => self.totals.held_talking += 1,
+                    Hold::ToldRecently => self.totals.held_recent += 1,
+                }
+            }
+        }
+        found
+    }
+
+    fn context(
+        &self,
+        task: u64,
+        now: Instant,
+        unix_ms: u64,
+        room: Room,
+        someone_here: Option<bool>,
+    ) -> Context {
+        let tracked = &self.tasks[&task];
+        let last = &tracked.last;
+        let seen: BTreeSet<Sign> = last.signs_seen.iter().copied().collect();
+        Context {
+            store_id: self.store_id.clone().unwrap_or_default(),
+            task,
+            change: last.changes,
+            engine: last.engine.clone(),
+            state: last.state,
+            working_s: last.working_s,
+            idle_s: last
+                .last_active_unix_ms
+                .map(|at| unix_ms.saturating_sub(at) / 1_000),
+            changed_now: last.changed,
+            new_share: last.new_share,
+            new_signs: seen.difference(&tracked.told).copied().collect(),
+            told_signs: tracked.told.iter().copied().collect(),
+            notes_told: tracked.notes,
+            since_note_s: tracked
+                .told_at
+                .map(|at| now.saturating_duration_since(at).as_secs()),
+            someone_here,
+            quiet_s: self
+                .last_talk
+                .map(|at| now.saturating_duration_since(at).as_secs()),
+            room,
+            spoke_up_last_hour: u32::try_from(self.unasked.len() + self.notes.len())
+                .unwrap_or(u32::MAX),
+            hour: self
+                .options
+                .utc_offset_minutes
+                .map(|offset| hour_of_day(unix_ms, offset)),
+        }
+    }
+
+    /// Decide from the model's answers, or by the rule when there are none
+    /// to use (`answer` is none when the asking thread has gone).
+    fn decide(
+        &mut self,
+        context: Context,
+        answer: Option<Result<Asked, Failed>>,
+        took: Duration,
+        now: Instant,
+        unix_ms: u64,
+    ) -> Decided {
+        let connection = answer
+            .as_ref()
+            .and_then(|a| a.as_ref().ok())
+            .and_then(|asked| asked.connection);
+        let (mut judgement, answers, by, failed, usage) = match answer {
+            Some(Ok(asked)) => match combine(&asked.answers) {
+                Ok((judgement, answers)) => (judgement, answers, asked.model, None, asked.usage),
+                Err(question) => (
+                    fallback(&context),
+                    BTreeMap::new(),
+                    crate::policy::RULE.to_owned(),
+                    Some(Failed::Missing(question.to_owned())),
+                    asked.usage,
+                ),
+            },
+            Some(Err(failed)) => (
+                fallback(&context),
+                BTreeMap::new(),
+                crate::policy::RULE.to_owned(),
+                Some(failed),
+                None,
+            ),
+            None => (
+                fallback(&context),
+                BTreeMap::new(),
+                crate::policy::RULE.to_owned(),
+                Some(Failed::Unreachable {
+                    during: "asking",
+                    kind: io::ErrorKind::BrokenPipe,
+                }),
+                None,
+            ),
+        };
+        // The hard rules again, as the answer comes: a yes that a rule now
+        // holds becomes a wait, and the change is asked about again later.
+        let guard = self
+            .tasks
+            .get(&context.task)
+            .and_then(|tracked| self.hold(tracked, now))
+            .filter(|_| judgement.choice == Choice::SayNow);
+        if guard.is_some() {
+            judgement.choice = Choice::Wait;
+        }
+        if let Some(tracked) = self.tasks.get_mut(&context.task)
+            && guard.is_none()
+        {
+            tracked.judged = tracked.judged.max(context.change);
+            if judgement.choice == Choice::SayNow {
+                tracked.told_at = Some(now);
+                tracked.told.extend(context.new_signs.iter().copied());
+                tracked.notes = tracked.notes.saturating_add(1);
+            }
+        }
+        if judgement.choice == Choice::SayNow {
+            self.notes.push_back(now);
+            self.totals.said += 1;
+        }
+        self.totals.decided += 1;
+        self.totals.by_rule += u64::from(judgement.from_rule);
+        let took_ms = u32::try_from(took.as_millis()).unwrap_or(u32::MAX);
+        let decision = Decision {
+            about: ABOUT.to_owned(),
+            choice: judgement.choice.as_str().to_owned(),
+            probability: judgement.probability,
+            answers: answers.clone(),
+            by: by.clone(),
+            took_ms,
+            shadow: crate::policy::SHADOW,
+            request: None,
+            task: Some(context.key()),
+        };
+        let line = Line {
+            at_unix_ms: unix_ms,
+            about: ABOUT,
+            shadow: crate::policy::SHADOW,
+            state: state(&context),
+            context,
+            asked: self.judge_name.clone(),
+            answers,
+            judgement,
+            by,
+            took_ms,
+            guard,
+            connection,
+            failed: failed.as_ref().map(Failed::kind),
+            failed_why: failed.as_ref().map(Failed::to_string),
+            usage,
+        };
+        Decided { decision, line }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn context() -> Context {
+        Context {
+            store_id: "0123456789abcdef0123456789abcdef".into(),
+            task: 3,
+            change: 4,
+            engine: "claude".into(),
+            state: AgentState::Working,
+            working_s: Some(754),
+            idle_s: Some(12),
+            changed_now: true,
+            new_share: 0.666,
+            new_signs: vec![Sign::TestsPass, Sign::PullRequest],
+            told_signs: vec![Sign::Found],
+            notes_told: 1,
+            since_note_s: Some(1_200),
+            someone_here: Some(true),
+            quiet_s: Some(340),
+            room: Room::Quiet,
+            spoke_up_last_hour: 1,
+            hour: Some(14),
+        }
+    }
+
+    #[test]
+    fn the_state_is_this_text_to_the_byte_and_holds_no_words_of_the_agent() {
+        assert_eq!(
+            state_text(&context()),
+            "{\"lamp\":\"A small desk lamp robot on the desk of the person it works for. It hands computer work to coding agents and tells the person how it is going, like a thoughtful chief of staff: only what they would be glad to hear, at a moment that suits them.\",\
+             \"work\":{\"agent\":\"Claude Code\",\"state\":\"working\",\"minutes_at_it\":12.6,\"minutes_since_it_last_did_anything\":0.2,\
+             \"its_progress_line_just_changed\":true,\"share_of_the_line_that_is_new\":0.67,\
+             \"new_signs_of_a_step_forward\":[\"the tests pass\",\"a pull request was opened\"],\
+             \"signs_the_person_was_already_told_about\":[\"something was found\"],\"progress_notes_told_for_this_work\":1,\
+             \"minutes_since_the_last_note_for_this_work\":20.0},\"room\":{\"someone_at_the_lamp\":true,\
+             \"seconds_since_anything_was_said\":340,\"room\":\"quiet: nobody else has been talking\",\
+             \"times_the_lamp_spoke_up_unasked_in_the_last_hour\":1,\"hour_of_day\":14}}"
+        );
+        // Not known is null.
+        let unknown = Context {
+            engine: "codex".into(),
+            working_s: None,
+            idle_s: None,
+            since_note_s: None,
+            someone_here: None,
+            quiet_s: None,
+            hour: None,
+            room: Room::Unknown,
+            ..context()
+        };
+        let value = state(&unknown);
+        assert_eq!(value["work"]["agent"], "Codex");
+        for (part, field) in [
+            ("work", "minutes_at_it"),
+            ("work", "minutes_since_it_last_did_anything"),
+            ("work", "minutes_since_the_last_note_for_this_work"),
+            ("room", "someone_at_the_lamp"),
+            ("room", "seconds_since_anything_was_said"),
+            ("room", "hour_of_day"),
+        ] {
+            assert!(value[part][field].is_null(), "{field}");
+        }
+        assert_eq!(context().key(), "0123456789abcdef0123456789abcdef:3:4");
+    }
+
+    fn answers(three: [f32; 3]) -> BTreeMap<String, Answer> {
+        questions()
+            .into_iter()
+            .zip(three)
+            .map(|((name, _), yes)| (name, Answer::Noul(yes)))
+            .collect()
+    }
+
+    #[test]
+    fn worth_telling_at_a_good_moment_and_not_too_much_is_said_now() {
+        let (yes, named) = combine(&answers([0.9, 0.8, 0.1])).unwrap();
+        assert!((yes.probability - 0.648).abs() < 1e-6);
+        assert_eq!((yes.choice, yes.from_rule), (Choice::SayNow, false));
+        assert_eq!(named["too_much"], 0.1);
+        for three in [[0.4, 1.0, 0.0], [1.0, 0.4, 0.0], [1.0, 1.0, 0.6]] {
+            assert_eq!(combine(&answers(three)).unwrap().0.choice, Choice::Wait);
+        }
+        let mut missing = answers([1.0, 1.0, 0.0]);
+        missing.remove("good_moment");
+        assert_eq!(combine(&missing).unwrap_err(), "good_moment");
+        let mut wrong = answers([1.0, 1.0, 0.0]);
+        wrong.insert("too_much".into(), Answer::Noul(1.5));
+        assert_eq!(combine(&wrong).unwrap_err(), "too_much");
+        // The questions are asked in this order, each yes or no.
+        let asked: Vec<String> = questions().into_iter().map(|(name, _)| name).collect();
+        assert_eq!(asked, ["worth_telling", "good_moment", "too_much"]);
+        assert!(questions().iter().all(|(_, q)| matches!(
+            q,
+            Question::Noul { instructions } if instructions.starts_with(OPENING)
+        )));
+    }
+
+    #[test]
+    fn the_rule_says_a_new_sign_only_to_someone_there_in_a_quiet_daytime() {
+        assert_eq!(fallback(&context()).choice, Choice::SayNow);
+        assert_eq!(fallback(&context()).probability, RULE_YES);
+        for changed in [
+            Context {
+                new_signs: vec![],
+                ..context()
+            },
+            Context {
+                someone_here: None,
+                ..context()
+            },
+            Context {
+                quiet_s: Some(59),
+                ..context()
+            },
+            Context {
+                room: Room::Busy,
+                ..context()
+            },
+            Context {
+                spoke_up_last_hour: 2,
+                ..context()
+            },
+            Context {
+                hour: Some(23),
+                ..context()
+            },
+            Context {
+                hour: Some(7),
+                ..context()
+            },
+        ] {
+            let judged = fallback(&changed);
+            assert_eq!((judged.choice, judged.probability), (Choice::Wait, RULE_NO));
+        }
+        assert!(fallback(&context()).from_rule);
+    }
+
+    struct Never;
+    impl Decider for Never {
+        fn ask(&mut self, _: &str, _: &[(String, Question)], _: Duration) -> Result<Asked, Failed> {
+            Err(Failed::TimedOut)
+        }
+        fn name(&self) -> &str {
+            "never"
+        }
+    }
+
+    fn status(changes: u32, state: AgentState) -> TaskStatus {
+        TaskStatus {
+            store_id: "0123456789abcdef0123456789abcdef".into(),
+            tasks: vec![TaskProgress {
+                task: 3,
+                engine: "codex".into(),
+                state,
+                working_s: None,
+                last_active_unix_ms: None,
+                read_unix_ms: 0,
+                changes,
+                changed: changes > 0,
+                new_share: 0.0,
+                signs: vec![],
+                signs_seen: vec![],
+            }],
+        }
+    }
+
+    #[test]
+    fn judging_begins_at_what_is_first_seen_and_again_when_the_counting_does() {
+        let mut progress =
+            Progress::start(Never, Options::new(Duration::from_secs(1), None)).unwrap();
+        let now = Instant::now();
+        progress.status(status(5, AgentState::Working));
+        assert_eq!(progress.next(now), None);
+        progress.status(status(6, AgentState::Working));
+        assert_eq!(progress.next(now), Some(3));
+        // The tasks part restarted and counts from nothing again.
+        progress.status(status(0, AgentState::Working));
+        assert_eq!(progress.next(now), None);
+        progress.status(status(1, AgentState::Working));
+        assert_eq!(progress.next(now), Some(3));
+        // Not at work: not progress.
+        progress.status(status(2, AgentState::Idle));
+        assert_eq!(progress.next(now), None);
+        // Another store: begun again; a status that fails its check is
+        // passed over.
+        let mut other = status(9, AgentState::Working);
+        other.store_id = "f".repeat(32);
+        progress.status(other);
+        assert_eq!(progress.next(now), None);
+        let mut wrong = status(10, AgentState::Working);
+        wrong.store_id = "x".into();
+        progress.status(wrong);
+        assert_eq!(progress.next(now), None);
+        progress.gone();
+        assert!(progress.tasks.is_empty());
+    }
+
+    #[test]
+    fn a_turn_the_lamp_begins_with_nobody_listened_to_is_unasked() {
+        let mut progress =
+            Progress::start(Never, Options::new(Duration::from_secs(1), None)).unwrap();
+        let t = Instant::now();
+        // Listened to, then answered: asked.
+        progress.voice(Voice::Listening, t);
+        progress.voice(Voice::Thinking, t + Duration::from_secs(2));
+        progress.voice(Voice::Speaking, t + Duration::from_secs(3));
+        progress.voice(Voice::Speaking, t + Duration::from_secs(4));
+        progress.voice(Voice::Resting, t + Duration::from_secs(5));
+        assert!(progress.unasked.is_empty());
+        // Begun after a long quiet: unasked, once for the turn.
+        progress.voice(Voice::Speaking, t + Duration::from_secs(60));
+        progress.voice(Voice::Speaking, t + Duration::from_secs(61));
+        assert_eq!(progress.unasked.len(), 1);
+        // Talking holds the question; a quiet of 15 s lets it go.
+        assert!(progress.talking(t + Duration::from_secs(61)));
+        progress.voice(Voice::Resting, t + Duration::from_secs(62));
+        assert!(progress.talking(t + Duration::from_secs(70)));
+        assert!(!progress.talking(t + Duration::from_secs(62) + QUIET_FOR));
+        progress.talk(t + Duration::from_secs(100));
+        assert!(progress.talking(t + Duration::from_secs(101)));
+    }
+
+    #[test]
+    fn the_hour_is_local_by_the_offset_given() {
+        // 2026-10-14T17:31:02Z is half past midnight at UTC+7.
+        assert_eq!(hour_of_day(1_791_999_062_000, 0), 17);
+        assert_eq!(hour_of_day(1_791_999_062_000, 420), 0);
+        assert_eq!(hour_of_day(1_791_999_062_000, -300), 12);
+        assert_eq!(hour_of_day(0, -60), 23);
+    }
+}

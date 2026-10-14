@@ -650,6 +650,20 @@ pub struct LaunchJob {
     pub task_id: u64,
     pub launch: Launch,
 }
+/// A task the watch looks at, as progress reads it (`serve --progress`):
+/// accepted, nothing settled kept yet, and handed over less than a day ago
+/// in this boot or in an earlier one.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Watched {
+    pub task_id: u64,
+    pub machine_id: String,
+    pub agent_id: String,
+    /// Who has it, as the task's target names it (`claude`, `codex`).
+    pub engine: String,
+    /// How long ago it was handed over, if that was in this boot.
+    pub accepted_ago_ms: Option<u64>,
+}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ObservationJob {
     pub task_id: u64,
@@ -950,6 +964,14 @@ impl<P: Persistence> Engine<P> {
                     json!({"id":id,"observation":observation_metadata(observed),"data":observed.data,"speech":observed.speech,"completion":"unverified"}),
                 )
             }
+            // Progress is held by the service around the engine, and only
+            // with `--progress`; one that reaches here is not kept.
+            Request::GetProgress { .. } => {
+                return Err(err(
+                    "progress_off",
+                    "Progress is not read; the service runs without --progress.",
+                ));
+            }
             _ => None,
         };
         if let Some(body) = read {
@@ -1191,6 +1213,10 @@ impl<P: Persistence> Engine<P> {
         Ok(response)
     }
 
+    /// A read's reply with this store's identity, as every reply has it.
+    pub fn identified(&self, body: Value) -> Result<Value, Error> {
+        self.reply(body)
+    }
     fn reply(&self, body: Value) -> Result<Value, Error> {
         let response = identity(body, self.store_id(), self.revision());
         if serde_json::to_vec(&response).map_err(|_| storage())?.len() > MAX_REPLY_BYTES {
@@ -1312,35 +1338,31 @@ impl<P: Persistence> Engine<P> {
             (audit.boot_id == now.boot_id)
                 .then(|| now.monotonic_ms.saturating_sub(audit.monotonic_ms))
         };
-        let due = self.state.tasks.iter().position(|task| {
-            let Some(accepted) = task.dispatch.finished.as_ref() else {
-                return false;
-            };
-            if task.dispatch.state != DispatchState::Accepted
-                || task.observations.len() >= MAX_OBSERVATIONS
-                || task.observations.iter().any(|o| settled(&o.data))
-                || task.read.as_ref().is_some_and(|r| {
+        let due =
+            self.state.tasks.iter().position(|task| {
+                let Some(accepted) = task.dispatch.finished.as_ref() else {
+                    return false;
+                };
+                let Some(age) = watched_age(task, now) else {
+                    return false;
+                };
+                if task.read.as_ref().is_some_and(|r| {
                     matches!(r.state, ReadState::Requested | ReadState::Attempting)
-                })
-            {
-                return false;
-            }
-            let age = since(accepted);
-            if age.is_some_and(|age| age > WATCH_AT_MOST_MS) {
-                return false;
-            }
-            let every = if age.is_some_and(|age| age < WATCH_EARLY_FOR_MS) {
-                WATCH_EARLY_MS
-            } else {
-                WATCH_LATER_MS
-            };
-            let last = task
-                .read
-                .as_ref()
-                .and_then(|r| r.finished.as_ref())
-                .unwrap_or(accepted);
-            since(last).is_none_or(|ago| ago >= every)
-        });
+                }) {
+                    return false;
+                }
+                let every = if age.is_some_and(|age| age < WATCH_EARLY_FOR_MS) {
+                    WATCH_EARLY_MS
+                } else {
+                    WATCH_LATER_MS
+                };
+                let last = task
+                    .read
+                    .as_ref()
+                    .and_then(|r| r.finished.as_ref())
+                    .unwrap_or(accepted);
+                since(last).is_none_or(|ago| ago >= every)
+            });
         let Some(index) = due else {
             return Ok(false);
         };
@@ -1371,6 +1393,29 @@ impl<P: Persistence> Engine<P> {
         task.updated = at;
         self.save(next)?;
         Ok(true)
+    }
+
+    /// Every task the watch looks at now ([`Watched`]), whether or not a
+    /// look is due. Reads nothing and changes nothing.
+    pub fn watched(&self, now: &Clock) -> Vec<Watched> {
+        self.state
+            .tasks
+            .iter()
+            .filter_map(|task| {
+                let age = watched_age(task, now)?;
+                Some(Watched {
+                    task_id: task.id,
+                    machine_id: task.launch.target.machine_id.clone(),
+                    agent_id: task.dispatch.agent_id.clone()?,
+                    // As the target file names it; the same words as `new`.
+                    engine: serde_json::to_value(task.launch.target.engine)
+                        .ok()?
+                        .as_str()?
+                        .to_owned(),
+                    accepted_ago_ms: age,
+                })
+            })
+            .collect()
     }
 
     pub fn begin_observation(&mut self, now: &Clock) -> Result<Option<ObservationJob>, Error> {
@@ -1503,6 +1548,26 @@ impl<P: Persistence> Engine<P> {
         }
         Ok(())
     }
+}
+
+/// Whether the watch looks at `task`: accepted, with room for an
+/// observation, nothing settled kept, and handed over at most
+/// [`WATCH_AT_MOST_MS`] ago in this boot (or in an earlier one, when it
+/// cannot be dated). How long ago, if in this boot.
+fn watched_age(task: &Task, now: &Clock) -> Option<Option<u64>> {
+    let accepted = task.dispatch.finished.as_ref()?;
+    if task.dispatch.state != DispatchState::Accepted
+        || task.observations.len() >= MAX_OBSERVATIONS
+        || task.observations.iter().any(|o| settled(&o.data))
+    {
+        return None;
+    }
+    let age = (accepted.boot_id == now.boot_id)
+        .then(|| now.monotonic_ms.saturating_sub(accepted.monotonic_ms));
+    if age.is_some_and(|age| age > WATCH_AT_MOST_MS) {
+        return None;
+    }
+    Some(age)
 }
 
 fn take(counter: &mut u64) -> Result<u64, Error> {
@@ -2990,5 +3055,48 @@ mod tests {
         accepted(&mut old, 10);
         assert!(!old.watch(&clock(11 + WATCH_AT_MOST_MS)).unwrap());
         assert!(old.watch(&clock(10 + WATCH_AT_MOST_MS)).unwrap());
+    }
+
+    #[test]
+    fn progress_reads_the_tasks_the_watch_looks_at_and_nothing_else() {
+        let (mut engine, _) = opened();
+        // Prepared, not yet handed over: not watched.
+        prepare(&mut engine, 5);
+        assert!(engine.watched(&clock(5)).is_empty());
+        let id = accepted(&mut engine, 10);
+        let revision = engine.revision();
+        assert_eq!(
+            engine.watched(&clock(70_010)),
+            vec![Watched {
+                task_id: id,
+                machine_id: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa".into(),
+                agent_id: AGENT.into(),
+                engine: "codex".into(),
+                accepted_ago_ms: Some(70_000),
+            }]
+        );
+        // Listing changes nothing.
+        assert_eq!(engine.revision(), revision);
+        // In another boot it cannot be dated, and is still watched.
+        let other = Clock {
+            boot_id: "next-boot".into(),
+            monotonic_ms: 1,
+        };
+        assert_eq!(engine.watched(&other)[0].accepted_ago_ms, None);
+        // More than a day old in this boot: left, as the watch leaves it.
+        assert!(engine.watched(&clock(11 + WATCH_AT_MOST_MS)).is_empty());
+        // Asked for progress without the service holding it: refused, and
+        // nothing is changed.
+        let asked = engine
+            .handle(&Request::GetProgress { id }, &clock(20), false)
+            .unwrap_err();
+        assert_eq!(asked.code, "progress_off");
+        assert_eq!(engine.revision(), revision);
+        // Settled: no longer watched.
+        let job = request_read(&mut engine, id, 30);
+        engine
+            .finish_observation(&job, data("Lumi, Sunny and Archie."), &clock(40))
+            .unwrap();
+        assert!(engine.watched(&clock(50)).is_empty());
     }
 }

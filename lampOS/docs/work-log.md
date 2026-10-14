@@ -14,12 +14,50 @@ the lamp, and nothing here was run on a lamp.
 | 1 | The end-of-turn model in a tenth of a second | `second/turn-end-fast` | 2026-10-14 | on `lamp-second`, 2026-10-14 |
 | 2 | Try to break last night's changes to the voice | `second/voice-review` | 2026-10-14 | on its own branch, 2026-10-14 (`1d737f8e5`); taken into `lamp-voice` with its mends |
 | 3 | A listener for "stop" under the lamp's own voice | `second/stop-word` | 2026-10-14 | being built |
-| 9 | Faster answers: what exists | `second/faster-answers` | 2026-10-14 | being built (taken before 5 and 10: it is a study, done beside them) |
+| 9 | Faster answers: what exists | `second/faster-answers` | 2026-10-14 | on `lamp-second`, 2026-10-14 (a study, done beside 5 and 10) |
 | 10 | A reference that follows the microphone's clock | `second/reference-clock` | 2026-10-14 | being built |
 
 ## Handed back
 
 Newest first.
+
+### Task 9: faster answers, what exists (2026-10-14)
+
+A study, `docs/faster-answers.md`. Nothing built, nothing run on a lamp,
+no paid service called. Every outside figure is marked "published, not
+measured here" with its source and boundary.
+
+**What it found.** The lamp's speech service (`gemini-3.8-live`) is
+published at 1.18 s from a question to its first sound; the lamp sees
+1.15 s from the end it sends. So the relay and the road from Ho Chi Minh
+City are probably a small part of the wait, and no setting brings this
+service near 0.3 to 0.5 s. What the lamp can take off is its own: the
+0.6 s it waits to be sure the person has finished, and part of the 0.35 s
+it holds the first sound. That gives about 1.5 s. Near 1 s also needs a
+faster service, which today means another voice, against the owner's
+decision.
+
+**The ways, in short:** (1) end a plainly finished turn sooner: task 1,
+take first; (2) send the end at about 0.2 s of quiet and play only once
+sure: up to 0.4 s on every answer, code in the voice, behind a switch;
+(3) a shorter hold before the first sound: about 0.1 s at 200 ms; (4) the
+same service without the relay: unknown, probably small, needs a key;
+(5) another Gemini Live model or an Asian endpoint: up to 0.5 s by
+published figures, but older, preview or retiring models; (6) another
+speech-in, speech-out service: a new voice, no; (7) speech to text, a
+text model and a voice: not shown faster from Vietnam; (8) shipped
+agents' own figures: a yardstick only (1.0 to 1.7 s median measured from
+the user's side).
+
+**For the first builder, in the study's order of trials:** first split
+the 1,034 recorded answers into wait, service and hold, and time the road
+from the lamp (it changes nothing on the lamp); then the fast end-of-turn
+model; then a 200 ms hold; then the end sent sooner.
+
+**Not established:** no round trip from the lamp is recorded anywhere;
+where the relay's own server is; where Google serves an AI Studio key;
+whether Gemini's text-to-speech "Kore" sounds like the Live voice; the
+company's bill through the relay.
 
 ### Task 1: the end-of-turn model in a tenth of a second (2026-10-14)
 

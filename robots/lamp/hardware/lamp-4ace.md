@@ -31,6 +31,29 @@ plugged into the Orange Pi 4 Pro's header and power rails, with much less
 speaker hiss. lamp-4ace does not have it; when a lamp does, this file gets
 a row for it and the pins are measured again.
 
+## Asked of the hardware team (2026-10-14, 20:20, through the owner)
+
+1. **Echo.** The voice microphone hears the lamp's own voice about as loudly
+   as a person, on a clock of its own, so a person speaking over the lamp
+   is missed about half the time (`lampOS/docs/duplex-listening.md`). On the
+   new board: are the voice microphone and the speaker on one audio chip and
+   one clock, is there a loopback of the speaker's signal to use as the echo
+   reference, and can the voice microphone sit farther from the speakers or
+   be isolated from them?
+2. **Amplifier.** Are the PAM8610's mute or shutdown pins on a GPIO, on
+   lamp-4ace or on the new board, and which? The lamp would silence it when
+   it is not speaking.
+3. **Base strip.** The bench settings for each pad (touch and release
+   thresholds, charge current and time), the calibration procedure, and a
+   copy of lamp-4ace's old per-unit file, if kept.
+4. **Reset button.** Is one fitted on lamp-4ace (pin 37), and what should a
+   five-second hold do?
+5. **Air sensor.** Is its insulated housing open to the room's air, and is
+   there an offset or a reference reading for its temperature?
+6. **Fan.** Always on, or controllable from software, and from which pin?
+7. **The new board.** When do lamp-4ace and the other test lamps get it, and
+   do any buses, pins or USB audio devices change? Its pinout early, please.
+
 ## Parts the design does not list
 
 | Part | On lamp-4ace |

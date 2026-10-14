@@ -1,0 +1,666 @@
+# Hearing "stop" under the lamp's own voice
+
+`stop.onnx` gives one score every 80 ms: how likely it is that someone has
+just said "stop", "wait" or "hold on". It takes exactly the numbers
+`lamp-name` already makes for the name's model, so on the lamp it is one
+more small model on numbers that are there anyway.
+
+This is task 3 of [the builders' list](work-split.md). The model was
+trained and measured on a laptop (Apple M2 Max, macOS 26.6). Its graph
+was run under tract 0.23.8 there and in a Linux ARM64 container. Nothing
+here was run on a lamp, and no number here is the lamp's.
+
+## What exists and what we take
+
+**openWakeWord.** The lamp's name already uses its front end: a mel
+spectrogram and Google's speech embedding, 96 numbers every 80 ms, fixed
+(`hear.rs`, [name.md](name.md)). Its own models are a small network on
+sixteen of those: Flatten, then Linear, LayerNorm and ReLU layers, then a
+sigmoid ([train.py](https://github.com/dscripka/openWakeWord/blob/main/openwakeword/train.py)).
+Its recipe trains on generated speech (Piper's LibriTTS-R voice through
+`piper-sample-generator`), on look-alike phrases as hard negatives, and on
+about 2,000 hours of other sound as precomputed features. It aims at
+under 0.5 false accepts an hour with under 5 % misses, measured on about
+5.5 hours of DiPCo
+([README](https://github.com/dscripka/openWakeWord),
+[notebook](https://github.com/dscripka/openWakeWord/blob/main/notebooks/automatic_model_training.ipynb),
+[custom_model.yml](https://github.com/dscripka/openWakeWord/blob/main/examples/custom_model.yml)).
+Its default weight on negatives rises to 1,500 against a positive. Its
+"custom verifier" is a logistic regression per user on the same features,
+asked only when the base model is above a threshold
+([custom_verifier_models.md](https://github.com/dscripka/openWakeWord/blob/main/docs/custom_verifier_models.md)).
+
+- Taken: the front end, unchanged; a small last model on sixteen
+  embeddings; generated speech and look-alike phrases.
+- Changed: plain ops only (no LayerNorm), so that tract runs it as it runs
+  `name.onnx`.
+- Not taken, for their licences: the 2,000 hours of negative features
+  are CC BY-NC-SA 4.0
+  ([dataset card](https://huggingface.co/datasets/davidscripka/openwakeword_features)).
+  Piper's `en_US-libritts_r-medium` voice, which openWakeWord uses, was
+  fine-tuned from the Lessac voice, whose recordings are licensed for
+  research only
+  ([model card](https://huggingface.co/rhasspy/piper-voices/blob/main/en/en_US/libritts_r/medium/MODEL_CARD),
+  [Lessac licence](https://www.cstr.ed.ac.uk/projects/blizzard/2013/lessac_blizzard2013/license.html)).
+  Here the generated speech is Piper's `en_US-libritts-high`, trained
+  from scratch on LibriTTS
+  ([model card](https://huggingface.co/rhasspy/piper-voices/blob/main/en/en_US/libritts/high/MODEL_CARD)).
+- Not taken: a verifier per user. It needs each user's recordings.
+
+**The embedding.** Lin and others, "Training Keyword Spotters with
+Limited and Synthesized Speech Data", ICASSP 2020
+([arXiv 2002.01322](https://arxiv.org/abs/2002.01322)). Trained on about
+200 million two-second YouTube clips. A small model on it, trained on 3,220
+synthetic clips, scored 92.6 % on Speech Commands' 35 words; on as many
+real clips, 95.3 %. So a few thousand real words are enough to train on,
+and generated speech carries part of the way. Nothing in it was trained on
+two voices at once.
+
+**Speech Commands** (Warden 2018, [arXiv 1804.03209](https://arxiv.org/abs/1804.03209),
+CC BY 4.0). Version 2: 105,829 one-second clips of 35 words from 2,618
+speakers; "stop" 3,872 times. Its validation and test lists are made from a
+hash of the speaker's part of the file name, so a speaker is in one list
+only ([input_data.py](https://github.com/tensorflow/tensorflow/blob/master/tensorflow/examples/speech_commands/input_data.py)).
+Known results on its words, clean and alone: 88.2 % for its baseline,
+98.7 % for BC-ResNet ([arXiv 2106.04140](https://arxiv.org/abs/2106.04140)).
+None of that is under another voice. "Wait" and "hold" are not among its
+words.
+
+**How others hear a stop under their own playback.**
+
+- Google: "To stop a timer, you don't need to say 'Hey Google.' Just say
+  'Stop.'" (English only) ([Nest help](https://support.google.com/googlenest/answer/7028899?hl=en)).
+  Since January 2022 a bare "stop" also cuts off the Assistant while it
+  speaks on smart speakers and displays
+  ([9to5Google](https://9to5google.com/2022/01/25/google-assistant-stop/)).
+  How it is built is not published.
+- Apple, HomePod (2018): its own sound is 30 to 40 dB louder than a voice
+  across the room, and after its multichannel canceller the leftover echo
+  is still 10 to 20 dB above the voice when it plays loud. A network
+  trained on real echo estimates a mask for a Wiener filter and a
+  suppression gain ([Apple ML Research](https://machinelearning.apple.com/research/optimizing-siri-on-homepod-in-far-field-settings)).
+  That is the lamp's position, a little worse, and the answer was a
+  better canceller, not a better word spotter.
+- Amazon: training a wake word with music and TV mixed in at 0 to 40 dB
+  under it cut misses by 30 to 45 % (Raju and others 2018,
+  [arXiv 1808.00563](https://arxiv.org/abs/1808.00563)). Giving the network
+  the playback signal as a second input ("implicit echo cancellation")
+  cut misses in device-directed speech during playback by 56 % (Cornell
+  and others, SLT 2022, [arXiv 2111.10639](https://arxiv.org/abs/2111.10639)).
+- Taken: training under the other voice across the lamp's range, as the
+  first of these did, and through a suppressor. Not taken, for now: the
+  playback signal as an input. It is the largest gain reported, but the
+  fixed front end has no place for it; it would be a new model and a new
+  interface, not a second small model beside the name's.
+
+**Short words under another voice.** Papers make their own mixtures of
+Speech Commands with other speech (for example Shi and others,
+Interspeech 2023,
+[ISCA](https://www.isca-archive.org/interspeech_2023/shi23f_interspeech.html)).
+No public set of short commands spoken over other speech was found. The
+Microsoft AEC Challenge has real double talk
+([repo](https://github.com/microsoft/AEC-Challenge)), but its recordings'
+own licence is not stated and its near-end speech is not commands.
+
+**Sources used here, and their licences.**
+
+| Source | What it gives | Licence |
+|---|---|---|
+| Speech Commands v0.02 | "stop" from 2,618 speakers; 34 other words; background noise | CC BY 4.0 |
+| MSWC, English ([Mazumder and others 2021](https://datasets-benchmarks-proceedings.neurips.cc/paper/2021/hash/fe131d7f5a6b38b23cc967316c13dae2-Abstract-round2.html)) | "stop", "wait", "stopped", "stopping", "stops", "waited", "waiting", "holding", and about 8,900 other words, cut from Common Voice sentences | CC BY 4.0 ([Hugging Face](https://huggingface.co/datasets/MLCommons/ml_spoken_words), not gated) |
+| LibriSpeech dev, test ([openslr 12](https://www.openslr.org/12/)) and train-clean-100 ([Hugging Face](https://huggingface.co/datasets/openslr/librispeech_asr), not gated) | The other voice; talk to train against; "stop", "wait", "hold on" as read in books; near misses in sentences | CC BY 4.0 |
+| Piper `en_US-libritts-high`, 904 voices | Generated phrases with the targets, near misses, short replies, long talk | Voice trained on LibriTTS, CC BY 4.0 ([openslr 60](https://www.openslr.org/60/)); voices repository MIT |
+| AMI meeting corpus, 34 meetings ([licence](https://groups.inf.ed.ac.uk/ami/corpus/license.shtml)) | Ordinary talk, and the targets said in it; testing only | CC BY 4.0 |
+| wav2vec 2.0 base, 960 h (torchaudio `WAV2VEC2_ASR_BASE_960H`) | Only to find where words are; nothing of it is in the model | MIT ([docs](https://docs.pytorch.org/audio/stable/generated/torchaudio.pipelines.WAV2VEC2_ASR_BASE_960H.html)) |
+
+Not used: Common Voice itself (since October 2025 it is downloaded only
+with an account at the Mozilla Data Collective, and the Hugging Face copies
+are gated; MSWC reaches its speakers under CC BY 4.0); macOS voices. The
+openslr mirror gave about 30 MB a minute, so train-clean-100 came from
+the Hugging Face copy instead.
+
+## Answer
+
+On the laptop, on speakers it never heard, at the proposed threshold (a
+score of 0.9 for one step):
+
+- **Heard alone, it catches most of them**: 85 % of 736 real people's
+  "stop" and 84 % of 263 real "wait" (Speech Commands, MSWC and
+  LibriSpeech test speakers), and 95 % of 375 generated "hold on". "Stop
+  it." counts as a stop; 19 of 19 generated were caught.
+- **Plainly under a louder voice, it hears few, and no threshold mends
+  it.** Level with a LibriSpeech reader (0 dB), 17 % of "stop" and 13 % of
+  "wait"; 15 dB under, 4 % and 3 %. A far larger recogniser, wav2vec 2.0,
+  wrote the reader's words and not the target's in such mixtures. The
+  embedding the lamp uses was never trained on two voices at once, and
+  everything after it can only work with what it gives.
+- **Where the other voice is taken out first, half comes back.** Through a
+  suppressor that is told the other voice exactly: 48 % of "stop" and of
+  "wait" at 0 dB, 25 % and 18 % at -15 dB. The lamp's canceller is not
+  told its echo exactly, so the lamp is somewhere between the two cases.
+- **Talk sets it off** about 9 times an hour of LibriSpeech test readers
+  (11.1 h), 3 times an hour of generated voices (0.9 h), and 7 times an
+  hour of AMI meetings (24.1 h, away from any target said). "Don't stop",
+  "bus stop" and "stop" inside a sentence set it off in 3 %, 3 % and 8 %
+  of generated clips; "stopped" and "waited" cut from sentences in 56 % and
+  60 %; look-alike single words ("Top.", "Spot.", "Gate.") in 36 %.
+- **In real meetings** it heard 1 of the 28 "stop", 3 of the 39 "wait" and
+  5 of the 22 "hold on" said in those 34 AMI meetings.
+- **A hearing begins** a median 62 ms after the word ends (under another
+  voice; 90 % within half a second), before the 48 ms the lamp needs to complete
+  the chunk and its step's own time.
+- **What this means for the lamp.** On its own it does not answer the
+  task's case, a person 0 to 15 dB under the lamp's voice plainly mixed.
+  It may help where the canceller has already taken most of the lamp's
+  voice out, which is closer to the suppressed case. It is worth wiring
+  only behind a switch, only while the lamp is speaking, and as a pause
+  that the duplex rules then confirm or undo, so that a false alarm costs
+  a moment and not the reply. Before that, ten minutes of the lamp's own
+  microphone after the canceller say whether it is worth it ("Where it is
+  most likely to be wrong on the lamp").
+- **The model:** `models/stop/stop.onnx`, 124,135 bytes, 30,913 weights,
+  SHA-256 `5fe07569e3d7c5adcdf496770deb306701b057ab8adce1d03ce901db3ce72d41`
+  ([SOURCE.md](../models/stop/SOURCE.md)). Run inside `hear.rs` under
+  tract 0.23.8, on the Mac and in a Linux ARM64 container, it gives the
+  scores it gave in training's onnxruntime to within 6e-6.
+
+## What was made
+
+All of it is in `lampOS/training/stop/` and runs from nothing with one
+command, `sh make.sh` ("How to make it again").
+
+**The numbers it works on** (`features.py`) are made exactly as `hear.rs`
+makes them. Chunk i is samples 1280 i to 1280 i + 1760, given to
+`melspectrogram.onnx` on the 16-bit scale. Each number becomes x / 10 + 2.
+Embedding k is of frames 8k to 8k + 76. The model gets the newest
+sixteen, and its score for them is of the sound up to 1.982 s plus 0.08 s
+a step. The two front-end files are the pinned ones; their SHA-256 is
+checked before use.
+
+One thing had to be found: the mel model ends by flooring every number at
+80 dB under the largest **in the whole tensor it is given**. The lamp
+gives it one chunk at a time. A batch of chunks would floor them all at
+the batch's largest and give other numbers (up to 11.6 apart, on silent
+chunks). Here the model is cut before that floor and runs on batches, and
+the floor is put back chunk by chunk. Against a step-by-step copy of the
+loop in `hear.rs`, the embeddings of 10.4 s of sound then differed by at
+most 4.6e-5, on numbers up to about 60.
+
+**Checked against the lamp's own code.** A scratch Rust program (not
+committed) includes `crates/name/src/hear.rs` unchanged, under
+`tract-onnx` 0.23.8 with default features off and the workspace's
+`Cargo.lock`, with `stop.onnx` installed as `name.onnx`. It fed four files
+20 ms at a time, as `lamp-name check` does: 1,185 scores. Against
+`listen.py` (onnxruntime 1.31 and `features.py`) the largest difference was
+6e-6 on the Mac and 6e-6 in the `lampos-dev:1.96` Linux ARM64 container.
+The three models took 1.59 ms a step on the Mac and 2.10 ms in the
+container, against 1.70 ms with a model the size of the first tried
+(1536 x 128). `stop.onnx` has 30,913 weights and about 0.4 million
+multiplications a step: almost nothing beside the front end.
+
+**Who says what.** Every set is split by speaker. No speaker of a test
+set is in any training set; this was checked set against set.
+
+| Set | Train | Test |
+|---|---|---|
+| "stop", Speech Commands, aligned and cut | 3,014 clips, 1,230 speakers | 404 clips, 152 speakers (its testing list) |
+| "stop", MSWC | 1,848 clips, 1,488 speakers | 319, 258 |
+| "wait", MSWC | 1,615, 1,213 | 244, 189 |
+| "stop", "wait", "hold on" read in LibriSpeech | 28 (dev) | 34 (test): 13 stop, 19 wait, 2 hold on |
+| Generated phrases with a target (46 phrases, "Stop it." among them) | 9,000, 791 voices | 1,200, 113 other voices |
+| Near misses, generated (61 phrases in 9 groups) | 3,000 | 1,400 |
+| Near misses, MSWC ("stopped", "stopping", "stops", "waited", "waiting", "holding", "hold") | 5,190 | 979 |
+| Other single words: Speech Commands' 34, MSWC's about 8,900 | 4,542 and 9,515 | 930 and 2,387 |
+| Short replies ("Mm-hm.", "Yeah."...), generated | 600 | 200 |
+| The other voice, read: LibriSpeech | dev-clean, dev-other: 10.5 h, 73 readers (11 kept back for validation) | test-clean, test-other: 10.7 h, 73 readers |
+| The other voice, generated | 1,000 sentences, 1.5 h | 600 sentences, 0.9 h |
+| More talk to train against: train-clean-100 | 25.6 h, 251 readers | |
+| Ordinary talk: AMI meetings, headset mix | | 34 meetings, 24.1 h |
+
+"Hold on" from real people is almost missing: two clips in the test
+readers, and those in the AMI meetings. MSWC has "hold" but no "on" (it
+keeps single words), so its "hold" clips are near misses here.
+
+**Where a word is.** wav2vec 2.0 is forced to the known words of each
+clip (`align.py`). A word's end is moved on to where its sound is 25 dB
+under its loudest, within 0.15 s, so that a closing "p" or "t" is inside
+it. A clip is the word and a quarter second each side, faded in and out
+over 20 ms. Clips the forced alignment scored under 0.2 were dropped
+(Speech Commands "stop": 110 of 3,872).
+
+**Mixing** (`mix.py`, `make_data.py`). A level is an active level: the
+mean power of the 10 ms frames within 30 dB of the loudest 5 %, in dBFS.
+A word's level is over the word; the other voice's over the 2.6 s it
+plays. "-10 dB" means the word 10 dB under the other voice. The other voice
+was put at -30 to -10 dBFS (the lamp's own voice reaches -9.6 to -16.4 dBFS
+in its microphone, [duplex-listening.md](duplex-listening.md)), and the
+word 20 dB under it to 6 dB over; 12 % of words alone. Then, at random: a
+room on the person (a decaying tail, 0.15 to 0.5 s); in 40 %, a suppressor
+like a canceller's, which takes off in each time and frequency cell what
+the other voice puts there, overdone or underdone by up to two times, with
+a floor of -10 to -30 dB, and so takes some of the person too; the
+microphone's band (high-pass 80 to 400 Hz, low-pass 3.5 to 7.5 kHz) in
+half; a noise floor of -80 to -55 dBFS; clipping in 5 %.
+
+**Labels.** Each example is 2.59 s, long enough for nine inputs 80 ms
+apart. A target is placed so that it ends 0.02 to 0.10 s before the end of
+the first input's sound. An input is a target when one ended 0.02 to 0.74
+s before the end of what it sees. Every other short clip (other words,
+near misses, short replies) is placed the same way by the end of its own
+word, so that where a word sits says nothing of whether it is a target.
+Long talk is placed anywhere and is all negative: 12 h of dev readers,
+generated voices and two voices at once, and 25 h of train-clean-100
+readers and two at once.
+
+**Training** (`train.py`): 106,756 target inputs (of 198,178 made),
+307,800 inputs of other words, 1.6 million of talk. Each batch of 1,024 is a quarter targets,
+a quarter other words, half talk. A negative weighs three times a target.
+Targets plainly under the other voice by more than 3 dB were left out: see
+"What was tried". AdamW, one-cycle rate up to 0.002, 12,000 steps, dropout
+0.2, a little noise on the inputs. Validation: Speech Commands' own
+validation speakers under the 11 dev readers kept back, and an hour of those
+readers alone.
+
+**Measuring** (`evaluate.py`): every number in the tables comes from
+streams of sound run through the front end and the model step by step, as
+`lamp-name` would, and the rule below.
+
+- Catches: each held-out target clip, its end at 3.2 s into 5 s of another
+  voice, with the other voice at -14 dBFS. Alone, the word is at -20 dBFS.
+  The other voice is a LibriSpeech test reader, or a held-out generated
+  voice; the same stretch of it at every level. Each level is mixed
+  plainly, and again through the suppressor at strength 1 and floor -20
+  dB, which is told the other voice exactly (a canceller that knows its
+  echo, which a real one does not). A catch is a hearing that begins
+  between the word's start and 1 s after its end.
+- False alarms: hearings an hour in every test reader's utterances played
+  one after another, each at -14 dBFS (10.7 h); the same for the generated
+  test voices (0.9 h); and in 34 AMI meetings as recorded (24.1 h), not
+  counting hearings from 0.2 s before to 1.5 s after a transcribed "stop",
+  "wait" or "hold on".
+- Near misses: the share of clips with any hearing, each clip alone at
+  -20 dBFS between 2 s of quiet and 1.5 s.
+
+**The rule for a hearing** (`hearing.py`) is `said.rs`'s: a hearing begins
+when the score has been at or over the threshold for N steps in a row; it
+is over when the score falls, or 0.8 s after it began; then 1 s is passed
+over. The one change: the moment counted is when the hearing begins, not
+when it is said, because a stop is wanted at once.
+
+## Measured
+
+On the M2 Max laptop, once, with the model in `models/stop/`, by
+`evaluate.py` over every test clip, reader and meeting
+(`stop-catches.eval.json` and `stop-talk-ami-near.eval.json`, printed by
+`tables.py`). "Real people" pools Speech Commands, MSWC and the
+LibriSpeech test readers; "generated" is Piper's held-out voices. A
+percentage is of the clips in that cell.
+
+### Catches at 0.9, one step, under a LibriSpeech test reader
+
+| Word | Speakers | alone | 0 dB | -5 dB | -10 dB | -15 dB | 0 dB, suppressed | -5 dB, suppressed | -10 dB, suppressed | -15 dB, suppressed |
+|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| stop | LibriSpeech | 2/13 (15 %) | 2/13 (15 %) | 1/13 (8 %) | 0/13 (0 %) | 0/13 (0 %) | 2/13 (15 %) | 3/13 (23 %) | 2/13 (15 %) | 1/13 (8 %) |
+| stop | MSWC | 257/319 (81 %) | 54/319 (17 %) | 36/319 (11 %) | 23/319 (7 %) | 13/319 (4 %) | 140/319 (44 %) | 120/319 (38 %) | 95/319 (30 %) | 75/319 (24 %) |
+| stop | Piper | 344/385 (89 %) | 88/385 (23 %) | 61/385 (16 %) | 48/385 (12 %) | 28/385 (7 %) | 240/385 (62 %) | 220/385 (57 %) | 175/385 (45 %) | 133/385 (35 %) |
+| stop | Speech Commands | 370/404 (92 %) | 68/404 (17 %) | 45/404 (11 %) | 29/404 (7 %) | 17/404 (4 %) | 208/404 (51 %) | 171/404 (42 %) | 143/404 (35 %) | 106/404 (26 %) |
+| stop | **real people** | 629/736 (85 %) | 124/736 (17 %) | 82/736 (11 %) | 52/736 (7 %) | 30/736 (4 %) | 350/736 (48 %) | 294/736 (40 %) | 240/736 (33 %) | 182/736 (25 %) |
+| stop | **generated voices** | 344/385 (89 %) | 88/385 (23 %) | 61/385 (16 %) | 48/385 (12 %) | 28/385 (7 %) | 240/385 (62 %) | 220/385 (57 %) | 175/385 (45 %) | 133/385 (35 %) |
+| wait | LibriSpeech | 8/19 (42 %) | 3/19 (16 %) | 3/19 (16 %) | 0/19 (0 %) | 1/19 (5 %) | 8/19 (42 %) | 6/19 (32 %) | 4/19 (21 %) | 4/19 (21 %) |
+| wait | MSWC | 214/244 (88 %) | 30/244 (12 %) | 19/244 (8 %) | 11/244 (5 %) | 6/244 (2 %) | 119/244 (49 %) | 95/244 (39 %) | 63/244 (26 %) | 44/244 (18 %) |
+| wait | Piper | 427/440 (97 %) | 154/440 (35 %) | 100/440 (23 %) | 70/440 (16 %) | 46/440 (10 %) | 337/440 (77 %) | 287/440 (65 %) | 235/440 (53 %) | 187/440 (42 %) |
+| wait | **real people** | 222/263 (84 %) | 33/263 (13 %) | 22/263 (8 %) | 11/263 (4 %) | 7/263 (3 %) | 127/263 (48 %) | 101/263 (38 %) | 67/263 (25 %) | 48/263 (18 %) |
+| wait | **generated voices** | 427/440 (97 %) | 154/440 (35 %) | 100/440 (23 %) | 70/440 (16 %) | 46/440 (10 %) | 337/440 (77 %) | 287/440 (65 %) | 235/440 (53 %) | 187/440 (42 %) |
+| hold on | LibriSpeech | 0/2 (0 %) | 1/2 (50 %) | 0/2 (0 %) | 0/2 (0 %) | 0/2 (0 %) | 1/2 (50 %) | 1/2 (50 %) | 1/2 (50 %) | 1/2 (50 %) |
+| hold on | Piper | 358/375 (95 %) | 175/375 (47 %) | 114/375 (30 %) | 79/375 (21 %) | 54/375 (14 %) | 333/375 (89 %) | 312/375 (83 %) | 276/375 (74 %) | 223/375 (59 %) |
+| hold on | **real people** | 0/2 (0 %) | 1/2 (50 %) | 0/2 (0 %) | 0/2 (0 %) | 0/2 (0 %) | 1/2 (50 %) | 1/2 (50 %) | 1/2 (50 %) | 1/2 (50 %) |
+| hold on | **generated voices** | 358/375 (95 %) | 175/375 (47 %) | 114/375 (30 %) | 79/375 (21 %) | 54/375 (14 %) | 333/375 (89 %) | 312/375 (83 %) | 276/375 (74 %) | 223/375 (59 %) |
+
+The LibriSpeech words are cut from read sentences, not said as commands,
+which is why so few are caught even alone.
+
+### Catches at 0.9, one step, under a held-out generated voice
+
+The other voice here is a generated voice, like the lamp's own.
+
+| Word | Speakers | alone | 0 dB | -5 dB | -10 dB | -15 dB | 0 dB, suppressed | -5 dB, suppressed | -10 dB, suppressed | -15 dB, suppressed |
+|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| stop | **real people** | 629/736 (85 %) | 101/736 (14 %) | 59/736 (8 %) | 36/736 (5 %) | 15/736 (2 %) | 389/736 (53 %) | 307/736 (42 %) | 228/736 (31 %) | 145/736 (20 %) |
+| stop | **generated voices** | 344/385 (89 %) | 63/385 (16 %) | 32/385 (8 %) | 17/385 (4 %) | 12/385 (3 %) | 236/385 (61 %) | 207/385 (54 %) | 162/385 (42 %) | 95/385 (25 %) |
+| wait | **real people** | 222/263 (84 %) | 41/263 (16 %) | 18/263 (7 %) | 9/263 (3 %) | 5/263 (2 %) | 115/263 (44 %) | 93/263 (35 %) | 71/263 (27 %) | 46/263 (17 %) |
+| wait | **generated voices** | 427/440 (97 %) | 113/440 (26 %) | 63/440 (14 %) | 27/440 (6 %) | 16/440 (4 %) | 316/440 (72 %) | 267/440 (61 %) | 206/440 (47 %) | 150/440 (34 %) |
+| hold on | **real people** | 0/2 (0 %) | 0/2 (0 %) | 0/2 (0 %) | 0/2 (0 %) | 0/2 (0 %) | 1/2 (50 %) | 1/2 (50 %) | 1/2 (50 %) | 1/2 (50 %) |
+| hold on | **generated voices** | 358/375 (95 %) | 140/375 (37 %) | 57/375 (15 %) | 27/375 (7 %) | 15/375 (4 %) | 332/375 (89 %) | 312/375 (83 %) | 265/375 (71 %) | 184/375 (49 %) |
+
+### Catches at 0.98, one step, under a LibriSpeech test reader
+
+| Word | Speakers | alone | 0 dB | -5 dB | -10 dB | -15 dB | 0 dB, suppressed | -5 dB, suppressed | -10 dB, suppressed | -15 dB, suppressed |
+|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| stop | **real people** | 355/736 (48 %) | 39/736 (5 %) | 21/736 (3 %) | 18/736 (2 %) | 5/736 (1 %) | 146/736 (20 %) | 127/736 (17 %) | 89/736 (12 %) | 60/736 (8 %) |
+| stop | **generated voices** | 244/385 (63 %) | 39/385 (10 %) | 29/385 (8 %) | 22/385 (6 %) | 11/385 (3 %) | 146/385 (38 %) | 120/385 (31 %) | 82/385 (21 %) | 58/385 (15 %) |
+| wait | **real people** | 126/263 (48 %) | 6/263 (2 %) | 3/263 (1 %) | 2/263 (1 %) | 2/263 (1 %) | 52/263 (20 %) | 40/263 (15 %) | 23/263 (9 %) | 14/263 (5 %) |
+| wait | **generated voices** | 352/440 (80 %) | 71/440 (16 %) | 42/440 (10 %) | 30/440 (7 %) | 22/440 (5 %) | 212/440 (48 %) | 183/440 (42 %) | 138/440 (31 %) | 96/440 (22 %) |
+| hold on | **real people** | 0/2 (0 %) | 1/2 (50 %) | 0/2 (0 %) | 0/2 (0 %) | 0/2 (0 %) | 0/2 (0 %) | 1/2 (50 %) | 1/2 (50 %) | 0/2 (0 %) |
+| hold on | **generated voices** | 353/375 (94 %) | 124/375 (33 %) | 80/375 (21 %) | 56/375 (15 %) | 41/375 (11 %) | 306/375 (82 %) | 266/375 (71 %) | 226/375 (60 %) | 171/375 (46 %) |
+
+A few generated phrases at 0.9, under a reader:
+
+| Phrase | Alone | 0 dB | -10 dB | 0 dB, suppressed | -10 dB, suppressed |
+|---|---:|---:|---:|---:|---:|
+| Stop. | 23/23 | 9/23 | 3/23 | 14/23 | 11/23 |
+| Stop it. | 19/19 | 4/19 | 2/19 | 13/19 | 9/19 |
+| Lamp, stop. | 19/22 | 8/22 | 6/22 | 17/22 | 13/22 |
+| Okay, stop. | 23/24 | 4/24 | 3/24 | 22/24 | 18/24 |
+| Wait. | 16/16 | 6/16 | 4/16 | 12/16 | 9/16 |
+| Hold on. | 25/26 | 12/26 | 2/26 | 25/26 | 19/26 |
+
+### False alarms, and the threshold
+
+Each row is one threshold and the number of steps in a row it must hold
+for. The first seven columns are catches of real people's "stop", "wait"
+and "hold on" under a reader; then hearings an hour where no target was said; then the
+share of near-miss clips (all groups below) with any hearing.
+
+| Score from / steps in a row | Real people, alone | Real people, 0 dB | Real people, -10 dB | Real people, -15 dB | Real people, 0 dB, suppressed | Real people, -10 dB, suppressed | Real people, -15 dB, suppressed | Readers alone, an hour | Generated voice alone, an hour | AMI meetings, an hour | Near misses with a hearing |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| 0.5/1 | 96 % | 40 % | 21 % | 15 % | 79 % | 62 % | 49 % | 57.92 (645 in 11.1 h) | 38.50 (36 in 0.9 h) | 62.60 (1506 in 24.1 h) | 1366/5945 (23.0 %) |
+| 0.7/1 | 93 % | 31 % | 15 % | 10 % | 67 % | 50 % | 39 % | 27.21 (303 in 11.1 h) | 19.25 (18 in 0.9 h) | 29.06 (699 in 24.1 h) | 1005/5945 (16.9 %) |
+| 0.8/1 | 91 % | 26 % | 12 % | 8 % | 59 % | 43 % | 32 % | 16.52 (184 in 11.1 h) | 10.70 (10 in 0.9 h) | 17.33 (417 in 24.1 h) | 850/5945 (14.3 %) |
+| 0.9/1 | 85 % | 16 % | 6 % | 4 % | 48 % | 31 % | 23 % | 8.98 (100 in 11.1 h) | 3.21 (3 in 0.9 h) | 7.36 (177 in 24.1 h) | 560/5945 (9.4 %) |
+| 0.95/1 | 73 % | 10 % | 4 % | 2 % | 34 % | 21 % | 15 % | 4.94 (55 in 11.1 h) | 2.14 (2 in 0.9 h) | 3.24 (78 in 24.1 h) | 338/5945 (5.7 %) |
+| 0.98/1 | 48 % | 5 % | 2 % | 1 % | 20 % | 11 % | 7 % | 2.16 (24 in 11.1 h) | 1.07 (1 in 0.9 h) | 1.04 (25 in 24.1 h) | 129/5945 (2.2 %) |
+| 0.99/1 | 33 % | 3 % | 1 % | 0 % | 14 % | 6 % | 3 % | 1.35 (15 in 11.1 h) | 0.00 (0 in 0.9 h) | 0.37 (9 in 24.1 h) | 56/5945 (0.9 %) |
+| 0.995/1 | 19 % | 1 % | 0 % | 0 % | 7 % | 4 % | 2 % | 0.90 (10 in 11.1 h) | 0.00 (0 in 0.9 h) | 0.21 (5 in 24.1 h) | 21/5945 (0.4 %) |
+| 0.5/2 | 95 % | 35 % | 18 % | 13 % | 73 % | 55 % | 44 % | 37.72 (420 in 11.1 h) | 27.81 (26 in 0.9 h) | 42.23 (1016 in 24.1 h) | 1001/5945 (16.8 %) |
+| 0.7/2 | 90 % | 27 % | 12 % | 8 % | 60 % | 43 % | 33 % | 17.42 (194 in 11.1 h) | 13.90 (13 in 0.9 h) | 18.33 (441 in 24.1 h) | 691/5945 (11.6 %) |
+| 0.8/2 | 86 % | 21 % | 9 % | 6 % | 50 % | 35 % | 26 % | 10.15 (113 in 11.1 h) | 4.28 (4 in 0.9 h) | 10.35 (249 in 24.1 h) | 512/5945 (8.6 %) |
+| 0.9/2 | 72 % | 12 % | 5 % | 3 % | 38 % | 25 % | 18 % | 5.30 (59 in 11.1 h) | 2.14 (2 in 0.9 h) | 4.28 (103 in 24.1 h) | 280/5945 (4.7 %) |
+| 0.95/2 | 57 % | 7 % | 3 % | 1 % | 26 % | 15 % | 11 % | 3.14 (35 in 11.1 h) | 1.07 (1 in 0.9 h) | 1.87 (45 in 24.1 h) | 145/5945 (2.4 %) |
+| 0.98/2 | 36 % | 3 % | 1 % | 0 % | 15 % | 8 % | 4 % | 1.53 (17 in 11.1 h) | 1.07 (1 in 0.9 h) | 0.67 (16 in 24.1 h) | 43/5945 (0.7 %) |
+| 0.99/2 | 24 % | 1 % | 0 % | 0 % | 9 % | 4 % | 2 % | 0.99 (11 in 11.1 h) | 0.00 (0 in 0.9 h) | 0.33 (8 in 24.1 h) | 15/5945 (0.3 %) |
+| 0.995/2 | 13 % | 0 % | 0 % | 0 % | 4 % | 2 % | 1 % | 0.63 (7 in 11.1 h) | 0.00 (0 in 0.9 h) | 0.17 (4 in 24.1 h) | 6/5945 (0.1 %) |
+
+**Proposed: 0.9, one step**, used as a pause the duplex rules confirm or
+undo (see the wiring). A false alarm then costs about a second of
+silence. If the lamp's voice after its canceller sets it off as these
+voices did, that is three to nine such pauses an hour of the lamp
+speaking (the generated voices and the readers); that is the first thing
+to measure on the lamp. **Stricter: 0.98, one step**, if a hearing is to stop the lamp
+outright: about one to two false alarms an hour of a voice alone, for half
+the words heard alone and a fifth through the suppressor at 0 dB. Two
+steps in a row instead of one cut false alarms by 30 to 40 % and words
+caught by 15 to 25 %. `lamp-name check` reports hearings at 0.9,
+its fixed threshold, which is the proposed one.
+
+### Near misses
+
+Each clip alone at -20 dBFS. "stopped", "waited" and the rest from MSWC
+are one second cut out of a read sentence around that word; from Piper
+they are whole sentences.
+
+| Near miss | Clips | With a hearing at 0.9/1 | With a hearing at 0.98/1 |
+|---|---:|---:|---:|
+| libri: hold | 14 | 1 (7 %) | 0 (0 %) |
+| libri: stopped | 11 | 3 (27 %) | 2 (18 %) |
+| libri: stopping / stops | 5 | 1 (20 %) | 0 (0 %) |
+| libri: waiting / waited | 19 | 4 (21 %) | 0 (0 %) |
+| mswc: hold | 229 | 8 (3 %) | 3 (1 %) |
+| mswc: holding | 193 | 0 (0 %) | 0 (0 %) |
+| mswc: other words, one each | 2387 | 87 (4 %) | 16 (1 %) |
+| mswc: stopped | 236 | 131 (56 %) | 28 (12 %) |
+| mswc: stopping | 37 | 19 (51 %) | 6 (16 %) |
+| mswc: stops | 29 | 14 (48 %) | 2 (7 %) |
+| mswc: waited | 80 | 48 (60 %) | 7 (9 %) |
+| mswc: waiting | 175 | 75 (43 %) | 8 (5 %) |
+| piper: bus stop | 149 | 5 (3 %) | 1 (1 %) |
+| piper: don't stop | 156 | 4 (3 %) | 1 (1 %) |
+| piper: hold | 150 | 0 (0 %) | 0 (0 %) |
+| piper: listening | 200 | 0 (0 %) | 0 (0 %) |
+| piper: sounds like | 166 | 60 (36 %) | 30 (18 %) |
+| piper: stop in a sentence | 156 | 12 (8 %) | 0 (0 %) |
+| piper: stopped | 151 | 21 (14 %) | 8 (5 %) |
+| piper: stopping / stops | 166 | 6 (4 %) | 2 (1 %) |
+| piper: wait in a sentence | 154 | 38 (25 %) | 10 (6 %) |
+| piper: waiting / waited | 152 | 7 (5 %) | 1 (1 %) |
+| sc: other words, one each | 930 | 16 (2 %) | 4 (0 %) |
+
+The near misses that hold the sound of a target inside a longer word
+("stopped", "waited" cut from sentences) and the one-word look-alikes are
+what it confuses most. Whole phrases with a target inside them ("Don't
+stop.", "the bus stop") much less.
+
+### In ordinary meetings
+
+34 AMI meetings, 24.1 h of their headset mix as recorded. The targets said
+in them, by the transcript, and how many began a hearing between the
+word's start and 1 s after its end:
+
+| Score from / steps in a row | stop (28) | wait (39) | hold on (22) |
+|---|---:|---:|---:|
+| 0.5/1 | 10 | 7 | 11 |
+| 0.7/1 | 7 | 7 | 9 |
+| 0.8/1 | 5 | 6 | 7 |
+| 0.9/1 | 1 | 3 | 5 |
+| 0.95/1 | 0 | 1 | 5 |
+| 0.98/1 | 0 | 1 | 4 |
+| 0.99/1 | 0 | 0 | 1 |
+| 0.995/1 | 0 | 0 | 1 |
+| 0.5/2 | 7 | 7 | 9 |
+| 0.7/2 | 5 | 4 | 9 |
+| 0.8/2 | 4 | 3 | 7 |
+| 0.9/2 | 1 | 3 | 5 |
+| 0.95/2 | 0 | 1 | 5 |
+| 0.98/2 | 0 | 1 | 3 |
+| 0.99/2 | 0 | 0 | 1 |
+| 0.995/2 | 0 | 0 | 1 |
+
+At 0.9, 177 hearings came away from any target said, 7.4 an hour. What was
+said just before them is mostly ordinary words: "then if you need
+something next up" (1.000), "to play around with it what's a good way of",
+"is they've got this big s stop-list", "of um weight on". One that was a
+target: "so it sounds like well well hold w on but" (0.994).
+
+### How soon
+
+From the end of the word (where its sound fades) to the step at which a
+hearing begins, at 0.9, one step, under a reader. A negative time means
+the score crossed before the very end of the word's sound. On the lamp,
+each step's score comes 48 ms after the last sound it uses (when the
+1,760-sample chunk is whole), plus the step's own time.
+
+| Level | Caught | From the word's end to the hearing: median | 90th percentile |
+|---|---:|---:|---:|
+| alone | 1980 | -18 ms | 142 ms |
+| 0 dB | 575 | 62 ms | 382 ms |
+| -5 dB | 379 | 62 ms | 398 ms |
+| -10 dB | 260 | 62 ms | 382 ms |
+| -15 dB | 165 | 62 ms | 462 ms |
+| 0 dB, suppressed | 1388 | 62 ms | 222 ms |
+| -5 dB, suppressed | 1215 | 62 ms | 222 ms |
+| -10 dB, suppressed | 994 | 62 ms | 302 ms |
+| -15 dB, suppressed | 774 | 62 ms | 302 ms |
+
+## What was tried, and what it showed
+
+All on the same laptop, each model trained once (one seed). The test
+columns are from a quarter of the test clips and a quarter of the readers
+(`evaluate.py --every 4`), except for row 5. Catches are of real people's
+words under a LibriSpeech test reader, at 0.9, one step; false alarms are
+of test readers alone, an hour.
+
+| Model | Trained on | Alone | 0 dB | -10 dB | -15 dB | 0 dB, suppressed | -10 dB, suppressed | Readers alone, an hour |
+|---|---|---:|---:|---:|---:|---:|---:|---:|
+| 1. Flat, 20,000 steps | targets at every level from -20 to +6 dB; other words placed anywhere; the negatives it scored highest drawn more often from half way | 90 % | 38 % | 26 % | 17 % | | 55 %¹ | 106 |
+| 2. Flat, 8,000 steps | as 1, targets 0 dB and over only | 94 % | 22 % | 12 % | 8 % | | 37 %¹ | 54 |
+| 3. Flat, 8,000 steps | as 1, only the first four inputs after a word | 76 % | 36 % | 21 % | 16 % | | 50 %¹ | 83 |
+| 4. Flat, 12,000 steps | other words cut and placed as the targets are; targets alone, through the suppressor, or plainly 3 dB and over; no extra draw of hard negatives | 90 % | 19 % | 11 % | 8 % | 57 % | 34 % | 26 |
+| 5. As 4, 8,000 steps, negatives weighed 20 to 1 | | 68 %² | | | | 12 %² | | 6² |
+| 6. As 4, with 25 h more talk to train against, 16,000 steps | | 88 % | 12 % | 6 % | 4 % | 42 % | 26 % | 16 |
+| 7. As 6, the time filters (64 wide), 12,000 steps: **the model kept** | | 86 % | 16 % | 5 % | 2 % | 48 % | 27 % | 8 |
+
+¹ Only -10 dB through the suppressor was measured then. ² On the
+validation speakers (Speech Commands' validation list under the dev
+readers kept back), not on the test sets; at the same score, model 4 gave
+98 % alone, 53 % through the suppressor at 0 to 6 dB, and 29 false alarms
+an hour there.
+
+What each showed:
+
+- **Words placed anywhere taught the model where a word sits, not what it
+  is.** With model 2, one test utterance in ten scored over 0.9. The
+  hearings came about a second after speech began after a pause,
+  wherever that was: "well they could be worse off", "somehow i had grown
+  nervous". So from 4 on every other word is cut and placed exactly as
+  the targets are.
+- **Drawing the hardest negatives more often made false alarms worse,
+  every time**: in 1, on the validation readers at 0.98, from 10 to 43 an
+  hour once the draw began. It was left off from 4 on.
+- **A heavier weight on negatives buys quiet with recall** (5).
+- **More talk to train against helped a little** (6 against 4): 16 false
+  alarms an hour instead of 26 at 0.9, with the words caught falling too.
+- **The time filters** (7), Conv over three embeddings at a time, gave as
+  many words as 6 with half its false alarms at the same score, and fewer
+  near misses (10 % of near-miss clips against 13 %). They are the model
+  kept. They train about five times slower on the laptop's processor.
+- **A word plainly under another voice is barely in these numbers.**
+  wav2vec 2.0, a far larger recogniser than this, was asked what it heard
+  in 15 of the training mixtures. Alone, it wrote "STOP", "WAIT", "HOLD ON
+  A MINUTE". At 0 dB and -10 dB it wrote the reader's sentence, word for
+  word, and at most a trace of the target ("STILL", "WA", "OLD"). Through
+  the suppressor, where the other voice is taken out cell by cell, the
+  same words come through far more often: the "suppressed" columns.
+
+## Wiring it on the lamp: a proposal
+
+`crates/name` and `crates/msgs` are not this task's to change, so this is
+what the first builder would add. It is as small as it can be.
+
+1. **The file.** `stop.onnx` goes beside the name's three models, in
+   `/opt/lampOS/name/models/`. Nothing else is installed.
+2. **A fourth model on the same numbers.** In `hear.rs`, load it with the
+   same `load(path, &[1, CONTEXT, EMBEDDING])` as `name.onnx`. Where the
+   sixteen embeddings are flattened for `name.onnx`, run `stop.onnx` on
+   the same `flat` and give back its score beside the name's. That is
+   exactly what the scratch check ran, so the scores are the ones in the
+   tables. It costs 24 microseconds a step in the Linux ARM64 container on
+   the Mac (20,000 runs under tract 0.23.8); the name's whole step is 9.2
+   to 9.8 ms on the lamp.
+3. **The rule.** The shape of `said.rs`, with two changes. A hearing is
+   counted at the step where the score has been at or over **0.9** for
+   **one** step, and it is said at once, at that step, not when the score
+   falls again: a stop is wanted now. Then 1 s with no new hearing, as for
+   the name. From the end of the word to that step took a median 62 ms
+   under another voice, and 90 % within 0.46 s ("How soon"). On the lamp
+   add the 48 ms until the chunk is whole and the step's own time.
+4. **A switch, off unless set.** `--stop-least SCORE` on `lamp-name`. With
+   it absent, the fourth model is not loaded and nothing changes.
+5. **What it says.** A topic `stop/heard`, an event, carrying what
+   `NameHeard` carries: `{ "score": f32, "ago_ms": u32 }`, `ago_ms` being
+   how long before the message the run of high scores began. The type is a
+   copy of `NameHeard` named `StopHeard`; message types are the third
+   builder's (`crates/msgs`).
+6. **Who acts on it.** The voice, the way it takes `name/heard` today
+   (`NameIn` in `crates/voice/src/bus_out.rs`): a `StopIn` that, while the
+   lamp's own reply is playing, pauses the speaker at once, as the duplex
+   mode's own pause does, and lets the duplex rules decide: a person
+   speaking, and the reply stops; nothing, and it goes on from where it
+   paused ([duplex-listening.md](duplex-listening.md)). At any other time
+   a hearing is passed over: a "stop" said to someone else while the lamp
+   is quiet stops nothing, and the false alarms of ordinary talk measured
+   here only matter while the lamp speaks.
+
+## Where it is most likely to be wrong on the lamp, and how to see it quickly
+
+In the order I would look:
+
+1. **The canceller's leftover of the lamp's own voice.** The false alarms
+   here were counted on clean voices. The leftover after AEC3 is a
+   broken, gated copy of the lamp's voice; it may set the listener off
+   more often, or less. With the voice publishing its sound
+   (`LAMP_BUS_AUDIO=on`), let the lamp talk for ten minutes with nobody
+   speaking and record it:
+
+       lamp-bus record /var/tmp/stop-own mic2/audio --seconds 600
+
+   Then, on the Mac, from `lampOS/training/stop/`:
+
+       python from_bus.py /var/tmp/stop-own/mic2_audio.jsonl own.wav
+       python listen.py ../../models/stop/stop.onnx own.wav --least 0.9 --run 1
+
+   Each "heard" line is a false alarm in ten minutes of the lamp's voice.
+   One or two is what the voices here gave; many more, and the threshold
+   has to go up (the table under "False alarms, and the threshold").
+2. **What the canceller leaves of a person.** Record the same way while
+   the 2026-10-14 words ("Stop.", "Lamp, stop.", "Wait.", "Okay, stop.")
+   are played four seconds into a story, then while a person says them.
+   `listen.py` prints each hearing with its time. The "suppressed" columns
+   are the guess for this; the plain columns are what to expect if the
+   canceller leaves the lamp's voice whole.
+3. **The microphone chip, and played words.** A loudspeaker's "Stop." is
+   not a person's, and the second microphone's chip treats a live voice
+   differently ([duplex-listening.md](duplex-listening.md)).
+4. **The lamp's own "wait" and "stop".** It says them. Its own word
+   through the canceller is a near miss that was never tested here.
+5. **Level.** Training put the other voice at -30 to -10 dBFS and words
+   from 20 dB under it to 6 dB over. The lamp's own voice reaches -9.6
+   dBFS and touches the microphone's ceiling; clipped sound is outside
+   most of what was trained.
+
+**On the lamp, with no code change**, the lamp's own code and tract can run
+the model over recordings: put `melspectrogram.onnx`,
+`embedding_model.onnx` and `stop.onnx` renamed `name.onnx` in a directory
+of their own and run `lamp-name check THAT_DIR own.wav`. It prints each
+hearing at 0.9 (its threshold is fixed) and the highest score, and the
+time a step took on the lamp.
+
+## How to make it again
+
+From `lampOS/training/stop/`, on a Mac or Linux machine with `uv`, about
+45 GB of free disk for a while, and a network:
+
+    sh make.sh
+
+It downloads into `lampOS/.cache/stop/` (git-ignored) and checks each file
+against [`downloads.sha256`](../training/stop/downloads.sha256), then:
+unpacks (`unpack.py`); generates speech (`make_speech.sh`, `speak.py`);
+aligns, cuts and splits by speaker (`clips.py`); builds the inputs
+(`make_inputs.sh`, `make_data.py`); trains (`train.py`, which with no
+options is this model's configuration); measures (`evaluate.py`) and
+prints the tables (`tables.py`). Every step runs at the lowest priority
+with two to six threads. On the M2 Max, shared with another session,
+the generated speech took about an hour and a half, the alignment about
+an hour, the inputs about an hour, training the kept model 30 minutes on
+three threads, and the full measurement 32 minutes on six.
+
+To look at a few files without the rest: `python listen.py
+../../models/stop/stop.onnx FILE.wav --least 0.9 --run 1` prints each
+hearing and the highest score; `--scores` prints every score.
+`python from_bus.py` turns a `lamp-bus record` of `mic2/audio` into a WAV
+file for it.
+
+## Not shown
+
+- **The lamp.** No sound from the lamp's microphones went into training
+  or testing. Its second microphone's chip treats a live voice
+  differently from a played one, and no mixture made elsewhere copies it.
+- **The canceller.** "Suppressed" here is a suppressor that is told the
+  other voice exactly. AEC3 on the lamp estimates its echo from a
+  reference whose timing moves ([duplex-listening.md](duplex-listening.md));
+  its leftover is neither the plain nor the suppressed case here.
+- **A person at the lamp.** Every voice was a recording or generated.
+  Speech Commands and MSWC are people reading a word into their own
+  microphones; nobody here was cutting in on a talking lamp, with the
+  urgency that has.
+- **"Hold on" from real people**: two test clips, and the 22 in the AMI
+  meetings. The rest of "hold on" is generated, by held-out voices of the
+  same generator that made the training ones.
+- **The lamp's own words.** It says "wait" and "stop" itself; the other
+  voice here never held a target. What its own "wait" does through the
+  canceller is untested.
+- **Timing on the lamp.** The cost of a step was measured on the Mac and in
+  a container on it, not on the Orange Pi.
+- **More than one training run.** Each model was trained once, with one
+  seed; the differences between the models tried are of one run each.
+- **The test sets' own limits.** LibriSpeech and AMI headsets are close to
+  their talkers; LibriSpeech is read, not spoken. The false-alarm rates are
+  of those recordings at -14 dBFS, not of a room.

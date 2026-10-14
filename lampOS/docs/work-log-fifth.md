@@ -272,6 +272,26 @@ Ready for lamp-voice: yes (the commit that adds this entry)
 - Kind: off unless set (`--wake on`). Not shown on lamp-4ace: its base and
   arm mends; not shown: a standing power cut with this build.
 
+## 2026-10-14 — the old runtime's leftovers, under task 23
+
+Ready for lamp-voice: yes (the commit that adds this entry)
+
+- `fifth/keeper`: `lampOS: let the keeper clear the old runtime's leftovers
+  and make the bus root before it starts the lamp` (package mode only:
+  masks then stops whichever of hal, os-server, led-boot, led-shutdown is
+  active, the four `lamp-voice` refuses to start beside; makes
+  `/run/lampos-bus` root's with the parts' group, 2770 with setgid, as on
+  lamp-4ace). The two "Found, not mine" items, which the first builder gave
+  back to task 23. Gate on the Mac and in the Linux arm64 build: green,
+  `cargo test -p lamp-keeper` 18 passed.
+- On lamp-52e6: installed as the keeper's `bin/service` and `lamp-os`
+  restarted: ready again in 7.5 s; `/run/lampos-bus` went from `root:root`
+  2770 to `root:orangepi` 2770 with setgid; `legacy_stopped` empty, since
+  nothing of the old runtime was running here any more.
+- Not shown: a lamp that still runs the old software (none here).
+- Kind: changes only what the keeper does when it is the updater's
+  service; nothing on lamp-4ace.
+
 ## Proposed tasks
 
 Work found while doing a listed task that cannot be folded into it. One

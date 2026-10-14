@@ -26,23 +26,36 @@ def safe(base: Path, name: str) -> Path:
 
 
 def unpack_mswc() -> None:
+    """The words used here, all of them; and of every other word in the same
+    shards (words near "hold", "stop" and "wait" in the alphabet: "home",
+    "start", "step", "walk", "want"...) a few clips, as words that are not
+    targets: six a word from a train shard, two from a dev or test shard."""
     out = DATA / "mswc"
+    others = DATA / "mswc_other"
     for shard in sorted((DOWNLOADS / "mswc").glob("*_*.tar.gz")):
-        taken = 0
+        taken, other_taken = 0, 0
+        each = {}
+        most = 6 if shard.name.startswith("train") else 2
         with tarfile.open(shard, "r|gz") as archive:
             for member in archive:
                 # Members are named "<word>_common_voice_en_<n>.opus"; the
                 # split lists name the same clip "<word>/common_voice_en_<n>.opus".
                 name = member.name.strip("/").split("/")[-1]
                 word, _, rest = name.partition("_common_voice_")
-                if not member.isfile() or word not in MSWC_WORDS or not rest:
+                if not member.isfile() or not rest:
                     continue
-                target = safe(out, f"{word}/common_voice_{rest}")
+                if word in MSWC_WORDS:
+                    target = safe(out, f"{word}/common_voice_{rest}")
+                    taken += 1
+                elif word.isalpha() and len(word) > 1 and each.get(word, 0) < most:
+                    each[word] = each.get(word, 0) + 1
+                    target = safe(others, f"{word}/common_voice_{rest}")
+                    other_taken += 1
+                else:
+                    continue
                 target.parent.mkdir(parents=True, exist_ok=True)
-                data = archive.extractfile(member)
-                target.write_bytes(data.read())
-                taken += 1
-        print(f"{shard.name}: {taken} clips")
+                target.write_bytes(archive.extractfile(member).read())
+        print(f"{shard.name}: {taken} clips of the words used, {other_taken} of {len(each)} other words")
 
 
 def unpack_librispeech(names: list[str]) -> None:

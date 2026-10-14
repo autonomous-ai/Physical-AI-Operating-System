@@ -257,12 +257,15 @@ def ami(front, model, every: int) -> dict:
 def near_misses(front, model, every: int) -> dict:
     """Share of near-miss clips with any hearing, by group, each clip alone."""
     out = {}
-    jobs = [("piper-near-test", "what"), ("piper-listening-test", "what"), ("mswc-near-test", "text")]
+    jobs = [
+        ("piper-near-test", "what"), ("piper-listening-test", "what"), ("mswc-near-test", "text"),
+        ("sc-word-test", None), ("mswc-word-test", None),
+    ]
     for name, key in jobs:
         store = Store(name)
         for i in range(0, len(store), every):
             meta = store.meta[i]
-            group = f"{name.split('-')[0]}: {meta[key]}"
+            group = f"{name.split('-')[0]}: {meta[key] if key else 'other words, one each'}"
             clip = at_level(store.audio(i), CLEAN_DB)
             sound = mixture(np.concatenate([np.zeros(2 * RATE, np.float32), clip, np.zeros(int(1.5 * RATE), np.float32)]), None)
             scores = stream_scores(front, model, sound)

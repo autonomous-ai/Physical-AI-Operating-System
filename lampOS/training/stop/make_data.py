@@ -82,19 +82,43 @@ def scaled(x: np.ndarray, level_now: float, level_wanted: float) -> np.ndarray:
     return x * gain_for(level_now, level_wanted)
 
 
-def example_with(clip, targets, others, noise, rng, positive: bool):
-    """One example: the clip under another voice (or alone), its sound and its labels."""
+def sounding_end(clip: np.ndarray) -> float:
+    """Seconds into a clip at which its last 10 ms louder than 35 dB under its loudest ends."""
+    hop = RATE // 100
+    n = len(clip) // hop
+    power = np.mean(clip[: n * hop].reshape(n, hop).astype(np.float64) ** 2, axis=1) + 1e-9
+    loud = np.flatnonzero(power >= power.max() * 10 ** (-35 / 10))
+    return float((loud[-1] + 1) * hop / RATE) if len(loud) else len(clip) / RATE
+
+
+def example_with(clip, targets, others, noise, rng, positive: bool, span=None):
+    """One example: the clip under another voice (or alone), its sound and its labels.
+
+    A target clip is placed so that a target ends 0.02 to 0.10 s before the
+    first input's sound does. A short clip that holds no target is placed the
+    same way by the end of its word (`span`) or of its sound, so that where
+    a word sits says nothing of whether it is a target. A long one (talk) is
+    placed anywhere.
+    """
     if positive:
         start, end = targets[rng.integers(len(targets))]
+    elif span is not None:
+        start, end = span
+    elif len(clip) < 3 * RATE:
+        start, end = 0.0, sounding_end(clip)
+    else:
+        start = end = None
+    if end is not None:
         anchor = SEEN_UNTIL[0] - rng.uniform(0.02, 0.10)
         at = int(round((anchor - end) * RATE))
     else:
-        # Anywhere, as long as some of it is heard.
         at = int(rng.integers(-len(clip) // 2, LENGTH - len(clip) // 2))
     person = place(clip, at, LENGTH)
     if targets:
         s, e = targets[0]
         word_level = active_level(clip[int(s * RATE) : int(e * RATE)])
+    elif span is not None:
+        word_level = active_level(clip[int(span[0] * RATE) : int(span[1] * RATE)])
     else:
         word_level = active_level(clip)
     other = None
@@ -137,8 +161,8 @@ def words(part: int, parts: int, check: bool) -> None:
             ("libri-asking-train", 3), ("piper-asking-train", 1),
         ]
         negatives = [
-            ("piper-near-train", 4500 * 2), ("mswc-near-train", 6000), ("sc-other-train", 8000),
-            ("piper-listening-train", 1200), ("libri-talk-train", 4000),
+            ("piper-near-train", 9000), ("mswc-near-train", 6000), ("sc-word-train", 5000),
+            ("mswc-word-train", 10000), ("piper-listening-train", 1200), ("libri-talk-train", 3000),
         ]
     jobs = []
     for name, repeat in positives:
@@ -161,7 +185,8 @@ def words(part: int, parts: int, check: bool) -> None:
         store = stores.setdefault(name, Store(name))
         clip = store.audio(i)
         targets = [(t[1], t[2]) for t in store.meta[i].get("targets", [])]
-        sound, y, relative, was_suppressed = example_with(clip, targets, others, noise, rng, positive)
+        span = store.meta[i].get("span")
+        sound, y, relative, was_suppressed = example_with(clip, targets, others, noise, rng, positive, span)
         x = stacks(front.of(sound))
         assert len(x) == INPUTS, (len(x), len(sound))
         keep_rows = y >= 0

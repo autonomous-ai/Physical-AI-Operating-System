@@ -33,8 +33,12 @@ impl Rig {
             .unwrap();
         let config = CliConfig {
             executable: PathBuf::from(env!("CARGO_BIN_EXE_lamp-tasks-harness-fixture")),
-            launch_timeout: Duration::from_secs(1),
-            read_timeout: Duration::from_secs(1),
+            // The production read bound. The fixture is a fresh process
+            // per call, and on a loaded host its first start alone has
+            // taken over a second (the fourth builder's run of 2026-10-15,
+            // #698). Each timeout case sets its own short limit.
+            launch_timeout: Duration::from_secs(10),
+            read_timeout: Duration::from_secs(10),
             environment: BTreeMap::from([
                 ("HOME".into(), root.path().as_os_str().into()),
                 ("PATH".into(), OsString::from("/usr/bin:/bin")),

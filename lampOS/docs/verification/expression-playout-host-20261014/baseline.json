@@ -1,0 +1,14 @@
+{
+  "command": [
+    "cargo",
+    "build",
+    "--offline",
+    "--locked",
+    "--workspace"
+  ],
+  "cwd": "/Users/d/code/autonomous-os/lampOS",
+  "checked_utc": "2026-10-14T05:49:09.119211+00:00",
+  "elapsed_seconds": 15.545790932,
+  "exit_code": 0,
+  "log": "/private/tmp/lamp-third-expression-playout-baseline.txt"
+}

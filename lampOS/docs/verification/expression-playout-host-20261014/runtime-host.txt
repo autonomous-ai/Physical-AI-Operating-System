@@ -1,0 +1,10 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.17s
+     Running tests/recent_playout_runtime.rs (target/debug/deps/recent_playout_runtime-e2f3c6dfec0ea640)
+
+running 4 tests
+test a_fresh_header_cannot_refresh_the_typed_observation_age ... ok
+test adaptation_keeps_actual_payload_stamp_and_existing_header_expiry_grace ... ok
+test real_bus_expired_header_is_refused_even_when_the_recent_window_would_accept_payload ... ok
+test real_bus_tracks_successive_ended_levels_and_shadow_never_publishes_actuators ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.10s

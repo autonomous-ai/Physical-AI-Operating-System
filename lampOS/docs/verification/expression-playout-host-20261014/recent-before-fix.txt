@@ -1,0 +1,48 @@
+   Compiling lamp-expression v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/expression)
+warning: unused import: `MAX_PLAYOUT_FRAMES`
+ --> crates/expression/tests/recent_playout.rs:1:56
+  |
+1 | use lamp_expression::{Catalogue, Engine, Error, Input, MAX_PLAYOUT_FRAMES, Output, Trigger};
+  |                                                        ^^^^^^^^^^^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused imports: `Concentration` and `ExpressionFace`
+ --> crates/expression/tests/recent_playout.rs:3:30
+  |
+3 |     BodyOffsets, ClockStamp, Concentration, ExpressionFace, JointState, Light, Room, RoomState,
+  |                              ^^^^^^^^^^^^^  ^^^^^^^^^^^^^^
+
+warning: method `brightness` is never used
+   --> crates/expression/tests/recent_playout.rs:166:8
+    |
+ 20 | impl Harness {
+    | ------------ method in this implementation
+...
+166 |     fn brightness(&mut self, now: u64) -> f32 {
+    |        ^^^^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `lamp-expression` (test "recent_playout") generated 3 warnings (run `cargo fix --test "recent_playout" -p lamp-expression` to apply 2 suggestions)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.56s
+     Running tests/recent_playout.rs (target/debug/deps/recent_playout-5b9f0900edcde6de)
+
+running 1 test
+test a_twenty_ms_piece_published_after_onset_is_heard_when_read_just_after_end ... FAILED
+
+failures:
+
+---- a_twenty_ms_piece_published_after_onset_is_heard_when_read_just_after_end stdout ----
+
+thread 'a_twenty_ms_piece_published_after_onset_is_heard_when_read_just_after_end' (110597597) panicked at crates/expression/tests/recent_playout.rs:191:56:
+called `Result::unwrap()` on an `Err` value: Error("playout is expired, too far ahead, overlapping or out of order")
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    a_twenty_ms_piece_published_after_onset_is_heard_when_read_just_after_end
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+error: test failed, to rerun pass `-p lamp-expression --test recent_playout`

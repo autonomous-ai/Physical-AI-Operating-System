@@ -211,6 +211,12 @@ struct Delivery {
     active_since: u64,
 }
 
+#[derive(Clone, Copy)]
+struct RecentLevel {
+    end_us: u64,
+    level: f32,
+}
+
 #[derive(Clone)]
 struct Interruption {
     at_us: u64,
@@ -239,6 +245,7 @@ pub struct Engine {
     pause_since: Option<u64>,
     clips: Vec<ClipState>,
     playout: VecDeque<VoicePlayout>,
+    recent_playout: Option<RecentLevel>,
     last_playout_end: Option<u64>,
     playout_since: Option<u64>,
     first_audio: Option<u64>,
@@ -290,6 +297,7 @@ impl Engine {
             pause_since: None,
             clips,
             playout: VecDeque::new(),
+            recent_playout: None,
             last_playout_end: None,
             playout_since: None,
             first_audio: None,
@@ -367,7 +375,13 @@ impl Engine {
             .front()
             .is_some_and(|frame| frame.end_us <= now_us)
         {
-            self.playout.pop_front();
+            let frame = self.playout.pop_front().unwrap();
+            self.remember_played(now_us, &frame);
+        }
+        if self.recent_playout.is_some_and(|recent| {
+            now_us.saturating_sub(recent.end_us) >= self.catalogue.timing.recent_playout_us
+        }) {
+            self.recent_playout = None;
         }
         if self.activity.as_ref().is_some_and(|activity| {
             now_us.saturating_sub(activity.stamp.at_us) >= self.catalogue.timing.activity_stale_us
@@ -409,6 +423,7 @@ impl Engine {
             clip.pause_seen = None;
         }
         self.playout.clear();
+        self.recent_playout = None;
         self.first_audio = None;
         self.playout_since = None;
         self.interruption = None;
@@ -621,7 +636,8 @@ impl Engine {
                 "playout requires the active thinking or speaking turn".into(),
             ));
         }
-        if frame.end_us <= now_us
+        if (frame.end_us <= now_us
+            && now_us - frame.end_us >= self.catalogue.timing.recent_playout_us)
             || frame.start_us > now_us.saturating_add(self.catalogue.timing.max_future_audio_us)
             || self
                 .last_playout_end
@@ -638,8 +654,30 @@ impl Engine {
         }
         self.last_playout_end = Some(frame.end_us);
         self.playout_since.get_or_insert(frame.start_us);
-        self.playout.push_back(frame);
+        if frame.end_us <= now_us {
+            // This is evidence of a level already heard. It is never queued as
+            // current/future playback and cannot establish a first-audio time.
+            self.remember_played(now_us, &frame);
+        } else {
+            self.playout.push_back(frame);
+        }
         Ok(())
+    }
+
+    fn remember_played(&mut self, now_us: u64, frame: &VoicePlayout) {
+        if now_us.saturating_sub(frame.end_us) < self.catalogue.timing.recent_playout_us {
+            self.recent_playout = Some(RecentLevel {
+                end_us: frame.end_us,
+                level: frame.level,
+            });
+        }
+    }
+
+    fn recent_level(&self, now_us: u64) -> Option<f32> {
+        let recent = self.recent_playout?;
+        let age = now_us.checked_sub(recent.end_us)?;
+        let window = self.catalogue.timing.recent_playout_us;
+        (age < window).then(|| recent.level * (1.0 - age as f32 / window as f32))
     }
 
     fn check_turn(&self, session: &str, turn: u64, request: u64, audio: bool) -> Result<(), Error> {
@@ -761,6 +799,9 @@ impl Engine {
             .as_ref()
             .is_some_and(|old| old.state != voice.state)
         {
+            // A normal phase edge keeps committed future intervals, but an
+            // observation from the previous phase is not a new speaking cue.
+            self.recent_playout = None;
             self.reset_rest(now_us);
             self.voice_since = voice.stamp.at_us;
             if voice.state != Voice::Listening {
@@ -952,23 +993,43 @@ impl Engine {
             .playout
             .front()
             .filter(|f| f.start_us <= now_us && now_us < f.end_us);
-        let actual_level = playout.map_or(0.0, |f| f.level);
         let playing = playout.is_some() && !self.retired_turn;
+        let recent_level = (voice.state == Voice::Speaking && !self.retired_turn)
+            .then(|| self.recent_level(now_us))
+            .flatten();
+        let light_level = playout.map(|f| f.level).or(recent_level);
+        let actual_level = light_level.unwrap_or(0.0);
+        let following_light = light_level.is_some() && !self.retired_turn;
         let body_at = now_us.saturating_add(self.catalogue.timing.body_lag_us.unwrap_or(0));
         let body_playout = self
             .playout
             .iter()
             .find(|f| f.start_us <= body_at && body_at < f.end_us);
-        let body_level = body_playout.map_or(0.0, |f| f.level);
-        let body_playing = body_playout.is_some() && !self.retired_turn;
+        let (body_level, body_sample_at) = if let Some(frame) = body_playout {
+            (Some(frame.level), body_at)
+        } else if self.catalogue.timing.recent_playout_us != 0 {
+            // Without a committed future interval, this is a reaction to a
+            // current/recent level at now, not an estimate of future sound.
+            (light_level, now_us)
+        } else {
+            (None, body_at)
+        };
+        let body_playing = body_level.is_some() && !self.retired_turn;
+        let body_level = body_level.unwrap_or(0.0);
         let mode = if playing {
             Voice::Speaking
         } else {
             voice.state
         };
         let body_mode = if body_playing { Voice::Speaking } else { mode };
-        if mode == Voice::Speaking && !playing {
-            state.missing.push("current actual playout level".into());
+        if mode == Voice::Speaking && !following_light {
+            state
+                .missing
+                .push(if self.catalogue.timing.recent_playout_us == 0 {
+                    "current actual playout level".into()
+                } else {
+                    "fresh current or recent playout level".into()
+                });
         }
         if mode == Voice::Thinking && self.first_audio.is_none() {
             state.missing.push("scheduled first audio".into());
@@ -1024,20 +1085,20 @@ impl Engine {
                 continue;
             }
             if clip.trigger == Trigger::Playout {
-                // The body may anticipate only committed device-clock frames
-                // by its measured lag. Light stays on the current sample.
+                // Only committed intervals may anticipate the body. Recent
+                // evidence fades by its original end time on the current tick.
                 let start = self
                     .playout_since
                     .map(|at| at.saturating_add(clip.delay_us));
                 let mut active = false;
                 if body_playing
-                    && let Some(elapsed) = start.and_then(|at| body_at.checked_sub(at))
+                    && let Some(elapsed) = start.and_then(|at| body_sample_at.checked_sub(at))
                     && let Some((pose, _)) = clip.sample(elapsed)
                 {
                     offsets = add(offsets, pose, clip.weight * f64::from(body_level));
                     active |= body_level > 0.0;
                 }
-                if playing
+                if following_light
                     && let Some(elapsed) = start.and_then(|at| now_us.checked_sub(at))
                     && let Some((_, light)) = clip.sample(elapsed)
                 {

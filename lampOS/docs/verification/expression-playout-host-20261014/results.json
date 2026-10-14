@@ -1,0 +1,318 @@
+{
+  "packages": [
+    "lamp-expression",
+    "lamp-lean",
+    "lamp-voice",
+    "lamp-voice-eval"
+  ],
+  "gates": [
+    {
+      "name": "format",
+      "command": [
+        "cargo",
+        "fmt",
+        "--all",
+        "--check"
+      ],
+      "cwd": "/Users/d/code/autonomous-os/lampOS",
+      "started_utc": "2026-10-14T06:09:00.602718+00:00",
+      "elapsed_seconds": 3.003901382,
+      "exit_code": 0,
+      "log": "format.txt"
+    },
+    {
+      "name": "clippy",
+      "command": [
+        "cargo",
+        "clippy",
+        "--offline",
+        "--locked",
+        "-p",
+        "lamp-expression",
+        "-p",
+        "lamp-lean",
+        "-p",
+        "lamp-voice",
+        "-p",
+        "lamp-voice-eval",
+        "--all-targets",
+        "--",
+        "-D",
+        "warnings"
+      ],
+      "cwd": "/Users/d/code/autonomous-os/lampOS",
+      "started_utc": "2026-10-14T06:09:03.607713+00:00",
+      "elapsed_seconds": 24.644738331,
+      "exit_code": 0,
+      "log": "clippy.txt"
+    },
+    {
+      "name": "standalone-build",
+      "command": [
+        "cargo",
+        "build",
+        "--offline",
+        "--locked",
+        "--workspace"
+      ],
+      "cwd": "/private/tmp/lamp-expression-playout-standalone-9k1jxhv4/lampOS",
+      "started_utc": "2026-10-14T06:09:29.199521+00:00",
+      "elapsed_seconds": 248.641446092,
+      "exit_code": 0,
+      "log": "standalone-build.txt"
+    },
+    {
+      "name": "standalone-tests",
+      "command": [
+        "cargo",
+        "test",
+        "--offline",
+        "--locked",
+        "-p",
+        "lamp-expression",
+        "--",
+        "--test-threads=1"
+      ],
+      "cwd": "/private/tmp/lamp-expression-playout-standalone-9k1jxhv4/lampOS",
+      "started_utc": "2026-10-14T06:13:37.834627+00:00",
+      "elapsed_seconds": 34.41342686200005,
+      "exit_code": 0,
+      "log": "standalone-tests.txt",
+      "tests": {
+        "suites": 14,
+        "passed": 171,
+        "failed": 0,
+        "ignored": 0
+      }
+    },
+    {
+      "name": "tests",
+      "command": [
+        "cargo",
+        "test",
+        "--offline",
+        "--locked",
+        "-p",
+        "lamp-expression",
+        "-p",
+        "lamp-lean",
+        "-p",
+        "lamp-voice",
+        "-p",
+        "lamp-voice-eval",
+        "--",
+        "--test-threads=1"
+      ],
+      "cwd": "/Users/d/code/autonomous-os/lampOS",
+      "started_utc": "2026-10-14T06:14:12.247901+00:00",
+      "elapsed_seconds": 1295.564460946,
+      "exit_code": 0,
+      "log": "tests.txt",
+      "tests": {
+        "suites": 66,
+        "passed": 1461,
+        "failed": 0,
+        "ignored": 7
+      }
+    },
+    {
+      "name": "workspace-build",
+      "command": [
+        "cargo",
+        "build",
+        "--offline",
+        "--locked",
+        "--workspace"
+      ],
+      "cwd": "/Users/d/code/autonomous-os/lampOS",
+      "started_utc": "2026-10-14T06:35:47.838851+00:00",
+      "elapsed_seconds": 3.8593838570000116,
+      "exit_code": 0,
+      "log": "workspace-build.txt"
+    }
+  ],
+  "source_hashes": {
+    "crates/expression/Cargo.toml": "60d2b9c5e0a5b956d49333caac9d1bb74be4a50111c285a542b434b982f2d7d9",
+    "crates/expression/behaviours.json": "5869a66e993a57875a6dadaacd520e25b2cb4c6704c88bd61c09f88f452cccd2",
+    "crates/expression/examples/recent_playout_cost.rs": "b90ecd01284b0ba8be2aebb0fccf1fca2b43fd216e9dedf8c89b63d338c98bd3",
+    "crates/expression/examples/replay_cost.rs": "13cabe07608834d2e26d01a3fe92942cb78e7d9baa6389d5d4986f894b5c551f",
+    "crates/expression/examples/rest_cost.rs": "78635deca8f50acb2bfe80691813957c3cfb967c08a6bb2b88fda8dd2837ca29",
+    "crates/expression/fixtures/finish-nod.jsonl": "5528b0092fc7b2f0be5784406521424d96f175e7fbee78188df7687812a27a94",
+    "crates/expression/fixtures/five-behaviours.jsonl": "6f2a2f723875741ed1c8f416e4a43521e1cdffa6045d853a01f4a5d0459bed38",
+    "crates/expression/fixtures/held-cancelled.jsonl": "d3941752912b53064e4895cfc3e2a5797cb6187104c8dea90e2c98854d77e224",
+    "crates/expression/fixtures/held-resumed.jsonl": "1ba405ffaef03544d57b3b7f46121a37ea1f7c796e19d95578541f2670cf314d",
+    "crates/expression/fixtures/no-concentration.jsonl": "ca35cfb34e73d1d4bb9bd6685fe8776c4a485518254f34a4cbb924938ab1c4fe",
+    "crates/expression/fixtures/recent-playout-generation.jsonl": "7aeeb58b5dec99380eb58d21378b39935b622de88dd0b9679652e72cdee3fbff",
+    "crates/expression/fixtures/recent-playout.jsonl": "7367c38163dbe0893b449fc9513b1b6ed9df227a385402d5668a0abc784351c3",
+    "crates/expression/fixtures/rest-busy.jsonl": "290e587abfa7c2949f97871cb3469fa7aeb9d609cfc25847be6a640c19376112",
+    "crates/expression/fixtures/rest-concentrating.jsonl": "bfe5c45574fe53a8a9cf59347fe33ceb4885eecd3ad367dd43efe3780c3544ca",
+    "crates/expression/fixtures/rest-expired.jsonl": "348613fac9ab8ca5af7299ae67fb40547910458add3e9b48f9fad41b0f098d8e",
+    "crates/expression/fixtures/rest-quiet.jsonl": "178973704ed98c89d0adaca384922990af47bd41ccc956beb639f09bdf4f3a02",
+    "crates/expression/playout-behaviours.json": "260e247ad9d53e5e1e3601f6ada361f4c23fcd9c48f429f5ecd0c843fa280f33",
+    "crates/expression/rest-behaviours.json": "0e798bfe0f476a129287a8fea494febcb345ca52eb931016e6365678bde0ad71",
+    "crates/expression/src/catalogue.rs": "89402717be74ba66f4316f141b571237f7d3795ee774c6b1302500700c1946e4",
+    "crates/expression/src/engine.rs": "757be461e3d1394a59789c0b439542fc44e97924de1e7d9b04b217d1ad44656e",
+    "crates/expression/src/lib.rs": "8a135d2ac68453e84d21d843f7bdeaa7de8f44a90546fb0ca9fc4880d510e627",
+    "crates/expression/src/main.rs": "8e48675cb914af4994b77501cd9057617130df5052f80be3d4bff1927976d295",
+    "crates/expression/src/replay.rs": "3d9069416953b9c1286fe5080be8d74f2340a5dc8b93178c850ddededbd12e77",
+    "crates/expression/src/runtime.rs": "ad2074b4ea1adcc1253d9bcc1ec8080b2d298c19c1fa90513e952ce048fb928f",
+    "crates/expression/tests/catalogue_playout.rs": "3a090bb14e81fbf27a5fdd23ec89e2127be266287fca8386271c601c9ebac6f8",
+    "crates/expression/tests/catalogue_rest.rs": "2887427ee3a0557649f732202d615bbcffd35671baad561e6de99f14b3d011d9",
+    "crates/expression/tests/engine.rs": "cc5d6797726657ca671d3c7d3ba20d56fb5365e7310b231df9703f3563b546f9",
+    "crates/expression/tests/program.rs": "cf2f23b9709592f5f9b626b7146eac9e72c347ef435c1d25382a9e82c7a007b7",
+    "crates/expression/tests/recent_playout.rs": "52c4803bac0d113c3f16978576651f84b086e387fd645542bf0f64a7853bfc99",
+    "crates/expression/tests/recent_playout_replay.rs": "69412bc5fecd0c1fbf7fec571e284b69960e05315428814cbd174bdaf8e414f4",
+    "crates/expression/tests/recent_playout_runtime.rs": "5d179bb1b8fee8fbee59a7be97922ab314d7208a5ad70dee5718c7f3aeff0960",
+    "crates/expression/tests/replay.rs": "d0576ce29ca1635245cf2144c536f1d40aef29bca3a24bbeb13aeff867c983bc",
+    "crates/expression/tests/rest_engine.rs": "0614107b32b320a883d6d50ef40fdd769212cb50a1f979f7b0dea68fb0eb1f1e",
+    "crates/expression/tests/rest_replay.rs": "7da8701d1ebd88509f154fba6b7112797edf0daf39b130b2899b791496d87d20",
+    "crates/expression/tests/runtime.rs": "d4eafc736f65020a1249be86d974e601aede0220a3b2205d1544f23a9592eb19",
+    "Cargo.toml": "e4b2cf55dd9d3f172a3238fd1f07557905e5c320e66a8b3a1b8ce2c0bf0eb9e4",
+    "Cargo.lock": "68d7518f8162bb0ba5c9c2f7a0b252fabeda2183e7502288f1edd4b2e293cb4f",
+    "rust-toolchain.toml": "fb0a56ca2fc09db10159f6983e9d747f4afeb64e1d6d941dc36a3c20bf3a5749"
+  },
+  "standalone": {
+    "copy": "/private/tmp/lamp-expression-playout-standalone-9k1jxhv4/lampOS",
+    "target": "/private/tmp/lamp-expression-playout-standalone-9k1jxhv4/target",
+    "source_files": 927,
+    "local_packages": 28,
+    "workspace_members": 27,
+    "all_path_dependencies_in_copy": true
+  },
+  "runtime_hashes_match_after_gates": true,
+  "runtime_hashes_match_after_measurement": true,
+  "collected_utc": "2026-10-14T06:36:45.974887+00:00",
+  "base_origin_lamp_voice": "23843b78e939a41590c6569f7a65e29bc10a6d03",
+  "claim": "39043ab933cc6779be57e5387e5d6bc7f86d7e9e",
+  "machine": {
+    "commands": [
+      {
+        "command": [
+          "uname",
+          "-a"
+        ],
+        "exit_code": 0,
+        "output": "Darwin violet4.local 25.6.0 Darwin Kernel Version 25.6.0: Fri Jul 31 19:11:49 PDT 2026; root:xnu-12377.161.14~5/RELEASE_X86_64 x86_64\n"
+      },
+      {
+        "command": [
+          "sw_vers"
+        ],
+        "exit_code": 0,
+        "output": "ProductName:\t\tmacOS\nProductVersion:\t\t26.6.2\nBuildVersion:\t\t25G83\n"
+      },
+      {
+        "command": [
+          "rustc",
+          "--version",
+          "--verbose"
+        ],
+        "exit_code": 0,
+        "output": "rustc 1.96.0 (ac68faa20 2026-05-25)\nbinary: rustc\ncommit-hash: ac68faa20c58cbccd01ee7208bf3b6e93a7d7f96\ncommit-date: 2026-05-25\nhost: x86_64-apple-darwin\nrelease: 1.96.0\nLLVM version: 22.1.2\n"
+      },
+      {
+        "command": [
+          "cargo",
+          "--version",
+          "--verbose"
+        ],
+        "exit_code": 0,
+        "output": "cargo 1.96.0 (30a34c682 2026-05-25)\nrelease: 1.96.0\ncommit-hash: 30a34c6821b57de0aaec83a901aca39f88f6778c\ncommit-date: 2026-05-25\nhost: x86_64-apple-darwin\nlibgit2: 1.9.2 (sys:0.20.4 vendored)\nlibcurl: 8.7.1 (sys:0.4.87+curl-8.19.0 system ssl:(SecureTransport) LibreSSL/3.3.6)\nssl: OpenSSL 3.5.4 30 Sep 2025\nos: Mac OS 26.6.2 [64-bit]\n"
+      }
+    ],
+    "cpu": "Intel(R) Core(TM) i7-10700K CPU @ 3.80GHz",
+    "memory_bytes": 68719476736,
+    "cpu_memory_command": [
+      "sysctl",
+      "-n",
+      "machdep.cpu.brand_string",
+      "hw.memsize"
+    ],
+    "cpu_memory_exit_code": 0,
+    "cpu_memory_permission": "host probe authorized by automatic review",
+    "lamp_access": false
+  },
+  "ignored_tests": [
+    [
+      "arithmetic_cost",
+      "finite release timing; host measurements are not lamp measurements"
+    ],
+    [
+      "inconclusive_cost",
+      "finite worst-work release timing; host measurements are not lamp measurements"
+    ],
+    [
+      "coordinator::tests::endpoint_session::real_worker_session_records_verdict_provenance",
+      "requires a built lamp-turn-end and the pinned model"
+    ],
+    [
+      "provider_worker::tests::sixty_second_answer_follows_output_capacity",
+      "one minute of real time; run explicitly"
+    ],
+    [
+      "provider_worker::tests::three_minute_answer_follows_output_capacity",
+      "three minutes of real time; run explicitly"
+    ],
+    [
+      "reference::recovery::tests::recentred_the_fixed_margin_carries_an_hour_of_that_lamps_drift",
+      ""
+    ],
+    [
+      "reference::tests::four_virtual_hours_capture_clocked",
+      "four virtual hours; run in release"
+    ]
+  ],
+  "benchmark": {
+    "command": [
+      "cargo",
+      "run",
+      "--offline",
+      "--release",
+      "--locked",
+      "-p",
+      "lamp-expression",
+      "--example",
+      "recent_playout_cost"
+    ],
+    "cwd": "/Users/d/code/autonomous-os/lampOS",
+    "started_utc": "2026-10-14T06:36:05.295838+00:00",
+    "command_elapsed_seconds_including_build_if_any": 10.173850256,
+    "exit_code": 0,
+    "stdout": "/private/tmp/lamp-third-expression-playout-cost-release.json",
+    "stderr": "/private/tmp/lamp-third-expression-playout-cost-release-build.txt",
+    "other_third_owned_builds_or_tests_running": false,
+    "unrelated_host_load_controlled": false
+  },
+  "direct_cli": {
+    "command": [
+      "/Users/d/code/autonomous-os/lampOS/target/debug/lamp-expression",
+      "replay",
+      "--input",
+      "crates/expression/fixtures/recent-playout.jsonl",
+      "--clock-id",
+      "recent-playout-fixture",
+      "--catalogue",
+      "crates/expression/playout-behaviours.json",
+      "--enable",
+      "--until-us",
+      "400000",
+      "--output",
+      "/private/tmp/lamp-third-expression-playout-plan.jsonl"
+    ],
+    "cwd": "/Users/d/code/autonomous-os/lampOS",
+    "started_utc": "2026-10-14T06:36:15.470310+00:00",
+    "command_elapsed_seconds_including_build_if_any": 0.7188065510000001,
+    "exit_code": 0,
+    "stdout": "/private/tmp/lamp-third-expression-playout-cli-stdout.txt",
+    "stderr": "/private/tmp/lamp-third-expression-playout-cli-summary.txt",
+    "other_third_owned_builds_or_tests_running": false,
+    "unrelated_host_load_controlled": false
+  },
+  "scope": "Expression catalogue and engine; Voice/Audio/Body unchanged; no deployment or device access",
+  "new_tests": {
+    "catalogue_playout": 5,
+    "recent_playout": 29,
+    "recent_playout_replay": 8,
+    "recent_playout_runtime": 4
+  }
+}

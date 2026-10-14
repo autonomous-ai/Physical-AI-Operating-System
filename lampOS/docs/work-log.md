@@ -13,7 +13,8 @@ the lamp, and nothing here was run on a lamp.
 |---|---|---|---|---|
 | 1 | The end-of-turn model in a tenth of a second | `second/turn-end-fast` | 2026-10-14 | on `lamp-second`, 2026-10-14; on the lamp 148 ms against 382 |
 | 2 | Try to break last night's changes to the voice | `second/voice-review` | 2026-10-14 | on its own branch, 2026-10-14 (`1d737f8e5`); taken into `lamp-voice` with its mends |
-| 3 | A listener for "stop" under the lamp's own voice | `second/stop-word` | 2026-10-14 | being built |
+| 3 | A listener for "stop" under the lamp's own voice | `second/stop-word` | 2026-10-14 | on `lamp-second`, 2026-10-14: hears the word alone; under the lamp's voice only through the canceller, partly |
+| 5 | The name, heard as a bare "Lamp" | `second/bare-name` | 2026-10-14 | being built |
 | 9 | Faster answers: what exists | `second/faster-answers` | 2026-10-14 | on `lamp-second`, 2026-10-14 (a study, done beside 5 and 10) |
 | 10 | A reference that follows the microphone's clock | `second/reference-clock` | 2026-10-14 | on `lamp-second`, 2026-10-14; taken into `lamp-voice` behind `--echo-reference steady`; on the lamp's recordings, mixed (two up, two down, one held) |
 | 20 | The replay takes the lamp's own recordings | `second/replay-capture-clocked` | 2026-10-14 | on `lamp-second`; taken into `lamp-voice`: five of the lamp's recordings followed sample for sample |
@@ -22,6 +23,81 @@ the lamp, and nothing here was run on a lamp.
 ## Handed back
 
 Newest first.
+
+### Task 3: a listener for "stop" under the lamp's own voice (2026-10-14)
+
+**Built:** `models/stop/stop.onnx` (124,135 bytes, 30,913 weights, SHA-256
+`5fe07569…72d41`, with `SOURCE.md`), the same shape as the name's model:
+the newest sixteen openWakeWord embeddings in, `[1, 16, 96]`, one score out,
+every 80 ms. The training code is `training/stop/` (Python, `sh make.sh`
+end to end, every download checked against `downloads.sha256`), and the
+document `docs/stop-word.md`. Trained only on speech whose licence allows
+shipping the model: Speech Commands, MLCommons' Multilingual Spoken Words
+(English, from Common Voice), LibriSpeech and AMI (all CC BY 4.0), and
+speech generated with Piper's `en_US-libritts-high` voice (trained from
+scratch on LibriTTS; the LibriTTS-R voice openWakeWord uses was avoided,
+its data being for research only). No Rust changed.
+
+**The task is met for the word alone and not under the lamp's voice.**
+Threshold 0.9, one step, speakers never trained on; "suppressed" means
+through a suppressor told the other voice exactly, which the lamp's
+canceller is not, so the lamp lies between the two:
+
+| | alone | 0 dB | −5 | −10 | −15 | 0 dB, suppressed | −15 dB, suppressed |
+|---|---|---|---|---|---|---|---|
+| "stop", real speakers (736) | 85% | 17% | 11% | 7% | 4% | 48% | 25% |
+| "wait", real speakers (263) | 84% | 13% | 8% | 4% | 3% | 48% | 18% |
+| "hold on", generated (375) | 95% | 47% | 30% | 21% | 14% | 89% | 59% |
+
+Plainly mixed under another voice the word is lost: a speech recogniser
+(wav2vec 2.0) also wrote only the other voice's words in those mixtures,
+so no threshold mends it. False alarms an hour at 0.9: 9.0 over 11.1 h of
+read speech, 3.2 over 0.9 h of generated voices, 7.4 over 24.1 h of AMI
+meetings; at 0.98 about 2.2, 1.1 and 1.0, but only 48% of words alone are
+then caught. Near misses at 0.9: "don't stop" 3%, "bus stop" 3%, "stop"
+inside a sentence 8%, "stopped" and "waited" cut from sentences 56% and
+60%. "Stop it." counts as a stop (19 of 19 alone). In AMI meetings, said
+naturally: 1 of 28 "stop", 3 of 39 "wait", 5 of 22 "hold on". Median 62 ms
+from the end of the word to the hearing. On the M2 Max laptop, one
+training run and one seed.
+
+**Found on the way:** openWakeWord's mel model sets its floor 80 dB under
+the loudest value of everything it is given at once, so features made in
+batches differ from `hear.rs`, which gives it one chunk at a time;
+training reproduces the chunk-at-a-time floor, and its embeddings match
+`hear.rs` to within 4.6e-5. **Under tract:** a scratch program running
+`hear.rs` unchanged under tract-onnx 0.23.8, with `stop.onnx` in place of
+`name.onnx`, matched training's scores to within 6e-6 over 1,185 steps,
+on macOS and in the Linux ARM64 container; the model alone takes 24 µs a
+run there.
+
+**Recommended in the document:** 0.9, one step, listened for only while
+the lamp speaks; a hearing pauses the speaker and lets the duplex rules
+confirm or resume. If a hearing is to stop the lamp outright, 0.98.
+
+**Gate:** no Rust changed; `cargo fmt --all --check` clean on
+`lamp-second` with these commits; `cargo build --workspace` passed on the
+task's branch, and the code it builds is unchanged by them.
+
+**On the lamp, the quickest look:** ten minutes of `lamp-bus record …
+mic2/audio` while the lamp talks and nobody speaks, then `from_bus.py` and
+`listen.py` from `training/stop/`: how often it fires on the lamp's own
+voice through the canceller. With no code change, `lamp-name check` runs
+the model on the lamp if `stop.onnx` is installed as `name.onnx` in a
+directory of its own. Wiring (a second model on the same embeddings in
+`lamp-name`, a topic of its own) is proposed in the document, "Wiring it
+on the lamp".
+
+**Where it is most likely to be wrong on the lamp:** the canceller. The
+whole difference between 17% and 48% at equal level is how much of the
+lamp's own voice is gone before the listener hears it, and the lamp's
+second microphone and its chip are in no mixture made here. And it may
+fire on the lamp's own voice where the canceller leaves it, which is the
+first thing the ten-minute recording shows.
+
+**Not shown:** the lamp, its microphone, its canceller, a person at the
+lamp; real "hold on" (2 read clips and 22 in meetings); more than one
+seed. Common Voice itself was not used (it now needs an account).
 
 ### Task 19: the end sent early, the answer played only when sure (2026-10-14)
 

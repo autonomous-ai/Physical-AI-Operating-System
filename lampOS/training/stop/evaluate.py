@@ -1,6 +1,6 @@
 """Step 6 of make.sh: how the listener does on speakers it never heard.
 
-    python evaluate.py MODEL.onnx [--quick]
+    python evaluate.py MODEL.onnx [--every N] [--only catches,talk,ami,near]
 
 Every number here is from recordings run through the front end and model
 step by step, as `lamp-name` would run them, on whole streams of sound.
@@ -91,7 +91,7 @@ def first_hearing_in(scores: np.ndarray, least: float, run: int, start: float, e
     return None
 
 
-def catches(front, model, quick: bool) -> list[dict]:
+def catches(front, model, every: int) -> list[dict]:
     """One row per target clip, other voice and level: its scores' hearings near the word."""
     sets = [
         ("sc-stop-test", "Speech Commands"),
@@ -108,7 +108,7 @@ def catches(front, model, quick: bool) -> list[dict]:
     rows = []
     for name, source in sets:
         store = Store(name)
-        index = range(len(store)) if not quick else range(0, len(store), 8)
+        index = range(0, len(store), every)
         for i in index:
             meta = store.meta[i]
             target, start, end = meta["targets"][0]
@@ -167,16 +167,14 @@ def count_hearings(scores: np.ndarray) -> dict:
     return {f"{least}/{run}": len(hearings(scores, least, run)) for least in LEASTS for run in RUNS}
 
 
-def talk_streams(front, model, store: Store, quick: bool, group_by_speaker: bool = True) -> dict:
-    """Hearings an hour over the whole set played one clip after another, each at -14 dBFS."""
+def talk_streams(front, model, store: Store, every: int) -> dict:
+    """Hearings an hour over the whole set played one clip after another, each at -14 dBFS, a speaker at a time."""
     total = defaultdict(int)
     seconds = 0.0
     groups = defaultdict(list)
     for i, m in enumerate(store.meta):
-        groups[m.get("speaker", "") if group_by_speaker else "all"].append(i)
-    keys = sorted(groups)
-    if quick:
-        keys = keys[::4]
+        groups[m.get("speaker", "")].append(i)
+    keys = sorted(groups)[::every]
     for key in keys:
         parts = []
         for i in groups[key]:
@@ -213,16 +211,14 @@ def ami_words(meeting: str):
     return sorted(words), sorted(targets, key=lambda t: t[1])
 
 
-def ami(front, model, quick: bool) -> dict:
+def ami(front, model, every: int) -> dict:
     """Ordinary talk in meetings: hearings an hour away from any transcribed target, and the targets caught."""
     total = defaultdict(int)
     seconds = 0.0
     caught = defaultdict(lambda: defaultdict(int))
     said = defaultdict(int)
     details = []
-    files = sorted((CACHE / "downloads" / "ami").glob("*.Mix-Headset.wav"))
-    if quick:
-        files = files[:2]
+    files = sorted((CACHE / "downloads" / "ami").glob("*.Mix-Headset.wav"))[::every]
     for path in files:
         meeting = path.name.split(".")[0]
         x, rate = sf.read(path, dtype="float32")
@@ -258,13 +254,13 @@ def ami(front, model, quick: bool) -> dict:
     }
 
 
-def near_misses(front, model, quick: bool) -> dict:
-    """Share of near-miss clips with any hearing, by group: each clip alone, then under the other voice at 0 dB."""
+def near_misses(front, model, every: int) -> dict:
+    """Share of near-miss clips with any hearing, by group, each clip alone."""
     out = {}
     jobs = [("piper-near-test", "what"), ("piper-listening-test", "what"), ("mswc-near-test", "text")]
     for name, key in jobs:
         store = Store(name)
-        for i in range(len(store)) if not quick else range(0, len(store), 6):
+        for i in range(0, len(store), every):
             meta = store.meta[i]
             group = f"{name.split('-')[0]}: {meta[key]}"
             clip = at_level(store.audio(i), CLEAN_DB)
@@ -276,7 +272,7 @@ def near_misses(front, model, quick: bool) -> dict:
                 g["with_hearing"][k] += int(v > 0)
     # LibriSpeech test utterances that hold a near miss, whole.
     store = Store("libri-talk-test")
-    for i, meta in enumerate(store.meta):
+    for i, meta in list(enumerate(store.meta))[::every]:
         for word in meta.get("near", []):
             group = f"libri: {word}"
             clip = at_level(store.audio(i), CLEAN_DB)
@@ -294,27 +290,28 @@ def near_misses(front, model, quick: bool) -> dict:
 def main() -> None:
     p = argparse.ArgumentParser()
     p.add_argument("model")
-    p.add_argument("--quick", action="store_true")
+    p.add_argument("--every", type=int, default=1, help="take one clip, speaker or meeting in N, for a quicker look")
     p.add_argument("--only", default="catches,talk,ami,near")
     args = p.parse_args()
     front = FrontEnd(CACHE / "oww", threads=THREADS)
     model = Model(Path(args.model))
     only = args.only.split(",")
-    result = {"model": str(args.model)}
+    result = {"model": str(args.model), "every": args.every}
     if "catches" in only:
-        result["catches"] = catches(front, model, args.quick)
+        result["catches"] = catches(front, model, args.every)
     if "talk" in only:
-        result["talk_reader"] = talk_streams(front, model, Store("libri-talk-test"), args.quick)
+        result["talk_reader"] = talk_streams(front, model, Store("libri-talk-test"), args.every)
         print("talk: readers done", flush=True)
-        result["talk_generated"] = talk_streams(front, model, Store("piper-talk-test"), args.quick)
+        result["talk_generated"] = talk_streams(front, model, Store("piper-talk-test"), args.every)
         print("talk: generated done", flush=True)
     if "ami" in only:
-        result["ami"] = ami(front, model, args.quick)
+        result["ami"] = ami(front, model, args.every)
     if "near" in only:
-        result["near"] = near_misses(front, model, args.quick)
+        result["near"] = near_misses(front, model, args.every)
     runs = CACHE / "runs"
     runs.mkdir(parents=True, exist_ok=True)
-    out = runs / f"{Path(args.model).stem}{'-quick' if args.quick else ''}-{'-'.join(only)}.eval.json"
+    every = f"-every{args.every}" if args.every > 1 else ""
+    out = runs / f"{Path(args.model).stem}{every}-{'-'.join(only)}.eval.json"
     out.write_text(json.dumps(result))
     print(f"wrote {out}")
 

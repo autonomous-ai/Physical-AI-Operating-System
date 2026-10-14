@@ -118,6 +118,7 @@ these recordings, off the lamp, and neither is a basis for a rule:
 |---|---|
 | A linear canceller of our own for each frequency, guarded so a person cannot throw it off, and the energy it leaves where it took little away | It took nothing off the second microphone's echo (what it left was 3 dB under what came in in one run, level with it in one, 6 dB over it in one, and in the fourth it ran away) and 5 to 7 dB off the first's. At any level the played words passed, a third or more of the lamp's own speech passed too |
 | No canceller: the energy in each of 20 bands against what the speaker's sound of that moment would put there, by a ratio learned as it speaks | At the levels where 10 of 14 words passed, the lamp's own speech passed 45 to 89 times a minute |
+| WebRTC's AEC3 on the first microphone, with the speaker's sound at the one fixed delay it has there (tried on the evening of 2026-10-14, two runs, `both-a` and `both-noagc`) | The delay held to within 0.09 ms over 68 s. It took 24.7 and 25.4 dB of the lamp's voice off over all, 20.4 to 32.6 dB in two-second stretches (the second microphone's canceller: 11.7 and 13.0 dB over all, 4.8 to 64.6 dB). But a person is 25 to 30 dB under the lamp there before cancelling, so what was left of the lamp's voice was still louder than the played word in 6 of 7 cases (by 4.0 to 31.5 dB; the seventh 2.0 dB over). With the lamp's own start rule (speech score 0.8 for six blocks) it caught 0 of the 7 played items, with no false start in 1.4 minutes of the lamp speaking; on the same recordings the second microphone's rule caught 2 of 7 (both sentences) and started falsely 9.5 times a minute. Played words added in software to the lamp's speech (139 trials, one voice) said the same: "stop." 0 of 30 on the first microphone, 7 of 30 on the second |
 
 Not shown, and it matters more than any of this: **a person.** Every
 word was a synthetic voice from a loudspeaker, and the note that came
@@ -125,11 +126,17 @@ with the second microphone says its chip treats a live voice differently
 from a played one. What is left to try, in the order of what each would
 tell: a person cutting in, recorded the same way; a reference that
 follows the second microphone's clock, so that the echo stays in one
-place and the canceller's linear part can be measured again; the
-canceller on the first microphone for the decision to stop alone; a
+place and the canceller's linear part can be measured again; a
 listener for the few words that mean stop, trained on recordings like
 these of words under the lamp's own voice; and the lamp's own level,
 which is at its microphone's ceiling.
+
+(The canceller on the first microphone for the decision to stop alone was
+on that list; it is the third row of the table above, and is not a basis
+either while that microphone sits a few centimetres from the speaker: it
+could serve only with the microphone moved or shielded from it, or the
+lamp much quieter. The analysis, its scripts and outputs were kept in the
+first builder's scratch folder, not in the repository.)
 
 The reference that follows the second microphone is built, off unless
 set, with a rig that reproduces the moving echo and a replay option for

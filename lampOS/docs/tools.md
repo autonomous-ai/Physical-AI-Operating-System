@@ -164,7 +164,7 @@ twelve.", which was right.
 Played at 18:23 that day (`checks.sh steady2-1014`), "Hey Lamp, how are
 you feeling right now?" made the model call the clock, and it answered
 "It's twenty-three past in the evening.": not what was asked, and the hour
-lost from "6:23 in the evening". So since `lamp-voice` after `d50d9c822`
+lost from "6:23 in the evening". So since `97880dc57` on `lamp-voice`
 the clock's answer carries the time in the words a person says it in
 ("Said aloud: twenty-three past six in the evening": o'clock, past up to
 half past, then to the next hour, quarter and half by name), and the

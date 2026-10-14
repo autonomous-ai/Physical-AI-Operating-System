@@ -119,7 +119,7 @@ fn connect_before(endpoint: &mut Endpoint, path: &Path, deadline: Instant) {
             Err(error)
                 if matches!(
                     error.kind(),
-                    ErrorKind::NotFound | ErrorKind::PermissionDenied
+                    ErrorKind::NotFound | ErrorKind::PermissionDenied | ErrorKind::WouldBlock
                 ) => {}
             Err(error) => panic!("connect failed: {error}"),
         }

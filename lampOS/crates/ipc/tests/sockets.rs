@@ -253,10 +253,16 @@ fn insecure_directory_or_peer_and_symlink_directory_are_rejected() {
     let _peer = UnixDatagram::bind(&peer_path).unwrap();
     fs::set_permissions(&peer_path, Permissions::from_mode(0o666)).unwrap();
     let mut endpoint = Endpoint::bind(directory.path("endpoint")).unwrap();
-    assert_eq!(
-        endpoint.connect(&peer_path).unwrap_err().kind(),
-        ErrorKind::PermissionDenied
-    );
+    // Our own socket, still open: not ready, and never connected while so.
+    for _ in 0..3 {
+        assert_eq!(
+            endpoint.connect(&peer_path).unwrap_err().kind(),
+            ErrorKind::WouldBlock
+        );
+    }
+    // Made private, as `bind` does a moment after creating it: it connects.
+    fs::set_permissions(&peer_path, Permissions::from_mode(0o600)).unwrap();
+    endpoint.connect(&peer_path).unwrap();
 }
 
 #[test]

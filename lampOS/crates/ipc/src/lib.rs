@@ -155,11 +155,20 @@ impl Endpoint {
         let metadata = fs::symlink_metadata(&path)?;
         if !metadata.file_type().is_socket()
             || metadata.uid() != rustix::process::geteuid().as_raw()
-            || metadata.mode() & 0o077 != 0
         {
             return Err(io::Error::new(
                 io::ErrorKind::PermissionDenied,
                 "peer must be a private socket owned by this user",
+            ));
+        }
+        // Our own socket, not private yet: `bind` creates the path and makes
+        // it 0600 a moment later, and a peer that looks in between must try
+        // again, not fail (seen in the ARM64 tests on 2026-10-14). One that
+        // stays open is never connected: its caller's deadline ends it.
+        if metadata.mode() & 0o077 != 0 {
+            return Err(io::Error::new(
+                io::ErrorKind::WouldBlock,
+                "peer is not private yet",
             ));
         }
         self.socket.connect(path)?;

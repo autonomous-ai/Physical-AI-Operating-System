@@ -172,7 +172,15 @@ impl ReferenceChannels {
         if !self.control_connected {
             match self.control.connect(&self.peer_control) {
                 Ok(()) => self.control_connected = true,
-                Err(error) if error.kind() == io::ErrorKind::NotFound => return Ok(false),
+                // Not there yet, or there and not yet private: try again.
+                Err(error)
+                    if matches!(
+                        error.kind(),
+                        io::ErrorKind::NotFound | io::ErrorKind::WouldBlock
+                    ) =>
+                {
+                    return Ok(false);
+                }
                 Err(error) => return Err(error),
             }
         }
@@ -181,7 +189,14 @@ impl ReferenceChannels {
                 self.connected = true;
                 Ok(true)
             }
-            Err(error) if error.kind() == io::ErrorKind::NotFound => Ok(false),
+            Err(error)
+                if matches!(
+                    error.kind(),
+                    io::ErrorKind::NotFound | io::ErrorKind::WouldBlock
+                ) =>
+            {
+                Ok(false)
+            }
             Err(error) => Err(error),
         }
     }

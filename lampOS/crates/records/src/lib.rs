@@ -22,6 +22,102 @@ use std::{fmt, io, marker::PhantomData, path::PathBuf};
 pub const MAX_REPORT_ITEMS: usize = 16_384;
 pub const MAX_REPORT_ITEM_BYTES: usize = 1_024;
 pub const MAX_REPORT_ERROR_BYTES: usize = 4_096;
+pub const MAX_PROCESS_EXAMPLES: usize = 16;
+
+/// Reasons a pinned process could no longer own userspace session writes.
+#[derive(Clone, Copy, Debug, Deserialize, Serialize, Eq, PartialEq)]
+#[serde(rename_all = "snake_case")]
+pub enum ProcessSkipReason {
+    Gone,
+    Zombie,
+    Exiting,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize, Eq, PartialEq)]
+#[serde(deny_unknown_fields)]
+pub struct ProcessSkip {
+    pub pid: u32,
+    pub reason: ProcessSkipReason,
+}
+
+fn process_examples<'de, D: Deserializer<'de>>(
+    deserializer: D,
+) -> Result<Vec<ProcessSkip>, D::Error> {
+    sequence::<D, ProcessSkip, MAX_PROCESS_EXAMPLES>(deserializer)
+}
+
+/// Observations from up to two process passes, not unique process counts.
+/// Examples exclude known kernel threads and never include process arguments.
+#[derive(Clone, Debug, Default, Deserialize, Serialize, Eq, PartialEq)]
+#[serde(deny_unknown_fields)]
+pub struct ProcessObservations {
+    pub gone: u32,
+    pub zombie: u32,
+    pub exiting: u32,
+    pub kernel_threads: u32,
+    #[serde(deserialize_with = "process_examples")]
+    pub examples: Vec<ProcessSkip>,
+}
+
+impl ProcessObservations {
+    fn is_empty(&self) -> bool {
+        self == &Self::default()
+    }
+
+    #[cfg(any(target_os = "linux", test))]
+    pub(crate) fn record(&mut self, pid: u32, reason: ProcessSkipReason) {
+        let count = match reason {
+            ProcessSkipReason::Gone => &mut self.gone,
+            ProcessSkipReason::Zombie => &mut self.zombie,
+            ProcessSkipReason::Exiting => &mut self.exiting,
+        };
+        *count = count.saturating_add(1);
+        if self.examples.len() < MAX_PROCESS_EXAMPLES {
+            self.examples.push(ProcessSkip { pid, reason });
+        }
+    }
+
+    fn validate(&self) -> io::Result<()> {
+        // Each of the guard's two passes accepts at most 65,536 processes.
+        let total = u64::from(self.gone)
+            + u64::from(self.zombie)
+            + u64::from(self.exiting)
+            + u64::from(self.kernel_threads);
+        if total > 131_072
+            || self.examples.len() > MAX_PROCESS_EXAMPLES
+            || self
+                .examples
+                .iter()
+                .any(|item| item.pid == 0 || item.pid > i32::MAX as u32)
+        {
+            return Err(config::invalid("invalid process observations"));
+        }
+        for (reason, count) in [
+            (ProcessSkipReason::Gone, self.gone),
+            (ProcessSkipReason::Zombie, self.zombie),
+            (ProcessSkipReason::Exiting, self.exiting),
+        ] {
+            if self
+                .examples
+                .iter()
+                .filter(|item| item.reason == reason)
+                .count()
+                > count as usize
+            {
+                return Err(config::invalid("process examples exceed observed count"));
+            }
+        }
+        Ok(())
+    }
+}
+
+fn process_observations<'de, D: Deserializer<'de>>(
+    deserializer: D,
+) -> Result<ProcessObservations, D::Error> {
+    let value = ProcessObservations::deserialize(deserializer)?;
+    value.validate().map_err(de::Error::custom)?;
+    Ok(value)
+}
 
 // These limits apply while deserializing, not after allocating arbitrary JSON
 // arrays. The JSON reader separately bounds encoded bytes. An escaped string
@@ -236,6 +332,12 @@ pub struct RootReport {
     pub removed: Vec<String>,
     #[serde(deserialize_with = "report_items")]
     pub refused: Vec<String>,
+    #[serde(
+        default,
+        skip_serializing_if = "ProcessObservations::is_empty",
+        deserialize_with = "process_observations"
+    )]
+    pub processes: ProcessObservations,
     pub disk: Option<Disk>,
     #[serde(default, deserialize_with = "report_error")]
     pub error: Option<String>,
@@ -245,6 +347,7 @@ impl RootReport {
     pub fn validate(&self) -> io::Result<()> {
         config::absolute_path(&self.root)?;
         config::unit_name(&self.unit)?;
+        self.processes.validate()?;
         for items in [&self.active, &self.planned, &self.removed, &self.refused] {
             if items.len() > MAX_REPORT_ITEMS
                 || items.iter().any(|item| item.len() > MAX_REPORT_ITEM_BYTES)
@@ -270,6 +373,67 @@ mod tests {
     use super::*;
     use serde_json::{Value, json};
     use std::{cell::Cell, io::Read, rc::Rc};
+
+    #[test]
+    fn process_observations_are_optional_for_old_receipts_and_empty_output_is_unchanged() {
+        let old = root();
+        let parsed: RootReport = serde_json::from_value(old.clone()).unwrap();
+        assert_eq!(parsed.processes, ProcessObservations::default());
+        assert_eq!(serde_json::to_value(parsed).unwrap(), old);
+    }
+
+    #[test]
+    fn process_examples_are_bounded_and_remain_in_a_failed_root_report() {
+        let mut value: RootReport = serde_json::from_value(root()).unwrap();
+        for pid in 1..=100 {
+            value.processes.record(pid, ProcessSkipReason::Gone);
+        }
+        value.processes.record(101, ProcessSkipReason::Zombie);
+        value.processes.record(102, ProcessSkipReason::Exiting);
+        value.processes.kernel_threads = 20;
+        value.error = Some(
+            "process 103 protection is incomplete: live process has no inspectable arguments"
+                .into(),
+        );
+        value.validate().unwrap();
+        assert_eq!(value.processes.gone, 100);
+        assert_eq!(value.processes.examples.len(), MAX_PROCESS_EXAMPLES);
+        let bytes = serde_json::to_vec(&value).unwrap();
+        let decoded: RootReport = serde_json::from_slice(&bytes).unwrap();
+        assert_eq!(decoded.processes, value.processes);
+        assert_eq!(decoded.error, value.error);
+        assert!(bytes.len() < 2048);
+    }
+
+    #[test]
+    fn process_report_counts_examples_and_unknown_reasons_fail_closed() {
+        let mut root = root();
+        let mut observations = ProcessObservations::default();
+        observations.record(42, ProcessSkipReason::Exiting);
+        let normal = serde_json::to_value(&observations).unwrap();
+        for value in [
+            json!({"gone": 131073, "zombie": 0, "exiting": 0, "kernel_threads": 0, "examples": []}),
+            json!({"gone": 0, "zombie": 0, "exiting": 0, "kernel_threads": 131073, "examples": []}),
+            json!({"gone": 0, "zombie": 0, "exiting": 0, "kernel_threads": 0, "examples": [{"pid": 42, "reason": "gone"}]}),
+            json!({"gone": 1, "zombie": 0, "exiting": 0, "kernel_threads": 0, "examples": [{"pid": 0, "reason": "gone"}]}),
+            json!({"gone": 1, "zombie": 0, "exiting": 0, "kernel_threads": 0, "examples": [{"pid": 2147483648u32, "reason": "gone"}]}),
+            json!({"gone": 1, "zombie": 0, "exiting": 0, "kernel_threads": 0, "examples": [{"pid": 42, "reason": "unknown"}]}),
+        ] {
+            root["processes"] = value;
+            assert!(serde_json::from_value::<RootReport>(root.clone()).is_err());
+        }
+        root["processes"] = normal;
+        serde_json::from_value::<RootReport>(root.clone()).unwrap();
+        root["processes"]["exiting"] = json!(MAX_PROCESS_EXAMPLES + 1);
+        root["processes"]["examples"] = json!(vec![
+            ProcessSkip {
+                pid: 42,
+                reason: ProcessSkipReason::Exiting
+            };
+            MAX_PROCESS_EXAMPLES + 1
+        ]);
+        assert!(serde_json::from_value::<RootReport>(root).is_err());
+    }
 
     fn root() -> Value {
         json!({

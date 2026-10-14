@@ -283,6 +283,7 @@ fn real_reporter_reloads_switch_and_policy_and_requires_a_matching_receipt() {
                 planned: vec![],
                 removed: vec![],
                 refused: vec![],
+                processes: lamp_records::ProcessObservations::default(),
                 // Injected fixture counters, never this host's free-space data.
                 disk: Some(Disk {
                     total_bytes: 1_000,

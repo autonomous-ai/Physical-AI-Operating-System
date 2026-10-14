@@ -1797,6 +1797,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "lamp-keeper"
+version = "0.1.0"
+dependencies = [
+ "lamp-bus",
+ "lamp-msgs",
+]
+
+[[package]]
 name = "lamp-lean"
 version = "0.1.0"
 dependencies = [

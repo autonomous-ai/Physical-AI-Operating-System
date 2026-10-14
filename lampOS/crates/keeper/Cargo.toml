@@ -1,0 +1,21 @@
+[package]
+name = "lamp-keeper"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+# The keeper: a small library any part calls to tell systemd it is ready and
+# alive (the notify protocol), and `lamp-keeper`, its own process, which
+# watches `lamp/health`, restarts a part that stays unwell when told to act,
+# and answers what runs and how it is (docs/work-split.md, task 27).
+[[bin]]
+name = "lamp-keeper"
+path = "src/main.rs"
+
+[dependencies]
+lamp-bus = { path = "../bus" }
+lamp-msgs = { path = "../msgs" }
+
+[lints]
+workspace = true

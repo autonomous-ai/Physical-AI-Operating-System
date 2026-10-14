@@ -1,0 +1,26 @@
+# lamp-52e6: deploy/lamp-4ace/lamp-health.service as lamp-4ace runs it, with this
+# lamp's name and build, as a part of lampos.target (docs/keeper.md).
+[Unit]
+PartOf=lampos.target
+Description=lampOS health (lamp-health)
+After=local-fs.target
+
+[Service]
+Type=simple
+User=orangepi
+Group=orangepi
+# The parts that say how they are today. A part named here that never reports makes the lamp "stale".
+# Of the board's thermal zones, the processors' and the skin's limits are judged: the graphics zone names a
+# limit of 60 C and reads 64 at rest, and the lamp does not use it.
+ExecStart=/opt/lampOS/health/7889eae01722cf4dc47bb01350e9e520730a364c7949d8bf4e15f263ef1e26c1/lamp-health serve --bus-root /run/lampos-bus --expect board --expect voice --expect eyes --expect body --expect name --expect controls --expect expression --expect actions --expect ears --expect memory --expect schedule --expect air --judge-zone cpu --judge-zone skin
+Restart=on-failure
+RestartSec=5s
+SyslogIdentifier=lamp-health
+NoNewPrivileges=yes
+ProtectSystem=strict
+ReadWritePaths=/run/lampos-bus
+ProtectHome=yes
+PrivateTmp=yes
+
+[Install]
+WantedBy=lampos.target

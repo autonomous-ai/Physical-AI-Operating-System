@@ -1,0 +1,27 @@
+# lamp-52e6: deploy/lamp-4ace/lamp-actions.service as lamp-4ace runs it, with this
+# lamp's name and build, as a part of lampos.target (docs/keeper.md).
+[Unit]
+PartOf=lampos.target
+Description=lampOS actions (lamp-actions)
+After=sound.target
+
+[Service]
+Type=simple
+User=orangepi
+Group=orangepi
+SupplementaryGroups=audio
+RuntimeDirectory=lampos-actions
+RuntimeDirectoryMode=0755
+ExecStart=/opt/lampOS/actions/a90e423ad71302d363489763f01fa5050284dc558c0f33ad607a1c4501bec279/lamp-actions --dir /run/lampos-actions --mixer-card allwinnerhdmi --mixer-control Speaker --volume-ceiling 100 --bus-root /run/lampos-bus
+Restart=on-failure
+RestartSec=2s
+SyslogIdentifier=lamp-actions
+NoNewPrivileges=yes
+ProtectSystem=strict
+# The bus, where it asks for the lamp's light and reads back what the ring shows.
+ReadWritePaths=/run/lampos-bus
+ProtectHome=yes
+PrivateTmp=yes
+
+[Install]
+WantedBy=lampos.target

@@ -1,15 +1,10 @@
-# lampOS eyes on lamp-52e6: finds a face in the head camera's picture
-# and tells the body where it is, so the lamp can look at the person it is talking with.
-# The camera opens only while lamp-voice.service keeps permitting it, which it does exactly while
-# the microphone is permitted; it closes within 1.5 s of that stopping. With --sight-file the
-# newest frame, and only that one, is kept in /run (memory) for lamp-voice to show the model with
-# what a person says; take the option out and no frame leaves the process (lampOS/docs/eyes.md).
-# Not enabled at boot.
+# lamp-52e6: deploy/lamp-4ace/lamp-eyes.service as lamp-4ace runs it, with this
+# lamp's name and build, as a part of lampos.target (docs/keeper.md).
 [Unit]
 PartOf=lampos.target
 Description=lampOS eyes (lamp-eyes)
 ConditionHost=lamp-52e6
-After=lamp-voice.service lamp-body.service
+After=lamp-voice.service
 
 [Service]
 Type=exec
@@ -21,7 +16,8 @@ RuntimeDirectory=lampos-eyes
 RuntimeDirectoryMode=0755
 # Looking is never worth a late word: below the voice service.
 Nice=10
-ExecStart=/opt/lampOS/eyes/2a109496048f60d99ec619b704eb3e048b13572009f4c02f80448e89227ccb85/lamp-eyes --device /dev/video0 --lock-directory /home/orangepi/.local/share/lampOS-voice/camera-locks --usb 01da:5875@3-1.1.4 --model /opt/lampOS/eyes/face_detection_yunet_2023mar.onnx --permit-socket /run/lampos-eyes/permit.sock --body-socket /run/lampos-body/gaze.sock --presence-file /run/lampos-eyes/present --sight-file /run/lampos-eyes/sight.jpg
+Environment=LAMP_BUS=on
+ExecStart=/opt/lampOS/eyes/22aa4eaa25ccb03e6226f11772cab8f4892b714e1aeb7690829ae625a1d5484f/lamp-eyes --device /dev/video0 --lock-directory /home/orangepi/.local/share/lampOS-voice/camera-locks --usb 01da:5875@3-1.1.4 --model /opt/lampOS/eyes/face_detection_yunet_2023mar.onnx --permit-socket /run/lampos-eyes/permit.sock --body-socket /run/lampos-body/gaze.sock --presence-file /run/lampos-eyes/present --sight-file /run/lampos-eyes/sight.jpg
 Restart=on-failure
 RestartSec=5s
 StandardInput=null

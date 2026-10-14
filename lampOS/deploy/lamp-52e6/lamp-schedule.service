@@ -1,0 +1,29 @@
+# lamp-52e6: deploy/lamp-4ace/lamp-schedule.service as lamp-4ace runs it, with this
+# lamp's name and build, as a part of lampos.target (docs/keeper.md).
+[Unit]
+PartOf=lampos.target
+Description=lampOS schedule (lamp-schedule)
+After=local-fs.target time-sync.target
+
+[Service]
+Type=simple
+User=orangepi
+Group=orangepi
+StateDirectory=lampos-schedule
+StateDirectoryMode=0700
+RuntimeDirectory=lampos-schedule
+RuntimeDirectoryMode=0700
+# The clock: timedatectl says it is synchronized on this lamp, without systemd-timesyncd's marker, so trust is asserted.
+ExecStart=/opt/lampOS/schedule/05fe02e2ec78eb9066aeddf285d99493fd6076b4cdcea3e8b97de814932cc6fd/lamp-schedule serve --enable --dir /var/lib/lampos-schedule/store --socket /run/lampos-schedule/call.sock --zone Asia/Ho_Chi_Minh --bus-root /run/lampos-bus --trust-clock
+Restart=on-failure
+RestartSec=5s
+SyslogIdentifier=lamp-schedule
+Nice=5
+NoNewPrivileges=yes
+ProtectSystem=strict
+ReadWritePaths=/run/lampos-bus
+ProtectHome=yes
+PrivateTmp=yes
+
+[Install]
+WantedBy=lampos.target

@@ -1,0 +1,25 @@
+# lamp-52e6: deploy/lamp-4ace/lamp-air.service as lamp-4ace runs it, with this
+# lamp's name and build, as a part of lampos.target (docs/keeper.md).
+[Unit]
+PartOf=lampos.target
+Description=lampOS air (lamp-air)
+After=local-fs.target
+
+[Service]
+Type=simple
+User=orangepi
+Group=orangepi
+ExecStart=/opt/lampOS/air/bc5668c25cefbca493254b245808025481e24d5c27ba2e0ef331ed52d850852a/lamp-air --bus-number 0 --bus-root /run/lampos-bus
+Restart=on-failure
+RestartSec=10s
+SyslogIdentifier=lamp-air
+Nice=10
+NoNewPrivileges=yes
+ProtectSystem=strict
+ReadWritePaths=/run/lampos-bus
+ProtectHome=yes
+PrivateTmp=yes
+DeviceAllow=/dev/i2c-0 rw
+
+[Install]
+WantedBy=lampos.target

@@ -1,0 +1,26 @@
+# lamp-52e6: deploy/lamp-4ace/lamp-expression.service as lamp-4ace runs it, with this
+# lamp's name and build, as a part of lampos.target (docs/keeper.md).
+[Unit]
+PartOf=lampos.target
+Description=lampOS expression (lamp-expression)
+After=local-fs.target
+
+[Service]
+Type=simple
+User=orangepi
+Group=orangepi
+# Since 2026-10-14 23:07: the always-alive catalogue (task 36, #714, pull request #729): a breath and a slow drift at rest,
+# sleep at night with nobody about, a waking stretch (lampOS/docs/expression.md). UTC+7 for the night.
+ExecStart=/opt/lampOS/expression/09783f142a95aaf5cbadd723f940b2f073bdc3591866c5fc8c74e4814d400006/lamp-expression serve --enable --bus-root /run/lampos-bus --catalogue /opt/lampOS/expression/catalogues/expression-alive-lamp-4ace.json --utc-offset-minutes 420
+Restart=on-failure
+RestartSec=5s
+SyslogIdentifier=lamp-expression
+Nice=5
+NoNewPrivileges=yes
+ProtectSystem=strict
+ReadWritePaths=/run/lampos-bus
+ProtectHome=yes
+PrivateTmp=yes
+
+[Install]
+WantedBy=lampos.target

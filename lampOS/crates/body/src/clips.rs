@@ -46,6 +46,29 @@ impl Clip {
     }
 }
 
+/// A glance for a call with nobody in view: the base turns a little to one
+/// side and a little to the other and back, in about a second, as a person
+/// called from somewhere they cannot see looks round once and lets it go.
+/// Some 60 counts (five degrees) each way. Not one of [`ALL`]: the body
+/// plays it for a call (`Limits::look_at_name`), nobody asks for it by name.
+pub const CALLED: Clip = Clip {
+    name: "called",
+    step_ms: 100,
+    frames: &[
+        [0, 0, 0, 0, 0],
+        [0, 0, 25, 0, 0],
+        [0, 0, 50, 0, 0],
+        [0, 0, 60, 0, 0],
+        [0, 0, 50, 0, 0],
+        [0, 0, 0, 0, 0],
+        [0, 0, -50, 0, 0],
+        [0, 0, -60, 0, 0],
+        [0, 0, -50, 0, 0],
+        [0, 0, -25, 0, 0],
+        [0, 0, 0, 0, 0],
+    ],
+};
+
 /// The clip of this name.
 pub fn named(name: &str) -> Option<&'static Clip> {
     ALL.into_iter().find(|clip| clip.name == name)

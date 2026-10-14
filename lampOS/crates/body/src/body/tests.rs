@@ -2007,6 +2007,7 @@ fn gesture_run(
                 seen: None,
                 gesture: due.then_some(clip),
                 expression: None,
+                called: false,
             }
         },
         |glimpse| {
@@ -2071,6 +2072,7 @@ fn expression_run_with(
             seen: None,
             gesture: None,
             expression: (time.get() >= from && time.get() < until).then_some(offsets),
+            called: false,
         },
         |glimpse| seen.push((seen_at.get(), glimpse.goals)),
     );
@@ -2297,6 +2299,7 @@ fn a_gesture_waits_for_a_lamp_that_is_rising_and_is_forgotten_by_one_that_is_not
             seen: None,
             gesture: (!std::mem::replace(&mut asked_once, true)).then_some(&crate::clips::NOD),
             expression: None,
+            called: false,
         },
         |_| {},
     );
@@ -2370,6 +2373,7 @@ fn the_heads_pitch_is_never_asked_under_its_floor_whatever_adds_up() {
                 seen: None,
                 gesture: due.then_some(&crate::clips::STRETCHING),
                 expression: None,
+                called: false,
             }
         },
         |glimpse| {
@@ -2536,6 +2540,7 @@ fn it_stands_up_for_somebody_in_front_of_it_and_stays_up_while_they_are_there() 
                     }),
                     gesture: None,
                     expression: None,
+                    called: false,
                 }
             },
             |glimpse| stood.push((watched.get(), glimpse.stand)),
@@ -3749,4 +3754,150 @@ fn an_arm_that_sways_7_counts_as_the_base_wakes_is_let_and_one_that_moves_20_is_
             now: 2_070
         }
     );
+}
+
+/// When, the gesture it makes, how far up it is and its base's goal.
+type CalledStep = (Duration, Option<&'static str>, f32, u16);
+
+/// A folded lamp at rest, called by its name at `calls` (seconds), with a
+/// face in view from `face_from` on if given, in `mood` throughout; once
+/// stood, shifting now and then at rest if `idle`.
+fn called_run(
+    look_at_name: bool,
+    idle: bool,
+    mood: Mood,
+    calls: &'static [u64],
+    face_from: Option<u64>,
+) -> (BodyReport, Lamp, Vec<CalledStep>) {
+    let (mut lamp, mut clock) = folded(Duration::from_secs(20));
+    lamp.arm_moves = true;
+    lamp.overload_clears = 1;
+    let limits = Limits {
+        look_at_name,
+        ..Limits::folded_with(Tuning {
+            reach: [150, 15, 1, 250],
+            speed: 120,
+            servo_speed: 1_000,
+            servo_acceleration: 60,
+        })
+        .unwrap()
+    };
+    let time = clock.time.clone();
+    let watched = clock.time.clone();
+    let mut answered = 0;
+    let mut last = Duration::ZERO;
+    let mut seen = Vec::new();
+    let report = run_alive(
+        &mut lamp,
+        &mut clock,
+        limits,
+        Some(HOME),
+        Some(standing(100, 30).idling(idle)),
+        Some(Looking::new([342, 200], [250, 120]).unwrap()),
+        move || Some((mood, 0)),
+        move || {
+            let now = time.get();
+            let called = calls
+                .get(answered)
+                .is_some_and(|at| now >= Duration::from_secs(*at));
+            answered += usize::from(called);
+            // The eyes look six times a second.
+            let look = now.saturating_sub(last) >= Duration::from_millis(150);
+            if look {
+                last = now;
+            }
+            Asked {
+                seen: look.then(|| Seen {
+                    face: face_from
+                        .is_some_and(|from| now >= Duration::from_secs(from))
+                        .then_some(crate::gaze::Sight {
+                            x: 0.0,
+                            y: 0.0,
+                            size: 0.2,
+                            turned: 0.0,
+                        }),
+                }),
+                gesture: None,
+                expression: None,
+                called,
+            }
+        },
+        |glimpse| {
+            seen.push((
+                watched.get(),
+                glimpse.gesture,
+                glimpse.stand,
+                glimpse.goals[2],
+            ))
+        },
+    );
+    (report, lamp, seen)
+}
+
+/// Without the switch a call changes nothing: the lamp writes exactly
+/// what one that was never called writes.
+#[test]
+fn without_the_switch_a_called_lamp_writes_exactly_as_one_never_called() {
+    let (called, called_lamp, _) = called_run(false, false, Mood::Resting, &[1, 12], None);
+    let (quiet, quiet_lamp, _) = called_run(false, false, Mood::Resting, &[], None);
+    assert_eq!(called.calls, 0);
+    assert_eq!(called_lamp.goals, quiet_lamp.goals);
+    assert_eq!(called_lamp.registers, quiet_lamp.registers);
+    assert_eq!(called.stop, quiet.stop);
+}
+
+/// Called with nobody in view: it rises at once, glances a little to one
+/// side and the other once it stands, comes back to where it looked, and
+/// a second call within ten seconds is let go.
+#[test]
+fn called_with_nobody_in_view_it_rises_and_glances_once() {
+    let (report, _, seen) = called_run(true, false, Mood::Resting, &[1, 6], None);
+    assert_eq!(report.stop, Stop::Cancelled, "{report:?}");
+    assert_eq!((report.calls, report.gestures), (1, 1), "{report:?}");
+    let rising = seen.iter().find(|step| step.2 > 0.0).unwrap().0;
+    assert!(rising < Duration::from_millis(1_100), "{rising:?}");
+    let glance: Vec<_> = seen
+        .iter()
+        .filter(|step| step.1 == Some("called"))
+        .collect();
+    let (first, last) = (glance[0].0, glance[glance.len() - 1].0);
+    assert!(first >= Duration::from_secs(5) && last - first <= Duration::from_millis(1_100));
+    let yaw: Vec<i32> = glance
+        .iter()
+        .map(|step| i32::from(step.3) - 2_015)
+        .collect();
+    let (left, right) = (*yaw.iter().min().unwrap(), *yaw.iter().max().unwrap());
+    assert!(
+        (-60..=-30).contains(&left) && (30..=60).contains(&right),
+        "{yaw:?}"
+    );
+    // Back where it looked from by the end of the run.
+    assert_eq!(seen.last().unwrap().3, 2_015);
+}
+
+/// Called with somebody in view: no glance; the gaze has them. Called
+/// while it speaks: nothing.
+#[test]
+fn called_with_a_face_in_view_it_does_not_glance_and_speaking_it_takes_no_call() {
+    let (report, _, seen) = called_run(true, false, Mood::Resting, &[1], Some(0));
+    assert_eq!((report.calls, report.gestures), (1, 0), "{report:?}");
+    assert!(seen.iter().all(|step| step.1.is_none()));
+    let (report, _, _) = called_run(true, false, Mood::Speaking, &[1], None);
+    assert_eq!(report.calls, 0);
+}
+
+/// A lamp that stands and shifts now and then at rest, called again after
+/// ten seconds: the shift gives way to the glance.
+#[test]
+fn a_call_is_glanced_for_over_a_shift_at_rest() {
+    let (report, _, seen) = called_run(true, true, Mood::Resting, &[1, 13], None);
+    assert_eq!(report.stop, Stop::Cancelled, "{report:?}");
+    assert!(report.idles >= 1, "{report:?}");
+    assert_eq!((report.calls, report.gestures), (2, 2), "{report:?}");
+    let second = seen
+        .iter()
+        .find(|step| step.0 >= Duration::from_secs(13) && step.1 == Some("called"))
+        .unwrap()
+        .0;
+    assert!(second < Duration::from_millis(13_300), "{second:?}");
 }

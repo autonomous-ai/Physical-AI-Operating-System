@@ -541,6 +541,41 @@ to 113 (250 less 0.27 of 727 times 0.7) and the face to -0.11, inside what
 counts as looked at. It has not yet been seen with a living person in front
 of it.
 
+## Turning to a call
+
+With `--look-at-name on` the body reads `name/heard` on the bus
+([name.md](name.md)): the lamp's name, heard, subscribed to as `body`
+whether or not `LAMP_BUS` is on; a bus it cannot use is said once in its
+log and no call is taken. Off unless given, and without
+it a call changes nothing the body writes (test
+`without_the_switch_a_called_lamp_writes_exactly_as_one_never_called`).
+
+- A hearing whose name began more than 1.5 s before it arrived is not a call.
+  One while the voice says it speaks is not either, and nor is one within
+  ten seconds of the last call taken.
+- A call is taken as being spoken to for two seconds: a folded lamp rises,
+  the head takes its listening pose, and the gaze turns it to a face it sees
+  at once (above, "Looking at a face"), as when it is listened to; the
+  voice's own listening carries on from there if the person goes on. A lamp
+  that is folded looks at nobody until it stands.
+- With no face in the last look, the lamp glances once it stands: the base
+  turns about 60 counts (five degrees) to one side and the other and back,
+  in a second (`clips::CALLED`). It waits as long as rising takes; a face
+  seen before or during it ends it, and the gaze has them. It takes the place
+  of a shift at rest, never of another gesture.
+- It never searches: one glance, then it lets it go.
+
+On lamp-52e6 on 2026-10-14, with calls published by hand and nobody in view
+([verification](verification/look-at-name-lamp-52e6-20261014/)): standing,
+the base began its glance 135 to 204 ms after the call and reached about
+3.5 degrees one way and 5 the other; folded, the lamp rose at once and
+glanced 6.8 s later, once up. Said aloud from a Mac beside it, with
+`lamp-name` running, the voice had already gone to listening (and lifted
+the head) 0.45 s into the line; the name was heard 0.55 to 0.95 s after
+"Hey Lamp" ended, in four lines of six, and each time the base began its
+glance 83 to 135 ms later. A call with somebody in view has not been seen
+on a lamp.
+
 ## What Expression may add
 
 On lamp-4ace since 2026-10-14, 10:05, switched on. What it did there is
@@ -793,6 +828,7 @@ Reach and speed can be chosen at start, each inside a cap fixed in the code:
 | `--overload release` | any joint at a load of 800 (80% of `--force-limit` for a joint held to one) for 1.5 s: torque off on all five for 120 s, then held where they are and the head brought home slowly; a second time within ten minutes ends the run, torque off (see "Letting go under overload") | torque is never written off | release |
 | `--gaze-socket PATH` with `--gaze Y,P` | where the eyes report, and the signed counts of yaw and pitch that a half-picture is worth | never looks | 900 either way |
 | `--gaze-reach Y,P` | the farthest the gaze takes yaw and pitch; the yaw may be wider than `--reach`'s | 250,120 | 500, 200 |
+| `--look-at-name on` | the lamp's name heard on the bus taken as being spoken to for two seconds, and with nobody in view one small glance once it stands (see "Turning to a call") | a call is not taken | on or off |
 | `--idle on` | a standing lamp at rest shifts a little now and then | off | on or off |
 | `--stand-roll N` | the head's tilt reach once the lamp has stood up, where that is more than the roll of `--reach` | no more than folded | 200 |
 | `--pitch-window LOW,HIGH` | the window the head's pitch goal is kept in while the head is beside the base, this lamp's own; checked at start against the head pitch servo's own limits (registers 9 and 11), and the run refused with nothing written if it is not inside them | lamp-4ace's, 1,740 to 2,030, and the servo's limits are not read | LOW at least 1,670 (the head's floor) and under HIGH, and around `--home`'s pitch |

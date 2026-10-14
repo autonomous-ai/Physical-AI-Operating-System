@@ -25,6 +25,8 @@ pub mod expression_in;
 pub mod inspection;
 #[cfg(target_os = "linux")]
 pub mod linux;
+#[cfg(any(target_os = "linux", test))]
+pub mod name_in;
 
 pub mod calibration;
 pub mod clips;

@@ -1,0 +1,48 @@
+   Compiling lamp-msgs v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/msgs)
+   Compiling lamp-controls v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/controls)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 3.01s
+     Running tests/touch.rs (target/debug/deps/touch-9d39504534678405)
+
+running 26 tests
+test configuration_is_bounded_unique_explicit_and_strict ... ok
+test backwards_clock_is_terminal_and_near_max_timestamps_do_not_wrap ... ok
+test default_disabled_reports_shadow_without_eligible_events ... ok
+test primary_short_release_is_immediate_stop_with_no_double_tap_wait ... ok
+test gpio_and_strip_faults_do_not_withdraw_the_other_group ... ok
+test head_qualification_uses_acquisition_time_not_receipt_or_ticks ... ok
+test configured_head_order_controls_mask_and_active_names_not_input_vector_order ... ok
+test malformed_future_duplicate_and_wrong_clock_inputs_clear_pending ... ok
+test pending_event_and_feedback_do_not_gain_new_age_on_heartbeat ... ok
+test reader_restart_consumes_first_sample_then_requires_release_and_rejects_old_reader ... ok
+test head_needs_startup_settle_and_a_released_baseline ... ok
+test reader_session_retirement_is_bounded_and_never_reopens_old_identity ... ok
+test lost_acquisition_cannot_turn_hidden_release_repress_into_mute ... ok
+test source_ttl_withdraws_feedback_at_exact_boundary_without_synthetic_release ... ok
+test output_queue_is_bounded_and_overflow_withdraws_undelivered_group ... ok
+test strip_brief_qualified_release_and_reversed_mapping_are_preserved ... FAILED
+test acquisition_gap_disarms_hold_and_later_released_sample_recovers ... ok
+test fast_mode_pulses_never_fabricate_a_resting_hand ... ok
+test strip_restart_and_expiry_cannot_reuse_old_hold ... ok
+test same_polarity_button_debounce_cancels_bounce_hold_evidence ... ok
+test strip_stationary_hold_requests_sleep_once_and_raw_release_is_not_a_tap ... ok
+test stationary_head_stroke_occurs_once_at_actual_half_second ... ok
+test startup_held_buttons_and_orphan_release_cannot_act ... ok
+test primary_hold_never_commits_before_release_and_never_factory_resets ... ok
+test authored_head_qualification_target_covers_first_and_repeated_sample_phases ... ok
+test reset_short_release_does_nothing_and_exact_five_seconds_is_reset_only ... ok
+
+failures:
+
+---- strip_brief_qualified_release_and_reversed_mapping_are_preserved stdout ----
+
+thread 'strip_brief_qualified_release_and_reversed_mapping_are_preserved' (111638852) panicked at crates/controls/tests/touch.rs:464:40:
+called `Option::unwrap()` on a `None` value
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    strip_brief_qualified_release_and_reversed_mapping_are_preserved
+
+test result: FAILED. 25 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+error: test failed, to rerun pass `-p lamp-controls --test touch`

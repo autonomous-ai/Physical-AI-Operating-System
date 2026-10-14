@@ -1,0 +1,27 @@
+{
+  "source_commit": "42bdf65a2144e2168d2643494d8b9e9598404a35",
+  "working_tree_delta": "explicit Linux-only io::Result<()> result annotation in strip_worker.rs; no other implementation change",
+  "machine": "Third x86_64 development Mac, Rust 1.96.0",
+  "target": "aarch64-unknown-linux-gnu",
+  "kind": "cross-target compile/strict lint only; no ARM64 binary executed and no lamp accessed",
+  "command": [
+    "cargo",
+    "clippy",
+    "--offline",
+    "--locked",
+    "--target",
+    "aarch64-unknown-linux-gnu",
+    "-p",
+    "lamp-controls",
+    "-p",
+    "lamp-msgs",
+    "--all-targets",
+    "--",
+    "-D",
+    "warnings"
+  ],
+  "target_directory": "/private/tmp/lamp-third-touch-linux-check-target",
+  "exit_code": 0,
+  "elapsed_seconds": 13.367699201,
+  "log": "/private/tmp/lamp-third-touch-linux-clippy-first.txt"
+}

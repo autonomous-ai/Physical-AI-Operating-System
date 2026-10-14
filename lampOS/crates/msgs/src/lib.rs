@@ -894,6 +894,7 @@ pub fn declaration_of(topic: &str) -> Option<Declaration> {
         .into_iter()
         .chain(expression_topics())
         .chain(controls_topics())
+        .chain(touch_topics())
         .chain(schedule_topics())
         .find_map(|(name, declaration)| (name == topic).then_some(declaration))
 }

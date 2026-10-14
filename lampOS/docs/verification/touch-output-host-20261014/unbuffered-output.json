@@ -1,0 +1,27 @@
+{
+  "machine": "Third x86_64 development Mac; concurrent full package tests; not a lamp",
+  "source_commit": "1ce4f987303013631fefd3b0f1b1fe64767144f6",
+  "command": [
+    "/private/tmp/lamp-third-touch-standalone-working-rvw6ow7t/target/debug/lamp-controls",
+    "replay",
+    "--touch",
+    "--clock-id",
+    "strip-711-authored",
+    "--config",
+    "crates/controls/fixtures/strip-711-controls.json",
+    "--pins",
+    "crates/controls/fixtures/strip-711-pins-example.json",
+    "--input",
+    "crates/controls/fixtures/strip-711-replay.jsonl",
+    "--until-us",
+    "19948000",
+    "--output",
+    "/private/tmp/lamp-third-touch-unbuffered-output-measurement.jsonl"
+  ],
+  "exit_code": 0,
+  "elapsed_seconds": 1.854921796,
+  "stdout_bytes": 0,
+  "stderr": "{\"records\":1052,\"gpio_samples\":0,\"strip_samples\":1052,\"rejected\":0,\"rejected_by_fault\":[],\"faults\":0,\"events\":54,\"ticks\":9975,\"frames\":1050,\"start_us\":0,\"end_us\":19948000}\n",
+  "output_bytes": 905228,
+  "output_lines": 1050
+}

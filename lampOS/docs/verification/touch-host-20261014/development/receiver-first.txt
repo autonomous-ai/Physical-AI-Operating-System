@@ -1,0 +1,26 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.12s
+     Running tests/touch_receiver.rs (target/debug/deps/touch_receiver-8151fd08d46411f6)
+
+running 19 tests
+test lifecycle_contact_binding_keeps_waking_hold_from_sleeping_again ... ok
+test repeated_state_identity_with_changed_content_is_refused ... ok
+test backwards_receipt_clock_latches_closed ... ok
+test advisory_event_is_not_lost_to_state_cumulative_watermark ... ok
+test changed_controls_session_retires_old_payload_and_resets_lifecycle_baseline ... ok
+test event_before_qualifying_state_is_refused_without_consuming_it ... ok
+test out_of_order_state_cannot_erase_high_water_even_after_refusal ... ok
+test source_configuration_is_immutable_within_controls_session ... ok
+test original_event_acquisition_expires_even_with_fresh_state_and_republication ... ok
+test retained_touch_sleep_and_reset_do_not_replay_on_subscribe ... ok
+test stalled_state_stream_suppresses_hold_that_crossed_unknown_lifecycle_interval ... ok
+test stale_current_acquisition_cannot_be_renewed_by_fresh_state_heartbeat ... ok
+test source_fault_withdraws_held_lifecycle_eligibility_even_after_fresh_recovery ... ok
+test changed_source_reader_is_fenced_and_cannot_replay_held_sleep ... ok
+test session_fences_are_bounded_without_evicting_old_owners ... ok
+test state_then_event_deduplicates_exact_identity_without_replaying ... ok
+test wrong_clock_and_disabled_cannot_establish_owner ... ok
+test whole_new_hold_qualifies_after_bootstrap_and_is_only_delivered_once ... ok
+test stale_retained_hold_does_not_keep_advancing_new_contact_fence ... ok
+
+test result: ok. 19 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

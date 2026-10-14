@@ -1,0 +1,38 @@
+   Compiling lamp-msgs v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/msgs)
+   Compiling lamp-controls v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/controls)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 3.60s
+     Running tests/touch_pins.rs (target/debug/deps/touch_pins-ca746424f0b583c4)
+
+running 12 tests
+test empty_configuration_does_not_claim_a_functional_touch_source ... ok
+test base_only_configuration_does_not_invent_gpio_or_released_pads ... ok
+test complete_gpio_conversion_preserves_stamp_session_and_independent_roles ... ok
+test explicit_roles_keep_reset_separate_and_strip_out_of_gpio_snapshots ... ok
+test all_four_head_candidates_require_explicit_name_order_and_polarity ... ok
+test partial_or_foreign_gpio_observations_are_not_filled_with_false_levels ... ok
+test strip_presence_mask_full12_geometry_and_profile_must_agree ... ok
+test duplicated_names_lines_and_unmatched_configured_inputs_are_rejected ... ok
+test gpio_and_strip_poll_bounds_are_checked_independently ... ok
+test privacy_chip_and_wrong_primary_reset_or_head_lines_are_rejected ... ok
+test new_wiring_rejects_unknown_fields_and_does_not_relax_legacy_schema ... ok
+test file_size_bound_accepts_exact_limit_and_refuses_over_limit_or_corrupt_input ... ok
+
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/touch_runtime.rs (target/debug/deps/touch_runtime-6344eeaf91fa084e)
+
+running 11 tests
+test a_second_touch_owner_cannot_publish_into_the_same_bus_root ... ok
+test missing_all_inputs_never_advertises_a_released_or_ready_hand ... ok
+test stale_arrival_never_makes_a_fresh_source_fail_or_restamps_old_data ... ok
+test shadow_state_and_events_are_observable_but_both_receivers_refuse_authority ... ok
+test strip_startup_failure_leaves_primary_gpio_and_legacy_stop_working ... ok
+test gpio_reader_failure_does_not_cancel_fresh_strip_touch ... ok
+test strip_reader_failure_withdraws_strip_contact_without_losing_primary ... ok
+test draining_a_source_is_bounded_and_overflow_faults_only_that_source ... ok
+test one_source_never_renews_the_other_sources_acquisition_time ... ok
+test rejected_complete_gpio_cannot_retain_a_primary_stop_or_long_hold_mute ... ok
+test head_and_reset_roles_never_enter_legacy_primary_retention ... ok
+
+test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.12s
+

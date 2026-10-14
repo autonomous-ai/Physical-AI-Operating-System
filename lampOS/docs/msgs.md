@@ -133,6 +133,35 @@ or Controls restart. Physical privacy stays with Voice. These are typed
 handoff contracts; see [Controls](controls.md) for the consumer obligations and
 [service privacy](service-privacy.md) for the existing physical authority.
 
+### Opt-in touch contracts (Task 33)
+
+`touch_topics()` declares `controls/touch` (`TouchEvent`, event, 500 ms
+transport lifespan) and `controls/touch_state` (`TouchState`, latest,
+100 ms declared period/300 ms lifespan). `declaration_of` recognizes both;
+`first_topics()` and the existing `controls_topics()` inventories are unchanged.
+Only the explicit `lamp-controls --touch` path publishes them, normally every
+20 ms and on events. All fields are strict; old controls shapes are unchanged.
+
+Source/session/contact identity, original acquisition and contact times,
+raw working-source masks, filtered event geometry, normalized strip position/travel/
+speed and conditional speaking/quiet/asleep intents are carried separately.
+Sleep and Wake are explicit alternatives, never a toggle. The owner binds
+lifecycle state at contact begin and checks original/current source age under
+100 ms before application. A 500 ms bus envelope does not renew that limit.
+Primary Stop/SoftwareMute and reset-only FactoryReset do not depend on being
+awake. No payload grants capture or confirms physical output.
+
+For the strip, state masks contain only the configured working electrodes;
+raw acquisitions/recordings retain all twelve hardware bits. Sparse ordered
+sets preserve the full twelve-slot coordinates while skipping known excluded
+pads for contact topology. An excluded-only sample never prolongs a hold.
+
+The receiver's restart/fault/contact and per-source consumed-sequence fences,
+the legacy primary sidecar's single-consumer requirement, provenance and
+on-lamp qualification are in [Controls](controls.md#touch-and-slides-task-33).
+Physical application, privacy closure, noise margins and response latency have
+not been shown on a lamp by this builder.
+
 ## Optional Schedule contract
 
 Schedule's additive types live in `crates/msgs/src/schedule.rs` and are
@@ -243,3 +272,7 @@ anything else, and a peak under its quiet.
 The Schedule contract tests establish message shape and declaration rules
 only. They do not establish durable delivery, Voice integration, clock
 accuracy, acoustic completion or reminder latency on a lamp.
+
+The touch contract tests likewise establish shape, sampled recognition and
+receiver fences. They do not establish real electrode/head calibration,
+physical contact latency, capture closure or applied Sleep/Wake/Stop on a lamp.

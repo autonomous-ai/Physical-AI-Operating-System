@@ -1,0 +1,39 @@
+{
+  "root": "/private/tmp/lamp-third-touch-standalone-h2e3p2u8",
+  "source_commit": "42bdf65a2144e2168d2643494d8b9e9598404a35",
+  "local_packages": 32,
+  "all_local_sources_inside_copy": true,
+  "steps": [
+    {
+      "name": "build",
+      "command": [
+        "cargo",
+        "build",
+        "--offline",
+        "--locked",
+        "--workspace"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 155.241175785,
+      "log": "/private/tmp/lamp-third-touch-standalone-build.txt"
+    },
+    {
+      "name": "tests",
+      "command": [
+        "cargo",
+        "test",
+        "--offline",
+        "--locked",
+        "-p",
+        "lamp-controls",
+        "-p",
+        "lamp-msgs",
+        "--",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 105.06723406799998,
+      "log": "/private/tmp/lamp-third-touch-standalone-tests.txt"
+    }
+  ]
+}

@@ -1,0 +1,49 @@
+   Compiling lamp-controls v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/controls)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 3.30s
+     Running unittests src/lib.rs (target/debug/deps/lamp_controls-38271a24f50d9567)
+
+running 17 tests
+test mpr121::tests::transport_requires_exact_message_count ... ok
+test pins::tests::a_line_that_cannot_be_read_is_missing_input_and_not_a_release ... ok
+test record::tests::recording_formats_cannot_be_mixed_silently ... ok
+test pins::tests::the_lines_are_read_together_at_their_pace_and_given_as_pressed_or_not ... ok
+test record::tests::a_recovered_queue_gap_precedes_the_next_sample_without_a_spurious_tail_fault ... ok
+test record::tests::a_partial_writer_failure_is_reported_even_if_no_terminal_fault_can_be_saved ... ok
+test record::tests::backwards_receipt_time_ends_at_the_previous_time_with_a_fault ... ok
+test record::tests::the_hundred_thousandth_record_is_reserved_for_the_terminal_fault ... ok
+test record::tests::the_ten_minute_boundary_is_inclusive_and_overrun_does_not_extend_the_log ... ok
+test pins::tests::the_wiring_must_name_the_controls_inputs_and_no_line_twice ... ok
+test record::tests::the_thirty_two_mib_limit_keeps_a_hundred_twenty_eight_byte_fault_reserve ... ok
+test record::tests::a_final_touch_recording_drop_is_an_overflow_at_the_last_saved_time ... ok
+test record::tests::touch_recording_queue_loss_marks_both_sources_instead_of_splicing_a_hold ... ok
+test record::tests::structurally_invalid_samples_become_small_invalid_records_before_queueing ... ok
+test record::tests::sixteen_kib_json_lines_are_accepted_but_one_more_byte_ends_the_clip ... ok
+test record::tests::a_final_full_queue_drop_cancels_a_pet_pending_in_the_recorded_tail ... ok
+test mute::tests::failure_before_or_after_replacement_keeps_recovery_evidence ... ok
+
+test result: ok. 17 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.36s
+
+     Running tests/head_discovery.rs (target/debug/deps/head_discovery-5aa15fd23cb287cb)
+
+running 3 tests
+test driven_high_and_low_candidates_need_two_complete_pulses_and_do_not_install_wiring ... ok
+test missing_samples_cannot_extend_a_pulse_and_recovery_needs_idle_again ... ok
+test startup_held_floating_chatter_and_unreleased_contact_do_not_qualify ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/strip_worker.rs (target/debug/deps/strip_worker-0005e96b892164a5)
+
+running 9 tests
+test worker_fixture ... ok
+test an_existing_socket_path_is_never_unlinked_by_a_second_worker ... ok
+test failed_spawn_cleans_only_its_socket_and_does_not_remove_foreign_files ... ok
+test device_claim_refuses_symlinks_hardlinks_and_shared_mode ... ok
+test acquisition_keeps_worker_time_and_sequence_then_child_is_reaped ... ok
+test silent_worker_has_bounded_startup_and_never_restarts ... ok
+test device_claim_is_exclusive_until_the_child_really_exits ... ok
+test queued_fresh_packets_cannot_rescue_expired_startup_or_silence ... ok
+test malformed_faulted_or_mismatched_workers_never_become_releases ... ok
+
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 11.03s
+

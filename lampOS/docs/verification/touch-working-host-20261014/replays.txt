@@ -1,0 +1,40 @@
+   Compiling lamp-controls v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/controls)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.56s
+     Running tests/touch_program.rs (target/debug/deps/touch_program-5f8e336211d9e50b)
+
+running 9 tests
+test enable_flag_changes_only_event_and_state_authority_fields ... ok
+test invalid_and_duplicate_cli_options_are_rejected_before_replay_or_output_creation ... ok
+test malformed_or_unknown_schema_fields_are_rejected_before_creating_output ... ok
+test new_records_and_new_pins_schema_require_the_explicit_touch_selector ... ok
+test output_is_private_jsonl_and_existing_evidence_is_never_overwritten ... ok
+test real_cli_defaults_to_shadow_even_when_config_says_enabled_and_reports_exact_fixture_counts ... ok
+test replay_succeeds_with_a_nonexistent_i2c_adapter_and_an_unopenable_bus_root ... ok
+test working_pad_cli_profile_preserves_the_trace_with_individual_threshold_settings ... ok
+test wrong_boot_clock_is_visible_in_summary_and_never_becomes_ready_or_actionable ... ok
+
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.77s
+
+     Running tests/touch_replay.rs (target/debug/deps/touch_replay-6d694e5ce27516cf)
+
+running 17 tests
+test all_fault_cancels_both_sources_without_fabricating_released_levels ... ok
+test between_tick_inputs_keep_exact_receipt_and_emit_at_next_two_millisecond_tick ... ok
+test blocked_or_faulted_strip_does_not_refresh_or_cancel_independent_gpio ... ok
+test byte_line_record_and_duration_bounds_match_the_legacy_recorder_limits ... ok
+test cli_ready_replay_is_the_exact_labelled_reconstruction_with_authored_clock_and_sequence ... ok
+test duplicate_future_wrong_clock_and_lost_sequence_are_retained_as_rejection_evidence ... ok
+test end_cannot_truncate_inputs_exceed_ten_minutes_or_overflow_tick_clock ... ok
+test equal_receipt_fault_after_acquisition_cancels_unpublished_action_before_tick ... ok
+test full_ten_minute_authored_horizon_is_bounded_and_has_no_implicit_input ... ok
+test gpio_fault_record_cannot_erase_a_healthy_strip_or_forge_its_baseline ... ok
+test issue711_changed_only_adaptation_has_explicit_stale_faults_and_no_actions ... ok
+test issue711_reconstructed_continuity_has_one_contact_and_no_slide_end_tap ... ok
+test issue711_working_set_keeps_the_reconstructed_trace_and_full_span_coordinates ... ok
+test parser_rejects_missing_input_unknown_fields_invalid_shapes_and_backwards_receipts ... ok
+test replay_is_byte_identical_and_shadow_requests_remain_disabled ... ok
+test strip_hold_is_one_touch_one_sleep_and_tail_expiry_is_unknown_not_release ... ok
+test writer_and_flush_failures_are_returned_without_a_success_summary ... ok
+
+test result: ok. 17 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.06s
+

@@ -1,0 +1,116 @@
+{
+  "chip": "/dev/gpiochip0",
+  "buttons": [],
+  "head_pads": [],
+  "every_ms": 5,
+  "base": {
+    "bus": 0,
+    "address": 90,
+    "every_ms": 10,
+    "pads": [
+      0,
+      1,
+      2,
+      3,
+      5,
+      6,
+      7,
+      9,
+      10,
+      11
+    ],
+    "profile": {
+      "touch_thresholds": [
+        8,
+        9,
+        7,
+        10,
+        6,
+        8,
+        11,
+        9,
+        6,
+        7,
+        10,
+        8
+      ],
+      "release_thresholds": [
+        5,
+        6,
+        4,
+        6,
+        4,
+        5,
+        7,
+        6,
+        4,
+        4,
+        6,
+        5
+      ],
+      "baseline": {
+        "rising": {
+          "mhd": 1,
+          "nhd": 1,
+          "ncl": 14,
+          "fdl": 0
+        },
+        "falling": {
+          "mhd": 1,
+          "nhd": 1,
+          "ncl": 255,
+          "fdl": 2
+        },
+        "touched": {
+          "nhd": 0,
+          "ncl": 0,
+          "fdl": 0
+        }
+      },
+      "ffi": 34,
+      "sfi": 10,
+      "esi_ms": 1,
+      "global_cdc": 16,
+      "global_cdt": 1,
+      "cdc": [
+        53,
+        57,
+        55,
+        51,
+        31,
+        50,
+        49,
+        42,
+        31,
+        41,
+        46,
+        47
+      ],
+      "cdt": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      "debounce_touch": 2,
+      "debounce_release": 2,
+      "ecr": 143,
+      "autoconfig": {
+        "mode": "enabled",
+        "upper_limit": 200,
+        "lower_limit": 130,
+        "target": 180,
+        "reconfigure": true,
+        "skip_cdt_search": false
+      }
+    }
+  }
+}

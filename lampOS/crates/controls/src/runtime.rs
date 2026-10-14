@@ -64,7 +64,7 @@ pub fn clock_id(given: Option<&str>) -> io::Result<String> {
     Ok(id)
 }
 
-fn owner_lock(root: &Path) -> io::Result<File> {
+pub(crate) fn owner_lock(root: &Path) -> io::Result<File> {
     fs::DirBuilder::new()
         .recursive(true)
         .mode(0o770)

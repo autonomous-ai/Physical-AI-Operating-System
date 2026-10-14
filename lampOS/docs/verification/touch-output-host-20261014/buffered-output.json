@@ -1,0 +1,30 @@
+{
+  "machine": "Third x86_64 development Mac; full gate running; not a lamp",
+  "source_manifest": "buffered-source.json",
+  "command": [
+    "/Users/d/code/autonomous-os/lampOS/target/debug/lamp-controls",
+    "replay",
+    "--touch",
+    "--clock-id",
+    "strip-711-authored",
+    "--config",
+    "crates/controls/fixtures/strip-711-controls.json",
+    "--pins",
+    "crates/controls/fixtures/strip-711-pins-example.json",
+    "--input",
+    "crates/controls/fixtures/strip-711-replay.jsonl",
+    "--until-us",
+    "19948000",
+    "--output",
+    "/private/tmp/lamp-third-touch-buffered-output-measurement.jsonl"
+  ],
+  "exit_code": 0,
+  "elapsed_seconds": 0.17861902699999999,
+  "stdout_bytes": 0,
+  "stderr": "{\"records\":1052,\"gpio_samples\":0,\"strip_samples\":1052,\"rejected\":0,\"rejected_by_fault\":[],\"faults\":0,\"events\":54,\"ticks\":9975,\"frames\":1050,\"start_us\":0,\"end_us\":19948000}\n",
+  "output_bytes": 905228,
+  "output_lines": 1050,
+  "output_sha256": "af7758ad84e3593313bafe7e543696db8c8cb1fdf392b30206af80684fe1b3c1",
+  "identical_to_unbuffered": true,
+  "scope": "One local sample only; different concurrent load, not a performance guarantee or lamp timing."
+}

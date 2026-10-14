@@ -1,0 +1,44 @@
+[
+  {
+    "file": "bus-must-stay-file",
+    "bytes": 17,
+    "lines": 1,
+    "sha256": "f796d81a7621ee4cf5185fea9eec37a3f54dd21cf4d333d46447b6fbcde0e014"
+  },
+  {
+    "file": "controls.json",
+    "bytes": 70,
+    "lines": 0,
+    "sha256": "667776a82d034beab17f00cccd55cd44fcf060c5e8b6535b0ef0e369e74ab522"
+  },
+  {
+    "file": "input.jsonl",
+    "bytes": 181533,
+    "lines": 1052,
+    "sha256": "d37dcd9e123727865a954fbc5630fe68a4650496d29972500cae3fa139d431d1"
+  },
+  {
+    "file": "pins.json",
+    "bytes": 1682,
+    "lines": 118,
+    "sha256": "a1fd41e1c03f62fe4992d0c4368d57d2e3d9232c8a3c8acb8e74413b0b02ceba"
+  },
+  {
+    "file": "result.jsonl",
+    "bytes": 214122,
+    "lines": 406,
+    "sha256": "c8748ad01b4caab73b9b2184df731c34779bf79c82efa4750f0b6be38883c4c9"
+  },
+  {
+    "file": "stderr-0.txt",
+    "bytes": 0,
+    "lines": 0,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "file": "stdout-0.jsonl",
+    "bytes": 0,
+    "lines": 0,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  }
+]

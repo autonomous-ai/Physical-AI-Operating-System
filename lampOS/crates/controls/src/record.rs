@@ -24,6 +24,7 @@ struct WriteProgress {
     bytes: u64,
     first_us: Option<u64>,
     previous_us: Option<u64>,
+    touch: bool,
 }
 
 #[derive(Default)]
@@ -47,6 +48,7 @@ pub struct Recorder {
     done: Receiver<()>,
     counters: Arc<Counters>,
     gap: bool,
+    touch: bool,
 }
 
 /// Keep the writer independent of disk scheduling so queue-loss and replay
@@ -82,12 +84,7 @@ fn write_records(
     // dropped sample was the final one in the clip. I/O failure may leave a
     // partial line; failed remains true even if the final write succeeds.
     if counters.tail_gap.load(Ordering::Acquire) || counters.failed.load(Ordering::Relaxed) {
-        let end = Record {
-            now_us: progress.previous_us.unwrap_or(0),
-            observation: None,
-            fault: Some(ControlFault::Overflow),
-        };
-        let result = serde_json::to_vec(&end)
+        let result = overflow(progress.previous_us.unwrap_or(0), progress.touch)
             .map_err(io::Error::from)
             .and_then(|mut line| {
                 line.push(b'\n');
@@ -105,6 +102,14 @@ fn write_records(
 
 impl Recorder {
     pub fn create(path: &Path) -> io::Result<Self> {
+        Self::create_format(path, false)
+    }
+
+    pub fn create_touch(path: &Path) -> io::Result<Self> {
+        Self::create_format(path, true)
+    }
+
+    fn create_format(path: &Path, touch: bool) -> io::Result<Self> {
         let mut file = OpenOptions::new()
             .create_new(true)
             .write(true)
@@ -117,7 +122,15 @@ impl Recorder {
         thread::Builder::new()
             .name("controls-record".into())
             .spawn(move || {
-                write_records(&mut file, receiver, &worker, &mut WriteProgress::default());
+                write_records(
+                    &mut file,
+                    receiver,
+                    &worker,
+                    &mut WriteProgress {
+                        touch,
+                        ..WriteProgress::default()
+                    },
+                );
                 if file.sync_all().is_err() {
                     worker.failed.store(true, Ordering::Relaxed);
                 }
@@ -128,12 +141,17 @@ impl Recorder {
             done,
             counters,
             gap: false,
+            touch,
         })
     }
 
     /// A lost recording sample is represented by an overflow before any later
     /// sample. The real engine is unaffected; replay must not span that gap.
     pub fn submit(&mut self, record: &Record) {
+        if self.touch {
+            self.counters.failed.store(true, Ordering::Relaxed);
+            return;
+        }
         if self.gap {
             let gap = Record {
                 now_us: record.now_us,
@@ -147,6 +165,27 @@ impl Recorder {
             self.counters.tail_gap.store(false, Ordering::Release);
         }
         if !self.send(record) {
+            self.gap = true;
+            self.counters.tail_gap.store(true, Ordering::Release);
+        }
+    }
+
+    /// The touch format carries independent GPIO and strip acquisitions. A
+    /// recording drop invalidates both sources in replay and never pretends
+    /// that the last known levels remained sampled through the gap.
+    pub fn submit_touch(&mut self, record: &crate::touch_replay::Record) {
+        if !self.touch {
+            self.counters.failed.store(true, Ordering::Relaxed);
+            return;
+        }
+        if self.gap {
+            if !self.send_bytes(record.now_us, overflow(record.now_us, true)) {
+                return;
+            }
+            self.gap = false;
+            self.counters.tail_gap.store(false, Ordering::Release);
+        }
+        if !self.send_bytes(record.now_us, serde_json::to_vec(record)) {
             self.gap = true;
             self.counters.tail_gap.store(true, Ordering::Release);
         }
@@ -169,7 +208,11 @@ impl Recorder {
         } else {
             record
         };
-        let mut line = match serde_json::to_vec(record) {
+        self.send_bytes(record.now_us, serde_json::to_vec(record))
+    }
+
+    fn send_bytes(&self, now_us: u64, encoded: Result<Vec<u8>, serde_json::Error>) -> bool {
+        let mut line = match encoded {
             Ok(line) => line,
             Err(_) => {
                 self.counters.failed.store(true, Ordering::Relaxed);
@@ -181,7 +224,7 @@ impl Recorder {
             return false;
         }
         line.push(b'\n');
-        match self.sender.try_send((record.now_us, line)) {
+        match self.sender.try_send((now_us, line)) {
             Ok(()) => true,
             Err(TrySendError::Full(_)) => {
                 self.counters.dropped.fetch_add(1, Ordering::Relaxed);
@@ -223,6 +266,23 @@ impl Recorder {
     }
 }
 
+fn overflow(now_us: u64, touch: bool) -> Result<Vec<u8>, serde_json::Error> {
+    if touch {
+        serde_json::to_vec(&crate::touch_replay::Record {
+            now_us,
+            input: crate::touch_replay::Input::AllFault {
+                fault: ControlFault::Overflow,
+            },
+        })
+    } else {
+        serde_json::to_vec(&Record {
+            now_us,
+            observation: None,
+            fault: Some(ControlFault::Overflow),
+        })
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -232,6 +292,108 @@ mod tests {
         replay,
     };
     use lamp_msgs::ClockStamp;
+
+    #[test]
+    fn touch_recording_queue_loss_marks_both_sources_instead_of_splicing_a_hold() {
+        use crate::touch_replay::{self, Input};
+        let (mut recorder, receiver) = recorder(2);
+        recorder.touch = true;
+        let counters = recorder.counters.clone();
+        let row = |now_us| touch_replay::Record {
+            now_us,
+            input: Input::AllFault {
+                fault: ControlFault::Missing,
+            },
+        };
+        recorder.submit_touch(&row(100));
+        recorder.submit_touch(&row(200));
+        recorder.submit_touch(&row(300));
+        assert_eq!(recorder.stats().dropped, 1);
+        let prefix = [receiver.recv().unwrap(), receiver.recv().unwrap()];
+        recorder.submit_touch(&row(400));
+        assert!(!recorder.gap);
+        drop(recorder);
+        let mut bytes = Vec::new();
+        write_records(
+            &mut bytes,
+            prefix.into_iter().chain(receiver),
+            &counters,
+            &mut WriteProgress {
+                touch: true,
+                ..WriteProgress::default()
+            },
+        );
+        let saved = touch_replay::read(bytes.as_slice()).unwrap();
+        assert_eq!(saved.len(), 4);
+        assert_eq!(saved[2].now_us, 400);
+        assert!(matches!(
+            saved[2].input,
+            Input::AllFault {
+                fault: ControlFault::Overflow
+            }
+        ));
+        assert!(matches!(
+            saved[3].input,
+            Input::AllFault {
+                fault: ControlFault::Missing
+            }
+        ));
+        assert!(!counters.failed.load(Ordering::Relaxed));
+    }
+
+    #[test]
+    fn a_final_touch_recording_drop_is_an_overflow_at_the_last_saved_time() {
+        use crate::touch_replay::{self, Input};
+        let (mut recorder, receiver) = recorder(1);
+        recorder.touch = true;
+        let counters = recorder.counters.clone();
+        for now_us in [100, 200] {
+            recorder.submit_touch(&touch_replay::Record {
+                now_us,
+                input: Input::GpioFault {
+                    fault: ControlFault::Missing,
+                },
+            });
+        }
+        assert_eq!(recorder.stats().dropped, 1);
+        drop(recorder);
+        let mut bytes = Vec::new();
+        write_records(
+            &mut bytes,
+            receiver,
+            &counters,
+            &mut WriteProgress {
+                touch: true,
+                ..WriteProgress::default()
+            },
+        );
+        let saved = touch_replay::read(bytes.as_slice()).unwrap();
+        assert_eq!(saved.len(), 2);
+        assert_eq!(saved[1].now_us, 100);
+        assert!(matches!(
+            saved[1].input,
+            Input::AllFault {
+                fault: ControlFault::Overflow
+            }
+        ));
+        assert!((overflow(u64::MAX, true).unwrap().len() as u64) < TERMINAL_BYTES);
+    }
+
+    #[test]
+    fn recording_formats_cannot_be_mixed_silently() {
+        let (mut legacy, _) = recorder(1);
+        legacy.submit_touch(&crate::touch_replay::Record {
+            now_us: 100,
+            input: crate::touch_replay::Input::AllFault {
+                fault: ControlFault::Missing,
+            },
+        });
+        assert!(legacy.stats().failed);
+        let (mut touch, _) = recorder(1);
+        touch.touch = true;
+        touch.submit(&tick(100));
+        assert!(touch.stats().failed);
+    }
 
     fn tick(now_us: u64) -> Record {
         Record {
@@ -258,6 +420,7 @@ mod tests {
                 done,
                 counters: Arc::new(Counters::default()),
                 gap: false,
+                touch: false,
             },
             receiver,
         )
@@ -410,6 +573,7 @@ mod tests {
             bytes: MAX_BYTES - TERMINAL_BYTES - first.1.len() as u64,
             first_us: Some(99),
             previous_us: Some(99),
+            touch: false,
         };
         let prefix_bytes = progress.bytes;
         let mut bytes = Vec::new();

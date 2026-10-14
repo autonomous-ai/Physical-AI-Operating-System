@@ -1,0 +1,251 @@
+{
+  "machine": "Intel i7-10700K x86_64 development Mac, macOS 26.6.2 / Darwin 25.6; not a lamp",
+  "working_directory": "/Users/d/code/autonomous-os/lampOS",
+  "source_manifest": "working-source.json",
+  "steps": [
+    {
+      "log": "strip.txt",
+      "command": [
+        "cargo",
+        "test",
+        "--offline",
+        "-p",
+        "lamp-controls",
+        "--test",
+        "strip"
+      ],
+      "exit_codes_in_order": [
+        101,
+        0
+      ],
+      "sha256": "5e73aaf9d516db5eee5a9980da2cec0811efc8b6ca39bb9fe3dac8f116f220b0",
+      "passing_harness_totals": {
+        "harnesses": 1,
+        "passed": 53,
+        "failed": 0,
+        "ignored": 0
+      },
+      "note": "The first failed compile and passing rerun were appended in chronological order; no completed tests on the failed compile."
+    },
+    {
+      "log": "strip-clippy.txt",
+      "command": [
+        "cargo",
+        "clippy",
+        "--offline",
+        "-p",
+        "lamp-controls",
+        "--lib",
+        "--test",
+        "strip",
+        "--",
+        "-D",
+        "warnings"
+      ],
+      "exit_codes_in_order": [
+        0
+      ],
+      "sha256": "90c2adebec001b57385907eb4716e3d6e5755c2237beba69a95d15c5cc685e78"
+    },
+    {
+      "log": "strip-format.txt",
+      "command": [
+        "rustfmt",
+        "--edition",
+        "2024",
+        "--check",
+        "crates/controls/src/base/strip.rs",
+        "crates/controls/tests/strip.rs"
+      ],
+      "exit_codes_in_order": [
+        0
+      ],
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "log": "coordinator.txt",
+      "command": [
+        "cargo",
+        "test",
+        "--offline",
+        "-p",
+        "lamp-controls",
+        "--test",
+        "touch",
+        "--test",
+        "touch_pins"
+      ],
+      "exit_codes_in_order": [
+        101
+      ],
+      "sha256": "4430318fc8fe81d75c9fa9c1026315396eaebff1c2c0e6bcaeeeffa87cc414b4"
+    },
+    {
+      "log": "coordinator-second.txt",
+      "command": [
+        "cargo",
+        "test",
+        "--offline",
+        "-p",
+        "lamp-controls",
+        "--test",
+        "touch",
+        "--test",
+        "touch_pins"
+      ],
+      "exit_codes_in_order": [
+        0
+      ],
+      "sha256": "10acd8d2da70fca741aca0fa4d87a477befa3496855e05ad95d15c8b089451b2",
+      "passing_harness_totals": {
+        "harnesses": 2,
+        "passed": 56,
+        "failed": 0,
+        "ignored": 0
+      }
+    },
+    {
+      "log": "coordinator-clippy.txt",
+      "command": [
+        "cargo",
+        "clippy",
+        "--offline",
+        "-p",
+        "lamp-controls",
+        "--lib",
+        "--test",
+        "touch",
+        "--test",
+        "touch_pins",
+        "--",
+        "-D",
+        "warnings"
+      ],
+      "exit_codes_in_order": [
+        0
+      ],
+      "sha256": "927e40f6c009b61612b31e5b79b52e38800e41f9254f8fe23f505cf8817e4b1a"
+    },
+    {
+      "log": "coordinator-format-check.txt",
+      "command": [
+        "rustfmt",
+        "--edition",
+        "2024",
+        "--check",
+        "crates/controls/src/touch.rs",
+        "crates/controls/src/touch_pins.rs",
+        "crates/controls/tests/touch.rs",
+        "crates/controls/tests/touch_pins.rs"
+      ],
+      "exit_codes_in_order": [
+        0
+      ],
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "log": "mpr.txt",
+      "command": [
+        "cargo",
+        "test",
+        "--offline",
+        "-p",
+        "lamp-controls",
+        "--test",
+        "mpr121"
+      ],
+      "exit_codes_in_order": [
+        0
+      ],
+      "sha256": "7a1a5926ada9758110237c31e39d3c0f9abf8c5fe35d9e6e73ce6ada33d08b36",
+      "passing_harness_totals": {
+        "harnesses": 1,
+        "passed": 43,
+        "failed": 0,
+        "ignored": 0
+      }
+    },
+    {
+      "log": "mpr-unit.txt",
+      "command": [
+        "cargo",
+        "test",
+        "--offline",
+        "-p",
+        "lamp-controls",
+        "--lib",
+        "mpr121::tests"
+      ],
+      "exit_codes_in_order": [
+        0
+      ],
+      "sha256": "cfe4dc4694e54c98f4a9d3e5ad37bc2a89fda59be0840ddc8d0b6a384daf09d1",
+      "passing_harness_totals": {
+        "harnesses": 1,
+        "passed": 1,
+        "failed": 0,
+        "ignored": 0
+      }
+    },
+    {
+      "log": "mpr-clippy.txt",
+      "command": [
+        "cargo",
+        "clippy",
+        "--offline",
+        "-p",
+        "lamp-controls",
+        "--lib",
+        "--test",
+        "mpr121",
+        "--",
+        "-D",
+        "warnings"
+      ],
+      "exit_codes_in_order": [
+        0
+      ],
+      "sha256": "98c877cd31b87b57df1e3c4e271ab1b2106b3f74626fb269b7cb39a2359fba7e"
+    },
+    {
+      "log": "replays.txt",
+      "command": [
+        "cargo",
+        "test",
+        "--offline",
+        "--locked",
+        "-p",
+        "lamp-controls",
+        "--test",
+        "touch_replay",
+        "--test",
+        "touch_program",
+        "--",
+        "--test-threads=1"
+      ],
+      "exit_codes_in_order": [
+        0
+      ],
+      "sha256": "d5ef3e07b43f9413b55307c1e4d67f04260979c65a387545e2a8fd6e1d82baf6",
+      "passing_harness_totals": {
+        "harnesses": 2,
+        "passed": 26,
+        "failed": 0,
+        "ignored": 0
+      }
+    }
+  ],
+  "additional_unsaved_format_check": {
+    "command": [
+      "rustfmt",
+      "--edition",
+      "2024",
+      "--check",
+      "crates/controls/src/mpr121.rs",
+      "crates/controls/tests/mpr121.rs"
+    ],
+    "exit_code": 0,
+    "raw_output_saved": false,
+    "reported_output": "empty"
+  }
+}

@@ -7,7 +7,7 @@ use lamp_controls::{
 use std::{
     collections::BTreeSet,
     fs::{File, OpenOptions},
-    io::{self, Read, Write},
+    io::{self, BufWriter, Read, Write},
     os::unix::fs::OpenOptionsExt,
     path::PathBuf,
     process::ExitCode,
@@ -19,13 +19,17 @@ use std::{
     time::Duration,
 };
 
-const USAGE: &str = "lamp-controls serve [--config FILE] [--pins FILE] [--enable] [--bus-root PATH] [--clock-id ID] [--record FILE] [--seconds N]\n\
-lamp-controls replay --input FILE --config FILE --clock-id ID [--enable] [--output FILE] [--until-us N]\n\
+const USAGE: &str = "lamp-controls serve [--config FILE] [--pins FILE] [--touch] [--enable] [--bus-root PATH] [--clock-id ID] [--record FILE] [--seconds N]\n\
+lamp-controls replay --input FILE --config FILE --clock-id ID [--touch --pins FILE] [--enable] [--output FILE] [--until-us N]\n\
 lamp-controls probe --pins FILE\n\
+lamp-controls discover-head --seconds N\n\
 lamp-controls clock [--clock-id ID]\n\n\
 Shadow is the default. A config file cannot enable the process without --enable.\n\
 Without --pins, serve reads nothing and reports Missing. With it, the board's GPIO lines named in FILE are read.\n\
 probe reads each line of FILE once with a pull-down and once with a pull-up, and serves nothing.\n\
+discover-head samples candidates 37/96/97/98 on chip 0 for 2..60 seconds; it installs no mapping.\n\
+--touch selects the new independent head/strip path and its pins schema. It configures the selected I2C chip even in shadow.\n\
+Without --touch, no new reader, touch topic or gesture interpretation is selected.\n\
 Replay never opens a bus or hardware. Times are CLOCK_MONOTONIC microseconds.\n\
 Record/output files must not already exist. Acquisition records are capped at 32 MiB.\n\
 No controls message grants microphone/camera permission or reports a verified stop.";
@@ -43,6 +47,10 @@ struct Args {
     seconds: Option<u64>,
     until: Option<u64>,
     pins: Option<PathBuf>,
+    touch: bool,
+    profile: Option<String>,
+    sink: Option<PathBuf>,
+    session: Option<String>,
 }
 
 fn parse(args: impl IntoIterator<Item = String>) -> Result<Option<Args>, String> {
@@ -51,7 +59,16 @@ fn parse(args: impl IntoIterator<Item = String>) -> Result<Option<Args>, String>
     if command == "--help" || command == "-h" {
         return Ok(None);
     }
-    if !["serve", "replay", "clock", "probe"].contains(&command.as_str()) {
+    if ![
+        "serve",
+        "replay",
+        "clock",
+        "probe",
+        "discover-head",
+        "mpr-worker",
+    ]
+    .contains(&command.as_str())
+    {
         return Err(format!("unknown command {command}"));
     }
     let mut out = Args {
@@ -72,6 +89,7 @@ fn parse(args: impl IntoIterator<Item = String>) -> Result<Option<Args>, String>
                 "--clock-id",
                 "--record",
                 "--seconds",
+                "--touch",
             ]
             .contains(&option.as_str()),
             "replay" => [
@@ -81,9 +99,15 @@ fn parse(args: impl IntoIterator<Item = String>) -> Result<Option<Args>, String>
                 "--enable",
                 "--output",
                 "--until-us",
+                "--touch",
+                "--pins",
             ]
             .contains(&option.as_str()),
             "probe" => option == "--pins",
+            "discover-head" => option == "--seconds",
+            "mpr-worker" => {
+                ["--profile-json", "--sink", "--clock-id", "--session"].contains(&option.as_str())
+            }
             _ => option == "--clock-id",
         };
         if !allowed {
@@ -93,12 +117,19 @@ fn parse(args: impl IntoIterator<Item = String>) -> Result<Option<Args>, String>
             out.enabled = true;
             continue;
         }
+        if option == "--touch" {
+            out.touch = true;
+            continue;
+        }
         let value = args
             .next()
             .ok_or_else(|| format!("{option} needs a value"))?;
         match option.as_str() {
             "--config" => out.config = Some(value.into()),
             "--pins" => out.pins = Some(value.into()),
+            "--profile-json" => out.profile = Some(value),
+            "--sink" => out.sink = Some(value.into()),
+            "--session" => out.session = Some(value),
             "--input" => out.input = Some(value.into()),
             "--output" => out.output = Some(value.into()),
             "--record" => out.record = Some(value.into()),
@@ -136,6 +167,27 @@ fn parse(args: impl IntoIterator<Item = String>) -> Result<Option<Args>, String>
     }
     if out.command == "probe" && out.pins.is_none() {
         return Err("probe needs --pins".into());
+    }
+    if out.touch && out.pins.is_none() {
+        return Err("--touch needs --pins with explicit per-unit wiring".into());
+    }
+    if out.command == "replay" && out.pins.is_some() && !out.touch {
+        return Err("replay accepts --pins only with --touch".into());
+    }
+    if out.command == "discover-head"
+        && out
+            .seconds
+            .is_none_or(|seconds| !(2..=60).contains(&seconds))
+    {
+        return Err("discover-head needs --seconds in 2..60".into());
+    }
+    if out.command == "mpr-worker"
+        && (out.profile.is_none()
+            || out.sink.is_none()
+            || out.clock.is_none()
+            || out.session.is_none())
+    {
+        return Err("internal MPR worker needs profile, sink, clock and session".into());
     }
     Ok(Some(out))
 }
@@ -236,6 +288,26 @@ fn probe(_: &std::path::Path) -> Result<(), Box<dyn std::error::Error>> {
 }
 
 fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
+    if args.command == "discover-head" {
+        println!(
+            "{}",
+            serde_json::to_string(&lamp_controls::head_discovery::run(args.seconds.unwrap())?)?
+        );
+        return Ok(());
+    }
+    if args.command == "mpr-worker" {
+        let profile = args.profile.as_ref().unwrap();
+        if profile.len() > 16_384 {
+            return Err("MPR121 profile exceeds 16 KiB".into());
+        }
+        return lamp_controls::strip_worker::run(
+            serde_json::from_str(profile)?,
+            args.sink.as_ref().unwrap(),
+            args.clock.as_deref().unwrap(),
+            args.session.as_deref().unwrap(),
+        )
+        .map_err(Into::into);
+    }
     if args.command == "probe" {
         return probe(args.pins.as_ref().expect("checked when parsed"));
     }
@@ -248,6 +320,9 @@ fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
         return Ok(());
     }
     let config = config(&args)?;
+    if args.touch {
+        return run_touch(args, config, &clock);
+    }
     if args.command == "replay" {
         let records = replay::read(File::open(args.input.as_ref().unwrap())?)?;
         let writer: Box<dyn Write> = if let Some(path) = args.output {
@@ -302,6 +377,124 @@ fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
     println!(
         "{}",
         serde_json::json!({"counts":service.counts,"recording":recording,"physical_stop_verified":false})
+    );
+    Ok(())
+}
+
+#[cfg(target_os = "linux")]
+fn touch_reader(
+    wiring: &lamp_controls::touch_pins::TouchPinsConfig,
+    clock: &str,
+) -> Result<Box<dyn lamp_controls::input::PinReader>, Box<dyn std::error::Error>> {
+    let Some((pins, config)) = wiring.gpio_config() else {
+        return Ok(Box::new(lamp_controls::touch_pins::NoGpio));
+    };
+    let lines = match lamp_controls::pins::GpioLines::open(&pins) {
+        Ok(lines) => lines,
+        Err(error) => {
+            return Ok(Box::new(lamp_controls::touch_pins::FailedGpio::new(
+                error.to_string(),
+            )));
+        }
+    };
+    Ok(Box::new(lamp_controls::pins::LinePins::new(
+        lines,
+        pins,
+        &config,
+        clock,
+        format!(
+            "touch-gpio-{}-{}",
+            std::process::id(),
+            lamp_ipc::monotonic_us()
+        ),
+    )?))
+}
+
+#[cfg(not(target_os = "linux"))]
+fn touch_reader(
+    _: &lamp_controls::touch_pins::TouchPinsConfig,
+    _: &str,
+) -> Result<Box<dyn lamp_controls::input::PinReader>, Box<dyn std::error::Error>> {
+    Err("touch hardware requires Linux; replay opens no hardware".into())
+}
+
+fn run_touch(args: Args, config: Config, clock: &str) -> Result<(), Box<dyn std::error::Error>> {
+    use lamp_controls::{strip_worker::Worker, touch_pins::TouchPinsConfig, touch_runtime};
+    let wiring = TouchPinsConfig::load(args.pins.as_ref().expect("validated pins argument"))?;
+    let touch = wiring.check(&config)?;
+    if args.command == "replay" {
+        let records = lamp_controls::touch_replay::read(File::open(args.input.as_ref().unwrap())?)?;
+        let writer: Box<dyn Write> = if let Some(path) = args.output {
+            Box::new(BufWriter::with_capacity(
+                8 * 1024,
+                OpenOptions::new()
+                    .write(true)
+                    .create_new(true)
+                    .mode(0o600)
+                    .open(path)?,
+            ))
+        } else {
+            Box::new(io::stdout().lock())
+        };
+        let summary = lamp_controls::touch_replay::run(touch, clock, &records, args.until, writer)?;
+        eprintln!("{}", serde_json::to_string(&summary)?);
+        return Ok(());
+    }
+    let gpio = touch_reader(&wiring, clock)?;
+    let bus = if let Some(root) = args.bus_root {
+        Bus::new(root)?
+    } else {
+        Bus::from_environment()?
+    };
+    let mut service =
+        touch_runtime::Service::new(&bus, config, wiring.clone(), gpio, None::<Worker>, clock)?;
+    if let Some(path) = args.record {
+        service.record_to(&path)?;
+    }
+    let stop = Arc::new(AtomicBool::new(false));
+    let signal_ids = [signal_hook::consts::SIGINT, signal_hook::consts::SIGTERM]
+        .map(|signal| signal_hook::flag::register(signal, stop.clone()))
+        .into_iter()
+        .collect::<io::Result<Vec<_>>>()?;
+    // The owner lock is held before a child can configure the I2C device.
+    if let Some(base) = &wiring.base {
+        match Worker::start(
+            base,
+            bus.root(),
+            clock,
+            &format!(
+                "touch-strip-{}-{}",
+                std::process::id(),
+                lamp_ipc::monotonic_us()
+            ),
+        ) {
+            Ok(worker) => service.strip = Some(worker),
+            Err(error) => service.strip_unavailable(lamp_ipc::monotonic_us(), &error.to_string()),
+        }
+    }
+    let started = lamp_ipc::monotonic_us();
+    while !stop.load(Ordering::Relaxed)
+        && args
+            .seconds
+            .is_none_or(|seconds| lamp_ipc::monotonic_us() - started < seconds * 1_000_000)
+    {
+        let began = lamp_ipc::monotonic_us();
+        service.step(lamp_ipc::monotonic_us);
+        let elapsed = lamp_ipc::monotonic_us().saturating_sub(began);
+        if elapsed < runtime::POLL_US {
+            thread::sleep(Duration::from_micros(runtime::POLL_US - elapsed));
+        }
+    }
+    let worker = service.strip.as_mut().map(Worker::shutdown);
+    let recording = service.finish_recording();
+    for id in signal_ids {
+        signal_hook::low_level::unregister(id);
+    }
+    println!(
+        "{}",
+        serde_json::json!({"counts":service.counts,"gpio_accepted":service.gpio_accepted,
+        "strip_accepted":service.strip_accepted,"recording":recording,"worker_cleanup":worker,
+        "physical_stop_verified":false,"capture_permission":"not_owned"})
     );
     Ok(())
 }

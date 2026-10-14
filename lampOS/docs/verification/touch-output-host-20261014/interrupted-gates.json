@@ -1,0 +1,26 @@
+[
+  {
+    "prefix": "working",
+    "reason": "Standalone CLI timeout found; fix required",
+    "exit_code": 130,
+    "complete": false,
+    "completed_harnesses": 94,
+    "partial_counts": {
+      "passed": 1324,
+      "failed": 0,
+      "ignored": 6
+    }
+  },
+  {
+    "prefix": "buffered",
+    "reason": "Fetched runtime changes in Eyes, Policy, Records and Voice; rebase and restart full gate",
+    "exit_code": 130,
+    "complete": false,
+    "completed_harnesses": 0,
+    "partial_counts": {
+      "passed": 0,
+      "failed": 0,
+      "ignored": 0
+    }
+  }
+]

@@ -1,5 +1,36 @@
 # Reuse decisions: V1, ROS 2 and existing Rust systems
 
+## Touch strip and head, Task 33 (2026-10-14)
+
+Third read V1 `hal/drivers/mpr121.py`, its initialization/configuration/spatial
+gesture tests, the head's TTP223 fast-pulse behavior and hardware wiring before
+adding the separate `--touch` path. The existing Controls path stays unchanged.
+Retained safeguards: reset/Stop/write/Run ordering, checking reset state,
+initial held-contact suppression, fault as unknown rather than release,
+5 ms pad/10 ms contact and chord qualification, three-pad touch minimum,
+strict ordering/age, bounded delivery and inhibition before teardown. Changed
+product meanings: head/base Touch asks Stop or Attend; head/slow-base Stroke
+is separate from physical speed; stationary two-second base Hold asks Sleep
+or Wake according to the owner's contact-start lifecycle. No `Pet`, blind
+toggle, shutdown or direct owner callback is imported.
+
+| Choice | Evidence and consequence |
+|---|---|
+| Reuse Linux transport | Pinned MIT/Apache `i2cdev` 0.6.2 provides combined transfers; every returned transfer count is checked. No hand-written ioctl/unsafe adapter, force-address, bus scan or adapter-global timeout/retry change. [Linux interface](https://docs.kernel.org/i2c/dev-interface.html). |
+| Keep device policy local and injectable | Inspected [`mpr121-hal` 0.5.0](https://docs.rs/mpr121-hal/0.5.0/src/mpr121_hal/mpr121.rs.html) drops reset-write failure and masks overcurrent in `get_touched`; its baseline accessor also treats adjacent byte registers as a word before narrowing. The local register trait tests each failure and all status bits. `linux-embedded-hal` was considered but adds no needed policy to this transport. |
+| Explicit per-unit profile | [NXP Rev. 4](https://www.nxp.com/docs/en/data-sheet/MPR121.pdf) defines ECR0x8F as all twelve pads and debounce0x22 as three detections each polarity. [AN3889](https://www.nxp.com/docs/en/application-note/AN3889.pdf) auto-configuration tunes charge, not touch noise thresholds. First's 20:05 hardware answer confirms faulty E4/E8 on lamp-4ace; the working set and each pad's thresholds are per-unit settings. The earlier register snapshot is historical evidence, not calibration. |
+| Preserve sparse geometry | Three to twelve explicitly selected pads; sparse lists are ascending/descending to retain full physical electrode slots. Known exclusions are skipped for connectivity, not distance. Inactive selected pads still separate a sparse footprint; actual zero/fault samples never become invented contact. Full-twelve behavior is retained for comparison. |
+| Verify runtime state | Status/configuration/status/ECR checks reject OVCF, working-electrode OOR, ACFF/ARFF, proximity/reserved status, reset/stop and static drift; dynamic CDC/CDT changes remain allowed with auto-configuration. ECR cannot disable holes inside its contiguous prefix: excluded electrodes still scan and may cause a global fault, which remains fatal. This strengthens V1's status-only fault coverage; electrical recovery remains unproved. |
+| One disposable child owns I²C | A stuck ioctl cannot block GPIO polling. Fixed per-device advisory lock is held by the child, including after parent death, and never unlinked. Seven-second startup/150 ms packet deadlines, 1 KiB packets, no replacement and bounded truthful reaping prevent stacked workers. Cooperating locks cannot prevent an unrelated external I²C writer or a physical shared-bus fault. |
+| Keep actual sampled evidence | GPIO and strip freshness are independent. TTP223 low gaps do not become an invented resting hand; normalized centroids are not millimetres. The raw 57 changed masks cannot prove continuous acquisition: the 995 filled samples and their clock/session/sequence are explicitly authored. |
+
+What has not been shown: per-electrode calibration/noise rejection, a physically
+qualified working set on any other unit, real pad polarity and sustained-head behavior, I²C load
+alongside Air, cold/repeated physical latency, owner-applied sleep/privacy or
+safe light/body following. The [Controls procedure](controls.md#touch-and-slides-task-33)
+and Third's log separate Mac tests, native ARM64 CI and First's required lamp
+qualification. No third-builder lamp measurement exists.
+
 Review date: 2026-10-10. This is a source-based decision record, not a performance
 comparison. V1 means main commit `d5efe9d7b73cc529b34cd4abe97624682a82ca94`.
 The current Rust checkpoint is `64529dee4d1228dd9373298a807d506f94421dca`.
@@ -986,6 +1017,10 @@ audible delivery or end-to-end latency. Storage test evidence and runtime
 limits are reported separately in [tasks.md](tasks.md); V1 tests cited here
 were inspected as cases, not rerun. No permission, completion or successful
 speech is inferred from a process exit or observed transcript.
+
+The Task 33 touch review also supplies no lamp calibration, physical contact
+latency, electrical contention result or owner-applied Sleep/Wake/Stop. Its
+host fixtures and native build gate do not establish a physical response.
 
 ## Mood: bounded inner state (task 35, 2026-10-14)
 

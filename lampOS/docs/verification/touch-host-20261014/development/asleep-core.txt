@@ -1,0 +1,68 @@
+   Compiling lamp-controls v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/controls)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 3.06s
+     Running tests/touch.rs (target/debug/deps/touch-12d7add8f7ee7150)
+
+running 32 tests
+test configuration_is_bounded_unique_explicit_and_strict ... ok
+test default_disabled_reports_shadow_without_eligible_events ... ok
+test backwards_clock_is_terminal_and_near_max_timestamps_do_not_wrap ... ok
+test gpio_fault_preserves_independent_strip_request_identity ... ok
+test gpio_and_strip_faults_do_not_withdraw_the_other_group ... ok
+test configured_head_order_controls_mask_and_active_names_not_input_vector_order ... ok
+test head_qualification_uses_acquisition_time_not_receipt_or_ticks ... ok
+test malformed_future_duplicate_and_wrong_clock_inputs_clear_pending ... ok
+test head_needs_startup_settle_and_a_released_baseline ... ok
+test invalid_head_snapshot_cannot_omit_or_duplicate_configured_inputs ... ok
+test pending_event_and_feedback_do_not_gain_new_age_on_heartbeat ... ok
+test primary_short_release_is_immediate_stop_with_no_double_tap_wait ... ok
+test lost_acquisition_cannot_turn_hidden_release_repress_into_mute ... ok
+test reader_restart_consumes_first_sample_then_requires_release_and_rejects_old_reader ... ok
+test qualified_head_touch_offers_wake_without_changing_awake_pair ... ok
+test output_queue_is_bounded_and_overflow_withdraws_undelivered_group ... ok
+test reader_session_retirement_is_bounded_and_never_reopens_old_identity ... ok
+test reversed_strip_order_names_actual_destination_electrode ... ok
+test source_ttl_withdraws_feedback_at_exact_boundary_without_synthetic_release ... ok
+test acquisition_gap_disarms_hold_and_later_released_sample_recovers ... ok
+test strip_brief_qualified_release_and_reversed_mapping_are_preserved ... ok
+test strip_raw_handoff_is_active_even_while_filtered_geometry_is_empty ... ok
+test fast_mode_pulses_never_fabricate_a_resting_hand ... ok
+test same_polarity_button_debounce_cancels_bounce_hold_evidence ... ok
+test physical_button_events_preserve_stop_mute_and_reset_asleep ... ok
+test strip_restart_and_expiry_cannot_reuse_old_hold ... ok
+test strip_stationary_hold_requests_sleep_once_and_raw_release_is_not_a_tap ... ok
+test primary_hold_never_commits_before_release_and_never_factory_resets ... ok
+test startup_held_buttons_and_orphan_release_cannot_act ... ok
+test stationary_head_stroke_occurs_once_at_actual_half_second ... ok
+test authored_head_qualification_target_covers_first_and_repeated_sample_phases ... ok
+test reset_short_release_does_nothing_and_exact_five_seconds_is_reset_only ... ok
+
+test result: ok. 32 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/touch_receiver.rs (target/debug/deps/touch_receiver-f2e22c23d04bf3cc)
+
+running 22 tests
+test lifecycle_contact_binding_keeps_waking_hold_from_sleeping_again ... ok
+test repeated_state_identity_with_changed_content_is_refused ... ok
+test source_configuration_is_immutable_within_controls_session ... ok
+test backwards_receipt_clock_latches_closed ... ok
+test advisory_event_is_not_lost_to_state_cumulative_watermark ... ok
+test original_event_acquisition_expires_even_with_fresh_state_and_republication ... ok
+test changed_controls_session_retires_old_payload_and_resets_lifecycle_baseline ... ok
+test out_of_order_state_cannot_erase_high_water_even_after_refusal ... ok
+test event_before_qualifying_state_is_refused_without_consuming_it ... ok
+test retained_touch_sleep_and_reset_do_not_replay_on_subscribe ... ok
+test retained_primary_stop_and_one_way_mute_are_not_lifecycle_replay ... ok
+test changed_source_reader_is_fenced_and_cannot_replay_held_sleep ... ok
+test stale_current_acquisition_cannot_be_renewed_by_fresh_state_heartbeat ... ok
+test delayed_older_hold_cannot_follow_newer_touch_of_same_source ... ok
+test stalled_state_stream_suppresses_hold_that_crossed_unknown_lifecycle_interval ... ok
+test source_fault_withdraws_held_lifecycle_eligibility_even_after_fresh_recovery ... ok
+test state_then_event_deduplicates_exact_identity_without_replaying ... ok
+test fresh_whole_five_second_reset_is_available_to_asleep_owner ... ok
+test wrong_clock_and_disabled_cannot_establish_owner ... ok
+test session_fences_are_bounded_without_evicting_old_owners ... ok
+test whole_new_hold_qualifies_after_bootstrap_and_is_only_delivered_once ... ok
+test stale_retained_hold_does_not_keep_advancing_new_contact_fence ... ok
+
+test result: ok. 22 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

@@ -1,0 +1,25 @@
+{
+  "machine": "Third x86_64 development Mac, Rust 1.96.0; no lamp",
+  "command": [
+    "cargo",
+    "test",
+    "--offline",
+    "--locked",
+    "-p",
+    "lamp-controls",
+    "--test",
+    "touch_program",
+    "--test",
+    "touch_replay",
+    "--",
+    "--test-threads=1"
+  ],
+  "exit_code": 0,
+  "elapsed_seconds": 15.791282179,
+  "counts": {
+    "harnesses": 2,
+    "passed": 26,
+    "failed": 0,
+    "ignored": 0
+  }
+}

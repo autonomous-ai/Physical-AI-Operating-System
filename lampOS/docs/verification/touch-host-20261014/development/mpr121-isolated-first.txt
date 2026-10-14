@@ -1,0 +1,58 @@
+     Locking 18 packages to latest Rust 1.97.1 compatible versions
+   Compiling proc-macro2 v1.0.107
+   Compiling unicode-ident v1.0.26
+   Compiling quote v1.0.47
+   Compiling serde_core v1.0.229
+   Compiling zmij v1.0.23
+   Compiling serde v1.0.229
+   Compiling serde_json v1.0.151
+   Compiling itoa v1.0.18
+   Compiling memchr v2.8.3
+   Compiling syn v3.0.7
+   Compiling serde_derive v1.0.229
+   Compiling lamp-controls v0.0.0 (/private/tmp/lamp-third-touch-module-31z_wb92)
+error[E0277]: the trait bound `usize: From<i32>` is not satisfied
+   --> tests/mpr121.rs:520:37
+    |
+520 |         io.0.borrow_mut().registers[usize::from(register)] |= 1 << bit;
+    |                                     ^^^^^ the trait `From<i32>` is not implemented for `usize`
+    |
+help: `usize` implements trait `From<T>`
+   --> /rustc/8bab26f4f68e0e26f0bb7960be334d5b520ea452/library/core/src/convert/num.rs:47:8
+    |
+    = note: `From<bool>`
+   ::: /rustc/8bab26f4f68e0e26f0bb7960be334d5b520ea452/library/core/src/convert/num.rs:68:0
+    |
+    = note: in this macro invocation
+   ::: /rustc/8bab26f4f68e0e26f0bb7960be334d5b520ea452/library/core/src/convert/num.rs:76:8
+    |
+    = note: `From<u16>`
+    |
+    = note: `From<u8>`
+   ::: /rustc/8bab26f4f68e0e26f0bb7960be334d5b520ea452/library/core/src/convert/num.rs:93:0
+    |
+    = note: in this macro invocation
+   ::: /rustc/8bab26f4f68e0e26f0bb7960be334d5b520ea452/library/core/src/convert/num.rs:129:0
+    |
+    = note: in this macro invocation
+   --> /rustc/8bab26f4f68e0e26f0bb7960be334d5b520ea452/library/core/src/mem/alignment.rs:299:0
+    |
+    = note: `From<std::mem::Alignment>`
+    = note: this error originates in the macro `impl_from_bool` which comes from the expansion of the macro `impl_from` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0277]: the trait bound `Event: Copy` is not satisfied
+   --> tests/mpr121.rs:679:10
+    |
+679 |         .repeat(3)
+    |          ^^^^^^ the trait `Copy` is not implemented for `Event`
+    |
+note: required by a bound in `slice::<impl [T]>::repeat`
+   --> /rustc/8bab26f4f68e0e26f0bb7960be334d5b520ea452/library/alloc/src/slice.rs:509:4
+help: consider annotating `Event` with `#[derive(Copy)]`
+    |
+ 35 + #[derive(Copy)]
+ 36 | enum Event {
+    |
+
+For more information about this error, try `rustc --explain E0277`.
+error: could not compile `lamp-controls` (test "mpr121") due to 2 previous errors

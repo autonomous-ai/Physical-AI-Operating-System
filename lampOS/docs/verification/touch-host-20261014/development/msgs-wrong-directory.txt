@@ -1,0 +1,1 @@
+error: could not find `Cargo.toml` in `/Users/d/code/autonomous-os` or any parent directory

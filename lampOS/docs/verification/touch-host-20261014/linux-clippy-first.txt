@@ -1,0 +1,33 @@
+   Compiling proc-macro2 v1.0.107
+   Compiling quote v1.0.47
+   Compiling unicode-ident v1.0.26
+   Compiling serde_core v1.0.229
+   Compiling zmij v1.0.23
+   Compiling serde_json v1.0.151
+    Checking itoa v1.0.18
+   Compiling serde v1.0.229
+    Checking memchr v2.8.3
+   Compiling libc v0.2.190
+    Checking bitflags v2.13.2
+   Compiling thiserror v2.0.21
+   Compiling rustix v1.1.5
+   Compiling signal-hook v0.4.4
+    Checking cfg-if v1.0.5
+    Checking linux-raw-sys v0.12.1
+    Checking bitflags v1.3.2
+    Checking ioctl-sys v0.8.0
+    Checking byteorder v1.5.0
+   Compiling syn v3.0.7
+   Compiling serde_derive v1.0.229
+   Compiling thiserror-impl v2.0.21
+    Checking errno v0.3.14
+    Checking nix v0.26.4
+    Checking gpiocdev-uapi v0.7.0
+    Checking signal-hook-registry v1.4.8
+    Checking i2cdev v0.6.2
+    Checking gpiocdev v0.8.0
+    Checking lamp-ipc v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/ipc)
+    Checking lamp-bus v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/bus)
+    Checking lamp-msgs v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/msgs)
+    Checking lamp-controls v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/controls)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 13.25s

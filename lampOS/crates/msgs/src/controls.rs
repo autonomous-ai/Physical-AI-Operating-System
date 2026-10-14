@@ -292,3 +292,429 @@ pub fn controls_topics() -> Vec<(&'static str, Declaration)> {
         (ControlsState::TOPIC, ControlsState::declaration()),
     ]
 }
+
+// The opt-in touch protocol has its own topics. Adding meanings to the v1
+// enums would break old readers and could change the running button policy.
+pub const TOUCH_EVENT_TTL_US: u64 = 500_000;
+pub const TOUCH_STATE_TTL_US: u64 = 300_000;
+pub const TOUCH_INPUT_TTL_US: u64 = 100_000;
+pub const TOUCH_MAX_LATEST: usize = 6;
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum TouchSource {
+    Primary,
+    Reset,
+    Head,
+    Strip,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum TouchGesture {
+    Touch,
+    Tap,
+    Stroke,
+    Hold,
+    Slide,
+}
+
+/// A request for the final owner, never a microphone/camera permit or proof of
+/// applied output. Sleep and Wake are distinct one-way lifecycle requests;
+/// neither changes the separate physical or software microphone policy.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum TouchIntent {
+    Stop,
+    Attend,
+    Stroke,
+    Sleep,
+    Wake,
+    Slide,
+    FactoryReset,
+    SoftwareMute,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct TouchEvent {
+    pub stamp: ClockStamp,
+    pub session_id: String,
+    pub reader_session_id: String,
+    pub enabled: bool,
+    pub source: TouchSource,
+    pub name: String,
+    pub contact_id: u64,
+    pub gesture: TouchGesture,
+    /// These are alternatives, selected once using the owner's current state.
+    pub when_speaking: TouchIntent,
+    pub when_quiet: TouchIntent,
+    /// The owner binds lifecycle state at contact begin, not again after Wake.
+    /// Unknown contact-begin lifecycle history must never authorize Sleep.
+    /// Physical primary/reset requests keep their same one-way meaning asleep;
+    /// None means no asleep action for that advisory gesture.
+    pub when_asleep: Option<TouchIntent>,
+    pub began_us: u64,
+    pub observed_us: u64,
+    pub released_us: Option<u64>,
+    /// Head bits follow configured pad-name order; strip bits are electrodes.
+    pub active_mask: u16,
+    pub active_names: Vec<String>,
+    /// Position on the full configured strip span, 0..1; sparse working sets
+    /// retain missing physical slots. Not millimetres or a guessed side.
+    pub position: Option<f32>,
+    /// Physical electrode at the destination end, never a guessed left/right.
+    pub toward_pad: Option<u8>,
+    /// Cumulative normalized travel, and normalized units per second.
+    pub distance: f32,
+    pub speed: f32,
+}
+
+impl TouchEvent {
+    pub const TYPE: &str = "lamp_msgs/TouchEvent";
+    pub const VERSION: u32 = 1;
+    pub const TOPIC: &str = "controls/touch";
+    pub fn declaration() -> Declaration {
+        Declaration::new(Self::TYPE, Self::VERSION, Kind::Event)
+            .lasting(Duration::from_micros(TOUCH_EVENT_TTL_US))
+    }
+    pub fn intent(&self, speaking_now: bool, asleep_at_contact_start: bool) -> Option<TouchIntent> {
+        if asleep_at_contact_start {
+            self.when_asleep
+        } else if speaking_now {
+            Some(self.when_speaking)
+        } else {
+            Some(self.when_quiet)
+        }
+    }
+    pub fn retained(&self) -> bool {
+        !matches!(self.when_speaking, TouchIntent::Stroke | TouchIntent::Slide)
+    }
+    pub fn check(&self) -> Result<(), Invalid> {
+        self.stamp.check()?;
+        for name in [&self.session_id, &self.reader_session_id, &self.name] {
+            control_name(name)?;
+        }
+        if self.stamp.sequence == 0
+            || self.contact_id == 0
+            || self.began_us > self.observed_us
+            || self.observed_us > self.stamp.at_us
+            || self
+                .released_us
+                .is_some_and(|at| at < self.began_us || at > self.observed_us)
+        {
+            return Err(Invalid(
+                "touch event identity or acquisition times are invalid".into(),
+            ));
+        }
+        touch_geometry(
+            self.source,
+            self.active_mask,
+            &self.active_names,
+            self.position,
+            self.toward_pad,
+            self.distance,
+            self.speed,
+        )?;
+        let age = self.observed_us - self.began_us;
+        let pair = (self.when_speaking, self.when_quiet);
+        let valid = match (self.source, self.gesture) {
+            (TouchSource::Primary, TouchGesture::Tap) => {
+                pair == (TouchIntent::Stop, TouchIntent::Stop)
+                    && self.active_mask == 0
+                    && self.released_us == Some(self.observed_us)
+                    && age < 2_000_000
+            }
+            (TouchSource::Primary, TouchGesture::Hold) => {
+                pair == (TouchIntent::SoftwareMute, TouchIntent::SoftwareMute)
+                    && self.active_mask == 0
+                    && self.released_us == Some(self.observed_us)
+                    && age >= 2_000_000
+            }
+            (TouchSource::Reset, TouchGesture::Hold) => {
+                pair == (TouchIntent::FactoryReset, TouchIntent::FactoryReset)
+                    && self.active_mask == 0
+                    && self.released_us == Some(self.observed_us)
+                    && age >= 5_000_000
+            }
+            (TouchSource::Head, TouchGesture::Touch) => {
+                pair == (TouchIntent::Stop, TouchIntent::Attend)
+                    && age >= 20_000
+                    && self.released_us.is_none()
+                    && self.active_mask != 0
+            }
+            (TouchSource::Head, TouchGesture::Stroke) => {
+                pair == (TouchIntent::Stroke, TouchIntent::Stroke)
+                    && age >= 500_000
+                    && self.released_us.is_none()
+                    && self.active_mask != 0
+            }
+            (TouchSource::Strip, TouchGesture::Touch) => {
+                pair == (TouchIntent::Stop, TouchIntent::Attend)
+                    && age >= 10_000
+                    && if self.active_mask == 0 {
+                        self.released_us == Some(self.observed_us)
+                    } else {
+                        self.released_us.is_none()
+                    }
+            }
+            (TouchSource::Strip, TouchGesture::Hold) => {
+                pair == (TouchIntent::Sleep, TouchIntent::Sleep)
+                    && age >= 2_000_000
+                    && self.released_us.is_none()
+                    && self.active_mask != 0
+            }
+            (TouchSource::Strip, TouchGesture::Stroke) => {
+                pair == (TouchIntent::Stroke, TouchIntent::Stroke)
+                    && self.released_us.is_none()
+                    && self.active_mask != 0
+            }
+            (TouchSource::Strip, TouchGesture::Slide) => {
+                pair == (TouchIntent::Slide, TouchIntent::Slide)
+                    && self.released_us.is_none()
+                    && self.active_mask != 0
+                    && self.position.is_some()
+                    && self.toward_pad.is_some()
+            }
+            _ => false,
+        };
+        let asleep = match (self.source, self.gesture) {
+            (TouchSource::Primary, TouchGesture::Tap) => Some(TouchIntent::Stop),
+            (TouchSource::Primary, TouchGesture::Hold) => Some(TouchIntent::SoftwareMute),
+            (TouchSource::Reset, TouchGesture::Hold) => Some(TouchIntent::FactoryReset),
+            (TouchSource::Head, TouchGesture::Touch)
+            | (TouchSource::Strip, TouchGesture::Touch | TouchGesture::Hold) => {
+                Some(TouchIntent::Wake)
+            }
+            _ => None,
+        };
+        if !valid || self.when_asleep != asleep {
+            return Err(Invalid(
+                "touch source, gesture and conditional intents disagree".into(),
+            ));
+        }
+        Ok(())
+    }
+    pub fn fresh_at(&self, clock_id: &str, now_us: u64) -> bool {
+        self.check().is_ok()
+            && self.enabled
+            && self.stamp.clock_id == clock_id
+            && self.stamp.at_us <= now_us
+            && now_us - self.stamp.at_us < TOUCH_EVENT_TTL_US
+            && now_us - self.observed_us < TOUCH_INPUT_TTL_US
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct TouchSourceState {
+    pub source: TouchSource,
+    pub name: String,
+    pub reader_session_id: Option<String>,
+    /// Fresh source acquisitions, never Voice readiness.
+    pub ready: bool,
+    pub fault: Option<ControlFault>,
+    pub observed_us: Option<u64>,
+    pub armed: bool,
+    /// None means unknown. A missing read is not a released level.
+    pub active: Option<bool>,
+    pub contact_id: Option<u64>,
+    pub began_us: Option<u64>,
+    /// Advances only when an actual acquisition proves continued contact.
+    pub held_us: Option<u64>,
+    /// Current acquired logical levels; strip bits include only configured
+    /// working electrodes. Acquisitions/recordings retain the full raw mask.
+    /// Motion and event masks use separately filtered evidence.
+    pub active_mask: Option<u16>,
+    pub active_names: Vec<String>,
+    pub position: Option<f32>,
+    pub toward_pad: Option<u8>,
+    pub distance: f32,
+    pub speed: f32,
+}
+
+impl TouchSourceState {
+    pub fn check(&self, at_us: u64) -> Result<(), Invalid> {
+        control_name(&self.name)?;
+        if let Some(session) = &self.reader_session_id {
+            control_name(session)?;
+        }
+        if self.ready == self.fault.is_some()
+            || (self.observed_us.is_some() && self.reader_session_id.is_none())
+            || self.observed_us.is_some_and(|at| at > at_us)
+            || self.contact_id == Some(0)
+            || self.contact_id.is_some() != self.began_us.is_some()
+            || self
+                .began_us
+                .is_some_and(|began| self.observed_us.is_none_or(|at| began > at))
+            || self.held_us.is_some_and(|held| {
+                !self.armed
+                    || self.active != Some(true)
+                    || self
+                        .began_us
+                        .zip(self.observed_us)
+                        .is_none_or(|(began, at)| held > at - began)
+            })
+        {
+            return Err(Invalid(
+                "touch source freshness or contact evidence disagrees".into(),
+            ));
+        }
+        if self.ready {
+            if self.reader_session_id.is_none()
+                || self
+                    .observed_us
+                    .is_none_or(|at| at_us - at >= TOUCH_INPUT_TTL_US)
+                || self.active_mask.is_none()
+                || self.active != self.active_mask.map(|mask| mask != 0)
+            {
+                return Err(Invalid(
+                    "ready touch source needs fresh acquired levels".into(),
+                ));
+            }
+        } else if self.armed
+            || self.active.is_some()
+            || self.contact_id.is_some()
+            || self.held_us.is_some()
+            || self.active_mask.is_some()
+            || !self.active_names.is_empty()
+            || self.position.is_some()
+            || self.toward_pad.is_some()
+            || self.distance != 0.0
+            || self.speed != 0.0
+        {
+            return Err(Invalid(
+                "unknown touch source cannot retain contact or motion".into(),
+            ));
+        }
+        touch_geometry(
+            self.source,
+            self.active_mask.unwrap_or(0),
+            &self.active_names,
+            self.position,
+            self.toward_pad,
+            self.distance,
+            self.speed,
+        )
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct TouchState {
+    pub stamp: ClockStamp,
+    pub session_id: String,
+    pub enabled: bool,
+    pub sources: Vec<TouchSourceState>,
+    /// Original identities/timestamps. Stroke/Slide never overwrite requests.
+    pub latest: Vec<TouchEvent>,
+    pub event_sequence: u64,
+    pub rejected_inputs: u64,
+}
+impl TouchState {
+    pub const TYPE: &str = "lamp_msgs/TouchState";
+    pub const VERSION: u32 = 1;
+    pub const TOPIC: &str = "controls/touch_state";
+    pub fn declaration() -> Declaration {
+        Declaration::new(Self::TYPE, Self::VERSION, Kind::Latest)
+            .every(Duration::from_millis(100))
+            .lasting(Duration::from_micros(TOUCH_STATE_TTL_US))
+    }
+    pub fn check(&self) -> Result<(), Invalid> {
+        self.stamp.check()?;
+        control_name(&self.session_id)?;
+        if self.sources.len() > 4 || self.sources.is_empty() || self.latest.len() > TOUCH_MAX_LATEST
+        {
+            return Err(Invalid(
+                "touch state exceeds its bounded source/request set".into(),
+            ));
+        }
+        let mut sources = std::collections::BTreeSet::new();
+        for source in &self.sources {
+            source.check(self.stamp.at_us)?;
+            if !sources.insert(source.source) {
+                return Err(Invalid("duplicate touch source".into()));
+            }
+        }
+        let mut keys = std::collections::BTreeSet::new();
+        let mut sequences = std::collections::BTreeSet::new();
+        for event in &self.latest {
+            event.check()?;
+            let source = self
+                .sources
+                .iter()
+                .find(|source| source.source == event.source);
+            if !event.retained()
+                || event.session_id != self.session_id
+                || event.enabled != self.enabled
+                || event.stamp.clock_id != self.stamp.clock_id
+                || event.stamp.at_us > self.stamp.at_us
+                || event.stamp.sequence > self.event_sequence
+                || source.is_none_or(|source| {
+                    source.name != event.name
+                        || source.reader_session_id.as_ref() != Some(&event.reader_session_id)
+                })
+                || !keys.insert((event.source, event.when_speaking, event.when_quiet))
+                || !sequences.insert(event.stamp.sequence)
+            {
+                return Err(Invalid(
+                    "retained touch request has a different identity or source".into(),
+                ));
+            }
+        }
+        Ok(())
+    }
+}
+
+fn touch_geometry(
+    source: TouchSource,
+    mask: u16,
+    names: &[String],
+    position: Option<f32>,
+    toward: Option<u8>,
+    distance: f32,
+    speed: f32,
+) -> Result<(), Invalid> {
+    if names.len() > 4
+        || !distance.is_finite()
+        || !(0.0..=1024.0).contains(&distance)
+        || !speed.is_finite()
+        || !(0.0..=1000.0).contains(&speed)
+        || position.is_some_and(|p| !p.is_finite() || !(0.0..=1.0).contains(&p))
+        || toward.is_some_and(|pad| pad >= 12)
+    {
+        return Err(Invalid(
+            "touch geometry must be finite bounded normalized evidence".into(),
+        ));
+    }
+    let mut unique = std::collections::BTreeSet::new();
+    for name in names {
+        control_name(name)?;
+        if !unique.insert(name) {
+            return Err(Invalid("duplicate active head pad".into()));
+        }
+    }
+    let valid = match source {
+        TouchSource::Head => mask & !0x0f == 0 && names.len() == mask.count_ones() as usize,
+        TouchSource::Strip => mask & !0x0fff == 0 && names.is_empty(),
+        TouchSource::Primary | TouchSource::Reset => mask <= 1 && names.is_empty(),
+    };
+    if !valid
+        || (mask == 0 && (position.is_some() || toward.is_some() || speed != 0.0))
+        || (source != TouchSource::Strip
+            && (position.is_some() || toward.is_some() || distance != 0.0 || speed != 0.0))
+    {
+        return Err(Invalid(
+            "touch geometry does not belong to that source".into(),
+        ));
+    }
+    Ok(())
+}
+
+/// Explicit opt-in inventory; the shipped v1 controls topic list is unchanged.
+pub fn touch_topics() -> Vec<(&'static str, Declaration)> {
+    vec![
+        (TouchEvent::TOPIC, TouchEvent::declaration()),
+        (TouchState::TOPIC, TouchState::declaration()),
+    ]
+}

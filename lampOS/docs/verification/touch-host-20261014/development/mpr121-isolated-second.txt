@@ -1,0 +1,59 @@
+   Compiling lamp-controls v0.0.0 (/private/tmp/lamp-third-touch-module-31z_wb92)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.74s
+     Running unittests src/lib.rs (target/debug/deps/lamp_controls-40ec49a8dcc3cf6b)
+
+running 1 test
+test mpr121::tests::transport_requires_exact_message_count ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/mpr121.rs (target/debug/deps/mpr121-e8c0964561053aa3)
+
+running 31 tests
+test ignored_reset_cannot_pass_with_one_expected_default ... ok
+test active_overcurrent_is_not_cleared_by_reset ... ok
+test fault_during_static_readback_is_checked_before_returning_mask ... ok
+test brownout_defaults_cannot_be_mistaken_for_zero_touch ... ok
+test gpio_data_aliases_are_not_mistaken_for_static_configuration ... ok
+test ignored_run_never_returns_a_released_sensor ... ok
+test auto_adjusted_charge_registers_are_not_compared_to_initial_values ... ok
+test io_error_display_does_not_copy_arbitrary_transport_text ... ok
+test any_runtime_transfer_failure_is_terminal_and_not_retried ... ok
+test explicit_profile_roundtrips_without_hidden_defaults ... ok
+test faults_after_entering_run_prevent_initialization_success ... ok
+test mask_comes_from_the_final_fault_checked_status_snapshot ... ok
+test no_threshold_or_baseline_value_is_silently_replaced ... ok
+test individual_fault_bits_are_not_hidden_by_touch_masking ... ok
+test reset_between_static_and_status_reads_is_caught_by_final_ecr ... ok
+test reset_stop_profile_readback_then_run_and_settle_are_ordered ... ok
+test returns_every_electrode_bit_including_unit_specific_missing_pads ... ok
+test sensing_wait_over_five_seconds_is_rejected_before_io ... ok
+test settle_uses_filter_scan_debounce_and_auto_search_bounds ... ok
+test skipped_charge_time_search_keeps_cdt_static_but_not_cdc ... ok
+test startup_touch_is_not_rewritten_as_release ... ok
+test acknowledged_but_ignored_profile_writes_are_detected_before_run ... ok
+test steady_state_work_is_fixed_size_without_delay_or_writes ... ok
+test unexpected_proximity_or_reserved_status_is_not_a_release ... ok
+test malformed_numeric_enum_array_and_missing_fields_are_rejected ... ok
+test manual_charge_drift_is_detected ... ok
+test invalid_settings_are_rejected_before_any_io_or_delay ... ok
+test unknown_fields_at_every_configuration_layer_are_rejected ... FAILED
+test all_addresses_poll_boundaries_and_all12_ecr_encodings_are_valid ... ok
+test every_initialization_transfer_error_stops_without_retry ... ok
+test static_drift_is_checked_on_every_read ... ok
+
+failures:
+
+---- unknown_fields_at_every_configuration_layer_are_rejected stdout ----
+
+thread 'unknown_fields_at_every_configuration_layer_are_rejected' (111615378) panicked at tests/mpr121.rs:202:5:
+assertion failed: serde_json::from_value::<Config>(value).is_err()
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    unknown_fields_at_every_configuration_layer_are_rejected
+
+test result: FAILED. 30 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+error: test failed, to rerun pass `--test mpr121`

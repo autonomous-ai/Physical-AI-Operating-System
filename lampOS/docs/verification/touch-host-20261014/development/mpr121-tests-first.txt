@@ -1,0 +1,21 @@
+   Compiling lamp-controls v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/controls)
+error[E0433]: cannot find `touch_replay` in `crate`
+   --> crates/controls/src/record.rs:168:52
+    |
+168 |     pub fn submit_touch(&mut self, record: &crate::touch_replay::Record) {
+    |                                                    ^^^^^^^^^^^^ could not find `touch_replay` in the crate root
+
+error[E0433]: cannot find `touch_replay` in `crate`
+   --> crates/controls/src/record.rs:261:36
+    |
+261 |         serde_json::to_vec(&crate::touch_replay::Record {
+    |                                    ^^^^^^^^^^^^ could not find `touch_replay` in the crate root
+
+error[E0433]: cannot find `touch_replay` in `crate`
+   --> crates/controls/src/record.rs:263:27
+    |
+263 |             input: crate::touch_replay::Input::AllFault { fault: ControlFault::Overflow },
+    |                           ^^^^^^^^^^^^ could not find `touch_replay` in the crate root
+
+For more information about this error, try `rustc --explain E0433`.
+error: could not compile `lamp-controls` (lib) due to 3 previous errors

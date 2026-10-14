@@ -1,0 +1,21 @@
+{
+  "command": [
+    "cargo",
+    "run",
+    "--offline",
+    "--release",
+    "--locked",
+    "-p",
+    "lamp-expression",
+    "--example",
+    "recent_playout_cost"
+  ],
+  "cwd": "/Users/d/code/autonomous-os/lampOS",
+  "started_utc": "2026-10-14T06:36:05.295838+00:00",
+  "command_elapsed_seconds_including_build_if_any": 10.173850256,
+  "exit_code": 0,
+  "stdout": "/private/tmp/lamp-third-expression-playout-cost-release.json",
+  "stderr": "/private/tmp/lamp-third-expression-playout-cost-release-build.txt",
+  "other_third_owned_builds_or_tests_running": false,
+  "unrelated_host_load_controlled": false
+}

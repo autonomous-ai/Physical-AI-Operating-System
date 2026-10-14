@@ -1,0 +1,25 @@
+{
+  "command": [
+    "/Users/d/code/autonomous-os/lampOS/target/debug/lamp-expression",
+    "replay",
+    "--input",
+    "crates/expression/fixtures/recent-playout.jsonl",
+    "--clock-id",
+    "recent-playout-fixture",
+    "--catalogue",
+    "crates/expression/playout-behaviours.json",
+    "--enable",
+    "--until-us",
+    "400000",
+    "--output",
+    "/private/tmp/lamp-third-expression-playout-plan.jsonl"
+  ],
+  "cwd": "/Users/d/code/autonomous-os/lampOS",
+  "started_utc": "2026-10-14T06:36:15.470310+00:00",
+  "command_elapsed_seconds_including_build_if_any": 0.7188065510000001,
+  "exit_code": 0,
+  "stdout": "/private/tmp/lamp-third-expression-playout-cli-stdout.txt",
+  "stderr": "/private/tmp/lamp-third-expression-playout-cli-summary.txt",
+  "other_third_owned_builds_or_tests_running": false,
+  "unrelated_host_load_controlled": false
+}

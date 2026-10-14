@@ -129,6 +129,10 @@ pub struct Timing {
     pub faces_stale_us: u64,
     pub context_stale_us: u64,
     pub max_future_audio_us: u64,
+    /// Optional linear fade from the immutable end of the latest heard piece.
+    /// Zero keeps strict current-interval sampling. This is not a body lag.
+    #[serde(default)]
+    pub recent_playout_us: u64,
     /// Duration of return from thinking; short notice shrinks its remainder.
     pub return_us: u64,
     /// Command should already be facing back this long before first audio.
@@ -246,6 +250,11 @@ impl Catalogue {
         if t.body_lag_us.is_some_and(|lag| lag > 500_000) {
             return Err(Error(
                 "body_lag_us must be measured and at most 500000".into(),
+            ));
+        }
+        if t.recent_playout_us != 0 && !(20_000..=200_000).contains(&t.recent_playout_us) {
+            return Err(Error(
+                "recent_playout_us must be 0 or 20000..200000 microseconds".into(),
             ));
         }
         if !(0.0..=1.0).contains(&self.gaze.minimum_confidence) {

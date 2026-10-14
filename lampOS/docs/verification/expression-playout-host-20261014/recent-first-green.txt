@@ -1,0 +1,34 @@
+   Compiling lamp-expression v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/expression)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 2.21s
+     Running tests/recent_playout.rs (target/debug/deps/recent_playout-5b9f0900edcde6de)
+
+running 27 tests
+test fresh_stamps_cannot_rejuvenate_old_intervals_and_fresh_ends_cannot_rescue_stale_stamps ... ok
+test a_newer_zero_is_known_silence_and_does_not_fall_back_to_an_older_peak ... ok
+test an_interval_received_in_time_becomes_recent_when_the_queue_is_pruned ... ok
+test committed_future_zero_wins_for_body_while_light_follows_recent_sound ... ok
+test a_twenty_ms_piece_published_after_onset_is_heard_when_read_just_after_end ... ok
+test a_long_stalled_tick_drops_all_past_levels_without_a_delayed_gesture ... ok
+test a_missed_tick_uses_only_the_latest_ended_interval_and_never_catches_up ... ok
+test a_future_interval_admitted_promptly_can_outlive_its_publication_ttl ... ok
+test a_future_interval_neither_refreshes_recent_sound_nor_lights_up_early ... ok
+test ended_intervals_still_obey_nonoverlap_source_order_and_watermarks ... ok
+test default_zero_preserves_end_rejection_and_half_open_playback ... ok
+test concentration_and_busy_room_still_suppress_recent_modulation ... ok
+test a_current_zero_or_level_always_takes_precedence_over_recent_sound ... ok
+test backwards_and_near_overflow_clocks_remain_fail_closed ... ok
+test exact_end_is_observed_but_exact_recent_expiry_is_excluded ... ok
+test lag_without_committed_future_uses_current_level_at_now ... ok
+test late_history_never_promotes_thinking_or_invents_first_audio ... ok
+test hold_resume_clears_history_and_rejects_delayed_old_generation_or_held_sound ... ok
+test late_batched_observations_replace_rather_than_accumulate_levels ... ok
+test reactive_recent_body_sampling_does_not_advance_animation_by_motor_lag ... ok
+test phase_edges_clear_history_but_keep_committed_future_intervals ... ok
+test repeated_ticks_and_voice_heartbeats_never_renew_recent_evidence ... ok
+test receipt_delay_does_not_extend_the_original_end_deadline ... ok
+test new_turn_and_session_clear_levels_and_preserve_the_old_identity_fence ... ok
+test stale_voice_clears_recent_evidence_and_cannot_be_revived_by_same_turn_sound ... ok
+test every_terminal_event_clears_recent_evidence_and_retires_the_turn ... ok
+test the_future_queue_bound_is_unchanged_and_recent_storage_is_not_a_backlog ... ok
+
+test result: ok. 27 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s

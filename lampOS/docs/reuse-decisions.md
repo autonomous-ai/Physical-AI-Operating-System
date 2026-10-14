@@ -665,3 +665,72 @@ relative V1/V2 speed measurement, acoustic or optical response measurement,
 physical rest, combined-nod appearance or long-term comfort was established.
 First must wire the producer, preserve the actual output owners, qualify
 the rest author and film the resulting movement. Body lag remains unknown.
+
+## Expression: recent playout evidence (2026-10-14)
+
+This addendum reviews task 18's new playout paragraph at task base
+`23843b78e`. First's [lamp-4ace report](work-split.md#18-expression-holding-back-for-someone-and-a-lamp-at-rest)
+records 565 cumulative input refusals since 09:43, mostly playout. A separate
+recording over four answers contained 353 reports: roughly 20 ms pieces,
+published a median 1.7 ms after their onset, with at most 18 ms remaining.
+None in that recording was too far ahead or overlapping. These are different
+populations, and the 353-message recording was not supplied to Third. First
+plans earlier publication from Voice's 350 ms buffer; this consumer change
+does not establish that producer boundary.
+
+**Keep a bounded meter, with truthful evidence.** V1
+`hal/drivers/voice/_internal/live_playback.py` retains a level for 250 ms on
+a monotonic clock. Its `playback` function computes post-duck RMS and stamps
+the meter before the speaker write; `level` also applies the observed mixer
+gain. Successful writes have a separate `record_written` timestamp, from
+which `is_playing` expires after 250 ms. The ordering in
+`hal/drivers/voice/tts/service.py::_WatchedStream.write` confirms the
+distinction. `hal/test/test_live_playback.py` covers failed/pending writes
+not activating playback, meter expiry, identical speaker/AEC PCM and mixer
+scaling. Keep bounded recent evidence; do not treat PCM processing, driver
+acceptance and acoustic observation as interchangeable. No duck policy,
+mixer probe or new external dependency is taken into Expression.
+
+**Change the current-interval-only assumption.** Voice's
+`crates/voice/src/expression_out.rs::Timing` gathers about 20 ms of sound,
+flushes an odd piece after 15 ms, uses the maximum constituent ring level,
+and publishes only while at least 2 ms remains. `sounds` dates it from the
+speaker queue readback. Its existing piece regression assumes 30 ms queue
+lead. At the task base, Expression's `accept_playout` rejected an interval
+already ended at receipt; `advance` removed ended intervals before a tick.
+A fresh, correctly dated report could therefore be refused or missed by
+the next 20 ms tick.
+
+The selected contract adds `timing.recent_playout_us`: zero by default, or
+20,000–200,000 microseconds when enabled. The separate
+`crates/expression/playout-behaviours.json` selects 100,000 microseconds with
+the legacy Voice protocol. The built-in and `rest-behaviours.json` catalogues
+remain unchanged. The initial 100 ms is an unmeasured tuning choice.
+
+Retain one latest ended interval and fade its level linearly with age from
+its immutable end time, reaching zero at the configured deadline. Receipt,
+heartbeats and repeated ticks cannot renew it. A current interval wins,
+including a level of zero; a future interval cannot supply light early or
+replace recent evidence merely because it arrived. Expression's existing
+anticipation for Body may still use committed future sound, while recent evidence
+is sampled only at real `now`. Recent modulation requires an owner already
+Speaking; it cannot promote Thinking or claim input readiness. A just-ended
+valid report is heard evidence, not an expired-interval fault or proof that
+sound is still acoustically present.
+
+Preserve the existing boot/session/turn/request, sequence, interval-order,
+generation and resume boundaries, 200 ms publication expiry and bounded
+future queue. Hold, resume, terminal events, owner changes and stale Voice
+must clear recent evidence with the other transient sound state. Neither a
+cached level nor a missed hold may revive old audio. Final behavior and gate
+evidence belong in [Expression](expression.md) and Third's log. First owns
+Voice and lamp-4ace integration; Fifth now owns Body and qualifies its response
+on its own lamp. Third accesses neither lamp.
+
+## What this recent-playout review has not shown
+
+This source review ran no tests or benchmarks and claims no implementation
+gate result. Third did not receive or replay First's 353-message recording.
+No acoustic, optical or motor timing, 100 ms tail appearance, or improvement
+on a lamp was measured. The grace window and fade need physical observation;
+First's planned earlier publication remains separate work.

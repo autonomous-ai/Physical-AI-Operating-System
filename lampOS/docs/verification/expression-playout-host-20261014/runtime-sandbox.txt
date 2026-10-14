@@ -1,0 +1,31 @@
+   Compiling lamp-expression v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/expression)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.70s
+     Running tests/recent_playout_runtime.rs (target/debug/deps/recent_playout_runtime-e2f3c6dfec0ea640)
+
+running 4 tests
+test a_fresh_header_cannot_refresh_the_typed_observation_age ... ok
+test adaptation_keeps_actual_payload_stamp_and_existing_header_expiry_grace ... ok
+test real_bus_expired_header_is_refused_even_when_the_recent_window_would_accept_payload ... FAILED
+test real_bus_tracks_successive_ended_levels_and_shadow_never_publishes_actuators ... FAILED
+
+failures:
+
+---- real_bus_expired_header_is_refused_even_when_the_recent_window_would_accept_payload stdout ----
+
+thread 'real_bus_expired_header_is_refused_even_when_the_recent_window_would_accept_payload' (110625390) panicked at crates/expression/tests/recent_playout_runtime.rs:223:81:
+called `Result::unwrap()` on an `Err` value: Custom { kind: PermissionDenied, error: "bind /tmp/ex-recent-52680-0/voice/timing/subs/expression.52680.0.new: Operation not permitted (os error 1)" }
+
+---- real_bus_tracks_successive_ended_levels_and_shadow_never_publishes_actuators stdout ----
+
+thread 'real_bus_tracks_successive_ended_levels_and_shadow_never_publishes_actuators' (110625391) panicked at crates/expression/tests/recent_playout_runtime.rs:190:80:
+called `Result::unwrap()` on an `Err` value: Custom { kind: PermissionDenied, error: "bind /tmp/ex-recent-52680-1/voice/timing/subs/expression.52680.1.new: Operation not permitted (os error 1)" }
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    real_bus_expired_header_is_refused_even_when_the_recent_window_would_accept_payload
+    real_bus_tracks_successive_ended_levels_and_shadow_never_publishes_actuators
+
+test result: FAILED. 2 passed; 2 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+error: test failed, to rerun pass `-p lamp-expression --test recent_playout_runtime`

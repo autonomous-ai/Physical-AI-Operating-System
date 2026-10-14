@@ -26,7 +26,7 @@ lampOS listens to it yet.
 | The air | Sensirion SEN63C on I2C bus 0 at 0x6B: particles, humidity, CO2 (its temperature is the base's, warmed by the lamp) | Air (`lamp-air`) | Running since 17:43; 1,870 ppm CO2, "stuffy", in the office at work |
 | Its own body | Five servos: where each joint is, its load and warmth, 50 times a second | Body | Running. A hand pushing the head shows up as load: the body can feel being moved |
 | Time | The board's clock and a battery-backed clock (HYM8563) | Schedule, voice | Running |
-| Nearby phones | Bluetooth (`hci0`) | Nothing | Not read. Could notice a known phone arriving or leaving |
+| Nearby phones | Bluetooth (`hci0`) | Nothing | Not read. Could notice a known phone arriving or leaving, but only once that phone is paired with the lamp, which waits on how a lamp is set up (not decided; the owner, 2026-10-15) |
 | Its own warmth | Eight thermal zones, a "skin" zone among them | Health | Running |
 | A touch controller | A Goodix GT9271 declared on I2C bus 5, no driver bound | Nothing | Not known to be fitted; a read of its product ID failed ("invalid argument") |
 | Power key | The power chip's key (`axp8191-pek`) | Nothing | Not read |

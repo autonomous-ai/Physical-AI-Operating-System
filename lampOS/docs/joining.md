@@ -273,6 +273,14 @@ see that nothing changes. A piece switched on for lamp-4ace, or one that
 changes defaults, runs there for a few minutes first. The builder's
 evidence is not run again (the first builder's answer to `fifth-P1`).
 
+**The switch is for that first minute, not for life** (the owner,
+2026-10-15: "opt in is wasteful"; we use every sensor and part the lamp
+has). Once a part has passed its minute and is switched on for lamp-4ace,
+the same day it becomes the default in code, and the switch remains only to
+turn it off (`off`). A part left off says why, in its doc, and the first
+builder tries it within the week. Switches in place before this rule are
+made defaults by the first builder as it confirms each on lamp-4ace.
+
 ### One pull request per task (`fifth-P6`, decided 2026-10-14)
 
 Proposed by the fifth builder (#716) after #708 was closed unmerged: its

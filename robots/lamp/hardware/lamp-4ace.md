@@ -11,15 +11,25 @@ changes.
 
 ## Where lamp-4ace differs from the design
 
-| # | Part | Design (`components.md`, `wiring.md`) | lamp-4ace | To confirm |
+The hardware team answered on the evening of 2026-10-14 (through the owner);
+their answers are in the last column. Where an answer settles a row, the
+design files are theirs to change.
+
+| # | Part | Design (`components.md`, `wiring.md`) | lamp-4ace | Hardware team's answer |
 |---|---|---|---|---|
-| 1 | Primary button | header pin 35, chip 0 line 99, pull-up, low when pressed | The owner: there is no button on this lamp. Line 99 reads high (released); it was not pressed with a hand | Is a button fitted on lamp-4ace? |
-| 2 | Reset button | header pin 37, chip 0 line 100 | Not read by lampOS; not checked | Fitted? |
-| 3 | Mic privacy slide switch | header pin 11, chip 1 line 9, low = muted | Reads high (unmuted); the owner did not mention one | Fitted? |
-| 4 | Head pads (TTP223) | two of lines 37, 96, 97, 98; pull-up, rest high, a touch is the falling edge | Lines **37 and 96** answer a touch; read with pull-down they rest **low and go high** on a touch | Are this unit's modules set active-high? |
-| 5 | Base strip (MPR121) | all 12 electrodes register at the bench; per-unit thresholds in `/var/lib/hal/mpr121.factory.json` | Ten answer a finger: 0-3, 5-7, 9-11. **E4 and E8 never did**, and their charge currents are 31 where the others are 41 to 57. The per-unit file is gone (the old software was removed); the chip still holds touch 6 / release 4 on every electrode (`lampOS/deploy/lamp-4ace/mpr121-registers-20261014.txt`) | Are E4 and E8 wired on this unit? |
-| 6 | Environment sensor | optional; declared but disabled | A **SEN63C is fitted and measuring** (I2C bus 0, 0x6B) | Is the SEN63C now standard? Where is it placed (it reads 33 °C, warmed by the lamp)? |
+| 1 | Primary button | header pin 35, chip 0 line 99, pull-up, low when pressed | The owner: there is no button on this lamp. Line 99 reads high (released); it was not pressed with a hand | No user button in this lamp. (The team's parts list for the design still gives a primary button on pin 35: the design has one, this unit does not.) |
+| 2 | Reset button | header pin 37, chip 0 line 100 | Not read by lampOS; not checked | In the design: pin 37, held 5 s. Not said whether lamp-4ace has one; still to check by hand |
+| 3 | Mic privacy slide switch | header pin 11, chip 1 line 9, low = muted | Reads high (unmuted); the owner did not mention one | On header pin 11, as designed |
+| 4 | Head pads (TTP223) | two of lines 37, 96, 97, 98; pull-up, rest high, a touch is the falling edge | Lines **37 and 96** answer a touch; read with pull-down they rest **low and go high** on a touch | Two pads per lamp, on two of header pins 27, 29, 31, 33, found at start; the older list of four pads was wrong. Not answered: active-high or low on this unit (it is high, as measured) |
+| 5 | Base strip (MPR121) | all 12 electrodes register at the bench; per-unit thresholds in `/var/lib/hal/mpr121.factory.json` | Ten answer a finger: 0-3, 5-7, 9-11. **E4 and E8 never did**, and their charge currents are 31 where the others are 41 to 57. The per-unit file is gone (the old software was removed); the chip still holds touch 6 / release 4 on every electrode (`lampOS/deploy/lamp-4ace/mpr121-registers-20261014.txt`) | **E4 and E8 are faulty**, not disabled on purpose. Sensing through the 3D-printed shell is uneven; the team wants a calibration for each pad and a uniform touch surface with the electrodes right behind it. Thresholds are set per lamp |
+| 6 | Environment sensor | optional; declared but disabled | A **SEN63C is fitted and measuring** (I2C bus 0, 0x6B) | Fitted in the pro builds, inside the lamp in a thermally insulated housing, meant to measure the room: temperature, humidity and air. Still open: at 33 °C at the sensor it may read warmer than the room; not yet compared with a thermometer in the room |
 | 7 | Camera microphone | not selected: near-digital silence, needs repair | Two channels at 22.05 kHz, 8 bits; the left is silent, the right faint (RMS 0.71 of 127) | As the design says |
+| 8 | Touch controller GT9271 | not in the design | Declared in the board's device tree on I2C bus 5 at 0x14; no driver bound and a read failed | Not in this lamp; the team did not know where it came from. It comes from the Orange Pi image's device tree, not from anything fitted |
+
+**Coming:** the team has a custom HAT that carries these parts on one board
+plugged into the Orange Pi 4 Pro's header and power rails, with much less
+speaker hiss. lamp-4ace does not have it; when a lamp does, this file gets
+a row for it and the pins are measured again.
 
 ## Parts the design does not list
 
@@ -33,9 +43,22 @@ changes.
 | Power management | AXP515 and AXP8191, I2C bus 13, 0x34 and 0x36; power key `axp8191-pek`; no battery |
 | Onboard audio codec | ES8389, I2C bus 7, 0x10, card `sndi2s4` (unused, as `wiring.md` says) |
 | A declared touch controller | Goodix GT9271 on I2C bus 5, 0x14 in the device tree; no driver bound, a read failed: probably not fitted |
-| USB hubs | Terminus `1a40:0101` then QinHeng `1a86:8091`, 4 ports each, in a chain; on the second: Jieli mic (port 1), servo adapter (port 2), C-Media adapter (port 3), camera (port 4) |
+| USB hubs | Terminus `1a40:0101` then QinHeng `1a86:8091`, 4 ports each, in a chain (two chained 4-port hubs, the team confirms); on the second: Jieli mic (port 1), servo adapter (port 2), C-Media adapter (port 3), camera (port 4) |
 | Status LED | `gpio-38` |
 | Operating system | Orange Pi 1.0.6 Bookworm (Debian 12), kernel 5.15.147-sun60iw2 |
+
+Parts software cannot see, from the hardware team's list (not checked on
+lamp-4ace):
+
+| Part | From the hardware team |
+|---|---|
+| Power in | 12 V, 5 A |
+| 5 V supply | MP2482 step-down, for the computer, the LED ring and the fan |
+| Amplifier | PAM8610 v2, on 12 V |
+| Speakers | two, 3 W each |
+| Sensing mic and speaker DAC | the C-Media part is a Unitek Y-247A USB adapter |
+| LED ring data | header pin 19 (SPI 3) |
+| MPR121 | on header pins 1, 3, 5, 6 (power, SDA, SCL, ground) |
 
 ## Parts as they show themselves to software
 
@@ -60,4 +83,5 @@ recording; `v4l2-ctl --list-devices`; `/sys/class/power_supply`, `/sys/class/net
 `/proc/device-tree/compatible`. The two touches were confirmed with the owner's hand
 while the lines and the MPR121's touch status were logged (raw log in lampOS issue
 #711). Speakers, amplifier, power supply, fan and the mechanical parts cannot be seen
-from software and were not checked.
+from software and were not checked; what is listed for them above is the hardware
+team's.

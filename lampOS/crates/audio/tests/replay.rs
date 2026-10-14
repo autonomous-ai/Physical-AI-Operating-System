@@ -1,6 +1,7 @@
 #![cfg(unix)]
 use lamp_audio::{
-    EchoProcessor,
+    EchoProcessor, RENDER_SAMPLES,
+    drift::{Controller, Resampler, TARGET_FRAMES},
     replay::{self, HistoricalProcessing, ReplayOptions},
 };
 use serde_json::{Value, json};
@@ -25,21 +26,28 @@ struct Fixture {
     accepted: Vec<i16>,
     valid: bool,
     processing: Option<Value>,
+    /// The run's start, first in the session's events, when given.
+    session: Option<Value>,
+    max_seconds: u64,
+}
+fn directories() -> (PathBuf, PathBuf) {
+    let root = std::env::temp_dir().join(format!(
+        "lamp-replay-{}-{}",
+        std::process::id(),
+        NEXT.fetch_add(1, Ordering::Relaxed)
+    ));
+    fs::DirBuilder::new().mode(0o700).create(&root).unwrap();
+    fs::create_dir(root.join("artifacts")).unwrap();
+    let run = root.join("run");
+    fs::create_dir(&run).unwrap();
+    for leaf in ["capture-audio", "render-audio"] {
+        fs::create_dir(run.join(leaf)).unwrap();
+    }
+    (root, run)
 }
 impl Fixture {
     fn new() -> Self {
-        let root = std::env::temp_dir().join(format!(
-            "lamp-replay-{}-{}",
-            std::process::id(),
-            NEXT.fetch_add(1, Ordering::Relaxed)
-        ));
-        fs::DirBuilder::new().mode(0o700).create(&root).unwrap();
-        fs::create_dir(root.join("artifacts")).unwrap();
-        let run = root.join("run");
-        fs::create_dir(&run).unwrap();
-        for leaf in ["capture-audio", "render-audio"] {
-            fs::create_dir(run.join(leaf)).unwrap();
-        }
+        let (root, run) = directories();
         let mut capture = vec![
             row(
                 "privacy",
@@ -126,6 +134,168 @@ impl Fixture {
             accepted,
             valid: true,
             processing: Some(json!({"aec":"sonora_aec3","noise_suppression":true})),
+            session: None,
+            max_seconds: 1,
+        };
+        fixture.save();
+        fixture
+    }
+
+    /// A capture-clocked recording made as the voice makes one
+    /// (`ReferenceAssembly::capture_clocked`, `prime`, `accept` and
+    /// `render_for_capture` in `crates/voice/src/reference.rs`): the ring
+    /// starts with its lead and the prime, every packet the speaker accepts
+    /// waits in it, and each capture block takes one block from it at the
+    /// rate the controller asks. The speaker runs 1,000 ppm fast and every
+    /// seventh packet comes late with the next, so the rate keeps moving.
+    /// `reset_after` puts a DSP reset with a new playback epoch there.
+    fn capture_clocked(blocks: usize, reset_after: Option<usize>) -> Self {
+        const PRIME: usize = 480;
+        const LEAD: usize = TARGET_FRAMES - PRIME;
+        let (root, run) = directories();
+        let privacy = json!({"at_us":1,"generation":2,"open":true});
+        let mut capture = vec![row("privacy", privacy.clone(), 0, 0, 0, None)];
+        let mut render = vec![row("privacy", privacy, 0, 0, 0, None)];
+        let (mut pre, mut post, mut accepted) = (Vec::new(), Vec::new(), Vec::new());
+        let ranges: Vec<std::ops::Range<usize>> = match reset_after {
+            Some(at) => vec![0..at, at..blocks],
+            None => std::iter::once(0..blocks).collect(),
+        };
+        let mut sequence = 0u64;
+        let mut previous_accepted = 0u64;
+        for (index, range) in ranges.into_iter().enumerate() {
+            let epoch = index as u64 + 1;
+            // After the last block before it was processed.
+            let start = 1_000 + range.start as u64 * 10_000 + 7;
+            if index == 0 {
+                render.push(row(
+                    "reset",
+                    reset(start - 2, "start", 1, 1, None),
+                    0,
+                    0,
+                    0,
+                    None,
+                ));
+                capture.push(row(
+                    "reset",
+                    reset(start, "start", 1, 1, None),
+                    0,
+                    0,
+                    0,
+                    None,
+                ));
+            } else {
+                let discard = json!({"playback_epoch":epoch-1,"retired_through":previous_accepted-240,"accepted_through":previous_accepted});
+                render.push(row(
+                    "reset",
+                    reset(
+                        start - 2,
+                        "playback_reset",
+                        epoch,
+                        epoch,
+                        Some(discard.clone()),
+                    ),
+                    0,
+                    0,
+                    accepted.len() as u64 * 2,
+                    None,
+                ));
+                capture.push(row(
+                    "reset",
+                    reset(start, "dsp_reset", epoch, epoch, Some(discard)),
+                    0,
+                    pre.len() as u64 * 2,
+                    0,
+                    None,
+                ));
+            }
+            for first in [0, 240] {
+                render.push(row("render_accepted",json!({"playback_epoch":epoch,"privacy_generation":2,"first_sample":first,"end_sample":first+240,"accepted_at_us":start-1,"queue_observed_at_us":start-1,"queued_frames":PRIME,"owner":null,"chunk_sequence":null}),240,0,accepted.len() as u64*2,Some("prime")));
+                accepted.extend([0i16; 240]);
+            }
+            let mut ring = Resampler::new();
+            ring.push(&[0; LEAD + PRIME]).unwrap();
+            let mut controller = Controller::default();
+            let mut processor = EchoProcessor::new(false);
+            let (mut pushed, mut packets, mut last_at) = (PRIME as u64, 0u64, start - 1);
+            for (count, block) in range.enumerate() {
+                let at = 1_000 + block as u64 * 10_000 + 10_000;
+                loop {
+                    // The speaker's clock is 1,000 ppm fast; every seventh
+                    // packet waits for the next.
+                    let mut due = start + (packets as f64 * 10_000.0 / 1.001) as u64;
+                    if packets % 7 == 6 {
+                        due += 6_000;
+                    }
+                    if due > at {
+                        break;
+                    }
+                    let samples: Vec<i16> = (0..RENDER_SAMPLES as u64)
+                        .map(|i| {
+                            let n = (pushed + i) as f64;
+                            let envelope = 0.5 + 0.5 * (n / 3_000.0).sin();
+                            (envelope * (6_000.0 * (n * 0.071).sin() + 2_500.0 * (n * 0.233).sin()))
+                                as i16
+                        })
+                        .collect();
+                    ring.push(&samples).unwrap();
+                    render.push(row("render_accepted",json!({"playback_epoch":epoch,"privacy_generation":2,"first_sample":pushed,"end_sample":pushed+240,"accepted_at_us":due,"queue_observed_at_us":due,"queued_frames":480,"owner":null,"chunk_sequence":null}),240,0,accepted.len() as u64*2,None));
+                    accepted.extend(&samples);
+                    pushed += 240;
+                    packets += 1;
+                    last_at = due;
+                }
+                let now = at + 3;
+                let mut taken = [0; RENDER_SAMPLES];
+                ring.take(&mut taken).unwrap();
+                processor.render(&taken).unwrap();
+                let since = now.saturating_sub(last_at).min(20_000);
+                let owed = since as f64 * 24_000.0 / 1e6;
+                let ppm = controller.observe(ring.unread() as f64 + owed);
+                ring.set_ppm(ppm);
+                let analysed = ring.consumed().saturating_sub(LEAD as u64);
+                let samples: [i16; 160] = std::array::from_fn(|i| {
+                    let echo = i32::from(taken[i * 3 / 2]) / 3;
+                    (echo + ((i as i32 * 191 + block as i32 * 337) % 600 - 300)) as i16
+                });
+                post.extend(processor.capture(&samples, 5).unwrap());
+                sequence += 1;
+                capture.push(row("capture",json!({"epoch":1,"dsp_epoch":epoch,"privacy_generation":2,"frame_sequence":sequence,"first_read_started_at_us":at-8,"last_read_started_at_us":at-8,"read_completed_at_us":at+1,"successful_reads":1,"alsa_status_monotonic_us":at+1,"status_observed_at_us":at+2,"available_frames":0,"delayed_frames":32,"processing_completed_at_us":at+5,"aec_queue_delay_ms":5,"reference":{"playback_epoch":epoch,"accepted_through":pushed,"analysed_through":analysed,"capture_blocks_processed":count+1,"capture_blocks_before_clock_start":0,"accepted_at_us":last_at,"analysed_at_us":now,"queue_observed_at_us":last_at,"queued_frames":480,"clock_started_at_us":start,"ignored_old_epoch_packets":0},"vad_score":0.4}),160,pre.len() as u64*2,0,None));
+                pre.extend(samples);
+            }
+            previous_accepted = pushed;
+        }
+        let end = 1_000 + blocks as u64 * 10_000 + 20_000;
+        capture.push(row(
+            "end",
+            json!({"at_us":end,"reason":"stopped"}),
+            0,
+            pre.len() as u64 * 2,
+            0,
+            None,
+        ));
+        render.push(row(
+            "end",
+            json!({"at_us":end,"reason":"stopped"}),
+            0,
+            0,
+            accepted.len() as u64 * 2,
+            None,
+        ));
+        let fixture = Self {
+            root,
+            run,
+            capture,
+            render,
+            pre,
+            post,
+            accepted,
+            valid: true,
+            processing: Some(json!({"aec":"sonora_aec3","noise_suppression":false})),
+            session: Some(
+                json!({"kind":"run_start","at_us":1,"reference_clock":"capture","echo_reference":"as-given"}),
+            ),
+            max_seconds: 10,
         };
         fixture.save();
         fixture
@@ -134,7 +304,7 @@ impl Fixture {
         self.root.join("artifacts").join(name)
     }
     fn save(&self) {
-        let mut trace = Vec::new();
+        let mut trace: Vec<Value> = self.session.iter().cloned().collect();
         for (kind, leaf, rows, pre, post, accepted, worker_boot) in [
             (
                 "capture",
@@ -175,7 +345,7 @@ impl Fixture {
             for (name, bytes) in &values {
                 write(&directory.join(name), bytes);
             }
-            let mut pending = json!({"schema_version":1,"boot":BOOT,"stream":kind,"started_at_us":0,"max_seconds":1,"max_bytes":16*1024*1024});
+            let mut pending = json!({"schema_version":1,"boot":BOOT,"stream":kind,"started_at_us":0,"max_seconds":self.max_seconds,"max_bytes":16*1024*1024});
             if kind == "capture"
                 && let Some(processing) = &self.processing
             {
@@ -324,7 +494,7 @@ fn the_steady_reference_is_replayed_only_when_asked_for_and_says_so() {
         .replay(
             "steady",
             ReplayOptions {
-                reference: lamp_audio::Reference::Steady,
+                reference: Some(lamp_audio::Reference::Steady),
                 ..Default::default()
             },
         )
@@ -775,4 +945,143 @@ fn missing_or_zero_worker_identity_cannot_certify_matching_markers() {
         write(&path, &jsonl(&rows));
         assert!(fixture.replay("refused", ReplayOptions::default()).is_err());
     }
+}
+
+#[test]
+fn a_capture_clocked_recording_replays_whole_and_bit_for_bit() {
+    let fixture = Fixture::capture_clocked(300, None);
+    let report = fixture.replay("clocked", ReplayOptions::default()).unwrap();
+    assert!(report.source_certified, "{:?}", report.limitations);
+    assert!(
+        report.replay_complete_for_recorded_capture,
+        "{:?}",
+        report.limitations
+    );
+    assert_eq!(report.reference_clock, "capture");
+    assert_eq!(report.reference_clock_from, "events.jsonl run_start");
+    assert_eq!(report.echo_reference_recorded.as_deref(), Some("as-given"));
+    assert_eq!(report.replayed_capture_frames, 300 * 160);
+    assert_eq!(report.segments.len(), 1);
+    // The canceller's own output, sample for sample.
+    assert_eq!(
+        report.segments[0].aec_only_mismatched_samples_vs_recorded,
+        0
+    );
+    assert_eq!(report.segments[0].reference, "as_given");
+    // The rate moved: the ring was read off the sample grid.
+    let operations =
+        fs::read_to_string(fixture.output("clocked").join("operations.jsonl")).unwrap();
+    let rates: Vec<f64> = operations
+        .lines()
+        .map(|l| serde_json::from_str::<Value>(l).unwrap())
+        .filter(|row| row["kind"] == "render_for_capture")
+        .map(|row| row["rate_ppm"].as_f64().unwrap())
+        .collect();
+    assert_eq!(rates.len(), 300);
+    assert!(rates.iter().any(|&rate| rate != 0.0));
+}
+
+#[test]
+fn an_older_capture_clocked_session_is_known_by_its_first_cursor() {
+    let mut fixture = Fixture::capture_clocked(60, None);
+    fixture.session = None;
+    fixture.save();
+    let report = fixture.replay("older", ReplayOptions::default()).unwrap();
+    assert_eq!(report.reference_clock, "capture");
+    assert_eq!(
+        report.reference_clock_from,
+        "the first capture record's cursor"
+    );
+    assert_eq!(report.echo_reference_recorded, None);
+    assert!(report.replay_complete_for_recorded_capture);
+    assert_eq!(
+        report.segments[0].aec_only_mismatched_samples_vs_recorded,
+        0
+    );
+}
+
+#[test]
+fn a_reset_in_the_middle_of_a_capture_clocked_recording_starts_a_new_ring() {
+    let fixture = Fixture::capture_clocked(200, Some(120));
+    let report = fixture.replay("reset", ReplayOptions::default()).unwrap();
+    assert!(
+        report.replay_complete_for_recorded_capture,
+        "{:?}",
+        report.limitations
+    );
+    assert_eq!(report.segments.len(), 2);
+    assert_eq!(
+        (
+            report.segments[0].capture_blocks,
+            report.segments[1].capture_blocks
+        ),
+        (120, 80)
+    );
+    for segment in &report.segments {
+        assert_eq!(segment.aec_only_mismatched_samples_vs_recorded, 0);
+    }
+}
+
+#[test]
+fn events_cut_off_in_their_last_line_are_read_up_to_it() {
+    let fixture = Fixture::capture_clocked(40, None);
+    let path = fixture.run.join("events.jsonl");
+    let mut events = fs::read(&path).unwrap();
+    events.extend_from_slice(br#"{"kind":"provider_event","at_us":99,"det"#);
+    write(&path, &events);
+    let report = fixture.replay("cut", ReplayOptions::default()).unwrap();
+    assert!(report.events_cut_off);
+    assert!(report.source_certified);
+    assert!(report.replay_complete_for_recorded_capture);
+    assert!(report.limitations.iter().any(|l| l.contains("cut off")));
+    // A line that is not JSON anywhere else is still refused, by number.
+    let mut broken = fs::read(&path).unwrap();
+    broken.splice(0..0, b"not json\n".iter().copied());
+    write(&path, &broken);
+    let Err(error) = fixture.replay("broken", ReplayOptions::default()) else {
+        panic!("a line that is not JSON was read");
+    };
+    let error = error.to_string();
+    assert!(error.contains("events.jsonl line 1"), "{error}");
+}
+
+#[test]
+fn where_a_recording_cannot_be_followed_the_replay_names_the_record_and_keeps_what_came_before() {
+    let mut fixture = Fixture::capture_clocked(100, None);
+    // The lamp's cursor after the 61st block, one frame on: no ring reads
+    // that from what was accepted.
+    let index = fixture
+        .capture
+        .iter()
+        .position(|row| row["kind"] == "capture" && row["meta"]["frame_sequence"] == 61)
+        .unwrap();
+    let analysed = fixture.capture[index]["meta"]["reference"]["analysed_through"]
+        .as_u64()
+        .unwrap();
+    fixture.capture[index]["meta"]["reference"]["analysed_through"] = json!(analysed + 1);
+    fixture.save();
+    let report = fixture
+        .replay(
+            "parted",
+            ReplayOptions {
+                exploratory_prefix: true,
+                ..Default::default()
+            },
+        )
+        .unwrap();
+    assert!(!report.replay_complete_for_recorded_capture);
+    assert_eq!(report.replayed_capture_frames, 60 * 160);
+    assert_eq!(
+        report.segments[0].aec_only_mismatched_samples_vs_recorded,
+        0
+    );
+    let record = index + 1;
+    assert!(
+        report
+            .limitations
+            .iter()
+            .any(|l| l.contains(&format!("capture record {record}")) && l.contains("read to frame")),
+        "{:?}",
+        report.limitations
+    );
 }

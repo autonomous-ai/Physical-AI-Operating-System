@@ -169,7 +169,7 @@ has it:
 | 10 | A reference that follows the microphone's clock | `reference-clock` | Second | taken 2026-10-14 |
 | 9 | Faster answers: what exists | `faster-answers` | Second | done on `lamp-second` 2026-10-14; the first builder takes it next |
 | 4 | Expression: one part that authors what the lamp shows | `expression` | Third | done 2026-10-14: on `lamp-voice`, run on the lamp watching only; the wiring is the first builder's |
-| 7 | The button and the touch pad | `controls` | Third | done on `lamp-third` 2026-10-14; the first builder takes it next |
+| 7 | The button and the touch pad | `controls` | Third | done 2026-10-14: on `lamp-voice`; its written scenario runs on the lamp; reading the lamp's real pins and the voice and body acting on it are the first builder's |
 | 18 | Expression: holding back for someone, and a lamp at rest | `expression-rest` | Third | open |
 | 12 | Starting, setting up and updating a lamp | `surround` | Third | taken 2026-10-14 |
 | 6 | Reminders and timers | `schedule` | Third | open |
@@ -773,6 +773,27 @@ on the lamp: how the rest behaviour looks, which only the camera shows.
 ## What the lamp showed
 
 Newest first. Each builder's own notes are in its log, on its branch.
+
+**2026-10-14, task 7, the hand controls.** Taken onto `lamp-voice`
+unchanged (`1c765da78`). On the first builder's Mac its tests and the
+message types' pass (159, one at a time) and clippy is clean. Built for
+the lamp; under emulation 84 pass and one fails
+(`sigterm_finishes_recording_and_releases_the_actual_serve_owner`: a real
+signal to a real child, which the emulator does not carry as a lamp
+does); that one was not run on the lamp. On lamp-4ace the written
+scenario replayed with the counts the log gives: 901 records, 900
+observations, none refused, one fault (the overflow written into it), six
+gestures. The gestures' times were not read off there.
+
+What the lamp has for it, looked at without touching anything: two GPIO
+chips, no gpio tools installed, and nothing on its I2C buses at the
+address a base touch controller would have, so on this lamp the controls
+are the button, the reset button and the head's touch pads
+(`robots/lamp/docs/physical-controls.md` in the older software names
+their lines). Still to do, and the first builder's: the reader of those
+lines in place of `MissingPins`, the voice stopping and muting on
+`controls/state`, the body's stop, and a person's hand on the lamp to
+show any of it.
 
 **2026-10-14, task 1, the fast end-of-turn model.** Taken onto
 `lamp-voice` (`a98e18a3f`); one test mended for a machine no library is

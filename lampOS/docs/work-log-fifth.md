@@ -236,6 +236,21 @@ lamp-4ace.
   folded, the pose a standing power cut leaves; and a head held a little
   short of a small goal at rest should rest there, not end the run.
 
+## 2026-10-14 — give-way — letting go under overload, as the old runtime did
+
+- `fifth/overload`: `lampOS: let the body let go under overload as the old
+  runtime did and take the lamp up again slowly, behind a switch`
+  (`--overload release`, absent = as before; a test checks the writes byte
+  for byte). The hardware team's view, through the fifth builder's person:
+  the old runtime's letting go (every servo's torque off for 120 s) is the
+  best protection for the servos. Trip as V1 (800 for 1.5 s), or 80% of a
+  force limit for the joints that carry one (480 at 600); after 120 s the
+  lamp is taken up again with the mended wake, not jumped to a fixed pose; a
+  second trip within ten minutes ends the run with torque off.
+- Gate on the Mac: fmt, clippy clean; `cargo test -p lamp-body` 260 passed,
+  0 failed; workspace and the Linux arm64 build as before.
+- Kind: off unless set. Not run on a lamp: it needs a hand forcing a joint.
+
 ## Proposed tasks
 
 Work found while doing a listed task that cannot be folded into it. One

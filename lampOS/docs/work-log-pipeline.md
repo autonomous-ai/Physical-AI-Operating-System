@@ -1,5 +1,38 @@
 # Pipeline work log
 
+## 2026-10-15 16:50 +0700 — shared ARM64 capacity ready
+
+Ready for lamp-voice: no; native PR checks are running.
+
+- Owner-approved capacity is provisioned: `lampos-arm64-16`, Ubuntu 22.04
+  ARM64, 16 cores, 64 GB RAM and 600 GB disk. Pool ID 1 is ready; group
+  `lampos-arm64` (ID 3) allows all autonomous-ai repositories at the owner's
+  request. All teams share its 40-job ceiling; no static public IPs.
+- The capacity change is [draft PR #814](https://github.com/autonomous-ai/lampOS/pull/814),
+  head `03bba231e53cfd93c41284e4acf3dc2b03ec6567`. Push began at 16:48:08
+  +07 from `date`; [run 38715632523](https://github.com/autonomous-ai/lampOS/actions/runs/38715632523)
+  was created at 09:48:17 UTC. The existing four partitions and all test
+  commands remain unchanged. actionlint with ShellCheck passed.
+- #802's producer and consumers 1/3 passed. The producer selected 4,484
+  nextest identities; those two consumers executed 2,163 exact matching
+  identities without Cargo compilation. Consumer execution was 300.364s
+  and 352.427s. Shards 2/4 were still queued at 16:47:17 +07, so this is
+  partial evidence only, not a green workflow or a latency improvement.
+- Source-cache commit `1546b7232` is prepared separately on
+  `pipeline/788-source-cache`: content, mode, path, configuration and
+  toolchain checks guard source timestamp restoration. Three unit tests,
+  24 Cargo correctness cases, rustfmt, Clippy, ShellCheck and actionlint
+  passed locally. Native performance and a warm shared cache remain open.
+- Nightly commit `300e4ae1a` is prepared separately on
+  `pipeline/788-nightly`: a tiny default-branch caller invokes the same
+  full ARM64 workflow, resolving lamp-voice once and pinning consumers to
+  that SHA. Static validation and unchanged-command comparison passed.
+  Activation needs the first builder to backport the caller to main after
+  review; no other builder's branch was pushed.
+- Four exact-duplicate push runs were cancelled, preserving their matching
+  active PR runs; details are on #788. No flaky test was retried and no
+  assertion changed. No lamp was accessed.
+
 ## 2026-10-15 — #788 archive implementation prepared
 
 Ready for lamp-voice: no
@@ -66,6 +99,7 @@ None.
 
 ## What was not shown
 
-No performance improvement from the prepared change, native ARM64 archive
-parity, three improved pull requests or active nightly schedule has been
+The archive has partial native ARM64 parity evidence from two consumers;
+the remaining two are queued. No complete ten-minute result, three improved
+pull requests, warm guarded-cache result or active nightly schedule has been
 shown yet. No lamp was accessed.

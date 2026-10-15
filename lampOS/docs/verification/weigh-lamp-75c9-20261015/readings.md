@@ -14,6 +14,12 @@ it was read. See [README.md](README.md) for how.
 | Pad | Outermost points from the yaw centre (x, y mm) | Touches under load |
 |---|---|---|
 
+As told by the person at 17:10, read by ruler:
+
+- Base: square, 174 mm each side, with rounded corners (radius not yet read).
+- It stands on feet; between feet 154 mm, the feet centred on the base.
+- Height of the base with its feet 53 mm, without the feet 47 mm (feet 6 mm).
+
 ## 3. Reference pose counts
 
 | Time | Servo 1 | Servo 2 | Servo 3 | Servo 4 | Servo 5 | Pose |

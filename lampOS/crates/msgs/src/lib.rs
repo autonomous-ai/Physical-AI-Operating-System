@@ -845,6 +845,37 @@ impl Hand {
     }
 }
 
+/// What the people at the lamp asked it about speaking up, as typed facts
+/// for the policy (`memory/rules`, `docs/memory-days.md`, "Rules"). The
+/// voice says it when a session opens for someone and when one of their
+/// rules is kept or forgotten; it is kept until the next. Only booleans
+/// and a count: never the words of a rule.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Rules {
+    /// Whose rules, beside the room's: the memory's person id (`p-` and
+    /// 16 hex digits) of the known person at the lamp, or `everyone` when
+    /// nobody was known.
+    pub person: String,
+    /// Asked never to speak first, unprompted.
+    pub quiet: bool,
+    /// Asked not to speak first, unprompted, in the mornings (before noon,
+    /// the lamp's local time).
+    pub quiet_mornings: bool,
+    /// How many rules, of every kind, the room's and theirs.
+    pub rules: u32,
+}
+
+impl Rules {
+    pub const TYPE: &str = "lamp_msgs/Rules";
+    pub const VERSION: u32 = 1;
+    pub const TOPIC: &str = "memory/rules";
+
+    /// Said when it changes and kept until the next, like the pause.
+    pub fn declaration() -> Declaration {
+        Declaration::new(Self::TYPE, Self::VERSION, Kind::Latest)
+    }
+}
+
 /// The body's topic beside the first ones.
 pub fn body_topics() -> Vec<(&'static str, Declaration)> {
     vec![(Hand::TOPIC, Hand::declaration())]
@@ -979,6 +1010,11 @@ pub fn keeper_topics() -> Vec<(&'static str, Declaration)> {
     vec![(Pause::TOPIC, Pause::declaration())]
 }
 
+/// The memory's typed rules (#813), separate from the original seventeen.
+pub fn memory_topics() -> Vec<(&'static str, Declaration)> {
+    vec![(Rules::TOPIC, Rules::declaration())]
+}
+
 pub fn declaration_of(topic: &str) -> Option<Declaration> {
     first_topics()
         .into_iter()
@@ -990,6 +1026,7 @@ pub fn declaration_of(topic: &str) -> Option<Declaration> {
         .chain(body_topics())
         .chain(tasks_topics())
         .chain(logging_topics())
+        .chain(memory_topics())
         .find_map(|(name, declaration)| (name == topic).then_some(declaration))
 }
 
@@ -1569,6 +1606,25 @@ mod tests {
                 declared.period_ms
             ),
             (Pause::TYPE, Kind::Latest, None)
+        );
+    }
+
+    #[test]
+    fn rules_are_booleans_and_a_count_kept_apart_from_the_first_topics() {
+        round_trip(
+            &Rules {
+                person: "p-be9688998f085098".into(),
+                quiet: false,
+                quiet_mornings: true,
+                rules: 2,
+            },
+            "{\"person\":\"p-be9688998f085098\",\"quiet\":false,\"quiet_mornings\":true,\"rules\":2}",
+        );
+        assert!(!first_topics().iter().any(|(name, _)| *name == Rules::TOPIC));
+        let declared = declaration_of(Rules::TOPIC).unwrap();
+        assert_eq!(
+            (declared.type_name.as_str(), declared.kind),
+            (Rules::TYPE, Kind::Latest)
         );
     }
 

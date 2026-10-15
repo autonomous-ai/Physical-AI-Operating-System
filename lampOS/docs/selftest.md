@@ -73,6 +73,13 @@ journal is no substitute there (two kernel lines for the whole boot). A unit
 that runs the self-test gives it `AmbientCapabilities=CAP_SYSLOG`; run by
 hand without it, storage is `not_checked`.
 
+On lamp-4ace the unit is `deploy/lamp-4ace/lamp-selftest.service`: a
+oneshot, started only by hand (`sudo systemctl start lamp-selftest`), never
+at boot, as `orangepi` with `CAP_SYSLOG` and no other capability,
+`--occasion on-demand` on `/run/lampos-bus`, keeping its runs in
+`/var/lib/lampOS/selftest` (its `StateDirectory`). The first boot (#806) can
+run the same binary with `--occasion first-boot`.
+
 Exit status: 0 every part passed or is not fitted, 1 a part failed, 3 a
 part could not be checked, 2 the arguments were wrong.
 

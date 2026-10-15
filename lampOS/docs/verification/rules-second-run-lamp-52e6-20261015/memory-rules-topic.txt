@@ -1,0 +1,2 @@
+{"topic":"memory/rules","kind":"latest","enc":"json","type":"lamp_msgs/Rules","source":"voice","boot":"2357b30e8bd538a0","seq":5,"at_us":0,"at_unix_ms":1792065495089}
+{"person":"p-be9688998f085098","quiet":false,"quiet_mornings":false,"rules":2}

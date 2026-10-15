@@ -1,0 +1,53 @@
+2026-10-15T18:54:55+0700 lamp-52e6 lamp-memory[115787]: lamp-memory: session_open person=everyone ok entries=0
+2026-10-15T18:54:55+0700 lamp-52e6 lamp-memory[115787]: lamp-memory: kept person=r-everyone ok entries=0
+2026-10-15T18:54:57+0700 lamp-52e6 lamp-voice[115815]: lamp-voice provider: the person at the lamp has changed; a new session is opened between turns
+2026-10-15T18:54:57+0700 lamp-52e6 lamp-memory[115787]: lamp-memory: session_open person=everyone ok entries=0
+2026-10-15T18:54:57+0700 lamp-52e6 lamp-memory[115787]: lamp-memory: session_open person=p-be9688998f085098 ok entries=0
+2026-10-15T18:54:57+0700 lamp-52e6 lamp-memory[115787]: lamp-memory: kept person=r-everyone ok entries=0
+2026-10-15T18:54:57+0700 lamp-52e6 lamp-memory[115787]: lamp-memory: kept person=r-be9688998f085098 ok entries=0
+2026-10-15T18:55:12+0700 lamp-52e6 lamp-voice[115815]: lamp-voice provider: request 1: told the session who is at the lamp
+2026-10-15T18:55:18+0700 lamp-52e6 lamp-memory[115787]: lamp-memory: kept person=r-be9688998f085098 ok entries=0
+2026-10-15T18:55:18+0700 lamp-52e6 lamp-memory[115787]: lamp-memory: remember person=r-be9688998f085098 ok entries=0
+2026-10-15T18:55:18+0700 lamp-52e6 lamp-memory[115787]: lamp-memory: kept person=r-everyone ok entries=0
+2026-10-15T18:55:18+0700 lamp-52e6 lamp-memory[115787]: lamp-memory: kept person=r-be9688998f085098 ok entries=1
+2026-10-15T18:55:18+0700 lamp-52e6 lamp-voice[115815]: lamp-voice provider: request 1 asked for keep_rule; the memory answered in 30 ms; the answer was sent
+2026-10-15T18:55:49+0700 lamp-52e6 lamp-memory[115787]: lamp-memory: kept person=r-be9688998f085098 ok entries=1
+2026-10-15T18:55:49+0700 lamp-52e6 lamp-memory[115787]: lamp-memory: remember person=r-be9688998f085098 ok entries=0
+2026-10-15T18:55:49+0700 lamp-52e6 lamp-memory[115787]: lamp-memory: kept person=r-everyone ok entries=0
+2026-10-15T18:55:49+0700 lamp-52e6 lamp-memory[115787]: lamp-memory: kept person=r-be9688998f085098 ok entries=2
+2026-10-15T18:55:49+0700 lamp-52e6 lamp-voice[115815]: lamp-voice provider: request 3 asked for keep_rule; the memory answered in 29 ms; the answer was sent
+2026-10-15T18:56:13+0700 lamp-52e6 lamp-memory[115787]: lamp-memory: kept person=r-be9688998f085098 ok entries=2
+2026-10-15T18:56:13+0700 lamp-52e6 lamp-memory[115787]: lamp-memory: remember person=r-be9688998f085098 ok entries=0
+2026-10-15T18:56:13+0700 lamp-52e6 lamp-memory[115787]: lamp-memory: kept person=r-everyone ok entries=0
+2026-10-15T18:56:13+0700 lamp-52e6 lamp-memory[115787]: lamp-memory: kept person=r-be9688998f085098 ok entries=3
+2026-10-15T18:56:13+0700 lamp-52e6 lamp-voice[115815]: lamp-voice provider: request 4 asked for keep_rule; the memory answered in 41 ms; the answer was sent
+2026-10-15T18:56:28+0700 lamp-52e6 lamp-memory[115787]: lamp-memory: kept person=r-be9688998f085098 ok entries=3
+2026-10-15T18:56:36+0700 lamp-52e6 lamp-memory[115787]: lamp-memory: session_open person=everyone ok entries=0
+2026-10-15T18:56:36+0700 lamp-52e6 lamp-memory[115787]: lamp-memory: kept person=r-everyone ok entries=0
+2026-10-15T18:56:38+0700 lamp-52e6 lamp-voice[118323]: lamp-voice provider: the person at the lamp has changed; a new session is opened between turns
+2026-10-15T18:56:38+0700 lamp-52e6 lamp-memory[115787]: lamp-memory: session_open person=everyone ok entries=0
+2026-10-15T18:56:38+0700 lamp-52e6 lamp-memory[115787]: lamp-memory: session_open person=p-be9688998f085098 ok entries=0
+2026-10-15T18:56:38+0700 lamp-52e6 lamp-memory[115787]: lamp-memory: kept person=r-everyone ok entries=0
+2026-10-15T18:56:38+0700 lamp-52e6 lamp-memory[115787]: lamp-memory: kept person=r-be9688998f085098 ok entries=3
+2026-10-15T18:56:54+0700 lamp-52e6 lamp-voice[118323]: lamp-voice provider: request 1: told the session who is at the lamp
+2026-10-15T18:57:30+0700 lamp-52e6 lamp-memory[115787]: lamp-memory: forget person=r-be9688998f085098 ok entries=0
+2026-10-15T18:57:30+0700 lamp-52e6 lamp-memory[115787]: lamp-memory: kept person=r-everyone ok entries=0
+2026-10-15T18:57:30+0700 lamp-52e6 lamp-memory[115787]: lamp-memory: kept person=r-be9688998f085098 ok entries=2
+2026-10-15T18:57:30+0700 lamp-52e6 lamp-voice[118323]: lamp-voice provider: request 2 asked for forget_rule; the memory answered in 33 ms; the answer was sent
+2026-10-15T18:57:45+0700 lamp-52e6 lamp-memory[115787]: lamp-memory: kept person=r-be9688998f085098 ok entries=2
+2026-10-15T18:57:51+0700 lamp-52e6 lamp-voice[118323]: lamp-voice provider: the person at the lamp has changed; a new session is opened between turns
+2026-10-15T18:57:51+0700 lamp-52e6 lamp-memory[115787]: lamp-memory: session_open person=everyone ok entries=0
+2026-10-15T18:57:52+0700 lamp-52e6 lamp-memory[115787]: lamp-memory: session_open person=p-e96e02d8e47f2a7c ok entries=0
+2026-10-15T18:57:52+0700 lamp-52e6 lamp-memory[115787]: lamp-memory: kept person=r-everyone ok entries=0
+2026-10-15T18:57:52+0700 lamp-52e6 lamp-memory[115787]: lamp-memory: kept person=r-e96e02d8e47f2a7c ok entries=0
+2026-10-15T18:57:55+0700 lamp-52e6 lamp-voice[118323]: lamp-voice provider: request 3: told the session who is at the lamp
+2026-10-15T18:57:58+0700 lamp-52e6 lamp-memory[115787]: lamp-memory: kept person=r-e96e02d8e47f2a7c ok entries=0
+2026-10-15T18:57:58+0700 lamp-52e6 lamp-voice[118323]: lamp-voice provider: request 3 asked for list_rules; the memory answered in 2 ms; the answer was sent
+2026-10-15T18:58:15+0700 lamp-52e6 lamp-voice[118323]: lamp-voice provider: the person at the lamp has changed; a new session is opened between turns
+2026-10-15T18:58:15+0700 lamp-52e6 lamp-memory[115787]: lamp-memory: session_open person=everyone ok entries=0
+2026-10-15T18:58:15+0700 lamp-52e6 lamp-memory[115787]: lamp-memory: session_open person=p-be9688998f085098 ok entries=0
+2026-10-15T18:58:15+0700 lamp-52e6 lamp-memory[115787]: lamp-memory: kept person=r-everyone ok entries=0
+2026-10-15T18:58:15+0700 lamp-52e6 lamp-memory[115787]: lamp-memory: kept person=r-be9688998f085098 ok entries=2
+2026-10-15T18:58:17+0700 lamp-52e6 lamp-voice[118323]: lamp-voice provider: request 4: told the session who is at the lamp
+2026-10-15T18:58:22+0700 lamp-52e6 lamp-memory[115787]: lamp-memory: kept person=r-be9688998f085098 ok entries=2
+2026-10-15T18:58:22+0700 lamp-52e6 lamp-voice[118323]: lamp-voice provider: request 4 asked for list_rules; the memory answered in 2 ms; the answer was sent

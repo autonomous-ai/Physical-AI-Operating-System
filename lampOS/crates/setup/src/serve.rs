@@ -66,6 +66,12 @@ pub struct Config {
     pub localtime: PathBuf,
     #[serde(default = "default_timezone_file")]
     pub timezone_file: PathBuf,
+    /// Run once the hotspot is up and once serving ends: V1's nginx, which
+    /// serves V1's page and passes `/api/` here, is on only during setup.
+    #[serde(default)]
+    pub web_start: Vec<String>,
+    #[serde(default)]
+    pub web_stop: Vec<String>,
 }
 
 impl Config {
@@ -86,6 +92,14 @@ impl Config {
         self.listen
             .parse::<std::net::SocketAddr>()
             .map_err(|_| "listen is an address and port")?;
+        for argv in [&self.web_start, &self.web_stop] {
+            if argv
+                .first()
+                .is_some_and(|program| !Path::new(program).is_absolute())
+            {
+                return Err("web_start and web_stop are commands with an absolute program".into());
+            }
+        }
         Ok(())
     }
 }
@@ -326,7 +340,11 @@ pub fn run(
         None => {
             status.phase = Phase::Connected;
             status.set_up_completed = true;
-            status.runtime_phase = "starting".into();
+            // V1's page shows "Preparing your robot's voice…" while this is
+            // `preparing`, and reloads into its own settings at `ready`, which
+            // need V1's server. So it stays `preparing`: the lamp's greeting,
+            // as in V1, is how the person learns it is done.
+            status.runtime_phase = "preparing".into();
         }
         Some(error) => {
             status.phase = Phase::Failed;

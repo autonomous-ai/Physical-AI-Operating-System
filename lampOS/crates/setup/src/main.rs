@@ -1,7 +1,7 @@
 //! `lamp-setup`: a lamp's first boot and its way back there (#806).
 use lamp_bus::Bus;
 use lamp_msgs::TouchEvent;
-use lamp_setup::reset::{self, Plan, System};
+use lamp_setup::reset::{self, Effects, Plan, System};
 use std::{
     collections::BTreeMap,
     fs::File,
@@ -236,6 +236,9 @@ fn serve(
     let status = Arc::new(Mutex::new(Status::new(mac)));
     // The hotspot, as V1's os-server raises it at a first boot.
     ImageHost::new().hotspot()?;
+    if !config.web_start.is_empty() {
+        System.run(&config.web_start)?;
+    }
     eprintln!(
         "lamp-setup: the lamp's hotspot is up; answering on {}",
         config.listen
@@ -282,6 +285,7 @@ fn serve(
             move || lamp_setup::scan::scan(&interface)
         }),
     });
+    let web_stop = config.web_stop.clone();
     let runtime = tokio::runtime::Builder::new_current_thread()
         .enable_all()
         .build()?;
@@ -306,6 +310,9 @@ fn serve(
             .with_graceful_shutdown(done)
             .await
     })?;
+    if !web_stop.is_empty() {
+        System.run(&web_stop)?;
+    }
     Ok(true)
 }
 

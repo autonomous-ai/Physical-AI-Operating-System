@@ -51,6 +51,8 @@ impl Root {
             zoneinfo: self.0.join("zoneinfo"),
             localtime: self.0.join("etc/localtime"),
             timezone_file: self.0.join("etc/timezone"),
+            web_start: vec![],
+            web_stop: vec![],
         }
     }
 }
@@ -227,6 +229,8 @@ fn a_joined_lamp_saves_the_settings_then_the_marker_and_says_it_is_set_up() {
     assert_eq!(status.phase, Phase::Connected);
     assert!(status.set_up_completed);
     assert_eq!(status.run, 1);
+    // V1's page keeps its "Preparing your robot's voice…" screen.
+    assert_eq!(status.runtime_phase, "preparing");
     assert_eq!(status.lan_ip, "192.168.1.23", "published while joining");
     assert_eq!(
         saved.calls,

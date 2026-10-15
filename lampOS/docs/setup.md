@@ -211,9 +211,24 @@ saved, there is no marker and the hotspot comes back. After setup it goes on
 answering for 10 minutes, so the page can follow the lamp onto the home network
 and see it done.
 
-`crates/setup/fixtures/serve-behind-v1-nginx.json` answers on
-`127.0.0.1:5000`, where `os-server` did, so V1's nginx and V1's own page serve
-the person (question 3). `serve-own-page.json` answers on port 80 with
+**V1's page, through V1's nginx** (the first builder's answer to question 3,
+read on lamp-4ace: nginx 1.22.1 installed but stopped; V1's built page still in
+`/usr/share/nginx/html/setup`). `crates/setup/fixtures/serve-behind-v1-nginx.json`
+answers on `127.0.0.1:5000`, where `os-server` did, starts nginx once the
+hotspot is up and stops it when serving ends: nginx is on only while the lamp
+is not set up. `crates/setup/fixtures/nginx-setup.conf` is V1's site with what
+a V2 lamp has not removed (`hal`, `openclaw`, and V1's shell, exec, openapi,
+buddy and harness routes): V1's page and cache rules, `/api/` to `lamp-setup`,
+and the 204 sign-in answers. A home lamp's image (#811) must carry nginx, that
+config as its default site, and V1's page bundle.
+
+After the join, `runtime_phase` stays `preparing`. V1's page then keeps its
+"Preparing your robot's voice…" screen; at `ready` it would reload into its own
+settings, which need V1's server. The lamp's greeting, as in V1, is how the
+person learns it is done. V1's page asks for the voice's key only from the
+account page's URL (`?llm_api_key=…&device_id=…`) or, with `?debug=true`, in its
+AI step; until question 1 is answered, a lamp is set up by hand with one of
+those two. `serve-own-page.json` answers on port 80 with
 `page: true`: this crate's own page (`src/page.html`, one step: network,
 password, the voice's key unless the account page passed one, the person's
 name; the time zone comes from the phone), and 204 to the phones' sign-in

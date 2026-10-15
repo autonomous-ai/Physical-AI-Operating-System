@@ -3,7 +3,7 @@
 //! prints one line a part (docs/selftest.md).
 use lamp_bus::Bus;
 use lamp_msgs::{Occasion, SelfTest, Verdict};
-use lamp_selftest::{BUDGET, kernel, listen, report, ring};
+use lamp_selftest::{BUDGET, kernel, listen, mic, report, ring};
 use std::{path::PathBuf, process::ExitCode, time::Instant};
 
 const USAGE: &str = "usage: lamp-selftest [--occasion factory|first-boot|on-demand] [--dir ABSOLUTE] [--bus-root ABSOLUTE]";
@@ -84,6 +84,7 @@ fn main() -> ExitCode {
         }
     };
     let mut checks = listen::checks(&bus);
+    checks.insert(0, Box::new(mic::VoiceMic { bus: &bus }));
     checks.push(Box::new(ring::Ring {
         bus: &bus,
         active: arguments.occasion != Occasion::FirstBoot,

@@ -7,6 +7,7 @@
 //! - [`listen`]: the checks that only listen to a part on the bus.
 //! - [`kernel`]: the storage, from what the kernel said since boot.
 //! - [`ring`]: each colour asked for and seen shown.
+//! - [`mic`]: a second of the voice microphone, and its level.
 //! - [`report`]: where a run is kept, and what a person reads.
 
 // Nothing in this library prints; the program prints what it is given.
@@ -17,6 +18,7 @@ use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 pub mod kernel;
 pub mod listen;
+pub mod mic;
 pub mod report;
 pub mod ring;
 

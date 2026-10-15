@@ -93,8 +93,9 @@ pub fn tools() -> Vec<Tool> {
         Tool {
             name: CHECK.into(),
             description: "How the latest work you handed over is going, and what the agent came \
-                          back with if it has finished. Call it when the person asks about that \
-                          work (\"how's it going?\", \"what did Claude Code say?\")."
+                          back with if it has finished. Call it only when the person asks about that \
+                          work (\"how's it going?\", \"what did Claude Code say?\"), never on your own: \
+                          you are told by yourself when it finishes."
                 .into(),
             parameters: None,
             silent: false,
@@ -360,7 +361,7 @@ fn check(place: &Place, told_file: &Path, deadline: Duration) -> (Value, bool) {
     else {
         return (
             json!({"who": who, "task": asked, "state": "working",
-                "next": format!("Tell them {who} is still working on it, and that you will tell them when it is done.")}),
+                "next": format!("Tell them in a few words that {who} is still working on it and that you will tell them yourself when it is done. Do not check again unless they ask again.")}),
             true,
         );
     };
@@ -395,7 +396,7 @@ fn check(place: &Place, told_file: &Path, deadline: Duration) -> (Value, bool) {
         "stopped" | "failed" => {
             "Tell them in one plain sentence that it stopped without finishing."
         }
-        _ => "Tell them it is still working on it, and that you will tell them when it is done.",
+        _ => "Tell them in a few words that it is still working on it and that you will tell them yourself when it is done. Do not check again unless they ask again.",
     };
     (
         json!({"who": who, "task": asked, "state": state, "answer": answer,

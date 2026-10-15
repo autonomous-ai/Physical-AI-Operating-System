@@ -565,6 +565,14 @@ impl Engine {
         }
     }
 
+    /// Forget the time of day given so far: the clock is not set (#830).
+    /// Without it the alive layer knows no night.
+    pub fn forget_daytime(&mut self) {
+        if let Some(life) = &mut self.life {
+            life.forget_daytime();
+        }
+    }
+
     pub fn ingest(&mut self, now_us: u64, input: Input) -> Result<(), Error> {
         let result = self.ingest_checked(now_us, input);
         if result.is_err() {

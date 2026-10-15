@@ -614,6 +614,25 @@ mod sleep_name {
         assert!(!has(&output, "asleep"));
     }
 
+    /// The reviewer's case on #884: the clock was set at the first look and
+    /// is found not set at the next. The time of day given at the first is
+    /// not carried on for its freshness: no night, so no sleep.
+    #[test]
+    fn a_clock_found_not_set_forgets_the_time_of_day_it_had() {
+        static LOOKS: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
+        fn set_only_first() -> Option<bool> {
+            Some(LOOKS.fetch_add(1, std::sync::atomic::Ordering::Relaxed) == 0)
+        }
+        let mut lamp = SleepingService::with(|service| service.with_clock_check(set_only_first));
+        for _ in 0..350 {
+            assert!(!has(&lamp.step(), "asleep"));
+        }
+        assert!(
+            LOOKS.load(std::sync::atomic::Ordering::Relaxed) >= 2,
+            "looked again"
+        );
+    }
+
     #[test]
     fn a_clock_not_set_gives_no_night_and_a_set_one_does() {
         // The same night-time hour: asleep with a set clock, never without.

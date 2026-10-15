@@ -1,8 +1,11 @@
 //! The Policy holds the lamp's actions (#800), off unless
 //! `LAMP_POLICY_HOLDS_ACTIONS=on`: a call that changes the lamp (its volume
-//! or its light, the executive's functions) or its schedule (`set_timer`,
-//! `set_reminder`, `cancel_reminder`) runs only when the Policy's attention
-//! decision for the turn is not `stay_quiet`, or the lamp's name was heard.
+//! or its light, the executive's functions) or sets or takes away something
+//! on its schedule ([`SCHEDULE_HELD`]: `set_timer`, `set_reminder`,
+//! `cancel_reminder`) runs only when the Policy's attention decision for the
+//! turn is not `stay_quiet`, or the lamp's name was heard. Every other call
+//! runs as it did, `list_reminders`, `repeat_reminder` and `snooze_reminder`
+//! among them ([`holds`]).
 //!
 //! On lamp-4ace on 2026-10-15 at 14:49 the lamp heard "Thailand" in a busy
 //! office, ran `volume_up` and stayed 7 dB louder for eleven hours; the
@@ -55,6 +58,25 @@ pub const NAME_FROM: f32 = 0.9;
 pub const HELD: &str = "Not done: it was not clear that was said to you. Say nothing at all.";
 /// Turns whose decisions are kept: some minutes' worth.
 const KEPT: usize = 16;
+
+/// The schedule's functions that are held: those that set something to
+/// come or take it away. On lamp-4ace on 16 October "Yes, give me five
+/// minutes", said to someone else, set a five-minute timer (the first
+/// builder on #908). Listing what is set, and changing one already set
+/// (`repeat_reminder`, `snooze_reminder`), are not held (the first builder,
+/// 05:57).
+pub const SCHEDULE_HELD: [&str; 3] = ["set_timer", "set_reminder", "cancel_reminder"];
+
+/// Whether a call, by its route and its name, waits for the Policy's
+/// decision: every one of the executive's, and the schedule's in
+/// [`SCHEDULE_HELD`].
+pub fn holds(route: &crate::tools::Route, name: &str) -> bool {
+    match route {
+        crate::tools::Route::Executive(_) => true,
+        crate::tools::Route::Schedule(_) => SCHEDULE_HELD.contains(&name),
+        _ => false,
+    }
+}
 
 /// The worker's argument for the switch in the environment.
 pub fn arguments_from_environment() -> Vec<String> {
@@ -211,6 +233,30 @@ mod tests {
         assert_eq!(gate(None, false, WAIT), Gate::Run);
         assert_eq!(held()["done"], false);
         assert!(HELD.contains("Say nothing"));
+    }
+
+    /// The executive's functions and the schedule's three that set or take
+    /// away are held; the schedule's others, and every other route, are not.
+    #[test]
+    fn the_executive_and_three_of_the_schedule_are_held() {
+        use crate::tools::Route;
+        let place = std::path::PathBuf::from("/run/lamp-actions");
+        assert!(holds(&Route::Executive(place.clone()), "volume_up"));
+        for name in crate::tools::SCHEDULE_NAMES {
+            assert_eq!(
+                holds(&Route::Schedule(place.clone()), name),
+                ["set_timer", "set_reminder", "cancel_reminder"].contains(&name),
+                "{name}"
+            );
+        }
+        for route in [
+            Route::Clock,
+            Route::Decline,
+            Route::Memory(place.clone()),
+            Route::Nobody,
+        ] {
+            assert!(!holds(&route, "set_timer"));
+        }
     }
 
     #[test]

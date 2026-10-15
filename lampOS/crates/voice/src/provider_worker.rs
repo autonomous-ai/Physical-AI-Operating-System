@@ -1914,9 +1914,9 @@ impl ToolDesk {
         // first builder on #908, 05:02).
         if let Some(turn) = turn
             && self.verdicts.is_some()
-            && matches!(
-                crate::tools::route(&self.settings, &call.name),
-                Route::Executive(_) | Route::Schedule(_)
+            && crate::policy_holds::holds(
+                &crate::tools::route(&self.settings, &call.name),
+                &call.name,
             )
             && self.parked.len() < lamp_gemini::MAX_TOOL_CALLS
         {

@@ -4,6 +4,8 @@ This file provides guidance to Codex and other coding agents when working in
 this repository. Treat `CLAUDE.md` as the upstream source of truth; this file is
 the Codex-compatible mirror of those project rules.
 
+A session that opens with "you are <name>" is a lampOS builder's: read `lampOS/docs/joining.md` as it is on `origin/lamp-voice` and follow its "Starting a session".
+
 ## Multi-IDE Rules
 
 This repo is developed across multiple AI-assisted environments. The following

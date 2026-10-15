@@ -262,6 +262,31 @@ timed stimuli. The selected group is unchanged.
 13 passed before and after, 29.938 s to 6.487 s on x86_64 macOS. This is one
 fixture cleanup step in #823; the whole-group two-minute goal remains open.
 
+## Recorder clock and wait preparation (#823)
+
+`physical::fake_lamp::room_recorder_with_clock_and_wait` accepts a pure
+nanosecond clock and one wait adapter for the recording-failure fixture. The
+optional declared capture end samples that clock before the actual
+`ready.json` write. After the write, the adapter receives the full original
+wait duration and the same clock, so it can take a separate fresh sample for
+its wait start. The declared capture end does not establish when the recorder
+exits. Reading the clock must not advance time.
+
+The ordinary `room_recorder` entrypoint still uses `lamp_ipc::monotonic_ns`
+and one host sleep for `min(fail_after_ms, seconds * 1000)` milliseconds. Its
+arguments, optional sample count, arithmetic, private directory and ready-file
+contents, and configured return code are unchanged. This failure fixture
+still writes no audio or final `metadata.json`, including when its return
+code is zero. A function return does not replace observing the owned child
+process's actual exit and reap.
+
+This seam does not select a new CLI path, add a recorder participant, alter
+backend readiness or cleanup bounds, migrate the three recorder integration
+cases, or establish a speedup. Those cases retain their original bodies and
+assertions. Coordinated recorder progress still needs a separate ready-write
+acknowledgement, its full wait, and an actual-exit barrier in the shared clock
+domain before it can join a controlled serve attempt.
+
 ## Evaluator backend clock entry point
 
 `PhysicalBackend::new_with_clock` accepts a pure `Fn() -> MonoTime` for

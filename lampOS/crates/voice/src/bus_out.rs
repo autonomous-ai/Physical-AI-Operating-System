@@ -28,7 +28,7 @@
 //! that only the lamp's own programs can enter.
 use crate::ring_wire::RingPhase;
 use lamp_bus::{Bus, Publisher};
-use lamp_msgs::{Room, RoomState, Speech, Voice, VoiceState};
+use lamp_msgs::{LinkFault, Room, RoomState, Speech, Voice, VoiceLink, VoiceState};
 use std::{
     io,
     path::{Path, PathBuf},
@@ -37,6 +37,9 @@ use std::{
 /// Where the coordinator reads whether to publish. `on` only. The root is
 /// the bus's own to say (`LAMP_BUS_ROOT`, or `/run/lampos-bus`).
 pub const ENVIRONMENT: &str = "LAMP_BUS";
+/// `on`, with the bus on, for the voice to publish `voice/link` too: the
+/// signal a watcher of the lamp's reachability uses (#830, `lamp/online`).
+pub const LINK_ENVIRONMENT: &str = "LAMP_VOICE_LINK";
 /// The name the voice publishes under.
 pub const SOURCE: &str = "voice";
 /// An unchanged state is said again this often.
@@ -328,11 +331,26 @@ pub fn health(link_up: bool, down_for_us: u64) -> lamp_msgs::Diagnostic {
     }
 }
 
+/// The link as `voice/link` says it: unavailable only once it has been
+/// down for [`LINK_GRACE_US`], so a session renewing itself is not the
+/// lamp going offline. The fault's own kind is not known here: the
+/// coordinator keeps only whether the link is ready, so it is said as a
+/// failed connection.
+pub fn link_state(link_up: bool, down_for_us: u64) -> VoiceLink {
+    if link_up || down_for_us < LINK_GRACE_US {
+        VoiceLink::ready()
+    } else {
+        VoiceLink::unavailable(LinkFault::Transport)
+    }
+}
+
 pub struct BusOut {
     state: Publisher,
     heard: Publisher,
     said: Publisher,
     health: Publisher,
+    /// `voice/link`, with [`LINK_ENVIRONMENT`].
+    link: Option<Publisher>,
     last: Option<(Voice, u64)>,
     /// When the voice last said how it is, and since when its link to the
     /// speech service has been down.
@@ -350,7 +368,8 @@ impl BusOut {
         if std::env::var(ENVIRONMENT).ok().as_deref() != Some("on") {
             return None;
         }
-        match Bus::from_environment().and_then(|bus| Self::on(&bus)) {
+        let link = std::env::var(LINK_ENVIRONMENT).ok().as_deref() == Some("on");
+        match Bus::from_environment().and_then(|bus| Self::on(&bus)?.with_link(&bus, link)) {
             Ok(out) => Some(out),
             Err(error) => {
                 eprintln!("lamp-voice: nothing is published on the bus: {error}");
@@ -370,6 +389,7 @@ impl BusOut {
                 &lamp_msgs::Diagnostic::declaration(),
                 SOURCE,
             )?,
+            link: None,
             last: None,
             reported_at_us: None,
             down_since_us: None,
@@ -380,6 +400,18 @@ impl BusOut {
     /// The service began to take in the person's words for turn `request`.
     pub fn input_started(&mut self, request: u64) {
         self.heard_in = Some(request);
+    }
+
+    /// Publishes `voice/link` as well, when `on`.
+    pub fn with_link(mut self, bus: &Bus, on: bool) -> io::Result<Self> {
+        if on {
+            self.link = Some(bus.publisher_declared(
+                VoiceLink::TOPIC,
+                &VoiceLink::declaration(),
+                SOURCE,
+            )?);
+        }
+        Ok(self)
     }
 
     /// The phase of the turn that owns the lamp, or none between turns.
@@ -427,6 +459,9 @@ impl BusOut {
             .down_since_us
             .map_or(0, |since| now_us.saturating_sub(since));
         let _ = self.health.publish_json(now_us, &health(link_up, down_for));
+        if let Some(link) = &mut self.link {
+            let _ = link.publish_json(now_us, &link_state(link_up, down_for));
+        }
     }
 
     /// A piece of the provider's text of what a person said, with the turn
@@ -473,6 +508,29 @@ mod tests {
         (Bus::new(&root).unwrap(), root)
     }
     const WAIT: Duration = Duration::from_millis(500);
+
+    #[test]
+    fn the_link_is_unavailable_only_after_its_grace_and_published_only_when_asked() {
+        assert_eq!(link_state(true, 0), VoiceLink::ready());
+        assert_eq!(link_state(false, LINK_GRACE_US - 1), VoiceLink::ready());
+        let down = link_state(false, LINK_GRACE_US);
+        assert_eq!(down, VoiceLink::unavailable(LinkFault::Transport));
+        assert!(down.check().is_ok());
+        let (bus, root) = bus("link");
+        let mut off = BusOut::on(&bus).unwrap().with_link(&bus, false).unwrap();
+        off.report(false, 0);
+        off.report(false, LINK_GRACE_US + 1_000_000);
+        assert!(bus.latest(VoiceLink::TOPIC).unwrap().is_none());
+        let mut on = BusOut::on(&bus).unwrap().with_link(&bus, true).unwrap();
+        on.report(false, 0);
+        on.report(false, LINK_GRACE_US + 1_000_000);
+        let latest = bus.latest(VoiceLink::TOPIC).unwrap().unwrap();
+        assert_eq!(
+            latest.parse::<VoiceLink>().unwrap(),
+            VoiceLink::unavailable(LinkFault::Transport)
+        );
+        let _ = std::fs::remove_dir_all(root);
+    }
 
     #[test]
     fn the_state_is_published_when_it_changes_and_once_a_second() {

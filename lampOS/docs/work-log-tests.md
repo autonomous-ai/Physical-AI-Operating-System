@@ -1,5 +1,48 @@
 # Tests work log
 
+## 2026-10-16 01:05 +0700 — finite migration published; recorder migration passes full local gate
+
+Ready for lamp-voice: yes (#875, #888); no (#889 native qualification pending)
+
+- [#889](https://github.com/autonomous-ai/lampOS/pull/889), head `8a7521661`,
+  publishes finite clock coordination and #879's channel correction. Fresh
+  serial release pair: **12 PASS before and after, 239.720 s to 11.439 s**,
+  same compiled identities and helper hash. All 100 original assertions remain.
+  Corrected full local 352 passed; rebased 150 library/fmt/clippy/build pass,
+  all 57 evaluator Rust files unchanged across rebase. [Evidence](https://github.com/autonomous-ai/lampOS/blob/8a7521661cb06997a18eed32ead13d8d9ee81fd9/lampOS/docs/verification/finite-loopback-clock-20261015/README.md).
+  PR ARM64 `38780759005` and full ARM64 `38780759392` are running; full is
+  required because the PR profile skips these 12 cases.
+- #875's rebased head `77f609915` passed ARM64 `38779839518`: 4,753 passed,
+  126 existing skips, all four serve-clock regressions executed. #888's pure
+  recorder preparation `f0c3e4df2` passed `38780261242`: 4,758 passed / 126 skips,
+  all nine new cases executed. Both are ready. [Exact native results](verification/clock-preparations-arm64-20261016-followup/README.md).
+- Recorder migration passes the same 14 serve tests / 22 attempts, serial debug:
+  **117.106 s to 90.202 s**; the three recorder cases alone total
+  **38.914 s to 7.689 s**. All 114 assertions remain, 13 identities / 21 attempts
+  use the clock and the one delayed-transport identity retains host time.
+  Terminal logical acknowledgement still precedes a held-time real Child
+  exit check. [Raw pair, source/review proofs and all gates](verification/recorder-fixture-pair-20261016/README.md).
+- Combined recorder source passed **457 evaluator tests: 255 library + 202
+  integration**, zero failures/ignored/filtered, plus fmt, strict all-target
+  evaluator clippy and workspace build. Native/dependency qualification is
+  pending. Same paired helper hash is preserved; a later full build's
+  different executable hash is recorded separately. The known independent
+  build overlap was during before listing, outside measured test execution;
+  the shared host's other load is still uncontrolled.
+- Memory's unchanged seven health tests passed in **38.111 s** locally,
+  before implementation. Bus publisher cadence preparation is in its
+  full Bus/Memory gate. The Memory scheduler will retain the 1 s report period,
+  actual filesystem/datagram/log boundaries and existing negative windows.
+- Prepared-player #877 is being qualified on its rebase, with its documentation
+  moved away from the shared append point to avoid another sibling conflict.
+  #872 still waits for the Tasks producer/log-relay fix: reviewer found #881
+  still missing the real producer-completion boundary, so its first green run
+  does not establish the blocker fixed. #868 remains on #869/#866; #832 on #838.
+
+No workflow/profile/runner/settings/device changes. The complete 123-test
+serial under-two-minute goal stays open. #783's sweep is merged; the eighth
+retains its qualification and issue-close decision.
+
 ## 2026-10-16 00:33 +0700 — serve pair measured; finite dependency merged
 
 Ready for lamp-voice: no (coordinated migrations still qualifying)

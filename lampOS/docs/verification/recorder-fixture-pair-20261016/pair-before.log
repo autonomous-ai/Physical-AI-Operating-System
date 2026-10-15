@@ -1,0 +1,20 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.30s
+────────────
+ Nextest run ID b728f26c-69d4-41b5-b276-b361e6060f5c with nextest profile: realtime
+    Starting 14 tests across 1 binary
+        PASS [  24.742s] ( 1/14) lamp-voice-eval::serve_session a_declared_capture_end_before_the_next_prompt_and_its_window_withholds_it
+        PASS [   4.431s] ( 2/14) lamp-voice-eval::serve_session a_late_first_copy_or_failed_player_withholds_every_later_turn
+        PASS [   1.363s] ( 3/14) lamp-voice-eval::serve_session a_nonzero_runtime_exit_never_completes_a_serve_attempt
+        PASS [   4.983s] ( 4/14) lamp-voice-eval::serve_session a_provider_outage_is_waited_out_by_event_and_a_terminal_link_ends_it
+        PASS [   7.047s] ( 5/14) lamp-voice-eval::serve_session a_recorder_that_exits_zero_mid_conversation_withholds_the_rest_and_certifies_nothing
+        PASS [   7.125s] ( 6/14) lamp-voice-eval::serve_session a_room_recording_that_ends_early_withholds_the_rest
+        PASS [   9.308s] ( 7/14) lamp-voice-eval::serve_session a_runtime_stop_mute_or_ignored_sigterm_is_retained_and_reaped
+        PASS [   2.800s] ( 8/14) lamp-voice-eval::serve_session an_extra_candidate_during_the_wait_withholds_the_rest
+        PASS [   4.485s] ( 9/14) lamp-voice-eval::serve_session delayed_readiness_is_awaited_by_event_not_by_completion
+        PASS [   9.104s] (10/14) lamp-voice-eval::serve_session normal_eight_turn_conversation_in_one_serve_session
+        PASS [   1.352s] (11/14) lamp-voice-eval::serve_session serve_readiness_comes_only_from_the_fresh_cue_never_from_stdout
+        PASS [  16.157s] (12/14) lamp-voice-eval::serve_session stale_duplicate_reordered_foreign_and_lost_cues_end_the_conversation
+        PASS [  22.832s] (13/14) lamp-voice-eval::serve_session startup_cues_stay_fresh_through_a_slow_transport_and_a_slow_first_preparer
+        PASS [   1.372s] (14/14) lamp-voice-eval::serve_session the_runner_forwards_pilot_runtime_settings_through_the_relay
+────────────
+     Summary [ 117.106s] 14 tests run: 14 passed, 0 skipped

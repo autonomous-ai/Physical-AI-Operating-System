@@ -1,0 +1,9 @@
+{
+  "date": "2026-10-16 00:48:52 +0700",
+  "helper_hashes": {
+    "before": "5c14437ca171ce73c3d2450d1e410926641630b784311a8cc9826d4cf65d0835",
+    "after": "5c14437ca171ce73c3d2450d1e410926641630b784311a8cc9826d4cf65d0835"
+  },
+  "restored_source_sha256": "485ef6bc04c292666b633c819baa7c16465aaa756e97271c9c0708cd2c3e6186",
+  "load_note": "Shared x86_64 macOS host. Recorder-seam rebase build may overlap; neither quiet-host nor ARM64 nor complete123-test timing proof."
+}

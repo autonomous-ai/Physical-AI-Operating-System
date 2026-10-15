@@ -1,0 +1,22 @@
+--- before/serve_session.rs
++++ after/serve_session.rs
+@@ -6,8 +6,8 @@
+ //! player's first "copy", a fake room datagram. Explicit clock; no audio.
+ //!
+ //! Attempts run one at a time with real child processes and prepared threads.
+-//! The coordinated path retains the unchanged 100 ms lateness bound. Recorder
+-//! and delayed-transport cases keep host time until their own progress is wired.
++//! The coordinated path retains the unchanged 100 ms lateness bound and recorder
++//! lifetimes. The delayed-transport case still keeps its original host clock.
+ mod common;
+ 
+ use lamp_voice_eval::{
+@@ -136,7 +136,7 @@
+         stimulus_source: lamp_voice_eval::record::StimulusSource::LoudspeakerSynthetic,
+         runtime_flags: control.runtime_flags,
+     };
+-    let mut backend = if config.room_recorder.is_none() && control.transport_delay_ms.is_none() {
++    let mut backend = if control.transport_delay_ms.is_none() {
+         let mut fixture = ClockedServeFixture::new(&dir.path).unwrap();
+         fixture.configure(&mut config).unwrap();
+         let clock = fixture.clock();

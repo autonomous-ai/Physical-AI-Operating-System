@@ -1,0 +1,5 @@
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T17:55:45.9514018Z         PASS [   0.004s] (4511/4753) lamp-voice-eval physical::fake_serve::clock_tests::cycle_reads_the_supplied_instant_without_advancing_it
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T17:55:45.9553077Z         PASS [   0.005s] (4513/4753) lamp-voice-eval physical::fake_serve::clock_tests::initial_cycle_keeps_distinct_metadata_and_runtime_clock_samples
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T17:55:45.9567613Z         PASS [   0.005s] (4514/4753) lamp-voice-eval physical::fake_serve::clock_tests::restarted_cycle_resamples_time_and_keeps_a_fresh_runtime_identity
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T17:55:45.9592684Z         PASS [   0.006s] (4516/4753) lamp-voice-eval physical::fake_serve::clock_tests::retained_startup_ready_still_saturates_at_zero
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T17:55:47.0167588Z      Summary [  73.767s] 4753 tests run: 4753 passed, 126 skipped

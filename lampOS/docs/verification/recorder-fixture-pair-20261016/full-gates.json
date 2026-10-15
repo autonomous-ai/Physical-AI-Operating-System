@@ -1,0 +1,70 @@
+[
+  {
+    "stage": "fmt",
+    "command": [
+      "cargo",
+      "fmt",
+      "--all",
+      "--check"
+    ],
+    "cwd": "/private/tmp/lampos-tests-recorder-progress/lampOS",
+    "target": "/private/tmp/lampos-tests-relay-clock/lampOS/target",
+    "start_from_date": "2026-10-16 00:51:32 +0700",
+    "finish_from_date": "2026-10-16 00:51:38 +0700",
+    "exit_code": 0
+  },
+  {
+    "stage": "clippy",
+    "command": [
+      "cargo",
+      "clippy",
+      "--locked",
+      "--offline",
+      "-p",
+      "lamp-voice-eval",
+      "--all-targets",
+      "--",
+      "-D",
+      "warnings"
+    ],
+    "cwd": "/private/tmp/lampos-tests-recorder-progress/lampOS",
+    "target": "/private/tmp/lampos-tests-relay-clock/lampOS/target",
+    "start_from_date": "2026-10-16 00:51:38 +0700",
+    "finish_from_date": "2026-10-16 00:51:39 +0700",
+    "exit_code": 0
+  },
+  {
+    "stage": "tests",
+    "command": [
+      "cargo",
+      "test",
+      "--locked",
+      "--offline",
+      "-p",
+      "lamp-voice-eval",
+      "--no-fail-fast",
+      "--",
+      "--test-threads=1"
+    ],
+    "cwd": "/private/tmp/lampos-tests-recorder-progress/lampOS",
+    "target": "/private/tmp/lampos-tests-relay-clock/lampOS/target",
+    "start_from_date": "2026-10-16 00:51:39 +0700",
+    "finish_from_date": "2026-10-16 00:55:33 +0700",
+    "exit_code": 0
+  },
+  {
+    "stage": "build",
+    "command": [
+      "cargo",
+      "build",
+      "--locked",
+      "--offline",
+      "--workspace"
+    ],
+    "cwd": "/private/tmp/lampos-tests-recorder-progress/lampOS",
+    "target": "/private/tmp/lampos-tests-relay-clock/lampOS/target",
+    "start_from_date": "2026-10-16 00:55:33 +0700",
+    "finish_from_date": "2026-10-16 00:57:01 +0700",
+    "exit_code": 0
+  }
+]

@@ -1,0 +1,671 @@
+{
+  "verified_at_from_date": "2026-10-16 01:03:34 +0700",
+  "worktree": "/private/tmp/lampos-tests-recorder-progress",
+  "scope": "Only lampOS/docs/verification/recorder-fixture-pair-20261016/** created in worktree; derived audit saved outside worktree. Source and raw inputs unchanged. No Cargo, Git mutation, tests, CI, network or devices.",
+  "modified_existing_paths": [],
+  "new_paths": [
+    "lampOS/docs/verification/recorder-fixture-pair-20261016/README.md",
+    "lampOS/docs/verification/recorder-fixture-pair-20261016/cache-reset.exit",
+    "lampOS/docs/verification/recorder-fixture-pair-20261016/cache-reset.finished",
+    "lampOS/docs/verification/recorder-fixture-pair-20261016/cache-reset.log",
+    "lampOS/docs/verification/recorder-fixture-pair-20261016/cache-reset.started",
+    "lampOS/docs/verification/recorder-fixture-pair-20261016/clippy.exit",
+    "lampOS/docs/verification/recorder-fixture-pair-20261016/clippy.finished",
+    "lampOS/docs/verification/recorder-fixture-pair-20261016/clippy.log",
+    "lampOS/docs/verification/recorder-fixture-pair-20261016/clippy.started",
+    "lampOS/docs/verification/recorder-fixture-pair-20261016/comparison.json",
+    "lampOS/docs/verification/recorder-fixture-pair-20261016/constructor-migration.diff",
+    "lampOS/docs/verification/recorder-fixture-pair-20261016/cross-review.md",
+    "lampOS/docs/verification/recorder-fixture-pair-20261016/fmt.exit",
+    "lampOS/docs/verification/recorder-fixture-pair-20261016/fmt.finished",
+    "lampOS/docs/verification/recorder-fixture-pair-20261016/fmt.log",
+    "lampOS/docs/verification/recorder-fixture-pair-20261016/fmt.started",
+    "lampOS/docs/verification/recorder-fixture-pair-20261016/full-build.exit",
+    "lampOS/docs/verification/recorder-fixture-pair-20261016/full-build.finished",
+    "lampOS/docs/verification/recorder-fixture-pair-20261016/full-build.log",
+    "lampOS/docs/verification/recorder-fixture-pair-20261016/full-build.started",
+    "lampOS/docs/verification/recorder-fixture-pair-20261016/full-clippy.exit",
+    "lampOS/docs/verification/recorder-fixture-pair-20261016/full-clippy.finished",
+    "lampOS/docs/verification/recorder-fixture-pair-20261016/full-clippy.log",
+    "lampOS/docs/verification/recorder-fixture-pair-20261016/full-clippy.started",
+    "lampOS/docs/verification/recorder-fixture-pair-20261016/full-fmt.exit",
+    "lampOS/docs/verification/recorder-fixture-pair-20261016/full-fmt.finished",
+    "lampOS/docs/verification/recorder-fixture-pair-20261016/full-fmt.log",
+    "lampOS/docs/verification/recorder-fixture-pair-20261016/full-fmt.started",
+    "lampOS/docs/verification/recorder-fixture-pair-20261016/full-gates.json",
+    "lampOS/docs/verification/recorder-fixture-pair-20261016/full-tests.exit",
+    "lampOS/docs/verification/recorder-fixture-pair-20261016/full-tests.finished",
+    "lampOS/docs/verification/recorder-fixture-pair-20261016/full-tests.log",
+    "lampOS/docs/verification/recorder-fixture-pair-20261016/full-tests.started",
+    "lampOS/docs/verification/recorder-fixture-pair-20261016/gates.json",
+    "lampOS/docs/verification/recorder-fixture-pair-20261016/load-recorder-seam-build.exit",
+    "lampOS/docs/verification/recorder-fixture-pair-20261016/load-recorder-seam-build.finished",
+    "lampOS/docs/verification/recorder-fixture-pair-20261016/load-recorder-seam-build.started",
+    "lampOS/docs/verification/recorder-fixture-pair-20261016/load-recorder-seam-gates.json",
+    "lampOS/docs/verification/recorder-fixture-pair-20261016/manifest.json",
+    "lampOS/docs/verification/recorder-fixture-pair-20261016/original-attempt-accounting.tsv",
+    "lampOS/docs/verification/recorder-fixture-pair-20261016/original-serve-migration-audit.json",
+    "lampOS/docs/verification/recorder-fixture-pair-20261016/original-serve-source.rs",
+    "lampOS/docs/verification/recorder-fixture-pair-20261016/pair-after-list.exit",
+    "lampOS/docs/verification/recorder-fixture-pair-20261016/pair-after-list.finished",
+    "lampOS/docs/verification/recorder-fixture-pair-20261016/pair-after-list.log",
+    "lampOS/docs/verification/recorder-fixture-pair-20261016/pair-after-list.started",
+    "lampOS/docs/verification/recorder-fixture-pair-20261016/pair-after-source.rs",
+    "lampOS/docs/verification/recorder-fixture-pair-20261016/pair-after.exit",
+    "lampOS/docs/verification/recorder-fixture-pair-20261016/pair-after.finished",
+    "lampOS/docs/verification/recorder-fixture-pair-20261016/pair-after.log",
+    "lampOS/docs/verification/recorder-fixture-pair-20261016/pair-after.started",
+    "lampOS/docs/verification/recorder-fixture-pair-20261016/pair-before-list.exit",
+    "lampOS/docs/verification/recorder-fixture-pair-20261016/pair-before-list.finished",
+    "lampOS/docs/verification/recorder-fixture-pair-20261016/pair-before-list.log",
+    "lampOS/docs/verification/recorder-fixture-pair-20261016/pair-before-list.started",
+    "lampOS/docs/verification/recorder-fixture-pair-20261016/pair-before-source.rs",
+    "lampOS/docs/verification/recorder-fixture-pair-20261016/pair-before.exit",
+    "lampOS/docs/verification/recorder-fixture-pair-20261016/pair-before.finished",
+    "lampOS/docs/verification/recorder-fixture-pair-20261016/pair-before.log",
+    "lampOS/docs/verification/recorder-fixture-pair-20261016/pair-before.started",
+    "lampOS/docs/verification/recorder-fixture-pair-20261016/pair-gates.json",
+    "lampOS/docs/verification/recorder-fixture-pair-20261016/pair-helper-proof.json",
+    "lampOS/docs/verification/recorder-fixture-pair-20261016/pair-source-audit.json",
+    "lampOS/docs/verification/recorder-fixture-pair-20261016/tests.exit",
+    "lampOS/docs/verification/recorder-fixture-pair-20261016/tests.finished",
+    "lampOS/docs/verification/recorder-fixture-pair-20261016/tests.log",
+    "lampOS/docs/verification/recorder-fixture-pair-20261016/tests.started",
+    "lampOS/docs/verification/recorder-fixture-pair-20261016/timings.tsv"
+  ],
+  "raw_copy_count": 63,
+  "raw_copies_byte_identical": true,
+  "new_files_utf8_no_python_or_binaries": true,
+  "current_test_source_matches_restored_after": true,
+  "cross_review_source_hashes_still_match": true,
+  "full_gate_test_count": 457,
+  "full_gate_summary_count": 25,
+  "files": {
+    "lampOS/docs/verification/recorder-fixture-pair-20261016/README.md": {
+      "sha256": "3cd19feb073e17fb5294fa0cde0dcc03614061fa964514ed647f962e23144434",
+      "bytes": 7746
+    },
+    "lampOS/docs/verification/recorder-fixture-pair-20261016/cache-reset.exit": {
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+      "bytes": 2
+    },
+    "lampOS/docs/verification/recorder-fixture-pair-20261016/cache-reset.finished": {
+      "sha256": "f89a35d60a10eea494439f2f1b37d9a508e27ec9cb53ffc716aba67adef8d899",
+      "bytes": 26
+    },
+    "lampOS/docs/verification/recorder-fixture-pair-20261016/cache-reset.log": {
+      "sha256": "7a09e229d3f334e359886d9aac38fda1d1d5cf8abdbe237b32d0239ae7789140",
+      "bytes": 38
+    },
+    "lampOS/docs/verification/recorder-fixture-pair-20261016/cache-reset.started": {
+      "sha256": "09923b431dc1eeff683bac9667c46c98c29d904e977a9da1bf417c4081dee626",
+      "bytes": 26
+    },
+    "lampOS/docs/verification/recorder-fixture-pair-20261016/clippy.exit": {
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+      "bytes": 2
+    },
+    "lampOS/docs/verification/recorder-fixture-pair-20261016/clippy.finished": {
+      "sha256": "a11060c1174c92e006b6ddd9f1410b2b9f9844daf16965ecc756b207306ebf3f",
+      "bytes": 26
+    },
+    "lampOS/docs/verification/recorder-fixture-pair-20261016/clippy.log": {
+      "sha256": "00af0076d3b64c500ed95b0094b47f89eb7afc0a03ea674878f3bc45baa05d7d",
+      "bytes": 1889
+    },
+    "lampOS/docs/verification/recorder-fixture-pair-20261016/clippy.started": {
+      "sha256": "efa6f669d624c4b3ea5f738ac3c64d9eeb66df4b96a6682b2363759647a69641",
+      "bytes": 26
+    },
+    "lampOS/docs/verification/recorder-fixture-pair-20261016/comparison.json": {
+      "sha256": "afb1167dda2f50f1ffb3d0eebb6cdb31de9824d17237983d67bfb4435b6039ec",
+      "bytes": 90289
+    },
+    "lampOS/docs/verification/recorder-fixture-pair-20261016/constructor-migration.diff": {
+      "sha256": "36df045c29ded93f76e38d2ad227bd0046506d6fa150c0ea417a0595a90e8fc8",
+      "bytes": 1086
+    },
+    "lampOS/docs/verification/recorder-fixture-pair-20261016/cross-review.md": {
+      "sha256": "3ef35b4504a106dbffab9256412bd6fc9daef82b4f31346846eafb610be96b20",
+      "bytes": 10576
+    },
+    "lampOS/docs/verification/recorder-fixture-pair-20261016/fmt.exit": {
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+      "bytes": 2
+    },
+    "lampOS/docs/verification/recorder-fixture-pair-20261016/fmt.finished": {
+      "sha256": "efa6f669d624c4b3ea5f738ac3c64d9eeb66df4b96a6682b2363759647a69641",
+      "bytes": 26
+    },
+    "lampOS/docs/verification/recorder-fixture-pair-20261016/fmt.log": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    "lampOS/docs/verification/recorder-fixture-pair-20261016/fmt.started": {
+      "sha256": "f89a35d60a10eea494439f2f1b37d9a508e27ec9cb53ffc716aba67adef8d899",
+      "bytes": 26
+    },
+    "lampOS/docs/verification/recorder-fixture-pair-20261016/full-build.exit": {
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+      "bytes": 2
+    },
+    "lampOS/docs/verification/recorder-fixture-pair-20261016/full-build.finished": {
+      "sha256": "c8ac03a708839c830c495c51e3b0966f804b811e811f017fa4085072f64bacf9",
+      "bytes": 26
+    },
+    "lampOS/docs/verification/recorder-fixture-pair-20261016/full-build.log": {
+      "sha256": "59c6888da886e166ef788c025b2bcd48fb698752578422591ac7eb88b7cec86a",
+      "bytes": 3671
+    },
+    "lampOS/docs/verification/recorder-fixture-pair-20261016/full-build.started": {
+      "sha256": "3782a9ee653442c54419b660b29e87dbf78811ec9af5f69f962d39220f187b89",
+      "bytes": 26
+    },
+    "lampOS/docs/verification/recorder-fixture-pair-20261016/full-clippy.exit": {
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+      "bytes": 2
+    },
+    "lampOS/docs/verification/recorder-fixture-pair-20261016/full-clippy.finished": {
+      "sha256": "f05c029e8a394be2196ec2d53a81b0d13835f467b935d0f89116126b26aefdaf",
+      "bytes": 26
+    },
+    "lampOS/docs/verification/recorder-fixture-pair-20261016/full-clippy.log": {
+      "sha256": "3a313802dbd3bf6491937ba985956a207f47ce971a5b3af1d48e02b19be51bc7",
+      "bytes": 179
+    },
+    "lampOS/docs/verification/recorder-fixture-pair-20261016/full-clippy.started": {
+      "sha256": "5e0ac0877e5d109231715451bb29878f7b36bf1295381d62aa90e3ea0f14885d",
+      "bytes": 26
+    },
+    "lampOS/docs/verification/recorder-fixture-pair-20261016/full-fmt.exit": {
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+      "bytes": 2
+    },
+    "lampOS/docs/verification/recorder-fixture-pair-20261016/full-fmt.finished": {
+      "sha256": "5e0ac0877e5d109231715451bb29878f7b36bf1295381d62aa90e3ea0f14885d",
+      "bytes": 26
+    },
+    "lampOS/docs/verification/recorder-fixture-pair-20261016/full-fmt.log": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    "lampOS/docs/verification/recorder-fixture-pair-20261016/full-fmt.started": {
+      "sha256": "2d5f1c5a3a56ab1595490306a84dc6a9c9e691438a12833e8cdb6538c8cb8453",
+      "bytes": 26
+    },
+    "lampOS/docs/verification/recorder-fixture-pair-20261016/full-gates.json": {
+      "sha256": "6ea190b6055715d4f8e8cc1c5ed862751401e82462339111b6cbcd1e1c8f58e2",
+      "bytes": 1733
+    },
+    "lampOS/docs/verification/recorder-fixture-pair-20261016/full-tests.exit": {
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+      "bytes": 2
+    },
+    "lampOS/docs/verification/recorder-fixture-pair-20261016/full-tests.finished": {
+      "sha256": "3782a9ee653442c54419b660b29e87dbf78811ec9af5f69f962d39220f187b89",
+      "bytes": 26
+    },
+    "lampOS/docs/verification/recorder-fixture-pair-20261016/full-tests.log": {
+      "sha256": "b389640c6946bdd74bb26237feaa9cfd28d59d25b8cbf5e1ca0de5faff312fc4",
+      "bytes": 49435
+    },
+    "lampOS/docs/verification/recorder-fixture-pair-20261016/full-tests.started": {
+      "sha256": "f05c029e8a394be2196ec2d53a81b0d13835f467b935d0f89116126b26aefdaf",
+      "bytes": 26
+    },
+    "lampOS/docs/verification/recorder-fixture-pair-20261016/gates.json": {
+      "sha256": "26cd7affce20e9e72eae9fa2e94b374acf5d750308915a974eb6167a719005c4",
+      "bytes": 2877
+    },
+    "lampOS/docs/verification/recorder-fixture-pair-20261016/load-recorder-seam-build.exit": {
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+      "bytes": 2
+    },
+    "lampOS/docs/verification/recorder-fixture-pair-20261016/load-recorder-seam-build.finished": {
+      "sha256": "625a5a5d191083b6d01f355aec8064ce3631d8816960e5c5a395af3d66d25aba",
+      "bytes": 26
+    },
+    "lampOS/docs/verification/recorder-fixture-pair-20261016/load-recorder-seam-build.started": {
+      "sha256": "051b17aeb38595ae8ae7d8615b908b64a5bfa9cac22d0dd678f43a7f7415237c",
+      "bytes": 26
+    },
+    "lampOS/docs/verification/recorder-fixture-pair-20261016/load-recorder-seam-gates.json": {
+      "sha256": "16efe6de8eb9dd0b46542baefae4562c48056e31f16bba462ae6e340728cb5d4",
+      "bytes": 3187
+    },
+    "lampOS/docs/verification/recorder-fixture-pair-20261016/original-attempt-accounting.tsv": {
+      "sha256": "313a293fd827b45211e641d0a53aba2401efff99ffdd329cb9dde051804fec5a",
+      "bytes": 1987
+    },
+    "lampOS/docs/verification/recorder-fixture-pair-20261016/original-serve-migration-audit.json": {
+      "sha256": "483486a74dd7ca50ef3d2c617c472ed5e897829a967a84017658ecfe8647d609",
+      "bytes": 7194
+    },
+    "lampOS/docs/verification/recorder-fixture-pair-20261016/original-serve-source.rs": {
+      "sha256": "bb8e83a7c0cb08703852638749b01d32e88eb696b35aacb093a5462bd4ddcf49",
+      "bytes": 30067
+    },
+    "lampOS/docs/verification/recorder-fixture-pair-20261016/pair-after-list.exit": {
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+      "bytes": 2
+    },
+    "lampOS/docs/verification/recorder-fixture-pair-20261016/pair-after-list.finished": {
+      "sha256": "27016750a8f83ff8f0a0b3603d0f6d4e07657d1496f2fa1d39f2b1af086e4608",
+      "bytes": 26
+    },
+    "lampOS/docs/verification/recorder-fixture-pair-20261016/pair-after-list.log": {
+      "sha256": "a6fc4a31d045f5db1b33d66c06e9b1501edbe6a9237634c8b4e69979b64f4bdf",
+      "bytes": 3593
+    },
+    "lampOS/docs/verification/recorder-fixture-pair-20261016/pair-after-list.started": {
+      "sha256": "50f19acc999d969dce3a7cf1700cd1003fdf2f21ecd11f4fc382dcb5e103a1a9",
+      "bytes": 26
+    },
+    "lampOS/docs/verification/recorder-fixture-pair-20261016/pair-after-source.rs": {
+      "sha256": "485ef6bc04c292666b633c819baa7c16465aaa756e97271c9c0708cd2c3e6186",
+      "bytes": 30679
+    },
+    "lampOS/docs/verification/recorder-fixture-pair-20261016/pair-after.exit": {
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+      "bytes": 2
+    },
+    "lampOS/docs/verification/recorder-fixture-pair-20261016/pair-after.finished": {
+      "sha256": "9be0ee41986bcbadd4ca0a20d9e2066f66f2d3cfd5211e0ebef3b1a4976b8d08",
+      "bytes": 26
+    },
+    "lampOS/docs/verification/recorder-fixture-pair-20261016/pair-after.log": {
+      "sha256": "ab31eb5e432110d5bfe76b0ba99ab9e1e43db7e5a1e0e57b921947522af21a20",
+      "bytes": 2115
+    },
+    "lampOS/docs/verification/recorder-fixture-pair-20261016/pair-after.started": {
+      "sha256": "27016750a8f83ff8f0a0b3603d0f6d4e07657d1496f2fa1d39f2b1af086e4608",
+      "bytes": 26
+    },
+    "lampOS/docs/verification/recorder-fixture-pair-20261016/pair-before-list.exit": {
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+      "bytes": 2
+    },
+    "lampOS/docs/verification/recorder-fixture-pair-20261016/pair-before-list.finished": {
+      "sha256": "83c31b83857b04923a8e45f2397bf672e0337663a2e7d95c339a30b507bac8be",
+      "bytes": 26
+    },
+    "lampOS/docs/verification/recorder-fixture-pair-20261016/pair-before-list.log": {
+      "sha256": "7d5b9f53bb63bac4a2e724ed067c7cf961487a1ed14229be6f9e8ad4678d863c",
+      "bytes": 3594
+    },
+    "lampOS/docs/verification/recorder-fixture-pair-20261016/pair-before-list.started": {
+      "sha256": "198f59dda150554742b40900a9bd98a53401a953169391c334a8884115f6eae7",
+      "bytes": 26
+    },
+    "lampOS/docs/verification/recorder-fixture-pair-20261016/pair-before-source.rs": {
+      "sha256": "cffbb51a9f21b03f2262099b23de526842eb098c600c02f3ec8eca187f800923",
+      "bytes": 30713
+    },
+    "lampOS/docs/verification/recorder-fixture-pair-20261016/pair-before.exit": {
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+      "bytes": 2
+    },
+    "lampOS/docs/verification/recorder-fixture-pair-20261016/pair-before.finished": {
+      "sha256": "50f19acc999d969dce3a7cf1700cd1003fdf2f21ecd11f4fc382dcb5e103a1a9",
+      "bytes": 26
+    },
+    "lampOS/docs/verification/recorder-fixture-pair-20261016/pair-before.log": {
+      "sha256": "39f472a12efdf91c46620836105480a9f4947d6aa9a24dcf5dc668fcb5ea871b",
+      "bytes": 2115
+    },
+    "lampOS/docs/verification/recorder-fixture-pair-20261016/pair-before.started": {
+      "sha256": "83c31b83857b04923a8e45f2397bf672e0337663a2e7d95c339a30b507bac8be",
+      "bytes": 26
+    },
+    "lampOS/docs/verification/recorder-fixture-pair-20261016/pair-gates.json": {
+      "sha256": "0006df013bdaa3d993f2f72808f615746f4a6bbe75a6792d2fe9d43d04786535",
+      "bytes": 1941
+    },
+    "lampOS/docs/verification/recorder-fixture-pair-20261016/pair-helper-proof.json": {
+      "sha256": "6b0a6cffe576ef6901e6705d0c5479a8d923259255c6fa75f986b02d94300e19",
+      "bytes": 474
+    },
+    "lampOS/docs/verification/recorder-fixture-pair-20261016/pair-source-audit.json": {
+      "sha256": "1ce4af01fabdde8a4c62ee1280bcb80c87941f64e12b4faddc85a4134ecb98f8",
+      "bytes": 1666
+    },
+    "lampOS/docs/verification/recorder-fixture-pair-20261016/tests.exit": {
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+      "bytes": 2
+    },
+    "lampOS/docs/verification/recorder-fixture-pair-20261016/tests.finished": {
+      "sha256": "fbf23c5ebafbf48fff219ddd7aabee613e278574eca27624816bb1ae06778cfa",
+      "bytes": 26
+    },
+    "lampOS/docs/verification/recorder-fixture-pair-20261016/tests.log": {
+      "sha256": "2dfd1d023b1f49acf847d8fc2f3055aadfa5c3dc3a15110ce5a11a536fbd043b",
+      "bytes": 30335
+    },
+    "lampOS/docs/verification/recorder-fixture-pair-20261016/tests.started": {
+      "sha256": "a11060c1174c92e006b6ddd9f1410b2b9f9844daf16965ecc756b207306ebf3f",
+      "bytes": 26
+    },
+    "lampOS/docs/verification/recorder-fixture-pair-20261016/timings.tsv": {
+      "sha256": "b0382f53e5edb0fd47fec19d7cee321648f2a2b632b6a4d350c87e28511c93b0",
+      "bytes": 1545
+    }
+  },
+  "raw_source_copies": {
+    "pair-before-list.log": {
+      "source": "/private/tmp/tests-823-recorder-integration-evidence/pair-before-list.log",
+      "bytes": 3594,
+      "sha256": "7d5b9f53bb63bac4a2e724ed067c7cf961487a1ed14229be6f9e8ad4678d863c"
+    },
+    "pair-before-list.started": {
+      "source": "/private/tmp/tests-823-recorder-integration-evidence/pair-before-list.started",
+      "bytes": 26,
+      "sha256": "198f59dda150554742b40900a9bd98a53401a953169391c334a8884115f6eae7"
+    },
+    "pair-before-list.finished": {
+      "source": "/private/tmp/tests-823-recorder-integration-evidence/pair-before-list.finished",
+      "bytes": 26,
+      "sha256": "83c31b83857b04923a8e45f2397bf672e0337663a2e7d95c339a30b507bac8be"
+    },
+    "pair-before-list.exit": {
+      "source": "/private/tmp/tests-823-recorder-integration-evidence/pair-before-list.exit",
+      "bytes": 2,
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    "pair-before.log": {
+      "source": "/private/tmp/tests-823-recorder-integration-evidence/pair-before.log",
+      "bytes": 2115,
+      "sha256": "39f472a12efdf91c46620836105480a9f4947d6aa9a24dcf5dc668fcb5ea871b"
+    },
+    "pair-before.started": {
+      "source": "/private/tmp/tests-823-recorder-integration-evidence/pair-before.started",
+      "bytes": 26,
+      "sha256": "83c31b83857b04923a8e45f2397bf672e0337663a2e7d95c339a30b507bac8be"
+    },
+    "pair-before.finished": {
+      "source": "/private/tmp/tests-823-recorder-integration-evidence/pair-before.finished",
+      "bytes": 26,
+      "sha256": "50f19acc999d969dce3a7cf1700cd1003fdf2f21ecd11f4fc382dcb5e103a1a9"
+    },
+    "pair-before.exit": {
+      "source": "/private/tmp/tests-823-recorder-integration-evidence/pair-before.exit",
+      "bytes": 2,
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    "pair-after-list.log": {
+      "source": "/private/tmp/tests-823-recorder-integration-evidence/pair-after-list.log",
+      "bytes": 3593,
+      "sha256": "a6fc4a31d045f5db1b33d66c06e9b1501edbe6a9237634c8b4e69979b64f4bdf"
+    },
+    "pair-after-list.started": {
+      "source": "/private/tmp/tests-823-recorder-integration-evidence/pair-after-list.started",
+      "bytes": 26,
+      "sha256": "50f19acc999d969dce3a7cf1700cd1003fdf2f21ecd11f4fc382dcb5e103a1a9"
+    },
+    "pair-after-list.finished": {
+      "source": "/private/tmp/tests-823-recorder-integration-evidence/pair-after-list.finished",
+      "bytes": 26,
+      "sha256": "27016750a8f83ff8f0a0b3603d0f6d4e07657d1496f2fa1d39f2b1af086e4608"
+    },
+    "pair-after-list.exit": {
+      "source": "/private/tmp/tests-823-recorder-integration-evidence/pair-after-list.exit",
+      "bytes": 2,
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    "pair-after.log": {
+      "source": "/private/tmp/tests-823-recorder-integration-evidence/pair-after.log",
+      "bytes": 2115,
+      "sha256": "ab31eb5e432110d5bfe76b0ba99ab9e1e43db7e5a1e0e57b921947522af21a20"
+    },
+    "pair-after.started": {
+      "source": "/private/tmp/tests-823-recorder-integration-evidence/pair-after.started",
+      "bytes": 26,
+      "sha256": "27016750a8f83ff8f0a0b3603d0f6d4e07657d1496f2fa1d39f2b1af086e4608"
+    },
+    "pair-after.finished": {
+      "source": "/private/tmp/tests-823-recorder-integration-evidence/pair-after.finished",
+      "bytes": 26,
+      "sha256": "9be0ee41986bcbadd4ca0a20d9e2066f66f2d3cfd5211e0ebef3b1a4976b8d08"
+    },
+    "pair-after.exit": {
+      "source": "/private/tmp/tests-823-recorder-integration-evidence/pair-after.exit",
+      "bytes": 2,
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    "cache-reset.log": {
+      "source": "/private/tmp/tests-823-recorder-integration-evidence/cache-reset.log",
+      "bytes": 38,
+      "sha256": "7a09e229d3f334e359886d9aac38fda1d1d5cf8abdbe237b32d0239ae7789140"
+    },
+    "cache-reset.started": {
+      "source": "/private/tmp/tests-823-recorder-integration-evidence/cache-reset.started",
+      "bytes": 26,
+      "sha256": "09923b431dc1eeff683bac9667c46c98c29d904e977a9da1bf417c4081dee626"
+    },
+    "cache-reset.finished": {
+      "source": "/private/tmp/tests-823-recorder-integration-evidence/cache-reset.finished",
+      "bytes": 26,
+      "sha256": "f89a35d60a10eea494439f2f1b37d9a508e27ec9cb53ffc716aba67adef8d899"
+    },
+    "cache-reset.exit": {
+      "source": "/private/tmp/tests-823-recorder-integration-evidence/cache-reset.exit",
+      "bytes": 2,
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    "fmt.log": {
+      "source": "/private/tmp/tests-823-recorder-integration-evidence/fmt.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "fmt.started": {
+      "source": "/private/tmp/tests-823-recorder-integration-evidence/fmt.started",
+      "bytes": 26,
+      "sha256": "f89a35d60a10eea494439f2f1b37d9a508e27ec9cb53ffc716aba67adef8d899"
+    },
+    "fmt.finished": {
+      "source": "/private/tmp/tests-823-recorder-integration-evidence/fmt.finished",
+      "bytes": 26,
+      "sha256": "efa6f669d624c4b3ea5f738ac3c64d9eeb66df4b96a6682b2363759647a69641"
+    },
+    "fmt.exit": {
+      "source": "/private/tmp/tests-823-recorder-integration-evidence/fmt.exit",
+      "bytes": 2,
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    "clippy.log": {
+      "source": "/private/tmp/tests-823-recorder-integration-evidence/clippy.log",
+      "bytes": 1889,
+      "sha256": "00af0076d3b64c500ed95b0094b47f89eb7afc0a03ea674878f3bc45baa05d7d"
+    },
+    "clippy.started": {
+      "source": "/private/tmp/tests-823-recorder-integration-evidence/clippy.started",
+      "bytes": 26,
+      "sha256": "efa6f669d624c4b3ea5f738ac3c64d9eeb66df4b96a6682b2363759647a69641"
+    },
+    "clippy.finished": {
+      "source": "/private/tmp/tests-823-recorder-integration-evidence/clippy.finished",
+      "bytes": 26,
+      "sha256": "a11060c1174c92e006b6ddd9f1410b2b9f9844daf16965ecc756b207306ebf3f"
+    },
+    "clippy.exit": {
+      "source": "/private/tmp/tests-823-recorder-integration-evidence/clippy.exit",
+      "bytes": 2,
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    "tests.log": {
+      "source": "/private/tmp/tests-823-recorder-integration-evidence/tests.log",
+      "bytes": 30335,
+      "sha256": "2dfd1d023b1f49acf847d8fc2f3055aadfa5c3dc3a15110ce5a11a536fbd043b"
+    },
+    "tests.started": {
+      "source": "/private/tmp/tests-823-recorder-integration-evidence/tests.started",
+      "bytes": 26,
+      "sha256": "a11060c1174c92e006b6ddd9f1410b2b9f9844daf16965ecc756b207306ebf3f"
+    },
+    "tests.finished": {
+      "source": "/private/tmp/tests-823-recorder-integration-evidence/tests.finished",
+      "bytes": 26,
+      "sha256": "fbf23c5ebafbf48fff219ddd7aabee613e278574eca27624816bb1ae06778cfa"
+    },
+    "tests.exit": {
+      "source": "/private/tmp/tests-823-recorder-integration-evidence/tests.exit",
+      "bytes": 2,
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    "full-fmt.log": {
+      "source": "/private/tmp/tests-823-recorder-integration-evidence/full-fmt.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "full-fmt.started": {
+      "source": "/private/tmp/tests-823-recorder-integration-evidence/full-fmt.started",
+      "bytes": 26,
+      "sha256": "2d5f1c5a3a56ab1595490306a84dc6a9c9e691438a12833e8cdb6538c8cb8453"
+    },
+    "full-fmt.finished": {
+      "source": "/private/tmp/tests-823-recorder-integration-evidence/full-fmt.finished",
+      "bytes": 26,
+      "sha256": "5e0ac0877e5d109231715451bb29878f7b36bf1295381d62aa90e3ea0f14885d"
+    },
+    "full-fmt.exit": {
+      "source": "/private/tmp/tests-823-recorder-integration-evidence/full-fmt.exit",
+      "bytes": 2,
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    "full-clippy.log": {
+      "source": "/private/tmp/tests-823-recorder-integration-evidence/full-clippy.log",
+      "bytes": 179,
+      "sha256": "3a313802dbd3bf6491937ba985956a207f47ce971a5b3af1d48e02b19be51bc7"
+    },
+    "full-clippy.started": {
+      "source": "/private/tmp/tests-823-recorder-integration-evidence/full-clippy.started",
+      "bytes": 26,
+      "sha256": "5e0ac0877e5d109231715451bb29878f7b36bf1295381d62aa90e3ea0f14885d"
+    },
+    "full-clippy.finished": {
+      "source": "/private/tmp/tests-823-recorder-integration-evidence/full-clippy.finished",
+      "bytes": 26,
+      "sha256": "f05c029e8a394be2196ec2d53a81b0d13835f467b935d0f89116126b26aefdaf"
+    },
+    "full-clippy.exit": {
+      "source": "/private/tmp/tests-823-recorder-integration-evidence/full-clippy.exit",
+      "bytes": 2,
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    "full-tests.log": {
+      "source": "/private/tmp/tests-823-recorder-integration-evidence/full-tests.log",
+      "bytes": 49435,
+      "sha256": "b389640c6946bdd74bb26237feaa9cfd28d59d25b8cbf5e1ca0de5faff312fc4"
+    },
+    "full-tests.started": {
+      "source": "/private/tmp/tests-823-recorder-integration-evidence/full-tests.started",
+      "bytes": 26,
+      "sha256": "f05c029e8a394be2196ec2d53a81b0d13835f467b935d0f89116126b26aefdaf"
+    },
+    "full-tests.finished": {
+      "source": "/private/tmp/tests-823-recorder-integration-evidence/full-tests.finished",
+      "bytes": 26,
+      "sha256": "3782a9ee653442c54419b660b29e87dbf78811ec9af5f69f962d39220f187b89"
+    },
+    "full-tests.exit": {
+      "source": "/private/tmp/tests-823-recorder-integration-evidence/full-tests.exit",
+      "bytes": 2,
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    "full-build.log": {
+      "source": "/private/tmp/tests-823-recorder-integration-evidence/full-build.log",
+      "bytes": 3671,
+      "sha256": "59c6888da886e166ef788c025b2bcd48fb698752578422591ac7eb88b7cec86a"
+    },
+    "full-build.started": {
+      "source": "/private/tmp/tests-823-recorder-integration-evidence/full-build.started",
+      "bytes": 26,
+      "sha256": "3782a9ee653442c54419b660b29e87dbf78811ec9af5f69f962d39220f187b89"
+    },
+    "full-build.finished": {
+      "source": "/private/tmp/tests-823-recorder-integration-evidence/full-build.finished",
+      "bytes": 26,
+      "sha256": "c8ac03a708839c830c495c51e3b0966f804b811e811f017fa4085072f64bacf9"
+    },
+    "full-build.exit": {
+      "source": "/private/tmp/tests-823-recorder-integration-evidence/full-build.exit",
+      "bytes": 2,
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    "pair-before-source.rs": {
+      "source": "/private/tmp/tests-823-recorder-integration-evidence/pair-before-source.rs",
+      "bytes": 30713,
+      "sha256": "cffbb51a9f21b03f2262099b23de526842eb098c600c02f3ec8eca187f800923"
+    },
+    "pair-after-source.rs": {
+      "source": "/private/tmp/tests-823-recorder-integration-evidence/pair-after-source.rs",
+      "bytes": 30679,
+      "sha256": "485ef6bc04c292666b633c819baa7c16465aaa756e97271c9c0708cd2c3e6186"
+    },
+    "pair-helper-proof.json": {
+      "source": "/private/tmp/tests-823-recorder-integration-evidence/pair-helper-proof.json",
+      "bytes": 474,
+      "sha256": "6b0a6cffe576ef6901e6705d0c5479a8d923259255c6fa75f986b02d94300e19"
+    },
+    "pair-source-audit.json": {
+      "source": "/private/tmp/tests-823-recorder-integration-evidence/pair-source-audit.json",
+      "bytes": 1666,
+      "sha256": "1ce4af01fabdde8a4c62ee1280bcb80c87941f64e12b4faddc85a4134ecb98f8"
+    },
+    "pair-gates.json": {
+      "source": "/private/tmp/tests-823-recorder-integration-evidence/pair-gates.json",
+      "bytes": 1941,
+      "sha256": "0006df013bdaa3d993f2f72808f615746f4a6bbe75a6792d2fe9d43d04786535"
+    },
+    "gates.json": {
+      "source": "/private/tmp/tests-823-recorder-integration-evidence/gates.json",
+      "bytes": 2877,
+      "sha256": "26cd7affce20e9e72eae9fa2e94b374acf5d750308915a974eb6167a719005c4"
+    },
+    "full-gates.json": {
+      "source": "/private/tmp/tests-823-recorder-integration-evidence/full-gates.json",
+      "bytes": 1733,
+      "sha256": "6ea190b6055715d4f8e8cc1c5ed862751401e82462339111b6cbcd1e1c8f58e2"
+    },
+    "load-recorder-seam-gates.json": {
+      "source": "/private/tmp/tests-823-recorder-clock-evidence/rebased-20261016-gates.json",
+      "bytes": 3187,
+      "sha256": "16efe6de8eb9dd0b46542baefae4562c48056e31f16bba462ae6e340728cb5d4"
+    },
+    "load-recorder-seam-build.started": {
+      "source": "/private/tmp/tests-823-recorder-clock-evidence/rebased-20261016-build.started",
+      "bytes": 26,
+      "sha256": "051b17aeb38595ae8ae7d8615b908b64a5bfa9cac22d0dd678f43a7f7415237c"
+    },
+    "load-recorder-seam-build.finished": {
+      "source": "/private/tmp/tests-823-recorder-clock-evidence/rebased-20261016-build.finished",
+      "bytes": 26,
+      "sha256": "625a5a5d191083b6d01f355aec8064ce3631d8816960e5c5a395af3d66d25aba"
+    },
+    "load-recorder-seam-build.exit": {
+      "source": "/private/tmp/tests-823-recorder-clock-evidence/rebased-20261016-build.exit",
+      "bytes": 2,
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    "cross-review.md": {
+      "source": "/private/tmp/tests-823-recorder-cross-review.md",
+      "bytes": 10576,
+      "sha256": "3ef35b4504a106dbffab9256412bd6fc9daef82b4f31346846eafb610be96b20"
+    },
+    "original-serve-source.rs": {
+      "source": "/private/tmp/tests-823-serve-migration-evidence/base-a3dba0c0a.serve_session.rs",
+      "bytes": 30067,
+      "sha256": "bb8e83a7c0cb08703852638749b01d32e88eb696b35aacb093a5462bd4ddcf49"
+    },
+    "original-serve-migration-audit.json": {
+      "source": "/private/tmp/tests-823-serve-migration-evidence/audit.json",
+      "bytes": 7194,
+      "sha256": "483486a74dd7ca50ef3d2c617c472ed5e897829a967a84017658ecfe8647d609"
+    },
+    "original-attempt-accounting.tsv": {
+      "source": "/private/tmp/tests-823-serve-migration-evidence/attempt-accounting.tsv",
+      "bytes": 1987,
+      "sha256": "313a293fd827b45211e641d0a53aba2401efff99ffdd329cb9dde051804fec5a"
+    }
+  },
+  "self_hash_note": "The manifest is listed in new_paths but excluded from its own files hash map."
+}

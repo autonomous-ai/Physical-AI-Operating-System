@@ -1,0 +1,100 @@
+[
+  {
+    "stage": "pair-before-list",
+    "command": [
+      "cargo",
+      "nextest",
+      "list",
+      "--locked",
+      "--offline",
+      "-p",
+      "lamp-voice-eval",
+      "--test",
+      "serve_session",
+      "--message-format",
+      "json"
+    ],
+    "start_from_date": "2026-10-16 00:45:05 +0700",
+    "finish_from_date": "2026-10-16 00:45:20 +0700",
+    "exit_code": 0
+  },
+  {
+    "stage": "pair-before",
+    "command": [
+      "cargo",
+      "nextest",
+      "run",
+      "--locked",
+      "--offline",
+      "-p",
+      "lamp-voice-eval",
+      "--test",
+      "serve_session",
+      "--profile",
+      "realtime",
+      "--test-threads",
+      "1",
+      "--retries",
+      "0",
+      "--no-fail-fast",
+      "--status-level",
+      "pass",
+      "--final-status-level",
+      "fail",
+      "--color",
+      "never"
+    ],
+    "start_from_date": "2026-10-16 00:45:20 +0700",
+    "finish_from_date": "2026-10-16 00:47:18 +0700",
+    "exit_code": 0
+  },
+  {
+    "stage": "pair-after-list",
+    "command": [
+      "cargo",
+      "nextest",
+      "list",
+      "--locked",
+      "--offline",
+      "-p",
+      "lamp-voice-eval",
+      "--test",
+      "serve_session",
+      "--message-format",
+      "json"
+    ],
+    "start_from_date": "2026-10-16 00:47:18 +0700",
+    "finish_from_date": "2026-10-16 00:47:21 +0700",
+    "exit_code": 0
+  },
+  {
+    "stage": "pair-after",
+    "command": [
+      "cargo",
+      "nextest",
+      "run",
+      "--locked",
+      "--offline",
+      "-p",
+      "lamp-voice-eval",
+      "--test",
+      "serve_session",
+      "--profile",
+      "realtime",
+      "--test-threads",
+      "1",
+      "--retries",
+      "0",
+      "--no-fail-fast",
+      "--status-level",
+      "pass",
+      "--final-status-level",
+      "fail",
+      "--color",
+      "never"
+    ],
+    "start_from_date": "2026-10-16 00:47:21 +0700",
+    "finish_from_date": "2026-10-16 00:48:52 +0700",
+    "exit_code": 0
+  }
+]

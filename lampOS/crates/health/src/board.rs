@@ -86,6 +86,32 @@ pub struct Places {
     /// which is nothing to the lamp and would be a warning all day. Every
     /// zone's temperature is published whether it is judged or not.
     pub judged: Vec<String>,
+    /// Who is asked whether the clock is set.
+    pub clock: ClockSource,
+}
+
+/// Who says whether the clock is set.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum ClockSource {
+    /// systemd-timesyncd's marker under `run`, as before; `None` where it
+    /// does not run, which is the real board (health.md).
+    #[default]
+    Timesync,
+    /// The kernel, as `timedatectl`'s `NTPSynchronized` does: whatever
+    /// keeps the clock (timesyncd, chrony, ntpd) tells the kernel it is
+    /// set. The marker still counts first (#830, `docs/offline.md`).
+    Kernel,
+}
+
+impl std::str::FromStr for ClockSource {
+    type Err = ();
+    fn from_str(text: &str) -> Result<Self, ()> {
+        match text {
+            "timesync" => Ok(Self::Timesync),
+            "kernel" => Ok(Self::Kernel),
+            _ => Err(()),
+        }
+    }
 }
 
 impl Default for Places {
@@ -96,6 +122,7 @@ impl Default for Places {
             run: "/run".into(),
             disk: "/".into(),
             judged: Vec::new(),
+            clock: ClockSource::Timesync,
         }
     }
 }
@@ -463,15 +490,46 @@ fn wifi_dbm(proc: &Path) -> Option<i32> {
 /// Whether systemd's timesync says the clock is set: it keeps a directory,
 /// and puts a file in it once it has set the clock. With no directory,
 /// nobody can be asked.
-fn clock_synced(run: &Path) -> Option<bool> {
+fn clock_synced(run: &Path, source: ClockSource) -> Option<bool> {
     let timesync = run.join("systemd/timesync");
     if timesync.join("synchronized").exists() {
         Some(true)
+    } else if let Some(set) = (source == ClockSource::Kernel)
+        .then(kernel_clock_synced)
+        .flatten()
+    {
+        Some(set)
     } else if timesync.is_dir() {
         Some(false)
     } else {
         None
     }
+}
+
+/// Whether the kernel's clock is kept by a network time client, read as
+/// systemd's `ntp_synced()` reads it for `timedatectl`: `adjtimex` with
+/// nothing to change, unsynchronised status off and a maximum error under
+/// 16 s. Reading needs no privilege. The only unsafe call here: the
+/// standard library and rustix do not wrap `adjtimex`, and with `modes`
+/// zero it only reads into the struct it is given.
+#[cfg(target_os = "linux")]
+#[allow(unsafe_code)]
+pub fn kernel_clock_synced() -> Option<bool> {
+    // SAFETY: an all-zero `timex` is valid; with `modes` zero the call only
+    // fills it in and changes nothing.
+    let mut timex: libc::timex = unsafe { std::mem::zeroed() };
+    // SAFETY: `timex` is a valid, exclusively borrowed `struct timex`.
+    let state = unsafe { libc::adjtimex(&mut timex) };
+    if state < 0 {
+        return None;
+    }
+    Some(timex.status & libc::STA_UNSYNC == 0 && timex.maxerror < 16_000_000)
+}
+
+/// Elsewhere the kernel cannot be asked.
+#[cfg(not(target_os = "linux"))]
+pub fn kernel_clock_synced() -> Option<bool> {
+    None
 }
 
 /// A file of one whole number of thousandths of a degree.
@@ -575,7 +633,7 @@ pub fn read(places: &Places) -> Reading {
         disk_free,
         uptime_s,
         wifi_dbm: wifi_dbm(&places.proc),
-        clock_synced: clock_synced(&places.run),
+        clock_synced: clock_synced(&places.run, places.clock),
         unread,
         judged: places.judged.clone(),
     }

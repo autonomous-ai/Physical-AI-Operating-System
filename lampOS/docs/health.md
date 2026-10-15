@@ -26,7 +26,7 @@ anybody listens.
 
 ## The commands
 
-    lamp-health serve [--bus-root ABSOLUTE_DIR] [--expect NAME]... [--stale-ms N] [--judge-zone BEGINNING]... [--proc DIR] [--sys DIR] [--run DIR] [--disk PATH]
+    lamp-health serve [--bus-root ABSOLUTE_DIR] [--expect NAME]... [--stale-ms N] [--judge-zone BEGINNING]... [--proc DIR] [--sys DIR] [--run DIR] [--disk PATH] [--clock timesync|kernel]
     lamp-health [show] [--bus-root ABSOLUTE_DIR] [--json]
     lamp-health --help
 
@@ -42,6 +42,7 @@ anybody listens.
 | `--sys` | Where the temperatures are read | `/sys` |
 | `--run` | Where the clock's state is read | `/run` |
 | `--disk` | Any path on the disk whose free room is watched | `/` |
+| `--clock` | Who says whether the clock is set: `timesync`, systemd-timesyncd's marker under `--run`; or `kernel`, the kernel's own answer (`adjtimex`, as `timedatectl`'s `NTPSynchronized`), which any time client sets, with the marker still believed first (#830, [offline.md](offline.md)) | `timesync` |
 
 Every path is absolute. A wrong option prints the usage and exits with 2.
 A bus that cannot be subscribed to exits with 1 before anything is listened
@@ -194,7 +195,7 @@ that a test can point it at a tree of files of its own.
 | `disk_free` | `statvfs(DISK)` | The blocks an ordinary program may still use (`f_bavail`) over all the disk's (`f_blocks`) |
 | `uptime_s` | `PROC/uptime` | Its first number, in whole seconds |
 | `wifi_dbm` | `PROC/net/wireless` | The level of the first device that gives one between -150 and 0. Left out if the file is not there or has no such line |
-| `clock_synced` | `RUN/systemd/timesync/` | `true` if the file `synchronized` is in it, `false` if the directory is there without it, left out if there is no directory |
+| `clock_synced` | `RUN/systemd/timesync/`, and with `--clock kernel` the kernel | `true` if the file `synchronized` is in it; else with `--clock kernel` the kernel's answer (unsynchronised status off and a maximum error under 16 s); else `false` if the directory is there without it, left out if there is no directory |
 
 Nothing here fails. `cpu_load`, `memory_used`, `disk_free` and `uptime_s`
 are the four the lamp cannot do without: if one cannot be read or is not a
@@ -404,7 +405,10 @@ Not exercised:
   `/proc/net/wireless` nor `/run/systemd/timesync`, so both are left out
   there. The reader was run against files the tests wrote, in the layout
   the kernel and systemd are known to use, not against any taken from a
-  board.
+  board. On lamp-75c9 on 2026-10-16 the clock is kept by chrony
+  (`systemd-timesyncd` inactive) and `timedatectl show` said
+  `NTPSynchronized=yes`: the kernel's answer that `--clock kernel` reads.
+  `lamp-health` itself with `--clock kernel` has been run only on a laptop.
 - **The disk on Linux.** `statvfs` was asked of the Mac's own disk, which
   had about 14% free. The tests cannot choose that number: where they need
   the board to be ok they read what the machine gave and say so if it is

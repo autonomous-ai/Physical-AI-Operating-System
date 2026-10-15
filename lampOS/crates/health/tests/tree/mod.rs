@@ -146,6 +146,7 @@ impl Tree {
             run: self.path("run"),
             disk: self.path("disk"),
             judged: Vec::new(),
+            clock: lamp_health::board::ClockSource::Timesync,
         }
     }
 }

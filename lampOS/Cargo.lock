@@ -1835,6 +1835,7 @@ dependencies = [
  "lamp-bus",
  "lamp-ipc",
  "lamp-msgs",
+ "libc",
  "rustix",
  "serde",
  "serde_json",

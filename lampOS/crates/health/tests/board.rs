@@ -248,6 +248,7 @@ fn a_number_whose_file_is_missing_is_not_read_and_the_report_says_which() {
         run: "/nonexistent/run".into(),
         disk: "/nonexistent/disk".into(),
         judged: Vec::new(),
+        clock: board::ClockSource::Timesync,
     });
     assert_eq!(what(&nowhere), what(&reading));
     assert!(nowhere.zones.is_empty() && nowhere.state().is_none());
@@ -850,4 +851,28 @@ fn the_report_is_the_worst_finding_and_of_two_as_bad_the_first() {
     assert_eq!(value(&report, "hottest_c"), Some("52.3"));
     assert_eq!(value(&report, "uptime_s"), None);
     assert_eq!(value(&report, "cpu_load"), Some("0.50"));
+}
+
+#[test]
+fn the_kernel_is_asked_about_the_clock_only_when_named_and_the_marker_still_counts_first() {
+    let tree = Tree::real_board("kernel-clock");
+    // Today's default: no timesync directory, nobody asked.
+    assert_eq!(board::read(&tree.places()).clock_synced, None);
+    // Named: the kernel's answer, the same one `timedatectl` gives.
+    let kernel = board::Places {
+        clock: board::ClockSource::Kernel,
+        ..tree.places()
+    };
+    assert_eq!(
+        board::read(&kernel).clock_synced,
+        board::kernel_clock_synced()
+    );
+    #[cfg(target_os = "linux")]
+    assert!(board::kernel_clock_synced().is_some());
+    // timesyncd's marker is believed before the kernel.
+    tree.file("run/systemd/timesync/synchronized", "");
+    assert_eq!(board::read(&kernel).clock_synced, Some(true));
+    assert_eq!("kernel".parse(), Ok(board::ClockSource::Kernel));
+    assert_eq!("timesync".parse(), Ok(board::ClockSource::Timesync));
+    assert!("ntp".parse::<board::ClockSource>().is_err());
 }

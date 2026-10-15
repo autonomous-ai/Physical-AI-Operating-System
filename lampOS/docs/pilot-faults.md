@@ -256,3 +256,28 @@ This adds a bounded speaker-acknowledgment failure under every policy. The
 V1/duplex playback-mask deadline still reports first. These are coordinator
 and injected-fault results, not a measured acoustic stop or a device deployment.
 The installed pilot continues to use the earlier qualified binary.
+
+## Start-up after a restart or a power cut (#762)
+
+Two of the voice's start-up failures, found on lamp-52e6 and lamp-4ace on
+2026-10-15, no longer end the service:
+
+- **The microphone busy at start.** `systemctl restart lamp-voice` on
+  lamp-52e6 found the microphone busy (`snd_pcm_open failed with errno 16`)
+  330 ms after the old process had gone, once in three restarts; the power
+  cut that morning did the same. The capture worker now tries the open again
+  for up to 3 s (`BUSY_AT_START`) and says once that it was busy; any other
+  open failure, or busy for longer, ends the worker as before.
+- **A worker's first control message older than 100 ms.** A worker sends its
+  first control message as soon as its peer is there; at start the
+  coordinator may read it only after starting its other workers. lamp-4ace
+  ended twice on such a message ("stale, reordered or wrong-boot runtime
+  message") after a plain restart. The first message on a worker's control
+  channel may now be up to 1 s old (`FIRST_CONTROL_MAX_AGE_US`); later control
+  messages and every data message keep the 100 ms bound, and a refused message
+  names its socket (for example `capture.c.p: stale, …`). A receiver held up
+  later in its run is #784's (`HELD_UP_US`), separate from this.
+
+Not found yet: the power cut's first exit (exit 1 at 19.8 s, with no message
+of its own) and the provider's "Connection refused" at 24.7 s; that boot's
+journal is gone, and both need a second power cut with this build to see.

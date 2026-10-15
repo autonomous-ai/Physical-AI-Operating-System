@@ -139,6 +139,12 @@ impl Rig {
     /// authority, the reference peer and the start request, has prepared the
     /// microphone, and has taken the speaker's prime.
     fn start(device_name: &'static str) -> Self {
+        Self::start_busy(device_name, 0)
+    }
+
+    /// The same, with the microphone's first `busy_opens` opens answered
+    /// "busy", as a voice that ran just before can leave it.
+    fn start_busy(device_name: &'static str, busy_opens: usize) -> Self {
         let directory = SessionDirectory::create().unwrap();
         let (parent_boot, worker_boot, speaker_boot) = (
             new_boot().unwrap(),
@@ -156,6 +162,9 @@ impl Rig {
         let speaker =
             ReferenceChannels::bind(&directory.path, "speaker", speaker_boot, worker_boot).unwrap();
         let device = CaptureControl::register(device_name);
+        for _ in 0..busy_opens {
+            device.fail_next("open", lamp_audio::device::errno::BUSY);
+        }
         let path = directory.path.clone();
         let worker = std::thread::spawn(move || {
             capture_on::<ScriptedCapture>(
@@ -565,4 +574,18 @@ fn another_microphone_is_handed_on_at_once_and_its_early_sound_is_not_accounted_
         explained.is_none_or(|percent| percent <= Hearing::EVALUATED.explained_percent),
         "{explained:?}"
     );
+}
+
+/// A microphone still busy for a moment when the worker starts (left so by
+/// the voice that ran before) is opened once it is free: the worker prepares
+/// it and the handshake completes, instead of the worker ending.
+#[test]
+fn a_microphone_busy_for_a_moment_at_start_is_opened_once_it_is_free() {
+    warm_up();
+    let signal = Signal::new(50);
+    let mut rig = Rig::start_busy("scripted busy at start", 3);
+    assert!(rig.ready && rig.prepared);
+    rig.stream(&signal, 50);
+    rig.parent.control.send(Control::Stop).unwrap();
+    rig.finish();
 }

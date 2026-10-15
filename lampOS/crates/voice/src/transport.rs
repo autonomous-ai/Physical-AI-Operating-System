@@ -6,12 +6,26 @@ use serde::{Serialize, de::DeserializeOwned};
 use std::{io, path::Path};
 
 pub struct Channel {
+    /// The socket's own name, said with a refused message.
+    name: String,
     endpoint: Endpoint,
     sender: BootId,
     send_sequence: u64,
     incoming: ReceiveOrder,
     max_age_us: u64,
+    /// Set for a worker's control channel: its first message may have waited
+    /// up to [`FIRST_CONTROL_MAX_AGE_US`] for the receiver to start reading.
+    first_grace: bool,
+    received: bool,
 }
+
+/// A worker's first control message is sent as soon as its peer is there and
+/// waits until the receiver first reads, which at start may be after it has
+/// started other workers. On lamp-4ace on 2026-10-15 a plain
+/// `systemctl restart lamp-voice` ended twice on such a message, older than
+/// the usual bound, and the lamp was deaf for 23 s. Later control messages,
+/// and every data message (sound must not arrive late), keep the bound.
+pub const FIRST_CONTROL_MAX_AGE_US: u64 = 1_000_000;
 
 impl Channel {
     pub fn bind(path: &Path, sender: BootId, peer: BootId, max_age_us: u64) -> io::Result<Self> {
@@ -22,12 +36,23 @@ impl Channel {
             ));
         }
         Ok(Self {
+            name: path
+                .file_name()
+                .map(|name| name.to_string_lossy().into_owned())
+                .unwrap_or_default(),
             endpoint: Endpoint::bind(path)?,
             sender,
             send_sequence: 0,
             incoming: ReceiveOrder::new(peer),
             max_age_us,
+            first_grace: false,
+            received: false,
         })
+    }
+
+    fn with_first_grace(mut self) -> Self {
+        self.first_grace = true;
+        self
     }
     pub fn connect(&mut self, path: &Path) -> io::Result<()> {
         self.endpoint.connect(path)
@@ -57,8 +82,15 @@ impl Channel {
             Err(error) => return Err(error),
         };
         let packet: Envelope<T> = decode(&data[..count])?;
+        let max_age_us = if self.first_grace && !self.received {
+            self.max_age_us.max(FIRST_CONTROL_MAX_AGE_US)
+        } else {
+            self.max_age_us
+        };
         self.incoming
-            .accept(&packet, monotonic_us(), self.max_age_us)?;
+            .accept(&packet, monotonic_us(), max_age_us)
+            .map_err(|error| io::Error::new(error.kind(), format!("{}: {error}", self.name)))?;
+        self.received = true;
         Ok(Some(packet.payload))
     }
 }
@@ -92,7 +124,8 @@ impl WorkerChannels {
             (parent, worker)
         };
         Ok(Self {
-            control: Channel::bind(&dir.join(format!("{role}.c.{side}")), sender, peer, 100_000)?,
+            control: Channel::bind(&dir.join(format!("{role}.c.{side}")), sender, peer, 100_000)?
+                .with_first_grace(),
             data: Channel::bind(&dir.join(format!("{role}.d.{side}")), sender, peer, 100_000)?,
         })
     }

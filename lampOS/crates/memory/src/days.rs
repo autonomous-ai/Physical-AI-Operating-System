@@ -5,7 +5,9 @@
 //! and comes back through a generation-checked apply; no model is called here.
 use crate::{
     search,
-    store::{self, Ask, Day, Entry, Exchange, Kept, Kind, Options, Person, Removed, Status},
+    store::{
+        self, Ask, Day, Entry, Exchange, Kept, Kind, LocalTime, Options, Person, Removed, Status,
+    },
     tidy,
 };
 use rusqlite::{Connection, OptionalExtension, Transaction, params};
@@ -114,7 +116,7 @@ pub struct Days {
     db: Connection,
     dir: PathBuf,
     keep_days: u32,
-    offset: i32,
+    local: LocalTime,
     now: u64,
     _held: File,
 }
@@ -141,7 +143,11 @@ fn private_file(path: &Path) -> Result<()> {
 
 impl Days {
     pub fn open(options: Options, now: u64) -> Result<Self> {
-        if options.keep_days == 0 || !(-720..=840).contains(&options.utc_offset_minutes) {
+        let offset_out_of_range = matches!(
+            options.local,
+            LocalTime::Offset(minutes) if !(-720..=840).contains(&minutes)
+        );
+        if options.keep_days == 0 || offset_out_of_range {
             return Err(bad("invalid retention or UTC offset"));
         }
         store::private_dir(&options.dir)?;
@@ -175,7 +181,7 @@ impl Days {
             db,
             dir: options.dir,
             keep_days: options.keep_days,
-            offset: options.utc_offset_minutes,
+            local: options.local,
             now,
             _held: held,
         };
@@ -250,7 +256,7 @@ impl Days {
                         Some(record)
                             if record.id > 0
                                 && record.id < i64::MAX as u64
-                                && Day::of(record.at_unix_ms, self.offset).is_some() =>
+                                && Day::at(record.at_unix_ms, &self.local).is_some() =>
                         {
                             let count: u64 = tx.query_row(
                                 "SELECT count(*) FROM entries WHERE person=?",
@@ -263,7 +269,7 @@ impl Days {
                                     "the import exceeds the per-person record limit",
                                 ));
                             }
-                            insert_record(&tx, &record, self.offset, record.at_unix_ms)?;
+                            insert_record(&tx, &record, &self.local, record.at_unix_ms)?;
                             tx.execute(
                                 "UPDATE people SET next_id=max(next_id,?2) WHERE person=?1",
                                 params![person.as_str(), record.id + 1],
@@ -310,9 +316,9 @@ impl Days {
     pub fn maintain(&mut self, now: u64) -> Result<u64> {
         // A backwards clock cannot revive old data or move last use backwards.
         self.now = self.now.max(now);
-        let day = Day::of(
+        let day = Day::at(
             self.now.saturating_sub(u64::from(self.keep_days) * DAY_MS),
-            self.offset,
+            &self.local,
         )
         .map_or_else(|| "1970-01-01".into(), |d| d.to_string());
         let unused = self.now.saturating_sub(UNUSED_DAYS * DAY_MS);
@@ -393,7 +399,7 @@ impl Days {
         sources: &[u64],
         rules: &[u64],
     ) -> Result<u64> {
-        if Day::of(at, self.offset).is_none() {
+        if Day::at(at, &self.local).is_none() {
             return Err(Error::new(
                 "bad_time",
                 "the timestamp is outside 1970 through 9999",
@@ -438,7 +444,7 @@ impl Days {
             supersedes: None,
             active: true,
         };
-        insert_record(&tx, &record, self.offset, self.now)?;
+        insert_record(&tx, &record, &self.local, self.now)?;
         if let Some(scope) = ruled {
             let rid: i64 = tx.query_row(
                 "SELECT rid FROM entries WHERE person=? AND id=?",
@@ -1058,7 +1064,7 @@ impl Days {
                     supersedes: proposal.supersedes,
                     active: true,
                 },
-                self.offset,
+                &self.local,
                 self.now,
             )?;
             ids.push(id);
@@ -1186,8 +1192,8 @@ fn validate_sources(db: &Connection, person: &Person, ids: &[u64], required: boo
     }
     Ok(())
 }
-fn insert_record(db: &Connection, r: &Record, offset: i32, used: u64) -> Result<()> {
-    let day = Day::of(r.at_unix_ms, offset)
+fn insert_record(db: &Connection, r: &Record, local: &LocalTime, used: u64) -> Result<()> {
+    let day = Day::at(r.at_unix_ms, local)
         .ok_or_else(|| Error::new("bad_time", "the timestamp is outside 1970 through 9999"))?
         .to_string();
     let category = r.category.as_ref().map(category_name);
@@ -1282,7 +1288,7 @@ mod tests {
             Options {
                 dir: dir.clone(),
                 keep_days: 30,
-                utc_offset_minutes: 0,
+                local: LocalTime::Offset(0),
             },
             1_791_892_800_000,
         )

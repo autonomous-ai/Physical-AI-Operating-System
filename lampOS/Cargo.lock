@@ -1888,6 +1888,7 @@ dependencies = [
  "lamp-bus",
  "lamp-gemini",
  "lamp-ipc",
+ "lamp-local-time",
  "lamp-msgs",
  "lamp-voice",
  "rusqlite",

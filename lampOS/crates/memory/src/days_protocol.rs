@@ -334,7 +334,7 @@ mod tests {
                 Options {
                     dir: self.0.clone(),
                     keep_days: 30,
-                    utc_offset_minutes: 0,
+                    local: crate::store::LocalTime::Offset(0),
                 },
                 NOW,
             )

@@ -760,6 +760,22 @@ and `a_question_after_the_window_ended_its_name_goes_on_and_cutting_in_does_not`
 (`coordinator/tests/early_end.rs`, the real provider worker, the window's
 end, and speech over a played answer).
 
+## A tap on its head is a call (#711)
+
+Off unless `LAMP_HEAD_TOUCH=on` in the voice's environment, and only with
+`LAMP_BUS=on`, as the name heard: the provider worker reads the head's taps
+from `--touch` Controls on the bus (`controls/touch`, `bus_out::TapsIn`).
+A tap is a touch on the head let go between 0.12 and 0.5 s
+([controls.md](controls.md)): the owner's "tap its head while it is quiet:
+you can talk without its name" ([creature.md](creature.md#touch)). A request
+that begins within 6 s of the tap's release (`TAPPED_BEFORE_US`), or one whose
+sound is still going on when the tap comes, is let out in every room and
+every form of the rule, even the strict busy one with nobody seen turned to
+the lamp: a hand on the lamp's head is surer than any hearing of its name.
+A tap read more than 2 s after its release, or the same tap again, counts for
+nothing. Later requests are judged as before. What it does not do yet: the
+"hm?", the eye looking up and the settling when nothing is said (#711, next).
+
 ## The record of whom it answered
 
 Off unless set: `LAMP_FIRST_OUTPUT=/absolute/private/directory` in the
@@ -1004,6 +1020,11 @@ right after `--sounds-checked`; nothing without `LAMP_BUS=on`): the lamp's
 actions wait up to 2 s for the Policy's attention decision and are not run
 on a `stay_quiet` without the name (above). Off by default; not on any
 lamp; needs `lamp-policy --act attention`.
+
+`LAMP_HEAD_TOUCH=on` (the worker's `--head-touch`, right after the name
+note's flags; nothing without `LAMP_BUS=on` and Controls run with
+`--touch`): a head tap is a call for 6 s (above). Off by default; not on any
+lamp.
 
 ## Not shown
 

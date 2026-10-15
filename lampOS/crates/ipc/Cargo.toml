@@ -7,8 +7,13 @@ publish.workspace = true
 
 [dependencies]
 rustix = { version = "1.1", features = ["time", "process", "net", "event", "pipe", "stdio"] }
+nix = { version = "=0.29.0", default-features = false, features = ["signal"] }
 
 serde_json.workspace = true
 
 [lints]
 workspace = true
+
+[[test]]
+name = "relay_signals"
+harness = false

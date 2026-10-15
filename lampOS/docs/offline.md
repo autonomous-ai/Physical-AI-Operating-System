@@ -90,6 +90,24 @@ about 70 s later; with no internet it stays wrong.
    while every task fails to be sent; `voice/link` is declared and never
    published.
 
+## Step 2: the voice starts with no internet (`LAMP_START_OFFLINE`)
+
+With `LAMP_START_OFFLINE=on` in a voice service's environment, a service
+started with no internet no longer exits after the 25 s startup budget
+(`INPUT_READINESS_TIMEOUT`) once its microphone is retained: it keeps
+listening, says once on its log "listening with no link to the speech
+service; it keeps trying" (trace record `waiting_for_link`), and becomes
+ready (`listening_ready`) when the link comes up. The serving link
+(`RecoveryPolicy::endless`) already redials its first connection like any
+other outage, so nothing else waits. A service whose microphone, privacy or
+capture never comes up still fails at 25 s, and so does every finite
+(`directed`) session; with the switch off or anything but `on`, the budget
+covers the link as before (`crates/voice/src/session_lifetime.rs`, tests
+`serve_started_offline_*` and `started_offline_without_*`).
+
+Kind: off unless set. Not yet shown on a host with its network cut or on a
+lamp.
+
 ## What steps 2 to 4 will build
 
 - A part that watches reachability from the links' own state first (the

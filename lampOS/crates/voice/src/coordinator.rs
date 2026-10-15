@@ -2626,7 +2626,10 @@ fn conversation_with_gate(
         record(trace, event)?;
     }
     let mut session_clock =
-        SessionClock::new(lifetime, session_instant(), INPUT_READINESS_TIMEOUT)?;
+        SessionClock::new(lifetime, session_instant(), INPUT_READINESS_TIMEOUT)?
+            .with_start_offline(crate::session_lifetime::start_offline());
+    // Said once when a service started with no link goes on listening.
+    let mut said_waiting_for_link = false;
     let privacy_started = session_instant();
     let mut privacy_sequence = 0u64;
     let mut permitted = false;
@@ -2931,6 +2934,11 @@ fn conversation_with_gate(
         }
         if session_clock.startup_expired(session_instant()) {
             return Err(io::Error::other("voice input never became ready").into());
+        }
+        if !said_waiting_for_link && session_clock.waiting_for_link(session_instant()) {
+            said_waiting_for_link = true;
+            eprintln!("lamp-voice: listening with no link to the speech service; it keeps trying");
+            record(trace, json!({"kind":"waiting_for_link","at_us":clock}))?;
         }
         // Privacy always precedes input, model output, or actuator work.
         // A later fresh mute cannot relabel an already-lost sensor lease as a
@@ -3649,6 +3657,7 @@ fn conversation_with_gate(
                 )?;
             }
             last_capture = Some(frame.read_completed_at_us);
+            session_clock.capture_retained();
             owner.set_capture(
                 now(),
                 CaptureState::RetainingUntil(MonoTime::from_micros(

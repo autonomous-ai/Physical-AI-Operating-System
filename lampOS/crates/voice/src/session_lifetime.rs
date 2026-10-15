@@ -1,6 +1,6 @@
 //! Session duration is independent of turn, provider and hardware authority.
 use std::{
-    io,
+    env, io,
     time::{Duration, Instant},
 };
 
@@ -30,11 +30,26 @@ impl Lifetime {
     }
 }
 
+/// `on` for a service to start with no link to the speech service
+/// (`docs/offline.md`, #830): once the microphone is being retained it
+/// keeps listening past the startup budget and becomes ready when the link
+/// comes up. Anything else: the budget covers the link too, as before.
+pub const START_OFFLINE_ENVIRONMENT: &str = "LAMP_START_OFFLINE";
+
+/// Whether the environment switches it on.
+pub(crate) fn start_offline() -> bool {
+    env::var(START_OFFLINE_ENVIRONMENT).ok().as_deref() == Some("on")
+}
+
 pub(crate) struct SessionClock {
     lifetime: Lifetime,
     startup_deadline: Instant,
     ready: bool,
     deadline: Option<Instant>,
+    /// A service may wait for its link past the startup budget.
+    start_offline: bool,
+    /// Input has been retained: the budget's other half is met.
+    capturing: bool,
 }
 
 impl SessionClock {
@@ -49,7 +64,26 @@ impl SessionClock {
             startup_deadline: started + startup_budget,
             ready: false,
             deadline: None,
+            start_offline: false,
+            capturing: false,
         })
+    }
+
+    /// Lets a service wait for its link once input is retained. A finite
+    /// session keeps its whole budget.
+    pub(crate) fn with_start_offline(mut self, on: bool) -> Self {
+        self.start_offline = on && self.lifetime.continuous();
+        self
+    }
+
+    /// Input is being retained: microphone, privacy and capture are up.
+    pub(crate) fn capture_retained(&mut self) {
+        self.capturing = true;
+    }
+
+    /// Waiting past the budget for the link only, with input retained.
+    pub(crate) fn waiting_for_link(&self, at: Instant) -> bool {
+        !self.ready && self.start_offline && self.capturing && at >= self.startup_deadline
     }
 
     pub(crate) fn ready(&self) -> bool {
@@ -57,7 +91,7 @@ impl SessionClock {
     }
 
     pub(crate) fn activate(&mut self, at: Instant) -> io::Result<()> {
-        if self.ready || at >= self.startup_deadline {
+        if self.ready || (at >= self.startup_deadline && !self.waiting_for_link(at)) {
             return Err(io::Error::other(
                 "duplicate or late initial input readiness",
             ));
@@ -71,7 +105,7 @@ impl SessionClock {
     }
 
     pub(crate) fn startup_expired(&self, at: Instant) -> bool {
-        !self.ready && at >= self.startup_deadline
+        !self.ready && at >= self.startup_deadline && !self.waiting_for_link(at)
     }
 
     pub(crate) fn expired(&self, at: Instant) -> bool {
@@ -117,5 +151,47 @@ mod tests {
         assert!(!clock.ready());
         assert!(clock.startup_expired(started + Duration::from_secs(25)));
         assert!(clock.activate(started + Duration::from_secs(25)).is_err());
+    }
+
+    #[test]
+    fn serve_started_offline_waits_for_its_link_once_input_is_retained() {
+        let started = Instant::now();
+        let budget = Duration::from_secs(25);
+        let mut clock = SessionClock::new(Lifetime::Serve, started, budget)
+            .unwrap()
+            .with_start_offline(true);
+        clock.capture_retained();
+        let late = started + Duration::from_secs(600);
+        assert!(clock.waiting_for_link(late));
+        assert!(!clock.startup_expired(late));
+        clock.activate(late).unwrap();
+        assert!(clock.ready());
+        assert!(!clock.waiting_for_link(late));
+        assert!(!clock.expired(started + Duration::from_secs(86_400)));
+        assert!(clock.activate(late).is_err());
+    }
+
+    #[test]
+    fn started_offline_without_input_or_switch_or_as_a_finite_session_still_fails() {
+        let started = Instant::now();
+        let budget = Duration::from_secs(25);
+        let at = started + budget;
+        // No input retained: the microphone is the part that failed.
+        let clock = SessionClock::new(Lifetime::Serve, started, budget)
+            .unwrap()
+            .with_start_offline(true);
+        assert!(clock.startup_expired(at));
+        // Switch off: exactly as before.
+        let mut clock = SessionClock::new(Lifetime::Serve, started, budget).unwrap();
+        clock.capture_retained();
+        assert!(clock.startup_expired(at));
+        assert!(clock.activate(at).is_err());
+        // A finite session never waits.
+        let mut clock = SessionClock::new(Lifetime::Finite(60), started, budget)
+            .unwrap()
+            .with_start_offline(true);
+        clock.capture_retained();
+        assert!(clock.startup_expired(at));
+        assert!(clock.activate(at).is_err());
     }
 }

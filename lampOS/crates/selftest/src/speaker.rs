@@ -128,30 +128,13 @@ impl Check for Speaker<'_> {
         if Instant::now() + BASELINE + self.answer_within > deadline {
             return no_time();
         }
-        let mut before = Vec::new();
-        let until = Instant::now() + BASELINE;
-        while Instant::now() < until {
-            before.extend(room_level(self.bus).map(|(level, _)| level));
-            std::thread::sleep(LOOK_EVERY);
-        }
-        if Instant::now() + self.answer_within > deadline {
-            return no_time();
-        }
-        let id = format!("selftest-{}", unix_ms());
-        let asked_ms = unix_ms();
-        let request = SpeakerCheckRequest {
-            id: id.clone(),
-            occasion: occasion.to_owned(),
-        };
-        let sent = self
-            .bus
-            .publisher_declared(
-                SpeakerCheckRequest::TOPIC,
-                &SpeakerCheckRequest::declaration(),
-                "selftest",
-            )
-            .and_then(|mut asks| asks.publish_json(1, &request).map(|_| asks));
-        let _asks = match sent {
+        // The publisher is declared first, so that nothing slow stands
+        // between the last look at the time and the request.
+        let mut asks = match self.bus.publisher_declared(
+            SpeakerCheckRequest::TOPIC,
+            &SpeakerCheckRequest::declaration(),
+            "selftest",
+        ) {
             Ok(asks) => asks,
             Err(error) => {
                 return PartResult::new(
@@ -161,6 +144,31 @@ impl Check for Speaker<'_> {
                 );
             }
         };
+        let mut before = Vec::new();
+        let until = Instant::now() + BASELINE;
+        while Instant::now() < until {
+            before.extend(room_level(self.bus).map(|(level, _)| level));
+            std::thread::sleep(LOOK_EVERY);
+        }
+        let id = format!("selftest-{}", unix_ms());
+        let request = SpeakerCheckRequest {
+            id: id.clone(),
+            occasion: occasion.to_owned(),
+        };
+        if Instant::now() + self.answer_within > deadline {
+            return no_time();
+        }
+        let sending_ms = unix_ms();
+        if let Err(error) = asks.publish_json(1, &request) {
+            return PartResult::new(
+                "speaker",
+                Verdict::NotChecked,
+                &format!("{} cannot be asked: {error}", SpeakerCheckRequest::TOPIC),
+            );
+        }
+        // Room levels count only once the request is out: stamped after
+        // the publish returned.
+        let asked_ms = unix_ms();
         let mut loudest: Option<f32> = None;
         let mut answer = None;
         let until = Instant::now() + self.answer_within;
@@ -172,7 +180,7 @@ impl Check for Speaker<'_> {
                 loudest = Some(loudest.map_or(level, |l: f32| l.max(level)));
             }
             if let Ok(Some(message)) = self.bus.latest(SpeakerCheck::TOPIC)
-                && message.header.at_unix_ms >= asked_ms
+                && message.header.at_unix_ms >= sending_ms
                 && let Ok(said) = message.parse::<SpeakerCheck>()
                 && said.id == id
             {

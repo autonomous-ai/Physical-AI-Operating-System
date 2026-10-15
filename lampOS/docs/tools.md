@@ -379,8 +379,10 @@ were heard on 2026-10-16 ("Claude Co", "Claude"), work on the office
 computer with nobody named; and the lamp's own, which
 it should not hand over (labels beginning `own_`): a short story, the
 eight-sentence story offered to Claude Code on 2026-10-16, the same after a
-hand-over and its yes in one session, and three stories in a row. Each
-summary line counts per request how often the model called what was
+hand-over and its yes in one session, and three stories in a row. Only the
+last line of each request is recorded, the lines before it setting the
+scene: three stories in a row shows the third, after two in the session.
+Each summary line counts per request how often the model called what was
 expected (`as_expected`), how often what the lamp said named Claude Code
 (`offered`), and says `asked_switch`:
 

@@ -1,0 +1,14 @@
+count	room	permission	reason	conversation	eyes
+43	busy	hold	a busy room, and nothing shows it was called or that anyone is turned to the lamp	-	not facing
+6	busy	play	a conversation with the lamp is going on	going on	not facing
+4	busy	play	someone is turned to the lamp	-	facing
+3	busy	play	a conversation with the lamp is going on	going on	facing
+2	busy	play	the lamp began this turn itself	going on	not facing
+2	quiet	play	the room is not known to be busy	-	not facing
+2	quiet	play	the session has heard enough to be trusted	-	not facing
+2	quiet	play	the session has heard enough to be trusted	going on	not facing
+1	busy	play	its name was heard close to the lamp	going on	facing
+1	busy	hold	a busy room: its name was heard in the sound, and nobody is turned to the lamp	-	not facing
+1	busy	play	its name was heard plainly in the room's sound	-	not facing
+1	quiet	play	the lamp began this turn itself	going on	not facing
+1	quiet	play	the lamp began this turn itself	-	not facing

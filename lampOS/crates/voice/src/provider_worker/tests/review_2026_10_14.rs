@@ -107,6 +107,7 @@ fn in_a_busy_room() -> Options {
         attention: Some(busy),
         name_signal: false,
         sounds_checked: false,
+        name_in_passing_ignored: false,
     }
 }
 

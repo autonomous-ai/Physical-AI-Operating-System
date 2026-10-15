@@ -1,0 +1,35 @@
+  2/ 46  Daniel: So did you send the report to Maria yesterday?
+  7/ 46  Samantha: I did, but she has not replied yet. I think she is travelling this week.
+  1/ 46  Daniel: Right. Well, we need her numbers before Friday.
+  2/ 46  Samantha: I can call her tomorrow morning if you want.
+  1/ 46  Daniel: That would help. Also, the printer on the second floor is broken again.
+  2/ 46  Samantha: Again? That is the third time this month.
+  2/ 46  Daniel: I know. I already told the office manager.
+  2/ 46  Samantha: Okay. Are you coming to lunch with us?
+  2/ 46  Daniel: Maybe, I have a call at one.
+ 34/ 46  Daniel: Hey Lamp, what do you think we should have for lunch?
+ 34/ 46  Daniel: And what would you drink with that?
+
+alive1                 talk answered 0/18  addressed answered 4/4
+base2-1014             talk answered 0/18  addressed answered 0/4
+final1                 talk answered 2/18  addressed answered 4/4
+final5                 talk answered 0/18  addressed answered 4/4
+floor1                 talk answered 11/18  addressed answered 4/4
+keep1                  talk answered 0/18  addressed answered 3/4
+lang1                  talk answered 0/18  addressed answered 1/4
+night-0430             talk answered 0/18  addressed answered 4/4
+night-0545             talk answered 0/18  addressed answered 0/4
+night-0650             talk answered 0/18  addressed answered 4/4
+soak1-1014             talk answered 0/18  addressed answered 2/4
+soak10-1014            talk answered 3/18  addressed answered 4/4
+soak11-1014            talk answered 0/18  addressed answered 4/4
+soak12-1014            talk answered 0/18  addressed answered 2/4
+soak2-1014             talk answered 0/18  addressed answered 4/4
+soak3-1014             talk answered 0/18  addressed answered 4/4
+soak4-1014             talk answered 0/18  addressed answered 0/4
+soak5-1014             talk answered 0/18  addressed answered 4/4
+soak6-1014             talk answered 2/18  addressed answered 4/4
+soak7-1014             talk answered 0/18  addressed answered 4/4
+soak8-1014             talk answered 0/18  addressed answered 2/4
+soak9-1014             talk answered 3/18  addressed answered 4/4
+steady2-1014           talk answered 0/18  addressed answered 2/4

@@ -790,6 +790,42 @@ microphone, as for `--attention-near`), someone is turned to the lamp, or
 the lamp began the turn itself; otherwise it is held. Off unless set; the
 rule is otherwise as above.
 
+## The lamp spoken of is not a call (#829)
+
+Off unless `LAMP_NAME_IN_PASSING=ignored` in the voice's environment (built
+by the fourth builder on 15 October 2026; the coordinator passes the worker
+`--name-in-passing-ignored`, right after `--attention-near`).
+
+The rule counts the text as showing a call when the word "lamp" is anywhere
+in it ([`called`](../crates/voice/src/attention.rs)). So in a busy room
+"I left the lamp on in the kitchen", said by one person to another, lets an
+answer out, and so does "the lamp said it would rain". On lamp-4ace it was
+played twice (14 and 15 October). Both times the model declined it of its
+own accord, so the rule did not decide what happened.
+
+With the switch, the name counts only when it is said to the lamp: first,
+after a greeting, or set off by commas ("Hey Lamp, ...", "Lamp, ...",
+"..., Lamp?"). It does not count after "the", "a", "my", "that" and
+similar words (`called_by_name`). What the service writes in the name's
+place is read as before.
+
+In the played scenes of 14 and 15 October, the service's text held "lamp"
+14 times. Three spoke of a lamp, and two of those were inside a request
+that is still a call ("Hey man, ... a story about a lamp ...", the service's
+word for "Hey Lamp"). Without the switch nothing changes.
+
+Tests:
+- `the_name_said_to_the_lamp_is_a_call_and_the_lamp_spoken_of_is_not_with_the_switch`
+  (every call the service wrote on 13 October, and the lamp spoken of);
+- `the_lamp_spoken_of_in_a_busy_room_is_held_only_with_the_switch` (the
+  rule);
+- `the_lamp_spoken_of_is_held_in_a_busy_room_with_the_switch`, and the same
+  without it played (the worker's own loop);
+- the flag's place among the worker's flags (`addressed.rs`).
+
+What it does not do: tell who said a call. A person who says "Lamp" to the
+lamp while facing someone else is still calling it.
+
 ## Switch
 
 `LAMP_ATTENTION=on` in the voice unit (the worker's `--attention`). Off by
@@ -818,6 +854,11 @@ rule knew of it (above). Off by default; not on any lamp.
 after `--name-note`; nothing without `LAMP_NAME_NOTE=on`): in a busy room
 the name note waits for a face turned to the lamp. Off by default. On
 lamp-4ace since 11:52 on 2026-10-14.
+
+`LAMP_NAME_IN_PASSING=ignored` (the worker's `--name-in-passing-ignored`,
+right after `--attention-near`; nothing without `LAMP_ATTENTION`): "the
+lamp" spoken of in what was heard is no call (above). Off by default; not
+on any lamp.
 
 ## Not shown
 

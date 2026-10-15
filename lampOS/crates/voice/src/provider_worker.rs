@@ -123,6 +123,9 @@ pub struct Files {
     /// Whether a name heard close to the lamp counts as a call in a busy
     /// room (`--attention-near`).
     pub attention_near: bool,
+    /// Whether "the lamp" said in passing is no call
+    /// (`--name-in-passing-ignored`, #829).
+    pub name_in_passing_ignored: bool,
     /// Whether each request is judged said to the lamp from close to it,
     /// published, and let out in a busy room (`--addressed`,
     /// `crate::addressed`).
@@ -186,6 +189,7 @@ pub fn parse_flags(dir: &std::path::Path, flags: &[String]) -> io::Result<Parsed
     let (attention, flags) = crate::attention::take(flags);
     let (attention_busy, flags) = crate::attention::take_busy(flags);
     let (attention_near, flags) = crate::attention::take_near(flags);
+    let (name_in_passing_ignored, flags) = crate::attention::take_passing(flags);
     let (addressed, flags) = crate::addressed::take(flags);
     let (name_signal, flags) = crate::attention::take_name(flags);
     let (name_note, name_note_busy_face, flags) = crate::called::take(flags);
@@ -204,6 +208,7 @@ pub fn parse_flags(dir: &std::path::Path, flags: &[String]) -> io::Result<Parsed
         attention,
         attention_busy,
         attention_near,
+        name_in_passing_ignored,
         addressed,
         name_signal,
         name_note,
@@ -631,6 +636,9 @@ pub(crate) struct Options {
     /// something shows it was said to the lamp (`--sounds-checked`, #800).
     /// Only with `attention`.
     pub(crate) sounds_checked: bool,
+    /// "The lamp" said in passing is no call for the rule
+    /// ([`crate::attention::called_by_name`], #829).
+    pub(crate) name_in_passing_ignored: bool,
 }
 /// How the room is and whether the lamp is in a conversation, now.
 fn attention_now() -> (crate::room_told::Room, bool) {
@@ -654,6 +662,7 @@ impl Options {
             attention: None,
             name_signal: false,
             sounds_checked: false,
+            name_in_passing_ignored: false,
         }
     }
 }
@@ -847,6 +856,7 @@ pub async fn run_with_continuation(
         attention: files.attention.then_some(attention_now),
         name_signal: files.name_signal,
         sounds_checked: files.attention && files.sounds_checked,
+        name_in_passing_ignored: files.attention && files.name_in_passing_ignored,
     };
     let visual = visual
         .map(|(source, worker)| ContextDelivery::new(source, boot, worker))
@@ -1007,6 +1017,7 @@ async fn serve_with_visual<C: Connect>(
     desk.name_signal = options.name_signal;
     let mut attention = crate::attention::Attention::default();
     attention.check_sounds(sounds_checked);
+    attention.ignore_name_in_passing(options.name_in_passing_ignored);
     // The record of whom it answered, off unless set.
     let mut first_output = FIRST_OUTPUT.get().and_then(|directory| {
         match crate::first_output::FirstOutputLog::open(directory) {
@@ -5782,6 +5793,7 @@ mod tests {
             attention: None,
             name_signal: false,
             sounds_checked: false,
+            name_in_passing_ignored: false,
         }
     }
 
@@ -5799,6 +5811,7 @@ mod tests {
                 attention: None,
                 name_signal: true,
                 sounds_checked: false,
+                name_in_passing_ignored: false,
             },
         );
         let mut dial = rig.ready().await;
@@ -5841,6 +5854,7 @@ mod tests {
                 attention: Some(busy),
                 name_signal: false,
                 sounds_checked: false,
+                name_in_passing_ignored: false,
             },
         );
         let mut dial = rig.ready().await;
@@ -6118,6 +6132,7 @@ mod tests {
                 attention: Some(busy),
                 name_signal: false,
                 sounds_checked: false,
+                name_in_passing_ignored: false,
             },
         );
         let mut dial = rig.ready().await;
@@ -8848,6 +8863,7 @@ mod tests {
                     attention: Some(busy),
                     name_signal: false,
                     sounds_checked: false,
+                    name_in_passing_ignored: false,
                 },
                 BARRIER,
                 false,
@@ -8891,6 +8907,57 @@ mod tests {
             }
             rig.stop().await;
             played
+        }
+
+        /// #829 through the worker's own loop, in a busy room: "I left the
+        /// lamp on in the kitchen", said by one person to another, shows a
+        /// call to the rule without the switch and its answer is played;
+        /// with `--name-in-passing-ignored` it is held, as other talk is.
+        async fn the_lamp_spoken_of(ignored: bool) -> bool {
+            fn busy() -> (crate::room_told::Room, bool) {
+                (crate::room_told::Room::Busy, false)
+            }
+            let heard = |text: &str| json!({"serverContent":{"inputTranscription":{"text":text}}});
+            let mut rig = LiveRig::start_all(
+                quick_policy(),
+                Options {
+                    reporting: Reporting::Typed,
+                    tools: crate::tools::Settings::default(),
+                    attention: Some(busy),
+                    name_signal: false,
+                    name_in_passing_ignored: ignored,
+                },
+                BARRIER,
+                false,
+                Continuation::Off,
+            );
+            let mut dial = rig.ready().await;
+            let request = rig.speak(&mut dial, false, true).await;
+            dial.service
+                .send(heard("I left the lamp on in the kitchen."))
+                .await;
+            dial.service.send(provider_audio(7, 240)).await;
+            dial.service.send(idle_complete()).await;
+            let mut played = false;
+            loop {
+                match rig.output().await {
+                    ProviderOutput::Audio { request: of, .. } if of == request => played = true,
+                    ProviderOutput::TurnComplete { request: of, .. } if of == request => break,
+                    _ => {}
+                }
+            }
+            rig.stop().await;
+            played
+        }
+
+        #[tokio::test]
+        async fn the_lamp_spoken_of_is_a_call_in_a_busy_room_without_the_switch() {
+            assert!(the_lamp_spoken_of(false).await);
+        }
+
+        #[tokio::test]
+        async fn the_lamp_spoken_of_is_held_in_a_busy_room_with_the_switch() {
+            assert!(!the_lamp_spoken_of(true).await);
         }
 
         #[tokio::test]

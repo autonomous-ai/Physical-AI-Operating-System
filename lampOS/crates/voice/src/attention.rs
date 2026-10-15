@@ -147,6 +147,41 @@ pub fn take_near(flags: &[String]) -> (bool, &[String]) {
     }
 }
 
+/// Where the coordinator reads whether "the lamp" said in passing is no
+/// call (#829). `ignored` only.
+///
+/// Why: [`called`] takes the word "lamp" anywhere in what was heard as the
+/// lamp called, so in a busy room "I left the lamp on in the kitchen", said
+/// by one person to another, lets an answer out. It was played on lamp-4ace
+/// on 14 and 15 October, and both times the model declined it of its own
+/// accord. With this, the name counts only when it is said to the lamp, not
+/// about it ([`called_by_name`]).
+pub const PASSING_ENVIRONMENT: &str = "LAMP_NAME_IN_PASSING";
+/// The provider worker's flag for it, right after [`NEAR_FLAG`].
+pub const PASSING_FLAG: &str = "--name-in-passing-ignored";
+
+/// The provider worker's argument for that switch in the environment.
+pub fn passing_arguments_from_environment() -> Vec<String> {
+    passing_arguments(std::env::var(PASSING_ENVIRONMENT).ok().as_deref())
+}
+
+fn passing_arguments(value: Option<&str>) -> Vec<String> {
+    if value == Some("ignored") {
+        vec![PASSING_FLAG.to_owned()]
+    } else {
+        Vec::new()
+    }
+}
+
+/// Take a leading `--name-in-passing-ignored` off a worker's flags, after
+/// [`take_near`].
+pub fn take_passing(flags: &[String]) -> (bool, &[String]) {
+    match flags {
+        [flag, rest @ ..] if flag == PASSING_FLAG => (true, rest),
+        _ => (false, flags),
+    }
+}
+
 /// Where the coordinator reads whether the model is asked to say when it
 /// hears the lamp's name. `on` only. A measurement switch: it changes
 /// nothing the lamp does, and exists to count whether the model's own sign
@@ -219,17 +254,48 @@ pub fn called(heard: &str) -> bool {
     }
     // A misheard name stands where the name stood: first, or after a
     // greeting.
-    let first = all
+    called_by_stand_in(&all)
+}
+
+/// Words after which "lamp" is a lamp spoken of, not spoken to: "the lamp
+/// said", "my lamp", "a lamp that learns to dance".
+const SPOKEN_OF: &[&str] = &[
+    "the", "a", "an", "this", "that", "these", "those", "my", "your", "our", "his", "her", "their",
+    "its", "every", "any", "no", "some",
+];
+
+/// [`called`], with the name counted only when it is said to the lamp
+/// (`LAMP_NAME_IN_PASSING=ignored`, #829): "Hey Lamp, ...", "Lamp, ...",
+/// "..., Lamp?" are calls; "the lamp said", "I left the lamp on" are not.
+/// What the service writes in the name's place is read as [`called`]
+/// reads it: first, or after a greeting.
+pub fn called_by_name(heard: &str) -> bool {
+    let words: Vec<&str> = heard
+        .split(|c: char| !c.is_alphanumeric())
+        .filter(|word| !word.is_empty())
+        .collect();
+    let is = |word: &str, list: &[&str]| list.iter().any(|known| word.eq_ignore_ascii_case(known));
+    let said_to = words.iter().enumerate().any(|(at, word)| {
+        is(word, &["lamp", "lamb"]) && (at == 0 || !is(words[at - 1], SPOKEN_OF))
+    });
+    said_to || called_by_stand_in(&words)
+}
+
+/// What the service has written in the name's place, first or after a
+/// greeting ([`called`]).
+fn called_by_stand_in(words: &[&str]) -> bool {
+    let is = |word: &str, list: &[&str]| list.iter().any(|known| word.eq_ignore_ascii_case(known));
+    words
         .iter()
-        .find(|word| !is(word, &["hey", "hi", "ok", "okay", "oh", "hello"]));
-    first.is_some_and(|word| {
-        is(
-            word,
-            &[
-                "lam", "lan", "milan", "man", "plan", "helen", "mom", "amen", "weiland",
-            ],
-        )
-    })
+        .find(|word| !is(word, &["hey", "hi", "ok", "okay", "oh", "hello"]))
+        .is_some_and(|word| {
+            is(
+                word,
+                &[
+                    "lam", "lan", "milan", "man", "plan", "helen", "mom", "amen", "weiland",
+                ],
+            )
+        })
 }
 
 /// Whether a call for this function is the start of an answer, to be
@@ -299,6 +365,30 @@ pub fn decide_busy(
     strict: bool,
     turned: Option<bool>,
 ) -> Verdict {
+    decide_called(
+        room,
+        going_on,
+        own,
+        fresh,
+        called(heard),
+        named,
+        strict,
+        turned,
+    )
+}
+
+/// [`decide_busy`] with whether the text shows a call already read.
+#[allow(clippy::too_many_arguments)]
+fn decide_called(
+    room: Room,
+    going_on: bool,
+    own: bool,
+    fresh: bool,
+    called_in_text: bool,
+    named: bool,
+    strict: bool,
+    turned: Option<bool>,
+) -> Verdict {
     if own {
         Verdict::Play("the lamp began this turn itself")
     } else if !(fresh || strict && room == Room::Busy) {
@@ -307,7 +397,7 @@ pub fn decide_busy(
         Verdict::Play("the room is not known to be busy")
     } else if going_on {
         Verdict::Play("a conversation with the lamp is going on")
-    } else if called(heard) {
+    } else if called_in_text {
         Verdict::Play("the text shows it was called")
     } else if turned == Some(true) {
         Verdict::Play(TURNED)
@@ -366,12 +456,21 @@ pub struct Attention {
     /// Whether the request judged last was the lamp's own turn, as the
     /// judging read it, for the record ([`Attention::baseline`]).
     judged_own: bool,
+    /// "The lamp" said in passing is no call ([`called_by_name`],
+    /// `LAMP_NAME_IN_PASSING=ignored`).
+    name_in_passing_ignored: bool,
 }
 
 /// The most text kept for one request.
 const MOST_HEARD_BYTES: usize = 2_048;
 
 impl Attention {
+    /// Read the text's call with [`called_by_name`] from now on
+    /// (`LAMP_NAME_IN_PASSING=ignored`, #829).
+    pub fn ignore_name_in_passing(&mut self, ignored: bool) {
+        self.name_in_passing_ignored = ignored;
+    }
+
     /// A request began on `session`, at `now_us`.
     pub fn began_at(&mut self, request: u64, session: u64, now_us: u64) {
         self.began(request, session);
@@ -586,12 +685,17 @@ impl Attention {
             self.verdict = Some(verdict);
             return Some(verdict);
         }
-        let verdict = match decide_busy(
+        let called_in_text = if self.name_in_passing_ignored {
+            called_by_name(&self.heard)
+        } else {
+            called(&self.heard)
+        };
+        let verdict = match decide_called(
             room,
             going_on,
             own,
             fresh,
-            &self.heard,
+            called_in_text,
             self.named,
             strict,
             turned,
@@ -1020,6 +1124,86 @@ mod tests {
         let flags = [FLAG.to_owned(), "rest".to_owned()];
         assert_eq!(take(&flags), (true, &flags[1..]));
         assert_eq!(take(&flags[1..]), (false, &flags[1..]));
+    }
+
+    #[test]
+    fn the_name_in_passing_switch_is_ignored_only_and_its_flag_follows_near() {
+        assert_eq!(passing_arguments(Some("ignored")), [PASSING_FLAG]);
+        assert!(passing_arguments(Some("on")).is_empty());
+        assert!(passing_arguments(None).is_empty());
+        let flags = [PASSING_FLAG.to_owned(), "rest".to_owned()];
+        assert_eq!(take_passing(&flags), (true, &flags[1..]));
+        assert_eq!(take_passing(&flags[1..]), (false, &flags[1..]));
+    }
+
+    /// #829: with the switch the name counts when it is said to the lamp,
+    /// as every call the service wrote on 2026-10-13 said it, and not when
+    /// the lamp is spoken of; without it every one of these is a call.
+    #[test]
+    fn the_name_said_to_the_lamp_is_a_call_and_the_lamp_spoken_of_is_not_with_the_switch() {
+        for shows in [
+            "Lamp, what is two plus two?",
+            "Hey Lamp, tell me a joke.",
+            "What time is it, Lamp?",
+            "Hey, Lamb, how many days are there in a week?",
+            "Milan, what is the capital of Italy?",
+            "Man, tell me a joke.",
+            "Ok Lam, stop.",
+            "Hey Lan",
+            "Helen, what color is the sky on a clear day?",
+            "Weiland, tell me a joke.",
+            "Can you, lamp, turn the light down?",
+            "Hey Lamp, write a short story about a lamp who learns to sing.",
+        ] {
+            assert!(called_by_name(shows), "{shows}");
+            assert!(called(shows), "{shows}");
+        }
+        for spoken_of in [
+            "I left the lamp on in the kitchen.",
+            "I left the lamb on in the kitchen.",
+            "Did you see the lamp turn its head this morning?",
+            "Yes, the lamp looked at me when I came in.",
+            "My lamp is broken again.",
+            "Ask the lamp what time it is.",
+            "That lamp's light is too bright.",
+        ] {
+            assert!(!called_by_name(spoken_of), "{spoken_of}");
+            assert!(called(spoken_of), "{spoken_of}");
+        }
+        for silent in [
+            "How was your weekend?",
+            "The lamps in the storage room are new.",
+            "",
+        ] {
+            assert!(!called_by_name(silent), "{silent}");
+        }
+    }
+
+    /// The rule in a busy room, strict as on lamp-4ace: "I left the lamp on"
+    /// lets an answer out as a call without the switch, and is held with
+    /// it, as other talk is; a call by name plays either way.
+    #[test]
+    fn the_lamp_spoken_of_in_a_busy_room_is_held_only_with_the_switch() {
+        let decide = |text: &str, ignored: bool| {
+            let mut attention = Attention::default();
+            attention.ignore_name_in_passing(ignored);
+            attention.began_at(1, 1, 10_000_000);
+            attention.heard(text);
+            attention.first_output_busy(1, Room::Busy, false, true, Some(false))
+        };
+        let passing = "I left the lamp on in the kitchen.";
+        assert_eq!(
+            decide(passing, false),
+            Some(Verdict::Play("the text shows it was called"))
+        );
+        assert!(matches!(decide(passing, true), Some(Verdict::Hold(_))));
+        let call = "Hey Lamp, what time is it?";
+        for ignored in [false, true] {
+            assert_eq!(
+                decide(call, ignored),
+                Some(Verdict::Play("the text shows it was called"))
+            );
+        }
     }
 
     /// What the service really wrote for called requests in the lamp's

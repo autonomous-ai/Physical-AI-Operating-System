@@ -1,5 +1,24 @@
 # Tests work log
 
+## 2026-10-15 19:15 +0700 — #783 sweep ready
+
+Ready for lamp-voice: yes (#839)
+
+- PR [#839](https://github.com/autonomous-ai/lampOS/pull/839), exact head
+  `5494331c413a19771f7332759df0cf2a1ac5251b`, is ready for the reviewer.
+- Native ARM64 run `38731261120`: 4,499 passed, 116 existing profile skips;
+  doc/own-harness checks and artifacts also passed. All six active health
+  program tests and six memory binary tests passed. The PR profile's
+  skipped five-second health lease passed locally.
+- The two local normal-exit stderr failures remain documented as #837;
+  green ARM64 does not erase them or establish that product race fixed.
+  All original test assertions remain. No retry was requested.
+- The eighth retains loaded policy qualification and #783 closure.
+  #832 remains draft on the separate #838 policy timing failure.
+- Continue #823: dispatch fixture before/after measurement and the relay
+  clock seam behind the unchanged system-clock entrypoint. The two-minute
+  group target remains open.
+
 ## 2026-10-15 19:01 +0700 — #823 inventory; #783 sweep in review
 
 Ready for lamp-voice: no

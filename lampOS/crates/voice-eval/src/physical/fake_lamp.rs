@@ -401,6 +401,21 @@ mod recorder_clock_tests;
 /// connects: runner input written meanwhile waits in the pipe. Test support;
 /// no network.
 pub fn slow_transport(arguments: &[String]) -> Result<i32> {
+    slow_transport_with_wait(arguments, |duration| {
+        thread::sleep(duration);
+        Ok(())
+    })
+}
+
+/// Use an explicit wait for the complete transport delay, then perform the
+/// original exec with the original arguments and inherited streams. The wait
+/// runs once, after parsing; an error prevents exec and is returned unchanged.
+/// It must provide its own bounded host watchdog when coordinating a fixture.
+/// No clock is sampled here, and this entrypoint adds no CLI selection.
+pub fn slow_transport_with_wait(
+    arguments: &[String],
+    wait: impl FnOnce(Duration) -> Result<()>,
+) -> Result<i32> {
     use std::os::unix::process::CommandExt;
     let split = arguments
         .iter()
@@ -411,7 +426,7 @@ pub fn slow_transport(arguments: &[String]) -> Result<i32> {
         [flag, ms] if flag == "--delay-ms" => ms.parse()?,
         _ => return Err(invalid("fake-slow-transport --delay-ms MS -- ARGV...")),
     };
-    thread::sleep(Duration::from_millis(delay_ms));
+    wait(Duration::from_millis(delay_ms))?;
     let argv = &arguments[split + 1..];
     Err(std::process::Command::new(&argv[0])
         .args(&argv[1..])
@@ -511,3 +526,7 @@ impl Drop for FaultRelay {
 #[cfg(test)]
 #[path = "fake_runtime_clock_tests.rs"]
 mod clock_tests;
+
+#[cfg(test)]
+#[path = "slow_transport_clock_tests.rs"]
+mod slow_transport_clock_tests;

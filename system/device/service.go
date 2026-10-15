@@ -42,6 +42,13 @@ type Service struct {
 	cloudApply              cloudPerceptionApply
 	// foMu serializes Fo token refreshes (fo.go).
 	foMu sync.Mutex
+	// amazonMu serializes the Amazon sign-in steps (amazon_mcp.go); amazonSessMu guards only the session
+	// pointer so a status poll never waits for a step.
+	amazonMu      sync.Mutex
+	amazonSessMu  sync.Mutex
+	amazonSess    *amazonSession
+	amazonCLI     hermesCLI    // tests replace the Hermes command line
+	amazonRestart func() error // tests replace the gateway restart
 }
 
 func ProvideService(config *config.Config, ns *network.Service, gw domain.AgentGateway, be *beclient.Client, sled *statusled.Service) *Service {

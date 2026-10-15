@@ -70,13 +70,20 @@ GOOGLE_CODES = ("gmail", "google_calendar", "google_drive")
 # match in full).
 DYNAMIC_HOST_CODES = {
     "shopify": ("shop", re.compile(r"[a-z0-9][a-z0-9-]*\.myshopify\.com")),
+    # Amazon's Selling Partner API has one host per region (and a sandbox).
+    "amazon_sp": ("api_host", re.compile(r"(sandbox\.)?sellingpartnerapi-(na|eu|fe)\.amazon\.com")),
 }
 
 # Connectors linked with the customer's own app (client ID + client secret) and
 # no refresh token: the access token is short-lived (about a day) and the helper
 # mints a new one itself from the saved client credentials when needed. The token
 # request goes to the one stored account host, like every other call.
-CLIENT_CREDENTIAL_CODES = ("shopify",)
+CLIENT_CREDENTIAL_CODES = ("shopify", "amazon_sp")
+
+# Connectors whose token is minted from a saved refresh token as well as the client ID and secret
+# (Login with Amazon): the token request goes to a fixed provider host, not the account host.
+REFRESH_TOKEN_CODES = ("amazon_sp",)
+LWA_TOKEN_URL = "https://api.amazon.com/auth/o2/token"
 TOKEN_RENEW_SKEW_SECONDS = 300          # renew when less than this is left
 MINT_TIMEOUT_SECONDS = 30
 MAX_MINT_RESPONSE_BYTES = 64 * 1024
@@ -91,6 +98,7 @@ MINT_REJECTED_MESSAGE = (
 # `Authorization: Bearer`. The raw token is sent, without a scheme prefix.
 AUTH_HEADERS = {
     "shopify": "X-Shopify-Access-Token",
+    "amazon_sp": "x-amz-access-token",
 }
 
 # Connectors whose API only accepts the credential as a query parameter on
@@ -234,8 +242,7 @@ def cmd_info(code):
         except Failure as e:
             info["problem"] = str(e)
     if code in CLIENT_CREDENTIAL_CODES:
-        client_id, client_secret = client_credentials_of(entry)
-        saved = bool(client_id and client_secret)
+        saved = can_mint_token(code, entry)
         info["client_credentials"] = "saved" if saved else "missing"
         info["token_renewal"] = (
             "automatic: the helper mints a new token when needed" if saved
@@ -254,6 +261,19 @@ def client_credentials_of(entry):
     client_id = str(creds.get("client_id") or entry.get("client_id") or "").strip()
     client_secret = str(creds.get("client_secret") or "").strip()
     return client_id, client_secret
+
+
+def refresh_token_of(entry):
+    """The saved refresh token of a connector that mints from one (never printed)."""
+    return str((entry.get("credentials") or {}).get("refresh_token") or entry.get("refresh_token") or "").strip()
+
+
+def can_mint_token(code, entry):
+    """Whether the helper holds everything it needs to mint a new token for this connector."""
+    client_id, client_secret = client_credentials_of(entry)
+    if not (client_id and client_secret):
+        return False
+    return bool(refresh_token_of(entry)) if code in REFRESH_TOKEN_CODES else True
 
 
 def credential_fingerprint(host, client_id):
@@ -315,15 +335,25 @@ def drop_token_cache(code):
             pass
 
 
-def mint_token(code, host, client_id, client_secret):
-    """Ask the account's own host for a new short-lived token with the saved
-    client credentials. Returns (token, expires_at). Error messages are fixed
-    text: they never carry the client ID, the secret or the response body."""
-    body = urllib.parse.urlencode({
-        "grant_type": "client_credentials", "client_id": client_id, "client_secret": client_secret,
-    }).encode()
+def mint_token(code, host, client_id, client_secret, refresh_token=""):
+    """Ask the provider for a new short-lived token with the saved credentials.
+    Shopify: the account's own host with client credentials. Amazon: Login with
+    Amazon with the saved refresh token. Returns (token, expires_at). Error
+    messages are fixed text: they never carry the client ID, the secret, the
+    refresh token or the response body."""
+    if code in REFRESH_TOKEN_CODES:
+        url = LWA_TOKEN_URL
+        body = urllib.parse.urlencode({
+            "grant_type": "refresh_token", "refresh_token": refresh_token,
+            "client_id": client_id, "client_secret": client_secret,
+        }).encode()
+    else:
+        url = f"https://{host}/admin/oauth/access_token"
+        body = urllib.parse.urlencode({
+            "grant_type": "client_credentials", "client_id": client_id, "client_secret": client_secret,
+        }).encode()
     req = urllib.request.Request(
-        f"https://{host}/admin/oauth/access_token", data=body, method="POST",
+        url, data=body, method="POST",
         headers={"Content-Type": "application/x-www-form-urlencoded", "Accept": "application/json"},
     )
     try:
@@ -364,7 +394,7 @@ def obtain_token(code, entry, host, force=False):
 
     now = int(time.time())
     client_id, client_secret = client_credentials_of(entry)
-    can_mint = bool(client_id and client_secret)
+    can_mint = can_mint_token(code, entry)
     fingerprint = credential_fingerprint(host, client_id) if client_id else None
     if not force:
         candidates = []
@@ -379,7 +409,7 @@ def obtain_token(code, entry, host, force=False):
             return max(candidates, key=lambda c: c[1])[0], False
     if not can_mint:
         raise Failure(3, f"{code}: the saved token has expired and no client ID/secret is saved — ask the user to reconnect {code} in the Autonomous app")
-    token, expires_at = mint_token(code, host, client_id, client_secret)
+    token, expires_at = mint_token(code, host, client_id, client_secret, refresh_token_of(entry))
     write_token_cache(code, fingerprint, token, expires_at)
     return token, True
 
@@ -505,7 +535,8 @@ def cmd_call(code, method, url, args):
         raise Failure(3, f"{code}: linked with an app password; Google REST APIs reject it — use IMAP/SMTP (see SKILL.md)")
     token, fresh = obtain_token(code, entry, host)
     client_id, client_secret = client_credentials_of(entry) if code in CLIENT_CREDENTIAL_CODES else ("", "")
-    can_mint = bool(client_id and client_secret)
+    refresh_secret = refresh_token_of(entry) if code in REFRESH_TOKEN_CODES else ""
+    can_mint = code in CLIENT_CREDENTIAL_CODES and can_mint_token(code, entry)
 
     body = None
     content_type = None
@@ -559,12 +590,12 @@ def cmd_call(code, method, url, args):
             if 300 <= e.code < 400:
                 print("redirect not followed: the credential is only sent to the official host", file=sys.stderr)
             elif detail.strip():
-                print(scrub(detail, token, client_secret), file=sys.stderr)
+                print(scrub(detail, token, client_secret, refresh_secret), file=sys.stderr)
             if e.code == 401:
                 expires = int(entry.get("expires_at") or 0)
                 print(
                     f"credential: expires {fmt_time(expires) if expires else 'never'}, "
-                    f"auto_refresh={'yes' if (entry.get('refresh_token') and entry.get('refresh')) or client_secret else 'no'}",
+                    f"auto_refresh={'yes' if (entry.get('refresh_token') and entry.get('refresh')) or can_mint else 'no'}",
                     file=sys.stderr,
                 )
             return 1
@@ -576,7 +607,7 @@ def cmd_call(code, method, url, args):
 
     text = out.decode("utf-8", "replace")
     if text:
-        sys.stdout.write(scrub(text, token, client_secret))
+        sys.stdout.write(scrub(text, token, client_secret, refresh_secret))
         if not text.endswith("\n"):
             sys.stdout.write("\n")
     elif status == 204:

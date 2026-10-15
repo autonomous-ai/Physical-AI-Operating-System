@@ -658,6 +658,53 @@ func (h *DeviceHandler) GetFoStatus(c *gin.Context) {
 	c.JSON(http.StatusOK, serializers.ResponseSuccess(h.service.GetFoStatus()))
 }
 
+// GetAmazonStatus reports whether the Amazon sign-in can run on this device, whether Amazon is connected, and
+// whether a sign-in is waiting for the pasted address.
+func (h *DeviceHandler) GetAmazonStatus(c *gin.Context) {
+	c.JSON(http.StatusOK, serializers.ResponseSuccess(h.service.AmazonStatus()))
+}
+
+// StartAmazonConnect starts Amazon's sign-in and returns the link the owner opens in their browser.
+func (h *DeviceHandler) StartAmazonConnect(c *gin.Context) {
+	authURL, err := h.service.AmazonConnectStart()
+	if err != nil {
+		c.JSON(http.StatusBadGateway, serializers.ResponseError(err.Error()))
+		return
+	}
+	c.JSON(http.StatusOK, serializers.ResponseSuccess(gin.H{"auth_url": authURL}))
+}
+
+// FinishAmazonConnect takes the address the browser landed on after Amazon's sign-in.
+func (h *DeviceHandler) FinishAmazonConnect(c *gin.Context) {
+	var req struct {
+		CallbackURL string `json:"callback_url" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, serializers.ResponseError(err.Error()))
+		return
+	}
+	if err := h.service.AmazonConnectFinish(req.CallbackURL); err != nil {
+		c.JSON(http.StatusBadRequest, serializers.ResponseError(err.Error()))
+		return
+	}
+	c.JSON(http.StatusOK, serializers.ResponseSuccess(true))
+}
+
+// CancelAmazonConnect stops a pending Amazon sign-in.
+func (h *DeviceHandler) CancelAmazonConnect(c *gin.Context) {
+	h.service.AmazonConnectCancel()
+	c.JSON(http.StatusOK, serializers.ResponseSuccess(true))
+}
+
+// DisconnectAmazon removes the Amazon connection and its saved sign-in.
+func (h *DeviceHandler) DisconnectAmazon(c *gin.Context) {
+	if err := h.service.AmazonDisconnect(); err != nil {
+		c.JSON(http.StatusBadRequest, serializers.ResponseError(err.Error()))
+		return
+	}
+	c.JSON(http.StatusOK, serializers.ResponseSuccess(true))
+}
+
 // FoMCPProxy forwards the agent's Fo MCP calls to Wajo (device.Service.ServeFoMCP).
 func (h *DeviceHandler) FoMCPProxy(c *gin.Context) {
 	h.service.ServeFoMCP(c.Writer, c.Request)

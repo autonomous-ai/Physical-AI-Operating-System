@@ -423,6 +423,12 @@ func (s *Server) Serve(closeFn func()) error {
 	device.GET("fo/status", adminAuthMiddleware(s.config), s.deviceHandler.GetFoStatus)
 	device.POST("fo/connect", adminAuthMiddleware(s.config), s.deviceHandler.StartFoConnect)
 	device.POST("fo/connect/finish", adminAuthMiddleware(s.config), s.deviceHandler.FinishFoConnect)
+	// Amazon's sign-in runs through the Hermes runtime; the owner pastes back the address Amazon's page ends on.
+	device.GET("amazon/status", adminAuthMiddleware(s.config), s.deviceHandler.GetAmazonStatus)
+	device.POST("amazon/connect", adminAuthMiddleware(s.config), s.deviceHandler.StartAmazonConnect)
+	device.POST("amazon/connect/finish", adminAuthMiddleware(s.config), s.deviceHandler.FinishAmazonConnect)
+	device.DELETE("amazon/connect", adminAuthMiddleware(s.config), s.deviceHandler.CancelAmazonConnect)
+	device.DELETE("amazon", adminAuthMiddleware(s.config), s.deviceHandler.DisconnectAmazon)
 	// The agent's Fo MCP traffic; guarded by the proxy key header, not admin auth.
 	api.Any("fo-mcp", s.deviceHandler.FoMCPProxy)
 
@@ -563,6 +569,13 @@ func (s *Server) Serve(closeFn func()) error {
 	connectorGroup.GET("shopify", adminAuthMiddleware(s.config), s.deviceMQTTHandler.GetShopify)
 	connectorGroup.PUT("shopify", adminAuthMiddleware(s.config), s.deviceMQTTHandler.SetShopify)
 	connectorGroup.DELETE("shopify", adminAuthMiddleware(s.config), s.deviceMQTTHandler.RemoveShopify)
+	// Amazon is linked from the web (its sign-in needs an https return address), so it has no credential
+	// route here; the local page only manages Amazon's optional skills.
+	connectorGroup.GET("amazon_sp", adminAuthMiddleware(s.config), s.deviceMQTTHandler.GetAmazonSP)
+	connectorGroup.PUT("amazon_sp", adminAuthMiddleware(s.config), s.deviceMQTTHandler.SetAmazonSP)
+	connectorGroup.DELETE("amazon_sp", adminAuthMiddleware(s.config), s.deviceMQTTHandler.RemoveAmazonSP)
+	connectorGroup.GET("amazon/toolkit", adminAuthMiddleware(s.config), s.deviceMQTTHandler.GetAmazonToolkit)
+	connectorGroup.POST("amazon/toolkit", adminAuthMiddleware(s.config), s.deviceMQTTHandler.SetAmazonToolkit)
 	connectorGroup.GET(":code", adminAuthMiddleware(s.config), s.deviceMQTTHandler.GetConnector)
 	connectorGroup.DELETE(":code", adminAuthMiddleware(s.config), s.deviceMQTTHandler.RemoveConnector)
 

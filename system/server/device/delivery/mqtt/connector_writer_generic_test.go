@@ -161,6 +161,12 @@ func TestConnectorWriter_FallbackRouting(t *testing.T) {
 			wantURL:   mustURL(t, "ahrefs"),
 			wantAuth:  "Bearer ak",
 		},
+		{
+			connector: "amazon",
+			creds:     ConnectorCreds{Connector: "amazon", AuthType: "oauth", AccessToken: "at"},
+			wantURL:   "https://sellingpartner-ai.amazon.com/mcp",
+			wantAuth:  "Bearer at",
+		},
 	}
 	for _, tc := range cases {
 		t.Run(tc.connector, func(t *testing.T) {

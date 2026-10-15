@@ -723,10 +723,18 @@ nên code không tin cậy không thể thoát khỏi thư mục configs qua pat
 | `mcp_auth_header` | `bearer_access_token` (mặc định) → `Authorization: Bearer <access_token>`; `bearer_api_key` → `Bearer <api_key>` (connector dùng khóa tĩnh, vd `ahrefs`); `header:<Name>` → header thô `<Name>: <token>` không prefix Bearer (token ưu tiên `api_key`, fallback `access_token`) cho provider không dùng Bearer, vd Figma PAT `header:X-Figma-Token`. Connector PAT relay `auth_type:"pat"` với token trong `api_key`. |
 
 **Bảng fallback:** với các connector ra đời trước khi wire mang các khóa này
-(`notion`, `asana`, `linear`, `github`, `ahrefs`), một bảng compile-in cung
+(`notion`, `asana`, `linear`, `github`, `ahrefs`, `amazon`), một bảng compile-in cung
 cấp `mcp_url` + kiểu header từ catalog openclaw (`runtimes/openclaw/mcp.go`). Payload
 **luôn thắng** — `mcp_url` trong payload override bảng fallback — nên bảng chỉ là lưới
 an toàn cho di trú đến khi backend gửi các khóa routing.
+
+**Amazon (Selling Partner MCP):** `amazon` được nối tới MCP server Selling Partner chính thức của Amazon
+(`https://sellingpartner-ai.amazon.com/mcp`, cửa hàng Mỹ, bản beta) qua cùng bảng fallback, nên vẫn chạy
+khi payload không mang `mcp_url`. Người bán tự liên kết tài khoản Seller Central của mình; thiết bị chỉ
+lưu access token và ghi entry MCP. Tùy chọn: sau khi kết nối chạy được, skill connectors có thể cài các
+skill Amazon đã công bố bằng `skills/connectors/scripts/amazon_toolkit.py` — chỉ khi người dùng đồng ý. Script
+tải từ GitHub ở một commit cố định, chỉ chép file markdown và JSON (không chạy gì) vào thư mục skills dưới tên
+`amazon-<name>`, và `remove` chỉ xóa đúng những gì nó đã cài.
 
 **Writer đặc biệt:** `figma-api` dùng workaround cho allowlist của Figma MCP hosted —
 một MCP server stdio cục bộ (`{command:"node", args:[wrapper], env:{FIGMA_ACCESS_TOKEN}}`)

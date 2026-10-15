@@ -15,6 +15,7 @@ var mcpConnectorURLs = map[string]string{
 	"linear": "https://mcp.linear.app/mcp",
 	"github": "https://api.githubcopilot.com/mcp/",
 	"ahrefs": "https://api.ahrefs.com/mcp/mcp",
+	"amazon": "https://sellingpartner-ai.amazon.com/mcp",
 }
 
 // MCPConnectorURL returns the remote MCP endpoint for a connector code and whether the code is a known connector.

@@ -212,6 +212,28 @@ and a **Reconnect** button; if Wajo rejects the refresh token it shows **Sign-in
 expired** with a warning. Reconnect runs the same sign-in and only replaces the
 tokens, so the runtime does not restart.
 
+**Amazon (Selling Partner)** has its own card in MCP Tools, under the Fo card. It connects the
+robot to Amazon's official Selling Partner connector (US stores, beta) and needs the Hermes agent
+runtime; on another runtime the card says so and points to the autonomous.ai account instead.
+
+How to connect (the card carries the same guide under **How to connect Amazon**):
+
+1. **Once, in Seller Central:** the account owner, an administrator or a permissions manager enables
+   agents under **Manage Your Permissions → Manage Agents**. Owners and administrators can always
+   authorize the agent; any other user must be granted access there first.
+2. Press **Connect Amazon**. The device starts Hermes's own sign-in and shows Amazon's sign-in link
+   (it also opens in a new tab).
+3. Sign in to Seller Central with the account the robot should use and approve access.
+4. The browser then lands on an address starting with `http://127.0.0.1` that does not load; that is
+   expected. Copy the whole address from the address bar.
+5. Paste it into **Address after sign-in** and press **Finish**. The device passes it to Hermes,
+   checks that `amazon` is enabled, and restarts the agent gateway once so the tools load.
+
+The link works once and for about 10 minutes; if it expires, press **Connect Amazon** again. **Disconnect**
+removes the connection and its saved sign-in. Hermes keeps and refreshes the tokens itself, so the page
+never sees them. If Amazon says to ask an administrator, step 1 is missing. If Amazon shows a **Forbidden Error** after sign-in (a screenshot is in the guide), the account is not allowed to authorize agents, or Amazon's beta connector does not accept the robot yet: have the owner enable agents, or use Option 1 (your own Amazon app). The card reads
+`GET /api/device/amazon/status` (`supported`, `connected`, `pending`).
+
 An Add error can occur after the OS saved the entry, if the runtime config is
 missing or invalid. Reload the list before retrying: duplicate names are rejected.
 Fix the runtime setup and check the logs on the next startup sync. A listed entry
@@ -587,6 +609,7 @@ Third-party accounts the robot can use are grouped under **Settings → Connecto
 
 - **Facebook** — a Page ID and a Page Access Token, saved through `POST /api/device/connectors/pat`.
 - **Shopify** — the store is linked with the customer's **own Shopify app**: the page asks for the **Store domain**, the app's **Client ID** and its **Client secret** (masked, with a show/hide toggle). The domain is cleaned up on submit (trimmed, lowercased, a pasted `https://…` or path removed, a bare handle completed to `<handle>.myshopify.com`) and the device checks all three against Shopify once before saving (`PUT /api/device/connectors/shopify`). The page then shows the connected store, with **Reconnect** and **Disconnect**. The secret is never shown again and is never returned by the API. A collapsible **How to create your Shopify app** guide (six steps plus troubleshooting) sits under the form; it is the same text the autonomous.ai connect form shows. Tokens last 24 hours and the device renews them itself, so there is nothing to refresh by hand.
+- **Amazon** — two ways to link a seller account. **Option 1, your own Amazon app:** a form for the app's **Client ID**, **Client secret** and **Refresh token** plus the **Region** (North America, Europe or Far East), with a collapsible guide to creating a private Selling Partner API app and authorizing it on the seller's own account (Seller Central → Apps and Services → Develop Apps). The device checks the three values with Login with Amazon once before saving (`PUT /api/device/connectors/amazon_sp`); the page then shows **connected** with **Reconnect** and **Disconnect**, and never shows the secret or token again. **Option 2, Amazon's own connector (beta):** the sign-in lives on the **Amazon** card in MCP Tools (or the autonomous.ai account). The page also shows with a **Disconnect** button, and manages Amazon's optional skills: **Install Amazon's skills** (downloads Amazon's published skills from GitHub at a pinned commit; markdown and JSON files only, nothing is run), **Reinstall** and **Remove** (removes only what it installed). The page tells the user that Amazon is US-only for now and that the robot asks before it changes a listing, a price, stock or a shipment.
 
 The page saves the credentials on the device and only the connected status is reported to the account, so the privacy line reads "Saved on this device. Only the connected status is shared with your account."
 

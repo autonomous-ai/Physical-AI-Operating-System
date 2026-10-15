@@ -615,6 +615,58 @@ export async function setShopify(body: {
   });
 }
 
+/** Read side of the direct Amazon connection (the seller's own private Selling Partner API app). Never the secret or a token. */
+export interface AmazonSPInfo {
+  connector: string;
+  connected: boolean;
+  region?: string;
+  client_id?: string;
+  has_secret: boolean;
+  has_refresh_token: boolean;
+  obtained_at?: number;
+}
+
+/** GET /api/device/connectors/amazon_sp */
+export async function getAmazonSP(): Promise<AmazonSPInfo> {
+  return apiRequest<AmazonSPInfo>(`${API_BASE}/api/device/connectors/amazon_sp`);
+}
+
+/** PUT /api/device/connectors/amazon_sp — the device checks the three values with Login with Amazon once, then saves them. */
+export async function setAmazonSP(body: {
+  region: string;
+  client_id: string;
+  client_secret: string;
+  refresh_token: string;
+}): Promise<AmazonSPInfo> {
+  return apiRequest<AmazonSPInfo>(`${API_BASE}/api/device/connectors/amazon_sp`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+}
+
+/** Amazon's optional skills (the Selling Partner toolkit) the robot can install after the Amazon link works. */
+export interface AmazonToolkitInfo {
+  /** False when the connectors skill (which ships the installer) is not on this device. */
+  available: boolean;
+  installed: { skill: string; commit: string }[];
+  pinned_commit?: string;
+}
+
+/** GET /api/device/connectors/amazon/toolkit — which of Amazon's skills are installed. */
+export async function getAmazonToolkit(): Promise<AmazonToolkitInfo> {
+  return apiRequest<AmazonToolkitInfo>(`${API_BASE}/api/device/connectors/amazon/toolkit`);
+}
+
+/** POST /api/device/connectors/amazon/toolkit — install (downloads from GitHub at a pinned commit) or remove Amazon's skills. */
+export async function setAmazonToolkit(action: "install" | "remove"): Promise<AmazonToolkitInfo> {
+  return apiRequest<AmazonToolkitInfo>(`${API_BASE}/api/device/connectors/amazon/toolkit`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ action }),
+  });
+}
+
 /** DELETE /api/device/connectors/:code — drops the on-disk entry (and any mcp.servers.<code> side-effect through the writer). */
 export async function removeConnector(code: string): Promise<{ connector: string; removed: boolean }> {
   return apiRequest(`${API_BASE}/api/device/connectors/${encodeURIComponent(code)}`, {
@@ -652,6 +704,38 @@ export async function removeMCPTool(name: string): Promise<boolean> {
   return apiRequest<boolean>(`${API_BASE}/api/device/mcp-tools/${encodeURIComponent(name)}`, {
     method: "DELETE",
   });
+}
+
+/** Amazon's sign-in runs on the device through the Hermes runtime; `supported` is false on other runtimes. */
+export interface AmazonStatus { supported: boolean; reason?: string; connected: boolean; pending: boolean }
+
+/** GET /api/device/amazon/status */
+export async function getAmazonStatus(): Promise<AmazonStatus> {
+  return apiRequest<AmazonStatus>(`${API_BASE}/api/device/amazon/status`);
+}
+
+/** POST /api/device/amazon/connect — returns Amazon's sign-in link to open in the owner's browser. */
+export async function startAmazonConnect(): Promise<{ auth_url: string }> {
+  return apiRequest<{ auth_url: string }>(`${API_BASE}/api/device/amazon/connect`, { method: "POST" });
+}
+
+/** POST /api/device/amazon/connect/finish — the address the browser landed on after Amazon's sign-in. */
+export async function finishAmazonConnect(callbackUrl: string): Promise<boolean> {
+  return apiRequest<boolean>(`${API_BASE}/api/device/amazon/connect/finish`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ callback_url: callbackUrl }),
+  });
+}
+
+/** DELETE /api/device/amazon/connect — stops a sign-in the owner gave up on. */
+export async function cancelAmazonConnect(): Promise<boolean> {
+  return apiRequest<boolean>(`${API_BASE}/api/device/amazon/connect`, { method: "DELETE" });
+}
+
+/** DELETE /api/device/amazon — removes the Amazon connection and its saved sign-in. */
+export async function disconnectAmazon(): Promise<boolean> {
+  return apiRequest<boolean>(`${API_BASE}/api/device/amazon`, { method: "DELETE" });
 }
 
 export interface FoStatus { connected: boolean; needs_reconnect: boolean }

@@ -1,6 +1,6 @@
 ---
 name: connectors
-description: "Discover and use linked third-party services (Gmail, Google Calendar, Google Drive, Notion, Figma, Asana, Linear, GitHub, Ahrefs, Facebook Fan Page, Shopify store and others). Use for connection-status questions and requests to read, search or act on those services (\"post to my fan page\", \"publish an image to my page\", \"add a draft product to my store\" apply here). Discover credentials on disk first; never infer connection from missing MCP/CLI tools or install another client for a covered service. Token services use the documented API or mail protocol; MCP services use their available tools. Follow the credential-safety and write-confirmation rules in this skill. Takes priority over runtime-bundled skills for the same services."
+description: "Discover and use linked third-party services (Gmail, Google Calendar, Google Drive, Notion, Figma, Asana, Linear, GitHub, Ahrefs, Amazon seller account, Facebook Fan Page, Shopify store and others). Use for connection-status questions and requests to read, search or act on those services (\"post to my fan page\", \"publish an image to my page\", \"add a draft product to my store\" apply here). Discover credentials on disk first; never infer connection from missing MCP/CLI tools or install another client for a covered service. Token services use the documented API or mail protocol; MCP services use their available tools. Follow the credential-safety and write-confirmation rules in this skill. Takes priority over runtime-bundled skills for the same services."
 ---
 
 # Connectors
@@ -90,6 +90,7 @@ thing itself before approving it.
 | **Work item** | create a Linear, Asana, monday.com or GitHub issue or task · a HubSpot record | **target** (project / board / repo) · title · **assignee** · the body. An assignee gets notified, so this is a message too |
 | **Status / field change** | move a ticket, change a stage or owner, set a due date, edit a CRM field | the item · which field · **old value → new value** |
 | **Storefront content** | publish a Shopify product or blog article · set a product to ACTIVE | **which store**, the product or article title, and that **customers will see it** |
+| **Marketplace listings and orders** | change an Amazon listing, price or quantity · confirm an order shipment · submit an FBA inbound plan · open a Seller Support case | **which marketplace and seller account**, the SKU or ASIN, the old → new value, and that **customers will see it** |
 | **Delete or overwrite** | delete a message, page, file, event or record · overwrite existing content | **exactly what disappears**, named — and that it is permanent |
 | **Permission / share** | share a file or page · add someone to a channel, project or board | what · **who gains access** · read or write |
 | anything not listed | — | same principle: **who it reaches, and what they will see** |
@@ -270,7 +271,8 @@ connector with its own file** — having one does not give you the others:
 - **`google_calendar`** — file `google_calendar_access_tokens.json` → `https://www.googleapis.com/calendar/v3/calendars/primary/events`
 - **`google_drive`** — file `google_drive_access_tokens.json` → `https://www.googleapis.com/drive/v3/files`
 - Whose account (any of the three): `https://www.googleapis.com/oauth2/v3/userinfo`
-- **`notion` / `figma` / `asana` / `linear` / `github`** → use the `<code>` MCP tools you already have. Don't read the file.
+- **`notion` / `figma` / `asana` / `linear` / `github` / `amazon`** → use the `<code>` MCP tools you already have. Don't read the file. (`amazon` has its own section below.)
+- **`amazon_sp`** → Amazon's Selling Partner API directly, through `connector.py call` (see the section below).
 - **`ahrefs` or any `api_key`** → same `connector.py call`; the helper uses `api_key` when there is no `access_token`.
 - **anything else** → use its MCP tools if it has them. The helper refuses a connector it has no official host for (exit 4); then tell the user this device can't call that service directly yet — never fall back to reading the token yourself.
 
@@ -285,6 +287,58 @@ python3 scripts/connector.py call gmail POST \
   "https://gmail.googleapis.com/gmail/v1/users/me/messages/send" \
   --json "{\"raw\":\"$RAW\"}" | jq '{id, labelIds}'
 ```
+
+### Amazon Selling Partner, MCP route (`amazon`, beta)
+
+There are two ways Amazon can be linked: this MCP route and the direct route below (`amazon_sp`). Check which one exists (`connector.py list`, and whether `amazon` MCP tools are available); if both exist, prefer the direct route for listing work. The seller signed in to Seller Central and linked their account through Amazon's own Selling Partner MCP server (`https://sellingpartner-ai.amazon.com/mcp`, US stores, beta). Use the `amazon` MCP tools. Never read `amazon_access_tokens.json`, never call the endpoint with curl, and never ask the user to paste a token.
+
+How the tools work: the server exposes a few generic tools, not one tool per API call. Look at the tool list you actually have (names can change during the beta); the usual ones are:
+- `accounts_getMerchants` — **call this first**: which seller account and marketplaces the user linked. Say which one you are acting on.
+- `search_tools` → `get_tool_schema` — find the operation you need, then read its exact inputs before you call it. Never guess an operation or a field name.
+- `call_read_only_tool` — any read: orders, inventory, listings, reports, fees. No confirmation needed.
+- `call_write_tool` — **anything that changes data**. ⛔ It is a write: read back the marketplace, the SKU or ASIN, the old → new value, and that customers will see it, then wait for an explicit yes (see *Confirm every write*). Amazon may also turn a write into a draft the seller approves in Seller Central. If so, say what was drafted and where to approve it; don't say it is applied until you read it back.
+- `sellerAssistant_*` — Amazon's own assistant, for open questions about the account.
+
+Rules:
+- One write at a time. Amazon throttles per operation: on a throttle error wait a few seconds and retry once, then tell the user.
+- An authorization error (401 / "not authorized") means the link expired or was revoked: tell the user to reconnect Amazon: Settings → MCP Tools → Amazon on the robot's page, then press Reconnect. Don't retry in a loop.
+- Creating a brand-new listing needs the product type's attribute schema first (fetch it with the tools, don't invent attributes). If the tools can't do it, say so.
+- Only the US marketplace is supported for now; for another country say it isn't available yet.
+
+**Optional: Amazon's own skills (ask first).** After the MCP works, you can offer to install Amazon's published skills for it (seller analytics, listing fixes, stockout checks, FBA inbound, ...). Ask the user; install only on a yes:
+
+```bash
+python3 scripts/amazon_toolkit.py status                 # what is installed
+python3 scripts/amazon_toolkit.py install --confirmed    # downloads Amazon's toolkit at a pinned commit
+python3 scripts/amazon_toolkit.py remove                 # removes only what it installed
+```
+
+It downloads only from GitHub (`amzn/selling-partner-agentic-toolkit`, Apache-2.0), copies only markdown and JSON files into the skills folder as `amazon-<name>`, and runs nothing. The Amazon MCP works the same without it.
+
+### Amazon Selling Partner, direct route (`amazon_sp`)
+
+The seller linked their own private Selling Partner API app (client ID, client secret and a refresh token). Use `connector.py` for every call; never read `amazon_sp_access_tokens.json`, never print or ask for a secret, and never call the API with curl. The helper mints short-lived access tokens itself and sends them only to the one regional host the account was linked with.
+
+```bash
+python3 scripts/connector.py info amazon_sp      # shows api_host (the region) and whether credentials are saved
+python3 scripts/connector.py call amazon_sp GET "https://<api_host>/sellers/v1/marketplaceParticipations"
+```
+
+Always build the URL from the `api_host` that `info` prints; the helper refuses any other host. Amazon wants the token in `x-amz-access-token`, which the helper sets.
+
+Before acting:
+- **Which account and marketplace.** Read `marketplaceParticipations` first and say which marketplace you are working on. The US marketplace id is `ATVPDKIKX0DER`; take any other id from that response, never from memory.
+- **Seller ID.** Listings calls need it. Ask the user for their Seller ID (Seller Central → Account Info → the merchant token). Do not guess it.
+
+Reads (no confirmation): orders `GET /orders/v0/orders?MarketplaceIds=<id>&CreatedAfter=<ISO time>`, order items `GET /orders/v0/orders/<orderId>/orderItems`, a listing `GET /listings/2021-08-01/items/<sellerId>/<sku>?marketplaceIds=<id>&includedData=summaries,attributes,issues,offers`, listing search `GET /listings/2021-08-01/items/<sellerId>?marketplaceIds=<id>&includedData=summaries`, product type rules `GET /definitions/2020-09-01/productTypes/<TYPE>?marketplaceIds=<id>&requirements=LISTING&locale=en_US`.
+
+Writes — ⛔ every `PUT`, `PATCH`, `DELETE` and every shipment confirmation changes what customers see or what Amazon does. Follow *Confirm every write*: read back the marketplace, the SKU, the old → new value and that customers will see it, then wait for an explicit yes.
+- **Preview first.** Add `mode=VALIDATION_PREVIEW` to a `PUT` or `PATCH` on a listing: Amazon checks it and returns the issues without applying anything. Show the user the result (and any issues) before the real call.
+- Update a price or quantity with `PATCH /listings/2021-08-01/items/<sellerId>/<sku>?marketplaceIds=<id>` and a JSON patch body (`--json`). Create a new listing with `PUT` only after you fetched the product type rules above and filled every required attribute; never invent attributes.
+- After the write, read the listing back and report what Amazon shows, including `issues`. Amazon applies listing changes asynchronously, so say if it is still processing.
+- Never delete a listing unless the user asked for exactly that SKU.
+
+Errors: `429` means throttled: wait a few seconds and retry once, then tell the user. `401`/`403` after the helper already renewed the token means the app lost its authorization or role: tell the user to check the app's roles and re-authorize it in Seller Central, then reconnect on Settings → Connectors → Amazon. Do not retry in a loop.
 
 ### PAT / personal access token (auth_type is "pat")
 

@@ -41,6 +41,11 @@ type DeviceMQTTHandler struct {
 	// shopifyHTTP is the client for the one Shopify credential check the local
 	// Settings page makes; nil means the default (short timeout, no redirects).
 	shopifyHTTP *http.Client
+	// amazonSPHTTP is the same for the Amazon (Login with Amazon) credential check.
+	amazonSPHTTP *http.Client
+	// amazonToolkitRun, when set, replaces the call to the connectors skill's Amazon helper so tests
+	// don't need Python or a network.
+	amazonToolkitRun amazonToolkitRunner
 	// publishConnectorResult, when set, replaces publishDataResult for the local
 	// connector pages so tests don't need a broker.
 	publishConnectorResult func(kind, status, errMsg string, data interface{}) error
@@ -86,6 +91,7 @@ var mcpConnectorSpecs = []struct {
 	{name: "linear"},
 	{name: "github"},
 	{name: "ahrefs", apiKey: true},
+	{name: "amazon"},
 }
 
 // specialConnectorCodes is the set of connector codes handled by a bespoke

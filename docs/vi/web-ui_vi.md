@@ -211,6 +211,28 @@ proxy local của os-server (`/api/fo-mcp`); token Wajo nằm trong os-server (x
 cảnh báo. Reconnect chạy lại đúng luồng đăng nhập và chỉ thay token, nên runtime
 không restart.
 
+**Amazon (Selling Partner)** có card riêng trong mục MCP Tools, nằm dưới card Fo. Card nối robot với
+connector Selling Partner chính thức của Amazon (cửa hàng Mỹ, bản beta) và cần runtime agent Hermes; với
+runtime khác card sẽ báo và chỉ sang tài khoản autonomous.ai.
+
+Cách kết nối (card có cùng hướng dẫn trong mục **How to connect Amazon**):
+
+1. **Một lần, trong Seller Central:** chủ tài khoản, administrator hoặc permissions manager bật agent tại
+   **Manage Your Permissions → Manage Agents**. Chủ tài khoản và administrator luôn được phép cấp quyền cho
+   agent; người dùng khác phải được cấp quyền ở đó trước.
+2. Bấm **Connect Amazon**. Thiết bị chạy luồng đăng nhập của chính Hermes và hiện link đăng nhập của Amazon
+   (đồng thời mở ở tab mới).
+3. Đăng nhập Seller Central bằng tài khoản robot sẽ dùng và đồng ý cấp quyền.
+4. Trình duyệt sau đó nhảy tới địa chỉ bắt đầu bằng `http://127.0.0.1` và trang không tải được; đó là chuyện
+   bình thường. Sao chép nguyên địa chỉ từ thanh địa chỉ.
+5. Dán vào ô **Address after sign-in** rồi bấm **Finish**. Thiết bị chuyển nó cho Hermes, kiểm tra `amazon` đã
+   bật, rồi restart agent gateway một lần để nạp tool.
+
+Link chỉ dùng được một lần và trong khoảng 10 phút; hết hạn thì bấm **Connect Amazon** lại. **Disconnect**
+gỡ kết nối cùng thông tin đăng nhập đã lưu. Hermes tự giữ và làm mới token nên trang không bao giờ thấy chúng.
+Nếu Amazon bảo liên hệ administrator, nghĩa là thiếu bước 1. Nếu Amazon hiện **Forbidden Error** sau khi đăng nhập (có ảnh chụp trong hướng dẫn), tài khoản chưa được phép cấp quyền cho agent, hoặc connector beta của Amazon chưa nhận robot: nhờ chủ tài khoản bật agent, hoặc dùng Cách 1 (app Amazon riêng của bạn). Card đọc `GET /api/device/amazon/status`
+(`supported`, `connected`, `pending`).
+
 Add có thể báo lỗi sau khi OS đã lưu entry, nếu config runtime thiếu hoặc không
 hợp lệ. Tải lại danh sách trước khi thử lại: tên trùng sẽ bị từ chối. Sửa setup
 runtime rồi kiểm tra log của lần startup sync tiếp theo. Entry trong danh sách
@@ -570,6 +592,7 @@ Các tài khoản bên thứ ba mà robot có thể dùng được gom trong **S
 
 - **Facebook** — Page ID và Page Access Token, lưu qua `POST /api/device/connectors/pat`.
 - **Shopify** — cửa hàng được liên kết bằng **app Shopify riêng của khách hàng**: trang hỏi **Store domain**, **Client ID** và **Client secret** của app (ẩn, có nút hiện/ẩn). Domain được làm sạch khi gửi (cắt khoảng trắng, chuyển chữ thường, bỏ `https://…` hoặc đường dẫn dán kèm, tự thêm `.myshopify.com` nếu chỉ nhập handle) và thiết bị kiểm tra cả ba giá trị với Shopify một lần trước khi lưu (`PUT /api/device/connectors/shopify`). Sau đó trang hiển thị cửa hàng đã kết nối, kèm **Reconnect** và **Disconnect**. Secret không bao giờ hiển thị lại và API không bao giờ trả về. Dưới form có hướng dẫn thu gọn được **How to create your Shopify app** (sáu bước và phần xử lý sự cố), cùng nội dung với form kết nối trên autonomous.ai. Token có hiệu lực 24 giờ và thiết bị tự gia hạn, không cần làm mới thủ công.
+- **Amazon** — hai cách liên kết tài khoản người bán. **Cách 1, app Amazon riêng của bạn:** form nhập **Client ID**, **Client secret** và **Refresh token** của app cùng **Region** (North America, Europe hoặc Far East), kèm hướng dẫn thu gọn được để tạo app Selling Partner API riêng (private) và cấp quyền cho chính tài khoản người bán (Seller Central → Apps and Services → Develop Apps). Thiết bị kiểm tra ba giá trị với Login with Amazon một lần trước khi lưu (`PUT /api/device/connectors/amazon_sp`); trang sau đó hiện **connected** cùng nút **Reconnect** và **Disconnect**, không bao giờ hiện lại secret hay token. **Cách 2, connector của Amazon (beta):** đăng nhập nằm ở card **Amazon** trong MCP Tools (hoặc từ tài khoản autonomous.ai). Trang cũng hiển thị có nút **Disconnect**, và quản lý các skill tùy chọn của Amazon: **Install Amazon's skills** (tải skill Amazon đã công bố từ GitHub ở một commit cố định; chỉ file markdown và JSON, không chạy gì), **Reinstall** và **Remove** (chỉ xóa những gì nó đã cài). Trang nói rõ Amazon hiện chỉ hỗ trợ Mỹ và robot sẽ hỏi trước khi đổi listing, giá, tồn kho hoặc lô hàng.
 
 Trang lưu credential trên thiết bị và chỉ báo trạng thái đã kết nối lên tài khoản, nên dòng quyền riêng tư ghi "Saved on this device. Only the connected status is shared with your account."
 

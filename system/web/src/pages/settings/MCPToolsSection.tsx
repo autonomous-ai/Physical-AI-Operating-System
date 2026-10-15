@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { C, SectionCard, LABEL_STYLE, INPUT_STYLE } from "@/components/setup/shared";
-import { listMCPTools, addMCPTool, removeMCPTool, startFoConnect, finishFoConnect, getFoStatus } from "@/lib/api";
-import type { MCPTool, FoStatus } from "@/lib/api";
+import { listMCPTools, addMCPTool, removeMCPTool, startFoConnect, finishFoConnect, getFoStatus, getAmazonStatus, startAmazonConnect, finishAmazonConnect, cancelAmazonConnect, disconnectAmazon } from "@/lib/api";
+import type { MCPTool, FoStatus, AmazonStatus } from "@/lib/api";
 
 import "./settings-lists.css";
 
@@ -20,6 +20,10 @@ export function MCPToolsSection({ active }: { active: boolean }) {
   const [foCallback, setFoCallback] = useState("");
   const [foBusy, setFoBusy] = useState(false);
   const [foStatus, setFoStatus] = useState<FoStatus>({ connected: false, needs_reconnect: false });
+  const [amazon, setAmazon] = useState<AmazonStatus>({ supported: true, connected: false, pending: false });
+  const [amazonAuthURL, setAmazonAuthURL] = useState("");
+  const [amazonCallback, setAmazonCallback] = useState("");
+  const [amazonBusy, setAmazonBusy] = useState(false);
 
   useEffect(() => {
     listMCPTools()
@@ -27,6 +31,7 @@ export function MCPToolsSection({ active }: { active: boolean }) {
       .catch(() => {})
       .finally(() => setLoading(false));
     getFoStatus().then(setFoStatus).catch(() => {});
+    getAmazonStatus().then(setAmazon).catch(() => {});
   }, []);
 
   function addHeaderRow() { setHeaders((prev) => [...prev, { key: "", value: "" }]); }
@@ -105,6 +110,48 @@ export function MCPToolsSection({ active }: { active: boolean }) {
       toast.error(err instanceof Error ? err.message : "Failed to connect Fo.");
     } finally {
       setFoBusy(false);
+    }
+  }
+
+  async function handleAmazonStart() {
+    setAmazonBusy(true);
+    try {
+      const { auth_url } = await startAmazonConnect();
+      setAmazonAuthURL(auth_url);
+      window.open(auth_url, "_blank", "noopener");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to start the Amazon sign-in.");
+    } finally {
+      setAmazonBusy(false);
+    }
+  }
+
+  async function handleAmazonFinish() {
+    setAmazonBusy(true);
+    try {
+      await finishAmazonConnect(amazonCallback.trim());
+      setAmazon(await getAmazonStatus());
+      setAmazonAuthURL("");
+      setAmazonCallback("");
+      toast.success("Amazon connected.");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to connect Amazon.");
+    } finally {
+      setAmazonBusy(false);
+    }
+  }
+
+  async function handleAmazonDisconnect() {
+    if (!window.confirm("Disconnect Amazon? The robot forgets the saved sign-in until you connect again.")) return;
+    setAmazonBusy(true);
+    try {
+      await disconnectAmazon();
+      setAmazon(await getAmazonStatus());
+      toast.success("Amazon disconnected.");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to disconnect Amazon.");
+    } finally {
+      setAmazonBusy(false);
     }
   }
 
@@ -227,6 +274,98 @@ export function MCPToolsSection({ active }: { active: boolean }) {
                 >
                   {foBusy ? "Connecting…" : "Finish"}
                 </button>
+              </>
+            )}
+          </div>
+
+          <div style={{
+            marginBottom: 16, padding: "10px 12px", background: C.surface,
+            border: `1px solid ${C.border}`, borderRadius: 8,
+          }}>
+            <div style={{ fontSize: 13, fontWeight: 600, color: C.text, marginBottom: 4, display: "flex", gap: 8, alignItems: "center" }}>
+              Amazon (Selling Partner)
+              <span style={{ fontSize: 11, fontWeight: 600, color: C.amber, border: `1px solid ${C.amber}`, borderRadius: 6, padding: "0 6px" }}>Beta</span>
+              {amazon.connected && <span style={{ fontSize: 12, fontWeight: 400, color: "#22c55e" }}>Connected</span>}
+            </div>
+            <div style={{ fontSize: 12, color: C.textDim, lineHeight: 1.6, marginBottom: 8 }}>
+              Let the agent read and manage your Amazon seller account: sales, inventory, listings and FBA.
+              US stores only for now. It asks you before it changes a listing, a price, stock or a shipment.
+            </div>
+            {!amazon.supported ? (
+              <div style={{ fontSize: 12, color: C.amber, lineHeight: 1.6 }}>{amazon.reason}</div>
+            ) : (
+              <>
+                <details style={{ marginBottom: 10 }}>
+                  <summary style={{ fontSize: 12, color: C.amber, cursor: "pointer" }}>How to connect Amazon (step by step)</summary>
+                  <div style={{ fontSize: 12, color: C.textDim, lineHeight: 1.7, marginTop: 8 }}>
+                    <b style={{ color: C.text }}>Once, in Seller Central:</b> the account owner, an administrator or a
+                    permissions manager must allow agents: <b>Manage Your Permissions → Manage Agents</b>, then enable the
+                    Selling Partner agent. Owners and administrators can always authorize it; any other user needs to be
+                    granted access there first.
+                    <ol style={{ margin: "8px 0 8px 18px", padding: 0, listStyle: "decimal" }}>
+                      <li>Press <b>Connect Amazon</b>. A sign-in link opens (it also stays on this page).</li>
+                      <li>Sign in to <b>Seller Central</b> with the account you want the robot to use and approve access.</li>
+                      <li>
+                        Your browser then lands on an address that starts with <b>http://127.0.0.1</b> and says it can&apos;t
+                        be reached. That is expected: copy the <b>whole address</b> from the address bar.
+                      </li>
+                      <li>Paste it in the box on this card and press <b>Finish</b>. The agent restarts for a few seconds to load Amazon.</li>
+                    </ol>
+                    The link works once and for about 10 minutes; if it expires, press Connect Amazon again. If Amazon
+                    says to ask an administrator, the Manage Agents step above is missing. Press <b>Disconnect</b> any
+                    time to remove the link.
+                    <div style={{ marginTop: 10, paddingTop: 8, borderTop: `1px solid ${C.border}` }}>
+                      <b style={{ color: C.text }}>If Amazon shows &quot;Forbidden Error&quot;</b> after you sign in:
+                      <img src="https://cdn.autonomous.ai/production/ecm/261015/amazon-seller-error.png" alt="Amazon Forbidden Error: You don't have permission to access this resource"
+                        style={{ display: "block", maxWidth: "100%", margin: "8px 0", borderRadius: 6, border: `1px solid ${C.border}` }} />
+                      Amazon refused the sign-in. Two things cause it. <b>1)</b> The Seller Central account is not allowed to
+                      authorize agents: ask the account owner to enable them under <b>Manage Your Permissions → Manage
+                      Agents</b> (and grant your user there), wait a few minutes, then press Connect Amazon again for a new link.
+                      <b> 2)</b> Amazon&apos;s connector is in beta and may not accept this robot yet. If the owner or an
+                      administrator also gets this error, use <b>Option 1</b> (your own Amazon app) on Settings →
+                      Connectors → Amazon instead.
+                    </div>
+                  </div>
+                </details>
+                {!amazonAuthURL ? (
+                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                    <button type="button" onClick={handleAmazonStart} disabled={amazonBusy} style={{ ...BTN, opacity: amazonBusy ? 0.5 : 1 }}>
+                      {amazonBusy ? "Opening…" : amazon.connected ? "Reconnect" : "Connect Amazon"}
+                    </button>
+                    {amazon.connected && (
+                      <button type="button" onClick={handleAmazonDisconnect} disabled={amazonBusy}
+                        style={{ ...BTN, color: "#ef4444", opacity: amazonBusy ? 0.5 : 1 }}>
+                        Disconnect
+                      </button>
+                    )}
+                  </div>
+                ) : (
+                  <>
+                    <div style={{ fontSize: 12, color: C.textDim, lineHeight: 1.6, marginBottom: 6 }}>
+                      1. <a href={amazonAuthURL} target="_blank" rel="noopener noreferrer" style={{ color: C.amber }}>Open the Amazon sign-in</a> and approve access.<br />
+                      2. Your browser then lands on a <b>127.0.0.1</b> page that does not load. That is expected:
+                      copy the full address from the address bar and paste it below.
+                    </div>
+                    <label htmlFor="amazon-callback" style={LABEL_STYLE}>Address after sign-in</label>
+                    <input
+                      id="amazon-callback"
+                      type="text"
+                      value={amazonCallback}
+                      onChange={(e) => setAmazonCallback(e.target.value)}
+                      placeholder="http://127.0.0.1:27890/callback?code=…"
+                      style={INPUT_STYLE}
+                    />
+                    <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+                      <button type="button" onClick={handleAmazonFinish} disabled={amazonBusy || !amazonCallback.trim()}
+                        style={{ ...BTN, opacity: amazonBusy || !amazonCallback.trim() ? 0.5 : 1 }}>
+                        {amazonBusy ? "Connecting…" : "Finish"}
+                      </button>
+                      <button type="button" onClick={() => { setAmazonAuthURL(""); setAmazonCallback(""); cancelAmazonConnect().catch(() => {}); }} disabled={amazonBusy} style={BTN}>
+                        Cancel
+                      </button>
+                    </div>
+                  </>
+                )}
               </>
             )}
           </div>

@@ -743,11 +743,20 @@ payload's `credentials` map:
 | `mcp_auth_header` | `bearer_access_token` (default) → `Authorization: Bearer <access_token>`; `bearer_api_key` → `Bearer <api_key>` (static-key connectors, e.g. `ahrefs`); `header:<Name>` → raw header `<Name>: <token>` with no Bearer prefix (token prefers `api_key`, falls back to `access_token`) for non-Bearer providers, e.g. a Figma PAT via `header:X-Figma-Token`. A PAT connector relays `auth_type:"pat"` with the token in `api_key`. |
 
 **Fallback table:** for connectors that shipped before the wire carried these keys
-(`notion`, `asana`, `linear`, `github`, `ahrefs`), a compiled-in table
+(`notion`, `asana`, `linear`, `github`, `ahrefs`, `amazon`), a compiled-in table
 supplies the `mcp_url` + header style from the openclaw catalog
 (`runtimes/openclaw/mcp.go`). The payload **always wins** — `mcp_url` in the payload
 overrides the fallback — so the table is only a migration safety net until the
 backend pushes the routing keys.
+
+**Amazon (Selling Partner MCP):** `amazon` is wired to Amazon's official Selling Partner MCP server
+(`https://sellingpartner-ai.amazon.com/mcp`, US stores, beta) through the same fallback table, so it
+works even when the payload carries no `mcp_url`. The seller links their own Seller Central account;
+the device only stores the access token and writes the MCP entry. Optionally, after the connection
+works, the connectors skill can install Amazon's published skills with
+`skills/connectors/scripts/amazon_toolkit.py` — only after the user agrees. It downloads from GitHub at a
+pinned commit, copies markdown and JSON files only (nothing is executed) into the skills folder as
+`amazon-<name>`, and `remove` deletes exactly what it installed.
 
 **Special writers:** `figma-api` uses the hosted Figma MCP allowlist workaround — a
 local stdio MCP server (`{command:"node", args:[wrapper], env:{FIGMA_ACCESS_TOKEN}}`)

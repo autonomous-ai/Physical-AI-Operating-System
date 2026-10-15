@@ -175,7 +175,12 @@ service asks, `{"look_full":true}` on `--permit-socket`:
    asked of it. The still waits for it to stop: `body/joint_states` on the
    bus, read twenty times a second, with `base_yaw`, `head_pitch` and
    `head_roll` each within 6 counts (0.0092 rad) of where they were asked to
-   be for 0.3 s, the body's own arrival rule. It waits at most 2 s. With no
+   be, the body's own arrival rule, turning slower than 25 counts a second
+   (two counts in the 80 ms over which the body works out a joint's speed),
+   and asked to be in the same place, for 0.3 s. A small error alone is not
+   enough: a head following a slow move lags its goal by a count all the
+   way. A head that moves again before the frame comes is waited for again.
+   It waits at most 2 s in all. With no
    joint states on the bus (no body, `LAMP_BUS` off on either side) it does
    not wait; a paused body says its joints are where they were asked to be.
 2. The still is the first frame after that. It is passed as it is when it is
@@ -208,7 +213,12 @@ fixture, so a real frame should come out larger. The lamp's ARM cores are
 several times slower; the eyes' journal line gives the real time. What the
 larger decode costs on every look, in time and heat, is to be measured on
 the lamp before the switch is left on (the eyes' ten-second line gives the
-milliseconds a look).
+milliseconds a look): at 320 by 240 a look takes 64 to 81 ms on lamp-52e6
+today, and a frame of 1280 by 960 has sixteen times the pixels to decode.
+That time is how quickly the head follows a face and what is left for the
+voice. Compare it, and the eyes' processor time, at both sizes on lamp-4ace
+and lamp-52e6 and write the numbers here; if the full size is too slow,
+640x480 is the knob.
 
 On the voice service's side, `LAMP_LOOK_FULL=on` ([speaking-first.md](speaking-first.md),
 "Taking a look"). The two are turned on together: eyes with `--full-look`

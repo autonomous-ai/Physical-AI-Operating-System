@@ -167,12 +167,15 @@ impl Look {
         self.full.is_none() || waited >= STILL_WAIT || self.still()
     }
 
-    /// What the model is told with the picture.
-    pub fn note(&self) -> &'static str {
-        if self.full() {
-            crate::speak_up::LOOK_FULL_NOTE
-        } else {
-            crate::speak_up::LOOK_NOTE
+    /// What the look's turn says, and whether the eyes' picture goes with
+    /// it. A full look whose still was not written since this look asked
+    /// for it says the eye was shut and takes no picture: the file may
+    /// still hold an earlier look's still, which is not this one's.
+    pub fn turn(&self) -> (&'static str, bool) {
+        match (self.full(), self.still()) {
+            (false, _) => (crate::speak_up::LOOK_NOTE, true),
+            (true, true) => (crate::speak_up::LOOK_FULL_NOTE, true),
+            (true, false) => (crate::speak_up::NO_LOOK_NOTE, false),
         }
     }
 }
@@ -416,10 +419,17 @@ mod tests {
         assert!(!look.ask(7, SystemTime::now()));
         assert!(look.due(Duration::ZERO));
         assert!(!look.still());
-        assert_eq!(look.note(), crate::speak_up::LOOK_NOTE);
+        // The picture goes, with the note as it was.
+        assert_eq!(look.turn(), (crate::speak_up::LOOK_NOTE, true));
         // And the worker is given no flag, so it reads as before.
         let flags = vec!["--camera-context".to_owned()];
         assert_eq!(take_look_full(&flags), (false, &flags[..]));
+    }
+
+    fn written_at(path: &Path, at: SystemTime) {
+        std::fs::write(path, b"still").unwrap();
+        let file = std::fs::File::options().write(true).open(path).unwrap();
+        file.set_modified(at).unwrap();
     }
 
     #[test]
@@ -436,13 +446,17 @@ mod tests {
         assert!(!look.ask(7, asked + Duration::from_millis(40)));
         assert!(!look.still());
         assert!(!look.due(Duration::from_millis(900)));
-        // The eyes write the still: the look goes.
-        std::fs::write(&path, b"still").unwrap();
-        let file = std::fs::File::options().write(true).open(&path).unwrap();
-        file.set_modified(asked + Duration::from_millis(400))
-            .unwrap();
+        // The eyes write the still: the look goes, with it and the note
+        // that says not to guess.
+        written_at(&path, asked + Duration::from_millis(400));
         assert!(look.still());
         assert!(look.due(Duration::from_millis(900)));
+        let (note, with_picture) = look.turn();
+        assert!(with_picture);
+        assert_eq!(note, crate::speak_up::LOOK_FULL_NOTE);
+        assert!(note.contains("hold it a bit closer"));
+        assert!(note.contains("never guess"));
+        assert!(!crate::speak_up::LOOK_NOTE.contains("closer"));
         // The next look asks again.
         assert!(look.ask(9, asked + Duration::from_secs(10)));
         assert!(!look.still());
@@ -450,16 +464,27 @@ mod tests {
     }
 
     #[test]
-    fn a_full_look_without_a_still_goes_after_the_wait_and_is_told_not_to_guess() {
+    fn a_full_look_without_its_own_still_says_the_eye_was_shut_and_takes_no_picture() {
         let directory = scratch("full-look-none");
-        let mut look = Look::new(Some(directory.join("sight.jpg")));
-        assert!(look.ask(3, SystemTime::now()));
+        let path = directory.join("sight.jpg");
+        // No file at all.
+        let mut look = Look::new(Some(path.clone()));
+        let asked = SystemTime::now();
+        assert!(look.ask(3, asked));
         assert!(!look.due(STILL_WAIT - Duration::from_millis(1)));
         assert!(look.due(STILL_WAIT));
-        assert_eq!(look.note(), crate::speak_up::LOOK_FULL_NOTE);
-        assert!(look.note().contains("hold it a bit closer"));
-        assert!(look.note().contains("never guess"));
-        assert!(!crate::speak_up::LOOK_NOTE.contains("closer"));
+        assert_eq!(look.turn(), (crate::speak_up::NO_LOOK_NOTE, false));
+        // Reviewer's case on #842: an earlier look's still, taken 100 ms
+        // before this ask, is still in the file (the eyes keep one 3 s), and
+        // this look's capture fails. The worker would take it, 2.7 s old,
+        // at the wait's end; the turn sends no picture.
+        let mut look = Look::new(Some(path.clone()));
+        let asked = SystemTime::now();
+        written_at(&path, asked - Duration::from_millis(100));
+        assert!(look.ask(4, asked));
+        assert!(fresh_within(&path, asked + STILL_WAIT, FULL_FRESH).is_ok());
+        assert!(look.due(STILL_WAIT));
+        assert_eq!(look.turn(), (crate::speak_up::NO_LOOK_NOTE, false));
         std::fs::remove_dir_all(&directory).unwrap();
     }
 

@@ -128,8 +128,10 @@ giving the model one with everything said was switched off).
   showing you, say so plainly and ask them to hold it a bit closer to you;
   never guess what it might be." Eyes without `--full-look` take the ask
   for nothing and keep writing their working frame, so the look goes at
-  once with that frame, as before but with the new note. Eyes with it that
-  make no still leave no fresh file, and the look says the eye was shut.
+  once with that frame, as before but with the new note. A full look whose
+  file was not written since its own ask (no still, or only an earlier
+  look's still the eyes still hold) goes with no picture and the note that
+  the eye was shut (`NO_LOOK_NOTE`).
   Without the variable nothing is asked, waited for or said differently.
 
 A picture leaves the lamp only on such a look: when a person has asked the

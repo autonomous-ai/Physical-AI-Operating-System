@@ -427,3 +427,21 @@ coordinate prepared-player readiness and grants, recorder and delayed
 transport progress, signal observation, final metadata output and actual
 child exit before those cases can use logical time. A logical end marker is
 not evidence that the process has exited.
+
+## Body's live-hand age bound (#902)
+
+`bus_out::tests::a_hand_that_waited_in_the_queue_is_not_said_as_fresh`
+(`crates/body/src/bus_out.rs`) failed once on a loaded ARM64 runner (run
+38787471620): its live case asserted `expires_ms >= 990`, and the step took
+more than 10 ms before the hand was said. The live case now measures its own
+interval, from the observation's start to `step` returning, and asserts
+`expires_ms + took_ms + 1 >= 1000`: the observation's age can be no more than
+that whole interval, and 1 ms covers truncation to whole milliseconds. Nothing
+is relaxed for stale hands: the 1.2 s queued sample is still dropped, the
+0.6 s one still expires within its residual 400 ms, and a slow preceding
+joint-state write still ages the hand
+(`a_hand_after_a_slow_joints_write_is_aged_by_it`).
+
+Author's evidence (fifth, a Mac, not a reviewer run): 200 runs of
+`cargo test -p lamp-body --lib bus_out::tests::a_hand_that_waited_in_the_queue_is_not_said_as_fresh`
+while parallel cargo builds held the load average near 25, none failed.

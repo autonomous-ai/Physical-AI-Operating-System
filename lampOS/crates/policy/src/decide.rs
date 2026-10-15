@@ -174,6 +174,9 @@ pub enum Failed {
     Unreadable(&'static str),
     /// The answers leave out this question.
     Missing(String),
+    /// What was to be sent was no longer permitted when it was to be
+    /// written (a picture, #871): nothing was sent.
+    Withdrawn,
 }
 
 impl Failed {
@@ -185,6 +188,7 @@ impl Failed {
             Self::Refused(_) => "refused",
             Self::Unreadable(_) => "unreadable",
             Self::Missing(_) => "missing",
+            Self::Withdrawn => "withdrawn",
         }
     }
 }
@@ -207,6 +211,9 @@ impl fmt::Display for Failed {
             }
             Self::Missing(question) => {
                 write!(f, "the decision model's answer leaves out {question}")
+            }
+            Self::Withdrawn => {
+                f.write_str("what was to be sent was no longer permitted: nothing was sent")
             }
         }
     }
@@ -973,12 +980,17 @@ impl Jev {
         &mut self,
         request: &[u8],
         until: Instant,
+        permitted: &dyn Fn() -> bool,
     ) -> Result<(Vec<u8>, Connection), Failed> {
         let mut on = Connection::New;
         if let Some((mut line, there_until, kind)) = self.kept.take()
             && Instant::now() < there_until
         {
             line.until(until);
+            // Asked at the last moment before anything is written.
+            if !permitted() {
+                return Err(Failed::Withdrawn);
+            }
             on = Connection::Replaced;
             match line.talk(request) {
                 Ok((body, again)) => {
@@ -997,6 +1009,10 @@ impl Jev {
             }
         }
         let mut line = self.open(until)?;
+        // After the looking up and the connecting, however long they took.
+        if !permitted() {
+            return Err(Failed::Withdrawn);
+        }
         match line.talk(request) {
             Ok((body, again)) => {
                 if again {
@@ -1063,14 +1079,21 @@ fn secure(roots: rustls::RootCertStore) -> io::Result<rustls::ClientConfig> {
 impl Jev {
     /// [`Decider::ask`] with `pictures`, which the state or the questions
     /// name by their keys (#871). Sent with [`IMAGES_HEADER`].
+    ///
+    /// `permitted` is asked last, after any looking up and connecting, at
+    /// the moment the request is to be written, and again before it is sent
+    /// on another connection: if it says no, nothing is written and the
+    /// asking has failed, [`Failed::Withdrawn`]. A picture a slow connection
+    /// held up is never sent after it stopped being permitted.
     pub fn ask_with_pictures(
         &mut self,
         state: &str,
         questions: &[(String, Question)],
         pictures: &[Picture],
         deadline: Duration,
+        permitted: &dyn Fn() -> bool,
     ) -> Result<Asked, Failed> {
-        self.asking(state, questions, pictures, deadline)
+        self.asking(state, questions, pictures, deadline, permitted)
     }
 
     fn asking(
@@ -1079,6 +1102,7 @@ impl Jev {
         questions: &[(String, Question)],
         pictures: &[Picture],
         deadline: Duration,
+        permitted: &dyn Fn() -> bool,
     ) -> Result<Asked, Failed> {
         let started = Instant::now();
         let body = body(&self.model, state, questions, pictures);
@@ -1100,7 +1124,7 @@ impl Jev {
         )
         .into_bytes();
         request.extend_from_slice(body.as_bytes());
-        let (answer, connection) = self.exchange(&request, started + deadline)?;
+        let (answer, connection) = self.exchange(&request, started + deadline, permitted)?;
         let answered = answers(&answer, questions)?;
         Ok(Asked {
             answers: answered.answers,
@@ -1121,7 +1145,7 @@ impl Decider for Jev {
         questions: &[(String, Question)],
         deadline: Duration,
     ) -> Result<Asked, Failed> {
-        self.asking(state, questions, &[], deadline)
+        self.asking(state, questions, &[], deadline, &|| true)
     }
 
     fn ready(&mut self, within: Duration) {

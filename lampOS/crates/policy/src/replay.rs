@@ -422,38 +422,88 @@ pub fn read_pictures(dir: &Path, days: &[String]) -> io::Result<Vec<Value>> {
 /// scene's clock.
 pub const LABEL_WITHIN_MS: u64 = 3_000;
 
+/// Each label given to the one line nearest it within [`LABEL_WITHIN_MS`],
+/// whatever that line is, a picture sent or not (the reviewer on #873): a
+/// label is never given to more than one line, so a decision nobody labelled
+/// is never taken for one somebody did. A label equally near two lines is
+/// given to neither; two labels given to one line count only if they agree.
+/// The labels per line, in order, and how they were matched.
+fn assign(lines: &[Value], labels: &BTreeMap<u64, Should>) -> (Vec<Option<Should>>, Value) {
+    let moments: Vec<Option<u64>> = lines
+        .iter()
+        .map(|line| line["at_unix_ms"].as_u64())
+        .collect();
+    let mut given: Vec<Vec<Should>> = vec![Vec::new(); lines.len()];
+    let (mut unmatched, mut ambiguous) = (0_usize, 0_usize);
+    for (at, should) in labels {
+        let near: Vec<(usize, u64)> = moments
+            .iter()
+            .enumerate()
+            .filter_map(|(index, moment)| Some((index, (*moment)?.abs_diff(*at))))
+            .filter(|(_, distance)| *distance <= LABEL_WITHIN_MS)
+            .collect();
+        let Some(nearest) = near.iter().map(|(_, distance)| *distance).min() else {
+            unmatched += 1;
+            continue;
+        };
+        let at_nearest: Vec<usize> = near
+            .iter()
+            .filter(|(_, distance)| *distance == nearest)
+            .map(|(index, _)| *index)
+            .collect();
+        match at_nearest.as_slice() {
+            [one] => given[*one].push(*should),
+            _ => ambiguous += 1,
+        }
+    }
+    let mut conflicting = 0;
+    let assigned: Vec<Option<Should>> = given
+        .iter()
+        .map(|labels| match labels.split_first() {
+            Some((first, rest)) if rest.iter().all(|other| other == first) => Some(*first),
+            Some(_) => {
+                conflicting += labels.len();
+                None
+            }
+            None => None,
+        })
+        .collect();
+    let matched = given.iter().map(Vec::len).sum::<usize>() - conflicting;
+    (
+        assigned,
+        json!({"given": labels.len(), "matched": matched, "unmatched": unmatched,
+               "ambiguous": ambiguous, "conflicting": conflicting}),
+    )
+}
+
 /// The counts over the picture lines, with no words: how often a frame was
 /// sent and why not; for the asking without the picture and with it, how
 /// often each answered, how fast and how often it did what should have
 /// happened; and for each picture question, and for the eyes' own count of
-/// faces turned to the lamp, how often its yes would have been right.
+/// faces turned to the lamp, how often its yes would have been right. The
+/// labels are matched by [`assign`].
 pub fn pictures_summary(lines: &[Value], labels: &BTreeMap<u64, Should>) -> Value {
-    let should = |line: &Value| -> Option<Should> {
-        let at = line["at_unix_ms"].as_u64()?;
-        labels
-            .range(at.saturating_sub(LABEL_WITHIN_MS)..=at + LABEL_WITHIN_MS)
-            .min_by_key(|(moment, _)| moment.abs_diff(at))
-            .map(|(_, should)| *should)
-    };
+    let (assigned, matching) = assign(lines, labels);
     let mut why_not = BTreeMap::new();
     for line in lines {
         if let Some(why) = line["picture"]["why_not"].as_str() {
             *why_not.entry(why.to_owned()).or_insert(0_u64) += 1;
         }
     }
-    let sent: Vec<&Value> = lines
+    let sent: Vec<(&Value, Option<Should>)> = lines
         .iter()
-        .filter(|line| line["picture"]["sent"] == true)
+        .zip(assigned.iter().copied())
+        .filter(|(line, _)| line["picture"]["sent"] == true)
         .collect();
     let asking = |which: &str| {
         let mut took: Vec<u64> = sent
             .iter()
-            .filter_map(|line| line[which]["took_ms"].as_u64())
+            .filter_map(|(line, _)| line[which]["took_ms"].as_u64())
             .collect();
         took.sort_unstable();
         let labelled: Vec<(Should, &str)> = sent
             .iter()
-            .filter_map(|line| Some((should(line)?, line[which]["choice"].as_str()?)))
+            .filter_map(|(line, should)| Some(((*should)?, line[which]["choice"].as_str()?)))
             .collect();
         let right = labelled
             .iter()
@@ -469,7 +519,7 @@ pub fn pictures_summary(lines: &[Value], labels: &BTreeMap<u64, Should>) -> Valu
     let sign = |yes: &dyn Fn(&Value) -> Option<bool>, yes_means: Should| {
         let judged: Vec<(Should, bool)> = sent
             .iter()
-            .filter_map(|line| Some((should(line)?, yes(line)?)))
+            .filter_map(|(line, should)| Some(((*should)?, yes(line)?)))
             .collect();
         let right = judged
             .iter()
@@ -500,6 +550,7 @@ pub fn pictures_summary(lines: &[Value], labels: &BTreeMap<u64, Should>) -> Valu
         "with": asking("with"),
         "signs": signs,
         "label_within_ms": LABEL_WITHIN_MS,
+        "labels": matching,
         "words": "none: kinds and counts only",
     })
 }

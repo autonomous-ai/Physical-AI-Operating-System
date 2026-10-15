@@ -49,6 +49,22 @@ const LEAST_PIXELS: usize = 78_400;
 
 /// The newest frame, if it may be sent now, and how old it is; or why not.
 pub fn fresh_picture(path: &Path, now: SystemTime) -> Result<(Vec<u8>, Duration), &'static str> {
+    let age = keeping(path, now)?;
+    let mut jpeg = Vec::new();
+    fs::File::open(path)
+        .and_then(|file| file.take(MOST_BYTES + 1).read_to_end(&mut jpeg))
+        .map_err(|_| "unreadable")?;
+    if jpeg.len() as u64 > MOST_BYTES || !jpeg.starts_with(&[0xff, 0xd8]) {
+        return Err("not_a_jpeg");
+    }
+    Ok((jpeg, age))
+}
+
+/// Whether the eyes keep a fresh frame now, and how old it is: they keep
+/// one only while the camera is permitted (the microphone is), and remove it
+/// at once when it is not. Asked again at the moment a picture is to be
+/// sent ([`permitted_now`]).
+fn keeping(path: &Path, now: SystemTime) -> Result<Duration, &'static str> {
     let metadata = match fs::metadata(path) {
         Ok(metadata) => metadata,
         // The eyes keep none: the camera is not permitted (the microphone
@@ -67,14 +83,16 @@ pub fn fresh_picture(path: &Path, now: SystemTime) -> Result<(Vec<u8>, Duration)
     if metadata.len() > MOST_BYTES {
         return Err("too_large");
     }
-    let mut jpeg = Vec::new();
-    fs::File::open(path)
-        .and_then(|file| file.take(MOST_BYTES + 1).read_to_end(&mut jpeg))
-        .map_err(|_| "unreadable")?;
-    if jpeg.len() as u64 > MOST_BYTES || !jpeg.starts_with(&[0xff, 0xd8]) {
-        return Err("not_a_jpeg");
-    }
-    Ok((jpeg, age))
+    Ok(age)
+}
+
+/// Whether a picture taken from `path` may still leave the lamp now: the
+/// eyes still keep a fresh frame there. Asked at the last moment before the
+/// request with the picture is written, after any slow looking up or
+/// connecting (the reviewer on #873): removing the frame, as the eyes do
+/// when the camera is closed, stops a picture not yet sent.
+pub fn permitted_now(path: &Path) -> bool {
+    keeping(path, SystemTime::now()).is_ok()
 }
 
 /// `jpeg` as TypeSafe takes it, with its size: as it is if it fits, or
@@ -271,13 +289,20 @@ pub fn ask_both(without: &mut Jev, with: &mut Jev, job: &Job, options: &Options)
             &attention::questions_with_picture(),
             std::slice::from_ref(&picture),
             options.deadline,
+            &|| permitted_now(&options.sight_file),
         );
         (plain.join().unwrap_or(Err(Failed::TimedOut)), seen)
     });
+    let picture = if matches!(seen, Err(Failed::Withdrawn)) {
+        // Taken while permitted, and no longer by the time it was to go.
+        json!({"sent": false, "why_not": "withdrawn"})
+    } else {
+        json!({"sent": true, "bytes": sent_bytes, "eyes_bytes": kept_bytes,
+               "width": size.0, "height": size.1, "age_ms": u64::try_from(age.as_millis()).unwrap_or(u64::MAX)})
+    };
     line(
         job,
-        json!({"sent": true, "bytes": sent_bytes, "eyes_bytes": kept_bytes,
-               "width": size.0, "height": size.1, "age_ms": u64::try_from(age.as_millis()).unwrap_or(u64::MAX)}),
+        picture,
         told(plain, &job.context, false),
         told(seen, &job.context, true),
     )

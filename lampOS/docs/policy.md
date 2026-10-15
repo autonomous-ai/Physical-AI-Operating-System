@@ -1137,13 +1137,19 @@ frame (`/run/lampos-eyes/sight.jpg`, written only with `lamp-eyes
 - a frame older than 1 s, or larger than 64 KiB, is not taken, as the
   voice's `sight` takes none.
 
+- whether it may still go is asked again at the last moment, after any
+  slow looking up or connecting and right before the request is written:
+  if the eyes no longer keep a fresh frame (the camera was closed, so the
+  microphone was), nothing is written and the line says `withdrawn` (the
+  reviewer on #873).
+
 TypeSafe takes 256 to 1,568 pixels a side and 78,400 in all, so the eyes'
 320 by 240 frame is made 640 by 480 (each pixel repeated) and encoded
 again. It goes as one of TypeSafe's `assets` with the
 `TypeSafe-Danger-Zone-Images: true` header, which only that request carries.
 The picture is written nowhere. The line says only whether one was sent,
 its size, the eyes' size and its age, or why not (`no_frame`, `stale`,
-`too_large`, `not_a_jpeg`, `unreadable`).
+`too_large`, `not_a_jpeg`, `unreadable`, `withdrawn`).
 
 **The line:**
 - `at_unix_ms`: when the question was sent;
@@ -1163,8 +1169,12 @@ The summary says how often a frame was sent and why not. For each asking,
 without the picture and with it, it gives `took_ms` p50/p95 and how often
 it did what should have happened. For each picture question, it says how
 often its yes (0.5 or more) went with what should have happened, beside
-the eyes' own `facing`. A label is taken for the line nearest it within
-3 s, so labels can be written by a scene's clock.
+the eyes' own `facing`. Labels can be written by a scene's clock: each
+label is given once, to the line nearest it within 3 s, whether or not a
+frame was sent with that line, so a decision nobody labelled never counts as
+labelled. A label equally near two lines is given to neither, and two labels
+that disagree on one line are both dropped. The summary's `labels` says how
+many were given, matched, unmatched, ambiguous and conflicting.
 
 **Not shown:**
 - No picture was sent to the service from the Mac. Whether the decisions

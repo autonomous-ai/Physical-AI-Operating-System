@@ -62,16 +62,22 @@ pub(crate) fn url(proxy: Option<&str>, language: Option<&str>) -> Result<reqwest
     }
 }
 
-/// One `Results` message: the best alternative's words.
+/// Audio seconds a final segment may end short of the audio sent and still
+/// cover it: a 20 ms frame and a little rounding.
+const COVERED: f64 = 0.05;
+
+/// One `Results` message: the best alternative's words (empty for
+/// silence), and where in the audio the segment ends, in seconds.
 #[derive(Debug, PartialEq)]
 pub(crate) struct Heard {
     pub transcript: String,
     pub is_final: bool,
     pub speech_final: bool,
+    pub end: f64,
 }
 
 /// `None` for any other message (metadata, `SpeechStarted`,
-/// `UtteranceEnd`) and for results with no words.
+/// `UtteranceEnd`).
 pub(crate) fn heard(text: &str) -> Option<Heard> {
     #[derive(Deserialize)]
     struct Results {
@@ -83,6 +89,10 @@ pub(crate) fn heard(text: &str) -> Option<Heard> {
         is_final: bool,
         #[serde(default)]
         speech_final: bool,
+        #[serde(default)]
+        start: f64,
+        #[serde(default)]
+        duration: f64,
     }
     #[derive(Deserialize)]
     struct Channel {
@@ -96,6 +106,7 @@ pub(crate) fn heard(text: &str) -> Option<Heard> {
     if results.kind != "Results" {
         return None;
     }
+    let end = results.start + results.duration;
     let transcript = results
         .channel?
         .alternatives
@@ -104,26 +115,67 @@ pub(crate) fn heard(text: &str) -> Option<Heard> {
         .transcript
         .trim()
         .to_owned();
-    (!transcript.is_empty()).then_some(Heard {
+    Some(Heard {
         transcript,
         is_final: results.is_final,
         speech_final: results.speech_final,
+        end,
     })
+}
+
+/// True for a `SpeechStarted` message: someone is talking again.
+pub(crate) fn speech_started(text: &str) -> bool {
+    serde_json::from_str::<serde_json::Value>(text)
+        .ok()
+        .is_some_and(|message| message["type"] == "SpeechStarted")
 }
 
 /// The final segments in the order heard, joined by spaces. Interim
 /// results are previews of a segment and are dropped.
 #[derive(Default)]
-pub(crate) struct Transcript(Vec<String>);
+pub(crate) struct Transcript {
+    segments: Vec<String>,
+    /// Where the last final segment ends in the audio, in seconds; `None`
+    /// before any.
+    covered: Option<f64>,
+    /// The last final segment closed an utterance (`speech_final`).
+    ended: bool,
+    /// Words (an interim result or `SpeechStarted`) since the last final.
+    pending: bool,
+}
 
 impl Transcript {
     pub fn add(&mut self, heard: Heard) {
-        if heard.is_final {
-            self.0.push(heard.transcript);
+        if !heard.is_final {
+            self.pending |= !heard.transcript.is_empty();
+            return;
+        }
+        self.covered = Some(heard.end);
+        self.ended = heard.speech_final;
+        self.pending = false;
+        if !heard.transcript.is_empty() {
+            self.segments.push(heard.transcript);
         }
     }
+    pub fn speech_started(&mut self) {
+        self.pending = true;
+    }
+    /// Nothing more is coming for the `sent` seconds of audio: the service
+    /// has closed the utterance, or final segments cover all of it, and
+    /// nobody has been heard since. Then the words need not wait for
+    /// `CloseStream`'s answer.
+    // ponytail: words in the last moments before the end whose results
+    // and `SpeechStarted` are still on their way are lost here; the
+    // coordinator ends a line on silence, so there should be none.
+    pub fn settled(&self, sent: f64) -> bool {
+        !self.pending
+            && (self.ended
+                || self
+                    .covered
+                    .is_some_and(|covered| covered + COVERED >= sent))
+    }
     pub fn text(&self) -> String {
-        self.0.join(" ")
+        self.segments.join(" ")
     }
 }
 
@@ -170,11 +222,18 @@ impl SttStream {
             }
             _ => Error::Transport("speech-to-text connect"),
         })?;
+        Ok(Self::start(socket))
+    }
+
+    fn start<S>(socket: tokio_tungstenite::WebSocketStream<S>) -> Self
+    where
+        S: tokio::io::AsyncRead + tokio::io::AsyncWrite + Send + Unpin + 'static,
+    {
         let (audio, queued) = mpsc::channel(QUEUE);
-        Ok(Self {
+        Self {
             audio: Some(audio),
             task: tokio::spawn(run(socket, queued)),
-        })
+        }
     }
 
     /// Queue 16 kHz mono samples. Fails when the socket has gone or the
@@ -220,12 +279,16 @@ where
     let (mut write, mut read) = socket.split();
     let mut transcript = Transcript::default();
     let mut last_sent = Instant::now();
+    let mut samples_sent = 0usize;
     let mut closing = false;
     loop {
         tokio::select! {
             frame = queued.recv(), if !closing => {
                 let message = match frame {
-                    Some(bytes) => Message::binary(bytes),
+                    Some(bytes) => {
+                        samples_sent += bytes.len() / 2;
+                        Message::binary(bytes)
+                    }
                     None => {
                         closing = true;
                         Message::text(r#"{"type":"CloseStream"}"#)
@@ -233,6 +296,11 @@ where
                 };
                 write.send(message).await.map_err(|_| Error::Transport("speech-to-text send"))?;
                 last_sent = Instant::now();
+                // At the end of the line, words already settled are the
+                // answer: CloseStream's round trip is not waited for.
+                if closing && transcript.settled(samples_sent as f64 / 16_000.0) {
+                    return Ok(transcript.text());
+                }
             }
             _ = tokio::time::sleep_until(last_sent + KEEP_ALIVE), if !closing => {
                 write
@@ -245,6 +313,8 @@ where
                 Some(Ok(Message::Text(text))) => {
                     if let Some(words) = heard(&text) {
                         transcript.add(words);
+                    } else if speech_started(&text) {
+                        transcript.speech_started();
                     }
                 }
                 Some(Ok(Message::Close(_))) | None => {
@@ -322,6 +392,86 @@ mod tests {
         }
         assert_eq!(transcript.text(), "What time is it?");
         assert_eq!(ends, 1);
+    }
+
+    #[test]
+    fn words_settle_on_an_utterance_end_or_full_cover_and_unsettle_on_new_speech() {
+        let result = |text: &str, is_final, speech_final, end| Heard {
+            transcript: text.to_owned(),
+            is_final,
+            speech_final,
+            end,
+        };
+        let mut transcript = Transcript::default();
+        assert!(!transcript.settled(1.0), "nothing final yet");
+        assert!(!transcript.settled(0.0), "nor for no audio");
+        transcript.add(result("what time", true, false, 0.8));
+        assert!(!transcript.settled(1.0), "0.2 s not yet covered");
+        assert!(transcript.settled(0.8));
+        transcript.add(result("is", false, false, 1.0));
+        assert!(!transcript.settled(0.8), "an interim with words is pending");
+        transcript.add(result("is it", true, true, 1.0));
+        assert!(transcript.settled(2.5), "the utterance ended");
+        transcript.add(result("", false, false, 2.5));
+        assert!(transcript.settled(2.5), "an empty interim is silence");
+        transcript.speech_started();
+        assert!(!transcript.settled(2.5), "someone talks again");
+        assert_eq!(transcript.text(), "what time is it");
+    }
+
+    /// Speech to text in memory, on the paused clock: the server reads
+    /// audio, sends `before` once some arrived, and answers `CloseStream`
+    /// `round_trip` later with a last final and its close. Returns the
+    /// words and how long `finish` took.
+    async fn finish_after(before: &'static str, round_trip: Duration) -> (String, Duration) {
+        use tokio_tungstenite::{WebSocketStream, tungstenite::protocol::Role};
+        let (near, far) = tokio::io::duplex(1 << 16);
+        let server = tokio::spawn(async move {
+            let mut socket = WebSocketStream::from_raw_socket(far, Role::Server, None).await;
+            let mut told = false;
+            while let Some(Ok(message)) = socket.next().await {
+                match message {
+                    Message::Binary(_) if !told => {
+                        told = true;
+                        socket.send(Message::text(before)).await.unwrap();
+                    }
+                    Message::Text(text) if text.contains("CloseStream") => break,
+                    _ => {}
+                }
+            }
+            tokio::time::sleep(round_trip).await;
+            let last = r#"{"type":"Results","is_final":true,"speech_final":true,"start":0.5,"duration":0.5,"channel":{"alternatives":[{"transcript":"from close"}]}}"#;
+            let _ = socket.send(Message::text(last)).await;
+            let _ = socket.close(None).await;
+        });
+        let stream =
+            SttStream::start(WebSocketStream::from_raw_socket(near, Role::Client, None).await);
+        // One second of audio, then its results have time to arrive.
+        for _ in 0..50 {
+            stream.send(&[0; 320]).unwrap();
+        }
+        tokio::time::sleep(Duration::from_millis(300)).await;
+        let began = Instant::now();
+        let words = stream.finish().await.unwrap();
+        let took = began.elapsed();
+        server.abort();
+        (words, took)
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn an_utterance_ended_before_the_line_does_not_wait_for_close_stream() {
+        let ended = r#"{"type":"Results","is_final":true,"speech_final":true,"start":0.0,"duration":0.6,"channel":{"alternatives":[{"transcript":"hello lamp"}]}}"#;
+        let (words, took) = finish_after(ended, Duration::from_millis(800)).await;
+        assert_eq!(words, "hello lamp");
+        assert_eq!(took, Duration::ZERO);
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn words_still_coming_wait_for_close_stream_as_before() {
+        let interim = r#"{"type":"Results","is_final":false,"speech_final":false,"start":0.0,"duration":0.6,"channel":{"alternatives":[{"transcript":"hello"}]}}"#;
+        let (words, took) = finish_after(interim, Duration::from_millis(800)).await;
+        assert_eq!(words, "from close");
+        assert_eq!(took, Duration::from_millis(800));
     }
 
     /// A local plain websocket server stands in for Deepgram.

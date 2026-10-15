@@ -7,6 +7,11 @@ name: lampOS on ARM64
 # as an artifact for a week, with their SHA-256, so the first builder can put
 # a builder's work on a lamp without building it again. See
 # lampOS/docs/joining.md.
+#
+# The tests are split across four runners (cargo-nextest partitions), each
+# still running one test at a time, as on a lamp's few cores: one serial run
+# took about 20 of the job's 30 minutes. Doc tests and the binaries' artifact
+# come from the first runner only.
 
 on:
   push:
@@ -21,9 +26,13 @@ concurrency:
 
 jobs:
   arm64:
-    name: lampOS — build and test on Linux ARM64
+    name: lampOS — build and test on Linux ARM64 (${{ matrix.shard }}/4)
     runs-on: ubuntu-22.04-arm
     timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
     steps:
       - name: system packages
         run: |
@@ -43,13 +52,21 @@ jobs:
             lampOS/target
           key: lampos-arm64-u2204-${{ hashFiles('lampOS/Cargo.lock') }}
           restore-keys: lampos-arm64-u2204-
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-nextest
       - name: build (release, the lamps' binaries)
         working-directory: lampOS
         run: cargo build --locked --release --workspace --bins --examples
-      - name: test (one test at a time, as on a lamp's few cores)
+      - name: test (one test at a time, as on a lamp's few cores; this runner's share)
         working-directory: lampOS
-        run: cargo test --locked --release --workspace -- --test-threads=1
+        run: cargo nextest run --locked --release --workspace --no-tests=pass -j 1 --partition hash:${{ matrix.shard }}/4
+      - name: doc tests (nextest does not run them)
+        if: matrix.shard == 1
+        working-directory: lampOS
+        run: cargo test --locked --release --workspace --doc -- --test-threads=1
       - name: SHA-256 of each binary
+        if: matrix.shard == 1
         working-directory: lampOS/target/release
         run: |
           mkdir -p ../../arm64-out
@@ -58,6 +75,7 @@ jobs:
           done
           cd ../../arm64-out && sha256sum * | tee SHA256SUMS
       - uses: actions/upload-artifact@v4
+        if: matrix.shard == 1
         with:
           name: lampos-arm64-${{ github.sha }}
           path: lampOS/arm64-out/

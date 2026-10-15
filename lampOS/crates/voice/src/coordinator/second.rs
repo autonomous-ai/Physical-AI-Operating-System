@@ -38,6 +38,13 @@ const STANDBY_SLICE: usize = 16;
 /// (lampOS#779: on lamp-4ace Gemini's first Ready came 1.9 s after the
 /// second route's).
 const STARTUP_HOLD_US: u64 = 3_000_000;
+/// Commands of a replay sent to Gemini per coordinator tick (2 ms): about
+/// ten times the pace of speech. Its link takes input into a queue of
+/// [`lamp_gemini::INPUT_QUEUE_CAPACITY`] and gives the connection up when
+/// that is full; a held line of 1.9 s sent at the ordinary eight per tick
+/// overran it 37 ms after Gemini's first Ready on lamp-52e6 (lampOS#892).
+/// The second route's replay is not paced.
+const LIVE_REPLAY_PER_TICK: usize = 2;
 
 /// What was sent to the active Live route for the line in hand.
 #[derive(Default)]
@@ -603,6 +610,7 @@ pub(super) fn flush(
         route.replay.extend(queue.drain(..));
         return Ok(());
     }
+    let replaying = !route.replay.is_empty();
     let source = if route.replay.is_empty() {
         queue
     } else {
@@ -611,8 +619,15 @@ pub(super) fn flush(
     };
     // A line given back to Gemini after a hold is kept as any other.
     let keep = !route.second_active;
+    let mut paced = (keep && replaying).then_some(LIVE_REPLAY_PER_TICK);
     let line = &mut route.line;
     flush_provider_input_with(cloud, reply, source, |command| {
+        if let Some(left) = paced.as_mut() {
+            if *left == 0 {
+                return Err(io::ErrorKind::WouldBlock.into());
+            }
+            *left -= 1;
+        }
         channel.send(command)?;
         if keep {
             line.keep(command);
@@ -940,9 +955,9 @@ mod tests {
         bench.gemini_link(1, true);
         bench.service(&mut reply, &mut queue);
         assert!(!bench.route().second_active);
-        // The first bounded flush: Start + 7 Audio to Gemini.
+        // The first paced flush: Start + 1 Audio to Gemini.
         bench.flush(&mut reply, &mut queue);
-        assert_eq!(received(&mut bench.gemini).len(), 8);
+        assert_eq!(received(&mut bench.gemini).len(), LIVE_REPLAY_PER_TICK);
         bench.gemini_link(2, false);
         let mut budget = STANDBY_SLICE;
         service_provider_control(
@@ -979,8 +994,47 @@ mod tests {
         assert_eq!(bench.route().hold.map(|(held, _)| held), Some(turn));
         bench.gemini_link(1, true);
         bench.service(&mut reply, &mut queue);
-        bench.flush(&mut reply, &mut queue);
+        while !bench.route().replay.is_empty() {
+            bench.flush(&mut reply, &mut queue);
+        }
         assert_eq!(received(&mut bench.gemini), sequences(turn, 2));
+        assert!(received(&mut bench.second).is_empty());
+    }
+
+    /// lamp-52e6, PR #885 run 2: a line held 1.9 s went to Gemini at its
+    /// first Ready, and its link gave the connection up 37 ms later as
+    /// `Backpressure` (reported `local`), so the second route answered.
+    /// Here Gemini's side takes three commands a tick, as a link writing
+    /// slower than the replay; what it was sent and has not taken must
+    /// stay within its input queue, and the whole line arrives in order.
+    #[test]
+    fn a_line_held_two_seconds_goes_to_gemini_within_its_input_queue() {
+        let mut bench = Bench::standing_in();
+        let (_owner, current) = unsent_reply();
+        let turn = current.owner.turn();
+        let mut reply = Some(current);
+        // 2 s of 10 ms blocks, then its End, all held.
+        let mut queue = whole_line(turn, 200);
+        bench.flush(&mut reply, &mut queue);
+        bench.gemini_link(1, true);
+        bench.service(&mut reply, &mut queue);
+        assert!(!bench.route().second_active);
+        let mut taken = Vec::new();
+        let mut waiting = VecDeque::new();
+        for _ in 0..1_000 {
+            bench.flush(&mut reply, &mut queue);
+            waiting.extend(received(&mut bench.gemini));
+            assert!(
+                waiting.len() <= lamp_gemini::INPUT_QUEUE_CAPACITY,
+                "{} commands waiting on Gemini's link",
+                waiting.len()
+            );
+            taken.extend(waiting.drain(..waiting.len().min(3)));
+            if bench.route().replay.is_empty() && waiting.is_empty() {
+                break;
+            }
+        }
+        assert_eq!(taken, sequences(turn, 200));
         assert!(received(&mut bench.second).is_empty());
     }
 

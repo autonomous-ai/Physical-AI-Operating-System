@@ -377,9 +377,16 @@ and its authority kept fresh during the rest of startup.
   cleared when the line is answered or abandoned and at once when an
   authority without its owner or with the microphone closed is published
   (mute, privacy, cancellation).
-- **Pace.** A replay goes eight commands a tick, before what was queued
-  since; the second worker takes eight inputs a tick, as the Gemini worker
-  does, and holds 30 s of input while its speech-to-text connects.
+- **Pace.** A replay to the second route goes eight commands a tick,
+  before what was queued since; the second worker takes eight inputs a
+  tick, as the Gemini worker does, and holds 30 s of input while its
+  speech-to-text connects. A held line given to Gemini goes two commands a
+  tick (`LIVE_REPLAY_PER_TICK`, about ten times the pace of speech), with
+  what is queued since joining it: Gemini's link takes input into a queue
+  of 32 (`lamp_gemini::INPUT_QUEUE_CAPACITY`) and gives the connection up
+  as `Backpressure` (reported `local`) when it is full. Sent at eight a
+  tick, a line held 1.9 s overran it 37 ms after Gemini's first Ready on
+  lamp-52e6 (PR #885 run 2, lampOS#892), and the second route answered.
 - **Without a configured route** `Rig::second` is `None`, the three
   intercepts (the send site, the output receipt, the gate's `movable`) are
   the old calls, and nothing else changes.

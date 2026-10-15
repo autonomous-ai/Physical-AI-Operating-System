@@ -71,6 +71,7 @@ mod hand;
 mod notices;
 mod second;
 mod service;
+mod speaker_tone;
 use camera::{OptionalCamera, PreparedCamera, service_camera};
 use early_end::{EarlyEnd, Heard as HeardAfterEnd};
 use endpoint::EndpointRig;
@@ -1440,13 +1441,13 @@ fn service_speaker_control(
                         *last_publish = monotonic_us();
                         record(
                             trace,
-                            json!({"kind":if pending.origin == SpeechOrigin::Provider {"speaker_first_write"}else{"failure_notice_first_write"},"origin":pending.origin,"notice":current.notice.evidence(),"turn":turn,"owner":current.owner,"playback_sequence":token.sequence(),"at_us":observed_at_us,"boundary":"ALSA accepted; acoustic onset unmeasured",
+                            json!({"kind":format!("{}_first_write",pending.origin.trace_name()),"origin":pending.origin,"notice":current.notice.evidence(),"turn":turn,"owner":current.owner,"playback_sequence":token.sequence(),"at_us":observed_at_us,"boundary":"ALSA accepted; acoustic onset unmeasured",
                                 "start_gate":current.start_trace()}),
                         )?;
                     }
                     if pending.accepted == 240 {
                         if pending.final_chunk {
-                            if pending.origin == SpeechOrigin::FailureNotice {
+                            if pending.origin.local() {
                                 current.notice.accepted_final(sequence, end_sample)?;
                             }
                             current.final_chunk = Some(sequence);
@@ -1499,7 +1500,7 @@ fn service_speaker_control(
                 trace.receipts.drained(delivered, final_sample);
                 if let Some(current) = reply.as_mut().filter(|reply| reply.owner == delivered) {
                     let origin = current.notice.origin();
-                    if origin == SpeechOrigin::FailureNotice {
+                    if origin.local() {
                         current.notice.validate_retirement(sequence, final_sample)?;
                     }
                     let token = current.retire_playback(sequence, final_sample.frame)?;
@@ -1509,7 +1510,7 @@ fn service_speaker_control(
                     {
                         reminder.retired(token.sequence(), final_sample.epoch, final_sample.frame);
                     }
-                    if origin == SpeechOrigin::FailureNotice {
+                    if origin.local() {
                         current.notice.retire(observed_at_us)?;
                     }
                     *snapshot = owner.snapshot(now())?;
@@ -1517,7 +1518,7 @@ fn service_speaker_control(
                     *last_publish = monotonic_us();
                     record(
                         trace,
-                        json!({"kind":if origin == SpeechOrigin::Provider {"speech_final_sample_retired"}else{"failure_notice_final_sample_retired"},"origin":origin,"notice":current.notice.evidence(),"turn":delivered.turn(),"owner":delivered,
+                        json!({"kind":if origin == SpeechOrigin::Provider {"speech_final_sample_retired".to_owned()}else{format!("{}_final_sample_retired",origin.trace_name())},"origin":origin,"notice":current.notice.evidence(),"turn":delivered.turn(),"owner":delivered,
                             "playback_sequence":token.sequence(),"at_us":observed_at_us,"final_sample":final_sample,"boundary":"ALSA delay retirement; idle zeros may remain queued; acoustic end unmeasured"}),
                     )?;
                 }
@@ -2738,6 +2739,8 @@ fn conversation_with_gate(
     // And, only if someone switched it on, what the microphone hears, for
     // a part of the lamp that listens for itself.
     let mut mic_out = crate::bus_out::MicOut::from_environment(rig.microphone.as_str());
+    // The self-test's tone, behind its switch (`speaker_tone`).
+    let mut speaker_tone = speaker_tone::SpeakerTone::from_environment();
     // The lamp's name as its own part hears it in the room's sound, for a
     // second look at something said to it by name that got nothing. Only
     // if that is switched on.
@@ -3546,6 +3549,9 @@ fn conversation_with_gate(
                 gap_cut_utterance = true;
                 capture_gap.dropped += 1;
                 continue;
+            }
+            if let Some(tone) = speaker_tone.as_mut() {
+                tone.observe(&frame);
             }
             let at = monotonic_us();
             let Some(age) = at.checked_sub(frame.read_completed_at_us) else {
@@ -4426,7 +4432,10 @@ fn conversation_with_gate(
             // is told what the lamp's own ears heard, once.
             let said_nothing = current.delivery_outcome() == "no_audio_answer"
                 && matches!(current.cloud.outcome, Some(RequestOutcome::Complete));
-            if let Some(score) = second_look.finished(turn, said_nothing, monotonic_us()) {
+            let tone_finished = current.notice.origin() == SpeechOrigin::SelfTest;
+            if !tone_finished
+                && let Some(score) = second_look.finished(turn, said_nothing, monotonic_us())
+            {
                 second_look.heard_on(current.cloud.session);
                 record(
                     trace,
@@ -4462,6 +4471,15 @@ fn conversation_with_gate(
             )
             .into());
         }
+        // The self-test's tone is no turn for the face, the head, the room
+        // or the voice's state: the person hears one short tone, and nothing
+        // else of the lamp changes (`speaker_tone`).
+        let tone_now = reply
+            .as_ref()
+            .is_some_and(|current| current.notice.origin() == SpeechOrigin::SelfTest);
+        if let Some(tone) = speaker_tone.as_mut() {
+            tone.tick(reply.as_ref(), monotonic_us())?;
+        }
         // A lamp that has stopped speaking for someone looks at them: the
         // listening face and pose at once, whatever becomes of the yield.
         let attending = playback_mask.yielded(clock);
@@ -4473,8 +4491,12 @@ fn conversation_with_gate(
         if let Some(choreography) = choreography.as_mut() {
             choreography.set_level(voice_level);
             choreography.set_attending(attending);
+            choreography.set_unshown(tone_now);
         }
-        if let Some(current) = reply.as_ref().filter(|current| current.playback.is_some()) {
+        if let Some(current) = reply
+            .as_ref()
+            .filter(|current| current.playback.is_some() && !tone_now)
+        {
             let turn = current.owner.turn();
             if asked_in_busy_room == Some(turn) && busy_answer_since.map(|(of, _)| of) != Some(turn)
             {
@@ -4492,7 +4514,10 @@ fn conversation_with_gate(
         // room's talk, and tells the floor how loud the room is. One the
         // lamp answered does not, nor one replaced by more talk: that may
         // be a person pausing in what they are saying to the lamp.
-        let turn_now = reply.as_ref().map(|current| current.owner.turn());
+        let turn_now = reply
+            .as_ref()
+            .filter(|_| !tone_now)
+            .map(|current| current.owner.turn());
         if floor_turn != turn_now {
             if let (Some(ended), Some(floor)) = (floor_turn, room_floor.as_mut())
                 && spoke_in_turn != Some(ended)
@@ -4510,14 +4535,17 @@ fn conversation_with_gate(
         // For the room, a turn is answered when the lamp was heard in it:
         // an answer that arrived and was never played is not one.
         room.observe(
-            reply.as_ref().map(|current| {
+            reply.as_ref().filter(|_| !tone_now).map(|current| {
                 let turn = current.owner.turn();
                 (turn, spoke_in_turn == Some(turn))
             }),
             clock,
         );
         if let Some(bus) = bus_out.as_mut() {
-            bus.state(crate::ring_wire::RingPhase::from_snapshot(snapshot), clock);
+            bus.state(
+                crate::ring_wire::RingPhase::from_snapshot(snapshot).filter(|_| !tone_now),
+                clock,
+            );
             bus.report(cloud.available(), clock);
         }
         if let Some(mic) = mic_out.as_mut() {
@@ -4539,15 +4567,18 @@ fn conversation_with_gate(
                 .map(|opens| opens.saturating_add(out.ahead_us()));
             out.tick(crate::expression_out::Seen {
                 now_us: clock,
-                turn: reply.as_ref().map(|current| current.owner.turn()),
-                phase: crate::ring_wire::RingPhase::from_snapshot(snapshot),
+                turn: reply
+                    .as_ref()
+                    .filter(|_| !tone_now)
+                    .map(|current| current.owner.turn()),
+                phase: crate::ring_wire::RingPhase::from_snapshot(snapshot).filter(|_| !tone_now),
                 accepting_input: snapshot.listening_ready(now()),
                 yielding: attending,
                 person_speaking: clock.saturating_sub(last_speech_us)
                     < crate::expression_out::SPEECH_LASTS_US,
                 first_sound_us,
             });
-            for piece in taken {
+            for piece in taken.into_iter().filter(|_| !tone_now) {
                 out.played(
                     piece.turn,
                     piece.frames,
@@ -4560,7 +4591,7 @@ fn conversation_with_gate(
             // What is held before the speaker plays next: said ahead, so
             // that what the lamp shows can move with it.
             if let Some(current) = reply.as_ref().filter(|current| {
-                current.playback.is_some() && !attending && out.foretell_due(clock)
+                current.playback.is_some() && !attending && !tone_now && out.foretell_due(clock)
             }) {
                 let ahead: Vec<i16> = current
                     .pcm
@@ -4573,7 +4604,7 @@ fn conversation_with_gate(
         }
         if let Some(body) = body_link.as_mut() {
             use crate::ring_wire::RingPhase;
-            let phase = RingPhase::from_snapshot(snapshot);
+            let phase = RingPhase::from_snapshot(snapshot).filter(|_| !tone_now);
             // The answer has arrived and is about to be spoken: the head
             // comes back to the person before the first word, not during it.
             let about_to_speak = reply
@@ -4582,6 +4613,7 @@ fn conversation_with_gate(
             attention.observe(
                 reply
                     .as_ref()
+                    .filter(|_| !tone_now)
                     .map(|current| (current.owner.turn(), current.had_audio)),
                 clock,
             );
@@ -4741,6 +4773,45 @@ fn conversation_with_gate(
             )?;
             last_reminder_turn = reply.as_ref().map(|current| current.owner.turn());
             last_publish = monotonic_us();
+        }
+        // The self-test's tone, when asked for and the lamp is at rest; a
+        // request it cannot take now is answered with why.
+        if let Some(tone) = speaker_tone.as_mut()
+            && let Some(id) = tone.next_request(monotonic_us())?
+        {
+            let at_us = monotonic_us();
+            let at_rest = reply.is_none()
+                && provider_queue.is_empty()
+                && speaker_pending.is_none()
+                && !admission.owns_stream()
+                && !submission_draining
+                && !paused
+                && snapshot.listening_ready(MonoTime::from_micros(at_us))
+                && playback_mask.available(at_us);
+            let state = crate::speaker_check::Now {
+                at_us,
+                allowed: snapshot.microphone_permission() == Permission::Allowed,
+                busy: !at_rest,
+                last_heard_us: (last_speech_us > 0).then_some(last_speech_us),
+                last_said_us: last_spoke_us,
+                local_minutes: speaker_tone::local_minutes(),
+            };
+            match crate::speaker_check::may_play(&state) {
+                Ok(()) => {
+                    let (now_state, turn) = speaker_tone::commit_tone_turn(
+                        owner,
+                        reply,
+                        0,
+                        rig.playout_start,
+                        trace,
+                        |state| rig.publish(state),
+                    )?;
+                    snapshot = now_state;
+                    tone.began(id, turn);
+                    last_publish = monotonic_us();
+                }
+                Err(why) => tone.refuse(&id, &why, at_us)?,
+            }
         }
         if let Some(arrival) = arrival.as_mut() {
             arrival.watch(clock);
@@ -5665,13 +5736,11 @@ fn dispatch_speaker_chunk(
     if origin == SpeechOrigin::Provider && !current.may_start(monotonic_us()) {
         return Ok(None);
     }
-    if origin == SpeechOrigin::FailureNotice
-        && (!current.notice.has_chunk() || current.final_chunk.is_some())
-    {
+    if origin.local() && (!current.notice.has_chunk() || current.final_chunk.is_some()) {
         return Ok(None);
     }
     let permit = owner.issue_output(now(), current.plan, SPEAKER_PERMIT_LEASE_US)?;
-    let (samples, final_chunk, first_notice) = if origin == SpeechOrigin::FailureNotice {
+    let (samples, final_chunk, first_notice) = if origin.local() {
         current.notice.reserve_chunk(monotonic_us())?
     } else {
         let Some((samples, last)) = current.next_speaker_chunk() else {
@@ -6092,7 +6161,7 @@ fn handle_playback_gap(
     let current = reply.as_mut().filter(|reply| reply.owner == gap.owner);
     let origin = current.as_ref().map(|r| r.notice.origin());
     let (queued, held, last_provider_audio) = if let Some(current) = current {
-        if phase == PlaybackGapPhase::Started && origin == Some(SpeechOrigin::FailureNotice) {
+        if phase == PlaybackGapPhase::Started && origin.is_some_and(SpeechOrigin::local) {
             current.notice.gap()?;
         } else if phase == PlaybackGapPhase::Started {
             current.playback_gaps = current
@@ -6137,6 +6206,7 @@ mod tests {
     mod second_route;
     mod service;
     mod service_mute;
+    mod speaker_tone;
     mod startup_cues;
     mod termination;
     mod turn_taking;

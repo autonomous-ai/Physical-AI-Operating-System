@@ -32,6 +32,7 @@ pub struct RingChoreographer {
     level: u8,
     /// Stamped into the next frame; see [`RingFrame::attending`].
     attending: bool,
+    unshown: bool,
 }
 
 impl RingChoreographer {
@@ -46,6 +47,7 @@ impl RingChoreographer {
             faulted: false,
             level: 0,
             attending: false,
+            unshown: false,
         })
     }
 
@@ -59,6 +61,13 @@ impl RingChoreographer {
     /// changes how the next frame looks and nothing else.
     pub fn set_attending(&mut self, attending: bool) {
         self.attending = attending;
+    }
+
+    /// Whether the turn in hand is one the ring does not show: the
+    /// self-test's tone (`crate::speaker_check`). No frame is asked for
+    /// while it is.
+    pub fn set_unshown(&mut self, unshown: bool) {
+        self.unshown = unshown;
     }
 
     pub fn is_faulted(&self) -> bool {
@@ -92,7 +101,7 @@ impl RingChoreographer {
         self.advance(now)?;
         let current = controller.snapshot(now).map_err(io::Error::other)?;
         self.install_current(current, now)?;
-        if self.pending.is_some() {
+        if self.pending.is_some() || self.unshown {
             return Ok(None);
         }
         let Some(phase) = RingPhase::from_snapshot(current) else {

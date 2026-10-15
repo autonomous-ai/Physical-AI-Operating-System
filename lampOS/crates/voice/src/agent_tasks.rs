@@ -761,25 +761,27 @@ fn check(
     if settled {
         crate::task_news::keep_told(told_file, &format!("{store}:{id}:{observation_id}"));
     }
-    let next = match state {
-        "idle" if settled => {
-            "Give them the gist of what it came back with in one or two plain spoken sentences; no code, lists, paths or links. If there is more, say the rest is on their computer."
-        }
-        "needs-input" => {
-            "Tell them it has stopped to ask them something, and ask its question in your own words."
-        }
-        "stopped" | "failed" => {
-            "Tell them in one plain sentence that it stopped without finishing."
-        }
-        _ => {
-            "Tell them in a few words that it is still working on it and that you will tell them yourself when it is done. Do not check again unless they ask again."
-        }
-    };
+    let next = next(state, settled, who, &answer);
     (
         json!({"who": who, "task": asked, "state": state, "answer": answer,
             "more": cut || data["truncated"] == json!(true), "next": next}),
         true,
     )
+}
+
+/// What the model is told to do with the last look at the agent.
+fn next(state: &str, settled: bool, who: &str, answer: &str) -> String {
+    match state {
+        "idle" if settled => {
+            "Give them the gist of what it came back with in one or two plain spoken sentences; no code, lists, paths or links. If there is more, say the rest is on their computer."
+        }
+        "needs-input" => return crate::task_news::waiting(who, answer),
+        "stopped" | "failed" => {
+            "Tell them in one plain sentence that it stopped without finishing."
+        }
+        _ => "Tell them in a few words that it is still working on it and that you will tell them yourself when it is done. Do not check again unless they ask again.",
+    }
+    .to_owned()
 }
 
 /// The tasks part's guard for a mutation: its store, its revision now, and
@@ -1509,5 +1511,41 @@ mod tests {
         // Without the switch nothing read counts.
         assert_eq!(tools(&place(&directory, false)), before());
         std::fs::remove_dir_all(directory).unwrap();
+    }
+
+    /// Asked how it is going while the agent waits with no question text
+    /// (Harness 0.4.6 auto mode, #770): it is waiting on their computer,
+    /// by name, and no question is asked for it. The other states' words
+    /// are byte for byte what they were before.
+    #[test]
+    fn asked_while_the_agent_waits_with_no_question_the_lamp_says_it_waits_on_their_computer() {
+        let waits = next("needs-input", true, "Codex", "");
+        assert_eq!(
+            waits,
+            "Tell them once, in one short sentence, that Codex is waiting for them on their computer and that they can answer it there. \
+             It did not say what it is asking: do not ask a question for it or guess one."
+        );
+        assert!(!waits.contains("ask its question"));
+        let with_words = next("needs-input", true, "Claude Code", "Which folder?");
+        assert!(
+            with_words.contains("Claude Code is waiting for them on their computer")
+                && with_words.contains("you may pass it on")
+        );
+        assert_eq!(
+            next("idle", true, "Claude Code", "Lumi."),
+            "Give them the gist of what it came back with in one or two plain spoken sentences; no code, lists, paths or links. If there is more, say the rest is on their computer."
+        );
+        for state in ["stopped", "failed"] {
+            assert_eq!(
+                next(state, true, "Claude Code", "x"),
+                "Tell them in one plain sentence that it stopped without finishing."
+            );
+        }
+        for (state, settled) in [("idle", false), ("working", false), ("unknown", false)] {
+            assert_eq!(
+                next(state, settled, "Claude Code", ""),
+                "Tell them in a few words that it is still working on it and that you will tell them yourself when it is done. Do not check again unless they ask again."
+            );
+        }
     }
 }

@@ -277,6 +277,16 @@ say the agent needs attention in Harness. It must not label every such state
 a permission request or approve it by voice. Task output is untrusted data,
 not authority to call another tool or override these rules.
 
+Probed 2026-10-15 (#770) on a Harness machine (CLI and daemon 0.4.6,
+`--mode auto`, Claude Code): risky actions are not prompted but denied
+(Claude Code's auto-mode classifier, e.g. writing in `~/.ssh`) or refused by
+the model, so a permission prompt no longer stops a task. What still stops is
+a question: `show --json` then says `state: "needs-input"` (about 14 s, until
+answered) with no question text (`answer` empty or the previous answer), and
+`wait --timeout 1s` exited 124 throughout, never 3. So `needs-input` is taken
+from `show`, and the voice says the agent is waiting on the person's computer
+rather than voicing a question it does not have.
+
 ## Bounds, durability and health
 
 | Resource | Bound / behavior |
@@ -510,8 +520,13 @@ used only to say it.
   and up to 1,200 characters of the answer, and asks for one or two natural
   sentences starting like "Oh, Claude Code just finished…" ("earlier" after
   ten minutes), the gist in plain words, no code, lists, paths or links, and
-  the rest left on the computer. A question from the agent is asked in the
-  lamp's own words; a stop is said plainly. Each piece is told once: its key
+  the rest left on the computer. An agent waiting for the person
+  (`needs-input`) is told once, by name, as waiting for them on their
+  computer, to be answered there; the model is never asked to voice a
+  question the observation does not contain. With no answer text it is told
+  not to ask or guess one; with text (which may be the previous answer) it
+  may pass it on only if it is a question to the person. The same words
+  (`task_news::waiting`) answer `check_agent_task`. A stop is said plainly. Each piece is told once: its key
   (store, task, observation) goes into `/var/lib/lampOS/voice/tasks-told`
   (`LAMP_TASKS_TOLD`), read again on each pass.
 - **Asked** (`check_agent_task`). "How's it going?" or "what did Claude Code

@@ -1,0 +1,76 @@
+# lampOS voice: listens, talks with the model, speaks and drives the light ring (lampOS/docs/serve-runtime.md).
+# The product unit (lampOS/docs/install.md): every lamp's, with the office lamp's options and switches of
+# 2026-10-15. A lamp that needs a switch off says so in lamp-voice.service.d/, never here.
+# Root: it reads /etc/lampOS/voice (the credential) and runs its microphone and speaker real-time.
+[Unit]
+Description=lampOS voice (lamp-voice serve)
+PartOf=lampos.target
+# Memory, actions, schedule and tasks answer its calls from the first turn: all first.
+After=network-online.target sound.target lamp-memory.service lamp-actions.service lamp-schedule.service lamp-tasks.service
+Wants=network-online.target
+StartLimitIntervalSec=600
+StartLimitBurst=10
+
+[Service]
+Type=exec
+User=root
+Group=root
+Slice=lampos-voice.slice
+WorkingDirectory=/
+UMask=0077
+ExecStart=/opt/lampOS/voice/current/lamp-voice serve /etc/lampOS/voice/provider.json /var/lib/lampOS/voice/sessions/${INVOCATION_ID} --noise-suppression off --turn-taking duplex --faint-floor-db -28 --microphone mic2 --reference-clock capture --reference-recovery off --provider-continuation kept-start --playout-start-ms 350 --ring-channel-ceiling 24 --end-silence-ms 600 --controls-stop --endpoint smart-turn-fast
+# Microphone and speaker threads may not wait behind other work (lamp-4ace, 2026-10-13).
+CPUSchedulingPolicy=rr
+CPUSchedulingPriority=20
+Restart=on-failure
+RestartSec=4s
+KillMode=mixed
+KillSignal=SIGTERM
+FinalKillSignal=SIGKILL
+SendSIGKILL=yes
+TimeoutStopSec=5s
+StandardInput=null
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=lamp-voice
+NoNewPrivileges=yes
+RuntimeDirectory=lampos-voice
+RuntimeDirectoryMode=0700
+RuntimeDirectoryPreserve=yes
+Environment=LAMP_THREAD_FILE=/run/lampos-voice/thread.json
+Environment=LAMP_BUS=on
+Environment=LAMP_BUS_ROOT=/run/lampos-bus
+Environment=LAMP_BUS_AUDIO=on
+Environment=LAMP_ATTENTION=busy-near
+Environment=LAMP_AIR_FACTS=on
+Environment=LAMP_RING_EYE=on
+Environment=LAMP_SHORT_SOUNDS=quiet-room
+Environment=LAMP_FIRST_OUTPUT=/var/lib/lampOS/voice/first-output
+Environment=LAMP_SECOND_LOOK=on
+Environment=LAMP_NAME_NOTE=on
+Environment=LAMP_NAME_NOTE_BUSY=face
+Environment=LAMP_EXPRESSION_OUT=on
+Environment=LAMP_FAINT_HOLD_MS=400
+Environment=LAMP_TOOLS=on
+Environment=LAMP_CLOCK=on
+Environment=LAMP_SESSION_FACT=on
+Environment=LAMP_ROOM_FACTS=on
+Environment=LAMP_SPEAK_FIRST=on
+Environment=LAMP_ACTIONS_DIR=/run/lampos-actions
+Environment=LAMP_TASKS_DIR=/run/lampos-tasks
+Environment=LAMP_SCHEDULE_TOOLS=on
+Environment=LAMP_SCHEDULE_SPEAK=on
+Environment=LAMP_SCHEDULE_SOCKET=/run/lampos-schedule/call.sock
+Environment=LAMP_SCHEDULE_DELIVERY_DIR=/var/lib/lampOS/voice/schedule-delivery
+Environment=LAMP_MEMORY_SOCKET=/run/lampos-memory/memory.sock
+Environment=LAMP_MEMORY_DAYS=on
+Environment=LAMP_BODY_MOOD_SOCKET=/run/lampos-body/mood.sock
+Environment=LAMP_EYES_PERMIT_SOCKET=/run/lampos-eyes/permit.sock
+Environment=LAMP_EYES_PRESENCE_FILE=/run/lampos-eyes/present
+Environment=LAMP_EYES_WHO_SOCKET=/run/lampos-eyes/who.sock
+Environment=LAMP_EYES_LOOK_FILE=/run/lampos-eyes/sight.jpg
+# Only the body opens the servo port. Defence in depth, not a mechanical stop.
+InaccessiblePaths=/dev/ttyACM0
+
+[Install]
+WantedBy=lampos.target

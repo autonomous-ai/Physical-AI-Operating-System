@@ -1,0 +1,34 @@
+# lampOS tasks: work handed to agents through Harness, and what came back (lampOS/docs/tasks.md).
+# The product unit (lampOS/docs/install.md). Harness is the Harness team's own program, installed
+# on the lamp by its own installer; where it lives on a home lamp is not decided (install.md,
+# "What was not shown"). Its home is the tasks part's state folder, not a person's.
+[Unit]
+Description=lampOS tasks (lamp-tasks serve)
+PartOf=lampos.target
+After=network-online.target
+Wants=network-online.target
+StartLimitIntervalSec=600
+StartLimitBurst=5
+
+[Service]
+Type=exec
+User=lampos
+Group=lampos
+Slice=lampos-parts.slice
+Environment=HOME=/var/lib/lampos-tasks
+Environment=PATH=/usr/local/bin:/usr/bin:/bin
+RuntimeDirectory=lampos-tasks
+RuntimeDirectoryMode=0700
+StateDirectory=lampos-tasks
+StateDirectoryMode=0700
+ExecStart=/opt/lampOS/tasks/current/lamp-tasks serve --enable --watch --harness-as-person --dir /var/lib/lampos-tasks/store --socket /run/lampos-tasks/request.sock --voice-socket /run/lampos-tasks/voice.sock --targets /var/lib/lampos-tasks/targets.json --harness /usr/local/bin/harness
+Restart=on-failure
+RestartSec=5s
+StandardInput=null
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=lamp-tasks
+NoNewPrivileges=yes
+
+[Install]
+WantedBy=lampos.target

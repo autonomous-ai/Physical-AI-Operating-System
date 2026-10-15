@@ -69,3 +69,12 @@ Ready for lamp-voice: no (draft #815, until its ARM64 run on `73a1fffa8` is gree
 - lamp-75c9 (17:52, the person's own command under the lock, read-only):
   model `sun60iw2`, HAL active, no `HAL_BOARD`, `/dev/spidev3.0` and `3.1`.
   For #639 in the parent repository, not a lampOS task.
+
+## 2026-10-15 — one install for a new lamp (#811) — ready
+
+Ready for lamp-voice: yes (#815)
+
+- Head `73a1fffa8` (two commits on `lamp-voice`). ARM64 run 38724084947
+  green on it. Kind: changes nothing on a lamp running today (the 15 old
+  rounds pass unchanged; the link path is taken only by product units, on
+  no lamp yet). The second reads `crates/update` before it merges.

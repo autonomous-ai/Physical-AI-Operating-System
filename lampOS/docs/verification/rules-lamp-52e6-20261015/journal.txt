@@ -1,0 +1,28 @@
+2026-10-15T17:36:48+0700 lamp-52e6 lamp-voice[63163]: lamp-voice provider: told the new session that nobody is talking to the lamp
+2026-10-15T17:36:48+0700 lamp-52e6 lamp-voice[63163]: lamp-voice provider: the person at the lamp has changed; a new session is opened between turns
+2026-10-15T17:36:50+0700 lamp-52e6 lamp-voice[63163]: lamp-voice provider: told the new session that nobody is talking to the lamp
+2026-10-15T17:37:01+0700 lamp-52e6 lamp-voice[63163]: lamp-voice provider: request 1: told the session who is at the lamp
+2026-10-15T17:37:02+0700 lamp-52e6 lamp-voice[63163]: lamp-voice provider: request 1: the model is told the lamp's name was heard
+2026-10-15T17:37:13+0700 lamp-52e6 lamp-voice[63163]: lamp-voice provider: request 2: the model said it was not for it
+2026-10-15T17:37:19+0700 lamp-52e6 lamp-voice[63163]: lamp-voice provider: request 3: the model said it was not for it
+2026-10-15T17:37:37+0700 lamp-52e6 lamp-voice[63163]: lamp-voice provider: request 4: the model said it was not for it
+2026-10-15T17:37:41+0700 lamp-52e6 lamp-voice[63163]: lamp-voice provider: request 5: the model is told the lamp's name was heard
+2026-10-15T17:37:47+0700 lamp-52e6 lamp-voice[63163]: lamp-voice provider: request 5 asked for keep_rule; the memory answered in 27 ms; the answer was sent
+2026-10-15T17:38:04+0700 lamp-52e6 lamp-voice[63163]: lamp-voice provider: request 6: the model said it was not for it
+2026-10-15T17:38:12+0700 lamp-52e6 lamp-voice[63163]: lamp-voice provider: request 9: told the session who is at the lamp
+2026-10-15T17:38:13+0700 lamp-52e6 lamp-voice[63163]: lamp-voice provider: request 9: the lamp's name was heard in a busy room and nobody is turned to the lamp; the model is not told
+2026-10-15T17:38:18+0700 lamp-52e6 lamp-voice[63163]: lamp-voice provider: request 9 asked for keep_rule; the memory answered in 24 ms; the answer was sent
+2026-10-15T17:38:40+0700 lamp-52e6 lamp-voice[65519]: lamp-voice provider: told the new session that nobody is talking to the lamp
+2026-10-15T17:38:40+0700 lamp-52e6 lamp-voice[65519]: lamp-voice provider: the person at the lamp has changed; a new session is opened between turns
+2026-10-15T17:38:42+0700 lamp-52e6 lamp-voice[65519]: lamp-voice provider: told the new session that nobody is talking to the lamp
+2026-10-15T17:38:54+0700 lamp-52e6 lamp-voice[65519]: lamp-voice provider: request 1: told the session who is at the lamp
+2026-10-15T17:38:56+0700 lamp-52e6 lamp-voice[65519]: lamp-voice provider: request 1: the model is told the lamp's name was heard
+2026-10-15T17:38:58+0700 lamp-52e6 lamp-voice[65519]: lamp-voice provider: request 1 asked for list_rules; the memory answered in 3 ms; the answer was sent
+2026-10-15T17:39:20+0700 lamp-52e6 lamp-voice[65519]: lamp-voice provider: the person at the lamp has changed; a new session is opened between turns
+2026-10-15T17:39:24+0700 lamp-52e6 lamp-voice[65519]: lamp-voice provider: request 2: told the session who is at the lamp
+2026-10-15T17:39:26+0700 lamp-52e6 lamp-voice[65519]: lamp-voice provider: request 2: the model is told the lamp's name was heard
+2026-10-15T17:39:28+0700 lamp-52e6 lamp-voice[65519]: lamp-voice provider: request 2 asked for list_rules; the memory answered in 2 ms; the answer was sent
+2026-10-15T17:39:51+0700 lamp-52e6 lamp-voice[65519]: lamp-voice provider: the person at the lamp has changed; a new session is opened between turns
+2026-10-15T17:39:55+0700 lamp-52e6 lamp-voice[65519]: lamp-voice provider: request 3: told the session who is at the lamp
+2026-10-15T17:39:56+0700 lamp-52e6 lamp-voice[65519]: lamp-voice provider: request 3: the model is told the lamp's name was heard
+2026-10-15T17:40:00+0700 lamp-52e6 lamp-voice[65519]: lamp-voice provider: request 3 asked for forget_rule; the memory answered in 38 ms; the answer was sent

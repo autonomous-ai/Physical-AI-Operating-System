@@ -1,0 +1,25 @@
+{"at_us": 5008504943, "turn": null, "input_correlation": "unreliable; session scoped", "text": "Relax. From now on, please keep your answers to one short sentence."}
+{"at_us": 5009379788, "turn": 1, "input_correlation": "output lineage", "text": "Got it, I'll stick "}
+{"at_us": 5009820330, "turn": 1, "input_correlation": "output lineage", "text": "to short, single-sentence"}
+{"at_us": 5009993418, "turn": 1, "input_correlation": "output lineage", "text": " answers."}
+{"at_us": 5048772038, "turn": null, "input_correlation": "unreliable; session scoped", "text": "Layla, a rule for you, never tell me the weather unless I ask for it."}
+{"at_us": 5049926355, "turn": 5, "input_correlation": "output lineage", "text": "Understood, no "}
+{"at_us": 5050405732, "turn": 5, "input_correlation": "output lineage", "text": "weather reports"}
+{"at_us": 5050504251, "turn": 5, "input_correlation": "output lineage", "text": " unless you ask for them."}
+{"at_us": 5080043064, "turn": null, "input_correlation": "unreliable; session scoped", "text": "Hey, please stop calling me buddy. I don't like it."}
+{"at_us": 5081478116, "turn": 9, "input_correlation": "output lineage", "text": "Got it, I won't "}
+{"at_us": 5081622860, "turn": 9, "input_correlation": "output lineage", "text": "call you that anymore."}
+{"at_us": 5120623522, "turn": null, "input_correlation": "unreliable; session scoped", "text": "Layla, what have I asked you not to do?"}
+{"at_us": 5121562573, "turn": 1, "input_correlation": "output lineage", "text": "You've asked me not "}
+{"at_us": 5122179866, "turn": 1, "input_correlation": "output lineage", "text": "to share the weather"}
+{"at_us": 5122264255, "turn": 1, "input_correlation": "output lineage", "text": " unless you ask for it,"}
+{"at_us": 5122344878, "turn": 1, "input_correlation": "output lineage", "text": " and not to call you buddy."}
+{"at_us": 5150487047, "turn": null, "input_correlation": "unreliable; session scoped", "text": "What have I asked you not to do?"}
+{"at_us": 5151768762, "turn": 2, "input_correlation": "output lineage", "text": "You haven't asked "}
+{"at_us": 5152234118, "turn": 2, "input_correlation": "output lineage", "text": "me to avoid"}
+{"at_us": 5152385063, "turn": 2, "input_correlation": "output lineage", "text": " anything. I'm following"}
+{"at_us": 5152562018, "turn": 2, "input_correlation": "output lineage", "text": " your lead!"}
+{"at_us": 5182487416, "turn": null, "input_correlation": "unreliable; session scoped", "text": "You can tell me the weather again. Forget that rule."}
+{"at_us": 5183659330, "turn": 3, "input_correlation": "output lineage", "text": "You got it. I'll "}
+{"at_us": 5184055344, "turn": 3, "input_correlation": "output lineage", "text": "remember I'm free"}
+{"at_us": 5184206176, "turn": 3, "input_correlation": "output lineage", "text": " to share the weather again."}

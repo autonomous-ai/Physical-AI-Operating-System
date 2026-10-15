@@ -10,7 +10,7 @@ name: lampOS on ARM64
 
 on:
   push:
-    branches: ['lamp-*', 'second/**', 'third/**', 'fourth/**', 'fifth/**']
+    branches: ['lamp-*', 'second/**', 'third/**', 'fourth/**', 'fifth/**', 'sixth/**', 'seventh/**']
     paths: ['lampOS/**', '.github/workflows/lampos-arm64.yml']
   workflow_dispatch:
 

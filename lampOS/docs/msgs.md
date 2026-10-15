@@ -272,6 +272,24 @@ topic catalogue. Neither carries any sound.
 Levels are dBFS from -120 (digital silence) to 0; `check()` refuses
 anything else, and a peak under its quiet.
 
+## Whether it was said to the lamp
+
+`Addressed` lives in `src/attention.rs` and is re-exported at the crate
+root ([attention.md](attention.md), "Said to the lamp from close to it").
+The voice publishes it with `LAMP_ADDRESSED=on`. It carries no sound, no
+words and no picture.
+
+| Type | Topic | Kind | Period / lifespan | Meaning |
+|---|---|---|---|---|
+| `Addressed` | `attention/addressed` | event | none / none | One request: its session and number, when its sound began and ended (the lamp's monotonic clock), the room microphone's highest rise over the quiet and whether that is near, how many looks of the eyes, the tallest face turned to the lamp, the share of looks with a close face turned to it and whether that is facing, the name's best score, and whether it was said to the lamp from close to it |
+
+`check()` refuses an end before the beginning, a rise outside ±120 dB, a
+face height, share or score outside 0 to 1, a face height without looks
+or looks without one, a share of fewer than two looks, `near` or
+`facing_close` said with no reading under it, and an `addressed` that is
+not exactly near and facing. A sign the ears or
+the eyes said nothing fresh about is `null`.
+
 The Schedule contract tests establish message shape and declaration rules
 only. They do not establish durable delivery, Voice integration, clock
 accuracy, acoustic completion or reminder latency on a lamp.

@@ -4,6 +4,7 @@
 //! The initial harness requires an explicitly opened, finite directed session;
 //! this does not qualify open-desk addressee recognition or background restraint.
 pub mod activity;
+pub mod addressed;
 pub mod admission;
 pub mod agent_tasks;
 pub mod air_told;

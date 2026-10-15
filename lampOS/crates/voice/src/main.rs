@@ -379,12 +379,13 @@ fn run() -> Result<()> {
                     let (attention, flags) = lamp_voice::attention::take(flags);
                     let (attention_busy, flags) = lamp_voice::attention::take_busy(flags);
                     let (attention_near, flags) = lamp_voice::attention::take_near(flags);
+                    let (addressed, flags) = lamp_voice::addressed::take(flags);
                     let (name_signal, flags) = lamp_voice::attention::take_name(flags);
                     let (name_note, name_note_busy_face, flags) = lamp_voice::called::take(flags);
                     let (bus_root, flags) = lamp_voice::bus_out::take_root(flags)?;
                     let (first_output, flags) = lamp_voice::first_output::take(flags)?;
                     let visual = lamp_voice::visual_context::Source::parse(Path::new(dir), flags)?.map(|source| (source, worker));
-                    tokio::runtime::Builder::new_current_thread().enable_all().build()?.block_on(lamp_voice::provider_worker::run_with_continuation(channels,parent,Path::new(extra),lamp_voice::provider_worker::Reporting::Coordinated,visual,continuation,sight,lamp_voice::provider_worker::Files{look:look_file,thread:thread_file,session_fact,room_facts,air_facts,keep_link,tools,attention,attention_busy,attention_near,name_signal,name_note,name_note_busy_face,bus_root,first_output}))?;
+                    tokio::runtime::Builder::new_current_thread().enable_all().build()?.block_on(lamp_voice::provider_worker::run_with_continuation(channels,parent,Path::new(extra),lamp_voice::provider_worker::Reporting::Coordinated,visual,continuation,sight,lamp_voice::provider_worker::Files{look:look_file,thread:thread_file,session_fact,room_facts,air_facts,keep_link,tools,attention,attention_busy,attention_near,addressed,name_signal,name_note,name_note_busy_face,bus_root,first_output}))?;
                 },
                 _ => return Err(io::Error::other("unknown worker role").into()),
             }

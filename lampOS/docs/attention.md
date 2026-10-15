@@ -619,6 +619,77 @@ with a person in front of this lamp. The second look (in the coordinator)
 is not gated by the room or the eyes: it comes only when the model said
 nothing and the name was heard, and in this meeting it never came.
 
+## Said to the lamp from close to it (#753)
+
+Off unless `LAMP_ADDRESSED=on`, and only with `LAMP_ATTENTION` set, since
+the rule is what follows each request (`crates/voice/src/addressed.rs`,
+built by the fourth builder on 15 October 2026). For each request the
+provider worker judges two signs it already reads, over the request's own
+sound, from when it began until its sound ended:
+
+- **Near**: the room microphone's highest rise over the room's quiet while
+  the voice microphone heard the request (`ears/level`, the same reading
+  and the same 18 dB line as `busy-near` above). So the two microphones are
+  used together: the voice microphone says when the person spoke, the room
+  microphone how loud that was over the room.
+- **A close face turned to the lamp**: of the eyes' looks taken while the
+  person spoke or in the 1.5 s before, at least 2, the share that saw a
+  face judged turned to the lamp and at least 0.15 of the picture's height
+  is 0.4 or more. These are V1's gaze rule's lines, measured on its lamps
+  (`hal/config.py`, `GAZE_*`): a share and not one look, because one look's
+  judgement of a head's turn is noisy; from just before the speech, because
+  people turn before they speak; 0.15 because on 2026-09-30 colleagues'
+  faces were 8.3% to 13.6% of the picture and the person at the desk 19.2%
+  to 46%; 0.4 because a still person centred in view measured 50% against
+  V1's first line of 60%.
+
+Said to the lamp is both. Neither alone is enough: someone at the desk may
+be talking to someone else, and in the one robot study with numbers,
+looking at the robot went with speaking to it 65% of the time
+([said-to-whom.md](said-to-whom.md)). It needs no name.
+
+What it does:
+
+1. **On the bus.** Once for each request, `attention/addressed`
+   (`lamp_msgs::Addressed`, an event): the session and request, when its
+   sound began and ended, the rise, whether near, how many looks, the
+   tallest face turned to the lamp, the share of looks with a close one,
+   whether that is facing, the name's best score, and `addressed`. A
+   sign the ears or the eyes said nothing fresh about is `null`, not
+   `false`. It is published when the request's sound ends, or when its
+   answer begins if that comes first, for the Policy and anything else.
+   A turn the lamp wrote itself (a hello, a look) is not told, nor a
+   request cancelled before either.
+2. **In the rule.** In a busy room, an answer the rule would hold is let
+   out for a request said to the lamp, with the reason "someone close to
+   the lamp and turned to it spoke". It never changes an answer the rule
+   lets out already, or its reason. The rule's own sign, `turned`, is the
+   eyes' newest look when the answer begins, which may come after the
+   person has looked away, and any face in view; this one is the looks
+   while they spoke, and only a close face.
+3. **In the record.** With `LAMP_FIRST_OUTPUT` set, the judgement is the
+   line's `addressed` field beside the decision. Without the switch the
+   line is as before.
+
+The voice microphone's own level is not used: its processing evens out its
+level, the two microphones' streams have clocks of their own
+([microphone-topology.md](microphone-topology.md)), and `mic2/audio` is on
+the bus only with `LAMP_BUS_AUDIO`.
+
+The cost: at most 300 rises and 200 looks are kept (the last 30 s); with
+the switch on, the eyes' newest look is read every 100 ms beside the ears.
+Each request is judged once, in the worker's loop, before its answer's
+first sound is let out. On the fourth builder's Intel Mac (load average 10
+to 14, release build, 2,000 times each) judging a request with the 30 s
+full took 1.5 µs (at most 7.2 µs), and reading the eyes' newest look from
+the bus 21 µs (at most 77 µs). Not measured on a lamp.
+
+Not shown: any of it on a lamp. Its lines were measured for other rules:
+18 dB for `busy-near` on lamp-4ace, and the face's lines for V1's gaze on
+its own lamps (green-lamp's frames for the size); recordings at the lamp and from 3 m are
+asked for on #753 to check them. The host tests use synthetic
+levels and looks, and a real bus in a temporary directory.
+
 ## The record of whom it answered
 
 Off unless set: `LAMP_FIRST_OUTPUT=/absolute/private/directory` in the
@@ -655,6 +726,9 @@ voice had just started; the seven fields as heard; 11 µs from reading the
 inputs to the decision), and "Tom, did you finish the slides for
 tomorrow?", which the model did not answer, gave none, as it should.
 
+With `LAMP_ADDRESSED=on` each line also has `addressed`: the request's
+`attention/addressed` judgement (above), if it was judged.
+
 What was heard is in these files, and so are bystanders' words in an office:
 they stay on the lamp and are not published. Not recorded yet: whether any
 sound of the answer was played (`request_outcome`), when a request began, and
@@ -672,6 +746,12 @@ rule's busy form, 5 above. On lamp-4ace since 11:52 on 2026-10-14.
 --attention-near`): the busy form, and a name heard at 0.95 or more close
 to the lamp counts as a call (above). Needs the ears running. Off by
 default; not yet on lamp-4ace.
+
+`LAMP_ADDRESSED=on` (the worker's `--addressed`, right after the attention
+flags; nothing without `LAMP_ATTENTION`): each request is judged said to
+the lamp from close to it, published on `attention/addressed`, and in a
+busy room lets out an answer the rule would hold (above). Off by default;
+not on any lamp.
 
 `LAMP_NAME_NOTE_BUSY=face` (the worker's `--name-note-busy-face`, right
 after `--name-note`; nothing without `LAMP_NAME_NOTE=on`): in a busy room

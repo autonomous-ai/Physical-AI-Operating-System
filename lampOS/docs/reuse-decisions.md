@@ -1,5 +1,26 @@
 # Reuse decisions: V1, ROS 2 and existing Rust systems
 
+## Said to the lamp from close to it, task 49 (#753, 2026-10-15)
+
+Keep V1's gaze rule for the face (`hal/drivers/tracking/gaze.py`,
+`user_check.py`, `hal/config.py` `GAZE_*`): a share of looks rather than
+one, from 1.5 s before the speech (`GAZE_WINDOW_S`), at least two looks
+(`GAZE_MIN_SAMPLES`), 0.4 of them facing (`GAZE_BEARING_MIN_FACING_RATIO`,
+chosen there after a still, centred user measured 50% against 0.6), and a
+face at least 0.15 of the frame's height (`GAZE_BEARING_MIN_FACE_HEIGHT_FRAC`,
+measured on green-lamp frames on 2026-09-30: colleagues 8.3% to 13.6%, the
+user 19.2% to 46%). Change: the per-look facing judgement is the Rust eyes'
+own (`facing: true`), not V1's yaw cone, and the share is over the voice's
+request rather than V1's wake trigger. Keep the voice's existing near sign
+(`busy-near`'s room-microphone rise, 18 dB, measured on lamp-4ace). Leave
+out the voice microphone's level: its own processing evens it out and the
+two streams do not share a clock ([said-to-whom.md](said-to-whom.md),
+[microphone-topology.md](microphone-topology.md)). No fitted model: the
+published studies in said-to-whom.md do not transfer to this lamp, and a
+combination needs this lamp's labelled recordings, asked for on #753.
+Publish both signs per request on `attention/addressed` so the Policy can
+fit them later. Off unless `LAMP_ADDRESSED=on`. See [attention.md](attention.md).
+
 ## Speech-backed name wake, task 47 (#749, 2026-10-15)
 
 Reuse Expression's accepted `voice/activity` evidence and existing boot,

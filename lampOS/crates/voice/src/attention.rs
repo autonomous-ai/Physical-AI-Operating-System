@@ -110,6 +110,9 @@ pub const NEAR_SCORE: f32 = 0.95;
 /// Close: the room microphone this far over its quiet during the request.
 pub const NEAR_RISE_DB: f32 = 18.0;
 const NAMED_NEAR: &str = "its name was heard close to the lamp";
+/// The reason an answer is let out for a request said to the lamp from
+/// close to it (`crate::addressed`, `LAMP_ADDRESSED=on`).
+pub const ADDRESSED: &str = "someone close to the lamp and turned to it spoke";
 
 /// Take a leading `--attention-near` off a worker's flags, after
 /// [`take_busy`].
@@ -324,6 +327,9 @@ pub struct Attention {
     /// whether a voice close to the lamp was heard in it.
     best_score: f32,
     near: bool,
+    /// Whether it was said to the lamp from close to it, as
+    /// [`crate::addressed::judge`] found.
+    addressed: bool,
     /// Whether the request judged last was the lamp's own turn, as the
     /// judging read it, for the record ([`Attention::baseline`]).
     judged_own: bool,
@@ -398,6 +404,7 @@ impl Attention {
         self.named_sure = false;
         self.best_score = 0.0;
         self.near = false;
+        self.addressed = false;
     }
 
     /// When the request in hand began and, if it has, when its sound
@@ -410,6 +417,28 @@ impl Attention {
     /// (the room microphone, `NEAR_RISE_DB` over its quiet).
     pub fn set_near(&mut self, near: bool) {
         self.near = near;
+    }
+
+    /// Whether the request in hand was said to the lamp from close to it
+    /// (`crate::addressed`): in a busy room, an answer the rule would hold
+    /// is let out.
+    pub fn set_addressed(&mut self, addressed: bool) {
+        self.addressed = addressed;
+    }
+
+    /// The request in hand as `crate::addressed` judges it, once it began.
+    /// None for a turn the lamp wrote itself: nobody spoke in it.
+    pub fn in_hand(&self) -> Option<crate::addressed::Request> {
+        if OWN_REQUEST.load(Ordering::Acquire) == self.request {
+            return None;
+        }
+        self.began_us.map(|began_us| crate::addressed::Request {
+            session: self.session,
+            request: self.request,
+            began_us,
+            ended_us: self.ended_us,
+            name_score: self.best_score,
+        })
     }
 
     /// The service wrote down more of what it heard.
@@ -456,7 +485,7 @@ impl Attention {
             self.verdict = Some(verdict);
             return Some(verdict);
         }
-        let verdict = decide_busy(
+        let verdict = match decide_busy(
             room,
             going_on,
             own,
@@ -465,7 +494,10 @@ impl Attention {
             self.named,
             strict,
             turned,
-        );
+        ) {
+            Verdict::Hold(_) if room == Room::Busy && self.addressed => Verdict::Play(ADDRESSED),
+            verdict => verdict,
+        };
         self.verdict = Some(verdict);
         Some(verdict)
     }
@@ -559,6 +591,73 @@ mod tests {
             Some(Verdict::Hold(_))
         ));
         assert_eq!(attention.window(), Some((20_000_000, None)));
+    }
+
+    #[test]
+    fn said_from_close_and_facing_lets_out_an_answer_the_busy_rule_would_hold() {
+        let decide = |addressed: bool, room: Room, strict: bool, request: u64| {
+            let mut attention = Attention::default();
+            for began in 1..=request {
+                attention.began_at(began, 1, began * 10_000_000);
+            }
+            attention.set_addressed(addressed);
+            attention
+                .first_output_busy(request, room, false, strict, None)
+                .unwrap()
+        };
+        // The busy form holds a request nothing shows was for the lamp.
+        assert_eq!(decide(true, Room::Busy, true, 3), Verdict::Play(ADDRESSED));
+        assert!(matches!(
+            decide(false, Room::Busy, true, 3),
+            Verdict::Hold(_)
+        ));
+        // So does the plain form, for a new session's first requests.
+        assert_eq!(decide(true, Room::Busy, false, 1), Verdict::Play(ADDRESSED));
+        assert!(matches!(
+            decide(false, Room::Busy, false, 1),
+            Verdict::Hold(_)
+        ));
+        // Where the rule plays anyway, its own reason stands.
+        for (room, strict, request) in [(Room::Quiet, true, 3), (Room::Busy, false, 9)] {
+            let verdict = decide(true, room, strict, request);
+            assert!(
+                matches!(verdict, Verdict::Play(why) if why != ADDRESSED),
+                "{verdict:?}"
+            );
+        }
+        // A new request forgets that the last one was said close.
+        let mut attention = Attention::default();
+        attention.began_at(1, 1, 10_000_000);
+        attention.set_addressed(true);
+        attention.began_at(2, 1, 20_000_000);
+        assert!(matches!(
+            attention.first_output_busy(2, Room::Busy, false, true, None),
+            Some(Verdict::Hold(_))
+        ));
+    }
+
+    #[test]
+    fn the_request_in_hand_is_what_the_addressed_judgement_takes() {
+        let mut attention = Attention::default();
+        assert_eq!(attention.in_hand(), None);
+        attention.began_at(4, 2, 10_000_000);
+        attention.name_heard_scored(10_200_000, 0.97);
+        attention.ended(4, 12_000_000);
+        assert_eq!(
+            attention.in_hand(),
+            Some(crate::addressed::Request {
+                session: 2,
+                request: 4,
+                began_us: 10_000_000,
+                ended_us: Some(12_000_000),
+                name_score: 0.97,
+            })
+        );
+        // The lamp's own turn: nobody spoke in it.
+        OWN_REQUEST.store(4_242, Ordering::Release);
+        attention.began_at(4_242, 2, 13_000_000);
+        assert_eq!(attention.in_hand(), None);
+        OWN_REQUEST.store(0, Ordering::Release);
     }
 
     #[test]

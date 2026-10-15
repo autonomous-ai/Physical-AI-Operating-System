@@ -40,8 +40,11 @@ of the lamp's current state or of an action applied.
 
 | Observation | While awake | Contact began asleep |
 |---|---|---|
-| Qualified head or three-pad base touch | Stop if speaking, Attend if quiet | Wake |
-| Continuously observed head hold, at least 500 ms | Stroke | No further request |
+| Qualified head touch (20 ms) | Stop if speaking, Notice (nothing asked) if quiet | No request |
+| Head tap: qualified, let go before 0.5 s from its first acquisition | Attend | Wake |
+| Head hand kept 1 s | Stroke | No request |
+| Head hand kept 3 s | Sleep | No request |
+| Qualified three-pad base touch | Stop if speaking, Attend if quiet | Wake |
 | Stationary qualified base held two seconds | Sleep | Wake |
 | Moving base contact | Slide; an eligible slow movement also emits Stroke | No further request |
 | Optional primary button, short release | Stop | Stop |
@@ -110,12 +113,27 @@ least one rank travelled, and mean travel at most two ranks/second over that
 moving span. This authored heuristic needs hands-on qualification; a pause
 followed by travel can lower its estimate.
 
-Known head inputs settle for 500 ms and qualify a touch for 20 ms. Head Stroke
-requires **actual continuous active observations** for 500 ms. V1 FastMode
-TTP223 pads can pulse for about 50–100 ms while a hand remains there: low
-gaps are not joined into an invented sustained hand. On such a unit Stroke
-may never occur. Touch remains useful. Polling can miss a pulse shorter than
-its interval; start qualification at 5 ms, and measure actual hand latency.
+Known head inputs settle for 500 ms and qualify a touch after 20 ms of
+unbroken active acquisitions. **The head carries every touch action**
+(the owner, 2026-10-15; [creature.md](creature.md#touch), #711), so a hand
+that stays must stay one hand: V1 FastMode TTP223 pads can pulse for about
+50–100 ms while a hand remains there, so released acquisitions shorter than
+`HEAD_GAP_US` (150 ms, authored, to be set from a recording of lamp-4ace's
+pads under a resting hand) do not end a contact. Only an unbroken 20 ms run
+qualifies it, so short blips joined by gaps never do. The contact's time,
+through such gaps, is `touch_state.held_us`, the countdown readers use;
+Stroke comes at 1 s and Hold (Sleep) at 3 s of it. A tap is confirmed only
+when the gap has passed with the head released, so Attend and Wake come
+`HEAD_GAP_US` after the hand leaves; Stop comes at qualification, not at
+the release. After a Stroke the letting go asks nothing: it was affection.
+
+`TouchEngine::set_head_pushed` takes the body's "the head is being pushed by
+hand now". A contact that overlaps a push asks nothing more from then on and
+reports no `held_us`; a push felt before the touch qualifies stops even the
+Stop. A Stop already sent stands: waiting to feel a push would break the
+150 ms stop. Its runtime input waits on the body's signal (#703).
+Polling can miss a pulse shorter than its interval; start qualification at
+5 ms, and measure actual hand latency.
 
 Both sources preserve acquisition time and consecutive sequence, rejecting
 100 ms age/gaps, future/duplicate/reordered samples, wrong clocks, source

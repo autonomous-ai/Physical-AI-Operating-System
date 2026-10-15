@@ -6,7 +6,13 @@
 //! active levels, at the next GPIO acquisition (configured cadence <=50 ms).
 //! Thus qualification is <=70 ms after the first active acquisition, excluding
 //! physical sampling delay and output-owner work. These are policy bounds, not
-//! lamp measurements. Stroke needs 500 ms of continuous acquired contact.
+//! lamp measurements.
+//!
+//! The head (#711, `docs/creature.md` "Touch"): a touch qualified at 20 ms
+//! asks a talking lamp to stop and a quiet one nothing; a tap let go before
+//! 0.5 s asks it to listen, or to wake; a hand kept 1 s is a stroke and 3 s
+//! sleep. Gaps shorter than [`HEAD_GAP_US`] join one hand. A contact the body
+//! felt as a push on the head asks nothing more from then on.
 use crate::{
     base::strip::{StripDirection, StripEffectKind, StripError, StripRecognizer},
     input::{InputError, Level, check_name},
@@ -20,7 +26,14 @@ use std::collections::BTreeSet;
 
 pub const HEAD_SETTLE_US: u64 = 500_000;
 pub const HEAD_QUALIFY_US: u64 = 20_000;
-pub const HEAD_STROKE_US: u64 = 500_000;
+/// A tap is let go before this, from its first acquisition.
+pub const HEAD_TAP_US: u64 = 500_000;
+pub const HEAD_STROKE_US: u64 = 1_000_000;
+pub const HEAD_SLEEP_US: u64 = 3_000_000;
+/// Released acquisitions for less than this do not end a hand: V1's TTP223
+/// pads can pulse every 50-100 ms under a resting hand. Authored, to be set
+/// from a recording of lamp-4ace's pads under a resting hand (#711).
+pub const HEAD_GAP_US: u64 = 150_000;
 pub const BUTTON_DEBOUNCE_US: u64 = 200_000;
 pub const PRIMARY_HOLD_US: u64 = 2_000_000;
 pub const RESET_HOLD_US: u64 = 5_000_000;
@@ -329,32 +342,49 @@ struct Head {
     settle_start: Option<u64>,
     contact: Option<Contact>,
     counter: u64,
+    /// The start of the current unbroken run of active acquisitions, which
+    /// alone can qualify a touch, and the last active acquisition.
+    run_began: Option<u64>,
+    last_active: u64,
+    /// The first released acquisition since `last_active`.
+    released: Option<u64>,
     touch_sent: bool,
     stroke_sent: bool,
+    hold_sent: bool,
+    /// The body is feeling the head pushed by hand now ([`TouchEngine::set_head_pushed`]).
+    pushed: bool,
+    /// This contact overlapped a push: it asks nothing more.
+    spoiled: bool,
 }
+
+/// What one head acquisition produced, and the release it confirmed, if any.
+type HeadEffect = (Contact, TouchGesture, Option<u64>);
+
 impl Head {
     fn reset(&mut self) {
         *self = Self {
             counter: self.counter,
+            pushed: self.pushed,
             ..Self::default()
         };
     }
-    fn observe(&mut self, mask: u16, at: u64) -> Result<Vec<(Contact, TouchGesture)>, InputError> {
+    fn end(&mut self) {
+        self.contact = None;
+        self.run_began = None;
+        self.released = None;
+    }
+    fn observe(&mut self, mask: u16, at: u64) -> Result<Vec<HeadEffect>, InputError> {
         let started = *self.settle_start.get_or_insert(at);
-        let previous = self.mask;
         self.mask = mask;
         if at - started < HEAD_SETTLE_US || !self.armed {
             self.armed = at - started >= HEAD_SETTLE_US && mask == 0;
-            self.contact = None;
+            self.end();
             return Ok(Vec::new());
         }
-        if mask == 0 {
-            self.contact = None;
-            self.touch_sent = false;
-            self.stroke_sent = false;
-            return Ok(Vec::new());
-        }
-        if previous == 0 {
+        let Some(contact) = self.contact else {
+            if mask == 0 {
+                return Ok(Vec::new());
+            }
             self.counter = self
                 .counter
                 .checked_add(1)
@@ -363,21 +393,58 @@ impl Head {
                 id: self.counter,
                 began: at,
             });
-            self.touch_sent = false;
-            self.stroke_sent = false;
+            (self.touch_sent, self.stroke_sent, self.hold_sent) = (false, false, false);
+            self.spoiled = self.pushed;
+            self.run_began = Some(at);
+            self.last_active = at;
+            return Ok(Vec::new());
+        };
+        self.spoiled |= self.pushed;
+        if mask == 0 {
+            self.run_began = None;
+            let released = *self.released.get_or_insert(at);
+            if at - self.last_active < HEAD_GAP_US {
+                return Ok(Vec::new());
+            }
+            // Let go: only a short, qualified, unspoiled contact was a tap.
+            let tap = self.touch_sent
+                && !self.stroke_sent
+                && !self.spoiled
+                && released - contact.began < HEAD_TAP_US;
+            self.end();
+            return Ok(if tap {
+                vec![(contact, TouchGesture::Tap, Some(released))]
+            } else {
+                Vec::new()
+            });
         }
-        let mut effects = Vec::with_capacity(2);
-        if let Some(contact) = self.contact {
-            if !self.touch_sent && at - contact.began >= HEAD_QUALIFY_US {
-                self.touch_sent = true;
-                effects.push((contact, TouchGesture::Touch));
-            }
-            if !self.stroke_sent && at - contact.began >= HEAD_STROKE_US {
-                self.stroke_sent = true;
-                effects.push((contact, TouchGesture::Stroke));
-            }
+        let run_began = *self.run_began.get_or_insert(at);
+        self.last_active = at;
+        self.released = None;
+        let mut effects = Vec::with_capacity(3);
+        if self.spoiled {
+            return Ok(effects);
+        }
+        if !self.touch_sent && at - run_began >= HEAD_QUALIFY_US {
+            self.touch_sent = true;
+            effects.push((contact, TouchGesture::Touch, None));
+        }
+        let held = at - contact.began;
+        if self.touch_sent && !self.stroke_sent && held >= HEAD_STROKE_US {
+            self.stroke_sent = true;
+            effects.push((contact, TouchGesture::Stroke, None));
+        }
+        if self.touch_sent && !self.hold_sent && held >= HEAD_SLEEP_US {
+            self.hold_sent = true;
+            effects.push((contact, TouchGesture::Hold, None));
         }
         Ok(effects)
+    }
+    /// How long the hand has been there, through short gaps; none for a
+    /// contact a push spoiled, which counts towards nothing.
+    fn held(&self, observed: u64) -> Option<u64> {
+        let contact = self.contact?;
+        (!self.spoiled && self.touch_sent).then(|| observed - contact.began)
     }
 }
 
@@ -443,6 +510,11 @@ impl TouchEngine {
             state_sequence: 0,
             rejected_inputs: 0,
         })
+    }
+    /// Whether the body feels the head being pushed by hand now. A head
+    /// contact that overlaps a push asks for nothing more (#711).
+    pub fn set_head_pushed(&mut self, pushed: bool) {
+        self.head.pushed = pushed;
     }
     pub fn config(&self) -> &TouchConfig {
         &self.config
@@ -596,16 +668,25 @@ impl TouchEngine {
             }
         }
         if !self.config.head_pads.is_empty() {
-            for (contact, gesture) in self.head.observe(mask, at)? {
+            for (contact, gesture, released) in self.head.observe(mask, at)? {
                 let mut event = self.event_for(TouchSource::Head, contact, at, now);
                 event.gesture = gesture;
                 event.active_mask = mask;
                 event.active_names = self.head_names(mask);
-                if gesture == TouchGesture::Stroke {
-                    event.when_speaking = TouchIntent::Stroke;
-                    event.when_quiet = TouchIntent::Stroke;
-                    event.when_asleep = None;
-                }
+                event.released_us = released;
+                let (speaking, quiet, asleep) = match gesture {
+                    TouchGesture::Tap => (
+                        TouchIntent::Attend,
+                        TouchIntent::Attend,
+                        Some(TouchIntent::Wake),
+                    ),
+                    TouchGesture::Stroke => (TouchIntent::Stroke, TouchIntent::Stroke, None),
+                    TouchGesture::Hold => (TouchIntent::Sleep, TouchIntent::Sleep, None),
+                    _ => (TouchIntent::Stop, TouchIntent::Notice, None),
+                };
+                event.when_speaking = speaking;
+                event.when_quiet = quiet;
+                event.when_asleep = asleep;
                 self.emit(event)?;
             }
         }
@@ -837,6 +918,13 @@ impl TouchEngine {
             if state.armed && state.active == Some(true) {
                 state.held_us = state.observed_us.map(|at| at - contact.began);
             }
+        }
+        if source == TouchSource::Head {
+            // Through a pulse's short gap too; nothing for a pushed head.
+            state.held_us = state
+                .observed_us
+                .filter(|_| state.armed)
+                .and_then(|at| self.head.held(at));
         }
         state
     }

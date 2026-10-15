@@ -68,6 +68,13 @@ impl Rig {
             .unwrap();
         self.take(at)
     }
+    /// Head levels every 10 ms from `from` up to, not including, `to`.
+    fn run(&mut self, from: u64, to: u64, head: u16) -> Vec<TouchEvent> {
+        (from..to)
+            .step_by(10_000)
+            .flat_map(|at| self.gpio(at, false, false, head))
+            .collect()
+    }
     fn head_ready(&mut self) {
         for at in (0..=500_000).step_by(50_000) {
             assert!(self.gpio(at, false, false, 0).is_empty());
@@ -473,7 +480,7 @@ fn head_needs_startup_settle_and_a_released_baseline() {
     rig.gpio(1_020_000, false, false, 1);
     let e = rig.gpio(1_040_000, false, false, 1).pop().unwrap();
     assert_eq!(e.when_speaking, TouchIntent::Stop);
-    assert_eq!(e.when_quiet, TouchIntent::Attend);
+    assert_eq!(e.when_quiet, TouchIntent::Notice);
 }
 #[test]
 fn head_qualification_uses_acquisition_time_not_receipt_or_ticks() {
@@ -506,7 +513,7 @@ fn configured_head_order_controls_mask_and_active_names_not_input_vector_order()
     assert_eq!(e.active_names, ["pad96"]);
 }
 #[test]
-fn stationary_head_stroke_occurs_once_at_actual_half_second() {
+fn stationary_head_stroke_occurs_once_at_one_second() {
     let mut rig = Rig::new(head());
     rig.head_ready();
     let events = rig.hold(550_000, 2_550_000, false, false, 3);
@@ -526,7 +533,9 @@ fn stationary_head_stroke_occurs_once_at_actual_half_second() {
     );
 }
 #[test]
-fn fast_mode_pulses_never_fabricate_a_resting_hand() {
+fn fast_mode_pulses_under_a_resting_hand_are_one_hand() {
+    // #711: V1's TTP223 pads can pulse under a hand that stays; the owner's
+    // hold needs that hand to last, so gaps under HEAD_GAP_US join it.
     let mut rig = Rig::new(head());
     rig.head_ready();
     let mut events = Vec::new();
@@ -534,17 +543,28 @@ fn fast_mode_pulses_never_fabricate_a_resting_hand() {
         events.extend(rig.gpio(start, false, false, 1));
         events.extend(rig.gpio(start + 20_000, false, false, 1));
         events.extend(rig.gpio(start + 50_000, false, false, 0));
+        let held = rig.engine.tick(start + 50_000).state.sources[0].held_us;
+        assert_eq!(
+            held,
+            Some(start + 50_000 - 550_000),
+            "counts through the gap"
+        );
     }
-    assert_eq!(events.len(), 15);
-    assert!(events.iter().all(|e| e.gesture == TouchGesture::Touch));
-    assert!(events.windows(2).all(|e| e[0].contact_id < e[1].contact_id));
+    assert_eq!(
+        events.iter().map(|e| e.gesture).collect::<Vec<_>>(),
+        [TouchGesture::Touch, TouchGesture::Stroke]
+    );
+    assert!(events.iter().all(|e| e.contact_id == events[0].contact_id));
+    // A hand gone for the gap ends it, with no tap: it was not short.
+    assert!(rig.run(2_010_000, 2_200_000, 0).is_empty());
+    assert_eq!(rig.engine.tick(2_190_000).state.sources[0].contact_id, None);
 }
 #[test]
 fn authored_head_qualification_target_covers_first_and_repeated_sample_phases() {
     for cadence in [2_000, 5_000, 10_000, 20_000, 50_000] {
         let mut rig = Rig::new(head());
         rig.head_ready();
-        for start in [550_000, 650_000] {
+        for start in [550_000, 800_000] {
             let mut events = Vec::new();
             for at in (start..=start + 50_000).step_by(cadence as usize) {
                 events.extend(rig.gpio(at, false, false, 1));
@@ -552,7 +572,8 @@ fn authored_head_qualification_target_covers_first_and_repeated_sample_phases() 
             assert_eq!(events.len(), 1);
             let delay = events[0].observed_us - start;
             assert!((HEAD_QUALIFY_US..=HEAD_QUALIFY_US + cadence).contains(&delay));
-            rig.gpio(start + 60_000, false, false, 0);
+            // Gone for longer than the gap before the next touch.
+            rig.run(start + 60_000, start + 250_000, 0);
         }
     }
 }
@@ -872,14 +893,98 @@ fn reversed_strip_order_names_actual_destination_electrode() {
 }
 
 #[test]
-fn qualified_head_touch_offers_wake_without_changing_awake_pair() {
+fn a_head_touch_stops_a_talking_lamp_and_only_a_short_tap_asks_it_to_listen_or_wake() {
     let mut rig = Rig::new(head());
     rig.head_ready();
-    rig.gpio(510_000, false, false, 1);
-    let event = rig.gpio(530_000, false, false, 1).pop().unwrap();
-    assert_eq!(event.intent(false, true), Some(TouchIntent::Wake));
-    assert_eq!(event.intent(false, false), Some(TouchIntent::Attend));
-    assert_eq!(event.intent(true, false), Some(TouchIntent::Stop));
+    let touch = rig.run(510_000, 540_000, 1).pop().unwrap();
+    assert_eq!(touch.gesture, TouchGesture::Touch);
+    assert_eq!(touch.observed_us, 530_000);
+    assert_eq!(touch.intent(true, false), Some(TouchIntent::Stop));
+    assert_eq!(touch.intent(false, false), Some(TouchIntent::Notice));
+    assert_eq!(touch.intent(false, true), None);
+    // Last touched at 0.8 s, gone at 0.81 s: a tap, once the gap shows the
+    // hand has gone.
+    assert!(rig.run(540_000, 810_000, 1).is_empty());
+    assert!(rig.run(810_000, 800_000 + HEAD_GAP_US, 0).is_empty());
+    let tap = rig
+        .gpio(800_000 + HEAD_GAP_US, false, false, 0)
+        .pop()
+        .unwrap();
+    assert_eq!(tap.gesture, TouchGesture::Tap);
+    assert_eq!((tap.began_us, tap.released_us), (510_000, Some(810_000)));
+    assert_eq!(tap.contact_id, touch.contact_id);
+    assert_eq!(tap.intent(true, false), Some(TouchIntent::Attend));
+    assert_eq!(tap.intent(false, false), Some(TouchIntent::Attend));
+    assert_eq!(tap.intent(false, true), Some(TouchIntent::Wake));
+    // A second tap after the gap is its own contact.
+    rig.run(960_000, 1_200_000, 0);
+    assert_eq!(rig.run(1_200_000, 1_300_000, 2).len(), 1);
+    let second = rig.run(1_300_000, 1_450_000, 0).pop().unwrap();
+    assert_eq!(second.gesture, TouchGesture::Tap);
+    assert!(second.contact_id > tap.contact_id);
+}
+
+#[test]
+fn a_touch_let_go_at_half_a_second_or_a_blip_is_no_tap() {
+    let mut rig = Rig::new(head());
+    rig.head_ready();
+    // Held to 0.51 s: too long to be a tap, too short for a stroke.
+    assert_eq!(rig.run(550_000, 1_060_000, 1).len(), 1);
+    assert!(rig.run(1_060_000, 1_400_000, 0).is_empty());
+    // One 10 ms blip never qualified, so its letting go is nothing either.
+    rig.run(1_400_000, 2_000_000, 0);
+    assert!(rig.run(2_000_000, 2_010_000, 1).is_empty());
+    assert!(rig.run(2_010_000, 2_400_000, 0).is_empty());
+}
+
+#[test]
+fn a_hand_kept_three_seconds_asks_for_sleep_and_its_letting_go_asks_nothing() {
+    let mut rig = Rig::new(head());
+    rig.head_ready();
+    let events = rig.run(550_000, 3_560_000, 3);
+    assert_eq!(
+        events.iter().map(|e| e.gesture).collect::<Vec<_>>(),
+        [
+            TouchGesture::Touch,
+            TouchGesture::Stroke,
+            TouchGesture::Hold
+        ]
+    );
+    assert_eq!(events[1].observed_us - events[1].began_us, HEAD_STROKE_US);
+    let sleep = &events[2];
+    assert_eq!(sleep.observed_us - sleep.began_us, HEAD_SLEEP_US);
+    assert_eq!(sleep.intent(false, false), Some(TouchIntent::Sleep));
+    assert_eq!(sleep.intent(true, false), Some(TouchIntent::Sleep));
+    assert_eq!(sleep.intent(false, true), None);
+    // The countdown between: the hand's time, at every acquisition.
+    assert_eq!(
+        rig.engine.tick(3_550_000).state.sources[0].held_us,
+        Some(3_000_000)
+    );
+    assert!(rig.run(3_560_000, 4_000_000, 0).is_empty());
+}
+
+#[test]
+fn a_head_pushed_by_hand_asks_for_nothing() {
+    // #711: the body feels the head being moved; a touch then means nothing.
+    let mut rig = Rig::new(head());
+    rig.head_ready();
+    rig.engine.set_head_pushed(true);
+    assert!(rig.run(550_000, 4_000_000, 1).is_empty());
+    assert_eq!(rig.engine.tick(3_990_000).state.sources[0].held_us, None);
+    assert!(rig.run(4_000_000, 4_400_000, 0).is_empty());
+    // Pushed after the touch: the stop stands, and nothing comes after it.
+    rig.engine.set_head_pushed(false);
+    assert_eq!(rig.run(4_400_000, 4_430_000, 1).len(), 1);
+    rig.engine.set_head_pushed(true);
+    rig.run(4_430_000, 4_440_000, 1);
+    rig.engine.set_head_pushed(false);
+    assert!(rig.run(4_440_000, 8_500_000, 1).is_empty());
+    assert!(rig.run(8_500_000, 8_900_000, 0).is_empty());
+    // A short tap once the push is over is a tap again.
+    assert_eq!(rig.run(8_900_000, 8_930_000, 1).len(), 1);
+    let tap = rig.run(8_930_000, 9_100_000, 0).pop().unwrap();
+    assert_eq!(tap.gesture, TouchGesture::Tap);
 }
 
 #[test]

@@ -198,7 +198,7 @@ fn blocked_or_faulted_strip_does_not_refresh_or_cancel_independent_gpio() {
     let mut cfg = config(true);
     cfg.head_pads = vec!["head-1".into()];
     let mut records = Vec::new();
-    for (index, at) in (0..=1_200_000).step_by(20_000).enumerate() {
+    for (index, at) in (0..=1_700_000).step_by(20_000).enumerate() {
         records.push(gpio(at, index as u64 + 1, at >= 600_000));
         if at <= 500_000 {
             records.push(strip(at, index as u64 + 1, 0));
@@ -212,7 +212,7 @@ fn blocked_or_faulted_strip_does_not_refresh_or_cancel_independent_gpio() {
             });
         }
     }
-    let (summary, output) = run(cfg, &records, Some(1_200_000));
+    let (summary, output) = run(cfg, &records, Some(1_700_000));
     assert_eq!(
         (summary.rejected, summary.faults, summary.events),
         (0, 1, 2)

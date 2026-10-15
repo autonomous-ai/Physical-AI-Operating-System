@@ -1,5 +1,46 @@
 # Tests work log
 
+## 2026-10-16 00:16 +0700 — three clock preparations ready; serve coordination passes all existing cases
+
+Ready for lamp-voice: yes (#867, #875, #877)
+
+- #867 head `09b7512f4`: ARM64 `38769725447` passed 4,745 tests with 126
+  existing profile skips, including all nine shared backend/fake-runtime clock
+  regressions. The original and independent 288-test local gates remain.
+- #875 head `5020ed55a`: ARM64 `38769997069` passed 4,745 / 126; all four new
+  serve clock checks ran. Local full evaluator gate: 296 passed. Reviewer
+  source reconstruction found no change needed; independent full gate running.
+- #877 head `3fb8aacb2`: ARM64 `38771112900` passed 4,747 / 126; all six new
+  prepared-player checks ran. Local full evaluator gate: 298 passed. Reviewer
+  source reconstruction found no change needed; independent full gate running.
+- [Exact native result rows](verification/clock-preparations-arm64-20261016/README.md)
+  retain each run/head identity. These preparation PRs change no existing
+  scenario constructors and make no speedup claim.
+- Coordinated serve now passes **205 library tests** and **all 14 original
+  serve-session identities in 111.763 s**, serial debug nextest on x86_64 macOS,
+  no skips/retries. Ten identities / 18 attempts use controlled time; three
+  recorder cases and one delayed-transport case remain on host time. All 22
+  attempts and original assertions are retained. A same-helper baseline with
+  original constructors is running; no paired speedup claim yet.
+- #879's shared-channel fix uses bounded nonblocking I/O. Ten new regressions
+  and both formerly failing cases pass. The first restricted invocation hit
+  30 Unix-socket EPERM errors; its log is retained, followed by the authorized
+  local-socket gate above. This was an environment correction, not a flaky
+  test retry. Independent protocol review and finite-port source audit pass.
+- Finite loopback's previous 342-test gate and 248.575 s / 28.471 s pair remain
+  historical. Its post-#879 full gate is running. A stale local Bus release
+  artifact was identified (its dependency list lacked the source's logging
+  module), retained for diagnosis, and invalidated before the rebuild.
+- The pure recorder clock/wait seam is isolated with nine new boundary tests
+  and source-reversal proof; Cargo gates are pending. Subsequent controlled
+  recorder work is isolated from both measured trees.
+
+#872 stays draft on unchanged Tasks failure #876; #868 stays draft on Schedule
+#869; #866 is unclaimed. #832 remains blocked by #838. #783's delivered sweep
+and Bus follow-up are merged; policy qualification and close decision stay with
+the eighth, and #837 remains separate. No workflow, profile, runner, setting or
+device changes. The 123-test serial under-two-minute goal remains open.
+
 ## 2026-10-15 23:45 +0700 — clock preparations gated; full ARM64 blocker preserved
 
 Ready for lamp-voice: no (new heads await native qualification)

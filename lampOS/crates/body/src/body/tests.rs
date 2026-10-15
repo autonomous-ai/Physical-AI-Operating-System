@@ -4243,9 +4243,11 @@ fn a_base_still_pushed_a_second_after_it_stopped_makes_the_lamp_slump_as_v1() {
         // A hand turns the base 30 counts and holds it there until 3 s;
         // pushed again, without moving it, once it is up.
         lamp.hand = Some((secs(1.5), secs(3.0), YAW, 2_045.0));
+        // Over V1's contact floor for the base (550): only a joint stopped
+        // there may make the lamp slump.
         lamp.strains = vec![
-            (secs(1.5), secs(3.0), YAW, 300),
-            (secs(again), secs(again + 2.0), YAW, 300),
+            (secs(1.5), secs(3.0), YAW, 600),
+            (secs(again), secs(again + 2.0), YAW, 600),
         ];
         let limits = Limits {
             give_way: limp.then_some(GiveWay::Return),
@@ -4308,6 +4310,37 @@ fn a_base_still_pushed_a_second_after_it_stopped_makes_the_lamp_slump_as_v1() {
         "{report:?}"
     );
     assert!(lamp.registers.iter().all(|(_, address, _)| *address != 40));
+}
+
+/// As lamp-52e6 on 2026-10-15: after a slump the head lies low and lifts
+/// itself home heavily (37 counts short at a load of 144). That is not a
+/// hand: until the lamp has settled only V1's contact floor tells a hand,
+/// so it does not slump again with nobody touching it.
+#[test]
+fn a_head_lifting_itself_after_a_slump_does_not_make_the_lamp_slump_again() {
+    let secs = Duration::from_secs_f32;
+    let (mut lamp, mut clock) = folded(secs(170.0));
+    lamp.may_take_hold = true;
+    lamp.hand = Some((secs(1.5), secs(3.0), YAW, 2_045.0));
+    lamp.strains = vec![(secs(1.5), secs(3.0), YAW, 600)];
+    // Slumped, the head sinks 60 counts.
+    lamp.event = Some((secs(2.9), PITCH, Event::Push(60.0)));
+    lamp.heavy = Some((PITCH, 1_850.0, 37.0, 144));
+    let time = clock.time.clone();
+    let news = move || {
+        Some(if time.get() < secs(135.0) {
+            (Mood::Resting, 0)
+        } else {
+            (Mood::Listening, 100)
+        })
+    };
+    let limits = Limits {
+        limp: true,
+        ..giving_way(GiveWay::Return)
+    };
+    let report = run(&mut lamp, &mut clock, limits, None, news, |_| {});
+    assert_eq!(report.stop, Stop::Cancelled, "{report:?}");
+    assert_eq!(report.released.len(), 1, "{:?}", report.released);
 }
 
 /// After a slump a hand may leave the base far off. With `--limp on` the

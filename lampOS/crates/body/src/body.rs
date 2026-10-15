@@ -260,6 +260,18 @@ pub struct Asked {
     pub called: bool,
 }
 
+impl Asked {
+    /// What a paused lamp is asked: nothing, and it sees nobody. With no
+    /// look at all, a face counted before the pause kept it standing for
+    /// good (lamp-52e6, 2026-10-15, still up six minutes into a pause).
+    pub const PAUSED: Asked = Asked {
+        seen: Some(Seen { face: None }),
+        gesture: None,
+        expression: None,
+        called: false,
+    };
+}
+
 /// The most that may be added to a pose for [`Asked::expression`], in
 /// counts, for the head's pitch, its roll and the base's turn: about five,
 /// four and six degrees. What is asked is cut to this and then to the

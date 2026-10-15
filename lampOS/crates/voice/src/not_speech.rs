@@ -28,10 +28,129 @@ pub const AFTER_OWN_WORDS_US: u64 = 4_000_000;
 /// "Hello?") and no count of their blocks tells them from tonal sounds
 /// (`docs/not-speech.md`).
 pub const SHORT_ENVIRONMENT: &str = "LAMP_SHORT_SOUNDS";
+/// The value that lets a short utterance through, as `quiet-room` does, and
+/// has the provider worker hold its answer unless something shows it was
+/// said to the lamp (#800, [`CHECKED_FLAG`]).
+pub const CHECKED: &str = "quiet-room-checked";
+/// The provider worker's flag for [`CHECKED`].
+pub const CHECKED_FLAG: &str = "--sounds-checked";
 
 /// Whether the environment lets a short utterance through in a quiet room.
 pub fn short_sounds_from_environment() -> bool {
-    std::env::var(SHORT_ENVIRONMENT).ok().as_deref() == Some("quiet-room")
+    short_sounds(std::env::var(SHORT_ENVIRONMENT).ok().as_deref())
+}
+
+fn short_sounds(value: Option<&str>) -> bool {
+    matches!(value, Some("quiet-room" | CHECKED))
+}
+
+/// The provider worker's argument for [`CHECKED`].
+pub fn arguments_from_environment() -> Vec<String> {
+    arguments(std::env::var(SHORT_ENVIRONMENT).ok().as_deref())
+}
+
+fn arguments(value: Option<&str>) -> Vec<String> {
+    if value == Some(CHECKED) {
+        vec![CHECKED_FLAG.to_owned()]
+    } else {
+        Vec::new()
+    }
+}
+
+/// Take a leading [`CHECKED_FLAG`] off a worker's flags.
+pub fn take_checked(flags: &[String]) -> (bool, &[String]) {
+    match flags {
+        [flag, rest @ ..] if flag == CHECKED_FLAG => (true, rest),
+        _ => (false, flags),
+    }
+}
+
+/// Short things a person says to the lamp, in English as it is spoken to:
+/// a heard text that is one of these, whole, is a word and not a room's
+/// sound (#800). The lamp is spoken to in English (`deploy/character`).
+pub const SHORT_WORDS: &[&str] = &[
+    "yes",
+    "yeah",
+    "yep",
+    "yup",
+    "no",
+    "nope",
+    "stop",
+    "what",
+    "okay",
+    "ok",
+    "sure",
+    "go ahead",
+    "yes go ahead",
+    "go on",
+    "thanks",
+    "thank you",
+    "hello",
+    "hi",
+    "hey",
+    "lamp",
+    "hey lamp",
+    "please",
+    "wait",
+    "right",
+    "cool",
+    "great",
+    "nice",
+    "again",
+    "sorry",
+    "pardon",
+    "huh",
+    "really",
+    "why",
+    "how",
+    "when",
+    "who",
+    "where",
+    "done",
+    "louder",
+    "quieter",
+    "good",
+    "fine",
+    "never mind",
+    "nevermind",
+    "bye",
+    "goodbye",
+    "good night",
+    "morning",
+    "good morning",
+    "do it",
+    "start",
+    "cancel",
+    "shush",
+    "quiet",
+    "be quiet",
+    "enough",
+    "that's it",
+    "that's all",
+    "all right",
+    "alright",
+];
+
+/// The words of a heard text, lower-case, without marks.
+pub fn plain_words(text: &str) -> Vec<String> {
+    text.chars()
+        .map(|c| {
+            if c.is_alphanumeric() || c == '\'' {
+                c.to_ascii_lowercase()
+            } else {
+                ' '
+            }
+        })
+        .collect::<String>()
+        .split_whitespace()
+        .map(str::to_owned)
+        .collect()
+}
+
+/// Whether a heard text is, whole, one of [`SHORT_WORDS`].
+pub fn short_word(text: &str) -> bool {
+    let words = plain_words(text);
+    !words.is_empty() && SHORT_WORDS.contains(&words.join(" ").as_str())
 }
 
 /// Whether an utterance judged a sound is still sent on: with the switch,
@@ -86,6 +205,52 @@ pub fn names_a_function(opening: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// #800: `quiet-room-checked` lets short sounds through as `quiet-room`
+    /// does and tells the provider worker to check them; nothing else does.
+    #[test]
+    fn the_checked_value_lets_sounds_through_and_has_the_worker_check_them() {
+        assert!(short_sounds(Some("quiet-room")) && short_sounds(Some(CHECKED)));
+        for other in [None, Some("on"), Some("checked"), Some("QUIET-ROOM")] {
+            assert!(!short_sounds(other));
+            assert!(arguments(other).is_empty());
+        }
+        assert!(arguments(Some("quiet-room")).is_empty());
+        assert_eq!(arguments(Some(CHECKED)), [CHECKED_FLAG]);
+        let flags: Vec<String> = [CHECKED_FLAG, "--next"].map(String::from).into();
+        assert_eq!(take_checked(&flags), (true, &flags[1..]));
+        assert_eq!(take_checked(&flags[1..]), (false, &flags[1..]));
+    }
+
+    /// What was heard is a short word only whole: the words people say to
+    /// the lamp, not a sound written as a word in another language.
+    #[test]
+    fn a_short_word_is_one_said_to_the_lamp_whole() {
+        for word in [
+            "Yes.",
+            "yeah",
+            "Stop!",
+            "What?",
+            "Yes, go ahead.",
+            "Okay.",
+            "Thank you.",
+        ] {
+            assert!(short_word(word), "{word}");
+        }
+        for not in [
+            "¿Qué?",
+            "Claro.",
+            "Hola.",
+            "albero",
+            "",
+            "...",
+            "Stop the music",
+            "Yes I think so",
+        ] {
+            assert!(!short_word(not), "{not}");
+        }
+        assert_eq!(plain_words(" ¿Qué, PASA? "), ["qué", "pasa"]);
+    }
 
     #[test]
     fn a_sound_goes_on_only_with_the_switch_and_only_in_a_room_that_is_not_busy() {

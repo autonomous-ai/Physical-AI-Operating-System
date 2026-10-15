@@ -269,6 +269,10 @@ pub fn decide(
 }
 
 const TURNED: &str = "someone is turned to the lamp";
+const SOUND_A_WORD: &str = "a short sound, heard as a short word said to the lamp";
+const SOUND_NEAR: &str = "a short sound, said close to the lamp";
+const SOUND_TURNED: &str = "a short sound, with someone turned to the lamp";
+const SOUND_HELD: &str = "a short sound, and nothing shows it was said to the lamp: not a short word, not close, nobody turned to it";
 const NAMED_PLAINLY: &str = "its name was heard plainly in the room's sound";
 
 /// A hearing of the name this sure counts as a call in a busy room even
@@ -354,6 +358,11 @@ pub struct Attention {
     /// Whether it was said to the lamp from close to it, as
     /// [`crate::addressed::judge`] found.
     addressed: bool,
+    /// A short sound let through in a quiet room is held unless something
+    /// shows it was said to the lamp (`LAMP_SHORT_SOUNDS=quiet-room-checked`,
+    /// #800), and whether the request in hand ended as such a sound.
+    sounds_checked: bool,
+    sound: bool,
     /// Whether the request judged last was the lamp's own turn, as the
     /// judging read it, for the record ([`Attention::baseline`]).
     judged_own: bool,
@@ -459,6 +468,26 @@ impl Attention {
         self.best_score = 0.0;
         self.near = false;
         self.addressed = false;
+        self.sound = false;
+    }
+
+    /// Short sounds let through are checked (`--sounds-checked`, #800).
+    pub fn check_sounds(&mut self, on: bool) {
+        self.sounds_checked = on;
+    }
+
+    /// The sound of `request` was ended as a short sound let through in a
+    /// quiet room (`ProviderInput::End { sound: true }`).
+    pub fn ended_as_sound(&mut self, request: u64) {
+        if request == self.request {
+            self.sound = true;
+        }
+    }
+
+    /// Whether the request in hand is a short sound to be checked: the
+    /// eyes are then read for it whatever the room.
+    pub fn sound_in_hand(&self) -> bool {
+        self.sounds_checked && self.sound
     }
 
     /// When the request in hand began and, if it has, when its sound
@@ -529,6 +558,24 @@ impl Attention {
         let own = OWN_REQUEST.load(Ordering::Acquire) == request;
         self.judged_own = own;
         let fresh = self.begun <= FRESH_REQUESTS;
+        // A short sound let through in a quiet room (#800): on lamp-52e6 on
+        // 2026-10-15 at 13:03 a room sound of 0.7 s was heard as "¿Qué?" and
+        // answered, nobody having spoken to the lamp. It is answered only
+        // when what was heard is a short word said to the lamp, or it was
+        // said close to the lamp, or someone is turned to it.
+        if self.sound_in_hand() && !own {
+            let verdict = if crate::not_speech::short_word(&self.heard) {
+                Verdict::Play(SOUND_A_WORD)
+            } else if self.near {
+                Verdict::Play(SOUND_NEAR)
+            } else if turned == Some(true) {
+                Verdict::Play(SOUND_TURNED)
+            } else {
+                Verdict::Hold(SOUND_HELD)
+            };
+            self.verdict = Some(verdict);
+            return Some(verdict);
+        }
         if strict && room == Room::Busy && self.named_sure {
             let verdict = Verdict::Play(NAMED_PLAINLY);
             self.verdict = Some(verdict);
@@ -606,6 +653,71 @@ mod tests {
     /// heard at 0.97 to 0.99 with no face: close to the lamp, with
     /// `--attention-near`, they are calls; from farther off, or with a
     /// weaker name, they are not; and in a room not busy nothing changes.
+    /// #800: with `--sounds-checked`, a short sound let through in a quiet
+    /// room is answered only when something shows it was said to the lamp.
+    /// Without the switch, or for a request that did not end as such a
+    /// sound, the rule is as it was.
+    #[test]
+    fn a_short_sound_is_answered_only_when_something_shows_it_was_said_to_the_lamp() {
+        let decide = |checked: bool, sound: bool, heard: &str, near: bool, turned: Option<bool>| {
+            let mut attention = Attention::default();
+            attention.check_sounds(checked);
+            attention.began_at(7, 1, 70_000_000);
+            attention.heard(heard);
+            attention.set_near(near);
+            if sound {
+                // Another request's sound is not this one's.
+                attention.ended_as_sound(6);
+                attention.ended_as_sound(7);
+            }
+            attention
+                .first_output_busy(7, Room::Quiet, true, false, turned)
+                .unwrap()
+        };
+        // The office sound of 13:03 on lamp-52e6.
+        assert_eq!(
+            decide(true, true, "¿Qué?", false, None),
+            Verdict::Hold(SOUND_HELD)
+        );
+        assert_eq!(
+            decide(true, true, "¿Qué?", false, Some(false)),
+            Verdict::Hold(SOUND_HELD)
+        );
+        assert_eq!(
+            decide(true, true, "", false, None),
+            Verdict::Hold(SOUND_HELD)
+        );
+        // A short word, said close, or with someone turned to the lamp.
+        for word in ["Yes.", "Stop.", "What?", "Yes, go ahead.", " hey Lamp "] {
+            assert_eq!(
+                decide(true, true, word, false, None),
+                Verdict::Play(SOUND_A_WORD),
+                "{word}"
+            );
+        }
+        assert_eq!(
+            decide(true, true, "Claro.", true, None),
+            Verdict::Play(SOUND_NEAR)
+        );
+        assert_eq!(
+            decide(true, true, "¿Qué?", false, Some(true)),
+            Verdict::Play(SOUND_TURNED)
+        );
+        // Without the switch, or not a sound: as before.
+        let before = decide(false, false, "¿Qué?", false, None);
+        assert!(matches!(before, Verdict::Play(_)));
+        assert_eq!(decide(false, true, "¿Qué?", false, None), before);
+        assert_eq!(decide(true, false, "¿Qué?", false, None), before);
+        // The next request forgets that the last one was a sound.
+        let mut attention = Attention::default();
+        attention.check_sounds(true);
+        attention.began_at(7, 1, 70_000_000);
+        attention.ended_as_sound(7);
+        assert!(attention.sound_in_hand());
+        attention.began_at(8, 1, 80_000_000);
+        assert!(!attention.sound_in_hand());
+    }
+
     #[test]
     fn a_name_heard_close_to_the_lamp_is_a_call_in_a_busy_room() {
         let decide = |score: f32, near: bool, room: Room| {

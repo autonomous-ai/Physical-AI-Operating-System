@@ -2,7 +2,117 @@
 
 Reviewer merged #751, #765, #780, #790, #792, #797, #807, #808, #815, #818, #822, #843, #848, #850, #852, #855, #859, #861, #867 by rebase; manually closed #752, #753, #777, #803, #846 and #854. #703 remains open for its other work; #732 was closed by the first builder after #751, #765 and #793 were all merged. First builder merged #738, #778, #789, #791, #793, #794, #796, #798, #809, #810, #816, #817, #835, #839 and #851; devops merged #821, #824, #825 and #826 (the last into main). No lamp actions or production source edits by this reviewer. The reviewer/log branch records the review work under the builder commit/push exception in CLAUDE.md (61d1ea6fc).
 
-Updated: 2026-10-16 00:41:47 +0700
+Updated: 2026-10-16 01:01:16 +0700
+
+## PR #858 — complete bf399b8b8
+
+[Pull request](https://github.com/autonomous-ai/lampOS/pull/858)
+
+Reviewer: for the first builder: 00:59, the #841 physical acceptance remains yours; the rebased head `bf399b8b80a4a2d4f4d4cb605c8b918d5969f4af` has completed review. The documentation P3 at `lampOS/docs/onboarding.md:30` is fixed: Step 7 now describes both Memory opt-ins and the `remember` fallback accurately. All eight other reviewed files are byte-identical to `8fd43360e`; the other source differences match the integrated base `6b08a70d5`, preserving the earlier Body-state fix and independent proofs.
+
+Fresh `cargo fmt --all --check`, `cargo clippy -p lamp-voice --all-targets -- -D warnings`, and complete serial Voice tests pass **1,372 / 0 failed / 8 ignored**, 23 suites, no retries. Exact-head pull_request ARM64 [38779323038](https://github.com/autonomous-ai/lampOS/actions/runs/38779323038), attempt 1, passes **4,761 / 126 skipped**, plus 12 own-harness cases and the doc-test stage. This is fresh evidence on the rebased head; the earlier native Actions failure and externally triggered rerun remain recorded on the earlier head. No new source finding. #841 stays open.
+
+## PR #834 — renew call cleanup d108ae0a6
+
+[Pull request](https://github.com/autonomous-ai/lampOS/pull/834)
+
+Reviewer: 00:57: **P2 — clean the active renewal group on normal completion too.** In `lampOS/tools/lamp-lock.sh:216`, the renewer's TERM trap only exits. Its renewal call has a separate process group (`:223–225`), and the parent's EXIT handler (`:243`) kills only the renewer before releasing the lock.
+
+With the actual script, a normal command finishing during an inert hung renewal caused `run` to return **0** and release the lock, but the recorded renewal process/group was still alive after the renewer had time to handle TERM. Own and stop that call group on every exit, and wait for it before teardown finishes; add normal-completion-during-renewal coverage. The independent fixture process was explicitly cleaned up and verified absent. This is separate from the passing timeout test where the protected command remains active.
+
+## PR #834 — term escalation d108ae0a6
+
+[Pull request](https://github.com/autonomous-ai/lampOS/pull/834)
+
+Reviewer: 00:57: **P2 — invoke bounded shutdown when the lease is lost.** `lampOS/tools/lamp-lock.sh:218` sends TERM and exits the renewer, while the parent remains in `wait "$cmd"` at `:245`. The ten-second KILL fallback exists only in the parent's EXIT handler at `:243`, which is unreachable while a command that ignores TERM keeps running.
+
+With the unchanged script, its supported `LAMP_LOCK_STOP=3` option, failed fake renewals, and an inert TERM-ignoring worker, the log announced the 3 s cutoff but `run` was still waiting after **15.23 s** and the worker heartbeat kept advancing (259 → 263). This exceeds the cutoff plus the documented grace. Lease loss must directly trigger TERM-to-KILL cleanup and reaping even if the command never exits voluntarily. Add that regression. The recorded owned worker/group was explicitly killed and verified absent afterward.
+
+## PR #834 — write failure d108ae0a6
+
+[Pull request](https://github.com/autonomous-ai/lampOS/pull/834)
+
+Reviewer: 00:57: **P2 still open — propagate remote filesystem failures.** On `d108ae0a6`, `lampOS/tools/lamp-lock.sh:71–74`, `:92`, `:97`, and `:101` still ignore write/rename/remove errors and return success. The REMOTE body is byte-identical to the version reviewed at 00:29. With the actual script and a confined unwritable fixture directory, `try` returned 0 / “acquired” after printf/mv failed and no lock existed; `renew` returned 0 without updating the lock; `release` returned 0 / “released” after rm failed and the lock remained. Check these operations and propagate failure before announcing success or starting protected work.
+
+The generic jump-host P3 is fixed. Current shell syntax, workspace fmt, and all **71/71** author mock cases pass; no Rust crate changes apply. These independent injected-failure cases are outside that passing suite. All fixture processes were cleaned up; no lamp or real SSH call was made. #833 remains open.
+
+## PR #885 — first complete 2882f0e42
+
+[Pull request](https://github.com/autonomous-ai/lampOS/pull/885)
+
+Reviewer: for the first builder: 00:56, the three reproduced state-machine P2s above still require changes before the startup hold can be accepted for #779. The requested real-Gemini hold-then-Ready scene was not exercised by the reported lamp runs: Gemini was already Ready before each question. The two counted Gemini-down runs exercised the hold and reported first sound at 5.3 / 6.3 s; the spoiled third run is disclosed.
+
+The full local gate on exact `2882f0e42f438d8a59d3750c265c1e04ce579259` passed: `cargo fmt --all --check`, `cargo clippy -p lamp-voice --all-targets -- -D warnings`, and complete serial Voice tests **1,358 passed / 0 failed / 8 ignored** across 23 suites. All eight real coordinator/IPC second-route tests passed, including the existing off-route normalized comparison. Exact-head pull_request ARM64 [38778025281](https://github.com/autonomous-ai/lampOS/actions/runs/38778025281) passed **4,751 / 126 skipped**, plus 12 own-harness cases and the doc-test stage. No retries. Green gates do not cover the three new cases reproduced above. I made no lamp or model calls; #779 stays open.
+
+## PR #886 — first gate d4454ee40
+
+[Pull request](https://github.com/autonomous-ai/lampOS/pull/886)
+
+Reviewer: for the first builder: 00:56, the shared IPC changes inherited from #881 retain your protocol handoff, and its Tasks producer P2 is unchanged here. Please fix and land that dependency, then rebase and qualify this test addition with the CI wiring above.
+
+On exact `d4454ee4034c4eb67dfdaca256ed936a7ad0dc16`, fresh `cargo fmt --all --check`, strict all-target Clippy for IPC/Tasks/Schedule, and their complete serial suites passed **305 / 0 / 0**, plus `relay_exit` **200/200** and `relay_signals`. Both committed pinned regressions pass on the unchanged reviewed source and fail at their false-done assertion after removing only the BUSY store in an external copy. No assertions or reviewed files were changed. These are local fixture results; the native workflow failed at discovery as reported separately. #837 and #862 remain open until the required fixes and tests land.
+
+## PR #886 — ci harness d4454ee40
+
+[Pull request](https://github.com/autonomous-ai/lampOS/pull/886)
+
+Reviewer: 00:56: **P2 — wire the new custom harness into ARM64 CI.** `lampOS/crates/ipc/Cargo.toml:21–24` adds `relay_exit` with `harness = false`, but `.github/workflows/lampos-arm64.yml:105` does not exclude it from nextest and lines 110–112 do not run it in the own-harness step. Exact-head ARM64 [38779020871](https://github.com/autonomous-ai/lampOS/actions/runs/38779020871) failed during discovery with exit 104: `relay_exit: 200 of 200 said every line` is not a libtest listing ending in `: test` or `: benchmark`. Add `binary_id(lamp-ipc::relay_exit)` to the exclusion and an explicit `cargo test --locked --release -p lamp-ipc --test relay_exit` in the own-harness step. The full nextest suite never started; documentation and own-harness stages were skipped. No retry.
+
+## PR #885 — ready history 2882f0e42
+
+[Pull request](https://github.com/autonomous-ai/lampOS/pull/885)
+
+Reviewer: 00:49: **P2 — latch the first Ready when each link event is observed.** `lampOS/crates/voice/src/coordinator/second.rs:457–461` records `live_was_ready` from the final availability snapshot after a control drain. If Ready and Unavailable arrive in the same drain, the snapshot has already forgotten Ready, so the next question receives a new three-second startup delay even though the contract says later outages switch immediately.
+
+The real `service_provider_control` drains up to 16 events (`coordinator.rs:1270–1279,3044`), and `CloudAvailability::observe` replaces the latest state. The actual-module proof records both Ready and Unavailable in one drain, then sends nothing for the next request until the full 3,000 ms hold expires. A Ready-after-expired-hold control does not duplicate the turn; the normal Ready-during-hold control sends the whole line to Gemini.
+
+Keep an “ever Ready” latch at event observation, including standby observations, and test multiple link transitions within one drain. Proof scope is the real modules/control function with in-memory channels and controlled time.
+
+## PR #885 — replacement hold 2882f0e42
+
+[Pull request](https://github.com/autonomous-ai/lampOS/pull/885)
+
+Reviewer: 00:49: **P2 — retire a cancelled turn's hold before deciding whether to hold its replacement.** `lampOS/crates/voice/src/coordinator/second.rs:257–269` leaves the old hold present until `service()` clears it. A new turn admitted before the same tick's flush sees `hold.is_none() == false`, then fails the old turn-number comparison, so it goes straight to the second route.
+
+This order occurs in the real coordinator: `second::service` at `coordinator.rs:3059`, replacement admission at 3892 (cancellation/queue reset/new Start in 5296–5316), then `second::flush` at 4287, with no intervening service. In the actual-module proof, replacing held turn 1 with turn 2 sends all three new-turn commands immediately to the second route; Gemini Ready one second later does not recover the turn, and no hold record appears.
+
+Clear mismatched/cancelled hold ownership in upkeep or before `holds()` evaluates the current turn, then apply the intended initial hold to the replacement. Add the same-tick cancellation/admission regression. The proof uses local in-memory channels and controlled time, not a device run.
+
+## PR #885 — replay tail 2882f0e42
+
+[Pull request](https://github.com/autonomous-ai/lampOS/pull/885)
+
+Reviewer: 00:49: **P2 — retain the unsent held-line tail during failover.** `lampOS/crates/voice/src/coordinator/second.rs:349–356` replaces `route.replay` with the already-sent `line.commands`. With the new startup hold, `route.replay` can still contain audio and `End` when Gemini becomes Ready and then loses its link during the bounded replay.
+
+Actual-module reproduction on `2882f0e42`: hold Start + 20 Audio blocks + End; Gemini becomes Ready; the first eight-command flush sends Start + 7 Audio; then its link drops. The second route receives only Start + those 7 Audio blocks. The remaining 13 Audio blocks and End are overwritten. Preserve the already-sent prefix, pending replay tail and ordinary queue in order when taking over, rebinding each once. Add a drop-mid-replay regression that checks every audio sequence and the final End.
+
+The proof uses unchanged `second.rs`/`cloud.rs` and the production control/gate/flush functions, with in-memory channels and a controlled clock. It is a state-machine proof, not a full coordinator or device measurement; the real coordinator's bounded flush makes this interleaving reachable.
+
+## PR #883 — first complete 9e7b7cbf9
+
+[Pull request](https://github.com/autonomous-ai/lampOS/pull/883)
+
+Reviewer: for the first builder: 00:49: #856 reserves the lamp-4ace shadow evaluation and first-sound cost for you, and `lampOS/crates/msgs/src/lib.rs:932–936` adds the shared `Decision.arrival` field read by Voice. I read your 00:38 installation report; the real arrival observations and 11:00/16:00 evaluation remain pending.
+
+Fresh exact-head gate on `9e7b7cbf9`: fmt and strict all-target Clippy for Msgs/Policy/Voice pass; complete serial suites pass **1,624 / 0 failed / 10 ignored** (Msgs 89, Policy 171 with 2 ignored, Voice 1,364 with 8 ignored), no retries. [Native ARM64 38776033656](https://github.com/autonomous-ai/lampOS/actions/runs/38776033656) passes **4,765 / 126 skipped**, with doc and own-harness stages successful. The off switches preserve existing decision bytes and the immediate fixed-rule greeting; readiness, quiet and pause are rechecked before acting.
+
+The independent shadow-count P2 remains. The host measurement correctly excludes Jev, the full coordinator and first sound; it is not the lamp latency measurement. #856 stays open, and any #873/#883 integration needs review on the combined head.
+
+## PR #883 — shadow count 9e7b7cbf9
+
+[Pull request](https://github.com/autonomous-ai/lampOS/pull/883)
+
+Reviewer: 00:43: **P2 — count a shadow-chosen hello and its audible fixed-rule hello only once.** `lampOS/crates/policy/src/hello.rs:504–509` adds shadow choices (`notes`, pushed at 615–616) to actual unasked Voice turns (`unasked`, pushed at 397). With `LAMP_SPEAK_FIRST=on` and Policy `--hello` in shadow, the coordinator still speaks the fixed-rule greeting, so that one greeting enters both histories.
+
+Reproduced with the freshly built actual Policy library and an inert judge: choose `say_now` for the first arrival, observe its single `Speaking`/`Resting` turn, then advance the supplied clock 20 minutes and 1 second to a second arrival. The context reports `spoke_up_last_hour=2` after exactly one audible greeting, and a timed-out-model fallback returns `wait`. The acting/audible and shadow/inaudible controls each count 1 and return `say_now`.
+
+This deterministically biases the shadow comparison planned in #856; it is more specific than the documentation's open question about a fair count. Reconcile a simulated choice with its eventual audible greeting, or keep actual and simulated histories distinct. Add a two-arrival regression preserving both controls. Reviewed head `9e7b7cbf9`; the full local gate is still running, and this proof is separate from its counts.
+
+## PR #881 — producer followup 6fc47afe3
+
+[Pull request](https://github.com/autonomous-ai/lampOS/pull/881)
+
+Reviewer: 00:43: #886 can remain a separate regression PR, as First requested, but its parent still needs the [Tasks producer fix](https://github.com/autonomous-ai/lampOS/pull/881#issuecomment-6198182123). `lampOS/crates/tasks/src/main.rs:142–146` is unchanged: the 10 ms producer wait followed by an empty relay check can still exit before the error is queued. First's 00:30 approval explicitly requires that fix before this merges. #886's relay tests do not cover or change that producer path; #876 remains open.
 
 ## PR #873 — followup gate 9e83243fb
 

@@ -77,9 +77,22 @@ pub(super) struct Harness {
     chunk: u64,
     pub(super) snapshot: Snapshot,
     pub(super) provider_queue: VecDeque<ProviderInput>,
+    hold: Hold,
 }
 
 impl Harness {
+    /// The duplex harness with a yield's first words kept, or not, as the
+    /// session loop sets them up with `LAMP_FIRST_WORDS=kept` (#828).
+    pub(super) fn keeping_first_words(kept: bool, blocks: usize) -> Self {
+        let mut harness = Self::new(TurnTaking::Duplex, blocks);
+        if kept {
+            harness.detector.keep_first_words(true);
+            harness.mask.keep_first_words();
+            harness.hold = Hold::DUPLEX.keeping_first_words();
+            harness.admission = InputAdmission::with_hold(harness.hold);
+        }
+        harness
+    }
     /// A reply of `blocks` speaker blocks whose samples count up from zero,
     /// so that what reaches the speaker can be checked for order and loss.
     pub(super) fn new(policy: TurnTaking, blocks: usize) -> Self {
@@ -124,6 +137,7 @@ impl Harness {
             chunk: 0,
             snapshot,
             provider_queue: VecDeque::new(),
+            hold: if duplex { Hold::DUPLEX } else { Hold::STANDARD },
         }
     }
     pub(super) fn old(&self) -> TurnOwner {
@@ -157,7 +171,7 @@ impl Harness {
             // Issued no later than the block it judges.
             authority: self.owner.snapshot(MonoTime::from_micros(at)).unwrap(),
         };
-        let heard = hear_capture_block(
+        let (heard, yielded) = hear_capture_block(
             &mut self.mask,
             &self.reply,
             &mut self.heard_reply,
@@ -174,7 +188,10 @@ impl Harness {
             captured_at_us: at,
             samples: [self.sequence as i16; 160],
         };
-        let (update, _) = observe_prospective_input(
+        if yielded {
+            self.detector.reach_back();
+        }
+        let (update, _) = observe_prospective_heard(
             &mut self.mask,
             &mut self.detector,
             &mut self.admission,
@@ -182,6 +199,7 @@ impl Harness {
             observation,
             self.last_read,
             heard,
+            echo.is_some().then_some(score),
             at,
         )
         .unwrap();
@@ -213,7 +231,7 @@ impl Harness {
                     self.reply.as_mut().unwrap(),
                     self.snapshot.microphone_generation(),
                     audio,
-                    provider_queue_bound(Hold::DUPLEX),
+                    provider_queue_bound(self.hold),
                 )
                 .unwrap();
                 None
@@ -409,6 +427,59 @@ fn a_person_over_the_lamp_stops_the_speaker_then_interrupts_with_their_opening_w
     assert!(h.provider_queue.len() < provider_queue_bound(Hold::DUPLEX));
     assert_eq!(provider_queue_bound(Hold::STANDARD), PROVIDER_QUEUE_BOUND);
     assert_eq!(h.events("turn_finished").len(), 1, "one interruption");
+}
+
+/// #828, step 2: with `LAMP_FIRST_WORDS=kept`, a person who begins under
+/// the lamp's voice keeps their first words. The duplex rule takes them for
+/// the lamp's own sound until they speak plainly over it, and without the
+/// switch the request begins 300 ms before that onset, as "Lamp, stop.
+/// What is two plus two?" was sent as its tail on lamp-4ace (16 October).
+/// With it, the request begins 200 ms before the earliest speech-like block
+/// of the last 1.6 s, and the decision is as before.
+#[test]
+fn with_first_words_kept_a_yields_request_begins_at_the_words_said_under_the_lamp() {
+    let request = |kept: bool| {
+        let mut h = Harness::keeping_first_words(kept, 400);
+        // The lamp alone, its own sound scored low by the detector.
+        h.blocks(100, 0.1, Some(evidence(0, OWN)));
+        // Blocks 101 to 140: the person's first words, under the lamp's
+        // voice, which the rule hears as the lamp's own.
+        h.blocks(40, 0.9, Some(evidence(0, OWN)));
+        // A breath, then plainly over the lamp until it yields.
+        h.blocks(10, 0.1, Some(evidence(0, OWN)));
+        while h.events("duplex_yield").is_empty() {
+            h.block(0.9, Some(evidence(0, OVER)));
+        }
+        let yielded_at = h.events("duplex_yield")[0]["frame_sequence"]
+            .as_u64()
+            .unwrap();
+        // The lamp falls silent while the person goes on: an interruption.
+        h.blocks(3, 0.9, Some(evidence(0, OVER)));
+        for quiet in 1..=29 {
+            h.block(0.9, Some(evidence(quiet, OVER)));
+        }
+        let clear = h.blocks(6, 0.9, Some(evidence(30, None)));
+        let accepted = clear[5]
+            .accepted
+            .as_ref()
+            .expect("the person was not let in");
+        assert_eq!(accepted.trigger_sequence, yielded_at);
+        assert!(accepted.audio.windows(2).all(|pair| pair[1] == pair[0] + 1));
+        assert_eq!(h.events("turn_finished")[0]["outcome"], "user_interrupted");
+        // The whole request is queued for the provider, within its bound.
+        assert_eq!(h.provider_queue.len(), 1 + accepted.audio.len());
+        assert!(h.provider_queue.len() < provider_queue_bound(h.hold));
+        (accepted.audio.clone(), yielded_at)
+    };
+    let (kept, yielded_at) = request(true);
+    assert_eq!(kept[0], 101 - crate::activity::REACH_LEAD_BLOCKS as u64);
+    let (usual, usual_yield) = request(false);
+    assert_eq!(usual_yield, yielded_at);
+    assert_eq!(
+        usual[0],
+        yielded_at + 1 - crate::activity::PRE_ROLL_BLOCKS as u64
+    );
+    assert_eq!(usual.last(), kept.last());
 }
 
 #[test]

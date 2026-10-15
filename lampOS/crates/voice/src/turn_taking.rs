@@ -27,6 +27,9 @@ const MAX_INTERVALS: usize = 16;
 const MAX_READS: usize = 80;
 /// Blocks whose hearing is remembered: longer than any candidate is held.
 const MAX_HEARD: usize = 128;
+/// The same with a yield's first words kept (#828): 1.6 s before the
+/// onset, the duplex hold's 1.2 s after it, and room to spare.
+const FIRST_WORDS_HEARD: usize = 320;
 /// Yields in one reply that came to nothing before the mask stops yielding
 /// for the rest of that reply and masks as the conservative baseline does.
 pub const FRUITLESS_YIELDS: u8 = 2;
@@ -124,6 +127,9 @@ struct Duplex {
     interruption: Interruption,
     margin: Margin,
     heard: VecDeque<(u64, Heard)>,
+    /// How many blocks' hearing is kept: [`MAX_HEARD`] or
+    /// [`FIRST_WORDS_HEARD`].
+    max_heard: usize,
     last_yield: Option<(u64, Yielded)>,
     /// The latest block came without evidence: mask it conservatively.
     blind: bool,
@@ -200,6 +206,7 @@ impl PlaybackMask {
                 interruption: Interruption::new(Confirmation::EVALUATED),
                 margin: Margin::default(),
                 heard: VecDeque::with_capacity(MAX_HEARD),
+                max_heard: MAX_HEARD,
                 last_yield: None,
                 blind: true,
                 fruitless: 0,
@@ -211,6 +218,14 @@ impl PlaybackMask {
     }
     pub fn is_duplex(&self) -> bool {
         self.duplex.is_some()
+    }
+    /// Remember enough hearing for a yield's first words (#828): every
+    /// block of a candidate that reaches back is checked against it before
+    /// the candidate is let through.
+    pub fn keep_first_words(&mut self) {
+        if let Some(duplex) = self.duplex.as_mut() {
+            duplex.max_heard = FIRST_WORDS_HEARD;
+        }
     }
     /// Hear one capture block. Call for every block, in order, before asking
     /// for its disposition. `speaking` is whether a reply has audio that
@@ -277,7 +292,7 @@ impl PlaybackMask {
         let may_yield = speaking && duplex.fruitless < FRUITLESS_YIELDS;
         let plain = duplex.hearing.plain(heard, evidence);
         let step = duplex.interruption.observe(heard, plain, may_yield);
-        if duplex.heard.len() == MAX_HEARD {
+        if duplex.heard.len() >= duplex.max_heard {
             duplex.heard.pop_front();
         }
         duplex.heard.push_back((sequence, heard));

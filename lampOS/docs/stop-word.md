@@ -672,6 +672,14 @@ hearing and the highest score; `--scores` prints every score.
 `python from_bus.py` turns a `lamp-bus record` of `mic2/audio` into a WAV
 file for it.
 
+## Step 2: the request's first words (16 October)
+
+A yield's request now begins at the person's first words said under the
+lamp's voice, with `LAMP_FIRST_WORDS=kept` ([duplex-listening.md](duplex-listening.md#first-words-kept-828)).
+It doesn't make a short stop word stop the lamp. A pause has no words to
+judge, so that needs words heard during the pause. The plan, with the
+speech-to-text the second voice uses, is on #828.
+
 ## Not shown
 
 - **The lamp.** No sound from the lamp's microphones went into training,

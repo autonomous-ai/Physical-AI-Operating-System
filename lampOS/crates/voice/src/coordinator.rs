@@ -2789,7 +2789,15 @@ fn conversation_with_gate(
     // the lamp is held until the lamp's own sound has gone, so its decision
     // budget is longer; everything else about admission is unchanged.
     let duplex = rig.turn_taking == TurnTaking::Duplex;
-    let hold = if duplex { Hold::DUPLEX } else { Hold::STANDARD };
+    // A yield's request begins at the person's first words, said under the
+    // lamp's voice, as far back as 1.6 s (#828). Off unless set.
+    let first_words = duplex && crate::activity::first_words_kept();
+    detector.keep_first_words(first_words);
+    let hold = match (duplex, first_words) {
+        (true, true) => Hold::DUPLEX.keeping_first_words(),
+        (true, false) => Hold::DUPLEX,
+        (false, _) => Hold::STANDARD,
+    };
     let mut admission = InputAdmission::with_hold(hold);
     let mut playback_mask = if duplex {
         record(
@@ -2807,6 +2815,7 @@ fn conversation_with_gate(
             "commit_on_stillness_after_plain_blocks":Confirmation::EVALUATED.plain_blocks,
             "fruitless_yields_before_fallback":FRUITLESS_YIELDS,
             "decision_budget_us":hold.decision_budget_us,
+            "first_words_kept_blocks":first_words.then_some(crate::activity::REACH_BACK_BLOCKS),
             "provider_queue_bound":provider_queue_bound(hold),
             "provider_total_queue_bound":provider_queue_bound(hold) + 1,
             "provider_terminal_allowance":1,
@@ -2814,7 +2823,11 @@ fn conversation_with_gate(
             "basis":"echo evidence with the detector score; not level or score alone",
             "addressee_inference":false}),
         )?;
-        PlaybackMask::duplex()
+        let mut mask = PlaybackMask::duplex();
+        if first_words {
+            mask.keep_first_words();
+        }
+        mask
     } else {
         PlaybackMask::new(rig.turn_taking)
     };
@@ -3734,7 +3747,7 @@ fn conversation_with_gate(
             } else {
                 frame.probability
             };
-            let heard = hear_capture_block(
+            let (heard, yielded) = hear_capture_block(
                 &mut playback_mask,
                 reply,
                 &mut heard_reply,
@@ -3771,7 +3784,12 @@ fn conversation_with_gate(
                 early.keep_current(reply.as_ref().map(|current| current.owner.turn()));
             }
             let observed_at_us = monotonic_us();
-            let (update, input_ended) = observe_prospective_input(
+            // A yield's start may reach back over what was heard with echo
+            // evidence, by each block's own score (#828).
+            if yielded {
+                detector.reach_back();
+            }
+            let (update, input_ended) = observe_prospective_heard(
                 &mut playback_mask,
                 &mut detector,
                 &mut admission,
@@ -3779,6 +3797,7 @@ fn conversation_with_gate(
                 observation,
                 frame.timing.first_read_started_at_us,
                 heard,
+                frame.echo.is_some().then_some(probability),
                 observed_at_us,
             )?;
             check_speaker_progress(speaker_pending.as_ref(), observed_at_us)?;
@@ -5017,9 +5036,9 @@ fn hear_capture_block(
     echo: Option<&lamp_audio::evidence::EchoEvidence>,
     at_us: u64,
     trace: &mut SessionState,
-) -> Result<f32> {
+) -> Result<(f32, bool)> {
     if !mask.is_duplex() {
-        return Ok(probability);
+        return Ok((probability, false));
     }
     let owner = reply.as_ref().map(|current| current.owner);
     if owner != *heard_reply {
@@ -5083,7 +5102,7 @@ fn hear_capture_block(
                     Some(captured_at_us),
                 )?;
             }
-            return Ok(listened.score);
+            return Ok((listened.score, false));
         }
         DuplexStep::Yield => "duplex_yield",
         DuplexStep::Commit => "duplex_commit",
@@ -5114,9 +5133,11 @@ fn hear_capture_block(
         )?,
         _ => {}
     }
-    Ok(listened.score)
+    Ok((listened.score, listened.step == DuplexStep::Yield))
 }
 
+/// [`observe_prospective_heard`] for a block heard as its own score.
+#[cfg(test)]
 #[allow(clippy::too_many_arguments)]
 fn observe_prospective_input(
     mask: &mut PlaybackMask,
@@ -5126,6 +5147,31 @@ fn observe_prospective_input(
     observation: ObservedAudio,
     first_read_us: u64,
     probability: f32,
+    at_us: u64,
+) -> Result<(AdmissionUpdate, bool)> {
+    observe_prospective_heard(
+        mask,
+        detector,
+        admission,
+        context,
+        observation,
+        first_read_us,
+        probability,
+        Some(probability),
+        at_us,
+    )
+}
+
+#[allow(clippy::too_many_arguments)]
+fn observe_prospective_heard(
+    mask: &mut PlaybackMask,
+    detector: &mut TurnDetector,
+    admission: &mut InputAdmission,
+    context: AdmissionContext,
+    observation: ObservedAudio,
+    first_read_us: u64,
+    probability: f32,
+    own: Option<f32>,
     at_us: u64,
 ) -> Result<(AdmissionUpdate, bool)> {
     mask.remember_read(
@@ -5148,7 +5194,7 @@ fn observe_prospective_input(
             false,
         ));
     }
-    let activity = detector.push(observation, probability);
+    let activity = detector.push_heard(observation, probability, own);
     let ended = matches!(activity, Activity::End(_));
     Ok((admission.observe(activity, context, at_us)?, ended))
 }
@@ -5790,6 +5836,7 @@ fn provider_queue_bound(hold: Hold) -> usize {
         + hold
             .decision_blocks
             .saturating_sub(Hold::STANDARD.decision_blocks)
+        + hold.lead_blocks
 }
 
 fn queue_input(

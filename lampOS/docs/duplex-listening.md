@@ -214,6 +214,10 @@ lamp-voice directed /absolute/private/provider.json 40 /new/private/run \
 | `--turn-taking` | `vad-only`, `v1-baseline`, `duplex` | `vad-only` | `duplex` is `v1-baseline` with hearing |
 | `--reference-clock` | `fixed`, `capture` | `fixed` | `capture` makes the echo reference follow the microphone's clock |
 
+`LAMP_FIRST_WORDS=kept` in the voice's environment: a yield's request
+begins at the person's first words, as far back as 1.6 s ("First words
+kept", below). Off by default; not on any lamp.
+
 The two are separate because a long session needs the second under every
 turn-taking policy. With neither flag the supervisor's argv to both audio
 workers is byte for byte what it was, and a worker's periodic
@@ -938,6 +942,51 @@ The recordings were made with it off and whatever the microphone board
 does is in both columns. This is a replay comparison on development data
 and it selects nothing.
 
+## First words kept (#828)
+
+Off unless `LAMP_FIRST_WORDS=kept` in the voice's environment, and nothing
+without `--turn-taking duplex` (built by the fourth builder on 16 October
+2026, for #828 step 2; no worker flag).
+
+The rule yields only once a run of blocks is plainly someone over the lamp.
+Before that, under the lamp's voice, a person's first words are taken for
+the lamp's own sound, and the request began 300 ms before the onset
+(`PRE_ROLL_BLOCKS`). So those words were never sent. On lamp-4ace on
+16 October, "Lamp, stop. What is two plus two?" was sent as its tail and
+heard as "vestido". In the first builder's two recordings of 01:51, five
+requests said over a story began 1.2 to 2.5 s into what was said.
+
+With the switch, a yield's request begins at the person's first words:
+- While the lamp speaks, the detector keeps 1.6 s of blocks
+  (`REACH_BACK_BLOCKS`), each with its own detector score before any mask.
+- When the rule yields, the request begins 200 ms (`REACH_LEAD_BLOCKS`)
+  before the earliest block of that 1.6 s the detector scores 0.35 or more
+  (`SILENCE_PROBABILITY`).
+- It never begins earlier than a block heard without echo evidence, because
+  every block of a candidate is checked against what was heard before it is
+  let through. It never begins later than without the switch.
+- The hold's decision deadline is still counted from the trigger, and its
+  retained age from the usual pre-roll. The lead is room the hold keeps
+  besides them (`Hold::keeping_first_words`).
+- The mask remembers 320 blocks of hearing instead of 128, and the provider
+  queue's bound grows by the lead.
+- Every other start, and every start without the switch, is as before.
+- `duplex_policy` records `first_words_kept_blocks` (160). Each
+  `input_candidate`'s `first_read_at_us` shows where its audio began.
+
+Measured on the first builder's two recordings of 01:51, replayed with
+`lamp-audio replay-aec` ([the evidence](verification/first-words-20261016/README.md)):
+of six yields over a story, four requests that began 1.2 to 1.7 s late
+would begin within 0.43 s of the line's start, and a fifth gains 0.7 s.
+Its cost is up to 1.6 s of the lamp's own suppressed voice at the front of
+a request: the sixth, which was not late, would begin 0.9 s early, on the
+lamp's own voice.
+
+What it does not do: tell the person's first words from the lamp's own
+sound. It reaches back over whatever the detector scores as speech, and
+the canceller takes out much of a person's speech under the lamp's voice.
+A start found after the 1.6 s is still late.
+
 ## Tests
 
 Deterministic, no device, no recording:
@@ -963,6 +1012,7 @@ functions:
 | `without_echo_evidence_duplex_decides_as_the_conservative_baseline_does` | Same masked blocks, candidates and rejections as `v1-baseline` |
 | `a_microphone_that_stops_arriving_does_not_hold_the_reply_back` | Dispatch resumes after 100 ms without a block |
 | `a_person_who_speaks_once_the_lamp_is_silent_is_an_ordinary_turn` | Six blocks and admitted, as ever |
+| `with_first_words_kept_a_yields_request_begins_at_the_words_said_under_the_lamp` | With `LAMP_FIRST_WORDS=kept`, the request begins 20 blocks before the first words said under the lamp's voice, through the same yield and commit; without it, 30 blocks before the onset |
 
 ## Verification
 

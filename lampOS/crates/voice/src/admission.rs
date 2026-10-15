@@ -3,7 +3,7 @@
 //! This is sequencing and retention, not an echo/addressee classifier. The
 //! directed harness explicitly accepts VAD-only evidence. No provider event or
 //! session-scoped transcript is converted into a candidate decision here.
-use crate::activity::{Activity, ObservedAudio, PRE_ROLL_BLOCKS, START_BLOCKS};
+use crate::activity::{Activity, ObservedAudio, PRE_ROLL_BLOCKS, REACH_BACK_BLOCKS, START_BLOCKS};
 use lamp_turn_owner::{BootId, MonoTime, Snapshot, TurnOwner};
 use serde::Serialize;
 use std::io;
@@ -20,12 +20,17 @@ pub struct Hold {
     pub decision_budget_us: u64,
     pub retained_age_us: u64,
     pub decision_blocks: usize,
+    /// Blocks a candidate may hold before its 300 ms of pre-roll: a yield's
+    /// first words, with `LAMP_FIRST_WORDS=kept` (#828). They count toward
+    /// neither its deadline nor its retained age.
+    pub lead_blocks: usize,
 }
 impl Hold {
     pub const STANDARD: Self = Self {
         decision_budget_us: DECISION_BUDGET_US,
         retained_age_us: MAX_RETAINED_AGE_US,
         decision_blocks: MAX_DECISION_BLOCKS,
+        lead_blocks: 0,
     };
     /// Duplex holds a candidate that began over the lamp while the lamp
     /// falls silent and listens for more: at most 1.1 s after its trigger,
@@ -37,9 +42,18 @@ impl Hold {
         decision_budget_us: 1_200_000,
         retained_age_us: 1_600_000,
         decision_blocks: 120,
+        lead_blocks: 0,
     };
+    /// The same hold, with room for a yield's first words before its
+    /// pre-roll, as far back as [`REACH_BACK_BLOCKS`] (#828).
+    pub const fn keeping_first_words(self) -> Self {
+        Self {
+            lead_blocks: REACH_BACK_BLOCKS - PRE_ROLL_BLOCKS,
+            ..self
+        }
+    }
     fn candidate_blocks(self) -> usize {
-        PRE_ROLL_BLOCKS + self.decision_blocks
+        self.lead_blocks + PRE_ROLL_BLOCKS + self.decision_blocks
     }
 }
 
@@ -413,8 +427,11 @@ impl InputAdmission {
                 if !context.ready(at_us) {
                     return Err(io::Error::other("candidate input is unavailable"));
                 }
-                validate_prefix(&audio, at_us)?;
+                validate_prefix(&audio, self.hold.lead_blocks, at_us)?;
                 let first = &audio[0];
+                // A lead of first words counts toward neither the deadline
+                // nor the retained age: those run from the usual pre-roll.
+                let onset = &audio[audio.len().saturating_sub(PRE_ROLL_BLOCKS)];
                 let trigger = audio.last().expect("validated nonempty prefix");
                 self.serial = self
                     .serial
@@ -434,7 +451,7 @@ impl InputAdmission {
                         .captured_at_us
                         .saturating_add(self.hold.decision_budget_us)
                         .min(
-                            first
+                            onset
                                 .captured_at_us
                                 .saturating_add(self.hold.retained_age_us),
                         ),
@@ -694,9 +711,9 @@ impl InputAdmission {
     }
 }
 
-fn validate_prefix(audio: &[ObservedAudio], at_us: u64) -> io::Result<()> {
+fn validate_prefix(audio: &[ObservedAudio], lead_blocks: usize, at_us: u64) -> io::Result<()> {
     if audio.is_empty()
-        || audio.len() > PRE_ROLL_BLOCKS
+        || audio.len() > PRE_ROLL_BLOCKS + lead_blocks
         || audio[0].sequence == 0
         || audio[0].captured_at_us == 0
     {
@@ -1241,6 +1258,45 @@ mod outage_drain_tests {
         ));
     }
 
+    /// #828: a duplex hold keeping first words takes a candidate whose
+    /// audio begins before its 300 ms of pre-roll, as far as 1.6 s before
+    /// its trigger, and counts its deadline from the trigger and its
+    /// retained age from that pre-roll, as before. A longer lead, or any
+    /// lead without first words kept, is refused.
+    #[test]
+    fn a_lead_of_first_words_is_held_without_shortening_the_decision() {
+        let started = |hold: Hold, blocks: u64| {
+            let mut gate = InputAdmission::with_hold(hold);
+            let mut local = LocalInput::new();
+            let now = START + blocks * 10_000;
+            let prefix = (1..=blocks)
+                .map(|n| audio(n, START + n * 10_000))
+                .collect::<Vec<_>>();
+            gate.observe(Activity::Start(prefix), local.context(now), now)
+                .map(|update| (update.step, now))
+        };
+        let kept = Hold::DUPLEX.keeping_first_words();
+        assert_eq!(kept.lead_blocks + PRE_ROLL_BLOCKS, REACH_BACK_BLOCKS);
+        let (Step::Candidate(candidate), now) = started(kept, 160).unwrap() else {
+            panic!("a lead of first words was not taken");
+        };
+        assert_eq!(candidate.first_read_at_us, START + 10_000);
+        assert_eq!(candidate.trigger_read_at_us, now);
+        assert_eq!(
+            candidate.decision_deadline_us,
+            now + Hold::DUPLEX.decision_budget_us
+        );
+        assert!(started(kept, 161).is_err());
+        assert!(started(Hold::DUPLEX, 31).is_err());
+        let (Step::Candidate(usual), now) = started(Hold::DUPLEX, 30).unwrap() else {
+            panic!("the usual pre-roll was not taken");
+        };
+        assert_eq!(
+            usual.decision_deadline_us,
+            now + Hold::DUPLEX.decision_budget_us
+        );
+    }
+
     #[test]
     fn a_longer_hold_keeps_one_candidate_longer_and_the_standard_hold_is_unchanged() {
         assert_eq!(
@@ -1249,6 +1305,7 @@ mod outage_drain_tests {
                 decision_budget_us: DECISION_BUDGET_US,
                 retained_age_us: MAX_RETAINED_AGE_US,
                 decision_blocks: MAX_DECISION_BLOCKS,
+                lead_blocks: 0,
             }
         );
         assert_eq!(Hold::STANDARD.candidate_blocks(), MAX_CANDIDATE_BLOCKS);

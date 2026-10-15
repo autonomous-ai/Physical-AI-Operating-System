@@ -1,0 +1,78 @@
+   Compiling lamp-ipc v0.1.0 (/private/tmp/lampos-tests-memory-progress/lampOS/crates/ipc)
+   Compiling lamp-bus v0.1.0 (/private/tmp/lampos-tests-memory-progress/lampOS/crates/bus)
+   Compiling lamp-turn-owner v0.1.0 (/private/tmp/lampos-tests-memory-progress/lampOS/crates/turn-owner)
+   Compiling lamp-msgs v0.1.0 (/private/tmp/lampos-tests-memory-progress/lampOS/crates/msgs)
+   Compiling lamp-camera v0.1.0 (/private/tmp/lampos-tests-memory-progress/lampOS/crates/camera)
+   Compiling lamp-gemini v0.1.0 (/private/tmp/lampos-tests-memory-progress/lampOS/crates/gemini)
+   Compiling lamp-memory v0.1.0 (/private/tmp/lampos-tests-memory-progress/lampOS/crates/memory)
+   Compiling lamp-keeper v0.1.0 (/private/tmp/lampos-tests-memory-progress/lampOS/crates/keeper)
+   Compiling lamp-body v0.1.0 (/private/tmp/lampos-tests-memory-progress/lampOS/crates/body)
+   Compiling lamp-controls v0.1.0 (/private/tmp/lampos-tests-memory-progress/lampOS/crates/controls)
+   Compiling lamp-schedule v0.1.0 (/private/tmp/lampos-tests-memory-progress/lampOS/crates/schedule)
+   Compiling lamp-audio v0.1.0 (/private/tmp/lampos-tests-memory-progress/lampOS/crates/audio)
+   Compiling lamp-ring v0.1.0 (/private/tmp/lampos-tests-memory-progress/lampOS/crates/ring)
+   Compiling lamp-turn-end-wire v0.1.0 (/private/tmp/lampos-tests-memory-progress/lampOS/crates/turn-end-wire)
+   Compiling lamp-voice v0.1.0 (/private/tmp/lampos-tests-memory-progress/lampOS/crates/voice)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 34.63s
+     Running tests/fixture_child.rs (/private/tmp/tests-823-rebase-target/debug/deps/fixture_child-377231d82a989576)
+
+running 12 tests
+test actual_marker_follows_prior_bytes_through_the_real_log_relay ... ok
+test an_expired_absolute_deadline_rejects_even_queued_data ... ok
+test bootstrap_requires_the_explicit_private_socket_and_matching_version ... ok
+test close_freezes_clock_and_does_not_block_the_real_reporter_finish ... ok
+test complete_queued_frame_survives_peer_close_and_eof_is_not_a_receipt ... ok
+test held_work_then_positive_wait_is_required_and_wake_before_park_is_retained ... FAILED
+test invalid_first_step_stale_round_backwards_time_and_skipped_due_fail_closed ... ok
+test malformed_oversized_and_unterminated_frames_are_rejected ... ok
+test pre_deadline_wait_preserves_the_full_period_and_due_requires_real_publication ... ok
+test reads_are_pure_and_equal_time_steps_do_not_create_reports ... ok
+test real_channel_shutdown_wakes_a_waiting_reader_without_fabricating_a_frame ... ok
+test zero_left_wait_and_observer_overflow_cannot_produce_checked ... ok
+
+failures:
+
+---- held_work_then_positive_wait_is_required_and_wake_before_park_is_retained stdout ----
+
+thread 'held_work_then_positive_wait_is_required_and_wake_before_park_is_retained' (577461943) panicked at crates/memory/tests/fixture_child.rs:340:41:
+called `Result::unwrap()` on an `Err` value: Timeout
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    held_work_then_positive_wait_is_required_and_wake_before_park_is_retained
+
+test result: FAILED. 11 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 8.04s
+
+error: test failed, to rerun pass `-p lamp-memory --test fixture_child`
+     Running tests/health_control.rs (/private/tmp/tests-823-rebase-target/debug/deps/health_control-ac0d9559c133ef06)
+
+running 23 tests
+test a_real_marker_requires_its_exact_complete_line ... ok
+test a_window_from_another_controller_is_rejected_before_step ... ok
+test bootstrap_closes_after_one_frame_and_preserves_real_argv_and_child_ownership ... ok
+test bootstrap_pipe_write_cannot_reset_an_expired_or_blocked_deadline ... ok
+test cadence_reads_and_same_time_rounds_do_not_invent_publications ... ok
+test connected_and_checked_queued_before_peer_close_are_read_completely ... ok
+test counters_and_round_overflow_fail_without_wrapping ... ok
+test every_due_cycle_is_split_before_a_longer_target ... ok
+test exact_due_requires_one_real_cycle_and_the_matching_attempt_delta ... ok
+test expired_host_window_cannot_be_reset_by_a_new_step ... ok
+test initial_checked_identity_counters_and_deadline_are_validated ... ok
+test logical_window_is_fixed_and_cannot_be_extended_by_a_later_call ... ok
+test malformed_truncated_and_oversized_receipts_close_control ... ok
+test marker_scanning_retains_a_partial_following_line ... ok
+test missing_marker_after_child_advance_latches_closed_without_cadence_commit ... ok
+test missing_reply_is_bounded_and_does_not_manufacture_report_progress ... ok
+test next_due_and_zero_wait_preserve_the_checked_boundary ... ok
+test pre_due_progress_cannot_regress_or_claim_a_fresh_cycle ... ok
+test replacing_or_truncating_the_real_log_is_rejected ... ok
+test startup_guard_kills_and_reaps_the_actual_owned_child ... ok
+test startup_validates_private_paths_and_expired_budget_before_spawn ... ok
+test targets_cannot_regress_round_microseconds_or_overflow ... ok
+test wrong_connected_identity_never_creates_a_controller ... ok
+
+test result: ok. 23 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.16s
+
+error: 1 target failed:
+    `-p lamp-memory --test fixture_child`

@@ -1,0 +1,134 @@
+{
+  "date": "2026-10-16 03:22:10 +0700",
+  "execution_seconds": {
+    "before": 39.498,
+    "after": 14.547
+  },
+  "tests": [
+    {
+      "identity": "a_failed_legacy_write_stays_warn_through_reads_until_a_write_succeeds",
+      "route": "controlled",
+      "before_seconds": 8.076,
+      "after_seconds": 0.947
+    },
+    {
+      "identity": "a_store_that_cannot_open_never_claims_readiness_and_any_delivered_report_is_warn",
+      "route": "host",
+      "before_seconds": 0.576,
+      "after_seconds": 2.175
+    },
+    {
+      "identity": "a_working_bus_that_fails_stays_failed_until_publication_really_recovers",
+      "route": "controlled",
+      "before_seconds": 7.098,
+      "after_seconds": 0.755
+    },
+    {
+      "identity": "an_unusable_bus_does_not_prevent_serving_and_reports_recover_when_it_returns",
+      "route": "controlled",
+      "before_seconds": 3.059,
+      "after_seconds": 0.447
+    },
+    {
+      "identity": "legacy_reports_retained_counts_and_stays_well_after_caller_refusals",
+      "route": "controlled",
+      "before_seconds": 7.094,
+      "after_seconds": 0.858
+    },
+    {
+      "identity": "sqlite_reports_retained_counts_and_stays_well_after_caller_refusals",
+      "route": "controlled",
+      "before_seconds": 8.11,
+      "after_seconds": 2.583
+    },
+    {
+      "identity": "the_environment_alone_does_not_enable_reporting_or_create_bus_data",
+      "route": "host",
+      "before_seconds": 5.481,
+      "after_seconds": 6.718
+    }
+  ],
+  "five_controlled_sum_seconds": {
+    "before": 33.437,
+    "after": 5.59
+  },
+  "two_host_sum_seconds": {
+    "before": 6.057,
+    "after": 8.893
+  },
+  "before_run": {
+    "stage": "before-health",
+    "command": [
+      "cargo",
+      "nextest",
+      "run",
+      "--locked",
+      "--offline",
+      "-p",
+      "lamp-memory",
+      "--test",
+      "health",
+      "--profile",
+      "realtime",
+      "--test-threads",
+      "1",
+      "--retries",
+      "0",
+      "--no-fail-fast",
+      "--status-level",
+      "pass",
+      "--final-status-level",
+      "fail",
+      "--color",
+      "never"
+    ],
+    "cwd": "/private/tmp/lampos-tests-memory-progress/lampOS",
+    "target": "/private/tmp/tests-823-rebase-target",
+    "start_from_date": "2026-10-16 03:00:26 +0700",
+    "finish_from_date": "2026-10-16 03:01:06 +0700",
+    "exit_code": 0
+  },
+  "after_run": {
+    "stage": "after-health",
+    "command": [
+      "cargo",
+      "nextest",
+      "run",
+      "--locked",
+      "--offline",
+      "-p",
+      "lamp-memory",
+      "--test",
+      "health",
+      "--profile",
+      "realtime",
+      "--test-threads",
+      "1",
+      "--retries",
+      "0",
+      "--no-fail-fast",
+      "--status-level",
+      "pass",
+      "--final-status-level",
+      "fail",
+      "--color",
+      "never"
+    ],
+    "cwd": "/private/tmp/lampos-tests-memory-progress/lampOS",
+    "target": "/private/tmp/tests-823-rebase-target",
+    "start_from_date": "2026-10-16 03:12:42 +0700",
+    "finish_from_date": "2026-10-16 03:12:58 +0700",
+    "exit_code": 0
+  },
+  "helper_sha256": {
+    "lamp-memory": "1deb5681da362ff63d75d94eb4a29b191ad32db9ca490741cc21903eeb95f896",
+    "lamp-memory-fixture": "8dab7f5ff000f708d419c3ca226854b79ed80677a85cf6d20005ba68b2ed7d3c"
+  },
+  "full_gate_totals": [
+    296,
+    0,
+    6
+  ],
+  "load_limit": "Shared x86_64 macOS; independent Serve/Reporter gates overlap. No quiet-host, release or ARM64 timing claim.",
+  "no_complete_123_or_ARM64_claim": true
+}

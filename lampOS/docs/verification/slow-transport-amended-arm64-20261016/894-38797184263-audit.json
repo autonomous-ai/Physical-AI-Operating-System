@@ -1,0 +1,16 @@
+{
+  "date": "2026-10-16 03:07:41 +0700",
+  "head": "96ddc43ae0d7f7af5294abb7785f8eace4f3311f",
+  "run": 38797184263,
+  "passed": 4846,
+  "profile_excluded": 127,
+  "new_tests_passed_once": [
+    "malformed_arguments_fail_before_the_wait_in_both_entrypoints",
+    "malformed_delay_keeps_the_original_parse_error_before_waiting",
+    "zero_and_full_u64_millisecond_delays_reach_one_wait_without_truncation",
+    "a_consuming_wait_error_is_returned_unchanged_before_exec",
+    "real_exec_failure_keeps_the_original_io_error_after_the_wait",
+    "real_exec_replaces_the_owned_child_and_keeps_argv_and_queued_input"
+  ],
+  "docs_only_amendment": true
+}

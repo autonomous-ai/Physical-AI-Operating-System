@@ -1,0 +1,20 @@
+{
+  "date": "2026-10-16 02:59:11 +0700",
+  "owned_change_only": "lampOS/crates/memory/tests/fixture_child.rs",
+  "before_sha256": "95934ea55a18e979fc2396255ff8b7c87ca0b623a94305c570eff6aec7cf9e6b",
+  "after_sha256": "26928e7411dd17789addf27b648760d38d7f69bfb18a0464412e5f2c6c741982",
+  "failed_log_sha256": "2776a0ceb0ae712cc43b9b11bdeb65711b4e9c127f2a115adedc5b87e54a9c5f",
+  "failed_log_retained": true,
+  "assertion_sites": 45,
+  "assertion_macro_bytes_identical": true,
+  "all_12_test_identities_unchanged": true,
+  "other_test_sections_byte_identical": true,
+  "same_HOST_WAIT": true,
+  "actual_reporter_path_sha256": "013c99487db64189c2ae78ca4588cb8449358e1496707311c3d79a7e0fd0632b",
+  "fixture_schedule_sha256": "aa4cd9fb4c59fc82011131a3461870efe8eef43af74186fdb606bb18e58f54f6",
+  "rustfmt_check_exit": 0,
+  "tests_run_by_this_agent": false,
+  "cause": "After the explicit Thread::unpark, the NEW test worker could still block in std mpsc Receiver::recv_timeout before its tested thread::park. That receive can consume the same per-thread park token. The retained run then timed out waiting for worker completion at old fixture_child.rs:340. This intervening receive does not exist in the actual Reporter path.",
+  "fix": "Replace only the second test gate with a separate Mutex<bool>/Condvar wait_timeout_while under unchanged HOST_WAIT; open after explicit unpark and in owned worker cleanup. Retain the first pre-work mpsc gate, all checks, and actual schedule.park.",
+  "limits": "Pinned standard-library sources are not installed locally; source attribution is the observed intervening call and known park-token interaction, not a locally inspected std implementation. Root owns execution of the changed test source; no green result is claimed here."
+}

@@ -1,0 +1,27 @@
+{
+  "recorded": "2026-10-16 03:11:20+0700",
+  "whole_scenario_tail_exact_after_whitelist_reversal": true,
+  "ordinary_argv_environment_stdio_builder_byte_identical": true,
+  "original_assertion_sites": 42,
+  "new_assertion_sites": 43,
+  "new_helper_assertion": "assert!(\n            scratch.1.borrow().is_none(),\n            \"a child already owns this control slot\"\n        )",
+  "diagnostic_only_assertion_changes": [
+    {
+      "before": "assert!(\n                Instant::now() < until,\n                \"memory never became ready; {}\",\n                self.log()\n            )",
+      "after": "assert!(\n                Instant::now() < until,\n                \"memory never became ready; {}\",\n                self.raw_log()\n            )"
+    },
+    {
+      "before": "assert!(\n                Instant::now() < until,\n                \"memory did not exit; {}\",\n                self.log()\n            )",
+      "after": "assert!(\n                Instant::now() < until,\n                \"memory did not exit; {}\",\n                self.raw_log()\n            )"
+    }
+  ],
+  "all_original_assertions_exact_after_only_raw_log_diagnostic_rename": true,
+  "source_hashes": {
+    "lampOS/crates/memory/tests/health.rs": "0d829067a29a9e5105326b1e0b50c09436e6aefe5091849a683be282910f9d91",
+    "lampOS/docs/memory-fixture-clock.md": "22fc06ead6ad7e0a8d5a1791adf74a340be755c91ddb3d0ec9d4f7a5a6b60de4",
+    "lampOS/crates/memory/tests/support/health_control.rs": "a06cb3e241ac901f5729eefe89abedf96cf5c8f7eb580bfcc715540ee67f97db",
+    "lampOS/crates/memory/src/fixture_protocol.rs": "21f2d5ca2fc309c8b63989ff6a889f37edd5e3eb8a4fc5de305348d11a0efb0c",
+    "lampOS/crates/memory/src/fixture_schedule.rs": "aa4cd9fb4c59fc82011131a3461870efe8eef43af74186fdb606bb18e58f54f6",
+    "lampOS/crates/bus/src/subscribe.rs": "30f1ef9e2e5ddd732ccb89a746e290b53a52ac7a44ccef488eb43b70c96217c2"
+  }
+}

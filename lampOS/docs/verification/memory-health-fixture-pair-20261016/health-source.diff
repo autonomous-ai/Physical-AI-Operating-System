@@ -1,0 +1,420 @@
+--- health.before.rs
++++ health.rs
+@@ -1,29 +1,38 @@
+ //! The real binary's optional reports, with synthetic records and temporary
+ //! stores. These are development-host integration checks, not lamp timings.
+-use lamp_bus::{Bus, Subscriber};
++#[path = "support/health_control.rs"]
++pub mod health_control;
++
++use health_control::{Controller, Window};
++use lamp_bus::{Bus, Message, Subscriber};
+ use lamp_memory::{days::DATABASE, health::REPORT_EVERY};
+ use lamp_msgs::{Diagnostic, Level};
+ use serde_json::{Value, json};
+ use std::{
++    cell::RefCell,
+     fs::{self, DirBuilder, OpenOptions},
+-    io::{BufRead, BufReader, Write},
++    io::{self, BufRead, BufReader, Write},
+     os::unix::{
+         fs::{DirBuilderExt, OpenOptionsExt},
+         net::UnixStream,
+     },
+     path::{Path, PathBuf},
+     process::{Child, Command, ExitStatus, Stdio},
++    rc::Rc,
+     sync::atomic::{AtomicU64, Ordering},
+     thread,
+     time::{Duration, Instant, SystemTime, UNIX_EPOCH},
+ };
+ 
+ const BINARY: &str = env!("CARGO_BIN_EXE_lamp-memory");
++const FIXTURE_BINARY: &str = env!("CARGO_BIN_EXE_lamp-memory-fixture");
+ const WAIT: Duration = Duration::from_secs(8);
+ const REQUEST_WAIT: Duration = Duration::from_secs(3);
+ static NEXT: AtomicU64 = AtomicU64::new(0);
+ 
+-struct Scratch(PathBuf);
++type ControlSlot = Rc<RefCell<Option<Controller>>>;
++
++struct Scratch(PathBuf, ControlSlot);
+ 
+ impl Scratch {
+     fn new() -> Self {
+@@ -35,19 +44,56 @@
+             NEXT.fetch_add(1, Ordering::Relaxed)
+         ));
+         DirBuilder::new().mode(0o700).create(&path).unwrap();
+-        Self(path)
++        Self(path, Rc::new(RefCell::new(None)))
+     }
+ 
+     fn path(&self, name: &str) -> PathBuf {
+         self.0.join(name)
+     }
+ 
+-    fn subscribe(&self) -> Subscriber {
+-        Bus::new(self.path("b"))
+-            .unwrap()
+-            .subscribe_typed(Diagnostic::TOPIC, "t", Diagnostic::TYPE)
+-            .unwrap()
+-    }
++    fn subscribe(&self) -> Reports {
++        Reports {
++            subscriber: Bus::new(self.path("b"))
++                .unwrap()
++                .subscribe_typed(Diagnostic::TOPIC, "t", Diagnostic::TYPE)
++                .unwrap(),
++            control: Rc::clone(&self.1),
++        }
++    }
++}
++
++struct Reports {
++    subscriber: Subscriber,
++    control: ControlSlot,
++}
++
++impl Reports {
++    // The ordinary failed-open cases retain their actual post-reap receive.
++    fn recv(&mut self, timeout: Duration) -> io::Result<Option<Message>> {
++        self.subscriber.recv(timeout)
++    }
++}
++
++fn control_window(control: &ControlSlot) -> io::Result<Option<Window>> {
++    control
++        .borrow()
++        .as_ref()
++        .map(Controller::window)
++        .transpose()
++}
++
++fn with_control<T>(
++    control: &ControlSlot,
++    operation: impl FnOnce(&mut Controller) -> io::Result<T>,
++) -> io::Result<T> {
++    let mut attached = control.borrow_mut();
++    let controller = attached.as_mut().ok_or_else(|| {
++        io::Error::new(
++            io::ErrorKind::NotConnected,
++            "missing explicit Memory control",
++        )
++    })?;
++    operation(controller)
+ }
+ 
+ impl Drop for Scratch {
+@@ -61,12 +107,25 @@
+ struct Process {
+     child: Child,
+     log: PathBuf,
++    control: ControlSlot,
+ }
+ 
+ impl Process {
+     fn start(scratch: &Scratch, days: bool, bus: bool, env_bus: bool) -> Self {
++        Self::spawn(scratch, days, bus, env_bus, false)
++    }
++
++    fn start_controlled(scratch: &Scratch, days: bool, bus: bool, env_bus: bool) -> Self {
++        Self::spawn(scratch, days, bus, env_bus, true)
++    }
++
++    fn spawn(scratch: &Scratch, days: bool, bus: bool, env_bus: bool, controlled: bool) -> Self {
++        assert!(
++            scratch.1.borrow().is_none(),
++            "a child already owns this control slot"
++        );
+         let log = scratch.path("log");
+-        let mut command = Command::new(BINARY);
++        let mut command = Command::new(if controlled { FIXTURE_BINARY } else { BINARY });
+         command
+             .arg("--dir")
+             .arg(scratch.path("store"))
+@@ -85,30 +144,101 @@
+         if env_bus {
+             command.env("LAMP_BUS_ROOT", scratch.path("b"));
+         }
+-        Self {
+-            child: command.spawn().unwrap(),
++        let (child, controller) = if controlled {
++            let (child, controller) = health_control::start(&mut command, &scratch.0, &log)
++                .unwrap_or_else(|error| {
++                    panic!(
++                        "memory fixture startup: {error}; {}",
++                        fs::read_to_string(&log).unwrap_or_default()
++                    )
++                });
++            (child, Some(controller))
++        } else {
++            (command.spawn().unwrap(), None)
++        };
++        // Guard the actual Child before publishing its controller to helpers.
++        let process = Self {
++            child,
+             log,
+-        }
++            control: Rc::clone(&scratch.1),
++        };
++        *process.control.borrow_mut() = controller;
++        process
++    }
++
++    fn raw_log(&self) -> String {
++        fs::read_to_string(&self.log).unwrap_or_default()
++    }
++
++    fn window(&self) -> Option<Window> {
++        let result = control_window(&self.control);
++        result.unwrap_or_else(|error| panic!("memory fixture window: {error}; {}", self.raw_log()))
++    }
++
++    fn settle_in(&self, window: &Window) {
++        let result = with_control(&self.control, |control| control.settle(window));
++        result.unwrap_or_else(|error| panic!("memory fixture settle: {error}; {}", self.raw_log()));
+     }
+ 
+     fn log(&self) -> String {
+-        fs::read_to_string(&self.log).unwrap_or_default()
++        match self.window() {
++            Some(window) => self.log_in(&window),
++            None => self.raw_log(),
++        }
++    }
++
++    fn log_in(&self, window: &Window) -> String {
++        self.settle_in(window);
++        self.raw_log()
++    }
++
++    fn cadence_window(&self) -> Window {
++        self.window().expect("explicit reporting child")
++    }
++
++    fn cadence_now(&self) -> Instant {
++        self.control
++            .borrow()
++            .as_ref()
++            .expect("explicit reporting child")
++            .cadence_now()
++    }
++
++    fn wait_cadence_in(&self, duration: Duration, window: &Window) {
++        let result = with_control(&self.control, |control| {
++            let target = control.cadence_now().checked_add(duration).ok_or_else(|| {
++                io::Error::new(
++                    io::ErrorKind::InvalidInput,
++                    "memory fixture cadence overflow",
++                )
++            })?;
++            control.advance_to(target, window)
++        });
++        result
++            .unwrap_or_else(|error| panic!("memory fixture advance: {error}; {}", self.raw_log()));
+     }
+ 
+     fn ready(&mut self, scratch: &Scratch) {
++        let window = self.window();
+         let until = Instant::now() + WAIT;
+         let mut delay = Duration::from_millis(5);
+         loop {
+             if let Some(status) = self.child.try_wait().unwrap() {
+-                panic!("memory exited before readiness: {status}; {}", self.log());
++                panic!(
++                    "memory exited before readiness: {status}; {}",
++                    self.raw_log()
++                );
+             }
+             if fs::read(scratch.path("ready")).is_ok_and(|bytes| bytes == b"ready\n") {
++                if let Some(window) = &window {
++                    self.settle_in(window);
++                }
+                 return;
+             }
+             assert!(
+                 Instant::now() < until,
+                 "memory never became ready; {}",
+-                self.log()
++                self.raw_log()
+             );
+             thread::sleep(delay);
+             delay = (delay * 2).min(Duration::from_millis(50));
+@@ -125,7 +255,7 @@
+             assert!(
+                 Instant::now() < until,
+                 "memory did not exit; {}",
+-                self.log()
++                self.raw_log()
+             );
+             thread::sleep(delay);
+             delay = (delay * 2).min(Duration::from_millis(50));
+@@ -133,10 +263,14 @@
+     }
+ 
+     fn logged(&mut self, expected: &str) {
++        let window = self.window();
+         let until = Instant::now() + WAIT;
+         let mut delay = Duration::from_millis(5);
+         loop {
+-            let log = self.log();
++            let log = match &window {
++                Some(window) => self.log_in(window),
++                None => self.raw_log(),
++            };
+             if log.contains(expected) {
+                 return;
+             }
+@@ -145,8 +279,18 @@
+                 "memory exited before logging {expected}; {log}"
+             );
+             assert!(Instant::now() < until, "never logged {expected}; {log}");
+-            thread::sleep(delay);
+-            delay = (delay * 2).min(Duration::from_millis(50));
++            if let Some(window) = &window {
++                let result = with_control(&self.control, |control| {
++                    let due = control.next_due(window)?;
++                    control.advance_to(due, window)
++                });
++                result.unwrap_or_else(|error| {
++                    panic!("memory fixture log wait: {error}; {}", self.raw_log())
++                });
++            } else {
++                thread::sleep(delay);
++                delay = (delay * 2).min(Duration::from_millis(50));
++            }
+         }
+     }
+ }
+@@ -155,6 +299,8 @@
+     fn drop(&mut self) {
+         let _ = self.child.kill();
+         let _ = self.child.wait();
++        let controller = self.control.borrow_mut().take();
++        drop(controller);
+     }
+ }
+ 
+@@ -204,13 +350,23 @@
+     value(report, key).parse().unwrap()
+ }
+ 
+-fn report_when(reports: &mut Subscriber, accept: impl Fn(&Diagnostic) -> bool) -> Diagnostic {
++fn report_when(reports: &mut Reports, accept: impl Fn(&Diagnostic) -> bool) -> Diagnostic {
++    let window = control_window(&reports.control).expect("memory fixture report window");
+     let until = Instant::now() + WAIT;
+     let mut last = None;
++    if let Some(window) = &window {
++        with_control(&reports.control, |control| control.settle(window))
++            .expect("memory fixture report settle");
++    }
+     loop {
+         let left = until.saturating_duration_since(Instant::now());
+         assert!(!left.is_zero(), "no matching memory report; last={last:?}");
+-        if let Some(message) = reports.recv(left.min(Duration::from_millis(250))).unwrap() {
++        let timeout = if window.is_some() {
++            Duration::ZERO
++        } else {
++            left.min(Duration::from_millis(250))
++        };
++        if let Some(message) = reports.recv(timeout).unwrap() {
+             assert_eq!(message.header.type_name.as_deref(), Some(Diagnostic::TYPE));
+             let report: Diagnostic = message.parse().unwrap();
+             assert_eq!(report.name, "memory");
+@@ -218,11 +374,21 @@
+                 return report;
+             }
+             last = Some(report);
+-        }
+-    }
+-}
+-
+-fn retained(reports: &mut Subscriber, exchanges: u64, kept: u64, answered: u64) -> Diagnostic {
++        } else if let Some(window) = &window {
++            // An actual empty receive is the only permission to run the next
++            // original due cycle. Checked itself never becomes a report.
++            let result = with_control(&reports.control, |control| {
++                let due = control.next_due(window)?;
++                control.advance_to(due, window)
++            });
++            result.unwrap_or_else(|error| {
++                panic!("memory fixture report wait: {error}; last={last:?}")
++            });
++        }
++    }
++}
++
++fn retained(reports: &mut Reports, exchanges: u64, kept: u64, answered: u64) -> Diagnostic {
+     report_when(reports, |report| {
+         report.level == Level::Ok
+             && value(report, "exchanges") == exchanges.to_string()
+@@ -234,7 +400,7 @@
+ fn counts_through_real_requests(days: bool) {
+     let scratch = Scratch::new();
+     let mut reports = scratch.subscribe();
+-    let mut process = Process::start(&scratch, days, true, false);
++    let mut process = Process::start_controlled(&scratch, days, true, false);
+     process.ready(&scratch);
+     let initial = retained(&mut reports, 0, 0, 0);
+     assert_eq!(value(&initial, "slowest_answer_ms"), "none");
+@@ -300,7 +466,7 @@
+ fn a_failed_legacy_write_stays_warn_through_reads_until_a_write_succeeds() {
+     let scratch = Scratch::new();
+     let mut reports = scratch.subscribe();
+-    let mut process = Process::start(&scratch, false, true, false);
++    let mut process = Process::start_controlled(&scratch, false, true, false);
+     process.ready(&scratch);
+     let at = now();
+     ok(
+@@ -390,7 +556,7 @@
+ fn an_unusable_bus_does_not_prevent_serving_and_reports_recover_when_it_returns() {
+     let scratch = Scratch::new();
+     fs::write(scratch.path("b"), b"synthetic bus obstruction").unwrap();
+-    let mut process = Process::start(&scratch, false, true, false);
++    let mut process = Process::start_controlled(&scratch, false, true, false);
+     process.ready(&scratch);
+     ok(
+         &scratch,
+@@ -416,7 +582,7 @@
+     const RECOVERED: &str = "lamp-memory: health delivery recovered";
+     let scratch = Scratch::new();
+     let mut reports = scratch.subscribe();
+-    let mut process = Process::start(&scratch, false, true, false);
++    let mut process = Process::start_controlled(&scratch, false, true, false);
+     process.ready(&scratch);
+     retained(&mut reports, 0, 0, 0);
+     assert!(!process.log().contains(FAILED));
+@@ -437,7 +603,8 @@
+     // After the first observed failure, keep the obstruction through three
+     // more report periods and continue answering requests. This window is
+     // synchronization for retries, not a claim of exact worker scheduling.
+-    let until = Instant::now() + REPORT_EVERY * 3;
++    let window = process.cadence_window();
++    let until = process.cadence_now() + REPORT_EVERY * 3;
+     loop {
+         let read = ok(&scratch, json!({"op":"status"}));
+         answered += 1;
+@@ -446,7 +613,7 @@
+             fs::read(&bus).unwrap(),
+             b"synthetic sustained bus obstruction"
+         );
+-        let log = process.log();
++        let log = process.log_in(&window);
+         assert_eq!(
+             log.lines().filter(|line| *line == FAILED).count(),
+             1,
+@@ -457,11 +624,11 @@
+             0,
+             "{log}"
+         );
+-        let left = until.saturating_duration_since(Instant::now());
++        let left = until.saturating_duration_since(process.cadence_now());
+         if left.is_zero() {
+             break;
+         }
+-        thread::sleep(left.min(Duration::from_millis(200)));
++        process.wait_cadence_in(left.min(Duration::from_millis(200)), &window);
+     }
+ 
+     // Rebuild the bus tree, rather than returning the old publisher's files.

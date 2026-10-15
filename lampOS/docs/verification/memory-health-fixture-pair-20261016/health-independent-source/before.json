@@ -1,0 +1,10 @@
+{
+  "recorded": "2026-10-16 03:02:27+0700",
+  "files": {
+    "lampOS/crates/memory/tests/health.rs": "31add261e22dda578ca5f5c0b9016a1382f7a1e3d87f6968a1d083ec722e394d",
+    "lampOS/docs/memory-fixture-clock.md": "d04bfd01f4950a559d8d3d989fcaacab575b3171cf86fefcc66b85463cc4a149",
+    "lampOS/crates/memory/tests/support/health_control.rs": "a06cb3e241ac901f5729eefe89abedf96cf5c8f7eb580bfcc715540ee67f97db",
+    "lampOS/crates/bus/src/subscribe.rs": "30f1ef9e2e5ddd732ccb89a746e290b53a52ac7a44ccef488eb43b70c96217c2",
+    "lampOS/crates/memory/src/fixture_schedule.rs": "aa4cd9fb4c59fc82011131a3461870efe8eef43af74186fdb606bb18e58f54f6"
+  }
+}

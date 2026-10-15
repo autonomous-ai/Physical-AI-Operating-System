@@ -1,0 +1,148 @@
+{
+  "date": "2026-10-16 03:06:47 +0700",
+  "source_only_no_execution": true,
+  "before_health_sha256": "31add261e22dda578ca5f5c0b9016a1382f7a1e3d87f6968a1d083ec722e394d",
+  "after_health_sha256": "0d829067a29a9e5105326b1e0b50c09436e6aefe5091849a683be282910f9d91",
+  "docs_sha256": "22fc06ead6ad7e0a8d5a1791adf74a340be755c91ddb3d0ec9d4f7a5a6b60de4",
+  "test_identities": [
+    "legacy_reports_retained_counts_and_stays_well_after_caller_refusals",
+    "sqlite_reports_retained_counts_and_stays_well_after_caller_refusals",
+    "a_failed_legacy_write_stays_warn_through_reads_until_a_write_succeeds",
+    "the_environment_alone_does_not_enable_reporting_or_create_bus_data",
+    "an_unusable_bus_does_not_prevent_serving_and_reports_recover_when_it_returns",
+    "a_working_bus_that_fails_stays_failed_until_publication_really_recovers",
+    "a_store_that_cannot_open_never_claims_readiness_and_any_delivered_report_is_warn"
+  ],
+  "all_7_identities_unchanged": true,
+  "complete_scenario_tail_exact_after_reversal": true,
+  "scenario_reversal_whitelist": [
+    {
+      "new": "Process::start_controlled(",
+      "original": "Process::start(",
+      "occurrences": 4
+    },
+    {
+      "new": "    let window = process.cadence_window();\n",
+      "original": "",
+      "occurrences": 1
+    },
+    {
+      "new": "process.cadence_now()",
+      "original": "Instant::now()",
+      "occurrences": 2
+    },
+    {
+      "new": "let log = process.log_in(&window);",
+      "original": "let log = process.log();",
+      "occurrences": 1
+    },
+    {
+      "new": "process.wait_cadence_in(left.min(Duration::from_millis(200)), &window);",
+      "original": "thread::sleep(left.min(Duration::from_millis(200)));",
+      "occurrences": 1
+    }
+  ],
+  "all_scenario_assertion_macro_bytes_identical": true,
+  "scenario_assertion_sites": 33,
+  "original_all_assertion_sites": 42,
+  "new_all_assertion_sites": 43,
+  "new_helper_assertions": [
+    "assert!(\n            scratch.1.borrow().is_none(),\n            \"a child already owns this control slot\"\n        )"
+  ],
+  "diagnostic_only_assertion_changes": [
+    {
+      "before": "assert!(\n                Instant::now() < until,\n                \"memory never became ready; {}\",\n                self.log()\n            )",
+      "after": "assert!(\n                Instant::now() < until,\n                \"memory never became ready; {}\",\n                self.raw_log()\n            )"
+    },
+    {
+      "before": "assert!(\n                Instant::now() < until,\n                \"memory did not exit; {}\",\n                self.log()\n            )",
+      "after": "assert!(\n                Instant::now() < until,\n                \"memory did not exit; {}\",\n                self.raw_log()\n            )"
+    }
+  ],
+  "original_assertions_match_after_only_two_diagnostic_call_renames": true,
+  "host_only_bodies": {
+    "the_environment_alone_does_not_enable_reporting_or_create_bus_data": {
+      "unchanged": true,
+      "sha256": "c9c41ed05eedbfc57c5d67d39163ba6f51e97bb1672d14f25f3b01ae6ff5fd9e"
+    },
+    "a_store_that_cannot_open_never_claims_readiness_and_any_delivered_report_is_warn": {
+      "unchanged": true,
+      "sha256": "535fe044853d8b192bc808412b5daf86b6d97787680440538829b21e2eb7d172"
+    }
+  },
+  "unchanged_request_clock_value_helpers": {
+    "now": {
+      "unchanged": true,
+      "sha256": "c6e8568180ec55af129719a6ce75e925996a7e46b9569a91da55dc1c462ae4c8"
+    },
+    "ask_raw": {
+      "unchanged": true,
+      "sha256": "02967cbbd5ce27e88ba9eb344c0932ce34011512a70adf6c2f6373789094c1e1"
+    },
+    "ask": {
+      "unchanged": true,
+      "sha256": "265884b680b102fbd62b98b9aefc5f29e1fb27798094b3dbdd1e2e7b54451c6e"
+    },
+    "ok": {
+      "unchanged": true,
+      "sha256": "f3be1bb73016f2783590994ee0e3e0499a3499518e9019864eb39f4b88c26044"
+    },
+    "value": {
+      "unchanged": true,
+      "sha256": "a12703cf94a4f9618f938046c2e8e63ebb9afb0a6d65f01c599ad9f84cebc938"
+    },
+    "number": {
+      "unchanged": true,
+      "sha256": "ec5ef81695d293f3d61c60c2b8efadcdd5047fe6a1399fec7e07264aa4e4078c"
+    },
+    "private_file": {
+      "unchanged": true,
+      "sha256": "128d5123ef28da38eab453ab70b702f84c8a26e7caf4b485ce2e46b6990cf232"
+    }
+  },
+  "original_command_argv_env_stdio_builder_byte_identical": true,
+  "controlled_constructor_sites": 4,
+  "controlled_live_children": 5,
+  "ordinary_constructor_sites": 2,
+  "ordinary_children": 4,
+  "other_held_files": {
+    "lampOS/crates/memory/Cargo.toml": true,
+    "lampOS/crates/memory/src/application.rs": true,
+    "lampOS/crates/memory/src/application_factory_tests.rs": true,
+    "lampOS/crates/memory/src/bin/lamp-memory-eval.rs": true,
+    "lampOS/crates/memory/src/bin/lamp-memory-fixture.rs": true,
+    "lampOS/crates/memory/src/days.rs": true,
+    "lampOS/crates/memory/src/days_protocol.rs": true,
+    "lampOS/crates/memory/src/fixture_protocol.rs": true,
+    "lampOS/crates/memory/src/fixture_schedule.rs": true,
+    "lampOS/crates/memory/src/health.rs": true,
+    "lampOS/crates/memory/src/health_counts.rs": true,
+    "lampOS/crates/memory/src/lib.rs": true,
+    "lampOS/crates/memory/src/main.rs": true,
+    "lampOS/crates/memory/src/protocol.rs": true,
+    "lampOS/crates/memory/src/reporter_schedule_tests.rs": true,
+    "lampOS/crates/memory/src/search.rs": true,
+    "lampOS/crates/memory/src/server.rs": true,
+    "lampOS/crates/memory/src/store.rs": true,
+    "lampOS/crates/memory/src/tidy.rs": true,
+    "lampOS/crates/memory/tests/binary.rs": true,
+    "lampOS/crates/memory/tests/days.rs": true,
+    "lampOS/crates/memory/tests/days_timing.rs": true,
+    "lampOS/crates/memory/tests/fixture_child.rs": true,
+    "lampOS/crates/memory/tests/health_control.rs": true,
+    "lampOS/crates/memory/tests/health_timing.rs": true,
+    "lampOS/crates/memory/tests/retrieval.rs": true,
+    "lampOS/crates/memory/tests/server.rs": true,
+    "lampOS/crates/memory/tests/support/health_control.rs": true,
+    "lampOS/crates/memory/tests/timing.rs": true,
+    "lampOS/crates/memory/tests/voice.rs": true,
+    "lampOS/crates/memory/tests/voice_people.rs": true,
+    "lampOS/crates/memory/tests/voice_submit.rs": true,
+    "lampOS/crates/memory/tests/voice_timing.rs": true
+  },
+  "limits": [
+    "No compile/runtime result claimed by this agent; root owns gates and paired/full execution.",
+    "Eight-second windows bound control/marker waits, not preemption of filesystem or kernel kill/reap calls.",
+    "Three-period loop body/dynamic answered accounting preserved; original host iteration count may vary with request duration."
+  ]
+}

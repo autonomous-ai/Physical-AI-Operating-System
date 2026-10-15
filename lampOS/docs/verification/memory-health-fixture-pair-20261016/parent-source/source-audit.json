@@ -1,0 +1,48 @@
+{
+  "recorded": "2026-10-16 02:46:39+0700",
+  "owned_hashes": {
+    "lampOS/crates/memory/tests/support/health_control.rs": "a06cb3e241ac901f5729eefe89abedf96cf5c8f7eb580bfcc715540ee67f97db",
+    "lampOS/crates/memory/tests/health_control.rs": "e90c17dd703d4d9879732d4b2ead58d725d9e7f712f53fd2e56bd8198c771325"
+  },
+  "test_identities": [
+    "cadence_reads_and_same_time_rounds_do_not_invent_publications",
+    "every_due_cycle_is_split_before_a_longer_target",
+    "next_due_and_zero_wait_preserve_the_checked_boundary",
+    "initial_checked_identity_counters_and_deadline_are_validated",
+    "pre_due_progress_cannot_regress_or_claim_a_fresh_cycle",
+    "exact_due_requires_one_real_cycle_and_the_matching_attempt_delta",
+    "logical_window_is_fixed_and_cannot_be_extended_by_a_later_call",
+    "expired_host_window_cannot_be_reset_by_a_new_step",
+    "a_window_from_another_controller_is_rejected_before_step",
+    "targets_cannot_regress_round_microseconds_or_overflow",
+    "counters_and_round_overflow_fail_without_wrapping",
+    "a_real_marker_requires_its_exact_complete_line",
+    "marker_scanning_retains_a_partial_following_line",
+    "missing_marker_after_child_advance_latches_closed_without_cadence_commit",
+    "replacing_or_truncating_the_real_log_is_rejected",
+    "wrong_connected_identity_never_creates_a_controller",
+    "connected_and_checked_queued_before_peer_close_are_read_completely",
+    "malformed_truncated_and_oversized_receipts_close_control",
+    "missing_reply_is_bounded_and_does_not_manufacture_report_progress",
+    "bootstrap_pipe_write_cannot_reset_an_expired_or_blocked_deadline",
+    "startup_validates_private_paths_and_expired_budget_before_spawn",
+    "startup_guard_kills_and_reaps_the_actual_owned_child",
+    "bootstrap_closes_after_one_frame_and_preserves_real_argv_and_child_ownership"
+  ],
+  "new_assertion_sites": 93,
+  "original_memory_files_unchanged": 30,
+  "parallel_owner_changes": {
+    "lampOS/crates/memory/src/fixture_protocol.rs": {
+      "before": "1a6a4eafbd963c2b10cc26b545f7836e6b3e7ea84e9c997b6cfae632350afde7",
+      "after": "21f2d5ca2fc309c8b63989ff6a889f37edd5e3eb8a4fc5de305348d11a0efb0c"
+    },
+    "lampOS/crates/memory/src/fixture_schedule.rs": {
+      "before": "c6d1b655ff34b3571fd801a431586dbdc80a428808a8f7c49a85d98b78a362df",
+      "after": "aa4cd9fb4c59fc82011131a3461870efe8eef43af74186fdb606bb18e58f54f6"
+    }
+  },
+  "original_health_hash": "31add261e22dda578ca5f5c0b9016a1382f7a1e3d87f6968a1d083ec722e394d",
+  "shared_protocol_hash": "21f2d5ca2fc309c8b63989ff6a889f37edd5e3eb8a4fc5de305348d11a0efb0c",
+  "owned_only_new_files": true,
+  "no_original_scenario_changes": true
+}

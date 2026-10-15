@@ -1,0 +1,8 @@
+{
+  "date": "2026-10-16 03:01:06 +0700",
+  "all_memory_source_hashes_unchanged": true,
+  "binary_sha256": {
+    "lamp-memory": "1deb5681da362ff63d75d94eb4a29b191ad32db9ca490741cc21903eeb95f896",
+    "lamp-memory-fixture": "8dab7f5ff000f708d419c3ca226854b79ed80677a85cf6d20005ba68b2ed7d3c"
+  }
+}

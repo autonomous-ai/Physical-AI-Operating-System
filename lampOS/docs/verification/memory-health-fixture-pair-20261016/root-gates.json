@@ -1,0 +1,125 @@
+[
+  {
+    "stage": "fmt",
+    "command": [
+      "cargo",
+      "fmt",
+      "--all",
+      "--check"
+    ],
+    "cwd": "/private/tmp/lampos-tests-memory-progress/lampOS",
+    "target": "/private/tmp/tests-823-rebase-target",
+    "start_from_date": "2026-10-16 03:12:30 +0700",
+    "finish_from_date": "2026-10-16 03:12:36 +0700",
+    "exit_code": 0
+  },
+  {
+    "stage": "clippy",
+    "command": [
+      "cargo",
+      "clippy",
+      "--locked",
+      "--offline",
+      "-p",
+      "lamp-memory",
+      "--all-targets",
+      "--",
+      "-D",
+      "warnings"
+    ],
+    "cwd": "/private/tmp/lampos-tests-memory-progress/lampOS",
+    "target": "/private/tmp/tests-823-rebase-target",
+    "start_from_date": "2026-10-16 03:12:36 +0700",
+    "finish_from_date": "2026-10-16 03:12:38 +0700",
+    "exit_code": 0
+  },
+  {
+    "stage": "after-list",
+    "command": [
+      "cargo",
+      "nextest",
+      "list",
+      "--locked",
+      "--offline",
+      "-p",
+      "lamp-memory",
+      "--test",
+      "health",
+      "--message-format",
+      "json"
+    ],
+    "cwd": "/private/tmp/lampos-tests-memory-progress/lampOS",
+    "target": "/private/tmp/tests-823-rebase-target",
+    "start_from_date": "2026-10-16 03:12:38 +0700",
+    "finish_from_date": "2026-10-16 03:12:42 +0700",
+    "exit_code": 0
+  },
+  {
+    "stage": "after-health",
+    "command": [
+      "cargo",
+      "nextest",
+      "run",
+      "--locked",
+      "--offline",
+      "-p",
+      "lamp-memory",
+      "--test",
+      "health",
+      "--profile",
+      "realtime",
+      "--test-threads",
+      "1",
+      "--retries",
+      "0",
+      "--no-fail-fast",
+      "--status-level",
+      "pass",
+      "--final-status-level",
+      "fail",
+      "--color",
+      "never"
+    ],
+    "cwd": "/private/tmp/lampos-tests-memory-progress/lampOS",
+    "target": "/private/tmp/tests-823-rebase-target",
+    "start_from_date": "2026-10-16 03:12:42 +0700",
+    "finish_from_date": "2026-10-16 03:12:58 +0700",
+    "exit_code": 0
+  },
+  {
+    "stage": "full-tests",
+    "command": [
+      "cargo",
+      "test",
+      "--locked",
+      "--offline",
+      "-p",
+      "lamp-bus",
+      "-p",
+      "lamp-memory",
+      "--no-fail-fast",
+      "--",
+      "--test-threads=1"
+    ],
+    "cwd": "/private/tmp/lampos-tests-memory-progress/lampOS",
+    "target": "/private/tmp/tests-823-rebase-target",
+    "start_from_date": "2026-10-16 03:12:58 +0700",
+    "finish_from_date": "2026-10-16 03:18:33 +0700",
+    "exit_code": 0
+  },
+  {
+    "stage": "build",
+    "command": [
+      "cargo",
+      "build",
+      "--locked",
+      "--offline",
+      "--workspace"
+    ],
+    "cwd": "/private/tmp/lampos-tests-memory-progress/lampOS",
+    "target": "/private/tmp/tests-823-rebase-target",
+    "start_from_date": "2026-10-16 03:18:33 +0700",
+    "finish_from_date": "2026-10-16 03:20:08 +0700",
+    "exit_code": 0
+  }
+]

@@ -1,0 +1,254 @@
+{
+  "date": "2026-10-16 02:42:14 +0700",
+  "source_only_no_cargo_or_test_execution": true,
+  "base": "aa32b9d1222f0bb4c66152cfacfc431d3f584a1c",
+  "owned_files": {
+    "lampOS/crates/memory/Cargo.toml": "9c76d873ad6b870b46a3e3a7fad8cb3bf80ee0a31ca4b5ccaaa1d72dedac1875",
+    "lampOS/crates/memory/src/fixture_protocol.rs": "21f2d5ca2fc309c8b63989ff6a889f37edd5e3eb8a4fc5de305348d11a0efb0c",
+    "lampOS/crates/memory/src/fixture_schedule.rs": "aa4cd9fb4c59fc82011131a3461870efe8eef43af74186fdb606bb18e58f54f6",
+    "lampOS/crates/memory/src/bin/lamp-memory-fixture.rs": "2885b1d48defea67e2381f46f944aaf38c2035a67820eb68ac64c9b899c1dc2a",
+    "lampOS/crates/memory/tests/fixture_child.rs": "95934ea55a18e979fc2396255ff8b7c87ca0b623a94305c570eff6aec7cf9e6b",
+    "lampOS/docs/memory-fixture-clock.md": "d04bfd01f4950a559d8d3d989fcaacab575b3171cf86fefcc66b85463cc4a149"
+  },
+  "original_rust_files_unchanged": {
+    "lampOS/crates/memory/src/application.rs": true,
+    "lampOS/crates/memory/src/application_factory_tests.rs": true,
+    "lampOS/crates/memory/src/bin/lamp-memory-eval.rs": true,
+    "lampOS/crates/memory/src/days.rs": true,
+    "lampOS/crates/memory/src/days_protocol.rs": true,
+    "lampOS/crates/memory/src/health.rs": true,
+    "lampOS/crates/memory/src/health_counts.rs": true,
+    "lampOS/crates/memory/src/lib.rs": true,
+    "lampOS/crates/memory/src/main.rs": true,
+    "lampOS/crates/memory/src/protocol.rs": true,
+    "lampOS/crates/memory/src/reporter_schedule_tests.rs": true,
+    "lampOS/crates/memory/src/search.rs": true,
+    "lampOS/crates/memory/src/server.rs": true,
+    "lampOS/crates/memory/src/store.rs": true,
+    "lampOS/crates/memory/src/tidy.rs": true,
+    "lampOS/crates/memory/tests/binary.rs": true,
+    "lampOS/crates/memory/tests/days.rs": true,
+    "lampOS/crates/memory/tests/days_timing.rs": true,
+    "lampOS/crates/memory/tests/health.rs": true,
+    "lampOS/crates/memory/tests/health_timing.rs": true,
+    "lampOS/crates/memory/tests/retrieval.rs": true,
+    "lampOS/crates/memory/tests/server.rs": true,
+    "lampOS/crates/memory/tests/timing.rs": true,
+    "lampOS/crates/memory/tests/voice.rs": true,
+    "lampOS/crates/memory/tests/voice_people.rs": true,
+    "lampOS/crates/memory/tests/voice_submit.rs": true,
+    "lampOS/crates/memory/tests/voice_timing.rs": true
+  },
+  "seeded_bus_reporter_dependencies_unchanged": {
+    "lampOS/crates/bus/src/publish.rs": true,
+    "lampOS/crates/bus/src/lib.rs": true,
+    "lampOS/crates/bus/src/publisher_clock_tests.rs": true,
+    "lampOS/crates/memory/src/health.rs": true,
+    "lampOS/crates/memory/src/reporter_schedule_tests.rs": true
+  },
+  "cargo_reversal_exact": true,
+  "ordinary_main_unchanged_and_application_shared_by_include": true,
+  "original_test_sources": {
+    "lampOS/crates/memory/src/application_factory_tests.rs": {
+      "sha256": "d17afc389989a348f430c1328dfa839fa5da0572a84a180b3c8b51d06d725a5a",
+      "tests": [
+        "no_bus_root_never_invokes_the_factory_for_either_backend",
+        "a_socket_bind_failure_precedes_the_factory_and_store_for_either_backend",
+        "the_selected_factory_gets_the_original_root_and_source_once_after_socket_bind"
+      ],
+      "assertion_macros": 24
+    },
+    "lampOS/crates/memory/src/main.rs": {
+      "sha256": "e2e19a04685a7da56d1965237e0f73ed5dc77c8eaf0c4abd3cfbec406d05df48",
+      "tests": [
+        "the_two_paths_are_required_and_the_days_and_the_offset_have_defaults",
+        "health_reporting_requires_one_explicit_absolute_bus_root",
+        "a_relative_path_an_unknown_option_or_a_bad_number_is_refused"
+      ],
+      "assertion_macros": 16
+    },
+    "lampOS/crates/memory/src/reporter_schedule_tests.rs": {
+      "sha256": "c324372847d39007cf5302890890947a844fdaa4e4b7853ec62ce13d278eaf28",
+      "tests": [
+        "schedule_reads_are_pure_and_the_default_source_uses_host_time",
+        "the_shared_worker_samples_once_at_cycle_start_and_once_at_the_wait_check",
+        "frozen_spurious_and_predeadline_wakes_do_not_publish_but_the_exact_deadline_does",
+        "completion_waits_for_actual_publication_and_overrun_has_no_catchup_queue",
+        "stopping_a_frozen_wait_unparks_and_preserves_the_final_best_effort_report",
+        "stopping_a_held_publication_keeps_the_host_bound_without_false_completion",
+        "publication_outcomes_follow_the_actual_error_and_recovery_results",
+        "successful_publication_is_not_a_receipt_and_the_shared_bus_clock_rescans_real_sockets"
+      ],
+      "assertion_macros": 41
+    },
+    "lampOS/crates/memory/tests/binary.rs": {
+      "sha256": "3270da514121f1b3363fbcdd78fc631231b021cf9542901c813dfb2f9f50b54b",
+      "tests": [
+        "a_relative_path_or_an_unknown_option_gets_the_usage_line_and_exit_code_two",
+        "a_directory_others_can_enter_is_refused_with_the_reason_and_exit_code_two",
+        "a_killed_process_leaves_a_store_the_next_one_loads_and_a_socket_it_replaces",
+        "opted_in_memory_migrates_and_forgets_linked_facts_across_sigkill_restarts",
+        "log_completion_waits_for_the_newline_after_a_private_suffix",
+        "log_completion_waits_for_the_later_repeated_terminal_record"
+      ],
+      "assertion_macros": 98
+    },
+    "lampOS/crates/memory/tests/days.rs": {
+      "sha256": "c1c35a7199829fb4b515595aadf8d0c2b1d1cb2a3a321fcb10672a2b0b78e5df",
+      "tests": [
+        "rejected_tidy_requests_cannot_accumulate_empty_people",
+        "forgetting_an_observation_removes_its_raw_ancestors_and_all_linked_descendants",
+        "forgetting_either_supersession_version_removes_both_without_reviving_the_old_fact",
+        "ordinary_source_expiry_does_not_follow_a_replacement_to_its_independent_new_evidence",
+        "missing_duplicate_foreign_and_nonjournal_tidy_sources_are_refused",
+        "deleting_memory_invalidates_a_prepared_job_even_when_its_source_survives",
+        "delayed_model_work_retains_new_appends_and_retries_commit_only_once",
+        "a_bad_second_proposal_leaves_the_whole_batch_unwritten_and_the_job_retryable",
+        "supersession_changed_after_preparation_rolls_back_an_earlier_proposal_in_the_same_batch",
+        "observations_are_dated_by_their_own_cited_evidence_not_when_the_job_was_prepared",
+        "a_delayed_old_conversation_cannot_supersede_a_fact_from_newer_evidence",
+        "a_relevant_old_fact_remains_available_to_correct_after_thirty_two_unrelated_observations",
+        "explicit_previous_observations_must_exist_in_scope_and_a_prepared_selection_cannot_change",
+        "protocol_accepts_explicit_prior_ids_and_freezes_them_in_the_prepared_job",
+        "successful_ids_are_never_reused_after_forgetting_everything_and_restarting",
+        "ranked_search_handles_english_and_vietnamese_without_crossing_person_scope",
+        "session_notes_are_frozen_under_the_total_utf8_cap_and_deletion_invalidates_them",
+        "session_and_pending_job_limits_are_bounded_and_released_without_duplicate_work",
+        "forgetting_everything_preserves_invalidated_snapshots_until_the_caller_closes_them",
+        "forgetting_an_empty_person_still_invalidates_their_existing_empty_snapshot",
+        "a_full_kept_list_refuses_the_next_fact_without_evicting_an_explicit_memory",
+        "unused_observations_lapse_but_kept_facts_do_not_and_note_reads_do_not_extend_use",
+        "successful_retrieval_extends_observation_use_but_clock_rollback_does_not",
+        "expiring_journal_evidence_removes_even_a_recently_used_observation_and_stales_jobs",
+        "a_sqlite_delete_failure_rolls_back_entries_search_notes_and_pending_jobs",
+        "a_sqlite_failure_on_the_second_proposal_rolls_back_the_first_and_its_index",
+        "protocol_keeps_legacy_shapes_and_limits_without_logging_private_text",
+        "protocol_round_trip_records_links_prepares_and_applies_a_job_then_verifies_forgetting",
+        "protocol_expires_old_sources_before_returning_a_read",
+        "legacy_default_stays_jsonl_and_upgrade_removes_duplicate_files_before_serving",
+        "a_failed_import_rolls_back_the_database_and_preserves_all_legacy_bytes_for_retry"
+      ],
+      "assertion_macros": 216
+    },
+    "lampOS/crates/memory/tests/days_timing.rs": {
+      "sha256": "e3802e2614dae1c94333571344b40315cfca5d2238112092a5bc7d4577733b24",
+      "tests": [],
+      "assertion_macros": 2
+    },
+    "lampOS/crates/memory/tests/health.rs": {
+      "sha256": "31add261e22dda578ca5f5c0b9016a1382f7a1e3d87f6968a1d083ec722e394d",
+      "tests": [
+        "legacy_reports_retained_counts_and_stays_well_after_caller_refusals",
+        "sqlite_reports_retained_counts_and_stays_well_after_caller_refusals",
+        "a_failed_legacy_write_stays_warn_through_reads_until_a_write_succeeds",
+        "the_environment_alone_does_not_enable_reporting_or_create_bus_data",
+        "an_unusable_bus_does_not_prevent_serving_and_reports_recover_when_it_returns",
+        "a_working_bus_that_fails_stays_failed_until_publication_really_recovers",
+        "a_store_that_cannot_open_never_claims_readiness_and_any_delivered_report_is_warn"
+      ],
+      "assertion_macros": 42
+    },
+    "lampOS/crates/memory/tests/health_timing.rs": {
+      "sha256": "cd7efc4197dd1e6901d50d1d4eaa5d3afcbeb425be8a13a4d9944d25a7be795d",
+      "tests": [],
+      "assertion_macros": 11
+    },
+    "lampOS/crates/memory/tests/retrieval.rs": {
+      "sha256": "bbbbb5b6df0ba47647453b4489e43c8a5389ff9cfb25e6e0a335679040c89921",
+      "tests": [
+        "legacy_words_and_matches_preserve_the_existing_behavior",
+        "first_sixteen_distinct_words_are_the_only_query_terms",
+        "query_uses_literal_terms_and_cannot_supply_fts_operators",
+        "nfc_lowercase_and_d_with_stroke_are_shared_by_query_and_index",
+        "decomposed_vietnamese_and_multiple_diacritics_match",
+        "bm25_uses_term_rarity_and_has_deterministic_ties",
+        "independently_created_indexes_do_not_leak_between_people_or_questions",
+        "cli_reports_distinct_denominators_hashes_bytes_and_repeated_timings",
+        "cli_rejects_missing_labels_and_never_overwrites_per_query_output",
+        "cli_marks_partial_runs_and_does_not_score_all_abstention_input"
+      ],
+      "assertion_macros": 53
+    },
+    "lampOS/crates/memory/tests/server.rs": {
+      "sha256": "063a42a70a9167f4b8bbef65e56f65d349f5a9ca2970a82e1d4ed24ab358fe54",
+      "tests": [
+        "the_server_answers_over_its_socket_and_a_bad_line_does_not_end_the_connection",
+        "a_client_that_says_nothing_or_half_a_request_is_dropped_and_the_next_is_served",
+        "a_socket_nobody_answers_on_is_replaced_and_anything_else_at_the_path_is_left"
+      ],
+      "assertion_macros": 59
+    },
+    "lampOS/crates/memory/tests/timing.rs": {
+      "sha256": "5896c754d0b2902c91472a8ee755f950dc531565968c70b361c8748d2270016d",
+      "tests": [],
+      "assertion_macros": 1
+    },
+    "lampOS/crates/memory/tests/voice.rs": {
+      "sha256": "ad9818b86cce3c6bfd2dae4dba23270e0bf796aa2ad7fa02f1fb0a3711c3932f",
+      "tests": [
+        "ranked_voice_recall_finds_an_earlier_day_and_respects_a_named_day",
+        "a_voice_session_receives_a_frozen_note_with_provenance_then_a_new_snapshot",
+        "a_remembered_fact_links_later_journal_echoes_and_forgetting_removes_them",
+        "repeated_real_conversation_ends_reach_memory_without_retaining_model_jobs",
+        "a_held_real_store_costs_only_the_note_and_call_deadlines_and_cleans_a_late_note",
+        "a_missing_store_never_becomes_an_empty_or_successful_memory_answer",
+        "a_timed_out_mutation_may_commit_but_cannot_seed_unlinked_journal_history",
+        "deletion_invalidates_a_frozen_note_and_linked_writes_never_fall_back_to_plain_append"
+      ],
+      "assertion_macros": 61
+    },
+    "lampOS/crates/memory/tests/voice_people.rs": {
+      "sha256": "c09bd59e337bb798b3e82d3e93f6cd14402c4e14bccc237bc3ca856fae7aa946",
+      "tests": [
+        "legacy_two_known_people_and_the_room_are_never_answered_from_each_other",
+        "days_two_known_people_and_the_room_are_never_answered_from_each_other",
+        "days_a_rule_is_told_in_the_next_session_to_that_person_only_until_it_is_forgotten",
+        "days_a_rule_is_taken_back_by_its_number_and_never_by_default",
+        "days_every_rule_kept_is_told_and_a_rule_past_the_most_is_refused",
+        "days_rules_kept_at_once_never_pass_the_most",
+        "days_an_answer_under_a_rule_is_journalled_and_goes_when_the_rule_is_forgotten",
+        "days_store_never_links_another_persons_rule",
+        "days_a_rule_kept_without_its_acknowledgement_lets_nothing_unlinked_be_journalled",
+        "days_a_malformed_rule_acknowledgement_is_not_taken_and_journals_nothing"
+      ],
+      "assertion_macros": 108
+    },
+    "lampOS/crates/memory/tests/voice_submit.rs": {
+      "sha256": "a6d3fe993d9d4dd5359b50df9c8993ccaf55039e2cb086a11ea6caec0fd83c56",
+      "tests": [
+        "unconfigured_submissions_do_not_allocate_jobs_or_fill_prepare_capacity",
+        "submission_checks_names_person_shape_and_finished_same_person_sources",
+        "selected_previous_ids_must_be_distinct_current_observations",
+        "unconfigured_submission_never_builds_the_bounded_model_payload"
+      ],
+      "assertion_macros": 26
+    },
+    "lampOS/crates/memory/tests/voice_timing.rs": {
+      "sha256": "3d0c8f431f1a3165737b37ec8d444ceaa3e698aeeee76df1d98dfe408db28ad4",
+      "tests": [],
+      "assertion_macros": 22
+    }
+  },
+  "new_child_tests": [
+    "reads_are_pure_and_equal_time_steps_do_not_create_reports",
+    "pre_deadline_wait_preserves_the_full_period_and_due_requires_real_publication",
+    "invalid_first_step_stale_round_backwards_time_and_skipped_due_fail_closed",
+    "zero_left_wait_and_observer_overflow_cannot_produce_checked",
+    "held_work_then_positive_wait_is_required_and_wake_before_park_is_retained",
+    "close_freezes_clock_and_does_not_block_the_real_reporter_finish",
+    "malformed_oversized_and_unterminated_frames_are_rejected",
+    "bootstrap_requires_the_explicit_private_socket_and_matching_version",
+    "complete_queued_frame_survives_peer_close_and_eof_is_not_a_receipt",
+    "an_expired_absolute_deadline_rejects_even_queued_data",
+    "real_channel_shutdown_wakes_a_waiting_reader_without_fabricating_a_frame",
+    "actual_marker_follows_prior_bytes_through_the_real_log_relay"
+  ],
+  "default_application_source_reversal": "All 27 original Memory Rust files are byte-identical; removing only new bin/rustix manifest blocks exactly restores the original manifest. New fixture binary includes the identical application body and supplies the Reporter factory only at its original selected-after-bind call site.",
+  "limits": [
+    "No Cargo/build/clippy/test execution by child agent. Root owns all gates.",
+    "No original health scenario migration; original 1s/3s/2.2s windows unchanged.",
+    "Modeled held-work adapter test is not an independent held real-publisher test; existing unchanged Reporter scheduler tests cover its publication closure.",
+    "Bootstrap or stderr writer may remain blocked only inside the owned child until actual process exit; parent must kill/try_wait/reap under its host deadline.",
+    "Checked confirms completed work/positive wait and actual marker write, not downstream marker receipt, datagram delivery or process exit."
+  ]
+}

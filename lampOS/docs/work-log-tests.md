@@ -1,5 +1,18 @@
 # Tests work log
 
+## 2026-10-16 03:26 +0700 — Serve and Reporter PRs; seven Memory health tests measured
+
+Ready for lamp-voice: no (#909, #910 pending their own ARM64); #877, #894, #897 and #901 are merged
+
+- Serve coordination is [#909](https://github.com/autonomous-ai/lampOS/pull/909), head `188d97b7fcb6a78adaec67a3d3939843f759e1d3`. Fresh complete local Evaluator gate passes **416 / zero fail or ignore**, fmt/strict Clippy/workspace build. All 14 original identities, 114 assertions and 22 attempts remain; ten identities/18 attempts are controlled. [Current-base source proof and complete raw gate](https://github.com/autonomous-ai/lampOS/blob/188d97b7fcb6a78adaec67a3d3939843f759e1d3/lampOS/docs/verification/serve-coordination-20261016/README.md). Normal ARM64 `38800988605` and full `38801026642` are running; the full run must retain all original 123.
+- Pure Reporter scheduling is [#910](https://github.com/autonomous-ai/lampOS/pull/910), head `fd3a2764cb6624ac825fa7a044317d9080ff1e3d`. Current Bus/Memory complete gate **261 / zero fail / six existing ignores**, fmt/strict Clippy/workspace build. Independent reversal proves every original Memory test and default sampling/cleanup unchanged. [Raw gate and current-base review](https://github.com/autonomous-ai/lampOS/blob/fd3a2764cb6624ac825fa7a044317d9080ff1e3d/lampOS/docs/verification/memory-reporter-schedule-20261016/README.md). Its own normal native qualification is pending; no scenario migrates in that preparation.
+- The later Memory child/parent and health migration completes **296 / zero fail / six existing ignores**, fmt/strict Clippy/workspace build. All seven compiled health identities, 33 scenario assertions and nine real children remain; five children use controlled cadence, four stay on the ordinary path. Same normal/fixture executable hashes in the serial pair: **39.498 → 14.547 s**. The controlled five total **33.437 → 5.590 s**; the host two total **6.057 → 8.893 s**. [Unedited pair, full gate, independent source review and the new-child preflight failure/fix](verification/memory-health-fixture-pair-20261016/README.md). Shared Mac/debug with unequal concurrent load; clean dependency integration and native qualification remain.
+- #894's wording-corrected head passes exact-head ARM64 **4,846 / 127 profile exclusions**, all six new cases once. [Raw native evidence](verification/slow-transport-amended-arm64-20261016/README.md). Reviewer merged it at `58753a04833f0e8a4d35d6deaf413db90c826b48`.
+- Recorder integration preserves merged SlowTransport/Recorder seams while the Serve PR runs. The Gemini capture-clock preparation has a narrow explicit factory plan and owner notification on #823; default clocks, capture bounds, Tokio timers and every old test remain protected. No provider scenario has migrated yet.
+- Moment's complete affected gate remains red; three unchanged motor failures have [durable source/cleanup evidence](verification/motor-gated-cleanup-20261016/README.md) and new owner issue #906; the other failure remains #890. No retry or unrelated repair. #783's merged sweep remains with the eighth for its loaded qualification and close decision.
+
+The original 123-test combined serial under-two-minute result is still unproved. No workflow/profile/runner/settings/device change.
+
 ## 2026-10-16 02:57 +0700 — native Bus ready; Serve relay pair and complete gates recorded
 
 Ready for lamp-voice: yes (#877, #901); no (Moment gate and unpublished migrations)

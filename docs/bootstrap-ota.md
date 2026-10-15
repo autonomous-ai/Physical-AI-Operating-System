@@ -1483,3 +1483,6 @@ release's `VERSION` file for OTA health; this command does not modify the Rust
 crate version. As with the existing release commands, a failed upload after the
 bump leaves the version file advanced. Keep release invocations serialized and
 retain the updated version file in the release history; do not hand-bump it.
+
+If Cargo is missing from the caller's PATH, the command also checks
+`${CARGO_HOME:-$HOME/.cargo}/bin` for an existing installation. It does not install Rust.

@@ -3,6 +3,14 @@
 set -euo pipefail
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/ota-config.sh"
 
+# A non-login shell (including make) may not load rustup's PATH setup.
+if ! command -v cargo >/dev/null 2>&1; then
+  cargo_bin="${CARGO_HOME:-${HOME}/.cargo}/bin"
+  if [ -x "$cargo_bin/cargo" ]; then
+    export PATH="$cargo_bin:$PATH"
+  fi
+fi
+
 for tool in git cargo zig gsutil python3 tar; do
   command -v "$tool" >/dev/null || { echo "Missing required tool: $tool" >&2; exit 1; }
 done

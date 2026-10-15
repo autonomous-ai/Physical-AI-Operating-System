@@ -52,7 +52,7 @@ elif name == 'gsutil':
 
 
 class UploadLampOSTests(unittest.TestCase):
-    def run_case(self, initial_version="0.0.9", **flags):
+    def run_case(self, initial_version="0.0.9", cargo_off_path=False, **flags):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             checkout = root / 'checkout'
@@ -68,6 +68,12 @@ class UploadLampOSTests(unittest.TestCase):
                 tool.chmod(0o755)
             env = dict(os.environ, MOCK_ROOT=str(root), PATH=f'{bindir}:{os.environ["PATH"]}',
                        GCS_BUCKET='test-bucket', BUCKET_PREFIX='test-prefix', **flags)
+            if cargo_off_path:
+                cargo_home = root / 'rustup-cargo'
+                (cargo_home / 'bin').mkdir(parents=True)
+                shutil.move(bindir / 'cargo', cargo_home / 'bin/cargo')
+                env['CARGO_HOME'] = str(cargo_home)
+                env['PATH'] = f'{bindir}:/usr/bin:/bin:/usr/sbin:/sbin'
             result = subprocess.run(['bash', str(scripts / SCRIPT.name)], env=env, text=True, capture_output=True)
             calls = [json.loads(line) for line in (root / 'calls').read_text().splitlines()]
             manifest = json.loads((root / 'build.json').read_text()) if (root / 'build.json').exists() else None
@@ -92,6 +98,11 @@ class UploadLampOSTests(unittest.TestCase):
         uploads = [call for call in calls if call[0] == 'gsutil']
         self.assertEqual(len(uploads), 2)
         self.assertFalse(any('metadata.json' in arg for call in uploads for arg in call))
+
+    def test_finds_installed_cargo_outside_shell_path(self):
+        result, _, manifest, _ = self.run_case(cargo_off_path=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(manifest['version'], '0.0.10')
 
     def test_failure_before_valid_binary_never_uploads(self):
         for flag in ('FETCH_FAIL', 'BUILD_FAIL', 'BAD_ARCH'):

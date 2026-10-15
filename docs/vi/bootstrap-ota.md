@@ -1442,3 +1442,6 @@ upload kèm và đường dẫn GCS. Keeper đọc file `VERSION` của release 
 cho OTA; lệnh không sửa version crate Rust. Giống các lệnh release hiện có, nếu
 upload lỗi sau bước tăng version thì file vẫn giữ số mới. Chạy release tuần tự,
 giữ lại version file đã cập nhật trong lịch sử release; không tự tăng bằng tay.
+
+Nếu PATH của shell chưa có Cargo, lệnh còn kiểm tra bản đã cài trong
+`${CARGO_HOME:-$HOME/.cargo}/bin`. Lệnh không tự cài Rust.

@@ -867,6 +867,28 @@ pub struct Rules {
     pub quiet_mornings: bool,
     /// How many rules, of every kind, the room's and theirs.
     pub rules: u32,
+    /// The greeting on arrival (#883), from rules about it. Absent from a
+    /// message of before #813's typed rules: nothing held.
+    #[serde(default)]
+    pub hello: Unprompted,
+    /// News the lamp brings unasked: progress and results of work (#765).
+    #[serde(default)]
+    pub news: Unprompted,
+}
+
+/// When the lamp was asked not to say one kind of thing unprompted, every
+/// such rule merged, the strictest winning. `quiet` and `quiet_mornings`
+/// are not copied in: they stand for both kinds.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Unprompted {
+    /// Not at all.
+    pub never: bool,
+    /// Not before this minute of the day, local time (540 = 09:00).
+    pub not_before_minute: Option<u16>,
+    /// Not from this minute of the day on, local time (1320 = 22:00).
+    pub not_from_minute: Option<u16>,
+    /// Not while the person is talking: on a call, or with someone.
+    pub not_while_talking: bool,
 }
 
 impl Rules {
@@ -1621,9 +1643,25 @@ mod tests {
                 quiet: false,
                 quiet_mornings: true,
                 rules: 2,
+                hello: Unprompted {
+                    not_before_minute: Some(540),
+                    ..Unprompted::default()
+                },
+                news: Unprompted {
+                    not_while_talking: true,
+                    ..Unprompted::default()
+                },
             },
-            "{\"person\":\"p-be9688998f085098\",\"quiet\":false,\"quiet_mornings\":true,\"rules\":2}",
+            "{\"person\":\"p-be9688998f085098\",\"quiet\":false,\"quiet_mornings\":true,\"rules\":2,\
+             \"hello\":{\"never\":false,\"not_before_minute\":540,\"not_from_minute\":null,\"not_while_talking\":false},\
+             \"news\":{\"never\":false,\"not_before_minute\":null,\"not_from_minute\":null,\"not_while_talking\":true}}",
         );
+        // A message of before #813's typed rules still reads: nothing held.
+        let old: Rules = serde_json::from_str(
+            "{\"person\":\"everyone\",\"quiet\":true,\"quiet_mornings\":true,\"rules\":1}",
+        )
+        .unwrap();
+        assert_eq!((old.hello, old.news), Default::default());
         assert!(!first_topics().iter().any(|(name, _)| *name == Rules::TOPIC));
         let declared = declaration_of(Rules::TOPIC).unwrap();
         assert_eq!(

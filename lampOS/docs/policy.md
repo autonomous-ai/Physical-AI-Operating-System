@@ -82,7 +82,10 @@ is silent between decisions for longer than the bus's lease.
 `memory/rules` (`lamp_msgs::Rules`, [msgs.md](msgs.md)) with typed facts
 from what the person at the lamp asked of it: `quiet` (never speak first)
 and `quiet_mornings` (not in the mornings, before noon local time, or
-never), for `person`, the memory's id of the known person or `everyone`.
+never), and per kind, `hello` (the greeting on arrival) and `news`
+(progress and results of work), each `never`, `not_before_minute`,
+`not_from_minute` (local minute of the day) and `not_while_talking`,
+for `person`, the memory's id of the known person or `everyone`.
 It is kept until the next, so it is read with `latest`. The policy does
 not read it yet: a decision about speaking first (progress news, hello on
 arrival) should, and stay quiet when the fact says so for whoever is at

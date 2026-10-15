@@ -1212,3 +1212,16 @@ cost or power-cut survival. The completion-before-Ack design also cannot close
 the interval after sound finishes but before completion persistence: it keeps
 that occurrence uncertain. The exact boundaries and First's lamp cases are in
 [Schedule](schedule.md#optional-voice-consumer) and [Actions](actions.md).
+
+## Second voice route (task 11, #754, 2026-10-15)
+
+The [second voice route](second-voice.md) speaks V1's services from Rust.
+What was taken and what was not:
+
+| Choice | Evidence and consequence |
+|---|---|
+| #258, V1's OpenAI-compatible STT/TTS (Python, on `main`) | Took only the idea of the endpoint shape: an OpenAI-compatible base URL for chat and speech. No code: lampOS is Rust only. |
+| #681, Phonon | Not taken: weights under NDA installed by hand, a Python worker, English only, a 350 MB model. |
+| V1's configuration field names | `llm_base_url`, `llm_model`, `stt_base_url`, `stt_language`, `tts_base_url`, `tts_provider`, `tts_voice` as in `system/domain/device.go` and `hal/models.py`, with V1's fallback (empty STT or TTS URL or key is the LLM's). Each `*_api_key` becomes a mode-0600 `*_credential_file`, as `provider.json` has it, so a V1 `config.json` with inline keys is converted by whatever carries V1's data over. |
+| V1's protocols | Deepgram's websocket with V1's nova query (`hal/drivers/voice/stt/{deepgram,autonomous}.py`), streamed `/chat/completions`, OpenAI `tts-1` and ElevenLabs PCM as `hal/drivers/voice/tts/{openai,elevenlabs}.py` ask, the proxy's `/ai` to `/ai/v1` rule (`_ensure_openai_v1`) and the ElevenLabs voice names (`VOICE_IDS_BY_LANG`). V1's Deepgram default, `flux-general-en`, is not used. |
+| Dependencies added to `lamp-voice` | `tokio-tungstenite` 0.30.0, `futures-util` 0.3.34, `rustls` 0.23 (ring, tls12), `webpki-roots` 1 and `reqwest` 0.13 with `default-features = false` and `rustls-no-provider`, so no OpenSSL on the lamp. All were already in `Cargo.lock` through `lamp-gemini` and `lamp-surround`; the lock gains no package. `tokio` gains the `net`, `sync` and `io-util` features. |

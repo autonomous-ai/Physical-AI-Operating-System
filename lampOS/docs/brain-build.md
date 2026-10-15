@@ -511,7 +511,7 @@ while the others are counted.
 | 8 | Decisions, goals and the owner's feedback | `lamp-decide` with Jev behind it; what the owner teaches, corrects and approves; a second engine |
 | 9 | Controls | `lamp-controls`: touch pad, button, privacy switch |
 | 10 | Schedules | `lamp-schedule`: reminders and timers |
-| 11 | The second speech route | Deepgram, a text answer, speech synthesis |
+| 11 | The second speech route | Deepgram, a text answer, speech synthesis ([second-voice.md](second-voice.md)) |
 | 12 | The surround | Starting at power-up, setup, network, configuration, updates, reset, the operator's pages, V1's data |
 
 Where each stood at 20:10 on 2026-10-13: step 0's library and tool

@@ -202,6 +202,28 @@ costs the thread at the next restart and nothing else.
 What a person said goes into the next session's instruction as they said it.
 That is no more than they could say to the lamp directly.
 
+## Two voice routes, one file
+
+The second voice route ([second-voice.md](second-voice.md)) writes the same
+file as the Gemini worker, whole, after each of its turns. So that Gemini
+does not erase that talk when it comes back, and is told it:
+
+- At each connect (`Recalling::connect`, through `thread::current`) Gemini
+  takes the file if it is newer than what it holds. The second route does
+  the same before each turn's chat.
+- Newer is by the file's modification time (`Thread::reload`), compared
+  with the time of the file it last read or wrote itself (`Thread::wrote`).
+  Its own file is not news.
+- A forgetting (`Thread::forget`, through `clear_forgotten_thread`, applied
+  before any reload) moves that mark to its own moment. A file written
+  before a forgetting is never reloaded, so a reload cannot bring back what
+  was forgotten. A file written after it is.
+- A file that cannot be read changes nothing. A coarse filesystem clock or
+  the wall clock stepped back can only miss a reload (`ponytail:` in
+  `thread.rs`).
+
+Shown by `a_thread_another_route_wrote_while_this_one_was_away_is_told_again`.
+
 ## Verification
 
 `thread::tests` (4 passed on macOS; the fourth: a thread saved by one

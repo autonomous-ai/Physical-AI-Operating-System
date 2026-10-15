@@ -1,0 +1,57 @@
+{
+  "explicit_current_segment_reaches_inert_counts_without_completing_voice": [
+    {
+      "result": "PASS",
+      "seconds": "0.168",
+      "ordinal": 3519,
+      "total": 5010,
+      "binary": "lamp-voice",
+      "name": "coordinator::motor::tests::explicit_current_segment_reaches_inert_counts_without_completing_voice",
+      "line": 4057
+    }
+  ],
+  "fixture_preflight_rejects_missing_wrong_and_failed_markers_and_reaps": [
+    {
+      "result": "PASS",
+      "seconds": "0.009",
+      "ordinal": 3520,
+      "total": 5010,
+      "binary": "lamp-voice",
+      "name": "coordinator::motor::tests::fixture_preflight_rejects_missing_wrong_and_failed_markers_and_reaps",
+      "line": 4058
+    }
+  ],
+  "frozen_config_and_executable_are_exact_and_source_changes_are_not_adopted": [
+    {
+      "result": "PASS",
+      "seconds": "0.018",
+      "ordinal": 3521,
+      "total": 5010,
+      "binary": "lamp-voice",
+      "name": "coordinator::motor::tests::frozen_config_and_executable_are_exact_and_source_changes_are_not_adopted",
+      "line": 4059
+    }
+  ],
+  "frozen_fixture_preflight_is_not_motor_startup": [
+    {
+      "result": "PASS",
+      "seconds": "0.007",
+      "ordinal": 3522,
+      "total": 5010,
+      "binary": "lamp-voice",
+      "name": "coordinator::motor::tests::frozen_fixture_preflight_is_not_motor_startup",
+      "line": 4060
+    }
+  ],
+  "idle_ready_never_inspects_moves_or_claims_listening": [
+    {
+      "result": "PASS",
+      "seconds": "0.018",
+      "ordinal": 3523,
+      "total": 5010,
+      "binary": "lamp-voice",
+      "name": "coordinator::motor::tests::idle_ready_never_inspects_moves_or_claims_listening",
+      "line": 4061
+    }
+  ]
+}

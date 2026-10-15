@@ -1,0 +1,20 @@
+{
+  "command": [
+    "gh",
+    "run",
+    "view",
+    "38820115320",
+    "-R",
+    "autonomous-ai/lampOS",
+    "--log"
+  ],
+  "started_from_date": "2026-10-16 06:17:21 +0700",
+  "finished_from_date": "2026-10-16 06:17:31 +0700",
+  "exit_code": 0,
+  "stdout": "/private/tmp/tests-823-native-20261016/909-38820115320.retrieved.log",
+  "stdout_bytes": 1807245,
+  "stdout_sha256": "9177b81971f122517bc89a5e59f1d5061beaf5bf7046e517c43d4ae21a118c77",
+  "stderr": "/private/tmp/tests-823-native-20261016/909-38820115320.retrieved.log.stderr",
+  "stderr_bytes": 0,
+  "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+}

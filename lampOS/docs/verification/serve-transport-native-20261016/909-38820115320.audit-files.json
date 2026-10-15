@@ -1,0 +1,219 @@
+{
+  "from_date": "2026-10-16 06:24:57 +0700",
+  "run": 38820115320,
+  "head": "8af53fd459795029f6277679ded49bf7826def73",
+  "raw_full_log": "909-38820115320.retrieved.log",
+  "preservation": "All original watcher files and initial failed retrievals retained; distinct successful retrievals, audits and scripts added. Includes root independent membership audit received during packaging. No repository file changed.",
+  "files": [
+    {
+      "name": "909-38820115320.audit-script.py",
+      "bytes": 16082,
+      "sha256": "10325cec1fd78cc0546caa3f76cca4a7a2cee4dd7ff99f07a0de29b91ab214cf"
+    },
+    {
+      "name": "909-38820115320.audit.json",
+      "bytes": 172885,
+      "sha256": "fc78a2ef44f7ef9b52126dc650730ac9b13e702461962debaeea5e2c5ddab472"
+    },
+    {
+      "name": "909-38820115320.audit.md",
+      "bytes": 5648,
+      "sha256": "9a6c918939b0d8b3eb99ada6f46779d4750b3ca0b44764e495ad3d51db21777f"
+    },
+    {
+      "name": "909-38820115320.capture-commit-api.json",
+      "bytes": 649,
+      "sha256": "1edc693da0e142adf7f79dd91c6172771a5efd0a546f776f1c6660c2a0ab55af"
+    },
+    {
+      "name": "909-38820115320.capture-jobs-api.json",
+      "bytes": 646,
+      "sha256": "db89bc0ad4bacefc3ef260a73610b5d2764999ab5f8a8869cdf8394af5632058"
+    },
+    {
+      "name": "909-38820115320.capture-log.json",
+      "bytes": 620,
+      "sha256": "ff1c56ccca7c3013b59a68c3f2ae6fd639a2a9f6d0073e35018334a8dd036ad3"
+    },
+    {
+      "name": "909-38820115320.capture-run-api.json",
+      "bytes": 615,
+      "sha256": "3b9f7450a36e7e6e2d2477e4252cb8b28e9c9ac8fc16f8e7036913951464cb44"
+    },
+    {
+      "name": "909-38820115320.capture-run-final.json",
+      "bytes": 758,
+      "sha256": "82d60980693d1955a6138044c9ff25de3a61c1e8d3f8e4aa72c07879a94ba590"
+    },
+    {
+      "name": "909-38820115320.capture-script.py",
+      "bytes": 1661,
+      "sha256": "6d981af867c009a2ab292426ddee95815f3abb661ef003b2022417e155eae3be"
+    },
+    {
+      "name": "909-38820115320.commit-api.json",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "909-38820115320.commit-api.json.stderr",
+      "bytes": 94,
+      "sha256": "eed65211f0fcee1b82c2661764250c1adaebcb36f0cb78a702d59632f056c439"
+    },
+    {
+      "name": "909-38820115320.compiled-membership-proof.json",
+      "bytes": 76153,
+      "sha256": "f46a42e3fbd0d671b030701e8d194291ffc9b1792a10c11befbd48c181568f94"
+    },
+    {
+      "name": "909-38820115320.completed",
+      "bytes": 26,
+      "sha256": "25947cd1de8a00994fbe84a18e622688a5ebb64d74a3630ccdc114afd568dab7"
+    },
+    {
+      "name": "909-38820115320.jobs-api.json",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "909-38820115320.jobs-api.json.stderr",
+      "bytes": 94,
+      "sha256": "eed65211f0fcee1b82c2661764250c1adaebcb36f0cb78a702d59632f056c439"
+    },
+    {
+      "name": "909-38820115320.json",
+      "bytes": 11192,
+      "sha256": "78edf157f1c64f7a69b002f80c06246042348ee4215473490662500220d16001"
+    },
+    {
+      "name": "909-38820115320.latest.json",
+      "bytes": 11192,
+      "sha256": "78edf157f1c64f7a69b002f80c06246042348ee4215473490662500220d16001"
+    },
+    {
+      "name": "909-38820115320.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "909-38820115320.log.stderr",
+      "bytes": 94,
+      "sha256": "eed65211f0fcee1b82c2661764250c1adaebcb36f0cb78a702d59632f056c439"
+    },
+    {
+      "name": "909-38820115320.pr-body-update.json",
+      "bytes": 622,
+      "sha256": "8214b947ed16ed552a287299187730e65856ad036f3e5c20999ac92fb38852dd"
+    },
+    {
+      "name": "909-38820115320.results.json",
+      "bytes": 1683651,
+      "sha256": "1a06d76a427f15cf8922bba4c07a2a438e8cf855b0c54f9a317452d134bcfcda"
+    },
+    {
+      "name": "909-38820115320.retrieved.capture-commit-api.json",
+      "bytes": 671,
+      "sha256": "aba37a7280fe38088d4271b2a4f522cd3383d5ef647189d54d86493d85d9b8cd"
+    },
+    {
+      "name": "909-38820115320.retrieved.capture-jobs-api.json",
+      "bytes": 669,
+      "sha256": "b64c1b64468253478fa19e15efc47a84c98ff682e75196af44ee7def0f2bef1f"
+    },
+    {
+      "name": "909-38820115320.retrieved.capture-log.json",
+      "bytes": 645,
+      "sha256": "cd02f80124b8e3863d8c6cd3e2f135d548ffdcfcd28586d1e888bab6bf5cc0e6"
+    },
+    {
+      "name": "909-38820115320.retrieved.capture-run-api.json",
+      "bytes": 638,
+      "sha256": "ee5fdb8b1344dfd03676cdde3eba0df17322aae2269aa080addadc82e3305bce"
+    },
+    {
+      "name": "909-38820115320.retrieved.capture-run-final.json",
+      "bytes": 781,
+      "sha256": "03e08535c1c2af92eaf6defe3832900cf1ce3ad0ca9d747187db4c3476f45ba8"
+    },
+    {
+      "name": "909-38820115320.retrieved.commit-api.json",
+      "bytes": 1148,
+      "sha256": "c89d737a264afed0ca9ff67243ef36bd06f28684e0882992ef7e372bef9440a5"
+    },
+    {
+      "name": "909-38820115320.retrieved.commit-api.json.stderr",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "909-38820115320.retrieved.jobs-api.json",
+      "bytes": 14313,
+      "sha256": "ddb40a6c58b7617698eb29bf0bef1f42fd6c05e9f8fa522fc51ce6dfc23b43d2"
+    },
+    {
+      "name": "909-38820115320.retrieved.jobs-api.json.stderr",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "909-38820115320.retrieved.log",
+      "bytes": 1807245,
+      "sha256": "9177b81971f122517bc89a5e59f1d5061beaf5bf7046e517c43d4ae21a118c77"
+    },
+    {
+      "name": "909-38820115320.retrieved.log.stderr",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "909-38820115320.retrieved.run-api.json",
+      "bytes": 12693,
+      "sha256": "0abfadac8b0de83050a189d359957f172f3d4c6758196bd05776ea30e988e8ae"
+    },
+    {
+      "name": "909-38820115320.retrieved.run-api.json.stderr",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "909-38820115320.retrieved.run-final.json",
+      "bytes": 11335,
+      "sha256": "5d4ca3f9e6b2654a9e68d77ed0931ed040956a650ec776b80c0d260b47c15685"
+    },
+    {
+      "name": "909-38820115320.retrieved.run-final.json.stderr",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "909-38820115320.root-membership-audit.json",
+      "bytes": 27859,
+      "sha256": "f71a4c533febaa3021e05465b542d2eb3a95ecd3e2544464eaad25e30016fea9"
+    },
+    {
+      "name": "909-38820115320.run-api.json",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "909-38820115320.run-api.json.stderr",
+      "bytes": 94,
+      "sha256": "eed65211f0fcee1b82c2661764250c1adaebcb36f0cb78a702d59632f056c439"
+    },
+    {
+      "name": "909-38820115320.run-final.json",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "909-38820115320.run-final.json.stderr",
+      "bytes": 94,
+      "sha256": "eed65211f0fcee1b82c2661764250c1adaebcb36f0cb78a702d59632f056c439"
+    },
+    {
+      "name": "909-38820115320.source-proof.json",
+      "bytes": 16894,
+      "sha256": "19654ecb711ae58a1c84ab9f80eb218694393dc06a3de9a998af6e56abc87d8a"
+    }
+  ]
+}

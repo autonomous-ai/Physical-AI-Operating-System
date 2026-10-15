@@ -1,0 +1,21 @@
+{
+  "command": [
+    "gh",
+    "run",
+    "view",
+    "38820115320",
+    "-R",
+    "autonomous-ai/lampOS",
+    "--json",
+    "databaseId,headSha,event,status,conclusion,createdAt,startedAt,updatedAt,attempt,url,name,workflowName,jobs"
+  ],
+  "started_from_date": "2026-10-16 06:17:22 +0700",
+  "finished_from_date": "2026-10-16 06:17:23 +0700",
+  "exit_code": 0,
+  "stdout": "/private/tmp/tests-823-native-20261016/909-38820115320.retrieved.run-final.json",
+  "stdout_bytes": 11335,
+  "stdout_sha256": "5d4ca3f9e6b2654a9e68d77ed0931ed040956a650ec776b80c0d260b47c15685",
+  "stderr": "/private/tmp/tests-823-native-20261016/909-38820115320.retrieved.run-final.json.stderr",
+  "stderr_bytes": 0,
+  "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+}

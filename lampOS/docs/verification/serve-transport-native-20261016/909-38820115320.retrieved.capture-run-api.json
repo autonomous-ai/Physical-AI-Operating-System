@@ -1,0 +1,16 @@
+{
+  "command": [
+    "gh",
+    "api",
+    "repos/autonomous-ai/lampOS/actions/runs/38820115320"
+  ],
+  "started_from_date": "2026-10-16 06:17:22 +0700",
+  "finished_from_date": "2026-10-16 06:17:22 +0700",
+  "exit_code": 0,
+  "stdout": "/private/tmp/tests-823-native-20261016/909-38820115320.retrieved.run-api.json",
+  "stdout_bytes": 12693,
+  "stdout_sha256": "0abfadac8b0de83050a189d359957f172f3d4c6758196bd05776ea30e988e8ae",
+  "stderr": "/private/tmp/tests-823-native-20261016/909-38820115320.retrieved.run-api.json.stderr",
+  "stderr_bytes": 0,
+  "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+}

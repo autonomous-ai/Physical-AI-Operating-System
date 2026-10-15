@@ -1,5 +1,17 @@
 # Tests work log
 
+## 2026-10-16 06:25:52 +0700 — full Serve membership proven; transport ready
+
+Ready for lamp-voice: yes (#924, #925 and #927); no (#909 current head and #931)
+
+- Complete Serve first full native **38820115320** on `8af53fd459795029f6277679ded49bf7826def73` passed **5,205 unique tests** with all original **123** and all new **121** once, zero FAIL/LEAK and complete four-shard ordinals. Original Serve 14 total **19.402 s**, all original 123 total **269.137 s**; these concurrent shard sums are not standalone serial wall time. Current #909 `bce32d696fe4bb90db172bfab580619dbf5f11c8` keeps the 25 source files exact, resolves the document conflict, passes fresh **498/0/0**, and awaits its separate normal **38822580456**. [Unedited native records and independent/root audits](verification/serve-transport-native-20261016/README.md). Earlier #914 failure remains preserved and no fix is claimed.
+- Transport probes #927 `3401b9e5c651627c556930e0d9b0d3f87833c848` passed first normal **38820672032: 5,010 unique PASS**, all 14 new cases and all five locally failed Motor identities once. All four sources are exact in the tested merge. Local complete **1,946/5/13** remains failed, disclosed on #739, with no retry. This is ready under joining’s explicit exception; no original scenario migrates and all original 123 are excluded in normal.
+- Records controller is #931, `42405bb318ddd91c4883e5a16183630c0282b675`, on actual merged preparation 9b28324e. Fresh **190/0/2** preserves 172 old identities plus 20 new; source and 82 historical files unchanged. First normal **38822753449** and full **38822752215** are running. The dedicated fixture executable preserves the ordinary program; actual Events and kill/reap stay authoritative.
+- Direct relay continuation preserves all six original bodies/37 assertions and all 498 old identities, passing **508/0/0**. Its single serial original-six pair is **31.480 → 2.367 s**, with zero retries and the additional helper cases excluded only from the after timing selection after passing the complete gate. Shared-host load is uncontrolled; native/current-merged-base qualification remains pending.
+- Provider Stop/body observations preserve all 2,257 prior compiled identities and add 20. First focused execution is **19 pass/1 fail**: the new unpolled-Drop case incorrectly assumed a closed Mac Unix socket always yields None rather than ConnectionReset. Original assertions are untouched, the failure and unreached attempt-Drop await remain retained, and the unchanged full first gate continues before a narrow reviewed correction. Worker progress/Actor lifetime and the original early-end migration remain next work.
+
+#783 remains with Eighth for loaded policy qualification/close. The original 123 combined standalone serial under-two-minute target remains unproved.
+
 ## 2026-10-16 06:12:25 +0700 — clock preparations native green; Serve and Records continuations
 
 Ready for lamp-voice: yes (#924 and #925); no (Serve, Records controller and transport continuations)

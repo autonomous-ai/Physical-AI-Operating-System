@@ -1,0 +1,10 @@
+{
+  "updated_from_date": "2026-10-16 06:23:44 +0700",
+  "path": "/private/tmp/tests-823-serve-release-pr-body.md",
+  "before_sha256": "5d4b3b42dbf4cff3789d75a59e149bb2a653b0ffc07bc2a6a7c81aeb5101a908",
+  "after_sha256": "9e8abd2419dad49c6e8b5165196b97820b2e344ba2d0c6a01c1381478042d6cc",
+  "new_pinned_head": "bce32d696fe4bb90db172bfab580619dbf5f11c8",
+  "native_success_head": "8af53fd459795029f6277679ded49bf7826def73",
+  "committed_files_modified": false,
+  "note": "The prior publication manifest retains its historical body hash. This new temporary-body hash applies after the separately completed full-run audit."
+}

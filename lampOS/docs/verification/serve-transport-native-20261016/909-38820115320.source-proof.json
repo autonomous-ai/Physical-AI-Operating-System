@@ -1,0 +1,269 @@
+{
+  "audited_from_date": "2026-10-16 06:22:33 +0700",
+  "head": "8af53fd459795029f6277679ded49bf7826def73",
+  "local_tree": "58d3b1c54d3e9af62c106f16c466cb34ccededa3",
+  "github_commit_tree": "58d3b1c54d3e9af62c106f16c466cb34ccededa3",
+  "all_four_checkout_heads_exact": true,
+  "checkouts": [
+    {
+      "shard": 1,
+      "command_line": 5254,
+      "head_line": 5255,
+      "head": "8af53fd459795029f6277679ded49bf7826def73",
+      "raw_command": "lampOS \u2014 build and test on Linux ARM64 (1/4)\tUNKNOWN STEP\t2026-10-15T22:53:54.4566562Z [command]/usr/bin/git log -1 --format=%H",
+      "raw_result": "lampOS \u2014 build and test on Linux ARM64 (1/4)\tUNKNOWN STEP\t2026-10-15T22:53:54.4596352Z 8af53fd459795029f6277679ded49bf7826def73"
+    },
+    {
+      "shard": 2,
+      "command_line": 2777,
+      "head_line": 2778,
+      "head": "8af53fd459795029f6277679ded49bf7826def73",
+      "raw_command": "lampOS \u2014 build and test on Linux ARM64 (2/4)\tUNKNOWN STEP\t2026-10-15T22:54:09.9991044Z [command]/usr/bin/git log -1 --format=%H",
+      "raw_result": "lampOS \u2014 build and test on Linux ARM64 (2/4)\tUNKNOWN STEP\t2026-10-15T22:54:10.0012848Z 8af53fd459795029f6277679ded49bf7826def73"
+    },
+    {
+      "shard": 3,
+      "command_line": 8053,
+      "head_line": 8054,
+      "head": "8af53fd459795029f6277679ded49bf7826def73",
+      "raw_command": "lampOS \u2014 build and test on Linux ARM64 (3/4)\tUNKNOWN STEP\t2026-10-15T22:54:13.6983921Z [command]/usr/bin/git log -1 --format=%H",
+      "raw_result": "lampOS \u2014 build and test on Linux ARM64 (3/4)\tUNKNOWN STEP\t2026-10-15T22:54:13.7019349Z 8af53fd459795029f6277679ded49bf7826def73"
+    },
+    {
+      "shard": 4,
+      "command_line": 248,
+      "head_line": 249,
+      "head": "8af53fd459795029f6277679ded49bf7826def73",
+      "raw_command": "lampOS \u2014 build and test on Linux ARM64 (4/4)\tUNKNOWN STEP\t2026-10-15T22:54:05.9927582Z [command]/usr/bin/git log -1 --format=%H",
+      "raw_result": "lampOS \u2014 build and test on Linux ARM64 (4/4)\tUNKNOWN STEP\t2026-10-15T22:54:05.9955058Z 8af53fd459795029f6277679ded49bf7826def73"
+    }
+  ],
+  "source_files": [
+    {
+      "path": "lampOS/crates/voice-eval/src/main.rs",
+      "sha256": "1751caa8d8246f8217674397c2c979bab40dc6eaa3d81834784e88cc29ef6607",
+      "git_blob_8af": "31cdcbb226a8dd64362b74bfbf134a6310685084",
+      "bytes": 37502,
+      "current_bce_bytes_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/fake_lamp.rs",
+      "sha256": "7707b987700293a31096338ccd4364e34aa70bce59bca2dd3c1cdaef15c0c9a1",
+      "git_blob_8af": "c62744c60c173ee27cec320b27e3f5f22128656e",
+      "bytes": 22868,
+      "current_bce_bytes_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/fake_serve.rs",
+      "sha256": "5168b08f121fc374972f9a1bb10f86e30396c83c17ee12c2ea9858cd74ef780d",
+      "git_blob_8af": "0552e11ede2f9d2445f0ce7052a9968a92a28d5f",
+      "bytes": 27346,
+      "current_bce_bytes_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/fake_serve_progress_tests.rs",
+      "sha256": "43af2f78890ec502bc3d12cd95214bf2aaa65578eeac1e9abaa1a6c4d0611f7a",
+      "git_blob_8af": "7e42d084b28fb4f4437fb77aec6af1df254a17e2",
+      "bytes": 11362,
+      "current_bce_bytes_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/fixture_commands.rs",
+      "sha256": "df424358eb99ab6982ef8cd3ea3d7484f55bf3c033aabcf29ca0b07c0df5ab0a",
+      "git_blob_8af": "6ad2188d3ad7331509e5ca89dc70bf309304b83b",
+      "bytes": 27975,
+      "current_bce_bytes_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/fixture_control.rs",
+      "sha256": "ca68dec8488bc9e86f42c8801ba4185a901f02d71c2879691bdb8351899fb412",
+      "git_blob_8af": "b490286eac17b89789f041c8a7cb764b26669c24",
+      "bytes": 39406,
+      "current_bce_bytes_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/fixture_control_tests.rs",
+      "sha256": "90dab0a1075f0fbb819d819f391aede2994363c3238e54445a5a73e5f12f604a",
+      "git_blob_8af": "a4f498d17a7ca829ca14ed0c276a20aa111e00ed",
+      "bytes": 23399,
+      "current_bce_bytes_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/fixture_driver.rs",
+      "sha256": "3e4a99a9e5029b7c770b2420c4df70271c5702e30c6f97a3dcfc954fce1871d9",
+      "git_blob_8af": "651371addfeb2f435f5d2cbe3f78b915f0a40b6b",
+      "bytes": 29239,
+      "current_bce_bytes_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/fixture_players.rs",
+      "sha256": "2378acf5a32c53b013cc90b96d827bdb82307dbb054d7c94e30ede8752dc5dab",
+      "git_blob_8af": "abae84d648558e3aacd5a1bd721a31cb279d31ee",
+      "bytes": 16371,
+      "current_bce_bytes_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/mac.rs",
+      "sha256": "c14c40669ad423baf9c21672587bd6e97e47a64e102d6d22c2714e3e399d78e2",
+      "git_blob_8af": "5f7073f991d1c1ea5ac56d5f5b390d9734d0faed",
+      "bytes": 189541,
+      "current_bce_bytes_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/mod.rs",
+      "sha256": "c55ab4bd4fad65b806f4e66f533d7334f947c25c87d8d072ce69ff848db2e582",
+      "git_blob_8af": "2533d3ec5fec304bdfd8ba0ee53ccd76d8f2844f",
+      "bytes": 842,
+      "current_bce_bytes_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/prepared_player_progress_tests.rs",
+      "sha256": "1ac1f3a24b267c0968fe291befbd65739c06a1baf4e2f5c9b24eca8f841055b7",
+      "git_blob_8af": "7837c6cefb4d99d40e792c9d3aa6b061251ff225",
+      "bytes": 16419,
+      "current_bce_bytes_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/recorder_backend_tests.rs",
+      "sha256": "a9ed66168aea14d40b3ae28a17c46450ca8e966e6d6f46f550565daea2e7bbde",
+      "git_blob_8af": "3d54e47ccb7e322ea94cf4b3d386527d0c47dd49",
+      "bytes": 20666,
+      "current_bce_bytes_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/recorder_fixture_commands_tests.rs",
+      "sha256": "500cd9e92ed12a7328f67d99c60d68105f5130f31d8db2ecd76265fd5fb01d37",
+      "git_blob_8af": "09baee6367ec334b374ceef776ee86ada815accb",
+      "bytes": 12023,
+      "current_bce_bytes_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/recorder_fixture_control_tests.rs",
+      "sha256": "3e9c7eb09f574cbda46a06fb9ac452993df5a9b4417c5f0d9691f9deba27cf80",
+      "git_blob_8af": "4c95588be7f3a6fc87c5699c075472c207e8a560",
+      "bytes": 14478,
+      "current_bce_bytes_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/recorder_fixture_driver_tests.rs",
+      "sha256": "da5c382c25fd8d63f7fac9e3ff17d6caff216df95ae2289af40da6c1225c3ff1",
+      "git_blob_8af": "e39523e145946d8abbf9db35e7f09337ffecfda3",
+      "bytes": 19522,
+      "current_bce_bytes_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/serve_fixture_commands_tests.rs",
+      "sha256": "54f60e0f676d94989b5220f707f9c5c085cbec83de0aa0e0a3d4ba5f892642ea",
+      "git_blob_8af": "7fe279f964078ea5230b825c2763aa55a771fc50",
+      "bytes": 8262,
+      "current_bce_bytes_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/serve_fixture_control_tests.rs",
+      "sha256": "fdb57e00dd9e3028ae6f5a5aa6df81d1147bee4fc582ad00b117368951b80bcf",
+      "git_blob_8af": "d039b7223a3d2017736b274042cdc9beff79c69f",
+      "bytes": 21007,
+      "current_bce_bytes_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/serve_fixture_driver.rs",
+      "sha256": "3ba9b3405c82198e4c56e4baa3c982be74d8a2e0588766be11c34a2fa62e8014",
+      "git_blob_8af": "a48027b45440280d42ac494460c7c84b47d2742f",
+      "bytes": 37054,
+      "current_bce_bytes_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/serve_relay_progress_tests.rs",
+      "sha256": "d7ccf7f0ddcd46a07d9d6cfc768d5126d507c133b0b708dc69881f124f238ed4",
+      "git_blob_8af": "faf69d92eb7a1854fa1292e9379f3c2b8a17446f",
+      "bytes": 6205,
+      "current_bce_bytes_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/session.rs",
+      "sha256": "660cea49d4e1389ad23e5786a5efded083e7f6d98912dfc9ad9887dad85ccd24",
+      "git_blob_8af": "60389096fc0dbcdaff83d02373ad1385068eb03c",
+      "bytes": 66071,
+      "current_bce_bytes_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/slow_transport_fixture_commands_tests.rs",
+      "sha256": "dee37c32bd463a6603ab0b2f1dc5f0b2a9ae4b62da98b26a9b9aea560b7ef7c1",
+      "git_blob_8af": "a5183477681c04fb3e6e6074b8b471cac5a89a7d",
+      "bytes": 16999,
+      "current_bce_bytes_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/slow_transport_fixture_control_tests.rs",
+      "sha256": "1032118bfae8aec9a555f87ca6f3f334c16599c361a90b38768d5c1d454d3359",
+      "git_blob_8af": "85c4462fea1f29ad07a9eb396d069715fc3a0193",
+      "bytes": 13252,
+      "current_bce_bytes_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/slow_transport_fixture_driver_tests.rs",
+      "sha256": "0026046f596309aa8cc2698de1893825d0b4d006e5f7951a5af81d1158a85187",
+      "git_blob_8af": "76ff530509d334ce232997e80253d7818af68e52",
+      "bytes": 29399,
+      "current_bce_bytes_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/serve_session.rs",
+      "sha256": "1850248165b8c7d5022ec06f3267b5de1a829fa375135cdda26aa3bfe539b905",
+      "git_blob_8af": "6f0366528b278b5f494e435e39062d4917ddbc78",
+      "bytes": 30354,
+      "current_bce_bytes_exact": true
+    }
+  ],
+  "all25_current_bce_rust_files_exact_to_8af": true,
+  "current_head": "bce32d696fe4bb90db172bfab580619dbf5f11c8",
+  "qualification_limit": "This full workflow ran 8af, not bce. The current integration inherited changed Voice, Memory and lockfile inputs and needs its own native qualification.",
+  "workflow_sha256": "11cbcf5ced5022ca685b5c9e51f349c986259a5044575a20f39d3b8e869a045f",
+  "nextest_config_sha256": "33254521c34198ae2d4f988c4b7d04391c03da769ad91769e691171ae3b87367",
+  "workflow_and_nextest_unchanged_from_d601": true,
+  "retry_settings_added": false,
+  "ignored_attribute_source_count": 37,
+  "ignored_source_attributes_exact_to_d601": true,
+  "ignored_source_locations": [
+    "8af53fd459795029f6277679ded49bf7826def73:lampOS/crates/audio/tests/playout_continuity/main.rs:670:#[ignore = \"prints a timing\"]",
+    "8af53fd459795029f6277679ded49bf7826def73:lampOS/crates/audio/tests/steady_reference.rs:589:#[ignore = \"about a minute of simulated sound per scene; run with --release\"]",
+    "8af53fd459795029f6277679ded49bf7826def73:lampOS/crates/bus/src/logging/tests.rs:506:#[ignore = \"manual host admission timing; no device or end-to-end claim\"]",
+    "8af53fd459795029f6277679ded49bf7826def73:lampOS/crates/gemini/src/recovery/tests/soak.rs:1067:#[ignore = \"several hundred turns per seed and interface; run explicitly\"]",
+    "8af53fd459795029f6277679ded49bf7826def73:lampOS/crates/gemini/src/recovery/tests/soak.rs:1075:#[ignore = \"several hundred turns per seed; run explicitly\"]",
+    "8af53fd459795029f6277679ded49bf7826def73:lampOS/crates/lean/tests/cost.rs:28:#[ignore = \"finite release timing; host measurements are not lamp measurements\"]",
+    "8af53fd459795029f6277679ded49bf7826def73:lampOS/crates/lean/tests/cost.rs:120:#[ignore = \"finite worst-work release timing; host measurements are not lamp measurements\"]",
+    "8af53fd459795029f6277679ded49bf7826def73:lampOS/crates/memory/src/health.rs:936:    #[ignore = \"host timing measurement; run in release with --ignored --nocapture\"]",
+    "8af53fd459795029f6277679ded49bf7826def73:lampOS/crates/memory/tests/days_timing.rs:87:#[ignore = \"local measurement; does not qualify a lamp\"]",
+    "8af53fd459795029f6277679ded49bf7826def73:lampOS/crates/memory/tests/health_timing.rs:154:#[ignore = \"release host measurement; does not qualify a lamp\"]",
+    "8af53fd459795029f6277679ded49bf7826def73:lampOS/crates/memory/tests/timing.rs:45:#[ignore = \"a measurement, not a check\"]",
+    "8af53fd459795029f6277679ded49bf7826def73:lampOS/crates/memory/tests/voice_timing.rs:208:#[ignore = \"release host measurement; run alone, not during builds\"]",
+    "8af53fd459795029f6277679ded49bf7826def73:lampOS/crates/mood/tests/timing.rs:31:#[ignore = \"manual release-mode host timing; run alone and preserve raw output\"]",
+    "8af53fd459795029f6277679ded49bf7826def73:lampOS/crates/mood/tests/timing.rs:89:#[ignore = \"manual local-process bus timing; run alone with Unix sockets allowed\"]",
+    "8af53fd459795029f6277679ded49bf7826def73:lampOS/crates/policy/tests/judges.rs:500:#[ignore = \"host measurement: run alone with --release --ignored --nocapture\"]",
+    "8af53fd459795029f6277679ded49bf7826def73:lampOS/crates/policy/tests/local_timing.rs:15:#[ignore = \"host measurement: run alone with --release --ignored --nocapture\"]",
+    "8af53fd459795029f6277679ded49bf7826def73:lampOS/crates/records/tests/records.rs:389:#[ignore = \"finite release timing of disposable records; report machine separately\"]",
+    "8af53fd459795029f6277679ded49bf7826def73:lampOS/crates/records/tests/records.rs:435:#[ignore = \"requires an isolated disposable Linux container with CAP_SYS_ADMIN\"]",
+    "8af53fd459795029f6277679ded49bf7826def73:lampOS/crates/settings/tests/runtime.rs:284:#[ignore = \"host measurement: socket and private-directory save on this machine\"]",
+    "8af53fd459795029f6277679ded49bf7826def73:lampOS/crates/turn-end/tests/fast.rs:77:#[ignore = \"requires the pinned model and ONNX Runtime; see docs/endpoint-pilot.md\"]",
+    "8af53fd459795029f6277679ded49bf7826def73:lampOS/crates/turn-end/tests/fast.rs:174:#[ignore = \"requires the pinned model; see docs/endpoint-pilot.md\"]",
+    "8af53fd459795029f6277679ded49bf7826def73:lampOS/crates/turn-end/tests/fast.rs:196:#[ignore = \"requires the pinned model and ONNX Runtime; see docs/endpoint-pilot.md\"]",
+    "8af53fd459795029f6277679ded49bf7826def73:lampOS/crates/turn-end/tests/parity.rs:112:#[ignore = \"requires the pinned model; see docs/endpoint-detection.md\"]",
+    "8af53fd459795029f6277679ded49bf7826def73:lampOS/crates/turn-end/tests/parity.rs:194:#[ignore = \"requires the pinned model; see docs/endpoint-detection.md\"]",
+    "8af53fd459795029f6277679ded49bf7826def73:lampOS/crates/turn-end/tests/parity.rs:269:#[ignore = \"requires the pinned model; see docs/endpoint-detection.md\"]",
+    "8af53fd459795029f6277679ded49bf7826def73:lampOS/crates/turn-end/tests/parity.rs:297:#[ignore = \"requires the pinned model; see docs/endpoint-detection.md\"]",
+    "8af53fd459795029f6277679ded49bf7826def73:lampOS/crates/turn-end/tests/parity.rs:372:#[ignore = \"requires the pinned model; see docs/endpoint-detection.md\"]",
+    "8af53fd459795029f6277679ded49bf7826def73:lampOS/crates/turn-end/tests/parity.rs:455:#[ignore = \"requires the pinned model; see docs/endpoint-detection.md\"]",
+    "8af53fd459795029f6277679ded49bf7826def73:lampOS/crates/update/src/fetch.rs:589:    #[ignore]",
+    "8af53fd459795029f6277679ded49bf7826def73:lampOS/crates/voice/src/coordinator/tests/endpoint_session.rs:1289:#[ignore = \"requires a built lamp-turn-end and the pinned model\"]",
+    "8af53fd459795029f6277679ded49bf7826def73:lampOS/crates/voice/src/coordinator/tests/hand_controls.rs:857:#[ignore = \"manual local-host speaker-control latency probe; no lamp or acoustic claim\"]",
+    "8af53fd459795029f6277679ded49bf7826def73:lampOS/crates/voice/src/provider_worker.rs:8112:    #[ignore = \"one minute of real time; run explicitly\"]",
+    "8af53fd459795029f6277679ded49bf7826def73:lampOS/crates/voice/src/provider_worker.rs:8118:    #[ignore = \"three minutes of real time; run explicitly\"]",
+    "8af53fd459795029f6277679ded49bf7826def73:lampOS/crates/voice/src/reference.rs:1308:    #[ignore = \"four virtual hours; run in release\"]",
+    "8af53fd459795029f6277679ded49bf7826def73:lampOS/crates/voice/src/reference/recovery_tests.rs:317:#[ignore]",
+    "8af53fd459795029f6277679ded49bf7826def73:lampOS/crates/voice/src/reminders/tests.rs:350:#[ignore = \"host-only parent polling measurement; run alone with --ignored --exact --nocapture\"]",
+    "8af53fd459795029f6277679ded49bf7826def73:lampOS/crates/voice/src/reminders/transport.rs:1183:    #[ignore = \"host-only timing probe; run alone with --ignored --exact --nocapture\"]"
+  ],
+  "static_ignore_limit": "The 37 unchanged source ignore attributes are consistent with the 5242-list/5205-result difference; no complete native compiled manifest of those 37 identities was captured by this workflow.",
+  "all214_current_publication_paths_match_manifest_and_bce_commit": true,
+  "release_publication_manifest_sha256": "6119a51c1c44b6aa1bf5fafdf535aa377d500c714c5b23d1440c576e11313a91"
+}

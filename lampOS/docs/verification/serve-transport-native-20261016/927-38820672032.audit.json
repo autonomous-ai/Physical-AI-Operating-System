@@ -1,0 +1,216 @@
+{
+  "audited_from_date": "2026-10-16 06:15:51 +0700",
+  "pr": 927,
+  "run": 38820672032,
+  "head": "3401b9e5c651627c556930e0d9b0d3f87833c848",
+  "checkout": "f40986c364d4503f6535920015bd5d0d71618852",
+  "parents": [
+    "9b28324e2232d62ff905e705d16f53c7836599f9",
+    "3401b9e5c651627c556930e0d9b0d3f87833c848"
+  ],
+  "run_attempt": 1,
+  "conclusion": "success",
+  "unique_passes": 5010,
+  "duplicates": [],
+  "all_new_cases_once": true,
+  "new_count": 14,
+  "new_cases": [
+    {
+      "result": "PASS",
+      "seconds": "0.005",
+      "ordinal": 4416,
+      "total": 5010,
+      "binary": "lamp-voice",
+      "name": "transport::probe::tests::a_latched_probe_fault_never_changes_actual_send_or_receive_success",
+      "line": 4954
+    },
+    {
+      "result": "PASS",
+      "seconds": "0.004",
+      "ordinal": 4417,
+      "total": 5010,
+      "binary": "lamp-voice",
+      "name": "transport::probe::tests::a_snapshot_of_corrupt_stable_state_latches_failure",
+      "line": 4955
+    },
+    {
+      "result": "PASS",
+      "seconds": "0.005",
+      "ordinal": 4418,
+      "total": 5010,
+      "binary": "lamp-voice",
+      "name": "transport::probe::tests::accepted_grace_and_one_sender_stall_count_only_after_the_original_checks",
+      "line": 4956
+    },
+    {
+      "result": "PASS",
+      "seconds": "0.004",
+      "ordinal": 4419,
+      "total": 5010,
+      "binary": "lamp-voice",
+      "name": "transport::probe::tests::accepted_sequence_gaps_keep_the_first_gap_and_do_not_extend_a_prefix",
+      "line": 4957
+    },
+    {
+      "result": "PASS",
+      "seconds": "0.004",
+      "ordinal": 4420,
+      "total": 5010,
+      "binary": "lamp-voice",
+      "name": "transport::probe::tests::actual_full_socket_would_block_does_not_count_or_commit_a_send",
+      "line": 4958
+    },
+    {
+      "result": "PASS",
+      "seconds": "0.004",
+      "ordinal": 4421,
+      "total": 5010,
+      "binary": "lamp-voice",
+      "name": "transport::probe::tests::boot_order_and_shared_state_faults_are_sticky_and_do_not_publish_more",
+      "line": 4959
+    },
+    {
+      "result": "PASS",
+      "seconds": "0.004",
+      "ordinal": 4422,
+      "total": 5010,
+      "binary": "lamp-voice",
+      "name": "transport::probe::tests::causally_held_publication_returns_busy_without_waiting_or_claiming_a_receipt",
+      "line": 4960
+    },
+    {
+      "result": "PASS",
+      "seconds": "0.005",
+      "ordinal": 4423,
+      "total": 5010,
+      "binary": "lamp-voice",
+      "name": "transport::probe::tests::counter_and_publication_overflow_latch_without_fabricating_success",
+      "line": 4961
+    },
+    {
+      "result": "PASS",
+      "seconds": "0.004",
+      "ordinal": 4424,
+      "total": 5010,
+      "binary": "lamp-voice",
+      "name": "transport::probe::tests::decode_boot_age_future_and_order_rejections_do_not_count_receives",
+      "line": 4962
+    },
+    {
+      "result": "PASS",
+      "seconds": "0.004",
+      "ordinal": 4425,
+      "total": 5010,
+      "binary": "lamp-voice",
+      "name": "transport::probe::tests::encoding_and_unconnected_send_failures_do_not_commit_sequence_or_evidence",
+      "line": 4963
+    },
+    {
+      "result": "PASS",
+      "seconds": "0.005",
+      "ordinal": 4426,
+      "total": 5010,
+      "binary": "lamp-voice",
+      "name": "transport::probe::tests::late_installation_is_rejected_even_after_failed_or_empty_io",
+      "line": 4964
+    },
+    {
+      "result": "PASS",
+      "seconds": "0.004",
+      "ordinal": 4427,
+      "total": 5010,
+      "binary": "lamp-voice",
+      "name": "transport::probe::tests::ordinary_channel_worker_and_reference_constructors_have_no_probe",
+      "line": 4965
+    },
+    {
+      "result": "PASS",
+      "seconds": "0.004",
+      "ordinal": 4428,
+      "total": 5010,
+      "binary": "lamp-voice",
+      "name": "transport::probe::tests::snapshots_keep_allocation_identity_after_channel_and_probe_drop",
+      "line": 4966
+    },
+    {
+      "result": "PASS",
+      "seconds": "0.004",
+      "ordinal": 4429,
+      "total": 5010,
+      "binary": "lamp-voice",
+      "name": "transport::probe::tests::successful_send_and_accepted_receive_are_separate_pure_observations",
+      "line": 4967
+    }
+  ],
+  "original123_observed": [],
+  "source_files": [
+    {
+      "path": "lampOS/crates/voice/src/transport.rs",
+      "sha256": "ea318a0e1be7523411b8c4d8ca878d3c743965bf3a5b69b6b3026b4cb720c29b",
+      "git_blob": "3400f0bb04fda1c9a27658fea902dbe8a602181f"
+    },
+    {
+      "path": "lampOS/crates/voice/src/transport_probe.rs",
+      "sha256": "99f86fe4b888c9e61b4ddef1d1ad70c9d1795830667ed013f21d2a086de777e8",
+      "git_blob": "798e39d2a0cde5ab9a635e4d759cee6ecfeac93f"
+    },
+    {
+      "path": "lampOS/crates/voice/src/transport_probe_tests.rs",
+      "sha256": "d2a1e5cca930741f727d7c9c4647a84ed532490adbb3663cc8f20edff571fa2b",
+      "git_blob": "41f875f1814d6af8f5f1b74016a308ab646c8257"
+    },
+    {
+      "path": "lampOS/docs/voice-test-fixtures.md",
+      "sha256": "04bf0a07ddbd0e9de139988b65c51aa23a11bb1b542176a8185a473d923a19d4",
+      "git_blob": "ec95b47db883f6020448a846130b2101e87ea4d1"
+    }
+  ],
+  "raw_log_sha256": "b0cc1d1f506f8ad5d3205d1a1988e69b388211fe1fcf58ba03498c01fea39016",
+  "headers": [
+    "lampOS \u2014 build and test on Linux ARM64 (1/1)\tUNKNOWN STEP\t2026-10-15T23:09:10.7141815Z     Starting 5010 tests across 272 binaries (130 tests and 8 binaries skipped, including 93 tests and 6 binaries via profile.pr.default-filter)",
+    "lampOS \u2014 build and test on Linux ARM64 (1/1)\tUNKNOWN STEP\t2026-10-15T23:10:33.1073129Z      Summary [  82.393s] 5010 tests run: 5010 passed, 130 skipped"
+  ],
+  "job_steps": 14,
+  "doc_or_harness_result_lines": [
+    "lampOS \u2014 build and test on Linux ARM64 (1/1)\tUNKNOWN STEP\t2026-10-15T23:10:33.4169401Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+    "lampOS \u2014 build and test on Linux ARM64 (1/1)\tUNKNOWN STEP\t2026-10-15T23:10:33.4386437Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+    "lampOS \u2014 build and test on Linux ARM64 (1/1)\tUNKNOWN STEP\t2026-10-15T23:10:33.5948706Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+    "lampOS \u2014 build and test on Linux ARM64 (1/1)\tUNKNOWN STEP\t2026-10-15T23:10:33.8422943Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+    "lampOS \u2014 build and test on Linux ARM64 (1/1)\tUNKNOWN STEP\t2026-10-15T23:10:34.2599618Z test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+    "lampOS \u2014 build and test on Linux ARM64 (1/1)\tUNKNOWN STEP\t2026-10-15T23:10:34.3706953Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+    "lampOS \u2014 build and test on Linux ARM64 (1/1)\tUNKNOWN STEP\t2026-10-15T23:10:34.5518958Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+    "lampOS \u2014 build and test on Linux ARM64 (1/1)\tUNKNOWN STEP\t2026-10-15T23:10:34.5747181Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+    "lampOS \u2014 build and test on Linux ARM64 (1/1)\tUNKNOWN STEP\t2026-10-15T23:10:34.6020569Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+    "lampOS \u2014 build and test on Linux ARM64 (1/1)\tUNKNOWN STEP\t2026-10-15T23:10:34.7351751Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+    "lampOS \u2014 build and test on Linux ARM64 (1/1)\tUNKNOWN STEP\t2026-10-15T23:10:34.7898744Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+    "lampOS \u2014 build and test on Linux ARM64 (1/1)\tUNKNOWN STEP\t2026-10-15T23:10:34.8978227Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+    "lampOS \u2014 build and test on Linux ARM64 (1/1)\tUNKNOWN STEP\t2026-10-15T23:10:34.9358098Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+    "lampOS \u2014 build and test on Linux ARM64 (1/1)\tUNKNOWN STEP\t2026-10-15T23:10:35.2683083Z test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+    "lampOS \u2014 build and test on Linux ARM64 (1/1)\tUNKNOWN STEP\t2026-10-15T23:10:35.3041850Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+    "lampOS \u2014 build and test on Linux ARM64 (1/1)\tUNKNOWN STEP\t2026-10-15T23:10:35.3496585Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+    "lampOS \u2014 build and test on Linux ARM64 (1/1)\tUNKNOWN STEP\t2026-10-15T23:10:35.4716221Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+    "lampOS \u2014 build and test on Linux ARM64 (1/1)\tUNKNOWN STEP\t2026-10-15T23:10:35.5294958Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+    "lampOS \u2014 build and test on Linux ARM64 (1/1)\tUNKNOWN STEP\t2026-10-15T23:10:36.1632159Z test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+    "lampOS \u2014 build and test on Linux ARM64 (1/1)\tUNKNOWN STEP\t2026-10-15T23:10:36.1936592Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+    "lampOS \u2014 build and test on Linux ARM64 (1/1)\tUNKNOWN STEP\t2026-10-15T23:10:36.2358488Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+    "lampOS \u2014 build and test on Linux ARM64 (1/1)\tUNKNOWN STEP\t2026-10-15T23:10:36.3832101Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+    "lampOS \u2014 build and test on Linux ARM64 (1/1)\tUNKNOWN STEP\t2026-10-15T23:10:36.4641459Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+    "lampOS \u2014 build and test on Linux ARM64 (1/1)\tUNKNOWN STEP\t2026-10-15T23:10:36.4914574Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+    "lampOS \u2014 build and test on Linux ARM64 (1/1)\tUNKNOWN STEP\t2026-10-15T23:10:36.5187150Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+    "lampOS \u2014 build and test on Linux ARM64 (1/1)\tUNKNOWN STEP\t2026-10-15T23:10:36.6865222Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+    "lampOS \u2014 build and test on Linux ARM64 (1/1)\tUNKNOWN STEP\t2026-10-15T23:10:36.7218329Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+    "lampOS \u2014 build and test on Linux ARM64 (1/1)\tUNKNOWN STEP\t2026-10-15T23:10:36.7991747Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+    "lampOS \u2014 build and test on Linux ARM64 (1/1)\tUNKNOWN STEP\t2026-10-15T23:10:36.8571091Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+    "lampOS \u2014 build and test on Linux ARM64 (1/1)\tUNKNOWN STEP\t2026-10-15T23:10:36.9128019Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+    "lampOS \u2014 build and test on Linux ARM64 (1/1)\tUNKNOWN STEP\t2026-10-15T23:10:37.3331214Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+    "lampOS \u2014 build and test on Linux ARM64 (1/1)\tUNKNOWN STEP\t2026-10-15T23:10:37.4888356Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+    "lampOS \u2014 build and test on Linux ARM64 (1/1)\tUNKNOWN STEP\t2026-10-15T23:10:37.5294803Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+    "lampOS \u2014 build and test on Linux ARM64 (1/1)\tUNKNOWN STEP\t2026-10-15T23:10:37.5599154Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+    "lampOS \u2014 build and test on Linux ARM64 (1/1)\tUNKNOWN STEP\t2026-10-15T23:10:37.6192386Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+    "lampOS \u2014 build and test on Linux ARM64 (1/1)\tUNKNOWN STEP\t2026-10-15T23:10:37.7066335Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+    "lampOS \u2014 build and test on Linux ARM64 (1/1)\tUNKNOWN STEP\t2026-10-15T23:10:38.6559168Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+    "lampOS \u2014 build and test on Linux ARM64 (1/1)\tUNKNOWN STEP\t2026-10-15T23:10:39.1177555Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+    "lampOS \u2014 build and test on Linux ARM64 (1/1)\tUNKNOWN STEP\t2026-10-15T23:10:40.1171467Z relay_signals: ok",
+    "lampOS \u2014 build and test on Linux ARM64 (1/1)\tUNKNOWN STEP\t2026-10-15T23:10:45.9720490Z test result: 12 passed; 0 failed"
+  ]
+}

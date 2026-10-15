@@ -1,0 +1,888 @@
+{
+  "date_from_date": "2026-10-16 06:24:02 +0700",
+  "run": 38820115320,
+  "published_head": "8af53fd459795029f6277679ded49bf7826def73",
+  "raw_log_sha256": "9177b81971f122517bc89a5e59f1d5061beaf5bf7046e517c43d4ae21a118c77",
+  "independent_root_membership_only": true,
+  "unique_passes": 5205,
+  "original123_exactly_once": true,
+  "original123_sum_printed_durations_seconds": 269.137,
+  "serve14_sum_printed_durations_seconds": 19.402,
+  "binary_sums_seconds": {
+    "lamp-memory::health": 36.052,
+    "lamp-voice": 137.774,
+    "lamp-voice::capture_hold_worker": 13.93,
+    "lamp-voice-eval": 5.023,
+    "lamp-voice-eval::final_dispatch": 5.225,
+    "lamp-voice-eval::physical_loopback": 6.482,
+    "lamp-voice-eval::serve_relay": 31.123,
+    "lamp-voice-eval::serve_session": 19.402,
+    "lamp-actions::server": 4.109,
+    "lamp-health::program": 5.009,
+    "lamp-records::records": 5.008
+  },
+  "original123_results": [
+    {
+      "binary": "lamp-memory::health",
+      "test": "a_store_that_cannot_open_never_claims_readiness_and_any_delivered_report_is_warn",
+      "seconds": 0.548,
+      "result": "PASS",
+      "line": 1661
+    },
+    {
+      "binary": "lamp-memory::health",
+      "test": "a_working_bus_that_fails_stays_failed_until_publication_really_recovers",
+      "seconds": 7.008,
+      "result": "PASS",
+      "line": 1662
+    },
+    {
+      "binary": "lamp-memory::health",
+      "test": "an_unusable_bus_does_not_prevent_serving_and_reports_recover_when_it_returns",
+      "seconds": 3.007,
+      "result": "PASS",
+      "line": 1663
+    },
+    {
+      "binary": "lamp-memory::health",
+      "test": "sqlite_reports_retained_counts_and_stays_well_after_caller_refusals",
+      "seconds": 7.01,
+      "result": "PASS",
+      "line": 1664
+    },
+    {
+      "binary": "lamp-voice",
+      "test": "coordinator::tests::early_end::an_answer_that_arrives_after_the_lamp_is_sure_begins_400_ms_sooner_than_without",
+      "seconds": 10.761,
+      "result": "PASS",
+      "line": 2075
+    },
+    {
+      "binary": "lamp-voice",
+      "test": "coordinator::tests::early_end::quiet_to_the_end_the_answer_starts_when_the_lamp_is_sure_and_not_before",
+      "seconds": 4.381,
+      "result": "PASS",
+      "line": 2078
+    },
+    {
+      "binary": "lamp-voice",
+      "test": "coordinator::tests::pilot_faults::capture_fault_during_output_cancels_the_answer_and_ends_the_run",
+      "seconds": 0.029,
+      "result": "PASS",
+      "line": 2091
+    },
+    {
+      "binary": "lamp-voice",
+      "test": "coordinator::tests::pilot_faults::capture_stall_during_a_question_ends_the_run_without_an_answer",
+      "seconds": 0.027,
+      "result": "PASS",
+      "line": 2093
+    },
+    {
+      "binary": "lamp-voice",
+      "test": "coordinator::tests::pilot_faults::control_one_question_is_answered_once_then_mute_ends_the_run",
+      "seconds": 0.033,
+      "result": "PASS",
+      "line": 2094
+    },
+    {
+      "binary": "lamp-voice",
+      "test": "coordinator::tests::pilot_faults::partial_write_then_stall_is_bounded_under_vad_only",
+      "seconds": 0.028,
+      "result": "PASS",
+      "line": 2095
+    },
+    {
+      "binary": "lamp-voice",
+      "test": "coordinator::tests::pilot_faults::provider_failure_before_output_settles_failed_without_speech",
+      "seconds": 0.029,
+      "result": "PASS",
+      "line": 2096
+    },
+    {
+      "binary": "lamp-voice",
+      "test": "coordinator::tests::pilot_faults::provider_failure_during_output_never_becomes_a_completed_answer",
+      "seconds": 0.034,
+      "result": "PASS",
+      "line": 2097
+    },
+    {
+      "binary": "lamp-voice",
+      "test": "coordinator::tests::pilot_faults::provider_worker_fault_during_output_fails_the_turn_and_ends_the_run",
+      "seconds": 0.029,
+      "result": "PASS",
+      "line": 2098
+    },
+    {
+      "binary": "lamp-voice",
+      "test": "coordinator::tests::pilot_faults::ring_fault_during_an_answer_keeps_the_conversation_and_cleans_up",
+      "seconds": 0.044,
+      "result": "PASS",
+      "line": 2099
+    },
+    {
+      "binary": "lamp-voice",
+      "test": "coordinator::tests::pilot_faults::terminal_provider_link_during_output_settles_failed_and_ends_service",
+      "seconds": 0.032,
+      "result": "PASS",
+      "line": 2100
+    },
+    {
+      "binary": "lamp-voice",
+      "test": "provider_worker::tests::review_2026_10_14::review_sound_a_name_heard_as_a_request_began_lets_out_the_answer_the_rule_would_hold",
+      "seconds": 4.424,
+      "result": "PASS",
+      "line": 2210
+    },
+    {
+      "binary": "lamp-voice::capture_hold_worker",
+      "test": "another_microphone_is_handed_on_at_once_and_its_early_sound_is_not_accounted_for",
+      "seconds": 5.107,
+      "result": "PASS",
+      "line": 2346
+    },
+    {
+      "binary": "lamp-voice::capture_hold_worker",
+      "test": "mic1_frames_wait_four_blocks_with_their_own_times_and_a_stop_drops_what_is_held",
+      "seconds": 5.107,
+      "result": "PASS",
+      "line": 2347
+    },
+    {
+      "binary": "lamp-voice-eval",
+      "test": "physical::mac::audit_grant_tests::audit_transport_that_outlives_its_bound_is_killed_and_never_certified",
+      "seconds": 5.023,
+      "result": "PASS",
+      "line": 2423
+    },
+    {
+      "binary": "lamp-voice-eval::final_dispatch",
+      "test": "a_healthy_session_still_dispatches_once",
+      "seconds": 0.249,
+      "result": "PASS",
+      "line": 2474
+    },
+    {
+      "binary": "lamp-voice-eval::final_dispatch",
+      "test": "a_known_invalid_cue_withholds_dispatch_as_a_protocol_failure",
+      "seconds": 0.05,
+      "result": "PASS",
+      "line": 2475
+    },
+    {
+      "binary": "lamp-voice-eval::final_dispatch",
+      "test": "audit_physical_boundary_does_not_dispatch_during_post_exit_trace_relay",
+      "seconds": 0.098,
+      "result": "PASS",
+      "line": 2476
+    },
+    {
+      "binary": "lamp-voice-eval::physical_loopback",
+      "test": "cue_triggered_acknowledgment_is_injected_during_playback_and_scored",
+      "seconds": 0.408,
+      "result": "PASS",
+      "line": 2478
+    },
+    {
+      "binary": "lamp-voice-eval::physical_loopback",
+      "test": "directed_followup_waits_for_whole_reply_completion_then_admits_a_new_turn",
+      "seconds": 0.606,
+      "result": "PASS",
+      "line": 2479
+    },
+    {
+      "binary": "lamp-voice-eval::physical_loopback",
+      "test": "directed_mode_keeps_provider_fault_and_asset_restrictions",
+      "seconds": 0.023,
+      "result": "PASS",
+      "line": 2480
+    },
+    {
+      "binary": "lamp-voice-eval::physical_loopback",
+      "test": "directed_two_occurrences_wait_for_true_completion_before_followup",
+      "seconds": 0.676,
+      "result": "PASS",
+      "line": 2481
+    },
+    {
+      "binary": "lamp-voice-eval::physical_loopback",
+      "test": "echo_only_window_passes_through_the_relay_without_extra_admissions",
+      "seconds": 0.34,
+      "result": "PASS",
+      "line": 2482
+    },
+    {
+      "binary": "lamp-voice-eval::physical_loopback",
+      "test": "physical_next_turn_ready_follows_lamp_voice_readiness_cues",
+      "seconds": 0.733,
+      "result": "PASS",
+      "line": 2483
+    },
+    {
+      "binary": "lamp-voice-eval::serve_relay",
+      "test": "a_runtime_that_ignores_sigterm_is_force_killed_and_never_clean",
+      "seconds": 13.018,
+      "result": "PASS",
+      "line": 2505
+    },
+    {
+      "binary": "lamp-voice-eval::serve_session",
+      "test": "delayed_readiness_is_awaited_by_event_not_by_completion",
+      "seconds": 1.441,
+      "result": "PASS",
+      "line": 2506
+    },
+    {
+      "binary": "lamp-actions::server",
+      "test": "the_light_is_offered_when_its_owner_appears_and_withdrawn_when_it_goes",
+      "seconds": 4.109,
+      "result": "PASS",
+      "line": 3686
+    },
+    {
+      "binary": "lamp-health::program",
+      "test": "between_two_healths_five_seconds_apart_the_program_is_not_taken_for_gone",
+      "seconds": 5.009,
+      "result": "PASS",
+      "line": 4094
+    },
+    {
+      "binary": "lamp-voice",
+      "test": "coordinator::tests::early_end::an_answer_that_arrives_before_the_lamp_is_sure_begins_at_that_moment",
+      "seconds": 4.385,
+      "result": "PASS",
+      "line": 4602
+    },
+    {
+      "binary": "lamp-voice",
+      "test": "coordinator::tests::early_end::an_answer_with_nothing_said_before_the_lamp_is_sure_is_never_played",
+      "seconds": 4.384,
+      "result": "PASS",
+      "line": 4603
+    },
+    {
+      "binary": "lamp-voice",
+      "test": "coordinator::tests::early_end::speech_resumed_at_three_tenths_nothing_of_the_first_answer_is_played_and_one_turn_is_heard",
+      "seconds": 6.385,
+      "result": "PASS",
+      "line": 4605
+    },
+    {
+      "binary": "lamp-voice",
+      "test": "coordinator::tests::endpoint_session::a_worker_failure_falls_back_through_recovery_and_then_resumes",
+      "seconds": 0.366,
+      "result": "PASS",
+      "line": 4608
+    },
+    {
+      "binary": "lamp-voice",
+      "test": "coordinator::tests::endpoint_session::confirmed_endpoint_exit_keeps_the_restartable_mute",
+      "seconds": 0.312,
+      "result": "PASS",
+      "line": 4609
+    },
+    {
+      "binary": "lamp-voice",
+      "test": "coordinator::tests::endpoint_session::missing_model_session_ends_on_the_unchanged_silence_fallback",
+      "seconds": 4.378,
+      "result": "PASS",
+      "line": 4612
+    },
+    {
+      "binary": "lamp-voice",
+      "test": "coordinator::tests::pilot_faults::provider_process_lost_during_output_stops_speech_and_fails_the_turn",
+      "seconds": 0.028,
+      "result": "PASS",
+      "line": 4618
+    },
+    {
+      "binary": "lamp-voice",
+      "test": "coordinator::tests::pilot_faults::sigterm_while_metadata_storage_is_stalled_stops_cleanly_and_reports_the_loss",
+      "seconds": 0.533,
+      "result": "PASS",
+      "line": 4619
+    },
+    {
+      "binary": "lamp-voice",
+      "test": "provider_worker::tests::kept_start::with_no_first_answer_the_patience_ends_in_the_strict_timeout_and_no_end",
+      "seconds": 4.541,
+      "result": "PASS",
+      "line": 4702
+    },
+    {
+      "binary": "lamp-voice",
+      "test": "provider_worker::tests::resumed_question_survives_a_silent_service_and_the_assumption_is_reported",
+      "seconds": 4.053,
+      "result": "PASS",
+      "line": 4709
+    },
+    {
+      "binary": "lamp-voice-eval::final_dispatch",
+      "test": "a_known_session_end_withholds_dispatch",
+      "seconds": 0.049,
+      "result": "PASS",
+      "line": 4977
+    },
+    {
+      "binary": "lamp-voice-eval::final_dispatch",
+      "test": "a_relay_framing_error_first_seen_in_the_final_drain_withholds",
+      "seconds": 0.848,
+      "result": "PASS",
+      "line": 4978
+    },
+    {
+      "binary": "lamp-voice-eval::final_dispatch",
+      "test": "an_unobserved_event_in_the_final_drain_requires_revalidation",
+      "seconds": 0.848,
+      "result": "PASS",
+      "line": 4979
+    },
+    {
+      "binary": "lamp-voice-eval::physical_loopback",
+      "test": "directed_interruption_during_second_occurrence_preserves_owner_and_yields",
+      "seconds": 0.675,
+      "result": "PASS",
+      "line": 4980
+    },
+    {
+      "binary": "lamp-voice-eval::physical_loopback",
+      "test": "directed_missing_or_stale_retirement_never_falls_back_to_a_timer_or_final_trace",
+      "seconds": 0.908,
+      "result": "PASS",
+      "line": 4981
+    },
+    {
+      "binary": "lamp-voice-eval::serve_relay",
+      "test": "a_runner_stop_is_one_sigterm_and_a_clean_reaped_end",
+      "seconds": 3.025,
+      "result": "PASS",
+      "line": 5002
+    },
+    {
+      "binary": "lamp-voice-eval::serve_session",
+      "test": "a_nonzero_runtime_exit_never_completes_a_serve_attempt",
+      "seconds": 0.348,
+      "result": "PASS",
+      "line": 5003
+    },
+    {
+      "binary": "lamp-voice-eval::serve_session",
+      "test": "a_provider_outage_is_waited_out_by_event_and_a_terminal_link_ends_it",
+      "seconds": 1.758,
+      "result": "PASS",
+      "line": 5004
+    },
+    {
+      "binary": "lamp-voice-eval::serve_session",
+      "test": "startup_cues_stay_fresh_through_a_slow_transport_and_a_slow_first_preparer",
+      "seconds": 0.993,
+      "result": "PASS",
+      "line": 5005
+    },
+    {
+      "binary": "lamp-memory::health",
+      "test": "a_failed_legacy_write_stays_warn_through_reads_until_a_write_succeeds",
+      "seconds": 7.009,
+      "result": "PASS",
+      "line": 6602
+    },
+    {
+      "binary": "lamp-records::records",
+      "test": "real_reporter_reloads_switch_and_policy_and_requires_a_matching_receipt",
+      "seconds": 5.008,
+      "result": "PASS",
+      "line": 6747
+    },
+    {
+      "binary": "lamp-voice",
+      "test": "coordinator::tests::early_end::a_lone_lamp_and_a_pause_and_the_question_go_as_one_request",
+      "seconds": 5.381,
+      "result": "PASS",
+      "line": 7048
+    },
+    {
+      "binary": "lamp-voice",
+      "test": "coordinator::tests::early_end::speech_resumed_at_three_tenths_under_the_lamps_duplex_policy",
+      "seconds": 6.384,
+      "result": "PASS",
+      "line": 7051
+    },
+    {
+      "binary": "lamp-voice",
+      "test": "coordinator::tests::early_end::the_link_dropping_in_between_fails_the_request_unheard_and_the_next_is_answered",
+      "seconds": 6.385,
+      "result": "PASS",
+      "line": 7052
+    },
+    {
+      "binary": "lamp-voice",
+      "test": "coordinator::tests::endpoint_session::complete_verdict_ends_early_but_resumed_speech_keeps_the_turn",
+      "seconds": 0.338,
+      "result": "PASS",
+      "line": 7053
+    },
+    {
+      "binary": "lamp-voice",
+      "test": "coordinator::tests::endpoint_session::duplex_complete_verdict_ends_at_one_second_and_its_answer_plays",
+      "seconds": 0.343,
+      "result": "PASS",
+      "line": 7054
+    },
+    {
+      "binary": "lamp-voice",
+      "test": "coordinator::tests::endpoint_session::duplex_missing_model_session_ends_on_the_unchanged_silence_fallback",
+      "seconds": 4.378,
+      "result": "PASS",
+      "line": 7055
+    },
+    {
+      "binary": "lamp-voice",
+      "test": "coordinator::tests::endpoint_session::mute_then_reopen_never_overlaps_endpoint_workers",
+      "seconds": 0.62,
+      "result": "PASS",
+      "line": 7056
+    },
+    {
+      "binary": "lamp-voice",
+      "test": "coordinator::tests::endpoint_session::rapid_resumes_never_end_the_turn_early",
+      "seconds": 0.344,
+      "result": "PASS",
+      "line": 7057
+    },
+    {
+      "binary": "lamp-voice",
+      "test": "coordinator::tests::endpoint_session::unconfirmed_endpoint_exit_fails_mute_cleanup_and_never_reopens_service",
+      "seconds": 1.518,
+      "result": "PASS",
+      "line": 7058
+    },
+    {
+      "binary": "lamp-voice",
+      "test": "coordinator::tests::pilot_faults::control_progress_without_settlement_is_bounded_under_v1_baseline",
+      "seconds": 0.03,
+      "result": "PASS",
+      "line": 7070
+    },
+    {
+      "binary": "lamp-voice",
+      "test": "coordinator::tests::pilot_faults::duplex_control_answers_once",
+      "seconds": 0.033,
+      "result": "PASS",
+      "line": 7071
+    },
+    {
+      "binary": "lamp-voice",
+      "test": "coordinator::tests::pilot_faults::failure_notice_yields_mid_play_to_a_new_owner_under_vad_only",
+      "seconds": 0.037,
+      "result": "PASS",
+      "line": 7073
+    },
+    {
+      "binary": "lamp-voice",
+      "test": "coordinator::tests::pilot_faults::partial_write_then_stall_is_bounded_under_v1_baseline",
+      "seconds": 0.031,
+      "result": "PASS",
+      "line": 7074
+    },
+    {
+      "binary": "lamp-voice",
+      "test": "coordinator::tests::pilot_faults::rapid_mute_and_reopen_never_overlaps_workers_or_carries_speech_across",
+      "seconds": 8.588,
+      "result": "PASS",
+      "line": 7075
+    },
+    {
+      "binary": "lamp-voice",
+      "test": "coordinator::tests::pilot_faults::resumed_the_lamp_answers_again",
+      "seconds": 0.039,
+      "result": "PASS",
+      "line": 7076
+    },
+    {
+      "binary": "lamp-voice",
+      "test": "coordinator::tests::pilot_faults::speaker_progress_is_due_strictly_after_lease_plus_report_age",
+      "seconds": 0.005,
+      "result": "PASS",
+      "line": 7077
+    },
+    {
+      "binary": "lamp-voice",
+      "test": "coordinator::tests::pilot_faults::stalled_speaker_during_output_is_bounded_and_never_completes_the_answer",
+      "seconds": 0.033,
+      "result": "PASS",
+      "line": 7078
+    },
+    {
+      "binary": "lamp-voice",
+      "test": "provider_worker::tests::twenty_second_answer_through_a_five_second_reply_buffer_follows_capacity",
+      "seconds": 24.031,
+      "result": "PASS",
+      "line": 7185
+    },
+    {
+      "binary": "lamp-voice-eval::final_dispatch",
+      "test": "a_session_end_first_seen_in_the_final_drain_withholds_and_is_kept",
+      "seconds": 0.849,
+      "result": "PASS",
+      "line": 7400
+    },
+    {
+      "binary": "lamp-voice-eval::final_dispatch",
+      "test": "a_transport_closed_during_the_final_drain_withholds",
+      "seconds": 0.828,
+      "result": "PASS",
+      "line": 7401
+    },
+    {
+      "binary": "lamp-voice-eval::final_dispatch",
+      "test": "the_first_terminal_cause_wins_and_a_provider_failure_stays_provider_unavailable",
+      "seconds": 0.049,
+      "result": "PASS",
+      "line": 7402
+    },
+    {
+      "binary": "lamp-voice-eval::physical_loopback",
+      "test": "a_transport_that_closes_mid_trace_invalidates_the_attempt",
+      "seconds": 0.03,
+      "result": "PASS",
+      "line": 7404
+    },
+    {
+      "binary": "lamp-voice-eval::physical_loopback",
+      "test": "directed_natural_interruption_runs_during_reply_with_original_cancel_reason",
+      "seconds": 0.764,
+      "result": "PASS",
+      "line": 7405
+    },
+    {
+      "binary": "lamp-voice-eval::serve_relay",
+      "test": "a_nonzero_runtime_exit_after_clean_metadata_is_a_relay_error",
+      "seconds": 3.026,
+      "result": "PASS",
+      "line": 7423
+    },
+    {
+      "binary": "lamp-voice-eval::serve_relay",
+      "test": "the_hard_deadline_stops_the_runtime_and_is_an_error",
+      "seconds": 6.017,
+      "result": "PASS",
+      "line": 7424
+    },
+    {
+      "binary": "lamp-voice-eval::serve_session",
+      "test": "a_declared_capture_end_before_the_next_prompt_and_its_window_withholds_it",
+      "seconds": 1.15,
+      "result": "PASS",
+      "line": 7425
+    },
+    {
+      "binary": "lamp-voice-eval::serve_session",
+      "test": "a_late_first_copy_or_failed_player_withholds_every_later_turn",
+      "seconds": 1.315,
+      "result": "PASS",
+      "line": 7426
+    },
+    {
+      "binary": "lamp-voice-eval::serve_session",
+      "test": "a_recorder_that_exits_zero_mid_conversation_withholds_the_rest_and_certifies_nothing",
+      "seconds": 0.512,
+      "result": "PASS",
+      "line": 7427
+    },
+    {
+      "binary": "lamp-voice-eval::serve_session",
+      "test": "a_runtime_stop_mute_or_ignored_sigterm_is_retained_and_reaped",
+      "seconds": 2.308,
+      "result": "PASS",
+      "line": 7428
+    },
+    {
+      "binary": "lamp-voice-eval::serve_session",
+      "test": "the_runner_forwards_pilot_runtime_settings_through_the_relay",
+      "seconds": 0.452,
+      "result": "PASS",
+      "line": 7429
+    },
+    {
+      "binary": "lamp-memory::health",
+      "test": "legacy_reports_retained_counts_and_stays_well_after_caller_refusals",
+      "seconds": 7.007,
+      "result": "PASS",
+      "line": 9408
+    },
+    {
+      "binary": "lamp-memory::health",
+      "test": "the_environment_alone_does_not_enable_reporting_or_create_bus_data",
+      "seconds": 4.463,
+      "result": "PASS",
+      "line": 9409
+    },
+    {
+      "binary": "lamp-voice",
+      "test": "coordinator::tests::early_end::a_name_note_told_with_a_request_ended_early_does_not_survive_it",
+      "seconds": 1.114,
+      "result": "PASS",
+      "line": 9793
+    },
+    {
+      "binary": "lamp-voice",
+      "test": "coordinator::tests::early_end::lamp_stop_over_an_answer_stops_it_and_only_the_answer_to_the_whole_is_played",
+      "seconds": 5.384,
+      "result": "PASS",
+      "line": 9795
+    },
+    {
+      "binary": "lamp-voice",
+      "test": "coordinator::tests::early_end::without_the_option_every_message_and_record_is_what_it_was",
+      "seconds": 6.38,
+      "result": "PASS",
+      "line": 9796
+    },
+    {
+      "binary": "lamp-voice",
+      "test": "coordinator::tests::endpoint_session::a_complete_verdict_ends_at_one_second_and_its_answer_plays",
+      "seconds": 0.344,
+      "result": "PASS",
+      "line": 9798
+    },
+    {
+      "binary": "lamp-voice",
+      "test": "coordinator::tests::endpoint_session::a_worker_still_loading_leaves_the_baseline_window",
+      "seconds": 4.379,
+      "result": "PASS",
+      "line": 9800
+    },
+    {
+      "binary": "lamp-voice",
+      "test": "coordinator::tests::endpoint_session::hung_worker_never_delays_capture_endpoint_or_session_end",
+      "seconds": 6.379,
+      "result": "PASS",
+      "line": 9803
+    },
+    {
+      "binary": "lamp-voice",
+      "test": "coordinator::tests::endpoint_session::verdicts_after_the_result_timeout_fall_back_on_every_turn",
+      "seconds": 0.35,
+      "result": "PASS",
+      "line": 9804
+    },
+    {
+      "binary": "lamp-voice",
+      "test": "coordinator::tests::pilot_faults::a_paused_lamp_takes_no_question_and_says_why",
+      "seconds": 0.024,
+      "result": "PASS",
+      "line": 9812
+    },
+    {
+      "binary": "lamp-voice",
+      "test": "coordinator::tests::pilot_faults::a_turn_under_way_when_paused_is_finished_and_the_next_is_not_taken",
+      "seconds": 0.047,
+      "result": "PASS",
+      "line": 9815
+    },
+    {
+      "binary": "lamp-voice",
+      "test": "coordinator::tests::pilot_faults::camera_loss_during_an_answer_revokes_only_sight",
+      "seconds": 0.039,
+      "result": "PASS",
+      "line": 9816
+    },
+    {
+      "binary": "lamp-voice",
+      "test": "coordinator::tests::pilot_faults::control_progress_without_settlement_is_bounded_under_vad_only",
+      "seconds": 0.029,
+      "result": "PASS",
+      "line": 9817
+    },
+    {
+      "binary": "lamp-voice",
+      "test": "coordinator::tests::pilot_faults::distinct_rejects_an_item_that_returns_later",
+      "seconds": 0.005,
+      "result": "PASS",
+      "line": 9818
+    },
+    {
+      "binary": "lamp-voice",
+      "test": "coordinator::tests::pilot_faults::duplex_stalled_speaker_is_bounded",
+      "seconds": 0.032,
+      "result": "PASS",
+      "line": 9819
+    },
+    {
+      "binary": "lamp-voice",
+      "test": "coordinator::tests::pilot_faults::failure_notice_plays_once_keeps_the_failure_and_yields_to_the_next_owner",
+      "seconds": 0.046,
+      "result": "PASS",
+      "line": 9820
+    },
+    {
+      "binary": "lamp-voice",
+      "test": "coordinator::tests::pilot_faults::mute_while_answer_speech_is_queued_cuts_it_and_never_resumes",
+      "seconds": 0.03,
+      "result": "PASS",
+      "line": 9822
+    },
+    {
+      "binary": "lamp-voice",
+      "test": "coordinator::tests::pilot_faults::mute_while_the_failure_notice_plays_cuts_it_and_keeps_the_failure",
+      "seconds": 0.03,
+      "result": "PASS",
+      "line": 9823
+    },
+    {
+      "binary": "lamp-voice",
+      "test": "coordinator::tests::pilot_faults::provider_process_lost_before_output_ends_the_run_without_speech",
+      "seconds": 0.029,
+      "result": "PASS",
+      "line": 9824
+    },
+    {
+      "binary": "lamp-voice",
+      "test": "coordinator::tests::pilot_faults::readiness_publishes_the_link_state_it_was_validated_against",
+      "seconds": 0.034,
+      "result": "PASS",
+      "line": 9825
+    },
+    {
+      "binary": "lamp-voice",
+      "test": "coordinator::tests::pilot_faults::ring_lost_without_blanking_keeps_the_answer_but_cleanup_fails_truthfully",
+      "seconds": 0.044,
+      "result": "PASS",
+      "line": 9826
+    },
+    {
+      "binary": "lamp-voice",
+      "test": "coordinator::tests::pilot_faults::sigterm_while_answer_speech_is_pending_stops_cleanly",
+      "seconds": 0.03,
+      "result": "PASS",
+      "line": 9827
+    },
+    {
+      "binary": "lamp-voice",
+      "test": "coordinator::tests::pilot_faults::sigterm_while_the_failure_notice_plays_stops_cleanly",
+      "seconds": 0.03,
+      "result": "PASS",
+      "line": 9828
+    },
+    {
+      "binary": "lamp-voice",
+      "test": "coordinator::tests::pilot_faults::stalled_speaker_under_vad_only_is_bounded_too",
+      "seconds": 0.031,
+      "result": "PASS",
+      "line": 9829
+    },
+    {
+      "binary": "lamp-voice",
+      "test": "provider_worker::tests::review_2026_10_14::review_a_name_heard_after_a_requests_sound_ended_does_not_let_out_its_answer",
+      "seconds": 5.23,
+      "result": "PASS",
+      "line": 9920
+    },
+    {
+      "binary": "lamp-voice::capture_hold_worker",
+      "test": "a_microphone_busy_for_a_moment_at_start_is_opened_once_it_is_free",
+      "seconds": 1.61,
+      "result": "PASS",
+      "line": 10026
+    },
+    {
+      "binary": "lamp-voice::capture_hold_worker",
+      "test": "mic1_muted_while_frames_are_held_hands_none_of_them_on",
+      "seconds": 2.106,
+      "result": "PASS",
+      "line": 10027
+    },
+    {
+      "binary": "lamp-voice-eval::final_dispatch",
+      "test": "a_final_drain_that_exhausts_its_budget_requires_revalidation",
+      "seconds": 0.352,
+      "result": "PASS",
+      "line": 10158
+    },
+    {
+      "binary": "lamp-voice-eval::final_dispatch",
+      "test": "a_known_run_end_cue_withholds_dispatch",
+      "seconds": 0.051,
+      "result": "PASS",
+      "line": 10159
+    },
+    {
+      "binary": "lamp-voice-eval::final_dispatch",
+      "test": "an_invalid_cue_first_seen_in_the_final_drain_withholds",
+      "seconds": 0.854,
+      "result": "PASS",
+      "line": 10160
+    },
+    {
+      "binary": "lamp-voice-eval::final_dispatch",
+      "test": "audit_physical_boundary_rejects_a_target_already_over_100ms_late",
+      "seconds": 0.1,
+      "result": "PASS",
+      "line": 10161
+    },
+    {
+      "binary": "lamp-voice-eval::physical_loopback",
+      "test": "missing_or_stale_whole_completion_withholds_followup_after_valid_retirement",
+      "seconds": 0.942,
+      "result": "PASS",
+      "line": 10162
+    },
+    {
+      "binary": "lamp-voice-eval::physical_loopback",
+      "test": "undelivered_stimuli_are_withheld_not_scored_as_silence",
+      "seconds": 0.377,
+      "result": "PASS",
+      "line": 10163
+    },
+    {
+      "binary": "lamp-voice-eval::serve_relay",
+      "test": "a_closed_runner_transport_stops_the_runtime_through_the_same_path",
+      "seconds": 3.011,
+      "result": "PASS",
+      "line": 10181
+    },
+    {
+      "binary": "lamp-voice-eval::serve_relay",
+      "test": "the_pilot_runtime_settings_reach_the_serve_child_exactly",
+      "seconds": 3.026,
+      "result": "PASS",
+      "line": 10182
+    },
+    {
+      "binary": "lamp-voice-eval::serve_session",
+      "test": "a_room_recording_that_ends_early_withholds_the_rest",
+      "seconds": 0.525,
+      "result": "PASS",
+      "line": 10183
+    },
+    {
+      "binary": "lamp-voice-eval::serve_session",
+      "test": "an_extra_candidate_during_the_wait_withholds_the_rest",
+      "seconds": 0.774,
+      "result": "PASS",
+      "line": 10184
+    },
+    {
+      "binary": "lamp-voice-eval::serve_session",
+      "test": "normal_eight_turn_conversation_in_one_serve_session",
+      "seconds": 3.578,
+      "result": "PASS",
+      "line": 10185
+    },
+    {
+      "binary": "lamp-voice-eval::serve_session",
+      "test": "serve_readiness_comes_only_from_the_fresh_cue_never_from_stdout",
+      "seconds": 0.411,
+      "result": "PASS",
+      "line": 10186
+    },
+    {
+      "binary": "lamp-voice-eval::serve_session",
+      "test": "stale_duplicate_reordered_foreign_and_lost_cues_end_the_conversation",
+      "seconds": 3.837,
+      "result": "PASS",
+      "line": 10187
+    }
+  ],
+  "limit": "Four concurrent shard observations, not standalone serial wall time or a controlled before-after experiment. Original source-preservation and exact checkout proofs are separate."
+}

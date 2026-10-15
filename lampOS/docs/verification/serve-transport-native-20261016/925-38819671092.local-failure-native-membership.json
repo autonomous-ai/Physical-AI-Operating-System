@@ -1,0 +1,14 @@
+{
+  "completed_playout_survives_both_real_store_reopens_then_acks_without_respeech": [
+    {
+      "result": "PASS",
+      "seconds": "0.026",
+      "ordinal": 4145,
+      "total": 5000,
+      "binary": "lamp-voice",
+      "name": "reminders::consumer::tests::completed_playout_survives_both_real_store_reopens_then_acks_without_respeech",
+      "line": 4684
+    }
+  ],
+  "rapid_mute_and_reopen_never_overlaps_workers_or_carries_speech_across": []
+}

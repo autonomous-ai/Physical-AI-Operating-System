@@ -1,0 +1,16 @@
+{
+  "command": [
+    "gh",
+    "api",
+    "repos/autonomous-ai/lampOS/actions/runs/38820115320/jobs?filter=all&per_page=100"
+  ],
+  "started_from_date": "2026-10-16 06:17:22 +0700",
+  "finished_from_date": "2026-10-16 06:17:22 +0700",
+  "exit_code": 0,
+  "stdout": "/private/tmp/tests-823-native-20261016/909-38820115320.retrieved.jobs-api.json",
+  "stdout_bytes": 14313,
+  "stdout_sha256": "ddb40a6c58b7617698eb29bf0bef1f42fd6c05e9f8fa522fc51ce6dfc23b43d2",
+  "stderr": "/private/tmp/tests-823-native-20261016/909-38820115320.retrieved.jobs-api.json.stderr",
+  "stderr_bytes": 0,
+  "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+}

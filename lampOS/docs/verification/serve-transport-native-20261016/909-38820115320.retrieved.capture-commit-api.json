@@ -1,0 +1,16 @@
+{
+  "command": [
+    "gh",
+    "api",
+    "repos/autonomous-ai/lampOS/git/commits/8af53fd459795029f6277679ded49bf7826def73"
+  ],
+  "started_from_date": "2026-10-16 06:17:22 +0700",
+  "finished_from_date": "2026-10-16 06:17:22 +0700",
+  "exit_code": 0,
+  "stdout": "/private/tmp/tests-823-native-20261016/909-38820115320.retrieved.commit-api.json",
+  "stdout_bytes": 1148,
+  "stdout_sha256": "c89d737a264afed0ca9ff67243ef36bd06f28684e0882992ef7e372bef9440a5",
+  "stderr": "/private/tmp/tests-823-native-20261016/909-38820115320.retrieved.commit-api.json.stderr",
+  "stderr_bytes": 0,
+  "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+}

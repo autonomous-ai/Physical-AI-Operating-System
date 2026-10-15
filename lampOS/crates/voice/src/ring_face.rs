@@ -189,6 +189,12 @@ const NOTICE_US: f32 = 300_000.0;
 /// that blinks never come as a clock's would.
 const BLINK_US: u64 = 150_000;
 const BLINK_LOW: f32 = 0.25;
+/// The countdown of a hand kept on the head (#711): from the stroke at one
+/// second to sleep at three, as Controls counts them, the face dims to this
+/// share of itself, slowly enough to be seen as a countdown.
+const COUNTDOWN_FROM_US: f32 = 1_000_000.0;
+const COUNTDOWN_TO_US: f32 = 3_000_000.0;
+const COUNTDOWN_LOW: f32 = 0.15;
 const BLINK_EVERY_US: (u64, u64) = (7_000_000, 9_000_000);
 
 /// One face. It keeps what is on the ring now, so that a change of mood, or
@@ -222,6 +228,8 @@ pub struct Face {
     /// When the next blink at rest begins, and how many there have been.
     next_blink_us: Option<u64>,
     blinks: u64,
+    /// How long a hand has been kept on the head ([`Face::hand`]).
+    held_us: Option<u64>,
 }
 
 impl Default for Face {
@@ -247,7 +255,16 @@ impl Face {
             gaze: [0.0; 2],
             next_blink_us: None,
             blinks: 0,
+            held_us: None,
         }
+    }
+
+    /// How long a hand has been kept on the head, as Controls counts it, or
+    /// `None` (#711, [`crate::ring_head`]): from one second to three the face
+    /// dims, a countdown to sleep; a hand let go before then lets it brighten
+    /// again, eased like any other change.
+    pub fn hand(&mut self, held_us: Option<u64>) {
+        self.held_us = held_us;
     }
 
     /// Switch the eye on or off ([`Face::eye`]'s field says what it does).
@@ -383,7 +400,12 @@ impl Face {
             }
         }
         let brighten = 1.0 + NOTICE_GAIN * notice;
-        let open = open * blink;
+        // A hand kept on the head (#711): the countdown to sleep dims it.
+        let countdown = self.held_us.map_or(0.0, |held| {
+            ((held as f32 - COUNTDOWN_FROM_US) / (COUNTDOWN_TO_US - COUNTDOWN_FROM_US))
+                .clamp(0.0, 1.0)
+        });
+        let open = open * blink * (1.0 - (1.0 - COUNTDOWN_LOW) * countdown);
         let seconds = (now_us % 3_600_000_000) as f32 / 1_000_000.0;
         let ease = follow(step_us, EASE_US);
         let mut frame = [Rgb::BLACK; PIXEL_COUNT];
@@ -539,6 +561,33 @@ mod tests {
         (0..frames)
             .map(|frame| face.render(mood, level, from_us + frame * 20_000, 48))
             .collect()
+    }
+
+    /// #711: a hand kept on the head dims the face from one second to three,
+    /// a countdown to sleep, and letting go brightens it again. Two faces with
+    /// the same light, one with the hand, are compared frame by frame.
+    #[test]
+    fn a_hand_kept_on_the_head_dims_the_face_from_one_second_to_three() {
+        let at = |seconds: f32| 4_000_000_000 + (seconds * 1e6) as u64;
+        let mut lit = Face::new();
+        lit.light(Lit::of(true, "warm", 5).unwrap());
+        let mut held = lit.clone();
+        let mut ratio = |hand: Option<u64>, from: f32| {
+            held.hand(hand);
+            let plain = play(&mut lit, Mood::Resting, 0, at(from), 50);
+            let dimmed = play(&mut held, Mood::Resting, 0, at(from), 50);
+            brightness(dimmed.last().unwrap()) as f32 / brightness(plain.last().unwrap()) as f32
+        };
+        // Under a second it is only a touch: nothing changes.
+        assert!((ratio(Some(800_000), 0.0) - 1.0).abs() < 0.02);
+        // Half way, about half way down; at three seconds, the low glow.
+        let half = ratio(Some(2_000_000), 1.0);
+        assert!((0.5..0.65).contains(&half), "{half}");
+        let low = ratio(Some(3_000_000), 2.0);
+        assert!((0.10..0.22).contains(&low), "{low}");
+        assert!(low > 0.0, "never dark: the face still shows it hears");
+        // Let go: back to the light.
+        assert!((ratio(None, 3.0) - 1.0).abs() < 0.02);
     }
 
     #[test]

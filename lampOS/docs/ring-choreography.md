@@ -50,6 +50,20 @@ own fixed point, so some pixels sit one step higher. That keeps a dim breath
 smooth where a ceiling of 24 leaves the resting face two or three steps to
 work with. Nothing is dithered in time.
 
+### A hand kept on the head: the countdown (#711)
+
+Off unless set: `LAMP_HEAD_TOUCH=on` in the voice's unit, which the voice
+passes to its all-day ring worker as `--head-touch`
+(`crates/voice/src/ring_head.rs`); it needs `LAMP_BUS=on` and Controls run
+with `--touch`. The ring worker reads the head's state (`controls/touch_state`,
+the head's `held_us`) every 50 ms. From one second of a hand kept on the
+head (Controls' stroke) to three (its sleep), the whole face dims to 15 % of
+itself, eased like every other change: a countdown the person can see, and
+can stop by letting go, when it brightens again. Under a second nothing
+changes; a hand a push from the body spoiled has no time and dims nothing.
+It never makes the ring dark: what is shown still says the lamp hears. The
+sleep that follows at three seconds is not drawn here yet (#711).
+
 ### The eye (task 34, #712)
 
 Off unless set: `LAMP_RING_EYE=on` (or `strong`, below) in the voice's unit, which the voice

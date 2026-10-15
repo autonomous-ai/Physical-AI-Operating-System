@@ -1958,6 +1958,7 @@ dependencies = [
  "httparse",
  "lamp-bus",
  "lamp-ipc",
+ "lamp-local-time",
  "lamp-msgs",
  "rustls",
  "serde",

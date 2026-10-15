@@ -42,7 +42,7 @@ owner's rules for this part:
 
 ## The process
 
-    lamp-policy --key-file ABSOLUTE_PATH --log-dir ABSOLUTE_DIR [--endpoint URL] [--model NAME] [--deadline-ms N] [--bus-root ABSOLUTE_DIR] [--progress] [--hello] [--utc-offset-minutes N] [--act progress] [--act hello] [--rules] [--act attention]
+    lamp-policy --key-file ABSOLUTE_PATH --log-dir ABSOLUTE_DIR [--endpoint URL] [--model NAME] [--deadline-ms N] [--bus-root ABSOLUTE_DIR] [--progress] [--hello] [--utc-offset-minutes N | --zone system|NAME] [--act progress] [--act hello] [--rules] [--act attention]
 
 | Option | What it is | If left out |
 |---|---|---|
@@ -53,7 +53,8 @@ owner's rules for this part:
 | `--deadline-ms` | How long one asking may take, from 1 to 60000 | 3000 |
 | `--bus-root` | The bus's directory | `LAMP_BUS_ROOT`, or `/run/lampos-bus` |
 | `--progress` | Also ask, in shadow, whether progress of the work handed over is worth telling now ([below](#progress-news-say-this-progress-now-732)) | off |
-| `--utc-offset-minutes` | The lamp's local time east of UTC, for that question's hour of the day | the hour is null |
+| `--utc-offset-minutes` | The lamp's local time east of UTC, for that question's hour of the day, the same all year | the hour is null |
+| `--zone` | In place of the offset: `system`, the lamp's own zone (`/etc/localtime`, as setup writes it), or a zone's name. The hour is taken at the decision's moment, across summer time, and `system` takes up a zone setup changes while the policy runs (#820). An unknown or unreadable zone ends the start (exit 1); with the offset too, exit 2 | the offset |
 | `--act progress` | That question's decisions act: published with `shadow: false`, so that the voice tells a `say_now` ([below](#acting---act-progress-752)). Needs `--progress` | shadow |
 | `--hello` | Also ask, when the voice holds a due hello, whether to say it now ([below](#hello-on-arrival-say-hello-now-752)) | off |
 | `--act hello` | Those decisions act. Needs `--hello` | shadow |
@@ -1075,6 +1076,7 @@ attention one, nor the other way round.
 |---|---|---|
 | `--progress` | Listen to `tasks/status` and ask the progress question | off |
 | `--utc-offset-minutes` | The lamp's local time east of UTC, -720 to 840, for the hour of the day the model is shown | the hour is null |
+| `--zone` | `system` or a zone's name, in place of the offset (#820) | the offset |
 | `--act progress` | Its decisions act ([below](#acting---act-progress-752)) | shadow |
 | `--rules` | It obeys the people's rules about speaking first ([above](#a-persons-rules-about-speaking-first-813)) | not listened to |
 
@@ -1142,7 +1144,7 @@ and `the_quiet_begins_when_the_voice_stops` (`crates/policy/src/progress.rs`).
 | `quiet_s` | Seconds since anything was heard or said, or the voice listened, thought or spoke; null if nothing since the policy began |
 | `room` | `room/state` |
 | `spoke_up_last_hour` | Turns the lamp began itself in the last hour, and the notes this chose in it (below) |
-| `hour` | The local hour, by `--utc-offset-minutes` |
+| `hour` | The local hour of the decision's moment, by `--utc-offset-minutes` or `--zone` |
 
 A turn the lamp began itself is told from `voice/state` alone: its first
 state (`thinking` or `speaking`) came with nobody listened to in the 10 s

@@ -19,7 +19,7 @@
 use crate::{
     attention::Room,
     decide::{Answer, Asked, Connection, Decider, Failed, Question, Usage},
-    progress::{Choice, hour_of_day},
+    progress::{Choice, LocalTime},
 };
 use lamp_msgs::{Decision, Voice, VoiceArrival};
 use serde::Serialize;
@@ -27,7 +27,7 @@ use serde_json::{Value, json};
 use std::{
     collections::{BTreeMap, VecDeque},
     io,
-    sync::mpsc,
+    sync::{Arc, mpsc},
     thread,
     time::{Duration, Instant},
 };
@@ -74,12 +74,13 @@ pub const RULE_YES: f32 = 0.6;
 pub const RULE_NO: f32 = 0.1;
 
 /// How the hello question is asked (`lamp-policy --hello`).
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug)]
 pub struct Options {
     /// How long one asking may take: at most [`MOST_ASKING`].
     pub deadline: Duration,
-    /// The lamp's local time, east of UTC, for the hour of the day.
-    pub utc_offset_minutes: Option<i32>,
+    /// The lamp's local time, for the hour of the day: a fixed offset
+    /// (`--utc-offset-minutes`) or a zone (`--zone`, #820).
+    pub local: Option<Arc<LocalTime>>,
     /// The hard rules ([`QUIET_FOR`], [`AT_MOST_EVERY`]); shorter only in a
     /// test.
     pub quiet_for: Duration,
@@ -90,10 +91,10 @@ pub struct Options {
 }
 
 impl Options {
-    pub fn new(deadline: Duration, utc_offset_minutes: Option<i32>) -> Self {
+    pub fn new(deadline: Duration, local: Option<Arc<LocalTime>>) -> Self {
         Self {
             deadline: deadline.min(MOST_ASKING),
-            utc_offset_minutes,
+            local,
             quiet_for: QUIET_FOR,
             at_most_every: AT_MOST_EVERY,
             act: false,
@@ -587,8 +588,9 @@ impl Hello {
             .unwrap_or(u32::MAX),
             hour: self
                 .options
-                .utc_offset_minutes
-                .map(|offset| hour_of_day(unix_ms, offset)),
+                .local
+                .as_ref()
+                .map(|local| local.hour_of_day(unix_ms)),
         };
         if let Some(hold) = self.hold(&arrival, now) {
             match hold {

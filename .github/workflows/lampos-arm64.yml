@@ -13,10 +13,11 @@ name: lampOS on ARM64
 # took about 20 of the job's 30 minutes. Doc tests, the two tests with their
 # own harness and the binaries' artifact come from the first runner only.
 #
-# TEMPORARY: the realtime group (tests that wait on the real clock, 977 s of
-# the 1,191 s of test time on 2026-10-15) is skipped here by nextest's `ci`
-# profile (lampOS/.config/nextest.toml) and run by hand with
-# `--profile realtime`. See lampOS/docs/realtime-tests.md.
+# The realtime group (tests that wait on the real clock, 977 s of the 1,191 s
+# of test time on 2026-10-15) is skipped on pull requests and manual runs
+# (nextest profile `pr`, lampOS/.config/nextest.toml). Every push to
+# lamp-voice runs every test, and a failure there opens an issue. See
+# lampOS/docs/realtime-tests.md.
 
 # Not on every push to every builder's branch: with nine builders and four
 # runners a run, that queued eleven runs behind eight on 2026-10-15, lamp-voice's
@@ -71,12 +72,15 @@ jobs:
       - name: build (release, the lamps' binaries)
         working-directory: lampOS
         run: cargo build --locked --release --workspace --bins --examples
-      - name: test (one test at a time, as on a lamp's few cores; this runner's share; realtime group skipped)
+      - name: test (one test at a time, as on a lamp's few cores; this runner's share; a pull request skips the realtime group)
         working-directory: lampOS
         # The two tests with their own harness (harness = false) cannot be listed by nextest; the first runner runs them below.
-        # --profile ci skips the realtime group (lampOS/.config/nextest.toml); the -E below is intersected with it.
+        # Profile `pr` skips the realtime group (lampOS/.config/nextest.toml); the -E below is intersected with it.
+        # A push to lamp-voice uses `default`: every test.
         run: >-
-          cargo nextest run --locked --release --workspace --profile ci --no-tests=pass -j 1
+          cargo nextest run --locked --release --workspace
+          --profile ${{ github.event_name == 'push' && 'default' || 'pr' }}
+          --no-tests=pass -j 1
           --partition hash:${{ matrix.shard }}/4
           -E 'not (binary_id(lamp-ipc::relay_signals) | binary_id(lamp-turn-end-wire::process))'
       - name: doc tests and the own-harness tests (nextest runs neither)
@@ -102,3 +106,26 @@ jobs:
           name: lampos-arm64-${{ github.event.pull_request.head.sha || github.sha }}
           path: lampOS/arm64-out/
           retention-days: 7
+
+  # A full run on lamp-voice that fails opens an issue (or comments on the open
+  # one), so a realtime test broken by a merge is not left unseen: pull
+  # requests did not run it.
+  report-lamp-voice-failure:
+    needs: arm64
+    if: failure() && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      TITLE: 'lampOS: the full ARM64 run on lamp-voice failed'
+      BODY: >-
+        The full ARM64 run (realtime tests included) failed on lamp-voice at
+        ${{ github.sha }}: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}.
+        Pull requests skip the realtime group (lampOS/docs/realtime-tests.md),
+        so the merge that broke it may have passed its own run.
+    steps:
+      - run: |
+          n=$(gh issue list --state open --search "\"$TITLE\" in:title" --json number -q '.[0].number')
+          if [ -n "$n" ]; then gh issue comment "$n" --body "$BODY"; else gh issue create --title "$TITLE" --body "$BODY"; fi

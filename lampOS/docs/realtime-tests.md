@@ -1,10 +1,19 @@
-# Realtime tests (temporarily off GitHub Actions)
+# Realtime tests (skipped on pull requests)
 
 **Status: temporary, to be reviewed.** Since 2026-10-15 the tests that wait
 on the real clock form the nextest test group `realtime`
-([`.config/nextest.toml`](../.config/nextest.toml)). The ARM64 run
-(`.github/workflows/lampos-arm64.yml`) uses the `ci` profile, which skips
-them. Nothing they assert was changed; they are only not run there.
+([`.config/nextest.toml`](../.config/nextest.toml)). In the ARM64 run
+(`.github/workflows/lampos-arm64.yml`):
+
+| Event | nextest profile | Realtime group |
+|---|---|---|
+| Pull request into `lamp-voice`, manual run | `pr` | skipped |
+| Push to `lamp-voice` (every merge) | `default` | run, one test at a time as before |
+
+When a run on `lamp-voice` fails, a job opens an issue titled "lampOS: the
+full ARM64 run on lamp-voice failed", or comments on the open one. Nothing
+the tests assert was changed. The runners are unchanged (`ubuntu-22.04-arm`):
+larger runners cost too much.
 
 ## Why
 
@@ -16,16 +25,19 @@ and fakes that play a conversation at real speed. For example,
 `serve_session::normal_eight_turn_conversation_in_one_serve_session` takes
 65 s because `fixtures/voice-eval-serve-v1.json` has 26.5 s of `speech_ms`,
 2 s `startup_ms`, 1.5 s `first_audio_ms` per turn and 6.6 s of trigger
-`delay_ms`. Without the group, the rest take about 215 s in total, about
-54 s per shard.
+`delay_ms`. Without the group, a pull request's tests take about 215 s in
+total, about 54 s per shard. A merge into `lamp-voice` still takes the full
+time.
 
 The waiting is real time by design in most of these suites (see each file's
-header). They are slow, not flaky; they did not fail in these runs.
+header). They are slow, not flaky; they did not fail in these runs. Skipping
+them everywhere was rejected: they catch timing faults in whole
+conversations, so every merge still runs them.
 
 ## What is in the group
 
 The group is a nextest filterset, written three times in
-`.config/nextest.toml` (group override, `ci` exclusion, `realtime`
+`.config/nextest.toml` (group override, `pr` exclusion, `realtime`
 selection), which must stay identical:
 
 - whole test binaries: `lamp-voice-eval::serve_session`,
@@ -37,26 +49,20 @@ selection), which must stay identical:
   `coordinator::tests::endpoint_session`;
 - single tests that took 4 s or more outside those, named exactly.
 
-Because whole binaries and modules are matched, **a new test added to one of
-them is skipped on GitHub Actions too.** Run the group by hand when you
-change those crates.
+Because whole binaries and modules are matched, a new test added to one of
+them is also skipped on pull requests, and is first run when it is merged.
 
 ## Running it
 
-From `lampOS/`, one test at a time as on the runner:
+From `lampOS/`, the group alone, one test at a time as on the runner:
 
 ```
 cargo nextest run --release --workspace --profile realtime -j 1
 ```
 
-Everything, as before this change: `cargo nextest run --release --workspace -j 1`
-(the default profile runs all tests; the group only keeps its own tests one
-at a time). `cargo test` is unaffected and runs everything.
-
-A builder whose pull request touches `crates/voice`, `crates/voice-eval`,
-`crates/memory`, `crates/health`, `crates/records` or `crates/actions` runs
-the group and names its result (counts and time) in the pull request body,
-since the ARM64 run no longer covers it.
+What a pull request runs: `--profile pr`. Everything, as on `lamp-voice`:
+`cargo nextest run --release --workspace -j 1`. `cargo test` is unaffected
+and runs everything.
 
 ## Bringing a test back
 
@@ -64,18 +70,19 @@ A test leaves the group when it no longer waits on the real clock: an
 injectable clock, a paused tokio clock, a time scale on a fake, or a shorter
 fixture, without weakening what it asserts. Remove it from all three
 filtersets in the same pull request, and update this list. When the group is
-empty, delete it, the `ci` and `realtime` profiles and `--profile ci` in the
-workflow, and this page.
+empty, delete it, the `pr` and `realtime` profiles, the `--profile`
+selection in the workflow, and this page.
 
 Review points:
 
-- Is skipping still needed, or can the group run in a separate, parallel job
-  (`-j` above 1; the suites already serialise themselves where needed) or
-  only on pushes to `lamp-voice` and a nightly run?
-- Did the `serve_session` 100 ms lateness bound, which the file says must hold
-  under ordinary scheduling, survive any time scaling?
-- Does the ARM64 run still list the expected number of tests
-  (about 4,384 run plus the skipped)?
+- How often does the full run on `lamp-voice` fail on a realtime test, and
+  how long until it is fixed?
+- Who decides that a red `lamp-voice` run holds the next merge? The workflow
+  only opens the issue; it does not block merging.
+- A nightly full run would need the workflow on the default branch (`main`);
+  a scheduled run starts only from there.
+- Does a pull request's run list the expected number of tests (about 4,384
+  run plus the skipped)?
 
 ## The measured list
 

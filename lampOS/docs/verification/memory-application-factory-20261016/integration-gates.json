@@ -1,0 +1,91 @@
+[
+  {
+    "stage": "fmt",
+    "command": [
+      "cargo",
+      "fmt",
+      "--all",
+      "--check"
+    ],
+    "cwd": "/private/tmp/lampos-tests-memory-application/lampOS",
+    "target": "/private/tmp/tests-823-memory-application-target",
+    "start_from_date": "2026-10-16 02:05:56 +0700",
+    "finish_from_date": "2026-10-16 02:06:01 +0700",
+    "exit_code": 0
+  },
+  {
+    "stage": "clippy",
+    "command": [
+      "cargo",
+      "clippy",
+      "--locked",
+      "--offline",
+      "-p",
+      "lamp-memory",
+      "--all-targets",
+      "--",
+      "-D",
+      "warnings"
+    ],
+    "cwd": "/private/tmp/lampos-tests-memory-application/lampOS",
+    "target": "/private/tmp/tests-823-memory-application-target",
+    "start_from_date": "2026-10-16 02:06:01 +0700",
+    "finish_from_date": "2026-10-16 02:06:13 +0700",
+    "exit_code": 0
+  },
+  {
+    "stage": "list",
+    "command": [
+      "cargo",
+      "test",
+      "--locked",
+      "--offline",
+      "-p",
+      "lamp-memory",
+      "--bin",
+      "lamp-memory",
+      "--",
+      "--list"
+    ],
+    "cwd": "/private/tmp/lampos-tests-memory-application/lampOS",
+    "target": "/private/tmp/tests-823-memory-application-target",
+    "start_from_date": "2026-10-16 02:06:13 +0700",
+    "finish_from_date": "2026-10-16 02:06:32 +0700",
+    "exit_code": 0
+  },
+  {
+    "stage": "tests",
+    "command": [
+      "cargo",
+      "test",
+      "--locked",
+      "--offline",
+      "-p",
+      "lamp-memory",
+      "--lib",
+      "--bins",
+      "--",
+      "--test-threads=1"
+    ],
+    "cwd": "/private/tmp/lampos-tests-memory-application/lampOS",
+    "target": "/private/tmp/tests-823-memory-application-target",
+    "start_from_date": "2026-10-16 02:06:32 +0700",
+    "finish_from_date": "2026-10-16 02:07:03 +0700",
+    "exit_code": 0
+  },
+  {
+    "stage": "build",
+    "command": [
+      "cargo",
+      "build",
+      "--locked",
+      "--offline",
+      "--workspace"
+    ],
+    "cwd": "/private/tmp/lampos-tests-memory-application/lampOS",
+    "target": "/private/tmp/tests-823-memory-application-target",
+    "start_from_date": "2026-10-16 02:07:03 +0700",
+    "finish_from_date": "2026-10-16 02:07:29 +0700",
+    "exit_code": 0
+  }
+]

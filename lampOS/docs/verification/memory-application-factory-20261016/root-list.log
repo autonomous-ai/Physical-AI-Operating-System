@@ -1,0 +1,158 @@
+   Compiling libc v0.2.190
+   Compiling cfg-if v1.0.5
+   Compiling itoa v1.0.18
+   Compiling serde_core v1.0.229
+   Compiling pin-project-lite v0.2.17
+   Compiling bitflags v2.13.2
+   Compiling zerofrom v0.1.8
+   Compiling bytes v1.12.1
+   Compiling typenum v1.20.1
+   Compiling stable_deref_trait v1.2.1
+   Compiling yoke v0.8.3
+   Compiling zmij v1.0.23
+   Compiling memchr v2.8.3
+   Compiling once_cell v1.21.4
+   Compiling futures-core v0.3.34
+   Compiling serde_json v1.0.151
+   Compiling serde v1.0.229
+   Compiling zerovec v0.11.8
+   Compiling errno v0.3.14
+   Compiling zeroize v1.9.1
+   Compiling smallvec v1.16.3
+   Compiling cpufeatures v0.3.1
+   Compiling rustls-pki-types v1.15.1
+   Compiling mio v1.2.4
+   Compiling socket2 v0.6.5
+   Compiling http v1.5.0
+   Compiling tokio v1.53.1
+   Compiling getrandom v0.2.17
+   Compiling untrusted v0.9.0
+   Compiling ring v0.17.14
+   Compiling rustix v1.1.5
+   Compiling tinystr v0.8.4
+   Compiling litemap v0.8.3
+   Compiling futures-sink v0.3.34
+   Compiling writeable v0.6.4
+   Compiling nix v0.29.0
+   Compiling icu_locale_core v2.3.0
+   Compiling rustls-webpki v0.103.15
+   Compiling potential_utf v0.1.6
+   Compiling zerotrie v0.2.5
+   Compiling slab v0.4.12
+   Compiling utf8_iter v1.0.4
+   Compiling futures-task v0.3.34
+   Compiling subtle v2.6.1
+   Compiling futures-util v0.3.34
+   Compiling rustls v0.23.45
+   Compiling generic-array v0.14.7
+   Compiling icu_collections v2.3.0
+   Compiling icu_provider v2.3.1
+   Compiling lamp-ipc v0.1.0 (/private/tmp/lampos-tests-memory-application/lampOS/crates/ipc)
+   Compiling httparse v1.10.1
+   Compiling tracing-core v0.1.36
+   Compiling hybrid-array v0.4.15
+   Compiling cpufeatures v0.2.17
+   Compiling rand_core v0.10.1
+   Compiling tracing v0.1.44
+   Compiling icu_properties_data v2.3.0
+   Compiling icu_normalizer_data v2.3.0
+   Compiling http-body v1.1.0
+   Compiling lamp-bus v0.1.0 (/private/tmp/lampos-tests-memory-application/lampOS/crates/bus)
+   Compiling percent-encoding v2.3.2
+   Compiling lamp-msgs v0.1.0 (/private/tmp/lampos-tests-memory-application/lampOS/crates/msgs)
+   Compiling icu_normalizer v2.3.0
+   Compiling icu_properties v2.3.0
+   Compiling derive_more v2.1.1
+   Compiling getrandom v0.4.3
+   Compiling crypto-common v0.2.2
+   Compiling block-buffer v0.12.1
+   Compiling crypto-common v0.1.7
+   Compiling block-buffer v0.10.4
+   Compiling sonora-simd v0.2.0
+   Compiling foldhash v0.2.0
+   Compiling tower-service v0.3.3
+   Compiling try-lock v0.2.5
+   Compiling core-foundation-sys v0.8.7
+   Compiling const-oid v0.10.2
+   Compiling sonora-fft v0.2.0
+   Compiling log v0.4.34
+   Compiling digest v0.11.3
+   Compiling want v0.3.2
+   Compiling hashbrown v0.17.1
+   Compiling sonora-common-audio v0.2.0
+   Compiling digest v0.10.7
+   Compiling idna_adapter v1.2.2
+   Compiling chacha20 v0.10.2
+   Compiling tokio-rustls v0.26.6
+   Compiling lamp-turn-owner v0.1.0 (/private/tmp/lampos-tests-memory-application/lampOS/crates/turn-owner)
+   Compiling atomic-waker v1.1.2
+   Compiling hyper v1.12.0
+   Compiling bytemuck v1.25.2
+   Compiling thiserror v2.0.21
+   Compiling rand v0.10.3
+   Compiling idna v1.1.0
+   Compiling libsqlite3-sys v0.38.2
+   Compiling hashlink v0.12.2
+   Compiling sha2 v0.10.9
+   Compiling sha1 v0.11.0
+   Compiling core-foundation v0.10.1
+   Compiling security-framework-sys v2.17.0
+   Compiling form_urlencoded v1.2.2
+   Compiling webpki-roots v1.0.9
+   Compiling signal-hook-registry v1.4.8
+   Compiling futures-channel v0.3.34
+   Compiling sync_wrapper v1.0.2
+   Compiling tower-layer v0.3.3
+   Compiling base64 v0.23.1
+   Compiling fallible-iterator v0.3.0
+   Compiling data-encoding v2.11.1
+   Compiling ipnet v2.12.2
+   Compiling fallible-streaming-iterator v0.1.9
+   Compiling rusqlite v0.40.2
+   Compiling tungstenite v0.30.0
+   Compiling hyper-util v0.1.21
+   Compiling tower v0.5.3
+   Compiling signal-hook v0.4.4
+   Compiling webpki-roots v0.26.11
+   Compiling url v2.5.8
+   Compiling security-framework v3.7.0
+   Compiling lamp-camera v0.1.0 (/private/tmp/lampos-tests-memory-application/lampOS/crates/camera)
+   Compiling sonora-agc2 v0.2.0
+   Compiling sonora-aec3 v0.2.0
+   Compiling sonora-ns v0.2.0
+   Compiling jiff-core v0.1.1
+   Compiling jiff-tzdb v0.1.9
+   Compiling sonora v0.2.0
+   Compiling jiff v0.2.38
+   Compiling rustls-platform-verifier v0.7.1
+   Compiling tower-http v0.6.11
+   Compiling hyper-rustls v0.27.10
+   Compiling tokio-tungstenite v0.30.0
+   Compiling lamp-keeper v0.1.0 (/private/tmp/lampos-tests-memory-application/lampOS/crates/keeper)
+   Compiling http-body-util v0.1.5
+   Compiling tokio-util v0.7.20
+   Compiling hound v3.5.1
+   Compiling tinyvec v1.13.3
+   Compiling base64 v0.22.1
+   Compiling unicode-normalization v0.1.25
+   Compiling lamp-gemini v0.1.0 (/private/tmp/lampos-tests-memory-application/lampOS/crates/gemini)
+   Compiling lamp-audio v0.1.0 (/private/tmp/lampos-tests-memory-application/lampOS/crates/audio)
+   Compiling reqwest v0.13.5
+   Compiling lamp-body v0.1.0 (/private/tmp/lampos-tests-memory-application/lampOS/crates/body)
+   Compiling lamp-schedule v0.1.0 (/private/tmp/lampos-tests-memory-application/lampOS/crates/schedule)
+   Compiling lamp-controls v0.1.0 (/private/tmp/lampos-tests-memory-application/lampOS/crates/controls)
+   Compiling lamp-ring v0.1.0 (/private/tmp/lampos-tests-memory-application/lampOS/crates/ring)
+   Compiling lamp-turn-end-wire v0.1.0 (/private/tmp/lampos-tests-memory-application/lampOS/crates/turn-end-wire)
+   Compiling rtrb v0.4.0
+   Compiling lamp-voice v0.1.0 (/private/tmp/lampos-tests-memory-application/lampOS/crates/voice)
+   Compiling lamp-memory v0.1.0 (/private/tmp/lampos-tests-memory-application/lampOS/crates/memory)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1m 10s
+     Running unittests src/main.rs (/private/tmp/tests-823-memory-application-target/debug/deps/lamp_memory-6a78f32a2fee1c58)
+factory_tests::a_socket_bind_failure_precedes_the_factory_and_store_for_either_backend: test
+factory_tests::no_bus_root_never_invokes_the_factory_for_either_backend: test
+factory_tests::the_selected_factory_gets_the_original_root_and_source_once_after_socket_bind: test
+tests::a_relative_path_an_unknown_option_or_a_bad_number_is_refused: test
+tests::health_reporting_requires_one_explicit_absolute_bus_root: test
+tests::the_two_paths_are_required_and_the_days_and_the_offset_have_defaults: test
+
+6 tests, 0 benchmarks

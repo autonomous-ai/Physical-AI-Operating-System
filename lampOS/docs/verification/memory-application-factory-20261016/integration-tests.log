@@ -1,0 +1,106 @@
+   Compiling lamp-memory v0.1.0 (/private/tmp/lampos-tests-memory-application/lampOS/crates/memory)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 4.57s
+     Running unittests src/lib.rs (/private/tmp/tests-823-memory-application-target/debug/deps/lamp_memory-10314ca856231d1d)
+
+running 70 tests
+test days::tests::the_live_connection_requests_durable_commits_and_private_deletion ... ok
+test days_protocol::tests::a_sqlite_write_failure_reports_storage_but_no_write_evidence ... ok
+test days_protocol::tests::caller_refusals_and_overlong_lines_do_not_report_storage_or_write_evidence ... ok
+test days_protocol::tests::every_opt_in_request_shape_in_the_document_parses ... ok
+test days_protocol::tests::only_successful_additions_report_write_evidence_without_changing_the_wire_or_log ... ok
+test health::tests::a_hung_handler_is_visible_while_the_socket_owner_cannot_finish ... ok
+test health::tests::an_unblocked_reporter_says_open_failed_without_ever_claiming_readiness ... ok
+test health::tests::count_scans_overlapping_even_a_finished_request_are_discarded ... ok
+test health::tests::counts_and_storage_faults_are_independent_and_reads_do_not_prove_recovery ... ok
+test health::tests::exact_budgets_recent_window_and_in_flight_answers_have_distinct_meanings ... ok
+test health::tests::extra_thread_wakes_do_not_burst_reports ... ok
+test health::tests::held_publication_cannot_block_a_real_socket_or_bounded_shutdown ... ok
+test health::tests::held_publisher_cleanup_also_has_a_bounded_shutdown_wait ... ok
+test health::tests::measure_health_update_and_socket_with_a_held_publisher ... ignored, host timing measurement; run in release with --ignored --nocapture
+test health::tests::session_note_classification_retains_no_request_content ... ok
+test health_counts::tests::days_counts_exclude_observations_and_notes_and_follow_cascading_deletion ... ok
+test health_counts::tests::days_counts_follow_expiry_and_a_failed_delete_keeps_the_previous_counts ... ok
+test health_counts::tests::legacy_counts_readable_records_after_capped_replacement_and_forgetting ... ok
+test health_counts::tests::legacy_probe_bounds_lines_and_accepts_a_valid_final_line_without_newline ... ok
+test health_counts::tests::legacy_probe_refuses_nonregular_kept_files_and_does_not_follow_journal_links ... ok
+test health_counts::tests::sqlite_counts_are_temporary_idempotent_and_follow_commit_rollback_and_kind ... ok
+test protocol::tests::a_bad_person_id_is_refused_and_nothing_on_the_disk_is_touched ... ok
+test protocol::tests::a_line_that_is_no_request_is_refused_by_name_and_nothing_is_written ... ok
+test protocol::tests::a_recall_gives_eight_entries_unless_told_and_never_more_than_fifty_or_sixteen_kibibytes ... ok
+test protocol::tests::an_actual_store_write_failure_reports_storage_but_no_write_evidence ... ok
+test protocol::tests::caller_refusals_and_overlong_lines_do_not_report_storage_or_write_evidence ... ok
+test protocol::tests::each_person_has_a_memory_apart_and_null_means_every_person_only_where_that_is_safe ... ok
+test protocol::tests::each_request_reads_from_its_line ... ok
+test protocol::tests::every_default_request_written_in_the_document_is_read_and_done ... ok
+test protocol::tests::forgetting_can_be_asked_for_the_last_of_one_kind ... ok
+test protocol::tests::only_successful_additions_report_write_evidence_without_changing_the_wire_or_log ... ok
+test protocol::tests::the_first_request_of_a_new_day_deletes_the_days_too_old_whatever_it_asks ... ok
+test protocol::tests::the_log_line_names_the_request_the_person_and_the_counts_and_never_the_text ... ok
+test protocol::tests::what_is_added_is_recalled_kept_counted_and_forgotten_in_these_shapes ... ok
+test store::tests::a_cut_off_last_line_and_a_garbage_line_are_skipped_and_counted_and_the_rest_loads ... ok
+test store::tests::a_removal_leaves_no_copy_and_one_left_by_a_cut_off_removal_is_cleared_on_opening ... ok
+test store::tests::an_exchange_is_recalled_by_its_day_by_its_words_and_as_the_newest ... ok
+test store::tests::directories_and_files_are_their_owners_alone ... ok
+test store::tests::forgetting_everything_for_one_person_leaves_another_untouched ... ok
+test store::tests::forgetting_the_last_of_one_kind_leaves_the_other_kind_alone ... ok
+test store::tests::forgetting_the_last_thing_takes_the_highest_id_of_either_kind ... ok
+test store::tests::ids_go_on_rising_across_both_files_after_the_store_is_opened_again ... ok
+test store::tests::journal_days_too_old_to_keep_are_deleted_on_opening_and_on_a_new_day ... ok
+test store::tests::kept_gives_the_newest_that_fit_and_recall_stops_at_the_count_and_the_bytes ... ok
+test store::tests::more_of_the_words_rank_first_and_then_the_newer ... ok
+test store::tests::one_persons_memory_is_never_given_for_another ... ok
+test store::tests::only_a_day_the_calendar_has_is_a_day_and_it_is_written_back_the_same ... ok
+test store::tests::only_a_plain_short_lower_case_id_is_a_person ... ok
+test store::tests::status_counts_each_person_and_a_directory_is_one_stores_at_a_time ... ok
+test store::tests::text_is_cut_at_a_character_and_its_blanks_made_one ... ok
+test store::tests::the_kept_list_holds_two_hundred_and_drops_the_oldest ... ok
+test store::tests::the_local_day_turns_at_midnight_where_the_lamp_stands ... ok
+test tidy::tests::a_conforming_adapter_does_not_deliver_an_old_job_to_a_new_pass ... ok
+test tidy::tests::a_result_ready_at_or_after_the_deadline_is_never_accepted ... ok
+test tidy::tests::bad_input_is_rejected_before_the_model_is_started ... ok
+test tidy::tests::categories_and_records_have_strict_round_tripping_json_shapes ... ok
+test tidy::tests::clock_rollback_does_not_underflow_restore_spent_time_or_reach_the_adapter ... ok
+test tidy::tests::deadline_arithmetic_saturates_and_timeout_settings_are_bounded ... ok
+test tidy::tests::delayed_work_is_pending_and_a_second_start_is_refused_without_touching_it ... ok
+test tidy::tests::dropping_an_active_pass_cancels_it_once ... ok
+test tidy::tests::empty_and_malformed_results_end_the_pass_without_becoming_success ... ok
+test tidy::tests::errors_never_contain_the_invalid_text ... ok
+test tidy::tests::evidence_shape_text_and_dates_are_checked_before_model_work ... ok
+test tidy::tests::explicit_cancellation_ignores_late_completion_and_is_idempotent ... ok
+test tidy::tests::input_requires_exact_bounded_source_records_and_separate_previous_ids ... ok
+test tidy::tests::proposals_require_known_sources_valid_replacements_and_utf8_byte_caps ... ok
+test tidy::tests::ready_results_are_given_once_and_leave_no_active_pass ... ok
+test tidy::tests::stalled_work_is_cancelled_at_the_deadline_without_repeated_cancellation ... ok
+test tidy::tests::start_and_poll_failures_end_the_pass_without_retrying ... ok
+test tidy::tests::the_input_byte_limit_counts_json_escaping_not_just_plain_text ... ok
+
+test result: ok. 69 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 24.63s
+
+     Running unittests src/main.rs (/private/tmp/tests-823-memory-application-target/debug/deps/lamp_memory-6a78f32a2fee1c58)
+
+running 6 tests
+test factory_tests::a_socket_bind_failure_precedes_the_factory_and_store_for_either_backend ... ok
+test factory_tests::no_bus_root_never_invokes_the_factory_for_either_backend ... ok
+test factory_tests::the_selected_factory_gets_the_original_root_and_source_once_after_socket_bind ... lamp-memory: health worker could not start; serving without reports
+lamp-memory: health worker could not start; serving without reports
+ok
+test tests::a_relative_path_an_unknown_option_or_a_bad_number_is_refused ... ok
+test tests::health_reporting_requires_one_explicit_absolute_bus_root ... ok
+test tests::the_two_paths_are_required_and_the_days_and_the_offset_have_defaults ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running unittests src/bin/lamp-memory-eval.rs (/private/tmp/tests-823-memory-application-target/debug/deps/lamp_memory_eval-097710d016d4d9d4)
+
+running 8 tests
+test tests::evidence_labels_never_change_retrieved_text_or_ranking ... ok
+test tests::legacy_ties_are_newer_first_and_nonmatches_are_not_retrieved ... ok
+test tests::missing_or_unaligned_evidence_is_rejected ... ok
+test tests::no_labels_never_produces_vacuous_recall ... ok
+test tests::partial_evidence_is_not_all_evidence_and_ndcg_matches_upstream_discount ... ok
+test tests::repeated_session_occurrences_do_not_count_as_distinct_recalled_evidence ... ok
+test tests::roles_and_units_keep_the_two_label_conventions_separate ... ok
+test tests::utf8_bytes_and_full_cutoff_are_measured_without_truncation ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

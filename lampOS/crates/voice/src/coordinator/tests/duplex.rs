@@ -1039,6 +1039,7 @@ fn provider_pcm_threshold_keeps_exactly_one_terminal_allowance_in_both_modes() {
             session: 1,
             request: current.owner.turn(),
             privacy_generation: privacy,
+            continues: false,
         });
         for n in 1..bound {
             queue_input(

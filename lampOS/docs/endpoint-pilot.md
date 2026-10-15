@@ -771,6 +771,55 @@ kinder to it. Not shown: people's own voices and pauses.
 The fast worker is on, on lamp-4ace, since 13:21 (`--endpoint
 smart-turn-fast`; with the floor since 13:41).
 
+## Cut at a comma (#782, 2026-10-15)
+
+Measured by the fourth builder on its Intel Mac, from the first builder's
+records of the 44 scenes played to lamp-4ace on 15 October; nothing was run
+on a lamp.
+
+**How often.** Of 158 ends of speech in those scenes, 84 were the fast
+model's (`model_complete`, 400 ms at 0.9 or more). Ten of them came while a
+played line was still going on, nine of those at a comma inside it (p 0.91
+to 0.99), and in every one the rest of the line came in within 2 s as a new
+turn. The 600 ms window cut two more lines, just after "Hey Lamp," (shorter
+than the 0.8 s floor). A line counts as cut when the quiet the end waited
+for began more than 0.25 s before the line's end, both taken from each line
+rendered again by `say` to a file; the place of each cut is found the same
+way, rendering the line up to each comma or full stop. The six cuts at a
+full stop are the two-breath scenes, said that way on purpose.
+
+**Why there.** The same lines rendered and replayed digitally through the
+voice's own detector and the pinned model (below) get the same verdicts at
+those commas, 0.92 to 0.99, but the person is speaking again before 400 ms
+of quiet, and only one of the nine is cut. As lamp-4ace heard them, the
+comma pauses were 400 to 560 ms (the rest's admission less 60 ms), 50 to
+150 ms longer than `say` makes them. Adding the room's −28 dB floor and its
+400 ms hold to the replay does not make up the difference: what lengthens
+the pause is the way from the loudspeaker to the voice microphone. People
+pause longer still: inside one speaker's talk the median pause is 580 to
+640 ms (Heldner and Edlund 2010), so no early end under about 600 ms leaves
+them whole, as the held-out clips above show for 400 ms (+338 splits).
+Voice agents that use Smart Turn or models like it hold an unfinished-sounding
+turn for 2.5 to 3 s (LiveKit, Pipecat) and end a finished one after 0.2 to
+0.7 s; LiveKit's own bench puts Smart Turn v3.2 at 35% cut off at 300 ms
+and 15% at 600 ms.
+
+**What a cut costs here.** Kept-start joins the two parts, and the answer is
+right. The reply comes as soon as for an uncut turn whose last verdict was
+the same. What is lost is that only the second part is heard as text, and
+that in a busy room the second part has no name in it, so the busy-room rule
+holds it. That second loss is what `LAMP_CUT_KEEPS_NAME` mends
+([attention.md](attention.md), "A cut keeps its name").
+
+**The replay.** `cargo run --release -p lamp-voice-eval --example
+turn_end_replay -- MODEL CLIPS.json --profile NAME:COMMIT_MS:P:LEAST_MS …`
+feeds 16 kHz mono WAV files through `TurnDetector` with the model in its own
+process, each verdict handed over a fixed 130 ms later on the replay's own
+clock, and prints each turn's start, end and decision, and every verdict.
+`--speech-level-db` and `--faint-floor-db`/`--faint-hold-ms` add the
+voice's own level and floor. Nothing is played. Its evidence for #782 is in
+[verification/comma-pause-20261015/](verification/comma-pause-20261015/).
+
 ## Pilot acceptance and rollback rule
 
 Applies to the candidate (`--endpoint smart-turn`) only.

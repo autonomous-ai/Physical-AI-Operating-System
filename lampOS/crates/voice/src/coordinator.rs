@@ -5056,6 +5056,7 @@ fn commit_admitted_input(
         session: provider_session,
         request: turn.turn(),
         privacy_generation: snapshot.microphone_generation(),
+        continues: false,
     });
     let mut current = Reply {
         owner: turn,
@@ -5147,6 +5148,9 @@ fn continue_after_early_end(
         session: provider_session,
         request: turn.turn(),
         privacy_generation: snapshot.microphone_generation(),
+        // The same utterance going on: with the switch, the busy-room rule
+        // keeps what it knew of the first part (#782).
+        continues: crate::attention::cut_keeps_name(),
     });
     let mut current = Reply {
         owner: turn,
@@ -6137,6 +6141,7 @@ mod tests {
                 session: 1,
                 request: 1,
                 privacy_generation: 1,
+                continues: false,
             })
             .unwrap();
         request.confirm_start(1).unwrap();
@@ -7290,6 +7295,7 @@ mod tests {
             session: reply.as_ref().unwrap().cloud.session,
             request: reply.as_ref().unwrap().owner.turn(),
             privacy_generation: 1,
+            continues: false,
         }
     }
 

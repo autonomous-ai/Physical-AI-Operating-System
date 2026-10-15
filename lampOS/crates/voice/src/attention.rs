@@ -50,6 +50,30 @@ pub const ENVIRONMENT: &str = "LAMP_ATTENTION";
 /// The provider worker's flag for it.
 pub const FLAG: &str = "--attention";
 
+/// Where the coordinator reads whether a request that continues one the lamp
+/// ended early keeps what the rule knew of it (#782). `on` only.
+///
+/// Why: the 400 ms early end (`--endpoint smart-turn-fast`) ends a turn at a
+/// pause the person goes on after, and the rest comes as a new request.
+/// On lamp-4ace on 2026-10-15, 9 of 84 such ends in the played scenes fell
+/// at a comma inside a line, and two more were ended by the 600 ms window
+/// just after "Hey Lamp,". The name was then said 1.5 s or more before the
+/// new request began, so it did not count for it, and in a busy room the
+/// rest was held as not said to the lamp (as on 2026-10-14 at 13:32, four
+/// times). With this, the continuation keeps the first part's name, its
+/// surest score, the text heard so far and whether it was close.
+pub const CUT_KEEPS_NAME_ENVIRONMENT: &str = "LAMP_CUT_KEEPS_NAME";
+
+/// Whether the voice's environment says `LAMP_CUT_KEEPS_NAME=on`, read once.
+pub fn cut_keeps_name() -> bool {
+    static ON: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+    *ON.get_or_init(|| keeps_name(std::env::var(CUT_KEEPS_NAME_ENVIRONMENT).ok().as_deref()))
+}
+
+fn keeps_name(value: Option<&str>) -> bool {
+    value == Some("on")
+}
+
 /// The newest request the lamp began itself, in writing: a hello, a look.
 /// Nothing was said to it, so nothing can have been said to someone else.
 pub static OWN_REQUEST: AtomicU64 = AtomicU64::new(0);
@@ -349,6 +373,36 @@ impl Attention {
         self.named_sure = self
             .named_sure_us
             .is_some_and(|named| named.saturating_add(NAME_BEFORE_US) >= now_us);
+    }
+
+    /// A request began on `session` at `now_us` that continues the one in
+    /// hand, which the lamp ended early: the same person going on with the
+    /// same utterance. What the rule knew of the first part stays: its name,
+    /// heard surely or not and how surely, the text heard so far, whether it
+    /// was close, and whether it was said to the lamp from close to it. Its window begins where the first part's did.
+    /// Anything else is as for [`Self::began_at`].
+    pub fn continued_at(&mut self, request: u64, session: u64, now_us: u64) {
+        let before = (session == self.session && self.began_us.is_some()).then(|| {
+            (
+                self.named,
+                self.named_sure,
+                self.best_score,
+                std::mem::take(&mut self.heard),
+                self.near,
+                self.addressed,
+                self.began_us,
+            )
+        });
+        self.began_at(request, session, now_us);
+        if let Some((named, named_sure, best_score, heard, near, addressed, began_us)) = before {
+            self.named |= named;
+            self.named_sure |= named_sure;
+            self.best_score = self.best_score.max(best_score);
+            self.heard = heard;
+            self.near |= near;
+            self.addressed |= addressed;
+            self.began_us = began_us;
+        }
     }
 
     /// The sound of `request` stopped being sent at `at_us`: the person
@@ -658,6 +712,80 @@ mod tests {
         attention.began_at(4_242, 2, 13_000_000);
         assert_eq!(attention.in_hand(), None);
         OWN_REQUEST.store(0, Ordering::Release);
+    }
+
+    #[test]
+    fn a_request_that_continues_an_early_ended_one_keeps_its_name_in_a_busy_room() {
+        // "Hey Lamp, can you ask Claude Code ... about lamps," ended at the
+        // comma, and "just in its reply" came as a new request 3.5 s after
+        // the name began.
+        let first_part = |attention: &mut Attention| {
+            for request in 1..=3 {
+                attention.began_at(request, 1, request * 10_000_000);
+            }
+            attention.name_heard_scored(30_100_000, 0.97);
+            attention.heard("Hey Lamp, can you ask Claude Code about lamps,");
+            attention.set_near(true);
+            attention.ended(3, 33_000_000);
+        };
+        let mut continued = Attention::default();
+        first_part(&mut continued);
+        continued.continued_at(4, 1, 33_600_000);
+        assert_eq!(continued.window(), Some((30_000_000, None)));
+        assert_eq!(
+            continued.first_output_busy(4, Room::Busy, false, true, None),
+            Some(Verdict::Play(NAMED_NEAR))
+        );
+        // The same request begun afresh: the name was too long ago, and the
+        // busy rule holds it, as on lamp-4ace.
+        let mut afresh = Attention::default();
+        first_part(&mut afresh);
+        afresh.began_at(4, 1, 33_600_000);
+        assert!(matches!(
+            afresh.first_output_busy(4, Room::Busy, false, true, None),
+            Some(Verdict::Hold(_))
+        ));
+        // The text heard so far goes on too: the service's "Lamp," shows
+        // the call, as it would have in one request.
+        let mut text = Attention::default();
+        text.began_at(1, 1, 10_000_000);
+        text.heard("Lamp, ");
+        text.continued_at(2, 1, 12_000_000);
+        text.heard("what is the time?");
+        assert_eq!(
+            text.first_output_busy(2, Room::Busy, false, false, None),
+            Some(Verdict::Play("the text shows it was called"))
+        );
+    }
+
+    #[test]
+    fn a_continuation_keeps_nothing_across_sessions_or_without_a_first_part() {
+        let mut other = Attention::default();
+        other.began_at(1, 1, 10_000_000);
+        other.name_heard_scored(10_100_000, 0.999);
+        other.heard("Lamp, ");
+        other.continued_at(2, 2, 12_000_000);
+        assert_eq!(other.window(), Some((12_000_000, None)));
+        assert!(matches!(
+            other.first_output_busy(2, Room::Busy, false, true, None),
+            Some(Verdict::Hold(_))
+        ));
+        // Said to the lamp from close to it in the first part: still so.
+        let mut close = Attention::default();
+        close.began_at(1, 1, 10_000_000);
+        close.set_addressed(true);
+        close.continued_at(2, 1, 12_000_000);
+        assert_eq!(
+            close.first_output_busy(2, Room::Busy, false, true, None),
+            Some(Verdict::Play(ADDRESSED))
+        );
+        let mut none = Attention::default();
+        none.continued_at(1, 1, 10_000_000);
+        assert_eq!(none.window(), Some((10_000_000, None)));
+        assert!(keeps_name(Some("on")));
+        for value in [None, Some(""), Some("off"), Some("ON"), Some("1")] {
+            assert!(!keeps_name(value), "{value:?}");
+        }
     }
 
     #[test]

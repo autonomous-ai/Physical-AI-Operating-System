@@ -2128,6 +2128,8 @@ dependencies = [
  "lamp-ipc",
  "lamp-observer",
  "lamp-sound-fixtures",
+ "lamp-turn-end",
+ "lamp-turn-end-wire",
  "lamp-turn-owner",
  "lamp-voice",
  "rustix",

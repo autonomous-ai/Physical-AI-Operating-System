@@ -1,0 +1,8 @@
+111 lines, 97 of one sentence; the lamp cut 9 of them at a comma
+profile   cut lines (one sentence)  cuts  two-sentence lines cut  lamp's cut lines cut here  final end after the audio: median / p90 ms
+current      1/97                  1            1                  1/9      362 /   558   no turn: 0
+c450         0/97                  0            1                  0/9      412 /   558   no turn: 0
+c500         0/97                  0            1                  0/9      451 /   558   no turn: 0
+c550         0/97                  0            1                  0/9      493 /   558   no turn: 0
+p99c500      0/97                  0            1                  0/9      513 /   561   no turn: 0
+window       0/97                  0            1                  0/9      523 /   562   no turn: 0

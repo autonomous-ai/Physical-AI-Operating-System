@@ -114,6 +114,7 @@ fn run_with_notice_policy(
                     request: reply.owner.turn(),
                     session: 1,
                     privacy_generation: 2,
+                    continues: false,
                 })
                 .unwrap();
         }

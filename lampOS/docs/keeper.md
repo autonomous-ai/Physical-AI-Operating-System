@@ -331,12 +331,18 @@ keeper's `health` says no more than that.
   `CONFIG_RT_GROUP_SCHED`, so its real-time threads should start in any
   slice; lamp-52e6 still runs it in `system.slice`, as lamp-4ace does.
 - The voice's limit of ten starts in ten minutes.
-- The pause on a lamp: shown with host tests only (the kept value read
+- The pause: first shown with host tests (the kept value read
   and cleared, the body's report saying `paused`; the voice's real service
   loop with fixture workers refusing a question while paused, finishing
   the answer under way, and answering again once resumed; Expression
   asking nothing while paused). `lamp-keeper pause` in the middle of a
-  conversation on lamp-52e6 is still to be shown.
+  conversation was then shown on lamp-52e6 on 2026-10-15
+  ([readings](verification/keeper-pause-voice-expression-lamp-52e6-20261015/)):
+  the answer under way went on to its end, a question while paused was not
+  taken and `voice/state` said `resting`, and after `resume` the same
+  question was answered. Not shown there: Expression holding back a request
+  (none came up), news, a hello or a reminder arriving while paused, and the
+  keeper's own `stop lamp`.
 - The update choreography is `lamp-update`'s (#737, second builder):
   quiet judged from the bus, each part switched and checked, rolled back
   if unwell. The reset of task 12 waits on setup, which the owner has not

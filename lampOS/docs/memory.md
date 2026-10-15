@@ -4,9 +4,10 @@
 the next: a journal of every exchange it took part in (what it was asked, as
 the provider wrote it down, what it answered, and when) and the things it was
 asked to keep ("remember that I take my coffee black"). It is decision 12 of
-[brain-build.md](brain-build.md). Memory is one person's: until the lamp can
-tell people apart everything is under the person id `everyone`, and no request
-gives one person's memory in answer to another's.
+[brain-build.md](brain-build.md). Memory is one person's: what nobody known
+says is under the person id `everyone` ("said in this room"), what someone
+the eyes know says is under theirs (since #764, "Each person's own" below),
+and no request gives one person's memory in answer to another's.
 
 **What exists and what we take.** Keep the raw journal as evidence, use
 SQLite FTS5 for ranked keyword retrieval, and let a separate model propose
@@ -270,7 +271,7 @@ the unchanged legacy client, used unless the new Days client is selected.
   speaking. The kept things are read once when the voice starts, waiting
   300 ms at most, and after that by the writer thread: after each
   `remember` and `forget`, and every five minutes. Opening a session
-  never waits for this process.
+  never waits for this process, unless someone known is at the lamp (below).
 - **What the model is given from a recall** is how long ago in words
   ("yesterday", "2 weeks ago"), never a date or a time of day: a person
   does not say "on 3 October at 14:02".
@@ -281,6 +282,62 @@ the unchanged legacy client, used unless the new Days client is selected.
   reaches everything derived from a thing needs each entry to say what it
   came from. The opt-in store supports those links and transitive deletion;
   the legacy client does not send them or use frozen snapshots.
+
+### Each person's own (#764)
+
+When the voice has eyes that remember faces (`LAMP_EYES_WHO_SOCKET`, the
+worker's `--who-socket`), it reads who of those people is at the lamp from
+the eyes' known file beside that socket, counted only while it is under
+3 s old ([eyes.md](eyes.md#who-is-there)). Both clients, legacy and Days,
+then use that person's scope:
+
+- **The person id** is `p-` and the first 16 hex digits of SHA-256 of the
+  lower-cased name (`remember::person_id`): "Minh" is `p-be9688998f085098`.
+  It fits `[a-z0-9_-]{1,32}`, so no name is ever in a path or a log line.
+  The name itself stays between the eyes and the voice.
+- **`remember`** and **`forget`** go to their scope: `forget` removes the
+  last thing *they* asked to keep, and nothing of the room's.
+- **`recall`** (and Days' `search`) asks their scope first and then the
+  room's, one after the other inside the same 1.5 s. The room is asked for
+  the entries and bytes of text their answer left of the usual six and
+  2,400, and not at all when theirs filled them, so an answer is no longer
+  than before. Their entries come first and carry `"theirs":true`. Either
+  part not answering is a memory that did not answer.
+- **Each exchange** goes to the journal of whoever was known at the lamp when
+  the request was over, read then, not when the writer sends it. With Days,
+  an exchange links only that person's sources, because the store numbers
+  and links records within one person; a different person at the lamp ends
+  the conversation being collected, which is sent to `conversation_end` in
+  its own scope.
+- **The session note**, for a session opened while someone is known: the
+  room's note, then what they asked to keep. Legacy reads theirs then, in
+  300 ms at most; Days opens a second frozen snapshot in their scope within
+  the same 300 ms, and the session is told the first is the room's and the
+  second theirs. Theirs missing leaves the room's note as it is.
+- **What the model is told.** The functions' descriptions are fixed at
+  session setup, while people come and go within a session, so they still
+  say "You cannot tell who is speaking". The note told when someone known
+  is recognised ("The person at the lamp now is Minh: you know their face.")
+  now goes on, when the lamp has a memory: what they ask to keep and say is
+  theirs, and what recall marks "theirs" they told it themselves, so with
+  them it may say "you told me" about that and never about the rest.
+- **"Forget my face"** forgets the face only: what they said stays theirs.
+  Forgetting everything (`forget_all`) is as before.
+- **With nobody known**, or without eyes, every line to the memory is
+  exactly what it was: no `person` field, the same limits, the same note
+  (`remember::tests::with_nobody_known_every_line_to_the_memory_is_as_before`
+  pins the bytes).
+
+Not shown: anything on a lamp. The host test
+`crates/memory/tests/voice_people.rs` plays two known people and the room
+against the real store in both modes: each is answered from their own and
+the room's, never from the other's, their exchanges are journalled and
+found in their own scope only, and one forgetting leaves the other's.
+Known limits: who is at the lamp is the eyes' word, not proven (the store
+calls a person's snapshot "caller-supplied person; identity not verified");
+someone the eyes do not see, beside someone known, is journalled as them;
+and with Days a room fact used in a known person's exchange cannot be
+linked from it, so forgetting that room fact does not reach that exchange.
 
 The [Days client](memory-days.md#opt-in-voice-client-task-29) uses `search`
 for keyword recalls and `session_open` for a fresh session's bounded note.
@@ -361,7 +418,7 @@ record and not what the crate does.**
 | Keyword search first; meaning-based search only where it is measured to help | SQLite FTS5 ranking; no embeddings without evidence | Opt-in Unicode-normalized English/Vietnamese retrieval; LongMemEval user-session recall-all@5: 69.69% whole-word, 81.86% FTS5, 419 questions on the development Mac |
 | Forgetting that is real: it reaches every summary and index (regulators acted against a product that kept transcripts of "deleted" recordings) | Remove the thing and linked derivatives, and verify the index before acknowledging | Opt-in transaction covers records, source/replacement links, FTS, pending jobs and stored notes; callers must drop already supplied model context |
 | Age out what goes unused (Copilot 28 days, Codex 30) | Derived facts lapse when unused; the journal goes at 30 days; what a person asked to be kept has no age | Opt-in observations lapse after 30 unused days or when their evidence expires; explicit kept facts do not age |
-| Scope by person, and never tell one person what another said (rated the most damaging failure for a shared room) | Until someone asks to be recognised, everything is "said in this room": used when its subject comes up, never attributed, never volunteered | All records, jobs, links and snapshots scoped by person; default is everyone; identity remains caller-supplied |
+| Scope by person, and never tell one person what another said (rated the most damaging failure for a shared room) | Until someone asks to be recognised, everything is "said in this room": used when its subject comes up, never attributed, never volunteered | All records, jobs, links and snapshots scoped by person; default is everyone; identity remains caller-supplied. The voice uses a known person's scope since #764 |
 | Treat what is heard as untrusted, and check a fact before leaning on it (the recorded errors of a deployed voice agent's memory came from mishearing) | The lamp says back what it kept; names, times and promises need confirmation | Structured untrusted snapshot and strict output/provenance validation; no semantic truth check or new voice confirmation flow |
 | Reminders are not memories: their own store, and a clock outside the model | Not part of this crate: a part of its own | No |
 | A page where people see what is kept and can delete it | With the operator pages | No |
@@ -393,7 +450,7 @@ leaves the lamp, to the voice provider, whenever the voice uses one in an
 answer. The default has whole-word matching; the opt-in mode normalizes
 Unicode and ranks with FTS5, with no embeddings or semantic answer model.
 Its observation pass has only a scripted adapter here. It does not know who speaks: the person is
-whoever the caller says. Files are not encrypted; forgotten text is unlinked,
+whoever the caller says, and the voice says whom the eyes know at the lamp. Files are not encrypted; forgotten text is unlinked,
 not scrubbed from the flash. The offset from UTC is fixed: no summer time.
 
 ## Not shown

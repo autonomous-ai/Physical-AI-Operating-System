@@ -721,9 +721,17 @@ pub async fn run_with_continuation(
     if let Some(directory) = files.first_output.clone() {
         let _ = FIRST_OUTPUT.set(directory);
     }
-    // What it remembers from other days, if this lamp has a memory.
+    // What it remembers from other days, if this lamp has a memory: each
+    // known person's apart when it has eyes that know faces.
     if let Some(socket) = &files.tools.memory {
-        crate::remember::start(socket.clone());
+        crate::remember::start(
+            socket.clone(),
+            files
+                .tools
+                .who
+                .as_deref()
+                .map(crate::known_faces::known_file_of),
+        );
     }
     let provider_config = ProviderConfig::load(config_path)?;
     let barrier = provider_config.barrier_policy();
@@ -827,6 +835,12 @@ async fn serve_with_visual<C: Connect>(
         .map(crate::known_faces::known_file_of);
     let mut known_read_at: Option<Instant> = None;
     let mut known_told: Option<(SessionId, String)> = None;
+    // With a memory, the session is also told that what they say is theirs.
+    let theirs = if options.tools.memory.is_some() {
+        crate::remember::THEIRS
+    } else {
+        ""
+    };
     // The room microphone's rise over its quiet, for whether a voice is
     // close to the lamp: read from the ears every 100 ms, the last 30 s kept.
     let ears_bus = BUS_ROOT
@@ -1089,7 +1103,7 @@ async fn serve_with_visual<C: Connect>(
                     known_read_at = Some(Instant::now());
                     if let Some(name) = crate::known_faces::known_now(path)
                         && known_told.as_ref() != Some(&(live, name.clone()))
-                        && add_note(&provider, &mut noted, open.request, &crate::known_faces::note(&name)).is_ok()
+                        && add_note(&provider, &mut noted, open.request, &(crate::known_faces::note(&name) + theirs)).is_ok()
                     {
                         known_told = Some((live, name));
                         eprintln!(

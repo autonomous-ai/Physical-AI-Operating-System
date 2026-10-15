@@ -1,0 +1,41 @@
+# Independent Memory child control review
+
+Recorded 2026-10-16 02:52:34+0700 from `date`. Reviewed the six held child-owned files in `/private/tmp/lampos-tests-memory-progress` against the parent helper and the agreed Memory control design. No repository edits, Cargo/build/test commands, Git, network or device access were used. This is a source review, not runtime qualification.
+
+No concrete source blocker was found in the reviewed implementation. The prior SO_READ/WRITE timeout issue was corrected before these held hashes: the final channel tries nonblocking I/O first and polls only on WouldBlock, under one caller-owned absolute deadline. This review did not rerun or reclassify that implementation change as a flaky retry.
+
+## Reviewed correctness boundaries
+
+- `fixture_protocol.rs:22–53` validates explicit Bootstrap version, nonce, absolute path, actual immediate directory mode0700 and actual socket mode0600. The same source supplies both child and parent schemas; serde rejects unknown fields. Nonces are 1–32 ASCII alphanumeric bytes, rounds are nonzero through marker/driver validation, and marker text includes the LF. The 4096-byte frame cap includes LF (`:114–138`); incomplete EOF cannot deserialize into a valid frame.
+- `fixture_protocol.rs:145–249` preserves queued bytes on peer close. Nonblocking real reads/writes occur before readiness waits; HUP/ERR return to real I/O and NVAL fails. Both I/O interruption and poll interruption preserve the same absolute deadline. The macOS millisecond conversion is explicitly bounded. Generic read_frame/write_frame remain byte-bounded helpers; they are not advertised as standalone wall-clock watchdogs.
+- `fixture_schedule.rs:97–150` keeps clock reads pure and validates Instant addition before admission. One actual Reporter observer thread is registered; a different observer or 128-entry observation overflow closes/fails instead of silently dropping evidence. Actual thread park/unpark retains wake-before-park tokens. Closing does not install a host fallback or make later park calls spin.
+- `fixture_schedule.rs:176–230` requires round1/time0, consecutive rounds and monotonic time no later than the current next due. A positive wait at the requested sampled instant is mandatory. Equal-time reuse does not wake the worker or claim another publication. At an exact due instant the old positive wait cannot satisfy the loop: the completed new cycle and a later positive wait are required. The driver validates cycle start, exact remaining duration, sampled time and checked arithmetic (`:247–302`), matching the parent's independent counter/deadline checks.
+- `fixture_schedule.rs:323–369` sends Connected before invoking the application but sends no worker receipt then. Each actual control request shares its read/settle/response deadline. A Checked boundary precedes one real stderr marker, then a real control write; neither is used as a Diagnostic or OS-exit receipt. The parent requires actual file bytes before committing its own time and sending another Step.
+- `fixture_schedule.rs:392–414` reads one explicit FIFO stdin frame and then requires actual EOF. The fixture executable's application argv remains exactly the shared entrypoint's `std::env::args_os().skip(1)`; it adds no application CLI or ambient environment policy. `src/bin/lamp-memory-fixture.rs:7–20` includes the exact unchanged application and injects only the already accepted Reporter schedule factory. The existing optional factory selection remains after the actual server bind, and guard/parser/private-dir/serve/finish ordering stays in the shared body.
+
+## Limits and gate obligations
+
+The eight-second deadlines cover control framing and parent marker waiting; they do not preempt blocking kernel filesystem, process kill/reap, raw stderr, or the dedicated child's initial stdin/connect syscalls. Bootstrap confines its potentially blocked reader to the dedicated process and returns failure under its main receive watchdog; process exit then ends that reader. The child never joins an unfinished control thread (`fixture_schedule.rs:377–389`). Actual parent Child ownership, kill/try_wait/reap and the unchanged 100 ms Reporter finish remain necessary. Root explicitly accepted preserving existing kill/wait ownership rather than adding a detached reaper or inventing bounded exit success. The child docs/handoff already state the blocked reader/stderr limits; the parent handoff explicitly states filesystem and kill/reap limits.
+
+The marker-capacity claim remains deliberately narrow: the specified healthy fixed-size scenario's 1744-byte interval, an actual complete marker between intervals, and the real relay's existing cap. It does not prove no loss for arbitrary errors or flooding. The parent helper independently reads actual file bytes; Checked alone cannot justify absence/exact-log assertions.
+
+The child tests contain 12 identities and 45 static assertion sites. They exercise the actual Reporter/Bus receive and IPC relay implementation where described; the held-work case explicitly models the observation boundary and relies on the existing Reporter tests for a held real publication closure. My parent helper's self-spawned child is also a mock protocol test. Together these do **not** execute the actual dedicated application's `ChildControl::bootstrap` path end to end. Root's subsequent five selected real-process health cases must supply that qualification before a migration or speedup claim. No tests were executed by this review.
+
+## Independent preservation proof
+
+`/private/tmp/tests-823-memory-child-review-evidence/proof.json` independently hashes all six held files and matches the author's handoff. All 27 original Memory Rust sources and all five seeded Bus/Reporter dependency entries match their frozen seed hashes. Thus the seven original health identities and all 42 static health assertion sites remain in the identical original file at this checkpoint. Ordinary main/application/factory tests also remain exact.
+
+Removing only the dedicated fixture bin block and the approved rustix fs/event dependency reconstructs the original manifest byte-for-byte, verified against `/private/tmp/lampos-tests-memory-application/lampOS/crates/memory/Cargo.toml`. The reconstructed file is saved as `Cargo.original.toml`; its SHA-256 is `8a14da8d037b12ee3ed0e576aed815a4252f6c93b9c625daf2ac5f2457910c35`. The fixture bin has `test=false`, so it does not duplicate the ordinary main's unit-test identities.
+
+## Held file hashes
+
+- `lampOS/crates/memory/Cargo.toml`: `9c76d873ad6b870b46a3e3a7fad8cb3bf80ee0a31ca4b5ccaaa1d72dedac1875`
+- `lampOS/crates/memory/src/fixture_protocol.rs`: `21f2d5ca2fc309c8b63989ff6a889f37edd5e3eb8a4fc5de305348d11a0efb0c`
+- `lampOS/crates/memory/src/fixture_schedule.rs`: `aa4cd9fb4c59fc82011131a3461870efe8eef43af74186fdb606bb18e58f54f6`
+- `lampOS/crates/memory/src/bin/lamp-memory-fixture.rs`: `2885b1d48defea67e2381f46f944aaf38c2035a67820eb68ac64c9b899c1dc2a`
+- `lampOS/crates/memory/tests/fixture_child.rs`: `95934ea55a18e979fc2396255ff8b7c87ca0b623a94305c570eff6aec7cf9e6b`
+- `lampOS/docs/memory-fixture-clock.md`: `d04bfd01f4950a559d8d3d989fcaacab575b3171cf86fefcc66b85463cc4a149`
+
+## Post-review test-gate correction
+
+At 2026-10-16 03:08:06+0700, independently inspected the author's narrow correction recorded in `/private/tmp/tests-823-memory-progress-evidence/park-gate-fix.md`. The first root gate retained 11 child passes/1 new-test failure, alongside all 23 parent passes. Its second pre-park mpsc receive could consume the same worker park token being tested. The correction supplies a separate predicate-based Mutex/Condvar gate, opened after the actual explicit unpark and during owned cleanup; it retains HOST_WAIT, the actual `schedule.park`, all 12 identities and all 45 assertion macros. New test-file SHA-256 is `26928e7411dd17789addf27b648760d38d7f69bfb18a0464412e5f2c6c741982`. All actual child/helper implementation hashes above remain unchanged. No additional source blocker found in that correction. Root subsequently reported 35 helper cases passed; this reviewer did not execute them. The original review hashes remain historical and this paragraph records the precise test-only amendment.

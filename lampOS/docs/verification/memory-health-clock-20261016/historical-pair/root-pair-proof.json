@@ -1,0 +1,33 @@
+{
+  "date": "2026-10-16 03:12:42 +0700",
+  "seven_compiled_identities_equal": {
+    "a_failed_legacy_write_stays_warn_through_reads_until_a_write_succeeds": {
+      "ignored": false
+    },
+    "a_store_that_cannot_open_never_claims_readiness_and_any_delivered_report_is_warn": {
+      "ignored": false
+    },
+    "a_working_bus_that_fails_stays_failed_until_publication_really_recovers": {
+      "ignored": false
+    },
+    "an_unusable_bus_does_not_prevent_serving_and_reports_recover_when_it_returns": {
+      "ignored": false
+    },
+    "legacy_reports_retained_counts_and_stays_well_after_caller_refusals": {
+      "ignored": false
+    },
+    "sqlite_reports_retained_counts_and_stays_well_after_caller_refusals": {
+      "ignored": false
+    },
+    "the_environment_alone_does_not_enable_reporting_or_create_bus_data": {
+      "ignored": false
+    }
+  },
+  "same_real_binary_hashes": {
+    "lamp-memory": "1deb5681da362ff63d75d94eb4a29b191ad32db9ca490741cc21903eeb95f896",
+    "lamp-memory-fixture": "8dab7f5ff000f708d419c3ca226854b79ed80677a85cf6d20005ba68b2ed7d3c"
+  },
+  "source_before": "31add261e22dda578ca5f5c0b9016a1382f7a1e3d87f6968a1d083ec722e394d",
+  "source_after": "0d829067a29a9e5105326b1e0b50c09436e6aefe5091849a683be282910f9d91",
+  "load_limit": "Shared x86_64 macOS; independent Serve/Reporter gates overlap. No quiet-host, release or ARM64 timing claim."
+}

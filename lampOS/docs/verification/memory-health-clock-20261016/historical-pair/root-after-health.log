@@ -1,0 +1,13 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.28s
+────────────
+ Nextest run ID 6d2a2583-de2f-4038-9188-d7a4cd5d0583 with nextest profile: realtime
+    Starting 7 tests across 1 binary
+        PASS [   0.947s] (1/7) lamp-memory::health a_failed_legacy_write_stays_warn_through_reads_until_a_write_succeeds
+        PASS [   2.175s] (2/7) lamp-memory::health a_store_that_cannot_open_never_claims_readiness_and_any_delivered_report_is_warn
+        PASS [   0.755s] (3/7) lamp-memory::health a_working_bus_that_fails_stays_failed_until_publication_really_recovers
+        PASS [   0.447s] (4/7) lamp-memory::health an_unusable_bus_does_not_prevent_serving_and_reports_recover_when_it_returns
+        PASS [   0.858s] (5/7) lamp-memory::health legacy_reports_retained_counts_and_stays_well_after_caller_refusals
+        PASS [   2.583s] (6/7) lamp-memory::health sqlite_reports_retained_counts_and_stays_well_after_caller_refusals
+        PASS [   6.718s] (7/7) lamp-memory::health the_environment_alone_does_not_enable_reporting_or_create_bus_data
+────────────
+     Summary [  14.547s] 7 tests run: 7 passed, 0 skipped

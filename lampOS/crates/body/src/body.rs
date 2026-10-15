@@ -98,9 +98,12 @@ const WAKE_COUNTS: f32 = 20.0;
 /// held more than `LIMP_LAG` counts (V1's `CONTACT_RELEASE_LAG`, one
 /// degree) from where it stopped, and the lamp lets go as V1's contact
 /// stop handed over to its overload cut-off: torque off on all five, the
-/// lamp slumps, and `OVERLOAD_REST` later (V1's `retry_s`) every joint is
-/// held where it lies and the head and base are brought home slowly, as
-/// under `--overload release`. Unlike that, a hand never ends the run: it
+/// lamp slumps, and `HAND_REST` later every joint is held where it lies
+/// and the head and base are brought home slowly, as under `--overload
+/// release`. V1 rested 120 s here too (`retry_s`), but that is for a servo
+/// cooling from overload; a hand is not heat, and a lamp limp for two
+/// minutes after a push reads as broken. A creature pushed hard flops,
+/// then gathers itself within seconds (the first builder, #780). Unlike that, a hand never ends the run: it
 /// may make the lamp slump again as often as it pushes, as V1's did. On
 /// lamp-52e6 on 2026-10-14 a head that only gave way by its goal, torque
 /// on, could not be pushed at all: roll 2,019 to 1,958 at a load of 256,
@@ -235,6 +238,9 @@ const OVERLOAD_LOAD: u16 = 800;
 const OVERLOAD_SHARE: u16 = 80;
 const OVERLOAD_STEPS: u16 = 75;
 const OVERLOAD_REST: Duration = Duration::from_secs(120);
+/// How long a slump from a hand (`--limp on`) rests before the lamp takes
+/// hold again: a little longer than V1's contact pause (`pause_s`, 3 s).
+const HAND_REST: Duration = Duration::from_secs(5);
 const OVERLOAD_AGAIN: Duration = Duration::from_secs(600);
 
 pub const COMMANDED: [Joint; 3] = [Joint::WristPitch, Joint::WristRoll, Joint::BaseYaw];
@@ -3595,7 +3601,11 @@ pub(crate) fn run_alive(
                 limp: true,
                 ..glimpse
             };
-            let rest = if again { Duration::ZERO } else { OVERLOAD_REST };
+            let rest = match (again, by_hand) {
+                (true, _) => Duration::ZERO,
+                (false, true) => HAND_REST,
+                (false, false) => OVERLOAD_REST,
+            };
             let slumped_at = match let_go(
                 &mut bus,
                 &mut report,

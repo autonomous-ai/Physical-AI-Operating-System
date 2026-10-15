@@ -550,8 +550,11 @@ impl Progress {
                     // says now is where judging begins again. A new run is
                     // judged from its beginning, above, whatever count it
                     // is first seen at: its first status may have been
-                    // missed (#751 review, 17:05).
-                    if !new_run && progress.changes < tracked.last.changes {
+                    // missed (#751 review, 17:05). So is a task's first read
+                    // after a new run listed it unread: its count then is
+                    // the new run's, not a counter going back (#793 review,
+                    // 17:48).
+                    if !new_run && !tracked.unread && progress.changes < tracked.last.changes {
                         tracked.judged = progress.changes;
                     }
                     tracked.last = progress;
@@ -1457,6 +1460,23 @@ mod tests {
         assert_eq!(progress.next(then + NOTE_EVERY), None);
         progress.status(status_of(RUN_B, 1, AgentState::Working));
         assert_eq!(progress.next(then + NOTE_EVERY), Some(3));
+        // The reviewer on #793 (17:48): run A reached count 2, run B listed
+        // the task unread, its first read at count 0 was missed, and its
+        // next came at count 1. That is run B's first change, asked about.
+        let mut missed =
+            Progress::start(Never, Options::new(Duration::from_secs(1), None)).unwrap();
+        missed.status(status_of(RUN_A, 1, AgentState::Working));
+        missed.status(status_of(RUN_A, 2, AgentState::Working));
+        missed.tasks.get_mut(&3).unwrap().judged = 2;
+        missed.status(TaskStatus {
+            store_id: "0123456789abcdef0123456789abcdef".into(),
+            run: RUN_B,
+            unread: vec![3],
+            tasks: vec![],
+        });
+        missed.status(status_of(RUN_B, 1, AgentState::Working));
+        assert_eq!(missed.tasks[&3].judged, 0);
+        assert_eq!(missed.next(then + NOTE_EVERY), Some(3));
         // A task neither read nor unread has left the watch: let go.
         progress.status(TaskStatus {
             store_id: "0123456789abcdef0123456789abcdef".into(),

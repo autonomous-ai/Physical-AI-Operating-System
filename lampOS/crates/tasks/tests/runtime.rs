@@ -483,8 +483,19 @@ fn with_progress_a_value_from_the_start_each_task_read_at_once_then_on_schedule_
     s.wait(&prepared["id"], |v| {
         v["task"]["dispatch"]["state"] == "accepted"
     });
-    // Read at once, with the clock where it was handed over.
-    let first = next_status(&mut watch);
+    // Read at once, with the clock where it was handed over. The task may
+    // first be on the bus as unread, joining the watch before its first read
+    // came back (#793 review, 17:48); then its first read.
+    let id = prepared["id"].as_u64().unwrap();
+    let first = loop {
+        let status = next_status(&mut watch);
+        if status.tasks.is_empty() {
+            assert_eq!(status.unread, [id], "{status:?}");
+            continue;
+        }
+        break status;
+    };
+    assert!(first.unread.is_empty());
     assert_eq!(s.counts.listings.load(Ordering::SeqCst), 1);
     let task = &first.tasks[0];
     assert_eq!(first.store_id, start.store_id);

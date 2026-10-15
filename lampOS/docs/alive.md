@@ -139,7 +139,7 @@ not more life.
 | `voice/activity` | The voice's validated person-speech detector | Corroborates a sleeping name only with `sleep.name_requires_speech: true` |
 | `controls/gesture` | Controls | Waking, by an enabled tap or stroke. New to Expression |
 | `schedule/due` | Schedule | Waking, once for each notice that comes due. New to Expression |
-| The local time of day | The live service itself, from the wall clock and `--utc-offset-minutes` (420 in Vietnam), at start and every minute | Night. Not a bus topic. `serve` refuses a catalogue with sleep without it |
+| The local time of day | The live service itself, from the wall clock and `--utc-offset-minutes` (420 in Vietnam), at start and every minute | Night. Not a bus topic. `serve` refuses a catalogue with sleep without it. With `--kernel-clock` it is given only while the kernel says the clock is set (`lamp_ipc::clock_synced`, #830): a lamp has no battery clock, and one not set knows no night, so it neither falls asleep nor wakes by a wrong hour; one line says each change |
 
 `lamp-expression import --utc-offset-minutes N` adds the same time of day
 to an imported recording, from the recording's own wall clock, so that a

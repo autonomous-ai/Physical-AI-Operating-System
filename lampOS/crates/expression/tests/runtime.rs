@@ -457,6 +457,10 @@ mod sleep_name {
 
     impl SleepingService {
         fn new() -> Self {
+            Self::with(|service| service)
+        }
+
+        fn with(change: fn(runtime::Service) -> runtime::Service) -> Self {
             let root = Root::new();
             let bus = Bus::new(&root.0).unwrap();
             let mut catalogue =
@@ -468,9 +472,11 @@ mod sleep_name {
             // The bus still supplies real publication wall times. Select a
             // night-time offset without changing those envelope timestamps.
             let offset = 23 * 60 + 30 - i32::from(runtime::minute_of_day(runtime::unix_ms(), 0));
-            let service = runtime::Service::new(&bus, catalogue, true, "test")
-                .unwrap()
-                .with_local_time(offset);
+            let service = change(
+                runtime::Service::new(&bus, catalogue, true, "test")
+                    .unwrap()
+                    .with_local_time(offset),
+            );
             bus.publisher_declared(Light::TOPICS[0], &Light::declaration(), "actions")
                 .unwrap()
                 .publish_json(987_654_321, &Light::new(true, "warm", 1).unwrap())
@@ -606,6 +612,21 @@ mod sleep_name {
         let output = lamp.step();
         assert!(has(&output, "waking"));
         assert!(!has(&output, "asleep"));
+    }
+
+    #[test]
+    fn a_clock_not_set_gives_no_night_and_a_set_one_does() {
+        // The same night-time hour: asleep with a set clock, never without.
+        SleepingService::with(|service| service.with_clock_check(|| Some(true))).sleep();
+        let unset = [
+            SleepingService::with(|service| service.with_clock_check(|| Some(false))),
+            SleepingService::with(|service| service.with_clock_check(|| None)),
+        ];
+        for mut lamp in unset {
+            for _ in 0..350 {
+                assert!(!has(&lamp.step(), "asleep"));
+            }
+        }
     }
 
     struct JournalChild(Child);

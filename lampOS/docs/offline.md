@@ -124,7 +124,13 @@ requests then wait (`waiting_for_clock`, "trusted wall clock required")
 until chrony sets the clock. One reader for both, `lamp_ipc::clock_synced`.
 Kind: off unless set. The units are not changed here: swapping
 `--trust-clock` for `--kernel-clock` is each lamp's change, after its
-minute. Next: Expression's night and the voice's time.
+minute.
+
+`lamp-expression serve --kernel-clock` gives the alive layer the time of day
+only while the kernel says the clock is set; with none it knows no night, so
+it does not fall asleep or wake by a wrong clock, and says once when the
+clock is found not set and again when it is set. Off unless set. Next: the
+voice's time.
 
 ## What steps 2 to 4 will build
 

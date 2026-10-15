@@ -20,7 +20,7 @@ use std::{
     time::Duration,
 };
 
-const USAGE: &str = "lamp-expression serve [--enable] [--bus-root PATH] [--clock-id ID] [--catalogue FILE] [--record FILE] [--seconds N] [--utc-offset-minutes N]\n\
+const USAGE: &str = "lamp-expression serve [--enable] [--bus-root PATH] [--clock-id ID] [--catalogue FILE] [--record FILE] [--seconds N] [--utc-offset-minutes N] [--kernel-clock]\n\
 lamp-expression replay --input FILE [--output FILE] --clock-id ID [--enable] [--catalogue FILE] [--until-us N] [--long]\n\
 lamp-expression import --clock-id ID [--long] [--utc-offset-minutes N] FILE...\n\
 lamp-expression catalogue\n\
@@ -31,12 +31,14 @@ Live timestamps use lamp-ipc CLOCK_MONOTONIC microseconds; Linux defaults to its
 Output files are created new, never overwritten. Live --record is bounded to 64 MiB.\n\
 --long lets replay and import take an hour (docs/alive.md). --utc-offset-minutes is the\n\
 local time's minutes east of UTC (420 in Vietnam), which a catalogue with sleep needs.\n\
+--kernel-clock gives the time of day only while the kernel says the clock is set.\n\
 No command opens hardware, launches a provider, or changes a device's service settings.";
 
 #[derive(Debug, Default)]
 struct Arguments {
     command: String,
     enabled: bool,
+    kernel_clock: bool,
     bus_root: Option<PathBuf>,
     clock: Option<String>,
     catalogue: Option<PathBuf>,
@@ -86,6 +88,7 @@ fn parse(arguments: impl IntoIterator<Item = String>) -> Result<Option<Arguments
                 "--record",
                 "--seconds",
                 "--utc-offset-minutes",
+                "--kernel-clock",
             ]
             .contains(&option.as_str()),
             "replay" => [
@@ -107,6 +110,10 @@ fn parse(arguments: impl IntoIterator<Item = String>) -> Result<Option<Arguments
         }
         if option == "--enable" {
             out.enabled = true;
+            continue;
+        }
+        if option == "--kernel-clock" {
+            out.kernel_clock = true;
             continue;
         }
         if option == "--long" {
@@ -259,6 +266,9 @@ fn run(args: Arguments) -> Result<(), Box<dyn std::error::Error>> {
     let mut service = runtime::Service::new(&bus, catalogue, args.enabled, &clock)?;
     if let Some(offset) = args.utc_offset_minutes {
         service = service.with_local_time(offset);
+    }
+    if args.kernel_clock {
+        service = service.with_clock_check(lamp_ipc::clock_synced);
     }
     eprintln!(
         "lamp-expression: started mode={} clock_id={} root={}",

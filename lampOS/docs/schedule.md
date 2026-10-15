@@ -81,7 +81,12 @@ refused. This is a local service, with no HTTP endpoint or network listener.
 On Linux, the default boot identity comes from
 `/proc/sys/kernel/random/boot_id`. Wall time is considered trusted when
 `/run/systemd/timesync/synchronized` is a file, or when the operator explicitly
-passes `--trust-clock`. This is evidence compatible with the existing Health
+passes `--trust-clock`. With `--kernel-clock` it is also trusted when the
+kernel says a time client has set it (`adjtimex`, as `timedatectl`'s
+`NTPSynchronized` and `lamp-health --clock kernel`): the real board keeps its
+clock with chrony and has no timesyncd marker (lamp-75c9, 2026-10-16), so
+without it a lamp needs `--trust-clock`, which also trusts a clock never set
+(#830, [offline.md](offline.md)). This is evidence compatible with the existing Health
 boundary, not proof of NTP authenticity or clock accuracy. Removing that marker
 withdraws automatic trust on the next sample. The service never sets the clock.
 

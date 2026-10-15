@@ -115,8 +115,16 @@ lamp.
 board with no timesyncd; timesyncd's marker is still believed first. On
 lamp-75c9 (2026-10-16) the clock is kept by chrony, there is no
 `/run/systemd/timesync`, and `timedatectl` says `NTPSynchronized=yes`.
-Kind: off unless set (`timesync`, the default, reads as before). Next:
-schedule, Expression's night and the voice's time read it from the bus.
+Kind: off unless set (`timesync`, the default, reads as before).
+
+`lamp-schedule serve --kernel-clock` trusts the wall clock also when the
+kernel says it is set, so a lamp can drop `--trust-clock` (both lamps' units
+have it, and it trusts a clock never set): calendar reminders and new
+requests then wait (`waiting_for_clock`, "trusted wall clock required")
+until chrony sets the clock. One reader for both, `lamp_ipc::clock_synced`.
+Kind: off unless set. The units are not changed here: swapping
+`--trust-clock` for `--kernel-clock` is each lamp's change, after its
+minute. Next: Expression's night and the voice's time.
 
 ## What steps 2 to 4 will build
 

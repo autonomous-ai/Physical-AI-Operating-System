@@ -450,6 +450,21 @@ fn host_clock_requires_an_identity_and_reports_explicit_trust() {
     assert!(second.boot_ms >= first.boot_ms);
 }
 
+#[test]
+fn kernel_clock_is_trusted_only_when_named_and_the_kernel_says_set() {
+    let marker = cfg!(target_os = "linux")
+        && std::path::Path::new("/run/systemd/timesync/synchronized").is_file();
+    let off = SystemClock::new(Some("test-clock"), false).unwrap();
+    assert_eq!(off.sample().unwrap().wall_trusted, marker);
+    let kernel = SystemClock::new(Some("test-clock"), false)
+        .unwrap()
+        .with_kernel_clock(true);
+    assert_eq!(
+        kernel.sample().unwrap().wall_trusted,
+        marker || lamp_ipc::clock_synced() == Some(true)
+    );
+}
+
 struct ChildGuard(Child);
 impl Drop for ChildGuard {
     fn drop(&mut self) {

@@ -11,7 +11,8 @@ use crate::{
 };
 use lamp_audio::ownership::PlaybackCursor;
 use lamp_turn_end_wire::{
-    Availability, Classifier, Limits, Outcome, Submit, Token, Verdict, WorkerCommand,
+    Availability, Classifier, Limits, Monitor, Outcome, Submit, Teardown, Token, Verdict,
+    WorkerCommand,
     frame::{PROTOCOL, Response},
 };
 use std::{
@@ -956,12 +957,101 @@ fn scripted_process(responses: &[Response], then: &str, limits: Limits) -> Endpo
     )
 }
 
+/// Owns the endpoint until the session takes it, then keeps the supervisor's
+/// exit receipt through the assertions. This final fixture wait cannot change
+/// the session's already-recorded cleanup outcome or its original deadline.
+struct EndpointCleanup {
+    endpoint: Option<EndpointRig>,
+    monitor: Monitor,
+}
+
+impl EndpointCleanup {
+    fn new(endpoint: EndpointRig) -> Self {
+        let monitor = endpoint.monitor.as_ref().expect("real endpoint").clone();
+        Self {
+            endpoint: Some(endpoint),
+            monitor,
+        }
+    }
+
+    fn take(&mut self) -> EndpointRig {
+        self.endpoint.take().expect("endpoint taken once")
+    }
+}
+
+impl Drop for EndpointCleanup {
+    fn drop(&mut self) {
+        // Before handoff, close our classifier first. After handoff, the
+        // session owns it and drops it on return or unwind before this guard.
+        drop(self.endpoint.take());
+        let teardown = self.monitor.wait_finished(Duration::from_secs(5));
+        if teardown != Teardown::Reaped {
+            let message = format!(
+                "endpoint fixture cleanup did not reap within 5 s: {teardown:?}; {:?}",
+                self.monitor.report()
+            );
+            if thread::panicking() {
+                // Preserve the existing failure instead of double-panicking.
+                eprintln!("{message}");
+            } else {
+                panic!("{message}");
+            }
+        }
+    }
+}
+
 fn ready() -> Response {
     Response::Ready {
         protocol: PROTOCOL,
         load_us: 1,
         cold_us: 1,
         model_sha256: [0; 32],
+    }
+}
+
+#[test]
+fn endpoint_fixture_reaps_on_panic_before_and_after_handoff() {
+    #[derive(Debug)]
+    struct ScenarioFailure;
+
+    fn fail_in_helper(_endpoint: EndpointRig) -> ! {
+        std::panic::panic_any(ScenarioFailure);
+    }
+
+    for handoff in [false, true] {
+        let endpoint = scripted_process(
+            &[ready()],
+            "exec sleep 60",
+            Limits {
+                grace: Duration::from_millis(1_500),
+                ..Limits::default()
+            },
+        );
+        let monitor = endpoint.monitor.as_ref().unwrap().clone();
+        let observed = monitor.clone();
+        let failed = std::panic::catch_unwind(std::panic::AssertUnwindSafe(move || {
+            let mut cleanup = EndpointCleanup::new(endpoint);
+            let ready_by = Instant::now() + Duration::from_secs(5);
+            while observed.availability() != Availability::Ready {
+                assert!(
+                    Instant::now() < ready_by,
+                    "endpoint fixture never became ready: {:?}",
+                    observed.report()
+                );
+                thread::sleep(Duration::from_millis(1));
+            }
+            assert_eq!(observed.wait_finished(Duration::ZERO), Teardown::Pending);
+            if handoff {
+                fail_in_helper(cleanup.take());
+            }
+            std::panic::panic_any(ScenarioFailure);
+        }));
+        assert!(failed.unwrap_err().is::<ScenarioFailure>());
+        // A zero wait proves unwind completed cleanup, rather than making this
+        // assertion finish the supervisor's work after the guard returned.
+        assert_eq!(monitor.wait_finished(Duration::ZERO), Teardown::Reaped);
+        assert_eq!(monitor.report().spawned, 1);
+        assert_eq!(monitor.report().kills, 1);
     }
 }
 
@@ -1333,7 +1423,8 @@ fn unconfirmed_endpoint_exit_fails_mute_cleanup_and_never_reopens_service() {
         ..Limits::default()
     };
     let endpoint = scripted_process(&[ready()], "exec sleep 60", limits);
-    let (result, mut trace) = mute_with_endpoint(endpoint);
+    let mut cleanup = EndpointCleanup::new(endpoint);
+    let (result, mut trace) = mute_with_endpoint(cleanup.take());
     let error = result.unwrap_err();
     assert!(
         error.downcast_ref::<PhysicalMute>().is_none(),
@@ -1367,6 +1458,7 @@ fn unconfirmed_endpoint_exit_fails_mute_cleanup_and_never_reopens_service() {
     );
     assert!(restarted.is_err());
     assert_eq!(waits.get(), 1);
+    drop(cleanup);
 }
 
 #[test]
@@ -1412,14 +1504,16 @@ fn bases(session: &Session) -> Vec<(String, Option<String>, u64)> {
 #[test]
 fn a_worker_still_loading_leaves_the_baseline_window() {
     let _one = one_session();
-    // Ready only after 6 s: the whole session runs while it loads.
-    let endpoint = scripted_process(&[], "sleep 6; exit 0", Limits::default());
-    let session = run_process_with_privacy_tolerance(4, one_question, endpoint);
+    // No Ready while the single owned worker sleeps for 6 s.
+    let endpoint = scripted_process(&[], "exec sleep 6", Limits::default());
+    let mut cleanup = EndpointCleanup::new(endpoint);
+    let session = run_process_with_privacy_tolerance(4, one_question, cleanup.take());
     session.result.as_ref().unwrap();
     assert_eq!(
         bases(&session),
         [("silence_fallback".into(), Some("loading".into()), 1_200)]
     );
+    drop(cleanup);
 }
 
 #[test]

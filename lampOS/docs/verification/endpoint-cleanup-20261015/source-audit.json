@@ -1,0 +1,51 @@
+{
+  "recorded_at": "2026-10-15 21:55:06 +0700",
+  "base": "71a15e75de4345afb6c1937e15ff5a223c7bfb53",
+  "source": "lampOS/crates/voice/src/coordinator/tests/endpoint_session.rs",
+  "sha256_before": "51e4b49be6f736d18c3bdfe3bcf46bf726aca478f5a4bff040f597954f0ba570",
+  "sha256_after": "abeaae7efce63bcf35e4747110c13b7bcae5ad548827e91fbca89a03a4563738",
+  "whole_source_restores_byte_for_byte_after_reversing_named_edits": true,
+  "original_test_identities": [
+    "delayed_delivery_preserves_contiguous_ten_millisecond_samples",
+    "a_fresh_envelope_does_not_refresh_a_stale_source_sample",
+    "only_real_process_ordering_tolerates_a_gap_beyond_fifty_milliseconds",
+    "a_logical_clock_is_rejected_before_the_process_constructor",
+    "missing_model_session_ends_on_the_unchanged_silence_fallback",
+    "hung_worker_never_delays_capture_endpoint_or_session_end",
+    "complete_verdict_ends_early_but_resumed_speech_keeps_the_turn",
+    "real_worker_session_records_verdict_provenance",
+    "unconfirmed_endpoint_exit_fails_mute_cleanup_and_never_reopens_service",
+    "confirmed_endpoint_exit_keeps_the_restartable_mute",
+    "a_worker_still_loading_leaves_the_baseline_window",
+    "verdicts_after_the_result_timeout_fall_back_on_every_turn",
+    "rapid_resumes_never_end_the_turn_early",
+    "a_complete_verdict_ends_at_one_second_and_its_answer_plays",
+    "a_worker_failure_falls_back_through_recovery_and_then_resumes",
+    "mute_then_reopen_never_overlaps_endpoint_workers",
+    "duplex_complete_verdict_ends_at_one_second_and_its_answer_plays",
+    "duplex_missing_model_session_ends_on_the_unchanged_silence_fallback"
+  ],
+  "original_test_count": 18,
+  "new_test_count": 19,
+  "added_test_identities": [
+    "endpoint_fixture_reaps_on_panic_before_and_after_handoff"
+  ],
+  "removed_test_identities": [],
+  "original_assertion_macro_count": 111,
+  "new_assertion_macro_count": 117,
+  "original_assertions_preserved_byte_for_byte": true,
+  "unchanged_scenario_bounds": {
+    "unconfirmed_grace_ms": 1500,
+    "coordinator_teardown_ms": 500,
+    "loading_sleep_s": 6,
+    "loading_session_s": 4,
+    "silence_fallback_ms": 1200
+  },
+  "new_fixture_cleanup_bound_s": 5,
+  "validation": {
+    "cargo_fmt_all_check": {
+      "exit_code": 0
+    },
+    "builds_and_tests": "not run; root owns qualification"
+  }
+}

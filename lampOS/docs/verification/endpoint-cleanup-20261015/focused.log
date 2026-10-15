@@ -1,0 +1,27 @@
+   Compiling serde v1.0.229
+   Compiling rustix v1.1.5
+   Compiling lamp-bus v0.1.0 (/private/tmp/lampos-tests-endpoint-cleanup/lampOS/crates/bus)
+   Compiling lamp-msgs v0.1.0 (/private/tmp/lampos-tests-endpoint-cleanup/lampOS/crates/msgs)
+   Compiling lamp-ipc v0.1.0 (/private/tmp/lampos-tests-endpoint-cleanup/lampOS/crates/ipc)
+   Compiling lamp-turn-owner v0.1.0 (/private/tmp/lampos-tests-endpoint-cleanup/lampOS/crates/turn-owner)
+   Compiling lamp-keeper v0.1.0 (/private/tmp/lampos-tests-endpoint-cleanup/lampOS/crates/keeper)
+   Compiling lamp-body v0.1.0 (/private/tmp/lampos-tests-endpoint-cleanup/lampOS/crates/body)
+   Compiling lamp-camera v0.1.0 (/private/tmp/lampos-tests-endpoint-cleanup/lampOS/crates/camera)
+   Compiling lamp-schedule v0.1.0 (/private/tmp/lampos-tests-endpoint-cleanup/lampOS/crates/schedule)
+   Compiling lamp-audio v0.1.0 (/private/tmp/lampos-tests-endpoint-cleanup/lampOS/crates/audio)
+   Compiling lamp-actions v0.1.0 (/private/tmp/lampos-tests-endpoint-cleanup/lampOS/crates/actions)
+   Compiling lamp-expression v0.1.0 (/private/tmp/lampos-tests-endpoint-cleanup/lampOS/crates/expression)
+   Compiling lamp-gemini v0.1.0 (/private/tmp/lampos-tests-endpoint-cleanup/lampOS/crates/gemini)
+   Compiling lamp-controls v0.1.0 (/private/tmp/lampos-tests-endpoint-cleanup/lampOS/crates/controls)
+   Compiling lamp-policy v0.1.0 (/private/tmp/lampos-tests-endpoint-cleanup/lampOS/crates/policy)
+   Compiling lamp-ring v0.1.0 (/private/tmp/lampos-tests-endpoint-cleanup/lampOS/crates/ring)
+   Compiling lamp-turn-end-wire v0.1.0 (/private/tmp/lampos-tests-endpoint-cleanup/lampOS/crates/turn-end-wire)
+   Compiling lamp-voice v0.1.0 (/private/tmp/lampos-tests-endpoint-cleanup/lampOS/crates/voice)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1m 15s
+────────────
+ Nextest run ID c2c81bf8-daeb-4ea8-9e37-02f19b86e321 with nextest profile: default
+    Starting 2 tests across 1 binary (1135 tests skipped)
+        PASS [   4.579s] (1/2) lamp-voice coordinator::tests::endpoint_session::a_worker_still_loading_leaves_the_baseline_window
+        PASS [   1.652s] (2/2) lamp-voice coordinator::tests::endpoint_session::unconfirmed_endpoint_exit_fails_mute_cleanup_and_never_reopens_service
+────────────
+     Summary [   6.236s] 2 tests run: 2 passed, 1135 skipped

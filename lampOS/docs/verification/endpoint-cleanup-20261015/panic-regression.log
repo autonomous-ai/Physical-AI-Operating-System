@@ -1,0 +1,7 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.41s
+────────────
+ Nextest run ID 310b7b2c-4396-433c-a00e-e3dd69ae169a with nextest profile: default
+    Starting 1 test across 1 binary (1136 tests skipped)
+        PASS [   3.168s] (1/1) lamp-voice coordinator::tests::endpoint_session::endpoint_fixture_reaps_on_panic_before_and_after_handoff
+────────────
+     Summary [   3.173s] 1 test run: 1 passed, 1136 skipped

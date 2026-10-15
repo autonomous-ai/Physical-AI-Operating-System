@@ -1,0 +1,76 @@
+{
+  "recorded_from_date": "2026-10-15 23:06:15 +0700",
+  "full_gate_base": "71a15e75de4345afb6c1937e15ff5a223c7bfb53",
+  "rebased_gate_base": "a3dba0c0af457774e5fe7e09af42828c311738b9",
+  "source_unchanged_after_rebase": true,
+  "full_packages": [
+    "lamp-voice",
+    "lamp-memory",
+    "lamp-voice-eval"
+  ],
+  "full_gate": {
+    "passed": 1767,
+    "failed": 0,
+    "ignored": 13
+  },
+  "rebased_focused": {
+    "passed": 3,
+    "failed": 0,
+    "leaks": 0,
+    "filtered": 1144,
+    "summary_seconds": 9.382
+  },
+  "stages": {
+    "fmt": {
+      "exit_code": 0,
+      "started": "2026-10-15 22:25:24 +0700",
+      "finished": "2026-10-15 22:25:28 +0700"
+    },
+    "clippy": {
+      "exit_code": 0,
+      "started": "2026-10-15 22:25:28 +0700",
+      "finished": "2026-10-15 22:26:12 +0700"
+    },
+    "tests": {
+      "exit_code": 0,
+      "started": "2026-10-15 22:26:12 +0700",
+      "finished": "2026-10-15 22:54:09 +0700"
+    },
+    "build": {
+      "exit_code": 0,
+      "started": "2026-10-15 22:54:09 +0700",
+      "finished": "2026-10-15 22:55:22 +0700"
+    },
+    "focused": {
+      "exit_code": 0,
+      "started": "2026-10-15 22:17:57 +0700",
+      "finished": "2026-10-15 22:19:22 +0700"
+    },
+    "panic-regression": {
+      "exit_code": 0,
+      "started": "2026-10-15 22:21:48 +0700",
+      "finished": "2026-10-15 22:21:53 +0700"
+    },
+    "rebased-fmt": {
+      "exit_code": 0,
+      "started": "2026-10-15 22:58:37 +0700",
+      "finished": "2026-10-15 22:58:42 +0700"
+    },
+    "rebased-clippy": {
+      "exit_code": 0,
+      "started": "2026-10-15 22:58:42 +0700",
+      "finished": "2026-10-15 22:59:25 +0700"
+    },
+    "rebased-focused": {
+      "exit_code": 0,
+      "started": "2026-10-15 22:59:25 +0700",
+      "finished": "2026-10-15 23:01:49 +0700"
+    },
+    "rebased-build": {
+      "exit_code": 0,
+      "started": "2026-10-15 23:01:49 +0700",
+      "finished": "2026-10-15 23:03:14 +0700"
+    }
+  },
+  "native_arm64": "pending full run; normal PR profile excludes module"
+}

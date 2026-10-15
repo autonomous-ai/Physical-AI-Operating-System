@@ -1,0 +1,33 @@
+    Checking lamp-ipc v0.1.0 (/private/tmp/lampos-tests-endpoint-cleanup/lampOS/crates/ipc)
+    Checking lamp-bus v0.1.0 (/private/tmp/lampos-tests-endpoint-cleanup/lampOS/crates/bus)
+    Checking tokio v1.53.1
+    Checking lamp-msgs v0.1.0 (/private/tmp/lampos-tests-endpoint-cleanup/lampOS/crates/msgs)
+    Checking lamp-turn-owner v0.1.0 (/private/tmp/lampos-tests-endpoint-cleanup/lampOS/crates/turn-owner)
+   Compiling lamp-camera v0.1.0 (/private/tmp/lampos-tests-endpoint-cleanup/lampOS/crates/camera)
+    Checking tokio-rustls v0.26.6
+    Checking hyper v1.12.0
+    Checking tower v0.5.3
+    Checking lamp-keeper v0.1.0 (/private/tmp/lampos-tests-endpoint-cleanup/lampOS/crates/keeper)
+    Checking hyper-util v0.1.21
+    Checking lamp-body v0.1.0 (/private/tmp/lampos-tests-endpoint-cleanup/lampOS/crates/body)
+    Checking hyper-rustls v0.27.10
+    Checking tokio-tungstenite v0.30.0
+    Checking tower-http v0.6.11
+    Checking tokio-util v0.7.20
+    Checking lamp-schedule v0.1.0 (/private/tmp/lampos-tests-endpoint-cleanup/lampOS/crates/schedule)
+    Checking lamp-turn-end-wire v0.1.0 (/private/tmp/lampos-tests-endpoint-cleanup/lampOS/crates/turn-end-wire)
+    Checking reqwest v0.13.5
+    Checking lamp-gemini v0.1.0 (/private/tmp/lampos-tests-endpoint-cleanup/lampOS/crates/gemini)
+    Checking lamp-audio v0.1.0 (/private/tmp/lampos-tests-endpoint-cleanup/lampOS/crates/audio)
+    Checking lamp-controls v0.1.0 (/private/tmp/lampos-tests-endpoint-cleanup/lampOS/crates/controls)
+    Checking lamp-ring v0.1.0 (/private/tmp/lampos-tests-endpoint-cleanup/lampOS/crates/ring)
+    Checking lamp-actions v0.1.0 (/private/tmp/lampos-tests-endpoint-cleanup/lampOS/crates/actions)
+    Checking lamp-expression v0.1.0 (/private/tmp/lampos-tests-endpoint-cleanup/lampOS/crates/expression)
+    Checking lamp-voice v0.1.0 (/private/tmp/lampos-tests-endpoint-cleanup/lampOS/crates/voice)
+    Checking lamp-policy v0.1.0 (/private/tmp/lampos-tests-endpoint-cleanup/lampOS/crates/policy)
+    Checking lamp-observer v0.1.0 (/private/tmp/lampos-tests-endpoint-cleanup/lampOS/crates/observer)
+    Checking lamp-sound-fixtures v0.1.0 (/private/tmp/lampos-tests-endpoint-cleanup/lampOS/crates/sound-fixtures)
+    Checking lamp-turn-end v0.1.0 (/private/tmp/lampos-tests-endpoint-cleanup/lampOS/crates/turn-end)
+    Checking lamp-memory v0.1.0 (/private/tmp/lampos-tests-endpoint-cleanup/lampOS/crates/memory)
+    Checking lamp-voice-eval v0.1.0 (/private/tmp/lampos-tests-endpoint-cleanup/lampOS/crates/voice-eval)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 43.40s

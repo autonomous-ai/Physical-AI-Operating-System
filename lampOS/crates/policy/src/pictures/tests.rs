@@ -230,8 +230,25 @@ fn read_body(stream: &mut std::net::TcpStream) -> Option<Value> {
 /// to have arrived, and the asking withdrawn after it.
 #[test]
 fn a_picture_written_and_unanswered_before_a_withdrawal_is_told_as_sent() {
+    written_then_withdrawn("closed", |sight, _| fs::remove_file(sight).unwrap());
+}
+
+/// The reviewer on #873 (04:14): whether someone is in sight is looked at
+/// again at the moment the picture would be taken. The person leaves (the
+/// eyes see no face) between the first try and the next: nothing more is
+/// sent, as when the camera closes.
+#[test]
+fn a_person_who_left_before_the_picture_is_taken_is_sent_no_picture() {
+    written_then_withdrawn("left", |_, presence| presence.saw(0, Instant::now()));
+}
+
+/// A first asking answered on a kept connection; the request with the
+/// picture written whole on it, then `meanwhile` (the camera closed, or the
+/// person gone), and the connection closed with no answer; the new
+/// connection given nothing.
+fn written_then_withdrawn(tag: &str, meanwhile: fn(&Path, &Presence)) {
     use std::io::Write as _;
-    let dir = std::env::temp_dir().join(format!("policy-withdrawn-{}", std::process::id()));
+    let dir = std::env::temp_dir().join(format!("policy-withdrawn-{tag}-{}", std::process::id()));
     let _ = fs::remove_dir_all(&dir);
     fs::create_dir_all(&dir).unwrap();
     fs::write(dir.join("key"), "not-a-real-key\n").unwrap();
@@ -239,7 +256,9 @@ fn a_picture_written_and_unanswered_before_a_withdrawal_is_told_as_sent() {
     let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
     let port = listener.local_addr().unwrap().port();
     let (told, requests) = mpsc::channel::<Option<Value>>();
-    let removed = sight.clone();
+    let presence = Presence::default();
+    presence.saw(1, Instant::now());
+    let (removed, gone) = (sight.clone(), presence.clone());
     let service = thread::spawn(move || {
         let (mut first, _) = listener.accept().unwrap();
         first
@@ -265,9 +284,9 @@ fn a_picture_written_and_unanswered_before_a_withdrawal_is_told_as_sent() {
             .unwrap();
         told.send(Some(asked)).unwrap();
         // The second, with the picture, read whole; then the camera is
-        // closed (the eyes remove the frame) and the connection with it.
+        // closed or the person gone, and the connection closed.
         told.send(read_body(&mut first)).unwrap();
-        fs::remove_file(&removed).unwrap();
+        meanwhile(&removed, &gone);
         drop(first);
         // The new connection: nothing comes on it.
         let (mut second, _) = listener.accept().unwrap();
@@ -310,6 +329,7 @@ fn a_picture_written_and_unanswered_before_a_withdrawal_is_told_as_sent() {
         sight_file: sight.clone(),
         deadline: Duration::from_secs(5),
         log_dir: dir.clone(),
+        presence,
     };
     let line = ask_both(&mut without, &mut with, &job, &options);
     service.join().unwrap();

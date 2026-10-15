@@ -317,7 +317,10 @@ one that cannot be opened (on lamp-4ace at 16:20 the relay refused new
 connections that came too fast on one key: `ConnectTimeout` after three) is
 a line saying where it failed, the pause doubles up to 30 s after each in a
 row, and the summary counts them (`asked`, `failed`, `failed_at`) apart from
-the medians. `--thinking TOKENS` sets the thinking budget
+the medians. So does a request whose turn the model did not complete: one
+that timed out after 14 s, whose connection ended, or that the service left
+unanswered keeps its times for reading, says how it ended in `failed`, and is
+in no median (the reviewer on #810, 17:23). `--thinking TOKENS` sets the thinking budget
 for that run alone (lamp-4ace's `provider.json` has 128), so `--thinking 0`
 against none says what thinking costs each of the two generations; the
 summary says which budget it ran with.
@@ -373,7 +376,13 @@ milliseconds after the voice decided the person had finished
 
 Then medians for turns with a function call and for plain ones, with each
 step of the first: the call, our answer, the model's audio after it, and the
-sound. A turn whose only calls are `not_for_me` or `heard_my_name` is plain:
+sound. A turn whose first audio came before its call (a lead-in) is marked
+`lead_in`: its audio after our answer is not in the records, so it is left
+out of that median, and its first sound counts as any other's
+(`with_lead_in` counts them). The records are read in two passes, the turns
+first and then what came of them, the earliest of each, so the order the
+service's numbered files are read in does not matter. The time our answer
+was sent is taken as it is sent, before its journal line. A turn whose only calls are `not_for_me` or `heard_my_name` is plain:
 those say whom the model heard, not something to do. A first-output line is
 matched to the turn of its number whose end of speech came at most a minute
 before it, since turn numbers begin again each time the voice starts. Every

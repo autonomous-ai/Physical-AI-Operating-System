@@ -1625,10 +1625,12 @@ impl ToolDesk {
         use crate::tools::Route;
         let request = lineage.request.get();
         let called_us = monotonic_us();
+        // Sent, and when: timed as it is sent, before any journal line.
         let tell = |told: &serde_json::Value| {
-            provider
+            let sent = provider
                 .try_tool_response(lineage.session, &call.id, &call.name, told)
-                .is_ok()
+                .is_ok();
+            (sent, monotonic_us())
         };
         // A request whose answer is held back has nothing done for it
         // either: the call is answered, and not run.
@@ -1642,8 +1644,16 @@ impl ToolDesk {
                     | Route::Faces(_)
             )
         {
-            let sent = tell(&crate::tools::declined());
-            self.line(lineage.session, request, &call.name, called_us, true, sent);
+            let (sent, sent_us) = tell(&crate::tools::declined());
+            self.line(
+                lineage.session,
+                request,
+                &call.name,
+                called_us,
+                sent_us,
+                true,
+                sent,
+            );
             eprintln!(
                 "lamp-voice provider: request {request} asked for {}; not done: its answer is held back",
                 call.name
@@ -1651,8 +1661,16 @@ impl ToolDesk {
             return;
         }
         if self.name_signal && call.name == crate::attention::HEARD_MY_NAME {
-            let sent = tell(&crate::tools::declined());
-            self.line(lineage.session, request, &call.name, called_us, true, sent);
+            let (sent, sent_us) = tell(&crate::tools::declined());
+            self.line(
+                lineage.session,
+                request,
+                &call.name,
+                called_us,
+                sent_us,
+                true,
+                sent,
+            );
             let now = monotonic_us();
             self.named = Some((request, now));
             match self.sounded {
@@ -1669,8 +1687,16 @@ impl ToolDesk {
         match crate::tools::route(&self.settings, &call.name) {
             Route::Clock => {
                 let told = crate::tools::time_now();
-                let sent = tell(&told);
-                self.line(lineage.session, request, &call.name, called_us, true, sent);
+                let (sent, sent_us) = tell(&told);
+                self.line(
+                    lineage.session,
+                    request,
+                    &call.name,
+                    called_us,
+                    sent_us,
+                    true,
+                    sent,
+                );
                 eprintln!(
                     "lamp-voice provider: request {request}: the model asked the time; told {told}"
                 );
@@ -1678,16 +1704,32 @@ impl ToolDesk {
             Route::Decline if self.acted == Some(request) => {
                 // Every call is answered, this one too. What the model
                 // says next is not dropped.
-                let sent = tell(&crate::tools::declined());
-                self.line(lineage.session, request, &call.name, called_us, true, sent);
+                let (sent, sent_us) = tell(&crate::tools::declined());
+                self.line(
+                    lineage.session,
+                    request,
+                    &call.name,
+                    called_us,
+                    sent_us,
+                    true,
+                    sent,
+                );
                 eprintln!(
                     "lamp-voice provider: request {request}: the model said it was not for it after doing what was asked; not taken"
                 );
             }
             Route::Decline => {
                 self.declined = Some(request);
-                let sent = tell(&crate::tools::declined());
-                self.line(lineage.session, request, &call.name, called_us, true, sent);
+                let (sent, sent_us) = tell(&crate::tools::declined());
+                self.line(
+                    lineage.session,
+                    request,
+                    &call.name,
+                    called_us,
+                    sent_us,
+                    true,
+                    sent,
+                );
                 eprintln!(
                     "lamp-voice provider: request {request}: the model said it was not for it"
                 );
@@ -1760,8 +1802,16 @@ impl ToolDesk {
                 match spawned {
                     Ok(_) => self.waiting += 1,
                     Err(_) => {
-                        let sent = tell(&crate::tools::unavailable());
-                        self.line(lineage.session, request, &call.name, called_us, false, sent);
+                        let (sent, sent_us) = tell(&crate::tools::unavailable());
+                        self.line(
+                            lineage.session,
+                            request,
+                            &call.name,
+                            called_us,
+                            sent_us,
+                            false,
+                            sent,
+                        );
                     }
                 }
             }
@@ -1771,8 +1821,16 @@ impl ToolDesk {
             | Route::Tasks(_)
             | Route::Faces(_)
             | Route::Nobody => {
-                let sent = tell(&crate::tools::unavailable());
-                self.line(lineage.session, request, &call.name, called_us, false, sent);
+                let (sent, sent_us) = tell(&crate::tools::unavailable());
+                self.line(
+                    lineage.session,
+                    request,
+                    &call.name,
+                    called_us,
+                    sent_us,
+                    false,
+                    sent,
+                );
                 eprintln!(
                     "lamp-voice provider: request {request} asked for {}, which nobody here runs; told so",
                     call.name
@@ -1784,18 +1842,14 @@ impl ToolDesk {
     /// for a connection that has gone is refused by the supervisor: the
     /// call went with it.
     fn answer<C: Connect>(&mut self, provider: &Supervisor<C>) {
-        self.answer_with(|done| {
-            provider
-                .try_tool_response(done.session, &done.call.id, &done.call.name, &done.told)
-                .is_ok()
-        });
-    }
-    /// As [`Self::answer`], with `send` handing an answer to the connection.
-    fn answer_with(&mut self, mut send: impl FnMut(&Asked) -> bool) {
-        while let Ok(done) = self.answers.try_recv() {
-            self.waiting = self.waiting.saturating_sub(1);
-            let taken = send(&done);
-            eprintln!(
+        self.answer_with(
+            |done| {
+                provider
+                    .try_tool_response(done.session, &done.call.id, &done.call.name, &done.told)
+                    .is_ok()
+            },
+            |done, taken| {
+                eprintln!(
                 "lamp-voice provider: request {} asked for {}; {} {} in {} ms; the answer was {}",
                 done.request,
                 done.call.name,
@@ -1806,29 +1860,49 @@ impl ToolDesk {
                     "did not answer"
                 },
                 done.took.as_millis(),
-                if taken {
-                    "sent"
-                } else {
-                    "not sent: its connection has gone"
-                }
-            );
+                    if taken {
+                        "sent"
+                    } else {
+                        "not sent: its connection has gone"
+                    }
+                );
+            },
+        );
+    }
+    /// As [`Self::answer`], with `send` handing an answer to the connection
+    /// and `log` writing its journal line. The time it was sent is taken
+    /// as it is sent, before the line: a journal that is slow to take it
+    /// is not the call's time (#810 review, 17:23).
+    fn answer_with(
+        &mut self,
+        mut send: impl FnMut(&Asked) -> bool,
+        mut log: impl FnMut(&Asked, bool),
+    ) {
+        while let Ok(done) = self.answers.try_recv() {
+            self.waiting = self.waiting.saturating_sub(1);
+            let taken = send(&done);
+            let sent_us = monotonic_us();
             self.line(
                 done.session,
                 done.request,
                 &done.call.name,
                 done.called_us,
+                sent_us,
                 done.answered,
                 taken,
             );
+            log(&done, taken);
         }
     }
     /// One call answered, kept for the first-output record.
+    #[allow(clippy::too_many_arguments)]
     fn line(
         &mut self,
         session: SessionId,
         request: u64,
         name: &str,
         called_us: u64,
+        sent_us: u64,
         answered: bool,
         sent: bool,
     ) {
@@ -1838,7 +1912,7 @@ impl ToolDesk {
                 request,
                 name: name.to_owned(),
                 called_us,
-                sent_us: monotonic_us(),
+                sent_us,
                 answered,
                 sent,
             });
@@ -2937,10 +3011,13 @@ mod tests {
         desk.waiting = 2;
         let before = monotonic_us();
         let mut sent = Vec::new();
-        desk.answer_with(|done| {
-            sent.push(done.request);
-            done.request == 7
-        });
+        desk.answer_with(
+            |done| {
+                sent.push(done.request);
+                done.request == 7
+            },
+            |_, _| {},
+        );
         assert_eq!(sent, [7, 8]);
         assert_eq!(desk.waiting, 0);
         let lines = desk.take_lines();
@@ -2961,11 +3038,54 @@ mod tests {
                 request,
                 "the_time",
                 1,
+                2,
                 true,
                 true,
             );
         }
         assert_eq!(desk.take_lines().len(), MOST_CALL_LINES);
+    }
+
+    /// The reviewer on #810 (17:23): the time an answer was sent was taken
+    /// after its journal line, so a journal slow to take the line (100 ms
+    /// in their harness) was counted as the call's. It is taken as it is
+    /// sent, before the line.
+    #[test]
+    fn an_answer_is_timed_as_it_is_sent_not_after_its_journal_line() {
+        let mut desk = ToolDesk::new(crate::tools::Settings::default());
+        desk.asked
+            .send(Asked {
+                session: SessionId::new(2).unwrap(),
+                request: 9,
+                call: lamp_gemini::ToolCall {
+                    id: "call-9".into(),
+                    name: "check_agent_task".into(),
+                    args: serde_json::json!({}),
+                },
+                told: serde_json::json!({}),
+                whom: "the tasks part",
+                answered: true,
+                took: Duration::from_millis(40),
+                called_us: 1,
+            })
+            .unwrap();
+        desk.waiting = 1;
+        let mut sent_at = 0;
+        desk.answer_with(
+            |_| {
+                sent_at = monotonic_us();
+                true
+            },
+            // A journal that holds the line a tenth of a second.
+            |_, _| std::thread::sleep(Duration::from_millis(100)),
+        );
+        let line = desk.take_lines().pop().unwrap();
+        assert!(line.sent_us >= sent_at);
+        assert!(
+            line.sent_us - sent_at < 20_000,
+            "sent {} us after the send",
+            line.sent_us - sent_at
+        );
     }
 
     #[test]

@@ -177,7 +177,21 @@ impl Timeline {
     }
 
     /// One line of the result, in milliseconds.
+    /// A request that did not end with the model's turn complete (it timed
+    /// out, the connection ended, or the service left it unanswered) is
+    /// marked failed with how it ended, and its times are kept for reading
+    /// but left out of every median (#810 review, 17:23).
     pub fn result(&self, scripted: &Scripted, round: usize) -> Value {
+        let mut row = self.times(scripted, round);
+        match self.ended {
+            Some(("turn_complete", _)) => {}
+            Some((how, _)) => row["failed"] = json!(how),
+            None => row["failed"] = json!("no_end"),
+        }
+        row
+    }
+
+    fn times(&self, scripted: &Scripted, round: usize) -> Value {
         let ms = |us: Option<u64>| us.map(|us| us as f64 / 1_000.0);
         let after_answer = self
             .audio_after_answer_us
@@ -357,6 +371,33 @@ mod tests {
         assert_eq!(summary["each"]["light"]["as_expected"], 1);
         assert_eq!(summary["each"]["check"]["n"], 0);
         assert!(summary["each"]["check"]["first_audio_ms"].is_null());
+    }
+
+    /// The reviewer on #810 (17:23): a silent session that timed out after
+    /// 14 s, or one whose connection ended, was counted as answered. Only
+    /// a turn the model completed is.
+    #[test]
+    fn a_session_that_times_out_or_whose_connection_ends_is_counted_as_failed() {
+        for how in ["timeout", "connection_ended", "unanswered"] {
+            let mut silent = Timeline::default();
+            silent.ended(how, 14_000_000);
+            let row = silent.result(&SCRIPT[0], 0);
+            assert_eq!(row["failed"], how);
+            let summary = summary(&[row]);
+            assert_eq!(
+                (summary["failed"].clone(), summary["plain"]["n"].clone()),
+                (json!(1), json!(0))
+            );
+            assert_eq!(summary["failed_at"][how], 1);
+            assert_eq!(summary["each"]["plain_fact"]["as_expected"], 0);
+        }
+        let mut never = Timeline::default();
+        never.audio(2_400, 700_000);
+        assert_eq!(never.result(&SCRIPT[0], 0)["failed"], "no_end");
+        let mut answered = Timeline::default();
+        answered.audio(2_400, 700_000);
+        answered.ended("turn_complete", 2_000_000);
+        assert!(answered.result(&SCRIPT[0], 0).get("failed").is_none());
     }
 
     /// After the relay refused new connections at 16:20: a failed session

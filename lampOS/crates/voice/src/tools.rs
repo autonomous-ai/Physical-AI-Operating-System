@@ -411,6 +411,35 @@ pub fn declined() -> Value {
     json!({"ok": true})
 }
 
+/// Run one call on the part its route names, waiting at most
+/// [`ASK_DEADLINE`] where the part takes a deadline. Blocking: for a thread
+/// of its own. Shared by every voice route's worker, so that a call is run
+/// the same way whichever model asked. Returns who answered, in the words
+/// the log uses, with what to tell the model and whether that part answered.
+/// `heard` is false for a request the lamp wrote itself.
+pub fn run_call(
+    route: &Route,
+    call: &ToolCall,
+    request: u64,
+    heard: bool,
+) -> (&'static str, (Value, bool)) {
+    let deadline = ASK_DEADLINE;
+    match route {
+        Route::Memory(socket) => ("the memory", crate::remember::run(socket, call, deadline)),
+        Route::Executive(directory) => ("the executive", ask(directory, call, deadline)),
+        Route::Tasks(place) => (
+            "the tasks part",
+            crate::agent_tasks::run(place, call, request, heard, deadline),
+        ),
+        Route::Schedule(directory) => (
+            "the schedule through the executive",
+            ask_schedule(directory, call, deadline),
+        ),
+        Route::Faces(socket) => ("the eyes", crate::known_faces::run(socket, call)),
+        Route::Decline | Route::Clock | Route::Nobody => ("nobody", (unavailable(), false)),
+    }
+}
+
 /// Ask the executive to run one call and wait at most `deadline` for its
 /// answer, connecting included. Blocking: for a thread of its own. Always
 /// returns what to tell the model; the second value says whether the

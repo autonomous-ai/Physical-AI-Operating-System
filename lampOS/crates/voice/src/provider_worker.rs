@@ -1713,30 +1713,8 @@ impl ToolDesk {
                     .name("lamp-voice-ask".into())
                     .spawn(move || {
                         let started = Instant::now();
-                        let deadline = crate::tools::ASK_DEADLINE;
-                        let (whom, (told, answered)) = match &route {
-                            Route::Memory(socket) => {
-                                ("the memory", crate::remember::run(socket, &work, deadline))
-                            }
-                            Route::Executive(directory) => (
-                                "the executive",
-                                crate::tools::ask(directory, &work, deadline),
-                            ),
-                            Route::Tasks(place) => (
-                                "the tasks part",
-                                crate::agent_tasks::run(place, &work, request, heard, deadline),
-                            ),
-                            Route::Schedule(directory) => (
-                                "the schedule through the executive",
-                                crate::tools::ask_schedule(directory, &work, deadline),
-                            ),
-                            Route::Faces(socket) => {
-                                ("the eyes", crate::known_faces::run(socket, &work))
-                            }
-                            Route::Decline | Route::Clock | Route::Nobody => {
-                                ("nobody", (crate::tools::unavailable(), false))
-                            }
-                        };
+                        let (whom, (told, answered)) =
+                            crate::tools::run_call(&route, &work, request, heard);
                         let _ = asked.send(Asked {
                             session,
                             request,

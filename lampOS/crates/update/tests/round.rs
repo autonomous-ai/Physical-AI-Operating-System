@@ -134,7 +134,7 @@ fn running_binaries(root: &Path) -> Vec<(String, String)> {
     for entry in fs::read_dir(root.join("etc/systemd/system")).unwrap() {
         let entry = entry.unwrap();
         let text = fs::read_to_string(entry.path()).unwrap();
-        if let Some(program) = unit::program(&text) {
+        if let Some(program) = unit::program(&text).or_else(|| unit::linked_program(&text, root)) {
             let path = root
                 .join(program.folder().trim_start_matches('/'))
                 .join(&program.binary);
@@ -166,7 +166,9 @@ struct FakeSystemd {
 impl FakeSystemd {
     fn start(&mut self, unit: &str) {
         let text = fs::read_to_string(self.root.join("etc/systemd/system").join(unit)).unwrap();
-        let program = unit::program(&text).unwrap();
+        let program = unit::program(&text)
+            .or_else(|| unit::linked_program(&text, &self.root))
+            .unwrap();
         let binary = fs::read_to_string(
             self.root
                 .join(program.folder().trim_start_matches('/'))
@@ -984,4 +986,160 @@ fn a_voice_that_is_well_is_put_back_between_two_turns() {
         lamp.read("/etc/systemd/system/lamp-voice.service"),
         voice_unit(&sha("voice 1"))
     );
+}
+
+/// A product part (docs/install.md): started through its `current` link.
+fn eyes_unit() -> String {
+    "# every lamp's eyes\n[Unit]\nDescription=lampOS eyes\n\n[Service]\nExecStart=/opt/lampOS/eyes/current/lamp-eyes --device /dev/video0\nRestart=on-failure\n".into()
+}
+
+impl Lamp {
+    /// lamp-4ace being moved to the product units: its eyes are a product
+    /// part already, running build `text`, while the rest names its build.
+    fn with_linked_eyes(mut self, text: &str) -> Self {
+        let build = sha(text);
+        let folder = self.root.join(format!("opt/lampOS/eyes/{build}"));
+        fs::create_dir_all(&folder).unwrap();
+        fs::write(folder.join("lamp-eyes"), text).unwrap();
+        std::os::unix::fs::symlink(&build, self.root.join("opt/lampOS/eyes/current")).unwrap();
+        fs::write(
+            self.root.join("etc/systemd/system/lamp-eyes.service"),
+            eyes_unit(),
+        )
+        .unwrap();
+        self.systemd.start("lamp-eyes.service");
+        self
+    }
+
+    fn eyes_link(&self) -> String {
+        fs::read_link(self.root.join("opt/lampOS/eyes/current"))
+            .unwrap()
+            .display()
+            .to_string()
+    }
+}
+
+fn build_with_eyes(lamp: &mut Lamp, sequence: u64, voice: &str, eyes: &str) -> Manifest {
+    lamp.publish(
+        sequence,
+        &[
+            ("lamp-voice", voice),
+            ("lamp-turn-end", "turn-end 1"),
+            ("lamp-body", "body 1"),
+            ("lamp-controls", "controls 1"),
+            ("lamp-eyes", eyes),
+        ],
+        &[],
+    )
+}
+
+#[test]
+fn both_kinds_of_part_switch_in_one_round_each_its_own_way() {
+    let mut lamp = Lamp::new().with_linked_eyes("eyes 1");
+    let eyes_unit_before = lamp.read("/etc/systemd/system/lamp-eyes.service");
+    build_with_eyes(&mut lamp, 2, "voice 2", "eyes 2");
+    let outcome = lamp.round();
+    assert_eq!(outcome, Outcome::Switched(2), "{:?}", lamp.said);
+
+    // The voice as today: its unit names the new build.
+    assert_eq!(
+        lamp.read("/etc/systemd/system/lamp-voice.service"),
+        voice_unit(&sha("voice 2"))
+    );
+    // The eyes by their link: the unit's bytes the same, the link moved.
+    assert_eq!(
+        lamp.read("/etc/systemd/system/lamp-eyes.service"),
+        eyes_unit_before
+    );
+    assert_eq!(lamp.eyes_link(), sha("eyes 2"));
+    assert_eq!(lamp.read("/opt/lampOS/eyes/current/lamp-eyes"), "eyes 2");
+    assert!(lamp.exists(&format!("/opt/lampOS/eyes/{}/lamp-eyes", sha("eyes 1"))));
+    // The voice first, then the rest by name; one reload for the voice's unit.
+    assert_eq!(
+        lamp.calls(),
+        [
+            "reload",
+            "restart lamp-voice.service",
+            "restart lamp-eyes.service"
+        ]
+    );
+    // The way back by hand: the link and the build it named.
+    assert_eq!(
+        lamp.read("/var/lib/lampos-update/previous/lamp-eyes.service.link"),
+        format!("/opt/lampOS/eyes/current {}\n", sha("eyes 1"))
+    );
+}
+
+#[test]
+fn a_linked_part_that_dies_is_put_back_by_its_link() {
+    let mut lamp = Lamp::new().with_linked_eyes("eyes 1");
+    build_with_eyes(&mut lamp, 2, "voice 2", "eyes 2, which crashes");
+    let before = lamp.lamp_files();
+    let outcome = lamp.round();
+    assert!(
+        matches!(&outcome, Outcome::RolledBack { sequence: 2, why, after: Ok(()) } if why.contains("lamp-eyes.service")),
+        "{outcome:?}"
+    );
+    assert_eq!(lamp.eyes_link(), sha("eyes 1"));
+    // The voice's unit and the eyes' link both back; the new folders gone.
+    assert_eq!(lamp.lamp_files(), before);
+    assert!(!lamp.exists(&format!(
+        "/opt/lampOS/eyes/{}",
+        sha("eyes 2, which crashes")
+    )));
+}
+
+#[test]
+fn a_link_switch_cut_short_is_put_back_at_the_next_start() {
+    let mut lamp = Lamp::new().with_linked_eyes("eyes 1");
+    // As a switch to build 2 leaves it when the power goes after the link
+    // moved: the journal with the link as it was, the link at the new build.
+    let (old, new) = (sha("eyes 1"), sha("eyes 2"));
+    let records = lamp.root.join("var/lib/lampos-update");
+    fs::create_dir_all(records.join("previous")).unwrap();
+    fs::write(records.join("previous/lamp-eyes.service"), eyes_unit()).unwrap();
+    fs::write(
+        records.join("journal.json"),
+        format!(
+            "{{\"build\":{{\"sequence\":2,\"commit\":\"{}\"}},\"units\":[{{\"unit\":\"lamp-eyes.service\",\"was_active\":true,\"link\":{{\"path\":\"/opt/lampOS/eyes/current\",\"build\":\"{old}\"}}}}]}}",
+            "2".repeat(40)
+        ),
+    )
+    .unwrap();
+    let folder = lamp.root.join(format!("opt/lampOS/eyes/{new}"));
+    fs::create_dir_all(&folder).unwrap();
+    fs::write(folder.join("lamp-eyes"), "eyes 2").unwrap();
+    fs::remove_file(lamp.root.join("opt/lampOS/eyes/current")).unwrap();
+    std::os::unix::fs::symlink(&new, lamp.root.join("opt/lampOS/eyes/current")).unwrap();
+
+    let outcome = lamp.round();
+    assert!(
+        matches!(&outcome, Outcome::RolledBack { sequence: 2, why, after: Ok(()) } if why.contains("cut short")),
+        "{outcome:?}"
+    );
+    assert_eq!(lamp.eyes_link(), old);
+    assert_eq!(
+        lamp.read("/etc/systemd/system/lamp-eyes.service"),
+        eyes_unit()
+    );
+    assert_eq!(lamp.calls(), ["reload", "restart lamp-eyes.service"]);
+    assert!(!lamp.exists("/var/lib/lampos-update/journal.json"));
+}
+
+#[test]
+fn a_linked_part_keeps_its_build_and_the_one_before() {
+    let mut lamp = Lamp::new().with_linked_eyes("eyes 1");
+    for (sequence, eyes) in [(2, "eyes 2"), (3, "eyes 3"), (4, "eyes 4")] {
+        build_with_eyes(&mut lamp, sequence, "voice 1", eyes);
+        assert_eq!(lamp.round(), Outcome::Switched(sequence), "{:?}", lamp.said);
+    }
+    assert_eq!(lamp.eyes_link(), sha("eyes 4"));
+    let folder = |text: &str| format!("/opt/lampOS/eyes/{}", sha(text));
+    // The link's build, and the one the link named before.
+    assert!(lamp.exists(&folder("eyes 4")));
+    assert!(lamp.exists(&folder("eyes 3")));
+    // Made by this program two builds ago: removed.
+    assert!(!lamp.exists(&folder("eyes 2")));
+    // Installed by hand: never removed.
+    assert!(lamp.exists(&folder("eyes 1")));
 }

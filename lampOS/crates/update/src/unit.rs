@@ -7,9 +7,15 @@
 //! build in their place, everywhere the unit names that folder: a part's
 //! files beside its binary (the controls' settings) are named through the
 //! same folder.
+//!
+//! A product part (docs/install.md) is started through a link instead:
+//! `/opt/lampOS/<folder>/current/<binary>`, `current` naming the build's
+//! folder. Changing its build is replacing the link; its unit stays as it is.
 
 /// Where every part is installed.
 pub const INSTALLED: &str = "/opt/lampOS/";
+/// The link a product part is started through.
+pub const CURRENT: &str = "current";
 
 /// The program a unit starts, when it is a part installed by build.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -21,6 +27,9 @@ pub struct Program {
     pub build: String,
     /// The binary's name: `lamp-voice`.
     pub binary: String,
+    /// Started through `current`, which names the build: a switch replaces
+    /// the link and leaves the unit as it is.
+    pub linked: bool,
 }
 
 impl Program {
@@ -73,7 +82,46 @@ pub fn program(text: &str) -> Option<Program> {
         builds: format!("{INSTALLED}{folder}/"),
         build: build.to_owned(),
         binary: binary.to_owned(),
+        linked: false,
     })
+}
+
+/// The folder of its builds and its binary, when the unit's first
+/// `ExecStart=` is `/opt/lampOS/<one folder>/current/lamp-<name>`.
+pub fn linked(text: &str) -> Option<(String, String)> {
+    let line = text
+        .lines()
+        .map(str::trim)
+        .find_map(|line| line.strip_prefix("ExecStart="))?;
+    let command = line.trim_start_matches(['-', '@', ':', '+', '!']);
+    let rest = command.split_whitespace().next()?.strip_prefix(INSTALLED)?;
+    let mut pieces = rest.split('/');
+    let (folder, current, binary) = (pieces.next()?, pieces.next()?, pieces.next()?);
+    (pieces.next().is_none()
+        && current == CURRENT
+        && crate::manifest::is_token(folder)
+        && crate::manifest::is_binary_name(binary))
+    .then(|| (format!("{INSTALLED}{folder}/"), binary.to_owned()))
+}
+
+/// The program of a linked unit on a lamp: the build is where its
+/// `current` link points, which must be a build's name (64 hex).
+pub fn linked_program(text: &str, root: &std::path::Path) -> Option<Program> {
+    let (builds, binary) = linked(text)?;
+    let link = root.join(builds.trim_start_matches('/')).join(CURRENT);
+    let target = std::fs::read_link(link).ok()?;
+    let build = target.to_str()?;
+    (build.len() == 64 && crate::manifest::is_lower_hex(build)).then(|| Program {
+        builds,
+        build: build.to_owned(),
+        binary,
+        linked: true,
+    })
+}
+
+/// A part's `current` link, as the lamp names it: `/opt/lampOS/voice/current`.
+pub fn current(builds: &str) -> String {
+    format!("{builds}{CURRENT}")
 }
 
 /// The unit with its program's folder at `build` instead: every place it

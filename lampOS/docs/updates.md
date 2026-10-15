@@ -213,13 +213,21 @@ and the job fails without moving the head.
    less: refused), and it must not be a build put back on this lamp before.
 4. **What changes.** A part is a unit in `/etc/systemd/system` named
    `lamp-<name>.service`, a file and not a link, whose `ExecStart=` starts
-   `/opt/lampOS/<folder>/<64 hex>/lamp-<name>`. lamp-update's own unit is
-   never one. For each part whose binary the build carries:
+   `/opt/lampOS/<folder>/<64 hex>/lamp-<name>` (a part that names its
+   build, as on lamp-4ace and lamp-52e6), or
+   `/opt/lampOS/<folder>/current/lamp-<name>` with `current` a link to a
+   build's folder (a product part, [install.md](install.md): its build is
+   where the link points). A lamp being moved to the product units has both
+   for a while, and one round switches each its own way.
+   lamp-update's own unit is never one. For each part whose binary the build
+   carries:
    - **its unit**: the build's copy from this lamp's own folder
      (`deploy/<lamp>/<unit>`, the lamp being `--lamp`, or its host name) if
-     the build carries one, else the lamp's own. Either way the build's
-     folder is written in everywhere the unit names its folder (so the
-     controls' `--config` follows too).
+     the build carries one, else the lamp's own. For a part that names its
+     build, the build's folder is written in everywhere the unit names its
+     folder (so the controls' `--config` follows too). A product part's unit
+     names no build and is left as it is, unless the build carries another;
+     what moves is its link.
    - **its folder's files**: every file beside its binary now goes to the
      new folder: the build's version of any binary the build carries (the
      voice's `lamp-turn-end`), the old file otherwise (a model, a library,
@@ -256,8 +264,11 @@ and the job fails without moving the head.
    No quiet moment within `--quiet-wait-s` (3600): the new folders stay
    installed beside, nothing is switched, status 4, and the next round tries
    again.
-8. **Switch.** The units as they are and the journal are written; then the
-   new units, and `systemctl daemon-reload`. Quiet is asked once more: if
+8. **Switch.** The units as they are, each moved link with the build it
+   names, and the journal are written; then the new units (a product part's
+   only if the build changed it), `systemctl daemon-reload`, and each
+   product part's `current` replaced whole: a new link made beside as
+   `.current.lamp-update`, renamed over it, the folder synced. Quiet is asked once more: if
    someone spoke meanwhile, the old units go back and nothing is restarted.
    Then each changed unit that was running is restarted: the voice first,
    at the quiet moment itself; the body; then the rest by name. A unit that
@@ -269,14 +280,15 @@ and the job fails without moving the head.
    there again, not stale, and not in error unless it was before. A part
    that never reported is judged by systemd alone.
 10. **Back.** A part not well: every changed unit is written back as it
-    was, reloaded, and those restarted are restarted again in the reverse
+    was, reloaded, every moved link named its old build again (replaced
+    whole, as at the switch), and those restarted are restarted again in the reverse
     order: the voice last, and, unless the voice is what failed, only
     between two turns (resting, nothing heard or said for 5 s; at once if
     its state cannot be seen). They are watched again, the outcome says how
     the previous build is, and the build is refused from then on.
 11. **After.** Switched or put back, the folders this program made that no
-    unit names now, nor any unit as it was before the last switch, are
-    removed: the lamp keeps its build and the one before. A folder it did
+    unit or link names now, nor any unit or link as it was before the last
+    switch, are removed: the lamp keeps its build and the one before. A folder it did
     not make (every one installed by hand) is never removed.
 
 ### The commands
@@ -285,12 +297,15 @@ and the job fails without moving the head.
 lamp-update check|once|serve --channel-url URL [--channel NAME] [--key-file PATH] [--lamp NAME]
                              [--apply on|off] [--every-s N] [--quiet-wait-s N] [--watch-s N]
                              [--keep-free-mb N] [--root DIR] [--bus-root DIR]
+lamp-update install --channel-url URL [--channel NAME] [--key-file PATH]
 lamp-update manifest --binaries DIR --deploy DIR --channel NAME --sequence N --commit SHA --files-url URL
 lamp-update sign --key-file PRIVATE --manifest FILE --out FILE
 lamp-update public-key --key-file PRIVATE
 ```
 
-`check` never writes, whatever `--apply` says. `once` and `check` end with
+`install` puts lampOS on a blank lamp from the newest build: every product
+part through its `current` link, the product units, users and zone, enabled
+and not started ([install.md](install.md)). `check` never writes, whatever `--apply` says. `once` and `check` end with
 0 (up to date, switched, or only saying), 1 (refused, put back, failed), 3
 (the channel cannot be reached), 4 (no quiet moment); a wrong option with 2.
 `serve` prints a round's outcome only when it differs from the last. The
@@ -307,8 +322,10 @@ records writable, `Nice=10` and idle I/O, not part of `lampos.target`.
 In `/var/lib/lampos-update/` (`records.rs`), each written whole:
 `state.json` (the build the lamp runs and the one before, up to 32 builds
 refused with why, the folders made), `journal.json` (only while a switch is
-under way), `previous/` (the units before the last switch: the way back by
-hand), `log.jsonl` (one line per round that acted, past 1 MiB begun again
+under way; for a product part it holds the link and the build it named, so
+a switch cut short is put back by the link too), `previous/` (the units
+before the last switch, and for each product part `<unit>.link`, one line:
+the link and the build it named; the way back by hand), `log.jsonl` (one line per round that acted, past 1 MiB begun again
 with one old file kept) and `lock`. Every line it says also goes to its
 journal (`journalctl -u lamp-update`).
 
@@ -318,8 +335,24 @@ To go back by hand to the build before the last switch:
 sudo systemctl stop lamp-update
 sudo cp /var/lib/lampos-update/previous/*.service /etc/systemd/system/
 sudo systemctl daemon-reload
+# each product part: point its link back, replaced whole
+cat /var/lib/lampos-update/previous/*.link | while read -r link build; do
+  sudo ln -sfn "$build" "$link.back" && sudo mv -T "$link.back" "$link"
+done
 sudo systemctl restart lamp-voice lamp-body   # each unit in previous/ that was running
 ```
+
+### lamp-update's own build on a product lamp
+
+A round never switches lamp-update itself (`lamp-update.service` is never
+a part), on either kind of lamp. On a product lamp its unit also runs
+through `/opt/lampOS/update/current/`. It moves to its own newer build only
+when `lamp-update install` is run again, which installs every product
+part's newest build beside the old and moves each link, its own among them,
+without restarting anything; the new updater runs from its next start.
+Replacing the link under a running updater is safe on Linux: the program
+already running stays mapped. A round that switches the updater itself, at
+the end of a switch and watched like a part, is not built.
 
 ## What was measured, and where
 
@@ -344,6 +377,14 @@ On the development Mac (Intel, macOS 26.6, Rust 1.96.0), not on a lamp:
   made two builds ago removed and the one installed by hand kept; a part
   whose folder is gone installed afresh; a voice that is well put back only
   5 s after the last word.
+- With product parts (task #811, `cargo test -p lamp-update --test round`,
+  19 rounds): a lamp with both kinds switched in one round, the voice by its
+  unit and the eyes by their link, the eyes' unit byte for byte the same; a
+  product part that dies put back by its link, the lamp byte for byte as
+  before; a link switch cut short put back at the next start; a product part
+  keeping its build and the one before, the one two builds ago removed and
+  the one installed by hand kept. With the link never moved on purpose,
+  those four fail and the other fifteen pass.
 - The real HTTPS path, once, by hand (the ignored test
   `a_release_file_from_github`): 646 bytes of this repository's
   `models/ambernet` release, through GitHub's redirect to

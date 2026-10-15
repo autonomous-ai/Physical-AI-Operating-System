@@ -77,7 +77,24 @@ pub struct Switching {
     pub unit: String,
     /// It ran before the switch: it is started again on its way back.
     pub was_active: bool,
+    /// A part started through its `current` link: the link, and the build
+    /// it named before the switch, to name again on the way back.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub link: Option<LinkBack>,
 }
+
+/// A `current` link as it was before a switch.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct LinkBack {
+    /// As the lamp names it: `/opt/lampOS/voice/current`.
+    pub path: String,
+    /// The build it named: 64 hex.
+    pub build: String,
+}
+
+/// The name of a link kept in `previous/`: `<unit>.link`, holding
+/// `<link path> <build>`, for going back by hand (docs/updates.md).
+pub const LINK_SUFFIX: &str = ".link";
 
 /// A switch under way.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -111,6 +128,22 @@ pub fn write_whole(path: &Path, bytes: &[u8], mode: u32) -> io::Result<()> {
     }
     fs::rename(&beside, path)?;
     sync_folder(path.parent().unwrap_or(Path::new("/")))
+}
+
+/// Points the link at `path` to `target`, replaced whole: a new link made
+/// beside under a temporary name, renamed over it, the folder synced. A
+/// link that already names `target` is left as it is.
+pub fn replace_link(path: &Path, target: &str) -> io::Result<()> {
+    if fs::read_link(path).is_ok_and(|now| now == Path::new(target)) {
+        return Ok(());
+    }
+    let beside = path.with_file_name(".current.lamp-update");
+    if fs::symlink_metadata(&beside).is_ok() {
+        fs::remove_file(&beside)?;
+    }
+    std::os::unix::fs::symlink(target, &beside)?;
+    fs::rename(&beside, path)?;
+    sync_parent(path)
 }
 
 pub fn sync_folder(folder: &Path) -> io::Result<()> {
@@ -245,7 +278,27 @@ impl Records {
             .into_iter()
             .flatten()
             .flatten()
+            .filter(|entry| !entry.file_name().to_string_lossy().ends_with(LINK_SUFFIX))
             .filter_map(|entry| fs::read_to_string(entry.path()).ok())
+            .collect()
+    }
+
+    /// Every `current` link kept from before the last switch: its path and
+    /// the build it named, from `previous/<unit>.link` (one line each).
+    pub fn previous_links(&self) -> Vec<LinkBack> {
+        fs::read_dir(self.folder.join("previous"))
+            .into_iter()
+            .flatten()
+            .flatten()
+            .filter(|entry| entry.file_name().to_string_lossy().ends_with(LINK_SUFFIX))
+            .filter_map(|entry| fs::read_to_string(entry.path()).ok())
+            .filter_map(|text| {
+                let (path, build) = text.trim().split_once(' ')?;
+                Some(LinkBack {
+                    path: path.to_owned(),
+                    build: build.to_owned(),
+                })
+            })
             .collect()
     }
 
@@ -303,13 +356,32 @@ mod tests {
 
         let journal = Journal {
             build,
-            units: vec![Switching {
-                unit: "lamp-voice.service".into(),
-                was_active: true,
-            }],
+            units: vec![
+                Switching {
+                    unit: "lamp-voice.service".into(),
+                    was_active: true,
+                    link: None,
+                },
+                Switching {
+                    unit: "lamp-body.service".into(),
+                    was_active: true,
+                    link: Some(LinkBack {
+                        path: "/opt/lampOS/body/current".into(),
+                        build: "b".repeat(64),
+                    }),
+                },
+            ],
         };
         records.save_journal(&journal).unwrap();
         assert_eq!(records.journal().unwrap(), Some(journal));
+        records.clear_journal().unwrap();
+        // A journal written before links were kept reads as one without a link.
+        fs::write(
+            records.folder().join("journal.json"),
+            r#"{"build":{"sequence":7,"commit":"c"},"units":[{"unit":"lamp-voice.service","was_active":true}]}"#,
+        )
+        .unwrap();
+        assert_eq!(records.journal().unwrap().unwrap().units[0].link, None);
         records.clear_journal().unwrap();
         assert_eq!(records.journal().unwrap(), None);
 

@@ -300,6 +300,16 @@ Two of the voice's start-up failures, found on lamp-52e6 and lamp-4ace on
   messages and every data message keep the 100 ms bound, and a refused message
   names its socket (for example `capture.c.p: stale, …`). A receiver held up
   later in its run is #784's (`HELD_UP_US`), separate from this.
+- **A late privacy observation while the voice waits to open.** lamp-4ace's
+  power cut at 18:15 ended the voice at 13.56 s with "invalid or stale
+  privacy observation while waiting", while every other part was starting.
+  The privacy worker reads the mute switch every 5 ms and an observation is
+  fresh for 50 ms (`PRIVACY_FRESH_US`); one read late by a busy boot was
+  fatal. Every clock on this path is `CLOCK_MONOTONIC`, so the wall clock
+  being set by NTP after the cut does not enter it. While nothing is open, a
+  late observation now only keeps the gate closed; the wait ends only when
+  no fresh observation has come for 1 s (`UNAVAILABLE_WAIT`). The gate's own
+  rules are unchanged: only fresh, ordered, stable observations open it.
 
 Not found yet: the power cut's first exit (exit 1 at 19.8 s, with no message
 of its own) and the provider's "Connection refused" at 24.7 s; that boot's

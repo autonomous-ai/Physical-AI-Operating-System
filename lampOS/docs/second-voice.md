@@ -49,6 +49,17 @@ refused (unknown fields are refused).
 
 The fallback is V1's: an empty or absent STT or TTS URL or key is the LLM's.
 
+Two of V1's values do not carry over as they are. Read from lamp-52e6's V1
+`config.json` on 2026-10-15 (endpoints only):
+
+- `llm_model` is `Auto-AI`, which the company relay serves only on its
+  Anthropic-messages route; its `/chat/completions` answers 404 for it. Set
+  an OpenAI chat model there instead: `gpt-4.1-mini` answered through the
+  relay (first byte 0.32 s from the lamp, one probe).
+- `tts_provider` is `gemini`, which this route does not take (it would fail
+  with Gemini). Set `openai`: the relay's `/audio/speech` answered with 24
+  kHz PCM (first byte 0.21 s, one probe).
+
 Rules the loader keeps (`load_from_path`):
 
 - The JSON file and every credential file are bounded regular files owned
@@ -177,9 +188,8 @@ When the coordinator switches (below):
   `tools::run_call`, the one function the Gemini worker also uses
   (`ToolDesk::called`), so the light, schedule, memory, tasks and eyes
   behave the same. The Gemini worker's log line ("request N asked for X;
-  the tasks part answered in N ms; ...") is unchanged; this route logs
-  "lamp-voice: request N asked for X; the tasks part answered" (or "did not
-  answer").
+  the tasks part answered in N ms; ...") is unchanged; this route logs the
+  same words after "lamp-voice second:", ending "the answer was sent".
 - `LAMP_MEMORY_DAYS=on` reaches this worker as it reaches the Gemini one
   (`process.rs`).
 

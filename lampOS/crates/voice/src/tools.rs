@@ -421,15 +421,18 @@ pub fn answer(settings: &Settings, call: &ToolCall, request: u64, heard: bool) -
             if keeps_out(&route, &call.name) {
                 crate::remember::keep_out(request);
             }
+            let began = std::time::Instant::now();
             let (whom, (told, answered)) = run_call(&route, call, request, heard);
+            // Worded as the Live route's line, which is read on the lamp.
             eprintln!(
-                "lamp-voice: request {request} asked for {}; {whom} {}",
+                "lamp-voice second: request {request} asked for {}; {whom} {} in {} ms; the answer was sent",
                 call.name,
                 if answered {
                     "answered"
                 } else {
                     "did not answer"
-                }
+                },
+                began.elapsed().as_millis()
             );
             told
         }

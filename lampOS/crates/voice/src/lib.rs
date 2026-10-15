@@ -52,6 +52,7 @@ pub mod second_config;
 pub mod second_look;
 pub mod second_provider;
 pub mod session_fact;
+pub mod short_turns;
 pub mod sight;
 pub mod speak_up;
 pub mod task_news;

@@ -230,6 +230,44 @@ The switch stays on (it answers no noise), and short words are parked
 until the V2 MVP works end to end (the owner, 2026-10-15: "wide first.
 deep later"). Next time: with a person at the lamp, in view.
 
+## A room sound let through and answered (#800)
+
+On lamp-52e6 on 2026-10-15 at 13:03 (#775's verification, turn 6) a room
+sound of about 0.7 s was admitted (`directed_session_duplex`, which with
+`--turn-taking duplex` is the basis of every admission, not a judgement),
+ended by the silence fallback (`silence_fallback`, `short`: fewer than 80
+blocks of speech never reach Smart Turn), transcribed as a one-word question
+in Spanish, and answered 1.9 s later. Nobody had spoken to the lamp. The
+seventh builder saw the same sound answered all day there.
+
+Why it went through: with `LAMP_SHORT_SOUNDS=quiet-room` a sound (fewer
+than 30 speech blocks, not over the lamp, not within 4 s of its own words) is
+sent on, marked `sound`, whenever the room is not busy, and "busy" is only
+the last three turns gone unanswered within 30 s (`body_link::Attention`).
+Nothing after that looks at what was heard: the busy-room rule
+(`attention.rs`, `first_output_busy`) plays in any room not known to be
+busy, and the check on the answer's own words passes any text with a
+letter in it.
+
+**Counting it on a lamp's records:**
+
+    lamp-voice short-turns SESSIONS
+
+reads the session records under SESSIONS (`<session>/metadata/events-*.jsonl`)
+and prints one line for every short turn (`crates/voice/src/short_turns.rs`):
+one let through as a sound (`let_through_as_sound`), one thrown out as a
+sound (`not_speech`), and any other with fewer than 80 speech blocks. Each
+line has its speech in ms, its median and upper-tenth level, how its end was
+decided, whether an answer reached the speaker and how the turn ended, and
+what was heard as kinds only: how many words, whether it was whole one of
+the short things people say to the lamp (`short_turns::SHORT_WORDS`: "yes",
+"stop", "what", "go ahead", …), and whether it had marks English does not
+(`¿`, `¡`, an accented letter). Never the words. A heard text (the
+session's input transcript) is joined to the turn admitted last before it.
+Then counts: let through, let through and answered, and of those how many
+were heard as a short word, with other marks, or as nothing; thrown out;
+short and taken as said, and answered.
+
 ## An answer with no word in it
 
 Told to stay quiet, the model sometimes says so aloud: an answer whose

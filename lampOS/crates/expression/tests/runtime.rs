@@ -46,7 +46,12 @@ fn voice(at_us: u64) -> VoiceTiming {
     }
 }
 
-fn populate(bus: &Bus, at_us: u64) {
+/// Publishes the fixture's inputs and returns the wall clock just after:
+/// a test steps with it, so a loaded machine's delay before the step cannot
+/// age them past their freshness (#844 review). The joints go last: theirs is
+/// the shortest limit (500 ms), so a stall between publishes ages only inputs
+/// allowed 2 s.
+fn populate(bus: &Bus, at_us: u64) -> u64 {
     let joints = JointState {
         name: ["base_yaw", "shoulder", "elbow", "head_roll", "head_pitch"]
             .map(str::to_owned)
@@ -56,10 +61,6 @@ fn populate(bus: &Bus, at_us: u64) {
         effort: vec![0.; 5],
         commanded: vec![0.; 5],
     };
-    bus.publisher_declared(JointState::TOPIC, &JointState::declaration(), "body")
-        .unwrap()
-        .publish_json(7, &joints)
-        .unwrap();
     bus.publisher_declared(Light::TOPICS[0], &Light::declaration(), "actions")
         .unwrap()
         .publish_json(900_000_000, &Light::new(true, "warm", 2).unwrap())
@@ -68,15 +69,20 @@ fn populate(bus: &Bus, at_us: u64) {
         .unwrap()
         .publish_json(5, &voice(at_us))
         .unwrap();
+    bus.publisher_declared(JointState::TOPIC, &JointState::declaration(), "body")
+        .unwrap()
+        .publish_json(7, &joints)
+        .unwrap();
+    runtime::unix_ms()
 }
 
 #[test]
 fn shadow_mode_has_diagnostics_but_never_an_actuator_request() {
     let root = Root::new();
     let bus = Bus::new(&root.0).unwrap();
-    populate(&bus, 10_000_000);
+    let wall = populate(&bus, 10_000_000);
     let mut service = runtime::Service::new(&bus, Catalogue::builtin(), false, "test").unwrap();
-    let output = service.step(|| 10_000_000, runtime::unix_ms());
+    let output = service.step(|| 10_000_000, wall);
     assert!(output.body.is_none() && output.light.is_none());
     assert!(!output.state.enabled);
     assert!(bus.latest(ExpressionBody::TOPIC).unwrap().is_none());
@@ -95,9 +101,9 @@ fn shadow_mode_has_diagnostics_but_never_an_actuator_request() {
 fn enabled_output_uses_a_new_session_and_expires_after_input_loss() {
     let root = Root::new();
     let bus = Bus::new(&root.0).unwrap();
-    populate(&bus, 10_000_000);
+    let wall = populate(&bus, 10_000_000);
     let mut service = runtime::Service::new(&bus, Catalogue::builtin(), true, "test").unwrap();
-    let output = service.step(|| 10_000_000, runtime::unix_ms());
+    let output = service.step(|| 10_000_000, wall);
     let body = output.body.expect("fresh voice and joints");
     body.check().unwrap();
     let light = output.light.expect("fresh light setting");
@@ -106,15 +112,15 @@ fn enabled_output_uses_a_new_session_and_expires_after_input_loss() {
     assert_eq!(body.lease.session_id, light.lease.session_id);
     assert_eq!(body.lease.clock_id, "test");
     assert!(body.lease.valid_until_us <= 10_200_000);
-    let expired = service.step(|| 12_000_000, runtime::unix_ms() + 2_000);
+    let expired = service.step(|| 12_000_000, wall + 2_000);
     assert!(expired.body.is_none() && expired.light.is_none());
     drop(service);
     let mut restarted = runtime::Service::new(&bus, Catalogue::builtin(), true, "test").unwrap();
     // Kept old voice and joints cannot acquire authority after a restart.
-    let empty = restarted.step(|| 12_000_000, runtime::unix_ms() + 2_000);
+    let empty = restarted.step(|| 12_000_000, wall + 2_000);
     assert!(empty.body.is_none() && empty.light.is_none());
-    populate(&bus, 12_100_000);
-    let fresh = restarted.step(|| 12_100_000, runtime::unix_ms());
+    let wall = populate(&bus, 12_100_000);
+    let fresh = restarted.step(|| 12_100_000, wall);
     assert_ne!(fresh.body.unwrap().lease.session_id, body.lease.session_id);
 }
 
@@ -233,7 +239,7 @@ fn slow_input_draining_does_not_make_old_joints_fresh() {
     let root = Root::new();
     let bus = Bus::new(&root.0).unwrap();
     let mut service = runtime::Service::new(&bus, Catalogue::builtin(), true, "test").unwrap();
-    populate(&bus, 10_000_000);
+    let wall = populate(&bus, 10_000_000);
     let clock = std::cell::Cell::new(10_000_000_u64);
     let output = service.step(
         || {
@@ -241,7 +247,7 @@ fn slow_input_draining_does_not_make_old_joints_fresh() {
             clock.set(at + 100_000);
             at
         },
-        runtime::unix_ms(),
+        wall,
     );
     // Voice is still under its 500 ms limit, but joints are over their 300 ms
     // limit. Stamping them at receive time would wrongly issue a body command.
@@ -517,6 +523,12 @@ mod sleep_name {
                     },
                 )
                 .unwrap();
+            self.faces
+                .publish_json(987_654_321, &Faces { faces: vec![] })
+                .unwrap();
+            self.room
+                .publish_json(987_654_321, &RoomState { state: Room::Quiet })
+                .unwrap();
             self.joints
                 .publish_json(
                     987_654_321,
@@ -531,13 +543,10 @@ mod sleep_name {
                     },
                 )
                 .unwrap();
-            self.faces
-                .publish_json(987_654_321, &Faces { faces: vec![] })
-                .unwrap();
-            self.room
-                .publish_json(987_654_321, &RoomState { state: Room::Quiet })
-                .unwrap();
-            let output = self.service.step(|| self.now_us, runtime::unix_ms());
+            // The wall clock just after publishing, joints last, as
+            // `populate` gives it.
+            let wall = runtime::unix_ms();
+            let output = self.service.step(|| self.now_us, wall);
             assert_eq!(self.service.counts.refused, 0);
             assert_eq!(self.service.counts.input_errors, 0);
             output
@@ -671,13 +680,13 @@ fn keeper(bus: &Bus) -> lamp_bus::Publisher {
 fn paused_by_the_keeper_nothing_is_asked_of_the_body_or_the_light_until_resumed() {
     let root = Root::new();
     let bus = Bus::new(&root.0).unwrap();
-    populate(&bus, 10_000_000);
+    let wall = populate(&bus, 10_000_000);
     let mut keeper = keeper(&bus);
     keeper
         .publish_json(1, &lamp_msgs::Pause { paused: true })
         .unwrap();
     let mut service = runtime::Service::new(&bus, Catalogue::builtin(), true, "test").unwrap();
-    let paused = service.step(|| 10_000_000, runtime::unix_ms());
+    let paused = service.step(|| 10_000_000, wall);
     assert!(paused.body.is_none() && paused.light.is_none());
     assert!(bus.latest(ExpressionBody::TOPIC).unwrap().is_none());
     assert!(bus.latest(ExpressionLight::TOPIC).unwrap().is_none());
@@ -686,8 +695,8 @@ fn paused_by_the_keeper_nothing_is_asked_of_the_body_or_the_light_until_resumed(
         .unwrap();
     // The pause is looked at once a second, as the body looks at it.
     std::thread::sleep(std::time::Duration::from_millis(1_100));
-    populate(&bus, 10_100_000);
-    let resumed = service.step(|| 10_100_000, runtime::unix_ms());
+    let wall = populate(&bus, 10_100_000);
+    let resumed = service.step(|| 10_100_000, wall);
     assert!(resumed.body.is_some() && resumed.light.is_some());
     assert!(bus.latest(ExpressionBody::TOPIC).unwrap().is_some());
     assert!(bus.latest(ExpressionLight::TOPIC).unwrap().is_some());
@@ -700,14 +709,14 @@ fn without_a_pause_said_expression_asks_exactly_as_before() {
     let asked = |said: Option<bool>| {
         let root = Root::new();
         let bus = Bus::new(&root.0).unwrap();
-        populate(&bus, 10_000_000);
+        let wall = populate(&bus, 10_000_000);
         if let Some(paused) = said {
             keeper(&bus)
                 .publish_json(1, &lamp_msgs::Pause { paused })
                 .unwrap();
         }
         let mut service = runtime::Service::new(&bus, Catalogue::builtin(), true, "test").unwrap();
-        let output = service.step(|| 10_000_000, runtime::unix_ms());
+        let output = service.step(|| 10_000_000, wall);
         let mut body = serde_json::to_value(output.body.expect("a body request")).unwrap();
         let mut light = serde_json::to_value(output.light.expect("a light request")).unwrap();
         body["lease"].take();

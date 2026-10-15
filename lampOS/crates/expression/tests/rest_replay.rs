@@ -636,7 +636,6 @@ fn real_service_subscribes_to_exactly_one_complete_voice_protocol() {
             row["input"]["stamp"]["at_us"] = 10_000_000.into();
         }
         for (kind, topic, declaration) in [
-            ("joints", JointState::TOPIC, JointState::declaration()),
             ("room", RoomState::TOPIC, RoomState::declaration()),
             ("light", Light::TOPICS[0], Light::declaration()),
         ] {
@@ -695,7 +694,19 @@ fn real_service_subscribes_to_exactly_one_complete_voice_protocol() {
                 .publish_json(4, &payload)
                 .unwrap();
         }
-        let output = service.step(|| 10_000_000, runtime::unix_ms());
+        // The joints last (their limit is 500 ms, the others' 2 s), and the
+        // wall clock just after: a loaded machine's delay between publishes
+        // or before the step cannot age the fixture past its freshness.
+        let joints = &source
+            .iter()
+            .find(|row| row["input"]["kind"] == "joints")
+            .unwrap()["input"]["value"];
+        bus.publisher_declared(JointState::TOPIC, &JointState::declaration(), "fixture")
+            .unwrap()
+            .publish_json(13, joints)
+            .unwrap();
+        let wall = runtime::unix_ms();
+        let output = service.step(|| 10_000_000, wall);
         assert_eq!(service.counts.accepted, 5);
         assert_eq!(service.counts.refused, 0);
         assert!(output.body.is_some() && output.light.is_some());

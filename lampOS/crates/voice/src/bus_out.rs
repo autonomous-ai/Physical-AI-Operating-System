@@ -12,8 +12,9 @@
 //!   changes, and once a second so that a subscriber can tell a voice that
 //!   is resting from one that has gone.
 //! - `voice/heard`: the provider's text of what a person said, in pieces as
-//!   it comes. Between things said the voice says once a second that it is
-//!   still there, on this topic and the next.
+//!   it comes, with the number of the turn whose input began last before
+//!   it. Between things said the voice says once a second that it is still
+//!   there, on this topic and the next.
 //! - `voice/said`: the provider's text of what the lamp said, with the
 //!   number of the request it answered.
 //!
@@ -330,6 +331,9 @@ pub struct BusOut {
     /// speech service has been down.
     reported_at_us: Option<u64>,
     down_since_us: Option<u64>,
+    /// The turn whose input began last, if one has: what is heard is told
+    /// as that turn's.
+    heard_in: Option<u64>,
 }
 
 impl BusOut {
@@ -362,7 +366,13 @@ impl BusOut {
             last: None,
             reported_at_us: None,
             down_since_us: None,
+            heard_in: None,
         })
+    }
+
+    /// The service began to take in the person's words for turn `request`.
+    pub fn input_started(&mut self, request: u64) {
+        self.heard_in = Some(request);
     }
 
     /// The phase of the turn that owns the lamp, or none between turns.
@@ -412,22 +422,33 @@ impl BusOut {
         let _ = self.health.publish_json(now_us, &health(link_up, down_for));
     }
 
-    /// A piece of the provider's text: of the lamp's answer to `request`,
-    /// or with none of what a person said.
-    pub fn speech(&mut self, request: Option<u64>, text: &str, finished: bool, now_us: u64) {
-        let to = match request {
-            Some(_) => &mut self.said,
-            None => &mut self.heard,
-        };
-        let _ = to.publish_json(
-            now_us,
-            &Speech {
-                text: text.to_owned(),
-                finished,
-                locale: None,
-                request,
-            },
-        );
+    /// A piece of the provider's text of what a person said, with the turn
+    /// it was heard in: the one whose input began last
+    /// ([`Self::input_started`]), if one has. The service does not say which
+    /// turn its text of what was heard is of; a piece it writes only after
+    /// the next turn's input began is taken as that next turn's. The
+    /// Policy's decision about the words carries the number, and the lamp's
+    /// actions are paired with it (`crate::policy_holds`).
+    pub fn heard(&mut self, text: &str, finished: bool, now_us: u64) {
+        let _ = self
+            .heard
+            .publish_json(now_us, &speech(self.heard_in, text, finished));
+    }
+
+    /// A piece of the provider's text of the lamp's answer to `request`.
+    pub fn said(&mut self, request: u64, text: &str, finished: bool, now_us: u64) {
+        let _ = self
+            .said
+            .publish_json(now_us, &speech(Some(request), text, finished));
+    }
+}
+
+fn speech(request: Option<u64>, text: &str, finished: bool) -> Speech {
+    Speech {
+        text: text.to_owned(),
+        finished,
+        locale: None,
+        request,
     }
 }
 
@@ -691,13 +712,22 @@ mod tests {
             .subscribe_typed("voice/said", "s", Speech::TYPE)
             .unwrap();
         std::thread::sleep(Duration::from_millis(250));
-        out.speech(None, "How do I take my coffee?", true, 1);
-        out.speech(Some(7), "Black.", false, 2);
+        // Before any turn's input began, then in turn 7's, then in 8's.
+        out.heard("Hm.", true, 1);
+        out.input_started(7);
+        out.heard("How do I take my coffee?", true, 2);
+        out.said(7, "Black.", false, 3);
+        out.input_started(8);
+        out.heard("Thanks.", true, 4);
+        let before: Speech = heard.recv(WAIT).unwrap().unwrap().parse().unwrap();
+        assert_eq!((before.text.as_str(), before.request), ("Hm.", None));
         let person: Speech = heard.recv(WAIT).unwrap().unwrap().parse().unwrap();
         assert_eq!(
             (person.text.as_str(), person.finished, person.request),
-            ("How do I take my coffee?", true, None)
+            ("How do I take my coffee?", true, Some(7))
         );
+        let next: Speech = heard.recv(WAIT).unwrap().unwrap().parse().unwrap();
+        assert_eq!((next.text.as_str(), next.request), ("Thanks.", Some(8)));
         let lamp: Speech = said.recv(WAIT).unwrap().unwrap().parse().unwrap();
         assert_eq!(
             (lamp.text.as_str(), lamp.finished, lamp.request),
@@ -792,9 +822,9 @@ mod tests {
         let (bus, root) = bus("gone");
         let mut out = BusOut::on(&bus).unwrap();
         out.state(None, 0);
-        out.speech(None, "anyone?", true, 1);
+        out.heard("anyone?", true, 1);
         std::fs::remove_dir_all(&root).unwrap();
         out.state(Some(RingPhase::Speaking), 2);
-        out.speech(Some(1), "still talking", true, 3);
+        out.said(1, "still talking", true, 3);
     }
 }

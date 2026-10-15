@@ -882,16 +882,19 @@ five minutes", said to someone else, set a five-minute timer; the first
 builder on #908), waits for the Policy's attention decision about its turn:
 - **The turn's decision** is an attention decision the Policy publishes
   for real (`policy/decisions`, `about` `attention`, `shadow` false:
-  `lamp-policy --act attention`). The Policy's decisions carry no request
-  of the voice's yet, so they are paired with turns in order: each turn
-  someone spoke in is noted as the worker ends its sound, and a decision
-  taken (on any tick, an action waiting or not) is that turn's only when it
-  is the **one** turn waiting for one. With two or more waiting, which it
-  judged is not known: every turn waiting is then **ambiguous**, and its
-  action runs as without the switch, logged so. A late decision about the
-  turn before therefore never releases, nor holds, this turn's action (the
-  reviewer on #908). A turn with no decision within 3 s of its end (nothing
-  heard in it to judge) is let go, so that it never takes a later turn's.
+  `lamp-policy --act attention`) about the turn **by its number**
+  (`Decision.request`). The voice tells each piece of what it heard on
+  `voice/heard` with the number of the turn whose input began last before
+  the piece came (`crates/voice/src/bus_out.rs`), the same turn the
+  voice's own rule takes it for; the Policy's decision carries the number
+  of the newest piece it judged. So a decision is its own turn's however
+  late it comes, and never another's: a late decision about the turn
+  before neither releases nor holds this turn's action (the reviewer on
+  #908). A decision without a number is nobody's; of two about one turn
+  (its words judged in two pieces), the newer counts. Where the number can
+  still be wrong: the service does not say which turn its text of what was
+  heard is of, so a piece of a turn's words it writes only after the next
+  turn's input began is the next turn's, here as in the voice's own rule.
 - **`stay_quiet`, and the lamp's name not heard** in the turn (a hearing of
   0.9 or more on `name/heard`, as the Policy counts it; known here only with
   `LAMP_ATTENTION`, which follows the turn, and without it the Policy's
@@ -908,8 +911,11 @@ builder on #908), waits for the Policy's attention decision about its turn:
   is let go, never run. A withdrawn call is not answered; one of a retired
   turn is answered `{"done": false}`, which the service takes only if it is
   still waiting, and the service settles the stopped turn as it does any
-  other. Retirement and the session are looked at again right before it
-  would run (the reviewer on #908).
+  other. All three are looked at again right before it would run (the
+  reviewer on #908). The cancellation is asked of the session itself
+  (`call_withdrawn`), which notes it as it reads it off the connection:
+  while the output is full no provider event is taken, and its event may
+  wait behind the sound before it (the reviewer, 05:11).
 - Speech stays as it is, and so does every other call. A request the
   voice's own rule holds ([#829](#the-lamp-spoken-of-is-not-a-call-829),
   the busy room) has its calls answered and not run before this is reached.
@@ -919,21 +925,29 @@ builder on #908), waits for the Policy's attention decision about its turn:
 The worker logs, with no words of what was heard: `request N asked for
 volume_up; waiting for the Policy's decision`, then `run after M ms:
 the Policy took the turn as the lamp's` (or `its name was heard`, `no
-decision came in time`, or `two turns waited for one decision, so whose it
-was is not known`), or `not done: the Policy judged the turn not for the
+decision came in time`), or `not done: the Policy judged the turn not for the
 lamp, and its name was not heard (M ms)`, or that it was withdrawn or its
 turn ended while it waited, and not run.
 
-Tests: `crates/voice/src/policy_holds.rs` (the gate; the switch; one turn
-at a time, each decision its turn's, shadow and progress decisions passed
-over; a late decision of the turn before neither releasing nor holding this
-turn's action, in both orders; a turn with no decision let go) and `crates/voice/src/provider_worker/tests/policy_holds.rs`
+Tests: `crates/voice/src/policy_holds.rs` (the gate; the switch; each
+decision its own turn's by number, also before the action is asked for,
+shadow and progress decisions and ones without a number passed over; a late
+decision of the turn before neither releasing nor holding this turn's
+action, in both orders; one still owed to an earlier turn never settling a
+later one), `crates/voice/src/bus_out.rs` (what was heard told with the
+number of the turn whose input began last), `crates/policy/tests/policy.rs`
+(`a_piece_marked_finished_is_judged_without_the_pause_and_carries_its_request`:
+the decision carries the number of what it judged),
+`crates/gemini/src/session/tests/tools.rs` (a withdrawn call
+known before its event is taken) and `crates/voice/src/provider_worker/tests/policy_holds.rs`
 (the worker's own loop against the scripted service, an executive and a bus
 of the test's own: `stay_quiet` not done, nothing asked of the executive and
 none of the turn's sound out; `answer` and `look_up` run and the sound after
 comes out; no decision, run after the wait; without the switch, run at
-once; the flag's place; a kept call whose turn is cancelled, and one the
-service withdrew, never run; a timer on `stay_quiet` not set).
+once; another turn's `stay_quiet` holding nothing; the flag's place; a
+kept call whose turn is cancelled, one the service withdrew, and one
+withdrawn while the output is full, never run; a timer on `stay_quiet` not
+set).
 
 **Needs the Policy's side:** `lamp-policy --act attention`, which publishes
 its attention decisions with `shadow: false` (#800, to come after #873 and

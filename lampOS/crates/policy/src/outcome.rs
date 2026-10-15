@@ -7,10 +7,11 @@
 //! first sound the decision was known, which is all the time anything
 //! acting on it would have had.
 //!
-//! Which answer belongs to which utterance is told by time alone: what is
-//! heard carries no request number. The lamp's first sound after an
-//! utterance began is taken as its answer to it. With two utterances close
-//! together that can be wrong, and such an outcome is marked `overtaken`.
+//! Which answer belongs to which utterance is told by time alone (the
+//! turn's number that what is heard carries is not used here). The lamp's
+//! first sound after an utterance began is taken as its answer to it. With
+//! two utterances close together that can be wrong, and such an outcome is
+//! marked `overtaken`.
 use crate::attention::Choice;
 use std::time::{Duration, Instant};
 

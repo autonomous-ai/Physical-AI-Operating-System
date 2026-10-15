@@ -13,17 +13,18 @@
 //!
 //! - **The turn's decision** is an attention decision the Policy publishes
 //!   for real (`policy/decisions`, `about` `attention`, `shadow` false:
-//!   `lamp-policy --act attention`). The Policy's decisions carry no request
-//!   of the voice's yet, so they are paired with the voice's turns in order:
-//!   each turn is noted as its sound ends ([`Verdicts::ended`]), and a
-//!   decision that comes is that turn's only when it is the one turn waiting
-//!   for one. With two or more waiting, which one it judged is not known
-//!   (the reviewer on #908: a late decision about the turn before must
-//!   never release this turn's action): every turn waiting is then
-//!   **ambiguous**, its action runs as without the switch, and the log says
-//!   so. A turn waits for its decision at most [`PAIR_WITHIN`]: one with no
-//!   decision by then (nothing heard in it to judge) is let go, so that it
-//!   never takes a later turn's.
+//!   `lamp-policy --act attention`) about the turn by its number
+//!   (`Decision.request`). The voice says on `voice/heard` the turn in which
+//!   it heard each piece (`crate::bus_out`): the turn whose input began last
+//!   before the piece came, as the voice's own rule takes it
+//!   (`crate::attention`). The Policy's decision carries the number of the
+//!   newest piece it judged. So a decision is its own turn's however late it
+//!   comes, and never another's (the reviewer on #908: a late decision about
+//!   the turn before must never release or hold this turn's action). A
+//!   decision with no number is nobody's. Where the number can still be
+//!   wrong: a piece of a turn's words that the service writes only after the
+//!   next turn's input began is that next turn's, here as in the voice's own
+//!   rule.
 //! - **Waited for** at most [`WAIT`] from the call; past it the action runs
 //!   as it did without the switch. While it waits nothing else waits: the
 //!   call is kept aside and looked at again on each tick of the worker.
@@ -52,12 +53,8 @@ pub const WAIT: Duration = Duration::from_secs(2);
 pub const NAME_FROM: f32 = 0.9;
 /// What the model is told of an action held.
 pub const HELD: &str = "Not done: it was not clear that was said to you. Say nothing at all.";
-/// Turns kept, waiting or decided: a few seconds' worth.
+/// Turns whose decisions are kept: some minutes' worth.
 const KEPT: usize = 16;
-/// A turn waits this long after its sound ended for its decision: the
-/// Policy decided 99% of lamp-4ace's 3,698 turns from 13 to 16 October
-/// within 1.6 s of asking, and asks some 0.3 s after the end.
-pub const PAIR_WITHIN: Duration = Duration::from_secs(3);
 
 /// The worker's argument for the switch in the environment.
 pub fn arguments_from_environment() -> Vec<String> {
@@ -96,26 +93,13 @@ pub enum Gate {
     Wait,
 }
 
-/// What the Policy's decisions say of one turn.
+/// What the Policy's decision says of one turn.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Verdict {
     /// `stay_quiet`: not for the lamp.
     StayQuiet,
     /// `answer` or `look_up`: the lamp's.
     TakenUp,
-    /// A decision came while this and another turn both waited for one:
-    /// which it judged is not known.
-    Ambiguous,
-}
-
-impl Verdict {
-    pub fn as_str(self) -> &'static str {
-        match self {
-            Self::StayQuiet => "stay_quiet",
-            Self::TakenUp => "taken up",
-            Self::Ambiguous => "ambiguous",
-        }
-    }
 }
 
 /// The gate for an action, from its turn's verdict if one has come,
@@ -125,19 +109,17 @@ pub fn gate(verdict: Option<Verdict>, name_heard: bool, waited: Duration) -> Gat
     match verdict {
         _ if name_heard => Gate::Run,
         Some(Verdict::StayQuiet) => Gate::Hold,
-        Some(Verdict::TakenUp | Verdict::Ambiguous) => Gate::Run,
+        Some(Verdict::TakenUp) => Gate::Run,
         None if waited < WAIT => Gate::Wait,
         None => Gate::Run,
     }
 }
 
-/// The Policy's attention decisions paired with the voice's turns.
+/// The Policy's attention decisions, each its own turn's by number.
 pub struct Verdicts {
     decisions: lamp_bus::Subscriber,
-    /// Turns whose sound ended and that have no decision yet: each request,
-    /// and when it ended by this process's clock.
-    waiting: VecDeque<(u64, u64)>,
-    /// What became of each turn decided, newest last.
+    /// What the Policy decided of each turn, by the turn's number. Of two
+    /// decisions about one turn (its words judged in two pieces), the newer.
     decided: VecDeque<(u64, Verdict)>,
 }
 
@@ -149,65 +131,50 @@ impl Verdicts {
                 crate::bus_out::SOURCE,
                 lamp_msgs::Decision::TYPE,
             )?,
-            waiting: VecDeque::new(),
             decided: VecDeque::new(),
         })
     }
 
-    /// The sound of `request`, a turn someone spoke in, ended at `at_us`:
-    /// it waits for its decision. Said once a turn; again, it is nothing.
-    pub fn ended(&mut self, request: u64, at_us: u64) {
-        if self.waiting.iter().any(|(turn, _)| *turn == request)
-            || self.decided.iter().any(|(turn, _)| *turn == request)
-        {
-            return;
-        }
-        if self.waiting.len() == KEPT {
-            self.waiting.pop_front();
-        }
-        self.waiting.push_back((request, at_us));
-    }
-
     /// Take what has come, without waiting: attention decisions made for
-    /// real only, each dated `now_us`.
-    pub fn take(&mut self, now_us: u64) {
+    /// real only.
+    pub fn take(&mut self) {
         for _ in 0..KEPT {
             let Ok(Some(message)) = self.decisions.recv(Duration::ZERO) else {
                 break;
             };
             if let Ok(decision) = message.parse::<lamp_msgs::Decision>() {
-                self.took(&decision, now_us);
+                self.took(&decision);
             }
         }
     }
 
-    fn took(&mut self, decision: &lamp_msgs::Decision, now_us: u64) {
+    fn took(&mut self, decision: &lamp_msgs::Decision) {
         if decision.about != "attention" || decision.shadow {
             return;
         }
-        // A turn that has waited longer than any decision takes had none.
-        let within = u64::try_from(PAIR_WITHIN.as_micros()).unwrap_or(u64::MAX);
-        self.waiting
-            .retain(|(_, ended)| now_us.saturating_sub(*ended) <= within);
-        let verdict = match self.waiting.len() {
-            0 => return,
-            1 if decision.choice == "stay_quiet" => Verdict::StayQuiet,
-            1 => Verdict::TakenUp,
-            _ => Verdict::Ambiguous,
+        // Which turn it judged is not known: nobody's.
+        let Some(request) = decision.request else {
+            return;
         };
-        for (turn, _) in std::mem::take(&mut self.waiting) {
-            if self.decided.len() == KEPT {
-                self.decided.pop_front();
-            }
-            self.decided.push_back((turn, verdict));
+        let verdict = if decision.choice == "stay_quiet" {
+            Verdict::StayQuiet
+        } else {
+            Verdict::TakenUp
+        };
+        if let Some(known) = self.decided.iter_mut().find(|(turn, _)| *turn == request) {
+            known.1 = verdict;
+            return;
         }
+        if self.decided.len() == KEPT {
+            self.decided.pop_front();
+        }
+        self.decided.push_back((request, verdict));
     }
 
-    /// What the Policy's decisions say of `request`, if anything yet.
+    /// What the Policy decided of `request`, if it has yet.
     pub fn verdict(&self, request: u64) -> Option<Verdict> {
         self.decided
             .iter()
-            .rev()
             .find(|(turn, _)| *turn == request)
             .map(|(_, verdict)| *verdict)
     }
@@ -218,10 +185,16 @@ mod tests {
     use super::*;
 
     /// As the Policy publishes one, read as the voice reads it.
-    fn decision(about: &str, choice: &str, shadow: bool) -> lamp_msgs::Decision {
+    fn decision(
+        about: &str,
+        choice: &str,
+        shadow: bool,
+        request: Option<u64>,
+    ) -> lamp_msgs::Decision {
         serde_json::from_value(json!({
             "about": about, "choice": choice, "probability": 0.235, "answers": {},
-            "by": "typesafe/jev-1.13-20260917", "took_ms": 540, "shadow": shadow
+            "by": "typesafe/jev-1.13-20260917", "took_ms": 540, "shadow": shadow,
+            "request": request
         }))
         .unwrap()
     }
@@ -232,8 +205,6 @@ mod tests {
         assert_eq!(gate(Some(Verdict::StayQuiet), false, short), Gate::Hold);
         assert_eq!(gate(Some(Verdict::StayQuiet), true, short), Gate::Run);
         assert_eq!(gate(Some(Verdict::TakenUp), false, short), Gate::Run);
-        // Not known which turn was judged: as without the switch.
-        assert_eq!(gate(Some(Verdict::Ambiguous), false, short), Gate::Run);
         assert_eq!(gate(None, false, short), Gate::Wait);
         assert_eq!(gate(None, true, short), Gate::Run);
         // Past the wait it runs as today.
@@ -261,71 +232,78 @@ mod tests {
         (Verdicts::on(&dir).unwrap(), dir)
     }
 
-    const MS: u64 = 1_000;
-
-    /// One turn at a time: each decision is its turn's. Only attention
-    /// decisions made for real count; one with no turn waiting is nobody's.
+    /// Each decision is its own turn's, by number, whenever it comes: also
+    /// before the turn's action is asked for. Only attention decisions made
+    /// for real count; one with no number is nobody's.
     #[test]
-    fn one_turn_at_a_time_each_decision_is_its_turns() {
+    fn each_decision_is_its_own_turns_by_number() {
         let (mut verdicts, dir) = verdicts("one");
-        verdicts.took(&decision("attention", "answer", false), 100 * MS);
-        verdicts.ended(1, 1_000 * MS);
-        assert_eq!(verdicts.verdict(1), None);
+        verdicts.took(&decision("attention", "answer", false, None));
+        assert!(verdicts.decided.is_empty());
         // A shadow decision, and a progress one, are not the turn's.
-        verdicts.took(&decision("attention", "answer", true), 1_300 * MS);
-        verdicts.took(&decision("progress", "say_now", false), 1_400 * MS);
+        verdicts.took(&decision("attention", "answer", true, Some(1)));
+        verdicts.took(&decision("progress", "say_now", false, Some(1)));
         assert_eq!(verdicts.verdict(1), None);
-        verdicts.took(&decision("attention", "stay_quiet", false), 1_600 * MS);
-        assert_eq!(verdicts.verdict(1), Some(Verdict::StayQuiet));
-        // Said again, the turn is not waited for again.
-        verdicts.ended(1, 1_000 * MS);
-        verdicts.ended(2, 5_000 * MS);
-        verdicts.took(&decision("attention", "look_up", false), 5_700 * MS);
+        verdicts.took(&decision("attention", "stay_quiet", false, Some(1)));
+        verdicts.took(&decision("attention", "look_up", false, Some(2)));
         assert_eq!(
-            (verdicts.verdict(1), verdicts.verdict(2)),
-            (Some(Verdict::StayQuiet), Some(Verdict::TakenUp))
+            (
+                verdicts.verdict(1),
+                verdicts.verdict(2),
+                verdicts.verdict(3)
+            ),
+            (Some(Verdict::StayQuiet), Some(Verdict::TakenUp), None)
         );
+        // A turn's words judged in two pieces: the newer decision.
+        verdicts.took(&decision("attention", "answer", false, Some(1)));
+        assert_eq!(verdicts.verdict(1), Some(Verdict::TakenUp));
+        // Never more than some minutes' worth is kept.
+        for turn in 10..40 {
+            verdicts.took(&decision("attention", "answer", false, Some(turn)));
+        }
+        assert_eq!(verdicts.decided.len(), KEPT);
+        assert_eq!(verdicts.verdict(39), Some(Verdict::TakenUp));
         std::fs::remove_dir_all(&dir).unwrap();
     }
 
-    /// The reviewer on #908: turn A's decision comes late, after turn B's
-    /// sound ended. Which turn it judged is not known, so it is neither's:
-    /// both are ambiguous, and B's own decision after it changes nothing.
-    /// In both orders of answer and stay_quiet.
+    /// The reviewer on #908, 05:09: A's sound ends, B's 2.8 s later, and A's
+    /// decision comes after B's sound ended, then B's own. A's decision
+    /// never settles B: B waits for its own, in both orders of answer and
+    /// stay_quiet.
     #[test]
     fn a_late_decision_of_the_turn_before_never_releases_or_holds_this_turns_action() {
-        for (first, second) in [("answer", "stay_quiet"), ("stay_quiet", "answer")] {
+        for (a, b, expected) in [
+            ("answer", "stay_quiet", Gate::Hold),
+            ("stay_quiet", "answer", Gate::Run),
+        ] {
             let (mut verdicts, dir) = verdicts("late");
-            verdicts.ended(1, 1_000 * MS);
-            verdicts.ended(2, 1_800 * MS);
-            verdicts.took(&decision("attention", first, false), 2_000 * MS);
-            verdicts.took(&decision("attention", second, false), 2_600 * MS);
-            for turn in [1, 2] {
-                assert_eq!(verdicts.verdict(turn), Some(Verdict::Ambiguous), "{first}");
-                assert_eq!(
-                    gate(verdicts.verdict(turn), false, Duration::ZERO),
-                    Gate::Run
-                );
-            }
+            verdicts.took(&decision("attention", a, false, Some(1)));
+            let waited = Duration::from_millis(500);
+            assert_eq!(gate(verdicts.verdict(2), false, waited), Gate::Wait, "{a}");
+            verdicts.took(&decision("attention", b, false, Some(2)));
+            assert_eq!(gate(verdicts.verdict(2), false, waited), expected, "{a}");
             std::fs::remove_dir_all(&dir).unwrap();
         }
     }
 
-    /// A turn with nothing in it to judge has no decision: after
-    /// [`PAIR_WITHIN`] it is let go, and never takes a later turn's.
+    /// The reviewer's second case: two turns whose decisions were once
+    /// taken as ambiguous, then a third. The second turn's decision coming
+    /// late does not settle the third, whose own decision does.
     #[test]
-    fn a_turn_that_had_no_decision_is_let_go_and_takes_no_later_ones() {
-        let (mut verdicts, dir) = verdicts("none");
-        verdicts.ended(1, 1_000 * MS);
-        verdicts.ended(2, 4_500 * MS);
-        verdicts.took(&decision("attention", "stay_quiet", false), 5_000 * MS);
-        assert_eq!(verdicts.verdict(1), None);
-        assert_eq!(verdicts.verdict(2), Some(Verdict::StayQuiet));
-        // Never more than a few seconds' worth is kept.
-        for turn in 10..40 {
-            verdicts.ended(turn, 10_000 * MS + turn * MS);
-        }
-        assert_eq!(verdicts.waiting.len(), KEPT);
+    fn a_decision_still_owed_to_an_earlier_turn_never_settles_a_later_one() {
+        let (mut verdicts, dir) = verdicts("owed");
+        verdicts.took(&decision("attention", "stay_quiet", false, Some(1)));
+        verdicts.took(&decision("attention", "answer", false, Some(2)));
+        assert_eq!(verdicts.verdict(3), None);
+        verdicts.took(&decision("attention", "stay_quiet", false, Some(3)));
+        assert_eq!(
+            [1, 2, 3].map(|turn| verdicts.verdict(turn)),
+            [
+                Some(Verdict::StayQuiet),
+                Some(Verdict::TakenUp),
+                Some(Verdict::StayQuiet)
+            ]
+        );
         std::fs::remove_dir_all(&dir).unwrap();
     }
 }

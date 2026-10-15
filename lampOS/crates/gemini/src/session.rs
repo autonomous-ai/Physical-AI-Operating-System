@@ -65,7 +65,16 @@ struct Shared {
     renew: AtomicBool,
     /// The functions nothing is to be said on account of ([`crate::Tool::silent`]).
     silent_tools: Vec<String>,
+    /// The calls the service withdrew most recently, newest last, noted as
+    /// the cancellation is read off the connection: before its
+    /// [`Event::ToolCallsCancelled`] is taken, which may wait behind the
+    /// sound before it.
+    withdrawn_calls: Mutex<VecDeque<String>>,
 }
+
+/// How many withdrawn calls a session remembers: many more than may wait at
+/// once ([`crate::MAX_TOOL_CALLS`]).
+const WITHDRAWN_KEPT: usize = 64;
 
 /// How long one image write may take. Commands that arrive meanwhile are
 /// held, in order, and sent afterwards; audio must stay well inside
@@ -430,6 +439,16 @@ impl InputSender {
         self.shared.renew.store(true, Ordering::Release);
         self.shared.wake.notify_one();
     }
+    /// Whether the service withdrew the call `id` ([`Event::ToolCallsCancelled`]).
+    /// Known as soon as the cancellation is read off the connection, even
+    /// while its event still waits behind sound nobody has taken: a caller
+    /// about to do what a call asked looks here first.
+    pub fn call_withdrawn(&self, id: &str) -> bool {
+        self.shared
+            .withdrawn_calls
+            .lock()
+            .is_ok_and(|withdrawn| withdrawn.iter().any(|gone| gone == id))
+    }
     /// Permanent local retirement is synchronous and cannot be blocked by a full
     /// audio queue. Network interruption follows asynchronously. This does not
     /// revoke permits or flush samples already handed to an external speaker.
@@ -704,6 +723,7 @@ where
             .filter(|tool| tool.silent)
             .map(|tool| tool.name.clone())
             .collect(),
+        withdrawn_calls: Mutex::new(VecDeque::new()),
     });
     let input = InputSender {
         commands: commands_tx,
@@ -2063,6 +2083,14 @@ impl<S: AsyncRead + AsyncWrite + Unpin> Actor<S> {
             }
             self.silent_calls
                 .retain(|pending| !frame.tool_cancellations.contains(pending));
+            if let Ok(mut withdrawn) = self.shared.withdrawn_calls.lock() {
+                for id in &frame.tool_cancellations {
+                    if withdrawn.len() == WITHDRAWN_KEPT {
+                        withdrawn.pop_front();
+                    }
+                    withdrawn.push_back(id.clone());
+                }
+            }
             self.emit(Event::ToolCallsCancelled {
                 session: self.session,
                 ids: frame.tool_cancellations,

@@ -389,6 +389,48 @@ async fn a_withdrawn_call_is_reported_and_its_late_answer_is_dropped() {
     assert_eq!(connection.state(), State::Ready);
 }
 
+/// A withdrawn call is known as withdrawn as soon as the session reads the
+/// cancellation, while its event still waits behind sound nobody has taken:
+/// whoever is about to do what the call asked looks first (the reviewer on
+/// lampOS #908, with the voice's output full).
+#[tokio::test]
+async fn a_withdrawn_call_is_known_before_its_event_is_taken() {
+    let (mut connection, mut server) = mock(Timeouts::default()).await;
+    let request = ended_turn(&mut connection, &mut server, 1).await;
+    send_json(&mut server, call("call-1", "volume_up", json!({}))).await;
+    called(&mut connection, request).await;
+    let input = connection.input();
+    assert!(!input.call_withdrawn("call-1"));
+    for _ in 0..4 {
+        send_json(&mut server, crate::testing::audio(1, 480)).await;
+    }
+    send_json(
+        &mut server,
+        json!({"toolCallCancellation":{"ids":["call-1"]}}),
+    )
+    .await;
+    let deadline = tokio::time::Instant::now() + Duration::from_secs(2);
+    while !input.call_withdrawn("call-1") {
+        assert!(tokio::time::Instant::now() < deadline, "not known in time");
+        tokio::time::sleep(Duration::from_millis(5)).await;
+    }
+    assert!(!input.call_withdrawn("call-2"));
+    // The sound is still there to take, before the cancellation.
+    let mut sounds = 0;
+    loop {
+        match event(&mut connection).await {
+            Event::Audio { .. } => sounds += 1,
+            Event::ToolCallsCancelled { ids, .. } => {
+                assert_eq!(ids, ["call-1"]);
+                break;
+            }
+            _ => {}
+        }
+    }
+    assert_eq!(sounds, 4);
+    assert!(input.call_withdrawn("call-1"));
+}
+
 /// A call is the service doing something for the request: it satisfies the
 /// wait for a first output, and the silence the service is allowed after it
 /// runs from the call and again from its answer. A call that is never

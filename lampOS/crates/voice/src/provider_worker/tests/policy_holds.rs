@@ -3,7 +3,8 @@
 //! that answers every call and a bus of the test's own: an action in a turn
 //! the Policy judged `stay_quiet` is answered, not run, and none of the
 //! turn's sound comes out; one in a turn it took as the lamp's runs; with no
-//! decision it runs after the wait; and without the switch it runs at once.
+//! decision about its own turn it runs after the wait; and without the
+//! switch it runs at once.
 use super::*;
 use std::io::{BufRead, Write};
 
@@ -83,11 +84,11 @@ impl Desk {
         }
     }
 
-    /// The Policy decides about what was said, for real.
-    fn decide(&mut self, choice: &str) {
+    /// The Policy decides about what was said in turn `request`, for real.
+    fn decide(&mut self, request: Option<u64>, choice: &str) {
         let decision = json!({"about": "attention", "choice": choice, "probability": 0.235,
                               "answers": {}, "by": "typesafe/jev-1.13-20260917",
-                              "took_ms": 540, "shadow": false});
+                              "took_ms": 540, "shadow": false, "request": request});
         self.decisions.publish_json(0, &decision).unwrap();
     }
 }
@@ -110,11 +111,21 @@ async fn asked_for_volume(
     holds: bool,
     choice: Option<&str>,
 ) -> (LiveRig, Dial, u64, serde_json::Value, Duration) {
+    asked_for_volume_about(desk, holds, choice, Some).await
+}
+
+/// As [`asked_for_volume`], with the decision about the turn `about` says.
+async fn asked_for_volume_about(
+    desk: &mut Desk,
+    holds: bool,
+    choice: Option<&str>,
+    about: impl Fn(u64) -> Option<u64>,
+) -> (LiveRig, Dial, u64, serde_json::Value, Duration) {
     let mut rig = LiveRig::start_with(quick_policy(), desk.options(holds));
     let mut dial = rig.ready().await;
     let request = rig.speak(&mut dial, false, true).await;
     if let Some(choice) = choice {
-        desk.decide(choice);
+        desk.decide(about(request), choice);
     }
     let called = Instant::now();
     dial.service.send(volume_up("v1")).await;
@@ -216,6 +227,30 @@ async fn with_no_decision_in_time_it_runs_after_the_wait_and_without_the_switch_
     rig.stop().await;
 }
 
+/// The reviewer on #908, 05:09: a decision about another turn, the one
+/// before or one that does not say, holds nothing here. With none about
+/// its own turn the action runs after the wait, as without a decision.
+#[tokio::test]
+async fn another_turns_stay_quiet_holds_nothing() {
+    for (tag, about) in [
+        (
+            "before",
+            (|request: u64| Some(request - 1)) as fn(u64) -> Option<u64>,
+        ),
+        ("nobody", |_| None),
+    ] {
+        let mut desk = Desk::new(tag);
+        let (mut rig, _dial, _, told, took) =
+            asked_for_volume_about(&mut desk, true, Some("stay_quiet"), about).await;
+        assert_eq!(response(&told), json!({"volume": 60}), "{tag}");
+        assert!(
+            took >= crate::policy_holds::WAIT - Duration::from_millis(100),
+            "{tag}: {took:?}"
+        );
+        rig.stop().await;
+    }
+}
+
 /// The worker reads `--policy-holds-actions` where the coordinator puts it,
 /// after `--sounds-checked`.
 #[test]
@@ -238,7 +273,10 @@ fn the_switch_is_read_after_sounds_checked() {
 /// The turn heard, ended, and the model asking for `volume_up`, kept for
 /// the Policy's decision, which never comes here.
 async fn parked_volume(desk: &mut Desk) -> (LiveRig, Dial) {
-    let mut rig = LiveRig::start_with(quick_policy(), desk.options(true));
+    parked_volume_on(LiveRig::start_with(quick_policy(), desk.options(true))).await
+}
+
+async fn parked_volume_on(mut rig: LiveRig) -> (LiveRig, Dial) {
     let mut dial = rig.ready().await;
     rig.speak(&mut dial, false, true).await;
     dial.service.send(volume_up("v1")).await;
@@ -299,6 +337,42 @@ async fn a_kept_action_the_service_withdrew_is_never_run() {
     rig.stop().await;
 }
 
+/// The reviewer on #908, 05:11: with the output full (the coordinator
+/// takes nothing, so no credit comes back), the worker takes no provider
+/// event, and the service's cancellation waits behind the sound before it.
+/// The call is still never run: the session is asked right before.
+#[tokio::test]
+async fn a_kept_action_withdrawn_while_the_output_is_full_is_never_run() {
+    let desk = Desk::new("full");
+    let rig = LiveRig::start_capacity(
+        quick_policy(),
+        desk.options(true),
+        BARRIER,
+        false,
+        Continuation::Off,
+        lamp_gemini::MAX_WIRE_BYTES * 16,
+    );
+    let (mut rig, mut dial) = parked_volume_on(rig).await;
+    // Twenty seconds of sound at 24 kHz, 500 packets: more than the worker
+    // keeps before it stops taking events. Then the cancellation. The
+    // heartbeat is kept between the sends: without it the turn's leases run
+    // out and its owner is cancelled, which also lets the call go.
+    for value in 1..=20 {
+        dial.service.send(provider_audio(value, 24_000)).await;
+        rig.publish();
+    }
+    dial.service
+        .send(json!({"toolCallCancellation":{"ids":["v1"]}}))
+        .await;
+    rig.publish();
+    // Past the wait in which an uncancelled call would have run, nothing
+    // taken from the worker, its heartbeat kept.
+    rig.pump(crate::policy_holds::WAIT + Duration::from_millis(300))
+        .await;
+    assert!(desk.asked.try_recv().is_err(), "volume_up was run");
+    rig.stop().await;
+}
+
 /// The first builder on #908 (05:02): "Yes, give me five minutes", said to
 /// someone else in a conversation, set a five-minute timer. A timer is held
 /// as the volume is: on `stay_quiet` it is not set, and the executive is
@@ -308,8 +382,8 @@ async fn a_timer_in_a_turn_the_policy_judged_not_for_the_lamp_is_not_set() {
     let mut desk = Desk::new("timer");
     let mut rig = LiveRig::start_with(quick_policy(), desk.options(true));
     let mut dial = rig.ready().await;
-    rig.speak(&mut dial, false, true).await;
-    desk.decide("stay_quiet");
+    let request = rig.speak(&mut dial, false, true).await;
+    desk.decide(Some(request), "stay_quiet");
     dial.service
         .send(json!({"toolCall":{"functionCalls":[
             {"id":"t1","name":"set_timer","args":{"minutes":5}}

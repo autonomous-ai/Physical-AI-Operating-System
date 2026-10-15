@@ -89,6 +89,9 @@ enum Act {
     CaptureFault,
     /// The capture peer stops sending frames but stays connected.
     CaptureSilent,
+    /// The capture peer sends nothing for half a second and then catches
+    /// up, as a capture held up by the kernel re-tuning the SD/MMC host.
+    CaptureStall,
     /// The provider peer closes its channels: the provider is gone.
     ProviderGone,
     /// Stop-only stall: the speaker consumes control messages but installs no
@@ -588,6 +591,7 @@ struct Peers {
     fresh_mute_pending: bool,
     capture: Option<CaptureSchedule>,
     capture_silent: bool,
+    capture_stalled_until: Option<Instant>,
     camera: Option<BootId>,
     camera_started: bool,
     camera_silent: bool,
@@ -626,6 +630,12 @@ impl Peers {
                 }
             }
             Act::CaptureSilent => self.capture_silent = true,
+            Act::CaptureStall => {
+                // The device keeps its own 10 ms schedule (CaptureSchedule);
+                // what it read while the worker was held up comes after.
+                self.capture_stalled_until =
+                    Some(crate::scenario_clock::instant() + Duration::from_millis(500));
+            }
             Act::ProviderGone => {
                 self.provider_gone = true;
                 if let Some(provider) = self.peers.iter_mut().find(|p| p.role == "provider") {
@@ -817,7 +827,13 @@ impl Peers {
             }
         }
         match role {
-            "capture" if self.capture.is_some() && !self.capture_silent => {
+            "capture"
+                if self.capture.is_some()
+                    && !self.capture_silent
+                    && self
+                        .capture_stalled_until
+                        .is_none_or(|until| crate::scenario_clock::instant() >= until) =>
+            {
                 // Frames follow a fixed 10 ms schedule, like a capture device.
                 for _ in 0..64 {
                     let attempted_at_us = monotonic_us();
@@ -1384,6 +1400,7 @@ fn run_in(script: Script, trace: &mut SessionState) -> Run {
         fresh_mute_pending: false,
         capture: None,
         capture_silent: false,
+        capture_stalled_until: None,
         camera: camera_boot,
         camera_started: false,
         camera_silent: false,
@@ -1780,6 +1797,30 @@ fn capture_fault_during_output_cancels_the_answer_and_ends_the_run() {
         run.result
     );
     assert_eq!(run.outcomes()[&first(&run)], ["runtime_failed"]);
+}
+
+/// A capture held up for half a second, as the SD/MMC host's re-tune held
+/// lamp-4ace's microphone (#784), is a gap: the voice goes on listening and
+/// answers the question asked after it.
+#[test]
+fn a_half_second_capture_stall_is_a_gap_and_the_voice_goes_on() {
+    let _one = one_session();
+    let run = run(Script {
+        speech: 80..140,
+        ..Script::question(Answer::Complete(12))
+    }
+    .then(When::Block(30), Act::CaptureStall));
+    run.assert_invariants();
+    assert!(is_mute(&run.result), "{:?}", run.result);
+    let gaps = run.events("capture_gap");
+    assert_eq!(gaps.len(), 1, "{gaps:?}");
+    assert!(
+        gaps[0]["stalled_us"].as_u64().unwrap() >= 450_000,
+        "{gaps:?}"
+    );
+    assert_eq!(run.seen.starts.len(), 1);
+    let turn = run.seen.starts[0];
+    assert_eq!(run.outcomes()[&turn], ["audio_written_unscored"]);
 }
 
 #[test]

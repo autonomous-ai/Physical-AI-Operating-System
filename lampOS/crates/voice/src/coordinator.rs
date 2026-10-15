@@ -100,6 +100,13 @@ fn session_instant() -> Instant {
         Instant::now()
     }
 }
+/// A capture that stops for less than this is a gap, not the end of the
+/// voice: its late frames are dropped and it goes on. On lamp-4ace the
+/// kernel re-tuning the SD/MMC hosts held the microphone's USB reads for
+/// about 0.3 s some eleven times a day, and each ended the whole voice
+/// (#784). The lease itself still lapses at `INPUT_LEASE_US`, so nothing is
+/// retained or admitted while the capture is stalled.
+const CAPTURE_GAP_US: u64 = 1_500_000;
 /// How long a just-asked lamp keeps the floor from the next voice in a busy
 /// room while its answer has not begun. Answers begin 1.0 to 1.5 s after the
 /// question ends.
@@ -2551,6 +2558,7 @@ fn conversation_with_gate(
     let mut capture_requested = false;
     let mut capture_epoch = None;
     let mut last_capture = None;
+    let mut capture_gap = CaptureGap::default();
     let mut last_publish = 0;
     let mut last_health = 0;
     let mut last_hand_health = 0;
@@ -3424,11 +3432,33 @@ fn conversation_with_gate(
                 trace,
             )?;
             let at = monotonic_us();
-            if at
-                .checked_sub(frame.read_completed_at_us)
-                .is_none_or(|age| age >= INPUT_LEASE_US)
-            {
+            let Some(age) = at.checked_sub(frame.read_completed_at_us) else {
                 return Err(io::Error::other("capture became stale").into());
+            };
+            if age >= INPUT_LEASE_US {
+                if age >= CAPTURE_GAP_US {
+                    return Err(io::Error::other("capture became stale").into());
+                }
+                // Read before a stall and delivered after it: too old to
+                // retain or admit, so it is dropped as part of the gap.
+                capture_gap.dropped += 1;
+                continue;
+            }
+            if let Some(gap) = capture_gap.ended(last_capture, frame.read_completed_at_us) {
+                // ponytail: a gap inside someone's utterance still ends the
+                // run, so the model is never answered over a hole in what it
+                // heard; drop that utterance instead if that proves common.
+                if !admission.idle_for_reminder() {
+                    return Err(io::Error::other("capture stalled during an utterance").into());
+                }
+                // Nothing is being heard: start listening afresh after it.
+                detector.reset();
+                playback_mask.clear_read_lineage();
+                eprintln!("lamp-voice: {gap}");
+                record(
+                    trace,
+                    json!({"kind":"capture_gap","stalled_us":gap.stalled_us,"dropped_frames":gap.dropped,"at_us":at}),
+                )?;
             }
             last_capture = Some(frame.read_completed_at_us);
             owner.set_capture(
@@ -4148,7 +4178,7 @@ fn conversation_with_gate(
             }
         }
         if let Some(at) = last_capture
-            && monotonic_us().saturating_sub(at) >= INPUT_LEASE_US
+            && monotonic_us().saturating_sub(at) >= CAPTURE_GAP_US
         {
             return Err(io::Error::other("microphone retention heartbeat expired").into());
         }
@@ -5638,6 +5668,47 @@ fn drain_capture_control(
         }
     }
     Ok(())
+}
+
+/// Frames dropped since the capture last delivered one on time.
+#[derive(Default)]
+struct CaptureGap {
+    dropped: u64,
+}
+
+/// A capture gap that has just ended, for one journal line.
+#[derive(Debug, PartialEq)]
+struct EndedGap {
+    stalled_us: u64,
+    dropped: u64,
+}
+
+impl std::fmt::Display for EndedGap {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "the microphone stalled {} ms; {} late frames dropped, listening again",
+            self.stalled_us / 1_000,
+            self.dropped
+        )
+    }
+}
+
+impl CaptureGap {
+    /// A frame on time arrived, read at `read_at`. If the one before it was
+    /// read a lease or more earlier, or late frames were dropped since, a
+    /// gap has just ended.
+    fn ended(&mut self, previous: Option<u64>, read_at: u64) -> Option<EndedGap> {
+        let stalled_us = previous.map_or(0, |at| read_at.saturating_sub(at));
+        if stalled_us < INPUT_LEASE_US && self.dropped == 0 {
+            return None;
+        }
+        let dropped = std::mem::take(&mut self.dropped);
+        Some(EndedGap {
+            stalled_us,
+            dropped,
+        })
+    }
 }
 
 fn validate_capture_frame(

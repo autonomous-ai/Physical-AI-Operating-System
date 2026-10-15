@@ -312,7 +312,12 @@ times in milliseconds from the request being written: `call_ms`,
 (the model's second generation), `lead_in_ms` (audio said before the
 call), what was said and how it ended. Then a `tool_turns_summary` line
 with the medians for each request, for plain turns and for turns that
-called the function expected. `--thinking TOKENS` sets the thinking budget
+called the function expected. Sessions are opened one at a time, 3 s apart;
+one that cannot be opened (on lamp-4ace at 16:20 the relay refused new
+connections that came too fast on one key: `ConnectTimeout` after three) is
+a line saying where it failed, the pause doubles up to 30 s after each in a
+row, and the summary counts them (`asked`, `failed`, `failed_at`) apart from
+the medians. `--thinking TOKENS` sets the thinking budget
 for that run alone (lamp-4ace's `provider.json` has 128), so `--thinking 0`
 against none says what thinking costs each of the two generations; the
 summary says which budget it ran with.

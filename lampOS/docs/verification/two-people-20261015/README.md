@@ -80,8 +80,15 @@ of the 9. So the follow-up needs the same voice, not a face ("Plan", step
   ([Apple](https://arxiv.org/abs/2411.00023)).
 - Which face is speaking: Light-ASD 94.1 mAP with 1.0 M parameters
   ([2303.04439](https://arxiv.org/abs/2303.04439)); no public ARM timings.
-- Multi-party: head pose alone F1 0.72, voice activity 0.73, both
-  0.85 to 0.88 ([Furhat](https://aclanthology.org/W15-4642.pdf)).
+- Multi-party, a robot at a game table with two people
+  ([Furhat](https://aclanthology.org/W15-4642.pdf)), weighted F1 by
+  classifier (RIPPER, SVM, multilayer perceptron):
+  - head pose alone 0.690, 0.724 and 0.709; voice activity alone 0.727,
+    0.734 and 0.723 (Table 1);
+  - the two together 0.742, 0.786 and 0.764 (Table 2);
+  - the best, five feature categories (head pose, parts of speech, card
+    movements, prosody and the system's last dialogue act), 0.851, and 0.876
+    on an interaction it had not seen.
 - Follow-ups: Google ends Continued Conversation when you "start to talk to
   someone else", and non-owners need Voice Match
   ([Google](https://support.google.com/googlenest/answer/7685981?hl=en)).

@@ -91,3 +91,24 @@ Ready for lamp-voice: no (draft #827, to be marked ready when its ARM64 run on `
 - Found, not mine: the lease lock (`91a75ad64`) took an old-format lock as
   expired, so nine replaced ten's lock 2 s after it was taken (on #880);
   fixed in `1ccfa74b6`.
+
+## 2026-10-16 — #812, review answered; the speaker tone
+
+Ready for lamp-voice: yes (#827), yes (#895)
+
+- #827 (`78fef010c`, ARM64 38790704955 green): the reviewer's findings
+  answered: storage `not_checked` when the kernel's log lost part of the
+  boot; short bus fixture paths; the ring `not_checked` when every colour
+  is only taken (nothing says what it drew) and yielding to a light asked
+  for during it; touch's mode called unknown; air asks its owner in
+  `lamp/health` (lamp-4ace's SEN63C fails its CRC since 17:17, a hardware
+  fault). Rebased on `lamp-voice`. lamp-selftest 30 + 1 tests passed.
+- #895 (`ce396a967`, ARM64 38790826013 green): the speaker tone in
+  lamp-voice, off unless `LAMP_SELFTEST_SPEAKER=on`, as agreed on #812 at
+  01:27. Gate: fmt, clippy clean; new tests pass. The full lamp-voice run on
+  this laptop at load 35–42 failed 18 timed tests; 13 pass alone, 2 pass one
+  at a time, and 3 in `provider_worker` fail on unchanged `lamp-voice`
+  (`587a361a3`) too (#739).
+- Asked the first builder (#812) for a "drawn" acknowledgement from the
+  ring so the ring can pass. Not on a lamp: the tone, the self-test's
+  request side (after #827).

@@ -1,0 +1,11 @@
+--- before/fixture_control.rs
++++ after/fixture_control.rs
+@@ -1134,7 +1134,7 @@
+ 
+ #[cfg(test)]
+ #[path = "channel_closed_peer_tests.rs"]
+-mod closed_peer_tests;
++mod channel_closed_peer_tests;
+ 
+ #[cfg(test)]
+ #[path = "recorder_fixture_control_tests.rs"]

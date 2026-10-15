@@ -1,0 +1,12 @@
+{
+  "recorded_from_date": "2026-10-16 06:13:56 +0700",
+  "basis": "Root publication task reported the first full run for 8af53fd still pending; this packager made no network call.",
+  "separate_prior_head": "8af53fd459795029f6277679ded49bf7826def73",
+  "separate_run_id": 38820115320,
+  "separate_run_url": "https://github.com/autonomous-ai/lampOS/actions/runs/38820115320",
+  "reported_status": "pending",
+  "terminal_outcome_asserted": false,
+  "qualifies_new_e7d_revision": false,
+  "new_revision_native_status": "pending; new source commit/push is root work",
+  "original123_native_standalone_serial_under_two_minutes": "unproved"
+}

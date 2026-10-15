@@ -1002,6 +1002,9 @@ pub struct RelayPollProgress {
     pub poll_seq: u64,
     pub stdout_frames: u64,
     pub runner_inputs: u64,
+    /// The existing fresh sample after a successful serve SIGTERM send. It
+    /// does not prove that the runtime observed the signal or exited.
+    pub stop_signal_sent_us: Option<u64>,
     pub terminal: bool,
 }
 
@@ -1043,6 +1046,7 @@ pub fn run_with_controlled_clock<R: Read + Send + 'static>(
 fn complete_poll(
     control: &mut Option<PollControl<'_>>,
     progress: &mut RelayPollProgress,
+    stop: Option<&StopRequest>,
     terminal: bool,
 ) -> Result<()> {
     if let Some(control) = control {
@@ -1050,6 +1054,7 @@ fn complete_poll(
             .poll_seq
             .checked_add(1)
             .ok_or_else(|| invalid("relay fixture poll sequence overflow"))?;
+        progress.stop_signal_sent_us = stop.and_then(|request| request.signal_sent_us);
         progress.terminal = terminal;
         (control.completed)(*progress)?;
     } else if !terminal {
@@ -1218,7 +1223,7 @@ fn run_engine<R: Read + Send + 'static>(
         }
         if let Some(status) = child.try_wait()? {
             let exited_us = now().as_micros();
-            complete_poll(&mut control, &mut progress, true)?;
+            complete_poll(&mut control, &mut progress, stop.as_ref(), true)?;
             break (Some(status), Some(exited_us));
         }
         if runner_closed && stop.is_none() {
@@ -1229,7 +1234,7 @@ fn run_engine<R: Read + Send + 'static>(
             if !serve {
                 kill(child);
                 killed = true;
-                complete_poll(&mut control, &mut progress, true)?;
+                complete_poll(&mut control, &mut progress, stop.as_ref(), true)?;
                 break (None, None);
             }
             stop = Some(request_stop(child, "transport_closed", None, &now));
@@ -1238,7 +1243,7 @@ fn run_engine<R: Read + Send + 'static>(
             if !serve {
                 kill(child);
                 killed = true;
-                complete_poll(&mut control, &mut progress, true)?;
+                complete_poll(&mut control, &mut progress, stop.as_ref(), true)?;
                 break (None, None);
             }
             errors.push("the serve hard deadline passed; the relay stopped the runtime".into());
@@ -1255,10 +1260,10 @@ fn run_engine<R: Read + Send + 'static>(
                 "the runtime outlived the {} ms stop grace; its process group was killed",
                 SERVE_STOP_GRACE_US / 1000
             ));
-            complete_poll(&mut control, &mut progress, true)?;
+            complete_poll(&mut control, &mut progress, stop.as_ref(), true)?;
             break (None, None);
         }
-        complete_poll(&mut control, &mut progress, false)?;
+        complete_poll(&mut control, &mut progress, stop.as_ref(), false)?;
     };
     // A normal runtime exit must not leave workers behind in its group. Any
     // stopped straggler is reported as evidence; the trace itself is unaffected.
@@ -1365,6 +1370,10 @@ fn run_engine<R: Read + Send + 'static>(
 #[cfg(test)]
 #[path = "relay_progress_tests.rs"]
 mod relay_progress_tests;
+
+#[cfg(test)]
+#[path = "serve_relay_progress_tests.rs"]
+mod serve_relay_progress_tests;
 
 #[cfg(test)]
 mod clock_tests {

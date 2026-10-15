@@ -23,7 +23,7 @@ use lamp_voice::fixture_provider::CueSink;
 use serde_json::{Value, json};
 use std::{
     fs::{self, File, OpenOptions},
-    io::{BufWriter, Write},
+    io::{self, BufWriter, Write},
     os::unix::{
         fs::{DirBuilderExt, OpenOptionsExt},
         net::UnixDatagram,
@@ -34,7 +34,7 @@ use std::{
         atomic::{AtomicUsize, Ordering},
     },
     thread,
-    time::Duration,
+    time::{Duration, Instant},
 };
 
 /// The second cycle's runtime identity after a modelled physical mute.
@@ -260,6 +260,86 @@ pub fn run(serve: FakeServe) -> Result<i32> {
 /// The caller owns time advancement; reads must not advance the clock. Signal
 /// handling, socket I/O, metadata writes and the 2 ms host sleep are unchanged.
 pub fn run_with_clock(serve: FakeServe, clock: impl Fn() -> MonoTime) -> Result<i32> {
+    run_engine(serve, clock, None)
+}
+
+/// Conditions that must really be observed before the next scheduled poll.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct ServePollTargets {
+    /// Wait for the existing signal handler to report SIGTERM. This does not
+    /// send a signal, change its handler or advance the fixture clock.
+    pub wait_for_sigterm: bool,
+}
+
+/// Completed serve work. Counters are cumulative, not inferred from quiet I/O.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct ServePollProgress {
+    pub poll_seq: u64,
+    /// The original loop sample, including when finalization takes later samples.
+    pub at: MonoTime,
+    pub cycle: u64,
+    pub cycle_base_us: u64,
+    pub runtime_us: u64,
+    /// Early-ready, cycle-ready and final-metadata lines flushed by this engine.
+    /// A CLI's separately written argv line is outside this count.
+    pub stdout_lines: u64,
+    /// Successfully decoded room datagrams, including those consumed during mute.
+    pub room_consumed: u64,
+    /// Datagrams actually injected into the current runtime; mute does not inject.
+    pub room_injected: u64,
+    /// The latest value read at an original signal check: zero or a signal number.
+    pub observed_signal: usize,
+    /// Final metadata and stdout are finished; this never proves process exit.
+    pub terminal: bool,
+}
+
+struct ServePollControl<'a> {
+    before: &'a mut dyn FnMut() -> Result<ServePollTargets>,
+    completed: &'a mut dyn FnMut(ServePollProgress) -> Result<()>,
+}
+
+#[derive(Default)]
+struct ServePollState {
+    poll_seq: u64,
+    at_us: u64,
+    stdout_lines: u64,
+    room_consumed: u64,
+    room_injected: u64,
+    observed_signal: usize,
+}
+
+const SIGNAL_OBSERVATION_WATCHDOG: Duration = Duration::from_secs(30);
+
+/// Coordinate an explicit local serve fixture using its real signals and I/O.
+/// The clock is a pure read. `before_poll` runs before the original loop sample;
+/// an expected SIGTERM is observed under a separate 30 s host watchdog.
+///
+/// Continuing completion follows all original drains and the segment flush.
+/// The hook replaces the normal 2 ms sleep and must park until the next poll,
+/// with its own bounded host watchdog. Terminal completion follows metadata
+/// finish/fsync and final stdout flush; it must return promptly to permit real
+/// process exit. A hook failure returns an error without fabricating completion.
+pub fn run_with_controlled_clock(
+    serve: FakeServe,
+    clock: impl Fn() -> MonoTime,
+    mut before_poll: impl FnMut() -> Result<ServePollTargets>,
+    mut completed_poll: impl FnMut(ServePollProgress) -> Result<()>,
+) -> Result<i32> {
+    run_engine(
+        serve,
+        clock,
+        Some(ServePollControl {
+            before: &mut before_poll,
+            completed: &mut completed_poll,
+        }),
+    )
+}
+
+fn run_engine(
+    serve: FakeServe,
+    clock: impl Fn() -> MonoTime,
+    mut control: Option<ServePollControl<'_>>,
+) -> Result<i32> {
     let signal = Arc::new(AtomicUsize::new(0));
     for number in [signal_hook::consts::SIGTERM, signal_hook::consts::SIGINT] {
         signal_hook::flag::register_usize(number, Arc::clone(&signal), number as usize)?;
@@ -284,14 +364,14 @@ pub fn run_with_clock(serve: FakeServe, clock: impl Fn() -> MonoTime) -> Result<
         .map_or_else(|| serve.cue_path.clone(), |relay| relay.path.clone());
     let mut cues = CueSink::connect(&sink_path)?;
     let stdout = std::io::stdout();
+    let mut progress = ServePollState::default();
     if serve.faults.early_ready_stdout {
         let mut lock = stdout.lock();
-        writeln!(
-            lock,
-            "{}",
-            json!({"status":"listening_ready","seconds":null})
+        emit_stdout_line(
+            &mut lock,
+            &json!({"status":"listening_ready","seconds":null}),
+            &mut progress.stdout_lines,
         )?;
-        lock.flush()?;
     }
     let now = clock().as_micros();
     metadata.record(
@@ -305,12 +385,17 @@ pub fn run_with_clock(serve: FakeServe, clock: impl Fn() -> MonoTime) -> Result<
     let mut fired = std::collections::BTreeSet::new();
     let mut muted_until: Option<u64> = None;
     loop {
+        if let Some(control) = control.as_mut() {
+            await_signal_observation(&signal, (control.before)()?, SIGNAL_OBSERVATION_WATCHDOG)?;
+        }
         let now = clock().as_micros();
-        if signal.load(Ordering::SeqCst) != 0 && !serve.faults.ignore_sigterm {
+        progress.at_us = now;
+        progress.observed_signal = signal.load(Ordering::SeqCst);
+        if progress.observed_signal != 0 && !serve.faults.ignore_sigterm {
             metadata
                 .record(json!({"kind":"service_stop_requested","at_us":now,"signal":"SIGTERM"}))?;
             cycle.runtime.shut_down("service_stopped");
-            drain(&mut cycle, &mut metadata, &stdout)?;
+            drain(&mut cycle, &mut metadata, &stdout, &mut progress)?;
             break;
         }
         if let Some(until) = muted_until {
@@ -327,7 +412,7 @@ pub fn run_with_clock(serve: FakeServe, clock: impl Fn() -> MonoTime) -> Result<
             {
                 cycle.runtime.tick();
             }
-            if let Some(error) = drain(&mut cycle, &mut metadata, &stdout)? {
+            if let Some(error) = drain(&mut cycle, &mut metadata, &stdout, &mut progress)? {
                 failed = Some(error);
                 break;
             }
@@ -357,14 +442,14 @@ pub fn run_with_clock(serve: FakeServe, clock: impl Fn() -> MonoTime) -> Result<
                 metadata.record(json!({"kind":"service_provider_ended","at_us":now,
                     "reason":"provider terminal (fake fault)"}))?;
                 cycle.runtime.shut_down("runtime_failed");
-                drain(&mut cycle, &mut metadata, &stdout)?;
+                drain(&mut cycle, &mut metadata, &stdout, &mut progress)?;
                 failed = Some("provider link terminal (fake fault)".into());
                 break;
             }
             if cycle.due(serve.faults.mute.map(|(t, a, _)| (t, a)), now) && fired.insert("mute") {
                 let (_, _, duration) = serve.faults.mute.expect("due mute exists");
                 cycle.runtime.shut_down("privacy_revoked");
-                drain(&mut cycle, &mut metadata, &stdout)?;
+                drain(&mut cycle, &mut metadata, &stdout, &mut progress)?;
                 metadata.record(json!({"kind":"service_cycle_muted","at_us":now,
                     "cycle":cycle.number,"cleanup_verified":true}))?;
                 metadata.record(json!({"kind":"service_waiting_for_privacy","at_us":now,
@@ -382,19 +467,20 @@ pub fn run_with_clock(serve: FakeServe, clock: impl Fn() -> MonoTime) -> Result<
             relay.tick(clock().as_micros())?;
         }
         if let Some(socket) = &room {
-            while let Ok(count) = socket.recv(&mut buffer) {
-                let timing: SceneTiming = serde_json::from_slice(&buffer[..count])?;
-                if muted_until.is_none() {
-                    let at = cycle.runtime.now_us();
-                    cycle.runtime.inject(timing, None, at);
-                }
-            }
+            receive_room(
+                socket,
+                &mut buffer,
+                &mut cycle,
+                muted_until.is_some(),
+                &mut progress,
+            )?;
         }
         metadata.segment.flush()?;
-        thread::sleep(Duration::from_millis(2));
+        complete_poll(&mut control, &mut progress, &cycle, false)?;
     }
     let now = clock().as_micros();
-    let signal_name = (signal.load(Ordering::SeqCst) != 0).then_some("SIGTERM");
+    progress.observed_signal = signal.load(Ordering::SeqCst);
+    let signal_name = (progress.observed_signal != 0).then_some("SIGTERM");
     metadata.record(json!({"kind":"run_end","at_us":now,
         "status":if failed.is_some(){"failed"}else{"stopped_unscored"},
         "error":failed,"termination_signal":signal_name,"complete_evidence":false}))?;
@@ -404,21 +490,120 @@ pub fn run_with_clock(serve: FakeServe, clock: impl Fn() -> MonoTime) -> Result<
     }
     let health = metadata.finish()?;
     let mut lock = stdout.lock();
-    writeln!(
-        lock,
-        "{}",
-        json!({"kind":"service_metadata_finished","health":health,
-            "output":serve.output,"complete_evidence":false})
+    emit_stdout_line(
+        &mut lock,
+        &json!({"kind":"service_metadata_finished","health":health,
+            "output":serve.output,"complete_evidence":false}),
+        &mut progress.stdout_lines,
     )?;
-    lock.flush()?;
+    drop(lock);
     if let Some(path) = &serve.room {
         let _ = fs::remove_file(path);
     }
+    complete_poll(&mut control, &mut progress, &cycle, true)?;
     Ok(if failed.is_some() {
         1
     } else {
         serve.faults.exit_code.unwrap_or(0)
     })
+}
+
+fn await_signal_observation(
+    signal: &AtomicUsize,
+    targets: ServePollTargets,
+    watchdog: Duration,
+) -> Result<()> {
+    if !targets.wait_for_sigterm {
+        return Ok(());
+    }
+    let end = Instant::now()
+        .checked_add(watchdog)
+        .ok_or_else(|| invalid("serve fixture signal watchdog overflows host time"))?;
+    loop {
+        match signal.load(Ordering::SeqCst) {
+            number if number == signal_hook::consts::SIGTERM as usize => return Ok(()),
+            0 => {}
+            number => {
+                return Err(invalid(&format!(
+                    "serve fixture expected SIGTERM observation, observed signal {number}"
+                )));
+            }
+        }
+        let remaining = end.saturating_duration_since(Instant::now());
+        if remaining.is_zero() {
+            return Err(io::Error::new(
+                io::ErrorKind::TimedOut,
+                "serve fixture timed out waiting for real SIGTERM observation",
+            )
+            .into());
+        }
+        thread::sleep(remaining.min(Duration::from_millis(1)));
+    }
+}
+
+fn emit_stdout_line(output: &mut impl Write, value: &Value, count: &mut u64) -> Result<()> {
+    let next = count
+        .checked_add(1)
+        .ok_or_else(|| invalid("serve fixture stdout-line counter overflow"))?;
+    writeln!(output, "{value}")?;
+    output.flush()?;
+    *count = next;
+    Ok(())
+}
+
+fn receive_room(
+    socket: &UnixDatagram,
+    buffer: &mut [u8; ROOM_MAX_BYTES],
+    cycle: &mut Cycle,
+    muted: bool,
+    progress: &mut ServePollState,
+) -> Result<()> {
+    while let Ok(count) = socket.recv(buffer) {
+        let timing: SceneTiming = serde_json::from_slice(&buffer[..count])?;
+        progress.room_consumed = progress
+            .room_consumed
+            .checked_add(1)
+            .ok_or_else(|| invalid("serve fixture room-consumed counter overflow"))?;
+        if !muted {
+            let next = progress
+                .room_injected
+                .checked_add(1)
+                .ok_or_else(|| invalid("serve fixture room-injected counter overflow"))?;
+            let at = cycle.runtime.now_us();
+            cycle.runtime.inject(timing, None, at);
+            progress.room_injected = next;
+        }
+    }
+    Ok(())
+}
+
+fn complete_poll(
+    control: &mut Option<ServePollControl<'_>>,
+    progress: &mut ServePollState,
+    cycle: &Cycle,
+    terminal: bool,
+) -> Result<()> {
+    if let Some(control) = control {
+        progress.poll_seq = progress
+            .poll_seq
+            .checked_add(1)
+            .ok_or_else(|| invalid("serve fixture poll sequence overflow"))?;
+        (control.completed)(ServePollProgress {
+            poll_seq: progress.poll_seq,
+            at: MonoTime::from_micros(progress.at_us),
+            cycle: cycle.number,
+            cycle_base_us: cycle.base_us,
+            runtime_us: cycle.runtime.now_us(),
+            stdout_lines: progress.stdout_lines,
+            room_consumed: progress.room_consumed,
+            room_injected: progress.room_injected,
+            observed_signal: progress.observed_signal,
+            terminal,
+        })?;
+    } else if !terminal {
+        thread::sleep(Duration::from_millis(2));
+    }
+    Ok(())
 }
 
 fn link(state: &str, at_us: u64) -> Value {
@@ -462,6 +647,7 @@ fn drain(
     cycle: &mut Cycle,
     metadata: &mut Metadata,
     stdout: &std::io::Stdout,
+    progress: &mut ServePollState,
 ) -> Result<Option<String>> {
     let mut failure = None;
     while let Some(mut event) = cycle.runtime.pop() {
@@ -484,12 +670,11 @@ fn drain(
         let record = trace_record(cycle, &event);
         if matches!(event.kind, EventKind::ListeningReady) {
             let mut lock = stdout.lock();
-            writeln!(
-                lock,
-                "{}",
-                json!({"status":"listening_ready","seconds":null})
+            emit_stdout_line(
+                &mut lock,
+                &json!({"status":"listening_ready","seconds":null}),
+                &mut progress.stdout_lines,
             )?;
-            lock.flush()?;
         }
         metadata.record(record)?;
     }
@@ -515,3 +700,7 @@ fn trace_record(cycle: &mut Cycle, event: &RuntimeEvent) -> Value {
 #[cfg(test)]
 #[path = "fake_serve_clock_tests.rs"]
 mod clock_tests;
+
+#[cfg(test)]
+#[path = "fake_serve_progress_tests.rs"]
+mod progress_tests;

@@ -1,0 +1,222 @@
+{
+  "date": "2026-10-16 01:58:29+0700",
+  "reviewed_driver_before_test_declaration": "ad3ec60cb40ba8d3828d35378b3a10e502246df7e19c0d7f4decbfe2047fc396",
+  "driver_after_test_declaration": "3ba9b3405c82198e4c56e4baa3c982be74d8a2e0588766be11c34a2fa62e8014",
+  "driver_reversal_exact": true,
+  "old_inline_driver_tests_exact_from_qualified_recorder": true,
+  "old_controlled_command_and_recorder_bodies_exact": true,
+  "existing_test_files_unchanged_count": 44,
+  "existing_integration_files_unchanged_count": 23,
+  "existing_tests_unchanged": {
+    "lampOS/crates/voice-eval/tests/provider_failed.rs": {
+      "before": "ecee93a72313d1c2b9af53c7821f476c9b501fac9acd7b227052fb2b9f902022",
+      "after": "ecee93a72313d1c2b9af53c7821f476c9b501fac9acd7b227052fb2b9f902022"
+    },
+    "lampOS/crates/voice-eval/tests/recording_evidence.rs": {
+      "before": "b41f7b0a176723b61944392262205f9a96cda9d43f13d936cc8158b8ae4887c6",
+      "after": "b41f7b0a176723b61944392262205f9a96cda9d43f13d936cc8158b8ae4887c6"
+    },
+    "lampOS/crates/voice-eval/tests/recording_import.rs": {
+      "before": "5e3bee18d84ffc8c8faa1d5f4d5bd30db8a334fd31e0ee6c6e2b6220b866d14e",
+      "after": "5e3bee18d84ffc8c8faa1d5f4d5bd30db8a334fd31e0ee6c6e2b6220b866d14e"
+    },
+    "lampOS/crates/voice-eval/tests/audit_runner_dispatch.rs": {
+      "before": "2d7a83137a49f160c147decdee27cd5f8a49715655929c2b6c9a008139174f9a",
+      "after": "2d7a83137a49f160c147decdee27cd5f8a49715655929c2b6c9a008139174f9a"
+    },
+    "lampOS/crates/voice-eval/tests/audit_importer.rs": {
+      "before": "9ff483cbc358a0c39d26a7fd7b67e413868843771c3835c449f84208fa563ec0",
+      "after": "9ff483cbc358a0c39d26a7fd7b67e413868843771c3835c449f84208fa563ec0"
+    },
+    "lampOS/crates/voice-eval/tests/serve_plan.rs": {
+      "before": "d67f787f3bd35a54e4da0894a2da5749ef8b8441e3f27803597895667d22bf63",
+      "after": "d67f787f3bd35a54e4da0894a2da5749ef8b8441e3f27803597895667d22bf63"
+    },
+    "lampOS/crates/voice-eval/tests/target_audio.rs": {
+      "before": "3248cc8ae4d32d73659a20f33d08bcc1758e9a5e2f64113287316761dd256892",
+      "after": "3248cc8ae4d32d73659a20f33d08bcc1758e9a5e2f64113287316761dd256892"
+    },
+    "lampOS/crates/voice-eval/tests/serve_session.rs": {
+      "before": "485ef6bc04c292666b633c819baa7c16465aaa756e97271c9c0708cd2c3e6186",
+      "after": "485ef6bc04c292666b633c819baa7c16465aaa756e97271c9c0708cd2c3e6186"
+    },
+    "lampOS/crates/voice-eval/tests/fake_runtime.rs": {
+      "before": "37707ba30007771d2abd19c14687f1f3ca73299b1c250ece2564e873b2413c86",
+      "after": "37707ba30007771d2abd19c14687f1f3ca73299b1c250ece2564e873b2413c86"
+    },
+    "lampOS/crates/voice-eval/tests/playback_occurrences.rs": {
+      "before": "46b845dc3e597476203f6826be3cb16673069ce1d19f99f60e99d84ff85c75cd",
+      "after": "46b845dc3e597476203f6826be3cb16673069ce1d19f99f60e99d84ff85c75cd"
+    },
+    "lampOS/crates/voice-eval/tests/relay_clock.rs": {
+      "before": "7de3f59adc480869877fdb75109412f959745c13ba57b855e4aebf2bf56504b6",
+      "after": "7de3f59adc480869877fdb75109412f959745c13ba57b855e4aebf2bf56504b6"
+    },
+    "lampOS/crates/voice-eval/tests/evaluator.rs": {
+      "before": "1ec1e23cdfa2acd5847e982352ca9e3ea09cad9195d41d0bd6de4f5463826874",
+      "after": "1ec1e23cdfa2acd5847e982352ca9e3ea09cad9195d41d0bd6de4f5463826874"
+    },
+    "lampOS/crates/voice-eval/tests/final_dispatch.rs": {
+      "before": "600ad54a33c7a98ba0abf9c6aadeca366cb319d121b3847f36211cc5b0a30a29",
+      "after": "600ad54a33c7a98ba0abf9c6aadeca366cb319d121b3847f36211cc5b0a30a29"
+    },
+    "lampOS/crates/voice-eval/tests/serve_relay.rs": {
+      "before": "53f5cc802a0101518da7214b63b77e052b3406fe1b5db3ce43d5c0c305145bf5",
+      "after": "53f5cc802a0101518da7214b63b77e052b3406fe1b5db3ce43d5c0c305145bf5"
+    },
+    "lampOS/crates/voice-eval/tests/relay_hardening.rs": {
+      "before": "ba0d39f2b2f2c4e809ff65ed90fa84d1857c64fd25d9ab072384ddd306769b82",
+      "after": "ba0d39f2b2f2c4e809ff65ed90fa84d1857c64fd25d9ab072384ddd306769b82"
+    },
+    "lampOS/crates/voice-eval/tests/answer_review.rs": {
+      "before": "54f0f7df24ddda86bf702d535f344d70c961eded126fd0ad57f5f69957493885",
+      "after": "54f0f7df24ddda86bf702d535f344d70c961eded126fd0ad57f5f69957493885"
+    },
+    "lampOS/crates/voice-eval/tests/physical_loopback.rs": {
+      "before": "de31d80698e7188af40278c9e982eceed0c15a1ccf8fe42323365dca028d3d98",
+      "after": "de31d80698e7188af40278c9e982eceed0c15a1ccf8fe42323365dca028d3d98"
+    },
+    "lampOS/crates/voice-eval/tests/next_turn_ready.rs": {
+      "before": "66ff9408a1ce150fa5fedb649506f55aa51e2794e523eebcb154026316d4770f",
+      "after": "66ff9408a1ce150fa5fedb649506f55aa51e2794e523eebcb154026316d4770f"
+    },
+    "lampOS/crates/voice-eval/tests/audit_final_dispatch.rs": {
+      "before": "688ec4f9ec50e7f26e2e0efd97f061f5744f13e7f85f307ad9ca529ba45b146f",
+      "after": "688ec4f9ec50e7f26e2e0efd97f061f5744f13e7f85f307ad9ca529ba45b146f"
+    },
+    "lampOS/crates/voice-eval/tests/report_validity.rs": {
+      "before": "69c9c5b33d02bab0c4b7262f4773e122d37ba58a7315c117660a340b91db18dc",
+      "after": "69c9c5b33d02bab0c4b7262f4773e122d37ba58a7315c117660a340b91db18dc"
+    },
+    "lampOS/crates/voice-eval/tests/canary_plan.rs": {
+      "before": "d9aac255b58008e51b66b099a938729aa251958cd0f4118e6a09d062585bfb92",
+      "after": "d9aac255b58008e51b66b099a938729aa251958cd0f4118e6a09d062585bfb92"
+    },
+    "lampOS/crates/voice-eval/tests/acceptance_boundaries.rs": {
+      "before": "525d3d6bb744bc02d2e813bb0d5596b82f4d4dcd36b30378de3efcb057f924bc",
+      "after": "525d3d6bb744bc02d2e813bb0d5596b82f4d4dcd36b30378de3efcb057f924bc"
+    },
+    "lampOS/crates/voice-eval/src/physical/relay_progress_tests.rs": {
+      "before": "71e2bcc10a20f9dd77f26fba869a487bde99bbc0e8752793e3ecad2633c46d9f",
+      "after": "71e2bcc10a20f9dd77f26fba869a487bde99bbc0e8752793e3ecad2633c46d9f"
+    },
+    "lampOS/crates/voice-eval/src/physical/backend_clock_tests.rs": {
+      "before": "4ca9f50df684e9aa33e9c00dba6533df37d9d4e7563d0e5b1031aae8afb63e96",
+      "after": "4ca9f50df684e9aa33e9c00dba6533df37d9d4e7563d0e5b1031aae8afb63e96"
+    },
+    "lampOS/crates/voice-eval/src/physical/recorder_backend_tests.rs": {
+      "before": "a9ed66168aea14d40b3ae28a17c46450ca8e966e6d6f46f550565daea2e7bbde",
+      "after": "a9ed66168aea14d40b3ae28a17c46450ca8e966e6d6f46f550565daea2e7bbde"
+    },
+    "lampOS/crates/voice-eval/src/physical/serve_fixture_commands_tests.rs": {
+      "before": "54f60e0f676d94989b5220f707f9c5c085cbec83de0aa0e0a3d4ba5f892642ea",
+      "after": "54f60e0f676d94989b5220f707f9c5c085cbec83de0aa0e0a3d4ba5f892642ea"
+    },
+    "lampOS/crates/voice-eval/src/physical/channel_closed_peer_tests.rs": {
+      "before": "e9469a7b2c0ce0a988d69f46d064162214a1af8a2eefb54c2dd07e1a85c1fbba",
+      "after": "e9469a7b2c0ce0a988d69f46d064162214a1af8a2eefb54c2dd07e1a85c1fbba"
+    },
+    "lampOS/crates/voice-eval/src/physical/fixture_control_tests.rs": {
+      "before": "90dab0a1075f0fbb819d819f391aede2994363c3238e54445a5a73e5f12f604a",
+      "after": "90dab0a1075f0fbb819d819f391aede2994363c3238e54445a5a73e5f12f604a"
+    },
+    "lampOS/crates/voice-eval/src/physical/fake_serve_clock_tests.rs": {
+      "before": "62cfe2296fc9a83c4f2f3cf85325639843e11f46ed1afc4bc2625339407f27fe",
+      "after": "62cfe2296fc9a83c4f2f3cf85325639843e11f46ed1afc4bc2625339407f27fe"
+    },
+    "lampOS/crates/voice-eval/src/physical/fake_serve_progress_tests.rs": {
+      "before": "43af2f78890ec502bc3d12cd95214bf2aaa65578eeac1e9abaa1a6c4d0611f7a",
+      "after": "43af2f78890ec502bc3d12cd95214bf2aaa65578eeac1e9abaa1a6c4d0611f7a"
+    },
+    "lampOS/crates/voice-eval/src/physical/backend_progress_tests.rs": {
+      "before": "9fcc0168aeb882e513823932b97f6e2b77d4cbc1c4fd1f9e90279539d9cd15cb",
+      "after": "9fcc0168aeb882e513823932b97f6e2b77d4cbc1c4fd1f9e90279539d9cd15cb"
+    },
+    "lampOS/crates/voice-eval/src/physical/recorder_fixture_control_tests.rs": {
+      "before": "3e9c7eb09f574cbda46a06fb9ac452993df5a9b4417c5f0d9691f9deba27cf80",
+      "after": "3e9c7eb09f574cbda46a06fb9ac452993df5a9b4417c5f0d9691f9deba27cf80"
+    },
+    "lampOS/crates/voice-eval/src/physical/slow_transport_clock_tests.rs": {
+      "before": "7478dae0e6ca89f1cae6b1aee14c22f5aa0871e5151ea50681a480d48baa1dea",
+      "after": "7478dae0e6ca89f1cae6b1aee14c22f5aa0871e5151ea50681a480d48baa1dea"
+    },
+    "lampOS/crates/voice-eval/src/physical/serve_fixture_control_tests.rs": {
+      "before": "fdb57e00dd9e3028ae6f5a5aa6df81d1147bee4fc582ad00b117368951b80bcf",
+      "after": "fdb57e00dd9e3028ae6f5a5aa6df81d1147bee4fc582ad00b117368951b80bcf"
+    },
+    "lampOS/crates/voice-eval/src/physical/recorder_fixture_commands_tests.rs": {
+      "before": "500cd9e92ed12a7328f67d99c60d68105f5130f31d8db2ecd76265fd5fb01d37",
+      "after": "500cd9e92ed12a7328f67d99c60d68105f5130f31d8db2ecd76265fd5fb01d37"
+    },
+    "lampOS/crates/voice-eval/src/physical/prepared_player_clock_tests.rs": {
+      "before": "df9cc11554b19af4c4663d3cf1d67bd5f26afe8521b7c3620597c9936d1d1b61",
+      "after": "df9cc11554b19af4c4663d3cf1d67bd5f26afe8521b7c3620597c9936d1d1b61"
+    },
+    "lampOS/crates/voice-eval/src/physical/recorder_clock_tests.rs": {
+      "before": "034b041b6c280b6f9c5beeeedd6c1aad735a86c3f1f923920f779ae4f7f3331c",
+      "after": "034b041b6c280b6f9c5beeeedd6c1aad735a86c3f1f923920f779ae4f7f3331c"
+    },
+    "lampOS/crates/voice-eval/src/physical/fake_runtime_clock_tests.rs": {
+      "before": "06572780eeb16d10975437ddcec6b1b82944d570373d10312e763f4a2c73467a",
+      "after": "06572780eeb16d10975437ddcec6b1b82944d570373d10312e763f4a2c73467a"
+    },
+    "lampOS/crates/voice-eval/src/physical/recorder_fixture_driver_tests.rs": {
+      "before": "da5c382c25fd8d63f7fac9e3ff17d6caff216df95ae2289af40da6c1225c3ff1",
+      "after": "da5c382c25fd8d63f7fac9e3ff17d6caff216df95ae2289af40da6c1225c3ff1"
+    },
+    "lampOS/crates/voice-eval/src/physical/slow_transport_fixture_control_tests.rs": {
+      "before": "1032118bfae8aec9a555f87ca6f3f334c16599c361a90b38768d5c1d454d3359",
+      "after": "1032118bfae8aec9a555f87ca6f3f334c16599c361a90b38768d5c1d454d3359"
+    },
+    "lampOS/crates/voice-eval/src/physical/slow_transport_fixture_commands_tests.rs": {
+      "before": "dee37c32bd463a6603ab0b2f1dc5f0b2a9ae4b62da98b26a9b9aea560b7ef7c1",
+      "after": "dee37c32bd463a6603ab0b2f1dc5f0b2a9ae4b62da98b26a9b9aea560b7ef7c1"
+    },
+    "lampOS/crates/voice-eval/src/physical/prepared_player_progress_tests.rs": {
+      "before": "1ac1f3a24b267c0968fe291befbd65739c06a1baf4e2f5c9b24eca8f841055b7",
+      "after": "1ac1f3a24b267c0968fe291befbd65739c06a1baf4e2f5c9b24eca8f841055b7"
+    },
+    "lampOS/crates/voice-eval/src/physical/serve_relay_progress_tests.rs": {
+      "before": "d7ccf7f0ddcd46a07d9d6cfc768d5126d507c133b0b708dc69881f124f238ed4",
+      "after": "d7ccf7f0ddcd46a07d9d6cfc768d5126d507c133b0b708dc69881f124f238ed4"
+    },
+    "lampOS/crates/voice-eval/tests/common/mod.rs": {
+      "before": "39d30134e50f4f0b291c1bc78f36a9b87a11f9ae8f65872a43eb3dc94e7a102d",
+      "after": "39d30134e50f4f0b291c1bc78f36a9b87a11f9ae8f65872a43eb3dc94e7a102d"
+    }
+  },
+  "new_test_file_sha256": "0026046f596309aa8cc2698de1893825d0b4d006e5f7951a5af81d1158a85187",
+  "new_test_identities": [
+    "direct_configuration_and_bootstrap_keep_their_original_path",
+    "explicit_wrapper_preserves_the_full_delay_and_every_forwarded_argument",
+    "malformed_or_unbounded_wrappers_fail_before_mutating_configuration",
+    "four_hundred_ms_wait_uses_two_ms_rounds_and_retains_both_setup_inputs",
+    "zero_and_sub_poll_delays_register_a_fresh_relay_before_bootstrap_time",
+    "delay_completion_followed_by_the_wrong_role_fails_at_the_held_due_time",
+    "terminal_delay_without_a_fresh_relay_hello_cannot_start_or_advance",
+    "recorder_due_before_or_on_delay_completion_holds_time_until_exit_notification",
+    "advancing_without_the_separate_recorder_exit_notification_fails_closed",
+    "later_caller_deadlines_cannot_extend_the_cumulative_startup_budget",
+    "an_expired_retained_startup_budget_cannot_be_renewed_by_the_next_call",
+    "an_already_expired_first_call_never_registers_or_advances_the_wrapper",
+    "a_wrapper_disconnect_before_its_first_ack_cannot_start_the_relay",
+    "explicit_close_releases_a_parked_wrapper_and_prevents_further_startup"
+  ],
+  "new_static_assertion_sites": 121,
+  "old_inline_test_identities": [
+    "configuration_keeps_every_fake_argument_and_selects_only_explicit_commands",
+    "shell_transports_real_runtimes_and_malformed_prefixes_cannot_opt_in",
+    "positive_pure_epoch_preserves_retained_history_and_setup_ping_order"
+  ],
+  "old_inline_static_assertion_sites": 12,
+  "review_source_hashes": {
+    "serve_fixture_driver.rs": "3ba9b3405c82198e4c56e4baa3c982be74d8a2e0588766be11c34a2fa62e8014",
+    "fixture_control.rs": "fd764a6a67b3c83295e3fad677a39ef0c6a10a70a7305f9d92aa2fe10d64daf2",
+    "fixture_commands.rs": "df424358eb99ab6982ef8cd3ea3d7484f55bf3c033aabcf29ca0b07c0df5ab0a",
+    "fake_lamp.rs": "7707b987700293a31096338ccd4364e34aa70bce59bca2dd3c1cdaef15c0c9a1",
+    "mac.rs": "c14c40669ad423baf9c21672587bd6e97e47a64e102d6d22c2714e3e399d78e2",
+    "fixture_players.rs": "2378acf5a32c53b013cc90b96d827bdb82307dbb054d7c94e30ede8752dc5dab",
+    "recorder_fixture_driver_tests.rs": "da5c382c25fd8d63f7fac9e3ff17d6caff216df95ae2289af40da6c1225c3ff1"
+  },
+  "limitations": "Source and formatting only. No Cargo/build/test binary, Git, network, devices or escalation. New real-socket mocks are authored but not executed, and are not exec/Child/pipe evidence."
+}

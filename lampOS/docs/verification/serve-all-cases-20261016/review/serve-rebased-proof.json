@@ -1,0 +1,643 @@
+{
+  "date": "2026-10-16 03:56:40+0700",
+  "tree": "/private/tmp/lampos-tests-serve-coordination",
+  "base": "48b3737d5e83efa00278172cb602d3525d368a43",
+  "head": "cce8f3cc6ca19d116800d09fa9de9bca37043dc3",
+  "execution": "Read-only Git/source/log analysis only; no builds, tests, reruns, network, devices, Git mutations or repository edits.",
+  "scope": {
+    "head_diff_paths": 74,
+    "source_doc_paths": 19,
+    "verification_paths": 55,
+    "source_doc_hashes": {
+      "lampOS/docs/realtime-tests.md": {
+        "sha256": "eb3f3e2b8beb25d5320d060507444d49b87ab3926422779ce15a038a5d487eef",
+        "frozen_seed_equal": true,
+        "head_equal": true
+      },
+      "lampOS/crates/voice-eval/tests/serve_session.rs": {
+        "sha256": "cffbb51a9f21b03f2262099b23de526842eb098c600c02f3ec8eca187f800923",
+        "frozen_seed_equal": true,
+        "head_equal": true
+      },
+      "lampOS/crates/voice-eval/src/main.rs": {
+        "sha256": "2267fce371633f875cc8cea94a43e5081d8ec30870ef20555847b10c656a747a",
+        "frozen_seed_equal": true,
+        "head_equal": true
+      },
+      "lampOS/crates/voice-eval/src/physical/session.rs": {
+        "sha256": "660cea49d4e1389ad23e5786a5efded083e7f6d98912dfc9ad9887dad85ccd24",
+        "frozen_seed_equal": true,
+        "head_equal": true
+      },
+      "lampOS/crates/voice-eval/src/physical/fixture_players.rs": {
+        "sha256": "2378acf5a32c53b013cc90b96d827bdb82307dbb054d7c94e30ede8752dc5dab",
+        "frozen_seed_equal": true,
+        "head_equal": true
+      },
+      "lampOS/crates/voice-eval/src/physical/serve_fixture_commands_tests.rs": {
+        "sha256": "54f60e0f676d94989b5220f707f9c5c085cbec83de0aa0e0a3d4ba5f892642ea",
+        "frozen_seed_equal": true,
+        "head_equal": true
+      },
+      "lampOS/crates/voice-eval/src/physical/fixture_control_tests.rs": {
+        "sha256": "90dab0a1075f0fbb819d819f391aede2994363c3238e54445a5a73e5f12f604a",
+        "frozen_seed_equal": true,
+        "head_equal": true
+      },
+      "lampOS/crates/voice-eval/src/physical/fake_serve_progress_tests.rs": {
+        "sha256": "43af2f78890ec502bc3d12cd95214bf2aaa65578eeac1e9abaa1a6c4d0611f7a",
+        "frozen_seed_equal": true,
+        "head_equal": true
+      },
+      "lampOS/crates/voice-eval/src/physical/serve_fixture_control_tests.rs": {
+        "sha256": "fdb57e00dd9e3028ae6f5a5aa6df81d1147bee4fc582ad00b117368951b80bcf",
+        "frozen_seed_equal": true,
+        "head_equal": true
+      },
+      "lampOS/crates/voice-eval/src/physical/fake_serve.rs": {
+        "sha256": "5168b08f121fc374972f9a1bb10f86e30396c83c17ee12c2ea9858cd74ef780d",
+        "frozen_seed_equal": true,
+        "head_equal": true
+      },
+      "lampOS/crates/voice-eval/src/physical/mod.rs": {
+        "sha256": "c55ab4bd4fad65b806f4e66f533d7334f947c25c87d8d072ce69ff848db2e582",
+        "frozen_seed_equal": true,
+        "head_equal": true
+      },
+      "lampOS/crates/voice-eval/src/physical/serve_fixture_driver.rs": {
+        "sha256": "ab7f78684e4e1e9b13035a14bce3c0c3d474529f789f83d5fa1d444ceb9a232c",
+        "frozen_seed_equal": true,
+        "head_equal": true
+      },
+      "lampOS/crates/voice-eval/src/physical/mac.rs": {
+        "sha256": "a0fe85c17fd430a91c12703b0747da32d56309b4fb12900018bd3392f8f844f9",
+        "frozen_seed_equal": true,
+        "head_equal": true
+      },
+      "lampOS/crates/voice-eval/src/physical/fixture_commands.rs": {
+        "sha256": "c755e44894013fa6ff40dc107b0d5a13ae2fea2235b6bd04a4fa4d8b68ba4474",
+        "frozen_seed_equal": true,
+        "head_equal": true
+      },
+      "lampOS/crates/voice-eval/src/physical/fake_lamp.rs": {
+        "sha256": "7707b987700293a31096338ccd4364e34aa70bce59bca2dd3c1cdaef15c0c9a1",
+        "frozen_seed_equal": true,
+        "head_equal": true
+      },
+      "lampOS/crates/voice-eval/src/physical/fixture_driver.rs": {
+        "sha256": "3e4a99a9e5029b7c770b2420c4df70271c5702e30c6f97a3dcfc954fce1871d9",
+        "frozen_seed_equal": true,
+        "head_equal": true
+      },
+      "lampOS/crates/voice-eval/src/physical/fixture_control.rs": {
+        "sha256": "ee8ab5de43e99f1b0636dfb144385e7b7237de8f6b4a677cae766e9a4d8f4d81",
+        "frozen_seed_equal": true,
+        "head_equal": true
+      },
+      "lampOS/crates/voice-eval/src/physical/prepared_player_progress_tests.rs": {
+        "sha256": "1ac1f3a24b267c0968fe291befbd65739c06a1baf4e2f5c9b24eca8f841055b7",
+        "frozen_seed_equal": true,
+        "head_equal": true
+      },
+      "lampOS/crates/voice-eval/src/physical/serve_relay_progress_tests.rs": {
+        "sha256": "d7ccf7f0ddcd46a07d9d6cfc768d5126d507c133b0b708dc69881f124f238ed4",
+        "frozen_seed_equal": true,
+        "head_equal": true
+      }
+    },
+    "no_Cargo_workflow_profile_or_product_changes": true
+  },
+  "pre_gate_source": {
+    "all_current_Rust_files_match": true,
+    "Rust_files": 68,
+    "hashes": {
+      "lampOS/crates/voice-eval/examples/turn_end_replay.rs": "0736c3570330e103935aa973ae82d7409aac94a4a0e9e48bf22041839582e5f8",
+      "lampOS/crates/voice-eval/src/annotations.rs": "4fb5c60ca3f1ef6a3db0abae07fa1c16d591a70bebed449af0fa81e9e7c596b4",
+      "lampOS/crates/voice-eval/src/canary.rs": "72afae19e592bb4e1d22ce07ab7207dccbe024f2e9486691496a4abb0bfbf532",
+      "lampOS/crates/voice-eval/src/evaluate.rs": "a468fc9830fe0458eee3d7e5260678dca3bd097d32b7ba8c2b3af08b71ddbcaa",
+      "lampOS/crates/voice-eval/src/events.rs": "67e018ce75908dd01d65222c527941af9f7055f62be10cde5cc51fa80fada264",
+      "lampOS/crates/voice-eval/src/fake.rs": "2ee95c261a7781b66e68d9e137d102150904b663d066df1ba3f185918c13e956",
+      "lampOS/crates/voice-eval/src/import.rs": "dc1ac848261f4b2ba912c6ee823792dca9e02aa76d16df32c4485988ec0d5102",
+      "lampOS/crates/voice-eval/src/ledger.rs": "83b0a2e57558df2e221e95e411b740c2113638a9ade3a8b71763129bb10640dd",
+      "lampOS/crates/voice-eval/src/lib.rs": "adc758bc6178462e0d11f803bb6e43c7e68e64e72fa617d6c58f6149a0c57df0",
+      "lampOS/crates/voice-eval/src/main.rs": "2267fce371633f875cc8cea94a43e5081d8ec30870ef20555847b10c656a747a",
+      "lampOS/crates/voice-eval/src/physical/backend_clock_tests.rs": "4ca9f50df684e9aa33e9c00dba6533df37d9d4e7563d0e5b1031aae8afb63e96",
+      "lampOS/crates/voice-eval/src/physical/backend_progress_tests.rs": "9fcc0168aeb882e513823932b97f6e2b77d4cbc1c4fd1f9e90279539d9cd15cb",
+      "lampOS/crates/voice-eval/src/physical/channel_closed_peer_tests.rs": "e9469a7b2c0ce0a988d69f46d064162214a1af8a2eefb54c2dd07e1a85c1fbba",
+      "lampOS/crates/voice-eval/src/physical/fake_lamp.rs": "7707b987700293a31096338ccd4364e34aa70bce59bca2dd3c1cdaef15c0c9a1",
+      "lampOS/crates/voice-eval/src/physical/fake_runtime_clock_tests.rs": "06572780eeb16d10975437ddcec6b1b82944d570373d10312e763f4a2c73467a",
+      "lampOS/crates/voice-eval/src/physical/fake_serve.rs": "5168b08f121fc374972f9a1bb10f86e30396c83c17ee12c2ea9858cd74ef780d",
+      "lampOS/crates/voice-eval/src/physical/fake_serve_clock_tests.rs": "62cfe2296fc9a83c4f2f3cf85325639843e11f46ed1afc4bc2625339407f27fe",
+      "lampOS/crates/voice-eval/src/physical/fake_serve_progress_tests.rs": "43af2f78890ec502bc3d12cd95214bf2aaa65578eeac1e9abaa1a6c4d0611f7a",
+      "lampOS/crates/voice-eval/src/physical/fixture_commands.rs": "c755e44894013fa6ff40dc107b0d5a13ae2fea2235b6bd04a4fa4d8b68ba4474",
+      "lampOS/crates/voice-eval/src/physical/fixture_control.rs": "ee8ab5de43e99f1b0636dfb144385e7b7237de8f6b4a677cae766e9a4d8f4d81",
+      "lampOS/crates/voice-eval/src/physical/fixture_control_tests.rs": "90dab0a1075f0fbb819d819f391aede2994363c3238e54445a5a73e5f12f604a",
+      "lampOS/crates/voice-eval/src/physical/fixture_driver.rs": "3e4a99a9e5029b7c770b2420c4df70271c5702e30c6f97a3dcfc954fce1871d9",
+      "lampOS/crates/voice-eval/src/physical/fixture_players.rs": "2378acf5a32c53b013cc90b96d827bdb82307dbb054d7c94e30ede8752dc5dab",
+      "lampOS/crates/voice-eval/src/physical/framing.rs": "afcaa6bf289f2a86f77c91def156d129704cb3331a539fa8cb784872cfdeb9fd",
+      "lampOS/crates/voice-eval/src/physical/mac.rs": "a0fe85c17fd430a91c12703b0747da32d56309b4fb12900018bd3392f8f844f9",
+      "lampOS/crates/voice-eval/src/physical/mod.rs": "c55ab4bd4fad65b806f4e66f533d7334f947c25c87d8d072ce69ff848db2e582",
+      "lampOS/crates/voice-eval/src/physical/prepared_player_clock_tests.rs": "df9cc11554b19af4c4663d3cf1d67bd5f26afe8521b7c3620597c9936d1d1b61",
+      "lampOS/crates/voice-eval/src/physical/prepared_player_progress_tests.rs": "1ac1f3a24b267c0968fe291befbd65739c06a1baf4e2f5c9b24eca8f841055b7",
+      "lampOS/crates/voice-eval/src/physical/protocol.rs": "ed7dee2694a8dfdca12feb021e73e29905cba62e6875603f7af09b12b3c93bf9",
+      "lampOS/crates/voice-eval/src/physical/recorder_clock_tests.rs": "034b041b6c280b6f9c5beeeedd6c1aad735a86c3f1f923920f779ae4f7f3331c",
+      "lampOS/crates/voice-eval/src/physical/relay_progress_tests.rs": "71e2bcc10a20f9dd77f26fba869a487bde99bbc0e8752793e3ecad2633c46d9f",
+      "lampOS/crates/voice-eval/src/physical/serve_fixture_commands_tests.rs": "54f60e0f676d94989b5220f707f9c5c085cbec83de0aa0e0a3d4ba5f892642ea",
+      "lampOS/crates/voice-eval/src/physical/serve_fixture_control_tests.rs": "fdb57e00dd9e3028ae6f5a5aa6df81d1147bee4fc582ad00b117368951b80bcf",
+      "lampOS/crates/voice-eval/src/physical/serve_fixture_driver.rs": "ab7f78684e4e1e9b13035a14bce3c0c3d474529f789f83d5fa1d444ceb9a232c",
+      "lampOS/crates/voice-eval/src/physical/serve_relay_progress_tests.rs": "d7ccf7f0ddcd46a07d9d6cfc768d5126d507c133b0b708dc69881f124f238ed4",
+      "lampOS/crates/voice-eval/src/physical/session.rs": "660cea49d4e1389ad23e5786a5efded083e7f6d98912dfc9ad9887dad85ccd24",
+      "lampOS/crates/voice-eval/src/physical/slow_transport_clock_tests.rs": "7478dae0e6ca89f1cae6b1aee14c22f5aa0871e5151ea50681a480d48baa1dea",
+      "lampOS/crates/voice-eval/src/plan.rs": "2c392083ad5be9fee67b4fe4906569b9aaa824376a9cdfb560cb4d98045ba356",
+      "lampOS/crates/voice-eval/src/playback.rs": "9fc58c446c44fbab2480accacbab5125610149429f084c697eb2769f55fbae9c",
+      "lampOS/crates/voice-eval/src/record.rs": "273f735e33b7987ca878c589a28a0bb70d9aaa49a4daf1a11bc14a471bbf0e73",
+      "lampOS/crates/voice-eval/src/report.rs": "9ab88d7da6fe9b62bd5002f2d185acc4f1a5db5b0d0950630a7793fcf8222d68",
+      "lampOS/crates/voice-eval/src/runner.rs": "8a33b5c626e6f85136080b0023fa8da992e7242e60e96af1d9d85db3db4c59e6",
+      "lampOS/crates/voice-eval/src/stats.rs": "7e22c732fd2d8f2e95d3d411b85609add32edaad8e8cf216703ca5461ddbc5f8",
+      "lampOS/crates/voice-eval/src/stimulus.rs": "af932750edcb1347f97c477ca654eb448e2127cac1dc151a980e94f4c42e175a",
+      "lampOS/crates/voice-eval/src/target_audio.rs": "bf09af85c195c023bd91853ac476b3f602d74ceab2ac6496430e7290b979a7dc",
+      "lampOS/crates/voice-eval/tests/acceptance_boundaries.rs": "525d3d6bb744bc02d2e813bb0d5596b82f4d4dcd36b30378de3efcb057f924bc",
+      "lampOS/crates/voice-eval/tests/answer_review.rs": "54f0f7df24ddda86bf702d535f344d70c961eded126fd0ad57f5f69957493885",
+      "lampOS/crates/voice-eval/tests/audit_final_dispatch.rs": "688ec4f9ec50e7f26e2e0efd97f061f5744f13e7f85f307ad9ca529ba45b146f",
+      "lampOS/crates/voice-eval/tests/audit_importer.rs": "9ff483cbc358a0c39d26a7fd7b67e413868843771c3835c449f84208fa563ec0",
+      "lampOS/crates/voice-eval/tests/audit_runner_dispatch.rs": "2d7a83137a49f160c147decdee27cd5f8a49715655929c2b6c9a008139174f9a",
+      "lampOS/crates/voice-eval/tests/canary_plan.rs": "d9aac255b58008e51b66b099a938729aa251958cd0f4118e6a09d062585bfb92",
+      "lampOS/crates/voice-eval/tests/common/mod.rs": "39d30134e50f4f0b291c1bc78f36a9b87a11f9ae8f65872a43eb3dc94e7a102d",
+      "lampOS/crates/voice-eval/tests/evaluator.rs": "1ec1e23cdfa2acd5847e982352ca9e3ea09cad9195d41d0bd6de4f5463826874",
+      "lampOS/crates/voice-eval/tests/fake_runtime.rs": "37707ba30007771d2abd19c14687f1f3ca73299b1c250ece2564e873b2413c86",
+      "lampOS/crates/voice-eval/tests/final_dispatch.rs": "600ad54a33c7a98ba0abf9c6aadeca366cb319d121b3847f36211cc5b0a30a29",
+      "lampOS/crates/voice-eval/tests/next_turn_ready.rs": "66ff9408a1ce150fa5fedb649506f55aa51e2794e523eebcb154026316d4770f",
+      "lampOS/crates/voice-eval/tests/physical_loopback.rs": "de31d80698e7188af40278c9e982eceed0c15a1ccf8fe42323365dca028d3d98",
+      "lampOS/crates/voice-eval/tests/playback_occurrences.rs": "46b845dc3e597476203f6826be3cb16673069ce1d19f99f60e99d84ff85c75cd",
+      "lampOS/crates/voice-eval/tests/provider_failed.rs": "ecee93a72313d1c2b9af53c7821f476c9b501fac9acd7b227052fb2b9f902022",
+      "lampOS/crates/voice-eval/tests/recording_evidence.rs": "b41f7b0a176723b61944392262205f9a96cda9d43f13d936cc8158b8ae4887c6",
+      "lampOS/crates/voice-eval/tests/recording_import.rs": "5e3bee18d84ffc8c8faa1d5f4d5bd30db8a334fd31e0ee6c6e2b6220b866d14e",
+      "lampOS/crates/voice-eval/tests/relay_clock.rs": "7de3f59adc480869877fdb75109412f959745c13ba57b855e4aebf2bf56504b6",
+      "lampOS/crates/voice-eval/tests/relay_hardening.rs": "ba0d39f2b2f2c4e809ff65ed90fa84d1857c64fd25d9ab072384ddd306769b82",
+      "lampOS/crates/voice-eval/tests/report_validity.rs": "69c9c5b33d02bab0c4b7262f4773e122d37ba58a7315c117660a340b91db18dc",
+      "lampOS/crates/voice-eval/tests/serve_plan.rs": "d67f787f3bd35a54e4da0894a2da5749ef8b8441e3f27803597895667d22bf63",
+      "lampOS/crates/voice-eval/tests/serve_relay.rs": "53f5cc802a0101518da7214b63b77e052b3406fe1b5db3ce43d5c0c305145bf5",
+      "lampOS/crates/voice-eval/tests/serve_session.rs": "cffbb51a9f21b03f2262099b23de526842eb098c600c02f3ec8eca187f800923",
+      "lampOS/crates/voice-eval/tests/target_audio.rs": "3248cc8ae4d32d73659a20f33d08bcc1758e9a5e2f64113287316761dd256892"
+    }
+  },
+  "scenario_preservation": {
+    "base_sha256": "bb8e83a7c0cb08703852638749b01d32e88eb696b35aacb093a5462bd4ddcf49",
+    "current_sha256": "cffbb51a9f21b03f2262099b23de526842eb098c600c02f3ec8eca187f800923",
+    "reversed_sha256": "bb8e83a7c0cb08703852638749b01d32e88eb696b35aacb093a5462bd4ddcf49",
+    "full_reversal_exact": true,
+    "all_assertion_helpers_and_scenarios_tail_exact": true,
+    "assertions": 114,
+    "identities": 14,
+    "run_call_sites": 18,
+    "expanded_attempts": 22,
+    "clock_identities": 10,
+    "clock_attempts": 18,
+    "host_identities": 4,
+    "host_attempts": 4,
+    "cases": [
+      {
+        "identity": "normal_eight_turn_conversation_in_one_serve_session",
+        "body_sha256": "be8f0f396b5c977c1d9ddacb6543a628941f346b5901114ec2558489880744c3",
+        "route": "clock",
+        "run_call_sites": 1,
+        "expanded_attempts": 1
+      },
+      {
+        "identity": "delayed_readiness_is_awaited_by_event_not_by_completion",
+        "body_sha256": "ba3f851395f24caae2683d330b5caa226b196bcdbc9dcd69c7d834e9bf99a0b0",
+        "route": "clock",
+        "run_call_sites": 1,
+        "expanded_attempts": 1
+      },
+      {
+        "identity": "an_extra_candidate_during_the_wait_withholds_the_rest",
+        "body_sha256": "8c8c385a3f72306b0fe21d85a812ff9fa18a65c5e9cf2fa068266d9f90ebd35a",
+        "route": "clock",
+        "run_call_sites": 1,
+        "expanded_attempts": 1
+      },
+      {
+        "identity": "stale_duplicate_reordered_foreign_and_lost_cues_end_the_conversation",
+        "body_sha256": "65f3f23103bd0c068c7a8d854385f8f7e6467e8ea8ff12f2e101e6c62b62f498",
+        "route": "clock",
+        "run_call_sites": 1,
+        "expanded_attempts": 5
+      },
+      {
+        "identity": "a_provider_outage_is_waited_out_by_event_and_a_terminal_link_ends_it",
+        "body_sha256": "b78a37ab7bd55cc3028effea049cc9de4b65508dab1cf2f3033bbba4889f411a",
+        "route": "clock",
+        "run_call_sites": 2,
+        "expanded_attempts": 2
+      },
+      {
+        "identity": "a_late_first_copy_or_failed_player_withholds_every_later_turn",
+        "body_sha256": "a769ff74ec361254baadbfe2af0fec4133c56ac19729d793ba5d61f9cc93ddef",
+        "route": "clock",
+        "run_call_sites": 2,
+        "expanded_attempts": 2
+      },
+      {
+        "identity": "a_runtime_stop_mute_or_ignored_sigterm_is_retained_and_reaped",
+        "body_sha256": "345fffca1e00a7a1c22a793b247c906d71d84bec37fc1b3f736aafe83a613278",
+        "route": "clock",
+        "run_call_sites": 3,
+        "expanded_attempts": 3
+      },
+      {
+        "identity": "a_room_recording_that_ends_early_withholds_the_rest",
+        "body_sha256": "1a4317c079b9cdea0ca6a86ea7feccd3df23d085cdf95b8b483efa2a26f42b91",
+        "route": "host",
+        "run_call_sites": 1,
+        "expanded_attempts": 1
+      },
+      {
+        "identity": "startup_cues_stay_fresh_through_a_slow_transport_and_a_slow_first_preparer",
+        "body_sha256": "675d385b33c9d6958761efc33fcee0fec8367d461025fb6f32208487795b15f9",
+        "route": "host",
+        "run_call_sites": 1,
+        "expanded_attempts": 1
+      },
+      {
+        "identity": "a_recorder_that_exits_zero_mid_conversation_withholds_the_rest_and_certifies_nothing",
+        "body_sha256": "37d48f604a7a0a3ac5068d0166b07712c226657d8b8b358b6e5e5839a2b98ee3",
+        "route": "host",
+        "run_call_sites": 1,
+        "expanded_attempts": 1
+      },
+      {
+        "identity": "a_declared_capture_end_before_the_next_prompt_and_its_window_withholds_it",
+        "body_sha256": "3ca48cfab16c5da3e05c0f039d39370c6097f2d4155dfc9e805dda426aeeb180",
+        "route": "host",
+        "run_call_sites": 1,
+        "expanded_attempts": 1
+      },
+      {
+        "identity": "the_runner_forwards_pilot_runtime_settings_through_the_relay",
+        "body_sha256": "fce42e7116e65956a96fe13a3560bde30ef84add359b095173d2cb53ac18aba9",
+        "route": "clock",
+        "run_call_sites": 1,
+        "expanded_attempts": 1
+      },
+      {
+        "identity": "serve_readiness_comes_only_from_the_fresh_cue_never_from_stdout",
+        "body_sha256": "a7d2da110f1f9d4c6157017fdb9284c985d4dcc153c1873c5108448e2f185059",
+        "route": "clock",
+        "run_call_sites": 1,
+        "expanded_attempts": 1
+      },
+      {
+        "identity": "a_nonzero_runtime_exit_never_completes_a_serve_attempt",
+        "body_sha256": "07998d75f7d7f2aa2ec63f6b4ff9805f6ead0c7186a3dc1b9042a93ca16e8072",
+        "route": "clock",
+        "run_call_sites": 1,
+        "expanded_attempts": 1
+      }
+    ]
+  },
+  "implementation_docs": {
+    "base_prefix_exact": true,
+    "only_appended_serve_section": true,
+    "appended_lines": 27
+  },
+  "fresh_gate": {
+    "totals": [
+      422,
+      0,
+      0
+    ],
+    "summary_count": 25,
+    "all_zero_measured_filtered": true,
+    "compiled_test_count": 422,
+    "old_compiled_test_count": 416,
+    "added": [
+      [
+        "lamp-voice-eval",
+        "physical::fake_lamp::slow_transport_clock_tests::a_consuming_wait_error_is_returned_unchanged_before_exec"
+      ],
+      [
+        "lamp-voice-eval",
+        "physical::fake_lamp::slow_transport_clock_tests::malformed_arguments_fail_before_the_wait_in_both_entrypoints"
+      ],
+      [
+        "lamp-voice-eval",
+        "physical::fake_lamp::slow_transport_clock_tests::malformed_delay_keeps_the_original_parse_error_before_waiting"
+      ],
+      [
+        "lamp-voice-eval",
+        "physical::fake_lamp::slow_transport_clock_tests::real_exec_failure_keeps_the_original_io_error_after_the_wait"
+      ],
+      [
+        "lamp-voice-eval",
+        "physical::fake_lamp::slow_transport_clock_tests::real_exec_replaces_the_owned_child_and_keeps_argv_and_queued_input"
+      ],
+      [
+        "lamp-voice-eval",
+        "physical::fake_lamp::slow_transport_clock_tests::zero_and_full_u64_millisecond_delays_reach_one_wait_without_truncation"
+      ]
+    ],
+    "removed": [],
+    "original_14_registered_and_passed": true,
+    "commands": [
+      {
+        "stage": "cache-reset",
+        "command": [
+          "cargo",
+          "clean",
+          "--profile",
+          "dev",
+          "-p",
+          "lamp-sound-fixtures",
+          "-p",
+          "lamp-turn-owner",
+          "-p",
+          "lamp-ipc",
+          "-p",
+          "lamp-audio",
+          "-p",
+          "lamp-ring",
+          "-p",
+          "lamp-gemini",
+          "-p",
+          "lamp-voice",
+          "-p",
+          "lamp-body",
+          "-p",
+          "lamp-bus",
+          "-p",
+          "lamp-keeper",
+          "-p",
+          "lamp-msgs",
+          "-p",
+          "lamp-camera",
+          "-p",
+          "lamp-controls",
+          "-p",
+          "lamp-schedule",
+          "-p",
+          "lamp-turn-end-wire",
+          "-p",
+          "lamp-actions",
+          "-p",
+          "lamp-expression",
+          "-p",
+          "lamp-policy",
+          "-p",
+          "lamp-turn-end",
+          "-p",
+          "lamp-observer",
+          "-p",
+          "lamp-eyes",
+          "-p",
+          "lamp-environment",
+          "-p",
+          "lamp-voice-eval",
+          "-p",
+          "lamp-memory",
+          "-p",
+          "lamp-name",
+          "-p",
+          "lamp-health",
+          "-p",
+          "lamp-records",
+          "-p",
+          "lamp-lean",
+          "-p",
+          "lamp-surround",
+          "-p",
+          "lamp-ears",
+          "-p",
+          "lamp-tasks",
+          "-p",
+          "lamp-air",
+          "-p",
+          "lamp-mood",
+          "-p",
+          "lamp-update",
+          "-p",
+          "lamp-setup",
+          "-p",
+          "lamp-settings",
+          "-p",
+          "lamp-same-voice",
+          "-p",
+          "lamp-selftest"
+        ],
+        "cwd": "/private/tmp/lampos-tests-serve-coordination/lampOS",
+        "target": "/private/tmp/tests-823-rebase-target",
+        "start_from_date": "2026-10-16 03:35:50 +0700",
+        "finish_from_date": "2026-10-16 03:35:51 +0700",
+        "exit_code": 0
+      },
+      {
+        "stage": "fmt",
+        "command": [
+          "cargo",
+          "fmt",
+          "--all",
+          "--check"
+        ],
+        "cwd": "/private/tmp/lampos-tests-serve-coordination/lampOS",
+        "target": "/private/tmp/tests-823-rebase-target",
+        "start_from_date": "2026-10-16 03:35:51 +0700",
+        "finish_from_date": "2026-10-16 03:35:57 +0700",
+        "exit_code": 0
+      },
+      {
+        "stage": "clippy",
+        "command": [
+          "cargo",
+          "clippy",
+          "--locked",
+          "--offline",
+          "-p",
+          "lamp-voice-eval",
+          "--all-targets",
+          "--",
+          "-D",
+          "warnings"
+        ],
+        "cwd": "/private/tmp/lampos-tests-serve-coordination/lampOS",
+        "target": "/private/tmp/tests-823-rebase-target",
+        "start_from_date": "2026-10-16 03:35:57 +0700",
+        "finish_from_date": "2026-10-16 03:36:34 +0700",
+        "exit_code": 0
+      },
+      {
+        "stage": "list",
+        "command": [
+          "cargo",
+          "nextest",
+          "list",
+          "--locked",
+          "--offline",
+          "-p",
+          "lamp-voice-eval",
+          "--message-format",
+          "json"
+        ],
+        "cwd": "/private/tmp/lampos-tests-serve-coordination/lampOS",
+        "target": "/private/tmp/tests-823-rebase-target",
+        "start_from_date": "2026-10-16 03:36:34 +0700",
+        "finish_from_date": "2026-10-16 03:38:27 +0700",
+        "exit_code": 0
+      },
+      {
+        "stage": "tests",
+        "command": [
+          "cargo",
+          "test",
+          "--locked",
+          "--offline",
+          "-p",
+          "lamp-voice-eval",
+          "--",
+          "--test-threads=1"
+        ],
+        "cwd": "/private/tmp/lampos-tests-serve-coordination/lampOS",
+        "target": "/private/tmp/tests-823-rebase-target",
+        "start_from_date": "2026-10-16 03:38:27 +0700",
+        "finish_from_date": "2026-10-16 03:43:16 +0700",
+        "exit_code": 0
+      },
+      {
+        "stage": "build",
+        "command": [
+          "cargo",
+          "build",
+          "--locked",
+          "--offline",
+          "--workspace"
+        ],
+        "cwd": "/private/tmp/lampos-tests-serve-coordination/lampOS",
+        "target": "/private/tmp/tests-823-rebase-target",
+        "start_from_date": "2026-10-16 03:43:16 +0700",
+        "finish_from_date": "2026-10-16 03:44:54 +0700",
+        "exit_code": 0
+      }
+    ],
+    "serve_summary_seconds": "133.01",
+    "serve_summary_is_not_a_paired_benchmark": true
+  },
+  "new_evidence_copies": {
+    "byte_exact": true,
+    "files": {
+      "rebased-local/root-result.json": "f347d9a5aec09a1cd7c0904464958c0df8cc79e6001753a493253b9c59fe8ed6",
+      "rebased-local/root-tests.log": "bced6a331c8b07cbddac08c9970a2424e09bf30b6872d32c74e77ee92b5be062",
+      "rebased-local/root-clippy.started": "38be723a57f43bd6eaf69f63f93ce9c3f9b7b29976ced206feb9487d4da0a710",
+      "rebased-local/root-build.finished": "cea16118accf8fa06c97c2e9737525aaae3b0e3de75387b31e9c1d43b2557680",
+      "rebased-local/root-build.exit": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+      "rebased-local/root-list.finished": "97f660e65bf43f98c49ca6e7fd3c50222756c43cbc020de25a5faa5e75ff391a",
+      "rebased-local/root-clippy.exit": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+      "rebased-local/root-list.exit": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+      "rebased-local/root-list.log": "7216d7ed299249fe02adfba290173d83d6ae80adc7df500892916e5eb5ef9e52",
+      "rebased-local/root-gates.json": "616a8074d3916d6977771ae2047e2f2d9c343fbd24e70ecbcb0eb15f8bc742d7",
+      "rebased-local/root-fmt.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "rebased-local/root-build.log": "29c18064d6b3c249cd0d7a578d9bd4ef0fdae742fdea27b5d1ee663a48ffe441",
+      "rebased-local/root-list.started": "9ae566849f0ee4720dfdf23404df19236b68f9a13bc64b4a17517a1f45211012",
+      "rebased-local/after-body-fix-rebase.json": "2e34c5e51cc603af48dff1dc3ce92690635bd9f607bd059b2377f370560f4a87",
+      "rebased-local/root-cache-reset.log": "7c75d284d6ad3900a58fc416ee6a2cc22368ffb5c8a3826712ad58a428eae2b2",
+      "rebased-local/root-source-before.json": "133e354bef81ec801ccafe12f8e0c7cfe2528ee90aa228485b4c3ff11e114901",
+      "rebased-local/root-fmt.started": "36e7abe4356fefb8cd7dd566be2e6b6dce8a3269603c97ea7f85a37a8b6f4fa3",
+      "rebased-local/root-cache-reset.exit": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+      "rebased-local/root-clippy.log": "c117085cd66c4707c97cf099455d3ee635612b9019bfadcb3943b5f743909b07",
+      "rebased-local/root-build.started": "dc36b09cf140a4d6cb802b395cdff29916421891f66e1ebead7abf02e6d0c69b",
+      "rebased-local/root-tests.finished": "dc36b09cf140a4d6cb802b395cdff29916421891f66e1ebead7abf02e6d0c69b",
+      "rebased-local/root-fmt.finished": "38be723a57f43bd6eaf69f63f93ce9c3f9b7b29976ced206feb9487d4da0a710",
+      "rebased-local/root-clippy.finished": "9ae566849f0ee4720dfdf23404df19236b68f9a13bc64b4a17517a1f45211012",
+      "rebased-local/root-cache-reset.finished": "36e7abe4356fefb8cd7dd566be2e6b6dce8a3269603c97ea7f85a37a8b6f4fa3",
+      "rebased-local/root-fmt.exit": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+      "rebased-local/root-cache-reset.started": "f5ee1a9fd55a2ed193d216e6f5a4a43e18e5b917d26db526d52df74281fdb1ff",
+      "rebased-local/root-tests.started": "97f660e65bf43f98c49ca6e7fd3c50222756c43cbc020de25a5faa5e75ff391a",
+      "rebased-local/root-tests.exit": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+      "first-native/909-38801026642-original-observed.json": "bcf6c101234bb2961794c74c9c46a030f5c78bb0775f24ae2b1ca5c54c161486",
+      "first-native/909-body-stop-triage.json": "2e683839b1d08c1427729edeac998a29d6f89d28646137afeaece90ea738d698",
+      "first-native/909-38800988605.json": "364be8702f628ce0bb608461966156b852a81d2a8dab056613fc7b16b1aaadec",
+      "first-native/909-38801026642-audit.json": "7fc04223d346251e0f0de2f6218f010bda79edaa69899dac1f22a8022ddec635",
+      "first-native/909-38801026642.json": "387954af7e1fba08ffd708941831513e7a6d6fe3e367fe9f78129cb05212c0f2",
+      "first-native/909-38801026642.log": "1b8287532b5741bcf1a45139d5b83d3819ad7528fb4541849d8610977339343e",
+      "first-native/909-body-stop-line-provenance.txt": "43378d37e8fcb9dff95c70dca36c0211da4d62f77f6c86ccc5859a12a2bd678c",
+      "first-native/909-38800988605.log": "ae23e71197fbbceedff1ed140424e053a037e74e6f9621bcc6a121d75f9229f0",
+      "first-native/909-body-stop-triage.md": "c89ea9a001a05ee342908d7d4c2fd0b20bf65ff88b3466400efaea5f34bd6655",
+      "first-native/909-body-stop-failure-excerpt.txt": "c9a7ad4189222c3b8c7ee12105197a27735ad69e6b689fe53bf34ebb9fb47dec"
+    }
+  },
+  "native_raw_audit": {
+    "first_head": "188d97b7fcb6a78adaec67a3d3939843f759e1d3",
+    "normal_unique_outcomes": {
+      "PASS": 305,
+      "FAIL": 1
+    },
+    "full_unique_outcomes": {
+      "PASS": 3845,
+      "FAIL": 1
+    },
+    "duplicate_final_summary_rows": 1,
+    "original_123_reference": "4596d2cac:lampOS/docs/verification/realtime-inventory-20261015/inventory.json",
+    "original_reference_sha256": "72d671f8b22246898f9142c0216c9fbced55e350e46b83ffec787c81496fb1fc",
+    "local_119_plus_4_Linux_only_ids_equal": true,
+    "later_123_audit_ids_equal": true,
+    "original_observed": 93,
+    "serve_observed": 13,
+    "serve_missing": [
+      "delayed_readiness_is_awaited_by_event_not_by_completion"
+    ],
+    "serve_case_seconds_sum": "71.114",
+    "failures": [
+      {
+        "status": "FAIL",
+        "seconds": "0.076",
+        "binary": "lamp-body",
+        "test": "runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only",
+        "shard": "lampOS \u2014 build and test on Linux ARM64 (4/4)"
+      }
+    ],
+    "full_qualification": false
+  },
+  "historical_pair": {
+    "raw_summaries_verified": [
+      "396.970",
+      "111.763"
+    ],
+    "all_14_pass_each": true,
+    "raw_retries_found": false,
+    "source_matches_pair": true,
+    "limits": "After invocation ran first; known load overlapped entire before, equivalent after load not established. Shared x86_64 Mac debug, separately identified helper, no current-head/native/all-123/push-to-result measurement."
+  },
+  "reviewed_readme_sha256": "5693852a47608ca4023fcb2fc3c69cd3e574ee2f0c199a9c957aa76885ebff0f",
+  "status_at_review": [
+    " M lampOS/docs/verification/serve-coordination-20261016/README.md",
+    " M lampOS/docs/verification/serve-coordination-20261016/SHA256SUMS",
+    "?? lampOS/docs/verification/serve-coordination-20261016/first-native/909-38800988605.json",
+    "?? lampOS/docs/verification/serve-coordination-20261016/first-native/909-38801026642-audit.json",
+    "?? lampOS/docs/verification/serve-coordination-20261016/first-native/909-38801026642-original-observed.json",
+    "?? lampOS/docs/verification/serve-coordination-20261016/first-native/909-38801026642.json",
+    "?? lampOS/docs/verification/serve-coordination-20261016/first-native/909-body-stop-failure-excerpt.txt",
+    "?? lampOS/docs/verification/serve-coordination-20261016/first-native/909-body-stop-line-provenance.txt",
+    "?? lampOS/docs/verification/serve-coordination-20261016/first-native/909-body-stop-triage.json",
+    "?? lampOS/docs/verification/serve-coordination-20261016/first-native/909-body-stop-triage.md",
+    "?? lampOS/docs/verification/serve-coordination-20261016/rebased-local/after-body-fix-rebase.json",
+    "?? lampOS/docs/verification/serve-coordination-20261016/rebased-local/root-build.exit",
+    "?? lampOS/docs/verification/serve-coordination-20261016/rebased-local/root-build.finished",
+    "?? lampOS/docs/verification/serve-coordination-20261016/rebased-local/root-build.started",
+    "?? lampOS/docs/verification/serve-coordination-20261016/rebased-local/root-cache-reset.exit",
+    "?? lampOS/docs/verification/serve-coordination-20261016/rebased-local/root-cache-reset.finished",
+    "?? lampOS/docs/verification/serve-coordination-20261016/rebased-local/root-cache-reset.started",
+    "?? lampOS/docs/verification/serve-coordination-20261016/rebased-local/root-clippy.exit",
+    "?? lampOS/docs/verification/serve-coordination-20261016/rebased-local/root-clippy.finished",
+    "?? lampOS/docs/verification/serve-coordination-20261016/rebased-local/root-clippy.started",
+    "?? lampOS/docs/verification/serve-coordination-20261016/rebased-local/root-fmt.exit",
+    "?? lampOS/docs/verification/serve-coordination-20261016/rebased-local/root-fmt.finished",
+    "?? lampOS/docs/verification/serve-coordination-20261016/rebased-local/root-fmt.started",
+    "?? lampOS/docs/verification/serve-coordination-20261016/rebased-local/root-gates.json",
+    "?? lampOS/docs/verification/serve-coordination-20261016/rebased-local/root-list.exit",
+    "?? lampOS/docs/verification/serve-coordination-20261016/rebased-local/root-list.finished",
+    "?? lampOS/docs/verification/serve-coordination-20261016/rebased-local/root-list.started",
+    "?? lampOS/docs/verification/serve-coordination-20261016/rebased-local/root-result.json",
+    "?? lampOS/docs/verification/serve-coordination-20261016/rebased-local/root-source-before.json",
+    "?? lampOS/docs/verification/serve-coordination-20261016/rebased-local/root-tests.exit",
+    "?? lampOS/docs/verification/serve-coordination-20261016/rebased-local/root-tests.finished",
+    "?? lampOS/docs/verification/serve-coordination-20261016/rebased-local/root-tests.started"
+  ]
+}

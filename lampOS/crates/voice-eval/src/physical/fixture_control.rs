@@ -1,4 +1,4 @@
-//! Explicit local coordination for the evaluator's finite fake-runtime fixtures.
+//! Explicit local coordination for the evaluator's fake-runtime fixtures.
 //!
 //! A parent owns fixture time. Participants perform one complete poll, announce
 //! its counters, then park until the next numbered step. Reading `FixtureClock`
@@ -29,6 +29,10 @@ pub const DEFAULT_WATCHDOG: Duration = Duration::from_secs(30);
 pub enum Role {
     Runtime,
     Relay,
+    ServeRuntime,
+    ServeRelay,
+    Recorder,
+    SlowTransport,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
@@ -36,12 +40,23 @@ pub enum Role {
 pub struct Step {
     /// Consecutive per-peer sequence, starting at one, including same-time steps.
     pub round: u64,
+    /// Recorder Steps must also fit in u64 nanoseconds for the shared recorder.
+    /// Slow transport uses that same domain before handing time to the relay.
     pub at_us: u64,
     /// Complete runtime stdout frames the relay must consume before acknowledging.
-    /// Both targets must be zero for a runtime participant.
+    /// Both targets must be zero for a runtime or recorder participant.
+    /// Slow transport also leaves both streams untouched and requires zero.
     pub stdout_target: u64,
     /// Complete runner input frames the relay must consume before acknowledging.
     pub runner_input_target: u64,
+    /// Only a serve runtime may wait for its real signal handler to see SIGTERM.
+    /// This target never sends or fabricates a signal.
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub wait_for_sigterm: bool,
+}
+
+fn is_false(value: &bool) -> bool {
+    !*value
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
@@ -68,6 +83,54 @@ pub enum Progress {
         /// The relay engine returned after flushing final output; not OS exit.
         logical_end: bool,
     },
+    ServeRuntime {
+        poll_seq: u64,
+        /// Complete stdout frames successfully flushed by the serve runtime.
+        stdout_frames: u64,
+        /// Decoded room datagrams consumed, including those discarded while muted.
+        room_consumed: u64,
+        /// Consumed room datagrams actually injected into the active runtime.
+        room_injected: u64,
+        cycle: u64,
+        cycle_base_us: u64,
+        /// May reset only when the service starts a later cycle.
+        runtime_us: u64,
+        /// The existing signal-handler atomic, not a send receipt or an exit claim.
+        observed_signal: usize,
+        /// Final metadata finish/fsync and stdout flush completed; not OS exit.
+        logical_end: bool,
+    },
+    ServeRelay {
+        poll_seq: u64,
+        stdout_frames: u64,
+        runner_inputs: u64,
+        output_frames: u64,
+        /// Timestamp of a successful real SIGTERM send. It does not prove that
+        /// the runtime observed the signal or that either process has exited.
+        stop_signal_sent_us: Option<u64>,
+        /// The relay engine returned after flushing final output; not OS exit.
+        logical_end: bool,
+    },
+    Recorder {
+        poll_seq: u64,
+        /// The original ready-file write returned successfully; not fsync.
+        ready_written: bool,
+        /// A fresh clock sample after the ready write, fixed for this recorder.
+        wait_started_us: u64,
+        /// The complete original minimum-duration wait ends at this instant.
+        exit_due_us: u64,
+        /// The configured wait completed; the real child exit still follows.
+        logical_end: bool,
+    },
+    SlowTransport {
+        poll_seq: u64,
+        /// The first held Step sampled before the complete transport delay.
+        wait_started_us: u64,
+        /// Earliest instant at which the original exec may be attempted.
+        exec_due_us: u64,
+        /// Only the wait ended. Actual exec, a new relay Hello, and exit follow.
+        logical_end: bool,
+    },
 }
 
 impl Progress {
@@ -75,18 +138,32 @@ impl Progress {
         match self {
             Self::Runtime { .. } => Role::Runtime,
             Self::Relay { .. } => Role::Relay,
+            Self::ServeRuntime { .. } => Role::ServeRuntime,
+            Self::ServeRelay { .. } => Role::ServeRelay,
+            Self::Recorder { .. } => Role::Recorder,
+            Self::SlowTransport { .. } => Role::SlowTransport,
         }
     }
 
     pub const fn poll_seq(self) -> u64 {
         match self {
-            Self::Runtime { poll_seq, .. } | Self::Relay { poll_seq, .. } => poll_seq,
+            Self::Runtime { poll_seq, .. }
+            | Self::Relay { poll_seq, .. }
+            | Self::ServeRuntime { poll_seq, .. }
+            | Self::ServeRelay { poll_seq, .. }
+            | Self::Recorder { poll_seq, .. }
+            | Self::SlowTransport { poll_seq, .. } => poll_seq,
         }
     }
 
     pub const fn logical_end(self) -> bool {
         match self {
-            Self::Runtime { logical_end, .. } | Self::Relay { logical_end, .. } => logical_end,
+            Self::Runtime { logical_end, .. }
+            | Self::Relay { logical_end, .. }
+            | Self::ServeRuntime { logical_end, .. }
+            | Self::ServeRelay { logical_end, .. }
+            | Self::Recorder { logical_end, .. }
+            | Self::SlowTransport { logical_end, .. } => logical_end,
         }
     }
 }
@@ -161,14 +238,28 @@ impl ParentListener {
     /// One cumulative host watchdog covers accept and the peer's Hello. The
     /// caller explicitly chooses the expected role; arrival order is no proof.
     pub fn accept(&self, expected: Role) -> io::Result<ParentPeer> {
+        self.accept_inner(expected, None)
+    }
+
+    /// Retain an existing caller deadline across bootstrap and later resource
+    /// waits. Accept and Hello share the earlier of it and this host watchdog.
+    pub fn accept_until(&self, expected: Role, end: Instant) -> io::Result<ParentPeer> {
+        self.accept_inner(expected, Some(end))
+    }
+
+    fn accept_inner(&self, expected: Role, end: Option<Instant>) -> io::Result<ParentPeer> {
         let role_bit = match expected {
             Role::Runtime => 1,
             Role::Relay => 2,
+            Role::ServeRuntime => 4,
+            Role::ServeRelay => 8,
+            Role::Recorder => 16,
+            Role::SlowTransport => 32,
         };
         if self.accepted_roles.get() & role_bit != 0 {
             return Err(invalid(format!("duplicate {expected:?} participant")));
         }
-        let end = deadline(self.watchdog)?;
+        let end = selected_deadline(deadline(self.watchdog)?, end);
         loop {
             remaining(end, "accept peer")?;
             match self.listener.accept() {
@@ -369,8 +460,10 @@ impl Participant {
     }
 
     /// Announce logical completion without waiting for another Step. This is
-    /// never evidence of OS exit. Runtime trace writes/fsync and exit follow;
-    /// a relay wrapper calls this only after final trace/SessionEnd flushes.
+    /// never evidence of OS exit. Finite runtime trace writes/fsync and exit
+    /// follow; a serve runtime first finishes metadata/fsync and stdout, and
+    /// a relay wrapper first finishes final trace/SessionEnd flushes.
+    /// Slow transport completes only its delay, before attempting the real exec.
     pub fn final_ack(&mut self, progress: Progress) -> io::Result<()> {
         let result = (|| {
             if !progress.logical_end() {
@@ -444,8 +537,35 @@ fn validate_step(role: Role, previous: Option<Step>, step: Step) -> io::Result<(
             return Err(invalid("Step input target regressed"));
         }
     }
-    if role == Role::Runtime && (step.stdout_target != 0 || step.runner_input_target != 0) {
+    if matches!(role, Role::Runtime | Role::ServeRuntime)
+        && (step.stdout_target != 0 || step.runner_input_target != 0)
+    {
         return Err(invalid("runtime Step contains relay-only input targets"));
+    }
+    if role == Role::Recorder && (step.stdout_target != 0 || step.runner_input_target != 0) {
+        return Err(invalid("recorder Step contains relay-only input targets"));
+    }
+    if role == Role::Recorder && step.at_us > u64::MAX / 1000 {
+        return Err(invalid(
+            "recorder Step microseconds-to-nanoseconds overflow",
+        ));
+    }
+    if role == Role::SlowTransport {
+        if step.stdout_target != 0 || step.runner_input_target != 0 {
+            return Err(invalid(
+                "slow transport Step contains relay-only input targets",
+            ));
+        }
+        if step.at_us > u64::MAX / 1000 {
+            return Err(invalid(
+                "slow transport Step exceeds the shared nanosecond clock domain",
+            ));
+        }
+    }
+    if step.wait_for_sigterm && role != Role::ServeRuntime {
+        return Err(invalid(
+            "SIGTERM observation target requires a serve runtime",
+        ));
     }
     Ok(())
 }
@@ -470,6 +590,11 @@ fn validate_progress(
         stdout_frames,
         runner_inputs,
         ..
+    }
+    | Progress::ServeRelay {
+        stdout_frames,
+        runner_inputs,
+        ..
     } = progress
         && (stdout_frames < step.stdout_target || runner_inputs < step.runner_input_target)
     {
@@ -477,6 +602,9 @@ fn validate_progress(
             "relay Ack has not consumed the announced input targets",
         ));
     }
+    validate_serve_progress(previous, step, progress)?;
+    validate_recorder_progress(previous, step, progress)?;
+    validate_slow_transport_progress(previous, step, progress)?;
     let regressed = match (previous, progress) {
         (
             Some(Progress::Runtime {
@@ -504,6 +632,49 @@ fn validate_progress(
                 ..
             },
         ) => stdout_frames < old_stdout || runner_inputs < old_input || output_frames < old_output,
+        (
+            Some(Progress::ServeRuntime {
+                stdout_frames: old_stdout,
+                room_consumed: old_consumed,
+                room_injected: old_injected,
+                cycle: old_cycle,
+                cycle_base_us: old_base,
+                runtime_us: old_runtime,
+                ..
+            }),
+            Progress::ServeRuntime {
+                stdout_frames,
+                room_consumed,
+                room_injected,
+                cycle,
+                cycle_base_us,
+                runtime_us,
+                ..
+            },
+        ) => {
+            stdout_frames < old_stdout
+                || room_consumed < old_consumed
+                || room_injected < old_injected
+                || cycle < old_cycle
+                || cycle_base_us < old_base
+                || (cycle == old_cycle && runtime_us < old_runtime)
+        }
+        (
+            Some(Progress::ServeRelay {
+                stdout_frames: old_stdout,
+                runner_inputs: old_input,
+                output_frames: old_output,
+                ..
+            }),
+            Progress::ServeRelay {
+                stdout_frames,
+                runner_inputs,
+                output_frames,
+                ..
+            },
+        ) => stdout_frames < old_stdout || runner_inputs < old_input || output_frames < old_output,
+        (Some(Progress::Recorder { .. }), Progress::Recorder { .. }) => false,
+        (Some(Progress::SlowTransport { .. }), Progress::SlowTransport { .. }) => false,
         (Some(_), _) => true,
         (None, _) => false,
     };
@@ -512,6 +683,190 @@ fn validate_progress(
     }
     if previous.is_some_and(Progress::logical_end) {
         return Err(invalid("Ack followed terminal progress"));
+    }
+    Ok(())
+}
+
+fn validate_serve_progress(
+    previous: Option<Progress>,
+    step: Step,
+    progress: Progress,
+) -> io::Result<()> {
+    if step.wait_for_sigterm
+        && !matches!(
+            progress,
+            Progress::ServeRuntime { observed_signal, .. }
+                if observed_signal == signal_hook::consts::SIGTERM as usize
+        )
+    {
+        return Err(invalid("Ack has not observed the requested real SIGTERM"));
+    }
+    match progress {
+        Progress::ServeRuntime {
+            room_consumed,
+            room_injected,
+            cycle,
+            cycle_base_us,
+            observed_signal,
+            ..
+        } => {
+            if room_injected > room_consumed {
+                return Err(invalid(
+                    "serve runtime injected more room inputs than it consumed",
+                ));
+            }
+            if observed_signal != 0
+                && observed_signal != signal_hook::consts::SIGTERM as usize
+                && observed_signal != signal_hook::consts::SIGINT as usize
+            {
+                return Err(invalid("serve runtime reported an unregistered signal"));
+            }
+            if let Some(Progress::ServeRuntime {
+                cycle: old_cycle,
+                cycle_base_us: old_base,
+                observed_signal: old_signal,
+                ..
+            }) = previous
+            {
+                if cycle == old_cycle && cycle_base_us != old_base {
+                    return Err(invalid(
+                        "serve runtime changed the base of an existing cycle",
+                    ));
+                }
+                if old_signal != 0 && observed_signal == 0 {
+                    return Err(invalid("serve runtime cleared its observed signal"));
+                }
+            }
+        }
+        Progress::ServeRelay {
+            stop_signal_sent_us,
+            ..
+        } => {
+            if stop_signal_sent_us.is_some_and(|sent| sent > step.at_us) {
+                return Err(invalid(
+                    "serve relay signal receipt is later than the current Step",
+                ));
+            }
+            if let Some(Progress::ServeRelay {
+                stop_signal_sent_us: Some(sent),
+                ..
+            }) = previous
+                && stop_signal_sent_us != Some(sent)
+            {
+                return Err(invalid(
+                    "serve relay changed its successful signal-send receipt",
+                ));
+            }
+        }
+        Progress::Runtime { .. }
+        | Progress::Relay { .. }
+        | Progress::Recorder { .. }
+        | Progress::SlowTransport { .. } => {}
+    }
+    Ok(())
+}
+
+fn validate_recorder_progress(
+    previous: Option<Progress>,
+    step: Step,
+    progress: Progress,
+) -> io::Result<()> {
+    let Progress::Recorder {
+        ready_written,
+        wait_started_us,
+        exit_due_us,
+        logical_end,
+        ..
+    } = progress
+    else {
+        return Ok(());
+    };
+    if step.stdout_target != 0 || step.runner_input_target != 0 || step.wait_for_sigterm {
+        return Err(invalid(
+            "recorder Ack cannot satisfy input or signal targets",
+        ));
+    }
+    if !ready_written {
+        return Err(invalid(
+            "recorder Ack precedes its successful ready-file write",
+        ));
+    }
+    if wait_started_us > step.at_us || exit_due_us < wait_started_us {
+        return Err(invalid("recorder wait has inconsistent start or due time"));
+    }
+    match previous {
+        Some(Progress::Recorder {
+            wait_started_us: old_start,
+            exit_due_us: old_due,
+            ..
+        }) if wait_started_us != old_start || exit_due_us != old_due => {
+            return Err(invalid("recorder changed its fixed wait start or due time"));
+        }
+        None if wait_started_us != step.at_us => {
+            return Err(invalid(
+                "recorder first wait start differs from its held Step",
+            ));
+        }
+        _ => {}
+    }
+    if logical_end != (step.at_us >= exit_due_us) {
+        return Err(invalid(
+            "recorder terminal flag disagrees with its wait deadline",
+        ));
+    }
+    Ok(())
+}
+
+fn validate_slow_transport_progress(
+    previous: Option<Progress>,
+    step: Step,
+    progress: Progress,
+) -> io::Result<()> {
+    let Progress::SlowTransport {
+        wait_started_us,
+        exec_due_us,
+        logical_end,
+        ..
+    } = progress
+    else {
+        return Ok(());
+    };
+    if step.stdout_target != 0 || step.runner_input_target != 0 || step.wait_for_sigterm {
+        return Err(invalid(
+            "slow transport Ack cannot satisfy input or signal targets",
+        ));
+    }
+    if step.at_us > u64::MAX / 1000 || exec_due_us > u64::MAX / 1000 {
+        return Err(invalid(
+            "slow transport wait exceeds the shared nanosecond clock domain",
+        ));
+    }
+    if wait_started_us > step.at_us || exec_due_us < wait_started_us {
+        return Err(invalid(
+            "slow transport wait has inconsistent start or due time",
+        ));
+    }
+    match previous {
+        Some(Progress::SlowTransport {
+            wait_started_us: old_start,
+            exec_due_us: old_due,
+            ..
+        }) if wait_started_us != old_start || exec_due_us != old_due => {
+            return Err(invalid(
+                "slow transport changed its fixed wait start or due time",
+            ));
+        }
+        None if wait_started_us != step.at_us => {
+            return Err(invalid(
+                "slow transport first wait start differs from its held Step",
+            ));
+        }
+        _ => {}
+    }
+    if logical_end != (step.at_us >= exec_due_us) {
+        return Err(invalid(
+            "slow transport terminal flag disagrees with its wait deadline",
+        ));
     }
     Ok(())
 }
@@ -774,5 +1129,17 @@ fn io_failure(operation: &str, error: io::Error) -> io::Error {
 mod tests;
 
 #[cfg(test)]
+#[path = "serve_fixture_control_tests.rs"]
+mod serve_tests;
+
+#[cfg(test)]
 #[path = "channel_closed_peer_tests.rs"]
 mod channel_closed_peer_tests;
+
+#[cfg(test)]
+#[path = "recorder_fixture_control_tests.rs"]
+mod recorder_tests;
+
+#[cfg(test)]
+#[path = "slow_transport_fixture_control_tests.rs"]
+mod slow_transport_tests;

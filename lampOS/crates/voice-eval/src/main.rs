@@ -190,6 +190,10 @@ fn run() -> Result<i32> {
         "fake-lamp-voice" => return fake_lamp::run(&all),
         "fake-clock-lamp-voice" => return fixture_commands::runtime(all),
         "fake-clock-session" => return fixture_commands::relay(all),
+        "fake-clock-serve-session" => return fixture_commands::serve_relay(all),
+        "fake-clock-serve-runtime" => return fixture_commands::serve_runtime(all),
+        "fake-clock-room-recorder" => return fixture_commands::recorder(all),
+        "fake-clock-slow-transport" => return fixture_commands::slow_transport(all),
         "fake-room-recorder" => return fake_lamp::room_recorder(&all),
         "fake-slow-transport" => return fake_lamp::slow_transport(&all),
         _ => {}

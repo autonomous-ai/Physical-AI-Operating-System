@@ -1,0 +1,408 @@
+{
+  "date": "2026-10-16 03:29:51 +0700",
+  "base": "48b3737d5e83efa00278172cb602d3525d368a43",
+  "dependency_commit": "188d97b7fcb6a78adaec67a3d3939843f759e1d3",
+  "files": [
+    {
+      "path": "lampOS/crates/voice-eval/src/main.rs",
+      "base": {
+        "type": "file",
+        "sha256": "638cd8fa8c072d0639997c5de800ff7238f5f9f33de39ecba7d5d91243a18eee",
+        "mode": 420
+      },
+      "serve_seed": {
+        "type": "file",
+        "sha256": "2267fce371633f875cc8cea94a43e5081d8ec30870ef20555847b10c656a747a",
+        "mode": 420
+      },
+      "recorder_final": {
+        "type": "file",
+        "sha256": "1c58c33e90aeff37cd0e895655373dc435d2570f1cbb819966c91d2d5dda9ba9",
+        "mode": 420
+      },
+      "serve_change": true,
+      "recorder_change": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/fake_lamp.rs",
+      "base": {
+        "type": "file",
+        "sha256": "1d0cf3b4f57c1e8ecad0590ebbf1c343a6e527dfc06eba521fb7ea6da0597ba1",
+        "mode": 420
+      },
+      "serve_seed": {
+        "type": "file",
+        "sha256": "7707b987700293a31096338ccd4364e34aa70bce59bca2dd3c1cdaef15c0c9a1",
+        "mode": 420
+      },
+      "recorder_final": {
+        "type": "file",
+        "sha256": "7707b987700293a31096338ccd4364e34aa70bce59bca2dd3c1cdaef15c0c9a1",
+        "mode": 420
+      },
+      "serve_change": true,
+      "recorder_change": false
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/fake_serve.rs",
+      "base": {
+        "type": "file",
+        "sha256": "3d1026d1b8a4ca11ee4e2f38fa00a518badf4f74193b049c13cf6515aa254d51",
+        "mode": 420
+      },
+      "serve_seed": {
+        "type": "file",
+        "sha256": "5168b08f121fc374972f9a1bb10f86e30396c83c17ee12c2ea9858cd74ef780d",
+        "mode": 420
+      },
+      "recorder_final": {
+        "type": "file",
+        "sha256": "5168b08f121fc374972f9a1bb10f86e30396c83c17ee12c2ea9858cd74ef780d",
+        "mode": 420
+      },
+      "serve_change": true,
+      "recorder_change": false
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/fake_serve_progress_tests.rs",
+      "base": null,
+      "serve_seed": {
+        "type": "file",
+        "sha256": "43af2f78890ec502bc3d12cd95214bf2aaa65578eeac1e9abaa1a6c4d0611f7a",
+        "mode": 420
+      },
+      "recorder_final": {
+        "type": "file",
+        "sha256": "43af2f78890ec502bc3d12cd95214bf2aaa65578eeac1e9abaa1a6c4d0611f7a",
+        "mode": 420
+      },
+      "serve_change": true,
+      "recorder_change": false
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/fixture_commands.rs",
+      "base": {
+        "type": "file",
+        "sha256": "f96208110fec892608b3099f9b33b0cf86a966e9dd21971b03ee56dc85e6086a",
+        "mode": 420
+      },
+      "serve_seed": {
+        "type": "file",
+        "sha256": "c755e44894013fa6ff40dc107b0d5a13ae2fea2235b6bd04a4fa4d8b68ba4474",
+        "mode": 420
+      },
+      "recorder_final": {
+        "type": "file",
+        "sha256": "464820ece7888f7d0767d7024d7b1e399d9d18601f09922f14dba5b0e328234c",
+        "mode": 420
+      },
+      "serve_change": true,
+      "recorder_change": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/fixture_control.rs",
+      "base": {
+        "type": "file",
+        "sha256": "318381580f7725db297e8efe4c510270ad574a75204e1b43f9845643f88ef33b",
+        "mode": 420
+      },
+      "serve_seed": {
+        "type": "file",
+        "sha256": "ee8ab5de43e99f1b0636dfb144385e7b7237de8f6b4a677cae766e9a4d8f4d81",
+        "mode": 420
+      },
+      "recorder_final": {
+        "type": "file",
+        "sha256": "16f31e16dcb8c03168c8f8d2e76323c6d09882936c88bd05c1691bdaa7a888fa",
+        "mode": 420
+      },
+      "serve_change": true,
+      "recorder_change": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/fixture_control_tests.rs",
+      "base": {
+        "type": "file",
+        "sha256": "22e02e09239c5471fcc78818785bf2e186f033b272e08ccba0864307c8563087",
+        "mode": 420
+      },
+      "serve_seed": {
+        "type": "file",
+        "sha256": "90dab0a1075f0fbb819d819f391aede2994363c3238e54445a5a73e5f12f604a",
+        "mode": 420
+      },
+      "recorder_final": {
+        "type": "file",
+        "sha256": "90dab0a1075f0fbb819d819f391aede2994363c3238e54445a5a73e5f12f604a",
+        "mode": 420
+      },
+      "serve_change": true,
+      "recorder_change": false
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/fixture_driver.rs",
+      "base": {
+        "type": "file",
+        "sha256": "6f518d5c02ea54a540b528aa7ac22a0fca1ffe4837f191c0cc20e369183b789e",
+        "mode": 420
+      },
+      "serve_seed": {
+        "type": "file",
+        "sha256": "3e4a99a9e5029b7c770b2420c4df70271c5702e30c6f97a3dcfc954fce1871d9",
+        "mode": 420
+      },
+      "recorder_final": {
+        "type": "file",
+        "sha256": "3e4a99a9e5029b7c770b2420c4df70271c5702e30c6f97a3dcfc954fce1871d9",
+        "mode": 420
+      },
+      "serve_change": true,
+      "recorder_change": false
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/fixture_players.rs",
+      "base": null,
+      "serve_seed": {
+        "type": "file",
+        "sha256": "2378acf5a32c53b013cc90b96d827bdb82307dbb054d7c94e30ede8752dc5dab",
+        "mode": 420
+      },
+      "recorder_final": {
+        "type": "file",
+        "sha256": "2378acf5a32c53b013cc90b96d827bdb82307dbb054d7c94e30ede8752dc5dab",
+        "mode": 420
+      },
+      "serve_change": true,
+      "recorder_change": false
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/mac.rs",
+      "base": {
+        "type": "file",
+        "sha256": "2435350939e44a1ccfa2dd04d35f906a406668209b6786cc1c04711c4a6e6bc2",
+        "mode": 420
+      },
+      "serve_seed": {
+        "type": "file",
+        "sha256": "a0fe85c17fd430a91c12703b0747da32d56309b4fb12900018bd3392f8f844f9",
+        "mode": 420
+      },
+      "recorder_final": {
+        "type": "file",
+        "sha256": "c14c40669ad423baf9c21672587bd6e97e47a64e102d6d22c2714e3e399d78e2",
+        "mode": 420
+      },
+      "serve_change": true,
+      "recorder_change": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/mod.rs",
+      "base": {
+        "type": "file",
+        "sha256": "74a0279bf483658835bde00306a05d0e9caeb4d0384d8682d4f071ffad615ae5",
+        "mode": 420
+      },
+      "serve_seed": {
+        "type": "file",
+        "sha256": "c55ab4bd4fad65b806f4e66f533d7334f947c25c87d8d072ce69ff848db2e582",
+        "mode": 420
+      },
+      "recorder_final": {
+        "type": "file",
+        "sha256": "c55ab4bd4fad65b806f4e66f533d7334f947c25c87d8d072ce69ff848db2e582",
+        "mode": 420
+      },
+      "serve_change": true,
+      "recorder_change": false
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/prepared_player_progress_tests.rs",
+      "base": null,
+      "serve_seed": {
+        "type": "file",
+        "sha256": "1ac1f3a24b267c0968fe291befbd65739c06a1baf4e2f5c9b24eca8f841055b7",
+        "mode": 420
+      },
+      "recorder_final": {
+        "type": "file",
+        "sha256": "1ac1f3a24b267c0968fe291befbd65739c06a1baf4e2f5c9b24eca8f841055b7",
+        "mode": 420
+      },
+      "serve_change": true,
+      "recorder_change": false
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/recorder_backend_tests.rs",
+      "base": null,
+      "serve_seed": null,
+      "recorder_final": {
+        "type": "file",
+        "sha256": "a9ed66168aea14d40b3ae28a17c46450ca8e966e6d6f46f550565daea2e7bbde",
+        "mode": 420
+      },
+      "serve_change": false,
+      "recorder_change": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/recorder_fixture_commands_tests.rs",
+      "base": null,
+      "serve_seed": null,
+      "recorder_final": {
+        "type": "file",
+        "sha256": "500cd9e92ed12a7328f67d99c60d68105f5130f31d8db2ecd76265fd5fb01d37",
+        "mode": 420
+      },
+      "serve_change": false,
+      "recorder_change": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/recorder_fixture_control_tests.rs",
+      "base": null,
+      "serve_seed": null,
+      "recorder_final": {
+        "type": "file",
+        "sha256": "832b0d1a345f119ec83f1579dc2864ed7935b9abb86468810292a1c02b01f25f",
+        "mode": 420
+      },
+      "serve_change": false,
+      "recorder_change": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/recorder_fixture_driver_tests.rs",
+      "base": null,
+      "serve_seed": null,
+      "recorder_final": {
+        "type": "file",
+        "sha256": "da5c382c25fd8d63f7fac9e3ff17d6caff216df95ae2289af40da6c1225c3ff1",
+        "mode": 420
+      },
+      "serve_change": false,
+      "recorder_change": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/serve_fixture_commands_tests.rs",
+      "base": null,
+      "serve_seed": {
+        "type": "file",
+        "sha256": "54f60e0f676d94989b5220f707f9c5c085cbec83de0aa0e0a3d4ba5f892642ea",
+        "mode": 420
+      },
+      "recorder_final": {
+        "type": "file",
+        "sha256": "54f60e0f676d94989b5220f707f9c5c085cbec83de0aa0e0a3d4ba5f892642ea",
+        "mode": 420
+      },
+      "serve_change": true,
+      "recorder_change": false
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/serve_fixture_control_tests.rs",
+      "base": null,
+      "serve_seed": {
+        "type": "file",
+        "sha256": "fdb57e00dd9e3028ae6f5a5aa6df81d1147bee4fc582ad00b117368951b80bcf",
+        "mode": 420
+      },
+      "recorder_final": {
+        "type": "file",
+        "sha256": "fdb57e00dd9e3028ae6f5a5aa6df81d1147bee4fc582ad00b117368951b80bcf",
+        "mode": 420
+      },
+      "serve_change": true,
+      "recorder_change": false
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/serve_fixture_driver.rs",
+      "base": null,
+      "serve_seed": {
+        "type": "file",
+        "sha256": "ab7f78684e4e1e9b13035a14bce3c0c3d474529f789f83d5fa1d444ceb9a232c",
+        "mode": 420
+      },
+      "recorder_final": {
+        "type": "file",
+        "sha256": "b7deaea4fb28cc44f48675cade095d38aea77f9dba668f7b9e32e9060e5170bb",
+        "mode": 420
+      },
+      "serve_change": true,
+      "recorder_change": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/serve_relay_progress_tests.rs",
+      "base": null,
+      "serve_seed": {
+        "type": "file",
+        "sha256": "d7ccf7f0ddcd46a07d9d6cfc768d5126d507c133b0b708dc69881f124f238ed4",
+        "mode": 420
+      },
+      "recorder_final": {
+        "type": "file",
+        "sha256": "d7ccf7f0ddcd46a07d9d6cfc768d5126d507c133b0b708dc69881f124f238ed4",
+        "mode": 420
+      },
+      "serve_change": true,
+      "recorder_change": false
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/session.rs",
+      "base": {
+        "type": "file",
+        "sha256": "a54ea45fdaea1c330eb30abc30aa9d3a8cb86767c2b8f40782158b5bfe266e31",
+        "mode": 420
+      },
+      "serve_seed": {
+        "type": "file",
+        "sha256": "660cea49d4e1389ad23e5786a5efded083e7f6d98912dfc9ad9887dad85ccd24",
+        "mode": 420
+      },
+      "recorder_final": {
+        "type": "file",
+        "sha256": "660cea49d4e1389ad23e5786a5efded083e7f6d98912dfc9ad9887dad85ccd24",
+        "mode": 420
+      },
+      "serve_change": true,
+      "recorder_change": false
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/serve_session.rs",
+      "base": {
+        "type": "file",
+        "sha256": "bb8e83a7c0cb08703852638749b01d32e88eb696b35aacb093a5462bd4ddcf49",
+        "mode": 420
+      },
+      "serve_seed": {
+        "type": "file",
+        "sha256": "cffbb51a9f21b03f2262099b23de526842eb098c600c02f3ec8eca187f800923",
+        "mode": 420
+      },
+      "recorder_final": {
+        "type": "file",
+        "sha256": "485ef6bc04c292666b633c819baa7c16465aaa756e97271c9c0708cd2c3e6186",
+        "mode": 420
+      },
+      "serve_change": true,
+      "recorder_change": true
+    },
+    {
+      "path": "lampOS/docs/realtime-tests.md",
+      "base": {
+        "type": "file",
+        "sha256": "29c7edf1028ad20d49c4f79adeb5951c754701378869646272317ac309fc2e74",
+        "mode": 420
+      },
+      "serve_seed": {
+        "type": "file",
+        "sha256": "eb3f3e2b8beb25d5320d060507444d49b87ab3926422779ce15a038a5d487eef",
+        "mode": 420
+      },
+      "recorder_final": {
+        "type": "file",
+        "sha256": "691cc53577577cd47753da04d483dec092bed27c8da49540c9fdde0a8851c58f",
+        "mode": 420
+      },
+      "serve_change": true,
+      "recorder_change": true
+    }
+  ],
+  "all_final_hashes_rechecked": true
+}

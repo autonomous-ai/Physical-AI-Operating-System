@@ -1,0 +1,32 @@
+{
+  "date": "2026-10-16 03:35:29 +0700",
+  "old_head": "188d97b7fcb6a78adaec67a3d3939843f759e1d3",
+  "new_base": "48b3737d5e83efa00278172cb602d3525d368a43",
+  "rebased_head": "cce8f3cc6ca19d116800d09fa9de9bca37043dc3",
+  "conflicts_resolved_from_independently_audited_serve_seed": [
+    "lampOS/docs/realtime-tests.md"
+  ],
+  "all_serve_seed_bytes_match": true,
+  "source_sha256": {
+    "lampOS/docs/realtime-tests.md": "eb3f3e2b8beb25d5320d060507444d49b87ab3926422779ce15a038a5d487eef",
+    "lampOS/crates/voice-eval/tests/serve_session.rs": "cffbb51a9f21b03f2262099b23de526842eb098c600c02f3ec8eca187f800923",
+    "lampOS/crates/voice-eval/src/main.rs": "2267fce371633f875cc8cea94a43e5081d8ec30870ef20555847b10c656a747a",
+    "lampOS/crates/voice-eval/src/physical/session.rs": "660cea49d4e1389ad23e5786a5efded083e7f6d98912dfc9ad9887dad85ccd24",
+    "lampOS/crates/voice-eval/src/physical/fixture_players.rs": "2378acf5a32c53b013cc90b96d827bdb82307dbb054d7c94e30ede8752dc5dab",
+    "lampOS/crates/voice-eval/src/physical/serve_fixture_commands_tests.rs": "54f60e0f676d94989b5220f707f9c5c085cbec83de0aa0e0a3d4ba5f892642ea",
+    "lampOS/crates/voice-eval/src/physical/fixture_control_tests.rs": "90dab0a1075f0fbb819d819f391aede2994363c3238e54445a5a73e5f12f604a",
+    "lampOS/crates/voice-eval/src/physical/fake_serve_progress_tests.rs": "43af2f78890ec502bc3d12cd95214bf2aaa65578eeac1e9abaa1a6c4d0611f7a",
+    "lampOS/crates/voice-eval/src/physical/serve_fixture_control_tests.rs": "fdb57e00dd9e3028ae6f5a5aa6df81d1147bee4fc582ad00b117368951b80bcf",
+    "lampOS/crates/voice-eval/src/physical/fake_serve.rs": "5168b08f121fc374972f9a1bb10f86e30396c83c17ee12c2ea9858cd74ef780d",
+    "lampOS/crates/voice-eval/src/physical/mod.rs": "c55ab4bd4fad65b806f4e66f533d7334f947c25c87d8d072ce69ff848db2e582",
+    "lampOS/crates/voice-eval/src/physical/serve_fixture_driver.rs": "ab7f78684e4e1e9b13035a14bce3c0c3d474529f789f83d5fa1d444ceb9a232c",
+    "lampOS/crates/voice-eval/src/physical/mac.rs": "a0fe85c17fd430a91c12703b0747da32d56309b4fb12900018bd3392f8f844f9",
+    "lampOS/crates/voice-eval/src/physical/fixture_commands.rs": "c755e44894013fa6ff40dc107b0d5a13ae2fea2235b6bd04a4fa4d8b68ba4474",
+    "lampOS/crates/voice-eval/src/physical/fake_lamp.rs": "7707b987700293a31096338ccd4364e34aa70bce59bca2dd3c1cdaef15c0c9a1",
+    "lampOS/crates/voice-eval/src/physical/fixture_driver.rs": "3e4a99a9e5029b7c770b2420c4df70271c5702e30c6f97a3dcfc954fce1871d9",
+    "lampOS/crates/voice-eval/src/physical/fixture_control.rs": "ee8ab5de43e99f1b0636dfb144385e7b7237de8f6b4a677cae766e9a4d8f4d81",
+    "lampOS/crates/voice-eval/src/physical/prepared_player_progress_tests.rs": "1ac1f3a24b267c0968fe291befbd65739c06a1baf4e2f5c9b24eca8f841055b7",
+    "lampOS/crates/voice-eval/src/physical/serve_relay_progress_tests.rs": "d7ccf7f0ddcd46a07d9d6cfc768d5126d507c133b0b708dc69881f124f238ed4"
+  },
+  "reason": "The first native PR run predates the owner Body fix #902; no retry of unchanged source."
+}

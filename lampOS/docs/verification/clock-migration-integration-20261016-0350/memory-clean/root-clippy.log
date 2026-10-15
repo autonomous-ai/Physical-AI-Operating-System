@@ -1,0 +1,19 @@
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+    Checking lamp-bus v0.1.0 (/private/tmp/lampos-tests-memory-health-fixtures/lampOS/crates/bus)
+    Checking lamp-ipc v0.1.0 (/private/tmp/lampos-tests-memory-health-fixtures/lampOS/crates/ipc)
+    Checking lamp-turn-owner v0.1.0 (/private/tmp/lampos-tests-memory-health-fixtures/lampOS/crates/turn-owner)
+    Checking lamp-msgs v0.1.0 (/private/tmp/lampos-tests-memory-health-fixtures/lampOS/crates/msgs)
+   Compiling lamp-camera v0.1.0 (/private/tmp/lampos-tests-memory-health-fixtures/lampOS/crates/camera)
+    Checking lamp-audio v0.1.0 (/private/tmp/lampos-tests-memory-health-fixtures/lampOS/crates/audio)
+    Checking lamp-keeper v0.1.0 (/private/tmp/lampos-tests-memory-health-fixtures/lampOS/crates/keeper)
+    Checking lamp-memory v0.1.0 (/private/tmp/lampos-tests-memory-health-fixtures/lampOS/crates/memory)
+    Checking lamp-body v0.1.0 (/private/tmp/lampos-tests-memory-health-fixtures/lampOS/crates/body)
+    Checking lamp-controls v0.1.0 (/private/tmp/lampos-tests-memory-health-fixtures/lampOS/crates/controls)
+    Checking lamp-schedule v0.1.0 (/private/tmp/lampos-tests-memory-health-fixtures/lampOS/crates/schedule)
+    Checking lamp-gemini v0.1.0 (/private/tmp/lampos-tests-memory-health-fixtures/lampOS/crates/gemini)
+    Checking lamp-ring v0.1.0 (/private/tmp/lampos-tests-memory-health-fixtures/lampOS/crates/ring)
+    Checking lamp-turn-end-wire v0.1.0 (/private/tmp/lampos-tests-memory-health-fixtures/lampOS/crates/turn-end-wire)
+    Checking lamp-voice v0.1.0 (/private/tmp/lampos-tests-memory-health-fixtures/lampOS/crates/voice)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 24.28s

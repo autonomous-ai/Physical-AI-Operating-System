@@ -1,0 +1,228 @@
+{
+  "date": "2026-10-16 03:28:33 +0700",
+  "base": "48b3737d5e83efa00278172cb602d3525d368a43",
+  "serve_seed_commit": "188d97b7fcb6a78adaec67a3d3939843f759e1d3",
+  "owned_changed_paths": [
+    "lampOS/crates/voice-eval/src/main.rs",
+    "lampOS/crates/voice-eval/src/physical/fake_lamp.rs",
+    "lampOS/crates/voice-eval/src/physical/fake_serve.rs",
+    "lampOS/crates/voice-eval/src/physical/fake_serve_progress_tests.rs",
+    "lampOS/crates/voice-eval/src/physical/fixture_commands.rs",
+    "lampOS/crates/voice-eval/src/physical/fixture_control.rs",
+    "lampOS/crates/voice-eval/src/physical/fixture_control_tests.rs",
+    "lampOS/crates/voice-eval/src/physical/fixture_driver.rs",
+    "lampOS/crates/voice-eval/src/physical/fixture_players.rs",
+    "lampOS/crates/voice-eval/src/physical/mac.rs",
+    "lampOS/crates/voice-eval/src/physical/mod.rs",
+    "lampOS/crates/voice-eval/src/physical/prepared_player_progress_tests.rs",
+    "lampOS/crates/voice-eval/src/physical/recorder_backend_tests.rs",
+    "lampOS/crates/voice-eval/src/physical/recorder_fixture_commands_tests.rs",
+    "lampOS/crates/voice-eval/src/physical/recorder_fixture_control_tests.rs",
+    "lampOS/crates/voice-eval/src/physical/recorder_fixture_driver_tests.rs",
+    "lampOS/crates/voice-eval/src/physical/serve_fixture_commands_tests.rs",
+    "lampOS/crates/voice-eval/src/physical/serve_fixture_control_tests.rs",
+    "lampOS/crates/voice-eval/src/physical/serve_fixture_driver.rs",
+    "lampOS/crates/voice-eval/src/physical/serve_relay_progress_tests.rs",
+    "lampOS/crates/voice-eval/src/physical/session.rs",
+    "lampOS/crates/voice-eval/tests/serve_session.rs",
+    "lampOS/docs/realtime-tests.md"
+  ],
+  "recorder_only_changed_paths": [
+    "lampOS/crates/voice-eval/src/main.rs",
+    "lampOS/crates/voice-eval/src/physical/fixture_commands.rs",
+    "lampOS/crates/voice-eval/src/physical/fixture_control.rs",
+    "lampOS/crates/voice-eval/src/physical/mac.rs",
+    "lampOS/crates/voice-eval/src/physical/recorder_backend_tests.rs",
+    "lampOS/crates/voice-eval/src/physical/recorder_fixture_commands_tests.rs",
+    "lampOS/crates/voice-eval/src/physical/recorder_fixture_control_tests.rs",
+    "lampOS/crates/voice-eval/src/physical/recorder_fixture_driver_tests.rs",
+    "lampOS/crates/voice-eval/src/physical/serve_fixture_driver.rs",
+    "lampOS/crates/voice-eval/tests/serve_session.rs",
+    "lampOS/docs/realtime-tests.md"
+  ],
+  "all_other_base_entries_byte_and_mode_identical": true,
+  "protected_base_entries": 6683,
+  "full_base_entries": 6695,
+  "full_final_entries": 6706,
+  "all_recorder_port_files_equal_qualified_source": true,
+  "recorder_doc_inverse_restores_exact_serve_seed": true,
+  "entire_accumulated_base_document_is_unchanged_prefix": true,
+  "recorder_pure_block_sha256": "4951d2712ea4800da36bb2eba59dc37e5017a4e343c3039f2574b0722a06b3aa",
+  "slow_transport_block_sha256": "7b8c86170b217d5f1713d4bf2bf066bcf5088681c5ea0dec7cd2558f00022648",
+  "both_merged_clock_blocks_unchanged": true,
+  "existing_slow_test_file_unchanged": true,
+  "existing_recorder_clock_test_file_unchanged": true,
+  "qualified_recorder_only_rust_differences": [
+    "lampOS/crates/voice-eval/src/physical/fake_lamp.rs",
+    "lampOS/crates/voice-eval/src/physical/slow_transport_clock_tests.rs"
+  ],
+  "exact_slow_reversal_reconstructs_qualified_fake_lamp": true,
+  "original_tests": [
+    {
+      "name": "normal_eight_turn_conversation_in_one_serve_session",
+      "body_sha256": "be8f0f396b5c977c1d9ddacb6543a628941f346b5901114ec2558489880744c3",
+      "run_calls": 1,
+      "attempts": 1,
+      "recorder": false,
+      "transport": false
+    },
+    {
+      "name": "delayed_readiness_is_awaited_by_event_not_by_completion",
+      "body_sha256": "ba3f851395f24caae2683d330b5caa226b196bcdbc9dcd69c7d834e9bf99a0b0",
+      "run_calls": 1,
+      "attempts": 1,
+      "recorder": false,
+      "transport": false
+    },
+    {
+      "name": "an_extra_candidate_during_the_wait_withholds_the_rest",
+      "body_sha256": "8c8c385a3f72306b0fe21d85a812ff9fa18a65c5e9cf2fa068266d9f90ebd35a",
+      "run_calls": 1,
+      "attempts": 1,
+      "recorder": false,
+      "transport": false
+    },
+    {
+      "name": "stale_duplicate_reordered_foreign_and_lost_cues_end_the_conversation",
+      "body_sha256": "65f3f23103bd0c068c7a8d854385f8f7e6467e8ea8ff12f2e101e6c62b62f498",
+      "run_calls": 1,
+      "attempts": 5,
+      "recorder": false,
+      "transport": false
+    },
+    {
+      "name": "a_provider_outage_is_waited_out_by_event_and_a_terminal_link_ends_it",
+      "body_sha256": "b78a37ab7bd55cc3028effea049cc9de4b65508dab1cf2f3033bbba4889f411a",
+      "run_calls": 2,
+      "attempts": 2,
+      "recorder": false,
+      "transport": false
+    },
+    {
+      "name": "a_late_first_copy_or_failed_player_withholds_every_later_turn",
+      "body_sha256": "a769ff74ec361254baadbfe2af0fec4133c56ac19729d793ba5d61f9cc93ddef",
+      "run_calls": 2,
+      "attempts": 2,
+      "recorder": false,
+      "transport": false
+    },
+    {
+      "name": "a_runtime_stop_mute_or_ignored_sigterm_is_retained_and_reaped",
+      "body_sha256": "345fffca1e00a7a1c22a793b247c906d71d84bec37fc1b3f736aafe83a613278",
+      "run_calls": 3,
+      "attempts": 3,
+      "recorder": false,
+      "transport": false
+    },
+    {
+      "name": "a_room_recording_that_ends_early_withholds_the_rest",
+      "body_sha256": "1a4317c079b9cdea0ca6a86ea7feccd3df23d085cdf95b8b483efa2a26f42b91",
+      "run_calls": 1,
+      "attempts": 1,
+      "recorder": true,
+      "transport": false
+    },
+    {
+      "name": "startup_cues_stay_fresh_through_a_slow_transport_and_a_slow_first_preparer",
+      "body_sha256": "675d385b33c9d6958761efc33fcee0fec8367d461025fb6f32208487795b15f9",
+      "run_calls": 1,
+      "attempts": 1,
+      "recorder": false,
+      "transport": true
+    },
+    {
+      "name": "a_recorder_that_exits_zero_mid_conversation_withholds_the_rest_and_certifies_nothing",
+      "body_sha256": "37d48f604a7a0a3ac5068d0166b07712c226657d8b8b358b6e5e5839a2b98ee3",
+      "run_calls": 1,
+      "attempts": 1,
+      "recorder": true,
+      "transport": false
+    },
+    {
+      "name": "a_declared_capture_end_before_the_next_prompt_and_its_window_withholds_it",
+      "body_sha256": "3ca48cfab16c5da3e05c0f039d39370c6097f2d4155dfc9e805dda426aeeb180",
+      "run_calls": 1,
+      "attempts": 1,
+      "recorder": true,
+      "transport": false
+    },
+    {
+      "name": "the_runner_forwards_pilot_runtime_settings_through_the_relay",
+      "body_sha256": "fce42e7116e65956a96fe13a3560bde30ef84add359b095173d2cb53ac18aba9",
+      "run_calls": 1,
+      "attempts": 1,
+      "recorder": false,
+      "transport": false
+    },
+    {
+      "name": "serve_readiness_comes_only_from_the_fresh_cue_never_from_stdout",
+      "body_sha256": "a7d2da110f1f9d4c6157017fdb9284c985d4dcc153c1873c5108448e2f185059",
+      "run_calls": 1,
+      "attempts": 1,
+      "recorder": false,
+      "transport": false
+    },
+    {
+      "name": "a_nonzero_runtime_exit_never_completes_a_serve_attempt",
+      "body_sha256": "07998d75f7d7f2aa2ec63f6b4ff9805f6ead0c7186a3dc1b9042a93ca16e8072",
+      "run_calls": 1,
+      "attempts": 1,
+      "recorder": false,
+      "transport": false
+    }
+  ],
+  "all_14_bodies_unchanged": true,
+  "all_114_assertion_macro_bytes_unchanged": true,
+  "run_call_sites": 18,
+  "expanded_attempts": 22,
+  "recorder_constructor_comment_reversal_exact": true,
+  "source_expected_shape_not_execution": {
+    "qualified_old_library": 255,
+    "qualified_old_integration": 202,
+    "base_slow_additions": 6,
+    "expected_library": 261,
+    "expected_integration": 202,
+    "expected_total": 463,
+    "new_recorder_module_counts": {
+      "lampOS/crates/voice-eval/src/physical/recorder_backend_tests.rs": 11,
+      "lampOS/crates/voice-eval/src/physical/recorder_fixture_commands_tests.rs": 9,
+      "lampOS/crates/voice-eval/src/physical/recorder_fixture_control_tests.rs": 12,
+      "lampOS/crates/voice-eval/src/physical/recorder_fixture_driver_tests.rs": 9
+    },
+    "existing_slow_test_names": [
+      "malformed_arguments_fail_before_the_wait_in_both_entrypoints",
+      "malformed_delay_keeps_the_original_parse_error_before_waiting",
+      "zero_and_full_u64_millisecond_delays_reach_one_wait_without_truncation",
+      "a_consuming_wait_error_is_returned_unchanged_before_exec",
+      "real_exec_failure_keeps_the_original_io_error_after_the_wait",
+      "real_exec_replaces_the_owned_child_and_keeps_argv_and_queued_input"
+    ]
+  },
+  "owned_final_sha256": {
+    "lampOS/crates/voice-eval/src/main.rs": "1c58c33e90aeff37cd0e895655373dc435d2570f1cbb819966c91d2d5dda9ba9",
+    "lampOS/crates/voice-eval/src/physical/fake_lamp.rs": "7707b987700293a31096338ccd4364e34aa70bce59bca2dd3c1cdaef15c0c9a1",
+    "lampOS/crates/voice-eval/src/physical/fake_serve.rs": "5168b08f121fc374972f9a1bb10f86e30396c83c17ee12c2ea9858cd74ef780d",
+    "lampOS/crates/voice-eval/src/physical/fake_serve_progress_tests.rs": "43af2f78890ec502bc3d12cd95214bf2aaa65578eeac1e9abaa1a6c4d0611f7a",
+    "lampOS/crates/voice-eval/src/physical/fixture_commands.rs": "464820ece7888f7d0767d7024d7b1e399d9d18601f09922f14dba5b0e328234c",
+    "lampOS/crates/voice-eval/src/physical/fixture_control.rs": "16f31e16dcb8c03168c8f8d2e76323c6d09882936c88bd05c1691bdaa7a888fa",
+    "lampOS/crates/voice-eval/src/physical/fixture_control_tests.rs": "90dab0a1075f0fbb819d819f391aede2994363c3238e54445a5a73e5f12f604a",
+    "lampOS/crates/voice-eval/src/physical/fixture_driver.rs": "3e4a99a9e5029b7c770b2420c4df70271c5702e30c6f97a3dcfc954fce1871d9",
+    "lampOS/crates/voice-eval/src/physical/fixture_players.rs": "2378acf5a32c53b013cc90b96d827bdb82307dbb054d7c94e30ede8752dc5dab",
+    "lampOS/crates/voice-eval/src/physical/mac.rs": "c14c40669ad423baf9c21672587bd6e97e47a64e102d6d22c2714e3e399d78e2",
+    "lampOS/crates/voice-eval/src/physical/mod.rs": "c55ab4bd4fad65b806f4e66f533d7334f947c25c87d8d072ce69ff848db2e582",
+    "lampOS/crates/voice-eval/src/physical/prepared_player_progress_tests.rs": "1ac1f3a24b267c0968fe291befbd65739c06a1baf4e2f5c9b24eca8f841055b7",
+    "lampOS/crates/voice-eval/src/physical/recorder_backend_tests.rs": "a9ed66168aea14d40b3ae28a17c46450ca8e966e6d6f46f550565daea2e7bbde",
+    "lampOS/crates/voice-eval/src/physical/recorder_fixture_commands_tests.rs": "500cd9e92ed12a7328f67d99c60d68105f5130f31d8db2ecd76265fd5fb01d37",
+    "lampOS/crates/voice-eval/src/physical/recorder_fixture_control_tests.rs": "832b0d1a345f119ec83f1579dc2864ed7935b9abb86468810292a1c02b01f25f",
+    "lampOS/crates/voice-eval/src/physical/recorder_fixture_driver_tests.rs": "da5c382c25fd8d63f7fac9e3ff17d6caff216df95ae2289af40da6c1225c3ff1",
+    "lampOS/crates/voice-eval/src/physical/serve_fixture_commands_tests.rs": "54f60e0f676d94989b5220f707f9c5c085cbec83de0aa0e0a3d4ba5f892642ea",
+    "lampOS/crates/voice-eval/src/physical/serve_fixture_control_tests.rs": "fdb57e00dd9e3028ae6f5a5aa6df81d1147bee4fc582ad00b117368951b80bcf",
+    "lampOS/crates/voice-eval/src/physical/serve_fixture_driver.rs": "b7deaea4fb28cc44f48675cade095d38aea77f9dba668f7b9e32e9060e5170bb",
+    "lampOS/crates/voice-eval/src/physical/serve_relay_progress_tests.rs": "d7ccf7f0ddcd46a07d9d6cfc768d5126d507c133b0b708dc69881f124f238ed4",
+    "lampOS/crates/voice-eval/src/physical/session.rs": "660cea49d4e1389ad23e5786a5efded083e7f6d98912dfc9ad9887dad85ccd24",
+    "lampOS/crates/voice-eval/tests/serve_session.rs": "485ef6bc04c292666b633c819baa7c16465aaa756e97271c9c0708cd2c3e6186",
+    "lampOS/docs/realtime-tests.md": "691cc53577577cd47753da04d483dec092bed27c8da49540c9fdde0a8851c58f"
+  },
+  "no_cargo_changes": true,
+  "no_historical_verification_copy": true
+}

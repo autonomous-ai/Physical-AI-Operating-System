@@ -1,0 +1,19 @@
+{
+  "date": "2026-10-16 03:38:09 +0700",
+  "totals": [
+    296,
+    0,
+    6
+  ],
+  "summary_count": 24,
+  "all_original_7_compiled_ids_match": [
+    "a_failed_legacy_write_stays_warn_through_reads_until_a_write_succeeds",
+    "a_store_that_cannot_open_never_claims_readiness_and_any_delivered_report_is_warn",
+    "a_working_bus_that_fails_stays_failed_until_publication_really_recovers",
+    "an_unusable_bus_does_not_prevent_serving_and_reports_recover_when_it_returns",
+    "legacy_reports_retained_counts_and_stays_well_after_caller_refusals",
+    "sqlite_reports_retained_counts_and_stays_well_after_caller_refusals",
+    "the_environment_alone_does_not_enable_reporting_or_create_bus_data"
+  ],
+  "source_unchanged": true
+}

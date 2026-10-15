@@ -1,0 +1,860 @@
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	﻿2026-10-15T20:19:31.3085489Z Current runner version: '2.337.0'
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:31.3115750Z ##[group]Runner Image Provisioner
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:31.3116692Z Hosted Compute Agent
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:31.3117420Z Version: 20261012.601
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:31.3118107Z Commit: f3dc54e1fb89da6852db922499a0233137369e1d
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:31.3118927Z Build Date: 2026-10-12T17:48:21Z
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:31.3119684Z Worker ID: {c11a49a1-9fef-4a2a-a03a-55c245fedd80}
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:31.3120391Z Region: centralus
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:31.3121021Z Cloud: Azure
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:31.3121570Z ##[endgroup]
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:31.3123272Z ##[group]Operating System
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:31.3124463Z Ubuntu
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:31.3124997Z 22.04.5
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:31.3125598Z LTS
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:31.3126134Z ##[endgroup]
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:31.3126720Z ##[group]Runner Image
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:31.3127451Z Image: ubuntu-22.04-arm
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:31.3128053Z Version: 20261012.156.1
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:31.3129499Z Included Software: https://github.com/actions/runner-images/blob/ubuntu22-arm64/20261012.156/images/ubuntu/Ubuntu2204-Arm64-Readme.md
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:31.3131113Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu22-arm64%2F20261012.156
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:31.3132156Z ##[endgroup]
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:31.3133348Z ##[group]GITHUB_TOKEN Permissions
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:31.3136096Z Contents: read
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:31.3136745Z Metadata: read
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:31.3137459Z Packages: read
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:31.3138030Z ##[endgroup]
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:31.3140599Z Secret source: Actions
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:31.3141750Z Cache mode: write
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:31.3142565Z Prepare workflow directory
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:31.3553620Z Prepare all required actions
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:31.3608359Z Getting action download info
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:31.6522160Z Download action repository 'actions/checkout@v4' (SHA:11d5960a326750d5838078e36cf38b85af677262)
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:31.8265788Z Download action repository 'actions/cache@v4' (SHA:0057852bfaa89a56745cba8c7296529d2fc39830)
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:32.1697086Z Download action repository 'taiki-e/install-action@v2' (SHA:1168f6810a3cb30a3514bf5756a3b7f0422c6df8)
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:32.6371621Z Download action repository 'actions/upload-artifact@v4' (SHA:ea165f8d65b6e75b540449e92b4886f43607fa02)
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:33.1015602Z Complete job name: lampOS — build and test on Linux ARM64 (1/1)
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:33.1821765Z ##[group]Run sudo apt-get update
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:33.1823105Z [36;1msudo apt-get update[0m
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:33.1824717Z [36;1msudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \[0m
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:33.1826687Z [36;1m  ca-certificates curl git build-essential pkg-config clang libclang-dev libasound2-dev procps file[0m
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:33.1858699Z shell: /usr/bin/bash -e {0}
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:33.1860152Z ##[endgroup]
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:33.3434835Z Get:1 https://packages.microsoft.com/ubuntu/22.04/prod jammy InRelease [3632 B]
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:33.3989926Z Get:2 https://packages.microsoft.com/ubuntu/22.04/prod jammy/main armhf Packages [23.5 kB]
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:33.4125648Z Get:3 https://packages.microsoft.com/ubuntu/22.04/prod jammy/main arm64 Packages [615 kB]
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:33.4337421Z Get:4 https://packages.microsoft.com/ubuntu/22.04/prod jammy/main amd64 Packages [870 kB]
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:33.5800334Z Hit:5 http://ports.ubuntu.com/ubuntu-ports jammy InRelease
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:33.6127621Z Get:6 http://ports.ubuntu.com/ubuntu-ports jammy-updates InRelease [128 kB]
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:33.7561580Z Get:7 http://ports.ubuntu.com/ubuntu-ports jammy-backports InRelease [127 kB]
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:33.8146764Z Get:8 http://ports.ubuntu.com/ubuntu-ports jammy-security InRelease [129 kB]
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:33.8664564Z Get:9 http://ports.ubuntu.com/ubuntu-ports jammy-updates/main arm64 Packages [3763 kB]
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:34.0534627Z Get:10 http://ports.ubuntu.com/ubuntu-ports jammy-updates/main Translation-en [576 kB]
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:34.0894814Z Get:11 http://ports.ubuntu.com/ubuntu-ports jammy-updates/universe arm64 Packages [1365 kB]
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:34.1302849Z Get:12 http://ports.ubuntu.com/ubuntu-ports jammy-updates/universe Translation-en [326 kB]
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:34.1650258Z Get:13 http://ports.ubuntu.com/ubuntu-ports jammy-security/main arm64 Packages [3511 kB]
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:34.2188268Z Get:14 http://ports.ubuntu.com/ubuntu-ports jammy-security/main Translation-en [509 kB]
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:34.2551815Z Get:15 http://ports.ubuntu.com/ubuntu-ports jammy-security/universe arm64 Packages [1136 kB]
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:34.2937898Z Get:16 http://ports.ubuntu.com/ubuntu-ports jammy-security/universe Translation-en [237 kB]
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:38.7211825Z Fetched 13.3 MB in 2s (7992 kB/s)
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:40.1538496Z Reading package lists...
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:40.2160714Z Reading package lists...
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:40.5573773Z Building dependency tree...
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:40.5584905Z Reading state information...
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:40.8419992Z pkg-config is already the newest version (0.29.2-1ubuntu3).
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:40.8421082Z ca-certificates is already the newest version (20260601~22.04.1).
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:40.8421688Z file is already the newest version (1:5.41-3ubuntu0.1).
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:40.8422116Z procps is already the newest version (2:3.3.17-6ubuntu2.1).
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:40.8422650Z procps set to manually installed.
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:40.8423093Z git is already the newest version (1:2.55.0-0ppa1~ubuntu22.04.2).
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:40.8423591Z The following additional packages will be installed:
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:40.8424591Z   libclang-14-dev libcurl4
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:40.8433256Z Suggested packages:
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:40.8433828Z   libasound2-doc
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:40.8645768Z The following NEW packages will be installed:
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:40.8653209Z   build-essential clang libasound2-dev libclang-14-dev libclang-dev
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:40.8657529Z The following packages will be upgraded:
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:40.8665417Z   curl libcurl4
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:41.1701202Z 2 upgraded, 5 newly installed, 0 to remove and 36 not upgraded.
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:41.1701800Z Need to get 25.9 MB of archives.
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:41.1702580Z After this operation, 252 MB of additional disk space will be used.
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:41.1703263Z Get:1 http://ports.ubuntu.com/ubuntu-ports jammy/main arm64 build-essential arm64 12.9ubuntu3 [4740 B]
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:41.3094359Z Get:2 http://ports.ubuntu.com/ubuntu-ports jammy/universe arm64 clang arm64 1:14.0-55~exp2 [3558 B]
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:41.4490997Z Get:3 http://ports.ubuntu.com/ubuntu-ports jammy-security/main arm64 curl arm64 7.81.0-1ubuntu1.30 [190 kB]
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:42.0588137Z Get:4 http://ports.ubuntu.com/ubuntu-ports jammy-security/main arm64 libcurl4 arm64 7.81.0-1ubuntu1.30 [287 kB]
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:42.3732633Z Get:5 http://ports.ubuntu.com/ubuntu-ports jammy-updates/main arm64 libasound2-dev arm64 1.2.6.1-1ubuntu1.2 [110 kB]
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:42.5361029Z Get:6 http://ports.ubuntu.com/ubuntu-ports jammy-updates/universe arm64 libclang-14-dev arm64 1:14.0.0-1ubuntu1.1 [25.3 MB]
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:43.8324911Z Get:7 http://ports.ubuntu.com/ubuntu-ports jammy/universe arm64 libclang-dev arm64 1:14.0-55~exp2 [3140 B]
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:44.1636187Z Fetched 25.9 MB in 3s (8757 kB/s)
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:44.2043247Z Selecting previously unselected package build-essential.
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:44.2296291Z (Reading database ... 
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:44.2296950Z (Reading database ... 5%
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:44.2297297Z (Reading database ... 10%
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:44.2297873Z (Reading database ... 15%
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:44.2298143Z (Reading database ... 20%
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:44.2298462Z (Reading database ... 25%
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:44.2298792Z (Reading database ... 30%
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:44.2299052Z (Reading database ... 35%
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:44.2299369Z (Reading database ... 40%
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:44.2299626Z (Reading database ... 45%
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:44.2299907Z (Reading database ... 50%
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:44.3086534Z (Reading database ... 55%
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:44.5037334Z (Reading database ... 60%
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:44.6625487Z (Reading database ... 65%
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:44.8568868Z (Reading database ... 70%
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:45.0489112Z (Reading database ... 75%
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:45.2166738Z (Reading database ... 80%
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:45.4057965Z (Reading database ... 85%
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:45.5993862Z (Reading database ... 90%
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:45.7762050Z (Reading database ... 95%
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:45.7762468Z (Reading database ... 100%
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:45.7763125Z (Reading database ... 202929 files and directories currently installed.)
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:45.7814791Z Preparing to unpack .../0-build-essential_12.9ubuntu3_arm64.deb ...
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:45.7924082Z Unpacking build-essential (12.9ubuntu3) ...
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:45.8294262Z Selecting previously unselected package clang.
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:45.8497883Z Preparing to unpack .../1-clang_1%3a14.0-55~exp2_arm64.deb ...
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:45.8513347Z Unpacking clang (1:14.0-55~exp2) ...
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:45.8986002Z Preparing to unpack .../2-curl_7.81.0-1ubuntu1.30_arm64.deb ...
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:45.9063856Z Unpacking curl (7.81.0-1ubuntu1.30) over (7.81.0-1ubuntu1.29) ...
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:45.9801073Z Preparing to unpack .../3-libcurl4_7.81.0-1ubuntu1.30_arm64.deb ...
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:45.9970464Z Unpacking libcurl4:arm64 (7.81.0-1ubuntu1.30) over (7.81.0-1ubuntu1.29) ...
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:46.0243843Z Selecting previously unselected package libasound2-dev:arm64.
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:46.0436480Z Preparing to unpack .../4-libasound2-dev_1.2.6.1-1ubuntu1.2_arm64.deb ...
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:46.0473005Z Unpacking libasound2-dev:arm64 (1.2.6.1-1ubuntu1.2) ...
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:46.1093070Z Selecting previously unselected package libclang-14-dev.
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:46.1298600Z Preparing to unpack .../5-libclang-14-dev_1%3a14.0.0-1ubuntu1.1_arm64.deb ...
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:46.1312039Z Unpacking libclang-14-dev (1:14.0.0-1ubuntu1.1) ...
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:47.3606923Z Selecting previously unselected package libclang-dev.
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:47.3808414Z Preparing to unpack .../6-libclang-dev_1%3a14.0-55~exp2_arm64.deb ...
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:47.3821797Z Unpacking libclang-dev (1:14.0-55~exp2) ...
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:47.4316005Z Setting up clang (1:14.0-55~exp2) ...
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:47.4585374Z Setting up libclang-14-dev (1:14.0.0-1ubuntu1.1) ...
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:47.4614662Z Setting up build-essential (12.9ubuntu3) ...
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:47.4640989Z Setting up libcurl4:arm64 (7.81.0-1ubuntu1.30) ...
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:47.4667388Z Setting up curl (7.81.0-1ubuntu1.30) ...
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:47.4694636Z Setting up libasound2-dev:arm64 (1.2.6.1-1ubuntu1.2) ...
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:47.4727171Z Setting up libclang-dev (1:14.0-55~exp2) ...
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:47.4764754Z Processing triggers for man-db (2.10.2-1) ...
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:47.4787497Z Not building database; man-db/auto-update is not 'true'.
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:47.4808272Z Processing triggers for libc-bin (2.35-0ubuntu3.15) ...
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:49.6821611Z 
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:49.6822528Z Running kernel seems to be up-to-date.
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:49.6823059Z 
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:49.6823602Z Services to be restarted:
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:49.6870104Z  systemctl restart php8.1-fpm.service
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:49.6870586Z 
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:49.6871690Z No containers need to be restarted.
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:49.6871880Z 
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:49.6872033Z No user sessions are running outdated binaries.
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:49.6872268Z 
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:49.6872535Z No VM guests are running outdated hypervisor (qemu) binaries on this host.
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:51.2766889Z ##[group]Run actions/checkout@v4
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:51.2767308Z with:
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:51.2767703Z   repository: autonomous-ai/lampOS
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:51.2770538Z   token: ***
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:51.2770793Z   ssh-strict: true
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:51.2771085Z   ssh-user: git
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:51.2771330Z   persist-credentials: true
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:51.2771626Z   clean: true
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:51.2771868Z   sparse-checkout-cone-mode: true
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:51.2772149Z   fetch-depth: 1
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:51.2772429Z   fetch-tags: false
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:51.2772706Z   show-progress: true
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:51.2772968Z   lfs: false
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:51.2773185Z   submodules: false
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:51.2773701Z   set-safe-directory: true
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:51.2774280Z   allow-unsafe-pr-checkout: false
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:51.2774596Z ##[endgroup]
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:51.3604762Z Syncing repository: autonomous-ai/lampOS
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:51.3606669Z ##[group]Getting Git version info
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:51.3607233Z Working directory is '/home/runner/work/lampOS/lampOS'
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:51.3608163Z [command]/usr/bin/git version
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:51.3721717Z git version 2.55.0
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:51.3741224Z ##[endgroup]
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:51.3755902Z Temporarily overriding HOME='/home/runner/work/_temp/939a6eda-8866-4213-b279-c86bf757d03b' before making global git config changes
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:51.3757093Z Adding repository directory to the temporary git global config as a safe directory
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:51.3760563Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/lampOS/lampOS
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:51.3804053Z Deleting the contents of '/home/runner/work/lampOS/lampOS'
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:51.3809017Z ##[group]Initializing the repository
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:51.3813226Z [command]/usr/bin/git init /home/runner/work/lampOS/lampOS
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:51.3923503Z hint: Using 'master' as the name for the initial branch. This default branch name
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:51.3924538Z hint: will change to "main" in Git 3.0. To configure the initial branch name
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:51.3925335Z hint: to use in all of your new repositories, which will suppress this warning,
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:51.3925898Z hint: call:
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:51.3926554Z hint:
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:51.3927098Z hint: 	git config --global init.defaultBranch <name>
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:51.3927573Z hint:
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:51.3928018Z hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:51.3928656Z hint: 'development'. The just-created branch can be renamed via this command:
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:51.3929255Z hint:
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:51.3929571Z hint: 	git branch -m <name>
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:51.3929956Z hint:
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:51.3930418Z hint: Disable this message with "git config set advice.defaultBranchName false"
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:51.3931156Z Initialized empty Git repository in /home/runner/work/lampOS/lampOS/.git/
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:51.3932762Z [command]/usr/bin/git remote add origin https://github.com/autonomous-ai/lampOS
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:51.3975140Z ##[endgroup]
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:51.3975911Z ##[group]Disabling automatic garbage collection
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:51.3978362Z [command]/usr/bin/git config --local gc.auto 0
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:51.4010817Z ##[endgroup]
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:51.4011502Z ##[group]Setting up auth
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:51.4022321Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:51.4052646Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:51.4675124Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:51.4707343Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:51.4893564Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:51.4923703Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:51.5113977Z [command]/usr/bin/git config --local http.https://github.com/.extraheader AUTHORIZATION: basic ***
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:51.5157301Z ##[endgroup]
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:51.5157920Z ##[group]Fetching the repository
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:51.5165942Z [command]/usr/bin/git -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin +023342b95c9b098dee23c4b9c0c9c0441a3bcf81:refs/remotes/pull/909/merge
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:55.6764308Z From https://github.com/autonomous-ai/lampOS
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:55.6765294Z  * [new ref]         023342b95c9b098dee23c4b9c0c9c0441a3bcf81 -> pull/909/merge
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:55.6768683Z ##[endgroup]
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:55.6769313Z ##[group]Determining the checkout info
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:55.6770698Z ##[endgroup]
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:55.6776561Z [command]/usr/bin/git sparse-checkout disable
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:55.6829318Z [command]/usr/bin/git config --local --unset-all extensions.worktreeConfig
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:55.6861544Z ##[group]Checking out the ref
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:55.6865936Z [command]/usr/bin/git checkout --progress --force refs/remotes/pull/909/merge
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:56.2818434Z Note: switching to 'refs/remotes/pull/909/merge'.
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:56.2819280Z 
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:56.2819845Z You are in 'detached HEAD' state. You can look around, make experimental
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:56.2820400Z changes and commit them, and you can discard any commits you make in this
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:56.2821034Z state without impacting any branches by switching back to a branch.
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:56.2821365Z 
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:56.2821579Z If you want to create a new branch to retain commits you create, you may
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:56.2822030Z do so (now or later) by using -c with the switch command. Example:
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:56.2822370Z 
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:56.2822505Z   git switch -c <new-branch-name>
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:56.2822699Z 
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:56.2822805Z Or undo this operation with:
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:56.2822984Z 
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:56.2823162Z   git switch -
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:56.2823286Z 
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:56.2823521Z Turn off this advice by setting config variable advice.detachedHead to false
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:56.2823821Z 
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:56.2824394Z HEAD is now at 023342b Merge 188d97b7fcb6a78adaec67a3d3939843f759e1d3 into 58753a04833f0e8a4d35d6deaf413db90c826b48
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:56.3226716Z ##[endgroup]
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:56.3264949Z [command]/usr/bin/git log -1 --format=%H
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:56.3288802Z 023342b95c9b098dee23c4b9c0c9c0441a3bcf81
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:56.3535265Z ##[group]Run curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolchain 1.96.0 -c clippy -c rustfmt
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:56.3536485Z [36;1mcurl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolchain 1.96.0 -c clippy -c rustfmt[0m
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:56.3537164Z [36;1mecho "$HOME/.cargo/bin" >> "$GITHUB_PATH"[0m
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:56.3561072Z shell: /usr/bin/bash -e {0}
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:56.3561400Z ##[endgroup]
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:56.4575953Z info: downloading installer
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:56.7940149Z warn: it looks like you have an existing rustup settings file at:
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:56.7940750Z warn: /home/runner/.rustup/settings.toml
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:56.8662199Z info: profile set to minimal
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:56.8662951Z info: default host tuple is aarch64-unknown-linux-gnu
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:56.8753807Z info: syncing channel updates for 1.96.0-aarch64-unknown-linux-gnu
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:57.0864572Z info: latest update on 2026-05-28 for version 1.96.0 (ac68faa20 2026-05-25)
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:19:57.0865146Z info: downloading 5 components
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:20:02.4116559Z info: default toolchain set to 1.96.0-aarch64-unknown-linux-gnu
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:20:02.4116959Z 
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:20:02.4188835Z   1.96.0-aarch64-unknown-linux-gnu installed - rustc 1.96.0 (ac68faa20 2026-05-25)
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:20:02.4189355Z 
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:20:02.4189387Z 
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:20:02.4189503Z Rust is installed now. Great!
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:20:02.4189688Z 
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:20:02.4189859Z To get started you may need to restart your current shell.
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:20:02.4190427Z This would reload your PATH environment variable to include
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:20:02.4190829Z Cargo's bin directory ($HOME/.cargo/bin).
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:20:02.4191017Z 
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:20:02.4191208Z To configure your current shell, you need to source the
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:20:02.4191577Z corresponding env file under $HOME/.cargo.
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:20:02.4191772Z 
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:20:02.4192047Z Consider running the right command for your shell (note the leading DOT):
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:20:02.4192844Z . "$HOME/.cargo/env"     # For sh/ash/dash/pdksh/bash
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:20:02.4193188Z . "$HOME/.cargo/env.ps1" # For pwsh
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:20:02.4193583Z cargo:rerun-if-env-changed=CC_aarch64-unknown-linux-gnu
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:20:02.4194145Z CC_aarch64-unknown-linux-gnu = None
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:20:02.4194526Z cargo:rerun-if-env-changed=CC_aarch64_unknown_linux_gnu
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:20:02.4194875Z CC_aarch64_unknown_linux_gnu = None
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:20:02.4195172Z cargo:rerun-if-env-changed=HOST_CC
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:20:02.4195471Z HOST_CC = None
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:20:02.4195708Z cargo:rerun-if-env-changed=CC
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:20:02.4195951Z CC = None
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:20:02.4200252Z cargo:rerun-if-env-changed=CC_ENABLE_DEBUG_OUTPUT
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:20:02.4831649Z cargo:rerun-if-env-changed=CRATE_CC_NO_DEFAULTS
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:20:02.4832235Z CRATE_CC_NO_DEFAULTS = None
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:20:02.4832536Z cargo:rerun-if-env-changed=CFLAGS
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:20:02.4832826Z CFLAGS = None
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:20:02.4833104Z cargo:rerun-if-env-changed=HOST_CFLAGS
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:20:02.4833411Z HOST_CFLAGS = None
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:20:02.4833747Z cargo:rerun-if-env-changed=CFLAGS_aarch64_unknown_linux_gnu
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:20:02.4834354Z CFLAGS_aarch64_unknown_linux_gnu = None
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:20:02.4834704Z cargo:rerun-if-env-changed=CFLAGS_aarch64-unknown-linux-gnu
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:20:02.4835124Z CFLAGS_aarch64-unknown-linux-gnu = None
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:20:02.5532629Z ##[group]Run actions/cache@v4
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:20:02.5533035Z with:
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:20:02.5533339Z   path: ~/.cargo/registry
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	~/.cargo/git
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	lampOS/target
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:20:02.5534180Z   key: lampos-arm64-u2204-5dea429a6bf61a87765bea44baf6a020a88e4067596f8f77f7b6d5155755b2c9
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:20:02.5534689Z   restore-keys: lampos-arm64-u2204-
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:20:02.5535018Z   enableCrossOsArchive: false
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:20:02.5535294Z   fail-on-cache-miss: false
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:20:02.5535554Z   lookup-only: false
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:20:02.5535817Z   save-always: false
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:20:02.5536057Z ##[endgroup]
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:20:02.6438013Z (node:2695) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:20:02.6438783Z (Use `node --trace-deprecation ...` to show where the warning was created)
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:20:02.7913334Z Cache hit for: lampos-arm64-u2204-5dea429a6bf61a87765bea44baf6a020a88e4067596f8f77f7b6d5155755b2c9
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:20:02.8003273Z (node:2695) [DEP0169] DeprecationWarning: `url.parse()` behavior is not standardized and prone to errors that have security implications. Use the WHATWG URL API instead. CVEs are not issued for `url.parse()` vulnerabilities.
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:20:03.9722326Z Received 109051904 of 2109280974 (5.2%), 103.7 MBs/sec
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:20:05.0053714Z Received 268435456 of 2109280974 (12.7%), 125.6 MBs/sec
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:20:06.0044192Z Received 448790528 of 2109280974 (21.3%), 140.9 MBs/sec
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:20:07.0043773Z Received 654311424 of 2109280974 (31.0%), 154.5 MBs/sec
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:20:08.0044882Z Received 830472192 of 2109280974 (39.4%), 157.2 MBs/sec
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:20:09.0040472Z Received 1023410176 of 2109280974 (48.5%), 161.7 MBs/sec
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:20:10.0040388Z Received 1186988032 of 2109280974 (56.3%), 160.9 MBs/sec
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:20:11.0088763Z Received 1329594368 of 2109280974 (63.0%), 157.7 MBs/sec
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:20:12.0079587Z Received 1476395008 of 2109280974 (70.0%), 155.7 MBs/sec
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:20:13.0104038Z Received 1652555776 of 2109280974 (78.3%), 156.9 MBs/sec
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:20:14.0105108Z Received 1816133632 of 2109280974 (86.1%), 156.8 MBs/sec
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:20:15.0173716Z Received 1996488704 of 2109280974 (94.7%), 158.1 MBs/sec
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:20:15.9308795Z Received 2109280974 of 2109280974 (100.0%), 155.2 MBs/sec
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:20:15.9310210Z Cache Size: ~2012 MB (2109280974 B)
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:20:15.9347906Z [command]/usr/bin/tar -xf /home/runner/work/_temp/1be881c0-96a6-46a8-86d6-29f8de3fb78f/cache.tzst -P -C /home/runner/work/lampOS/lampOS --use-compress-program unzstd
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:20:37.2139638Z Cache restored successfully
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:20:37.4282928Z Cache restored from key: lampos-arm64-u2204-5dea429a6bf61a87765bea44baf6a020a88e4067596f8f77f7b6d5155755b2c9
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:20:37.6590398Z ##[group]Run taiki-e/install-action@v2
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:20:37.6590842Z with:
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:20:37.6591209Z   tool: cargo-nextest
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:20:37.6591465Z   checksum: true
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:20:37.6591755Z   fallback: cargo-binstall
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:20:37.6592020Z ##[endgroup]
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:20:37.6682808Z ##[start-action display=Run bail() {;id=__taiki-e_install-action.__run]
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:20:37.7939482Z ##[group]Run bail() {
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:20:37.7939874Z [36;1mbail() {[0m
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:20:37.7940163Z [36;1m  printf '::error::install-action: %s\n' "$*"[0m
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:20:37.7940535Z [36;1m  exit 1[0m
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:20:37.7940799Z [36;1m}[0m
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:20:37.7941203Z [36;1m# If /bin/sh is dash, environment variable containing % is not imported, but is fine[0m
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:20:37.7941767Z [36;1m# because it also means that it will not be exposed to subprocess.[0m
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:20:37.7942288Z [36;1mif /usr/bin/env | grep -Eq '^BASH_FUNC_'; then[0m
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:20:37.7942966Z [36;1m  bail 'bash function injection via BASH_FUNC_ environment variable is not allowed for security reasons'[0m
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:20:37.7943502Z [36;1mfi[0m
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:20:37.7943778Z [36;1mif ! command -v bash >/dev/null; then[0m
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:20:37.7944361Z [36;1m  if grep -Eq '^ID=alpine' /etc/os-release; then[0m
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:20:37.7944891Z [36;1m    printf '::group::Install packages required for install-action (bash)\n'[0m
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:20:37.7945349Z [36;1m    # NB: sync with apk_install in main.sh[0m
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:20:37.7945722Z [36;1m    if command -v sudo >/dev/null; then[0m
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:20:37.7946183Z [36;1m      sudo apk --no-cache add bash[0m
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:20:37.7946513Z [36;1m    elif command -v doas >/dev/null; then[0m
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:20:37.7946906Z [36;1m      doas apk --no-cache add bash[0m
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:20:37.7947202Z [36;1m    else[0m
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:20:37.7947519Z [36;1m      apk --no-cache add bash[0m
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:20:37.7947800Z [36;1m    fi[0m
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:20:37.7948342Z [36;1m    printf '::endgroup::\n'[0m
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:20:37.7948666Z [36;1m  else[0m
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:20:37.7948956Z [36;1m    bail 'this action requires bash'[0m
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:20:37.7949279Z [36;1m  fi[0m
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:20:37.7949660Z [36;1mfi[0m
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:20:37.7949971Z [36;1mbash --noprofile --norc "${GITHUB_ACTION_PATH:?}/main.sh"[0m
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:20:37.7953508Z shell: /usr/bin/env -u ENV -u BASH_ENV -u CDPATH -u SHELLOPTS -u BASHOPTS /bin/sh -eu {0}
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:20:37.7954265Z env:
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:20:37.7954531Z   INPUT_TOOL: cargo-nextest
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:20:37.7954856Z   INPUT_CHECKSUM: true
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:20:37.7955138Z   INPUT_FALLBACK: cargo-binstall
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:20:37.7958106Z   DEFAULT_GITHUB_TOKEN: ***
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:20:37.7958464Z   ACTION_USER_AGENT: taiki-e/install-action (v2)
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:20:37.7958796Z   RUNNER_OS: Linux
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:20:37.7959085Z   RUNNER_ARCH: ARM64
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:20:37.7959846Z ##[endgroup]
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:20:37.9470506Z info: host platform: aarch64_linux
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:20:38.0947816Z info: installing cargo-nextest@latest
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:20:38.2172072Z info: downloading https://github.com/nextest-rs/nextest/releases/download/cargo-nextest-0.9.148/cargo-nextest-0.9.148-aarch64-unknown-linux-gnu.tar.gz
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:20:38.9794408Z info: verifying sha256 checksum for cargo-nextest-0.9.148-aarch64-unknown-linux-gnu.tar.gz
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:20:39.1888685Z info: cargo-nextest installed at /home/runner/.cargo/bin/cargo-nextest
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:20:39.1891482Z + cargo-nextest nextest --version
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:20:39.1916579Z cargo-nextest 0.9.148 (cd1d6d546 2026-10-07)
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:20:39.1916889Z release: 0.9.148
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:20:39.1917132Z commit-hash: cd1d6d5467322dbc0d39a80cb671d000ac302798
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:20:39.1917415Z commit-date: 2026-10-07
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:20:39.1917626Z host: aarch64-unknown-linux-gnu
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:20:39.1921491Z 
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:20:39.1941416Z ##[end-action id=__taiki-e_install-action.__run;outcome=success;conclusion=success;duration_ms=1525]
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:20:39.1948974Z ##[start-action display=Run Set-StrictMode -Version Latest;id=__taiki-e_install-action.__run_2]
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:20:39.1954900Z ##[end-action id=__taiki-e_install-action.__run_2;outcome=skipped;conclusion=skipped;duration_ms=0]
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:20:39.2402369Z ##[group]Run cargo build --locked --release --workspace --bins --examples
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:20:39.2402916Z [36;1mcargo build --locked --release --workspace --bins --examples[0m
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:20:39.2422315Z shell: /usr/bin/bash -e {0}
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:20:39.2422556Z ##[endgroup]
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:20:40.1840407Z warning: output filename collision at /home/runner/work/lampOS/lampOS/lampOS/target/release/examples/replay_cost
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:20:40.1841057Z   |
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:20:40.1842027Z   = note: the example target `replay_cost` in package `lamp-expression v0.1.0 (/home/runner/work/lampOS/lampOS/lampOS/crates/expression)` has the same output filename as the example target `replay_cost` in package `lamp-controls v0.1.0 (/home/runner/work/lampOS/lampOS/lampOS/crates/controls)`
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:20:40.1843319Z   = note: this may become a hard error in the future; see <https://github.com/rust-lang/cargo/issues/6313>
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:20:40.1844259Z   = help: consider changing their names to be unique or compiling them separately
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:20:40.1844922Z warning: output filename collision at /home/runner/work/lampOS/lampOS/lampOS/target/release/examples/replay_cost.dwp
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:20:40.1845411Z   |
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:20:40.1846368Z   = note: the example target `replay_cost` in package `lamp-expression v0.1.0 (/home/runner/work/lampOS/lampOS/lampOS/crates/expression)` has the same output filename as the example target `replay_cost` in package `lamp-controls v0.1.0 (/home/runner/work/lampOS/lampOS/lampOS/crates/controls)`
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:20:40.1847579Z   = note: this may become a hard error in the future; see <https://github.com/rust-lang/cargo/issues/6313>
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:20:40.1848138Z   = help: consider changing their names to be unique or compiling them separately
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:20:40.1848760Z warning: output filename collision at /home/runner/work/lampOS/lampOS/lampOS/target/release/examples/progress_cost
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:20:40.1849237Z   |
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:20:40.1850141Z   = note: the example target `progress_cost` in package `lamp-tasks v0.1.0 (/home/runner/work/lampOS/lampOS/lampOS/crates/tasks)` has the same output filename as the example target `progress_cost` in package `lamp-policy v0.1.0 (/home/runner/work/lampOS/lampOS/lampOS/crates/policy)`
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:20:40.1851312Z   = note: this may become a hard error in the future; see <https://github.com/rust-lang/cargo/issues/6313>
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:20:40.1851864Z   = help: consider changing their names to be unique or compiling them separately
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:20:40.1852481Z warning: output filename collision at /home/runner/work/lampOS/lampOS/lampOS/target/release/examples/progress_cost.dwp
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:20:40.1852978Z   |
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:20:40.1853962Z   = note: the example target `progress_cost` in package `lamp-tasks v0.1.0 (/home/runner/work/lampOS/lampOS/lampOS/crates/tasks)` has the same output filename as the example target `progress_cost` in package `lamp-policy v0.1.0 (/home/runner/work/lampOS/lampOS/lampOS/crates/policy)`
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:20:40.1857222Z   = note: this may become a hard error in the future; see <https://github.com/rust-lang/cargo/issues/6313>
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:20:40.1858129Z   = help: consider changing their names to be unique or compiling them separately
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:20:40.2339259Z    Compiling lamp-bus v0.1.0 (/home/runner/work/lampOS/lampOS/lampOS/crates/bus)
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:20:40.2341485Z    Compiling lamp-ipc v0.1.0 (/home/runner/work/lampOS/lampOS/lampOS/crates/ipc)
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:20:40.2353813Z    Compiling lamp-turn-owner v0.1.0 (/home/runner/work/lampOS/lampOS/lampOS/crates/turn-owner)
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:20:40.2397554Z    Compiling lamp-gemini v0.1.0 (/home/runner/work/lampOS/lampOS/lampOS/crates/gemini)
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:20:40.8185110Z    Compiling v4l2r v0.0.8
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:20:40.9105971Z    Compiling lamp-msgs v0.1.0 (/home/runner/work/lampOS/lampOS/lampOS/crates/msgs)
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:20:44.8352144Z    Compiling lamp-keeper v0.1.0 (/home/runner/work/lampOS/lampOS/lampOS/crates/keeper)
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:20:45.0922304Z    Compiling lamp-camera v0.1.0 (/home/runner/work/lampOS/lampOS/lampOS/crates/camera)
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:20:45.5033004Z    Compiling lamp-body v0.1.0 (/home/runner/work/lampOS/lampOS/lampOS/crates/body)
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:20:46.8638373Z    Compiling lamp-schedule v0.1.0 (/home/runner/work/lampOS/lampOS/lampOS/crates/schedule)
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:20:54.5180243Z    Compiling lamp-controls v0.1.0 (/home/runner/work/lampOS/lampOS/lampOS/crates/controls)
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:20:55.2825647Z    Compiling lamp-turn-end-wire v0.1.0 (/home/runner/work/lampOS/lampOS/lampOS/crates/turn-end-wire)
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:20:56.3708139Z    Compiling lamp-ring v0.1.0 (/home/runner/work/lampOS/lampOS/lampOS/crates/ring)
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:20:56.6554225Z    Compiling lamp-audio v0.1.0 (/home/runner/work/lampOS/lampOS/lampOS/crates/audio)
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:20:56.6808922Z    Compiling lamp-expression v0.1.0 (/home/runner/work/lampOS/lampOS/lampOS/crates/expression)
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:20:59.5122501Z    Compiling lamp-voice v0.1.0 (/home/runner/work/lampOS/lampOS/lampOS/crates/voice)
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:21:03.3151402Z    Compiling lamp-policy v0.1.0 (/home/runner/work/lampOS/lampOS/lampOS/crates/policy)
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:21:06.9659693Z    Compiling lamp-actions v0.1.0 (/home/runner/work/lampOS/lampOS/lampOS/crates/actions)
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:21:11.0105252Z    Compiling tough v0.24.0 (/home/runner/work/lampOS/lampOS/lampOS/vendor/tough)
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:21:11.0955543Z    Compiling lamp-observer v0.1.0 (/home/runner/work/lampOS/lampOS/lampOS/crates/observer)
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:21:13.1005284Z    Compiling lamp-tasks v0.1.0 (/home/runner/work/lampOS/lampOS/lampOS/crates/tasks)
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:21:16.6965384Z    Compiling lamp-sound-fixtures v0.1.0 (/home/runner/work/lampOS/lampOS/lampOS/crates/sound-fixtures)
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:21:20.1225433Z    Compiling lamp-surround v0.1.0 (/home/runner/work/lampOS/lampOS/lampOS/crates/surround)
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:21:23.2055491Z    Compiling lamp-records v0.1.0 (/home/runner/work/lampOS/lampOS/lampOS/crates/records)
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:21:24.1262148Z    Compiling lamp-turn-end v0.1.0 (/home/runner/work/lampOS/lampOS/lampOS/crates/turn-end)
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:21:28.5217767Z    Compiling lamp-eyes v0.1.0 (/home/runner/work/lampOS/lampOS/lampOS/crates/eyes)
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:21:34.2235543Z    Compiling lamp-voice-eval v0.1.0 (/home/runner/work/lampOS/lampOS/lampOS/crates/voice-eval)
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:21:40.1035305Z    Compiling lamp-memory v0.1.0 (/home/runner/work/lampOS/lampOS/lampOS/crates/memory)
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:21:53.4018800Z    Compiling lamp-mood v0.1.0 (/home/runner/work/lampOS/lampOS/lampOS/crates/mood)
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:21:53.4202785Z    Compiling lamp-lean v0.1.0 (/home/runner/work/lampOS/lampOS/lampOS/crates/lean)
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:21:55.0200185Z    Compiling lamp-settings v0.1.0 (/home/runner/work/lampOS/lampOS/lampOS/crates/settings)
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:21:58.7320916Z    Compiling lamp-setup v0.1.0 (/home/runner/work/lampOS/lampOS/lampOS/crates/setup)
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:22:00.0325412Z    Compiling lamp-same-voice v0.1.0 (/home/runner/work/lampOS/lampOS/lampOS/crates/same-voice)
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:22:03.8833467Z    Compiling lamp-name v0.1.0 (/home/runner/work/lampOS/lampOS/lampOS/crates/name)
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:22:07.5216753Z    Compiling lamp-ears v0.1.0 (/home/runner/work/lampOS/lampOS/lampOS/crates/ears)
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:22:07.8354642Z    Compiling lamp-selftest v0.1.0 (/home/runner/work/lampOS/lampOS/lampOS/crates/selftest)
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:22:12.5688005Z    Compiling lamp-update v0.1.0 (/home/runner/work/lampOS/lampOS/lampOS/crates/update)
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:22:12.9883717Z    Compiling lamp-air v0.1.0 (/home/runner/work/lampOS/lampOS/lampOS/crates/air)
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:22:13.1999365Z    Compiling lamp-health v0.1.0 (/home/runner/work/lampOS/lampOS/lampOS/crates/health)
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:22:13.6331976Z    Compiling lamp-environment v0.1.0 (/home/runner/work/lampOS/lampOS/lampOS/crates/environment)
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:23:30.0681545Z     Finished `release` profile [optimized] target(s) in 2m 50s
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:23:30.1613666Z ##[group]Run echo "cores: $(nproc)" && cargo nextest run --locked --release --workspace --profile pr --no-tests=pass -j num-cpus --partition hash:1/1 -E 'not (binary_id(lamp-ipc::relay_signals) | binary_id(lamp-turn-end-wire::process))'
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:23:30.1615619Z [36;1mecho "cores: $(nproc)" && cargo nextest run --locked --release --workspace --profile pr --no-tests=pass -j num-cpus --partition hash:1/1 -E 'not (binary_id(lamp-ipc::relay_signals) | binary_id(lamp-turn-end-wire::process))'[0m
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:23:30.1634389Z shell: /usr/bin/bash -e {0}
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:23:30.1634864Z ##[endgroup]
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:23:30.2332836Z cores: 4
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:23:30.6881474Z warning: output filename collision at /home/runner/work/lampOS/lampOS/lampOS/target/release/examples/replay_cost
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:23:30.6882003Z   |
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:23:30.6883091Z   = note: the example target `replay_cost` in package `lamp-expression v0.1.0 (/home/runner/work/lampOS/lampOS/lampOS/crates/expression)` has the same output filename as the example target `replay_cost` in package `lamp-controls v0.1.0 (/home/runner/work/lampOS/lampOS/lampOS/crates/controls)`
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:23:30.6885314Z   = note: this may become a hard error in the future; see <https://github.com/rust-lang/cargo/issues/6313>
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:23:30.6885949Z   = help: consider changing their names to be unique or compiling them separately
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:23:30.6886577Z warning: output filename collision at /home/runner/work/lampOS/lampOS/lampOS/target/release/examples/replay_cost.dwp
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:23:30.6887062Z   |
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:23:30.6888008Z   = note: the example target `replay_cost` in package `lamp-expression v0.1.0 (/home/runner/work/lampOS/lampOS/lampOS/crates/expression)` has the same output filename as the example target `replay_cost` in package `lamp-controls v0.1.0 (/home/runner/work/lampOS/lampOS/lampOS/crates/controls)`
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:23:30.6889254Z   = note: this may become a hard error in the future; see <https://github.com/rust-lang/cargo/issues/6313>
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:23:30.6889805Z   = help: consider changing their names to be unique or compiling them separately
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:23:30.6891291Z warning: output filename collision at /home/runner/work/lampOS/lampOS/lampOS/target/release/examples/progress_cost
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:23:30.6891774Z   |
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:23:30.6892684Z   = note: the example target `progress_cost` in package `lamp-tasks v0.1.0 (/home/runner/work/lampOS/lampOS/lampOS/crates/tasks)` has the same output filename as the example target `progress_cost` in package `lamp-policy v0.1.0 (/home/runner/work/lampOS/lampOS/lampOS/crates/policy)`
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:23:30.6893862Z   = note: this may become a hard error in the future; see <https://github.com/rust-lang/cargo/issues/6313>
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:23:30.6894587Z   = help: consider changing their names to be unique or compiling them separately
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:23:30.6895229Z warning: output filename collision at /home/runner/work/lampOS/lampOS/lampOS/target/release/examples/progress_cost.dwp
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:23:30.6895728Z   |
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:23:30.6896634Z   = note: the example target `progress_cost` in package `lamp-tasks v0.1.0 (/home/runner/work/lampOS/lampOS/lampOS/crates/tasks)` has the same output filename as the example target `progress_cost` in package `lamp-policy v0.1.0 (/home/runner/work/lampOS/lampOS/lampOS/crates/policy)`
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:23:30.6897812Z   = note: this may become a hard error in the future; see <https://github.com/rust-lang/cargo/issues/6313>
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:23:30.6898365Z   = help: consider changing their names to be unique or compiling them separately
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:23:30.9355506Z    Compiling lamp-eyes v0.1.0 (/home/runner/work/lampOS/lampOS/lampOS/crates/eyes)
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:23:30.9356505Z    Compiling lamp-selftest v0.1.0 (/home/runner/work/lampOS/lampOS/lampOS/crates/selftest)
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:23:30.9357177Z    Compiling lamp-air v0.1.0 (/home/runner/work/lampOS/lampOS/lampOS/crates/air)
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:23:30.9358508Z    Compiling lamp-ears v0.1.0 (/home/runner/work/lampOS/lampOS/lampOS/crates/ears)
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:23:31.2637431Z    Compiling lamp-name v0.1.0 (/home/runner/work/lampOS/lampOS/lampOS/crates/name)
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:23:31.3855412Z    Compiling lamp-environment v0.1.0 (/home/runner/work/lampOS/lampOS/lampOS/crates/environment)
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:23:32.0849386Z    Compiling lamp-same-voice v0.1.0 (/home/runner/work/lampOS/lampOS/lampOS/crates/same-voice)
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:23:32.5481351Z    Compiling lamp-settings v0.1.0 (/home/runner/work/lampOS/lampOS/lampOS/crates/settings)
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:23:32.6445056Z    Compiling lamp-lean v0.1.0 (/home/runner/work/lampOS/lampOS/lampOS/crates/lean)
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:23:34.0800728Z    Compiling lamp-update v0.1.0 (/home/runner/work/lampOS/lampOS/lampOS/crates/update)
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:23:38.4755252Z    Compiling lamp-health v0.1.0 (/home/runner/work/lampOS/lampOS/lampOS/crates/health)
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:23:40.2051431Z    Compiling lamp-setup v0.1.0 (/home/runner/work/lampOS/lampOS/lampOS/crates/setup)
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:23:44.7878206Z    Compiling lamp-surround v0.1.0 (/home/runner/work/lampOS/lampOS/lampOS/crates/surround)
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:23:45.9345175Z    Compiling lamp-mood v0.1.0 (/home/runner/work/lampOS/lampOS/lampOS/crates/mood)
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:23:48.7805817Z    Compiling lamp-tasks v0.1.0 (/home/runner/work/lampOS/lampOS/lampOS/crates/tasks)
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:24:31.9119871Z    Compiling lamp-records v0.1.0 (/home/runner/work/lampOS/lampOS/lampOS/crates/records)
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:24:36.1695185Z    Compiling lamp-memory v0.1.0 (/home/runner/work/lampOS/lampOS/lampOS/crates/memory)
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:24:48.0595304Z    Compiling lamp-voice-eval v0.1.0 (/home/runner/work/lampOS/lampOS/lampOS/crates/voice-eval)
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:25:10.0113788Z    Compiling lamp-turn-end v0.1.0 (/home/runner/work/lampOS/lampOS/lampOS/crates/turn-end)
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:25:13.2198880Z    Compiling lamp-observer v0.1.0 (/home/runner/work/lampOS/lampOS/lampOS/crates/observer)
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:25:14.5630551Z    Compiling lamp-sound-fixtures v0.1.0 (/home/runner/work/lampOS/lampOS/lampOS/crates/sound-fixtures)
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:25:14.9910080Z    Compiling lamp-actions v0.1.0 (/home/runner/work/lampOS/lampOS/lampOS/crates/actions)
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:25:17.4944674Z    Compiling lamp-voice v0.1.0 (/home/runner/work/lampOS/lampOS/lampOS/crates/voice)
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:26:02.2001671Z    Compiling lamp-policy v0.1.0 (/home/runner/work/lampOS/lampOS/lampOS/crates/policy)
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:26:28.4071601Z    Compiling lamp-expression v0.1.0 (/home/runner/work/lampOS/lampOS/lampOS/crates/expression)
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:26:44.8991965Z    Compiling lamp-schedule v0.1.0 (/home/runner/work/lampOS/lampOS/lampOS/crates/schedule)
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:27:14.9313286Z    Compiling lamp-camera v0.1.0 (/home/runner/work/lampOS/lampOS/lampOS/crates/camera)
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:27:18.9062537Z    Compiling lamp-turn-end-wire v0.1.0 (/home/runner/work/lampOS/lampOS/lampOS/crates/turn-end-wire)
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:27:19.9977645Z    Compiling lamp-ring v0.1.0 (/home/runner/work/lampOS/lampOS/lampOS/crates/ring)
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:27:20.9288664Z    Compiling lamp-audio v0.1.0 (/home/runner/work/lampOS/lampOS/lampOS/crates/audio)
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:27:28.7424559Z    Compiling lamp-controls v0.1.0 (/home/runner/work/lampOS/lampOS/lampOS/crates/controls)
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:27:50.2195675Z    Compiling lamp-gemini v0.1.0 (/home/runner/work/lampOS/lampOS/lampOS/crates/gemini)
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:27:57.7889001Z    Compiling lamp-body v0.1.0 (/home/runner/work/lampOS/lampOS/lampOS/crates/body)
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:28:14.9625264Z    Compiling lamp-keeper v0.1.0 (/home/runner/work/lampOS/lampOS/lampOS/crates/keeper)
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:28:42.0516736Z    Compiling lamp-turn-owner v0.1.0 (/home/runner/work/lampOS/lampOS/lampOS/crates/turn-owner)
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:28:47.2496046Z    Compiling lamp-ipc v0.1.0 (/home/runner/work/lampOS/lampOS/lampOS/crates/ipc)
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:28:55.9150426Z    Compiling lamp-msgs v0.1.0 (/home/runner/work/lampOS/lampOS/lampOS/crates/msgs)
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:29:08.2915799Z    Compiling lamp-bus v0.1.0 (/home/runner/work/lampOS/lampOS/lampOS/crates/bus)
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:29:58.0019952Z     Finished `release` profile [optimized] target(s) in 6m 27s
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:29:58.6884113Z ────────────
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:29:58.6884963Z  Nextest run ID 21095306-86cb-49bb-ab3b-33e6715dff23 with nextest profile: pr
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:29:58.6886741Z     Starting 4939 tests across 270 binaries (130 tests and 8 binaries skipped, including 93 tests and 6 binaries via profile.pr.default-filter)
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:29:58.7039165Z         PASS [   0.004s] (   1/4939) lamp-actions light::tests::on_and_off_keep_the_colour_and_the_level_and_neither_is_asked_twice
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:29:58.7040503Z         PASS [   0.004s] (   2/4939) lamp-actions light::tests::a_colour_is_set_by_name_said_by_name_and_switches_the_light_on
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:29:58.7041643Z         PASS [   0.004s] (   3/4939) lamp-actions light::tests::brighter_and_dimmer_are_one_level_keep_the_colour_and_stop_at_the_ends
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:29:58.7075219Z         PASS [   0.004s] (   4/4939) lamp-actions sound::tests::a_failure_is_said_as_a_failure
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:29:58.7077828Z         PASS [   0.004s] (   5/4939) lamp-actions sound::tests::a_control_that_rounds_by_a_point_is_taken_as_set_and_the_level_read_is_the_one_said
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:29:58.7115843Z         PASS [   0.004s] (   6/4939) lamp-actions sound::tests::louder_is_one_step_and_stops_at_the_ceiling
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:29:58.7116785Z         PASS [   0.004s] (   7/4939) lamp-actions sound::tests::mute_remembers_where_the_volume_was_and_unmute_puts_it_back
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:29:58.7157296Z         PASS [   0.004s] (   8/4939) lamp-actions sound::tests::quieter_is_one_step_and_stops_where_it_can_still_be_heard
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:29:58.7163511Z         PASS [   0.004s] (   9/4939) lamp-actions sound::tests::one_louder_undoes_one_quieter
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:29:58.7197154Z         PASS [   0.004s] (  10/4939) lamp-actions sound::tests::the_level_is_read_from_what_amixer_prints
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:29:58.7197937Z         PASS [   0.004s] (  11/4939) lamp-actions tests::an_outcome_is_one_line_the_voice_can_hand_to_the_model
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:29:58.7235737Z         PASS [   0.004s] (  12/4939) lamp-actions tests::only_what_can_be_done_now_is_offered_and_every_function_is_one_the_voice_accepts
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:29:58.7698549Z         PASS [   0.066s] (  13/4939) lamp-actions light::tests::through_the_bus_a_request_is_kept_and_a_stale_state_is_no_light
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:29:58.7953049Z         PASS [   0.025s] (  14/4939) lamp-actions::schedule definite_conflicts_are_not_retried_and_storage_failures_stay_uncertain
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:29:59.1510257Z         PASS [   0.356s] (  15/4939) lamp-actions::schedule disabled_switch_preserves_the_old_catalog_and_refuses_all_six_names
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:29:59.1560302Z         PASS [   0.005s] (  16/4939) lamp-actions::schedule empty_filtered_list_and_service_pagination_remain_explicit
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:29:59.2646559Z         PASS [   0.541s] (  17/4939) lamp-actions::schedule all_six_tools_reach_real_schedule_through_the_real_actions_server
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:29:59.2857235Z         PASS [   0.021s] (  18/4939) lamp-actions::schedule incorrect_success_identity_revision_or_deadline_never_becomes_confirmation
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:29:59.3062397Z         PASS [   0.607s] (  19/4939) lamp-actions light::tests::a_light_that_cannot_be_read_or_does_not_change_is_said_so
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:29:59.4159602Z         PASS [   0.110s] (  20/4939) lamp-actions::schedule lost_commit_reply_is_unknown_and_never_retried_with_another_guard
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:29:59.4474602Z         PASS [   0.162s] (  21/4939) lamp-actions::schedule listing_keeps_complete_escaped_labels_and_returns_the_actual_remaining_cursor
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:29:59.4530672Z         PASS [   0.006s] (  22/4939) lamp-actions::schedule malformed_lists_and_snooze_nonpending_state_never_make_a_mutation
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:29:59.5214068Z         PASS [   0.105s] (  23/4939) lamp-actions::schedule malformed_arguments_and_unknown_fields_open_no_schedule_connection
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:29:59.5257053Z         PASS [   0.004s] (  24/4939) lamp-actions::schedule new_schemas_use_the_small_provider_vocabulary
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:29:59.5808498Z         PASS [   0.055s] (  25/4939) lamp-actions::schedule published_catalog_routes_relative_reminders_to_elapsed_timers
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:29:59.6083127Z         PASS [   0.155s] (  26/4939) lamp-actions::schedule missing_schedule_socket_is_truthful_and_mutation_free
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:29:59.6123313Z         PASS [   0.004s] (  27/4939) lamp-actions::server its_report_says_what_it_can_do_and_how_much_it_did
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:29:59.6669703Z         PASS [   0.055s] (  28/4939) lamp-actions::server one_executive_to_a_directory
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:29:59.7940858Z         PASS [   0.213s] (  29/4939) lamp-actions::schedule real_engine_failure_before_or_after_snapshot_commit_is_never_confirmed
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:29:59.7980999Z         PASS [   0.004s] (  30/4939) lamp-actions::bin/lamp-actions tests::the_options_are_read_and_anything_else_is_refused_with_the_reason
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:29:59.8017691Z         PASS [   0.004s] (  31/4939) lamp-air tests::a_cold_reading_keeps_its_sign_and_the_name_is_text
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:29:59.8053666Z         PASS [   0.004s] (  32/4939) lamp-air tests::a_reading_from_lamp_4ace_reads_as_it_did_there
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:29:59.8088613Z         PASS [   0.003s] (  33/4939) lamp-air tests::not_known_yet_is_absent_and_a_bad_crc_is_no_value
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:29:59.8121957Z         PASS [   0.003s] (  34/4939) lamp-air tests::the_crc_is_sensirions
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:29:59.8155733Z         PASS [   0.003s] (  35/4939) lamp-air::bin/lamp-air tests::the_options_are_read_and_the_rest_have_their_defaults
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:29:59.8617284Z         PASS [   0.046s] (  36/4939) lamp-audio capture::tests::a_block_left_incomplete_for_a_buffer_length_is_dropped_not_finished_late
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:29:59.8660684Z         PASS [   0.004s] (  37/4939) lamp-audio capture::tests::a_device_that_vanishes_or_stops_running_is_a_discontinuity_never_silence
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:29:59.8699916Z         PASS [   0.004s] (  38/4939) lamp-audio capture::tests::a_failed_discard_is_reported_and_the_handle_is_still_gone
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:29:59.8890344Z         PASS [   0.019s] (  39/4939) lamp-audio capture::tests::a_read_that_blocks_past_its_budget_is_a_discontinuity_not_late_audio
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:29:59.8933047Z         PASS [   0.004s] (  40/4939) lamp-audio capture::tests::after_a_stall_a_muted_authority_keeps_the_microphone_closed
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:29:59.8974373Z         PASS [   0.004s] (  41/4939) lamp-audio capture::tests::an_xrun_closes_the_device_destroys_the_partial_block_and_restarts_as_a_new_epoch
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:29:59.9013167Z         PASS [   0.004s] (  42/4939) lamp-audio capture::tests::blocks_are_assembled_across_short_reads_in_order_from_sequence_one
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:29:59.9053621Z         PASS [   0.004s] (  43/4939) lamp-audio capture::tests::negotiation_rejects_large_or_incompatible_audio_buffers
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:29:59.9092480Z         PASS [   0.004s] (  44/4939) lamp-audio capture::tests::open_and_configuration_failures_leave_nothing_open
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:29:59.9133608Z         PASS [   0.004s] (  45/4939) lamp-audio capture::tests::partial_deadline_is_not_extended_by_more_samples
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:29:59.9173742Z         PASS [   0.004s] (  46/4939) lamp-audio capture::tests::partial_reads_preserve_sample_order_and_have_fixed_capacity
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:29:59.9214142Z         PASS [   0.004s] (  47/4939) lamp-audio capture::tests::privacy_lineage_change_discards_an_incomplete_block
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:29:59.9253316Z         PASS [   0.004s] (  48/4939) lamp-audio capture::tests::status_and_timestamp_failures_are_not_fabricated_audio
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:29:59.9330090Z         PASS [   0.008s] (  49/4939) lamp-audio drift::tests::a_change_of_skew_is_followed_without_running_dry_or_over
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:29:59.9379891Z         PASS [   0.005s] (  50/4939) lamp-audio drift::tests::a_difference_no_clock_has_is_not_followed
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:29:59.9424547Z         PASS [   0.004s] (  51/4939) lamp-audio drift::tests::a_full_ring_and_an_empty_one_are_refused_and_nothing_is_made_up
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:29:59.9608988Z         PASS [   0.018s] (  52/4939) lamp-audio drift::tests::a_steady_clock_difference_is_learned_and_the_ring_stays_near_its_target
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:00.1236160Z         PASS [   0.162s] (  53/4939) lamp-audio drift::tests::a_tone_read_off_rate_stays_a_tone
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:00.1268665Z         PASS [   1.407s] (  54/4939) lamp-actions::schedule all_adapter_hops_share_one_deadline_and_uncertain_call_is_not_reissued
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:00.1302637Z         PASS [   0.007s] (  55/4939) lamp-audio drift::tests::at_the_nominal_rate_the_output_is_the_input_bit_for_bit
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:00.1713359Z         PASS [   0.044s] (  56/4939) lamp-audio drift::tests::every_accepted_frame_is_read_once_at_the_rate_set
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:00.1774166Z         PASS [   0.006s] (  57/4939) lamp-audio drift::tests::lost_packets_run_the_ring_dry_at_once
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:00.2027754Z         PASS [   0.025s] (  58/4939) lamp-audio drift::tests::the_bookkeeping_used_for_long_runs_is_what_taking_samples_does
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:00.2089453Z         PASS [   0.006s] (  59/4939) lamp-audio drift::tests::the_rate_is_clamped_and_a_reset_forgets_the_stream
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:00.2146216Z         PASS [   0.006s] (  60/4939) lamp-audio drift::tests::the_skew_measured_on_the_lamps_is_a_block_every_hundred_seconds
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:00.2198820Z         PASS [   0.005s] (  61/4939) lamp-audio duplex::tests::a_block_with_no_recent_match_says_nothing_about_who_is_speaking
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:00.2251657Z         PASS [   0.005s] (  62/4939) lamp-audio duplex::tests::a_lamp_that_has_only_just_begun_to_speak_takes_longer_to_stop
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:00.2303281Z         PASS [   0.005s] (  63/4939) lamp-audio duplex::tests::a_person_who_goes_on_speaking_is_yielded_to_and_then_committed_to
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:00.2340725Z         PASS [   0.104s] (  64/4939) lamp-audio drift::tests::four_hours_at_the_measured_skew_never_touch_a_bound
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:00.2354746Z         PASS [   0.005s] (  65/4939) lamp-audio duplex::tests::a_score_alone_decides_nothing_while_the_lamp_is_sounding
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:00.2390885Z         PASS [   0.005s] (  66/4939) lamp-audio duplex::tests::a_short_word_heard_plainly_is_an_interruption_though_nothing_follows_it
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:00.2403396Z         PASS [   0.005s] (  67/4939) lamp-audio duplex::tests::a_yield_that_nothing_settles_is_given_up_at_its_deadline
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:00.2445618Z         PASS [   0.005s] (  68/4939) lamp-audio duplex::tests::an_acknowledgment_costs_a_pause_and_not_the_reply
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:00.2460964Z         PASS [   0.006s] (  69/4939) lamp-audio duplex::tests::the_detector_is_told_of_a_person_and_not_of_the_lamp
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:00.2498275Z         PASS [   0.005s] (  70/4939) lamp-audio duplex::tests::the_lamps_own_voice_never_yields_however_long_or_loud
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:00.2512747Z         PASS [   0.005s] (  71/4939) lamp-audio duplex::tests::the_margin_is_the_person_against_the_lamp_once_both_were_heard
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:00.2550411Z         PASS [   0.005s] (  72/4939) lamp-audio duplex::tests::the_thresholds_are_the_boundaries_they_say
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:00.2561243Z         PASS [   0.005s] (  73/4939) lamp-audio duplex::tests::with_nothing_to_yield_a_person_is_only_a_person
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:00.3590001Z         PASS [   0.104s] (  74/4939) lamp-audio pcm::finish_tests::accepted_write_crossing_exact_expiry_retains_loss_and_old_epoch_cursors
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:00.3594909Z         PASS [   0.103s] (  75/4939) lamp-audio pcm::finish_tests::continuous_supersession_keeps_clock_and_rejects_old_suffix_without_stopping_successor
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:00.3648695Z         PASS [   0.005s] (  76/4939) lamp-audio pcm::finish_tests::expired_finish_faults_even_with_no_remaining_pcm_ledger
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:00.3649635Z         PASS [   0.006s] (  77/4939) lamp-audio pcm::finish_tests::continuous_tail_hard_stop_privacy_and_exact_permit_expiry_still_drop
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:00.3709427Z         PASS [   0.006s] (  78/4939) lamp-audio pcm::finish_tests::snapshot_installation_discard_blocks_new_writes_until_its_receipt_is_taken
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:00.3716695Z         PASS [   0.007s] (  79/4939) lamp-audio pcm::finish_tests::repeated_finish_declaration_cannot_renew_its_original_deadline
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:00.3765491Z         PASS [   0.005s] (  80/4939) lamp-audio playout::tests::a_complete_reply_starts_at_once_however_short
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:00.3770910Z         PASS [   0.006s] (  81/4939) lamp-audio playout::tests::a_clock_reading_before_the_first_audio_is_no_time_held
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:00.3816746Z         PASS [   0.004s] (  82/4939) lamp-audio playout::tests::a_first_burst_as_long_as_the_horizon_starts_at_once
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:00.3817472Z         PASS [   0.005s] (  83/4939) lamp-audio playout::tests::a_complete_reply_starts_at_once_under_continuity
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:00.3871202Z         PASS [   0.005s] (  84/4939) lamp-audio playout::tests::a_gate_never_told_of_an_arrival_holds_once_and_then_opens
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:00.3872011Z         PASS [   0.005s] (  85/4939) lamp-audio playout::tests::a_late_burst_does_not_lower_the_lead_and_time_running_back_does_not_raise_it
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:00.3923004Z         PASS [   0.005s] (  86/4939) lamp-audio playout::tests::a_later_generation_is_held_again_only_after_the_one_before_it_ended
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:00.3924051Z         PASS [   0.005s] (  87/4939) lamp-audio playout::tests::a_plain_gate_opens_once_for_the_reply_and_only_measures_the_lead
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:00.3977580Z         PASS [   0.005s] (  88/4939) lamp-audio playout::tests::a_reply_that_shows_its_lead_starts_as_soon_as_the_margin_is_reached
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:00.3978424Z         PASS [   0.005s] (  89/4939) lamp-audio playout::tests::a_reset_during_a_continuity_hold_forgets_the_reply_and_keeps_the_policy
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:00.4033686Z         PASS [   0.005s] (  90/4939) lamp-audio playout::tests::a_start_with_almost_nothing_in_hand_waits_for_cover_and_no_longer
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:00.4035205Z         PASS [   0.005s] (  91/4939) lamp-audio playout::tests::a_reset_during_the_hold_leaves_nothing_started_and_arms_the_next_reply
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:00.4086509Z         PASS [   0.005s] (  92/4939) lamp-audio playout::tests::a_zero_horizon_is_no_gate
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:00.4087856Z         PASS [   0.005s] (  93/4939) lamp-audio playout::tests::an_open_gate_does_not_close_when_the_queue_runs_low
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:00.4141823Z         PASS [   0.005s] (  94/4939) lamp-audio playout::tests::arrivals_that_stay_ahead_of_playout_need_no_hold
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:00.4142748Z         PASS [   0.005s] (  95/4939) lamp-audio playout::tests::first_audio_that_comes_late_is_not_held_again
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:00.4193167Z         PASS [   0.005s] (  96/4939) lamp-audio playout::tests::no_setting_holds_a_start_longer_than_it_says
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:00.4194026Z         PASS [   0.005s] (  97/4939) lamp-audio playout::tests::nothing_starts_before_the_audio_in_hand_reaches_the_horizon
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:00.4249456Z         PASS [   0.005s] (  98/4939) lamp-audio playout::tests::pieces_of_one_burst_are_not_a_lead
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:00.4250082Z         PASS [   0.006s] (  99/4939) lamp-audio playout::tests::the_hold_never_outlasts_the_horizon
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:00.4304550Z         PASS [   0.005s] ( 100/4939) lamp-audio playout::tests::the_start_is_foretold_and_more_audio_only_brings_it_forward
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:00.4305407Z         PASS [   0.006s] ( 101/4939) lamp-audio playout::tests::the_need_is_set_by_the_latest_arrival_relative_to_the_audio_before_it
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:00.4359504Z         PASS [   0.005s] ( 102/4939) lamp-audio qualification::tests::cold_quality_preserves_amplification_instead_of_clamping_it_to_success
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:00.4360398Z         PASS [   0.005s] ( 103/4939) lamp-audio playout::tests::without_a_measured_lead_the_start_is_released_by_the_hold_bound
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:00.4415895Z         PASS [   0.005s] ( 104/4939) lamp-audio qualification::tests::cold_windows_cover_every_early_frame_and_keep_silence_unscored
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:00.4475709Z         PASS [   0.006s] ( 105/4939) lamp-audio qualification::tests::file_substitution_is_rejected_including_fifo_on_linux
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:00.4538847Z         PASS [   0.006s] ( 106/4939) lamp-audio steady::tests::a_new_delay_is_reached_at_the_slew_rate_without_a_jump
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:00.4555737Z         PASS [   0.019s] ( 107/4939) lamp-audio qualification::tests::failed_export_has_no_manifest_and_removes_its_partial_assets
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:00.4602513Z         PASS [   0.006s] ( 108/4939) lamp-audio steady::tests::a_whole_delay_reads_the_reference_exactly_and_a_fractional_one_closely
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:00.4615421Z         PASS [   0.006s] ( 109/4939) lamp-audio steady::tests::an_echo_sooner_than_the_hold_is_left_where_it_is
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:00.4664841Z         PASS [   0.006s] ( 110/4939) lamp-audio steady::tests::before_the_echo_is_found_the_reference_passes_half_a_millisecond_late
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:00.4671775Z         PASS [   0.006s] ( 111/4939) lamp-audio steady::tests::reset_forgets_the_place_held
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:00.4721695Z         PASS [   0.005s] ( 112/4939) lamp-audio::cancelled_tail absent_or_ended_successor_and_unrecorded_privacy_remain_strict
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:00.4727981Z         PASS [   0.006s] ( 113/4939) lamp-audio steady::tests::small_moves_are_followed_at_once_large_ones_once_they_hold
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:00.4775320Z         PASS [   0.005s] ( 114/4939) lamp-audio::cancelled_tail full_queue_partial_retirement_and_repeated_admissions_cannot_renew_the_tail
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:00.4776234Z         PASS [   0.005s] ( 115/4939) lamp-audio::cancelled_tail latched_tail_preserves_camera_dependency_and_exact_original_permit_expiry
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:00.4825346Z         PASS [   0.005s] ( 116/4939) lamp-audio::cancelled_tail mixed_owners_cannot_start_retirement_and_stale_packets_do_not_mutate_newer_ledger
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:00.4826614Z         PASS [   0.005s] ( 117/4939) lamp-audio::cancelled_tail privacy_close_reopen_and_new_owner_cannot_rehabilitate_accepted_audio
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:00.4870750Z         PASS [   0.005s] ( 118/4939) lamp-audio::cancelled_tail stale_owner_must_not_mask_camera_revocation_in_any_middle_entry
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:00.4871622Z         PASS [   0.005s] ( 119/4939) lamp-audio::cancelled_tail real_7v7_tail_keeps_epoch_cursors_and_only_actual_accepted_zeros_extend_the_clock
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:00.4923363Z         PASS [   0.005s] ( 120/4939) lamp-audio::cancelled_tail successor_input_end_does_not_renew_or_complete_a_latched_tail
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:00.4924336Z         PASS [   0.005s] ( 121/4939) lamp-audio::cancelled_tail unknown_privacy_input_loss_state_expiry_and_control_fault_override_retirement
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:00.4976959Z         PASS [   0.005s] ( 122/4939) lamp-audio::capture_linux construction_and_authority_installation_never_open_a_device
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:00.4980362Z         PASS [   0.006s] ( 123/4939) lamp-audio::capture_linux coalesced_privacy_changes_close_capture_but_new_conversation_does_not
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:00.5034988Z         PASS [   0.005s] ( 124/4939) lamp-audio::capture_linux local_privacy_revoke_needs_new_authority_and_explicit_reset_and_start
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:00.5092131Z         PASS [   0.006s] ( 125/4939) lamp-audio::capture_linux null_capture_reports_negotiation_and_read_times_without_claiming_acquisition
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:00.5148520Z         PASS [   0.006s] ( 126/4939) lamp-audio::capture_linux prepare_does_not_start_or_consume_opening_frames_and_privacy_still_closes_it
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:00.5205541Z         PASS [   0.006s] ( 127/4939) lamp-audio::capture_linux stale_or_duplicate_privacy_packets_preserve_newer_capture
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:00.6151236Z         PASS [   1.459s] ( 128/4939) lamp-actions::schedule host_first_and_repeated_actions_to_durable_schedule_receipts_are_measured
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:00.6202335Z         PASS [   0.100s] ( 129/4939) lamp-audio::dsp alignment_observation_preserves_pcm_and_reset_discards_the_old_value
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:00.6202998Z         PASS [   0.005s] ( 130/4939) lamp-audio::dsp benchmark_resource_bounds_are_explicit
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:00.7635700Z         PASS [   0.266s] ( 131/4939) lamp-audio::capture_linux expiry_closes_even_without_new_audio_and_control_loss_cannot_be_reset
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:00.7687652Z         PASS [   0.005s] ( 132/4939) lamp-audio::dsp impossible_delay_is_rejected_without_poisoning_next_frame
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:00.7723554Z         PASS [   0.004s] ( 133/4939) lamp-audio::dsp pcm_extremes_saturate_without_sign_wrap
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:00.7909452Z         PASS [   0.171s] ( 134/4939) lamp-audio::dsp echo_fixture_is_attenuated_after_warmup_without_erasing_all_near_end
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:00.7947218Z         PASS [   0.174s] ( 135/4939) lamp-audio::dsp cold_report_starts_at_first_capture_and_keeps_reset_near_end_separate
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:00.7951914Z         PASS [   0.023s] ( 136/4939) lamp-audio::dsp reset_forgets_previous_reference_and_matches_a_fresh_processor
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:00.8008015Z         PASS [   0.010s] ( 137/4939) lamp-audio::dsp silence_stays_silent_at_native_provider_and_capture_rates
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:00.8310371Z         PASS [   0.036s] ( 138/4939) lamp-audio::evidence a_person_alone_is_never_attributed_to_the_speaker
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:00.9440257Z         PASS [   0.113s] ( 139/4939) lamp-audio::evidence acceptance_order_jitter_does_not_change_what_is_measured
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:01.0561928Z         PASS [   0.261s] ( 140/4939) lamp-audio::evidence a_person_over_playback_lowers_the_explained_share_in_proportion
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:01.1494868Z         PASS [   1.482s] ( 141/4939) lamp-actions::server the_list_is_there_a_call_changes_the_control_and_anything_else_is_refused_in_words
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:01.1715079Z         PASS [   0.226s] ( 142/4939) lamp-audio::evidence clock_drift_between_speaker_and_microphone_is_followed
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:01.1775126Z         PASS [   0.121s] ( 143/4939) lamp-audio::evidence leaked_playback_in_the_cancelled_signal_is_measured_as_playback
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:01.2069649Z         PASS [   0.029s] ( 144/4939) lamp-audio::evidence reset_forgets_the_alignment_and_counts_from_one
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:01.2077497Z         PASS [   0.407s] ( 145/4939) lamp-audio::evidence a_voiced_reply_over_the_path_a_device_recorded_is_matched_and_explained
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:01.2195910Z         PASS [   0.067s] ( 146/4939) lamp-audio::evidence one_block_of_evidence_is_bounded_work
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:01.2495379Z         PASS [   0.040s] ( 147/4939) lamp-audio::fixtures existing_destinations_and_invalid_bounds_never_destroy_prior_data
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:01.2496886Z         PASS [   0.078s] ( 148/4939) lamp-audio::evidence playback_alone_is_matched_and_explains_what_the_microphone_hears
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:01.2662796Z         PASS [   0.059s] ( 149/4939) lamp-audio::fixtures cli_rejects_extra_arguments_and_existing_report_before_processing
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:01.3170251Z         PASS [   0.069s] ( 150/4939) lamp-audio::fixtures resealed_bad_wav_format_still_fails_validation
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:01.3259947Z         PASS [   0.109s] ( 151/4939) lamp-audio::fixtures exported_pcm_is_exactly_reusable_and_has_reproducible_provenance
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:01.3631226Z         PASS [   0.046s] ( 152/4939) lamp-audio::fixtures resealed_truncated_data_and_extra_samples_are_rejected
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:01.3927266Z         PASS [   0.066s] ( 153/4939) lamp-audio::fixtures schema_counts_rates_and_paths_are_checked_before_loading_pcm
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:01.3976562Z         PASS [   0.131s] ( 154/4939) lamp-audio::fixtures resealed_silent_main_or_changed_near_end_signals_are_rejected
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:01.4005944Z         PASS [   0.035s] ( 155/4939) lamp-audio::fixtures symlink_assets_and_fixture_roots_are_not_followed
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:01.4042819Z         PASS [   0.006s] ( 156/4939) lamp-audio::notice a_faulty_asset_refuses_only_its_own_notice
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:01.4080897Z         PASS [   0.010s] ( 157/4939) lamp-audio::notice a_provisioned_notice_is_loaded_exactly_as_recorded
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:01.4125228Z         PASS [   0.006s] ( 158/4939) lamp-audio::notice a_test_asset_is_never_spoken_by_a_production_runtime
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:01.4136938Z         PASS [   0.005s] ( 159/4939) lamp-audio::notice an_asset_reached_through_a_link_is_refused
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:01.4296232Z         PASS [   0.017s] ( 160/4939) lamp-audio::notice an_entry_cannot_name_a_path_or_carry_malformed_text
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:01.4381334Z         PASS [   0.011s] ( 161/4939) lamp-audio::notice without_a_usable_manifest_every_notice_is_unavailable_and_nothing_fails
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:01.4434831Z         PASS [   0.031s] ( 162/4939) lamp-audio::notice only_complete_mono_24khz_pcm16_of_the_stated_length_is_accepted
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:01.4482464Z         PASS [   0.004s] ( 163/4939) lamp-audio::pcm_linux explicit_stop_preempts_a_declared_finish_and_keeps_new_output_usable
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:01.4490241Z         PASS [   0.010s] ( 164/4939) lamp-audio::pcm_linux declared_null_finish_prepares_for_another_generation_in_the_same_turn
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:01.4532398Z         PASS [   0.005s] ( 165/4939) lamp-audio::pcm_linux null_completion_is_observed_without_waiting_for_a_permit_to_expire
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:01.4536294Z         PASS [   0.005s] ( 166/4939) lamp-audio::pcm_linux null_device_checks_ownership_at_the_alsa_write_and_flushes_on_cancellation
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:01.4560457Z         PASS [   0.063s] ( 167/4939) lamp-audio::fixtures waveform_hash_and_file_size_cannot_be_silently_changed
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:01.4585765Z         PASS [   0.005s] ( 168/4939) lamp-audio::pcm_linux null_device_starts_disarmed_and_stays_disarmed_after_transport_failure
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:01.4610217Z         PASS [   0.004s] ( 169/4939) lamp-audio::pcm_linux zero_clock_requires_explicit_prime_start_and_privacy_without_speech_authority
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:01.4625734Z         PASS [   0.008s] ( 170/4939) lamp-audio::pcm_linux stale_packets_cannot_stop_newer_valid_playback
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:01.4668932Z         PASS [   0.005s] ( 171/4939) lamp-audio::playout_continuity a_reply_cancelled_while_held_has_handed_nothing_over
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:01.4726714Z         PASS [   0.008s] ( 172/4939) lamp-audio::playout_continuity a_burst_later_than_the_margin_still_starves_and_playout_resumes
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:01.4751060Z         PASS [   0.005s] ( 173/4939) lamp-audio::playout_continuity a_short_reply_that_is_complete_is_not_held
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:01.4930537Z         PASS [   0.018s] ( 174/4939) lamp-audio::playout_continuity every_recorded_gap_is_reproduced_from_the_recorded_start
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:01.5719947Z         PASS [   0.105s] ( 175/4939) lamp-audio::playout_continuity a_second_generation_is_held_again_and_every_sample_is_played_once
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:01.6252917Z         PASS [   0.378s] ( 176/4939) lamp-audio::fixtures generated_and_preloaded_benchmarks_match_quality_and_report_publication_is_exclusive
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:01.6315363Z         PASS [   0.005s] ( 177/4939) lamp-audio::playout_continuity the_fixture_is_the_23_recorded_replies
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:01.6376191Z         PASS [   0.008s] ( 178/4939) lamp-audio::playout_continuity the_four_recorded_gaps_come_back_where_the_lamp_recorded_them
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:01.6416275Z         PASS [   0.004s] ( 179/4939) lamp-audio::playout_current_arrivals held_out_two_turn_arrivals_show_the_start_latency_and_zero_frame_tradeoff
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:01.6482440Z         PASS [   0.006s] ( 180/4939) lamp-audio::queued_ownership a_larger_reported_delay_never_discards_known_authority_metadata
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:01.6564896Z         PASS [   0.006s] ( 181/4939) lamp-audio::queued_ownership a_newer_valid_permit_cannot_extend_an_older_queued_deadline
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:01.6594445Z         PASS [   0.004s] ( 182/4939) lamp-audio::queued_ownership bounded_writes_progress_under_repeated_poll_write_consumption_races
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:01.6624385Z         PASS [   0.004s] ( 183/4939) lamp-audio::queued_ownership consumption_between_poll_and_write_cannot_overrun_ownership_credit
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:01.6684398Z         PASS [   0.004s] ( 184/4939) lamp-audio::queued_ownership discard_evidence_keeps_failed_owner_and_reports_any_other_queued_owner
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:01.6714415Z         PASS [   0.004s] ( 185/4939) lamp-audio::queued_ownership downstream_delay_with_writable_ring_space_preserves_old_authority
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:01.6744507Z         PASS [   0.004s] ( 186/4939) lamp-audio::queued_ownership every_middle_entry_is_checked_not_only_the_first_or_last
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:01.6780133Z         PASS [   0.004s] ( 187/4939) lamp-audio::queued_ownership invalid_pushes_leave_the_existing_queue_unchanged_and_cannot_overflow_usize
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:01.6840139Z         PASS [   0.006s] ( 188/4939) lamp-audio::queued_ownership new_turn_metadata_cannot_mask_old_turn_audio_that_was_not_flushed
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:01.6910512Z         PASS [   0.007s] ( 189/4939) lamp-audio::queued_ownership non_speech_permission_is_never_accepted_as_pcm_authority
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:01.6939764Z         PASS [   0.201s] ( 190/4939) lamp-audio::playout_continuity no_recorded_start_is_held_past_the_bound
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:01.6965695Z         PASS [   0.005s] ( 191/4939) lamp-audio::queued_ownership one_frame_writes_reach_the_bound_without_unbounded_metadata_growth
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:01.6987710Z         PASS [   0.004s] ( 192/4939) lamp-audio::queued_ownership partial_retirement_preserves_the_last_revoked_frame_of_the_front_write
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:01.7017297Z         PASS [   0.006s] ( 193/4939) lamp-audio::queued_ownership plain_audio_after_visual_audio_cannot_hide_revoked_camera_authority
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:01.7049500Z         PASS [   0.006s] ( 194/4939) lamp-audio::queued_ownership silence_and_speech_share_one_bound_and_only_normal_retirement_completes_a_cursor
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:01.7060703Z         PASS [   0.004s] ( 195/4939) lamp-audio::queued_ownership zero_delay_retires_all_metadata_and_clear_allows_bounded_reuse
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:01.7119688Z         PASS [   0.004s] ( 196/4939) lamp-audio::queued_ownership zero_frames_cannot_mask_revoked_speech_and_privacy_is_checked_without_a_turn
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:01.8370445Z         PASS [   0.379s] ( 197/4939) lamp-audio::playout_continuity a_600_ms_horizon_for_each_generation_also_starves_none
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:01.9131538Z         PASS [   0.203s] ( 198/4939) lamp-audio::replay a_reset_in_the_middle_of_a_capture_clocked_recording_starts_a_new_ring
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:01.9156089Z         PASS [   0.078s] ( 199/4939) lamp-audio::replay an_older_capture_clocked_session_is_known_by_its_first_cursor
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:01.9214982Z         PASS [   0.006s] ( 200/4939) lamp-audio::replay an_unfinished_recording_is_named_as_one
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:01.9481080Z         PASS [   0.033s] ( 201/4939) lamp-audio::replay certified_partial_writes_reproduce_recorded_call_order_and_exact_ns_pcm
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:01.9551719Z         PASS [   0.383s] ( 202/4939) lamp-audio::playout_continuity the_current_gate_starves_nine_of_the_replies_and_continuity_none
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:01.9631658Z         PASS [   0.043s] ( 203/4939) lamp-audio::replay changed_hash_privacy_sequence_and_byte_offsets_are_not_exploratory_repairs
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:01.9969583Z         PASS [   0.290s] ( 204/4939) lamp-audio::replay a_capture_clocked_recording_replays_whole_and_bit_for_bit
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:02.0058808Z         PASS [   0.043s] ( 205/4939) lamp-audio::replay fault_prefix_requires_explicit_opt_in_and_missing_mode_is_not_inferred
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:02.0063270Z         PASS [   0.010s] ( 206/4939) lamp-audio::replay marker_without_timely_receipt_or_with_timeout_cannot_certify
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:02.0081061Z         PASS [   0.053s] ( 207/4939) lamp-audio::replay events_cut_off_in_their_last_line_are_read_up_to_it
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:02.0107986Z         PASS [   0.062s] ( 208/4939) lamp-audio::replay dsp_reset_preserves_mic_sequence_splits_wavs_and_uses_new_actual_prime
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:02.0155498Z         PASS [   0.009s] ( 209/4939) lamp-audio::replay missing_or_zero_worker_identity_cannot_certify_matching_markers
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:02.0312261Z         PASS [   0.020s] ( 210/4939) lamp-audio::replay oversized_input_metadata_and_inconsistent_processing_provenance_are_refused
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:02.0340053Z         PASS [   0.026s] ( 211/4939) lamp-audio::replay output_is_exclusive_private_and_limited_to_workspace_artifact_roots
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:02.0578514Z         PASS [   0.051s] ( 212/4939) lamp-audio::replay missing_prime_and_analysis_gaps_stop_without_padding_or_relabeling
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:02.0755619Z         PASS [   0.057s] ( 213/4939) lamp-audio::replay replay_preserves_alignment_observations_without_using_them_as_delay_hints
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:02.1041310Z         PASS [   0.070s] ( 214/4939) lamp-audio::replay the_steady_reference_is_replayed_only_when_asked_for_and_says_so
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:02.1162708Z         PASS [   0.085s] ( 215/4939) lamp-audio::replay replay_preserves_start_request_bounds_without_inventing_legacy_evidence
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:02.1225205Z         PASS [   0.005s] ( 216/4939) lamp-body body::tests::a_base_found_far_from_home_is_taken_hold_of_where_it_lies_only_with_limp
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:02.1371940Z         PASS [   0.016s] ( 217/4939) lamp-body body::tests::a_base_still_pushed_a_second_after_it_stopped_makes_the_lamp_slump_as_v1
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:02.1444848Z         PASS [   0.007s] ( 218/4939) lamp-body body::tests::a_base_that_sticks_34_behind_a_slow_goal_is_led_round_and_settles
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:02.1510684Z         PASS [   0.007s] ( 219/4939) lamp-body body::tests::a_base_turned_300_counts_comes_home_without_moving_away_or_faster_than_waking
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:02.1574223Z         PASS [   0.006s] ( 220/4939) lamp-body body::tests::a_call_is_glanced_for_over_a_shift_at_rest
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:02.1641177Z         PASS [   0.006s] ( 221/4939) lamp-body body::tests::a_flag_that_stays_or_a_missing_home_keeps_it_folded_and_it_runs_as_before
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:02.1701221Z         PASS [   0.006s] ( 222/4939) lamp-body body::tests::a_folded_elbow_lifted_and_held_by_a_hand_goes_back_down_once_let_go
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:02.1721028Z         PASS [   0.114s] ( 223/4939) lamp-audio::replay where_a_recording_cannot_be_followed_the_replay_names_the_record_and_keeps_what_came_before
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:02.1805653Z         PASS [   0.010s] ( 224/4939) lamp-body body::tests::a_folded_lamp_listens_thinks_speaks_and_comes_home
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:02.1847041Z         PASS [   0.011s] ( 225/4939) lamp-body body::tests::a_force_limit_is_written_to_the_joints_that_carry_the_lamp_and_read_back
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:02.1872875Z         PASS [   0.006s] ( 226/4939) lamp-body body::tests::a_force_limit_that_is_not_kept_ends_the_run_before_anything_moves
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:02.1909108Z         PASS [   0.007s] ( 227/4939) lamp-body body::tests::a_force_limited_arm_lets_go_at_80_percent_of_its_limit
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:02.1952788Z         PASS [   0.008s] ( 228/4939) lamp-body body::tests::a_gesture_waits_for_a_lamp_that_is_rising_and_is_forgotten_by_one_that_is_not
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:02.2049736Z         PASS [   0.009s] ( 229/4939) lamp-body body::tests::a_head_found_pressed_on_the_base_rises_out_of_it_slowly_and_then_runs
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:02.2128181Z         PASS [   0.008s] ( 230/4939) lamp-body body::tests::a_head_held_off_its_goal_by_a_hand_at_a_low_load_is_in_the_hand
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:02.2214316Z         PASS [   0.008s] ( 231/4939) lamp-body body::tests::a_head_lifting_itself_after_a_slump_does_not_make_the_lamp_slump_again
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:02.2261867Z         PASS [   0.005s] ( 232/4939) lamp-body body::tests::a_head_that_cannot_lift_ends_the_wake_held_where_it_is_and_says_how_far_it_got
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:02.2288184Z         PASS [   0.038s] ( 233/4939) lamp-body body::tests::a_hand_slump_then_an_overload_rests_and_comes_back_instead_of_ending_the_run
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:02.2340007Z         PASS [   0.008s] ( 234/4939) lamp-body body::tests::a_head_that_drooped_in_a_power_cut_is_lifted_home_with_lamp_52e6s_options
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:02.2367946Z         PASS [   0.008s] ( 235/4939) lamp-body body::tests::a_head_that_settles_32_short_of_home_wakes_there_and_runs_from_where_it_is
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:02.2488402Z         PASS [   0.015s] ( 236/4939) lamp-body body::tests::a_home_it_is_given_is_reached_slowly_from_where_it_is_found
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:02.2541890Z         PASS [   0.017s] ( 237/4939) lamp-body body::tests::a_joint_at_800_for_a_second_and_a_half_lets_go_of_all_five_and_is_taken_up_again_slowly
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:02.2582108Z         PASS [   0.008s] ( 238/4939) lamp-body body::tests::a_joint_beyond_what_waking_brings_back_is_refused
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:02.2611808Z         PASS [   0.004s] ( 239/4939) lamp-body body::tests::a_joint_found_without_torque_is_given_it_goal_first_and_does_not_move
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:02.2647596Z         PASS [   0.007s] ( 240/4939) lamp-body body::tests::a_joint_pushing_without_moving_is_told_to_stop_after_a_second_and_a_half
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:02.2649621Z         PASS [   0.005s] ( 241/4939) lamp-body body::tests::a_joint_still_loaded_after_it_stopped_pushing_ends_the_run
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:02.2696198Z         PASS [   0.004s] ( 242/4939) lamp-body body::tests::a_joint_that_does_not_answer_its_first_writes_is_taken_hold_of_a_little_later
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:02.2716515Z         PASS [   0.007s] ( 243/4939) lamp-body body::tests::a_joint_that_cannot_keep_up_ends_the_gesture_and_not_the_run
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:02.2760662Z         PASS [   0.006s] ( 244/4939) lamp-body body::tests::a_joint_that_has_arrived_is_not_pushed_at_and_a_small_change_does_not_move_it
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:02.2775456Z         PASS [   0.006s] ( 245/4939) lamp-body body::tests::a_joint_that_meets_resistance_stops_pushing_for_two_seconds_and_then_goes_on
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:02.2836873Z         PASS [   0.006s] ( 246/4939) lamp-body body::tests::a_joint_that_moves_when_its_torque_comes_on_ends_the_run
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:02.2865188Z         PASS [   0.009s] ( 247/4939) lamp-body body::tests::a_lamp_s_own_pitch_window_holds_the_head_and_must_fit_its_servo
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:02.2904313Z         PASS [   0.006s] ( 248/4939) lamp-body body::tests::a_light_head_lifted_by_hand_stays_when_told_to_and_comes_back_when_not
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:02.2945342Z         PASS [   0.006s] ( 249/4939) lamp-body body::tests::a_listening_lamp_dips_its_head_for_expression_and_comes_back
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:02.2954933Z         PASS [   0.006s] ( 250/4939) lamp-body body::tests::a_load_of_800_for_less_than_a_second_and_a_half_changes_nothing
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:02.2984497Z         PASS [   0.004s] ( 251/4939) lamp-body body::tests::a_load_that_rises_stops_it_where_it_is_and_nothing_is_written_after
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:02.3014523Z         PASS [   0.005s] ( 252/4939) lamp-body body::tests::a_mood_that_stops_arriving_is_rest
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:02.3025400Z         PASS [   0.005s] ( 253/4939) lamp-body body::tests::a_new_flag_a_moved_elbow_or_a_hot_joint_stops_it
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:02.3074431Z         PASS [   0.005s] ( 254/4939) lamp-body body::tests::a_resting_lamp_glances_with_the_switch_and_comes_back_to_rest
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:02.3104499Z         PASS [   0.006s] ( 255/4939) lamp-body body::tests::a_short_push_a_contact_floor_and_the_arm_under_a_hand
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:02.3194455Z         PASS [   0.010s] ( 256/4939) lamp-body body::tests::a_shoulder_left_up_by_a_power_cut_is_lowered_first_and_the_lamp_may_then_stand
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:02.3195970Z         PASS [   0.008s] ( 257/4939) lamp-body body::tests::a_standing_lamp_nods_and_is_left_exactly_where_it_was
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:02.3227133Z         PASS [   0.006s] ( 258/4939) lamp-body body::tests::a_standing_shoulder_pushing_short_of_its_goal_is_told_to_stop_and_keeps_its_torque
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:02.3254392Z         PASS [   0.006s] ( 259/4939) lamp-body body::tests::a_standing_pose_is_taken_only_inside_its_caps
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:02.3298506Z         PASS [   0.007s] ( 260/4939) lamp-body body::tests::a_step_says_a_hand_while_a_joint_is_held_where_it_gave_way_and_never_without_one
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:02.3328076Z         PASS [   0.010s] ( 261/4939) lamp-body body::tests::a_wider_reach_and_speed_can_be_chosen_only_inside_their_caps
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:02.3391473Z         PASS [   0.006s] ( 262/4939) lamp-body body::tests::a_wire_that_goes_silent_stops_it_after_half_a_second
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:02.3406184Z         PASS [   0.010s] ( 263/4939) lamp-body body::tests::a_wire_that_fails_for_a_moment_is_ridden_out
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:02.3453451Z         PASS [   0.006s] ( 264/4939) lamp-body body::tests::an_arm_found_off_its_way_is_not_lowered_and_the_lamp_runs_folded
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:02.3475477Z         PASS [   0.005s] ( 265/4939) lamp-body body::tests::an_arm_still_strained_two_seconds_on_ends_the_run_where_it_is
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:02.3538410Z         PASS [   0.009s] ( 266/4939) lamp-body body::tests::an_arm_that_strains_goes_back_down_and_stays_down_for_a_while
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:02.3553061Z         PASS [   0.010s] ( 267/4939) lamp-body body::tests::an_arm_that_sways_7_counts_as_the_base_wakes_is_let_and_one_that_moves_20_is_not
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:02.3607531Z         PASS [   0.005s] ( 268/4939) lamp-body body::tests::at_rest_a_joint_that_stopped_short_is_no_longer_pushed
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:02.3618166Z         PASS [   0.008s] ( 269/4939) lamp-body body::tests::an_elbow_pushing_under_an_old_overload_is_told_to_stop_and_then_carries_the_lamp
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:02.3702301Z         PASS [   0.007s] ( 270/4939) lamp-body body::tests::called_with_nobody_in_view_it_rises_and_glances_once
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:02.3735897Z         PASS [   0.010s] ( 271/4939) lamp-body body::tests::called_with_a_face_in_view_it_does_not_glance_and_speaking_it_takes_no_call
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:02.3754956Z         PASS [   0.006s] ( 272/4939) lamp-body body::tests::every_step_can_be_watched_with_the_mood_it_acted_on
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:02.3785219Z         PASS [   0.007s] ( 273/4939) lamp-body body::tests::expression_is_held_to_its_own_reach_and_the_joints_and_does_not_stir_a_resting_lamp
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:02.3829239Z         PASS [   0.005s] ( 274/4939) lamp-body body::tests::it_does_not_start_on_a_lamp_that_is_not_as_expected
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:02.3835989Z         PASS [   0.008s] ( 275/4939) lamp-body body::tests::found_standing_it_is_taken_as_it_is_and_folds_down_when_asked_to_stop
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:02.3908349Z         PASS [   0.007s] ( 276/4939) lamp-body body::tests::one_hot_reading_while_it_moves_is_not_heat
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:02.3950279Z         PASS [   0.012s] ( 277/4939) lamp-body body::tests::it_stands_up_for_somebody_in_front_of_it_and_stays_up_while_they_are_there
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:02.4055271Z         PASS [   0.014s] ( 278/4939) lamp-body body::tests::paused_with_somebody_still_in_front_of_it_a_standing_lamp_folds
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:02.4113878Z         PASS [   0.016s] ( 279/4939) lamp-body body::tests::resistance_for_the_fourth_time_in_a_minute_ends_the_run
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:02.4124820Z         PASS [   0.008s] ( 280/4939) lamp-body body::tests::spoken_to_it_stands_up_and_left_alone_it_folds_down_again
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:02.4243639Z         PASS [   0.012s] ( 281/4939) lamp-body body::tests::stood_up_the_head_may_look_down_as_far_as_up_and_folded_it_may_not
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:02.4326885Z         PASS [   0.008s] ( 282/4939) lamp-body body::tests::stood_up_the_head_tilts_to_listen_and_folded_it_does_not
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:02.4377124Z         PASS [   0.026s] ( 283/4939) lamp-body body::tests::standing_with_nothing_to_do_it_shifts_now_and_then_and_stops_when_spoken_to
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:02.4405059Z         PASS [   0.006s] ( 284/4939) lamp-body body::tests::the_arm_is_taken_hold_of_only_on_a_lamp_that_may_stand
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:02.4450068Z         PASS [   0.006s] ( 285/4939) lamp-body body::tests::the_head_keeps_its_folded_pose_until_the_arm_has_lifted_it_clear
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:02.4484169Z         PASS [   0.010s] ( 286/4939) lamp-body body::tests::the_eyes_take_the_head_further_round_than_any_pose_does
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:02.4532166Z         PASS [   0.005s] ( 287/4939) lamp-body body::tests::the_heads_pitch_never_passes_its_window_however_it_is_found
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:02.4563440Z         PASS [   0.011s] ( 288/4939) lamp-body body::tests::the_heads_pitch_is_never_asked_under_its_floor_whatever_adds_up
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:02.4599751Z         PASS [   0.007s] ( 289/4939) lamp-body body::tests::the_three_writes_are_exactly_these_bytes
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:02.4626020Z         PASS [   0.005s] ( 290/4939) lamp-body body::tests::the_two_writes_of_a_lamp_that_stands_are_exactly_these_bytes
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:02.4664538Z         PASS [   0.006s] ( 291/4939) lamp-body body::tests::told_to_return_a_base_turned_by_hand_under_its_load_gives_way_and_comes_back
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:02.4699910Z         PASS [   0.009s] ( 292/4939) lamp-body body::tests::told_to_return_a_head_tilted_and_held_by_hand_gives_way_again_and_comes_back
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:02.4717363Z         PASS [   0.005s] ( 293/4939) lamp-body body::tests::told_to_stay_a_head_moved_by_hand_stays_and_the_next_mood_is_relative_to_it
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:02.4786289Z         PASS [   0.009s] ( 294/4939) lamp-body body::tests::told_to_stay_a_head_pushed_past_its_reach_is_kept_at_the_edge
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:02.4804843Z         PASS [   0.008s] ( 295/4939) lamp-body body::tests::told_to_stay_a_short_push_still_gives_way_and_comes_back
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:02.4888860Z         PASS [   0.010s] ( 296/4939) lamp-body body::tests::waking_on_a_lamp_found_as_expected_writes_exactly_what_it_did_without
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:02.4918723Z         PASS [   0.009s] ( 297/4939) lamp-body body::tests::with_eyes_the_head_turns_to_the_face_while_it_listens_and_not_beyond_its_reach
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:02.4941603Z         PASS [   0.005s] ( 298/4939) lamp-body body::tests::with_waking_a_head_held_35_short_at_rest_rests_where_it_is
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:02.4985444Z         PASS [   0.009s] ( 299/4939) lamp-body body::tests::without_a_face_or_without_eyes_nothing_is_added_to_what_the_mood_wants
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:02.5011539Z         PASS [   0.007s] ( 300/4939) lamp-body body::tests::without_a_window_of_its_own_the_lamp_runs_exactly_as_before
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:02.5055918Z         PASS [   0.007s] ( 301/4939) lamp-body body::tests::without_the_switch_a_called_lamp_writes_exactly_as_one_never_called
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:02.5086307Z         PASS [   0.007s] ( 302/4939) lamp-body body::tests::without_the_switch_a_resting_lamp_writes_exactly_as_when_nothing_is_asked
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:02.5259102Z         FAIL [   0.017s] ( 303/4939) lamp-body bus_out::tests::a_hand_that_waited_in_the_queue_is_not_said_as_fresh
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:02.5285438Z   stdout ───
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:02.5314455Z 
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:02.5314978Z     running 1 test
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:02.5315668Z     test bus_out::tests::a_hand_that_waited_in_the_queue_is_not_said_as_fresh ... FAILED
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:02.5346318Z 
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:02.5346876Z     failures:
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:02.5347153Z 
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:02.5347354Z     failures:
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:02.5347777Z         bus_out::tests::a_hand_that_waited_in_the_queue_is_not_said_as_fresh
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:02.5348206Z 
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:02.5348594Z     test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.01s
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:02.5349171Z 
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:02.5349618Z   stderr ───
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:02.5349867Z 
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:02.5350360Z     thread 'bus_out::tests::a_hand_that_waited_in_the_queue_is_not_said_as_fresh' (15524) panicked at crates/body/src/bus_out.rs:840:9:
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:02.5351083Z     assertion failed: said.header.expires_ms.unwrap() >= 990
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:02.5351636Z     note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:02.5352037Z 
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:02.5352280Z   Cancelling due to test failure: 3 tests still running
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:03.7262287Z         PASS [   1.220s] ( 304/4939) lamp-body bus_out::tests::a_hand_after_a_slow_joints_write_is_aged_by_it
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:04.6107202Z         PASS [   2.537s] ( 305/4939) lamp-audio::steady_reference as_given_the_echo_moves_as_it_did_on_the_lamp
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:04.7251085Z         PASS [   2.621s] ( 306/4939) lamp-audio::steady_reference the_steady_reference_holds_a_moving_echo_in_one_place
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:04.7253877Z ────────────
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:04.7254409Z      Summary [   6.037s] 306/4939 tests run: 305 passed, 1 failed, 130 skipped
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:04.7254962Z         FAIL [   0.017s] ( 303/4939) lamp-body bus_out::tests::a_hand_that_waited_in_the_queue_is_not_said_as_fresh
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:04.7255651Z warning: 4633/4939 tests were not run due to test failure (run with --no-fail-fast to run all tests, or run with --max-fail)
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:04.7296558Z error: test run failed
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:04.7327043Z ##[error]Process completed with exit code 100.
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:04.7465992Z Post job cleanup.
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:04.8209588Z [command]/usr/bin/git version
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:04.8246985Z git version 2.55.0
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:04.8283354Z Temporarily overriding HOME='/home/runner/work/_temp/c7ae0b81-7dae-4a27-ac49-292abbf30a19' before making global git config changes
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:04.8285389Z Adding repository directory to the temporary git global config as a safe directory
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:04.8288288Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/lampOS/lampOS
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:04.8338167Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:04.8369152Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:04.8578464Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:04.8602493Z http.https://github.com/.extraheader
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:04.8612513Z [command]/usr/bin/git config --local --unset-all http.https://github.com/.extraheader
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:04.8655938Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:04.8865708Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:04.8905087Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:04.9275154Z Cleaning up orphan processes
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T20:30:04.9604765Z ##[warning]Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/cache@v4, actions/checkout@v4. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/

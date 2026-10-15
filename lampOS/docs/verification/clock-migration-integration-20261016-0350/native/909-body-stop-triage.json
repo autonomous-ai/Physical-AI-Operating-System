@@ -1,0 +1,230 @@
+{
+  "recorded_at_from_date": "2026-10-16 03:46:17 +0700",
+  "read_only": true,
+  "execution": "No builds, tests, reruns, Git mutations, network, device access or repository source edits.",
+  "refs": {
+    "serve_parent": "7969695132f72273901ee72c9e1b8029085596c8",
+    "failed_909_head": "188d97b7fcb6a78adaec67a3d3939843f759e1d3",
+    "recorder_base": "48b3737d5e83efa00278172cb602d3525d368a43",
+    "eighth_900": "a98fcef66f2def24762132264fcf06187984cfa8"
+  },
+  "files": {
+    "lampOS/crates/body/src/runtime/supervisor/tests.rs": {
+      "serve_parent": {
+        "sha256": "9bdc3902f924ea11648acd751aadef5b30e8e4d1a24ed2f3410f608a50c37ce1",
+        "git_blob": "9a7de3927bb4f8c835b3f8feb6f5ee43e15d1c42"
+      },
+      "failed_909_head": {
+        "sha256": "9bdc3902f924ea11648acd751aadef5b30e8e4d1a24ed2f3410f608a50c37ce1",
+        "git_blob": "9a7de3927bb4f8c835b3f8feb6f5ee43e15d1c42"
+      },
+      "recorder_base": {
+        "sha256": "9bdc3902f924ea11648acd751aadef5b30e8e4d1a24ed2f3410f608a50c37ce1",
+        "git_blob": "9a7de3927bb4f8c835b3f8feb6f5ee43e15d1c42"
+      },
+      "eighth_900": {
+        "sha256": "9bdc3902f924ea11648acd751aadef5b30e8e4d1a24ed2f3410f608a50c37ce1",
+        "git_blob": "9a7de3927bb4f8c835b3f8feb6f5ee43e15d1c42"
+      }
+    },
+    "lampOS/crates/body/src/runtime/supervisor.rs": {
+      "serve_parent": {
+        "sha256": "103009ea8a3baf449a760cf7f1dc43d0aa0b47d999b585c4084c65ff63ff2a3f",
+        "git_blob": "0d476fc9a36ede29b79b205f2f13fb918719d7da"
+      },
+      "failed_909_head": {
+        "sha256": "103009ea8a3baf449a760cf7f1dc43d0aa0b47d999b585c4084c65ff63ff2a3f",
+        "git_blob": "0d476fc9a36ede29b79b205f2f13fb918719d7da"
+      },
+      "recorder_base": {
+        "sha256": "103009ea8a3baf449a760cf7f1dc43d0aa0b47d999b585c4084c65ff63ff2a3f",
+        "git_blob": "0d476fc9a36ede29b79b205f2f13fb918719d7da"
+      },
+      "eighth_900": {
+        "sha256": "cc9dbff03225b3ed908ca43fed4494b6d901cb8caaf211b76ce32c7222f1c0cd",
+        "git_blob": "65125b294e56ed15d624306fbe04892c9620e941"
+      }
+    },
+    "lampOS/crates/body/src/runtime/worker.rs": {
+      "serve_parent": {
+        "sha256": "d126a1b0020f202c22a0a7a9ec64f54dcb6a52d9f6d02e965d61871aa6ab4cca",
+        "git_blob": "ada5240b5c77d206bb39f75906ddf9c3b5df96e5"
+      },
+      "failed_909_head": {
+        "sha256": "d126a1b0020f202c22a0a7a9ec64f54dcb6a52d9f6d02e965d61871aa6ab4cca",
+        "git_blob": "ada5240b5c77d206bb39f75906ddf9c3b5df96e5"
+      },
+      "recorder_base": {
+        "sha256": "d126a1b0020f202c22a0a7a9ec64f54dcb6a52d9f6d02e965d61871aa6ab4cca",
+        "git_blob": "ada5240b5c77d206bb39f75906ddf9c3b5df96e5"
+      },
+      "eighth_900": {
+        "sha256": "d126a1b0020f202c22a0a7a9ec64f54dcb6a52d9f6d02e965d61871aa6ab4cca",
+        "git_blob": "ada5240b5c77d206bb39f75906ddf9c3b5df96e5"
+      }
+    },
+    "lampOS/crates/body/src/runtime/channel.rs": {
+      "serve_parent": {
+        "sha256": "471c6cad77547060ec69348ccf08cbb98878463d2038aa34999e4d4f5f3a48ee",
+        "git_blob": "0e8f961633b3123d6f3657236daaea0c2c62fb87"
+      },
+      "failed_909_head": {
+        "sha256": "471c6cad77547060ec69348ccf08cbb98878463d2038aa34999e4d4f5f3a48ee",
+        "git_blob": "0e8f961633b3123d6f3657236daaea0c2c62fb87"
+      },
+      "recorder_base": {
+        "sha256": "471c6cad77547060ec69348ccf08cbb98878463d2038aa34999e4d4f5f3a48ee",
+        "git_blob": "0e8f961633b3123d6f3657236daaea0c2c62fb87"
+      },
+      "eighth_900": {
+        "sha256": "471c6cad77547060ec69348ccf08cbb98878463d2038aa34999e4d4f5f3a48ee",
+        "git_blob": "0e8f961633b3123d6f3657236daaea0c2c62fb87"
+      }
+    },
+    "lampOS/crates/body/src/runtime.rs": {
+      "serve_parent": {
+        "sha256": "f70ac6cb58b472a85130c8b81eed4258f689afc644de9ffbab98e087f71a0c8b",
+        "git_blob": "f7629af6324d0c4aac1d964b624ceace3bb836a1"
+      },
+      "failed_909_head": {
+        "sha256": "f70ac6cb58b472a85130c8b81eed4258f689afc644de9ffbab98e087f71a0c8b",
+        "git_blob": "f7629af6324d0c4aac1d964b624ceace3bb836a1"
+      },
+      "recorder_base": {
+        "sha256": "f70ac6cb58b472a85130c8b81eed4258f689afc644de9ffbab98e087f71a0c8b",
+        "git_blob": "f7629af6324d0c4aac1d964b624ceace3bb836a1"
+      },
+      "eighth_900": {
+        "sha256": "f70ac6cb58b472a85130c8b81eed4258f689afc644de9ffbab98e087f71a0c8b",
+        "git_blob": "f7629af6324d0c4aac1d964b624ceace3bb836a1"
+      }
+    },
+    "lampOS/crates/body/src/control.rs": {
+      "serve_parent": {
+        "sha256": "d5502205df3e703a831d013524c2babf6b5398f359130fee2a70c1d4d9efcd17",
+        "git_blob": "16eb9cd3a56f0fb0cb32bf75c1db8d22758cf246"
+      },
+      "failed_909_head": {
+        "sha256": "d5502205df3e703a831d013524c2babf6b5398f359130fee2a70c1d4d9efcd17",
+        "git_blob": "16eb9cd3a56f0fb0cb32bf75c1db8d22758cf246"
+      },
+      "recorder_base": {
+        "sha256": "d5502205df3e703a831d013524c2babf6b5398f359130fee2a70c1d4d9efcd17",
+        "git_blob": "16eb9cd3a56f0fb0cb32bf75c1db8d22758cf246"
+      },
+      "eighth_900": {
+        "sha256": "d5502205df3e703a831d013524c2babf6b5398f359130fee2a70c1d4d9efcd17",
+        "git_blob": "16eb9cd3a56f0fb0cb32bf75c1db8d22758cf246"
+      }
+    },
+    "lampOS/crates/turn-owner/src/controller.rs": {
+      "serve_parent": {
+        "sha256": "b8237eddfd8d17d9c38496aa5b48eac14277bc3ca124da9de8a889440e44788a",
+        "git_blob": "aaaa511e2f02066106d0fe9185cc99be017668ce"
+      },
+      "failed_909_head": {
+        "sha256": "b8237eddfd8d17d9c38496aa5b48eac14277bc3ca124da9de8a889440e44788a",
+        "git_blob": "aaaa511e2f02066106d0fe9185cc99be017668ce"
+      },
+      "recorder_base": {
+        "sha256": "b8237eddfd8d17d9c38496aa5b48eac14277bc3ca124da9de8a889440e44788a",
+        "git_blob": "aaaa511e2f02066106d0fe9185cc99be017668ce"
+      },
+      "eighth_900": {
+        "sha256": "b8237eddfd8d17d9c38496aa5b48eac14277bc3ca124da9de8a889440e44788a",
+        "git_blob": "aaaa511e2f02066106d0fe9185cc99be017668ce"
+      }
+    },
+    "lampOS/crates/turn-owner/src/guard.rs": {
+      "serve_parent": {
+        "sha256": "c6273b9e362c6a1ed5c9c33ac0f0a1ff0de96d337390b092dc427324df574985",
+        "git_blob": "d7b9be2cb6cbd587c8c902c2559d5fa26646f924"
+      },
+      "failed_909_head": {
+        "sha256": "c6273b9e362c6a1ed5c9c33ac0f0a1ff0de96d337390b092dc427324df574985",
+        "git_blob": "d7b9be2cb6cbd587c8c902c2559d5fa26646f924"
+      },
+      "recorder_base": {
+        "sha256": "c6273b9e362c6a1ed5c9c33ac0f0a1ff0de96d337390b092dc427324df574985",
+        "git_blob": "d7b9be2cb6cbd587c8c902c2559d5fa26646f924"
+      },
+      "eighth_900": {
+        "sha256": "c6273b9e362c6a1ed5c9c33ac0f0a1ff0de96d337390b092dc427324df574985",
+        "git_blob": "d7b9be2cb6cbd587c8c902c2559d5fa26646f924"
+      }
+    },
+    "lampOS/crates/turn-owner/src/types.rs": {
+      "serve_parent": {
+        "sha256": "542f74cb2a13b10d7fab3aae02cdc898e14f285fb83e1fb89a77680d56cc8ed8",
+        "git_blob": "f91ded9a5de79261a3b76e90edc9a769a737842a"
+      },
+      "failed_909_head": {
+        "sha256": "542f74cb2a13b10d7fab3aae02cdc898e14f285fb83e1fb89a77680d56cc8ed8",
+        "git_blob": "f91ded9a5de79261a3b76e90edc9a769a737842a"
+      },
+      "recorder_base": {
+        "sha256": "542f74cb2a13b10d7fab3aae02cdc898e14f285fb83e1fb89a77680d56cc8ed8",
+        "git_blob": "f91ded9a5de79261a3b76e90edc9a769a737842a"
+      },
+      "eighth_900": {
+        "sha256": "542f74cb2a13b10d7fab3aae02cdc898e14f285fb83e1fb89a77680d56cc8ed8",
+        "git_blob": "f91ded9a5de79261a3b76e90edc9a769a737842a"
+      }
+    }
+  },
+  "source_comparisons": {
+    "serve_parent_to_failed_head_body_ipc": [],
+    "failed_head_to_recorder_base_body_ipc": [
+      "M\tlampOS/crates/body/src/bus_out.rs"
+    ],
+    "recorder_base_to_eighth_900_body_ipc": [
+      "M\tlampOS/crates/body/src/bus_out.rs",
+      "M\tlampOS/crates/body/src/runtime/qualification.rs",
+      "M\tlampOS/crates/body/src/runtime/supervisor.rs"
+    ]
+  },
+  "raw_evidence": {
+    "909-38801026642.json": {
+      "sha256": "387954af7e1fba08ffd708941831513e7a6d6fe3e367fe9f78129cb05212c0f2",
+      "bytes": 11746
+    },
+    "909-38801026642.log": {
+      "sha256": "1b8287532b5741bcf1a45139d5b83d3819ad7528fb4541849d8610977339343e",
+      "bytes": 1510220
+    }
+  },
+  "failure": {
+    "run": 38801026642,
+    "job": 116649786983,
+    "head": "188d97b7fcb6a78adaec67a3d3939843f759e1d3",
+    "test": "lamp-body runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only",
+    "panic": "crates/body/src/runtime/supervisor/tests.rs:151:14",
+    "error": "InvalidData: motor worker is stopping",
+    "test_elapsed_seconds": 0.076,
+    "shard_counts": {
+      "run": 102,
+      "planned": 1327,
+      "passed": 101,
+      "failed": 1,
+      "not_run_after_failure": 1225
+    },
+    "outside_original_123": true,
+    "causal_conclusion": "Unproven. Observed terminal-state rejection during ready(), before the failed iteration requests Stop; retained underlying failure was not printed."
+  },
+  "proofs": {
+    "all_selected_files_same_from_serve_parent_to_failed_head": true,
+    "all_selected_files_same_from_failed_head_to_recorder_base": true,
+    "supervisor_test_and_worker_same_at_900": true,
+    "body_ipc_no_909_diff": true
+  },
+  "line_provenance_origin": "6d81ab49fe5de4aad702bd4f3d35aa4b16c114a6 (original motor path; later renamed to body in 32c279d4c)",
+  "hypotheses": [
+    "A Ready event with an event timestamp at least 50 ms old can be accepted by poll, then the final enforce kills and clears ready; the helper subsequently sends authority and receives the observed terminal-state error. Source-consistent, not proven by this log.",
+    "An actual early child exit or a valid pre-Ready Inhibited/Fault receipt can also make a successful poll leave exit/stop state. No such receipt/status/reason was retained in the failure output."
+  ],
+  "limits": [
+    "No test iteration index, retained Supervisor failure, receipt timestamps, child output, or child status is printed.",
+    "The 0.076-second number covers the full test attempt, not a known startup interval.",
+    "No assumption that #900 fixes this test; default spawn_command remains SystemClock and the complete test/worker source is unchanged."
+  ]
+}

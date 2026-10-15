@@ -1,0 +1,49 @@
+{
+  "date": "2026-10-16 03:40:36 +0700",
+  "head": "fd3a2764cb6624ac825fa7a044317d9080ff1e3d",
+  "run": 38801802028,
+  "passed": 4902,
+  "profile_excluded": 130,
+  "new_tests_passed_once": [
+    {
+      "seconds": 0.004,
+      "binary": "lamp-memory",
+      "test": "health::schedule_tests::schedule_reads_are_pure_and_the_default_source_uses_host_time"
+    },
+    {
+      "seconds": 0.004,
+      "binary": "lamp-memory",
+      "test": "health::schedule_tests::the_shared_worker_samples_once_at_cycle_start_and_once_at_the_wait_check"
+    },
+    {
+      "seconds": 0.004,
+      "binary": "lamp-memory",
+      "test": "health::schedule_tests::frozen_spurious_and_predeadline_wakes_do_not_publish_but_the_exact_deadline_does"
+    },
+    {
+      "seconds": 0.004,
+      "binary": "lamp-memory",
+      "test": "health::schedule_tests::completion_waits_for_actual_publication_and_overrun_has_no_catchup_queue"
+    },
+    {
+      "seconds": 0.004,
+      "binary": "lamp-memory",
+      "test": "health::schedule_tests::stopping_a_frozen_wait_unparks_and_preserves_the_final_best_effort_report"
+    },
+    {
+      "seconds": 0.104,
+      "binary": "lamp-memory",
+      "test": "health::schedule_tests::stopping_a_held_publication_keeps_the_host_bound_without_false_completion"
+    },
+    {
+      "seconds": 0.004,
+      "binary": "lamp-memory",
+      "test": "health::schedule_tests::publication_outcomes_follow_the_actual_error_and_recovery_results"
+    },
+    {
+      "seconds": 0.005,
+      "binary": "lamp-memory",
+      "test": "health::schedule_tests::successful_publication_is_not_a_receipt_and_the_shared_bus_clock_rescans_real_sockets"
+    }
+  ]
+}

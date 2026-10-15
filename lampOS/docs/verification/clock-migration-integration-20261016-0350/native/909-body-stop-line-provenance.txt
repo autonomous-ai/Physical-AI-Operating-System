@@ -1,0 +1,1103 @@
+===== lampOS/crates/body/src/runtime/supervisor/tests.rs:144,155 =====
+6d81ab49fe5de4aad702bd4f3d35aa4b16c114a6 144 144 12
+author deehw
+author-mail <dee@autonomous.ai>
+author-time 1791728780
+author-tz +0700
+committer deehw
+committer-mail <dee@autonomous.ai>
+committer-time 1791728780
+committer-tz +0700
+summary Add isolated motor worker with bounded control and cleanup
+filename lampOS/crates/motor/src/runtime/supervisor/tests.rs
+	fn ready(s: &mut Supervisor, c: &mut Controller) {
+6d81ab49fe5de4aad702bd4f3d35aa4b16c114a6 145 145
+author deehw
+author-mail <dee@autonomous.ai>
+author-time 1791728780
+author-tz +0700
+committer deehw
+committer-mail <dee@autonomous.ai>
+committer-time 1791728780
+committer-tz +0700
+summary Add isolated motor worker with bounded control and cleanup
+filename lampOS/crates/motor/src/runtime/supervisor/tests.rs
+	    until(s, |s| {
+6d81ab49fe5de4aad702bd4f3d35aa4b16c114a6 146 146
+author deehw
+author-mail <dee@autonomous.ai>
+author-time 1791728780
+author-tz +0700
+committer deehw
+committer-mail <dee@autonomous.ai>
+committer-time 1791728780
+committer-tz +0700
+summary Add isolated motor worker with bounded control and cleanup
+filename lampOS/crates/motor/src/runtime/supervisor/tests.rs
+	        s.poll().unwrap();
+6d81ab49fe5de4aad702bd4f3d35aa4b16c114a6 147 147
+author deehw
+author-mail <dee@autonomous.ai>
+author-time 1791728780
+author-tz +0700
+committer deehw
+committer-mail <dee@autonomous.ai>
+committer-time 1791728780
+committer-tz +0700
+summary Add isolated motor worker with bounded control and cleanup
+filename lampOS/crates/motor/src/runtime/supervisor/tests.rs
+	        if s.connected() && !s.ready {
+6d81ab49fe5de4aad702bd4f3d35aa4b16c114a6 148 148
+author deehw
+author-mail <dee@autonomous.ai>
+author-time 1791728780
+author-tz +0700
+committer deehw
+committer-mail <dee@autonomous.ai>
+committer-time 1791728780
+committer-tz +0700
+summary Add isolated motor worker with bounded control and cleanup
+filename lampOS/crates/motor/src/runtime/supervisor/tests.rs
+	            s.send_control(&Control::Authority {
+6d81ab49fe5de4aad702bd4f3d35aa4b16c114a6 149 149
+author deehw
+author-mail <dee@autonomous.ai>
+author-time 1791728780
+author-tz +0700
+committer deehw
+committer-mail <dee@autonomous.ai>
+committer-time 1791728780
+committer-tz +0700
+summary Add isolated motor worker with bounded control and cleanup
+filename lampOS/crates/motor/src/runtime/supervisor/tests.rs
+	                snapshot: c.snapshot(SystemClock.now()).unwrap(),
+6d81ab49fe5de4aad702bd4f3d35aa4b16c114a6 150 150
+author deehw
+author-mail <dee@autonomous.ai>
+author-time 1791728780
+author-tz +0700
+committer deehw
+committer-mail <dee@autonomous.ai>
+committer-time 1791728780
+committer-tz +0700
+summary Add isolated motor worker with bounded control and cleanup
+filename lampOS/crates/motor/src/runtime/supervisor/tests.rs
+	            })
+6d81ab49fe5de4aad702bd4f3d35aa4b16c114a6 151 151
+author deehw
+author-mail <dee@autonomous.ai>
+author-time 1791728780
+author-tz +0700
+committer deehw
+committer-mail <dee@autonomous.ai>
+committer-time 1791728780
+committer-tz +0700
+summary Add isolated motor worker with bounded control and cleanup
+filename lampOS/crates/motor/src/runtime/supervisor/tests.rs
+	            .unwrap();
+6d81ab49fe5de4aad702bd4f3d35aa4b16c114a6 152 152
+author deehw
+author-mail <dee@autonomous.ai>
+author-time 1791728780
+author-tz +0700
+committer deehw
+committer-mail <dee@autonomous.ai>
+committer-time 1791728780
+committer-tz +0700
+summary Add isolated motor worker with bounded control and cleanup
+filename lampOS/crates/motor/src/runtime/supervisor/tests.rs
+	        }
+6d81ab49fe5de4aad702bd4f3d35aa4b16c114a6 153 153
+author deehw
+author-mail <dee@autonomous.ai>
+author-time 1791728780
+author-tz +0700
+committer deehw
+committer-mail <dee@autonomous.ai>
+committer-time 1791728780
+committer-tz +0700
+summary Add isolated motor worker with bounded control and cleanup
+filename lampOS/crates/motor/src/runtime/supervisor/tests.rs
+	        s.is_ready()
+6d81ab49fe5de4aad702bd4f3d35aa4b16c114a6 154 154
+author deehw
+author-mail <dee@autonomous.ai>
+author-time 1791728780
+author-tz +0700
+committer deehw
+committer-mail <dee@autonomous.ai>
+committer-time 1791728780
+committer-tz +0700
+summary Add isolated motor worker with bounded control and cleanup
+filename lampOS/crates/motor/src/runtime/supervisor/tests.rs
+	    });
+6d81ab49fe5de4aad702bd4f3d35aa4b16c114a6 155 155
+author deehw
+author-mail <dee@autonomous.ai>
+author-time 1791728780
+author-tz +0700
+committer deehw
+committer-mail <dee@autonomous.ai>
+committer-time 1791728780
+committer-tz +0700
+summary Add isolated motor worker with bounded control and cleanup
+filename lampOS/crates/motor/src/runtime/supervisor/tests.rs
+	}
+
+===== lampOS/crates/body/src/runtime/supervisor/tests.rs:497,525 =====
+6d81ab49fe5de4aad702bd4f3d35aa4b16c114a6 332 497 29
+author deehw
+author-mail <dee@autonomous.ai>
+author-time 1791728780
+author-tz +0700
+committer deehw
+committer-mail <dee@autonomous.ai>
+committer-time 1791728780
+committer-tz +0700
+summary Add isolated motor worker with bounded control and cleanup
+filename lampOS/crates/motor/src/runtime/supervisor/tests.rs
+	#[test]
+6d81ab49fe5de4aad702bd4f3d35aa4b16c114a6 333 498
+author deehw
+author-mail <dee@autonomous.ai>
+author-time 1791728780
+author-tz +0700
+committer deehw
+committer-mail <dee@autonomous.ai>
+committer-time 1791728780
+committer-tz +0700
+summary Add isolated motor worker with bounded control and cleanup
+filename lampOS/crates/motor/src/runtime/supervisor/tests.rs
+	fn inert_child_stop_timing_samples_are_host_ipc_only() {
+6d81ab49fe5de4aad702bd4f3d35aa4b16c114a6 334 499
+author deehw
+author-mail <dee@autonomous.ai>
+author-time 1791728780
+author-tz +0700
+committer deehw
+committer-mail <dee@autonomous.ai>
+committer-time 1791728780
+committer-tz +0700
+summary Add isolated motor worker with bounded control and cleanup
+filename lampOS/crates/motor/src/runtime/supervisor/tests.rs
+	    let mut inhibition = Vec::new();
+6d81ab49fe5de4aad702bd4f3d35aa4b16c114a6 335 500
+author deehw
+author-mail <dee@autonomous.ai>
+author-time 1791728780
+author-tz +0700
+committer deehw
+committer-mail <dee@autonomous.ai>
+committer-time 1791728780
+committer-tz +0700
+summary Add isolated motor worker with bounded control and cleanup
+filename lampOS/crates/motor/src/runtime/supervisor/tests.rs
+	    let mut exit = Vec::new();
+6d81ab49fe5de4aad702bd4f3d35aa4b16c114a6 336 501
+author deehw
+author-mail <dee@autonomous.ai>
+author-time 1791728780
+author-tz +0700
+committer deehw
+committer-mail <dee@autonomous.ai>
+committer-time 1791728780
+committer-tz +0700
+summary Add isolated motor worker with bounded control and cleanup
+filename lampOS/crates/motor/src/runtime/supervisor/tests.rs
+	    for _ in 0..12 {
+6d81ab49fe5de4aad702bd4f3d35aa4b16c114a6 337 502
+author deehw
+author-mail <dee@autonomous.ai>
+author-time 1791728780
+author-tz +0700
+committer deehw
+committer-mail <dee@autonomous.ai>
+committer-time 1791728780
+committer-tz +0700
+summary Add isolated motor worker with bounded control and cleanup
+filename lampOS/crates/motor/src/runtime/supervisor/tests.rs
+	        let (mut s, mut c) = fixture("normal");
+6d81ab49fe5de4aad702bd4f3d35aa4b16c114a6 338 503
+author deehw
+author-mail <dee@autonomous.ai>
+author-time 1791728780
+author-tz +0700
+committer deehw
+committer-mail <dee@autonomous.ai>
+committer-time 1791728780
+committer-tz +0700
+summary Add isolated motor worker with bounded control and cleanup
+filename lampOS/crates/motor/src/runtime/supervisor/tests.rs
+	        ready(&mut s, &mut c);
+6d81ab49fe5de4aad702bd4f3d35aa4b16c114a6 339 504
+author deehw
+author-mail <dee@autonomous.ai>
+author-time 1791728780
+author-tz +0700
+committer deehw
+committer-mail <dee@autonomous.ai>
+committer-time 1791728780
+committer-tz +0700
+summary Add isolated motor worker with bounded control and cleanup
+filename lampOS/crates/motor/src/runtime/supervisor/tests.rs
+	        let requested = SystemClock.now().as_micros();
+6d81ab49fe5de4aad702bd4f3d35aa4b16c114a6 340 505
+author deehw
+author-mail <dee@autonomous.ai>
+author-time 1791728780
+author-tz +0700
+committer deehw
+committer-mail <dee@autonomous.ai>
+committer-time 1791728780
+committer-tz +0700
+summary Add isolated motor worker with bounded control and cleanup
+filename lampOS/crates/motor/src/runtime/supervisor/tests.rs
+	        s.stop().unwrap();
+6d81ab49fe5de4aad702bd4f3d35aa4b16c114a6 341 506
+author deehw
+author-mail <dee@autonomous.ai>
+author-time 1791728780
+author-tz +0700
+committer deehw
+committer-mail <dee@autonomous.ai>
+committer-time 1791728780
+committer-tz +0700
+summary Add isolated motor worker with bounded control and cleanup
+filename lampOS/crates/motor/src/runtime/supervisor/tests.rs
+	        until(&mut s, |s| {
+6d81ab49fe5de4aad702bd4f3d35aa4b16c114a6 342 507
+author deehw
+author-mail <dee@autonomous.ai>
+author-time 1791728780
+author-tz +0700
+committer deehw
+committer-mail <dee@autonomous.ai>
+committer-time 1791728780
+committer-tz +0700
+summary Add isolated motor worker with bounded control and cleanup
+filename lampOS/crates/motor/src/runtime/supervisor/tests.rs
+	            if let Some(Event::Inhibited { report, .. }) = s.poll().unwrap() {
+6d81ab49fe5de4aad702bd4f3d35aa4b16c114a6 343 508
+author deehw
+author-mail <dee@autonomous.ai>
+author-time 1791728780
+author-tz +0700
+committer deehw
+committer-mail <dee@autonomous.ai>
+committer-time 1791728780
+committer-tz +0700
+summary Add isolated motor worker with bounded control and cleanup
+filename lampOS/crates/motor/src/runtime/supervisor/tests.rs
+	                inhibition.push(report.stopped_at_us - requested)
+6d81ab49fe5de4aad702bd4f3d35aa4b16c114a6 344 509
+author deehw
+author-mail <dee@autonomous.ai>
+author-time 1791728780
+author-tz +0700
+committer deehw
+committer-mail <dee@autonomous.ai>
+committer-time 1791728780
+committer-tz +0700
+summary Add isolated motor worker with bounded control and cleanup
+filename lampOS/crates/motor/src/runtime/supervisor/tests.rs
+	            }
+6d81ab49fe5de4aad702bd4f3d35aa4b16c114a6 345 510
+author deehw
+author-mail <dee@autonomous.ai>
+author-time 1791728780
+author-tz +0700
+committer deehw
+committer-mail <dee@autonomous.ai>
+committer-time 1791728780
+committer-tz +0700
+summary Add isolated motor worker with bounded control and cleanup
+filename lampOS/crates/motor/src/runtime/supervisor/tests.rs
+	            s.reaped()
+6d81ab49fe5de4aad702bd4f3d35aa4b16c114a6 346 511
+author deehw
+author-mail <dee@autonomous.ai>
+author-time 1791728780
+author-tz +0700
+committer deehw
+committer-mail <dee@autonomous.ai>
+committer-time 1791728780
+committer-tz +0700
+summary Add isolated motor worker with bounded control and cleanup
+filename lampOS/crates/motor/src/runtime/supervisor/tests.rs
+	        });
+6d81ab49fe5de4aad702bd4f3d35aa4b16c114a6 347 512
+author deehw
+author-mail <dee@autonomous.ai>
+author-time 1791728780
+author-tz +0700
+committer deehw
+committer-mail <dee@autonomous.ai>
+committer-time 1791728780
+committer-tz +0700
+summary Add isolated motor worker with bounded control and cleanup
+filename lampOS/crates/motor/src/runtime/supervisor/tests.rs
+	        if !s.stopped {
+6d81ab49fe5de4aad702bd4f3d35aa4b16c114a6 348 513
+author deehw
+author-mail <dee@autonomous.ai>
+author-time 1791728780
+author-tz +0700
+committer deehw
+committer-mail <dee@autonomous.ai>
+committer-time 1791728780
+committer-tz +0700
+summary Add isolated motor worker with bounded control and cleanup
+filename lampOS/crates/motor/src/runtime/supervisor/tests.rs
+	            for _ in 0..4 {
+6d81ab49fe5de4aad702bd4f3d35aa4b16c114a6 349 514
+author deehw
+author-mail <dee@autonomous.ai>
+author-time 1791728780
+author-tz +0700
+committer deehw
+committer-mail <dee@autonomous.ai>
+committer-time 1791728780
+committer-tz +0700
+summary Add isolated motor worker with bounded control and cleanup
+filename lampOS/crates/motor/src/runtime/supervisor/tests.rs
+	                s.poll().unwrap();
+6d81ab49fe5de4aad702bd4f3d35aa4b16c114a6 350 515
+author deehw
+author-mail <dee@autonomous.ai>
+author-time 1791728780
+author-tz +0700
+committer deehw
+committer-mail <dee@autonomous.ai>
+committer-time 1791728780
+committer-tz +0700
+summary Add isolated motor worker with bounded control and cleanup
+filename lampOS/crates/motor/src/runtime/supervisor/tests.rs
+	            }
+6d81ab49fe5de4aad702bd4f3d35aa4b16c114a6 351 516
+author deehw
+author-mail <dee@autonomous.ai>
+author-time 1791728780
+author-tz +0700
+committer deehw
+committer-mail <dee@autonomous.ai>
+committer-time 1791728780
+committer-tz +0700
+summary Add isolated motor worker with bounded control and cleanup
+filename lampOS/crates/motor/src/runtime/supervisor/tests.rs
+	        }
+6d81ab49fe5de4aad702bd4f3d35aa4b16c114a6 352 517
+author deehw
+author-mail <dee@autonomous.ai>
+author-time 1791728780
+author-tz +0700
+committer deehw
+committer-mail <dee@autonomous.ai>
+committer-time 1791728780
+committer-tz +0700
+summary Add isolated motor worker with bounded control and cleanup
+filename lampOS/crates/motor/src/runtime/supervisor/tests.rs
+	        assert!(s.clean_exit(), "{:?}", s.failure());
+6d81ab49fe5de4aad702bd4f3d35aa4b16c114a6 353 518
+author deehw
+author-mail <dee@autonomous.ai>
+author-time 1791728780
+author-tz +0700
+committer deehw
+committer-mail <dee@autonomous.ai>
+committer-time 1791728780
+committer-tz +0700
+summary Add isolated motor worker with bounded control and cleanup
+filename lampOS/crates/motor/src/runtime/supervisor/tests.rs
+	        exit.push(SystemClock.now().as_micros() - requested);
+6d81ab49fe5de4aad702bd4f3d35aa4b16c114a6 354 519
+author deehw
+author-mail <dee@autonomous.ai>
+author-time 1791728780
+author-tz +0700
+committer deehw
+committer-mail <dee@autonomous.ai>
+committer-time 1791728780
+committer-tz +0700
+summary Add isolated motor worker with bounded control and cleanup
+filename lampOS/crates/motor/src/runtime/supervisor/tests.rs
+	    }
+6d81ab49fe5de4aad702bd4f3d35aa4b16c114a6 355 520
+author deehw
+author-mail <dee@autonomous.ai>
+author-time 1791728780
+author-tz +0700
+committer deehw
+committer-mail <dee@autonomous.ai>
+committer-time 1791728780
+committer-tz +0700
+summary Add isolated motor worker with bounded control and cleanup
+filename lampOS/crates/motor/src/runtime/supervisor/tests.rs
+	    assert_eq!(inhibition.len(), 12);
+6d81ab49fe5de4aad702bd4f3d35aa4b16c114a6 356 521
+author deehw
+author-mail <dee@autonomous.ai>
+author-time 1791728780
+author-tz +0700
+committer deehw
+committer-mail <dee@autonomous.ai>
+committer-time 1791728780
+committer-tz +0700
+summary Add isolated motor worker with bounded control and cleanup
+filename lampOS/crates/motor/src/runtime/supervisor/tests.rs
+	    println!(
+6d81ab49fe5de4aad702bd4f3d35aa4b16c114a6 357 522
+author deehw
+author-mail <dee@autonomous.ai>
+author-time 1791728780
+author-tz +0700
+committer deehw
+committer-mail <dee@autonomous.ai>
+committer-time 1791728780
+committer-tz +0700
+summary Add isolated motor worker with bounded control and cleanup
+filename lampOS/crates/motor/src/runtime/supervisor/tests.rs
+	        "motor_inert_timing {}",
+6d81ab49fe5de4aad702bd4f3d35aa4b16c114a6 358 523
+author deehw
+author-mail <dee@autonomous.ai>
+author-time 1791728780
+author-tz +0700
+committer deehw
+committer-mail <dee@autonomous.ai>
+committer-time 1791728780
+committer-tz +0700
+summary Add isolated motor worker with bounded control and cleanup
+filename lampOS/crates/motor/src/runtime/supervisor/tests.rs
+	        serde_json::json!({"scope":"host_private_unix_subprocess_stop_to_local_inhibition_no_serial_no_motion","samples_us":inhibition,"stop_to_reaped_us":exit,"runtime_bound_us":INHIBIT_DEADLINE_US,"hardware_qualified":false})
+6d81ab49fe5de4aad702bd4f3d35aa4b16c114a6 359 524
+author deehw
+author-mail <dee@autonomous.ai>
+author-time 1791728780
+author-tz +0700
+committer deehw
+committer-mail <dee@autonomous.ai>
+committer-time 1791728780
+committer-tz +0700
+summary Add isolated motor worker with bounded control and cleanup
+filename lampOS/crates/motor/src/runtime/supervisor/tests.rs
+	    );
+6d81ab49fe5de4aad702bd4f3d35aa4b16c114a6 360 525
+author deehw
+author-mail <dee@autonomous.ai>
+author-time 1791728780
+author-tz +0700
+committer deehw
+committer-mail <dee@autonomous.ai>
+committer-time 1791728780
+committer-tz +0700
+summary Add isolated motor worker with bounded control and cleanup
+filename lampOS/crates/motor/src/runtime/supervisor/tests.rs
+	}
+
+===== lampOS/crates/body/src/runtime/supervisor.rs:337,344 =====
+6d81ab49fe5de4aad702bd4f3d35aa4b16c114a6 309 337 8
+author deehw
+author-mail <dee@autonomous.ai>
+author-time 1791728780
+author-tz +0700
+committer deehw
+committer-mail <dee@autonomous.ai>
+committer-time 1791728780
+committer-tz +0700
+summary Add isolated motor worker with bounded control and cleanup
+filename lampOS/crates/motor/src/runtime/supervisor.rs
+	    pub fn send_control(&mut self, c: &Control) -> io::Result<()> {
+6d81ab49fe5de4aad702bd4f3d35aa4b16c114a6 310 338
+author deehw
+author-mail <dee@autonomous.ai>
+author-time 1791728780
+author-tz +0700
+committer deehw
+committer-mail <dee@autonomous.ai>
+committer-time 1791728780
+committer-tz +0700
+summary Add isolated motor worker with bounded control and cleanup
+filename lampOS/crates/motor/src/runtime/supervisor.rs
+	        if matches!(c, Control::Stop {}) {
+6d81ab49fe5de4aad702bd4f3d35aa4b16c114a6 311 339
+author deehw
+author-mail <dee@autonomous.ai>
+author-time 1791728780
+author-tz +0700
+committer deehw
+committer-mail <dee@autonomous.ai>
+committer-time 1791728780
+committer-tz +0700
+summary Add isolated motor worker with bounded control and cleanup
+filename lampOS/crates/motor/src/runtime/supervisor.rs
+	            return self.stop();
+6d81ab49fe5de4aad702bd4f3d35aa4b16c114a6 312 340
+author deehw
+author-mail <dee@autonomous.ai>
+author-time 1791728780
+author-tz +0700
+committer deehw
+committer-mail <dee@autonomous.ai>
+committer-time 1791728780
+committer-tz +0700
+summary Add isolated motor worker with bounded control and cleanup
+filename lampOS/crates/motor/src/runtime/supervisor.rs
+	        }
+6d81ab49fe5de4aad702bd4f3d35aa4b16c114a6 313 341
+author deehw
+author-mail <dee@autonomous.ai>
+author-time 1791728780
+author-tz +0700
+committer deehw
+committer-mail <dee@autonomous.ai>
+committer-time 1791728780
+committer-tz +0700
+summary Add isolated motor worker with bounded control and cleanup
+filename lampOS/crates/motor/src/runtime/supervisor.rs
+	        if self.exit.is_some() || self.killed_at.is_some() || self.stop_at.is_some() {
+6d81ab49fe5de4aad702bd4f3d35aa4b16c114a6 314 342
+author deehw
+author-mail <dee@autonomous.ai>
+author-time 1791728780
+author-tz +0700
+committer deehw
+committer-mail <dee@autonomous.ai>
+committer-time 1791728780
+committer-tz +0700
+summary Add isolated motor worker with bounded control and cleanup
+filename lampOS/crates/motor/src/runtime/supervisor.rs
+	            return Err(invalid("motor worker is stopping"));
+6d81ab49fe5de4aad702bd4f3d35aa4b16c114a6 315 343
+author deehw
+author-mail <dee@autonomous.ai>
+author-time 1791728780
+author-tz +0700
+committer deehw
+committer-mail <dee@autonomous.ai>
+committer-time 1791728780
+committer-tz +0700
+summary Add isolated motor worker with bounded control and cleanup
+filename lampOS/crates/motor/src/runtime/supervisor.rs
+	        }
+6d81ab49fe5de4aad702bd4f3d35aa4b16c114a6 316 344
+author deehw
+author-mail <dee@autonomous.ai>
+author-time 1791728780
+author-tz +0700
+committer deehw
+committer-mail <dee@autonomous.ai>
+committer-time 1791728780
+committer-tz +0700
+summary Add isolated motor worker with bounded control and cleanup
+filename lampOS/crates/motor/src/runtime/supervisor.rs
+	        let n = SystemClock.now();
+
+===== lampOS/crates/body/src/runtime/supervisor.rs:399,430 =====
+6d81ab49fe5de4aad702bd4f3d35aa4b16c114a6 360 399 32
+author deehw
+author-mail <dee@autonomous.ai>
+author-time 1791728780
+author-tz +0700
+committer deehw
+committer-mail <dee@autonomous.ai>
+committer-time 1791728780
+committer-tz +0700
+summary Add isolated motor worker with bounded control and cleanup
+filename lampOS/crates/motor/src/runtime/supervisor.rs
+	    fn enforce(&mut self, n: u64) {
+6d81ab49fe5de4aad702bd4f3d35aa4b16c114a6 361 400
+author deehw
+author-mail <dee@autonomous.ai>
+author-time 1791728780
+author-tz +0700
+committer deehw
+committer-mail <dee@autonomous.ai>
+committer-time 1791728780
+committer-tz +0700
+summary Add isolated motor worker with bounded control and cleanup
+filename lampOS/crates/motor/src/runtime/supervisor.rs
+	        if n < self.last_observed || n < self.started {
+6d81ab49fe5de4aad702bd4f3d35aa4b16c114a6 362 401
+author deehw
+author-mail <dee@autonomous.ai>
+author-time 1791728780
+author-tz +0700
+committer deehw
+committer-mail <dee@autonomous.ai>
+committer-time 1791728780
+committer-tz +0700
+summary Add isolated motor worker with bounded control and cleanup
+filename lampOS/crates/motor/src/runtime/supervisor.rs
+	            self.fail("supervisor clock regressed", n);
+6d81ab49fe5de4aad702bd4f3d35aa4b16c114a6 363 402
+author deehw
+author-mail <dee@autonomous.ai>
+author-time 1791728780
+author-tz +0700
+committer deehw
+committer-mail <dee@autonomous.ai>
+committer-time 1791728780
+committer-tz +0700
+summary Add isolated motor worker with bounded control and cleanup
+filename lampOS/crates/motor/src/runtime/supervisor.rs
+	            return;
+6d81ab49fe5de4aad702bd4f3d35aa4b16c114a6 364 403
+author deehw
+author-mail <dee@autonomous.ai>
+author-time 1791728780
+author-tz +0700
+committer deehw
+committer-mail <dee@autonomous.ai>
+committer-time 1791728780
+committer-tz +0700
+summary Add isolated motor worker with bounded control and cleanup
+filename lampOS/crates/motor/src/runtime/supervisor.rs
+	        }
+6d81ab49fe5de4aad702bd4f3d35aa4b16c114a6 365 404
+author deehw
+author-mail <dee@autonomous.ai>
+author-time 1791728780
+author-tz +0700
+committer deehw
+committer-mail <dee@autonomous.ai>
+committer-time 1791728780
+committer-tz +0700
+summary Add isolated motor worker with bounded control and cleanup
+filename lampOS/crates/motor/src/runtime/supervisor.rs
+	        if self.exit.is_some() {
+6d81ab49fe5de4aad702bd4f3d35aa4b16c114a6 366 405
+author deehw
+author-mail <dee@autonomous.ai>
+author-time 1791728780
+author-tz +0700
+committer deehw
+committer-mail <dee@autonomous.ai>
+committer-time 1791728780
+committer-tz +0700
+summary Add isolated motor worker with bounded control and cleanup
+filename lampOS/crates/motor/src/runtime/supervisor.rs
+	            return;
+6d81ab49fe5de4aad702bd4f3d35aa4b16c114a6 367 406
+author deehw
+author-mail <dee@autonomous.ai>
+author-time 1791728780
+author-tz +0700
+committer deehw
+committer-mail <dee@autonomous.ai>
+committer-time 1791728780
+committer-tz +0700
+summary Add isolated motor worker with bounded control and cleanup
+filename lampOS/crates/motor/src/runtime/supervisor.rs
+	        }
+6d81ab49fe5de4aad702bd4f3d35aa4b16c114a6 368 407
+author deehw
+author-mail <dee@autonomous.ai>
+author-time 1791728780
+author-tz +0700
+committer deehw
+committer-mail <dee@autonomous.ai>
+committer-time 1791728780
+committer-tz +0700
+summary Add isolated motor worker with bounded control and cleanup
+filename lampOS/crates/motor/src/runtime/supervisor.rs
+	        if let Some(killed) = self.killed_at {
+6d81ab49fe5de4aad702bd4f3d35aa4b16c114a6 369 408
+author deehw
+author-mail <dee@autonomous.ai>
+author-time 1791728780
+author-tz +0700
+committer deehw
+committer-mail <dee@autonomous.ai>
+committer-time 1791728780
+committer-tz +0700
+summary Add isolated motor worker with bounded control and cleanup
+filename lampOS/crates/motor/src/runtime/supervisor.rs
+	            if n.saturating_sub(killed) > REAP_US {
+6d81ab49fe5de4aad702bd4f3d35aa4b16c114a6 370 409
+author deehw
+author-mail <dee@autonomous.ai>
+author-time 1791728780
+author-tz +0700
+committer deehw
+committer-mail <dee@autonomous.ai>
+committer-time 1791728780
+committer-tz +0700
+summary Add isolated motor worker with bounded control and cleanup
+filename lampOS/crates/motor/src/runtime/supervisor.rs
+	                self.failure.get_or_insert_with(|| {
+6d81ab49fe5de4aad702bd4f3d35aa4b16c114a6 371 410
+author deehw
+author-mail <dee@autonomous.ai>
+author-time 1791728780
+author-tz +0700
+committer deehw
+committer-mail <dee@autonomous.ai>
+committer-time 1791728780
+committer-tz +0700
+summary Add isolated motor worker with bounded control and cleanup
+filename lampOS/crates/motor/src/runtime/supervisor.rs
+	                    "motor child reaping deadline expired; ownership unresolved".into()
+6d81ab49fe5de4aad702bd4f3d35aa4b16c114a6 372 411
+author deehw
+author-mail <dee@autonomous.ai>
+author-time 1791728780
+author-tz +0700
+committer deehw
+committer-mail <dee@autonomous.ai>
+committer-time 1791728780
+committer-tz +0700
+summary Add isolated motor worker with bounded control and cleanup
+filename lampOS/crates/motor/src/runtime/supervisor.rs
+	                });
+6d81ab49fe5de4aad702bd4f3d35aa4b16c114a6 373 412
+author deehw
+author-mail <dee@autonomous.ai>
+author-time 1791728780
+author-tz +0700
+committer deehw
+committer-mail <dee@autonomous.ai>
+committer-time 1791728780
+committer-tz +0700
+summary Add isolated motor worker with bounded control and cleanup
+filename lampOS/crates/motor/src/runtime/supervisor.rs
+	            }
+6d81ab49fe5de4aad702bd4f3d35aa4b16c114a6 374 413
+author deehw
+author-mail <dee@autonomous.ai>
+author-time 1791728780
+author-tz +0700
+committer deehw
+committer-mail <dee@autonomous.ai>
+committer-time 1791728780
+committer-tz +0700
+summary Add isolated motor worker with bounded control and cleanup
+filename lampOS/crates/motor/src/runtime/supervisor.rs
+	            return;
+6d81ab49fe5de4aad702bd4f3d35aa4b16c114a6 375 414
+author deehw
+author-mail <dee@autonomous.ai>
+author-time 1791728780
+author-tz +0700
+committer deehw
+committer-mail <dee@autonomous.ai>
+committer-time 1791728780
+committer-tz +0700
+summary Add isolated motor worker with bounded control and cleanup
+filename lampOS/crates/motor/src/runtime/supervisor.rs
+	        }
+6d81ab49fe5de4aad702bd4f3d35aa4b16c114a6 376 415
+author deehw
+author-mail <dee@autonomous.ai>
+author-time 1791728780
+author-tz +0700
+committer deehw
+committer-mail <dee@autonomous.ai>
+committer-time 1791728780
+committer-tz +0700
+summary Add isolated motor worker with bounded control and cleanup
+filename lampOS/crates/motor/src/runtime/supervisor.rs
+	        if let Some(start) = self.stop_at {
+6d81ab49fe5de4aad702bd4f3d35aa4b16c114a6 377 416
+author deehw
+author-mail <dee@autonomous.ai>
+author-time 1791728780
+author-tz +0700
+committer deehw
+committer-mail <dee@autonomous.ai>
+committer-time 1791728780
+committer-tz +0700
+summary Add isolated motor worker with bounded control and cleanup
+filename lampOS/crates/motor/src/runtime/supervisor.rs
+	            if !self.inhibited && n.saturating_sub(start) >= INHIBIT_DEADLINE_US {
+6d81ab49fe5de4aad702bd4f3d35aa4b16c114a6 378 417
+author deehw
+author-mail <dee@autonomous.ai>
+author-time 1791728780
+author-tz +0700
+committer deehw
+committer-mail <dee@autonomous.ai>
+committer-time 1791728780
+committer-tz +0700
+summary Add isolated motor worker with bounded control and cleanup
+filename lampOS/crates/motor/src/runtime/supervisor.rs
+	                self.fail("motor inhibit acknowledgement timed out", n)
+6d81ab49fe5de4aad702bd4f3d35aa4b16c114a6 379 418
+author deehw
+author-mail <dee@autonomous.ai>
+author-time 1791728780
+author-tz +0700
+committer deehw
+committer-mail <dee@autonomous.ai>
+committer-time 1791728780
+committer-tz +0700
+summary Add isolated motor worker with bounded control and cleanup
+filename lampOS/crates/motor/src/runtime/supervisor.rs
+	            } else if self
+6d81ab49fe5de4aad702bd4f3d35aa4b16c114a6 380 419
+author deehw
+author-mail <dee@autonomous.ai>
+author-time 1791728780
+author-tz +0700
+committer deehw
+committer-mail <dee@autonomous.ai>
+committer-time 1791728780
+committer-tz +0700
+summary Add isolated motor worker with bounded control and cleanup
+filename lampOS/crates/motor/src/runtime/supervisor.rs
+	                .inhibited_received
+6d81ab49fe5de4aad702bd4f3d35aa4b16c114a6 381 420
+author deehw
+author-mail <dee@autonomous.ai>
+author-time 1791728780
+author-tz +0700
+committer deehw
+committer-mail <dee@autonomous.ai>
+committer-time 1791728780
+committer-tz +0700
+summary Add isolated motor worker with bounded control and cleanup
+filename lampOS/crates/motor/src/runtime/supervisor.rs
+	                .is_some_and(|at| n.saturating_sub(at) >= TEARDOWN_US)
+6d81ab49fe5de4aad702bd4f3d35aa4b16c114a6 382 421
+author deehw
+author-mail <dee@autonomous.ai>
+author-time 1791728780
+author-tz +0700
+committer deehw
+committer-mail <dee@autonomous.ai>
+committer-time 1791728780
+committer-tz +0700
+summary Add isolated motor worker with bounded control and cleanup
+filename lampOS/crates/motor/src/runtime/supervisor.rs
+	            {
+6d81ab49fe5de4aad702bd4f3d35aa4b16c114a6 383 422
+author deehw
+author-mail <dee@autonomous.ai>
+author-time 1791728780
+author-tz +0700
+committer deehw
+committer-mail <dee@autonomous.ai>
+committer-time 1791728780
+committer-tz +0700
+summary Add isolated motor worker with bounded control and cleanup
+filename lampOS/crates/motor/src/runtime/supervisor.rs
+	                self.fail("motor driver teardown/reap timed out", n)
+6d81ab49fe5de4aad702bd4f3d35aa4b16c114a6 384 423
+author deehw
+author-mail <dee@autonomous.ai>
+author-time 1791728780
+author-tz +0700
+committer deehw
+committer-mail <dee@autonomous.ai>
+committer-time 1791728780
+committer-tz +0700
+summary Add isolated motor worker with bounded control and cleanup
+filename lampOS/crates/motor/src/runtime/supervisor.rs
+	            }
+6d81ab49fe5de4aad702bd4f3d35aa4b16c114a6 385 424
+author deehw
+author-mail <dee@autonomous.ai>
+author-time 1791728780
+author-tz +0700
+committer deehw
+committer-mail <dee@autonomous.ai>
+committer-time 1791728780
+committer-tz +0700
+summary Add isolated motor worker with bounded control and cleanup
+filename lampOS/crates/motor/src/runtime/supervisor.rs
+	        } else if !self.ready {
+6d81ab49fe5de4aad702bd4f3d35aa4b16c114a6 386 425
+author deehw
+author-mail <dee@autonomous.ai>
+author-time 1791728780
+author-tz +0700
+committer deehw
+committer-mail <dee@autonomous.ai>
+committer-time 1791728780
+committer-tz +0700
+summary Add isolated motor worker with bounded control and cleanup
+filename lampOS/crates/motor/src/runtime/supervisor.rs
+	            if n.saturating_sub(self.started) >= STARTUP_US {
+6d81ab49fe5de4aad702bd4f3d35aa4b16c114a6 387 426
+author deehw
+author-mail <dee@autonomous.ai>
+author-time 1791728780
+author-tz +0700
+committer deehw
+committer-mail <dee@autonomous.ai>
+committer-time 1791728780
+committer-tz +0700
+summary Add isolated motor worker with bounded control and cleanup
+filename lampOS/crates/motor/src/runtime/supervisor.rs
+	                self.fail("motor startup timed out", n)
+6d81ab49fe5de4aad702bd4f3d35aa4b16c114a6 388 427
+author deehw
+author-mail <dee@autonomous.ai>
+author-time 1791728780
+author-tz +0700
+committer deehw
+committer-mail <dee@autonomous.ai>
+committer-time 1791728780
+committer-tz +0700
+summary Add isolated motor worker with bounded control and cleanup
+filename lampOS/crates/motor/src/runtime/supervisor.rs
+	            }
+6d81ab49fe5de4aad702bd4f3d35aa4b16c114a6 389 428
+author deehw
+author-mail <dee@autonomous.ai>
+author-time 1791728780
+author-tz +0700
+committer deehw
+committer-mail <dee@autonomous.ai>
+committer-time 1791728780
+committer-tz +0700
+summary Add isolated motor worker with bounded control and cleanup
+filename lampOS/crates/motor/src/runtime/supervisor.rs
+	        } else if n.saturating_sub(self.last_observed) >= PROGRESS_DEADLINE_US {
+6d81ab49fe5de4aad702bd4f3d35aa4b16c114a6 390 429
+author deehw
+author-mail <dee@autonomous.ai>
+author-time 1791728780
+author-tz +0700
+committer deehw
+committer-mail <dee@autonomous.ai>
+committer-time 1791728780
+committer-tz +0700
+summary Add isolated motor worker with bounded control and cleanup
+filename lampOS/crates/motor/src/runtime/supervisor.rs
+	            self.fail("motor worker progress timed out", n)
+6d81ab49fe5de4aad702bd4f3d35aa4b16c114a6 391 430
+author deehw
+author-mail <dee@autonomous.ai>
+author-time 1791728780
+author-tz +0700
+committer deehw
+committer-mail <dee@autonomous.ai>
+committer-time 1791728780
+committer-tz +0700
+summary Add isolated motor worker with bounded control and cleanup
+filename lampOS/crates/motor/src/runtime/supervisor.rs
+	        }
+
+===== lampOS/crates/body/src/runtime/supervisor.rs:539,545 =====
+6d81ab49fe5de4aad702bd4f3d35aa4b16c114a6 484 539 7
+author deehw
+author-mail <dee@autonomous.ai>
+author-time 1791728780
+author-tz +0700
+committer deehw
+committer-mail <dee@autonomous.ai>
+committer-time 1791728780
+committer-tz +0700
+summary Add isolated motor worker with bounded control and cleanup
+filename lampOS/crates/motor/src/runtime/supervisor.rs
+	    pub fn poll(&mut self) -> io::Result<Option<Event>> {
+6d81ab49fe5de4aad702bd4f3d35aa4b16c114a6 485 540
+author deehw
+author-mail <dee@autonomous.ai>
+author-time 1791728780
+author-tz +0700
+committer deehw
+committer-mail <dee@autonomous.ai>
+committer-time 1791728780
+committer-tz +0700
+summary Add isolated motor worker with bounded control and cleanup
+filename lampOS/crates/motor/src/runtime/supervisor.rs
+	        let n = SystemClock.now().as_micros();
+6d81ab49fe5de4aad702bd4f3d35aa4b16c114a6 486 541
+author deehw
+author-mail <dee@autonomous.ai>
+author-time 1791728780
+author-tz +0700
+committer deehw
+committer-mail <dee@autonomous.ai>
+committer-time 1791728780
+committer-tz +0700
+summary Add isolated motor worker with bounded control and cleanup
+filename lampOS/crates/motor/src/runtime/supervisor.rs
+	        self.enforce(n);
+6d81ab49fe5de4aad702bd4f3d35aa4b16c114a6 487 542
+author deehw
+author-mail <dee@autonomous.ai>
+author-time 1791728780
+author-tz +0700
+committer deehw
+committer-mail <dee@autonomous.ai>
+committer-time 1791728780
+committer-tz +0700
+summary Add isolated motor worker with bounded control and cleanup
+filename lampOS/crates/motor/src/runtime/supervisor.rs
+	        let result: io::Result<Option<Event>> = (|| {
+6d81ab49fe5de4aad702bd4f3d35aa4b16c114a6 488 543
+author deehw
+author-mail <dee@autonomous.ai>
+author-time 1791728780
+author-tz +0700
+committer deehw
+committer-mail <dee@autonomous.ai>
+committer-time 1791728780
+committer-tz +0700
+summary Add isolated motor worker with bounded control and cleanup
+filename lampOS/crates/motor/src/runtime/supervisor.rs
+	            if self.exit.is_none() {
+6d81ab49fe5de4aad702bd4f3d35aa4b16c114a6 489 544
+author deehw
+author-mail <dee@autonomous.ai>
+author-time 1791728780
+author-tz +0700
+committer deehw
+committer-mail <dee@autonomous.ai>
+committer-time 1791728780
+committer-tz +0700
+summary Add isolated motor worker with bounded control and cleanup
+filename lampOS/crates/motor/src/runtime/supervisor.rs
+	                self.directory.observe_peers()?;
+6d81ab49fe5de4aad702bd4f3d35aa4b16c114a6 490 545
+author deehw
+author-mail <dee@autonomous.ai>
+author-time 1791728780
+author-tz +0700
+committer deehw
+committer-mail <dee@autonomous.ai>
+committer-time 1791728780
+committer-tz +0700
+summary Add isolated motor worker with bounded control and cleanup
+filename lampOS/crates/motor/src/runtime/supervisor.rs
+	            }
+
+===== lampOS/crates/body/src/runtime/supervisor.rs:583,585 =====
+6d81ab49fe5de4aad702bd4f3d35aa4b16c114a6 528 583 3
+author deehw
+author-mail <dee@autonomous.ai>
+author-time 1791728780
+author-tz +0700
+committer deehw
+committer-mail <dee@autonomous.ai>
+committer-time 1791728780
+committer-tz +0700
+summary Add isolated motor worker with bounded control and cleanup
+filename lampOS/crates/motor/src/runtime/supervisor.rs
+	        self.enforce(SystemClock.now().as_micros());
+6d81ab49fe5de4aad702bd4f3d35aa4b16c114a6 529 584
+author deehw
+author-mail <dee@autonomous.ai>
+author-time 1791728780
+author-tz +0700
+committer deehw
+committer-mail <dee@autonomous.ai>
+committer-time 1791728780
+committer-tz +0700
+summary Add isolated motor worker with bounded control and cleanup
+filename lampOS/crates/motor/src/runtime/supervisor.rs
+	        result
+6d81ab49fe5de4aad702bd4f3d35aa4b16c114a6 530 585
+author deehw
+author-mail <dee@autonomous.ai>
+author-time 1791728780
+author-tz +0700
+committer deehw
+committer-mail <dee@autonomous.ai>
+committer-time 1791728780
+committer-tz +0700
+summary Add isolated motor worker with bounded control and cleanup
+filename lampOS/crates/motor/src/runtime/supervisor.rs
+	    }

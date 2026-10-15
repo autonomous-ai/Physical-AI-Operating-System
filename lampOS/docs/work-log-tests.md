@@ -1,5 +1,18 @@
 # Tests work log
 
+## 2026-10-16 03:55 +0700 — Reporter ready; fresh integrations pass; Body readiness failure retained
+
+Ready for lamp-voice: yes (#910); no (#909 and unpublished continuations)
+
+- Reporter scheduling [#910](https://github.com/autonomous-ai/lampOS/pull/910), exact head `fd3a2764cb6624ac825fa7a044317d9080ff1e3d`, passes normal ARM64 [38801802028](https://github.com/autonomous-ai/lampOS/actions/runs/38801802028): **4,902 unique passes / 130 profile exclusions**, all eight new cases once. It is ready for the reviewer. Local Bus/Memory remains **261 / zero fail / six existing ignores**. No old scenario migrates in this preparation.
+- Serve [#909](https://github.com/autonomous-ai/lampOS/pull/909) first normal run failed the unchanged Body queue-age fixture on a checkout before #902. Its first full run separately failed during Body stop-fixture readiness: **3,845 unique pass / one fail**, with **93/123 original identities and 13/14 Serve identities** reached. Newly filed [#914](https://github.com/autonomous-ai/lampOS/issues/914) preserves the actual authority-send failure, source provenance and unproven-cause limits; it is outside the original 123. Eighth was notified on #900, which is not established as its fix.
+- Fresh Serve integration on actual #902 base `48b3737d5e83efa00278172cb602d3525d368a43` completes **422 / zero fail or ignore**, with all 14 original names and unchanged source. Fresh Recorder continuation completes **463/0/0**; fresh Reporter/Memory-health continuation completes **296/0/6 existing ignores**, retaining all seven original health names. All pass fmt, strict all-target Clippy and workspace build. Recorder and Memory remain local separate continuations pending their respective dependencies; Serve remains draft until complete native qualification.
+- [Unedited native runs, Body triage, source proofs and all three fresh complete local gates](verification/clock-migration-integration-20261016-0350/README.md). Historical paired times remain in their earlier separately identified records; these new gate durations are not used as benchmark claims.
+- Gemini capture-clock preparation passes all 12 new boundary cases, complete default and feature Gemini tests, and strict dependent Clippy. Its broader affected tests/builds are still running; source review confirms original capture-age sample sites, bounds, Tokio timers and every old test preserved. Provider worker progress/shutdown design and the original 123 remaining-wait map continue independently.
+- #783's merged sweep remains with the eighth for loaded qualification/close. No workflow/profile/runner/settings/device change. No flaky retry or original assertion change.
+
+The original 123 combined serial under-two-minute result remains unproved.
+
 ## 2026-10-16 03:26 +0700 — Serve and Reporter PRs; seven Memory health tests measured
 
 Ready for lamp-voice: no (#909, #910 pending their own ARM64); #877, #894, #897 and #901 are merged

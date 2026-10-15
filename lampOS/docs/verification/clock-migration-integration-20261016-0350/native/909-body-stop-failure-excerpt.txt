@@ -1,0 +1,27 @@
+8804: lampOS — build and test on Linux ARM64 (4/4)	UNKNOWN STEP	2026-10-15T20:33:00.1624544Z         PASS [   0.005s] ( 101/1327) lamp-body runtime::supervisor::tests::identity_and_cleanup_receipts_fail_closed
+8805: lampOS — build and test on Linux ARM64 (4/4)	UNKNOWN STEP	2026-10-15T20:33:00.2386274Z         FAIL [   0.076s] ( 102/1327) lamp-body runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only
+8806: lampOS — build and test on Linux ARM64 (4/4)	UNKNOWN STEP	2026-10-15T20:33:00.2387066Z   stdout ───
+8807: lampOS — build and test on Linux ARM64 (4/4)	UNKNOWN STEP	2026-10-15T20:33:00.2387177Z 
+8808: lampOS — build and test on Linux ARM64 (4/4)	UNKNOWN STEP	2026-10-15T20:33:00.2387248Z     running 1 test
+8809: lampOS — build and test on Linux ARM64 (4/4)	UNKNOWN STEP	2026-10-15T20:33:00.2387607Z     test runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only ... FAILED
+8810: lampOS — build and test on Linux ARM64 (4/4)	UNKNOWN STEP	2026-10-15T20:33:00.2387955Z 
+8811: lampOS — build and test on Linux ARM64 (4/4)	UNKNOWN STEP	2026-10-15T20:33:00.2388021Z     failures:
+8812: lampOS — build and test on Linux ARM64 (4/4)	UNKNOWN STEP	2026-10-15T20:33:00.2388123Z 
+8813: lampOS — build and test on Linux ARM64 (4/4)	UNKNOWN STEP	2026-10-15T20:33:00.2388193Z     failures:
+8814: lampOS — build and test on Linux ARM64 (4/4)	UNKNOWN STEP	2026-10-15T20:33:00.2388494Z         runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only
+8815: lampOS — build and test on Linux ARM64 (4/4)	UNKNOWN STEP	2026-10-15T20:33:00.2388792Z 
+8816: lampOS — build and test on Linux ARM64 (4/4)	UNKNOWN STEP	2026-10-15T20:33:00.2389058Z     test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 158 filtered out; finished in 0.07s
+8817: lampOS — build and test on Linux ARM64 (4/4)	UNKNOWN STEP	2026-10-15T20:33:00.2389417Z 
+8818: lampOS — build and test on Linux ARM64 (4/4)	UNKNOWN STEP	2026-10-15T20:33:00.2389510Z   stderr ───
+8819: lampOS — build and test on Linux ARM64 (4/4)	UNKNOWN STEP	2026-10-15T20:33:00.2389654Z 
+8820: lampOS — build and test on Linux ARM64 (4/4)	UNKNOWN STEP	2026-10-15T20:33:00.2390133Z     thread 'runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only' (22202) panicked at crates/body/src/runtime/supervisor/tests.rs:151:14:
+8821: lampOS — build and test on Linux ARM64 (4/4)	UNKNOWN STEP	2026-10-15T20:33:00.2390956Z     called `Result::unwrap()` on an `Err` value: Custom { kind: InvalidData, error: "motor worker is stopping" }
+8822: lampOS — build and test on Linux ARM64 (4/4)	UNKNOWN STEP	2026-10-15T20:33:00.2391712Z     note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+8823: lampOS — build and test on Linux ARM64 (4/4)	UNKNOWN STEP	2026-10-15T20:33:00.2392000Z 
+8824: lampOS — build and test on Linux ARM64 (4/4)	UNKNOWN STEP	2026-10-15T20:33:00.2392086Z   Cancelling due to test failure
+8825: lampOS — build and test on Linux ARM64 (4/4)	UNKNOWN STEP	2026-10-15T20:33:00.2505681Z ────────────
+8826: lampOS — build and test on Linux ARM64 (4/4)	UNKNOWN STEP	2026-10-15T20:33:00.2506060Z      Summary [   9.040s] 102/1327 tests run: 101 passed, 1 failed, 3781 skipped
+8827: lampOS — build and test on Linux ARM64 (4/4)	UNKNOWN STEP	2026-10-15T20:33:00.2506657Z         FAIL [   0.076s] ( 102/1327) lamp-body runtime::supervisor::tests::inert_child_stop_timing_samples_are_host_ipc_only
+8828: lampOS — build and test on Linux ARM64 (4/4)	UNKNOWN STEP	2026-10-15T20:33:00.2507384Z warning: 1225/1327 tests were not run due to test failure (run with --no-fail-fast to run all tests, or run with --max-fail)
+8829: lampOS — build and test on Linux ARM64 (4/4)	UNKNOWN STEP	2026-10-15T20:33:00.2545548Z error: test run failed
+8830: lampOS — build and test on Linux ARM64 (4/4)	UNKNOWN STEP	2026-10-15T20:33:00.2574593Z ##[error]Process completed with exit code 100.

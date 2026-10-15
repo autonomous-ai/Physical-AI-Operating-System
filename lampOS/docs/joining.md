@@ -305,8 +305,14 @@ dependency had to be found by hand. Decided: yes, but as follows.
 - **Each commit in it is one the first builder would write:** one line,
   `lampOS: ...`, passing the gate on its own. Fold fix-ups into it on your
   branch before marking it ready.
-- **The native ARM64 run on the branch's head is green** before it is ready
-  (its run number in the body). The first builder installs that run's
+- **The native ARM64 run on the pull request's head is green** before it is
+  ready (its run number in the body). Since 2026-10-15 the run starts when
+  the pull request is opened, draft or not, and at each push to it; a newer
+  push cancels the older run. Pushes to `<name>/*` or `lamp-<name>` start
+  none: open the pull request as a draft to get one, or start it by hand
+  (Actions, "lampOS on ARM64", "Run workflow" on the branch). The run tests
+  the pull request merged with `lamp-voice`, and its artifact is named after
+  the pull request's head commit. The first builder installs that run's
   binaries on lamp-4ace for the minute with the switch off; it does not
   build them again.
 - **A known flaky test does not hold a piece back** (first builder,

@@ -50,3 +50,6 @@ lamp-expression = { path = "../expression" }
 # What decides progress news (`tests/progress_news.rs`): tested against,
 # never linked.
 lamp-policy = { path = "../policy" }
+# Paused runtime clock, as `lamp-gemini`'s: speech to text's wait for its
+# last words measured without the wait.
+tokio = { version = "=1.53.1", features = ["test-util"] }

@@ -111,8 +111,12 @@ A base URL on `campaign-api.autonomous.ai` ending in `/ai` is given `/v1`
   `keyterm=Lamp`, as V1 boosts the lamp's name: without it, on lamp-52e6,
   "Hey Lamp" came back as "Palin", "Palan" and "Len", and the model took
   the question for other people's talk. A keep-alive
-  every 5 s; `CloseStream` at the end of the line, and up to 15 s for the
-  final words. Only final segments are kept.
+  every 5 s; `CloseStream` at the end of the line. Only final segments are
+  kept. When the words are already settled at the end of the line (the
+  last final segment had `speech_final`, or final segments cover all the
+  audio sent, and no interim words or `SpeechStarted` came after it), they
+  are the transcript at once; otherwise up to 15 s for `CloseStream`'s
+  final words, as before (`Transcript::settled`).
 - **Text model** (`net/chat.rs`): `POST <base>/chat/completions`,
   `Authorization: Bearer <key>`, `"stream": true`, with `tools` when any are
   declared. The answer is read as server-sent events and cut into
@@ -148,6 +152,17 @@ length of the coordinator's line buffer, so a replayed line fits. At the
 end of the line: the person's words, then the chat answer, each sentence
 said as it is complete while the next is still being written. Sentence
 order is kept. A written turn is the same from the chat on.
+
+- **The chat starts without `CloseStream`'s round trip when it can.** It
+  never starts before the coordinator's end of the line: speech to text's
+  own end of an utterance comes after 1.5 s of silence and would answer a
+  person still thinking. But when that end, or final segments covering all
+  the audio, came before the line ended, the words held are the
+  transcript, and the chat starts as soon as the end of the line does.
+  Otherwise the words wait for `CloseStream`'s answer, up to 15 s. Host
+  tests on the paused clock (`net/stt.rs`): 0 ms to the words with a
+  `speech_final` before the end, against the scripted 800 ms round trip
+  without one. Not yet measured on a lamp.
 
 - **The first words go early.** Until some of the answer is on its way, a
   clause of at least four words ending in a comma, semicolon or colon is
@@ -268,6 +283,13 @@ to the first write to the speaker, 3.0 to 3.6 s for a plain question with no
 slow chat. The chat through the relay takes 1.2 s at best to its first
 event, with spikes to 7.7 s; speech to text gives its last words 0.6 to 0.9
 s after the line; speech starts 0.4 to 0.6 s after the chat's first event.
+Since then (#779, step 1) the chat no longer waits for that round trip when
+the words had settled before the line ended (see "A turn on the second
+route"); how often that is so on a lamp, and the time saved, is not yet
+measured. With `endpointing=1500` an utterance's end needs 1.5 s of
+silence, and the coordinator ends a line after 0.4 to 1.5 s of it
+(`coordinator/endpoint.rs`), so a `speech_final` will seldom come first:
+a lower `endpointing` is the knob that would make it, not yet tried.
 
 - First turn after a switch: the sentence starts within 1.2 s, and the
   answer follows with no gap longer than 0.5 s.

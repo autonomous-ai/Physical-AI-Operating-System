@@ -1078,9 +1078,11 @@ busy.
 - **The lamp's own news is replied to.** The first thing anyone says
   within 3 minutes of a turn the lamp began itself (a task's news, a
   reminder) is played, once, in every room. Its answers keep their 45 s.
-  The 3 minutes start when the turn's sound goes out. An own turn that ends
-  silent, or is cancelled before it speaks, opens none (the reviewer on
-  #918 at 05:11).
+  The 3 minutes start when the turn's first sound is handed on to be
+  played, owner-checked and with output credit. An own turn that ends
+  silent, is cancelled before it speaks, or whose sound a cancellation
+  drops while it waits for credit, opens none (the reviewer on #918 at
+  05:11 and 06:17).
 - **A question about the lamp's own work is for it.** "task", "reminder",
   "timer" or "alarm" in what was heard, within 10 minutes of the lamp's
   news or of it starting a task, a timer or a reminder, is played in
@@ -1146,8 +1148,10 @@ Tests:
   (the reply of 04:58);
 - `an_own_turn_that_said_nothing_is_no_news_to_reply_to`, and through the
   worker's own loop `news_the_lamp_spoke_is_replied_to`,
-  `an_own_turn_completed_silent_is_no_news` and
-  `an_own_turn_cancelled_before_it_spoke_is_no_news`;
+  `an_own_turn_completed_silent_is_no_news`,
+  `an_own_turn_cancelled_before_it_spoke_is_no_news`,
+  `news_whose_sound_waited_for_credit_and_then_went_is_replied_to` and
+  `news_whose_sound_a_cancellation_dropped_before_it_went_is_no_news`;
 - `with_the_switch_the_lamps_news_is_replied_to_and_its_work_asked_about`
   and `with_the_switch_a_held_request_is_not_talk_and_busy_ends_after_the_last_talk`
   (the day scene, in the rule and in the room);

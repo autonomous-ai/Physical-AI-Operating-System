@@ -709,10 +709,12 @@ impl Attention {
         self.spoken_to
     }
 
-    /// The lamp's own turn `request` began to be heard at `at_us`: its sound
-    /// went out. Only then is it news someone can reply to (#918, the
-    /// reviewer at 05:11): an own turn that ends silent, or is cancelled
-    /// before it speaks, opens no window. Once per turn.
+    /// The lamp's own turn `request` began to be heard at `at_us`: its first
+    /// sound was handed on to be played. Only then is it news someone can
+    /// reply to (#918, the reviewer at 05:11 and 06:17): an own turn that
+    /// ends silent, is cancelled before it speaks, or whose sound a
+    /// cancellation drops while it waits for output credit, opens no
+    /// window. Once per turn.
     pub fn spoke(&mut self, request: u64, at_us: u64) {
         if self.spoken_to
             && request == self.request

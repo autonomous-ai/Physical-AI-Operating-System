@@ -1558,6 +1558,13 @@ async fn serve_with_visual<C: Connect>(
                     let queue = if urgent.is_empty() { &mut output } else { &mut urgent };
                     let Some(front)=queue.front() else {break;};
                     if intake.output_flow.try_send(|| channels.data.send(front))? {
+                        // The lamp's own news is news once its sound has been
+                        // handed on, owner-checked and credited (#829, #918):
+                        // not when it was heard from the service, nor sound
+                        // a cancellation dropped before it went.
+                        if let Some(Outbound::Output(ProviderOutput::Audio { request, .. })) = queue.front() {
+                            attention.spoke(*request, monotonic_us());
+                        }
                         queue.pop_front();
                     } else { break; }
                 }
@@ -1641,14 +1648,6 @@ async fn serve_with_visual<C: Connect>(
                                 && let Some(why) = attention.unclear(request)
                             {
                                 output.push_back(Outbound::Output(ProviderOutput::Unclear { request, why: why.to_owned() }));
-                            }
-                            // The lamp's own news is news once its sound
-                            // goes out (#829, #918): not the sound of a turn
-                            // already retired, which is never played.
-                            if matches!(event, Event::Audio { .. })
-                                && request > intake.handoff.retired_through
-                            {
-                                attention.spoke(request, monotonic_us());
                             }
                             // A request whose answer is held is not talk
                             // between people (#829).

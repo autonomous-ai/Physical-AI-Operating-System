@@ -197,7 +197,10 @@ pub fn take_passing(flags: &[String]) -> (bool, &[String]) {
 /// in every room, an answer is played only when something shows the lamp
 /// was spoken to: its name, a face turned to it, a conversation with it
 /// going on, or a person close to it and turned to it; or the lamp began
-/// the turn itself.
+/// the turn itself. A reply to the lamp's own news, and a question about
+/// its own work, are played too ([`NEWS_REPLY_US`], [`about_its_work`]).
+/// And only talk between people makes the room busy
+/// (`crate::room_told::RoomTold::count_only_talk`).
 pub const SPOKEN_TO_ENVIRONMENT: &str = "LAMP_SPOKEN_TO";
 /// The provider worker's flag for it, right after [`PASSING_FLAG`].
 pub const SPOKEN_TO_FLAG: &str = "--spoken-to";
@@ -227,6 +230,38 @@ pub fn take_spoken_to(flags: &[String]) -> (bool, &[String]) {
 /// Why an answer is held when nothing shows the lamp was spoken to.
 pub const NOT_SPOKEN_TO: &str =
     "nobody spoke to the lamp: no name, nobody turned to it, no conversation with it going on";
+
+/// With the switch, the first thing anyone says this soon after the lamp's
+/// own news (a turn it began itself: a task's news, a reminder) is a reply
+/// to it, in every room. On lamp-4ace on 16 October at 02:30, "How is that
+/// task going?" came 45.3 s after the news, past the 45 s an answer keeps
+/// a conversation going, and was held; people take a while to come back.
+pub const NEWS_REPLY_US: u64 = 180_000_000;
+const AFTER_NEWS: &str = "the first thing said after the lamp's own news";
+
+/// With the switch, a question about the lamp's own work
+/// ([`about_its_work`]) is for it this long after the lamp's news, or after
+/// it started a task, a timer or a reminder.
+pub const WORK_ASKED_US: u64 = 600_000_000;
+const ABOUT_ITS_WORK: &str = "a question about the lamp's own task, reminder or timer";
+
+/// Whether what was heard speaks of the lamp's own work: a task, a
+/// reminder, a timer or an alarm ("How is that task going?").
+pub fn about_its_work(heard: &str) -> bool {
+    const WORK: [&str; 8] = [
+        "task",
+        "tasks",
+        "reminder",
+        "reminders",
+        "timer",
+        "timers",
+        "alarm",
+        "alarms",
+    ];
+    heard
+        .split(|c: char| !c.is_alphanumeric())
+        .any(|word| WORK.iter().any(|work| word.eq_ignore_ascii_case(work)))
+}
 
 /// Where the coordinator reads whether the model is asked to say when it
 /// hears the lamp's name. `on` only. A measurement switch: it changes
@@ -592,6 +627,11 @@ pub struct Attention {
     /// An answer is played only when the lamp was spoken to
     /// (`LAMP_SPOKEN_TO=on`, #829).
     spoken_to: bool,
+    /// When the lamp's own news last began, until something said after it
+    /// has been judged; and when it last did work of its own: its news, or
+    /// a task, a timer or a reminder it started. With `spoken_to` only.
+    news_us: Option<u64>,
+    worked_us: Option<u64>,
 }
 
 /// The most text kept for one request.
@@ -616,10 +656,20 @@ impl Attention {
         self.spoken_to
     }
 
+    /// The lamp started a task, a timer or a reminder at `at_us`, by this
+    /// process's clock.
+    pub fn worked(&mut self, at_us: u64) {
+        self.worked_us = Some(self.worked_us.map_or(at_us, |before| before.max(at_us)));
+    }
+
     /// A request began on `session`, at `now_us`.
     pub fn began_at(&mut self, request: u64, session: u64, now_us: u64) {
         self.began(request, session);
         self.began_us = Some(now_us);
+        if self.spoken_to && OWN_REQUEST.load(Ordering::Acquire) == request {
+            self.news_us = Some(now_us);
+            self.worked(now_us);
+        }
         self.named = self
             .named_us
             .is_some_and(|named| named.saturating_add(NAME_BEFORE_US) >= now_us);
@@ -887,6 +937,30 @@ impl Attention {
             let verdict = Verdict::Play(TAPPED);
             self.verdict = Some(verdict);
             return Some(verdict);
+        }
+        // #829, with the switch, in every room: the first thing said after
+        // the lamp's own news is a reply to it, and a question about its
+        // own work is for it.
+        if self.spoken_to
+            && !own
+            && let Some(began) = self.began_us
+        {
+            let since = |at: Option<u64>| at.filter(|at| *at <= began).map(|at| began - at);
+            let news = since(self.news_us.take());
+            let why = if news.is_some_and(|ago| ago <= NEWS_REPLY_US) {
+                Some(AFTER_NEWS)
+            } else if since(self.worked_us).is_some_and(|ago| ago <= WORK_ASKED_US)
+                && about_its_work(&self.heard)
+            {
+                Some(ABOUT_ITS_WORK)
+            } else {
+                None
+            };
+            if let Some(why) = why {
+                let verdict = Verdict::Play(why);
+                self.verdict = Some(verdict);
+                return Some(verdict);
+            }
         }
         if strict && room == Room::Busy && self.named_sure {
             let verdict = Verdict::Play(NAMED_PLAINLY);
@@ -1560,8 +1634,77 @@ mod tests {
         assert_eq!(trusted(true), Verdict::Hold(NOT_SPOKEN_TO));
     }
 
-    /// The switch only ever holds: what the rule holds stays held with it,
-    /// and the lamp's own turn is always played.
+    /// #829, the first builder's day scene (16 October, 02:30), in the
+    /// busy room two people had left: "How is that task going?" 45.3 s
+    /// after the lamp's news was held, and so was everything after it.
+    /// With the switch the first thing said within three minutes of the
+    /// news is a reply to it, once; and a question about the lamp's own
+    /// work is for it for ten minutes. Without it, both are held.
+    #[test]
+    fn with_the_switch_the_lamps_news_is_replied_to_and_its_work_asked_about() {
+        const S: u64 = 1_000_000;
+        let day = |spoken_to: bool| {
+            let mut attention = Attention::default();
+            attention.speak_when_spoken_to(spoken_to);
+            // The lamp's news of the task it was given.
+            OWN_REQUEST.store(7_829, Ordering::Release);
+            attention.began_at(7_829, 4, 100 * S);
+            assert_eq!(
+                attention.first_output_busy(7_829, Room::Busy, false, true, None),
+                Some(Verdict::Play("the lamp began this turn itself"))
+            );
+            OWN_REQUEST.store(0, Ordering::Release);
+            let mut judge = |request: u64, at: u64, heard: &str| {
+                attention.began_at(request, 4, at * S);
+                attention.heard(heard);
+                attention
+                    .first_output_busy(request, Room::Busy, false, true, None)
+                    .unwrap()
+            };
+            [
+                // 45.3 s after the news began to be said.
+                judge(1, 146, "How is that task going?"),
+                // The window is spent: what follows is judged as before.
+                judge(2, 150, "What's my favorite color?"),
+                // Still about the lamp's own work, within ten minutes.
+                judge(3, 400, "Is the timer still running?"),
+                // Not about it.
+                judge(4, 410, "What time is it?"),
+                // About work, too long after.
+                judge(5, 800, "Did the task finish?"),
+            ]
+        };
+        let held = Verdict::Hold(
+            "a busy room, and nothing shows it was called or that anyone is turned to the lamp",
+        );
+        assert_eq!(
+            day(true),
+            [
+                Verdict::Play(AFTER_NEWS),
+                held,
+                Verdict::Play(ABOUT_ITS_WORK),
+                held,
+                held
+            ]
+        );
+        assert_eq!(day(false), [held; 5]);
+        // A task started is work too.
+        let mut attention = Attention::default();
+        attention.speak_when_spoken_to(true);
+        attention.worked(10 * S);
+        attention.began_at(9, 4, 300 * S);
+        attention.heard("Did you set the reminder?");
+        assert_eq!(
+            attention.first_output(9, Room::Quiet, false),
+            Some(Verdict::Play(ABOUT_ITS_WORK))
+        );
+        assert!(about_its_work("How is that TASK going?"));
+        assert!(!about_its_work("I'll ask him about it."));
+    }
+
+    /// Apart from a reply to the lamp's news and a question about its
+    /// work, the switch only holds: what the rule holds stays held with
+    /// it, and the lamp's own turn is always played.
     #[test]
     fn the_spoken_to_switch_never_plays_what_the_rule_holds() {
         let mut attention = Attention::default();

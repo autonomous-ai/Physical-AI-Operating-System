@@ -1056,9 +1056,32 @@ shows the lamp was spoken to:
 Otherwise it is held, for the reason "nobody spoke to the lamp: no name,
 nobody turned to it, no conversation with it going on", and so is every
 lamp action its answer calls for: the call is answered and never reaches
-the executive, as in a busy room. The switch only ever holds: what the
-rule holds without it stays held. A short sound let through in a quiet
+the executive, as in a busy room. A short sound let through in a quiet
 room (#800, above) keeps its own rule.
+
+The first builder's day scene (#829, 02:39 on 16 October) adds three
+things, under the same switch. Played straight after the two-person
+scenes, one person alone was answered while each line came within 45 s
+of the lamp's last words. "How is that task going?" came 45.3 s after the
+lamp's news that its task was done, and was held. From then on nothing
+was answered: each held line counted as more talk, so the room stayed
+busy.
+- **Only talk between people makes a room busy** (`room_told.rs`). A
+  request whose answer the rule held is not talk, as a sound is not. Busy
+  ends 3 minutes after the last thing left unanswered that counts,
+  whatever one person says meanwhile, instead of only after 5 minutes with
+  nothing heard. Whether two voices are speaking is not known: that needs
+  the same-voice part (#865) on the lamp.
+- **The lamp's own news is replied to.** The first thing anyone says
+  within 3 minutes of a turn the lamp began itself (a task's news, a
+  reminder) is played, once, in every room. Its answers keep their 45 s.
+- **A question about the lamp's own work is for it.** "task", "reminder",
+  "timer" or "alarm" in what was heard, within 10 minutes of the lamp's
+  news or of it starting a task, a timer or a reminder, is played in
+  every room.
+
+Beyond those two, the switch only holds: what the rule holds without it
+stays held.
 
 What it would have cost (lamp-4ace's first-output records of 15 October,
 13:01 to 16:07, 69 decisions; [the evidence](verification/spoken-to-20261016/README.md)):
@@ -1085,6 +1108,9 @@ Tests:
   `a_turn_nobody_said_to_the_lamp_never_changes_the_lamp` and
   `the_same_turn_with_the_lamps_name_changes_the_lamp` (the worker's own
   loop: volume, mute and light);
+- `with_the_switch_the_lamps_news_is_replied_to_and_its_work_asked_about`
+  and `with_the_switch_a_held_request_is_not_talk_and_busy_ends_after_the_last_talk`
+  (the day scene, in the rule and in the room);
 - the flag's place among the worker's flags (`addressed.rs`, and
   `both_workers_take_the_spoken_to_flag_in_its_place`).
 

@@ -1143,6 +1143,10 @@ async fn serve_with_visual<C: Connect>(
     attention.ask_again_when_unclear(options.attention.is_some() && options.ask_unclear);
     attention.ignore_name_in_passing(options.name_in_passing_ignored);
     attention.speak_when_spoken_to(spoken_to);
+    // With it, only talk between people makes the room busy (#829).
+    if let Ok(mut room) = crate::room_told::ROOM.lock() {
+        room.count_only_talk(spoken_to);
+    }
     // The record of whom it answered, off unless set.
     let mut first_output = FIRST_OUTPUT.get().and_then(|directory| {
         match crate::first_output::FirstOutputLog::open(directory) {
@@ -1638,6 +1642,13 @@ async fn serve_with_visual<C: Connect>(
                             {
                                 output.push_back(Outbound::Output(ProviderOutput::Unclear { request, why: why.to_owned() }));
                             }
+                            // A request whose answer is held is not talk
+                            // between people (#829).
+                            if matches!(verdict, Some(crate::attention::Verdict::Hold(_)))
+                                && let Ok(mut told) = crate::room_told::ROOM.lock()
+                            {
+                                told.held(request);
+                            }
                             if let (Some(log), Some(verdict)) = (first_output.as_mut(), verdict) {
                                 let (play, reason) = match verdict {
                                     crate::attention::Verdict::Play(why) => (true, why),
@@ -1715,6 +1726,14 @@ async fn serve_with_visual<C: Connect>(
                     })),
                     Ok(Notice::Event(Event::ToolCall { lineage, call })) => {
                         let held = attention.holds(lineage.request.get());
+                        // The lamp's own work, for a question about it
+                        // later (#829).
+                        if !held
+                            && (crate::agent_tasks::is_tool(&call.name)
+                                || crate::tools::is_schedule_tool(&call.name))
+                        {
+                            attention.worked(monotonic_us());
+                        }
                         // The turn, for the Policy's decision about it (#800):
                         // none for a turn the lamp wrote itself. Its name is
                         // known here with the rule for whom it answers, which

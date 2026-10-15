@@ -66,3 +66,28 @@ Ready for lamp-voice: no
   it fails (#880, eighth).
 - To do: ring, voice microphone; the speaker's tone and the servos' small
   move as before.
+
+## 2026-10-16 — #812, ring and voice microphone; first run on lamp-75c9
+
+Ready for lamp-voice: no (draft #827, to be marked ready when its ARM64 run on `090bfb98e` is green)
+
+- On `ten/selftest`: `d7d2cc2e3` the ring (ten colours at the factory and
+  on demand, the person's own light put back; listened to only at first
+  boot), `31c31fa5d` the voice microphone (a second of `mic2/audio`),
+  `f427f3573` storage needs `CAP_SYSLOG` where `dmesg_restrict` is set,
+  `090bfb98e` the evidence. Gate on a Linux x86_64 laptop: fmt and clippy
+  clean, `lamp-selftest` 25 + 1 tests passed, workspace built. ARM64
+  38776559424 green at `31c31fa5d`.
+- **On lamp-75c9**, once, under its lock: that run's binary (SHA-256
+  `c1b06fbd…11ff6e`) in `~orangepi/ten-selftest/bin/<sha256>/`, not
+  `/opt/lampOS/` (sudo needs a password there), run as `orangepi` on an
+  empty bus of its own, first-boot and on-demand. Both: every part
+  `not_checked` with its reason, exit 3, 2.0 s; nothing lit or moved. The
+  lamp runs only V1 (`hal.service`), so no part had a reading to judge.
+  `docs/verification/selftest-lamp-75c9-20261016/`.
+- Not shown: any pass or fail against a real reading; the ring's colours
+  on a ring; the storage count with `CAP_SYSLOG`. Speaker and servo move
+  still to do.
+- Found, not mine: the lease lock (`91a75ad64`) took an old-format lock as
+  expired, so nine replaced ten's lock 2 s after it was taken (on #880);
+  fixed in `1ccfa74b6`.

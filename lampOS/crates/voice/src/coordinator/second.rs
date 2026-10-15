@@ -847,6 +847,7 @@ mod tests {
                     turn_taking: TurnTaking::VadOnly,
                     playout_start: PlayoutStart::default(),
                     endpoint: None,
+                    cut_keeps_name: false,
                     paused: Box::new(|| false),
                 },
                 cloud,

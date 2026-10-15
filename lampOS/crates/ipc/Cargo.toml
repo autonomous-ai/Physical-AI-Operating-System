@@ -17,3 +17,7 @@ workspace = true
 [[test]]
 name = "relay_signals"
 harness = false
+
+[[test]]
+name = "relay_exit"
+harness = false

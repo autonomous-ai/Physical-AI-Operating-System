@@ -359,9 +359,9 @@ two can be compared without a sound:
 
 `--hand-overs ROUNDS` runs #854's requests instead (`tool_turns::HAND_OVERS`):
 a story asked of Claude Code, the comma version, the plain imperative, a
-poem, one asked in the middle of a story the lamp is telling, one asked again
-after the lamp told it, and a story asked of the lamp itself, which is the
-only one it should not hand over. Each summary line counts per request how
+poem, one asked in the middle of a story the lamp is telling, one asked of
+Claude Code after the lamp told a story itself, and a story asked of the lamp
+itself, which is the only one it should not hand over. Each summary line counts per request how
 often the model called `start_agent_task` (`as_expected`), and says
 `asked_switch`:
 

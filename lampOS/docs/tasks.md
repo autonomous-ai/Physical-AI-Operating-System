@@ -741,9 +741,15 @@ With `LAMP_TASKS_ASKED=on` (the provider worker's `--tasks-asked`, after
 - A new session is told the same after the persona, which asks for stories
   to be told gladly (`agent_tasks::session_note`), on the Live route and on
   the second voice alike.
-- With two or more staff, `who` may also be "not sure": nothing is prepared,
-  and the model is told to ask "Claude Code or Codex?" and call again with
-  the answer. A name that is none of the staff is refused as before.
+- With two or more staff, a name the model could not quite make out is
+  given as the one it thinks was meant, with no question about it first:
+  the task said back names who will do it and waits for a yes, so the person
+  can put it right ("No, Codex."). A "not sure" choice that asked "Claude
+  Code or Codex?" was tried first: on lamp-4ace at 21:33 the model never took
+  it, guessed, and asked about its guess before the read-back as well, so
+  twice. The model hears the sound, so a garbled name in the transcript is
+  often a name said clearly, and a question every time would cost a turn for
+  nothing. A name that is none of the staff is refused as before.
 - What is prepared, confirmed and sent to the tasks part is unchanged.
 
 Without the switch every function and session is as before

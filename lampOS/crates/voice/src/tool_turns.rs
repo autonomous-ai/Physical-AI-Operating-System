@@ -105,7 +105,8 @@ const STORY_ASKED: &str = "Hey Lamp, can you ask Claude Code to write a short st
 /// without: how often the model hands each over to Claude Code, and how
 /// often it does the work itself. On lamp-4ace on 2026-10-15 the first two
 /// were told as stories by the lamp, and a story already under way was
-/// carried on when asked again. The last is a story asked of the lamp
+/// carried on when asked again (`mid_story`, `after_own_story`). The last
+/// is a story asked of the lamp
 /// itself, which it should tell. The words are the ones played there; the
 /// model reads them here, where on the lamp it heard them.
 pub const HAND_OVERS: &[Scripted] = &[
@@ -139,10 +140,17 @@ pub const HAND_OVERS: &[Scripted] = &[
             "Now ask Claude Code to write chapters two and three.",
         ],
     },
+    // Asked of Claude Code after the lamp told the story itself, as on
+    // lamp-4ace, where it went on with the story. (Asked again after a
+    // hand-over, as this first was, it is a yes, and `confirm_agent_task`
+    // is right: on lamp-4ace at 21:11 to 21:27 it counted 0 of 9 for that.)
     Scripted {
-        label: "asked_again",
+        label: "after_own_story",
         expects: Some(crate::agent_tasks::START),
-        lines: &[STORY_ASKED, "Ask Claude Code to write it, please."],
+        lines: &[
+            "Tell me a very short story about a lamp who learns to sing.",
+            "Actually, ask Claude Code to write that story instead, a longer one.",
+        ],
     },
     Scripted {
         label: "own_story",

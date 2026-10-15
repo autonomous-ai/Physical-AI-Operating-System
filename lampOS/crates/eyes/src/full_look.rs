@@ -46,8 +46,11 @@ pub const SETTLE_AT_MOST_US: u64 = 2_000_000;
 /// No still this long after the ask: there is none for it.
 pub const GIVE_UP_US: u64 = 2_500_000;
 /// A still is on the lamp no longer than this: the voice service reads it
-/// for the one request it was taken for.
-pub const KEPT_US: u64 = 3_000_000;
+/// for the one request it was taken for, once the lamp has finished saying
+/// it will look, and drops a look that has not begun 15 s after it said so
+/// (`lamp_voice::sight::LOOK_BEGINS_WITHIN`). At 3 s, as first built, a
+/// look that went later than that went without its still (#842).
+pub const KEPT_US: u64 = 15_000_000;
 /// The still's longer side at most. What a model is shown is scaled to
 /// about this anyway, and a picture this size fits the provider's bound.
 pub const LONGEST_SIDE: usize = 1_024;

@@ -128,7 +128,14 @@ giving the model one with everything said was switched off).
   with this ask's id, or at most 2.6 s after the lamp said it would look
   (`look_full_still` in the record, with how long after and whether the
   still was there). The worker is started with `--eyes-look-full` after
-  `--eyes-look PATH` and takes a picture up to 3 s old instead of 1 s. The
+  `--eyes-look PATH` and takes a picture up to 15 s old instead of 1 s
+  (`FULL_FRESH`, as long as a look may wait to begin, and as long as the
+  eyes keep the still; at 3 s a look that began late went without it, #842).
+  A full look that goes without its still says so in one journal line,
+  "a full look went without its still: asked for ID, the file held ..., N
+  ms old" (nothing, another ask's still, or a picture with no id; no
+  picture), and a worker that finds no picture to send says "the lamp
+  looked: no picture with request N: WHY". The
   note (`LOOK_FULL_NOTE`) adds: "If you cannot make out what they are
   showing you, say so plainly and ask them to hold it a bit closer to you;
   never guess what it might be." A full look without its own still goes

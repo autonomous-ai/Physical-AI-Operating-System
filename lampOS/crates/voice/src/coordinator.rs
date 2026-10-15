@@ -4732,7 +4732,11 @@ fn conversation_with_gate(
             match reply.as_ref().map(|current| current.owner.turn()) {
                 Some(current) if current == turn => {}
                 Some(_) => look_wanted = None,
-                None if clock.saturating_sub(asked_us) > 15_000_000 => look_wanted = None,
+                None if clock.saturating_sub(asked_us)
+                    > crate::sight::LOOK_BEGINS_WITHIN.as_micros() as u64 =>
+                {
+                    look_wanted = None
+                }
                 None => {
                     if look.due(waited)
                         && provider_queue.is_empty()
@@ -4743,6 +4747,12 @@ fn conversation_with_gate(
                     {
                         look_wanted = None;
                         let (note, with_picture) = look.turn();
+                        if look.full() && !with_picture {
+                            eprintln!(
+                                "lamp-voice: a full look went without its still: {}",
+                                look.missing(std::time::SystemTime::now())
+                            );
+                        }
                         if look.full() {
                             record(
                                 trace,

@@ -46,9 +46,15 @@ pub const LOOK_ENVIRONMENT: &str = "LAMP_EYES_LOOK_FILE";
 /// told with a flag after the look's path.
 pub const LOOK_FULL_ENVIRONMENT: &str = "LAMP_LOOK_FULL";
 pub const LOOK_FULL_FLAG: &str = "--eyes-look-full";
-/// How old a full look's still may be when the look goes: it is taken while
-/// the lamp is still saying it will look, and the eyes keep it no longer.
-pub const FULL_FRESH: Duration = Duration::from_secs(3);
+/// A look that has not begun this long after the lamp said it would look
+/// is dropped.
+pub const LOOK_BEGINS_WITHIN: Duration = Duration::from_secs(15);
+/// How old a full look's still may be when the look goes. It is taken while
+/// the lamp is still saying it will look, and the look goes once the lamp
+/// has finished saying so, up to [`LOOK_BEGINS_WITHIN`] later; the eyes keep
+/// it as long. At 3 s, as first built, a look that went more than 3 s after
+/// its still was made went without it (#842, lamp-4ace 03:57).
+pub const FULL_FRESH: Duration = LOOK_BEGINS_WITHIN;
 /// How long the look waits for the still after the lamp said it would
 /// look, at most: the eyes give it up after 2.5 s.
 pub const STILL_WAIT: Duration = Duration::from_millis(2_600);
@@ -197,6 +203,31 @@ impl Look {
             .is_some_and(|(path, (_, id))| {
                 std::fs::read(path).is_ok_and(|jpeg| still_id(&jpeg) == Some(id))
             })
+    }
+
+    /// For the journal, when a full look goes without its still: the id
+    /// asked for, what the file held instead and how old it was. No picture.
+    pub fn missing(&self, now: SystemTime) -> String {
+        let asked = self.asked.map_or(0, |(_, id)| id);
+        let Some(path) = self.full.as_deref() else {
+            return format!("asked for {asked}, no file");
+        };
+        let held = match std::fs::read(path) {
+            Err(_) => return format!("asked for {asked}, the file held nothing"),
+            Ok(jpeg) => match still_id(&jpeg) {
+                Some(id) => format!("the still of ask {id}"),
+                None => "a picture with no ask's id".to_owned(),
+            },
+        };
+        let age = std::fs::metadata(path)
+            .and_then(|about| about.modified())
+            .ok()
+            .and_then(|at| now.duration_since(at).ok())
+            .unwrap_or_default();
+        format!(
+            "asked for {asked}, the file held {held}, {} ms old",
+            age.as_millis()
+        )
     }
 
     /// Whether the look may go, `waited` after the lamp said it would look:
@@ -551,6 +582,34 @@ mod tests {
     }
 
     #[test]
+    fn a_full_look_without_its_still_says_in_one_line_what_the_file_held() {
+        let directory = scratch("full-look-missing");
+        let path = directory.join("look.jpg");
+        let mut look = Look::new(Some(path.clone()));
+        let id = look.ask(3).unwrap();
+        let now = SystemTime::now();
+        assert_eq!(
+            look.missing(now),
+            format!("asked for {id}, the file held nothing")
+        );
+        std::fs::write(&path, still_of(id - 1)).unwrap();
+        let written = std::fs::metadata(&path).unwrap().modified().unwrap();
+        assert_eq!(
+            look.missing(written + Duration::from_millis(3_200)),
+            format!(
+                "asked for {id}, the file held the still of ask {}, 3200 ms old",
+                id - 1
+            )
+        );
+        std::fs::write(&path, b"\xff\xd8\xff\xdb\x00\x02").unwrap();
+        let line = look.missing(SystemTime::now());
+        assert!(line.contains("a picture with no ask's id"), "{line}");
+        // The look's whole wait fits the still's life on the lamp.
+        assert!(FULL_FRESH >= LOOK_BEGINS_WITHIN);
+        std::fs::remove_dir_all(&directory).unwrap();
+    }
+
+    #[test]
     fn a_full_look_s_still_may_be_older_than_a_working_frame() {
         let directory = scratch("full-fresh");
         let path = directory.join("sight.jpg");
@@ -562,7 +621,17 @@ mod tests {
             fresh_within(&path, later, FULL_FRESH).unwrap().0,
             b"still".to_vec()
         );
-        assert!(fresh_within(&path, written + Duration::from_millis(3_001), FULL_FRESH).is_err());
+        // #842: a look that begins more than 3 s after its still was made,
+        // the lamp still saying it would look, still takes it.
+        assert!(fresh_within(&path, written + Duration::from_millis(5_100), FULL_FRESH).is_ok());
+        assert!(
+            fresh_within(
+                &path,
+                written + FULL_FRESH + Duration::from_millis(1),
+                FULL_FRESH
+            )
+            .is_err()
+        );
         let flags = vec![LOOK_FULL_FLAG.to_owned(), "--camera-context".to_owned()];
         assert_eq!(take_look_full(&flags), (true, &flags[1..]));
         std::fs::remove_dir_all(&directory).unwrap();

@@ -102,3 +102,26 @@ Ready for lamp-voice: no
 - Paused at the person's request (end of the day). Next: steps 2 to 4 as
   offline.md says. #815 (#811) waits for the second's review.
 - lamp-75c9: lock free, not held.
+
+## 2026-10-16 — no internet at home (#830) — the voice starts offline
+
+Ready for lamp-voice: no (draft #884)
+
+- Session b418fcd1. `nine/offline` rebased on `lamp-voice` `416efbc43`;
+  new commit `4a257f515`: with `LAMP_START_OFFLINE=on` a voice service
+  started with no internet keeps listening past its 25 s startup budget once
+  its microphone is retained, and becomes ready when the link comes up.
+  Kind: off unless set; with it off the budget is unchanged (tested).
+- Gate on the laptop (Linux x86_64): fmt clean, clippy `-p lamp-voice
+  --all-targets` clean, workspace builds; `lamp-voice` lib 1149 passed,
+  8 failed, 8 ignored. All 8 also fail on unchanged `lamp-voice`: 5
+  `coordinator::motor::tests` (#739's family), 3 `provider_worker::tests::
+  reminders` (shared `room_told::ROOM`, filed as #882; 12/12 serially).
+- Not shown: a run with the network cut, on a host or a lamp.
+- lamp-75c9: the person gave it to nine for this session (role file still
+  says none; `builders/eighth.md` names it the eighth's; no `LAMP.md`).
+  At 00:18:33 nine's `try` with `eighth/lamp-lock`'s script replaced ten's
+  lock as "expired (1792084713s without renewal)"; the eighth's own test
+  then removed the lock at 00:19:50. Nine read only (units: `hal`,
+  `os-server`, `lamp-cmedia-speaker`; no `/opt/lampOS`), changed nothing,
+  and does not hold the lock. Told the eighth.

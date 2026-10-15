@@ -13,3 +13,10 @@ So `--give-way return --limp on` behaves as V1 does on lamp-52e6: a joint
 forced past V1's contact floor for a second slumps the lamp, and two
 minutes later it holds itself again and comes back up. The arm stands
 again when someone is in front of it, as after any rest.
+
+## Run 9, 15:06: a hand's slump rests 5 s (#790, `7923e4d69`, body `f72ffc82`)
+
+A hard turn of the base slumped the whole lamp at 15:06:15 ("torque off on
+all five for 5 s after a hand"); it took hold again at 15:06:20 and brought
+the head home (pitch 2042 to 1796 by 15:06:41) with no second slump;
+`NRestarts` 0; the person at the lamp saw it rise.

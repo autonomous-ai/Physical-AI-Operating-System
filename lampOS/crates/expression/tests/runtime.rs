@@ -48,9 +48,10 @@ fn voice(at_us: u64) -> VoiceTiming {
 
 /// Publishes the fixture's inputs and returns the wall clock just after:
 /// a test steps with it, so a loaded machine's delay before the step cannot
-/// age them past their freshness (#844 review). The joints go last: theirs is
-/// the shortest limit (500 ms), so a stall between publishes ages only inputs
-/// allowed 2 s.
+/// age them past their freshness (#844 review, #912). Loosest limit first:
+/// the light (a setting, no age), the voice (500 ms), the joints (300 ms in
+/// the engine) last. A stall between the voice and the clock read longer
+/// than 500 ms still fails (docs/realtime-tests.md).
 fn populate(bus: &Bus, at_us: u64) -> u64 {
     let joints = JointState {
         name: ["base_yaw", "shoulder", "elbow", "head_roll", "head_pitch"]
@@ -513,6 +514,11 @@ mod sleep_name {
             let mut timing = voice(self.now_us);
             timing.stamp.sequence = self.now_us + 1;
             timing.state = self.state;
+            // Loosest limit first, strictest last (#912): the room (2 s),
+            // the voice and the faces (500 ms), the joints (300 ms).
+            self.room
+                .publish_json(987_654_321, &RoomState { state: Room::Quiet })
+                .unwrap();
             self.voice
                 .publish_json(
                     987_654_321,
@@ -525,9 +531,6 @@ mod sleep_name {
                 .unwrap();
             self.faces
                 .publish_json(987_654_321, &Faces { faces: vec![] })
-                .unwrap();
-            self.room
-                .publish_json(987_654_321, &RoomState { state: Room::Quiet })
                 .unwrap();
             self.joints
                 .publish_json(
@@ -543,8 +546,7 @@ mod sleep_name {
                     },
                 )
                 .unwrap();
-            // The wall clock just after publishing, joints last, as
-            // `populate` gives it.
+            // The wall clock just after publishing, as `populate` gives it.
             let wall = runtime::unix_ms();
             let output = self.service.step(|| self.now_us, wall);
             assert_eq!(self.service.counts.refused, 0);

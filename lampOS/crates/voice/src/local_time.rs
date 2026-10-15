@@ -227,20 +227,49 @@ const NUMBERS: [&str; 31] = [
     "half",
 ];
 
-/// A time on a twelve-hour clock as it is said: "six o'clock", "twenty-three
-/// past six", "quarter to seven".
+/// A time on a twelve-hour clock as people say it: "six o'clock", a whole
+/// five as past or to ("ten past six", "quarter to seven", "twenty-five to
+/// one"), and any other minute as the clock reads ("six twenty-three",
+/// "twelve forty-two", "six oh seven"). On lamp-4ace on 2026-10-16 at 00:42
+/// the lamp said "eighteen to one at night", which nobody says.
 fn aloud(hour: i64, minute: i64) -> String {
     let next = hour % 12 + 1;
+    let hour_word = NUMBERS[hour as usize];
     match minute {
-        0 => format!("{} o'clock", NUMBERS[hour as usize]),
-        1..=30 => format!(
-            "{} past {}",
-            NUMBERS[minute as usize], NUMBERS[hour as usize]
-        ),
-        _ => format!(
+        0 => format!("{hour_word} o'clock"),
+        5 | 10 | 15 | 20 | 25 | 30 => format!("{} past {hour_word}", NUMBERS[minute as usize]),
+        35 | 40 | 45 | 50 | 55 => format!(
             "{} to {}",
             NUMBERS[(60 - minute) as usize],
             NUMBERS[next as usize]
+        ),
+        1..=9 => format!("{hour_word} oh {}", NUMBERS[minute as usize]),
+        _ => format!("{hour_word} {}", minute_words(minute)),
+    }
+}
+
+/// A minute from 10 to 59 as it is read off a clock: "eleven", "forty-two".
+fn minute_words(minute: i64) -> String {
+    const TENS: [&str; 6] = ["", "", "twenty", "thirty", "forty", "fifty"];
+    match minute {
+        10..=19 => [
+            "ten",
+            "eleven",
+            "twelve",
+            "thirteen",
+            "fourteen",
+            "fifteen",
+            "sixteen",
+            "seventeen",
+            "eighteen",
+            "nineteen",
+        ][(minute - 10) as usize]
+            .to_owned(),
+        _ if minute % 10 == 0 => TENS[(minute / 10) as usize].to_owned(),
+        _ => format!(
+            "{}-{}",
+            TENS[(minute / 10) as usize],
+            NUMBERS[(minute % 10) as usize]
         ),
     }
 }
@@ -384,13 +413,13 @@ mod tests {
         let saigon = zone(b'2', &[], &[25_200], "<+07>-7");
         assert_eq!(
             said(&saigon, NOW).unwrap(),
-            "It is 11:14 in the morning, Tuesday 13 October 2026. Said aloud: fourteen past eleven in the morning."
+            "It is 11:14 in the morning, Tuesday 13 October 2026. Said aloud: eleven fourteen in the morning."
         );
         // Thirty-three minutes on, as the session opened at 10:48 on
         // 2026-10-14 was asked at 11:17: the minute moves with the clock.
         assert_eq!(
             said(&saigon, NOW + 33 * 60).unwrap(),
-            "It is 11:47 in the morning, Tuesday 13 October 2026. Said aloud: thirteen to twelve in the morning."
+            "It is 11:47 in the morning, Tuesday 13 October 2026. Said aloud: eleven forty-seven in the morning."
         );
         assert_eq!(said(b"TZif", NOW), None);
         // Told on opening when it may ask: the part of the day, and to ask.
@@ -403,14 +432,21 @@ mod tests {
 
     #[test]
     fn a_time_is_said_as_a_person_says_it_with_its_hour() {
-        assert_eq!(aloud(6, 23), "twenty-three past six");
+        assert_eq!(aloud(6, 23), "six twenty-three");
         assert_eq!(aloud(6, 0), "six o'clock");
         assert_eq!(aloud(6, 15), "quarter past six");
         assert_eq!(aloud(6, 30), "half past six");
         assert_eq!(aloud(6, 45), "quarter to seven");
-        assert_eq!(aloud(12, 59), "one to one");
-        assert_eq!(aloud(11, 31), "twenty-nine to twelve");
-        assert_eq!(aloud(12, 1), "one past twelve");
+        assert_eq!(aloud(6, 10), "ten past six");
+        assert_eq!(aloud(6, 50), "ten to seven");
+        assert_eq!(aloud(12, 35), "twenty-five to one");
+        assert_eq!(aloud(12, 42), "twelve forty-two");
+        assert_eq!(aloud(12, 59), "twelve fifty-nine");
+        assert_eq!(aloud(11, 31), "eleven thirty-one");
+        assert_eq!(aloud(12, 1), "twelve oh one");
+        assert_eq!(aloud(6, 7), "six oh seven");
+        assert_eq!(aloud(9, 11), "nine eleven");
+        assert_eq!(aloud(9, 40), "twenty to ten");
         for hour in 1..=12 {
             for minute in 0..60 {
                 let said = aloud(hour, minute);

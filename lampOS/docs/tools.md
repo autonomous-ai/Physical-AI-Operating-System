@@ -210,9 +210,9 @@ With `LAMP_CLOCK=on` in the voice unit (the worker's `--clock`, after
 voice itself and answered at once: `the_time`, which the model is to call
 whenever someone asks the time or the date or how long until something.
 It is told `{"now":"It is 11:47 in the morning, Wednesday 14 October
-2026. Said aloud: thirteen to twelve in the morning."}` from the lamp's clock and zone (`crates/voice/src/local_time.rs`),
+2026. Said aloud: eleven forty-seven in the morning."}` from the lamp's clock and zone (`crates/voice/src/local_time.rs`),
 or `{"error":"My clock could not be read just now."}`. Unlike
-`not_for_me`, it is not silent: the model says what it was told.
+`not_for_me`, it is not silent: the model says what it was told. A whole five is said as past or to ("ten past six", "quarter to seven"), any other minute as the clock reads ("twelve forty-two", "six oh seven"): on lamp-4ace on 2026-10-16 the lamp said "eighteen to one at night", which nobody says.
 
 Why: a session is told the time when it opens, and may run for hours. On
 lamp-4ace on 2026-10-14 a session opened at 10:48 told someone at 11:17

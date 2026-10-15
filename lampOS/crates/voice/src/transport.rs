@@ -119,7 +119,9 @@ impl Channel {
             self.max_age_us
         };
         self.incoming
-            .accept(&packet, now, max_age_us + self.held_up_us)
+            // Read the clock after the receive: a message sent since `now`
+            // would otherwise look sent in the future, and be refused.
+            .accept(&packet, monotonic_us(), max_age_us + self.held_up_us)
             .map_err(|error| io::Error::new(error.kind(), format!("{}: {error}", self.name)))?;
         self.received = true;
         Ok(Some(packet.payload))

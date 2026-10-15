@@ -134,8 +134,18 @@ clock is found not set and again when it is set. Off unless set.
 The voice with `LAMP_KERNEL_CLOCK=on` asks the kernel before telling a time:
 while the clock is not set, `the_time` says it has not been set and a new
 session is told it does not know the time, never to guess
-([tools.md](tools.md)). Off unless set. Next: the voice and the light when
-the internet is down (`lamp/online`, the recorded line).
+([tools.md](tools.md)). Off unless set.
+
+## Step 3: what says the lamp is online
+
+- **`voice/link`, published** (`crates/voice/src/bus_out.rs`): with
+  `LAMP_BUS=on` and `LAMP_VOICE_LINK=on` the voice publishes it once a
+  second beside its `diagnostics`: ready, or unavailable once the link has
+  been down for 5 s (`LINK_GRACE_US`, so a session renewing itself is not
+  an outage), with the reason `transport` (the coordinator keeps only
+  whether the link is up). Off unless set.
+- Next: `lamp/online` from it, then the voice's recorded line and
+  Expression's look.
 
 ## What steps 2 to 4 will build
 

@@ -1,0 +1,18 @@
+[package]
+name = "lamp-selftest"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+# Whether each part of the lamp works: a two-minute check run at the
+# factory, at the first boot after setup and when asked. One JSON report and
+# one line per part under /var/lib/lampOS/selftest/, and `lamp/selftest` for
+# lamp-health (docs/selftest.md). Nothing leaves the lamp.
+
+[dependencies]
+lamp-msgs = { path = "../msgs" }
+serde_json.workspace = true
+
+[lints]
+workspace = true

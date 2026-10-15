@@ -88,6 +88,69 @@ fn the_rest_of_the_call_is_the_same_utterance_and_ends_as_any_other() {
     assert!(!detector.name_heard(10_000));
 }
 
+/// #891: the first sign comes while the name is still being said. The
+/// rest of the call keeps the wait; it ends when the rest comes after a
+/// pause, or when more is said than a call.
+#[test]
+fn a_first_sign_while_the_name_is_said_still_waits() {
+    let mut sequence = 0;
+    let mut push = |detector: &mut TurnDetector, probability: f32| {
+        sequence += 1;
+        detector.push(frame(sequence), probability)
+    };
+    let quiet_to_end =
+        |detector: &mut TurnDetector, push: &mut dyn FnMut(&mut TurnDetector, f32) -> Activity| {
+            for quiet in 1..=400u16 {
+                if matches!(push(detector, 0.0), Activity::End(_)) {
+                    return (
+                        quiet,
+                        detector.last_endpoint().and_then(|end| end.call_wait_ms),
+                    );
+                }
+            }
+            panic!("the utterance never ended");
+        };
+    // "Hey Lamp," 0.7 s, the sign at 0.35 s with a short gap after it.
+    let mut detector = lamp().with_call_wait(200).unwrap();
+    for _ in 0..35 {
+        push(&mut detector, 0.95);
+    }
+    assert!(detector.name_heard(10_000));
+    for _ in 0..5 {
+        push(&mut detector, 0.0);
+    }
+    for _ in 0..30 {
+        push(&mut detector, 0.95);
+    }
+    assert_eq!(quiet_to_end(&mut detector, &mut push), (200, Some(2_000)));
+}
+
+/// #891: a first sign while the name is said, and then more and more said
+/// without a pause: more than a call, ended at the window as any other.
+#[test]
+fn speech_that_goes_on_past_a_call_is_not_one() {
+    let mut long = lamp().with_call_wait(200).unwrap();
+    let mut sequence = 0;
+    for _ in 0..35 {
+        sequence += 1;
+        long.push(frame(sequence), 0.95);
+    }
+    assert!(long.name_heard(10_000));
+    for _ in 0..u64::from(CALL_SPEECH_BLOCKS) {
+        sequence += 1;
+        long.push(frame(sequence), 0.95);
+    }
+    for quiet in 1..=400u16 {
+        sequence += 1;
+        if matches!(long.push(frame(sequence), 0.0), Activity::End(_)) {
+            assert_eq!(quiet, 60);
+            assert_eq!(long.last_endpoint().unwrap().call_wait_ms, None);
+            return;
+        }
+    }
+    panic!("the utterance never ended");
+}
+
 #[test]
 fn a_call_wait_must_be_longer_than_the_window_and_at_most_three_seconds() {
     assert!(lamp().with_call_wait(60).is_err());

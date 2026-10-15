@@ -32,6 +32,12 @@ pub const CALL_SPEECH_BLOCKS: u16 = 120;
 pub const CALL_BEFORE_US: u64 = 500_000;
 /// The longest a call may wait for the rest: 3 s.
 pub const MAX_CALL_WAIT_BLOCKS: u16 = 300;
+/// Quiet at least this long before speech, while a call waits, makes that
+/// speech the rest of what was said, which ends as any other utterance
+/// does. Shorter quiet is a gap between the call's own words: its first
+/// sign (`name/rising`) comes while the name is still being said, and the
+/// call goes on for a moment after it (#891).
+pub const CALL_PAUSE_BLOCKS: u16 = 20;
 
 pub struct SpeechProbability {
     vad: VoiceActivityDetectorWrapper,
@@ -260,6 +266,7 @@ impl TurnDetector {
                 return Activity::Fault("utterance exceeded 120 second bound");
             }
             let speech = probability >= SILENCE_PROBABILITY;
+            let quiet_before = self.silence_count;
             self.silence_count = if speech { 0 } else { self.silence_count + 1 };
             if speech {
                 self.speech_blocks = self.speech_blocks.saturating_add(1);
@@ -275,7 +282,13 @@ impl TurnDetector {
                 && let Some(wait) = self.call_wait_blocks
             {
                 if speech {
-                    self.waiting = false;
+                    // The rest, after the call's pause, or more said than
+                    // a call: ended as any other utterance. The call's own
+                    // words, still being said, keep the wait.
+                    if quiet_before >= CALL_PAUSE_BLOCKS || self.speech_blocks > CALL_SPEECH_BLOCKS
+                    {
+                        self.waiting = false;
+                    }
                 } else if self.silence_count < wait {
                     decision = None;
                 } else {

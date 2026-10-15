@@ -52,3 +52,34 @@ followed by one of `lampos.target`.
    each part became active, when the keeper said ready, the body's wake
    (where every servo was found, how far and how long it rose), and
    `lamp/health`, and says whether the lamp came back by itself.
+
+## The unplug, 07:44–07:51 (Leo at the lamp)
+
+The plug pulled and put back by hand, twice. The first time the board did
+not start: the journal has no boot between the last one and the next
+(power or plug, not lampOS). The second time it booted (boot `3754253f…`),
+and from the journal and systemd's clock (seconds after the kernel
+started):
+
+| | s |
+|---|---|
+| kernel + userspace (`systemd-analyze`) | 5.378 + 9.445 |
+| `lamp-os` (the keeper) active | 11.2 |
+| every other part active, but the voice and the body | 19.06 to 19.15 |
+| `lampos.target` active | 19.6 |
+| voice `listening_ready`, after 3 restarts | 36.5 |
+| body active (stood up) | 54.9 |
+
+- **Body:** its first start ended at 19.5 s, "taking hold: wrist_roll did
+  not acknowledge a write": the servos had only just got power. systemd
+  started it again at 34.6 s; it took hold, stood, and was active at
+  54.9 s. Mended in a separate pull request (`fifth/cold-start`): the body
+  waits for servos that are slow to answer after a power cut.
+- **Voice:** exited 1 at 19.8 s; at 24.7 s "Connection refused (os error
+  111)" from its provider; at 31.0 s "snd_pcm_open failed with errno 16";
+  then up, `listening_ready` at 36.5 s. Not this task's: the first
+  builder's, noted for them on #702.
+- The keeper's answer then: `{"ready":true,"version":"0.2.0-fifth","waiting_for":[]}`.
+
+The lamp came back by itself from a power cut, every part running and the
+body standing, with nobody touching it.

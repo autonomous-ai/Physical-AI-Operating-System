@@ -245,6 +245,55 @@ const AFTER_NEWS: &str = "the first thing said after the lamp's own news";
 pub const WORK_ASKED_US: u64 = 600_000_000;
 const ABOUT_ITS_WORK: &str = "a question about the lamp's own task, reminder or timer";
 
+/// With the switch, a line that follows, by at most this long, one that
+/// called someone other than the lamp by name ([`addresses_someone_else`])
+/// is that person's reply, and not part of a conversation with the lamp.
+/// On lamp-4ace on 16 October at 04:58 and 05:01, Samantha's "Daniel, are
+/// you coming to the meeting at two?" was followed by Daniel's "Yes, give
+/// me five minutes.", and as Daniel was in a conversation with the lamp it
+/// set a timer for five minutes.
+pub const ANOTHER_REPLY_US: u64 = 10_000_000;
+const ANSWERING_ANOTHER: &str =
+    "a reply to someone the room had just called by name, not said to the lamp";
+
+/// Words that open a sentence of their own before a comma, and are no
+/// one's name ("Okay, stop.", "Well, I think so.").
+const NOT_NAMES: &[&str] = &[
+    "okay", "ok", "well", "so", "yes", "yeah", "yep", "no", "nope", "oh", "ah", "hey", "hi",
+    "hello", "right", "sure", "thanks", "thank", "please", "sorry", "now", "then", "also",
+    "actually", "look", "listen", "wait", "um", "uh", "hmm", "hm", "alright", "and", "but",
+    "anyway", "honestly", "really", "fine", "great", "cool", "good", "wow", "huh", "first", "lamp",
+    "lamb",
+];
+
+/// Whether what was heard calls someone other than the lamp by name: a name
+/// set off by a comma, opening it after any greeting ("Daniel, are you
+/// coming to the meeting at two?", "Hey Samantha, ...") or closing it ("Are
+/// you coming, Daniel?"). A name here is a capitalised word that is not the
+/// lamp's, nor a word the service writes in its place, nor one that opens a
+/// sentence of its own ("Okay,").
+pub fn addresses_someone_else(heard: &str) -> bool {
+    let is_name = |word: &str| {
+        word.chars().next().is_some_and(char::is_uppercase)
+            && word.chars().all(char::is_alphabetic)
+            && !NOT_NAMES.iter().any(|not| word.eq_ignore_ascii_case(not))
+            && !STAND_INS.iter().any(|not| word.eq_ignore_ascii_case(not))
+    };
+    let words: Vec<&str> = heard.split_whitespace().collect();
+    let opening = words
+        .iter()
+        .find(|word| {
+            !GREETINGS
+                .iter()
+                .any(|greeting| word.trim_end_matches(',').eq_ignore_ascii_case(greeting))
+        })
+        .is_some_and(|word| word.strip_suffix(',').is_some_and(is_name));
+    let closing = words.len() >= 2
+        && words[words.len() - 2].ends_with(',')
+        && is_name(words[words.len() - 1].trim_end_matches(['?', '.', '!']));
+    opening || closing
+}
+
 /// Whether what was heard speaks of the lamp's own work: a task, a
 /// reminder, a timer or an alarm ("How is that task going?").
 pub fn about_its_work(heard: &str) -> bool {
@@ -338,6 +387,11 @@ pub fn called(heard: &str) -> bool {
     called_by_stand_in(&all)
 }
 
+/// Words the service has written in the lamp's name's place ([`called`]).
+const STAND_INS: &[&str] = &[
+    "lam", "lan", "milan", "man", "plan", "helen", "mom", "amen", "weiland",
+];
+
 /// Greetings that may come before the name of a call ("Hey Lamp,").
 const GREETINGS: &[&str] = &["hey", "hi", "ok", "okay", "oh", "hello"];
 
@@ -408,14 +462,7 @@ fn called_by_stand_in(words: &[&str]) -> bool {
     words
         .iter()
         .find(|word| !is(word, GREETINGS))
-        .is_some_and(|word| {
-            is(
-                word,
-                &[
-                    "lam", "lan", "milan", "man", "plan", "helen", "mom", "amen", "weiland",
-                ],
-            )
-        })
+        .is_some_and(|word| is(word, STAND_INS))
 }
 
 /// Whether a call for this function is the start of an answer, to be
@@ -632,6 +679,9 @@ pub struct Attention {
     /// a task, a timer or a reminder it started. With `spoken_to` only.
     news_us: Option<u64>,
     worked_us: Option<u64>,
+    /// The request in hand follows, within [`ANOTHER_REPLY_US`], one that
+    /// called someone other than the lamp by name. With `spoken_to` only.
+    after_another: bool,
 }
 
 /// The most text kept for one request.
@@ -664,7 +714,17 @@ impl Attention {
 
     /// A request began on `session`, at `now_us`.
     pub fn began_at(&mut self, request: u64, session: u64, now_us: u64) {
+        // The line before, if it called someone else by name and ended just
+        // now (#829).
+        let after_another = self.spoken_to
+            && OWN_REQUEST.load(Ordering::Acquire) != request
+            && self
+                .ended_us
+                .or(self.began_us)
+                .is_some_and(|end| end.saturating_add(ANOTHER_REPLY_US) >= now_us)
+            && addresses_someone_else(&self.heard);
         self.began(request, session);
+        self.after_another = after_another;
         self.began_us = Some(now_us);
         if self.spoken_to && OWN_REQUEST.load(Ordering::Acquire) == request {
             self.news_us = Some(now_us);
@@ -689,6 +749,7 @@ impl Attention {
     /// Anything else is as for [`Self::began_at`].
     pub fn continued_at(&mut self, request: u64, session: u64, now_us: u64) {
         let tapped = session == self.session && self.began_us.is_some() && self.tapped;
+        let after_another = self.after_another;
         let before = (session == self.session && self.began_us.is_some()).then(|| {
             (
                 self.named,
@@ -709,6 +770,7 @@ impl Attention {
             self.near |= near;
             self.addressed |= addressed;
             self.began_us = began_us;
+            self.after_another = after_another;
         }
         self.tapped |= tapped;
     }
@@ -895,6 +957,11 @@ impl Attention {
         let own = own_request().load(Ordering::Acquire) == request;
         self.judged_own = own;
         let fresh = self.begun <= FRESH_REQUESTS;
+        // #829, with the switch: a reply to someone the room had just
+        // called by name is that person's conversation, not the lamp's.
+        // Only the lamp's name counts for it.
+        let answering_another = self.spoken_to && self.after_another && !own;
+        let going_on = going_on && !answering_another;
         // In a conversation held in English, a turn heard mostly in another
         // script, or as a number alone after no question, was misheard
         // (#926): on lamp-4ace on 2026-10-16 at 05:39 a cut-in heard as
@@ -943,6 +1010,7 @@ impl Attention {
         // own work is for it.
         if self.spoken_to
             && !own
+            && !answering_another
             && let Some(began) = self.began_us
         {
             let since = |at: Option<u64>| at.filter(|at| *at <= began).map(|at| began - at);
@@ -995,14 +1063,23 @@ impl Attention {
         // face, in a busy room too: at night nobody faces the lamp
         // (lamp-4ace, 16 October at 03:28, "Hey Lamp, turn your volume down
         // a little." was held for want of one).
-        let spoken_to = own
-            || going_on
-            || called_in_text
-            || self.named
-            || turned == Some(true)
-            || self.addressed;
+        let spoken_to = if answering_another {
+            called_in_text || self.named
+        } else {
+            own || going_on
+                || called_in_text
+                || self.named
+                || turned == Some(true)
+                || self.addressed
+        };
         let verdict = match verdict {
-            Verdict::Play(_) if self.spoken_to && !spoken_to => Verdict::Hold(NOT_SPOKEN_TO),
+            Verdict::Play(_) if self.spoken_to && !spoken_to => {
+                Verdict::Hold(if answering_another {
+                    ANSWERING_ANOTHER
+                } else {
+                    NOT_SPOKEN_TO
+                })
+            }
             Verdict::Hold(_) if self.spoken_to && self.named => Verdict::Play(NAMED),
             verdict => verdict,
         };
@@ -1704,6 +1781,93 @@ mod tests {
         );
         assert!(about_its_work("How is that TASK going?"));
         assert!(!about_its_work("I'll ask him about it."));
+    }
+
+    /// #829, the first builder at 05:02, scene 4 on lamp-4ace: Samantha's
+    /// "Daniel, are you coming to the meeting at two?", then Daniel's "Yes,
+    /// give me five minutes." while he was in a conversation with the lamp,
+    /// which set a timer. With the switch, a reply to someone the room had
+    /// just called by name is not the lamp's conversation, facing it or
+    /// not; the lamp's name still counts. Without it, as before.
+    #[test]
+    fn with_the_switch_a_reply_to_someone_called_by_name_is_not_the_lamps() {
+        const S: u64 = 1_000_000;
+        let reply =
+            |spoken_to: bool, called: &str, gap_s: u64, answer: &str, turned: Option<bool>| {
+                let mut attention = Attention::default();
+                attention.speak_when_spoken_to(spoken_to);
+                attention.began_at(31, 6, 100 * S);
+                attention.heard(called);
+                attention.ended(31, 103 * S);
+                attention.began_at(32, 6, (103 + gap_s) * S);
+                attention.heard(answer);
+                attention
+                    .first_output_busy(32, Room::Quiet, true, false, turned)
+                    .unwrap()
+            };
+        const CALLED: &str = "Daniel, are you coming to the meeting at two?";
+        const ANSWER: &str = "Yes, give me five minutes.";
+        for turned in [None, Some(true)] {
+            assert_eq!(
+                reply(true, CALLED, 1, ANSWER, turned),
+                Verdict::Hold(ANSWERING_ANOTHER)
+            );
+        }
+        for called in ["Hey Samantha, did you see it?", "Are you coming, Daniel?"] {
+            assert_eq!(
+                reply(true, called, 1, ANSWER, None),
+                Verdict::Hold(ANSWERING_ANOTHER),
+                "{called}"
+            );
+        }
+        // The lamp's name still counts.
+        assert!(matches!(
+            reply(true, CALLED, 1, "Lamp, give me five minutes.", None),
+            Verdict::Play(_)
+        ));
+        // No one called by name, or long before: the conversation goes on.
+        for (called, gap_s) in [
+            ("Did you get my message about the budget?", 1),
+            ("Okay, that is enough.", 1),
+            ("Lamp, what time is it?", 1),
+            (CALLED, 15),
+        ] {
+            assert!(
+                matches!(reply(true, called, gap_s, ANSWER, None), Verdict::Play(_)),
+                "{called} {gap_s}"
+            );
+        }
+        // Without the switch, as before.
+        assert!(matches!(
+            reply(false, CALLED, 1, ANSWER, None),
+            Verdict::Play(_)
+        ));
+    }
+
+    #[test]
+    fn someone_called_by_name_is_told_from_the_lamp_and_from_words_that_open_a_sentence() {
+        for calls in [
+            "Daniel, are you coming to the meeting at two?",
+            "Hey Samantha, did you see it?",
+            "Are you coming, Daniel?",
+            "Karen, the budget is due.",
+        ] {
+            assert!(addresses_someone_else(calls), "{calls}");
+        }
+        for not in [
+            "Lamp, what time is it?",
+            "Hey Lamp, tell me a story.",
+            "Can you explain that, Lamp?",
+            "Man, tell me a short joke.",
+            "Okay, stop.",
+            "Well, I think so.",
+            "Yes, give me five minutes.",
+            "Did you get my message about the budget?",
+            "I told Daniel about it.",
+            "",
+        ] {
+            assert!(!addresses_someone_else(not), "{not}");
+        }
     }
 
     /// #829, the first builder at 03:29: a request said with the name needs

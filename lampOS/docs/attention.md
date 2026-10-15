@@ -1089,6 +1089,19 @@ for that hold: `lamp-name` hears the name in people's talk now and then
 (17 times from 07:45 to 13:02 on 14 October, at 0.903 to 0.997), and with
 the switch each of those lets an answer out.
 
+And one from 04:58 (#829, 05:02): in the two-person scene, Samantha asked
+"Daniel, are you coming to the meeting at two?" and Daniel answered her
+"Yes, give me five minutes." He was in a conversation with the lamp, so his
+reply counted as a follow-up, and the lamp set a five-minute timer. With
+the switch, a line that follows, within 10 s (`ANOTHER_REPLY_US`), one that
+called someone other than the lamp by name is that person's reply. That
+means a capitalised name set off by a comma, opening the line ("Daniel,
+...", "Hey Samantha, ...") or closing it ("..., Daniel?"), that isn't the
+lamp's name, a word the service writes for it, or a word like "Okay," or
+"Well," (`addresses_someone_else`). For that line only the lamp's name
+counts: not the conversation, the lamp's news, a question about its work,
+or a face, since the person replying is often facing the lamp's way.
+
 Beyond the reply to the lamp's news, the question about its work and the
 name without a face, the switch only holds: what the rule holds without it
 stays held.
@@ -1119,6 +1132,9 @@ Tests:
   `a_turn_nobody_said_to_the_lamp_never_changes_the_lamp` and
   `the_same_turn_with_the_lamps_name_changes_the_lamp` (the worker's own
   loop: volume, mute and light);
+- `with_the_switch_a_reply_to_someone_called_by_name_is_not_the_lamps` and
+  `someone_called_by_name_is_told_from_the_lamp_and_from_words_that_open_a_sentence`
+  (the reply of 04:58);
 - `with_the_switch_the_lamps_news_is_replied_to_and_its_work_asked_about`
   and `with_the_switch_a_held_request_is_not_talk_and_busy_ends_after_the_last_talk`
   (the day scene, in the rule and in the room);

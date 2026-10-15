@@ -753,8 +753,20 @@ With `LAMP_TASKS_ASKED=on` (the provider worker's `--tasks-asked`, after
 - What is prepared, confirmed and sent to the tasks part is unchanged.
 
 Without the switch every function and session is as before
-(`with_work_asked_of_the_staff_every_ask_is_a_hand_over_and_without_it_nothing_changes`,
-`a_name_not_made_out_is_asked_about_and_never_guessed`).
+(`with_work_asked_of_the_staff_every_ask_is_a_hand_over_and_without_it_nothing_changes`);
+with it, `who` takes the staff's names as without it, and its description
+asks for the name meant, said in the read-back, with no question first
+(`a_name_not_made_out_is_named_in_the_read_back_and_asked_about_once`).
+
+**Shown on lamp-4ace** (the first builder, 2026-10-15, `LAMP_TASKS_WHO=on`
+and `LAMP_TASKS_ASKED=on`, the voice restarted before each scene; on #854):
+at 21:22 to 21:33 the five-chapter story, the comma version, a poem for
+Codex and a request in the middle of a story the lamp was telling were each
+read back as a hand-over and asked about, while a story asked of the lamp
+itself was told and a plain question answered. With the name in the
+read-back, at 21:58 and 21:59 a name the lamp could not place ("George
+Jones") got one question naming who, and nothing started without a yes.
+lamp-4ace keeps the switch on from 21:30.
 
 **Measured without a sound:** `lamp-voice provider-check CONFIG --hand-overs
 ROUNDS` writes #854's requests to the model, each in a session of its own,

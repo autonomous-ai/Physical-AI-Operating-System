@@ -308,11 +308,18 @@ mod tests {
         std::thread::sleep(Duration::from_millis(70));
         assert_eq!(monotonic_us(), before);
         assert_eq!(rx.control.receive::<u64>().unwrap(), Some(7));
+        // Since #791 one late message that is next in order is taken, as a
+        // held-up sender's would be; a second late one in a row is not.
         tx.control.send(8_u64).unwrap();
         for _ in 0..50 {
             step(Phase::Run).unwrap();
         }
         assert_eq!(monotonic_us() - before, 100_000);
+        assert_eq!(rx.control.receive::<u64>().unwrap(), Some(8));
+        tx.control.send(9_u64).unwrap();
+        for _ in 0..50 {
+            step(Phase::Run).unwrap();
+        }
         assert!(
             rx.control.receive::<u64>().is_err(),
             "production 100 ms envelope boundary must still reject"

@@ -636,7 +636,16 @@ impl ReceiveOrder {
         {
             return Err(io::Error::new(
                 io::ErrorKind::InvalidData,
-                "stale, reordered or wrong-boot runtime message",
+                // Which test failed, for the journal: a message read before
+                // the clock was (sent "in the future") once looked stale.
+                format!(
+                    "stale, reordered or wrong-boot runtime message (sequence {} after {}, sent {} us before now, bound {} us, same boot {})",
+                    packet.sequence,
+                    self.sequence,
+                    i128::from(now_us) - i128::from(packet.sent_at_us),
+                    max_age_us,
+                    packet.boot == self.boot,
+                ),
             ));
         }
         self.sequence = packet.sequence;

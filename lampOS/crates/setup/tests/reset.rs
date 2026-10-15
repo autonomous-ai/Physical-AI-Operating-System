@@ -116,26 +116,34 @@ fn a_reset_stops_wipes_removes_the_marker_and_reboots_in_that_order() {
     let mut fake = Fake::default();
     let steps = reset::reset(&plan, &mut fake).unwrap();
     wiped(&root);
-    assert_eq!(steps.first(), Some(&Step::Journal));
-    assert_eq!(steps[1], Step::Stopped);
     assert_eq!(
-        &steps[steps.len() - 3..],
-        [Step::MarkerRemoved, Step::JournalRemoved, Step::Rebooting]
+        &steps[..3],
+        [Step::Journal, Step::MarkerRemoved, Step::Stopped]
     );
-    assert_eq!(*fake.calls.borrow(), ["stop", "sync", "sync", "reboot"]);
+    assert_eq!(
+        &steps[steps.len() - 2..],
+        [Step::JournalRemoved, Step::Rebooting]
+    );
+    assert_eq!(
+        *fake.calls.borrow(),
+        ["sync", "stop", "sync", "sync", "reboot"]
+    );
 }
 
 #[test]
-fn a_failed_stop_wipes_nothing_and_the_next_start_finishes_without_a_reboot() {
+fn a_failed_stop_reboots_at_once_into_setup_which_finishes_the_wipe() {
     let root = Root::new();
     let plan = lamp(&root);
     let mut fake = Fake {
         fail_stop: true,
         ..Fake::default()
     };
-    assert!(reset::reset(&plan, &mut fake).is_err());
+    let steps = reset::reset(&plan, &mut fake).unwrap();
+    assert_eq!(steps, [Step::Journal, Step::MarkerRemoved, Step::Rebooting]);
+    assert_eq!(*fake.calls.borrow(), ["sync", "stop", "reboot"]);
+    // No marker, so the keeper starts only setup; the data is still there.
+    assert!(!root.path("setup/done").exists());
     assert!(root.path("setup/reset.json").exists());
-    assert!(root.path("setup/done").exists());
     assert!(root.path("people.json").exists());
 
     let mut start = Fake::default();
@@ -152,7 +160,7 @@ fn a_failed_stop_wipes_nothing_and_the_next_start_finishes_without_a_reboot() {
 }
 
 #[test]
-fn a_wipe_that_fails_halfway_keeps_the_journal_and_marker_until_it_finishes() {
+fn a_wipe_that_fails_halfway_keeps_the_journal_until_setup_finishes_it() {
     let root = Root::new();
     let plan = lamp(&root);
     let locked = root.path("memory/locked");
@@ -161,8 +169,10 @@ fn a_wipe_that_fails_halfway_keeps_the_journal_and_marker_until_it_finishes() {
     fs::set_permissions(&locked, fs::Permissions::from_mode(0o500)).unwrap();
     let error = reset::reset(&plan, &mut Fake::default()).unwrap_err();
     assert_eq!(error.kind(), io::ErrorKind::PermissionDenied, "{error}");
+    // The marker went first, so a reboot now comes back into setup, and the
+    // journal says the wipe is unfinished.
     assert!(root.path("setup/reset.json").exists());
-    assert!(root.path("setup/done").exists());
+    assert!(!root.path("setup/done").exists());
 
     fs::set_permissions(&locked, fs::Permissions::from_mode(0o700)).unwrap();
     reset::resume(&plan, &mut Fake::default()).unwrap();

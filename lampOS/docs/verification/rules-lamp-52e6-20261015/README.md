@@ -22,7 +22,7 @@ after.
 
 `memory/rules` after step 6: `{"person":"p-be9688998f085098","quiet":false,"quiet_mornings":false,"rules":1}`.
 
-Found and being mended in this pull request: `forget_rule`'s default to the
+Mended in 985dacd2f: `forget_rule`'s default to the
 last rule (step 6). Not mended: an implicit "from now on…" (step 1) is
 followed in the session but not kept.
 

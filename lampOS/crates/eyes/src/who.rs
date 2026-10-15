@@ -386,6 +386,10 @@ pub const NEAR_ENOUGH: f32 = 0.10;
 /// How long the lamp may take to remember a face, and how many prints it
 /// takes of it.
 pub const TAKING_FOR_US: u64 = 4_000_000;
+/// With no face in view at all this long, nobody is there to remember: the
+/// lamp says so at once instead of looking for four seconds. On lamp-4ace on
+/// 2026-10-15 the model waited 4.2 s for "I could not see a face".
+pub const NOBODY_FOR_US: u64 = 1_500_000;
 
 /// Remembering someone: their prints, taken over a few looks while they are
 /// the one face at the lamp.
@@ -394,6 +398,7 @@ pub struct Taking {
     pub name: String,
     prints: Vec<Vec<f32>>,
     started_us: u64,
+    saw_any: bool,
     saw_far: bool,
     saw_two: bool,
 }
@@ -422,6 +427,7 @@ impl Taking {
             name,
             prints: Vec::new(),
             started_us: now_us,
+            saw_any: false,
             saw_far: false,
             saw_two: false,
         }
@@ -435,6 +441,7 @@ impl Taking {
             .iter()
             .filter(|height| **height >= NEAR_ENOUGH)
             .count();
+        self.saw_any |= !heights.is_empty();
         self.saw_far |= !heights.is_empty() && near == 0;
         self.saw_two |= near > 1;
         if near == 1
@@ -459,8 +466,10 @@ impl Taking {
         } else {
             NotTaken::NoFace
         };
-        (now_us.saturating_sub(self.started_us) >= TAKING_FOR_US && self.prints.len() < MOST_PRINTS)
-            .then_some(why)
+        let looked_for = now_us.saturating_sub(self.started_us);
+        let enough = self.prints.len() >= MOST_PRINTS;
+        let nobody = !self.saw_any && looked_for >= NOBODY_FOR_US;
+        (!enough && (looked_for >= TAKING_FOR_US || nobody)).then_some(why)
     }
 }
 
@@ -609,10 +618,14 @@ mod tests {
     #[test]
     fn a_face_is_remembered_only_as_the_one_face_near_and_otherwise_says_why() {
         let mut taking = Taking::new("Minh".into(), 0);
-        // Nobody there, then someone across the room, then two at the lamp.
+        // Nobody there: said after a second and a half, not four.
         taking.look(&[], None);
-        assert_eq!(taking.given_up(TAKING_FOR_US), Some(NotTaken::NoFace));
+        assert_eq!(taking.given_up(NOBODY_FOR_US - 1), None);
+        assert_eq!(taking.given_up(NOBODY_FOR_US), Some(NotTaken::NoFace));
+        // Then someone across the room, then two at the lamp: the full four
+        // seconds to come closer or step aside.
         taking.look(&[0.05], None);
+        assert_eq!(taking.given_up(NOBODY_FOR_US), None);
         assert_eq!(taking.given_up(TAKING_FOR_US), Some(NotTaken::TooFar));
         taking.look(&[0.2, 0.15], Some(print(0.3)));
         assert_eq!(taking.given_up(TAKING_FOR_US), Some(NotTaken::TwoFaces));

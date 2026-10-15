@@ -12,6 +12,12 @@
 //! counts are the file's last line. What was heard is in these lines, so the
 //! directory is private to the voice and nothing here is published.
 //!
+//! Each function call the model makes is a line too (`voice_tool_call`,
+//! #799): when it came, when our answer was sent, and whether whoever was
+//! asked answered. With the request's first output it says where a turn
+//! with a function call spends its time; the function's arguments and our
+//! answer are not in it.
+//!
 //! Not recorded yet, from the contract: the request's outcome (whether any
 //! sound was played), its start, and the identities of the transcript, name
 //! and eyes messages the rule used.
@@ -79,6 +85,23 @@ pub struct Decision {
     pub addressed: Option<lamp_msgs::Addressed>,
 }
 
+/// One function call and our answer to it. Times are this process's
+/// monotonic clock, in microseconds.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ToolCallLine {
+    pub session: u64,
+    pub request: u64,
+    pub name: String,
+    /// When the call reached the worker.
+    pub called_us: u64,
+    /// When our answer was handed to the connection, or found it gone.
+    pub sent_us: u64,
+    /// Whoever was asked answered in time.
+    pub answered: bool,
+    /// The connection took the answer.
+    pub sent: bool,
+}
+
 #[derive(Default)]
 struct Counts {
     admitted: AtomicU64,
@@ -96,6 +119,8 @@ pub struct FirstOutputLog {
     machine: Option<String>,
     boot: Option<String>,
     seq: u64,
+    decisions: u64,
+    tool_calls: u64,
     began_unix_ms: u64,
 }
 
@@ -143,6 +168,8 @@ impl FirstOutputLog {
             machine,
             boot,
             seq: 0,
+            decisions: 0,
+            tool_calls: 0,
             began_unix_ms,
         })
     }
@@ -154,6 +181,7 @@ impl FirstOutputLog {
     /// Record one decision. Never waits.
     pub fn decided(&mut self, decision: &Decision) {
         self.seq += 1;
+        self.decisions += 1;
         let mut line = json!({
             "schema": 1,
             "event": "voice_first_output",
@@ -181,6 +209,29 @@ impl FirstOutputLog {
         self.send(line.to_string());
     }
 
+    /// Record one function call and our answer to it. Never waits.
+    pub fn tool_call(&mut self, call: &ToolCallLine) {
+        self.seq += 1;
+        self.tool_calls += 1;
+        let line = json!({
+            "schema": 1,
+            "event": "voice_tool_call",
+            "machine": self.machine,
+            "os_boot": self.boot,
+            "voice_run": self.run,
+            "event_seq": self.seq,
+            "session": call.session,
+            "request": call.request,
+            "name": call.name,
+            "called_us": call.called_us,
+            "sent_us": call.sent_us,
+            "answered": call.answered,
+            "sent": call.sent,
+            "at_unix_ms": unix_ms(),
+        });
+        self.send(line.to_string());
+    }
+
     fn send(&self, line: String) {
         let Some(lines) = &self.lines else { return };
         match lines.try_send(line) {
@@ -200,17 +251,21 @@ impl Drop for FirstOutputLog {
         let Some(lines) = self.lines.take() else {
             return;
         };
-        let end = json!({
+        let mut end = json!({
             "schema": 1,
             "event": "capture_end",
             "voice_run": self.run,
             "began_unix_ms": self.began_unix_ms,
             "at_unix_ms": unix_ms(),
-            "decisions": self.seq,
+            "decisions": self.decisions,
             "admitted": self.counts.admitted.load(Ordering::Relaxed),
             "dropped": self.counts.dropped.load(Ordering::Relaxed),
             "limits": {"queue": QUEUE, "bytes": MOST_BYTES},
         });
+        // Only a run with calls says how many: a run without is as before.
+        if self.tool_calls > 0 {
+            end["tool_calls"] = json!(self.tool_calls);
+        }
         // The end goes in whatever the queue holds; a full queue loses it,
         // and a file without one is a run that did not end cleanly.
         let _ = lines.try_send(end.to_string());
@@ -390,6 +445,64 @@ mod tests {
         assert_eq!(lines[2]["event"], "capture_end");
         assert_eq!(lines[2]["decisions"], 2);
         assert_eq!(lines[2]["dropped"], 0);
+        assert!(lines[2].get("tool_calls").is_none());
+        std::fs::remove_dir_all(directory).unwrap();
+    }
+
+    /// #799: a function call is a line of its own, between decisions in the
+    /// order they came, and the run's end counts calls apart from decisions.
+    #[test]
+    fn each_function_call_is_a_line_with_when_it_came_and_when_it_was_answered() {
+        let directory = private_directory("calls");
+        let path = {
+            let mut log = FirstOutputLog::open(&directory).unwrap();
+            log.decided(&decision(3, false));
+            log.tool_call(&ToolCallLine {
+                session: 1,
+                request: 3,
+                name: "confirm_agent_task".into(),
+                called_us: 1_000_000,
+                sent_us: 1_046_000,
+                answered: true,
+                sent: true,
+            });
+            log.path().to_owned()
+        };
+        let lines: Vec<serde_json::Value> = std::fs::read_to_string(&path)
+            .unwrap()
+            .lines()
+            .map(|line| serde_json::from_str(line).unwrap())
+            .collect();
+        assert_eq!(lines.len(), 4);
+        let call = &lines[2];
+        assert_eq!(call["event"], "voice_tool_call");
+        assert_eq!(call["event_seq"], 2);
+        assert_eq!(call["voice_run"], lines[1]["voice_run"]);
+        assert_eq!(
+            (call["request"].clone(), call["name"].clone()),
+            (
+                serde_json::json!(3),
+                serde_json::json!("confirm_agent_task")
+            )
+        );
+        assert_eq!(
+            (call["called_us"].clone(), call["sent_us"].clone()),
+            (serde_json::json!(1_000_000), serde_json::json!(1_046_000))
+        );
+        assert_eq!(
+            (call["answered"].clone(), call["sent"].clone()),
+            (true.into(), true.into())
+        );
+        // No arguments, no answer.
+        assert!(call.get("args").is_none() && call.get("told").is_none());
+        assert_eq!(lines[3]["event"], "capture_end");
+        assert_eq!(
+            (
+                lines[3]["decisions"].clone(),
+                lines[3]["tool_calls"].clone()
+            ),
+            (1.into(), 1.into())
+        );
         std::fs::remove_dir_all(directory).unwrap();
     }
 

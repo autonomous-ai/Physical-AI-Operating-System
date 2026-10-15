@@ -57,15 +57,30 @@ fn run() -> Result<()> {
         },
         // A whole turn with a written note in place of speech, to see what the
         // service makes of one. Nothing is captured and nothing is played.
+        // Where each of the lamp's turns spent its time, from its own
+        // records (#799): the session records under SESSIONS and, if given,
+        // the first-output files under FIRST_OUTPUT. Reads only; prints one
+        // line a turn, then medians. Numbers and function names, no words.
+        [command,sessions,rest @ ..] if command=="turn-times" && rest.len()<=1 => {
+            use lamp_voice::turn_times::{lines_under,summary,turns};
+            let events=lines_under(Path::new(sessions),"events-")?;
+            let first=match rest.first() { Some(directory)=>lines_under(Path::new(directory),"first-output-")?, None=>Vec::new() };
+            let turns=turns(&events,&first);
+            for turn in &turns { println!("{}",turn.row()); }
+            println!("{}",summary(&turns));
+        },
         // Where a turn with a function call spends its time (#799): the
         // fixed requests of `tool_turns::SCRIPT`, ROUNDS times, each on a
         // connection of its own, told of the voice's own functions and the
         // agent tasks' as on the lamp. Every call is answered at once by a
         // stand-in: nothing reaches the tasks part or anything else, and
         // nothing is captured or played. One line a request, then medians.
-        [command,path,flag,rounds] if command=="provider-check" && flag=="--tool-turns" => {
+        // `--thinking TOKENS` sets the thinking budget for this run only, to
+        // compare with the one in CONFIG.
+        [command,path,flag,rounds,rest @ ..] if command=="provider-check" && flag=="--tool-turns" && matches!(rest.len(),0|2) => {
             use lamp_voice::tool_turns::{SCRIPT,Timeline,stand_in,summary};
             let rounds:usize=rounds.parse().ok().filter(|rounds|(1..=20).contains(rounds)).ok_or("ROUNDS is a number from 1 to 20")?;
+            let thinking:Option<u32>=match rest { [flag,tokens] if flag=="--thinking"=>Some(tokens.parse().map_err(|_|"--thinking takes a number of tokens")?), []=>None, _=>return Err("provider-check CONFIG --tool-turns ROUNDS [--thinking TOKENS]".into()) };
             let place=lamp_voice::agent_tasks::Place{directory:"/nonexistent".into(),target:lamp_voice::agent_tasks::DEFAULT_TARGET.into(),who:false};
             let colour=lamp_gemini::Tool{name:"light_colour".into(),description:"Set the colour of your own light when you are asked to.".into(),parameters:Some(serde_json::json!({"type":"object","properties":{"colour":{"type":"string","enum":["white","warm","red","green","blue","purple"]}},"required":["colour"]})),silent:false};
             let tools:Vec<lamp_gemini::Tool>=lamp_voice::tools::declared(&lamp_voice::tools::Settings{decline:true,exec:None,memory:None,clock:false,..Default::default()}).into_iter().chain([colour]).chain(lamp_voice::agent_tasks::tools(&place)).collect();
@@ -74,7 +89,8 @@ fn run() -> Result<()> {
                 use lamp_gemini::Event;
                 for round in 0..rounds {
                     for scripted in SCRIPT {
-                        let config=ProviderConfig::load(Path::new(path))?.into_session()?.tools(tools.clone())?;
+                        let mut config=ProviderConfig::load(Path::new(path))?.into_session()?.tools(tools.clone())?;
+                        if let Some(tokens)=thinking { config=config.thinking_budget(tokens)?; }
                         let mut connection=lamp_gemini::connect(config,lamp_gemini::SessionId::new(1)?).await?;
                         let input=connection.input();
                         let mut timeline=Timeline::default();
@@ -110,7 +126,9 @@ fn run() -> Result<()> {
                 }
                 Ok::<(),Box<dyn std::error::Error+Send+Sync>>(())
             })?;
-            println!("{}",summary(&results));
+            let mut summary=summary(&results);
+            summary["thinking_budget"]=serde_json::json!(thinking.map_or("as in CONFIG".to_owned(),|tokens|tokens.to_string()));
+            println!("{summary}");
         },
         // A written request to a session that was told of two functions:
         // the voice's own way of saying a thing was not for it, and one of

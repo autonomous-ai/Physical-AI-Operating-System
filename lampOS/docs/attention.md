@@ -747,6 +747,15 @@ queue or a full file is counted, and the run's last line (`capture_end`)
 says how many lines were admitted and how many dropped. A file without that
 line is a run that did not end cleanly.
 
+Since #799 (2026-10-15) each function call is a line of its own too
+(`voice_tool_call`): the request's session and number, the function's name,
+when the call reached the worker (`called_us`), when our answer was handed to
+the connection (`sent_us`), whether whoever was asked answered and whether
+the connection took it. No arguments and no answer. The run's last line then
+also counts them (`tool_calls`); a run without calls ends as before.
+`lamp-voice turn-times` reads them beside the session records
+([tools.md](tools.md#where-a-turn-with-a-function-call-spends-its-time-799)).
+
 Its first build (`8ae7b8868`) failed on lamp-4ace on 2026-10-14 at 20:42:
 opening the record read and hashed the whole program on the provider's own
 thread, which held the worker so long that its messages reached the voice

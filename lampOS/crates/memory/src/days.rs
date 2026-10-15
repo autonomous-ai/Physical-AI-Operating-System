@@ -316,11 +316,11 @@ impl Days {
     pub fn maintain(&mut self, now: u64) -> Result<u64> {
         // A backwards clock cannot revive old data or move last use backwards.
         self.now = self.now.max(now);
-        let day = Day::at(
-            self.now.saturating_sub(u64::from(self.keep_days) * DAY_MS),
-            &self.local,
-        )
-        .map_or_else(|| "1970-01-01".into(), |d| d.to_string());
+        // Today's local day, less the days kept, as the journal store
+        // counts them: a day around a clock change is 23 or 25 hours.
+        let day = Day::at(self.now, &self.local)
+            .and_then(|today| today.before(self.keep_days))
+            .map_or_else(|| "1970-01-01".into(), |d| d.to_string());
         let unused = self.now.saturating_sub(UNUSED_DAYS * DAY_MS);
         let tx = self.db.transaction()?;
         tx.execute("DELETE FROM doomed", [])?;
@@ -1279,6 +1279,39 @@ fn erase(tx: &Transaction<'_>) -> Result<u64> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// #844: retention counts New York's local days, as the journal store
+    /// does, across both of its 2026 clock changes, kept a day: Oct 31's
+    /// exchange stays at 23:30 on Nov 1 (a 25-hour day), and Mar 7's goes
+    /// at 00:30 on Mar 9 (after a 23-hour day). The same when it is opened
+    /// again then, which maintains at once.
+    #[test]
+    fn retention_counts_local_days_across_both_clock_changes() {
+        for (name, at, now, kept) in [
+            ("autumn", 1_793_462_400_000, 1_793_593_800_000, 1),
+            ("spring", 1_772_902_800_000, 1_773_030_600_000, 0),
+        ] {
+            let dir =
+                std::env::temp_dir().join(format!("lamp-days-dst-{name}-{}", std::process::id()));
+            let _ = fs::remove_dir_all(&dir);
+            let options = || Options {
+                dir: dir.clone(),
+                keep_days: 1,
+                local: LocalTime::zone("America/New_York").unwrap(),
+            };
+            let everyone = Person::everyone();
+            let mut store = Days::open(options(), at).unwrap();
+            store.append(&everyone, at, "here", "yes", &[]).unwrap();
+            store.maintain(now).unwrap();
+            let exchanges = |store: &Days| store.status(Some(&everyone)).unwrap()[0].exchanges;
+            assert_eq!(exchanges(&store), kept, "{name}");
+            drop(store);
+            let reopened = Days::open(options(), now).unwrap();
+            assert_eq!(exchanges(&reopened), kept, "{name}, reopened");
+            drop(reopened);
+            fs::remove_dir_all(dir).unwrap();
+        }
+    }
 
     #[test]
     fn the_live_connection_requests_durable_commits_and_private_deletion() {

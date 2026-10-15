@@ -143,6 +143,14 @@ impl Day {
         (0..=LAST_DAY).contains(&day).then_some(Self(day))
     }
 
+    /// The day this many calendar days before this one, if a journal can be
+    /// named for it: retention counts local days, not 24-hour spans, which a
+    /// day of summer time's change is not (#844).
+    pub fn before(self, days: u32) -> Option<Self> {
+        let day = self.0 - i64::from(days);
+        (0..=LAST_DAY).contains(&day).then_some(Self(day))
+    }
+
     /// [`Self::of`], with the offset the lamp's local time has at that
     /// moment: a zone's summer time counts on the days it is kept (#820).
     pub fn at(at_unix_ms: u64, local: &LocalTime) -> Option<Self> {

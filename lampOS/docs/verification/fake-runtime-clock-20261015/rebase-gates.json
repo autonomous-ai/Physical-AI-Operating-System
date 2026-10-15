@@ -1,0 +1,35 @@
+{
+  "base": "b60062b861f8c2350675c87eb3802a7ceac4c86a",
+  "gates": [
+    {
+      "command": "cargo fmt --all --check",
+      "started_from_date": "2026-10-15 23:23:08 +0700",
+      "finished_from_date": "2026-10-15 23:23:13 +0700",
+      "exit": 0
+    },
+    {
+      "command": "cargo clippy --locked --offline -p lamp-voice-eval --all-targets -- -D warnings",
+      "started_from_date": "2026-10-15 23:23:13 +0700",
+      "finished_from_date": "2026-10-15 23:23:39 +0700",
+      "exit": 0
+    },
+    {
+      "command": "cargo nextest run --locked --offline -p lamp-voice-eval --lib -E 'test(physical::fake_lamp::clock_tests::) | test(physical::mac::backend_clock_tests::)' --test-threads=1 --retries=0 --profile default",
+      "started_from_date": "2026-10-15 23:23:39 +0700",
+      "finished_from_date": "2026-10-15 23:24:18 +0700",
+      "exit": 0
+    },
+    {
+      "command": "cargo build --locked --offline --workspace",
+      "started_from_date": "2026-10-15 23:24:18 +0700",
+      "finished_from_date": "2026-10-15 23:25:32 +0700",
+      "exit": 0
+    }
+  ],
+  "focused_totals": {
+    "passed": 9,
+    "failed": 0,
+    "filtered_out": 85
+  },
+  "full_original_head_gate_retained": 288
+}

@@ -13,7 +13,7 @@ use crate::{
     stimulus::{SceneTiming, StimulusCatalog},
 };
 use lamp_ipc::monotonic_us;
-use lamp_turn_owner::BootId;
+use lamp_turn_owner::{BootId, MonoTime};
 use lamp_voice::fixture_provider::CueSink;
 use serde_json::{Value, json};
 use std::{
@@ -47,6 +47,63 @@ const CUE_FAULTS: [&str; 7] = [
 /// directed-fixture WAV SHA SECONDS OUT ... | directed CONFIG SECONDS OUT ...
 /// | serve CONFIG OUT ...`
 pub fn run(arguments: &[String]) -> Result<i32> {
+    run_inner(
+        arguments,
+        true,
+        || MonoTime::from_micros(monotonic_us()),
+        |progress| {
+            if !progress.ended {
+                thread::sleep(Duration::from_millis(2));
+            }
+            Ok(())
+        },
+    )
+}
+
+/// Work completed by one finite fake-runtime poll. Counts are cumulative and
+/// advance only after the corresponding operation succeeds. `at` is the poll's
+/// original tick sample, not another clock read at this completion boundary.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct DirectedPoll {
+    /// Starts at one; repeated polls at the same clock value remain distinct.
+    pub poll: u64,
+    pub at: MonoTime,
+    pub runtime_us: u64,
+    /// Complete runtime stdout lines, each written and flushed.
+    pub stdout_lines: u64,
+    /// Room datagrams decoded and injected into the runtime, not merely sent.
+    pub room_inputs: u64,
+    /// Events appended to the in-memory trace; any enabled cue scan is done.
+    pub trace_records: usize,
+    /// The runtime has ended. The final file is not yet written or synced;
+    /// neither this flag nor returning from a hook proves a subprocess exited.
+    pub ended: bool,
+}
+
+/// Run a finite fake runtime with an explicitly supplied clock and poll hook.
+/// `now` must only read time; advancing time belongs to the fixture driver.
+/// Each hook runs after ticks, event/stdout draining, CueSink, fault relay and
+/// room-input consumption, in that order. It may acknowledge that work and
+/// park until the next poll. It must return promptly on `ended` so the final
+/// trace can be written and synced, and provide its own bounded host watchdog.
+///
+/// This entrypoint has no default sleep and rejects `serve`, whose runtime has
+/// a separate system clock. The CLI and `run` retain their original clock and
+/// two-millisecond polling. No command-line option selects this hook.
+pub fn run_with_clock_and_poll(
+    arguments: &[String],
+    now: impl Fn() -> MonoTime,
+    on_poll: impl FnMut(DirectedPoll) -> Result<()>,
+) -> Result<i32> {
+    run_inner(arguments, false, now, on_poll)
+}
+
+fn run_inner(
+    arguments: &[String],
+    allow_serve: bool,
+    now: impl Fn() -> MonoTime,
+    mut on_poll: impl FnMut(DirectedPoll) -> Result<()>,
+) -> Result<i32> {
     let mut plan_path = None;
     let mut serve = crate::physical::fake_serve::ServeFaults::default();
     let mut scenario = None;
@@ -83,6 +140,11 @@ pub fn run(arguments: &[String]) -> Result<i32> {
         None => LoadedPlan::default_plan(&catalog)?,
     };
     if rest.first().map(String::as_str) == Some("serve") {
+        if !allow_serve {
+            return Err(invalid(
+                "a controlled fake clock supports only finite directed runs",
+            ));
+        }
         // The exact arguments this child received, for argv forwarding tests.
         println!("{}", json!({"kind": "fake_lamp_argv", "argv": arguments}));
         let cue = rest
@@ -193,15 +255,18 @@ pub fn run(arguments: &[String]) -> Result<i32> {
         false,
         seed,
     );
-    let base = monotonic_us();
+    let base = now().as_micros();
     let mut trace: Vec<Value> = Vec::new();
     let mut buffer = [0_u8; ROOM_MAX_BYTES];
     let mut failed = false;
     let stdout = std::io::stdout();
+    let mut poll = 0;
+    let mut stdout_lines = 0;
+    let mut room_inputs = 0;
     loop {
         // Never stamp an event in the future: CueSink rejects such cues.
-        let now = monotonic_us();
-        while !runtime.ended() && base + runtime.now_us() + crate::fake::TICK_US <= now {
+        let at = now();
+        while !runtime.ended() && base + runtime.now_us() + crate::fake::TICK_US <= at.as_micros() {
             runtime.tick();
         }
         while let Some(event) = runtime.pop() {
@@ -218,6 +283,7 @@ pub fn run(arguments: &[String]) -> Result<i32> {
                     json!({"status": "listening_ready", "seconds": seconds})
                 )?;
                 lock.flush()?;
+                stdout_lines += 1;
             }
             if let EventKind::RunEnd {
                 status: Some(status),
@@ -229,21 +295,31 @@ pub fn run(arguments: &[String]) -> Result<i32> {
             trace.push(to_trace(&event, owner));
         }
         if let Some(sink) = cues.as_mut() {
-            let _ = sink.scan(&trace, monotonic_us());
+            let _ = sink.scan(&trace, now().as_micros());
         }
         if let Some(relay) = fault_relay.as_mut() {
-            relay.tick(monotonic_us())?;
+            relay.tick(now().as_micros())?;
         }
         if let Some(socket) = &room {
             while let Ok(count) = socket.recv(&mut buffer) {
                 let timing: SceneTiming = serde_json::from_slice(&buffer[..count])?;
                 runtime.inject(timing, None, runtime.now_us());
+                room_inputs += 1;
             }
         }
+        poll += 1;
+        on_poll(DirectedPoll {
+            poll,
+            at,
+            runtime_us: runtime.now_us(),
+            stdout_lines,
+            room_inputs,
+            trace_records: trace.len(),
+            ended: runtime.ended(),
+        })?;
         if runtime.ended() {
             break;
         }
-        thread::sleep(Duration::from_millis(2));
     }
     let mut file = fs::OpenOptions::new()
         .write(true)
@@ -404,3 +480,7 @@ impl Drop for FaultRelay {
         let _ = fs::remove_file(&self.path);
     }
 }
+
+#[cfg(test)]
+#[path = "fake_runtime_clock_tests.rs"]
+mod clock_tests;

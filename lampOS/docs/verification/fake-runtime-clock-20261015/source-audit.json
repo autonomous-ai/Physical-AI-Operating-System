@@ -1,0 +1,32 @@
+{
+  "base": "71a15e75d",
+  "original_source_sha256": "7d7b43226f123bdab78ffa9b0ff89965350446d64394fb3b31b10731fc3b2932",
+  "restored_source_sha256": "7d7b43226f123bdab78ffa9b0ff89965350446d64394fb3b31b10731fc3b2932",
+  "whole_original_file_reconstructed_byte_for_byte": true,
+  "changes_reversed": [
+    "default run wrapper and explicit controlled entrypoint/progress type",
+    "controlled serve rejection",
+    "four clock samples: base, tick, CueSink, fault relay",
+    "successful stdout/room counters and completed poll callback",
+    "test module declaration"
+  ],
+  "unchanged_default_proof": "run calls the same inner engine with host monotonic_us and sleeps 2 ms only after continuing polls; serve takes its original path. Original source reconstructs byte-for-byte.",
+  "unchanged_fault_relay_sha256": "67fce49709a9c1109d44f34621892bc01a8e24b8080dee25e59f3bd6ac32a020",
+  "new_tests": [
+    "a_pure_clock_keeps_tick_boundaries_and_frozen_polls_distinct",
+    "completed_polls_prove_room_consumption_and_keep_cue_fault_timing",
+    "controlled_serve_is_refused_before_clock_hooks_or_output",
+    "a_failed_poll_hook_stops_before_another_tick_or_final_trace"
+  ],
+  "tests_executed": false,
+  "files": {
+    "lampOS/crates/voice-eval/src/physical/fake_lamp.rs": "fecb70fc79a85675749bd4208cfa5ec760d2ea5c56b2b6865acd56caee57649d",
+    "lampOS/crates/voice-eval/src/physical/fake_runtime_clock_tests.rs": "06572780eeb16d10975437ddcec6b1b82944d570373d10312e763f4a2c73467a",
+    "lampOS/docs/realtime-tests.md": "55507d55eb8480206d8e18f3712e8d25d8c3bd80de48f37818f2321c41c2bed5"
+  },
+  "fixture_isolation": {
+    "updated_at_from_date": "2026-10-15 21:55:01 +0700",
+    "prefix": "/tmp/lve-fake-clock-",
+    "reason": "Distinct from backend_clock_tests.rs /tmp/lve-clock- prefix, whose independent counter can otherwise collide in the same parallel test process."
+  }
+}

@@ -1,0 +1,13 @@
+# Explicit finite fake-runtime clock (#823)
+
+Recorded 2026-10-15 22:20:49 +0700, from `date`, on base `71a15e75d`. This is preparation for synchronized finite process fixtures; no existing-test speedup is claimed.
+
+`fake_lamp::run_with_clock_and_poll` accepts a pure logical clock and a completed-poll callback. The callback observes the original tick timestamp, poll sequence, elapsed runtime time, successfully flushed stdout lines, consumed room inputs, trace count and logical completion. Completion precedes final trace synchronization and process exit; an outer driver must acknowledge those separately. Controlled serve mode is rejected before clock reads, hooks or output.
+
+The default `run` path still uses the host clock and the original 2 ms continuing-poll sleep. All four logical samples keep their original order; 10 ms ticks, cue freshness, fault delays, scenarios and existing assertions are unchanged. [Source audit](source-audit.json) reconstructs the entire original source byte-for-byte by reversing the new wrappers, counters and clock substitutions; its `tests_executed: false` field describes the earlier source-only audit, superseded by the gates below. No CLI, environment switch or process scheduler is added by this change.
+
+Four new tests exercise pure/frozen clock reads and tick boundaries, consumed room input and delayed cues, serve refusal, and hook-error propagation. Their temporary paths use a distinct `lve-fake-clock-` prefix to avoid collisions with the separately proposed backend clock tests.
+
+All required local gates passed: formatting, strict all-target clippy, **288 full evaluator tests, zero failures or ignores**, and the workspace build. The focused four tests also passed in 0.16 s. [Exact commands and date boundaries](gates.json) and unedited logs are beside this file. The original head `18a4560c9` also passed native ARM64 [38759844287](https://github.com/autonomous-ai/lampOS/actions/runs/38759844287): 4,687 passed with 126 existing profile skips, including all four new cases. No retries, test/profile exclusions, workflow changes or device access.
+
+Rebased 2026-10-15 23:30:55 +0700, from `date`, onto `b60062b86` after #861 merged. Both implementation files are byte-for-byte identical to the original head ([hash proof](rebase-source-proof.json)); the documentation keeps both clock sections. Fresh fmt, strict evaluator all-target clippy, all nine fake-runtime/backend clock cases, and workspace build passed ([commands and date boundaries](rebase-gates.json)). The original full 288-test gate and reviewer's independent full gate are retained. Native CI for the rebased head is pending.

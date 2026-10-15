@@ -1,0 +1,4 @@
+   Compiling lamp-camera v0.1.0 (/private/tmp/lampos-tests-fake-clock/lampOS/crates/camera)
+   Compiling lamp-voice v0.1.0 (/private/tmp/lampos-tests-fake-clock/lampOS/crates/voice)
+   Compiling lamp-voice-eval v0.1.0 (/private/tmp/lampos-tests-fake-clock/lampOS/crates/voice-eval)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 31.22s

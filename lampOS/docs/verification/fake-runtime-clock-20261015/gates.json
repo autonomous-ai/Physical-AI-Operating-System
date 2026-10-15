@@ -1,0 +1,41 @@
+{
+  "gates": [
+    {
+      "command": "cargo fmt --all --check",
+      "started_from_date": "2026-10-15 21:58:41 +0700",
+      "finished_from_date": "2026-10-15 21:58:45 +0700",
+      "exit": 0
+    },
+    {
+      "command": "cargo clippy --locked --offline -p lamp-voice-eval --all-targets -- -D warnings",
+      "started_from_date": "2026-10-15 21:58:45 +0700",
+      "finished_from_date": "2026-10-15 21:59:18 +0700",
+      "exit": 0
+    },
+    {
+      "command": "cargo test --locked --offline -p lamp-voice-eval --lib physical::fake_lamp::clock_tests -- --test-threads=1",
+      "started_from_date": "2026-10-15 21:59:18 +0700",
+      "finished_from_date": "2026-10-15 22:00:14 +0700",
+      "exit": 0
+    },
+    {
+      "command": "cargo test --locked --offline -p lamp-voice-eval --no-fail-fast -- --test-threads=1",
+      "started_from_date": "2026-10-15 22:00:14 +0700",
+      "finished_from_date": "2026-10-15 22:13:04 +0700",
+      "exit": 0
+    },
+    {
+      "command": "cargo build --locked --offline --workspace",
+      "started_from_date": "2026-10-15 22:13:04 +0700",
+      "finished_from_date": "2026-10-15 22:13:35 +0700",
+      "exit": 0
+    }
+  ],
+  "full_package_totals": {
+    "passed": 288,
+    "failed": 0,
+    "ignored": 0
+  },
+  "target": "/private/tmp/lampos-tests-relay-clock/lampOS/target",
+  "build_jobs": 2
+}

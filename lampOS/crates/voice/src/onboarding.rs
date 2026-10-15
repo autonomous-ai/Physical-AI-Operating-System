@@ -208,8 +208,25 @@ pub struct Onboarding {
     goals: Option<[f64; 3]>,
     /// Whether the body has said where its joints are, or whether a hand
     /// is on it, since this voice started.
-    joints_heard: bool,
-    hand_heard: bool,
+    body_heard: bool,
+}
+
+/// What a read of a body topic found: nothing ever, a message
+/// fresh within [`FRESH_MS`] of `now_ms`, or anything else (stale, expired,
+/// or a read that failed), which is a body that is not saying so now.
+fn heard(
+    read: std::io::Result<Option<lamp_bus::Message>>,
+    now_ms: u64,
+) -> Heard<lamp_bus::Message> {
+    match read {
+        Ok(None) => Heard::Never,
+        Ok(Some(message))
+            if !message.expired && now_ms.saturating_sub(message.header.at_unix_ms) <= FRESH_MS =>
+        {
+            Heard::Fresh(message)
+        }
+        _ => Heard::Stale,
+    }
 }
 
 /// What the body last said on a topic.
@@ -274,8 +291,7 @@ impl Onboarding {
             looked: None,
             felt: None,
             goals: None,
-            joints_heard: false,
-            hand_heard: false,
+            body_heard: false,
         }
     }
 
@@ -315,55 +331,51 @@ impl Onboarding {
         {
             return still;
         }
-        let read = |topic| -> Heard<lamp_bus::Message> {
-            match self
-                .eyes
-                .as_ref()
-                .and_then(|bus| bus.latest(topic).ok().flatten())
-            {
-                None => Heard::Never,
-                Some(message)
-                    if message.expired
-                        || unix_ms().saturating_sub(message.header.at_unix_ms) > FRESH_MS =>
-                {
-                    Heard::Stale
-                }
-                Some(message) => Heard::Fresh(message),
-            }
+        let read = |topic| {
+            let read = self.eyes.as_ref().map_or(Ok(None), |bus| bus.latest(topic));
+            heard(read, unix_ms())
         };
         let joints = read(lamp_msgs::JointState::TOPIC).parsed::<lamp_msgs::JointState>();
         let hand = read(lamp_msgs::Hand::TOPIC).parsed::<lamp_msgs::Hand>();
-        let still = self.judge(joints, hand);
+        // Any body topic or declaration on the bus is a body, whether or not
+        // it has said these two. A bus that cannot be listed is not proof of
+        // none.
+        let body_on_bus = !self.body_heard
+            && self.eyes.as_ref().is_some_and(|bus| {
+                bus.topics().map_or(true, |topics| {
+                    topics.iter().any(|topic| topic.name.starts_with("body/"))
+                })
+            });
+        let still = self.judge(joints, hand, body_on_bus);
         self.felt = Some((now_us, still));
         still
     }
 
-    /// Still only on positive, fresh evidence: once the body has said
-    /// where its joints are, or whether a hand is on it, a stale or missing
-    /// word is not still, and a hand last felt is still there. Only a lamp
-    /// whose body has never said either goes without that gate.
+    /// Still only on positive, fresh evidence. Once there is any sign of a
+    /// body (either topic present, fresh, stale, unreadable or not parsing,
+    /// or any `body/` topic on the bus), it stays so: a reading that is not
+    /// fresh is not still, and a hand not freshly released is still on it.
+    /// Only a lamp with no body at all goes without that gate.
     fn judge(
         &mut self,
         joints: Heard<lamp_msgs::JointState>,
         hand: Heard<lamp_msgs::Hand>,
+        body_on_bus: bool,
     ) -> bool {
+        if body_on_bus || !matches!(joints, Heard::Never) || !matches!(hand, Heard::Never) {
+            self.body_heard = true;
+        }
         let head = match joints {
-            Heard::Fresh(joints) => {
-                self.joints_heard = true;
-                head_still(&joints, &mut self.goals)
-            }
-            Heard::Never if !self.joints_heard => true,
+            Heard::Fresh(joints) => head_still(&joints, &mut self.goals),
+            Heard::Never if !self.body_heard => true,
             _ => {
                 self.goals = None;
                 false
             }
         };
         let released = match hand {
-            Heard::Fresh(hand) => {
-                self.hand_heard = true;
-                !hand.pushed
-            }
-            Heard::Never => !self.hand_heard,
+            Heard::Fresh(hand) => !hand.pushed,
+            Heard::Never => !self.body_heard,
             Heard::Stale => false,
         };
         head && released
@@ -801,6 +813,7 @@ mod tests {
         at: u64,
         said: u64,
         still: bool,
+        body_on_bus: bool,
     }
 
     impl Room {
@@ -810,6 +823,7 @@ mod tests {
                 at: 0,
                 said: 0,
                 still: true,
+                body_on_bus: false,
             }
         }
 
@@ -899,6 +913,7 @@ mod tests {
             at: 0,
             said: 0,
             still: true,
+            body_on_bus: false,
         };
         assert_eq!(again.walk.kept(), room.walk.kept());
         assert_eq!(again.wait(30 * S, Some(NEAR_MIDDLE)), NONE);
@@ -944,7 +959,7 @@ mod tests {
     ) {
         let until = room.at + for_us;
         while room.at < until {
-            let still = room.walk.judge(joints(), hand());
+            let still = room.walk.judge(joints(), hand(), room.body_on_bus);
             if room
                 .walk
                 .tick(
@@ -1039,6 +1054,54 @@ mod tests {
         let mut stale = Room::new("stale-first");
         felt(&mut stale, 20 * S, || Heard::Stale, || Heard::Never);
         assert_eq!(stale.outcome(Step::WhereYouSit), None);
+    }
+
+    #[test]
+    fn any_sign_of_a_body_keeps_the_gate_closed_for_good() {
+        // Stale first, then missing: still a body.
+        let mut room = Room::new("stale-missing");
+        felt(&mut room, S, || Heard::Stale, || Heard::Never);
+        felt(&mut room, 20 * S, || Heard::Never, || Heard::Never);
+        assert_eq!(room.outcome(Step::WhereYouSit), None);
+        // A read that fails is a body not saying so, never no body.
+        assert!(matches!(
+            heard(Err(std::io::Error::other("read")), 0),
+            Heard::Stale
+        ));
+        assert!(matches!(heard(Ok(None), 0), Heard::Never));
+        let mut room = Room::new("error-missing");
+        felt(
+            &mut room,
+            S,
+            || Heard::Never,
+            || heard(Err(std::io::Error::other("read")), 0).parsed(),
+        );
+        felt(&mut room, 20 * S, || Heard::Never, || Heard::Never);
+        assert_eq!(room.outcome(Step::WhereYouSit), None);
+        // Joints heard and a hand never readable: the hand is not exempt.
+        let mut room = Room::new("no-hand");
+        felt(
+            &mut room,
+            20 * S,
+            || Heard::Fresh(body(0.0)),
+            || Heard::Never,
+        );
+        assert_eq!(room.outcome(Step::WhereYouSit), None);
+        // A body topic declared on the bus and neither read: not exempt.
+        let mut room = Room::new("declared");
+        room.body_on_bus = true;
+        felt(&mut room, S, || Heard::Never, || Heard::Never);
+        room.body_on_bus = false;
+        felt(&mut room, 20 * S, || Heard::Never, || Heard::Never);
+        assert_eq!(room.outcome(Step::WhereYouSit), None);
+        // The same with fresh, still and released throughout: done.
+        felt(
+            &mut room,
+            4 * S,
+            || Heard::Fresh(body(0.0)),
+            || Heard::Fresh(RELEASED),
+        );
+        assert_eq!(room.outcome(Step::WhereYouSit), Some(Outcome::Done));
     }
 
     #[test]

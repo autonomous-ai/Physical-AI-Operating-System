@@ -431,6 +431,11 @@ pub struct Progress {
     store_id: Option<String>,
     /// The run of the tasks part the counts now kept are of.
     run: Option<u64>,
+    /// The tasks part is there: a status has come since it was last gone.
+    /// While it is not, nothing is asked and an answer is outdated, and
+    /// what is kept of each task (its notes, the quarter hour after one)
+    /// stays for when it is back (#751 review, 17:05).
+    live: bool,
     tasks: BTreeMap<u64, Tracked>,
     voice: Option<Voice>,
     last_talk: Option<Instant>,
@@ -471,6 +476,7 @@ impl Progress {
             asking: None,
             store_id: None,
             run: None,
+            live: false,
             tasks: BTreeMap::new(),
             voice: None,
             last_talk: None,
@@ -497,11 +503,14 @@ impl Progress {
         if status.check().is_err() {
             return;
         }
+        self.live = true;
+        let mut new_run = false;
         if self.store_id.as_deref() != Some(status.store_id.as_str()) {
             self.tasks.clear();
             self.store_id = Some(status.store_id.clone());
             self.run = Some(status.run);
         } else if self.run != Some(status.run) {
+            new_run = true;
             for tracked in self.tasks.values_mut() {
                 tracked.judged = 0;
                 tracked.held = None;
@@ -513,9 +522,13 @@ impl Progress {
         for progress in status.tasks {
             match self.tasks.get_mut(&progress.task) {
                 Some(tracked) => {
-                    // The tasks part began counting again (it restarted):
-                    // what it says now is where judging begins again.
-                    if progress.changes < tracked.last.changes {
+                    // The tasks part began counting again in the same run
+                    // (one without a run of its own to say so): what it
+                    // says now is where judging begins again. A new run is
+                    // judged from its beginning, above, whatever count it
+                    // is first seen at: its first status may have been
+                    // missed (#751 review, 17:05).
+                    if !new_run && progress.changes < tracked.last.changes {
                         tracked.judged = progress.changes;
                     }
                     tracked.last = progress;
@@ -540,9 +553,12 @@ impl Progress {
         }
     }
 
-    /// The tasks part has gone: how the work stands is not known.
+    /// The tasks part has gone: how the work stands is not known until it
+    /// says again, and nothing is asked meanwhile. What is kept of each
+    /// task stays: a restart is not a reason to tell the person again
+    /// within the quarter hour.
     pub fn gone(&mut self) {
-        self.tasks.clear();
+        self.live = false;
     }
 
     /// What the voice is doing. A turn the lamp begins to speak with nobody
@@ -601,7 +617,8 @@ impl Progress {
     /// about: this store, the task still watched and at work, and its line
     /// at the same change.
     fn current(&self, context: &Context) -> bool {
-        self.store_id.as_deref() == Some(context.store_id.as_str())
+        self.live
+            && self.store_id.as_deref() == Some(context.store_id.as_str())
             && self.run == Some(context.run)
             && self.tasks.get(&context.task).is_some_and(|tracked| {
                 tracked.last.state == AgentState::Working && tracked.last.changes == context.change
@@ -682,6 +699,9 @@ impl Progress {
     /// changed since it was last judged, and no hard rule holding it. Each
     /// hold is counted once for each change it holds.
     fn next(&mut self, now: Instant) -> Option<u64> {
+        if !self.live {
+            return None;
+        }
         let mut found = None;
         let mut holds = Vec::new();
         for (task, tracked) in &self.tasks {
@@ -1075,8 +1095,12 @@ mod tests {
         wrong.store_id = "x".into();
         progress.status(wrong);
         assert_eq!(progress.next(now), None);
+        // The tasks part gone: nothing is asked until it says again.
+        progress.status(status(11, AgentState::Working));
         progress.gone();
-        assert!(progress.tasks.is_empty());
+        assert_eq!(progress.next(now), None);
+        progress.status(status(12, AgentState::Working));
+        assert_eq!(progress.next(now), Some(3));
     }
 
     #[test]
@@ -1316,6 +1340,48 @@ mod tests {
             assert!(progress.talking(at + QUIET_FOR));
             assert!(!progress.talking(at + Duration::from_millis(900) + QUIET_FOR));
         }
+    }
+
+    /// The reviewer on #751 (17:05): run A reached change 2, the tasks part
+    /// restarted, run B's first status was missed, and B's change 1 came:
+    /// the old rule for a count that went down set judging to 1, so it was
+    /// never asked about. A new run is judged from its beginning.
+    #[test]
+    fn a_new_run_first_seen_at_a_lower_count_is_asked_about() {
+        let mut progress =
+            Progress::start(Never, Options::new(Duration::from_secs(1), None)).unwrap();
+        let now = Instant::now();
+        progress.status(status_of(RUN_A, 1, AgentState::Working));
+        progress.status(status_of(RUN_A, 2, AgentState::Working));
+        assert_eq!(progress.next(now), Some(3));
+        progress.tasks.get_mut(&3).unwrap().judged = 2;
+        progress.status(status_of(RUN_B, 1, AgentState::Working));
+        assert_eq!(progress.tasks[&3].judged, 0);
+        assert_eq!(progress.next(now), Some(3));
+    }
+
+    /// The reviewer on #751 (17:05): a note was chosen, the tasks part went
+    /// (its publisher's lease ran out) and came back as another run, and its
+    /// next changed line came 34 s after the note. It was asked about again,
+    /// as if no note had been told. What is kept of the task outlives the
+    /// tasks part going: the quarter hour holds it, and is counted.
+    #[test]
+    fn the_quarter_hour_after_a_note_outlives_the_tasks_part_going_and_coming_back() {
+        let then = Instant::now() + Duration::from_secs(120);
+        let (mut progress, decided) = asked_then(|_| {}, then);
+        assert_eq!(decided.decision.choice, "say_now");
+        progress.gone();
+        // While it is gone nothing is asked, and an answer would be outdated.
+        assert_eq!(progress.next(then + Duration::from_secs(4)), None);
+        assert!(!progress.live);
+        progress.status(status_of(RUN_B, 0, AgentState::Working));
+        progress.status(status_of(RUN_B, 1, AgentState::Working));
+        let at = then + Duration::from_secs(34);
+        assert_eq!(progress.next(at), None, "told less than 15 minutes ago");
+        assert_eq!(progress.totals().held_recent, 1);
+        assert_eq!(progress.tasks[&3].notes, 1);
+        // After the quarter hour, the new run's change is asked about.
+        assert_eq!(progress.next(then + NOTE_EVERY), Some(3));
     }
 
     #[test]

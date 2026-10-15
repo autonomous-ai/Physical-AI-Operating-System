@@ -42,7 +42,7 @@ owner already has.
 
 | Part | Owner | How | State |
 |------|-------|-----|-------|
-| voice microphone (Jieli) | lamp-voice | a second of `mic2/audio` blocks (given with `LAMP_BUS=on` and `LAMP_BUS_AUDIO=on`), their level above digital silence (-90 dBFS) and blocks lost counted; none in 2 s is `not_checked` (closed by the privacy switch, or not given). The played tone is still to do | listens: done |
+| voice microphone (Jieli) | lamp-voice | a second of `mic2/audio` blocks (given with `LAMP_BUS=on` and `LAMP_BUS_AUDIO=on`), their level above digital silence (-90 dBFS) and blocks lost counted; none in 2 s is `not_checked` (closed by the privacy switch, or not given). The played tone is heard through the `speaker` part below | listens: done |
 | room microphone (C-Media) | lamp-ears | `ears/level` arrives, above digital silence (-90 dBFS) | listens: done |
 | speaker | lamp-voice | at the factory and on demand only: the voice is asked on `selftest/speaker/request` to play its tone ([speaker-check.md](speaker-check.md)) and its answer on `selftest/speaker` is the verdict, with the voice microphone's rise, delay and how far the canceller took it down; the room microphone's `ears/level` is read for 0.5 s before and while waiting, and a tone the voice heard fails if the room microphone rose less than 6 dB. No answer in 5 s is `not_checked` (the voice runs without `LAMP_SELFTEST_SPEAKER=on`); at first boot it asks nothing | done |
 | servos 1 to 5 | lamp-body | `body/joint_states` fresh for all five joints; a small move through `expression/body` (±0.35 rad at most, lease-held) and back | readback done; the move to be agreed with the fifth builder |
@@ -87,4 +87,4 @@ part could not be checked, 2 the arguments were wrong.
   fault, 9 SD/MMC re-tunes timed out since boot, as `dmesg` agrees; air and
   touch were `not_checked` for the two reasons mended above.
 
-The speaker's tone and the servos' small move are not built yet.
+The speaker check is built on both sides: the voice's tone (#895) was played and passed on lamp-4ace by the first builder on 2026-10-16 at 03:46; this part, which asks for it and reads the room microphone, has not run on a lamp yet. The servos' small move is not built.

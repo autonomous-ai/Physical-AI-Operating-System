@@ -80,11 +80,17 @@ fn unix_ms() -> u64 {
         .unwrap_or(0)
 }
 
-/// The room's level now, if fresh. Taken whether or not lamp-ears marks it
+/// The room's newest level, if fresh, with when it was published (wall
+/// clock, as the bus stamps it). Taken whether or not lamp-ears marks it
 /// the lamp's own voice: the tone is the lamp's own sound.
-fn room_level(bus: &Bus) -> Option<f32> {
-    let seen = listen::newest::<RoomSound>(bus, RoomSound::TOPIC).ok()??;
-    (seen.age <= listen::FAST_FRESH).then_some(seen.value.level_db)
+fn room_level(bus: &Bus) -> Option<(f32, u64)> {
+    let message = bus.latest(RoomSound::TOPIC).ok()??;
+    let at_ms = message.header.at_unix_ms;
+    if unix_ms().saturating_sub(at_ms) > listen::FAST_FRESH.as_millis() as u64 {
+        return None;
+    }
+    let sound = message.parse::<RoomSound>().ok()?;
+    Some((sound.level_db, at_ms))
 }
 
 pub struct Speaker<'a> {
@@ -110,11 +116,26 @@ impl Check for Speaker<'_> {
                 );
             }
         };
+        // A request is made only with time to hear its answer: one left
+        // unanswered could still be played after the check has ended.
+        let no_time = || {
+            PartResult::new(
+                "speaker",
+                Verdict::NotChecked,
+                "the self-test ran out of time before the tone could be asked for and heard",
+            )
+        };
+        if Instant::now() + BASELINE + self.answer_within > deadline {
+            return no_time();
+        }
         let mut before = Vec::new();
-        let until = (Instant::now() + BASELINE).min(deadline);
+        let until = Instant::now() + BASELINE;
         while Instant::now() < until {
-            before.extend(room_level(self.bus));
+            before.extend(room_level(self.bus).map(|(level, _)| level));
             std::thread::sleep(LOOK_EVERY);
+        }
+        if Instant::now() + self.answer_within > deadline {
+            return no_time();
         }
         let id = format!("selftest-{}", unix_ms());
         let asked_ms = unix_ms();
@@ -142,9 +163,12 @@ impl Check for Speaker<'_> {
         };
         let mut loudest: Option<f32> = None;
         let mut answer = None;
-        let until = (Instant::now() + self.answer_within).min(deadline);
+        let until = Instant::now() + self.answer_within;
         while Instant::now() < until {
-            if let Some(level) = room_level(self.bus) {
+            // Only a level published after the request can have heard it.
+            if let Some((level, at_ms)) = room_level(self.bus)
+                && at_ms > asked_ms
+            {
                 loudest = Some(loudest.map_or(level, |l: f32| l.max(level)));
             }
             if let Ok(Some(message)) = self.bus.latest(SpeakerCheck::TOPIC)
@@ -322,5 +346,104 @@ mod tests {
         std::fs::remove_dir_all(root).unwrap();
         assert_eq!(result.verdict, Verdict::Pass, "{result:?}");
         assert_eq!(value(&result, "room_rise_db"), Some("25.0"));
+    }
+
+    fn quiet_bus(name: &str) -> (Bus, std::path::PathBuf) {
+        let root = std::path::PathBuf::from(format!("/tmp/ls-{name}-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        std::fs::create_dir_all(&root).unwrap();
+        (Bus::new(&root).unwrap(), root)
+    }
+
+    #[test]
+    fn a_room_level_from_before_the_request_is_not_taken_as_hearing_the_tone() {
+        let (bus, root) = quiet_bus("spk-stale");
+        let voice_bus = Bus::new(&root).unwrap();
+        let mut requests = voice_bus
+            .subscribe_typed(
+                SpeakerCheckRequest::TOPIC,
+                "voice",
+                SpeakerCheckRequest::TYPE,
+            )
+            .unwrap();
+        let mut answers = voice_bus
+            .publisher_declared(SpeakerCheck::TOPIC, &SpeakerCheck::declaration(), "voice")
+            .unwrap();
+        let mut ears = voice_bus
+            .publisher_declared(RoomSound::TOPIC, &RoomSound::declaration(), "ears")
+            .unwrap();
+        // The room is quiet, then loud once, then says nothing more.
+        let voice = std::thread::spawn(move || {
+            for n in 0..8 {
+                let level_db = if n == 7 { -40.0 } else { -60.0 };
+                ears.publish_json(
+                    n,
+                    &RoomSound {
+                        level_db,
+                        floor_db: None,
+                        own_voice: false,
+                    },
+                )
+                .unwrap();
+                std::thread::sleep(Duration::from_millis(60));
+            }
+            let message = loop {
+                if let Some(message) = requests.recv(Duration::from_millis(50)).unwrap() {
+                    break message;
+                }
+            };
+            let request: SpeakerCheckRequest = message.parse().unwrap();
+            answers
+                .publish_json(
+                    1,
+                    &SpeakerCheck {
+                        id: request.id,
+                        ..answer("pass", "")
+                    },
+                )
+                .unwrap();
+            (ears, answers)
+        });
+        let result = Speaker {
+            bus: &bus,
+            occasion: Occasion::OnDemand,
+            answer_within: ANSWER_WITHIN,
+        }
+        .run(Instant::now() + Duration::from_secs(30));
+        let _held = voice.join().unwrap();
+        // The voice passed, but nothing the room said came after the ask.
+        assert_eq!(result.verdict, Verdict::Pass, "{result:?}");
+        assert_eq!(
+            value(&result, "room"),
+            Some("no fresh ears/level"),
+            "{result:?}"
+        );
+        std::fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn with_too_little_time_left_no_request_is_made() {
+        let (bus, root) = quiet_bus("spk-late");
+        let mut hears = bus
+            .subscribe_typed(
+                SpeakerCheckRequest::TOPIC,
+                "voice",
+                SpeakerCheckRequest::TYPE,
+            )
+            .unwrap();
+        let result = Speaker {
+            bus: &bus,
+            occasion: Occasion::OnDemand,
+            answer_within: ANSWER_WITHIN,
+        }
+        .run(Instant::now() + Duration::from_millis(100));
+        assert_eq!(result.verdict, Verdict::NotChecked);
+        assert!(
+            result.reason.contains("ran out of time"),
+            "{}",
+            result.reason
+        );
+        assert!(hears.recv(Duration::from_millis(200)).unwrap().is_none());
+        std::fs::remove_dir_all(root).unwrap();
     }
 }

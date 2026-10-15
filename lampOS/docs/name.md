@@ -39,8 +39,21 @@ end it with 1 before it listens to anything.
 | Topic | Type | |
 |---|---|---|
 | `mic2/audio` (or `mic1/audio`) | `lamp_msgs/Audio` | Reads: what the microphone hears, as the voice publishes it |
-| `name/heard` | `lamp_msgs/NameHeard` | Publishes: a score and how long ago the name began, once for each hearing |
+| `name/rising` | `lamp_msgs/NameHeard` | Publishes: each hearing's first sign, as soon as the score reaches its bar, with the score so far (#782) |
+| `name/heard` | `lamp_msgs/NameHeard` | Publishes: a score and how long ago the name began, once for each hearing, when it is over |
 | `diagnostics` | `lamp_msgs/Diagnostic` | Publishes: how it is, about once a second, as `name` |
+
+**Said twice (#782).** A hearing is said on `name/heard` when the score
+falls again, with the highest score it reached: 0.40 to 0.56 s after the
+score reached the bar for "Hey Lamp," on lamp-4ace on 15 October. That was
+0.08 to 0.19 s after a 600 ms end-of-speech window had already ended the
+call. So each hearing is also first signed on `name/rising`, as soon as
+the score reaches the bar, with the score so far. What only needs to know
+the name is being said (a call's wait, `--call-wait-ms` in the voice) reads
+`name/rising`; what weighs how sure the hearing was (the voice's rule for
+whom it answers, its 0.999 and 0.95) keeps reading `name/heard`. A first
+sign with no final word was a near miss. `Hearings::rising` in `said.rs`;
+its test is `a_hearing_is_first_signed_as_it_begins_and_said_when_it_falls`.
 
 **It keeps no sound.** Samples are held for about a fifth of a second,
 until they have been turned into the numbers its models work on, and of

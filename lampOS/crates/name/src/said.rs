@@ -3,7 +3,9 @@
 //! The models give a score every 80 ms, and a name that is said raises it
 //! for several steps in a row. That is one hearing, said once, with the
 //! highest score it reached. Nothing here is slow: a hearing is said when
-//! the score falls again, or after [`LONGEST`] if it does not.
+//! the score falls again, or after [`LONGEST`] if it does not. Its first
+//! sign is said as soon as the score reaches the bar ([`Hearings::rising`],
+//! `name/rising`, #782): a person looks up at their name as it is said.
 use lamp_msgs::NameHeard;
 use std::time::{Duration, Instant};
 
@@ -18,6 +20,8 @@ pub struct Hearings {
     /// A hearing going on: when it began and the highest score so far.
     open: Option<(Instant, f32)>,
     quiet_until: Option<Instant>,
+    /// Whether the open hearing's first sign has been said.
+    rising_said: bool,
 }
 
 impl Hearings {
@@ -27,7 +31,24 @@ impl Hearings {
             least,
             open: None,
             quiet_until: None,
+            rising_said: false,
         }
+    }
+
+    /// The first sign of a hearing that has just begun, once: the score it
+    /// began with, and how long ago it reached the bar. Nothing when no
+    /// hearing is open or its first sign has been said.
+    pub fn rising(&mut self, now: Instant) -> Option<NameHeard> {
+        let (began, score) = self.open?;
+        if self.rising_said {
+            return None;
+        }
+        self.rising_said = true;
+        Some(NameHeard {
+            score,
+            ago_ms: u32::try_from(now.saturating_duration_since(began).as_millis())
+                .unwrap_or(u32::MAX),
+        })
     }
 
     fn close(&mut self, now: Instant) -> Option<NameHeard> {
@@ -55,6 +76,7 @@ impl Hearings {
             (Some(_), false) => self.close(now),
             (None, true) => {
                 self.open = Some((now, score.min(1.0)));
+                self.rising_said = false;
                 None
             }
             (None, false) => None,
@@ -83,6 +105,32 @@ mod tests {
 
     fn ms(n: u64) -> Duration {
         Duration::from_millis(n)
+    }
+
+    /// #782: the first sign as the score reaches the bar, once, before the
+    /// hearing itself, which is said when the score falls as before.
+    #[test]
+    fn a_hearing_is_first_signed_as_it_begins_and_said_when_it_falls() {
+        let start = Instant::now();
+        let mut hearings = Hearings::new(0.9);
+        assert_eq!(hearings.score(0.2, start), None);
+        assert_eq!(hearings.rising(start), None);
+        let opened = start + ms(80);
+        assert_eq!(hearings.score(0.93, opened), None);
+        let first = hearings.rising(opened).unwrap();
+        assert_eq!((first.score, first.ago_ms), (0.93, 0));
+        assert_eq!(hearings.rising(opened + ms(80)), None);
+        // It goes on rising, then falls: one hearing, at its highest, dated
+        // from the first sign.
+        assert_eq!(hearings.score(1.0, opened + ms(80)), None);
+        let said = hearings.score(0.1, opened + ms(480)).unwrap();
+        assert_eq!((said.score, said.ago_ms), (1.0, 480));
+        // Held off for a second, then a new hearing has its own first sign.
+        assert_eq!(hearings.score(0.95, opened + ms(800)), None);
+        assert_eq!(hearings.rising(opened + ms(800)), None);
+        let again = opened + ms(1_600);
+        assert_eq!(hearings.score(0.95, again), None);
+        assert_eq!(hearings.rising(again).map(|sign| sign.score), Some(0.95));
     }
 
     #[test]

@@ -2751,8 +2751,15 @@ fn conversation_with_gate(
     // The lamp's name as its own part hears it in the room's sound, for a
     // second look at something said to it by name that got nothing. Only
     // if that is switched on.
-    let mut name_in = (crate::second_look::on() || rig.call_wait_blocks.is_some())
+    let mut name_in = crate::second_look::on()
         .then(crate::bus_out::NameIn::from_environment)
+        .flatten();
+    // The first sign of the lamp's name as it is said, for a call's wait
+    // (`--call-wait-ms`, #782): only with that option.
+    let mut rising_in = rig
+        .call_wait_blocks
+        .is_some()
+        .then(|| crate::bus_out::NameIn::from_environment_on(lamp_msgs::NameHeard::RISING_TOPIC))
         .flatten();
     let mut second_look =
         crate::second_look::SecondLook::default().with_the_note(crate::called::on());
@@ -4708,17 +4715,16 @@ fn conversation_with_gate(
         if let Some(names) = name_in.as_mut()
             && let Some((began, score)) = names.newest_scored(clock)
         {
-            if crate::second_look::on() {
-                second_look.name_heard(began, score);
-            }
-            // Only the call so far: its end waits for the rest (#782).
-            if detector.name_heard(began) {
-                record(
-                    trace,
-                    json!({"kind":"call_wait","at_us":clock,"name_began_us":began,"score":score,
-                        "turn":reply.as_ref().map(|current| current.owner.turn())}),
-                )?;
-            }
+            second_look.name_heard(began, score);
+        }
+        if let Some(rising) = rising_in.as_mut() {
+            hear_the_call(
+                rising,
+                clock,
+                &mut detector,
+                reply.as_ref().map(|current| current.owner.turn()),
+                trace,
+            )?;
         }
         // A second look at something said to the lamp by name that got
         // nothing, as soon as the lamp is at rest. Someone who has spoken
@@ -5455,6 +5461,28 @@ fn commit_written_turn(
     publish(snapshot)?;
     *reply = Some(current);
     Ok(snapshot)
+}
+
+/// The first sign of the lamp's name as it is said (`name/rising`), for a
+/// call's wait (#782): an utterance that is only the call so far waits for
+/// the rest, and the record says so.
+fn hear_the_call(
+    rising: &mut crate::bus_out::NameIn,
+    clock: u64,
+    detector: &mut TurnDetector,
+    turn: Option<u64>,
+    trace: &mut SessionState,
+) -> Result<()> {
+    let Some((began, score)) = rising.newest_scored(clock) else {
+        return Ok(());
+    };
+    if detector.name_heard(began) {
+        record(
+            trace,
+            json!({"kind":"call_wait","at_us":clock,"name_began_us":began,"score":score,"turn":turn}),
+        )?;
+    }
+    Ok(())
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -6223,6 +6251,7 @@ fn handle_playback_gap(
 
 #[cfg(test)]
 mod tests {
+    mod call_wait;
     mod duplex;
     mod early_end;
     mod endpoint_session;

@@ -876,9 +876,12 @@ three rounds' first piece was "Hey Lamp," ended by `silence_fallback` at
 name alone was answered.
 
 How it knows it is a call:
-- the lamp's name was heard by `lamp-name` (`name/heard` on the bus, so it
-  needs `LAMP_BUS=on`), beginning no more than 0.5 s before the utterance
-  began (`CALL_BEFORE_US`);
+- the first sign of the lamp's name from `lamp-name` (`name/rising` on the
+  bus, so it needs `LAMP_BUS=on`), beginning no more than 0.5 s before the
+  utterance began (`CALL_BEFORE_US`). Not `name/heard`: on lamp-4ace on 15
+  October, 23:02 to 23:05, with this option, `name/heard` came 0.08 to 0.19
+  s after the 600 ms window had ended "Hey Lamp," in all four calls, and no
+  wait began ([name.md](name.md), "Said twice");
 - the utterance so far holds at most 1.2 s of speech
   (`CALL_SPEECH_BLOCKS`). "Hey Lamp," at the office's rate is about 0.7 s;
 - it waits once per utterance.
@@ -899,8 +902,12 @@ Tests (`crates/voice/tests/call_wait.rs`, `options.rs`):
 - the wait's bounds, and a name heard long before;
 - the option is refused at or under the window.
 
-Not yet tested: the coordinator's path from the bus to the detector, which
-the first builder's run on lamp-4ace exercises.
+Through the coordinator's handling of `name/rising` on a real bus
+(`coordinator/tests/call_wait.rs`): a first sign 0.23 s into the quiet, as
+`lamp-name` would send it, makes the call wait its two seconds; without the
+option it ends at the window; a sign after the window is too late. Not
+tested on the host: the voice opening that subscriber from its environment
+(`LAMP_BUS=on`), which a run on the lamp does.
 
 ## Pilot acceptance and rollback rule
 

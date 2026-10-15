@@ -793,6 +793,12 @@ impl NameHeard {
     pub const TYPE: &str = "lamp_msgs/NameHeard";
     pub const VERSION: u32 = 1;
     pub const TOPIC: &str = "name/heard";
+    /// The same hearing's first sign (#782): said as soon as the score
+    /// reaches the listener's bar, while the name is still being said,
+    /// with the score so far, and `ago_ms` from when it reached it. Its
+    /// final word is still on [`Self::TOPIC`], with the highest score. A
+    /// first sign with no final word was a near miss.
+    pub const RISING_TOPIC: &str = "name/rising";
 
     /// Each hearing is over when it has been sent. None is promised.
     pub fn declaration() -> Declaration {
@@ -1041,6 +1047,12 @@ pub fn memory_topics() -> Vec<(&'static str, Declaration)> {
     vec![(Rules::TOPIC, Rules::declaration())]
 }
 
+/// The first sign of each hearing of the lamp's name (`name/rising`, #782),
+/// separate from the original seventeen, where its final word is.
+pub fn name_topics() -> Vec<(&'static str, Declaration)> {
+    vec![(NameHeard::RISING_TOPIC, NameHeard::declaration())]
+}
+
 pub fn declaration_of(topic: &str) -> Option<Declaration> {
     first_topics()
         .into_iter()
@@ -1050,6 +1062,7 @@ pub fn declaration_of(topic: &str) -> Option<Declaration> {
         .chain(schedule_topics())
         .chain(keeper_topics())
         .chain(body_topics())
+        .chain(name_topics())
         .chain(tasks_topics())
         .chain(logging_topics())
         .chain(memory_topics())
@@ -1527,6 +1540,14 @@ mod tests {
         assert!(odd.check().unwrap_err().0.contains("score"));
         let declared = NameHeard::declaration();
         assert_eq!((declared.kind, declared.period()), (Kind::Event, None));
+        // Its first sign is the same message on a topic of its own, not one
+        // of the original seventeen.
+        assert_eq!(declaration_of(NameHeard::RISING_TOPIC), Some(declared));
+        assert!(
+            first_topics()
+                .iter()
+                .all(|(topic, _)| *topic != NameHeard::RISING_TOPIC)
+        );
     }
 
     #[test]

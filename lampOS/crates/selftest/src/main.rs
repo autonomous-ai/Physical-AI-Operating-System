@@ -85,7 +85,12 @@ fn main() -> ExitCode {
     };
     let mut checks = listen::checks(&bus);
     checks.insert(0, Box::new(mic::VoiceMic { bus: &bus }));
-    checks.push(Box::new(ring::Ring { bus: &bus }));
+    // The colours are asked for at the factory and on demand; at first
+    // boot the ring is only listened to.
+    checks.push(Box::new(ring::Ring {
+        bus: &bus,
+        active: arguments.occasion != Occasion::FirstBoot,
+    }));
     // The tone is asked for only at the factory and on demand; at first
     // boot the part says why it was not.
     checks.push(Box::new(speaker::Speaker {

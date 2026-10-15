@@ -1,20 +1,30 @@
-//! The ring, listened to: `light/state`, where the ring's owner
-//! (`lamp-voice`) says what light it is to show. The self-test asks for
-//! nothing on the ring.
+//! The ring. At the factory and when asked, each of the ten colours is
+//! asked for on `light/test`, which the ring's owner (`lamp-voice`) shows
+//! for two seconds at most and never lets touch the person's light, and is
+//! seen on `light/drawn`, which the owner says only from its own write
+//! receipts. The self-test never writes `light/command`: a request the
+//! person makes ends a test at once, and the check then says so.
 //!
-//! Asking for each colour on `light/command` and putting the person's light
-//! back cannot be made safe from here: a request the person makes between
-//! the self-test's read and its write would be overwritten, and no read
-//! closes that window. The colours come back when the ring's owner takes a
-//! test request of its own that never touches the person's light (#812).
-//!
-//! `light/state` says what the owner took, not what it drew: the ring
-//! refuses to draw under the privacy switch or while a turn owns the lamp.
-//! So the ring is at best `not_checked` here.
+//! At first boot it only listens to `light/state`, which says what the
+//! owner took, not what it drew, so that is at best `not_checked`.
 use crate::Check;
 use lamp_bus::Bus;
 use lamp_msgs::{Light, PartResult, Verdict};
-use std::time::{Duration, Instant};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
+
+/// Where a test colour is asked for, and where what was drawn is said.
+pub const TEST_TOPIC: &str = "light/test";
+pub const DRAWN_TOPIC: &str = "light/drawn";
+/// The name the self-test asks under.
+pub const SOURCE: &str = "selftest";
+/// A colour not drawn within this is not coming: the owner looks every
+/// 50 ms and draws every 25 ms.
+pub const DRAWN_WITHIN: Duration = Duration::from_millis(1_000);
+/// How long each colour is held once drawn, so a person at the factory
+/// sees it; under the owner's two seconds.
+pub const HOLD: Duration = Duration::from_millis(300);
+/// The level the colours are asked at: bright enough to tell apart.
+pub const LEVEL: u8 = 3;
 
 /// The ring says what it shows once a second; a state older than this is
 /// from a ring that stopped.
@@ -63,8 +73,128 @@ pub fn ring(heard: &Result<Option<(Light, Duration)>, String>) -> PartResult {
     }
 }
 
+fn unix_ms() -> u64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|d| d.as_millis() as u64)
+        .unwrap_or(0)
+}
+
+/// Whether the ring drew `light` at or after `since_ms`.
+fn drawn_since(bus: &Bus, light: &Light, since_ms: u64) -> bool {
+    matches!(
+        bus.latest(DRAWN_TOPIC),
+        Ok(Some(message)) if message.header.at_unix_ms >= since_ms
+            && message.parse::<Light>().is_ok_and(|drawn| drawn == *light)
+    )
+}
+
+/// Whether anyone asked for a light on `light/command` at or after
+/// `since_ms`: the person's request ends a test.
+fn asked_by_person(bus: &Bus, since_ms: u64) -> bool {
+    matches!(
+        bus.latest(Light::TOPICS[0]),
+        Ok(Some(message)) if message.header.at_unix_ms >= since_ms
+    )
+}
+
+/// What came of asking for the colours.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct Shown {
+    pub drawn: Vec<&'static str>,
+    pub missed: Vec<&'static str>,
+    /// The person asked for a light during the check.
+    pub interrupted: bool,
+    /// Ran out of time before every colour was asked.
+    pub out_of_time: bool,
+}
+
+/// Judges the colours asked for.
+pub fn colours(shown: &Shown) -> PartResult {
+    let part = "ring";
+    let result = if shown.interrupted {
+        PartResult::new(
+            part,
+            Verdict::NotChecked,
+            "a light was asked for during the check, which ends it; it was left as asked",
+        )
+    } else if shown.drawn.is_empty() && !shown.missed.is_empty() {
+        PartResult::new(
+            part,
+            Verdict::NotChecked,
+            "the ring drew none of the colours: it does not draw under the privacy switch or while a turn owns the lamp",
+        )
+    } else if !shown.missed.is_empty() {
+        PartResult::new(
+            part,
+            Verdict::Fail,
+            &format!("not drawn within 1 s: {}", shown.missed.join(", ")),
+        )
+    } else if shown.out_of_time {
+        PartResult::new(
+            part,
+            Verdict::NotChecked,
+            &format!(
+                "ran out of time after {} of {} colours",
+                shown.drawn.len(),
+                Light::COLOURS.len()
+            ),
+        )
+    } else {
+        PartResult::new(part, Verdict::Pass, "")
+    };
+    result.with("drawn", shown.drawn.len())
+}
+
+/// Asks for each colour on `light/test` and watches `light/drawn`.
+pub fn ask_colours(bus: &Bus, deadline: Instant) -> Result<Shown, String> {
+    let mut asks = bus
+        .publisher_declared(TEST_TOPIC, &Light::declaration(), SOURCE)
+        .map_err(|e| e.to_string())?;
+    let began_ms = unix_ms();
+    let mut shown = Shown::default();
+    for (n, colour) in Light::COLOURS.into_iter().enumerate() {
+        if Instant::now() + DRAWN_WITHIN > deadline {
+            shown.out_of_time = true;
+            break;
+        }
+        let light = Light {
+            on: true,
+            colour: colour.into(),
+            level: LEVEL,
+        };
+        let asked_ms = unix_ms();
+        asks.publish_json(n as u64 + 1, &light)
+            .map_err(|e| e.to_string())?;
+        let until = Instant::now() + DRAWN_WITHIN;
+        let mut drawn = false;
+        while Instant::now() < until {
+            if asked_by_person(bus, began_ms) {
+                shown.interrupted = true;
+                return Ok(shown);
+            }
+            if drawn_since(bus, &light, asked_ms) {
+                drawn = true;
+                break;
+            }
+            std::thread::sleep(Duration::from_millis(20));
+        }
+        if drawn {
+            shown.drawn.push(colour);
+            std::thread::sleep(HOLD);
+        } else {
+            shown.missed.push(colour);
+        }
+    }
+    shown.interrupted = asked_by_person(bus, began_ms);
+    Ok(shown)
+}
+
 pub struct Ring<'a> {
     pub bus: &'a Bus,
+    /// Whether to ask for the colours (the factory, on demand) or only
+    /// listen (first boot).
+    pub active: bool,
 }
 
 impl Check for Ring<'_> {
@@ -72,8 +202,22 @@ impl Check for Ring<'_> {
         "ring"
     }
 
-    fn run(&mut self, _deadline: Instant) -> PartResult {
-        ring(&shown(self.bus))
+    fn run(&mut self, deadline: Instant) -> PartResult {
+        if !self.active {
+            return ring(&shown(self.bus));
+        }
+        match shown(self.bus) {
+            Ok(Some((_, age))) if age <= STATE_FRESH => {}
+            heard => return ring(&heard),
+        }
+        match ask_colours(self.bus, deadline) {
+            Ok(shown) => colours(&shown),
+            Err(why) => PartResult::new(
+                "ring",
+                Verdict::NotChecked,
+                &format!("{TEST_TOPIC} cannot be asked: {why}"),
+            ),
+        }
     }
 }
 
@@ -105,7 +249,7 @@ mod tests {
     }
 
     #[test]
-    fn the_check_asks_nothing_of_the_ring() {
+    fn at_first_boot_the_check_asks_nothing_of_the_ring() {
         let root = std::path::PathBuf::from(format!("/tmp/ls-ring-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&root);
         std::fs::create_dir_all(&root).unwrap();
@@ -114,13 +258,136 @@ mod tests {
             .publisher_declared(Light::TOPICS[1], &Light::declaration(), "ring")
             .unwrap();
         owner.publish_json(1, &light("warm")).unwrap();
-        let result = Ring { bus: &bus }.run(Instant::now() + Duration::from_secs(5));
+        let result = Ring {
+            bus: &bus,
+            active: false,
+        }
+        .run(Instant::now() + Duration::from_secs(5));
         assert_eq!(result.verdict, Verdict::NotChecked, "{result:?}");
         assert!(
             bus.latest(Light::TOPICS[0]).unwrap().is_none(),
             "nothing was asked on light/command"
         );
         drop(owner);
+        std::fs::remove_dir_all(root).unwrap();
+    }
+
+    /// A ring owner as lamp-voice's: shows a test colour unless it is
+    /// `refuses` or it refuses all (the privacy switch), says what it drew,
+    /// and says the person's light on `light/state`.
+    fn owner(
+        root: &std::path::Path,
+        refuses: Option<&'static str>,
+        draws: bool,
+        stop: std::sync::Arc<std::sync::atomic::AtomicBool>,
+    ) -> std::thread::JoinHandle<()> {
+        let bus = Bus::new(root).unwrap();
+        let mut tests = bus
+            .subscribe_typed(TEST_TOPIC, "ring", Light::TYPE)
+            .unwrap();
+        let mut state = bus
+            .publisher_declared(Light::TOPICS[1], &Light::declaration(), "ring")
+            .unwrap();
+        let mut drawn = bus
+            .publisher_declared(DRAWN_TOPIC, &Light::declaration(), "ring")
+            .unwrap();
+        state.publish_json(0, &light("warm")).unwrap();
+        std::thread::spawn(move || {
+            let mut clock = 0;
+            while !stop.load(std::sync::atomic::Ordering::Relaxed) {
+                clock += 1;
+                state.publish_json(clock, &light("warm")).unwrap();
+                if let Ok(Some(message)) = tests.recv(Duration::from_millis(20))
+                    && let Ok(test) = message.parse::<Light>()
+                    && draws
+                    && Some(test.colour.as_str()) != refuses
+                {
+                    drawn.publish_json(clock, &test).unwrap();
+                }
+            }
+        })
+    }
+
+    fn run_with(
+        name: &str,
+        refuses: Option<&'static str>,
+        draws: bool,
+        person_at: Option<Duration>,
+    ) -> (PartResult, Bus, std::path::PathBuf) {
+        let root = std::path::PathBuf::from(format!("/tmp/ls-{name}-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        std::fs::create_dir_all(&root).unwrap();
+        let bus = Bus::new(&root).unwrap();
+        let stop = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let ring_owner = owner(&root, refuses, draws, stop.clone());
+        let person = person_at.map(|after| {
+            let bus = Bus::new(&root).unwrap();
+            std::thread::spawn(move || {
+                let mut asks = bus
+                    .publisher_declared(Light::TOPICS[0], &Light::declaration(), "actions")
+                    .unwrap();
+                std::thread::sleep(after);
+                asks.publish_json(1, &light("blue")).unwrap();
+                asks
+            })
+        });
+        let result = Ring {
+            bus: &bus,
+            active: true,
+        }
+        .run(Instant::now() + Duration::from_secs(60));
+        let _asks = person.map(|p| p.join().unwrap());
+        stop.store(true, std::sync::atomic::Ordering::Relaxed);
+        ring_owner.join().unwrap();
+        (result, bus, root)
+    }
+
+    #[test]
+    fn every_colour_drawn_passes_and_the_persons_light_is_never_written() {
+        let (result, bus, root) = run_with("ring-all", None, true, None);
+        assert_eq!(result.verdict, Verdict::Pass, "{result:?}");
+        assert!(
+            result
+                .values
+                .iter()
+                .any(|v| v.key == "drawn" && v.value == "10")
+        );
+        assert!(
+            bus.latest(Light::TOPICS[0]).unwrap().is_none(),
+            "no light/command"
+        );
+        std::fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn a_colour_never_drawn_fails_naming_it() {
+        let (result, _, root) = run_with("ring-red", Some("red"), true, None);
+        assert_eq!(result.verdict, Verdict::Fail, "{result:?}");
+        assert_eq!(result.reason, "not drawn within 1 s: red");
+        std::fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn a_ring_that_draws_nothing_is_not_checked_not_failed() {
+        let (result, _, root) = run_with("ring-none", None, false, None);
+        assert_eq!(result.verdict, Verdict::NotChecked, "{result:?}");
+        assert!(result.reason.contains("privacy"), "{}", result.reason);
+        std::fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn a_light_the_person_asks_for_ends_the_check_and_stands() {
+        let (result, bus, root) =
+            run_with("ring-person", None, true, Some(Duration::from_millis(500)));
+        assert_eq!(result.verdict, Verdict::NotChecked, "{result:?}");
+        assert!(result.reason.contains("left as asked"), "{}", result.reason);
+        let asked: Light = bus
+            .latest(Light::TOPICS[0])
+            .unwrap()
+            .unwrap()
+            .parse()
+            .unwrap();
+        assert_eq!(asked, light("blue"));
         std::fs::remove_dir_all(root).unwrap();
     }
 }

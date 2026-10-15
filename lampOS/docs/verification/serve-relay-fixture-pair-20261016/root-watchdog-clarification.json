@@ -1,0 +1,7 @@
+{
+  "date": "2026-10-16 02:27:31 +0700",
+  "path": "lampOS/docs/realtime-tests.md",
+  "before_sha256": "d3042095b685cc189fa41a48c1c3339bd726fe103aa17b0830fc4c8f12cb37ac",
+  "after_sha256": "b56221b651472d4f5df878f4e0e192ffb73438a26b8be3fb9e9e43318c7cb191",
+  "reason": "Independent review distinguished post-signal success budget from existing session reader-enqueue abort guard; no code or assertions changed."
+}

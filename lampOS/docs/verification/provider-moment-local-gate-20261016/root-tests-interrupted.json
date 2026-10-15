@@ -1,0 +1,1671 @@
+{
+  "argv": [
+    "cargo",
+    "test",
+    "--locked",
+    "--offline",
+    "-p",
+    "lamp-voice",
+    "-p",
+    "lamp-voice-eval",
+    "--no-fail-fast",
+    "--",
+    "--test-threads=1"
+  ],
+  "cwd": "/private/tmp/lampos-tests-provider-moment/lampOS",
+  "target": "/private/tmp/lampos-tests-capacity/lampOS/target",
+  "environment": {
+    "CARGO_BUILD_JOBS": "2",
+    "CARGO_INCREMENTAL": "0",
+    "PATH_prefix": "/Users/autonomous/.cargo/bin"
+  },
+  "started_from_date": "2026-10-16 02:22:42 +0700",
+  "interruption_observed_at_from_date": "2026-10-16 02:29:58 +0700",
+  "retained_native_session_id": 22651,
+  "interrupt_input": "U+0003",
+  "wrapper_exit_code": 130,
+  "cargo_child_exit_code": "not separately recorded; wrapper interrupted before recording",
+  "qualification": "invalid: sandbox denies required real local Unix socket binds",
+  "stdout_log": "root-tests.log",
+  "sha256": "0e94dbe48613d126762efefd61181064ca0a438c39024ebf91ab857adb069c80",
+  "permission_denied_lines": [
+    {
+      "line": 521,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 526,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 532,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 537,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 1237,
+      "text": "called `Result::unwrap()` on an `Err` value: Custom { kind: PermissionDenied, error: \"bind /tmp/lva-86847/attention/addressed/subs/policy.86847.0.new: Operation not permitted (os error 1)\" }"
+    },
+    {
+      "line": 1243,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 1248,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 1253,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 1258,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 1263,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 1268,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 1273,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 1278,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 1283,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 1288,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 1293,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 1298,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 1303,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 1308,
+      "text": "called `Result::unwrap()` on an `Err` value: Custom { kind: PermissionDenied, error: \"bind /tmp/lvb-name-86847/name/heard/subs/voice.86847.1.new: Operation not permitted (os error 1)\" }"
+    },
+    {
+      "line": 1313,
+      "text": "called `Result::unwrap()` on an `Err` value: Custom { kind: PermissionDenied, error: \"bind /tmp/lvb-alive-86847/voice/heard/subs/h.86847.2.new: Operation not permitted (os error 1)\" }"
+    },
+    {
+      "line": 1318,
+      "text": "called `Result::unwrap()` on an `Err` value: Custom { kind: PermissionDenied, error: \"bind /tmp/lvb-room-86847/room/state/subs/watch.86847.3.new: Operation not permitted (os error 1)\" }"
+    },
+    {
+      "line": 1323,
+      "text": "called `Result::unwrap()` on an `Err` value: Custom { kind: PermissionDenied, error: \"bind /tmp/lvb-state-86847/voice/state/subs/watch.86847.4.new: Operation not permitted (os error 1)\" }"
+    },
+    {
+      "line": 1328,
+      "text": "called `Result::unwrap()` on an `Err` value: Custom { kind: PermissionDenied, error: \"bind /tmp/lvb-health-86847/diagnostics/subs/test.86847.5.new: Operation not permitted (os error 1)\" }"
+    },
+    {
+      "line": 1333,
+      "text": "called `Result::unwrap()` on an `Err` value: Custom { kind: PermissionDenied, error: \"bind /tmp/lvb-mic-86847/mic2/audio/subs/test.86847.6.new: Operation not permitted (os error 1)\" }"
+    },
+    {
+      "line": 1338,
+      "text": "called `Result::unwrap()` on an `Err` value: Custom { kind: PermissionDenied, error: \"bind /tmp/lvb-speech-86847/voice/heard/subs/h.86847.7.new: Operation not permitted (os error 1)\" }"
+    },
+    {
+      "line": 1343,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 1348,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 1353,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 1358,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 1363,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 1368,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 1373,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 1378,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 1413,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 1503,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 1508,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 1513,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 1518,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 1523,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 1528,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 1533,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 1538,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 1543,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 1553,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 1558,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 1563,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 1568,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 1573,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 1578,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 1583,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 1588,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 1593,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 1598,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 1603,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 1608,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 1613,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 1618,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 1623,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 1628,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 1633,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 1638,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 1643,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 1648,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 1653,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 1658,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 1663,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 1668,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 1673,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 1678,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 1683,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 1688,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 1693,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 1698,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 1703,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 1708,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 1713,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 1718,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 1723,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 1728,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 1733,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 1738,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 1743,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 1748,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 1753,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 1758,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 1763,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 1768,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 1773,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 1778,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 1783,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 1788,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 1793,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 1798,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 1803,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 1808,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 1813,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 1818,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 1823,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 1828,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 1833,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 1838,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 1843,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 1848,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 1853,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 1858,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 1863,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 1868,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 1873,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 1878,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 1883,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 1888,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 1893,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 1898,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 1903,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 1908,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 1913,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 1918,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 1923,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 1928,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 1933,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 1938,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 1943,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 1948,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 1953,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 1958,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 1963,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 1968,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 1973,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 1978,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 1983,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 1988,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 1993,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 1998,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 2003,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 2008,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 2013,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 2018,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 2023,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 2028,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 2033,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 2038,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 2043,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 2048,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 2053,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 2058,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 2063,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 2068,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 2073,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 2078,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 2083,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 2088,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 2093,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 2098,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 2103,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 2108,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 2113,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 2118,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 2123,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 2128,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 2133,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 2138,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 2143,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 2148,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 2153,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 2158,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 2163,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 2168,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 2173,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 2178,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 2183,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 2188,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 2193,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 2198,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 2203,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 2208,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 2213,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 2218,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 2223,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 2228,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 2233,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 2238,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 2243,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 2248,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 2253,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 2258,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 2263,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 2268,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 2273,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 2278,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 2283,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 2288,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 2293,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 2298,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 2303,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 2308,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 2313,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 2318,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 2323,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 2328,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 2333,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 2338,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 2343,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 2348,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 2353,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 2358,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 2363,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 2368,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 2373,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 2378,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 2383,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 2388,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 2393,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 2398,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 2403,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 2408,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 2413,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 2418,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 2423,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 2428,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 2433,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 2438,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 2443,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 2448,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 2453,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 2458,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 2463,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 2468,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 2473,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 2478,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 2483,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 2488,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 2493,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 2498,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 2503,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 2508,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 2513,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 2518,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 2523,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 2528,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 2533,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 2538,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 2543,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 2548,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 2553,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 2558,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 2563,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 2568,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 2573,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 2578,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 2583,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 2608,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 2613,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 2618,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 2623,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 2628,
+      "text": "called `Result::unwrap()` on an `Err` value: Custom { kind: PermissionDenied, error: \"bind /tmp/lve-sound-86847/voice/playout/subs/watch.86847.8.new: Operation not permitted (os error 1)\" }"
+    },
+    {
+      "line": 2633,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 2638,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 2643,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 2648,
+      "text": "hand controls bus subscriptions: Custom { kind: PermissionDenied, error: \"bind /tmp/lamp-hand-86847-13/controls/state/subs/voice_hand.86847.9.new: Operation not permitted (os error 1)\" }"
+    },
+    {
+      "line": 2653,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 2658,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 2663,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 2688,
+      "text": "  left: PermissionDenied"
+    },
+    {
+      "line": 2707,
+      "text": "  left: PermissionDenied"
+    },
+    {
+      "line": 2715,
+      "text": "  left: PermissionDenied"
+    },
+    {
+      "line": 2726,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 2731,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 2736,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 2741,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 2746,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 2751,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 2756,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 2761,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 2766,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 2771,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 2776,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 2781,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 2786,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 2791,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 2796,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 2801,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 2806,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 2811,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 2816,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 2821,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 2826,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 2831,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 2836,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 2841,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 2846,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 2851,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 2856,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 2861,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 2866,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 2871,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 2876,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 2881,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 2886,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 2891,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 2896,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 2901,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 2906,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 2911,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 2916,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 2921,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 2926,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 2931,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 2936,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 2941,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 2946,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 2951,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 2956,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 2961,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 2966,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 2971,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 2976,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 2981,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 2986,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 2991,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 2996,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 3001,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 3006,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 3011,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 3016,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 3021,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 3026,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 3031,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 3036,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 3041,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 3046,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 3051,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 3056,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 3061,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 3066,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 3071,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 3076,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 3081,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 3086,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 3091,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 3096,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 3101,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 3106,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 3111,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 3116,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 3121,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 3126,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 3131,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 3150,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 3157,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 3175,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 3182,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 3187,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 3192,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 3197,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 3202,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 3207,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 3212,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 3217,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 3222,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 3227,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 3232,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 3237,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 3242,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 3247,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 3252,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 3257,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 3262,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 3267,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 3272,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 3277,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 3282,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 3287,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 3292,
+      "text": "called `Result::unwrap()` on an `Err` value: Custom { kind: PermissionDenied, error: \"bind /tmp/lv-light-asked-86847/light/command/subs/ring.86847.10.new: Operation not permitted (os error 1)\" }"
+    },
+    {
+      "line": 3297,
+      "text": "called `Result::unwrap()` on an `Err` value: Custom { kind: PermissionDenied, error: \"bind /tmp/lv-light-kept-86847/light/command/subs/ring.86847.11.new: Operation not permitted (os error 1)\" }"
+    },
+    {
+      "line": 3302,
+      "text": "called `Result::unwrap()` on an `Err` value: Custom { kind: PermissionDenied, error: \"bind /tmp/lv-light-first-86847/light/command/subs/ring.86847.12.new: Operation not permitted (os error 1)\" }"
+    },
+    {
+      "line": 3307,
+      "text": "called `Result::unwrap()` on an `Err` value: Custom { kind: PermissionDenied, error: \"bind /tmp/lv-light-odd-86847/light/command/subs/ring.86847.13.new: Operation not permitted (os error 1)\" }"
+    },
+    {
+      "line": 3312,
+      "text": "called `Result::unwrap()` on an `Err` value: Custom { kind: PermissionDenied, error: \"bind /tmp/lv-light-said-86847/light/command/subs/ring.86847.14.new: Operation not permitted (os error 1)\" }"
+    },
+    {
+      "line": 3317,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 3322,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 3327,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 3332,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 3351,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 3358,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 3363,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 3368,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 3373,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 3379,
+      "text": "  left: PermissionDenied"
+    },
+    {
+      "line": 3385,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 3390,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 3395,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 3400,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 3405,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 3410,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 3415,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 3420,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 3425,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 3430,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 3435,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 3440,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 3445,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 3450,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 3455,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 3980,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 3986,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 3991,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    },
+    {
+      "line": 3996,
+      "text": "called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: \"Operation not permitted\" }"
+    }
+  ],
+  "reported_target_summaries": [
+    "test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 1188 filtered out; finished in 0.00s",
+    "test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 1188 filtered out; finished in 0.00s",
+    "test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 1188 filtered out; finished in 0.02s",
+    "test result: FAILED. 749 passed; 432 failed; 8 ignored; 0 measured; 0 filtered out; finished in 238.02s",
+    "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s",
+    "test result: ok. 21 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.42s",
+    "test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.48s",
+    "test result: FAILED. 29 passed; 4 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.53s",
+    "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s",
+    "test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.17s"
+  ],
+  "source_changes": false,
+  "next_execution_authorization": "root explicit local Unix sockets and child-process gate with require_escalated"
+}

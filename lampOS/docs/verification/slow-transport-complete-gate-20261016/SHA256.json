@@ -1,0 +1,21 @@
+{
+  "README.md": "27c65cc2ce620a0879447f19042f491bf47374a203e669f1a494881f7cfb87a6",
+  "full-build.exit": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+  "full-build.finished": "4b691080db088bfc1bda1ab02bfbfe12bc073c95c51d1c9a9ee60a5829d9ab48",
+  "full-build.log": "9dffc0374b5ef865eebe33156faa7583c9bdae38cc1d557d1bed6965441143ec",
+  "full-build.started": "23593a8f9f1a835b6c34772a358a90129798c0c257986de8cc4d9832945171ab",
+  "full-clippy.exit": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+  "full-clippy.finished": "cdec97a2b8b9443118219a355019a67a54127d1d398317a47374dedf9036154e",
+  "full-clippy.log": "1c8052322b319d9cafb3fcaea5e701b7c2289159742e910cf7c4db7b8b67c36a",
+  "full-clippy.started": "84f973a484eee5fb665f7029e4b70945a93266f321da1314351e006c17256444",
+  "full-fmt.exit": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+  "full-fmt.finished": "84f973a484eee5fb665f7029e4b70945a93266f321da1314351e006c17256444",
+  "full-fmt.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "full-fmt.started": "744e804e91acb5c839340a1130c89e813b295dd9cbca6c61fa499223399fd89d",
+  "full-gates.json": "3ba1ce082a3705f304a52936e26f6e34cd490ad56f53bb0dfeea7b4b8390ad69",
+  "full-source.json": "282f9d0c980f00f8ca36dd3cddbd4f412f7a4d37f3f6821b44614663f9e8421a",
+  "full-tests.exit": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+  "full-tests.finished": "8993b98dec55dd9bb14dbe235a61fd30c7b61ce1c6f89f4ebfe738169ffd5856",
+  "full-tests.log": "3634963854279bf0f30ba85f0a468530618b87bd8030ecd4d9969eae0a5ffb38",
+  "full-tests.started": "cdec97a2b8b9443118219a355019a67a54127d1d398317a47374dedf9036154e"
+}

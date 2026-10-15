@@ -1,0 +1,91 @@
+{
+  "date": "2026-10-16 02:17:03 +0700",
+  "reversal": {
+    "lampOS/crates/voice-eval/src/physical/fake_lamp.rs": {
+      "exact": true,
+      "before_sha256": "db8026ff943fc5367198e48be7ec7336823504a009414a5dc6961cd7c8e3f41a",
+      "after_sha256": "9d18247e2e04944cc09c2cae2074e0c1e759e4a59332255cc3188cb762fc014f"
+    },
+    "lampOS/crates/voice-eval/src/physical/fixture_commands.rs": {
+      "exact": true,
+      "before_sha256": "464820ece7888f7d0767d7024d7b1e399d9d18601f09922f14dba5b0e328234c",
+      "after_sha256": "39f8706b3444b15ce52fbaa4250d4beb3c57d03ab5c411921e2c5082dba1feda"
+    },
+    "lampOS/crates/voice-eval/tests/serve_relay.rs": {
+      "exact": true,
+      "before_sha256": "53f5cc802a0101518da7214b63b77e052b3406fe1b5db3ce43d5c0c305145bf5",
+      "after_sha256": "836a72136db9573ca12e8b4aeab77ff95e42010cf71fcd652da6318945ec7bf2"
+    },
+    "lampOS/docs/realtime-tests.md": {
+      "exact": true,
+      "before_sha256": "e25166daa1f9163db2cabee965121b10158e9a81252398d4a565c1d0fb93d9d9",
+      "after_sha256": "d3042095b685cc189fa41a48c1c3339bd726fe103aa17b0830fc4c8f12cb37ac"
+    }
+  },
+  "entire_six_test_section_byte_identical": true,
+  "test_identities_and_bodies": [
+    {
+      "name": "a_runner_stop_is_one_sigterm_and_a_clean_reaped_end",
+      "block_sha256": "24f30b59c030653b85c2bbcf8cfff09843fa764276bdec36979b1f70d40c8601",
+      "assertions": 11
+    },
+    {
+      "name": "a_closed_runner_transport_stops_the_runtime_through_the_same_path",
+      "block_sha256": "4af2fbd73fcd008a69162e0debbd12612d7da13dbc83f030e900ccd8e293edea",
+      "assertions": 4
+    },
+    {
+      "name": "the_hard_deadline_stops_the_runtime_and_is_an_error",
+      "block_sha256": "baa93d280ee49b3b137250d7121bd2814300a37850af9df7dab767a4009643df",
+      "assertions": 4
+    },
+    {
+      "name": "a_runtime_that_ignores_sigterm_is_force_killed_and_never_clean",
+      "block_sha256": "8b7c24fd64496c741935767b93d5405fddebf3c0b58809f020ca2672b9c593a4",
+      "assertions": 7
+    },
+    {
+      "name": "the_pilot_runtime_settings_reach_the_serve_child_exactly",
+      "block_sha256": "0640ae1b9c99c0141188428206b152c08e8625d00e3aa617fc0ecf345a6e674e",
+      "assertions": 6
+    },
+    {
+      "name": "a_nonzero_runtime_exit_after_clean_metadata_is_a_relay_error",
+      "block_sha256": "84c0bb43468122577f548bbe81f22a5be54569b18dbc3e0869b2b8b2182d7858",
+      "assertions": 5
+    }
+  ],
+  "unchanged_other_old_test_files": 40,
+  "unchanged_seed_files": 69,
+  "new_tests": {
+    "lampOS/crates/voice-eval/src/physical/serve_invocation_tests.rs": {
+      "names": [
+        "only_the_leading_control_pair_is_removed_from_the_parser_view",
+        "invalid_invocation_prefixes_fail_before_any_clock_or_hook",
+        "invocation_and_direct_paths_keep_the_same_parser_and_mode_errors",
+        "a_written_invocation_without_a_successful_flush_has_no_receipt"
+      ],
+      "assertions": 13
+    },
+    "lampOS/crates/voice-eval/tests/common/serve_relay_clock.rs": {
+      "names": [
+        "the_real_stop_keeps_the_full_delay_and_original_bytes_once",
+        "real_runner_eof_holds_time_until_the_relay_reports_its_signal",
+        "runtime_completion_never_advances_time_or_claims_relay_exit",
+        "an_expired_host_boundary_fails_before_another_step_or_clock_advance",
+        "polls_preserve_two_milliseconds_and_stop_at_each_original_boundary",
+        "unwinding_releases_the_real_runner_reader_and_control_socket"
+      ],
+      "assertions": 27
+    }
+  },
+  "sha256": {
+    "lampOS/crates/voice-eval/src/physical/fake_lamp.rs": "9d18247e2e04944cc09c2cae2074e0c1e759e4a59332255cc3188cb762fc014f",
+    "lampOS/crates/voice-eval/src/physical/fixture_commands.rs": "39f8706b3444b15ce52fbaa4250d4beb3c57d03ab5c411921e2c5082dba1feda",
+    "lampOS/crates/voice-eval/tests/serve_relay.rs": "836a72136db9573ca12e8b4aeab77ff95e42010cf71fcd652da6318945ec7bf2",
+    "lampOS/docs/realtime-tests.md": "d3042095b685cc189fa41a48c1c3339bd726fe103aa17b0830fc4c8f12cb37ac",
+    "lampOS/crates/voice-eval/src/physical/serve_invocation_tests.rs": "89f89a010c4a240aa699fd37fb49e0a2c4f2ed8f65ce77332c5c9b575e3d12dc",
+    "lampOS/crates/voice-eval/tests/common/serve_relay_clock.rs": "60f5ee58ee905b285ea54c5d6c1a2159964e97a2945a79654d283ca14d0ee9cb"
+  },
+  "tests_executed": false
+}

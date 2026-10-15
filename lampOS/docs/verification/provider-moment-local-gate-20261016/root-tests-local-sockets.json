@@ -1,0 +1,29 @@
+{
+  "argv": [
+    "cargo",
+    "test",
+    "--locked",
+    "--offline",
+    "-p",
+    "lamp-voice",
+    "-p",
+    "lamp-voice-eval",
+    "--no-fail-fast",
+    "--",
+    "--test-threads=1"
+  ],
+  "cwd": "/private/tmp/lampos-tests-provider-moment/lampOS",
+  "target": "/private/tmp/lampos-tests-capacity/lampOS/target",
+  "environment": {
+    "CARGO_BUILD_JOBS": "2",
+    "CARGO_INCREMENTAL": "0",
+    "PATH_prefix": "/Users/autonomous/.cargo/bin"
+  },
+  "started_from_date": "2026-10-16 02:30:18 +0700",
+  "sandbox_permissions": "require_escalated",
+  "authorization": "root authorized real local Unix socket and child-process tests after confirmed sandbox denial",
+  "finished_from_date": "2026-10-16 02:48:48 +0700",
+  "exit_code": 101,
+  "stdout_log": "root-tests-local-sockets.log",
+  "stderr_log": "root-tests-local-sockets.log"
+}

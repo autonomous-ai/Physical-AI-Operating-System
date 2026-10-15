@@ -1,0 +1,90 @@
+{
+  "recorded_at_from_date": "2026-10-16 02:42:18 +0700",
+  "scope": "The 12 invalid-run failure blocks without direct permission text; all have completed in the still-running authorized gate. This does not erase the original invalid run or the four other actual authorized-run failures.",
+  "results": [
+    {
+      "identity": "coordinator::motor::tests::crash_and_stalled_control_never_allow_replacement_or_false_cleanup",
+      "sandbox_failure": "\nthread 'coordinator::motor::tests::crash_and_stalled_control_never_allow_replacement_or_false_cleanup' (577097868) panicked at crates/voice/src/coordinator/motor/tests.rs:823:9:\nassertion failed: m.finish().is_err()\n\n",
+      "authorized_run_outcomes_so_far": [
+        "ok"
+      ]
+    },
+    {
+      "identity": "coordinator::optional_ring::tests::failed_startup_is_inhibited_through_late_ready_and_bounded_reaping",
+      "sandbox_failure": "\nthread 'coordinator::optional_ring::tests::failed_startup_is_inhibited_through_late_ready_and_bounded_reaping' (577113444) panicked at crates/voice/src/coordinator/optional_ring.rs:387:9:\nassertion failed: ring.is_some()\n\n",
+      "authorized_run_outcomes_so_far": [
+        "ok"
+      ]
+    },
+    {
+      "identity": "coordinator::optional_ring_tests::failed_optional_ring_does_not_hide_mandatory_privacy_startup_failure",
+      "sandbox_failure": "\nthread 'coordinator::optional_ring_tests::failed_optional_ring_does_not_hide_mandatory_privacy_startup_failure' (577113456) panicked at crates/voice/src/coordinator/optional_ring_tests.rs:583:5:\nassertion failed: error.to_string().contains(\"unexpected worker startup message\")\n\n",
+      "authorized_run_outcomes_so_far": [
+        "ok"
+      ]
+    },
+    {
+      "identity": "coordinator::tests::termination::serve_sigterm_revokes_then_stops_and_reaps_workers_before_logging_finish",
+      "sandbox_failure": "\nthread 'coordinator::tests::termination::serve_sigterm_revokes_then_stops_and_reaps_workers_before_logging_finish' (577114529) panicked at crates/voice/src/coordinator/tests/termination.rs:51:10:\nchild did not install signal action: Disconnected\n\n",
+      "authorized_run_outcomes_so_far": [
+        "ok"
+      ]
+    },
+    {
+      "identity": "coordinator::tests::termination::sigint_retains_failure_and_acknowledged_synthetic_diagnostics",
+      "sandbox_failure": "\nthread 'coordinator::tests::termination::sigint_retains_failure_and_acknowledged_synthetic_diagnostics' (577114540) panicked at crates/voice/src/coordinator/tests/termination.rs:51:10:\nchild did not install signal action: Disconnected\n\n",
+      "authorized_run_outcomes_so_far": [
+        "ok"
+      ]
+    },
+    {
+      "identity": "coordinator::tests::termination::sigterm_retains_failure_and_acknowledged_synthetic_diagnostics",
+      "sandbox_failure": "\nthread 'coordinator::tests::termination::sigterm_retains_failure_and_acknowledged_synthetic_diagnostics' (577114555) panicked at crates/voice/src/coordinator/tests/termination.rs:51:10:\nchild did not install signal action: Disconnected\n\n",
+      "authorized_run_outcomes_so_far": [
+        "ok"
+      ]
+    },
+    {
+      "identity": "coordinator::tests::termination::sigterm_while_muted_reaps_only_privacy_without_opening_audio",
+      "sandbox_failure": "\nthread 'coordinator::tests::termination::sigterm_while_muted_reaps_only_privacy_without_opening_audio' (577114564) panicked at crates/voice/src/coordinator/tests/termination.rs:51:10:\nchild did not install signal action: Disconnected\n\n",
+      "authorized_run_outcomes_so_far": [
+        "ok"
+      ]
+    },
+    {
+      "identity": "process::ring_startup_tests::mandatory_interrupt_during_ring_startup_preserves_kind_and_reaps",
+      "sandbox_failure": "\nthread 'process::ring_startup_tests::mandatory_interrupt_during_ring_startup_preserves_kind_and_reaps' (577121823) panicked at crates/voice/src/process/ring_startup_tests.rs:220:6:\nmandatory failure must remain terminal\n\n",
+      "authorized_run_outcomes_so_far": [
+        "ok"
+      ]
+    },
+    {
+      "identity": "process::ring_startup_tests::ready_ring_keeps_private_handshake_and_control_contract",
+      "sandbox_failure": "\nthread 'process::ring_startup_tests::ready_ring_keeps_private_handshake_and_control_contract' (577121826) panicked at crates/voice/src/process/ring_startup_tests.rs:154:9:\nready handshake rejected\n\n",
+      "authorized_run_outcomes_so_far": [
+        "ok"
+      ]
+    },
+    {
+      "identity": "remember::tests::kept_out_reminder_is_not_journalled_by_days_but_next_exchange_is",
+      "sandbox_failure": "\nthread 'remember::tests::kept_out_reminder_is_not_journalled_by_days_but_next_exchange_is' (577150840) panicked at crates/voice/src/remember.rs:2341:13:\n\nrunning 1 test\ntest remember::tests::kept_out_reminder_is_not_journalled_by_days_but_next_exchange_is ... FAILED\n\n",
+      "authorized_run_outcomes_so_far": [
+        "ok"
+      ]
+    },
+    {
+      "identity": "remember::tests::the_days_environment_switch_is_exact_in_separate_processes",
+      "sandbox_failure": "\nthread 'remember::tests::the_days_environment_switch_is_exact_in_separate_processes' (577150856) panicked at crates/voice/src/remember.rs:2185:13:\nNone: \nrunning 1 test\ntest remember::tests::days_environment_child ... FAILED\n\n",
+      "authorized_run_outcomes_so_far": [
+        "ok"
+      ]
+    },
+    {
+      "identity": "second_provider::worker::tests::a_turn_is_kept_and_told_to_the_next",
+      "sandbox_failure": "\nthread 'second_provider::worker::tests::a_turn_is_kept_and_told_to_the_next' (577152288) panicked at crates/voice/src/second_provider/worker.rs:701:13:\n\nrunning 1 test\ntest second_provider::worker::tests::a_turn_is_kept_and_told_to_the_next ... FAILED\n\n",
+      "authorized_run_outcomes_so_far": [
+        "ok"
+      ]
+    }
+  ]
+}

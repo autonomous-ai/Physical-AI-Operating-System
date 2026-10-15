@@ -1,0 +1,47 @@
+{
+  "checked_at_from_date": "2026-10-16 02:51:12 +0700",
+  "clock_exact_reversal": true,
+  "old_test_module_byte_identical": true,
+  "old_test_module_sha256": "ef98675980c838fc13ad4632aa2ecdcb0aa04f2df9dd509c499063ed5f1add20",
+  "old_test_names": [
+    "host_pause_does_not_age_a_scoped_packet_but_logical_time_does",
+    "concurrent_scopes_and_new_threads_do_not_share_a_clock",
+    "callback_keeps_clock_active_and_rejects_nesting_and_recursion",
+    "callback_panic_releases_state_and_old_scope_cannot_clear_its_successor",
+    "callback_error_keeps_its_peers_for_shutdown_without_advancing_time",
+    "host_watchdog_before_or_after_a_peer_step_still_allows_shutdown",
+    "shutdown_steps_keep_logical_time_and_share_the_given_host_deadline"
+  ],
+  "old_static_assertions": 43,
+  "new_test_names": [
+    "snapshot_reads_and_observer_adoption_do_not_run_peers",
+    "observer_rejects_nesting_root_pumps_and_fault_injection",
+    "submicrosecond_snapshots_preserve_order_even_when_integer_time_is_equal",
+    "unrelated_roots_with_identical_epoch_values_are_still_distinct",
+    "root_drop_invalidates_adoption_but_preserves_an_observers_last_reading",
+    "callback_panic_invalidates_adoption_and_stale_scope_cannot_snapshot_successor",
+    "rejected_inconsistent_moment_leaves_the_admitted_clock_unchanged",
+    "root_snapshot_rejects_changed_origin_values",
+    "checked_moments_keep_submicroseconds_at_the_last_representable_microsecond",
+    "checked_moments_reject_instant_overflow_even_when_microseconds_fit",
+    "observer_is_thread_local_and_does_not_affect_an_independent_root_scope",
+    "root_thread_teardown_invalidates_a_snapshot_when_its_guard_was_forgotten",
+    "observer_unwind_restores_host_clock_without_invalidating_its_root"
+  ],
+  "new_static_assertions": 78,
+  "docs_exact_reversal": true,
+  "existing_voice_rust_files": 161,
+  "other_existing_voice_rust_files_unchanged": 160,
+  "changed": [
+    "lampOS/crates/voice/src/scenario_clock.rs"
+  ],
+  "new": [
+    "lampOS/crates/voice/src/scenario_moment_tests.rs"
+  ],
+  "removed": [],
+  "hashes": {
+    "lampOS/crates/voice/src/scenario_clock.rs": "4bb0811dbc62ad2345755eca06daa8f91a4e64a8dc1bfab66f763afe5cd7a5f6",
+    "lampOS/crates/voice/src/scenario_moment_tests.rs": "c372eac927457059471d7a6bc3b56c8855f530aab1b7b81e11305fe2dddfe210"
+  },
+  "docs_sha256": "bbcc661ecb1d1d8021cac7acd0152a5957098ff0a4f63592da1eaa3eebee46c1"
+}

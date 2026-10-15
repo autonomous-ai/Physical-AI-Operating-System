@@ -1,0 +1,28 @@
+{
+  "argv": [
+    "cargo",
+    "clippy",
+    "--locked",
+    "--offline",
+    "-p",
+    "lamp-voice",
+    "-p",
+    "lamp-voice-eval",
+    "--all-targets",
+    "--",
+    "-D",
+    "warnings"
+  ],
+  "cwd": "/private/tmp/lampos-tests-provider-moment/lampOS",
+  "target": "/private/tmp/lampos-tests-capacity/lampOS/target",
+  "environment": {
+    "CARGO_BUILD_JOBS": "2",
+    "CARGO_INCREMENTAL": "0",
+    "PATH_prefix": "/Users/autonomous/.cargo/bin"
+  },
+  "started_from_date": "2026-10-16 02:20:47 +0700",
+  "finished_from_date": "2026-10-16 02:21:32 +0700",
+  "exit_code": 0,
+  "stdout_log": "root-clippy.log",
+  "stderr_log": "root-clippy.log"
+}

@@ -1,0 +1,21 @@
+{
+  "argv": [
+    "cargo",
+    "build",
+    "--locked",
+    "--offline",
+    "--workspace"
+  ],
+  "cwd": "/private/tmp/lampos-tests-provider-moment/lampOS",
+  "target": "/private/tmp/lampos-tests-capacity/lampOS/target",
+  "environment": {
+    "CARGO_BUILD_JOBS": "2",
+    "CARGO_INCREMENTAL": "0",
+    "PATH_prefix": "/Users/autonomous/.cargo/bin"
+  },
+  "started_from_date": "2026-10-16 02:49:29 +0700",
+  "finished_from_date": "2026-10-16 02:51:06 +0700",
+  "exit_code": 0,
+  "stdout_log": "root-build.log",
+  "stderr_log": "root-build.log"
+}

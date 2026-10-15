@@ -1,0 +1,21 @@
+{
+  "date": "2026-10-16 02:55:07 +0700",
+  "head": "2687bf6d63158cf24ba897c8b7e22a43e9f42e80",
+  "run": 38795145743,
+  "conclusion": "success",
+  "passed": 4846,
+  "profile_excluded": 127,
+  "nine_new_tests": [
+    "undeclared_construction_and_invalid_names_or_declarations_do_not_read_the_clock",
+    "a_real_declaration_write_failure_precedes_the_first_cadence_sample",
+    "declaration_and_first_delivery_take_separate_samples_and_send_the_real_header",
+    "invalid_messages_do_not_read_cadence_or_advance_accepted_counts",
+    "frozen_reads_hold_scans_and_presence_until_the_exact_default_boundaries",
+    "a_root_obstruction_is_discovered_at_the_real_rescan_boundary_and_recovers",
+    "a_presence_obstruction_waits_until_one_second_and_unlisted_recovery_keeps_its_time",
+    "the_real_mtime_lease_remains_independent_of_a_frozen_publisher_clock",
+    "ordinary_constructors_keep_host_samples_and_publishers_remain_send_and_sync"
+  ],
+  "new_tests_each_passed_once": true,
+  "successful_job_all_steps_passed": true
+}

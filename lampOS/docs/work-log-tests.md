@@ -1,5 +1,18 @@
 # Tests work log
 
+## 2026-10-16 02:57 +0700 — native Bus ready; Serve relay pair and complete gates recorded
+
+Ready for lamp-voice: yes (#877, #901); no (Moment gate and unpublished migrations)
+
+- #877 passes exact-head ARM64 **4,843 / 127 exclusions**; new Bus cadence #901 passes **4,846 / 127**. All six and nine respective new cases execute once; both are ready. [Raw native evidence](verification/prepared-and-bus-arm64-20261016/README.md).
+- Reviewer merged #897's shared Memory startup. #894 has the requested docs-only correction to one queued input line, head `96ddc43ae0d7f7af5294abb7785f8eace4f3311f`; its fresh native run 38797184263 is in progress before returning to ready.
+- Combined delayed transport completes **498/0/0** with fmt/strict-clippy/build. [Raw complete gate](verification/slow-transport-complete-gate-20261016/README.md); the earlier 14-case paired numbers remain separately identified.
+- All six original Serve relay bodies/37 assertions remain exact; same-helper serial pair **31.474 to 2.204 s**, complete Evaluator **467/0/0**, fmt/strict-clippy/build pass. [Raw pair, review and gate](verification/serve-relay-fixture-pair-20261016/README.md). Clean Serve-only integration against merged Recorder preparation is now being gated.
+- Reporter schedule completes **258/0/6 existing ignores** for Bus/Memory, plus fmt/strict-clippy/build. [Raw complete gate](verification/memory-schedule-complete-20261016/README.md). New Memory child/parent control source passes independent review; first execution finds 23/23 parent passes and 11/12 child passes. One new test's intervening receive consumes its intended wake token; a scoped synchronization fix precedes requalification and any old health migration.
+- Moment preparation's authorized full affected gate is **1,741 pass / four fail / eight existing ignores**. All 20 clock tests pass; the complete gate stays red. [Raw failures, source proof and invalid-sandbox distinction](verification/provider-moment-local-gate-20261016/README.md). Existing #890 covers the second-route failure; motor provenance/owner routing is being checked without retries or unrelated fixes.
+
+The original 123-test serial under-two-minute target remains unproved. #783's merged sweep remains with the eighth for final qualification/close. No workflow/profile/runner/settings/device change.
+
 ## 2026-10-16 02:30 +0700 — two preparations ready; delayed transport measured
 
 Ready for lamp-voice: yes (#894, #897); no (unpublished migrations and Bus integration)

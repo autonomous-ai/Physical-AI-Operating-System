@@ -1,0 +1,29 @@
+{
+  "recorded_at_from_date": "2026-10-16 02:39:38 +0700",
+  "scope": "completed Voice library in authorized local-socket run; later targets still active",
+  "voice_library_summary": "1177 passed; 4 failed; 8 ignored; 0 measured; 0 filtered out; finished in 490.75s",
+  "failures": [
+    {
+      "identity": "coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement",
+      "diagnostic": "thread 'coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement' (577174225) panicked at crates/voice/src/coordinator/motor/tests.rs:1101:68:\ncalled `Result::unwrap()` on an `Err` value: Os { code: 2, kind: NotFound, message: \"No such file or directory\" }\nnote: run with `RUST_BACKTRACE=1` environment variable to display a backtrace"
+    },
+    {
+      "identity": "coordinator::motor::tests::pending_inspection_is_revoked_before_worker_data_and_release_is_separate",
+      "diagnostic": "motor_local_revocation_us=74\n\nthread 'coordinator::motor::tests::pending_inspection_is_revoked_before_worker_data_and_release_is_separate' (577177981) panicked at crates/voice/src/coordinator/motor/tests.rs:787:5:\nassertion failed: child.privacy_release_confirmed(denied.revision())"
+    },
+    {
+      "identity": "coordinator::motor::tests::same_owner_input_end_cancels_queued_gesture_before_inert_bus_write",
+      "diagnostic": "thread 'coordinator::motor::tests::same_owner_input_end_cancels_queued_gesture_before_inert_bus_write' (577178830) panicked at crates/voice/src/coordinator/motor/tests.rs:1191:68:\ncalled `Result::unwrap()` on an `Err` value: Os { code: 2, kind: NotFound, message: \"No such file or directory\" }"
+    },
+    {
+      "identity": "coordinator::tests::second_route::without_a_second_route_the_packets_and_records_are_as_before",
+      "diagnostic": "{\"seconds\":null,\"status\":\"listening_ready\"}\nresult Err(\"service privacy freshness lost before next observation\")\nkinds [\"endpoint_policy\", \"turn_taking_availability\", \"capture_started\", \"provider_link_current\", \"listening_ready\", \"input_candidate\", \"input_admitted\", \"ring_requested\", \"provider_input_started\", \"ring_feedback\", \"ring_renewals\", \"ring_requested\", \"turn_finished\", \"worker_shutdown_event\", \"ring_shutdown_write\"]\nphases [Listening]\ninstalls [(None, false), (None, true), (Some(1), true), (None, false)]\n\nthread 'coordinator::tests::second_route::without_a_second_route_the_packets_and_records_are_as_before' (577237953) panicked at crates/voice/src/coordinator/tests/second_route.rs:162:9:\nresult Err(\"service privacy freshness lost before next observation\")\nkinds [\"endpoint_policy\", \"turn_taking_availability\", \"capture_started\", \"provider_link_current\", \"listening_ready\", \"input_candidate\", \"input_admitted\", \"ring_requested\", \"provider_input_started\", \"ring_feedback\", \"ring_renewals\", \"ring_requested\", \"turn_finished\", \"worker_shutdown_event\", \"ring_shutdown_write\"]\nphases [Listening]\ninstalls [(None, false), (None, true), (Some(1), true), (None, false)]"
+    }
+  ],
+  "failing_test_source_unchanged_from_snapshot": true,
+  "source_sha256": {
+    "lampOS/crates/voice/src/coordinator/motor/tests.rs": "94ede047a31058d3ab68e7ce5a35beb40224bc605613ec8a6f83d71cae85723f",
+    "lampOS/crates/voice/src/coordinator/tests/second_route.rs": "3fa203b2c1c45fbf5be8a0fb06cc72d14c16ef3c981571066c95fc2f5134ae85"
+  },
+  "causality_limit": "Unchanged source does not prove preexisting failure. No baseline execution or retry was run; no assertion, fixture or source was changed."
+}

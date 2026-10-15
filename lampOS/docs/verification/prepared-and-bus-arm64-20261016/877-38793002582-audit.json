@@ -1,0 +1,16 @@
+{
+  "date": "2026-10-16 02:36:14 +0700",
+  "head": "8bbb50dcbd6493635d9d15edc2fef909797a368d",
+  "run": "38793002582",
+  "conclusion": "success",
+  "passed": 4843,
+  "profile_excluded": 127,
+  "new_tests": [
+    "physical::mac::prepared_player_clock_tests::a_shared_pure_clock_keeps_original_grants_and_real_datagram_delivery",
+    "physical::mac::prepared_player_clock_tests::cancellation_after_ready_still_withholds_the_first_copy",
+    "physical::mac::prepared_player_clock_tests::closed_and_malformed_inputs_still_withhold_delivery",
+    "physical::mac::prepared_player_clock_tests::original_grant_validation_still_refuses_invalid_identity_shape_and_horizon",
+    "physical::mac::prepared_player_clock_tests::the_fresh_first_copy_sample_decides_the_original_expiry_boundary",
+    "physical::mac::prepared_player_clock_tests::unrepresentable_clock_samples_fail_at_each_stage_before_delivery"
+  ]
+}

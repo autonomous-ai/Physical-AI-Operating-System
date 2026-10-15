@@ -1,0 +1,23 @@
+{
+  "argv": [
+    "cargo",
+    "metadata",
+    "--locked",
+    "--offline",
+    "--no-deps",
+    "--format-version",
+    "1"
+  ],
+  "cwd": "/private/tmp/lampos-tests-provider-moment/lampOS",
+  "target": "/private/tmp/lampos-tests-capacity/lampOS/target",
+  "environment": {
+    "CARGO_BUILD_JOBS": "2",
+    "CARGO_INCREMENTAL": "0",
+    "PATH_prefix": "/Users/autonomous/.cargo/bin"
+  },
+  "started_from_date": "2026-10-16 02:20:40 +0700",
+  "finished_from_date": "2026-10-16 02:20:40 +0700",
+  "exit_code": 0,
+  "stdout_log": "root-metadata.log",
+  "stderr_log": "root-metadata.stderr"
+}

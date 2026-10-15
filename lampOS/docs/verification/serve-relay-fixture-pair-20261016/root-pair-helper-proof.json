@@ -1,0 +1,17 @@
+{
+  "date": "2026-10-16 02:33:08 +0700",
+  "helper_hashes": {
+    "before": "a588d966ff1766ce0e8ec694a5e8846ed2fdcb336ed48b71e4c996ca02920542",
+    "after": "a588d966ff1766ce0e8ec694a5e8846ed2fdcb336ed48b71e4c996ca02920542"
+  },
+  "original_test_identities": [
+    "a_runner_stop_is_one_sigterm_and_a_clean_reaped_end",
+    "a_closed_runner_transport_stops_the_runtime_through_the_same_path",
+    "the_hard_deadline_stops_the_runtime_and_is_an_error",
+    "a_runtime_that_ignores_sigterm_is_force_killed_and_never_clean",
+    "the_pilot_runtime_settings_reach_the_serve_child_exactly",
+    "a_nonzero_runtime_exit_after_clean_metadata_is_a_relay_error"
+  ],
+  "restored_after_sha256": "836a72136db9573ca12e8b4aeab77ff95e42010cf71fcd652da6318945ec7bf2",
+  "load_note": "Shared x86_64 macOS with independent Moment/Bus/SlowTransport gates; no quiet-host or ARM64 timing claim."
+}

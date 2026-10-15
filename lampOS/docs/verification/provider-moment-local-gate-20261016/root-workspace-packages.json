@@ -1,0 +1,187 @@
+[
+  {
+    "name": "lamp-actions",
+    "id": "path+file:///private/tmp/lampos-tests-provider-moment/lampOS/crates/actions#lamp-actions@0.1.0",
+    "manifest_path": "/private/tmp/lampos-tests-provider-moment/lampOS/crates/actions/Cargo.toml"
+  },
+  {
+    "name": "lamp-air",
+    "id": "path+file:///private/tmp/lampos-tests-provider-moment/lampOS/crates/air#lamp-air@0.1.0",
+    "manifest_path": "/private/tmp/lampos-tests-provider-moment/lampOS/crates/air/Cargo.toml"
+  },
+  {
+    "name": "lamp-audio",
+    "id": "path+file:///private/tmp/lampos-tests-provider-moment/lampOS/crates/audio#lamp-audio@0.1.0",
+    "manifest_path": "/private/tmp/lampos-tests-provider-moment/lampOS/crates/audio/Cargo.toml"
+  },
+  {
+    "name": "lamp-body",
+    "id": "path+file:///private/tmp/lampos-tests-provider-moment/lampOS/crates/body#lamp-body@0.1.0",
+    "manifest_path": "/private/tmp/lampos-tests-provider-moment/lampOS/crates/body/Cargo.toml"
+  },
+  {
+    "name": "lamp-bus",
+    "id": "path+file:///private/tmp/lampos-tests-provider-moment/lampOS/crates/bus#lamp-bus@0.1.0",
+    "manifest_path": "/private/tmp/lampos-tests-provider-moment/lampOS/crates/bus/Cargo.toml"
+  },
+  {
+    "name": "lamp-camera",
+    "id": "path+file:///private/tmp/lampos-tests-provider-moment/lampOS/crates/camera#lamp-camera@0.1.0",
+    "manifest_path": "/private/tmp/lampos-tests-provider-moment/lampOS/crates/camera/Cargo.toml"
+  },
+  {
+    "name": "lamp-controls",
+    "id": "path+file:///private/tmp/lampos-tests-provider-moment/lampOS/crates/controls#lamp-controls@0.1.0",
+    "manifest_path": "/private/tmp/lampos-tests-provider-moment/lampOS/crates/controls/Cargo.toml"
+  },
+  {
+    "name": "lamp-ears",
+    "id": "path+file:///private/tmp/lampos-tests-provider-moment/lampOS/crates/ears#lamp-ears@0.1.0",
+    "manifest_path": "/private/tmp/lampos-tests-provider-moment/lampOS/crates/ears/Cargo.toml"
+  },
+  {
+    "name": "lamp-environment",
+    "id": "path+file:///private/tmp/lampos-tests-provider-moment/lampOS/crates/environment#lamp-environment@0.1.0",
+    "manifest_path": "/private/tmp/lampos-tests-provider-moment/lampOS/crates/environment/Cargo.toml"
+  },
+  {
+    "name": "lamp-expression",
+    "id": "path+file:///private/tmp/lampos-tests-provider-moment/lampOS/crates/expression#lamp-expression@0.1.0",
+    "manifest_path": "/private/tmp/lampos-tests-provider-moment/lampOS/crates/expression/Cargo.toml"
+  },
+  {
+    "name": "lamp-eyes",
+    "id": "path+file:///private/tmp/lampos-tests-provider-moment/lampOS/crates/eyes#lamp-eyes@0.1.0",
+    "manifest_path": "/private/tmp/lampos-tests-provider-moment/lampOS/crates/eyes/Cargo.toml"
+  },
+  {
+    "name": "lamp-gemini",
+    "id": "path+file:///private/tmp/lampos-tests-provider-moment/lampOS/crates/gemini#lamp-gemini@0.1.0",
+    "manifest_path": "/private/tmp/lampos-tests-provider-moment/lampOS/crates/gemini/Cargo.toml"
+  },
+  {
+    "name": "lamp-health",
+    "id": "path+file:///private/tmp/lampos-tests-provider-moment/lampOS/crates/health#lamp-health@0.1.0",
+    "manifest_path": "/private/tmp/lampos-tests-provider-moment/lampOS/crates/health/Cargo.toml"
+  },
+  {
+    "name": "lamp-ipc",
+    "id": "path+file:///private/tmp/lampos-tests-provider-moment/lampOS/crates/ipc#lamp-ipc@0.1.0",
+    "manifest_path": "/private/tmp/lampos-tests-provider-moment/lampOS/crates/ipc/Cargo.toml"
+  },
+  {
+    "name": "lamp-keeper",
+    "id": "path+file:///private/tmp/lampos-tests-provider-moment/lampOS/crates/keeper#lamp-keeper@0.1.0",
+    "manifest_path": "/private/tmp/lampos-tests-provider-moment/lampOS/crates/keeper/Cargo.toml"
+  },
+  {
+    "name": "lamp-lean",
+    "id": "path+file:///private/tmp/lampos-tests-provider-moment/lampOS/crates/lean#lamp-lean@0.1.0",
+    "manifest_path": "/private/tmp/lampos-tests-provider-moment/lampOS/crates/lean/Cargo.toml"
+  },
+  {
+    "name": "lamp-memory",
+    "id": "path+file:///private/tmp/lampos-tests-provider-moment/lampOS/crates/memory#lamp-memory@0.1.0",
+    "manifest_path": "/private/tmp/lampos-tests-provider-moment/lampOS/crates/memory/Cargo.toml"
+  },
+  {
+    "name": "lamp-mood",
+    "id": "path+file:///private/tmp/lampos-tests-provider-moment/lampOS/crates/mood#lamp-mood@0.1.0",
+    "manifest_path": "/private/tmp/lampos-tests-provider-moment/lampOS/crates/mood/Cargo.toml"
+  },
+  {
+    "name": "lamp-msgs",
+    "id": "path+file:///private/tmp/lampos-tests-provider-moment/lampOS/crates/msgs#lamp-msgs@0.1.0",
+    "manifest_path": "/private/tmp/lampos-tests-provider-moment/lampOS/crates/msgs/Cargo.toml"
+  },
+  {
+    "name": "lamp-name",
+    "id": "path+file:///private/tmp/lampos-tests-provider-moment/lampOS/crates/name#lamp-name@0.1.0",
+    "manifest_path": "/private/tmp/lampos-tests-provider-moment/lampOS/crates/name/Cargo.toml"
+  },
+  {
+    "name": "lamp-observer",
+    "id": "path+file:///private/tmp/lampos-tests-provider-moment/lampOS/crates/observer#lamp-observer@0.1.0",
+    "manifest_path": "/private/tmp/lampos-tests-provider-moment/lampOS/crates/observer/Cargo.toml"
+  },
+  {
+    "name": "lamp-policy",
+    "id": "path+file:///private/tmp/lampos-tests-provider-moment/lampOS/crates/policy#lamp-policy@0.1.0",
+    "manifest_path": "/private/tmp/lampos-tests-provider-moment/lampOS/crates/policy/Cargo.toml"
+  },
+  {
+    "name": "lamp-records",
+    "id": "path+file:///private/tmp/lampos-tests-provider-moment/lampOS/crates/records#lamp-records@0.1.0",
+    "manifest_path": "/private/tmp/lampos-tests-provider-moment/lampOS/crates/records/Cargo.toml"
+  },
+  {
+    "name": "lamp-ring",
+    "id": "path+file:///private/tmp/lampos-tests-provider-moment/lampOS/crates/ring#lamp-ring@0.1.0",
+    "manifest_path": "/private/tmp/lampos-tests-provider-moment/lampOS/crates/ring/Cargo.toml"
+  },
+  {
+    "name": "lamp-same-voice",
+    "id": "path+file:///private/tmp/lampos-tests-provider-moment/lampOS/crates/same-voice#lamp-same-voice@0.1.0",
+    "manifest_path": "/private/tmp/lampos-tests-provider-moment/lampOS/crates/same-voice/Cargo.toml"
+  },
+  {
+    "name": "lamp-schedule",
+    "id": "path+file:///private/tmp/lampos-tests-provider-moment/lampOS/crates/schedule#lamp-schedule@0.1.0",
+    "manifest_path": "/private/tmp/lampos-tests-provider-moment/lampOS/crates/schedule/Cargo.toml"
+  },
+  {
+    "name": "lamp-settings",
+    "id": "path+file:///private/tmp/lampos-tests-provider-moment/lampOS/crates/settings#lamp-settings@0.1.0",
+    "manifest_path": "/private/tmp/lampos-tests-provider-moment/lampOS/crates/settings/Cargo.toml"
+  },
+  {
+    "name": "lamp-setup",
+    "id": "path+file:///private/tmp/lampos-tests-provider-moment/lampOS/crates/setup#lamp-setup@0.1.0",
+    "manifest_path": "/private/tmp/lampos-tests-provider-moment/lampOS/crates/setup/Cargo.toml"
+  },
+  {
+    "name": "lamp-sound-fixtures",
+    "id": "path+file:///private/tmp/lampos-tests-provider-moment/lampOS/crates/sound-fixtures#lamp-sound-fixtures@0.1.0",
+    "manifest_path": "/private/tmp/lampos-tests-provider-moment/lampOS/crates/sound-fixtures/Cargo.toml"
+  },
+  {
+    "name": "lamp-surround",
+    "id": "path+file:///private/tmp/lampos-tests-provider-moment/lampOS/crates/surround#lamp-surround@0.1.0",
+    "manifest_path": "/private/tmp/lampos-tests-provider-moment/lampOS/crates/surround/Cargo.toml"
+  },
+  {
+    "name": "lamp-tasks",
+    "id": "path+file:///private/tmp/lampos-tests-provider-moment/lampOS/crates/tasks#lamp-tasks@0.1.0",
+    "manifest_path": "/private/tmp/lampos-tests-provider-moment/lampOS/crates/tasks/Cargo.toml"
+  },
+  {
+    "name": "lamp-turn-end",
+    "id": "path+file:///private/tmp/lampos-tests-provider-moment/lampOS/crates/turn-end#lamp-turn-end@0.1.0",
+    "manifest_path": "/private/tmp/lampos-tests-provider-moment/lampOS/crates/turn-end/Cargo.toml"
+  },
+  {
+    "name": "lamp-turn-end-wire",
+    "id": "path+file:///private/tmp/lampos-tests-provider-moment/lampOS/crates/turn-end-wire#lamp-turn-end-wire@0.1.0",
+    "manifest_path": "/private/tmp/lampos-tests-provider-moment/lampOS/crates/turn-end-wire/Cargo.toml"
+  },
+  {
+    "name": "lamp-turn-owner",
+    "id": "path+file:///private/tmp/lampos-tests-provider-moment/lampOS/crates/turn-owner#lamp-turn-owner@0.1.0",
+    "manifest_path": "/private/tmp/lampos-tests-provider-moment/lampOS/crates/turn-owner/Cargo.toml"
+  },
+  {
+    "name": "lamp-update",
+    "id": "path+file:///private/tmp/lampos-tests-provider-moment/lampOS/crates/update#lamp-update@0.1.0",
+    "manifest_path": "/private/tmp/lampos-tests-provider-moment/lampOS/crates/update/Cargo.toml"
+  },
+  {
+    "name": "lamp-voice",
+    "id": "path+file:///private/tmp/lampos-tests-provider-moment/lampOS/crates/voice#lamp-voice@0.1.0",
+    "manifest_path": "/private/tmp/lampos-tests-provider-moment/lampOS/crates/voice/Cargo.toml"
+  },
+  {
+    "name": "lamp-voice-eval",
+    "id": "path+file:///private/tmp/lampos-tests-provider-moment/lampOS/crates/voice-eval#lamp-voice-eval@0.1.0",
+    "manifest_path": "/private/tmp/lampos-tests-provider-moment/lampOS/crates/voice-eval/Cargo.toml"
+  }
+]

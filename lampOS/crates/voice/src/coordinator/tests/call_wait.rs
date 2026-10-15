@@ -128,3 +128,26 @@ fn the_first_sign_of_the_name_makes_a_call_wait_for_the_rest() {
         (200, Some(2_000), 1)
     );
 }
+
+/// Only an end that is a call's wait run out tells the model it was only
+/// the name; every other end sends nothing more than it did.
+#[test]
+fn only_a_call_whose_wait_ran_out_is_told_to_the_model() {
+    let end = |call_wait_ms| crate::activity::EndpointDecision {
+        basis: "silence_fallback",
+        silence_ms: 2_000,
+        probability: None,
+        fallback: None,
+        verdict: None,
+        call_wait_ms,
+    };
+    assert!(matches!(
+        call_note(Some(&end(Some(2_000))), 7, 3),
+        Some(ProviderInput::Called {
+            request: 7,
+            privacy_generation: 3
+        })
+    ));
+    assert!(call_note(Some(&end(None)), 7, 3).is_none());
+    assert!(call_note(None, 7, 3).is_none());
+}

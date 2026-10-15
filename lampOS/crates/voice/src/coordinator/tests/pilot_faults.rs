@@ -1015,7 +1015,11 @@ impl Peers {
                         None => {}
                     }
                 }
-                Ok(Some(ProviderInput::Audio { .. } | ProviderInput::Written { .. })) => {}
+                Ok(Some(
+                    ProviderInput::Audio { .. }
+                    | ProviderInput::Written { .. }
+                    | ProviderInput::Called { .. },
+                )) => {}
                 Ok(Some(ProviderInput::Reminder { .. })) => {
                     panic!("reminders are disabled in this fixture")
                 }

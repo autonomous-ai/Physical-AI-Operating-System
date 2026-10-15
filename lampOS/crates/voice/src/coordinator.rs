@@ -1814,6 +1814,7 @@ fn flush_provider_input_with(
             ProviderInput::Start { request, .. }
             | ProviderInput::Audio { request, .. }
             | ProviderInput::End { request, .. }
+            | ProviderInput::Called { request, .. }
             | ProviderInput::Reminder { request, .. }
             | ProviderInput::Written { request, .. } => *request,
         };
@@ -4432,6 +4433,15 @@ fn conversation_with_gate(
                         local.speech = !as_sound && said_turn == Some(current.owner.turn());
                     }
                     if sent.is_none() {
+                        // Only the lamp's name, and nothing more in its
+                        // wait: the model is told so before the end (#782).
+                        if let Some(called) = call_note(
+                            detector.last_endpoint(),
+                            current.owner.turn(),
+                            snapshot.microphone_generation(),
+                        ) {
+                            provider_queue.push_back(called);
+                        }
                         queue_input_end(
                             &mut provider_queue,
                             current,
@@ -6606,6 +6616,22 @@ fn queue_input(
 
 /// The endpoint has one explicit slot after the PCM threshold. It cannot
 /// grow an already-full terminal queue, and it does not enlarge PCM admission.
+/// What tells the model that the request ending now was only the lamp's
+/// name: when its end is a call's wait that ran out (`--call-wait-ms`,
+/// #782). Nothing for any other end.
+fn call_note(
+    decision: Option<&crate::activity::EndpointDecision>,
+    request: u64,
+    privacy_generation: u64,
+) -> Option<ProviderInput> {
+    decision
+        .and_then(|decision| decision.call_wait_ms)
+        .map(|_| ProviderInput::Called {
+            request,
+            privacy_generation,
+        })
+}
+
 fn queue_input_end(
     queue: &mut VecDeque<ProviderInput>,
     reply: &Reply,

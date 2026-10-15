@@ -242,6 +242,8 @@ impl Engine {
                     }
                 }
             }
+            // A note for Gemini's model; this voice keeps none.
+            ProviderInput::Called { .. } => {}
             ProviderInput::End { request, sound, .. } => {
                 if let Some(turn) = self.turn.as_mut().filter(|turn| turn.request == request) {
                     turn.sound.store(sound, Ordering::Release);

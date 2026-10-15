@@ -109,6 +109,7 @@ fn request_of(command: &ProviderInput) -> u64 {
         ProviderInput::Start { request, .. }
         | ProviderInput::Audio { request, .. }
         | ProviderInput::End { request, .. }
+        | ProviderInput::Called { request, .. }
         | ProviderInput::Written { request, .. }
         | ProviderInput::Reminder { request, .. } => *request,
     }

@@ -389,6 +389,14 @@ pub enum ProviderInput {
         #[serde(default, skip_serializing_if = "std::ops::Not::not")]
         cut_in: bool,
     },
+    /// The request in hand was only the lamp's name, and its call's wait
+    /// ran out with nothing more said (`--call-wait-ms`, #782). Sent just
+    /// before its End, only then: the model is told so beside the request
+    /// ([`CALLED_NOTE`]) and answers as someone who hears their name does.
+    Called {
+        request: u64,
+        privacy_generation: u64,
+    },
     /// A whole request in writing, for a turn the lamp begins itself: it is
     /// a start and an end at once and carries no sound.
     Written {
@@ -418,6 +426,7 @@ impl ProviderInput {
             Self::Start { request, .. }
             | Self::Audio { request, .. }
             | Self::End { request, .. }
+            | Self::Called { request, .. }
             | Self::Written { request, .. }
             | Self::Reminder { request, .. } => *request,
         }
@@ -431,6 +440,9 @@ impl ProviderInput {
                 privacy_generation, ..
             }
             | Self::End {
+                privacy_generation, ..
+            }
+            | Self::Called {
                 privacy_generation, ..
             }
             | Self::Written {
@@ -1125,7 +1137,6 @@ async fn serve_with_visual<C: Connect>(
         }
     });
     // What the request being heard has been given as its note so far.
-    let mut noted: Option<(u64, String)> = None;
     // When the name was last heard plainly enough to count as a call.
     let mut sure_name_us: Option<u64> = None;
     unanswered_requests().store(0, std::sync::atomic::Ordering::Relaxed);
@@ -1235,7 +1246,7 @@ async fn serve_with_visual<C: Connect>(
                             Err(why) => eprintln!(
                                 "lamp-voice provider: request {request}: the lamp's name was heard in a busy room and {why}; the model is not told"
                             ),
-                            Ok(()) => match add_note(&provider, &mut noted, open, crate::called::NOTE) {
+                            Ok(()) => match add_note(&provider, &mut intake.handoff.noted, open, crate::called::NOTE) {
                                 Ok(()) => eprintln!(
                                     "lamp-voice provider: request {request}: the model is told the lamp's name was heard"
                                 ),
@@ -1250,7 +1261,7 @@ async fn serve_with_visual<C: Connect>(
                 // and given up: the model is told so, beside what it hears
                 // (`--early-end-ms`; docs/early-end-taken-back.md).
                 if let Some(request) = intake.handoff.take_cut_off() {
-                    match add_note(&provider, &mut noted, request, CUT_OFF_NOTE) {
+                    match add_note(&provider, &mut intake.handoff.noted, request, CUT_OFF_NOTE) {
                         Ok(()) => eprintln!(
                             "lamp-voice provider: request {}: the model is told it goes on from the request given up",
                             request.get()
@@ -1285,7 +1296,7 @@ async fn serve_with_visual<C: Connect>(
                         && open.session == live
                         && let Some(fact) = room.due_in_request(live.get(), now)
                         && !going_on()
-                        && add_note(&provider, &mut noted, open.request, fact).is_ok()
+                        && add_note(&provider, &mut intake.handoff.noted, open.request, fact).is_ok()
                     {
                         // No quiet moment comes in a meeting: it goes
                         // beside what is being said, as the name does.
@@ -1357,7 +1368,7 @@ async fn serve_with_visual<C: Connect>(
                         && let Some(open) = intake.handoff.visual_turn()
                         && open.session == live
                         && let Some(note) = air_told.due(now)
-                        && add_note(&provider, &mut noted, open.request, &note).is_ok()
+                        && add_note(&provider, &mut intake.handoff.noted, open.request, &note).is_ok()
                     {
                         air_told.told(now);
                         eprintln!(
@@ -1377,7 +1388,7 @@ async fn serve_with_visual<C: Connect>(
                     known_read_at = Some(Instant::now());
                     if let Some(name) = crate::known_faces::known_now(path)
                         && known_told.as_ref() != Some(&(live, name.clone()))
-                        && add_note(&provider, &mut noted, open.request, &(crate::known_faces::note(&name) + theirs)).is_ok()
+                        && add_note(&provider, &mut intake.handoff.noted, open.request, &(crate::known_faces::note(&name) + theirs)).is_ok()
                     {
                         known_told = Some((live, name));
                         eprintln!(
@@ -2918,6 +2929,9 @@ impl ProviderIntake {
 /// or End has reached Gemini yet. This tracker retains no PCM or request history.
 #[derive(Default)]
 struct InputHandoff {
+    /// The newest note given and to which request: a request sends only
+    /// its newest, so what it was given goes with what it is given next.
+    noted: Option<(u64, String)>,
     authority: Option<Snapshot>,
     highest_seen: u64,
     retired_through: u64,
@@ -3318,6 +3332,23 @@ impl InputHandoff {
                     room.hearing(now_us);
                 }
             }
+            ProviderInput::Called { .. } => {
+                self.require_open(request)?;
+                let text = note_text(self.noted.as_ref(), request.get(), CALLED_NOTE);
+                match input.note(request, &text) {
+                    Ok(()) => {
+                        self.noted = Some((request.get(), text));
+                        eprintln!(
+                            "lamp-voice provider: request {}: only the lamp's name was said, and the model is told so",
+                            request.get()
+                        );
+                    }
+                    Err(error) => eprintln!(
+                        "lamp-voice provider: request {}: the model could not be told only its name was said: {error}",
+                        request.get()
+                    ),
+                }
+            }
             ProviderInput::End { sound, cut_in, .. } => {
                 self.require_open(request)?;
                 if let Err(error) = input.end(request) {
@@ -3443,6 +3474,11 @@ trait InputSink {
         Err(StartRefusal::NotConnected)
     }
     fn retire(&self, request: RequestId);
+    /// A note beside the open request (`try_note`). A sink that sends
+    /// nothing to a service has nowhere to put it.
+    fn note(&self, _request: RequestId, _text: &str) -> lamp_gemini::Result<()> {
+        Ok(())
+    }
     /// Retirement of a request that was given up and not continued. A sink
     /// that keeps no input treats it as any retirement.
     fn discard(&self, request: RequestId) {
@@ -3459,6 +3495,11 @@ trait InputSink {
         true
     }
 }
+
+/// What the model is told beside a request that was only the lamp's name,
+/// with nothing more said in the call's wait (`--call-wait-ms`, #782). A
+/// person who hears their name and nothing more says "Yes?" and waits.
+pub(crate) const CALLED_NOTE: &str = "The person said your name, Lamp, and nothing more: they are calling you. Answer as someone who hears their name does, with one short word such as \"Yes?\", and wait for them to go on.";
 
 /// What the model is told beside a request that goes on from one whose end
 /// was sent early and given up when the person spoke again
@@ -3509,6 +3550,9 @@ impl<C: Connect> InputSink for Supervisor<C> {
         samples: &[i16],
     ) -> lamp_gemini::Result<()> {
         self.try_audio(request, sequence, captured, samples)
+    }
+    fn note(&self, request: RequestId, text: &str) -> lamp_gemini::Result<()> {
+        self.try_note(request, text)
     }
     fn end(&self, request: RequestId) -> lamp_gemini::Result<()> {
         self.try_end(request)
@@ -6409,6 +6453,40 @@ mod tests {
             rig.output().await,
             ProviderOutput::Audio { request: heard, .. } if heard == next
         ));
+        rig.stop().await;
+    }
+
+    /// #782: a request that was only the lamp's name, whose call's wait ran
+    /// out, is told so beside it, and the note reaches the service before
+    /// the request's end, so the model answers with it.
+    #[tokio::test]
+    async fn a_bare_call_is_told_to_the_model_before_its_end() {
+        let mut rig = LiveRig::start_with(quick_policy(), Options::reporting(Reporting::Typed));
+        let mut dial = rig.ready().await;
+        let request = rig.speak(&mut dial, false, false).await;
+        rig.parent
+            .data
+            .send(ProviderInput::Called {
+                request,
+                privacy_generation: rig.snapshot.microphone_generation(),
+            })
+            .unwrap();
+        let owner = rig.snapshot.owner().unwrap();
+        rig.owner.input_ended(real_time(), owner).unwrap();
+        rig.publish();
+        rig.parent
+            .data
+            .send(ProviderInput::End {
+                request,
+                privacy_generation: rig.snapshot.microphone_generation(),
+                sound: false,
+                cut_in: false,
+            })
+            .unwrap();
+        let note = rig.service_message(&mut dial).await;
+        assert_eq!(note["realtimeInput"]["text"], CALLED_NOTE, "{note}");
+        let end = rig.service_message(&mut dial).await;
+        assert!(end["realtimeInput"].get("activityEnd").is_some(), "{end}");
         rig.stop().await;
     }
 

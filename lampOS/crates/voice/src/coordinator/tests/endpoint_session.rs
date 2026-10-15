@@ -577,6 +577,7 @@ fn provider_peer(
                     }
                 }
                 ProviderInput::Written { .. } => seen.provider.push("written"),
+                ProviderInput::Called { .. } => seen.provider.push("called"),
                 ProviderInput::Reminder { .. } => panic!("reminders are disabled in this fixture"),
             }
         }

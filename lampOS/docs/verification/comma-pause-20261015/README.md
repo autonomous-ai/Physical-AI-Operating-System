@@ -60,6 +60,52 @@ So the way from the loudspeaker to the voice microphone lengthens a comma's
 quiet by 50 to 150 ms, past the 400 ms commit. A replay of lamp-4ace's own
 capture of these scenes would measure that way; it was not available here.
 
+## The commit on human speech (`heldout/`)
+
+Pipecat's public `smart-turn-data-v3.2-test` (revision `dfc17924`, CC-BY-4.0),
+shards 4 and 5, the fresh held-out ones `endpoint-detection.md` used:
+downloaded to Fourth's scratch folder and checked against their published
+SHA-256 (`4c600774…ff66`, `b4537a3b…9335`), the 1,167 human English and
+Spanish clips decoded to 16 kHz mono WAV by macOS's `afconvert`. No audio is
+kept here. Each clip is one person; every turn end before its last is a
+split, the person going on. The finished clips' final wait is the
+detector's own pause at its end. Same replay, lamp-4ace's 600 ms window.
+
+| Commit | Splits (the person went on) | Clips with a split | Wait at a finished end, median (mean) |
+|---|---|---|---|
+| 400 ms, as now | 527 | 384 | 400 ms (468) |
+| 450 ms | 474 | 350 | 450 ms (504), +50 |
+| 500 ms | 424 | 320 | 500 ms (539), +100 |
+| 550 ms | 369 | 285 | 550 ms (571), +150 |
+| none, the 600 ms window only | 330 | 258 | 600 ms (606), +200 |
+
+So the 400 ms commit adds 197 splits to what the window alone makes, and
+550 ms takes 158 of them away (80%) for 150 ms more at every confident end.
+Most of the rest are the window's own: at 600 ms it ends pauses that the
+1,200 ms baseline above keeps (13 splits there), nearly all of them in the
+long recordings (`liva_1`, 311 of the 330). Kept-start continues those.
+
+`heldout/replay.jsonl` holds every turn and verdict by clip id;
+`heldout/score.txt` the table.
+
+## Holding on a rise (`prosody.txt`)
+
+The first builder's idea: hold longer when the last 300 ms before the quiet
+rose in pitch or level, as at a comma. Measured from the same audio, 10 ms
+frames, a pause being 200 ms under −40 dBFS after speech, the level's and
+the pitch's slope (autocorrelation, voiced frames) over the 300 ms before.
+
+| Before | Lines or clips | Level, dB per 100 ms (median; share rising) | Pitch, semitones per 100 ms (median; share rising) |
+|---|---|---|---|
+| a pause inside a rendered line (`say`) | 107 pauses | −4.75; 5% | −3.57; 12% |
+| a rendered line's end | 111 | −4.33; 14% | −0.66; 47% |
+| a pause a person went on after (held-out) | 1,089 pauses | −2.08; 35% | +0.18; 55% |
+| an unfinished clip's end | 569 | −0.72; 37% | +0.09; 53% |
+| a finished clip's end | 598 | −0.25; 43% | −0.03; 49% |
+
+It does not tell a pause from an end, in `say`'s voices or in people's, so
+it was not built.
+
 ## What others do
 
 Read in their official documents and code on 15 October 2026: Pipecat
@@ -74,13 +120,18 @@ Edlund 2010, Table 7). No early end under about 600 ms leaves them whole.
 
 ## What was built
 
-`LAMP_CUT_KEEPS_NAME=on`, off unless set ([attention.md](../../attention.md),
-"A cut keeps its name"): a request that continues one the lamp ended early
-keeps what the busy-room rule knew of the first part. The tests and the
+Two switches, both off unless set, as the first builder decided on #782:
+`LAMP_CUT_KEEPS_NAME=on` ([attention.md](../../attention.md), "A cut keeps
+its name"), a request that continues one the lamp ended early keeps what
+the busy-room rule knew of the first part; and `--endpoint-commit-ms MS`
+([endpoint-pilot.md](../../endpoint-pilot.md), "Cut at a comma"), how long a
+pause must last before a confident verdict ends the turn. The tests and the
 gate are in the pull request.
 
 ## Not shown
 
-No replay of what lamp-4ace's microphone heard; no person's voice; no
-lamp run of the switch. Whether a commit of 500 to 550 ms is worth its
-latency is the first builder's choice, and is not built.
+No replay of what lamp-4ace's microphone heard (the first builder is
+copying its post-AEC captures to this Mac, to stay local); no lamp run of
+either switch. The held-out clips are people's voices replayed digitally,
+not through a loudspeaker and the lamp's microphone. Whether 550 ms is worth
+its 150 ms is for the first builder's run at 400 and 550 tonight.

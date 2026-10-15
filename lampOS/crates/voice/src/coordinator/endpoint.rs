@@ -23,6 +23,9 @@ pub(super) struct EndpointRig {
     /// Absent for in-process test doubles.
     pub(super) monitor: Option<Monitor>,
     command: Option<WorkerCommand>,
+    /// The pause after which a confident verdict ends the turn, if the
+    /// options chose one (`--endpoint-commit-ms`, #782).
+    commit_blocks: Option<u16>,
 }
 
 impl EndpointRig {
@@ -38,7 +41,9 @@ impl EndpointRig {
             Endpoint::SmartTurn => WorkerCommand::smart_turn(program, model),
             Endpoint::SmartTurnFast => WorkerCommand::smart_turn_fast(program, model),
         };
-        Some(Self::process(command, Limits::default()))
+        let mut rig = Self::process(command, Limits::default());
+        rig.commit_blocks = options.endpoint_commit_blocks;
+        Some(rig)
     }
 
     pub(super) fn process(command: WorkerCommand, limits: Limits) -> Self {
@@ -47,6 +52,7 @@ impl EndpointRig {
             monitor: Some(classifier.monitor()),
             classifier: Some(Box::new(classifier)),
             command: Some(command),
+            commit_blocks: None,
         }
     }
 
@@ -56,6 +62,7 @@ impl EndpointRig {
             classifier: Some(classifier),
             monitor: None,
             command: None,
+            commit_blocks: None,
         }
     }
 
@@ -77,13 +84,18 @@ impl EndpointRig {
         // only makes sense under a longer silence window. A window chosen
         // shorter than that asks for a quicker lamp, so a confident verdict
         // ends the turn at 400 ms and the window itself decides the rest.
-        let policy = if detector.endpoint_silence_ms()
+        let mut policy = if detector.endpoint_silence_ms()
             > u64::from(ConfirmPolicy::default().commit_blocks) * 10
         {
             ConfirmPolicy::default()
         } else {
             ConfirmPolicy::responsive()
         };
+        // A longer commit keeps a person who pauses at a comma (#782); the
+        // record of the policy says which was in force.
+        if let Some(commit) = endpoint.commit_blocks {
+            policy.commit_blocks = commit;
+        }
         detector = detector
             .with_confirmation(classifier, policy)
             .map_err(io::Error::other)?;
@@ -249,5 +261,36 @@ mod tests {
         assert_eq!(quick.complete_probability, parity.complete_probability);
         // A window no longer than the quick commit leaves nothing to confirm.
         assert!(attached(TurnDetector::v1_baseline().with_end_silence(40).unwrap()).is_err());
+    }
+
+    #[test]
+    fn a_chosen_commit_changes_only_when_a_confident_verdict_ends_the_turn() {
+        let with = |commit: Option<u16>, detector: TurnDetector| {
+            let mut rig = EndpointRig::double(Box::new(Silent));
+            rig.commit_blocks = commit;
+            EndpointRig::attach(Some(&mut rig), TurnTaking::Duplex, detector)
+                .map(|(detector, event)| (detector.confirmation_policy().unwrap(), event))
+        };
+        // lamp-4ace's 600 ms window: none chosen is the quick profile as it was.
+        let window = || TurnDetector::v1_baseline().with_end_silence(60).unwrap();
+        let (none, _) = with(None, window()).unwrap();
+        assert_eq!(
+            none,
+            ConfirmPolicy {
+                fallback_blocks: 60,
+                ..ConfirmPolicy::responsive()
+            }
+        );
+        let (later, event) = with(Some(55), window()).unwrap();
+        assert_eq!(
+            later,
+            ConfirmPolicy {
+                commit_blocks: 55,
+                ..none
+            }
+        );
+        assert_eq!(event["confirmation"]["commit_blocks"], json!(55));
+        // A commit at or past the window cannot be.
+        assert!(with(Some(60), window()).is_err());
     }
 }

@@ -336,6 +336,12 @@ pub struct DirectedOptions {
     /// sends the end at that confirming moment, as always
     /// (docs/faster-answers.md, way 2).
     pub early_end_blocks: Option<u16>,
+    /// How long a pause must last before a confident end-of-turn verdict
+    /// ends the turn (`--endpoint-commit-ms`), in 10 ms blocks (#782). None,
+    /// the default, keeps the profile's own: 400 ms under a window of a
+    /// second or less, a second above it. It must be shorter than the
+    /// end-of-speech wait in force, and needs an end-of-turn model.
+    pub endpoint_commit_blocks: Option<u16>,
     /// A capture block quieter than this, on the face's scale of loudness
     /// after cancellation (`ring_face::level_of`), is not speech whatever
     /// the detector scores it. None leaves every block to the detector.
@@ -435,6 +441,15 @@ impl DirectedOptions {
                     }
                     options.end_silence_blocks = Some(value / 10);
                 }
+                "--endpoint-commit-ms" if options.endpoint_commit_blocks.is_none() => {
+                    let value = required_value(&mut arguments)?
+                        .parse::<u16>()
+                        .map_err(|_| invalid_options())?;
+                    if value == 0 || value % 10 != 0 {
+                        return Err(invalid_options());
+                    }
+                    options.endpoint_commit_blocks = Some(value / 10);
+                }
                 EARLY_END_FLAG if options.early_end_blocks.is_none() => {
                     let value = required_value(&mut arguments)?
                         .parse::<u16>()
@@ -479,6 +494,12 @@ impl DirectedOptions {
         if let Some(early) = options.early_end_blocks
             && (early >= options.end_silence_window_blocks()
                 || options.provider_continuation != Continuation::KeptStart)
+        {
+            return Err(invalid_options());
+        }
+        // A commit is a model's verdict acted on, and only within the wait.
+        if let Some(commit) = options.endpoint_commit_blocks
+            && (!options.endpoint.confirms() || commit >= options.end_silence_window_blocks())
         {
             return Err(invalid_options());
         }
@@ -965,6 +986,53 @@ mod tests {
         }
         assert!(AudioWorkerOptions::parse(&args(&["--playout-start-ms", "200"]), true).is_err());
         assert!(AudioWorkerOptions::parse(&args(&["--playout-start-ms", "200"]), false).is_err());
+    }
+
+    #[test]
+    fn the_endpoint_commit_is_chosen_only_with_a_model_and_within_the_wait() {
+        let parse = |extra: &[&str]| {
+            let mut all = vec!["--turn-taking", "duplex", "--end-silence-ms", "600"];
+            all.extend_from_slice(extra);
+            SessionOptions::parse(&args(&all))
+        };
+        assert_eq!(
+            parse(&["--endpoint", "smart-turn-fast"])
+                .unwrap()
+                .directed
+                .endpoint_commit_blocks,
+            None
+        );
+        assert_eq!(
+            parse(&[
+                "--endpoint",
+                "smart-turn-fast",
+                "--endpoint-commit-ms",
+                "550"
+            ])
+            .unwrap()
+            .directed
+            .endpoint_commit_blocks,
+            Some(55)
+        );
+        for wrong in [
+            vec!["--endpoint-commit-ms", "550"],
+            vec![
+                "--endpoint",
+                "smart-turn-fast",
+                "--endpoint-commit-ms",
+                "555",
+            ],
+            vec!["--endpoint", "smart-turn-fast", "--endpoint-commit-ms", "0"],
+            vec![
+                "--endpoint",
+                "smart-turn-fast",
+                "--endpoint-commit-ms",
+                "600",
+            ],
+            vec!["--endpoint", "smart-turn-fast", "--endpoint-commit-ms"],
+        ] {
+            assert!(parse(&wrong).is_err(), "{wrong:?}");
+        }
     }
 
     #[test]
@@ -1533,6 +1601,7 @@ mod tests {
                     DirectedOptions {
                         end_silence_blocks: None,
                         early_end_blocks: None,
+                        endpoint_commit_blocks: None,
                         faint_level: None,
                         microphone: Microphone::Mic2,
                         playout_start: PlayoutStart::default(),

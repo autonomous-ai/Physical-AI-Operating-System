@@ -125,7 +125,12 @@ fn read_wav(path: &Path) -> Result<Vec<i16>, Error> {
         let size = u32::from_le_bytes(bytes[at + 4..at + 8].try_into()?) as usize;
         let body = &bytes[at + 8..(at + 8 + size).min(bytes.len())];
         if id == b"fmt " && body.len() >= 16 {
-            let kind = u16::from_le_bytes(body[0..2].try_into()?);
+            let mut kind = u16::from_le_bytes(body[0..2].try_into()?);
+            // WAVE_FORMAT_EXTENSIBLE (`afconvert` writes it): the format is
+            // the subformat's first two bytes.
+            if kind == 0xfffe && body.len() >= 26 {
+                kind = u16::from_le_bytes(body[24..26].try_into()?);
+            }
             let channels = u16::from_le_bytes(body[2..4].try_into()?);
             let rate = u32::from_le_bytes(body[4..8].try_into()?);
             let bits = u16::from_le_bytes(body[14..16].try_into()?);

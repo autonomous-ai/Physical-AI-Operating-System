@@ -1,0 +1,6 @@
+profile  clips  splits  clips_split  finished_wait_ms median/mean  unfinished ended by the model  splits by source
+current   1167     527      384          400 /    468  (+0)     19/566   human_5 5/82, human_convcollector_1 2/15, liva_1 489/776, midcentury_1 7/203, mundo_1 24/91
+c450      1167     474      350          450 /    504  (+50)     20/566   human_5 3/82, human_convcollector_1 2/15, liva_1 442/776, midcentury_1 6/203, mundo_1 21/91
+c500      1167     424      320          500 /    539  (+100)     20/566   human_5 3/82, human_convcollector_1 2/15, liva_1 394/776, midcentury_1 5/203, mundo_1 20/91
+c550      1167     369      285          550 /    571  (+150)     18/566   human_5 2/82, human_convcollector_1 2/15, liva_1 344/776, midcentury_1 5/203, mundo_1 16/91
+window    1167     330      258          600 /    606  (+200)      0/566   human_5 2/82, human_convcollector_1 2/15, liva_1 311/776, midcentury_1 4/203, mundo_1 11/91

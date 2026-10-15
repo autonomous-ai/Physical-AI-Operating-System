@@ -211,12 +211,25 @@ pub struct Reporter {
 
 impl Reporter {
     pub fn new(bus: &Path) -> io::Result<Self> {
+        Self::new_with_cadence_clock(bus, Instant::now)
+    }
+
+    /// Use an explicit pure clock for Bus rescans and presence refreshes in a
+    /// local fixture, installed before the first declared presence write.
+    /// Reads must share one nondecreasing Instant domain. The caller advances
+    /// that clock; report age, this reporter's header time, Bus UTC, filesystem
+    /// lease timestamps and actual message delivery keep their ordinary clocks.
+    pub fn new_with_cadence_clock(
+        bus: &Path,
+        now: impl Fn() -> Instant + Send + Sync + 'static,
+    ) -> io::Result<Self> {
         let bus = Bus::new(bus)?;
         Ok(Self {
-            publisher: bus.publisher_declared(
+            publisher: bus.publisher_declared_with_cadence_clock(
                 Diagnostic::TOPIC,
                 &Diagnostic::declaration(),
                 NAME,
+                now,
             )?,
             started: Instant::now(),
         })
@@ -227,6 +240,10 @@ impl Reporter {
         self.publisher.publish_json(at_us, report).map(|_| ())
     }
 }
+
+#[cfg(test)]
+#[path = "reporter_clock_tests.rs"]
+mod clock_tests;
 
 #[cfg(test)]
 mod tests {

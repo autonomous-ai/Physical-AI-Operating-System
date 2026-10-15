@@ -1,0 +1,23 @@
+    Checking libc v0.2.190
+    Checking typenum v1.20.1
+    Checking generic-array v0.14.7
+    Checking errno v0.3.14
+    Checking serde_core v1.0.229
+    Checking block-buffer v0.10.4
+    Checking crypto-common v0.1.7
+    Checking rustix v1.1.5
+    Checking serde_json v1.0.151
+    Checking serde v1.0.229
+    Checking digest v0.10.7
+    Checking lamp-bus v0.1.0 (/private/tmp/lampos-tests-records-cadence/lampOS/crates/bus)
+    Checking sha2 v0.10.9
+    Checking getrandom v0.4.3
+    Checking signal-hook-registry v1.4.8
+    Checking signal-hook v0.4.4
+    Checking lamp-msgs v0.1.0 (/private/tmp/lampos-tests-records-cadence/lampOS/crates/msgs)
+    Checking once_cell v1.21.4
+    Checking fastrand v2.5.0
+    Checking tempfile v3.27.0
+    Checking lamp-records v0.1.0 (/private/tmp/lampos-tests-records-cadence/lampOS/crates/records)
+    Checking lamp-settings v0.1.0 (/private/tmp/lampos-tests-records-cadence/lampOS/crates/settings)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 10.88s

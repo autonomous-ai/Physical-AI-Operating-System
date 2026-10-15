@@ -1,0 +1,22 @@
+{
+  "date": "2026-10-16 04:39:10 +0700",
+  "totals": [
+    164,
+    6,
+    2
+  ],
+  "errors": [
+    "Custom { kind: InvalidInput, error: \"socket path /private/var/folders/qg/lhfdx6q166z5cj705q22mh480000gn/T/rp-49243-0/diagnostics/subs/header.49243.0.sock is 104 bytes and a Unix socket's address holds 103: use a shorter root, topic or subscriber name\" }",
+    "Custom { kind: InvalidInput, error: \"socket path /private/var/folders/qg/lhfdx6q166z5cj705q22mh480000gn/T/rc-49598-0/bus/diagnostics/subs/held.49598.0.sock is 106 bytes and a Unix socket's address holds 103: use a shorter root, topic or subscriber name\" }",
+    "Custom { kind: InvalidInput, error: \"socket path /private/var/folders/qg/lhfdx6q166z5cj705q22mh480000gn/T/rc-49598-1/bus/diagnostics/subs/blocked.49598.1.sock is 109 bytes and a Unix socket's address holds 103: use a shorter root, topic or subscriber name\" }",
+    "Custom { kind: InvalidInput, error: \"socket path /private/var/folders/qg/lhfdx6q166z5cj705q22mh480000gn/T/rc-49598-2/bus/diagnostics/subs/reload.49598.2.sock is 108 bytes and a Unix socket's address holds 103: use a shorter root, topic or subscriber name\" }",
+    "Custom { kind: InvalidInput, error: \"socket path /private/var/folders/qg/lhfdx6q166z5cj705q22mh480000gn/T/rc-49598-3/bus/diagnostics/subs/cadence.49598.3.sock is 109 bytes and a Unix socket's address holds 103: use a shorter root, topic or subscriber name\" }",
+    "Custom { kind: InvalidInput, error: \"socket path /private/var/folders/qg/lhfdx6q166z5cj705q22mh480000gn/T/rc-49598-4/bus/diagnostics/subs/failure.49598.4.sock is 109 bytes and a Unix socket's address holds 103: use a shorter root, topic or subscriber name\" }"
+  ],
+  "new_fixture_sources": {
+    "lampOS/crates/records/src/application_schedule_tests.rs": "46dab0c3551a72a62d7903a0fe6d322e036031fc680d3cba6535e0d03caeec75",
+    "lampOS/crates/records/src/reporter_clock_tests.rs": "f9fb5a5ccf3b7f967c51289d8a83cb26dded33116c633bcc9f12ef261de350c1"
+  },
+  "production_or_original_test_changes": false,
+  "workspace_build_not_reached": true
+}

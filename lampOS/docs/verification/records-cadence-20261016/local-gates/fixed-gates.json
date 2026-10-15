@@ -1,0 +1,95 @@
+[
+  {
+    "stage": "fmt",
+    "command": [
+      "cargo",
+      "fmt",
+      "--all",
+      "--check"
+    ],
+    "cwd": "/private/tmp/lampos-tests-records-cadence/lampOS",
+    "target": "/private/tmp/tests-823-memory-application-target",
+    "start_from_date": "2026-10-16 04:40:19 +0700",
+    "finish_from_date": "2026-10-16 04:40:24 +0700",
+    "exit_code": 0
+  },
+  {
+    "stage": "clippy",
+    "command": [
+      "cargo",
+      "clippy",
+      "--locked",
+      "--offline",
+      "-p",
+      "lamp-records",
+      "-p",
+      "lamp-settings",
+      "--all-targets",
+      "--",
+      "-D",
+      "warnings"
+    ],
+    "cwd": "/private/tmp/lampos-tests-records-cadence/lampOS",
+    "target": "/private/tmp/tests-823-memory-application-target",
+    "start_from_date": "2026-10-16 04:40:24 +0700",
+    "finish_from_date": "2026-10-16 04:40:26 +0700",
+    "exit_code": 0
+  },
+  {
+    "stage": "list",
+    "command": [
+      "cargo",
+      "nextest",
+      "list",
+      "--locked",
+      "--offline",
+      "-p",
+      "lamp-records",
+      "-p",
+      "lamp-settings",
+      "--message-format",
+      "json"
+    ],
+    "cwd": "/private/tmp/lampos-tests-records-cadence/lampOS",
+    "target": "/private/tmp/tests-823-memory-application-target",
+    "start_from_date": "2026-10-16 04:40:26 +0700",
+    "finish_from_date": "2026-10-16 04:40:31 +0700",
+    "exit_code": 0
+  },
+  {
+    "stage": "tests",
+    "command": [
+      "cargo",
+      "test",
+      "--locked",
+      "--offline",
+      "-p",
+      "lamp-records",
+      "-p",
+      "lamp-settings",
+      "--no-fail-fast",
+      "--",
+      "--test-threads=1"
+    ],
+    "cwd": "/private/tmp/lampos-tests-records-cadence/lampOS",
+    "target": "/private/tmp/tests-823-memory-application-target",
+    "start_from_date": "2026-10-16 04:40:31 +0700",
+    "finish_from_date": "2026-10-16 04:40:49 +0700",
+    "exit_code": 0
+  },
+  {
+    "stage": "build",
+    "command": [
+      "cargo",
+      "build",
+      "--locked",
+      "--offline",
+      "--workspace"
+    ],
+    "cwd": "/private/tmp/lampos-tests-records-cadence/lampOS",
+    "target": "/private/tmp/tests-823-memory-application-target",
+    "start_from_date": "2026-10-16 04:40:49 +0700",
+    "finish_from_date": "2026-10-16 04:42:32 +0700",
+    "exit_code": 0
+  }
+]

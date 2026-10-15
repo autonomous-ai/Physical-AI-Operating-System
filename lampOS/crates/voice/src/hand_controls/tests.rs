@@ -221,7 +221,9 @@ fn pump_subscriptions_open_both_declared_topics_with_a_valid_bus_name() {
     // Exercise the production connection helper on macOS as well as Linux.
     // A hyphenated subscriber name used to make every pump attempt fail
     // before it created any socket; that must fail here with the actual error.
-    let subscribed = subscriptions(&directory.0, false).expect("hand controls bus subscriptions");
+    let (subscribed, mute) =
+        subscriptions(&directory.0, false, false).expect("hand controls bus subscriptions");
+    assert!(mute.is_none());
     fn expects(subscribed: &[(Subscriber, Topic)]) -> Vec<(Option<&str>, Topic)> {
         subscribed
             .iter()
@@ -243,8 +245,10 @@ fn pump_subscriptions_open_both_declared_topics_with_a_valid_bus_name() {
             .is_empty()
     );
     drop(subscribed);
-    // The head pads' topics only with LAMP_HEAD_TOUCH=on (#711).
-    let subscribed = subscriptions(&directory.0, true).expect("head touch subscriptions");
+    // The head pads' topics only with LAMP_HEAD_TOUCH=on (#711), and
+    // `voice/mute` said only where sleep from the head is on.
+    let (subscribed, mute) =
+        subscriptions(&directory.0, true, false).expect("head touch subscriptions");
     assert_eq!(
         expects(&subscribed)[2..],
         [
@@ -252,6 +256,11 @@ fn pump_subscriptions_open_both_declared_topics_with_a_valid_bus_name() {
             (Some(TouchEvent::TYPE), Topic::Touch)
         ]
     );
+    assert!(mute.is_none());
+    drop(subscribed);
+    let (_, mute) = subscriptions(&directory.0, true, true).expect("voice mute publisher");
+    assert!(mute.is_some());
+    assert_eq!(bus.publishers(VoiceMute::TOPIC).unwrap().len(), 1);
 }
 
 #[test]
@@ -748,6 +757,186 @@ fn a_head_touch_is_taken_once_fresh_and_only_with_lamp_head_touch_on() {
     );
 }
 
+/// Head touch on and the durable mute at `directory`, or not.
+fn head_options(directory: Option<&Directory>) -> ControlsOptions {
+    let file = directory.map(Directory::file);
+    let mut options = options(false, file.as_deref());
+    options.head_touch = true;
+    options
+}
+
+/// Feeds each step's state and events, as the pump would, and polls at its
+/// time: through the quiescent transaction when `quiescent`. Returns each
+/// step's observation and whether a quiescent poll allowed opening.
+fn feed(
+    owner: &mut HandControls,
+    sender: &SyncSender<Queued>,
+    ticks: Vec<(u64, TouchState, Vec<TouchEvent>)>,
+    quiescent: bool,
+) -> Vec<(u64, Observation, bool)> {
+    ticks
+        .into_iter()
+        .map(|(at, state, events)| {
+            send(owner, sender, Input::TouchState(Box::new(state)));
+            for event in events {
+                send(owner, sender, Input::Touch(Box::new(event)));
+            }
+            if quiescent {
+                let (allowed, seen) = owner.quiescent_observation_with_clock(|| at).unwrap();
+                (at, seen, allowed)
+            } else {
+                (at, owner.poll_at(at).unwrap(), false)
+            }
+        })
+        .collect()
+}
+
+#[test]
+fn a_hand_held_on_the_head_puts_it_to_sleep_and_a_tap_wakes_it_once_saved() {
+    let directory = Directory::new();
+    let (mut owner, sender) = fixture(head_options(Some(&directory)));
+    assert_eq!(owner.shared.latch.load(Ordering::Acquire), LATCH_OPEN);
+    let mut head = TestHead::new(CLOCK, START);
+    feed(&mut owner, &sender, head.run(START + 500_000, false), false);
+    // A hand from 1.51 s, kept 3.2 s: at 3 s it is asleep, as a mute.
+    let held = feed(
+        &mut owner,
+        &sender,
+        head.run(START + 3_700_000, true),
+        false,
+    );
+    let (slept_at, seen, _) = held
+        .iter()
+        .find(|(_, seen, _)| seen.mute_changed)
+        .copied()
+        .expect("the hold puts it to sleep");
+    assert!(seen.muted && seen.asleep);
+    assert_eq!(seen.acquired_at_us, Some(START + 510_000 + 3_000_000));
+    assert_eq!(slept_at, START + 510_000 + 3_000_000);
+    assert!(
+        held.iter()
+            .all(|(at, seen, _)| (*at < slept_at) != seen.muted)
+    );
+    assert_eq!(owner.shared.latch.load(Ordering::Acquire), LATCH_ASLEEP);
+    // Saved before anything else, as any mute; a restart keeps it asleep.
+    owner.persist_muted().unwrap();
+    let saved = MuteRecord::load(&directory.file(), CLOCK, START + 3_800_000).unwrap();
+    assert!(saved.asleep());
+    // Let go, a second's quiet, then a tap of 0.2 s: it wakes once the
+    // clear is saved, in the quiescent wait.
+    let quiet = feed(
+        &mut owner,
+        &sender,
+        head.run(START + 4_800_000, false),
+        true,
+    );
+    assert!(
+        quiet
+            .iter()
+            .all(|(_, seen, allowed)| seen.asleep && !allowed)
+    );
+    let mut ticks = head.run(START + 5_000_000, true);
+    ticks.extend(head.run(START + 5_500_000, false));
+    let tapped = feed(&mut owner, &sender, ticks, true);
+    let (woke_at, seen, _) = tapped
+        .iter()
+        .find(|(_, _, allowed)| *allowed)
+        .copied()
+        .expect("the tap wakes it");
+    assert!(!seen.muted && !seen.asleep);
+    assert!(seen.head_tap_at_us.is_some());
+    assert!(woke_at < START + 5_500_000);
+    assert_eq!(owner.shared.latch.load(Ordering::Acquire), LATCH_OPEN);
+    let saved = MuteRecord::load(&directory.file(), CLOCK, START + 5_600_000).unwrap();
+    assert!(!saved.muted && saved.reason.is_none());
+}
+
+#[test]
+fn the_head_never_opens_a_privacy_mute_and_sleeps_only_with_the_durable_mute() {
+    // Muted by the button's hold: a hold of the head and a tap change
+    // nothing; the mute stays a person's privacy.
+    let directory = Directory::new();
+    let mut record = MuteRecord::new(CLOCK).unwrap();
+    assert!(record.request_mute(START / 2));
+    record.save(&directory.file()).unwrap();
+    let (mut owner, sender) = from_record(head_options(Some(&directory)), record, START);
+    assert_eq!(owner.shared.latch.load(Ordering::Acquire), LATCH_MUTED);
+    let mut head = TestHead::new(CLOCK, START);
+    feed(&mut owner, &sender, head.run(START + 500_000, false), true);
+    let mut ticks = head.run(START + 3_700_000, true);
+    ticks.extend(head.run(START + 4_500_000, false));
+    ticks.extend(head.run(START + 4_700_000, true));
+    ticks.extend(head.run(START + 5_200_000, false));
+    let seen = feed(&mut owner, &sender, ticks, true);
+    assert!(
+        seen.iter()
+            .any(|(_, seen, _)| seen.head_tap_at_us.is_some())
+    );
+    assert!(
+        seen.iter()
+            .all(|(_, seen, allowed)| seen.muted && !seen.asleep && !allowed)
+    );
+    assert_eq!(owner.shared.latch.load(Ordering::Acquire), LATCH_MUTED);
+
+    // Head touch without `--controls-mute`: a hold is not a sleep, and
+    // `voice/mute` is never said.
+    let (mut owner, sender) = fixture(head_options(None));
+    assert_eq!(owner.shared.latch.load(Ordering::Acquire), LATCH_NONE);
+    let mut head = TestHead::new(CLOCK, START);
+    feed(&mut owner, &sender, head.run(START + 500_000, false), false);
+    let held = feed(
+        &mut owner,
+        &sender,
+        head.run(START + 3_700_000, true),
+        false,
+    );
+    assert!(
+        held.iter()
+            .all(|(_, seen, _)| !seen.muted && !seen.mute_changed)
+    );
+    assert_eq!(owner.shared.latch.load(Ordering::Acquire), LATCH_NONE);
+}
+
+#[test]
+fn the_pump_says_the_latch_on_voice_mute_when_it_changes_and_every_second() {
+    let directory = Directory::new();
+    let root = directory.0.join("bus");
+    let bus = Bus::new(&root).unwrap();
+    let mut heard = bus
+        .subscribe_typed(VoiceMute::TOPIC, "mute_test", VoiceMute::TYPE)
+        .unwrap();
+    let (sender, _input) = mpsc::sync_channel(QUEUE_CAPACITY);
+    let shared = Arc::new(Shared::default());
+    shared.latch.store(LATCH_OPEN, Ordering::Release);
+    let (pump_shared, pump_root) = (Arc::clone(&shared), root.clone());
+    let worker = thread::spawn(move || pump(pump_root, true, true, sender, &pump_shared));
+    let next = |heard: &mut Subscriber| -> VoiceMute {
+        let message = heard
+            .recv(Duration::from_secs(2))
+            .unwrap()
+            .expect("voice/mute is said");
+        assert_eq!(message.header.source, "voice");
+        assert_eq!(message.header.expires_ms, Some(3_000));
+        message.parse().unwrap()
+    };
+    assert_eq!(
+        next(&mut heard),
+        VoiceMute {
+            muted: false,
+            reason: None
+        }
+    );
+    shared.latch.store(LATCH_ASLEEP, Ordering::Release);
+    let started = std::time::Instant::now();
+    assert!(next(&mut heard).asleep());
+    assert!(started.elapsed() < Duration::from_millis(500));
+    // Unchanged, it is said again within about a second.
+    assert!(next(&mut heard).asleep());
+    shared.stop.store(true, Ordering::Release);
+    worker.thread().unpark();
+    worker.join().unwrap();
+}
+
 #[test]
 #[ignore = "manual host probe: a head touch on a real bus to the coordinator's poll; no lamp claim"]
 fn head_touch_bus_to_poll_latency() {
@@ -776,7 +965,7 @@ fn head_touch_bus_to_poll_latency() {
         )
         .unwrap();
         let (pump_shared, pump_root) = (Arc::clone(&shared), root.clone());
-        let worker = thread::spawn(move || pump(pump_root, true, sender, &pump_shared));
+        let worker = thread::spawn(move || pump(pump_root, true, false, sender, &pump_shared));
         let deadline = std::time::Instant::now() + Duration::from_secs(2);
         while bus.subscribers(TouchEvent::TOPIC).unwrap().is_empty() {
             assert!(

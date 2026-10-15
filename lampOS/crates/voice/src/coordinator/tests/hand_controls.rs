@@ -1027,8 +1027,19 @@ fn local_hand_stop_dispatch_latency() {
 /// reply left and every authority the speaker was sent before teardown.
 fn run_until_fault(
     controls: impl FnOnce() -> HandControls,
+    owner: Controller,
+    reply: Option<Reply>,
+) -> (SessionState, Option<Reply>, Vec<Snapshot>) {
+    run_until_error(controls, owner, reply, "same-tick provider fault")
+}
+
+/// As [`run_until_fault`], for a loop that ends with an error saying
+/// `ended_by`: the provider's fault, or a mute that came first.
+fn run_until_error(
+    controls: impl FnOnce() -> HandControls,
     mut owner: Controller,
     mut reply: Option<Reply>,
+    ended_by: &str,
 ) -> (SessionState, Option<Reply>, Vec<Snapshot>) {
     let directory = SessionDirectory::create().unwrap();
     let (speaker, mut speaker_peer, speaker_input) =
@@ -1084,7 +1095,7 @@ fn run_until_fault(
         &mut None,
     )
     .unwrap_err();
-    assert!(error.to_string().contains("same-tick provider fault"));
+    assert!(error.to_string().contains(ended_by), "{error}");
     let mut told = Vec::new();
     while let Some(Control::Authority { snapshot }) = speaker_peer.control.receive().unwrap() {
         told.push(snapshot);
@@ -1163,6 +1174,27 @@ fn a_head_touch_stops_the_lamp_while_it_says_its_answer() {
     assert!(trace.iter().any(|row| {
         row["kind"] == "turn_finished" && row["turn"] == turn && row["outcome"] == "head_stop"
     }));
+}
+
+#[test]
+fn a_lamp_put_to_sleep_from_the_head_ends_its_conversation_as_a_mute_named_head_sleep() {
+    // #711: sleep is the software mute with its reason; the answer goes as
+    // for any mute, and the trace says why.
+    let (owner, current, _) = active_reply();
+    let record = std::env::temp_dir().join("never-written-sleep.json");
+    let (trace, left, _) = run_until_error(
+        || HandControls::with_test_asleep("test-hand-clock", monotonic_us(), &record).unwrap(),
+        owner,
+        Some(current),
+        "software mute",
+    );
+    assert!(left.is_none(), "the answer was dropped");
+    let cancel = trace
+        .iter()
+        .find(|row| row["kind"] == "hand_control_cancel")
+        .expect("a cancellation");
+    assert_eq!(cancel["reason"], "head_sleep");
+    assert!(!record.exists());
 }
 
 #[test]

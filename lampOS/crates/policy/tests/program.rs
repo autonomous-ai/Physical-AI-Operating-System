@@ -3,7 +3,7 @@
 //! 127.0.0.1, and reads what the program publishes, writes down and
 //! prints. Nothing leaves the machine.
 use lamp_bus::Bus;
-use lamp_msgs::{Decision, Speech, VoiceState};
+use lamp_msgs::{Decision, Face, Faces, Speech, VoiceState};
 use lamp_policy::attention;
 use serde_json::{Value, json};
 use std::{
@@ -544,6 +544,24 @@ fn with_images_the_question_is_asked_again_with_the_eyes_frame_beside_the_decisi
         )
         .unwrap();
     fs::write(&sight, &frame).unwrap();
+    // Someone at the lamp, as the eyes see: the picture is asked about only
+    // then (#871).
+    let mut eyes = bus
+        .publisher_declared(Faces::TOPIC, &Faces::declaration(), "eyes")
+        .unwrap();
+    listening(&bus, Faces::TOPIC);
+    let near = Face {
+        id: "f1".into(),
+        xmin: 0.3,
+        ymin: 0.2,
+        xmax: 0.6,
+        ymax: 0.6,
+        confidence: 0.9,
+        yaw: None,
+        facing: Some(true),
+    };
+    eyes.publish_json(0, &Faces { faces: vec![near] }).unwrap();
+    thread::sleep(Duration::from_millis(50));
     for text in ["Hey Lamp,", " what time is it?"] {
         let piece = Speech {
             text: text.into(),

@@ -250,8 +250,27 @@ impl Pictures {
     }
 }
 
-/// Both askings at once, for one utterance, if there is a picture to send.
+/// Both askings at once, for one utterance, if the eyes see someone and
+/// there is a picture to send.
 pub fn ask_both(without: &mut Jev, with: &mut Jev, job: &Job, options: &Options) -> Value {
+    // Only with someone in sight, and whether anyone is there is the eyes'
+    // to say (the first builder on #871): on lamp-4ace on 2026-10-16 at
+    // 03:47 to 03:53, with nobody at the desk, Jev 1.14 answered "is there
+    // a person in the picture?" 0.26 to 0.51, 13 times, while the eyes saw
+    // no face each time. Nothing is asked then, and the line says why.
+    let nobody = match job.seen {
+        Some(seen) if seen.faces > 0 => None,
+        Some(_) => Some("no_face"),
+        None => Some("eyes_unknown"),
+    };
+    if let Some(why) = nobody {
+        return line(
+            job,
+            json!({"sent": false, "why_not": why}),
+            Value::Null,
+            Value::Null,
+        );
+    }
     // A frame now, or no asking at all.
     if let Err(why) = fresh_picture(&options.sight_file, SystemTime::now())
         .and_then(|(jpeg, _)| for_jev(&jpeg).map(|_| ()))

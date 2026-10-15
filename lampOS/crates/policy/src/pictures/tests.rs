@@ -298,7 +298,12 @@ fn a_picture_written_and_unanswered_before_a_withdrawal_is_told_as_sent() {
     fs::write(&sight, jpeg(320, 240)).unwrap();
     let job = Job {
         context: job_context(),
-        seen: None,
+        seen: Some(crate::policy::Seen {
+            faces: 1,
+            near: 1,
+            facing: 1,
+            age_ms: 40,
+        }),
         sent_at_unix_ms: 1_760_541_000_000,
     };
     let options = Options {

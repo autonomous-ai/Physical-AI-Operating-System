@@ -1,0 +1,88 @@
+docker cycle 1 start 13:30:58
+  rustc killed: signal 9 (out of memory)
+cleaned
+docker cycle 1 end 13:32:35 rc=0
+docker cycle 2 start 13:32:35
+cleaned
+docker cycle 2 end 13:35:48 rc=0
+docker cycle 3 start 13:35:48
+  rustc killed: signal 9 (out of memory)
+cleaned
+docker cycle 3 end 13:38:43 rc=0
+docker cycle 4 start 13:38:43
+cleaned
+docker cycle 4 end 13:42:03 rc=0
+docker cycle 5 start 13:42:03
+  rustc killed: signal 9 (out of memory)
+cleaned
+docker cycle 5 end 13:44:48 rc=0
+docker cycle 6 start 13:44:48
+  rustc killed: signal 9 (out of memory)
+cleaned
+docker cycle 6 end 13:47:49 rc=0
+docker cycle 7 start 13:47:49
+cleaned
+docker cycle 7 end 13:51:13 rc=0
+docker cycle 8 start 13:51:13
+  rustc killed: signal 9 (out of memory)
+cleaned
+docker cycle 8 end 13:54:14 rc=0
+docker cycle 9 start 13:54:14
+  rustc killed: signal 9 (out of memory)
+cleaned
+docker cycle 9 end 13:57:01 rc=0
+docker cycle 10 start 13:57:01
+  rustc killed: signal 9 (out of memory)
+cleaned
+docker cycle 10 end 13:59:34 rc=0
+docker cycle 11 start 13:59:34
+  rustc killed: signal 9 (out of memory)
+cleaned
+docker cycle 11 end 14:02:27 rc=0
+docker cycle 12 start 14:02:27
+  rustc killed: signal 9 (out of memory)
+cleaned
+docker cycle 12 end 14:05:25 rc=0
+docker cycle 13 start 14:05:25
+  rustc killed: signal 9 (out of memory)
+cleaned
+docker cycle 13 end 14:08:08 rc=0
+docker cycle 14 start 14:08:08
+  rustc killed: signal 9 (out of memory)
+cleaned
+docker cycle 14 end 14:11:12 rc=0
+docker cycle 15 start 14:11:12
+cleaned
+docker cycle 15 end 14:14:31 rc=0
+docker cycle 16 start 14:14:31
+cleaned
+docker cycle 16 end 14:18:27 rc=0
+docker cycle 17 start 14:18:27
+  rustc killed: signal 9 (out of memory)
+cleaned
+docker cycle 17 end 14:21:08 rc=0
+docker cycle 18 start 14:21:08
+  rustc killed: signal 9 (out of memory)
+cleaned
+docker cycle 18 end 14:24:04 rc=0
+docker cycle 19 start 14:24:04
+  rustc killed: signal 9 (out of memory)
+cleaned
+docker cycle 19 end 14:27:09 rc=0
+docker cycle 20 start 14:27:09
+  rustc killed: signal 9 (out of memory)
+cleaned
+docker cycle 20 end 14:29:56 rc=0
+docker cycle 21 start 14:29:56
+  rustc killed: signal 9 (out of memory)
+cleaned
+docker cycle 21 end 14:32:35 rc=0
+docker cycle 22 start 14:32:35
+  rustc killed: signal 9 (out of memory)
+cleaned
+docker cycle 22 end 14:35:23 rc=0
+docker cycle 23 start 14:35:23
+  rustc killed: signal 9 (out of memory)
+cleaned
+docker cycle 23 end 14:38:01 rc=0
+docker cycle 24 start 14:38:01

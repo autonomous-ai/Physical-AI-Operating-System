@@ -1,0 +1,10 @@
+run 1 start 13:05:14 { 3.57 4.40 4.24 }
+run 1 end 13:13:46 rc=101 { 14.47 14.38 10.28 } 950 passed 2 failed 8 ignored
+test coordinator::motor::tests::native_head::native_head_six_explicit_actions_prepare_profile_then_new_requests ... FAILED
+test coordinator::tests::endpoint_session::missing_model_session_ends_on_the_unchanged_silence_fallback ... FAILED
+---- coordinator::motor::tests::native_head::native_head_six_explicit_actions_prepare_profile_then_new_requests stdout ----
+---- coordinator::tests::endpoint_session::missing_model_session_ends_on_the_unchanged_silence_fallback stdout ----
+run 2 start 13:13:46 { 14.47 14.38 10.28 }
+run 2 end 13:21:59 rc=0 { 14.34 13.96 11.79 } 1145 passed 0 failed 8 ignored
+run 3 start 13:21:59 { 14.34 13.96 11.79 }
+run 3 end 13:29:58 rc=0 { 15.22 14.91 13.26 } 1145 passed 0 failed 8 ignored

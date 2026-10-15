@@ -2782,7 +2782,7 @@ fn conversation_with_gate(
             json!({"kind":"call_wait_policy","at_us":monotonic_us(),
                 "wait_ms":u64::from(blocks) * 10,
                 "most_speech_ms":u64::from(crate::activity::CALL_SPEECH_BLOCKS) * 10,
-                "basis":"the lamp's name heard by lamp-name on the bus (name/heard) in an utterance that is only that so far"}),
+                "basis":"the first sign of the lamp's name from lamp-name on the bus (name/rising) in an utterance that is only that so far"}),
         )?;
     }
     // The end sent early, if that is switched on: the request is ended to

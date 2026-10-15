@@ -137,6 +137,13 @@ fn report(
         .with("sound_lost", counted.lost)
 }
 
+/// Both event topics are shown alive while no name is heard, so that a
+/// quiet longer than the bus's lease never takes either for gone (#891).
+fn renew(heard: &mut Publisher, rising: &mut Publisher) {
+    let _ = heard.alive();
+    let _ = rising.alive();
+}
+
 fn run(arguments: &Arguments) -> io::Result<()> {
     let started = Instant::now();
     let mut hearer = Hearer::load(&arguments.models).map_err(io::Error::other)?;
@@ -260,7 +267,7 @@ fn run(arguments: &Arguments) -> io::Result<()> {
                     total_heard,
                 ),
             );
-            let _ = heard.alive();
+            renew(&mut heard, &mut rising);
         }
         // A line a minute of what it did, while there was sound.
         if now.duration_since(told) >= Duration::from_secs(60) {
@@ -377,6 +384,43 @@ mod tests {
 
     fn of(text: &str) -> Result<Option<Arguments>, String> {
         parse(text.split_whitespace().map(str::to_owned))
+    }
+
+    /// #891: a quiet longer than the lease leaves both topics with their
+    /// publisher, as the heartbeat renews both; renewing one alone loses
+    /// the other.
+    #[test]
+    fn a_quiet_longer_than_the_lease_keeps_both_topics_alive() {
+        let root = std::path::PathBuf::from(format!("/tmp/lnr-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        std::fs::create_dir_all(&root).unwrap();
+        let bus = Bus::new(&root).unwrap().lease(Duration::from_millis(300));
+        let declared = NameHeard::declaration();
+        let mut heard = bus
+            .publisher_declared(NameHeard::TOPIC, &declared, NAME)
+            .unwrap();
+        let mut rising = bus
+            .publisher_declared(NameHeard::RISING_TOPIC, &declared, NAME)
+            .unwrap();
+        let live = |topic: &str| bus.publishers(topic).unwrap().len();
+        for _ in 0..10 {
+            renew(&mut heard, &mut rising);
+            std::thread::sleep(Duration::from_millis(100));
+        }
+        assert_eq!(
+            (live(NameHeard::TOPIC), live(NameHeard::RISING_TOPIC)),
+            (1, 1)
+        );
+        // The heartbeat as it was: only one renewed.
+        for _ in 0..10 {
+            let _ = heard.alive();
+            std::thread::sleep(Duration::from_millis(100));
+        }
+        assert_eq!(
+            (live(NameHeard::TOPIC), live(NameHeard::RISING_TOPIC)),
+            (1, 0)
+        );
+        let _ = std::fs::remove_dir_all(&root);
     }
 
     #[test]

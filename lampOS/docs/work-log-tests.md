@@ -1,5 +1,46 @@
 # Tests work log
 
+## 2026-10-15 22:30 +0700 — explicit clocks ready; capacity timing and fixture failures retained
+
+Ready for lamp-voice: yes (#861)
+
+- Reviewer merged #850's Bus live-line barrier and #852's relay clock.
+  #783 remains open for the sweep and separate fault qualifications.
+- #861, head `b34d181d933868966ea5219b21e548dc9cee0572`, is ready.
+  ARM64 `38756122123`: 4,662 passed, 126 existing profile skips; all five
+  new clock tests ran. Local evaluator: 289 passed, no failures or ignores;
+  fmt, strict clippy and workspace build passed. Native raw result rows:
+  [backend-clock-arm64-20261015](verification/backend-clock-arm64-20261015/README.md).
+- #867, head `18a4560c9f84729c00c0eab8682e38a47365c976`, is draft while
+  ARM64 `38759844287` runs. It adds a pure clock and completed-poll seam
+  for the finite fake runtime, retaining default timing and existing tests.
+  Local evaluator: 288 passed, no failures or ignores; four focused tests
+  passed in 0.16 s, plus fmt, strict clippy and workspace build.
+- #868, head `1e38b543c9e0f58688ddd089e508b100f4e8d70c`, is draft while
+  ARM64 `38760383411` runs. Its paired capacity fixture is 24.049 s to
+  0.516 s, with all 500 packets, 480,000 samples and original assertions.
+  The earlier source passed 1,733 affected/dependent tests; the final
+  rebased gate records 1,765 passed, one failed, 13 existing ignores.
+  The changed test passed. Fmt, strict clippy and workspace build passed.
+- The rebased gate's unchanged host-clock capture-stall fixture expected
+  physical mute but received invalid original microphone read interval.
+  It ran before the changed capacity test. This is #866, with full raw
+  evidence and source audit in #868; no retry. The suspected unsent-frame
+  sequence hole remains an inference, coordinated with #739.
+- #860's endpoint cleanup is uncommitted, with full gates running. Both
+  formerly leaking cases now report PASS locally: 4.579 s and 1.652 s.
+  The new panic-before/after-handoff cleanup regression passes in 3.168 s.
+  All 18 original identities and 111 assertions are preserved. Native
+  qualification remains pending; these are local results, not an ARM64 fix claim.
+- Finite loopback coordination is being integrated separately. Runtime,
+  relay, backend and immediate player retain real processes/sockets while
+  sharing an explicitly stepped clock and completed-work acknowledgements.
+  Review found an output-queue deadlock for a large final trace; that is
+  being fixed and tested before any existing scenario is migrated.
+
+No workflow, runner, profile, setting or device changes. The 123-test serial
+under-two-minute target remains open; #832 stays draft on #838.
+
 ## 2026-10-15 21:44 +0700 — #783 follow-up ready; #823 clock work continues
 
 Ready for lamp-voice: yes (#850, #852)

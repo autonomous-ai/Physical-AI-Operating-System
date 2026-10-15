@@ -1,0 +1,6 @@
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T15:09:43.5191328Z         PASS [   0.005s] (4446/4662) lamp-voice-eval physical::mac::backend_clock_tests::an_unrepresentable_player_timestamp_is_rejected_before_delivery
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T15:09:43.5192804Z         PASS [   0.005s] (4447/4662) lamp-voice-eval physical::mac::backend_clock_tests::backend_reads_only_the_supplied_clock_and_the_default_stays_on_host_time
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T15:09:43.5248891Z         PASS [   0.006s] (4448/4662) lamp-voice-eval physical::mac::backend_clock_tests::immediate_player_keeps_datagrams_and_reports_in_the_selected_clock_domain
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T15:09:43.5449402Z         PASS [   0.026s] (4451/4662) lamp-voice-eval physical::mac::backend_clock_tests::ping_receipts_and_each_cue_decision_take_their_own_clock_sample
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T15:09:43.8510078Z         PASS [   0.326s] (4528/4662) lamp-voice-eval physical::mac::backend_clock_tests::post_end_drain_and_transport_reap_finish_with_a_frozen_clock
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T15:09:44.5389449Z      Summary [  73.294s] 4662 tests run: 4662 passed, 126 skipped

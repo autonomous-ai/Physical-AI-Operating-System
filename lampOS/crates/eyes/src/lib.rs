@@ -8,10 +8,12 @@
 //! [`kept`] holds the newest one in a private file for the voice service to
 //! show the model, and no other. With `LAMP_BUS=on`, [`bus_out`] publishes
 //! the faces in view on the lamp's bus: boxes and whether each is turned to
-//! the lamp, never a picture.
+//! the lamp, never a picture. [`who`] says whose face it is, for the people
+//! who asked the lamp to remember them, and nobody else.
 pub mod bus_out;
 pub mod faces;
 pub mod facing;
 pub mod kept;
 pub mod picture;
 pub mod sight;
+pub mod who;

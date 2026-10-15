@@ -4360,11 +4360,14 @@ fn conversation_with_controls(
         {
             arrival.said(clock);
             if arrival.speaks() {
+                // By name, for someone who asked the lamp to know their face.
+                let hello = crate::known_faces::known_from_environment()
+                    .map(|name| crate::known_faces::hello(&name));
                 snapshot = commit_written_turn(
                     owner,
                     reply,
                     &mut provider_queue,
-                    crate::speak_up::NOTE,
+                    hello.as_deref().unwrap_or(crate::speak_up::NOTE),
                     false,
                     "lamp_speaks_first",
                     provider_session,

@@ -18,10 +18,13 @@ SupplementaryGroups=video
 WorkingDirectory=/
 RuntimeDirectory=lampos-eyes
 RuntimeDirectoryMode=0755
+# The prints of people who asked the lamp to remember their face, and nobody else's (lampOS/docs/eyes.md, "Who is there").
+StateDirectory=lampos-eyes
+StateDirectoryMode=0700
 # Looking is never worth a late word: below the voice service.
 Nice=10
 Environment=LAMP_BUS=on
-ExecStart=/opt/lampOS/eyes/9799bf8f813c2978009febbf552a9223be678cf984ab9aed986755f925d27fe1/lamp-eyes --device /dev/video0 --lock-directory /home/orangepi/.local/share/lampOS-voice/camera-locks --usb 01da:5875@3-1.1.4 --model /opt/lampOS/eyes/face_detection_yunet_2023mar.onnx --permit-socket /run/lampos-eyes/permit.sock --body-socket /run/lampos-body/gaze.sock --presence-file /run/lampos-eyes/present --sight-file /run/lampos-eyes/sight.jpg
+ExecStart=/opt/lampOS/eyes/1b4aec19d224809c6bcb6eab1c75fc012be1ffdfc609b2cbce7c2e8f1a5176b8/lamp-eyes --device /dev/video0 --lock-directory /home/orangepi/.local/share/lampOS-voice/camera-locks --usb 01da:5875@3-1.1.4 --model /opt/lampOS/eyes/face_detection_yunet_2023mar.onnx --permit-socket /run/lampos-eyes/permit.sock --body-socket /run/lampos-body/gaze.sock --presence-file /run/lampos-eyes/present --sight-file /run/lampos-eyes/sight.jpg --recogniser /opt/lampOS/eyes/face_recognition_sface_2021dec.onnx --people /var/lib/lampos-eyes/people.json --who-socket /run/lampos-eyes/who.sock --known-file /run/lampos-eyes/known
 Restart=on-failure
 RestartSec=5s
 StandardInput=null

@@ -99,6 +99,9 @@ Environment=LAMP_EYES_PERMIT_SOCKET=/run/lampos-eyes/permit.sock
 # this line the moments a hello would be due are recorded and nothing is said; add
 # Environment=LAMP_SPEAK_FIRST=on for the lamp to say it.
 Environment=LAMP_EYES_PRESENCE_FILE=/run/lampos-eyes/present
+# Remembering a face when asked, a hello by name, and the name told with what a known person says
+# (lampOS/docs/eyes.md, "Who is there"); the eyes' known file is beside this socket.
+Environment=LAMP_EYES_WHO_SOCKET=/run/lampos-eyes/who.sock
 Environment=LAMP_SPEAK_FIRST=on
 # Let the lamp take a look when it says "Let me look" (lampOS/docs/speaking-first.md): the eyes'
 # newest frame goes to the model with that one request and with no other.

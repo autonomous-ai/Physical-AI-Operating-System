@@ -104,6 +104,9 @@ pub struct Settings {
     pub schedule_tools: bool,
     /// A typed due-reminder request may be considered by the provider.
     pub schedule_speak: bool,
+    /// The eyes' request socket, for remembering faces
+    /// ([`crate::known_faces`]).
+    pub who: Option<PathBuf>,
 }
 
 /// The provider worker's arguments for what the environment says.
@@ -119,6 +122,13 @@ pub fn arguments_from_environment() -> Vec<String> {
         std::env::var(SCHEDULE_TOOLS_ENVIRONMENT).ok().as_deref(),
         std::env::var(SCHEDULE_SPEAK_ENVIRONMENT).ok().as_deref(),
     ));
+    if let Some(socket) = std::env::var(crate::known_faces::ENVIRONMENT)
+        .ok()
+        .filter(|path| Path::new(path).is_absolute())
+    {
+        flags.push(crate::known_faces::FLAG.to_owned());
+        flags.push(socket);
+    }
     flags
 }
 
@@ -216,6 +226,18 @@ pub fn take(flags: &[String]) -> std::io::Result<(Settings, &[String])> {
         settings.schedule_speak = true;
         flags = rest;
     }
+    if let [flag, rest @ ..] = flags
+        && flag == crate::known_faces::FLAG
+    {
+        let [socket, rest @ ..] = rest else {
+            return Err(std::io::Error::other("--who-socket needs a path"));
+        };
+        if !Path::new(socket).is_absolute() {
+            return Err(std::io::Error::other("--who-socket must be absolute"));
+        }
+        settings.who = Some(PathBuf::from(socket));
+        flags = rest;
+    }
     Ok((settings, flags))
 }
 
@@ -277,6 +299,9 @@ pub fn declared(settings: &Settings) -> Vec<Tool> {
     if settings.tasks.is_some() {
         tools.extend(crate::agent_tasks::tools());
     }
+    if settings.who.is_some() {
+        tools.extend(crate::known_faces::tools());
+    }
     if let Some(directory) = &settings.exec {
         let room = lamp_gemini::MAX_TOOLS - tools.len();
         tools.extend(
@@ -287,6 +312,7 @@ pub fn declared(settings: &Settings) -> Vec<Tool> {
                         && tool.name != THE_TIME
                         && !crate::remember::is_tool(&tool.name)
                         && !crate::agent_tasks::is_tool(&tool.name)
+                        && !crate::known_faces::is_tool(&tool.name)
                         && (settings.schedule_tools || !is_schedule_tool(&tool.name))
                 })
                 .take(room),
@@ -338,6 +364,8 @@ pub enum Route {
     Clock,
     /// Work for an agent elsewhere, through the tasks part.
     Tasks(crate::agent_tasks::Place),
+    /// Remember or forget a face, through the eyes on this socket.
+    Faces(PathBuf),
     /// Nobody here runs that.
     Nobody,
 }
@@ -354,6 +382,9 @@ pub fn route(settings: &Settings, name: &str) -> Route {
     }
     if crate::agent_tasks::is_tool(name) {
         return settings.tasks.clone().map_or(Route::Nobody, Route::Tasks);
+    }
+    if crate::known_faces::is_tool(name) {
+        return settings.who.clone().map_or(Route::Nobody, Route::Faces);
     }
     match (&settings.exec, name) {
         (_, NOT_FOR_ME) if settings.decline => Route::Decline,
@@ -589,6 +620,10 @@ mod tests {
             "workstation".into(),
         ]);
         flags.extend(schedule_arguments(Some("on"), Some("on")));
+        flags.extend([
+            crate::known_faces::FLAG.into(),
+            "/run/lampos-eyes/who.sock".into(),
+        ]);
         flags.extend(["--session".into(), "7".into()]);
         let (settings, rest) = take(&flags).unwrap();
         let place = crate::agent_tasks::Place {
@@ -605,6 +640,7 @@ mod tests {
                 tasks: Some(place.clone()),
                 schedule_tools: true,
                 schedule_speak: true,
+                who: Some("/run/lampos-eyes/who.sock".into()),
             }
         );
         assert_eq!(rest, ["--session", "7"]);
@@ -623,6 +659,8 @@ mod tests {
             crate::agent_tasks::START,
             crate::agent_tasks::CONFIRM,
             crate::agent_tasks::CHECK,
+            crate::known_faces::REMEMBER,
+            crate::known_faces::FORGET,
             "light_on",
         ];
         expected.extend(SCHEDULE_NAMES);
@@ -640,11 +678,21 @@ mod tests {
             assert_eq!(route(&settings, name), Route::Schedule(dir.clone()));
         }
         assert_eq!(route(&settings, "light_on"), Route::Executive(dir.clone()));
+        let eyes = PathBuf::from("/run/lampos-eyes/who.sock");
+        for name in [crate::known_faces::REMEMBER, crate::known_faces::FORGET] {
+            assert_eq!(route(&settings, name), Route::Faces(eyes.clone()));
+            let blind = Settings {
+                who: None,
+                ..settings.clone()
+            };
+            assert_eq!(route(&blind, name), Route::Nobody);
+            assert!(declared(&blind).iter().all(|tool| tool.name != name));
+        }
         let schedule_off = Settings {
             schedule_tools: false,
             ..settings.clone()
         };
-        assert_eq!(declared_names(&schedule_off), expected[..9]);
+        assert_eq!(declared_names(&schedule_off), expected[..11]);
         for name in SCHEDULE_NAMES {
             assert_eq!(route(&schedule_off, name), Route::Nobody);
         }

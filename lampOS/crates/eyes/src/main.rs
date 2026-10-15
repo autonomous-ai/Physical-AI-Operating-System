@@ -6,7 +6,7 @@
 
 use std::{ffi::OsString, path::PathBuf};
 
-const USAGE: &str = "lamp-eyes --device ABSOLUTE_PATH --lock-directory PRIVATE_ABSOLUTE_DIRECTORY --usb VENDOR:PRODUCT@TOPOLOGY --model ABSOLUTE_PATH --permit-socket ABSOLUTE_PATH --body-socket ABSOLUTE_PATH [--sight-file ABSOLUTE_PATH] [--presence-file ABSOLUTE_PATH]\n\nOwns the camera at --device (checked against the USB identity given, hex vendor and\nproduct and the port topology, for example 01da:5875@3-1.1.4) and looks for a face in\nits frames four times a second while there is one and less than twice a second when\nthere is none, with the pinned YuNet model at --model. Each look\nsends one datagram to --body-socket: {\"face\":{\"x\":..,\"y\":..,\"size\":..,\"turned\":..}} or\n{\"face\":null}. The camera is open only while {\"camera\":true} keeps arriving on\n--permit-socket, at least every 1.5 s; {\"camera\":false} closes it at once. Without\n--sight-file no frame is written anywhere and none leaves this process. With it the\nnewest frame, and only that one, is kept in that file (mode 0600) while the camera is\nopen and removed when it closes: it is what the voice service shows the model. With\n--presence-file one line, the near face's height as a share of the picture's, is kept\nfresh in that file while there is a face: no picture, only that number.\n";
+const USAGE: &str = "lamp-eyes --device ABSOLUTE_PATH --lock-directory PRIVATE_ABSOLUTE_DIRECTORY --usb VENDOR:PRODUCT@TOPOLOGY --model ABSOLUTE_PATH --permit-socket ABSOLUTE_PATH --body-socket ABSOLUTE_PATH [--sight-file ABSOLUTE_PATH] [--presence-file ABSOLUTE_PATH] [--recogniser ABSOLUTE_PATH --people ABSOLUTE_PATH --who-socket ABSOLUTE_PATH [--known-file ABSOLUTE_PATH]]\n\nOwns the camera at --device (checked against the USB identity given, hex vendor and\nproduct and the port topology, for example 01da:5875@3-1.1.4) and looks for a face in\nits frames four times a second while there is one and less than twice a second when\nthere is none, with the pinned YuNet model at --model. Each look\nsends one datagram to --body-socket: {\"face\":{\"x\":..,\"y\":..,\"size\":..,\"turned\":..}} or\n{\"face\":null}. The camera is open only while {\"camera\":true} keeps arriving on\n--permit-socket, at least every 1.5 s; {\"camera\":false} closes it at once. Without\n--sight-file no frame is written anywhere and none leaves this process. With it the\nnewest frame, and only that one, is kept in that file (mode 0600) while the camera is\nopen and removed when it closes: it is what the voice service shows the model. With\n--presence-file one line, the near face's height as a share of the picture's, is kept\nfresh in that file while there is a face: no picture, only that number. With\n--recogniser (the pinned SFace model), --people and --who-socket, the eyes remember\na face when the voice service asks ({\"remember\":\"NAME\"} on the socket), forget it\n({\"forget\":\"NAME\"}), list the names ({\"list\":true}) and say whose face is at the\nlamp ({\"who\":true}). Only the prints of people who asked are kept, in --people\n(mode 0600); no picture. With --known-file, the name of the one known at the lamp is\nkept fresh in that file while they are there.\n";
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 struct Usb {
@@ -25,6 +25,11 @@ struct Arguments {
     body_socket: PathBuf,
     sight_file: Option<PathBuf>,
     presence_file: Option<PathBuf>,
+    /// The recogniser, the people's file and the request socket: all three
+    /// or none.
+    who: Option<(PathBuf, PathBuf, PathBuf)>,
+    /// The name of whoever known is at the lamp, kept fresh while they are.
+    known_file: Option<PathBuf>,
 }
 
 /// `VENDOR:PRODUCT@TOPOLOGY`, the two numbers as four hex digits each.
@@ -55,6 +60,7 @@ fn parse(args: impl IntoIterator<Item = OsString>) -> Result<Option<Arguments>, 
     let (mut device, mut lock_directory, mut usb) = (None, None, None);
     let (mut model, mut permit_socket, mut body_socket) = (None, None, None);
     let (mut sight_file, mut presence_file) = (None, None);
+    let (mut recogniser, mut people, mut who_socket, mut known_file) = (None, None, None, None);
     while let Some(key) = args.next() {
         if key == "--help" {
             let alone = device.is_none()
@@ -65,6 +71,10 @@ fn parse(args: impl IntoIterator<Item = OsString>) -> Result<Option<Arguments>, 
                 && body_socket.is_none()
                 && sight_file.is_none()
                 && presence_file.is_none()
+                && recogniser.is_none()
+                && people.is_none()
+                && who_socket.is_none()
+                && known_file.is_none()
                 && args.next().is_none();
             return if alone {
                 Ok(None)
@@ -91,6 +101,10 @@ fn parse(args: impl IntoIterator<Item = OsString>) -> Result<Option<Arguments>, 
             Some("--presence-file") if presence_file.is_none() => {
                 presence_file = Some(PathBuf::from(value));
             }
+            Some("--recogniser") if recogniser.is_none() => recogniser = Some(PathBuf::from(value)),
+            Some("--people") if people.is_none() => people = Some(PathBuf::from(value)),
+            Some("--who-socket") if who_socket.is_none() => who_socket = Some(PathBuf::from(value)),
+            Some("--known-file") if known_file.is_none() => known_file = Some(PathBuf::from(value)),
             Some("--usb") if usb.is_none() => {
                 usb =
                     Some(value.to_str().and_then(usb_of).ok_or(
@@ -109,7 +123,16 @@ fn parse(args: impl IntoIterator<Item = OsString>) -> Result<Option<Arguments>, 
         body_socket: body_socket.ok_or("--body-socket is required")?,
         sight_file,
         presence_file,
+        who: match (recogniser, people, who_socket) {
+            (Some(model), Some(people), Some(socket)) => Some((model, people, socket)),
+            (None, None, None) => None,
+            _ => return Err("--recogniser, --people and --who-socket go together"),
+        },
+        known_file,
     };
+    if result.known_file.is_some() && result.who.is_none() {
+        return Err("--known-file needs --recogniser, --people and --who-socket");
+    }
     for path in [
         &result.device,
         &result.lock_directory,
@@ -120,6 +143,13 @@ fn parse(args: impl IntoIterator<Item = OsString>) -> Result<Option<Arguments>, 
     .into_iter()
     .chain(&result.sight_file)
     .chain(&result.presence_file)
+    .chain(
+        result
+            .who
+            .iter()
+            .flat_map(|(model, people, socket)| [model, people, socket]),
+    )
+    .chain(&result.known_file)
     {
         if !path.is_absolute()
             || path.as_os_str().len() > 200
@@ -187,8 +217,11 @@ fn run(arguments: Arguments) -> Result<(), Box<dyn std::error::Error + Send + Sy
         kept::{Kept, Presence},
         picture::Picture,
         sight::{Seen, choose},
+        who::{Ask, NEAR_ENOUGH, People, Recogniser, Taking, align, ask_of, plain_name},
     };
     use lamp_turn_owner::{BootId, MonoTime};
+    use std::io::{Read, Write};
+    use std::os::unix::net::{UnixListener, UnixStream};
     use std::{
         num::NonZeroU64,
         os::unix::net::UnixDatagram,
@@ -210,8 +243,73 @@ fn run(arguments: Arguments) -> Result<(), Box<dyn std::error::Error + Send + Sy
     /// A camera that did not open, or failed, is tried again after this.
     const RETRY: Duration = Duration::from_secs(5);
     const REPORT_EVERY: Duration = Duration::from_secs(10);
+    /// Whose the near face is, asked at most this often: a print takes a
+    /// tenth of a second or more on the lamp.
+    const RECOGNISE_EVERY: Duration = Duration::from_secs(2);
+    /// Who was at the lamp is said for this long after the last look.
+    const KNOWN_FOR: Duration = Duration::from_secs(3);
+
+    /// Remembering faces, for the people who asked.
+    struct Who {
+        recogniser: Recogniser,
+        people: People,
+        listener: UnixListener,
+        known: Option<(String, f32, Instant)>,
+        looked_for: Option<Instant>,
+        taking: Option<(Taking, UnixStream)>,
+    }
+    /// The name of the one known at the lamp, replaced whole, or no file.
+    fn keep_known(path: &std::path::Path, name: Option<&str>) {
+        use std::os::unix::fs::OpenOptionsExt;
+        let Some(name) = name else {
+            let _ = std::fs::remove_file(path);
+            return;
+        };
+        let mut temporary = path.as_os_str().to_owned();
+        temporary.push(".new");
+        let written = std::fs::OpenOptions::new()
+            .write(true)
+            .create(true)
+            .truncate(true)
+            .mode(0o600)
+            .open(&temporary)
+            .and_then(|mut file| writeln!(file, "{name}"));
+        if written.is_ok() {
+            let _ = std::fs::rename(&temporary, path);
+        }
+    }
+    fn answer(stream: &mut UnixStream, value: serde_json::Value) {
+        // A caller that is gone or slow changes nothing here.
+        let _ = writeln!(stream, "{value}");
+    }
 
     let detector = Detector::load(&arguments.model)?;
+    let mut who = match &arguments.who {
+        Some((model, people_path, socket)) => {
+            let recogniser = Recogniser::load(model)?;
+            let people = People::open(people_path.clone())?;
+            match std::fs::remove_file(socket) {
+                Ok(()) => {}
+                Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+                Err(error) => return Err(error.into()),
+            }
+            let listener = UnixListener::bind(socket)?;
+            listener.set_nonblocking(true)?;
+            eprintln!(
+                "lamp-eyes: remembers a face when asked; {} people known",
+                people.names().len()
+            );
+            Some(Who {
+                recogniser,
+                people,
+                listener,
+                known: None,
+                looked_for: None,
+                taking: None,
+            })
+        }
+        None => None,
+    };
     // A socket file left by an earlier run is not a listener: replace it.
     match std::fs::remove_file(&arguments.permit_socket) {
         Ok(()) => {}
@@ -269,6 +367,95 @@ fn run(arguments: Arguments) -> Result<(), Box<dyn std::error::Error + Send + Sy
             let now = lamp_ipc::monotonic_us();
             bus.tick(now);
             bus.report(camera, now);
+        }
+        // What the voice service asks: one line. Remembering is answered
+        // once the prints are taken.
+        if let Some(who) = who.as_mut() {
+            for _ in 0..4 {
+                let Ok((mut stream, _)) = who.listener.accept() else {
+                    break;
+                };
+                let _ = stream.set_nonblocking(false);
+                let _ = stream.set_read_timeout(Some(Duration::from_millis(200)));
+                let _ = stream.set_write_timeout(Some(Duration::from_millis(200)));
+                // One line, up to its newline or the caller's end.
+                let mut line = Vec::new();
+                let _ = std::io::BufRead::read_until(
+                    &mut std::io::BufReader::new((&mut stream).take(1024)),
+                    b'\n',
+                    &mut line,
+                );
+                let reply = match ask_of(line.trim_ascii()) {
+                    Some(Ask::Who) => match who
+                        .known
+                        .as_ref()
+                        .filter(|known| known.2.elapsed() < KNOWN_FOR)
+                    {
+                        Some((name, likeness, _)) => {
+                            serde_json::json!({"who": name, "likeness": likeness})
+                        }
+                        None => serde_json::json!({"who": null}),
+                    },
+                    Some(Ask::List) => serde_json::json!({"people": who.people.names()}),
+                    Some(Ask::Forget(name)) => match who.people.forget(&name) {
+                        Ok(forgot) => {
+                            eprintln!("lamp-eyes: asked to forget a face; forgotten: {forgot}");
+                            who.known = None;
+                            serde_json::json!({"forgot": forgot})
+                        }
+                        Err(error) => {
+                            eprintln!("lamp-eyes: could not forget a face: {error}");
+                            serde_json::json!({"error": "storage"})
+                        }
+                    },
+                    Some(Ask::Remember(_)) if who.taking.is_some() => {
+                        serde_json::json!({"error": "busy"})
+                    }
+                    Some(Ask::Remember(_)) if port.is_none() => {
+                        serde_json::json!({"error": "eyes_shut"})
+                    }
+                    Some(Ask::Remember(name)) => match plain_name(&name) {
+                        Some(name) => {
+                            eprintln!("lamp-eyes: asked to remember a face");
+                            who.taking =
+                                Some((Taking::new(name, lamp_ipc::monotonic_us()), stream));
+                            continue;
+                        }
+                        None => serde_json::json!({"error": "not_a_name"}),
+                    },
+                    None => serde_json::json!({"error": "not_understood"}),
+                };
+                answer(&mut stream, reply);
+            }
+            // Remembering ends with enough prints, or without them in time.
+            if let Some((mut taking, mut stream)) = who.taking.take() {
+                if let Some(prints) = taking.taken() {
+                    let now_unix_s = std::time::SystemTime::now()
+                        .duration_since(std::time::UNIX_EPOCH)
+                        .map_or(0, |since| since.as_secs());
+                    let reply = match who.people.remember(&taking.name, prints, now_unix_s) {
+                        Ok(name) => {
+                            eprintln!(
+                                "lamp-eyes: remembered a face; {} people known",
+                                who.people.names().len()
+                            );
+                            serde_json::json!({"remembered": name})
+                        }
+                        Err(error) => {
+                            eprintln!("lamp-eyes: could not remember a face: {error}");
+                            serde_json::json!({"error": "full"})
+                        }
+                    };
+                    answer(&mut stream, reply);
+                } else if let Some(why) = taking.given_up(lamp_ipc::monotonic_us()) {
+                    eprintln!("lamp-eyes: did not remember a face: {}", why.code());
+                    answer(&mut stream, serde_json::json!({"error": why.code()}));
+                } else if port.is_none() {
+                    answer(&mut stream, serde_json::json!({"error": "eyes_shut"}));
+                } else {
+                    who.taking = Some((taking, stream));
+                }
+            }
         }
         let mut datagram = [0u8; 64];
         for _ in 0..32 {
@@ -410,6 +597,43 @@ fn run(arguments: Arguments) -> Result<(), Box<dyn std::error::Error + Send + Sy
                         if let Some(bus) = bus_out.as_mut() {
                             bus.saw(&faces, picture.filled, lamp_ipc::monotonic_us());
                         }
+                        // Whose the near face is, when it is time to ask or
+                        // someone is being remembered.
+                        if let Some(who) = who.as_mut()
+                            && (who.taking.is_some()
+                                || who
+                                    .looked_for
+                                    .is_none_or(|at| at.elapsed() >= RECOGNISE_EVERY))
+                        {
+                            who.looked_for = Some(Instant::now());
+                            let tall = picture.filled.1.max(1) as f32;
+                            let heights: Vec<f32> =
+                                faces.iter().map(|face| face.height / tall).collect();
+                            let print = faces
+                                .iter()
+                                .zip(&heights)
+                                .filter(|(_, height)| **height >= NEAR_ENOUGH)
+                                .max_by(|a, b| a.1.total_cmp(b.1))
+                                .and_then(|(face, _)| align(&picture, &face.marks))
+                                .and_then(|aligned| who.recogniser.print(&aligned).ok());
+                            if let Some((taking, _)) = who.taking.as_mut() {
+                                taking.look(&heights, print);
+                            } else if let Some(print) = print {
+                                who.known = who
+                                    .people
+                                    .who(&print)
+                                    .map(|(name, likeness)| (name, likeness, Instant::now()));
+                                if let Some(path) = &arguments.known_file {
+                                    keep_known(
+                                        path,
+                                        who.known.as_ref().map(|known| known.0.as_str()),
+                                    );
+                                }
+                            } else if let Some(path) = &arguments.known_file {
+                                // Nobody near: nobody known at the lamp.
+                                keep_known(path, None);
+                            }
+                        }
                         choose(&faces, picture.filled)
                     })
                     .map_err(|error| error.to_string())
@@ -465,6 +689,51 @@ mod tests {
         "--body-socket",
         "/run/lampos-body/gaze.sock",
     ];
+
+    #[test]
+    fn faces_are_remembered_only_with_all_three_paths_and_the_known_file_needs_them() {
+        let who = [
+            "--recogniser",
+            "/opt/lampOS/eyes/face_recognition_sface_2021dec.onnx",
+            "--people",
+            "/var/lib/lampos-eyes/people.json",
+            "--who-socket",
+            "/run/lampos-eyes/who.sock",
+        ];
+        assert_eq!(parse(args(&FULL)).unwrap().unwrap().who, None);
+        let value = parse(args(&[&FULL[..], &who[..]].concat()))
+            .unwrap()
+            .unwrap();
+        assert_eq!(
+            value.who,
+            Some((
+                PathBuf::from(who[1]),
+                PathBuf::from(who[3]),
+                PathBuf::from(who[5])
+            ))
+        );
+        assert_eq!(value.known_file, None);
+        let known = ["--known-file", "/run/lampos-eyes/known"];
+        assert_eq!(
+            parse(args(&[&FULL[..], &who[..], &known[..]].concat()))
+                .unwrap()
+                .unwrap()
+                .known_file,
+            Some(PathBuf::from(known[1]))
+        );
+        assert!(parse(args(&[&FULL[..], &known[..]].concat())).is_err());
+        for missing in 0..3 {
+            let mut some = who.to_vec();
+            some.drain(missing * 2..missing * 2 + 2);
+            assert!(parse(args(&[&FULL[..], &some[..]].concat())).is_err());
+        }
+        assert!(
+            parse(args(
+                &[&FULL[..], &who[..4], &["--who-socket", "who.sock"]].concat()
+            ))
+            .is_err()
+        );
+    }
 
     #[test]
     fn every_path_and_the_camera_are_named_and_nothing_else_is_accepted() {

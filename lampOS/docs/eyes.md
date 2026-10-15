@@ -52,8 +52,9 @@ sees" with what has and has not been shown of it.
   one file ("What the model sees", below). A line in the journal every ten
   seconds says how many frames came, how many were looked at, in how many
   there was a face and how long a look took.
-- It never moves anything and decides nothing about the conversation. It does
-  not recognise who a face belongs to.
+- It never moves anything and decides nothing about the conversation. It
+  recognises a face only for someone who asked the lamp to remember them
+  ("Who is there", below), and nobody else.
 
 ## When the camera is open
 
@@ -170,6 +171,60 @@ dropped. Of the faces left, the largest whose height is 15% of the
 picture's or more is the one reported: somebody at the lamp, not somebody
 across the room. With several people near, that is whoever is nearest the
 camera, and it can change from look to look.
+
+## Who is there
+
+Since 2026-10-15 (#759; `docs/brain-build.md` step 4). "Lamp, remember my
+face. I'm Minh." Later, sitting down: "Hey Minh." Until someone asks,
+nobody is recognised: `docs/memory.md` decided that everything is "said in
+this room" until someone asks to be recognised.
+
+- **The print.** OpenCV's SFace recogniser
+  (`face_recognition_sface_2021dec.onnx`, Apache-2.0, 38,696,353 bytes,
+  SHA-256 `0ba9fbfa01b5270c96627c4ef784da859931e02f04419c829e83484087c34e79`,
+  fetched separately and checked before it is parsed) runs on tract as
+  YuNet does. The near face is cut out upright from YuNet's five marks onto
+  OpenCV's 112 by 112 reference (`who::align`). It gives 128 numbers of
+  length one, and two prints of one person have a cosine of 0.363 or more
+  (OpenCV's own threshold for this model). One print took 68 ms on the
+  development Mac. On the lamp it is not yet timed.
+- **When.** Only for the largest face that is at the lamp: at least a tenth
+  of the picture's height (people at lamp-4ace's desk were 0.12 to 0.27).
+  At most every two seconds, or at every look while someone is being
+  remembered. The camera gives 320 by 240, so a face at the desk is 35 to
+  65 pixels tall. Whether that is enough is to be measured with people
+  (the camera can give 640 by 480 if not).
+- **Kept.** `--people FILE` (on lamp-4ace `/var/lib/lampos-eyes/people.json`,
+  in a directory of mode 0700 and a file of mode 0600). Per person: the
+  name, up to five prints and when they were added. At most 20 people. No
+  picture is kept, and no print leaves the lamp. A file that is too large
+  or not of this shape stops the eyes rather than being guessed at.
+- **Asked.** One line of JSON on `--who-socket` (on lamp-4ace
+  `/run/lampos-eyes/who.sock`) and one line back:
+  - `{"remember":"Minh"}` takes five prints over the next looks while that
+    one face is at the lamp and answers `{"remembered":"Minh"}`. After four
+    seconds without them it answers `no_face`, `too_far` or `two_faces`.
+  - `{"forget":"Minh"}` answers `{"forgot":true}` once the file no longer
+    has it.
+  - `{"list":true}` answers the names.
+  - `{"who":true}` answers who is at the lamp now, or `null`.
+  - Remembering someone already known replaces their prints.
+- **Said.** With `--known-file` (on lamp-4ace `/run/lampos-eyes/known`,
+  beside the socket), the name of the known person at the lamp is kept
+  there and renewed every two seconds while they are there. The file is
+  removed when nobody is near.
+- **The voice** (`crates/voice/src/known_faces.rs`, when
+  `LAMP_EYES_WHO_SOCKET` names the socket):
+  - The model has two functions, `remember_my_face` and `forget_my_face`,
+    each with the name. They are called only when the person asks.
+  - The hello for someone known is by name.
+  - What a known person says is told their name once a session ("The person
+    at the lamp now is Minh: you know their face.").
+  - Memory does not yet keep each person's things apart; that is next.
+
+On lamp-4ace on 2026-10-15 at 08:22, with the office empty, the socket
+answered `list` and `who` at once, `remember` with `no_face` after 4.0 s,
+and `forget` of an unknown name with `false`.
 
 ## On the bus
 

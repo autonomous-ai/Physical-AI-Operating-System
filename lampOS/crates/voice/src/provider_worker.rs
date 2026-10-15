@@ -818,6 +818,15 @@ async fn serve_with_visual<C: Connect>(
         .filter(|_| AIR_FACTS.load(std::sync::atomic::Ordering::Relaxed))
         .and_then(|root| lamp_bus::Bus::new(root).ok());
     let mut air_told = crate::air_told::AirTold::default();
+    // Someone who asked the lamp to know their face, at the lamp: the eyes'
+    // file beside their socket, read twice a second; told once a session.
+    let known_file = options
+        .tools
+        .who
+        .as_deref()
+        .map(crate::known_faces::known_file_of);
+    let mut known_read_at: Option<Instant> = None;
+    let mut known_told: Option<(SessionId, String)> = None;
     // The room microphone's rise over its quiet, for whether a voice is
     // close to the lamp: read from the ears every 100 ms, the last 30 s kept.
     let ears_bus = BUS_ROOT
@@ -1065,6 +1074,26 @@ async fn serve_with_visual<C: Connect>(
                         air_told.told(now);
                         eprintln!(
                             "lamp-voice provider: request {}: told the session inside it that the air is stuffy",
+                            open.request.get()
+                        );
+                    }
+                }
+                // The person at the lamp is someone it knows: what they say
+                // is told their name, once a session (`crate::known_faces`).
+                if let Some(path) = known_file.as_deref()
+                    && known_read_at.is_none_or(|at| at.elapsed() >= Duration::from_millis(500))
+                    && let Some(live) = provider.live_session()
+                    && let Some(open) = intake.handoff.visual_turn()
+                    && open.session == live
+                {
+                    known_read_at = Some(Instant::now());
+                    if let Some(name) = crate::known_faces::known_now(path)
+                        && known_told.as_ref() != Some(&(live, name.clone()))
+                        && add_note(&provider, &mut noted, open.request, &crate::known_faces::note(&name)).is_ok()
+                    {
+                        known_told = Some((live, name));
+                        eprintln!(
+                            "lamp-voice provider: request {}: told the session who is at the lamp",
                             open.request.get()
                         );
                     }
@@ -1459,7 +1488,11 @@ impl ToolDesk {
         if held
             && matches!(
                 crate::tools::route(&self.settings, &call.name),
-                Route::Executive(_) | Route::Schedule(_) | Route::Memory(_) | Route::Tasks(_)
+                Route::Executive(_)
+                    | Route::Schedule(_)
+                    | Route::Memory(_)
+                    | Route::Tasks(_)
+                    | Route::Faces(_)
             )
         {
             tell(&crate::tools::declined());
@@ -1510,7 +1543,8 @@ impl ToolDesk {
             route @ (Route::Executive(_)
             | Route::Schedule(_)
             | Route::Memory(_)
-            | Route::Tasks(_))
+            | Route::Tasks(_)
+            | Route::Faces(_))
                 if self.waiting < lamp_gemini::MAX_TOOL_CALLS =>
             {
                 // Being asked to keep or forget something is not itself
@@ -1520,7 +1554,7 @@ impl ToolDesk {
                 }
                 if matches!(
                     route,
-                    Route::Executive(_) | Route::Schedule(_) | Route::Tasks(_)
+                    Route::Executive(_) | Route::Schedule(_) | Route::Tasks(_) | Route::Faces(_)
                 ) {
                     self.acted = Some(request);
                 }
@@ -1553,6 +1587,9 @@ impl ToolDesk {
                                 "the schedule through the executive",
                                 crate::tools::ask_schedule(directory, &work, deadline),
                             ),
+                            Route::Faces(socket) => {
+                                ("the eyes", crate::known_faces::run(socket, &work))
+                            }
                             Route::Decline | Route::Clock | Route::Nobody => {
                                 ("nobody", (crate::tools::unavailable(), false))
                             }
@@ -1576,6 +1613,7 @@ impl ToolDesk {
             | Route::Schedule(_)
             | Route::Memory(_)
             | Route::Tasks(_)
+            | Route::Faces(_)
             | Route::Nobody => {
                 tell(&crate::tools::unavailable());
                 eprintln!(

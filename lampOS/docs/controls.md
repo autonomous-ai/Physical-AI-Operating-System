@@ -243,14 +243,18 @@ First's on-lamp sequence is:
    1. **10 s, hands away.** The chip starts with the profile's settings and
       auto-calibrates its charge. Nothing is measured.
    2. **5 s more, hands away.** Each working pad's noise: the largest
-      |baseline − filtered| seen.
+      |baseline − filtered| the chip may have compared. The chip shows only
+      the upper 8 of its 10 baseline bits, so the noise counts up to 3 more
+      than the read difference (NXP AN3892).
    3. **30 s: swipe each working pad a few times**, end to end. A swipe over
       a pad is 3 or more readings in a row more than 2 above its noise; the
       peak (baseline − filtered) of each is kept, and the weakest counts.
    4. **Saved.** For each working pad, **touch at 40% and release at 20% of
-      the way from its noise to its weakest swipe** (`--touch-percent`,
-      `--release-percent`), release at least noise + 1 and touch at least
-      noise + 2. A pad with no swipe is `not_touched`; one whose weakest
+      the way from its noise to its weakest swipe**, rounded down
+      (`--touch-percent` 10..90, `--release-percent` below it), always with
+      noise < release < touch < weakest swipe: the chip counts a touch only
+      when its difference is strictly above the touch threshold, and a release
+      only when it is strictly below the release threshold. A pad with no swipe is `not_touched`; one whose weakest
       swipe is less than 5 above its noise is `too_close_to_noise`. Only if
       every working pad has thresholds is the output written: the same pins
       file with those pads' thresholds replaced and nothing else changed.

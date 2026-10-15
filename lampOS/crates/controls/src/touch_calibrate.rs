@@ -18,6 +18,19 @@ pub const CONTACT_READINGS: u32 = 3;
 /// The weakest swipe must pass the noise by at least this much, so that the
 /// release threshold is above the noise and the touch threshold above both.
 pub const MIN_GAP: u16 = 5;
+/// The chip shows only the upper 8 of its 10 baseline bits, so the baseline it
+/// compares can be up to this much above the one read (NXP AN3892, 5-6).
+pub const BASELINE_HIDDEN: u16 = 3;
+
+/// The largest delta the chip may be comparing, given one read with nobody
+/// touching: the read delta, or the read delta plus the hidden baseline bits.
+pub fn quiet_swing(read_delta: i32) -> u16 {
+    let high = read_delta + i32::from(BASELINE_HIDDEN);
+    read_delta
+        .unsigned_abs()
+        .max(high.unsigned_abs())
+        .min(u32::from(u16::MAX)) as u16
+}
 
 /// How long each step lasts, and where the thresholds go.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
@@ -110,12 +123,14 @@ pub enum Verdict {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 pub struct Pad {
     pub electrode: u8,
-    /// Largest |baseline - filtered| while nobody touched.
+    /// Largest |baseline - filtered| the chip may have compared while nobody
+    /// touched, counting the baseline bits it does not show.
     pub noise: u16,
     /// Swipes seen: runs of [`CONTACT_READINGS`] or more readings above
     /// noise + [`CONTACT_ABOVE_NOISE`].
     pub swipes: u32,
-    /// The lowest and highest peak (baseline - filtered) among those swipes.
+    /// The lowest and highest peak (baseline - filtered, as read) among those
+    /// swipes. The chip's own delta is never lower than the one read.
     pub weakest: u16,
     pub strongest: u16,
     pub verdict: Verdict,
@@ -186,11 +201,14 @@ fn rule(plan: &Plan) -> Rule {
         contact_readings: CONTACT_READINGS,
         min_gap: MIN_GAP,
         text: format!(
-            "touch at {}% and release at {}% of the way from the pad's noise to its weakest swipe; \
+            "touch at {}% and release at {}% of the way from the pad's noise to its weakest swipe, \
+             rounded down; touch stays below the weakest swipe and above release, and release \
+             above the noise; the noise counts the {} baseline counts the chip does not show; \
              a swipe is {} or more readings in a row more than {} above the noise; \
              the weakest swipe must be at least {} above the noise",
             plan.touch_percent,
             plan.release_percent,
+            BASELINE_HIDDEN,
             CONTACT_READINGS,
             CONTACT_ABOVE_NOISE,
             MIN_GAP
@@ -206,8 +224,13 @@ pub fn thresholds(noise: u16, weakest: u16, plan: &Plan) -> Result<(u8, u8), Ver
     if gap < u32::from(MIN_GAP) || noise + 2 > 255 {
         return Err(Verdict::TooCloseToNoise);
     }
-    let at = |percent: u8| noise + (gap * u32::from(percent) + 50) / 100;
-    let touch = at(plan.touch_percent).clamp(noise + 2, 255);
+    // The chip counts a touch only when its delta is strictly above the touch
+    // threshold, and a release only when it is strictly below the release one.
+    // So: noise < release < touch < weakest, which MIN_GAP leaves room for.
+    let at = |percent: u8| noise + gap * u32::from(percent) / 100;
+    let touch = at(plan.touch_percent)
+        .clamp(noise + 2, u32::from(weakest) - 1)
+        .min(255);
     let release = at(plan.release_percent).clamp(noise + 1, touch - 1);
     Ok((touch as u8, release as u8))
 }
@@ -278,8 +301,7 @@ pub fn measure(
         baseline_quiet.get_or_insert(signals.baseline);
         for &electrode in pads {
             let e = usize::from(electrode);
-            let swing = signals.delta(e).unsigned_abs().min(u32::from(u16::MAX)) as u16;
-            noise[e] = noise[e].max(swing);
+            noise[e] = noise[e].max(quiet_swing(signals.delta(e)));
         }
     })?;
     say(&format!(

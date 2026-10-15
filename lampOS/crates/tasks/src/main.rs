@@ -141,6 +141,9 @@ fn main() {
         {
             let _ = received.recv_timeout(Duration::from_millis(10));
         }
+        // `exit` runs no destructor, so the guard would not pass the line
+        // on: without this it was lost when the relay was slow (#876).
+        lamp_ipc::log_relay::finish(Duration::from_millis(500));
         std::process::exit(1);
     }
 }

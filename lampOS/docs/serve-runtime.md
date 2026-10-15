@@ -190,7 +190,12 @@ them, up to 64 KiB is held, the oldest whole lines are dropped, and the
 count is said once lines go through again ("N log lines dropped because the
 journal did not take them"). A line already begun is always finished.
 Before a process ends, and after a panic's message, it waits up to half a
-second for its last lines to go.
+second for its last lines to go. "Gone" means written or held: the relay
+marks itself busy before each read, so an empty pipe whose bytes it has
+taken but not yet written does not count as done (#837). `std::process::exit`
+runs no destructor, so a part that exits that way calls
+`lamp_ipc::log_relay::finish` first (tasks, schedule and voice do): tasks
+lost its `bad_request` refusal on the loaded ARM64 runner without it (#876).
 A process killed outright (SIGKILL, or SIGTERM in a part with no handler
 for it) loses what is still in the pipe. A test that kills a part and then
 reads its lines must wait for those lines first: on 2026-10-15 the

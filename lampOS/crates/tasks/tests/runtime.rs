@@ -407,28 +407,51 @@ fn command_line_is_off_without_loading_any_provisioned_paths() {
 
 #[test]
 fn command_line_rejects_duplicate_fields_before_connecting() {
-    for input in [
-        r#"{"op":"prepare","op":"status"}"#,
-        r#"{"op":"cancel","guard":{"store_id":"a","revision":0,"revision":1,"request_id":"r"},"id":1}"#,
-    ] {
-        let mut child = Command::new(env!("CARGO_BIN_EXE_lamp-tasks"))
-            .args(["request", "--socket", "/no-tasks-test-socket"])
-            .stdin(Stdio::piped())
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
-            .spawn()
-            .unwrap();
-        child
-            .stdin
-            .take()
-            .unwrap()
-            .write_all(input.as_bytes())
-            .unwrap();
-        let output = child.wait_with_output().unwrap();
-        assert!(!output.status.success());
-        assert!(output.stdout.is_empty());
-        assert!(String::from_utf8_lossy(&output.stderr).contains("bad_request"));
+    for input in DUPLICATE_FIELDS {
+        refuse_duplicate_fields(input);
     }
+}
+
+/// #876: the refusal is written just before the process exits, and once
+/// went missing on ARM64. It reaches stderr every time, not most times.
+#[test]
+fn command_line_refusal_reaches_stderr_every_time() {
+    for _ in 0..100 {
+        for input in DUPLICATE_FIELDS {
+            refuse_duplicate_fields(input);
+        }
+    }
+}
+
+const DUPLICATE_FIELDS: [&str; 2] = [
+    r#"{"op":"prepare","op":"status"}"#,
+    r#"{"op":"cancel","guard":{"store_id":"a","revision":0,"revision":1,"request_id":"r"},"id":1}"#,
+];
+
+fn refuse_duplicate_fields(input: &str) {
+    let mut child = Command::new(env!("CARGO_BIN_EXE_lamp-tasks"))
+        .args(["request", "--socket", "/no-tasks-test-socket"])
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .unwrap();
+    child
+        .stdin
+        .take()
+        .unwrap()
+        .write_all(input.as_bytes())
+        .unwrap();
+    let output = child.wait_with_output().unwrap();
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    let seen = format!(
+        "input {input}: {}, stdout {:?}, stderr {stderr:?}",
+        output.status,
+        String::from_utf8_lossy(&output.stdout)
+    );
+    assert!(!output.status.success(), "{seen}");
+    assert!(output.stdout.is_empty(), "{seen}");
+    assert!(stderr.contains("bad_request"), "{seen}");
 }
 
 /// The next status on the bus, checked.

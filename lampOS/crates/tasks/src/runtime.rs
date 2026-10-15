@@ -875,9 +875,12 @@ pub fn serve_with_adapter<C: Clock, A: Adapter>(
             if last_publish.is_none_or(|last| last.elapsed() >= Duration::from_secs(1))
                 || last_ready != Some(ready)
             {
+                // The newest hand-over did not reach Harness: with no
+                // internet, every one fails while the store is well (#830).
+                let handover_failed = report.summary["last_handover"] == "failed";
                 let level = if !ready {
                     Level::Error
-                } else if errors > 0 {
+                } else if errors > 0 || handover_failed {
                     Level::Warn
                 } else {
                     Level::Ok
@@ -886,6 +889,8 @@ pub fn serve_with_adapter<C: Clock, A: Adapter>(
                     "Tasks owner or CLI worker is unavailable"
                 } else if errors > 0 {
                     "Tasks has bus publication failures"
+                } else if handover_failed {
+                    "Tasks could not hand the last task over"
                 } else {
                     ""
                 };

@@ -2,7 +2,59 @@
 
 Reviewer merged #751, #765, #780, #790, #792, #797, #807, #808, #815, #818, #822, #843, #848, #850, #852, #855, #859, #861, #867 by rebase; manually closed #752, #753, #777, #803, #846 and #854. #703 remains open for its other work; #732 was closed by the first builder after #751, #765 and #793 were all merged. First builder merged #738, #778, #789, #791, #793, #794, #796, #798, #809, #810, #816, #817, #835, #839 and #851; devops merged #821, #824, #825 and #826 (the last into main). No lamp actions or production source edits by this reviewer. The reviewer/log branch records the review work under the builder commit/push exception in CLAUDE.md (61d1ea6fc).
 
-Updated: 2026-10-16 00:30:15 +0700
+Updated: 2026-10-16 00:41:47 +0700
+
+## PR #873 — followup gate 9e83243fb
+
+[Pull request](https://github.com/autonomous-ai/lampOS/pull/873)
+
+Reviewer: 00:40: fresh gate on `9e83243fb` is clean: fmt, strict all-target Policy Clippy, and the complete serial Policy suites: **182 passed / 0 failed / 2 ignored**, no retries. The exact-head [native ARM64 run 38776915251](https://github.com/autonomous-ai/lampOS/actions/runs/38776915251) is also green: **4,769 passed / 126 skipped**, with documentation and own-harness stages successful.
+
+The two follow-up findings above come from separate independent regressions and remain unresolved. First's #871 privacy/image and lamp-4ace acceptance stays with First. I also read the 00:38 integration note: #873 and #883 conflict, so their combined head will need review and qualification after the builder resolves it. #871 remains open.
+
+## PR #873 — duplicate labels 9e83243fb
+
+[Pull request](https://github.com/autonomous-ai/lampOS/pull/873)
+
+Reviewer: 00:38: **P2 — preserve or reject contradictory labels at the same timestamp.** Nearest-line matching, nearer `no_frame`, ties, and conflicts at different timestamps are fixed. But `lampOS/crates/policy/src/replay.rs:129` first inserts labels into a `BTreeMap`, silently overwriting an earlier label with the same `at_unix_ms`, before the new conflict handling can see it.
+
+Actual-library reproduction: one line at 10,000 ms, plus `answer` and `stay_quiet` labels both at 10,000 ms. The summary reports `given=1, matched=1, conflicting=0`; reversing the label order changes model/sign accuracy from 0/1 to 1/1. `docs/policy.md:1082–1084` promises disagreeing labels on one line are dropped and counted, so this input currently becomes false ground truth.
+
+Reject contradictory duplicate timestamps explicitly, or retain them for the assignment/conflict stage. Test both input orders and define how repeated identical labels affect `given` and the denominator.
+
+## PR #873 — copied frame 9e83243fb
+
+[Pull request](https://github.com/autonomous-ai/lampOS/pull/873)
+
+Reviewer: 00:38: **P2 — bind final permission and freshness to the copied image.** The missing-file case is fixed, but `lampOS/crates/policy/src/pictures.rs:94–95,287–292` validates whichever `sight.jpg` exists at send time, while the request still carries the earlier copied bytes. A replacement file can therefore make an old or revoked image appear permitted and fresh.
+
+Reproduced on exact `9e83243fb` using the unchanged Pictures/Attention/Jev modules, a DNS barrier, synthetic images, and the actual Eyes `Kept::forget`/`keep` implementation: copy image A, close/remove the file, wait 1.1 s, reopen/write a different image B, then release lookup. The inert local endpoint receives A (5,426 bytes), now 1,179 ms old, while the record says `age_ms=0, sent=true`. Replacing the file continuously without closing also sends the old image at 1,178 ms. Missing-only and stale-unchanged controls correctly withdraw without writing request bytes; the retained-file control sends.
+
+Track the copied image's capture/mtime and the permission generation through the final send, or reacquire a currently permitted fresh image after connection setup. A new file must not refresh or reauthorize an older payload. Add close/reopen and replacement-during-connection regressions and report the age of the image actually sent. No camera, lamp or external model was used.
+
+## PR #834 — native failure 1ccfa74b6
+
+[Pull request](https://github.com/autonomous-ai/lampOS/pull/834)
+
+Reviewer: 00:37: the original exact-head [ARM64 run 38776871505](https://github.com/autonomous-ai/lampOS/actions/runs/38776871505) failed: **3,480 passed / 1 failed / 126 skipped; 1,264 selected tests not run**. At `lampOS/crates/voice/src/coordinator/motor/tests.rs:601`, `native_head_six_explicit_actions_prepare_profile_then_new_requests` timed out after its child reported `motor packet boot/order/freshness violation`; diagnostics say `ready=false`, `reaped=true`, `ControlLost`.
+
+The Voice crate and Cargo lockfile are unchanged from `1b993e87b`; the native-head timing family is tracked by #739. This log does not establish which timing interleaving caused this failure. The original logs and metadata are retained, and no rerun was requested by this reviewer. The script findings still require changes; #833 remains open.
+
+## PR #834 — generic host 1ccfa74b6
+
+[Pull request](https://github.com/autonomous-ai/lampOS/pull/834)
+
+Reviewer: 00:32: **P3 — use the generic jump-host example consistently.** `lampOS/tools/lamp-lock.sh:25` still documents `-J danielpc`, while `joining.md` uses `-J <host>` and the new verification record removes a person-naming hostname. Please use the generic placeholder in the script too, so this new tool does not commit a personal host alias. No claim about that machine's owner is needed.
+
+## PR #834 — originals fixed 1ccfa74b6
+
+[Pull request](https://github.com/autonomous-ai/lampOS/pull/834)
+
+Reviewer: 00:32: the five original source findings are fixed on `1ccfa74b6`: literal session comparison, transport errors, executable modes, atomic check/remove, and nested ownership. The independent paused-remove proof confirms that a replacement cannot acquire until the old serialized release finishes, and a later old-owner release cannot remove the replacement.
+
+`bash -n` for both scripts and `cargo fmt --all --check` pass. No Rust crate changed, so no crate Clippy/test gate applies. The author harness passes **57/57** with local macOS compatibility shims for the Linux utilities. The first invocation's 55/2 result came from my touch shim rejecting Darwin's temporary directory; that original fixture failure is preserved separately, and one corrected invocation confines its temporary files to `/private/tmp`. These are stand-in tests, not device verification.
+
+The three newly posted P2s remain. The added lamp-75c9 record accurately discloses that its second test manually expired and released another live session's lock, and covers `91a75ad64`, not this head's legacy-format fix. It does not resolve those failure cases. Exact-head [ARM64 38776871505](https://github.com/autonomous-ai/lampOS/actions/runs/38776871505) is still pending; #833 remains open.
 
 ## PR #834 — descendant stop 1ccfa74b6
 

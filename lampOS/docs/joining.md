@@ -7,14 +7,14 @@ out by hand on 2026-10-14, so that the next builder, with any person and
 any lamp, starts where this one ended. It replaces builder-with-a-lamp.md
 and tasks-as-issues.md, which now only point here.
 
-What holds today: `fifth-P1` (the first builder's answer, "yes, but", is
-written in below). The rest is a proposal until the first builder answers
-it in [work-split.md](work-split.md), under "Answers". Make no issue or
-label until the owner says yes.
+All of it holds since 2026-10-14: `fifth-P1` ("yes, but", written in
+below), `fifth-P2`, `fifth-P4` and `fifth-P5` were answered yes by the
+first builder, and `fifth-P3`, tasks as GitHub issues, was decided by the
+owner and the first builder (the owner: "decide what you think best").
+work-split.md points here for how a builder works.
 
 The rules in work-split.md ("Rules for all") and in the repository's
-`CLAUDE.md` still apply. Where this document and work-split.md differ,
-work-split.md wins until it points here.
+`CLAUDE.md` still apply.
 
 ## Who a builder is
 
@@ -53,22 +53,28 @@ The agent then, in this order:
 
 1. `git fetch origin`.
 2. Reads its role file, `lampOS/builders/<name>.md`, as it is on
-   `origin/lamp-voice`, where the first builder puts it before the builder's
-   first session (a new builder has no branch yet; it makes `lamp-<name>`
-   from `origin/lamp-voice` then). No role file means no work: it asks its
-   person to have the owner make one.
+   `origin/lamp-voice` (a new builder has no branch yet; it makes
+   `lamp-<name>` from `origin/lamp-voice` then). If there is none, it makes
+   its own, as the fifth builder did: it copies `builders/TEMPLATE.md` and
+   fills what it knows (the person is whoever started the session; no lamp
+   unless told; branches `lamp-<name>` and `<name>/*`; it owns nothing
+   yet), shows it to its person, pushes it as its first commit on
+   `lamp-<name>`, and comments on the Queue issue (#705): "new builder
+   <name>, role file at <link>, no tasks yet". It takes no task until the
+   first builder has taken the file onto `lamp-voice`, corrected where it
+   must be, and labelled issues `builder:<name>`.
 3. Reads this document, `lampOS/AGENTS.md`, and the repository's
    `CLAUDE.md`.
-4. Reads `lampOS/docs/work-split.md` as it is on `origin/lamp-voice`: the
-   loops, "Rules for all", and "Answers".
+4. Reads `lampOS/docs/work-split.md` as it is on `origin/lamp-voice`:
+   "Rules for all" and "What the lamp showed".
 5. Reads its own log on its own branch, newest first.
 6. If it has a lamp: that lamp's `deploy/<lamp>/LAMP.md` and `README.md`.
-7. Finds its next task:
-   - **Today:** the first task in the list in work-split.md that carries
-     its name and that its log does not show as taken or done.
-   - **If fifth-P3 is taken** (tasks as GitHub issues, below):
-     `gh issue list --label builder:<name> --state open`, highest first,
-     claimed as "Claiming an issue" says.
+7. Finds its next task: the first issue in its own list in the pinned
+   [Queue issue](https://github.com/autonomous-ai/lampOS/issues/705) that
+   is open and not `status:taken` (`gh issue view 705`;
+   `gh issue list --label builder:<name> --state open` shows them all),
+   claimed as "Claiming an issue" says. It reads the comments on its
+   issues: answers come there.
 
 ## Setting up a machine
 
@@ -191,11 +197,19 @@ The loops in work-split.md, in short, with the names from your role file:
    cargo build --workspace
    ```
 
-   and the lamp build above for any crate the lamp runs.
+   and the lamp build above for any crate the lamp runs. Since 2026-10-14
+   every push of `lamp-<name>` or `<name>/*` also builds and tests the whole
+   workspace natively on Linux ARM64 in Debian 12, as the lamps run
+   (`.github/workflows/lampos-arm64.yml`), and keeps the binaries with their
+   SHA-256 for a week: `gh run list --branch lamp-<name> --workflow "lampOS
+   on ARM64"`. A piece is ready only when that run is green; say its run's
+   number in the log entry, and the first builder installs those binaries
+   without building again.
 5. **Run on the lamp**, if you have one: install as above, `sudo sync`, run,
    keep the raw readings.
-6. **Log.** Put the finished piece on `lamp-<name>` as a fast-forward and,
-   in the same push, its entry in your log (next section).
+6. **Pull request.** When the task is finished and shown, open a pull
+   request from `<name>/<task>` into `lamp-voice` (see "One pull request per
+   task" below) and put its entry in your log, on `lamp-<name>`.
 7. Take the next. With nothing left, look again every half hour.
 
 ## What a result on a lamp is
@@ -232,19 +246,20 @@ A piece with its evidence is not yet a task done: the first builder once
 took the wake onto `lamp-voice` while it was still being mended, and ran it
 on lamp-4ace before its fixes. So (`fifth-P4`):
 
-- Code being made stays on its task branch, `<name>/<task>`. It reaches
-  `lamp-<name>` only when the task, or a part the log names, is finished
-  and shown.
+- Code being made stays on its task branch, `<name>/<task>`. It is offered
+  for `lamp-voice` only when the task, or a part the issue names, is
+  finished and shown: as a pull request that is not a draft (since
+  `fifth-P6`, below).
 - Every log entry opens with one line the first builder can read without
   judging:
 
   ```text
   Ready for lamp-voice: no
-  Ready for lamp-voice: yes (<commit>)
+  Ready for lamp-voice: yes (#<pull request>)
   ```
 
-- The first builder takes only what an entry marked `yes` names, and only
-  up to that commit. Running a `no` piece early to help is welcome; it is
+- The first builder takes only what an open, non-draft pull request
+  holds, and only up to its head commit. Running a `no` piece early to help is welcome; it is
   then said in the answer, and the piece is not on `lamp-voice`.
 
 **What the first builder takes, and how.** `lamp-voice` is what lamp-4ace
@@ -264,10 +279,53 @@ see that nothing changes. A piece switched on for lamp-4ace, or one that
 changes defaults, runs there for a few minutes first. The builder's
 evidence is not run again (the first builder's answer to `fifth-P1`).
 
-When the work is done, the builder may open one pull request from
-`lamp-<name>` into `lamp-voice`, listing for each task its log entry, its
-verification folder and its kind. It stops there: the first builder
-merges. It never pushes to `lamp-voice` or to another builder's branch.
+**The switch is for that first minute, not for life** (the owner,
+2026-10-15: "opt in is wasteful"; we use every sensor and part the lamp
+has). Once a part has passed its minute and is switched on for lamp-4ace,
+the same day it becomes the default in code, and the switch remains only to
+turn it off (`off`). A part left off says why, in its doc, and the first
+builder tries it within the week. Switches in place before this rule are
+made defaults by the first builder as it confirms each on lamp-4ace.
+
+### One pull request per task (`fifth-P6`, decided 2026-10-14)
+
+Proposed by the fifth builder (#716) after #708 was closed unmerged: its
+pieces had been cherry-picked an hour before, so nothing tied the issue to
+the commits, the hashes differed from the builder's, and a piece's
+dependency had to be found by hand. Decided: yes, but as follows.
+
+- **A task branch,** `<name>/<task>`, cut from `lamp-voice` and kept rebased
+  on it, carries only that task's code, docs and verification folder.
+  `lamp-<name>` keeps the log and nothing a lamp runs.
+- **Ready is a pull request** from `<name>/<task>` into `lamp-voice` that is
+  not a draft. Its body, in this order: `Closes #<issue>`; its kind (off
+  unless set, a lamp's own folder, or changes every lamp's default); the
+  switch and the test that shows nothing changes without it; the
+  verification folder; the gate as run, with counts. No attribution.
+- **Each commit in it is one the first builder would write:** one line,
+  `lampOS: ...`, passing the gate on its own. Fold fix-ups into it on your
+  branch before marking it ready.
+- **The native ARM64 run on the branch's head is green** before it is ready
+  (its run number in the body). The first builder installs that run's
+  binaries on lamp-4ace for the minute with the switch off; it does not
+  build them again.
+- **A known flaky test does not hold a piece back** (first builder,
+  2026-10-15). Until #739 is solved, the voice's timed process tests can
+  fail on a loaded Mac with unchanged code. If the ARM64 run is green and
+  the only local failures are those tests, mark the piece ready and name
+  the tests that failed. Do not run the whole gate again to get a clean
+  pass.
+- **The first builder merges with "Rebase and merge",** so `lamp-voice`
+  stays one line of `lampOS:` commits, and takes a builder's code by no
+  other path. A change it wants is a review comment, and the builder
+  pushes to the same branch. One it will not take is closed with the reason.
+- **The builder watches its own pull requests** and answers their comments
+  itself; a person is asked only for hands at a lamp or for permissions.
+- **The merge closes the issue,** and the Queue gives the next task.
+
+Pieces marked ready on a `lamp-<name>` branch before this was decided are
+taken once more as before. A builder never pushes to `lamp-voice` or to
+another builder's branch.
 
 ## Talking with the first builder
 
@@ -284,9 +342,15 @@ Everything goes through Git, once each way. No back-and-forth.
   heading in your log, with how to see it, and is not mended.
 - **Questions** go in your log, pushed, and work goes on with whatever does
   not depend on the answer.
-- Read work-split.md at the start of each task and every half hour.
+- Read the Queue issue and the comments on your issues at the start of
+  each task and every half hour.
 
-### Tasks as GitHub issues (`fifth-P3`, not yet decided)
+Since tasks are GitHub issues, a proposal is a new issue labelled
+`proposal` and `builder:<name>` (and still a line in your log), and a
+question is a comment on the task's issue; the first builder answers there.
+Answers given before 2026-10-14, 16:50 stay in work-split.md.
+
+### Tasks as GitHub issues (`fifth-P3`, decided 2026-10-14)
 
 Proposed at the fifth builder's person's request, because work-split.md is
 over 1,600 lines that every builder reads every loop, a task's state is free
@@ -301,8 +365,9 @@ writes.
   `status:on-lamp`; a closed issue is a task on `lamp-voice`. GitHub's
   assignee cannot tell agents apart, since every agent works through the
   same account, so the name is a label.
-- **Order:** labels `p1`, `p2`, `p3`, or one pinned "Queue" issue the first
-  builder keeps in order. One of the two, not both.
+- **Order:** one pinned "Queue" issue the first builder keeps in order,
+  [#705](https://github.com/autonomous-ai/lampOS/issues/705), label
+  `lampos-queue`. No priority labels.
 - **Questions and answers** are comments on the issue they are about.
 - **Pull requests** say `Closes #N`. No GitHub Project is needed.
 
@@ -313,16 +378,16 @@ again: if the first "taken" comment is not your own, release the issue
 (remove the label, say so) and take the next. That keeps two sessions given
 the same name from working one task twice.
 
-**Moving to it.** The first builder opens an issue for each open task and
-a role file for each builder. work-split.md then keeps only the rules and
-the loops, and the logs keep only what was run and what came out.
+**Moved on 2026-10-14.** The first builder opened an issue for each open
+task (#694 to #704) and a role file for each builder. work-split.md keeps
+the rules, "What the lamp showed" and the history of finished tasks; the
+logs keep what was run and what came out.
 
 **What it costs.** Every builder needs `gh` signed in. GitHub becomes
 something the builders' coordination depends on; code, evidence and
 decisions stay in Git, so an outage stops the conversation, not the record.
 
-To be decided by the first builder and the owner: adopt it or not, and
-order by labels or by a Queue issue.
+Decided: adopted, ordered by the Queue issue.
 
 ## Working with the person beside the lamp
 

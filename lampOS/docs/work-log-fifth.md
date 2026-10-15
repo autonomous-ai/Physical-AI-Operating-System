@@ -415,6 +415,23 @@ use the same form without their ids meeting.
 | fifth-P3 | `tasks-as-issues` | Not a task: track the builders' tasks as GitHub issues (one per task, `builder:<name>` and `status:` labels, a role file per builder, questions as comments) instead of one 1,400-line file every builder reads each loop. At the fifth builder's person's request. Make no issue or label until the owner says yes. | [tasks-as-issues.md](tasks-as-issues.md); work-split.md would shrink to the rules and loops | |
 | fifth-P4 | `ready-line` | Not a task: the first builder takes only what a log entry marked `Ready for lamp-voice: yes (<commit>)` names; code being made stays on the task branch. So that unfinished work is not taken onto `lamp-voice`. | [builder-with-a-lamp.md](builder-with-a-lamp.md), "Taken only when ready"; every log entry from now on | |
 | fifth-P5 | `joining` | Not a task: one document for joining as a builder ([joining.md](joining.md)) and a role file per builder (`builders/<name>.md`), gathering fifth-P1 to P4 and what the fifth builder had to find out by hand on 2026-10-14, so that the next builder, with any person or lamp, starts where this one ended. | [joining.md](joining.md); [builders/](../builders/TEMPLATE.md); work-split.md's loops would point to it | |
+| fifth-P7 | `you-are-points-to-joining` | Not a task: [joining.md](joining.md) says a session starts with "you are <name>", but nothing an agent reads by itself says so: the repository's `CLAUDE.md` and `AGENTS.md` and `lampOS/AGENTS.md` on `origin/lamp-voice` name neither joining.md nor "you are". One line in each sends such a session to joining.md's "Starting a session". And no person should have to make a role file: joining.md's step 2 then lets a builder with none make its own from `TEMPLATE.md`, push it on `lamp-<name>` and say so on #705, taking no task until the first builder has taken it and labelled its issues; so the person types only "you are <name>". Claude Code loads the root `CLAUDE.md` at the start, Codex the root `AGENTS.md`; `lampOS/AGENTS.md` covers a session started in `lampOS/` (its `CLAUDE.md` points there). Wanted now: the owner adds the sixth and seventh builders for #754 and #733, whose role files `lampOS/builders/sixth.md` and `seventh.md` the first builder makes before their first session. (fifth-P6 is "One pull request per task", #716.) | `CLAUDE.md`, `AGENTS.md`, `lampOS/AGENTS.md`: one line each; joining.md, step 2; on `lamp-fifth` | |
+
+## 2026-10-15 — fifth-P7 — "you are <name>" leads to joining.md
+
+Ready for lamp-voice: yes (fifth-P7)
+
+- One line each in the repository's `CLAUDE.md` and `AGENTS.md` and in
+  `lampOS/AGENTS.md`, on `lamp-fifth`: a session that opens with "you are
+  <name>" reads joining.md on `origin/lamp-voice` and follows "Starting a
+  session". Documents only; nothing to run on a lamp.
+- joining.md, "Starting a session", step 2: a builder with no role file
+  makes its own from `builders/TEMPLATE.md` (person, no lamp unless told,
+  its two branches, owns nothing yet), pushes it as its first commit on
+  `lamp-<name>` and comments on #705; it takes no task until the first
+  builder has taken the file and labelled its issues. As the fifth
+  builder's own `fifth.md` was made (fifth-P5). So the sixth and seventh
+  builders (#754, #733) need only "you are sixth" from their person.
 
 ## 2026-10-14 — mouth-moving (task 39, #720) — whether a face's mouth moves
 

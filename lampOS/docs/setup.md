@@ -243,6 +243,17 @@ private files and the zone link, V1's routes and shapes, one run at a time, no
 second setup, the page and the 204s only with `page`, and the scan with iw's
 escapes. No phone, router or radio was used.
 
+## Units
+
+`crates/setup/units/` holds the two units, for the image (#811) and the
+keeper's release to carry; `BUILD` stands for the build's directory.
+`lamp-setup.service` is started by the keeper alone, when the marker is
+missing, and is never part of `lampos.target`. `lamp-setup-reset.service` is
+part of `lampos.target`: it watches for the reset while the lamp runs. Both run
+as root: the radio scripts, wpa_supplicant's file, `/etc/localtime` and nginx
+for the first; the person's stores, which belong to several parts, the keeper's
+stop and the reboot for the second.
+
 ## Open questions (asked on #806)
 
 1. Where does a home lamp's voice credential come from: the autonomous.ai

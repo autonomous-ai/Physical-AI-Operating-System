@@ -1,8 +1,60 @@
 # Reviewer work log
 
-Reviewer merged #751, #765, #780, #790, #792, #797, #807, #808, #815, #843, #848, #850, #852, #855, #859, #861 by rebase; manually closed #752, #753, #777, #803, #846 and #854. #703 remains open for its other work; #732 was closed by the first builder after #751, #765 and #793 were all merged. First builder merged #738, #778, #789, #791, #793, #794, #796, #798, #809, #810, #816, #817, #835, #839 and #851; devops merged #821, #824, #825 and #826 (the last into main). No lamp actions or production source edits by this reviewer. The reviewer/log branch records the review work under the builder commit/push exception in CLAUDE.md (61d1ea6fc).
+Reviewer merged #751, #765, #780, #790, #792, #797, #807, #808, #815, #818, #822, #843, #848, #850, #852, #855, #859, #861 by rebase; manually closed #752, #753, #777, #803, #846 and #854. #703 remains open for its other work; #732 was closed by the first builder after #751, #765 and #793 were all merged. First builder merged #738, #778, #789, #791, #793, #794, #796, #798, #809, #810, #816, #817, #835, #839 and #851; devops merged #821, #824, #825 and #826 (the last into main). No lamp actions or production source edits by this reviewer. The reviewer/log branch records the review work under the builder commit/push exception in CLAUDE.md (61d1ea6fc).
 
-Updated: 2026-10-15 22:58:54 +0700
+Updated: 2026-10-15 23:22:24 +0700
+
+## Issue #800 — merged 818
+
+[Issue](https://github.com/autonomous-ai/lampOS/issues/800)
+
+Reviewer: merged #818 at 23:18: the opt-in checked short-sound guard on both voice routes and the short-turns reader; #800 stays open for recorded-sound counts and demonstrated effectiveness, since First’s played scenes did not trigger the guard.
+
+## PR #818 — final handback 3076f8452
+
+[Pull request](https://github.com/autonomous-ai/lampOS/pull/818)
+
+Reviewer: 23:18: First's [23:09 handback](https://github.com/autonomous-ai/lampOS/pull/818#issuecomment-6196639643) permits merge on this review. The head remains `3076f8452`, unchanged and mergeable. The fallback finding is fixed; the exact opt-in and unchanged-off regressions remain intact. Fmt/strict Voice Clippy passed, and the original full serial result remains 1,325 passed / 1 failed / 8 ignored, with the sole unchanged #739 EarlyEnd/privacy case passing its one same-original-binary retry. The executable hash and both results were retained and rechecked. Exact-head pull-request ARM64 is green; no redundant broad rerun was made for this acceptance update.
+
+First's later lamp report supplements the original verification paragraph: the played sounds and short words showed no harm, and the two-breath confirmation still handed over, but no end was marked `sound` and this guard never fired. Benefit on the offending recorded sound therefore remains unproven. I will rebase-merge the disabled-by-default implementation under First's handback and keep #800 open for the recorded-sound counts, actual guard effectiveness and remaining acceptance. Full-sentence overheard speech remains #829's separate scope.
+
+## Issue #813 — merged 822
+
+[Issue](https://github.com/autonomous-ai/lampOS/issues/813)
+
+Reviewer: merged #822 at 23:12: per-person standing rules, their memory tools and the additive memory/rules publisher behind LAMP_MEMORY_RULES=on; #813 stays open for the Policy reader and quiet-hours integration.
+
+## PR #822 — complete 61b7229ac
+
+[Pull request](https://github.com/autonomous-ai/lampOS/pull/822)
+
+Reviewer: 23:11: final rebase review complete on `61b7229ac`. The conflict resolutions retain Hand/Rules and the body/task/log/memory catalogues. Rules/remember/process logic, Memory sources/tests and both lamp reports are unchanged; a fresh integration check confirms seven memory/Mark/task tools with Rules off and all ten with it on, routed without collisions. The prior twelve actual-store correctness checks and four deadline checks remain applicable by verified source identity, rather than being described as rerun.
+
+Fresh fmt and strict all-target Msgs/Memory/Voice Clippy pass. Complete serial suites: Msgs 86, Memory 159 (5 ignored), Voice 1,348 (8 ignored), total 1,593 passed / 0 failed / 13 ignored, no retries. [Exact-head pull-request ARM64](https://github.com/autonomous-ai/lampOS/actions/runs/38764479769) is green: 4,733 passed / 126 skipped. The formerly failing initial-rule-note cases pass in the original runs.
+
+The description now includes the second lamp-52e6 evidence and its synthesized-speech/known-person-stand-in limits, accurately separates prior/new gates, and says Part of #813. No remaining finding. The exact-on switch and old-behavior regressions remain intact; shared messages are strictly additive. I will rebase-merge this head. #813 stays open because Policy does not yet consume `memory/rules`; this merge does not establish quiet-hours enforcement.
+
+## PR #858 — gate 682bced4d
+
+[Pull request](https://github.com/autonomous-ai/lampOS/pull/858)
+
+Reviewer: 23:06: fresh gate complete on `682bced4d`: fmt and strict all-target Voice Clippy pass; complete serial Voice is 1,351 passed / 0 failed / 8 ignored, no retries. Exact-head pull-request ARM64 [38763138759](https://github.com/autonomous-ai/lampOS/actions/runs/38763138759) is green: 4,722 passed / 126 skipped, including both new motion regressions.
+
+The two independent stale-data failures above remain reproducible despite the package gate passing. Fresh movement/hand resets, forged-completion rejection, and coexisting Mark/onboarding routes pass independently. The rebase retains the earlier report-validation fix. The stale-data P2 and First's #841 physical acceptance remain open; this gate does not resolve them.
+
+## PR #867 — complete 18a4560c9
+
+[Pull request](https://github.com/autonomous-ai/lampOS/pull/867)
+
+Reviewer: 23:04: the fresh full serial Voice-eval gate on `18a4560c9` is complete: 288 passed / 0 failed / 0 ignored across all 24 Cargo suites, no retries. Fmt and strict all-target Clippy pass. The four new regressions and all existing real-process evaluator scenarios ran. Exact-head native pull-request ARM64 remains green. No source finding beyond the integration conflict noted above; the completed original-head gate is retained while awaiting the rebase. #823 stays open.
+
+## PR #858 — stale body 682bced4d
+
+[Pull request](https://github.com/autonomous-ai/lampOS/pull/858)
+
+Reviewer: [P2] 23:03: loss of Body data must not count as stillness or release (`lampOS/crates/voice/src/onboarding.rs:294-308`). `still_now` removes reports older than 700 ms, then missing joints produce `head=true` and missing Hand produces `pushed=false`. In independent tests of the actual module with live Bus publishers and continuously fresh centered faces, the last moving joint sample remained sequence 1, yet stillness became true after 895 ms and `WhereYouSit` was saved Done after 3.966 s without a still sample. With fresh still joints but the last Hand sample still `pushed=true`, the same happened after 939 ms / 3.993 s without a release report.
+
+Require positive stillness evidence throughout the hold, and do not interpret stale/lost prior hand contact as release. If an intentionally absent Body is supported, distinguish that configured mode from expired, failed or lost observations. Add bus-level stale/missing-data regressions. The fresh-motion reset control passes, the forged completion remains rejected, and both Mark/onboarding routes survive the rebase. Those fixes are retained; this is the remaining gap in the new motion check. The full Voice gate continues, and exact-head ARM64 is green. #841 and the First physical handoff stay open.
 
 ## PR #865 — complete a78c19264
 

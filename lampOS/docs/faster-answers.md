@@ -499,7 +499,17 @@ two risks below. The records hold the exact hold for each answer.
 
 **What it costs.** A setting. The risks are the two things it is there
 for: gaps in the first second of an answer, and a "..." played before its
-text arrives. Neither has been counted against the setting.
+text arrives.
+
+**Measured, and decided: 350 ms stays.** On lamp-4ace through the night
+of 2026-10-14 to 15 the hold was switched between 200 and 350 ms after
+each hourly round of the played checks (`checks.sh`, eleven rounds).
+Counted from the end-of-speech decision, the first sound came at the same
+time under both: median 1.19 s, quartiles 1.05 to 1.36 s at 200 ms (74
+answers) and 1.04 to 1.37 s at 350 ms (86 answers). Answers with a gap
+were 5 of 35 scored at 200 ms and 2 of 42 at 350 ms. The shorter hold
+saved nothing a person could hear and stuttered more, so the lamp keeps
+350 ms.
 
 ## 4. The same service, reached directly
 

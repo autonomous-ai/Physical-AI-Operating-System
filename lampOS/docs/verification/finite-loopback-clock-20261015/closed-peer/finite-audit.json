@@ -1,0 +1,313 @@
+{
+  "at": "2026-10-16 00:11:45 +0700",
+  "finite_channel_exact_reviewed_span": true,
+  "finite_protocol_exact_expected_port": true,
+  "finite_original_tests_exact_pre_port_source_and_hash": true,
+  "ten_regressions_exact_reviewed_source": true,
+  "no_serve_protocol_additions_in_finite_port": true,
+  "cargo_only_difference_from_reviewed_source": "Feature-list ordering; identical event/fs/process set",
+  "module_wrapper_difference": "Finite registers the identical file as channel_closed_peer_tests; serve uses closed_peer_tests. Ten new qualified test names have that prefix difference only; original identities are unchanged.",
+  "loopback_origin_matches_frozen_before": true,
+  "loopback_exact_constructor_header_import_reversal": true,
+  "loopback_test_bodies": "Eleven directly byte-identical; undelivered-stimuli body byte-identical after reversing its authorized constructor only",
+  "counts": {
+    "finite_protocol": {
+      "test_identities": 21,
+      "static_assertion_calls_whole_file": 80,
+      "static_assertion_calls_test_bodies": 80
+    },
+    "closed_peer_regressions": {
+      "test_identities": 10,
+      "static_assertion_calls_whole_file": 29,
+      "static_assertion_calls_test_bodies": 29
+    },
+    "physical_loopback": {
+      "test_identities": 12,
+      "static_assertion_calls_whole_file": 100,
+      "static_assertion_calls_test_bodies": 86
+    }
+  },
+  "hashes": {
+    "reviewed_channel_span": "fe332dc9a0e3588167eede72d52ad135564228448b1c1b7ad377530067a512ba",
+    "finite_protocol": "318381580f7725db297e8efe4c510270ad574a75204e1b43f9845643f88ef33b",
+    "finite_pre_port_protocol": "5762a21da9b2eb9cbcd235612890b289edc0ef312ee579c951236a307547b082",
+    "finite_original_tests": "22e02e09239c5471fcc78818785bf2e186f033b272e08ccba0864307c8563087",
+    "closed_peer_regressions": "e9469a7b2c0ce0a988d69f46d064162214a1af8a2eefb54c2dd07e1a85c1fbba",
+    "physical_loopback": "de31d80698e7188af40278c9e982eceed0c15a1ccf8fe42323365dca028d3d98",
+    "origin_and_reversed_physical_loopback": "4d9619fbe20b112784dc82e8957d6065c01a87953c3dbf4fb2573b9c485d7f27",
+    "finite_cargo_toml": "9854d29463c6671cc2ffcd83181d58e440a72f5be81df2e154d9bf2c1fee753d"
+  },
+  "finite_protocol_tests": [
+    {
+      "identity": "a_frame_at_the_total_bound_is_accepted_and_one_byte_more_is_rejected",
+      "line": 51,
+      "sha256": "ff93f4223228a95f6bd821d7811c8539c77b32ffb286303553e624f83a3aabad",
+      "static_assertion_calls": 3
+    },
+    {
+      "identity": "a_partial_frame_at_eof_is_not_a_complete_message",
+      "line": 73,
+      "sha256": "b56c594c97a32b4481818135596a4bc9e0a70ec148d05b0d4faa85bd3ae4afad",
+      "static_assertion_calls": 2
+    },
+    {
+      "identity": "buffered_complete_frames_are_kept_distinct_and_unknown_fields_are_rejected",
+      "line": 83,
+      "sha256": "3cff657827fbc7bf6acc553d3869c18b59bc8feb0950bc3972ccd8e652570d1a",
+      "static_assertion_calls": 4
+    },
+    {
+      "identity": "invalid_utf8_and_missing_fields_are_protocol_errors",
+      "line": 110,
+      "sha256": "421c39eb08251e6070784af49e37480935d599dadcab771343f090f3ae6872d6",
+      "static_assertion_calls": 1
+    },
+    {
+      "identity": "outgoing_frames_cannot_cross_the_same_bound",
+      "line": 128,
+      "sha256": "4df7b80a6c1e5e60b406412cc716976a1d4c68776e74b23d7220316d6c4ea845",
+      "static_assertion_calls": 2
+    },
+    {
+      "identity": "hello_must_match_the_requested_role_and_version",
+      "line": 148,
+      "sha256": "923d17f720cebdd114b7ca9cf38547cd2abebc08aaa85811802982fa9f7337ec",
+      "static_assertion_calls": 2
+    },
+    {
+      "identity": "a_participant_does_not_start_until_the_first_step_arrives",
+      "line": 173,
+      "sha256": "5c50a0d3717be3f93b2c6b43363f86c1fec9cd6e63a6c00683068ae9c9fb0438",
+      "static_assertion_calls": 4
+    },
+    {
+      "identity": "repeated_clock_reads_and_new_rounds_at_the_same_time_never_advance_time",
+      "line": 212,
+      "sha256": "3595ec48ade5ace7d430124708be6fed9ed53ba9ad03758383c15189dfc1e3e4",
+      "static_assertion_calls": 14
+    },
+    {
+      "identity": "duplicate_skipped_and_regressing_rounds_or_time_are_rejected",
+      "line": 253,
+      "sha256": "67bf4c80b8580317d451706efffe7149c35f34be55176c21fc385a7ed65741a7",
+      "static_assertion_calls": 8
+    },
+    {
+      "identity": "a_wrong_role_step_does_not_reach_the_participant_engine",
+      "line": 295,
+      "sha256": "f46229fc490d14fbe73593e888acc22eda47fb9107120fe4e7b870492c07b542",
+      "static_assertion_calls": 1
+    },
+    {
+      "identity": "acknowledgement_must_match_role_round_time_and_complete_progress",
+      "line": 321,
+      "sha256": "f77cdaf5fd687e722c46b63c5f0b99455608e4c75126179ef3a8a2f4318e7b8e",
+      "static_assertion_calls": 3
+    },
+    {
+      "identity": "progress_counters_cannot_regress_or_claim_unconsumed_relay_targets",
+      "line": 380,
+      "sha256": "9f21ada0918c47f1fe116e1a2760c7dec6fd3b66708c0851e3262d4f2e5689bd",
+      "static_assertion_calls": 7
+    },
+    {
+      "identity": "a_missing_ack_fails_under_the_host_watchdog_and_closes_the_peer",
+      "line": 430,
+      "sha256": "d22270fee999d2eb7859a8ca4d8ea30ce3f6bf31b4a1e412795a8fb295624489",
+      "static_assertion_calls": 5
+    },
+    {
+      "identity": "a_missing_first_step_cannot_leave_a_participant_waiting_forever",
+      "line": 467,
+      "sha256": "b54df3e6d1cd6d76d8182c92a424da9950f304b5e1e44eb3907a0ba7edb150de",
+      "static_assertion_calls": 2
+    },
+    {
+      "identity": "a_peer_that_stops_reading_cannot_block_a_write_forever",
+      "line": 498,
+      "sha256": "446c60af05ec9e7a0a34afa518402c2850eeaac595070a2b4dd95e6bc35b6725",
+      "static_assertion_calls": 5
+    },
+    {
+      "identity": "watchdogs_must_be_positive_and_an_expired_deadline_is_not_replaced",
+      "line": 546,
+      "sha256": "0c55cd8fd80ca86e5083dbfab63d85d28e99a2045f99e692f78672b5b30fccea",
+      "static_assertion_calls": 2
+    },
+    {
+      "identity": "invalid_followup_steps_close_the_participant_without_changing_its_clock",
+      "line": 560,
+      "sha256": "f19275a3deedbf9b72339769cf9c5fbaa58ef58f6d432f1d40d1b90b7de4cb82",
+      "static_assertion_calls": 5
+    },
+    {
+      "identity": "terminal_acknowledgement_is_distinct_from_a_continuing_poll",
+      "line": 622,
+      "sha256": "f01941c9bd72b48e41e4013fab4f99cff27fa4c31994d45954f3107355fd75af",
+      "static_assertion_calls": 2
+    },
+    {
+      "identity": "poll_sequence_overflow_cannot_wrap_to_an_initial_acknowledgement",
+      "line": 646,
+      "sha256": "2c9e73feb2695ee32a37f1564cec44d48b95a7669540b5f027b2f3bf4b72e1ae",
+      "static_assertion_calls": 1
+    },
+    {
+      "identity": "an_expired_caller_deadline_closes_the_peer_without_sending_a_step",
+      "line": 658,
+      "sha256": "2c89f0706c59973df15f1d42f046dd9e747d561654b8147955dfdb2b691a614f",
+      "static_assertion_calls": 3
+    },
+    {
+      "identity": "a_later_caller_deadline_cannot_extend_the_endpoint_watchdog",
+      "line": 678,
+      "sha256": "ee2b10195058e27c273c19a0492588d25a2ec71aff1b97f2994f5ea34e6dc8fe",
+      "static_assertion_calls": 4
+    }
+  ],
+  "closed_peer_tests": [
+    {
+      "identity": "a_queued_hello_is_read_after_the_peer_closed_before_channel_creation",
+      "line": 39,
+      "sha256": "479d94e96a79c01627dada6e6c2e54c1e061fe356919b3af1a4824ae3d2fef6c",
+      "static_assertion_calls": 1
+    },
+    {
+      "identity": "a_final_ack_is_read_after_the_participant_has_actually_closed",
+      "line": 50,
+      "sha256": "345846188bb750d57c0371007d60eecd06614e9d6fe1d197eaf97fe69eafbe07",
+      "static_assertion_calls": 6
+    },
+    {
+      "identity": "an_expired_deadline_leaves_a_buffered_final_frame_intact",
+      "line": 94,
+      "sha256": "a9d45cc5ee9e6d7a9577f0a620a2d1853bfc4182f0c1dd43d695923b5620997a",
+      "static_assertion_calls": 5
+    },
+    {
+      "identity": "a_closed_peer_with_a_partial_final_frame_is_still_truncated",
+      "line": 123,
+      "sha256": "0be26a2a98b1272438c3bfa7279148efc5f2e8026b31be630f01e5524439c105",
+      "static_assertion_calls": 3
+    },
+    {
+      "identity": "poll_hangup_allows_remaining_bytes_and_then_real_eof",
+      "line": 143,
+      "sha256": "7bc49e76073fc352afb63cffb117dda313951696cedaa73bc2ab53ab1fc46f9c",
+      "static_assertion_calls": 2
+    },
+    {
+      "identity": "raw_reader_timeout_configuration_is_local_even_after_peer_close",
+      "line": 158,
+      "sha256": "4f901dee6f7f43753b77fcb87b50cd4e29673bba566362073b93da02bbb789be",
+      "static_assertion_calls": 3
+    },
+    {
+      "identity": "raw_reader_without_a_frame_still_has_a_host_watchdog",
+      "line": 190,
+      "sha256": "883f875aba9b974d91145609aaf666bee90e01d5046fb89aa0460fc54e085090",
+      "static_assertion_calls": 2
+    },
+    {
+      "identity": "a_closed_writer_reports_the_write_failure_without_setting_socket_timeouts",
+      "line": 200,
+      "sha256": "077026bfa6cf3beb5549c7005220bfa0be44170724647e17e4f777f19634c518",
+      "static_assertion_calls": 1
+    },
+    {
+      "identity": "an_expired_write_budget_emits_no_frame_bytes",
+      "line": 211,
+      "sha256": "bd5edbfb7ee55a2f2716cae2478bce9c09d93d16d9192b9fca52f565f1884ec5",
+      "static_assertion_calls": 3
+    },
+    {
+      "identity": "poll_timeouts_preserve_small_budgets_and_cap_darwins_millisecond_range",
+      "line": 233,
+      "sha256": "cc37a80aab325009ff786c1dcdaa728019a1b820c7cdfff218adf28b668291d9",
+      "static_assertion_calls": 3
+    }
+  ],
+  "physical_loopback_tests": [
+    {
+      "identity": "cue_triggered_acknowledgment_is_injected_during_playback_and_scored",
+      "line": 170,
+      "sha256": "4ceeb88be55398b5cda9e6d38f63d7c7c80b31588eed6f44ef3dda10de5a5f57",
+      "static_assertion_calls": 12
+    },
+    {
+      "identity": "echo_only_window_passes_through_the_relay_without_extra_admissions",
+      "line": 225,
+      "sha256": "d54fea4a4f6fab3bd41d9f20e0e74bc359ccc04aebe092a65ea55da68974cb68",
+      "static_assertion_calls": 5
+    },
+    {
+      "identity": "directed_mode_keeps_provider_fault_and_asset_restrictions",
+      "line": 240,
+      "sha256": "8ea9a7b9d6c29b35e27bf45263c8486f0a3668085c2842a7d6dab2a8e34f31e5",
+      "static_assertion_calls": 5
+    },
+    {
+      "identity": "directed_followup_waits_for_whole_reply_completion_then_admits_a_new_turn",
+      "line": 359,
+      "sha256": "9c0598f35d4527c79e07087dc800adee870f094273cc2a177f4c0fbc2a08ba62",
+      "static_assertion_calls": 10
+    },
+    {
+      "identity": "directed_natural_interruption_runs_during_reply_with_original_cancel_reason",
+      "line": 395,
+      "sha256": "83253b2afcb7a17edcabec2e58b4b83fc71ba2b67913a1076e5329e5cc9da571",
+      "static_assertion_calls": 10
+    },
+    {
+      "identity": "directed_missing_or_stale_retirement_never_falls_back_to_a_timer_or_final_trace",
+      "line": 432,
+      "sha256": "bce7a07a99097a6f7a2ff9e5685215d859cea53f109ceaf2b6b5332ff4524cd2",
+      "static_assertion_calls": 9
+    },
+    {
+      "identity": "undelivered_stimuli_are_withheld_not_scored_as_silence",
+      "line": 499,
+      "sha256": "81829914db1381c275e5997c5c6f0ac2bafcf8f87e8ca7628464f03fbe490b77",
+      "static_assertion_calls": 3
+    },
+    {
+      "identity": "a_transport_that_closes_mid_trace_invalidates_the_attempt",
+      "line": 548,
+      "sha256": "b4114fc77dd2242d17ba7b8ec2919ae30258f20b7686f485394b5e4616d38383",
+      "static_assertion_calls": 2
+    },
+    {
+      "identity": "directed_two_occurrences_wait_for_true_completion_before_followup",
+      "line": 603,
+      "sha256": "e73df8e0ce9e4ed02556cbcc0a7fe57c0e7b4f6c90690d4d3bef8b72a9783e7a",
+      "static_assertion_calls": 10
+    },
+    {
+      "identity": "directed_interruption_during_second_occurrence_preserves_owner_and_yields",
+      "line": 646,
+      "sha256": "776127f05fc24c34e418966038a0e1bd10a205ecafd236577ff8d8a8cebc7709",
+      "static_assertion_calls": 7
+    },
+    {
+      "identity": "missing_or_stale_whole_completion_withholds_followup_after_valid_retirement",
+      "line": 679,
+      "sha256": "4aad8ca32173b648131f55b626a63e2235e31d1c007ac44ca137bf34481e7182",
+      "static_assertion_calls": 7
+    },
+    {
+      "identity": "physical_next_turn_ready_follows_lamp_voice_readiness_cues",
+      "line": 718,
+      "sha256": "195840ae11cdb6d3ec4a1d2448cf1042f781b813b4d1e3954a23c45b7f4c500e",
+      "static_assertion_calls": 6
+    }
+  ],
+  "not_run": [
+    "Cargo",
+    "builds",
+    "test binaries",
+    "Git mutation",
+    "network",
+    "devices"
+  ],
+  "verification_scope": "Read-only source proof, not test execution or timing evidence"
+}

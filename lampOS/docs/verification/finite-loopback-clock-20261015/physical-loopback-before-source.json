@@ -1,0 +1,19 @@
+{
+  "recorded_from_date": "2026-10-15 22:35:11 +0700",
+  "sha256": "4d9619fbe20b112784dc82e8957d6065c01a87953c3dbf4fb2573b9c485d7f27",
+  "identities": [
+    "cue_triggered_acknowledgment_is_injected_during_playback_and_scored",
+    "echo_only_window_passes_through_the_relay_without_extra_admissions",
+    "directed_mode_keeps_provider_fault_and_asset_restrictions",
+    "directed_followup_waits_for_whole_reply_completion_then_admits_a_new_turn",
+    "directed_natural_interruption_runs_during_reply_with_original_cancel_reason",
+    "directed_missing_or_stale_retirement_never_falls_back_to_a_timer_or_final_trace",
+    "undelivered_stimuli_are_withheld_not_scored_as_silence",
+    "a_transport_that_closes_mid_trace_invalidates_the_attempt",
+    "directed_two_occurrences_wait_for_true_completion_before_followup",
+    "directed_interruption_during_second_occurrence_preserves_owner_and_yields",
+    "missing_or_stale_whole_completion_withholds_followup_after_valid_retirement",
+    "physical_next_turn_ready_follows_lamp_voice_readiness_cues"
+  ],
+  "migration_applied": false
+}

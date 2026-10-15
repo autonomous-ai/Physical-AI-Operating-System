@@ -1,0 +1,70 @@
+   Compiling lamp-ipc v0.1.0 (/private/tmp/lampos-tests-fixture-progress/lampOS/crates/ipc)
+   Compiling lamp-bus v0.1.0 (/private/tmp/lampos-tests-fixture-progress/lampOS/crates/bus)
+   Compiling lamp-turn-owner v0.1.0 (/private/tmp/lampos-tests-fixture-progress/lampOS/crates/turn-owner)
+   Compiling lamp-msgs v0.1.0 (/private/tmp/lampos-tests-fixture-progress/lampOS/crates/msgs)
+   Compiling lamp-camera v0.1.0 (/private/tmp/lampos-tests-fixture-progress/lampOS/crates/camera)
+   Compiling lamp-turn-end-wire v0.1.0 (/private/tmp/lampos-tests-fixture-progress/lampOS/crates/turn-end-wire)
+   Compiling lamp-keeper v0.1.0 (/private/tmp/lampos-tests-fixture-progress/lampOS/crates/keeper)
+   Compiling lamp-gemini v0.1.0 (/private/tmp/lampos-tests-fixture-progress/lampOS/crates/gemini)
+   Compiling lamp-body v0.1.0 (/private/tmp/lampos-tests-fixture-progress/lampOS/crates/body)
+   Compiling lamp-controls v0.1.0 (/private/tmp/lampos-tests-fixture-progress/lampOS/crates/controls)
+   Compiling lamp-schedule v0.1.0 (/private/tmp/lampos-tests-fixture-progress/lampOS/crates/schedule)
+   Compiling lamp-audio v0.1.0 (/private/tmp/lampos-tests-fixture-progress/lampOS/crates/audio)
+   Compiling lamp-ring v0.1.0 (/private/tmp/lampos-tests-fixture-progress/lampOS/crates/ring)
+   Compiling lamp-observer v0.1.0 (/private/tmp/lampos-tests-fixture-progress/lampOS/crates/observer)
+   Compiling lamp-voice v0.1.0 (/private/tmp/lampos-tests-fixture-progress/lampOS/crates/voice)
+   Compiling lamp-turn-end v0.1.0 (/private/tmp/lampos-tests-fixture-progress/lampOS/crates/turn-end)
+   Compiling lamp-sound-fixtures v0.1.0 (/private/tmp/lampos-tests-fixture-progress/lampOS/crates/sound-fixtures)
+   Compiling lamp-voice-eval v0.1.0 (/private/tmp/lampos-tests-fixture-progress/lampOS/crates/voice-eval)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 40.63s
+────────────
+ Nextest run ID f66ec5ba-ddc5-499f-969a-bef66419951a with nextest profile: default
+    Starting 46 tests across 1 binary (94 tests skipped)
+        PASS [   0.160s] ( 1/46) lamp-voice-eval physical::fixture_commands::tests::failed_writes_and_flushes_do_not_publish_completed_frames
+        PASS [   0.120s] ( 2/46) lamp-voice-eval physical::fixture_commands::tests::final_output_must_end_on_a_complete_frame
+        PASS [   0.117s] ( 3/46) lamp-voice-eval physical::fixture_commands::tests::frame_counters_refuse_to_wrap
+        PASS [   0.117s] ( 4/46) lamp-voice-eval physical::fixture_commands::tests::frames_count_after_flush_across_short_writes_and_partial_lines
+        PASS [   0.117s] ( 5/46) lamp-voice-eval physical::fixture_commands::tests::only_the_leading_control_pair_is_removed_from_runtime_arguments
+        PASS [   0.127s] ( 6/46) lamp-voice-eval physical::fixture_commands::tests::relay_accepts_only_finite_controlled_fake_runtime_configuration
+        PASS [   0.121s] ( 7/46) lamp-voice-eval physical::fixture_commands::tests::relay_terminal_progress_keeps_the_last_real_poll_and_final_output_count
+        PASS [   0.119s] ( 8/46) lamp-voice-eval physical::fixture_control::tests::a_frame_at_the_total_bound_is_accepted_and_one_byte_more_is_rejected
+        PASS [   0.118s] ( 9/46) lamp-voice-eval physical::fixture_control::tests::a_later_caller_deadline_cannot_extend_the_endpoint_watchdog
+        PASS [   0.159s] (10/46) lamp-voice-eval physical::fixture_control::tests::a_missing_ack_fails_under_the_host_watchdog_and_closes_the_peer
+        PASS [   0.160s] (11/46) lamp-voice-eval physical::fixture_control::tests::a_missing_first_step_cannot_leave_a_participant_waiting_forever
+        PASS [   0.117s] (12/46) lamp-voice-eval physical::fixture_control::tests::a_partial_frame_at_eof_is_not_a_complete_message
+        PASS [   0.118s] (13/46) lamp-voice-eval physical::fixture_control::tests::a_participant_does_not_start_until_the_first_step_arrives
+        PASS [   0.169s] (14/46) lamp-voice-eval physical::fixture_control::tests::a_peer_that_stops_reading_cannot_block_a_write_forever
+        PASS [   0.122s] (15/46) lamp-voice-eval physical::fixture_control::tests::a_wrong_role_step_does_not_reach_the_participant_engine
+        PASS [   0.127s] (16/46) lamp-voice-eval physical::fixture_control::tests::acknowledgement_must_match_role_round_time_and_complete_progress
+        PASS [   0.126s] (17/46) lamp-voice-eval physical::fixture_control::tests::an_expired_caller_deadline_closes_the_peer_without_sending_a_step
+        PASS [   0.120s] (18/46) lamp-voice-eval physical::fixture_control::tests::buffered_complete_frames_are_kept_distinct_and_unknown_fields_are_rejected
+        PASS [   0.127s] (19/46) lamp-voice-eval physical::fixture_control::tests::duplicate_skipped_and_regressing_rounds_or_time_are_rejected
+        PASS [   0.124s] (20/46) lamp-voice-eval physical::fixture_control::tests::hello_must_match_the_requested_role_and_version
+        PASS [   0.119s] (21/46) lamp-voice-eval physical::fixture_control::tests::invalid_followup_steps_close_the_participant_without_changing_its_clock
+        PASS [   0.120s] (22/46) lamp-voice-eval physical::fixture_control::tests::invalid_utf8_and_missing_fields_are_protocol_errors
+        PASS [   0.120s] (23/46) lamp-voice-eval physical::fixture_control::tests::outgoing_frames_cannot_cross_the_same_bound
+        PASS [   0.118s] (24/46) lamp-voice-eval physical::fixture_control::tests::poll_sequence_overflow_cannot_wrap_to_an_initial_acknowledgement
+        PASS [   0.118s] (25/46) lamp-voice-eval physical::fixture_control::tests::progress_counters_cannot_regress_or_claim_unconsumed_relay_targets
+        PASS [   0.122s] (26/46) lamp-voice-eval physical::fixture_control::tests::repeated_clock_reads_and_new_rounds_at_the_same_time_never_advance_time
+        PASS [   0.122s] (27/46) lamp-voice-eval physical::fixture_control::tests::terminal_acknowledgement_is_distinct_from_a_continuing_poll
+        PASS [   0.121s] (28/46) lamp-voice-eval physical::fixture_control::tests::watchdogs_must_be_positive_and_an_expired_deadline_is_not_replaced
+        PASS [   0.121s] (29/46) lamp-voice-eval physical::fixture_driver::tests::clock_reads_are_pure_and_only_successful_room_sends_are_expected
+        PASS [   0.121s] (30/46) lamp-voice-eval physical::fixture_driver::tests::configuration_changes_only_explicit_fake_launchers_and_control_arguments
+        PASS [   0.130s] (31/46) lamp-voice-eval physical::fixture_driver::tests::frame_budget_and_missing_enqueue_fail_instead_of_skipping_output
+        PASS [   0.123s] (32/46) lamp-voice-eval physical::fixture_driver::tests::nonlocal_runtime_serve_and_recorder_configurations_are_refused_unchanged
+        PASS [   0.122s] (33/46) lamp-voice-eval physical::fixture_driver::tests::startup_preserves_the_setup_ping_boundary_and_exit_rounds_freeze_time
+        PASS [   0.118s] (34/46) lamp-voice-eval physical::mac::backend_progress_tests::a_frame_that_cannot_be_enqueued_never_advances_progress
+        PASS [   0.123s] (35/46) lamp-voice-eval physical::mac::backend_progress_tests::a_read_error_uses_the_reserved_slot_after_the_last_allowed_record
+        PASS [   0.121s] (36/46) lamp-voice-eval physical::mac::backend_progress_tests::complete_malformed_frames_count_but_partial_eof_does_not
+        PASS [   0.176s] (37/46) lamp-voice-eval physical::mac::backend_progress_tests::more_than_the_default_queue_is_enqueued_before_any_backend_consumption
+        PASS [   0.119s] (38/46) lamp-voice-eval physical::mac::backend_progress_tests::overflow_keeps_a_terminal_error_slot_and_closes_the_real_transport
+        PASS [   0.121s] (39/46) lamp-voice-eval physical::mac::backend_progress_tests::the_exact_fixture_limit_preserves_every_record_without_an_overflow_error
+        PASS [   0.390s] (40/46) lamp-voice-eval physical::mac::backend_progress_tests::the_maximum_final_trace_and_session_end_are_enqueued_before_consumption
+        PASS [   0.128s] (41/46) lamp-voice-eval physical::session::relay_progress_tests::completed_polls_follow_receipts_and_deadline_checks_before_final_output
+        PASS [   0.120s] (42/46) lamp-voice-eval physical::session::relay_progress_tests::enqueue_wait_has_a_host_deadline_even_without_logical_clock_reads
+        PASS [   0.118s] (43/46) lamp-voice-eval physical::session::relay_progress_tests::failed_enqueue_never_announces_a_frame
+        PASS [   0.126s] (44/46) lamp-voice-eval physical::session::relay_progress_tests::invalid_complete_frames_count_but_truncated_eof_does_not
+        PASS [   0.121s] (45/46) lamp-voice-eval physical::session::relay_progress_tests::partial_bytes_do_not_satisfy_the_complete_frame_barrier
+        PASS [   0.121s] (46/46) lamp-voice-eval physical::session::relay_progress_tests::targets_cannot_wait_for_more_than_the_bounded_queue_can_hold
+────────────
+     Summary [   6.088s] 46 tests run: 46 passed, 94 skipped

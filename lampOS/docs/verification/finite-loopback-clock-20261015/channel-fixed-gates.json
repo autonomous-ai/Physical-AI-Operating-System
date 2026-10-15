@@ -1,0 +1,58 @@
+[
+  {
+    "stage": "fmt",
+    "command": [
+      "cargo",
+      "fmt",
+      "--all",
+      "--check"
+    ],
+    "cwd": "/private/tmp/lampos-tests-fixture-progress/lampOS",
+    "start_from_date": "2026-10-16 00:04:17 +0700",
+    "finish_from_date": "2026-10-16 00:04:22 +0700",
+    "exit_code": 0,
+    "log": "/private/tmp/tests-823-progress-evidence/channel-fixed-fmt.log",
+    "target": "/private/tmp/lampos-tests-capacity/lampOS/target"
+  },
+  {
+    "stage": "clippy",
+    "command": [
+      "cargo",
+      "clippy",
+      "--locked",
+      "--offline",
+      "--workspace",
+      "--all-targets",
+      "--",
+      "-D",
+      "warnings"
+    ],
+    "cwd": "/private/tmp/lampos-tests-fixture-progress/lampOS",
+    "start_from_date": "2026-10-16 00:04:22 +0700",
+    "finish_from_date": "2026-10-16 00:06:26 +0700",
+    "exit_code": 0,
+    "log": "/private/tmp/tests-823-progress-evidence/channel-fixed-clippy.log",
+    "target": "/private/tmp/lampos-tests-capacity/lampOS/target"
+  },
+  {
+    "stage": "tests",
+    "command": [
+      "cargo",
+      "test",
+      "--locked",
+      "--offline",
+      "--release",
+      "-p",
+      "lamp-voice-eval",
+      "--no-fail-fast",
+      "--",
+      "--test-threads=1"
+    ],
+    "cwd": "/private/tmp/lampos-tests-fixture-progress/lampOS",
+    "start_from_date": "2026-10-16 00:06:26 +0700",
+    "finish_from_date": "2026-10-16 00:06:31 +0700",
+    "exit_code": 101,
+    "log": "/private/tmp/tests-823-progress-evidence/channel-fixed-tests.log",
+    "target": "/private/tmp/lampos-tests-capacity/lampOS/target"
+  }
+]

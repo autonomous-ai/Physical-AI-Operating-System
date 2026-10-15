@@ -1,0 +1,89 @@
+{
+  "date": "2026-10-16 00:08:08 +0700",
+  "source": {
+    "lampOS/crates/bus/src/lib.rs": {
+      "sha256": "4d4b0f62282e7380907f7fa0e8a995c49d42f8db4e5285b0366a780a8d906a06",
+      "mtime_ns": 1792076514120978251
+    },
+    "lampOS/crates/bus/src/logging.rs": {
+      "sha256": "dde84688b91562c1da375c6159bc5df279ac2585d4261fa101065f126ec40a5b",
+      "mtime_ns": 1792076514121203765
+    },
+    "lampOS/crates/msgs/src/lib.rs": {
+      "sha256": "59fdcd0a67a6688ee8d5c48eaa59e65f054576cff93bd6717a11ccbac485405d",
+      "mtime_ns": 1792079786804152425
+    }
+  },
+  "fingerprints": {
+    "/private/tmp/lampos-tests-capacity/lampOS/target/release/.fingerprint/lamp-bus-06d5901af728593e/lib-lamp_bus.json": {
+      "rustc": 142501075487969817,
+      "features": "[]",
+      "declared_features": "[]",
+      "target": 14698750855708457905,
+      "profile": 15286452467619866337,
+      "path": 10626796252058220766,
+      "deps": [
+        [
+          5330460842384404171,
+          "serde_json",
+          false,
+          362389004934435309
+        ],
+        [
+          6557439603276904804,
+          "serde",
+          false,
+          15168457960830444037
+        ]
+      ],
+      "local": [
+        {
+          "CheckDepInfo": {
+            "dep_info": "release/.fingerprint/lamp-bus-06d5901af728593e/dep-lib-lamp_bus",
+            "checksum": false
+          }
+        }
+      ],
+      "rustflags": [],
+      "config": 8247474407144887393,
+      "compile_kind": 0
+    },
+    "/private/tmp/lampos-tests-capacity/lampOS/target/release/.fingerprint/lamp-bus-62fa6058e384bbd5/lib-lamp_bus.json": {
+      "rustc": 142501075487969817,
+      "features": "[]",
+      "declared_features": "[]",
+      "target": 14698750855708457905,
+      "profile": 15286452467619866337,
+      "path": 10626796252058220766,
+      "deps": [
+        [
+          5330460842384404171,
+          "serde_json",
+          false,
+          362389004934435309
+        ],
+        [
+          6557439603276904804,
+          "serde",
+          false,
+          10935270731752581103
+        ]
+      ],
+      "local": [
+        {
+          "CheckDepInfo": {
+            "dep_info": "release/.fingerprint/lamp-bus-62fa6058e384bbd5/dep-lib-lamp_bus",
+            "checksum": false
+          }
+        }
+      ],
+      "rustflags": [],
+      "config": 8247474407144887393,
+      "compile_kind": 0
+    }
+  },
+  "dep_info": {
+    "/private/tmp/lampos-tests-capacity/lampOS/target/release/deps/lamp_bus-06d5901af728593e.d": "/private/tmp/lampos-tests-capacity/lampOS/target/release/deps/lamp_bus-06d5901af728593e.d: crates/bus/src/lib.rs crates/bus/src/declare.rs crates/bus/src/live.rs crates/bus/src/name.rs crates/bus/src/publish.rs crates/bus/src/subscribe.rs crates/bus/src/wire.rs\n\n/private/tmp/lampos-tests-capacity/lampOS/target/release/deps/liblamp_bus-06d5901af728593e.rlib: crates/bus/src/lib.rs crates/bus/src/declare.rs crates/bus/src/live.rs crates/bus/src/name.rs crates/bus/src/publish.rs crates/bus/src/subscribe.rs crates/bus/src/wire.rs\n\n/private/tmp/lampos-tests-capacity/lampOS/target/release/deps/liblamp_bus-06d5901af728593e.rmeta: crates/bus/src/lib.rs crates/bus/src/declare.rs crates/bus/src/live.rs crates/bus/src/name.rs crates/bus/src/publish.rs crates/bus/src/subscribe.rs crates/bus/src/wire.rs\n\ncrates/bus/src/lib.rs:\ncrates/bus/src/declare.rs:\ncrates/bus/src/live.rs:\ncrates/bus/src/name.rs:\ncrates/bus/src/publish.rs:\ncrates/bus/src/subscribe.rs:\ncrates/bus/src/wire.rs:\n",
+    "/private/tmp/lampos-tests-capacity/lampOS/target/release/deps/lamp_bus-62fa6058e384bbd5.d": "/private/tmp/lampos-tests-capacity/lampOS/target/release/deps/lamp_bus-62fa6058e384bbd5.d: crates/bus/src/lib.rs crates/bus/src/declare.rs crates/bus/src/live.rs crates/bus/src/name.rs crates/bus/src/publish.rs crates/bus/src/subscribe.rs crates/bus/src/wire.rs\n\n/private/tmp/lampos-tests-capacity/lampOS/target/release/deps/liblamp_bus-62fa6058e384bbd5.rlib: crates/bus/src/lib.rs crates/bus/src/declare.rs crates/bus/src/live.rs crates/bus/src/name.rs crates/bus/src/publish.rs crates/bus/src/subscribe.rs crates/bus/src/wire.rs\n\n/private/tmp/lampos-tests-capacity/lampOS/target/release/deps/liblamp_bus-62fa6058e384bbd5.rmeta: crates/bus/src/lib.rs crates/bus/src/declare.rs crates/bus/src/live.rs crates/bus/src/name.rs crates/bus/src/publish.rs crates/bus/src/subscribe.rs crates/bus/src/wire.rs\n\ncrates/bus/src/lib.rs:\ncrates/bus/src/declare.rs:\ncrates/bus/src/live.rs:\ncrates/bus/src/name.rs:\ncrates/bus/src/publish.rs:\ncrates/bus/src/subscribe.rs:\ncrates/bus/src/wire.rs:\n"
+  }
+}

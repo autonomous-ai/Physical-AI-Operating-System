@@ -1,0 +1,11 @@
+   Compiling lamp-msgs v0.1.0 (/private/tmp/lampos-tests-fixture-progress/lampOS/crates/msgs)
+   Compiling lamp-camera v0.1.0 (/private/tmp/lampos-tests-fixture-progress/lampOS/crates/camera)
+error[E0432]: unresolved import `lamp_bus::logging`
+  --> crates/msgs/src/lib.rs:51:19
+   |
+51 | pub use lamp_bus::logging::{Log, LogLevel};
+   |                   ^^^^^^^ could not find `logging` in `lamp_bus`
+
+For more information about this error, try `rustc --explain E0432`.
+error: could not compile `lamp-msgs` (lib) due to 1 previous error
+warning: build failed, waiting for other jobs to finish...

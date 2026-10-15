@@ -1,0 +1,34 @@
+#879 Channel close/read fix handoff — 2026-10-16 00:01:26 +0700
+Worktree: /private/tmp/lampos-tests-serve-progress
+Owned changes: fixture_control.rs, new channel_closed_peer_tests.rs, rustix event feature in voice-eval/Cargo.toml only.
+
+Problem and preserved failure
+The initial integrated library gate failed with 193 passed / 2 failed. The role-isolation Hello test exposed an already closed writer; an original finite first-Step test failed reading the final Ack with set_read_timeout EINVAL (Darwin OS error 22). Root's deterministic paired diagnostic showed live peers accept both timeout options, while closed peers reject both options even with all seven queued bytes still readable. integrated-lib.initial.log and unix-timeout-diagnostic.rs preserve that evidence. This is a code fix for #879, not a retry or a kept-alive producer workaround.
+
+Implementation
+- Channel sets UnixStream nonblocking once. write_frame tries the current unsent suffix first and waits through rustix::event::poll(OUT) only on WouldBlock. Interrupted operations retain the same absolute end.
+- A private BoundedReader tries read first, then poll(IN) on WouldBlock. read_frame stores the caller's absolute end for every partial read and checks it even before taking already-buffered frame bytes. It clears that override on success or error.
+- HUP/ERR wake I/O so queued bytes, actual EOF, or the real socket error are read; HUP is never treated as immediate EOF. NVAL returns an error. No SO_RCVTIMEO/SO_SNDTIMEO calls remain in Channel and EINVAL is not ignored.
+- Poll receives a positive remaining budget and caps each syscall chunk at i32::MAX milliseconds, retaining the original absolute end if a caller chooses a larger bound. EINTR and spurious readiness never reset the budget.
+- Existing raw-reader test probes still use bounded Read semantics. Their test-only set_read_timeout stores a local budget and never modifies socket options; None/zero are rejected. Normal direct raw reads use the channel watchdog.
+- Wire framing, LF/4096-byte cap, complete/truncated EOF distinction, all role/round/counter/terminal checks, fail-close ownership and existing deadline/error helper bodies are unchanged. No process termination, clock advancement, or logical-end/OS-exit substitution is added.
+
+Regressions
+Ten new finite-compatible tests cover: queued Hello before reader construction after close; final Ack read only after participant join/real socket close; expired absolute deadline with a buffered final frame; truncated final EOF; poll HUP preserving tail data then EOF; local reader timeout setup after close; bounded raw reader without data; real BrokenPipe on closed writer; expired write leaving zero bytes; and timeout conversion through Darwin's signed-millisecond maximum. They use only Runtime/Relay-compatible types, and Step is built from the original JSON fields, so the new test file can be copied verbatim into the pre-serve finite branch.
+
+Verification
+rustfmt +1.96.0 --edition 2024 --config skip_children=true --check on the two owned Rust files passed (exit 0).
+audit.py passed full byte-for-byte source reversal to 528f4acecff7e7843ae34962bc46b8554260a4342d73d5cda52484668d450482.
+All 21 original finite tests and all 16 prior serve protocol tests are byte-identical to the pre-#879 sources; hashes below. The public protocol/checks region and absolute deadline/error helpers are also byte-identical. Cargo.toml differs only by enabling rustix's existing event feature; no lockfile was edited.
+Independent read-only review: /private/tmp/tests-879-channel-review-evidence/review.md, no blockers found.
+No Cargo commands, test binaries, Git operations, network requests, or device operations were performed by this worker. Root owns post-fix gates, finite-branch port and renewed timing evidence. Existing timing from the old Channel does not qualify the corrected implementation.
+
+Finite port
+bounded-channel-port.rs contains the exact BoundedReader/wait_ready/Channel span, ending immediately before the existing selected_deadline helper. Add `use rustix::event::{PollFd, PollFlags, Timespec, poll};`, include Read in the existing std::io import, enable Cargo's rustix event feature, copy channel_closed_peer_tests.rs verbatim, and add its cfg(test) path module. No serve Role/Progress/Step or accept_until additions are part of the finite port.
+
+SHA256
+ee8ab5de43e99f1b0636dfb144385e7b7237de8f6b4a677cae766e9a4d8f4d81  lampOS/crates/voice-eval/src/physical/fixture_control.rs
+e9469a7b2c0ce0a988d69f46d064162214a1af8a2eefb54c2dd07e1a85c1fbba  lampOS/crates/voice-eval/src/physical/channel_closed_peer_tests.rs
+09ea068437eb655b546e88b0a8c390af4c615d9f4351fbfedee0a203656a7360  lampOS/crates/voice-eval/Cargo.toml
+90dab0a1075f0fbb819d819f391aede2994363c3238e54445a5a73e5f12f604a  unchanged fixture_control_tests.rs
+fdb57e00dd9e3028ae6f5a5aa6df81d1147bee4fc582ad00b117368951b80bcf  unchanged serve_fixture_control_tests.rs

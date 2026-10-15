@@ -8,7 +8,7 @@ use lamp_voice_eval::{
     invalid,
     ledger::{create_run_directory, read_rows, unix_ms, write_new_json},
     physical::{
-        fake_lamp,
+        fake_lamp, fixture_commands,
         mac::{
             FakePlayerFault, FakePreparedRoomPlayer, HumanPrompter, LampMode, ObserverPlayer,
             PhysicalBackend, PhysicalConfig, Player,
@@ -188,6 +188,8 @@ fn run() -> Result<i32> {
             return session::run(&options, std::io::stdin(), &mut stdout.lock());
         }
         "fake-lamp-voice" => return fake_lamp::run(&all),
+        "fake-clock-lamp-voice" => return fixture_commands::runtime(all),
+        "fake-clock-session" => return fixture_commands::relay(all),
         "fake-room-recorder" => return fake_lamp::room_recorder(&all),
         "fake-slow-transport" => return fake_lamp::slow_transport(&all),
         _ => {}

@@ -1,0 +1,74 @@
+    Checking lamp-ipc v0.1.0 (/private/tmp/lampos-tests-fixture-progress/lampOS/crates/ipc)
+    Checking lamp-bus v0.1.0 (/private/tmp/lampos-tests-fixture-progress/lampOS/crates/bus)
+    Checking lamp-turn-owner v0.1.0 (/private/tmp/lampos-tests-fixture-progress/lampOS/crates/turn-owner)
+    Checking lamp-msgs v0.1.0 (/private/tmp/lampos-tests-fixture-progress/lampOS/crates/msgs)
+   Compiling lamp-camera v0.1.0 (/private/tmp/lampos-tests-fixture-progress/lampOS/crates/camera)
+    Checking lamp-turn-end-wire v0.1.0 (/private/tmp/lampos-tests-fixture-progress/lampOS/crates/turn-end-wire)
+    Checking lamp-gemini v0.1.0 (/private/tmp/lampos-tests-fixture-progress/lampOS/crates/gemini)
+    Checking lamp-keeper v0.1.0 (/private/tmp/lampos-tests-fixture-progress/lampOS/crates/keeper)
+    Checking lamp-body v0.1.0 (/private/tmp/lampos-tests-fixture-progress/lampOS/crates/body)
+    Checking lamp-controls v0.1.0 (/private/tmp/lampos-tests-fixture-progress/lampOS/crates/controls)
+    Checking lamp-schedule v0.1.0 (/private/tmp/lampos-tests-fixture-progress/lampOS/crates/schedule)
+    Checking lamp-audio v0.1.0 (/private/tmp/lampos-tests-fixture-progress/lampOS/crates/audio)
+    Checking lamp-ring v0.1.0 (/private/tmp/lampos-tests-fixture-progress/lampOS/crates/ring)
+    Checking lamp-observer v0.1.0 (/private/tmp/lampos-tests-fixture-progress/lampOS/crates/observer)
+    Checking lamp-sound-fixtures v0.1.0 (/private/tmp/lampos-tests-fixture-progress/lampOS/crates/sound-fixtures)
+    Checking lamp-turn-end v0.1.0 (/private/tmp/lampos-tests-fixture-progress/lampOS/crates/turn-end)
+    Checking lamp-voice v0.1.0 (/private/tmp/lampos-tests-fixture-progress/lampOS/crates/voice)
+    Checking lamp-voice-eval v0.1.0 (/private/tmp/lampos-tests-fixture-progress/lampOS/crates/voice-eval)
+error: can be more succinctly written as a byte str
+   --> crates/voice-eval/src/physical/fixture_control_tests.rs:522:28
+    |
+522 |         match sender.write(&[b'x']) {
+    |                            ^^^^^^^ help: try: `b"x"`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.96.0/index.html#byte_char_slices
+    = note: `-D clippy::byte-char-slices` implied by `-D warnings`
+    = help: to override `-D warnings` add `#[allow(clippy::byte_char_slices)]`
+
+error: this `if` statement can be collapsed
+   --> crates/voice-eval/src/physical/fixture_control.rs:468:5
+    |
+468 | /     if let Progress::Relay {
+469 | |         stdout_frames,
+470 | |         runner_inputs,
+471 | |         ..
+...   |
+479 | |     }
+    | |_____^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.96.0/index.html#collapsible_if
+    = note: `-D clippy::collapsible-if` implied by `-D warnings`
+    = help: to override `-D warnings` add `#[allow(clippy::collapsible_if)]`
+help: collapse nested if block
+    |
+472 ~     } = progress
+473 ~         && (stdout_frames < step.stdout_target || runner_inputs < step.runner_input_target) {
+474 |             return Err(invalid(
+475 |                 "relay Ack has not consumed the announced input targets",
+476 |             ));
+477 ~         }
+    |
+
+error: this `if` statement can be collapsed
+    --> crates/voice-eval/src/physical/mac.rs:2005:9
+     |
+2005 | /         if let Some(fixture) = &mut self.fixture {
+2006 | |             if std::mem::replace(&mut fixture.started, true) {
+2007 | |                 return Err(invalid("a fixture driver owns exactly one attempt"));
+2008 | |             }
+2009 | |         }
+     | |_________^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.96.0/index.html#collapsible_if
+help: collapse nested if block
+     |
+2005 ~         if let Some(fixture) = &mut self.fixture
+2006 ~             && std::mem::replace(&mut fixture.started, true) {
+2007 |                 return Err(invalid("a fixture driver owns exactly one attempt"));
+2008 ~             }
+     |
+
+error: could not compile `lamp-voice-eval` (lib) due to 2 previous errors
+warning: build failed, waiting for other jobs to finish...
+error: could not compile `lamp-voice-eval` (lib test) due to 3 previous errors

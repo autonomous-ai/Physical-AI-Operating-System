@@ -1,0 +1,8 @@
+{
+  "recorded_from_date": "2026-10-15 23:59:35 +0700",
+  "source": "/private/tmp/lampos-tests-serve-progress/lampOS/crates/voice-eval",
+  "destination": "/private/tmp/lampos-tests-fixture-progress/lampOS/crates/voice-eval",
+  "identical_channel_implementation_sha256": "fe332dc9a0e3588167eede72d52ad135564228448b1c1b7ad377530067a512ba",
+  "identical_regression_file_sha256": "e9469a7b2c0ce0a988d69f46d064162214a1af8a2eefb54c2dd07e1a85c1fbba",
+  "existing_finite_test_file_sha256": "22e02e09239c5471fcc78818785bf2e186f033b272e08ccba0864307c8563087"
+}

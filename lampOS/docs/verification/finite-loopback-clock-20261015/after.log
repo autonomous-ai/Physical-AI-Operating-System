@@ -1,0 +1,18 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.28s
+────────────
+ Nextest run ID bb273e3b-a04c-4273-b06d-06255543dced with nextest profile: realtime
+    Starting 12 tests across 1 binary
+        PASS [   0.578s] ( 1/12) lamp-voice-eval::physical_loopback a_transport_that_closes_mid_trace_invalidates_the_attempt
+        PASS [   3.397s] ( 2/12) lamp-voice-eval::physical_loopback cue_triggered_acknowledgment_is_injected_during_playback_and_scored
+        PASS [   2.469s] ( 3/12) lamp-voice-eval::physical_loopback directed_followup_waits_for_whole_reply_completion_then_admits_a_new_turn
+        PASS [   2.726s] ( 4/12) lamp-voice-eval::physical_loopback directed_interruption_during_second_occurrence_preserves_owner_and_yields
+        PASS [   4.091s] ( 5/12) lamp-voice-eval::physical_loopback directed_missing_or_stale_retirement_never_falls_back_to_a_timer_or_final_trace
+        PASS [   0.368s] ( 6/12) lamp-voice-eval::physical_loopback directed_mode_keeps_provider_fault_and_asset_restrictions
+        PASS [   2.692s] ( 7/12) lamp-voice-eval::physical_loopback directed_natural_interruption_runs_during_reply_with_original_cancel_reason
+        PASS [   2.588s] ( 8/12) lamp-voice-eval::physical_loopback directed_two_occurrences_wait_for_true_completion_before_followup
+        PASS [   1.558s] ( 9/12) lamp-voice-eval::physical_loopback echo_only_window_passes_through_the_relay_without_extra_admissions
+        PASS [   4.168s] (10/12) lamp-voice-eval::physical_loopback missing_or_stale_whole_completion_withholds_followup_after_valid_retirement
+        PASS [   2.443s] (11/12) lamp-voice-eval::physical_loopback physical_next_turn_ready_follows_lamp_voice_readiness_cues
+        PASS [   1.391s] (12/12) lamp-voice-eval::physical_loopback undelivered_stimuli_are_withheld_not_scored_as_silence
+────────────
+     Summary [  28.471s] 12 tests run: 12 passed, 0 skipped

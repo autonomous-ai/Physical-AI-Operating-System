@@ -1,0 +1,7 @@
+{
+  "test_binary": "/private/tmp/lampos-tests-relay-clock/lampOS/target/debug/deps/physical_loopback-63dad00d5f2a69de",
+  "evaluator_binary": "/private/tmp/lampos-tests-relay-clock/lampOS/target/debug/lamp-voice-eval",
+  "test_binary_sha256": "66e8f3d77532a27da31ee4612a8125b35e6fdcd756e2879e2ec6f8f969906cb0",
+  "evaluator_binary_sha256": "7312fb700ccf1fbbc6251995ce54284a79f3d1cb64b3cc60ff5ecd6efbca9e5f",
+  "recorded_from_date": "2026-10-15 23:02:48 +0700"
+}

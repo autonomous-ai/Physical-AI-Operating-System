@@ -9,6 +9,9 @@
 //! duties, as documented for `lamp-voice directed`.
 pub mod fake_lamp;
 pub mod fake_serve;
+pub mod fixture_commands;
+pub mod fixture_control;
+pub mod fixture_driver;
 pub mod framing;
 pub mod mac;
 pub mod protocol;

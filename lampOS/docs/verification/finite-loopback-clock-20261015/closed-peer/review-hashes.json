@@ -1,0 +1,15 @@
+{
+  "snapshot_from_date": "2026-10-15 23:59:34 +0700",
+  "source_root": "/private/tmp/lampos-tests-serve-progress/lampOS/crates/voice-eval/src/physical",
+  "sha256": {
+    "fixture_control.rs": "ee8ab5de43e99f1b0636dfb144385e7b7237de8f6b4a677cae766e9a4d8f4d81",
+    "fixture_control_tests.rs": "90dab0a1075f0fbb819d819f391aede2994363c3238e54445a5a73e5f12f604a",
+    "serve_fixture_control_tests.rs": "fdb57e00dd9e3028ae6f5a5aa6df81d1147bee4fc582ad00b117368951b80bcf",
+    "channel_closed_peer_tests.rs": "e9469a7b2c0ce0a988d69f46d064162214a1af8a2eefb54c2dd07e1a85c1fbba"
+  },
+  "existing_test_files_byte_identical": {
+    "fixture_control_tests.rs": true,
+    "serve_fixture_control_tests.rs": true
+  },
+  "new_closed_peer_test_count": 10
+}

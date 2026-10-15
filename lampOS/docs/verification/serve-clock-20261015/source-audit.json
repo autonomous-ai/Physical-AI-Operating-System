@@ -1,0 +1,40 @@
+{
+  "audited_at": "2026-10-15 22:55:54 +0700",
+  "base_reported_by_root": "74eb16c73",
+  "exact_source_reversal": "passed",
+  "original_and_reversed_sha256": "a6cf5135df6dd186116958bd70a0de1d3fe611e2ad94f0c75a354c8f89fd984e",
+  "old_test_source_files_unchanged": 23,
+  "serve_session_test_names_unchanged": [
+    "normal_eight_turn_conversation_in_one_serve_session",
+    "delayed_readiness_is_awaited_by_event_not_by_completion",
+    "an_extra_candidate_during_the_wait_withholds_the_rest",
+    "stale_duplicate_reordered_foreign_and_lost_cues_end_the_conversation",
+    "a_provider_outage_is_waited_out_by_event_and_a_terminal_link_ends_it",
+    "a_late_first_copy_or_failed_player_withholds_every_later_turn",
+    "a_runtime_stop_mute_or_ignored_sigterm_is_retained_and_reaped",
+    "a_room_recording_that_ends_early_withholds_the_rest",
+    "startup_cues_stay_fresh_through_a_slow_transport_and_a_slow_first_preparer",
+    "a_recorder_that_exits_zero_mid_conversation_withholds_the_rest_and_certifies_nothing",
+    "a_declared_capture_end_before_the_next_prompt_and_its_window_withholds_it",
+    "the_runner_forwards_pilot_runtime_settings_through_the_relay",
+    "serve_readiness_comes_only_from_the_fresh_cue_never_from_stdout",
+    "a_nonzero_runtime_exit_never_completes_a_serve_attempt"
+  ],
+  "clock_read_sites": 9,
+  "host_clock_read_sites_in_wrapper": 1,
+  "new_clock_tests": [
+    "cycle_reads_the_supplied_instant_without_advancing_it",
+    "initial_cycle_keeps_distinct_metadata_and_runtime_clock_samples",
+    "restarted_cycle_resamples_time_and_keeps_a_fresh_runtime_identity",
+    "retained_startup_ready_still_saturates_at_zero"
+  ],
+  "new_tests_avoid_signal_loop": true,
+  "documentation_append_only": true,
+  "final_source_hashes": {
+    "lampOS/crates/voice-eval/src/physical/fake_serve.rs": "3d1026d1b8a4ca11ee4e2f38fa00a518badf4f74193b049c13cf6515aa254d51",
+    "lampOS/crates/voice-eval/src/physical/fake_serve_clock_tests.rs": "62cfe2296fc9a83c4f2f3cf85325639843e11f46ed1afc4bc2625339407f27fe",
+    "lampOS/docs/realtime-tests.md": "0381b05a162b79db172681a26bc5a5ccb337fe71227cf73ed2ae20160f67db4d"
+  },
+  "cargo_build_test_clippy": "not run; root owns shared targets and gate",
+  "speedup_claim": null
+}

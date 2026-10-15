@@ -1,0 +1,42 @@
+{
+  "base": "a3dba0c0af457774e5fe7e09af42828c311738b9",
+  "gates": [
+    {
+      "command": "cargo fmt --all --check",
+      "started_from_date": "2026-10-15 23:05:02 +0700",
+      "finished_from_date": "2026-10-15 23:05:07 +0700",
+      "exit": 0
+    },
+    {
+      "command": "cargo clippy --locked --offline -p lamp-voice-eval --all-targets -- -D warnings",
+      "started_from_date": "2026-10-15 23:05:07 +0700",
+      "finished_from_date": "2026-10-15 23:05:32 +0700",
+      "exit": 0
+    },
+    {
+      "command": "cargo test --locked --offline -p lamp-voice-eval --no-fail-fast -- --test-threads=1",
+      "started_from_date": "2026-10-15 23:05:32 +0700",
+      "finished_from_date": "2026-10-15 23:19:55 +0700",
+      "exit": 0
+    },
+    {
+      "command": "cargo build --locked --offline --workspace",
+      "started_from_date": "2026-10-15 23:19:55 +0700",
+      "finished_from_date": "2026-10-15 23:20:58 +0700",
+      "exit": 0
+    }
+  ],
+  "full_evaluator_totals": {
+    "passed": 296,
+    "failed": 0,
+    "ignored": 0
+  },
+  "profile": "debug",
+  "test_threads": 1,
+  "build_jobs": 2,
+  "target": "/private/tmp/lampos-tests-relay-clock/lampOS/target",
+  "source_sha256": {
+    "lampOS/crates/voice-eval/src/physical/fake_serve.rs": "3d1026d1b8a4ca11ee4e2f38fa00a518badf4f74193b049c13cf6515aa254d51",
+    "lampOS/crates/voice-eval/src/physical/fake_serve_clock_tests.rs": "62cfe2296fc9a83c4f2f3cf85325639843e11f46ed1afc4bc2625339407f27fe"
+  }
+}

@@ -73,12 +73,24 @@ lamp, outside a conversation with it: held about nine times in ten.**
 Facing the lamp, or saying "Hey Lamp", it is answered. The first builder's
 two-person scene uses "Hey Lamp, ..." for its named requests.
 
+## The day scene (#829, 02:39)
+
+The first builder played `day.sh` (one person's day at the lamp) straight
+after the two-person scenes. The room was still busy. "How is that task
+going?" came 45.3 s after the lamp's news and was held, and then each of
+the next five lines was held too: each held line counted as more talk, so
+the room never stopped being busy. What the switch now does about it is in
+[attention.md](../../attention.md#the-lamp-speaks-when-spoken-to-829-step-2).
+Its tests replay that scene's timing in the rule and in the room. Nothing
+was counted from records for it: the day scene's records are on lamp-4ace.
+
 ## Not shown
 
-- Nothing was played. The pass mark is the first builder's (#829, 02:26):
-  `twopeople829.sh` with the switch, the scene's first line left alone (0
-  of 12), named requests 9 of 9, and the follow-up from the person in
-  conversation still answered.
+- Nothing was played. The pass mark is the first builder's (#829, 02:26
+  and 02:39): `twopeople829.sh` with the switch, the scene's first line
+  left alone (0 of 12), named requests 9 of 9, and the follow-up from the
+  person in conversation still answered; then the day scene straight
+  after it, with every line answered.
 - How often a person at the lamp who faces it is seen as facing: the eyes'
   `facing` was never recorded in a quiet room.
 - The second voice route takes the flag and does not apply it.

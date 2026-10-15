@@ -50,9 +50,13 @@
 //! files", which a story is easy to think is not. With the switch:
 //! [`START`] is called whenever the person asks to have one of the staff do
 //! something, whatever the work and even in the middle of a story; a new
-//! session is told so after the persona ([`session_note`]); and `who` can be
-//! "not sure", which prepares nothing and has the model ask "Claude Code or
-//! Codex?" rather than guess.
+//! session is told so after the persona ([`session_note`]); and a name the
+//! model cannot quite make out is given as the one it thinks was meant,
+//! without a question first: the read-back names who will do it, and
+//! nothing starts without a yes, so the person can put it right. On
+//! lamp-4ace on 2026-10-15 (21:33) a "not sure" choice offered for such a
+//! name was never taken, in played scenes or in the model check, and the
+//! model asked about its guess before the read-back as well, so twice.
 //!
 //! Hearing back: the tasks part watches what it started (on unless `serve --no-watch`),
 //! [`crate::task_news`] tells the person unasked when the agent has
@@ -85,9 +89,6 @@ pub const TARGET_FLAG: &str = "--tasks-target";
 pub const WHO_FLAG: &str = "--tasks-who";
 pub const LEAD_IN_FLAG: &str = "--tasks-lead-in";
 pub const ASKED_FLAG: &str = "--tasks-asked";
-/// What `who` may be with [`ASKED_FLAG`] when the person named someone the
-/// model could not make out: nothing is prepared, and it asks.
-pub const UNSURE: &str = "not sure";
 pub const DEFAULT_TARGET: &str = "office";
 /// The model's two functions.
 pub const START: &str = "start_agent_task";
@@ -225,15 +226,13 @@ fn declared(place: &Place, staff: &[Member]) -> Vec<Tool> {
             .iter()
             .map(|member| format!("{} (they may say {})", member.kind.name, member.kind.sounds))
             .collect();
-        let mut who: Vec<&str> = staff.iter().map(|member| member.kind.name).collect();
+        let who: Vec<&str> = staff.iter().map(|member| member.kind.name).collect();
         let unsure = if place.asked {
-            who.push(UNSURE);
-            format!(
-                " If they named someone you could not make out, or a name that is none of these, \
-                 give \"{UNSURE}\": nothing is prepared and you ask them. Never guess."
-            )
+            " If you could not quite make out the name they said, give the one you think they \
+             meant, and do not ask about it first: the task said back names who will do it, \
+             so they can put you right."
         } else {
-            String::new()
+            ""
         };
         (
             if place.asked {
@@ -515,10 +514,6 @@ fn chosen<'a>(
         .filter(|said| !said.is_empty());
     match said {
         None => Ok(default_member(staff, &place.target)),
-        Some(said) if place.asked && plain(said) == plain(UNSURE) => Err(json!({"error": format!(
-            "Nothing was prepared: who should do it was not clear. Ask them in a few words, \"{}?\", and call this again with their answer.",
-            names(staff, "or")
-        )})),
         Some(said) => named(staff, said).map(Some).ok_or_else(|| {
             json!({"error": format!(
                 "Nothing was done: nobody by that name works here. Ask the person who should do it: {}.",
@@ -2248,46 +2243,46 @@ mod tests {
         assert_eq!(rest, ["--other"]);
     }
 
-    /// #854: a name the model could not make out ("your go" was taken for
-    /// Codex on lamp-4ace) is "not sure" with the switch, which prepares
-    /// nothing and has it ask "Claude Code or Codex?". Without the switch
-    /// it is not offered, and the names are as before.
+    /// #854: a name the model could not quite make out is given as the one
+    /// it thinks was meant, said in the read-back, which waits for a yes:
+    /// asked about first as well, the person was asked twice on lamp-4ace.
+    /// The names offered are the staff's, with the switch or without it.
     #[test]
-    fn a_name_not_made_out_is_asked_about_and_never_guessed() {
+    fn a_name_not_made_out_is_named_in_the_read_back_and_asked_about_once() {
         let staff = two();
         let mut on = place(Path::new("/run/t"), true);
         let who = |place: &Place| {
             declared(place, &staff)[0].parameters.as_ref().unwrap()["properties"]["who"].clone()
         };
-        assert_eq!(who(&on)["enum"], json!(["Claude Code", "Codex"]));
-        assert!(!who(&on)["description"].as_str().unwrap().contains(UNSURE));
-        let unknown = chosen(&on, &staff, &json!({"task": "x", "who": UNSURE})).unwrap_err();
+        let before = who(&on);
         assert!(
-            unknown["error"]
+            before["description"]
                 .as_str()
                 .unwrap()
-                .starts_with("Nothing was done: nobody by that name"),
-            "{unknown}"
+                .ends_with("Leave it out if they named nobody: then Claude Code does it."),
+            "{before}"
         );
 
         on.asked = true;
-        assert_eq!(
-            who(&on)["enum"],
-            json!(["Claude Code", "Codex", "not sure"])
-        );
+        assert_eq!(who(&on)["enum"], before["enum"]);
+        assert_eq!(who(&on)["enum"], json!(["Claude Code", "Codex"]));
         assert!(
-            who(&on)["description"]
-                .as_str()
-                .unwrap()
-                .ends_with("give \"not sure\": nothing is prepared and you ask them. Never guess."),
+            who(&on)["description"].as_str().unwrap().ends_with(
+                "then Claude Code does it. If you could not quite make out the name they said, \
+                 give the one you think they meant, and do not ask about it first: the task said \
+                 back names who will do it, so they can put you right."
+            ),
             "{}",
             who(&on)
         );
-        let asked = chosen(&on, &staff, &json!({"task": "x", "who": "Not sure"})).unwrap_err();
-        assert_eq!(
-            asked["error"],
-            "Nothing was prepared: who should do it was not clear. Ask them in a few words, \"Claude Code or Codex?\", and call this again with their answer."
+        // The read-back names who, and starts nothing without a yes.
+        assert!(
+            prepared_next(false, true, "Claude Code").contains("saying Claude Code will do it")
         );
+        assert!(
+            prepared_next(false, true, "Codex").ends_with("Start it only if the person says yes.")
+        );
+        // Named, nobody named, and a name nobody has, as before.
         assert_eq!(
             chosen(&on, &staff, &json!({"who": "Codex"}))
                 .unwrap()
@@ -2300,6 +2295,7 @@ mod tests {
             chosen(&on, &staff, &json!({})).unwrap().unwrap().kind.name,
             "Claude Code"
         );
+        assert!(chosen(&on, &staff, &json!({"who": "George Jones"})).is_err());
         let start = &declared(&on, &staff)[0].description;
         assert!(
             start.contains("(\"ask Claude Code to …\", \"get Codex to …\")"),

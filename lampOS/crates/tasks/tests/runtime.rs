@@ -423,13 +423,30 @@ fn command_line_refusal_reaches_stderr_every_time() {
     }
 }
 
+/// #876: the writer of the refusal runs late, and the process still waits
+/// for its line rather than for a fixed few milliseconds.
+#[test]
+fn command_line_refusal_waits_for_a_slow_writer() {
+    for input in DUPLICATE_FIELDS {
+        refuse_duplicate_fields_with(input, Some("80"));
+    }
+}
+
 const DUPLICATE_FIELDS: [&str; 2] = [
     r#"{"op":"prepare","op":"status"}"#,
     r#"{"op":"cancel","guard":{"store_id":"a","revision":0,"revision":1,"request_id":"r"},"id":1}"#,
 ];
 
 fn refuse_duplicate_fields(input: &str) {
-    let mut child = Command::new(env!("CARGO_BIN_EXE_lamp-tasks"))
+    refuse_duplicate_fields_with(input, None);
+}
+
+fn refuse_duplicate_fields_with(input: &str, slow_writer_ms: Option<&str>) {
+    let mut command = Command::new(env!("CARGO_BIN_EXE_lamp-tasks"));
+    if let Some(ms) = slow_writer_ms {
+        command.env("LAMP_TASKS_TEST_SLOW_EXIT_REPORT_MS", ms);
+    }
+    let mut child = command
         .args(["request", "--socket", "/no-tasks-test-socket"])
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())

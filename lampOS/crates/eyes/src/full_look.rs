@@ -6,8 +6,9 @@
 //! the person side-on, and nothing to tell what was held up. With
 //! `--full-look WIDTHxHEIGHT` the eyes' stream runs at that size all the
 //! time (the detector shrinks every frame to its own 320 by 256 as it always
-//! could), no working frame is kept, and the sight file holds only a still
-//! made for one request and removed [`KEPT_US`] after.
+//! could), the working frame is kept in the sight file at 320 across as
+//! before ([`working`]), and `--full-look-file` holds only a still made for
+//! one request and removed [`KEPT_US`] after.
 //!
 //! The stream is not switched to a larger mode for the still and back: on
 //! UVC that is a stop and a start, and lamp-52e6's camera often fails to

@@ -80,12 +80,26 @@ mod tests {
         if std::path::Path::new("/etc/localtime").exists() {
             assert!(matches!(local(&zoned), Ok(LocalTime::System(_))));
         }
-        let named = arguments(&["--dir", "/m", "--socket", "/s", "--zone", "America/New_York"]);
-        assert!(matches!(local(&named.unwrap().unwrap()), Ok(LocalTime::Zone(_))));
+        let named = arguments(&[
+            "--dir",
+            "/m",
+            "--socket",
+            "/s",
+            "--zone",
+            "America/New_York",
+        ]);
+        assert!(matches!(
+            local(&named.unwrap().unwrap()),
+            Ok(LocalTime::Zone(_))
+        ));
         let nowhere = arguments(&["--dir", "/m", "--socket", "/s", "--zone", "Nowhere/City"]);
         assert!(local(&nowhere.unwrap().unwrap()).is_err());
         assert!(matches!(
-            local(&arguments(&["--dir", "/m", "--socket", "/s"]).unwrap().unwrap()),
+            local(
+                &arguments(&["--dir", "/m", "--socket", "/s"])
+                    .unwrap()
+                    .unwrap()
+            ),
             Ok(LocalTime::Offset(0))
         ));
         assert_eq!(arguments(&["--help"]), Ok(None));

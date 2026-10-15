@@ -1,0 +1,11 @@
+Run from lampOS/ on Fourth's Intel Mac (macOS 26.6.2, i7-10700K, Rust 1.96.0),
+CARGO_BUILD_JOBS=6, CARGO_INCREMENTAL=0 (the shared disk was nearly full),
+each stage's exit code in stages.txt, on head f76f51c66 (the code of this
+change; the evidence commit after it changes no code).
+
+rustfmt --edition 2024 --check <the changed .rs files>
+cargo clippy --workspace --all-targets --locked -- -D warnings
+cargo test --locked -p lamp-voice -p lamp-voice-eval -p lamp-memory --no-fail-fast -- --test-threads=1
+cargo build --workspace --locked
+
+Voice 1,336, Voice-eval 284 and Memory 151 passed, none failed, 13 ignored.

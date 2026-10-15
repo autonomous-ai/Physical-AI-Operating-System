@@ -1,0 +1,4 @@
+   Compiling lamp-voice v0.1.0 (/private/tmp/lampos-tests-memory-application/lampOS/crates/voice)
+   Compiling lamp-memory v0.1.0 (/private/tmp/lampos-tests-memory-application/lampOS/crates/memory)
+   Compiling lamp-voice-eval v0.1.0 (/private/tmp/lampos-tests-memory-application/lampOS/crates/voice-eval)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 25.59s

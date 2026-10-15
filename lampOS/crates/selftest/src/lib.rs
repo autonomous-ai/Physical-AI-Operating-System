@@ -8,6 +8,7 @@
 //! - [`kernel`]: the storage, from what the kernel said since boot.
 //! - [`ring`]: the ring's owner, listened to.
 //! - [`mic`]: a second of the voice microphone, and its level.
+//! - [`hand`]: touch by hand, at the factory.
 //! - [`report`]: where a run is kept, and what a person reads.
 
 // Nothing in this library prints; the program prints what it is given.
@@ -16,6 +17,7 @@
 use lamp_msgs::{Occasion, PartResult, SelfTest, Verdict};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
+pub mod hand;
 pub mod kernel;
 pub mod listen;
 pub mod mic;

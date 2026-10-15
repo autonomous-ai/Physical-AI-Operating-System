@@ -3318,6 +3318,47 @@ fn told_to_return_a_head_tilted_and_held_by_hand_gives_way_again_and_comes_back(
     assert_ne!(report.stop, Stop::Cancelled, "{report:?}");
 }
 
+/// While a joint is held where a hand made it give way, each step says so
+/// (`body/hand`); before the hand and once it is back, never.
+#[test]
+fn a_step_says_a_hand_while_a_joint_is_held_where_it_gave_way_and_never_without_one() {
+    let ms = Duration::from_millis;
+    let ran = |hand: bool| {
+        let (mut lamp, mut clock) = folded(Duration::from_secs(10));
+        if hand {
+            lamp.hand = Some((ms(1_500), ms(4_500), YAW, f32::from(HOME[2]) + 40.0));
+            lamp.strains = vec![(ms(1_500), ms(4_500), YAW, 120)];
+        }
+        let news = || Some((Mood::Listening, 100));
+        let mut seen = Vec::new();
+        run(
+            &mut lamp,
+            &mut clock,
+            giving_way(GiveWay::Return),
+            Some(HOME),
+            news,
+            |glimpse| seen.push(*glimpse),
+        );
+        seen
+    };
+    let seen = ran(true);
+    assert!(
+        seen.iter()
+            .filter(|g| clock_of(g) < ms(1_500))
+            .all(|g| !g.hand)
+    );
+    assert!(
+        seen.iter()
+            .any(|g| g.hand && (ms(1_500)..ms(4_500)).contains(&clock_of(g)))
+    );
+    assert!(
+        seen.iter()
+            .filter(|g| clock_of(g) > ms(8_000))
+            .all(|g| !g.hand)
+    );
+    assert!(ran(false).iter().all(|g| !g.hand));
+}
+
 /// Told to come back, a base turned by a hand gives way though it reads
 /// under the load that ends a run (lamp-52e6's read 120 turned 38 counts),
 /// and comes back once let go; without the option the run ends on

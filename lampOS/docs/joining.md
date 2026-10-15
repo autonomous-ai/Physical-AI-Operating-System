@@ -303,6 +303,12 @@ dependency had to be found by hand. Decided: yes, but as follows.
   (its run number in the body). The first builder installs that run's
   binaries on lamp-4ace for the minute with the switch off; it does not
   build them again.
+- **A known flaky test does not hold a piece back** (first builder,
+  2026-10-15). Until #739 is solved, the voice's timed process tests can
+  fail on a loaded Mac with unchanged code. If the ARM64 run is green and
+  the only local failures are those tests, mark the piece ready and name
+  the tests that failed. Do not run the whole gate again to get a clean
+  pass.
 - **The first builder merges with "Rebase and merge",** so `lamp-voice`
   stays one line of `lampOS:` commits, and takes a builder's code by no
   other path. A change it wants is a review comment, and the builder

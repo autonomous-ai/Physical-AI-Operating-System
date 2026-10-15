@@ -1,0 +1,31 @@
+{
+  "date": "2026-10-16 06:48:06 +0700",
+  "source_unchanged": true,
+  "corrected_source_applied": false,
+  "files": {
+    "first-gate-handoff.md": "d3a773043e4d7bd7e08f9a8791269753250badc8c305649b14600702b38432de",
+    "first-gates.json": "5c946c6d9ea5de41ff46f96a38addfb97608cb0e5a6c054bb0fc11b5d66ef93c",
+    "first-result.json": "b71fe68a3920304fa7519460af78f849b8a96343adb7a4c15cc25cc73419af33",
+    "first-completed.json": "a1b28e12893b2b9e5e2bcc3d65f1c941ff9982ac6690643a05faaca373ce6a78",
+    "first-source-snapshot.json": "b369963d23c4123c0001159093fb0465fbf0cfca6b667d612f608f37a2387ef7",
+    "first-compiled-list-comparison.json": "66216f3d5fc067f2770e2ae2553a2acb1e2eaa3d0f4bc73fb9e4e30ed6fbb421",
+    "first-compiled-package-counts.json": "c51e2cbd8bfaf11fd0a1905d087a6887556777e4a88734d0968d0ed9775847e0",
+    "first-focused-triage.json": "19fe9d47a96fe54f5baf6930288c1d529a7b3ab7cdf8a11a941a26bcdfa1caaa",
+    "first-reminder-failure.txt": "3f3ba8d28a457b1042536c297fb63bff01ada90abe26f30b5090feb221aa0f1f",
+    "first-reminder-triage.json": "122b1683a5841e7090edc38dc57b8594c3b6d32aceeffded0c2f560116e1392a",
+    "first-close-error-source-evidence.json": "3021daf77a1c9cec81846c2f6fa2ead389b94506091c68a82a88cddf33761c40",
+    "source-proof.json": "dff02827acede2493e7bd9c3765c50983c83fe170545b5c60608cebdd030c46c",
+    "before-source-proof.json": "63b9fb3f2ab5c15f696e6c981d260f9b5eb05287af3636b12acc93b30761edc5",
+    "worker-reversal-edits.json": "ab46851992f593e7da936e8c657f21549bb34ca9995d78f690c51b66c1af42e8",
+    "handoff-inventory-addendum.md": "a5f420e648da809cf15c664217425b14e96f62aa76c972a5572ba0d7622a295a",
+    "inline-inventory-correction.json": "989b5bd9ae701377fc26b97eea50f570e193e8dc824b9dce4087fa5158ef3cf7",
+    "proposed-unpolled-close-only.diff": "e23bb033b990c80af1fe2d8baf1e97d9469c2fd7dd8f83ca429034fe42d12015",
+    "proposed-unpolled-close-only.json": "e0f2db13a554ad077909b6711c6240e661124ba98ecc709576d8bdc104aa2c5e",
+    "first-fmt.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "first-clippy.log": "3244cce070dcf577a0507eb35c3da75139a8f9526bdd46fda3482875bd389f8b",
+    "first-list.log": "593aa51049463afc6d5d4d77a1ab0d42624a420748bf83b1d4152b6ba304bb71",
+    "first-focused.log": "7563a7072c87af09d4e56a573ef0ef0c8ebda2f1e988c9b8d483cce6ea320f79",
+    "first-tests.log": "f5763e86d785165cd96c9c5d0a697d40d7b8885e3f5cb38a1abff24ba16ff66c",
+    "first-workspace-build.log": "4dd3d25ee1202ed2ab404a9a5ab7285e807591658348865cf9667351dbffb43d"
+  }
+}

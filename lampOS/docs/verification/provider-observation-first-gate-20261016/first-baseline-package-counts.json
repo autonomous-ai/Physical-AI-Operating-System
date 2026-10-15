@@ -1,0 +1,22 @@
+{
+  "lamp-memory": {
+    "binaries": 17,
+    "listed": 210,
+    "ignored": 5
+  },
+  "lamp-surround": {
+    "binaries": 19,
+    "listed": 260,
+    "ignored": 0
+  },
+  "lamp-voice": {
+    "binaries": 22,
+    "listed": 1410,
+    "ignored": 8
+  },
+  "lamp-voice-eval": {
+    "binaries": 24,
+    "listed": 377,
+    "ignored": 0
+  }
+}

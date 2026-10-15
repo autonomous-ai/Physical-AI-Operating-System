@@ -1,0 +1,20 @@
+{
+  "date": "2026-10-16 06:41:06 +0700",
+  "base": "e7d0f673d0c4bde4a770b19783d6084a8d935ec3",
+  "identity": "coordinator::tests::reminder_roundtrip::actual_consumer_ipc_coordinator_and_two_retirements_ack_only_after_whole_completion",
+  "source": "lampOS/crates/voice/src/coordinator/tests/reminder_roundtrip.rs",
+  "source_sha256": "f2259a3446933ba7193c95829e6ab092881b828be9d458c79cf6e3b1463bb684",
+  "source_unchanged": true,
+  "failure_line": 338,
+  "failed_assertion": "matches!(test.fixture.view(&test.token).resolution, Some(Resolution::AckConfirmed { .. }))",
+  "preceding_assertions_passed": [
+    "fixture.pending() is false",
+    "fixture.ack_requests().len() == 1"
+  ],
+  "actual_resolution": "Not printed by this assertion; unknown from the log.",
+  "causal_claim": "None. Original source preservation and the authored Provider PCM fixture do not establish a root cause.",
+  "failure_extract_sha256": "3f3ba8d28a457b1042536c297fb63bff01ada90abe26f30b5090feb221aa0f1f",
+  "full_gate_in_progress": true,
+  "rerun": false,
+  "source_modified": false
+}

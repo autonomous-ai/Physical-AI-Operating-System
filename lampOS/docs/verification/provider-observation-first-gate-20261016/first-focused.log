@@ -1,0 +1,134 @@
+   Compiling tokio v1.53.1
+   Compiling lamp-ipc v0.1.0 (/private/tmp/lampos-tests-provider-observations/lampOS/crates/ipc)
+   Compiling lamp-bus v0.1.0 (/private/tmp/lampos-tests-provider-observations/lampOS/crates/bus)
+   Compiling lamp-msgs v0.1.0 (/private/tmp/lampos-tests-provider-observations/lampOS/crates/msgs)
+   Compiling lamp-turn-owner v0.1.0 (/private/tmp/lampos-tests-provider-observations/lampOS/crates/turn-owner)
+   Compiling tokio-rustls v0.26.6
+   Compiling hyper v1.12.0
+   Compiling tower v0.5.3
+   Compiling lamp-keeper v0.1.0 (/private/tmp/lampos-tests-provider-observations/lampOS/crates/keeper)
+   Compiling hyper-util v0.1.21
+   Compiling lamp-body v0.1.0 (/private/tmp/lampos-tests-provider-observations/lampOS/crates/body)
+   Compiling hyper-rustls v0.27.10
+   Compiling tokio-tungstenite v0.30.0
+   Compiling tower-http v0.6.11
+   Compiling lamp-schedule v0.1.0 (/private/tmp/lampos-tests-provider-observations/lampOS/crates/schedule)
+   Compiling tokio-util v0.7.20
+   Compiling lamp-audio v0.1.0 (/private/tmp/lampos-tests-provider-observations/lampOS/crates/audio)
+   Compiling reqwest v0.13.5
+   Compiling lamp-camera v0.1.0 (/private/tmp/lampos-tests-provider-observations/lampOS/crates/camera)
+   Compiling lamp-gemini v0.1.0 (/private/tmp/lampos-tests-provider-observations/lampOS/crates/gemini)
+   Compiling lamp-controls v0.1.0 (/private/tmp/lampos-tests-provider-observations/lampOS/crates/controls)
+   Compiling lamp-ring v0.1.0 (/private/tmp/lampos-tests-provider-observations/lampOS/crates/ring)
+   Compiling lamp-turn-end-wire v0.1.0 (/private/tmp/lampos-tests-provider-observations/lampOS/crates/turn-end-wire)
+   Compiling lamp-actions v0.1.0 (/private/tmp/lampos-tests-provider-observations/lampOS/crates/actions)
+   Compiling lamp-voice v0.1.0 (/private/tmp/lampos-tests-provider-observations/lampOS/crates/voice)
+   Compiling lamp-expression v0.1.0 (/private/tmp/lampos-tests-provider-observations/lampOS/crates/expression)
+   Compiling lamp-policy v0.1.0 (/private/tmp/lampos-tests-provider-observations/lampOS/crates/policy)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1m 21s
+────────────
+ Nextest run ID 4c25ff4b-b903-4ef4-84c2-1a6c99702399 with nextest profile: default
+    Starting 20 tests across 22 binaries (1410 tests skipped)
+        PASS [   0.051s] ( 1/20) lamp-voice provider_worker::observation::tests::attachment_refuses_an_unentered_body_or_another_boot
+        PASS [   0.043s] ( 2/20) lamp-voice provider_worker::observation::tests::duplicate_stop_and_terminal_mutations_are_latched_faults
+        PASS [   0.041s] ( 3/20) lamp-voice provider_worker::observation::tests::malformed_state_is_a_latched_fault_and_never_a_receipt
+        PASS [   0.041s] ( 4/20) lamp-voice provider_worker::observation::tests::observation_failure_preserves_a_component_futures_actual_success
+        PASS [   0.041s] ( 5/20) lamp-voice provider_worker::observation::tests::observation_failure_preserves_the_actual_result_and_error_object
+        PASS [   0.043s] ( 6/20) lamp-voice provider_worker::observation::tests::polling_after_a_return_faults_observation_without_replacing_results
+        PASS [   0.041s] ( 7/20) lamp-voice provider_worker::observation::tests::reattachment_faults_both_owners_without_replacing_the_first_writer
+        PASS [   0.046s] ( 8/20) lamp-voice provider_worker::tests::observation::actual_generation_change_is_revocation_even_after_permission_reopens
+        PASS [   0.043s] ( 9/20) lamp-voice provider_worker::tests::observation::actual_intake_stop_precedes_the_component_future_return
+        PASS [   0.043s] (10/20) lamp-voice provider_worker::tests::observation::actual_permission_revocation_has_its_own_stop_cause
+        PASS [   0.242s] (11/20) lamp-voice provider_worker::tests::observation::actual_task_panic_preserves_its_payload_without_a_successful_receipt
+        PASS [   0.052s] (12/20) lamp-voice provider_worker::tests::observation::error_cleanup_clears_intake_without_recording_a_stop_cause
+        PASS [   0.045s] (13/20) lamp-voice provider_worker::tests::observation::full_control_slice_leaves_the_real_stop_unhandled_until_the_next_drain
+        PASS [   0.048s] (14/20) lamp-voice provider_worker::tests::observation::initial_denied_authority_is_not_a_revocation_stop
+        PASS [   0.050s] (15/20) lamp-voice provider_worker::tests::observation::ordinary_intake_and_equal_boot_workers_do_not_share_observations
+        PASS [   0.053s] (16/20) lamp-voice provider_worker::tests::observation::original_worker_error_is_returned_without_claiming_a_stop_command
+        PASS [   0.054s] (17/20) lamp-voice provider_worker::tests::observation::original_worker_returns_after_actual_authority_revocation
+        PASS [   0.046s] (18/20) lamp-voice provider_worker::tests::observation::queued_real_stop_is_not_handled_until_the_original_body_runs
+        PASS [   0.041s] (19/20) lamp-voice provider_worker::tests::observation::requested_task_cancellation_is_joined_and_never_a_body_return
+        FAIL [   0.180s] (20/20) lamp-voice provider_worker::tests::observation::unpolled_real_worker_drop_never_claims_a_queued_stop_or_return
+  stdout ───
+
+    running 1 test
+    test provider_worker::tests::observation::unpolled_real_worker_drop_never_claims_a_queued_stop_or_return ... FAILED
+
+    failures:
+
+    failures:
+        provider_worker::tests::observation::unpolled_real_worker_drop_never_claims_a_queued_stop_or_return
+
+    test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 1226 filtered out; finished in 0.13s
+
+  stderr ───
+
+    thread 'provider_worker::tests::observation::unpolled_real_worker_drop_never_claims_a_queued_stop_or_return' (580007757) panicked at crates/voice/src/provider_worker/tests/observation.rs:141:53:
+    called `Result::unwrap()` on an `Err` value: Os { code: 54, kind: ConnectionReset, message: "Connection reset by peer" }
+    stack backtrace:
+       0: __rustc::rust_begin_unwind
+                 at /rustc/ac68faa20c58cbccd01ee7208bf3b6e93a7d7f96/library/std/src/panicking.rs:689:5
+       1: core::panicking::panic_fmt
+                 at /rustc/ac68faa20c58cbccd01ee7208bf3b6e93a7d7f96/library/core/src/panicking.rs:80:14
+       2: core::result::unwrap_failed
+                 at /rustc/ac68faa20c58cbccd01ee7208bf3b6e93a7d7f96/library/core/src/result.rs:1867:5
+       3: core::result::Result<T,E>::unwrap
+                 at /rustc/ac68faa20c58cbccd01ee7208bf3b6e93a7d7f96/library/core/src/result.rs:1233:23
+       4: lamp_voice::provider_worker::tests::observation::unpolled_real_worker_drop_never_claims_a_queued_stop_or_return::{{closure}}
+                 at ./src/provider_worker/tests/observation.rs:141:53
+       5: <core::pin::Pin<P> as core::future::future::Future>::poll
+                 at /rustc/ac68faa20c58cbccd01ee7208bf3b6e93a7d7f96/library/core/src/future/future.rs:133:9
+       6: <core::pin::Pin<P> as core::future::future::Future>::poll
+                 at /rustc/ac68faa20c58cbccd01ee7208bf3b6e93a7d7f96/library/core/src/future/future.rs:133:9
+       7: tokio::runtime::scheduler::current_thread::CoreGuard::block_on::{{closure}}::{{closure}}::{{closure}}
+                 at /Users/autonomous/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tokio-1.53.1/src/runtime/scheduler/current_thread/mod.rs:830:70
+       8: tokio::task::coop::with_budget
+                 at /Users/autonomous/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tokio-1.53.1/src/task/coop/mod.rs:167:5
+       9: tokio::task::coop::budget
+                 at /Users/autonomous/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tokio-1.53.1/src/task/coop/mod.rs:133:5
+      10: tokio::runtime::scheduler::current_thread::CoreGuard::block_on::{{closure}}::{{closure}}
+                 at /Users/autonomous/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tokio-1.53.1/src/runtime/scheduler/current_thread/mod.rs:830:25
+      11: tokio::runtime::scheduler::current_thread::Context::enter
+                 at /Users/autonomous/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tokio-1.53.1/src/runtime/scheduler/current_thread/mod.rs:488:19
+      12: tokio::runtime::scheduler::current_thread::CoreGuard::block_on::{{closure}}
+                 at /Users/autonomous/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tokio-1.53.1/src/runtime/scheduler/current_thread/mod.rs:829:44
+      13: tokio::runtime::scheduler::current_thread::CoreGuard::enter::{{closure}}
+                 at /Users/autonomous/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tokio-1.53.1/src/runtime/scheduler/current_thread/mod.rs:906:68
+      14: tokio::runtime::context::scoped::Scoped<T>::set
+                 at /Users/autonomous/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tokio-1.53.1/src/runtime/context/scoped.rs:40:9
+      15: tokio::runtime::context::set_scheduler::{{closure}}
+                 at /Users/autonomous/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tokio-1.53.1/src/runtime/context.rs:187:38
+      16: std::thread::local::LocalKey<T>::try_with
+                 at /rustc/ac68faa20c58cbccd01ee7208bf3b6e93a7d7f96/library/std/src/thread/local.rs:462:12
+      17: std::thread::local::LocalKey<T>::with
+                 at /rustc/ac68faa20c58cbccd01ee7208bf3b6e93a7d7f96/library/std/src/thread/local.rs:426:20
+      18: tokio::runtime::context::set_scheduler
+                 at /Users/autonomous/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tokio-1.53.1/src/runtime/context.rs:187:17
+      19: tokio::runtime::scheduler::current_thread::CoreGuard::enter
+                 at /Users/autonomous/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tokio-1.53.1/src/runtime/scheduler/current_thread/mod.rs:906:27
+      20: tokio::runtime::scheduler::current_thread::CoreGuard::block_on
+                 at /Users/autonomous/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tokio-1.53.1/src/runtime/scheduler/current_thread/mod.rs:817:24
+      21: tokio::runtime::scheduler::current_thread::CurrentThread::block_on::{{closure}}
+                 at /Users/autonomous/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tokio-1.53.1/src/runtime/scheduler/current_thread/mod.rs:218:33
+      22: tokio::runtime::context::runtime::enter_runtime
+                 at /Users/autonomous/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tokio-1.53.1/src/runtime/context/runtime.rs:65:16
+      23: tokio::runtime::scheduler::current_thread::CurrentThread::block_on
+                 at /Users/autonomous/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tokio-1.53.1/src/runtime/scheduler/current_thread/mod.rs:206:9
+      24: tokio::runtime::runtime::Runtime::block_on_inner
+                 at /Users/autonomous/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tokio-1.53.1/src/runtime/runtime.rs:374:52
+      25: tokio::runtime::runtime::Runtime::block_on
+                 at /Users/autonomous/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tokio-1.53.1/src/runtime/runtime.rs:343:18
+      26: lamp_voice::provider_worker::tests::observation::unpolled_real_worker_drop_never_claims_a_queued_stop_or_return
+                 at ./src/provider_worker/tests/observation.rs:142:49
+      27: lamp_voice::provider_worker::tests::observation::unpolled_real_worker_drop_never_claims_a_queued_stop_or_return::{{closure}}
+                 at ./src/provider_worker/tests/observation.rs:131:74
+      28: core::ops::function::FnOnce::call_once
+                 at /rustc/ac68faa20c58cbccd01ee7208bf3b6e93a7d7f96/library/core/src/ops/function.rs:250:5
+      29: <fn() -> core::result::Result<(), alloc::string::String> as core::ops::function::FnOnce<()>>::call_once
+                 at /rustc/ac68faa20c58cbccd01ee7208bf3b6e93a7d7f96/library/core/src/ops/function.rs:250:5
+    note: Some details are omitted, run with `RUST_BACKTRACE=full` for a verbose backtrace.
+
+────────────
+     Summary [   1.264s] 20 tests run: 19 passed, 1 failed, 1410 skipped
+        FAIL [   0.180s] (20/20) lamp-voice provider_worker::tests::observation::unpolled_real_worker_drop_never_claims_a_queued_stop_or_return
+error: test run failed

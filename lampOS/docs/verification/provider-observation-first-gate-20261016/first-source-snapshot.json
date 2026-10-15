@@ -1,0 +1,31 @@
+{
+  "date": "2026-10-16 06:25:11 +0700",
+  "base": "e7d0f673d0c4bde4a770b19783d6084a8d935ec3",
+  "files": [
+    {
+      "path": "lampOS/crates/voice/src/provider_worker.rs",
+      "sha256": "56b82b75f50026cb9036ed9f88f937e9df218df7702968d0bbf7798106df1e90",
+      "bytes": 389984,
+      "snapshot": "/private/tmp/tests-823-provider-observations-evidence/first-source/lampOS/crates/voice/src/provider_worker.rs"
+    },
+    {
+      "path": "lampOS/crates/voice/src/provider_worker/observation.rs",
+      "sha256": "8a370c2a4b85bd70890d51a34259524cdf5cb236d6a8210f16abb37f6b99ef5e",
+      "bytes": 15905,
+      "snapshot": "/private/tmp/tests-823-provider-observations-evidence/first-source/lampOS/crates/voice/src/provider_worker/observation.rs"
+    },
+    {
+      "path": "lampOS/crates/voice/src/provider_worker/tests/observation.rs",
+      "sha256": "671b70c3d4e528ce5d8c330e34acf5d5897c314b1e34a73223f7607ef090a640",
+      "bytes": 16751,
+      "snapshot": "/private/tmp/tests-823-provider-observations-evidence/first-source/lampOS/crates/voice/src/provider_worker/tests/observation.rs"
+    },
+    {
+      "path": "lampOS/docs/voice-test-fixtures.md",
+      "sha256": "0011049236738f2ebe8ae93fbc3269bfb2ba9952720e0a4397818992500a4dc6",
+      "bytes": 18816,
+      "snapshot": "/private/tmp/tests-823-provider-observations-evidence/first-source/lampOS/docs/voice-test-fixtures.md"
+    }
+  ],
+  "source_tree_edited": false
+}

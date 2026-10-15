@@ -1,0 +1,34 @@
+{
+  "date_from_date": "2026-10-16 06:47:21 +0700",
+  "frozen_inventory_commit": "4596d2cac9e25e31bc2b3509ad565ffde66a5ab1",
+  "frozen_inventory_path": "lampOS/docs/verification/realtime-inventory-20261015/inventory.json",
+  "frozen_inventory_sha256": "72d671f8b22246898f9142c0216c9fbced55e350e46b83ffec787c81496fb1fc",
+  "filter_clauses": 123,
+  "exact_pairs_match_frozen_inventory": true,
+  "by_binary": {
+    "lamp-actions::server": 1,
+    "lamp-health::program": 1,
+    "lamp-memory::health": 7,
+    "lamp-records::records": 1,
+    "lamp-voice": 63,
+    "lamp-voice-eval": 1,
+    "lamp-voice-eval::final_dispatch": 13,
+    "lamp-voice-eval::physical_loopback": 12,
+    "lamp-voice-eval::serve_relay": 6,
+    "lamp-voice-eval::serve_session": 14,
+    "lamp-voice::capture_hold_worker": 4
+  },
+  "membership_verification_run": 38820115320,
+  "membership_verification_head": "8af53fd459795029f6277679ded49bf7826def73",
+  "all_frozen_pairs_present_once_in_observed_5205": true,
+  "new_cases_excluded": true,
+  "syntax_reference": "Installed cargo-nextest nextest help filterset: binary_id/test with = exact match and &/|. No serial native execution has run.",
+  "compiled_native_list_requirement": "Require the actual selected/nonignored native JSON identities to exactly match expected-identities.json before timed execution; source or result-log membership alone is insufficient.",
+  "standalone_serial_target_proven": false,
+  "readme_bash_syntax_passed": true,
+  "jq_selection_extractor_checked_on_actual_compiled_mac_json": {
+    "total": 2266,
+    "selected_nonignored": 2253,
+    "proof": "Matches independently parsed JSON exactly; this checks extraction only, not native selection of the fixed123."
+  }
+}

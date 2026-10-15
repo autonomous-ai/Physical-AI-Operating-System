@@ -1,0 +1,13 @@
+{
+  "name": "workspace-build",
+  "command": [
+    "cargo",
+    "build",
+    "--locked",
+    "--offline",
+    "--workspace"
+  ],
+  "cwd": "/private/tmp/lampos-tests-provider-observations/lampOS",
+  "target": "/private/tmp/lampos-tests-capacity/lampOS/target",
+  "started": "2026-10-16 06:45:00 +0700"
+}

@@ -1,0 +1,42 @@
+[
+  {
+    "before": "mod reminder_policy;\n",
+    "after": "mod reminder_policy;\n\n#[cfg(test)]\npub(crate) mod observation;\n",
+    "count": 1
+  },
+  {
+    "before": "async fn serve_with_visual<C: Connect>(\n    mut channels: WorkerChannels,\n    boot: BootId,\n    mut provider: Supervisor<C>,\n    options: Options,\n    mut visual: Option<ContextDelivery>,\n    mut sight: Option<crate::sight::Sight>,\n) -> Result<()> {",
+    "after": "async fn serve_with_visual<C: Connect>(\n    channels: WorkerChannels,\n    boot: BootId,\n    provider: Supervisor<C>,\n    options: Options,\n    visual: Option<ContextDelivery>,\n    sight: Option<crate::sight::Sight>,\n) -> Result<()> {\n    #[cfg(test)]\n    {\n        serve_with_visual_inner(channels, boot, provider, options, visual, sight, None).await\n    }\n    #[cfg(not(test))]\n    {\n        serve_with_visual_inner(channels, boot, provider, options, visual, sight).await\n    }\n}\n\nasync fn serve_with_visual_inner<C: Connect>(\n    mut channels: WorkerChannels,\n    boot: BootId,\n    mut provider: Supervisor<C>,\n    options: Options,\n    mut visual: Option<ContextDelivery>,\n    mut sight: Option<crate::sight::Sight>,\n    #[cfg(test)] observation: Option<observation::IntakeWriter>,\n) -> Result<()> {",
+    "count": 1
+  },
+  {
+    "before": "    let mut intake = ProviderIntake::new(boot, monotonic_us());\n    intake.handoff.tolerate_outage = typed;",
+    "after": "    let mut intake = ProviderIntake::new(boot, monotonic_us());\n    #[cfg(test)]\n    if let Some(observation) = observation {\n        intake.observation.attach(observation, boot);\n    }\n    intake.handoff.tolerate_outage = typed;",
+    "count": 1
+  },
+  {
+    "before": "    skipped_expired: u32,\n}\nimpl ProviderIntake {",
+    "after": "    skipped_expired: u32,\n    #[cfg(test)]\n    observation: observation::IntakeSlot,\n}\nimpl ProviderIntake {",
+    "count": 1
+  },
+  {
+    "before": "            skipped_expired: 0,\n        }\n    }\n\n    fn stop(&mut self) {",
+    "after": "            skipped_expired: 0,\n            #[cfg(test)]\n            observation: observation::IntakeSlot::default(),\n        }\n    }\n\n    fn stop(&mut self) {",
+    "count": 1
+  },
+  {
+    "before": "                Control::Stop => {\n                    self.stop();\n                    return Ok(ControlDrain::Stopped);\n                }",
+    "after": "                Control::Stop => {\n                    self.stop();\n                    #[cfg(test)]\n                    self.observation.stop(observation::StopCause::ExplicitStop);\n                    return Ok(ControlDrain::Stopped);\n                }",
+    "count": 1
+  },
+  {
+    "before": "                    {\n                        self.stop();\n                        return Ok(ControlDrain::Stopped);\n                    }\n                    self.saw_allowed",
+    "after": "                    {\n                        self.stop();\n                        #[cfg(test)]\n                        self.observation\n                            .stop(observation::StopCause::AuthorityRevoked);\n                        return Ok(ControlDrain::Stopped);\n                    }\n                    self.saw_allowed",
+    "count": 1
+  },
+  {
+    "before": "mod tests {\n    mod reminders;",
+    "after": "mod tests {\n    mod observation;\n    mod reminders;",
+    "count": 1
+  }
+]

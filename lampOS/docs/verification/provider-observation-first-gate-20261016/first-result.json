@@ -1,0 +1,936 @@
+{
+  "date": "2026-10-16 06:46:35 +0700",
+  "focused_exit": 100,
+  "full_exit": 101,
+  "workspace_build_exit": 0,
+  "suite_summaries": [
+    {
+      "status": "ok",
+      "passed": 77,
+      "failed": 0,
+      "ignored": 1,
+      "measured": 0,
+      "filtered_out": 0,
+      "seconds": 24.16
+    },
+    {
+      "status": "ok",
+      "passed": 6,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered_out": 0,
+      "seconds": 0.01
+    },
+    {
+      "status": "ok",
+      "passed": 8,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered_out": 0,
+      "seconds": 0.0
+    },
+    {
+      "status": "ok",
+      "passed": 6,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered_out": 0,
+      "seconds": 2.75
+    },
+    {
+      "status": "ok",
+      "passed": 31,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered_out": 0,
+      "seconds": 69.03
+    },
+    {
+      "status": "ok",
+      "passed": 0,
+      "failed": 0,
+      "ignored": 1,
+      "measured": 0,
+      "filtered_out": 0,
+      "seconds": 0.0
+    },
+    {
+      "status": "ok",
+      "passed": 12,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered_out": 0,
+      "seconds": 0.05
+    },
+    {
+      "status": "ok",
+      "passed": 7,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered_out": 0,
+      "seconds": 9.72
+    },
+    {
+      "status": "ok",
+      "passed": 23,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered_out": 0,
+      "seconds": 0.16
+    },
+    {
+      "status": "ok",
+      "passed": 0,
+      "failed": 0,
+      "ignored": 1,
+      "measured": 0,
+      "filtered_out": 0,
+      "seconds": 0.0
+    },
+    {
+      "status": "ok",
+      "passed": 10,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered_out": 0,
+      "seconds": 0.89
+    },
+    {
+      "status": "ok",
+      "passed": 3,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered_out": 0,
+      "seconds": 7.66
+    },
+    {
+      "status": "ok",
+      "passed": 0,
+      "failed": 0,
+      "ignored": 1,
+      "measured": 0,
+      "filtered_out": 0,
+      "seconds": 0.0
+    },
+    {
+      "status": "ok",
+      "passed": 8,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered_out": 0,
+      "seconds": 17.01
+    },
+    {
+      "status": "ok",
+      "passed": 10,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered_out": 0,
+      "seconds": 14.94
+    },
+    {
+      "status": "ok",
+      "passed": 4,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered_out": 0,
+      "seconds": 7.87
+    },
+    {
+      "status": "ok",
+      "passed": 0,
+      "failed": 0,
+      "ignored": 1,
+      "measured": 0,
+      "filtered_out": 0,
+      "seconds": 0.0
+    },
+    {
+      "status": "ok",
+      "passed": 2,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered_out": 0,
+      "seconds": 0.02
+    },
+    {
+      "status": "ok",
+      "passed": 0,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered_out": 0,
+      "seconds": 0.0
+    },
+    {
+      "status": "ok",
+      "passed": 9,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered_out": 0,
+      "seconds": 0.44
+    },
+    {
+      "status": "ok",
+      "passed": 4,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered_out": 0,
+      "seconds": 4.23
+    },
+    {
+      "status": "ok",
+      "passed": 7,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered_out": 0,
+      "seconds": 0.21
+    },
+    {
+      "status": "ok",
+      "passed": 10,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered_out": 0,
+      "seconds": 14.91
+    },
+    {
+      "status": "ok",
+      "passed": 6,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered_out": 0,
+      "seconds": 0.17
+    },
+    {
+      "status": "ok",
+      "passed": 22,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered_out": 0,
+      "seconds": 0.0
+    },
+    {
+      "status": "ok",
+      "passed": 11,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered_out": 0,
+      "seconds": 0.02
+    },
+    {
+      "status": "ok",
+      "passed": 23,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered_out": 0,
+      "seconds": 0.35
+    },
+    {
+      "status": "ok",
+      "passed": 31,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered_out": 0,
+      "seconds": 52.1
+    },
+    {
+      "status": "ok",
+      "passed": 21,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered_out": 0,
+      "seconds": 61.9
+    },
+    {
+      "status": "ok",
+      "passed": 10,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered_out": 0,
+      "seconds": 0.06
+    },
+    {
+      "status": "ok",
+      "passed": 16,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered_out": 0,
+      "seconds": 48.26
+    },
+    {
+      "status": "ok",
+      "passed": 15,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered_out": 0,
+      "seconds": 3.14
+    },
+    {
+      "status": "ok",
+      "passed": 17,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered_out": 0,
+      "seconds": 0.0
+    },
+    {
+      "status": "ok",
+      "passed": 1,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered_out": 0,
+      "seconds": 0.0
+    },
+    {
+      "status": "ok",
+      "passed": 30,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered_out": 0,
+      "seconds": 0.35
+    },
+    {
+      "status": "ok",
+      "passed": 25,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered_out": 0,
+      "seconds": 27.52
+    },
+    {
+      "status": "FAILED",
+      "passed": 1217,
+      "failed": 2,
+      "ignored": 8,
+      "measured": 0,
+      "filtered_out": 0,
+      "seconds": 520.62
+    },
+    {
+      "status": "ok",
+      "passed": 0,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered_out": 0,
+      "seconds": 0.0
+    },
+    {
+      "status": "ok",
+      "passed": 21,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered_out": 0,
+      "seconds": 0.01
+    },
+    {
+      "status": "ok",
+      "passed": 4,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered_out": 0,
+      "seconds": 0.01
+    },
+    {
+      "status": "ok",
+      "passed": 33,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered_out": 0,
+      "seconds": 0.02
+    },
+    {
+      "status": "ok",
+      "passed": 0,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered_out": 0,
+      "seconds": 0.0
+    },
+    {
+      "status": "ok",
+      "passed": 10,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered_out": 0,
+      "seconds": 0.0
+    },
+    {
+      "status": "ok",
+      "passed": 18,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered_out": 0,
+      "seconds": 3.53
+    },
+    {
+      "status": "ok",
+      "passed": 4,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered_out": 0,
+      "seconds": 0.0
+    },
+    {
+      "status": "ok",
+      "passed": 23,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered_out": 0,
+      "seconds": 1.2
+    },
+    {
+      "status": "ok",
+      "passed": 3,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered_out": 0,
+      "seconds": 0.07
+    },
+    {
+      "status": "ok",
+      "passed": 1,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered_out": 0,
+      "seconds": 3.74
+    },
+    {
+      "status": "ok",
+      "passed": 27,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered_out": 0,
+      "seconds": 1.52
+    },
+    {
+      "status": "ok",
+      "passed": 4,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered_out": 0,
+      "seconds": 0.0
+    },
+    {
+      "status": "ok",
+      "passed": 1,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered_out": 0,
+      "seconds": 0.04
+    },
+    {
+      "status": "ok",
+      "passed": 9,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered_out": 0,
+      "seconds": 7.6
+    },
+    {
+      "status": "ok",
+      "passed": 7,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered_out": 0,
+      "seconds": 0.03
+    },
+    {
+      "status": "ok",
+      "passed": 6,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered_out": 0,
+      "seconds": 0.02
+    },
+    {
+      "status": "ok",
+      "passed": 8,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered_out": 0,
+      "seconds": 0.03
+    },
+    {
+      "status": "ok",
+      "passed": 5,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered_out": 0,
+      "seconds": 0.0
+    },
+    {
+      "status": "ok",
+      "passed": 17,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered_out": 0,
+      "seconds": 0.79
+    },
+    {
+      "status": "ok",
+      "passed": 2,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered_out": 0,
+      "seconds": 0.0
+    },
+    {
+      "status": "ok",
+      "passed": 175,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered_out": 0,
+      "seconds": 8.39
+    },
+    {
+      "status": "ok",
+      "passed": 0,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered_out": 0,
+      "seconds": 0.0
+    },
+    {
+      "status": "ok",
+      "passed": 5,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered_out": 0,
+      "seconds": 0.52
+    },
+    {
+      "status": "ok",
+      "passed": 14,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered_out": 0,
+      "seconds": 0.74
+    },
+    {
+      "status": "ok",
+      "passed": 2,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered_out": 0,
+      "seconds": 0.56
+    },
+    {
+      "status": "ok",
+      "passed": 11,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered_out": 0,
+      "seconds": 0.65
+    },
+    {
+      "status": "ok",
+      "passed": 2,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered_out": 0,
+      "seconds": 0.02
+    },
+    {
+      "status": "ok",
+      "passed": 3,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered_out": 0,
+      "seconds": 0.2
+    },
+    {
+      "status": "ok",
+      "passed": 14,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered_out": 0,
+      "seconds": 1.72
+    },
+    {
+      "status": "ok",
+      "passed": 23,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered_out": 0,
+      "seconds": 9.69
+    },
+    {
+      "status": "ok",
+      "passed": 13,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered_out": 0,
+      "seconds": 9.77
+    },
+    {
+      "status": "ok",
+      "passed": 2,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered_out": 0,
+      "seconds": 0.17
+    },
+    {
+      "status": "ok",
+      "passed": 12,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered_out": 0,
+      "seconds": 27.89
+    },
+    {
+      "status": "ok",
+      "passed": 10,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered_out": 0,
+      "seconds": 2.05
+    },
+    {
+      "status": "ok",
+      "passed": 7,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered_out": 0,
+      "seconds": 0.46
+    },
+    {
+      "status": "ok",
+      "passed": 19,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered_out": 0,
+      "seconds": 2.36
+    },
+    {
+      "status": "ok",
+      "passed": 10,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered_out": 0,
+      "seconds": 0.64
+    },
+    {
+      "status": "ok",
+      "passed": 2,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered_out": 0,
+      "seconds": 0.07
+    },
+    {
+      "status": "ok",
+      "passed": 7,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered_out": 0,
+      "seconds": 0.47
+    },
+    {
+      "status": "ok",
+      "passed": 14,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered_out": 0,
+      "seconds": 1.5
+    },
+    {
+      "status": "ok",
+      "passed": 6,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered_out": 0,
+      "seconds": 5.04
+    },
+    {
+      "status": "ok",
+      "passed": 6,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered_out": 0,
+      "seconds": 31.29
+    },
+    {
+      "status": "ok",
+      "passed": 14,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered_out": 0,
+      "seconds": 392.55
+    },
+    {
+      "status": "ok",
+      "passed": 6,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered_out": 0,
+      "seconds": 1.51
+    },
+    {
+      "status": "ok",
+      "passed": 0,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered_out": 0,
+      "seconds": 0.0
+    },
+    {
+      "status": "ok",
+      "passed": 0,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered_out": 0,
+      "seconds": 0.0
+    },
+    {
+      "status": "ok",
+      "passed": 0,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered_out": 0,
+      "seconds": 0.0
+    },
+    {
+      "status": "ok",
+      "passed": 0,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered_out": 0,
+      "seconds": 0.0
+    }
+  ],
+  "totals": {
+    "passed": 2262,
+    "failed": 2,
+    "ignored": 13,
+    "measured": 0,
+    "filtered_out": 0
+  },
+  "failed_test_lines": [
+    "coordinator::tests::reminder_roundtrip::actual_consumer_ipc_coordinator_and_two_retirements_ack_only_after_whole_completion",
+    "provider_worker::tests::observation::unpolled_real_worker_drop_never_claims_a_queued_stop_or_return"
+  ],
+  "source_unchanged": true,
+  "compiled_identities_preserved": true,
+  "new_cases": 20,
+  "gates": [
+    {
+      "name": "fmt",
+      "command": [
+        "cargo",
+        "fmt",
+        "--all",
+        "--",
+        "--check"
+      ],
+      "cwd": "/private/tmp/lampos-tests-provider-observations/lampOS",
+      "target": "/private/tmp/lampos-tests-capacity/lampOS/target",
+      "started": "2026-10-16 06:14:51 +0700",
+      "finished": "2026-10-16 06:14:57 +0700",
+      "exit_code": 0,
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "clippy",
+      "command": [
+        "cargo",
+        "clippy",
+        "--locked",
+        "--offline",
+        "-p",
+        "lamp-voice",
+        "-p",
+        "lamp-memory",
+        "-p",
+        "lamp-voice-eval",
+        "-p",
+        "lamp-surround",
+        "--all-targets",
+        "--",
+        "-D",
+        "warnings"
+      ],
+      "cwd": "/private/tmp/lampos-tests-provider-observations/lampOS",
+      "target": "/private/tmp/lampos-tests-capacity/lampOS/target",
+      "started": "2026-10-16 06:14:57 +0700",
+      "finished": "2026-10-16 06:15:59 +0700",
+      "exit_code": 0,
+      "log_sha256": "3244cce070dcf577a0507eb35c3da75139a8f9526bdd46fda3482875bd389f8b"
+    },
+    {
+      "name": "list",
+      "command": [
+        "cargo",
+        "nextest",
+        "list",
+        "--locked",
+        "--offline",
+        "-p",
+        "lamp-voice",
+        "-p",
+        "lamp-memory",
+        "-p",
+        "lamp-voice-eval",
+        "-p",
+        "lamp-surround",
+        "--message-format",
+        "json"
+      ],
+      "cwd": "/private/tmp/lampos-tests-provider-observations/lampOS",
+      "target": "/private/tmp/lampos-tests-capacity/lampOS/target",
+      "started": "2026-10-16 06:15:59 +0700",
+      "finished": "2026-10-16 06:19:45 +0700",
+      "exit_code": 0,
+      "log_sha256": "593aa51049463afc6d5d4d77a1ab0d42624a420748bf83b1d4152b6ba304bb71"
+    },
+    {
+      "name": "focused",
+      "command": [
+        "cargo",
+        "nextest",
+        "run",
+        "--locked",
+        "--offline",
+        "-p",
+        "lamp-voice",
+        "--profile",
+        "default",
+        "--test-threads",
+        "1",
+        "--no-fail-fast",
+        "--retries",
+        "0",
+        "-E",
+        "test(/^provider_worker::observation::tests::/) | test(/^provider_worker::tests::observation::/)"
+      ],
+      "cwd": "/private/tmp/lampos-tests-provider-observations/lampOS",
+      "target": "/private/tmp/lampos-tests-capacity/lampOS/target",
+      "started": "2026-10-16 06:19:45 +0700",
+      "finished": "2026-10-16 06:21:21 +0700",
+      "exit_code": 100,
+      "log_sha256": "7563a7072c87af09d4e56a573ef0ef0c8ebda2f1e988c9b8d483cce6ea320f79"
+    },
+    {
+      "name": "tests",
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "--offline",
+        "-p",
+        "lamp-voice",
+        "-p",
+        "lamp-memory",
+        "-p",
+        "lamp-voice-eval",
+        "-p",
+        "lamp-surround",
+        "--no-fail-fast",
+        "--",
+        "--test-threads=1"
+      ],
+      "cwd": "/private/tmp/lampos-tests-provider-observations/lampOS",
+      "target": "/private/tmp/lampos-tests-capacity/lampOS/target",
+      "started": "2026-10-16 06:21:21 +0700",
+      "finished": "2026-10-16 06:45:00 +0700",
+      "exit_code": 101,
+      "log_sha256": "f5763e86d785165cd96c9c5d0a697d40d7b8885e3f5cb38a1abff24ba16ff66c"
+    },
+    {
+      "name": "workspace-build",
+      "command": [
+        "cargo",
+        "build",
+        "--locked",
+        "--offline",
+        "--workspace"
+      ],
+      "cwd": "/private/tmp/lampos-tests-provider-observations/lampOS",
+      "target": "/private/tmp/lampos-tests-capacity/lampOS/target",
+      "started": "2026-10-16 06:45:00 +0700",
+      "finished": "2026-10-16 06:46:35 +0700",
+      "exit_code": 0,
+      "log_sha256": "4dd3d25ee1202ed2ab404a9a5ab7285e807591658348865cf9667351dbffb43d"
+    }
+  ]
+}

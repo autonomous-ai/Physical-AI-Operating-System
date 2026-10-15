@@ -1,0 +1,304 @@
+{
+  "date_from_date": "2026-10-16 06:51:04 +0700",
+  "raw_copies": [
+    {
+      "source": "/private/tmp/tests-823-provider-observations-evidence/before-source-proof.json",
+      "path": "before-source-proof.json",
+      "sha256": "63b9fb3f2ab5c15f696e6c981d260f9b5eb05287af3636b12acc93b30761edc5"
+    },
+    {
+      "source": "/private/tmp/tests-823-provider-observations-evidence/first-baseline-package-counts.json",
+      "path": "first-baseline-package-counts.json",
+      "sha256": "625d98ed3532ebd18a32cc57c1fd3025e142e7c8514936742cbdd44034bc8e1a"
+    },
+    {
+      "source": "/private/tmp/tests-823-provider-observations-evidence/first-clippy.command.json",
+      "path": "first-clippy.command.json",
+      "sha256": "51b5988db529255a5f956bd3929edd5c0b93106d387f95e3b0761fe5895386dc"
+    },
+    {
+      "source": "/private/tmp/tests-823-provider-observations-evidence/first-clippy.exit",
+      "path": "first-clippy.exit",
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    {
+      "source": "/private/tmp/tests-823-provider-observations-evidence/first-clippy.finished",
+      "path": "first-clippy.finished",
+      "sha256": "c1a9df07a2ee077970547d5e1c89fc95e42ca3ad339a303b6cf8ffef7c8b761a"
+    },
+    {
+      "source": "/private/tmp/tests-823-provider-observations-evidence/first-clippy.log",
+      "path": "first-clippy.log",
+      "sha256": "3244cce070dcf577a0507eb35c3da75139a8f9526bdd46fda3482875bd389f8b"
+    },
+    {
+      "source": "/private/tmp/tests-823-provider-observations-evidence/first-clippy.started",
+      "path": "first-clippy.started",
+      "sha256": "4fef423ad29db75c8ad7939e95e03f6e82f2cc9b6b64d5845e52ef279c8da133"
+    },
+    {
+      "source": "/private/tmp/tests-823-provider-observations-evidence/first-close-error-source-evidence.json",
+      "path": "first-close-error-source-evidence.json",
+      "sha256": "3021daf77a1c9cec81846c2f6fa2ead389b94506091c68a82a88cddf33761c40"
+    },
+    {
+      "source": "/private/tmp/tests-823-provider-observations-evidence/first-compiled-list-comparison.json",
+      "path": "first-compiled-list-comparison.json",
+      "sha256": "66216f3d5fc067f2770e2ae2553a2acb1e2eaa3d0f4bc73fb9e4e30ed6fbb421"
+    },
+    {
+      "source": "/private/tmp/tests-823-provider-observations-evidence/first-compiled-package-counts.json",
+      "path": "first-compiled-package-counts.json",
+      "sha256": "c51e2cbd8bfaf11fd0a1905d087a6887556777e4a88734d0968d0ed9775847e0"
+    },
+    {
+      "source": "/private/tmp/tests-823-provider-observations-evidence/first-completed.json",
+      "path": "first-completed.json",
+      "sha256": "a1b28e12893b2b9e5e2bcc3d65f1c941ff9982ac6690643a05faaca373ce6a78"
+    },
+    {
+      "source": "/private/tmp/tests-823-provider-observations-evidence/first-fmt.command.json",
+      "path": "first-fmt.command.json",
+      "sha256": "3c26209bb09929855d5141d2e17e76a3333ca8e7410dbb251d58cc2ad053f2e8"
+    },
+    {
+      "source": "/private/tmp/tests-823-provider-observations-evidence/first-fmt.exit",
+      "path": "first-fmt.exit",
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    {
+      "source": "/private/tmp/tests-823-provider-observations-evidence/first-fmt.finished",
+      "path": "first-fmt.finished",
+      "sha256": "4fef423ad29db75c8ad7939e95e03f6e82f2cc9b6b64d5845e52ef279c8da133"
+    },
+    {
+      "source": "/private/tmp/tests-823-provider-observations-evidence/first-fmt.log",
+      "path": "first-fmt.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "/private/tmp/tests-823-provider-observations-evidence/first-fmt.started",
+      "path": "first-fmt.started",
+      "sha256": "a9599b2a76a087b82e570113801ca7debc1df2062d06b2efeb197df5ef7c691e"
+    },
+    {
+      "source": "/private/tmp/tests-823-provider-observations-evidence/first-focused-triage.json",
+      "path": "first-focused-triage.json",
+      "sha256": "19fe9d47a96fe54f5baf6930288c1d529a7b3ab7cdf8a11a941a26bcdfa1caaa"
+    },
+    {
+      "source": "/private/tmp/tests-823-provider-observations-evidence/first-focused.command.json",
+      "path": "first-focused.command.json",
+      "sha256": "b26f32b58c4eff9b034878fdf60d9320ff992a0875f06f795107f08e5614ab2a"
+    },
+    {
+      "source": "/private/tmp/tests-823-provider-observations-evidence/first-focused.exit",
+      "path": "first-focused.exit",
+      "sha256": "eea8254c7500ba3de996aa8ad6af399183f04e17d4a8102fde539dbc93a90012"
+    },
+    {
+      "source": "/private/tmp/tests-823-provider-observations-evidence/first-focused.finished",
+      "path": "first-focused.finished",
+      "sha256": "693629a1bddeee8dd115b404639e2ce3138c9d9c403fbfb0bef765e7906715bd"
+    },
+    {
+      "source": "/private/tmp/tests-823-provider-observations-evidence/first-focused.log",
+      "path": "first-focused.log",
+      "sha256": "7563a7072c87af09d4e56a573ef0ef0c8ebda2f1e988c9b8d483cce6ea320f79"
+    },
+    {
+      "source": "/private/tmp/tests-823-provider-observations-evidence/first-focused.started",
+      "path": "first-focused.started",
+      "sha256": "84fa73945ccb1a3a57c8880b1d14ebe3288e0fbcb971d534ed9f24fe222d05a6"
+    },
+    {
+      "source": "/private/tmp/tests-823-provider-observations-evidence/first-gate-evidence-manifest.json",
+      "path": "first-gate-evidence-manifest.json",
+      "sha256": "2bce71048cf1ef0ff5b419d10d3e4b0d2934824e59bcebd8fe14a7d973d5346f"
+    },
+    {
+      "source": "/private/tmp/tests-823-provider-observations-evidence/first-gate-handoff.md",
+      "path": "first-gate-handoff.md",
+      "sha256": "d3a773043e4d7bd7e08f9a8791269753250badc8c305649b14600702b38432de"
+    },
+    {
+      "source": "/private/tmp/tests-823-provider-observations-evidence/first-gates.json",
+      "path": "first-gates.json",
+      "sha256": "5c946c6d9ea5de41ff46f96a38addfb97608cb0e5a6c054bb0fc11b5d66ef93c"
+    },
+    {
+      "source": "/private/tmp/tests-823-provider-observations-evidence/first-list.command.json",
+      "path": "first-list.command.json",
+      "sha256": "e7bbedeea37dd948a160759b77025b4bf8c49d892a8b94cdc2ae8e996a2d19ad"
+    },
+    {
+      "source": "/private/tmp/tests-823-provider-observations-evidence/first-list.exit",
+      "path": "first-list.exit",
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    {
+      "source": "/private/tmp/tests-823-provider-observations-evidence/first-list.finished",
+      "path": "first-list.finished",
+      "sha256": "84fa73945ccb1a3a57c8880b1d14ebe3288e0fbcb971d534ed9f24fe222d05a6"
+    },
+    {
+      "source": "/private/tmp/tests-823-provider-observations-evidence/first-list.log",
+      "path": "first-list.log",
+      "sha256": "593aa51049463afc6d5d4d77a1ab0d42624a420748bf83b1d4152b6ba304bb71"
+    },
+    {
+      "source": "/private/tmp/tests-823-provider-observations-evidence/first-list.started",
+      "path": "first-list.started",
+      "sha256": "c1a9df07a2ee077970547d5e1c89fc95e42ca3ad339a303b6cf8ffef7c8b761a"
+    },
+    {
+      "source": "/private/tmp/tests-823-provider-observations-evidence/first-reminder-failure.txt",
+      "path": "first-reminder-failure.txt",
+      "sha256": "3f3ba8d28a457b1042536c297fb63bff01ada90abe26f30b5090feb221aa0f1f"
+    },
+    {
+      "source": "/private/tmp/tests-823-provider-observations-evidence/first-reminder-triage.json",
+      "path": "first-reminder-triage.json",
+      "sha256": "122b1683a5841e7090edc38dc57b8594c3b6d32aceeffded0c2f560116e1392a"
+    },
+    {
+      "source": "/private/tmp/tests-823-provider-observations-evidence/first-result.json",
+      "path": "first-result.json",
+      "sha256": "b71fe68a3920304fa7519460af78f849b8a96343adb7a4c15cc25cc73419af33"
+    },
+    {
+      "source": "/private/tmp/tests-823-provider-observations-evidence/first-source-snapshot.json",
+      "path": "first-source-snapshot.json",
+      "sha256": "b369963d23c4123c0001159093fb0465fbf0cfca6b667d612f608f37a2387ef7"
+    },
+    {
+      "source": "/private/tmp/tests-823-provider-observations-evidence/first-source/lampOS/crates/voice/src/provider_worker.rs",
+      "path": "first-source/lampOS/crates/voice/src/provider_worker.rs",
+      "sha256": "56b82b75f50026cb9036ed9f88f937e9df218df7702968d0bbf7798106df1e90"
+    },
+    {
+      "source": "/private/tmp/tests-823-provider-observations-evidence/first-source/lampOS/crates/voice/src/provider_worker/observation.rs",
+      "path": "first-source/lampOS/crates/voice/src/provider_worker/observation.rs",
+      "sha256": "8a370c2a4b85bd70890d51a34259524cdf5cb236d6a8210f16abb37f6b99ef5e"
+    },
+    {
+      "source": "/private/tmp/tests-823-provider-observations-evidence/first-source/lampOS/crates/voice/src/provider_worker/tests/observation.rs",
+      "path": "first-source/lampOS/crates/voice/src/provider_worker/tests/observation.rs",
+      "sha256": "671b70c3d4e528ce5d8c330e34acf5d5897c314b1e34a73223f7607ef090a640"
+    },
+    {
+      "source": "/private/tmp/tests-823-provider-observations-evidence/first-source/lampOS/docs/voice-test-fixtures.md",
+      "path": "first-source/lampOS/docs/voice-test-fixtures.md",
+      "sha256": "0011049236738f2ebe8ae93fbc3269bfb2ba9952720e0a4397818992500a4dc6"
+    },
+    {
+      "source": "/private/tmp/tests-823-provider-observations-evidence/first-tests.command.json",
+      "path": "first-tests.command.json",
+      "sha256": "2ac92ab8c3fa1abb09736559b9e5261804cf1a5f62a8519c882321bdb1f3dd1e"
+    },
+    {
+      "source": "/private/tmp/tests-823-provider-observations-evidence/first-tests.exit",
+      "path": "first-tests.exit",
+      "sha256": "39b8dc3fc8b44765c8e6f1adee04c5b465e555ab791cc42d0d9e810d5b64297c"
+    },
+    {
+      "source": "/private/tmp/tests-823-provider-observations-evidence/first-tests.finished",
+      "path": "first-tests.finished",
+      "sha256": "1bfa815b60b25d440121c4ef11f73528ae590c5e6fef90c2670e01b7d68c5089"
+    },
+    {
+      "source": "/private/tmp/tests-823-provider-observations-evidence/first-tests.log",
+      "path": "first-tests.log",
+      "sha256": "f5763e86d785165cd96c9c5d0a697d40d7b8885e3f5cb38a1abff24ba16ff66c"
+    },
+    {
+      "source": "/private/tmp/tests-823-provider-observations-evidence/first-tests.started",
+      "path": "first-tests.started",
+      "sha256": "693629a1bddeee8dd115b404639e2ce3138c9d9c403fbfb0bef765e7906715bd"
+    },
+    {
+      "source": "/private/tmp/tests-823-provider-observations-evidence/first-workspace-build.command.json",
+      "path": "first-workspace-build.command.json",
+      "sha256": "8e2bcfcb3fe72145b2b48571a742b36421abcd73afb510810f705d4e74634204"
+    },
+    {
+      "source": "/private/tmp/tests-823-provider-observations-evidence/first-workspace-build.exit",
+      "path": "first-workspace-build.exit",
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    {
+      "source": "/private/tmp/tests-823-provider-observations-evidence/first-workspace-build.finished",
+      "path": "first-workspace-build.finished",
+      "sha256": "f8d9e5a93fb086365cb73b8e5a01f6cf14db65f622c5c3f06389640bb345edf7"
+    },
+    {
+      "source": "/private/tmp/tests-823-provider-observations-evidence/first-workspace-build.log",
+      "path": "first-workspace-build.log",
+      "sha256": "4dd3d25ee1202ed2ab404a9a5ab7285e807591658348865cf9667351dbffb43d"
+    },
+    {
+      "source": "/private/tmp/tests-823-provider-observations-evidence/first-workspace-build.started",
+      "path": "first-workspace-build.started",
+      "sha256": "1bfa815b60b25d440121c4ef11f73528ae590c5e6fef90c2670e01b7d68c5089"
+    },
+    {
+      "source": "/private/tmp/tests-823-provider-observations-evidence/handoff-inventory-addendum.md",
+      "path": "handoff-inventory-addendum.md",
+      "sha256": "a5f420e648da809cf15c664217425b14e96f62aa76c972a5572ba0d7622a295a"
+    },
+    {
+      "source": "/private/tmp/tests-823-provider-observations-evidence/inline-inventory-correction.json",
+      "path": "inline-inventory-correction.json",
+      "sha256": "989b5bd9ae701377fc26b97eea50f570e193e8dc824b9dce4087fa5158ef3cf7"
+    },
+    {
+      "source": "/private/tmp/tests-823-provider-observations-evidence/proposed-unpolled-close-only.diff",
+      "path": "proposed-unpolled-close-only.diff",
+      "sha256": "e23bb033b990c80af1fe2d8baf1e97d9469c2fd7dd8f83ca429034fe42d12015"
+    },
+    {
+      "source": "/private/tmp/tests-823-provider-observations-evidence/proposed-unpolled-close-only.json",
+      "path": "proposed-unpolled-close-only.json",
+      "sha256": "e0f2db13a554ad077909b6711c6240e661124ba98ecc709576d8bdc104aa2c5e"
+    },
+    {
+      "source": "/private/tmp/tests-823-provider-observations-evidence/source-proof.json",
+      "path": "source-proof.json",
+      "sha256": "dff02827acede2493e7bd9c3765c50983c83fe170545b5c60608cebdd030c46c"
+    },
+    {
+      "source": "/private/tmp/tests-823-provider-observations-evidence/worker-reversal-edits.json",
+      "path": "worker-reversal-edits.json",
+      "sha256": "ab46851992f593e7da936e8c657f21549bb34ca9995d78f690c51b66c1af42e8"
+    },
+    {
+      "source": "/private/tmp/tests-823-provider-observations-evidence/gate-baseline-provider-affected.log",
+      "path": "gate-baseline-provider-affected.log",
+      "sha256": "37d9d356c5a879cb4cf4c2383112e98f2b8d569e065ea059793c101b4519f8f6"
+    },
+    {
+      "source": "/private/tmp/tests-823-provider-observations-evidence/gate-baseline-source.json",
+      "path": "gate-baseline-source.json",
+      "sha256": "9965c89d0c7aa39a103dc9a6bad7bae03dc3a12ab7087fc1712658789140e09f"
+    },
+    {
+      "source": "/private/tmp/tests-823-provider-observations-evidence/gate-baseline-gates.json",
+      "path": "gate-baseline-gates.json",
+      "sha256": "c230aae333efdcc006af0dc89c500f2c1264df867016892a9b5ef450a0fe4c50"
+    },
+    {
+      "source": "/private/tmp/tests-823-provider-observations-evidence/gate-baseline-completed.json",
+      "path": "gate-baseline-completed.json",
+      "sha256": "4a75a4117a0f0293b8f8b01906ac901bbf533c2cfd440e509e51d859fd2de77a"
+    }
+  ],
+  "source_base": "e7d0f673d0c4bde4a770b19783d6084a8d935ec3",
+  "original_reminder_source": "lampOS/crates/voice/src/coordinator/tests/reminder_roundtrip.rs",
+  "original_reminder_sha256": "f2259a3446933ba7193c95829e6ab092881b828be9d458c79cf6e3b1463bb684",
+  "root_compiled_before_after_verification": {
+    "before": 2257,
+    "after": 2277,
+    "added": 20,
+    "all_old_ignored_flags_exact": true
+  }
+}

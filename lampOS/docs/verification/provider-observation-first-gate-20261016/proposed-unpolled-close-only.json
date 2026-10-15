@@ -1,0 +1,23 @@
+{
+  "date": "2026-10-16 06:47:11 +0700",
+  "source_tree_modified": false,
+  "corrected_gate_started": false,
+  "original_path": "lampOS/crates/voice/src/provider_worker/tests/observation.rs",
+  "original_sha256": "671b70c3d4e528ce5d8c330e34acf5d5897c314b1e34a73223f7607ef090a640",
+  "proposed_source": "/private/tmp/tests-823-provider-observations-evidence/proposed-source/lampOS/crates/voice/src/provider_worker/tests/observation.rs",
+  "proposed_sha256": "25e230b6ccec6a5273f65a6d37f97f6efbbb4cada473c6b7bf0a3d742fbbc3f8",
+  "diff": "/private/tmp/tests-823-provider-observations-evidence/proposed-unpolled-close-only.diff",
+  "diff_sha256": "e23bb033b990c80af1fe2d8baf1e97d9469c2fd7dd8f83ca429034fe42d12015",
+  "functions_unchanged": true,
+  "changed_function": "unpolled_real_worker_drop_never_claims_a_queued_stop_or_return",
+  "preserved_checks": [
+    "DroppedBeforePoll state",
+    "stop cause None",
+    "actual attempt-future Drop receipt awaited under the same original deadline"
+  ],
+  "new_receive_checks": [
+    "Before future Drop: receive must return Ok(None); every event or error fails.",
+    "After future Drop: only Ok(None) or ErrorKind::ConnectionReset is accepted; every event and every other error fails."
+  ],
+  "scope": "Only the one newly added test body; all original tests and all worker/observer/docs source untouched."
+}

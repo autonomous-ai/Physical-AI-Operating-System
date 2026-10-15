@@ -1,5 +1,15 @@
 # Tests work log
 
+## 2026-10-16 06:51:04 +0700 — fixed serial measurement request; original reminder failure retained
+
+Ready for lamp-voice: no (new Provider preparation); #909, #924, #925 and #927 remain ready
+
+- [Fixed original-123 serial measurement package](verification/original 123-serial-request-20261016/README.md) gives DevOps the exact 123 binary/test selectors, expected compiled identity list and single-run command: release, one thread, zero retries, no partition. It is checked against the frozen inventory and complete observed native membership; Bash syntax and the JSON extractor pass. Actual native selected-list comparison and standalone elapsed time remain unmeasured. Workflow/runner ownership remains with DevOps on #788.
+- [Provider first-gate evidence](verification/provider-observation-first-gate-20261016/README.md) retains focused **19/1** and full **2262/2/13**. The new unpolled-Drop test's Mac ConnectionReset assumption is corrected only in that new test, with a fresh changed-source gate underway. The original coordinator reminder AckConfirmed case also failed; pending was false and one Ack request was observed, while actual resolution is unprinted. It is outside original 123 and differs from the accepted consumer reminder case on #739. Its exact failure gets a separate owner report; no cause or fix is claimed from unchanged code or other native passes.
+- Silent-service's same-command single pair is **4.097 → 0.337 s** on the shared Mac, with five assertions and both modes unchanged. All **2,266** compiled identities/13 ignores remain; fmt and strict affected Clippy pass; the complete serial gate continues. This is not native or combined 123 proof.
+
+Records' first full failure remains retained; only its unexecuted dependency-download-failed shard is being restarted. Eighth's #783 qualification and #914 product race remain with their owners. The original 123 standalone serial under-two-minute target remains unproved.
+
 ## 2026-10-16 06:42:41 +0700 — Serve ready; Records full run loses an unexecuted shard
 
 Ready for lamp-voice: yes (#909, #924, #925 and #927); no (#931)

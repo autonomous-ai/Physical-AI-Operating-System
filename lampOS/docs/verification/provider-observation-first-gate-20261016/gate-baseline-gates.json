@@ -1,0 +1,46 @@
+[
+  {
+    "name": "provider-affected",
+    "command": [
+      "cargo",
+      "nextest",
+      "list",
+      "--locked",
+      "--offline",
+      "-p",
+      "lamp-voice",
+      "-p",
+      "lamp-memory",
+      "-p",
+      "lamp-voice-eval",
+      "-p",
+      "lamp-surround",
+      "--message-format",
+      "json"
+    ],
+    "cwd": "/private/tmp/lampos-tests-serve-release/lampOS",
+    "target": "/private/tmp/tests-823-rebase-target",
+    "start": "2026-10-16 05:56:51 +0700",
+    "finish": "2026-10-16 06:01:01 +0700",
+    "exit_code": 0
+  },
+  {
+    "name": "serve-evaluator",
+    "command": [
+      "cargo",
+      "nextest",
+      "list",
+      "--locked",
+      "--offline",
+      "-p",
+      "lamp-voice-eval",
+      "--message-format",
+      "json"
+    ],
+    "cwd": "/private/tmp/lampos-tests-serve-release/lampOS",
+    "target": "/private/tmp/tests-823-rebase-target",
+    "start": "2026-10-16 06:01:01 +0700",
+    "finish": "2026-10-16 06:02:39 +0700",
+    "exit_code": 0
+  }
+]

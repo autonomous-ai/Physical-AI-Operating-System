@@ -1,0 +1,20 @@
+--- a/lampOS/crates/voice/src/provider_worker/tests/observation.rs
++++ b/lampOS/crates/voice/src/provider_worker/tests/observation.rs
+@@ -134,11 +134,16 @@
+     let (provider, attempt_gone) = held_provider();
+     let (future, probe) = observed::coordinated(worker, boot(), provider);
+     parent.control.send(Control::Stop).unwrap();
++    assert!(parent.control.receive::<WorkerEvent>().unwrap().is_none());
+     drop(future);
+     let state = probe.snapshot().unwrap();
+     assert_eq!(state.body, BodyState::DroppedBeforePoll);
+     assert_eq!(state.stop, None);
+-    assert!(parent.control.receive::<WorkerEvent>().unwrap().is_none());
++    match parent.control.receive::<WorkerEvent>() {
++        Ok(None) => {}
++        Err(error) if error.kind() == std::io::ErrorKind::ConnectionReset => {}
++        result => panic!("unexpected unpolled worker receive result: {result:?}"),
++    }
+     deadline.within(attempt_gone).await.unwrap();
+ }
+ 

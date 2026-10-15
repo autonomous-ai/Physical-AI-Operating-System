@@ -1,0 +1,63 @@
+{
+  "identity": "coordinator::tests::reminder_roundtrip::actual_consumer_ipc_coordinator_and_two_retirements_ack_only_after_whole_completion",
+  "original123_member": false,
+  "observations": [
+    {
+      "pr": 909,
+      "run": 38822580456,
+      "result": {
+        "result": "PASS",
+        "seconds": "0.031",
+        "ordinal": 3721,
+        "total": 5122,
+        "binary": "lamp-voice",
+        "name": "coordinator::tests::reminder_roundtrip::actual_consumer_ipc_coordinator_and_two_retirements_ack_only_after_whole_completion",
+        "line": 4265
+      },
+      "source_results_sha256": "1b920d2e6b12a57cbfd5772dbfa05ff23289093fa31f0776eb21343ca6b926ac"
+    },
+    {
+      "pr": 931,
+      "run": 38822753449,
+      "result": {
+        "result": "PASS",
+        "seconds": "0.047",
+        "ordinal": 3741,
+        "total": 5021,
+        "binary": "lamp-voice",
+        "name": "coordinator::tests::reminder_roundtrip::actual_consumer_ipc_coordinator_and_two_retirements_ack_only_after_whole_completion",
+        "line": 4274
+      },
+      "source_results_sha256": "f69a0fb0b3325cdf78bdc36b7b78b1b86a2406aa1d0e274f56946c974b3d79f2"
+    },
+    {
+      "pr": 925,
+      "run": 38819671092,
+      "result": {
+        "result": "PASS",
+        "seconds": "0.030",
+        "ordinal": 3696,
+        "total": 5000,
+        "binary": "lamp-voice",
+        "name": "coordinator::tests::reminder_roundtrip::actual_consumer_ipc_coordinator_and_two_retirements_ack_only_after_whole_completion",
+        "line": 4235
+      },
+      "source_results_sha256": "8014aecc5e80c8f9ee634bdf129d6e3553ef21f6c59d69a267e665ea9fd18509"
+    },
+    {
+      "pr": 927,
+      "run": 38820672032,
+      "result": {
+        "result": "PASS",
+        "seconds": "0.031",
+        "ordinal": 3716,
+        "total": 5010,
+        "binary": "lamp-voice",
+        "name": "coordinator::tests::reminder_roundtrip::actual_consumer_ipc_coordinator_and_two_retirements_ack_only_after_whole_completion",
+        "line": 4254
+      },
+      "source_results_sha256": "b63df7af66be7f4357741c808e9c2a3e9d18e376f8a8a6bf4310d8dea10fc26b"
+    }
+  ],
+  "limit": "These are separate native runs without this new observation preparation. They establish presence/pass, not the cause of the failed Mac gate or a fix."
+}

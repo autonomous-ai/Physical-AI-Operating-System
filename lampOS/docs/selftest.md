@@ -47,10 +47,11 @@ owner already has.
 | speaker | lamp-voice | a played tone heard by both microphones | needs a tone request in lamp-voice; none exists |
 | servos 1 to 5 | lamp-body | `body/joint_states` fresh for all five joints; a small move through `expression/body` (±0.35 rad at most, lease-held) and back | readback done; the move to be agreed with the fifth builder |
 | ring | lamp-voice | each colour on `light/command`, seen on `light/state`; the person's own setting restored after | to do |
-| camera | lamp-eyes | a permit on `/run/lampos-eyes/permit.sock`, a new `sight.jpg` | to do |
+| camera | lamp-eyes | `humans/faces/tracked` published within 2 s (the eyes publish each look while the camera is open); otherwise the `eyes` item of `lamp/health`: a warning ("does not open", "stopped giving pictures") fails, ok means closed because seeing is not permitted now and is `not_checked`. The self-test never opens the camera itself, so the privacy switch stays authoritative | listens: done |
 | touch pads, button | lamp-controls | `controls/touch_state` ready, no fault, nothing held 10 s or more; a swipe only at the factory | idle done; swipe to do |
 | air | lamp-air | `air/state` fresh (15 s) and in range | done |
-| board | (none) | `board/state` from `lamp-health`: hottest under 85 °C, 3% of the disk free or more; MMC errors since boot from the kernel log (#784) | temperature and disk done; nothing reads the kernel log yet |
+| board | (none) | `board/state` from `lamp-health`: hottest under 85 °C, 3% of the disk free or more | done |
+| storage | (none) | `/dev/kmsg`, read to its end: no SD/MMC re-tune that timed out ("dma hold bit clear timeout", #784) and no I/O error on `mmcblk` since boot, each counted; unreadable (no `CAP_SYSLOG` under `dmesg_restrict`) is `not_checked` | done |
 
 A reading never given is `not_checked` (its owner may not run on this
 lamp); one older than its freshness, or unreadable, is `fail`. Each joint

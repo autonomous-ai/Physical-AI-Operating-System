@@ -896,9 +896,12 @@ identity run it, and `serde_json` reads it.
 - **When.** One `ps` for each machine with such tasks, on the watch's
   schedule: every 30 s while any of that machine's tasks is in its first ten
   minutes, then every two minutes, counted from when that machine was last
-  asked (a failed read waits its turn too); a machine's first read waits
-  until its youngest task was handed over 30 s before. Launches and `show` reads go first: a `ps`
-  takes the one CLI worker only when they have nothing to do.
+  asked (a failed read waits its turn too). A task new to the watch (just
+  handed over, or there when the service starts) makes its machine due at
+  once, so it is on the bus within one read and its first line, where
+  counting begins, is read as early as it can be. Launches and `show` reads
+  go first: a `ps` takes the one CLI worker only when they have nothing to
+  do.
 - **Bounds.** 10 s a read (the read deadline), 256 KiB of standard output
   (four times a `show`'s, since forty agents' lines can come back), 16 KiB of
   standard error, at most 256 harnesses in a reply, a progress line cut to
@@ -909,14 +912,18 @@ identity run it, and `serde_json` reads it.
   The read is never retried.
 - **What is kept.** The latest progress line of each task, in memory only:
   never in the store's files and never on the bus. A restart begins again
-  from the next read, as another run: it keeps the store and the task
-  numbers and counts changes from nothing, so every status says its `run`
-  (when that run began, in milliseconds since 1970), and a change is named
-  by its run and its count together (#765 review, 2026-10-15).
+  from the next read, which is at once for every task in the watch, as
+  another run: it keeps the store and the task numbers and counts changes
+  from nothing, so every status says its `run` (when that run began, in
+  milliseconds since 1970), and a change is named by its run and its count
+  together (#765 review, 2026-10-15).
 - **What is put on the bus.** `tasks/status` (`lamp_msgs/TaskStatus`,
   [msgs.md](msgs.md#the-tasks-contract)), a kept (`latest`) value with no
-  period, published after every read and when a task leaves the watch; its
-  publisher says once a second that it is alive. One message holds every
+  period. It is published at start, with no task, so the kept topic always
+  has a value and a reader can tell "nothing being worked on" from "the
+  tasks part is not there"; after every read; and at once when a task that
+  was on it leaves the watch (settled, or a day old). Its publisher says
+  once a second that it is alive. One message holds every
   task being read, so the one kept value is always all of them:
 
   | Field | What it says |
@@ -964,6 +971,12 @@ identity run it, and `serde_json` reads it.
   "about","run","changes","signs_seen","last_active_unix_ms","read_unix_ms"}}`;
   `not_found` for a task not being read, and `progress_off` without the
   switch. That is the only way the line leaves the tasks part.
+- **The journal.** One line a read, so a minute on the lamp can be judged:
+  `tasks: progress read of <machine> in 412 ms: 2 listed; task 7 working,
+  new line, tests_pass fixed; task 8 needs_input, same line` (`first read`
+  for a task's first), and for a failed read `tasks: progress read of
+  <machine> failed after 10000 ms (timeout); tasks 7, 8 as before`. States
+  and signs only, as the bus spells them; never an agent's line.
 - **Health.** With the switch, the `tasks` diagnostics add `status_reads`,
   `status_failures`, `status_last_ms` and `status_most_ms` (the last and
   the longest read, from handing it to the CLI worker to its outcome) and
@@ -976,8 +989,24 @@ with `progress_off`, which no client sent before. The store's files are
 untouched either way: progress is memory only. Tests:
 `without_progress_nothing_is_listed_the_topic_is_untouched_and_the_report_is_as_before`
 and, with it,
-`with_progress_each_machine_is_listed_on_the_watchs_schedule_and_the_words_stay_here`
+`with_progress_a_value_from_the_start_each_task_read_at_once_then_on_schedule_and_the_words_stay_here`
 (`crates/tasks/tests/runtime.rs`).
+
+**After its first minutes on lamp-4ace** (the first builder on #751,
+2026-10-15 07:52 and 13:50). Seven tasks handed over by voice from 07:22
+to 07:44 each finished within about 70 s, and `lamp-bus latest
+tasks/status` said "keeps no value" every 20 s from 07:45 to 07:51: the
+topic had no value until a first read, and a machine's first read waited
+30 s after the hand-over. At 13:43 a 50 s task did leave a value. Changed
+since, as asked (second builder, `second/progress-reads`): the value at
+start, the read at once for a task new to the watch, a task leaving the
+bus at once when it leaves the watch, not at the next read, and the
+journal line. Tests: `a_task_new_to_the_watch_is_read_at_once_then_on_the_watchs_schedule`,
+`a_value_at_start_and_whenever_a_task_on_the_bus_leaves_the_watch` and
+`each_read_is_one_journal_line_in_typed_words_only`
+(`crates/tasks/src/progress.rs`), and the runtime test above, which now
+reads the start value with `latest`, sees the first read without the
+clock moving, and settles the task to see it leave. Not tried on a lamp.
 
 **For the voice.** Proposed here on 2026-10-15 and agreed by the first
 builder on #752; built as ["The voice's side of progress

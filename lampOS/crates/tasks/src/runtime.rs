@@ -373,7 +373,10 @@ fn owner<C: Clock>(
     let mut status: Option<(u64, Arc<TaskStatus>)> = None;
     let mut status_began = Instant::now();
     while !stop.load(Ordering::Acquire) {
+        // Something that may have changed which tasks are watched.
+        let mut moved = false;
         if let Ok(outcome) = outcomes.try_recv() {
+            moved = true;
             let now = clock.sample()?;
             match outcome {
                 Outcome::Launch(id, result) => engine.finish_launch(id, result, &now),
@@ -382,13 +385,16 @@ fn owner<C: Clock>(
                 Outcome::Status(machine, listed) => {
                     if let Some(tracker) = tracker.as_mut() {
                         let took = status_began.elapsed().as_millis();
-                        tracker.read(
+                        let line = tracker.read(
                             &machine,
                             listed,
                             &engine.watched(&now),
                             unix_ms(),
                             u64::try_from(took).unwrap_or(u64::MAX),
                         );
+                        // One line a read, so a minute on the lamp can be
+                        // judged from the journal.
+                        eprintln!("tasks: {line}");
                     }
                     Ok(())
                 }
@@ -416,6 +422,7 @@ fn owner<C: Clock>(
                     requests = requests.saturating_add(1);
                     let _ = work.response.try_send(answer);
                 } else {
+                    moved = true;
                     let answer = engine.handle(&work.request, &clock.sample()?, work.trusted);
                     requests = requests.saturating_add(1);
                     let _ = work.response.try_send(answer);
@@ -443,8 +450,9 @@ fn owner<C: Clock>(
                     // read only and takes nothing from them.
                     observe.or_else(|| {
                         let tracker = tracker.as_mut()?;
-                        let machine = tracker.due(&engine.watched(&now), now.monotonic_ms)?;
-                        tracker.asked(&machine, now.monotonic_ms);
+                        let watched = engine.watched(&now);
+                        let machine = tracker.due(&watched, now.monotonic_ms)?;
+                        tracker.asked(&machine, &watched, now.monotonic_ms);
                         status_began = Instant::now();
                         Some(Job::Status(machine))
                     })
@@ -458,6 +466,11 @@ fn owner<C: Clock>(
                 })?;
                 busy = true;
             }
+        }
+        // A task that left the watch leaves the bus at once, not at the
+        // next read.
+        if moved && let Some(tracker) = tracker.as_mut() {
+            tracker.watching(&engine.watched(&clock.sample()?));
         }
         if let Some(tracker) = tracker.as_mut()
             && let Some(fresh) = tracker.take(engine.store_id())

@@ -86,8 +86,9 @@ pub struct TaskProgress {
 }
 
 /// Every task the tasks part is watching, as last read
-/// (`lamp-tasks serve --progress`). Published when any of them changes,
-/// so the one kept value always holds all of them.
+/// (`lamp-tasks serve --progress`). Published at start with none, after
+/// every read, and when one leaves the watch, so the one kept value always
+/// holds all of them and an empty list means nothing is being worked on.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct TaskStatus {
     /// The tasks part's store: task numbers belong to it.

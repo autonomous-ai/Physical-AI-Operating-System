@@ -41,6 +41,19 @@
 //! answers' `next` tell it the person has heard that, so it is not said
 //! twice. Words that carry the answer, not fillers.
 //!
+//! Asked of the staff (#854), off unless `LAMP_TASKS_ASKED=on`
+//! (`--tasks-asked`): on lamp-4ace on 2026-10-15 the person asked "can you
+//! ask Claude Code to write a short story …" twice and the lamp told the
+//! story itself, then went on with it when asked again; a name it could not
+//! make out ("your go") was taken for Codex. The persona asks for stories to
+//! be told gladly, and [`START`] was for "computer work … code, documents or
+//! files", which a story is easy to think is not. With the switch:
+//! [`START`] is called whenever the person asks to have one of the staff do
+//! something, whatever the work and even in the middle of a story; a new
+//! session is told so after the persona ([`session_note`]); and `who` can be
+//! "not sure", which prepares nothing and has the model ask "Claude Code or
+//! Codex?" rather than guess.
+//!
 //! Hearing back: the tasks part watches what it started (on unless `serve --no-watch`),
 //! [`crate::task_news`] tells the person unasked when the agent has
 //! finished or asks something, and [`CHECK`] answers "how's it going?" from
@@ -63,11 +76,18 @@ pub const WHO_ENVIRONMENT: &str = "LAMP_TASKS_WHO";
 /// Where it reads whether the model says the start of its answer before a
 /// call (#799). `on` only.
 pub const LEAD_IN_ENVIRONMENT: &str = "LAMP_TOOL_LEAD_IN";
+/// Where it reads whether work asked of the staff is handed over every time
+/// (#854). `on` only.
+pub const ASKED_ENVIRONMENT: &str = "LAMP_TASKS_ASKED";
 /// The provider worker's flags for them.
 pub const FLAG: &str = "--tasks-dir";
 pub const TARGET_FLAG: &str = "--tasks-target";
 pub const WHO_FLAG: &str = "--tasks-who";
 pub const LEAD_IN_FLAG: &str = "--tasks-lead-in";
+pub const ASKED_FLAG: &str = "--tasks-asked";
+/// What `who` may be with [`ASKED_FLAG`] when the person named someone the
+/// model could not make out: nothing is prepared, and it asks.
+pub const UNSURE: &str = "not sure";
 pub const DEFAULT_TARGET: &str = "office";
 /// The model's two functions.
 pub const START: &str = "start_agent_task";
@@ -205,25 +225,47 @@ fn declared(place: &Place, staff: &[Member]) -> Vec<Tool> {
             .iter()
             .map(|member| format!("{} (they may say {})", member.kind.name, member.kind.sounds))
             .collect();
-        (
+        let mut who: Vec<&str> = staff.iter().map(|member| member.kind.name).collect();
+        let unsure = if place.asked {
+            who.push(UNSURE);
             format!(
-                "Prepare a piece of computer work for one of the person's agents on their office \
-                 computer ({all}): writing or changing code, documents or files there. Call it \
-                 only when the person asks for such work to be done there. {} \
-                 You can do this: if they ask you to start one of them, open a session or \
-                 give it something, without saying what it should do, never say you cannot; \
-                 ask in a few words what it should work on, and call this with their answer.",
-                read_back(place.lead_in, ", with who will do it,")
-            ),
+                " If they named someone you could not make out, or a name that is none of these, \
+                 give \"{UNSURE}\": nothing is prepared and you ask them. Never guess."
+            )
+        } else {
+            String::new()
+        };
+        (
+            if place.asked {
+                format!(
+                    "Hand a piece of work to one of the person's agents on their office computer \
+                     ({all}). {} {} \
+                     You can do this: if they ask you to start one of them, open a session or \
+                     give it something, without saying what it should do, never say you cannot; \
+                     ask in a few words what it should work on, and call this with their answer.",
+                    asked_of(&all, &examples(staff)),
+                    read_back(place.lead_in, ", with who will do it,")
+                )
+            } else {
+                format!(
+                    "Prepare a piece of computer work for one of the person's agents on their office \
+                     computer ({all}): writing or changing code, documents or files there. Call it \
+                     only when the person asks for such work to be done there. {} \
+                     You can do this: if they ask you to start one of them, open a session or \
+                     give it something, without saying what it should do, never say you cannot; \
+                     ask in a few words what it should work on, and call this with their answer.",
+                    read_back(place.lead_in, ", with who will do it,")
+                )
+            },
             json!({
                 "type": "object",
                 "properties": {
                     "task": task,
                     "who": {
                         "type": "string",
-                        "enum": staff.iter().map(|member| member.kind.name).collect::<Vec<_>>(),
+                        "enum": who,
                         "description": format!(
-                            "Who does it, if the person named one: {}. Leave it out if they named nobody: then {default} does it.",
+                            "Who does it, if the person named one: {}. Leave it out if they named nobody: then {default} does it.{unsure}",
                             sounds.join("; ")
                         )
                     }
@@ -233,15 +275,26 @@ fn declared(place: &Place, staff: &[Member]) -> Vec<Tool> {
         )
     } else {
         (
-            format!(
-                "Prepare a piece of computer work for {default} on the person's office \
-                 computer: writing or changing code, documents or files there. Call it only \
-                 when the person asks for such work to be done there. {} \
-                 You can do this: if they ask you to start {default}, open a session or \
-                 give it something, without saying what it should do, never say you cannot; \
-                 ask in a few words what it should work on, and call this with their answer.",
-                read_back(place.lead_in, "")
-            ),
+            if place.asked {
+                format!(
+                    "Hand a piece of work to {default} on the person's office computer. {} {} \
+                     You can do this: if they ask you to start {default}, open a session or \
+                     give it something, without saying what it should do, never say you cannot; \
+                     ask in a few words what it should work on, and call this with their answer.",
+                    asked_of(default, &examples_of(default)),
+                    read_back(place.lead_in, "")
+                )
+            } else {
+                format!(
+                    "Prepare a piece of computer work for {default} on the person's office \
+                     computer: writing or changing code, documents or files there. Call it only \
+                     when the person asks for such work to be done there. {} \
+                     You can do this: if they ask you to start {default}, open a session or \
+                     give it something, without saying what it should do, never say you cannot; \
+                     ask in a few words what it should work on, and call this with their answer.",
+                    read_back(place.lead_in, "")
+                )
+            },
             json!({
                 "type": "object",
                 "properties": {"task": task},
@@ -334,6 +387,72 @@ pub fn handing_over_next(lead_in: bool, who: &str) -> String {
     }
 }
 
+/// When `start_agent_task` is called with [`ASKED_FLAG`]: whenever the
+/// person asks to have `whom` do something, whatever the work (#854).
+fn asked_of(whom: &str, examples: &str) -> String {
+    format!(
+        "Call it whenever the person asks to have {whom} do something ({examples}), \
+         whatever the work is: code, documents or files, and as much a story, a poem, a plan \
+         or anything you could do yourself; and even in the middle of something else, a story \
+         you are telling included. The person chose who does it: never do the work yourself \
+         instead, never begin it, and never offer to. Call it too when they ask for work to be \
+         done on their office computer."
+    )
+}
+
+/// "\"ask Claude Code to …\", \"get Codex to …\"" for the staff.
+fn examples(staff: &[Member]) -> String {
+    let mut said: Vec<String> = Vec::new();
+    for (index, member) in staff.iter().enumerate() {
+        let name = member.kind.name;
+        said.push(match index % 3 {
+            0 => format!("\"ask {name} to …\""),
+            1 => format!("\"get {name} to …\""),
+            _ => format!("\"have {name} …\""),
+        });
+    }
+    said.join(", ")
+}
+
+/// The same for one agent.
+fn examples_of(name: &str) -> String {
+    format!("\"ask {name} to …\", \"get {name} to …\", \"have {name} …\"")
+}
+
+/// What a new session is told after the persona with [`ASKED_FLAG`]: the
+/// persona asks for stories to be told gladly, and a story asked of one of
+/// the staff is theirs (#854). `None` without the switch.
+pub fn session_note(place: &Place) -> Option<String> {
+    if !place.asked {
+        return None;
+    }
+    let staff = staff_now(place);
+    let whom = if choosing(place, &staff) {
+        names(&staff, "or")
+    } else if place.who {
+        default_member(&staff, &place.target)
+            .map_or(CLAUDE_CODE, |member| member.kind.name)
+            .to_owned()
+    } else {
+        CLAUDE_CODE.to_owned()
+    };
+    Some(format!(
+        "\nWhen the person asks to have {whom} do something, it is theirs to do, not yours: \
+         hand it over with start_agent_task every time, whatever it is, a story or a poem as \
+         much as code, even one you could tell yourself, and even in the middle of a story you \
+         are telling. Never do it yourself instead."
+    ))
+}
+
+/// What a new session is told after the persona, `told`, with
+/// [`session_note`] added when the switch is on.
+pub fn noted(told: Option<String>, place: Option<&Place>) -> Option<String> {
+    match place.and_then(session_note) {
+        Some(note) => Some(told.unwrap_or_default() + &note),
+        None => told,
+    }
+}
+
 /// "Claude Code, Codex and OpenCode", or "or".
 fn names(staff: &[Member], and: &str) -> String {
     let names: Vec<&str> = staff.iter().map(|member| member.kind.name).collect();
@@ -396,6 +515,10 @@ fn chosen<'a>(
         .filter(|said| !said.is_empty());
     match said {
         None => Ok(default_member(staff, &place.target)),
+        Some(said) if place.asked && plain(said) == plain(UNSURE) => Err(json!({"error": format!(
+            "Nothing was prepared: who should do it was not clear. Ask them in a few words, \"{}?\", and call this again with their answer.",
+            names(staff, "or")
+        )})),
         Some(said) => named(staff, said).map(Some).ok_or_else(|| {
             json!({"error": format!(
                 "Nothing was done: nobody by that name works here. Ask the person who should do it: {}.",
@@ -498,6 +621,8 @@ pub struct Place {
     /// The model says the start of its answer before a call
     /// ([`LEAD_IN_FLAG`]).
     pub lead_in: bool,
+    /// Work asked of the staff is handed over every time ([`ASKED_FLAG`]).
+    pub asked: bool,
 }
 
 /// The provider worker's arguments for what the environment says.
@@ -507,6 +632,7 @@ pub fn arguments_from_environment() -> Vec<String> {
         std::env::var(TARGET_ENVIRONMENT).ok().as_deref(),
         std::env::var(WHO_ENVIRONMENT).ok().as_deref(),
         std::env::var(LEAD_IN_ENVIRONMENT).ok().as_deref(),
+        std::env::var(ASKED_ENVIRONMENT).ok().as_deref(),
     )
 }
 
@@ -515,6 +641,7 @@ fn arguments(
     target: Option<&str>,
     who: Option<&str>,
     lead_in: Option<&str>,
+    asked: Option<&str>,
 ) -> Vec<String> {
     let Some(directory) = directory.filter(|path| Path::new(path).is_absolute()) else {
         return Vec::new();
@@ -530,6 +657,9 @@ fn arguments(
     if lead_in == Some("on") {
         arguments.push(LEAD_IN_FLAG.to_owned());
     }
+    if asked == Some("on") {
+        arguments.push(ASKED_FLAG.to_owned());
+    }
     arguments
 }
 
@@ -541,7 +671,7 @@ fn alias(text: &str) -> bool {
 }
 
 /// Take a leading `--tasks-dir DIR [--tasks-target ALIAS] [--tasks-who]
-/// [--tasks-lead-in]` off the flags.
+/// [--tasks-lead-in] [--tasks-asked]` off the flags.
 pub fn take(flags: &[String]) -> std::io::Result<(Option<Place>, &[String])> {
     let [flag, rest @ ..] = flags else {
         return Ok((None, flags));
@@ -572,12 +702,17 @@ pub fn take(flags: &[String]) -> std::io::Result<(Option<Place>, &[String])> {
         [flag, rest @ ..] if flag == LEAD_IN_FLAG => (true, rest),
         _ => (false, rest),
     };
+    let (asked, rest) = match rest {
+        [flag, rest @ ..] if flag == ASKED_FLAG => (true, rest),
+        _ => (false, rest),
+    };
     Ok((
         Some(Place {
             directory: PathBuf::from(directory),
             target,
             who,
             lead_in,
+            asked,
         }),
         rest,
     ))
@@ -1006,18 +1141,18 @@ mod tests {
 
     #[test]
     fn the_switch_is_an_absolute_directory_and_an_alias_and_is_taken_from_the_front() {
-        assert!(arguments(None, None, None, None).is_empty());
-        assert!(arguments(Some("relative"), None, None, None).is_empty());
+        assert!(arguments(None, None, None, None, None).is_empty());
+        assert!(arguments(Some("relative"), None, None, None, None).is_empty());
         assert_eq!(
-            arguments(Some("/run/t"), None, None, None),
+            arguments(Some("/run/t"), None, None, None, None),
             [FLAG, "/run/t"]
         );
         assert_eq!(
-            arguments(Some("/run/t"), Some("m2"), None, None),
+            arguments(Some("/run/t"), Some("m2"), None, None, None),
             [FLAG, "/run/t", TARGET_FLAG, "m2"]
         );
         assert_eq!(
-            arguments(Some("/run/t"), Some("no spaces"), None, None),
+            arguments(Some("/run/t"), Some("no spaces"), None, None, None),
             [FLAG, "/run/t"]
         );
         let flags: Vec<String> = ["--tasks-dir", "/run/t", "--other"]
@@ -1031,6 +1166,7 @@ mod tests {
                 target: DEFAULT_TARGET.into(),
                 who: false,
                 lead_in: false,
+                asked: false,
             })
         );
         assert_eq!(rest, &flags[2..]);
@@ -1096,6 +1232,7 @@ mod tests {
             target: "office".into(),
             who: false,
             lead_in: false,
+            asked: false,
         };
         let call = |name: &str, args: Value| ToolCall {
             id: "c".into(),
@@ -1177,6 +1314,7 @@ mod tests {
             target: "office".into(),
             who: false,
             lead_in: false,
+            asked: false,
         };
         let call = |name: &str, args: Value| ToolCall {
             id: "c".into(),
@@ -1223,6 +1361,7 @@ mod tests {
             target: "office".into(),
             who: false,
             lead_in: false,
+            asked: false,
         };
         let call = |task: &str| ToolCall {
             id: "c".into(),
@@ -1271,6 +1410,7 @@ mod tests {
             target: DEFAULT_TARGET.into(),
             who: false,
             lead_in: false,
+            asked: false,
         };
         let task = json!({"ok":true,"text":"Suggest three names","target":{"engine":"claude"},
             "observations":[{"id":4,"state":"idle"}]});
@@ -1327,6 +1467,7 @@ mod tests {
             target: DEFAULT_TARGET.into(),
             who: false,
             lead_in: false,
+            asked: false,
         };
         let _seen = tasks_part(
             directory,
@@ -1502,6 +1643,7 @@ mod tests {
             target: DEFAULT_TARGET.into(),
             who,
             lead_in: false,
+            asked: false,
         }
     }
 
@@ -1593,20 +1735,20 @@ mod tests {
             "Tell them in a few natural words that you are handing it to Claude Code now and will let them know when it is done, the way a chief of staff would (\"Sure, I'm giving that to Claude Code. I'll tell you when it's done.\"). It has not been taken up yet: do not say it has."
         );
         assert_eq!(
-            arguments(Some("/run/t"), None, None, Some("on")),
+            arguments(Some("/run/t"), None, None, Some("on"), None),
             [FLAG, "/run/t", LEAD_IN_FLAG]
         );
         assert_eq!(
-            arguments(Some("/run/t"), Some("m2"), Some("on"), Some("on")),
+            arguments(Some("/run/t"), Some("m2"), Some("on"), Some("on"), None),
             [FLAG, "/run/t", TARGET_FLAG, "m2", WHO_FLAG, LEAD_IN_FLAG]
         );
         for not_on in [None, Some("yes"), Some("ON"), Some("1")] {
             assert_eq!(
-                arguments(Some("/run/t"), None, None, not_on),
+                arguments(Some("/run/t"), None, None, not_on, None),
                 [FLAG, "/run/t"]
             );
         }
-        assert!(arguments(None, None, None, Some("on")).is_empty());
+        assert!(arguments(None, None, None, Some("on"), None).is_empty());
         let flags: Vec<String> = [FLAG, "/run/t", WHO_FLAG, LEAD_IN_FLAG, "--other"]
             .map(String::from)
             .into();
@@ -1876,18 +2018,24 @@ mod tests {
     #[test]
     fn the_switch_to_name_who_is_on_only_and_follows_the_target() {
         assert_eq!(
-            arguments(Some("/run/t"), Some("office-claude"), Some("on"), None),
+            arguments(
+                Some("/run/t"),
+                Some("office-claude"),
+                Some("on"),
+                None,
+                None
+            ),
             [FLAG, "/run/t", TARGET_FLAG, "office-claude", WHO_FLAG]
         );
         assert_eq!(
-            arguments(Some("/run/t"), None, Some("on"), None),
+            arguments(Some("/run/t"), None, Some("on"), None, None),
             [FLAG, "/run/t", WHO_FLAG]
         );
         assert_eq!(
-            arguments(Some("/run/t"), None, Some("yes"), None),
+            arguments(Some("/run/t"), None, Some("yes"), None, None),
             [FLAG, "/run/t"]
         );
-        assert!(arguments(None, None, Some("on"), None).is_empty());
+        assert!(arguments(None, None, Some("on"), None, None).is_empty());
         let flags: Vec<String> = [
             FLAG,
             "/run/t",
@@ -1906,6 +2054,7 @@ mod tests {
                 target: "office-claude".into(),
                 who: true,
                 lead_in: false,
+                asked: false,
             })
         );
         assert_eq!(rest, ["--other"]);
@@ -2037,5 +2186,124 @@ mod tests {
                 "Tell them in a few words that it is still working on it and that you will tell them yourself when it is done. Do not check again unless they ask again."
             );
         }
+    }
+
+    /// #854: with the switch, a request to have one of the staff do
+    /// something is a hand-over whatever the work, and even in the middle
+    /// of a story; a new session is told so after the persona; without it,
+    /// every function and every session is as before.
+    #[test]
+    fn with_work_asked_of_the_staff_every_ask_is_a_hand_over_and_without_it_nothing_changes() {
+        let off = place(Path::new("/run/t"), false);
+        assert_eq!(declared(&off, &[]), before());
+        assert_eq!(session_note(&off), None);
+        assert_eq!(noted(Some("time".into()), Some(&off)), Some("time".into()));
+        assert_eq!(noted(None, None), None);
+
+        let mut on = off.clone();
+        on.asked = true;
+        let told = declared(&on, &[]);
+        let start = &told[0].description;
+        for words in [
+            "Hand a piece of work to Claude Code on the person's office computer.",
+            "whenever the person asks to have Claude Code do something",
+            "\"ask Claude Code to …\"",
+            "as much a story, a poem, a plan or anything you could do yourself",
+            "even in the middle of something else, a story you are telling included",
+            "never do the work yourself instead, never begin it, and never offer to",
+            "Call it too when they ask for work to be done on their office computer.",
+        ] {
+            assert!(start.contains(words), "{words}: {start}");
+        }
+        // What it takes, and the other two functions, are as before.
+        assert_eq!(told[0].parameters, before()[0].parameters);
+        assert_eq!(told[1..], before()[1..]);
+        let note = session_note(&on).unwrap();
+        assert!(
+            note.starts_with("\nWhen the person asks to have Claude Code do something, it is theirs to do, not yours: hand it over with start_agent_task every time"),
+            "{note}"
+        );
+        assert!(note.contains("even in the middle of a story you are telling"));
+        assert_eq!(
+            noted(Some("time".into()), Some(&on)),
+            Some(format!("time{note}"))
+        );
+        assert_eq!(noted(None, Some(&on)), Some(note));
+
+        assert_eq!(
+            arguments(Some("/run/t"), None, Some("on"), Some("on"), Some("on")),
+            [FLAG, "/run/t", WHO_FLAG, LEAD_IN_FLAG, ASKED_FLAG]
+        );
+        for not_on in [None, Some("yes"), Some("ON"), Some("1")] {
+            assert_eq!(
+                arguments(Some("/run/t"), None, None, None, not_on),
+                [FLAG, "/run/t"]
+            );
+        }
+        let flags: Vec<String> = [FLAG, "/run/t", LEAD_IN_FLAG, ASKED_FLAG, "--other"]
+            .map(String::from)
+            .into();
+        let (place, rest) = take(&flags).unwrap();
+        assert!(place.is_some_and(|place| place.asked && place.lead_in && !place.who));
+        assert_eq!(rest, ["--other"]);
+    }
+
+    /// #854: a name the model could not make out ("your go" was taken for
+    /// Codex on lamp-4ace) is "not sure" with the switch, which prepares
+    /// nothing and has it ask "Claude Code or Codex?". Without the switch
+    /// it is not offered, and the names are as before.
+    #[test]
+    fn a_name_not_made_out_is_asked_about_and_never_guessed() {
+        let staff = two();
+        let mut on = place(Path::new("/run/t"), true);
+        let who = |place: &Place| {
+            declared(place, &staff)[0].parameters.as_ref().unwrap()["properties"]["who"].clone()
+        };
+        assert_eq!(who(&on)["enum"], json!(["Claude Code", "Codex"]));
+        assert!(!who(&on)["description"].as_str().unwrap().contains(UNSURE));
+        let unknown = chosen(&on, &staff, &json!({"task": "x", "who": UNSURE})).unwrap_err();
+        assert!(
+            unknown["error"]
+                .as_str()
+                .unwrap()
+                .starts_with("Nothing was done: nobody by that name"),
+            "{unknown}"
+        );
+
+        on.asked = true;
+        assert_eq!(
+            who(&on)["enum"],
+            json!(["Claude Code", "Codex", "not sure"])
+        );
+        assert!(
+            who(&on)["description"]
+                .as_str()
+                .unwrap()
+                .ends_with("give \"not sure\": nothing is prepared and you ask them. Never guess."),
+            "{}",
+            who(&on)
+        );
+        let asked = chosen(&on, &staff, &json!({"task": "x", "who": "Not sure"})).unwrap_err();
+        assert_eq!(
+            asked["error"],
+            "Nothing was prepared: who should do it was not clear. Ask them in a few words, \"Claude Code or Codex?\", and call this again with their answer."
+        );
+        assert_eq!(
+            chosen(&on, &staff, &json!({"who": "Codex"}))
+                .unwrap()
+                .unwrap()
+                .kind
+                .name,
+            "Codex"
+        );
+        assert_eq!(
+            chosen(&on, &staff, &json!({})).unwrap().unwrap().kind.name,
+            "Claude Code"
+        );
+        let start = &declared(&on, &staff)[0].description;
+        assert!(
+            start.contains("(\"ask Claude Code to …\", \"get Codex to …\")"),
+            "{start}"
+        );
     }
 }

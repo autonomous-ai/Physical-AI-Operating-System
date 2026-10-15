@@ -795,6 +795,9 @@ impl Connect for Recalling {
             resume = None;
         }
         let mut time = crate::local_time::told_here(self.tools.clock);
+        // Work asked of the staff is theirs, stories included (#854); said
+        // after the persona, which asks for stories to be told gladly.
+        time = crate::agent_tasks::noted(time, self.tools.tasks.as_ref());
         // The legacy cached note, or an explicitly opted-in Days snapshot
         // with its provenance and a total acquisition budget of 300 ms.
         if let Some(socket) = &self.tools.memory {

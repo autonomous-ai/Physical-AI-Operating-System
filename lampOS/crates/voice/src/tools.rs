@@ -699,6 +699,7 @@ mod tests {
             target: "workstation".into(),
             who: false,
             lead_in: false,
+            asked: false,
         };
         assert_eq!(
             settings,
@@ -1142,6 +1143,7 @@ mod tests {
             target: "office".into(),
             who: false,
             lead_in: false,
+            asked: false,
         };
         let with = Settings {
             tasks: Some(place.clone()),

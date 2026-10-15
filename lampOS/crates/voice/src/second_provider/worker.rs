@@ -237,6 +237,8 @@ pub fn serve(
         .map(crate::known_faces::known_file_of)
         .filter(|_| socket.is_some());
     let days = crate::remember::days_from_environment();
+    // Told after the character with `LAMP_TASKS_ASKED=on`, as the Live route is (#854).
+    let tasks = tools.tasks.clone();
     let sessions = std::sync::Mutex::new(Sessions::default());
     let system = move || {
         let now = Instant::now();
@@ -253,7 +255,8 @@ pub fn serve(
         };
         system_message(
             &character,
-            crate::local_time::told_here(clock).as_deref(),
+            crate::agent_tasks::noted(crate::local_time::told_here(clock), tasks.as_ref())
+                .as_deref(),
             &memory,
             file.as_deref(),
         )

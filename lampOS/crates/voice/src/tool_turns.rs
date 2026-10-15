@@ -98,6 +98,59 @@ pub const SCRIPT: &[Scripted] = &[
     },
 ];
 
+const STORY_ASKED: &str = "Hey Lamp, can you ask Claude Code to write a short story about a lamp who learns to sing, in five chapters, and to read each chapter over before starting the next one?";
+
+/// The hand-overs of #854, as written requests, for `provider-check CONFIG
+/// --hand-overs ROUNDS`, run once with `LAMP_TASKS_ASKED=on` and once
+/// without: how often the model hands each over to Claude Code, and how
+/// often it does the work itself. On lamp-4ace on 2026-10-15 the first two
+/// were told as stories by the lamp, and a story already under way was
+/// carried on when asked again. The last is a story asked of the lamp
+/// itself, which it should tell. The words are the ones played there; the
+/// model reads them here, where on the lamp it heard them.
+pub const HAND_OVERS: &[Scripted] = &[
+    Scripted {
+        label: "story_asked",
+        expects: Some(crate::agent_tasks::START),
+        lines: &[STORY_ASKED],
+    },
+    Scripted {
+        label: "story_comma",
+        expects: Some(crate::agent_tasks::START),
+        lines: &["Hey Lamp, ask Claude Code, write a short story about a lamp who learns to sing."],
+    },
+    Scripted {
+        label: "story_imperative",
+        expects: Some(crate::agent_tasks::START),
+        lines: &[
+            "Have Claude Code write a short story about a lamp who learns to sing, in five chapters.",
+        ],
+    },
+    Scripted {
+        label: "poem_get",
+        expects: Some(crate::agent_tasks::START),
+        lines: &["Get Claude Code to write a poem about the rain."],
+    },
+    Scripted {
+        label: "mid_story",
+        expects: Some(crate::agent_tasks::START),
+        lines: &[
+            "Tell me a short story about a fox, in three chapters. Just chapter one for now.",
+            "Now ask Claude Code to write chapters two and three.",
+        ],
+    },
+    Scripted {
+        label: "asked_again",
+        expects: Some(crate::agent_tasks::START),
+        lines: &[STORY_ASKED, "Ask Claude Code to write it, please."],
+    },
+    Scripted {
+        label: "own_story",
+        expects: None,
+        lines: &["Tell me a very short story about a lamp who learns to sing."],
+    },
+];
+
 /// The answer the voice would give to `name`, made up, of the same shape
 /// as the real one and with the same `next` (with the lead-in or without,
 /// [`crate::agent_tasks::LEAD_IN_FLAG`]), so that what the model says after
@@ -242,6 +295,11 @@ fn median(mut values: Vec<f64>) -> Option<f64> {
 /// turns, of the times in `results` (as [`Timeline::result`] makes them).
 /// A function turn counts only when the function expected was called.
 pub fn summary(all: &[Value]) -> Value {
+    summary_of(all, SCRIPT)
+}
+
+/// The same for the requests of `script` ([`SCRIPT`] or [`HAND_OVERS`]).
+pub fn summary_of(all: &[Value], script: &[Scripted]) -> Value {
     let results: Vec<Value> = all
         .iter()
         .filter(|row| row.get("failed").is_none())
@@ -270,7 +328,7 @@ pub fn summary(all: &[Value]) -> Value {
         out
     };
     let mut each = serde_json::Map::new();
-    for scripted in SCRIPT {
+    for scripted in script {
         let rows: Vec<&Value> = results
             .iter()
             .filter(|row| row["label"] == scripted.label)
@@ -480,6 +538,7 @@ mod tests {
             target: crate::agent_tasks::DEFAULT_TARGET.into(),
             who: false,
             lead_in: false,
+            asked: false,
         };
         let declared: Vec<String> = crate::agent_tasks::tools(&place)
             .into_iter()
@@ -494,5 +553,58 @@ mod tests {
         }
         assert_eq!(median(vec![3.0, 1.0, 2.0]), Some(2.0));
         assert_eq!(median(vec![]), None);
+    }
+
+    /// #854's requests: each has a label of its own, all but the lamp's own
+    /// story are hand-overs, and each is counted by whether the model handed
+    /// it over or did the work itself.
+    #[test]
+    fn the_hand_overs_are_counted_by_whether_each_was_handed_over() {
+        let mut labels: Vec<&str> = HAND_OVERS.iter().map(|scripted| scripted.label).collect();
+        labels.sort_unstable();
+        labels.dedup();
+        assert_eq!(labels.len(), HAND_OVERS.len());
+        for scripted in HAND_OVERS {
+            let lamps_own = scripted.label == "own_story";
+            assert_eq!(
+                scripted.expects,
+                (!lamps_own).then_some(crate::agent_tasks::START),
+                "{}",
+                scripted.label
+            );
+            assert!(lamps_own || scripted.lines.last().unwrap().contains("Claude Code"));
+        }
+        let row = |scripted: &Scripted, called: Option<&str>| {
+            let mut timeline = Timeline::default();
+            if let Some(name) = called {
+                timeline.call(name, 900_000);
+                timeline.answered(905_000);
+            }
+            timeline.audio(4_800, 1_800_000);
+            timeline.said("Here is chapter one. ");
+            timeline.ended("turn_complete", 3_000_000);
+            timeline.result(scripted, 0)
+        };
+        let story = &HAND_OVERS[0];
+        let own = HAND_OVERS
+            .iter()
+            .find(|scripted| scripted.label == "own_story")
+            .unwrap();
+        let rows = [
+            row(story, Some(crate::agent_tasks::START)),
+            row(story, None),
+            row(own, None),
+        ];
+        let summary = summary_of(&rows, HAND_OVERS);
+        assert_eq!(summary["each"]["story_asked"]["n"], 2);
+        assert_eq!(summary["each"]["story_asked"]["as_expected"], 1);
+        assert_eq!(summary["each"]["own_story"]["as_expected"], 1);
+        assert_eq!(summary["each"]["mid_story"]["n"], 0);
+        // The timing script is untouched.
+        assert!(
+            summary_of(&rows, SCRIPT)["each"]
+                .get("story_asked")
+                .is_none()
+        );
     }
 }

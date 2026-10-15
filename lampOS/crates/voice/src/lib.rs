@@ -29,6 +29,7 @@ pub mod local_time;
 pub mod marked;
 pub use lamp_ipc::log_relay;
 pub mod not_speech;
+pub mod onboarding;
 pub mod options;
 #[cfg(target_os = "linux")]
 pub mod physical_privacy;

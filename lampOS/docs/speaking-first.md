@@ -47,7 +47,8 @@ sessions it was never once due. Fifteen hours of what the eyes published
 reached the 0.14 of the picture's height that counts as someone at the
 lamp (the largest were 0.11 to 0.14). At rest lamp-4ace's camera looks
 across the side of the desk, and the people at the computer were at the
-very edge of its view. Turning the lamp to face the seat is the fix. A
+very edge of its view. Turning the lamp to face the seat is the fix; the first five minutes
+([onboarding.md](onboarding.md)) has the lamp ask its person to do that. A
 false "face" that the eyes report all night in one spot is #763. It is on since 2026-10-15, 07:34. Its voice side was tried at 07:59
 the same day by writing a near face's size into the presence file by hand
 for eight seconds, 21 minutes after the last person was seen: the lamp

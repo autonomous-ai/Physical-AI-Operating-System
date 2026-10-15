@@ -279,6 +279,10 @@ for fields, errors, retries, invalidation and caller responsibilities.
 
 ## How the voice uses it
 
+The first five minutes ([onboarding.md](onboarding.md)) has the model ask a
+new person their name and their preferences, and keep them with these
+functions.
+
 `crates/voice/src/remember.rs`, switched on by naming the socket in the
 voice unit (`LAMP_MEMORY_SOCKET`, the provider worker's `--memory-socket`).
 Without it the voice knows nothing of this process. The following describes

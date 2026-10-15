@@ -110,6 +110,9 @@ pub struct Settings {
     /// The serving session's folder, for marking a bad moment
     /// ([`crate::marked`]).
     pub mark: Option<PathBuf>,
+    /// The onboarding file, whose mailbox the model's reports go to
+    /// ([`crate::onboarding`]).
+    pub onboarding: Option<PathBuf>,
 }
 
 /// The provider worker's arguments for what the environment says.
@@ -133,6 +136,17 @@ pub fn arguments_from_environment() -> Vec<String> {
         flags.push(socket);
     }
     flags.extend(crate::marked::arguments_from_environment());
+    if let Some(file) = crate::onboarding::switched_on(
+        std::env::var(crate::onboarding::ENVIRONMENT)
+            .ok()
+            .as_deref(),
+        std::env::var(crate::onboarding::FILE_ENVIRONMENT)
+            .ok()
+            .as_deref(),
+    ) {
+        flags.push(crate::onboarding::FLAG.to_owned());
+        flags.push(file.display().to_string());
+    }
     flags
 }
 
@@ -254,6 +268,18 @@ pub fn take(flags: &[String]) -> std::io::Result<(Settings, &[String])> {
         settings.mark = Some(PathBuf::from(folder));
         flags = rest;
     }
+    if let [flag, rest @ ..] = flags
+        && flag == crate::onboarding::FLAG
+    {
+        let [file, rest @ ..] = rest else {
+            return Err(std::io::Error::other("--onboarding-file needs a path"));
+        };
+        if !Path::new(file).is_absolute() {
+            return Err(std::io::Error::other("--onboarding-file must be absolute"));
+        }
+        settings.onboarding = Some(PathBuf::from(file));
+        flags = rest;
+    }
     Ok((settings, flags))
 }
 
@@ -321,6 +347,9 @@ pub fn declared(settings: &Settings) -> Vec<Tool> {
     if settings.mark.is_some() {
         tools.push(crate::marked::tool());
     }
+    if settings.onboarding.is_some() {
+        tools.extend(crate::onboarding::tools());
+    }
     if let Some(directory) = &settings.exec {
         let room = lamp_gemini::MAX_TOOLS - tools.len();
         tools.extend(
@@ -333,6 +362,7 @@ pub fn declared(settings: &Settings) -> Vec<Tool> {
                         && !crate::agent_tasks::is_tool(&tool.name)
                         && !crate::known_faces::is_tool(&tool.name)
                         && !crate::marked::is_tool(&tool.name)
+                        && !crate::onboarding::is_tool(&tool.name)
                         && (settings.schedule_tools || !is_schedule_tool(&tool.name))
                 })
                 .take(room),
@@ -388,6 +418,8 @@ pub enum Route {
     Faces(PathBuf),
     /// Mark the last minute of this session for review.
     Mark(PathBuf),
+    /// A step of the first meeting reported, through this onboarding file.
+    Onboarding(PathBuf),
     /// Nobody here runs that.
     Nobody,
 }
@@ -410,6 +442,12 @@ pub fn route(settings: &Settings, name: &str) -> Route {
     }
     if crate::marked::is_tool(name) {
         return settings.mark.clone().map_or(Route::Nobody, Route::Mark);
+    }
+    if crate::onboarding::is_tool(name) {
+        return settings
+            .onboarding
+            .clone()
+            .map_or(Route::Nobody, Route::Onboarding);
     }
     match (&settings.exec, name) {
         (_, NOT_FOR_ME) if settings.decline => Route::Decline,
@@ -501,6 +539,7 @@ pub fn run_call(
         ),
         Route::Faces(socket) => ("the eyes", crate::known_faces::run(socket, call)),
         Route::Mark(session) => ("the marks", crate::marked::run(session, call, heard)),
+        Route::Onboarding(file) => ("the onboarding", crate::onboarding::run(file, call)),
         Route::Decline | Route::Clock | Route::Nobody => ("nobody", (unavailable(), false)),
     }
 }
@@ -687,6 +726,46 @@ mod tests {
     }
 
     #[test]
+    fn without_the_onboarding_switch_nothing_changes() {
+        let old: Vec<String> = arguments(Some("on"), None, None, Some("on"));
+        let (off, rest) = take(&old).unwrap();
+        assert!(rest.is_empty());
+        assert_eq!(off.onboarding, None);
+        let names = |settings: &Settings| {
+            declared(settings)
+                .into_iter()
+                .map(|tool| tool.name)
+                .collect::<Vec<_>>()
+        };
+        assert_eq!(names(&off), [NOT_FOR_ME, THE_TIME]);
+        for name in [crate::onboarding::STEP, crate::onboarding::REDO] {
+            assert_eq!(route(&off, name), Route::Nobody);
+        }
+        let mut flags = old.clone();
+        flags.extend([
+            crate::onboarding::FLAG.into(),
+            "/var/lib/lampos-voice/onboarding.json".into(),
+        ]);
+        let (on, rest) = take(&flags).unwrap();
+        assert!(rest.is_empty());
+        let file = PathBuf::from("/var/lib/lampos-voice/onboarding.json");
+        assert_eq!(on.onboarding, Some(file.clone()));
+        assert_eq!(
+            names(&on),
+            [
+                NOT_FOR_ME,
+                THE_TIME,
+                crate::onboarding::STEP,
+                crate::onboarding::REDO
+            ]
+        );
+        assert_eq!(route(&on, crate::onboarding::STEP), Route::Onboarding(file));
+        flags.pop();
+        flags.push("onboarding.json".into());
+        assert!(take(&flags).is_err());
+    }
+
+    #[test]
     fn tasks_then_schedule_flags_keep_both_owners_and_their_declarations() {
         let dir = schedule_directory("tasks-schedule");
         let mut entries = vec![json!({"name":"light_on","description":"Old tool"})];
@@ -739,6 +818,7 @@ mod tests {
                 schedule_speak: true,
                 who: Some("/run/lampos-eyes/who.sock".into()),
                 mark: None,
+                onboarding: None,
             }
         );
         assert_eq!(rest, ["--session", "7"]);

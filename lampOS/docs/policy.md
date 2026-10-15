@@ -974,6 +974,236 @@ fixture's timing sensitivity: a preceding detection can still lie inside
 the next utterance's one-second pre-roll window. That existing behavior
 and test were not changed by this task.
 
+## Another model, asked the same questions again (#871)
+
+`lamp-policy-replay` asks the attention decisions in the decisions log
+again, of each model given, one after the other, so that a new version of
+the decision model can be laid beside the one in use before the lamp is
+switched to it. Each question is the one sent on the day: the state text is
+put together again from the logged `context` by the same code
+(`attention::state_text`), with the same seven questions, and each model's
+answers are made a choice by the same weights. Those weights were fitted to
+`typesafe/jev-1.13`'s answers on 2026-10-13: another model's answers go
+through them as they are.
+
+    lamp-policy-replay --key-file ABSOLUTE_PATH --log-dir /var/lib/lampos-policy \
+        --days 2026-10-14,2026-10-15 --models typesafe/jev-1.13,typesafe/jev-1.14 \
+        [--labels ABSOLUTE_FILE] [--only-labelled] [--endpoint URL] \
+        [--deadline-ms 10000] [--pace-ms 500] [--most N] > replay.jsonl
+    lamp-policy-replay --again replay.jsonl --labels ABSOLUTE_FILE [--refit [--cost-ratio N]]
+
+- **Where:** on the lamp, where the logs are. They hold what was heard, so
+  they stay there. What is heard is sent to the model's service again, as on
+  the day. The day of a file is UTC's.
+- **What it prints:** one line for each decision and then a summary, and
+  **no words**. Each line has the decision's place (`2026-10-15#139`, the
+  file's day and the line's number) and moment, the room, whether the lamp
+  was in conversation and whether its name was heard, the kinds of what was
+  heard (`words`, `names_lamp`, `other_language`), what was chosen on the
+  day, what should have happened if labelled, and each model's choice,
+  probability, time (`took_ms`), name as its service gave it and seven
+  answers (numbers, by the question's name, for fitting the weights to a
+  model they were not fitted to), or why it failed.
+- **The summary,** for each model: how many it answered and how fast
+  (`took_ms` p50, p95, most), what it chose, how often its choice was the
+  logged one, and how often it did what should have happened: over all, for
+  requests that name the lamp, in a busy room and for another language. Then
+  how often each two models chose alike.
+- **Labels:** one JSON line each, `{"at_unix_ms": N, "should": "answer"}`
+  or `"stay_quiet"`, the moment as the lines give it. `answer` is met by
+  `answer` or `look_up`. A run can be labelled after it is seen:
+  `--again` counts its printed lines again with the labels, asking nothing.
+- **`--refit`,** with `--again`: whether a model loses only because the
+  weights were fitted to another model's answers. For each model, the
+  weights are fitted again to its own seven answers, the quiet room, the
+  conversation and the name heard (a logistic regression, as the day's
+  were, its weights pulled towards nothing as scikit-learn's default
+  `C = 1` pulls them), on half the labelled lines, and counted on the other
+  half; 200 times, on halves drawn from one seed, the same for every model
+  and every run. Beside it, the run's own choices (the day's weights),
+  counted on the same halves. It prints one more line, `refit_summary`:
+  for both, the mean right over all, for requests that name the lamp, in a
+  busy room and for another language, and how often each answered what was
+  not for the lamp and ignored what was; and the weights fitted on every
+  labelled line, to be read. It needs lines with answers (a run from
+  `28a38cbb1` on). A model is not fitted, and its entry says why
+  (`why_not`) and gives **no counts**, so none is taken for measured: with
+  fewer than 20 labelled lines with answers, with those lines all of one
+  label, or with no half that could be fitted. A half whose fitted part is
+  all of one label is passed over; the counts are means over the halves
+  fitted (`halves_fitted`, beside `halves_unfitted`).
+- **`--cost-ratio N`** (1 to 20, default 1), with `--refit`: an answer that
+  was not for the lamp costs N times an ignored request (#871, the first
+  builder: the product is "speaks when spoken to"). The fit counts each
+  example to be left alone N times, and each count says `cost`, N for each
+  answer not for the lamp and 1 for each request ignored, for the day's
+  weights and the refit alike; the summary says `cost_ratio`. The 1.13 and
+  1.14 comparison asked for uses 3. The day's weights are two sums, with
+  and without something listening for the name; this is one sum, the name
+  heard one more term, not heard and not known both counted as not heard.
+  It changes nothing the lamp does.
+- **The kinds are rough:** `names_lamp` is one of the ways people call it or
+  the recogniser writes its name, as a word; `other_language` is a letter
+  outside English's, `¿` or `¡` (not the call "Lamp ơi" itself), or three
+  words or more with no common English word. They count lines apart and
+  decide nothing.
+
+Tests: `crates/policy/src/replay/tests.rs` (the log read with each line's
+place, kinds, each model asked the text sent on the day and choosing by the
+same weights, no words in a line, the counts, labels, counting again),
+`crates/policy/src/replay/refit/tests.rs` (a model whose answers are on
+another scale done badly by the day's weights and as well as the other
+once fitted to its own, on the same halves; a run without answers not
+fitted; labels of one kind, on every line or on a model's answered ones,
+not fitted and given no counts; the weights found from examples drawn from known ones; the same
+halves every time) and
+`crates/policy/tests/replay_program.rs` (the program against a service
+played on this machine: two models asked in turn, the state sent equal to
+the day's, and none of what was heard in its output).
+
+## The lamp's picture with the question (#871, `--images`)
+
+`lamp-policy --images MODEL [--sight-file ABSOLUTE_PATH]`, off unless set,
+shadow. As the policy sends each attention question, it hands the same
+utterance to a thread of its own, if that thread is free. **Only when the
+eyes see someone** is anything asked: what they see now, their newest list
+at most 2 s old, looked at when the asking begins and again at the moment
+the picture would be taken, never only when the utterance ended (the
+reviewer on #873: a question that waited in the queue while the person
+left, or a list gone stale, sends nothing; the utterance's own `seen` is
+still written in the line). on lamp-4ace on 2026-10-16 at 03:47 to 03:53, with nobody
+at the desk, `picture_person` came back 0.26 to 0.51 thirteen times while
+the eyes saw no face each time, so whether anyone is there is the eyes' to
+say (the first builder on #871). Otherwise the line says `no_face`, or
+`eyes_unknown` when the eyes said nothing fresh, and nothing is asked. The thread asks
+`MODEL` (`typesafe/jev-1.14`) twice at once, on two connections:
+- **without** the picture: the seven questions as sent on the day;
+- **with** the picture: the state with `picture` last, the seven questions,
+  and six about the picture, each its own simple question:
+  - `picture_person`: is anyone in the picture at all (first: on an empty
+    desk on lamp-4ace at 02:28 the others were answered near chance,
+    "two people talking" 0.62 to 0.69);
+  - `picture_faces_lamp`: is a person looking toward the camera;
+  - `picture_absorbed`: typing, reading, on a call, in headphones;
+  - `picture_talking_to_another`: two people facing each other;
+  - `picture_asks_with_a_look`: a wave, or a look that asks;
+  - `picture_away`: nobody at the desk, or asleep.
+
+It writes one line for both to `pictures-YYYY-MM-DD.jsonl` in the log's
+folder. Nothing acts on it, and the decision is never late for it: an
+utterance that comes while the thread is still asking is passed over. Each
+picture question is a sign for later, one among the name, the room, the
+microphone's rise and the eyes' own count of faces turned to the lamp; none
+decides alone.
+
+**The picture, and when it may leave the lamp.** It is the eyes' newest
+frame (`/run/lampos-eyes/sight.jpg`, written only with `lamp-eyes
+--sight-file`), sent by the voice's rule ([eyes.md](eyes.md)):
+- the eyes keep the file only while the voice permits the camera, which is
+  exactly while the microphone may listen, so a muted lamp, or one whose
+  privacy switch is on, has none;
+- a frame older than 1 s, or larger than 64 KiB, is not taken, as the
+  voice's `sight` takes none.
+
+- the picture is taken at the moment the request is written, after any
+  slow looking up or connecting, and again if it has to go on another
+  connection: what is sent is the frame the eyes keep then, at most 1 s
+  old, never one copied before (the reviewer on #873). If they keep none
+  then (the camera was closed, so the microphone was), nothing is written
+  and the line says `withdrawn`. The line's `age_ms` is the age of the
+  frame actually sent.
+
+TypeSafe takes 256 to 1,568 pixels a side and 78,400 in all, so the eyes'
+320 by 240 frame is made 640 by 480 (each pixel repeated) and encoded
+again. It goes as one of TypeSafe's `assets` with the
+`TypeSafe-Danger-Zone-Images: true` header, which only that request carries.
+The picture is written nowhere. The line says only whether one was sent,
+its size, the eyes' size and its age, or why not (`no_face`,
+`eyes_unknown`, `no_frame`, `stale`, `too_large`, `not_a_jpeg`,
+`unreadable`, `withdrawn`, `not_written`).
+
+**Sent** means some of a request with a frame in it left the lamp, in any
+try, whatever came after (the reviewer on #873). A request written whole
+on a kept connection that the service then closed with no answer was sent,
+even if the next try, on a new connection, was withdrawn because the
+camera had been closed meanwhile. So `picture` also has:
+- `delivery`: `answered` if the service answered a request with the frame
+  (it arrived), else `uncertain` (written, whole or in part, and whether it
+  arrived is not known);
+- `tries`: each try at writing it, `{"written": "whole", "answered": ...}`
+  or `{"written": "part", "request_bytes_written": N, ...}`;
+- `withdrawn`: true if the asking then ended because no frame might go.
+The size and age are those of the last frame that went. `not_written`
+means a frame was taken and not a byte of its request went.
+
+**The line:**
+- `at_unix_ms`: when the question was sent;
+- `context`: what was heard, in words, as in the decisions log, in the same
+  private folder;
+- `seen`: the eyes' counts;
+- `picture`;
+- `without` and `with`: each has `by`, `took_ms`, its answers, and the
+  `choice` and `probability` the same weights make of its seven answers,
+  or why it failed.
+
+**Counted, asking nothing:**
+
+    lamp-policy-replay --pictures --log-dir /var/lib/lampos-policy --days 2026-10-16 [--labels ABSOLUTE_FILE]
+
+The summary says how often a frame was sent, its `delivery` (answered or
+uncertain), how often the asking was withdrawn after one went
+(`withdrawn_after_sending`), and why none was sent. For each asking,
+without the picture and with it, it gives how often it answered and
+failed (by kind), `took_ms` p50/p95, and how often it did what should have
+happened. Both are counted right on the same lines: a frame sent and both
+chose. A line where either made no choice is in neither's right, and why
+is in that asking's `failed`, so one is never counted on lines the other
+is not. For each picture question, it says how
+often its yes (0.5 or more) went with what should have happened, beside
+the eyes' own `facing`; and again in `signs_given_a_person` for the four
+that take a person for granted (faces the lamp, asks with a look, absorbed,
+talking to another), only where `picture_person` was yes. `picture_person`
+says how often the picture had a person in it, how often the eyes saw a
+face, and how often the two agreed. Labels can be written by a scene's clock: each
+label is given once, to the line nearest it within 3 s, whether or not a
+frame was sent with that line, so a decision nobody labelled never counts as
+labelled. A label equally near two lines is given to neither, and two labels
+that disagree on one line are both dropped. Two labels at the very same
+moment that disagree are refused when the file is read, whichever comes
+first; the same label twice at one moment is one label. The summary's `labels` says how
+many were given, matched, unmatched, ambiguous and conflicting.
+
+**Not shown:**
+- No picture was sent to the service from the Mac. Whether the decisions
+  endpoint the policy uses (OpenRouter's) passes `assets` and the header on
+  to TypeSafe is for the lamp's first run to show: a `refused` in every
+  `with` would say no.
+- On lamp-4ace the eyes' `--sight-file` has been off since 2026-10-13
+  ([eyes.md](eyes.md)): without it every line says `no_frame`.
+- The file is the eyes' user's and mode 0600: the policy has to run as
+  that user to read it.
+
+Tests:
+- `crates/policy/src/pictures/tests.rs`: the voice's rule for a frame, the
+  frame made as large as the service takes, the state and the thirteen
+  questions, whether anyone is in the picture first; the picture told as sent if any try went; and the reviewer's
+  case on #873, a request with the picture written whole on a kept
+  connection the service closed unanswered, then withdrawn on a new one
+  where nothing was written, told as sent, `uncertain`, withdrawn.
+- `crates/policy/src/decide/tests.rs`,
+  `what_became_of_each_request_with_pictures_is_told`: written whole on a
+  closed kept connection and unanswered, then answered on a new one.
+- `crates/policy/src/replay/tests.rs`,
+  `a_picture_that_went_is_counted_and_both_askings_are_counted_on_the_same_lines`.
+- `crates/policy/tests/pictures.rs`: the two askings against a played
+  service, only one with the picture and the header, the line without the
+  picture, nothing asked with no frame, and the thread passing over what
+  comes while it asks.
+- `crates/policy/tests/program.rs`,
+  `with_images_the_question_is_asked_again_with_the_eyes_frame_beside_the_decision`:
+  the program itself, the decision published as before and the picture's
+  line beside it.
+
 ## Progress news: "say this progress now?" (#732)
 
 Built by the second builder on 2026-10-15 (`second-P2`). **Off unless

@@ -66,6 +66,16 @@ impl Person {
         Self(Self::EVERYONE.into())
     }
 
+    /// The scope beside this person's that holds the rules they gave the
+    /// lamp (#813): `r-<hex>` for `p-<hex>`, `r-everyone` for the room's.
+    /// An exchange may name rules of this scope only among its sources.
+    pub fn rules(&self) -> Option<Self> {
+        Self::new(&format!(
+            "r-{}",
+            self.0.strip_prefix("p-").unwrap_or(&self.0)
+        ))
+    }
+
     pub fn as_str(&self) -> &str {
         &self.0
     }

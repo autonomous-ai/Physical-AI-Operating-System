@@ -433,6 +433,16 @@ fn run(arguments: Arguments) -> Result<(), Box<dyn std::error::Error + Send + Sy
     let mut camera = lamp_eyes::bus_out::Camera::Closed;
     eprintln!("lamp-eyes: ready; the camera stays closed until it is permitted");
     loop {
+        // A still is there for the one request it was taken for, and no
+        // longer: first on every turn, before anything that skips the rest.
+        if still_at
+            .is_some_and(|at| at.elapsed() >= Duration::from_micros(lamp_eyes::full_look::KEPT_US))
+        {
+            still_at = None;
+            if let Some(kept) = still_kept.as_mut() {
+                kept.forget();
+            }
+        }
         // On every turn, whatever the camera is doing: that the eyes are
         // there, and how they are.
         if let Some(bus) = bus_out.as_mut() {
@@ -549,12 +559,8 @@ fn run(arguments: Arguments) -> Result<(), Box<dyn std::error::Error + Send + Sy
                 tell(Seen { face: None });
             }
             camera = lamp_eyes::bus_out::Camera::Closed;
-            if let Some(kept) = kept.as_mut() {
-                kept.forget();
-            }
-            if let Some(kept) = still_kept.as_mut() {
-                kept.forget();
-            }
+            lamp_eyes::kept::forget_all(&mut kept, &mut still_kept);
+            still_at = None;
             wanted = None;
             if let Some(presence) = presence.as_mut() {
                 presence.gone();
@@ -676,12 +682,8 @@ fn run(arguments: Arguments) -> Result<(), Box<dyn std::error::Error + Send + Sy
                 let _ = open.stop(budget(STOP));
             }
             tell(Seen { face: None });
-            if let Some(kept) = kept.as_mut() {
-                kept.forget();
-            }
-            if let Some(kept) = still_kept.as_mut() {
-                kept.forget();
-            }
+            lamp_eyes::kept::forget_all(&mut kept, &mut still_kept);
+            still_at = None;
             if let Some(presence) = presence.as_mut() {
                 presence.gone();
             }
@@ -740,15 +742,6 @@ fn run(arguments: Arguments) -> Result<(), Box<dyn std::error::Error + Send + Sy
                 wanted = None;
             }
         }
-        // A still is there for the one request it was taken for.
-        if still_at
-            .is_some_and(|at| at.elapsed() >= Duration::from_micros(lamp_eyes::full_look::KEPT_US))
-        {
-            still_at = None;
-            if let Some(kept) = still_kept.as_mut() {
-                kept.forget();
-            }
-        }
         // Streaming at the working size for want of the full one: try the
         // full size again once nobody is in view and no look is asked for.
         if arguments.full_look.is_some()
@@ -765,9 +758,9 @@ fn run(arguments: Arguments) -> Result<(), Box<dyn std::error::Error + Send + Sy
             );
             let _ = open.stop(budget(STOP));
             camera = lamp_eyes::bus_out::Camera::Closed;
-            if let Some(kept) = kept.as_mut() {
-                kept.forget();
-            }
+            lamp_eyes::kept::forget_all(&mut kept, &mut still_kept);
+            still_at = None;
+            wanted = None;
             latest = None;
             // One try at the full size, then the two in turn.
             failures = lamp_eyes::full_look::FULL_FIRST - 1;

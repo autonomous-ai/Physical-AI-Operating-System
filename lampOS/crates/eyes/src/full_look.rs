@@ -16,12 +16,16 @@
 //!
 //! The head is the body's: it already turns to the face the eyes see and to
 //! a call. The still waits for it to stop, as `body/joint_states` says, for
-//! [`STILL_FOR_US`]: every head joint within [`ARRIVED_RADIANS`] of where it
-//! was asked to be (the body's own arrival rule, 6 counts held for 15 steps
-//! at 50 Hz), turning slower than [`STILL_RADIANS_A_SECOND`], and asked to
-//! be in the same place throughout. A head that moves again before the
-//! frame comes is waited for again. No longer than [`SETTLE_AT_MOST_US`] in
-//! all. With no body on the bus the still is taken at once.
+//! [`STILL_FOR_US`]: every head joint turning slower than
+//! [`STILL_RADIANS_A_SECOND`] and staying within [`DRIFT_RADIANS`] of where
+//! it was when it stopped. Where the joint was asked to be is not looked at:
+//! a head at rest stands short of its goal under its own weight (head_roll
+//! 7 counts on lamp-4ace, 2,051 against 2,044, 2026-10-14), and the body
+//! nudges its goals by a few counts while it rests, so a rule on the goal
+//! never held there and every still waited the whole [`SETTLE_AT_MOST_US`]
+//! (#842, 2,000 to 2,125 ms). A head that moves again before the frame
+//! comes is waited for again. No longer than [`SETTLE_AT_MOST_US`] in all.
+//! With no body on the bus the still is taken at once.
 use lamp_msgs::JointState;
 use std::f64::consts::TAU;
 use zune_jpeg::{
@@ -31,8 +35,8 @@ use zune_jpeg::{
 
 /// The joints that move the camera.
 pub const HEAD: [&str; 3] = ["base_yaw", "head_pitch", "head_roll"];
-/// Six of a servo's 4096 counts a turn.
-pub const ARRIVED_RADIANS: f64 = 6.0 * TAU / 4_096.0;
+/// Six of a servo's 4096 counts a turn: how far a still head may drift.
+pub const DRIFT_RADIANS: f64 = 6.0 * TAU / 4_096.0;
 /// Two counts in the 80 ms over which the body works out how fast a joint
 /// turns: more than a count of jitter, less than a head following a slow
 /// move at 50 counts a second.
@@ -91,34 +95,29 @@ pub enum Head {
     /// No body says anything: nothing to wait for.
     Absent,
     Moving,
-    /// Not moving, and where each head joint was asked to be.
+    /// Not turning, and where each head joint is.
     Still([f64; 3]),
 }
 
-/// The head from what the body says: still when every head joint is within
-/// [`ARRIVED_RADIANS`] of where it was asked to be and turning slower than
-/// [`STILL_RADIANS_A_SECOND`]. A small error alone is not enough: a servo
-/// that follows a slow move lags its goal by a count or so all the way.
-/// What the body does not say (velocity, goals) is not waited for.
+/// The head from what the body says: still when every head joint turns
+/// slower than [`STILL_RADIANS_A_SECOND`]. A head turned slowly enough to
+/// pass that is caught by its drift ([`Wanted::body`]). What the body does
+/// not say (velocity, positions) is not waited for.
 pub fn head(joints: &JointState) -> Head {
     let given = |list: &[f64]| list.len() == joints.name.len();
-    let mut goals = [0.0; 3];
-    for (at, name) in joints.name.iter().enumerate() {
+    let mut at = [0.0; 3];
+    for (index, name) in joints.name.iter().enumerate() {
         let Some(which) = HEAD.iter().position(|head| head == name) else {
             continue;
         };
-        let off = given(&joints.commanded)
-            && given(&joints.position)
-            && (joints.commanded[at] - joints.position[at]).abs() > ARRIVED_RADIANS;
-        let turning = given(&joints.velocity) && joints.velocity[at].abs() > STILL_RADIANS_A_SECOND;
-        if off || turning {
+        if given(&joints.velocity) && joints.velocity[index].abs() > STILL_RADIANS_A_SECOND {
             return Head::Moving;
         }
-        if given(&joints.commanded) {
-            goals[which] = joints.commanded[at];
+        if given(&joints.position) {
+            at[which] = joints.position[index];
         }
     }
-    Head::Still(goals)
+    Head::Still(at)
 }
 
 /// One full look asked for: when the head has settled, and the first frame
@@ -126,7 +125,7 @@ pub fn head(joints: &JointState) -> Head {
 #[derive(Debug)]
 pub struct Wanted {
     asked_us: u64,
-    /// Since when the head has been still, and where it was asked to be.
+    /// Since when the head has been still, and where it was then.
     still_since: Option<(u64, [f64; 3])>,
     /// When it settled, and how many frames there had been by then.
     settled: Option<(u64, u64)>,
@@ -153,17 +152,17 @@ impl Wanted {
                 moved = true;
                 false
             }
-            Head::Still(goals) => {
-                // Goals that move are a head still being turned.
+            Head::Still(at) => {
+                // A head that drifts is a head still being turned slowly.
                 moved = self.still_since.is_some_and(|(_, was)| {
                     was.iter()
-                        .zip(goals)
-                        .any(|(was, now)| (was - now).abs() > ARRIVED_RADIANS)
+                        .zip(at)
+                        .any(|(was, now)| (was - now).abs() > DRIFT_RADIANS)
                 });
                 if moved {
                     self.still_since = None;
                 }
-                let (since, _) = *self.still_since.get_or_insert((now_us, goals));
+                let (since, _) = *self.still_since.get_or_insert((now_us, at));
                 now_us.saturating_sub(since) >= STILL_FOR_US
             }
         };
@@ -451,18 +450,63 @@ mod tests {
     }
 
     #[test]
-    fn the_head_is_still_when_it_is_where_it_was_asked_to_be_and_not_turning() {
-        // The shoulder far from its goal does not move the camera's aim
-        // as the head joints do, and is not waited for.
+    fn the_head_is_still_when_it_is_not_turning_wherever_its_goal_is() {
         assert_eq!(head(&joints(0.1, 0.0, 0.0)), STILL);
-        assert_eq!(head(&joints(0.1, 5.0 * COUNT, COUNT)), STILL);
-        assert_eq!(head(&joints(0.1, 12.0 * COUNT, 0.0)), Head::Moving);
+        // Standing short of its goal, as lamp-4ace's head rests: still.
+        assert_eq!(
+            head(&joints(0.1, 12.0 * COUNT, 0.0)),
+            Head::Still([0.1 - 12.0 * COUNT, 0.5, 0.4])
+        );
+        assert_eq!(
+            head(&joints(0.1, 5.0 * COUNT, COUNT)),
+            Head::Still([0.1 - 5.0 * COUNT, 0.5, 0.4])
+        );
         // A count behind its goal but turning at 50 counts a second.
         assert_eq!(head(&joints(0.1, COUNT, 50.0 * COUNT)), Head::Moving);
+        // The shoulder turning does not turn the camera's aim as the head
+        // joints do, and is not waited for.
+        let mut shoulder = joints(0.1, 0.0, 0.0);
+        shoulder.velocity[1] = 100.0 * COUNT;
+        assert_eq!(head(&shoulder), STILL);
         let mut unknown = joints(0.1, 1.0, 0.0);
-        unknown.commanded.clear();
+        unknown.position.clear();
         unknown.velocity.clear();
         assert_eq!(head(&unknown), Head::Still([0.0; 3]));
+    }
+
+    #[test]
+    fn a_head_resting_short_of_goals_the_body_nudges_settles_in_a_third_of_a_second() {
+        // lamp-4ace at rest, 2026-10-14 (`rest-glance-lamp-4ace-20261014`):
+        // goals [pitch, roll, yaw] 1951-1952, 2043-2044, 2016-2023 against
+        // positions 1952, 2051, 2023, one count of jitter; a message every
+        // 80 ms as the body offers them. The rule on the goal never held
+        // there and every still waited the whole 2 s (#842).
+        let radians = |counts: f64| (counts - 2_048.0) * COUNT;
+        let goals = [
+            [1_952.0, 2_044.0, 2_021.0],
+            [1_951.0, 2_043.0, 2_023.0],
+            [1_951.0, 2_044.0, 2_016.0],
+            [1_952.0, 2_044.0, 2_016.0],
+        ];
+        let mut wanted = Wanted::new(0);
+        for step in 0..25u64 {
+            let [pitch, roll, yaw] = goals[step as usize % goals.len()];
+            let jitter = (step % 2) as f64;
+            let joints = JointState {
+                name: ["base_yaw", "shoulder", "elbow", "head_roll", "head_pitch"]
+                    .map(str::to_owned)
+                    .to_vec(),
+                position: [2_023.0, 2_055.0, 2_047.0, 2_051.0, 1_952.0 + jitter]
+                    .map(radians)
+                    .to_vec(),
+                velocity: vec![0.0, 0.0, 0.0, 0.0, (2.0 * jitter - 1.0) * COUNT / 0.08],
+                effort: vec![],
+                commanded: [yaw, 2_055.0, 2_047.0, roll, pitch].map(radians).to_vec(),
+            };
+            wanted.body(head(&joints), step * 80 * MS, step);
+        }
+        assert_eq!(wanted.waited_us(), Some(320 * MS));
+        assert!(wanted.waited_us().unwrap() < 500 * MS);
     }
 
     #[test]
@@ -496,7 +540,7 @@ mod tests {
             wanted.body(head(&joints), step * 20 * MS, step);
             assert!(!wanted.take(step + 1), "taken at {} ms", step * 20);
         }
-        // Even were its speed not told: the goal moves under it.
+        // Even were its speed not told: it drifts, a count a step.
         let mut wanted = Wanted::new(0);
         for step in 0..100u64 {
             let goal = step as f64 * COUNT;
@@ -521,7 +565,7 @@ mod tests {
         wanted.body(Head::Moving, 350 * MS, 3);
         assert!(!wanted.take(4));
         assert_eq!(wanted.waited_us(), None);
-        // So does one asked to be somewhere else while it seemed still.
+        // So does one that drifts while it seemed still.
         wanted.body(STILL, 400 * MS, 4);
         wanted.body(Head::Still([0.2, 0.5, 0.4]), 600 * MS, 5);
         wanted.body(Head::Still([0.2, 0.5, 0.4]), 800 * MS, 6);

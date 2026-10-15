@@ -180,15 +180,21 @@ when the voice service asks, `{"look_full":ID}` on `--permit-socket` (an id from
    (`--gaze-socket`) and to a call (`--look-at-name on`); nothing new is
    asked of it. The still waits for it to stop: `body/joint_states` on the
    bus, read twenty times a second, with `base_yaw`, `head_pitch` and
-   `head_roll` each within 6 counts (0.0092 rad) of where they were asked to
-   be, the body's own arrival rule, turning slower than 25 counts a second
-   (two counts in the 80 ms over which the body works out a joint's speed),
-   and asked to be in the same place, for 0.3 s. A small error alone is not
-   enough: a head following a slow move lags its goal by a count all the
-   way. A head that moves again before the frame comes is waited for again.
-   It waits at most 2 s in all. With no
+   `head_roll` each turning slower than 25 counts a second (two counts in
+   the 80 ms over which the body works out a joint's speed) and staying
+   within 6 counts (0.0092 rad) of where it was when it stopped, for 0.3 s.
+   Where a joint was asked to be is not looked at. The first build also
+   wanted each within 6 counts of its goal and its goal unchanged, and on
+   lamp-4ace every still waited the whole 2 s (2,000 to 2,125 ms, #842): a
+   head at rest stands short of its goal under its own weight (`head_roll`
+   at 2,051 against 2,044, 7 counts, in
+   `verification/rest-glance-lamp-4ace-20261014/journal.txt`) and the body
+   nudges its resting goals by up to 7 counts. A head following a slow move
+   at 50 counts a second is turning; one moved more slowly than 25 drifts
+   past 6 counts and is waited for again. A head that moves again before the
+   frame comes is waited for again. It waits at most 2 s in all. With no
    joint states on the bus (no body, `LAMP_BUS` off on either side) it does
-   not wait; a paused body says its joints are where they were asked to be.
+   not wait; a paused body's joints do not turn.
 2. The still is the first frame after that. It is passed as it is when it is
    a whole JPEG of at most 64 KiB and 1024 across; otherwise it is decoded,
    shrunk to 1024 across by averaging, and encoded (`jpeg-encoder`, pure

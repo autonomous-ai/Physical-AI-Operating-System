@@ -57,6 +57,11 @@ pub const ANNOUNCEMENT: &str = "My voice sounds a little different just now.";
 pub const ANNOUNCE_AFTER: Duration = Duration::from_secs(120);
 /// Chat requests in one turn, tool rounds included.
 pub const MAX_ROUNDS: usize = 4;
+/// Exchanges kept for the next chat, and for how long since each was said.
+// ponytail: a fixed window in this process; the thread file carries the
+// conversation across processes and across a return to Gemini.
+pub const HISTORY_EXCHANGES: usize = 6;
+pub const HISTORY_WITHIN: Duration = Duration::from_secs(300);
 /// The tool whose call means the words were not for the lamp.
 const NOT_FOR_ME: &str = "not_for_me";
 /// Microphone packets (10 ms each) held while speech-to-text connects:
@@ -89,6 +94,9 @@ struct Shared {
     answered_at: Mutex<Option<Instant>>,
     /// Audio packets sent by this process.
     sequence: AtomicU64,
+    /// The last exchanges, as the chat is given them: a Live session keeps
+    /// its own, and a question like "and how many live there?" needs it.
+    history: Mutex<VecDeque<(Instant, Message, Message)>>,
     out: mpsc::Sender<ProviderOutput>,
 }
 
@@ -142,6 +150,7 @@ impl Engine {
                 clock,
                 answered_at: Mutex::new(None),
                 sequence: AtomicU64::new(0),
+                history: Mutex::new(VecDeque::new()),
                 out,
             }),
             output,
@@ -336,6 +345,28 @@ impl Shared {
         .await;
     }
 
+    /// The exchanges of the last [`HISTORY_WITHIN`], oldest first.
+    fn recent(&self) -> Vec<Message> {
+        let now = (self.clock)();
+        let Ok(mut history) = self.history.lock() else {
+            return Vec::new();
+        };
+        history.retain(|(at, _, _)| now.saturating_duration_since(*at) < HISTORY_WITHIN);
+        history
+            .iter()
+            .flat_map(|(_, asked, answered)| [asked.clone(), answered.clone()])
+            .collect()
+    }
+
+    fn remember(&self, asked: Message, answered: Message) {
+        if let Ok(mut history) = self.history.lock() {
+            history.push_back(((self.clock)(), asked, answered));
+            while history.len() > HISTORY_EXCHANGES {
+                history.pop_front();
+            }
+        }
+    }
+
     fn announcement_due(&self) -> bool {
         let now = (self.clock)();
         self.answered_at
@@ -356,9 +387,18 @@ async fn spoken(shared: Arc<Shared>, request: u64, mut heard: mpsc::Receiver<Vec
             return shared.fail(request, FailedStage::InputOpen, &error).await;
         }
     }
+    let finishing = Instant::now();
     let text = match listener.finish().await {
-        Ok(text) => text,
+        Ok(text) => {
+            eprintln!(
+                "lamp-voice second: request {request} heard {} words, the last {} ms after the line ended",
+                text.split_whitespace().count(),
+                finishing.elapsed().as_millis()
+            );
+            text
+        }
         Err(error) => {
+            eprintln!("lamp-voice second: request {request} speech to text failed: {error}");
             return shared
                 .fail(request, FailedStage::AwaitingResponse, &error)
                 .await;
@@ -410,19 +450,46 @@ async fn answer(shared: &Shared, request: u64, said: String) {
         speech: &mut speech,
         announcement,
         sentences,
+        started: false,
     };
+    let began = Instant::now();
+    let asked = Message::user(said.clone());
     let writing = async move {
-        let mut messages = vec![Message::system((shared.system)()), Message::user(said)];
-        for _ in 0..MAX_ROUNDS {
+        let mut messages = vec![Message::system((shared.system)())];
+        messages.extend(shared.recent());
+        messages.push(asked.clone());
+        let mut answered = String::new();
+        for round in 1..=MAX_ROUNDS {
             let mut stream = shared.services.chat(messages.clone());
+            let mut first = true;
             let mut split = Sentences::default();
             let mut text = String::new();
             let mut calls = Vec::new();
             while let Some(event) = stream.next().await {
-                match event.map_err(|error| Stop::Failed(fault(&error)))? {
+                let event = event.map_err(|error| {
+                    eprintln!("lamp-voice second: request {request} chat round {round} failed after {} ms: {error}", began.elapsed().as_millis());
+                    Stop::Failed(fault(&error))
+                })?;
+                if first {
+                    first = false;
+                    eprintln!(
+                        "lamp-voice second: request {request} chat round {round} first event in {} ms",
+                        began.elapsed().as_millis()
+                    );
+                }
+                match event {
                     ChatEvent::Text(piece) => {
                         text.push_str(&piece);
-                        for sentence in split.push(&piece) {
+                        // The model has chosen to speak: the announcement
+                        // need not wait for its first sentence.
+                        if piece.chars().any(char::is_alphanumeric) {
+                            queue.announce().await?;
+                        }
+                        let mut sentences = split.push(&piece);
+                        if sentences.is_empty() && !queue.started {
+                            sentences.extend(split.clause());
+                        }
+                        for sentence in sentences {
                             queue.push(sentence).await?;
                         }
                     }
@@ -431,13 +498,22 @@ async fn answer(shared: &Shared, request: u64, said: String) {
                 }
             }
             // Before the unfinished last words are said.
+            if !calls.is_empty() {
+                let names: Vec<&str> = calls.iter().map(|call| call.name.as_str()).collect();
+                eprintln!(
+                    "lamp-voice second: request {request} chat round {round} called {}",
+                    names.join(", ")
+                );
+            }
             if calls.iter().any(|call| call.name == NOT_FOR_ME) {
                 return Err(Stop::Silent);
             }
             if let Some(rest) = split.finish() {
                 queue.push(rest).await?;
             }
+            answered.push_str(&text);
             if calls.is_empty() {
+                shared.remember(asked, Message::assistant(answered));
                 return Ok(());
             }
             messages.push(Message::assistant_calls(Some(text), &calls));
@@ -474,7 +550,12 @@ async fn answer(shared: &Shared, request: u64, said: String) {
                     if !shared.emit(audio).await {
                         return Err(Stop::Gone);
                     }
-                    spoke.store(true, Ordering::Relaxed);
+                    if !spoke.swap(true, Ordering::Relaxed) {
+                        eprintln!(
+                            "lamp-voice second: request {request} first answer audio {} ms after the words were heard",
+                            began.elapsed().as_millis()
+                        );
+                    }
                     if let Ok(mut at) = shared.answered_at.lock() {
                         *at = Some((shared.clock)());
                     }
@@ -539,17 +620,25 @@ struct Queue<'a> {
     /// Said before the first sentence of the answer, if due.
     announcement: Option<Packets>,
     sentences: mpsc::Sender<(String, Packets)>,
+    /// Some of the answer itself is on its way.
+    started: bool,
 }
 impl Queue<'_> {
+    async fn announce(&mut self) -> Result<(), Stop> {
+        match self.announcement.take() {
+            Some(packets) => self.send(ANNOUNCEMENT.to_owned(), packets).await,
+            None => Ok(()),
+        }
+    }
+
     async fn push(&mut self, text: String) -> Result<(), Stop> {
         // A "sentence" with no word in it is not said: as the first words
         // of an answer, the coordinator would take it for silence.
         if !text.chars().any(char::is_alphanumeric) {
             return Ok(());
         }
-        if let Some(packets) = self.announcement.take() {
-            self.send(ANNOUNCEMENT.to_owned(), packets).await?;
-        }
+        self.announce().await?;
+        self.started = true;
         let packets = start_speech(self.shared, self.speech, text.clone());
         self.send(text, packets).await
     }

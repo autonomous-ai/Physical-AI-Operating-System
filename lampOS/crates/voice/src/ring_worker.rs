@@ -61,6 +61,8 @@ pub struct Senses {
     /// The strong eye ([`Face::eye_strong`]), only with `eye`.
     pub eye_strong: bool,
     pub sight: Option<RingSight>,
+    /// A hand kept on the head, for its countdown ([`crate::ring_head`]).
+    pub head: Option<crate::ring_head::RingHead>,
 }
 
 /// Startup Ready is emitted only after the sink accepted its initial black frame.
@@ -115,7 +117,8 @@ pub fn run(mut link: WorkerChannels, controller_boot: BootId) -> io::Result<()> 
 /// what the ring shows is said on it ([`crate::ring_light`]); a bus that
 /// cannot be used is said once and the ring runs without. With `eye`, the
 /// face is the eye ([`crate::ring_face`]), and looks where the eyes on the
-/// same bus see a person ([`crate::ring_sight`]).
+/// same bus see a person ([`crate::ring_sight`]). With `head_touch`, a hand
+/// kept on the head dims it, a countdown to sleep ([`crate::ring_head`]).
 #[cfg(target_os = "linux")]
 pub fn run_continuous(
     mut link: WorkerChannels,
@@ -124,6 +127,7 @@ pub fn run_continuous(
     bus_root: Option<&std::path::Path>,
     eye: bool,
     eye_strong: bool,
+    head_touch: bool,
 ) -> io::Result<()> {
     let light = bus_root.and_then(|root| match RingLight::on(root) {
         Ok(light) => Some(light),
@@ -141,11 +145,22 @@ pub fn run_continuous(
                 None
             }
         });
+    let head =
+        bus_root.filter(|_| head_touch).and_then(|root| {
+            match crate::ring_head::RingHead::on(root) {
+                Ok(head) => Some(head),
+                Err(error) => {
+                    eprintln!("lamp-voice ring: the head's hand cannot be read: {error}");
+                    None
+                }
+            }
+        });
     let senses = Senses {
         light,
         eye,
         eye_strong,
         sight,
+        head,
     };
     let resting = match resting.map(ChannelCeiling::new).transpose() {
         Ok(resting) => resting,
@@ -348,6 +363,7 @@ fn service(
         eye,
         eye_strong,
         mut sight,
+        mut head,
     } = senses;
     let mut light = light.map(|(light, begins)| {
         face.light(begins);
@@ -369,6 +385,9 @@ fn service(
             );
         }
         let tick = monotonic_us();
+        if let Some(head) = head.as_mut() {
+            face.hand(head.tick(tick));
+        }
         let mut budget = CONTROL_BUDGET;
         if controls(link, ring, &mut guard, &mut budget)? {
             return Ok(());

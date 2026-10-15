@@ -42,7 +42,7 @@ Its own process, so that the lamp talks on, without recalling earlier days,
 when this one has stopped, hung or crashed. Others ask over a Unix stream
 socket and never read its files.
 
-    lamp-memory --dir ABSOLUTE_DIR --socket ABSOLUTE_SOCKET_PATH [--keep-days N] [--utc-offset-minutes M] [--memory-days] [--bus-root ABSOLUTE_DIR]
+    lamp-memory --dir ABSOLUTE_DIR --socket ABSOLUTE_SOCKET_PATH [--keep-days N] [--utc-offset-minutes M | --zone system|NAME] [--memory-days] [--bus-root ABSOLUTE_DIR]
 
 `--dir` is made with mode 0700 if missing, `--socket` with mode 0600, and a
 socket file nobody answers on is replaced. A relative path, an unknown option
@@ -185,7 +185,14 @@ before using an existing store.
 
 Directories are 0700, files 0600. A person id is `[a-z0-9_-]{1,32}`; anything
 else is refused before it is near a path. The day is the local day of
-`at_unix_ms`, `--utc-offset-minutes` east of UTC (default 0; 420 for UTC+7).
+`at_unix_ms`, `--utc-offset-minutes` east of UTC (default 0; 420 for UTC+7),
+the same all year. `--zone system` (or `--zone America/New_York`) takes the
+zone's offset at each moment instead, so a day under summer time turns at
+local midnight too (#820). `system` follows `/etc/localtime`, which setup
+points at the home's zone, and takes up a new zone at the next request, with
+no restart; a change that cannot be read keeps the last zone. The two flags
+together, or an unknown zone, end the start; never a silent UTC. The start line
+says `zone=` in place of `utc_offset_minutes=`.
 Ids rise for each person across both files, and after a restart go on from the
 highest on the disk. A line is added with one `write` and `sync_data`; a
 removal writes the file anew beside the old one and renames it into place. A

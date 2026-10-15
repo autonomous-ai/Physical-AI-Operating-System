@@ -12,7 +12,7 @@ use std::{
 };
 
 const BINARY: &str = env!("CARGO_BIN_EXE_lamp-memory");
-const USAGE: &str = "usage: lamp-memory --dir ABSOLUTE_DIR --socket ABSOLUTE_SOCKET_PATH [--keep-days N] [--utc-offset-minutes M] [--memory-days] [--bus-root ABSOLUTE_DIR]";
+const USAGE: &str = "usage: lamp-memory --dir ABSOLUTE_DIR --socket ABSOLUTE_SOCKET_PATH [--keep-days N] [--utc-offset-minutes M | --zone system|NAME] [--memory-days] [--bus-root ABSOLUTE_DIR]";
 const LOG_WAIT: Duration = Duration::from_secs(5);
 
 struct Scratch(PathBuf);

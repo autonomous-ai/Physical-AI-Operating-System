@@ -93,7 +93,7 @@ fn how_long_each_request_takes_with_a_month_of_talk_behind_it() {
     let options = Options {
         dir: scratch.join("store"),
         keep_days: 30,
-        utc_offset_minutes: 0,
+        local: lamp_memory::store::LocalTime::Offset(0),
     };
     let mut store = Store::open(options, NOON).unwrap();
     report("opening the store", vec![began.elapsed()], 0);

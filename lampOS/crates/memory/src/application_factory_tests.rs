@@ -28,6 +28,7 @@ impl Scratch {
             socket: self.0.join("m.sock"),
             keep_days: 30,
             utc_offset_minutes: 0,
+            zone: None,
             memory_days: days,
             bus_root: bus.then(|| self.0.join("b")),
         }

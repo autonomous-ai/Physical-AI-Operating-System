@@ -75,7 +75,9 @@ impl Fixture {
             Options {
                 dir: root.join("store"),
                 keep_days: 30,
-                utc_offset_minutes: lamp_voice::local_time::offset_here().unwrap_or(0) / 60,
+                local: lamp_memory::store::LocalTime::Offset(
+                    lamp_voice::local_time::offset_here().unwrap_or(0) / 60,
+                ),
             },
             now,
         )

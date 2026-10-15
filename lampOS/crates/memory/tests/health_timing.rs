@@ -70,7 +70,7 @@ impl Scratch {
         Options {
             dir: self.0.join("store"),
             keep_days: 30,
-            utc_offset_minutes: 0,
+            local: lamp_memory::store::LocalTime::Offset(0),
         }
     }
 }

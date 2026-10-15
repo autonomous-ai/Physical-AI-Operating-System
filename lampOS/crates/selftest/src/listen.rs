@@ -6,8 +6,8 @@
 use crate::Check;
 use lamp_bus::Bus;
 use lamp_msgs::{
-    AirState, BoardState, Faces, Health, JointState, Level, PartResult, RoomSound, TouchState,
-    Verdict,
+    AirState, BoardState, ControlsState, Faces, Health, JointState, Level, PartResult, RoomSound,
+    TouchState, Verdict,
 };
 use serde::de::DeserializeOwned;
 use std::{
@@ -305,6 +305,51 @@ impl Check for Sight<'_> {
     }
 }
 
+/// What a part that never gave a reading says of itself, by the name it
+/// reports under in `lamp/health`: its owner's own warning fails the part;
+/// an owner that is well and has given nothing yet is not checked. `None`
+/// when the owner is not in the lamp's health either.
+pub fn owner_says(part: &str, owner: &str, health: &Heard<Health>) -> Option<PartResult> {
+    let Ok(Some(seen)) = health else {
+        return None;
+    };
+    let item = seen.value.items.iter().find(|item| item.name == owner)?;
+    Some(if item.level == Level::Ok {
+        PartResult::new(
+            part,
+            Verdict::NotChecked,
+            &format!("{owner} runs and is well, but has given no reading yet"),
+        )
+    } else {
+        let message = if item.message.is_empty() {
+            "no reason given"
+        } else {
+            item.message.as_str()
+        };
+        PartResult::new(
+            part,
+            Verdict::Fail,
+            &format!("{owner}: {message} ({})", item.level.as_str()),
+        )
+    })
+}
+
+/// The touch pads when `controls/touch_state` was never given: Controls
+/// that runs without `--touch` reads no pad, which is a setting, not a
+/// missing part.
+pub fn touch_unread(controls: &Heard<ControlsState>) -> Option<PartResult> {
+    let Ok(Some(seen)) = controls else {
+        return None;
+    };
+    (seen.age <= FAST_FRESH).then(|| {
+        PartResult::new(
+            "touch",
+            Verdict::NotChecked,
+            "not enabled: lamp-controls runs without --touch, so no pad is read",
+        )
+    })
+}
+
 /// The newest reading on `topic`, and its age by the publisher's wall clock.
 pub fn newest<T: DeserializeOwned>(bus: &Bus, topic: &str) -> Heard<T> {
     let Some(message) = bus.latest(topic).map_err(|e| e.to_string())? else {
@@ -328,8 +373,14 @@ pub struct Listen<'a, T> {
     bus: &'a Bus,
     topic: &'static str,
     judge: Judge<'a, T>,
+    /// What to say when the topic was never given a reading, if the bus
+    /// knows better than "nothing was ever said".
+    when_silent: Option<Silent<'a>>,
     kind: PhantomData<T>,
 }
+
+/// Another look at the bus for a part whose topic is silent.
+type Silent<'a> = Box<dyn Fn(&Bus) -> Option<PartResult> + 'a>;
 
 impl<'a, T: DeserializeOwned> Listen<'a, T> {
     pub fn new(
@@ -343,8 +394,26 @@ impl<'a, T: DeserializeOwned> Listen<'a, T> {
             bus,
             topic,
             judge: Box::new(judge),
+            when_silent: None,
             kind: PhantomData,
         }
+    }
+
+    /// Asks the part's owner, by its name in `lamp/health`, when the topic
+    /// has never been given a reading.
+    pub fn owner(mut self, owner: &'static str) -> Self {
+        let part = self.part.clone();
+        self.when_silent = Some(Box::new(move |bus: &Bus| {
+            owner_says(&part, owner, &newest(bus, Health::TOPIC))
+        }));
+        self
+    }
+
+    /// Looks elsewhere on the bus when the topic has never been given a
+    /// reading.
+    pub fn when_silent(mut self, look: impl Fn(&Bus) -> Option<PartResult> + 'a) -> Self {
+        self.when_silent = Some(Box::new(look));
+        self
     }
 }
 
@@ -354,26 +423,39 @@ impl<T: DeserializeOwned> Check for Listen<'_, T> {
     }
 
     fn run(&mut self, _deadline: Instant) -> PartResult {
-        (self.judge)(&newest(self.bus, self.topic))
+        let heard = newest(self.bus, self.topic);
+        if matches!(heard, Ok(None))
+            && let Some(look) = &self.when_silent
+            && let Some(result) = look(self.bus)
+        {
+            return result;
+        }
+        (self.judge)(&heard)
     }
 }
 
 /// Every check that only listens, in the order they run.
 pub fn checks(bus: &Bus) -> Vec<Box<dyn Check + '_>> {
     let mut checks: Vec<Box<dyn Check + '_>> = vec![
-        Box::new(Listen::new("room_mic", bus, RoomSound::TOPIC, room_mic)),
-        Box::new(Listen::new("air", bus, AirState::TOPIC, air)),
-        Box::new(Listen::new("touch", bus, TouchState::TOPIC, touch)),
+        Box::new(Listen::new("room_mic", bus, RoomSound::TOPIC, room_mic).owner("ears")),
+        Box::new(Listen::new("air", bus, AirState::TOPIC, air).owner("air")),
+        Box::new(
+            Listen::new("touch", bus, TouchState::TOPIC, touch)
+                .when_silent(|bus| touch_unread(&newest(bus, ControlsState::TOPIC))),
+        ),
         Box::new(Listen::new("board", bus, BoardState::TOPIC, board)),
         Box::new(Sight { bus }),
     ];
     for name in JOINTS {
-        checks.push(Box::new(Listen::new(
-            name,
-            bus,
-            JointState::TOPIC,
-            move |heard: &Heard<JointState>| joint(name, heard),
-        )));
+        checks.push(Box::new(
+            Listen::new(
+                name,
+                bus,
+                JointState::TOPIC,
+                move |heard: &Heard<JointState>| joint(name, heard),
+            )
+            .owner("body"),
+        ));
     }
     checks
 }
@@ -544,6 +626,107 @@ mod tests {
         let absent = camera(&Ok(None), &seen(1_000, health_with(None)));
         assert!(absent.reason.contains("LAMP_BUS"), "{}", absent.reason);
         assert_eq!(camera(&Ok(None), &Ok(None)).verdict, Verdict::NotChecked);
+    }
+
+    fn health_of(name: &str, level: Level, message: &str) -> Health {
+        Health {
+            level,
+            message: String::new(),
+            items: vec![lamp_msgs::HealthItem {
+                name: name.into(),
+                level,
+                message: message.into(),
+                age_ms: 400,
+            }],
+            missing: vec![],
+        }
+    }
+
+    #[test]
+    fn a_silent_part_says_what_its_owner_says_of_itself() {
+        let warned = seen(
+            1_000,
+            health_of("air", Level::Warn, "the sensor does not answer"),
+        );
+        let failed = owner_says("air", "air", &warned).unwrap();
+        assert_eq!(failed.verdict, Verdict::Fail);
+        assert!(
+            failed.reason.contains("does not answer"),
+            "{}",
+            failed.reason
+        );
+        let well = seen(1_000, health_of("air", Level::Ok, ""));
+        let waiting = owner_says("air", "air", &well).unwrap();
+        assert_eq!(waiting.verdict, Verdict::NotChecked);
+        assert!(
+            waiting.reason.contains("no reading yet"),
+            "{}",
+            waiting.reason
+        );
+        assert!(owner_says("air", "air", &seen(1_000, health_of("body", Level::Ok, ""))).is_none());
+        assert!(owner_says("air", "air", &Ok(None)).is_none());
+    }
+
+    #[test]
+    fn a_published_air_reading_is_read_from_what_the_bus_keeps_and_silence_asks_the_owner() {
+        let root =
+            std::env::temp_dir().join(format!("lamp-selftest-silent-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        std::fs::create_dir_all(&root).unwrap();
+        let bus = Bus::new(&root).unwrap();
+        // lamp-air as on lamp-4ace after a power cut: alive, no reading.
+        let mut sensor = bus
+            .publisher_declared(AirState::TOPIC, &AirState::declaration(), "air")
+            .unwrap();
+        sensor.alive().unwrap();
+        let mut health = bus
+            .publisher_declared(Health::TOPIC, &Health::declaration(), "health")
+            .unwrap();
+        health
+            .publish_json(
+                1,
+                &health_of("air", Level::Warn, "the sensor does not answer"),
+            )
+            .unwrap();
+        let mut check = Listen::new("air", &bus, AirState::TOPIC, air).owner("air");
+        let silent = check.run(Instant::now());
+        assert_eq!(silent.verdict, Verdict::Fail, "{silent:?}");
+        assert!(
+            silent.reason.starts_with("air: the sensor"),
+            "{}",
+            silent.reason
+        );
+        // One reading later, the reading is judged; the owner is not asked.
+        sensor.publish_json(2, &good_air()).unwrap();
+        assert_eq!(check.run(Instant::now()).verdict, Verdict::Pass);
+        drop((sensor, health));
+        std::fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn touch_not_read_by_controls_is_not_enabled_not_missing() {
+        let controls: ControlsState = serde_json::from_value(serde_json::json!({
+            "stamp": {"clock_id": "controls", "at_us": 1, "sequence": 1},
+            "session_id": "s1",
+            "enabled": true,
+            "ready": true,
+            "buttons": [],
+            "head_active": false,
+            "base_ready": false,
+            "base_tier": "none",
+            "event_sequence": 0,
+            "rejected_inputs": 0
+        }))
+        .unwrap();
+        let result = touch_unread(&seen(50, controls.clone())).unwrap();
+        assert_eq!(result.verdict, Verdict::NotChecked);
+        assert!(
+            result.reason.starts_with("not enabled"),
+            "{}",
+            result.reason
+        );
+        assert!(touch_unread(&seen(5_000, controls)).is_none());
+        assert!(touch_unread(&Ok(None)).is_none());
     }
 
     #[test]

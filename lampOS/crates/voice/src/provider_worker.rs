@@ -159,6 +159,55 @@ pub fn take_keep_link(flags: &[String]) -> (bool, &[String]) {
         _ => (false, flags),
     }
 }
+/// What the flags after a provider worker's configuration ask for, in the
+/// order `coordinator::provider_arguments` passes them: the continuation,
+/// the sight, the files and the camera context. A flag out of its place or
+/// unknown is refused (by the camera context's parse, which takes the rest).
+pub type Parsed = (
+    Continuation,
+    Option<crate::sight::Sight>,
+    Files,
+    Option<VisualSource>,
+);
+pub fn parse_flags(dir: &std::path::Path, flags: &[String]) -> io::Result<Parsed> {
+    let (continuation, flags) = Continuation::take(flags)?;
+    let (sight, flags) = crate::sight::Sight::take(flags)?;
+    let (look, flags) = crate::sight::take_look(flags)?;
+    let (thread, flags) = crate::thread::take_file(flags)?;
+    let (session_fact, flags) = crate::session_fact::take(flags);
+    let (room_facts, flags) = crate::room_told::take(flags);
+    let (air_facts, flags) = crate::air_told::take(flags);
+    let (keep_link, flags) = take_keep_link(flags);
+    let (tools, flags) = crate::tools::take(flags)?;
+    let (attention, flags) = crate::attention::take(flags);
+    let (attention_busy, flags) = crate::attention::take_busy(flags);
+    let (attention_near, flags) = crate::attention::take_near(flags);
+    let (addressed, flags) = crate::addressed::take(flags);
+    let (name_signal, flags) = crate::attention::take_name(flags);
+    let (name_note, name_note_busy_face, flags) = crate::called::take(flags);
+    let (bus_root, flags) = crate::bus_out::take_root(flags)?;
+    let (first_output, flags) = crate::first_output::take(flags)?;
+    let visual = VisualSource::parse(dir, flags)?;
+    let files = Files {
+        look,
+        thread,
+        session_fact,
+        room_facts,
+        air_facts,
+        keep_link,
+        tools,
+        attention,
+        attention_busy,
+        attention_near,
+        addressed,
+        name_signal,
+        name_note,
+        name_note_busy_face,
+        bus_root,
+        first_output,
+    };
+    Ok((continuation, sight, files, visual))
+}
 /// When the lamp last looked (a picture went into this session), and when
 /// anything was last submitted. A picture in a session's history makes
 /// every later answer about half a second slower ([eyes.md]), so once the
@@ -1694,7 +1743,7 @@ impl ToolDesk {
             {
                 // Being asked to keep or forget something is not itself
                 // something to keep.
-                if matches!(route, Route::Memory(_)) && call.name != crate::remember::RECALL {
+                if crate::tools::keeps_out(&route, &call.name) {
                     crate::remember::keep_out(request);
                 }
                 if matches!(

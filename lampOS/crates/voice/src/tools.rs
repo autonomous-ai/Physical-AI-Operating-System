@@ -401,6 +401,41 @@ pub fn route(settings: &Settings, name: &str) -> Route {
     }
 }
 
+/// Whether a request with this call stays out of the memory's journal:
+/// being asked to keep or forget something is not itself something to keep.
+pub fn keeps_out(route: &Route, name: &str) -> bool {
+    matches!(route, Route::Memory(_)) && name != crate::remember::RECALL
+}
+
+/// One call answered to the end, for a voice route that waits for each
+/// call's answer before it goes on: the time from the lamp's clock, a
+/// decline answered, a call nobody here runs told so, any other run by
+/// [`run_call`]. Blocking: for a thread of its own. `not_for_me` itself is
+/// the route's to act on before this.
+pub fn answer(settings: &Settings, call: &ToolCall, request: u64, heard: bool) -> Value {
+    match route(settings, &call.name) {
+        Route::Clock => time_now(),
+        Route::Decline => declined(),
+        Route::Nobody => unavailable(),
+        route => {
+            if keeps_out(&route, &call.name) {
+                crate::remember::keep_out(request);
+            }
+            let (whom, (told, answered)) = run_call(&route, call, request, heard);
+            eprintln!(
+                "lamp-voice: request {request} asked for {}; {whom} {}",
+                call.name,
+                if answered {
+                    "answered"
+                } else {
+                    "did not answer"
+                }
+            );
+            told
+        }
+    }
+}
+
 /// What the model is told when a call could not be run: words it can say.
 pub fn unavailable() -> Value {
     json!({"error": "That part of me is not running right now, so I could not do it."})

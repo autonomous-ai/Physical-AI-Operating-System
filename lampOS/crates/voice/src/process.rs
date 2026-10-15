@@ -660,13 +660,14 @@ impl Drop for Worker {
     }
 }
 
-// Keep the provider's one opt-in explicit. No other coordinator environment
-// reaches a worker, and unset, non-Unicode and unrecognized values stay off.
+// Keep the voice routes' one opt-in explicit (the Live provider and the
+// second route share the memory). No other coordinator environment reaches
+// a worker, and unset, non-Unicode and unrecognized values stay off.
 fn memory_days_worker_environment(
     role: &str,
     value: Option<&std::ffi::OsStr>,
 ) -> Option<(&'static str, &'static str)> {
-    (role == "provider" && value == Some(std::ffi::OsStr::new("on")))
+    (matches!(role, "provider" | "second") && value == Some(std::ffi::OsStr::new("on")))
         .then_some(("LAMP_MEMORY_DAYS", "on"))
 }
 
@@ -675,7 +676,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn cleared_worker_environment_passes_only_the_exact_provider_opt_in() {
+    fn cleared_worker_environment_passes_only_the_exact_voice_route_opt_in() {
         use std::{ffi::OsString, os::unix::ffi::OsStringExt};
 
         let values = [
@@ -690,7 +691,7 @@ mod tests {
             Some(OsString::from_vec(vec![0xff])),
         ];
         for role in [
-            "provider", "capture", "speaker", "denoise", "echo", "unknown",
+            "provider", "second", "capture", "speaker", "denoise", "echo", "unknown",
         ] {
             for value in &values {
                 // Observe an actual child's environment without changing this
@@ -702,12 +703,13 @@ mod tests {
                     .output()
                     .unwrap();
                 assert!(output.status.success());
-                let expected =
-                    if role == "provider" && value.as_deref() == Some(std::ffi::OsStr::new("on")) {
-                        b"LAMP_MEMORY_DAYS=on\n".as_slice()
-                    } else {
-                        b"".as_slice()
-                    };
+                let expected = if matches!(role, "provider" | "second")
+                    && value.as_deref() == Some(std::ffi::OsStr::new("on"))
+                {
+                    b"LAMP_MEMORY_DAYS=on\n".as_slice()
+                } else {
+                    b"".as_slice()
+                };
                 assert_eq!(output.stdout, expected, "role {role}, value {value:?}");
             }
         }

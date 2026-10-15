@@ -5,7 +5,8 @@
 //! [`Engine`] speaks the provider protocol ([`ProviderInput`] in,
 //! [`ProviderOutput`] out) over three services behind [`Services`]; the
 //! worker loop in [`worker::run`] carries it over the ordinary provider IPC,
-//! as [`crate::fixture_provider`] does. Not yet started by `main`.
+//! as [`crate::fixture_provider`] does; [`worker::serve`] is the process
+//! `lamp-voice worker second` (role `second`).
 //!
 //! A spoken turn: `Started` at once and speech-to-text opened while the
 //! person is still talking; at the end, their words (`Transcript` with no
@@ -69,8 +70,9 @@ const SENTENCES_AHEAD: usize = 2;
 /// reply's worth, so a waiting download is never left unread for long.
 const SENTENCE_PACKETS: usize = crate::provider_flow::MAX_REPLY_SAMPLES / PACKET_SAMPLES;
 
-/// Runs one tool call: `(name, arguments)` to the result the model reads.
-pub type ToolRunner = Arc<dyn Fn(String, Value) -> BoxFuture<'static, Value> + Send + Sync>;
+/// Runs one tool call: `(request, name, arguments)` to the result the
+/// model reads.
+pub type ToolRunner = Arc<dyn Fn(u64, String, Value) -> BoxFuture<'static, Value> + Send + Sync>;
 /// The system message for a turn, built when the turn's chat begins.
 pub type System = Arc<dyn Fn() -> String + Send + Sync>;
 /// The engine's clock, for the announcement's spell.
@@ -439,7 +441,7 @@ async fn answer(shared: &Shared, request: u64, said: String) {
             }
             messages.push(Message::assistant_calls(Some(text), &calls));
             for call in &calls {
-                let result = (shared.tools)(call.name.clone(), call.args.clone()).await;
+                let result = (shared.tools)(request, call.name.clone(), call.args.clone()).await;
                 messages.push(Message::tool(call.id.clone(), result.to_string()));
             }
         }

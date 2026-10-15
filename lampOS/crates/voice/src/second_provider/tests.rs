@@ -117,7 +117,7 @@ type Calls = Arc<Mutex<Vec<(String, Value)>>>;
 fn scripted(script: Arc<Script>) -> (Engine, Calls, Arc<Mutex<Instant>>) {
     let calls: Calls = Arc::default();
     let seen = calls.clone();
-    let tools: ToolRunner = Arc::new(move |name, args| {
+    let tools: ToolRunner = Arc::new(move |_, name, args| {
         seen.lock().unwrap().push((name, args));
         Box::pin(async { json!({"ok": true}) })
     });

@@ -580,6 +580,21 @@ pub fn write_file(path: &Path, text: &str) -> std::io::Result<()> {
     std::fs::rename(&writing, path)
 }
 
+/// `told` on the thread as it stands now, for a voice route about to tell
+/// its model: anything forgotten first, so that a file written before the
+/// forgetting is not taken back, then `file` if another voice route wrote
+/// it since ([`Thread::reload`]). `None` if the thread cannot be had.
+pub fn current<R>(file: Option<&Path>, told: impl FnOnce(&Thread) -> R) -> Option<R> {
+    let mut thread = THREAD.lock().ok()?;
+    crate::remember::clear_forgotten_thread(&mut thread);
+    if let Some(path) = file
+        && thread.reload(path, Instant::now(), SystemTime::now())
+    {
+        eprintln!("lamp-voice: took the thread another voice route wrote");
+    }
+    Some(told(&thread))
+}
+
 impl Default for Thread {
     fn default() -> Self {
         Self::new()
@@ -693,23 +708,10 @@ impl Connect for Recalling {
                 time = Some(time.unwrap_or_default() + &kept);
             }
         }
-        let config = match THREAD.lock() {
-            Ok(mut thread) => {
-                // Forgetting first, so that a file written before it is
-                // not taken back.
-                crate::remember::clear_forgotten_thread(&mut thread);
-                if let Some(path) = &self.file
-                    && thread.reload(path, Instant::now(), SystemTime::now())
-                {
-                    eprintln!(
-                        "lamp-voice provider: session {}: took the thread another voice route wrote",
-                        session.get()
-                    );
-                }
-                self.recalled(&thread, Instant::now(), time.as_deref())
-            }
-            Err(_) => self.config.clone(),
-        };
+        let config = current(self.file.as_deref(), |thread| {
+            self.recalled(thread, Instant::now(), time.as_deref())
+        })
+        .unwrap_or_else(|| self.config.clone());
         Dialer::new(self.equipped(config)).connect(session, resume)
     }
 }

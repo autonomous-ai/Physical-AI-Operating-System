@@ -1080,7 +1080,17 @@ busy.
   news or of it starting a task, a timer or a reminder, is played in
   every room.
 
-Beyond those two, the switch only holds: what the rule holds without it
+One more, from 03:28 that night (#829, #908): in a busy room, "Hey Lamp,
+turn your volume down a little." was held, because the name was heard in
+the sound and nobody was turned to the lamp. With the switch, a request
+with the name heard in its sound is played in a busy room too, without a
+face: at night nobody faces the lamp. Its cost is the busy form's reason
+for that hold: `lamp-name` hears the name in people's talk now and then
+(17 times from 07:45 to 13:02 on 14 October, at 0.903 to 0.997), and with
+the switch each of those lets an answer out.
+
+Beyond the reply to the lamp's news, the question about its work and the
+name without a face, the switch only holds: what the rule holds without it
 stays held.
 
 What it would have cost (lamp-4ace's first-output records of 15 October,
@@ -1102,7 +1112,8 @@ Facing the lamp, or "Hey Lamp", is answered.
 
 Tests:
 - `with_the_switch_only_what_was_said_to_the_lamp_is_played_in_every_room`
-  and `the_spoken_to_switch_never_plays_what_the_rule_holds` (the rule);
+  and `with_the_switch_the_name_needs_no_face_and_the_lamps_own_turn_plays`
+  (the rule);
 - `what_nobody_said_to_the_lamp_is_held_with_the_switch_and_played_without`,
   `the_lamp_called_by_name_or_in_a_conversation_is_answered_with_the_switch`,
   `a_turn_nobody_said_to_the_lamp_never_changes_the_lamp` and

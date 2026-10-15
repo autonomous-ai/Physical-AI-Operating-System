@@ -991,7 +991,10 @@ impl Attention {
             verdict => verdict,
         };
         // #829, step 2: it holds what nobody said to the lamp, in every
-        // room, and never plays what the rule above holds.
+        // room. And a request with the name heard in its sound needs no
+        // face, in a busy room too: at night nobody faces the lamp
+        // (lamp-4ace, 16 October at 03:28, "Hey Lamp, turn your volume down
+        // a little." was held for want of one).
         let spoken_to = own
             || going_on
             || called_in_text
@@ -1000,6 +1003,7 @@ impl Attention {
             || self.addressed;
         let verdict = match verdict {
             Verdict::Play(_) if self.spoken_to && !spoken_to => Verdict::Hold(NOT_SPOKEN_TO),
+            Verdict::Hold(_) if self.spoken_to && self.named => Verdict::Play(NAMED),
             verdict => verdict,
         };
         self.verdict = Some(verdict);
@@ -1702,23 +1706,29 @@ mod tests {
         assert!(!about_its_work("I'll ask him about it."));
     }
 
-    /// Apart from a reply to the lamp's news and a question about its
-    /// work, the switch only holds: what the rule holds stays held with
-    /// it, and the lamp's own turn is always played.
+    /// #829, the first builder at 03:29: a request said with the name needs
+    /// no face, in a busy room too. Without the switch the busy form holds
+    /// the name heard in the sound with nobody turned to the lamp; with it,
+    /// it is played. And the lamp's own turn is always played.
     #[test]
-    fn the_spoken_to_switch_never_plays_what_the_rule_holds() {
-        let mut attention = Attention::default();
-        attention.speak_when_spoken_to(true);
-        attention.began_at(5, 3, 10_000_000);
-        attention.name_heard_scored(10_100_000, 0.97);
-        attention.heard("Did you get my message?");
-        // The busy form: the name heard with nobody turned is held.
+    fn with_the_switch_the_name_needs_no_face_and_the_lamps_own_turn_plays() {
+        let named = |spoken_to: bool| {
+            let mut attention = Attention::default();
+            attention.speak_when_spoken_to(spoken_to);
+            attention.began_at(5, 3, 10_000_000);
+            attention.name_heard_scored(10_100_000, 0.97);
+            attention.heard("turn your volume down a little.");
+            attention.first_output_busy(5, Room::Busy, false, true, Some(false))
+        };
         assert_eq!(
-            attention.first_output_busy(5, Room::Busy, false, true, Some(false)),
+            named(false),
             Some(Verdict::Hold(
                 "a busy room: its name was heard in the sound, and nobody is turned to the lamp"
             ))
         );
+        assert_eq!(named(true), Some(Verdict::Play(NAMED)));
+        let mut attention = Attention::default();
+        attention.speak_when_spoken_to(true);
         OWN_REQUEST.store(6_829, Ordering::Release);
         attention.began_at(6_829, 3, 20_000_000);
         assert_eq!(

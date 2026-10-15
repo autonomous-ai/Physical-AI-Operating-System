@@ -276,8 +276,14 @@ pub struct Reads {
 }
 
 /// Every task being watched, as last read, and when each machine was.
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct Tracker {
+    /// This run of reading progress: when it began, in milliseconds since
+    /// 1970. Changes are counted from nothing in each run, and a restart
+    /// keeps the store and its task numbers, so the run is what keeps a
+    /// change of one run from being taken for the same count of another
+    /// (#765 review, 2026-10-15).
+    run: u64,
     tasks: BTreeMap<u64, Tracked>,
     /// When each machine was last asked, by the boot clock, answered or
     /// not: a failed read waits its turn like any other.
@@ -288,6 +294,21 @@ pub struct Tracker {
 }
 
 impl Tracker {
+    /// A run that began at `run`, milliseconds since 1970 (never 0).
+    pub fn started(run: u64) -> Self {
+        Self {
+            run: run.max(1),
+            tasks: BTreeMap::new(),
+            asked: BTreeMap::new(),
+            reads: Reads::default(),
+            fresh: false,
+        }
+    }
+
+    pub fn run(&self) -> u64 {
+        self.run
+    }
+
     pub fn reads(&self) -> Reads {
         self.reads
     }
@@ -423,6 +444,7 @@ impl Tracker {
         }
         Some(TaskStatus {
             store_id: store_id.to_owned(),
+            run: self.run,
             tasks: self
                 .tasks
                 .iter()
@@ -451,6 +473,7 @@ impl Tracker {
             "engine": tracked.engine,
             "state": tracked.state,
             "about": tracked.about,
+            "run": self.run,
             "changes": tracked.changes,
             "signs_seen": tracked.signs_seen,
             "last_active_unix_ms": tracked.last_active_unix_ms,
@@ -536,6 +559,7 @@ mod tests {
             about: about.map(str::to_owned),
         }
     }
+    const RUN: u64 = 1_791_964_000_000;
     const A: &str = "11111111-1111-4111-8111-111111111111";
     const B: &str = "22222222-2222-4222-8222-222222222222";
     const OFFICE: &str = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
@@ -543,7 +567,7 @@ mod tests {
 
     #[test]
     fn one_read_a_machine_on_the_watchs_schedule() {
-        let mut tracker = Tracker::default();
+        let mut tracker = Tracker::started(RUN);
         // Handed over just now: not before half a minute.
         let young = vec![watched(1, OFFICE, A, Some(1_000))];
         assert_eq!(tracker.due(&young, 0), None);
@@ -582,7 +606,7 @@ mod tests {
 
     #[test]
     fn a_change_of_the_line_is_counted_measured_and_signed_and_the_words_stay_here() {
-        let mut tracker = Tracker::default();
+        let mut tracker = Tracker::started(RUN);
         let watched = vec![watched(3, OFFICE, A, Some(60_000))];
         // The first line read is where counting begins.
         tracker.read(
@@ -598,6 +622,7 @@ mod tests {
         );
         let first = tracker.take(&"0".repeat(32)).unwrap();
         first.check().unwrap();
+        assert_eq!(first.run, RUN);
         let task = &first.tasks[0];
         assert_eq!(
             (task.task, task.state, task.changes, task.changed),
@@ -655,6 +680,7 @@ mod tests {
         );
         // The words, here, for the lamp about to say them.
         let words = tracker.words(3).unwrap();
+        assert_eq!(words["run"], RUN);
         assert_eq!(words["about"], "Fixed it; all tests pass");
         assert_eq!(words["state"], "working");
         assert!(tracker.words(4).is_none());
@@ -689,7 +715,7 @@ mod tests {
 
     #[test]
     fn a_read_of_one_machine_flags_only_its_own_tasks_as_changed() {
-        let mut tracker = Tracker::default();
+        let mut tracker = Tracker::started(RUN);
         let watched = vec![watched(1, OFFICE, A, None), watched(2, HOME, B, None)];
         for (machine, agent, about) in [(OFFICE, A, "one"), (HOME, B, "two")] {
             tracker.read(

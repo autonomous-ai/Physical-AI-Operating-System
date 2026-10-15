@@ -985,7 +985,12 @@ attention one, nor the other way round.
 
 **When it asks.** For a task whose agent is `working` and whose progress
 line has changed (`changes`) since it was last judged. What a task says the
-first time the policy sees it is where judging begins, not news. One
+first time the policy sees it is where judging begins, not news. Counts are
+of one run of the tasks part (`run`): a restart keeps the store and the
+task numbers and counts from nothing, so for a task already followed a new
+run is judged from its own beginning, whatever count the last run reached,
+and a yes about one run's change that comes back once another run is there
+is `outdated`. The quarter hour after a note stays across a restart. One
 progress question is out at a time.
 
 **Two hard rules, around the decider and not left to it.** A question is
@@ -1020,7 +1025,7 @@ and `the_quiet_begins_when_the_voice_stops` (`crates/policy/src/progress.rs`).
 
 | Field | Where it comes from |
 |---|---|
-| `store_id`, `task`, `change` | `tasks/status`: whose work, and which change of its line |
+| `store_id`, `task`, `change`, `run` | `tasks/status`: whose work, which change of its line, and the run of the tasks part that counted it |
 | `engine`, `state`, `working_s` | `tasks/status` |
 | `idle_s` | The policy's wall clock less the agent's `last_active_unix_ms` |
 | `changed_now`, `new_share` | `tasks/status` |
@@ -1073,8 +1078,9 @@ is known; probability 0.6 for yes and 0.1 for no, authored and unmeasured.
 **What is published** on `policy/decisions` (`lamp_msgs/Decision`):
 `about` `progress`, `choice` `say_now` or `wait`, `probability`, the three
 `answers` (empty when the rule decided), `by`, `took_ms`, `shadow: true`,
-and `task`, `<store>:<task>:<change>`, which tells a later reader which
-piece of progress it was about ([msgs.md](msgs.md)). An attention decision
+and `task`, `<store>:<task>:<change>@<run>`, which tells a later reader
+which piece of progress it was about: the run of the tasks part is part of
+its name, since counts begin again at each run ([msgs.md](msgs.md)). An attention decision
 has no `task` and is written as before.
 
 **What is written down**, one line in the same `decisions-YYYY-MM-DD.jsonl`

@@ -858,9 +858,11 @@ pub struct Decision {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub request: Option<u64>,
     /// The work this is about, for `progress` ("say this progress now?"):
-    /// `<store>:<task>:<change>`, the tasks part's store, the task's number
-    /// in it, and the count of changes of its progress line that was
-    /// judged (`tasks/status`). Not there for any other decision.
+    /// `<store>:<task>:<change>@<run>`, the tasks part's store, the task's
+    /// number in it, the count of changes of its progress line that was
+    /// judged, and the run of the tasks part that counted it
+    /// (`tasks/status`): counts begin again at each run. Not there for any
+    /// other decision.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub task: Option<String>,
 }
@@ -878,7 +880,7 @@ impl Decision {
     }
 
     /// The probability and every answer are probabilities, and the work
-    /// named is `<store>:<task>:<change>`.
+    /// named is `<store>:<task>:<change>@<run>`.
     pub fn check(&self) -> Result<(), Invalid> {
         let unit = |value: f32| (0.0..=1.0).contains(&value);
         if !unit(self.probability) {
@@ -898,9 +900,13 @@ impl Decision {
                         .bytes()
                         .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
             };
-            if parts.len() != 3 || !store(parts[0]) || !number(parts[1]) || !number(parts[2]) {
+            let change_of_run = parts
+                .get(2)
+                .and_then(|part| part.split_once('@'))
+                .is_some_and(|(change, run)| number(change) && number(run));
+            if parts.len() != 3 || !store(parts[0]) || !number(parts[1]) || !change_of_run {
                 return invalid(
-                    "a decision's task is <32 hexadecimal characters>:<task>:<change>".into(),
+                    "a decision's task is <32 hexadecimal characters>:<task>:<change>@<run>".into(),
                 );
             }
         }

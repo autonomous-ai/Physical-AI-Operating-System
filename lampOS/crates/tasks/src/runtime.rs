@@ -368,7 +368,8 @@ fn owner<C: Clock>(
     let mut busy = false;
     // Progress lives here, beside the engine, and only in memory: what an
     // agent says while it works is not part of the durable record.
-    let mut tracker = progress.then(Tracker::default);
+    // Each run counts changes afresh, and says which run it is.
+    let mut tracker = progress.then(|| Tracker::started(unix_ms()));
     let mut status: Option<(u64, Arc<TaskStatus>)> = None;
     let mut status_began = Instant::now();
     while !stop.load(Ordering::Acquire) {

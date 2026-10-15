@@ -92,6 +92,10 @@ pub struct TaskProgress {
 pub struct TaskStatus {
     /// The tasks part's store: task numbers belong to it.
     pub store_id: String,
+    /// Which run of the tasks part counted these changes: when it began to
+    /// read progress, in milliseconds since 1970 UTC. Counts begin again at
+    /// each run, so a change is named by its run and its count together.
+    pub run: u64,
     pub tasks: Vec<TaskProgress>,
 }
 
@@ -164,6 +168,9 @@ impl TaskStatus {
             return Err(Invalid(
                 "a store_id is 32 lowercase hexadecimal characters".into(),
             ));
+        }
+        if self.run == 0 {
+            return Err(Invalid("a run is named by a positive number".into()));
         }
         if self.tasks.len() > TASK_STATUS_MOST_TASKS {
             return Err(Invalid(format!(

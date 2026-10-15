@@ -28,6 +28,8 @@ use std::{
 const CONTROL_LEASE_US: u64 = 250_000;
 /// Control messages taken in one tick before input and output wait.
 const CONTROL_SLICE: usize = 16;
+/// Input commands taken in one tick, as the Live provider worker does.
+const INPUT_SLICE: usize = 8;
 
 fn invalid(message: &'static str) -> io::Error {
     io::Error::new(io::ErrorKind::InvalidData, message)
@@ -369,7 +371,7 @@ pub async fn run(
     // for credit or a full socket.
     let mut retained: Option<ProviderInput> = None;
     let mut pending: Option<ProviderOutput> = None;
-    loop {
+    'tick: loop {
         // The turn tasks run while this waits.
         ticker.tick().await;
         gate.fresh(monotonic_us())?;
@@ -378,20 +380,26 @@ pub async fn run(
             Drain::Deferred => continue,
             Drain::Empty => {}
         }
-        if retained.is_none() {
-            retained = channels.data.receive()?;
-        }
-        // The parent sends authority before its dependent input, possibly
-        // after the first empty read: drain again before judging the input.
-        match gate.drain(&mut channels.control, &mut engine)? {
-            Drain::Stopped => return Ok(()),
-            Drain::Deferred => continue,
-            Drain::Empty => {}
-        }
-        if let Some(command) = retained.take()
-            && gate.admits(monotonic_us(), &command)?
-        {
-            engine.submit(command);
+        // As many inputs a tick as the Live worker takes: a line replayed
+        // to this route arrives faster than it was spoken, and a packet
+        // left waiting past its age bound is refused.
+        for _ in 0..INPUT_SLICE {
+            if retained.is_none() {
+                retained = channels.data.receive()?;
+            }
+            // The parent sends authority before its dependent input, possibly
+            // after the first empty read: drain again before judging the input.
+            match gate.drain(&mut channels.control, &mut engine)? {
+                Drain::Stopped => return Ok(()),
+                Drain::Deferred => continue 'tick,
+                Drain::Empty => {}
+            }
+            let Some(command) = retained.take() else {
+                break;
+            };
+            if gate.admits(monotonic_us(), &command)? {
+                engine.submit(command);
+            }
         }
         // Output kept waiting for a request since retired is dropped.
         if pending

@@ -1,0 +1,70 @@
+   Compiling serde_core v1.0.229
+   Compiling serde v1.0.229
+   Compiling memchr v2.8.3
+   Compiling zerofrom v0.1.8
+   Compiling yoke v0.8.3
+   Compiling rustix v1.1.5
+   Compiling serde_json v1.0.151
+   Compiling zerovec v0.11.8
+   Compiling ring v0.17.14
+   Compiling tokio v1.53.1
+   Compiling lamp-ipc v0.1.0 (/private/tmp/lampos-tests-endpoint-cleanup/lampOS/crates/ipc)
+   Compiling rustls-webpki v0.103.15
+   Compiling tinystr v0.8.4
+   Compiling subtle v2.6.1
+   Compiling rustls v0.23.45
+   Compiling icu_locale_core v2.3.0
+   Compiling potential_utf v0.1.6
+   Compiling zerotrie v0.2.5
+   Compiling lamp-bus v0.1.0 (/private/tmp/lampos-tests-endpoint-cleanup/lampOS/crates/bus)
+   Compiling icu_collections v2.3.0
+   Compiling futures-util v0.3.34
+   Compiling lamp-msgs v0.1.0 (/private/tmp/lampos-tests-endpoint-cleanup/lampOS/crates/msgs)
+   Compiling icu_provider v2.3.1
+   Compiling icu_normalizer v2.3.0
+   Compiling icu_properties v2.3.0
+   Compiling lamp-turn-owner v0.1.0 (/private/tmp/lampos-tests-endpoint-cleanup/lampOS/crates/turn-owner)
+   Compiling tokio-rustls v0.26.6
+   Compiling hyper v1.12.0
+   Compiling idna_adapter v1.2.2
+   Compiling idna v1.1.0
+   Compiling thiserror v2.0.21
+   Compiling bytemuck v1.25.2
+   Compiling libsqlite3-sys v0.38.2
+   Compiling futures-channel v0.3.34
+   Compiling tower v0.5.3
+   Compiling hyper-util v0.1.21
+   Compiling rusqlite v0.40.2
+   Compiling jiff v0.2.38
+   Compiling tungstenite v0.30.0
+   Compiling url v2.5.8
+   Compiling sonora-agc2 v0.2.0
+   Compiling lamp-keeper v0.1.0 (/private/tmp/lampos-tests-endpoint-cleanup/lampOS/crates/keeper)
+   Compiling lamp-body v0.1.0 (/private/tmp/lampos-tests-endpoint-cleanup/lampOS/crates/body)
+   Compiling sonora v0.2.0
+   Compiling tokio-tungstenite v0.30.0
+   Compiling lamp-schedule v0.1.0 (/private/tmp/lampos-tests-endpoint-cleanup/lampOS/crates/schedule)
+   Compiling rustls-platform-verifier v0.7.1
+   Compiling tower-http v0.6.11
+   Compiling hyper-rustls v0.27.10
+   Compiling tokio-util v0.7.20
+   Compiling lamp-audio v0.1.0 (/private/tmp/lampos-tests-endpoint-cleanup/lampOS/crates/audio)
+   Compiling reqwest v0.13.5
+   Compiling lamp-camera v0.1.0 (/private/tmp/lampos-tests-endpoint-cleanup/lampOS/crates/camera)
+   Compiling lamp-actions v0.1.0 (/private/tmp/lampos-tests-endpoint-cleanup/lampOS/crates/actions)
+   Compiling lamp-gemini v0.1.0 (/private/tmp/lampos-tests-endpoint-cleanup/lampOS/crates/gemini)
+   Compiling lamp-expression v0.1.0 (/private/tmp/lampos-tests-endpoint-cleanup/lampOS/crates/expression)
+   Compiling lamp-controls v0.1.0 (/private/tmp/lampos-tests-endpoint-cleanup/lampOS/crates/controls)
+   Compiling lamp-policy v0.1.0 (/private/tmp/lampos-tests-endpoint-cleanup/lampOS/crates/policy)
+   Compiling lamp-ring v0.1.0 (/private/tmp/lampos-tests-endpoint-cleanup/lampOS/crates/ring)
+   Compiling lamp-turn-end-wire v0.1.0 (/private/tmp/lampos-tests-endpoint-cleanup/lampOS/crates/turn-end-wire)
+   Compiling lamp-voice v0.1.0 (/private/tmp/lampos-tests-endpoint-cleanup/lampOS/crates/voice)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 2m 12s
+────────────
+ Nextest run ID 138de817-bc9c-41de-a7e6-9d0e2ea0eaa9 with nextest profile: default
+    Starting 3 tests across 1 binary (1144 tests skipped)
+        PASS [   4.546s] (1/3) lamp-voice coordinator::tests::endpoint_session::a_worker_still_loading_leaves_the_baseline_window
+        PASS [   3.082s] (2/3) lamp-voice coordinator::tests::endpoint_session::endpoint_fixture_reaps_on_panic_before_and_after_handoff
+        PASS [   1.693s] (3/3) lamp-voice coordinator::tests::endpoint_session::unconfirmed_endpoint_exit_fails_mute_cleanup_and_never_reopens_service
+────────────
+     Summary [   9.382s] 3 tests run: 3 passed, 1144 skipped

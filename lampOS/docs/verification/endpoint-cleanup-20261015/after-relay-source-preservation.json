@@ -1,0 +1,11 @@
+{
+  "date": "2026-10-16 01:27:06 +0700",
+  "previous_head": "b34cd3b90a3be77fa9bce5c03cc3ae9b64070318",
+  "base": "587a361a373bd856bb790c8cf92b92f4f7211066",
+  "rebased_head": "46b1af0e37f68ebe31f51bc1b2547ef6f188c512",
+  "owned_implementation_and_docs_byte_identical": {
+    "lampOS/crates/voice/src/coordinator/tests/endpoint_session.rs": "abeaae7efce63bcf35e4747110c13b7bcae5ad548827e91fbca89a03a4563738",
+    "lampOS/docs/voice-test-fixtures.md": "7e59fc75a29b795a9fc66380db8869194f760c418aea5b82306604bdda6bbb21"
+  },
+  "reason": "Merged #881 repairs the Tasks producer/log-relay failure #876 that stopped the previous full ARM64 run. This qualifies changed upstream source, not an unchanged-head retry."
+}

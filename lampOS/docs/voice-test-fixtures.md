@@ -238,3 +238,46 @@ consumption age. The real 50 ms bound may still be tight on a loaded, hot
 lamp; host fixtures cannot settle that question. First must measure physical
 observation through coordinator consumption on the lamp with its actual
 services and temperature, without widening the bound on synthetic evidence.
+
+## Endpoint fixture cleanup after an expected failure
+
+Task [#860](https://github.com/autonomous-ai/lampOS/issues/860) follows the two
+endpoint-session `LEAK` warnings in full ARM64 run
+[38737583302](https://github.com/autonomous-ai/lampOS/actions/runs/38737583302).
+Both tests passed their assertions while a fixture could still hold inherited
+stderr. That run remains the original evidence; a passing assertion does not
+establish clean child teardown.
+
+The unconfirmed-exit scenario retains its 1,500 ms worker grace and the
+coordinator's 500 ms teardown wait. It first checks the original `Pending`,
+unreaped record, non-restartable error and refusal to reopen service. Only
+after those assertions does a fixture guard wait for the existing supervisor
+to confirm actual reaping, with a separate five-second host cleanup bound.
+This wait does not alter the recorded runtime result or grant the runtime a
+longer teardown deadline.
+
+The still-loading worker uses `exec sleep 6`, so the supervisor owns the
+sleeper itself instead of a shell with a sleep descendant. It still sends no
+Ready during the same four-second session, and the original 1,200 ms silence
+fallback assertion remains. It uses the same final cleanup guard; stderr
+remains inherited and production process supervision is unchanged.
+
+Before handoff the guard owns the endpoint. Its destructor closes any
+endpoint still in that slot before waiting. Once the endpoint moves into a
+helper, that helper drops the classifier on return or unwind before the
+caller's guard waits. A cleanup timeout or unreaped result fails a normal
+test. During an existing panic it prints the cleanup failure and preserves
+the original panic rather than aborting with a second one.
+
+One real-child regression covers both a panic before handoff and a panic
+inside the receiving helper. Each child must report Ready while its monitor
+is still pending; after the typed panic is caught, a zero-duration monitor
+wait must report Reaped, with one spawned and one killed worker. The zero
+wait cannot finish cleanup for a guard that returned too early. This is
+fixture lifetime evidence, not a new product shutdown guarantee.
+
+The source change alone does not qualify the fix. Required evidence remains
+the original assertion and identity comparison, this panic regression and
+the two original cases without nextest `LEAK`, the crate/dependent gates and
+a green exact-head native ARM64 run. No lamp or production-worker behavior
+is measured by these fixtures.

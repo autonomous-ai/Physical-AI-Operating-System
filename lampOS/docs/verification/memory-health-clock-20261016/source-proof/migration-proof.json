@@ -1,0 +1,121 @@
+{
+  "recorded": "2026-10-16 03:09:41+0700",
+  "health_sha256": "0d829067a29a9e5105326b1e0b50c09436e6aefe5091849a683be282910f9d91",
+  "scenario_ids_unchanged": true,
+  "scenario_proofs": {
+    "legacy_reports_retained_counts_and_stays_well_after_caller_refusals": {
+      "body_unchanged_after_exact_reversal": true,
+      "assertion_macros_byte_identical": true,
+      "assertions": 0,
+      "reversals": []
+    },
+    "sqlite_reports_retained_counts_and_stays_well_after_caller_refusals": {
+      "body_unchanged_after_exact_reversal": true,
+      "assertion_macros_byte_identical": true,
+      "assertions": 0,
+      "reversals": []
+    },
+    "a_failed_legacy_write_stays_warn_through_reads_until_a_write_succeeds": {
+      "body_unchanged_after_exact_reversal": true,
+      "assertion_macros_byte_identical": true,
+      "assertions": 3,
+      "reversals": [
+        {
+          "from": "Process::start_controlled(",
+          "to": "Process::start(",
+          "count": 1
+        }
+      ]
+    },
+    "the_environment_alone_does_not_enable_reporting_or_create_bus_data": {
+      "body_unchanged_after_exact_reversal": true,
+      "assertion_macros_byte_identical": true,
+      "assertions": 4,
+      "reversals": []
+    },
+    "an_unusable_bus_does_not_prevent_serving_and_reports_recover_when_it_returns": {
+      "body_unchanged_after_exact_reversal": true,
+      "assertion_macros_byte_identical": true,
+      "assertions": 3,
+      "reversals": [
+        {
+          "from": "Process::start_controlled(",
+          "to": "Process::start(",
+          "count": 1
+        }
+      ]
+    },
+    "a_working_bus_that_fails_stays_failed_until_publication_really_recovers": {
+      "body_unchanged_after_exact_reversal": true,
+      "assertion_macros_byte_identical": true,
+      "assertions": 7,
+      "reversals": [
+        {
+          "from": "Process::start_controlled(",
+          "to": "Process::start(",
+          "count": 1
+        },
+        {
+          "from": "    let window = process.cadence_window();\n",
+          "to": "",
+          "count": 1
+        },
+        {
+          "from": "let until = process.cadence_now() + REPORT_EVERY * 3;",
+          "to": "let until = Instant::now() + REPORT_EVERY * 3;",
+          "count": 1
+        },
+        {
+          "from": "let log = process.log_in(&window);",
+          "to": "let log = process.log();",
+          "count": 1
+        },
+        {
+          "from": "until.saturating_duration_since(process.cadence_now())",
+          "to": "until.saturating_duration_since(Instant::now())",
+          "count": 1
+        },
+        {
+          "from": "process.wait_cadence_in(left.min(Duration::from_millis(200)), &window);",
+          "to": "thread::sleep(left.min(Duration::from_millis(200)));",
+          "count": 1
+        }
+      ]
+    },
+    "a_store_that_cannot_open_never_claims_readiness_and_any_delivered_report_is_warn": {
+      "body_unchanged_after_exact_reversal": true,
+      "assertion_macros_byte_identical": true,
+      "assertions": 6,
+      "reversals": []
+    },
+    "counts_through_real_requests": {
+      "body_unchanged_after_exact_reversal": true,
+      "assertion_macros_byte_identical": true,
+      "assertions": 10,
+      "reversals": [
+        {
+          "from": "Process::start_controlled(",
+          "to": "Process::start(",
+          "count": 1
+        }
+      ]
+    }
+  },
+  "unchanged_request_helpers": {
+    "now": true,
+    "ask_raw": true,
+    "ask": true,
+    "ok": true,
+    "value": true,
+    "number": true,
+    "private_file": true
+  },
+  "host_bodies_byte_identical": {
+    "the_environment_alone_does_not_enable_reporting_or_create_bus_data": true,
+    "a_store_that_cannot_open_never_claims_readiness_and_any_delivered_report_is_warn": true
+  },
+  "constructor_sites": {
+    "controlled": 4,
+    "ordinary": 2
+  }
+}

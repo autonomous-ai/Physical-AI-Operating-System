@@ -1066,11 +1066,17 @@ and `the_quiet_begins_when_the_voice_stops` (`crates/policy/src/progress.rs`).
 | `spoke_up_last_hour` | Turns the lamp began itself in the last hour, and the notes this chose in it (below) |
 | `hour` | The local hour, by `--utc-offset-minutes` |
 
-A turn the lamp began itself is told from `voice/state` alone: it began to
-speak with nobody listened to in the 10 s before. Nothing on the bus says
-so outright (task news and hellos are told as written turns inside the
-voice), so this is a stand-in for that, and a late or missed `listening`
-would count an answer as unasked. In shadow nothing is said, so the notes
+A turn the lamp began itself is told from `voice/state` alone: its first
+state (`thinking` or `speaking`) came with nobody listened to in the 10 s
+before. That is decided at the turn's beginning and kept to its end
+(`resting`). The turn is counted once, at its first sound, however often
+it speaks before it ends. An answer whose first sound is slow (the model
+may take 30 s) is never counted (the reviewer on #883, 05:22, of the
+hello's same count; test
+`a_slow_answer_is_not_unasked_and_a_turn_is_counted_once`). Nothing on the
+bus says so outright (task news and hellos are told as written turns
+inside the voice), so this is a stand-in for that, and a late or missed
+`listening` would count an answer as unasked. In shadow nothing is said, so the notes
 this part chose are counted too. Acting (`--act progress`) they are not:
 the voice says them, and they count once, as turns the lamp began itself.
 

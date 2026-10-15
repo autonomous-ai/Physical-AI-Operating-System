@@ -1,8 +1,140 @@
 # Reviewer work log
 
-Reviewer merged #751, #765, #780, #790, #792, #797, #807, #808, #815, #818, #822, #843, #848, #850, #852, #855, #859, #861, #864, #865, #867, #872, #875, #885, #886, #888, #889, #897 by rebase; manually closed #752, #753, #777, #803, #837, #846, #854, #860, #862 and #879. #854 was later reopened by First for its story handover regression. #703 remains open for its other work; #732 was closed by the first builder after #751, #765 and #793 were all merged. First builder merged #738, #778, #789, #791, #793, #794, #796, #798, #809, #810, #816, #817, #835, #839, #851 and #881; devops merged #821, #824, #825 and #826 (the last into main). No lamp actions or production source edits by this reviewer. The reviewer/log branch records the review work under the builder commit/push exception in CLAUDE.md (61d1ea6fc).
+Reviewer merged #751, #765, #780, #790, #792, #797, #807, #808, #815, #818, #822, #827, #843, #848, #850, #852, #855, #859, #861, #864, #865, #867, #872, #875, #877, #885, #886, #888, #889, #897, #901 by rebase; manually closed #752, #753, #777, #803, #837, #846, #854, #860, #862 and #879. #854 was later reopened by First for its story handover regression. #703 remains open for its other work; #732 was closed by the first builder after #751, #765 and #793 were all merged. First builder merged #738, #778, #789, #791, #793, #794, #796, #798, #809, #810, #816, #817, #835, #839, #851 and #881; devops merged #821, #824, #825 and #826 (the last into main). No lamp actions or production source edits by this reviewer. The reviewer/log branch records the review work under the builder commit/push exception in CLAUDE.md (61d1ea6fc).
 
-Updated: 2026-10-16 02:41:02 +0700
+Updated: 2026-10-16 03:11:34 +0700
+
+## PR #844 — rebase gate six failures
+
+[Pull request](https://github.com/autonomous-ai/lampOS/pull/844)
+
+Reviewer: 03:11: the workspace conflict is fixed on `b3c3ca47e`: both members remain and locked metadata passes. All four owned crate trees are identical to freshly gated `0aeb06180`; no new timezone source defect found, and the Memory factory/argument relocation preserves the prior behavior.
+
+The independent full serial gate remains **563 passed / 6 failed / 7 ignored**; fmt and strict four-crate Clippy pass. LocalTime 9/0/0, Expression 227/6/0, Memory 164/0/5, Policy 163/0/2. The six unchanged Expression failures are:
+- `tests/rest_replay.rs:699`, `real_service_subscribes_to_exactly_one_complete_voice_protocol`: accepted 2 rather than 5 after a 1,263 ms stale JointState.
+- `tests/runtime.rs:101`, `enabled_output_uses_a_new_session_and_expires_after_input_loss`: no body request after a 2,301 ms stale JointState.
+- `tests/runtime.rs:691`, `paused_by_the_keeper_nothing_is_asked_of_the_body_or_the_light_until_resumed`: no resumed output after stale inputs.
+- `tests/runtime.rs:650` (child assertion `:541`), `sleep_name::an_expired_sleeping_name_is_journaled_once_by_the_service`: a stale/future input refused.
+- `tests/runtime.rs:541`, `sleep_name::sleeping_name_requires_validated_speech_through_the_local_bus`: refused 1 rather than 0.
+- `tests/runtime.rs:711`, `without_a_pause_said_expression_asks_exactly_as_before`: no body request after a stale/future input.
+
+Original logs and binaries are preserved. I found no matching Expression family in the current Queue's permitted flaky list, so I did not retry or waive these failures. This does not establish that the timezone change caused them; the fixture failure needs qualification or repair by its owner. The new exact-head native run is pending. Seventh's committed Memory read and First's requested acceptance also remain. Please refresh the PR body from its old-head gate to the final head and actual outcomes. #820 stays open.
+
+## Issue #823 — merged 901
+
+[Issue](https://github.com/autonomous-ai/lampOS/issues/823)
+
+Reviewer: merged #901 at 03:10: explicit publisher cadence clocks for local fixtures, with ordinary Bus behavior preserved. #823 remains open for the original scenario migrations and whole-group measurement.
+
+## PR #904 — time format p3
+
+[Pull request](https://github.com/autonomous-ai/lampOS/pull/904)
+
+Reviewer: 03:10: P3 at `lampOS/crates/voice/src/rules.rs:244–250`: the documented HH:MM validation accepts signed components. The exact parser accepts `not_before:"+1:+2"` and stores minute 62 because `u16::parse` accepts a leading plus. Please require decimal digit components in the intended HH:MM format before parsing, with a rejection case for signed input; retain the ordinary time bounds.
+
+## PR #904 — invalid booleans p2
+
+[Pull request](https://github.com/autonomous-ai/lampOS/pull/904)
+
+Reviewer: 03:10: P2 at `lampOS/crates/voice/src/rules.rs:205–209`: malformed boolean limits are silently discarded and the rule is still kept. The exact current parser returns an empty mark for `{"about":"greeting","never":"true"}` or `{"about":"news","not_while_talking":1}`; with `never:"true"` plus valid `not_before:"09:00"`, it keeps only the time restriction. Thus a call can be saved and acknowledged as kept with its never/talking limit missing, contrary to the agreed refusal of half-typed rules. The provider decoder accepts arbitrary JSON arguments; it does not enforce this function's schema before `remember.rs:1210` calls `request`.
+
+Please validate a present non-null boolean with `as_bool()` and return a model-readable error for other types, before constructing any stored mark. Keep absent and explicit false behavior. I verified the exact functions with these cases and controls for valid true/false and the already-rejected wrong-type time; no model, memory or device was used. Full Msgs/Voice gates and the remaining contract review follow.
+
+## PR #899 — user order p2
+
+[Pull request](https://github.com/autonomous-ai/lampOS/pull/899)
+
+Reviewer: 03:08: P2 at `lampOS/crates/voice/src/ring_light.rs:144–158`: an older pending `light/test` overrides a newer user `light/command` when both queue before one 50 ms poll. `tick` drains the user's topic first, clears any active test, then drains the test topic and activates the older request. With an actual local Bus and the unchanged library, a red/on test followed 27 ms later by a blue/off user request returns the red/on frame and keeps it for the full two seconds, while `light/state` says blue/off. A newer user request equal to the saved setting is also overridden. Both controls where the test was already consumed in the prior poll correctly let the user win.
+
+Please preserve ordering across these topics or make any user request handled in a poll take priority over its pending tests, including an equal-setting request. Add the same-poll cases; the existing active-test cancellation cases do not cover them. No lamp was used for this reproduction.
+
+## PR #901 — complete
+
+[Pull request](https://github.com/autonomous-ai/lampOS/pull/901)
+
+Reviewer: 03:08: review complete on `2687bf6d6`. Fresh required Bus gate passes **91 / 0 failed / 1 existing ignored**, with `cargo fmt --all --check` and strict all-target Clippy clean, no retries. Exact-head pull_request [ARM64 38795145743](https://github.com/autonomous-ai/lampOS/actions/runs/38795145743), attempt 1, passes **4,846 unique cases / 127 skipped**; all nine new cadence cases run once and every later stage succeeds.
+
+The explicit constructors replace only the three existing cadence samples. Ordinary construction still supplies `Instant::now`; declaration writes, real mtime leases, headers, sockets, results and error suppression retain their ordering. Boundary tests cover default-clock behavior, no read on invalid inputs, real obstruction/recovery and delivery. Existing test bodies and Memory code are unchanged; docs accurately limit this preparation to publisher cadence, without a worker-progress or speedup claim.
+
+Final integration against `796969513` is clean and preserves the entire tested Bus subtree. This additive fixture API changes no meaning read by existing parts, and is within #823's clock task. No remaining finding or First hardware dependency. Rebasing into `lamp-voice`; #823 stays open for migration and whole-group measurement.
+
+## PR #895 — completion order p2
+
+[Pull request](https://github.com/autonomous-ai/lampOS/pull/895)
+
+Reviewer: 03:05: P2 on `1793baf37`, `lampOS/crates/voice/src/coordinator.rs:4375` and `:4409`, with `coordinator/speaker_tone.rs:176`: the new retirement latch is never observed on the normal completion path. `service_speaker_control` records `notice.retire(...)`; in that same pass the settled-turn block clears `reply`, and only afterward does the sole `tone.tick(...)` run. Its last stored `whole` remains false, so a fully played tone is answered `not_checked`, "cut short ... cancelled", instead of judging microphone evidence.
+
+I reproduced this with the exact current NoticeDelivery/SpeakerTone methods on an inert Bus: all 7,200 samples reserved, first acceptance recorded, matching final acceptance/retirement validated, then the production clear-before-tick order yields the false cancellation. Moving only the observation before that clear in the control reaches evidence judgment. This is a method-level reproduction of the main-loop ordering, not a full conversation/device run. The new test's `answered(...)` calls tick with an already-retired live reply before clearing it, so it exercises the control order rather than the service order.
+
+Please capture successful retirement before discarding the reply, retain the cancelled/partial/unretired protections, and add a regression through the actual completion ordering. The acceptance-timestamp change addresses the earlier dispatch/acceptance boundary; the full updated gate is next. First's physical acceptance remains required.
+
+## PR #844 — rebase members conflict
+
+[Pull request](https://github.com/autonomous-ai/lampOS/pull/844)
+
+Reviewer: 03:01: P3 at `lampOS/Cargo.toml:2`: this head now conflicts with `lamp-voice` at the workspace members list. #827 added `crates/selftest` while this PR adds `crates/local-time`; merge-tree reports the conflict against current base `fc5a7c792`. Please rebase retaining both members, check the lock, and qualify the resulting head. The fresh four-crate gate and relocated Memory source review on `0aeb06180` are still running. Seventh's committed Memory read and First's acceptance remain separate requirements.
+
+## Issue #823 — merged 877
+
+[Issue](https://github.com/autonomous-ai/lampOS/issues/823)
+
+Reviewer: merged #877 at 03:00: explicit prepared-player fixture clocks, with ordinary clock behavior preserved. #823 remains open for the remaining migrations and whole-group measurement.
+
+## PR #877 — complete rebase
+
+[Pull request](https://github.com/autonomous-ai/lampOS/pull/877)
+
+Reviewer: 02:59: final review complete on `8bbb50dcb`. Fresh full Evaluator gate passes **367 / 0 failed / 0 ignored**, with fmt and strict all-target Clippy clean, no retries. All 302 prior identities remain, plus 65 inherited tests; both appended module registrations and all six prepared-player cases are retained. Exact-head pull_request [ARM64 38793002582](https://github.com/autonomous-ai/lampOS/actions/runs/38793002582) passes **4,843 / 127 skipped**, all six new cases once, with later stages successful.
+
+The conflict and stale-description findings are fixed. Reversing the unchanged prepared-player block restores the current-base source and docs. The ordinary full-precision clock, grant/cancellation/first-copy checks and real delivery remain unchanged; explicit-clock overflow fails before delivery.
+
+Final integration against `08d0c04b5` is clean. Its entire Evaluator subtree (`e6e9d7d05`) is byte-identical to the native-tested synthetic merge `e2b215b86`, including the inherited #875 helpers absent from the raw branch head. The local 367-pass result belongs to the raw head. The newer workspace/Msgs inputs add only the already-reviewed self-test member and new message module; no existing dependency version or message meaning changes. This is not a claim that the entire workspace is identical.
+
+No remaining finding or First hardware dependency in this fixture-only #823 preparation. Rebasing into `lamp-voice`; #823 stays open for remaining migrations and whole-group measurement.
+
+## PR #895 — followup 5a complete gate
+
+[Pull request](https://github.com/autonomous-ai/lampOS/pull/895)
+
+Reviewer: 02:53: on `5a62638c1`, the ring-order and diagnostic-I/O P2s are fixed. Independent checks confirm no frame on the first/next tone iteration, normal ring behavior after suppression resets, and propagation of genuine owner errors. Refusal/completion answer failures and request-read failure now disable the optional check while returning normally.
+
+Fresh complete gates pass **1,458 / 0 failed / 8 existing ignored** (Voice 1,370, Msgs 88), fmt and strict all-target Clippy clean, no retries. Exact-head pull_request [ARM64 38795352974](https://github.com/autonomous-ai/lampOS/actions/runs/38795352974), attempt 1, passes **4,849 / 127 skipped**, all 12 tone/check cases, with later stages successful.
+
+The [cancellation verdict P2](https://github.com/autonomous-ai/lampOS/pull/895#issuecomment-6200669857) still reproduces, and the [delay-boundary P3](https://github.com/autonomous-ai/lampOS/pull/895#issuecomment-6200677661) is unchanged. Those and First's physical acceptance remain before merge. #812 stays open.
+
+## Issue #812 — merged 827
+
+[Issue](https://github.com/autonomous-ai/lampOS/issues/812)
+
+Reviewer: merged #827 at 02:52 by rebase (08d0c04b5): manual passive self-test runner and report, with storage coverage and ring checks corrected. #812 stays open for tone integration, owner-side ring colours/receipts, servo movement, swipe and remaining physical acceptance.
+
+## PR #827 — complete
+
+[Pull request](https://github.com/autonomous-ai/lampOS/pull/827)
+
+Reviewer: 02:51: review complete on `bd3fc1417`. The description now matches the passive ring code and current qualification. All reported storage, touch, fixture and ring findings are fixed. Fresh fmt/strict Msgs+Selftest Clippy pass; complete local serial suites pass **118 / 0 failed / 0 ignored** after correcting the documented sandbox socket restriction. Exact-head pull_request [ARM64 38793167372](https://github.com/autonomous-ai/lampOS/actions/runs/38793167372) passes **4,870 / 127 skipped**, with later stages successful.
+
+The independent three-occasion Bus proof confirms no light command is written and the person's existing command remains byte-identical. This is a manual passive-check program: no installed unit starts it, no owner device is opened, and its new SelfTest type/topic leaves existing reader contracts intact. Current-base integration preserves the reviewed Selftest inputs and all existing Msgs fields. Source/docs are in Ten's #812 scope and no finding remains in this slice.
+
+Rebasing this PR into `lamp-voice`. #812 remains open for the speaker integration, owner-side ring test/receipt protocol, servo move, swipe and remaining physical acceptance. Those future checks are not certified by merging the passive runner.
+
+## PR #902 — verification note p3
+
+[Pull request](https://github.com/autonomous-ai/lampOS/pull/902)
+
+Reviewer: 02:47: **P3 — include the verification note required for merge.** `lampOS/crates/body/src/bus_out.rs:837–845` changes the live-hand assertion's timing boundary, but this PR contains no documentation change. `lampOS/builders/reviewer.md` requires documents updated in the same PR. A short note in `lampOS/docs/realtime-tests.md` is sufficient: name the observation-start → step-return interval, the 1 ms truncation allowance, and the retained 1.2 s drop / 0.6 s residual / preceding-joint-write controls. Record the 200-run loaded qualification with its command and boundary, distinguishing author evidence from reviewer runs. Product behavior docs need no new behavior claim.
+
+The code review finds no product change or weakened stale-hand requirement: the whole step interval bounds the observation age sampled inside it. Fresh complete Body gates pass **295 / 0 failed / 0 ignored** across 13 suites; fmt and strict all-target Clippy pass, no retries. All three hand-age regressions pass. Exact-head native [38795451027](https://github.com/autonomous-ai/lampOS/actions/runs/38795451027) is still pending.
+
+## PR #873 — person presence local
+
+[Pull request](https://github.com/autonomous-ai/lampOS/pull/873)
+
+Reviewer: 02:46: the new `6702173f2` person-presence slice passes the fresh complete Policy gate: **194 / 0 failed / 2 existing ignored**, with fmt and strict all-target Clippy clean, no retries. Native [38795890653](https://github.com/autonomous-ai/lampOS/actions/runs/38795890653) is still pending.
+
+The new question is confined to the opt-in picture pass; the seven ordinary questions and production decision path are unchanged. The reviewed image transport and refit implementation remain unchanged, and current-base integration is clean. Independent actual-CLI checks cover positive/negative presence, the 0.5 boundary, a missing answer, an unsent picture and legacy logs. Conditional counts include only person-positive sent/labelled lines; old whole-line summaries are preserved when the new answer is absent.
+
+The code/docs now implement First's requested person-presence question and conditional replay counts. First still needs to judge the new physical results and remaining people/privacy acceptance; no lamp or model was used for this review. #871 remains open.
 
 ## Issue #823 — merged 897
 

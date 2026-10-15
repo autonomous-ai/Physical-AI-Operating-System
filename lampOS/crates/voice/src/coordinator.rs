@@ -1027,6 +1027,9 @@ fn run_source(
     refuse_legacy_owners()?;
     fs::create_dir(output)?;
     fs::set_permissions(output, fs::Permissions::from_mode(0o700))?;
+    if lifetime.continuous() {
+        crate::marked::session_opened(output);
+    }
     let mut trace = if lifetime.continuous() {
         SessionState::service(output)
     } else {

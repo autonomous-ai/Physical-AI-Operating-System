@@ -107,6 +107,9 @@ pub struct Settings {
     /// The eyes' request socket, for remembering faces
     /// ([`crate::known_faces`]).
     pub who: Option<PathBuf>,
+    /// The serving session's folder, for marking a bad moment
+    /// ([`crate::marked`]).
+    pub mark: Option<PathBuf>,
 }
 
 /// The provider worker's arguments for what the environment says.
@@ -129,6 +132,7 @@ pub fn arguments_from_environment() -> Vec<String> {
         flags.push(crate::known_faces::FLAG.to_owned());
         flags.push(socket);
     }
+    flags.extend(crate::marked::arguments_from_environment());
     flags
 }
 
@@ -238,6 +242,18 @@ pub fn take(flags: &[String]) -> std::io::Result<(Settings, &[String])> {
         settings.who = Some(PathBuf::from(socket));
         flags = rest;
     }
+    if let [flag, rest @ ..] = flags
+        && flag == crate::marked::FLAG
+    {
+        let [folder, rest @ ..] = rest else {
+            return Err(std::io::Error::other("--mark-weird needs a path"));
+        };
+        if !Path::new(folder).is_absolute() {
+            return Err(std::io::Error::other("--mark-weird must be absolute"));
+        }
+        settings.mark = Some(PathBuf::from(folder));
+        flags = rest;
+    }
     Ok((settings, flags))
 }
 
@@ -302,6 +318,9 @@ pub fn declared(settings: &Settings) -> Vec<Tool> {
     if settings.who.is_some() {
         tools.extend(crate::known_faces::tools());
     }
+    if settings.mark.is_some() {
+        tools.push(crate::marked::tool());
+    }
     if let Some(directory) = &settings.exec {
         let room = lamp_gemini::MAX_TOOLS - tools.len();
         tools.extend(
@@ -313,6 +332,7 @@ pub fn declared(settings: &Settings) -> Vec<Tool> {
                         && !crate::remember::is_tool(&tool.name)
                         && !crate::agent_tasks::is_tool(&tool.name)
                         && !crate::known_faces::is_tool(&tool.name)
+                        && !crate::marked::is_tool(&tool.name)
                         && (settings.schedule_tools || !is_schedule_tool(&tool.name))
                 })
                 .take(room),
@@ -366,6 +386,8 @@ pub enum Route {
     Tasks(crate::agent_tasks::Place),
     /// Remember or forget a face, through the eyes on this socket.
     Faces(PathBuf),
+    /// Mark the last minute of this session for review.
+    Mark(PathBuf),
     /// Nobody here runs that.
     Nobody,
 }
@@ -385,6 +407,9 @@ pub fn route(settings: &Settings, name: &str) -> Route {
     }
     if crate::known_faces::is_tool(name) {
         return settings.who.clone().map_or(Route::Nobody, Route::Faces);
+    }
+    if crate::marked::is_tool(name) {
+        return settings.mark.clone().map_or(Route::Nobody, Route::Mark);
     }
     match (&settings.exec, name) {
         (_, NOT_FOR_ME) if settings.decline => Route::Decline,
@@ -474,6 +499,7 @@ pub fn run_call(
             ask_schedule(directory, call, deadline),
         ),
         Route::Faces(socket) => ("the eyes", crate::known_faces::run(socket, call)),
+        Route::Mark(session) => ("the marks", crate::marked::run(session, call, heard)),
         Route::Decline | Route::Clock | Route::Nobody => ("nobody", (unavailable(), false)),
     }
 }
@@ -710,6 +736,7 @@ mod tests {
                 schedule_tools: true,
                 schedule_speak: true,
                 who: Some("/run/lampos-eyes/who.sock".into()),
+                mark: None,
             }
         );
         assert_eq!(rest, ["--session", "7"]);
@@ -1197,6 +1224,42 @@ mod tests {
         assert!(!the_time().silent);
         let told = time_now();
         assert!(told["now"].is_string() || told["error"].is_string());
+    }
+
+    /// #803: marking a bad moment is declared, and routed, only when the
+    /// worker was given the session's folder; never the executive's.
+    #[test]
+    fn marking_for_review_is_declared_and_routed_only_with_its_flag() {
+        let flags = [
+            crate::marked::FLAG.to_owned(),
+            "/var/lib/lampOS/voice/sessions/abc".to_owned(),
+            "rest".to_owned(),
+        ];
+        let (settings, rest) = take(&flags).unwrap();
+        assert_eq!(
+            settings.mark.as_deref(),
+            Some(Path::new("/var/lib/lampOS/voice/sessions/abc"))
+        );
+        assert_eq!(rest, ["rest"]);
+        assert!(take(&[crate::marked::FLAG.to_owned(), "relative".to_owned()]).is_err());
+        let names = |settings: &Settings| {
+            declared(settings)
+                .into_iter()
+                .map(|tool| tool.name)
+                .collect::<Vec<_>>()
+        };
+        assert_eq!(names(&settings), [crate::marked::MARK]);
+        assert!(names(&Settings::default()).is_empty());
+        assert_eq!(
+            route(&settings, crate::marked::MARK),
+            Route::Mark("/var/lib/lampOS/voice/sessions/abc".into())
+        );
+        let exec = Settings {
+            exec: Some("/run/lampos-actions".into()),
+            ..Settings::default()
+        };
+        assert_eq!(route(&exec, crate::marked::MARK), Route::Nobody);
+        assert!(crate::marked::tool().validate().is_ok());
     }
 
     #[test]

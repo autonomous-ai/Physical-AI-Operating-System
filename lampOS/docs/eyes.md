@@ -172,6 +172,30 @@ picture's or more is the one reported: somebody at the lamp, not somebody
 across the room. With several people near, that is whoever is nearest the
 camera, and it can change from look to look.
 
+### A face that never moves (#763)
+
+With `--leave-still-faces on` (off unless given; `src/still.rs`), a face
+that has not moved is not a person. lamp-4ace's eyes reported a face all
+night in an empty office (14 to 15 October, 01:00 to 05:59): 54 of 55
+detections at one spot, its box the same to a pixel or two, at 0.60 to
+0.79. A person sitting still still moves their box by a few pixels within
+seconds.
+
+So each spot where a face is seen is remembered with the box as first seen
+there. A box whose centre falls within half that box's size is near it:
+if every edge is within 0.007 of the picture (about two pixels of the
+camera's 320 by 240 frame) it is the same box, otherwise the face has moved and
+the count starts again from the new box. A box that has stayed the same for
+two minutes, however rarely it was seen, is left out before anything else
+uses the look: the body is not told of it, it is not on the bus, and it is
+not recognised. A spot nothing has been seen at for half an hour is
+forgotten (the night's face came every few minutes); at most 32 spots are
+remembered, the one seen longest ago going first. The journal's ten-second
+line says how many faces were left out so far.
+
+Not shown yet: the day's recording replayed through it, with the counts
+before and after, and whether raising the 0.6 score would do the same.
+
 ## Who is there
 
 Since 2026-10-15 (#759; `docs/brain-build.md` step 4). "Lamp, remember my
@@ -288,7 +312,7 @@ looking.
 lamp-eyes --device /dev/video0 --lock-directory /home/WORKER/private-camera-locks --usb 01da:5875@3-1.1.4 --model /opt/lampOS/eyes/face_detection_yunet_2023mar.onnx --permit-socket /run/lampos-eyes/permit.sock --body-socket /run/lampos-body/gaze.sock
 ```
 
-Every option shown is required; `--sight-file ABSOLUTE_PATH` may be added.
+Every option shown is required; `--sight-file ABSOLUTE_PATH` and `--leave-still-faces on` may be added.
 `--usb` is `VENDOR:PRODUCT@TOPOLOGY`, the two numbers as four hex digits; the
 lock directory must be private to the user it runs as. A camera that does not open, or fails, is tried again every five
 seconds while permission lasts.

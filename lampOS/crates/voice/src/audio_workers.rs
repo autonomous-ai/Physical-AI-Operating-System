@@ -20,7 +20,10 @@ use crate::{
 };
 use lamp_audio::{
     EchoProcessor, RENDER_SAMPLES,
-    capture::{CaptureConfig, ErrorKind as CaptureErrorKind, MicrophoneOn},
+    capture::{
+        CaptureConfig, CaptureError, Discontinuity, ErrorKind as CaptureErrorKind, MicrophoneOn,
+        StartReport,
+    },
     device::{AlsaCapture, CaptureDevice},
     pcm::{Speaker, Written},
 };
@@ -51,6 +54,68 @@ fn busy_at_start(error: &lamp_audio::capture::CaptureError, since: &mut Option<I
         .device_error
         .is_some_and(|fault| fault.call == "open" && fault.errno == lamp_audio::device::errno::BUSY)
         && since.get_or_insert_with(Instant::now).elapsed() < BUSY_AT_START
+}
+
+/// How long a microphone closed by a stall may stay closed before the
+/// worker gives up: the coordinator's own bound on a capture gap (#784).
+const REOPEN_US: u64 = 1_500_000;
+
+/// A discontinuity a short stall of this worker causes: the authority it
+/// held lapsed while it was held up, or its 40 ms buffer overran. Anything
+/// else (privacy, the device, the clock, control) still ends the worker.
+fn stall(error: &CaptureError) -> Option<Discontinuity> {
+    match error.kind {
+        CaptureErrorKind::Discontinuity(
+            reason @ (Discontinuity::AuthorityExpired
+            | Discontinuity::XRun
+            | Discontinuity::PartialTimeout
+            | Discontinuity::ReadBudgetExceeded),
+        ) => Some(reason),
+        _ => None,
+    }
+}
+
+/// The microphone was closed by a stall: say so, and drop the blocks held
+/// for the canceller, which belong to the closed epoch. Returns when.
+fn begin_gap<T>(
+    channels: &mut WorkerChannels,
+    epoch: u64,
+    error: &CaptureError,
+    hold: &mut CaptureHold<T>,
+) -> Result<u64> {
+    let reason = stall(error).ok_or_else(|| io::Error::other("not a stall"))?;
+    let closed_at_us = monotonic_us();
+    channels.control.send(WorkerEvent::CaptureGap {
+        epoch,
+        reason: format!("{reason:?}"),
+        closed_at_us,
+    })?;
+    *hold = CaptureHold::new(hold.blocks())
+        .ok_or_else(|| io::Error::other("capture hold beyond its bound"))?;
+    Ok(closed_at_us)
+}
+
+fn capture_started(
+    report: &StartReport,
+    dsp_epoch: u64,
+    noise_suppression: NoiseSuppression,
+    privacy: u64,
+) -> WorkerEvent {
+    WorkerEvent::CaptureStarted {
+        epoch: report.epoch,
+        dsp_epoch,
+        noise_suppression,
+        privacy_generation: privacy,
+        rate: report.format.rate,
+        channels: report.format.channels,
+        period_frames: report.format.period_frames,
+        buffer_frames: report.format.buffer_frames,
+        monotonic_status_timestamps: report.format.monotonic_status_timestamps,
+        open_started_at_us: report.open_started_at_us,
+        prepared_at_us: report.prepared_at_us,
+        capture_started_at_us: report.capture_started_at_us,
+        start_completed_at_us: report.start_completed_at_us,
+    }
 }
 
 struct Recording {
@@ -337,6 +402,11 @@ fn capture_loop<D: CaptureDevice>(
     let mut dsp_epoch = 1u64;
     let mut last_diagnostic = 0;
     let mut primed_at = None;
+    // Since when a stall has kept the microphone closed. Only a microphone
+    // that has started is reopened: before that, the start is the
+    // reference's barrier to keep, and a stall in it still ends the worker.
+    let mut gap: Option<u64> = None;
+    let mut started = false;
     channels.control.send(WorkerEvent::Ready)?;
     loop {
         let tick = Instant::now();
@@ -360,6 +430,9 @@ fn capture_loop<D: CaptureDevice>(
                     }
                     Err(error) if matches!(error.kind, CaptureErrorKind::Authority(reason) if rejected_old_state(reason)) =>
                         {}
+                    Err(error) if started && gap.is_none() && stall(&error).is_some() => {
+                        gap = Some(begin_gap(channels, microphone.epoch(), &error, &mut hold)?);
+                    }
                     Err(error) => return Err(error.into()),
                 },
                 Control::ConnectReference { peer } => {
@@ -384,7 +457,43 @@ fn capture_loop<D: CaptureDevice>(
                 }
             }
         }
-        microphone.maintain()?;
+        match microphone.maintain() {
+            Ok(()) => {}
+            Err(error) if started && gap.is_none() && stall(&error).is_some() => {
+                gap = Some(begin_gap(channels, microphone.epoch(), &error, &mut hold)?);
+            }
+            Err(error) => return Err(error.into()),
+        }
+        // A stall closed the microphone: it opens again only under a fresh
+        // authority. `prepare` checks it, the privacy switch and the mute
+        // before the device is touched; until the coordinator's next
+        // snapshot arrives it is not permitted, and the worker waits.
+        if let Some(since) = gap {
+            if monotonic_us().saturating_sub(since) > REOPEN_US {
+                return Err(io::Error::other("microphone did not reopen after a stall").into());
+            }
+            if microphone.reset_required().is_some() {
+                microphone.reset()?;
+            }
+            match microphone.prepare() {
+                Ok(report) if report.microphone_generation == privacy => {
+                    let report = microphone.start_prepared()?;
+                    channels.control.send(capture_started(
+                        &report,
+                        dsp_epoch,
+                        noise_suppression,
+                        privacy,
+                    ))?;
+                    gap = None;
+                }
+                // The privacy switch moved during the gap: not a stall.
+                Ok(_) => {
+                    return Err(io::Error::other("privacy changed during a capture gap").into());
+                }
+                Err(error) if matches!(error.kind, CaptureErrorKind::NotPermitted) => {}
+                Err(error) => return Err(error.into()),
+            }
+        }
         if let Some(link) = link.as_mut()
             && link.connect_step()?
         {
@@ -477,25 +586,15 @@ fn capture_loop<D: CaptureDevice>(
                                 monotonic_us(),
                             )?;
                             primed_at = None;
-                            if !microphone.is_running() {
+                            if !microphone.is_running() && gap.is_none() {
                                 let report = microphone.start_prepared()?;
-                                channels.control.send(WorkerEvent::CaptureStarted {
-                                    epoch: report.epoch,
+                                started = true;
+                                channels.control.send(capture_started(
+                                    &report,
                                     dsp_epoch,
                                     noise_suppression,
-                                    privacy_generation: privacy,
-                                    rate: report.format.rate,
-                                    channels: report.format.channels,
-                                    period_frames: report.format.period_frames,
-                                    buffer_frames: report.format.buffer_frames,
-                                    monotonic_status_timestamps: report
-                                        .format
-                                        .monotonic_status_timestamps,
-                                    open_started_at_us: report.open_started_at_us,
-                                    prepared_at_us: report.prepared_at_us,
-                                    capture_started_at_us: report.capture_started_at_us,
-                                    start_completed_at_us: report.start_completed_at_us,
-                                })?;
+                                    privacy,
+                                ))?;
                             }
                         }
                         ReferenceControl::Stopped { .. } => {
@@ -532,9 +631,19 @@ fn capture_loop<D: CaptureDevice>(
                 .fault(ReferenceFaultKind::BarrierTimeout, monotonic_us())
                 .into());
         }
-        if microphone.is_running()
-            && let Some(frame) = microphone.try_read()?
-        {
+        let read = if microphone.is_running() {
+            match microphone.try_read() {
+                Ok(frame) => frame,
+                Err(error) if started && gap.is_none() && stall(&error).is_some() => {
+                    gap = Some(begin_gap(channels, microphone.epoch(), &error, &mut hold)?);
+                    None
+                }
+                Err(error) => return Err(error.into()),
+            }
+        } else {
+            None
+        };
+        if let Some(frame) = read {
             let step = reference.capture_step(
                 frame.timing.delayed_frames,
                 frame.timing.read_completed_at_us,

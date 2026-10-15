@@ -2150,6 +2150,9 @@ struct ProviderIntake {
     saw_allowed: bool,
     retained: Option<RetainedInput>,
     stopped: bool,
+    /// Snapshots skipped because they had expired while this worker was held
+    /// up, since the last one it could take.
+    skipped_expired: u32,
 }
 impl ProviderIntake {
     fn new(boot: BootId, now_us: u64) -> Self {
@@ -2161,6 +2164,7 @@ impl ProviderIntake {
             saw_allowed: false,
             retained: None,
             stopped: false,
+            skipped_expired: 0,
         }
     }
 
@@ -2223,7 +2227,27 @@ impl ProviderIntake {
                     let privacy_changed = self.guard.state().is_some_and(|old| {
                         old.microphone_generation() != snapshot.microphone_generation()
                     });
-                    self.guard.install(MonoTime::from_micros(at), snapshot)?;
+                    match self.guard.install(MonoTime::from_micros(at), snapshot) {
+                        Ok(()) => {}
+                        // Queued while this worker was held up (on lamp-4ace
+                        // by the kernel re-tuning its SD/MMC hosts, #784):
+                        // it lapsed in the queue. The coordinator has sent
+                        // fresher ones behind it; wait for those, and let the
+                        // heartbeat below end it if none comes.
+                        Err(lamp_turn_owner::Error::ExpiredState) => {
+                            self.skipped_expired = self.skipped_expired.saturating_add(1);
+                            continue;
+                        }
+                        Err(error) => return Err(error.into()),
+                    }
+                    if self.skipped_expired > 0 {
+                        eprintln!(
+                            "lamp-voice provider: held up {} ms; {} lapsed authority snapshots skipped, going on",
+                            (at.saturating_sub(self.last_control_us)) / 1_000,
+                            self.skipped_expired
+                        );
+                        self.skipped_expired = 0;
+                    }
                     self.handoff.observe_authority(snapshot)?;
                     self.last_control_us = at;
                     if self.saw_allowed
@@ -2243,7 +2267,11 @@ impl ProviderIntake {
                 }
             }
         }
-        if now().saturating_sub(self.last_control_us) > 250_000 {
+        // While a backlog left by a stall is still being read, the fresh
+        // snapshot may be further down it: judge the heartbeat once the
+        // queue is empty, or after the longest stall a gap may be (#784).
+        let silent = now().saturating_sub(self.last_control_us);
+        if silent > 1_500_000 || (empty && silent > 250_000) {
             return Err(io::Error::other("provider controller heartbeat expired").into());
         }
         Ok(if empty {
@@ -2947,6 +2975,32 @@ mod tests {
         assert_eq!(intake.last_control_us, NOW);
         assert!(intake.guard.state().is_none());
         assert!(intake.stopped);
+    }
+
+    /// A worker held up past its snapshot's expiry (#784) finds the lapsed
+    /// one first in its queue: it skips it and takes the fresh one behind it.
+    #[test]
+    fn a_snapshot_that_lapsed_while_the_worker_was_held_up_is_skipped_for_a_fresh_one() {
+        let mut rig = SocketRig::new();
+        let lapsed = rig.owner.snapshot(time()).unwrap();
+        let late = lapsed.expires_at().as_micros() + 1;
+        rig.owner
+            .set_capture(
+                MonoTime::from_micros(late),
+                CaptureState::RetainingUntil(MonoTime::from_micros(late + 10)),
+            )
+            .unwrap();
+        let fresh = rig.owner.snapshot(MonoTime::from_micros(late)).unwrap();
+        for snapshot in [lapsed, fresh] {
+            rig.parent
+                .control
+                .send(Control::Authority { snapshot })
+                .unwrap();
+        }
+        assert_eq!(rig.tick(late).unwrap(), ControlDrain::Empty);
+        assert!(!rig.intake.stopped);
+        assert_eq!(rig.intake.last_control_us, late);
+        assert_eq!(rig.intake.skipped_expired, 0);
     }
 
     #[test]

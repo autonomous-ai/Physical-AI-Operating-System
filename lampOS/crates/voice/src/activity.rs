@@ -82,6 +82,9 @@ pub struct TurnDetector {
     decision: Option<EndpointDecision>,
     abandoned: bool,
     ignore_through_us: Option<u64>,
+    /// After a capture gap cut someone's utterance (#784): what they still
+    /// say of it is dropped until they pause, so it is not a new question.
+    await_pause: bool,
 }
 
 impl Default for TurnDetector {
@@ -98,6 +101,7 @@ impl Default for TurnDetector {
             decision: None,
             abandoned: false,
             ignore_through_us: None,
+            await_pause: false,
         }
     }
 }
@@ -175,6 +179,18 @@ impl TurnDetector {
                 .ignore_through_us
                 .is_some_and(|at| frame.captured_at_us <= at)
         {
+            return Activity::Quiet;
+        }
+        if self.await_pause {
+            self.silence_count = if probability < SILENCE_PROBABILITY {
+                self.silence_count + 1
+            } else {
+                0
+            };
+            if self.silence_count >= self.end_silence_blocks {
+                self.await_pause = false;
+                self.silence_count = 0;
+            }
             return Activity::Quiet;
         }
         self.ignore_through_us = None;
@@ -271,7 +287,15 @@ impl TurnDetector {
         self.last = None;
         self.abandoned = false;
         self.ignore_through_us = None;
+        self.await_pause = false;
         self.cancel_confirmation();
+    }
+
+    /// Start afresh after a capture gap that cut an utterance: drop what is
+    /// still said of it until its speaker pauses as long as an endpoint.
+    pub(crate) fn resume_after_cut(&mut self) {
+        self.reset();
+        self.await_pause = true;
     }
 
     /// Pending and late verdicts can never end a later utterance.

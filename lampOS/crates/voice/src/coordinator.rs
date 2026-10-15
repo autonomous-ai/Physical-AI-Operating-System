@@ -2559,6 +2559,13 @@ fn conversation_with_gate(
     let mut capture_epoch = None;
     let mut last_capture = None;
     let mut capture_gap = CaptureGap::default();
+    // The epoch a stall closed: its frames still in flight are dropped.
+    let mut closed_epoch = None;
+    // A gap cut into someone's utterance: it is abandoned as a hand Stop
+    // abandons it, never glued across the gap.
+    let mut gap_cut_utterance = false;
+    // An utterance a gap cut was abandoned: its rest is dropped after it.
+    let mut kept_through_gap = false;
     let mut last_publish = 0;
     let mut last_health = 0;
     let mut last_hand_health = 0;
@@ -2889,9 +2896,22 @@ fn conversation_with_gate(
                 _ => {}
             }
         }
-        if let Some(controls) = controls.as_mut() {
-            let observation = controls.poll()?;
-            if observation.stop || observation.muted {
+        let observation = match controls.as_mut() {
+            Some(controls) => Some(controls.poll()?),
+            None => None,
+        };
+        // A stall that has lapsed the capture lease inside someone's
+        // utterance (#784) abandons it here, as a hand Stop does, before
+        // admission sees the lineage break further down this pass.
+        let gap_cut = std::mem::take(&mut gap_cut_utterance)
+            || (!admission.idle_for_reminder()
+                && last_capture.is_some_and(|at| {
+                    (INPUT_LEASE_US..CAPTURE_GAP_US).contains(&monotonic_us().saturating_sub(at))
+                }));
+        let muted = observation.as_ref().is_some_and(|seen| seen.muted);
+        let stop = observation.as_ref().is_some_and(|seen| seen.stop);
+        {
+            if stop || muted || gap_cut {
                 let observed_at_us = monotonic_us();
                 let cancellation = hand::cancel(
                     owner,
@@ -2901,11 +2921,18 @@ fn conversation_with_gate(
                     &mut provider_queue,
                     &mut admission,
                     &mut detector,
-                    observation.muted,
+                    muted,
                     observed_at_us,
                     monotonic_us,
                 )?;
                 snapshot = cancellation.snapshot;
+                if gap_cut && !stop && !muted {
+                    // Admission keeps nothing of it: its capture lineage
+                    // ends with the gap. After the gap, what is still said
+                    // of it is dropped until a pause, not a new question.
+                    admission.reset();
+                    kept_through_gap = true;
+                }
                 // A reply may already be complete while its independent text
                 // socket still holds a "let me look" tail. Idle Stop also
                 // fences that last known request, not just a currently owned one.
@@ -2927,15 +2954,17 @@ fn conversation_with_gate(
                 floor_held_for = None;
                 asked_in_busy_room = None;
                 busy_answer_since = None;
-                let reason = if observation.muted {
+                let reason = if muted {
                     "software_muted"
-                } else {
+                } else if stop {
                     "hand_stop"
+                } else {
+                    "capture_gap"
                 };
                 record(
                     trace,
                     json!({"kind":"hand_control_cancel", "reason":reason,
-                    "at_us":observed_at_us, "acquired_at_us":observation.acquired_at_us,
+                    "at_us":observed_at_us, "acquired_at_us":observation.as_ref().map(|seen| seen.acquired_at_us),
                     "speaker_told_at_us":cancellation.speaker_told_at_us,
                     "observation_to_speaker_dispatch_us":cancellation.speaker_told_at_us.saturating_sub(observed_at_us),
                     "boundary":"coordinator observation to local speaker control send; excludes bus delivery and acoustic stop"}),
@@ -2949,10 +2978,12 @@ fn conversation_with_gate(
                     )?;
                 }
                 publish?;
-                if observation.muted {
+                if muted {
                     return Err(Box::new(SoftwareMute { observed_at_us }));
                 }
             }
+        }
+        if let Some(observation) = observation {
             record_hand_pats(trace, observation.pets)?;
         }
         let can_open = privacy_state == PrivacyState::Allowed;
@@ -3023,12 +3054,14 @@ fn conversation_with_gate(
             submission_draining,
             trace,
         )?;
-        drain_capture_control(
+        if let Some(gone) = drain_capture_control(
             &mut rig.capture.channels.control,
             &mut capture_epoch,
             rig.noise_suppression,
             trace,
-        )?;
+        )? {
+            closed_epoch = Some(gone);
+        }
         let mut speaker_control_budget = 32;
         service_speaker_control(
             rig,
@@ -3423,14 +3456,24 @@ fn conversation_with_gate(
             let Some(frame) = rig.capture.channels.data.receive::<MicrophoneFrame>()? else {
                 break;
             };
-            validate_capture_frame(
+            if closed_epoch == Some(frame.epoch) {
+                capture_gap.dropped += 1;
+                continue;
+            }
+            if let Some(gone) = validate_capture_frame(
                 &mut rig.capture.channels.control,
                 &mut capture_epoch,
                 snapshot.microphone_generation(),
                 &frame,
                 rig.noise_suppression,
                 trace,
-            )?;
+            )? {
+                closed_epoch = Some(gone);
+                if frame.epoch == gone {
+                    capture_gap.dropped += 1;
+                    continue;
+                }
+            }
             let at = monotonic_us();
             let Some(age) = at.checked_sub(frame.read_completed_at_us) else {
                 return Err(io::Error::other("capture became stale").into());
@@ -3445,14 +3488,17 @@ fn conversation_with_gate(
                 continue;
             }
             if let Some(gap) = capture_gap.ended(last_capture, frame.read_completed_at_us) {
-                // ponytail: a gap inside someone's utterance still ends the
-                // run, so the model is never answered over a hole in what it
-                // heard; drop that utterance instead if that proves common.
-                if !admission.idle_for_reminder() {
-                    return Err(io::Error::other("capture stalled during an utterance").into());
+                // An utterance the gap cut into is abandoned on the next
+                // pass, as a hand Stop abandons one: the model is never
+                // answered over a hole in what it heard.
+                gap_cut_utterance |= !admission.idle_for_reminder();
+                // Start listening afresh after it, unless an utterance it cut
+                // is still waiting for its end.
+                if std::mem::take(&mut kept_through_gap) {
+                    detector.resume_after_cut();
+                } else {
+                    detector.reset();
                 }
-                // Nothing is being heard: start listening afresh after it.
-                detector.reset();
                 playback_mask.clear_read_lineage();
                 eprintln!("lamp-voice: {gap}");
                 record(
@@ -5608,12 +5654,15 @@ fn queue_input_end(
     Ok(())
 }
 
+/// Returns the epoch a stall closed, if the worker said so: its frames still
+/// in flight are dropped, and the next start opens a new epoch (#784).
 fn drain_capture_control(
     channel: &mut Channel,
     epoch: &mut Option<u64>,
     expected_noise_suppression: NoiseSuppression,
     trace: &mut SessionState,
-) -> Result<()> {
+) -> Result<Option<u64>> {
+    let mut closed = None;
     for _ in 0..16 {
         let Some(event) = channel.receive::<WorkerEvent>()? else {
             break;
@@ -5649,6 +5698,14 @@ fn drain_capture_control(
                 trace,
                 json!({"kind":"echo_reference_reset","at_us":monotonic_us(),"details":event}),
             )?,
+            WorkerEvent::CaptureGap { epoch: gone, .. } if *epoch == Some(gone) => {
+                record(
+                    trace,
+                    json!({"kind":"capture_gap_closed","at_us":monotonic_us(),"details":event}),
+                )?;
+                *epoch = None;
+                closed = Some(gone);
+            }
             WorkerEvent::ReferenceStatus { status } => {
                 record(trace, reference_status_trace(&status))?
             }
@@ -5667,7 +5724,7 @@ fn drain_capture_control(
             _ => return Err(io::Error::other("unexpected capture lifecycle event").into()),
         }
     }
-    Ok(())
+    Ok(closed)
 }
 
 /// Frames dropped since the capture last delivered one on time.
@@ -5718,12 +5775,16 @@ fn validate_capture_frame(
     frame: &MicrophoneFrame,
     expected_noise_suppression: NoiseSuppression,
     trace: &mut SessionState,
-) -> Result<()> {
+) -> Result<Option<u64>> {
     // The worker sends its start report before its first frame, but the two
     // sockets may become readable between our control drain and data receive.
     // Re-read control after receiving the frame instead of discarding its words.
+    let mut closed = None;
     if epoch.is_none() {
-        drain_capture_control(channel, epoch, expected_noise_suppression, trace)?;
+        closed = drain_capture_control(channel, epoch, expected_noise_suppression, trace)?;
+        if closed == Some(frame.epoch) {
+            return Ok(closed);
+        }
     }
     if Some(frame.epoch) != *epoch || frame.privacy_generation != privacy_generation {
         return Err(io::Error::other("microphone lineage changed during test").into());
@@ -5735,7 +5796,7 @@ fn validate_capture_frame(
             io::Error::other("capture frame preceded certified running reference clock").into(),
         );
     }
-    Ok(())
+    Ok(closed)
 }
 
 /// A change of trust in the capture worker's echo reference. It is a status,

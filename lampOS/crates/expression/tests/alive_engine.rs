@@ -1,6 +1,6 @@
 //! The idle layer, sleep and waking (task 36, #714), through the engine,
 //! with the catalogue offered for lamp-4ace (`alive-behaviours.json`).
-use lamp_expression::{Catalogue, Engine, Input, Output};
+use lamp_expression::{Catalogue, Engine, Input, LEAN, Output};
 use lamp_msgs::{
     BodyOffsets, ClockStamp, ControlGesture, ControlIntent, ControlSource, Face, Faces, Gesture,
     JointState, Light, NameHeard, PersonActivity, Room, RoomState, ScheduleDue, ScheduleNotice,
@@ -1399,5 +1399,196 @@ fn successful_first_and_repeated_name_wakes_need_only_the_next_planner_tick() {
             assert!(lamp.now - received_us <= TICK);
             assert!(lamp.engine.take_sleep_name_notices().is_empty());
         }
+    }
+}
+
+/// The head (#711): what `--touch` Controls says of a hand on it.
+mod head {
+    use super::*;
+    use lamp_msgs::{
+        TouchEvent, TouchGesture, TouchIntent, TouchSource, TouchSourceState, TouchState,
+    };
+
+    impl Lamp {
+        fn head_event(&mut self, gesture: TouchGesture, contact: u64, held: u64) -> Input {
+            let stamp = self.stamp();
+            let (speaking, quiet, asleep) = match gesture {
+                TouchGesture::Tap => (
+                    TouchIntent::Attend,
+                    TouchIntent::Attend,
+                    Some(TouchIntent::Wake),
+                ),
+                TouchGesture::Stroke => (TouchIntent::Stroke, TouchIntent::Stroke, None),
+                TouchGesture::Hold => (TouchIntent::Sleep, TouchIntent::Sleep, None),
+                _ => (TouchIntent::Stop, TouchIntent::Notice, None),
+            };
+            let tap = gesture == TouchGesture::Tap;
+            let value = TouchEvent {
+                stamp: stamp.clone(),
+                session_id: "controls-one".into(),
+                reader_session_id: "gpio".into(),
+                enabled: true,
+                source: TouchSource::Head,
+                name: "head".into(),
+                contact_id: contact,
+                gesture,
+                when_speaking: speaking,
+                when_quiet: quiet,
+                when_asleep: asleep,
+                began_us: self.now - held - if tap { 150_000 } else { 0 },
+                observed_us: self.now,
+                released_us: tap.then(|| self.now - 150_000),
+                active_mask: u16::from(!tap),
+                active_names: if tap { vec![] } else { vec!["head-1".into()] },
+                position: None,
+                toward_pad: None,
+                distance: 0.0,
+                speed: 0.0,
+            };
+            value.check().unwrap();
+            Input::HeadTouch { stamp, value }
+        }
+
+        fn head(&mut self, gesture: TouchGesture, contact: u64, held: u64) {
+            let input = self.head_event(gesture, contact, held);
+            self.send(input);
+        }
+
+        /// The head's state: `contact` there for `held`, or nobody.
+        fn hand(&mut self, contact: Option<(u64, u64)>) {
+            let stamp = self.stamp();
+            let source = TouchSourceState {
+                source: TouchSource::Head,
+                name: "head".into(),
+                reader_session_id: Some("gpio".into()),
+                ready: true,
+                fault: None,
+                observed_us: Some(self.now),
+                armed: true,
+                active: Some(contact.is_some()),
+                contact_id: contact.map(|(id, _)| id),
+                began_us: contact.map(|(_, held)| self.now - held),
+                held_us: contact.map(|(_, held)| held),
+                active_mask: Some(u16::from(contact.is_some())),
+                active_names: if contact.is_some() {
+                    vec!["head-1".into()]
+                } else {
+                    vec![]
+                },
+                position: None,
+                toward_pad: None,
+                distance: 0.0,
+                speed: 0.0,
+            };
+            let value = TouchState {
+                stamp: stamp.clone(),
+                session_id: "controls-one".into(),
+                enabled: true,
+                sources: vec![source],
+                latest: vec![],
+                event_sequence: 0,
+                rejected_inputs: 0,
+            };
+            value.check().unwrap();
+            self.send(Input::HeadHand { stamp, value });
+        }
+
+        /// Ticks for `micros`, saying the hand every 100 ms as Controls does
+        /// at least every 20 ms; the last output.
+        fn with_hand(&mut self, contact: Option<(u64, u64)>, micros: u64) -> Output {
+            let until = self.now + micros;
+            let (mut last, mut held) = (None, contact.map_or(0, |(_, held)| held));
+            while self.now < until {
+                last = Some(self.step());
+                if self.now.is_multiple_of(100_000) {
+                    held += 100_000;
+                    self.hand(contact.map(|(id, _)| (id, held)));
+                }
+            }
+            last.unwrap()
+        }
+    }
+
+    #[test]
+    fn a_hand_kept_on_its_head_is_leaned_into_until_it_goes() {
+        let (mut stroked, mut alone) = (Lamp::new(catalogue()), Lamp::new(catalogue()));
+        for lamp in [&mut stroked, &mut alone] {
+            lamp.run(10 * SECOND, |_, _| {});
+        }
+        stroked.hand(Some((7, 1_000_000)));
+        stroked.head(TouchGesture::Stroke, 7, 1_000_000);
+        alone.hand(None);
+        let leaning = stroked.with_hand(Some((7, 1_000_000)), SECOND);
+        let resting = alone.with_hand(None, SECOND);
+        assert!(
+            named(&leaning, "leaning into a hand"),
+            "{:?}",
+            leaning.state
+        );
+        assert!(!named(&resting, "leaning into a hand"));
+        let (lean, rest) = (asked(&leaning), asked(&resting));
+        assert!(
+            (lean.head_roll - rest.head_roll - LEAN.head_roll).abs() < 1e-9,
+            "{lean:?} {rest:?}"
+        );
+        assert!((lean.head_pitch - rest.head_pitch - LEAN.head_pitch).abs() < 1e-9);
+        // The hand goes (said 0.1 s later here): the lean lets go over
+        // 0.6 s, a little each tick, and nothing leaps.
+        let mut roll = LEAN.head_roll;
+        for _ in 0..30 {
+            let now = asked(&stroked.with_hand(None, TICK)).head_roll;
+            // The easing is at most 1.5 times as steep as a straight line.
+            let most = 1.5 * LEAN.head_roll * TICK as f64 / lamp_expression::LEAN_OUT_US as f64;
+            assert!(roll - now <= most + 1e-12, "{roll} {now}");
+            roll = now;
+        }
+        let gone = stroked.with_hand(None, 200_000);
+        assert!(!named(&gone, "leaning into a hand"), "{:?}", gone.state);
+    }
+
+    #[test]
+    fn a_lean_lets_go_when_the_head_says_nothing_more() {
+        let mut lamp = Lamp::new(catalogue());
+        lamp.run(10 * SECOND, |_, _| {});
+        lamp.hand(Some((3, 1_000_000)));
+        lamp.head(TouchGesture::Stroke, 3, 1_000_000);
+        // Controls stopped: no state at all. After half a second the hand
+        // counts as gone, and the lean lets go over the next 0.6 s.
+        let mut last = None;
+        for _ in 0..60 {
+            last = Some(lamp.step());
+        }
+        assert!(!named(&last.unwrap(), "leaning into a hand"));
+    }
+
+    #[test]
+    fn a_three_second_hold_puts_it_to_sleep_by_day_and_a_tap_wakes_it() {
+        let mut lamp = Lamp::new(catalogue());
+        lamp.run(10 * SECOND, |_, _| {});
+        lamp.hand(Some((9, 3_000_000)));
+        lamp.head(TouchGesture::Hold, 9, 3_000_000);
+        let asleep = lamp.with_hand(None, SECOND);
+        assert!(named(&asleep, "falling asleep"), "{:?}", asleep.state);
+        // Asleep, a hand kept there is not leaned into.
+        lamp.head(TouchGesture::Stroke, 10, 1_000_000);
+        let still = lamp.with_hand(Some((10, 1_000_000)), SECOND);
+        assert!(!named(&still, "leaning into a hand"));
+        lamp.hand(None);
+        lamp.head(TouchGesture::Tap, 11, 200_000);
+        let woken = lamp.with_hand(None, 100_000);
+        assert!(named(&woken, "waking"), "{:?}", woken.state);
+    }
+
+    #[test]
+    fn a_request_not_enabled_or_from_elsewhere_does_nothing() {
+        let mut lamp = Lamp::new(catalogue());
+        lamp.run(10 * SECOND, |_, _| {});
+        let mut input = lamp.head_event(TouchGesture::Hold, 4, 3_000_000);
+        if let Input::HeadTouch { value, .. } = &mut input {
+            value.enabled = false;
+        }
+        lamp.send(input);
+        let awake = lamp.with_hand(None, SECOND);
+        assert!(!named(&awake, "falling asleep") && !named(&awake, "asleep"));
     }
 }

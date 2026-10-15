@@ -99,6 +99,25 @@ fn shadow_mode_has_diagnostics_but_never_an_actuator_request() {
 }
 
 #[test]
+fn the_heads_topics_are_read_only_with_head_touch() {
+    // #711: off unless `serve --head-touch`.
+    use lamp_msgs::{TouchEvent, TouchState};
+    let root = Root::new();
+    let bus = Bus::new(&root.0).unwrap();
+    let service = runtime::Service::new(&bus, Catalogue::builtin(), false, "test").unwrap();
+    for topic in [TouchEvent::TOPIC, TouchState::TOPIC] {
+        assert!(
+            bus.subscribers(topic).unwrap_or_default().is_empty(),
+            "{topic}"
+        );
+    }
+    let _service = service.with_head_touch(&bus).unwrap();
+    for topic in [TouchEvent::TOPIC, TouchState::TOPIC] {
+        assert_eq!(bus.subscribers(topic).unwrap().len(), 1, "{topic}");
+    }
+}
+
+#[test]
 fn enabled_output_uses_a_new_session_and_expires_after_input_loss() {
     let root = Root::new();
     let bus = Bus::new(&root.0).unwrap();

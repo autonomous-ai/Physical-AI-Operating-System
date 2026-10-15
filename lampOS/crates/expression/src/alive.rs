@@ -11,7 +11,10 @@
 
 use crate::Error;
 use crate::catalogue::{Keyframe, add, blend, ease};
-use lamp_msgs::{BodyOffsets, ControlGesture, Faces, Gesture, ScheduleDue, Voice};
+use lamp_msgs::{
+    BodyOffsets, ControlGesture, Faces, Gesture, ScheduleDue, TouchEvent, TouchGesture,
+    TouchSource, TouchState, Voice,
+};
 use serde::{Deserialize, Serialize};
 use std::collections::VecDeque;
 use std::f64::consts::PI;
@@ -406,6 +409,23 @@ impl Default for Planned {
     }
 }
 
+/// Leaning into a hand kept on the head (#711, `docs/creature.md` "Touch"):
+/// the head lifts a hair into the hand and tilts toward it, the opposite of
+/// the sleeping bow. Authored, to be looked at on a lamp.
+pub const LEAN: BodyOffsets = BodyOffsets {
+    base_yaw: 0.0,
+    shoulder: 0.0,
+    elbow: 0.0,
+    head_roll: 0.02,
+    head_pitch: -0.015,
+};
+/// The lean comes in over this, and goes over [`LEAN_OUT_US`].
+pub const LEAN_IN_US: u64 = 500_000;
+pub const LEAN_OUT_US: u64 = 600_000;
+/// The hand is gone if the head's state has not said it is there for this
+/// long: a Controls that stopped does not leave the lamp leaning.
+pub const HAND_FRESH_US: u64 = 500_000;
+
 #[derive(Clone, Copy, Debug, PartialEq)]
 enum Phase {
     Awake,
@@ -550,6 +570,13 @@ pub(crate) struct Life {
     name_called: bool,
     name_wake: NameWake,
     last_due: Option<(u64, u64)>,
+    /// The head (#711): the contact of a hand kept there long enough to lean
+    /// into, when its state last said it was there, how far the lean has
+    /// come in, and a hold's request for sleep.
+    hand: Option<u64>,
+    hand_seen_us: Option<u64>,
+    lean: f64,
+    sleep_asked: bool,
 }
 
 /// A fraction in 0..1 from a counter and a salt: splitmix64, fixed, so that
@@ -586,6 +613,10 @@ impl Life {
             name_called: false,
             name_wake: NameWake::new(name_age_us, delivery_us),
             last_due: None,
+            hand: None,
+            hand_seen_us: None,
+            lean: 0.0,
+            sleep_asked: false,
         }
     }
 
@@ -718,6 +749,45 @@ impl Life {
         }
     }
 
+    /// A request from the head (#711), from `--touch` Controls. A tap wakes
+    /// it; a hand kept a second is leaned into while it stays; a hold of
+    /// three seconds puts it to sleep. Asleep, only the tap does anything.
+    pub(crate) fn head_touch(&mut self, stamp_us: u64, event: &TouchEvent) {
+        if !event.enabled || event.source != TouchSource::Head {
+            return;
+        }
+        match event.gesture {
+            TouchGesture::Tap => self.called |= self.asleep(),
+            TouchGesture::Stroke if !self.asleep() => {
+                self.hand = Some(event.contact_id);
+                self.hand_seen_us = Some(stamp_us);
+            }
+            TouchGesture::Hold if !self.asleep() => {
+                self.sleep_asked = true;
+                self.hand = None;
+            }
+            _ => {}
+        }
+    }
+
+    /// The head's state at `stamp_us`: the hand leaned into is there only
+    /// while its contact lasts and counts (`held_us`; none once a push from
+    /// the body spoiled it).
+    pub(crate) fn head_hand(&mut self, stamp_us: u64, state: &TouchState) {
+        let head = state
+            .sources
+            .iter()
+            .find(|source| source.source == TouchSource::Head);
+        let there = head.is_some_and(|head| {
+            head.held_us.is_some() && head.contact_id.is_some() && head.contact_id == self.hand
+        });
+        if there {
+            self.hand_seen_us = Some(stamp_us);
+        } else if head.is_some_and(|head| head.contact_id != self.hand || head.held_us.is_none()) {
+            self.hand = None;
+        }
+    }
+
     /// A reminder that has come due wakes it, once for each delivery.
     pub(crate) fn due(&mut self, due: &ScheduleDue) {
         let Some(notice) = due.oldest.as_ref().filter(|_| due.enabled && due.ready) else {
@@ -808,6 +878,15 @@ impl Life {
         }
         self.called = false;
         self.name_called = false;
+        // A hand held three seconds on its head: it goes to sleep now,
+        // whatever the hour (#711).
+        if std::mem::take(&mut self.sleep_asked)
+            && self.phase == Phase::Awake
+            && self.alive.sleep.is_some()
+        {
+            self.phase = Phase::Asleep { since: now_us };
+            self.name_wake.clear(false);
+        }
         if let (Phase::Awake, Some(sleep)) = (self.phase, &self.alive.sleep)
             && context.free
             && context.voice == Some(Voice::Resting)
@@ -882,6 +961,26 @@ impl Life {
                 .is_some_and(|voice| self.alive.states.contains(&voice))
         {
             planned.names.push("still for work");
+        }
+        // Leaning into a hand kept on its head, only awake and with the body
+        // free; it eases in and out, never leaps.
+        if self
+            .hand_seen_us
+            .is_none_or(|seen| now_us.saturating_sub(seen) >= HAND_FRESH_US)
+        {
+            self.hand = None;
+        }
+        let leaning = self.hand.is_some() && self.phase == Phase::Awake && context.free;
+        self.lean = if leaning {
+            (self.lean + step as f64 / LEAN_IN_US as f64).min(1.0)
+        } else {
+            // Rounding must not leave it leaning by a hair forever.
+            let left = self.lean - step as f64 / LEAN_OUT_US as f64;
+            if left < 1e-9 { 0.0 } else { left }
+        };
+        if self.lean > 0.0 {
+            planned.offsets = add(planned.offsets, LEAN, ease(self.lean));
+            planned.names.push("leaning into a hand");
         }
         if self.weight == 0.0 {
             self.forget_drift();

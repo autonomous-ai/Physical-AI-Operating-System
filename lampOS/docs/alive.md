@@ -139,11 +139,32 @@ not more life.
 | `voice/activity` | The voice's validated person-speech detector | Corroborates a sleeping name only with `sleep.name_requires_speech: true` |
 | `controls/gesture` | Controls | Waking, by an enabled tap or stroke. New to Expression |
 | `schedule/due` | Schedule | Waking, once for each notice that comes due. New to Expression |
+| `controls/touch`, `controls/touch_state` | `--touch` Controls, only with `serve --head-touch` | The head (#711, below) |
 | The local time of day | The live service itself, from the wall clock and `--utc-offset-minutes` (420 in Vietnam), at start and every minute | Night. Not a bus topic. `serve` refuses a catalogue with sleep without it. With `--kernel-clock` it is given only while the kernel says the clock is set (`lamp_ipc::clock_synced`, #830): a lamp has no battery clock, and one not set knows no night, so it neither falls asleep nor wakes by a wrong hour; one line says each change |
 
 `lamp-expression import --utc-offset-minutes N` adds the same time of day
 to an imported recording, from the recording's own wall clock, so that a
 replay can see night.
+
+### The head (#711)
+
+Off unless `lamp-expression serve --head-touch`, and Controls runs with
+`--touch`. The owner's design is in [creature.md](creature.md#touch):
+- **A hand kept on the head a second** (Controls' head Stroke) is leaned
+  into: the head lifts a hair and tilts toward it (`LEAN`: pitch -0.015,
+  roll 0.02 rad, authored, to be looked at on a lamp), easing in over 0.5 s.
+  It lasts while the head's state says that contact is still there, and eases
+  out over 0.6 s once it is gone, or once the state has said nothing for
+  0.5 s, so a stopped Controls never leaves it leaning. Only awake, and only
+  with the body free.
+- **A hand kept three seconds** (Hold) puts it to sleep at once, by day too,
+  as the night's own sleep does: the same bow and breath.
+- **A tap** wakes it when asleep.
+- Nothing else: a request not enabled, or not from the head, does nothing.
+  Asleep, only a tap does anything.
+
+The eye's countdown between one and three seconds is the voice's ring's,
+and the microphones closing for sleep are the voice's (#711, to come).
 
 ## Measured
 

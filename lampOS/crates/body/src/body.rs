@@ -1833,6 +1833,12 @@ struct Stall {
     hold: Option<(u16, u16)>,
     /// Steps it has been held so far.
     held: u16,
+    /// Where it last stopped. A joint that stops there again (a standing
+    /// shoulder resting short of its goal under its own weight, each time a
+    /// scene or the rest moves its goal a little) is held again quietly: on
+    /// lamp-4ace on 2026-10-15 that same rest was counted and logged twice
+    /// a minute with nobody touching the lamp.
+    last_at: Option<u16>,
 }
 
 impl Stall {
@@ -1852,7 +1858,11 @@ impl Stall {
         self.steps = 0;
         self.hold = Some((wanted, is.position));
         self.held = 0;
-        true
+        let again = self
+            .last_at
+            .is_some_and(|at| at.abs_diff(is.position) <= STALL_SLACK);
+        self.last_at = Some(is.position);
+        !again
     }
 
     /// Where it is held, while what is wanted of it has not moved

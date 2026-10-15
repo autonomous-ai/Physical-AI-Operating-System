@@ -3,8 +3,9 @@
 //! (docs/install.md, task #811).
 use lamp_update::{
     fetch::{Channel, Fetch},
-    install::{self, Host, Install, PRODUCT},
+    install::{self, Host, Install, PRODUCT, SETTINGS},
     manifest::{self, File, Manifest, sha256_hex},
+    records::{Records, State},
 };
 use ring::{
     rand::SystemRandom,
@@ -40,6 +41,9 @@ impl Channel for FakeChannel {
 struct FakeHost {
     root: PathBuf,
     calls: Vec<String>,
+    /// How many of the next `enable`s fail, as a `systemctl` that is not
+    /// there yet or refuses.
+    failing_enables: u32,
 }
 
 impl Host for FakeHost {
@@ -57,6 +61,10 @@ impl Host for FakeHost {
 
     fn enable(&mut self, units: &[String]) -> Result<(), String> {
         self.calls.push(format!("enable {}", units.join(" ")));
+        if self.failing_enables > 0 {
+            self.failing_enables -= 1;
+            return Err("systemctl enable: Failed to connect to bus".into());
+        }
         Ok(())
     }
 
@@ -144,6 +152,7 @@ impl Lamp {
         let host = FakeHost {
             root: root.clone(),
             calls: Vec::new(),
+            failing_enables: 0,
         };
         Self {
             _dir: dir,
@@ -587,4 +596,82 @@ fn a_newer_default_replaces_only_a_setting_nobody_changed() {
             .count(),
         1
     );
+}
+
+impl Lamp {
+    fn state(&self) -> State {
+        Records::new(self.on("/var/lib/lampos-update")).peek_state()
+    }
+}
+
+/// The reviewer on #815 (19:17): an install whose `systemctl enable` failed
+/// left every file as it should be, so the next run changed nothing and
+/// never enabled the lamp; and the settings it wrote were not recorded, so a
+/// later build's default took them for the lamp's own. Now what it wrote is
+/// recorded before systemd is asked, the debt with it, and the next run pays
+/// it once.
+#[test]
+fn an_install_whose_enable_failed_enables_at_the_next_run_and_keeps_its_settings_record() {
+    let mut lamp = Lamp::new(188, &[]);
+    lamp.host.failing_enables = 1;
+    let why = lamp.install().unwrap_err();
+    assert!(why.contains("Failed to connect to bus"), "{why}");
+    let state = lamp.state();
+    assert!(state.systemd_owed);
+    assert_eq!(state.installed.as_ref().map(|b| b.sequence), Some(188));
+    for (path, text) in SETTINGS {
+        assert_eq!(state.settings[*path], sha256_hex(text.as_bytes()), "{path}");
+    }
+
+    let calls = lamp.host.calls.len();
+    let again = lamp.install().unwrap();
+    assert_eq!(again.changed.len(), 1, "{:?}", again.changed);
+    assert!(
+        again.changed[0].starts_with("enabled "),
+        "{:?}",
+        again.changed
+    );
+    let asked: Vec<&str> = lamp.host.calls[calls..]
+        .iter()
+        .map(|call| call.split(' ').next().unwrap())
+        .collect();
+    assert_eq!(asked, ["tmpfiles", "enable"]);
+    assert!(!lamp.state().systemd_owed);
+
+    // Paid once: a third run asks nothing.
+    let calls = lamp.host.calls.len();
+    assert!(lamp.install().unwrap().changed.is_empty());
+    assert_eq!(lamp.host.calls.len(), calls);
+
+    // The default the failed run wrote is still known as install's: a later
+    // build's default replaces it.
+    let (path, _) = SETTINGS[2];
+    let mut written = lamp.state().settings;
+    let mut changed = Vec::new();
+    install::settings(
+        &lamp.config,
+        &[(path, "{}\n")],
+        &mut written,
+        &mut changed,
+        &mut |_| {},
+    )
+    .unwrap();
+    assert_eq!(changed, [format!("wrote {path}")]);
+}
+
+/// A setting that cannot be written stops the install, and those written
+/// before it are recorded all the same.
+#[test]
+fn settings_written_before_one_that_fails_are_recorded() {
+    let mut lamp = Lamp::new(188, &[]);
+    let (last, _) = SETTINGS[SETTINGS.len() - 1];
+    // A folder where the file goes: it cannot be written over.
+    fs::create_dir_all(lamp.on(last).join("in-the-way")).unwrap();
+    let why = lamp.install().unwrap_err();
+    assert!(why.starts_with(last), "{why}");
+    let state = lamp.state();
+    for (path, text) in &SETTINGS[..SETTINGS.len() - 1] {
+        assert_eq!(state.settings[*path], sha256_hex(text.as_bytes()), "{path}");
+    }
+    assert!(!state.settings.contains_key(last));
 }

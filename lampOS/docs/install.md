@@ -326,18 +326,24 @@ As root, on a lamp with the base image (`crates/update/src/install.rs`):
    install (lamp-4ace's own pins), is the lamp's: it is kept, and said
    (`kept /etc/lampOS/controls/controls-pins.json: …`). Rerunning install is
    how the updater upgrades itself, so this holds at every run (the
-   reviewer on #815).
+   reviewer on #815). What it wrote is recorded in `state.json` at once,
+   even when a later setting fails.
 6. Writes `/etc/lampOS/zone.env` from the system's zone if it is not there.
    It never writes `/etc/lampOS/body/lamp.env`, and says that the body waits
    for it.
-7. If anything changed: `systemd-tmpfiles --create`, `systemctl
+7. Records the build, the folders it made and, if anything changed, that
+   systemd is owed (`systemd_owed`) in `/var/lib/lampos-update/state.json`,
+   as a round does, under the same lock: all of it before systemd is asked
+   anything.
+8. If systemd is owed: `systemd-tmpfiles --create`, `systemctl
    daemon-reload`, and `systemctl enable` of every part, `lampos.target`,
-   `lamp-update.service` and `lamp-records.timer`. It starts nothing and
-   never writes setup's marker.
-8. Records the build in `/var/lib/lampos-update/state.json`, as a round
-   does, under the same lock.
+   `lamp-update.service` and `lamp-records.timer`; then records the debt
+   paid. It starts nothing and never writes setup's marker. A run whose
+   enable fails leaves the debt, and the next run pays it though it writes
+   nothing (the reviewer on #815, 19:17).
 
-Run again with nothing new, it writes nothing and asks nothing of systemd.
+Run again with nothing new and nothing owed, it writes nothing and asks
+nothing of systemd.
 With a newer build, it installs the new folders beside the old and moves
 the links; the old folders stay. It does not restart a running part:
 switching a running lamp at a quiet moment is a round's work.

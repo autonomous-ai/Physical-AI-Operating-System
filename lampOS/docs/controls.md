@@ -655,7 +655,7 @@ Voice's switches are independent and absent by default:
 | `--controls-stop` | Consume fresh, deduplicated Stop in the coordinator. |
 | `--controls-mute ABS_PRIVATE_RECORD` | Restore software mute and enable released-hold mute/fresh-second-hold clear. The parent directory must already exist, be trusted and private (0700). |
 | `--controls-bus-root ABS_PATH` | Override `LAMP_BUS_ROOT` or `/run/lampos-bus`; this option alone enables nothing. |
-| `LAMP_HEAD_TOUCH=on` (environment) | Consume the head pads' requests from `--touch` Controls (#711). For now: a qualified head touch stops the lamp while it says its answer (its reply has audio or playback), through the same cancellation as Stop; while it is quiet or still thinking, it is only noted (`head_touch_noticed`). |
+| `LAMP_HEAD_TOUCH=on` (environment) | Consume the head pads' requests from `--touch` Controls (#711). A qualified head touch stops the lamp while it says its answer (its reply has audio or playback), through the same cancellation as Stop; while it is quiet or still thinking, it is only noted (`head_touch_noticed`). A head tap counts as a call for 6 s in the attention rule, with `LAMP_BUS=on` ([attention.md](attention.md#a-tap-on-its-head-is-a-call-711)). |
 
 For example, append the selected options to `lamp-voice serve
 PRIVATE_CONFIG.json NEW_OUTPUT`. No controls clock/file read or pump starts

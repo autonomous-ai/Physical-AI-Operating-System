@@ -2014,6 +2014,7 @@ fn provider_arguments(
     arguments.extend(crate::addressed::arguments_from_environment());
     arguments.extend(crate::attention::name_arguments_from_environment());
     arguments.extend(crate::called::arguments_from_environment());
+    arguments.extend(crate::attention::head_touch_arguments_from_environment());
     arguments.extend(crate::bus_out::worker_arguments_from_environment());
     arguments.extend(crate::first_output::arguments_from_environment());
     arguments.extend(crate::not_speech::arguments_from_environment());

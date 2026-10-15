@@ -349,11 +349,25 @@ pub(crate) fn system_message(
     .unwrap_or_default();
     Told {
         text: told + &thread.unwrap_or_default(),
-        history: recent
-            .into_iter()
-            .flat_map(|(person, lamp)| [Message::user(person), Message::assistant(lamp)])
-            .collect(),
+        history: recent.into_iter().flat_map(messages).collect(),
     }
+}
+
+/// One exchange as chat messages. A request the lamp was given in writing
+/// goes as a system note, never as words a person said; nothing is sent
+/// for a person who said nothing.
+fn messages(exchange: crate::thread::Recent) -> Vec<Message> {
+    let mut messages = Vec::with_capacity(3);
+    if let Some(written) = exchange.written {
+        messages.push(Message::system(format!(
+            "(A note you were given in writing, not words anyone said: {written})"
+        )));
+    }
+    if !exchange.person.is_empty() {
+        messages.push(Message::user(exchange.person));
+    }
+    messages.push(Message::assistant(exchange.lamp));
+    messages
 }
 
 /// Exchanges given to the chat as messages, and for how long since each.
@@ -475,6 +489,13 @@ pub async fn run(
                 break;
             };
             if gate.admits(monotonic_us(), &command)? {
+                // A written request is kept for the thread as the note it
+                // is, with the answer to it (`Thread::written`).
+                if let ProviderInput::Written { text, .. } = &command
+                    && let Ok(mut thread) = crate::thread::THREAD.lock()
+                {
+                    thread.written(text);
+                }
                 engine.submit(command);
             }
         }
@@ -577,6 +598,30 @@ mod tests {
 
     fn strings(flags: &[&str]) -> Vec<String> {
         flags.iter().map(|flag| (*flag).to_owned()).collect()
+    }
+
+    #[test]
+    fn a_written_request_goes_to_the_chat_as_a_note_and_silence_as_nothing() {
+        let written = messages(crate::thread::Recent {
+            written: Some("Say ORCHID.".into()),
+            person: String::new(),
+            lamp: "ORCHID.".into(),
+        });
+        assert_eq!(
+            written,
+            [
+                Message::system(
+                    "(A note you were given in writing, not words anyone said: Say ORCHID.)"
+                ),
+                Message::assistant("ORCHID."),
+            ]
+        );
+        let spoken = messages(crate::thread::Recent {
+            written: None,
+            person: "Hi.".into(),
+            lamp: "Hello.".into(),
+        });
+        assert_eq!(spoken, [Message::user("Hi."), Message::assistant("Hello.")]);
     }
 
     #[test]

@@ -11,11 +11,14 @@
 //! the lamp, never a picture. [`who`] says whose face it is, for the people
 //! who asked the lamp to remember them, and nobody else. With
 //! `--leave-still-faces on`, [`still`] leaves out a face at a place where no
-//! person has been seen, only small faint faces for half an hour. [`permit`]
-//! says whether the camera may be open.
+//! person has been seen, only small faint faces for half an hour. With
+//! `--full-look`, [`full_look`] makes one larger still for a request the
+//! lamp said it would look for, after its head has settled. [`permit`] says
+//! whether the camera may be open.
 pub mod bus_out;
 pub mod faces;
 pub mod facing;
+pub mod full_look;
 pub mod kept;
 pub mod permit;
 pub mod picture;

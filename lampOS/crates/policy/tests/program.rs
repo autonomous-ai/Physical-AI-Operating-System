@@ -45,10 +45,12 @@ impl Running {
         });
         let mut all = Vec::new();
         let since = Instant::now();
+        // Only whole lines count: a line still being written can already
+        // start with what is wanted while the rest of it has not arrived.
         while !last.iter().all(|wanted| {
-            String::from_utf8_lossy(&all)
-                .lines()
-                .any(|line| line.starts_with(wanted))
+            let text = String::from_utf8_lossy(&all);
+            let whole = text.rsplit_once('\n').map_or("", |(whole, _)| whole);
+            whole.lines().any(|line| line.starts_with(wanted))
         }) {
             let left = WAIT.saturating_sub(since.elapsed());
             match printed.recv_timeout(left) {

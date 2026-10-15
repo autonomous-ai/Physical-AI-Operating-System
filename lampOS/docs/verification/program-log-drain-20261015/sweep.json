@@ -1,0 +1,764 @@
+{
+  "source_sha": "4ad0ec5c3d0b245662cbc0d28e6940e8618fce03",
+  "observed_at_from_date": "2026-10-15 18:40:31 +0700",
+  "method": "Static scan of .kill() in crates/*/tests/*.rs plus six adjacent signal/output paths, followed through actual child creation, exit/drain ordering and asserted output.",
+  "direct_files": 18,
+  "supplementary_files": 6,
+  "fixed_files": 2,
+  "rows": [
+    {
+      "file": "lampOS/crates/bus/tests/cli.rs",
+      "line": 98,
+      "termination_or_probe_lines": [
+        98,
+        106,
+        487,
+        941
+      ],
+      "scope": "direct_kill_candidate",
+      "classification": [
+        "record_barrier",
+        "no_asserted_child_stderr",
+        "panic_cleanup"
+      ],
+      "behavior": "Two deliberate recorder kills read JSONL afterward, but both first wait for exactly the records later asserted. Running::kill discards the killed child's captured streams; separate finite CLI commands use output/wait_with_output.",
+      "evidence": [
+        {
+          "location": "lampOS/crates/bus/tests/cli.rs:81",
+          "text": "Running::start pipes both outputs; kill at 96\u2013100 only kills and waits."
+        },
+        {
+          "location": "lampOS/crates/bus/tests/cli.rs:485",
+          "text": "Each of five messages is observed on disk before the next publish; line 487 kills only after all five."
+        },
+        {
+          "location": "lampOS/crates/bus/tests/cli.rs:488",
+          "text": "Post-kill assertions check the five already-observed records and their sequence."
+        },
+        {
+          "location": "lampOS/crates/bus/tests/cli.rs:938",
+          "text": "Both files must contain four lines before kill at 941; assertions at 943\u2013956 inspect those records."
+        }
+      ],
+      "finding": "No concrete kill-before-asserted-log-drain race in this path.",
+      "fix_direction": "No change required for #783's kill-before-log-drain defect."
+    },
+    {
+      "file": "lampOS/crates/controls/tests/program.rs",
+      "line": 294,
+      "termination_or_probe_lines": [
+        294,
+        337
+      ],
+      "scope": "direct_kill_candidate",
+      "classification": [
+        "graceful_exit",
+        "panic_cleanup"
+      ],
+      "behavior": "Normal path waits for a real bus diagnostic, sends SIGTERM, waits for successful normal exit, then reads the CLI summary and completed recording. SIGKILL only occurs if the Running guard is still populated while unwinding.",
+      "evidence": [
+        {
+          "location": "lampOS/crates/controls/tests/program.rs:278",
+          "text": "finish observes try_wait under a three-second bound before wait_with_output."
+        },
+        {
+          "location": "lampOS/crates/controls/tests/program.rs:308",
+          "text": "serve child pipes stdout/stderr and records to the test file."
+        },
+        {
+          "location": "lampOS/crates/controls/tests/program.rs:319",
+          "text": "A bus diagnostic establishes startup and signal registration."
+        },
+        {
+          "location": "lampOS/crates/controls/tests/program.rs:337",
+          "text": "/bin/kill -TERM is a cooperative signal; lines 342\u2013359 assert success, summary, and recording after exit."
+        }
+      ],
+      "finding": "No concrete kill-before-asserted-log-drain race in this path.",
+      "fix_direction": "No change required for #783's kill-before-log-drain defect."
+    },
+    {
+      "file": "lampOS/crates/controls/tests/touch_program.rs",
+      "line": 141,
+      "termination_or_probe_lines": [
+        141
+      ],
+      "scope": "direct_kill_candidate",
+      "classification": [
+        "graceful_exit",
+        "panic_cleanup"
+      ],
+      "behavior": "CLI output is redirected to files, the normal process exit is observed and reaped, and only then are stdout/stderr files read. Kill is the Running fallback; it is not used before the normal assertions.",
+      "evidence": [
+        {
+          "location": "lampOS/crates/controls/tests/touch_program.rs:92",
+          "text": "Root::run creates unique output files and spawns the command."
+        },
+        {
+          "location": "lampOS/crates/controls/tests/touch_program.rs:103",
+          "text": "try_wait observes normal completion under a five-second guard."
+        },
+        {
+          "location": "lampOS/crates/controls/tests/touch_program.rs:114",
+          "text": "The child is removed from Running and waited before reads at 121\u2013122."
+        },
+        {
+          "location": "lampOS/crates/controls/tests/touch_program.rs:147",
+          "text": "Summary/frame assertions consume the post-exit files."
+        }
+      ],
+      "finding": "No concrete kill-before-asserted-log-drain race in this path.",
+      "fix_direction": "No change required for #783's kill-before-log-drain defect."
+    },
+    {
+      "file": "lampOS/crates/expression/tests/program.rs",
+      "line": 19,
+      "termination_or_probe_lines": [
+        19
+      ],
+      "scope": "direct_kill_candidate",
+      "classification": [
+        "no_asserted_child_stderr"
+      ],
+      "behavior": "The killed live owner is validated through bus state and lock exclusion. Its stderr is only read on an already-exited failure diagnostic. The asserted owner-lock stderr belongs to a second, naturally exited CLI process.",
+      "evidence": [
+        {
+          "location": "lampOS/crates/expression/tests/program.rs:42",
+          "text": "Live serve child pipes stderr and has null stdout."
+        },
+        {
+          "location": "lampOS/crates/expression/tests/program.rs:62",
+          "text": "state waits for bus state; lines 72\u201377 read stderr only after try_wait reports early exit, then panic."
+        },
+        {
+          "location": "lampOS/crates/expression/tests/program.rs:93",
+          "text": "Second command uses output and its own stderr is asserted at 99."
+        },
+        {
+          "location": "lampOS/crates/expression/tests/program.rs:101",
+          "text": "First live owner is dropped/killed before restart, with no post-kill assertion on its logs."
+        }
+      ],
+      "finding": "No concrete kill-before-asserted-log-drain race in this path.",
+      "fix_direction": "No change required for #783's kill-before-log-drain defect."
+    },
+    {
+      "file": "lampOS/crates/expression/tests/runtime.rs",
+      "line": 604,
+      "termination_or_probe_lines": [
+        604
+      ],
+      "scope": "direct_kill_candidate",
+      "classification": [
+        "graceful_exit",
+        "panic_cleanup"
+      ],
+      "behavior": "The journal child is a re-executed test process writing stderr to a file. Normal try_wait completion is observed before the exact one-line journal assertion. Drop kill is a timeout/panic cleanup or a harmless call after the child is already reaped.",
+      "evidence": [
+        {
+          "location": "lampOS/crates/expression/tests/runtime.rs:610",
+          "text": "Child branch performs its steps and returns normally at 621."
+        },
+        {
+          "location": "lampOS/crates/expression/tests/runtime.rs:628",
+          "text": "Current test executable is spawned with stderr redirected to journal.txt."
+        },
+        {
+          "location": "lampOS/crates/expression/tests/runtime.rs:641",
+          "text": "Fifteen-second guard surrounds try_wait, not an intentional kill."
+        },
+        {
+          "location": "lampOS/crates/expression/tests/runtime.rs:649",
+          "text": "Journal read and exact line assertion follow observed child completion."
+        }
+      ],
+      "finding": "No concrete kill-before-asserted-log-drain race in this path.",
+      "fix_direction": "No change required for #783's kill-before-log-drain defect."
+    },
+    {
+      "file": "lampOS/crates/health/tests/program.rs",
+      "line": 36,
+      "scope": "direct_kill_candidate",
+      "classification": [
+        "fixed_pre_kill_log_race"
+      ],
+      "behavior": "Three callers kill before reading the journal they assert. The child uses the asynchronous log relay. The fix observes complete startup/terminal records before SIGKILL, then reaps and drains all remaining bytes.",
+      "evidence": [],
+      "finding": "Harness fix in this change; production behavior and original assertions unchanged."
+    },
+    {
+      "file": "lampOS/crates/ipc/tests/probe.rs",
+      "line": 41,
+      "termination_or_probe_lines": [
+        41
+      ],
+      "scope": "direct_kill_candidate",
+      "classification": [
+        "graceful_exit",
+        "panic_cleanup"
+      ],
+      "behavior": "Every success path calls TestChild::output, which observes normal exit and takes the child before wait_with_output. Only timeout/panic cleanup kills. The invalid-control stderr assertion follows natural failure exit.",
+      "evidence": [
+        {
+          "location": "lampOS/crates/ipc/tests/probe.rs:12",
+          "text": "Probe executable is spawned with both streams piped."
+        },
+        {
+          "location": "lampOS/crates/ipc/tests/probe.rs:24",
+          "text": "output waits up to 30 s for try_wait, then removes the child and reads its output."
+        },
+        {
+          "location": "lampOS/crates/ipc/tests/probe.rs:49",
+          "text": "Roundtrip JSON assertions inspect that completed output."
+        },
+        {
+          "location": "lampOS/crates/ipc/tests/probe.rs:156",
+          "text": "Invalid control is sent; child.output returns before the stderr and socket-cleanup assertions at 159\u2013161."
+        }
+      ],
+      "finding": "No concrete kill-before-asserted-log-drain race in this path.",
+      "fix_direction": "No change required for #783's kill-before-log-drain defect."
+    },
+    {
+      "file": "lampOS/crates/ipc/tests/sockets.rs",
+      "line": 320,
+      "termination_or_probe_lines": [
+        320
+      ],
+      "scope": "direct_kill_candidate",
+      "classification": [
+        "graceful_exit",
+        "panic_cleanup"
+      ],
+      "behavior": "The child writes a monotonic timestamp file and naturally exits. Kill is only in the ten-second timeout branch, immediately followed by panic; the success path never reads the file after killing.",
+      "evidence": [
+        {
+          "location": "lampOS/crates/ipc/tests/sockets.rs:297",
+          "text": "Child test directly writes its timestamp."
+        },
+        {
+          "location": "lampOS/crates/ipc/tests/sockets.rs:308",
+          "text": "Current test executable is started with stdout null; stderr is not captured for assertions."
+        },
+        {
+          "location": "lampOS/crates/ipc/tests/sockets.rs:315",
+          "text": "try_wait normal exit breaks the loop; kill at 320 is followed by wait and panic."
+        },
+        {
+          "location": "lampOS/crates/ipc/tests/sockets.rs:328",
+          "text": "Timestamp file is read only after successful normal completion."
+        }
+      ],
+      "finding": "No concrete kill-before-asserted-log-drain race in this path.",
+      "fix_direction": "No change required for #783's kill-before-log-drain defect."
+    },
+    {
+      "file": "lampOS/crates/memory/tests/binary.rs",
+      "line": 85,
+      "scope": "direct_kill_candidate",
+      "classification": [
+        "fixed_pre_kill_log_race"
+      ],
+      "behavior": "Six SIGKILL sites in two crash/restart tests precede log-file assertions, including privacy scans. The fix observes the complete terminal occurrence at the expected record position before SIGKILL; file-backed stderr alone was not a barrier.",
+      "evidence": [],
+      "finding": "Harness fix in this change; production behavior and original assertions unchanged."
+    },
+    {
+      "file": "lampOS/crates/memory/tests/health.rs",
+      "line": 156,
+      "termination_or_probe_lines": [
+        156
+      ],
+      "scope": "direct_kill_candidate",
+      "classification": [
+        "record_barrier",
+        "no_asserted_child_stderr_after_kill"
+      ],
+      "behavior": "Long-lived memory children are killed only when Process is dropped, after test assertions. Positive log assertions use logged(expected), which reads the redirected file while the child is alive; the exact count checks follow those barriers. Startup-failure cases await natural exit.",
+      "evidence": [
+        {
+          "location": "lampOS/crates/memory/tests/health.rs:67",
+          "text": "stderr is redirected to a file; log() reads that file."
+        },
+        {
+          "location": "lampOS/crates/memory/tests/health.rs:135",
+          "text": "logged waits for expected text while checking liveness; it does not kill to obtain output."
+        },
+        {
+          "location": "lampOS/crates/memory/tests/health.rs:403",
+          "text": "Failure text is awaited before proceeding."
+        },
+        {
+          "location": "lampOS/crates/memory/tests/health.rs:435",
+          "text": "FAILED is awaited before repeated exact line-count checks at 449\u2013458."
+        },
+        {
+          "location": "lampOS/crates/memory/tests/health.rs:473",
+          "text": "RECOVERED is awaited before final exact counts at 475\u2013484."
+        },
+        {
+          "location": "lampOS/crates/memory/tests/health.rs:514",
+          "text": "Unopenable-store assertion uses exited(), not forced termination."
+        }
+      ],
+      "finding": "No concrete kill-before-asserted-log-drain race in this path.",
+      "fix_direction": "No change required for #783's kill-before-log-drain defect."
+    },
+    {
+      "file": "lampOS/crates/mood/tests/program.rs",
+      "line": 12,
+      "termination_or_probe_lines": [
+        12
+      ],
+      "scope": "direct_kill_candidate",
+      "classification": [
+        "no_asserted_child_stderr"
+      ],
+      "behavior": "The live owner killed by Drop is checked through MoodState and actuator-topic absence. Its piped stderr is never asserted. Asserted refusal stderr belongs to a separate output() process; finite summaries also use natural output().",
+      "evidence": [
+        {
+          "location": "lampOS/crates/mood/tests/program.rs:78",
+          "text": "Live owner has null stdout and piped stderr."
+        },
+        {
+          "location": "lampOS/crates/mood/tests/program.rs:88",
+          "text": "Bus state and liveness establish successful startup."
+        },
+        {
+          "location": "lampOS/crates/mood/tests/program.rs:104",
+          "text": "Second process naturally exits; line 111 asserts its stderr."
+        },
+        {
+          "location": "lampOS/crates/mood/tests/program.rs:127",
+          "text": "Finite enabled runs use output at 146 and assert completed summaries."
+        }
+      ],
+      "finding": "No concrete kill-before-asserted-log-drain race in this path.",
+      "fix_direction": "No change required for #783's kill-before-log-drain defect."
+    },
+    {
+      "file": "lampOS/crates/mood/tests/timing.rs",
+      "line": 83,
+      "termination_or_probe_lines": [
+        83
+      ],
+      "scope": "direct_kill_candidate",
+      "classification": [
+        "no_asserted_child_stderr"
+      ],
+      "behavior": "The manually ignored timing test kills its live owner after bus-based latency measurements. Stderr is inherited, stdout null, and no child log content is read or asserted.",
+      "evidence": [
+        {
+          "location": "lampOS/crates/mood/tests/timing.rs:89",
+          "text": "Existing test is manually ignored; this audit changes no selection."
+        },
+        {
+          "location": "lampOS/crates/mood/tests/timing.rs:111",
+          "text": "Owner is spawned with stdout null and stderr inherited at 126\u2013127."
+        },
+        {
+          "location": "lampOS/crates/mood/tests/timing.rs:131",
+          "text": "Initial and repeated observations come from typed bus state."
+        },
+        {
+          "location": "lampOS/crates/mood/tests/timing.rs:202",
+          "text": "Cue assertions depend on bus state, not a final child log line."
+        }
+      ],
+      "finding": "No concrete kill-before-asserted-log-drain race in this path.",
+      "fix_direction": "No change required for #783's kill-before-log-drain defect."
+    },
+    {
+      "file": "lampOS/crates/policy/tests/judges_program.rs",
+      "line": 56,
+      "termination_or_probe_lines": [
+        56
+      ],
+      "scope": "direct_kill_candidate",
+      "classification": [
+        "graceful_exit",
+        "panic_cleanup"
+      ],
+      "behavior": "The two-second operator process exits by its own configured lifetime. The harness takes it from Running, waits with output, then asserts judge lines and drained=true. Drop kill is fallback only.",
+      "evidence": [
+        {
+          "location": "lampOS/crates/policy/tests/judges_program.rs:34",
+          "text": "Command pipes both outputs."
+        },
+        {
+          "location": "lampOS/crates/policy/tests/judges_program.rs:189",
+          "text": "Operator is spawned with --seconds 2."
+        },
+        {
+          "location": "lampOS/crates/policy/tests/judges_program.rs:237",
+          "text": "wait_with_output owns the child without a preceding kill."
+        },
+        {
+          "location": "lampOS/crates/policy/tests/judges_program.rs:243",
+          "text": "Both judge lines, drained=true and privacy assertions inspect naturally completed output."
+        }
+      ],
+      "finding": "No concrete kill-before-asserted-log-drain race in this path.",
+      "fix_direction": "No change required for #783's kill-before-log-drain defect."
+    },
+    {
+      "file": "lampOS/crates/policy/tests/program.rs",
+      "line": 59,
+      "termination_or_probe_lines": [
+        59,
+        71
+      ],
+      "scope": "direct_kill_candidate",
+      "classification": [
+        "bounded_expected_line_barrier",
+        "panic_cleanup"
+      ],
+      "behavior": "Fixed control: Running::end starts a stderr reader and waits up to WAIT=5 s for both expected prefixes before kill; it reaps, joins the reader, and drains queued bytes before assertions. Drop kill is fallback cleanup.",
+      "evidence": [
+        {
+          "location": "lampOS/crates/policy/tests/program.rs:21",
+          "text": "WAIT is five seconds."
+        },
+        {
+          "location": "lampOS/crates/policy/tests/program.rs:34",
+          "text": "end(last) owns a live stderr reader; lines 48\u201357 wait for every expected prefix."
+        },
+        {
+          "location": "lampOS/crates/policy/tests/program.rs:59",
+          "text": "Kill follows the bounded expected-line wait, then wait_with_output, reader join, and final channel drain."
+        },
+        {
+          "location": "lampOS/crates/policy/tests/program.rs:175",
+          "text": "The exact lamp-policy child is spawned with stdout/stderr piped."
+        },
+        {
+          "location": "lampOS/crates/policy/tests/program.rs:373",
+          "text": "Caller supplies the model-unavailable and malformed-message prefixes; lines 378\u2013422 keep the full existing output assertions."
+        }
+      ],
+      "finding": "No concrete kill-before-asserted-log-drain race in this path.",
+      "fix_direction": "No change required for #783's kill-before-log-drain defect."
+    },
+    {
+      "file": "lampOS/crates/records/tests/records.rs",
+      "line": 222,
+      "termination_or_probe_lines": [
+        222
+      ],
+      "scope": "direct_kill_candidate",
+      "classification": [
+        "no_asserted_child_stderr",
+        "record_barrier"
+      ],
+      "behavior": "The live reporter is dropped after all expected typed diagnostics and the persisted receipt have been inspected. Its stderr is inherited, stdout null. Post-kill log assertions are absent.",
+      "evidence": [
+        {
+          "location": "lampOS/crates/records/tests/records.rs:216",
+          "text": "RunningReporter Drop checks whether the child exited before killing/reaping."
+        },
+        {
+          "location": "lampOS/crates/records/tests/records.rs:236",
+          "text": "expect_status waits for the exact bus diagnostic while checking liveness."
+        },
+        {
+          "location": "lampOS/crates/records/tests/records.rs:325",
+          "text": "Reporter is spawned with stdout null and stderr inherited."
+        },
+        {
+          "location": "lampOS/crates/records/tests/records.rs:375",
+          "text": "The final receipt assertions precede explicit drop(reporter) at 379."
+        }
+      ],
+      "finding": "No concrete kill-before-asserted-log-drain race in this path.",
+      "fix_direction": "No change required for #783's kill-before-log-drain defect."
+    },
+    {
+      "file": "lampOS/crates/schedule/tests/runtime.rs",
+      "line": 456,
+      "termination_or_probe_lines": [
+        456,
+        505
+      ],
+      "scope": "direct_kill_candidate",
+      "classification": [
+        "no_asserted_child_stderr",
+        "record_barrier"
+      ],
+      "behavior": "This is an intentional crash-recovery test. It waits for a successful durable set receipt before SIGKILL, reaps, restarts, and checks receipt/item recovery. Both child output streams are null.",
+      "evidence": [
+        {
+          "location": "lampOS/crates/schedule/tests/runtime.rs:460",
+          "text": "CLI fixture explicitly discards stdout and stderr at 478\u2013479."
+        },
+        {
+          "location": "lampOS/crates/schedule/tests/runtime.rs:503",
+          "text": "Successful set receipt is observed before kill."
+        },
+        {
+          "location": "lampOS/crates/schedule/tests/runtime.rs:505",
+          "text": "Deliberate kill and wait precede restart."
+        },
+        {
+          "location": "lampOS/crates/schedule/tests/runtime.rs:510",
+          "text": "Assertions concern the recovered receipt/store, not child log output."
+        }
+      ],
+      "finding": "No concrete kill-before-asserted-log-drain race in this path.",
+      "fix_direction": "No change required for #783's kill-before-log-drain defect."
+    },
+    {
+      "file": "lampOS/crates/schedule/tests/runtime_failures.rs",
+      "line": 114,
+      "termination_or_probe_lines": [
+        114,
+        197
+      ],
+      "scope": "direct_kill_candidate",
+      "classification": [
+        "graceful_exit",
+        "no_asserted_child_stderr",
+        "panic_cleanup"
+      ],
+      "behavior": "The fixture deliberately fills and leaves stderr unread. It tests status service and cooperative SIGTERM completion, then asserts exit and socket cleanup; it never drains or asserts log text. Drop kill is failure cleanup.",
+      "evidence": [
+        {
+          "location": "lampOS/crates/schedule/tests/runtime_failures.rs:122",
+          "text": "filled_stderr returns a saturated writer and an unread peer."
+        },
+        {
+          "location": "lampOS/crates/schedule/tests/runtime_failures.rs:151",
+          "text": "The unread peer is retained and stderr supplied to the child."
+        },
+        {
+          "location": "lampOS/crates/schedule/tests/runtime_failures.rs:187",
+          "text": "Request/status assertions happen while the child is running."
+        },
+        {
+          "location": "lampOS/crates/schedule/tests/runtime_failures.rs:197",
+          "text": "SIGTERM is sent; try_wait completion at 203 precedes successful-exit/socket assertions at 212\u2013213."
+        }
+      ],
+      "finding": "No concrete kill-before-asserted-log-drain race in this path.",
+      "fix_direction": "No change required for #783's kill-before-log-drain defect."
+    },
+    {
+      "file": "lampOS/crates/tasks/tests/runtime_failures.rs",
+      "line": 290,
+      "termination_or_probe_lines": [
+        290,
+        403
+      ],
+      "scope": "direct_kill_candidate",
+      "classification": [
+        "graceful_exit",
+        "no_asserted_child_stderr",
+        "panic_cleanup"
+      ],
+      "behavior": "Both tests keep stderr deliberately full/unread. One sends SIGTERM and asserts clean exit/socket removal; the other triggers storage failure and awaits error exit. No assertion consumes killed-child stderr; Drop kill is fallback.",
+      "evidence": [
+        {
+          "location": "lampOS/crates/tasks/tests/runtime_failures.rs:298",
+          "text": "The full stderr fixture is intentionally retained unread."
+        },
+        {
+          "location": "lampOS/crates/tasks/tests/runtime_failures.rs:321",
+          "text": "Production child setup uses null stdout and the saturated stderr writer."
+        },
+        {
+          "location": "lampOS/crates/tasks/tests/runtime_failures.rs:403",
+          "text": "SIGTERM path observes try_wait at 409 before assertions."
+        },
+        {
+          "location": "lampOS/crates/tasks/tests/runtime_failures.rs:448",
+          "text": "Storage refusal path awaits normal failed exit at 458 and checks code/socket/data state at 467\u2013478."
+        }
+      ],
+      "finding": "No concrete kill-before-asserted-log-drain race in this path.",
+      "fix_direction": "No change required for #783's kill-before-log-drain defect."
+    },
+    {
+      "file": "lampOS/crates/ipc/tests/relay_signals.rs",
+      "line": 16,
+      "termination_or_probe_lines": [
+        16
+      ],
+      "scope": "supplementary",
+      "classification": [
+        "graceful_exit",
+        "handled_self_signal"
+      ],
+      "behavior": "Supplementary signal control: child blocks SIGTERM, signals itself, explicitly consumes that signal, prints the marker and returns normally. Parent output() waits for completion; this is not asynchronous termination before a log read.",
+      "evidence": [
+        {
+          "location": "lampOS/crates/ipc/tests/relay_signals.rs:12",
+          "text": "Child holds the log relay guard."
+        },
+        {
+          "location": "lampOS/crates/ipc/tests/relay_signals.rs:14",
+          "text": "SIGTERM is blocked before self-signal and consumed by mask.wait."
+        },
+        {
+          "location": "lampOS/crates/ipc/tests/relay_signals.rs:18",
+          "text": "Marker is printed before normal return."
+        },
+        {
+          "location": "lampOS/crates/ipc/tests/relay_signals.rs:21",
+          "text": "Parent output() result is checked for success and the marker."
+        }
+      ],
+      "finding": "No concrete kill-before-asserted-log-drain race in this path.",
+      "fix_direction": "No change required for #783's kill-before-log-drain defect."
+    },
+    {
+      "file": "lampOS/crates/surround/tests/cli.rs",
+      "line": 144,
+      "termination_or_probe_lines": [
+        144
+      ],
+      "scope": "supplementary",
+      "classification": [
+        "graceful_exit"
+      ],
+      "behavior": "Supplementary wait_with_output path: one-second finite serve process handles the authored HTTP request, naturally exits, then its output and cleanup are checked. There is no forced kill in this file.",
+      "evidence": [
+        {
+          "location": "lampOS/crates/surround/tests/cli.rs:112",
+          "text": "serve is configured with --seconds 1 and piped stderr."
+        },
+        {
+          "location": "lampOS/crates/surround/tests/cli.rs:141",
+          "text": "HTTP response is read and asserted while the process runs."
+        },
+        {
+          "location": "lampOS/crates/surround/tests/cli.rs:144",
+          "text": "wait_with_output precedes exit, path cleanup, and stderr privacy assertions."
+        }
+      ],
+      "finding": "No concrete kill-before-asserted-log-drain race in this path.",
+      "fix_direction": "No change required for #783's kill-before-log-drain defect."
+    },
+    {
+      "file": "lampOS/crates/tasks/tests/runtime.rs",
+      "line": 422,
+      "termination_or_probe_lines": [
+        422
+      ],
+      "scope": "supplementary",
+      "classification": [
+        "graceful_exit"
+      ],
+      "behavior": "Supplementary wait_with_output path: writes invalid request bytes to owned stdin, drops that temporary pipe handle, waits for normal refusal exit, then checks stderr. No kill exists in the file.",
+      "evidence": [
+        {
+          "location": "lampOS/crates/tasks/tests/runtime.rs:409",
+          "text": "Command is spawned with piped stdin/stdout/stderr."
+        },
+        {
+          "location": "lampOS/crates/tasks/tests/runtime.rs:416",
+          "text": "Taking stdin and writing via the temporary handle closes it at statement end."
+        },
+        {
+          "location": "lampOS/crates/tasks/tests/runtime.rs:422",
+          "text": "wait_with_output precedes bad_request assertions."
+        }
+      ],
+      "finding": "No concrete kill-before-asserted-log-drain race in this path.",
+      "fix_direction": "No change required for #783's kill-before-log-drain defect."
+    },
+    {
+      "file": "lampOS/crates/turn-end-wire/tests/process.rs",
+      "line": 216,
+      "termination_or_probe_lines": [
+        216
+      ],
+      "scope": "supplementary",
+      "classification": [
+        "signal_probe_only"
+      ],
+      "behavior": "Supplementary kill command is kill -0: a liveness/reaping probe, not a terminating signal. Tests use ProcessClassifier lifecycle/typed results; the probe's stderr is null.",
+      "evidence": [
+        {
+          "location": "lampOS/crates/turn-end-wire/tests/process.rs:214",
+          "text": "Comment and args explicitly document kill -0."
+        },
+        {
+          "location": "lampOS/crates/turn-end-wire/tests/process.rs:218",
+          "text": "The probe discards stderr and uses status.success only."
+        },
+        {
+          "location": "lampOS/crates/turn-end-wire/tests/process.rs:263",
+          "text": "The helper is used to wait until an old worker no longer exists."
+        },
+        {
+          "location": "lampOS/crates/turn-end-wire/tests/process.rs:281",
+          "text": "Classifier teardown confirmation is awaited separately."
+        }
+      ],
+      "finding": "No concrete kill-before-asserted-log-drain race in this path.",
+      "fix_direction": "No change required for #783's kill-before-log-drain defect."
+    },
+    {
+      "file": "lampOS/crates/voice-eval/tests/relay_hardening.rs",
+      "line": 117,
+      "termination_or_probe_lines": [
+        117
+      ],
+      "scope": "supplementary",
+      "classification": [
+        "signal_probe_only"
+      ],
+      "behavior": "Supplementary rustix test_kill_process is a signal-zero liveness probe in process_gone. It does not kill a child and then inspect its stderr. This disposition is limited to that broad-search candidate, not a new full audit of relay internals.",
+      "evidence": [
+        {
+          "location": "lampOS/crates/voice-eval/tests/relay_hardening.rs:113",
+          "text": "process_gone loops until the PID probe fails under a three-second guard."
+        },
+        {
+          "location": "lampOS/crates/voice-eval/tests/relay_hardening.rs:117",
+          "text": "test_kill_process is the liveness operation."
+        },
+        {
+          "location": "lampOS/crates/voice-eval/tests/relay_hardening.rs:125",
+          "text": "read_pid reads the separate fixture PID file."
+        }
+      ],
+      "finding": "No concrete kill-before-asserted-log-drain race in this path.",
+      "fix_direction": "No change required for #783's kill-before-log-drain defect."
+    },
+    {
+      "file": "lampOS/crates/voice/src/coordinator/tests/termination.rs",
+      "line": 18,
+      "termination_or_probe_lines": [
+        18,
+        62
+      ],
+      "scope": "supplementary",
+      "classification": [
+        "graceful_exit",
+        "readiness_barrier",
+        "panic_cleanup"
+      ],
+      "behavior": "Supplementary nested test-module candidate: stdout is read concurrently until LAMP_SIGNAL_READY, then SIGINT/SIGTERM is sent. The harness awaits normal child exit and joins the stdout reader before reading trace records; stderr is inherited. Drop kill is fallback only.",
+      "evidence": [
+        {
+          "location": "lampOS/crates/voice/src/coordinator/tests/termination.rs:28",
+          "text": "Current test process is spawned with piped stdout and inherited stderr."
+        },
+        {
+          "location": "lampOS/crates/voice/src/coordinator/tests/termination.rs:41",
+          "text": "Reader continuously drains stdout and sends the readiness event."
+        },
+        {
+          "location": "lampOS/crates/voice/src/coordinator/tests/termination.rs:49",
+          "text": "Readiness must be observed before signal delivery at 62."
+        },
+        {
+          "location": "lampOS/crates/voice/src/coordinator/tests/termination.rs:63",
+          "text": "Child status is awaited, then reader joined at 71 before trace reads at 76/87."
+        }
+      ],
+      "finding": "No concrete kill-before-asserted-log-drain race in this path.",
+      "fix_direction": "No change required for #783's kill-before-log-drain defect."
+    }
+  ]
+}

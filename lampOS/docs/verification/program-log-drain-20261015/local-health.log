@@ -1,0 +1,96 @@
+    Blocking waiting for file lock on package cache
+   Compiling proc-macro2 v1.0.107
+   Compiling quote v1.0.47
+   Compiling serde_core v1.0.229
+   Compiling errno v0.3.14
+   Compiling rustix v1.1.5
+   Compiling syn v3.0.7
+   Compiling serde_json v1.0.151
+   Compiling lamp-ipc v0.1.0 (/private/tmp/lampos-tests-783/lampOS/crates/ipc)
+   Compiling serde_derive v1.0.229
+   Compiling serde v1.0.229
+   Compiling lamp-bus v0.1.0 (/private/tmp/lampos-tests-783/lampOS/crates/bus)
+   Compiling lamp-msgs v0.1.0 (/private/tmp/lampos-tests-783/lampOS/crates/msgs)
+   Compiling lamp-health v0.1.0 (/private/tmp/lampos-tests-783/lampOS/crates/health)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 14.57s
+     Running unittests src/lib.rs (target/debug/deps/lamp_health-d3e98148cf404e72)
+
+running 19 tests
+test parts::tests::a_lamp_whose_parts_are_all_well_is_ok_and_says_nothing ... ok
+test parts::tests::a_name_is_something_short_on_one_line_and_a_message_is_kept_on_one ... ok
+test parts::tests::a_part_is_stale_once_it_has_been_quiet_for_longer_than_the_stale_time ... ok
+test parts::tests::a_part_that_calls_itself_stale_is_taken_at_its_word ... ok
+test parts::tests::a_part_that_comes_back_from_stale_is_what_it_says_again ... ok
+test parts::tests::a_part_that_is_not_ok_and_says_nothing_is_still_named ... ok
+test parts::tests::a_report_is_kept_by_its_name_and_the_newest_replaces_the_one_before ... ok
+test parts::tests::each_level_is_the_lamps_when_nothing_is_worse ... ok
+test parts::tests::expected_parts_that_never_reported_are_missing_in_the_order_given ... ok
+test parts::tests::no_more_than_sixty_four_parts_are_kept_and_those_kept_still_report ... ok
+test parts::tests::the_items_are_worst_first_then_by_name_and_the_lamp_is_as_bad_as_its_worst ... ok
+test parts::tests::two_healths_are_the_same_news_when_only_ages_differ ... ok
+test show::tests::a_lamp_with_troubles_is_shown_worst_first_with_the_board_below ... ok
+test show::tests::a_time_is_said_in_its_two_largest_units ... ok
+test show::tests::each_level_has_its_first_line_and_its_status ... ok
+test show::tests::json_is_the_two_values_as_they_were_published_on_one_line ... ok
+test show::tests::the_boards_line_has_what_the_board_could_be_asked ... ok
+test show::tests::what_came_from_the_bus_is_printed_on_its_own_line_whatever_it_holds ... ok
+test show::tests::with_no_health_it_says_that_nobody_is_reporting_and_ends_with_3 ... ok
+
+test result: ok. 19 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running unittests src/main.rs (target/debug/deps/lamp_health-93c0b836546fae4e)
+
+running 3 tests
+test tests::a_wrong_option_to_serve_is_refused_with_the_reason_and_status_2 ... ok
+test tests::serve_reads_its_options_and_the_rest_have_their_defaults ... ok
+test tests::show_is_what_no_command_means_and_its_mistakes_end_with_64 ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.04s
+
+     Running tests/board.rs (target/debug/deps/board-9782873479a91bc6)
+
+running 15 tests
+test a_board_with_no_thermal_zones_still_has_its_other_numbers ... ok
+test a_clock_that_is_known_not_to_be_set_is_a_warning ... ok
+test a_number_whose_file_is_missing_is_not_read_and_the_report_says_which ... ok
+test a_zone_is_an_error_at_its_second_passive_point_or_ten_degrees_under_critical ... ok
+test a_zone_that_names_no_trip_point_warns_from_80_and_is_an_error_from_90 ... ok
+test a_zone_warns_from_its_first_passive_point_and_not_before ... ok
+test garbage_in_a_file_is_a_number_not_read_and_never_a_wrong_one ... ok
+test memory_warns_over_nine_tenths_used_and_load_over_one_and_a_half ... ok
+test only_the_zones_named_are_judged_and_every_zone_is_still_published ... ok
+test the_default_places_are_the_systems_own ... ok
+test the_disk_warns_under_a_tenth_free_and_is_an_error_under_three_hundredths ... ok
+test the_real_boards_files_are_read_as_its_numbers ... ok
+test the_report_is_the_worst_finding_and_of_two_as_bad_the_first ... ok
+test the_wifi_signal_is_the_level_of_the_first_device_that_has_one ... ok
+test trip_points_are_read_by_their_kind_and_the_lowest_passive_comes_first ... ok
+
+test result: ok. 15 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.28s
+
+     Running tests/program.rs (target/debug/deps/program-baaee61e9265ffa7)
+
+running 7 tests
+test a_bus_that_cannot_be_subscribed_to_ends_serve_before_it_listens ... ok
+test a_part_that_is_expected_and_silent_or_has_gone_quiet_ends_show_with_3 ... ok
+test between_two_healths_five_seconds_apart_the_program_is_not_taken_for_gone ... ok
+test journal_completion_waits_for_the_whole_terminal_record ... ok
+test show_says_how_the_lamp_is_and_ends_with_its_level ... ok
+test with_nobody_serving_show_says_so_and_ends_with_3 ... ok
+test wrong_arguments_print_the_usage_and_end_with_2_for_serve_and_64_for_show ... FAILED
+
+failures:
+
+---- wrong_arguments_print_the_usage_and_end_with_2_for_serve_and_64_for_show stdout ----
+
+thread 'wrong_arguments_print_the_usage_and_end_with_2_for_serve_and_64_for_show' (571760644) panicked at crates/health/tests/program.rs:718:9:
+
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    wrong_arguments_print_the_usage_and_end_with_2_for_serve_and_64_for_show
+
+test result: FAILED. 6 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 8.61s
+
+error: test failed, to rerun pass `-p lamp-health --test program`

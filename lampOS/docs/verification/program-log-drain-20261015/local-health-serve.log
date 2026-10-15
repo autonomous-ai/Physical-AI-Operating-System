@@ -1,0 +1,19 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.15s
+     Running tests/serve.rs (target/debug/deps/serve-435a19ac48b5cfac)
+
+running 12 tests
+test a_board_that_cannot_be_read_is_said_once_and_its_numbers_are_not_published ... ok
+test a_health_that_has_not_changed_is_published_again_within_its_period ... ok
+test a_part_that_goes_quiet_is_stale_and_is_itself_again_when_it_comes_back ... ok
+test a_topic_that_cannot_be_published_is_said_once_and_the_rest_goes_on ... ok
+test an_expected_part_that_never_reports_is_missing_until_it_does ... ok
+test between_two_messages_the_publishers_show_that_they_are_alive ... ok
+test every_note_is_one_line_about_the_program_or_the_lamps_level ... ok
+test reports_arrive_and_the_lamps_health_says_so ... ok
+test reports_that_say_nothing_new_publish_nothing_and_a_change_is_published_at_once ... ok
+test the_boards_numbers_are_read_from_its_files_and_published ... ok
+test the_lamps_own_times_follow_from_the_stale_time ... ok
+test what_is_not_a_report_is_counted_passed_over_and_said_once ... ok
+
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 7.26s
+

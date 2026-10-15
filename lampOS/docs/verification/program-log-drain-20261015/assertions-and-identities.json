@@ -1,0 +1,52 @@
+[
+  {
+    "file": "lampOS/crates/health/tests/program.rs",
+    "original_assertions": 100,
+    "original_assertions_unchanged": true,
+    "original_tests": [
+      "a_bus_that_cannot_be_subscribed_to_ends_serve_before_it_listens",
+      "a_part_that_is_expected_and_silent_or_has_gone_quiet_ends_show_with_3",
+      "between_two_healths_five_seconds_apart_the_program_is_not_taken_for_gone",
+      "show_says_how_the_lamp_is_and_ends_with_its_level",
+      "with_nobody_serving_show_says_so_and_ends_with_3",
+      "wrong_arguments_print_the_usage_and_end_with_2_for_serve_and_64_for_show"
+    ],
+    "tests_after": [
+      "a_bus_that_cannot_be_subscribed_to_ends_serve_before_it_listens",
+      "a_part_that_is_expected_and_silent_or_has_gone_quiet_ends_show_with_3",
+      "between_two_healths_five_seconds_apart_the_program_is_not_taken_for_gone",
+      "journal_completion_waits_for_the_whole_terminal_record",
+      "show_says_how_the_lamp_is_and_ends_with_its_level",
+      "with_nobody_serving_show_says_so_and_ends_with_3",
+      "wrong_arguments_print_the_usage_and_end_with_2_for_serve_and_64_for_show"
+    ],
+    "added_tests": [
+      "journal_completion_waits_for_the_whole_terminal_record"
+    ],
+    "removed_tests": []
+  },
+  {
+    "file": "lampOS/crates/memory/tests/binary.rs",
+    "original_assertions": 88,
+    "original_assertions_unchanged": true,
+    "original_tests": [
+      "a_directory_others_can_enter_is_refused_with_the_reason_and_exit_code_two",
+      "a_killed_process_leaves_a_store_the_next_one_loads_and_a_socket_it_replaces",
+      "a_relative_path_or_an_unknown_option_gets_the_usage_line_and_exit_code_two",
+      "opted_in_memory_migrates_and_forgets_linked_facts_across_sigkill_restarts"
+    ],
+    "tests_after": [
+      "a_directory_others_can_enter_is_refused_with_the_reason_and_exit_code_two",
+      "a_killed_process_leaves_a_store_the_next_one_loads_and_a_socket_it_replaces",
+      "a_relative_path_or_an_unknown_option_gets_the_usage_line_and_exit_code_two",
+      "log_completion_waits_for_the_later_repeated_terminal_record",
+      "log_completion_waits_for_the_newline_after_a_private_suffix",
+      "opted_in_memory_migrates_and_forgets_linked_facts_across_sigkill_restarts"
+    ],
+    "added_tests": [
+      "log_completion_waits_for_the_later_repeated_terminal_record",
+      "log_completion_waits_for_the_newline_after_a_private_suffix"
+    ],
+    "removed_tests": []
+  }
+]

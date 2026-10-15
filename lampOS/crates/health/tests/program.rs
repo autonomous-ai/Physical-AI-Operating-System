@@ -10,8 +10,10 @@ use lamp_msgs::{BoardState, Diagnostic, Health, HealthItem, Level};
 use serde_json::{Value, json};
 use std::{
     fs,
+    io::{self, Read},
     path::{Path, PathBuf},
     process::{Child, Command, Output, Stdio},
+    sync::mpsc,
     thread,
     time::{Duration, Instant},
 };
@@ -21,6 +23,7 @@ const PROGRAM: &str = env!("CARGO_BIN_EXE_lamp-health");
 /// How long a test waits for something that is to happen. The machine
 /// these run on is often busy.
 const WAIT: Duration = Duration::from_secs(30);
+const LOG_WAIT: Duration = Duration::from_secs(5);
 
 fn ms(n: u64) -> Duration {
     Duration::from_millis(n)
@@ -29,12 +32,73 @@ fn ms(n: u64) -> Duration {
 /// `serve`, killed when the test ends however it ends.
 struct Running(Option<Child>);
 
+/// A prefix in a partial pipe read is not yet a complete journal record.
+fn printed_every_line(bytes: &[u8], wanted: &[&str]) -> bool {
+    wanted.iter().all(|prefix| {
+        bytes
+            .split_inclusive(|byte| *byte == b'\n')
+            .any(|line| line.ends_with(b"\n") && line.starts_with(prefix.as_bytes()))
+    })
+}
+
+#[test]
+fn journal_completion_waits_for_the_whole_terminal_record() {
+    let wanted = ["lamp-health: started", "lamp-health: health warn -> error"];
+    let partial = b"lamp-health: started\nlamp-health: health warn -> error";
+    assert!(!printed_every_line(partial, &wanted));
+    let mut complete = partial.to_vec();
+    complete.extend_from_slice(b": voice: the link to the service is down\n");
+    assert!(printed_every_line(&complete, &wanted));
+    assert!(!printed_every_line(
+        b"lamp-health: health warn -> error\n",
+        &wanted
+    ));
+}
+
 impl Running {
-    /// Kill it, and return everything it printed.
-    fn end(mut self) -> Output {
-        let mut child = self.0.take().unwrap();
-        child.kill().unwrap();
-        child.wait_with_output().unwrap()
+    /// Observe the final journal records before SIGKILL. Publication on the
+    /// bus does not prove the child's log relay has reached its stderr pipe.
+    fn end(mut self, last: &[&str]) -> Output {
+        let mut stderr = self.0.as_mut().unwrap().stderr.take().unwrap();
+        let (sent, printed) = mpsc::channel();
+        let reader = thread::spawn(move || -> io::Result<()> {
+            let mut chunk = [0u8; 4096];
+            loop {
+                let read = stderr.read(&mut chunk)?;
+                if read == 0 || sent.send(chunk[..read].to_vec()).is_err() {
+                    return Ok(());
+                }
+            }
+        });
+        let mut all = Vec::new();
+        let since = Instant::now();
+        let ready = loop {
+            if printed_every_line(&all, last) {
+                break true;
+            }
+            let left = LOG_WAIT.saturating_sub(since.elapsed());
+            if left.is_zero() {
+                break false;
+            }
+            match printed.recv_timeout(left) {
+                Ok(bytes) => all.extend(bytes),
+                Err(_) => break false,
+            }
+        };
+        // Reap and drain even on a failed observation. Keep every byte for
+        // the existing whole-journal assertions, including unexpected lines.
+        let killed = self.0.as_mut().unwrap().kill();
+        let mut output = self.0.take().unwrap().wait_with_output().unwrap();
+        reader.join().unwrap().unwrap();
+        all.extend(printed.try_iter().flatten());
+        output.stderr = all;
+        assert!(
+            ready,
+            "journal did not finish {last:?} within {LOG_WAIT:?}: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        killed.unwrap();
+        output
     }
 }
 
@@ -351,7 +415,14 @@ fn show_says_how_the_lamp_is_and_ends_with_its_level() {
     // What `serve` printed while all this went on: how it started, and
     // the lamp's level each time it became another. No line for any of
     // the reports.
-    let output = running.end();
+    // An already-error board never changes level. Otherwise the final
+    // voice error follows the warning, even when that warning is the disk's.
+    let last = if board == Level::Error {
+        "lamp-health: health error"
+    } else {
+        "lamp-health: health warn -> error"
+    };
+    let output = running.end(&["lamp-health: started bus_root=", last]);
     assert!(output.stdout.is_empty());
     let journal = printed(&output.stderr);
     let from = places.tree.places();
@@ -525,7 +596,11 @@ fn a_part_that_is_expected_and_silent_or_has_gone_quiet_ends_show_with_3() {
     assert_eq!(both["health"]["missing"], json!(["eyes"]));
     assert!(both["board"].is_object());
 
-    let journal = printed(&running.end().stderr);
+    let journal = printed(
+        &running
+            .end(&["lamp-health: started bus_root=", "lamp-health: health "])
+            .stderr,
+    );
     let lines: Vec<&str> = journal.lines().collect();
     assert!(
         lines[0].starts_with("lamp-health: started bus_root=")
@@ -598,7 +673,11 @@ fn between_two_healths_five_seconds_apart_the_program_is_not_taken_for_gone() {
         .recv(WAIT)
         .unwrap()
         .expect("the board's numbers again");
-    let journal = printed(&running.end().stderr);
+    let journal = printed(
+        &running
+            .end(&["lamp-health: started bus_root=", "lamp-health: health "])
+            .stderr,
+    );
     assert!(
         journal.contains(" expect=none stale_ms=5000 proc="),
         "{journal}"

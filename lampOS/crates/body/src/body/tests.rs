@@ -3544,6 +3544,36 @@ fn a_folded_elbow_lifted_and_held_by_a_hand_goes_back_down_once_let_go() {
     );
 }
 
+/// `--give-way off --limp off` (#857) gives the body Limits::FOLDED's
+/// give_way None and limp false; over a session with moods and a hand on the
+/// head, those limits write exactly what the body wrote before give-way was on
+/// by default, and with give-way on the same session does not.
+#[test]
+fn off_is_the_body_before_give_way_was_on_by_default() {
+    let ms = Duration::from_millis;
+    let session = |limits: Limits| {
+        let (mut lamp, mut clock) = folded(Duration::from_secs(10));
+        lamp.hand = Some((ms(1_500), ms(3_000), ROLL, f32::from(HOME[1]) + 40.0));
+        lamp.strains = vec![(ms(1_500), ms(3_000), ROLL, 240)];
+        let news = script(&clock.time);
+        let report = run(&mut lamp, &mut clock, limits, Some(HOME), news, |_| {});
+        (report.stop, lamp.goals, lamp.registers)
+    };
+    let off = Limits {
+        give_way: None,
+        limp: false,
+        ..Limits::FOLDED
+    };
+    let before = session(Limits::FOLDED);
+    assert_eq!(session(off), before);
+    let on = Limits {
+        give_way: Some(GiveWay::Return),
+        limp: true,
+        ..Limits::FOLDED
+    };
+    assert_ne!(session(on), before, "the comparison can tell on from off");
+}
+
 /// lamp-52e6 after its power was cut and came back on 2026-10-14: every
 /// servo with torque off and a goal of 0, the head drooped from 1,771 to
 /// 2,034, the base and the roll moved. Its unit's options, with `--wake on`.

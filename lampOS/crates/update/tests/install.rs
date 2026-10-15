@@ -44,6 +44,8 @@ struct FakeHost {
     /// How many of the next `enable`s fail, as a `systemctl` that is not
     /// there yet or refuses.
     failing_enables: u32,
+    /// `harness service install` refuses, as for a user it cannot serve.
+    harness_refuses: bool,
 }
 
 impl Host for FakeHost {
@@ -70,6 +72,24 @@ impl Host for FakeHost {
 
     fn tmpfiles(&mut self, path: &str) -> Result<(), String> {
         self.calls.push(format!("tmpfiles {path}"));
+        Ok(())
+    }
+
+    fn harness_at_boot(&mut self, user: &str, home: &str) -> Result<(), String> {
+        self.calls.push(format!("harness {user} {home}"));
+        if self.harness_refuses {
+            return Err("harness service install: no user manager".into());
+        }
+        // What logind and the Harness CLI leave behind.
+        let linger = self.root.join("var/lib/systemd/linger");
+        fs::create_dir_all(&linger).unwrap();
+        fs::write(linger.join(user), "").unwrap();
+        let unit = self
+            .root
+            .join(home.trim_start_matches('/'))
+            .join(".config/systemd/user");
+        fs::create_dir_all(&unit).unwrap();
+        fs::write(unit.join("harnessd.service"), "[Service]\n").unwrap();
         Ok(())
     }
 
@@ -153,6 +173,7 @@ impl Lamp {
             root: root.clone(),
             calls: Vec::new(),
             failing_enables: 0,
+            harness_refuses: false,
         };
         Self {
             _dir: dir,
@@ -908,4 +929,59 @@ fn two_failed_runs_in_a_row_keep_a_written_setting_as_installs() {
     );
     assert_eq!(fs::read_to_string(lamp.on(first)).unwrap(), "100\n");
     assert!(state.settings_writing.is_empty());
+}
+
+/// #811, the first builder's 01:56 recipe: with Harness on the lamp, install
+/// sets it to start at boot as `lampos` once; without it, it says so and
+/// goes on; a refusal stops the install and is said.
+#[test]
+fn harness_is_set_to_start_at_boot_once_when_it_is_there() {
+    // Not there: said, nothing asked, the install still done.
+    let mut lamp = Lamp::new(188, &[]);
+    lamp.install().unwrap();
+    assert!(
+        !lamp
+            .host
+            .calls
+            .iter()
+            .any(|call| call.starts_with("harness"))
+    );
+    assert!(
+        lamp.said
+            .iter()
+            .any(|line| line.contains("Harness is not at"))
+    );
+
+    // There: asked once, as lampos in the tasks part's home.
+    let mut lamp = Lamp::new(188, &[]);
+    let harness = lamp.on(install::HARNESS);
+    fs::create_dir_all(harness.parent().unwrap()).unwrap();
+    fs::write(&harness, "#!/bin/sh\n").unwrap();
+    let done = lamp.install().unwrap();
+    assert!(
+        done.changed
+            .iter()
+            .any(|line| line == "Harness starts at boot as lampos")
+    );
+    let asked = |lamp: &Lamp| {
+        lamp.host
+            .calls
+            .iter()
+            .filter(|call| *call == "harness lampos /var/lib/lampos-tasks")
+            .count()
+    };
+    assert_eq!(asked(&lamp), 1);
+    // Run again: nothing to do.
+    let again = lamp.install().unwrap();
+    assert!(!again.changed.iter().any(|line| line.contains("Harness")));
+    assert_eq!(asked(&lamp), 1);
+
+    // Refused: the install says why and stops there.
+    let mut lamp = Lamp::new(188, &[]);
+    let harness = lamp.on(install::HARNESS);
+    fs::create_dir_all(harness.parent().unwrap()).unwrap();
+    fs::write(&harness, "#!/bin/sh\n").unwrap();
+    lamp.host.harness_refuses = true;
+    let refused = lamp.install().unwrap_err();
+    assert!(refused.contains("no user manager"), "{refused}");
 }

@@ -369,6 +369,20 @@ As root, on a lamp with the base image (`crates/update/src/install.rs`):
    enable fails, or that is stopped anywhere after its first unit is
    written, leaves the debt, and the next run pays it though it writes
    nothing (the reviewer on #815, 19:17 and 19:32).
+9. **Harness at boot** (#811, the first builder's recipe, 01:56), once
+   Harness is on the lamp at `/usr/local/bin/harness` (its own installer
+   puts it there; without it, install says so and goes on). Unless
+   `/var/lib/systemd/linger/lampos` and
+   `/var/lib/lampos-tasks/.config/systemd/user/harnessd.service` are both
+   there already: makes `/var/lib/lampos-tasks` `lampos`'s own (0700, the
+   tasks unit's state folder), runs `loginctl enable-linger lampos` (a user
+   manager for `lampos` from boot, with no login), then the Harness CLI's
+   own `harness service install` as `lampos` with
+   `HOME=/var/lib/lampos-tasks` and its `XDG_RUNTIME_DIR`. No unit of
+   install's own: the daemon's runtime, entry point and platform variable
+   are the Harness team's (docs/harness.md). A refusal stops the install
+   and is said; it is taken to the Harness team, not worked around. How a
+   home lamp's Harness signs in is theirs too.
 
 Run again with nothing new and nothing owed, it writes nothing and asks
 nothing of systemd.
@@ -381,6 +395,11 @@ The product units and settings are carried inside the program
 program was built from; the binaries are the channel's newest build.
 
 ## What was not shown
+
+- Harness at boot (step 9) only in tests, with a stand-in host: no real
+  `loginctl` or `harness service install` for a system user without a
+  login shell has been run on any lamp. lamp-4ace runs the same recipe for
+  `orangepi`, which has survived a power cut since 2026-10-15 20:19.
 
 - `install` was run only in tests, on a lamp made of files with a channel
   and a machine of the test's own (`crates/update/tests/install.rs`): a

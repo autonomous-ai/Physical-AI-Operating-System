@@ -158,6 +158,15 @@ pub const MEMORY_USER: &str = "lampos-memory";
 /// The groups `lampos` is put in, each only if the image has it.
 pub const GROUPS: &[&str] = &["audio", "video", "dialout", "i2c", "gpio"];
 
+/// The Harness program, as the tasks unit names it, and the home it runs
+/// in: the tasks part's state folder (`deploy/product/lamp-tasks.service`).
+pub const HARNESS: &str = "/usr/local/bin/harness";
+pub const HARNESS_HOME: &str = "/var/lib/lampos-tasks";
+/// What says Harness starts at boot: logind's linger file for the user,
+/// and the user unit `harness service install` writes.
+const LINGER: &str = "/var/lib/systemd/linger/lampos";
+const HARNESS_UNIT: &str = "/var/lib/lampos-tasks/.config/systemd/user/harnessd.service";
+
 /// Binaries a build carries that live in another part's folder: the voice
 /// starts its turn-end worker from its own (docs/endpoint-detection.md).
 const BESIDE: &[(&str, &[&str])] = &[("lamp-voice", &["lamp-turn-end"])];
@@ -214,6 +223,11 @@ pub trait Host {
     fn tmpfiles(&mut self, path: &str) -> Result<(), String>;
     /// The zone's offset from UTC now, in minutes.
     fn utc_offset_minutes(&mut self, zone: &str) -> Result<i32, String>;
+    /// Harness at boot for `user` (#811, the first builder's recipe of
+    /// 01:56): `home` made the user's own, `loginctl enable-linger`, then
+    /// the Harness CLI's own `harness service install` as `user` with that
+    /// `HOME`. Never a unit of this program's writing.
+    fn harness_at_boot(&mut self, user: &str, home: &str) -> Result<(), String>;
 }
 
 /// The machine itself: only with the root `/`.
@@ -237,6 +251,26 @@ impl Host for System {
 
     fn tmpfiles(&mut self, path: &str) -> Result<(), String> {
         run(Command::new("systemd-tmpfiles").args(["--create", path]))
+    }
+
+    fn harness_at_boot(&mut self, user: &str, home: &str) -> Result<(), String> {
+        run(Command::new("install").args(["-d", "-o", user, "-g", user, "-m", "0700", home]))?;
+        // A user manager for the user from boot, with no login: the
+        // daemon's user unit needs it, a system user as any other.
+        run(Command::new("loginctl").args(["enable-linger", user]))?;
+        let output = Command::new("id")
+            .args(["-u", user])
+            .output()
+            .map_err(|error| format!("id: {error}"))?;
+        let uid = String::from_utf8_lossy(&output.stdout).trim().to_owned();
+        if uid.is_empty() || !uid.bytes().all(|b| b.is_ascii_digit()) {
+            return Err(format!("id -u {user} gave no user id"));
+        }
+        run(Command::new("runuser")
+            .args(["-u", user, "--", "env"])
+            .arg(format!("HOME={home}"))
+            .arg(format!("XDG_RUNTIME_DIR=/run/user/{uid}"))
+            .args([HARNESS, "service", "install"]))
     }
 
     fn utc_offset_minutes(&mut self, zone: &str) -> Result<i32, String> {
@@ -455,6 +489,16 @@ pub fn install(
         changed.push(format!("enabled {}", enabled().join(" ")));
         state.systemd_owed = false;
         save(&records, &state)?;
+    }
+    // Harness at boot, once it is on the lamp; not having it is said, not
+    // a failure: it is installed by its own installer (lamp-tasks.service).
+    if !config.on(HARNESS).exists() {
+        say(&format!(
+            "Harness is not at {HARNESS}: it is not set to start at boot"
+        ));
+    } else if !(config.on(LINGER).exists() && config.on(HARNESS_UNIT).exists()) {
+        host.harness_at_boot(USER, HARNESS_HOME)?;
+        changed.push(format!("Harness starts at boot as {USER}"));
     }
     for line in &changed {
         say(line);

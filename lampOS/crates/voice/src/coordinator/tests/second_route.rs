@@ -1,0 +1,994 @@
+//! The second voice route through the production coordinator (lampOS#754).
+//!
+//! Every test runs the real `conversation()` service loop and
+//! `finish_active_run` with cooperative child processes and real local IPC,
+//! as `pilot_faults` does. One test thread answers for capture, the speaker
+//! (with the production `BoundaryGuard`), the ring, the Live provider and
+//! the second route; privacy has its own thread. The Live peer answers with
+//! samples of 1,000 and the second route's with 2,000, so the speaker tells
+//! whose answer it played.
+//!
+//! Nothing here is a device, a cloud service or an acoustic measurement.
+use super::*;
+use crate::{
+    provider_flow::OutputSender,
+    provider_link::ProviderLinkState,
+    provider_worker::{FailedStage, Fault},
+    ring_wire::{RingBlankReason, RingFeedback, RingFrame, RingPhase},
+    wire::{CaptureTiming, ReferenceTiming},
+};
+use lamp_audio::ownership::PlaybackCursor;
+use lamp_turn_owner::BoundaryGuard;
+use std::{
+    collections::BTreeSet,
+    sync::{
+        Arc, Mutex,
+        atomic::{AtomicBool, Ordering},
+    },
+    thread,
+};
+
+const PACKET: usize = crate::provider_flow::PACKET_SAMPLES;
+const LIVE: i16 = 1_000;
+const SECOND: i16 = 2_000;
+const LIMIT: Duration = Duration::from_secs(12);
+
+/// What the Live peer does with one request, by Start order.
+#[derive(Clone, Copy, Debug, PartialEq)]
+enum Live {
+    /// `packets` of audio at End, then completion.
+    Answer(usize),
+    /// TurnFailed(AwaitingResponse, fault) at End, before any audio.
+    Fail(Fault),
+    /// As `Fail`, then `packets` of audio for the same request: too late.
+    FailThenLate(Fault, usize),
+    /// The link becomes unavailable during the line, at capture frame 50.
+    DropLink,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+enum When {
+    /// This many turns have been settled by the coordinator.
+    Settled(usize),
+    /// The speaker has accepted this many chunks.
+    Accepted(usize),
+}
+
+#[derive(Clone)]
+struct Script {
+    second: bool,
+    live: Vec<Live>,
+    /// Packets in each of the second route's answers.
+    second_packets: usize,
+    /// Speech starts again (a new turn, or speaking over an answer).
+    speak_again: Option<When>,
+    /// Privacy reports muted once this many turns are settled.
+    turns: usize,
+    /// The Live link is Ready again, with a new session, once this many
+    /// turns are settled.
+    live_back_after: Option<usize>,
+    turn_taking: TurnTaking,
+}
+
+impl Script {
+    fn question(live: Live) -> Self {
+        Self {
+            second: true,
+            live: vec![live],
+            second_packets: 12,
+            speak_again: None,
+            turns: 1,
+            live_back_after: None,
+            turn_taking: TurnTaking::V1Baseline,
+        }
+    }
+}
+
+#[derive(Clone, Debug)]
+struct Chunk {
+    turn: u64,
+    value: i16,
+    accepted: bool,
+}
+
+#[derive(Default)]
+struct Seen {
+    live: Vec<ProviderInput>,
+    second: Vec<ProviderInput>,
+    chunks: Vec<Chunk>,
+    /// Owner and microphone of every authority the speaker's guard took.
+    installs: Vec<(Option<u64>, bool)>,
+    phases: Vec<RingPhase>,
+    stopped: Vec<&'static str>,
+}
+
+struct Run {
+    result: Result<()>,
+    trace: Vec<Value>,
+    seen: Seen,
+    exits: Vec<(&'static str, bool)>,
+}
+
+fn dedup<T: PartialEq + Clone>(items: &[T]) -> Vec<T> {
+    let mut out: Vec<T> = Vec::new();
+    for item in items {
+        if out.last() != Some(item) {
+            out.push(item.clone());
+        }
+    }
+    out
+}
+
+impl Run {
+    fn events(&self, kind: &str) -> Vec<&Value> {
+        self.trace.iter().filter(|e| e["kind"] == kind).collect()
+    }
+    fn finished(&self, turn: u64) -> &Value {
+        self.events("turn_finished")
+            .into_iter()
+            .find(|e| e["turn"] == turn)
+            .unwrap_or_else(|| panic!("turn {turn} never finished: {}", self.summary()))
+    }
+    fn played(&self, turn: u64) -> Vec<i16> {
+        self.seen
+            .chunks
+            .iter()
+            .filter(|c| c.turn == turn && c.accepted)
+            .map(|c| c.value)
+            .collect()
+    }
+    fn summary(&self) -> String {
+        let kinds: Vec<&str> = self
+            .trace
+            .iter()
+            .map(|e| e["kind"].as_str().unwrap_or("?"))
+            .collect();
+        format!(
+            "result {:?}\nkinds {:?}\nphases {:?}\ninstalls {:?}",
+            self.result.as_ref().map_err(|e| e.to_string()),
+            dedup(&kinds),
+            dedup(&self.seen.phases),
+            dedup(&self.seen.installs),
+        )
+    }
+    /// What every run keeps: it ended by the scripted mute, every child saw
+    /// Stop and was reaped, and the speaker wrote nothing without authority.
+    fn assert_clean(&self) {
+        eprintln!("{}", self.summary());
+        assert!(
+            self.result
+                .as_ref()
+                .err()
+                .is_some_and(|e| e.downcast_ref::<PhysicalMute>().is_some()),
+            "{}",
+            self.summary()
+        );
+        for (role, exited) in &self.exits {
+            assert!(exited, "{role} child was not reaped");
+            assert!(self.seen.stopped.contains(role), "{role} never saw Stop");
+        }
+        assert!(self.events("worker_forced_shutdown").is_empty());
+    }
+}
+
+/// Start, Audio 1..=n in order, End: one whole line.
+fn whole_line(inputs: &[ProviderInput], request: u64) -> usize {
+    let mine: Vec<_> = inputs
+        .iter()
+        .filter(|input| request_of(input) == request)
+        .collect();
+    assert!(
+        matches!(mine.first(), Some(ProviderInput::Start { .. })),
+        "{mine:?}"
+    );
+    assert!(
+        matches!(mine.last(), Some(ProviderInput::End { .. })),
+        "{mine:?}"
+    );
+    for (index, input) in mine[1..mine.len() - 1].iter().enumerate() {
+        match input {
+            ProviderInput::Audio { sequence, .. } => assert_eq!(*sequence, index as u64 + 1),
+            other => panic!("{other:?} inside a line"),
+        }
+    }
+    mine.len() - 2
+}
+
+fn request_of(input: &ProviderInput) -> u64 {
+    match input {
+        ProviderInput::Start { request, .. }
+        | ProviderInput::Audio { request, .. }
+        | ProviderInput::End { request, .. }
+        | ProviderInput::Written { request, .. }
+        | ProviderInput::Reminder { request, .. } => *request,
+    }
+}
+
+fn audio_count(inputs: &[ProviderInput], request: u64) -> usize {
+    inputs
+        .iter()
+        .filter(|input| matches!(input, ProviderInput::Audio { request: r, .. } if *r == request))
+        .count()
+}
+
+struct Peer {
+    role: &'static str,
+    channels: WorkerChannels,
+    input: Option<std::process::ChildStdin>,
+    stopped: bool,
+    output: OutputSender,
+    queued: VecDeque<ProviderOutput>,
+    snapshot: Option<Snapshot>,
+}
+
+struct Peers {
+    script: Script,
+    peers: Vec<Peer>,
+    seen: Arc<Mutex<Seen>>,
+    muted: Arc<AtomicBool>,
+    guard: BoundaryGuard,
+    capture_started: bool,
+    frames: u64,
+    next_capture: Instant,
+    next_write: Instant,
+    cursor: u64,
+    accepted: usize,
+    speech_offset: Option<u64>,
+    /// Requests by Live Start order.
+    live_requests: Vec<u64>,
+    ended: BTreeSet<u64>,
+    settled: usize,
+    audio_sequence: u64,
+    link_dropped: bool,
+    link_back: bool,
+}
+
+impl Peers {
+    fn index(&self, role: &str) -> Option<usize> {
+        self.peers.iter().position(|p| p.role == role)
+    }
+
+    fn speech(&self, frame: u64) -> bool {
+        (20..80).contains(&frame)
+            || self
+                .speech_offset
+                .is_some_and(|offset| (offset..offset + 60).contains(&frame))
+    }
+
+    fn tick(&mut self) {
+        if let Some(when) = self.script.speak_again {
+            let due = match when {
+                When::Settled(count) => self.settled >= count,
+                When::Accepted(count) => self.accepted >= count,
+            };
+            if due {
+                self.script.speak_again = None;
+                self.speech_offset = Some(self.frames);
+            }
+        }
+        if self.settled >= self.script.turns {
+            self.muted.store(true, Ordering::SeqCst);
+        }
+        if let Some(after) = self.script.live_back_after
+            && self.settled >= after
+            && self.link_dropped
+            && !self.link_back
+            && let Some(index) = self.index("provider")
+        {
+            self.link_back = true;
+            let _ = self.peers[index]
+                .channels
+                .control
+                .send(WorkerEvent::ProviderLink {
+                    link: ready_link(3, 2),
+                });
+        }
+        for index in 0..self.peers.len() {
+            self.tick_peer(index);
+        }
+    }
+
+    fn tick_peer(&mut self, index: usize) {
+        if self.peers[index].stopped {
+            return;
+        }
+        let role = self.peers[index].role;
+        for _ in 0..16 {
+            match self.peers[index].channels.control.receive::<Control>() {
+                Ok(Some(Control::Authority { snapshot })) => {
+                    self.peers[index].snapshot = Some(snapshot);
+                    if role == "speaker" {
+                        self.install(snapshot);
+                    }
+                    if snapshot.owner().is_none() {
+                        self.settled = self.settled.max(self.ended.len());
+                    }
+                }
+                Ok(Some(Control::ProviderOutputCapacity { through })) => {
+                    self.peers[index].output.grant(through).unwrap()
+                }
+                Ok(Some(Control::StartCapture)) => {
+                    self.capture_started = true;
+                    let at = monotonic_us();
+                    let generation = self.peers[index].snapshot.unwrap().microphone_generation();
+                    self.peers[index]
+                        .channels
+                        .control
+                        .send(WorkerEvent::CaptureStarted {
+                            epoch: 1,
+                            dsp_epoch: 1,
+                            noise_suppression: NoiseSuppression::On,
+                            privacy_generation: generation,
+                            rate: 16_000,
+                            channels: 1,
+                            period_frames: 160,
+                            buffer_frames: 640,
+                            monotonic_status_timestamps: false,
+                            open_started_at_us: at,
+                            prepared_at_us: at,
+                            capture_started_at_us: at,
+                            start_completed_at_us: at,
+                        })
+                        .unwrap();
+                }
+                Ok(Some(Control::Stop)) => {
+                    if role == "ring" {
+                        let at = monotonic_us();
+                        let _ = self.peers[index].channels.control.send(WorkerEvent::Ring {
+                            report: RingFeedback::Blanked {
+                                reason: RingBlankReason::Shutdown,
+                                write_started_at_us: at,
+                                write_finished_at_us: at,
+                            },
+                        });
+                    }
+                    let peer = &mut self.peers[index];
+                    peer.stopped = true;
+                    peer.input.take();
+                    self.seen.lock().unwrap().stopped.push(role);
+                    return;
+                }
+                Ok(Some(_)) => {}
+                Ok(None) | Err(_) => break,
+            }
+        }
+        match role {
+            "capture" if self.capture_started => self.tick_capture(index),
+            "speaker" => self.tick_speaker(index),
+            "provider" | "second" => self.tick_provider(index),
+            "ring" => {
+                while let Ok(Some(frame)) = self.peers[index].channels.data.receive::<RingFrame>() {
+                    self.seen.lock().unwrap().phases.push(frame.phase);
+                    let at = monotonic_us();
+                    let _ = self.peers[index].channels.control.send(WorkerEvent::Ring {
+                        report: RingFeedback::Presented {
+                            owner: frame.permit.owner(),
+                            phase: frame.phase,
+                            requested_at_us: frame.requested_at_us,
+                            write_started_at_us: at,
+                            write_finished_at_us: at,
+                        },
+                    });
+                }
+            }
+            _ => {}
+        }
+    }
+
+    fn tick_capture(&mut self, index: usize) {
+        while Instant::now() >= self.next_capture {
+            self.frames += 1;
+            let frame = self.frames;
+            if frame == 50
+                && !self.link_dropped
+                && self.script.live.first() == Some(&Live::DropLink)
+                && let Some(live) = self.index("provider")
+            {
+                self.link_dropped = true;
+                let link = ProviderLink {
+                    revision: 2,
+                    session: 1,
+                    observed_at_us: monotonic_us(),
+                    source_clock: None,
+                    state: ProviderLinkState::Unavailable {
+                        reason: Fault::Transport,
+                    },
+                };
+                let _ = self.peers[live]
+                    .channels
+                    .control
+                    .send(WorkerEvent::ProviderLink { link });
+            }
+            let at = monotonic_us();
+            let speech = self.speech(frame);
+            let peer = &mut self.peers[index];
+            let sent = peer.channels.data.send(MicrophoneFrame {
+                epoch: 1,
+                dsp_epoch: 1,
+                privacy_generation: peer.snapshot.unwrap().microphone_generation(),
+                frame_sequence: frame,
+                read_completed_at_us: at,
+                probability: if speech { 0.99 } else { 0.0 },
+                echo: None,
+                reference: Default::default(),
+                samples: vec![if speech { 2_000 } else { 7 }; 160],
+                timing: CaptureTiming {
+                    first_read_started_at_us: at,
+                    last_read_started_at_us: at,
+                    successful_reads: 1,
+                    alsa_status_monotonic_us: None,
+                    status_observed_at_us: at,
+                    available_frames: 0,
+                    delayed_frames: 0,
+                    processing_completed_at_us: at,
+                    aec_queue_delay_ms: 0,
+                    reference: ReferenceTiming {
+                        playback_epoch: 1,
+                        clock_started_at_us: Some(at),
+                        ..ReferenceTiming::default()
+                    },
+                },
+            });
+            self.next_capture += Duration::from_millis(10);
+            if sent.is_err() {
+                break;
+            }
+        }
+    }
+
+    fn audio(&mut self, index: usize, request: u64, packets: usize, value: i16) {
+        for _ in 0..packets {
+            self.audio_sequence += 1;
+            self.peers[index].queued.push_back(ProviderOutput::Audio {
+                request,
+                sequence: self.audio_sequence,
+                provider_event_at_us: monotonic_us(),
+                source_frames: PACKET,
+                source_offset: 0,
+                samples: vec![value; PACKET],
+            });
+        }
+    }
+
+    fn finish(&mut self, index: usize, request: u64) {
+        let queued = &mut self.peers[index].queued;
+        queued.push_back(ProviderOutput::GenerationComplete { request });
+        queued.push_back(ProviderOutput::TurnComplete {
+            request,
+            idle: true,
+        });
+    }
+
+    fn tick_provider(&mut self, index: usize) {
+        let live = self.peers[index].role == "provider";
+        for _ in 0..64 {
+            let Ok(Some(input)) = self.peers[index].channels.data.receive::<ProviderInput>() else {
+                break;
+            };
+            {
+                let mut seen = self.seen.lock().unwrap();
+                let log = if live {
+                    &mut seen.live
+                } else {
+                    &mut seen.second
+                };
+                log.push(input.clone());
+            }
+            match input {
+                ProviderInput::Start {
+                    request, session, ..
+                } => {
+                    if live {
+                        self.live_requests.push(request);
+                    }
+                    self.peers[index].queued.push_back(ProviderOutput::Started {
+                        request,
+                        session,
+                        waiting_for_barrier: false,
+                    });
+                }
+                ProviderInput::End { request, .. } => {
+                    self.ended.insert(request);
+                    if !live {
+                        self.audio(index, request, self.script.second_packets, SECOND);
+                        self.finish(index, request);
+                        continue;
+                    }
+                    let position = self.live_requests.iter().position(|&r| r == request);
+                    // After the scripted ones, the Live route answers.
+                    let answer = position
+                        .and_then(|p| self.script.live.get(p).copied())
+                        .unwrap_or(Live::Answer(12));
+                    let fail = |reason| ProviderOutput::TurnFailed {
+                        request,
+                        stage: FailedStage::AwaitingResponse,
+                        reason,
+                    };
+                    match answer {
+                        Live::Answer(packets) => {
+                            self.audio(index, request, packets, LIVE);
+                            self.finish(index, request);
+                        }
+                        Live::Fail(reason) => self.peers[index].queued.push_back(fail(reason)),
+                        Live::FailThenLate(reason, packets) => {
+                            self.peers[index].queued.push_back(fail(reason));
+                            self.audio(index, request, packets, LIVE);
+                            self.finish(index, request);
+                        }
+                        Live::DropLink => {}
+                    }
+                }
+                _ => {}
+            }
+        }
+        let peer = &mut self.peers[index];
+        while let Some(event) = peer.queued.front() {
+            match peer.output.try_send(|| peer.channels.data.send(event)) {
+                Ok(true) => {
+                    peer.queued.pop_front();
+                }
+                Ok(false) | Err(_) => break,
+            }
+        }
+    }
+
+    fn tick_speaker(&mut self, index: usize) {
+        if Instant::now() < self.next_write {
+            return;
+        }
+        let Ok(Some(chunk)) = self.peers[index].channels.data.receive::<SpeakerChunk>() else {
+            return;
+        };
+        self.next_write = self
+            .next_write
+            .max(Instant::now() - Duration::from_millis(20))
+            + Duration::from_micros(chunk.samples.len() as u64 * 1_000 / 24);
+        self.install(chunk.snapshot);
+        let accepted = self
+            .guard
+            .check(now(), chunk.permit, OutputKind::Speech)
+            .is_ok();
+        let owner = chunk.permit.owner();
+        self.seen.lock().unwrap().chunks.push(Chunk {
+            turn: owner.turn(),
+            value: chunk.samples[0],
+            accepted,
+        });
+        let channels = &mut self.peers[index].channels;
+        if !accepted {
+            let _ = channels.control.send(WorkerEvent::PlaybackRejected {
+                turn: owner.turn(),
+                sequence: chunk.chunk_sequence,
+                reason: "fixture guard refused the permit".into(),
+            });
+            return;
+        }
+        self.accepted += 1;
+        let first = PlaybackCursor {
+            epoch: 1,
+            frame: self.cursor,
+        };
+        self.cursor += chunk.samples.len() as u64;
+        let end = PlaybackCursor {
+            epoch: 1,
+            frame: self.cursor,
+        };
+        let at = monotonic_us();
+        let _ = channels.control.send(WorkerEvent::Playback {
+            owner,
+            first_sample: first,
+            end_sample: end,
+            queue_observed_at_us: at,
+            turn: owner.turn(),
+            sequence: chunk.chunk_sequence,
+            queued_frames: 0,
+            accepted_frames: chunk.samples.len(),
+            observed_at_us: at,
+        });
+        let _ = channels.control.send(WorkerEvent::SpeechDrained {
+            owner,
+            sequence: chunk.chunk_sequence,
+            last_sample: end,
+            observed_at_us: at,
+        });
+        if chunk.end_of_speech {
+            let _ = channels.control.send(WorkerEvent::SpeechRetired {
+                owner,
+                sequence: chunk.chunk_sequence,
+                final_sample: end,
+                observed_at_us: at,
+            });
+        }
+    }
+
+    fn install(&mut self, snapshot: Snapshot) {
+        if self.guard.install(now(), snapshot).is_ok() {
+            self.seen.lock().unwrap().installs.push((
+                snapshot.owner().map(|owner| owner.turn()),
+                snapshot.microphone_permission() == Permission::Allowed,
+            ));
+        }
+    }
+}
+
+fn privacy_peer(
+    mut peer: Peer,
+    seen: Arc<Mutex<Seen>>,
+    muted: Arc<AtomicBool>,
+    finished: Arc<AtomicBool>,
+) -> impl FnOnce() + Send + 'static {
+    move || {
+        let mut next = Instant::now();
+        while !finished.load(Ordering::SeqCst) {
+            while !peer.stopped
+                && let Ok(Some(control)) = peer.channels.control.receive::<Control>()
+            {
+                if matches!(control, Control::Stop) {
+                    peer.stopped = true;
+                    peer.input.take();
+                    seen.lock().unwrap().stopped.push("privacy");
+                }
+            }
+            if !peer.stopped && Instant::now() >= next {
+                let _ = peer.channels.control.send(WorkerEvent::Privacy {
+                    acquired_at_us: monotonic_us(),
+                    muted: muted.load(Ordering::SeqCst),
+                });
+                next = Instant::now() + Duration::from_millis(5);
+            }
+            thread::sleep(Duration::from_millis(1));
+        }
+        peer.input.take();
+    }
+}
+
+fn run(script: Script) -> Run {
+    let directory = SessionDirectory::create().unwrap();
+    let mut peers = Vec::new();
+    let mut spawn = |role| {
+        let (worker, channels, input) = Worker::cooperative_fixture(&directory.path, role);
+        peers.push(Peer {
+            role,
+            channels,
+            input: Some(input),
+            stopped: false,
+            output: OutputSender::default(),
+            queued: VecDeque::new(),
+            snapshot: None,
+        });
+        worker
+    };
+    let mut rig = Rig {
+        second: None,
+        paused: Box::new(|| false),
+        microphone: crate::options::Microphone::Mic2,
+        end_silence_blocks: None,
+        early_end_blocks: None,
+        faint_level: None,
+        speaker: spawn("speaker"),
+        capture: spawn("capture"),
+        provider: spawn("provider"),
+        privacy: spawn("privacy"),
+        ring: Some(spawn("ring")).into(),
+        camera: None,
+        motor: None,
+        ring_channel_ceiling: Some(24),
+        diagnostic_directory: None,
+        noise_suppression: NoiseSuppression::On,
+        turn_taking: script.turn_taking,
+        playout_start: PlayoutStart::default(),
+        endpoint: None,
+    };
+    if script.second {
+        let worker = spawn("second");
+        rig.second = Some(second::Route::standing_by(worker, ready_link(1, 1)));
+    }
+    let mut owner = Controller::new(new_boot().unwrap(), now());
+    let boot = owner.snapshot(now()).unwrap().boot();
+    let mut startup = StartupEvents::default();
+    startup
+        .cloud
+        .observe(ready_link(1, 1), monotonic_us())
+        .unwrap();
+    let seen = Arc::new(Mutex::new(Seen::default()));
+    let finished = Arc::new(AtomicBool::new(false));
+    let muted = Arc::new(AtomicBool::new(false));
+    let privacy_at = peers.iter().position(|p| p.role == "privacy").unwrap();
+    let privacy = thread::spawn(privacy_peer(
+        peers.remove(privacy_at),
+        seen.clone(),
+        muted.clone(),
+        finished.clone(),
+    ));
+    let worker = thread::spawn({
+        let (seen, finished, muted) = (seen.clone(), finished.clone(), muted.clone());
+        move || {
+            let mut state = Peers {
+                script,
+                peers,
+                seen,
+                muted,
+                guard: BoundaryGuard::new(boot, now()),
+                capture_started: false,
+                frames: 0,
+                next_capture: Instant::now(),
+                next_write: Instant::now(),
+                cursor: 0,
+                accepted: 0,
+                speech_offset: None,
+                live_requests: Vec::new(),
+                ended: BTreeSet::new(),
+                settled: 0,
+                audio_sequence: 0,
+                link_dropped: false,
+                link_back: false,
+            };
+            let started = Instant::now();
+            let mut reported = false;
+            while !finished.load(Ordering::SeqCst) {
+                if started.elapsed() > LIMIT && !reported {
+                    reported = true;
+                    if let Some(index) = state.index("capture") {
+                        let _ = state.peers[index]
+                            .channels
+                            .control
+                            .send(WorkerEvent::Fault {
+                                code: "second route scenario limit".into(),
+                            });
+                    }
+                }
+                state.tick();
+                thread::sleep(Duration::from_millis(1));
+            }
+            for peer in &mut state.peers {
+                peer.input.take();
+            }
+        }
+    });
+    let mut reply = None;
+    let mut trace = SessionState::default();
+    let result = conversation(
+        &mut rig,
+        &mut owner,
+        Lifetime::Serve,
+        &mut trace,
+        startup,
+        &mut reply,
+        &mut None,
+        &Termination::inactive(),
+        &FailureNotices::none(),
+    );
+    let result = finish_active_run(
+        &mut rig, &mut owner, &mut reply, &mut trace, &mut None, result,
+    );
+    let mut exits = vec![
+        ("speaker", matches!(rig.speaker.try_exit(), Ok(Some(_)))),
+        ("capture", matches!(rig.capture.try_exit(), Ok(Some(_)))),
+        ("privacy", matches!(rig.privacy.try_exit(), Ok(Some(_)))),
+    ];
+    for ring in rig.ring.iter_mut() {
+        exits.push(("ring", matches!(ring.try_exit(), Ok(Some(_)))));
+    }
+    // After a switch either route's worker may be `rig.provider`.
+    let mut routes = vec![&mut rig.provider];
+    routes.extend(rig.second.as_mut().map(second::Route::worker_mut));
+    for worker in routes {
+        let role = if worker.role == "second" {
+            "second"
+        } else {
+            "provider"
+        };
+        exits.push((role, matches!(worker.try_exit(), Ok(Some(_)))));
+    }
+    finished.store(true, Ordering::SeqCst);
+    worker.join().unwrap();
+    privacy.join().unwrap();
+    let seen = std::mem::take(&mut *seen.lock().unwrap());
+    Run {
+        result,
+        trace: trace.iter().cloned().collect(),
+        seen,
+        exits,
+    }
+}
+
+/// The records whose kinds and fields are compared across runs: what a turn
+/// leaves, with neither timing nor the route's own records.
+fn shape(run: &Run) -> BTreeSet<(String, Vec<String>)> {
+    run.trace
+        .iter()
+        .filter(|e| e["kind"] != "voice_route_switched")
+        .map(|e| {
+            let mut keys: Vec<String> = e.as_object().unwrap().keys().cloned().collect();
+            keys.sort();
+            (e["kind"].as_str().unwrap().to_owned(), keys)
+        })
+        .collect()
+}
+
+/// The Live packets with their times left out.
+fn timeless(inputs: &[ProviderInput]) -> Vec<String> {
+    inputs
+        .iter()
+        .map(|input| match input {
+            ProviderInput::Audio {
+                request,
+                privacy_generation,
+                sequence,
+                samples,
+                ..
+            } => format!("audio {request} {privacy_generation} {sequence} {samples:?}"),
+            other => format!("{other:?}"),
+        })
+        .collect()
+}
+
+/// (a) Without a second route nothing of the switch is seen, and a route
+/// standing by changes nothing while Gemini is well: the Live packets and
+/// the kinds and fields of every record are the same.
+#[test]
+fn without_a_second_route_the_packets_and_records_are_as_before() {
+    let _one = super::pilot_faults::one_session();
+    let plain = run(Script {
+        second: false,
+        ..Script::question(Live::Answer(12))
+    });
+    plain.assert_clean();
+    assert!(plain.events("voice_route_switched").is_empty());
+    assert!(
+        plain
+            .trace
+            .iter()
+            .all(|e| e.get("standby").is_none() && e.get("route").is_none())
+    );
+    let standing_by = run(Script::question(Live::Answer(12)));
+    standing_by.assert_clean();
+    assert!(standing_by.events("voice_route_switched").is_empty());
+    assert!(standing_by.seen.second.is_empty());
+    assert_eq!(timeless(&plain.seen.live), timeless(&standing_by.seen.live));
+    assert_eq!(shape(&plain), shape(&standing_by));
+    assert_eq!(plain.played(1), standing_by.played(1));
+    assert!(plain.played(1).iter().all(|&v| v == LIVE));
+}
+
+/// (b) A spent quota before any audio: the second route is given the whole
+/// line and answers it, and the rest of the lamp sees the turn it would
+/// have seen had Gemini answered: the same authority at the speaker, the
+/// same ring phases, the same record of the finished turn.
+#[test]
+fn a_spent_quota_moves_the_line_to_the_second_route_and_nothing_else_changes() {
+    let _one = super::pilot_faults::one_session();
+    let live = run(Script::question(Live::Answer(12)));
+    live.assert_clean();
+    let switched = run(Script::question(Live::Fail(Fault::QuotaExceeded)));
+    switched.assert_clean();
+    let blocks = whole_line(&switched.seen.live, 1);
+    assert_eq!(whole_line(&switched.seen.second, 1), blocks);
+    // Over, and back to Gemini at rest if the run lasts long enough: its
+    // link never went. On the ARM64 runner the run once ended before the
+    // idle tick that goes back; going back has its own test below.
+    let switch = switched.events("voice_route_switched");
+    assert!(matches!(switch.len(), 1 | 2), "{switch:?}");
+    assert_eq!(switch[0]["why"], "live_turn_failed");
+    if let Some(back) = switch.get(1) {
+        assert_eq!(back["why"], "live_link_ready");
+    }
+    assert_eq!(switch[0]["reason"], json!(Fault::QuotaExceeded));
+    assert_eq!(switch[0]["replayed_commands"], blocks + 2);
+    assert_eq!(switched.played(1), vec![SECOND; 48]);
+    assert!(switched.events("provider_turn_failed").is_empty());
+    for run in [&live, &switched] {
+        assert_eq!(run.finished(1)["outcome"], "audio_written_unscored");
+    }
+    let keys = |run: &Run| {
+        let mut keys: Vec<_> = run
+            .finished(1)
+            .as_object()
+            .unwrap()
+            .keys()
+            .cloned()
+            .collect();
+        keys.sort();
+        keys
+    };
+    assert_eq!(keys(&live), keys(&switched));
+    assert_eq!(dedup(&live.seen.installs), dedup(&switched.seen.installs));
+    assert_eq!(dedup(&live.seen.phases), dedup(&switched.seen.phases));
+    assert!(dedup(&switched.seen.phases).contains(&RingPhase::Speaking));
+}
+
+/// (c) The link drops while the person is still speaking: the line is not
+/// abandoned but replayed to the second route, which hears all of it.
+#[test]
+fn a_link_dropped_mid_line_loses_nothing_of_the_question() {
+    let _one = super::pilot_faults::one_session();
+    let run = run(Script::question(Live::DropLink));
+    run.assert_clean();
+    let sent_live = audio_count(&run.seen.live, 1);
+    assert!(sent_live > 0, "the drop came before any audio");
+    assert!(
+        !run.seen
+            .live
+            .iter()
+            .any(|i| matches!(i, ProviderInput::End { .. }))
+    );
+    let heard = whole_line(&run.seen.second, 1);
+    assert!(heard > sent_live, "{heard} <= {sent_live}");
+    assert!(run.events("provider_input_abandoned").is_empty());
+    assert_eq!(
+        run.events("voice_route_switched")[0]["why"],
+        "live_link_changed"
+    );
+    assert_eq!(run.finished(1)["outcome"], "audio_written_unscored");
+    assert_eq!(run.played(1), vec![SECOND; 48]);
+}
+
+/// (d) Gemini's answer that comes after its failure is never heard.
+#[test]
+fn gemini_audio_after_its_failure_is_dropped() {
+    let _one = super::pilot_faults::one_session();
+    let run = run(Script::question(Live::FailThenLate(Fault::RateLimited, 6)));
+    run.assert_clean();
+    assert_eq!(run.played(1), vec![SECOND; 48]);
+    assert!(run.seen.chunks.iter().all(|c| c.value != LIVE));
+}
+
+/// (e) Once Gemini's link is Ready again, the next turn at rest is its.
+#[test]
+fn the_next_turn_goes_back_to_gemini_once_it_is_ready() {
+    let _one = super::pilot_faults::one_session();
+    let run = run(Script {
+        speak_again: Some(When::Settled(1)),
+        turns: 2,
+        live_back_after: Some(1),
+        ..Script::question(Live::DropLink)
+    });
+    run.assert_clean();
+    let whys: Vec<_> = run
+        .events("voice_route_switched")
+        .iter()
+        .map(|e| e["why"].as_str().unwrap().to_owned())
+        .collect();
+    assert_eq!(whys, ["live_link_changed", "live_link_ready"]);
+    assert_eq!(run.played(1), vec![SECOND; 48]);
+    let second_turn = run.seen.live.iter().rev().find_map(|i| match i {
+        ProviderInput::Start {
+            request, session, ..
+        } => Some((*request, *session)),
+        _ => None,
+    });
+    let (turn, session) = second_turn.unwrap();
+    assert!(turn > 1);
+    assert_eq!(session, 2);
+    whole_line(&run.seen.live, turn);
+    assert!(!run.seen.second.iter().any(|i| request_of(i) == turn));
+    assert_eq!(run.played(turn), vec![LIVE; 48]);
+}
+
+/// (g) Spoken over while the second route answers, the answer stops as
+/// one of Gemini's does.
+#[test]
+fn spoken_over_the_second_routes_answer_stops_as_gemini_does() {
+    let _one = super::pilot_faults::one_session();
+    let script = |live| Script {
+        second_packets: 60,
+        speak_again: Some(When::Accepted(8)),
+        turns: 2,
+        turn_taking: TurnTaking::VadOnly,
+        ..Script::question(live)
+    };
+    let live = run(script(Live::Answer(60)));
+    live.assert_clean();
+    let switched = run(script(Live::Fail(Fault::ServerRejected)));
+    switched.assert_clean();
+    for run in [&live, &switched] {
+        assert_eq!(run.finished(1)["outcome"], "user_interrupted");
+        assert!(run.played(1).len() < 240, "{}", run.played(1).len());
+        // The speaker took an authority without turn 1 once it was over.
+        let installs = dedup(&run.seen.installs);
+        let owned = installs.iter().position(|i| i.0 == Some(1)).unwrap();
+        assert!(installs[owned..].iter().any(|i| i.0 != Some(1)));
+    }
+    assert!(switched.played(1).iter().all(|&v| v == SECOND));
+    assert_eq!(dedup(&live.seen.installs), dedup(&switched.seen.installs));
+}

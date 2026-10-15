@@ -658,6 +658,7 @@ impl Setup {
             }),
         );
         let mut rig = Rig {
+            second: None,
             microphone: crate::options::Microphone::Mic2,
             end_silence_blocks: self.end_silence_blocks,
             early_end_blocks: self.early_ms.map(|ms| ms / 10),

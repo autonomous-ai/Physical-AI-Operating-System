@@ -65,6 +65,15 @@ impl CloudAvailability {
         self.output_ended
     }
 
+    /// The link has ended for good (`second.rs` does not switch away from
+    /// a route whose end stops the service).
+    pub(super) fn terminal(&self) -> bool {
+        matches!(
+            self.latest.map(|link| link.state),
+            Some(ProviderLinkState::Terminal { .. })
+        )
+    }
+
     /// The link ended on a refusal that passes with time: the provider's
     /// quota or its rate limit. Asking again at once only adds load.
     pub(super) fn refused_for_now(&self) -> bool {
@@ -88,6 +97,9 @@ pub(super) struct CloudRequest {
     pub(super) input_end_submitted: bool,
     pub(super) input_abandoned: bool,
     pub(super) outcome: Option<RequestOutcome>,
+    /// A second voice route can take this input over (`second.rs`): a link
+    /// change leaves it for the switch instead of abandoning it.
+    pub(super) movable: bool,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize)]
@@ -113,6 +125,7 @@ impl CloudRequest {
             input_end_submitted: false,
             input_abandoned: false,
             outcome: None,
+            movable: false,
         })
     }
 
@@ -185,6 +198,7 @@ impl CloudRequest {
         if self.input_end_submitted
             || self.input_abandoned
             || self.outcome.is_some()
+            || self.movable
             || cloud.ready_session() == Some(self.session)
         {
             return false;

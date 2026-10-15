@@ -35,7 +35,7 @@ use std::{
 /// Serialize sessions because SIGTERM is process-wide.
 static ONE_SESSION: Mutex<()> = Mutex::new(());
 
-fn one_session() -> std::sync::MutexGuard<'static, ()> {
+pub(super) fn one_session() -> std::sync::MutexGuard<'static, ()> {
     ONE_SESSION
         .lock()
         .unwrap_or_else(|poisoned| poisoned.into_inner())
@@ -1325,6 +1325,7 @@ fn run_in(script: Script, trace: &mut SessionState) -> Run {
     });
     let paused = Arc::new(AtomicBool::new(script.paused));
     let mut rig = Rig {
+        second: None,
         microphone: crate::options::Microphone::Mic2,
         end_silence_blocks: None,
         early_end_blocks: None,

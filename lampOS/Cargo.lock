@@ -2106,6 +2106,7 @@ dependencies = [
 name = "lamp-voice"
 version = "0.1.0"
 dependencies = [
+ "futures-util",
  "gpiocdev",
  "hound",
  "lamp-actions",
@@ -2123,8 +2124,10 @@ dependencies = [
  "lamp-schedule",
  "lamp-turn-end-wire",
  "lamp-turn-owner",
+ "reqwest",
  "rtrb",
  "rustix",
+ "rustls",
  "serde",
  "serde_json",
  "sha2",
@@ -2133,6 +2136,8 @@ dependencies = [
  "sonora-simd",
  "thread-priority",
  "tokio",
+ "tokio-tungstenite",
+ "webpki-roots 1.0.9",
 ]
 
 [[package]]

@@ -50,6 +50,7 @@ pub mod room_floor;
 pub mod room_told;
 pub mod second_config;
 pub mod second_look;
+pub mod second_provider;
 pub mod session_fact;
 pub mod sight;
 pub mod speak_up;

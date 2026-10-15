@@ -3055,6 +3055,41 @@ fn told_to_stay_a_head_moved_by_hand_stays_and_the_next_mood_is_relative_to_it()
     assert_eq!(lamp.servos[PITCH].goal, HOME[0]);
 }
 
+/// A light head: a hand that lifts it 40 counts reads only 120, under the
+/// head's load bound of 240, as lamp-52e6's did. Told to stay, it stays
+/// where it was put; told to come back, it comes back.
+#[test]
+fn a_light_head_lifted_by_hand_stays_when_told_to_and_comes_back_when_not() {
+    let ms = Duration::from_millis;
+    let ran = |give_way: GiveWay| {
+        let (mut lamp, mut clock) = folded(Duration::from_secs(8));
+        // It reaches 1,920 in under half a second and is held there for
+        // a second and a half.
+        lamp.hand = Some((ms(1_500), ms(3_500), PITCH, 1_920.0));
+        lamp.strains = vec![(ms(1_500), ms(3_500), PITCH, 120)];
+        let news = || Some((Mood::Listening, 100));
+        let mut seen = Vec::new();
+        let report = run(
+            &mut lamp,
+            &mut clock,
+            giving_way(give_way),
+            None,
+            news,
+            |glimpse| seen.push(*glimpse),
+        );
+        assert_eq!(report.stop, Stop::Cancelled, "{report:?}");
+        let after = *seen.iter().rev().find(|g| clock_of(g) < ms(7_900)).unwrap();
+        (report, after)
+    };
+    let (report, after) = ran(GiveWay::Stay);
+    assert_eq!(report.kept_where_put, [1, 0, 0], "{report:?}");
+    assert!(after.goals[0].abs_diff(1_920) <= 6, "{after:?}");
+    // Listening holds it at 1,960; the same hand, told to come back.
+    let (report, after) = ran(GiveWay::Return);
+    assert_eq!(report.kept_where_put, [0; 3], "{report:?}");
+    assert!(after.goals[0].abs_diff(1_960) <= 6, "{after:?}");
+}
+
 /// A hand that takes the head past its reach leaves it at the edge of it.
 #[test]
 fn told_to_stay_a_head_pushed_past_its_reach_is_kept_at_the_edge() {

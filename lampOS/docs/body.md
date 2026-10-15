@@ -1137,8 +1137,13 @@ it as often as they like.
 
 **`stay`: moved by a hand, it stays where it was put.** As above, and:
 
-- Its load over its bound for a second in a row, and it has been moved
-  more than 15 counts from where it gave way: a hand moved it. Where it
+- Its load over its bound, or over 100 if that is lower, for a second in
+  a row, and it has been moved more than 15 counts from where it gave way
+  (from its goal, for a joint that gave way because a hand had already
+  moved it off it): a hand moved it. On lamp-52e6 a hand lifting the head
+  6 degrees read 100 to 130, under the head's 240, and gave way 30 counts
+  in; judged against 240 and from there, the head came back instead of
+  staying. Where it
   is becomes where it is left, inside the same reach and window as every
   goal (a hand that takes it past the reach leaves it at the edge, where
   the servo takes it at its own speed), and what the lamp is doing then
@@ -1169,7 +1174,9 @@ turned 40 counts at 120, give way, the run goes on, and each is back
 where it was once let go, while without the option the same hand ends the
 run; a folded elbow lifted 200 counts by a hand for three seconds is
 given way to and is back where it rested once let go, and without the
-option it has no stall rule and its goal never leaves where it rested.
+option it has no stall rule and its goal never leaves where it rested;
+a light head lifted 40 counts at 120 and held a second and a half stays
+at 1,920 when told to stay, and is back at 1,960 when told to come back.
 
 **Not shown:** that any of it is right against a hand. Whether a real
 hand reads over the load bounds while it moves a joint (a servo whose

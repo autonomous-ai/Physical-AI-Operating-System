@@ -3290,9 +3290,12 @@ pub(crate) fn run_alive(
                 // the run ended on tracking.
                 over_load[index] = 0;
                 off_track[index] = 0;
-                if let Some(moved) =
-                    in_hand_after(&mut in_hand[index], is, strained, gave_at[index])
-                {
+                // Judged against the lower of its load bound and what a joint
+                // that gives way to a hand under that bound reads: on
+                // lamp-52e6 a hand lifting the head read 100 to 130, under
+                // the head's 240, and a head told to stay came back.
+                let bound = strained.min(STALL_LOAD);
+                if let Some(moved) = in_hand_after(&mut in_hand[index], is, bound, gave_at[index]) {
                     // Still in the hand a second on: it gives way again
                     // where it is, moved or held.
                     commanded[index] = f32::from(is.position).clamp(
@@ -3348,7 +3351,10 @@ pub(crate) fn run_alive(
                     );
                     velocity[index] = 0.0;
                     easing[index] = EASE_STEPS;
-                    gave_at[index] = is.position;
+                    // A joint that gave way because a hand had already moved
+                    // it off its goal was moved from there, not from where it
+                    // gave: a light head lifted 40 counts gives at 30.
+                    gave_at[index] = if pushed { written[index] } else { is.position };
                     in_hand[index] = 0;
                     over_load[index] = 0;
                     eased_at.rotate_left(1);

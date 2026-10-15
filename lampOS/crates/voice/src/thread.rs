@@ -74,6 +74,11 @@ const REMEMBERED_FOR: Duration = Duration::from_secs(600);
 /// the last of the five answered nine times in two minutes
 /// (`docs/conversation-thread.md`).
 const GOING_ON_FOR: Duration = Duration::from_secs(45);
+/// A known person's session becomes the room's, once nobody known is at the
+/// lamp, only after this long with no exchange (first builder on #775:
+/// lamp-4ace stands sideways and seldom sees a face, so a person talking
+/// while turned away must keep their conversation).
+const QUIET_BEFORE_ROOM: Duration = Duration::from_secs(120);
 
 struct Exchange {
     request: u64,
@@ -161,23 +166,41 @@ impl Thread {
         self.whose = whose;
     }
 
+    /// Whom a session opened now would be for. Someone else known: them.
+    /// Nobody known after someone was: still that person while anything
+    /// was said at the lamp (an exchange) in the last two minutes, since a known person
+    /// who keeps talking while turned away from the eyes is not recognised
+    /// and must not lose their conversation; the room's after that.
+    fn session_person(&self, now: Instant) -> Option<String> {
+        if self.whose.is_some() || self.opened_for.is_none() {
+            return self.whose.clone();
+        }
+        let said = self.exchanges.back().map(|last| last.at);
+        if said.is_some_and(|at| now.saturating_duration_since(at) < QUIET_BEFORE_ROOM) {
+            self.opened_for.clone()
+        } else {
+            None
+        }
+    }
+
     /// The person at the lamp is not the one the session was opened for.
-    pub fn switch_due(&self) -> bool {
-        self.whose != self.opened_for
+    pub fn switch_due(&self, now: Instant) -> bool {
+        self.session_person(now) != self.opened_for
     }
 
     /// Whether to open a new session for the person at the lamp now: only
     /// between turns, with no request open and none of an answer still to
     /// be handed on. A change during a turn waits for its end.
-    pub fn switch_now(&self, turn_open: bool, output_pending: bool) -> bool {
-        self.switch_due() && !turn_open && !output_pending
+    pub fn switch_now(&self, turn_open: bool, output_pending: bool, now: Instant) -> bool {
+        self.switch_due(now) && !turn_open && !output_pending
     }
 
     /// A session is being opened now, for whoever is at the lamp: returns
     /// whether that is someone other than the last session's.
-    pub fn opening(&mut self) -> bool {
-        let changed = self.switch_due();
-        self.opened_for = self.whose.clone();
+    pub fn opening(&mut self, now: Instant) -> bool {
+        let person = self.session_person(now);
+        let changed = person != self.opened_for;
+        self.opened_for = person;
         changed
     }
 
@@ -302,8 +325,9 @@ impl Thread {
             self.heard_at = None;
             self.heard_done = false;
             // Each person's last eight; with nobody ever known, the room's
-            // eight are all there is.
-            let whose = self.whose.clone();
+            // eight are all there is. Nobody known while a person's session
+            // goes on: theirs.
+            let whose = self.whose.clone().or_else(|| self.opened_for.clone());
             let theirs = self.exchanges.iter().filter(|e| e.whose == whose);
             if theirs.count() == EXCHANGES {
                 if let Some(oldest) = self.exchanges.iter().position(|e| e.whose == whose) {
@@ -599,7 +623,7 @@ impl Connect for Recalling {
         // their thread below, and their kept things.
         let person = match THREAD.lock() {
             Ok(mut thread) => {
-                self.fresh_only |= thread.opening();
+                self.fresh_only |= thread.opening(Instant::now());
                 thread.opened_for().map(str::to_owned)
             }
             Err(_) => None,
@@ -1025,7 +1049,7 @@ mod tests {
             );
         };
         let opened = |thread: &mut Thread, now: Instant| {
-            thread.opening();
+            thread.opening(now);
             recalling
                 .recalled(thread, now, None)
                 .instruction_text()
@@ -1035,60 +1059,113 @@ mod tests {
         thread.person("Is it raining?", true, at(0));
         thread.lamp(1, "Not yet.", at(1));
         seen(&mut thread, Some(&a), at(2));
-        assert!(thread.switch_now(false, false));
+        assert!(thread.switch_now(false, false, at(2)));
         let minh = opened(&mut thread, at(2));
         assert!(!minh.contains("raining"), "only theirs: {minh}");
         thread.person("Keep my locker code, 417.", true, at(3));
         thread.lamp(2, "Kept: 417.", at(4));
         // (b) Minh looks away for a few seconds: the same session.
         seen(&mut thread, None, at(10));
-        assert!(!thread.switch_due());
+        assert!(!thread.switch_due(at(10)));
         seen(&mut thread, Some(&a), at(12));
-        // (a) Minh gone 30 s: a new session for the room, nothing of Minh's.
+        // (a) Minh unseen 30 s and nothing said for two minutes: a new
+        // session for the room, nothing of Minh's. Unseen 30 s alone is not
+        // enough while the conversation is recent.
         seen(
             &mut thread,
             None,
             at(12) + GONE_AFTER - Duration::from_secs(1),
         );
-        assert!(!thread.switch_due());
+        assert!(!thread.switch_due(at(41)));
         seen(&mut thread, None, at(12) + GONE_AFTER);
-        assert!(thread.switch_now(false, false));
-        let room = opened(&mut thread, at(43));
+        assert!(!thread.switch_now(false, false, at(42)));
+        assert!(!thread.switch_due(at(4 + 119)));
+        assert!(thread.switch_now(false, false, at(4 + 120)));
+        let room = opened(&mut thread, at(124));
         assert!(!room.contains("417"), "{room}");
         assert!(room.contains("Not yet."), "the room's own: {room}");
-        assert!(!thread.switch_due());
+        assert!(!thread.switch_due(at(124)));
         // (c) Minh, then Sam at once: Sam's session has only Sam's.
-        seen(&mut thread, Some(&a), at(50));
-        opened(&mut thread, at(50));
-        seen(&mut thread, Some(&b), at(51));
-        assert!(thread.switch_now(false, false));
+        seen(&mut thread, Some(&a), at(130));
+        opened(&mut thread, at(130));
+        seen(&mut thread, Some(&b), at(131));
+        assert!(thread.switch_now(false, false, at(131)));
         // (e) Sam speaks before the switch: deferred while the turn is open
         // or its answer is still being handed on, and the exchange is Sam's.
-        thread.person("What is my locker code?", true, at(52));
-        assert!(!thread.switch_now(true, false) && !thread.switch_now(false, true));
-        thread.lamp(3, "I don't remember.", at(53));
-        assert!(thread.switch_now(false, false));
-        let sam = opened(&mut thread, at(54));
+        thread.person("What is my locker code?", true, at(132));
+        assert!(
+            !thread.switch_now(true, false, at(132)) && !thread.switch_now(false, true, at(132))
+        );
+        thread.lamp(3, "I don't remember.", at(133));
+        assert!(thread.switch_now(false, false, at(133)));
+        let sam = opened(&mut thread, at(134));
         assert!(!sam.contains("417") && !sam.contains("Not yet."), "{sam}");
         assert!(sam.contains("I don't remember."), "{sam}");
         // (d) Minh comes back: their thread is there again.
-        seen(&mut thread, Some(&a), at(60));
-        let back = opened(&mut thread, at(60));
+        seen(&mut thread, Some(&a), at(140));
+        let back = opened(&mut thread, at(140));
         assert!(back.contains("Kept: 417."), "{back}");
         assert!(!back.contains("I don't remember.") && !back.contains("Not yet."));
         // The file keeps whose each exchange is, as a memory id only.
-        let text = thread.save(at(61), SystemTime::now()).unwrap();
+        let text = thread.save(at(141), SystemTime::now()).unwrap();
         assert!(text.contains(&a) && text.contains(&b) && !text.contains("Minh"));
-        let mut read = Thread::load(&text, at(61), SystemTime::now());
+        let mut read = Thread::load(&text, at(141), SystemTime::now());
         read.at_lamp(Some(b.clone()));
-        read.opening();
-        let told = read.recall(at(61), ROOM).unwrap();
+        read.opening(at(141));
+        let told = read.recall(at(141), ROOM).unwrap();
         assert!(told.contains("I don't remember.") && !told.contains("417"));
         let forged = text.replace(&a, "../Minh");
-        let mut read = Thread::load(&forged, at(61), SystemTime::now());
+        let mut read = Thread::load(&forged, at(141), SystemTime::now());
         read.at_lamp(Some("../Minh".into()));
-        read.opening();
-        assert_eq!(read.recall(at(61), ROOM), None);
+        read.opening(at(141));
+        assert_eq!(read.recall(at(141), ROOM), None);
+    }
+
+    /// First builder on #775: a known person who keeps talking while the
+    /// eyes do not see them keeps their session; it becomes the room's only
+    /// after two minutes with nothing said.
+    #[test]
+    fn a_known_person_talking_unseen_keeps_their_session_until_two_quiet_minutes() {
+        use crate::known_faces::Presence;
+        let start = Instant::now();
+        let at = |seconds: u64| start + Duration::from_secs(seconds);
+        let minh = crate::remember::person_id("Minh");
+        let mut presence = Presence::default();
+        let mut thread = Thread::new();
+        let mut seen = |thread: &mut Thread, known: Option<&str>, now: Instant| {
+            thread.at_lamp(
+                presence
+                    .seen(known.map(str::to_owned), now)
+                    .map(str::to_owned),
+            );
+        };
+        seen(&mut thread, Some(&minh), at(0));
+        thread.opening(at(0));
+        // Unseen from 0 s; at 40 s the eyes have counted them gone, but
+        // they talk at 20 s and 50 s.
+        for second in 1..=170 {
+            seen(&mut thread, None, at(second));
+            if second == 20 || second == 50 {
+                thread.person("And then?", true, at(second));
+                thread.lamp(second, "Then the bus came.", at(second));
+            }
+            assert_eq!(
+                thread.switch_now(false, false, at(second)),
+                second >= 50 + 120,
+                "{second} s"
+            );
+        }
+        // What was said while unseen is Minh's, and so is the session.
+        assert!(
+            thread
+                .exchanges
+                .iter()
+                .all(|e| e.whose.as_ref() == Some(&minh))
+        );
+        assert_eq!(thread.opened_for(), Some(minh.as_str()));
+        assert!(thread.opening(at(170)));
+        assert_eq!(thread.opened_for(), None);
+        assert_eq!(thread.recall(at(170), ROOM), None);
     }
 
     /// With nobody ever known, a thread is what it always was: the room's,
@@ -1097,8 +1174,8 @@ mod tests {
     fn with_nobody_ever_known_nothing_changes() {
         let mut thread = Thread::new();
         let start = Instant::now();
-        assert!(!thread.switch_due() && !thread.switch_now(false, false));
-        assert!(!thread.opening());
+        assert!(!thread.switch_due(start) && !thread.switch_now(false, false, start));
+        assert!(!thread.opening(start));
         for request in 0..12u64 {
             thread.person("hello", true, start);
             thread.lamp(request, "hi", start);
@@ -1106,7 +1183,7 @@ mod tests {
         assert_eq!(thread.exchanges.len(), EXCHANGES);
         let text = thread.save(start, SystemTime::now()).unwrap();
         assert!(!text.contains("whose"), "{text}");
-        assert!(!thread.opening());
+        assert!(!thread.opening(start + QUIET_BEFORE_ROOM));
     }
 
     /// Each person's thread is bounded, and so is how many are kept.

@@ -230,7 +230,8 @@ this room" until someone asks to be recognised.
     room's (#764, [memory.md](memory.md#each-persons-own-764)). Forgetting
     a face does not forget what that person said.
   - With a memory, each provider session is one person's: when the known
-    person changes (someone else at once, nobody after 30 s unseen), a new
+    person changes (someone else at once, nobody after 30 s unseen and two
+    minutes with nothing said), a new
     session is opened between turns and told only their thread and kept
     things ([memory.md](memory.md#a-session-for-each-person-764-follow-up)).
 

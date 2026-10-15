@@ -23,6 +23,10 @@ speaker).
 | 3 | Minh again | same | new session with Minh's material; `recall` (6 ms): "It's 417." |
 | 4 | nobody for 10 s, then Minh | "Hey Lamp, and what was the code again?" | no new session (under the 30 s for someone gone): "It's 417." |
 
+Turn 6 in `transcripts.jsonl` ("Your locker code is 417.", 28 s after turn 5) was not unasked: at 8,333.80 s a sound of about 0.7 s was admitted as input (ended by the short silence fallback, 600 ms), transcribed "¿Qué?", a sound from the office heard so all day on lamp-52e6; the model took it as "What?" and repeated the code. It fell within Minh's 10 s look-away, so the same session and person. It is the short-sounds path (`LAMP_SHORT_SOUNDS=quiet-room`), not this change.
+
+This run was of `a858fa0e9`, where 30 s unseen was enough. Since the first builder's review on #775, nobody known also needs two minutes with no exchange, so turn 2, under two minutes after turn 1, would now stay in Minh's session.
+
 Before this change, step 2 was answered "It's 417" from the open session
 ([real-face run](../memory-per-person-real-face-lamp-52e6-20261015/)).
 

@@ -343,6 +343,16 @@ provider session is one person's:
   counts only after 30 s without a fresh file (`GONE_AFTER`): the eyes
   renew it within 3 s while they see the face, so looking away for a few
   seconds is not a change.
+- **Nobody ends a person's session only when it has gone quiet**: after the
+  30 s unseen, and also two minutes with no exchange in the thread
+  (`QUIET_BEFORE_ROOM`) and no turn open. Recognition needs the face, and
+  lamp-4ace stands sideways to its desk: a known person who keeps talking
+  while turned to a monitor, a book or someone else would otherwise be
+  given a room session told the room's thread, and lose what they were
+  just talking about. Until then the session stays theirs and what is said
+  is kept as theirs. So someone new who speaks within two minutes of a
+  known person leaving, without being recognised, is still in that
+  person's session, as before #775; that is the narrow case left.
 - **When that is not whom the session was opened for**, the worker asks for
   a new session (`renew_when_idle`), only between turns: no request open
   and nothing of an answer still to be handed on; a change during a turn

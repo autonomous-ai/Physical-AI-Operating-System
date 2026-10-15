@@ -356,6 +356,19 @@ request; the observer withdraws `ready` and the actionable notice when its last
 owner report becomes stale, provided the observer and bus can still progress.
 Shutdown likewise cannot force a blocked filesystem call to return.
 
+A requested stop is not a storage failure (#869). The storage worker watches
+the same stop flag as the service's loop, so it may end within the loop's pass
+that the stop arrives in. The loop looks at the worker first and the flag
+after: a worker found ended while no stop had been asked for is a failure
+(`Schedule store worker stopped`), and the last report before it says it is
+not progressing. A worker that ended after a stop has stopped as asked, and no
+such report is published. Either way its own result is read when it is joined,
+so an error of its own is still returned. Tests:
+`a_stop_asked_for_while_the_store_worker_ends_within_a_pass_is_a_clean_stop`
+(fails with that message without the fix) and
+`a_store_worker_that_fails_with_no_stop_asked_for_is_still_a_failure`
+(`crates/schedule/src/runtime.rs`).
+
 The interactive targets, not measured lamp guarantees, are: a complete valid
 request to durable response within **250 ms** on healthy storage; due detection
 within **50 ms plus storage and queue time**; and the main observer beginning

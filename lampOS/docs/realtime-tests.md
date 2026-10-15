@@ -5,10 +5,15 @@ on the real clock form the nextest test group `realtime`
 ([`.config/nextest.toml`](../.config/nextest.toml)). In the ARM64 run
 (`.github/workflows/lampos-arm64.yml`):
 
-| Event | nextest profile | Realtime group |
-|---|---|---|
-| Pull request into `lamp-voice`, manual run | `pr` | skipped |
-| Push to `lamp-voice` (every merge) | `default` | run, one test at a time as before |
+| Event | nextest profile | Realtime group | Runners | Tests at once |
+|---|---|---|---|---|
+| Pull request into `lamp-voice`, manual run | `pr` | skipped | 1 | one per core |
+| Push to `lamp-voice` (every merge) | `default` | run | 4 | one, as before |
+
+A pull request uses one runner because each runner compiles every test
+binary again (about 5 of its 10 minutes); its tests without the realtime
+group take about a minute in parallel. Run 38719393271 (four shards, one
+test at a time) spent 47 to 59 s per shard on tests.
 
 When a run on `lamp-voice` fails, a job opens an issue titled "lampOS: the
 full ARM64 run on lamp-voice failed", or comments on the open one. Nothing

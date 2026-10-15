@@ -68,7 +68,12 @@ worker is gone while the voice is muted.
 ### A tap on the head at rest: the listening face (#711)
 
 Same switch and same worker. A tap on the head (Controls' `controls/touch`,
-a fresh, enabled head Tap from `controls`) is read on every ring tick.
+a fresh, enabled head Tap from `controls`) is read on every ring tick, at
+most four requests a tick, and only after the tick's Stop, Authority and
+expiry have been served (#849 review): a flood of head requests from four
+senders cannot hold back a pending Stop or a permit's expiry
+(`a_flood_of_head_requests_never_holds_back_revocation_or_expiry`, which
+fails on the earlier unbounded read before the controls).
 - **Shown:** at rest, the resting face becomes the listening face, the one a
   turn shows while it listens, for `TAP_LISTENS_US` (2 s, as long as a call
   waits for the rest on lamp-4ace, #891).

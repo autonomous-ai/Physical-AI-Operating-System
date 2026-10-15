@@ -380,3 +380,51 @@ fn the_picture_lines_are_counted_against_labels_by_the_nearest_moment() {
         json!({"labelled": 2, "right": 1, "yes": 0})
     );
 }
+
+/// The reviewer on #873: one label near two lines labels only the nearer,
+/// so a decision nobody labelled is not counted as labelled; a label nearer
+/// a line with no frame stays with that line; a label equally near two is
+/// given to neither; two labels that disagree on one line are both dropped.
+#[test]
+fn each_label_is_given_once_to_the_nearest_line() {
+    let sent = |at: u64, with: &str| {
+        json!({"at_unix_ms": at, "about": "attention_picture",
+               "picture": {"sent": true},
+               "seen": {"facing": 1},
+               "without": {"choice": with, "took_ms": 500},
+               "with": {"choice": with, "took_ms": 900, "answers": {"picture_faces_lamp": 0.9}}})
+    };
+    let none = |at: u64| {
+        json!({"at_unix_ms": at, "about": "attention_picture",
+               "picture": {"sent": false, "why_not": "no_frame"}})
+    };
+    let lines = [
+        sent(9_000, "answer"),
+        sent(12_000, "stay_quiet"),
+        none(30_000),
+        sent(32_000, "answer"),
+        sent(50_000, "answer"),
+        sent(52_000, "answer"),
+        sent(70_000, "answer"),
+    ];
+    let labels = labels(
+        "{\"at_unix_ms\": 10000, \"should\": \"answer\"}\n\
+         {\"at_unix_ms\": 30500, \"should\": \"answer\"}\n\
+         {\"at_unix_ms\": 51000, \"should\": \"answer\"}\n\
+         {\"at_unix_ms\": 69900, \"should\": \"answer\"}\n\
+         {\"at_unix_ms\": 70100, \"should\": \"stay_quiet\"}\n\
+         {\"at_unix_ms\": 90000, \"should\": \"answer\"}",
+    )
+    .unwrap();
+    let summary = pictures_summary(&lines, &labels);
+    // Only the line at 9 s is labelled: 12 s is not, 32 s is not (the label
+    // went to the frameless line at 30 s), 50 and 52 s tie, and 70 s has two
+    // labels that disagree.
+    assert_eq!(summary["with"]["right"], json!({"labelled": 1, "right": 1}));
+    assert_eq!(summary["signs"]["picture_faces_lamp"]["labelled"], 1);
+    assert_eq!(summary["signs"]["eyes_facing"]["labelled"], 1);
+    assert_eq!(
+        summary["labels"],
+        json!({"given": 6, "matched": 2, "unmatched": 1, "ambiguous": 1, "conflicting": 2})
+    );
+}

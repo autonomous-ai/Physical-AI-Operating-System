@@ -25,6 +25,9 @@ What is one lamp's own is outside them:
 | `lamp-<part>.service` | Each part, `PartOf=` and `WantedBy=lampos.target`, in keeper.md's order |
 | `lamp-update.service` | Outside the target; `--apply on`; the channel on GitHub |
 | `lamp-records.service`, `lamp-records.timer` | Hourly, outside the target |
+| `lamp-setup.service` | First boot only: while the marker is missing and setup's settings exist (#806, #811) |
+| `lampos-setup-done.path` | Starts `lampos.target` once the marker exists ([install.md](../../docs/install.md), "Setup at first boot, without the keeper") |
+| `lamp-setup-reset.service` | In the target: the reset button held 5 s |
 
 `lamp-update install` (docs/install.md) carries all of these inside it and puts them on a lamp.
 

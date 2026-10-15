@@ -415,6 +415,9 @@ struct Rig {
     /// request that goes on with the one the lamp just ended says so in its
     /// Start (#782).
     cut_keeps_name: bool,
+    /// How long an utterance that is only the lamp's name waits for the
+    /// rest (`--call-wait-ms`, #782).
+    call_wait_blocks: Option<u16>,
     /// Whether the keeper has paused the lamp ([`keeper_pause`]).
     paused: KeeperPause,
     /// The standby voice route, when one is configured (`second.rs`).
@@ -2221,6 +2224,7 @@ fn spawn_rig(
         playout_start: options.playout_start,
         microphone: options.microphone,
         endpoint,
+        call_wait_blocks: options.call_wait_blocks,
         cut_keeps_name: crate::attention::cut_keeps_name(),
         paused: keeper_pause(lamp_bus::Bus::from_environment()),
         second,
@@ -2741,7 +2745,7 @@ fn conversation_with_gate(
     // The lamp's name as its own part hears it in the room's sound, for a
     // second look at something said to it by name that got nothing. Only
     // if that is switched on.
-    let mut name_in = crate::second_look::on()
+    let mut name_in = (crate::second_look::on() || rig.call_wait_blocks.is_some())
         .then(crate::bus_out::NameIn::from_environment)
         .flatten();
     let mut second_look =
@@ -2762,6 +2766,18 @@ fn conversation_with_gate(
         },
     )?;
     record(trace, endpoint_policy)?;
+    // A bare call ends nothing (#782): with `--call-wait-ms`, an utterance
+    // that is only the lamp's name waits that long for the rest.
+    if let Some(blocks) = rig.call_wait_blocks {
+        detector = detector.with_call_wait(blocks).map_err(io::Error::other)?;
+        record(
+            trace,
+            json!({"kind":"call_wait_policy","at_us":monotonic_us(),
+                "wait_ms":u64::from(blocks) * 10,
+                "most_speech_ms":u64::from(crate::activity::CALL_SPEECH_BLOCKS) * 10,
+                "basis":"the lamp's name heard by lamp-name on the bus (name/heard) in an utterance that is only that so far"}),
+        )?;
+    }
     // The end sent early, if that is switched on: the request is ended to
     // the provider after a short quiet, and its answer held until the
     // detector's own end of speech confirms it (`early_end`).
@@ -4654,7 +4670,17 @@ fn conversation_with_gate(
         if let Some(names) = name_in.as_mut()
             && let Some((began, score)) = names.newest_scored(clock)
         {
-            second_look.name_heard(began, score);
+            if crate::second_look::on() {
+                second_look.name_heard(began, score);
+            }
+            // Only the call so far: its end waits for the rest (#782).
+            if detector.name_heard(began) {
+                record(
+                    trace,
+                    json!({"kind":"call_wait","at_us":clock,"name_began_us":began,"score":score,
+                        "turn":reply.as_ref().map(|current| current.owner.turn())}),
+                )?;
+            }
         }
         // A second look at something said to the lamp by name that got
         // nothing, as soon as the lamp is at rest. Someone who has spoken
@@ -6263,6 +6289,7 @@ mod tests {
             turn_taking: TurnTaking::VadOnly,
             playout_start: PlayoutStart::default(),
             endpoint: None,
+            call_wait_blocks: None,
             cut_keeps_name: false,
             paused: Box::new(|| false),
         };

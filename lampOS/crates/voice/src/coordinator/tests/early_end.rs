@@ -686,6 +686,7 @@ impl Setup {
             // As lamp-4ace.
             playout_start: PlayoutStart::new(350).unwrap(),
             endpoint: None,
+            call_wait_blocks: None,
             cut_keeps_name: self.cut_keeps_name,
             paused: Box::new(|| false),
         };

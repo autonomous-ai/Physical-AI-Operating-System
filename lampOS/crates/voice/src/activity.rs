@@ -22,6 +22,16 @@ pub const MAX_END_SILENCE_BLOCKS: u16 = 200;
 pub(crate) const SILENCE_PROBABILITY: f32 = 0.35;
 /// [`START_BLOCKS`] blocks in a row scoring this or more begin an utterance.
 pub(crate) const START_PROBABILITY: f32 = 0.80;
+/// An utterance with no more speech than this when the lamp's name is
+/// heard in it is only the call ("Hey Lamp," / "Lamp,"): `--call-wait-ms`
+/// holds its end for the rest (#782). "Hey Lamp," played at the office's
+/// rate is about 0.7 s.
+pub const CALL_SPEECH_BLOCKS: u16 = 120;
+/// A name heard this long before the utterance began is its own: the
+/// detector takes a moment to be sure someone is speaking.
+pub const CALL_BEFORE_US: u64 = 500_000;
+/// The longest a call may wait for the rest: 3 s.
+pub const MAX_CALL_WAIT_BLOCKS: u16 = 300;
 
 pub struct SpeechProbability {
     vad: VoiceActivityDetectorWrapper,
@@ -85,6 +95,15 @@ pub struct TurnDetector {
     /// After a capture gap cut someone's utterance (#784): what they still
     /// say of it is dropped until they pause, so it is not a new question.
     await_pause: bool,
+    /// How long an utterance that is only the lamp's name waits for the
+    /// rest (`--call-wait-ms`, #782); None, the default, waits as any other.
+    call_wait_blocks: Option<u16>,
+    /// When the utterance in hand began, how much of it was speech, and
+    /// whether its end waits for the rest of a call, or already did.
+    began_us: u64,
+    speech_blocks: u16,
+    waiting: bool,
+    waited: bool,
 }
 
 impl Default for TurnDetector {
@@ -102,6 +121,11 @@ impl Default for TurnDetector {
             abandoned: false,
             ignore_through_us: None,
             await_pause: false,
+            call_wait_blocks: None,
+            began_us: 0,
+            speech_blocks: 0,
+            waiting: false,
+            waited: false,
         }
     }
 }
@@ -142,6 +166,41 @@ impl TurnDetector {
     }
 
     /// Configured silence window; with confirmation it is the fallback.
+    /// An utterance that is only the lamp's name waits this many blocks of
+    /// quiet for the rest (#782): longer than the end-of-speech wait, and
+    /// [`MAX_CALL_WAIT_BLOCKS`] at most.
+    pub fn with_call_wait(mut self, blocks: u16) -> Result<Self, &'static str> {
+        if blocks <= self.end_silence_blocks || blocks > MAX_CALL_WAIT_BLOCKS {
+            return Err(
+                "a call's wait must be longer than the end-of-speech wait, and 3 s at most",
+            );
+        }
+        self.call_wait_blocks = Some(blocks);
+        Ok(self)
+    }
+
+    pub fn call_wait_blocks(&self) -> Option<u16> {
+        self.call_wait_blocks
+    }
+
+    /// The lamp's name was heard, beginning at `began_us` by the capture
+    /// clock. If the utterance in hand is only that call so far, its end
+    /// now waits for the rest, once, for the call wait: until more speech
+    /// comes, which is then ended as any other, or the wait runs out.
+    /// Whether it waits.
+    pub fn name_heard(&mut self, began_us: u64) -> bool {
+        let applies = self.call_wait_blocks.is_some()
+            && self.active
+            && !self.waited
+            && began_us.saturating_add(CALL_BEFORE_US) >= self.began_us
+            && self.speech_blocks <= CALL_SPEECH_BLOCKS;
+        if applies {
+            self.waiting = true;
+            self.waited = true;
+        }
+        applies
+    }
+
     pub fn endpoint_silence_ms(&self) -> u64 {
         u64::from(self.end_silence_blocks) * 10
     }
@@ -202,13 +261,33 @@ impl TurnDetector {
             }
             let speech = probability >= SILENCE_PROBABILITY;
             self.silence_count = if speech { 0 } else { self.silence_count + 1 };
-            let decision = match self.confirmation.as_mut().filter(|_| !self.abandoned) {
+            if speech {
+                self.speech_blocks = self.speech_blocks.saturating_add(1);
+            }
+            let mut decision = match self.confirmation.as_mut().filter(|_| !self.abandoned) {
                 Some(confirmation) => confirmation.observe(&frame.samples, speech),
                 None => (self.silence_count >= self.end_silence_blocks)
                     .then(|| EndpointDecision::silence(self.silence_count)),
             };
+            // Only the lamp's name so far: nothing ends it until the rest
+            // comes or the call's wait runs out (#782).
+            if self.waiting
+                && let Some(wait) = self.call_wait_blocks
+            {
+                if speech {
+                    self.waiting = false;
+                } else if self.silence_count < wait {
+                    decision = None;
+                } else {
+                    let mut ran_out =
+                        decision.unwrap_or_else(|| EndpointDecision::silence(self.silence_count));
+                    ran_out.call_wait_ms = Some(u64::from(wait) * 10);
+                    decision = Some(ran_out);
+                }
+            }
             if let Some(decision) = decision {
                 self.active = false;
+                self.waiting = false;
                 self.start_count = 0;
                 self.silence_count = 0;
                 self.abandoned = false;
@@ -230,6 +309,10 @@ impl TurnDetector {
             self.active = true;
             self.active_blocks = self.prefix.len() as u32;
             self.silence_count = 0;
+            self.began_us = self.prefix.front().map_or(0, |first| first.captured_at_us);
+            self.speech_blocks = self.start_count;
+            self.waiting = false;
+            self.waited = false;
             if let Some(confirmation) = self.confirmation.as_mut() {
                 confirmation.begin(&self.prefix);
             }
@@ -275,6 +358,7 @@ impl TurnDetector {
         self.active_blocks = 0;
         self.active = false;
         self.abandoned = false;
+        self.waiting = false;
         self.cancel_confirmation();
     }
 
@@ -288,6 +372,7 @@ impl TurnDetector {
         self.abandoned = false;
         self.ignore_through_us = None;
         self.await_pause = false;
+        self.waiting = false;
         self.cancel_confirmation();
     }
 
@@ -428,6 +513,10 @@ pub struct EndpointDecision {
     pub fallback: Option<&'static str>,
     /// The verdict this decision used.
     pub verdict: Option<VerdictTrace>,
+    /// The call's wait that ran out first, when the utterance was only the
+    /// lamp's name (`--call-wait-ms`, #782). Absent otherwise.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub call_wait_ms: Option<u64>,
 }
 
 impl EndpointDecision {
@@ -438,6 +527,7 @@ impl EndpointDecision {
             probability: None,
             fallback: None,
             verdict: None,
+            call_wait_ms: None,
         }
     }
 }
@@ -639,6 +729,7 @@ impl Confirmation {
             probability: heard.map(|heard| heard.probability),
             fallback,
             verdict: heard.map(|heard| heard.trace),
+            call_wait_ms: None,
         };
         match self.pause {
             Pause::Heard(heard)

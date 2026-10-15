@@ -883,6 +883,7 @@ fn motor_crash_preserves_actual_voice_owner_and_next_audio_dispatch() {
         turn_taking: TurnTaking::VadOnly,
         playout_start: PlayoutStart::default(),
         endpoint: None,
+        call_wait_blocks: None,
         cut_keeps_name: false,
         paused: Box::new(|| false),
     };
@@ -1272,6 +1273,7 @@ fn failed_reap_after_stopped_is_latched_and_reported_once() {
         turn_taking: TurnTaking::VadOnly,
         playout_start: PlayoutStart::default(),
         endpoint: None,
+        call_wait_blocks: None,
         cut_keeps_name: false,
         paused: Box::new(|| false),
     };

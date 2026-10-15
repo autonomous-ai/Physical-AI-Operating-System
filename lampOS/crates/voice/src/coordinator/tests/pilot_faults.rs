@@ -1403,6 +1403,7 @@ fn run_in(script: Script, trace: &mut SessionState) -> Run {
         turn_taking: script.turn_taking,
         playout_start: PlayoutStart::default(),
         endpoint: None,
+        call_wait_blocks: None,
         cut_keeps_name: false,
         paused: Box::new({
             let paused = paused.clone();

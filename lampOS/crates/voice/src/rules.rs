@@ -238,8 +238,10 @@ fn typed_mark(args: &Value) -> Result<String, Value> {
 
 /// `HH:MM`, 24 hours, as the minute of the day.
 fn minute(time: &str) -> Option<u16> {
-    let (hours, minutes) = time.trim().split_once(':')?;
-    if !(1..=2).contains(&hours.len()) || minutes.len() != 2 {
+    // Digits only: `parse` alone takes a sign, so "+1:+2" read as 01:02.
+    let (hours, minutes) = time.split_once(':')?;
+    let digits = |part: &str| part.bytes().all(|byte| byte.is_ascii_digit());
+    if !(1..=2).contains(&hours.len()) || minutes.len() != 2 || !digits(hours) || !digits(minutes) {
         return None;
     }
     let (hours, minutes) = (hours.parse::<u16>().ok()?, minutes.parse::<u16>().ok()?);
@@ -785,6 +787,12 @@ mod tests {
             json!({"rule":"r","about":"news","not_before":"9"}),
             json!({"rule":"r","about":"news","not_before":"24:00"}),
             json!({"rule":"r","about":"news","not_before":"09:5"}),
+            json!({"rule":"r","about":"news","not_before":"+1:+2"}),
+            json!({"rule":"r","about":"news","not_before":"-0:00"}),
+            json!({"rule":"r","about":"news","not_before":" 9:00"}),
+            json!({"rule":"r","about":"news","not_before":"09: 00"}),
+            json!({"rule":"r","about":"news","not_from":"23:60"}),
+            json!({"rule":"r","about":"news","not_from":"123:00"}),
             json!({"rule":"r","about":"news","not_before":540}),
             json!({"rule":"r","about":"news","not_before":"09:00","not_from":"09:00"}),
         ] {

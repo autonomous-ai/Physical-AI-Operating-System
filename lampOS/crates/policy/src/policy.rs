@@ -750,6 +750,9 @@ struct Policy<'a> {
     hello: Option<Hello>,
     /// The picture's askings (`--images`, #871), if started.
     pictures: Option<Pictures>,
+    /// Whether the attention decisions are shadow: always, unless
+    /// `--act attention` (#800).
+    attention_shadow: bool,
 }
 
 impl Policy<'_> {
@@ -948,7 +951,7 @@ impl Policy<'_> {
             answers: answers.clone(),
             by: by.clone(),
             took_ms,
-            shadow: SHADOW,
+            shadow: self.attention_shadow,
             request: utterance.request,
             task: None,
             arrival: None,
@@ -967,7 +970,7 @@ impl Policy<'_> {
         let line = Line {
             at_unix_ms,
             about: attention::ABOUT,
-            shadow: SHADOW,
+            shadow: self.attention_shadow,
             context: &context,
             in_conversation: context.in_conversation(),
             state: attention::state(&context),
@@ -1223,7 +1226,7 @@ impl Policy<'_> {
         let report = Diagnostic::new(level, NAME, message)
             .with("decided", self.totals.decided)
             .with("by_rule", self.totals.by_rule)
-            .with("shadow", SHADOW);
+            .with("shadow", self.attention_shadow);
         // Only with `--progress`: without it the report is as it was.
         let report = match self.progress.as_ref() {
             Some(progress) => {
@@ -1391,7 +1394,7 @@ pub fn run_with_questions<D: Decider + Send + 'static>(
         Beside {
             progress,
             hello,
-            pictures: None,
+            ..Beside::default()
         },
     )
 }
@@ -1405,6 +1408,10 @@ pub struct Beside {
     pub progress: Option<Progress>,
     pub hello: Option<Hello>,
     pub pictures: Option<Pictures>,
+    /// The attention decisions act (`--act attention`, #800): published
+    /// with `shadow: false`, so that the voice holds the lamp's actions on a
+    /// `stay_quiet` (`LAMP_POLICY_HOLDS_ACTIONS=on`). Speech is not held.
+    pub act_attention: bool,
 }
 
 /// [`run`], with whatever [`Beside`] gives. With nothing, it is [`run`].
@@ -1469,11 +1476,13 @@ fn run_inner<D: Decider + Send + 'static>(
 ) -> io::Result<Totals> {
     let Extras {
         local,
-        beside: Beside {
-            progress,
-            hello,
-            pictures,
-        },
+        beside:
+            Beside {
+                progress,
+                hello,
+                pictures,
+                act_attention,
+            },
     } = extras;
     let mut heard = Ear::new(bus, HEARD, Speech::TYPE)?;
     let mut said = Ear::new(bus, SAID, Speech::TYPE)?;
@@ -1531,6 +1540,7 @@ fn run_inner<D: Decider + Send + 'static>(
         progress,
         hello,
         pictures,
+        attention_shadow: SHADOW && !act_attention,
     };
     policy.second();
     if let Some(judges) = policy.judges.take() {

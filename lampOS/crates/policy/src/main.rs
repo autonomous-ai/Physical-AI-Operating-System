@@ -30,7 +30,7 @@ use std::{
     time::Duration,
 };
 
-const USAGE: &str = "usage: lamp-policy --key-file ABSOLUTE_PATH --log-dir ABSOLUTE_DIR [--endpoint URL] [--model NAME] [--deadline-ms N] [--bus-root ABSOLUTE_DIR] [--progress] [--hello] [--utc-offset-minutes N] [--act progress] [--act hello] [--images MODEL [--sight-file ABSOLUTE_PATH]]";
+const USAGE: &str = "usage: lamp-policy --key-file ABSOLUTE_PATH --log-dir ABSOLUTE_DIR [--endpoint URL] [--model NAME] [--deadline-ms N] [--bus-root ABSOLUTE_DIR] [--progress] [--hello] [--utc-offset-minutes N] [--act progress] [--act hello] [--act attention] [--images MODEL [--sight-file ABSOLUTE_PATH]]";
 const HELP: &str = "The lamp's policy, in shadow mode: judges whether each thing the voice hears was said to\n\
 the lamp, publishes the decision on the bus (policy/decisions) and writes it down. Nothing\n\
 acts on it. See docs/policy.md.\n\
@@ -52,6 +52,9 @@ acts on it. See docs/policy.md.\n\
   --hello        also judge whether a hello the voice holds (voice/arrival) is said now, with\n\
                  a connection of its own to the same model. Off unless set\n\
   --act hello    the hello decisions act: say_now says the hello, wait keeps it. Needs --hello\n\
+  --act attention  \"is this said to the lamp?\" is published with shadow false, so that the voice\n\
+                 holds the lamp's actions on a stay_quiet (LAMP_POLICY_HOLDS_ACTIONS=on); speech\n\
+                 is not held. Off unless set\n\
   --images       also ask MODEL (typesafe/jev-1.14 takes pictures) each attention question twice at once,\n\
                  without the eyes' newest frame and with it and six questions about it, and write both\n\
                  to pictures-YYYY-MM-DD.jsonl. Shadow; the decision never waits for it. A frame is sent\n\
@@ -78,6 +81,9 @@ struct Arguments {
     /// off unless set.
     hello: bool,
     act_hello: bool,
+    /// The attention decisions act (`--act attention`, #800): off unless
+    /// set.
+    act_attention: bool,
     /// The images model asked with the eyes' frame (`--images`, #871): off
     /// unless set.
     images: Option<String>,
@@ -89,6 +95,7 @@ fn parse(arguments: impl Iterator<Item = String>) -> Result<Option<Arguments>, S
         (None, None, None, None, None, None);
     let (mut progress, mut utc_offset_minutes) = (false, None);
     let (mut hello, mut act_progress, mut act_hello) = (false, false, false);
+    let mut act_attention = false;
     let (mut images, mut sight_file) = (None, None);
     let mut arguments = arguments;
     while let Some(option) = arguments.next() {
@@ -142,8 +149,12 @@ fn parse(arguments: impl Iterator<Item = String>) -> Result<Option<Arguments>, S
             "--act" => match value.as_str() {
                 "progress" => std::mem::replace(&mut act_progress, true),
                 "hello" => std::mem::replace(&mut act_hello, true),
+                "attention" => std::mem::replace(&mut act_attention, true),
                 _ => {
-                    return Err("--act takes progress or hello, the questions that may act".into());
+                    return Err(
+                        "--act takes progress, hello or attention, the questions that may act"
+                            .into(),
+                    );
                 }
             },
             "--utc-offset-minutes" => {
@@ -191,6 +202,7 @@ fn parse(arguments: impl Iterator<Item = String>) -> Result<Option<Arguments>, S
         act_progress,
         hello,
         act_hello,
+        act_attention,
         images,
         sight_file,
     }))
@@ -215,6 +227,7 @@ fn questions(arguments: &Arguments) -> String {
     let acting: Vec<&str> = [
         (arguments.act_progress, "progress"),
         (arguments.act_hello, "hello"),
+        (arguments.act_attention, "attention"),
     ]
     .into_iter()
     .filter_map(|(acts, name)| acts.then_some(name))
@@ -241,7 +254,7 @@ fn run(arguments: &Arguments) -> io::Result<()> {
         PAUSE.as_millis(),
         arguments.log_dir.display(),
         bus.root().display(),
-        policy::SHADOW,
+        policy::SHADOW && !arguments.act_attention,
         questions(arguments),
         arguments
             .images
@@ -304,6 +317,7 @@ fn run(arguments: &Arguments) -> io::Result<()> {
             progress,
             hello,
             pictures,
+            act_attention: arguments.act_attention,
         },
     )
     .map(|_| ())
@@ -366,6 +380,7 @@ mod tests {
                 act_progress: false,
                 hello: false,
                 act_hello: false,
+                act_attention: false,
                 images: None,
                 sight_file: None,
             }
@@ -385,6 +400,7 @@ mod tests {
                 act_progress: false,
                 hello: false,
                 act_hello: false,
+                act_attention: false,
                 images: None,
                 sight_file: None,
             }
@@ -426,6 +442,12 @@ mod tests {
             " progress=true hello=true act=progress,hello"
         );
         assert_eq!(questions(&acting), " progress=true act=progress");
+        // "Is this said to the lamp?" acting (#800), on its own.
+        let attending = of("--log-dir /d --key-file /k --act attention")
+            .unwrap()
+            .unwrap();
+        assert!(attending.act_attention && !attending.progress && !attending.hello);
+        assert_eq!(questions(&attending), " act=attention");
         let only = of("--log-dir /d --key-file /k --progress")
             .unwrap()
             .unwrap();
@@ -472,7 +494,6 @@ mod tests {
             "--key-file /k --log-dir",
             "--key-file /k --log-dir /d --progress --progress",
             "--key-file /k --log-dir /d --act progress",
-            "--key-file /k --log-dir /d --progress --act attention",
             "--key-file /k --log-dir /d --act hello",
             "--key-file /k --log-dir /d --progress --act hello",
             "--key-file /k --log-dir /d --hello --hello",
@@ -487,6 +508,7 @@ mod tests {
             "--key-file /k --log-dir /d --images m --sight-file s",
             "--key-file /k --log-dir /d --images --progress",
             "--key-file /k --log-dir /d --images m --images m",
+            "--key-file /k --log-dir /d --act attention --act attention",
         ] {
             assert!(of(refused).is_err(), "{refused:?}");
         }

@@ -622,3 +622,59 @@ fn with_images_the_question_is_asked_again_with_the_eyes_frame_beside_the_decisi
         assert!(!head.contains("TypeSafe-Danger-Zone-Images"));
     }
 }
+
+/// `--act attention` (#800): "is this said to the lamp?" is published, and
+/// written down, with `shadow: false`, for the voice to hold the lamp's
+/// actions by; the start line says so. Without it, the test above: shadow.
+#[test]
+fn with_act_attention_the_attention_decision_is_published_for_real() {
+    let places = Places::new("act");
+    let (port, _requests) = service();
+    let endpoint = format!("http://127.0.0.1:{port}/api/alpha/decisions");
+    let bus = Bus::new(&places.root).unwrap();
+    let [heard_topic, said_topic] = Speech::TOPICS;
+    let mut heard = bus
+        .publisher_declared(heard_topic, &Speech::declaration(), "voice")
+        .unwrap();
+    let _said = bus
+        .publisher_declared(said_topic, &Speech::declaration(), "voice")
+        .unwrap();
+    let mut decisions = bus
+        .subscribe_typed(Decision::TOPIC, "test", Decision::TYPE)
+        .unwrap();
+    let running = start_with(&places, &endpoint, &["--act", "attention"]);
+    for topic in [heard_topic, said_topic, VoiceState::TOPIC] {
+        listening(&bus, topic);
+    }
+    for text in ["I left", " the lamp on", " in the kitchen."] {
+        heard
+            .publish_json(
+                0,
+                &Speech {
+                    text: text.into(),
+                    finished: false,
+                    locale: None,
+                    request: None,
+                },
+            )
+            .unwrap();
+        thread::sleep(Duration::from_millis(50));
+    }
+    let message = decisions.recv(WAIT).unwrap().expect("a decision");
+    let decision: Decision = message.parse().unwrap();
+    assert_eq!(decision.check(), Ok(()));
+    assert_eq!(
+        (decision.about.as_str(), decision.shadow),
+        ("attention", false)
+    );
+    let lines = log(&places.kept.join("decisions"), 1);
+    assert_eq!(lines[0]["shadow"], false);
+    let output = running.end(&["lamp-policy: started", "lamp-policy: decision"]);
+    let printed = String::from_utf8_lossy(&output.stderr);
+    let started = printed
+        .lines()
+        .find(|line| line.starts_with("lamp-policy: started"))
+        .unwrap();
+    assert!(started.contains(" shadow=false"), "{started}");
+    assert!(started.contains(" act=attention"), "{started}");
+}

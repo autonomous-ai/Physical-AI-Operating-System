@@ -519,11 +519,16 @@ pub fn serve<C: Clock>(config: Config, clock: C, stop: Arc<AtomicBool>) -> io::R
         if let Ok(locked) = current.try_lock() {
             let report = locked.clone();
             drop(locked);
-            let ready = report.updated.elapsed() <= STALE_AFTER && !owner.is_finished();
-            let should_publish = last_publish
-                .is_none_or(|last: Instant| last.elapsed() >= Duration::from_secs(1))
-                || last_revision != Some(report.due.revision)
-                || was_ready != Some(ready);
+            let ended = owner.is_finished();
+            let ready = report.updated.elapsed() <= STALE_AFTER && !ended;
+            // A worker that ended for a stop asked for is not reported as
+            // one that stopped progressing (#869).
+            let stopped_as_asked = ended && stop.load(Ordering::Acquire);
+            let should_publish = !stopped_as_asked
+                && (last_publish
+                    .is_none_or(|last: Instant| last.elapsed() >= Duration::from_secs(1))
+                    || last_revision != Some(report.due.revision)
+                    || was_ready != Some(ready));
             if should_publish {
                 sequence = sequence.saturating_add(1);
                 let mut state = report.due;
@@ -561,8 +566,18 @@ pub fn serve<C: Clock>(config: Config, clock: C, stop: Arc<AtomicBool>) -> io::R
                 last_publish = Some(Instant::now());
             }
         }
+        // The store worker watches the same stop flag, so once a stop is
+        // asked for it may end at any moment, even within this pass: that is
+        // the stop asked for. The worker is looked at first and the flag
+        // after, so a worker found ended while no stop had been asked for
+        // even then has failed. One that ended after a stop has stopped, and
+        // its own result is still read when it is joined below (#869).
+        #[cfg(test)]
+        tests::before_owner_check();
         if owner.is_finished() {
-            failure = Some(io::Error::other("Schedule store worker stopped"));
+            if !stop.load(Ordering::Acquire) {
+                failure = Some(io::Error::other("Schedule store worker stopped"));
+            }
             break;
         }
         if failure.is_some() {
@@ -597,5 +612,115 @@ pub fn serve<C: Clock>(config: Config, clock: C, stop: Arc<AtomicBool>) -> io::R
         Err(e)
     } else {
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::cell::RefCell;
+
+    thread_local! {
+        /// Runs in the service's loop just before it looks at its store
+        /// worker, in the thread that set it only.
+        static BEFORE_OWNER_CHECK: RefCell<Option<Box<dyn FnMut()>>> = RefCell::new(None);
+    }
+
+    pub(super) fn before_owner_check() {
+        BEFORE_OWNER_CHECK.with(|hook| {
+            if let Some(hook) = hook.borrow_mut().as_mut() {
+                hook();
+            }
+        });
+    }
+
+    /// A clock that fails once `failing` is set.
+    #[derive(Clone)]
+    struct Test {
+        failing: Arc<AtomicBool>,
+    }
+    impl Clock for Test {
+        fn sample(&self) -> io::Result<ClockSample> {
+            if self.failing.load(Ordering::Acquire) {
+                return Err(io::Error::other("test clock failed"));
+            }
+            Ok(ClockSample {
+                unix_ms: 1_791_964_800_000,
+                boot_ms: 1_000,
+                boot_id: "test-boot".into(),
+                wall_trusted: true,
+            })
+        }
+    }
+
+    /// The service in its own thread with `hook` before each look at its
+    /// store worker, and its result.
+    fn serve_with(
+        clock: Test,
+        stop: Arc<AtomicBool>,
+        hook: impl FnMut() + Send + 'static,
+    ) -> io::Result<()> {
+        let root = tempfile::Builder::new()
+            .prefix("sch-")
+            .tempdir_in("/private/tmp")
+            .or_else(|_| tempfile::Builder::new().prefix("sch-").tempdir())
+            .unwrap();
+        let config = Config {
+            enabled: true,
+            dir: root.path().join("data"),
+            socket: root.path().join("run/s.sock"),
+            bus_root: root.path().join("b"),
+            zone: "Etc/UTC".into(),
+            run_for: Some(Duration::from_secs(5)),
+        };
+        let result = thread::spawn(move || {
+            BEFORE_OWNER_CHECK.with(|slot| *slot.borrow_mut() = Some(Box::new(hook)));
+            serve(config, clock, stop)
+        })
+        .join()
+        .unwrap();
+        drop(root);
+        result
+    }
+
+    #[test]
+    fn a_stop_asked_for_while_the_store_worker_ends_within_a_pass_is_a_clean_stop() {
+        // The stop comes after the loop's own look at the flag, and the
+        // worker ends on it before the loop looks at the worker: #869's run.
+        let stop = Arc::new(AtomicBool::new(false));
+        let asked = stop.clone();
+        let mut passes = 0;
+        let clock = Test {
+            failing: Arc::new(AtomicBool::new(false)),
+        };
+        let result = serve_with(clock, stop, move || {
+            passes += 1;
+            if passes == 3 {
+                asked.store(true, Ordering::Release);
+                // Longer than the worker's tick: it has seen the stop.
+                thread::sleep(TICK * 3);
+            }
+        });
+        assert!(result.is_ok(), "{result:?}");
+    }
+
+    #[test]
+    fn a_store_worker_that_fails_with_no_stop_asked_for_is_still_a_failure() {
+        let failing = Arc::new(AtomicBool::new(false));
+        let fail = failing.clone();
+        let mut passes = 0;
+        let result = serve_with(
+            Test { failing },
+            Arc::new(AtomicBool::new(false)),
+            move || {
+                passes += 1;
+                if passes == 3 {
+                    fail.store(true, Ordering::Release);
+                    thread::sleep(TICK * 3);
+                }
+            },
+        );
+        let error = result.expect_err("a failed worker is a failure");
+        assert!(error.to_string().contains("test clock failed"), "{error}");
     }
 }

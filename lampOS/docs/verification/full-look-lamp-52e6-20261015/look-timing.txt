@@ -1,0 +1,12 @@
+{"at_us": 19477512129, "kind": "look_full_asked", "service_sequence": 118, "turn": 1}
+{"after_asked_ms": 757, "at_us": 19478269562, "kind": "look_full_still", "service_sequence": 124, "still": true, "turn": 1}
+757 ms ask->still {}
+839 ms ask->still {}
+935 ms ask->still {}
+764 ms ask->still {}
+768 ms ask->still {}
+947 ms ask->still {}
+1060 ms ask->still {}
+622 ms ask->still {}
+773 ms ask->still {}
+852 ms ask->still {}

@@ -1,0 +1,20 @@
+01-cup | lamp-voice provider: the lamp looked: a picture of 16108 bytes went with request 47 |
+Mm-hm.
+02-key | |
+Mm-hm.
+03-phone | lamp-voice provider: the lamp looked and the talk has paused; renewing the session without the picture lamp-voice provider: the lamp looked: a picture of 16680 bytes went with request 56 |
+That's right, it's easily the biggest and deepest one on Earth.
+04-book | lamp-voice provider: the lamp looked: a picture of 16340 bytes went with request 60 |
+You're showing me an open book graphic on your laptop screen.Oh, hey there! Good to hear from you in the middle of this busy room.
+05-banana | lamp-voice provider: the lamp looked: a picture of 15900 bytes went with request 63 |
+I see a single yellow curved line against a plain white background.A leap year 
+06-scissors | lamp-voice provider: the lamp looked: a picture of 16228 bytes went with request 67 |
+I see a red drawing of a pair of scissors on your laptop screen.The speed of light is about 300,000 kilometers per second.
+07-glasses | lamp-voice provider: the lamp looked: a picture of 16204 bytes went with request 70 |
+Let me look.I see a black drawing of a pair of eyeglasses on your laptop screen.
+08-apple | |
+not_for_me{}I can't play music, 
+09-umbrella | lamp-voice provider: the lamp looked and the talk has paused; renewing the session without the picture lamp-voice provider: the lamp looked: a picture of 16352 bytes went with request 76 |
+Let me look.I see a blue drawing of a bicycle on your laptop screen.I see a purple drawing of an umbrella on your laptop screen.
+10-headphones | lamp-voice provider: the lamp looked: a picture of 15900 bytes went with request 79 lamp-voice provider: the lamp looked: a picture of 15904 bytes went with request 80 |
+Let me look. I see a drawing of a hanger on your laptop screen.I see a drawing of a clothes hanger on your laptop screen.

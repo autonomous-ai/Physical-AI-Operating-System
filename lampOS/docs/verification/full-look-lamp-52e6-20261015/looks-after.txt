@@ -1,0 +1,20 @@
+01-cup | lamp-voice provider: the lamp looked: a picture of 62515 bytes went with request 2 lamp-voice provider: the lamp looked and the talk has paused; renewing the session without the picture |
+Let me look.
+02-key | lamp-voice provider: the lamp looked: a picture of 61682 bytes went with request 4 lamp-voice provider: the lamp looked and the talk has paused; renewing the session without the picture |
+Let me look.Oh, you're showing me a picture of a shiny gold key on your laptop screen.
+03-phone | lamp-voice provider: the lamp looked: a picture of 65089 bytes went with request 6 lamp-voice provider: the lamp looked and the talk has paused; renewing the session without the picture |
+Oh, you're showing me a picture of a shiny gold key on your laptop screen.Let me look.
+04-book | lamp-voice provider: the lamp looked: a picture of 63123 bytes went with request 8 lamp-voice provider: the lamp looked and the talk has paused; renewing the session without the picture |
+Let me look.You're showing me an open book drawing on your laptop screen.
+05-banana | lamp-voice provider: the lamp looked: a picture of 61147 bytes went with request 10 lamp-voice provider: the lamp looked and the talk has paused; renewing the session without the picture |
+You're showing me an open book drawing on your laptop screen.Let me look.
+06-scissors | lamp-voice provider: the lamp looked: a picture of 62904 bytes went with request 12 lamp-voice provider: the lamp looked and the talk has paused; renewing the session without the picture |
+Let me look.You're showing me a drawing of pink scissors on your laptop screen.
+07-glasses | lamp-voice provider: the lamp looked: a picture of 62937 bytes went with request 14 lamp-voice provider: the lamp looked and the talk has paused; renewing the session without the picture |
+Let me look.You're showing me a drawing of black-framed glasses on your laptop screen.
+08-apple | lamp-voice provider: the lamp looked: a picture of 62520 bytes went with request 16 lamp-voice provider: the lamp looked and the talk has paused; renewing the session without the picture |
+Let me look.You're showing me a drawing of a red apple on your laptop screen.
+09-umbrella | lamp-voice provider: the lamp looked: a picture of 59797 bytes went with request 18 lamp-voice provider: the lamp looked and the talk has paused; renewing the session without the picture |
+Let me look.You're showing me a drawing of a purple umbrella on your laptop screen.
+10-headphones | lamp-voice provider: the lamp looked: a picture of 61564 bytes went with request 20 lamp-voice provider: the lamp looked and the talk has paused; renewing the session without the picture |
+Let me look.You're showing me a drawing of a yellow banana on your laptop screen.

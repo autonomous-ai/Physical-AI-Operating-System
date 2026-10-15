@@ -23,11 +23,14 @@ const USAGE: &str = "lamp-controls serve [--config FILE] [--pins FILE] [--touch]
 lamp-controls replay --input FILE --config FILE --clock-id ID [--touch --pins FILE] [--enable] [--output FILE] [--until-us N]\n\
 lamp-controls probe --pins FILE\n\
 lamp-controls discover-head --seconds N\n\
+lamp-controls calibrate-touch --pins FILE --output FILE [--settle-seconds N] [--quiet-seconds N] [--swipe-seconds N]\n\
 lamp-controls clock [--clock-id ID]\n\n\
 Shadow is the default. A config file cannot enable the process without --enable.\n\
 Without --pins, serve reads nothing and reports Missing. With it, the board's GPIO lines named in FILE are read.\n\
 probe reads each line of FILE once with a pull-down and once with a pull-up, and serves nothing.\n\
 discover-head samples candidates 37/96/97/98 on chip 0 for 2..60 seconds; it installs no mapping.\n\
+calibrate-touch runs the hardware team's MPR121 steps with a person at the lamp (hands away 10+5 s, then swipe 30 s)\n\
+and writes FILE: --pins with new per-pad thresholds, only if every working pad gave a clear touch. It serves nothing.\n\
 --touch selects the new independent head/strip path and its pins schema. It configures the selected I2C chip even in shadow.\n\
 Without --touch, no new reader, touch topic or gesture interpretation is selected.\n\
 Replay never opens a bus or hardware. Times are CLOCK_MONOTONIC microseconds.\n\
@@ -51,6 +54,7 @@ struct Args {
     profile: Option<String>,
     sink: Option<PathBuf>,
     session: Option<String>,
+    plan: lamp_controls::touch_calibrate::Plan,
 }
 
 fn parse(args: impl IntoIterator<Item = String>) -> Result<Option<Args>, String> {
@@ -65,6 +69,7 @@ fn parse(args: impl IntoIterator<Item = String>) -> Result<Option<Args>, String>
         "clock",
         "probe",
         "discover-head",
+        "calibrate-touch",
         "mpr-worker",
     ]
     .contains(&command.as_str())
@@ -105,6 +110,14 @@ fn parse(args: impl IntoIterator<Item = String>) -> Result<Option<Args>, String>
             .contains(&option.as_str()),
             "probe" => option == "--pins",
             "discover-head" => option == "--seconds",
+            "calibrate-touch" => [
+                "--pins",
+                "--output",
+                "--settle-seconds",
+                "--quiet-seconds",
+                "--swipe-seconds",
+            ]
+            .contains(&option.as_str()),
             "mpr-worker" => {
                 ["--profile-json", "--sink", "--clock-id", "--session"].contains(&option.as_str())
             }
@@ -150,6 +163,18 @@ fn parse(args: impl IntoIterator<Item = String>) -> Result<Option<Args>, String>
                         .ok_or("seconds must be 1..86400")?,
                 )
             }
+            "--settle-seconds" | "--quiet-seconds" | "--swipe-seconds" => {
+                let seconds = value
+                    .parse::<u64>()
+                    .ok()
+                    .filter(|n| (1..=600).contains(n))
+                    .ok_or_else(|| format!("{option} must be 1..600"))?;
+                match option.as_str() {
+                    "--settle-seconds" => out.plan.settle = seconds,
+                    "--quiet-seconds" => out.plan.quiet = seconds,
+                    _ => out.plan.swipe = seconds,
+                }
+            }
             "--until-us" => {
                 out.until = Some(
                     value
@@ -164,6 +189,9 @@ fn parse(args: impl IntoIterator<Item = String>) -> Result<Option<Args>, String>
         && (out.input.is_none() || out.config.is_none() || out.clock.is_none())
     {
         return Err("replay needs --input, --config and the input's --clock-id".into());
+    }
+    if out.command == "calibrate-touch" && (out.pins.is_none() || out.output.is_none()) {
+        return Err("calibrate-touch needs --pins and --output".into());
     }
     if out.command == "probe" && out.pins.is_none() {
         return Err("probe needs --pins".into());
@@ -310,6 +338,9 @@ fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
     }
     if args.command == "probe" {
         return probe(args.pins.as_ref().expect("checked when parsed"));
+    }
+    if args.command == "calibrate-touch" {
+        return calibrate_touch(&args);
     }
     let clock = runtime::clock_id(args.clock.as_deref())?;
     if args.command == "clock" {
@@ -496,6 +527,51 @@ fn run_touch(args: Args, config: Config, clock: &str) -> Result<(), Box<dyn std:
         "strip_accepted":service.strip_accepted,"recording":recording,"worker_cleanup":worker,
         "physical_stop_verified":false,"capture_permission":"not_owned"})
     );
+    Ok(())
+}
+
+/// The hardware team's steps for the base strip, with a person at the lamp.
+/// The report goes to stdout; the new pins file is written only when every
+/// working pad gave thresholds, and never over an existing file.
+fn calibrate_touch(args: &Args) -> Result<(), Box<dyn std::error::Error>> {
+    use lamp_controls::{touch_calibrate, touch_pins::TouchPinsConfig};
+    let mut wiring = TouchPinsConfig::load(args.pins.as_ref().expect("checked when parsed"))?;
+    let output = args.output.as_ref().expect("checked when parsed");
+    if output.exists() {
+        return Err(format!("{} already exists", output.display()).into());
+    }
+    let base = wiring
+        .base
+        .as_mut()
+        .ok_or("the pins file has no base strip")?;
+    base.check()?;
+    let report = touch_calibrate::run(base, args.plan, |step| {
+        eprintln!("lamp-controls: calibrate-touch: {step}");
+    })?;
+    println!("{}", serde_json::to_string(&report)?);
+    let Some(profile) = report.apply(&base.profile) else {
+        let failed: Vec<String> = report
+            .pads
+            .iter()
+            .filter(|pad| pad.verdict != touch_calibrate::Verdict::Ok)
+            .map(|pad| format!("E{} {:?}", pad.electrode, pad.verdict))
+            .collect();
+        return Err(format!(
+            "nothing written; pads without thresholds: {}",
+            failed.join(", ")
+        )
+        .into());
+    };
+    base.profile = profile;
+    let mut bytes = serde_json::to_vec_pretty(&wiring)?;
+    bytes.push(b'\n');
+    OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .mode(0o644)
+        .open(output)?
+        .write_all(&bytes)?;
+    eprintln!("lamp-controls: calibrate-touch: wrote {}", output.display());
     Ok(())
 }
 

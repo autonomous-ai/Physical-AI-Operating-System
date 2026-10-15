@@ -143,8 +143,9 @@ explicit profile: twelve independently specified touch thresholds and twelve
 release thresholds, baseline filters, FFI/SFI/ESI, global/per-pad CDC/CDT,
 debounce, ECR and auto-configuration limits. Unknown fields and missing
 electrical settings fail validation before I/O. There is no shared-threshold
-shortcut or automatic threshold calibration; every working pad must be
-qualified through its own assembled shell. The arrays are indexed by electrode
+shortcut, and the served path never changes a threshold by itself; every
+working pad is calibrated through its own assembled shell with a person at
+the lamp (`calibrate-touch`, below). The arrays are indexed by electrode
 number, not by position in the working list. Each release threshold is below
 that electrode's touch threshold.
 
@@ -227,16 +228,51 @@ bounded live acquisition recorder.
 
 First's on-lamp sequence is:
 
-1. Keep the installed service as rollback. Stop the prior GPIO/I²C owner,
-   leave the surface untouched at initialization, and determine the unit's
-   working electrodes with a full record. On lamp-4ace use the confirmed ten;
-   other units must establish their own set. Calibrate each working pad's
-   touch/release thresholds separately with touch, release and near-hand
-   observations through the assembled shell; record the values and noise
-   margin. Match the mask and ordered list. Do not apply either example's
-   threshold values as a lamp calibration. Charge auto-configuration does not
-   calibrate these thresholds. Verify any excluded pad does not cause a global
-   chip fault.
+1. Keep the installed service as rollback. Stop the prior GPIO/I²C owner
+   (`lamp-controls` itself included: calibration takes the same per-chip lock),
+   and determine the unit's working electrodes. On lamp-4ace use the confirmed
+   ten; other units must establish their own set. Then calibrate, following
+   the hardware team's MPR121 procedure ([#711](https://github.com/autonomous-ai/lampOS/issues/711#issuecomment-6187078361)):
+
+   ```sh
+   lamp-controls calibrate-touch --pins <unit-touch-pins.json> \
+     --output <unit-touch-pins-calibrated.json> > <calibration-report.json>
+   ```
+
+   It says each step on stderr:
+   1. **10 s, hands away.** The chip starts with the profile's settings and
+      auto-calibrates its charge. Nothing is measured.
+   2. **5 s more, hands away.** Each working pad's noise: the largest
+      |baseline − filtered| seen.
+   3. **30 s: swipe each working pad a few times**, end to end. Each pad's
+      peak: the largest baseline − filtered seen.
+   4. **Saved.** For each working pad: floor = noise + 2; touch = peak / 2
+      (at most 255); release = the larger of touch × 6/10 and noise + 1.
+      A pad whose peak never passed its floor is `not_touched`; one whose
+      peak is under twice its floor is `too_close_to_noise`. Only if every
+      working pad has thresholds is the output written: the same pins file
+      with those pads' thresholds replaced, and nothing else changed. The
+      excluded electrodes keep theirs. The report on stdout keeps, per pad,
+      the noise, the peak, the verdict, the thresholds, the baseline at the
+      start of step 2 and the end of step 3, the charge current and time the
+      chip chose, and how often the old thresholds counted a touch in step 3.
+
+   `--settle-seconds`, `--quiet-seconds` and `--swipe-seconds` change the
+   steps (1..600 s each). An existing output file is refused. A chip fault
+   (overcurrent, out of range on a working pad, auto-configuration failure,
+   a register that changed) ends the run and nothing is saved. The rule is
+   authored, not a datasheet value: it keeps each threshold at least two
+   counts above anything seen with nobody touching and at most half the
+   strongest swipe, so a lighter touch still counts. Edit the saved file if
+   the hardware team wants other numbers. The noise filter settings
+   (MHD/NHD/NCL/FDL) are the profile's and are not changed by this command.
+   Charge auto-configuration still runs at each start, so the saved charge
+   values are a record, not settings.
+
+   Then **10 minutes with nobody touching**, the hardware team's last step, on
+   the saved file: step 3 below with `--seconds 600` and `--record`, hands
+   away, then replay the record with the saved pins file. It must show no
+   touch event. Verify any excluded pad does not cause a global chip fault.
 2. With hands away initially, run `lamp-controls discover-head --seconds 20`,
    then touch and release each physical pad twice. It probes pull-down/up,
    requires driven idle and two complete ≥20 ms pulses, prints candidate
@@ -266,7 +302,10 @@ First's on-lamp sequence is:
    on Sleep, one Wake from an asleep touch, and no Wake→Sleep from the same
    still-held hand. Qualify motor/light responses separately.
 
-Most likely wrong on the lamp: per-pad thresholds admitting a nearby hand;
+Most likely wrong on the lamp: the authored calibration rule (half the
+strongest swipe may still be too high for a light touch, or too low for a
+hand near the shell); a quiet step taken at a quieter moment than the room's
+day; per-pad thresholds admitting a nearby hand;
 startup-baseline learning; a faulty excluded pad upsetting auto-configuration;
 a narrow finger becoming unobserved over a dead pad; the pulsed head not providing
 sustained-hand evidence; sampled slide speed around pauses; I²C load alongside

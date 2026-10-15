@@ -77,6 +77,29 @@ What a pull request runs: `--profile pr`. Everything, as the full run:
 `cargo nextest run --release --workspace -j 1`. `cargo test` is unaffected
 and runs everything.
 
+## Relay clock preparation (#823)
+
+`lamp_voice_eval::physical::session::run_with_clock` accepts an explicit
+`Fn() -> lamp_turn_owner::MonoTime`. It reads that source for relay protocol
+timestamps, the session deadline and the SIGTERM grace, including a fresh
+sample after a successful signal. A body `Clock` can be passed through
+`|| clock.now()`. Clock reads must not advance time, and the relay and runtime
+must use the same monotonic domain.
+
+`session::run` remains the system-clock entrypoint used by the CLI. The 2 ms
+relay poll, 10 s stop grace, process-group cleanup and late-stdout drain keep
+their existing bounds and behavior; cleanup and the drain stay on host time.
+No current CLI option selects a test clock.
+
+[Boundary regressions and local gate](verification/relay-clock-20261015/README.md):
+287 evaluator tests passed, including the unchanged realtime cases.
+
+This is preparation only: it does not shorten the existing realtime tests.
+Stepping a whole evaluator attempt still needs coordinated runner, relay,
+child and player wakeups and acknowledgements, plus recorder/transport
+participants where present. Their original logical durations, test identities
+and assertion bounds must remain unchanged.
+
 ## Bringing a test back
 
 A test leaves the group when it no longer waits on the real clock: an

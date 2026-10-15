@@ -1,0 +1,18 @@
+{
+  "observed_at": "2026-10-15 19:18:27 +0700",
+  "checks": {
+    "group_gone_unchanged": true,
+    "late_stdout_drain_unchanged": true,
+    "cleanup_unchanged": true,
+    "poll_sleep_count": 1,
+    "grace_constant_unchanged": true,
+    "relay_body_equal_after_clock_substitution": true,
+    "stop_body_equal_after_clock_substitution": true,
+    "preexisting_session_tests_byte_identical": true
+  },
+  "source_sha256": {
+    "crates/voice-eval/src/physical/session.rs": "b3415f943db3f778543e50c13f2c16b8a6d5430185f577d7279232d1cf9d27b9",
+    "crates/voice-eval/tests/relay_clock.rs": "5d0c84770d3c891be5455e407214dd6040d762084e3153353ee12a03f11ce7a9",
+    "docs/realtime-tests.md": "edea214803460eabd1babfbfd06ac88c83450025f16a7b29228cd25cd0711a2a"
+  }
+}

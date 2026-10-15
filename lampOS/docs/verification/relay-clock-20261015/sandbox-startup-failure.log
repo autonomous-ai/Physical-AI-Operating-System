@@ -1,0 +1,29 @@
+   Compiling lamp-voice-eval v0.1.0 (/private/tmp/lampos-tests-relay-clock/lampOS/crates/voice-eval)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 15.66s
+     Running tests/relay_clock.rs (target/debug/deps/relay_clock-7354e66a3cd561e8)
+
+running 2 tests
+test hard_deadline_and_stop_grace_expire_at_their_original_boundaries ... FAILED
+test receipt_and_exit_timestamps_use_only_the_explicit_clock ... FAILED
+
+failures:
+
+---- hard_deadline_and_stop_grace_expire_at_their_original_boundaries stdout ----
+
+thread 'hard_deadline_and_stop_grace_expire_at_their_original_boundaries' (572143642) panicked at crates/voice-eval/tests/relay_clock.rs:163:43:
+relay progress: Disconnected
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+---- receipt_and_exit_timestamps_use_only_the_explicit_clock stdout ----
+
+thread 'receipt_and_exit_timestamps_use_only_the_explicit_clock' (572143649) panicked at crates/voice-eval/tests/relay_clock.rs:163:43:
+relay progress: Disconnected
+
+
+failures:
+    hard_deadline_and_stop_grace_expire_at_their_original_boundaries
+    receipt_and_exit_timestamps_use_only_the_explicit_clock
+
+test result: FAILED. 0 passed; 2 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+error: test failed, to rerun pass `-p lamp-voice-eval --test relay_clock`

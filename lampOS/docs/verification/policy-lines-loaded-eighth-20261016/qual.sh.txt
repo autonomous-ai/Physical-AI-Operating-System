@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+# Loaded qualification of eighth/policy-lines (#783) against unchanged lamp-voice.
+set -u
+export PATH="$HOME/.cargo/bin:$PATH"
+Q=<scratch>/qual-policy-20261016
+testbin() { (cd $1/lampOS && CARGO_TARGET_DIR=$2 cargo test -q -p lamp-policy --test program --no-run --message-format=json 2>/dev/null | jq -r 'select(.profile.test==true) | .executable' | tail -1); }
+git -C <worktree-before> rev-parse HEAD > $Q/before-head; git -C <worktree> rev-parse HEAD > $Q/after-head
+BEFORE=$(testbin <worktree-before> $HOME/.cache/lampos-target-before); AFTER=$(testbin <worktree> $HOME/.cache/lampos-target-eighth)
+echo "before $BEFORE"  > $Q/bins; echo "after $AFTER" >> $Q/bins
+( while :; do CARGO_TARGET_DIR=$HOME/.cache/lampos-load cargo build -q --release --workspace -j 20 --manifest-path <worktree-before>/lampOS/Cargo.toml >/dev/null 2>&1; rm -rf $HOME/.cache/lampos-load/release; done ) & LOAD=$!
+( while :; do echo "$(date +%H:%M:%S) $(cut -d' ' -f1-3 /proc/loadavg)"; sleep 30; done ) > $Q/loadavg.txt & SAMP=$!
+trap 'kill $LOAD $SAMP 2>/dev/null; pkill -f "lampos-load" ; exit' EXIT INT TERM
+sleep 120
+T=the_program_judges_what_the_voice_hears_and_prints_nothing_of_it
+for i in $(seq 1 60); do
+  $BEFORE $T --exact > $Q/before-$i.txt 2>&1; echo "before $i rc=$? $(date +%H:%M:%S) $(cut -d' ' -f1 /proc/loadavg)" >> $Q/summary.txt
+  $AFTER $T --exact > $Q/after-$i.txt 2>&1; echo "after $i rc=$? $(date +%H:%M:%S) $(cut -d' ' -f1 /proc/loadavg)" >> $Q/summary.txt
+done
+cd <worktree>/lampOS
+for i in $(seq 1 10); do
+  CARGO_TARGET_DIR=$HOME/.cache/lampos-target-eighth cargo test -p lamp-policy --no-fail-fast -- --test-threads=1 > $Q/full-$i.txt 2>&1; echo "full $i rc=$? $(grep -c '^test result: ok' $Q/full-$i.txt) ok-suites $(date +%H:%M:%S)" >> $Q/summary.txt
+done
+echo done >> $Q/summary.txt

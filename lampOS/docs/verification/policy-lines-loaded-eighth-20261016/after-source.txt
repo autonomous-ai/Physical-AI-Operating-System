@@ -1,0 +1,18 @@
+What the "after" runs ran, recorded on 2026-10-16 03:40 +07 after the
+reviewer found (on #905, 03:32) that after-head names ba2ad4df, the commit
+before the change: the script read `git rev-parse HEAD` while the change was
+still uncommitted in the working tree.
+
+- Tree: ba2ad4df with one file changed, lampOS/crates/policy/tests/program.rs,
+  git blob ad28dfab594766d6e8e2461a695bfb27f081a834. That blob is the one
+  committed at 02:40:57 as 2228d173e and carried unchanged by the rebase into
+  c5a6f2fa8 (`git rev-parse <commit>:lampOS/crates/policy/tests/program.rs`).
+  No other file differed (`git diff --stat ba2ad4df 2228d173e`: that one file).
+- The "after" test binary, built 02:40:18 from that tree:
+  sha256 645ac0de3adb9d7ef9ade38f1e8f8ae187d04dd1e0b515d1d116f0628bb93adb
+- The "before" test binary, built from ba2ad4df unchanged (before-head):
+  sha256 bdb8ec1cf795364cfa0d55071f44ee98b477e0e04ce6012b23d9d53cd189b8a1
+- The ten full runs were built in the same working tree after the commit, so
+  with the same program.rs blob.
+
+after-head is kept as the script wrote it.

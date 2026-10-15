@@ -1,5 +1,17 @@
 # Tests work log
 
+## 2026-10-16 06:12:25 +0700 — clock preparations native green; Serve and Records continuations
+
+Ready for lamp-voice: yes (#924 and #925); no (Serve, Records controller and transport continuations)
+
+- Gemini capture-clock #924 head `a22664ac9cb4ca7efbe28b501ec9810c52a00c5d` passed first normal ARM64 **38819652589: 4,987 unique PASS**, all 12 new tests once. Scenario Moments #925 head `dee1cdd455072a92491bc800fd3993a124ee411a` passed first normal ARM64 **38819671092: 5,000 unique PASS**, all 25 new tests once. Tested merge source bytes and full raw logs are preserved in [clock preparation native evidence](verification/gemini-moments-arm64-20261016/README.md). Both normal runs exclude all original 123; neither preparation migrates an original scenario. Local affected gates remain **2196/1/13** and **1960/2/13**, respectively, with the exact #893 rapid-mute and #739 reminder failures disclosed under joining's exception. No retry.
+- Memory health #919 merged at `e7d0f673d0c4bde4a770b19783d6084a8d935ec3`; Records cadence preparation #922 merged at `9b28324e2232d62ff905e705d16f53c7836599f9`. Memory's full native observation remains all original 123 once, **588.754 s** summed across four shards, not standalone serial elapsed time.
+- Complete 14-case Serve #909 at `8af53fd` has its first full ARM64 **38820115320** running. A documentation conflict prevented the normal PR run; integration onto e7d preserves all 25 Rust source files and the full current document prefix. Fresh gate completed **498/0/0**, fmt/strict Clippy/workspace build pass, all 377 prior identities retained plus 121 new cases. Publication follows this fresh evidence, not a retry of unchanged code.
+- The separate six-case direct Serve relay continuation passes **508/0/0**, all 498 prior identities retained plus ten new tests. Its original six-case baseline was **31.480 s**; the controlled comparison is still pending. Records controller's original-case shared-Mac pair remains **5.614 → 0.735 s**, with unequal background load disclosed. Its fresh gate on actual merged preparation is starting.
+- Transport success probes #927 at `3401b9e5c651627c556930e0d9b0d3f87833c848` await first native **38820672032**. Local affected **1946/5/13** failures are reported on #739 with exact names and preflight boundaries; no retry. Schedule owner diagnosed #869 as product stop misclassification and opened #928; capacity #868 awaits that real fix. Eighth retains #914 product clock-read ordering and #783 loaded policy qualification/close.
+
+The original 123 combined standalone serial under-two-minute target remains unproved. No workflow/profile/runner/settings/device change.
+
 ## 2026-10-16 05:22:44 +0700 — Records preparation native green; complete Serve integration gated
 
 Ready for lamp-voice: yes (#922 and #919); no (new continuations)

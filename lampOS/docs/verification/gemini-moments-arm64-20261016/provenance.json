@@ -1,0 +1,216 @@
+{
+  "recorded_from_date": "2026-10-16 06:12:25 +0700",
+  "raw_copies": [
+    {
+      "source": "/private/tmp/tests-823-native-20261016/924-38819652589.audit.json",
+      "destination": "924-38819652589.audit.json",
+      "sha256": "d233a053d796e10c78e23291b5b543ecd5da6edf0c876e493e1351b8390b9069"
+    },
+    {
+      "source": "/private/tmp/tests-823-native-20261016/924-38819652589.capture.json",
+      "destination": "924-38819652589.capture.json",
+      "sha256": "ec7a4589cf92ad0f2022557749fa59802542e91c962efd89dfc3a857707ff1e3"
+    },
+    {
+      "source": "/private/tmp/tests-823-native-20261016/924-38819652589.checkout.response.json",
+      "destination": "924-38819652589.checkout.response.json",
+      "sha256": "03fd20f389d8cb9e513575cfe6c4a61473eaf4e5f8a6fb7143624ff2bf83dbdb"
+    },
+    {
+      "source": "/private/tmp/tests-823-native-20261016/924-38819652589.checkout.response.json.stderr",
+      "destination": "924-38819652589.checkout.response.json.stderr",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "/private/tmp/tests-823-native-20261016/924-38819652589.json",
+      "destination": "924-38819652589.json",
+      "sha256": "9a2bd4f99593d297f9a8f44d7bbd957df1184c9e210a43811d3bd006376cddaa"
+    },
+    {
+      "source": "/private/tmp/tests-823-native-20261016/924-38819652589.log",
+      "destination": "924-38819652589.log",
+      "sha256": "6f29d70f1c9a3fcc54514aa55858e6cf5fed174d2b0c91fd7cb60e77d5228653"
+    },
+    {
+      "source": "/private/tmp/tests-823-native-20261016/924-38819652589.log.stderr",
+      "destination": "924-38819652589.log.stderr",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "/private/tmp/tests-823-native-20261016/924-38819652589.results.json",
+      "destination": "924-38819652589.results.json",
+      "sha256": "85e1f262026af68b997e85762152462970d422cd82ed6578f41e89ad8e5c72c1"
+    },
+    {
+      "source": "/private/tmp/tests-823-native-20261016/924-38819652589.run-api.json",
+      "destination": "924-38819652589.run-api.json",
+      "sha256": "63af4b316677609180b1cd6a038b94b9f1407f3de3a2c574357d97fc595e5a82"
+    },
+    {
+      "source": "/private/tmp/tests-823-native-20261016/924-38819652589.run-api.json.stderr",
+      "destination": "924-38819652589.run-api.json.stderr",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "/private/tmp/tests-823-native-20261016/924-38819652589.run-final.json",
+      "destination": "924-38819652589.run-final.json",
+      "sha256": "11dfc8a6fb5fde94a095da9f0a0d0587ebe48622110f1bb8c37473a41eb0b131"
+    },
+    {
+      "source": "/private/tmp/tests-823-native-20261016/924-38819652589.run-final.json.stderr",
+      "destination": "924-38819652589.run-final.json.stderr",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "/private/tmp/tests-823-native-20261016/924-38819652589.source-0.response.json",
+      "destination": "924-38819652589.source-0.response.json",
+      "sha256": "d49ca586e1e995e2dd8daa89140c4eddd9d94d201b27af2bb7161e29c36a5039"
+    },
+    {
+      "source": "/private/tmp/tests-823-native-20261016/924-38819652589.source-0.response.json.stderr",
+      "destination": "924-38819652589.source-0.response.json.stderr",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "/private/tmp/tests-823-native-20261016/924-38819652589.source-1.response.json",
+      "destination": "924-38819652589.source-1.response.json",
+      "sha256": "77eb5eac3c80bb61bcbce51a0c5433a3c97e9097d1d76aa7dd1dd365a42c8e85"
+    },
+    {
+      "source": "/private/tmp/tests-823-native-20261016/924-38819652589.source-1.response.json.stderr",
+      "destination": "924-38819652589.source-1.response.json.stderr",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "/private/tmp/tests-823-native-20261016/924-38819652589.source-2.response.json",
+      "destination": "924-38819652589.source-2.response.json",
+      "sha256": "b87448f32a024c0bccc2bfe1b05bbe38fb322c8aa5b966142585c482fb942216"
+    },
+    {
+      "source": "/private/tmp/tests-823-native-20261016/924-38819652589.source-2.response.json.stderr",
+      "destination": "924-38819652589.source-2.response.json.stderr",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "/private/tmp/tests-823-native-20261016/924-38819652589.source-3.response.json",
+      "destination": "924-38819652589.source-3.response.json",
+      "sha256": "682462655bd4d92737fad3c103a3e8d3e22ee2d5d37878de3a8cc97e67082784"
+    },
+    {
+      "source": "/private/tmp/tests-823-native-20261016/924-38819652589.source-3.response.json.stderr",
+      "destination": "924-38819652589.source-3.response.json.stderr",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "/private/tmp/tests-823-native-20261016/924-38819652589.source-4.response.json",
+      "destination": "924-38819652589.source-4.response.json",
+      "sha256": "689f3bf94a6027957c626c8c914f3ac20d5997d9baa3a8a845bb47f3be9dba34"
+    },
+    {
+      "source": "/private/tmp/tests-823-native-20261016/924-38819652589.source-4.response.json.stderr",
+      "destination": "924-38819652589.source-4.response.json.stderr",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "/private/tmp/tests-823-native-20261016/925-38819671092.audit.json",
+      "destination": "925-38819671092.audit.json",
+      "sha256": "366a2e9692675930ee2d4e9f754e28e41387af98336e7953ec7574f315a40017"
+    },
+    {
+      "source": "/private/tmp/tests-823-native-20261016/925-38819671092.capture.json",
+      "destination": "925-38819671092.capture.json",
+      "sha256": "b50f6d58f7f377d4b546cfb3dceb218097fafd9b0ec3e570d45919e3db70cb14"
+    },
+    {
+      "source": "/private/tmp/tests-823-native-20261016/925-38819671092.checkout.response.json",
+      "destination": "925-38819671092.checkout.response.json",
+      "sha256": "ef12766b68b8b073fe9da20a501f43db408241082ada2f4a7f160b20ff3d042b"
+    },
+    {
+      "source": "/private/tmp/tests-823-native-20261016/925-38819671092.checkout.response.json.stderr",
+      "destination": "925-38819671092.checkout.response.json.stderr",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "/private/tmp/tests-823-native-20261016/925-38819671092.json",
+      "destination": "925-38819671092.json",
+      "sha256": "e1b67809e49fd21d2a0421ba4c18fde5ca11390d3961f36f0a64e1a73b772efb"
+    },
+    {
+      "source": "/private/tmp/tests-823-native-20261016/925-38819671092.log",
+      "destination": "925-38819671092.log",
+      "sha256": "c008fc5ddb69381546dc321917cc83bc0ca2444d3a6d907b2d044173cefcf9a9"
+    },
+    {
+      "source": "/private/tmp/tests-823-native-20261016/925-38819671092.log.stderr",
+      "destination": "925-38819671092.log.stderr",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "/private/tmp/tests-823-native-20261016/925-38819671092.results.json",
+      "destination": "925-38819671092.results.json",
+      "sha256": "8014aecc5e80c8f9ee634bdf129d6e3553ef21f6c59d69a267e665ea9fd18509"
+    },
+    {
+      "source": "/private/tmp/tests-823-native-20261016/925-38819671092.run-api.json",
+      "destination": "925-38819671092.run-api.json",
+      "sha256": "368c9af5da700be2bbf0cbc8bb08aa85646fa053564ed7c30557b143fc3d9980"
+    },
+    {
+      "source": "/private/tmp/tests-823-native-20261016/925-38819671092.run-api.json.stderr",
+      "destination": "925-38819671092.run-api.json.stderr",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "/private/tmp/tests-823-native-20261016/925-38819671092.run-final.json",
+      "destination": "925-38819671092.run-final.json",
+      "sha256": "a9521bb446f1d301c8b3703f134c348a7d3bc59636c77573f8cc3db2d99a76d6"
+    },
+    {
+      "source": "/private/tmp/tests-823-native-20261016/925-38819671092.run-final.json.stderr",
+      "destination": "925-38819671092.run-final.json.stderr",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "/private/tmp/tests-823-native-20261016/925-38819671092.source-0.response.json",
+      "destination": "925-38819671092.source-0.response.json",
+      "sha256": "aa17747d53fb8d7f10447db5acf35b93540fc1fbe0220f78d9fc35f5325cea5d"
+    },
+    {
+      "source": "/private/tmp/tests-823-native-20261016/925-38819671092.source-0.response.json.stderr",
+      "destination": "925-38819671092.source-0.response.json.stderr",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "/private/tmp/tests-823-native-20261016/925-38819671092.source-1.response.json",
+      "destination": "925-38819671092.source-1.response.json",
+      "sha256": "4046ed2984d69dbd1887aa6e9a61c7b7fe2b1f564793aee678727bcbd2558522"
+    },
+    {
+      "source": "/private/tmp/tests-823-native-20261016/925-38819671092.source-1.response.json.stderr",
+      "destination": "925-38819671092.source-1.response.json.stderr",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "/private/tmp/tests-823-native-20261016/925-38819671092.source-2.response.json",
+      "destination": "925-38819671092.source-2.response.json",
+      "sha256": "9367e1ea3c300e5d49d549d160f1a81bb2df1940002ca80ce9472ce5eaa4a0aa"
+    },
+    {
+      "source": "/private/tmp/tests-823-native-20261016/925-38819671092.source-2.response.json.stderr",
+      "destination": "925-38819671092.source-2.response.json.stderr",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "/private/tmp/tests-823-native-20261016/925-38819671092.source-3.response.json",
+      "destination": "925-38819671092.source-3.response.json",
+      "sha256": "0145ac755c9dbd4880383eb3302607d32ef5769a9cc0825a5d5137d334b4144c"
+    },
+    {
+      "source": "/private/tmp/tests-823-native-20261016/925-38819671092.source-3.response.json.stderr",
+      "destination": "925-38819671092.source-3.response.json.stderr",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  ],
+  "audit_method": "Parse every nextest result; require complete consecutive ordinals, one PASS per identity, and each compiled new case once. Require first attempt and all 14 job steps success. Fetch tested merge source blobs and compare exact bytes and Git blob hashes with each published PR head. Compare the fixed original-123 identity set; normal profile observes zero of those identities."
+}

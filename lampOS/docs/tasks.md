@@ -807,7 +807,8 @@ by the first builder, and both lost the hand-overs while telling the stories
   computer", 2 of 2 (02:43);
 - the next gave it two more required arguments, `named` and
   `on_the_computer`, and prepared nothing without either: the model then
-  never called it, 0 of 2 (a third, the Codex line, was misheard and does
+  never called it, 0 of 2 (a third, the Codex line, was played while the
+  story before it was still being told, so it was never admitted, and does
   not count), and twice said "I've passed that along to them"
   or "I've got that request handled for you" with no call (03:10). A lamp
   that says it handed work over when it did not is the worst of the three.

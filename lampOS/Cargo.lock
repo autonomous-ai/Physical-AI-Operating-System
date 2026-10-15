@@ -1983,6 +1983,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "lamp-settings"
+version = "0.1.0"
+dependencies = [
+ "getrandom 0.4.3",
+ "lamp-bus",
+ "lamp-msgs",
+ "lamp-records",
+ "rustix",
+ "serde",
+ "serde_json",
+ "sha2",
+ "signal-hook",
+ "tempfile",
+]
+
+[[package]]
 name = "lamp-setup"
 version = "0.1.0"
 dependencies = [

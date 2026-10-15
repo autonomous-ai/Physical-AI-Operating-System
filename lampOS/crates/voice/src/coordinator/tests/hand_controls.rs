@@ -390,6 +390,113 @@ fn pending_and_streaming_speech_drain_to_silence_even_under_playback_suppression
     }
 }
 
+/// #891, the reviewer's 04:30 finding: a hand Stop ends a call's wait, in
+/// either order. Stopped after the lamp's name armed the wait, or with a
+/// sign of the name heard after the Stop, the abandoned utterance drains to
+/// the ordinary 600 ms boundary, not the call's 2 s, and a fresh command
+/// right after that boundary is a new candidate.
+#[test]
+fn a_hand_stop_ends_a_calls_wait_in_either_order_and_a_fresh_command_is_heard() {
+    for sign_first in [true, false] {
+        let directory = SessionDirectory::create().unwrap();
+        let (mut speaker, mut peer) = pair(&directory, "speaker");
+        let (mut owner, mut reply) = current_input();
+        let previous_owner = reply.as_ref().unwrap().owner;
+        owner.cancel_turn(now(), previous_owner).unwrap();
+        reply = None;
+        let capture = CaptureLineage {
+            worker: new_boot().unwrap(),
+            epoch: 1,
+            dsp_epoch: 1,
+            privacy_generation: owner.snapshot(now()).unwrap().microphone_generation(),
+        };
+        let mut detector = TurnDetector::default().with_call_wait(200).unwrap();
+        let mut admission = InputAdmission::default();
+        let mut mask = PlaybackMask::new(TurnTaking::VadOnly);
+        let base = monotonic_us() + 10_000;
+        let mut step = |owner: &mut Controller,
+                        detector: &mut TurnDetector,
+                        admission: &mut InputAdmission,
+                        sequence: u64,
+                        score: f32| {
+            let at = base + sequence * 10_000;
+            let context = input_context(owner, capture, at);
+            observe_prospective_input(
+                &mut mask,
+                detector,
+                admission,
+                context,
+                audio(sequence, at),
+                at - 1_000,
+                score,
+                at,
+            )
+            .unwrap()
+        };
+        // "Hey Lamp," 0.35 s.
+        let mut first = None;
+        for sequence in 1..=35 {
+            let (update, _) = step(&mut owner, &mut detector, &mut admission, sequence, 0.99);
+            if let AdmissionStep::Candidate(candidate) = update.step {
+                first = Some(candidate.id);
+            }
+        }
+        assert!(first.is_some());
+        let began_us = base + 10_000;
+        if sign_first {
+            assert!(detector.name_heard(began_us), "the call did not wait");
+        }
+        let stopped_at = base + 35 * 10_000 + 1;
+        hand::cancel(
+            &mut owner,
+            &mut reply,
+            &mut speaker.control,
+            &mut None,
+            &mut VecDeque::new(),
+            &mut admission,
+            &mut detector,
+            false,
+            stopped_at,
+            || stopped_at + 700,
+        )
+        .unwrap();
+        assert!(received_authority(&mut peer).owner().is_none());
+        assert!(admission.draining());
+        if !sign_first {
+            // The sign comes 100 ms after the Stop, as the name's part
+            // says a hearing once it falls.
+            assert!(
+                !detector.name_heard(began_us),
+                "the Stop's utterance waited"
+            );
+        }
+        // The ordinary 600 ms boundary ends it, not the call's 2 s.
+        for sequence in 36..=95 {
+            let (update, ended) = step(&mut owner, &mut detector, &mut admission, sequence, 0.0);
+            assert!(matches!(update.step, AdmissionStep::None));
+            assert_eq!(ended, sequence == 95, "{sign_first} {sequence}");
+        }
+        assert!(!admission.draining());
+        assert_eq!(detector.last_endpoint().unwrap().silence_ms, 600);
+        assert_eq!(detector.last_endpoint().unwrap().call_wait_ms, None);
+        // A fresh command, after 200 ms of quiet: a new candidate.
+        for sequence in 96..=115 {
+            let (update, ended) = step(&mut owner, &mut detector, &mut admission, sequence, 0.0);
+            assert!(!ended && matches!(update.step, AdmissionStep::None));
+        }
+        let mut fresh = None;
+        for sequence in 116..=121 {
+            let (update, _) = step(&mut owner, &mut detector, &mut admission, sequence, 0.99);
+            if let AdmissionStep::Candidate(candidate) = update.step {
+                fresh = Some(candidate);
+            }
+        }
+        let fresh = fresh.expect("the fresh command was dropped");
+        assert_ne!(Some(fresh.id), first);
+        assert_eq!(fresh.trigger_sequence, 121);
+    }
+}
+
 #[test]
 fn idle_stop_fences_already_captured_audio_but_accepts_a_later_utterance() {
     let directory = SessionDirectory::create().unwrap();

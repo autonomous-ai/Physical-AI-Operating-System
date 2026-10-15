@@ -892,6 +892,12 @@ How it knows it is a call:
   utterance that grows past 1.2 s of speech, which is more than a call
   (the reviewer's P2 on #891: a sign at 0.35 s into a 0.7 s call had let
   the call's next word end the wait).
+- a hand Stop ends the wait, and a sign of the name that comes after the
+  Stop cannot arm one for the same utterance. The abandoned utterance
+  drains to the ordinary end-of-speech wait, and only a new utterance can
+  wait again (the reviewer's P2 on #891 at 04:30: Stop had left the input
+  draining for the whole 2 s, and a fresh command right after it was
+  dropped).
 
 The wait must be longer than the end-of-speech wait in force and 3 s at
 most, or the voice refuses to start. The `call_wait_policy` record says
@@ -912,8 +918,11 @@ Tests (`crates/voice/tests/call_wait.rs`, `options.rs`):
 Through the coordinator's handling of `name/rising` on a real bus
 (`coordinator/tests/call_wait.rs`): a first sign 0.23 s into the quiet, as
 `lamp-name` would send it, makes the call wait its two seconds; without the
-option it ends at the window; a sign after the window is too late. Not
-tested on the host: the voice opening that subscriber from its environment
+option it ends at the window; a sign after the window is too late. Through
+the real hand Stop (`coordinator/tests/hand_controls.rs`,
+`a_hand_stop_ends_a_calls_wait_in_either_order_and_a_fresh_command_is_heard`):
+Stop after the sign, and a sign after Stop, both drain at 600 ms, and a
+fresh command after it is a new candidate. Not tested on the host: the voice opening that subscriber from its environment
 (`LAMP_BUS=on`), which a run on the lamp does.
 
 ## Pilot acceptance and rollback rule

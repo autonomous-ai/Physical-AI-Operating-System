@@ -197,6 +197,7 @@ impl TurnDetector {
     pub fn name_heard(&mut self, began_us: u64) -> bool {
         let applies = self.call_wait_blocks.is_some()
             && self.active
+            && !self.abandoned
             && !self.waited
             && began_us.saturating_add(CALL_BEFORE_US) >= self.began_us
             && self.speech_blocks <= CALL_SPEECH_BLOCKS;
@@ -420,6 +421,11 @@ impl TurnDetector {
         self.cancel_confirmation();
         self.abandoned = self.active;
         self.ignore_through_us = Some(at_us);
+        // A call's wait ends with it, and a sign of the name heard later
+        // cannot arm one for the same utterance (#891): only a new
+        // utterance can wait again.
+        self.waiting = false;
+        self.waited = true;
     }
 }
 

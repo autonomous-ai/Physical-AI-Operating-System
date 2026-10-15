@@ -55,7 +55,7 @@ pub(crate) fn finish<T>(result: Result<T>, cleanup: io::Result<()>) -> Result<T>
 }
 
 use crate::{
-    privacy::{PRIVACY_FRESH_US, PrivacyGate, PrivacyState},
+    privacy::{PrivacyGate, PrivacyState},
     process::{SessionDirectory, Worker, new_boot},
     termination::Termination,
     wire::{Control, WorkerEvent},
@@ -150,6 +150,9 @@ fn wait_loop(
     wait_loop_with_gate(worker, boot, termination, on_state, || Ok(true))
 }
 
+/// How long the wait may go without one fresh privacy observation.
+const UNAVAILABLE_WAIT: Duration = Duration::from_secs(1);
+
 fn wait_loop_with_gate(
     worker: &mut Worker,
     boot: BootId,
@@ -165,7 +168,13 @@ fn wait_loop_with_gate(
     let mut sequence = 0u64;
     let mut previous_state = None;
     let mut last_publish = None;
-    let started = Instant::now();
+    // While nothing is open, an observation that arrived late (the worker's
+    // 5 ms reads delayed past the 50 ms freshness by a busy boot: lamp-4ace's
+    // power cut on 2026-10-15 ended the voice at 13.56 s this way) only keeps
+    // the gate closed. The wait ends only when no fresh observation has come
+    // for `UNAVAILABLE_WAIT`. Every clock here is CLOCK_MONOTONIC, so a wall
+    // clock set by NTP after a power cut changes nothing.
+    let mut fresh_since = Instant::now();
     loop {
         if termination.signal_name().is_some() {
             return Ok(WaitOutcome::Stopped);
@@ -176,9 +185,6 @@ fn wait_loop_with_gate(
         let additionally_allowed = additional_gate()?;
         worker.check_running()?;
         let at = monotonic_us();
-        if sequence != 0 && gate.state(MonoTime::from_micros(at)) == PrivacyState::Unavailable {
-            return Err(io::Error::other("privacy freshness lost before next observation").into());
-        }
         if last_publish.is_none_or(|last| at.saturating_sub(last) >= 25_000) {
             worker.channels.control.send(Control::Authority {
                 snapshot: controller.snapshot(MonoTime::from_micros(at))?,
@@ -201,14 +207,6 @@ fn wait_loop_with_gate(
                         MonoTime::from_micros(monotonic_us()),
                         muted,
                     );
-                    if gate.state(MonoTime::from_micros(monotonic_us()))
-                        == PrivacyState::Unavailable
-                    {
-                        return Err(io::Error::other(
-                            "invalid or stale privacy observation while waiting",
-                        )
-                        .into());
-                    }
                 }
                 Some(WorkerEvent::Fault { code }) => return Err(io::Error::other(code).into()),
                 Some(_) => return Err(io::Error::other("unexpected privacy wait event").into()),
@@ -220,9 +218,9 @@ fn wait_loop_with_gate(
         }
         let at = monotonic_us();
         let state = gate.state(MonoTime::from_micros(at));
-        if state == PrivacyState::Unavailable
-            && (sequence != 0 || started.elapsed() >= Duration::from_micros(PRIVACY_FRESH_US))
-        {
+        if state != PrivacyState::Unavailable {
+            fresh_since = Instant::now();
+        } else if fresh_since.elapsed() >= UNAVAILABLE_WAIT {
             return Err(
                 io::Error::other("physical privacy observation unavailable while waiting").into(),
             );
@@ -241,6 +239,7 @@ fn wait_loop_with_gate(
 #[cfg(test)]
 pub(crate) mod tests {
     use super::*;
+    use crate::privacy::PRIVACY_FRESH_US;
     use crate::transport::WorkerChannels;
     use lamp_turn_owner::Permission;
     use std::{
@@ -259,6 +258,9 @@ pub(crate) mod tests {
         Missing,
         Gap,
         Stale,
+        /// One observation that arrives late, as on a busy boot, then fresh
+        /// ones that unmute.
+        LateThenUnmute,
         Fault,
         Invalid,
     }
@@ -319,6 +321,14 @@ pub(crate) mod tests {
                         Script::Stale if ticks == 0 => Some(WorkerEvent::Privacy {
                             acquired_at_us: at - PRIVACY_FRESH_US,
                             muted: true,
+                        }),
+                        Script::LateThenUnmute => Some(WorkerEvent::Privacy {
+                            acquired_at_us: if ticks == 0 {
+                                at - PRIVACY_FRESH_US
+                            } else {
+                                at
+                            },
+                            muted: ticks < 4,
                         }),
                         Script::Fault if ticks == 0 => Some(WorkerEvent::Fault {
                             code: "synthetic GPIO fault".into(),
@@ -522,6 +532,32 @@ pub(crate) mod tests {
         assert_eq!(states.last(), Some(&PrivacyState::Allowed));
         let peer = peer.join().unwrap();
         assert!(peer.received_stop && peer.denied_heartbeats >= 2);
+        drop(peer.channels);
+        fs::remove_dir(&directory.path).unwrap();
+    }
+
+    /// lamp-4ace's power cut, 2026-10-15: one privacy observation read more
+    /// than 50 ms late while every part was starting ended the voice. Now it
+    /// only keeps the gate closed until fresh ones come; a stale one alone
+    /// still ends the wait (the next test).
+    #[test]
+    fn one_late_privacy_observation_at_start_does_not_end_the_wait() {
+        let directory = SessionDirectory::create().unwrap();
+        let (worker, peer) = mock(
+            &directory.path,
+            Script::LateThenUnmute,
+            Arc::new(AtomicBool::new(false)),
+        );
+        let result = wait_worker(
+            worker,
+            new_boot().unwrap(),
+            &Termination::inactive(),
+            |_, _, _| Ok(()),
+        )
+        .unwrap();
+        assert_eq!(result, WaitOutcome::Allowed);
+        let peer = peer.join().unwrap();
+        assert!(peer.received_stop);
         drop(peer.channels);
         fs::remove_dir(&directory.path).unwrap();
     }

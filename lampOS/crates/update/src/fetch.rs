@@ -12,9 +12,9 @@
 use rustls::pki_types::ServerName;
 use std::{
     io::{self, Read, Write},
-    net::{TcpStream, ToSocketAddrs},
+    net::{SocketAddr, TcpStream, ToSocketAddrs},
     path::Path,
-    sync::Arc,
+    sync::{Arc, mpsc},
     time::{Duration, Instant},
 };
 
@@ -86,10 +86,11 @@ impl Web {
     }
 
     fn open(&self, url: &Url, until: Instant) -> Result<Box<dyn Stream>, Fetch> {
-        let addresses: Vec<_> = (url.host.as_str(), url.port)
-            .to_socket_addrs()
-            .map_err(|error| Fetch::Unreachable(format!("{}: {error}", url.host)))?
-            .collect();
+        let left = until.saturating_duration_since(Instant::now());
+        let addresses = lookup_within(&url.host, url.port, self.connect.min(left), |host, port| {
+            (host, port).to_socket_addrs().map(Iterator::collect)
+        })
+        .map_err(Fetch::Unreachable)?;
         let mut last = format!("{}: no address", url.host);
         for address in addresses {
             let left = until.saturating_duration_since(Instant::now());
@@ -110,6 +111,35 @@ impl Web {
             }
         }
         Err(Fetch::Unreachable(last))
+    }
+}
+
+/// The host's addresses, or why not, within `limit`. The system's name
+/// lookup has no timeout of its own: a resolver that never answers (a home
+/// router rebooting, #830) would hold the round. It runs on a thread of its
+/// own; one that runs over is left to end by itself, and the round goes on
+/// as "cannot be reached". At most one such thread per round.
+pub fn lookup_within(
+    host: &str,
+    port: u16,
+    limit: Duration,
+    lookup: impl FnOnce(&str, u16) -> io::Result<Vec<SocketAddr>> + Send + 'static,
+) -> Result<Vec<SocketAddr>, String> {
+    let (tell, told) = mpsc::sync_channel(1);
+    let name = host.to_owned();
+    std::thread::Builder::new()
+        .name("lamp-update-lookup".into())
+        .spawn(move || {
+            let _ = tell.send(lookup(&name, port));
+        })
+        .map_err(|error| format!("{host}: {error}"))?;
+    match told.recv_timeout(limit) {
+        Ok(Ok(addresses)) => Ok(addresses),
+        Ok(Err(error)) => Err(format!("{host}: {error}")),
+        Err(_) => Err(format!(
+            "{host}: the name lookup gave no answer within {} s",
+            limit.as_secs()
+        )),
     }
 }
 
@@ -447,6 +477,31 @@ impl Read for Held<'_> {
 mod tests {
     use super::*;
     use std::{net::TcpListener, thread};
+
+    #[test]
+    fn a_name_lookup_that_hangs_is_given_up_within_its_limit() {
+        let started = std::time::Instant::now();
+        let hung = lookup_within(
+            "updates.example",
+            443,
+            Duration::from_millis(100),
+            |_, _| {
+                thread::sleep(Duration::from_secs(5));
+                Ok(Vec::new())
+            },
+        );
+        let said = hung.unwrap_err();
+        assert!(said.contains("no answer within"), "{said}");
+        assert!(started.elapsed() < Duration::from_secs(2));
+        let found = lookup_within("updates.example", 443, Duration::from_secs(2), |_, port| {
+            Ok(vec![SocketAddr::from(([127, 0, 0, 1], port))])
+        });
+        assert_eq!(found.unwrap(), [SocketAddr::from(([127, 0, 0, 1], 443))]);
+        let refused = lookup_within("updates.example", 443, Duration::from_secs(2), |_, _| {
+            Err(io::Error::other("no such name"))
+        });
+        assert!(refused.unwrap_err().contains("no such name"));
+    }
 
     /// A server that gives each connection the next answer, as written,
     /// and keeps the requests.

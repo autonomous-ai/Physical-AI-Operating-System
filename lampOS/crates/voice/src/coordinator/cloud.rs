@@ -10,6 +10,8 @@ use std::io;
 pub(super) struct CloudAvailability {
     latest: Option<ProviderLink>,
     output_ended: bool,
+    /// A Ready was observed on this link, at any time.
+    was_ready: bool,
 }
 
 impl CloudAvailability {
@@ -35,7 +37,14 @@ impl CloudAvailability {
         // validated source history, but the independent output_ended latch can
         // never be reopened by it.
         self.latest = Some(link);
+        self.was_ready |= matches!(link.state, ProviderLinkState::Ready { .. });
         Ok(())
+    }
+
+    /// Latched when a Ready is observed, so a later report in the same
+    /// drain cannot hide it.
+    pub(super) fn was_ready(&self) -> bool {
+        self.was_ready
     }
 
     pub(super) fn ready_session(&self) -> Option<u64> {

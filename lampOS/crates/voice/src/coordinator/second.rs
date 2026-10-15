@@ -256,6 +256,7 @@ impl Route {
     /// sent until Gemini is Ready or the hold is over.
     fn holds(&mut self, reply: Option<&Reply>) -> bool {
         if self.stand_in
+            && !self.live_was_ready
             && self.hold.is_none()
             && let Some(current) = reply.filter(|current| {
                 !current.cloud.start_submitted
@@ -269,10 +270,20 @@ impl Route {
             .is_some_and(|(turn, _)| reply.is_some_and(|current| current.owner.turn() == turn))
     }
 
-    /// A line goes once it is answered or abandoned, and a replay with
-    /// the request it was for.
+    /// A line goes once it is answered or abandoned, and a replay and a
+    /// hold with the request they were for (so a turn admitted in its
+    /// place in the same tick is held afresh).
     fn upkeep(&mut self, reply: Option<&Reply>) {
         let turn = reply.map(|current| current.owner.turn());
+        if self.hold.is_some_and(|(held, _)| {
+            reply.is_none_or(|current| {
+                current.owner.turn() != held
+                    || current.cloud.outcome.is_some()
+                    || current.cloud.input_abandoned
+            })
+        }) {
+            self.hold = None;
+        }
         if reply.is_none_or(|current| {
             current.had_audio || current.cloud.outcome.is_some() || current.cloud.input_abandoned
         }) || turn != Some(self.line.request)
@@ -352,8 +363,11 @@ fn take_over(
         Vec::new()
     };
     route.line.clear();
-    route.replay = sent.into();
-    route.replay.extend(queue.drain(..));
+    // What was sent, then what of a replay was not yet sent, then the queue.
+    let mut replay: VecDeque<ProviderInput> = sent.into();
+    replay.append(&mut route.replay);
+    replay.append(queue);
+    route.replay = replay;
     rebind(cloud, current, &mut route.replay)?;
     Ok(route.replay.len())
 }
@@ -406,7 +420,11 @@ fn resolve_hold(
     let held_us = at.saturating_sub(since);
     let to = if route.cloud.available() {
         "live"
-    } else if held_us >= STARTUP_HOLD_US || route.cloud.terminal() || route.cloud.output_ended() {
+    } else if held_us >= STARTUP_HOLD_US
+        || route.live_was_ready
+        || route.cloud.terminal()
+        || route.cloud.output_ended()
+    {
         "second"
     } else {
         return Ok(());
@@ -452,13 +470,15 @@ pub(super) fn service(
         return Ok(());
     };
     route.drain(trace)?;
+    // Gemini's register latches a Ready as it is observed, even when a
+    // later report of the same drain took it away.
+    route.live_was_ready |= if route.second_active {
+        route.cloud.was_ready()
+    } else {
+        cloud.was_ready()
+    };
     route.upkeep(reply.as_ref());
     resolve_hold(provider, cloud, flow, route, reply, queue, trace)?;
-    route.live_was_ready |= if route.second_active {
-        route.cloud.available()
-    } else {
-        cloud.available()
-    };
     if let Some(current) = reply.as_mut() {
         // The link changed during the line, which the gate left for this.
         let changed = current.cloud.movable
@@ -740,5 +760,244 @@ mod tests {
         assert!(!route.line.covers(turn));
         // A replay cancelled with its turn is not sent to the next owner.
         assert!(route.replay.is_empty());
+    }
+
+    fn end(request: u64) -> ProviderInput {
+        ProviderInput::End {
+            request,
+            privacy_generation: 1,
+            sound: false,
+        }
+    }
+
+    fn link(revision: u64, ready: bool) -> ProviderLink {
+        ProviderLink {
+            revision,
+            session: 1,
+            observed_at_us: monotonic_us(),
+            source_clock: None,
+            state: if ready {
+                ProviderLinkState::Ready {
+                    setup_us: 1,
+                    attempts: 1,
+                    context: crate::provider_link::LinkContext::Initial,
+                    outage_started_at_us: None,
+                    after: None,
+                }
+            } else {
+                ProviderLinkState::Unavailable {
+                    reason: crate::provider_worker::Fault::Transport,
+                }
+            },
+        }
+    }
+
+    /// Start + `blocks` Audio + End of `request`.
+    fn whole_line(request: u64, blocks: u64) -> VecDeque<ProviderInput> {
+        let mut line = VecDeque::from([start(request)]);
+        line.extend((1..=blocks).map(|sequence| audio(request, sequence, 160)));
+        line.push_back(end(request));
+        line
+    }
+
+    /// The voice at startup, before Gemini's first Ready: the second route
+    /// is active and only stands in, Gemini's worker is the standby.
+    struct Bench {
+        rig: Rig,
+        /// The active register: the second route's, Ready.
+        cloud: CloudAvailability,
+        flow: OutputReceiver,
+        trace: SessionState,
+        gemini: WorkerChannels,
+        second: WorkerChannels,
+        _rest: Vec<WorkerChannels>,
+        _directory: SessionDirectory,
+    }
+
+    impl Bench {
+        fn standing_in() -> Self {
+            let directory = SessionDirectory::create().unwrap();
+            let (second_worker, second) = Worker::sleeping_fixture(&directory.path, "second");
+            let (gemini_worker, gemini) = Worker::sleeping_fixture(&directory.path, "provider");
+            let (capture, capture_peer) = Worker::sleeping_fixture(&directory.path, "capture");
+            let (speaker, speaker_peer) = Worker::sleeping_fixture(&directory.path, "speaker");
+            let (privacy, privacy_peer) = Worker::sleeping_fixture(&directory.path, "privacy");
+            let mut route = Route::new(gemini_worker);
+            route.second_active = true;
+            route.stand_in = true;
+            let mut cloud = CloudAvailability::default();
+            cloud.observe(link(1, true), monotonic_us()).unwrap();
+            Self {
+                rig: Rig {
+                    second: Some(route),
+                    microphone: crate::options::Microphone::Mic2,
+                    end_silence_blocks: None,
+                    early_end_blocks: None,
+                    faint_level: None,
+                    speaker,
+                    capture,
+                    provider: second_worker,
+                    privacy,
+                    ring: None.into(),
+                    camera: None,
+                    motor: None,
+                    ring_channel_ceiling: None,
+                    diagnostic_directory: None,
+                    noise_suppression: NoiseSuppression::On,
+                    turn_taking: TurnTaking::VadOnly,
+                    playout_start: PlayoutStart::default(),
+                    endpoint: None,
+                    paused: Box::new(|| false),
+                },
+                cloud,
+                flow: OutputReceiver::default(),
+                trace: SessionState::default(),
+                gemini,
+                second,
+                _rest: vec![capture_peer, speaker_peer, privacy_peer],
+                _directory: directory,
+            }
+        }
+
+        fn route(&mut self) -> &mut Route {
+            self.rig.second.as_mut().unwrap()
+        }
+
+        fn gemini_link(&mut self, revision: u64, ready: bool) {
+            self.gemini
+                .control
+                .send(WorkerEvent::ProviderLink {
+                    link: link(revision, ready),
+                })
+                .unwrap();
+        }
+
+        fn service(&mut self, reply: &mut Option<Reply>, queue: &mut VecDeque<ProviderInput>) {
+            service(
+                &mut self.rig,
+                &mut self.cloud,
+                &mut self.flow,
+                reply,
+                queue,
+                false,
+                &mut self.trace,
+            )
+            .unwrap();
+        }
+
+        fn flush(&mut self, reply: &mut Option<Reply>, queue: &mut VecDeque<ProviderInput>) {
+            flush(&mut self.rig, &self.cloud, reply, queue).unwrap();
+        }
+    }
+
+    /// A request not yet sent anywhere, of the active reply's turn.
+    fn unsent_reply() -> (Controller, Reply) {
+        let (owner, mut current, _) = super::super::tests::active_reply();
+        current.had_audio = false;
+        current.pcm.clear();
+        current.cloud = CloudRequest::new(1).unwrap();
+        (owner, current)
+    }
+
+    /// (request, Audio sequence or 0 for Start, u64::MAX for End) of all
+    /// a peer was sent.
+    fn received(peer: &mut WorkerChannels) -> Vec<(u64, u64)> {
+        let mut seen = Vec::new();
+        while let Some(command) = peer.data.receive::<ProviderInput>().unwrap() {
+            seen.push(match command {
+                ProviderInput::Start { request, .. } => (request, 0),
+                ProviderInput::Audio {
+                    request, sequence, ..
+                } => (request, sequence),
+                ProviderInput::End { request, .. } => (request, u64::MAX),
+                other => panic!("unexpected {other:?}"),
+            });
+        }
+        seen
+    }
+
+    fn sequences(request: u64, blocks: u64) -> Vec<(u64, u64)> {
+        let mut all = vec![(request, 0)];
+        all.extend((1..=blocks).map(|sequence| (request, sequence)));
+        all.push((request, u64::MAX));
+        all
+    }
+
+    /// Held, given to Gemini at its first Ready, and Gemini's link lost
+    /// after the first bounded flush: the second route is given what was
+    /// sent, the rest of the replay and the queue, in order (PR #885 P2).
+    #[test]
+    fn a_link_lost_mid_replay_gives_the_second_route_every_block_and_the_end() {
+        let mut bench = Bench::standing_in();
+        let (_owner, current) = unsent_reply();
+        let turn = current.owner.turn();
+        let mut reply = Some(current);
+        let mut queue = whole_line(turn, 20);
+        bench.flush(&mut reply, &mut queue);
+        assert_eq!(bench.route().replay.len(), 22);
+        bench.gemini_link(1, true);
+        bench.service(&mut reply, &mut queue);
+        assert!(!bench.route().second_active);
+        // The first bounded flush: Start + 7 Audio to Gemini.
+        bench.flush(&mut reply, &mut queue);
+        assert_eq!(received(&mut bench.gemini).len(), 8);
+        bench.gemini_link(2, false);
+        let mut budget = STANDBY_SLICE;
+        service_provider_control(
+            &mut bench.rig.provider.channels.control,
+            &mut bench.cloud,
+            &mut budget,
+            &mut bench.trace,
+        )
+        .unwrap();
+        bench.service(&mut reply, &mut queue);
+        assert!(bench.route().second_active);
+        while !bench.route().replay.is_empty() {
+            bench.flush(&mut reply, &mut queue);
+        }
+        assert_eq!(received(&mut bench.second), sequences(turn, 20));
+    }
+
+    /// A held turn cancelled and replaced in the same tick, before
+    /// `service` ran: the replacement is held, and Gemini's Ready gives it
+    /// all to Gemini (PR #885 P2).
+    #[test]
+    fn a_turn_admitted_in_place_of_a_held_one_is_held_too() {
+        let mut bench = Bench::standing_in();
+        let (_owner, current) = unsent_reply();
+        let turn = current.owner.turn();
+        // The cancelled turn's hold and replay, not yet retired.
+        let stale = turn + 1;
+        bench.route().hold = Some((stale, monotonic_us()));
+        bench.route().replay = whole_line(stale, 2);
+        let mut reply = Some(current);
+        let mut queue = whole_line(turn, 2);
+        bench.flush(&mut reply, &mut queue);
+        assert!(received(&mut bench.second).is_empty());
+        assert_eq!(bench.route().hold.map(|(held, _)| held), Some(turn));
+        bench.gemini_link(1, true);
+        bench.service(&mut reply, &mut queue);
+        bench.flush(&mut reply, &mut queue);
+        assert_eq!(received(&mut bench.gemini), sequences(turn, 2));
+        assert!(received(&mut bench.second).is_empty());
+    }
+
+    /// Gemini's Ready and its loss in one drain while the second route
+    /// stands in: Gemini was Ready, so the next request is not held but
+    /// goes to the second route at once (PR #885 P2).
+    #[test]
+    fn a_ready_lost_in_the_same_drain_still_ends_the_startup_hold() {
+        let mut bench = Bench::standing_in();
+        bench.gemini_link(1, true);
+        bench.gemini_link(2, false);
+        bench.service(&mut None, &mut VecDeque::new());
+        assert!(bench.route().live_was_ready);
+        let (_owner, current) = unsent_reply();
+        let turn = current.owner.turn();
+        let mut reply = Some(current);
+        let mut queue = whole_line(turn, 2);
+        bench.flush(&mut reply, &mut queue);
+        assert!(bench.route().hold.is_none());
+        assert_eq!(received(&mut bench.second), sequences(turn, 2));
     }
 }

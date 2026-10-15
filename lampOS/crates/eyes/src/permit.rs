@@ -1,5 +1,7 @@
 //! Whether the camera may be open: `{"camera":true}` on the permit socket
 //! at least every [`STALE`], and `{"camera":false}` closes it at once.
+//! Anything else on the socket (a full look's ask, `--full-look`) is kept
+//! for the eyes' loop to read ([`Permit::heard`]).
 
 use std::os::unix::net::UnixDatagram;
 use std::sync::{Arc, Mutex};
@@ -30,7 +32,13 @@ pub fn of(datagram: &[u8]) -> Option<bool> {
 #[derive(Debug, Default)]
 pub struct Permit {
     at: Arc<Mutex<Option<Instant>>>,
+    /// Datagrams that are not a permission, newest last, at most [`HEARD`].
+    others: Arc<Mutex<Vec<Vec<u8>>>>,
 }
+
+/// Datagrams other than a permission kept for the loop at most: an older
+/// one is dropped when another comes.
+pub const HEARD: usize = 8;
 
 impl Permit {
     /// Hears the socket from now on. If the socket fails, nothing renews the
@@ -39,6 +47,7 @@ impl Permit {
         socket.set_nonblocking(false)?;
         let permit = Permit::default();
         let at = Arc::clone(&permit.at);
+        let others = Arc::clone(&permit.others);
         std::thread::Builder::new()
             .name("permit".into())
             .spawn(move || {
@@ -47,12 +56,32 @@ impl Permit {
                     let heard = match of(&datagram[..length]) {
                         Some(true) => Some(Instant::now()),
                         Some(false) => None,
-                        None => continue,
+                        None => {
+                            let mut others = others
+                                .lock()
+                                .unwrap_or_else(|poisoned| poisoned.into_inner());
+                            if others.len() >= HEARD {
+                                others.remove(0);
+                            }
+                            others.push(datagram[..length].to_vec());
+                            continue;
+                        }
                     };
                     *at.lock().unwrap_or_else(|poisoned| poisoned.into_inner()) = heard;
                 }
             })?;
         Ok(permit)
+    }
+
+    /// The datagrams heard since the last call that were not a permission,
+    /// oldest first.
+    pub fn heard(&self) -> Vec<Vec<u8>> {
+        std::mem::take(
+            &mut *self
+                .others
+                .lock()
+                .unwrap_or_else(|poisoned| poisoned.into_inner()),
+        )
     }
 
     /// Whether the camera may be open now.
@@ -138,6 +167,40 @@ mod tests {
         let mut closed = false;
         assert_eq!(permit.opened("port", |_| closed = true), Some("port"));
         assert!(!closed);
+    }
+
+    #[test]
+    fn what_is_not_a_permission_is_kept_for_the_loop_and_changes_nothing() {
+        let (permit, voice) = permitted();
+        voice.send(br#"{"look_full":7}"#).unwrap();
+        voice.send(br#"{"camera":true}"#).unwrap();
+        let waited = Instant::now();
+        let mut heard = Vec::new();
+        while heard.is_empty() {
+            assert!(waited.elapsed() < Duration::from_secs(1), "never heard");
+            std::thread::sleep(Duration::from_millis(1));
+            heard = permit.heard();
+        }
+        assert_eq!(heard, [br#"{"look_full":7}"#.to_vec()]);
+        assert!(permit.holds());
+        assert!(permit.heard().is_empty());
+        // At most HEARD are kept, the newest.
+        for id in 0..HEARD + 3 {
+            voice
+                .send(format!(r#"{{"look_full":{id}}}"#).as_bytes())
+                .unwrap();
+        }
+        voice.send(br#"{"camera":false}"#).unwrap();
+        while permit.holds() {
+            assert!(waited.elapsed() < Duration::from_secs(2), "never closed");
+            std::thread::sleep(Duration::from_millis(1));
+        }
+        let heard = permit.heard();
+        assert_eq!(heard.len(), HEARD);
+        assert_eq!(
+            heard[HEARD - 1],
+            format!(r#"{{"look_full":{}}}"#, HEARD + 2).into_bytes()
+        );
     }
 
     #[test]

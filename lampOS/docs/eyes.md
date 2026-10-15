@@ -156,6 +156,67 @@ The character file has to say the lamp can see
 ([character.md](character.md)); without that the model has the picture and
 still answers that it cannot.
 
+### A full look (#836, off unless set)
+
+At lamp-4ace on 2026-10-15 the owner held something up and asked "Hey Lamp,
+what do you see?". The picture that went with the look was the working
+frame, 320 by 240: the office, the person side-on, and nothing to tell what
+was held up. The answer was wrong.
+
+With `--full-look WIDTHxHEIGHT` (it needs `--sight-file`) the eyes' stream is
+opened at that size instead of 320 by 240, and nothing else about the faces
+changes: the detector shrinks every frame to its own 320 by 256, as it
+always could, and every face size is a share of the picture. No working
+frame is kept. The sight file holds only a still taken when the voice
+service asks, `{"look_full":true}` on `--permit-socket`:
+
+1. The head is the body's. It already turns to the face the eyes see
+   (`--gaze-socket`) and to a call (`--look-at-name on`); nothing new is
+   asked of it. The still waits for it to stop: `body/joint_states` on the
+   bus, read twenty times a second, with `base_yaw`, `head_pitch` and
+   `head_roll` each within 6 counts (0.0092 rad) of where they were asked to
+   be for 0.3 s, the body's own arrival rule. It waits at most 2 s. With no
+   joint states on the bus (no body, `LAMP_BUS` off on either side) it does
+   not wait; a paused body says its joints are where they were asked to be.
+2. The still is the first frame after that. It is passed as it is when it is
+   a whole JPEG of at most 64 KiB and 1024 across; otherwise it is decoded,
+   shrunk to 1024 across by averaging, and encoded (`jpeg-encoder`, pure
+   Rust) at quality 85, 75, 65 or 50, the first that fits 64 KiB, smaller
+   again if none does. 64 KiB is the provider's image bound
+   (`lamp_gemini::MAX_IMAGE_BYTES`).
+3. It is written to the sight file as frames were, and removed 3 s later,
+   or when the camera closes. One line in the journal: its size, its bytes,
+   how long the head was waited for and how long it took to make. No
+   picture is logged.
+
+No still within 2.5 s of the ask (no frame, a frame that does not decode)
+and there is none: the voice service's look then says the eye was shut
+(`NO_LOOK_NOTE`), rather than guess from nothing.
+
+The stream is not switched to a larger mode for the still and back. On UVC a
+mode switch is a stop and a start, and lamp-52e6's camera often fails to
+start again for 6 to 18 minutes (#763), which would leave the lamp unable to
+see faces. One mode, opened once, costs a larger decode on every look
+instead, and nothing at the moment of asking. A camera that does not open at
+the full size is opened at 320 by 240 the next time, and at the full size
+again the time after that; the still is then whatever that stream gives.
+
+Measured on a laptop (Apple M-series, release build), not yet on a lamp: a
+1280 by 960 synthetic frame of 548 KB made into a 768 by 576 still of
+58.5 KB in 38 to 65 ms. The camera's own frames compress better than that
+fixture, so a real frame should come out larger. The lamp's ARM cores are
+several times slower; the eyes' journal line gives the real time. What the
+larger decode costs on every look, in time and heat, is to be measured on
+the lamp before the switch is left on (the eyes' ten-second line gives the
+milliseconds a look).
+
+On the voice service's side, `LAMP_LOOK_FULL=on` ([speaking-first.md](speaking-first.md),
+"Taking a look"). The two are turned on together: eyes with `--full-look`
+and a voice service without it have no picture for a look, nor for
+`LAMP_EYES_SIGHT_FILE`. Privacy is as before: the still goes with the one look it
+was taken for, is on the lamp for at most 3 s, in memory, and is never kept
+or logged.
+
 ## Which face
 
 The detector is YuNet (`face_detection_yunet_2023mar.onnx`, 232,589 bytes,
@@ -338,7 +399,7 @@ looking.
 lamp-eyes --device /dev/video0 --lock-directory /home/WORKER/private-camera-locks --usb 01da:5875@3-1.1.4 --model /opt/lampOS/eyes/face_detection_yunet_2023mar.onnx --permit-socket /run/lampos-eyes/permit.sock --body-socket /run/lampos-body/gaze.sock
 ```
 
-Every option shown is required; `--sight-file ABSOLUTE_PATH` and `--leave-still-faces on` may be added.
+Every option shown is required; `--sight-file ABSOLUTE_PATH`, `--leave-still-faces on` and, with the sight file, `--full-look 1280x960` may be added.
 `--usb` is `VENDOR:PRODUCT@TOPOLOGY`, the two numbers as four hex digits; the
 lock directory must be private to the user it runs as. A camera that does not open, or fails, is tried again every five
 seconds while permission lasts. A start is given a 2 s budget (`OPEN_BUDGET_US`)

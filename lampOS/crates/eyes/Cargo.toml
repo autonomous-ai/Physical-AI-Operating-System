@@ -23,6 +23,9 @@ sha2.workspace = true
 tract-onnx = { version = "=0.23.8", default-features = false }
 # Pure Rust JPEG decoding: the camera gives MJPG.
 zune-jpeg = "=0.4.21"
+# Pure Rust JPEG encoding, no dependencies: a full look is made to fit the
+# provider's image bound (`--full-look`).
+jpeg-encoder = "=0.7.1"
 
 [target.'cfg(target_os = "linux")'.dependencies]
 lamp-camera = { path = "../camera" }

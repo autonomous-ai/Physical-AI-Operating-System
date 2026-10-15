@@ -4605,9 +4605,11 @@ fn a_short_push_a_contact_floor_and_the_arm_under_a_hand() {
 }
 
 /// A standing shoulder resting short of its goal under its own weight stops
-/// pushing once; each later goal that moves a little and stops it at the same
-/// place again is held quietly, not counted again. A hand that takes it
-/// elsewhere and stops it there is counted.
+/// pushing once and is counted once; each later goal that moves a little and
+/// stops it at the same place again is held again (it still stops pushing,
+/// which an overload rule relies on) but not counted. A hand that takes it
+/// elsewhere and stops it there is counted, and so is a stall at the old
+/// place after it has moved freely away for a while.
 #[test]
 fn a_shoulder_resting_short_at_the_same_place_is_counted_once() {
     let rest = Sample {
@@ -4616,23 +4618,41 @@ fn a_shoulder_resting_short_at_the_same_place_is_counted_once() {
         temperature: 40,
         status: 0,
     };
+    // (holds, counted) over one stall's worth of steps.
     let stop = |stall: &mut Stall, goal: u16, is: Sample| {
-        (0..=STALL_STEPS)
-            .map(|_| stall.step(goal, is, goal))
-            .filter(|said| *said)
-            .count()
+        let mut held = (0, 0);
+        for _ in 0..=STALL_STEPS {
+            if stall.step(goal, is, goal) {
+                held.0 += 1;
+                held.1 += usize::from(!stall.again);
+            }
+        }
+        held
     };
     let mut stall = Stall::default();
-    assert_eq!(stop(&mut stall, 2_659, rest), 1);
-    // A scene moves the goal 25 counts: let go, and the same rest again.
+    assert_eq!(stop(&mut stall, 2_659, rest), (1, 1));
+    // A scene moves the goal 25 counts: let go, the same rest again: held,
+    // so it stops pushing, but not counted.
     assert!(stall.holding(2_684).is_none());
-    assert_eq!(stop(&mut stall, 2_684, rest), 0);
-    assert!(stall.hold.is_some(), "still held, only not counted");
+    assert_eq!(stop(&mut stall, 2_684, rest), (1, 0));
+    // It moves freely to 2,750 for 100 steps, unloaded, then stalls at the
+    // old 2,629 again at a load of 500: a new stall, counted.
+    assert!(stall.holding(2_800).is_none());
+    let free = Sample {
+        position: 2_750,
+        load: 20,
+        ..rest
+    };
+    for _ in 0..100 {
+        assert!(!stall.step(2_750, free, 2_750));
+    }
+    let pushed = Sample { load: 500, ..rest };
+    assert_eq!(stop(&mut stall, 2_659, pushed), (1, 1));
     // A hand lifts it 70 counts and holds it there: counted.
     assert!(stall.holding(2_720).is_none());
     let lifted = Sample {
         position: 2_699,
         ..rest
     };
-    assert_eq!(stop(&mut stall, 2_740, lifted), 1);
+    assert_eq!(stop(&mut stall, 2_740, lifted), (1, 1));
 }

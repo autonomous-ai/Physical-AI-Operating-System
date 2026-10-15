@@ -191,6 +191,13 @@ count is said once lines go through again ("N log lines dropped because the
 journal did not take them"). A line already begun is always finished.
 Before a process ends, and after a panic's message, it waits up to half a
 second for its last lines to go.
+A process killed outright (SIGKILL, or SIGTERM in a part with no handler
+for it) loses what is still in the pipe. A test that kills a part and then
+reads its lines must wait for those lines first: on 2026-10-15 the
+`lamp-policy` program test killed the program at once and lost its last
+lines on the slow ARM64 runner, which failed every builder's run for an
+afternoon (#783; `Running::end` in `crates/policy/tests/program.rs` now
+waits for them).
 
 Why: `eprintln!` blocks while the journal does not read and panics when its
 stream breaks. On lamp-4ace on 2026-10-15 a journald restart (01:52) ended

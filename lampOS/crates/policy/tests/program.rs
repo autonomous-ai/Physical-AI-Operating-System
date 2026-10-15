@@ -26,11 +26,42 @@ const KEY: &str = "sk-or-test-7d1e0c9a4b3f2685";
 struct Running(Option<Child>);
 
 impl Running {
-    /// Kill it, and return everything it printed.
-    fn end(mut self) -> Output {
+    /// Kill it once it has printed a line starting with each of `last`,
+    /// or after `WAIT`, and return everything it printed. Its lines go
+    /// through `lamp_ipc::log_relay`'s thread, so a line written just
+    /// before a kill may not have reached the pipe yet: killed at once, a
+    /// slow ARM64 runner lost the last of them.
+    fn end(mut self, last: &[&str]) -> Output {
         let mut child = self.0.take().unwrap();
+        let mut stderr = child.stderr.take().unwrap();
+        let (sent, printed) = mpsc::channel();
+        let reader = thread::spawn(move || {
+            let mut chunk = [0u8; 4096];
+            while let Ok(read @ 1..) = stderr.read(&mut chunk) {
+                if sent.send(chunk[..read].to_vec()).is_err() {
+                    break;
+                }
+            }
+        });
+        let mut all = Vec::new();
+        let since = Instant::now();
+        while !last.iter().all(|wanted| {
+            String::from_utf8_lossy(&all)
+                .lines()
+                .any(|line| line.starts_with(wanted))
+        }) {
+            let left = WAIT.saturating_sub(since.elapsed());
+            match printed.recv_timeout(left) {
+                Ok(bytes) => all.extend(bytes),
+                Err(_) => break,
+            }
+        }
         child.kill().unwrap();
-        child.wait_with_output().unwrap()
+        let mut output = child.wait_with_output().unwrap();
+        reader.join().unwrap();
+        all.extend(printed.try_iter().flatten());
+        output.stderr = all;
+        output
     }
 }
 
@@ -339,7 +370,10 @@ fn the_program_judges_what_the_voice_hears_and_prints_nothing_of_it() {
     }
     assert!(gone, "the service was still answering");
 
-    let output = running.end();
+    let output = running.end(&[
+        "lamp-policy: the decision model is not answering (",
+        "lamp-policy: a message on voice/heard is not of its type",
+    ]);
     assert!(output.stdout.is_empty());
     let printed = String::from_utf8(output.stderr).unwrap();
     let lines: Vec<&str> = printed.lines().collect();

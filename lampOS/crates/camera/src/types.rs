@@ -8,6 +8,14 @@ pub const POLL_TARGET_US: u64 = 2_000;
 pub const REVOKE_TARGET_US: u64 = 20_000;
 pub const READ_BUDGET_US: u64 = 10_000;
 pub const START_BUDGET_US: u64 = 100_000;
+/// The most a Linux port's start may take when its caller allows it. A UVC
+/// camera's probe, commit and STREAMON are USB transfers: a start takes about
+/// 50 ms on lamp-52e6, and after some closes it returned past 100 ms again and
+/// again for minutes on lamp-52e6 and lamp-4ace (#911), each time thrown away
+/// as `DeadlineExceeded` though the camera had answered. A caller bound by
+/// privacy keeps [`START_BUDGET_US`]; a dedicated process that may block for
+/// the open passes a budget up to this.
+pub const OPEN_BUDGET_US: u64 = 2_000_000;
 pub const STOP_BUDGET_US: u64 = 20_000;
 /// Separate supervised driver teardown bound after local export is sealed.
 /// This is an engineering limit, not a measured USB/kernel completion maximum.

@@ -307,7 +307,7 @@ impl PortIo for LinuxPort {
         let started = now();
         let cancellation = self.cancellation.clone();
         let result = run_budget(
-            capped(budget, crate::START_BUDGET_US),
+            capped(budget, crate::OPEN_BUDGET_US),
             &cancellation,
             |check| self.start_inner(config, capture, check),
         );
@@ -439,6 +439,23 @@ mod tests {
             deadline: MonoTime::from_micros(u64::MAX),
         };
         assert_eq!(capped(budget, 20).deadline.as_micros(), u64::MAX);
+    }
+    #[test]
+    fn a_slow_open_fits_a_caller_that_allows_it_and_no_other() {
+        let start = MonoTime::from_micros(1_000);
+        let open_for = |micros: u64| OperationBudget {
+            started_at: start,
+            deadline: start.checked_add(micros).unwrap(),
+        };
+        // The eyes allow a cold USB camera its slow open.
+        let eyes = capped(open_for(crate::OPEN_BUDGET_US), crate::OPEN_BUDGET_US);
+        assert_eq!(eyes.deadline.as_micros(), 1_000 + crate::OPEN_BUDGET_US);
+        // A privacy-bound caller keeps its own shorter start.
+        let voice = capped(open_for(crate::START_BUDGET_US), crate::OPEN_BUDGET_US);
+        assert_eq!(voice.deadline.as_micros(), 1_000 + crate::START_BUDGET_US);
+        // No caller gets more than the cap.
+        let greedy = capped(open_for(60_000_000), crate::OPEN_BUDGET_US);
+        assert_eq!(greedy.deadline.as_micros(), 1_000 + crate::OPEN_BUDGET_US);
     }
     #[test]
     fn identity_requires_exact_topology_interface_and_optional_expected_serial() {

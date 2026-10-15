@@ -223,8 +223,8 @@ fn run(arguments: Arguments) -> Result<(), Box<dyn std::error::Error + Send + Sy
 #[cfg(target_os = "linux")]
 fn run(arguments: Arguments) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     use lamp_camera::{
-        CaptureConfig, CaptureId, FrameInterval, MAX_FRAME_BYTES, OperationBudget, PortIo,
-        READ_BUDGET_US, START_BUDGET_US, STOP_BUDGET_US, SourceId,
+        CaptureConfig, CaptureId, DRIVER_TEARDOWN_BUDGET_US, FrameInterval, MAX_FRAME_BYTES,
+        OPEN_BUDGET_US, OperationBudget, PortIo, READ_BUDGET_US, SourceId,
         linux::{LinuxConfig, LinuxPort, UsbIdentity},
     };
     use lamp_eyes::{
@@ -255,6 +255,9 @@ fn run(arguments: Arguments) -> Result<(), Box<dyn std::error::Error + Send + Sy
     /// above the 70 at which its kernel begins to hold it back.
     const GLANCE_EVERY: Duration = Duration::from_millis(600);
     const FOLLOW_FOR: Duration = Duration::from_secs(4);
+    /// Time for STREAMOFF and the buffers' release to return when the camera
+    /// is closed, so it is left stopped and freed before its file is closed.
+    const STOP: u64 = DRIVER_TEARDOWN_BUDGET_US;
     /// A camera that did not open, or failed, is tried again after this.
     const RETRY: Duration = Duration::from_secs(5);
     const REPORT_EVERY: Duration = Duration::from_secs(10);
@@ -487,7 +490,7 @@ fn run(arguments: Arguments) -> Result<(), Box<dyn std::error::Error + Send + Sy
         }
         if permitted_at.is_none_or(|at| at.elapsed() >= PERMIT_STALE) {
             if let Some(mut open) = port.take() {
-                let _ = open.stop(budget(STOP_BUDGET_US));
+                let _ = open.stop(budget(STOP));
                 eprintln!("lamp-eyes: camera closed: not permitted");
                 tell(Seen { face: None });
             }
@@ -538,20 +541,33 @@ fn run(arguments: Arguments) -> Result<(), Box<dyn std::error::Error + Send + Sy
                     worker,
                     epoch: NonZeroU64::new(epoch).ok_or("no epoch")?,
                 },
-                budget(START_BUDGET_US),
+                // A camera closed a moment ago is slow to start (#911): the
+                // eyes have no other work that cannot wait for it.
+                budget(OPEN_BUDGET_US),
             );
+            let took_ms = opening.diagnostics().start.map_or(0, |timing| {
+                timing
+                    .completed_at
+                    .as_micros()
+                    .saturating_sub(timing.started_at.as_micros())
+                    / 1_000
+            });
             match started {
                 Ok(mode) => {
-                    eprintln!("lamp-eyes: camera open, {} by {}", mode.width, mode.height);
+                    eprintln!(
+                        "lamp-eyes: camera open, {} by {}, in {took_ms} ms",
+                        mode.width, mode.height
+                    );
                     port = Some(opening);
                     camera = lamp_eyes::bus_out::Camera::Open;
                     reported_at = Instant::now();
                 }
                 Err(error) => {
                     eprintln!(
-                        "lamp-eyes: camera did not open: {error:?} {:?}",
+                        "lamp-eyes: camera did not open: {error:?} {:?} after {took_ms} ms",
                         opening.diagnostics().fault
                     );
+                    let _ = opening.stop(budget(STOP));
                     camera = lamp_eyes::bus_out::Camera::NotOpening;
                     retry_at = Instant::now() + RETRY;
                     continue;
@@ -579,7 +595,7 @@ fn run(arguments: Arguments) -> Result<(), Box<dyn std::error::Error + Send + Sy
             eprintln!("lamp-eyes: camera failed: {error:?}; closing it");
             camera = lamp_eyes::bus_out::Camera::Failed;
             if let Some(mut open) = port.take() {
-                let _ = open.stop(budget(STOP_BUDGET_US));
+                let _ = open.stop(budget(STOP));
             }
             tell(Seen { face: None });
             if let Some(kept) = kept.as_mut() {

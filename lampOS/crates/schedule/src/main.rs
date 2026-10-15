@@ -72,6 +72,8 @@ fn main() {
     let _log = lamp_ipc::log_relay::guard();
     if let Err(error) = run() {
         eprintln!("schedule: {error}");
+        // `exit` runs no destructor, so the guard would not pass the line on.
+        lamp_ipc::log_relay::finish(std::time::Duration::from_millis(500));
         std::process::exit(1);
     }
 }

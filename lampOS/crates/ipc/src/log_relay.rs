@@ -36,6 +36,8 @@ pub const MOST_HELD: usize = 64 * 1024;
 /// A line longer than this goes out in pieces rather than waiting for its
 /// end.
 const LONGEST_LINE: usize = 4096;
+/// What the relay holds while it is between reading and writing.
+const BUSY: usize = usize::MAX;
 /// How often held lines are offered again while nothing new arrives.
 const RETRY: Timespec = Timespec {
     tv_sec: 0,
@@ -130,8 +132,10 @@ pub fn finish(longest: Duration) {
     };
     let until = Instant::now() + longest;
     while Instant::now() < until {
+        // The pipe first, then the relay: bytes gone from the pipe were
+        // taken by a read made after the relay said it was busy (#837).
         let waiting = rustix::io::ioctl_fionread(read).unwrap_or(0);
-        if waiting == 0 && held.load(Ordering::Relaxed) == 0 {
+        if waiting == 0 && held.load(Ordering::SeqCst) == 0 {
             return;
         }
         std::thread::sleep(Duration::from_millis(5));
@@ -157,13 +161,19 @@ fn relay_holding(from: OwnedFd, to: OwnedFd, dropped: &AtomicU64, holding: &Atom
         let ready = matches!(rustix::event::poll(&mut fds, Some(&RETRY)), Ok(n) if n > 0);
         let mut ended = false;
         if ready {
+            // Busy until what is read is written or counted as held: a
+            // pipe found empty is not yet a line delivered (#837).
+            holding.store(BUSY, Ordering::SeqCst);
             match rustix::io::read(&from, &mut buffer) {
                 // Every writer has gone: say what is held, if the journal
                 // takes it, and stop.
                 Ok(0) => ended = true,
                 Ok(n) => held.extend_from_slice(&buffer[..n]),
                 Err(Errno::INTR | Errno::AGAIN) => {}
-                Err(_) => return,
+                Err(_) => {
+                    holding.store(0, Ordering::SeqCst);
+                    return;
+                }
             }
         }
         // Too much held: whole lines go, oldest first, but never the one
@@ -217,7 +227,7 @@ fn relay_holding(from: OwnedFd, to: OwnedFd, dropped: &AtomicU64, holding: &Atom
                 }
             }
         }
-        holding.store(held.len(), Ordering::Relaxed);
+        holding.store(held.len(), Ordering::SeqCst);
         let now = dropped.load(Ordering::Relaxed);
         if held.is_empty() && begun == 0 && now != told {
             let line = format!(

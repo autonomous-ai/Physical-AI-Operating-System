@@ -1,0 +1,30 @@
+--- HEAD:docs
++++ current:docs
+@@ -150,6 +150,27 @@
+ An already blocked publication can finish with its earlier snapshot; a final
+ warning is not guaranteed, and Health's missing/stale detection remains
+ necessary.
++
++### Reporter scheduling in local fixtures
++
++`Reporter::start_with_schedule` accepts an explicit `ReportSchedule` with a
++pure, nondecreasing `Instant` source and an interruptible wait. It uses that
++same source for the publisher's cadence, installed before the first presence
++write. Ordinary `Reporter::start` keeps the host clock and `park_timeout`;
++both paths keep the one-second period, original clock sample positions and
++100 ms shutdown wait. State's request latency and count-age measurements
++remain on their real clock. No process-wide clock or CLI mode is installed.
++
++The schedule's wait must use the worker's thread park token so the existing
++shutdown `unpark` wakes it, including a wake before parking. Observations must
++remain local and nonblocking. `CycleComplete` follows the real count scan,
++snapshot, optional publication and failure/recovery log decision; its
++publication outcome records only whether that call returned success or
++failure, or was not attempted. `WaitChecked` reports a positive remaining
++wait after the deadline check. It does not prove that the thread has parked.
++Neither observation acknowledges Event delivery, a flushed downstream log,
++publisher cleanup or worker exit. A controller must account for those real
++participants separately before advancing time or claiming evidence.
+ 
+ ## On the disk
+ 

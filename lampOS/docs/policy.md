@@ -971,6 +971,57 @@ fixture's timing sensitivity: a preceding detection can still lie inside
 the next utterance's one-second pre-roll window. That existing behavior
 and test were not changed by this task.
 
+## Another model, asked the same questions again (#871)
+
+`lamp-policy-replay` asks the attention decisions in the decisions log
+again, of each model given, one after the other, so that a new version of
+the decision model can be laid beside the one in use before the lamp is
+switched to it. Each question is the one sent on the day: the state text is
+put together again from the logged `context` by the same code
+(`attention::state_text`), with the same seven questions, and each model's
+answers are made a choice by the same weights. Those weights were fitted to
+`typesafe/jev-1.13`'s answers on 2026-10-13: another model's answers go
+through them as they are.
+
+    lamp-policy-replay --key-file ABSOLUTE_PATH --log-dir /var/lib/lampos-policy \
+        --days 2026-10-14,2026-10-15 --models typesafe/jev-1.13,typesafe/jev-1.14 \
+        [--labels ABSOLUTE_FILE] [--only-labelled] [--endpoint URL] \
+        [--deadline-ms 10000] [--pace-ms 500] [--most N] > replay.jsonl
+    lamp-policy-replay --again replay.jsonl --labels ABSOLUTE_FILE
+
+- **Where:** on the lamp, where the logs are. They hold what was heard, so
+  they stay there. What is heard is sent to the model's service again, as on
+  the day. The day of a file is UTC's.
+- **What it prints:** one line for each decision and then a summary, and
+  **no words**. Each line has the decision's place (`2026-10-15#139`, the
+  file's day and the line's number) and moment, the room, whether the lamp
+  was in conversation and whether its name was heard, the kinds of what was
+  heard (`words`, `names_lamp`, `other_language`), what was chosen on the
+  day, what should have happened if labelled, and each model's choice,
+  probability, time (`took_ms`) and name as its service gave it, or why it
+  failed.
+- **The summary,** for each model: how many it answered and how fast
+  (`took_ms` p50, p95, most), what it chose, how often its choice was the
+  logged one, and how often it did what should have happened: over all, for
+  requests that name the lamp, in a busy room and for another language. Then
+  how often each two models chose alike.
+- **Labels:** one JSON line each, `{"at_unix_ms": N, "should": "answer"}`
+  or `"stay_quiet"`, the moment as the lines give it. `answer` is met by
+  `answer` or `look_up`. A run can be labelled after it is seen:
+  `--again` counts its printed lines again with the labels, asking nothing.
+- **The kinds are rough:** `names_lamp` is one of the ways people call it or
+  the recogniser writes its name, as a word; `other_language` is a letter
+  outside English's, `¿` or `¡` (not the call "Lamp ơi" itself), or three
+  words or more with no common English word. They count lines apart and
+  decide nothing.
+
+Tests: `crates/policy/src/replay/tests.rs` (the log read with each line's
+place, kinds, each model asked the text sent on the day and choosing by the
+same weights, no words in a line, the counts, labels, counting again) and
+`crates/policy/tests/replay_program.rs` (the program against a service
+played on this machine: two models asked in turn, the state sent equal to
+the day's, and none of what was heard in its output).
+
 ## Progress news: "say this progress now?" (#732)
 
 Built by the second builder on 2026-10-15 (`second-P2`). **Off unless

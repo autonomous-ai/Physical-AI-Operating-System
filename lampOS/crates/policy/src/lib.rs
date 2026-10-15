@@ -20,6 +20,8 @@
 //! - [`progress`]: the second decision, "say this progress now?", about
 //!   the work the lamp handed over (`lamp-policy --progress`).
 //! - [`policy`]: the loop that listens on the bus and does the rest.
+//! - [`replay`]: the logged decisions asked again of other models
+//!   (`lamp-policy-replay`, #871), for comparing them, with no words out.
 
 // Nothing in this library prints. What it has to say about itself leaves
 // it as a `policy::Note`, which cannot hold what was heard or said, and
@@ -34,3 +36,4 @@ pub mod outcome;
 pub mod policy;
 pub mod progress;
 pub mod record;
+pub mod replay;

@@ -1,0 +1,9 @@
+{
+  "date": "2026-10-16 02:24:07 +0700",
+  "helper_hashes": {
+    "before": "fe88716c5f85d6ca14bfcaa50945a70956e6f6ea8afef5ccb16c0bf2baf60173",
+    "after": "fe88716c5f85d6ca14bfcaa50945a70956e6f6ea8afef5ccb16c0bf2baf60173"
+  },
+  "restored_source_sha256": "1850248165b8c7d5022ec06f3267b5de1a829fa375135cdda26aa3bfe539b905",
+  "load_note": "Shared x86_64 macOS host; independent Moment compilation may overlap. This pair is neither ARM64 nor the complete123-test serial proof."
+}

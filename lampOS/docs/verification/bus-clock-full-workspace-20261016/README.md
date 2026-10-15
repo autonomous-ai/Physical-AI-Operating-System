@@ -1,0 +1,7 @@
+# Bus cadence-clock complete workspace gate
+
+Recorded 2026-10-16 02:30:53 +0700, from `date`. On base `587a361a373bd856bb790c8cf92b92f4f7211066` with the four preserved Bus clock files, the complete gate passed: `cargo fmt --all --check`; strict workspace/all-target clippy; `cargo test --locked --offline --workspace --no-fail-fast -- --test-threads=1`; and `cargo build --locked --offline --workspace`. The complete test command exited zero. Across 310 standard libtest summary lines: **4,863 passed, zero failed, 35 existing ignores, zero filtered/measured**. Raw stdout/stderr, exact commands, target and start/finish dates are adjacent.
+
+This follows the actual merged #881 stderr relay/producer fix. The prior unchanged Memory usage-stderr failure remains in [earlier evidence](../bus-clock-memory-stderr-20261016/README.md), with no rerun of that failed source merely to obtain green. All four owned Bus source/docs hashes survived the integration; all nine added cadence boundary tests executed. Ordinary constructors retain their original clock reads and all actual filesystem/datagram/lease behavior.
+
+The preparation is now being integrated with newer `lamp-voice`; that rebase's fresh checks and native ARM64 run are separate and pending here. This full gate is not relabelled as running on a newer head. No original scenario migration or clock-speedup claim, retries, workflow/profile/runner changes or device operations.

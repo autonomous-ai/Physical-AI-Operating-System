@@ -1,5 +1,18 @@
 # Tests work log
 
+## 2026-10-16 02:30 +0700 — two preparations ready; delayed transport measured
+
+Ready for lamp-voice: yes (#894, #897); no (unpublished migrations and Bus integration)
+
+- #894's exact-head ARM64 38790030817 passes **4,835 / 126 profile exclusions**, all six new tests. #897's 38791901560 passes **4,840 / 126**, all three new factory tests. Both are ready. [Unedited native evidence](verification/clock-preparations-arm64-20261016-0230/README.md).
+- Reviewer merged #872's complete endpoint cleanup and #875's Serve clock preparation; #886's relay regression coverage also merged. #860 is handed back; #823 remains open.
+- #877 rebased after #889 with both test modules preserved, fresh complete **367/0/0** evaluator/fmt/strict-clippy/build gate, and published `8bbb50dcbd6493635d9d15edc2fef909797a368d`. Own ARM64 38793002582 is running; it remains draft.
+- The delayed transport migration preserves all 14 compiled Serve-session identities, 22 attempts and 114 assertions. Same-helper serial pair: **86.271 → 73.874 s**; the newly migrated case **22.713 → 3.608 s**. [Raw pair and 296-library-test preflight](verification/slow-transport-fixture-pair-20261016/README.md). Complete combined gate is running; no native or whole-group claim.
+- Bus cadence preparation completed a full workspace gate: **4,863 standard libtest passes / zero failures / 35 existing ignores**, plus fmt, strict workspace clippy and build. [Raw full gate](verification/bus-clock-full-workspace-20261016/README.md). Fresh integration checks precede its own PR/native run.
+- Serve-relay's six original bodies/37 assertions passed independent source review; its real signal/reaping pair and full gate are starting. Memory's explicit child/parent control adapters are being built. Provider Moment's first execution encountered actual sandbox socket denials; that invalid qualification is retained separately from its authorized local-socket gate, with no source change to hide a failure.
+
+The original 123-test combined serial under-two-minute target is still unproved. #783's merged sweep remains with the eighth for its qualification/close decision. No workflow/profile/runner/settings/device change.
+
 ## 2026-10-16 02:03 +0700 — endpoint cleanup passes its complete native run
 
 Ready for lamp-voice: yes (#872)

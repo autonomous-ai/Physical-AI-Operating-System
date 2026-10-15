@@ -1,0 +1,18 @@
+{
+  "date": "2026-10-16 02:29:11 +0700",
+  "head": "aa32b9d1222f0bb4c66152cfacfc431d3f584a1c",
+  "run": "38791901560",
+  "conclusion": "success",
+  "passed": 4840,
+  "profile_excluded": 126,
+  "new_tests": [
+    "no_bus_root_never_invokes_the_factory_for_either_backend",
+    "a_socket_bind_failure_precedes_the_factory_and_store_for_either_backend",
+    "the_selected_factory_gets_the_original_root_and_source_once_after_socket_bind"
+  ],
+  "raw_pass_lines": [
+    "lampOS \u2014 build and test on Linux ARM64 (1/1)\tUNKNOWN STEP\t2026-10-15T19:22:26.2073846Z         PASS [   0.004s] (1910/4840) lamp-memory::bin/lamp-memory factory_tests::a_socket_bind_failure_precedes_the_factory_and_store_for_either_backend",
+    "lampOS \u2014 build and test on Linux ARM64 (1/1)\tUNKNOWN STEP\t2026-10-15T19:22:26.2112885Z         PASS [   0.004s] (1911/4840) lamp-memory::bin/lamp-memory factory_tests::no_bus_root_never_invokes_the_factory_for_either_backend",
+    "lampOS \u2014 build and test on Linux ARM64 (1/1)\tUNKNOWN STEP\t2026-10-15T19:22:26.2150515Z         PASS [   0.004s] (1912/4840) lamp-memory::bin/lamp-memory factory_tests::the_selected_factory_gets_the_original_root_and_source_once_after_socket_bind"
+  ]
+}

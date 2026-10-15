@@ -1,0 +1,16 @@
+{
+  "date": "2026-10-16 02:18:28 +0700",
+  "head": "bb40423d37df96e9d3a533fda83dbaaecb079d1a",
+  "run": "38790030817",
+  "conclusion": "success",
+  "passed": 4835,
+  "profile_excluded": 126,
+  "new_tests": [
+    "physical::fake_lamp::slow_transport_clock_tests::a_consuming_wait_error_is_returned_unchanged_before_exec",
+    "physical::fake_lamp::slow_transport_clock_tests::malformed_arguments_fail_before_the_wait_in_both_entrypoints",
+    "physical::fake_lamp::slow_transport_clock_tests::malformed_delay_keeps_the_original_parse_error_before_waiting",
+    "physical::fake_lamp::slow_transport_clock_tests::real_exec_failure_keeps_the_original_io_error_after_the_wait",
+    "physical::fake_lamp::slow_transport_clock_tests::real_exec_replaces_the_owned_child_and_keeps_argv_and_queued_input",
+    "physical::fake_lamp::slow_transport_clock_tests::zero_and_full_u64_millisecond_delays_reach_one_wait_without_truncation"
+  ]
+}

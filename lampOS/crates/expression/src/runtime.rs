@@ -401,6 +401,11 @@ impl Service {
             let set = self.clock_set.is_none_or(|set| set() == Some(true));
             if set == self.clock_unset {
                 self.clock_unset = !set;
+                if !set {
+                    // The last time of day given is not to be carried on
+                    // for its two minutes of freshness either.
+                    self.engine.forget_daytime();
+                }
                 eprintln!(
                     "lamp-expression: {}",
                     if set {

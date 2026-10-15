@@ -598,6 +598,12 @@ impl Life {
         self.daytime = Some((stamp_us, minute));
     }
 
+    /// The time of day is no longer known: the clock was found not set
+    /// (#830). Night is not worked out from the last one given.
+    pub(crate) fn forget_daytime(&mut self) {
+        self.daytime = None;
+    }
+
     fn night(&self, now_us: u64) -> bool {
         let (Some(sleep), Some((at, minute))) = (&self.alive.sleep, self.daytime) else {
             return false;

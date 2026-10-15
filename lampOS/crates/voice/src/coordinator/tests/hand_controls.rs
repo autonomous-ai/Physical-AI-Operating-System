@@ -1021,3 +1021,154 @@ fn local_hand_stop_dispatch_latency() {
         })
     );
 }
+
+/// The button's same-tick rig, run with `controls` and `reply` until a
+/// provider fault queued beside them ends the loop. Returns the trace, the
+/// reply left and every authority the speaker was sent before teardown.
+fn run_until_fault(
+    controls: HandControls,
+    mut owner: Controller,
+    mut reply: Option<Reply>,
+) -> (SessionState, Option<Reply>, Vec<Snapshot>) {
+    let directory = SessionDirectory::create().unwrap();
+    let (speaker, mut speaker_peer, speaker_input) =
+        Worker::cooperative_fixture(&directory.path, "speaker");
+    let (capture, capture_peer, capture_input) =
+        Worker::cooperative_fixture(&directory.path, "capture");
+    let (provider, mut provider_peer, provider_input) =
+        Worker::cooperative_fixture(&directory.path, "provider");
+    let (privacy, privacy_peer, privacy_input) =
+        Worker::cooperative_fixture(&directory.path, "privacy");
+    let mut rig = Rig {
+        second: None,
+        microphone: crate::options::Microphone::Mic2,
+        end_silence_blocks: None,
+        faint_level: None,
+        speaker,
+        capture,
+        provider,
+        privacy,
+        ring: None.into(),
+        camera: None,
+        motor: None,
+        ring_channel_ceiling: None,
+        diagnostic_directory: None,
+        noise_suppression: NoiseSuppression::On,
+        turn_taking: TurnTaking::VadOnly,
+        playout_start: PlayoutStart::default(),
+        endpoint: None,
+        paused: Box::new(|| false),
+        early_end_blocks: None,
+    };
+    let mut controls = Some(controls);
+    provider_peer
+        .control
+        .send(WorkerEvent::Fault {
+            code: "synthetic same-tick provider fault".into(),
+        })
+        .unwrap();
+    let mut trace = SessionState::default();
+    let error = conversation_with_controls(
+        &mut rig,
+        &mut owner,
+        Lifetime::Serve,
+        &mut trace,
+        StartupEvents::default(),
+        &mut reply,
+        &mut None,
+        &Termination::inactive(),
+        &FailureNotices::none(),
+        &mut controls,
+        &mut None,
+    )
+    .unwrap_err();
+    assert!(error.to_string().contains("same-tick provider fault"));
+    let mut told = Vec::new();
+    while let Some(Control::Authority { snapshot }) = speaker_peer.control.receive().unwrap() {
+        told.push(snapshot);
+    }
+    let left = reply.take();
+    let peers = [
+        (speaker_peer, speaker_input),
+        (capture_peer, capture_input),
+        (provider_peer, provider_input),
+        (privacy_peer, privacy_input),
+    ]
+    .map(|(mut peer, input)| {
+        std::thread::spawn(move || {
+            let deadline = Instant::now() + Duration::from_secs(3);
+            loop {
+                match peer.control.receive::<Control>().unwrap() {
+                    Some(Control::Stop) => {
+                        drop(input);
+                        return peer;
+                    }
+                    Some(Control::Authority { .. }) | None => {}
+                    Some(_) => panic!("unexpected command during head-touch fixture cleanup"),
+                }
+                assert!(Instant::now() < deadline, "mock peer did not receive Stop");
+                std::thread::sleep(Duration::from_millis(1));
+            }
+        })
+    });
+    let _ = finish_active_run(
+        &mut rig,
+        &mut owner,
+        &mut None,
+        &mut trace,
+        &mut None,
+        Err(error),
+    );
+    for peer in peers {
+        drop(peer.join().unwrap());
+    }
+    for worker in [
+        &mut rig.speaker,
+        &mut rig.capture,
+        &mut rig.provider,
+        &mut rig.privacy,
+    ] {
+        assert!(worker.try_exit().unwrap().is_some());
+    }
+    drop(rig);
+    fs::remove_dir(&directory.path).unwrap();
+    (trace, left, told)
+}
+
+fn head_controls() -> HandControls {
+    let touched = monotonic_us() - 25_000;
+    let (state, events) = crate::hand_controls::test_head_touch("test-hand-clock", touched);
+    assert_eq!(events.len(), 1, "one qualified head touch");
+    HandControls::with_test_touch("test-hand-clock", touched - 600_000, state, events).unwrap()
+}
+
+#[test]
+fn a_head_touch_stops_the_lamp_while_it_says_its_answer() {
+    // #711: a hand on its head while it talks means "stop", as the button.
+    let (owner, current, _) = active_reply();
+    let turn = current.owner.turn();
+    let (trace, left, told) = run_until_fault(head_controls(), owner, Some(current));
+    assert!(left.is_none(), "the answer was dropped");
+    assert!(told.last().is_some_and(|stopped| stopped.owner().is_none()));
+    let cancel = trace
+        .iter()
+        .find(|row| row["kind"] == "hand_control_cancel")
+        .expect("a cancellation");
+    assert_eq!(cancel["reason"], "head_stop");
+    assert!(cancel["acquired_at_us"].as_u64().is_some());
+    assert!(trace.iter().any(|row| {
+        row["kind"] == "turn_finished" && row["turn"] == turn && row["outcome"] == "head_stop"
+    }));
+}
+
+#[test]
+fn a_head_touch_while_the_lamp_is_still_thinking_asks_nothing() {
+    // Its answer has no sound yet: a pat on the head must not throw it away.
+    let (owner, mut current, _) = active_reply();
+    current.had_audio = false;
+    current.playback = None;
+    let (trace, left, _) = run_until_fault(head_controls(), owner, Some(current));
+    assert!(left.is_some(), "the answer is kept");
+    assert!(!trace.iter().any(|row| row["kind"] == "hand_control_cancel"));
+    assert!(trace.iter().any(|row| row["kind"] == "head_touch_noticed"));
+}

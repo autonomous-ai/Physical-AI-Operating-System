@@ -3118,8 +3118,15 @@ fn conversation_with_gate(
         let cut_question = !admission.idle_for_reminder();
         let muted = observation.as_ref().is_some_and(|seen| seen.muted);
         let stop = observation.as_ref().is_some_and(|seen| seen.stop);
+        // A head touch (#711) stops the lamp while it says its answer, as
+        // the button does; while it is quiet it asks nothing.
+        let head_touch_at_us = observation.as_ref().and_then(|seen| seen.head_touch_at_us);
+        let speaking = reply
+            .as_ref()
+            .is_some_and(|current| current.had_audio || current.playback.is_some());
+        let head_stop = speaking && head_touch_at_us.is_some();
         {
-            if stop || muted || gap_cut {
+            if stop || muted || gap_cut || head_stop {
                 let observed_at_us = monotonic_us();
                 let cancellation = hand::cancel(
                     owner,
@@ -3134,7 +3141,7 @@ fn conversation_with_gate(
                     monotonic_us,
                 )?;
                 snapshot = cancellation.snapshot;
-                // A Stop, the mute or a gap ends the unclear turn's asking
+                // A Stop, a head touch, the mute or a gap ends the unclear turn's asking
                 // too: nothing is asked again after it (#926).
                 if let Some(turn) = asking.cancelled() {
                     record(
@@ -3142,7 +3149,7 @@ fn conversation_with_gate(
                         json!({"kind":"ask_again_dropped","turn":turn,"at_us":monotonic_us(),"why":"cancelled with its turn"}),
                     )?;
                 }
-                if gap_cut && !stop && !muted {
+                if gap_cut && !stop && !head_stop && !muted {
                     // Admission keeps nothing of it: its capture lineage
                     // ends with the gap. After the gap, what is still said
                     // of it is dropped until a pause, not a new question.
@@ -3176,13 +3183,16 @@ fn conversation_with_gate(
                     "software_muted"
                 } else if stop {
                     "hand_stop"
+                } else if head_stop {
+                    "head_stop"
                 } else {
                     "capture_gap"
                 };
                 record(
                     trace,
                     json!({"kind":"hand_control_cancel", "reason":reason,
-                    "at_us":observed_at_us, "acquired_at_us":observation.as_ref().map(|seen| seen.acquired_at_us),
+                    "at_us":observed_at_us,
+                    "acquired_at_us":observation.as_ref().and_then(|seen| seen.acquired_at_us.or(seen.head_touch_at_us)),
                     "speaker_told_at_us":cancellation.speaker_told_at_us,
                     "observation_to_speaker_dispatch_us":cancellation.speaker_told_at_us.saturating_sub(observed_at_us),
                     "boundary":"coordinator observation to local speaker control send; excludes bus delivery and acoustic stop"}),
@@ -3199,6 +3209,13 @@ fn conversation_with_gate(
                 if muted {
                     return Err(Box::new(SoftwareMute { observed_at_us }));
                 }
+            } else if let Some(acquired_at_us) = head_touch_at_us {
+                record(
+                    trace,
+                    json!({"kind":"head_touch_noticed", "acquired_at_us":acquired_at_us,
+                    "at_us":observation.as_ref().and_then(|seen| seen.observed_at_us),
+                    "why":"quiet: a head touch asks nothing"}),
+                )?;
             }
         }
         if let Some(observation) = observation {

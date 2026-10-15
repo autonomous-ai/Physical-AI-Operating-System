@@ -655,6 +655,7 @@ Voice's switches are independent and absent by default:
 | `--controls-stop` | Consume fresh, deduplicated Stop in the coordinator. |
 | `--controls-mute ABS_PRIVATE_RECORD` | Restore software mute and enable released-hold mute/fresh-second-hold clear. The parent directory must already exist, be trusted and private (0700). |
 | `--controls-bus-root ABS_PATH` | Override `LAMP_BUS_ROOT` or `/run/lampos-bus`; this option alone enables nothing. |
+| `LAMP_HEAD_TOUCH=on` (environment) | Consume the head pads' requests from `--touch` Controls (#711). For now: a qualified head touch stops the lamp while it says its answer (its reply has audio or playback), through the same cancellation as Stop; while it is quiet or still thinking, it is only noted (`head_touch_noticed`). |
 
 For example, append the selected options to `lamp-voice serve
 PRIVATE_CONFIG.json NEW_OUTPUT`. No controls clock/file read or pump starts
@@ -711,7 +712,22 @@ has no hard userspace bound and happens only outside the urgent audio loop.
 
 The design target is **2 ms from coordinator observation to the local speaker
 stop-authority send**. `hand_control_cancel` names both timestamps and the
-original release separately. Injected-clock checks cover that software boundary;
+original release separately; for a head touch, `reason` is `head_stop` and
+`acquired_at_us` is Controls' qualifying acquisition.
+
+**The head's stop (#711), from the touch to the speaker:** Controls qualifies
+a touch after 20 ms of contact, at its next 5 ms acquisition; the bus and the
+pump bring it to the coordinator's poll; the same cancellation sends the
+speaker its stop. Measured on Third's Intel i7 Mac (macOS 26.6.2, release
+build, `head_touch_bus_to_poll_latency`, ignored by default), from the touch
+state and event being published on a real bus to the listener accepting it,
+three runs of 100: medians 2.0, 2.1 and 1.8 ms, p95 2.7 ms in each, and a
+worst of 2.9 ms in the first (the other two worsts were not kept).
+It is bounded by the pump's 2 ms tick. An earlier run once failed to deliver
+a touch within 2 s; it did not happen again in three runs, and the probe now
+prints the listener's counts if it does. The 150 ms target from the touch to
+silence still needs the lamp: the pad itself, the speaker worker and the
+device's own buffer are not in these numbers. Injected-clock checks cover that software boundary;
 GPIO recognition, bus/pump delivery, speaker processing and acoustic silence are
 outside it. Measured results belong in the qualification entry, with their
 machine and exact boundary, not inferred from this target.

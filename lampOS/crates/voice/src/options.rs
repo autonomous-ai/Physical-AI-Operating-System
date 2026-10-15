@@ -626,7 +626,10 @@ impl SessionOptions {
         let mut head_channel = None;
         let mut notice_directory = None;
         let mut notice_language = None;
-        let mut controls = crate::hand_controls::ControlsOptions::default();
+        let mut controls = crate::hand_controls::ControlsOptions {
+            head_touch: crate::hand_controls::head_touch_from_environment(),
+            ..Default::default()
+        };
         let mut arguments = arguments.iter();
         while let Some(argument) = arguments.next() {
             if matches!(

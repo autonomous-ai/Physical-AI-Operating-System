@@ -3,7 +3,7 @@
 //! prints one line a part (docs/selftest.md).
 use lamp_bus::Bus;
 use lamp_msgs::{Occasion, SelfTest, Verdict};
-use lamp_selftest::{BUDGET, kernel, listen, mic, report, ring};
+use lamp_selftest::{BUDGET, hand, kernel, listen, mic, report, ring};
 use std::{path::PathBuf, process::ExitCode, time::Instant};
 
 const USAGE: &str = "usage: lamp-selftest [--occasion factory|first-boot|on-demand] [--dir ABSOLUTE] [--bus-root ABSOLUTE]";
@@ -89,6 +89,13 @@ fn main() -> ExitCode {
     checks.push(Box::new(kernel::Kernel {
         path: kernel::KMSG.into(),
     }));
+    // Only at the factory is someone there to be asked to touch.
+    if arguments.occasion == Occasion::Factory {
+        checks.push(Box::new(hand::ByHand {
+            bus: &bus,
+            ask: Box::new(|what| eprintln!("lamp-selftest: {what}")),
+        }));
+    }
     let test = lamp_selftest::run(arguments.occasion, &mut checks, BUDGET);
     print!("{}", report::text(&test));
     match report::keep(&arguments.dir, &test) {

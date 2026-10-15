@@ -23,7 +23,14 @@ lamp-bus = { path = "../bus" }
 lamp-msgs = { path = "../msgs" }
 lamp-controls = { path = "../controls" }
 lamp-schedule = { path = "../schedule" }
-tokio = { version = "=1.53.1", features = ["rt", "time", "macros"] }
+tokio = { version = "=1.53.1", features = ["rt", "time", "macros", "net", "sync", "io-util"] }
+# The second voice route's clients: the same pins and TLS setup (ring,
+# webpki roots) as `lamp-gemini` and `lamp-surround`, so no new package.
+futures-util = { version = "=0.3.34", default-features = false, features = ["std", "sink"] }
+tokio-tungstenite = { version = "=0.30.0", default-features = false, features = ["connect", "handshake", "rustls-tls-webpki-roots"] }
+reqwest = { version = "0.13", default-features = false, features = ["stream", "rustls-no-provider"] }
+rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12"] }
+webpki-roots = "1"
 rustix = { version = "=1.1.5", features = ["fs", "process", "net", "pipe", "stdio", "event"] }
 sonora-agc2 = "=0.2.0"
 sonora-simd = "=0.2.0"

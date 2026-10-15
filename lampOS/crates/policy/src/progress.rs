@@ -15,7 +15,10 @@
 //! while anyone is talking to the lamp: while the voice listens, thinks or
 //! speaks, or within [`Options::quiet_for`] (15 s) of anything heard or
 //! said. A question is not asked while either holds; an answer that comes
-//! back once one holds is turned to `wait`, and asked again later.
+//! back once one holds is turned to `wait`, and asked again later. An
+//! answer about work that is no longer as it was asked about (another
+//! store, the task gone or no longer at work, or its line changed again) is
+//! a `wait` too, and changes nothing kept for the work there now.
 //!
 //! Shadow first: decisions are published on `policy/decisions` and written
 //! down with the state they were made from, and nothing acts on them.
@@ -106,6 +109,10 @@ pub enum Hold {
     Talking,
     /// A note about this task was chosen less than 15 minutes ago.
     ToldRecently,
+    /// The answer came back about work that is no longer as it was asked
+    /// about: another store, the task gone or no longer at work, or its
+    /// line changed again (or counted afresh) while the question was out.
+    Outdated,
 }
 
 impl Hold {
@@ -113,6 +120,7 @@ impl Hold {
         match self {
             Self::Talking => "talking",
             Self::ToldRecently => "told_recently",
+            Self::Outdated => "outdated",
         }
     }
 }
@@ -534,7 +542,17 @@ impl Progress {
                 self.last_talk = Some(now);
             }
             Voice::Thinking => self.last_talk = Some(now),
-            Voice::Resting => {}
+            // The quiet begins when the voice stops, not at its last
+            // heartbeat before: an active state is said again once a
+            // second, so that one can be most of a second old.
+            Voice::Resting => {
+                if matches!(
+                    self.voice,
+                    Some(Voice::Listening | Voice::Thinking | Voice::Speaking)
+                ) {
+                    self.last_talk = Some(now);
+                }
+            }
         }
         self.voice = Some(state);
     }
@@ -555,6 +573,16 @@ impl Progress {
         ) || self
             .last_talk
             .is_some_and(|at| now.saturating_duration_since(at) < self.options.quiet_for)
+    }
+
+    /// Whether the work a question was about is still as it was asked
+    /// about: this store, the task still watched and at work, and its line
+    /// at the same change.
+    fn current(&self, context: &Context) -> bool {
+        self.store_id.as_deref() == Some(context.store_id.as_str())
+            && self.tasks.get(&context.task).is_some_and(|tracked| {
+                tracked.last.state == AgentState::Working && tracked.last.changes == context.change
+            })
     }
 
     fn hold(&self, tracked: &Tracked, now: Instant) -> Option<Hold> {
@@ -652,6 +680,8 @@ impl Progress {
                 match hold {
                     Hold::Talking => self.totals.held_talking += 1,
                     Hold::ToldRecently => self.totals.held_recent += 1,
+                    // Only an answer can be outdated, never a question.
+                    Hold::Outdated => {}
                 }
             }
         }
@@ -746,16 +776,27 @@ impl Progress {
         };
         // The hard rules again, as the answer comes: a yes that a rule now
         // holds becomes a wait, and the change is asked about again later.
-        let guard = self
-            .tasks
-            .get(&context.task)
-            .and_then(|tracked| self.hold(tracked, now))
-            .filter(|_| judgement.choice == Choice::SayNow);
+        // Talking holds it whatever became of the task. An answer about
+        // work no longer as it was asked about is a wait, and touches
+        // nothing kept for what is there now: a task of another store with
+        // the same number is not judged or held back by it.
+        let current = self.current(&context);
+        let guard = if self.talking(now) {
+            Some(Hold::Talking)
+        } else if !current {
+            Some(Hold::Outdated)
+        } else {
+            self.tasks
+                .get(&context.task)
+                .and_then(|tracked| self.hold(tracked, now))
+        }
+        .filter(|_| judgement.choice == Choice::SayNow);
         if guard.is_some() {
             judgement.choice = Choice::Wait;
         }
-        if let Some(tracked) = self.tasks.get_mut(&context.task)
+        if current
             && guard.is_none()
+            && let Some(tracked) = self.tasks.get_mut(&context.task)
         {
             tracked.judged = tracked.judged.max(context.change);
             if judgement.choice == Choice::SayNow {
@@ -1025,6 +1066,163 @@ mod tests {
         assert!(!progress.talking(t + Duration::from_secs(62) + QUIET_FOR));
         progress.talk(t + Duration::from_secs(100));
         assert!(progress.talking(t + Duration::from_secs(101)));
+    }
+
+    /// Says yes to everything, each answer only when the test lets it go.
+    struct Held(mpsc::Receiver<()>);
+    impl Decider for Held {
+        fn ask(&mut self, _: &str, _: &[(String, Question)], _: Duration) -> Result<Asked, Failed> {
+            self.0.recv().map_err(|_| Failed::TimedOut)?;
+            Ok(Asked {
+                answers: answers([0.9, 0.9, 0.0]),
+                model: "held".into(),
+                took: Duration::ZERO,
+                usage: None,
+                connection: None,
+            })
+        }
+        fn name(&self) -> &str {
+            "held"
+        }
+    }
+
+    /// Ask about task 3's change 2 of the first store, do `meanwhile` while
+    /// the question is out, then let the yes come back and take what is
+    /// decided at `then`.
+    fn asked_then(meanwhile: impl FnOnce(&mut Progress), then: Instant) -> (Progress, Decided) {
+        let (release, held) = mpsc::channel();
+        let mut progress =
+            Progress::start(Held(held), Options::new(Duration::from_secs(1), None)).unwrap();
+        let t = then - Duration::from_secs(60);
+        progress.status(status(1, AgentState::Working));
+        progress.status(status(2, AgentState::Working));
+        assert!(progress.turn(t, 0, Room::Quiet, Some(true)).is_none());
+        assert!(progress.asking.is_some(), "the question is out");
+        meanwhile(&mut progress);
+        release.send(()).unwrap();
+        let waited = Instant::now();
+        loop {
+            if let Some(decided) = progress.turn(then, 0, Room::Quiet, Some(true)) {
+                return (progress, decided);
+            }
+            assert!(waited.elapsed() < Duration::from_secs(5), "no answer");
+            thread::sleep(Duration::from_millis(2));
+        }
+    }
+
+    /// The reviewer's two transitions on #751 (2026-10-15, 15:23): a yes
+    /// held while the task left and someone began to talk went out as
+    /// `say_now`, because the talking rule was reached only through the
+    /// task; and a yes for the first store's task 3, coming back after
+    /// another store's task 3 had taken its place, marked that one judged
+    /// and told, holding it back for 15 minutes it had not earned.
+    #[test]
+    fn an_answer_about_work_no_longer_as_asked_is_a_wait_and_changes_nothing_there_now() {
+        let then = Instant::now() + Duration::from_secs(120);
+        // Nothing moved: said now, and the task told.
+        let (mut progress, decided) = asked_then(|_| {}, then);
+        assert_eq!(
+            (decided.decision.choice.as_str(), decided.line.guard),
+            ("say_now", None)
+        );
+        progress.status(status(3, AgentState::Working));
+        assert_eq!(progress.next(then), None, "told less than 15 minutes ago");
+
+        // The task left the watch and someone began to talk: talking holds
+        // it whatever became of the task.
+        let (_, decided) = asked_then(
+            |progress| {
+                progress.status(TaskStatus {
+                    store_id: "0123456789abcdef0123456789abcdef".into(),
+                    tasks: vec![],
+                });
+                progress.voice(Voice::Listening, then);
+            },
+            then,
+        );
+        assert_eq!(
+            (decided.decision.choice.as_str(), decided.line.guard),
+            ("wait", Some(Hold::Talking))
+        );
+        // The task left, and nobody talks: outdated.
+        let (_, decided) = asked_then(|progress| progress.gone(), then);
+        assert_eq!(
+            (decided.decision.choice.as_str(), decided.line.guard),
+            ("wait", Some(Hold::Outdated))
+        );
+        assert_eq!(
+            decided.decision.task.as_deref(),
+            Some("0123456789abcdef0123456789abcdef:3:2")
+        );
+
+        // Another store's task 3 took its place: a wait, and that task is
+        // neither judged nor held back by it.
+        let other = |changes| {
+            let mut other = status(changes, AgentState::Working);
+            other.store_id = "f".repeat(32);
+            other
+        };
+        let (mut progress, decided) = asked_then(
+            |progress| {
+                progress.status(other(7));
+                progress.status(other(8));
+            },
+            then,
+        );
+        assert_eq!(
+            (decided.decision.choice.as_str(), decided.line.guard),
+            ("wait", Some(Hold::Outdated))
+        );
+        let there = &progress.tasks[&3];
+        assert_eq!((there.judged, there.told_at, there.notes), (7, None, 0));
+        assert_eq!(progress.next(then), Some(3), "its own change is asked");
+
+        // The line changed again while the question was out, or the task
+        // stopped working: a wait, and the newer change is asked about.
+        let (mut progress, decided) = asked_then(
+            |progress| progress.status(status(3, AgentState::Working)),
+            then,
+        );
+        assert_eq!(decided.line.guard, Some(Hold::Outdated));
+        assert_eq!(progress.tasks[&3].judged, 1);
+        assert_eq!(progress.next(then), Some(3));
+        let (_, decided) = asked_then(
+            |progress| progress.status(status(2, AgentState::Idle)),
+            then,
+        );
+        assert_eq!(decided.line.guard, Some(Hold::Outdated));
+    }
+
+    /// The reviewer's finding on #751 (15:26): `Resting` left the quiet
+    /// counted from the last active heartbeat, said once a second, so a
+    /// change could be asked about after 14.1 s of quiet. It is counted
+    /// from when the voice stopped; a `Resting` said again moves nothing.
+    #[test]
+    fn the_quiet_begins_when_the_voice_stops() {
+        let mut progress =
+            Progress::start(Never, Options::new(Duration::from_secs(1), None)).unwrap();
+        let t = Instant::now();
+        progress.status(status(1, AgentState::Working));
+        progress.voice(Voice::Speaking, t);
+        let stopped = t + Duration::from_millis(900);
+        progress.voice(Voice::Resting, stopped);
+        progress.status(status(2, AgentState::Working));
+        assert!(progress.talking(t + QUIET_FOR));
+        assert_eq!(progress.next(t + QUIET_FOR), None);
+        // Resting said again a few seconds on: the quiet still began when
+        // the voice stopped.
+        progress.voice(Voice::Resting, stopped + Duration::from_secs(5));
+        assert!(progress.talking(stopped + QUIET_FOR - Duration::from_millis(1)));
+        assert!(!progress.talking(stopped + QUIET_FOR));
+        assert_eq!(progress.next(stopped + QUIET_FOR), Some(3));
+        // From Listening and from Thinking too.
+        for active in [Voice::Listening, Voice::Thinking] {
+            let at = t + Duration::from_secs(100);
+            progress.voice(active, at);
+            progress.voice(Voice::Resting, at + Duration::from_millis(900));
+            assert!(progress.talking(at + QUIET_FOR));
+            assert!(!progress.talking(at + Duration::from_millis(900) + QUIET_FOR));
+        }
     }
 
     #[test]

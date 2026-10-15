@@ -994,14 +994,27 @@ the newest change:
 
 - **Never while anyone is talking to the lamp:** the voice is listening,
   thinking or speaking, or something was heard or said by the lamp in the
-  last 15 s (the voice's own news waits the same 15 s).
+  last 15 s (the voice's own news waits the same 15 s). The 15 s begin
+  when the voice goes to `resting`, not at its last active `voice/state`
+  before, which is said again once a second and can be most of a second
+  old (the reviewer on #751, 15:26).
 - **At most one note per task in 15 minutes:** a `say_now` for a task holds
   every later change of it for 15 minutes from that choice.
 
 An answer that comes back once a rule holds (someone began to talk while
 the model was asked) is turned to `wait`, written down with `guard`, and the
-change is asked about again later. Each hold is counted once for each
-change it holds.
+change is asked about again later. Talking holds it whatever became of the
+task. Each hold is counted once for each change it holds.
+
+**An answer about work no longer as it was asked about** is a `wait` with
+`guard` `outdated`: another store, the task no longer watched or no longer
+at work, or its line changed again (or was counted afresh) while the
+question was out. It changes nothing kept for what is there now, so a task
+of another store with the same number is neither judged nor held back for
+15 minutes by it, and a newer change is asked about in its turn. Found by
+the reviewer on #751 (15:23); tests
+`an_answer_about_work_no_longer_as_asked_is_a_wait_and_changes_nothing_there_now`
+and `the_quiet_begins_when_the_voice_stops` (`crates/policy/src/progress.rs`).
 
 **What is known** (the log's `context`):
 
@@ -1068,7 +1081,7 @@ has no `task` and is written as before.
 with `about` `progress`: `at_unix_ms`, `shadow`, `context` (above), `state`
 (what the model was shown), `asked`, `answers`, `judgement` (probability,
 choice, `from_rule`), `by`, `took_ms`, and when there is one `guard`
-(`talking` or `told_recently`), `connection`, `failed`, `failed_why`,
+(`talking`, `told_recently` or `outdated`), `connection`, `failed`, `failed_why`,
 `usage`. The journal gets one line with no words:
 
     lamp-policy: progress decision 4 task=3 change=7 choice=wait probability=0.214 by=model took_ms=561 guard=none

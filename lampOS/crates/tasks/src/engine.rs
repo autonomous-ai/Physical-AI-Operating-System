@@ -313,6 +313,22 @@ fn settled(value: &Observation) -> bool {
         _ => false,
     }
 }
+/// Whether a task is over, so that it may give way to a new one when the
+/// store is full: it was never sent (it expired, was cancelled or was not
+/// sent), or its agent has finished, stopped or failed. A question waiting
+/// for the person, and a hand-over whose outcome is not known, are not over.
+/// On lamp-4ace on 2026-10-15 the sixteenth task filled the store, and with
+/// nothing ever giving way the lamp could hand nothing over again.
+fn spent(task: &Task) -> bool {
+    match task.dispatch.state {
+        DispatchState::Invalidated | DispatchState::Cancelled | DispatchState::NotSent => true,
+        DispatchState::Accepted => task
+            .observations
+            .last()
+            .is_some_and(|seen| settled(&seen.data) && seen.data.state != "needs-input"),
+        _ => false,
+    }
+}
 fn digest(value: &impl Serialize) -> String {
     let bytes = serde_json::to_vec(value).expect("owned serializable data");
     Sha256::digest(bytes)
@@ -969,8 +985,11 @@ impl<P: Persistence> Engine<P> {
         let at = next_audit(&mut next, now)?;
         match request {
             Request::Prepare { text, target, .. } => {
+                // Full: the oldest task that is over gives way. Only when
+                // every task kept is still going is a new one refused.
                 if next.tasks.len() >= MAX_TASKS {
-                    return Err(exhausted());
+                    let oldest = next.tasks.iter().position(spent).ok_or_else(exhausted)?;
+                    next.tasks.remove(oldest);
                 }
                 if next
                     .tasks
@@ -2435,7 +2454,7 @@ mod tests {
     }
 
     #[test]
-    fn retained_task_and_observation_limits_refuse_without_eviction() {
+    fn a_full_store_lets_its_oldest_finished_task_go_and_refuses_only_live_ones() {
         let (mut engine, _) = opened();
         let id = accepted(&mut engine, 0);
         for n in 0..MAX_OBSERVATIONS {
@@ -2452,6 +2471,17 @@ mod tests {
         for _ in 1..MAX_TASKS {
             prepare(&mut engine, 0);
         }
+        assert_eq!(engine.state.tasks.len(), MAX_TASKS);
+        assert_eq!(engine.state.tasks[0].observations.len(), MAX_OBSERVATIONS);
+        // The first task's agent has finished: it gives way to a new one.
+        engine
+            .handle(&preparation(&engine, "one more"), &clock(0), false)
+            .unwrap();
+        assert_eq!(engine.state.tasks.len(), MAX_TASKS);
+        assert!(engine.state.tasks.iter().all(|task| task.id != id));
+        assert!(engine.state.check().is_ok());
+        // Every task kept now waits for a yes: none is over, so the next is
+        // refused and nothing is lost.
         assert_eq!(
             engine
                 .handle(&preparation(&engine, "too many"), &clock(0), false)
@@ -2460,7 +2490,6 @@ mod tests {
             "full"
         );
         assert_eq!(engine.state.tasks.len(), MAX_TASKS);
-        assert_eq!(engine.state.tasks[0].observations.len(), MAX_OBSERVATIONS);
     }
 
     #[test]

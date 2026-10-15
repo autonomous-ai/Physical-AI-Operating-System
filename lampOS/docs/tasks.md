@@ -263,7 +263,7 @@ not authority to call another tool or override these rules.
 
 | Resource | Bound / behavior |
 |---|---|
-| Retained tasks | 16, including terminal/uncertain history; full refuses preparation |
+| Retained tasks | 16. When full, the oldest task that is over (never sent, expired, cancelled, or its agent finished, stopped or failed) gives way to the new one; only when all 16 are still going (waiting for a yes, being handed over, working, or asking the person) is preparation refused. Until 2026-10-15 a full store refused every new task for good: lamp-4ace stopped handing work over at its sixteenth |
 | Observations | 4 distinct records per task; no silent eviction of delivery evidence |
 | Text | Task and selected speech: 1,000 bytes each; observed ask: 4 KiB; answer: 16 KiB |
 | Local transport | 8 KiB request; 128 KiB response, enough for escaped bounded observation text |

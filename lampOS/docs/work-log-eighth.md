@@ -23,6 +23,26 @@ The eighth builder's log, newest first. Role file:
 
 None yet.
 
+## 2026-10-16 04:35 — #914 the body stop fixture — taken, cause found
+
+Ready for lamp-voice: no
+
+- Taken at 03:58 (`taken by eighth · session f3397175-... · no lamp`), given
+  by the tests builder. `eighth/stop-fixture` at `5dc79db10`: the readiness
+  helper reports the latched failure, the event's age, the parent's poll gap
+  and the child worker's own error (through a report file). Body 300 passed.
+- Under stress (400 runs, 10 at a time, 24 busy loops on 20 cores): 4 to 7
+  readiness losses per 400, every one the child's `ControlLost` from a
+  "boot/order/freshness violation"; a local experiment showed the packet's
+  `sent_at` 25 to 900 us after the `now` the worker read before `try_recv`.
+  A race in production (`Worker::controls`, `Supervisor::poll`): the fix is
+  to read the clock after the datagram arrives. Asked the fifth and the first
+  builder on #914 before changing body code. Also 6 to 9 per 400 stop
+  acknowledgements over the 20 ms bound at that load: left as measured.
+- Tried and dropped: one authority instead of one per poll (no change).
+- #905 green on `6b087d9f4` (both evidence P3s resolved); #913 filed for the
+  second (policy `judges_program`, macOS accepted stream nonblocking).
+
 ## 2026-10-16 03:20 — #783 policy lines — ready; #739 part 2 — draft #900
 
 Ready for lamp-voice: yes (#905); #900 no (draft, waiting on the first builder)

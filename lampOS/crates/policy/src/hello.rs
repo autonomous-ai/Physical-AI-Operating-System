@@ -46,6 +46,10 @@ pub const QUIET_FOR: Duration = Duration::from_secs(15);
 pub const UNASKED_AFTER: Duration = Duration::from_secs(10);
 /// The voice holds a due hello this long for the decision.
 pub const VOICE_WAITS: Duration = Duration::from_secs(2);
+/// In shadow, a hello chosen and a turn the lamp began itself this close
+/// together are one greeting: the voice said its own rule's hello for the
+/// same arrival, after holding it for the decision (the reviewer on #883).
+pub const ONE_GREETING_WITHIN: Duration = Duration::from_secs(5);
 /// The most one asking may take, whatever `--deadline-ms` says: a model late
 /// past it leaves the rule time to answer before the voice stops waiting.
 pub const MOST_ASKING: Duration = Duration::from_millis(1_500);
@@ -395,6 +399,16 @@ impl Hello {
                         .is_none_or(|at| now.saturating_duration_since(at) > UNASKED_AFTER)
                 {
                     self.unasked.push_back(now);
+                    // In shadow, the hello chosen just before is this very
+                    // greeting, said by the voice's own rule: counted once,
+                    // as the turn the lamp began.
+                    if !self.options.act
+                        && let Some(at) = self.notes.iter().rposition(|chosen| {
+                            now.saturating_duration_since(*chosen) <= ONE_GREETING_WITHIN
+                        })
+                    {
+                        self.notes.remove(at);
+                    }
                 }
                 self.last_talk = Some(now);
             }
@@ -499,8 +513,10 @@ impl Hello {
             someone_here,
             facing,
             room,
-            // In shadow nobody hears the hellos chosen, so they are counted
-            // here; acting, the voice says them and `voice/state` counts them.
+            // In shadow the hellos chosen are counted here, but for one the
+            // voice also said by its own rule, which is counted once, as a
+            // turn the lamp began ([`ONE_GREETING_WITHIN`]); acting, the
+            // voice says them and `voice/state` counts them.
             spoke_up_last_hour: u32::try_from(
                 self.unasked.len()
                     + if self.options.act {
@@ -797,5 +813,64 @@ mod tests {
             MOST_ASKING
         );
         assert!(MOST_ASKING < VOICE_WAITS);
+    }
+
+    /// The decision for `arrival` made at `now`, by the rule (the model
+    /// never answers), waited for on the clock the test gives.
+    fn decided(hello: &mut Hello, arrival: u64, now: Instant) -> Decided {
+        hello.arrival(
+            VoiceArrival {
+                arrival,
+                away_min: 60,
+                there_s: 3,
+                quiet_s: 300,
+                since_hello_min: None,
+            },
+            now,
+        );
+        for _ in 0..500 {
+            if let Some(decided) = hello.turn(now, 1_000_000, Room::Quiet, (Some(true), Some(true)))
+            {
+                return decided;
+            }
+            std::thread::sleep(Duration::from_millis(2));
+        }
+        panic!("no decision");
+    }
+
+    /// The reviewer on #883: in shadow, with the voice saying its own rule's
+    /// hello, one greeting was counted twice, as the hello chosen and as the
+    /// turn the lamp began, and the next arrival's rule answered `wait`. Now
+    /// it is counted once, whichever came first; acting, and in shadow with
+    /// nothing said, it is counted once as before.
+    #[test]
+    fn one_greeting_is_counted_once_in_shadow_or_acting() {
+        let spoke = |act: bool, voice_says: Option<bool>| {
+            let options = Options {
+                act,
+                ..Options::new(Duration::from_millis(50), None)
+            };
+            let mut hello = Hello::start(Never, options).unwrap();
+            let t = Instant::now();
+            // `Some(true)`: the voice says its own rule's hello after the
+            // decision; `None`: nothing is said. (Said before the decision
+            // came, the lamp is talking and the hard rule answers `wait`:
+            // nothing is chosen to count twice.)
+            let first = decided(&mut hello, 1, t + Duration::from_millis(500));
+            assert_eq!(first.line.judgement.choice, Choice::SayNow);
+            if voice_says == Some(true) {
+                hello.voice(Voice::Speaking, t + Duration::from_millis(1_500));
+                hello.voice(Voice::Resting, t + Duration::from_secs(3));
+            }
+            let later = t + AT_MOST_EVERY + Duration::from_secs(1);
+            let second = decided(&mut hello, 2, later);
+            (
+                second.line.context.spoke_up_last_hour,
+                second.line.judgement.choice,
+            )
+        };
+        assert_eq!(spoke(false, Some(true)), (1, Choice::SayNow));
+        assert_eq!(spoke(false, None), (1, Choice::SayNow));
+        assert_eq!(spoke(true, Some(true)), (1, Choice::SayNow));
     }
 }

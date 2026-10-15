@@ -24,6 +24,9 @@ use std::{
 };
 
 const BUDGET: Duration = Duration::from_millis(1500);
+/// A session note's deadline here: what is told, not the voice's 300 ms,
+/// which a loaded machine can miss (Voice's own tests bound that).
+const SESSION: Duration = Duration::from_secs(10);
 static NEXT: AtomicU64 = AtomicU64::new(0);
 
 /// The real store, with each request line and its answer traced.
@@ -350,16 +353,16 @@ fn days_a_rule_is_told_in_the_next_session_to_that_person_only_until_it_is_forgo
     let number = answer["id"].as_u64().unwrap();
     // The next session with Minh at the lamp is told it; Sam's and the
     // room's are not, and without the switch nobody is.
-    let to_minh = client.told_for_session(1, Some(&minh), true);
+    let to_minh = client.told_for_session_within(1, Some(&minh), true, SESSION);
     assert!(
         to_minh.contains(&format!("- ({number}) {rule}\n")),
         "{to_minh}"
     );
     assert!(!to_minh.contains("[quiet_mornings]"), "{to_minh}");
     for note in [
-        client.told_for_session(2, Some(&sam), true),
-        client.told_for_session(3, None, true),
-        client.told_for_session(4, Some(&minh), false),
+        client.told_for_session_within(2, Some(&sam), true, SESSION),
+        client.told_for_session_within(3, None, true, SESSION),
+        client.told_for_session_within(4, Some(&minh), false, SESSION),
     ] {
         assert!(!note.contains("weather"), "{note}");
     }
@@ -387,7 +390,7 @@ fn days_a_rule_is_told_in_the_next_session_to_that_person_only_until_it_is_forgo
     };
     assert_eq!(forget(&sam).0["forgotten"], false);
     assert_eq!(forget(&minh).0["forgotten"], true);
-    let to_minh = client.told_for_session(5, Some(&minh), true);
+    let to_minh = client.told_for_session_within(5, Some(&minh), true, SESSION);
     assert!(!to_minh.contains("weather"), "{to_minh}");
     assert_eq!(list(&minh).0["rules"], json!([]));
 }
@@ -498,7 +501,7 @@ fn days_every_rule_kept_is_told_and_a_rule_past_the_most_is_refused() {
     let rules = listed(&client, &minh);
     assert_eq!(rules.len(), lamp_voice::rules::MOST_RULES);
     assert_eq!(rules[0].1, "Never speak first.");
-    let note = client.told_for_session(1, Some(&minh), true);
+    let note = client.told_for_session_within(1, Some(&minh), true, SESSION);
     for (number, text) in &rules {
         assert!(note.contains(&format!("- ({number}) {text}\n")), "{note}");
     }
@@ -546,7 +549,7 @@ fn days_an_answer_under_a_rule_is_journalled_and_goes_when_the_rule_is_forgotten
     // Before any rule, a session told none: its answer links no rule.
     assert!(
         !client
-            .told_for_session(9, Some(&minh), true)
+            .told_for_session_within(9, Some(&minh), true, SESSION)
             .contains("How you were")
     );
     assert!(client.finished_exchange_for(
@@ -565,7 +568,7 @@ fn days_an_answer_under_a_rule_is_journalled_and_goes_when_the_rule_is_forgotten
     // journalled, linked to Minh's rule only.
     assert!(
         client
-            .told_for_session(1, Some(&minh), true)
+            .told_for_session_within(1, Some(&minh), true, SESSION)
             .contains("Orchid")
     );
     assert!(client.finished_exchange_for(
@@ -580,7 +583,7 @@ fn days_an_answer_under_a_rule_is_journalled_and_goes_when_the_rule_is_forgotten
     // Sam's session links Sam's own rule, never Minh's.
     assert!(
         client
-            .told_for_session(2, Some(&sam), true)
+            .told_for_session_within(2, Some(&sam), true, SESSION)
             .contains("Fern")
     );
     assert!(client.finished_exchange_for(
@@ -612,7 +615,7 @@ fn days_an_answer_under_a_rule_is_journalled_and_goes_when_the_rule_is_forgotten
     // the other answer and Sam's stay.
     assert!(
         client
-            .told_for_session(3, Some(&minh), true)
+            .told_for_session_within(3, Some(&minh), true, SESSION)
             .contains("Orchid")
     );
     let (told, _) = client.rule_for(
@@ -634,7 +637,7 @@ fn days_an_answer_under_a_rule_is_journalled_and_goes_when_the_rule_is_forgotten
     ));
     assert!(
         !client
-            .told_for_session(4, Some(&minh), true)
+            .told_for_session_within(4, Some(&minh), true, SESSION)
             .contains("Orchid")
     );
     assert!(!client.finished_exchange_for(fixture.now - 500, "again", "Orchid.", Some(&minh)));
@@ -649,7 +652,7 @@ fn days_an_answer_under_a_rule_is_journalled_and_goes_when_the_rule_is_forgotten
     let client = DaysClient::new(fixture.socket.clone()).unwrap();
     assert!(
         !client
-            .told_for_session(5, Some(&minh), true)
+            .told_for_session_within(5, Some(&minh), true, SESSION)
             .contains("Orchid")
     );
     assert!(client.finished_exchange_for(fixture.now, "thanks", "You are welcome.", Some(&minh)));

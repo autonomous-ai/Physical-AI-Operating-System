@@ -14,7 +14,11 @@ use std::{
     io::{self, Read, Write},
     net::{SocketAddr, TcpStream, ToSocketAddrs},
     path::Path,
-    sync::{Arc, mpsc},
+    sync::{
+        Arc,
+        atomic::{AtomicUsize, Ordering},
+        mpsc,
+    },
     time::{Duration, Instant},
 };
 
@@ -87,9 +91,14 @@ impl Web {
 
     fn open(&self, url: &Url, until: Instant) -> Result<Box<dyn Stream>, Fetch> {
         let left = until.saturating_duration_since(Instant::now());
-        let addresses = lookup_within(&url.host, url.port, self.connect.min(left), |host, port| {
-            (host, port).to_socket_addrs().map(Iterator::collect)
-        })
+        let addresses = lookup_within(
+            &url.host,
+            url.port,
+            self.connect.min(left),
+            &LOOKUPS,
+            MOST_LOOKUPS,
+            |host, port| (host, port).to_socket_addrs().map(Iterator::collect),
+        )
         .map_err(Fetch::Unreachable)?;
         let mut last = format!("{}: no address", url.host);
         for address in addresses {
@@ -114,22 +123,49 @@ impl Web {
     }
 }
 
+/// Name lookups still running, across every round of this process: at most
+/// [`MOST_LOOKUPS`] at once (the reviewer on #884).
+static LOOKUPS: AtomicUsize = AtomicUsize::new(0);
+/// One lookup at a time: a resolver that never answers holds one thread,
+/// and no round makes another until it ends.
+pub const MOST_LOOKUPS: usize = 1;
+
 /// The host's addresses, or why not, within `limit`. The system's name
 /// lookup has no timeout of its own: a resolver that never answers (a home
 /// router rebooting, #830) would hold the round. It runs on a thread of its
-/// own; one that runs over is left to end by itself, and the round goes on
-/// as "cannot be reached". At most one such thread per round.
+/// own and the round waits at most `limit`; one that runs over is left to
+/// end by itself, counted in `running`, and while `most` are still running
+/// a round starts none and says so at once.
 pub fn lookup_within(
     host: &str,
     port: u16,
     limit: Duration,
+    running: &'static AtomicUsize,
+    most: usize,
     lookup: impl FnOnce(&str, u16) -> io::Result<Vec<SocketAddr>> + Send + 'static,
 ) -> Result<Vec<SocketAddr>, String> {
+    if running
+        .fetch_update(Ordering::AcqRel, Ordering::Acquire, |now| {
+            (now < most).then_some(now + 1)
+        })
+        .is_err()
+    {
+        return Err(format!("{host}: an earlier name lookup has not ended"));
+    }
+    /// Counts the lookup's thread out however it ends.
+    struct Running(&'static AtomicUsize);
+    impl Drop for Running {
+        fn drop(&mut self) {
+            self.0.fetch_sub(1, Ordering::AcqRel);
+        }
+    }
+    let counted = Running(running);
     let (tell, told) = mpsc::sync_channel(1);
     let name = host.to_owned();
     std::thread::Builder::new()
         .name("lamp-update-lookup".into())
         .spawn(move || {
+            let _counted = counted;
             let _ = tell.send(lookup(&name, port));
         })
         .map_err(|error| format!("{host}: {error}"))?;
@@ -479,28 +515,73 @@ mod tests {
     use std::{net::TcpListener, thread};
 
     #[test]
-    fn a_name_lookup_that_hangs_is_given_up_within_its_limit() {
+    fn a_name_lookup_that_hangs_is_given_up_and_no_round_starts_another_until_it_ends() {
+        static RUNNING: AtomicUsize = AtomicUsize::new(0);
+        let (release, held) = mpsc::channel::<()>();
+        let held = std::sync::Mutex::new(held);
         let started = std::time::Instant::now();
+        // A resolver that never answers until released.
         let hung = lookup_within(
             "updates.example",
             443,
-            Duration::from_millis(100),
-            |_, _| {
-                thread::sleep(Duration::from_secs(5));
+            Duration::from_millis(50),
+            &RUNNING,
+            1,
+            move |_, _| {
+                let _ = held.lock().unwrap().recv();
                 Ok(Vec::new())
             },
         );
-        let said = hung.unwrap_err();
-        assert!(said.contains("no answer within"), "{said}");
+        assert!(hung.unwrap_err().contains("no answer within"));
         assert!(started.elapsed() < Duration::from_secs(2));
-        let found = lookup_within("updates.example", 443, Duration::from_secs(2), |_, port| {
-            Ok(vec![SocketAddr::from(([127, 0, 0, 1], port))])
-        });
+        // Rounds while it is still blocked start no new lookup.
+        for _ in 0..8 {
+            let refused = lookup_within(
+                "updates.example",
+                443,
+                Duration::from_millis(50),
+                &RUNNING,
+                1,
+                |_, _| {
+                    panic!("no second lookup may start");
+                },
+            );
+            assert!(
+                refused
+                    .unwrap_err()
+                    .contains("earlier name lookup has not ended")
+            );
+        }
+        assert_eq!(RUNNING.load(Ordering::Acquire), 1);
+        // Once it ends, the next round looks up again.
+        release.send(()).unwrap();
+        let deadline = std::time::Instant::now() + Duration::from_secs(5);
+        while RUNNING.load(Ordering::Acquire) != 0 {
+            assert!(
+                std::time::Instant::now() < deadline,
+                "the lookup never ended"
+            );
+            thread::sleep(Duration::from_millis(5));
+        }
+        let found = lookup_within(
+            "updates.example",
+            443,
+            Duration::from_secs(2),
+            &RUNNING,
+            1,
+            |_, port| Ok(vec![SocketAddr::from(([127, 0, 0, 1], port))]),
+        );
         assert_eq!(found.unwrap(), [SocketAddr::from(([127, 0, 0, 1], 443))]);
-        let refused = lookup_within("updates.example", 443, Duration::from_secs(2), |_, _| {
-            Err(io::Error::other("no such name"))
-        });
+        let refused = lookup_within(
+            "updates.example",
+            443,
+            Duration::from_secs(2),
+            &RUNNING,
+            1,
+            |_, _| Err(io::Error::other("no such name")),
+        );
         assert!(refused.unwrap_err().contains("no such name"));
+        assert_eq!(RUNNING.load(Ordering::Acquire), 0);
     }
 
     /// A server that gives each connection the next answer, as written,

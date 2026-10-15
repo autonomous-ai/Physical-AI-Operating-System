@@ -157,17 +157,31 @@ pub fn binding(service: &str) -> String {
     format!("[Unit]\nBindsTo={service}.service\nAfter={service}.service\n")
 }
 
+/// The part that sets a lamp up for a home (#806): what runs instead of the
+/// lamp until the setup marker exists.
+pub const SETUP: &str = "lamp-setup.service";
+
+/// Where the updater's keeper keeps a link to itself, so that others (the
+/// setup's reset) can run `lamp-keeper stop lamp` by one path whatever the
+/// version.
+pub const COMMAND_LINK: &str = "/usr/local/bin/lamp-keeper";
+
 /// Bring the lamp up from a release: link its units, tie the lamp to the
 /// keeper's unit, reload, make each part wanted by the lamp, start the
 /// lamp. The lamp itself is not enabled: at power-up it is the keeper's unit
 /// that starts, and the lamp with it. `drop_in_dir` is
 /// `/etc/systemd/system/lampos.target.d` on a lamp.
+///
+/// With a setup marker (`--setup-marker`) that does not exist yet, the
+/// lamp is not started: only [`SETUP`] is, and [`start_when_set_up`] starts
+/// the lamp once the marker appears. True when the lamp was started.
 pub fn bring_up(
     systemd: &mut impl Systemd,
     release: &Release,
     service: &str,
     drop_in_dir: &Path,
-) -> Result<(), String> {
+    setup_marker: Option<&Path>,
+) -> Result<bool, String> {
     let files = release.unit_files();
     if files.is_empty() {
         return Err(format!(
@@ -187,7 +201,31 @@ pub fn bring_up(
     for unit in services(&files) {
         systemd.enable(&unit)?;
     }
-    systemd.command("start", LAMP)
+    if setup_marker.is_some_and(|marker| !marker.exists()) {
+        systemd.command("start", SETUP)?;
+        return Ok(false);
+    }
+    systemd.command("start", LAMP)?;
+    Ok(true)
+}
+
+/// Starts the lamp once the setup marker exists. True when it did.
+pub fn start_when_set_up(systemd: &mut impl Systemd, marker: &Path) -> Result<bool, String> {
+    if !marker.exists() {
+        return Ok(false);
+    }
+    systemd.command("start", LAMP)?;
+    Ok(true)
+}
+
+/// Points `link` at this release's `bin/service`, replaced whole: a new
+/// link under a temporary name, renamed over the old one.
+pub fn link_command(release: &Release, link: &Path) -> Result<(), String> {
+    let partial = link.with_extension("partial");
+    let _ = fs::remove_file(&partial);
+    std::os::unix::fs::symlink(release.root.join("bin/service"), &partial)
+        .and_then(|()| fs::rename(&partial, link))
+        .map_err(|error| format!("{}: {error}", link.display()))
 }
 
 /// The names of the parts among these unit files.
@@ -305,7 +343,7 @@ mod tests {
         let (dir, release) = release(&["lamp-voice.service", "lamp-body.service", "lampos.target"]);
         let drop_ins = dir.0.join("lampos.target.d");
         let mut systemd = Fake::default();
-        bring_up(&mut systemd, &release, "lamp-os", &drop_ins).unwrap();
+        assert!(bring_up(&mut systemd, &release, "lamp-os", &drop_ins, None).unwrap());
         assert_eq!(
             *systemd.said.borrow(),
             [
@@ -326,10 +364,72 @@ mod tests {
     }
 
     #[test]
+    fn with_its_marker_present_the_setup_check_changes_nothing() {
+        let units = ["lamp-voice.service", "lampos.target"];
+        let said = |marker: Option<&Path>| {
+            let (dir, release) = release(&units);
+            let mut systemd = Fake::default();
+            let drop_ins = dir.0.join("lampos.target.d");
+            assert!(bring_up(&mut systemd, &release, "lamp-os", &drop_ins, marker).unwrap());
+            systemd.said.into_inner()
+        };
+        let (marked, _) = release(&[]);
+        let marker = marked.0.join("done");
+        fs::write(&marker, "").unwrap();
+        assert_eq!(said(Some(&marker)), said(None));
+    }
+
+    #[test]
+    fn without_its_marker_only_setup_starts_and_the_lamp_once_the_marker_appears() {
+        let (dir, release) = release(&["lamp-voice.service", "lampos.target"]);
+        let marker = dir.0.join("done");
+        let mut systemd = Fake::default();
+        let drop_ins = dir.0.join("lampos.target.d");
+        assert!(!bring_up(&mut systemd, &release, "lamp-os", &drop_ins, Some(&marker)).unwrap());
+        assert_eq!(
+            systemd.said.borrow().last().unwrap(),
+            "start lamp-setup.service"
+        );
+        assert!(
+            !systemd
+                .said
+                .borrow()
+                .iter()
+                .any(|said| said == "start lampos.target")
+        );
+        // Not yet set up: nothing more.
+        assert!(!start_when_set_up(&mut systemd, &marker).unwrap());
+        fs::write(&marker, "").unwrap();
+        assert!(start_when_set_up(&mut systemd, &marker).unwrap());
+        let starts = systemd
+            .said
+            .borrow()
+            .iter()
+            .filter(|said| *said == "start lampos.target")
+            .count();
+        assert_eq!(starts, 1);
+    }
+
+    #[test]
+    fn the_command_link_points_at_the_running_release_and_is_replaced_whole() {
+        let (dir, old) = release(&[]);
+        let link = dir.0.join("lamp-keeper");
+        link_command(&old, &link).unwrap();
+        assert_eq!(fs::read_link(&link).unwrap(), old.root.join("bin/service"));
+        let (_newer_dir, newer) = release(&[]);
+        link_command(&newer, &link).unwrap();
+        assert_eq!(
+            fs::read_link(&link).unwrap(),
+            newer.root.join("bin/service")
+        );
+        assert!(!link.with_extension("partial").exists());
+    }
+
+    #[test]
     fn a_release_without_units_is_not_started() {
         let (dir, release) = release(&[]);
         let mut systemd = Fake::default();
-        let why = bring_up(&mut systemd, &release, "lamp-os", &dir.0.join("d")).unwrap_err();
+        let why = bring_up(&mut systemd, &release, "lamp-os", &dir.0.join("d"), None).unwrap_err();
         assert!(why.starts_with("no units in"), "{why}");
         assert!(systemd.said.borrow().is_empty());
     }

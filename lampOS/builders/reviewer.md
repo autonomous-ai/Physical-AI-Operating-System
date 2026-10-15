@@ -34,10 +34,6 @@ Every ready pull request into `lamp-voice` (not a draft), oldest first.
      test shows that by comparing what the code does with and without it.
    - Its ARM64 run on the head is green. One that failed only in a test
      that has an open issue for being flaky may be re-run once.
-   - The ARM64 run skips the realtime tests ([realtime-tests.md](../docs/realtime-tests.md)).
-     If it touches a crate with realtime tests, its body gives the result of
-     `--profile realtime`; a new test that waits on the real clock is in that
-     group, not slowing every run.
    - It touches only what its builder's role file or its task gives it.
    - Its documents are changed in the same pull request and say what the
      code does.

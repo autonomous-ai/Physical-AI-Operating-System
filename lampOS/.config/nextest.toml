@@ -4,12 +4,11 @@
 # playback, sleeps, deadlines and report periods measured in seconds). On the
 # 2026-10-15 ARM64 runs (38715042828, 38715014248) these 123 tests took 977 s
 # of the 1,191 s spent on all 4,507 tests. Until each has an injectable clock
-# or a shorter fixture, they are TEMPORARILY skipped on GitHub Actions
-# (profile `ci`) and run by hand (profile `realtime`). See
-# docs/realtime-tests.md for the list, how to run them and when to bring them
-# back.
+# or a shorter fixture, pull requests skip them (profile `pr`); every push to
+# lamp-voice runs every test (profile `default`). Run them alone with profile
+# `realtime`. See docs/realtime-tests.md.
 #
-# The same filterset appears three times below (the group override, `ci`'s
+# The same filterset appears three times below (the group override, `pr`'s
 # exclusion and `realtime`'s selection). Keep all three identical.
 
 [test-groups]
@@ -39,9 +38,10 @@ filter = '''
 '''
 test-group = 'realtime'
 
-# GitHub Actions (.github/workflows/lampos-arm64.yml): everything except the
-# realtime group. A filter given on the command line is intersected with this.
-[profile.ci]
+# Pull requests on GitHub Actions (.github/workflows/lampos-arm64.yml):
+# everything except the realtime group. A filter given on the command line is
+# intersected with this.
+[profile.pr]
 default-filter = '''
 not (
     binary_id(lamp-voice-eval::serve_session)

@@ -23,6 +23,14 @@ fn main() {
 fn run() -> Result<()> {
     let args = std::env::args().skip(1).collect::<Vec<_>>();
     match args.as_slice() {
+        // How often a short sound got an answer, from the lamp's own
+        // records (#800): one line a short turn, then counts. Reads only;
+        // what was heard is printed as kinds, never as words.
+        [command,sessions] if command=="short-turns" => {
+            let shorts=lamp_voice::short_turns::short_turns(&lamp_voice::short_turns::records_under(Path::new(sessions))?);
+            for short in &shorts { println!("{}",short.row()); }
+            println!("{}",lamp_voice::short_turns::summary(&shorts));
+        },
         [command] if command == "schedule-consumer" => {
             lamp_voice::reminders::run_consumer()?;
         },

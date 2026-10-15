@@ -125,3 +125,33 @@ Ready for lamp-voice: no (draft #884)
   then removed the lock at 00:19:50. Nine read only (units: `hal`,
   `os-server`, `lamp-cmedia-speaker`; no `/opt/lampOS`), changed nothing,
   and does not hold the lock. Told the eighth.
+
+## 2026-10-16 — no internet at home (#830) — the clock, and lamp/online
+
+Ready for lamp-voice: no (draft #884)
+
+- On `nine/offline`, each off unless set: `lamp-health --clock kernel`
+  (`a8d3c752a`), `lamp-schedule --kernel-clock` with one reader in
+  `lamp_ipc::clock_synced` (`c468d2121`), `lamp-expression --kernel-clock`
+  (`b14606c51`), the voice's `LAMP_KERNEL_CLOCK=on` (`311a1d6c6`),
+  `LAMP_VOICE_LINK=on` publishing `voice/link` (`c5f68dc96`), and
+  `lamp-health --online on` publishing `lamp/online` (`28103ef52`).
+- ARM64 runs green on `c468d2121`, `b14606c51`, `311a1d6c6`, `c5f68dc96`.
+- lamp-75c9, read-only under the lock at 00:25: chrony keeps the clock, no
+  `/run/systemd/timesync`, `timedatectl` `NTPSynchronized=yes`.
+- Found, not mine: `lamp-schedule`'s storage tests fail about 1 run in 6 on
+  unchanged `lamp-voice` (#887).
+- Asked the first builder on #830: the notice's wording and recording, where
+  it is said (a local-only turn), and the offline look on the ring. Nothing
+  visible built until answered.
+
+## 2026-10-16 — one install for a new lamp (#811) — setup at first boot
+
+Ready for lamp-voice: no (draft #896)
+
+- `nine/install-boot` from `lamp-voice`, `8fdfec844`: `lamp-setup.service`,
+  `lamp-setup-reset.service` and `lampos-setup-done.path` in the product,
+  written and enabled by `install`. Gate: update clippy clean, 34 + 16 + 19
+  passed, 1 ignored; `systemd-analyze verify` clean on the three.
+- Asked on #811: setup's settings (third), the keeper on a product lamp
+  (fifth), Harness at boot as a system unit for `lampos` (first builder).

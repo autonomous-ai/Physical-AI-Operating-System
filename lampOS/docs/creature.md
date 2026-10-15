@@ -78,15 +78,23 @@ runs; the rest are to be built (owners in "Order of building").
 
 ### Touch
 
+**The head carries every touch action; the base strip does nothing for now**
+(the owner, 2026-10-15 19:28: "the touch strip is not very reliable. but the
+head touch is. let's focus the key actions for the head touch", and then
+"let's go with your suggestions"). On lamp-4ace a finger on one base pad
+reads almost as high on its neighbours (17 to 31 against 22 to 43; #797),
+while the two head pads are plain and dependable. Both head pads mean "the
+head": nobody remembers which pad does what.
+
 | You | It | Status |
 |---|---|---|
-| Touch its head while it talks | Stops mid-word, turns its eye to you: you have its attention | Touch read now; meaning #711 |
-| Touch its head while it is quiet | Looks up at you, the eye opens bright, a soft "hm?": you can talk without its name | #711 + voice |
-| Keep your hand on its head | Leans a little into your hand, the eye warms and breathes slowly; lets go when you do | #711, Expression, body |
-| Tap the base | Same as a head tap: stop, or attend | #711 |
-| Slide a finger along the base | Its light follows your finger (brighter one way, dimmer the other); a slow stroke the other way makes it sway a little, pleased | #711, light |
-| Hold the base two seconds | Goes to sleep: eye closes to a thin red line, head bows, microphones off. A new touch or hold while asleep asks it to wake | Separate Sleep/Wake requests in #711; Voice, lifecycle, Expression apply them |
-| Move its head by hand | Gives way, stays where you put it (it is lighting what you need), and only drifts back after a long while or when asked | #702-#703 (give-way), body |
+| Tap its head while it talks | Stops at once (under 150 ms) and turns its eye to you: you have its attention | #711 |
+| Tap its head while it is quiet: a short, deliberate tap (under half a second, the head not being moved) | Looks up, the eye opens bright, a soft "hm?", and it listens for a few seconds without needing its name; if nothing is said it settles again quietly | #711 + voice |
+| Keep your hand on its head, about a second | Leans a little into your hand, the eye warms and breathes slowly: pleased | #711, Expression, body |
+| Keep holding | The eye dims slowly, a visible countdown; at three seconds it goes to sleep: eye closes to a thin red line, head bows, microphones off. Let go before three seconds and it was only affection | #711, voice, Expression, body |
+| Tap its head while it sleeps | Wakes | #711 |
+| The base strip | Nothing, for now; brightness is asked for by voice ("dimmer, please") | after the MVP |
+| Move its head by hand | Gives way, stays where you put it (it is lighting what you need), and only drifts back after a long while or when asked. A touch on the head pads while the body feels the head being pushed means nothing: no stop, no listening | #702-#703 (give-way), body, #711 |
 
 Task 33's [touch contract](controls.md#touch-and-slides-task-33) publishes
 qualified head/base touches, position, slide direction/travel/speed and

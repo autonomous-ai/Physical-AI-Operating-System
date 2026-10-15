@@ -750,7 +750,7 @@ end, while the answer has not begun, takes no turn (`HOLD_FLOOR_US`, the
 admitted, with or without the switch. In lamp-4ace's records of 15 October
 (10 sessions, 932 ends, `~/lamp-voice-data/sessions/turn-times-20261015`,
 read on the Mac the fourth builder shares with the first), 401 holds came
-within a second of the end of the turn they held, and 47 next turns were
+within a second of the end of the turn they held, and 46 next turns were
 admitted that soon. Which of the 401 were the same person going on, and
 which the played room's other voices, was not measured. Tests:
 `a_turn_ended_at_a_comma_goes_on_in_the_next_request_only_with_the_switch`

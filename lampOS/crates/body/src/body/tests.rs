@@ -3090,6 +3090,50 @@ fn a_light_head_lifted_by_hand_stays_when_told_to_and_comes_back_when_not() {
     assert!(after.goals[0].abs_diff(1_960) <= 6, "{after:?}");
 }
 
+/// lamp-52e6, 15 Oct, run 4: a hand lifts the head 60 counts; it gives way
+/// as the push begins (that read 192 there), and the hand then holds it for
+/// three seconds at a load of only 95, under every load bound, the head kept
+/// 30 to 40 counts off the goal it is held at. Told to stay it stays
+/// where it was put; told to come back it comes back; without the option
+/// the same hand ends the run, as before.
+#[test]
+fn a_head_held_off_its_goal_by_a_hand_at_a_low_load_is_in_the_hand() {
+    let ms = Duration::from_millis;
+    let ran = |give_way: Option<GiveWay>| {
+        let (mut lamp, mut clock) = folded(Duration::from_secs(10));
+        lamp.hand = Some((ms(1_500), ms(4_500), PITCH, 1_900.0));
+        lamp.strains = vec![
+            (ms(1_500), ms(2_100), PITCH, 150),
+            (ms(2_100), ms(4_500), PITCH, 95),
+        ];
+        let news = || Some((Mood::Listening, 100));
+        let mut seen = Vec::new();
+        let limits = Limits {
+            give_way,
+            ..giving_way(GiveWay::Return)
+        };
+        let report = run(&mut lamp, &mut clock, limits, None, news, |glimpse| {
+            seen.push(*glimpse)
+        });
+        let after = *seen.iter().rev().find(|g| clock_of(g) < ms(9_900)).unwrap();
+        (report, after)
+    };
+    let (report, after) = ran(Some(GiveWay::Stay));
+    assert_eq!(report.stop, Stop::Cancelled, "{report:?}");
+    assert!(report.kept_where_put[0] >= 1, "{report:?}");
+    assert!(after.goals[0].abs_diff(1_900) <= 8, "{after:?}");
+    // Listening holds it at 1,960.
+    let (report, after) = ran(Some(GiveWay::Return));
+    assert_eq!(report.stop, Stop::Cancelled, "{report:?}");
+    assert_eq!(report.kept_where_put, [0; 3], "{report:?}");
+    assert!(after.goals[0].abs_diff(1_960) <= 6, "{after:?}");
+    let (report, _) = ran(None);
+    assert!(
+        matches!(report.stop, Stop::Tracking { joint: 5, .. }),
+        "{report:?}"
+    );
+}
+
 /// A hand that takes the head past its reach leaves it at the edge of it.
 #[test]
 fn told_to_stay_a_head_pushed_past_its_reach_is_kept_at_the_edge() {

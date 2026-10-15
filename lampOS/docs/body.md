@@ -1137,13 +1137,17 @@ it as often as they like.
 
 **`stay`: moved by a hand, it stays where it was put.** As above, and:
 
-- Its load over its bound, or over 100 if that is lower, for a second in
-  a row, and it has been moved more than 15 counts from where it gave way
+- In a hand for a second in a row (its load over its bound, or over 100
+  if that is lower, or it kept more than 15 counts off the goal it is held
+  at), and it has been moved more than 15 counts from where it gave way
   (from its goal, for a joint that gave way because a hand had already
   moved it off it): a hand moved it. On lamp-52e6 a hand lifting the head
   6 degrees read 100 to 130, under the head's 240, and gave way 30 counts
   in; judged against 240 and from there, the head came back instead of
-  staying. Where it
+  staying. Judged against 100 it came back again (run 4): held 30 to 40
+  counts off its goal, the light head on its soft servo read only 90 to
+  130, around the bound and never over it for a second. A joint resting
+  at its goal is never taken for a hand. Where it
   is becomes where it is left, inside the same reach and window as every
   goal (a hand that takes it past the reach leaves it at the edge, where
   the servo takes it at its own speed), and what the lamp is doing then

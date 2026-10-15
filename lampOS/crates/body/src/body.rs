@@ -1715,13 +1715,17 @@ fn let_go<P: PortIo, R: Runtime>(
     }
 }
 
-/// One step of a joint that gave way at `from` and is still held, under
-/// `--give-way stay`: `steps` counts the steps in a row its load has been
-/// over `bound`. After a second of that, `Some(true)` if it has been moved
-/// more than `HAND_MOVED` counts (a hand moved it), `Some(false)` if not
-/// (something pushes it and it does not move).
-fn in_hand_after(steps: &mut u16, is: Sample, bound: u16, from: u16) -> Option<bool> {
-    *steps = if is.load > bound { *steps + 1 } else { 0 };
+/// One step of a joint that gave way at `from` and is still held at `goal`,
+/// under `--give-way`: `steps` counts the steps in a row it has been in a
+/// hand, its load over `bound` or it kept more than `HAND_MOVED` counts off
+/// `goal` (a light head on a soft servo is held 30 to 40 counts away at a
+/// load of only 90 to 130 on lamp-52e6). After a second of that,
+/// `Some(true)` if it has been moved more than `HAND_MOVED` counts from
+/// `from` (a hand moved it), `Some(false)` if not (something pushes it and
+/// it does not move).
+fn in_hand_after(steps: &mut u16, is: Sample, bound: u16, from: u16, goal: u16) -> Option<bool> {
+    let in_hand = is.load > bound || is.position.abs_diff(goal) > HAND_MOVED;
+    *steps = if in_hand { *steps + 1 } else { 0 };
     if *steps < HAND_STEPS {
         return None;
     }
@@ -3295,7 +3299,13 @@ pub(crate) fn run_alive(
                 // lamp-52e6 a hand lifting the head read 100 to 130, under
                 // the head's 240, and a head told to stay came back.
                 let bound = strained.min(STALL_LOAD);
-                if let Some(moved) = in_hand_after(&mut in_hand[index], is, bound, gave_at[index]) {
+                if let Some(moved) = in_hand_after(
+                    &mut in_hand[index],
+                    is,
+                    bound,
+                    gave_at[index],
+                    written[index],
+                ) {
                     // Still in the hand a second on: it gives way again
                     // where it is, moved or held.
                     commanded[index] = f32::from(is.position).clamp(

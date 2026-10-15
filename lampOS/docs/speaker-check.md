@@ -33,6 +33,11 @@ with which one did not:
   (`speaker_check::QUIET_US`);
 - it is not between 12:00 and 14:00 local time, and the local time is known.
 
+A request that cannot be read, or an answer that cannot be written, is
+said once in the voice's log and switches the check off until the voice
+restarts; the conversation goes on. Failures of the turn owner or the
+speaker are not the check's and still end the service as before.
+
 ## How it is played
 
 As the lamp's own turn with no provider request (`coordinator/speaker_tone.rs`):
@@ -41,7 +46,8 @@ complete from the start, its PCM the tone, dispatched in 10 ms chunks
 through `dispatch_speaker_chunk` as the failure notice is
 (`SpeechOrigin::SelfTest`). So every chunk reaches `SpeakerChunk` under an
 output permit and becomes the echo canceller's reference, and the turn
-settles once its last chunk retires.
+settles once its last chunk retires. The ring is told to show nothing before the
+turn is admitted, so not even the pass that admits it prepares a frame.
 
 ## What it measures
 

@@ -4478,7 +4478,7 @@ fn conversation_with_gate(
             .as_ref()
             .is_some_and(|current| current.notice.origin() == SpeechOrigin::SelfTest);
         if let Some(tone) = speaker_tone.as_mut() {
-            tone.tick(reply.as_ref(), monotonic_us())?;
+            tone.tick(reply.as_ref(), monotonic_us());
         }
         // A lamp that has stopped speaking for someone looks at them: the
         // listening face and pose at once, whatever becomes of the yield.
@@ -4777,7 +4777,7 @@ fn conversation_with_gate(
         // The self-test's tone, when asked for and the lamp is at rest; a
         // request it cannot take now is answered with why.
         if let Some(tone) = speaker_tone.as_mut()
-            && let Some(id) = tone.next_request(monotonic_us())?
+            && let Some(id) = tone.next_request(monotonic_us())
         {
             let at_us = monotonic_us();
             let at_rest = reply.is_none()
@@ -4798,10 +4798,10 @@ fn conversation_with_gate(
             };
             match crate::speaker_check::may_play(&state) {
                 Ok(()) => {
-                    let (now_state, turn) = speaker_tone::commit_tone_turn(
+                    let (now_state, turn) = speaker_tone::begin_tone(
                         owner,
                         reply,
-                        0,
+                        choreography.as_mut(),
                         rig.playout_start,
                         trace,
                         |state| rig.publish(state),
@@ -4810,7 +4810,7 @@ fn conversation_with_gate(
                     tone.began(id, turn);
                     last_publish = monotonic_us();
                 }
-                Err(why) => tone.refuse(&id, &why, at_us)?,
+                Err(why) => tone.refuse(&id, &why, at_us),
             }
         }
         if let Some(arrival) = arrival.as_mut() {

@@ -130,16 +130,32 @@ pub fn finish(longest: Duration) {
     let Some((read, held)) = RELAY.get() else {
         return;
     };
+    finish_on(read, held, longest);
+}
+
+/// [`finish`] for the relay reading `read` and saying what it holds in
+/// `held`: true once both are empty, false when `longest` has gone first.
+fn finish_on(read: &OwnedFd, held: &AtomicUsize, longest: Duration) -> bool {
     let until = Instant::now() + longest;
     while Instant::now() < until {
         // The pipe first, then the relay: bytes gone from the pipe were
         // taken by a read made after the relay said it was busy (#837).
         let waiting = rustix::io::ioctl_fionread(read).unwrap_or(0);
         if waiting == 0 && held.load(Ordering::SeqCst) == 0 {
-            return;
+            return true;
         }
         std::thread::sleep(Duration::from_millis(5));
     }
+    false
+}
+
+/// Where a test may stop the relay (#837): just after a read took bytes out
+/// of the pipe, and just after a whole line went to the journal. A running
+/// relay passes both without stopping.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Seam {
+    Read,
+    Wrote,
 }
 
 /// Drain `from` until every writer has closed it, and pass what it holds to
@@ -149,6 +165,16 @@ pub fn relay(from: OwnedFd, to: OwnedFd, dropped: &AtomicU64) {
 }
 
 fn relay_holding(from: OwnedFd, to: OwnedFd, dropped: &AtomicU64, holding: &AtomicUsize) {
+    relay_seamed(from, to, dropped, holding, &mut |_| {});
+}
+
+fn relay_seamed(
+    from: OwnedFd,
+    to: OwnedFd,
+    dropped: &AtomicU64,
+    holding: &AtomicUsize,
+    seam: &mut dyn FnMut(Seam),
+) {
     let mut held: Vec<u8> = Vec::new();
     // How much of the first held line has gone already: a line once begun
     // is finished, never cut, so the journal never gets half of one.
@@ -168,7 +194,10 @@ fn relay_holding(from: OwnedFd, to: OwnedFd, dropped: &AtomicU64, holding: &Atom
                 // Every writer has gone: say what is held, if the journal
                 // takes it, and stop.
                 Ok(0) => ended = true,
-                Ok(n) => held.extend_from_slice(&buffer[..n]),
+                Ok(n) => {
+                    held.extend_from_slice(&buffer[..n]);
+                    seam(Seam::Read);
+                }
                 Err(Errno::INTR | Errno::AGAIN) => {}
                 Err(_) => {
                     holding.store(0, Ordering::SeqCst);
@@ -215,6 +244,7 @@ fn relay_holding(from: OwnedFd, to: OwnedFd, dropped: &AtomicU64, holding: &Atom
                     if begun == end {
                         held.drain(..end);
                         begun = 0;
+                        seam(Seam::Wrote);
                     }
                 }
                 Err(Errno::INTR) => {}
@@ -254,6 +284,92 @@ mod tests {
         let (read, write) = rustix::pipe::pipe().unwrap();
         rustix::io::ioctl_fionbio(&write, true).unwrap();
         (read, write)
+    }
+
+    /// A part's last words: its error and its usage, in one write.
+    const SAID: &[u8] = b"lamp-test: unknown option --x\nusage: lamp-test --dir DIR [--y N]\n";
+
+    /// #837: the relay is stopped at `at` once, with the writer still open.
+    /// The pipe is then empty, yet `finish` must not say done while the relay
+    /// holds the words; once it goes on, the journal gets every byte.
+    fn finish_waits_while_stopped_at(at: Seam) {
+        let (journal_read, journal_write) = nonblocking_pipe();
+        let (from, into) = rustix::pipe::pipe().unwrap();
+        let watched = rustix::io::dup(&from).unwrap();
+        let holding = Arc::new(AtomicUsize::new(0));
+        let (stopped_tx, stopped) = std::sync::mpsc::channel();
+        let (release, released) = std::sync::mpsc::channel::<()>();
+        let held = holding.clone();
+        let relay = std::thread::spawn(move || {
+            let mut once = true;
+            relay_seamed(
+                from,
+                journal_write,
+                &AtomicU64::new(0),
+                &held,
+                &mut |seam| {
+                    if seam == at && std::mem::take(&mut once) {
+                        stopped_tx.send(()).unwrap();
+                        released.recv().unwrap();
+                    }
+                },
+            );
+        });
+        assert_eq!(rustix::io::write(&into, SAID).unwrap(), SAID.len());
+        stopped.recv_timeout(Duration::from_secs(2)).unwrap();
+        assert_eq!(rustix::io::ioctl_fionread(&watched).unwrap(), 0, "all read");
+        assert!(
+            !finish_on(&watched, &holding, Duration::from_millis(50)),
+            "{at:?}: done while the relay still holds the usage line"
+        );
+        release.send(()).unwrap();
+        assert!(finish_on(&watched, &holding, Duration::from_millis(500)));
+        let mut got = [0u8; 256];
+        let n = rustix::io::read(&journal_read, &mut got).unwrap();
+        assert_eq!(&got[..n], SAID);
+        drop(into);
+        relay.join().unwrap();
+    }
+
+    #[test]
+    fn finish_waits_for_words_read_from_the_pipe_and_not_yet_written() {
+        finish_waits_while_stopped_at(Seam::Read);
+    }
+
+    #[test]
+    fn finish_waits_for_the_usage_line_held_after_the_error_line_went() {
+        finish_waits_while_stopped_at(Seam::Wrote);
+    }
+
+    /// The bounds stay: a journal that takes nothing holds `finish` no
+    /// longer than it is given, and a broken one does not hold it at all.
+    #[test]
+    fn finish_is_bounded_by_a_full_journal_and_freed_by_a_broken_one() {
+        for broken in [false, true] {
+            let (journal_read, journal_write) = nonblocking_pipe();
+            // Fill the journal so nothing more goes in.
+            while rustix::io::write(&journal_write, &[b'x'; 4096]).is_ok() {}
+            if broken {
+                drop(journal_read);
+            } else {
+                std::mem::forget(journal_read);
+            }
+            let (from, into) = rustix::pipe::pipe().unwrap();
+            let watched = rustix::io::dup(&from).unwrap();
+            let holding = Arc::new(AtomicUsize::new(0));
+            let held = holding.clone();
+            let relay = std::thread::spawn(move || {
+                relay_holding(from, journal_write, &AtomicU64::new(0), &held)
+            });
+            rustix::io::write(&into, SAID).unwrap();
+            let began = Instant::now();
+            let done = finish_on(&watched, &holding, Duration::from_millis(200));
+            let took = began.elapsed();
+            assert_eq!(done, broken, "broken: {broken}");
+            assert!(took < Duration::from_millis(400), "{took:?}");
+            drop(into);
+            relay.join().unwrap();
+        }
     }
 
     #[test]

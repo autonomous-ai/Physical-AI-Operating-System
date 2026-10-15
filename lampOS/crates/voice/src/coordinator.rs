@@ -1975,6 +1975,7 @@ fn provider_arguments(
     arguments.extend(crate::bus_out::worker_arguments_from_environment());
     arguments.extend(crate::first_output::arguments_from_environment());
     arguments.extend(crate::not_speech::arguments_from_environment());
+    arguments.extend(crate::policy_holds::arguments_from_environment());
     if let Some(camera) = camera {
         arguments.extend(camera.source.arguments());
     }
@@ -3302,7 +3303,10 @@ fn conversation_with_gate(
                         _ => false,
                     };
                     if !held && let Some(bus) = bus_out.as_mut() {
-                        bus.speech(request, &text, finished, monotonic_us());
+                        match request {
+                            Some(turn) => bus.said(turn, &text, finished, monotonic_us()),
+                            None => bus.heard(&text, finished, monotonic_us()),
+                        }
                     }
                     // The model keeping quiet aloud: an answer that opens
                     // with no word in it ("...") while none of it has been
@@ -3418,6 +3422,11 @@ fn conversation_with_gate(
                     session,
                     waiting_for_barrier,
                 } => {
+                    // What is heard from here on is told as this turn's
+                    // (#800, `crate::policy_holds`).
+                    if let Some(bus) = bus_out.as_mut() {
+                        bus.input_started(request);
+                    }
                     record(
                         trace,
                         json!({"kind":"provider_input_started","turn":request,
@@ -4281,7 +4290,7 @@ fn conversation_with_gate(
                         // The words held for its answer are the lamp's now.
                         for (text, finished) in sent.take_words() {
                             if let Some(bus) = bus_out.as_mut() {
-                                bus.speech(Some(turn), &text, finished, monotonic_us());
+                                bus.said(turn, &text, finished, monotonic_us());
                             }
                             if let Some(body) = body_link.as_mut()
                                 && let Some(gesture) = gesture_cue.heard(turn, &text, finished)

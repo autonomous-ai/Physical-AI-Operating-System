@@ -861,6 +861,104 @@ Tests:
 What it does not do: tell who said a call. A person who says "Lamp" to the
 lamp while facing someone else is still calling it.
 
+## The Policy holds the lamp's actions (#800)
+
+Off unless `LAMP_POLICY_HOLDS_ACTIONS=on` in the voice's environment (the
+coordinator passes the worker `--policy-holds-actions`, right after
+`--sounds-checked`), and nothing without `LAMP_BUS=on`.
+
+On lamp-4ace on 15 October at 14:49 the lamp heard "Thailand" in a busy
+office, ran `volume_up` and stayed 7 dB louder for eleven hours. The
+Policy's decision in the same second was `stay_quiet` (p = 0.235). Of
+3,698 attention decisions from 13 to 16 October, the Policy chose
+`stay_quiet` for 2,345, and the lamp spoke anyway on 437 of them (the first
+builder, #800). That is too many to hold all speech on the Policy yet, but
+an action changes the lamp and outlasts the moment.
+
+With the switch, a call that changes the lamp, any of the executive's
+functions (the volume and the light), or one of the schedule's three that
+set or take away something to come (`set_timer`, `set_reminder`,
+`cancel_reminder`: on lamp-4ace on 16 October "Yes, give me five minutes",
+said to someone else, set a five-minute timer; the first builder on #908),
+waits for the Policy's attention decision about its turn. The schedule's
+other three, `list_reminders`, `repeat_reminder` and `snooze_reminder`, are
+not held (the first builder, 05:57), nor is any other call:
+- **The turn's decision** is an attention decision the Policy publishes
+  for real (`policy/decisions`, `about` `attention`, `shadow` false:
+  `lamp-policy --act attention`) about the turn **by its number**
+  (`Decision.request`). The voice tells each piece of what it heard on
+  `voice/heard` with the number of the turn whose input began last before
+  the piece came (`crates/voice/src/bus_out.rs`), the same turn the
+  voice's own rule takes it for; the Policy's decision carries the number
+  of the newest piece it judged. So a decision is its own turn's however
+  late it comes, and never another's: a late decision about the turn
+  before neither releases nor holds this turn's action (the reviewer on
+  #908). A decision without a number is nobody's; of two about one turn
+  (its words judged in two pieces), the newer counts. Where the number can
+  still be wrong: the service does not say which turn its text of what was
+  heard is of, so a piece of a turn's words it writes only after the next
+  turn's input began is the next turn's, here as in the voice's own rule.
+- **`stay_quiet`, and the lamp's name not heard** in the turn (a hearing of
+  0.9 or more on `name/heard`, as the Policy counts it; known here only with
+  `LAMP_ATTENTION`, which follows the turn, and without it the Policy's
+  decision alone, which weighs the name itself): the action is not run. The model is told `{"done": false, "next": "Not done: it was not
+  clear that was said to you. Say nothing at all."}`, and none of the turn's
+  sound is let out after it.
+- **`answer` or `look_up`, or the name heard:** it runs.
+- **No decision within 2 s** of the call: it runs, as without the switch.
+  While it waits nothing else does: the call is kept aside and looked at on
+  each tick.
+- **Withdrawn while it waits:** a call the service cancels
+  (`toolCallCancellation`), or one whose turn is retired (its owner
+  cancelled, or a newer turn) or whose session is no longer the live one,
+  is let go, never run. A withdrawn call is not answered; one of a retired
+  turn is answered `{"done": false}`, which the service takes only if it is
+  still waiting, and the service settles the stopped turn as it does any
+  other. All three are looked at again right before it would run (the
+  reviewer on #908). The cancellation is asked of the session itself
+  (`call_withdrawn`), which notes it as it reads it off the connection:
+  while the output is full no provider event is taken, and its event may
+  wait behind the sound before it (the reviewer, 05:11).
+- Speech stays as it is, and so does every other call, the schedule's
+  other three among them. A request the
+  voice's own rule holds ([#829](#the-lamp-spoken-of-is-not-a-call-829),
+  the busy room) has its calls answered and not run before this is reached.
+  A turn the lamp wrote itself is not held. The second voice has no bus: its
+  actions run as before.
+
+The worker logs, with no words of what was heard: `request N asked for
+volume_up; waiting for the Policy's decision`, then `run after M ms:
+the Policy took the turn as the lamp's` (or `its name was heard`, `no
+decision came in time`), or `not done: the Policy judged the turn not for the
+lamp, and its name was not heard (M ms)`, or that it was withdrawn or its
+turn ended while it waited, and not run.
+
+Tests: `crates/voice/src/policy_holds.rs` (the gate; the switch; which
+calls are held; each decision its own turn's by number, also before the action is asked for,
+shadow and progress decisions and ones without a number passed over; a late
+decision of the turn before neither releasing nor holding this turn's
+action, in both orders; one still owed to an earlier turn never settling a
+later one), `crates/voice/src/bus_out.rs` (what was heard told with the
+number of the turn whose input began last), `crates/policy/tests/policy.rs`
+(`a_piece_marked_finished_is_judged_without_the_pause_and_carries_its_request`:
+the decision carries the number of what it judged),
+`crates/gemini/src/session/tests/tools.rs` (a withdrawn call
+known before its event is taken) and `crates/voice/src/provider_worker/tests/policy_holds.rs`
+(the worker's own loop against the scripted service, an executive and a bus
+of the test's own: `stay_quiet` not done, nothing asked of the executive and
+none of the turn's sound out; `answer` and `look_up` run and the sound after
+comes out; no decision, run after the wait; without the switch, run at
+once; another turn's `stay_quiet` holding nothing; listing reminders not
+held; the flag's place; a
+kept call whose turn is cancelled, one the service withdrew, and one
+withdrawn while the output is full, never run; a timer on `stay_quiet` not
+set).
+
+**Needs the Policy's side:** `lamp-policy --act attention`, which publishes
+its attention decisions with `shadow: false` (#800, to come after #873 and
+#883 merge, as they change the same files). Until then every action waits
+2 s and runs: so the switch stays off until both are on the lamp.
+
 ## Switch
 
 `LAMP_ATTENTION=on` in the voice unit (the worker's `--attention`). Off by
@@ -894,6 +992,12 @@ lamp-4ace since 11:52 on 2026-10-14.
 right after `--attention-near`; nothing without `LAMP_ATTENTION`): "the
 lamp" spoken of in what was heard is no call (above). Off by default; not
 on any lamp.
+
+`LAMP_POLICY_HOLDS_ACTIONS=on` (the worker's `--policy-holds-actions`,
+right after `--sounds-checked`; nothing without `LAMP_BUS=on`): the lamp's
+actions wait up to 2 s for the Policy's attention decision and are not run
+on a `stay_quiet` without the name (above). Off by default; not on any
+lamp; needs `lamp-policy --act attention`.
 
 ## Not shown
 

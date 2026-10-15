@@ -149,6 +149,10 @@ pub struct Files {
     /// something shows it was said to the lamp (`--sounds-checked`,
     /// `crate::not_speech::CHECKED`). Only with `attention`.
     pub sounds_checked: bool,
+    /// Whether the lamp's actions wait for the Policy's attention decision
+    /// (`--policy-holds-actions`, `crate::policy_holds`, #800). Only with the
+    /// bus.
+    pub policy_holds: bool,
 }
 
 /// The bus's root for this worker, if it publishes.
@@ -196,6 +200,7 @@ pub fn parse_flags(dir: &std::path::Path, flags: &[String]) -> io::Result<Parsed
     let (bus_root, flags) = crate::bus_out::take_root(flags)?;
     let (first_output, flags) = crate::first_output::take(flags)?;
     let (sounds_checked, flags) = crate::not_speech::take_checked(flags);
+    let (policy_holds, flags) = crate::policy_holds::take(flags);
     let visual = VisualSource::parse(dir, flags)?;
     let files = Files {
         look,
@@ -216,6 +221,7 @@ pub fn parse_flags(dir: &std::path::Path, flags: &[String]) -> io::Result<Parsed
         bus_root,
         first_output,
         sounds_checked,
+        policy_holds,
     };
     Ok((continuation, sight, files, visual))
 }
@@ -640,6 +646,10 @@ pub(crate) struct Options {
     /// "The lamp" said in passing is no call for the rule
     /// ([`crate::attention::called_by_name`], #829).
     pub(crate) name_in_passing_ignored: bool,
+    /// The bus the Policy's decisions are read from when the lamp's actions
+    /// wait for them ([`crate::policy_holds`], #800). `None`: they run at
+    /// once.
+    pub(crate) policy_holds: Option<std::path::PathBuf>,
 }
 /// How the room is and whether the lamp is in a conversation, now.
 fn attention_now() -> (crate::room_told::Room, bool) {
@@ -664,6 +674,7 @@ impl Options {
             name_signal: false,
             sounds_checked: false,
             name_in_passing_ignored: false,
+            policy_holds: None,
         }
     }
 }
@@ -858,6 +869,16 @@ pub async fn run_with_continuation(
         name_signal: files.name_signal,
         sounds_checked: files.attention && files.sounds_checked,
         name_in_passing_ignored: files.attention && files.name_in_passing_ignored,
+        policy_holds: match (files.policy_holds, &files.bus_root) {
+            (true, Some(root)) => Some(root.clone()),
+            (true, None) => {
+                eprintln!(
+                    "lamp-voice provider: the Policy cannot hold the lamp's actions without the bus (LAMP_BUS=on): they run at once"
+                );
+                None
+            }
+            (false, _) => None,
+        },
     };
     let visual = visual
         .map(|(source, worker)| ContextDelivery::new(source, boot, worker))
@@ -1015,6 +1036,16 @@ async fn serve_with_visual<C: Connect>(
     });
     let mut called = crate::called::Called::default();
     let mut desk = ToolDesk::new(options.tools.clone());
+    // The lamp's actions wait for the Policy's decision (#800).
+    desk.verdicts = options.policy_holds.as_deref().and_then(|root| {
+        crate::policy_holds::Verdicts::on(root)
+            .inspect_err(|why| {
+                eprintln!(
+                    "lamp-voice provider: the Policy's decisions cannot be read from the bus, so the lamp's actions run at once: {why}"
+                );
+            })
+            .ok()
+    });
     desk.name_signal = options.name_signal;
     let mut attention = crate::attention::Attention::default();
     attention.check_sounds(sounds_checked);
@@ -1054,6 +1085,9 @@ async fn serve_with_visual<C: Connect>(
                 // while no provider event is being taken.
                 service_link(&mut provider, link_clock.as_mut(), &mut link_status, |link|
                     channels.control.send(WorkerEvent::ProviderLink { link }))?;
+                // The lamp's actions kept for the Policy's decision (#800),
+                // each let go if its turn was retired meanwhile.
+                desk.release(&provider, |request| intake.handoff.retired(request));
                 // What the executive made of the calls it was asked.
                 desk.answer(&provider);
                 // Each call answered, for the first-output record when
@@ -1569,13 +1603,37 @@ async fn serve_with_visual<C: Connect>(
                     })),
                     Ok(Notice::Event(Event::ToolCall { lineage, call })) => {
                         let held = attention.holds(lineage.request.get());
-                        desk.called(&provider, lineage, call, held)
+                        // The turn, for the Policy's decision about it (#800):
+                        // none for a turn the lamp wrote itself. Its name is
+                        // known here with the rule for whom it answers, which
+                        // follows the turn; without it, not.
+                        let request = lineage.request.get();
+                        let turn = (crate::attention::OWN_REQUEST
+                            .load(std::sync::atomic::Ordering::Acquire)
+                            != request)
+                            .then(|| Turn {
+                                name_heard: attention.in_hand().is_some_and(|turn| {
+                                    turn.request == request
+                                        && turn.name_score >= crate::policy_holds::NAME_FROM
+                                }),
+                            });
+                        desk.called(&provider, lineage, call, held, turn)
+                    }
+                    // Calls the service withdrew are not run if they still
+                    // wait for the Policy's decision (#800).
+                    Ok(Notice::Event(event @ Event::ToolCallsCancelled { .. })) => {
+                        if let Event::ToolCallsCancelled { session, ids } = &event {
+                            desk.withdrawn(*session, ids);
+                        }
+                        forward(event, &mut output, &mut output_sequence, &mut discards)?
                     }
                     // The model said this request was not for it: none of
                     // its sound is let out, and none of its words are kept
                     // as something the lamp said.
                     Ok(Notice::Event(Event::Audio { lineage, .. } | Event::OutputTranscript { lineage, .. }))
-                        if desk.declined(lineage.request) || attention.holds(lineage.request.get()) => {},
+                        if desk.declined(lineage.request)
+                            || desk.quieted(lineage.request)
+                            || attention.holds(lineage.request.get()) => {},
                     Ok(Notice::Event(event)) if reminder_origin=>forward_reminder(event, &mut output, &mut output_sequence, &mut discards)?,
                     Ok(Notice::Event(event))=>forward(event, &mut output, &mut output_sequence, &mut discards)?,
                     Ok(Notice::Unavailable {error})=>{
@@ -1679,6 +1737,27 @@ struct ToolDesk {
     /// Each call answered since the worker last took them, for the
     /// first-output record (#799).
     lines: Vec<crate::first_output::ToolCallLine>,
+    /// The Policy's decisions, when the lamp's actions wait for them
+    /// ([`crate::policy_holds`], #800).
+    verdicts: Option<crate::policy_holds::Verdicts>,
+    /// The lamp's actions waiting for the turn's decision.
+    parked: Vec<Parked>,
+    /// The newest request one of whose actions the Policy held: none of its
+    /// sound is let out.
+    quieted: Option<u64>,
+}
+/// The turn a call came in, someone's, not the lamp's own.
+#[derive(Clone, Copy, Debug, PartialEq)]
+struct Turn {
+    /// The lamp's name was heard in it ([`crate::policy_holds::NAME_FROM`]).
+    name_heard: bool,
+}
+/// One of the lamp's actions kept for the turn's decision.
+struct Parked {
+    lineage: lamp_gemini::Lineage,
+    call: lamp_gemini::ToolCall,
+    turn: Turn,
+    called_us: u64,
 }
 /// Calls kept for the first-output record between two ticks at most.
 const MOST_CALL_LINES: usize = 64;
@@ -1710,6 +1789,9 @@ impl ToolDesk {
             named: None,
             sounded: None,
             lines: Vec::new(),
+            verdicts: None,
+            parked: Vec::new(),
+            quieted: None,
         }
     }
     /// The first sound of an answer to `request` has come. Said once for a
@@ -1734,6 +1816,25 @@ impl ToolDesk {
     fn declined(&self, request: RequestId) -> bool {
         self.declined == Some(request.get())
     }
+    /// Whether the Policy held one of `request`'s actions (#800).
+    fn quieted(&self, request: RequestId) -> bool {
+        self.quieted == Some(request.get())
+    }
+    /// The service withdrew calls: those still waiting for the Policy's
+    /// decision are let go, neither run nor answered (the reviewer on #908).
+    fn withdrawn(&mut self, session: SessionId, ids: &[String]) {
+        self.parked.retain(|parked| {
+            let gone = parked.lineage.session == session && ids.contains(&parked.call.id);
+            if gone {
+                eprintln!(
+                    "lamp-voice provider: request {} asked for {}; withdrawn by the service while it waited for the Policy's decision; not run",
+                    parked.lineage.request.get(),
+                    parked.call.name
+                );
+            }
+            !gone
+        });
+    }
     /// One call from the model. Names only are logged, never arguments.
     fn called<C: Connect>(
         &mut self,
@@ -1741,6 +1842,7 @@ impl ToolDesk {
         lineage: lamp_gemini::Lineage,
         call: lamp_gemini::ToolCall,
         held: bool,
+        turn: Option<Turn>,
     ) {
         use crate::tools::Route;
         let request = lineage.request.get();
@@ -1805,6 +1907,31 @@ impl ToolDesk {
             }
             return;
         }
+        // One of the lamp's actions, with the Policy holding them: kept for
+        // the turn's decision, and run, held or let go on a later tick
+        // ([`Self::release`], #800). Timers and reminders too: "Yes, give me
+        // five minutes", said to someone else, set a timer on lamp-4ace (the
+        // first builder on #908, 05:02).
+        if let Some(turn) = turn
+            && self.verdicts.is_some()
+            && crate::policy_holds::holds(
+                &crate::tools::route(&self.settings, &call.name),
+                &call.name,
+            )
+            && self.parked.len() < lamp_gemini::MAX_TOOL_CALLS
+        {
+            eprintln!(
+                "lamp-voice provider: request {request} asked for {}; waiting for the Policy's decision",
+                call.name
+            );
+            self.parked.push(Parked {
+                lineage,
+                call,
+                turn,
+                called_us,
+            });
+            return;
+        }
         match crate::tools::route(&self.settings, &call.name) {
             Route::Clock => {
                 let told = crate::tools::time_now();
@@ -1863,61 +1990,7 @@ impl ToolDesk {
             | Route::Mark(_))
                 if self.waiting < lamp_gemini::MAX_TOOL_CALLS =>
             {
-                // Being asked to keep or forget something is not itself
-                // something to keep.
-                if crate::tools::keeps_out(&route, &call.name) {
-                    crate::remember::keep_out(request);
-                }
-                if matches!(
-                    route,
-                    Route::Executive(_)
-                        | Route::Schedule(_)
-                        | Route::Tasks(_)
-                        | Route::Faces(_)
-                        | Route::Mark(_)
-                ) {
-                    self.acted = Some(request);
-                }
-                // A request the lamp wrote itself was not heard from anyone:
-                // a yes to a task cannot come in one.
-                let heard = crate::attention::OWN_REQUEST
-                    .load(std::sync::atomic::Ordering::Acquire)
-                    != request;
-                let asked = self.asked.clone();
-                let session = lineage.session;
-                let work = call.clone();
-                let spawned = std::thread::Builder::new()
-                    .name("lamp-voice-ask".into())
-                    .spawn(move || {
-                        let started = Instant::now();
-                        let (whom, (told, answered)) =
-                            crate::tools::run_call(&route, &work, request, heard);
-                        let _ = asked.send(Asked {
-                            session,
-                            request,
-                            call: work,
-                            told,
-                            whom,
-                            answered,
-                            took: started.elapsed(),
-                            called_us,
-                        });
-                    });
-                match spawned {
-                    Ok(_) => self.waiting += 1,
-                    Err(_) => {
-                        let (sent, sent_us) = tell(&crate::tools::unavailable());
-                        self.line(
-                            lineage.session,
-                            request,
-                            &call.name,
-                            called_us,
-                            sent_us,
-                            false,
-                            sent,
-                        );
-                    }
-                }
+                self.run(provider, lineage, call, route, called_us);
             }
             Route::Executive(_)
             | Route::Schedule(_)
@@ -1940,6 +2013,199 @@ impl ToolDesk {
                     "lamp-voice provider: request {request} asked for {}, which nobody here runs; told so",
                     call.name
                 );
+            }
+        }
+    }
+    /// Run one call on a thread of its own, its answer taken on a later
+    /// tick ([`Self::answer`]).
+    fn run<C: Connect>(
+        &mut self,
+        provider: &Supervisor<C>,
+        lineage: lamp_gemini::Lineage,
+        call: lamp_gemini::ToolCall,
+        route: crate::tools::Route,
+        called_us: u64,
+    ) {
+        use crate::tools::Route;
+        let request = lineage.request.get();
+        // Being asked to keep or forget something is not itself
+        // something to keep.
+        if crate::tools::keeps_out(&route, &call.name) {
+            crate::remember::keep_out(request);
+        }
+        if matches!(
+            route,
+            Route::Executive(_)
+                | Route::Schedule(_)
+                | Route::Tasks(_)
+                | Route::Faces(_)
+                | Route::Mark(_)
+        ) {
+            self.acted = Some(request);
+        }
+        // A request the lamp wrote itself was not heard from anyone:
+        // a yes to a task cannot come in one.
+        let heard =
+            crate::attention::OWN_REQUEST.load(std::sync::atomic::Ordering::Acquire) != request;
+        let asked = self.asked.clone();
+        let session = lineage.session;
+        let work = call.clone();
+        let spawned = std::thread::Builder::new()
+            .name("lamp-voice-ask".into())
+            .spawn(move || {
+                let started = Instant::now();
+                let (whom, (told, answered)) =
+                    crate::tools::run_call(&route, &work, request, heard);
+                let _ = asked.send(Asked {
+                    session,
+                    request,
+                    call: work,
+                    told,
+                    whom,
+                    answered,
+                    took: started.elapsed(),
+                    called_us,
+                });
+            });
+        match spawned {
+            Ok(_) => self.waiting += 1,
+            Err(_) => {
+                let sent = provider
+                    .try_tool_response(
+                        lineage.session,
+                        &call.id,
+                        &call.name,
+                        &crate::tools::unavailable(),
+                    )
+                    .is_ok();
+                self.line(
+                    lineage.session,
+                    request,
+                    &call.name,
+                    called_us,
+                    monotonic_us(),
+                    false,
+                    sent,
+                );
+            }
+        }
+    }
+    /// The lamp's actions kept for the Policy's decision (#800), looked at
+    /// once a tick: each run, held, or kept a while longer. The decisions
+    /// are taken every tick, whether or not an action waits; each is its
+    /// own turn's by number, whenever it comes.
+    /// A parked call is let go, neither run nor answered, when its turn was
+    /// `retired` (its owner gone: cancelled, or a newer turn) or its session
+    /// is no longer the live one, looked at right before it would run (the
+    /// reviewer on #908). So is one the service withdrew, asked of the
+    /// session itself: its cancellation may still wait behind sound while
+    /// the output is full, and no provider notice is taken then (the
+    /// reviewer on #908, 05:11).
+    fn release<C: Connect>(&mut self, provider: &Supervisor<C>, retired: impl Fn(u64) -> bool) {
+        let now = monotonic_us();
+        let Some(verdicts) = self.verdicts.as_mut() else {
+            return;
+        };
+        verdicts.take();
+        for parked in std::mem::take(&mut self.parked) {
+            let request = parked.lineage.request.get();
+            if provider.live_session() == Some(parked.lineage.session)
+                && provider.call_withdrawn(parked.lineage.session, &parked.call.id)
+            {
+                eprintln!(
+                    "lamp-voice provider: request {request} asked for {}; withdrawn by the service while it waited for the Policy's decision; not run",
+                    parked.call.name
+                );
+                continue;
+            }
+            if retired(request) || provider.live_session() != Some(parked.lineage.session) {
+                // Answered all the same, as every call is, so that the
+                // service is not left waiting for it (refused, harmlessly,
+                // if its session has gone); never run.
+                let _ = provider.try_tool_response(
+                    parked.lineage.session,
+                    &parked.call.id,
+                    &parked.call.name,
+                    &serde_json::json!({"done": false}),
+                );
+                eprintln!(
+                    "lamp-voice provider: request {request} asked for {}; its turn ended while it waited for the Policy's decision; not run",
+                    parked.call.name
+                );
+                continue;
+            }
+            let verdict = self
+                .verdicts
+                .as_ref()
+                .and_then(|verdicts| verdicts.verdict(request));
+            let waited = Duration::from_micros(now.saturating_sub(parked.called_us));
+            match crate::policy_holds::gate(verdict, parked.turn.name_heard, waited) {
+                crate::policy_holds::Gate::Wait => self.parked.push(parked),
+                crate::policy_holds::Gate::Run => {
+                    let why = match verdict {
+                        _ if parked.turn.name_heard => "its name was heard",
+                        Some(_) => "the Policy took the turn as the lamp's",
+                        None => "no decision came in time",
+                    };
+                    eprintln!(
+                        "lamp-voice provider: request {request} asked for {}; run after {} ms: {why}",
+                        parked.call.name,
+                        waited.as_millis()
+                    );
+                    let route = crate::tools::route(&self.settings, &parked.call.name);
+                    if self.waiting < lamp_gemini::MAX_TOOL_CALLS {
+                        self.run(
+                            provider,
+                            parked.lineage,
+                            parked.call,
+                            route,
+                            parked.called_us,
+                        );
+                    } else {
+                        let sent = provider
+                            .try_tool_response(
+                                parked.lineage.session,
+                                &parked.call.id,
+                                &parked.call.name,
+                                &crate::tools::unavailable(),
+                            )
+                            .is_ok();
+                        self.line(
+                            parked.lineage.session,
+                            request,
+                            &parked.call.name,
+                            parked.called_us,
+                            monotonic_us(),
+                            false,
+                            sent,
+                        );
+                    }
+                }
+                crate::policy_holds::Gate::Hold => {
+                    let sent = provider
+                        .try_tool_response(
+                            parked.lineage.session,
+                            &parked.call.id,
+                            &parked.call.name,
+                            &crate::policy_holds::held(),
+                        )
+                        .is_ok();
+                    self.quieted = Some(request);
+                    self.line(
+                        parked.lineage.session,
+                        request,
+                        &parked.call.name,
+                        parked.called_us,
+                        monotonic_us(),
+                        true,
+                        sent,
+                    );
+                    eprintln!(
+                        "lamp-voice provider: request {request} asked for {}; not done: the Policy judged the turn not for the lamp, and its name was not heard ({} ms)",
+                        parked.call.name,
+                        waited.as_millis()
+                    );
+                }
             }
         }
     }
@@ -2598,6 +2864,12 @@ struct SubmittedInput {
 }
 
 impl InputHandoff {
+    /// Whether `request` is no longer the lamp's: retired, given up, or
+    /// failed. A call made in it is not to be run any more (#800).
+    fn retired(&self, request: u64) -> bool {
+        request <= self.retired_through.max(self.failed_through)
+    }
+
     fn defer_reminder(
         &mut self,
         request: u64,
@@ -5795,6 +6067,7 @@ mod tests {
             name_signal: false,
             sounds_checked: false,
             name_in_passing_ignored: false,
+            policy_holds: None,
         }
     }
 
@@ -5813,6 +6086,7 @@ mod tests {
                 name_signal: true,
                 sounds_checked: false,
                 name_in_passing_ignored: false,
+                policy_holds: None,
             },
         );
         let mut dial = rig.ready().await;
@@ -5856,6 +6130,7 @@ mod tests {
                 name_signal: false,
                 sounds_checked: false,
                 name_in_passing_ignored: false,
+                policy_holds: None,
             },
         );
         let mut dial = rig.ready().await;
@@ -6134,6 +6409,7 @@ mod tests {
                 name_signal: false,
                 sounds_checked: false,
                 name_in_passing_ignored: false,
+                policy_holds: None,
             },
         );
         let mut dial = rig.ready().await;
@@ -8865,6 +9141,7 @@ mod tests {
                     name_signal: false,
                     sounds_checked: false,
                     name_in_passing_ignored: false,
+                    policy_holds: None,
                 },
                 BARRIER,
                 false,
@@ -8928,6 +9205,7 @@ mod tests {
                     name_signal: false,
                     sounds_checked: false,
                     name_in_passing_ignored: ignored,
+                    policy_holds: None,
                 },
                 BARRIER,
                 false,
@@ -9290,4 +9568,7 @@ mod tests {
 
     /// Short sounds let through and checked (#800): tests only.
     mod sounds;
+
+    /// The Policy holds the lamp's actions (#800): tests only.
+    mod policy_holds;
 }

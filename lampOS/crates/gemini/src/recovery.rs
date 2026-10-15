@@ -796,6 +796,14 @@ impl<C: Connect> Supervisor<C> {
         }
         input.try_tool_response(id, name, response)
     }
+    /// See [`InputSender::call_withdrawn`]. A call made on a connection that
+    /// is no longer the ready one is over with it: withdrawn too.
+    pub fn call_withdrawn(&self, session: SessionId, id: &str) -> bool {
+        match self.input() {
+            Ok((input, current)) if current == session => input.call_withdrawn(id),
+            _ => true,
+        }
+    }
     /// See [`InputSender::renew_when_idle`]. False when there is no ready
     /// connection to renew.
     pub fn renew_when_idle(&self) -> bool {

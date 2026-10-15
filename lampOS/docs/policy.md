@@ -310,7 +310,7 @@ What is published on `policy/decisions`:
 | `by` | The model as its service names it (`typesafe/jev-1.13-20260917`), or `rule` |
 | `took_ms` | How long the asking took, answered or not |
 | `shadow` | `true`, or `false` with `--act attention` |
-| `request` | The request's number, if a piece of the utterance carried one. Today none does |
+| `request` | The number of the turn the voice heard the utterance's newest piece in, if it said: `voice/heard` carries it (#908). What the voice's actions are paired with when the Policy holds them (`docs/attention.md`) |
 
 What was heard is not in the message.
 
@@ -372,9 +372,9 @@ early enough to be acted on.
 Every time here is when the policy's loop took the message up, which is
 within 20 ms of its arriving, and within 5 ms while a question is out.
 
-Which answer belongs to which utterance is told by time alone, because
-what is heard carries no request number: the lamp's first sound after an
-utterance began is taken as its answer to it. With two utterances close
+Which answer belongs to which utterance is told by time alone (the turn's
+number that what is heard carries is not used here): the lamp's first
+sound after an utterance began is taken as its answer to it. With two utterances close
 together that can be wrong, and the earlier one's outcome is then closed
 as it stands and marked `overtaken`. Words that were written and never
 played (an answer that was dropped) are `silent`, with `said_after_ms` and
@@ -748,7 +748,7 @@ Voice-known and face histories retain at most 32 observations apiece.
 Source disappearance makes later cues unknown. These are **receipt-time
 associations**, not microphone-clock alignment, gaze or speaker identity;
 the face may belong to a listener rather than the speaker. They do not
-fix the current absence of stable request IDs on `voice/heard`.
+use the turn's number `voice/heard` carries.
 
 Local implements `Decider::ask` with the exact seven question definitions.
 It parses at most 4 KiB of cues, performs bounded arithmetic and returns

@@ -772,6 +772,8 @@ that begins within 6 s of the tap's release (`TAPPED_BEFORE_US`), or one whose
 sound is still going on when the tap comes, is let out in every room and
 every form of the rule, even the strict busy one with nobody seen turned to
 the lamp: a hand on the lamp's head is surer than any hearing of its name.
+A short sound is the exception: the check for short sounds (#800) judges it
+first, so a cough after a tap is not taken for a question.
 A tap read more than 2 s after its release, or the same tap again, counts for
 nothing. Later requests are judged as before. What it does not do yet: the
 "hm?", the eye looking up and the settling when nothing is said (#711, next).

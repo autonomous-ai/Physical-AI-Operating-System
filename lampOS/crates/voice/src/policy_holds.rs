@@ -1,8 +1,8 @@
 //! The Policy holds the lamp's actions (#800), off unless
 //! `LAMP_POLICY_HOLDS_ACTIONS=on`: a call that changes the lamp (its volume
-//! or its light, the executive's functions) runs only when the Policy's
-//! attention decision for the turn is not `stay_quiet`, or the lamp's name
-//! was heard.
+//! or its light, the executive's functions) or its schedule (`set_timer`,
+//! `set_reminder`, `cancel_reminder`) runs only when the Policy's attention
+//! decision for the turn is not `stay_quiet`, or the lamp's name was heard.
 //!
 //! On lamp-4ace on 2026-10-15 at 14:49 the lamp heard "Thailand" in a busy
 //! office, ran `volume_up` and stayed 7 dB louder for eleven hours; the
@@ -255,7 +255,7 @@ mod tests {
 
     fn verdicts(tag: &str) -> (Verdicts, std::path::PathBuf) {
         // Short: a socket's whole path must fit in 103 bytes.
-        let dir = std::path::PathBuf::from(format!("/tmp/lph-{tag}-{}", std::process::id()));
+        let dir = std::path::PathBuf::from(format!("/tmp/lphu-{tag}-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).unwrap();
         (Verdicts::on(&dir).unwrap(), dir)

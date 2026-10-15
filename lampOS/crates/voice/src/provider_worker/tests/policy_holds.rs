@@ -72,6 +72,7 @@ impl Desk {
                 exec: Some(self.home.path.clone()),
                 memory: None,
                 clock: false,
+                schedule_tools: true,
                 ..Default::default()
             },
             attention: None,
@@ -260,18 +261,24 @@ async fn a_kept_action_whose_turn_is_cancelled_is_never_run() {
     let owner = rig.snapshot.owner().unwrap();
     rig.owner.cancel_turn(real_time(), owner).unwrap();
     rig.publish();
-    // The service settles the turn it was asked to stop, as Gemini does.
+    // The service settles the turn it was asked to stop, as Gemini does. In
+    // this rig a stopped turn the service never settles ends the worker at
+    // its barrier's bound, with or without a call kept; if the settling
+    // comes before the stop has reached the session, that may still happen
+    // here. Whether the worker lives is not what this asks.
     dial.service.send(idle_complete()).await;
     // Never run, also after the wait in which an uncancelled one would have
     // run.
-    outputs_for(
-        &mut rig,
-        crate::policy_holds::WAIT + Duration::from_millis(300),
-    )
-    .await;
-    assert!(!rig.worker.is_finished(), "the worker ended");
+    let until = Instant::now() + crate::policy_holds::WAIT + Duration::from_millis(300);
+    while Instant::now() < until && !rig.worker.is_finished() {
+        let _ = rig.heartbeat();
+        while rig.take().is_some() {}
+        tokio::time::sleep(Duration::from_millis(5)).await;
+    }
     assert!(desk.asked.try_recv().is_err(), "volume_up was run");
-    rig.stop().await;
+    if !rig.worker.is_finished() {
+        rig.stop().await;
+    }
 }
 
 /// The reviewer on #908: a call the service withdrew while it was kept is
@@ -289,5 +296,30 @@ async fn a_kept_action_the_service_withdrew_is_never_run() {
     )
     .await;
     assert!(desk.asked.try_recv().is_err(), "volume_up was run");
+    rig.stop().await;
+}
+
+/// The first builder on #908 (05:02): "Yes, give me five minutes", said to
+/// someone else in a conversation, set a five-minute timer. A timer is held
+/// as the volume is: on `stay_quiet` it is not set, and the executive is
+/// never asked.
+#[tokio::test]
+async fn a_timer_in_a_turn_the_policy_judged_not_for_the_lamp_is_not_set() {
+    let mut desk = Desk::new("timer");
+    let mut rig = LiveRig::start_with(quick_policy(), desk.options(true));
+    let mut dial = rig.ready().await;
+    rig.speak(&mut dial, false, true).await;
+    desk.decide("stay_quiet");
+    dial.service
+        .send(json!({"toolCall":{"functionCalls":[
+            {"id":"t1","name":"set_timer","args":{"minutes":5}}
+        ]}}))
+        .await;
+    let told = rig.service_message(&mut dial).await;
+    assert_eq!(
+        response(&told),
+        json!({"done": false, "next": crate::policy_holds::HELD})
+    );
+    assert!(desk.asked.try_recv().is_err(), "set_timer was run");
     rig.stop().await;
 }

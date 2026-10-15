@@ -876,8 +876,10 @@ builder, #800). That is too many to hold all speech on the Policy yet, but
 an action changes the lamp and outlasts the moment.
 
 With the switch, a call that changes the lamp, any of the executive's
-functions (the volume and the light), waits for the Policy's attention
-decision about its turn:
+functions (the volume and the light) or the schedule's (`set_timer`,
+`set_reminder`, `cancel_reminder`: on lamp-4ace on 16 October "Yes, give me
+five minutes", said to someone else, set a five-minute timer; the first
+builder on #908), waits for the Policy's attention decision about its turn:
 - **The turn's decision** is an attention decision the Policy publishes
   for real (`policy/decisions`, `about` `attention`, `shadow` false:
   `lamp-policy --act attention`). The Policy's decisions carry no request
@@ -931,7 +933,7 @@ of the test's own: `stay_quiet` not done, nothing asked of the executive and
 none of the turn's sound out; `answer` and `look_up` run and the sound after
 comes out; no decision, run after the wait; without the switch, run at
 once; the flag's place; a kept call whose turn is cancelled, and one the
-service withdrew, never run).
+service withdrew, never run; a timer on `stay_quiet` not set).
 
 **Needs the Policy's side:** `lamp-policy --act attention`, which publishes
 its attention decisions with `shadow: false` (#800, to come after #873 and

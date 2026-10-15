@@ -1,0 +1,15 @@
+2026-10-15T21:42:08+0700 lamp-52e6 lamp-eyes[232087]: lamp-eyes: a full look: 1024 by 768, 62520 bytes, the head waited for 0 ms, made in 58 ms
+2026-10-15T21:42:13+0700 lamp-52e6 lamp-eyes[232087]: lamp-eyes: 70 frames, looked at 17, a face in 0, 0 unreadable, 81 ms a look
+2026-10-15T21:42:23+0700 lamp-52e6 lamp-eyes[232087]: lamp-eyes: 71 frames, looked at 16, a face in 0, 0 unreadable, 95 ms a look
+2026-10-15T21:42:33+0700 lamp-52e6 lamp-eyes[232087]: lamp-eyes: 70 frames, looked at 17, a face in 0, 0 unreadable, 87 ms a look
+2026-10-15T21:42:40+0700 lamp-52e6 lamp-eyes[232087]: lamp-eyes: a full look: 1024 by 768, 59797 bytes, the head waited for 0 ms, made in 57 ms
+2026-10-15T21:42:43+0700 lamp-52e6 lamp-eyes[232087]: lamp-eyes: 70 frames, looked at 16, a face in 0, 0 unreadable, 91 ms a look
+2026-10-15T21:42:53+0700 lamp-52e6 lamp-eyes[232087]: lamp-eyes: 70 frames, looked at 17, a face in 0, 0 unreadable, 89 ms a look
+2026-10-15T21:43:03+0700 lamp-52e6 lamp-eyes[232087]: lamp-eyes: 69 frames, looked at 17, a face in 0, 0 unreadable, 87 ms a look
+2026-10-15T21:43:13+0700 lamp-52e6 lamp-eyes[232087]: lamp-eyes: a full look: 1024 by 768, 61564 bytes, the head waited for 0 ms, made in 58 ms
+2026-10-15T21:43:13+0700 lamp-52e6 lamp-eyes[232087]: lamp-eyes: 71 frames, looked at 16, a face in 0, 0 unreadable, 67 ms a look
+2026-10-15T21:43:23+0700 lamp-52e6 lamp-eyes[232087]: lamp-eyes: 70 frames, looked at 17, a face in 0, 0 unreadable, 85 ms a look
+2026-10-15T21:43:33+0700 lamp-52e6 lamp-eyes[232087]: lamp-eyes: 70 frames, looked at 16, a face in 0, 0 unreadable, 73 ms a look
+2026-10-15T21:43:43+0700 lamp-52e6 lamp-eyes[232087]: lamp-eyes: 70 frames, looked at 17, a face in 0, 0 unreadable, 78 ms a look
+2026-10-15T21:43:53+0700 lamp-52e6 lamp-eyes[232087]: lamp-eyes: 70 frames, looked at 17, a face in 0, 0 unreadable, 79 ms a look
+2026-10-15T21:44:03+0700 lamp-52e6 lamp-eyes[232087]: lamp-eyes: 70 frames, looked at 16, a face in 0, 0 unreadable, 82 ms a look

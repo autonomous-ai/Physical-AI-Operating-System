@@ -9,9 +9,15 @@ publish.workspace = true
 # factory, at the first boot after setup and when asked. One JSON report and
 # one line per part under /var/lib/lampOS/selftest/, and `lamp/selftest` for
 # lamp-health (docs/selftest.md). Nothing leaves the lamp.
+[[bin]]
+name = "lamp-selftest"
+path = "src/main.rs"
 
 [dependencies]
+lamp-bus = { path = "../bus" }
+lamp-ipc = { path = "../ipc" }
 lamp-msgs = { path = "../msgs" }
+serde.workspace = true
 serde_json.workspace = true
 
 [lints]

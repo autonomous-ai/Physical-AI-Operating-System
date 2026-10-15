@@ -16,9 +16,10 @@ use lamp_bus::Bus;
 use lamp_policy::{
     decide::{DEFAULT_DEADLINE, DEFAULT_ENDPOINT, DEFAULT_MODEL, Endpoint, Jev},
     gather::PAUSE,
+    hello::{self, Hello},
     pictures::{self, Pictures},
     policy::{self, Options},
-    progress,
+    progress::{self, Progress},
     record::private_dir,
 };
 use std::{
@@ -29,7 +30,7 @@ use std::{
     time::Duration,
 };
 
-const USAGE: &str = "usage: lamp-policy --key-file ABSOLUTE_PATH --log-dir ABSOLUTE_DIR [--endpoint URL] [--model NAME] [--deadline-ms N] [--bus-root ABSOLUTE_DIR] [--progress [--utc-offset-minutes N] [--act progress]] [--images MODEL [--sight-file ABSOLUTE_PATH]]";
+const USAGE: &str = "usage: lamp-policy --key-file ABSOLUTE_PATH --log-dir ABSOLUTE_DIR [--endpoint URL] [--model NAME] [--deadline-ms N] [--bus-root ABSOLUTE_DIR] [--progress] [--hello] [--utc-offset-minutes N] [--act progress] [--act hello] [--images MODEL [--sight-file ABSOLUTE_PATH]]";
 const HELP: &str = "The lamp's policy, in shadow mode: judges whether each thing the voice hears was said to\n\
 the lamp, publishes the decision on the bus (policy/decisions) and writes it down. Nothing\n\
 acts on it. See docs/policy.md.\n\
@@ -48,6 +49,9 @@ acts on it. See docs/policy.md.\n\
                  question is shown (-720 to 840); without it the hour is not known\n\
   --act progress the progress decisions act: published with shadow false, so that the voice\n\
                  tells a say_now. Needs --progress. \"Is this said to the lamp?\" stays shadow\n\
+  --hello        also judge whether a hello the voice holds (voice/arrival) is said now, with\n\
+                 a connection of its own to the same model. Off unless set\n\
+  --act hello    the hello decisions act: say_now says the hello, wait keeps it. Needs --hello\n\
   --images       also ask MODEL (typesafe/jev-1.14 takes pictures) each attention question twice at once,\n\
                  without the eyes' newest frame and with it and six questions about it, and write both\n\
                  to pictures-YYYY-MM-DD.jsonl. Shadow; the decision never waits for it. A frame is sent\n\
@@ -70,6 +74,10 @@ struct Arguments {
     utc_offset_minutes: Option<i32>,
     /// Its decisions act (`--act progress`): off unless set.
     act_progress: bool,
+    /// The hello question (`--hello`), and whether it acts (`--act hello`):
+    /// off unless set.
+    hello: bool,
+    act_hello: bool,
     /// The images model asked with the eyes' frame (`--images`, #871): off
     /// unless set.
     images: Option<String>,
@@ -79,17 +87,23 @@ struct Arguments {
 fn parse(arguments: impl Iterator<Item = String>) -> Result<Option<Arguments>, String> {
     let (mut key_file, mut log_dir, mut endpoint, mut model, mut deadline, mut bus) =
         (None, None, None, None, None, None);
-    let (mut progress, mut utc_offset_minutes, mut act) = (false, None, None);
+    let (mut progress, mut utc_offset_minutes) = (false, None);
+    let (mut hello, mut act_progress, mut act_hello) = (false, false, false);
     let (mut images, mut sight_file) = (None, None);
     let mut arguments = arguments;
     while let Some(option) = arguments.next() {
         if option == "--help" || option == "-h" {
             return Ok(None);
         }
-        // The one option without a value.
-        if option == "--progress" {
-            if std::mem::replace(&mut progress, true) {
-                return Err("--progress was given twice".into());
+        // The options without a value.
+        if option == "--progress" || option == "--hello" {
+            let flag = if option == "--progress" {
+                &mut progress
+            } else {
+                &mut hello
+            };
+            if std::mem::replace(flag, true) {
+                return Err(format!("{option} was given twice"));
             }
             continue;
         }
@@ -124,13 +138,14 @@ fn parse(arguments: impl Iterator<Item = String>) -> Result<Option<Arguments>, S
                 }
                 model.replace(value).is_some()
             }
-            // The one question that may act, for now.
-            "--act" => {
-                if value != "progress" {
-                    return Err("--act takes progress, the one question that may act".into());
+            // The questions that may act: each named once.
+            "--act" => match value.as_str() {
+                "progress" => std::mem::replace(&mut act_progress, true),
+                "hello" => std::mem::replace(&mut act_hello, true),
+                _ => {
+                    return Err("--act takes progress or hello, the questions that may act".into());
                 }
-                act.replace(true).is_some()
-            }
+            },
             "--utc-offset-minutes" => {
                 let minutes = value
                     .parse::<i32>()
@@ -155,11 +170,14 @@ fn parse(arguments: impl Iterator<Item = String>) -> Result<Option<Arguments>, S
             return Err(format!("{option} was given twice"));
         }
     }
-    if act.is_some() && !progress {
+    if act_progress && !progress {
         return Err("--act progress needs --progress".into());
     }
     if sight_file.is_some() && images.is_none() {
         return Err("--sight-file needs --images".into());
+    }
+    if act_hello && !hello {
+        return Err("--act hello needs --hello".into());
     }
     Ok(Some(Arguments {
         key_file: key_file.ok_or("--key-file is required")?,
@@ -170,7 +188,9 @@ fn parse(arguments: impl Iterator<Item = String>) -> Result<Option<Arguments>, S
         bus,
         progress,
         utc_offset_minutes,
-        act_progress: act.unwrap_or(false),
+        act_progress,
+        hello,
+        act_hello,
         images,
         sight_file,
     }))
@@ -180,6 +200,29 @@ fn parse(arguments: impl Iterator<Item = String>) -> Result<Option<Arguments>, S
 /// the policy to stop.
 fn log(line: &str) {
     let _ = writeln!(io::stderr(), "lamp-policy: {line}");
+}
+
+/// What the start line says of the questions beside attention: as it was
+/// with `--progress` alone, and with `--hello` after it.
+fn questions(arguments: &Arguments) -> String {
+    let mut said = String::new();
+    if arguments.progress {
+        said.push_str(" progress=true");
+    }
+    if arguments.hello {
+        said.push_str(" hello=true");
+    }
+    let acting: Vec<&str> = [
+        (arguments.act_progress, "progress"),
+        (arguments.act_hello, "hello"),
+    ]
+    .into_iter()
+    .filter_map(|(acts, name)| acts.then_some(name))
+    .collect();
+    if !acting.is_empty() {
+        said.push_str(&format!(" act={}", acting.join(",")));
+    }
+    said
 }
 
 fn run(arguments: &Arguments) -> io::Result<()> {
@@ -199,11 +242,7 @@ fn run(arguments: &Arguments) -> io::Result<()> {
         arguments.log_dir.display(),
         bus.root().display(),
         policy::SHADOW,
-        match (arguments.progress, arguments.act_progress) {
-            (true, true) => " progress=true act=progress",
-            (true, false) => " progress=true",
-            _ => "",
-        },
+        questions(arguments),
         arguments
             .images
             .as_ref()
@@ -234,28 +273,38 @@ fn run(arguments: &Arguments) -> io::Result<()> {
         )?),
         None => None,
     };
+    // Each question a judge of its own, on its own connection: no question
+    // waits for another.
+    let judge = || Jev::new(&arguments.endpoint, &arguments.model, &arguments.key_file);
     let progress = if arguments.progress {
-        // A judge of its own, on its own connection: a progress question
-        // never waits for an attention one.
-        let second = Jev::new(&arguments.endpoint, &arguments.model, &arguments.key_file)?;
-        Some((
-            second,
-            progress::Options {
-                act: arguments.act_progress,
-                ..progress::Options::new(arguments.deadline, arguments.utc_offset_minutes)
-            },
-        ))
+        let options = progress::Options {
+            act: arguments.act_progress,
+            ..progress::Options::new(arguments.deadline, arguments.utc_offset_minutes)
+        };
+        Some(Progress::start(judge()?, options)?)
     } else {
         None
     };
-    policy::run_with_extras(
+    let hello = if arguments.hello {
+        let options = hello::Options {
+            act: arguments.act_hello,
+            ..hello::Options::new(arguments.deadline, arguments.utc_offset_minutes)
+        };
+        Some(Hello::start(judge()?, options)?)
+    } else {
+        None
+    };
+    policy::run_beside(
         &bus,
         jev,
         &options,
         &stop,
         &mut |note| log(&note.to_string()),
-        progress,
-        pictures,
+        policy::Beside {
+            progress,
+            hello,
+            pictures,
+        },
     )
     .map(|_| ())
 }
@@ -315,6 +364,8 @@ mod tests {
                 progress: false,
                 utc_offset_minutes: None,
                 act_progress: false,
+                hello: false,
+                act_hello: false,
                 images: None,
                 sight_file: None,
             }
@@ -332,6 +383,8 @@ mod tests {
                 progress: false,
                 utc_offset_minutes: None,
                 act_progress: false,
+                hello: false,
+                act_hello: false,
                 images: None,
                 sight_file: None,
             }
@@ -363,6 +416,24 @@ mod tests {
             .unwrap()
             .unwrap();
         assert!(acting.progress && acting.act_progress);
+        // The hello question, and both acting.
+        let both = of("--log-dir /d --hello --progress --act hello --act progress --key-file /k")
+            .unwrap()
+            .unwrap();
+        assert!(both.hello && both.act_hello && both.progress && both.act_progress);
+        assert_eq!(
+            questions(&both),
+            " progress=true hello=true act=progress,hello"
+        );
+        assert_eq!(questions(&acting), " progress=true act=progress");
+        let only = of("--log-dir /d --key-file /k --progress")
+            .unwrap()
+            .unwrap();
+        assert_eq!(questions(&only), " progress=true");
+        assert_eq!(
+            questions(&of("--log-dir /d --key-file /k").unwrap().unwrap()),
+            ""
+        );
         assert_eq!(
             of("--log-dir /d --key-file /k --utc-offset-minutes -300")
                 .unwrap()
@@ -402,6 +473,10 @@ mod tests {
             "--key-file /k --log-dir /d --progress --progress",
             "--key-file /k --log-dir /d --act progress",
             "--key-file /k --log-dir /d --progress --act attention",
+            "--key-file /k --log-dir /d --act hello",
+            "--key-file /k --log-dir /d --progress --act hello",
+            "--key-file /k --log-dir /d --hello --hello",
+            "--key-file /k --log-dir /d --hello --act hello --act hello",
             "--key-file /k --log-dir /d --progress --act progress --act progress",
             "--key-file /k --log-dir /d --progress --act",
             "--key-file /k --log-dir /d --utc-offset-minutes 841",

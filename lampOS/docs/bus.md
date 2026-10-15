@@ -513,6 +513,17 @@ in the tasks part and are read from its socket only when the lamp will speak
 holds every task, so a subscriber that starts late has them all. Without
 `--progress` the topic is never made.
 
+## Optional arrival topic (second builder, 2026-10-15)
+
+| Topic | Kind | Published by | Intended reader |
+|---|---|---|---|
+| `voice/arrival` | event, no period, no lifespan | `lamp-voice` with `LAMP_HELLO_ASKS_POLICY=on` | The policy's hello question (`lamp-policy --hello`) |
+
+The [`VoiceArrival` message](msgs.md#the-arrival-contract) says that a
+hello is due and held, with counts and times only. The answer comes back on
+`policy/decisions`, naming the arrival. Without the switch the topic is
+never made.
+
 ## Not shown
 
 Everything in this section was run on one development Mac (x86_64); what

@@ -4822,25 +4822,51 @@ fn conversation_with_gate(
         if let Some(arrival) = arrival.as_mut() {
             arrival.watch(clock);
         }
+        // A hello that is due and could be begun; with
+        // `LAMP_HELLO_ASKS_POLICY=on` the policy is asked first and it
+        // waits up to 2 s for the answer (`speak_up::Hello`).
+        let hello_session = arrival
+            .as_ref()
+            .is_some_and(|arrival| {
+                arrival.due(clock.saturating_sub(last_turn_us), clock)
+                    && reply.is_none()
+                    && provider_queue.is_empty()
+                    && !admission.owns_stream()
+                    && !submission_draining
+                    && snapshot.listening_ready(now())
+            })
+            .then(|| unasked_session(&cloud, paused))
+            .flatten();
+        let hello = arrival.as_mut().map(|arrival| {
+            arrival.hello(
+                hello_session.is_some(),
+                clock.saturating_sub(last_turn_us),
+                clock,
+            )
+        });
+        if let Some(told) = arrival.as_mut().and_then(|arrival| arrival.take_told()) {
+            record(trace, told)?;
+        }
         if let Some(arrival) = arrival.as_mut()
-            && arrival.due(clock.saturating_sub(last_turn_us), clock)
-            && reply.is_none()
-            && provider_queue.is_empty()
-            && !admission.owns_stream()
-            && !submission_draining
-            && snapshot.listening_ready(now())
-            && let Some(provider_session) = unasked_session(&cloud, paused)
+            && let Some(provider_session) = hello_session
+            && let Some(hello) = hello.filter(|hello| *hello != crate::speak_up::Hello::NotYet)
         {
             arrival.said(clock);
-            if arrival.speaks() {
+            if hello == crate::speak_up::Hello::Wait {
+                eprintln!("lamp-voice: someone has sat down; the policy said not now");
+                record(
+                    trace,
+                    json!({"kind":"hello_due","at_us":clock,"said":false,"policy":"wait","provider_session":provider_session}),
+                )?;
+            } else if arrival.speaks() {
                 // By name, for someone who asked the lamp to know their face.
-                let hello = crate::known_faces::known_from_environment()
+                let by_name = crate::known_faces::known_from_environment()
                     .map(|name| crate::known_faces::hello(&name));
                 snapshot = commit_written_turn(
                     owner,
                     reply,
                     &mut provider_queue,
-                    hello.as_deref().unwrap_or(crate::speak_up::NOTE),
+                    by_name.as_deref().unwrap_or(crate::speak_up::NOTE),
                     false,
                     "lamp_speaks_first",
                     provider_session,

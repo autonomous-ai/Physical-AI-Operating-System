@@ -70,6 +70,8 @@ pub use speaker_check::*;
 pub use tasks::*;
 mod selftest;
 pub use selftest::*;
+mod arrival;
+pub use arrival::*;
 
 /// Why a message is not one its type allows, in words.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -919,11 +921,12 @@ pub fn body_topics() -> Vec<(&'static str, Declaration)> {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Decision {
     /// Which decision this is, by name: `attention` is "is this said to
-    /// the lamp?", `progress` "say this progress now?".
+    /// the lamp?", `progress` "say this progress now?", `hello` "say hello
+    /// now?".
     pub about: String,
     /// What was chosen, by the decision's own names: for `attention`,
-    /// `answer`, `look_up` or `stay_quiet`; for `progress`, `say_now` or
-    /// `wait`.
+    /// `answer`, `look_up` or `stay_quiet`; for `progress` and `hello`,
+    /// `say_now` or `wait`.
     pub choice: String,
     /// How likely the policy holds it that the lamp should act, from 0 to
     /// 1: what the choice was made from.
@@ -952,6 +955,11 @@ pub struct Decision {
     /// other decision.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub task: Option<String>,
+    /// The arrival this is about, for `hello` ("say hello now?"): the
+    /// number `voice/arrival` gave it (`VoiceArrival::arrival`). Not there
+    /// for any other decision.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub arrival: Option<u64>,
 }
 
 impl Decision {
@@ -1053,6 +1061,7 @@ pub fn declaration_of(topic: &str) -> Option<Declaration> {
         .chain(tasks_topics())
         .chain(logging_topics())
         .chain(memory_topics())
+        .chain(arrival_topics())
         .find_map(|(name, declaration)| (name == topic).then_some(declaration))
 }
 
@@ -1541,6 +1550,7 @@ mod tests {
             shadow: true,
             request: Some(7),
             task: None,
+            arrival: None,
         };
         // The answers are written by the question's name, in the order of
         // the names.

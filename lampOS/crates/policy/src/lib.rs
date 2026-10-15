@@ -19,6 +19,8 @@
 //!   its first sound the decision was known.
 //! - [`progress`]: the second decision, "say this progress now?", about
 //!   the work the lamp handed over (`lamp-policy --progress`).
+//! - [`hello`]: "say hello now?", when someone comes back and sits down
+//!   (`lamp-policy --hello`).
 //! - [`policy`]: the loop that listens on the bus and does the rest.
 //! - [`replay`]: the logged decisions asked again of other models
 //!   (`lamp-policy-replay`, #871), for comparing them, with no words out.
@@ -32,6 +34,7 @@
 pub mod attention;
 pub mod decide;
 pub mod gather;
+pub mod hello;
 pub mod outcome;
 pub mod pictures;
 pub mod policy;

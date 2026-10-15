@@ -299,12 +299,16 @@ mod tests {
             let (on, flags) = attention::take(flags);
             let (busy, flags) = attention::take_busy(flags);
             let (near, flags) = attention::take_near(flags);
+            let (passing, flags) = attention::take_passing(flags);
             let (addressed, flags) = take(flags);
             let (_, flags) = attention::take_name(flags);
             let (_, _, flags) = crate::called::take(flags);
             let (root, flags) = crate::bus_out::take_root(flags).unwrap();
             let (_, flags) = crate::first_output::take(flags).unwrap();
-            ((on, busy, near, addressed, root.is_some()), flags.to_vec())
+            (
+                (on, busy, near, passing, addressed, root.is_some()),
+                flags.to_vec(),
+            )
         };
         let flags = |list: &[&str]| {
             list.iter()
@@ -323,13 +327,36 @@ mod tests {
             .chain(root)
             .collect::<Vec<_>>(),
         );
-        assert_eq!(taken(&all), ((true, true, true, true, true), vec![]));
+        assert_eq!(taken(&all), ((true, true, true, false, true, true), vec![]));
+        // With "the lamp" in passing ignored (#829), between the two.
+        let passing = flags(
+            &[
+                attention::FLAG,
+                attention::BUSY_FLAG,
+                attention::NEAR_FLAG,
+                attention::PASSING_FLAG,
+                FLAG,
+            ]
+            .into_iter()
+            .chain(root)
+            .collect::<Vec<_>>(),
+        );
+        assert_eq!(
+            taken(&passing),
+            ((true, true, true, true, true, true), vec![])
+        );
         // Alone, it is taken too, and the worker leaves it off: it follows
         // the requests only with the attention rule.
         let alone = flags(&[FLAG].into_iter().chain(root).collect::<Vec<_>>());
-        assert_eq!(taken(&alone), ((false, false, false, true, true), vec![]));
+        assert_eq!(
+            taken(&alone),
+            ((false, false, false, false, true, true), vec![])
+        );
         let busy = flags(&[attention::FLAG, attention::BUSY_FLAG, FLAG]);
-        assert_eq!(taken(&busy), ((true, true, false, true, false), vec![]));
+        assert_eq!(
+            taken(&busy),
+            ((true, true, false, false, true, false), vec![])
+        );
     }
 
     #[test]

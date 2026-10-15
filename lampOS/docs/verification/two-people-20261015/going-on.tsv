@@ -1,0 +1,15 @@
+10-15 13:32:49	play	not-facing	the session has heard enough to be trusted	session 3 request 57	text_chars 21	trigger tool_call
+10-15 13:33:10	play	not-facing	the lamp began this turn itself	session 3 request 58	text_chars 0	trigger audio
+10-15 13:44:06	play	not-facing	the session has heard enough to be trusted	session 3 request 69	text_chars 21	trigger tool_call
+10-15 14:49:54	play	facing	a conversation with the lamp is going on	session 10 request 135	text_chars 54	trigger audio
+10-15 14:49:58	play	facing	a conversation with the lamp is going on	session 10 request 136	text_chars 3	trigger audio
+10-15 14:59:56	play	facing	a conversation with the lamp is going on	session 10 request 230	text_chars 9	trigger audio
+10-15 15:00:04	play	facing	its name was heard close to the lamp	session 10 request 231	text_chars 16	trigger tool_call
+10-15 15:25:00	play	not-facing	a conversation with the lamp is going on	session 1 request 33	text_chars 27	trigger audio
+10-15 15:25:08	play	not-facing	a conversation with the lamp is going on	session 1 request 34	text_chars 29	trigger audio
+10-15 15:25:23	play	not-facing	a conversation with the lamp is going on	session 1 request 35	text_chars 104	trigger audio
+10-15 15:25:26	play	not-facing	the lamp began this turn itself	session 1 request 36	text_chars 0	trigger audio
+10-15 15:25:37	play	not-facing	a conversation with the lamp is going on	session 1 request 37	text_chars 49	trigger audio
+10-15 15:25:43	play	not-facing	the lamp began this turn itself	session 1 request 38	text_chars 0	trigger audio
+10-15 15:26:07	play	not-facing	a conversation with the lamp is going on	session 1 request 42	text_chars 25	trigger audio
+10-15 15:33:33	play	not-facing	a conversation with the lamp is going on	session 1 request 27	text_chars 40	trigger audio

@@ -613,6 +613,14 @@ pub struct ReceiveOrder {
 }
 
 impl ReceiveOrder {
+    /// The next message in order from the same boot, after the first.
+    pub fn is_next<T>(&self, packet: &Envelope<T>) -> bool {
+        self.sequence > 0
+            && packet.boot == self.boot
+            && packet.sequence == self.sequence + 1
+            && packet.sent_at_us >= self.sent_at_us
+    }
+
     pub fn new(boot: BootId) -> Self {
         Self {
             boot,

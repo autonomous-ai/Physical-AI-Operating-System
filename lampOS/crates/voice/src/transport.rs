@@ -34,6 +34,8 @@ pub struct Channel {
     /// backlog it is still draining.
     last_look_us: Option<u64>,
     held_up_us: u64,
+    /// The last message was taken late because its sender was held up.
+    sender_held_up: bool,
 }
 
 /// A worker's first control message is sent as soon as its peer is there and
@@ -66,6 +68,7 @@ impl Channel {
             received: false,
             last_look_us: None,
             held_up_us: 0,
+            sender_held_up: false,
         })
     }
 
@@ -118,11 +121,37 @@ impl Channel {
         } else {
             self.max_age_us
         };
-        self.incoming
-            // Read the clock after the receive: a message sent since `now`
-            // would otherwise look sent in the future, and be refused.
-            .accept(&packet, monotonic_us(), max_age_us + self.held_up_us)
-            .map_err(|error| io::Error::new(error.kind(), format!("{}: {error}", self.name)))?;
+        // Read the clock after the receive: a message sent since `now` would
+        // otherwise look sent in the future, and be refused.
+        let now = monotonic_us();
+        let next = self.incoming.is_next(&packet);
+        let on_time = self
+            .incoming
+            .accept(&packet, now, max_age_us + self.held_up_us);
+        // A sender held up between stamping a message and sending it (#784,
+        // 52e6 on 2026-10-15: one frame 423 ms old after a 400 ms stall)
+        // delivers that one message late, in order, and fresh ones after
+        // it. One such message is taken; a second late one in a row is a
+        // backlog, refused as before.
+        let late_but_next =
+            || next && !self.sender_held_up && now.saturating_sub(packet.sent_at_us) < HELD_UP_US;
+        match on_time {
+            Ok(()) => self.sender_held_up = false,
+            Err(_) if late_but_next() => {
+                self.incoming
+                    .accept(&packet, now, HELD_UP_US)
+                    .map_err(|error| {
+                        io::Error::new(error.kind(), format!("{}: {error}", self.name))
+                    })?;
+                self.sender_held_up = true;
+            }
+            Err(error) => {
+                return Err(io::Error::new(
+                    error.kind(),
+                    format!("{}: {error}", self.name),
+                ));
+            }
+        }
         self.received = true;
         Ok(Some(packet.payload))
     }
@@ -300,5 +329,30 @@ mod tests {
         sender.send(3u32).unwrap();
         thread::sleep(Duration::from_millis(1_700));
         assert!(receiver.receive::<u32>().is_err());
+    }
+
+    /// Only the next message in order may come late from a sender held up
+    /// between stamping and sending it: not one after a gap in the order, nor
+    /// one from another boot, nor the first.
+    #[test]
+    fn only_the_next_message_in_order_may_come_late_from_a_held_up_sender() {
+        let boot = new_boot().unwrap();
+        let at = monotonic_us();
+        let message = |sequence| Envelope {
+            boot,
+            sequence,
+            sent_at_us: at,
+            payload: (),
+        };
+        let mut order = ReceiveOrder::new(boot);
+        assert!(!order.is_next(&message(1)), "never the first");
+        order.accept(&message(1), at, 100_000).unwrap();
+        assert!(order.is_next(&message(2)));
+        assert!(!order.is_next(&message(3)));
+        let other = Envelope {
+            boot: new_boot().unwrap(),
+            ..message(2)
+        };
+        assert!(!order.is_next(&other));
     }
 }

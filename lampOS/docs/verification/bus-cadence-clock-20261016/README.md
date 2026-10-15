@@ -1,0 +1,15 @@
+# Explicit Bus publisher cadence clock
+
+Recorded 2026-10-16 02:35:18 +0700, from `date`, for #823. Kind: off unless an explicit library constructor is selected. No existing scenario is migrated by this preparation.
+
+`publisher_with_cadence_clock` and `publisher_declared_with_cadence_clock` accept a pure `Fn() -> Instant + Send + Sync` at the original three sample sites: declared first presence, alive, and valid delivery. Ordinary constructors pass the `Instant::now` function value and add no constructor clock read. The 200 ms subscriber rescan, one-second presence refresh, real declaration/mtime/three-second lease, UTC header, actual datagram and original result/error suppression remain.
+
+Nine new boundary tests cover zero samples on invalid or undeclared construction, failed real declaration before sampling, separate declaration/delivery samples, invalid payloads, exact rescan/refresh boundaries, actual filesystem obstruction/recovery, independent real mtime lease, and ordinary host behavior/Send/Sync. Existing Bus assertions and all 24 Memory Rust sources are unchanged. The original two source files and document reconstruct byte-for-byte by reversing only the adapter/test-module/section additions. [Source proof](source-preservation.json); the earlier author-only validation note is followed by the executed root gates here.
+
+## Executed gates
+
+- On base `587a361a373bd856bb790c8cf92b92f4f7211066`, after the actual merged #881 relay/producer fix: formatting, strict **workspace/all-target** clippy, full serial `cargo test --workspace --no-fail-fast`, and workspace build all passed. **4,863 standard libtest passes, zero failures, 35 existing ignores, zero filtered/measured**, across 310 summary lines; complete command exited zero. [Exact commands/date boundaries](after-relay-gates.json), unedited logs adjacent.
+- Rebased on `ba2ad4dfafc7328a67ddcb52e8128fa43a555118`, including merged endpoint cleanup and relay regressions. All four owned files and all Memory Rust files retain their exact hashes. Fresh formatting, strict **workspace/all-target** clippy, complete **Bus + Memory 250 passed / zero failed / six existing ignored measurements**, and workspace build passed. [Rebase proof](integration-rebase.json), [fresh gates](integration-gates.json). All nine new cases ran exactly once in each listed test invocation.
+- The previous complete workspace gate is retained as prior evidence, not relabelled as a full test rerun on the new base. Its earlier pre-fix Memory usage-stderr failure is retained in [the tests log](https://github.com/autonomous-ai/lampOS/blob/cf6f2ea68/lampOS/docs/verification/bus-clock-memory-stderr-20261016/README.md). No unchanged-source retry was used to obtain green.
+
+The PR starts draft until its own native ARM64 check passes, including all nine new tests. This preparation does not prove Memory worker progress, subscriber receipt or a test-clock speedup. No device, workflow/profile/runner/settings change. Scratch Python orchestrated commands and exact source/hash comparisons outside the repository; only code, documentation and text evidence are committed.

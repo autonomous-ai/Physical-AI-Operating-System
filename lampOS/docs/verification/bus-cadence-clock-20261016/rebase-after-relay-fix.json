@@ -1,0 +1,13 @@
+{
+  "date": "2026-10-16 01:23:37 +0700",
+  "old_base": "6b08a70d56e37b061e7a9a6b013072b13639a0b7",
+  "new_base": "587a361a373bd856bb790c8cf92b92f4f7211066",
+  "all_owned_hashes_preserved": {
+    "lampOS/crates/bus/src/publish.rs": "53a43999a7035b31e06d29abfb4d0975f514ca0402f4e2614d46796894e1e563",
+    "lampOS/crates/bus/src/lib.rs": "3ab858b5195382e190b4988415177c7cf0b567cae33ecdbf097167eb7978b919",
+    "lampOS/crates/bus/src/publisher_clock_tests.rs": "62ab586860f422f223017ab690dbf4897f8cb8c593cdca94e8f5253e8ebc3e54",
+    "lampOS/docs/bus.md": "d7785924ca711fb58d57480e37407eb6ec66dca6fb3aeda10cc7ae03c61839b0"
+  },
+  "upstream_Bus_and_Memory_sources_unchanged": true,
+  "upstream_change_relevant_to_failure": "#881 log relay and Tasks producer completion merged; fresh gate is after this actual source fix, not an unchanged-head retry"
+}

@@ -1,0 +1,27 @@
+--- bus.before
++++ lampOS/docs/bus.md
+@@ -47,6 +47,24 @@
+ told another, the same for every process on a root) is a dead publisher's:
+ whoever lists the publishers removes it. A publisher that was only silent
+ puts its entry back with its next message.
++
++### Publisher cadence in local fixtures
++
++`Bus::publisher_with_cadence_clock` and
++`Bus::publisher_declared_with_cadence_clock` accept an explicit pure
++`Fn() -> Instant + Send + Sync + 'static` for a local fixture's publisher.
++The caller advances that clock; reading it must never advance time. It
++controls only the existing subscriber-rescan and presence-refresh cadence:
++200 ms and 1 s with the default bus settings. Undeclared construction does
++not read it. Declared construction reads it once at the original first
++presence refresh, after the real declaration write; each valid delivery
++and each `alive()` call takes its own original sample.
++
++The ordinary constructors still use `Instant::now`. These explicit
++constructors leave header UTC, caller-supplied `at_us`, real filesystem
++mtime leases, sockets, delivery results and error suppression unchanged.
++They do not advance a subscriber or a worker, or establish that its work
++completed. No existing test is migrated by this constructor seam.
+ 
+ ## A message
+ 

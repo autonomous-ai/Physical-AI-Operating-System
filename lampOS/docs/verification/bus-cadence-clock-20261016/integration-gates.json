@@ -1,0 +1,71 @@
+[
+  {
+    "stage": "fmt",
+    "command": [
+      "cargo",
+      "fmt",
+      "--all",
+      "--check"
+    ],
+    "cwd": "/private/tmp/lampos-tests-bus-clock/lampOS",
+    "target": "/private/tmp/tests-823-rebase-target",
+    "start_from_date": "2026-10-16 02:23:27 +0700",
+    "finish_from_date": "2026-10-16 02:23:33 +0700",
+    "exit_code": 0
+  },
+  {
+    "stage": "clippy",
+    "command": [
+      "cargo",
+      "clippy",
+      "--locked",
+      "--offline",
+      "--workspace",
+      "--all-targets",
+      "--",
+      "-D",
+      "warnings"
+    ],
+    "cwd": "/private/tmp/lampos-tests-bus-clock/lampOS",
+    "target": "/private/tmp/tests-823-rebase-target",
+    "start_from_date": "2026-10-16 02:23:33 +0700",
+    "finish_from_date": "2026-10-16 02:25:09 +0700",
+    "exit_code": 0
+  },
+  {
+    "stage": "tests",
+    "command": [
+      "cargo",
+      "test",
+      "--locked",
+      "--offline",
+      "-p",
+      "lamp-bus",
+      "-p",
+      "lamp-memory",
+      "--no-fail-fast",
+      "--",
+      "--test-threads=1"
+    ],
+    "cwd": "/private/tmp/lampos-tests-bus-clock/lampOS",
+    "target": "/private/tmp/tests-823-rebase-target",
+    "start_from_date": "2026-10-16 02:25:09 +0700",
+    "finish_from_date": "2026-10-16 02:30:53 +0700",
+    "exit_code": 0
+  },
+  {
+    "stage": "build",
+    "command": [
+      "cargo",
+      "build",
+      "--locked",
+      "--offline",
+      "--workspace"
+    ],
+    "cwd": "/private/tmp/lampos-tests-bus-clock/lampOS",
+    "target": "/private/tmp/tests-823-rebase-target",
+    "start_from_date": "2026-10-16 02:30:53 +0700",
+    "finish_from_date": "2026-10-16 02:32:26 +0700",
+    "exit_code": 0
+  }
+]

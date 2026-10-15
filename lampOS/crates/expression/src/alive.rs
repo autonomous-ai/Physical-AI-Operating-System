@@ -426,6 +426,30 @@ pub const LEAN_OUT_US: u64 = 600_000;
 /// long: a Controls that stopped does not leave the lamp leaning.
 pub const HAND_FRESH_US: u64 = 500_000;
 
+/// Looking up at a tap on the head (#711, First on #711 at 05:05): "are you
+/// there?" answered with all of itself at once, beside the voice's "hm?" and
+/// the ring's listening face. A small lift of the head, more toward a face
+/// seen high in the picture and less toward one low; no face, the lift
+/// alone. Only the head: never a turn of the body. Authored, to be looked
+/// at on a lamp.
+pub const LOOK_UP: BodyOffsets = BodyOffsets {
+    base_yaw: 0.0,
+    shoulder: 0.0,
+    elbow: 0.0,
+    head_roll: 0.0,
+    head_pitch: -0.035,
+};
+/// A face at the top of the picture adds this much lift, one at the bottom
+/// takes it away (the face's centre, -1 top to 1 bottom).
+pub const LOOK_UP_TOWARD: f64 = 0.025;
+/// In within the moment of the hum, held as long as a call waits for the
+/// rest on lamp-4ace (#891), longer while someone speaks, out slowly.
+pub const LOOK_UP_IN_US: u64 = 150_000;
+pub const LOOK_UP_FOR_US: u64 = 2_000_000;
+pub const LOOK_UP_OUT_US: u64 = 500_000;
+/// A face counts for the look only if the eyes saw it this recently.
+pub const LOOK_UP_FACE_US: u64 = 1_000_000;
+
 #[derive(Clone, Copy, Debug, PartialEq)]
 enum Phase {
     Awake,
@@ -577,6 +601,12 @@ pub(crate) struct Life {
     hand_seen_us: Option<u64>,
     lean: f64,
     sleep_asked: bool,
+    /// A tap on the head of a lamp awake (#711): until when it looks up,
+    /// how far the look has come in, and where the face seen highest in the
+    /// picture was last (its stamp and its centre, -1 top to 1 bottom).
+    looking_until_us: Option<u64>,
+    look_up: f64,
+    face_y: Option<(u64, f64)>,
     /// The voice's last word on sleep (`voice/mute`, #711): when, and
     /// whether its mute says the lamp was put to sleep; and the last it said
     /// while that word was fresh.
@@ -626,6 +656,9 @@ impl Life {
             hand_seen_us: None,
             lean: 0.0,
             sleep_asked: false,
+            looking_until_us: None,
+            look_up: 0.0,
+            face_y: None,
             voice_said: None,
             voice_slept: false,
         }
@@ -665,6 +698,19 @@ impl Life {
             .iter()
             .filter(|face| face.confidence >= confidence)
             .collect();
+        // The face looked up at after a tap: the largest one seen.
+        self.face_y = seen
+            .iter()
+            .max_by(|a, b| {
+                let area = |f: &&&lamp_msgs::Face| (f.xmax - f.xmin) * (f.ymax - f.ymin);
+                area(a).total_cmp(&area(b))
+            })
+            .map(|face| {
+                (
+                    stamp_us,
+                    f64::from(face.ymin + face.ymax - 1.0).clamp(-1.0, 1.0),
+                )
+            });
         if seen.is_empty() {
             self.nobody_since.get_or_insert(stamp_us);
             self.anchor = None;
@@ -762,7 +808,9 @@ impl Life {
             return;
         }
         match event.gesture {
-            TouchGesture::Tap => self.called |= self.asleep(),
+            // Asleep, a tap wakes it; awake, it looks up at it.
+            TouchGesture::Tap if self.asleep() => self.called = true,
+            TouchGesture::Tap => self.looking_until_us = Some(stamp_us + LOOK_UP_FOR_US),
             TouchGesture::Stroke if !self.asleep() => {
                 self.hand = Some(event.contact_id);
                 self.hand_seen_us = Some(stamp_us);
@@ -1018,6 +1066,41 @@ impl Life {
         if self.lean > 0.0 {
             planned.offsets = add(planned.offsets, LEAN, ease(self.lean));
             planned.names.push("leaning into a hand");
+        }
+        // Looking up at a tap on its head, awake and with the body free, as
+        // long as a call waits, and on while someone is speaking; never while
+        // the lamp thinks or speaks. It eases in fast and out slowly.
+        if context.voice == Some(Voice::Listening)
+            && let Some(until) = self.looking_until_us.as_mut()
+            && now_us < *until
+        {
+            // A fifth of a second on from each step heard: the longest step.
+            *until = (*until).max(now_us + 200_000);
+        }
+        let looking = self.looking_until_us.is_some_and(|until| now_us < until)
+            && self.phase == Phase::Awake
+            && context.free
+            && !matches!(context.voice, Some(Voice::Thinking | Voice::Speaking));
+        if !looking {
+            self.looking_until_us = None;
+        }
+        self.look_up = if looking {
+            (self.look_up + step as f64 / LOOK_UP_IN_US as f64).min(1.0)
+        } else {
+            let left = self.look_up - step as f64 / LOOK_UP_OUT_US as f64;
+            if left < 1e-9 { 0.0 } else { left }
+        };
+        if self.look_up > 0.0 {
+            let toward = self
+                .face_y
+                .filter(|(at, _)| now_us.saturating_sub(*at) < LOOK_UP_FACE_US)
+                .map_or(0.0, |(_, y)| -y * LOOK_UP_TOWARD);
+            let look = BodyOffsets {
+                head_pitch: LOOK_UP.head_pitch - toward,
+                ..LOOK_UP
+            };
+            planned.offsets = add(planned.offsets, look, ease(self.look_up));
+            planned.names.push("looking up at a tap");
         }
         if self.weight == 0.0 {
             self.forget_drift();

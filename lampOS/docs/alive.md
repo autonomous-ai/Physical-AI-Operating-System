@@ -160,7 +160,18 @@ Off unless `lamp-expression serve --head-touch`, and Controls runs with
   with the body free.
 - **A hand kept three seconds** (Hold) puts it to sleep at once, by day too,
   as the night's own sleep does: the same bow and breath.
-- **A tap** wakes it when asleep.
+- **A tap** wakes it when asleep. Awake, a tap is "are you there?" (First,
+  #711, 05:05). It looks up: the head lifts a little (`LOOK_UP`, pitch
+  -0.035 rad), and toward a face the eyes saw in the last second, more for
+  one high in the picture and less for one low (`LOOK_UP_TOWARD`, 0.025 rad
+  at the edge).
+  - **Timing:** in over 150 ms, the moment of the voice's "hm?" and the ring's
+    listening face; held 2 s, as long as a call waits; held on while someone
+    is speaking (the voice says Listening); out over 0.5 s.
+  - **Only:** awake, with the body free, and not while the lamp thinks or
+    speaks.
+  - **Only the head:** never a turn of the body, so it sends no gaze, which
+    would turn the base.
 - Nothing else: a request not enabled, or not from the head, does nothing.
   Asleep, only a tap does anything.
 

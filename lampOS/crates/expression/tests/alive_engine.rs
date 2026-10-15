@@ -1653,6 +1653,119 @@ mod head {
         assert!(named(&asleep, "falling asleep"), "{:?}", asleep.state);
     }
 
+    /// The tapped lamp's head pitch, less the same lamp's without the tap,
+    /// and whether it says it is looking up, over `ticks` of 20 ms.
+    fn looks(tapped: &mut Lamp, plain: &mut Lamp, ticks: usize) -> Vec<(f64, f64, bool)> {
+        (0..ticks)
+            .map(|_| {
+                let (a, b) = (tapped.step(), plain.step());
+                (
+                    asked(&a).head_pitch - asked(&b).head_pitch,
+                    asked(&a).base_yaw - asked(&b).base_yaw,
+                    named(&a, "looking up at a tap"),
+                )
+            })
+            .collect()
+    }
+
+    fn twins(faces: Vec<Face>) -> (Lamp, Lamp) {
+        let (mut tapped, mut plain) = (Lamp::new(catalogue()), Lamp::new(catalogue()));
+        for lamp in [&mut tapped, &mut plain] {
+            lamp.faces = Some(faces.clone());
+            lamp.run(10 * SECOND, |_, _| {});
+        }
+        (tapped, plain)
+    }
+
+    #[test]
+    fn a_tap_on_an_awake_lamp_looks_up_at_once_for_two_seconds_and_settles_slowly() {
+        let (mut tapped, mut plain) = twins(vec![]);
+        tapped.head(TouchGesture::Tap, 5, 200_000);
+        let pitch = lamp_expression::LOOK_UP.head_pitch;
+        // Up within the moment of the hum: all the way by 160 ms.
+        let first = looks(&mut tapped, &mut plain, 8);
+        assert!(first.iter().all(|(_, _, named)| *named));
+        assert!((first[7].0 - pitch).abs() < 1e-9, "{first:?}");
+        assert!(first[0].0 < 0.0 && first[0].0 > pitch);
+        // Held for two seconds from the tap; only the head, never the body.
+        let held = looks(&mut tapped, &mut plain, 90);
+        assert!(
+            held.iter()
+                .all(|(up, yaw, _)| (up - pitch).abs() < 1e-9 && *yaw == 0.0)
+        );
+        // Then, two seconds from the tap, down, eased over half a second:
+        // never a snap.
+        let after = looks(&mut tapped, &mut plain, 30);
+        let easing = after
+            .iter()
+            .filter(|(up, _, _)| *up < 0.0 && *up > pitch + 1e-9)
+            .count();
+        assert!((20..=26).contains(&easing), "{after:?}");
+        assert!(
+            after
+                .windows(2)
+                .all(|w| (w[1].0 - w[0].0).abs() < 0.2 * -pitch)
+        );
+        assert!(after[29].0.abs() < 1e-9 && !after[29].2);
+    }
+
+    #[test]
+    fn toward_a_face_seen_high_it_looks_up_more_and_never_turns() {
+        // A face near the top of the picture (its centre at -0.8).
+        let (mut tapped, mut plain) = twins(vec![face(0.4, 0.0, 0.2)]);
+        tapped.head(TouchGesture::Tap, 5, 200_000);
+        let up = looks(&mut tapped, &mut plain, 20);
+        let wanted = lamp_expression::LOOK_UP.head_pitch - 0.8 * lamp_expression::LOOK_UP_TOWARD;
+        assert!((up[19].0 - wanted).abs() < 1e-6, "{up:?}");
+        assert!(up.iter().all(|(_, yaw, _)| *yaw == 0.0));
+    }
+
+    #[test]
+    fn while_someone_speaks_it_keeps_looking_and_stops_when_the_lamp_thinks() {
+        let (mut tapped, mut plain) = twins(vec![]);
+        tapped.head(TouchGesture::Tap, 5, 200_000);
+        looks(&mut tapped, &mut plain, 50);
+        for lamp in [&mut tapped, &mut plain] {
+            lamp.voice(Voice::Listening);
+        }
+        // Three seconds after the tap, still listening to them: still up.
+        let speaking = looks(&mut tapped, &mut plain, 100);
+        assert!(
+            speaking.iter().all(|(up, _, named)| *named && *up < 0.0),
+            "{speaking:?}"
+        );
+        for lamp in [&mut tapped, &mut plain] {
+            lamp.voice(Voice::Thinking);
+        }
+        let thinking = looks(&mut tapped, &mut plain, 30);
+        // Thinking: it eases down at once and is level within half a second.
+        assert!(thinking[0].0 > lamp_expression::LOOK_UP.head_pitch);
+        assert!(thinking[29].0.abs() < 1e-9 && !thinking[29].2);
+    }
+
+    #[test]
+    fn a_tap_that_wakes_it_or_comes_while_it_speaks_is_no_look_up() {
+        let (mut tapped, mut plain) = twins(vec![]);
+        for lamp in [&mut tapped, &mut plain] {
+            lamp.voice(Voice::Speaking);
+        }
+        tapped.head(TouchGesture::Tap, 5, 200_000);
+        assert!(
+            looks(&mut tapped, &mut plain, 20)
+                .iter()
+                .all(|(_, _, named)| !named)
+        );
+        // Asleep, a tap wakes it and does not look up.
+        let mut lamp = Lamp::new(catalogue());
+        lamp.run(10 * SECOND, |_, _| {});
+        lamp.hand(Some((9, 3_000_000)));
+        lamp.head(TouchGesture::Hold, 9, 3_000_000);
+        lamp.with_hand(None, SECOND);
+        lamp.head(TouchGesture::Tap, 11, 200_000);
+        let woken = lamp.with_hand(None, 300_000);
+        assert!(named(&woken, "waking") && !named(&woken, "looking up at a tap"));
+    }
+
     #[test]
     fn a_request_not_enabled_or_from_elsewhere_does_nothing() {
         let mut lamp = Lamp::new(catalogue());

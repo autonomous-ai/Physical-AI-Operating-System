@@ -39,6 +39,19 @@ pub const ENVIRONMENT: &str = "LAMP_EYES_SIGHT_FILE";
 /// carry no picture and pay nothing for one.
 pub const LOOK_FLAG: &str = "--eyes-look";
 pub const LOOK_ENVIRONMENT: &str = "LAMP_EYES_LOOK_FILE";
+/// A full look (#836), `on` only: as the lamp says it will look, the eyes
+/// are asked for one larger still taken once the head has settled
+/// (`lamp-eyes --full-look`), the look waits for it a little, and the model
+/// is told to say what it cannot make out rather than guess. The worker is
+/// told with a flag after the look's path.
+pub const LOOK_FULL_ENVIRONMENT: &str = "LAMP_LOOK_FULL";
+pub const LOOK_FULL_FLAG: &str = "--eyes-look-full";
+/// How old a full look's still may be when the look goes: it is taken while
+/// the lamp is still saying it will look, and the eyes keep it no longer.
+pub const FULL_FRESH: Duration = Duration::from_secs(3);
+/// How long the look waits for the still after the lamp said it would
+/// look, at most: the eyes give it up after 2.5 s.
+pub const STILL_WAIT: Duration = Duration::from_millis(2_600);
 
 const FRESH: Duration = Duration::from_secs(1);
 /// The least time between two looks, whichever requests they fall in.
@@ -75,8 +88,93 @@ pub fn arguments_from_environment() -> Vec<String> {
             .unwrap_or_default()
     };
     let mut arguments = named(ENVIRONMENT, FLAG);
-    arguments.extend(named(LOOK_ENVIRONMENT, LOOK_FLAG));
+    let look = named(LOOK_ENVIRONMENT, LOOK_FLAG);
+    let full = !look.is_empty() && look_full_on();
+    arguments.extend(look);
+    if full {
+        arguments.push(LOOK_FULL_FLAG.to_owned());
+    }
     arguments
+}
+
+/// Whether a look is a full look (`LAMP_LOOK_FULL=on`).
+pub fn look_full_on() -> bool {
+    std::env::var(LOOK_FULL_ENVIRONMENT).is_ok_and(|value| value == "on")
+}
+
+/// Take a leading `--eyes-look-full` off a worker's flags.
+pub fn take_look_full(flags: &[String]) -> (bool, &[String]) {
+    match flags {
+        [flag, rest @ ..] if flag == LOOK_FULL_FLAG => (true, rest),
+        _ => (false, flags),
+    }
+}
+
+/// Whether the eyes have written their picture since `since`: the still a
+/// full look asked for, or a working frame from eyes that keep one.
+fn written_since(path: &Path, since: SystemTime) -> bool {
+    std::fs::metadata(path)
+        .and_then(|about| about.modified())
+        .is_ok_and(|at| at >= since)
+}
+
+/// The coordinator's side of a look, full or not.
+#[derive(Debug)]
+pub struct Look {
+    /// The eyes' picture, when a look is a full look.
+    full: Option<PathBuf>,
+    /// The turn whose still was asked for, and when.
+    asked: Option<(u64, SystemTime)>,
+}
+
+impl Look {
+    /// From `LAMP_LOOK_FULL` and the look's file, for a lamp that looks.
+    pub fn from_environment() -> Self {
+        let path = std::env::var_os(LOOK_ENVIRONMENT).map(PathBuf::from);
+        Self::new(path.filter(|_| look_full_on()))
+    }
+
+    pub fn new(full: Option<PathBuf>) -> Self {
+        Self { full, asked: None }
+    }
+
+    pub fn full(&self) -> bool {
+        self.full.is_some()
+    }
+
+    /// The lamp said in `turn` that it will look: true once, when the eyes
+    /// are to be asked for the still. Never without a full look.
+    pub fn ask(&mut self, turn: u64, now: SystemTime) -> bool {
+        if self.full.is_none() || self.asked.is_some_and(|(of, _)| of == turn) {
+            return false;
+        }
+        self.asked = Some((turn, now));
+        true
+    }
+
+    /// Whether the still has been written since it was asked for.
+    pub fn still(&self) -> bool {
+        self.full
+            .as_deref()
+            .zip(self.asked)
+            .is_some_and(|(path, (_, since))| written_since(path, since))
+    }
+
+    /// Whether the look may go, `waited` after the lamp said it would look:
+    /// at once without a full look; with one, once the still is there or
+    /// after [`STILL_WAIT`].
+    pub fn due(&self, waited: Duration) -> bool {
+        self.full.is_none() || waited >= STILL_WAIT || self.still()
+    }
+
+    /// What the model is told with the picture.
+    pub fn note(&self) -> &'static str {
+        if self.full() {
+            crate::speak_up::LOOK_FULL_NOTE
+        } else {
+            crate::speak_up::LOOK_NOTE
+        }
+    }
 }
 
 /// Take a leading `--eyes-look PATH` off a worker's flags.
@@ -96,13 +194,22 @@ pub fn take_look(flags: &[String]) -> io::Result<(Option<PathBuf>, &[String])> {
 /// The eyes' newest frame and its age, if they are open: a file written in
 /// the last second, of a size the provider takes.
 pub fn fresh(path: &Path, now: SystemTime) -> Result<(Vec<u8>, Duration), &'static str> {
+    fresh_within(path, now, FRESH)
+}
+
+/// The same, written in the last `within`.
+pub fn fresh_within(
+    path: &Path,
+    now: SystemTime,
+    within: Duration,
+) -> Result<(Vec<u8>, Duration), &'static str> {
     let about = std::fs::metadata(path).map_err(|_| "the eyes have no picture")?;
     let age = about
         .modified()
         .ok()
         .and_then(|at| now.duration_since(at).ok())
         .unwrap_or_default();
-    if age > FRESH {
+    if age > within {
         return Err("the eyes' picture is old");
     }
     if about.len() > MAX_IMAGE_BYTES as u64 {
@@ -289,6 +396,88 @@ mod tests {
             sight.picture(written),
             Err("the eyes' picture is too large")
         );
+        std::fs::remove_dir_all(&directory).unwrap();
+    }
+
+    fn scratch(name: &str) -> PathBuf {
+        let directory = std::env::temp_dir().join(format!(
+            "lamp-voice-{name}-{}-{:?}",
+            std::process::id(),
+            std::thread::current().id()
+        ));
+        std::fs::create_dir_all(&directory).unwrap();
+        directory
+    }
+
+    #[test]
+    fn without_a_full_look_a_look_goes_at_once_with_the_old_note_and_asks_nothing() {
+        let mut look = Look::new(None);
+        assert!(!look.full());
+        assert!(!look.ask(7, SystemTime::now()));
+        assert!(look.due(Duration::ZERO));
+        assert!(!look.still());
+        assert_eq!(look.note(), crate::speak_up::LOOK_NOTE);
+        // And the worker is given no flag, so it reads as before.
+        let flags = vec!["--camera-context".to_owned()];
+        assert_eq!(take_look_full(&flags), (false, &flags[..]));
+    }
+
+    #[test]
+    fn a_full_look_asks_once_and_waits_for_the_still_taken_after_it() {
+        let directory = scratch("full-look");
+        let path = directory.join("sight.jpg");
+        // A frame from before the ask is not the still.
+        std::fs::write(&path, b"before").unwrap();
+        let written = std::fs::metadata(&path).unwrap().modified().unwrap();
+        let mut look = Look::new(Some(path.clone()));
+        assert!(look.full());
+        let asked = written + Duration::from_millis(5);
+        assert!(look.ask(7, asked));
+        assert!(!look.ask(7, asked + Duration::from_millis(40)));
+        assert!(!look.still());
+        assert!(!look.due(Duration::from_millis(900)));
+        // The eyes write the still: the look goes.
+        std::fs::write(&path, b"still").unwrap();
+        let file = std::fs::File::options().write(true).open(&path).unwrap();
+        file.set_modified(asked + Duration::from_millis(400))
+            .unwrap();
+        assert!(look.still());
+        assert!(look.due(Duration::from_millis(900)));
+        // The next look asks again.
+        assert!(look.ask(9, asked + Duration::from_secs(10)));
+        assert!(!look.still());
+        std::fs::remove_dir_all(&directory).unwrap();
+    }
+
+    #[test]
+    fn a_full_look_without_a_still_goes_after_the_wait_and_is_told_not_to_guess() {
+        let directory = scratch("full-look-none");
+        let mut look = Look::new(Some(directory.join("sight.jpg")));
+        assert!(look.ask(3, SystemTime::now()));
+        assert!(!look.due(STILL_WAIT - Duration::from_millis(1)));
+        assert!(look.due(STILL_WAIT));
+        assert_eq!(look.note(), crate::speak_up::LOOK_FULL_NOTE);
+        assert!(look.note().contains("hold it a bit closer"));
+        assert!(look.note().contains("never guess"));
+        assert!(!crate::speak_up::LOOK_NOTE.contains("closer"));
+        std::fs::remove_dir_all(&directory).unwrap();
+    }
+
+    #[test]
+    fn a_full_look_s_still_may_be_older_than_a_working_frame() {
+        let directory = scratch("full-fresh");
+        let path = directory.join("sight.jpg");
+        std::fs::write(&path, b"still").unwrap();
+        let written = std::fs::metadata(&path).unwrap().modified().unwrap();
+        let later = written + Duration::from_millis(1_800);
+        assert_eq!(fresh(&path, later), Err("the eyes' picture is old"));
+        assert_eq!(
+            fresh_within(&path, later, FULL_FRESH).unwrap().0,
+            b"still".to_vec()
+        );
+        assert!(fresh_within(&path, written + Duration::from_millis(3_001), FULL_FRESH).is_err());
+        let flags = vec![LOOK_FULL_FLAG.to_owned(), "--camera-context".to_owned()];
+        assert_eq!(take_look_full(&flags), (true, &flags[1..]));
         std::fs::remove_dir_all(&directory).unwrap();
     }
 }

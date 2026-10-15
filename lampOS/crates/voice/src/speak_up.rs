@@ -37,6 +37,9 @@ pub const NOTE: &str = "(Nobody has spoken. Someone has just come and sat down i
 /// What the model is given with the picture when the lamp takes a look,
 /// and without one when its eyes are shut.
 pub const LOOK_NOTE: &str = "(You are looking now, and this is what your eye sees. Answer what they just asked you in a sentence or two, the way you would tell a friend what you see. It is not a picture or a camera to you: it is what you see.)";
+/// The same with a full look (`LAMP_LOOK_FULL=on`, #836): what the lamp
+/// cannot make out it says, rather than guess.
+pub const LOOK_FULL_NOTE: &str = "(You are looking now, and this is what your eye sees. Answer what they just asked you in a sentence or two, the way you would tell a friend what you see. It is not a picture or a camera to you: it is what you see. If you cannot make out what they are showing you, say so plainly and ask them to hold it a bit closer to you; never guess what it might be.)";
 pub const NO_LOOK_NOTE: &str = "(You tried to look, but your eye is shut just now and you saw nothing. Tell them so in a few light words.)";
 
 /// Whether an answer that opens like this is the lamp saying it will look:

@@ -2751,6 +2751,14 @@ fn conversation_with_gate(
     // keep a frame for it.
     let looks = lifetime.continuous()
         && std::env::var_os(crate::sight::LOOK_ENVIRONMENT).is_some_and(|path| !path.is_empty());
+    // A full look (#836, `LAMP_LOOK_FULL=on`): the eyes are asked for one
+    // still as the lamp says it will look, the look waits for it at most
+    // `STILL_WAIT`, and the model is told to say what it cannot make out.
+    let mut look = if looks {
+        crate::sight::Look::from_environment()
+    } else {
+        crate::sight::Look::new(None)
+    };
     let mut answer_opening: Option<(u64, String)> = None;
     let mut look_wanted: Option<(u64, u64)> = None;
     // A due reminder's quoted words cannot authorize a later camera turn.
@@ -4711,23 +4719,42 @@ fn conversation_with_gate(
         // saying so. Someone speaking first takes the turn and the look is
         // dropped; so is one that could not begin within fifteen seconds of being asked for.
         if let Some((turn, asked_us)) = look_wanted {
+            if look.ask(turn, std::time::SystemTime::now()) {
+                if let Some(eyes) = eyes_link.as_mut() {
+                    eyes.look_full();
+                }
+                record(
+                    trace,
+                    json!({"kind":"look_full_asked","turn":turn,"at_us":clock}),
+                )?;
+            }
+            let waited = Duration::from_micros(clock.saturating_sub(asked_us));
             match reply.as_ref().map(|current| current.owner.turn()) {
                 Some(current) if current == turn => {}
                 Some(_) => look_wanted = None,
                 None if clock.saturating_sub(asked_us) > 15_000_000 => look_wanted = None,
                 None => {
-                    if provider_queue.is_empty()
+                    if look.due(waited)
+                        && provider_queue.is_empty()
                         && !admission.owns_stream()
                         && !submission_draining
                         && snapshot.listening_ready(now())
                         && let Some(provider_session) = unasked_session(&cloud, paused)
                     {
                         look_wanted = None;
+                        if look.full() {
+                            record(
+                                trace,
+                                json!({"kind":"look_full_still","turn":turn,"at_us":clock,
+                                    "after_asked_ms":waited.as_millis() as u64,
+                                    "still":look.still()}),
+                            )?;
+                        }
                         snapshot = commit_written_turn(
                             owner,
                             reply,
                             &mut provider_queue,
-                            crate::speak_up::LOOK_NOTE,
+                            look.note(),
                             true,
                             "lamp_looks",
                             provider_session,

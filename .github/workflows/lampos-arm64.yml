@@ -14,17 +14,22 @@ name: lampOS on ARM64
 # own harness and the binaries' artifact come from the first runner only.
 #
 # The realtime group (tests that wait on the real clock, 977 s of the 1,191 s
-# of test time on 2026-10-15) is skipped on pull requests and manual runs
-# (nextest profile `pr`, lampOS/.config/nextest.toml). Every push to
-# lamp-voice runs every test, and a failure there opens an issue. See
+# of test time on 2026-10-15; nextest group `realtime` in
+# lampOS/.config/nextest.toml) runs only in the full run: every night, started
+# from main by .github/workflows/lampos-nightly.yml as a manual run of this
+# workflow on lamp-voice with `full`. A failed full run opens an issue. See
 # lampOS/docs/realtime-tests.md.
 #
-# Without the realtime group a pull request's tests take about 4 minutes of
-# test time, mostly quick unit tests, so a pull request runs on one runner
-# with as many tests at once as it has cores. Each shard compiles every test
-# binary again (about 5 of its 10 minutes on 2026-10-15), so more shards
-# would only cost more. A push to lamp-voice keeps four shards, one test at
-# a time, for the realtime tests.
+#            | runners | profile   | tests at once | realtime
+# pull req.  | 1       | `pr`      | one per core  | skipped
+# lamp-voice | 1       | `pr`      | one per core  | skipped (binaries for updates.md)
+# full       | 4       | `default` | one           | run
+#
+# Without the realtime group the tests take about 4 minutes of test time,
+# mostly quick unit tests, so one runner runs them as many at once as it has
+# cores. Each runner compiles every test binary again (about 5 of its 10
+# minutes on 2026-10-15), so more runners would only cost more. The full run
+# keeps four, one test at a time, for the realtime tests.
 
 # Not on every push to every builder's branch: with nine builders and four
 # runners a run, that queued eleven runs behind eight on 2026-10-15, lamp-voice's
@@ -38,11 +43,17 @@ on:
     branches: ['lamp-voice']
     paths: ['lampOS/**', '.github/workflows/lampos-arm64.yml']
   workflow_dispatch:
+    inputs:
+      full:
+        description: 'Full run: every test including the realtime group, four runners, one test at a time (the nightly run)'
+        type: boolean
+        default: false
 
 concurrency:
-  group: lampos-arm64-${{ github.event.pull_request.number || github.ref }}
+  # A full run has its own group, so a merge never cancels the nightly run.
+  group: lampos-arm64-${{ inputs.full && 'full-' || '' }}${{ github.event.pull_request.number || github.ref }}
   # A newer push to a pull request makes the running one moot: it is cancelled.
-  # lamp-voice's own runs are never cancelled, so every merge is tested.
+  # lamp-voice's own running runs are never cancelled.
   cancel-in-progress: ${{ github.ref != 'refs/heads/lamp-voice' }}
 
 jobs:
@@ -53,8 +64,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # Four on lamp-voice (every test, one at a time), one on a pull request or manual run.
-        shard: ${{ fromJSON(github.event_name == 'push' && '[1, 2, 3, 4]' || '[1]') }}
+        # Four for a full run (every test, one at a time), otherwise one.
+        shard: ${{ fromJSON(inputs.full && '[1, 2, 3, 4]' || '[1]') }}
     steps:
       - name: system packages
         run: |
@@ -80,16 +91,16 @@ jobs:
       - name: build (release, the lamps' binaries)
         working-directory: lampOS
         run: cargo build --locked --release --workspace --bins --examples
-      - name: test (lamp-voice, every test one at a time; a pull request, without the realtime group, in parallel)
+      - name: test (full run, every test one at a time; otherwise without the realtime group, in parallel)
         working-directory: lampOS
         # The two tests with their own harness (harness = false) cannot be listed by nextest; the first runner runs them below.
         # Profile `pr` skips the realtime group (lampOS/.config/nextest.toml); the -E below is intersected with it.
-        # A push to lamp-voice uses `default`: every test, one at a time.
+        # A full run uses `default`: every test, one at a time.
         run: >-
           echo "cores: $(nproc)" &&
           cargo nextest run --locked --release --workspace
-          --profile ${{ github.event_name == 'push' && 'default' || 'pr' }}
-          --no-tests=pass -j ${{ github.event_name == 'push' && '1' || 'num-cpus' }}
+          --profile ${{ inputs.full && 'default' || 'pr' }}
+          --no-tests=pass -j ${{ inputs.full && '1' || 'num-cpus' }}
           --partition hash:${{ matrix.shard }}/${{ strategy.job-total }}
           -E 'not (binary_id(lamp-ipc::relay_signals) | binary_id(lamp-turn-end-wire::process))'
       - name: doc tests and the own-harness tests (nextest runs neither)
@@ -116,24 +127,23 @@ jobs:
           path: lampOS/arm64-out/
           retention-days: 7
 
-  # A full run on lamp-voice that fails opens an issue (or comments on the open
-  # one), so a realtime test broken by a merge is not left unseen: pull
-  # requests did not run it.
-  report-lamp-voice-failure:
+  # A full run that fails opens an issue (or comments on the open one), so a
+  # realtime test broken by a merge is not left unseen: no other run has it.
+  report-full-run-failure:
     needs: arm64
-    if: failure() && github.event_name == 'push'
+    if: failure() && inputs.full
     runs-on: ubuntu-latest
     permissions:
       issues: write
     env:
       GH_TOKEN: ${{ github.token }}
       GH_REPO: ${{ github.repository }}
-      TITLE: 'lampOS: the full ARM64 run on lamp-voice failed'
+      TITLE: 'lampOS: the full ARM64 run failed'
       BODY: >-
-        The full ARM64 run (realtime tests included) failed on lamp-voice at
+        The full ARM64 run (realtime tests included) failed on ${{ github.ref_name }} at
         ${{ github.sha }}: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}.
-        Pull requests skip the realtime group (lampOS/docs/realtime-tests.md),
-        so the merge that broke it may have passed its own run.
+        Pull requests and merges skip the realtime group (lampOS/docs/realtime-tests.md),
+        so the change that broke it may have passed its own run.
     steps:
       - run: |
           n=$(gh issue list --state open --search "\"$TITLE\" in:title" --json number -q '.[0].number')

@@ -88,8 +88,8 @@ lamp-4ace):
 | Part (design name) | Identity on lamp-4ace | Read or driven by (lampOS) |
 |---|---|---|
 | Camera, USB ZV A016 V4 | "ZVCAI USB_Camera" `01da:5875`, `/dev/video0`, MJPEG up to 3264 x 2448 | Eyes |
-| Mic 2 (voice), Jieli | `4c4a:4155`, card `device_micro2`; also shows a small USB disk and a key device | Voice, Name |
-| Mic 1 (sensing) + speaker DAC, C-Media | `0d8c:0014`, card `device_cmedia`; on 2026-10-14 its Speaker control at 9 of 37 (-28 dB), Mic capture 4 of 35 (-8 dB), Auto Gain Control on; playback goes through the softvol alias `device_speaker` (`/etc/asound.conf`, control "Speaker" on card `allwinnerhdmi`, -30 to 0 dB) at 75 % (-7.5 dB) | Ears (capture), Voice (playback) |
+| Mic 2 (voice), Jieli | `4c4a:4155`, card `device_micro2`, Mic capture 147 of 147 (-0.94 dB), Auto Gain Control on (read 2026-10-16); also shows a small USB disk and a key device | Voice, Name |
+| Mic 1 (sensing) + speaker DAC, C-Media | `0d8c:0014`, card `device_cmedia`; on 2026-10-14 its Speaker control at 9 of 37 (-28 dB), Mic capture 4 of 35 (-8 dB), Auto Gain Control on; playback goes through the softvol alias `device_speaker` (`/etc/asound.conf`, control "Speaker" on card `allwinnerhdmi`, -30 to 0 dB) at 75 % (-7.5 dB), the control `lamp-actions` changes for "louder" and "quieter". From 2026-10-15 14:49 to 2026-10-16 02:56 it was at 95 %: a word overheard in a busy office ("Thailand") ran `volume_up`, and at that level the lamp's own voice clipped Mic 2 on 9 % of its speech (under 1 % at 75 %). Both controls are back at the 14 Oct values (`alsactl store`) | Ears (capture), Voice (playback) |
 | Servo control board, Waveshare | QinHeng `1a86:55d3`, serial 5CE4141883, `/dev/ttyACM0` | Body |
 | Servos x5, STS3215 | on the servo bus | Body |
 | RGB LED ring, WS2812B 32 px | SPI bus 3, `spidev3.0` | Voice (ring) |

@@ -1,0 +1,130 @@
+   Compiling lamp-ipc v0.1.0 (/private/tmp/lampos-tests-recorder-clock/lampOS/crates/ipc)
+   Compiling lamp-bus v0.1.0 (/private/tmp/lampos-tests-recorder-clock/lampOS/crates/bus)
+   Compiling lamp-turn-owner v0.1.0 (/private/tmp/lampos-tests-recorder-clock/lampOS/crates/turn-owner)
+   Compiling lamp-msgs v0.1.0 (/private/tmp/lampos-tests-recorder-clock/lampOS/crates/msgs)
+   Compiling lamp-camera v0.1.0 (/private/tmp/lampos-tests-recorder-clock/lampOS/crates/camera)
+   Compiling lamp-turn-end-wire v0.1.0 (/private/tmp/lampos-tests-recorder-clock/lampOS/crates/turn-end-wire)
+   Compiling lamp-keeper v0.1.0 (/private/tmp/lampos-tests-recorder-clock/lampOS/crates/keeper)
+   Compiling lamp-gemini v0.1.0 (/private/tmp/lampos-tests-recorder-clock/lampOS/crates/gemini)
+   Compiling lamp-body v0.1.0 (/private/tmp/lampos-tests-recorder-clock/lampOS/crates/body)
+   Compiling lamp-controls v0.1.0 (/private/tmp/lampos-tests-recorder-clock/lampOS/crates/controls)
+   Compiling lamp-schedule v0.1.0 (/private/tmp/lampos-tests-recorder-clock/lampOS/crates/schedule)
+   Compiling lamp-audio v0.1.0 (/private/tmp/lampos-tests-recorder-clock/lampOS/crates/audio)
+   Compiling lamp-ring v0.1.0 (/private/tmp/lampos-tests-recorder-clock/lampOS/crates/ring)
+   Compiling lamp-observer v0.1.0 (/private/tmp/lampos-tests-recorder-clock/lampOS/crates/observer)
+   Compiling lamp-voice v0.1.0 (/private/tmp/lampos-tests-recorder-clock/lampOS/crates/voice)
+   Compiling lamp-turn-end v0.1.0 (/private/tmp/lampos-tests-recorder-clock/lampOS/crates/turn-end)
+   Compiling lamp-sound-fixtures v0.1.0 (/private/tmp/lampos-tests-recorder-clock/lampOS/crates/sound-fixtures)
+   Compiling lamp-voice-eval v0.1.0 (/private/tmp/lampos-tests-recorder-clock/lampOS/crates/voice-eval)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 39.19s
+     Running unittests src/lib.rs (/private/tmp/tests-823-rebase-target/debug/deps/lamp_voice_eval-791a93779b2a1faf)
+
+running 103 tests
+test evaluate::completion_evidence_tests::synthetic_events_cannot_bypass_outcome_gap_consistency ... ok
+test events::tests::candidate_and_ring_vocabulary_maps_with_turns_and_ids ... ok
+test events::tests::completion_cues_require_all_terminal_fields_and_original_generation ... ok
+test events::tests::coordinator_vocabulary_maps_without_guessing ... ok
+test events::tests::cues_require_schema_one_and_consistent_times ... ok
+test events::tests::directed_cues_preserve_owner_epochs_and_cancel_reason ... ok
+test events::tests::fake_serialization_round_trips_through_the_trace_parser ... ok
+test events::tests::proposed_readiness_cues_parse_strictly_and_carry_no_owner ... ok
+test events::tests::readiness_records_map_from_the_trace ... ok
+test physical::fake_lamp::clock_tests::a_failed_poll_hook_stops_before_another_tick_or_final_trace ... ok
+test physical::fake_lamp::clock_tests::a_pure_clock_keeps_tick_boundaries_and_frozen_polls_distinct ... {"seconds":0,"status":"listening_ready"}
+ok
+test physical::fake_lamp::clock_tests::completed_polls_prove_room_consumption_and_keep_cue_fault_timing ... {"seconds":8,"status":"listening_ready"}
+ok
+test physical::fake_lamp::clock_tests::controlled_serve_is_refused_before_clock_hooks_or_output ... ok
+test physical::fake_lamp::recorder_clock_tests::an_explicit_wait_failure_keeps_the_written_receipt_and_cannot_return_success ... ok
+test physical::fake_lamp::recorder_clock_tests::declaration_and_fresh_post_write_sample_stay_distinct_in_nanoseconds ... ok
+test physical::fake_lamp::recorder_clock_tests::directory_failure_keeps_the_declaration_before_io_and_never_waits ... ok
+test physical::fake_lamp::recorder_clock_tests::first_matching_argument_and_missing_optional_value_keep_original_meaning ... ok
+test physical::fake_lamp::recorder_clock_tests::no_declaration_adds_no_clock_sample_and_keeps_the_default_failure_code ... ok
+test physical::fake_lamp::recorder_clock_tests::one_wait_keeps_the_full_minimum_duration_and_configured_return_code ... ok
+test physical::fake_lamp::recorder_clock_tests::ordinary_entrypoint_keeps_system_time_real_ready_file_and_no_recording ... ok
+test physical::fake_lamp::recorder_clock_tests::original_argument_failures_precede_files_clock_samples_and_waits ... ok
+test physical::fake_lamp::recorder_clock_tests::zero_declared_delay_keeps_its_optional_sample_without_shortening_the_wait ... ok
+test physical::framing::tests::a_line_at_the_bound_passes_and_one_byte_more_is_rejected_whole ... ok
+test physical::framing::tests::end_of_input_inside_a_line_is_explicit ... ok
+test physical::framing::tests::failures_have_explicit_text ... ok
+test physical::framing::tests::hashing_covers_every_byte_even_after_an_early_stop ... ok
+test physical::framing::tests::lines_split_across_reads_are_reassembled_exactly ... ok
+test physical::framing::tests::multibyte_characters_are_never_split_or_lossily_replaced ... ok
+test physical::framing::tests::oversized_input_is_counted_but_never_retained ... ok
+test physical::framing::tests::the_total_bound_counts_raw_bytes_even_inside_an_endless_line ... ok
+test physical::mac::audit_grant_tests::a_held_startup_cue_that_expired_before_the_live_map_is_refused ... ok
+test physical::mac::audit_grant_tests::audit_failed_outer_transport_cannot_certify_nominal_runtime_end ... ok
+test physical::mac::audit_grant_tests::audit_grant_deschedule_after_send_must_not_panic_or_lose_tracking ... ok
+test physical::mac::audit_grant_tests::audit_grant_within_deadline_control ... ok
+test physical::mac::audit_grant_tests::audit_nonzero_runtime_exit_must_invalidate_attempt ... ok
+test physical::mac::audit_grant_tests::audit_reaped_successful_transport_certifies_nominal_runtime_end ... ok
+test physical::mac::audit_grant_tests::audit_serve_stdout_readiness_cannot_mint_an_original_cue ... ok
+test physical::mac::audit_grant_tests::audit_startup_unmapped_expired_readiness_cannot_be_accepted ... ok
+test physical::mac::audit_grant_tests::audit_successful_runtime_exit_control ... ok
+test physical::mac::audit_grant_tests::audit_transport_that_outlives_its_bound_is_killed_and_never_certified ... ok
+test physical::mac::audit_grant_tests::fast_startup_cues_before_the_first_live_pong_are_published_in_order_with_original_times ... ok
+test physical::mac::audit_grant_tests::held_batch_resamples_after_parse_and_refuses_a_later_expired_cue ... ok
+test physical::mac::audit_grant_tests::r2_a_grant_never_outlives_the_recordings_latest_covered_start ... ok
+test physical::mac::audit_grant_tests::r2_an_actual_first_copy_after_the_covered_start_is_retained_as_a_violation ... ok
+test physical::mac::audit_grant_tests::the_original_expiry_refuses_at_equality ... ok
+test physical::mac::backend_clock_tests::an_unrepresentable_player_timestamp_is_rejected_before_delivery ... ok
+test physical::mac::backend_clock_tests::backend_reads_only_the_supplied_clock_and_the_default_stays_on_host_time ... ok
+test physical::mac::backend_clock_tests::immediate_player_keeps_datagrams_and_reports_in_the_selected_clock_domain ... ok
+test physical::mac::backend_clock_tests::ping_receipts_and_each_cue_decision_take_their_own_clock_sample ... ok
+test physical::mac::backend_clock_tests::post_end_drain_and_transport_reap_finish_with_a_frozen_clock ... ok
+test physical::mac::cue_tests::a_grant_sent_after_its_expiry_keeps_a_negative_margin_without_overflow ... ok
+test physical::mac::cue_tests::a_prompt_is_covered_only_through_its_speech_and_observation_window ... ok
+test physical::mac::cue_tests::cue_order_rejects_missing_duplicate_relabelled_and_out_of_order_owners ... ok
+test physical::mac::cue_tests::cue_receipt_at_expiry_or_before_send_is_not_fresh ... ok
+test physical::mac::cue_tests::each_occurrence_is_matched_and_only_whole_completion_is_terminal ... ok
+test physical::mac::cue_tests::fresh_delayed_child_observation_keeps_its_earlier_event_time ... ok
+test physical::mac::cue_tests::legacy_missing_occurrence_live_cue_is_withheld ... ok
+test physical::mac::cue_tests::readiness_cues_are_unowned_but_still_sequenced ... ok
+test physical::mac::cue_tests::retired_audio_can_be_cancelled_without_reviving_playback ... ok
+test physical::mac::relay_reader_tests::a_never_terminated_line_still_ends_at_the_session_byte_bound ... ok
+test physical::mac::relay_reader_tests::oversized_non_utf8_and_cut_off_lines_are_protocol_errors ... ok
+test physical::mac::relay_reader_tests::reading_stops_with_an_error_above_the_session_byte_bound ... ok
+test physical::session::clock_tests::successful_stop_samples_the_clock_again_after_sending_the_signal ... ok
+test physical::session::runtime_flag_tests::microphone_flag_is_typed_forwarded_and_rejects_duplicates ... ok
+test physical::session::runtime_flag_tests::omitted_runtime_flags_leave_every_child_argv_unchanged ... ok
+test physical::session::runtime_flag_tests::the_endpoint_trial_reaches_serve_after_the_pilot_settings ... ok
+test physical::session::runtime_flag_tests::the_pilot_settings_reach_serve_and_directed_exactly ... ok
+test physical::session::runtime_flag_tests::values_and_combinations_lamp_voice_refuses_are_refused_before_any_child ... ok
+test physical::session::serve_metadata_tests::a_segment_without_a_valid_header_is_rejected ... ok
+test physical::session::serve_metadata_tests::gapped_overwritten_or_unacknowledged_history_is_missing_evidence ... ok
+test physical::session::serve_metadata_tests::rotated_segments_relay_in_generation_order_without_headers ... ok
+test playback::tests::legacy_single_occurrence_is_readable_but_multiple_missing_ids_are_ambiguous ... ok
+test playback::tests::overlap_is_half_open_and_empty_occurrences_prove_no_overlap ... ok
+test playback::tests::stale_retirement_cannot_close_the_next_occurrence ... ok
+test runner::occurrence_tests::a_backend_revalidation_with_harmless_events_dispatches_once ... ok
+test runner::occurrence_tests::a_cancelled_turn_also_finishes_the_wait ... ok
+test runner::occurrence_tests::a_correction_after_new_input_or_a_second_owner_is_withheld ... ok
+test runner::occurrence_tests::a_correction_binds_to_the_turn_admitted_since_the_previous_step ... ok
+test runner::occurrence_tests::a_correction_due_after_output_started_is_withheld ... ok
+test runner::occurrence_tests::a_dispatch_that_never_settles_is_withheld_after_its_bound ... ok
+test runner::occurrence_tests::a_failure_already_delivered_at_playback_time_withholds_the_stimulus ... ok
+test runner::occurrence_tests::a_failure_during_the_trigger_delay_withholds_the_stimulus ... ok
+test runner::occurrence_tests::a_failure_latches_for_the_rest_of_the_attempt ... ok
+test runner::occurrence_tests::a_link_outage_is_waited_out_by_event ... ok
+test runner::occurrence_tests::a_provider_failure_is_never_a_completion_trigger_and_is_reported ... ok
+test runner::occurrence_tests::a_retirement_taken_by_the_backend_drain_is_precondition_lost ... ok
+test runner::occurrence_tests::a_stream_without_readiness_evidence_never_waits_on_it ... ok
+test runner::occurrence_tests::a_terminal_link_during_the_wait_is_provider_unavailable ... ok
+test runner::occurrence_tests::a_turn_finished_twice_is_an_owner_fault ... ok
+test runner::occurrence_tests::an_extra_admitted_turn_during_the_wait_is_not_waited_out ... ok
+test runner::occurrence_tests::an_extra_candidate_during_the_wait_withholds_the_next_turn ... ok
+test runner::occurrence_tests::audit_a_completion_trigger_starts_inside_the_reopen_window ... ok
+test runner::occurrence_tests::availability_never_withdrawn_is_ready_at_the_finish_not_before_admission ... ok
+test runner::occurrence_tests::availability_withdrawn_before_dispatch_withholds ... ok
+test runner::occurrence_tests::completion_is_not_readiness_the_late_reopen_is_awaited_by_event ... ok
+test runner::occurrence_tests::input_between_readiness_and_dispatch_is_rechecked_at_dispatch ... ok
+test runner::occurrence_tests::lost_runner_evidence_withholds_the_next_step_at_once ... ok
+test runner::occurrence_tests::main_015_failure_before_the_first_planned_start_injects_nothing ... ok
+test runner::occurrence_tests::second_occurrence_is_speaking_but_first_retirement_is_not_completion ... ok
+test stats::tests::nearest_rank_matches_the_definition ... ok
+test stimulus::tests::conflicting_extension_definitions_are_rejected ... ok
+test stimulus::tests::measured_mix_refines_only_within_each_clip_window ... ok
+test stimulus::tests::merged_catalog_keeps_desk_definitions_and_adds_new_scenes ... ok
+
+test result: ok. 103 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 7.55s
+

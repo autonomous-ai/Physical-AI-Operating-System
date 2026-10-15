@@ -1,0 +1,63 @@
+{
+  "date": "2026-10-16 00:11:01 +0700",
+  "base": "b60062b86 (parent-provided)",
+  "ordinary_function_restored_byte_for_byte": true,
+  "reversed_shared_body_substitutions": [
+    "now_ns() -> lamp_ipc::monotonic_ns()",
+    "wait_after_ready(original_duration, &now_ns)? -> thread::sleep(original_duration)"
+  ],
+  "restored_function_sha256": "cefc781830e7b1de055c69b387a045a20ce0a85056b952726091a987fb38b3ab",
+  "original_function_sha256": "cefc781830e7b1de055c69b387a045a20ce0a85056b952726091a987fb38b3ab",
+  "wrapper_original_clock_and_single_sleep_exact": true,
+  "source_outside_owned_recorder_region_unchanged": true,
+  "docs_append_only": true,
+  "integration_source_file_count": 23,
+  "unchanged_integration_sha256": {
+    "lampOS/crates/voice-eval/tests/acceptance_boundaries.rs": "525d3d6bb744bc02d2e813bb0d5596b82f4d4dcd36b30378de3efcb057f924bc",
+    "lampOS/crates/voice-eval/tests/canary_plan.rs": "d9aac255b58008e51b66b099a938729aa251958cd0f4118e6a09d062585bfb92",
+    "lampOS/crates/voice-eval/tests/report_validity.rs": "69c9c5b33d02bab0c4b7262f4773e122d37ba58a7315c117660a340b91db18dc",
+    "lampOS/crates/voice-eval/tests/audit_final_dispatch.rs": "688ec4f9ec50e7f26e2e0efd97f061f5744f13e7f85f307ad9ca529ba45b146f",
+    "lampOS/crates/voice-eval/tests/next_turn_ready.rs": "66ff9408a1ce150fa5fedb649506f55aa51e2794e523eebcb154026316d4770f",
+    "lampOS/crates/voice-eval/tests/recording_evidence.rs": "b41f7b0a176723b61944392262205f9a96cda9d43f13d936cc8158b8ae4887c6",
+    "lampOS/crates/voice-eval/tests/audit_runner_dispatch.rs": "2d7a83137a49f160c147decdee27cd5f8a49715655929c2b6c9a008139174f9a",
+    "lampOS/crates/voice-eval/tests/serve_plan.rs": "d67f787f3bd35a54e4da0894a2da5749ef8b8441e3f27803597895667d22bf63",
+    "lampOS/crates/voice-eval/tests/audit_importer.rs": "9ff483cbc358a0c39d26a7fd7b67e413868843771c3835c449f84208fa563ec0",
+    "lampOS/crates/voice-eval/tests/serve_session.rs": "bb8e83a7c0cb08703852638749b01d32e88eb696b35aacb093a5462bd4ddcf49",
+    "lampOS/crates/voice-eval/tests/provider_failed.rs": "ecee93a72313d1c2b9af53c7821f476c9b501fac9acd7b227052fb2b9f902022",
+    "lampOS/crates/voice-eval/tests/relay_hardening.rs": "ba0d39f2b2f2c4e809ff65ed90fa84d1857c64fd25d9ab072384ddd306769b82",
+    "lampOS/crates/voice-eval/tests/serve_relay.rs": "53f5cc802a0101518da7214b63b77e052b3406fe1b5db3ce43d5c0c305145bf5",
+    "lampOS/crates/voice-eval/tests/physical_loopback.rs": "4d9619fbe20b112784dc82e8957d6065c01a87953c3dbf4fb2573b9c485d7f27",
+    "lampOS/crates/voice-eval/tests/target_audio.rs": "3248cc8ae4d32d73659a20f33d08bcc1758e9a5e2f64113287316761dd256892",
+    "lampOS/crates/voice-eval/tests/fake_runtime.rs": "37707ba30007771d2abd19c14687f1f3ca73299b1c250ece2564e873b2413c86",
+    "lampOS/crates/voice-eval/tests/recording_import.rs": "5e3bee18d84ffc8c8faa1d5f4d5bd30db8a334fd31e0ee6c6e2b6220b866d14e",
+    "lampOS/crates/voice-eval/tests/answer_review.rs": "54f0f7df24ddda86bf702d535f344d70c961eded126fd0ad57f5f69957493885",
+    "lampOS/crates/voice-eval/tests/playback_occurrences.rs": "46b845dc3e597476203f6826be3cb16673069ce1d19f99f60e99d84ff85c75cd",
+    "lampOS/crates/voice-eval/tests/relay_clock.rs": "7de3f59adc480869877fdb75109412f959745c13ba57b855e4aebf2bf56504b6",
+    "lampOS/crates/voice-eval/tests/evaluator.rs": "1ec1e23cdfa2acd5847e982352ca9e3ea09cad9195d41d0bd6de4f5463826874",
+    "lampOS/crates/voice-eval/tests/final_dispatch.rs": "600ad54a33c7a98ba0abf9c6aadeca366cb319d121b3847f36211cc5b0a30a29",
+    "lampOS/crates/voice-eval/tests/common/mod.rs": "39d30134e50f4f0b291c1bc78f36a9b87a11f9ae8f65872a43eb3dc94e7a102d"
+  },
+  "serve_test_identity_count": 14,
+  "recorder_test_body_sha256": {
+    "a_room_recording_that_ends_early_withholds_the_rest": "1a4317c079b9cdea0ca6a86ea7feccd3df23d085cdf95b8b483efa2a26f42b91",
+    "a_recorder_that_exits_zero_mid_conversation_withholds_the_rest_and_certifies_nothing": "37d48f604a7a0a3ac5068d0166b07712c226657d8b8b358b6e5e5839a2b98ee3",
+    "a_declared_capture_end_before_the_next_prompt_and_its_window_withholds_it": "3ca48cfab16c5da3e05c0f039d39370c6097f2d4155dfc9e805dda426aeeb180"
+  },
+  "new_boundary_tests": [
+    "declaration_and_fresh_post_write_sample_stay_distinct_in_nanoseconds",
+    "no_declaration_adds_no_clock_sample_and_keeps_the_default_failure_code",
+    "one_wait_keeps_the_full_minimum_duration_and_configured_return_code",
+    "zero_declared_delay_keeps_its_optional_sample_without_shortening_the_wait",
+    "original_argument_failures_precede_files_clock_samples_and_waits",
+    "first_matching_argument_and_missing_optional_value_keep_original_meaning",
+    "directory_failure_keeps_the_declaration_before_io_and_never_waits",
+    "an_explicit_wait_failure_keeps_the_written_receipt_and_cannot_return_success",
+    "ordinary_entrypoint_keeps_system_time_real_ready_file_and_no_recording"
+  ],
+  "after_sha256": {
+    "lampOS/crates/voice-eval/src/physical/fake_lamp.rs": "aeb8c6a286583910febf66439708f5f9313be81ac8ddb278bf6545374ac6024a",
+    "lampOS/crates/voice-eval/src/physical/recorder_clock_tests.rs": "034b041b6c280b6f9c5beeeedd6c1aad735a86c3f1f923920f779ae4f7f3331c",
+    "lampOS/docs/realtime-tests.md": "fad5447b3a32f46164ffd47f012ccb3a9052d0c9cc61b31a250b18571cf3ffa4"
+  },
+  "validation_limit": "Source audit and rustfmt only; Cargo and runtime tests are owned by root and were not run here."
+}

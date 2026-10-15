@@ -1,0 +1,56 @@
+--- fake_lamp.before.rs
++++ fake_lamp.rs
+@@ -264,6 +264,26 @@
+ /// readiness like the room recorder, records nothing, then fails after MS
+ /// without `metadata.json`. A recording-failure control only.
+ pub fn room_recorder(arguments: &[String]) -> Result<i32> {
++    room_recorder_with_clock_and_wait(arguments, lamp_ipc::monotonic_ns, |duration, _| {
++        thread::sleep(duration);
++        Ok(())
++    })
++}
++
++/// Explicit timing adapter for the recording-failure fixture. The declaration
++/// samples `now_ns` only when requested, before the real ready-file write.
++/// `wait_after_ready` runs once after that write with the entire original wait
++/// duration and the same pure nanosecond clock. An adapter can take its own
++/// fresh sample there; the declared capture end is not the recorder's exit.
++///
++/// The adapter must finish its wait before returning. This function still
++/// writes no recording or final metadata and returns the configured exit code;
++/// its return is not evidence that an owned child process has been reaped.
++pub fn room_recorder_with_clock_and_wait(
++    arguments: &[String],
++    now_ns: impl Fn() -> u64,
++    wait_after_ready: impl FnOnce(Duration, &dyn Fn() -> u64) -> Result<()>,
++) -> Result<i32> {
+     let value = |flag: &str| {
+         arguments
+             .iter()
+@@ -282,7 +302,7 @@
+     let declared_end = optional("--declare-end-after-ms")
+         .map(|ms| ms.parse::<u64>())
+         .transpose()?
+-        .map(|ms| lamp_ipc::monotonic_ns() + ms * 1_000_000);
++        .map(|ms| now_ns() + ms * 1_000_000);
+     fs::DirBuilder::new().mode(0o700).create(&out)?;
+     fs::write(
+         out.join("ready.json"),
+@@ -290,9 +310,16 @@
+             "planned_capture_end_host_monotonic_ns": declared_end})
+         .to_string(),
+     )?;
+-    thread::sleep(Duration::from_millis(fail_after_ms.min(seconds * 1000)));
++    wait_after_ready(
++        Duration::from_millis(fail_after_ms.min(seconds * 1000)),
++        &now_ns,
++    )?;
+     Ok(exit_code)
+ }
++
++#[cfg(test)]
++#[path = "recorder_clock_tests.rs"]
++mod recorder_clock_tests;
+ 
+ /// Start `ARGV` after `--delay-ms`, as an SSH transport does while it
+ /// connects: runner input written meanwhile waits in the pipe. Test support;

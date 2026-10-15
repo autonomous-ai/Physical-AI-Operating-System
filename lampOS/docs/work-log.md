@@ -32,8 +32,8 @@ log and nothing a lamp runs ([joining.md](joining.md),
 | 40 | Progress news through the tasks part and Jev (issue #732, `second-P2`) | `second/progress-news`, then `second/progress-reads` | 2026-10-15 | pull request #751 into `lamp-voice`, rebased to `af7aed833` and the reviewer's two findings fixed (`306dc048d`); the first builder's two asks (a value at start, a read at once, a journal line a read) as #793, on #751 |
 | 41 | Codex and the others: the person names who gets the work (issue #733, `second-P3`) | `second/who-gets-the-work` | 2026-10-15 | moved to the fourth builder at 07:07; the branch at `ec2fb2a4d` on `2176cd38a`, gated, with the tests the schedule tools needed; its state said on #733 and the claim released |
 | 48 | The Policy decides when the lamp speaks first: progress news, then hello (issue #752) | `second/policy-speaks`, then `second/hello-asks` | 2026-10-15 | progress news as pull request #765 into `lamp-voice` (on #751), the reviewer's three findings being fixed; hello asking the policy built on `second/hello-asks`, kept rebased and gated; its own issue after #757, as the first builder answered at 09:25 |
-| 52 | Task news, polish: a follow-up question is not told the news again, and a long result gets a gist (issue #757) | `second/news-polish` | 2026-10-15 | pull request #794 into `lamp-voice` (draft until its ARM64 run is green); gated, `lamp-voice` 1,166 passed |
-| 59 | A turn with a function call speaks 1.8 to 2.9 s after the person stops (issue #799) | `second/tool-turn-speed` | 2026-10-15 | taken 15:33; finding where the time goes |
+| 52 | Task news, polish: a follow-up question is not told the news again, and a long result gets a gist (issue #757) | `second/news-polish` | 2026-10-15 | pull request #794 into `lamp-voice`, ready; ARM64 green, 4,487 passed |
+| 59 | A turn with a function call speaks 1.8 to 2.9 s after the person stops (issue #799) | `second/tool-turn-speed` | 2026-10-15 | measured by the first builder with `turn-times` (plain 1.38 s, with a call 2.25 s, the second generation about 1 s); the lead-in behind `LAMP_TOOL_LEAD_IN=on` built, gating |
 | second-P1 | (kept mergeable) the note after an early end, #738 | `second/early-end-labelled` | 2026-10-14 | rebased on `f93d9c43f` (`21c6dd812`), ARM64 run 38673872924 green, 4,427 passed; still waits for the voice after the MVP |
 | 43 | The person's phone over Bluetooth (issue #735, `second-P4`) | none | 2026-10-15 | cancelled by the owner the same night before any work was kept; released on #735 |
 
@@ -60,6 +60,36 @@ log and nothing a lamp runs ([joining.md](joining.md),
 ## Handed back
 
 Newest first.
+
+### Task 52: task news, polish (2026-10-15, issue #757)
+
+Ready for lamp-voice: yes (#794)
+
+**Kind: a fix, on by default** (the words of two notes and of one function
+answer); a note that fits is byte for byte as before (pinned).
+
+**What it is:** asked about news already told (the key in the told file),
+`check_agent_task` answers `told_before: true` and asks for "it's the one I
+mentioned", with a gist only if none was given; a question or a stop
+already told is asked or said again shorter. A long result's note cuts the
+task's words to 100 characters first, keeping 364 characters of a long
+story against 190 before (a 273-character task, just finished; 324 against
+150 a while ago), and asks for its gist in one plain line before "the rest
+is on their computer", never only that.
+
+**Tests** (M2 Max): the kept characters, the gist asked first and the task
+cut to 100 for long and short tasks; told before, asked twice, a question
+and a stop already told; a long or truncated result asked about. **Gate:**
+fmt, strict clippy, `lamp-voice` 1,166 passed, 0 failed, 8 ignored (one
+timed test failed once under load in the first gate and passed alone 3 of
+3); ARM64 run 38703309129 green, 4,487 passed.
+
+**What to run on the lamp:** the 08:02 part of the day again: a 300-word
+story handed over by voice, told unasked, then "How is that task going?" a
+few seconds later.
+
+**Where it is most likely wrong on the lamp:** the model still giving only
+where the rest is, or announcing the news again despite `told_before`.
 
 ### Task 48: the Policy decides when the lamp speaks first, progress news (2026-10-15, issue #752)
 

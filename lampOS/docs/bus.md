@@ -201,6 +201,7 @@ a full one loses the newest message, where ROS drops the oldest.
     lamp-bus info body/joint_states                 # declaration, publishers, subscribers, the kept value
     lamp-bus hz mic2/audio --seconds 5              # rate, gaps between messages, age, what was missed
     lamp-bus tap voice/heard --count 5              # header, then the payload if JSON, else <N bytes>
+    lamp-bus logs --part body --level warn           # validated operational logs, warn and above
     lamp-bus latest body/joint_states               # status 1 if the topic keeps none
     lamp-bus pub room/state latest '"quiet"'        # as lamp_bus_cli, at_us 0 unless --at-us
     lamp-bus pub room/state latest '"quiet"' --type lamp_msgs/RoomState
@@ -208,6 +209,16 @@ a full one loses the newest message, where ROS drops the oldest.
     lamp-bus replay /var/tmp/rec/body_joint_states.jsonl --speed 2
 
 Each takes `--root PATH`; bad input prints the usage and exits 2.
+
+`logs` follows the optional `logs` event topic. It accepts `--part`, a minimum
+`--level` (default `info`), `--count` and `--seconds`; only matching validated
+records count. The type, kind, encoding, source and bounded payload must agree.
+Text is escaped for a terminal, and the output shows the producer's admission
+attempt separately from the bus sequence and transport gap. It reads live
+events, with no retained history. See [shared logging](logging.md) for the
+explicitly constructed helper, overload and shutdown contracts, privacy rules,
+and the remaining persistence/image work. Existing processes do not start
+logging merely because this command exists.
 
 `info` prints one fact to a line, and exits 1 for a topic nobody has
 published, subscribed to or declared. Its shape, with numbers made up:

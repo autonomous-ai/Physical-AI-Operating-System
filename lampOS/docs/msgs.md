@@ -13,6 +13,10 @@ and nothing else: no process, no socket, no clock.
   names. It does not look inside a payload.
 - The types are here and nowhere else. A crate that publishes or subscribes
   depends on this one and does not write its own copy of a message.
+  `Log` and `LogLevel` are the deliberate transport-metadata exception:
+  their single canonical definition is in `lamp_bus::logging` and re-exported
+  here, so `lamp-bus logs` uses the exact type without a `msgs -> bus -> msgs`
+  dependency cycle.
 - JSON. Each type is a small flat structure sent as one JSON object, with
   ROS's field names and units where ROS has the type: SI units, angles in
   radians, times in seconds.
@@ -32,7 +36,8 @@ Each type has `TYPE`, the name the bus compares (`lamp_msgs/JointState`),
 hands to `Bus::publisher_declared`. `first_topics()` keeps the original
 seventeen topics; `expression_topics()` lists the optional Expression
 contracts separately, and `controls_topics()` lists the optional Controls
-contracts. `declaration_of()` recognizes all three catalogues.
+contracts. `logging_topics()` adds the optional operational log stream;
+`declaration_of()` recognizes it without changing `first_topics()`.
 
 ## The types
 
@@ -71,6 +76,29 @@ whoever wrote it.
 `Level::rank()` orders the four levels for a reader: ok, stale, warn,
 error. A part never says of itself that it is stale; whoever writes
 `lamp/health` says it of a part not heard from.
+
+## Optional operational logs
+
+`Log` and `LogLevel` are re-exported from their single definition in
+`lamp_bus::logging`. `logging_topics()` registers `logs` as
+`lamp_msgs/Log`, version 1, event, with no period or lifespan. The existing
+seventeen-topic `first_topics()` catalogue is unchanged.
+
+`Log` carries `part`, `level`, `code`, `message`, `attempt` and
+`created_unix_ms`. The part follows the bus source-name rule; code is
+`[a-z][a-z0-9_.-]{0,63}`; message is at most 512 UTF-8 bytes. Levels are
+`debug`, `info`, `warn`, `error`, `fatal`, in increasing order. These are
+operational severities, not the `Level` used by `Diagnostic`.
+`attempt` is a positive admission-attempt count belonging to that logger
+instance, including attempts rejected before publication. `created_unix_ms`
+is admission wall time, not the bus's publication wall time. Unknown fields
+are ignored; required fields and known enum values remain mandatory.
+
+`Log::check()` checks the payload. `Log::from_message()` additionally requires
+the exact topic/type, event kind, JSON encoding, payload at most 4 KiB, and a
+part matching the header source. The logger is opt-in and the message contains
+no automatic runtime instrumentation. See [logging](logging.md) for use,
+bounded admission, terminal rendering, privacy and persistence limitations.
 
 ## Optional expression contracts
 

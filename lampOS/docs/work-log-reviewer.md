@@ -2,7 +2,41 @@
 
 Reviewer merged #751, #765, #780, #790, #792, #797, #807, #808, #815, #818, #822, #843, #848, #850, #852, #855, #859, #861 by rebase; manually closed #752, #753, #777, #803, #846 and #854. #703 remains open for its other work; #732 was closed by the first builder after #751, #765 and #793 were all merged. First builder merged #738, #778, #789, #791, #793, #794, #796, #798, #809, #810, #816, #817, #835, #839 and #851; devops merged #821, #824, #825 and #826 (the last into main). No lamp actions or production source edits by this reviewer. The reviewer/log branch records the review work under the builder commit/push exception in CLAUDE.md (61d1ea6fc).
 
-Updated: 2026-10-15 23:22:24 +0700
+Updated: 2026-10-15 23:37:44 +0700
+
+## PR #858 — gate c5959c003
+
+[Pull request](https://github.com/autonomous-ai/lampOS/pull/858)
+
+Reviewer: 23:36: fresh gate finished on `c5959c003`: fmt and strict all-target Voice Clippy pass; complete serial Voice is **1,358 passed / 1 failed / 8 ignored**. The failure is `reminders::consumer::tests::completed_playout_survives_both_real_store_reopens_then_acks_without_respeech`, `lampOS/crates/voice/src/reminders/consumer/tests.rs:644`, expecting `AckConfirmed`.
+
+The test, consumer and Schedule client/delivery/store sources are byte-identical to this head's base and the preceding reviewed head. Its one isolated retry in the preserved original binary passes (0.96 s; SHA256 `b87d7ac7df4a8f3f4d6c712623b0138097f22ec1280c58181585319acfb1e755`). That diagnoses a non-reproducing inherited failure; it does not turn the original suite green. I found no established coverage for this acknowledgement failure in the Queue-linked #739/#783/#837 families, so I am not applying the passes-alone waiver.
+
+[Exact-head pull-request ARM64](https://github.com/autonomous-ai/lampOS/actions/runs/38767314193) is green: 4,744 passed / 126 skipped, including this reminder case and the new stale-evidence regression. All raw results and original binaries are retained. The stale-first/partial-Body finding above and First's #841 physical acceptance remain unresolved; no merge.
+
+## PR #864 — fixes rebase 20e6358f4
+
+[Pull request](https://github.com/autonomous-ai/lampOS/pull/864)
+
+Reviewer: 23:32: both original P2 findings are fixed on `20e6358f4`. The unchanged independent reproduction now passes: final comma-separated calls and later sentence-opening calls Play, references with adjectives/compound nouns Hold, and the advertised controls pass. All 440 switch-off inputs still match the actual pre-PR classifier and decision. The worker regressions now cover the reported cases as well. Fresh fmt and strict all-target Voice Clippy pass; the complete serial Voice run continues.
+
+Please rebase onto current `lamp-voice`. Read-only integration against `b60062b86` confirms conflicts in `lampOS/crates/voice/src/provider_worker.rs`, `lampOS/crates/voice/src/provider_worker/tests/review_2026_10_14.rs` and `lampOS/docs/attention.md`. Preserve both `sounds_checked` and `name_in_passing_ignored` fields/wiring/tests, and both the #800 and #829 documentation sections. No native pull-request ARM64 run is attached to this head yet; the conflicting merge must be resolved before that gate can run.
+
+The existing P3 citation finding at `lampOS/docs/verification/two-people-20261015/README.md:83-84` is unchanged: the cited .85-.88 results use the larger multimodal feature set, not head pose plus voice activity alone. Correct that attribution as requested in the earlier review. #829 remains open, as does First's physical on/off-scene handoff. I will review the integration and its exact-head gates after the rebase.
+
+## PR #858 — stale first c5959c003
+
+[Pull request](https://github.com/autonomous-ai/lampOS/pull/858)
+
+Reviewer: [P2] 23:27: the stale-first observation must also make Body history sticky (`lampOS/crates/voice/src/onboarding.rs:350-367`, with read errors mapped to `Never` at 318-324). On `c5959c003`, only `Fresh` sets `joints_heard` / `hand_heard`. A topic first observed as `Stale` blocks that one read, but a later missing value or I/O error restores the never-heard exemption.
+
+Independent tests of the actual module and public Bus reproduce both transitions with continuously fresh centered faces: an initially stale moving JointState followed by removal of its latest value becomes still after 292 ms and saves Done after 3.351 s; an initially stale pushed Hand followed by a Bus read error saves Done after 3.322 s without a release. These are explicit filesystem-loss/error fault injections; normal publisher shutdown retains latest, so I am not claiming that a normal restart alone causes this.
+
+Remember a topic as observed when a stale or unparseable value is present too, and keep subsequent failed/missing reads blocked. Add the stale-first-to-missing/error transitions to the regression. Both original fresh-then-stale failures now pass, along with fresh-first-to-missing, fresh movement/Hand reset, forged-completion rejection and Mark/onboarding routing controls. The fresh full Voice gate continues; #841 and First's physical acceptance remain open.
+
+Additional actual-writer check at 23:31: the exemption must be for a genuinely absent Body, not independently for each topic (`onboarding.rs:355,366`). With the unchanged real `BusOut::offer` / publishing code, I injected a storage fault only at `body/hand/latest`; fresh stationary JointState publications succeeded while every offered `Glimpse.hand` was true. Because Hand had never been read successfully, onboarding saved Done after 3.232 s (JointState sequence 37), with no released-Hand reading. The producer ignores per-topic write errors, so one topic's success does not prove the other signal is absent by design. This is a local storage-fault reproduction, not a lamp measurement.
+
+Latch Body presence when either topic is observed, require both stillness and release evidence thereafter, and distinguish a failed read from a configured absence. Cover fresh joints plus unavailable Hand as well as the stale-first transitions. No source edits or lamp access were used for these checks.
 
 ## Issue #800 — merged 818
 

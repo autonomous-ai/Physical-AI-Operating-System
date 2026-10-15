@@ -46,7 +46,7 @@ log and nothing a lamp runs ([joining.md](joining.md),
 | Id | Proposal | Issue | State |
 |---|---|---|---|
 | second-P1 | The early end taken back: resumed from the session's state before the piece, or a labelled continuation, probed once against the service before anything is built | #723 | yes, but (first builder on #723, 20:20): the study and the probe first, the probe's lamp step read-only of the voice's settings, recorded speech, at most 20 requests, `--dry-run`; taken 2026-10-14 |
-| second-P5 | The hello on arrival asks the Policy (the second half of #752) | #856 | filed 2026-10-15 20:4x; built on `second/hello-asks` (`0aac359c1`), off unless set; asks whether to open its pull request now |
+| second-P5 | The hello on arrival asks the Policy (the second half of #752) | #856 | filed 2026-10-15 20:4x; yes from the first builder at 00:02; draft #883 (`9e7b7cbf9`, rebased, `lamp-voice` 1,364, `lamp-policy` 171, `lamp-msgs` 89 passed); shadow on lamp-4ace from 2026-10-16 morning |
 
 ## Found, not mine
 

@@ -78,6 +78,16 @@ It publishes `policy/decisions` (`lamp_msgs/Decision`) under the name
 `policy`, and says once a second that it is alive there, because the topic
 is silent between decisions for longer than the bus's lease.
 
+**A person's rules, not read yet (#813).** The voice keeps
+`memory/rules` (`lamp_msgs::Rules`, [msgs.md](msgs.md)) with typed facts
+from what the person at the lamp asked of it: `quiet` (never speak first)
+and `quiet_mornings` (not in the mornings, before noon local time, or
+never), for `person`, the memory's id of the known person or `everyone`.
+It is kept until the next, so it is read with `latest`. The policy does
+not read it yet: a decision about speaking first (progress news, hello on
+arrival) should, and stay quiet when the fact says so for whoever is at
+the lamp.
+
 Once a second it also says how it is itself, on `diagnostics`
 (`lamp_msgs/Diagnostic`, under the name `policy`), with how many
 decisions it has made and how many of them by the rule:

@@ -399,6 +399,60 @@ inhibit new journal writes until a fresh worker; a restart also discards the
 old thread-file recap because it carries no provenance. These new paths
 have no task 29 lamp measurements.
 
+### What a person teaches and corrects (#813)
+
+Off unless set: the provider worker needs `LAMP_MEMORY_RULES=on` beside
+`LAMP_MEMORY_DAYS=on` (the coordinator passes both exact values through
+its cleared worker environment, to the provider only). With the legacy
+memory, or without the switch, the model is told of no new function, the
+memory is asked nothing new and every session note is the same bytes
+(`remember::tests::without_the_rules_switch_nothing_changes`).
+
+With it, a correction or a standing preference about how the lamp behaves
+with a person ("don't call me sir", "you don't need to tell me the weather
+every morning", "shorter answers") is a **rule**: the model calls
+`keep_rule` ([tools.md](tools.md#the-memorys)) with one short plain sentence
+of at most 200 bytes, never the person's whole words. Tasks, reminders and
+facts stay `remember`.
+
+- **Where it is kept.** A rule is a `kept` entry of its own scope beside
+  the person's memory: `r-<hex>` for the known person `p-<hex>`, and
+  `r-everyone` for the room when nobody is known (`rules::scope`). The
+  memory needed no new kind or schema: a rule is never in a person's own
+  scope, so a recall or a search never returns one, and a person's rules
+  are reached only through their own `r-` scope. A rule about speaking
+  first is marked in its text (`[quiet] ` or `[quiet_mornings] `); the mark
+  is taken off before anything is told to the model.
+- **Used.** Each new session is told, after its memory note, the room's
+  rules and then the known person's, at most 600 bytes of rule text each,
+  as "How you were asked to behave", within the note's 300 ms. Another
+  person's rules are never read for it. The rules `forget_rule` acts on
+  are numbered; the model is told never to say the numbers.
+- **Undone.** `forget_rule {number}` sends `forget` with that id in the
+  person's own `r-` scope, so nobody can take back another's rule;
+  `forget_rule {}` forgets the last one kept. A forgotten rule is erased
+  by the store and never told again. `list_rules` answers "what have I
+  asked you not to do?" from the same scope.
+- **The policy's typed fact.** At each session open, and after each rule
+  kept or forgotten, the voice publishes `lamp_msgs::Rules` on the bus's
+  kept topic `memory/rules` ([msgs.md](msgs.md)): the person id, `quiet`
+  (asked never to speak first), `quiet_mornings` (asked not to speak first
+  in the mornings, or never) and the count of rules. Never a rule's words.
+  The policy reads it with `latest`; reading and obeying it is the
+  policy's own change (#752).
+- The exchange in which a rule was kept, forgotten or listed stays out of
+  the journal, like `remember` and `forget`.
+
+Host test: `crates/memory/tests/voice_people.rs`
+(`days_a_rule_is_told_in_the_next_session_to_that_person_only_until_it_is_forgotten`)
+keeps Minh's rule through the real Days store, tells it in Minh's next
+session and never in Sam's or the room's, lists it, does not return it
+from a recall, refuses Sam's attempt to forget it and forgets it for Minh.
+Known limits: whether the model calls `keep_rule` for a spoken correction
+is not shown on the host; `memory/rules` holds the person of the last
+session opened or rule changed, not whoever is at the lamp now; a `forget_all`
+for one person must also name their `r-` scope (no caller sends one today).
+
 ### Played on the lamp
 
 On lamp-4ace on 2026-10-13, late in the evening with nobody in the office,

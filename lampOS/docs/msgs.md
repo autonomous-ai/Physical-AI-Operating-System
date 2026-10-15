@@ -36,9 +36,10 @@ Each type has `TYPE`, the name the bus compares (`lamp_msgs/JointState`),
 hands to `Bus::publisher_declared`. `first_topics()` keeps the original
 seventeen topics; `expression_topics()` lists the optional Expression
 contracts separately, and `controls_topics()` lists the optional Controls
-contracts, and `keeper_topics()` the keeper's pause. `logging_topics()` adds
-the optional operational log stream. `declaration_of()` recognizes every
-catalogue without changing `first_topics()`.
+contracts, `keeper_topics()` the keeper's pause, and `memory_topics()` the
+memory's typed rules. `logging_topics()` adds the optional operational log
+stream. `declaration_of()` recognizes every catalogue without changing
+`first_topics()`.
 
 ## The types
 
@@ -59,6 +60,7 @@ catalogue without changing `first_topics()`.
 | `NameHeard` | `name/heard` | event | none | The lamp's name was heard in what its microphone hears: how sure the listener was, from 0 to 1, and how many milliseconds before this was sent the name began. A sign, never proof ([name.md](name.md)) |
 | `Pause` | `lamp/pause` | latest | none | Whether the lamp is paused, as `lamp-keeper pause` or `resume` last said; kept until the next, read with `latest` by each part that honours it ([keeper.md](keeper.md), "Named states and the pause") |
 | `Hand` | `body/hand` | latest | 1 s | Whether a hand is pushing the lamp now, as the body feels it (`pushed`), and when that push began on the body's own clock (`since_us`, 0 when not pushed); said with every step lamp-body passes on the bus, every 80 ms ([body.md](body.md), "A hand on the bus") |
+| `Rules` | `memory/rules` | latest | none | What the people at the lamp asked it about speaking first, as typed facts for the policy (#813, [memory.md](memory.md#what-a-person-teaches-and-corrects-813)): `person` (the memory's id `p-<hex>` of the known person, or `everyone`), `quiet` (asked never to speak first, unprompted), `quiet_mornings` (asked not to speak first in the mornings, before noon local time, or never), and `rules`, how many rules of every kind the room's and theirs hold. Said by the voice with `LAMP_MEMORY_RULES=on` at each session open and each rule kept or forgotten; kept until the next. Never a rule's words |
 | `Decision` | `policy/decisions` | event | none | What the policy decided ([policy.md](policy.md)): what it was about, the choice, its probability, the decision model's answer to each question by the question's name, who decided, how long the asking took, whether anything acts on it, the request's number if known, and for a `progress` decision the work it was about (`task`, `<store>:<task>:<change>@<run>`, added 2026-10-15 as an optional field). Not what was heard |
 
 The kind and the period are the table of first topics in [bus.md](bus.md)
@@ -72,7 +74,8 @@ the bus's lease needs its publisher to call `alive()`.
 `policy/decisions`, `lamp/health`, `board/state` and `name/heard` were
 added after that table was written and are not in it: this table is where
 they are listed. `lamp/pause` is not one of the first topics either:
-`keeper_topics()` lists it, and `declaration_of()` recognizes it.
+`keeper_topics()` lists it, and `declaration_of()` recognizes it. Nor is
+`memory/rules`: `memory_topics()` lists it.
 `first_topics()` has them with the others. The last two are the only
 topics with a lifespan: a kept report of how things are must not outlive
 whoever wrote it.

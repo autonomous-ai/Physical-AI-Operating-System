@@ -133,3 +133,23 @@ Ready for lamp-voice: yes (#895), yes (#899), not yet (#907, ARM64 running)
   the whole 20 s watched.
 - Next, once #895 and #899 are in: the self-test's side of the tone and
   of the ring's colours.
+
+## 2026-10-16 — #812 nearly whole; #926 taken
+
+Ready for lamp-voice: yes (#929), not yet (#930, ARM64 running)
+
+- #812 merged parts: #895 (tone), #899 (ring's `light/test`/`light/drawn`,
+  accepted on lamp-4ace), #907 (touch by hand), #915 (the self-test asks for
+  the tone; speaker pass on lamp-4ace at 05:16: 63.77 dB, 178 ms, 7.0 dB
+  cancelled), #916 (ring colours). #929, lamp-4ace's on-demand unit with
+  `CAP_SYSLOG` only, reviewed with no finding, for the first builder.
+  Left: the servos' small move (asked the fifth, no answer yet).
+- #926 taken at 06:0x: in a conversation, behind `LAMP_OTHER_LANGUAGE=sorry`,
+  a turn heard in another script, a bare number after no question, or a
+  cut-in of one or two words with no common English word is held and asked
+  again with a written "Sorry?" turn. Draft #930. Not on the second route.
+  Not on a lamp: the first builder replays `cutins.sh`.
+- Found, not mine: the voice's provider-worker tests share
+  `attention::OWN_REQUEST` and fail together under plain `cargo test` on
+  unchanged `lamp-voice` (5 every time); added to #882. `lamp-actions`'
+  20 ms expiry test fails on a loaded runner: #920.

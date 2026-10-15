@@ -1,0 +1,19 @@
+    Finished `release` profile [optimized] target(s) in 0.47s
+────────────
+ Nextest run ID d6d060c0-f450-4578-9676-cf647e337cf5 with nextest profile: realtime
+    Starting 13 tests across 1 binary
+        PASS [   0.474s] ( 1/13) lamp-voice-eval::final_dispatch a_final_drain_that_exhausts_its_budget_requires_revalidation
+        PASS [   0.347s] ( 2/13) lamp-voice-eval::final_dispatch a_healthy_session_still_dispatches_once
+        PASS [   0.152s] ( 3/13) lamp-voice-eval::final_dispatch a_known_invalid_cue_withholds_dispatch_as_a_protocol_failure
+        PASS [   0.136s] ( 4/13) lamp-voice-eval::final_dispatch a_known_run_end_cue_withholds_dispatch
+        PASS [   0.141s] ( 5/13) lamp-voice-eval::final_dispatch a_known_session_end_withholds_dispatch
+        PASS [   0.949s] ( 6/13) lamp-voice-eval::final_dispatch a_relay_framing_error_first_seen_in_the_final_drain_withholds
+        PASS [   0.930s] ( 7/13) lamp-voice-eval::final_dispatch a_session_end_first_seen_in_the_final_drain_withholds_and_is_kept
+        PASS [   0.911s] ( 8/13) lamp-voice-eval::final_dispatch a_transport_closed_during_the_final_drain_withholds
+        PASS [   0.953s] ( 9/13) lamp-voice-eval::final_dispatch an_invalid_cue_first_seen_in_the_final_drain_withholds
+        PASS [   0.949s] (10/13) lamp-voice-eval::final_dispatch an_unobserved_event_in_the_final_drain_requires_revalidation
+        PASS [   0.198s] (11/13) lamp-voice-eval::final_dispatch audit_physical_boundary_does_not_dispatch_during_post_exit_trace_relay
+        PASS [   0.189s] (12/13) lamp-voice-eval::final_dispatch audit_physical_boundary_rejects_a_target_already_over_100ms_late
+        PASS [   0.149s] (13/13) lamp-voice-eval::final_dispatch the_first_terminal_cause_wins_and_a_provider_failure_stays_provider_unavailable
+────────────
+     Summary [   6.487s] 13 tests run: 13 passed, 0 skipped

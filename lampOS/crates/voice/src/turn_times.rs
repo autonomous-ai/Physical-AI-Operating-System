@@ -111,6 +111,12 @@ impl Turn {
         let lead_in = call
             .zip(self.first_audio_us)
             .is_some_and(|(call, audio)| audio < call.called_us);
+        // Sound before our answer was sent, whether before the call or
+        // between the call and the answer: the first audio is then not what
+        // came after the answer either (#810 review, 18:33).
+        let audio_before_answer = call
+            .zip(self.first_audio_us)
+            .is_some_and(|(call, audio)| audio < call.sent_us);
         json!({
             "turn": self.turn,
             "kind": if self.with_function() { "function" } else { "plain" },
@@ -121,6 +127,7 @@ impl Turn {
             "answer_sent_ms": self.after(call.map(|call| call.sent_us)),
             "first_audio_ms": self.after(self.first_audio_us),
             "lead_in": lead_in,
+            "audio_before_answer": audio_before_answer,
             "first_sound_ms": self.after(self.first_sound_us),
             "outcome": self.outcome,
         })
@@ -274,19 +281,21 @@ pub fn summary(turns: &[Turn]) -> Value {
             "n": count("function"),
             "call_ms": of("function", "call_ms"),
             "answer_sent_after_call_ms": between("call_ms", "answer_sent_ms"),
-            // Only for turns with no lead-in: with one, the first audio came
-            // before the call (#810 review, 17:23).
+            // Only for turns whose first audio came after our answer was
+            // sent: before it, a lead-in or audio while the call was out,
+            // it is not the answer's delay (#810 review, 17:23 and 18:33).
             "first_audio_after_answer_ms": median(
                 rows.iter()
                     .filter(|row| {
                         row["kind"] == "function"
                             && !row["first_sound_ms"].is_null()
-                            && row["lead_in"] != true
+                            && row["audio_before_answer"] != true
                     })
                     .filter_map(|row| Some(row["first_audio_ms"].as_f64()? - row["answer_sent_ms"].as_f64()?))
                     .collect(),
             ),
             "with_lead_in": rows.iter().filter(|row| row["lead_in"] == true).count(),
+            "audio_before_answer": rows.iter().filter(|row| row["audio_before_answer"] == true).count(),
             "first_audio_ms": of("function", "first_audio_ms"),
             "first_sound_ms": of("function", "first_sound_ms"),
         },
@@ -426,6 +435,43 @@ mod tests {
         let mut reversed = rotated.clone();
         reversed.reverse();
         assert_eq!(super::turns(&reversed, &lines), turns);
+    }
+
+    /// The reviewer on #810 (18:33): audio between the call and our answer
+    /// is not a lead-in, and it is not the audio after our answer either;
+    /// taken for it, it read -2 ms. The turn is left out of that median,
+    /// and counted.
+    #[test]
+    fn audio_between_the_call_and_the_answer_is_not_the_answers_delay() {
+        let events = vec![
+            // The call at 1.1 s, audio at 1.102 s, our answer sent at 1.104 s.
+            event("local_endpoint", 5, 20_000_000),
+            event("provider_first_audio", 5, 21_102_000),
+            event("speaker_first_write", 5, 21_400_000),
+            // A turn measured as before: the answer at 1.045 s, audio 0.95 s after.
+            event("local_endpoint", 6, 30_000_000),
+            event("provider_first_audio", 6, 31_995_000),
+            event("speaker_first_write", 6, 32_345_000),
+        ];
+        let lines = vec![
+            call(5, "confirm_agent_task", 21_100_000, 21_104_000),
+            call(6, "confirm_agent_task", 31_000_000, 31_045_000),
+        ];
+        let turns = turns(&events, &lines);
+        let between = turns[0].row();
+        assert_eq!(
+            (
+                between["lead_in"].clone(),
+                between["audio_before_answer"].clone()
+            ),
+            (json!(false), json!(true))
+        );
+        assert_eq!(turns[1].row()["audio_before_answer"], false);
+        let summary = summary(&turns);
+        assert_eq!(summary["function"]["n"], 2);
+        assert_eq!(summary["function"]["first_audio_after_answer_ms"], 950.0);
+        assert_eq!(summary["function"]["audio_before_answer"], 1);
+        assert_eq!(summary["function"]["with_lead_in"], 0);
     }
 
     #[test]

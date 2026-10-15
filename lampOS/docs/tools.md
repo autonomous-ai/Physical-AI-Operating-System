@@ -376,10 +376,14 @@ milliseconds after the voice decided the person had finished
 
 Then medians for turns with a function call and for plain ones, with each
 step of the first: the call, our answer, the model's audio after it, and the
-sound. A turn whose first audio came before its call (a lead-in) is marked
-`lead_in`: its audio after our answer is not in the records, so it is left
-out of that median, and its first sound counts as any other's
-(`with_lead_in` counts them). The records are read in two passes, the turns
+sound. A turn whose first audio came before our answer was sent is marked
+`audio_before_answer`: its audio after our answer is not in the records, so
+it is left out of that median, and its first sound counts as any other's
+(`audio_before_answer` in the summary counts them). One whose first audio
+came before the call itself, a lead-in, is also marked `lead_in`
+(`with_lead_in`); audio between the call and our answer is not a lead-in
+and is left out all the same (the reviewer on #810, 18:33: taken for the
+answer's delay it read -2 ms). The records are read in two passes, the turns
 first and then what came of them, the earliest of each, so the order the
 service's numbered files are read in does not matter. The time our answer
 was sent is taken as it is sent, before its journal line. A turn whose only calls are `not_for_me` or `heard_my_name` is plain:

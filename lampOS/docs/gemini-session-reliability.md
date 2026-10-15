@@ -612,6 +612,36 @@ blocks. The other five have never run.
 
 ## Verification
 
+### Explicit capture-clock fixtures
+
+The default-off `lamp-gemini` feature `fixture-clock` adds
+`testing::CaptureClock`, `pair_with_capture_clock(config, session, capacity, clock)`
+and `connector_with_capture_clock(config, capacity, clock)`. Unit-test builds expose
+the same APIs without that feature, so the normal native test command runs these
+regressions. Ordinary library builds expose them only with `fixture-clock`.
+The explicit factories run the same setup handshake and Actor as the existing
+in-memory service. One
+shared clock supplies capture age to the actual InputSender and Actor, including
+pending images and kept audio. Existing factories always select system time,
+including in a build where another package enables the feature.
+
+The clock returns a pure, current `std::time::Instant` in the acquisition domain.
+Reads do not advance time, pump work or change Tokio time. The fixture controller
+owns monotonic updates, epoch validation and cancellation; invalidation must keep
+the last admitted reading until cancellation, never jump to host time. Audio
+still has the full strict 2,500 ms bound, images 2 s, and kept audio
+`MAX_INPUT_AGE + patience`. The two Actor audio checks remain separate fresh reads.
+Protocol deadlines, image write timing and the original 10 ms Actor intervals
+still use Tokio.
+
+The additional `session::capture_clock_tests` exercise exact age boundaries,
+queue-to-Actor expiry, real image and audio writes, kept-audio release, default
+factory isolation, and reconnect setup/capacity. Their ordering evidence comes
+from actual wire messages, events and Actor completion. A clock sample, successful
+enqueue or empty socket is not a completed poll. Existing test bodies and
+assertions are unchanged. This is clock preparation: it does not migrate a Voice
+scenario, provide a provider progress barrier, or establish device latency.
+
 ### Strict continuation probe (example-only addition)
 
 The explicit `continue-before-output` mode sends two **different**, already

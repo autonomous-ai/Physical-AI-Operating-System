@@ -1,0 +1,13 @@
+--- HEAD:crates/gemini/Cargo.toml
++++ current:crates/gemini/Cargo.toml
+@@ -4,6 +4,10 @@
+ edition.workspace = true
+ rust-version.workspace = true
+ publish.workspace = true
++
++[features]
++default = []
++fixture-clock = []
+ 
+ [dependencies]
+ serde.workspace = true

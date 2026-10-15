@@ -1,0 +1,26 @@
+{
+  "date": "2026-10-16 03:33:19 +0700",
+  "method": "Exact single-occurrence allowlisted source transformations; no whitespace normalization or generated inverse diff",
+  "files": [
+    {
+      "path": "crates/gemini/Cargo.toml",
+      "reversed_sha256": "00336dabd32df739b068669cd5a861590192ae85fd7af824db90429593c86838",
+      "exact": true
+    },
+    {
+      "path": "crates/gemini/src/session.rs",
+      "reversed_sha256": "2856a8d1910fb2b1d46930cc7db17e695543ddc9524f55c8f36a9250ffc0438b",
+      "exact": true
+    },
+    {
+      "path": "crates/gemini/src/testing.rs",
+      "reversed_sha256": "0a13daf42afc0024e8ed7473b1f323b4409ef0ef8ccd35bb8be90c9b8fa5cb6f",
+      "exact": true
+    },
+    {
+      "path": "docs/gemini-session-reliability.md",
+      "reversed_sha256": "f7cd7301b0df13ea47e24f2f214ade5add15543ea3950c4e0bc1be32bbb1b5cf",
+      "exact": true
+    }
+  ]
+}

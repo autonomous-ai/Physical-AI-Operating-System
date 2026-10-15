@@ -1,0 +1,15 @@
+{
+  "date_from_date": "2026-10-16 05:26:03 +0700",
+  "base": "7ae0eb647914e286817c29bff2abc2934fb19546",
+  "source_sha256": {
+    "lampOS/crates/gemini/Cargo.toml": "5b94eadddf2bdc8677d8e584a6cc3ffbdf38f79eba775a9dd141268b1c9a0816",
+    "lampOS/crates/gemini/src/session.rs": "27f0d1b329d5407e2b85941a60fd747d12eed3fc7aa07accbf0ceda373ae6073",
+    "lampOS/crates/gemini/src/testing.rs": "ac34ac1c456b9e87557bec5aa9c6c4f1a5bc86fcbd09d9518bc13c98859081d3",
+    "lampOS/crates/gemini/src/session/capture_clock_tests.rs": "5c2bbcae2d621c982213fb49d23a2a841d21f089e692e97aa465d4d6d2aeef05",
+    "lampOS/docs/gemini-session-reliability.md": "753906cd40b84c767b04769e136b065b0ac17a6c8e970f3181f116ffcd50275e"
+  },
+  "all_five_match_reviewed_and_gated_source": true,
+  "other_30_original_gemini_rust_sources_exact": true,
+  "independent_four_file_reversals_match_current_base": true,
+  "scope": "Evidence packaging only; no source changes."
+}

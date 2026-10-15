@@ -1,0 +1,154 @@
+--- HEAD:crates/gemini/src/session.rs
++++ current:crates/gemini/src/session.rs
+@@ -16,8 +16,8 @@
+     time::{Duration, Instant},
+ };
+ // Deadlines use the runtime clock so scripted tests can cover minutes of
+-// conversation without waiting for them. Capture ages stay on the system
+-// monotonic clock: they describe when audio was actually acquired.
++// conversation without waiting for them. Capture ages use system monotonic time
++// unless an explicit fixture clock supplies their acquisition-time domain.
+ use tokio::{
+     io::{AsyncRead, AsyncWrite},
+     sync::{Notify, mpsc, watch},
+@@ -41,7 +41,24 @@
+     proceed: std::sync::mpsc::Receiver<()>,
+ }
+ 
++#[derive(Clone)]
++pub(crate) enum CaptureClockSource {
++    System,
++    #[cfg(any(test, feature = "fixture-clock"))]
++    Fixture(Arc<dyn crate::testing::CaptureClock>),
++}
++impl CaptureClockSource {
++    fn now(&self) -> Instant {
++        match self {
++            Self::System => Instant::now(),
++            #[cfg(any(test, feature = "fixture-clock"))]
++            Self::Fixture(clock) => clock.now(),
++        }
++    }
++}
++
+ struct Shared {
++    capture_clock: CaptureClockSource,
+     // Test-only deterministic preemption between discard's existing atomics.
+     #[cfg(test)]
+     discard_publication_pause: Mutex<Option<DiscardPublicationPause>>,
+@@ -198,7 +215,7 @@
+         if request.get() <= self.shared.retired_through.load(Ordering::Acquire) {
+             return Err(Error::StaleRequest);
+         }
+-        check_age(captured_at)?;
++        check_age(captured_at, &self.shared.capture_clock)?;
+         if samples.is_empty() || samples.len() > MAX_INPUT_SAMPLES {
+             return Err(Error::InvalidAudio);
+         }
+@@ -330,7 +347,10 @@
+         if !is_jpeg(jpeg) {
+             return Err(ImageRefusal::NotJpeg);
+         }
+-        if Instant::now()
++        if self
++            .shared
++            .capture_clock
++            .now()
+             .checked_duration_since(captured_at)
+             .is_none_or(|age| age >= MAX_IMAGE_AGE)
+         {
+@@ -623,9 +643,21 @@
+ }
+ 
+ pub(crate) async fn setup_and_spawn<S>(
++    socket: WebSocketStream<S>,
++    config: SessionConfig,
++    session: SessionId,
++) -> Result<Connection>
++where
++    S: AsyncRead + AsyncWrite + Unpin + Send + 'static,
++{
++    setup_and_spawn_with_capture_clock(socket, config, session, CaptureClockSource::System).await
++}
++
++pub(crate) async fn setup_and_spawn_with_capture_clock<S>(
+     mut socket: WebSocketStream<S>,
+     config: SessionConfig,
+     session: SessionId,
++    capture_clock: CaptureClockSource,
+ ) -> Result<Connection>
+ where
+     S: AsyncRead + AsyncWrite + Unpin + Send + 'static,
+@@ -685,6 +717,7 @@
+     let (state_tx, state) = watch::channel(State::Ready);
+     let (stop, stop_rx) = watch::channel(None);
+     let shared = Arc::new(Shared {
++        capture_clock,
+         #[cfg(test)]
+         discard_publication_pause: Mutex::new(None),
+         retired_through: AtomicU64::new(0),
+@@ -788,8 +821,8 @@
+             last_capture: None,
+         }
+     }
+-    fn accept(&mut self, audio: &Audio) -> Result<()> {
+-        check_age(audio.captured_at)?;
++    fn accept(&mut self, audio: &Audio, clock: &CaptureClockSource) -> Result<()> {
++        check_age(audio.captured_at, clock)?;
+         if !self.open
+             || self
+                 .last_sequence
+@@ -1163,7 +1196,10 @@
+                 && self.current.as_ref().is_some_and(|turn| {
+                     turn.lineage.request == image.request && turn.input.open && !turn.retired
+                 });
+-            let fresh = Instant::now()
++            let fresh = self
++                .shared
++                .capture_clock
++                .now()
+                 .checked_duration_since(image.captured_at)
+                 .is_some_and(|age| age < MAX_IMAGE_AGE);
+             if images.revoked(image.grant) {
+@@ -1701,7 +1737,10 @@
+                 break;
+             };
+             held.samples -= audio.samples.len();
+-            let age = Instant::now()
++            let age = self
++                .shared
++                .capture_clock
++                .now()
+                 .checked_duration_since(audio.captured_at)
+                 .filter(|age| *age < bound)
+                 .ok_or(Error::StaleInput)?;
+@@ -1763,8 +1802,8 @@
+                     .as_mut()
+                     .filter(|turn| turn.lineage.request == audio.request)
+                     .ok_or(Error::StaleRequest)?;
+-                turn.input.accept(&audio)?;
+-                let age = check_age(audio.captured_at)?;
++                turn.input.accept(&audio, &self.shared.capture_clock)?;
++                let age = check_age(audio.captured_at, &self.shared.capture_clock)?;
+                 if let Some(held) = self.held.as_mut() {
+                     // Behind the kept start, or behind kept audio that is
+                     // still being written: in order either way.
+@@ -2396,8 +2435,9 @@
+     }
+ }
+ 
+-fn check_age(captured_at: Instant) -> Result<Duration> {
+-    Instant::now()
++fn check_age(captured_at: Instant, clock: &CaptureClockSource) -> Result<Duration> {
++    clock
++        .now()
+         .checked_duration_since(captured_at)
+         .filter(|age| *age < MAX_INPUT_AGE)
+         .ok_or(Error::StaleInput)
+@@ -2431,3 +2471,6 @@
+ 
+ #[cfg(test)]
+ mod tests;
++
++#[cfg(test)]
++mod capture_clock_tests;

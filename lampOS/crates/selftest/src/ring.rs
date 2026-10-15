@@ -1,7 +1,13 @@
 //! The ring: each colour asked for on `light/command`, as the actions
-//! program asks, and seen on `light/state`, where the ring's owner
-//! (`lamp-voice`) says what it shows. The light asked for before the test
-//! is asked for again after it, so the person keeps their own setting.
+//! program asks, and seen taken on `light/state`, where the ring's owner
+//! (`lamp-voice`) says what it is to show. The light asked for before the
+//! test is asked for again after it, so the person keeps their own setting;
+//! a light the person asks for during the test stops it and is left alone.
+//!
+//! `light/state` says what the ring's owner took, not what it drew: the
+//! ring refuses to draw under the privacy switch or while a turn owns the
+//! lamp, and nothing on the bus says so. So a ring whose every colour was
+//! taken is `not_checked`, never `pass`, until the owner says what it drew.
 //!
 //! Only at the factory and when asked. At the first boot the ring is only
 //! listened to: a new lamp running through ten colours in its new home is
@@ -9,7 +15,7 @@
 use crate::Check;
 use lamp_bus::Bus;
 use lamp_msgs::{Light, PartResult, Verdict};
-use std::time::{Duration, Instant};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 /// The name the self-test asks under.
 pub const SOURCE: &str = "selftest";
@@ -31,6 +37,22 @@ fn shown(bus: &Bus) -> Result<Option<(Light, Duration)>, String> {
         Some(seen) => Ok(Some((seen.value, seen.age))),
         None => Ok(None),
     }
+}
+
+/// Whether someone other than the self-test asked for a light at or after
+/// `since_ms` (wall clock, as the bus keeps it).
+fn asked_by_another(bus: &Bus, since_ms: u64) -> bool {
+    matches!(
+        bus.latest(Light::TOPICS[0]),
+        Ok(Some(message)) if message.header.source != SOURCE && message.header.at_unix_ms >= since_ms
+    )
+}
+
+fn unix_ms() -> u64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|d| d.as_millis() as u64)
+        .unwrap_or(0)
 }
 
 /// Waits until the ring says it shows `light`, or `within` has passed.
@@ -95,8 +117,12 @@ impl Check for Ring<'_> {
             Ok(Some((light, _))) => light,
         };
         if !self.active {
-            return PartResult::new(part, Verdict::Pass, "listened only")
-                .with("colour", &before.colour);
+            return PartResult::new(
+                part,
+                Verdict::NotChecked,
+                "listened only: the ring's owner runs, and what it draws cannot be read back",
+            )
+            .with("colour", &before.colour);
         }
         // The person's own light: the newest asked for, which the bus
         // keeps, or what is shown if nobody ever asked.
@@ -120,6 +146,7 @@ impl Check for Ring<'_> {
                     );
                 }
             };
+        let began_ms = unix_ms();
         let mut clock = 0;
         let mut ask = |light: &Light| {
             clock += 1;
@@ -127,8 +154,13 @@ impl Check for Ring<'_> {
         };
         let mut missed = Vec::new();
         let mut reached = 0;
+        let mut yielded = false;
         for colour in Light::COLOURS {
             if Instant::now() + SHOWN_WITHIN > deadline {
+                break;
+            }
+            if asked_by_another(self.bus, began_ms) {
+                yielded = true;
                 break;
             }
             let light = Light {
@@ -143,12 +175,23 @@ impl Check for Ring<'_> {
             }
             reached += 1;
         }
-        let restored = ask(&own) && wait_shown(self.bus, &own, SHOWN_WITHIN);
+        // A light asked for during the test is the person's newest wish:
+        // it is left as it is, and the old one is not put back over it.
+        yielded = yielded || asked_by_another(self.bus, began_ms);
+        let restored = !yielded && ask(&own) && wait_shown(self.bus, &own, SHOWN_WITHIN);
         let result = if !missed.is_empty() {
             PartResult::new(
                 part,
                 Verdict::Fail,
                 &format!("not shown within 1 s: {}", missed.join(", ")),
+            )
+        } else if yielded {
+            PartResult::new(
+                part,
+                Verdict::NotChecked,
+                &format!(
+                    "a light was asked for during the check, after {reached} colours; it was left as asked"
+                ),
             )
         } else if reached < Light::COLOURS.len() {
             PartResult::new(
@@ -166,11 +209,18 @@ impl Check for Ring<'_> {
                 "every colour shown, but the light before was not shown again",
             )
         } else {
-            PartResult::new(part, Verdict::Pass, "")
+            PartResult::new(
+                part,
+                Verdict::NotChecked,
+                "every colour was taken by the ring's owner and the light put back; whether it was drawn cannot be read back",
+            )
         };
-        result
-            .with("colours", reached)
-            .with("restored", &own.colour)
+        let result = result.with("colours", reached);
+        if restored {
+            result.with("restored", &own.colour)
+        } else {
+            result
+        }
     }
 }
 
@@ -238,7 +288,7 @@ mod tests {
     }
 
     #[test]
-    fn every_colour_is_shown_and_the_persons_own_light_comes_back() {
+    fn every_colour_taken_is_not_a_pass_and_the_persons_own_light_comes_back() {
         let root = Root::new("ring-ok");
         let bus = Bus::new(&root.0).unwrap();
         let mut person = bus
@@ -253,7 +303,13 @@ mod tests {
             active: true,
         }
         .run(Instant::now() + Duration::from_secs(30));
-        assert_eq!(result.verdict, Verdict::Pass, "{result:?}");
+        // Taken is not drawn: nothing says the ring drew it.
+        assert_eq!(result.verdict, Verdict::NotChecked, "{result:?}");
+        assert!(
+            result.reason.contains("cannot be read back"),
+            "{}",
+            result.reason
+        );
         assert!(
             result
                 .values
@@ -300,11 +356,64 @@ mod tests {
             active: false,
         }
         .run(Instant::now() + Duration::from_secs(5));
-        assert_eq!(heard.verdict, Verdict::Pass, "{heard:?}");
+        assert_eq!(heard.verdict, Verdict::NotChecked, "{heard:?}");
+        assert!(
+            heard.reason.starts_with("listened only"),
+            "{}",
+            heard.reason
+        );
         assert!(
             bus.latest(Light::TOPICS[0]).unwrap().is_none(),
             "nothing was asked"
         );
+        stop.store(true, Ordering::Relaxed);
+        owner.join().unwrap();
+    }
+
+    #[test]
+    fn a_light_the_person_asks_for_during_the_check_stops_it_and_is_left_alone() {
+        let root = Root::new("ring-asks");
+        let bus = Bus::new(&root.0).unwrap();
+        let stop = Arc::new(AtomicBool::new(false));
+        let owner = ring(&root.0, None, stop.clone());
+        let mut person = bus
+            .publisher_declared(Light::TOPICS[0], &Light::declaration(), "actions")
+            .unwrap();
+        let asks = std::thread::spawn(move || {
+            std::thread::sleep(Duration::from_millis(150));
+            let wish = Light {
+                on: false,
+                colour: "blue".into(),
+                level: 5,
+            };
+            person.publish_json(1, &wish).unwrap();
+            person
+        });
+        let result = Ring {
+            bus: &bus,
+            active: true,
+        }
+        .run(Instant::now() + Duration::from_secs(30));
+        let _person = asks.join().unwrap();
+        assert_eq!(result.verdict, Verdict::NotChecked, "{result:?}");
+        assert!(result.reason.contains("left as asked"), "{}", result.reason);
+        assert!(!result.values.iter().any(|v| v.key == "restored"));
+        let wish = Light {
+            on: false,
+            colour: "blue".into(),
+            level: 5,
+        };
+        assert!(
+            wait_shown(&bus, &wish, SHOWN_WITHIN),
+            "the person's light stands"
+        );
+        let asked: Light = bus
+            .latest(Light::TOPICS[0])
+            .unwrap()
+            .unwrap()
+            .parse()
+            .unwrap();
+        assert_eq!(asked, wish);
         stop.store(true, Ordering::Relaxed);
         owner.join().unwrap();
     }

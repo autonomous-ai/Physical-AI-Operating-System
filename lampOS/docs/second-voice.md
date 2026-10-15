@@ -107,7 +107,8 @@ A base URL on `campaign-api.autonomous.ai` ending in `/ai` is given `/v1`
   `<base>/ws/audio/transcriptions` (the base made `wss://`). Query, V1's for
   nova models: `model=nova-3-general`, `encoding=linear16`,
   `sample_rate=16000`, `channels=1`, `language`, `smart_format=true`,
-  `interim_results=true`, `endpointing=1500`, `vad_events=true`, and
+  `interim_results=true`, `endpointing=300` (V1's was 1500; see Latency
+  targets), `vad_events=true`, and
   `keyterm=Lamp`, as V1 boosts the lamp's name: without it, on lamp-52e6,
   "Hey Lamp" came back as "Palin", "Palan" and "Len", and the model took
   the question for other people's talk. A keep-alive
@@ -286,10 +287,12 @@ s after the line; speech starts 0.4 to 0.6 s after the chat's first event.
 Since then (#779, step 1) the chat no longer waits for that round trip when
 the words had settled before the line ended (see "A turn on the second
 route"); how often that is so on a lamp, and the time saved, is not yet
-measured. With `endpointing=1500` an utterance's end needs 1.5 s of
+measured. With V1's `endpointing=1500` an utterance's end needed 1.5 s of
 silence, and the coordinator ends a line after 0.4 to 1.5 s of it
-(`coordinator/endpoint.rs`), so a `speech_final` will seldom come first:
-a lower `endpointing` is the knob that would make it, not yet tried.
+(`coordinator/endpoint.rs`), so a `speech_final` would seldom come first;
+it is now 300 ms, so that it usually does. Whether that ever splits one
+spoken line into two final segments in a way the chat reads badly is not
+yet seen on a lamp.
 
 - First turn after a switch: the sentence starts within 1.2 s, and the
   answer follows with no gap longer than 0.5 s.

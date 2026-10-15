@@ -1,0 +1,60 @@
+{
+  "checked_at_from_date": "2026-10-16 05:08:49+0700",
+  "base": "7ae0eb647914e286817c29bff2abc2934fb19546",
+  "default_source_reversal_byte_exact": true,
+  "all_additions_cfg_test_only": true,
+  "old_test_module_byte_exact": true,
+  "old_test_module_sha256": "9b5164732d82e500c315e954b540cdf00c47c710aa4d4ae183269b22c28372c6",
+  "old_tests": [
+    {
+      "name": "a_receiver_held_up_takes_what_queued_meanwhile_within_a_bound",
+      "body_and_attribute_sha256": "1885b92662b97716f3a703a0a0312df47b0e451faefc3662d5b59ad33e0bf4ea",
+      "assertion_macros": 5
+    },
+    {
+      "name": "only_the_next_message_in_order_may_come_late_from_a_held_up_sender",
+      "body_and_attribute_sha256": "d62ef0b0909ff08df4f60ab57d4789e8946a1225a84f0ef170b4787a987b2d1e",
+      "assertion_macros": 4
+    }
+  ],
+  "old_assertion_macros": 9,
+  "unchanged_existing_voice_files": 164,
+  "changed": [
+    "lampOS/crates/voice/src/transport.rs"
+  ],
+  "new": [
+    "lampOS/crates/voice/src/transport_probe.rs",
+    "lampOS/crates/voice/src/transport_probe_tests.rs"
+  ],
+  "removed": [],
+  "docs_reversal_byte_exact": true,
+  "original_clock_sample_count": 7,
+  "current_clock_sample_count": 7,
+  "original_send_commit_and_receive_validation_order_preserved": true,
+  "probe_has_no_io_clock_wait_loop_or_unsafe": true,
+  "new_tests": [
+    "successful_send_and_accepted_receive_are_separate_pure_observations",
+    "encoding_and_unconnected_send_failures_do_not_commit_sequence_or_evidence",
+    "actual_full_socket_would_block_does_not_count_or_commit_a_send",
+    "decode_boot_age_future_and_order_rejections_do_not_count_receives",
+    "accepted_sequence_gaps_keep_the_first_gap_and_do_not_extend_a_prefix",
+    "accepted_grace_and_one_sender_stall_count_only_after_the_original_checks",
+    "snapshots_keep_allocation_identity_after_channel_and_probe_drop",
+    "late_installation_is_rejected_even_after_failed_or_empty_io",
+    "a_latched_probe_fault_never_changes_actual_send_or_receive_success",
+    "counter_and_publication_overflow_latch_without_fabricating_success",
+    "boot_order_and_shared_state_faults_are_sticky_and_do_not_publish_more",
+    "a_snapshot_of_corrupt_stable_state_latches_failure",
+    "causally_held_publication_returns_busy_without_waiting_or_claiming_a_receipt",
+    "ordinary_channel_worker_and_reference_constructors_have_no_probe"
+  ],
+  "new_assertion_macros": 115,
+  "hashes": {
+    "lampOS/crates/voice/src/transport.rs": "ea318a0e1be7523411b8c4d8ca878d3c743965bf3a5b69b6b3026b4cb720c29b",
+    "lampOS/crates/voice/src/transport_probe.rs": "99f86fe4b888c9e61b4ddef1d1ad70c9d1795830667ed013f21d2a086de777e8",
+    "lampOS/crates/voice/src/transport_probe_tests.rs": "d2a1e5cca930741f727d7c9c4647a84ed532490adbb3663cc8f20edff571fa2b",
+    "lampOS/docs/voice-test-fixtures.md": "04bf0a07ddbd0e9de139988b65c51aa23a11bb1b542176a8185a473d923a19d4"
+  },
+  "cargo_builds_tests_run": false,
+  "git_index_unchanged": true
+}

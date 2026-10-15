@@ -9,6 +9,10 @@ use lamp_turn_owner::BootId;
 use serde::{Serialize, de::DeserializeOwned};
 use std::{io, path::Path};
 
+#[cfg(test)]
+#[path = "transport_probe.rs"]
+pub(crate) mod probe;
+
 /// The longest a receiver may itself have been held up and still take what
 /// queued for it meanwhile. On lamp-4ace the kernel re-tuning the SD/MMC
 /// hosts held the voice's processes for about 0.3 s some eleven times a
@@ -36,6 +40,8 @@ pub struct Channel {
     held_up_us: u64,
     /// The last message was taken late because its sender was held up.
     sender_held_up: bool,
+    #[cfg(test)]
+    probe: probe::Slot,
 }
 
 /// A worker's first control message is sent as soon as its peer is there and
@@ -69,7 +75,15 @@ impl Channel {
             last_look_us: None,
             held_up_us: 0,
             sender_held_up: false,
+            #[cfg(test)]
+            probe: probe::Slot::new(sender, peer),
         })
+    }
+
+    /// Attach fixture observations before any send or receive attempt.
+    #[cfg(test)]
+    pub(crate) fn install_probe(&mut self) -> io::Result<probe::Probe> {
+        self.probe.install(&self.name)
     }
 
     fn with_first_grace(mut self) -> Self {
@@ -81,6 +95,8 @@ impl Channel {
     }
 
     pub fn send<T: Serialize>(&mut self, payload: T) -> io::Result<()> {
+        #[cfg(test)]
+        self.probe.attempt();
         let sequence = self
             .send_sequence
             .checked_add(1)
@@ -93,10 +109,15 @@ impl Channel {
         })?;
         self.endpoint.try_send(&data)?;
         self.send_sequence = sequence;
+        #[cfg(test)]
+        self.probe
+            .record(probe::Direction::Send, self.sender, sequence);
         Ok(())
     }
 
     pub fn receive<T: DeserializeOwned>(&mut self) -> io::Result<Option<T>> {
+        #[cfg(test)]
+        self.probe.attempt();
         let now = monotonic_us();
         if let Some(last) = self.last_look_us {
             let gap = now.saturating_sub(last);
@@ -153,6 +174,9 @@ impl Channel {
             }
         }
         self.received = true;
+        #[cfg(test)]
+        self.probe
+            .record(probe::Direction::Receive, packet.boot, packet.sequence);
         Ok(Some(packet.payload))
     }
 }

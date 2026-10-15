@@ -1,0 +1,39 @@
+[
+  {
+    "command": [
+      "/Users/autonomous/.rustup/toolchains/1.96.0-x86_64-apple-darwin/bin/rustfmt",
+      "--edition",
+      "2024",
+      "--config",
+      "skip_children=true",
+      "lampOS/crates/voice/src/transport.rs",
+      "lampOS/crates/voice/src/transport_probe.rs",
+      "lampOS/crates/voice/src/transport_probe_tests.rs"
+    ],
+    "cwd": "/private/tmp/lampos-tests-transport-probes",
+    "started_from_date": "2026-10-16 05:08:41+0700",
+    "finished_from_date": "2026-10-16 05:08:41+0700",
+    "exit": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "/Users/autonomous/.rustup/toolchains/1.96.0-x86_64-apple-darwin/bin/rustfmt",
+      "--edition",
+      "2024",
+      "--config",
+      "skip_children=true",
+      "--check",
+      "lampOS/crates/voice/src/transport.rs",
+      "lampOS/crates/voice/src/transport_probe.rs",
+      "lampOS/crates/voice/src/transport_probe_tests.rs"
+    ],
+    "cwd": "/private/tmp/lampos-tests-transport-probes",
+    "started_from_date": "2026-10-16 05:08:41+0700",
+    "finished_from_date": "2026-10-16 05:08:41+0700",
+    "exit": 0,
+    "stdout": "",
+    "stderr": ""
+  }
+]

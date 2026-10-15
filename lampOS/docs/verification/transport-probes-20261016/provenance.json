@@ -1,0 +1,488 @@
+{
+  "prepared_at_from_date": "2026-10-16 05:55:29 +0700",
+  "finished_at_from_date": "2026-10-16 05:55:30 +0700",
+  "base": "7ae0eb647914e286817c29bff2abc2934fb19546",
+  "branch": "tests/823-transport-probes",
+  "target_branch": "lamp-voice",
+  "worktree": "/private/tmp/lampos-tests-transport-probes",
+  "source_sha256": {
+    "lampOS/crates/voice/src/transport.rs": "ea318a0e1be7523411b8c4d8ca878d3c743965bf3a5b69b6b3026b4cb720c29b",
+    "lampOS/crates/voice/src/transport_probe.rs": "99f86fe4b888c9e61b4ddef1d1ad70c9d1795830667ed013f21d2a086de777e8",
+    "lampOS/crates/voice/src/transport_probe_tests.rs": "d2a1e5cca930741f727d7c9c4647a84ed532490adbb3663cc8f20edff571fa2b",
+    "lampOS/docs/voice-test-fixtures.md": "04bf0a07ddbd0e9de139988b65c51aa23a11bb1b542176a8185a473d923a19d4"
+  },
+  "source_modes": {
+    "lampOS/crates/voice/src/transport.rs": 420,
+    "lampOS/crates/voice/src/transport_probe.rs": 420,
+    "lampOS/crates/voice/src/transport_probe_tests.rs": 420,
+    "lampOS/docs/voice-test-fixtures.md": 420
+  },
+  "source_bytes_and_modes_unchanged_by_packaging": true,
+  "git_index_unchanged_by_packaging": true,
+  "git_index_before_sha256": "bba48d4baec1abab0e4067286e88c84e39a47e18c7c23563b1be35475700c6cc",
+  "raw_copies": [
+    {
+      "source": "/private/tmp/tests-823-transport-probes-evidence/after-voice-files.json",
+      "path": "lampOS/docs/verification/transport-probes-20261016/local/after-voice-files.json",
+      "sha256": "3db9ac6ca1932821a2cb48fc41afce7c378af87c64a697f11eecf67cef8d17c3",
+      "bytes": 19754
+    },
+    {
+      "source": "/private/tmp/tests-823-transport-probes-evidence/baseline-compiled-inputs.json",
+      "path": "lampOS/docs/verification/transport-probes-20261016/local/baseline-compiled-inputs.json",
+      "sha256": "37f08bb3b0a0bf21fb3546050cead9c24b90f1146300aec7c71f1c78bd68328c",
+      "bytes": 75731
+    },
+    {
+      "source": "/private/tmp/tests-823-transport-probes-evidence/baseline-reuse-proof.json",
+      "path": "lampOS/docs/verification/transport-probes-20261016/local/baseline-reuse-proof.json",
+      "sha256": "e2a553f33e50b7020e9c87f69960aadde7bb17a3072504de196780155b9fa775",
+      "bytes": 957
+    },
+    {
+      "source": "/private/tmp/tests-823-transport-probes-evidence/before-transport.rs",
+      "path": "lampOS/docs/verification/transport-probes-20261016/local/before-transport.rs",
+      "sha256": "49308fd4a3e19ba1179a0410785e85912ed018757d79872497f40517529eae73",
+      "bytes": 13615
+    },
+    {
+      "source": "/private/tmp/tests-823-transport-probes-evidence/before-voice-test-fixtures.md",
+      "path": "lampOS/docs/verification/transport-probes-20261016/local/before-voice-test-fixtures.md",
+      "sha256": "7e59fc75a29b795a9fc66380db8869194f760c418aea5b82306604bdda6bbb21",
+      "bytes": 16485
+    },
+    {
+      "source": "/private/tmp/tests-823-transport-probes-evidence/before.json",
+      "path": "lampOS/docs/verification/transport-probes-20261016/local/before.json",
+      "sha256": "84d5926d5d0a3b4ccf5bd6b8d34d8b697800e61552c1e2ee3483ca86aa815919",
+      "bytes": 20557
+    },
+    {
+      "source": "/private/tmp/tests-823-transport-probes-evidence/docs-addition.md",
+      "path": "lampOS/docs/verification/transport-probes-20261016/local/docs-addition.md",
+      "sha256": "97f9e1daec7d9467d7f02053bf1e0df9a395c92d1dd323edc440289191bf53af",
+      "bytes": 1873
+    },
+    {
+      "source": "/private/tmp/tests-823-transport-probes-evidence/docs.diff",
+      "path": "lampOS/docs/verification/transport-probes-20261016/local/docs.diff",
+      "sha256": "cb8175f6903749bfffa909de1d246b4092c335a6112c6079754f5b95ccced8ff",
+      "bytes": 2187
+    },
+    {
+      "source": "/private/tmp/tests-823-transport-probes-evidence/final-hashes.json",
+      "path": "lampOS/docs/verification/transport-probes-20261016/local/final-hashes.json",
+      "sha256": "de609b3ecb6f8f0815b0e6a220b46060ee7cf83d508bf64771747e60cff00727",
+      "bytes": 1017
+    },
+    {
+      "source": "/private/tmp/tests-823-transport-probes-evidence/handoff.md",
+      "path": "lampOS/docs/verification/transport-probes-20261016/local/handoff.md",
+      "sha256": "2912b825a483ac7e3d5c7968451a1cd90e5b72ff2a93defd68e0bc32bb9ee4de",
+      "bytes": 8846
+    },
+    {
+      "source": "/private/tmp/tests-823-transport-probes-evidence/restored-transport.rs",
+      "path": "lampOS/docs/verification/transport-probes-20261016/local/restored-transport.rs",
+      "sha256": "49308fd4a3e19ba1179a0410785e85912ed018757d79872497f40517529eae73",
+      "bytes": 13615
+    },
+    {
+      "source": "/private/tmp/tests-823-transport-probes-evidence/reversal-additions.json",
+      "path": "lampOS/docs/verification/transport-probes-20261016/local/reversal-additions.json",
+      "sha256": "7499d0f22fdc6874c58a2b05719ebfd3605d8ab08d82b0e3062efbb132e64066",
+      "bytes": 1109
+    },
+    {
+      "source": "/private/tmp/tests-823-transport-probes-evidence/root-baseline-list.log",
+      "path": "lampOS/docs/verification/transport-probes-20261016/local/root-baseline-list.log",
+      "sha256": "d474a57d3ad8dd726260e4e97a87cd428ecc6a6c2f72126c36e762b9fdc9d9a9",
+      "bytes": 332067
+    },
+    {
+      "source": "/private/tmp/tests-823-transport-probes-evidence/root-build.exit",
+      "path": "lampOS/docs/verification/transport-probes-20261016/local/root-build.exit",
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+      "bytes": 2
+    },
+    {
+      "source": "/private/tmp/tests-823-transport-probes-evidence/root-build.finished",
+      "path": "lampOS/docs/verification/transport-probes-20261016/local/root-build.finished",
+      "sha256": "26b3bc1a5db15a473bd710b97e94870626fc1bcb6b2bf9d20e77e5d0a1c57ecd",
+      "bytes": 26
+    },
+    {
+      "source": "/private/tmp/tests-823-transport-probes-evidence/root-build.log",
+      "path": "lampOS/docs/verification/transport-probes-20261016/local/root-build.log",
+      "sha256": "6906455e3591942e59448b08ca9d4b4ec70701e9d62797fec207014efa5cf1a6",
+      "bytes": 3329
+    },
+    {
+      "source": "/private/tmp/tests-823-transport-probes-evidence/root-build.started",
+      "path": "lampOS/docs/verification/transport-probes-20261016/local/root-build.started",
+      "sha256": "0eed0570cb9e0b6a405bd068a8b8568050235f749d6e1308678b20b001df784d",
+      "bytes": 26
+    },
+    {
+      "source": "/private/tmp/tests-823-transport-probes-evidence/root-clippy.exit",
+      "path": "lampOS/docs/verification/transport-probes-20261016/local/root-clippy.exit",
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+      "bytes": 2
+    },
+    {
+      "source": "/private/tmp/tests-823-transport-probes-evidence/root-clippy.finished",
+      "path": "lampOS/docs/verification/transport-probes-20261016/local/root-clippy.finished",
+      "sha256": "ca833713809638732d1aeed83895be3c988f21ec9c1a73ae73ada36212dbf8f6",
+      "bytes": 26
+    },
+    {
+      "source": "/private/tmp/tests-823-transport-probes-evidence/root-clippy.log",
+      "path": "lampOS/docs/verification/transport-probes-20261016/local/root-clippy.log",
+      "sha256": "53dc519dee3d9181322207f83cb9db8c45e1b1564ac7f60e140f8c9004fb0971",
+      "bytes": 2273
+    },
+    {
+      "source": "/private/tmp/tests-823-transport-probes-evidence/root-clippy.started",
+      "path": "lampOS/docs/verification/transport-probes-20261016/local/root-clippy.started",
+      "sha256": "4f25b32c4c0eb0951285c2f0bb36f1f0eea82364de6fd0c9a7af5cde9c2fa6ab",
+      "bytes": 26
+    },
+    {
+      "source": "/private/tmp/tests-823-transport-probes-evidence/root-fmt.exit",
+      "path": "lampOS/docs/verification/transport-probes-20261016/local/root-fmt.exit",
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+      "bytes": 2
+    },
+    {
+      "source": "/private/tmp/tests-823-transport-probes-evidence/root-fmt.finished",
+      "path": "lampOS/docs/verification/transport-probes-20261016/local/root-fmt.finished",
+      "sha256": "4f25b32c4c0eb0951285c2f0bb36f1f0eea82364de6fd0c9a7af5cde9c2fa6ab",
+      "bytes": 26
+    },
+    {
+      "source": "/private/tmp/tests-823-transport-probes-evidence/root-fmt.log",
+      "path": "lampOS/docs/verification/transport-probes-20261016/local/root-fmt.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "source": "/private/tmp/tests-823-transport-probes-evidence/root-fmt.started",
+      "path": "lampOS/docs/verification/transport-probes-20261016/local/root-fmt.started",
+      "sha256": "2932ac8e25f0eba351c6e6859c6bbadc352b1719481ca64f4c60ffd3fc120abd",
+      "bytes": 26
+    },
+    {
+      "source": "/private/tmp/tests-823-transport-probes-evidence/root-focused-tests.exit",
+      "path": "lampOS/docs/verification/transport-probes-20261016/local/root-focused-tests.exit",
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+      "bytes": 2
+    },
+    {
+      "source": "/private/tmp/tests-823-transport-probes-evidence/root-focused-tests.finished",
+      "path": "lampOS/docs/verification/transport-probes-20261016/local/root-focused-tests.finished",
+      "sha256": "e862cba7ebe38ede731bf608d3c86a8ecbc00fe1d8b2520db8794ce7206464c5",
+      "bytes": 26
+    },
+    {
+      "source": "/private/tmp/tests-823-transport-probes-evidence/root-focused-tests.log",
+      "path": "lampOS/docs/verification/transport-probes-20261016/local/root-focused-tests.log",
+      "sha256": "bfd86a51044a0ce37c2aac4e7a5a56c68cba9480dba0e5df2f47ed9b0e8ed9b9",
+      "bytes": 5708
+    },
+    {
+      "source": "/private/tmp/tests-823-transport-probes-evidence/root-focused-tests.started",
+      "path": "lampOS/docs/verification/transport-probes-20261016/local/root-focused-tests.started",
+      "sha256": "94488350399b4259bd90825fd1444513116011a09c7c301699eecc04b0104145",
+      "bytes": 26
+    },
+    {
+      "source": "/private/tmp/tests-823-transport-probes-evidence/root-gates.json",
+      "path": "lampOS/docs/verification/transport-probes-20261016/local/root-gates.json",
+      "sha256": "e7380ecd0e49bf7036b98f106dd5e385e005d4788a40acd886e2974229118908",
+      "bytes": 2869
+    },
+    {
+      "source": "/private/tmp/tests-823-transport-probes-evidence/root-identity-proof.json",
+      "path": "lampOS/docs/verification/transport-probes-20261016/local/root-identity-proof.json",
+      "sha256": "c0c3751153c17a41715f5378f630e7a8e936ff132381320da2987dd594255357",
+      "bytes": 2026
+    },
+    {
+      "source": "/private/tmp/tests-823-transport-probes-evidence/root-independent-review.json",
+      "path": "lampOS/docs/verification/transport-probes-20261016/local/root-independent-review.json",
+      "sha256": "82c48dd5da20e9d28b1a0cec8e70874e35936c27ceee6425e7386e0c99af4656",
+      "bytes": 746
+    },
+    {
+      "source": "/private/tmp/tests-823-transport-probes-evidence/root-independent-review.md",
+      "path": "lampOS/docs/verification/transport-probes-20261016/local/root-independent-review.md",
+      "sha256": "90e59dfcc128f252b86a32167016fe2369c62dc28b1da4d6e52a20fb840e8af1",
+      "bytes": 3324
+    },
+    {
+      "source": "/private/tmp/tests-823-transport-probes-evidence/root-list.exit",
+      "path": "lampOS/docs/verification/transport-probes-20261016/local/root-list.exit",
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+      "bytes": 2
+    },
+    {
+      "source": "/private/tmp/tests-823-transport-probes-evidence/root-list.finished",
+      "path": "lampOS/docs/verification/transport-probes-20261016/local/root-list.finished",
+      "sha256": "94488350399b4259bd90825fd1444513116011a09c7c301699eecc04b0104145",
+      "bytes": 26
+    },
+    {
+      "source": "/private/tmp/tests-823-transport-probes-evidence/root-list.log",
+      "path": "lampOS/docs/verification/transport-probes-20261016/local/root-list.log",
+      "sha256": "7fbf52ed5deba0422ebccdc078b40860541d13f0010e6c520344669fd78b60f8",
+      "bytes": 335234
+    },
+    {
+      "source": "/private/tmp/tests-823-transport-probes-evidence/root-list.started",
+      "path": "lampOS/docs/verification/transport-probes-20261016/local/root-list.started",
+      "sha256": "ca833713809638732d1aeed83895be3c988f21ec9c1a73ae73ada36212dbf8f6",
+      "bytes": 26
+    },
+    {
+      "source": "/private/tmp/tests-823-transport-probes-evidence/root-result.json",
+      "path": "lampOS/docs/verification/transport-probes-20261016/local/root-result.json",
+      "sha256": "372a6f4adaf3eea0955e5410faa63b432a19c85633906e4eed35aa9ec10b29fa",
+      "bytes": 165
+    },
+    {
+      "source": "/private/tmp/tests-823-transport-probes-evidence/root-source.json",
+      "path": "lampOS/docs/verification/transport-probes-20261016/local/root-source.json",
+      "sha256": "6131b3c18f69fbde3a53b4d2f8ce3fc86634a04e4096cc4da6947728fef836ed",
+      "bytes": 20093
+    },
+    {
+      "source": "/private/tmp/tests-823-transport-probes-evidence/root-tests.exit",
+      "path": "lampOS/docs/verification/transport-probes-20261016/local/root-tests.exit",
+      "sha256": "39b8dc3fc8b44765c8e6f1adee04c5b465e555ab791cc42d0d9e810d5b64297c",
+      "bytes": 4
+    },
+    {
+      "source": "/private/tmp/tests-823-transport-probes-evidence/root-tests.finished",
+      "path": "lampOS/docs/verification/transport-probes-20261016/local/root-tests.finished",
+      "sha256": "0eed0570cb9e0b6a405bd068a8b8568050235f749d6e1308678b20b001df784d",
+      "bytes": 26
+    },
+    {
+      "source": "/private/tmp/tests-823-transport-probes-evidence/root-tests.log",
+      "path": "lampOS/docs/verification/transport-probes-20261016/local/root-tests.log",
+      "sha256": "2f9d1f055825cab7bec63afc107320febad0d775d508cc3902436b99ebfefbae",
+      "bytes": 205929
+    },
+    {
+      "source": "/private/tmp/tests-823-transport-probes-evidence/root-tests.started",
+      "path": "lampOS/docs/verification/transport-probes-20261016/local/root-tests.started",
+      "sha256": "e862cba7ebe38ede731bf608d3c86a8ecbc00fe1d8b2520db8794ce7206464c5",
+      "bytes": 26
+    },
+    {
+      "source": "/private/tmp/tests-823-transport-probes-evidence/rustfmt-final.json",
+      "path": "lampOS/docs/verification/transport-probes-20261016/local/rustfmt-final.json",
+      "sha256": "251bb2e04fef4906d1343d9d1d89bde55e7c9f78e8d6dfb66001e0351eef3d9d",
+      "bytes": 1152
+    },
+    {
+      "source": "/private/tmp/tests-823-transport-probes-evidence/rustfmt.json",
+      "path": "lampOS/docs/verification/transport-probes-20261016/local/rustfmt.json",
+      "sha256": "c72cf0853e0b0767681cabf18b4e7af32bebe2c21973ffd4922e03948eca4e52",
+      "bytes": 529
+    },
+    {
+      "source": "/private/tmp/tests-823-transport-probes-evidence/source-proof.json",
+      "path": "lampOS/docs/verification/transport-probes-20261016/local/source-proof.json",
+      "sha256": "00573409496423491d99163008a92fcb673253be3da088565b3851de390499b2",
+      "bytes": 2936
+    },
+    {
+      "source": "/private/tmp/tests-823-transport-probes-evidence/transport.diff",
+      "path": "lampOS/docs/verification/transport-probes-20261016/local/transport.diff",
+      "sha256": "5f22755cb3ff5b94f1e1d68188092c86bd4ddb6d4d7e8562bd55ff4eb5b4564a",
+      "bytes": 2132
+    },
+    {
+      "source": "/private/tmp/tests-823-transport-motor-failure-triage/README.md",
+      "path": "lampOS/docs/verification/transport-probes-20261016/motor-triage/README.md",
+      "sha256": "20da7bd146ad418f7d52b0f006c7a0aa16bdd6534a5c07413220226f096978dd",
+      "bytes": 11169
+    },
+    {
+      "source": "/private/tmp/tests-823-transport-motor-failure-triage/SHA256SUMS",
+      "path": "lampOS/docs/verification/transport-probes-20261016/motor-triage/SHA256SUMS",
+      "sha256": "a8f2d1be4ffecae0627e3f4289d1ce733a15ad0c775e7de82de56c31167efc9c",
+      "bytes": 2701
+    },
+    {
+      "source": "/private/tmp/tests-823-transport-motor-failure-triage/author-source-proof.json",
+      "path": "lampOS/docs/verification/transport-probes-20261016/motor-triage/author-source-proof.json",
+      "sha256": "00573409496423491d99163008a92fcb673253be3da088565b3851de390499b2",
+      "bytes": 2936
+    },
+    {
+      "source": "/private/tmp/tests-823-transport-motor-failure-triage/capture-date.txt",
+      "path": "lampOS/docs/verification/transport-probes-20261016/motor-triage/capture-date.txt",
+      "sha256": "fb471f733144a45ec318dc94e93844055e9c8544094a52520ec6c4eb6b7c52d0",
+      "bytes": 26
+    },
+    {
+      "source": "/private/tmp/tests-823-transport-motor-failure-triage/failure-excerpt.log",
+      "path": "lampOS/docs/verification/transport-probes-20261016/motor-triage/failure-excerpt.log",
+      "sha256": "2ce7719247fe4c5538017b3961cdc5635e75891aab090fb2d022ca7505f8f418",
+      "bytes": 2625
+    },
+    {
+      "source": "/private/tmp/tests-823-transport-motor-failure-triage/issue-739.json",
+      "path": "lampOS/docs/verification/transport-probes-20261016/motor-triage/issue-739.json",
+      "sha256": "84e434b60ec47d3701be55166db639df278b83e1c7570d2defc90bc46779ebab",
+      "bytes": 45972
+    },
+    {
+      "source": "/private/tmp/tests-823-transport-motor-failure-triage/issue-739.stderr",
+      "path": "lampOS/docs/verification/transport-probes-20261016/motor-triage/issue-739.stderr",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "source": "/private/tmp/tests-823-transport-motor-failure-triage/issue-906.json",
+      "path": "lampOS/docs/verification/transport-probes-20261016/motor-triage/issue-906.json",
+      "sha256": "b6111337bb7f73622c6c6ce919b419188dcc6155be360f7aefede4b12816c4cc",
+      "bytes": 2980
+    },
+    {
+      "source": "/private/tmp/tests-823-transport-motor-failure-triage/issue-906.stderr",
+      "path": "lampOS/docs/verification/transport-probes-20261016/motor-triage/issue-906.stderr",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "source": "/private/tmp/tests-823-transport-motor-failure-triage/joining-origin-lamp-voice.md",
+      "path": "lampOS/docs/verification/transport-probes-20261016/motor-triage/joining-origin-lamp-voice.md",
+      "sha256": "a031c6ad1dd0c729623ce35736fa4373cdbcb5ffa2412947660714c0729ba706",
+      "bytes": 22335
+    },
+    {
+      "source": "/private/tmp/tests-823-transport-motor-failure-triage/origin-revision.txt",
+      "path": "lampOS/docs/verification/transport-probes-20261016/motor-triage/origin-revision.txt",
+      "sha256": "c405069257f300d5448574b4cdd5f9361e97047f6bf3cd12689968fad5ddf781",
+      "bytes": 41
+    },
+    {
+      "source": "/private/tmp/tests-823-transport-motor-failure-triage/reversal-additions.json",
+      "path": "lampOS/docs/verification/transport-probes-20261016/motor-triage/reversal-additions.json",
+      "sha256": "7499d0f22fdc6874c58a2b05719ebfd3605d8ab08d82b0e3062efbb132e64066",
+      "bytes": 1109
+    },
+    {
+      "source": "/private/tmp/tests-823-transport-motor-failure-triage/root-focused-tests.log",
+      "path": "lampOS/docs/verification/transport-probes-20261016/motor-triage/root-focused-tests.log",
+      "sha256": "bfd86a51044a0ce37c2aac4e7a5a56c68cba9480dba0e5df2f47ed9b0e8ed9b9",
+      "bytes": 5708
+    },
+    {
+      "source": "/private/tmp/tests-823-transport-motor-failure-triage/root-gates.json",
+      "path": "lampOS/docs/verification/transport-probes-20261016/motor-triage/root-gates.json",
+      "sha256": "e7380ecd0e49bf7036b98f106dd5e385e005d4788a40acd886e2974229118908",
+      "bytes": 2869
+    },
+    {
+      "source": "/private/tmp/tests-823-transport-motor-failure-triage/root-independent-review.json",
+      "path": "lampOS/docs/verification/transport-probes-20261016/motor-triage/root-independent-review.json",
+      "sha256": "82c48dd5da20e9d28b1a0cec8e70874e35936c27ceee6425e7386e0c99af4656",
+      "bytes": 746
+    },
+    {
+      "source": "/private/tmp/tests-823-transport-motor-failure-triage/root-result.json",
+      "path": "lampOS/docs/verification/transport-probes-20261016/motor-triage/root-result.json",
+      "sha256": "372a6f4adaf3eea0955e5410faa63b432a19c85633906e4eed35aa9ec10b29fa",
+      "bytes": 165
+    },
+    {
+      "source": "/private/tmp/tests-823-transport-motor-failure-triage/root-tests.log",
+      "path": "lampOS/docs/verification/transport-probes-20261016/motor-triage/root-tests.log",
+      "sha256": "2f9d1f055825cab7bec63afc107320febad0d775d508cc3902436b99ebfefbae",
+      "bytes": 205929
+    },
+    {
+      "source": "/private/tmp/tests-823-transport-motor-failure-triage/source/lampOS/crates/body/src/runtime/channel.rs",
+      "path": "lampOS/docs/verification/transport-probes-20261016/motor-triage/source/lampOS/crates/body/src/runtime/channel.rs",
+      "sha256": "471c6cad77547060ec69348ccf08cbb98878463d2038aa34999e4d4f5f3a48ee",
+      "bytes": 6122
+    },
+    {
+      "source": "/private/tmp/tests-823-transport-motor-failure-triage/source/lampOS/crates/body/src/runtime/supervisor.rs",
+      "path": "lampOS/docs/verification/transport-probes-20261016/motor-triage/source/lampOS/crates/body/src/runtime/supervisor.rs",
+      "sha256": "103009ea8a3baf449a760cf7f1dc43d0aa0b47d999b585c4084c65ff63ff2a3f",
+      "bytes": 22565
+    },
+    {
+      "source": "/private/tmp/tests-823-transport-motor-failure-triage/source/lampOS/crates/body/src/runtime/worker.rs",
+      "path": "lampOS/docs/verification/transport-probes-20261016/motor-triage/source/lampOS/crates/body/src/runtime/worker.rs",
+      "sha256": "d126a1b0020f202c22a0a7a9ec64f54dcb6a52d9f6d02e965d61871aa6ab4cca",
+      "bytes": 23534
+    },
+    {
+      "source": "/private/tmp/tests-823-transport-motor-failure-triage/source/lampOS/crates/body/src/runtime.rs",
+      "path": "lampOS/docs/verification/transport-probes-20261016/motor-triage/source/lampOS/crates/body/src/runtime.rs",
+      "sha256": "f70ac6cb58b472a85130c8b81eed4258f689afc644de9ffbab98e087f71a0c8b",
+      "bytes": 612
+    },
+    {
+      "source": "/private/tmp/tests-823-transport-motor-failure-triage/source/lampOS/crates/voice/src/coordinator/motor/tests.rs",
+      "path": "lampOS/docs/verification/transport-probes-20261016/motor-triage/source/lampOS/crates/voice/src/coordinator/motor/tests.rs",
+      "sha256": "3ada54ec863826f2d33aa38c1a0db5d282fc5035c8c0839f7b28d95c5f9c539a",
+      "bytes": 47425
+    },
+    {
+      "source": "/private/tmp/tests-823-transport-motor-failure-triage/source/lampOS/crates/voice/src/coordinator/motor.rs",
+      "path": "lampOS/docs/verification/transport-probes-20261016/motor-triage/source/lampOS/crates/voice/src/coordinator/motor.rs",
+      "sha256": "29b82801801be234ae865f7593c957a79537acc3469805401b759c21cf6c748e",
+      "bytes": 37408
+    },
+    {
+      "source": "/private/tmp/tests-823-transport-motor-failure-triage/source/lampOS/crates/voice/src/process.rs",
+      "path": "lampOS/docs/verification/transport-probes-20261016/motor-triage/source/lampOS/crates/voice/src/process.rs",
+      "sha256": "f9f1173bd1d33ea9f5ebc9ed3ed6247b802dbf299d017dabef90f93eca074d54",
+      "bytes": 31643
+    },
+    {
+      "source": "/private/tmp/tests-823-transport-motor-failure-triage/source/lampOS/crates/voice/src/transport.rs",
+      "path": "lampOS/docs/verification/transport-probes-20261016/motor-triage/source/lampOS/crates/voice/src/transport.rs",
+      "sha256": "ea318a0e1be7523411b8c4d8ca878d3c743965bf3a5b69b6b3026b4cb720c29b",
+      "bytes": 14335
+    },
+    {
+      "source": "/private/tmp/tests-823-transport-motor-failure-triage/source/lampOS/crates/voice/src/transport_probe.rs",
+      "path": "lampOS/docs/verification/transport-probes-20261016/motor-triage/source/lampOS/crates/voice/src/transport_probe.rs",
+      "sha256": "99f86fe4b888c9e61b4ddef1d1ad70c9d1795830667ed013f21d2a086de777e8",
+      "bytes": 13447
+    },
+    {
+      "source": "/private/tmp/tests-823-transport-motor-failure-triage/source/lampOS/crates/voice/src/transport_probe_tests.rs",
+      "path": "lampOS/docs/verification/transport-probes-20261016/motor-triage/source/lampOS/crates/voice/src/transport_probe_tests.rs",
+      "sha256": "d2a1e5cca930741f727d7c9c4647a84ed532490adbb3663cc8f20edff571fa2b",
+      "bytes": 20701
+    },
+    {
+      "source": "/private/tmp/tests-823-transport-motor-failure-triage/source-proof.json",
+      "path": "lampOS/docs/verification/transport-probes-20261016/motor-triage/source-proof.json",
+      "sha256": "def0eb4f4acb0747b3a66a619e632185e654f420468a42606848733a4022e1c0",
+      "bytes": 5900
+    },
+    {
+      "source": "/private/tmp/tests-823-transport-motor-failure-triage/voice-body-ipc-base-manifest.json",
+      "path": "lampOS/docs/verification/transport-probes-20261016/motor-triage/voice-body-ipc-base-manifest.json",
+      "sha256": "3769174557482a5986dbcbacc3c1d9badae07af96d74ca697f76fffbe94d355c",
+      "bytes": 67520
+    }
+  ],
+  "excluded_from_copy": [
+    "/private/tmp/tests-823-transport-probes-evidence/verify-source.py"
+  ],
+  "raw_copy_count": 76,
+  "native_pending": true,
+  "draft_required": true,
+  "complete_affected_gate_passed": false
+}

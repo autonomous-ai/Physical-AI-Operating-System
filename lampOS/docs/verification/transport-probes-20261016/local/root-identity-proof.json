@@ -1,0 +1,64 @@
+{
+  "date": "2026-10-16 05:18:54 +0700",
+  "baseline_count": 1950,
+  "after_count": 1964,
+  "every_original_identity_and_ignored_flag_preserved": true,
+  "new": [
+    [
+      "lamp-voice",
+      "transport::probe::tests::a_latched_probe_fault_never_changes_actual_send_or_receive_success"
+    ],
+    [
+      "lamp-voice",
+      "transport::probe::tests::a_snapshot_of_corrupt_stable_state_latches_failure"
+    ],
+    [
+      "lamp-voice",
+      "transport::probe::tests::accepted_grace_and_one_sender_stall_count_only_after_the_original_checks"
+    ],
+    [
+      "lamp-voice",
+      "transport::probe::tests::accepted_sequence_gaps_keep_the_first_gap_and_do_not_extend_a_prefix"
+    ],
+    [
+      "lamp-voice",
+      "transport::probe::tests::actual_full_socket_would_block_does_not_count_or_commit_a_send"
+    ],
+    [
+      "lamp-voice",
+      "transport::probe::tests::boot_order_and_shared_state_faults_are_sticky_and_do_not_publish_more"
+    ],
+    [
+      "lamp-voice",
+      "transport::probe::tests::causally_held_publication_returns_busy_without_waiting_or_claiming_a_receipt"
+    ],
+    [
+      "lamp-voice",
+      "transport::probe::tests::counter_and_publication_overflow_latch_without_fabricating_success"
+    ],
+    [
+      "lamp-voice",
+      "transport::probe::tests::decode_boot_age_future_and_order_rejections_do_not_count_receives"
+    ],
+    [
+      "lamp-voice",
+      "transport::probe::tests::encoding_and_unconnected_send_failures_do_not_commit_sequence_or_evidence"
+    ],
+    [
+      "lamp-voice",
+      "transport::probe::tests::late_installation_is_rejected_even_after_failed_or_empty_io"
+    ],
+    [
+      "lamp-voice",
+      "transport::probe::tests::ordinary_channel_worker_and_reference_constructors_have_no_probe"
+    ],
+    [
+      "lamp-voice",
+      "transport::probe::tests::snapshots_keep_allocation_identity_after_channel_and_probe_drop"
+    ],
+    [
+      "lamp-voice",
+      "transport::probe::tests::successful_send_and_accepted_receive_are_separate_pure_observations"
+    ]
+  ]
+}

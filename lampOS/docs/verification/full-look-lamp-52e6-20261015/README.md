@@ -35,18 +35,26 @@ counted. No hands; nobody in front of the lamp.
    MJPG with a 2,457,600-byte buffer (probed with `v4l2-ctl`), over the
    crate's 2 MiB frame bound. Mended in `4956b840f`.
 4. After (`4956b840f`): "camera open, 1280 by 960" 0.25 s after start. Named
-   **7 of 10** (key, book, banana, scissors, glasses, apple, umbrella); cup,
-   phone and headphones got no answer within the run's window. Pictures
-   59.8–65.1 KB. `looks-after.txt`.
+   **6 of 10** in the trial they belonged to (key, book, scissors, glasses,
+   apple, umbrella), plus one **ambiguous**: "a yellow banana" was captured
+   in the headphones trial's window, late, with no request id or timestamp
+   kept to tie it to the banana trial, so it is not counted. Cup, phone and
+   headphones got no answer bound to their trial. Pictures 59.8–65.1 KB.
+   `looks-after.txt`. The before run's 4 of 10 was scored the same way.
 
-**Time** (`look-timing.txt`, the session's own events): the eyes' still came
-622–1,060 ms after the voice asked for it (median about 800 ms), over the
-issue's 300 ms aim; most of it is the wait for `body/joint_states` to settle
-(2 s cap) and the next 1280x960 frame at 10 fps. From the lamp's "Let me
-look." to its first word of the answer: 2.0–3.6 s in seven looks; in three the
-answer did not come before the next question (about 32 s later). The eyes'
-working cost at 1280x960 was 87 ms a look (64–81 ms at 320x240,
-`eyes-journal.txt`).
+**Time** (`look-timing.txt`, the session's own events). From the voice's
+`look_full_asked` to its `look_full_still`: 622–1,060 ms (median about
+800 ms). That is **ask to the coordinator accepting the still**, not ask to
+capture: the coordinator records `look_full_still` only once the lamp's
+previous reply ("Let me look.") has ended and the next turn may start, so a
+still already taken waits there. The eyes logged a head wait of 0 ms for each
+full look in `eyes-journal.txt`, so the head's settle was not the cause; the
+capture's own time was not kept. From "Let me look." to the first word of the
+answer: 2.0–3.6 s in seven looks; in three, no answer came before the next
+question (about 32 s later). Per-request camera-ready and first-word
+timestamps were not kept, so these are not yet comparable with the issue's
+~300 ms aim. The eyes' working cost at 1280x960 was 87 ms a look (64–81 ms
+at 320x240).
 
 Not shown: objects held up by a person, the head turning toward a person
 (nobody was in view, so it did not turn), lamp-4ace.

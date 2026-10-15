@@ -1,5 +1,19 @@
 # Tests work log
 
+## 2026-10-16 04:27 +0700 — Reporter merged; Serve normal green; distinct Voice failure retained
+
+Ready for lamp-voice: no (new continuations); #910 is merged
+
+- Reporter #910 merged at `7ae0eb647914e286817c29bff2abc2934fb19546`. Memory health now has a separate ten-file delta on that actual dependency, with all 33 qualified Memory Rust files identical; fresh gates include the changed inherited dependencies and are running.
+- Serve #909 head `e057db620acb2bd61bac1ae7f157d87cdf635a18` passes normal ARM64 **38806386829: 4,939 unique passes**, with green doc/harness/artifact stages. It stays draft: the normal profile omits all original Serve cases, while its earlier full run remains incomplete. Eighth has diagnosed #914's readiness failure as a production clock-read-before-receive race and proposed an owner-reviewed fix; no fix or retry is claimed here.
+- Terminology correction: that native log has **130 total skipped, including 93 by the PR default filter**. Prior entries' “profile exclusions” shorthand sometimes described the total skipped count; consult the preserved raw Starting line for the exact profile-only subset.
+- Separate direct Serve-relay integration passes fresh **432/0/0**, preserving all prior 422 compiled identities plus ten new cases and all six original relay names. Fmt, strict Clippy and workspace build pass. It stays unpublished pending #909.
+- Gemini default/feature each pass **268/0/2 existing ignores**, retaining all 258 old compiled identities plus 12 new cases. Its complete Voice/Surround/Evaluator gate is **2,011/1/8 existing ignores**; Memory dependent coverage is **162/0/5**. The one Threaded capture-stall failure is the #866 scenario with a distinct `StaleOwner` symptom. Its scripted IPC path cannot reach the new Gemini capture-clock API; root cause remains unproved. Complete raw failures remain, without retries. All strict Clippy and workspace-build stages pass.
+- [Unedited current evidence, failure triage and plans](verification/test-clock-progress-20261016-0425/README.md). [Original-123 remaining-wait map](verification/original123-remaining-20261016/tests-823-original123-remaining-map-20261016.md) keeps new regressions separate. Records cadence preparation and the smaller pure Moment projection continue independently with old assertions preserved.
+- #783's merged sweep remains with eighth for its loaded qualification/close. No workflow/profile/runner/settings/device change.
+
+The original 123 combined serial under-two-minute result remains unproved.
+
 ## 2026-10-16 03:55 +0700 — Reporter ready; fresh integrations pass; Body readiness failure retained
 
 Ready for lamp-voice: yes (#910); no (#909 and unpublished continuations)

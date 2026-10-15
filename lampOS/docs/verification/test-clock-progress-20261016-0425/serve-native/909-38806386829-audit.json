@@ -1,0 +1,29 @@
+{
+  "date": "2026-10-16 04:23:12 +0700",
+  "run": 38806386829,
+  "head": "e057db620acb2bd61bac1ae7f157d87cdf635a18",
+  "conclusion": "success",
+  "unique_pass": 4939,
+  "duplicates": 0,
+  "skipped_total": 130,
+  "skipped_via_profile_default_filter": 93,
+  "original_serve_session_cases_observed": 0,
+  "starting_lines": [
+    "lampOS \u2014 build and test on Linux ARM64 (1/1)\tUNKNOWN STEP\t2026-10-15T21:10:06.5754192Z     Starting 4939 tests across 270 binaries (130 tests and 8 binaries skipped, including 93 tests and 6 binaries via profile.pr.default-filter)"
+  ],
+  "summary_lines": [
+    "lampOS \u2014 build and test on Linux ARM64 (1/1)\tUNKNOWN STEP\t2026-10-15T21:11:24.3798401Z      Summary [  77.804s] 4939 tests run: 4939 passed, 130 skipped"
+  ],
+  "step_results": [
+    {
+      "name": "lampOS \u2014 build and test on Linux ARM64 (1/1)",
+      "conclusion": "success"
+    },
+    {
+      "name": "report-full-run-failure",
+      "conclusion": "skipped"
+    }
+  ],
+  "raw_sha256": "35b6dfe00980ca3026b7e55ce544ddabcc879ac1b20c0e97adff4dcdaceac10e",
+  "full_qualification": false
+}

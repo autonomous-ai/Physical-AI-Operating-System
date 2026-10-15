@@ -1,0 +1,11 @@
+{
+  "date": "2026-10-16 04:08:57 +0700",
+  "totals": [
+    162,
+    0,
+    5
+  ],
+  "summary_count": 16,
+  "source_unchanged": true,
+  "why": "Memory directly dev-depends on Gemini and Voice; this completes affected package coverage"
+}

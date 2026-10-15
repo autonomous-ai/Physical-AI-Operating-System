@@ -1,0 +1,146 @@
+[
+  {
+    "stage": "gemini-default",
+    "command": [
+      "cargo",
+      "test",
+      "--locked",
+      "--offline",
+      "-p",
+      "lamp-gemini",
+      "--no-fail-fast",
+      "--",
+      "--test-threads=1"
+    ],
+    "cwd": "/private/tmp/lampos-tests-gemini-capture-clock/lampOS",
+    "target": "/private/tmp/lampos-tests-capacity/lampOS/target",
+    "start_from_date": "2026-10-16 03:42:32 +0700",
+    "finish_from_date": "2026-10-16 03:43:26 +0700",
+    "exit_code": 0
+  },
+  {
+    "stage": "gemini-feature",
+    "command": [
+      "cargo",
+      "test",
+      "--locked",
+      "--offline",
+      "-p",
+      "lamp-gemini",
+      "--features",
+      "fixture-clock",
+      "--no-fail-fast",
+      "--",
+      "--test-threads=1"
+    ],
+    "cwd": "/private/tmp/lampos-tests-gemini-capture-clock/lampOS",
+    "target": "/private/tmp/lampos-tests-capacity/lampOS/target",
+    "start_from_date": "2026-10-16 03:43:26 +0700",
+    "finish_from_date": "2026-10-16 03:44:41 +0700",
+    "exit_code": 0
+  },
+  {
+    "stage": "feature-list",
+    "command": [
+      "cargo",
+      "nextest",
+      "list",
+      "--locked",
+      "--offline",
+      "-p",
+      "lamp-gemini",
+      "--features",
+      "fixture-clock",
+      "--message-format",
+      "json"
+    ],
+    "cwd": "/private/tmp/lampos-tests-gemini-capture-clock/lampOS",
+    "target": "/private/tmp/lampos-tests-capacity/lampOS/target",
+    "start_from_date": "2026-10-16 03:44:41 +0700",
+    "finish_from_date": "2026-10-16 03:44:42 +0700",
+    "exit_code": 0
+  },
+  {
+    "stage": "dependent-clippy",
+    "command": [
+      "cargo",
+      "clippy",
+      "--locked",
+      "--offline",
+      "-p",
+      "lamp-voice",
+      "-p",
+      "lamp-surround",
+      "-p",
+      "lamp-voice-eval",
+      "--features",
+      "lamp-gemini/fixture-clock",
+      "--all-targets",
+      "--",
+      "-D",
+      "warnings"
+    ],
+    "cwd": "/private/tmp/lampos-tests-gemini-capture-clock/lampOS",
+    "target": "/private/tmp/lampos-tests-capacity/lampOS/target",
+    "start_from_date": "2026-10-16 03:44:42 +0700",
+    "finish_from_date": "2026-10-16 03:45:59 +0700",
+    "exit_code": 0
+  },
+  {
+    "stage": "affected-tests",
+    "command": [
+      "cargo",
+      "test",
+      "--locked",
+      "--offline",
+      "-p",
+      "lamp-voice",
+      "-p",
+      "lamp-surround",
+      "-p",
+      "lamp-voice-eval",
+      "--features",
+      "lamp-gemini/fixture-clock",
+      "--no-fail-fast",
+      "--",
+      "--test-threads=1"
+    ],
+    "cwd": "/private/tmp/lampos-tests-gemini-capture-clock/lampOS",
+    "target": "/private/tmp/lampos-tests-capacity/lampOS/target",
+    "start_from_date": "2026-10-16 03:45:59 +0700",
+    "finish_from_date": "2026-10-16 04:10:46 +0700",
+    "exit_code": 101
+  },
+  {
+    "stage": "build-default",
+    "command": [
+      "cargo",
+      "build",
+      "--locked",
+      "--offline",
+      "--workspace"
+    ],
+    "cwd": "/private/tmp/lampos-tests-gemini-capture-clock/lampOS",
+    "target": "/private/tmp/lampos-tests-capacity/lampOS/target",
+    "start_from_date": "2026-10-16 04:10:46 +0700",
+    "finish_from_date": "2026-10-16 04:12:11 +0700",
+    "exit_code": 0
+  },
+  {
+    "stage": "build-feature",
+    "command": [
+      "cargo",
+      "build",
+      "--locked",
+      "--offline",
+      "--workspace",
+      "--features",
+      "lamp-gemini/fixture-clock"
+    ],
+    "cwd": "/private/tmp/lampos-tests-gemini-capture-clock/lampOS",
+    "target": "/private/tmp/lampos-tests-capacity/lampOS/target",
+    "start_from_date": "2026-10-16 04:12:11 +0700",
+    "finish_from_date": "2026-10-16 04:12:47 +0700",
+    "exit_code": 0
+  }
+]

@@ -1,0 +1,32 @@
+{
+  "date": "2026-10-16 04:12:47 +0700",
+  "counts": {
+    "gemini-default": {
+      "totals": [
+        268,
+        0,
+        2
+      ],
+      "summaries": 6
+    },
+    "gemini-feature": {
+      "totals": [
+        268,
+        0,
+        2
+      ],
+      "summaries": 6
+    },
+    "affected-tests": {
+      "totals": [
+        2011,
+        1,
+        8
+      ],
+      "summaries": 68
+    }
+  },
+  "default_and_feature_compiled_ids_equal": true,
+  "source_unchanged": true,
+  "all_stages_passed": false
+}

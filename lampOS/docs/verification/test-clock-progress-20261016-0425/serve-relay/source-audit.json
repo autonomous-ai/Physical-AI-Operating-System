@@ -1,0 +1,266 @@
+{
+  "date": "2026-10-16 04:02:49+0700",
+  "scope": "Scratch patch preparation and read-only source/log audit only; neither worktree was edited; no Cargo, builds, tests, Git mutations, network or devices.",
+  "target_tree": "/private/tmp/lampos-tests-serve-coordination",
+  "target_head": "e057db620acb2bd61bac1ae7f157d87cdf635a18",
+  "target_base": "48b3737d5e83efa00278172cb602d3525d368a43",
+  "qualified_tree": "/private/tmp/lampos-tests-serve-relay-progress",
+  "qualified_tree_git_base": "fb54b25028a25d3767f968fcc354f2682fe34aa2",
+  "qualified_final_source_manifest_sha256": "d400805b8ecd6275d130fb569dcde7d1f1f0bedceea0259e9d6b8340254e00ef",
+  "qualified_final_source_entries": 73,
+  "all_qualified_final_hashes_match": true,
+  "qualified_doc_watchdog_clarification": {
+    "date": "2026-10-16 02:27:31 +0700",
+    "path": "lampOS/docs/realtime-tests.md",
+    "before_sha256": "d3042095b685cc189fa41a48c1c3339bd726fe103aa17b0830fc4c8f12cb37ac",
+    "after_sha256": "b56221b651472d4f5df878f4e0e192ffb73438a26b8be3fb9e9e43318c7cb191",
+    "reason": "Independent review distinguished post-signal success budget from existing session reader-enqueue abort guard; no code or assertions changed."
+  },
+  "qualified_full_gate": {
+    "totals": [
+      467,
+      0,
+      0
+    ],
+    "summaries": 25,
+    "raw_sha256": "326c2f1f3c796fe4a8f330988d38e362fd246a071d4dabc766f96b93e192e855",
+    "full_tests_exit": 0,
+    "all_six_original_bodies_passed": true,
+    "not_carried_as_new_tree_gate": true
+  },
+  "patch": {
+    "path": "/private/tmp/tests-823-serve-relay-onto-serve-plan/participant-only.diff",
+    "sha256": "703ea63c313a37d5de9bb55e1877733862b64650201d3d77cdcdaa47b4760d10",
+    "files": [
+      {
+        "path": "lampOS/crates/voice-eval/src/physical/fake_lamp.rs",
+        "before_sha256": "7707b987700293a31096338ccd4364e34aa70bce59bca2dd3c1cdaef15c0c9a1",
+        "after_sha256": "b9637518aaf8e0dffc587273ab0c5e19c6ff1d72337796c71a4d0832cb4f1327",
+        "qualified_sha256": "9d18247e2e04944cc09c2cae2074e0c1e759e4a59332255cc3188cb762fc014f",
+        "candidate_equals_qualified_whole_file": false
+      },
+      {
+        "path": "lampOS/crates/voice-eval/src/physical/fixture_commands.rs",
+        "before_sha256": "c755e44894013fa6ff40dc107b0d5a13ae2fea2235b6bd04a4fa4d8b68ba4474",
+        "after_sha256": "7d68389f86d879d4fe9e64f925d169641d25ef0c8d9b62b0a9f062b2f2d23fc8",
+        "qualified_sha256": "39f8706b3444b15ce52fbaa4250d4beb3c57d03ab5c411921e2c5082dba1feda",
+        "candidate_equals_qualified_whole_file": false
+      },
+      {
+        "path": "lampOS/crates/voice-eval/src/physical/serve_invocation_tests.rs",
+        "before_sha256": null,
+        "after_sha256": "89f89a010c4a240aa699fd37fb49e0a2c4f2ed8f65ce77332c5c9b575e3d12dc",
+        "qualified_sha256": "89f89a010c4a240aa699fd37fb49e0a2c4f2ed8f65ce77332c5c9b575e3d12dc",
+        "candidate_equals_qualified_whole_file": true
+      },
+      {
+        "path": "lampOS/crates/voice-eval/tests/serve_relay.rs",
+        "before_sha256": "53f5cc802a0101518da7214b63b77e052b3406fe1b5db3ce43d5c0c305145bf5",
+        "after_sha256": "836a72136db9573ca12e8b4aeab77ff95e42010cf71fcd652da6318945ec7bf2",
+        "qualified_sha256": "836a72136db9573ca12e8b4aeab77ff95e42010cf71fcd652da6318945ec7bf2",
+        "candidate_equals_qualified_whole_file": true
+      },
+      {
+        "path": "lampOS/crates/voice-eval/tests/common/serve_relay_clock.rs",
+        "before_sha256": null,
+        "after_sha256": "60f5ee58ee905b285ea54c5d6c1a2159964e97a2945a79654d283ca14d0ee9cb",
+        "qualified_sha256": "60f5ee58ee905b285ea54c5d6c1a2159964e97a2945a79654d283ca14d0ee9cb",
+        "candidate_equals_qualified_whole_file": true
+      },
+      {
+        "path": "lampOS/docs/realtime-tests.md",
+        "before_sha256": "eb3f3e2b8beb25d5320d060507444d49b87ab3926422779ce15a038a5d487eef",
+        "after_sha256": "0ba58a3b6399264eff127716af636fbac195e93801697edb0b041fdb4ae41edb",
+        "qualified_sha256": "b56221b651472d4f5df878f4e0e192ffb73438a26b8be3fb9e9e43318c7cb191",
+        "candidate_equals_qualified_whole_file": false
+      }
+    ],
+    "apply_check_exit": 0,
+    "apply_check_stdout": "",
+    "apply_check_stderr": ""
+  },
+  "preservation": {
+    "source_restorations_exact": [
+      "fake_lamp.rs",
+      "fixture_commands.rs",
+      "serve_relay.rs",
+      "realtime-tests.md"
+    ],
+    "live_moved_serve_body_reconstructs_original": true,
+    "pure_slow_transport_complete_span_exact": true,
+    "pure_slow_transport_test_module_retained": true,
+    "entire_six_test_tail_exact": true,
+    "six_test_tail_sha256": "8040e3cbda58f22296ef057df328d8c3017fde6afc162954852ec675daff4ce2",
+    "original_ids": 6,
+    "original_assertions": 37,
+    "cases": [
+      {
+        "identity": "a_runner_stop_is_one_sigterm_and_a_clean_reaped_end",
+        "body_sha256": "a2c0f83faf7f5e8c2250ba09366ef61ebba4727326c71368ebb570bf6bc8ed84",
+        "assertions": 11
+      },
+      {
+        "identity": "a_closed_runner_transport_stops_the_runtime_through_the_same_path",
+        "body_sha256": "8913dd0fd63f3c55f110194ae470e689b4170116b7f24c7560f2b0b2427dfcc8",
+        "assertions": 4
+      },
+      {
+        "identity": "the_hard_deadline_stops_the_runtime_and_is_an_error",
+        "body_sha256": "510e08b17be8d0cc0e32d63a27048e2d964b4e5943b98f7d0d046a2a4a9362c1",
+        "assertions": 4
+      },
+      {
+        "identity": "a_runtime_that_ignores_sigterm_is_force_killed_and_never_clean",
+        "body_sha256": "6c4e1c9449d9d5ef102ee4b477ccdebbdf29173e2a2ef42372fee4ee9ddec919",
+        "assertions": 7
+      },
+      {
+        "identity": "the_pilot_runtime_settings_reach_the_serve_child_exactly",
+        "body_sha256": "4ee9c1a6e70275d5bb4f03090f4cb6d54d9d6d0048211f8240f869c3b5d3a42b",
+        "assertions": 6
+      },
+      {
+        "identity": "a_nonzero_runtime_exit_after_clean_metadata_is_a_relay_error",
+        "body_sha256": "e76282161e5951524f56fb4fe4f1219a2397f6d40022affdf1329d628c81c3b4",
+        "assertions": 5
+      }
+    ],
+    "current_nonowned_source_sha256": {
+      "lampOS/crates/voice-eval/tests/provider_failed.rs": "ecee93a72313d1c2b9af53c7821f476c9b501fac9acd7b227052fb2b9f902022",
+      "lampOS/crates/voice-eval/tests/recording_evidence.rs": "b41f7b0a176723b61944392262205f9a96cda9d43f13d936cc8158b8ae4887c6",
+      "lampOS/crates/voice-eval/tests/recording_import.rs": "5e3bee18d84ffc8c8faa1d5f4d5bd30db8a334fd31e0ee6c6e2b6220b866d14e",
+      "lampOS/crates/voice-eval/tests/audit_runner_dispatch.rs": "2d7a83137a49f160c147decdee27cd5f8a49715655929c2b6c9a008139174f9a",
+      "lampOS/crates/voice-eval/tests/audit_importer.rs": "9ff483cbc358a0c39d26a7fd7b67e413868843771c3835c449f84208fa563ec0",
+      "lampOS/crates/voice-eval/tests/serve_plan.rs": "d67f787f3bd35a54e4da0894a2da5749ef8b8441e3f27803597895667d22bf63",
+      "lampOS/crates/voice-eval/tests/target_audio.rs": "3248cc8ae4d32d73659a20f33d08bcc1758e9a5e2f64113287316761dd256892",
+      "lampOS/crates/voice-eval/tests/serve_session.rs": "cffbb51a9f21b03f2262099b23de526842eb098c600c02f3ec8eca187f800923",
+      "lampOS/crates/voice-eval/tests/fake_runtime.rs": "37707ba30007771d2abd19c14687f1f3ca73299b1c250ece2564e873b2413c86",
+      "lampOS/crates/voice-eval/tests/playback_occurrences.rs": "46b845dc3e597476203f6826be3cb16673069ce1d19f99f60e99d84ff85c75cd",
+      "lampOS/crates/voice-eval/tests/relay_clock.rs": "7de3f59adc480869877fdb75109412f959745c13ba57b855e4aebf2bf56504b6",
+      "lampOS/crates/voice-eval/tests/evaluator.rs": "1ec1e23cdfa2acd5847e982352ca9e3ea09cad9195d41d0bd6de4f5463826874",
+      "lampOS/crates/voice-eval/tests/final_dispatch.rs": "600ad54a33c7a98ba0abf9c6aadeca366cb319d121b3847f36211cc5b0a30a29",
+      "lampOS/crates/voice-eval/tests/serve_relay.rs": "53f5cc802a0101518da7214b63b77e052b3406fe1b5db3ce43d5c0c305145bf5",
+      "lampOS/crates/voice-eval/tests/relay_hardening.rs": "ba0d39f2b2f2c4e809ff65ed90fa84d1857c64fd25d9ab072384ddd306769b82",
+      "lampOS/crates/voice-eval/tests/answer_review.rs": "54f0f7df24ddda86bf702d535f344d70c961eded126fd0ad57f5f69957493885",
+      "lampOS/crates/voice-eval/tests/physical_loopback.rs": "de31d80698e7188af40278c9e982eceed0c15a1ccf8fe42323365dca028d3d98",
+      "lampOS/crates/voice-eval/tests/next_turn_ready.rs": "66ff9408a1ce150fa5fedb649506f55aa51e2794e523eebcb154026316d4770f",
+      "lampOS/crates/voice-eval/tests/audit_final_dispatch.rs": "688ec4f9ec50e7f26e2e0efd97f061f5744f13e7f85f307ad9ca529ba45b146f",
+      "lampOS/crates/voice-eval/tests/report_validity.rs": "69c9c5b33d02bab0c4b7262f4773e122d37ba58a7315c117660a340b91db18dc",
+      "lampOS/crates/voice-eval/tests/canary_plan.rs": "d9aac255b58008e51b66b099a938729aa251958cd0f4118e6a09d062585bfb92",
+      "lampOS/crates/voice-eval/tests/acceptance_boundaries.rs": "525d3d6bb744bc02d2e813bb0d5596b82f4d4dcd36b30378de3efcb057f924bc",
+      "lampOS/crates/voice-eval/examples/turn_end_replay.rs": "0736c3570330e103935aa973ae82d7409aac94a4a0e9e48bf22041839582e5f8",
+      "lampOS/crates/voice-eval/src/ledger.rs": "83b0a2e57558df2e221e95e411b740c2113638a9ade3a8b71763129bb10640dd",
+      "lampOS/crates/voice-eval/src/stimulus.rs": "af932750edcb1347f97c477ca654eb448e2127cac1dc151a980e94f4c42e175a",
+      "lampOS/crates/voice-eval/src/canary.rs": "72afae19e592bb4e1d22ce07ab7207dccbe024f2e9486691496a4abb0bfbf532",
+      "lampOS/crates/voice-eval/src/events.rs": "67e018ce75908dd01d65222c527941af9f7055f62be10cde5cc51fa80fada264",
+      "lampOS/crates/voice-eval/src/lib.rs": "adc758bc6178462e0d11f803bb6e43c7e68e64e72fa617d6c58f6149a0c57df0",
+      "lampOS/crates/voice-eval/src/fake.rs": "2ee95c261a7781b66e68d9e137d102150904b663d066df1ba3f185918c13e956",
+      "lampOS/crates/voice-eval/src/target_audio.rs": "bf09af85c195c023bd91853ac476b3f602d74ceab2ac6496430e7290b979a7dc",
+      "lampOS/crates/voice-eval/src/import.rs": "dc1ac848261f4b2ba912c6ee823792dca9e02aa76d16df32c4485988ec0d5102",
+      "lampOS/crates/voice-eval/src/playback.rs": "9fc58c446c44fbab2480accacbab5125610149429f084c697eb2769f55fbae9c",
+      "lampOS/crates/voice-eval/src/runner.rs": "8a33b5c626e6f85136080b0023fa8da992e7242e60e96af1d9d85db3db4c59e6",
+      "lampOS/crates/voice-eval/src/plan.rs": "2c392083ad5be9fee67b4fe4906569b9aaa824376a9cdfb560cb4d98045ba356",
+      "lampOS/crates/voice-eval/src/report.rs": "9ab88d7da6fe9b62bd5002f2d185acc4f1a5db5b0d0950630a7793fcf8222d68",
+      "lampOS/crates/voice-eval/src/evaluate.rs": "a468fc9830fe0458eee3d7e5260678dca3bd097d32b7ba8c2b3af08b71ddbcaa",
+      "lampOS/crates/voice-eval/src/annotations.rs": "4fb5c60ca3f1ef6a3db0abae07fa1c16d591a70bebed449af0fa81e9e7c596b4",
+      "lampOS/crates/voice-eval/src/main.rs": "2267fce371633f875cc8cea94a43e5081d8ec30870ef20555847b10c656a747a",
+      "lampOS/crates/voice-eval/src/stats.rs": "7e22c732fd2d8f2e95d3d411b85609add32edaad8e8cf216703ca5461ddbc5f8",
+      "lampOS/crates/voice-eval/src/record.rs": "273f735e33b7987ca878c589a28a0bb70d9aaa49a4daf1a11bc14a471bbf0e73",
+      "lampOS/crates/voice-eval/src/physical/relay_progress_tests.rs": "71e2bcc10a20f9dd77f26fba869a487bde99bbc0e8752793e3ecad2633c46d9f",
+      "lampOS/crates/voice-eval/src/physical/backend_clock_tests.rs": "4ca9f50df684e9aa33e9c00dba6533df37d9d4e7563d0e5b1031aae8afb63e96",
+      "lampOS/crates/voice-eval/src/physical/session.rs": "660cea49d4e1389ad23e5786a5efded083e7f6d98912dfc9ad9887dad85ccd24",
+      "lampOS/crates/voice-eval/src/physical/fixture_players.rs": "2378acf5a32c53b013cc90b96d827bdb82307dbb054d7c94e30ede8752dc5dab",
+      "lampOS/crates/voice-eval/src/physical/protocol.rs": "ed7dee2694a8dfdca12feb021e73e29905cba62e6875603f7af09b12b3c93bf9",
+      "lampOS/crates/voice-eval/src/physical/serve_fixture_commands_tests.rs": "54f60e0f676d94989b5220f707f9c5c085cbec83de0aa0e0a3d4ba5f892642ea",
+      "lampOS/crates/voice-eval/src/physical/channel_closed_peer_tests.rs": "e9469a7b2c0ce0a988d69f46d064162214a1af8a2eefb54c2dd07e1a85c1fbba",
+      "lampOS/crates/voice-eval/src/physical/fixture_control_tests.rs": "90dab0a1075f0fbb819d819f391aede2994363c3238e54445a5a73e5f12f604a",
+      "lampOS/crates/voice-eval/src/physical/fake_serve_clock_tests.rs": "62cfe2296fc9a83c4f2f3cf85325639843e11f46ed1afc4bc2625339407f27fe",
+      "lampOS/crates/voice-eval/src/physical/fake_serve_progress_tests.rs": "43af2f78890ec502bc3d12cd95214bf2aaa65578eeac1e9abaa1a6c4d0611f7a",
+      "lampOS/crates/voice-eval/src/physical/backend_progress_tests.rs": "9fcc0168aeb882e513823932b97f6e2b77d4cbc1c4fd1f9e90279539d9cd15cb",
+      "lampOS/crates/voice-eval/src/physical/slow_transport_clock_tests.rs": "7478dae0e6ca89f1cae6b1aee14c22f5aa0871e5151ea50681a480d48baa1dea",
+      "lampOS/crates/voice-eval/src/physical/serve_fixture_control_tests.rs": "fdb57e00dd9e3028ae6f5a5aa6df81d1147bee4fc582ad00b117368951b80bcf",
+      "lampOS/crates/voice-eval/src/physical/fake_serve.rs": "5168b08f121fc374972f9a1bb10f86e30396c83c17ee12c2ea9858cd74ef780d",
+      "lampOS/crates/voice-eval/src/physical/mod.rs": "c55ab4bd4fad65b806f4e66f533d7334f947c25c87d8d072ce69ff848db2e582",
+      "lampOS/crates/voice-eval/src/physical/prepared_player_clock_tests.rs": "df9cc11554b19af4c4663d3cf1d67bd5f26afe8521b7c3620597c9936d1d1b61",
+      "lampOS/crates/voice-eval/src/physical/serve_fixture_driver.rs": "ab7f78684e4e1e9b13035a14bce3c0c3d474529f789f83d5fa1d444ceb9a232c",
+      "lampOS/crates/voice-eval/src/physical/mac.rs": "a0fe85c17fd430a91c12703b0747da32d56309b4fb12900018bd3392f8f844f9",
+      "lampOS/crates/voice-eval/src/physical/fixture_commands.rs": "c755e44894013fa6ff40dc107b0d5a13ae2fea2235b6bd04a4fa4d8b68ba4474",
+      "lampOS/crates/voice-eval/src/physical/fake_lamp.rs": "7707b987700293a31096338ccd4364e34aa70bce59bca2dd3c1cdaef15c0c9a1",
+      "lampOS/crates/voice-eval/src/physical/recorder_clock_tests.rs": "034b041b6c280b6f9c5beeeedd6c1aad735a86c3f1f923920f779ae4f7f3331c",
+      "lampOS/crates/voice-eval/src/physical/fake_runtime_clock_tests.rs": "06572780eeb16d10975437ddcec6b1b82944d570373d10312e763f4a2c73467a",
+      "lampOS/crates/voice-eval/src/physical/framing.rs": "afcaa6bf289f2a86f77c91def156d129704cb3331a539fa8cb784872cfdeb9fd",
+      "lampOS/crates/voice-eval/src/physical/fixture_driver.rs": "3e4a99a9e5029b7c770b2420c4df70271c5702e30c6f97a3dcfc954fce1871d9",
+      "lampOS/crates/voice-eval/src/physical/fixture_control.rs": "ee8ab5de43e99f1b0636dfb144385e7b7237de8f6b4a677cae766e9a4d8f4d81",
+      "lampOS/crates/voice-eval/src/physical/prepared_player_progress_tests.rs": "1ac1f3a24b267c0968fe291befbd65739c06a1baf4e2f5c9b24eca8f841055b7",
+      "lampOS/crates/voice-eval/src/physical/serve_relay_progress_tests.rs": "d7ccf7f0ddcd46a07d9d6cfc768d5126d507c133b0b708dc69881f124f238ed4",
+      "lampOS/crates/voice-eval/tests/common/mod.rs": "39d30134e50f4f0b291c1bc78f36a9b87a11f9ae8f65872a43eb3dc94e7a102d",
+      "lampOS/crates/voice-eval/Cargo.toml": "9854d29463c6671cc2ffcd83181d58e440a72f5be81df2e154d9bf2c1fee753d",
+      "lampOS/Cargo.lock": "8fdd63dc70bcda30d85a846558ef054902ed6ea33ddb26fcfe32a611bc9680bd",
+      "lampOS/docs/realtime-tests.md": "eb3f3e2b8beb25d5320d060507444d49b87ab3926422779ce15a038a5d487eef"
+    },
+    "repository_status_before_and_after_clean": true
+  },
+  "direct_dependency": {
+    "identical_source_apis": {
+      "lampOS/crates/voice-eval/src/physical/session.rs": "660cea49d4e1389ad23e5786a5efded083e7f6d98912dfc9ad9887dad85ccd24",
+      "lampOS/crates/voice-eval/src/physical/fake_serve.rs": "5168b08f121fc374972f9a1bb10f86e30396c83c17ee12c2ea9858cd74ef780d",
+      "lampOS/crates/voice-eval/src/physical/serve_relay_progress_tests.rs": "d7ccf7f0ddcd46a07d9d6cfc768d5126d507c133b0b708dc69881f124f238ed4",
+      "lampOS/crates/voice-eval/tests/common/mod.rs": "39d30134e50f4f0b291c1bc78f36a9b87a11f9ae8f65872a43eb3dc94e7a102d"
+    },
+    "session_diff_already_present": true,
+    "no_recorder_or_slow_transport_scheduler_symbol_used_by_new_files": true,
+    "required_protocol_symbols": [
+      "ParentListener::bind",
+      "ParentListener::accept_until",
+      "ParentPeer::step_until",
+      "Role::ServeRuntime",
+      "Progress::ServeRuntime",
+      "Step.wait_for_sigterm"
+    ],
+    "required_session_symbols": [
+      "run_with_controlled_clock",
+      "RelayPollTargets",
+      "RelayPollProgress.stop_signal_sent_us",
+      "SERVE_STOP_GRACE_US"
+    ],
+    "current_dispatch_already_present": "fake-clock-serve-runtime"
+  },
+  "new_tests": {
+    "lampOS/crates/voice-eval/src/physical/serve_invocation_tests.rs": {
+      "identities": [
+        "physical::fake_lamp::invocation_tests::only_the_leading_control_pair_is_removed_from_the_parser_view",
+        "physical::fake_lamp::invocation_tests::invalid_invocation_prefixes_fail_before_any_clock_or_hook",
+        "physical::fake_lamp::invocation_tests::invocation_and_direct_paths_keep_the_same_parser_and_mode_errors",
+        "physical::fake_lamp::invocation_tests::a_written_invocation_without_a_successful_flush_has_no_receipt"
+      ],
+      "count": 4
+    },
+    "lampOS/crates/voice-eval/tests/common/serve_relay_clock.rs": {
+      "identities": [
+        "serve_relay_clock::tests::the_real_stop_keeps_the_full_delay_and_original_bytes_once",
+        "serve_relay_clock::tests::real_runner_eof_holds_time_until_the_relay_reports_its_signal",
+        "serve_relay_clock::tests::runtime_completion_never_advances_time_or_claims_relay_exit",
+        "serve_relay_clock::tests::an_expired_host_boundary_fails_before_another_step_or_clock_advance",
+        "serve_relay_clock::tests::polls_preserve_two_milliseconds_and_stop_at_each_original_boundary",
+        "serve_relay_clock::tests::unwinding_releases_the_real_runner_reader_and_control_socket"
+      ],
+      "count": 6
+    }
+  },
+  "predicted_full_gate": {
+    "current": 422,
+    "added": 10,
+    "expected": 432,
+    "library_current": 220,
+    "library_expected": 224,
+    "serve_relay_current": 6,
+    "serve_relay_expected": 12,
+    "original_six_unchanged": true,
+    "requires_fresh_compiled_list_and_execution": true
+  },
+  "limits": [
+    "The qualified 467-test run used the older Recorder-seeded tree; it is prior evidence, not a gate for this source composition.",
+    "The ten-second post-signal budget is a success guard checked before/after polls, not a strict abort deadline; the existing reader-enqueue barrier can spend up to thirty seconds returning a failing poll.",
+    "No all-original-123, ARM64 or speedup claim is established by this port plan."
+  ]
+}

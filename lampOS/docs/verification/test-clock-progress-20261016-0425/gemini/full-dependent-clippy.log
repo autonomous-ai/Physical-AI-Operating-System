@@ -1,0 +1,40 @@
+    Checking tokio v1.53.1
+    Checking lamp-ipc v0.1.0 (/private/tmp/lampos-tests-gemini-capture-clock/lampOS/crates/ipc)
+    Checking lamp-bus v0.1.0 (/private/tmp/lampos-tests-gemini-capture-clock/lampOS/crates/bus)
+    Checking lamp-msgs v0.1.0 (/private/tmp/lampos-tests-gemini-capture-clock/lampOS/crates/msgs)
+    Checking lamp-turn-owner v0.1.0 (/private/tmp/lampos-tests-gemini-capture-clock/lampOS/crates/turn-owner)
+    Checking hyper v1.12.0
+    Checking tokio-rustls v0.26.6
+    Checking tower v0.5.3
+    Checking hyper-util v0.1.21
+    Checking tokio-util v0.7.20
+    Checking tower-http v0.6.11
+    Checking tokio-tungstenite v0.30.0
+    Checking lamp-gemini v0.1.0 (/private/tmp/lampos-tests-gemini-capture-clock/lampOS/crates/gemini)
+    Checking hyper-rustls v0.27.10
+    Checking reqwest v0.13.5
+   Compiling lamp-camera v0.1.0 (/private/tmp/lampos-tests-gemini-capture-clock/lampOS/crates/camera)
+    Checking lamp-keeper v0.1.0 (/private/tmp/lampos-tests-gemini-capture-clock/lampOS/crates/keeper)
+    Checking lamp-body v0.1.0 (/private/tmp/lampos-tests-gemini-capture-clock/lampOS/crates/body)
+    Checking lamp-schedule v0.1.0 (/private/tmp/lampos-tests-gemini-capture-clock/lampOS/crates/schedule)
+    Checking lamp-turn-end-wire v0.1.0 (/private/tmp/lampos-tests-gemini-capture-clock/lampOS/crates/turn-end-wire)
+    Checking lamp-audio v0.1.0 (/private/tmp/lampos-tests-gemini-capture-clock/lampOS/crates/audio)
+    Checking lamp-controls v0.1.0 (/private/tmp/lampos-tests-gemini-capture-clock/lampOS/crates/controls)
+    Checking lamp-ring v0.1.0 (/private/tmp/lampos-tests-gemini-capture-clock/lampOS/crates/ring)
+    Checking tract-nnef v0.23.8
+    Checking lamp-voice v0.1.0 (/private/tmp/lampos-tests-gemini-capture-clock/lampOS/crates/voice)
+    Checking tract-extra v0.23.8
+    Checking tract-onnx-opl v0.23.8
+    Checking lamp-observer v0.1.0 (/private/tmp/lampos-tests-gemini-capture-clock/lampOS/crates/observer)
+    Checking lamp-actions v0.1.0 (/private/tmp/lampos-tests-gemini-capture-clock/lampOS/crates/actions)
+    Checking lamp-expression v0.1.0 (/private/tmp/lampos-tests-gemini-capture-clock/lampOS/crates/expression)
+    Checking lamp-sound-fixtures v0.1.0 (/private/tmp/lampos-tests-gemini-capture-clock/lampOS/crates/sound-fixtures)
+    Checking lamp-policy v0.1.0 (/private/tmp/lampos-tests-gemini-capture-clock/lampOS/crates/policy)
+    Checking tract-onnx v0.23.8
+    Checking lamp-turn-end v0.1.0 (/private/tmp/lampos-tests-gemini-capture-clock/lampOS/crates/turn-end)
+    Checking tempfile v3.27.0
+    Checking lamp-voice-eval v0.1.0 (/private/tmp/lampos-tests-gemini-capture-clock/lampOS/crates/voice-eval)
+    Checking tough v0.24.0 (/private/tmp/lampos-tests-gemini-capture-clock/lampOS/vendor/tough)
+    Checking axum v0.8.9
+    Checking lamp-surround v0.1.0 (/private/tmp/lampos-tests-gemini-capture-clock/lampOS/crates/surround)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 1m 16s

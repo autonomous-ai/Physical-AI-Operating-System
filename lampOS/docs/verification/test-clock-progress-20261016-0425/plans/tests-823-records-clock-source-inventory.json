@@ -1,0 +1,276 @@
+{
+  "generated_at_from_date": "2026-10-16 04:14:47 +0700",
+  "scope": "Read-only source design; no tests/builds, Git mutation, network, device or repository edit",
+  "pinned_base": "48b3737d5e83efa00278172cb602d3525d368a43",
+  "worktree": "/private/tmp/lampos-tests-recorder-coordination",
+  "files": [
+    {
+      "path": "lampOS/crates/records/Cargo.toml",
+      "sha256": "92f90b54a3690be6cd6843a9cabb20c300468a9e716c09e58f874c0cdc7bdcfc",
+      "matches_pinned_base": true,
+      "git_blob": "e0dc936aa97c2ffe9819057c97099cc6e916d93a"
+    },
+    {
+      "path": "lampOS/crates/records/src/main.rs",
+      "sha256": "bae0df20da9c890ed0fcb3255150abbc01c1a70c47f685131d02ea8593d7a569",
+      "matches_pinned_base": true,
+      "git_blob": "3abb337152e41e8b9a1c914203bc7023aa6267f2"
+    },
+    {
+      "path": "lampOS/crates/records/src/report.rs",
+      "sha256": "7dd0fca735054fc095d867ca54238aa978a80d741681bf0a7368b5f097ef6c5c",
+      "matches_pinned_base": true,
+      "git_blob": "019c41b0fff939c8a347c403eba202b1694fd3d5"
+    },
+    {
+      "path": "lampOS/crates/records/src/json_file.rs",
+      "sha256": "80d533545280f90a367e6e04e05f03e293d3244dacee8f5c7572849f180e520c",
+      "matches_pinned_base": true,
+      "git_blob": "f214c1ee2b8d55daf049f76858e79a0807f51040"
+    },
+    {
+      "path": "lampOS/crates/records/src/config.rs",
+      "sha256": "b57c20226ed8898d1f7f43f6499d32dd623392db7871d3b1f3782b3afc916d80",
+      "matches_pinned_base": true,
+      "git_blob": "3a37e1b33ce072d29ae887bc66f2e0564a463959"
+    },
+    {
+      "path": "lampOS/crates/records/tests/records.rs",
+      "sha256": "b40cf09e6c77e4dfd5876e381a75d2878e2589b115345c2832ce6623f14370bd",
+      "matches_pinned_base": true,
+      "git_blob": "76f0de9df31dd0eb012bfa12b4c13ff1ca6f8b7d"
+    },
+    {
+      "path": "lampOS/crates/bus/src/lib.rs",
+      "sha256": "3ab858b5195382e190b4988415177c7cf0b567cae33ecdbf097167eb7978b919",
+      "matches_pinned_base": true,
+      "git_blob": "481c493ec637b959974d7810299727c321ca408e"
+    },
+    {
+      "path": "lampOS/crates/bus/src/publish.rs",
+      "sha256": "53a43999a7035b31e06d29abfb4d0975f514ca0402f4e2614d46796894e1e563",
+      "matches_pinned_base": true,
+      "git_blob": "81752f404be7fe73289e032f147486c830d4433d"
+    },
+    {
+      "path": "lampOS/crates/bus/src/subscribe.rs",
+      "sha256": "30f1ef9e2e5ddd732ccb89a746e290b53a52ac7a44ccef488eb43b70c96217c2",
+      "matches_pinned_base": true,
+      "git_blob": "a9f851bab8c1fb26a2cfc03d35b6e6d734115385"
+    },
+    {
+      "path": "lampOS/crates/msgs/src/lib.rs",
+      "sha256": "8b599a901beaa2887b3808cff6ffed390be9e850ee9ab6a840b7f5758ffb3fb0",
+      "matches_pinned_base": true,
+      "git_blob": "50eb54ebc84c17583cf642b6ae483576dbc42375"
+    },
+    {
+      "path": "lampOS/builders/fourth.md",
+      "sha256": "01631e55c394fea014ffdf2d5e1d3c4e13373d2babf3739d963454142bcb11c6",
+      "matches_pinned_base": true,
+      "git_blob": "60bcc76945dea1dde164e6528c92838338c2c7bb"
+    },
+    {
+      "path": "lampOS/builders/tests.md",
+      "sha256": "9e9de2f65d5537c3bdbe21a1c0ed47c50b4ebd20154063dd4208cf08f370ee93",
+      "matches_pinned_base": true,
+      "git_blob": "5158aa0ede789cf8e08277092102fd1e074787ca"
+    },
+    {
+      "path": "lampOS/docs/work-split.md",
+      "sha256": "dc2b33eef3db25e81c1645482a48713c621cd4af0c509a3d9982ff25eb47ccf3",
+      "matches_pinned_base": true,
+      "git_blob": "cc44d1c4ed26ffaa84088b666900d08deae85f02"
+    },
+    {
+      "path": "lampOS/docs/records.md",
+      "sha256": "1f62e6f87b468015d337f3f398cd7f80d9bc9fcbe392a5da52ecaf89094c6b3d",
+      "matches_pinned_base": true,
+      "git_blob": "daab5301cbc2bf96a0937cec597147f1b266f800"
+    }
+  ],
+  "identity": {
+    "binary": "lamp-records::records",
+    "name": "real_reporter_reloads_switch_and_policy_and_requires_a_matching_receipt",
+    "line": 213,
+    "original_123_member": true,
+    "test_text_sha256": "8176cad80df7587ef6a81e1373711027bdcb5b693561785ab6bef642c0e7e7e3",
+    "assertion_macro_sites": 16,
+    "assertions": [
+      {
+        "line": 249,
+        "sha256": "388dee31d83167e7bce6452ff8709ddd120f93f5fcf5b0960dc4f3e915f31cce",
+        "text": "assert!(\n                !remaining.is_zero(),\n                \"no {level:?} diagnostic with enabled={enabled}, before_bytes={before_bytes}; last={last:?}\"\n            )"
+      },
+      {
+        "line": 253,
+        "sha256": "1e361152798bf2e2f0f37059450e17622ec4e56b6f643171202fcf45b5745637",
+        "text": "assert!(\n                reporter.0.try_wait().unwrap().is_none(),\n                \"reporter exited before the expected transition; last={last:?}\"\n            )"
+      },
+      {
+        "line": 338,
+        "sha256": "29984591c04ff561672981d8c0170257701c1ad7229e28620abeedff6d6e7b5c",
+        "text": "assert!(disabled.message.contains(\"disabled\"))"
+      },
+      {
+        "line": 339,
+        "sha256": "6212b6346284ea3ed7d4551cb3bbe59f613de38327f50fce2ea2fffb9f32c6de",
+        "text": "assert_eq!(field(&disabled, \"roots\"), Some(\"0\"))"
+      },
+      {
+        "line": 340,
+        "sha256": "3d0f630dc1e6ac2932dc9a684d85e1c8fe749d3f2e57526db8830c32404471a6",
+        "text": "assert!(\n        !result_path.exists(),\n        \"disabled reporting must not need a receipt\"\n    )"
+      },
+      {
+        "line": 349,
+        "sha256": "c68e3c273a3d05c6cadb018dae194bce7de5494bde924aa06255e705e2e21be5",
+        "text": "assert_eq!(field(&missing, \"roots\"), Some(\"0\"))"
+      },
+      {
+        "line": 353,
+        "sha256": "4dffac2d4b2eb5098bc134b5130a97365ae549e73e13d06cd8d402f172d6acb1",
+        "text": "assert_eq!(field(&healthy, \"roots\"), Some(\"1\"))"
+      },
+      {
+        "line": 354,
+        "sha256": "c0b537229cd678bc3152aca3fe4506ff364678c88d638e93f41349c492bad35c",
+        "text": "assert_eq!(field(&healthy, \"disk_free_at_cleanup_pct\"), Some(\"50.00\"))"
+      },
+      {
+        "line": 359,
+        "sha256": "ced047d6363f66a6210f92fba9349114dc3ed4f180c551c939108b6c852b9cd0",
+        "text": "assert_eq!(field(&changed, \"roots\"), Some(\"0\"))"
+      },
+      {
+        "line": 364,
+        "sha256": "c0b537229cd678bc3152aca3fe4506ff364678c88d638e93f41349c492bad35c",
+        "text": "assert_eq!(field(&healthy, \"disk_free_at_cleanup_pct\"), Some(\"50.00\"))"
+      },
+      {
+        "line": 369,
+        "sha256": "29984591c04ff561672981d8c0170257701c1ad7229e28620abeedff6d6e7b5c",
+        "text": "assert!(disabled.message.contains(\"disabled\"))"
+      },
+      {
+        "line": 370,
+        "sha256": "6212b6346284ea3ed7d4551cb3bbe59f613de38327f50fce2ea2fffb9f32c6de",
+        "text": "assert_eq!(field(&disabled, \"roots\"), Some(\"0\"))"
+      },
+      {
+        "line": 371,
+        "sha256": "f286527be3757269f3fad6957d78eb51cced7a7a53841a49fa52328148474c1f",
+        "text": "assert_eq!(\n        field(&disabled, \"disk_free_at_cleanup_pct\"),\n        Some(\"unknown\")\n    )"
+      },
+      {
+        "line": 376,
+        "sha256": "eb40bfa26a6f5fb321bb1d8babebb8f00a0a91102e8967b3698b0a20f25dba82",
+        "text": "assert!(unchanged.enabled)"
+      },
+      {
+        "line": 377,
+        "sha256": "e923353de57c0528e521a1f6c040431601e97659741310a83cdc0bd9eec90f7d",
+        "text": "assert_eq!(unchanged.config_fingerprint, current.config_fingerprint)"
+      },
+      {
+        "line": 378,
+        "sha256": "c3b22dbb9a19eb3612b162d9e05dce5ce1268e69a6b27ecb6ae63cda7f337290",
+        "text": "assert_eq!(unchanged.roots[0].before_bytes, 222)"
+      }
+    ],
+    "scenario_without_spawn_expression_sha256": "45ba391cc7ecfc09ab33643738004b95cd4d387c16f4d36f9b81159c5ff17318",
+    "scenario_projection": "From let tree = Tree::new(); through function close, removing only the full let mut reporter = RunningReporter(...) statement. Helpers lie before projection.",
+    "six_observed_statuses": true,
+    "five_one_second_periods": true,
+    "child_lifetime_seconds": 30,
+    "per_status_wait_seconds": 4
+  },
+  "integration_test_source_ids": [
+    "public_tree_pipeline_dry_then_apply_keeps_live_memory_and_outside_link",
+    "real_cli_apply_with_unknown_service_cannot_delete_any_fixture_record",
+    "diagnostic_is_delivered_over_the_real_local_bus_without_record_contents",
+    "real_reporter_reloads_switch_and_policy_and_requires_a_matching_receipt",
+    "records_cost",
+    "bind_mounts_are_refused_even_on_the_same_filesystem"
+  ],
+  "main_test_source_ids": [
+    "check_defaults_to_dry_and_never_accepts_a_live_override",
+    "reporter_has_explicit_bounded_test_lifetime",
+    "output_cannot_overwrite_config_or_an_unrelated_file",
+    "old_result_does_not_match_a_changed_age_policy_or_enable_switch",
+    "oversized_result_leaves_readable_failure_and_next_cleanup_can_replace_it"
+  ],
+  "main_test_module_sha256": "7ce0939150b711ebf02059f9261a7c8dcb137f43a1d75009c5b3aed9e6ca0a19",
+  "identity_count_limit": "Syntactic source inventory only; four ordinary Records integration tests, one ignored timing test, one Linux-only ignored privileged test. No compiled-list execution.",
+  "owner_local_ref": {
+    "ref": "refs/remotes/origin/lamp-fourth",
+    "commit": "69bdc436d9660877e4aed5ae21c0bf5eb1b967a5",
+    "log_path": "lampOS/docs/work-log-fourth.md",
+    "log_sha256": "84ae6f8688d4a0907190db2d879bc8f8e6726cda7981e2ec99c5cdc4ecb0002c",
+    "latest_entry": "2026-10-16, 02:57 ICT",
+    "github_current_state_verified": false
+  },
+  "memory_pattern_sources": [
+    {
+      "path": "/private/tmp/lampos-tests-memory-health-fixtures/lampOS/crates/memory/src/fixture_protocol.rs",
+      "sha256": "21f2d5ca2fc309c8b63989ff6a889f37edd5e3eb8a4fc5de305348d11a0efb0c",
+      "scope": "read-only design reference; not a Records dependency"
+    },
+    {
+      "path": "/private/tmp/lampos-tests-memory-health-fixtures/lampOS/crates/memory/src/fixture_schedule.rs",
+      "sha256": "aa4cd9fb4c59fc82011131a3461870efe8eef43af74186fdb606bb18e58f54f6",
+      "scope": "read-only design reference; not a Records dependency"
+    },
+    {
+      "path": "/private/tmp/lampos-tests-memory-health-fixtures/lampOS/crates/memory/src/bin/lamp-memory-fixture.rs",
+      "sha256": "2885b1d48defea67e2381f46f944aaf38c2035a67820eb68ac64c9b899c1dc2a",
+      "scope": "read-only design reference; not a Records dependency"
+    },
+    {
+      "path": "/private/tmp/lampos-tests-memory-health-fixtures/lampOS/crates/memory/src/application.rs",
+      "sha256": "cadc7f5486bbda00b152453faa73939325b1a47149744ae0055616d3dc156168",
+      "scope": "read-only design reference; not a Records dependency"
+    }
+  ],
+  "input_evidence": [
+    {
+      "path": "/private/tmp/tests-823-original123-remaining-map-20261016.json",
+      "sha256": "3292443adae7b6ea8dd071d3cdf7f2e6267f5cc8ea0f957b2b180cb8a2988c88"
+    },
+    {
+      "path": "/private/tmp/tests-823/other-inventory.json",
+      "sha256": "5cd641269671bd9448093deb0dd026bbb9749574631e09bd5267fb573ff17d1e"
+    },
+    {
+      "path": "/private/tmp/tests-823/verified-measurements.json",
+      "sha256": "047ee497dc848bb4197ec5b3815e9f7a6b9aa143aedf6b8c5c97e9a3d88ae256"
+    },
+    {
+      "path": "/private/tmp/tests-823-native-20261016/889-38780759392.log",
+      "sha256": "a205987a0dfb8ad587a0634d7d45e4ba0f04ad8ae76764286f55ab94315c3d84"
+    }
+  ],
+  "historical_timing": {
+    "run": 38780759392,
+    "head": "8a7521661cb06997a18eed32ead13d8d9ee81fd9",
+    "binary": "lamp-records::records",
+    "status": "PASS",
+    "seconds": 5.007,
+    "new_measurement": false
+  },
+  "proposed_scope": {
+    "controlled": [
+      "report loop start/residual cadence reads",
+      "Bus publisher cadence before original declared first show"
+    ],
+    "host_retained": [
+      "real CLI lifetime began/seconds check",
+      "60-second failure log throttle",
+      "diagnostic now_unix_s and receipt at_unix_s",
+      "Reporter started/header at_us",
+      "Bus UTC, mtime and subscriber clocks",
+      "parent four-second host guards",
+      "actual filesystem/Child status and kill/wait"
+    ]
+  }
+}

@@ -1,0 +1,108 @@
+{
+  "date": "2026-10-16 04:25:13 +0700",
+  "recorded_base": "48b3737d5e83efa00278172cb602d3525d368a43",
+  "read_only_git_show_used": true,
+  "no_source_edits_git_mutation_network_cargo_retry_device_actions": true,
+  "source_proof": [
+    {
+      "path": "lampOS/crates/voice/src/coordinator/tests/pilot_faults.rs",
+      "sha256": "e7c292977de467d24c921a59e4012e471131e953af89dfe5764f87257333075b",
+      "base_sha256": "e7c292977de467d24c921a59e4012e471131e953af89dfe5764f87257333075b",
+      "same_as_recorded_base": true
+    },
+    {
+      "path": "lampOS/crates/voice/src/coordinator.rs",
+      "sha256": "752b2179533236813b4cbf63cc87094294a982c0522f40508eae58086fa705b5",
+      "base_sha256": "752b2179533236813b4cbf63cc87094294a982c0522f40508eae58086fa705b5",
+      "same_as_recorded_base": true
+    },
+    {
+      "path": "lampOS/crates/voice/src/coordinator/hand.rs",
+      "sha256": "1cb27e95099814375f043a24cc865d161fcf47c44d82a114b430bb1e14de02c3",
+      "base_sha256": "1cb27e95099814375f043a24cc865d161fcf47c44d82a114b430bb1e14de02c3",
+      "same_as_recorded_base": true
+    },
+    {
+      "path": "lampOS/crates/voice/src/transport.rs",
+      "sha256": "49308fd4a3e19ba1179a0410785e85912ed018757d79872497f40517529eae73",
+      "base_sha256": "49308fd4a3e19ba1179a0410785e85912ed018757d79872497f40517529eae73",
+      "same_as_recorded_base": true
+    },
+    {
+      "path": "lampOS/crates/voice/src/process.rs",
+      "sha256": "f9f1173bd1d33ea9f5ebc9ed3ed6247b802dbf299d017dabef90f93eca074d54",
+      "base_sha256": "f9f1173bd1d33ea9f5ebc9ed3ed6247b802dbf299d017dabef90f93eca074d54",
+      "same_as_recorded_base": true
+    },
+    {
+      "path": "lampOS/crates/voice/src/scenario_clock.rs",
+      "sha256": "7eb0215c649311dd9303d3043c46d8c50af2d165ab677e6c1c37720a79fc7cef",
+      "base_sha256": "7eb0215c649311dd9303d3043c46d8c50af2d165ab677e6c1c37720a79fc7cef",
+      "same_as_recorded_base": true
+    },
+    {
+      "path": "lampOS/crates/voice/src/provider_flow.rs",
+      "sha256": "d32f128506d1e5ab7dadaf422cdde9e308442c4409d14c1db35f22c443f74720",
+      "base_sha256": "d32f128506d1e5ab7dadaf422cdde9e308442c4409d14c1db35f22c443f74720",
+      "same_as_recorded_base": true
+    },
+    {
+      "path": "lampOS/crates/voice/src/service_privacy.rs",
+      "sha256": "d5dfc04a5020242be4430f021044af27fffa8d7cca3d5eb7ff8136e3f52c2099",
+      "base_sha256": "d5dfc04a5020242be4430f021044af27fffa8d7cca3d5eb7ff8136e3f52c2099",
+      "same_as_recorded_base": true
+    },
+    {
+      "path": "lampOS/crates/turn-owner/src/controller.rs",
+      "sha256": "b8237eddfd8d17d9c38496aa5b48eac14277bc3ca124da9de8a889440e44788a",
+      "base_sha256": "b8237eddfd8d17d9c38496aa5b48eac14277bc3ca124da9de8a889440e44788a",
+      "same_as_recorded_base": true
+    },
+    {
+      "path": "lampOS/crates/turn-owner/src/types.rs",
+      "sha256": "542f74cb2a13b10d7fab3aae02cdc898e14f285fb83e1fb89a77680d56cc8ed8",
+      "base_sha256": "542f74cb2a13b10d7fab3aae02cdc898e14f285fb83e1fb89a77680d56cc8ed8",
+      "same_as_recorded_base": true
+    },
+    {
+      "path": "lampOS/crates/gemini/Cargo.toml",
+      "sha256": "5b94eadddf2bdc8677d8e584a6cc3ffbdf38f79eba775a9dd141268b1c9a0816",
+      "matches_frozen_preflight": true
+    },
+    {
+      "path": "lampOS/crates/gemini/src/session.rs",
+      "sha256": "27f0d1b329d5407e2b85941a60fd747d12eed3fc7aa07accbf0ceda373ae6073",
+      "matches_frozen_preflight": true
+    },
+    {
+      "path": "lampOS/crates/gemini/src/testing.rs",
+      "sha256": "ac34ac1c456b9e87557bec5aa9c6c4f1a5bc86fcbd09d9518bc13c98859081d3",
+      "matches_frozen_preflight": true
+    },
+    {
+      "path": "lampOS/crates/gemini/src/session/capture_clock_tests.rs",
+      "sha256": "5c2bbcae2d621c982213fb49d23a2a841d21f089e692e97aa465d4d6d2aeef05",
+      "matches_frozen_preflight": true
+    },
+    {
+      "path": "lampOS/docs/gemini-session-reliability.md",
+      "sha256": "753906cd40b84c767b04769e136b065b0ac17a6c8e970f3181f116ffcd50275e",
+      "matches_frozen_implementation_after": true
+    }
+  ],
+  "gate_totals": {
+    "passed": 2011,
+    "failed": 1,
+    "ignored": 8,
+    "summary_rows": 68
+  },
+  "evidence_sha256": {
+    "full-affected-tests.log": "9866c80a7793f6687d91b3b2bee0f1baed55a7e212130245b00d2ddbee9a6157",
+    "full-gates.json": "927f9fbb3b821b1727f0f473fa9ce88037b72e6dc58b21501dc889bb3ad5900b",
+    "full-result.json": "5f20229779f4f812e562a23db9c7cdde93c53e80f4562510dfd8fccc88e81edc",
+    "issue-866-current.json": "1182248ed519c83658280aebbc87e419e46574b1239c2333e2361aef911c800c",
+    "baseline-source.json": "bf34caf4fd658458da17b98af1ce61bae5bb05dbf0ff098581d4b9e62ccdf14a",
+    "preflight-source.json": "d37644a0bb76061b4088e678e710ee481a6c49e6e056c4ab7b10fbe391a3bd36"
+  },
+  "report_sha256": "74ddf4635a39e4d82f6f2ed71c9702c57c1de71a5042479c5ecd26e3b6689c5b"
+}

@@ -1,0 +1,27 @@
+   Compiling libc v0.2.190
+   Compiling syn v3.0.7
+    Checking getrandom v0.2.17
+    Checking ring v0.17.14
+    Checking rustls-webpki v0.103.15
+    Checking once_cell v1.21.4
+    Checking rustls v0.23.45
+   Compiling thiserror-impl v2.0.21
+   Compiling tokio-macros v2.7.2
+   Compiling serde_core v1.0.229
+    Checking getrandom v0.4.3
+    Checking socket2 v0.6.5
+    Checking mio v1.2.4
+    Checking tokio v1.53.1
+    Checking rand v0.10.3
+    Checking thiserror v2.0.21
+    Checking futures-sink v0.3.34
+    Checking futures-core v0.3.34
+    Checking futures-util v0.3.34
+    Checking tokio-rustls v0.26.6
+    Checking tungstenite v0.30.0
+   Compiling serde_derive v1.0.229
+    Checking serde_json v1.0.151
+    Checking tokio-tungstenite v0.30.0
+    Checking serde v1.0.229
+    Checking lamp-gemini v0.1.0 (/private/tmp/lampos-tests-gemini-capture-clock/lampOS/crates/gemini)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 33.99s

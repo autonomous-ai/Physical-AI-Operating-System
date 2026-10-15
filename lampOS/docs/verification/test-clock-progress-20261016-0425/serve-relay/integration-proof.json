@@ -1,0 +1,50 @@
+{
+  "date": "2026-10-16 04:05:25 +0700",
+  "base": "e057db620acb2bd61bac1ae7f157d87cdf635a18",
+  "owned_files": [
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/fake_lamp.rs",
+      "before_sha256": "7707b987700293a31096338ccd4364e34aa70bce59bca2dd3c1cdaef15c0c9a1",
+      "after_sha256": "b9637518aaf8e0dffc587273ab0c5e19c6ff1d72337796c71a4d0832cb4f1327",
+      "qualified_sha256": "9d18247e2e04944cc09c2cae2074e0c1e759e4a59332255cc3188cb762fc014f",
+      "candidate_equals_qualified_whole_file": false
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/fixture_commands.rs",
+      "before_sha256": "c755e44894013fa6ff40dc107b0d5a13ae2fea2235b6bd04a4fa4d8b68ba4474",
+      "after_sha256": "7d68389f86d879d4fe9e64f925d169641d25ef0c8d9b62b0a9f062b2f2d23fc8",
+      "qualified_sha256": "39f8706b3444b15ce52fbaa4250d4beb3c57d03ab5c411921e2c5082dba1feda",
+      "candidate_equals_qualified_whole_file": false
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/serve_invocation_tests.rs",
+      "before_sha256": null,
+      "after_sha256": "89f89a010c4a240aa699fd37fb49e0a2c4f2ed8f65ce77332c5c9b575e3d12dc",
+      "qualified_sha256": "89f89a010c4a240aa699fd37fb49e0a2c4f2ed8f65ce77332c5c9b575e3d12dc",
+      "candidate_equals_qualified_whole_file": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/serve_relay.rs",
+      "before_sha256": "53f5cc802a0101518da7214b63b77e052b3406fe1b5db3ce43d5c0c305145bf5",
+      "after_sha256": "836a72136db9573ca12e8b4aeab77ff95e42010cf71fcd652da6318945ec7bf2",
+      "qualified_sha256": "836a72136db9573ca12e8b4aeab77ff95e42010cf71fcd652da6318945ec7bf2",
+      "candidate_equals_qualified_whole_file": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/common/serve_relay_clock.rs",
+      "before_sha256": null,
+      "after_sha256": "60f5ee58ee905b285ea54c5d6c1a2159964e97a2945a79654d283ca14d0ee9cb",
+      "qualified_sha256": "60f5ee58ee905b285ea54c5d6c1a2159964e97a2945a79654d283ca14d0ee9cb",
+      "candidate_equals_qualified_whole_file": true
+    },
+    {
+      "path": "lampOS/docs/realtime-tests.md",
+      "before_sha256": "eb3f3e2b8beb25d5320d060507444d49b87ab3926422779ce15a038a5d487eef",
+      "after_sha256": "0ba58a3b6399264eff127716af636fbac195e93801697edb0b041fdb4ae41edb",
+      "qualified_sha256": "b56221b651472d4f5df878f4e0e192ffb73438a26b8be3fb9e9e43318c7cb191",
+      "candidate_equals_qualified_whole_file": false
+    }
+  ],
+  "all_other_evaluator_rust_unchanged": true,
+  "exact_six_paths_only": true
+}

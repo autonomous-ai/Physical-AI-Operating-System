@@ -1,0 +1,19 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.25s
+     Running unittests src/lib.rs (/private/tmp/lampos-tests-capacity/lampOS/target/debug/deps/lamp_gemini-389155200aa7f9c0)
+
+running 12 tests
+test session::capture_clock_tests::audio_offer_keeps_the_exact_full_bound_and_refusal_order ... ok
+test session::capture_clock_tests::capture_updates_do_not_move_tokio_or_prevent_its_read_deadline ... ok
+test session::capture_clock_tests::connector_attempts_share_the_explicit_clock_and_keep_setup_metadata ... ok
+test session::capture_clock_tests::connector_keeps_the_requested_duplex_capacity_and_original_write_timeout ... ok
+test session::capture_clock_tests::custom_setup_and_sender_clones_share_one_pure_capture_clock ... ok
+test session::capture_clock_tests::every_existing_factory_keeps_system_capture_time_with_fixture_support ... ok
+test session::capture_clock_tests::held_audio_at_its_full_extended_bound_fails_before_any_pcm_write ... ok
+test session::capture_clock_tests::held_audio_is_written_one_nanosecond_inside_its_full_extended_bound ... ok
+test session::capture_clock_tests::image_offer_and_actual_send_keep_the_full_bound_and_refusal_order ... ok
+test session::capture_clock_tests::pending_image_expires_on_an_actual_actor_turn_and_leaves_audio_live ... ok
+test session::capture_clock_tests::queued_audio_is_checked_again_by_the_actor_at_the_exact_bound ... ok
+test session::capture_clock_tests::sequence_and_capture_order_fail_after_one_actor_read_not_two ... ok
+
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 228 filtered out; finished in 0.05s
+

@@ -90,3 +90,22 @@ temperature stop (50 reads in a row) never came near.
 
 **Not shown:** `stay` for the head with a lower hand bound; lamp-4ace,
 whose joints read other loads.
+
+### Runs 4 and 5: `--give-way stay` for the head, after the fixes
+
+- **Run 4, `cd3de5d93` (body `e495b0d7`), 12:0x:** a hand lifted the head
+  about 10° (pitch −0.437 → −0.60 rad); it gave way once, but its load in
+  the hand stayed at 0.09 to 0.13, around the new bound of 100, so it was
+  never counted as in the hand, and it came back about 4 s after it was let
+  go. Kept 0.
+- **Run 5, `98557553b` (body `c01b7a4b`), 12:4x:** the same lift. Held off
+  its goal by the hand, it counted as in the hand at once: the journal says
+  `left where a hand put it [1, 0, 0]` three times, and the head stayed
+  where it was put, about 7° above where it had been (pitch −0.55 against
+  −0.43), with later moods laid from there. The run never ended
+  (`NRestarts` 0).
+
+So with `98557553b` both modes do what they say on lamp-52e6: `return`
+gives way and comes back, `stay` gives way and stays where a hand leaves
+the head or the base; no push ends the run; a folded arm lifted by a hand
+goes back down.

@@ -303,9 +303,10 @@ CueSink and fault relay. Runtime ticks remain 10 ms; the stale-cue fault still
 holds the original bytes for 150 ms with their original 100 ms expiry. The
 existing `run` and CLI keep system time, the two-millisecond sleep between
 continuing polls, and their existing serve path. The controlled entrypoint
-rejects serve before producing output because that separate runtime has no
-controlled-clock seam yet. No CLI flag or environment variable enables this
-entrypoint.
+rejects serve before producing output because that path still needs
+coordinated clock advancement and acknowledgements of completed polls. Its
+clock source alone does not provide that control. No CLI flag or environment
+variable enables this entrypoint.
 
 A hook may acknowledge completed work and park until the coordinator's next
 poll, with a separate bounded host watchdog supplied by that coordinator. The

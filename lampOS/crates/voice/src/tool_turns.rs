@@ -105,10 +105,15 @@ const STORY_ASKED: &str = "Hey Lamp, can you ask Claude Code to write a short st
 /// without: how often the model hands each over to Claude Code, and how
 /// often it does the work itself. On lamp-4ace on 2026-10-15 the first two
 /// were told as stories by the lamp, and a story already under way was
-/// carried on when asked again (`mid_story`, `after_own_story`). The last
-/// is a story asked of the lamp
-/// itself, which it should tell. The words are the ones played there; the
-/// model reads them here, where on the lamp it heard them.
+/// carried on when asked again (`mid_story`, `after_own_story`). The two
+/// named poems are as the service heard them on lamp-4ace on 2026-10-16,
+/// when two heads of #903 lost them. Those whose label begins `own_` are
+/// asked of the lamp itself, which should tell them: on 2026-10-16 a long
+/// one was offered to Claude Code instead, and a session that began
+/// offering went on offering every story (`own_story_long`,
+/// `own_story_after_hand_over`, `own_stories_in_a_row`). The words are the
+/// ones played there; the model reads them here, where on the lamp it heard
+/// them.
 pub const HAND_OVERS: &[Scripted] = &[
     Scripted {
         label: "story_asked",
@@ -153,11 +158,45 @@ pub const HAND_OVERS: &[Scripted] = &[
         ],
     },
     Scripted {
+        label: "named_poem_sea",
+        expects: Some(crate::agent_tasks::START),
+        lines: &["Hey Lamp, can you ask Claude Co to write a short poem about the sea?"],
+    },
+    Scripted {
+        label: "named_poem_rain",
+        expects: Some(crate::agent_tasks::START),
+        lines: &["Hey Lamp, ask Claude to write a haiku poem about the rain."],
+    },
+    Scripted {
         label: "own_story",
         expects: None,
         lines: &["Tell me a very short story about a lamp who learns to sing."],
     },
+    Scripted {
+        label: "own_story_long",
+        expects: None,
+        lines: &[OWN_LONG],
+    },
+    Scripted {
+        label: "own_story_after_hand_over",
+        expects: None,
+        lines: &[HAND_OVER, "Yes, go ahead.", OWN_LONG],
+    },
+    Scripted {
+        label: "own_stories_in_a_row",
+        expects: None,
+        lines: &[
+            "Hey Lamp, tell me a story about a clever fox, at least five sentences long.",
+            "Tell me another one, about a wise old owl, at least eight sentences long.",
+            "And one more, about a brave little mouse, at least eight sentences long.",
+        ],
+    },
 ];
+
+/// The request that was offered to Claude Code on lamp-4ace on 2026-10-16
+/// at 02:05, 3 times of 3 (#854).
+const OWN_LONG: &str =
+    "Hey Lamp, tell me a story about a clever fox, at least eight sentences long.";
 
 /// The answer the voice would give to `name`, made up, of the same shape
 /// as the real one and with the same `next` (with the lead-in or without,
@@ -345,8 +384,19 @@ pub fn summary_of(all: &[Value], script: &[Scripted]) -> Value {
             .iter()
             .filter(|row| row["called"].as_str() == scripted.expects)
             .count();
+        // What the person heard: the work offered to, or said to go to,
+        // Claude Code (#854: "Claude Code can write that story").
+        let offered = rows
+            .iter()
+            .filter(|row| {
+                row["said"]
+                    .as_str()
+                    .is_some_and(|said| said.contains("Claude Code"))
+            })
+            .count();
         let mut out = medians(&rows);
         out["as_expected"] = json!(as_expected);
+        out["offered"] = json!(offered);
         each.insert(scripted.label.to_owned(), out);
     }
     let plain: Vec<&Value> = results
@@ -573,23 +623,28 @@ mod tests {
         labels.dedup();
         assert_eq!(labels.len(), HAND_OVERS.len());
         for scripted in HAND_OVERS {
-            let lamps_own = scripted.label == "own_story";
+            let lamps_own = scripted.label.starts_with("own_");
             assert_eq!(
                 scripted.expects,
                 (!lamps_own).then_some(crate::agent_tasks::START),
                 "{}",
                 scripted.label
             );
-            assert!(lamps_own || scripted.lines.last().unwrap().contains("Claude Code"));
+            assert_eq!(
+                scripted.lines.last().unwrap().contains("Claude"),
+                !lamps_own,
+                "{}",
+                scripted.label
+            );
         }
-        let row = |scripted: &Scripted, called: Option<&str>| {
+        let row = |scripted: &Scripted, called: Option<&str>, said: &str| {
             let mut timeline = Timeline::default();
             if let Some(name) = called {
                 timeline.call(name, 900_000);
                 timeline.answered(905_000);
             }
             timeline.audio(4_800, 1_800_000);
-            timeline.said("Here is chapter one. ");
+            timeline.said(said);
             timeline.ended("turn_complete", 3_000_000);
             timeline.result(scripted, 0)
         };
@@ -598,15 +653,42 @@ mod tests {
             .iter()
             .find(|scripted| scripted.label == "own_story")
             .unwrap();
+        let long = HAND_OVERS
+            .iter()
+            .find(|scripted| scripted.label == "own_story_long")
+            .unwrap();
         let rows = [
-            row(story, Some(crate::agent_tasks::START)),
-            row(story, None),
-            row(own, None),
+            row(
+                story,
+                Some(crate::agent_tasks::START),
+                "Here is chapter one. ",
+            ),
+            row(story, None, "Here is chapter one. "),
+            row(own, None, "Here is chapter one. "),
+            // The regression of 2026-10-16, as the person heard it.
+            row(
+                long,
+                None,
+                "Claude Code can write that story about the clever fox. Should I start it?",
+            ),
+            row(
+                long,
+                None,
+                "Once upon a time, a clever fox lived by the river. ",
+            ),
         ];
         let summary = summary_of(&rows, HAND_OVERS);
         assert_eq!(summary["each"]["story_asked"]["n"], 2);
         assert_eq!(summary["each"]["story_asked"]["as_expected"], 1);
         assert_eq!(summary["each"]["own_story"]["as_expected"], 1);
+        assert_eq!(
+            (
+                &summary["each"]["own_story_long"]["n"],
+                &summary["each"]["own_story_long"]["offered"]
+            ),
+            (&json!(2), &json!(1))
+        );
+        assert_eq!(summary["each"]["own_story"]["offered"], 0);
         assert_eq!(summary["each"]["mid_story"]["n"], 0);
         // The timing script is untouched.
         assert!(

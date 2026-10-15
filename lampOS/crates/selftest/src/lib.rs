@@ -9,6 +9,7 @@
 //! - [`ring`]: the ring's owner, listened to.
 //! - [`mic`]: a second of the voice microphone, and its level.
 //! - [`hand`]: touch by hand, at the factory.
+//! - [`speaker`]: the voice's tone, heard by both microphones.
 //! - [`report`]: where a run is kept, and what a person reads.
 
 // Nothing in this library prints; the program prints what it is given.
@@ -23,6 +24,7 @@ pub mod listen;
 pub mod mic;
 pub mod report;
 pub mod ring;
+pub mod speaker;
 
 /// The whole self-test has two minutes (#812).
 pub const BUDGET: Duration = Duration::from_secs(120);

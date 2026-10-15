@@ -9,6 +9,10 @@
 //! wipe before anything else (`resume`), with nothing of the lamp running.
 
 use lamp_msgs::{TOUCH_EVENT_TTL_US, TouchEvent, TouchGesture, TouchIntent, TouchSource};
+use rustix::{
+    fd::OwnedFd,
+    fs::{AtFlags, Mode, OFlags},
+};
 use serde::{Deserialize, Serialize};
 use std::{
     fs::{self, File, OpenOptions},
@@ -53,6 +57,12 @@ pub struct Plan {
     pub stop: Vec<String>,
     /// Run after the wipe.
     pub reboot: Vec<String>,
+    /// How `watch-reset` hands the reset to a unit of its own, outside
+    /// `lampos.target`, so stopping the lamp cannot stop the reset
+    /// (`systemd-run --no-block --collect --unit=lamp-setup-wipe`). Empty:
+    /// the reset runs in the watcher itself (tests).
+    #[serde(default)]
+    pub detach: Vec<String>,
 }
 
 fn plain(path: &Path) -> bool {
@@ -103,7 +113,10 @@ impl Plan {
                 return Err("the journal must not be inside a wiped path".into());
             }
         }
-        if !command(&self.stop) || !command(&self.reboot) {
+        if !command(&self.stop)
+            || !command(&self.reboot)
+            || (!self.detach.is_empty() && !command(&self.detach))
+        {
             return Err("stop and reboot are commands with an absolute program".into());
         }
         Ok(())
@@ -140,6 +153,9 @@ pub fn accept(event: &TouchEvent, clock_id: &str, now_us: u64) -> Result<(), &'s
 pub trait Effects {
     fn run(&mut self, argv: &[String]) -> io::Result<()>;
     fn sync(&mut self);
+    /// The last resort when the reboot command fails: a lamp left dark with
+    /// no marker must still come back, into setup.
+    fn force_reboot(&mut self);
 }
 
 pub struct System;
@@ -155,6 +171,11 @@ impl Effects for System {
     }
     fn sync(&mut self) {
         rustix::fs::sync();
+    }
+    fn force_reboot(&mut self) {
+        rustix::fs::sync();
+        #[cfg(target_os = "linux")]
+        let _ = rustix::system::reboot(rustix::system::RebootCommand::Restart);
     }
 }
 
@@ -201,27 +222,71 @@ fn remove_if_present(path: &Path) -> io::Result<bool> {
     }
 }
 
-/// Remove a file, or everything inside a directory. Links are removed, never
-/// followed, at the top and inside (std's `remove_dir_all` does not follow).
-pub fn wipe(path: &Path) -> io::Result<()> {
-    let metadata = match fs::symlink_metadata(path) {
-        Ok(metadata) => metadata,
-        Err(error) if error.kind() == io::ErrorKind::NotFound => return Ok(()),
-        Err(error) => return Err(error),
-    };
-    if !metadata.is_dir() {
-        fs::remove_file(path)?;
-        return sync_parent(path);
+/// Open a directory one component at a time from `/`, following no link at
+/// any level, so a part that swaps a directory for a link mid-wipe makes the
+/// wipe fail rather than reach outside the plan.
+fn open_dir(path: &Path) -> rustix::io::Result<OwnedFd> {
+    let flags = OFlags::RDONLY | OFlags::DIRECTORY | OFlags::NOFOLLOW | OFlags::CLOEXEC;
+    let mut fd = rustix::fs::open("/", flags, Mode::empty())?;
+    for part in path.components().skip(1) {
+        fd = rustix::fs::openat(&fd, part.as_os_str(), flags, Mode::empty())?;
     }
-    for entry in fs::read_dir(path)? {
-        let entry = entry?;
-        if entry.file_type()?.is_dir() {
-            fs::remove_dir_all(entry.path())?;
-        } else {
-            fs::remove_file(entry.path())?;
+    Ok(fd)
+}
+
+fn is_dir(stat: &rustix::fs::Stat) -> bool {
+    rustix::fs::FileType::from_raw_mode(stat.st_mode) == rustix::fs::FileType::Directory
+}
+
+/// Remove everything inside the open directory, by handle.
+fn empty(dir: &OwnedFd) -> io::Result<()> {
+    let mut names = Vec::new();
+    for entry in rustix::fs::Dir::read_from(dir)? {
+        let name = entry?.file_name().to_owned();
+        if name.as_bytes() != b"." && name.as_bytes() != b".." {
+            names.push(name);
         }
     }
-    File::open(path)?.sync_all()
+    for name in names {
+        let stat = rustix::fs::statat(dir, name.as_c_str(), AtFlags::SYMLINK_NOFOLLOW)?;
+        if is_dir(&stat) {
+            let flags = OFlags::RDONLY | OFlags::DIRECTORY | OFlags::NOFOLLOW | OFlags::CLOEXEC;
+            let child = rustix::fs::openat(dir, name.as_c_str(), flags, Mode::empty())?;
+            empty(&child)?;
+            rustix::fs::unlinkat(dir, name.as_c_str(), AtFlags::REMOVEDIR)?;
+        } else {
+            rustix::fs::unlinkat(dir, name.as_c_str(), AtFlags::empty())?;
+        }
+    }
+    Ok(())
+}
+
+/// Remove a file, or everything inside a directory. Links are removed, never
+/// followed, at the top, inside and on the way there.
+pub fn wipe(path: &Path) -> io::Result<()> {
+    let (Some(parent), Some(name)) = (path.parent(), path.file_name()) else {
+        return Err(io::Error::other("a wiped path has a parent and a name"));
+    };
+    let parent = match open_dir(parent) {
+        Ok(parent) => parent,
+        Err(error) if error == rustix::io::Errno::NOENT => return Ok(()),
+        Err(error) => return Err(error.into()),
+    };
+    let stat = match rustix::fs::statat(&parent, name, AtFlags::SYMLINK_NOFOLLOW) {
+        Ok(stat) => stat,
+        Err(rustix::io::Errno::NOENT) => return Ok(()),
+        Err(error) => return Err(error.into()),
+    };
+    if is_dir(&stat) {
+        let flags = OFlags::RDONLY | OFlags::DIRECTORY | OFlags::NOFOLLOW | OFlags::CLOEXEC;
+        let dir = rustix::fs::openat(&parent, name, flags, Mode::empty())?;
+        empty(&dir)?;
+        rustix::fs::fsync(&dir)?;
+    } else {
+        rustix::fs::unlinkat(&parent, name, AtFlags::empty())?;
+        rustix::fs::fsync(&parent)?;
+    }
+    Ok(())
 }
 
 /// Begin a reset: journal, remove the marker, stop the lamp, wipe, reboot.
@@ -237,13 +302,25 @@ pub fn reset(plan: &Plan, effects: &mut impl Effects) -> io::Result<Vec<Step>> {
     }
     effects.sync();
     if effects.run(&plan.stop).is_err() {
-        steps.push(Step::Rebooting);
-        effects.run(&plan.reboot)?;
+        reboot(plan, effects, &mut steps);
         return Ok(steps);
     }
     steps.push(Step::Stopped);
-    finish(plan, effects, true, &mut steps)?;
+    if let Err(error) = finish(plan, effects, &mut steps) {
+        // The journal and the missing marker bring the lamp back into setup,
+        // which finishes the wipe; a lamp left dark here would wait for a hand.
+        reboot(plan, effects, &mut steps);
+        return Err(error);
+    }
+    reboot(plan, effects, &mut steps);
     Ok(steps)
+}
+
+fn reboot(plan: &Plan, effects: &mut impl Effects, steps: &mut Vec<Step>) {
+    steps.push(Step::Rebooting);
+    if effects.run(&plan.reboot).is_err() {
+        effects.force_reboot();
+    }
 }
 
 /// At start, before anything else: finish a reset a power cut interrupted.
@@ -253,19 +330,14 @@ pub fn resume(plan: &Plan, effects: &mut impl Effects) -> io::Result<Vec<Step>> 
     plan.check().map_err(io::Error::other)?;
     let mut steps = Vec::new();
     match fs::symlink_metadata(&plan.journal) {
-        Ok(_) => finish(plan, effects, false, &mut steps)?,
+        Ok(_) => finish(plan, effects, &mut steps)?,
         Err(error) if error.kind() == io::ErrorKind::NotFound => {}
         Err(error) => return Err(error),
     }
     Ok(steps)
 }
 
-fn finish(
-    plan: &Plan,
-    effects: &mut impl Effects,
-    reboot: bool,
-    steps: &mut Vec<Step>,
-) -> io::Result<()> {
+fn finish(plan: &Plan, effects: &mut impl Effects, steps: &mut Vec<Step>) -> io::Result<()> {
     for path in &plan.wipe {
         wipe(path)?;
         steps.push(Step::Wiped(path.clone()));
@@ -278,9 +350,5 @@ fn finish(
     remove_if_present(&plan.journal)?;
     steps.push(Step::JournalRemoved);
     effects.sync();
-    if reboot {
-        steps.push(Step::Rebooting);
-        effects.run(&plan.reboot)?;
-    }
     Ok(())
 }

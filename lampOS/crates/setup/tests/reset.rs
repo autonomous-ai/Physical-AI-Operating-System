@@ -74,6 +74,7 @@ fn lamp(root: &Root) -> Plan {
             "lampos.target".into(),
         ],
         reboot: vec!["/bin/systemctl".into(), "reboot".into()],
+        detach: vec![],
     }
 }
 
@@ -81,18 +82,26 @@ fn lamp(root: &Root) -> Plan {
 struct Fake {
     calls: Rc<RefCell<Vec<String>>>,
     fail_stop: bool,
+    fail_reboot: bool,
 }
 impl Effects for Fake {
     fn run(&mut self, argv: &[String]) -> io::Result<()> {
         self.calls.borrow_mut().push(argv[1].clone());
-        if self.fail_stop && argv[1] == "stop" {
-            return Err(io::Error::other("stop refused"));
+        if (self.fail_stop && argv[1] == "stop") || (self.fail_reboot && argv[1] == "reboot") {
+            return Err(io::Error::other("refused"));
         }
         Ok(())
     }
     fn sync(&mut self) {
         self.calls.borrow_mut().push("sync".into());
     }
+    fn force_reboot(&mut self) {
+        self.calls.borrow_mut().push("force".into());
+    }
+}
+
+fn root_user() -> bool {
+    rustix::process::geteuid().is_root()
 }
 
 fn wiped(root: &Root) {
@@ -167,8 +176,18 @@ fn a_wipe_that_fails_halfway_keeps_the_journal_until_setup_finishes_it() {
     fs::create_dir(&locked).unwrap();
     fs::write(locked.join("inside.json"), b"{}").unwrap();
     fs::set_permissions(&locked, fs::Permissions::from_mode(0o500)).unwrap();
-    let error = reset::reset(&plan, &mut Fake::default()).unwrap_err();
+    if root_user() {
+        // Root ignores the mode this test takes away.
+        return;
+    }
+    let mut fake = Fake::default();
+    let error = reset::reset(&plan, &mut fake).unwrap_err();
     assert_eq!(error.kind(), io::ErrorKind::PermissionDenied, "{error}");
+    // It still reboots: a lamp left dark with no marker would wait for a hand.
+    assert_eq!(
+        fake.calls.borrow().last().map(String::as_str),
+        Some("reboot")
+    );
     // The marker went first, so a reboot now comes back into setup, and the
     // journal says the wipe is unfinished.
     assert!(root.path("setup/reset.json").exists());
@@ -177,6 +196,35 @@ fn a_wipe_that_fails_halfway_keeps_the_journal_until_setup_finishes_it() {
     fs::set_permissions(&locked, fs::Permissions::from_mode(0o700)).unwrap();
     reset::resume(&plan, &mut Fake::default()).unwrap();
     wiped(&root);
+}
+
+#[test]
+fn a_reboot_command_that_fails_falls_back_to_a_forced_reboot() {
+    let root = Root::new();
+    let plan = lamp(&root);
+    let mut fake = Fake {
+        fail_reboot: true,
+        ..Fake::default()
+    };
+    reset::reset(&plan, &mut fake).unwrap();
+    wiped(&root);
+    let calls = fake.calls.borrow();
+    assert_eq!(calls[calls.len() - 2..], ["reboot", "force"]);
+}
+
+#[test]
+fn a_link_on_the_way_to_a_wiped_path_is_never_followed() {
+    let root = Root::new();
+    lamp(&root);
+    // `linked` points outside; a path through it must wipe nothing there.
+    fs::create_dir_all(root.path("outside/store")).unwrap();
+    fs::write(root.path("outside/store/keep.json"), b"{}").unwrap();
+    symlink(root.path("outside"), root.path("linked")).unwrap();
+    assert!(reset::wipe(&root.path("linked/store")).is_err());
+    assert_eq!(
+        fs::read(root.path("outside/store/keep.json")).unwrap(),
+        b"{}"
+    );
 }
 
 #[test]
@@ -308,6 +356,7 @@ fn publish_and_watch(enabled: bool, events: Vec<TouchEvent>) -> (Watched, usize)
         publisher.publish_json(event.stamp.at_us, event).unwrap();
     }
     let acted = RefCell::new(0);
+    let logged = RefCell::new(Vec::new());
     let now = events.last().map_or(0, |event| event.stamp.at_us + 1_000);
     let watched = lamp_setup::watch(
         &mut touch,
@@ -315,14 +364,19 @@ fn publish_and_watch(enabled: bool, events: Vec<TouchEvent>) -> (Watched, usize)
         enabled,
         Some(Instant::now() + Duration::from_millis(600)),
         || now,
-        |_| {},
+        |line| logged.borrow_mut().push(line.to_owned()),
         || {
             *acted.borrow_mut() += 1;
             Ok(())
         },
     )
     .unwrap();
+    LOGGED.with(|log| *log.borrow_mut() = logged.into_inner());
     (watched, acted.into_inner())
+}
+
+thread_local! {
+    static LOGGED: RefCell<Vec<String>> = const { RefCell::new(Vec::new()) };
 }
 
 #[test]
@@ -348,6 +402,16 @@ fn the_watcher_acts_once_on_a_real_bus_and_only_logs_with_the_switch_off() {
         publish_and_watch(true, vec![shadow_controls]),
         (Watched::Ended, 0)
     );
+    // The event did arrive, and was passed over for its reason.
+    LOGGED.with(|log| {
+        assert!(
+            log.borrow()
+                .iter()
+                .any(|line| line.contains("controls is in shadow")),
+            "{:?}",
+            log.borrow()
+        );
+    });
 }
 
 #[test]
@@ -359,6 +423,12 @@ fn the_command_checks_plans_and_reports_an_unfinished_reset_without_acting() {
     let run = |args: &[&str]| Command::new(PROGRAM).args(args).output().unwrap();
     let checked = run(&["check", "--plan", file.to_str().unwrap()]);
     assert!(checked.status.success(), "{checked:?}");
+    let off = run(&["reset-now", "--plan", file.to_str().unwrap()]);
+    assert!(String::from_utf8_lossy(&off.stdout).contains("\"enabled\":false"));
+    assert!(
+        root.path("people.json").exists(),
+        "reset-now does nothing without --enable"
+    );
     fs::write(root.path("setup/reset.json"), b"{}").unwrap();
     let shadow = run(&["resume-reset", "--plan", file.to_str().unwrap()]);
     assert!(shadow.status.success());

@@ -119,7 +119,12 @@ pub enum Refused {
     Country,
 }
 
-/// wpa_supplicant's file for one network, as V1's `connect-wifi` writes it.
+/// wpa_supplicant's file for one network, as V1's `connect-wifi` writes it,
+/// with one correction: wpa_supplicant takes everything between the first
+/// and last quote as it is, so V1's `\"` and `\\` escapes made a name or a
+/// password holding `"` or `\` never match. The name is written as hex, which
+/// holds any bytes, and the password raw between quotes, which is safe since
+/// line breaks and other control characters are refused.
 pub fn wpa_conf(country: &str, ssid: &str, password: &str) -> Result<String, Refused> {
     let ssid = ssid.trim();
     if ssid.is_empty() {
@@ -140,17 +145,55 @@ pub fn wpa_conf(country: &str, ssid: &str, password: &str) -> Result<String, Ref
     if country.len() != 2 || !country.bytes().all(|b| b.is_ascii_uppercase()) {
         return Err(Refused::Country);
     }
-    let quote = |text: &str| text.replace('\\', "\\\\").replace('"', "\\\"");
+    let hex: String = ssid.bytes().map(|byte| format!("{byte:02x}")).collect();
     let key = if password.is_empty() {
         "\tkey_mgmt=NONE\n".to_owned()
     } else {
-        format!("\tpsk=\"{}\"\n", quote(password))
+        format!("\tpsk=\"{password}\"\n")
     };
     Ok(format!(
         "ctrl_interface=DIR=/run/wpa_supplicant\nupdate_config=1\ncountry={country}\n\
-         fast_reauth=1\nap_scan=1\nnetwork={{\n\tssid=\"{}\"\n{key}\tscan_ssid=1\n}}\n",
-        quote(ssid)
+         fast_reauth=1\nap_scan=1\nnetwork={{\n\tssid={hex}\n{key}\tscan_ssid=1\n}}\n"
     ))
+}
+
+/// `wpa_cli` prints a network name with C escapes (`\xNN` for any byte
+/// outside printable ASCII, and `\\`, `\"`, `\e`, `\n`, `\r`, `\t`):
+/// "Nhà Lan" comes back as `Nh\xc3\xa0 Lan`. Read it back to the name.
+pub fn decode_wpa(text: &str) -> String {
+    let bytes = text.as_bytes();
+    let mut out = Vec::with_capacity(bytes.len());
+    let mut at = 0;
+    while at < bytes.len() {
+        if bytes[at] == b'\\' && at + 1 < bytes.len() {
+            let next = bytes[at + 1];
+            let simple = match next {
+                b'\\' => Some(b'\\'),
+                b'"' => Some(b'"'),
+                b'e' => Some(0x1b),
+                b'n' => Some(b'\n'),
+                b'r' => Some(b'\r'),
+                b't' => Some(b'\t'),
+                _ => None,
+            };
+            if let Some(byte) = simple {
+                out.push(byte);
+                at += 2;
+                continue;
+            }
+            if next == b'x'
+                && at + 3 < bytes.len()
+                && let Ok(byte) = u8::from_str_radix(&text[at + 2..at + 4], 16)
+            {
+                out.push(byte);
+                at += 4;
+                continue;
+            }
+        }
+        out.push(bytes[at]);
+        at += 1;
+    }
+    String::from_utf8_lossy(&out).into_owned()
 }
 
 /// What a join needs from the lamp. Injected for tests.
@@ -371,7 +414,7 @@ impl Host for ImageHost {
     }
 
     fn current_ssid(&mut self) -> Option<String> {
-        self.field("ssid")
+        self.field("ssid").map(|ssid| decode_wpa(&ssid))
     }
 
     fn has_station_ip(&mut self) -> bool {

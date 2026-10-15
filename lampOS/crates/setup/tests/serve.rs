@@ -35,7 +35,14 @@ impl Root {
         fs::create_dir_all(path.join("zoneinfo/America")).unwrap();
         fs::write(path.join("zoneinfo/Asia/Ho_Chi_Minh"), b"TZif").unwrap();
         fs::write(path.join("zoneinfo/America/New_York"), b"TZif").unwrap();
+        fs::write(path.join("zoneinfo/leapseconds"), b"# leap seconds\n").unwrap();
         fs::create_dir_all(path.join("etc")).unwrap();
+        fs::write(path.join("etc/real-localtime"), b"TZif").unwrap();
+        std::os::unix::fs::symlink(
+            path.join("etc/real-localtime"),
+            path.join("zoneinfo/localtime"),
+        )
+        .unwrap();
         Self(path)
     }
     fn config(&self, page: bool) -> Config {
@@ -101,18 +108,37 @@ fn a_request_is_checked_before_anything_is_touched() {
         ("llm_api_key", json!("two words")),
         ("name", json!("x".repeat(65))),
         ("name", json!("La\nn")),
-        ("timezone", json!("../etc/passwd")),
-        ("timezone", json!("Asia/Nowhere")),
-        ("timezone", json!("Asia/./Ho_Chi_Minh")),
     ] {
         let mut body = good();
         body[field] = value.clone();
         assert!(check(&request(body), &config).is_err(), "{field} {value}");
     }
+    // A zone the lamp does not know is skipped, not a reason to refuse setup.
+    for zone in [
+        "../etc/passwd",
+        "Asia/Nowhere",
+        "Asia/./Ho_Chi_Minh",
+        "localtime",
+        "leapseconds",
+    ] {
+        let mut body = good();
+        body["timezone"] = json!(zone);
+        assert_eq!(
+            check(&request(body), &config).unwrap().timezone,
+            None,
+            "{zone}"
+        );
+    }
     assert!(zone_known("America/New_York", &config.zoneinfo));
     assert!(
         !zone_known("America", &config.zoneinfo),
         "a directory is no zone"
+    );
+    // Reviewer, #817: Debian's zoneinfo/localtime links to /etc/localtime.
+    assert!(!zone_known("localtime", &config.zoneinfo));
+    assert!(
+        !zone_known("leapseconds", &config.zoneinfo),
+        "not a TZif file"
     );
 }
 
@@ -269,7 +295,10 @@ fn settings_that_cannot_be_saved_leave_no_marker_and_bring_the_hotspot_back() {
         ..Saved::default()
     };
     let mut lamp = Lamp::new(true);
+    lamp.conf = Some(b"country=VN\n".to_vec());
     run(&status, &accepted(), "VN", &mut lamp, &mut saved, || None);
+    // The joined network's file is not kept: the previous one is back.
+    assert_eq!(lamp.conf.as_deref(), Some(&b"country=VN\n"[..]));
     let status = status.lock().unwrap().clone();
     assert_eq!(status.phase, Phase::Failed);
     assert!(!status.set_up_completed);
@@ -308,6 +337,8 @@ fn the_files_are_private_and_the_zone_is_linked_as_v1_does() {
     );
 }
 
+static SCANS: AtomicU64 = AtomicU64::new(0);
+
 /// The router, its status, the runs it was asked to start, and its files.
 type App = (
     axum::Router,
@@ -327,7 +358,9 @@ fn app(page: bool) -> App {
             let started = Arc::clone(&started);
             move |accepted| started.lock().unwrap().push(accepted)
         }),
+        scanned: Mutex::new(None),
         scan: Box::new(|| {
+            SCANS.fetch_add(1, Ordering::Relaxed);
             Ok(scan::parse(
                 "BSS 34:3a:20:95:78:93(on wlan0)\n\tsignal: -41.00 dBm\n\tSSID: Home\n\tDS Parameter set: channel 6\n",
             ))
@@ -363,8 +396,13 @@ async fn v1s_routes_answer_in_v1s_shapes() {
         json!({"status": 1, "message": null, "data": {"phase": "idle", "lan_ip": "", "error": "",
                "mac": "lamp-4ace", "run": 0, "set_up_completed": false, "runtime_phase": ""}})
     );
+    let before = SCANS.load(Ordering::Relaxed);
     let (code, body) = call(&app, "GET", "/api/network", Value::Null).await;
     assert_eq!(code, StatusCode::OK);
+    // A second ask within 5 s gets the same list without a second scan.
+    let (_, again) = call(&app, "GET", "/api/network", Value::Null).await;
+    assert_eq!(again, body);
+    assert_eq!(SCANS.load(Ordering::Relaxed) - before, 1);
     assert_eq!(
         body["data"],
         json!([{"bssid": "34:3a:20:95:78:93", "ssid": "Home", "mode": "STA", "channel": 6,
@@ -382,7 +420,10 @@ async fn v1s_routes_answer_in_v1s_shapes() {
     assert!(body["message"].as_str().unwrap().contains("8 to 63"));
     assert!(started.lock().unwrap().is_empty());
 
+    // A last run's address goes, so V1's page cannot follow it.
+    status.lock().unwrap().lan_ip = "192.168.1.99".into();
     let (code, body) = call(&app, "POST", "/api/device/setup", good()).await;
+    assert_eq!(status.lock().unwrap().lan_ip, "");
     assert_eq!(
         (code, body),
         (

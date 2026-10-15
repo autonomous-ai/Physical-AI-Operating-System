@@ -27,6 +27,9 @@ usage: lamp-setup COMMAND [OPTIONS]
       Watch controls/touch for the reset button held 5 s and released. With
       --enable: stop the lamp, wipe the person's data, remove the setup
       marker and reboot. Without it, a valid reset is only logged.
+  reset-now --plan FILE [--enable]
+      Reset now: what watch-reset hands to a unit of its own when the reset
+      button is held. Without --enable it does nothing.
   resume-reset --plan FILE [--enable]
       At start, before the lamp: finish a reset a power cut interrupted.
       Without --enable it only says whether one is unfinished.
@@ -146,6 +149,14 @@ fn run() -> Result<bool, Box<dyn std::error::Error>> {
             if !options.is_empty() {
                 return Err("watch-reset does not take that option".into());
             }
+            let act = || start_reset(&plan, &plan_path);
+            // A power cut right after a reset's journal, before its marker
+            // went, leaves both: the lamp started, so carry on with it here.
+            if enabled && plan.journal.exists() {
+                eprintln!("lamp-setup: an unfinished reset was found; carrying on with it");
+                act()?;
+                return Ok(true);
+            }
             let mut touch = bus.subscribe_typed(TouchEvent::TOPIC, NAME, TouchEvent::TYPE)?;
             let watched = lamp_setup::watch(
                 &mut touch,
@@ -154,16 +165,27 @@ fn run() -> Result<bool, Box<dyn std::error::Error>> {
                 until,
                 lamp_ipc::monotonic_us,
                 |line| eprintln!("lamp-setup: {line}"),
-                || {
-                    let steps = reset::reset(&plan, &mut System)?;
-                    eprintln!("lamp-setup: {}", serde_json::to_string(&steps)?);
-                    Ok(())
-                },
+                act,
             )?;
             println!(
                 "{}",
                 serde_json::json!({"enabled": enabled, "watched": format!("{watched:?}")})
             );
+            Ok(true)
+        }
+        "reset-now" => {
+            if !options.is_empty() {
+                return Err("reset-now takes --plan and --enable".into());
+            }
+            if !enabled {
+                println!(
+                    "{}",
+                    serde_json::json!({"enabled": false, "reason": "--enable was not set"})
+                );
+                return Ok(true);
+            }
+            let steps = reset::reset(&plan, &mut System)?;
+            println!("{}", serde_json::json!({"enabled": true, "steps": steps}));
             Ok(true)
         }
         "serve" => {
@@ -194,6 +216,26 @@ fn run() -> Result<bool, Box<dyn std::error::Error>> {
         }
         _ => Err(format!("unknown command {command}").into()),
     }
+}
+
+/// Hand the reset to a unit of its own (`detach`), outside `lampos.target`:
+/// the keeper's stop would otherwise end this watcher, and the reset with it,
+/// after the marker is gone and before the wipe and the reboot.
+fn start_reset(plan: &Plan, plan_path: &Path) -> io::Result<()> {
+    if plan.detach.is_empty() {
+        let steps = reset::reset(plan, &mut System)?;
+        eprintln!("lamp-setup: {}", serde_json::to_string(&steps)?);
+        return Ok(());
+    }
+    let mut argv = plan.detach.clone();
+    argv.push(std::env::current_exe()?.to_string_lossy().into_owned());
+    argv.extend([
+        "reset-now".to_owned(),
+        "--plan".to_owned(),
+        plan_path.to_string_lossy().into_owned(),
+        "--enable".to_owned(),
+    ]);
+    System.run(&argv)
 }
 
 fn serve_config(path: &Path) -> Result<lamp_setup::serve::Config, Box<dyn std::error::Error>> {
@@ -229,6 +271,10 @@ fn serve(
     if config.marker.exists() {
         eprintln!("lamp-setup: this lamp is already set up; nothing to serve");
         return Ok(true);
+    }
+    // A temporary file a crash left holds a secret: never kept.
+    for path in [&config.credential, &config.name, &config.marker] {
+        let _ = std::fs::remove_file(path.with_extension("lamp-setup-tmp"));
     }
     let mac = std::fs::read_to_string("/etc/hostname")
         .map(|name| name.trim().to_owned())
@@ -284,6 +330,7 @@ fn serve(
             let interface = config.interface.clone();
             move || lamp_setup::scan::scan(&interface)
         }),
+        scanned: Mutex::new(None),
     });
     let web_stop = config.web_stop.clone();
     let runtime = tokio::runtime::Builder::new_current_thread()

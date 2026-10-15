@@ -1,6 +1,6 @@
 use lamp_setup::wifi::{
-    Host, Joined, Observation, Reason, Refused, WRONG_KEY_STOP, classify, join, wpa_conf,
-    wrong_key_failures,
+    Host, Joined, Observation, Reason, Refused, WRONG_KEY_STOP, classify, decode_wpa, join,
+    wpa_conf, wrong_key_failures,
 };
 use std::{io, time::Duration};
 
@@ -98,6 +98,17 @@ fn every_v1_failure_case_gets_v1s_reason() {
 }
 
 #[test]
+fn wpa_cli_names_are_read_back_to_the_bytes_they_stand_for() {
+    // Reviewer, #817: "Nhà Lan" comes back from `wpa_cli status` escaped.
+    assert_eq!(decode_wpa(r"Nh\xc3\xa0 Lan"), "Nhà Lan");
+    assert_eq!(decode_wpa(r#"My \"Home\" \\ net"#), r#"My "Home" \ net"#);
+    assert_eq!(decode_wpa("Home"), "Home");
+    assert_eq!(decode_wpa(r"tab\there"), "tab\there");
+    // A stray backslash that escapes nothing is kept.
+    assert_eq!(decode_wpa(r"a\qb"), r"a\qb");
+}
+
+#[test]
 fn two_rejected_keys_reach_the_early_stop_and_one_does_not() {
     assert!(wrong_key_failures(&wrong_password()[..5]) < WRONG_KEY_STOP);
     assert!(wrong_key_failures(&wrong_password()) >= WRONG_KEY_STOP);
@@ -105,20 +116,34 @@ fn two_rejected_keys_reach_the_early_stop_and_one_does_not() {
 }
 
 #[test]
-fn the_file_is_v1s_and_nothing_can_add_a_line_to_it() {
+fn the_file_is_v1s_with_the_name_in_hex_and_nothing_can_add_a_line_to_it() {
     assert_eq!(
         wpa_conf("US", "Home", "password1").unwrap(),
         "ctrl_interface=DIR=/run/wpa_supplicant\nupdate_config=1\ncountry=US\nfast_reauth=1\n\
-         ap_scan=1\nnetwork={\n\tssid=\"Home\"\n\tpsk=\"password1\"\n\tscan_ssid=1\n}\n"
+         ap_scan=1\nnetwork={\n\tssid=486f6d65\n\tpsk=\"password1\"\n\tscan_ssid=1\n}\n"
     );
     assert!(
         wpa_conf("VN", "Cafe", "")
             .unwrap()
             .contains("\tkey_mgmt=NONE\n")
     );
+    // wpa_supplicant reads between the first and last quote as it is: no
+    // escapes. The name is hex, so its quotes and backslashes are just bytes.
     let quoted = wpa_conf("US", r#"My "Home" \ net"#, r#"pa"ss\word"#).unwrap();
-    assert!(quoted.contains(r#"ssid="My \"Home\" \\ net""#), "{quoted}");
-    assert!(quoted.contains(r#"psk="pa\"ss\\word""#), "{quoted}");
+    assert!(
+        quoted.contains("\tssid=4d792022486f6d6522205c206e6574\n"),
+        "{quoted}"
+    );
+    assert!(quoted.contains(r#"psk="pa"ss\word""#), "{quoted}");
+    // A 63-character password with a backslash stays 63 characters.
+    let long = format!("{}\\", "p".repeat(62));
+    assert!(wpa_conf("US", "Home", &long).is_ok());
+    // Accented names are bytes too.
+    assert!(
+        wpa_conf("VN", "Nhà Lan", "password1")
+            .unwrap()
+            .contains("ssid=4e68c3a0204c616e")
+    );
     for (ssid, password, why) in [
         ("", "password1", Refused::SsidEmpty),
         ("   ", "password1", Refused::SsidEmpty),

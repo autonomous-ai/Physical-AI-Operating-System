@@ -574,6 +574,27 @@ check read that page first. Now the tasks part is read with a 64 KiB bound
 answer (16 KiB) with what it was asked (4 KiB). The test of "how is it
 going?" now serves a page of over 9,000 bytes.
 
+### News too long for one written turn (2026-10-15, 02:31)
+
+During a two-breath test on lamp-4ace (#740's first try), the voice ended
+three times in three, 4 ms after committing news (`telling news from the
+work handed over`), with `Gemini Live InvalidConfiguration`, and systemd
+restarted it. The likely cause, which the first builder took for the
+switch under test: the news is one written turn (`clientContent`), and the
+transport refuses a written turn over 1,024 bytes (`wire::MAX_NOTE_BYTES`)
+as `InvalidConfiguration`, a refusal the provider worker ends on. The
+note's own words are 545 to 585 bytes, and it quoted up to 300
+characters of the task and 1,200 of the answer, so any answer of more than
+about 400 bytes was over. The poem told at 01:27 was short enough.
+
+Now the note is cut to fit (`task_news::fitted`, the second builder):
+the answer first, then the task's words, by whole characters, the answer
+then marked "…(it goes on)". A note that fits is as it was, byte for byte
+(a test); every note, for long answers and long tasks in English and
+Vietnamese, in every state, fits and is taken by the transport (a test).
+The same bound holds for any written turn: a note made from other text
+(progress news, #732) has to fit in it too.
+
 ## Real Harness and Voice qualification still required
 
 After the account owner authorizes a disposable task and confirms its exact

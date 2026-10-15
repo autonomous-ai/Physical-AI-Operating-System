@@ -362,33 +362,80 @@ fn note(task: &Value, data: &Value, age_ms: u64) -> Option<String> {
         data["answer"].as_str().unwrap_or_default(),
         MOST_ANSWER_CHARS,
     );
-    let more = if cut || data["truncated"] == json!(true) {
-        " …(it goes on)"
-    } else {
-        ""
-    };
+    let cut = cut || data["truncated"] == json!(true);
     let when = if age_ms <= JUST_MS {
         "just"
     } else {
         "a while ago, and you have not told them yet:"
     };
     let opening = "(Nobody has spoken. News from work you handed over for the person.";
-    match data["state"].as_str()? {
-        "idle" if !answer.is_empty() => Some(format!(
+    let state = match data["state"].as_str()? {
+        "idle" if !answer.is_empty() => "idle",
+        state @ ("needs-input" | "stopped" | "failed") => state,
+        _ => return None,
+    };
+    let say = |asked: &str, answer: &str, more: &str| match state {
+        "idle" => format!(
             "{opening} {who} {when} finished the task they gave it: \"{asked}\". What it came back with: \"{answer}{more}\". \
              Tell them now, the way a good chief of staff tells the person they work for: one or two natural spoken sentences, \
              starting with something like \"Oh, {who} just finished…\" (or \"earlier\" if it was a while ago), then the gist of the result in plain words. \
              Do not read out code, lists, file paths or links; if there is more than fits, say the rest is on their computer. No question at the end.)"
-        )),
-        "needs-input" => Some(format!(
+        ),
+        "needs-input" => format!(
             "{opening} {who} has stopped to ask them something about the task they gave it: \"{asked}\". What it says: \"{answer}{more}\". \
              Tell them briefly that {who} needs them, and ask its question in your own words, in one short sentence.)"
-        )),
-        "stopped" | "failed" => Some(format!(
+        ),
+        _ => format!(
             "{opening} {who} stopped without finishing the task they gave it: \"{asked}\". What it last said: \"{answer}{more}\". \
              Tell them in one short, plain sentence, without alarm.)"
-        )),
-        _ => None,
+        ),
+    };
+    fitted(&asked, &answer, cut, say)
+}
+
+/// Said after an answer that was cut.
+const GOES_ON: &str = " …(it goes on)";
+
+/// The note `say` makes, cut to what one written turn may hold
+/// (`lamp_gemini::wire::MAX_NOTE_BYTES`). The transport refuses a longer
+/// one as `InvalidConfiguration`, and the provider worker ends on that
+/// refusal: on lamp-4ace on 2026-10-15 the voice ended so 4 ms after
+/// committing news, three times in three.
+/// The agent's answer is cut first, then the task's words, by whole
+/// characters, and the answer is then said to go on. A note that fits is
+/// exactly what `say` makes.
+fn fitted(
+    asked: &str,
+    answer: &str,
+    cut: bool,
+    say: impl Fn(&str, &str, &str) -> String,
+) -> Option<String> {
+    let (asked_chars, answer_chars) = (asked.chars().count(), answer.chars().count());
+    let (mut asked_kept, mut answer_kept) = (asked_chars, answer_chars);
+    loop {
+        let more = if cut || answer_kept < answer_chars {
+            GOES_ON
+        } else {
+            ""
+        };
+        let text = say(
+            &asked.chars().take(asked_kept).collect::<String>(),
+            &answer.chars().take(answer_kept).collect::<String>(),
+            more,
+        );
+        // A character is at least one byte: leaving out this many is enough
+        // for what is over, or more than enough.
+        let over = text.len().saturating_sub(lamp_gemini::wire::MAX_NOTE_BYTES);
+        if over == 0 {
+            return Some(text);
+        }
+        if answer_kept > 0 {
+            answer_kept = answer_kept.saturating_sub(over);
+        } else if asked_kept > 0 {
+            asked_kept = asked_kept.saturating_sub(over);
+        } else {
+            return None;
+        }
     }
 }
 
@@ -487,9 +534,76 @@ mod tests {
         let long = json!({"state":"idle","answer":"word ".repeat(400)});
         let long = super::note(&task("claude", json!([])), &long, 0).unwrap();
         assert!(
-            long.contains("(it goes on)") && long.len() < 2_200,
+            long.contains("(it goes on)") && long.len() <= lamp_gemini::wire::MAX_NOTE_BYTES,
             "{}",
             long.len()
+        );
+    }
+
+    /// Every note is one written turn, which the transport takes only up
+    /// to `MAX_NOTE_BYTES`; a longer one is refused as
+    /// `InvalidConfiguration`, which ends the provider worker, as the voice
+    /// ended 4 ms after committing news on lamp-4ace on 2026-10-15. Long answers
+    /// and long tasks, in letters of one byte or of several, fit and are
+    /// taken by the transport; a note that fits is as it was.
+    #[test]
+    fn every_note_fits_in_one_written_turn() {
+        let english = "Here is what I found and changed, file by file. ".repeat(40);
+        let vietnamese = "Đây là những gì tôi đã tìm thấy và sửa, từng tệp một. ".repeat(40);
+        // What the transport does with a note one byte over.
+        let over = "x".repeat(lamp_gemini::wire::MAX_NOTE_BYTES + 1);
+        assert!(matches!(
+            lamp_gemini::wire::encode_written_turn(&over, None),
+            Err(lamp_gemini::Error::InvalidConfiguration)
+        ));
+        let asks = [
+            "Suggest three names for a desk lamp".to_owned(),
+            "Đề xuất ba cái tên thân thiện cho một chiếc đèn bàn. ".repeat(10),
+        ];
+        for asked in &asks {
+            for answer in [&english, &vietnamese] {
+                for state in ["idle", "needs-input", "stopped"] {
+                    for age_ms in [0, JUST_MS + 1] {
+                        let task = json!({"text": asked, "target": {"engine": "claude"}});
+                        let data = json!({"state": state, "answer": answer});
+                        let told = note(&task, &data, age_ms).unwrap();
+                        assert!(
+                            told.len() <= lamp_gemini::wire::MAX_NOTE_BYTES,
+                            "{state}: {} bytes",
+                            told.len()
+                        );
+                        lamp_gemini::wire::encode_written_turn(&told, None).unwrap();
+                        assert!(told.contains("(it goes on)"), "{told}");
+                        assert!(told.ends_with(".)"), "{told}");
+                    }
+                }
+            }
+        }
+        // As on lamp-4ace: a task of about a hundred characters and an
+        // answer of six hundred, well within what is taken of each. The
+        // note of both whole is over the bound: the answer is cut to fit.
+        let asked = "Ask Claude Code on my office computer to look at why the build is slow and tell me what it finds";
+        let answer =
+            "The build spends most of its time compiling the same dependencies again. ".repeat(8);
+        assert!(answer.chars().count() < MOST_ANSWER_CHARS);
+        let told = note(
+            &json!({"text": asked, "target": {"engine": "claude"}}),
+            &json!({"state": "idle", "answer": answer}),
+            0,
+        )
+        .unwrap();
+        lamp_gemini::wire::encode_written_turn(&told, None).unwrap();
+        assert!(told.contains("(it goes on)"), "{told}");
+        assert!(told.contains("\"Ask Claude Code on my office computer to look at why the build is slow and tell me what it finds\""));
+        // A note that fits is exactly as before.
+        let finished = json!({"state":"idle","answer":"Lumi, Sunny and Archie.","truncated":false});
+        assert_eq!(
+            note(&task("claude", json!([])), &finished, 0).unwrap(),
+            "(Nobody has spoken. News from work you handed over for the person. Claude Code just finished the task they gave it: \
+             \"Suggest three 'friendly' names for a desk lamp\". What it came back with: \"Lumi, Sunny and Archie.\". \
+             Tell them now, the way a good chief of staff tells the person they work for: one or two natural spoken sentences, \
+             starting with something like \"Oh, Claude Code just finished…\" (or \"earlier\" if it was a while ago), then the gist of the result in plain words. \
+             Do not read out code, lists, file paths or links; if there is more than fits, say the rest is on their computer. No question at the end.)"
         );
     }
 

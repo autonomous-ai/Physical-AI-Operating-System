@@ -300,13 +300,22 @@ mod tests {
             let (busy, flags) = attention::take_busy(flags);
             let (near, flags) = attention::take_near(flags);
             let (passing, flags) = attention::take_passing(flags);
+            let (spoken_to, flags) = attention::take_spoken_to(flags);
             let (addressed, flags) = take(flags);
             let (_, flags) = attention::take_name(flags);
             let (_, _, flags) = crate::called::take(flags);
             let (root, flags) = crate::bus_out::take_root(flags).unwrap();
             let (_, flags) = crate::first_output::take(flags).unwrap();
             (
-                (on, busy, near, passing, addressed, root.is_some()),
+                (
+                    on,
+                    busy,
+                    near,
+                    passing,
+                    spoken_to,
+                    addressed,
+                    root.is_some(),
+                ),
                 flags.to_vec(),
             )
         };
@@ -327,7 +336,10 @@ mod tests {
             .chain(root)
             .collect::<Vec<_>>(),
         );
-        assert_eq!(taken(&all), ((true, true, true, false, true, true), vec![]));
+        assert_eq!(
+            taken(&all),
+            ((true, true, true, false, false, true, true), vec![])
+        );
         // With "the lamp" in passing ignored (#829), between the two.
         let passing = flags(
             &[
@@ -343,19 +355,33 @@ mod tests {
         );
         assert_eq!(
             taken(&passing),
-            ((true, true, true, true, true, true), vec![])
+            ((true, true, true, true, false, true, true), vec![])
         );
+        // With the lamp speaking only when spoken to (#829, step 2), right
+        // after it, with it or without it.
+        for (passing, spoken_to) in [(true, true), (false, true)] {
+            let list = [attention::FLAG, attention::BUSY_FLAG, attention::NEAR_FLAG]
+                .into_iter()
+                .chain(passing.then_some(attention::PASSING_FLAG))
+                .chain([attention::SPOKEN_TO_FLAG, FLAG])
+                .chain(root)
+                .collect::<Vec<_>>();
+            assert_eq!(
+                taken(&flags(&list)),
+                ((true, true, true, passing, spoken_to, true, true), vec![])
+            );
+        }
         // Alone, it is taken too, and the worker leaves it off: it follows
         // the requests only with the attention rule.
         let alone = flags(&[FLAG].into_iter().chain(root).collect::<Vec<_>>());
         assert_eq!(
             taken(&alone),
-            ((false, false, false, false, true, true), vec![])
+            ((false, false, false, false, false, true, true), vec![])
         );
         let busy = flags(&[attention::FLAG, attention::BUSY_FLAG, FLAG]);
         assert_eq!(
             taken(&busy),
-            ((true, true, false, false, true, false), vec![])
+            ((true, true, false, false, false, true, false), vec![])
         );
     }
 

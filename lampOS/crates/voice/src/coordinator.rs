@@ -2032,6 +2032,7 @@ fn provider_arguments(
     arguments.extend(crate::tools::arguments_from_environment());
     arguments.extend(crate::attention::arguments_from_environment());
     arguments.extend(crate::attention::passing_arguments_from_environment());
+    arguments.extend(crate::attention::spoken_to_arguments_from_environment());
     arguments.extend(crate::addressed::arguments_from_environment());
     arguments.extend(crate::attention::name_arguments_from_environment());
     arguments.extend(crate::called::arguments_from_environment());

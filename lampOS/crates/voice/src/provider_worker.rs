@@ -136,6 +136,9 @@ pub struct Files {
     /// Whether "the lamp" said in passing is no call
     /// (`--name-in-passing-ignored`, #829).
     pub name_in_passing_ignored: bool,
+    /// Whether an answer is played only when the lamp was spoken to
+    /// (`--spoken-to`, #829).
+    pub spoken_to: bool,
     /// Whether each request is judged said to the lamp from close to it,
     /// published, and let out in a busy room (`--addressed`,
     /// `crate::addressed`).
@@ -223,6 +226,7 @@ pub fn parse_flags(dir: &std::path::Path, flags: &[String]) -> io::Result<Parsed
     let (attention_busy, flags) = crate::attention::take_busy(flags);
     let (attention_near, flags) = crate::attention::take_near(flags);
     let (name_in_passing_ignored, flags) = crate::attention::take_passing(flags);
+    let (spoken_to, flags) = crate::attention::take_spoken_to(flags);
     let (addressed, flags) = crate::addressed::take(flags);
     let (name_signal, flags) = crate::attention::take_name(flags);
     let (name_note, name_note_busy_face, flags) = crate::called::take(flags);
@@ -247,6 +251,7 @@ pub fn parse_flags(dir: &std::path::Path, flags: &[String]) -> io::Result<Parsed
         attention_busy,
         attention_near,
         name_in_passing_ignored,
+        spoken_to,
         addressed,
         name_signal,
         name_note,
@@ -706,6 +711,9 @@ pub(crate) struct Options {
     pub(crate) policy_holds: Option<std::path::PathBuf>,
     /// Input waits for room in Gemini's input queue (`--wait-for-room`).
     pub(crate) wait_for_room: bool,
+    /// An answer is played only when the lamp was spoken to, in every room
+    /// (`--spoken-to`, #829). Only with `attention`.
+    pub(crate) spoken_to: bool,
 }
 /// How the room is and whether the lamp is in a conversation, now.
 fn attention_now() -> (crate::room_told::Room, bool) {
@@ -733,6 +741,7 @@ impl Options {
             name_in_passing_ignored: false,
             policy_holds: None,
             wait_for_room: false,
+            spoken_to: false,
         }
     }
 }
@@ -942,6 +951,7 @@ pub async fn run_with_continuation(
             (false, _) => None,
         },
         wait_for_room: files.wait_for_room,
+        spoken_to: files.attention && files.spoken_to,
     };
     let visual = visual
         .map(|(source, worker)| ContextDelivery::new(source, boot, worker))
@@ -1090,12 +1100,14 @@ async fn serve_with_visual<C: Connect>(
     let busy_needs_face = NAME_NOTE_BUSY_FACE.load(std::sync::atomic::Ordering::Relaxed);
     let attention_busy = ATTENTION_BUSY.load(std::sync::atomic::Ordering::Relaxed);
     let sounds_checked = options.attention.is_some() && options.sounds_checked;
+    let spoken_to = options.attention.is_some() && options.spoken_to;
     // The eyes, for whether anyone is turned to the lamp. Read only in a
-    // busy room, when a note is due or an answer is decided, and for a
-    // short sound being checked.
+    // busy room, when a note is due or an answer is decided, for a short
+    // sound being checked, and for every answer when it is played only
+    // for a lamp spoken to.
     let eyes = BUS_ROOT
         .get()
-        .filter(|_| busy_needs_face || attention_busy || addressed || sounds_checked)
+        .filter(|_| busy_needs_face || attention_busy || addressed || sounds_checked || spoken_to)
         .and_then(|root| lamp_bus::Bus::new(root).ok());
     // Whether each request was said to the lamp from close to it: the eyes'
     // looks of the last 30 s, and the topic it is published on. A bus that
@@ -1130,6 +1142,7 @@ async fn serve_with_visual<C: Connect>(
     attention.check_sounds(sounds_checked);
     attention.ask_again_when_unclear(options.attention.is_some() && options.ask_unclear);
     attention.ignore_name_in_passing(options.name_in_passing_ignored);
+    attention.speak_when_spoken_to(spoken_to);
     // The record of whom it answered, off unless set.
     let mut first_output = FIRST_OUTPUT.get().and_then(|directory| {
         match crate::first_output::FirstOutputLog::open(directory) {
@@ -1580,7 +1593,8 @@ async fn serve_with_visual<C: Connect>(
                             let (room, going_on) = now();
                             let request = lineage.request.get();
                             let turned = (attention_busy && room == crate::room_told::Room::Busy
-                                || attention.sound_in_hand())
+                                || attention.sound_in_hand()
+                                || attention.speaks_when_spoken_to())
                                 .then(|| eyes.as_ref().and_then(crate::bus_out::someone_turned_to_lamp))
                                 .flatten();
                             let sampled_end_us = monotonic_us();
@@ -6249,6 +6263,7 @@ mod tests {
             name_in_passing_ignored: false,
             policy_holds: None,
             wait_for_room: false,
+            spoken_to: false,
         }
     }
 
@@ -6270,6 +6285,7 @@ mod tests {
                 name_in_passing_ignored: false,
                 policy_holds: None,
                 wait_for_room: false,
+                spoken_to: false,
             },
         );
         let mut dial = rig.ready().await;
@@ -6316,6 +6332,7 @@ mod tests {
                 name_in_passing_ignored: false,
                 policy_holds: None,
                 wait_for_room: false,
+                spoken_to: false,
             },
         );
         let mut dial = rig.ready().await;
@@ -6597,6 +6614,7 @@ mod tests {
                 name_in_passing_ignored: false,
                 policy_holds: None,
                 wait_for_room: false,
+                spoken_to: false,
             },
         );
         let mut dial = rig.ready().await;
@@ -9628,6 +9646,7 @@ mod tests {
                     name_in_passing_ignored: false,
                     policy_holds: None,
                     wait_for_room: false,
+                    spoken_to: false,
                 },
                 BARRIER,
                 false,
@@ -9694,6 +9713,7 @@ mod tests {
                     name_in_passing_ignored: ignored,
                     policy_holds: None,
                     wait_for_room: false,
+                    spoken_to: false,
                 },
                 BARRIER,
                 false,
@@ -10059,4 +10079,6 @@ mod tests {
 
     /// The Policy holds the lamp's actions (#800): tests only.
     mod policy_holds;
+    /// The lamp speaks when spoken to (#829, step 2): tests only.
+    mod spoken_to;
 }

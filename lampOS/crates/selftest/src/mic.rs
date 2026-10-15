@@ -196,7 +196,7 @@ mod tests {
 
     #[test]
     fn a_second_of_blocks_is_heard_from_the_bus_with_what_was_lost() {
-        let root = std::env::temp_dir().join(format!("lst-mic-{}", std::process::id()));
+        let root = std::path::PathBuf::from(format!("/tmp/ls-mic-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&root);
         std::fs::create_dir_all(&root).unwrap();
         let bus = Bus::new(&root).unwrap();

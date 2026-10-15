@@ -21,8 +21,12 @@ pub struct Storage {
     pub retunes: usize,
     /// I/O errors on an MMC block device.
     pub io_errors: usize,
-    /// Records the ring had already dropped before they were read.
+    /// Records of this boot the ring no longer held: the first one kept was
+    /// not the boot's first (sequence 0), or some were overwritten while
+    /// they were read.
     pub lost: bool,
+    /// The sequence number of the first record kept, when the records say.
+    pub first_sequence: Option<u64>,
 }
 
 impl Storage {
@@ -32,7 +36,14 @@ impl Storage {
         if record.starts_with(' ') {
             return;
         }
-        let message = record.split_once(';').map_or(record, |(_, m)| m);
+        let (prefix, message) = record.split_once(';').unwrap_or(("", record));
+        if self.records == 0 {
+            // `pri,seq,usec,flags`: the boot's first record has sequence 0.
+            self.first_sequence = prefix.split(',').nth(1).and_then(|s| s.parse().ok());
+            if self.first_sequence.is_some_and(|first| first > 0) {
+                self.lost = true;
+            }
+        }
         self.records += 1;
         if message.contains(RETUNE) {
             self.retunes += 1;
@@ -43,7 +54,9 @@ impl Storage {
 }
 
 /// The storage is healthy if the kernel reported no re-tune that timed out
-/// and no I/O error on the card since boot.
+/// and no I/O error on the card since boot. A fault in the records kept
+/// fails whatever was lost; with records of the boot lost and no fault in
+/// the rest, the boot as a whole is not checked.
 pub fn storage(heard: &Result<Storage, String>) -> PartResult {
     let part = "storage";
     let storage = match heard {
@@ -72,6 +85,17 @@ pub fn storage(heard: &Result<Storage, String>) -> PartResult {
             &format!(
                 "the SD/MMC host re-tuned and timed out {} times since boot (#784)",
                 storage.retunes
+            ),
+        )
+    } else if storage.lost {
+        PartResult::new(
+            part,
+            Verdict::NotChecked,
+            &format!(
+                "no fault in the kernel's log, but it no longer holds all of this boot (first record kept: {})",
+                storage
+                    .first_sequence
+                    .map_or("unknown".into(), |first| first.to_string())
             ),
         )
     } else {
@@ -160,13 +184,37 @@ mod tests {
     #[test]
     fn a_quiet_kernel_passes() {
         let quiet = counted(&[
-            "6,1,0,-;Booting Linux on physical CPU 0x0",
+            "6,0,0,-;Booting Linux on physical CPU 0x0",
             " SUBSYSTEM=platform",
-            "6,2,15,-;mmc0: new high speed SDHC card at address aaaa",
+            "6,1,15,-;mmc0: new high speed SDHC card at address aaaa",
         ]);
         assert_eq!(quiet.records, 2);
         let result = storage(&Ok(quiet));
         assert_eq!(result.verdict, Verdict::Pass, "{result:?}");
+    }
+
+    #[test]
+    fn a_log_that_lost_the_start_of_the_boot_is_not_checked_unless_a_fault_is_kept() {
+        let late = counted(&[
+            "6,10000,9000000,-;usb 3-1: new device",
+            "6,10001,9000100,-;ok",
+        ]);
+        assert!(late.lost);
+        assert_eq!(late.first_sequence, Some(10_000));
+        let result = storage(&Ok(late));
+        assert_eq!(result.verdict, Verdict::NotChecked, "{result:?}");
+        assert!(result.reason.contains("10000"), "{}", result.reason);
+        let overwritten = Storage {
+            records: 1,
+            lost: true,
+            ..Storage::default()
+        };
+        assert_eq!(storage(&Ok(overwritten)).verdict, Verdict::NotChecked);
+        let faulty = counted(&[
+            "6,10000,1,-;x",
+            "3,10001,2,-;sunxi_mmc: wait dma hold bit clear timeout",
+        ]);
+        assert_eq!(storage(&Ok(faulty)).verdict, Verdict::Fail);
     }
 
     #[test]

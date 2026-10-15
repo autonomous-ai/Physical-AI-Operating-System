@@ -669,8 +669,7 @@ mod tests {
 
     #[test]
     fn a_published_air_reading_is_read_from_what_the_bus_keeps_and_silence_asks_the_owner() {
-        let root =
-            std::env::temp_dir().join(format!("lamp-selftest-silent-{}", std::process::id()));
+        let root = std::path::PathBuf::from(format!("/tmp/ls-silent-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&root);
         std::fs::create_dir_all(&root).unwrap();
         let bus = Bus::new(&root).unwrap();
@@ -731,7 +730,7 @@ mod tests {
 
     #[test]
     fn every_part_that_listens_is_checked_once() {
-        let root = std::env::temp_dir().join(format!("lamp-selftest-bus-{}", std::process::id()));
+        let root = std::path::PathBuf::from(format!("/tmp/ls-bus-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&root);
         std::fs::create_dir_all(&root).unwrap();
         let bus = Bus::new(&root).unwrap();
@@ -763,7 +762,7 @@ mod tests {
 
     #[test]
     fn a_reading_on_the_bus_is_heard_with_its_age() {
-        let root = std::env::temp_dir().join(format!("lamp-selftest-air-{}", std::process::id()));
+        let root = std::path::PathBuf::from(format!("/tmp/ls-air-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&root);
         std::fs::create_dir_all(&root).unwrap();
         let bus = Bus::new(&root).unwrap();

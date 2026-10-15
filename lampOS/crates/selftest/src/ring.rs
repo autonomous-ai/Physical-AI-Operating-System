@@ -185,7 +185,7 @@ mod tests {
     struct Root(std::path::PathBuf);
     impl Root {
         fn new(name: &str) -> Self {
-            let root = std::env::temp_dir().join(format!("lst-{name}-{}", std::process::id()));
+            let root = std::path::PathBuf::from(format!("/tmp/ls-{name}-{}", std::process::id()));
             let _ = std::fs::remove_dir_all(&root);
             std::fs::create_dir_all(&root).unwrap();
             Self(root)

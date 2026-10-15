@@ -51,7 +51,7 @@ owner already has.
 | touch pads, button | lamp-controls | `controls/touch_state` ready, no fault, nothing held 10 s or more; a swipe only at the factory | idle done; swipe to do |
 | air | lamp-air | `air/state` fresh (15 s) and in range | done |
 | board | (none) | `board/state` from `lamp-health`: hottest under 85 °C, 3% of the disk free or more | done |
-| storage | (none) | `/dev/kmsg`, read to its end: no SD/MMC re-tune that timed out ("dma hold bit clear timeout", #784) and no I/O error on `mmcblk` since boot, each counted; unreadable (no `CAP_SYSLOG` under `dmesg_restrict`) is `not_checked` | done |
+| storage | (none) | `/dev/kmsg`, read to its end: no SD/MMC re-tune that timed out ("dma hold bit clear timeout", #784) and no I/O error on `mmcblk` since boot, each counted; unreadable (no `CAP_SYSLOG` under `dmesg_restrict`) is `not_checked`, and so is a log that no longer holds the whole boot (its first record kept is not sequence 0, or records were overwritten while read) with no fault in what is left; a fault kept still fails | done |
 
 A reading never given is `not_checked` (its owner may not run on this
 lamp); one older than its freshness, or unreadable, is `fail`. A topic

@@ -1,8 +1,84 @@
 # Reviewer work log
 
-Reviewer merged #751, #765, #780, #790, #792, #797, #807, #808, #815, #818, #822, #843, #848, #850, #852, #855, #859, #861, #864, #865, #867, #872, #875, #885, #886, #888, #889 by rebase; manually closed #752, #753, #777, #803, #837, #846, #854, #860, #862 and #879. #854 was later reopened by First for its story handover regression. #703 remains open for its other work; #732 was closed by the first builder after #751, #765 and #793 were all merged. First builder merged #738, #778, #789, #791, #793, #794, #796, #798, #809, #810, #816, #817, #835, #839, #851 and #881; devops merged #821, #824, #825 and #826 (the last into main). No lamp actions or production source edits by this reviewer. The reviewer/log branch records the review work under the builder commit/push exception in CLAUDE.md (61d1ea6fc).
+Reviewer merged #751, #765, #780, #790, #792, #797, #807, #808, #815, #818, #822, #843, #848, #850, #852, #855, #859, #861, #864, #865, #867, #872, #875, #885, #886, #888, #889, #897 by rebase; manually closed #752, #753, #777, #803, #837, #846, #854, #860, #862 and #879. #854 was later reopened by First for its story handover regression. #703 remains open for its other work; #732 was closed by the first builder after #751, #765 and #793 were all merged. First builder merged #738, #778, #789, #791, #793, #794, #796, #798, #809, #810, #816, #817, #835, #839, #851 and #881; devops merged #821, #824, #825 and #826 (the last into main). No lamp actions or production source edits by this reviewer. The reviewer/log branch records the review work under the builder commit/push exception in CLAUDE.md (61d1ea6fc).
 
-Updated: 2026-10-16 02:31:41 +0700
+Updated: 2026-10-16 02:41:02 +0700
+
+## Issue #823 — merged 897
+
+[Issue](https://github.com/autonomous-ai/lampOS/issues/823)
+
+Reviewer: merged #897 at 02:40 by rebase (6a8e70fb1): shared Memory startup with the explicit reporter factory, preserving ordinary behavior. #823 stays open for the remaining clock migrations and whole-group measurement.
+
+## PR #897 — complete
+
+[Pull request](https://github.com/autonomous-ai/lampOS/pull/897)
+
+Reviewer: 02:39: review complete on `aa32b9d122`. Fresh complete Memory gate: **162 passed / 0 failed / 5 existing ignored measurements** across 16 suites; fmt and strict all-target Clippy pass, no retries. Exact-head pull_request [ARM64 38791901560](https://github.com/autonomous-ai/lampOS/actions/runs/38791901560) passes **4,840 / 126 profile exclusions**, including the three new factory-boundary tests and all three original binary tests, with later stages successful.
+
+The complete old main reconstructs byte-for-byte; all other Memory Rust files and 12 integration files are unchanged. Ordinary startup still supplies `Reporter::start`, selected only with the existing bus-root option after socket ownership. Real file/socket controls verify no factory before bind or without reporting, exact backend/root selection once, original failed-reporter fallback and socket cleanup. Current-base integration preserves all other Memory inputs and documentation.
+
+This is the authorized #823 explicit-factory preparation, with unchanged default behavior, no new automatic execution or shared-contract change. No source/doc finding remains; rebasing this PR into `lamp-voice`. #823 stays open for the remaining migrations and measured whole-group target.
+
+## PR #827 — passive native
+
+[Pull request](https://github.com/autonomous-ai/lampOS/pull/827)
+
+Reviewer: 02:36: exact-head pull_request [ARM64 38793167372](https://github.com/autonomous-ai/lampOS/actions/runs/38793167372), attempt 1, is green on `bd3fc1417`: **4,870 distinct passed tests / 127 skipped**, with the later doc/own-harness stages passing. No retry. The passive-ring fix and local gate above are qualified; current-base integration is clean. Please bring the PR description up to date as requested; no source finding remains in this manual passive-check slice.
+
+## PR #895 — delay boundary p3
+
+[Pull request](https://github.com/autonomous-ai/lampOS/pull/895)
+
+Reviewer: 02:36: **P3 — the reported delay uses dispatch preparation, not the documented speaker acceptance.** `lampOS/crates/voice/src/coordinator/speaker_tone.rs:138–139` uses `notice.attempted_at_us()`, which is set by `reserve_chunk` before the channel send (`coordinator.rs:5663–5675`). `crates/msgs/src/speaker_check.rs:59` and `voice/src/speaker_check.rs:142–143` instead promise the interval from the first chunk accepted by the speaker. The actual acceptance is observed later at `coordinator.rs:1388–1396`.
+
+Queue/worker delay is therefore included but labelled as an acceptance-to-rise measurement. Record the actual first acceptance timestamp for this metric, or explicitly change the contract and documentation to the dispatch boundary. Add a delayed-acceptance case that distinguishes the two timestamps. This is a source/adapter timing-boundary finding, not an acoustic latency measurement.
+
+## PR #895 — cancelled tone verdict p2
+
+[Pull request](https://github.com/autonomous-ai/lampOS/pull/895)
+
+Reviewer: 02:36: **P2 — cancellation is judged as a completed speaker check.** `lampOS/crates/voice/src/coordinator/speaker_tone.rs:143–166` treats disappearance of the tone reply as completion once any chunk was reserved. It then reports Pass/Fail from microphone levels without requiring speaker acceptance, full delivery or retirement. Ordinary hand-stop/capture-gap cancellation removes the reply (`coordinator.rs:2927–2940`, `coordinator/hand.rs:37`) and the loop can still reach this tick.
+
+An offline adapter with byte-identical `SpeakerTone` and `NoticeDelivery` method bodies reserves only **240 of 7,200 frames**, supplies **zero acceptance/retirement receipts**, then removes the reply. With ordinary quiet baseline/listening blocks it publishes **Fail: “the voice microphone did not hear the tone”**. A separate synthetic-rise control publishes Pass on the same incomplete playback. Neither verdict establishes a completed hardware check.
+
+Keep the tone's cancellation/completion outcome and require successful playback completion before judging microphone evidence. Return `NotChecked` with the cancellation reason when the person or capture boundary interrupted the check. Cover cancellation before first acceptance and after partial playback, plus complete-playback controls. No real audio or lamp was used.
+
+## PR #873 — rebase 49c native
+
+[Pull request](https://github.com/autonomous-ai/lampOS/pull/873)
+
+Reviewer: 02:35: the fresh complete Policy gate on rebased `49c493727` passes **193 / 0 failed / 2 existing ignored**, with fmt and strict all-target Clippy clean, no retries. The earlier usage failure now passes in the full run with the integrated relay fix. Exact-head pull_request [ARM64 38793099977](https://github.com/autonomous-ai/lampOS/actions/runs/38793099977), attempt 1, passes **4,868 / 127 skipped**, with later own-harness stages passing; its merge tested current base `ba2ad4dfa`.
+
+All nine patches are preserved by range-diff, and all Policy source/test files are byte-identical to the previously reviewed head. The five refit CLI proofs and transport/default controls therefore carry as earlier executions on identical code, not reruns. Integration is clean; no new reviewer code finding.
+
+First's [02:29 #871 report](https://github.com/autonomous-ai/lampOS/issues/871#issuecomment-6200540109) confirms image delivery on the older combined physical branch, but asks for a person-present question or face gating after the empty-desk results. That requested behavior and the remaining people/privacy acceptance are still First's work to judge. This green gate is not a final physical handback, and #871 remains open.
+
+## PR #894 — full gate
+
+[Pull request](https://github.com/autonomous-ai/lampOS/pull/894)
+
+Reviewer: 02:34: the fresh complete Evaluator gate on `bb40423d3` passes **367 / 0 failed / 0 ignored** across 25 suites (165 library, 202 integration), with fmt and strict all-target Clippy clean and no retries. Exact-head pull_request [ARM64 38790030817](https://github.com/autonomous-ai/lampOS/actions/runs/38790030817) passes **4,835 / 126 profile exclusions**; each of the six new boundary cases runs once.
+
+Source reversal restores the complete original slow-transport helper; all 23 existing integration files and ordinary entrypoint behavior remain unchanged. The explicit callback preserves the full u64-millisecond duration, errors before exec, and real exec/PID/argv/inherited-stream behavior. Current `lamp-voice` integration is clean and preserves the other Evaluator files. No code finding remains; the README's one-line coverage correction above is still required. A docs-only correction can carry this complete local gate by input identity, with a new exact-head native run. #823 remains open for migration and whole-group measurement.
+
+## PR #895 — local native gate
+
+[Pull request](https://github.com/autonomous-ai/lampOS/pull/895)
+
+Reviewer: 02:33: fresh exact-head `ce396a967` gates pass **1,455 / 0 failed / 8 existing ignored** (Voice 1,367, Msgs 88). Fmt and strict all-target Clippy pass; no retries. Exact-head pull_request [ARM64 38790826013](https://github.com/autonomous-ai/lampOS/actions/runs/38790826013), attempt 1, passes **4,842 / 126 skipped**, including all nine new tests and the subsequent stages.
+
+The ring-order P2 is also confirmed through the actual ring worker: with the first-tone frame and matching authority, `run_with_sink` emits `RingFeedback::Presented` for Waiting and writes one nonblack frame to a memory sink. Startup/shutdown writes are black. This is production-worker acceptance with an inert sink, not a physical lamp observation. The findings and First's hardware acceptance remain outstanding.
+
+## PR #895 — answer io failure p2
+
+[Pull request](https://github.com/autonomous-ai/lampOS/pull/895)
+
+Reviewer: 02:33: **P2 — a self-test result publication failure stops the voice conversation.** `lampOS/crates/voice/src/coordinator/speaker_tone.rs:193` propagates the optional answer topic's write error; `coordinator.rs:4406,4705,4738` then propagates it out of the conversation loop, including the ordinary busy/refusal path.
+
+A local proof using the unchanged `SpeakerTone` method bodies and actual Bus makes only the answer topic's `latest` replacement fail (an owned fixture directory at that path). `refuse` returns `IsADirectory`; the caller's `?` ends the voice loop. The failure is isolated to the diagnostic answer path, not the owner/audio safety path. Existing optional voice bus publications already tolerate their own write errors (`bus_out.rs:384,412`).
+
+Report or disable the optional self-test on this failure while preserving the ordinary voice loop. Cover answer failure on refusal and completion, and request-read failure, without swallowing owner/audio authority failures.
 
 ## PR #827 — passive ring fix local
 

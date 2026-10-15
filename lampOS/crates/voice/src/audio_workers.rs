@@ -100,6 +100,21 @@ fn begin_gap<T>(
     Ok(closed_at_us)
 }
 
+/// A stall in any epoch: open a gap, or stay in the one already open (a
+/// second stall of the same worker, or one while it reopens).
+fn into_gap<T>(
+    gap: &mut Option<u64>,
+    channels: &mut WorkerChannels,
+    epoch: u64,
+    error: &CaptureError,
+    hold: &mut CaptureHold<T>,
+) -> Result<()> {
+    if gap.is_none() {
+        *gap = Some(begin_gap(channels, epoch, error, hold)?);
+    }
+    Ok(())
+}
+
 fn capture_started(
     report: &StartReport,
     dsp_epoch: u64,
@@ -444,8 +459,8 @@ fn capture_loop<D: CaptureDevice>(
                     }
                     Err(error) if matches!(error.kind, CaptureErrorKind::Authority(reason) if rejected_old_state(reason)) =>
                         {}
-                    Err(error) if started && gap.is_none() && stall(&error).is_some() => {
-                        gap = Some(begin_gap(channels, microphone.epoch(), &error, &mut hold)?);
+                    Err(error) if started && stall(&error).is_some() => {
+                        into_gap(&mut gap, channels, microphone.epoch(), &error, &mut hold)?;
                     }
                     Err(error) => return Err(error.into()),
                 },
@@ -473,8 +488,8 @@ fn capture_loop<D: CaptureDevice>(
         }
         match microphone.maintain() {
             Ok(()) => {}
-            Err(error) if started && gap.is_none() && stall(&error).is_some() => {
-                gap = Some(begin_gap(channels, microphone.epoch(), &error, &mut hold)?);
+            Err(error) if started && stall(&error).is_some() => {
+                into_gap(&mut gap, channels, microphone.epoch(), &error, &mut hold)?;
             }
             Err(error) => return Err(error.into()),
         }
@@ -491,20 +506,29 @@ fn capture_loop<D: CaptureDevice>(
             }
             match microphone.prepare() {
                 Ok(report) if report.microphone_generation == privacy => {
-                    let report = microphone.start_prepared()?;
-                    channels.control.send(capture_started(
-                        &report,
-                        dsp_epoch,
-                        noise_suppression,
-                        privacy,
-                    ))?;
-                    gap = None;
+                    match microphone.start_prepared() {
+                        Ok(report) => {
+                            channels.control.send(capture_started(
+                                &report,
+                                dsp_epoch,
+                                noise_suppression,
+                                privacy,
+                            ))?;
+                            gap = None;
+                        }
+                        // The fresh authority lapsed between open and start:
+                        // the microphone closed again; the next one reopens it.
+                        Err(error) if stall(&error).is_some() => {}
+                        Err(error) => return Err(error.into()),
+                    }
                 }
                 // The privacy switch moved during the gap: not a stall.
                 Ok(_) => {
                     return Err(io::Error::other("privacy changed during a capture gap").into());
                 }
-                Err(error) if matches!(error.kind, CaptureErrorKind::NotPermitted) => {}
+                Err(error)
+                    if matches!(error.kind, CaptureErrorKind::NotPermitted)
+                        || stall(&error).is_some() => {}
                 Err(error) => return Err(error.into()),
             }
         }
@@ -654,8 +678,8 @@ fn capture_loop<D: CaptureDevice>(
         let read = if microphone.is_running() {
             match microphone.try_read() {
                 Ok(frame) => frame,
-                Err(error) if started && gap.is_none() && stall(&error).is_some() => {
-                    gap = Some(begin_gap(channels, microphone.epoch(), &error, &mut hold)?);
+                Err(error) if started && stall(&error).is_some() => {
+                    into_gap(&mut gap, channels, microphone.epoch(), &error, &mut hold)?;
                     None
                 }
                 Err(error) => return Err(error.into()),
@@ -699,7 +723,18 @@ fn capture_loop<D: CaptureDevice>(
             if !probability.is_finite() || !(0.0..=1.0).contains(&probability) {
                 return Err(io::Error::other("invalid local speech probability").into());
             }
-            microphone.maintain()?;
+            // The last authority check of the frame: a stall landing after
+            // the read (#784, the second stall on lamp-4ace) is a gap like
+            // any other, and this frame is not handed on.
+            match microphone.maintain() {
+                Ok(()) => {}
+                Err(error) if started && stall(&error).is_some() => {
+                    into_gap(&mut gap, channels, microphone.epoch(), &error, &mut hold)?;
+                    finish_tick(tick);
+                    continue;
+                }
+                Err(error) => return Err(error.into()),
+            }
             let timing = reference.timing();
             let processing_completed_at_us = monotonic_us();
             if let Some(recording) = recording {

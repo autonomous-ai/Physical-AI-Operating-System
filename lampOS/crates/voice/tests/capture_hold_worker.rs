@@ -132,6 +132,9 @@ struct Rig {
     prepared: bool,
     started: bool,
     stopped: bool,
+    /// The epoch of each start the worker reported, and its gaps.
+    epochs: Vec<u64>,
+    gaps: usize,
 }
 
 impl Rig {
@@ -145,6 +148,14 @@ impl Rig {
     /// The same, with the microphone's first `busy_opens` opens answered
     /// "busy", as a voice that ran just before can leave it.
     fn start_busy(device_name: &'static str, busy_opens: usize) -> Self {
+        Self::start_with(device_name, busy_opens, ReferenceRecovery::Off)
+    }
+
+    fn start_with(
+        device_name: &'static str,
+        busy_opens: usize,
+        recovery: ReferenceRecovery,
+    ) -> Self {
         let directory = SessionDirectory::create().unwrap();
         let (parent_boot, worker_boot, speaker_boot) = (
             new_boot().unwrap(),
@@ -176,7 +187,7 @@ impl Rig {
                 None,
                 NoiseSuppression::Off,
                 ReferenceClock::Capture,
-                ReferenceRecovery::Off,
+                recovery,
                 lamp_audio::Reference::AsGiven,
             )
             .map_err(|error| error.to_string())
@@ -202,6 +213,8 @@ impl Rig {
             prepared: false,
             started: false,
             stopped: false,
+            epochs: Vec::new(),
+            gaps: 0,
         };
         rig.service();
         rig.parent
@@ -280,7 +293,11 @@ impl Rig {
             match event {
                 WorkerEvent::Ready => self.ready = true,
                 WorkerEvent::CapturePrepared { .. } => self.prepared = true,
-                WorkerEvent::CaptureStarted { .. } => self.started = true,
+                WorkerEvent::CaptureStarted { epoch, .. } => {
+                    self.started = true;
+                    self.epochs.push(epoch);
+                }
+                WorkerEvent::CaptureGap { .. } => self.gaps += 1,
                 WorkerEvent::CaptureStopped => self.stopped = true,
                 WorkerEvent::ReferenceFault { fault } => {
                     panic!(
@@ -352,6 +369,13 @@ impl Rig {
             self.pushed_at.push(monotonic_us());
             self.service();
         }
+    }
+
+    /// Nothing from the controller or the speaker for `ms`, as a worker held
+    /// up by the kernel finds it when it runs again: its authority lapsed.
+    fn hold_up(&mut self, ms: u64) {
+        sleep(Duration::from_millis(ms));
+        self.origin += Duration::from_millis(ms);
     }
 
     /// Wait until the worker has read every block the microphone held and
@@ -586,6 +610,36 @@ fn a_microphone_busy_for_a_moment_at_start_is_opened_once_it_is_free() {
     let mut rig = Rig::start_busy("scripted busy at start", 3);
     assert!(rig.ready && rig.prepared);
     rig.stream(&signal, 50);
+    rig.parent.control.send(Control::Stop).unwrap();
+    rig.finish();
+}
+
+/// A worker held up three times in a row (#784): each stall lapses its
+/// authority and closes the microphone, and each time it opens again under a
+/// new epoch. On lamp-4ace the second stall of one worker ended the voice.
+#[test]
+fn three_stalls_in_a_row_each_reopen_the_microphone_under_a_new_epoch() {
+    warm_up();
+    let signal = Signal::new(400);
+    let mut rig = Rig::start_with("scripted three stalls", 0, ReferenceRecovery::Bounded);
+    rig.stream(&signal, 50);
+    for stall in 1..=3 {
+        rig.hold_up(400);
+        rig.stream(&signal, 50);
+        let deadline = Instant::now() + Duration::from_secs(2);
+        while rig.epochs.len() < stall + 1 {
+            assert!(
+                Instant::now() < deadline,
+                "stall {stall}: starts {:?}, gaps {}",
+                rig.epochs,
+                rig.gaps
+            );
+            rig.service();
+            sleep(Duration::from_micros(500));
+        }
+    }
+    assert_eq!(rig.epochs, [1, 2, 3, 4]);
+    assert_eq!(rig.gaps, 3);
     rig.parent.control.send(Control::Stop).unwrap();
     rig.finish();
 }

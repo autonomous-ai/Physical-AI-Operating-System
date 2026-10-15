@@ -8925,6 +8925,7 @@ mod tests {
                     tools: crate::tools::Settings::default(),
                     attention: Some(busy),
                     name_signal: false,
+                    sounds_checked: false,
                     name_in_passing_ignored: ignored,
                 },
                 BARRIER,

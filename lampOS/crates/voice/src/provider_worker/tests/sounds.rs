@@ -15,6 +15,7 @@ fn checked(on: bool) -> Options {
         attention: Some(quiet),
         name_signal: false,
         sounds_checked: on,
+        name_in_passing_ignored: false,
     }
 }
 

@@ -601,6 +601,11 @@ mod implementation {
             "directed-fixture" => Some(5),
             "camera-inspect" => Some(4),
             "provider-check" => None,
+            // The reminders' consumer the voice starts beside itself when
+            // LAMP_SCHEDULE_TOOLS is on: no output argument, its open files
+            // still protected below. On lamp-4ace from 2026-10-15 02:05 to
+            // 20:00 it refused every check.
+            "schedule-consumer" if arguments.len() == 2 => None,
             "worker" => {
                 let role = arguments.get(2).and_then(|word| word.to_str());
                 if arguments.len() < 6
@@ -1481,6 +1486,50 @@ mod implementation {
                 .is_err()
             );
             assert!(voice_paths(&[OsString::from(BINARY), OsString::from("serve")]).is_err());
+            assert!(
+                voice_paths(&[
+                    OsString::from(BINARY),
+                    OsString::from("schedule-consumer"),
+                    OsString::from("extra")
+                ])
+                .is_err()
+            );
+        }
+
+        #[test]
+        fn the_voices_schedule_consumer_is_known_and_its_files_still_checked() {
+            let tree = Tree::new();
+            let root = tree.directory("sessions");
+            serve(
+                &tree,
+                123,
+                &root.join(CURRENT),
+                "/system.slice/lamp-voice.service",
+            );
+            let consumer = process(
+                &tree,
+                124,
+                &[OsStr::new(BINARY), OsStr::new("schedule-consumer")],
+                "/system.slice/lamp-voice.service",
+            );
+            let check = || {
+                scan_processes(
+                    &tree.0.join("proc"),
+                    &snapshot(&root),
+                    &root,
+                    Instant::now() + TOTAL_BUDGET,
+                    &mut ProcessObservations::default(),
+                )
+            };
+            assert_eq!(check().unwrap(), BTreeSet::from([CURRENT.to_owned()]));
+            // A session file it holds open is still protected.
+            let old = tree.directory(&format!("sessions/{OLD}/metadata"));
+            fs::write(old.join("events-0.jsonl"), b"{}\n").unwrap();
+            symlink(old.join("events-0.jsonl"), consumer.join("fd/3")).unwrap();
+            assert_eq!(
+                check().unwrap(),
+                BTreeSet::from([CURRENT.to_owned(), OLD.to_owned()])
+            );
         }
 
         #[test]

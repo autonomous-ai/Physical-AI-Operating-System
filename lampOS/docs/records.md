@@ -510,6 +510,24 @@ the guard's 19 Linux tests pass under emulation). Then the dry run and the
 first real run: 1.18 GB of sessions, nothing planned and nothing removed,
 no error. The timer runs every hour.
 
+## The reminders' consumer, lamp-4ace (first builder, 2026-10-15, 20:05)
+
+From the first hourly run after the schedule tools arrived
+(`20bf8cabe`, 02:05) until 20:01, every run on lamp-4ace refused with
+"process … protection is incomplete: unknown voice process command". With
+`LAMP_SCHEDULE_TOOLS=on` the voice starts `lamp-voice schedule-consumer`
+beside itself, in its own group, and the guard knew no such command.
+Nothing was removed in that time; the sessions stood at 1.52 GB, under the
+2 GB bound. The guard now reads `schedule-consumer`, with no other
+argument, as naming no output, and its open files are still protected
+like any voice process's (a test for each, and one that an extra argument
+is still refused). On lamp-4ace (ARM64 build `2fb1eb99…`, the previous
+binary kept beside it as `lamp-records.before-20261015`), the dry run and a
+real run of the service at 20:05 both passed: 1.52 GB, nothing planned,
+nothing removed, no error. Under emulation the guard's 34 tests pass, and 22
+of the store's fail with "Function not implemented" (code 38), which is
+the emulator, not the change.
+
 ## Process-exit repair, development host, 2026-10-14
 
 Task 30 follows the first builder's failed 16:00:28 hourly run: PID 1738165

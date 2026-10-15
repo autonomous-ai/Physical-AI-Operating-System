@@ -315,13 +315,20 @@ dependency had to be found by hand. Decided: yes, but as follows.
   the only local failures are those tests, mark the piece ready and name
   the tests that failed. Do not run the whole gate again to get a clean
   pass.
-- **The first builder merges with "Rebase and merge",** so `lamp-voice`
-  stays one line of `lampOS:` commits, and takes a builder's code by no
-  other path. A change it wants is a review comment, and the builder
-  pushes to the same branch. One it will not take is closed with the reason.
+- **"Rebase and merge" only,** so `lamp-voice` stays one line of
+  `lampOS:` commits, and a builder's code comes by no other path. Since
+  2026-10-15 the **reviewer** ([reviewer.md](../builders/reviewer.md))
+  reviews every ready pull request and merges the ones that are off unless
+  set and pass its list; the first builder merges the rest after a minute
+  on lamp-4ace. A change wanted is a review comment, and the builder
+  pushes to the same branch. One that will not be taken is closed with the
+  reason.
 - **The builder watches its own pull requests** and answers their comments
   itself; a person is asked only for hands at a lamp or for permissions.
-- **The merge closes the issue,** and the Queue gives the next task.
+- **A merge does not close the issue.** GitHub acts on `Closes #N` only for
+  merges into the default branch (`main`), and every pull request here
+  merges into `lamp-voice`. Whoever merges closes the issue by hand, saying
+  what was and was not delivered; the Queue gives the next task.
 
 Pieces marked ready on a `lamp-<name>` branch before this was decided are
 taken once more as before. A builder never pushes to `lamp-voice` or to
@@ -369,7 +376,8 @@ writes.
   [#705](https://github.com/autonomous-ai/lampOS/issues/705), label
   `lampos-queue`. No priority labels.
 - **Questions and answers** are comments on the issue they are about.
-- **Pull requests** say `Closes #N`. No GitHub Project is needed.
+- **Pull requests** say `Closes #N` (closed by hand at the merge, above) or
+  `Part of #N`. No GitHub Project is needed.
 
 **Claiming an issue.** Skip any issue already `status:taken`. Add
 `status:taken` and comment one line,

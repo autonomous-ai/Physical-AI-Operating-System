@@ -12,7 +12,7 @@ use crate::{
     gesture::Mood,
 };
 use lamp_bus::{Bus, Publisher};
-use lamp_msgs::{Diagnostic, JointState, KeyValue, Level};
+use lamp_msgs::{Diagnostic, Hand, JointState, KeyValue, Level};
 use std::{
     f64::consts::TAU,
     io,
@@ -284,6 +284,10 @@ pub struct BusOut {
 struct Publishing {
     joints: Publisher,
     health: Publisher,
+    /// `body/hand`, said with every step passed on (every 80 ms), and when
+    /// the push it says began.
+    hand: Publisher,
+    pushed_since: Option<u64>,
     started: Instant,
     before: Option<(u64, [u16; 5])>,
     /// Steps offered since the body's report was last sent, and each time
@@ -301,9 +305,13 @@ impl Publishing {
         joints.expires_after(Some(LASTS));
         let health =
             bus.publisher_declared(Diagnostic::TOPIC, &Diagnostic::declaration(), SOURCE)?;
+        let mut hand = bus.publisher_declared(Hand::TOPIC, &Hand::declaration(), SOURCE)?;
+        hand.expires_after(Some(LASTS));
         Ok(Self {
             joints,
             health,
+            hand,
+            pushed_since: None,
             started: Instant::now(),
             before: None,
             since_report: None,
@@ -320,7 +328,14 @@ impl Publishing {
         let now = Instant::now();
         let state = joint_state(glimpse, self.before);
         self.before = Some((glimpse.step, in_order(glimpse).0));
-        let _ = self.joints.publish_json(self.at_us(), &state);
+        let at_us = self.at_us();
+        let _ = self.joints.publish_json(at_us, &state);
+        self.pushed_since = glimpse.hand.then(|| self.pushed_since.unwrap_or(at_us));
+        let hand = Hand {
+            pushed: glimpse.hand,
+            since_us: self.pushed_since.unwrap_or(0),
+        };
+        let _ = self.hand.publish_json(at_us, &hand);
         let in_all: u32 = glimpse.eased.iter().map(|n| u32::from(*n)).sum();
         for _ in self.resisted_in_all..in_all {
             self.resisted.push(now);
@@ -450,6 +465,7 @@ mod tests {
             gesture: None,
             released: 0,
             limp: false,
+            hand: false,
         }
     }
 
@@ -735,6 +751,44 @@ mod tests {
         assert_eq!(last.level, Level::Error);
         assert_eq!(last.message, "stopped: shoulder is too warm (it reads 62)");
         assert_eq!(last.values[0].value, "stopping");
+        std::fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn the_hand_is_said_with_each_step_passed_on_and_keeps_when_the_push_began() {
+        let root = std::path::PathBuf::from(format!("/tmp/lb-hand-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        std::fs::create_dir_all(&root).unwrap();
+        let bus = Bus::new(&root).unwrap();
+        let mut hands = bus
+            .subscribe_typed(Hand::TOPIC, "test", Hand::TYPE)
+            .unwrap();
+        let mut out = BusOut::on(&bus).unwrap();
+        // Passed on: steps 0, 4, 8, 12, 16. Pushed on 4 and 8 (and 12, 16 not).
+        for step in 0..20 {
+            let mut seen = glimpse(step);
+            seen.hand = (4..12).contains(&step);
+            out.offer(&seen);
+        }
+        let said: Vec<Hand> = (0..5)
+            .map(|_| {
+                hands
+                    .recv(Duration::from_secs(5))
+                    .unwrap()
+                    .expect("a hand")
+                    .parse()
+                    .unwrap()
+            })
+            .collect();
+        assert_eq!(
+            said.iter().map(|h| h.pushed).collect::<Vec<_>>(),
+            [false, true, true, false, false]
+        );
+        assert_eq!(said[0].since_us, 0);
+        assert!(said[1].since_us > 0);
+        assert_eq!(said[2].since_us, said[1].since_us, "the push began once");
+        assert_eq!((said[3].since_us, said[4].since_us), (0, 0));
+        drop(out);
         std::fs::remove_dir_all(root).unwrap();
     }
 

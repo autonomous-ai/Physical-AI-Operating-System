@@ -1594,3 +1594,22 @@ Rust code has moved; that the load bounds suit the head's own weight (the head
 at rest at 2,001 on lamp-4ace reads a load of 68, and read up to 116 while it
 was moved there at about 47 counts a second); what the servos sound like to
 the microphones.
+
+## A hand on the bus
+
+With `LAMP_BUS=on`, lamp-body says on `body/hand` (`lamp_msgs::Hand`,
+latest, kept 1 s) whether a hand is pushing it now, with every step it
+passes on (every 80 ms): `pushed` is true while a head or base joint met
+resistance and is held where it gave way, and `since_us` is when that push
+began, on the body's own clock (0 when not pushed). It adds a publication
+and changes nothing the body does.
+
+What it can feel: a load over a joint's bound, with or without
+`--give-way`; with `--give-way` also a joint held off its goal at a load
+over 100 (a light hand on the base) and a hand that keeps it held. Without
+`--give-way` a hand still on the joint after it gave way ends the run
+(`load`), so `pushed` lasts until then. The shoulder and the elbow are not
+in it: a hand on the arm makes the lamp sit down, which the body's report
+says. Two tests: steps say a hand only while one is on a joint, and never
+without one; the bus says it with each step passed on and keeps when the
+push began.

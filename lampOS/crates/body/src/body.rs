@@ -699,6 +699,9 @@ pub struct Glimpse {
     /// torque is off now.
     pub released: u16,
     pub limp: bool,
+    /// A head or base joint met resistance and is held where it gave way:
+    /// a hand, as far as the body can tell (`body/hand`).
+    pub hand: bool,
 }
 
 /// Why the run ended. Only `Cancelled` is an ordinary end.
@@ -3245,6 +3248,7 @@ pub(crate) fn run_alive(
             stalls: report.stalls,
             released: report.released.len().try_into().unwrap_or(u16::MAX),
             limp: false,
+            hand: held.iter().any(|held| *held),
         };
         watch(&glimpse);
         // A joint pushing at a goal it does not reach, and not moving, is
@@ -3599,6 +3603,7 @@ pub(crate) fn run_alive(
             let template = Glimpse {
                 released: report.released.len().try_into().unwrap_or(u16::MAX),
                 limp: true,
+                hand: false,
                 ..glimpse
             };
             let rest = match (again, by_hand) {

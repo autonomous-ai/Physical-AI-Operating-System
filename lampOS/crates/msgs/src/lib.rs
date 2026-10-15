@@ -820,6 +820,32 @@ impl Pause {
     }
 }
 
+/// Whether a hand is pushing the lamp now (`body/hand`), as the body feels
+/// it: a head or base joint that met resistance and is held where it gave
+/// way, for as long as it is held. `since_us` is the body's own clock
+/// (microseconds since it started) when the push began, 0 when not pushed.
+/// Said each time it changes and at least every 100 ms while the body runs.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Hand {
+    pub pushed: bool,
+    pub since_us: u64,
+}
+
+impl Hand {
+    pub const TYPE: &str = "lamp_msgs/Hand";
+    pub const VERSION: u32 = 1;
+    pub const TOPIC: &str = "body/hand";
+
+    pub fn declaration() -> Declaration {
+        Declaration::new(Self::TYPE, Self::VERSION, Kind::Latest)
+    }
+}
+
+/// The body's topic beside the first ones.
+pub fn body_topics() -> Vec<(&'static str, Declaration)> {
+    vec![(Hand::TOPIC, Hand::declaration())]
+}
+
 /// One thing the policy decided (`policy/decisions`): what the question
 /// was about, what was chosen, how likely the policy held it to be right,
 /// and what each judgement behind it was.
@@ -957,6 +983,7 @@ pub fn declaration_of(topic: &str) -> Option<Declaration> {
         .chain(touch_topics())
         .chain(schedule_topics())
         .chain(keeper_topics())
+        .chain(body_topics())
         .chain(tasks_topics())
         .find_map(|(name, declaration)| (name == topic).then_some(declaration))
 }
@@ -1508,6 +1535,16 @@ mod tests {
                  \"answers\":{},\"by\":\"rule\",\"took_ms\":0,\"shadow\":true}"
             )
             .is_err()
+        );
+    }
+
+    #[test]
+    fn the_hand_is_kept_apart_from_the_first_topics_and_still_recognised() {
+        assert!(!first_topics().iter().any(|(name, _)| *name == Hand::TOPIC));
+        let declared = declaration_of(Hand::TOPIC).unwrap();
+        assert_eq!(
+            (declared.type_name.as_str(), declared.kind),
+            (Hand::TYPE, Kind::Latest)
         );
     }
 

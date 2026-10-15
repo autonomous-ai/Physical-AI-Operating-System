@@ -57,8 +57,11 @@ Two of V1's values do not carry over as they are. Read from lamp-52e6's V1
   an OpenAI chat model there instead: `gpt-4.1-mini` answered through the
   relay (first byte 0.32 s from the lamp, one probe).
 - `tts_provider` is `gemini`, which this route does not take (it would fail
-  with Gemini). Set `openai`: the relay's `/audio/speech` answered with 24
-  kHz PCM (first byte 0.21 s, one probe).
+  with Gemini). Set `elevenlabs`. The relay's OpenAI `/audio/speech` answers
+  only once the whole sentence is made: "Paris!" took 2.4 to 5.5 s to its
+  first audio, a 4 s sentence 5.0 s (`tts-1`; `gpt-4o-mini-tts` 2.2 s). Its
+  ElevenLabs path streams: 0.60 to 0.68 s to the first audio for the same
+  sentences (`eleven_flash_v2_5`; probes from lamp-52e6 on 2026-10-15).
 
 Rules the loader keeps (`load_from_path`):
 
@@ -101,7 +104,10 @@ A base URL on `campaign-api.autonomous.ai` ending in `/ai` is given `/v1`
   `<base>/ws/audio/transcriptions` (the base made `wss://`). Query, V1's for
   nova models: `model=nova-3-general`, `encoding=linear16`,
   `sample_rate=16000`, `channels=1`, `language`, `smart_format=true`,
-  `interim_results=true`, `endpointing=1500`, `vad_events=true`. A keep-alive
+  `interim_results=true`, `endpointing=1500`, `vad_events=true`, and
+  `keyterm=Lamp`, as V1 boosts the lamp's name: without it, on lamp-52e6,
+  "Hey Lamp" came back as "Palin", "Palan" and "Len", and the model took
+  the question for other people's talk. A keep-alive
   every 5 s; `CloseStream` at the end of the line, and up to 15 s for the
   final words. Only final segments are kept.
 - **Text model** (`net/chat.rs`): `POST <base>/chat/completions`,
@@ -112,14 +118,19 @@ A base URL on `campaign-api.autonomous.ai` ending in `/ai` is given `/v1`
   - `openai`: `POST <base>/audio/speech`, `Authorization: Bearer <key>`,
     model `tts-1`, `response_format: pcm`.
   - `elevenlabs`: `POST <base>/text-to-speech/<voice id>/stream?output_format=pcm_24000`,
-    `xi-api-key: <key>`, model `eleven_v4_turbo`, speed 1.0. A base that is
+    `xi-api-key: <key>`, model `eleven_flash_v2_5` (V1 used
+    `eleven_v4_turbo`, 0.81 to 1.30 s to its first audio through the
+    relay), speed 1.0. A base that is
     not an ElevenLabs host (`api.elevenlabs.io`, `api.us.…`, `api.eu.…`)
     gets `/elevenlabs` first, as V1's proxy path. A V1 voice name
     (`VOICE_IDS_BY_LANG`) is turned into its id; any other value is taken as
     an id.
 
   Text in `[...]` is not spoken. A sentence with nothing left to say sends
-  no request.
+  no request. Every sample is doubled (+6 dB) and clipped at full scale:
+  through the relay `tts-1` `nova` measured peak -7.3 dBFS and RMS -28.8
+  dBFS, ElevenLabs Rachel peak -6.4 and RMS -23.5, and the second voice was
+  heard much quieter than Gemini's.
 
 A service's answer becomes the turn's failure reason (`fault`): 401 and 403
 Authentication, 402 QuotaExceeded, 429 RateLimited, 5xx ServerUnavailable,
@@ -133,6 +144,18 @@ talking. Up to 15 s of microphone audio waits while it connects. At the
 end of the line: the person's words, then the chat answer, each sentence
 said as it is complete while the next is still being written. Sentence
 order is kept. A written turn is the same from the chat on.
+
+- **The first words go early.** Until some of the answer is on its way, a
+  clause of at least four words ending in a comma, semicolon or colon is
+  said on its own (`Sentences::clause`).
+- **The chat is given the last exchanges.** Up to six, each said within
+  five minutes, as user and assistant messages after the system message: a
+  Live session keeps its own, and "and how many people live there?" needs
+  the one before (on lamp-52e6, without it, "there" became the lamp's own
+  city).
+- **Each turn is logged** as "lamp-voice second: request N ...": the words
+  heard and how long after the line, each chat round's first event, the
+  tools called, the first answer audio, and any failure.
 
 - Up to four chat requests in a turn, tool rounds included (`MAX_ROUNDS`).
 - A call to `not_for_me` ends the turn silently, before the unfinished last

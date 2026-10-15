@@ -496,3 +496,36 @@ async fn a_reminder_is_deferred_as_the_fixture_does() {
     });
     assert_eq!(turn(&mut engine).await, ["deferred:Disabled"]);
 }
+
+#[tokio::test]
+async fn the_next_chat_is_given_the_last_exchange_until_it_is_five_minutes_old() {
+    let script = Arc::new(Script {
+        chats: Mutex::new(
+            [
+                vec![text("Paris."), Ok(ChatEvent::Done)],
+                vec![text("About two million."), Ok(ChatEvent::Done)],
+                vec![text("Banana."), Ok(ChatEvent::Done)],
+            ]
+            .into(),
+        ),
+        ..Script::default()
+    });
+    let (mut engine, _, clock) = scripted(script.clone());
+    engine.submit(written(1, "Capital of France?"));
+    turn(&mut engine).await;
+    engine.submit(written(2, "How many live there?"));
+    turn(&mut engine).await;
+    *clock.lock().unwrap() += HISTORY_WITHIN;
+    engine.submit(written(3, "A yellow fruit?"));
+    turn(&mut engine).await;
+    let asked = script.asked.lock().unwrap();
+    assert_eq!(
+        asked[1][1..],
+        [
+            Message::user("Capital of France?"),
+            Message::assistant("Paris."),
+            Message::user("How many live there?"),
+        ]
+    );
+    assert_eq!(asked[2][1..], [Message::user("A yellow fruit?")]);
+}

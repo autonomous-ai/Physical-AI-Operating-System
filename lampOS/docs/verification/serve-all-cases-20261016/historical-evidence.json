@@ -1,0 +1,1375 @@
+{
+  "date_from_date": "2026-10-16 05:51:12 +0700",
+  "files": [
+    {
+      "scope": "first failed normal and incomplete full ARM64",
+      "commit": "d9cc28b141e317c51e71a0d06b450be628103cc7",
+      "path": "lampOS/docs/verification/clock-migration-integration-20261016-0350/README.md",
+      "git_blob": "be3a59ebbf994bbe83f00c37e7d24cc2dcfdcc07",
+      "sha256": "7bb30255fe935f592418d54be1678115294c5e82e3b1f245462e7c024c629613",
+      "bytes": 4523,
+      "url": "https://github.com/autonomous-ai/lampOS/blob/d9cc28b141e317c51e71a0d06b450be628103cc7/lampOS/docs/verification/clock-migration-integration-20261016-0350/README.md"
+    },
+    {
+      "scope": "first failed normal and incomplete full ARM64",
+      "commit": "d9cc28b141e317c51e71a0d06b450be628103cc7",
+      "path": "lampOS/docs/verification/clock-migration-integration-20261016-0350/native/909-38800988605.json",
+      "git_blob": "5e46e25b8174980ceacb3f3409ce1655f2bcb3c8",
+      "sha256": "364be8702f628ce0bb608461966156b852a81d2a8dab056613fc7b16b1aaadec",
+      "bytes": 3214,
+      "url": "https://github.com/autonomous-ai/lampOS/blob/d9cc28b141e317c51e71a0d06b450be628103cc7/lampOS/docs/verification/clock-migration-integration-20261016-0350/native/909-38800988605.json"
+    },
+    {
+      "scope": "first failed normal and incomplete full ARM64",
+      "commit": "d9cc28b141e317c51e71a0d06b450be628103cc7",
+      "path": "lampOS/docs/verification/clock-migration-integration-20261016-0350/native/909-38800988605.log",
+      "git_blob": "8c331ae0e00ca740c5bdaac8741a8562aac81f3e",
+      "sha256": "ae23e71197fbbceedff1ed140424e053a037e74e6f9621bcc6a121d75f9229f0",
+      "bytes": 147739,
+      "url": "https://github.com/autonomous-ai/lampOS/blob/d9cc28b141e317c51e71a0d06b450be628103cc7/lampOS/docs/verification/clock-migration-integration-20261016-0350/native/909-38800988605.log"
+    },
+    {
+      "scope": "first failed normal and incomplete full ARM64",
+      "commit": "d9cc28b141e317c51e71a0d06b450be628103cc7",
+      "path": "lampOS/docs/verification/clock-migration-integration-20261016-0350/native/909-38801026642-audit.json",
+      "git_blob": "bd8cbd04d6f8caf475cd7990bb4f5b9fe921ec86",
+      "sha256": "7fc04223d346251e0f0de2f6218f010bda79edaa69899dac1f22a8022ddec635",
+      "bytes": 8686,
+      "url": "https://github.com/autonomous-ai/lampOS/blob/d9cc28b141e317c51e71a0d06b450be628103cc7/lampOS/docs/verification/clock-migration-integration-20261016-0350/native/909-38801026642-audit.json"
+    },
+    {
+      "scope": "first failed normal and incomplete full ARM64",
+      "commit": "d9cc28b141e317c51e71a0d06b450be628103cc7",
+      "path": "lampOS/docs/verification/clock-migration-integration-20261016-0350/native/909-38801026642-original-observed.json",
+      "git_blob": "ea5f5145ba45aeecdc743146cffe468272fd4c91",
+      "sha256": "bcf6c101234bb2961794c74c9c46a030f5c78bb0775f24ae2b1ca5c54c161486",
+      "bytes": 23295,
+      "url": "https://github.com/autonomous-ai/lampOS/blob/d9cc28b141e317c51e71a0d06b450be628103cc7/lampOS/docs/verification/clock-migration-integration-20261016-0350/native/909-38801026642-original-observed.json"
+    },
+    {
+      "scope": "first failed normal and incomplete full ARM64",
+      "commit": "d9cc28b141e317c51e71a0d06b450be628103cc7",
+      "path": "lampOS/docs/verification/clock-migration-integration-20261016-0350/native/909-38801026642.json",
+      "git_blob": "7a380ffe4bd6df0250d773d5936cd097276ac0af",
+      "sha256": "387954af7e1fba08ffd708941831513e7a6d6fe3e367fe9f78129cb05212c0f2",
+      "bytes": 11746,
+      "url": "https://github.com/autonomous-ai/lampOS/blob/d9cc28b141e317c51e71a0d06b450be628103cc7/lampOS/docs/verification/clock-migration-integration-20261016-0350/native/909-38801026642.json"
+    },
+    {
+      "scope": "first failed normal and incomplete full ARM64",
+      "commit": "d9cc28b141e317c51e71a0d06b450be628103cc7",
+      "path": "lampOS/docs/verification/clock-migration-integration-20261016-0350/native/909-38801026642.log",
+      "git_blob": "b7a3ab854adba7fbe488c84c4899e9169ab658d5",
+      "sha256": "1b8287532b5741bcf1a45139d5b83d3819ad7528fb4541849d8610977339343e",
+      "bytes": 1510220,
+      "url": "https://github.com/autonomous-ai/lampOS/blob/d9cc28b141e317c51e71a0d06b450be628103cc7/lampOS/docs/verification/clock-migration-integration-20261016-0350/native/909-38801026642.log"
+    },
+    {
+      "scope": "first failed normal and incomplete full ARM64",
+      "commit": "d9cc28b141e317c51e71a0d06b450be628103cc7",
+      "path": "lampOS/docs/verification/clock-migration-integration-20261016-0350/native/909-body-stop-failure-excerpt.txt",
+      "git_blob": "30d3532e378e25ecf7f9166b053130a7dafaaee1",
+      "sha256": "c9a7ad4189222c3b8c7ee12105197a27735ad69e6b689fe53bf34ebb9fb47dec",
+      "bytes": 4015,
+      "url": "https://github.com/autonomous-ai/lampOS/blob/d9cc28b141e317c51e71a0d06b450be628103cc7/lampOS/docs/verification/clock-migration-integration-20261016-0350/native/909-body-stop-failure-excerpt.txt"
+    },
+    {
+      "scope": "first failed normal and incomplete full ARM64",
+      "commit": "d9cc28b141e317c51e71a0d06b450be628103cc7",
+      "path": "lampOS/docs/verification/clock-migration-integration-20261016-0350/native/909-body-stop-line-provenance.txt",
+      "git_blob": "7f1e6b5cb3350f990446aeac7b00f8995306fdef",
+      "sha256": "43378d37e8fcb9dff95c70dca36c0211da4d62f77f6c86ccc5859a12a2bd678c",
+      "bytes": 36116,
+      "url": "https://github.com/autonomous-ai/lampOS/blob/d9cc28b141e317c51e71a0d06b450be628103cc7/lampOS/docs/verification/clock-migration-integration-20261016-0350/native/909-body-stop-line-provenance.txt"
+    },
+    {
+      "scope": "first failed normal and incomplete full ARM64",
+      "commit": "d9cc28b141e317c51e71a0d06b450be628103cc7",
+      "path": "lampOS/docs/verification/clock-migration-integration-20261016-0350/native/909-body-stop-triage.json",
+      "git_blob": "30528b498e8d72ca272ce3a6441424ca21940731",
+      "sha256": "2e683839b1d08c1427729edeac998a29d6f89d28646137afeaece90ea738d698",
+      "bytes": 10228,
+      "url": "https://github.com/autonomous-ai/lampOS/blob/d9cc28b141e317c51e71a0d06b450be628103cc7/lampOS/docs/verification/clock-migration-integration-20261016-0350/native/909-body-stop-triage.json"
+    },
+    {
+      "scope": "first failed normal and incomplete full ARM64",
+      "commit": "d9cc28b141e317c51e71a0d06b450be628103cc7",
+      "path": "lampOS/docs/verification/clock-migration-integration-20261016-0350/native/909-body-stop-triage.md",
+      "git_blob": "808ec09cab94f3945780c9dffb98b76a8fce83be",
+      "sha256": "c89ea9a001a05ee342908d7d4c2fd0b20bf65ff88b3466400efaea5f34bd6655",
+      "bytes": 7134,
+      "url": "https://github.com/autonomous-ai/lampOS/blob/d9cc28b141e317c51e71a0d06b450be628103cc7/lampOS/docs/verification/clock-migration-integration-20261016-0350/native/909-body-stop-triage.md"
+    },
+    {
+      "scope": "older e057 normal ARM64 pass and owner diagnosis",
+      "commit": "99611db2bbcf3724c83a28db6ec3b6bddce53997",
+      "path": "lampOS/docs/verification/test-clock-progress-20261016-0425/README.md",
+      "git_blob": "15cbca70a8945ae8b73c9dbe9a322edfb7ad80c2",
+      "sha256": "80e25184b38b3cd7367d13251725b4e9d26ab729e4cbed98c66d6fed821294eb",
+      "bytes": 5313,
+      "url": "https://github.com/autonomous-ai/lampOS/blob/99611db2bbcf3724c83a28db6ec3b6bddce53997/lampOS/docs/verification/test-clock-progress-20261016-0425/README.md"
+    },
+    {
+      "scope": "older e057 normal ARM64 pass and owner diagnosis",
+      "commit": "99611db2bbcf3724c83a28db6ec3b6bddce53997",
+      "path": "lampOS/docs/verification/test-clock-progress-20261016-0425/body-readiness-owner-response.json",
+      "git_blob": "be56485acbcd74005117e16c9bdabd783269b192",
+      "sha256": "4934e5c8012f7777587bf06c136057adf02e71b74ad7bfe713a08022b5051435",
+      "bytes": 8410,
+      "url": "https://github.com/autonomous-ai/lampOS/blob/99611db2bbcf3724c83a28db6ec3b6bddce53997/lampOS/docs/verification/test-clock-progress-20261016-0425/body-readiness-owner-response.json"
+    },
+    {
+      "scope": "older e057 normal ARM64 pass and owner diagnosis",
+      "commit": "99611db2bbcf3724c83a28db6ec3b6bddce53997",
+      "path": "lampOS/docs/verification/test-clock-progress-20261016-0425/serve-native/909-38806386829-audit.json",
+      "git_blob": "ac24a6b49c63da2525fff1d772cda0799e3250c7",
+      "sha256": "7df9e670057b2d512d634c923ef52c2afe3c66fb758b5fa89be58e1dc2d8eb20",
+      "bytes": 1097,
+      "url": "https://github.com/autonomous-ai/lampOS/blob/99611db2bbcf3724c83a28db6ec3b6bddce53997/lampOS/docs/verification/test-clock-progress-20261016-0425/serve-native/909-38806386829-audit.json"
+    },
+    {
+      "scope": "older e057 normal ARM64 pass and owner diagnosis",
+      "commit": "99611db2bbcf3724c83a28db6ec3b6bddce53997",
+      "path": "lampOS/docs/verification/test-clock-progress-20261016-0425/serve-native/909-38806386829-results.json",
+      "git_blob": "f5259a9d0aa01b2302728e5c86cd93beae4529a8",
+      "sha256": "6fe81ea801bfbff4c866873bacf10e8ec0b14949b54443ab08221a50f9c7e404",
+      "bytes": 870174,
+      "url": "https://github.com/autonomous-ai/lampOS/blob/99611db2bbcf3724c83a28db6ec3b6bddce53997/lampOS/docs/verification/test-clock-progress-20261016-0425/serve-native/909-38806386829-results.json"
+    },
+    {
+      "scope": "older e057 normal ARM64 pass and owner diagnosis",
+      "commit": "99611db2bbcf3724c83a28db6ec3b6bddce53997",
+      "path": "lampOS/docs/verification/test-clock-progress-20261016-0425/serve-native/909-38806386829-watch.log",
+      "git_blob": "2f300057426e0447e11eedb415b1ab55b92a3bb5",
+      "sha256": "f585ab7bb0d431d65a6b834eddfe99c63a0baa3fd09bd515186ccd3e4fd81124",
+      "bytes": 929,
+      "url": "https://github.com/autonomous-ai/lampOS/blob/99611db2bbcf3724c83a28db6ec3b6bddce53997/lampOS/docs/verification/test-clock-progress-20261016-0425/serve-native/909-38806386829-watch.log"
+    },
+    {
+      "scope": "older e057 normal ARM64 pass and owner diagnosis",
+      "commit": "99611db2bbcf3724c83a28db6ec3b6bddce53997",
+      "path": "lampOS/docs/verification/test-clock-progress-20261016-0425/serve-native/909-38806386829.json",
+      "git_blob": "f8eeaf965e4c0dbd2c2e26fb4912bef60daae096",
+      "sha256": "de4c4ecd79762edd003ea7614d06f9d4e7cd8a175eb9a4d89f2763ff8d50ed0b",
+      "bytes": 3201,
+      "url": "https://github.com/autonomous-ai/lampOS/blob/99611db2bbcf3724c83a28db6ec3b6bddce53997/lampOS/docs/verification/test-clock-progress-20261016-0425/serve-native/909-38806386829.json"
+    },
+    {
+      "scope": "older e057 normal ARM64 pass and owner diagnosis",
+      "commit": "99611db2bbcf3724c83a28db6ec3b6bddce53997",
+      "path": "lampOS/docs/verification/test-clock-progress-20261016-0425/serve-native/909-38806386829.log",
+      "git_blob": "7f44182a908906230cb269d1cb2c9a314ffbae0f",
+      "sha256": "35b6dfe00980ca3026b7e55ce544ddabcc879ac1b20c0e97adff4dcdaceac10e",
+      "bytes": 1201397,
+      "url": "https://github.com/autonomous-ai/lampOS/blob/99611db2bbcf3724c83a28db6ec3b6bddce53997/lampOS/docs/verification/test-clock-progress-20261016-0425/serve-native/909-38806386829.log"
+    },
+    {
+      "scope": "historical ten-case Serve pair",
+      "commit": "d9cc28b141e317c51e71a0d06b450be628103cc7",
+      "path": "lampOS/docs/verification/serve-fixture-pair-20261016/README.md",
+      "git_blob": "2ad84b94ccae37356b14c43426787bbd51f61bce",
+      "sha256": "1ecffa9ae4497d4a93b46ca367cb239af1d2992f987ea699280b7c62e9b9147e",
+      "bytes": 4225,
+      "url": "https://github.com/autonomous-ai/lampOS/blob/d9cc28b141e317c51e71a0d06b450be628103cc7/lampOS/docs/verification/serve-fixture-pair-20261016/README.md"
+    },
+    {
+      "scope": "historical ten-case Serve pair",
+      "commit": "d9cc28b141e317c51e71a0d06b450be628103cc7",
+      "path": "lampOS/docs/verification/serve-fixture-pair-20261016/channel-fixed-local-sockets-gates.json",
+      "git_blob": "ff498a5206de315f7043caba3a470f3955699228",
+      "sha256": "dd403dfcb2ff44932c4ca820fc83353e68ea0ef69d430c6b0fa066f4658921fa",
+      "bytes": 2007,
+      "url": "https://github.com/autonomous-ai/lampOS/blob/d9cc28b141e317c51e71a0d06b450be628103cc7/lampOS/docs/verification/serve-fixture-pair-20261016/channel-fixed-local-sockets-gates.json"
+    },
+    {
+      "scope": "historical ten-case Serve pair",
+      "commit": "d9cc28b141e317c51e71a0d06b450be628103cc7",
+      "path": "lampOS/docs/verification/serve-fixture-pair-20261016/channel-fixed-local-sockets-serve-list.exit",
+      "git_blob": "573541ac9702dd3969c9bc859d2b91ec1f7e6e56",
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+      "bytes": 2,
+      "url": "https://github.com/autonomous-ai/lampOS/blob/d9cc28b141e317c51e71a0d06b450be628103cc7/lampOS/docs/verification/serve-fixture-pair-20261016/channel-fixed-local-sockets-serve-list.exit"
+    },
+    {
+      "scope": "historical ten-case Serve pair",
+      "commit": "d9cc28b141e317c51e71a0d06b450be628103cc7",
+      "path": "lampOS/docs/verification/serve-fixture-pair-20261016/channel-fixed-local-sockets-serve-list.finished",
+      "git_blob": "379a4b5337dbb7a6bde57cc639abd74e615a44ab",
+      "sha256": "90e54b956399f48a24c1fddb836cedefbcb3356c190a6f9745e791b318794c11",
+      "bytes": 26,
+      "url": "https://github.com/autonomous-ai/lampOS/blob/d9cc28b141e317c51e71a0d06b450be628103cc7/lampOS/docs/verification/serve-fixture-pair-20261016/channel-fixed-local-sockets-serve-list.finished"
+    },
+    {
+      "scope": "historical ten-case Serve pair",
+      "commit": "d9cc28b141e317c51e71a0d06b450be628103cc7",
+      "path": "lampOS/docs/verification/serve-fixture-pair-20261016/channel-fixed-local-sockets-serve-list.log",
+      "git_blob": "9ba91b8d5549149d5220d25172827ec775b47f69",
+      "sha256": "b0f0aeefbff34128156b86da6f39ad5dad3b98cb68f2e58b9ba646841350e5ad",
+      "bytes": 3582,
+      "url": "https://github.com/autonomous-ai/lampOS/blob/d9cc28b141e317c51e71a0d06b450be628103cc7/lampOS/docs/verification/serve-fixture-pair-20261016/channel-fixed-local-sockets-serve-list.log"
+    },
+    {
+      "scope": "historical ten-case Serve pair",
+      "commit": "d9cc28b141e317c51e71a0d06b450be628103cc7",
+      "path": "lampOS/docs/verification/serve-fixture-pair-20261016/channel-fixed-local-sockets-serve-list.started",
+      "git_blob": "d1bb889b13bb28c0c88f15c4f65faf8bb4989557",
+      "sha256": "ed8900281f87d247bc514a52bf150473957d47cf968ca3aa256c40d5556f9f32",
+      "bytes": 26,
+      "url": "https://github.com/autonomous-ai/lampOS/blob/d9cc28b141e317c51e71a0d06b450be628103cc7/lampOS/docs/verification/serve-fixture-pair-20261016/channel-fixed-local-sockets-serve-list.started"
+    },
+    {
+      "scope": "historical ten-case Serve pair",
+      "commit": "d9cc28b141e317c51e71a0d06b450be628103cc7",
+      "path": "lampOS/docs/verification/serve-fixture-pair-20261016/channel-fixed-local-sockets-serve-tests.exit",
+      "git_blob": "573541ac9702dd3969c9bc859d2b91ec1f7e6e56",
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+      "bytes": 2,
+      "url": "https://github.com/autonomous-ai/lampOS/blob/d9cc28b141e317c51e71a0d06b450be628103cc7/lampOS/docs/verification/serve-fixture-pair-20261016/channel-fixed-local-sockets-serve-tests.exit"
+    },
+    {
+      "scope": "historical ten-case Serve pair",
+      "commit": "d9cc28b141e317c51e71a0d06b450be628103cc7",
+      "path": "lampOS/docs/verification/serve-fixture-pair-20261016/channel-fixed-local-sockets-serve-tests.finished",
+      "git_blob": "f76c78f56f2f1681b8932950720edb65c5e952b9",
+      "sha256": "fb3ee60e64bb9ea36f240c758a9e049419c92068894094a804bcd97c61d55d9b",
+      "bytes": 26,
+      "url": "https://github.com/autonomous-ai/lampOS/blob/d9cc28b141e317c51e71a0d06b450be628103cc7/lampOS/docs/verification/serve-fixture-pair-20261016/channel-fixed-local-sockets-serve-tests.finished"
+    },
+    {
+      "scope": "historical ten-case Serve pair",
+      "commit": "d9cc28b141e317c51e71a0d06b450be628103cc7",
+      "path": "lampOS/docs/verification/serve-fixture-pair-20261016/channel-fixed-local-sockets-serve-tests.log",
+      "git_blob": "74ce4c6c7108a1ba474f11533d2b63e4c6af45a2",
+      "sha256": "8dbdbb0ea823e0588ad1e1a48ad456a1a0017328115e696c8d81e9588bdd02a5",
+      "bytes": 2115,
+      "url": "https://github.com/autonomous-ai/lampOS/blob/d9cc28b141e317c51e71a0d06b450be628103cc7/lampOS/docs/verification/serve-fixture-pair-20261016/channel-fixed-local-sockets-serve-tests.log"
+    },
+    {
+      "scope": "historical ten-case Serve pair",
+      "commit": "d9cc28b141e317c51e71a0d06b450be628103cc7",
+      "path": "lampOS/docs/verification/serve-fixture-pair-20261016/channel-fixed-local-sockets-serve-tests.started",
+      "git_blob": "379a4b5337dbb7a6bde57cc639abd74e615a44ab",
+      "sha256": "90e54b956399f48a24c1fddb836cedefbcb3356c190a6f9745e791b318794c11",
+      "bytes": 26,
+      "url": "https://github.com/autonomous-ai/lampOS/blob/d9cc28b141e317c51e71a0d06b450be628103cc7/lampOS/docs/verification/serve-fixture-pair-20261016/channel-fixed-local-sockets-serve-tests.started"
+    },
+    {
+      "scope": "historical ten-case Serve pair",
+      "commit": "d9cc28b141e317c51e71a0d06b450be628103cc7",
+      "path": "lampOS/docs/verification/serve-fixture-pair-20261016/comparison.json",
+      "git_blob": "a15abe660524ff4cdedbfecafde40ca2582ad4aa",
+      "sha256": "6c4d75a28750493de6a38906bfbd2993c6003e6370489b9f291beb16d1bc59f1",
+      "bytes": 21240,
+      "url": "https://github.com/autonomous-ai/lampOS/blob/d9cc28b141e317c51e71a0d06b450be628103cc7/lampOS/docs/verification/serve-fixture-pair-20261016/comparison.json"
+    },
+    {
+      "scope": "historical ten-case Serve pair",
+      "commit": "d9cc28b141e317c51e71a0d06b450be628103cc7",
+      "path": "lampOS/docs/verification/serve-fixture-pair-20261016/paired-before-commands.json",
+      "git_blob": "39c965660cec6f066e0dc4a792101e5d85d74cd5",
+      "sha256": "e3981eaedd88f77b665cdc33dc7a6823c783b24cfc2a2184d7600c62107caa4c",
+      "bytes": 981,
+      "url": "https://github.com/autonomous-ai/lampOS/blob/d9cc28b141e317c51e71a0d06b450be628103cc7/lampOS/docs/verification/serve-fixture-pair-20261016/paired-before-commands.json"
+    },
+    {
+      "scope": "historical ten-case Serve pair",
+      "commit": "d9cc28b141e317c51e71a0d06b450be628103cc7",
+      "path": "lampOS/docs/verification/serve-fixture-pair-20261016/paired-before-list.exit",
+      "git_blob": "573541ac9702dd3969c9bc859d2b91ec1f7e6e56",
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+      "bytes": 2,
+      "url": "https://github.com/autonomous-ai/lampOS/blob/d9cc28b141e317c51e71a0d06b450be628103cc7/lampOS/docs/verification/serve-fixture-pair-20261016/paired-before-list.exit"
+    },
+    {
+      "scope": "historical ten-case Serve pair",
+      "commit": "d9cc28b141e317c51e71a0d06b450be628103cc7",
+      "path": "lampOS/docs/verification/serve-fixture-pair-20261016/paired-before-list.finished",
+      "git_blob": "f7c788c990a5efebcbde46c0dd0181d6a18904c6",
+      "sha256": "25f08035174c92ea7d87d9f8ded5fdc6451158d76b6436c4c41ce395b79f1961",
+      "bytes": 26,
+      "url": "https://github.com/autonomous-ai/lampOS/blob/d9cc28b141e317c51e71a0d06b450be628103cc7/lampOS/docs/verification/serve-fixture-pair-20261016/paired-before-list.finished"
+    },
+    {
+      "scope": "historical ten-case Serve pair",
+      "commit": "d9cc28b141e317c51e71a0d06b450be628103cc7",
+      "path": "lampOS/docs/verification/serve-fixture-pair-20261016/paired-before-list.log",
+      "git_blob": "f34a2d140e6abdcdce38ad9b8c3d53d7983ce859",
+      "sha256": "7833e7c7fb324073fbbd2c6bfc4202090a7b3d717b839af7458599afe23bf51d",
+      "bytes": 3581,
+      "url": "https://github.com/autonomous-ai/lampOS/blob/d9cc28b141e317c51e71a0d06b450be628103cc7/lampOS/docs/verification/serve-fixture-pair-20261016/paired-before-list.log"
+    },
+    {
+      "scope": "historical ten-case Serve pair",
+      "commit": "d9cc28b141e317c51e71a0d06b450be628103cc7",
+      "path": "lampOS/docs/verification/serve-fixture-pair-20261016/paired-before-list.started",
+      "git_blob": "641f6adff59a657715d6fed4e4ae832a6243ad89",
+      "sha256": "c63d13533cd979bdf7c0d9b15a44c0fc50d265944098629ecc8eb478f59dc0cd",
+      "bytes": 26,
+      "url": "https://github.com/autonomous-ai/lampOS/blob/d9cc28b141e317c51e71a0d06b450be628103cc7/lampOS/docs/verification/serve-fixture-pair-20261016/paired-before-list.started"
+    },
+    {
+      "scope": "historical ten-case Serve pair",
+      "commit": "d9cc28b141e317c51e71a0d06b450be628103cc7",
+      "path": "lampOS/docs/verification/serve-fixture-pair-20261016/paired-before-source.rs",
+      "git_blob": "dd9352e1f67e79ca0e3c82785cb29083eadffac4",
+      "sha256": "bb8e83a7c0cb08703852638749b01d32e88eb696b35aacb093a5462bd4ddcf49",
+      "bytes": 30067,
+      "url": "https://github.com/autonomous-ai/lampOS/blob/d9cc28b141e317c51e71a0d06b450be628103cc7/lampOS/docs/verification/serve-fixture-pair-20261016/paired-before-source.rs"
+    },
+    {
+      "scope": "historical ten-case Serve pair",
+      "commit": "d9cc28b141e317c51e71a0d06b450be628103cc7",
+      "path": "lampOS/docs/verification/serve-fixture-pair-20261016/paired-before-tests.exit",
+      "git_blob": "573541ac9702dd3969c9bc859d2b91ec1f7e6e56",
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+      "bytes": 2,
+      "url": "https://github.com/autonomous-ai/lampOS/blob/d9cc28b141e317c51e71a0d06b450be628103cc7/lampOS/docs/verification/serve-fixture-pair-20261016/paired-before-tests.exit"
+    },
+    {
+      "scope": "historical ten-case Serve pair",
+      "commit": "d9cc28b141e317c51e71a0d06b450be628103cc7",
+      "path": "lampOS/docs/verification/serve-fixture-pair-20261016/paired-before-tests.finished",
+      "git_blob": "235efd7be15c631a292e1d52ba2f491c9bf495dc",
+      "sha256": "6ebefce12635e035273337a69c7eb34998ab471a4a5d75528c1649b02fe14496",
+      "bytes": 26,
+      "url": "https://github.com/autonomous-ai/lampOS/blob/d9cc28b141e317c51e71a0d06b450be628103cc7/lampOS/docs/verification/serve-fixture-pair-20261016/paired-before-tests.finished"
+    },
+    {
+      "scope": "historical ten-case Serve pair",
+      "commit": "d9cc28b141e317c51e71a0d06b450be628103cc7",
+      "path": "lampOS/docs/verification/serve-fixture-pair-20261016/paired-before-tests.log",
+      "git_blob": "6c32302f41f5d2619b3cf18cdc32ce9a54bf770a",
+      "sha256": "644639eda4d0e3e8a2bce80111abf850a202ab69ca2bb32586e9563ef31ab323",
+      "bytes": 2393,
+      "url": "https://github.com/autonomous-ai/lampOS/blob/d9cc28b141e317c51e71a0d06b450be628103cc7/lampOS/docs/verification/serve-fixture-pair-20261016/paired-before-tests.log"
+    },
+    {
+      "scope": "historical ten-case Serve pair",
+      "commit": "d9cc28b141e317c51e71a0d06b450be628103cc7",
+      "path": "lampOS/docs/verification/serve-fixture-pair-20261016/paired-before-tests.started",
+      "git_blob": "f7c788c990a5efebcbde46c0dd0181d6a18904c6",
+      "sha256": "25f08035174c92ea7d87d9f8ded5fdc6451158d76b6436c4c41ce395b79f1961",
+      "bytes": 26,
+      "url": "https://github.com/autonomous-ai/lampOS/blob/d9cc28b141e317c51e71a0d06b450be628103cc7/lampOS/docs/verification/serve-fixture-pair-20261016/paired-before-tests.started"
+    },
+    {
+      "scope": "historical ten-case Serve pair",
+      "commit": "d9cc28b141e317c51e71a0d06b450be628103cc7",
+      "path": "lampOS/docs/verification/serve-fixture-pair-20261016/paired-binary-proof.json",
+      "git_blob": "38795a6907e06609b0d0b1b82c62473b693fcef2",
+      "sha256": "4cce8da19c9708afb1793b55606c5a11181b12ee3bcabe429220cf67827f27cd",
+      "bytes": 562,
+      "url": "https://github.com/autonomous-ai/lampOS/blob/d9cc28b141e317c51e71a0d06b450be628103cc7/lampOS/docs/verification/serve-fixture-pair-20261016/paired-binary-proof.json"
+    },
+    {
+      "scope": "historical ten-case Serve pair",
+      "commit": "d9cc28b141e317c51e71a0d06b450be628103cc7",
+      "path": "lampOS/docs/verification/serve-fixture-pair-20261016/source-attempt-accounting.tsv",
+      "git_blob": "709a1d202114a11542308fa3423a0e4ea56792d0",
+      "sha256": "313a293fd827b45211e641d0a53aba2401efff99ffdd329cb9dde051804fec5a",
+      "bytes": 1987,
+      "url": "https://github.com/autonomous-ai/lampOS/blob/d9cc28b141e317c51e71a0d06b450be628103cc7/lampOS/docs/verification/serve-fixture-pair-20261016/source-attempt-accounting.tsv"
+    },
+    {
+      "scope": "historical ten-case Serve pair",
+      "commit": "d9cc28b141e317c51e71a0d06b450be628103cc7",
+      "path": "lampOS/docs/verification/serve-fixture-pair-20261016/source-audit.json",
+      "git_blob": "90ca97ee2a17535622061cc3608cc387cde872e1",
+      "sha256": "483486a74dd7ca50ef3d2c617c472ed5e897829a967a84017658ecfe8647d609",
+      "bytes": 7194,
+      "url": "https://github.com/autonomous-ai/lampOS/blob/d9cc28b141e317c51e71a0d06b450be628103cc7/lampOS/docs/verification/serve-fixture-pair-20261016/source-audit.json"
+    },
+    {
+      "scope": "historical ten-case Serve pair",
+      "commit": "d9cc28b141e317c51e71a0d06b450be628103cc7",
+      "path": "lampOS/docs/verification/serve-fixture-pair-20261016/source-constructor-migration.diff",
+      "git_blob": "ff428b446b77d731becd241b0f315c67f3f5877e",
+      "sha256": "75e197f9f8aa676ce2e997a341138adc20cf7571ef9aa8f784b3ee18a3ce3cff",
+      "bytes": 2821,
+      "url": "https://github.com/autonomous-ai/lampOS/blob/d9cc28b141e317c51e71a0d06b450be628103cc7/lampOS/docs/verification/serve-fixture-pair-20261016/source-constructor-migration.diff"
+    },
+    {
+      "scope": "historical ten-case Serve pair",
+      "commit": "d9cc28b141e317c51e71a0d06b450be628103cc7",
+      "path": "lampOS/docs/verification/serve-fixture-pair-20261016/source-handoff.txt",
+      "git_blob": "70d15878a377ce66cdbdfd5fe58ab6cadb31dba5",
+      "sha256": "d77bd02d98a29708ff334c439b2e52aaec5fcbe34a016427694dab4fde9af5f2",
+      "bytes": 8068,
+      "url": "https://github.com/autonomous-ai/lampOS/blob/d9cc28b141e317c51e71a0d06b450be628103cc7/lampOS/docs/verification/serve-fixture-pair-20261016/source-handoff.txt"
+    },
+    {
+      "scope": "historical ten-case Serve pair",
+      "commit": "d9cc28b141e317c51e71a0d06b450be628103cc7",
+      "path": "lampOS/docs/verification/serve-fixture-pair-20261016/source-host-process-proof.json",
+      "git_blob": "770371d9bbec64ff9386e452947a8e17b935aa59",
+      "sha256": "3a7e4d96762037ca286fc4c46ee0ac97eb75ee40d39e872593e1ff67a35f09a5",
+      "bytes": 264,
+      "url": "https://github.com/autonomous-ai/lampOS/blob/d9cc28b141e317c51e71a0d06b450be628103cc7/lampOS/docs/verification/serve-fixture-pair-20261016/source-host-process-proof.json"
+    },
+    {
+      "scope": "historical ten-case Serve pair",
+      "commit": "d9cc28b141e317c51e71a0d06b450be628103cc7",
+      "path": "lampOS/docs/verification/serve-fixture-pair-20261016/timings.tsv",
+      "git_blob": "b7d2cad8cb5999077ba490ad35411166c3f61842",
+      "sha256": "e1727d70ab527996623729985dc9f752867d7b7a621c5ba15e6288ccddcca430",
+      "bytes": 1348,
+      "url": "https://github.com/autonomous-ai/lampOS/blob/d9cc28b141e317c51e71a0d06b450be628103cc7/lampOS/docs/verification/serve-fixture-pair-20261016/timings.tsv"
+    },
+    {
+      "scope": "historical three-case Recorder extension pair",
+      "commit": "d9cc28b141e317c51e71a0d06b450be628103cc7",
+      "path": "lampOS/docs/verification/recorder-fixture-pair-20261016/README.md",
+      "git_blob": "ce81ca1afb735b5043a9ac8b5d5bae9db6f3d83f",
+      "sha256": "3cd19feb073e17fb5294fa0cde0dcc03614061fa964514ed647f962e23144434",
+      "bytes": 7746,
+      "url": "https://github.com/autonomous-ai/lampOS/blob/d9cc28b141e317c51e71a0d06b450be628103cc7/lampOS/docs/verification/recorder-fixture-pair-20261016/README.md"
+    },
+    {
+      "scope": "historical three-case Recorder extension pair",
+      "commit": "d9cc28b141e317c51e71a0d06b450be628103cc7",
+      "path": "lampOS/docs/verification/recorder-fixture-pair-20261016/cache-reset.exit",
+      "git_blob": "573541ac9702dd3969c9bc859d2b91ec1f7e6e56",
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+      "bytes": 2,
+      "url": "https://github.com/autonomous-ai/lampOS/blob/d9cc28b141e317c51e71a0d06b450be628103cc7/lampOS/docs/verification/recorder-fixture-pair-20261016/cache-reset.exit"
+    },
+    {
+      "scope": "historical three-case Recorder extension pair",
+      "commit": "d9cc28b141e317c51e71a0d06b450be628103cc7",
+      "path": "lampOS/docs/verification/recorder-fixture-pair-20261016/cache-reset.finished",
+      "git_blob": "1bec0f13e9086cfcd27b2f609816b66eec1d2c34",
+      "sha256": "f89a35d60a10eea494439f2f1b37d9a508e27ec9cb53ffc716aba67adef8d899",
+      "bytes": 26,
+      "url": "https://github.com/autonomous-ai/lampOS/blob/d9cc28b141e317c51e71a0d06b450be628103cc7/lampOS/docs/verification/recorder-fixture-pair-20261016/cache-reset.finished"
+    },
+    {
+      "scope": "historical three-case Recorder extension pair",
+      "commit": "d9cc28b141e317c51e71a0d06b450be628103cc7",
+      "path": "lampOS/docs/verification/recorder-fixture-pair-20261016/cache-reset.log",
+      "git_blob": "a8ec85dfbd2196f0831d4c10152c16b500a1ac2c",
+      "sha256": "7a09e229d3f334e359886d9aac38fda1d1d5cf8abdbe237b32d0239ae7789140",
+      "bytes": 38,
+      "url": "https://github.com/autonomous-ai/lampOS/blob/d9cc28b141e317c51e71a0d06b450be628103cc7/lampOS/docs/verification/recorder-fixture-pair-20261016/cache-reset.log"
+    },
+    {
+      "scope": "historical three-case Recorder extension pair",
+      "commit": "d9cc28b141e317c51e71a0d06b450be628103cc7",
+      "path": "lampOS/docs/verification/recorder-fixture-pair-20261016/cache-reset.started",
+      "git_blob": "f5e52ada408bfbcdb79ff7635a353d39e0ab2eff",
+      "sha256": "09923b431dc1eeff683bac9667c46c98c29d904e977a9da1bf417c4081dee626",
+      "bytes": 26,
+      "url": "https://github.com/autonomous-ai/lampOS/blob/d9cc28b141e317c51e71a0d06b450be628103cc7/lampOS/docs/verification/recorder-fixture-pair-20261016/cache-reset.started"
+    },
+    {
+      "scope": "historical three-case Recorder extension pair",
+      "commit": "d9cc28b141e317c51e71a0d06b450be628103cc7",
+      "path": "lampOS/docs/verification/recorder-fixture-pair-20261016/clippy.exit",
+      "git_blob": "573541ac9702dd3969c9bc859d2b91ec1f7e6e56",
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+      "bytes": 2,
+      "url": "https://github.com/autonomous-ai/lampOS/blob/d9cc28b141e317c51e71a0d06b450be628103cc7/lampOS/docs/verification/recorder-fixture-pair-20261016/clippy.exit"
+    },
+    {
+      "scope": "historical three-case Recorder extension pair",
+      "commit": "d9cc28b141e317c51e71a0d06b450be628103cc7",
+      "path": "lampOS/docs/verification/recorder-fixture-pair-20261016/clippy.finished",
+      "git_blob": "da06ffd96ab74fd50a37c1c4c5ae85229c96c735",
+      "sha256": "a11060c1174c92e006b6ddd9f1410b2b9f9844daf16965ecc756b207306ebf3f",
+      "bytes": 26,
+      "url": "https://github.com/autonomous-ai/lampOS/blob/d9cc28b141e317c51e71a0d06b450be628103cc7/lampOS/docs/verification/recorder-fixture-pair-20261016/clippy.finished"
+    },
+    {
+      "scope": "historical three-case Recorder extension pair",
+      "commit": "d9cc28b141e317c51e71a0d06b450be628103cc7",
+      "path": "lampOS/docs/verification/recorder-fixture-pair-20261016/clippy.log",
+      "git_blob": "e636b251e505688370e8993f0cb0ba1469ba922c",
+      "sha256": "00af0076d3b64c500ed95b0094b47f89eb7afc0a03ea674878f3bc45baa05d7d",
+      "bytes": 1889,
+      "url": "https://github.com/autonomous-ai/lampOS/blob/d9cc28b141e317c51e71a0d06b450be628103cc7/lampOS/docs/verification/recorder-fixture-pair-20261016/clippy.log"
+    },
+    {
+      "scope": "historical three-case Recorder extension pair",
+      "commit": "d9cc28b141e317c51e71a0d06b450be628103cc7",
+      "path": "lampOS/docs/verification/recorder-fixture-pair-20261016/clippy.started",
+      "git_blob": "201da3c515f83469fc1b1e2a9fa093b56fb36f7d",
+      "sha256": "efa6f669d624c4b3ea5f738ac3c64d9eeb66df4b96a6682b2363759647a69641",
+      "bytes": 26,
+      "url": "https://github.com/autonomous-ai/lampOS/blob/d9cc28b141e317c51e71a0d06b450be628103cc7/lampOS/docs/verification/recorder-fixture-pair-20261016/clippy.started"
+    },
+    {
+      "scope": "historical three-case Recorder extension pair",
+      "commit": "d9cc28b141e317c51e71a0d06b450be628103cc7",
+      "path": "lampOS/docs/verification/recorder-fixture-pair-20261016/comparison.json",
+      "git_blob": "34be59b7f261842de4a2596f582e38e900a98692",
+      "sha256": "afb1167dda2f50f1ffb3d0eebb6cdb31de9824d17237983d67bfb4435b6039ec",
+      "bytes": 90289,
+      "url": "https://github.com/autonomous-ai/lampOS/blob/d9cc28b141e317c51e71a0d06b450be628103cc7/lampOS/docs/verification/recorder-fixture-pair-20261016/comparison.json"
+    },
+    {
+      "scope": "historical three-case Recorder extension pair",
+      "commit": "d9cc28b141e317c51e71a0d06b450be628103cc7",
+      "path": "lampOS/docs/verification/recorder-fixture-pair-20261016/constructor-migration.diff",
+      "git_blob": "f934af6dfac8b7c82e02a69cced34142ee584a53",
+      "sha256": "36df045c29ded93f76e38d2ad227bd0046506d6fa150c0ea417a0595a90e8fc8",
+      "bytes": 1086,
+      "url": "https://github.com/autonomous-ai/lampOS/blob/d9cc28b141e317c51e71a0d06b450be628103cc7/lampOS/docs/verification/recorder-fixture-pair-20261016/constructor-migration.diff"
+    },
+    {
+      "scope": "historical three-case Recorder extension pair",
+      "commit": "d9cc28b141e317c51e71a0d06b450be628103cc7",
+      "path": "lampOS/docs/verification/recorder-fixture-pair-20261016/cross-review.md",
+      "git_blob": "1bc1fc93182fdbe2be7ce9b78868b43272fda0d7",
+      "sha256": "3ef35b4504a106dbffab9256412bd6fc9daef82b4f31346846eafb610be96b20",
+      "bytes": 10576,
+      "url": "https://github.com/autonomous-ai/lampOS/blob/d9cc28b141e317c51e71a0d06b450be628103cc7/lampOS/docs/verification/recorder-fixture-pair-20261016/cross-review.md"
+    },
+    {
+      "scope": "historical three-case Recorder extension pair",
+      "commit": "d9cc28b141e317c51e71a0d06b450be628103cc7",
+      "path": "lampOS/docs/verification/recorder-fixture-pair-20261016/fmt.exit",
+      "git_blob": "573541ac9702dd3969c9bc859d2b91ec1f7e6e56",
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+      "bytes": 2,
+      "url": "https://github.com/autonomous-ai/lampOS/blob/d9cc28b141e317c51e71a0d06b450be628103cc7/lampOS/docs/verification/recorder-fixture-pair-20261016/fmt.exit"
+    },
+    {
+      "scope": "historical three-case Recorder extension pair",
+      "commit": "d9cc28b141e317c51e71a0d06b450be628103cc7",
+      "path": "lampOS/docs/verification/recorder-fixture-pair-20261016/fmt.finished",
+      "git_blob": "201da3c515f83469fc1b1e2a9fa093b56fb36f7d",
+      "sha256": "efa6f669d624c4b3ea5f738ac3c64d9eeb66df4b96a6682b2363759647a69641",
+      "bytes": 26,
+      "url": "https://github.com/autonomous-ai/lampOS/blob/d9cc28b141e317c51e71a0d06b450be628103cc7/lampOS/docs/verification/recorder-fixture-pair-20261016/fmt.finished"
+    },
+    {
+      "scope": "historical three-case Recorder extension pair",
+      "commit": "d9cc28b141e317c51e71a0d06b450be628103cc7",
+      "path": "lampOS/docs/verification/recorder-fixture-pair-20261016/fmt.log",
+      "git_blob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0,
+      "url": "https://github.com/autonomous-ai/lampOS/blob/d9cc28b141e317c51e71a0d06b450be628103cc7/lampOS/docs/verification/recorder-fixture-pair-20261016/fmt.log"
+    },
+    {
+      "scope": "historical three-case Recorder extension pair",
+      "commit": "d9cc28b141e317c51e71a0d06b450be628103cc7",
+      "path": "lampOS/docs/verification/recorder-fixture-pair-20261016/fmt.started",
+      "git_blob": "1bec0f13e9086cfcd27b2f609816b66eec1d2c34",
+      "sha256": "f89a35d60a10eea494439f2f1b37d9a508e27ec9cb53ffc716aba67adef8d899",
+      "bytes": 26,
+      "url": "https://github.com/autonomous-ai/lampOS/blob/d9cc28b141e317c51e71a0d06b450be628103cc7/lampOS/docs/verification/recorder-fixture-pair-20261016/fmt.started"
+    },
+    {
+      "scope": "historical three-case Recorder extension pair",
+      "commit": "d9cc28b141e317c51e71a0d06b450be628103cc7",
+      "path": "lampOS/docs/verification/recorder-fixture-pair-20261016/full-build.exit",
+      "git_blob": "573541ac9702dd3969c9bc859d2b91ec1f7e6e56",
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+      "bytes": 2,
+      "url": "https://github.com/autonomous-ai/lampOS/blob/d9cc28b141e317c51e71a0d06b450be628103cc7/lampOS/docs/verification/recorder-fixture-pair-20261016/full-build.exit"
+    },
+    {
+      "scope": "historical three-case Recorder extension pair",
+      "commit": "d9cc28b141e317c51e71a0d06b450be628103cc7",
+      "path": "lampOS/docs/verification/recorder-fixture-pair-20261016/full-build.finished",
+      "git_blob": "5da1e12adfc7e6d1b9719fcfe562616bd6674eef",
+      "sha256": "c8ac03a708839c830c495c51e3b0966f804b811e811f017fa4085072f64bacf9",
+      "bytes": 26,
+      "url": "https://github.com/autonomous-ai/lampOS/blob/d9cc28b141e317c51e71a0d06b450be628103cc7/lampOS/docs/verification/recorder-fixture-pair-20261016/full-build.finished"
+    },
+    {
+      "scope": "historical three-case Recorder extension pair",
+      "commit": "d9cc28b141e317c51e71a0d06b450be628103cc7",
+      "path": "lampOS/docs/verification/recorder-fixture-pair-20261016/full-build.log",
+      "git_blob": "14f3e6663a35ef669a807787d3eb82801b9bdb43",
+      "sha256": "59c6888da886e166ef788c025b2bcd48fb698752578422591ac7eb88b7cec86a",
+      "bytes": 3671,
+      "url": "https://github.com/autonomous-ai/lampOS/blob/d9cc28b141e317c51e71a0d06b450be628103cc7/lampOS/docs/verification/recorder-fixture-pair-20261016/full-build.log"
+    },
+    {
+      "scope": "historical three-case Recorder extension pair",
+      "commit": "d9cc28b141e317c51e71a0d06b450be628103cc7",
+      "path": "lampOS/docs/verification/recorder-fixture-pair-20261016/full-build.started",
+      "git_blob": "b426d6d0e245804b63569dcc7fa4b62eb4906447",
+      "sha256": "3782a9ee653442c54419b660b29e87dbf78811ec9af5f69f962d39220f187b89",
+      "bytes": 26,
+      "url": "https://github.com/autonomous-ai/lampOS/blob/d9cc28b141e317c51e71a0d06b450be628103cc7/lampOS/docs/verification/recorder-fixture-pair-20261016/full-build.started"
+    },
+    {
+      "scope": "historical three-case Recorder extension pair",
+      "commit": "d9cc28b141e317c51e71a0d06b450be628103cc7",
+      "path": "lampOS/docs/verification/recorder-fixture-pair-20261016/full-clippy.exit",
+      "git_blob": "573541ac9702dd3969c9bc859d2b91ec1f7e6e56",
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+      "bytes": 2,
+      "url": "https://github.com/autonomous-ai/lampOS/blob/d9cc28b141e317c51e71a0d06b450be628103cc7/lampOS/docs/verification/recorder-fixture-pair-20261016/full-clippy.exit"
+    },
+    {
+      "scope": "historical three-case Recorder extension pair",
+      "commit": "d9cc28b141e317c51e71a0d06b450be628103cc7",
+      "path": "lampOS/docs/verification/recorder-fixture-pair-20261016/full-clippy.finished",
+      "git_blob": "cfbe83fa27453c1d52a60a5b67c0d95534772904",
+      "sha256": "f05c029e8a394be2196ec2d53a81b0d13835f467b935d0f89116126b26aefdaf",
+      "bytes": 26,
+      "url": "https://github.com/autonomous-ai/lampOS/blob/d9cc28b141e317c51e71a0d06b450be628103cc7/lampOS/docs/verification/recorder-fixture-pair-20261016/full-clippy.finished"
+    },
+    {
+      "scope": "historical three-case Recorder extension pair",
+      "commit": "d9cc28b141e317c51e71a0d06b450be628103cc7",
+      "path": "lampOS/docs/verification/recorder-fixture-pair-20261016/full-clippy.log",
+      "git_blob": "9ec1de04e8dca80f8090ae822c6899c4fcc049fc",
+      "sha256": "3a313802dbd3bf6491937ba985956a207f47ce971a5b3af1d48e02b19be51bc7",
+      "bytes": 179,
+      "url": "https://github.com/autonomous-ai/lampOS/blob/d9cc28b141e317c51e71a0d06b450be628103cc7/lampOS/docs/verification/recorder-fixture-pair-20261016/full-clippy.log"
+    },
+    {
+      "scope": "historical three-case Recorder extension pair",
+      "commit": "d9cc28b141e317c51e71a0d06b450be628103cc7",
+      "path": "lampOS/docs/verification/recorder-fixture-pair-20261016/full-clippy.started",
+      "git_blob": "585891fe6df1ff4a6b725a4e447d5848196ce8a8",
+      "sha256": "5e0ac0877e5d109231715451bb29878f7b36bf1295381d62aa90e3ea0f14885d",
+      "bytes": 26,
+      "url": "https://github.com/autonomous-ai/lampOS/blob/d9cc28b141e317c51e71a0d06b450be628103cc7/lampOS/docs/verification/recorder-fixture-pair-20261016/full-clippy.started"
+    },
+    {
+      "scope": "historical three-case Recorder extension pair",
+      "commit": "d9cc28b141e317c51e71a0d06b450be628103cc7",
+      "path": "lampOS/docs/verification/recorder-fixture-pair-20261016/full-fmt.exit",
+      "git_blob": "573541ac9702dd3969c9bc859d2b91ec1f7e6e56",
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+      "bytes": 2,
+      "url": "https://github.com/autonomous-ai/lampOS/blob/d9cc28b141e317c51e71a0d06b450be628103cc7/lampOS/docs/verification/recorder-fixture-pair-20261016/full-fmt.exit"
+    },
+    {
+      "scope": "historical three-case Recorder extension pair",
+      "commit": "d9cc28b141e317c51e71a0d06b450be628103cc7",
+      "path": "lampOS/docs/verification/recorder-fixture-pair-20261016/full-fmt.finished",
+      "git_blob": "585891fe6df1ff4a6b725a4e447d5848196ce8a8",
+      "sha256": "5e0ac0877e5d109231715451bb29878f7b36bf1295381d62aa90e3ea0f14885d",
+      "bytes": 26,
+      "url": "https://github.com/autonomous-ai/lampOS/blob/d9cc28b141e317c51e71a0d06b450be628103cc7/lampOS/docs/verification/recorder-fixture-pair-20261016/full-fmt.finished"
+    },
+    {
+      "scope": "historical three-case Recorder extension pair",
+      "commit": "d9cc28b141e317c51e71a0d06b450be628103cc7",
+      "path": "lampOS/docs/verification/recorder-fixture-pair-20261016/full-fmt.log",
+      "git_blob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0,
+      "url": "https://github.com/autonomous-ai/lampOS/blob/d9cc28b141e317c51e71a0d06b450be628103cc7/lampOS/docs/verification/recorder-fixture-pair-20261016/full-fmt.log"
+    },
+    {
+      "scope": "historical three-case Recorder extension pair",
+      "commit": "d9cc28b141e317c51e71a0d06b450be628103cc7",
+      "path": "lampOS/docs/verification/recorder-fixture-pair-20261016/full-fmt.started",
+      "git_blob": "35a85e6c70ea804472c499eb9145b2228b1f1e5d",
+      "sha256": "2d5f1c5a3a56ab1595490306a84dc6a9c9e691438a12833e8cdb6538c8cb8453",
+      "bytes": 26,
+      "url": "https://github.com/autonomous-ai/lampOS/blob/d9cc28b141e317c51e71a0d06b450be628103cc7/lampOS/docs/verification/recorder-fixture-pair-20261016/full-fmt.started"
+    },
+    {
+      "scope": "historical three-case Recorder extension pair",
+      "commit": "d9cc28b141e317c51e71a0d06b450be628103cc7",
+      "path": "lampOS/docs/verification/recorder-fixture-pair-20261016/full-gates.json",
+      "git_blob": "744ac4d68bdee365155db3ac0589610d9fece40a",
+      "sha256": "6ea190b6055715d4f8e8cc1c5ed862751401e82462339111b6cbcd1e1c8f58e2",
+      "bytes": 1733,
+      "url": "https://github.com/autonomous-ai/lampOS/blob/d9cc28b141e317c51e71a0d06b450be628103cc7/lampOS/docs/verification/recorder-fixture-pair-20261016/full-gates.json"
+    },
+    {
+      "scope": "historical three-case Recorder extension pair",
+      "commit": "d9cc28b141e317c51e71a0d06b450be628103cc7",
+      "path": "lampOS/docs/verification/recorder-fixture-pair-20261016/full-tests.exit",
+      "git_blob": "573541ac9702dd3969c9bc859d2b91ec1f7e6e56",
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+      "bytes": 2,
+      "url": "https://github.com/autonomous-ai/lampOS/blob/d9cc28b141e317c51e71a0d06b450be628103cc7/lampOS/docs/verification/recorder-fixture-pair-20261016/full-tests.exit"
+    },
+    {
+      "scope": "historical three-case Recorder extension pair",
+      "commit": "d9cc28b141e317c51e71a0d06b450be628103cc7",
+      "path": "lampOS/docs/verification/recorder-fixture-pair-20261016/full-tests.finished",
+      "git_blob": "b426d6d0e245804b63569dcc7fa4b62eb4906447",
+      "sha256": "3782a9ee653442c54419b660b29e87dbf78811ec9af5f69f962d39220f187b89",
+      "bytes": 26,
+      "url": "https://github.com/autonomous-ai/lampOS/blob/d9cc28b141e317c51e71a0d06b450be628103cc7/lampOS/docs/verification/recorder-fixture-pair-20261016/full-tests.finished"
+    },
+    {
+      "scope": "historical three-case Recorder extension pair",
+      "commit": "d9cc28b141e317c51e71a0d06b450be628103cc7",
+      "path": "lampOS/docs/verification/recorder-fixture-pair-20261016/full-tests.log",
+      "git_blob": "9517ef617559bcbe2830131b0cfe68c256ada679",
+      "sha256": "b389640c6946bdd74bb26237feaa9cfd28d59d25b8cbf5e1ca0de5faff312fc4",
+      "bytes": 49435,
+      "url": "https://github.com/autonomous-ai/lampOS/blob/d9cc28b141e317c51e71a0d06b450be628103cc7/lampOS/docs/verification/recorder-fixture-pair-20261016/full-tests.log"
+    },
+    {
+      "scope": "historical three-case Recorder extension pair",
+      "commit": "d9cc28b141e317c51e71a0d06b450be628103cc7",
+      "path": "lampOS/docs/verification/recorder-fixture-pair-20261016/full-tests.started",
+      "git_blob": "cfbe83fa27453c1d52a60a5b67c0d95534772904",
+      "sha256": "f05c029e8a394be2196ec2d53a81b0d13835f467b935d0f89116126b26aefdaf",
+      "bytes": 26,
+      "url": "https://github.com/autonomous-ai/lampOS/blob/d9cc28b141e317c51e71a0d06b450be628103cc7/lampOS/docs/verification/recorder-fixture-pair-20261016/full-tests.started"
+    },
+    {
+      "scope": "historical three-case Recorder extension pair",
+      "commit": "d9cc28b141e317c51e71a0d06b450be628103cc7",
+      "path": "lampOS/docs/verification/recorder-fixture-pair-20261016/gates.json",
+      "git_blob": "bdf5fe9abb784d0e2e24fb7c30d9fb11292d1801",
+      "sha256": "26cd7affce20e9e72eae9fa2e94b374acf5d750308915a974eb6167a719005c4",
+      "bytes": 2877,
+      "url": "https://github.com/autonomous-ai/lampOS/blob/d9cc28b141e317c51e71a0d06b450be628103cc7/lampOS/docs/verification/recorder-fixture-pair-20261016/gates.json"
+    },
+    {
+      "scope": "historical three-case Recorder extension pair",
+      "commit": "d9cc28b141e317c51e71a0d06b450be628103cc7",
+      "path": "lampOS/docs/verification/recorder-fixture-pair-20261016/load-recorder-seam-build.exit",
+      "git_blob": "573541ac9702dd3969c9bc859d2b91ec1f7e6e56",
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+      "bytes": 2,
+      "url": "https://github.com/autonomous-ai/lampOS/blob/d9cc28b141e317c51e71a0d06b450be628103cc7/lampOS/docs/verification/recorder-fixture-pair-20261016/load-recorder-seam-build.exit"
+    },
+    {
+      "scope": "historical three-case Recorder extension pair",
+      "commit": "d9cc28b141e317c51e71a0d06b450be628103cc7",
+      "path": "lampOS/docs/verification/recorder-fixture-pair-20261016/load-recorder-seam-build.finished",
+      "git_blob": "5c5703ec805dbb8f3abc23b4af9c306725089834",
+      "sha256": "625a5a5d191083b6d01f355aec8064ce3631d8816960e5c5a395af3d66d25aba",
+      "bytes": 26,
+      "url": "https://github.com/autonomous-ai/lampOS/blob/d9cc28b141e317c51e71a0d06b450be628103cc7/lampOS/docs/verification/recorder-fixture-pair-20261016/load-recorder-seam-build.finished"
+    },
+    {
+      "scope": "historical three-case Recorder extension pair",
+      "commit": "d9cc28b141e317c51e71a0d06b450be628103cc7",
+      "path": "lampOS/docs/verification/recorder-fixture-pair-20261016/load-recorder-seam-build.started",
+      "git_blob": "90b3378dd8f01dbb2dec4e973de2b22a755fc3a6",
+      "sha256": "051b17aeb38595ae8ae7d8615b908b64a5bfa9cac22d0dd678f43a7f7415237c",
+      "bytes": 26,
+      "url": "https://github.com/autonomous-ai/lampOS/blob/d9cc28b141e317c51e71a0d06b450be628103cc7/lampOS/docs/verification/recorder-fixture-pair-20261016/load-recorder-seam-build.started"
+    },
+    {
+      "scope": "historical three-case Recorder extension pair",
+      "commit": "d9cc28b141e317c51e71a0d06b450be628103cc7",
+      "path": "lampOS/docs/verification/recorder-fixture-pair-20261016/load-recorder-seam-gates.json",
+      "git_blob": "09d6f7916b0230d598a34226d27c783312fa5c29",
+      "sha256": "16efe6de8eb9dd0b46542baefae4562c48056e31f16bba462ae6e340728cb5d4",
+      "bytes": 3187,
+      "url": "https://github.com/autonomous-ai/lampOS/blob/d9cc28b141e317c51e71a0d06b450be628103cc7/lampOS/docs/verification/recorder-fixture-pair-20261016/load-recorder-seam-gates.json"
+    },
+    {
+      "scope": "historical three-case Recorder extension pair",
+      "commit": "d9cc28b141e317c51e71a0d06b450be628103cc7",
+      "path": "lampOS/docs/verification/recorder-fixture-pair-20261016/manifest.json",
+      "git_blob": "24a68776fbf2fe3e03b7f53f4b4a658073c13463",
+      "sha256": "9959694e29c0139b22f0161457ca4dbf627bc89c65d2f3afbf735914cf536a01",
+      "bytes": 33623,
+      "url": "https://github.com/autonomous-ai/lampOS/blob/d9cc28b141e317c51e71a0d06b450be628103cc7/lampOS/docs/verification/recorder-fixture-pair-20261016/manifest.json"
+    },
+    {
+      "scope": "historical three-case Recorder extension pair",
+      "commit": "d9cc28b141e317c51e71a0d06b450be628103cc7",
+      "path": "lampOS/docs/verification/recorder-fixture-pair-20261016/original-attempt-accounting.tsv",
+      "git_blob": "709a1d202114a11542308fa3423a0e4ea56792d0",
+      "sha256": "313a293fd827b45211e641d0a53aba2401efff99ffdd329cb9dde051804fec5a",
+      "bytes": 1987,
+      "url": "https://github.com/autonomous-ai/lampOS/blob/d9cc28b141e317c51e71a0d06b450be628103cc7/lampOS/docs/verification/recorder-fixture-pair-20261016/original-attempt-accounting.tsv"
+    },
+    {
+      "scope": "historical three-case Recorder extension pair",
+      "commit": "d9cc28b141e317c51e71a0d06b450be628103cc7",
+      "path": "lampOS/docs/verification/recorder-fixture-pair-20261016/original-serve-migration-audit.json",
+      "git_blob": "90ca97ee2a17535622061cc3608cc387cde872e1",
+      "sha256": "483486a74dd7ca50ef3d2c617c472ed5e897829a967a84017658ecfe8647d609",
+      "bytes": 7194,
+      "url": "https://github.com/autonomous-ai/lampOS/blob/d9cc28b141e317c51e71a0d06b450be628103cc7/lampOS/docs/verification/recorder-fixture-pair-20261016/original-serve-migration-audit.json"
+    },
+    {
+      "scope": "historical three-case Recorder extension pair",
+      "commit": "d9cc28b141e317c51e71a0d06b450be628103cc7",
+      "path": "lampOS/docs/verification/recorder-fixture-pair-20261016/original-serve-source.rs",
+      "git_blob": "dd9352e1f67e79ca0e3c82785cb29083eadffac4",
+      "sha256": "bb8e83a7c0cb08703852638749b01d32e88eb696b35aacb093a5462bd4ddcf49",
+      "bytes": 30067,
+      "url": "https://github.com/autonomous-ai/lampOS/blob/d9cc28b141e317c51e71a0d06b450be628103cc7/lampOS/docs/verification/recorder-fixture-pair-20261016/original-serve-source.rs"
+    },
+    {
+      "scope": "historical three-case Recorder extension pair",
+      "commit": "d9cc28b141e317c51e71a0d06b450be628103cc7",
+      "path": "lampOS/docs/verification/recorder-fixture-pair-20261016/pair-after-list.exit",
+      "git_blob": "573541ac9702dd3969c9bc859d2b91ec1f7e6e56",
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+      "bytes": 2,
+      "url": "https://github.com/autonomous-ai/lampOS/blob/d9cc28b141e317c51e71a0d06b450be628103cc7/lampOS/docs/verification/recorder-fixture-pair-20261016/pair-after-list.exit"
+    },
+    {
+      "scope": "historical three-case Recorder extension pair",
+      "commit": "d9cc28b141e317c51e71a0d06b450be628103cc7",
+      "path": "lampOS/docs/verification/recorder-fixture-pair-20261016/pair-after-list.finished",
+      "git_blob": "7ac30b2e07e885ed8c27634505543711705091d1",
+      "sha256": "27016750a8f83ff8f0a0b3603d0f6d4e07657d1496f2fa1d39f2b1af086e4608",
+      "bytes": 26,
+      "url": "https://github.com/autonomous-ai/lampOS/blob/d9cc28b141e317c51e71a0d06b450be628103cc7/lampOS/docs/verification/recorder-fixture-pair-20261016/pair-after-list.finished"
+    },
+    {
+      "scope": "historical three-case Recorder extension pair",
+      "commit": "d9cc28b141e317c51e71a0d06b450be628103cc7",
+      "path": "lampOS/docs/verification/recorder-fixture-pair-20261016/pair-after-list.log",
+      "git_blob": "9be22e6cb081652b726ea34a9a25db321c46e7ac",
+      "sha256": "a6fc4a31d045f5db1b33d66c06e9b1501edbe6a9237634c8b4e69979b64f4bdf",
+      "bytes": 3593,
+      "url": "https://github.com/autonomous-ai/lampOS/blob/d9cc28b141e317c51e71a0d06b450be628103cc7/lampOS/docs/verification/recorder-fixture-pair-20261016/pair-after-list.log"
+    },
+    {
+      "scope": "historical three-case Recorder extension pair",
+      "commit": "d9cc28b141e317c51e71a0d06b450be628103cc7",
+      "path": "lampOS/docs/verification/recorder-fixture-pair-20261016/pair-after-list.started",
+      "git_blob": "d987e90e1bda73f22def191ec81a14aa5a495e66",
+      "sha256": "50f19acc999d969dce3a7cf1700cd1003fdf2f21ecd11f4fc382dcb5e103a1a9",
+      "bytes": 26,
+      "url": "https://github.com/autonomous-ai/lampOS/blob/d9cc28b141e317c51e71a0d06b450be628103cc7/lampOS/docs/verification/recorder-fixture-pair-20261016/pair-after-list.started"
+    },
+    {
+      "scope": "historical three-case Recorder extension pair",
+      "commit": "d9cc28b141e317c51e71a0d06b450be628103cc7",
+      "path": "lampOS/docs/verification/recorder-fixture-pair-20261016/pair-after-source.rs",
+      "git_blob": "fca835f885e65893ecd5591055c1a9816b82ecb9",
+      "sha256": "485ef6bc04c292666b633c819baa7c16465aaa756e97271c9c0708cd2c3e6186",
+      "bytes": 30679,
+      "url": "https://github.com/autonomous-ai/lampOS/blob/d9cc28b141e317c51e71a0d06b450be628103cc7/lampOS/docs/verification/recorder-fixture-pair-20261016/pair-after-source.rs"
+    },
+    {
+      "scope": "historical three-case Recorder extension pair",
+      "commit": "d9cc28b141e317c51e71a0d06b450be628103cc7",
+      "path": "lampOS/docs/verification/recorder-fixture-pair-20261016/pair-after.exit",
+      "git_blob": "573541ac9702dd3969c9bc859d2b91ec1f7e6e56",
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+      "bytes": 2,
+      "url": "https://github.com/autonomous-ai/lampOS/blob/d9cc28b141e317c51e71a0d06b450be628103cc7/lampOS/docs/verification/recorder-fixture-pair-20261016/pair-after.exit"
+    },
+    {
+      "scope": "historical three-case Recorder extension pair",
+      "commit": "d9cc28b141e317c51e71a0d06b450be628103cc7",
+      "path": "lampOS/docs/verification/recorder-fixture-pair-20261016/pair-after.finished",
+      "git_blob": "0d8de8f4e93fb1d81724a30d1ed6f332d751c2c7",
+      "sha256": "9be0ee41986bcbadd4ca0a20d9e2066f66f2d3cfd5211e0ebef3b1a4976b8d08",
+      "bytes": 26,
+      "url": "https://github.com/autonomous-ai/lampOS/blob/d9cc28b141e317c51e71a0d06b450be628103cc7/lampOS/docs/verification/recorder-fixture-pair-20261016/pair-after.finished"
+    },
+    {
+      "scope": "historical three-case Recorder extension pair",
+      "commit": "d9cc28b141e317c51e71a0d06b450be628103cc7",
+      "path": "lampOS/docs/verification/recorder-fixture-pair-20261016/pair-after.log",
+      "git_blob": "a32416d65b40535948ddd043301b8e5b7a2353bf",
+      "sha256": "ab31eb5e432110d5bfe76b0ba99ab9e1e43db7e5a1e0e57b921947522af21a20",
+      "bytes": 2115,
+      "url": "https://github.com/autonomous-ai/lampOS/blob/d9cc28b141e317c51e71a0d06b450be628103cc7/lampOS/docs/verification/recorder-fixture-pair-20261016/pair-after.log"
+    },
+    {
+      "scope": "historical three-case Recorder extension pair",
+      "commit": "d9cc28b141e317c51e71a0d06b450be628103cc7",
+      "path": "lampOS/docs/verification/recorder-fixture-pair-20261016/pair-after.started",
+      "git_blob": "7ac30b2e07e885ed8c27634505543711705091d1",
+      "sha256": "27016750a8f83ff8f0a0b3603d0f6d4e07657d1496f2fa1d39f2b1af086e4608",
+      "bytes": 26,
+      "url": "https://github.com/autonomous-ai/lampOS/blob/d9cc28b141e317c51e71a0d06b450be628103cc7/lampOS/docs/verification/recorder-fixture-pair-20261016/pair-after.started"
+    },
+    {
+      "scope": "historical three-case Recorder extension pair",
+      "commit": "d9cc28b141e317c51e71a0d06b450be628103cc7",
+      "path": "lampOS/docs/verification/recorder-fixture-pair-20261016/pair-before-list.exit",
+      "git_blob": "573541ac9702dd3969c9bc859d2b91ec1f7e6e56",
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+      "bytes": 2,
+      "url": "https://github.com/autonomous-ai/lampOS/blob/d9cc28b141e317c51e71a0d06b450be628103cc7/lampOS/docs/verification/recorder-fixture-pair-20261016/pair-before-list.exit"
+    },
+    {
+      "scope": "historical three-case Recorder extension pair",
+      "commit": "d9cc28b141e317c51e71a0d06b450be628103cc7",
+      "path": "lampOS/docs/verification/recorder-fixture-pair-20261016/pair-before-list.finished",
+      "git_blob": "33a6b7bf94df4b4c348f976b1c88a64189e27480",
+      "sha256": "83c31b83857b04923a8e45f2397bf672e0337663a2e7d95c339a30b507bac8be",
+      "bytes": 26,
+      "url": "https://github.com/autonomous-ai/lampOS/blob/d9cc28b141e317c51e71a0d06b450be628103cc7/lampOS/docs/verification/recorder-fixture-pair-20261016/pair-before-list.finished"
+    },
+    {
+      "scope": "historical three-case Recorder extension pair",
+      "commit": "d9cc28b141e317c51e71a0d06b450be628103cc7",
+      "path": "lampOS/docs/verification/recorder-fixture-pair-20261016/pair-before-list.log",
+      "git_blob": "47db99a91e69b773cba02908ccf17123ce6f9288",
+      "sha256": "7d5b9f53bb63bac4a2e724ed067c7cf961487a1ed14229be6f9e8ad4678d863c",
+      "bytes": 3594,
+      "url": "https://github.com/autonomous-ai/lampOS/blob/d9cc28b141e317c51e71a0d06b450be628103cc7/lampOS/docs/verification/recorder-fixture-pair-20261016/pair-before-list.log"
+    },
+    {
+      "scope": "historical three-case Recorder extension pair",
+      "commit": "d9cc28b141e317c51e71a0d06b450be628103cc7",
+      "path": "lampOS/docs/verification/recorder-fixture-pair-20261016/pair-before-list.started",
+      "git_blob": "7d7047937387286a1f69d2cfb763002fd89bc1c5",
+      "sha256": "198f59dda150554742b40900a9bd98a53401a953169391c334a8884115f6eae7",
+      "bytes": 26,
+      "url": "https://github.com/autonomous-ai/lampOS/blob/d9cc28b141e317c51e71a0d06b450be628103cc7/lampOS/docs/verification/recorder-fixture-pair-20261016/pair-before-list.started"
+    },
+    {
+      "scope": "historical three-case Recorder extension pair",
+      "commit": "d9cc28b141e317c51e71a0d06b450be628103cc7",
+      "path": "lampOS/docs/verification/recorder-fixture-pair-20261016/pair-before-source.rs",
+      "git_blob": "26a2854ed11e96a3659fcb45d5146959d3f60c52",
+      "sha256": "cffbb51a9f21b03f2262099b23de526842eb098c600c02f3ec8eca187f800923",
+      "bytes": 30713,
+      "url": "https://github.com/autonomous-ai/lampOS/blob/d9cc28b141e317c51e71a0d06b450be628103cc7/lampOS/docs/verification/recorder-fixture-pair-20261016/pair-before-source.rs"
+    },
+    {
+      "scope": "historical three-case Recorder extension pair",
+      "commit": "d9cc28b141e317c51e71a0d06b450be628103cc7",
+      "path": "lampOS/docs/verification/recorder-fixture-pair-20261016/pair-before.exit",
+      "git_blob": "573541ac9702dd3969c9bc859d2b91ec1f7e6e56",
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+      "bytes": 2,
+      "url": "https://github.com/autonomous-ai/lampOS/blob/d9cc28b141e317c51e71a0d06b450be628103cc7/lampOS/docs/verification/recorder-fixture-pair-20261016/pair-before.exit"
+    },
+    {
+      "scope": "historical three-case Recorder extension pair",
+      "commit": "d9cc28b141e317c51e71a0d06b450be628103cc7",
+      "path": "lampOS/docs/verification/recorder-fixture-pair-20261016/pair-before.finished",
+      "git_blob": "d987e90e1bda73f22def191ec81a14aa5a495e66",
+      "sha256": "50f19acc999d969dce3a7cf1700cd1003fdf2f21ecd11f4fc382dcb5e103a1a9",
+      "bytes": 26,
+      "url": "https://github.com/autonomous-ai/lampOS/blob/d9cc28b141e317c51e71a0d06b450be628103cc7/lampOS/docs/verification/recorder-fixture-pair-20261016/pair-before.finished"
+    },
+    {
+      "scope": "historical three-case Recorder extension pair",
+      "commit": "d9cc28b141e317c51e71a0d06b450be628103cc7",
+      "path": "lampOS/docs/verification/recorder-fixture-pair-20261016/pair-before.log",
+      "git_blob": "64cbdf5a331c4722ceee5e0b8c515d3f0170e565",
+      "sha256": "39f472a12efdf91c46620836105480a9f4947d6aa9a24dcf5dc668fcb5ea871b",
+      "bytes": 2115,
+      "url": "https://github.com/autonomous-ai/lampOS/blob/d9cc28b141e317c51e71a0d06b450be628103cc7/lampOS/docs/verification/recorder-fixture-pair-20261016/pair-before.log"
+    },
+    {
+      "scope": "historical three-case Recorder extension pair",
+      "commit": "d9cc28b141e317c51e71a0d06b450be628103cc7",
+      "path": "lampOS/docs/verification/recorder-fixture-pair-20261016/pair-before.started",
+      "git_blob": "33a6b7bf94df4b4c348f976b1c88a64189e27480",
+      "sha256": "83c31b83857b04923a8e45f2397bf672e0337663a2e7d95c339a30b507bac8be",
+      "bytes": 26,
+      "url": "https://github.com/autonomous-ai/lampOS/blob/d9cc28b141e317c51e71a0d06b450be628103cc7/lampOS/docs/verification/recorder-fixture-pair-20261016/pair-before.started"
+    },
+    {
+      "scope": "historical three-case Recorder extension pair",
+      "commit": "d9cc28b141e317c51e71a0d06b450be628103cc7",
+      "path": "lampOS/docs/verification/recorder-fixture-pair-20261016/pair-gates.json",
+      "git_blob": "61c1a41262e5870c94a52d5d357bef0d8b25b298",
+      "sha256": "0006df013bdaa3d993f2f72808f615746f4a6bbe75a6792d2fe9d43d04786535",
+      "bytes": 1941,
+      "url": "https://github.com/autonomous-ai/lampOS/blob/d9cc28b141e317c51e71a0d06b450be628103cc7/lampOS/docs/verification/recorder-fixture-pair-20261016/pair-gates.json"
+    },
+    {
+      "scope": "historical three-case Recorder extension pair",
+      "commit": "d9cc28b141e317c51e71a0d06b450be628103cc7",
+      "path": "lampOS/docs/verification/recorder-fixture-pair-20261016/pair-helper-proof.json",
+      "git_blob": "fb4d55395f668b9b714b1e9a3b270d431cdb7ba8",
+      "sha256": "6b0a6cffe576ef6901e6705d0c5479a8d923259255c6fa75f986b02d94300e19",
+      "bytes": 474,
+      "url": "https://github.com/autonomous-ai/lampOS/blob/d9cc28b141e317c51e71a0d06b450be628103cc7/lampOS/docs/verification/recorder-fixture-pair-20261016/pair-helper-proof.json"
+    },
+    {
+      "scope": "historical three-case Recorder extension pair",
+      "commit": "d9cc28b141e317c51e71a0d06b450be628103cc7",
+      "path": "lampOS/docs/verification/recorder-fixture-pair-20261016/pair-source-audit.json",
+      "git_blob": "f605424cdcb0db52fb99696a0c8a355dadbb203e",
+      "sha256": "1ce4af01fabdde8a4c62ee1280bcb80c87941f64e12b4faddc85a4134ecb98f8",
+      "bytes": 1666,
+      "url": "https://github.com/autonomous-ai/lampOS/blob/d9cc28b141e317c51e71a0d06b450be628103cc7/lampOS/docs/verification/recorder-fixture-pair-20261016/pair-source-audit.json"
+    },
+    {
+      "scope": "historical three-case Recorder extension pair",
+      "commit": "d9cc28b141e317c51e71a0d06b450be628103cc7",
+      "path": "lampOS/docs/verification/recorder-fixture-pair-20261016/tests.exit",
+      "git_blob": "573541ac9702dd3969c9bc859d2b91ec1f7e6e56",
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+      "bytes": 2,
+      "url": "https://github.com/autonomous-ai/lampOS/blob/d9cc28b141e317c51e71a0d06b450be628103cc7/lampOS/docs/verification/recorder-fixture-pair-20261016/tests.exit"
+    },
+    {
+      "scope": "historical three-case Recorder extension pair",
+      "commit": "d9cc28b141e317c51e71a0d06b450be628103cc7",
+      "path": "lampOS/docs/verification/recorder-fixture-pair-20261016/tests.finished",
+      "git_blob": "1803ee7d25afc713969c7d6ab3d8e52fa96f6030",
+      "sha256": "fbf23c5ebafbf48fff219ddd7aabee613e278574eca27624816bb1ae06778cfa",
+      "bytes": 26,
+      "url": "https://github.com/autonomous-ai/lampOS/blob/d9cc28b141e317c51e71a0d06b450be628103cc7/lampOS/docs/verification/recorder-fixture-pair-20261016/tests.finished"
+    },
+    {
+      "scope": "historical three-case Recorder extension pair",
+      "commit": "d9cc28b141e317c51e71a0d06b450be628103cc7",
+      "path": "lampOS/docs/verification/recorder-fixture-pair-20261016/tests.log",
+      "git_blob": "985699e7c9e472be4ea4fb61d04a7a1d691d063c",
+      "sha256": "2dfd1d023b1f49acf847d8fc2f3055aadfa5c3dc3a15110ce5a11a536fbd043b",
+      "bytes": 30335,
+      "url": "https://github.com/autonomous-ai/lampOS/blob/d9cc28b141e317c51e71a0d06b450be628103cc7/lampOS/docs/verification/recorder-fixture-pair-20261016/tests.log"
+    },
+    {
+      "scope": "historical three-case Recorder extension pair",
+      "commit": "d9cc28b141e317c51e71a0d06b450be628103cc7",
+      "path": "lampOS/docs/verification/recorder-fixture-pair-20261016/tests.started",
+      "git_blob": "da06ffd96ab74fd50a37c1c4c5ae85229c96c735",
+      "sha256": "a11060c1174c92e006b6ddd9f1410b2b9f9844daf16965ecc756b207306ebf3f",
+      "bytes": 26,
+      "url": "https://github.com/autonomous-ai/lampOS/blob/d9cc28b141e317c51e71a0d06b450be628103cc7/lampOS/docs/verification/recorder-fixture-pair-20261016/tests.started"
+    },
+    {
+      "scope": "historical three-case Recorder extension pair",
+      "commit": "d9cc28b141e317c51e71a0d06b450be628103cc7",
+      "path": "lampOS/docs/verification/recorder-fixture-pair-20261016/timings.tsv",
+      "git_blob": "8bc8089360f3c62e2476db2b922e8134e1e94693",
+      "sha256": "b0382f53e5edb0fd47fec19d7cee321648f2a2b632b6a4d350c87e28511c93b0",
+      "bytes": 1545,
+      "url": "https://github.com/autonomous-ai/lampOS/blob/d9cc28b141e317c51e71a0d06b450be628103cc7/lampOS/docs/verification/recorder-fixture-pair-20261016/timings.tsv"
+    },
+    {
+      "scope": "historical one-case SlowTransport extension pair",
+      "commit": "99611db2bbcf3724c83a28db6ec3b6bddce53997",
+      "path": "lampOS/docs/verification/slow-transport-fixture-pair-20261016/README.md",
+      "git_blob": "445060353bf70400baa25984065a5747761f736f",
+      "sha256": "e6d9d84c759593cd7f60f09ee0f0637e902ad18b4e8b9ef696cb05353c2e1864",
+      "bytes": 2202,
+      "url": "https://github.com/autonomous-ai/lampOS/blob/99611db2bbcf3724c83a28db6ec3b6bddce53997/lampOS/docs/verification/slow-transport-fixture-pair-20261016/README.md"
+    },
+    {
+      "scope": "historical one-case SlowTransport extension pair",
+      "commit": "99611db2bbcf3724c83a28db6ec3b6bddce53997",
+      "path": "lampOS/docs/verification/slow-transport-fixture-pair-20261016/manifest.json",
+      "git_blob": "10425c4e1b7e95e44141f3b21f3cf328736e4db8",
+      "sha256": "ad55b396364d514edbe0d85644e4795462a10659d7c5b1e062da8c873b808924",
+      "bytes": 3490,
+      "url": "https://github.com/autonomous-ai/lampOS/blob/99611db2bbcf3724c83a28db6ec3b6bddce53997/lampOS/docs/verification/slow-transport-fixture-pair-20261016/manifest.json"
+    },
+    {
+      "scope": "historical one-case SlowTransport extension pair",
+      "commit": "99611db2bbcf3724c83a28db6ec3b6bddce53997",
+      "path": "lampOS/docs/verification/slow-transport-fixture-pair-20261016/pair-after-list.exit",
+      "git_blob": "573541ac9702dd3969c9bc859d2b91ec1f7e6e56",
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+      "bytes": 2,
+      "url": "https://github.com/autonomous-ai/lampOS/blob/99611db2bbcf3724c83a28db6ec3b6bddce53997/lampOS/docs/verification/slow-transport-fixture-pair-20261016/pair-after-list.exit"
+    },
+    {
+      "scope": "historical one-case SlowTransport extension pair",
+      "commit": "99611db2bbcf3724c83a28db6ec3b6bddce53997",
+      "path": "lampOS/docs/verification/slow-transport-fixture-pair-20261016/pair-after-list.finished",
+      "git_blob": "65a795baa57dd2fbb1ec3db60970b5c170ba55ab",
+      "sha256": "5011304b18ff1e70e192d05e426ff81e14bbe25d83014909d321259caa795998",
+      "bytes": 26,
+      "url": "https://github.com/autonomous-ai/lampOS/blob/99611db2bbcf3724c83a28db6ec3b6bddce53997/lampOS/docs/verification/slow-transport-fixture-pair-20261016/pair-after-list.finished"
+    },
+    {
+      "scope": "historical one-case SlowTransport extension pair",
+      "commit": "99611db2bbcf3724c83a28db6ec3b6bddce53997",
+      "path": "lampOS/docs/verification/slow-transport-fixture-pair-20261016/pair-after-list.log",
+      "git_blob": "236bf9e095423b940b11a94411a1cdd21d5b0789",
+      "sha256": "3e33be18fddd2f40ff9c18328d51bcb1b09dc7faa877d12c675d67873b3b8f49",
+      "bytes": 3593,
+      "url": "https://github.com/autonomous-ai/lampOS/blob/99611db2bbcf3724c83a28db6ec3b6bddce53997/lampOS/docs/verification/slow-transport-fixture-pair-20261016/pair-after-list.log"
+    },
+    {
+      "scope": "historical one-case SlowTransport extension pair",
+      "commit": "99611db2bbcf3724c83a28db6ec3b6bddce53997",
+      "path": "lampOS/docs/verification/slow-transport-fixture-pair-20261016/pair-after-list.started",
+      "git_blob": "7a0a2fd5909c8389b44a43843166df05b53eee6b",
+      "sha256": "fad02bc3c033ed8e6e4427471313124fca8a35d5a06c9377b25f1c21045ae94a",
+      "bytes": 26,
+      "url": "https://github.com/autonomous-ai/lampOS/blob/99611db2bbcf3724c83a28db6ec3b6bddce53997/lampOS/docs/verification/slow-transport-fixture-pair-20261016/pair-after-list.started"
+    },
+    {
+      "scope": "historical one-case SlowTransport extension pair",
+      "commit": "99611db2bbcf3724c83a28db6ec3b6bddce53997",
+      "path": "lampOS/docs/verification/slow-transport-fixture-pair-20261016/pair-after-source.rs",
+      "git_blob": "6f0366528b278b5f494e435e39062d4917ddbc78",
+      "sha256": "1850248165b8c7d5022ec06f3267b5de1a829fa375135cdda26aa3bfe539b905",
+      "bytes": 30354,
+      "url": "https://github.com/autonomous-ai/lampOS/blob/99611db2bbcf3724c83a28db6ec3b6bddce53997/lampOS/docs/verification/slow-transport-fixture-pair-20261016/pair-after-source.rs"
+    },
+    {
+      "scope": "historical one-case SlowTransport extension pair",
+      "commit": "99611db2bbcf3724c83a28db6ec3b6bddce53997",
+      "path": "lampOS/docs/verification/slow-transport-fixture-pair-20261016/pair-after.exit",
+      "git_blob": "573541ac9702dd3969c9bc859d2b91ec1f7e6e56",
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+      "bytes": 2,
+      "url": "https://github.com/autonomous-ai/lampOS/blob/99611db2bbcf3724c83a28db6ec3b6bddce53997/lampOS/docs/verification/slow-transport-fixture-pair-20261016/pair-after.exit"
+    },
+    {
+      "scope": "historical one-case SlowTransport extension pair",
+      "commit": "99611db2bbcf3724c83a28db6ec3b6bddce53997",
+      "path": "lampOS/docs/verification/slow-transport-fixture-pair-20261016/pair-after.finished",
+      "git_blob": "49b31e3fa457dacbd18ca6887d9cd5068609ec26",
+      "sha256": "77d997f423cd09408e6477858638e249d24e2b9d5e57847a4336820b10d8112b",
+      "bytes": 26,
+      "url": "https://github.com/autonomous-ai/lampOS/blob/99611db2bbcf3724c83a28db6ec3b6bddce53997/lampOS/docs/verification/slow-transport-fixture-pair-20261016/pair-after.finished"
+    },
+    {
+      "scope": "historical one-case SlowTransport extension pair",
+      "commit": "99611db2bbcf3724c83a28db6ec3b6bddce53997",
+      "path": "lampOS/docs/verification/slow-transport-fixture-pair-20261016/pair-after.log",
+      "git_blob": "e57dd1a45f8447d1a477b982aae5156ca6ae00ab",
+      "sha256": "be88c39fc1b7842c006c570c57e68f2b7554ea4a5925318ac87d119d1a07f823",
+      "bytes": 2115,
+      "url": "https://github.com/autonomous-ai/lampOS/blob/99611db2bbcf3724c83a28db6ec3b6bddce53997/lampOS/docs/verification/slow-transport-fixture-pair-20261016/pair-after.log"
+    },
+    {
+      "scope": "historical one-case SlowTransport extension pair",
+      "commit": "99611db2bbcf3724c83a28db6ec3b6bddce53997",
+      "path": "lampOS/docs/verification/slow-transport-fixture-pair-20261016/pair-after.started",
+      "git_blob": "65a795baa57dd2fbb1ec3db60970b5c170ba55ab",
+      "sha256": "5011304b18ff1e70e192d05e426ff81e14bbe25d83014909d321259caa795998",
+      "bytes": 26,
+      "url": "https://github.com/autonomous-ai/lampOS/blob/99611db2bbcf3724c83a28db6ec3b6bddce53997/lampOS/docs/verification/slow-transport-fixture-pair-20261016/pair-after.started"
+    },
+    {
+      "scope": "historical one-case SlowTransport extension pair",
+      "commit": "99611db2bbcf3724c83a28db6ec3b6bddce53997",
+      "path": "lampOS/docs/verification/slow-transport-fixture-pair-20261016/pair-before-list.exit",
+      "git_blob": "573541ac9702dd3969c9bc859d2b91ec1f7e6e56",
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+      "bytes": 2,
+      "url": "https://github.com/autonomous-ai/lampOS/blob/99611db2bbcf3724c83a28db6ec3b6bddce53997/lampOS/docs/verification/slow-transport-fixture-pair-20261016/pair-before-list.exit"
+    },
+    {
+      "scope": "historical one-case SlowTransport extension pair",
+      "commit": "99611db2bbcf3724c83a28db6ec3b6bddce53997",
+      "path": "lampOS/docs/verification/slow-transport-fixture-pair-20261016/pair-before-list.finished",
+      "git_blob": "f3394e313b8a12049064444a89ea5869fe786790",
+      "sha256": "9953cfe4b99e844281472694ed76b33547f00d8a43cf790faf5c70ac2853753a",
+      "bytes": 26,
+      "url": "https://github.com/autonomous-ai/lampOS/blob/99611db2bbcf3724c83a28db6ec3b6bddce53997/lampOS/docs/verification/slow-transport-fixture-pair-20261016/pair-before-list.finished"
+    },
+    {
+      "scope": "historical one-case SlowTransport extension pair",
+      "commit": "99611db2bbcf3724c83a28db6ec3b6bddce53997",
+      "path": "lampOS/docs/verification/slow-transport-fixture-pair-20261016/pair-before-list.log",
+      "git_blob": "2b859c68968b517f017b01ab33d232182fa232b5",
+      "sha256": "9940ef49965078fe94cb7a47189046bf8031ab89b27265af1b1519ca300bb2d2",
+      "bytes": 3594,
+      "url": "https://github.com/autonomous-ai/lampOS/blob/99611db2bbcf3724c83a28db6ec3b6bddce53997/lampOS/docs/verification/slow-transport-fixture-pair-20261016/pair-before-list.log"
+    },
+    {
+      "scope": "historical one-case SlowTransport extension pair",
+      "commit": "99611db2bbcf3724c83a28db6ec3b6bddce53997",
+      "path": "lampOS/docs/verification/slow-transport-fixture-pair-20261016/pair-before-list.started",
+      "git_blob": "72760648fb423f18ded61a93332fa8ddb3376f8b",
+      "sha256": "23483c96447f57ba554419c6e9ea3fd0499880f9b835e921e3d904cafa866b22",
+      "bytes": 26,
+      "url": "https://github.com/autonomous-ai/lampOS/blob/99611db2bbcf3724c83a28db6ec3b6bddce53997/lampOS/docs/verification/slow-transport-fixture-pair-20261016/pair-before-list.started"
+    },
+    {
+      "scope": "historical one-case SlowTransport extension pair",
+      "commit": "99611db2bbcf3724c83a28db6ec3b6bddce53997",
+      "path": "lampOS/docs/verification/slow-transport-fixture-pair-20261016/pair-before-source.rs",
+      "git_blob": "fca835f885e65893ecd5591055c1a9816b82ecb9",
+      "sha256": "485ef6bc04c292666b633c819baa7c16465aaa756e97271c9c0708cd2c3e6186",
+      "bytes": 30679,
+      "url": "https://github.com/autonomous-ai/lampOS/blob/99611db2bbcf3724c83a28db6ec3b6bddce53997/lampOS/docs/verification/slow-transport-fixture-pair-20261016/pair-before-source.rs"
+    },
+    {
+      "scope": "historical one-case SlowTransport extension pair",
+      "commit": "99611db2bbcf3724c83a28db6ec3b6bddce53997",
+      "path": "lampOS/docs/verification/slow-transport-fixture-pair-20261016/pair-before.exit",
+      "git_blob": "573541ac9702dd3969c9bc859d2b91ec1f7e6e56",
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+      "bytes": 2,
+      "url": "https://github.com/autonomous-ai/lampOS/blob/99611db2bbcf3724c83a28db6ec3b6bddce53997/lampOS/docs/verification/slow-transport-fixture-pair-20261016/pair-before.exit"
+    },
+    {
+      "scope": "historical one-case SlowTransport extension pair",
+      "commit": "99611db2bbcf3724c83a28db6ec3b6bddce53997",
+      "path": "lampOS/docs/verification/slow-transport-fixture-pair-20261016/pair-before.finished",
+      "git_blob": "7a0a2fd5909c8389b44a43843166df05b53eee6b",
+      "sha256": "fad02bc3c033ed8e6e4427471313124fca8a35d5a06c9377b25f1c21045ae94a",
+      "bytes": 26,
+      "url": "https://github.com/autonomous-ai/lampOS/blob/99611db2bbcf3724c83a28db6ec3b6bddce53997/lampOS/docs/verification/slow-transport-fixture-pair-20261016/pair-before.finished"
+    },
+    {
+      "scope": "historical one-case SlowTransport extension pair",
+      "commit": "99611db2bbcf3724c83a28db6ec3b6bddce53997",
+      "path": "lampOS/docs/verification/slow-transport-fixture-pair-20261016/pair-before.log",
+      "git_blob": "4d8150603bc9dcf324d52aff7297bbfb9fbf8811",
+      "sha256": "66454c95cc2d787865289e988f06ad904e3051fa8f7eed4c8367e889ae9e8988",
+      "bytes": 2115,
+      "url": "https://github.com/autonomous-ai/lampOS/blob/99611db2bbcf3724c83a28db6ec3b6bddce53997/lampOS/docs/verification/slow-transport-fixture-pair-20261016/pair-before.log"
+    },
+    {
+      "scope": "historical one-case SlowTransport extension pair",
+      "commit": "99611db2bbcf3724c83a28db6ec3b6bddce53997",
+      "path": "lampOS/docs/verification/slow-transport-fixture-pair-20261016/pair-before.started",
+      "git_blob": "f3394e313b8a12049064444a89ea5869fe786790",
+      "sha256": "9953cfe4b99e844281472694ed76b33547f00d8a43cf790faf5c70ac2853753a",
+      "bytes": 26,
+      "url": "https://github.com/autonomous-ai/lampOS/blob/99611db2bbcf3724c83a28db6ec3b6bddce53997/lampOS/docs/verification/slow-transport-fixture-pair-20261016/pair-before.started"
+    },
+    {
+      "scope": "historical one-case SlowTransport extension pair",
+      "commit": "99611db2bbcf3724c83a28db6ec3b6bddce53997",
+      "path": "lampOS/docs/verification/slow-transport-fixture-pair-20261016/pair-gates.json",
+      "git_blob": "2bcbf478483e4078d62f0a334a6c127dd2bd3806",
+      "sha256": "5703153c32a8adeb53530cd2cec150fa4187cc2ca10d1e08fde9e6d9694f2f98",
+      "bytes": 2469,
+      "url": "https://github.com/autonomous-ai/lampOS/blob/99611db2bbcf3724c83a28db6ec3b6bddce53997/lampOS/docs/verification/slow-transport-fixture-pair-20261016/pair-gates.json"
+    },
+    {
+      "scope": "historical one-case SlowTransport extension pair",
+      "commit": "99611db2bbcf3724c83a28db6ec3b6bddce53997",
+      "path": "lampOS/docs/verification/slow-transport-fixture-pair-20261016/pair-helper-proof.json",
+      "git_blob": "541a96e2a1b9a4136e25a9340ed84806a287c306",
+      "sha256": "66617bd594f1fb959870932cb584e8c2ec4a021588f64229016d659f8bfc069a",
+      "bytes": 480,
+      "url": "https://github.com/autonomous-ai/lampOS/blob/99611db2bbcf3724c83a28db6ec3b6bddce53997/lampOS/docs/verification/slow-transport-fixture-pair-20261016/pair-helper-proof.json"
+    },
+    {
+      "scope": "historical one-case SlowTransport extension pair",
+      "commit": "99611db2bbcf3724c83a28db6ec3b6bddce53997",
+      "path": "lampOS/docs/verification/slow-transport-fixture-pair-20261016/pair-results.json",
+      "git_blob": "f6b27d7e6879749be3e063e1bb18674d8dc6b832",
+      "sha256": "58cc7ea77491455738f00c861b690f8544b8100c562cd6657dbed8e3457e893f",
+      "bytes": 4624,
+      "url": "https://github.com/autonomous-ai/lampOS/blob/99611db2bbcf3724c83a28db6ec3b6bddce53997/lampOS/docs/verification/slow-transport-fixture-pair-20261016/pair-results.json"
+    },
+    {
+      "scope": "historical one-case SlowTransport extension pair",
+      "commit": "99611db2bbcf3724c83a28db6ec3b6bddce53997",
+      "path": "lampOS/docs/verification/slow-transport-fixture-pair-20261016/pair-source-audit.json",
+      "git_blob": "148eeb4f41d35d5ae5d42ee9662e34c471284a36",
+      "sha256": "03ae35c4bd8772126fac1dce7da24c98d7f3ae739cd49185e0dea4026db86a5a",
+      "bytes": 1563,
+      "url": "https://github.com/autonomous-ai/lampOS/blob/99611db2bbcf3724c83a28db6ec3b6bddce53997/lampOS/docs/verification/slow-transport-fixture-pair-20261016/pair-source-audit.json"
+    },
+    {
+      "scope": "historical one-case SlowTransport extension pair",
+      "commit": "99611db2bbcf3724c83a28db6ec3b6bddce53997",
+      "path": "lampOS/docs/verification/slow-transport-fixture-pair-20261016/preflight-clippy.exit",
+      "git_blob": "573541ac9702dd3969c9bc859d2b91ec1f7e6e56",
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+      "bytes": 2,
+      "url": "https://github.com/autonomous-ai/lampOS/blob/99611db2bbcf3724c83a28db6ec3b6bddce53997/lampOS/docs/verification/slow-transport-fixture-pair-20261016/preflight-clippy.exit"
+    },
+    {
+      "scope": "historical one-case SlowTransport extension pair",
+      "commit": "99611db2bbcf3724c83a28db6ec3b6bddce53997",
+      "path": "lampOS/docs/verification/slow-transport-fixture-pair-20261016/preflight-clippy.finished",
+      "git_blob": "7a2edce8b7cf8a49ceba718e3c0dc7d4b8949b9b",
+      "sha256": "d66f309bf5b60cb676898304e51eea89baf998178d7f18dc53761140ab5fb187",
+      "bytes": 26,
+      "url": "https://github.com/autonomous-ai/lampOS/blob/99611db2bbcf3724c83a28db6ec3b6bddce53997/lampOS/docs/verification/slow-transport-fixture-pair-20261016/preflight-clippy.finished"
+    },
+    {
+      "scope": "historical one-case SlowTransport extension pair",
+      "commit": "99611db2bbcf3724c83a28db6ec3b6bddce53997",
+      "path": "lampOS/docs/verification/slow-transport-fixture-pair-20261016/preflight-clippy.log",
+      "git_blob": "b7765126488f10b23bb2ea431a43e9871f928636",
+      "sha256": "26c01a082676617eab3abe93cb8ceae7bdc6234a6be1b26ae991627335d779d0",
+      "bytes": 9501,
+      "url": "https://github.com/autonomous-ai/lampOS/blob/99611db2bbcf3724c83a28db6ec3b6bddce53997/lampOS/docs/verification/slow-transport-fixture-pair-20261016/preflight-clippy.log"
+    },
+    {
+      "scope": "historical one-case SlowTransport extension pair",
+      "commit": "99611db2bbcf3724c83a28db6ec3b6bddce53997",
+      "path": "lampOS/docs/verification/slow-transport-fixture-pair-20261016/preflight-clippy.started",
+      "git_blob": "8791c8963170dfe80a967977c711223d4eda20fc",
+      "sha256": "3cb0d8558210d9aaa7fa651905541d62fd17f8416a34e136756b84adf8e0aeba",
+      "bytes": 26,
+      "url": "https://github.com/autonomous-ai/lampOS/blob/99611db2bbcf3724c83a28db6ec3b6bddce53997/lampOS/docs/verification/slow-transport-fixture-pair-20261016/preflight-clippy.started"
+    },
+    {
+      "scope": "historical one-case SlowTransport extension pair",
+      "commit": "99611db2bbcf3724c83a28db6ec3b6bddce53997",
+      "path": "lampOS/docs/verification/slow-transport-fixture-pair-20261016/preflight-fmt.exit",
+      "git_blob": "573541ac9702dd3969c9bc859d2b91ec1f7e6e56",
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+      "bytes": 2,
+      "url": "https://github.com/autonomous-ai/lampOS/blob/99611db2bbcf3724c83a28db6ec3b6bddce53997/lampOS/docs/verification/slow-transport-fixture-pair-20261016/preflight-fmt.exit"
+    },
+    {
+      "scope": "historical one-case SlowTransport extension pair",
+      "commit": "99611db2bbcf3724c83a28db6ec3b6bddce53997",
+      "path": "lampOS/docs/verification/slow-transport-fixture-pair-20261016/preflight-fmt.finished",
+      "git_blob": "8791c8963170dfe80a967977c711223d4eda20fc",
+      "sha256": "3cb0d8558210d9aaa7fa651905541d62fd17f8416a34e136756b84adf8e0aeba",
+      "bytes": 26,
+      "url": "https://github.com/autonomous-ai/lampOS/blob/99611db2bbcf3724c83a28db6ec3b6bddce53997/lampOS/docs/verification/slow-transport-fixture-pair-20261016/preflight-fmt.finished"
+    },
+    {
+      "scope": "historical one-case SlowTransport extension pair",
+      "commit": "99611db2bbcf3724c83a28db6ec3b6bddce53997",
+      "path": "lampOS/docs/verification/slow-transport-fixture-pair-20261016/preflight-fmt.log",
+      "git_blob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0,
+      "url": "https://github.com/autonomous-ai/lampOS/blob/99611db2bbcf3724c83a28db6ec3b6bddce53997/lampOS/docs/verification/slow-transport-fixture-pair-20261016/preflight-fmt.log"
+    },
+    {
+      "scope": "historical one-case SlowTransport extension pair",
+      "commit": "99611db2bbcf3724c83a28db6ec3b6bddce53997",
+      "path": "lampOS/docs/verification/slow-transport-fixture-pair-20261016/preflight-fmt.started",
+      "git_blob": "8f5f50331b4da35c0a467e36cb575afc644e5d79",
+      "sha256": "e6e5c97b033b71ab819ba22df9e9041ea7b6275f1ccc82c400a6e42f777efb82",
+      "bytes": 26,
+      "url": "https://github.com/autonomous-ai/lampOS/blob/99611db2bbcf3724c83a28db6ec3b6bddce53997/lampOS/docs/verification/slow-transport-fixture-pair-20261016/preflight-fmt.started"
+    },
+    {
+      "scope": "historical one-case SlowTransport extension pair",
+      "commit": "99611db2bbcf3724c83a28db6ec3b6bddce53997",
+      "path": "lampOS/docs/verification/slow-transport-fixture-pair-20261016/preflight-gates.json",
+      "git_blob": "2551d209c215dd76d164082adc7f5a785d12f4b6",
+      "sha256": "f7b5c49fd53ea2f37ff3726889b1727d6defb09ebda8441d2ed8e34bb8a6f7c4",
+      "bytes": 1322,
+      "url": "https://github.com/autonomous-ai/lampOS/blob/99611db2bbcf3724c83a28db6ec3b6bddce53997/lampOS/docs/verification/slow-transport-fixture-pair-20261016/preflight-gates.json"
+    },
+    {
+      "scope": "historical one-case SlowTransport extension pair",
+      "commit": "99611db2bbcf3724c83a28db6ec3b6bddce53997",
+      "path": "lampOS/docs/verification/slow-transport-fixture-pair-20261016/preflight-lib-tests.exit",
+      "git_blob": "573541ac9702dd3969c9bc859d2b91ec1f7e6e56",
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+      "bytes": 2,
+      "url": "https://github.com/autonomous-ai/lampOS/blob/99611db2bbcf3724c83a28db6ec3b6bddce53997/lampOS/docs/verification/slow-transport-fixture-pair-20261016/preflight-lib-tests.exit"
+    },
+    {
+      "scope": "historical one-case SlowTransport extension pair",
+      "commit": "99611db2bbcf3724c83a28db6ec3b6bddce53997",
+      "path": "lampOS/docs/verification/slow-transport-fixture-pair-20261016/preflight-lib-tests.finished",
+      "git_blob": "9c915819d5309b2817d0ddca12dcf6afb72246fd",
+      "sha256": "175d5d366da6b705effe371b9ce3f7191b6f12f7330d283eefdd327cff9366ce",
+      "bytes": 26,
+      "url": "https://github.com/autonomous-ai/lampOS/blob/99611db2bbcf3724c83a28db6ec3b6bddce53997/lampOS/docs/verification/slow-transport-fixture-pair-20261016/preflight-lib-tests.finished"
+    },
+    {
+      "scope": "historical one-case SlowTransport extension pair",
+      "commit": "99611db2bbcf3724c83a28db6ec3b6bddce53997",
+      "path": "lampOS/docs/verification/slow-transport-fixture-pair-20261016/preflight-lib-tests.log",
+      "git_blob": "550cbf750283b5f2bbf6d5a73cab1c931d0584d0",
+      "sha256": "df0534e11b96e013f8b70ca46898ac5f0dd1f591cb43baae9c8b42d63c760b1d",
+      "bytes": 42303,
+      "url": "https://github.com/autonomous-ai/lampOS/blob/99611db2bbcf3724c83a28db6ec3b6bddce53997/lampOS/docs/verification/slow-transport-fixture-pair-20261016/preflight-lib-tests.log"
+    },
+    {
+      "scope": "historical one-case SlowTransport extension pair",
+      "commit": "99611db2bbcf3724c83a28db6ec3b6bddce53997",
+      "path": "lampOS/docs/verification/slow-transport-fixture-pair-20261016/preflight-lib-tests.started",
+      "git_blob": "ecef7b8fba5ebd1e5b57a5ffbdee5746f34dd589",
+      "sha256": "622a108c75a3f6de6a4933f5fa285951a36f1700d8c0ecc7eb9f03ce1d1f08c6",
+      "bytes": 26,
+      "url": "https://github.com/autonomous-ai/lampOS/blob/99611db2bbcf3724c83a28db6ec3b6bddce53997/lampOS/docs/verification/slow-transport-fixture-pair-20261016/preflight-lib-tests.started"
+    },
+    {
+      "scope": "historical one-case SlowTransport extension pair",
+      "commit": "99611db2bbcf3724c83a28db6ec3b6bddce53997",
+      "path": "lampOS/docs/verification/slow-transport-fixture-pair-20261016/preflight-source.json",
+      "git_blob": "20c894e66f0c8892a2c4be0b1bd34653c822bb3d",
+      "sha256": "ef2ac6caf8e50bfae2eb9591cb7d474c7adab55f7ac5df128ae7391d98cc45b3",
+      "bytes": 8951,
+      "url": "https://github.com/autonomous-ai/lampOS/blob/99611db2bbcf3724c83a28db6ec3b6bddce53997/lampOS/docs/verification/slow-transport-fixture-pair-20261016/preflight-source.json"
+    }
+  ],
+  "copied_here": false,
+  "limits": "These immutable Git objects preserve earlier failures, results and staged pairs. They do not qualify this new source or establish a new paired benchmark."
+}

@@ -1,0 +1,55 @@
+[
+  {
+    "stage": "fmt",
+    "command": [
+      "cargo",
+      "fmt",
+      "--all",
+      "--check"
+    ],
+    "cwd": "/private/tmp/lampos-tests-serve-all-cases/lampOS",
+    "target": "/private/tmp/tests-823-slow-progress-target",
+    "start_from_date": "2026-10-16 05:21:42 +0700",
+    "finish_from_date": "2026-10-16 05:21:47 +0700",
+    "exit_code": 0
+  },
+  {
+    "stage": "clippy",
+    "command": [
+      "cargo",
+      "clippy",
+      "--locked",
+      "--offline",
+      "-p",
+      "lamp-voice-eval",
+      "--all-targets",
+      "--",
+      "-D",
+      "warnings"
+    ],
+    "cwd": "/private/tmp/lampos-tests-serve-all-cases/lampOS",
+    "target": "/private/tmp/tests-823-slow-progress-target",
+    "start_from_date": "2026-10-16 05:21:47 +0700",
+    "finish_from_date": "2026-10-16 05:22:20 +0700",
+    "exit_code": 0
+  },
+  {
+    "stage": "list",
+    "command": [
+      "cargo",
+      "nextest",
+      "list",
+      "--locked",
+      "--offline",
+      "-p",
+      "lamp-voice-eval",
+      "--message-format",
+      "json"
+    ],
+    "cwd": "/private/tmp/lampos-tests-serve-all-cases/lampOS",
+    "target": "/private/tmp/tests-823-slow-progress-target",
+    "start_from_date": "2026-10-16 05:22:20 +0700",
+    "finish_from_date": "2026-10-16 05:23:12 +0700",
+    "exit_code": 0
+  }
+]

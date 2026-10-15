@@ -1,4 +1,5 @@
-//! Explicit CLI entrypoints for finite, locally coordinated fake fixtures.
+//! Explicit CLI entrypoints for locally coordinated finite, serve and recorder fakes.
+//! A separate slow-transport role coordinates the delay before a real relay exec.
 //!
 //! The ordinary fake runtime and physical relay keep their original entrypoints.
 //! These handlers require a leading control-socket argument, use pure clock
@@ -6,6 +7,7 @@
 //! the caller's actual child-exit, EOF and trace-cleanup checks.
 use super::{
     fake_lamp,
+    fake_serve::{ServePollProgress, ServePollTargets},
     fixture_control::{Participant, Progress, Role},
     session::{self, RelayPollProgress, RelayPollTargets, SessionMode, SessionOptions},
 };
@@ -15,6 +17,7 @@ use std::{
     io::{self, Write},
     path::{Path, PathBuf},
     rc::Rc,
+    time::Duration,
 };
 
 /// `fake-clock-lamp-voice --fixture-control SOCKET` followed by the unchanged
@@ -50,13 +53,263 @@ pub fn runtime(arguments: Vec<String>) -> Result<i32> {
     )
 }
 
+/// `fake-clock-serve-runtime --fixture-control SOCKET` followed by the original
+/// fake serve arguments. This role waits for real signal observation when the
+/// parent requires it; a terminal receipt follows the engine's final output.
+pub fn serve_runtime(arguments: Vec<String>) -> Result<i32> {
+    let (path, arguments) = controlled_arguments(arguments)?;
+    let participant = RefCell::new(Participant::connect(&path, Role::ServeRuntime)?);
+    let clock = participant.borrow().clock();
+    fake_lamp::run_serve_with_controlled_clock(
+        &arguments,
+        || clock.now(),
+        || {
+            Ok(ServePollTargets {
+                wait_for_sigterm: participant.borrow().current_step().wait_for_sigterm,
+            })
+        },
+        |poll| {
+            let mut participant = participant.borrow_mut();
+            if poll.at.as_micros() != participant.current_step().at_us {
+                return Err(invalid(
+                    "serve runtime poll did not use its current fixture Step time",
+                ));
+            }
+            let progress = serve_runtime_progress(poll);
+            if poll.terminal {
+                // The engine already finished metadata, flushed final stdout
+                // and unlinked its room. The actual child exit still follows.
+                participant.final_ack(progress)?;
+            } else {
+                participant.complete(progress)?;
+            }
+            Ok(())
+        },
+    )
+}
+
 /// `fake-clock-session --fixture-control SOCKET` followed by the unchanged
 /// relay arguments. Only a finite controlled fake in this executable may run.
 pub fn relay(arguments: Vec<String>) -> Result<i32> {
     let (path, arguments) = controlled_arguments(arguments)?;
     let options = SessionOptions::parse(&arguments)?;
     validate_relay_options(&options)?;
-    let participant = RefCell::new(Participant::connect(&path, Role::Relay)?);
+    controlled_relay(options, &path, Role::Relay, relay_progress)
+}
+
+/// `fake-clock-serve-session --fixture-control SOCKET` followed by relay serve
+/// arguments. The child must be the explicit serve fake in this executable.
+pub fn serve_relay(arguments: Vec<String>) -> Result<i32> {
+    let (path, arguments) = controlled_arguments(arguments)?;
+    let options = SessionOptions::parse(&arguments)?;
+    validate_serve_relay_options(&options)?;
+    controlled_relay(options, &path, Role::ServeRelay, serve_relay_progress)
+}
+
+/// `fake-clock-room-recorder --fixture-control SOCKET` followed by the original
+/// fake recorder arguments. Its real ready write precedes the first receipt;
+/// completing the configured wait does not prove that the child has exited.
+pub fn recorder(arguments: Vec<String>) -> Result<i32> {
+    let (path, arguments) = controlled_arguments(arguments)?;
+    let participant = Participant::connect(&path, Role::Recorder)?;
+    controlled_recorder(&arguments, participant)
+}
+
+/// `fake-clock-slow-transport --fixture-control SOCKET` followed by the
+/// original delay and this executable's controlled serve relay. The terminal
+/// receipt completes only the delay; the original real exec follows it.
+pub fn slow_transport(arguments: Vec<String>) -> Result<i32> {
+    let (path, arguments) = controlled_arguments(arguments)?;
+    validate_slow_transport_arguments(&arguments, &path)?;
+    let participant = Participant::connect(&path, Role::SlowTransport)?;
+    controlled_slow_transport(&arguments, participant)
+}
+
+fn controlled_slow_transport(arguments: &[String], participant: Participant) -> Result<i32> {
+    fake_lamp::slow_transport_with_wait(arguments, move |duration| {
+        wait_for_transport_exec(duration, participant)
+    })
+}
+
+fn wait_for_transport_exec(duration: Duration, mut participant: Participant) -> Result<()> {
+    let clock = participant.clock();
+    let wait_started_us = clock.now().as_micros();
+    let exec_due_us = slow_transport_exec_due(wait_started_us, duration)?;
+    let mut poll_seq = 1_u64;
+    loop {
+        let logical_end = clock.now().as_micros() >= exec_due_us;
+        let progress = Progress::SlowTransport {
+            poll_seq,
+            wait_started_us,
+            exec_due_us,
+            logical_end,
+        };
+        if logical_end {
+            participant.final_ack(progress)?;
+            // No stream or process status is fabricated. Close this role's
+            // control before returning into the original exec and inherited
+            // pipes. The parent must accept a fresh real relay Hello next.
+            drop(participant);
+            return Ok(());
+        }
+        participant.complete(progress)?;
+        poll_seq = poll_seq
+            .checked_add(1)
+            .ok_or_else(|| invalid("controlled slow transport poll counter overflow"))?;
+    }
+}
+
+fn slow_transport_exec_due(wait_started_us: u64, duration: Duration) -> Result<u64> {
+    let duration_us = u64::try_from(duration.as_micros())
+        .map_err(|_| invalid("controlled slow transport duration microseconds overflow"))?;
+    let exec_due_us = wait_started_us
+        .checked_add(duration_us)
+        .ok_or_else(|| invalid("controlled slow transport deadline microseconds overflow"))?;
+    if wait_started_us > u64::MAX / 1000 || exec_due_us > u64::MAX / 1000 {
+        return Err(invalid(
+            "controlled slow transport exceeds the shared nanosecond clock domain",
+        ));
+    }
+    Ok(exec_due_us)
+}
+
+fn validate_slow_transport_arguments(arguments: &[String], path: &Path) -> Result<()> {
+    let split = arguments
+        .iter()
+        .position(|argument| argument == "--")
+        .filter(|split| *split + 1 < arguments.len())
+        .ok_or_else(|| invalid("fake-slow-transport --delay-ms MS -- ARGV..."))?;
+    match &arguments[..split] {
+        [flag, milliseconds] if flag == "--delay-ms" => {
+            milliseconds.parse::<u64>()?;
+        }
+        _ => return Err(invalid("fake-slow-transport --delay-ms MS -- ARGV...")),
+    }
+    let [executable, command, flag, control, relay_arguments @ ..] = &arguments[split + 1..] else {
+        return Err(invalid(
+            "controlled slow transport needs an explicit controlled serve relay",
+        ));
+    };
+    if command != "fake-clock-serve-session"
+        || flag != "--fixture-control"
+        || Path::new(control) != path
+        || !Path::new(executable).is_absolute()
+    {
+        return Err(invalid(
+            "controlled slow transport requires its own control socket and serve relay",
+        ));
+    }
+    if Path::new(executable).canonicalize()? != std::env::current_exe()?.canonicalize()? {
+        return Err(invalid(
+            "controlled slow transport must exec this evaluator executable",
+        ));
+    }
+    let options = SessionOptions::parse(relay_arguments)?;
+    validate_serve_relay_options(&options)?;
+    if Path::new(&options.runtime_prefix[2]) != path {
+        return Err(invalid(
+            "controlled slow transport runtime requires the same control socket",
+        ));
+    }
+    Ok(())
+}
+
+fn controlled_recorder(arguments: &[String], mut participant: Participant) -> Result<i32> {
+    let clock = participant.clock();
+    let timing = recorder_timing(arguments, participant.current_step().at_us)?;
+    fake_lamp::room_recorder_with_clock_and_wait(
+        arguments,
+        // Recorder Steps reject values outside the nanosecond range before
+        // updating this clock. This infallible conversion is a pure read.
+        || clock.now().as_micros() * 1000,
+        |duration, now_ns| {
+            if duration != timing {
+                return Err(invalid(
+                    "controlled recorder duration differs from preflight",
+                ));
+            }
+            let wait_started_us = now_ns() / 1000;
+            let exit_due_us = recorder_exit_due(wait_started_us, duration)?;
+            let mut poll_seq = 1_u64;
+            loop {
+                let at_us = clock.now().as_micros();
+                recorder_nanoseconds(at_us)?;
+                let logical_end = at_us >= exit_due_us;
+                let progress = Progress::Recorder {
+                    poll_seq,
+                    ready_written: true,
+                    wait_started_us,
+                    exit_due_us,
+                    logical_end,
+                };
+                if logical_end {
+                    participant.final_ack(progress)?;
+                    return Ok(());
+                }
+                participant.complete(progress)?;
+                poll_seq = poll_seq
+                    .checked_add(1)
+                    .ok_or_else(|| invalid("controlled recorder poll counter overflow"))?;
+            }
+        },
+    )
+}
+
+/// Reject arithmetic the ordinary fixture intentionally leaves unchanged.
+/// First-match arguments and absent optional values retain its parser's rules.
+/// All checks finish before the shared body creates the output directory.
+fn recorder_timing(arguments: &[String], at_us: u64) -> Result<Duration> {
+    let value = |flag: &str| {
+        arguments
+            .iter()
+            .position(|argument| argument == flag)
+            .and_then(|index| arguments.get(index + 1))
+            .map(String::as_str)
+    };
+    let required = |flag: &str| {
+        value(flag).ok_or_else(|| invalid(&format!("fake-room-recorder needs {flag}")))
+    };
+    let epoch_ns = recorder_nanoseconds(at_us)?;
+    let seconds: u64 = required("--seconds")?.parse()?;
+    let fail_after_ms: u64 = required("--fail-after-ms")?.parse()?;
+    let session_ms = seconds
+        .checked_mul(1000)
+        .ok_or_else(|| invalid("controlled recorder seconds-to-milliseconds overflow"))?;
+    let duration = Duration::from_millis(fail_after_ms.min(session_ms));
+    recorder_exit_due(at_us, duration)?;
+    if let Some(ms) = value("--declare-end-after-ms") {
+        let ms: u64 = ms.parse()?;
+        ms.checked_mul(1_000_000)
+            .and_then(|delay_ns| epoch_ns.checked_add(delay_ns))
+            .ok_or_else(|| invalid("controlled recorder declared-end nanoseconds overflow"))?;
+    }
+    Ok(duration)
+}
+
+fn recorder_nanoseconds(at_us: u64) -> Result<u64> {
+    at_us
+        .checked_mul(1000)
+        .ok_or_else(|| invalid("controlled recorder microseconds-to-nanoseconds overflow"))
+}
+
+fn recorder_exit_due(wait_started_us: u64, duration: Duration) -> Result<u64> {
+    recorder_nanoseconds(wait_started_us)?;
+    let duration_us = u64::try_from(duration.as_micros())
+        .map_err(|_| invalid("controlled recorder wait duration microseconds overflow"))?;
+    let exit_due_us = wait_started_us
+        .checked_add(duration_us)
+        .ok_or_else(|| invalid("controlled recorder wait deadline microseconds overflow"))?;
+    recorder_nanoseconds(exit_due_us)?;
+    Ok(exit_due_us)
+}
+
+fn controlled_relay(
+    options: SessionOptions,
+    path: &Path,
+    role: Role,
+    progress: fn(RelayPollProgress, u64) -> Progress,
+) -> Result<i32> {
+    let participant = RefCell::new(Participant::connect(path, role)?);
     let clock = participant.borrow().clock();
     let terminal = Cell::new(None);
     let stdout = io::stdout();
@@ -85,7 +338,7 @@ pub fn relay(arguments: Vec<String>) -> Result<i32> {
             } else {
                 participant
                     .borrow_mut()
-                    .complete(relay_progress(poll, flushed_frames.get()))?;
+                    .complete(progress(poll, flushed_frames.get()))?;
             }
             Ok(())
         },
@@ -96,7 +349,7 @@ pub fn relay(arguments: Vec<String>) -> Result<i32> {
     output.finish()?;
     participant
         .borrow_mut()
-        .final_ack(relay_progress(terminal, flushed_frames.get()))?;
+        .final_ack(progress(terminal, flushed_frames.get()))?;
     Ok(code)
 }
 
@@ -106,6 +359,31 @@ fn relay_progress(poll: RelayPollProgress, output_frames: u64) -> Progress {
         stdout_frames: poll.stdout_frames,
         runner_inputs: poll.runner_inputs,
         output_frames,
+        logical_end: poll.terminal,
+    }
+}
+
+fn serve_runtime_progress(poll: ServePollProgress) -> Progress {
+    Progress::ServeRuntime {
+        poll_seq: poll.poll_seq,
+        stdout_frames: poll.stdout_lines,
+        room_consumed: poll.room_consumed,
+        room_injected: poll.room_injected,
+        cycle: poll.cycle,
+        cycle_base_us: poll.cycle_base_us,
+        runtime_us: poll.runtime_us,
+        observed_signal: poll.observed_signal,
+        logical_end: poll.terminal,
+    }
+}
+
+fn serve_relay_progress(poll: RelayPollProgress, output_frames: u64) -> Progress {
+    Progress::ServeRelay {
+        poll_seq: poll.poll_seq,
+        stdout_frames: poll.stdout_frames,
+        runner_inputs: poll.runner_inputs,
+        output_frames,
+        stop_signal_sent_us: poll.stop_signal_sent_us,
         logical_end: poll.terminal,
     }
 }
@@ -147,6 +425,29 @@ fn validate_relay_options(options: &SessionOptions) -> Result<()> {
     if options.runtime.canonicalize()? != std::env::current_exe()?.canonicalize()? {
         return Err(invalid(
             "a controlled fixture relay must launch this evaluator executable",
+        ));
+    }
+    Ok(())
+}
+
+fn validate_serve_relay_options(options: &SessionOptions) -> Result<()> {
+    if !matches!(options.mode, SessionMode::Serve { .. }) {
+        return Err(invalid("a controlled serve relay requires serve mode"));
+    }
+    match options.runtime_prefix.as_slice() {
+        [command, flag, path, ..]
+            if command == "fake-clock-serve-runtime"
+                && flag == "--fixture-control"
+                && Path::new(path).is_absolute() => {}
+        _ => {
+            return Err(invalid(
+                "a controlled serve relay requires runtime prefix fake-clock-serve-runtime --fixture-control SOCKET",
+            ));
+        }
+    }
+    if options.runtime.canonicalize()? != std::env::current_exe()?.canonicalize()? {
+        return Err(invalid(
+            "a controlled serve relay must launch this evaluator executable",
         ));
     }
     Ok(())
@@ -432,6 +733,7 @@ mod tests {
                     poll_seq: 5,
                     stdout_frames: 2,
                     runner_inputs: 3,
+                    stop_signal_sent_us: None,
                     terminal: true
                 },
                 19
@@ -446,3 +748,15 @@ mod tests {
         );
     }
 }
+
+#[cfg(test)]
+#[path = "serve_fixture_commands_tests.rs"]
+mod serve_tests;
+
+#[cfg(test)]
+#[path = "recorder_fixture_commands_tests.rs"]
+mod recorder_tests;
+
+#[cfg(test)]
+#[path = "slow_transport_fixture_commands_tests.rs"]
+mod slow_transport_tests;

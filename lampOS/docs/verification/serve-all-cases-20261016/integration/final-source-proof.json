@@ -1,0 +1,87 @@
+{
+  "date_from_date": "2026-10-16 05:19:18 +0700",
+  "base": "d60124f8280f9c76576d6ca7bf859bc5c3983828",
+  "source_frozen": true,
+  "source_file_count": 25,
+  "doc_file_count": 1,
+  "modified_existing_count": 12,
+  "new_rust_count": 14,
+  "stage_inverses": [
+    {
+      "stage_reversed": "slow",
+      "patch_sha256": "17044792ec0663c28689efbf74f81daee4536024649151aa2072f90bc37f0583",
+      "changed_files": 9,
+      "exact_reverse_and_reapply": true,
+      "all_owned_paths_equal_prior_snapshot": true
+    },
+    {
+      "stage_reversed": "recorder",
+      "patch_sha256": "318a32549cbc678672350a6e20ee2405f67dcd34cb16fcc41b9d2076874d13af",
+      "changed_files": 10,
+      "exact_reverse_and_reapply": true,
+      "all_owned_paths_equal_prior_snapshot": true
+    },
+    {
+      "stage_reversed": "serve",
+      "patch_sha256": "e044593a807fa0a6b7f0dbbb02c3d4da73cd9bce4632da6ca59cbc47939485f9",
+      "changed_files": 18,
+      "exact_reverse_and_reapply": true,
+      "all_owned_paths_equal_prior_snapshot": true
+    }
+  ],
+  "complete_delta_strict_reverse_and_reapply": true,
+  "complete_delta_sha256": "1e0d3a354be07807b589608bb0b73b3682072fa5bfc49277ccd78c9399441685",
+  "all_original_doc_bytes_retained_in_order": true,
+  "all_6729_nonowned_tracked_entries_bytes_and_modes_exact": true,
+  "all_75_evaluator_rust_equal_historical_qualified_source": true,
+  "final_owned_sha256": {
+    "lampOS/crates/voice-eval/src/main.rs": "1751caa8d8246f8217674397c2c979bab40dc6eaa3d81834784e88cc29ef6607",
+    "lampOS/crates/voice-eval/src/physical/fake_lamp.rs": "7707b987700293a31096338ccd4364e34aa70bce59bca2dd3c1cdaef15c0c9a1",
+    "lampOS/crates/voice-eval/src/physical/fake_serve.rs": "5168b08f121fc374972f9a1bb10f86e30396c83c17ee12c2ea9858cd74ef780d",
+    "lampOS/crates/voice-eval/src/physical/fake_serve_progress_tests.rs": "43af2f78890ec502bc3d12cd95214bf2aaa65578eeac1e9abaa1a6c4d0611f7a",
+    "lampOS/crates/voice-eval/src/physical/fixture_commands.rs": "df424358eb99ab6982ef8cd3ea3d7484f55bf3c033aabcf29ca0b07c0df5ab0a",
+    "lampOS/crates/voice-eval/src/physical/fixture_control.rs": "fd764a6a67b3c83295e3fad677a39ef0c6a10a70a7305f9d92aa2fe10d64daf2",
+    "lampOS/crates/voice-eval/src/physical/fixture_control_tests.rs": "90dab0a1075f0fbb819d819f391aede2994363c3238e54445a5a73e5f12f604a",
+    "lampOS/crates/voice-eval/src/physical/fixture_driver.rs": "3e4a99a9e5029b7c770b2420c4df70271c5702e30c6f97a3dcfc954fce1871d9",
+    "lampOS/crates/voice-eval/src/physical/fixture_players.rs": "2378acf5a32c53b013cc90b96d827bdb82307dbb054d7c94e30ede8752dc5dab",
+    "lampOS/crates/voice-eval/src/physical/mac.rs": "c14c40669ad423baf9c21672587bd6e97e47a64e102d6d22c2714e3e399d78e2",
+    "lampOS/crates/voice-eval/src/physical/mod.rs": "c55ab4bd4fad65b806f4e66f533d7334f947c25c87d8d072ce69ff848db2e582",
+    "lampOS/crates/voice-eval/src/physical/prepared_player_progress_tests.rs": "1ac1f3a24b267c0968fe291befbd65739c06a1baf4e2f5c9b24eca8f841055b7",
+    "lampOS/crates/voice-eval/src/physical/recorder_backend_tests.rs": "a9ed66168aea14d40b3ae28a17c46450ca8e966e6d6f46f550565daea2e7bbde",
+    "lampOS/crates/voice-eval/src/physical/recorder_fixture_commands_tests.rs": "500cd9e92ed12a7328f67d99c60d68105f5130f31d8db2ecd76265fd5fb01d37",
+    "lampOS/crates/voice-eval/src/physical/recorder_fixture_control_tests.rs": "3e9c7eb09f574cbda46a06fb9ac452993df5a9b4417c5f0d9691f9deba27cf80",
+    "lampOS/crates/voice-eval/src/physical/recorder_fixture_driver_tests.rs": "da5c382c25fd8d63f7fac9e3ff17d6caff216df95ae2289af40da6c1225c3ff1",
+    "lampOS/crates/voice-eval/src/physical/serve_fixture_commands_tests.rs": "54f60e0f676d94989b5220f707f9c5c085cbec83de0aa0e0a3d4ba5f892642ea",
+    "lampOS/crates/voice-eval/src/physical/serve_fixture_control_tests.rs": "fdb57e00dd9e3028ae6f5a5aa6df81d1147bee4fc582ad00b117368951b80bcf",
+    "lampOS/crates/voice-eval/src/physical/serve_fixture_driver.rs": "3ba9b3405c82198e4c56e4baa3c982be74d8a2e0588766be11c34a2fa62e8014",
+    "lampOS/crates/voice-eval/src/physical/serve_relay_progress_tests.rs": "d7ccf7f0ddcd46a07d9d6cfc768d5126d507c133b0b708dc69881f124f238ed4",
+    "lampOS/crates/voice-eval/src/physical/session.rs": "660cea49d4e1389ad23e5786a5efded083e7f6d98912dfc9ad9887dad85ccd24",
+    "lampOS/crates/voice-eval/src/physical/slow_transport_fixture_commands_tests.rs": "dee37c32bd463a6603ab0b2f1dc5f0b2a9ae4b62da98b26a9b9aea560b7ef7c1",
+    "lampOS/crates/voice-eval/src/physical/slow_transport_fixture_control_tests.rs": "1032118bfae8aec9a555f87ca6f3f334c16599c361a90b38768d5c1d454d3359",
+    "lampOS/crates/voice-eval/src/physical/slow_transport_fixture_driver_tests.rs": "0026046f596309aa8cc2698de1893825d0b4d006e5f7951a5af81d1158a85187",
+    "lampOS/crates/voice-eval/tests/serve_session.rs": "1850248165b8c7d5022ec06f3267b5de1a829fa375135cdda26aa3bfe539b905",
+    "lampOS/docs/realtime-tests.md": "ba461e398f74366f6eee76616e8569a932f591556ab811582952b187089b3f0d"
+  },
+  "all_14_original_serve_test_bodies_and_114_assertions_exact": true,
+  "all_22_attempts_retained": true,
+  "old_unit_test_compatibility_exception": [
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/fixture_commands.rs",
+      "name": "relay_terminal_progress_keeps_the_last_real_poll_and_final_output_count",
+      "adaptation": "The existing RelayPollProgress literal sets the new signal receipt field to None. Removing exactly that one field restores the whole old body, including its assertion.",
+      "base_sha256": "ebcf2d5b653ce4fb4e642d6a748594f899af980a55687a1dff4af094f1d998cc",
+      "final_sha256": "ccfb3a7f4e19dee3cd814ef5e730802303e0ddfb639ce25552f0aaa65b1fe1da"
+    }
+  ],
+  "existing_non_test_control_helper_adaptation": "Step construction adds wait_for_sigterm: false; removing exactly that line restores the whole base fixture_control_tests.rs.",
+  "recorder_helper_exhaustiveness": "Between reviewed Recorder and Slow stages only: Role::Recorder => unreachable!() becomes Role::Recorder | Role::SlowTransport => unreachable!(); required enum exhaustiveness; no old input or assertion changes.",
+  "baseline_actual_compiled_count": 377,
+  "source_expected_after_count_not_execution": 498,
+  "rustfmt_exit_code": 0,
+  "execution_limits": [
+    "No Cargo/build/test/Git mutation/network/device command by this worker.",
+    "Root owns fresh affected gates, comparable whole-family measurements and native qualification.",
+    "Historical 498-case qualification does not qualify changed current dependency inputs; no current timing, ARM64 or full-123 claim.",
+    "This broader integrated source does not establish a cause or fix for the earlier #914 failure."
+  ]
+}

@@ -1,0 +1,93 @@
+{
+  "date": "2026-10-16 05:25:48 +0700",
+  "stage": "compiled identity comparison before any execution",
+  "baseline_count": 377,
+  "after_count": 498,
+  "missing_originals": [
+    [
+      "lamp-voice-eval",
+      "physical::fixture_control::channel_closed_peer_tests::a_closed_peer_with_a_partial_final_frame_is_still_truncated"
+    ],
+    [
+      "lamp-voice-eval",
+      "physical::fixture_control::channel_closed_peer_tests::a_closed_writer_reports_the_write_failure_without_setting_socket_timeouts"
+    ],
+    [
+      "lamp-voice-eval",
+      "physical::fixture_control::channel_closed_peer_tests::a_final_ack_is_read_after_the_participant_has_actually_closed"
+    ],
+    [
+      "lamp-voice-eval",
+      "physical::fixture_control::channel_closed_peer_tests::a_queued_hello_is_read_after_the_peer_closed_before_channel_creation"
+    ],
+    [
+      "lamp-voice-eval",
+      "physical::fixture_control::channel_closed_peer_tests::an_expired_deadline_leaves_a_buffered_final_frame_intact"
+    ],
+    [
+      "lamp-voice-eval",
+      "physical::fixture_control::channel_closed_peer_tests::an_expired_write_budget_emits_no_frame_bytes"
+    ],
+    [
+      "lamp-voice-eval",
+      "physical::fixture_control::channel_closed_peer_tests::poll_hangup_allows_remaining_bytes_and_then_real_eof"
+    ],
+    [
+      "lamp-voice-eval",
+      "physical::fixture_control::channel_closed_peer_tests::poll_timeouts_preserve_small_budgets_and_cap_darwins_millisecond_range"
+    ],
+    [
+      "lamp-voice-eval",
+      "physical::fixture_control::channel_closed_peer_tests::raw_reader_timeout_configuration_is_local_even_after_peer_close"
+    ],
+    [
+      "lamp-voice-eval",
+      "physical::fixture_control::channel_closed_peer_tests::raw_reader_without_a_frame_still_has_a_host_watchdog"
+    ]
+  ],
+  "renamed_outcomes": [
+    [
+      "lamp-voice-eval",
+      "physical::fixture_control::closed_peer_tests::a_closed_peer_with_a_partial_final_frame_is_still_truncated"
+    ],
+    [
+      "lamp-voice-eval",
+      "physical::fixture_control::closed_peer_tests::a_closed_writer_reports_the_write_failure_without_setting_socket_timeouts"
+    ],
+    [
+      "lamp-voice-eval",
+      "physical::fixture_control::closed_peer_tests::a_final_ack_is_read_after_the_participant_has_actually_closed"
+    ],
+    [
+      "lamp-voice-eval",
+      "physical::fixture_control::closed_peer_tests::a_queued_hello_is_read_after_the_peer_closed_before_channel_creation"
+    ],
+    [
+      "lamp-voice-eval",
+      "physical::fixture_control::closed_peer_tests::an_expired_deadline_leaves_a_buffered_final_frame_intact"
+    ],
+    [
+      "lamp-voice-eval",
+      "physical::fixture_control::closed_peer_tests::an_expired_write_budget_emits_no_frame_bytes"
+    ],
+    [
+      "lamp-voice-eval",
+      "physical::fixture_control::closed_peer_tests::poll_hangup_allows_remaining_bytes_and_then_real_eof"
+    ],
+    [
+      "lamp-voice-eval",
+      "physical::fixture_control::closed_peer_tests::poll_timeouts_preserve_small_budgets_and_cap_darwins_millisecond_range"
+    ],
+    [
+      "lamp-voice-eval",
+      "physical::fixture_control::closed_peer_tests::raw_reader_timeout_configuration_is_local_even_after_peer_close"
+    ],
+    [
+      "lamp-voice-eval",
+      "physical::fixture_control::closed_peer_tests::raw_reader_without_a_frame_still_has_a_host_watchdog"
+    ]
+  ],
+  "correction": "Restore original current-base module identifier only. Existing test source bodies and all assertions unchanged. First list and raw gates retained. No failed executable test rerun.",
+  "before_sha256": "fd764a6a67b3c83295e3fad677a39ef0c6a10a70a7305f9d92aa2fe10d64daf2",
+  "after_sha256": "ca68dec8488bc9e86f42c8801ba4185a901f02d71c2879691bdb8351899fb412"
+}

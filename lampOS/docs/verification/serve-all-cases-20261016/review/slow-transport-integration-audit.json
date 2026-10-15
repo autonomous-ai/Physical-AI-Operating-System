@@ -1,0 +1,646 @@
+{
+  "date_from_date": "2026-10-16 03:32:23 +0700",
+  "source_only_read_only": true,
+  "target": "/private/tmp/lampos-tests-recorder-coordination",
+  "target_base_from_prior_proof": "48b3737d5e83efa00278172cb602d3525d368a43",
+  "qualified_source": "/private/tmp/lampos-tests-slow-transport-progress",
+  "manifest": [
+    {
+      "path": "lampOS/crates/voice-eval/Cargo.toml",
+      "state": "base_only_preserve",
+      "sha256": {
+        "recorder": "09ea068437eb655b546e88b0a8c390af4c615d9f4351fbfedee0a203656a7360",
+        "slow": "09ea068437eb655b546e88b0a8c390af4c615d9f4351fbfedee0a203656a7360",
+        "target": "9854d29463c6671cc2ffcd83181d58e440a72f5be81df2e154d9bf2c1fee753d"
+      }
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/main.rs",
+      "state": "participant_port",
+      "sha256": {
+        "recorder": "1c58c33e90aeff37cd0e895655373dc435d2570f1cbb819966c91d2d5dda9ba9",
+        "slow": "1751caa8d8246f8217674397c2c979bab40dc6eaa3d81834784e88cc29ef6607",
+        "target": "1c58c33e90aeff37cd0e895655373dc435d2570f1cbb819966c91d2d5dda9ba9"
+      }
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/fake_lamp.rs",
+      "state": "already_on_target",
+      "sha256": {
+        "recorder": "db8026ff943fc5367198e48be7ec7336823504a009414a5dc6961cd7c8e3f41a",
+        "slow": "7707b987700293a31096338ccd4364e34aa70bce59bca2dd3c1cdaef15c0c9a1",
+        "target": "7707b987700293a31096338ccd4364e34aa70bce59bca2dd3c1cdaef15c0c9a1"
+      }
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/fixture_commands.rs",
+      "state": "participant_port",
+      "sha256": {
+        "recorder": "464820ece7888f7d0767d7024d7b1e399d9d18601f09922f14dba5b0e328234c",
+        "slow": "df424358eb99ab6982ef8cd3ea3d7484f55bf3c033aabcf29ca0b07c0df5ab0a",
+        "target": "464820ece7888f7d0767d7024d7b1e399d9d18601f09922f14dba5b0e328234c"
+      }
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/fixture_control.rs",
+      "state": "participant_port",
+      "sha256": {
+        "recorder": "16f31e16dcb8c03168c8f8d2e76323c6d09882936c88bd05c1691bdaa7a888fa",
+        "slow": "fd764a6a67b3c83295e3fad677a39ef0c6a10a70a7305f9d92aa2fe10d64daf2",
+        "target": "16f31e16dcb8c03168c8f8d2e76323c6d09882936c88bd05c1691bdaa7a888fa"
+      }
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/recorder_fixture_control_tests.rs",
+      "state": "participant_port",
+      "sha256": {
+        "recorder": "832b0d1a345f119ec83f1579dc2864ed7935b9abb86468810292a1c02b01f25f",
+        "slow": "3e9c7eb09f574cbda46a06fb9ac452993df5a9b4417c5f0d9691f9deba27cf80",
+        "target": "832b0d1a345f119ec83f1579dc2864ed7935b9abb86468810292a1c02b01f25f"
+      }
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/serve_fixture_driver.rs",
+      "state": "participant_port",
+      "sha256": {
+        "recorder": "b7deaea4fb28cc44f48675cade095d38aea77f9dba668f7b9e32e9060e5170bb",
+        "slow": "3ba9b3405c82198e4c56e4baa3c982be74d8a2e0588766be11c34a2fa62e8014",
+        "target": "b7deaea4fb28cc44f48675cade095d38aea77f9dba668f7b9e32e9060e5170bb"
+      }
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/slow_transport_clock_tests.rs",
+      "state": "already_on_target",
+      "sha256": {
+        "recorder": null,
+        "slow": "7478dae0e6ca89f1cae6b1aee14c22f5aa0871e5151ea50681a480d48baa1dea",
+        "target": "7478dae0e6ca89f1cae6b1aee14c22f5aa0871e5151ea50681a480d48baa1dea"
+      }
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/slow_transport_fixture_commands_tests.rs",
+      "state": "participant_port",
+      "sha256": {
+        "recorder": null,
+        "slow": "dee37c32bd463a6603ab0b2f1dc5f0b2a9ae4b62da98b26a9b9aea560b7ef7c1",
+        "target": null
+      }
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/slow_transport_fixture_control_tests.rs",
+      "state": "participant_port",
+      "sha256": {
+        "recorder": null,
+        "slow": "1032118bfae8aec9a555f87ca6f3f334c16599c361a90b38768d5c1d454d3359",
+        "target": null
+      }
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/slow_transport_fixture_driver_tests.rs",
+      "state": "participant_port",
+      "sha256": {
+        "recorder": null,
+        "slow": "0026046f596309aa8cc2698de1893825d0b4d006e5f7951a5af81d1158a85187",
+        "target": null
+      }
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/serve_session.rs",
+      "state": "participant_port",
+      "sha256": {
+        "recorder": "485ef6bc04c292666b633c819baa7c16465aaa756e97271c9c0708cd2c3e6186",
+        "slow": "1850248165b8c7d5022ec06f3267b5de1a829fa375135cdda26aa3bfe539b905",
+        "target": "485ef6bc04c292666b633c819baa7c16465aaa756e97271c9c0708cd2c3e6186"
+      }
+    }
+  ],
+  "remaining_participant_files": [
+    "lampOS/crates/voice-eval/src/main.rs",
+    "lampOS/crates/voice-eval/src/physical/fixture_commands.rs",
+    "lampOS/crates/voice-eval/src/physical/fixture_control.rs",
+    "lampOS/crates/voice-eval/src/physical/recorder_fixture_control_tests.rs",
+    "lampOS/crates/voice-eval/src/physical/serve_fixture_driver.rs",
+    "lampOS/crates/voice-eval/src/physical/slow_transport_fixture_commands_tests.rs",
+    "lampOS/crates/voice-eval/src/physical/slow_transport_fixture_control_tests.rs",
+    "lampOS/crates/voice-eval/src/physical/slow_transport_fixture_driver_tests.rs",
+    "lampOS/crates/voice-eval/tests/serve_session.rs"
+  ],
+  "hunks": {
+    "lampOS/crates/voice-eval/src/main.rs": [
+      {
+        "target_start": 193,
+        "target_lines": 6,
+        "qualified_slow_start": 193,
+        "qualified_slow_lines": 7
+      }
+    ],
+    "lampOS/crates/voice-eval/src/physical/fixture_commands.rs": [
+      {
+        "target_start": 1,
+        "target_lines": 4,
+        "qualified_slow_start": 1,
+        "qualified_slow_lines": 5
+      },
+      {
+        "target_start": 112,
+        "target_lines": 6,
+        "qualified_slow_start": 113,
+        "qualified_slow_lines": 105
+      },
+      {
+        "target_start": 656,
+        "target_lines": 3,
+        "qualified_slow_start": 756,
+        "qualified_slow_lines": 7
+      }
+    ],
+    "lampOS/crates/voice-eval/src/physical/fixture_control.rs": [
+      {
+        "target_start": 32,
+        "target_lines": 6,
+        "qualified_slow_start": 32,
+        "qualified_slow_lines": 7
+      },
+      {
+        "target_start": 40,
+        "target_lines": 9,
+        "qualified_slow_start": 41,
+        "qualified_slow_lines": 11
+      },
+      {
+        "target_start": 119,
+        "target_lines": 6,
+        "qualified_slow_start": 122,
+        "qualified_slow_lines": 15
+      },
+      {
+        "target_start": 129,
+        "target_lines": 6,
+        "qualified_slow_start": 141,
+        "qualified_slow_lines": 7
+      },
+      {
+        "target_start": 138,
+        "target_lines": 7,
+        "qualified_slow_start": 151,
+        "qualified_slow_lines": 8
+      },
+      {
+        "target_start": 148,
+        "target_lines": 7,
+        "qualified_slow_start": 162,
+        "qualified_slow_lines": 8
+      },
+      {
+        "target_start": 239,
+        "target_lines": 6,
+        "qualified_slow_start": 254,
+        "qualified_slow_lines": 7
+      },
+      {
+        "target_start": 447,
+        "target_lines": 6,
+        "qualified_slow_start": 463,
+        "qualified_slow_lines": 7
+      },
+      {
+        "target_start": 533,
+        "target_lines": 6,
+        "qualified_slow_start": 550,
+        "qualified_slow_lines": 18
+      },
+      {
+        "target_start": 575,
+        "target_lines": 6,
+        "qualified_slow_start": 604,
+        "qualified_slow_lines": 7
+      },
+      {
+        "target_start": 644,
+        "target_lines": 6,
+        "qualified_slow_start": 674,
+        "qualified_slow_lines": 7
+      },
+      {
+        "target_start": 727,
+        "target_lines": 7,
+        "qualified_slow_start": 758,
+        "qualified_slow_lines": 10
+      },
+      {
+        "target_start": 778,
+        "target_lines": 6,
+        "qualified_slow_start": 812,
+        "qualified_slow_lines": 60
+      },
+      {
+        "target_start": 1051,
+        "target_lines": 3,
+        "qualified_slow_start": 1139,
+        "qualified_slow_lines": 7
+      }
+    ],
+    "lampOS/crates/voice-eval/src/physical/recorder_fixture_control_tests.rs": [
+      {
+        "target_start": 64,
+        "target_lines": 7,
+        "qualified_slow_start": 64,
+        "qualified_slow_lines": 7
+      }
+    ],
+    "lampOS/crates/voice-eval/src/physical/serve_fixture_driver.rs": [
+      {
+        "target_start": 1,
+        "target_lines": 6,
+        "qualified_slow_start": 1,
+        "qualified_slow_lines": 7
+      },
+      {
+        "target_start": 36,
+        "target_lines": 11,
+        "qualified_slow_start": 37,
+        "qualified_slow_lines": 22
+      },
+      {
+        "target_start": 84,
+        "target_lines": 6,
+        "qualified_slow_start": 96,
+        "qualified_slow_lines": 9
+      },
+      {
+        "target_start": 121,
+        "target_lines": 6,
+        "qualified_slow_start": 136,
+        "qualified_slow_lines": 7
+      },
+      {
+        "target_start": 130,
+        "target_lines": 7,
+        "qualified_slow_start": 146,
+        "qualified_slow_lines": 8
+      },
+      {
+        "target_start": 139,
+        "target_lines": 6,
+        "qualified_slow_start": 156,
+        "qualified_slow_lines": 7
+      },
+      {
+        "target_start": 150,
+        "target_lines": 6,
+        "qualified_slow_start": 168,
+        "qualified_slow_lines": 7
+      },
+      {
+        "target_start": 389,
+        "target_lines": 17,
+        "qualified_slow_start": 408,
+        "qualified_slow_lines": 158
+      },
+      {
+        "target_start": 416,
+        "target_lines": 7,
+        "qualified_slow_start": 576,
+        "qualified_slow_lines": 10
+      },
+      {
+        "target_start": 442,
+        "target_lines": 6,
+        "qualified_slow_start": 605,
+        "qualified_slow_lines": 9
+      },
+      {
+        "target_start": 488,
+        "target_lines": 7,
+        "qualified_slow_start": 654,
+        "qualified_slow_lines": 13
+      },
+      {
+        "target_start": 642,
+        "target_lines": 6,
+        "qualified_slow_start": 814,
+        "qualified_slow_lines": 49
+      },
+      {
+        "target_start": 844,
+        "target_lines": 3,
+        "qualified_slow_start": 1059,
+        "qualified_slow_lines": 7
+      }
+    ],
+    "lampOS/crates/voice-eval/src/physical/slow_transport_fixture_commands_tests.rs": [
+      {
+        "target_start": 1,
+        "target_lines": 0,
+        "qualified_slow_start": 1,
+        "qualified_slow_lines": 503
+      }
+    ],
+    "lampOS/crates/voice-eval/src/physical/slow_transport_fixture_control_tests.rs": [
+      {
+        "target_start": 1,
+        "target_lines": 0,
+        "qualified_slow_start": 1,
+        "qualified_slow_lines": 422
+      }
+    ],
+    "lampOS/crates/voice-eval/src/physical/slow_transport_fixture_driver_tests.rs": [
+      {
+        "target_start": 1,
+        "target_lines": 0,
+        "qualified_slow_start": 1,
+        "qualified_slow_lines": 781
+      }
+    ],
+    "lampOS/crates/voice-eval/tests/serve_session.rs": [
+      {
+        "target_start": 6,
+        "target_lines": 16,
+        "qualified_slow_start": 6,
+        "qualified_slow_lines": 14
+      },
+      {
+        "target_start": 136,
+        "target_lines": 22,
+        "qualified_slow_start": 134,
+        "qualified_slow_lines": 14
+      }
+    ]
+  },
+  "all_planned_evaluator_rust_equals_qualified_slow": true,
+  "historical_qualified_source_hashes_still_match": {
+    "crates/voice-eval/examples/turn_end_replay.rs": true,
+    "crates/voice-eval/src/annotations.rs": true,
+    "crates/voice-eval/src/canary.rs": true,
+    "crates/voice-eval/src/evaluate.rs": true,
+    "crates/voice-eval/src/events.rs": true,
+    "crates/voice-eval/src/fake.rs": true,
+    "crates/voice-eval/src/import.rs": true,
+    "crates/voice-eval/src/ledger.rs": true,
+    "crates/voice-eval/src/lib.rs": true,
+    "crates/voice-eval/src/main.rs": true,
+    "crates/voice-eval/src/physical/backend_clock_tests.rs": true,
+    "crates/voice-eval/src/physical/backend_progress_tests.rs": true,
+    "crates/voice-eval/src/physical/channel_closed_peer_tests.rs": true,
+    "crates/voice-eval/src/physical/fake_lamp.rs": true,
+    "crates/voice-eval/src/physical/fake_runtime_clock_tests.rs": true,
+    "crates/voice-eval/src/physical/fake_serve.rs": true,
+    "crates/voice-eval/src/physical/fake_serve_clock_tests.rs": true,
+    "crates/voice-eval/src/physical/fake_serve_progress_tests.rs": true,
+    "crates/voice-eval/src/physical/fixture_commands.rs": true,
+    "crates/voice-eval/src/physical/fixture_control.rs": true,
+    "crates/voice-eval/src/physical/fixture_control_tests.rs": true,
+    "crates/voice-eval/src/physical/fixture_driver.rs": true,
+    "crates/voice-eval/src/physical/fixture_players.rs": true,
+    "crates/voice-eval/src/physical/framing.rs": true,
+    "crates/voice-eval/src/physical/mac.rs": true,
+    "crates/voice-eval/src/physical/mod.rs": true,
+    "crates/voice-eval/src/physical/prepared_player_clock_tests.rs": true,
+    "crates/voice-eval/src/physical/prepared_player_progress_tests.rs": true,
+    "crates/voice-eval/src/physical/protocol.rs": true,
+    "crates/voice-eval/src/physical/recorder_backend_tests.rs": true,
+    "crates/voice-eval/src/physical/recorder_clock_tests.rs": true,
+    "crates/voice-eval/src/physical/recorder_fixture_commands_tests.rs": true,
+    "crates/voice-eval/src/physical/recorder_fixture_control_tests.rs": true,
+    "crates/voice-eval/src/physical/recorder_fixture_driver_tests.rs": true,
+    "crates/voice-eval/src/physical/relay_progress_tests.rs": true,
+    "crates/voice-eval/src/physical/serve_fixture_commands_tests.rs": true,
+    "crates/voice-eval/src/physical/serve_fixture_control_tests.rs": true,
+    "crates/voice-eval/src/physical/serve_fixture_driver.rs": true,
+    "crates/voice-eval/src/physical/serve_relay_progress_tests.rs": true,
+    "crates/voice-eval/src/physical/session.rs": true,
+    "crates/voice-eval/src/physical/slow_transport_clock_tests.rs": true,
+    "crates/voice-eval/src/physical/slow_transport_fixture_commands_tests.rs": true,
+    "crates/voice-eval/src/physical/slow_transport_fixture_control_tests.rs": true,
+    "crates/voice-eval/src/physical/slow_transport_fixture_driver_tests.rs": true,
+    "crates/voice-eval/src/plan.rs": true,
+    "crates/voice-eval/src/playback.rs": true,
+    "crates/voice-eval/src/record.rs": true,
+    "crates/voice-eval/src/report.rs": true,
+    "crates/voice-eval/src/runner.rs": true,
+    "crates/voice-eval/src/stats.rs": true,
+    "crates/voice-eval/src/stimulus.rs": true,
+    "crates/voice-eval/src/target_audio.rs": true,
+    "crates/voice-eval/tests/acceptance_boundaries.rs": true,
+    "crates/voice-eval/tests/answer_review.rs": true,
+    "crates/voice-eval/tests/audit_final_dispatch.rs": true,
+    "crates/voice-eval/tests/audit_importer.rs": true,
+    "crates/voice-eval/tests/audit_runner_dispatch.rs": true,
+    "crates/voice-eval/tests/canary_plan.rs": true,
+    "crates/voice-eval/tests/common/mod.rs": true,
+    "crates/voice-eval/tests/evaluator.rs": true,
+    "crates/voice-eval/tests/fake_runtime.rs": true,
+    "crates/voice-eval/tests/final_dispatch.rs": true,
+    "crates/voice-eval/tests/next_turn_ready.rs": true,
+    "crates/voice-eval/tests/physical_loopback.rs": true,
+    "crates/voice-eval/tests/playback_occurrences.rs": true,
+    "crates/voice-eval/tests/provider_failed.rs": true,
+    "crates/voice-eval/tests/recording_evidence.rs": true,
+    "crates/voice-eval/tests/recording_import.rs": true,
+    "crates/voice-eval/tests/relay_clock.rs": true,
+    "crates/voice-eval/tests/relay_hardening.rs": true,
+    "crates/voice-eval/tests/report_validity.rs": true,
+    "crates/voice-eval/tests/serve_plan.rs": true,
+    "crates/voice-eval/tests/serve_relay.rs": true,
+    "crates/voice-eval/tests/serve_session.rs": true,
+    "crates/voice-eval/tests/target_audio.rs": true
+  },
+  "all_14_test_bodies_exact": true,
+  "all_114_assertion_macro_bytes_exact": true,
+  "original_113_assertion_tail_excludes_one_run_ledger_assertion": true,
+  "constructor_comment_import_inverse_exact": true,
+  "unchanged_full_tail_from_statuses": true,
+  "original_run_call_sites": 18,
+  "original_expanded_attempts": 22,
+  "tests": [
+    {
+      "name": "normal_eight_turn_conversation_in_one_serve_session",
+      "body_sha256": "be8f0f396b5c977c1d9ddacb6543a628941f346b5901114ec2558489880744c3",
+      "run_calls": 1,
+      "expanded_attempts": 1,
+      "before_route": "controlled",
+      "after_route": "controlled"
+    },
+    {
+      "name": "delayed_readiness_is_awaited_by_event_not_by_completion",
+      "body_sha256": "ba3f851395f24caae2683d330b5caa226b196bcdbc9dcd69c7d834e9bf99a0b0",
+      "run_calls": 1,
+      "expanded_attempts": 1,
+      "before_route": "controlled",
+      "after_route": "controlled"
+    },
+    {
+      "name": "an_extra_candidate_during_the_wait_withholds_the_rest",
+      "body_sha256": "8c8c385a3f72306b0fe21d85a812ff9fa18a65c5e9cf2fa068266d9f90ebd35a",
+      "run_calls": 1,
+      "expanded_attempts": 1,
+      "before_route": "controlled",
+      "after_route": "controlled"
+    },
+    {
+      "name": "stale_duplicate_reordered_foreign_and_lost_cues_end_the_conversation",
+      "body_sha256": "65f3f23103bd0c068c7a8d854385f8f7e6467e8ea8ff12f2e101e6c62b62f498",
+      "run_calls": 1,
+      "expanded_attempts": 5,
+      "before_route": "controlled",
+      "after_route": "controlled"
+    },
+    {
+      "name": "a_provider_outage_is_waited_out_by_event_and_a_terminal_link_ends_it",
+      "body_sha256": "b78a37ab7bd55cc3028effea049cc9de4b65508dab1cf2f3033bbba4889f411a",
+      "run_calls": 2,
+      "expanded_attempts": 2,
+      "before_route": "controlled",
+      "after_route": "controlled"
+    },
+    {
+      "name": "a_late_first_copy_or_failed_player_withholds_every_later_turn",
+      "body_sha256": "a769ff74ec361254baadbfe2af0fec4133c56ac19729d793ba5d61f9cc93ddef",
+      "run_calls": 2,
+      "expanded_attempts": 2,
+      "before_route": "controlled",
+      "after_route": "controlled"
+    },
+    {
+      "name": "a_runtime_stop_mute_or_ignored_sigterm_is_retained_and_reaped",
+      "body_sha256": "345fffca1e00a7a1c22a793b247c906d71d84bec37fc1b3f736aafe83a613278",
+      "run_calls": 3,
+      "expanded_attempts": 3,
+      "before_route": "controlled",
+      "after_route": "controlled"
+    },
+    {
+      "name": "a_room_recording_that_ends_early_withholds_the_rest",
+      "body_sha256": "1a4317c079b9cdea0ca6a86ea7feccd3df23d085cdf95b8b483efa2a26f42b91",
+      "run_calls": 1,
+      "expanded_attempts": 1,
+      "before_route": "controlled",
+      "after_route": "controlled"
+    },
+    {
+      "name": "startup_cues_stay_fresh_through_a_slow_transport_and_a_slow_first_preparer",
+      "body_sha256": "675d385b33c9d6958761efc33fcee0fec8367d461025fb6f32208487795b15f9",
+      "run_calls": 1,
+      "expanded_attempts": 1,
+      "before_route": "host",
+      "after_route": "controlled"
+    },
+    {
+      "name": "a_recorder_that_exits_zero_mid_conversation_withholds_the_rest_and_certifies_nothing",
+      "body_sha256": "37d48f604a7a0a3ac5068d0166b07712c226657d8b8b358b6e5e5839a2b98ee3",
+      "run_calls": 1,
+      "expanded_attempts": 1,
+      "before_route": "controlled",
+      "after_route": "controlled"
+    },
+    {
+      "name": "a_declared_capture_end_before_the_next_prompt_and_its_window_withholds_it",
+      "body_sha256": "3ca48cfab16c5da3e05c0f039d39370c6097f2d4155dfc9e805dda426aeeb180",
+      "run_calls": 1,
+      "expanded_attempts": 1,
+      "before_route": "controlled",
+      "after_route": "controlled"
+    },
+    {
+      "name": "the_runner_forwards_pilot_runtime_settings_through_the_relay",
+      "body_sha256": "fce42e7116e65956a96fe13a3560bde30ef84add359b095173d2cb53ac18aba9",
+      "run_calls": 1,
+      "expanded_attempts": 1,
+      "before_route": "controlled",
+      "after_route": "controlled"
+    },
+    {
+      "name": "serve_readiness_comes_only_from_the_fresh_cue_never_from_stdout",
+      "body_sha256": "a7d2da110f1f9d4c6157017fdb9284c985d4dcc153c1873c5108448e2f185059",
+      "run_calls": 1,
+      "expanded_attempts": 1,
+      "before_route": "controlled",
+      "after_route": "controlled"
+    },
+    {
+      "name": "a_nonzero_runtime_exit_never_completes_a_serve_attempt",
+      "body_sha256": "07998d75f7d7f2aa2ec63f6b4ff9805f6ead0c7186a3dc1b9042a93ca16e8072",
+      "run_calls": 1,
+      "expanded_attempts": 1,
+      "before_route": "controlled",
+      "after_route": "controlled"
+    }
+  ],
+  "recorder_helper_only_unreachable_enum_arm_adaptation": true,
+  "recorder_helper_all_original_assertions_and_identities_exact": true,
+  "new_modules": {
+    "lampOS/crates/voice-eval/src/physical/slow_transport_fixture_commands_tests.rs": {
+      "test_names": [
+        "the_wait_keeps_all_four_hundred_milliseconds_and_distinct_same_time_rounds",
+        "a_zero_delay_completes_at_its_first_step_without_a_synthetic_exec_receipt",
+        "duration_and_domain_overflows_are_rejected_before_any_wait_ack",
+        "a_lost_parent_cancels_the_wait_without_completing_its_deadline",
+        "only_the_same_controlled_evaluator_relay_and_socket_are_accepted_without_rewriting",
+        "the_explicit_handler_requires_a_leading_absolute_control_pair",
+        "real_exec_occurs_after_the_full_delay_and_preserves_the_same_pipe_pid_and_argv",
+        "terminal_delay_ack_still_returns_the_real_exec_error_when_replacement_fails",
+        "a_lost_control_peer_prevents_the_real_command_from_reaching_exec"
+      ],
+      "assertion_macros": 42
+    },
+    "lampOS/crates/voice-eval/src/physical/slow_transport_fixture_control_tests.rs": {
+      "test_names": [
+        "transport_frames_add_only_the_role_and_fixed_wait_boundary",
+        "transport_role_is_isolated_from_every_existing_hello_and_progress",
+        "transport_and_other_roles_reject_each_others_outer_steps",
+        "transport_rejects_input_signal_and_unrepresentable_domain_targets",
+        "first_transport_wait_starts_at_the_current_held_step",
+        "transport_start_and_due_stay_fixed_in_both_directions",
+        "terminal_transport_progress_is_required_if_and_only_if_the_full_delay_elapsed",
+        "transport_round_poll_and_time_validation_remain_exact",
+        "repeated_transport_rounds_leave_clock_reads_pure_until_the_next_step",
+        "an_invalid_transport_domain_step_never_changes_the_pure_clock",
+        "missing_transport_progress_has_a_bounded_failure_without_an_exec_claim",
+        "a_transport_listener_slot_never_substitutes_for_a_fresh_relay_hello"
+      ],
+      "assertion_macros": 45
+    },
+    "lampOS/crates/voice-eval/src/physical/slow_transport_fixture_driver_tests.rs": {
+      "test_names": [
+        "direct_configuration_and_bootstrap_keep_their_original_path",
+        "explicit_wrapper_preserves_the_full_delay_and_every_forwarded_argument",
+        "malformed_or_unbounded_wrappers_fail_before_mutating_configuration",
+        "four_hundred_ms_wait_uses_two_ms_rounds_and_retains_both_setup_inputs",
+        "zero_and_sub_poll_delays_register_a_fresh_relay_before_bootstrap_time",
+        "delay_completion_followed_by_the_wrong_role_fails_at_the_held_due_time",
+        "terminal_delay_without_a_fresh_relay_hello_cannot_start_or_advance",
+        "recorder_due_before_or_on_delay_completion_holds_time_until_exit_notification",
+        "advancing_without_the_separate_recorder_exit_notification_fails_closed",
+        "later_caller_deadlines_cannot_extend_the_cumulative_startup_budget",
+        "an_expired_retained_startup_budget_cannot_be_renewed_by_the_next_call",
+        "an_already_expired_first_call_never_registers_or_advances_the_wrapper",
+        "a_wrapper_disconnect_before_its_first_ack_cannot_start_the_relay",
+        "explicit_close_releases_a_parked_wrapper_and_prevents_further_startup"
+      ],
+      "assertion_macros": 121
+    }
+  },
+  "new_participant_test_total": 35,
+  "source_expected_shape_not_execution": {
+    "recorder_library": 261,
+    "participant_additions": 35,
+    "expected_library": 296,
+    "integration": 202,
+    "expected_total": 498
+  },
+  "historical_full_gate": {
+    "passed": 498,
+    "library": 296,
+    "integration": 202,
+    "failures_ignores_filtered": 0,
+    "summary_blocks": 25,
+    "log_sha256": "3634963854279bf0f30ba85f0a468530618b87bd8030ecd4d9969eae0a5ffb38"
+  },
+  "historical_pair": {
+    "before_seconds": "86.271",
+    "after_seconds": "73.874",
+    "both_14_pass_0_skips": true,
+    "same_helper_sha256": "fe88716c5f85d6ca14bfcaa50945a70956e6f6ea8afef5ccb16c0bf2baf60173"
+  },
+  "docs_warning": "Old progress docs diff appends an unrelated finite-runtime section already present and updated on current base. Do not port it; write only the current coordinated-SlowTransport explanation and route-count updates."
+}

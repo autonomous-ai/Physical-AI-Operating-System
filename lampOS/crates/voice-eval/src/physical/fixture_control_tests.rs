@@ -11,6 +11,7 @@ fn step(round: u64, at_us: u64) -> Step {
         at_us,
         stdout_target: 0,
         runner_input_target: 0,
+        wait_for_sigterm: false,
     }
 }
 

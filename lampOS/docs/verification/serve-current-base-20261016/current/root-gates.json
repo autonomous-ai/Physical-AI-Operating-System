@@ -1,0 +1,89 @@
+[
+  {
+    "stage": "fmt",
+    "command": [
+      "cargo",
+      "fmt",
+      "--all",
+      "--check"
+    ],
+    "cwd": "/private/tmp/lampos-tests-serve-release/lampOS",
+    "target": "/private/tmp/tests-823-rebase-target",
+    "start_from_date": "2026-10-16 06:03:35 +0700",
+    "finish_from_date": "2026-10-16 06:03:41 +0700",
+    "exit_code": 0
+  },
+  {
+    "stage": "clippy",
+    "command": [
+      "cargo",
+      "clippy",
+      "--locked",
+      "--offline",
+      "-p",
+      "lamp-voice-eval",
+      "--all-targets",
+      "--",
+      "-D",
+      "warnings"
+    ],
+    "cwd": "/private/tmp/lampos-tests-serve-release/lampOS",
+    "target": "/private/tmp/tests-823-rebase-target",
+    "start_from_date": "2026-10-16 06:03:41 +0700",
+    "finish_from_date": "2026-10-16 06:04:23 +0700",
+    "exit_code": 0
+  },
+  {
+    "stage": "list",
+    "command": [
+      "cargo",
+      "nextest",
+      "list",
+      "--locked",
+      "--offline",
+      "-p",
+      "lamp-voice-eval",
+      "--message-format",
+      "json"
+    ],
+    "cwd": "/private/tmp/lampos-tests-serve-release/lampOS",
+    "target": "/private/tmp/tests-823-rebase-target",
+    "start_from_date": "2026-10-16 06:04:23 +0700",
+    "finish_from_date": "2026-10-16 06:05:11 +0700",
+    "exit_code": 0
+  },
+  {
+    "stage": "tests",
+    "command": [
+      "cargo",
+      "test",
+      "--locked",
+      "--offline",
+      "-p",
+      "lamp-voice-eval",
+      "--no-fail-fast",
+      "--",
+      "--test-threads=1"
+    ],
+    "cwd": "/private/tmp/lampos-tests-serve-release/lampOS",
+    "target": "/private/tmp/tests-823-rebase-target",
+    "start_from_date": "2026-10-16 06:05:11 +0700",
+    "finish_from_date": "2026-10-16 06:08:12 +0700",
+    "exit_code": 0
+  },
+  {
+    "stage": "build",
+    "command": [
+      "cargo",
+      "build",
+      "--locked",
+      "--offline",
+      "--workspace"
+    ],
+    "cwd": "/private/tmp/lampos-tests-serve-release/lampOS",
+    "target": "/private/tmp/tests-823-rebase-target",
+    "start_from_date": "2026-10-16 06:08:12 +0700",
+    "finish_from_date": "2026-10-16 06:09:41 +0700",
+    "exit_code": 0
+  }
+]

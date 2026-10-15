@@ -1,0 +1,239 @@
+{
+  "date_from_date": "2026-10-16 06:13:56 +0700",
+  "tree": "/private/tmp/lampos-tests-serve-release",
+  "base": "e7d0f673d0c4bde4a770b19783d6084a8d935ec3",
+  "raw_copies": [
+    {
+      "source": "/private/tmp/tests-823-serve-release-evidence/before/lampOS/crates/voice-eval/src/main.rs",
+      "destination": "current/before/lampOS/crates/voice-eval/src/main.rs",
+      "scope": "current-base integration and complete gate",
+      "sha256": "638cd8fa8c072d0639997c5de800ff7238f5f9f33de39ecba7d5d91243a18eee",
+      "bytes": 37175
+    },
+    {
+      "source": "/private/tmp/tests-823-serve-release-evidence/before/lampOS/crates/voice-eval/src/physical/fake_lamp.rs",
+      "destination": "current/before/lampOS/crates/voice-eval/src/physical/fake_lamp.rs",
+      "scope": "current-base integration and complete gate",
+      "sha256": "1d0cf3b4f57c1e8ecad0590ebbf1c343a6e527dfc06eba521fb7ea6da0597ba1",
+      "bytes": 20183
+    },
+    {
+      "source": "/private/tmp/tests-823-serve-release-evidence/before/lampOS/crates/voice-eval/src/physical/fake_serve.rs",
+      "destination": "current/before/lampOS/crates/voice-eval/src/physical/fake_serve.rs",
+      "scope": "current-base integration and complete gate",
+      "sha256": "3d1026d1b8a4ca11ee4e2f38fa00a518badf4f74193b049c13cf6515aa254d51",
+      "bytes": 20616
+    },
+    {
+      "source": "/private/tmp/tests-823-serve-release-evidence/before/lampOS/crates/voice-eval/src/physical/fixture_commands.rs",
+      "destination": "current/before/lampOS/crates/voice-eval/src/physical/fixture_commands.rs",
+      "scope": "current-base integration and complete gate",
+      "sha256": "f96208110fec892608b3099f9b33b0cf86a966e9dd21971b03ee56dc85e6086a",
+      "bytes": 15409
+    },
+    {
+      "source": "/private/tmp/tests-823-serve-release-evidence/before/lampOS/crates/voice-eval/src/physical/fixture_control.rs",
+      "destination": "current/before/lampOS/crates/voice-eval/src/physical/fixture_control.rs",
+      "scope": "current-base integration and complete gate",
+      "sha256": "318381580f7725db297e8efe4c510270ad574a75204e1b43f9845643f88ef33b",
+      "bytes": 26527
+    },
+    {
+      "source": "/private/tmp/tests-823-serve-release-evidence/before/lampOS/crates/voice-eval/src/physical/fixture_control_tests.rs",
+      "destination": "current/before/lampOS/crates/voice-eval/src/physical/fixture_control_tests.rs",
+      "scope": "current-base integration and complete gate",
+      "sha256": "22e02e09239c5471fcc78818785bf2e186f033b272e08ccba0864307c8563087",
+      "bytes": 23366
+    },
+    {
+      "source": "/private/tmp/tests-823-serve-release-evidence/before/lampOS/crates/voice-eval/src/physical/fixture_driver.rs",
+      "destination": "current/before/lampOS/crates/voice-eval/src/physical/fixture_driver.rs",
+      "scope": "current-base integration and complete gate",
+      "sha256": "6f518d5c02ea54a540b528aa7ac22a0fca1ffe4837f191c0cc20e369183b789e",
+      "bytes": 28997
+    },
+    {
+      "source": "/private/tmp/tests-823-serve-release-evidence/before/lampOS/crates/voice-eval/src/physical/mac.rs",
+      "destination": "current/before/lampOS/crates/voice-eval/src/physical/mac.rs",
+      "scope": "current-base integration and complete gate",
+      "sha256": "2435350939e44a1ccfa2dd04d35f906a406668209b6786cc1c04711c4a6e6bc2",
+      "bytes": 167430
+    },
+    {
+      "source": "/private/tmp/tests-823-serve-release-evidence/before/lampOS/crates/voice-eval/src/physical/mod.rs",
+      "destination": "current/before/lampOS/crates/voice-eval/src/physical/mod.rs",
+      "scope": "current-base integration and complete gate",
+      "sha256": "74a0279bf483658835bde00306a05d0e9caeb4d0384d8682d4f071ffad615ae5",
+      "bytes": 787
+    },
+    {
+      "source": "/private/tmp/tests-823-serve-release-evidence/before/lampOS/crates/voice-eval/src/physical/session.rs",
+      "destination": "current/before/lampOS/crates/voice-eval/src/physical/session.rs",
+      "scope": "current-base integration and complete gate",
+      "sha256": "a54ea45fdaea1c330eb30abc30aa9d3a8cb86767c2b8f40782158b5bfe266e31",
+      "bytes": 65599
+    },
+    {
+      "source": "/private/tmp/tests-823-serve-release-evidence/before/lampOS/crates/voice-eval/tests/serve_session.rs",
+      "destination": "current/before/lampOS/crates/voice-eval/tests/serve_session.rs",
+      "scope": "current-base integration and complete gate",
+      "sha256": "bb8e83a7c0cb08703852638749b01d32e88eb696b35aacb093a5462bd4ddcf49",
+      "bytes": 30067
+    },
+    {
+      "source": "/private/tmp/tests-823-serve-release-evidence/current-base-realtime-tests.md",
+      "destination": "current/current-base-realtime-tests.md",
+      "scope": "current-base integration and complete gate",
+      "sha256": "d08a2a37b23188acdda75fe486fea814a7fb5c7be53886fad22c28e0664a89da",
+      "bytes": 36656
+    },
+    {
+      "source": "/private/tmp/tests-823-serve-release-evidence/exact-doc-append.md",
+      "destination": "current/exact-doc-append.md",
+      "scope": "current-base integration and complete gate",
+      "sha256": "65198569e6a0fe6662f9f1ca78861534eba3143701d7bee26c65b458f7fd05de",
+      "bytes": 3037
+    },
+    {
+      "source": "/private/tmp/tests-823-serve-release-evidence/expected-after-identities-source-only.json",
+      "destination": "current/expected-after-identities-source-only.json",
+      "scope": "current-base integration and complete gate",
+      "sha256": "49309bf5f95aa08f4109d002bb85922549718f58e80fac78504224e492b8f4e4",
+      "bytes": 101531
+    },
+    {
+      "source": "/private/tmp/tests-823-serve-release-evidence/final-source-proof.json",
+      "destination": "current/final-source-proof.json",
+      "scope": "current-base integration and complete gate",
+      "sha256": "850c3c8a87fa748cd398063952268cc5dd94e1ef7075e09aa4b224d2bf613292",
+      "bytes": 4238
+    },
+    {
+      "source": "/private/tmp/tests-823-serve-release-evidence/root-baseline-list.log",
+      "destination": "current/root-baseline-list.log",
+      "scope": "current-base integration and complete gate",
+      "sha256": "a02f0b623ec3c068df47f1b8aa12f8bd2e404df7216e396c385c40f0738258df",
+      "bytes": 70145
+    },
+    {
+      "source": "/private/tmp/tests-823-serve-release-evidence/root-build.log",
+      "destination": "current/root-build.log",
+      "scope": "current-base integration and complete gate",
+      "sha256": "af412ff17223dbf914dcbbc38c78c7e5b907862d9ca7ce1c869dcd549cae815c",
+      "bytes": 3624
+    },
+    {
+      "source": "/private/tmp/tests-823-serve-release-evidence/root-clippy.log",
+      "destination": "current/root-clippy.log",
+      "scope": "current-base integration and complete gate",
+      "sha256": "e83658314992b988933769e34b432e0cafde65f6877fad6e02dfe0f9b31defc1",
+      "bytes": 1817
+    },
+    {
+      "source": "/private/tmp/tests-823-serve-release-evidence/root-fmt.log",
+      "destination": "current/root-fmt.log",
+      "scope": "current-base integration and complete gate",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "source": "/private/tmp/tests-823-serve-release-evidence/root-gates.json",
+      "destination": "current/root-gates.json",
+      "scope": "current-base integration and complete gate",
+      "sha256": "bd1705b7f8fd3b458a42aff395ece37cb44de5353e06c05880a9b90ec8ba0d26",
+      "bytes": 2109
+    },
+    {
+      "source": "/private/tmp/tests-823-serve-release-evidence/root-identity-proof.json",
+      "destination": "current/root-identity-proof.json",
+      "scope": "current-base integration and complete gate",
+      "sha256": "f85bee591e955edfc588b8da432d1b3e5f129c2e363960007d851634e9e9037c",
+      "bytes": 19365
+    },
+    {
+      "source": "/private/tmp/tests-823-serve-release-evidence/root-list.log",
+      "destination": "current/root-list.log",
+      "scope": "current-base integration and complete gate",
+      "sha256": "2a7488d005fd283e88b9d09ee48ea9b2ec3cfa71f98ca59f45ca0b79d533feaa",
+      "bytes": 90564
+    },
+    {
+      "source": "/private/tmp/tests-823-serve-release-evidence/root-result.json",
+      "destination": "current/root-result.json",
+      "scope": "current-base integration and complete gate",
+      "sha256": "6cc112b162832aa18421c335c2303b09464ec555e8bc5c9654591435a568ddfd",
+      "bytes": 162
+    },
+    {
+      "source": "/private/tmp/tests-823-serve-release-evidence/root-source-before.json",
+      "destination": "current/root-source-before.json",
+      "scope": "current-base integration and complete gate",
+      "sha256": "a3283b869ee123717f19c7757ae72bff5ef0dc8c14a530eac924f64c29bd1122",
+      "bytes": 9737
+    },
+    {
+      "source": "/private/tmp/tests-823-serve-release-evidence/root-tests.log",
+      "destination": "current/root-tests.log",
+      "scope": "current-base integration and complete gate",
+      "sha256": "d195aa22d75e03d3a16f5044ae38b3548679d4b043e3f691fe09893e591b689a",
+      "bytes": 54371
+    },
+    {
+      "source": "/private/tmp/tests-823-current-base-e7d-compiled/completed.json",
+      "destination": "baseline/completed.json",
+      "scope": "clean-e7d compiled baseline; listing is not test execution",
+      "sha256": "4a75a4117a0f0293b8f8b01906ac901bbf533c2cfd440e509e51d859fd2de77a",
+      "bytes": 153
+    },
+    {
+      "source": "/private/tmp/tests-823-current-base-e7d-compiled/gates.json",
+      "destination": "baseline/gates.json",
+      "scope": "clean-e7d compiled baseline; listing is not test execution",
+      "sha256": "c230aae333efdcc006af0dc89c500f2c1264df867016892a9b5ef450a0fe4c50",
+      "bytes": 989
+    },
+    {
+      "source": "/private/tmp/tests-823-current-base-e7d-compiled/provider-affected.log",
+      "destination": "baseline/provider-affected.log",
+      "scope": "clean-e7d compiled baseline; listing is not test execution",
+      "sha256": "37d9d356c5a879cb4cf4c2383112e98f2b8d569e065ea059793c101b4519f8f6",
+      "bytes": 384445
+    },
+    {
+      "source": "/private/tmp/tests-823-current-base-e7d-compiled/serve-evaluator.log",
+      "destination": "baseline/serve-evaluator.log",
+      "scope": "clean-e7d compiled baseline; listing is not test execution",
+      "sha256": "a02f0b623ec3c068df47f1b8aa12f8bd2e404df7216e396c385c40f0738258df",
+      "bytes": 70145
+    },
+    {
+      "source": "/private/tmp/tests-823-current-base-e7d-compiled/source.json",
+      "destination": "baseline/source.json",
+      "scope": "clean-e7d compiled baseline; listing is not test execution",
+      "sha256": "9965c89d0c7aa39a103dc9a6bad7bae03dc3a12ab7087fc1712658789140e09f",
+      "bytes": 97156
+    },
+    {
+      "source": "/private/tmp/tests-823-serve-release-independent-review.md",
+      "destination": "review/independent-review.md",
+      "scope": "read-only source review completed while the gate was still running; retained unchanged",
+      "sha256": "681016fe8b5056a23bdca23878fe2f139cdca51a94091dcfc81d5ff70186b0a0",
+      "bytes": 4640
+    },
+    {
+      "source": "/private/tmp/tests-823-serve-release-independent-review.json",
+      "destination": "review/independent-review.json",
+      "scope": "read-only source review completed while the gate was still running; retained unchanged",
+      "sha256": "bcf22a2cf494ce7a00d267a6d1e6c2ca0819a745b3dffeaf86a42bb9d3cc18d2",
+      "bytes": 12578
+    }
+  ],
+  "all_copied_bytes_equal": true,
+  "historical_folder_retained_unchanged": "lampOS/docs/verification/serve-all-cases-20261016",
+  "excluded_scratch_orchestration": {
+    "path": "/private/tmp/tests-823-serve-release-gate-20261016.py",
+    "sha256": "831bfc5fdfbd2f31ccb35f99085b99138319f2b5f562aae26bc65aa028f6baba"
+  },
+  "all_source_bytes_and_previous_tracked_modes_unchanged": true,
+  "no_cargo_git_mutation_network_or_device_use_by_packager": true
+}

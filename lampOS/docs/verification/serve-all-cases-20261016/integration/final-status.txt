@@ -1,0 +1,26 @@
+ M lampOS/crates/voice-eval/src/main.rs
+ M lampOS/crates/voice-eval/src/physical/fake_lamp.rs
+ M lampOS/crates/voice-eval/src/physical/fake_serve.rs
+ M lampOS/crates/voice-eval/src/physical/fixture_commands.rs
+ M lampOS/crates/voice-eval/src/physical/fixture_control.rs
+ M lampOS/crates/voice-eval/src/physical/fixture_control_tests.rs
+ M lampOS/crates/voice-eval/src/physical/fixture_driver.rs
+ M lampOS/crates/voice-eval/src/physical/mac.rs
+ M lampOS/crates/voice-eval/src/physical/mod.rs
+ M lampOS/crates/voice-eval/src/physical/session.rs
+ M lampOS/crates/voice-eval/tests/serve_session.rs
+ M lampOS/docs/realtime-tests.md
+?? lampOS/crates/voice-eval/src/physical/fake_serve_progress_tests.rs
+?? lampOS/crates/voice-eval/src/physical/fixture_players.rs
+?? lampOS/crates/voice-eval/src/physical/prepared_player_progress_tests.rs
+?? lampOS/crates/voice-eval/src/physical/recorder_backend_tests.rs
+?? lampOS/crates/voice-eval/src/physical/recorder_fixture_commands_tests.rs
+?? lampOS/crates/voice-eval/src/physical/recorder_fixture_control_tests.rs
+?? lampOS/crates/voice-eval/src/physical/recorder_fixture_driver_tests.rs
+?? lampOS/crates/voice-eval/src/physical/serve_fixture_commands_tests.rs
+?? lampOS/crates/voice-eval/src/physical/serve_fixture_control_tests.rs
+?? lampOS/crates/voice-eval/src/physical/serve_fixture_driver.rs
+?? lampOS/crates/voice-eval/src/physical/serve_relay_progress_tests.rs
+?? lampOS/crates/voice-eval/src/physical/slow_transport_fixture_commands_tests.rs
+?? lampOS/crates/voice-eval/src/physical/slow_transport_fixture_control_tests.rs
+?? lampOS/crates/voice-eval/src/physical/slow_transport_fixture_driver_tests.rs

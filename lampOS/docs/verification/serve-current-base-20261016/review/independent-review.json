@@ -1,0 +1,285 @@
+{
+  "started_from_date": "2026-10-16 06:07:04 +0700",
+  "finished_from_date": "2026-10-16 06:07:07 +0700",
+  "tree": "/private/tmp/lampos-tests-serve-release",
+  "base": "e7d0f673d0c4bde4a770b19783d6084a8d935ec3",
+  "published_source": "8af53fd459795029f6277679ded49bf7826def73",
+  "old_base": "d60124f8280f9c76576d6ca7bf859bc5c3983828",
+  "no_blocking_findings": true,
+  "all_25_owned_rust_exact_published": true,
+  "all_75_evaluator_rust_exact_published": true,
+  "owned_rust": [
+    {
+      "path": "lampOS/crates/voice-eval/src/main.rs",
+      "sha256": "1751caa8d8246f8217674397c2c979bab40dc6eaa3d81834784e88cc29ef6607",
+      "published_blob": "31cdcbb226a8dd64362b74bfbf134a6310685084",
+      "base_blob": "426df21c4c31bef39aa0cee45c86e9a4017408b0",
+      "exact_published_bytes": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/fake_lamp.rs",
+      "sha256": "7707b987700293a31096338ccd4364e34aa70bce59bca2dd3c1cdaef15c0c9a1",
+      "published_blob": "c62744c60c173ee27cec320b27e3f5f22128656e",
+      "base_blob": "d041ca5f9b3e50d1ff7691ec680b8c4df4a21374",
+      "exact_published_bytes": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/fake_serve.rs",
+      "sha256": "5168b08f121fc374972f9a1bb10f86e30396c83c17ee12c2ea9858cd74ef780d",
+      "published_blob": "0552e11ede2f9d2445f0ce7052a9968a92a28d5f",
+      "base_blob": "61a16def552baa65f91c08490876002715412a13",
+      "exact_published_bytes": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/fake_serve_progress_tests.rs",
+      "sha256": "43af2f78890ec502bc3d12cd95214bf2aaa65578eeac1e9abaa1a6c4d0611f7a",
+      "published_blob": "7e42d084b28fb4f4437fb77aec6af1df254a17e2",
+      "base_blob": null,
+      "exact_published_bytes": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/fixture_commands.rs",
+      "sha256": "df424358eb99ab6982ef8cd3ea3d7484f55bf3c033aabcf29ca0b07c0df5ab0a",
+      "published_blob": "6ad2188d3ad7331509e5ca89dc70bf309304b83b",
+      "base_blob": "d176bbffec13fa8a08fd35eacc17bb0a427f3ddb",
+      "exact_published_bytes": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/fixture_control.rs",
+      "sha256": "ca68dec8488bc9e86f42c8801ba4185a901f02d71c2879691bdb8351899fb412",
+      "published_blob": "b490286eac17b89789f041c8a7cb764b26669c24",
+      "base_blob": "45c7dfdec2b242fb9a1025042367278dc8b90ef3",
+      "exact_published_bytes": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/fixture_control_tests.rs",
+      "sha256": "90dab0a1075f0fbb819d819f391aede2994363c3238e54445a5a73e5f12f604a",
+      "published_blob": "a4f498d17a7ca829ca14ed0c276a20aa111e00ed",
+      "base_blob": "d9249d494614b4d8e242ddeafaae9a953a25f5ab",
+      "exact_published_bytes": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/fixture_driver.rs",
+      "sha256": "3e4a99a9e5029b7c770b2420c4df70271c5702e30c6f97a3dcfc954fce1871d9",
+      "published_blob": "651371addfeb2f435f5d2cbe3f78b915f0a40b6b",
+      "base_blob": "50015b2c39326f49597e95d9668828b1eff90007",
+      "exact_published_bytes": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/fixture_players.rs",
+      "sha256": "2378acf5a32c53b013cc90b96d827bdb82307dbb054d7c94e30ede8752dc5dab",
+      "published_blob": "abae84d648558e3aacd5a1bd721a31cb279d31ee",
+      "base_blob": null,
+      "exact_published_bytes": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/mac.rs",
+      "sha256": "c14c40669ad423baf9c21672587bd6e97e47a64e102d6d22c2714e3e399d78e2",
+      "published_blob": "5f7073f991d1c1ea5ac56d5f5b390d9734d0faed",
+      "base_blob": "4c808f12fba709cbe27242a89950536c38695270",
+      "exact_published_bytes": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/mod.rs",
+      "sha256": "c55ab4bd4fad65b806f4e66f533d7334f947c25c87d8d072ce69ff848db2e582",
+      "published_blob": "2533d3ec5fec304bdfd8ba0ee53ccd76d8f2844f",
+      "base_blob": "126fcb2d0f4aa39284accc954164f7ce4d02f4fd",
+      "exact_published_bytes": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/prepared_player_progress_tests.rs",
+      "sha256": "1ac1f3a24b267c0968fe291befbd65739c06a1baf4e2f5c9b24eca8f841055b7",
+      "published_blob": "7837c6cefb4d99d40e792c9d3aa6b061251ff225",
+      "base_blob": null,
+      "exact_published_bytes": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/recorder_backend_tests.rs",
+      "sha256": "a9ed66168aea14d40b3ae28a17c46450ca8e966e6d6f46f550565daea2e7bbde",
+      "published_blob": "3d54e47ccb7e322ea94cf4b3d386527d0c47dd49",
+      "base_blob": null,
+      "exact_published_bytes": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/recorder_fixture_commands_tests.rs",
+      "sha256": "500cd9e92ed12a7328f67d99c60d68105f5130f31d8db2ecd76265fd5fb01d37",
+      "published_blob": "09baee6367ec334b374ceef776ee86ada815accb",
+      "base_blob": null,
+      "exact_published_bytes": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/recorder_fixture_control_tests.rs",
+      "sha256": "3e9c7eb09f574cbda46a06fb9ac452993df5a9b4417c5f0d9691f9deba27cf80",
+      "published_blob": "4c95588be7f3a6fc87c5699c075472c207e8a560",
+      "base_blob": null,
+      "exact_published_bytes": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/recorder_fixture_driver_tests.rs",
+      "sha256": "da5c382c25fd8d63f7fac9e3ff17d6caff216df95ae2289af40da6c1225c3ff1",
+      "published_blob": "e39523e145946d8abbf9db35e7f09337ffecfda3",
+      "base_blob": null,
+      "exact_published_bytes": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/serve_fixture_commands_tests.rs",
+      "sha256": "54f60e0f676d94989b5220f707f9c5c085cbec83de0aa0e0a3d4ba5f892642ea",
+      "published_blob": "7fe279f964078ea5230b825c2763aa55a771fc50",
+      "base_blob": null,
+      "exact_published_bytes": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/serve_fixture_control_tests.rs",
+      "sha256": "fdb57e00dd9e3028ae6f5a5aa6df81d1147bee4fc582ad00b117368951b80bcf",
+      "published_blob": "d039b7223a3d2017736b274042cdc9beff79c69f",
+      "base_blob": null,
+      "exact_published_bytes": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/serve_fixture_driver.rs",
+      "sha256": "3ba9b3405c82198e4c56e4baa3c982be74d8a2e0588766be11c34a2fa62e8014",
+      "published_blob": "a48027b45440280d42ac494460c7c84b47d2742f",
+      "base_blob": null,
+      "exact_published_bytes": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/serve_relay_progress_tests.rs",
+      "sha256": "d7ccf7f0ddcd46a07d9d6cfc768d5126d507c133b0b708dc69881f124f238ed4",
+      "published_blob": "faf69d92eb7a1854fa1292e9379f3c2b8a17446f",
+      "base_blob": null,
+      "exact_published_bytes": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/session.rs",
+      "sha256": "660cea49d4e1389ad23e5786a5efded083e7f6d98912dfc9ad9887dad85ccd24",
+      "published_blob": "60389096fc0dbcdaff83d02373ad1385068eb03c",
+      "base_blob": "022bff660e93f1b4e6a730268f6ff28ed47fcde0",
+      "exact_published_bytes": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/slow_transport_fixture_commands_tests.rs",
+      "sha256": "dee37c32bd463a6603ab0b2f1dc5f0b2a9ae4b62da98b26a9b9aea560b7ef7c1",
+      "published_blob": "a5183477681c04fb3e6e6074b8b471cac5a89a7d",
+      "base_blob": null,
+      "exact_published_bytes": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/slow_transport_fixture_control_tests.rs",
+      "sha256": "1032118bfae8aec9a555f87ca6f3f334c16599c361a90b38768d5c1d454d3359",
+      "published_blob": "85c4462fea1f29ad07a9eb396d069715fc3a0193",
+      "base_blob": null,
+      "exact_published_bytes": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/slow_transport_fixture_driver_tests.rs",
+      "sha256": "0026046f596309aa8cc2698de1893825d0b4d006e5f7951a5af81d1158a85187",
+      "published_blob": "76ff530509d334ce232997e80253d7818af68e52",
+      "base_blob": null,
+      "exact_published_bytes": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/serve_session.rs",
+      "sha256": "1850248165b8c7d5022ec06f3267b5de1a829fa375135cdda26aa3bfe539b905",
+      "published_blob": "6f0366528b278b5f494e435e39062d4917ddbc78",
+      "base_blob": "dd9352e1f67e79ca0e3c82785cb29083eadffac4",
+      "exact_published_bytes": true
+    }
+  ],
+  "base_owned_sources_unchanged_from_old_base": true,
+  "document": {
+    "path": "lampOS/docs/realtime-tests.md",
+    "sha256": "379e5b356b4e69322609ce87f44ab61fd3632b969f09afcde56f7cc8f73c4f68",
+    "base_sha256": "d08a2a37b23188acdda75fe486fea814a7fb5c7be53886fad22c28e0664a89da",
+    "exact_serve_append_sha256": "65198569e6a0fe6662f9f1ca78861534eba3143701d7bee26c65b458f7fd05de",
+    "entire_current_base_prefix_preserved": true,
+    "expression_912_section_exact_and_once": true,
+    "serve_section_once": true
+  },
+  "protected_tracked_entry_count": 6782,
+  "all_unowned_tracked_blobs_and_modes_exact": true,
+  "selected_current_base_inputs": [
+    {
+      "path": "lampOS/Cargo.lock",
+      "sha256": "40d62fead16a6f138c4d7dbe400a2e4a9855ceece96d19b1e642136431aed4c5",
+      "git_blob": "a8f411e0571e2c658a29f9a89f6c81ff4eb9d728",
+      "mode": "100644"
+    },
+    {
+      "path": "lampOS/crates/memory/Cargo.toml",
+      "sha256": "9c76d873ad6b870b46a3e3a7fad8cb3bf80ee0a31ca4b5ccaaa1d72dedac1875",
+      "git_blob": "8f8d15eb76648f73fd62cd9480e5dc00ee8a7a38",
+      "mode": "100644"
+    },
+    {
+      "path": "lampOS/docs/memory-fixture-clock.md",
+      "sha256": "22fc06ead6ad7e0a8d5a1791adf74a340be755c91ddb3d0ec9d4f7a5a6b60de4",
+      "git_blob": "dc751290e74fb601c9935c346da90e014f6162d1",
+      "mode": "100644"
+    },
+    {
+      "path": "lampOS/docs/selftest.md",
+      "sha256": "1ee8df186ccbc0b88ac0d3da6af884cc4b906b8d7f8c1a29983a4a1a1d6d6f0c",
+      "git_blob": "b331f03ac060f7e144fa9c27c5e5a3c025c34af1",
+      "mode": "100644"
+    },
+    {
+      "path": "lampOS/docs/tasks.md",
+      "sha256": "17abc7e0f58381438c3fbb79350c860dbd5ea2ce9e69a43eee91602881be4a6e",
+      "git_blob": "9f9fb0d3f1918a9970fdb441977c5a070a33faa7",
+      "mode": "100644"
+    },
+    {
+      "path": "lampOS/docs/tools.md",
+      "sha256": "8228f4bb582ed67885250ed17f1a1dcd0e6c8c08f5d13bb9bcd3173d7258b60a",
+      "git_blob": "b50f63666bb823d096c1b582e4ebbe22afe4a32b",
+      "mode": "100644"
+    }
+  ],
+  "historical_verification_files_exact_published": 148,
+  "original_tests": {
+    "current_base_compiled": 377,
+    "source_test_count": 377,
+    "body_byte_exact": 376,
+    "compatibility_only": [
+      {
+        "path": "lampOS/crates/voice-eval/src/physical/fixture_commands.rs",
+        "name": "relay_terminal_progress_keeps_the_last_real_poll_and_final_output_count",
+        "only_change": "stop_signal_sent_us: None added to existing RelayPollProgress literal",
+        "old_sha256": "ebcf2d5b653ce4fb4e642d6a748594f899af980a55687a1dff4af094f1d998cc",
+        "new_sha256": "ccfb3a7f4e19dee3cd814ef5e730802303e0ddfb639ce25552f0aaa65b1fe1da",
+        "old_assertions_restored_exactly": true
+      }
+    ],
+    "added": 121,
+    "expected_after": 498,
+    "duplicate_ids": [],
+    "missing_ids": [],
+    "all_original_ignored_flags_retained": true,
+    "actual_module_names_derived_from_current_source": true,
+    "closed_peer_original_names": 10,
+    "provided_expected_inventory_exact": true,
+    "published_compiled_inventory_exact": true,
+    "current_base_raw_list_sha256": "a02f0b623ec3c068df47f1b8aa12f8bd2e404df7216e396c385c40f0738258df",
+    "published_raw_list_sha256": "f3cdb16af11865447b2510a1c9b8183a60238e424ff1892fdda39c4a28936ddd",
+    "fresh_after_list_if_complete": {
+      "count": 498,
+      "sha256": "2a7488d005fd283e88b9d09ee48ea9b2ec3cfa71f98ca59f45ca0b79d533feaa",
+      "matches_independent_expected": true,
+      "all_377_originals_preserved": true
+    }
+  },
+  "original_serve": {
+    "identities": 14,
+    "assertions": 114,
+    "expanded_attempts": 22,
+    "all_bodies_exact": true,
+    "entire_assertion_helper_scenario_tail_exact": true
+  },
+  "review_action_limits": [
+    "Read-only Git objects, source and saved logs only.",
+    "No source edit, Git mutation, Cargo, test execution, network or device action.",
+    "Running fresh full gate and native qualification remain root work; no new passing execution is claimed."
+  ],
+  "source_hashes_stable_during_review": true,
+  "git_status_exact_declared_scope": true
+}

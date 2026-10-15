@@ -4,6 +4,7 @@
 //! own `CueSink`, and writes an `events.jsonl` in lamp-voice's vocabulary. The
 //! conversation is the fake runtime; "playback" arrives as datagrams on a fake
 //! room socket instead of sound.
+use super::fake_serve::{self, FakeServe, ServeFaults, ServePollProgress, ServePollTargets};
 use crate::{
     Result,
     events::{EventKind, to_trace},
@@ -98,14 +99,104 @@ pub fn run_with_clock_and_poll(
     run_inner(arguments, false, now, on_poll)
 }
 
-fn run_inner(
+/// Run only the explicit controlled serve fixture. Parsing and its argv line
+/// are shared with the ordinary fake; only this path flushes and counts that
+/// line before entering the controlled serve engine. The engine's terminal
+/// callback follows final metadata and stdout, but never proves process exit.
+pub fn run_serve_with_controlled_clock(
     arguments: &[String],
-    allow_serve: bool,
     now: impl Fn() -> MonoTime,
-    mut on_poll: impl FnMut(DirectedPoll) -> Result<()>,
+    before_poll: impl FnMut() -> Result<ServePollTargets>,
+    mut completed_poll: impl FnMut(ServePollProgress) -> Result<()>,
 ) -> Result<i32> {
+    let parsed = parse_arguments(arguments)?;
+    if !parsed.is_serve() {
+        return Err(invalid("a controlled serve fake supports only serve runs"));
+    }
+    let argv_frames = emit_serve_argv(&mut std::io::stdout().lock(), arguments)?;
+    fake_serve::run_with_controlled_clock(parsed.into_serve()?, now, before_poll, |mut progress| {
+        progress.stdout_lines = progress
+            .stdout_lines
+            .checked_add(argv_frames)
+            .ok_or_else(|| invalid("serve fixture stdout counter overflow"))?;
+        completed_poll(progress)
+    })
+}
+
+/// The receipt is returned only after the original JSON line and its LF flush.
+pub(super) fn emit_serve_argv(out: &mut impl Write, arguments: &[String]) -> Result<u64> {
+    writeln!(
+        out,
+        "{}",
+        json!({"kind": "fake_lamp_argv", "argv": arguments})
+    )?;
+    out.flush()?;
+    Ok(1)
+}
+
+struct FakeArguments<'a> {
+    rest: &'a [String],
+    plan: LoadedPlan,
+    serve: ServeFaults,
+    scenario: Option<String>,
+    profile: Option<String>,
+    room: Option<PathBuf>,
+    seed: u64,
+    session_override: Option<u16>,
+    cue_fault: Option<String>,
+    two_generations: bool,
+}
+
+impl FakeArguments<'_> {
+    fn is_serve(&self) -> bool {
+        self.rest.first().map(String::as_str) == Some("serve")
+    }
+
+    fn into_serve(self) -> Result<FakeServe> {
+        let Self {
+            rest,
+            plan,
+            serve,
+            scenario,
+            profile,
+            room,
+            seed,
+            cue_fault,
+            ..
+        } = self;
+        let cue = rest
+            .iter()
+            .position(|a| a == "--cue-socket")
+            .and_then(|i| rest.get(i + 1))
+            .map(PathBuf::from)
+            .ok_or_else(|| invalid("the fake serve runtime needs --cue-socket"))?;
+        let output = rest
+            .get(2)
+            .map(PathBuf::from)
+            .ok_or_else(|| invalid("expected serve CONFIG OUT"))?;
+        let scenario = plan
+            .scenario(&scenario.ok_or_else(|| invalid("--fake-scenario required"))?)?
+            .clone();
+        let profile = plan
+            .profile(&profile.ok_or_else(|| invalid("--fake-profile required"))?)?
+            .clone();
+        Ok(FakeServe {
+            scenario,
+            profile,
+            fixed_reply: plan.plan.fixed_reply.clone(),
+            seed,
+            output,
+            cue_path: cue,
+            room,
+            cue_fault,
+            faults: serve,
+        })
+    }
+}
+
+fn parse_arguments(arguments: &[String]) -> Result<FakeArguments<'_>> {
     let mut plan_path = None;
-    let mut serve = crate::physical::fake_serve::ServeFaults::default();
+    let mut serve = ServeFaults::default();
     let mut scenario = None;
     let mut profile = None;
     let mut room = None;
@@ -139,7 +230,28 @@ fn run_inner(
         Some(path) => LoadedPlan::parse(&fs::read_to_string(path)?, &catalog)?,
         None => LoadedPlan::default_plan(&catalog)?,
     };
-    if rest.first().map(String::as_str) == Some("serve") {
+    Ok(FakeArguments {
+        rest,
+        plan,
+        serve,
+        scenario,
+        profile,
+        room,
+        seed,
+        session_override,
+        cue_fault,
+        two_generations,
+    })
+}
+
+fn run_inner(
+    arguments: &[String],
+    allow_serve: bool,
+    now: impl Fn() -> MonoTime,
+    mut on_poll: impl FnMut(DirectedPoll) -> Result<()>,
+) -> Result<i32> {
+    let parsed = parse_arguments(arguments)?;
+    if parsed.is_serve() {
         if !allow_serve {
             return Err(invalid(
                 "a controlled fake clock supports only finite directed runs",
@@ -147,34 +259,20 @@ fn run_inner(
         }
         // The exact arguments this child received, for argv forwarding tests.
         println!("{}", json!({"kind": "fake_lamp_argv", "argv": arguments}));
-        let cue = rest
-            .iter()
-            .position(|a| a == "--cue-socket")
-            .and_then(|i| rest.get(i + 1))
-            .map(PathBuf::from)
-            .ok_or_else(|| invalid("the fake serve runtime needs --cue-socket"))?;
-        let output = rest
-            .get(2)
-            .map(PathBuf::from)
-            .ok_or_else(|| invalid("expected serve CONFIG OUT"))?;
-        let scenario = plan
-            .scenario(&scenario.ok_or_else(|| invalid("--fake-scenario required"))?)?
-            .clone();
-        let profile = plan
-            .profile(&profile.ok_or_else(|| invalid("--fake-profile required"))?)?
-            .clone();
-        return crate::physical::fake_serve::run(crate::physical::fake_serve::FakeServe {
-            scenario,
-            profile,
-            fixed_reply: plan.plan.fixed_reply.clone(),
-            seed,
-            output,
-            cue_path: cue,
-            room,
-            cue_fault,
-            faults: serve,
-        });
+        return fake_serve::run(parsed.into_serve()?);
     }
+    let FakeArguments {
+        rest,
+        plan,
+        serve,
+        scenario,
+        profile,
+        room,
+        seed,
+        session_override,
+        cue_fault,
+        two_generations,
+    } = parsed;
     if !serve.is_empty() {
         return Err(invalid("serve faults need the fake serve runtime"));
     }

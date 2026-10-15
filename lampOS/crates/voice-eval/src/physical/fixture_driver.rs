@@ -34,11 +34,15 @@ const BOOTSTRAP_US: u64 = POLL_US;
 pub struct RunnerFixtureClock(Arc<AtomicU64>);
 
 impl RunnerFixtureClock {
+    pub(crate) fn new(at_us: u64) -> Self {
+        Self(Arc::new(AtomicU64::new(at_us)))
+    }
+
     pub fn now(&self) -> MonoTime {
         MonoTime::from_micros(self.0.load(Ordering::Acquire))
     }
 
-    fn advance(&self, at_us: u64) -> Result<()> {
+    pub(crate) fn advance(&self, at_us: u64) -> Result<()> {
         if at_us < self.now().as_micros() {
             return Err(invalid("fixture driver clock would regress"));
         }
@@ -227,6 +231,7 @@ impl ClockedFixture {
                     at_us: self.clock.now().as_micros(),
                     stdout_target: 0,
                     runner_input_target: 0,
+                    wait_for_sigterm: false,
                 },
                 until,
             )?;
@@ -269,6 +274,7 @@ impl ClockedFixture {
                     at_us: self.clock.now().as_micros(),
                     stdout_target: self.runtime_stdout,
                     runner_input_target: sent_frames,
+                    wait_for_sigterm: false,
                 },
                 until,
             )?;
@@ -454,7 +460,7 @@ impl Player for FixtureRoomPlayer {
     }
 }
 
-fn next_round(previous: u64) -> Result<u64> {
+pub(crate) fn next_round(previous: u64) -> Result<u64> {
     previous
         .checked_add(1)
         .ok_or_else(|| invalid("fixture round overflow"))
@@ -464,7 +470,7 @@ fn next_round(previous: u64) -> Result<u64> {
 /// bounded pongs, readiness/start/end, and the explicit duplicate-cue fault fit
 /// before a terminal acknowledgement. The backend reserves its extra error slot
 /// separately; it is never counted as room for normal announced output.
-fn ensure_queue_capacity(announced: u64, drained: u64) -> Result<()> {
+pub(crate) fn ensure_queue_capacity(announced: u64, drained: u64) -> Result<()> {
     if announced < drained {
         return Err(invalid(
             "fixture output announcement is behind the drained frame count",
@@ -478,14 +484,14 @@ fn ensure_queue_capacity(announced: u64, drained: u64) -> Result<()> {
     Ok(())
 }
 
-fn check_host_deadline(until: Instant, what: &str) -> Result<Duration> {
+pub(crate) fn check_host_deadline(until: Instant, what: &str) -> Result<Duration> {
     until
         .checked_duration_since(Instant::now())
         .filter(|remaining| !remaining.is_zero())
         .ok_or_else(|| invalid(&format!("fixture {what} exceeded its host watchdog")))
 }
 
-fn wait_for_enqueued(enqueued: &AtomicU64, target: u64, until: Instant) -> Result<()> {
+pub(crate) fn wait_for_enqueued(enqueued: &AtomicU64, target: u64, until: Instant) -> Result<()> {
     while enqueued.load(Ordering::Acquire) < target {
         let remaining = check_host_deadline(until, "backend reader enqueue barrier")?;
         thread::sleep(remaining.min(Duration::from_millis(1)));

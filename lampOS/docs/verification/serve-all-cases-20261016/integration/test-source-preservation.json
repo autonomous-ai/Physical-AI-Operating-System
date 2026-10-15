@@ -1,0 +1,3264 @@
+{
+  "date_from_date": "2026-10-16 05:17:00 +0700",
+  "original_test_functions_byte_exact": 376,
+  "original_count": 377,
+  "new_count": 121,
+  "expected_total_source_only": 498,
+  "required_new_field_adaptations": [
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/fixture_commands.rs",
+      "name": "relay_terminal_progress_keeps_the_last_real_poll_and_final_output_count",
+      "adaptation": "The existing RelayPollProgress literal sets the new signal receipt field to None. Removing exactly that one field restores the whole old body, including its assertion.",
+      "base_sha256": "ebcf2d5b653ce4fb4e642d6a748594f899af980a55687a1dff4af094f1d998cc",
+      "final_sha256": "ccfb3a7f4e19dee3cd814ef5e730802303e0ddfb639ce25552f0aaa65b1fe1da"
+    }
+  ],
+  "originals": [
+    {
+      "path": "lampOS/crates/voice-eval/src/evaluate.rs",
+      "name": "synthetic_events_cannot_bypass_outcome_gap_consistency",
+      "base_sha256": "5be4b3c556c52d91fccb42005434d4c832eae0db48a2bec50c01718cbb7a38fe",
+      "final_sha256": "5be4b3c556c52d91fccb42005434d4c832eae0db48a2bec50c01718cbb7a38fe",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/events.rs",
+      "name": "readiness_records_map_from_the_trace",
+      "base_sha256": "8ca005e6b8730f76e3ea06476c4b5ad1930cb6f6b68d0a931d79794d7c8ec0f3",
+      "final_sha256": "8ca005e6b8730f76e3ea06476c4b5ad1930cb6f6b68d0a931d79794d7c8ec0f3",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/events.rs",
+      "name": "proposed_readiness_cues_parse_strictly_and_carry_no_owner",
+      "base_sha256": "03bf29be7644ab895b12775c8ca24b169d81684c990601d15b102ff766f721ff",
+      "final_sha256": "03bf29be7644ab895b12775c8ca24b169d81684c990601d15b102ff766f721ff",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/events.rs",
+      "name": "candidate_and_ring_vocabulary_maps_with_turns_and_ids",
+      "base_sha256": "944eeb3fc13e04010150ae5e05f429a50630bf419f1de80f09c56bc2abe1d62e",
+      "final_sha256": "944eeb3fc13e04010150ae5e05f429a50630bf419f1de80f09c56bc2abe1d62e",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/events.rs",
+      "name": "coordinator_vocabulary_maps_without_guessing",
+      "base_sha256": "d8e0ed07afd8adf5f3d87b3a3febcf98dffcb03eff5153b16f4c150a7ce88a7e",
+      "final_sha256": "d8e0ed07afd8adf5f3d87b3a3febcf98dffcb03eff5153b16f4c150a7ce88a7e",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/events.rs",
+      "name": "fake_serialization_round_trips_through_the_trace_parser",
+      "base_sha256": "9e670197cb8667bf80add78638fd8ebf8bb243b0152f629b4d69e6a7bb19c0e0",
+      "final_sha256": "9e670197cb8667bf80add78638fd8ebf8bb243b0152f629b4d69e6a7bb19c0e0",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/events.rs",
+      "name": "cues_require_schema_one_and_consistent_times",
+      "base_sha256": "1d4b277ecbe5631d7da5ec111902a7dce01c924d6ea607d7ba353c8fd382ae33",
+      "final_sha256": "1d4b277ecbe5631d7da5ec111902a7dce01c924d6ea607d7ba353c8fd382ae33",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/events.rs",
+      "name": "directed_cues_preserve_owner_epochs_and_cancel_reason",
+      "base_sha256": "4f89e5d6db25592a9bbc48bd825345c821fe4e7a62edc1f5a202e8b76a839bd7",
+      "final_sha256": "4f89e5d6db25592a9bbc48bd825345c821fe4e7a62edc1f5a202e8b76a839bd7",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/events.rs",
+      "name": "completion_cues_require_all_terminal_fields_and_original_generation",
+      "base_sha256": "0c415148897f50923fdf6e01c2b344b9fc7ed85e3ccf36ff3802ac51e647ee1e",
+      "final_sha256": "0c415148897f50923fdf6e01c2b344b9fc7ed85e3ccf36ff3802ac51e647ee1e",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/backend_clock_tests.rs",
+      "name": "backend_reads_only_the_supplied_clock_and_the_default_stays_on_host_time",
+      "base_sha256": "916e62f259b06cd7439b3c853d1d840b0ef059a76e4bd5dd8f08f23ed69ce937",
+      "final_sha256": "916e62f259b06cd7439b3c853d1d840b0ef059a76e4bd5dd8f08f23ed69ce937",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/backend_clock_tests.rs",
+      "name": "ping_receipts_and_each_cue_decision_take_their_own_clock_sample",
+      "base_sha256": "cd32beec52203443e461b3c95b1eff75494de8041bda1f198c57b833d6366505",
+      "final_sha256": "cd32beec52203443e461b3c95b1eff75494de8041bda1f198c57b833d6366505",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/backend_clock_tests.rs",
+      "name": "post_end_drain_and_transport_reap_finish_with_a_frozen_clock",
+      "base_sha256": "72b4ede307a0f149cac78502171ac37e722cb0f13a80ba450fba91e3894dd8f9",
+      "final_sha256": "72b4ede307a0f149cac78502171ac37e722cb0f13a80ba450fba91e3894dd8f9",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/backend_clock_tests.rs",
+      "name": "immediate_player_keeps_datagrams_and_reports_in_the_selected_clock_domain",
+      "base_sha256": "015d5f1a4f7505d54808d59d7d30129696effbb8cc1f6f50e0fdd79b6c928d28",
+      "final_sha256": "015d5f1a4f7505d54808d59d7d30129696effbb8cc1f6f50e0fdd79b6c928d28",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/backend_clock_tests.rs",
+      "name": "an_unrepresentable_player_timestamp_is_rejected_before_delivery",
+      "base_sha256": "31d71df2b3a0fac89d1c06f4e9f82d66b0e43cd6377e923aaba33af9a9983db1",
+      "final_sha256": "31d71df2b3a0fac89d1c06f4e9f82d66b0e43cd6377e923aaba33af9a9983db1",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/backend_progress_tests.rs",
+      "name": "more_than_the_default_queue_is_enqueued_before_any_backend_consumption",
+      "base_sha256": "a7e0eb60d11664af3790d8e4cbc42801af7a9392e1d4a0b8e05f5bad46a94d0e",
+      "final_sha256": "a7e0eb60d11664af3790d8e4cbc42801af7a9392e1d4a0b8e05f5bad46a94d0e",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/backend_progress_tests.rs",
+      "name": "the_maximum_final_trace_and_session_end_are_enqueued_before_consumption",
+      "base_sha256": "49f9e21520bde93315e8b07d41f34ed237f7b423ef34b3f2ee86d33568eef168",
+      "final_sha256": "49f9e21520bde93315e8b07d41f34ed237f7b423ef34b3f2ee86d33568eef168",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/backend_progress_tests.rs",
+      "name": "the_exact_fixture_limit_preserves_every_record_without_an_overflow_error",
+      "base_sha256": "75c1f13d010f328c1243a6c22ac9dcb6e7cca63e6181af12f429481a1c0ab8cd",
+      "final_sha256": "75c1f13d010f328c1243a6c22ac9dcb6e7cca63e6181af12f429481a1c0ab8cd",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/backend_progress_tests.rs",
+      "name": "overflow_keeps_a_terminal_error_slot_and_closes_the_real_transport",
+      "base_sha256": "a93e983bdb7032eaa2a3e71ba92bb7288fedf72f6749a97b4b87d193a3983b4f",
+      "final_sha256": "a93e983bdb7032eaa2a3e71ba92bb7288fedf72f6749a97b4b87d193a3983b4f",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/backend_progress_tests.rs",
+      "name": "complete_malformed_frames_count_but_partial_eof_does_not",
+      "base_sha256": "68f870e4d4bce12742f8e5ab272df606e8f05e1d37c34c5ffe655a781327fd08",
+      "final_sha256": "68f870e4d4bce12742f8e5ab272df606e8f05e1d37c34c5ffe655a781327fd08",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/backend_progress_tests.rs",
+      "name": "a_read_error_uses_the_reserved_slot_after_the_last_allowed_record",
+      "base_sha256": "933b3f3628990ce7f28b737681c58b46b967594ef655c6f64f677f0b49cf652b",
+      "final_sha256": "933b3f3628990ce7f28b737681c58b46b967594ef655c6f64f677f0b49cf652b",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/backend_progress_tests.rs",
+      "name": "a_frame_that_cannot_be_enqueued_never_advances_progress",
+      "base_sha256": "c423f880aaf1676cd0d140d8f37bfefae730c6acbb0551378f3a949d5c9df350",
+      "final_sha256": "c423f880aaf1676cd0d140d8f37bfefae730c6acbb0551378f3a949d5c9df350",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/channel_closed_peer_tests.rs",
+      "name": "a_queued_hello_is_read_after_the_peer_closed_before_channel_creation",
+      "base_sha256": "479d94e96a79c01627dada6e6c2e54c1e061fe356919b3af1a4824ae3d2fef6c",
+      "final_sha256": "479d94e96a79c01627dada6e6c2e54c1e061fe356919b3af1a4824ae3d2fef6c",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/channel_closed_peer_tests.rs",
+      "name": "a_final_ack_is_read_after_the_participant_has_actually_closed",
+      "base_sha256": "345846188bb750d57c0371007d60eecd06614e9d6fe1d197eaf97fe69eafbe07",
+      "final_sha256": "345846188bb750d57c0371007d60eecd06614e9d6fe1d197eaf97fe69eafbe07",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/channel_closed_peer_tests.rs",
+      "name": "an_expired_deadline_leaves_a_buffered_final_frame_intact",
+      "base_sha256": "a9d45cc5ee9e6d7a9577f0a620a2d1853bfc4182f0c1dd43d695923b5620997a",
+      "final_sha256": "a9d45cc5ee9e6d7a9577f0a620a2d1853bfc4182f0c1dd43d695923b5620997a",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/channel_closed_peer_tests.rs",
+      "name": "a_closed_peer_with_a_partial_final_frame_is_still_truncated",
+      "base_sha256": "0be26a2a98b1272438c3bfa7279148efc5f2e8026b31be630f01e5524439c105",
+      "final_sha256": "0be26a2a98b1272438c3bfa7279148efc5f2e8026b31be630f01e5524439c105",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/channel_closed_peer_tests.rs",
+      "name": "poll_hangup_allows_remaining_bytes_and_then_real_eof",
+      "base_sha256": "7bc49e76073fc352afb63cffb117dda313951696cedaa73bc2ab53ab1fc46f9c",
+      "final_sha256": "7bc49e76073fc352afb63cffb117dda313951696cedaa73bc2ab53ab1fc46f9c",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/channel_closed_peer_tests.rs",
+      "name": "raw_reader_timeout_configuration_is_local_even_after_peer_close",
+      "base_sha256": "4f901dee6f7f43753b77fcb87b50cd4e29673bba566362073b93da02bbb789be",
+      "final_sha256": "4f901dee6f7f43753b77fcb87b50cd4e29673bba566362073b93da02bbb789be",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/channel_closed_peer_tests.rs",
+      "name": "raw_reader_without_a_frame_still_has_a_host_watchdog",
+      "base_sha256": "883f875aba9b974d91145609aaf666bee90e01d5046fb89aa0460fc54e085090",
+      "final_sha256": "883f875aba9b974d91145609aaf666bee90e01d5046fb89aa0460fc54e085090",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/channel_closed_peer_tests.rs",
+      "name": "a_closed_writer_reports_the_write_failure_without_setting_socket_timeouts",
+      "base_sha256": "077026bfa6cf3beb5549c7005220bfa0be44170724647e17e4f777f19634c518",
+      "final_sha256": "077026bfa6cf3beb5549c7005220bfa0be44170724647e17e4f777f19634c518",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/channel_closed_peer_tests.rs",
+      "name": "an_expired_write_budget_emits_no_frame_bytes",
+      "base_sha256": "bd5edbfb7ee55a2f2716cae2478bce9c09d93d16d9192b9fca52f565f1884ec5",
+      "final_sha256": "bd5edbfb7ee55a2f2716cae2478bce9c09d93d16d9192b9fca52f565f1884ec5",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/channel_closed_peer_tests.rs",
+      "name": "poll_timeouts_preserve_small_budgets_and_cap_darwins_millisecond_range",
+      "base_sha256": "cc37a80aab325009ff786c1dcdaa728019a1b820c7cdfff218adf28b668291d9",
+      "final_sha256": "cc37a80aab325009ff786c1dcdaa728019a1b820c7cdfff218adf28b668291d9",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/fake_runtime_clock_tests.rs",
+      "name": "a_pure_clock_keeps_tick_boundaries_and_frozen_polls_distinct",
+      "base_sha256": "5119746215581d5b4f6ab23704544cd6c20db00e1c8854caabab4baa4b484657",
+      "final_sha256": "5119746215581d5b4f6ab23704544cd6c20db00e1c8854caabab4baa4b484657",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/fake_runtime_clock_tests.rs",
+      "name": "completed_polls_prove_room_consumption_and_keep_cue_fault_timing",
+      "base_sha256": "2e9086f8d99517d698d017decb4392226dbcc961782f0a45e33ec63ea66987db",
+      "final_sha256": "2e9086f8d99517d698d017decb4392226dbcc961782f0a45e33ec63ea66987db",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/fake_runtime_clock_tests.rs",
+      "name": "controlled_serve_is_refused_before_clock_hooks_or_output",
+      "base_sha256": "0203c15309666b35c803d38dbd1cc6e36e3fca349bf42df7bee3b2e049feb9cd",
+      "final_sha256": "0203c15309666b35c803d38dbd1cc6e36e3fca349bf42df7bee3b2e049feb9cd",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/fake_runtime_clock_tests.rs",
+      "name": "a_failed_poll_hook_stops_before_another_tick_or_final_trace",
+      "base_sha256": "b249e6f280c65cb5bd67c288acd139f4d146a727bbe83520a92dd443c76c810d",
+      "final_sha256": "b249e6f280c65cb5bd67c288acd139f4d146a727bbe83520a92dd443c76c810d",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/fake_serve_clock_tests.rs",
+      "name": "cycle_reads_the_supplied_instant_without_advancing_it",
+      "base_sha256": "6ec939e16cd503507c4a5d77aa9c60a2f471cc51a3eecabf775c899e7bcc050b",
+      "final_sha256": "6ec939e16cd503507c4a5d77aa9c60a2f471cc51a3eecabf775c899e7bcc050b",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/fake_serve_clock_tests.rs",
+      "name": "initial_cycle_keeps_distinct_metadata_and_runtime_clock_samples",
+      "base_sha256": "3b99ba2616c581a08f54526c4057ec24fba901a1c72b59ba6eb097e9d1328ea0",
+      "final_sha256": "3b99ba2616c581a08f54526c4057ec24fba901a1c72b59ba6eb097e9d1328ea0",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/fake_serve_clock_tests.rs",
+      "name": "restarted_cycle_resamples_time_and_keeps_a_fresh_runtime_identity",
+      "base_sha256": "a9c86b87da5a6232df218475128c7d0edeb899837021b5427ca003a224560507",
+      "final_sha256": "a9c86b87da5a6232df218475128c7d0edeb899837021b5427ca003a224560507",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/fake_serve_clock_tests.rs",
+      "name": "retained_startup_ready_still_saturates_at_zero",
+      "base_sha256": "3fb5398e623c031b72e04c4fa95754e429fd58ac75b6516e32bb77aeedc0b277",
+      "final_sha256": "3fb5398e623c031b72e04c4fa95754e429fd58ac75b6516e32bb77aeedc0b277",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/fixture_commands.rs",
+      "name": "frames_count_after_flush_across_short_writes_and_partial_lines",
+      "base_sha256": "5d6635077a3cc5c92a2bdb5e8f2ce50c900a4aa0f7e3c9fc48a5ec40bc5d0da8",
+      "final_sha256": "5d6635077a3cc5c92a2bdb5e8f2ce50c900a4aa0f7e3c9fc48a5ec40bc5d0da8",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/fixture_commands.rs",
+      "name": "failed_writes_and_flushes_do_not_publish_completed_frames",
+      "base_sha256": "0e96fb0f4a5110140f27d3beef5da6e9166f3beb823a8bcc143920ae8256f3ea",
+      "final_sha256": "0e96fb0f4a5110140f27d3beef5da6e9166f3beb823a8bcc143920ae8256f3ea",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/fixture_commands.rs",
+      "name": "final_output_must_end_on_a_complete_frame",
+      "base_sha256": "7e0c5a0453f82faaad51adebf7f51434537972f878206feb0a7bfbfffd5ce2a7",
+      "final_sha256": "7e0c5a0453f82faaad51adebf7f51434537972f878206feb0a7bfbfffd5ce2a7",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/fixture_commands.rs",
+      "name": "frame_counters_refuse_to_wrap",
+      "base_sha256": "6bcea8700a941bed802fbc711aea3d569cca4afb8b4487943d221e260eab4c8a",
+      "final_sha256": "6bcea8700a941bed802fbc711aea3d569cca4afb8b4487943d221e260eab4c8a",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/fixture_commands.rs",
+      "name": "only_the_leading_control_pair_is_removed_from_runtime_arguments",
+      "base_sha256": "f09fd264006c90a9651fbe1020e9c95b1cd174750c07dde968fb87d7616c4f6c",
+      "final_sha256": "f09fd264006c90a9651fbe1020e9c95b1cd174750c07dde968fb87d7616c4f6c",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/fixture_commands.rs",
+      "name": "relay_accepts_only_finite_controlled_fake_runtime_configuration",
+      "base_sha256": "4c96a4f3b7a0b02711139109c57a1a3f5fe3cfa090e6d6c6c5d1552551827832",
+      "final_sha256": "4c96a4f3b7a0b02711139109c57a1a3f5fe3cfa090e6d6c6c5d1552551827832",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/fixture_commands.rs",
+      "name": "relay_terminal_progress_keeps_the_last_real_poll_and_final_output_count",
+      "base_sha256": "ebcf2d5b653ce4fb4e642d6a748594f899af980a55687a1dff4af094f1d998cc",
+      "final_sha256": "ccfb3a7f4e19dee3cd814ef5e730802303e0ddfb639ce25552f0aaa65b1fe1da",
+      "body_byte_exact": false
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/fixture_control_tests.rs",
+      "name": "a_frame_at_the_total_bound_is_accepted_and_one_byte_more_is_rejected",
+      "base_sha256": "ff93f4223228a95f6bd821d7811c8539c77b32ffb286303553e624f83a3aabad",
+      "final_sha256": "ff93f4223228a95f6bd821d7811c8539c77b32ffb286303553e624f83a3aabad",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/fixture_control_tests.rs",
+      "name": "a_partial_frame_at_eof_is_not_a_complete_message",
+      "base_sha256": "b56c594c97a32b4481818135596a4bc9e0a70ec148d05b0d4faa85bd3ae4afad",
+      "final_sha256": "b56c594c97a32b4481818135596a4bc9e0a70ec148d05b0d4faa85bd3ae4afad",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/fixture_control_tests.rs",
+      "name": "buffered_complete_frames_are_kept_distinct_and_unknown_fields_are_rejected",
+      "base_sha256": "3cff657827fbc7bf6acc553d3869c18b59bc8feb0950bc3972ccd8e652570d1a",
+      "final_sha256": "3cff657827fbc7bf6acc553d3869c18b59bc8feb0950bc3972ccd8e652570d1a",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/fixture_control_tests.rs",
+      "name": "invalid_utf8_and_missing_fields_are_protocol_errors",
+      "base_sha256": "421c39eb08251e6070784af49e37480935d599dadcab771343f090f3ae6872d6",
+      "final_sha256": "421c39eb08251e6070784af49e37480935d599dadcab771343f090f3ae6872d6",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/fixture_control_tests.rs",
+      "name": "outgoing_frames_cannot_cross_the_same_bound",
+      "base_sha256": "4df7b80a6c1e5e60b406412cc716976a1d4c68776e74b23d7220316d6c4ea845",
+      "final_sha256": "4df7b80a6c1e5e60b406412cc716976a1d4c68776e74b23d7220316d6c4ea845",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/fixture_control_tests.rs",
+      "name": "hello_must_match_the_requested_role_and_version",
+      "base_sha256": "923d17f720cebdd114b7ca9cf38547cd2abebc08aaa85811802982fa9f7337ec",
+      "final_sha256": "923d17f720cebdd114b7ca9cf38547cd2abebc08aaa85811802982fa9f7337ec",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/fixture_control_tests.rs",
+      "name": "a_participant_does_not_start_until_the_first_step_arrives",
+      "base_sha256": "5c50a0d3717be3f93b2c6b43363f86c1fec9cd6e63a6c00683068ae9c9fb0438",
+      "final_sha256": "5c50a0d3717be3f93b2c6b43363f86c1fec9cd6e63a6c00683068ae9c9fb0438",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/fixture_control_tests.rs",
+      "name": "repeated_clock_reads_and_new_rounds_at_the_same_time_never_advance_time",
+      "base_sha256": "3595ec48ade5ace7d430124708be6fed9ed53ba9ad03758383c15189dfc1e3e4",
+      "final_sha256": "3595ec48ade5ace7d430124708be6fed9ed53ba9ad03758383c15189dfc1e3e4",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/fixture_control_tests.rs",
+      "name": "duplicate_skipped_and_regressing_rounds_or_time_are_rejected",
+      "base_sha256": "67bf4c80b8580317d451706efffe7149c35f34be55176c21fc385a7ed65741a7",
+      "final_sha256": "67bf4c80b8580317d451706efffe7149c35f34be55176c21fc385a7ed65741a7",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/fixture_control_tests.rs",
+      "name": "a_wrong_role_step_does_not_reach_the_participant_engine",
+      "base_sha256": "f46229fc490d14fbe73593e888acc22eda47fb9107120fe4e7b870492c07b542",
+      "final_sha256": "f46229fc490d14fbe73593e888acc22eda47fb9107120fe4e7b870492c07b542",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/fixture_control_tests.rs",
+      "name": "acknowledgement_must_match_role_round_time_and_complete_progress",
+      "base_sha256": "f77cdaf5fd687e722c46b63c5f0b99455608e4c75126179ef3a8a2f4318e7b8e",
+      "final_sha256": "f77cdaf5fd687e722c46b63c5f0b99455608e4c75126179ef3a8a2f4318e7b8e",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/fixture_control_tests.rs",
+      "name": "progress_counters_cannot_regress_or_claim_unconsumed_relay_targets",
+      "base_sha256": "9f21ada0918c47f1fe116e1a2760c7dec6fd3b66708c0851e3262d4f2e5689bd",
+      "final_sha256": "9f21ada0918c47f1fe116e1a2760c7dec6fd3b66708c0851e3262d4f2e5689bd",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/fixture_control_tests.rs",
+      "name": "a_missing_ack_fails_under_the_host_watchdog_and_closes_the_peer",
+      "base_sha256": "d22270fee999d2eb7859a8ca4d8ea30ce3f6bf31b4a1e412795a8fb295624489",
+      "final_sha256": "d22270fee999d2eb7859a8ca4d8ea30ce3f6bf31b4a1e412795a8fb295624489",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/fixture_control_tests.rs",
+      "name": "a_missing_first_step_cannot_leave_a_participant_waiting_forever",
+      "base_sha256": "b54df3e6d1cd6d76d8182c92a424da9950f304b5e1e44eb3907a0ba7edb150de",
+      "final_sha256": "b54df3e6d1cd6d76d8182c92a424da9950f304b5e1e44eb3907a0ba7edb150de",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/fixture_control_tests.rs",
+      "name": "a_peer_that_stops_reading_cannot_block_a_write_forever",
+      "base_sha256": "446c60af05ec9e7a0a34afa518402c2850eeaac595070a2b4dd95e6bc35b6725",
+      "final_sha256": "446c60af05ec9e7a0a34afa518402c2850eeaac595070a2b4dd95e6bc35b6725",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/fixture_control_tests.rs",
+      "name": "watchdogs_must_be_positive_and_an_expired_deadline_is_not_replaced",
+      "base_sha256": "0c55cd8fd80ca86e5083dbfab63d85d28e99a2045f99e692f78672b5b30fccea",
+      "final_sha256": "0c55cd8fd80ca86e5083dbfab63d85d28e99a2045f99e692f78672b5b30fccea",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/fixture_control_tests.rs",
+      "name": "invalid_followup_steps_close_the_participant_without_changing_its_clock",
+      "base_sha256": "f19275a3deedbf9b72339769cf9c5fbaa58ef58f6d432f1d40d1b90b7de4cb82",
+      "final_sha256": "f19275a3deedbf9b72339769cf9c5fbaa58ef58f6d432f1d40d1b90b7de4cb82",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/fixture_control_tests.rs",
+      "name": "terminal_acknowledgement_is_distinct_from_a_continuing_poll",
+      "base_sha256": "f01941c9bd72b48e41e4013fab4f99cff27fa4c31994d45954f3107355fd75af",
+      "final_sha256": "f01941c9bd72b48e41e4013fab4f99cff27fa4c31994d45954f3107355fd75af",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/fixture_control_tests.rs",
+      "name": "poll_sequence_overflow_cannot_wrap_to_an_initial_acknowledgement",
+      "base_sha256": "2c9e73feb2695ee32a37f1564cec44d48b95a7669540b5f027b2f3bf4b72e1ae",
+      "final_sha256": "2c9e73feb2695ee32a37f1564cec44d48b95a7669540b5f027b2f3bf4b72e1ae",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/fixture_control_tests.rs",
+      "name": "an_expired_caller_deadline_closes_the_peer_without_sending_a_step",
+      "base_sha256": "2c89f0706c59973df15f1d42f046dd9e747d561654b8147955dfdb2b691a614f",
+      "final_sha256": "2c89f0706c59973df15f1d42f046dd9e747d561654b8147955dfdb2b691a614f",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/fixture_control_tests.rs",
+      "name": "a_later_caller_deadline_cannot_extend_the_endpoint_watchdog",
+      "base_sha256": "ee2b10195058e27c273c19a0492588d25a2ec71aff1b97f2994f5ea34e6dc8fe",
+      "final_sha256": "ee2b10195058e27c273c19a0492588d25a2ec71aff1b97f2994f5ea34e6dc8fe",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/fixture_driver.rs",
+      "name": "configuration_changes_only_explicit_fake_launchers_and_control_arguments",
+      "base_sha256": "9d9ff81a63f9d3bad1f78dbd9b584706a4dce6e4f4499a8bbab579a8fd5833c8",
+      "final_sha256": "9d9ff81a63f9d3bad1f78dbd9b584706a4dce6e4f4499a8bbab579a8fd5833c8",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/fixture_driver.rs",
+      "name": "nonlocal_runtime_serve_and_recorder_configurations_are_refused_unchanged",
+      "base_sha256": "11d369e23c7ffaf39dba06d7a02731847bd180bd0b0a55e96818c045e4c1bdc5",
+      "final_sha256": "11d369e23c7ffaf39dba06d7a02731847bd180bd0b0a55e96818c045e4c1bdc5",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/fixture_driver.rs",
+      "name": "clock_reads_are_pure_and_only_successful_room_sends_are_expected",
+      "base_sha256": "851ae14cd7b27d2b3424baf593880e5f4e69eff6485bcd570cae89656de03462",
+      "final_sha256": "851ae14cd7b27d2b3424baf593880e5f4e69eff6485bcd570cae89656de03462",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/fixture_driver.rs",
+      "name": "frame_budget_and_missing_enqueue_fail_instead_of_skipping_output",
+      "base_sha256": "15f411aa18e505ed19109dabbef1b05143db6beb3ea18c14796c5ef6e0a9d095",
+      "final_sha256": "15f411aa18e505ed19109dabbef1b05143db6beb3ea18c14796c5ef6e0a9d095",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/fixture_driver.rs",
+      "name": "startup_preserves_the_setup_ping_boundary_and_exit_rounds_freeze_time",
+      "base_sha256": "00953e577cdb8c12b494b6c44940cbf57d2a1de2f79381d93b33d6f3b5cb4b9f",
+      "final_sha256": "00953e577cdb8c12b494b6c44940cbf57d2a1de2f79381d93b33d6f3b5cb4b9f",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/framing.rs",
+      "name": "lines_split_across_reads_are_reassembled_exactly",
+      "base_sha256": "37bbe616095ae78adc64fc884876d43684207efc2e27b5a9513325526a2b9ada",
+      "final_sha256": "37bbe616095ae78adc64fc884876d43684207efc2e27b5a9513325526a2b9ada",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/framing.rs",
+      "name": "a_line_at_the_bound_passes_and_one_byte_more_is_rejected_whole",
+      "base_sha256": "47a101757172f6703b051404325e4685deb2276bc9825b5bd24e5ff59cfd0ec7",
+      "final_sha256": "47a101757172f6703b051404325e4685deb2276bc9825b5bd24e5ff59cfd0ec7",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/framing.rs",
+      "name": "oversized_input_is_counted_but_never_retained",
+      "base_sha256": "0daddbe895b73efff0ee30213b8d511ff9b77731316ad6cdc11181839c3112ff",
+      "final_sha256": "0daddbe895b73efff0ee30213b8d511ff9b77731316ad6cdc11181839c3112ff",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/framing.rs",
+      "name": "multibyte_characters_are_never_split_or_lossily_replaced",
+      "base_sha256": "6b65be4d0764a3a571ebbd2f67db4df0a17a5b6f8b9545eb6c369e8e1b2e5e56",
+      "final_sha256": "6b65be4d0764a3a571ebbd2f67db4df0a17a5b6f8b9545eb6c369e8e1b2e5e56",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/framing.rs",
+      "name": "end_of_input_inside_a_line_is_explicit",
+      "base_sha256": "f5f16e6acf7bec7f150be998e412161a426e1f53029d3c5c6cce4b3e5c17bc0a",
+      "final_sha256": "f5f16e6acf7bec7f150be998e412161a426e1f53029d3c5c6cce4b3e5c17bc0a",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/framing.rs",
+      "name": "hashing_covers_every_byte_even_after_an_early_stop",
+      "base_sha256": "161241b158b536fdf4502ede1136dd3a9d1fd47b629cc0016d19009befdc80c7",
+      "final_sha256": "161241b158b536fdf4502ede1136dd3a9d1fd47b629cc0016d19009befdc80c7",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/framing.rs",
+      "name": "the_total_bound_counts_raw_bytes_even_inside_an_endless_line",
+      "base_sha256": "866afa889079d29ff6747e79ebfaf4794435aa192f8cc198355431def09abd22",
+      "final_sha256": "866afa889079d29ff6747e79ebfaf4794435aa192f8cc198355431def09abd22",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/framing.rs",
+      "name": "failures_have_explicit_text",
+      "base_sha256": "54336123fc7177709b58fe648a9a87f4a60ee06a8f6281d897e914f9b44a8bb8",
+      "final_sha256": "54336123fc7177709b58fe648a9a87f4a60ee06a8f6281d897e914f9b44a8bb8",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/mac.rs",
+      "name": "a_prompt_is_covered_only_through_its_speech_and_observation_window",
+      "base_sha256": "af844cc11cc08544b777ba5a521a45c84e910de7bb576800a2329697e1bcda00",
+      "final_sha256": "af844cc11cc08544b777ba5a521a45c84e910de7bb576800a2329697e1bcda00",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/mac.rs",
+      "name": "a_grant_sent_after_its_expiry_keeps_a_negative_margin_without_overflow",
+      "base_sha256": "9905403e1b6b45b4c1b91e5d494d9ea143ea87ec381ffc63eabe414a09251d10",
+      "final_sha256": "9905403e1b6b45b4c1b91e5d494d9ea143ea87ec381ffc63eabe414a09251d10",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/mac.rs",
+      "name": "readiness_cues_are_unowned_but_still_sequenced",
+      "base_sha256": "c961e470a388b5bc9d1a469cefb07111b46197a8239299a71b7b8fd0ee4d99d6",
+      "final_sha256": "c961e470a388b5bc9d1a469cefb07111b46197a8239299a71b7b8fd0ee4d99d6",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/mac.rs",
+      "name": "cue_order_rejects_missing_duplicate_relabelled_and_out_of_order_owners",
+      "base_sha256": "9e9fb4c7a460d60f43ad484852cc6af458ce478eb94db51a0e482595b6a71b53",
+      "final_sha256": "9e9fb4c7a460d60f43ad484852cc6af458ce478eb94db51a0e482595b6a71b53",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/mac.rs",
+      "name": "cue_receipt_at_expiry_or_before_send_is_not_fresh",
+      "base_sha256": "fce7741cbabd15fef2d21f384af269493303d7f3547e1d6cb0820bbb3cdeab08",
+      "final_sha256": "fce7741cbabd15fef2d21f384af269493303d7f3547e1d6cb0820bbb3cdeab08",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/mac.rs",
+      "name": "retired_audio_can_be_cancelled_without_reviving_playback",
+      "base_sha256": "05b8a61391f6aa303c434444e7d722485a4a680f1531a58e915fd2e2a785cdec",
+      "final_sha256": "05b8a61391f6aa303c434444e7d722485a4a680f1531a58e915fd2e2a785cdec",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/mac.rs",
+      "name": "fresh_delayed_child_observation_keeps_its_earlier_event_time",
+      "base_sha256": "f5e07c8c7c20a89ca6366d4afb15edb82bb092729e12ee7c975fbbac6f88dc04",
+      "final_sha256": "f5e07c8c7c20a89ca6366d4afb15edb82bb092729e12ee7c975fbbac6f88dc04",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/mac.rs",
+      "name": "each_occurrence_is_matched_and_only_whole_completion_is_terminal",
+      "base_sha256": "362d936e005d38d543731daae4d06d7995975caa465641cc9aa34ec7ab72bb5d",
+      "final_sha256": "362d936e005d38d543731daae4d06d7995975caa465641cc9aa34ec7ab72bb5d",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/mac.rs",
+      "name": "legacy_missing_occurrence_live_cue_is_withheld",
+      "base_sha256": "40d739936fb0a2f25716dcb3c0c466d077154f9e300361ac5de251ad112d66c8",
+      "final_sha256": "40d739936fb0a2f25716dcb3c0c466d077154f9e300361ac5de251ad112d66c8",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/mac.rs",
+      "name": "oversized_non_utf8_and_cut_off_lines_are_protocol_errors",
+      "base_sha256": "d159c55537f7cbc7217e0f3ee7063bfaf862e73a54f9d0d94303a3803ae1b1ae",
+      "final_sha256": "d159c55537f7cbc7217e0f3ee7063bfaf862e73a54f9d0d94303a3803ae1b1ae",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/mac.rs",
+      "name": "a_never_terminated_line_still_ends_at_the_session_byte_bound",
+      "base_sha256": "7e7a3c80bdd6db727cb10be5d3ca1cfc0da2665969ff7b6aedb87473cfc91a26",
+      "final_sha256": "7e7a3c80bdd6db727cb10be5d3ca1cfc0da2665969ff7b6aedb87473cfc91a26",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/mac.rs",
+      "name": "reading_stops_with_an_error_above_the_session_byte_bound",
+      "base_sha256": "52ef9da058c320583116045dae9d7b5531e72c8f574ad8d33b8655f72f7e2b89",
+      "final_sha256": "52ef9da058c320583116045dae9d7b5531e72c8f574ad8d33b8655f72f7e2b89",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/mac.rs",
+      "name": "r2_a_grant_never_outlives_the_recordings_latest_covered_start",
+      "base_sha256": "2363bee86a9d369bef58a2a2a79ae7f11d55afc2d4b700484d543d70dae685b4",
+      "final_sha256": "2363bee86a9d369bef58a2a2a79ae7f11d55afc2d4b700484d543d70dae685b4",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/mac.rs",
+      "name": "audit_grant_within_deadline_control",
+      "base_sha256": "f17809a6b5dd879e14de4147f5d83075282cd8f3430f494f410a326546ccac03",
+      "final_sha256": "f17809a6b5dd879e14de4147f5d83075282cd8f3430f494f410a326546ccac03",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/mac.rs",
+      "name": "audit_grant_deschedule_after_send_must_not_panic_or_lose_tracking",
+      "base_sha256": "b366d842d4baf236fc03f82b50ab2dcf2613ee21f7c40c89759a71b570734ea9",
+      "final_sha256": "b366d842d4baf236fc03f82b50ab2dcf2613ee21f7c40c89759a71b570734ea9",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/mac.rs",
+      "name": "r2_an_actual_first_copy_after_the_covered_start_is_retained_as_a_violation",
+      "base_sha256": "5a551206412f853768e9c6bbefc051153aa2268686db3670a064f7d18445fb32",
+      "final_sha256": "5a551206412f853768e9c6bbefc051153aa2268686db3670a064f7d18445fb32",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/mac.rs",
+      "name": "audit_failed_outer_transport_cannot_certify_nominal_runtime_end",
+      "base_sha256": "c498215479ad566f7097b2c749af961535e625614533dd3f0389d054789227f7",
+      "final_sha256": "c498215479ad566f7097b2c749af961535e625614533dd3f0389d054789227f7",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/mac.rs",
+      "name": "audit_reaped_successful_transport_certifies_nominal_runtime_end",
+      "base_sha256": "c2eab2ff1f37693e914e851db5234c4b6e65b3d1656bad9ea0931554064c305b",
+      "final_sha256": "c2eab2ff1f37693e914e851db5234c4b6e65b3d1656bad9ea0931554064c305b",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/mac.rs",
+      "name": "audit_transport_that_outlives_its_bound_is_killed_and_never_certified",
+      "base_sha256": "b628b240870c783c5d32572c0ef9c581503a6ca97a8a2ab98c864d4f9e4f1895",
+      "final_sha256": "b628b240870c783c5d32572c0ef9c581503a6ca97a8a2ab98c864d4f9e4f1895",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/mac.rs",
+      "name": "audit_successful_runtime_exit_control",
+      "base_sha256": "ee6df1bdfe291a8826c4da3b1b53a6ae8da2f245eb9e606554247d98125ae5a7",
+      "final_sha256": "ee6df1bdfe291a8826c4da3b1b53a6ae8da2f245eb9e606554247d98125ae5a7",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/mac.rs",
+      "name": "audit_nonzero_runtime_exit_must_invalidate_attempt",
+      "base_sha256": "30a1101808e3485e9ff1a66040fc0dfffe3441134ed07e6119e9b0d9f0da5aab",
+      "final_sha256": "30a1101808e3485e9ff1a66040fc0dfffe3441134ed07e6119e9b0d9f0da5aab",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/mac.rs",
+      "name": "audit_serve_stdout_readiness_cannot_mint_an_original_cue",
+      "base_sha256": "e7865da72878c15c1e5bfc414cce5b129403a456630ce8b8b617af19a7e27c02",
+      "final_sha256": "e7865da72878c15c1e5bfc414cce5b129403a456630ce8b8b617af19a7e27c02",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/mac.rs",
+      "name": "audit_startup_unmapped_expired_readiness_cannot_be_accepted",
+      "base_sha256": "f9802139498b926eec0a4ac765acba14d4c1ba31f7ebfd5412073f7c2d2df469",
+      "final_sha256": "f9802139498b926eec0a4ac765acba14d4c1ba31f7ebfd5412073f7c2d2df469",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/mac.rs",
+      "name": "fast_startup_cues_before_the_first_live_pong_are_published_in_order_with_original_times",
+      "base_sha256": "2abcae95505f503f41292f4af60d92a37a4060f4e0afdc1d8ffcc004beb0fcaf",
+      "final_sha256": "2abcae95505f503f41292f4af60d92a37a4060f4e0afdc1d8ffcc004beb0fcaf",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/mac.rs",
+      "name": "a_held_startup_cue_that_expired_before_the_live_map_is_refused",
+      "base_sha256": "dba33844461c9314e4bcac351d95a31dd0deae17d00294335d482b4d4e3cae99",
+      "final_sha256": "dba33844461c9314e4bcac351d95a31dd0deae17d00294335d482b4d4e3cae99",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/mac.rs",
+      "name": "held_batch_resamples_after_parse_and_refuses_a_later_expired_cue",
+      "base_sha256": "bd1f7548cc651ac6dbb851fb243776bd6323e2ba9f52ec4e2e52f3ff718197f6",
+      "final_sha256": "bd1f7548cc651ac6dbb851fb243776bd6323e2ba9f52ec4e2e52f3ff718197f6",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/mac.rs",
+      "name": "the_original_expiry_refuses_at_equality",
+      "base_sha256": "9e71a6b914aab9e8aa0d49eae14378b2f195f3c41656b028e75d0d8b54ffffa5",
+      "final_sha256": "9e71a6b914aab9e8aa0d49eae14378b2f195f3c41656b028e75d0d8b54ffffa5",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/prepared_player_clock_tests.rs",
+      "name": "a_shared_pure_clock_keeps_original_grants_and_real_datagram_delivery",
+      "base_sha256": "1dd37e4d7d0b98fc2d4d735d31b47c07346fe6b2e9f4ae1a270ea5a595cffd66",
+      "final_sha256": "1dd37e4d7d0b98fc2d4d735d31b47c07346fe6b2e9f4ae1a270ea5a595cffd66",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/prepared_player_clock_tests.rs",
+      "name": "the_fresh_first_copy_sample_decides_the_original_expiry_boundary",
+      "base_sha256": "a7fdc791e20bd1fa3a503b996fae362f225ebe02768fa06fe75459d066e72e8b",
+      "final_sha256": "a7fdc791e20bd1fa3a503b996fae362f225ebe02768fa06fe75459d066e72e8b",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/prepared_player_clock_tests.rs",
+      "name": "original_grant_validation_still_refuses_invalid_identity_shape_and_horizon",
+      "base_sha256": "02def11939213a1cbfa276125e09326e12590a21ce998cec87b0ef56b0c08ef2",
+      "final_sha256": "02def11939213a1cbfa276125e09326e12590a21ce998cec87b0ef56b0c08ef2",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/prepared_player_clock_tests.rs",
+      "name": "closed_and_malformed_inputs_still_withhold_delivery",
+      "base_sha256": "b3d4180316e3e4193158f4f148cdbe6a1e5311bc5aac486a205dadf1f1684915",
+      "final_sha256": "b3d4180316e3e4193158f4f148cdbe6a1e5311bc5aac486a205dadf1f1684915",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/prepared_player_clock_tests.rs",
+      "name": "cancellation_after_ready_still_withholds_the_first_copy",
+      "base_sha256": "a838aa1fc0a3b08c255b2457e828072bc2cde6fd3fd5aeaf9d1bea7176965dea",
+      "final_sha256": "a838aa1fc0a3b08c255b2457e828072bc2cde6fd3fd5aeaf9d1bea7176965dea",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/prepared_player_clock_tests.rs",
+      "name": "unrepresentable_clock_samples_fail_at_each_stage_before_delivery",
+      "base_sha256": "b716002bf5e7fb0acd88602ee2f43656224e8c3555d65a34317efd34c94fb190",
+      "final_sha256": "b716002bf5e7fb0acd88602ee2f43656224e8c3555d65a34317efd34c94fb190",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/recorder_clock_tests.rs",
+      "name": "declaration_and_fresh_post_write_sample_stay_distinct_in_nanoseconds",
+      "base_sha256": "9314d89fd9480b6df7072a6cfee64badf2e28b027040f92aa906648cf0c7f59c",
+      "final_sha256": "9314d89fd9480b6df7072a6cfee64badf2e28b027040f92aa906648cf0c7f59c",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/recorder_clock_tests.rs",
+      "name": "no_declaration_adds_no_clock_sample_and_keeps_the_default_failure_code",
+      "base_sha256": "4e8eb4ff3137e000b5778a21010b977370ed4301962364364add3220ad883b46",
+      "final_sha256": "4e8eb4ff3137e000b5778a21010b977370ed4301962364364add3220ad883b46",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/recorder_clock_tests.rs",
+      "name": "one_wait_keeps_the_full_minimum_duration_and_configured_return_code",
+      "base_sha256": "bebef14d565424392cae3d0e91b1a01093e546d669c35e403de51ffe1f2c1cc3",
+      "final_sha256": "bebef14d565424392cae3d0e91b1a01093e546d669c35e403de51ffe1f2c1cc3",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/recorder_clock_tests.rs",
+      "name": "zero_declared_delay_keeps_its_optional_sample_without_shortening_the_wait",
+      "base_sha256": "aaee07e4e845b288f25694e8f698f25baab4482af0d73ea80fe1803d0c003d39",
+      "final_sha256": "aaee07e4e845b288f25694e8f698f25baab4482af0d73ea80fe1803d0c003d39",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/recorder_clock_tests.rs",
+      "name": "original_argument_failures_precede_files_clock_samples_and_waits",
+      "base_sha256": "e2085ffdcd0a8bf4608004d8450c9e40ee0fd30d217ef0e982f4ff8ca4103c30",
+      "final_sha256": "e2085ffdcd0a8bf4608004d8450c9e40ee0fd30d217ef0e982f4ff8ca4103c30",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/recorder_clock_tests.rs",
+      "name": "first_matching_argument_and_missing_optional_value_keep_original_meaning",
+      "base_sha256": "7050f44ded72ce16e4451e862600e992afa109acc7c290e6332adea4707745a5",
+      "final_sha256": "7050f44ded72ce16e4451e862600e992afa109acc7c290e6332adea4707745a5",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/recorder_clock_tests.rs",
+      "name": "directory_failure_keeps_the_declaration_before_io_and_never_waits",
+      "base_sha256": "305ae334a7de0b0525ac817f8bc7724f8043a5ffdd8a6c2f33e3d9e0fa55f481",
+      "final_sha256": "305ae334a7de0b0525ac817f8bc7724f8043a5ffdd8a6c2f33e3d9e0fa55f481",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/recorder_clock_tests.rs",
+      "name": "an_explicit_wait_failure_keeps_the_written_receipt_and_cannot_return_success",
+      "base_sha256": "9cd58cd6a08eec478bf08b931c04f050d52173e6040281798168bda6dcf7e434",
+      "final_sha256": "9cd58cd6a08eec478bf08b931c04f050d52173e6040281798168bda6dcf7e434",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/recorder_clock_tests.rs",
+      "name": "ordinary_entrypoint_keeps_system_time_real_ready_file_and_no_recording",
+      "base_sha256": "25db91c745e7a60c1324d095ab7e1d4909c27f62aaab3af3c1a9d452d28b61d8",
+      "final_sha256": "25db91c745e7a60c1324d095ab7e1d4909c27f62aaab3af3c1a9d452d28b61d8",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/relay_progress_tests.rs",
+      "name": "partial_bytes_do_not_satisfy_the_complete_frame_barrier",
+      "base_sha256": "dbe280e2409b0e021ed1d55cf991d35e8be5a649fd6914aba8fe6ff864d01c8e",
+      "final_sha256": "dbe280e2409b0e021ed1d55cf991d35e8be5a649fd6914aba8fe6ff864d01c8e",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/relay_progress_tests.rs",
+      "name": "invalid_complete_frames_count_but_truncated_eof_does_not",
+      "base_sha256": "8657a231e4a3809c71d8089966acea72faac6f3924310aebf1ff359f8d0573b6",
+      "final_sha256": "8657a231e4a3809c71d8089966acea72faac6f3924310aebf1ff359f8d0573b6",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/relay_progress_tests.rs",
+      "name": "failed_enqueue_never_announces_a_frame",
+      "base_sha256": "bb120c0bae73a6ef06e2da0a37f7a3f2a5662a4835fa8af4944909ab629dc4f5",
+      "final_sha256": "bb120c0bae73a6ef06e2da0a37f7a3f2a5662a4835fa8af4944909ab629dc4f5",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/relay_progress_tests.rs",
+      "name": "targets_cannot_wait_for_more_than_the_bounded_queue_can_hold",
+      "base_sha256": "d7fc7d902fedb9fce5950dd13589a6aa9ec65c7bddcfbed5c16da551df338994",
+      "final_sha256": "d7fc7d902fedb9fce5950dd13589a6aa9ec65c7bddcfbed5c16da551df338994",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/relay_progress_tests.rs",
+      "name": "enqueue_wait_has_a_host_deadline_even_without_logical_clock_reads",
+      "base_sha256": "f78e40ab6d9a519a1cc88e20166ddc5c93f473e93511ec88fff0771d67610eef",
+      "final_sha256": "f78e40ab6d9a519a1cc88e20166ddc5c93f473e93511ec88fff0771d67610eef",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/relay_progress_tests.rs",
+      "name": "completed_polls_follow_receipts_and_deadline_checks_before_final_output",
+      "base_sha256": "3e99a2c1a7656f8d560400dda5713f3e92eb25cb37fa45da6402b2fac460e0a0",
+      "final_sha256": "3e99a2c1a7656f8d560400dda5713f3e92eb25cb37fa45da6402b2fac460e0a0",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/session.rs",
+      "name": "successful_stop_samples_the_clock_again_after_sending_the_signal",
+      "base_sha256": "b6cbf376e83f9b1232bdace5ceb6dd7c8739807c0a8b8a2597c2f46112353d50",
+      "final_sha256": "b6cbf376e83f9b1232bdace5ceb6dd7c8739807c0a8b8a2597c2f46112353d50",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/session.rs",
+      "name": "rotated_segments_relay_in_generation_order_without_headers",
+      "base_sha256": "3e8200dd28e9e47128e56bdc4a2ab1b0ff13d9d00c4ed2f909db5b13b53dd0cc",
+      "final_sha256": "3e8200dd28e9e47128e56bdc4a2ab1b0ff13d9d00c4ed2f909db5b13b53dd0cc",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/session.rs",
+      "name": "gapped_overwritten_or_unacknowledged_history_is_missing_evidence",
+      "base_sha256": "7d08e9c6da464dafbf18205994fd30f750199c85e64a621eec1ded2216f1250c",
+      "final_sha256": "7d08e9c6da464dafbf18205994fd30f750199c85e64a621eec1ded2216f1250c",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/session.rs",
+      "name": "a_segment_without_a_valid_header_is_rejected",
+      "base_sha256": "0f3235be8fe44bd540bb751c2564f42f6bed59c6ef7e3083597be4b07abec05b",
+      "final_sha256": "0f3235be8fe44bd540bb751c2564f42f6bed59c6ef7e3083597be4b07abec05b",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/session.rs",
+      "name": "microphone_flag_is_typed_forwarded_and_rejects_duplicates",
+      "base_sha256": "f85ac4fc6dfafb4cb51e851ba80bce3faa0989e4d3eb44ba4737f3a2bcc29971",
+      "final_sha256": "f85ac4fc6dfafb4cb51e851ba80bce3faa0989e4d3eb44ba4737f3a2bcc29971",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/session.rs",
+      "name": "omitted_runtime_flags_leave_every_child_argv_unchanged",
+      "base_sha256": "854c4b8da02830421c8a19725865d2632abbf1b9b95ab65588b326e4b3ad6dfe",
+      "final_sha256": "854c4b8da02830421c8a19725865d2632abbf1b9b95ab65588b326e4b3ad6dfe",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/session.rs",
+      "name": "the_pilot_settings_reach_serve_and_directed_exactly",
+      "base_sha256": "d740d2ee593f324c108cf1a4f9c578e489a7e43e16f3b3126eb3e0851e237ed6",
+      "final_sha256": "d740d2ee593f324c108cf1a4f9c578e489a7e43e16f3b3126eb3e0851e237ed6",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/session.rs",
+      "name": "the_endpoint_trial_reaches_serve_after_the_pilot_settings",
+      "base_sha256": "86668eda6c23040c29802dc1d7141da8c18f2e3ba55c6cffb8a8205bd23f5111",
+      "final_sha256": "86668eda6c23040c29802dc1d7141da8c18f2e3ba55c6cffb8a8205bd23f5111",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/session.rs",
+      "name": "values_and_combinations_lamp_voice_refuses_are_refused_before_any_child",
+      "base_sha256": "b07ac4b3a25e6dd6997bf6cfad568d8beb0ceacc654728aace6c452801e70626",
+      "final_sha256": "b07ac4b3a25e6dd6997bf6cfad568d8beb0ceacc654728aace6c452801e70626",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/slow_transport_clock_tests.rs",
+      "name": "malformed_arguments_fail_before_the_wait_in_both_entrypoints",
+      "base_sha256": "88983eb2b2ef1693dc7c0b438d33b70dcb12abbd6471a8561e483d6178db8684",
+      "final_sha256": "88983eb2b2ef1693dc7c0b438d33b70dcb12abbd6471a8561e483d6178db8684",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/slow_transport_clock_tests.rs",
+      "name": "malformed_delay_keeps_the_original_parse_error_before_waiting",
+      "base_sha256": "f91848b2e13b3bc16c0ecc356d32ce25992912118cece9187460225671a8c839",
+      "final_sha256": "f91848b2e13b3bc16c0ecc356d32ce25992912118cece9187460225671a8c839",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/slow_transport_clock_tests.rs",
+      "name": "zero_and_full_u64_millisecond_delays_reach_one_wait_without_truncation",
+      "base_sha256": "daff08430bcabcaf44c2410dad3f95091a1add43f198a3c83917f0b1d771079e",
+      "final_sha256": "daff08430bcabcaf44c2410dad3f95091a1add43f198a3c83917f0b1d771079e",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/slow_transport_clock_tests.rs",
+      "name": "a_consuming_wait_error_is_returned_unchanged_before_exec",
+      "base_sha256": "10aa1bd32eef2473b65c86aa9ed7f0539b7d999250fa8eb6bf8483af60f59933",
+      "final_sha256": "10aa1bd32eef2473b65c86aa9ed7f0539b7d999250fa8eb6bf8483af60f59933",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/slow_transport_clock_tests.rs",
+      "name": "real_exec_failure_keeps_the_original_io_error_after_the_wait",
+      "base_sha256": "b6ea321cc4192a6530caf6087f86046e70e0705973d1a1cbeda0bdc1e0c8a540",
+      "final_sha256": "b6ea321cc4192a6530caf6087f86046e70e0705973d1a1cbeda0bdc1e0c8a540",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/slow_transport_clock_tests.rs",
+      "name": "real_exec_replaces_the_owned_child_and_keeps_argv_and_queued_input",
+      "base_sha256": "0b64557c593033ae10e6085f7783ebadc8b1aedddfaed78e24e57864f82590f9",
+      "final_sha256": "0b64557c593033ae10e6085f7783ebadc8b1aedddfaed78e24e57864f82590f9",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/playback.rs",
+      "name": "stale_retirement_cannot_close_the_next_occurrence",
+      "base_sha256": "a097019fd525353309e82428fd0104fa038036025b04c8b70057ffa0e3bc8187",
+      "final_sha256": "a097019fd525353309e82428fd0104fa038036025b04c8b70057ffa0e3bc8187",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/playback.rs",
+      "name": "legacy_single_occurrence_is_readable_but_multiple_missing_ids_are_ambiguous",
+      "base_sha256": "9bc709ce4f0416e660da7bc41e5f261d7407e374a4848fd0f41b1e08d8a031c5",
+      "final_sha256": "9bc709ce4f0416e660da7bc41e5f261d7407e374a4848fd0f41b1e08d8a031c5",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/playback.rs",
+      "name": "overlap_is_half_open_and_empty_occurrences_prove_no_overlap",
+      "base_sha256": "f414aa8441cf6bc781544372f8df8310d2c480cacf7239603730d252ef86ac89",
+      "final_sha256": "f414aa8441cf6bc781544372f8df8310d2c480cacf7239603730d252ef86ac89",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/runner.rs",
+      "name": "second_occurrence_is_speaking_but_first_retirement_is_not_completion",
+      "base_sha256": "cd6bd2d87d2d0ef6a8d69dc1ac25022d0ae6ad29a0b5b4ee932462f0d828e747",
+      "final_sha256": "cd6bd2d87d2d0ef6a8d69dc1ac25022d0ae6ad29a0b5b4ee932462f0d828e747",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/runner.rs",
+      "name": "a_failure_during_the_trigger_delay_withholds_the_stimulus",
+      "base_sha256": "35938a052aec581b0e6212c8fb137fa913ecd34e13ded2cd97f3fc3bc15b5fcb",
+      "final_sha256": "35938a052aec581b0e6212c8fb137fa913ecd34e13ded2cd97f3fc3bc15b5fcb",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/runner.rs",
+      "name": "main_015_failure_before_the_first_planned_start_injects_nothing",
+      "base_sha256": "d411b88054c5a653555d9ac838eb9185087703e48395124b6f46fc36be300436",
+      "final_sha256": "d411b88054c5a653555d9ac838eb9185087703e48395124b6f46fc36be300436",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/runner.rs",
+      "name": "a_failure_latches_for_the_rest_of_the_attempt",
+      "base_sha256": "cf06bedb9804813dbd90423f2906fd726f547f857eae0161cf1907db2e6952b8",
+      "final_sha256": "cf06bedb9804813dbd90423f2906fd726f547f857eae0161cf1907db2e6952b8",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/runner.rs",
+      "name": "a_failure_already_delivered_at_playback_time_withholds_the_stimulus",
+      "base_sha256": "bf07ecc66a9c25567939317145e826134644e84d22b853205ba1e066a80acd62",
+      "final_sha256": "bf07ecc66a9c25567939317145e826134644e84d22b853205ba1e066a80acd62",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/runner.rs",
+      "name": "a_provider_failure_is_never_a_completion_trigger_and_is_reported",
+      "base_sha256": "cde97927b9aab673b9ddbd90f7173b796809b725af383121e3fb7e978bfa5509",
+      "final_sha256": "cde97927b9aab673b9ddbd90f7173b796809b725af383121e3fb7e978bfa5509",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/runner.rs",
+      "name": "a_backend_revalidation_with_harmless_events_dispatches_once",
+      "base_sha256": "f0f808879305a7f2ab5973b1d603b6a0ba6ab92f49e7435f3909b23022076773",
+      "final_sha256": "f0f808879305a7f2ab5973b1d603b6a0ba6ab92f49e7435f3909b23022076773",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/runner.rs",
+      "name": "a_retirement_taken_by_the_backend_drain_is_precondition_lost",
+      "base_sha256": "7cf8bb6f68d1daee3fd0d317c03981074f8dd6d99a75fe5c304817c131c1c8f3",
+      "final_sha256": "7cf8bb6f68d1daee3fd0d317c03981074f8dd6d99a75fe5c304817c131c1c8f3",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/runner.rs",
+      "name": "a_dispatch_that_never_settles_is_withheld_after_its_bound",
+      "base_sha256": "c5c7e2ecbd8685107c19b28a45260dd1574c5fd403e210a2e4bee18d2158d844",
+      "final_sha256": "c5c7e2ecbd8685107c19b28a45260dd1574c5fd403e210a2e4bee18d2158d844",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/runner.rs",
+      "name": "completion_is_not_readiness_the_late_reopen_is_awaited_by_event",
+      "base_sha256": "7de1edb2b45cb71a0621bd3d4979509ce293087aaae043c244de6e861760ec38",
+      "final_sha256": "7de1edb2b45cb71a0621bd3d4979509ce293087aaae043c244de6e861760ec38",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/runner.rs",
+      "name": "availability_never_withdrawn_is_ready_at_the_finish_not_before_admission",
+      "base_sha256": "22602caf992f4020f9593763597cf6f8bd9903e3b4577642c21f0b1d2d487f25",
+      "final_sha256": "22602caf992f4020f9593763597cf6f8bd9903e3b4577642c21f0b1d2d487f25",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/runner.rs",
+      "name": "a_cancelled_turn_also_finishes_the_wait",
+      "base_sha256": "c56673b5693a93f2848661e00a07fa21deea936d1b4f26c6b0a545233fe2e3f3",
+      "final_sha256": "c56673b5693a93f2848661e00a07fa21deea936d1b4f26c6b0a545233fe2e3f3",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/runner.rs",
+      "name": "an_extra_candidate_during_the_wait_withholds_the_next_turn",
+      "base_sha256": "95cd684bd94e9bd8a58ce0d9766032a31d1d344e7ef76bbe820da22f8ba5cb29",
+      "final_sha256": "95cd684bd94e9bd8a58ce0d9766032a31d1d344e7ef76bbe820da22f8ba5cb29",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/runner.rs",
+      "name": "an_extra_admitted_turn_during_the_wait_is_not_waited_out",
+      "base_sha256": "6dafa7d3c3a30fb096a3aa2b5c40a86e4ee6f40288bd11903bee8ba8f2a388d2",
+      "final_sha256": "6dafa7d3c3a30fb096a3aa2b5c40a86e4ee6f40288bd11903bee8ba8f2a388d2",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/runner.rs",
+      "name": "input_between_readiness_and_dispatch_is_rechecked_at_dispatch",
+      "base_sha256": "b802b32564e68e1107631642b69ac02d875aef7f854bae6999e13784ac432e05",
+      "final_sha256": "b802b32564e68e1107631642b69ac02d875aef7f854bae6999e13784ac432e05",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/runner.rs",
+      "name": "availability_withdrawn_before_dispatch_withholds",
+      "base_sha256": "02f6652a46d734688d2f4cda7887e0b32f3c9fec0beec0fa8bc349ae64e8dbb7",
+      "final_sha256": "02f6652a46d734688d2f4cda7887e0b32f3c9fec0beec0fa8bc349ae64e8dbb7",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/runner.rs",
+      "name": "a_terminal_link_during_the_wait_is_provider_unavailable",
+      "base_sha256": "01e24682f29abd2556b655aac58c51d1d08204cbb7dd66e8d806f46f29f71f2d",
+      "final_sha256": "01e24682f29abd2556b655aac58c51d1d08204cbb7dd66e8d806f46f29f71f2d",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/runner.rs",
+      "name": "a_link_outage_is_waited_out_by_event",
+      "base_sha256": "8b669610a2f330eb8f1c6b8a062ed932ae98793141192e787e2a19459cddf780",
+      "final_sha256": "8b669610a2f330eb8f1c6b8a062ed932ae98793141192e787e2a19459cddf780",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/runner.rs",
+      "name": "a_turn_finished_twice_is_an_owner_fault",
+      "base_sha256": "b33764bc30c64c3de4848ea9e462085dd9b56c8c7d44de9c68d62f436411179c",
+      "final_sha256": "b33764bc30c64c3de4848ea9e462085dd9b56c8c7d44de9c68d62f436411179c",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/runner.rs",
+      "name": "a_stream_without_readiness_evidence_never_waits_on_it",
+      "base_sha256": "6f0e6e31835749a439b3b6d51a0558b5e257fc7d14ffd5f7916ac00573d10485",
+      "final_sha256": "6f0e6e31835749a439b3b6d51a0558b5e257fc7d14ffd5f7916ac00573d10485",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/runner.rs",
+      "name": "audit_a_completion_trigger_starts_inside_the_reopen_window",
+      "base_sha256": "f7e7f7d879d47d26bbbfc2cfecd62f0139cd1ee1bd095cd7c0a564145c7afb21",
+      "final_sha256": "f7e7f7d879d47d26bbbfc2cfecd62f0139cd1ee1bd095cd7c0a564145c7afb21",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/runner.rs",
+      "name": "a_correction_binds_to_the_turn_admitted_since_the_previous_step",
+      "base_sha256": "7de8a492b7e79a584d6983c2ced896a1fe64c19cb1be591d29e407a3df3689f9",
+      "final_sha256": "7de8a492b7e79a584d6983c2ced896a1fe64c19cb1be591d29e407a3df3689f9",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/runner.rs",
+      "name": "a_correction_due_after_output_started_is_withheld",
+      "base_sha256": "6ec266ab14fd114fe634521e4b70e955535e5bda93d92112ae5c9ec7d82045d3",
+      "final_sha256": "6ec266ab14fd114fe634521e4b70e955535e5bda93d92112ae5c9ec7d82045d3",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/runner.rs",
+      "name": "a_correction_after_new_input_or_a_second_owner_is_withheld",
+      "base_sha256": "07b01834ae6ce4d02cd6dff5e2e5eac079d5092dcaddcb9f180b44e620bc9ea8",
+      "final_sha256": "07b01834ae6ce4d02cd6dff5e2e5eac079d5092dcaddcb9f180b44e620bc9ea8",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/runner.rs",
+      "name": "lost_runner_evidence_withholds_the_next_step_at_once",
+      "base_sha256": "032a81b552e7115dde517bb0acb347ecc8bd7fc353db0054752bbc5fbe673bfc",
+      "final_sha256": "032a81b552e7115dde517bb0acb347ecc8bd7fc353db0054752bbc5fbe673bfc",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/stats.rs",
+      "name": "nearest_rank_matches_the_definition",
+      "base_sha256": "6879127a6988da3b6fb0821cc015612226842198e73049ab5207190f9f612413",
+      "final_sha256": "6879127a6988da3b6fb0821cc015612226842198e73049ab5207190f9f612413",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/stimulus.rs",
+      "name": "merged_catalog_keeps_desk_definitions_and_adds_new_scenes",
+      "base_sha256": "6acb6d8141fc38f03a77cbc1911e82036459908a9ba2011e03cabdf40efee028",
+      "final_sha256": "6acb6d8141fc38f03a77cbc1911e82036459908a9ba2011e03cabdf40efee028",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/stimulus.rs",
+      "name": "conflicting_extension_definitions_are_rejected",
+      "base_sha256": "bc974e36611d6af93f6ac821b70f48269cd50b2e4beae8d6c4c0434e373b44ee",
+      "final_sha256": "bc974e36611d6af93f6ac821b70f48269cd50b2e4beae8d6c4c0434e373b44ee",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/stimulus.rs",
+      "name": "measured_mix_refines_only_within_each_clip_window",
+      "base_sha256": "287f43f39a6c7d87d739afe1a5ee7d6b549dd23a5e02d442ffe7d3f12e2f22ab",
+      "final_sha256": "287f43f39a6c7d87d739afe1a5ee7d6b549dd23a5e02d442ffe7d3f12e2f22ab",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/acceptance_boundaries.rs",
+      "name": "unanswered_human_prompt_cannot_pass_a_silence_test",
+      "base_sha256": "5f953f187dbe7ed8219faa0bf8de8c717ff1ccdb4545bbaa1d920fa4da0a5836",
+      "final_sha256": "5f953f187dbe7ed8219faa0bf8de8c717ff1ccdb4545bbaa1d920fa4da0a5836",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/acceptance_boundaries.rs",
+      "name": "delayed_human_response_has_no_synthetic_timing_claim",
+      "base_sha256": "83acc9e9a0340a1c05998ed00d2f07512aeefbbb28378b5da9885e5187cb6547",
+      "final_sha256": "83acc9e9a0340a1c05998ed00d2f07512aeefbbb28378b5da9885e5187cb6547",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/acceptance_boundaries.rs",
+      "name": "prompt_window_does_not_prove_an_echo_was_a_human_interruption",
+      "base_sha256": "9fe0354ce78573cdaf65c9211b4b93399258ef1e2b50ca181b036c065223680a",
+      "final_sha256": "9fe0354ce78573cdaf65c9211b4b93399258ef1e2b50ca181b036c065223680a",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/acceptance_boundaries.rs",
+      "name": "human_import_with_explicit_turn_attribution_remains_separate_and_usable",
+      "base_sha256": "bc2d2ada6736f43a9d9c4afdb36e65d5dd9e795cd07f0e4fa5b753a43da9614c",
+      "final_sha256": "bc2d2ada6736f43a9d9c4afdb36e65d5dd9e795cd07f0e4fa5b753a43da9614c",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/acceptance_boundaries.rs",
+      "name": "unfinished_background_admission_is_unknown_without_timestamp_overflow",
+      "base_sha256": "874eaa0d148067748d578fb1221e9ef6d2f3268e6607d1bb74bfce61190bfd21",
+      "final_sha256": "874eaa0d148067748d578fb1221e9ef6d2f3268e6607d1bb74bfce61190bfd21",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/answer_review.rs",
+      "name": "reviewed_irrelevant_or_incomplete_answer_keeps_transport_but_not_completion_credit",
+      "base_sha256": "72a0ce7577a7754916d8f38ecc9d28fe07ca19822d0dbcb740beb60039dcae46",
+      "final_sha256": "72a0ce7577a7754916d8f38ecc9d28fe07ca19822d0dbcb740beb60039dcae46",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/answer_review.rs",
+      "name": "complete_positive_review_is_separate_from_unreviewed_or_partial_review",
+      "base_sha256": "d4aa13419c14910859600c1ac83bc78cd6361cba4995695fdf15195505a20779",
+      "final_sha256": "d4aa13419c14910859600c1ac83bc78cd6361cba4995695fdf15195505a20779",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/answer_review.rs",
+      "name": "legacy_review_findings_still_exclude_completion_without_new_review_field",
+      "base_sha256": "a675481d315d62425d9c4b95676eb75e86b72678a3098926ab1a8c3ae008d8ff",
+      "final_sha256": "a675481d315d62425d9c4b95676eb75e86b72678a3098926ab1a8c3ae008d8ff",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/answer_review.rs",
+      "name": "gap_accounting_and_review_failures_are_independent",
+      "base_sha256": "faaf319955a1d1936cd2403f2dd810599b87a478a1254c587e5835ee93fecc6b",
+      "final_sha256": "faaf319955a1d1936cd2403f2dd810599b87a478a1254c587e5835ee93fecc6b",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/answer_review.rs",
+      "name": "positive_review_cannot_repair_missing_truncated_or_late_transport",
+      "base_sha256": "3fb21455865d81e48de69a40cdac43ebcd84821daf0a51a5c9f8fddba3e8b6a8",
+      "final_sha256": "3fb21455865d81e48de69a40cdac43ebcd84821daf0a51a5c9f8fddba3e8b6a8",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/answer_review.rs",
+      "name": "confirmed_duplicate_and_split_answers_are_not_successful_completion",
+      "base_sha256": "c42a0a44ab57285c1fd600a198000cf81848be6e792412841dd3d8f3534e0b55",
+      "final_sha256": "c42a0a44ab57285c1fd600a198000cf81848be6e792412841dd3d8f3534e0b55",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/answer_review.rs",
+      "name": "unrelated_ring_fault_and_unconfirmed_or_other_step_findings_do_not_change_answer_credit",
+      "base_sha256": "6678d9ae0f44649ab82a8fb26c10af09f914b47f2fae4bbf66593d73c71731ec",
+      "final_sha256": "6678d9ae0f44649ab82a8fb26c10af09f914b47f2fae4bbf66593d73c71731ec",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/answer_review.rs",
+      "name": "failed_answers_stay_in_the_denominator_and_existing_exclusions_stay_explicit",
+      "base_sha256": "6044476f0652f6dbb965624d77a91fe4922000007ad66a8a92fa6d598834789e",
+      "final_sha256": "6044476f0652f6dbb965624d77a91fe4922000007ad66a8a92fa6d598834789e",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/answer_review.rs",
+      "name": "readable_report_does_not_describe_unreviewed_playback_as_semantic_success",
+      "base_sha256": "0369ff97338f0300e66326016f39bf693fb5d8820d13040c85696bd6e7882c51",
+      "final_sha256": "0369ff97338f0300e66326016f39bf693fb5d8820d13040c85696bd6e7882c51",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/answer_review.rs",
+      "name": "separate_source_groups_preserve_reviewed_answer_denominators",
+      "base_sha256": "fc1efe95e9bcada6f1d8ef8fbdb3dfd709e3aae7714fbd6ad0966bf05343c61e",
+      "final_sha256": "fc1efe95e9bcada6f1d8ef8fbdb3dfd709e3aae7714fbd6ad0966bf05343c61e",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/answer_review.rs",
+      "name": "source_specific_headings_do_not_call_humans_loudspeakers",
+      "base_sha256": "8371e471d862e006da96e79c35116914d469d8b8309c640375b0060be5f0c4d0",
+      "final_sha256": "8371e471d862e006da96e79c35116914d469d8b8309c640375b0060be5f0c4d0",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/answer_review.rs",
+      "name": "evaluator_retains_validated_review_and_transport_as_separate_facts",
+      "base_sha256": "8b0b65c8b16a285f7e598febc56bc155022ce1d1ab776cd3801bcc6c85ab1612",
+      "final_sha256": "8b0b65c8b16a285f7e598febc56bc155022ce1d1ab776cd3801bcc6c85ab1612",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/answer_review.rs",
+      "name": "evaluator_duplicate_attributed_replies_preserve_transport_and_fail_completion_rate",
+      "base_sha256": "9bc76b81a32e0c2d1671830fca7ec3ea8563924a5c785a76441f9180fa995d0d",
+      "final_sha256": "9bc76b81a32e0c2d1671830fca7ec3ea8563924a5c785a76441f9180fa995d0d",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/answer_review.rs",
+      "name": "unlistened_or_mismatched_recording_review_cannot_disqualify_playback",
+      "base_sha256": "cc8c271bcdf5ed9c7a140ee3899d7c14ccaa3dcd8a3b57d645a7e7b9ec4f4f2e",
+      "final_sha256": "cc8c271bcdf5ed9c7a140ee3899d7c14ccaa3dcd8a3b57d645a7e7b9ec4f4f2e",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/audit_final_dispatch.rs",
+      "name": "final_dispatch_must_not_start_after_session_end",
+      "base_sha256": "b468a9f21fe19e6367163965fd5081783212b703b40a8483f7e8032d147bea3d",
+      "final_sha256": "b468a9f21fe19e6367163965fd5081783212b703b40a8483f7e8032d147bea3d",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/audit_final_dispatch.rs",
+      "name": "final_dispatch_must_not_start_after_cue_protocol_failure",
+      "base_sha256": "0a7ffb34fdc41dea0c0e2b2045c26c0e31130f097a791269d31eee6446b07333",
+      "final_sha256": "0a7ffb34fdc41dea0c0e2b2045c26c0e31130f097a791269d31eee6446b07333",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/audit_importer.rs",
+      "name": "a_valid_receipt_and_its_wav_are_verified_as_room_evidence",
+      "base_sha256": "23e59879e23e79428997f9dc73fc201d1f7bb6d55432a5810b63d584164817aa",
+      "final_sha256": "23e59879e23e79428997f9dc73fc201d1f7bb6d55432a5810b63d584164817aa",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/audit_importer.rs",
+      "name": "roots_real_invalid_receipt_is_retained_and_refused",
+      "base_sha256": "3ce569ef823f0f47b53564c14cc72b10f143cce9e153baf9b42d93eb725f2de1",
+      "final_sha256": "3ce569ef823f0f47b53564c14cc72b10f143cce9e153baf9b42d93eb725f2de1",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/audit_importer.rs",
+      "name": "samples_that_differ_from_the_received_pcm_are_refused",
+      "base_sha256": "74b5d8312617a1f826feb7eeee5de3cc0e4a60c84a7aabbf793bde6f00cf25fa",
+      "final_sha256": "74b5d8312617a1f826feb7eeee5de3cc0e4a60c84a7aabbf793bde6f00cf25fa",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/audit_importer.rs",
+      "name": "a_wav_in_another_format_or_length_is_refused",
+      "base_sha256": "baa33341e3e33c41d9f0e6a97164f468c05767104bb602b3b7ca34355615ca3b",
+      "final_sha256": "baa33341e3e33c41d9f0e6a97164f468c05767104bb602b3b7ca34355615ca3b",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/audit_importer.rs",
+      "name": "inconsistent_or_unsafe_receipts_are_refused",
+      "base_sha256": "f7b84bacae6b42263abe642b9c1abb8883866d130426f777237bb37dddbffa36",
+      "final_sha256": "f7b84bacae6b42263abe642b9c1abb8883866d130426f777237bb37dddbffa36",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/audit_importer.rs",
+      "name": "a_receipt_changed_after_import_fails_review_time_verification",
+      "base_sha256": "00089b78fe2f20cef2740a8f046cbda4b703c48fe31ed47c2ceff4296ecc851a",
+      "final_sha256": "00089b78fe2f20cef2740a8f046cbda4b703c48fe31ed47c2ceff4296ecc851a",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/audit_importer.rs",
+      "name": "an_imported_trace_with_a_receipt_is_annotated_and_scored_only_after_listening",
+      "base_sha256": "f258f54494c0b5a6be0a1af649d8f73162f0bb91c7c6dcd8144d66f1f1f9b289",
+      "final_sha256": "f258f54494c0b5a6be0a1af649d8f73162f0bb91c7c6dcd8144d66f1f1f9b289",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/audit_importer.rs",
+      "name": "an_invalid_receipt_keeps_the_attempt_with_unmeasured_acoustics",
+      "base_sha256": "c0537693b174671201d28d6298339dbc9b22e9b8184a23df50f5ce54eaf6ee36",
+      "final_sha256": "c0537693b174671201d28d6298339dbc9b22e9b8184a23df50f5ce54eaf6ee36",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/audit_importer.rs",
+      "name": "audit_malformed_frame_count_is_invalid_evidence_not_a_panic",
+      "base_sha256": "b35c5ea942c580782f890330f6c121764e4075df71c6c9cd8b99323736f14e21",
+      "final_sha256": "b35c5ea942c580782f890330f6c121764e4075df71c6c9cd8b99323736f14e21",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/audit_importer.rs",
+      "name": "audit_original_receipt_must_bind_the_wav_reverified_for_scoring",
+      "base_sha256": "be0c649662a0f01343a8a2775449405df511d84fe1e51be2e420321ccf4edeb1",
+      "final_sha256": "be0c649662a0f01343a8a2775449405df511d84fe1e51be2e420321ccf4edeb1",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/audit_importer.rs",
+      "name": "audit_missing_receipt_is_retained_as_unmeasured_evidence",
+      "base_sha256": "233f05adf2b63ce03aed11d7e469ded9a9a0bb13683d9856d9a9067c50b1c0dc",
+      "final_sha256": "233f05adf2b63ce03aed11d7e469ded9a9a0bb13683d9856d9a9067c50b1c0dc",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/audit_runner_dispatch.rs",
+      "name": "final_drain_must_recheck_trigger_lateness_before_injection",
+      "base_sha256": "ca8d03065a80ffd0df1a943547a0e6c560b6602f855a659ff0236f99e28e9037",
+      "final_sha256": "ca8d03065a80ffd0df1a943547a0e6c560b6602f855a659ff0236f99e28e9037",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/audit_runner_dispatch.rs",
+      "name": "final_drain_must_recheck_speaking_precondition_before_injection",
+      "base_sha256": "e48317396d2c88dbb64ce76d10b8bd614c2431c8b181b45b6659d7083d510bd7",
+      "final_sha256": "e48317396d2c88dbb64ce76d10b8bd614c2431c8b181b45b6659d7083d510bd7",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/canary_plan.rs",
+      "name": "subset_plan_does_not_need_the_named_canary_scenarios",
+      "base_sha256": "0bb0f82e4eb55f61aca09fc0c19915d58c32a7f5c4ca022cfbe49dbdbeaa4474",
+      "final_sha256": "0bb0f82e4eb55f61aca09fc0c19915d58c32a7f5c4ca022cfbe49dbdbeaa4474",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/canary_plan.rs",
+      "name": "custom_catalog_profiles_and_deadline_do_not_change_canary_inputs",
+      "base_sha256": "4d8da17b3d0bbd2ff631abf25a43888565e2ed8e01ec0d421caaba14c619de30",
+      "final_sha256": "4d8da17b3d0bbd2ff631abf25a43888565e2ed8e01ec0d421caaba14c619de30",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/canary_plan.rs",
+      "name": "every_result_identifies_the_embedded_canonical_plan_and_catalog",
+      "base_sha256": "5dfdf96f6c2edd0b3a8412d6758652f84a3fa4de573aac587d863da3fd65c863",
+      "final_sha256": "5dfdf96f6c2edd0b3a8412d6758652f84a3fa4de573aac587d863da3fd65c863",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/evaluator.rs",
+      "name": "imported_h4_trace_is_a_false_interruption_by_unattributed_input",
+      "base_sha256": "5bb59e8940a76e0aed1bdba43ef1a34dbe183c5af4346a33a255c80fa8722544",
+      "final_sha256": "5bb59e8940a76e0aed1bdba43ef1a34dbe183c5af4346a33a255c80fa8722544",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/evaluator.rs",
+      "name": "imported_zejfwxq7_like_chain_counts_every_cancelled_answer",
+      "base_sha256": "a69f8f59d6ac72df9fbecd3f809ac5244530b34e585c5b80426f156ee2e3d403",
+      "final_sha256": "a69f8f59d6ac72df9fbecd3f809ac5244530b34e585c5b80426f156ee2e3d403",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/evaluator.rs",
+      "name": "a_trace_without_run_records_is_unscored_not_passed",
+      "base_sha256": "286a65b2eba06f322a21cf8d4b90bf98159027f9a3fa9a59fe27a36cbd968f29",
+      "final_sha256": "286a65b2eba06f322a21cf8d4b90bf98159027f9a3fa9a59fe27a36cbd968f29",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/evaluator.rs",
+      "name": "provider_mismatch_and_unknown_turns_are_rejected_on_import",
+      "base_sha256": "865ba21970dc809c47c093d628146182f6395c5f968028a914c8abbb13e9f8fe",
+      "final_sha256": "865ba21970dc809c47c093d628146182f6395c5f968028a914c8abbb13e9f8fe",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/evaluator.rs",
+      "name": "acoustic_latency_requires_a_listened_annotation_of_the_same_recording",
+      "base_sha256": "97a0e83ed0323c92f67662ca3460608ab387bab5d50418962dcf3cae7ff60bbc",
+      "final_sha256": "97a0e83ed0323c92f67662ca3460608ab387bab5d50418962dcf3cae7ff60bbc",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/evaluator.rs",
+      "name": "annotation_files_reject_negative_or_nonfinite_times",
+      "base_sha256": "a2249bcb2942327b4f0fb3d50a870b3162fcc1aba5f6d11283153dbec1eefbeb",
+      "final_sha256": "a2249bcb2942327b4f0fb3d50a870b3162fcc1aba5f6d11283153dbec1eefbeb",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/evaluator.rs",
+      "name": "the_shipped_plan_is_valid_and_mutations_are_rejected",
+      "base_sha256": "565f2eaca025c59e23782e9a10ee764edec8c35f8165b024f3c9070e907b4d03",
+      "final_sha256": "565f2eaca025c59e23782e9a10ee764edec8c35f8165b024f3c9070e907b4d03",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/evaluator.rs",
+      "name": "legacy_retirement_before_revocation_does_not_prove_whole_answer_complete",
+      "base_sha256": "ea3a2c34414c25f990d70c40178e13aa2b7f7c2f4a1cf68a2a917b1689a1e1d4",
+      "final_sha256": "ea3a2c34414c25f990d70c40178e13aa2b7f7c2f4a1cf68a2a917b1689a1e1d4",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/evaluator.rs",
+      "name": "imports_must_declare_every_stimulus_and_undeclared_steps_are_unscored",
+      "base_sha256": "4605e801bc44506dd86b6243fe5ff698b0a35ced41c7bdc153eab8c61be8df55",
+      "final_sha256": "4605e801bc44506dd86b6243fe5ff698b0a35ced41c7bdc153eab8c61be8df55",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/evaluator.rs",
+      "name": "a_trace_with_run_start_but_no_run_end_is_not_scored",
+      "base_sha256": "bea19b3832d497cef50ee3cf2efe154ff97ae6862a9956d51e0e4cb59771b17c",
+      "final_sha256": "bea19b3832d497cef50ee3cf2efe154ff97ae6862a9956d51e0e4cb59771b17c",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/evaluator.rs",
+      "name": "reviewer_judgments_fail_and_negative_intervals_stay_unscored",
+      "base_sha256": "551c03759ff42446d587372cd37329fd29214ce55df166bdba3ed0fd5b777e77",
+      "final_sha256": "551c03759ff42446d587372cd37329fd29214ce55df166bdba3ed0fd5b777e77",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/evaluator.rs",
+      "name": "rates_exclude_invalid_attempts_and_unscored_opportunities",
+      "base_sha256": "9ce5eda738d2dda506836554ce3637bd56bdab66839e91ef7ad0359c914b15ee",
+      "final_sha256": "9ce5eda738d2dda506836554ce3637bd56bdab66839e91ef7ad0359c914b15ee",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/evaluator.rs",
+      "name": "the_evaluator_detects_every_injected_failure_and_passes_clean_controls",
+      "base_sha256": "7ca795fe638a06334a49f6cfb3e8c1df3a4e520d2b363c408e064e94b216044f",
+      "final_sha256": "7ca795fe638a06334a49f6cfb3e8c1df3a4e520d2b363c408e064e94b216044f",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/evaluator.rs",
+      "name": "loudspeaker_and_direct_human_attempts_are_reported_separately",
+      "base_sha256": "f84a1c55f201482c520f5f3aed6ef9a64447ba19356933782447b1aff0ca5c58",
+      "final_sha256": "f84a1c55f201482c520f5f3aed6ef9a64447ba19356933782447b1aff0ca5c58",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/fake_runtime.rs",
+      "name": "quick_chat_is_one_complete_answer_with_simulated_latency_only",
+      "base_sha256": "75108325aa8e05d45c44ade1cfdc8e8d6d5d5a51b1922133fb46f2b939c28c46",
+      "final_sha256": "75108325aa8e05d45c44ade1cfdc8e8d6d5d5a51b1922133fb46f2b939c28c46",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/fake_runtime.rs",
+      "name": "follow_ups_are_triggered_by_the_end_of_each_answer",
+      "base_sha256": "7734b753979e73bbd170fcc6f9292e3b2d84ca116f3ac0fb3e933e6cfb6e1877",
+      "final_sha256": "7734b753979e73bbd170fcc6f9292e3b2d84ca116f3ac0fb3e933e6cfb6e1877",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/fake_runtime.rs",
+      "name": "acknowledgments_and_asides_falsely_interrupt_the_current_policy",
+      "base_sha256": "2e34b15397eb9c204e6cc8fb1a2fdf31de0407f767ee80ed0160f947cacdca11",
+      "final_sha256": "2e34b15397eb9c204e6cc8fb1a2fdf31de0407f767ee80ed0160f947cacdca11",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/fake_runtime.rs",
+      "name": "topic_change_yields_as_planned_and_measures_software_yield",
+      "base_sha256": "cc87738224ad3d1ea045057ca374fb6123a19cc6f84352b69d3d29ceb1185409",
+      "final_sha256": "cc87738224ad3d1ea045057ca374fb6123a19cc6f84352b69d3d29ceb1185409",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/fake_runtime.rs",
+      "name": "hesitation_longer_than_the_endpoint_splits_the_turn",
+      "base_sha256": "2d5060c8ba89cd6e324ea343d3608f379c9b5993da71301fdda62ef28a1f8c4e",
+      "final_sha256": "2d5060c8ba89cd6e324ea343d3608f379c9b5993da71301fdda62ef28a1f8c4e",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/fake_runtime.rs",
+      "name": "unaddressed_speech_gets_admitted_and_answered_without_an_addressee_gate",
+      "base_sha256": "1137f3a359027d3b709725b4523af76b94886dc78be9f5d6f0311e168ca88fc6",
+      "final_sha256": "1137f3a359027d3b709725b4523af76b94886dc78be9f5d6f0311e168ca88fc6",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/fake_runtime.rs",
+      "name": "provider_faults_are_reported_honestly",
+      "base_sha256": "b23433986fa03eb4714a44150657c90ada9b814da975152d4729ce3d2fb27a6d",
+      "final_sha256": "b23433986fa03eb4714a44150657c90ada9b814da975152d4729ce3d2fb27a6d",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/fake_runtime.rs",
+      "name": "echo_leak_profile_reproduces_the_h4_false_admission",
+      "base_sha256": "6adea22b0e59f9db4b165de002ce9940ae5de3da7847002f505b8f141d912990",
+      "final_sha256": "6adea22b0e59f9db4b165de002ce9940ae5de3da7847002f505b8f141d912990",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/fake_runtime.rs",
+      "name": "echo_loop_profile_reproduces_a_self_sustaining_admission_chain",
+      "base_sha256": "16a7fbc8622e1d3a1e9e45c9ef906cfd50ff38a4e8400eb458a8394cf37d2ff5",
+      "final_sha256": "16a7fbc8622e1d3a1e9e45c9ef906cfd50ff38a4e8400eb458a8394cf37d2ff5",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/fake_runtime.rs",
+      "name": "fixed_reply_second_turn_is_unsupported_not_failed",
+      "base_sha256": "ce942a6c4119bba1c5863c246a47db2942c45492d48523b7e2b97aad12a7275f",
+      "final_sha256": "ce942a6c4119bba1c5863c246a47db2942c45492d48523b7e2b97aad12a7275f",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/fake_runtime.rs",
+      "name": "same_seed_reproduces_identical_events",
+      "base_sha256": "812dde7d5d0b4bfb1c9da95ce2354b9d465adca78623643622889322f6a41829",
+      "final_sha256": "812dde7d5d0b4bfb1c9da95ce2354b9d465adca78623643622889322f6a41829",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/fake_runtime.rs",
+      "name": "a_lost_overlap_precondition_withholds_the_stimulus",
+      "base_sha256": "a1433e083f52506d5e289cf1c634cc2fd9f42e06a1469c83505cbf873f7d3361",
+      "final_sha256": "a1433e083f52506d5e289cf1c634cc2fd9f42e06a1469c83505cbf873f7d3361",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/fake_runtime.rs",
+      "name": "a_missing_trigger_is_recorded_not_replaced_by_a_fixed_delay",
+      "base_sha256": "eaad65b104e2fa66704f4c1c3685410c6b01b3f08a202ab4861419ed088ff505",
+      "final_sha256": "eaad65b104e2fa66704f4c1c3685410c6b01b3f08a202ab4861419ed088ff505",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/fake_runtime.rs",
+      "name": "signal_mode_uses_lamp_voice_vad_on_the_exact_cached_mix",
+      "base_sha256": "5461259425daafdbaa039307fffaf0da991703fcef748227e8d15b0188094383",
+      "final_sha256": "5461259425daafdbaa039307fffaf0da991703fcef748227e8d15b0188094383",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/fake_runtime.rs",
+      "name": "an_admission_during_a_noise_only_scene_fails_that_silence_step",
+      "base_sha256": "2acfb5dd6c6e39db29022255029f948d4ffead882c9758e82e15d0e40dd67e99",
+      "final_sha256": "2acfb5dd6c6e39db29022255029f948d4ffead882c9758e82e15d0e40dd67e99",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/fake_runtime.rs",
+      "name": "a_stale_trigger_withholds_the_stimulus_instead_of_playing_it_late",
+      "base_sha256": "d3d74226d77c28c0304d3a859f23f2525f989db150b8763b85ace3c75cd23ceb",
+      "final_sha256": "d3d74226d77c28c0304d3a859f23f2525f989db150b8763b85ace3c75cd23ceb",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/fake_runtime.rs",
+      "name": "voice_and_ring_state_stay_consistent_through_cancellation_and_breaks_are_detected",
+      "base_sha256": "8402170a7e1360bf6a080f280ce77a5f0790f67888642e713c481bee602e8f18",
+      "final_sha256": "8402170a7e1360bf6a080f280ce77a5f0790f67888642e713c481bee602e8f18",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/fake_runtime.rs",
+      "name": "repeated_interruptions_each_yield_on_their_own_trigger",
+      "base_sha256": "eb54589465d4301642f7ad9aa5064c935d38d8618c1f7df7fa085c9c29f645cd",
+      "final_sha256": "eb54589465d4301642f7ad9aa5064c935d38d8618c1f7df7fa085c9c29f645cd",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/fake_runtime.rs",
+      "name": "an_unfinished_question_with_a_long_pause_splits_and_its_resumption_yields",
+      "base_sha256": "cb566bb6fa8bac4e33a85a9a61893b20c7387f9c8aa704aaf96974351508933b",
+      "final_sha256": "cb566bb6fa8bac4e33a85a9a61893b20c7387f9c8aa704aaf96974351508933b",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/fake_runtime.rs",
+      "name": "background_talk_that_revokes_the_request_is_a_false_interruption_not_a_split",
+      "base_sha256": "dfe78eac49f24bb5ad440473785bb2c0c80bcb8011bce97b2407191a61b47389",
+      "final_sha256": "dfe78eac49f24bb5ad440473785bb2c0c80bcb8011bce97b2407191a61b47389",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/fake_runtime.rs",
+      "name": "a_session_that_ends_after_a_disconnect_is_scored_as_no_recovery",
+      "base_sha256": "f65f3c259a2e25f2a170dc94dcc1fc5c144f7bb4db35df0c81cf68676db12329",
+      "final_sha256": "f65f3c259a2e25f2a170dc94dcc1fc5c144f7bb4db35df0c81cf68676db12329",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/fake_runtime.rs",
+      "name": "multiple_generations_of_one_turn_still_wait_for_completion_and_keep_overlap",
+      "base_sha256": "93584db8ff52f6fc5d9e4cd5524b3020e4582d05c9a67eb3d2fd1b046093a74b",
+      "final_sha256": "93584db8ff52f6fc5d9e4cd5524b3020e4582d05c9a67eb3d2fd1b046093a74b",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/fake_runtime.rs",
+      "name": "retained_v1_plan_bytes_still_parse_with_occurrence_retirement_triggers",
+      "base_sha256": "5552519689e01e55108dc454f7e78eab48ca0db82777b2743e87145764248753",
+      "final_sha256": "5552519689e01e55108dc454f7e78eab48ca0db82777b2743e87145764248753",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/final_dispatch.rs",
+      "name": "a_known_session_end_withholds_dispatch",
+      "base_sha256": "28fec0d0aa3202191ac599cacb0bb4431507f84086beb03db9eb23d1dabe51db",
+      "final_sha256": "28fec0d0aa3202191ac599cacb0bb4431507f84086beb03db9eb23d1dabe51db",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/final_dispatch.rs",
+      "name": "a_known_invalid_cue_withholds_dispatch_as_a_protocol_failure",
+      "base_sha256": "2767ca691fa9003c8d800363701ad99efd014b490479000baab368f01838790b",
+      "final_sha256": "2767ca691fa9003c8d800363701ad99efd014b490479000baab368f01838790b",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/final_dispatch.rs",
+      "name": "a_known_run_end_cue_withholds_dispatch",
+      "base_sha256": "d59b45c7873df188dbc08939d2fa716f51a3602989f9300f524ca83356f2f023",
+      "final_sha256": "d59b45c7873df188dbc08939d2fa716f51a3602989f9300f524ca83356f2f023",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/final_dispatch.rs",
+      "name": "a_session_end_first_seen_in_the_final_drain_withholds_and_is_kept",
+      "base_sha256": "a89dcedc188eb837b6558bc780496df4be5f23c37734bbe96e51ea3198b0eb4f",
+      "final_sha256": "a89dcedc188eb837b6558bc780496df4be5f23c37734bbe96e51ea3198b0eb4f",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/final_dispatch.rs",
+      "name": "an_invalid_cue_first_seen_in_the_final_drain_withholds",
+      "base_sha256": "a294faab1b32d189e1ca6746808e60352a898270bbe052e6bfec6f715616d327",
+      "final_sha256": "a294faab1b32d189e1ca6746808e60352a898270bbe052e6bfec6f715616d327",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/final_dispatch.rs",
+      "name": "a_relay_framing_error_first_seen_in_the_final_drain_withholds",
+      "base_sha256": "f4e69c28390e6147a86e311e2bde471de30a533c7d57f8b34f1b0e4cefc1614a",
+      "final_sha256": "f4e69c28390e6147a86e311e2bde471de30a533c7d57f8b34f1b0e4cefc1614a",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/final_dispatch.rs",
+      "name": "a_transport_closed_during_the_final_drain_withholds",
+      "base_sha256": "884952fd952766338f2795106924c3563a909539c9f8e961a11e93bd5bb63d28",
+      "final_sha256": "884952fd952766338f2795106924c3563a909539c9f8e961a11e93bd5bb63d28",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/final_dispatch.rs",
+      "name": "a_healthy_session_still_dispatches_once",
+      "base_sha256": "d18463f2ab44ae71d8f945cd18c2365345be5c80ae6094a4419f0bf60b0e2eef",
+      "final_sha256": "d18463f2ab44ae71d8f945cd18c2365345be5c80ae6094a4419f0bf60b0e2eef",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/final_dispatch.rs",
+      "name": "the_first_terminal_cause_wins_and_a_provider_failure_stays_provider_unavailable",
+      "base_sha256": "8313c4f450fa1dc57c982103bc8e162f0de01cd18dd470eaf2f62bf365030a39",
+      "final_sha256": "8313c4f450fa1dc57c982103bc8e162f0de01cd18dd470eaf2f62bf365030a39",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/final_dispatch.rs",
+      "name": "an_unobserved_event_in_the_final_drain_requires_revalidation",
+      "base_sha256": "3e98beae0ad6d99a2992150d93046dc6a2ddf1344d44bb11eead78744fc35366",
+      "final_sha256": "3e98beae0ad6d99a2992150d93046dc6a2ddf1344d44bb11eead78744fc35366",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/final_dispatch.rs",
+      "name": "audit_physical_boundary_rejects_a_target_already_over_100ms_late",
+      "base_sha256": "fa6887eedc207608f0cc290897dc1464e011b0317e7e23e0219987517fe9de9c",
+      "final_sha256": "fa6887eedc207608f0cc290897dc1464e011b0317e7e23e0219987517fe9de9c",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/final_dispatch.rs",
+      "name": "audit_physical_boundary_does_not_dispatch_during_post_exit_trace_relay",
+      "base_sha256": "0329802249df2c310ef2412a4bcae4d67df38fdba965a286573fd508d47c2353",
+      "final_sha256": "0329802249df2c310ef2412a4bcae4d67df38fdba965a286573fd508d47c2353",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/final_dispatch.rs",
+      "name": "a_final_drain_that_exhausts_its_budget_requires_revalidation",
+      "base_sha256": "cab6d23b589aae57cedc1a0c2cb232d54525a2ecf4c2ee33a4dad36b5ecf4fa9",
+      "final_sha256": "cab6d23b589aae57cedc1a0c2cb232d54525a2ecf4c2ee33a4dad36b5ecf4fa9",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/next_turn_ready.rs",
+      "name": "next_turn_ready_validates_only_after_a_step_that_expects_a_turn",
+      "base_sha256": "57cba3efa1b73b3acc45368a138b7b9b8b374c46046190ba744946fb879c1266",
+      "final_sha256": "57cba3efa1b73b3acc45368a138b7b9b8b374c46046190ba744946fb879c1266",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/next_turn_ready.rs",
+      "name": "the_fake_runtime_reports_readiness_and_follow_ups_start_on_it",
+      "base_sha256": "256a7e3eac0ea1f2a3e75126881d6b59f3cb4d9571ee65c3787635c1caf855e2",
+      "final_sha256": "256a7e3eac0ea1f2a3e75126881d6b59f3cb4d9571ee65c3787635c1caf855e2",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/physical_loopback.rs",
+      "name": "cue_triggered_acknowledgment_is_injected_during_playback_and_scored",
+      "base_sha256": "4ceeb88be55398b5cda9e6d38f63d7c7c80b31588eed6f44ef3dda10de5a5f57",
+      "final_sha256": "4ceeb88be55398b5cda9e6d38f63d7c7c80b31588eed6f44ef3dda10de5a5f57",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/physical_loopback.rs",
+      "name": "echo_only_window_passes_through_the_relay_without_extra_admissions",
+      "base_sha256": "d54fea4a4f6fab3bd41d9f20e0e74bc359ccc04aebe092a65ea55da68974cb68",
+      "final_sha256": "d54fea4a4f6fab3bd41d9f20e0e74bc359ccc04aebe092a65ea55da68974cb68",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/physical_loopback.rs",
+      "name": "directed_mode_keeps_provider_fault_and_asset_restrictions",
+      "base_sha256": "8ea9a7b9d6c29b35e27bf45263c8486f0a3668085c2842a7d6dab2a8e34f31e5",
+      "final_sha256": "8ea9a7b9d6c29b35e27bf45263c8486f0a3668085c2842a7d6dab2a8e34f31e5",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/physical_loopback.rs",
+      "name": "directed_followup_waits_for_whole_reply_completion_then_admits_a_new_turn",
+      "base_sha256": "9c0598f35d4527c79e07087dc800adee870f094273cc2a177f4c0fbc2a08ba62",
+      "final_sha256": "9c0598f35d4527c79e07087dc800adee870f094273cc2a177f4c0fbc2a08ba62",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/physical_loopback.rs",
+      "name": "directed_natural_interruption_runs_during_reply_with_original_cancel_reason",
+      "base_sha256": "83253b2afcb7a17edcabec2e58b4b83fc71ba2b67913a1076e5329e5cc9da571",
+      "final_sha256": "83253b2afcb7a17edcabec2e58b4b83fc71ba2b67913a1076e5329e5cc9da571",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/physical_loopback.rs",
+      "name": "directed_missing_or_stale_retirement_never_falls_back_to_a_timer_or_final_trace",
+      "base_sha256": "bce7a07a99097a6f7a2ff9e5685215d859cea53f109ceaf2b6b5332ff4524cd2",
+      "final_sha256": "bce7a07a99097a6f7a2ff9e5685215d859cea53f109ceaf2b6b5332ff4524cd2",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/physical_loopback.rs",
+      "name": "undelivered_stimuli_are_withheld_not_scored_as_silence",
+      "base_sha256": "81829914db1381c275e5997c5c6f0ac2bafcf8f87e8ca7628464f03fbe490b77",
+      "final_sha256": "81829914db1381c275e5997c5c6f0ac2bafcf8f87e8ca7628464f03fbe490b77",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/physical_loopback.rs",
+      "name": "a_transport_that_closes_mid_trace_invalidates_the_attempt",
+      "base_sha256": "b4114fc77dd2242d17ba7b8ec2919ae30258f20b7686f485394b5e4616d38383",
+      "final_sha256": "b4114fc77dd2242d17ba7b8ec2919ae30258f20b7686f485394b5e4616d38383",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/physical_loopback.rs",
+      "name": "directed_two_occurrences_wait_for_true_completion_before_followup",
+      "base_sha256": "e73df8e0ce9e4ed02556cbcc0a7fe57c0e7b4f6c90690d4d3bef8b72a9783e7a",
+      "final_sha256": "e73df8e0ce9e4ed02556cbcc0a7fe57c0e7b4f6c90690d4d3bef8b72a9783e7a",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/physical_loopback.rs",
+      "name": "directed_interruption_during_second_occurrence_preserves_owner_and_yields",
+      "base_sha256": "776127f05fc24c34e418966038a0e1bd10a205ecafd236577ff8d8a8cebc7709",
+      "final_sha256": "776127f05fc24c34e418966038a0e1bd10a205ecafd236577ff8d8a8cebc7709",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/physical_loopback.rs",
+      "name": "missing_or_stale_whole_completion_withholds_followup_after_valid_retirement",
+      "base_sha256": "4aad8ca32173b648131f55b626a63e2235e31d1c007ac44ca137bf34481e7182",
+      "final_sha256": "4aad8ca32173b648131f55b626a63e2235e31d1c007ac44ca137bf34481e7182",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/physical_loopback.rs",
+      "name": "physical_next_turn_ready_follows_lamp_voice_readiness_cues",
+      "base_sha256": "195840ae11cdb6d3ec4a1d2448cf1042f781b813b4d1e3954a23c45b7f4c500e",
+      "final_sha256": "195840ae11cdb6d3ec4a1d2448cf1042f781b813b4d1e3954a23c45b7f4c500e",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/playback_occurrences.rs",
+      "name": "two_complete_occurrences_sum_exposure_without_counting_the_gap",
+      "base_sha256": "d3080fbd9c8b7efa4fc95f43e123f895e7d911468af92702569c297b02be89a3",
+      "final_sha256": "d3080fbd9c8b7efa4fc95f43e123f895e7d911468af92702569c297b02be89a3",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/playback_occurrences.rs",
+      "name": "cancellation_during_second_generation_is_not_a_complete_answer",
+      "base_sha256": "a38fea4fb96e9512f1ed395b456baa6015d71fa1825a2027fb2dc6d905c0d044",
+      "final_sha256": "a38fea4fb96e9512f1ed395b456baa6015d71fa1825a2027fb2dc6d905c0d044",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/playback_occurrences.rs",
+      "name": "cancellation_between_generations_is_not_whole_turn_completion",
+      "base_sha256": "6b6ebb62410d3f532775a64678e087271a01258675a38576724bfc13e50eec68",
+      "final_sha256": "6b6ebb62410d3f532775a64678e087271a01258675a38576724bfc13e50eec68",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/playback_occurrences.rs",
+      "name": "stale_first_retirement_during_second_is_invalid_and_does_not_shorten_exposure",
+      "base_sha256": "d7b8f06e102a79e10476cae9032c2517ab231942c13e2c5787792afa08ace6c8",
+      "final_sha256": "d7b8f06e102a79e10476cae9032c2517ab231942c13e2c5787792afa08ace6c8",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/playback_occurrences.rs",
+      "name": "missing_second_identity_duplicate_retirement_and_early_completion_cannot_pass",
+      "base_sha256": "78e8803fa21cd48a8ad4b1b18849f5fef4e254f77e61748326bf09ed9aff90bf",
+      "final_sha256": "78e8803fa21cd48a8ad4b1b18849f5fef4e254f77e61748326bf09ed9aff90bf",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/playback_occurrences.rs",
+      "name": "every_occurrence_is_used_for_ring_state_and_latency_uses_the_first_word",
+      "base_sha256": "5cc71083999e160db88eeb2cf5ca63cd6b2e20cebfe3062cd1859c5cf68e0958",
+      "final_sha256": "5cc71083999e160db88eeb2cf5ca63cd6b2e20cebfe3062cd1859c5cf68e0958",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/playback_occurrences.rs",
+      "name": "completion_missing_gap_count_is_retained_invalid_not_normalized_to_success",
+      "base_sha256": "cb189185d259ca2a69574362b4528fa35a679da823ddee5d591e40f035ef32bc",
+      "final_sha256": "cb189185d259ca2a69574362b4528fa35a679da823ddee5d591e40f035ef32bc",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/playback_occurrences.rs",
+      "name": "historical_terminal_without_generation_is_readable",
+      "base_sha256": "50babdc5206e90434f6d04697eab3654bd895b04dc4357e9ec70f357421c04b2",
+      "final_sha256": "50babdc5206e90434f6d04697eab3654bd895b04dc4357e9ec70f357421c04b2",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/playback_occurrences.rs",
+      "name": "completion_relabelled_to_another_generation_or_with_contradictory_gaps_is_invalid",
+      "base_sha256": "8d0cb33bef0b706e6454e538e5522833f1089a9ac51ae21daf75518164e8eaa2",
+      "final_sha256": "8d0cb33bef0b706e6454e538e5522833f1089a9ac51ae21daf75518164e8eaa2",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/playback_occurrences.rs",
+      "name": "recognized_lifecycle_records_cannot_disappear_when_identity_or_time_is_missing",
+      "base_sha256": "6f69a5ded4f14cd17bee7af40edf8279c86804cac8173742502dd03ab13719ec",
+      "final_sha256": "6f69a5ded4f14cd17bee7af40edf8279c86804cac8173742502dd03ab13719ec",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/provider_failed.rs",
+      "name": "a_failure_before_audio_is_a_failed_answer_not_a_silent_missing_terminal",
+      "base_sha256": "f515fceacc95c86e0574c49f874092d0bb6ba3e0de961f08e3932634fc264bf8",
+      "final_sha256": "f515fceacc95c86e0574c49f874092d0bb6ba3e0de961f08e3932634fc264bf8",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/provider_failed.rs",
+      "name": "a_failure_after_a_partial_answer_keeps_its_audio_evidence_and_fails",
+      "base_sha256": "c513161c13227c8c9eb6139fe852e0e9264fc105b62236c13917d38e970917ae",
+      "final_sha256": "c513161c13227c8c9eb6139fe852e0e9264fc105b62236c13917d38e970917ae",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/provider_failed.rs",
+      "name": "a_failure_while_audio_is_still_playing_is_inconsistent_evidence",
+      "base_sha256": "9dc4a487b8ef3f83def2458972192197b9b8667ca0ded70320454caad6ced141",
+      "final_sha256": "9dc4a487b8ef3f83def2458972192197b9b8667ca0ded70320454caad6ced141",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/provider_failed.rs",
+      "name": "the_drain_endpoint_is_recorded_but_never_a_normal_endpoint",
+      "base_sha256": "fe12ac1894f44e29373421f6f3ee4ac20b92a7eb31966087dae54a0779042e6b",
+      "final_sha256": "fe12ac1894f44e29373421f6f3ee4ac20b92a7eb31966087dae54a0779042e6b",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/provider_failed.rs",
+      "name": "the_failed_terminal_cue_is_readable_with_or_without_gaps",
+      "base_sha256": "c0b7507436b3a1b5efb4bfc48a88c75632efddd653b81cfc0d5a59f412433013",
+      "final_sha256": "c0b7507436b3a1b5efb4bfc48a88c75632efddd653b81cfc0d5a59f412433013",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/provider_failed.rs",
+      "name": "a_late_failed_answer_keeps_both_causes_and_the_provider_evidence",
+      "base_sha256": "31b825d76ed0cd2c57ae3101d39fd66779b01e81f998588c9c79158b635479ac",
+      "final_sha256": "31b825d76ed0cd2c57ae3101d39fd66779b01e81f998588c9c79158b635479ac",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/provider_failed.rs",
+      "name": "provider_session_and_outcome_survive_trace_parsing_bounded",
+      "base_sha256": "ff676e19340c7c4d523279d059a03724e291a261dacbeaedd984558204544aed",
+      "final_sha256": "ff676e19340c7c4d523279d059a03724e291a261dacbeaedd984558204544aed",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/recording_evidence.rs",
+      "name": "actual_wav_hash_format_frames_and_duration_are_verified",
+      "base_sha256": "7d3ac71fc7bf5aef897aab460705a73b9c822038f2116a8cda2d3c1274980e33",
+      "final_sha256": "7d3ac71fc7bf5aef897aab460705a73b9c822038f2116a8cda2d3c1274980e33",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/recording_evidence.rs",
+      "name": "observer_float_and_extensible_multichannel_pcm_are_supported",
+      "base_sha256": "7be0ab3a0d1a720452727a5bd4235ba04ca96014cf00170aa73715ef55b7407f",
+      "final_sha256": "7be0ab3a0d1a720452727a5bd4235ba04ca96014cf00170aa73715ef55b7407f",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/recording_evidence.rs",
+      "name": "matching_metadata_and_annotation_strings_cannot_mint_acoustic_evidence",
+      "base_sha256": "cdd465d402e2121d550b0985107dbc811f57a7ca8063eff4cf2eaf44bf9e1760",
+      "final_sha256": "cdd465d402e2121d550b0985107dbc811f57a7ca8063eff4cf2eaf44bf9e1760",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/recording_evidence.rs",
+      "name": "removing_wav_after_import_invalidates_report_regeneration",
+      "base_sha256": "f1bcf20688231d3ea3b1007c6846831a63ae2697dd8ea027769a1dc76046ca61",
+      "final_sha256": "f1bcf20688231d3ea3b1007c6846831a63ae2697dd8ea027769a1dc76046ca61",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/recording_evidence.rs",
+      "name": "same_length_replacement_after_import_is_not_the_reviewed_recording",
+      "base_sha256": "b678fbed19c043e085630c6d6f7be312a41ea6c7fddf6d03b335d053b1158bb2",
+      "final_sha256": "b678fbed19c043e085630c6d6f7be312a41ea6c7fddf6d03b335d053b1158bb2",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/recording_evidence.rs",
+      "name": "truncated_riff_and_payload_are_rejected_even_with_their_new_hash",
+      "base_sha256": "27a572367fc12fc9010b4779700d860ce58e00ad4f85fec1d2f941759853e28e",
+      "final_sha256": "27a572367fc12fc9010b4779700d860ce58e00ad4f85fec1d2f941759853e28e",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/recording_evidence.rs",
+      "name": "incomplete_sample_frame_and_nonfinite_float_are_rejected",
+      "base_sha256": "65b74fb45d882b59c045dab5a2879e43910085c64ef5f6d62c1f7ff89ed2500b",
+      "final_sha256": "65b74fb45d882b59c045dab5a2879e43910085c64ef5f6d62c1f7ff89ed2500b",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/recording_evidence.rs",
+      "name": "empty_and_over_byte_limit_files_fail_before_sample_allocation",
+      "base_sha256": "daa250d2a496a67fae25a36cb904a91d30dc9ecb6554d71505e60080b4dadf7b",
+      "final_sha256": "daa250d2a496a67fae25a36cb904a91d30dc9ecb6554d71505e60080b4dadf7b",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/recording_evidence.rs",
+      "name": "duration_rate_and_channel_bounds_are_enforced",
+      "base_sha256": "fb995439ca6ebea58049ee873864e13f878c609fc138a5dc4897aa50d5f4db65",
+      "final_sha256": "fb995439ca6ebea58049ee873864e13f878c609fc138a5dc4897aa50d5f4db65",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/recording_evidence.rs",
+      "name": "symlink_and_nonregular_paths_cannot_be_recordings",
+      "base_sha256": "77568855f94e246d80c0d9e98d6c81cc72e92176339ea0a4c6ceac6326767788",
+      "final_sha256": "77568855f94e246d80c0d9e98d6c81cc72e92176339ea0a4c6ceac6326767788",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/recording_evidence.rs",
+      "name": "wrong_run_and_outside_recording_boundaries_are_unscored",
+      "base_sha256": "8146d994c5600f3201f4289c8478c8fb33427caf26c1a5b9604b196cd064f44d",
+      "final_sha256": "8146d994c5600f3201f4289c8478c8fb33427caf26c1a5b9604b196cd064f44d",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/recording_evidence.rs",
+      "name": "interruption_times_and_uncertainties_are_checked_too",
+      "base_sha256": "50a6a727386350ff6e8e6875ab37e3ded9a026d0329459f4a4943527fa93fc90",
+      "final_sha256": "50a6a727386350ff6e8e6875ab37e3ded9a026d0329459f4a4943527fa93fc90",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/recording_evidence.rs",
+      "name": "reversed_intervals_do_not_erase_independent_content_review",
+      "base_sha256": "f616a9f1bcd92c4fb3dd7544b67bbf3032b87916860ea266d4f26647c29df0c7",
+      "final_sha256": "f616a9f1bcd92c4fb3dd7544b67bbf3032b87916860ea266d4f26647c29df0c7",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/recording_evidence.rs",
+      "name": "failed_or_timed_out_recorder_cannot_reuse_valid_metadata",
+      "base_sha256": "6d19b22817c0d65195263a65e91d6ae157ec7a2f72ee6af7ef65e84ffb9f9d12",
+      "final_sha256": "6d19b22817c0d65195263a65e91d6ae157ec7a2f72ee6af7ef65e84ffb9f9d12",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/recording_evidence.rs",
+      "name": "observer_frame_format_and_error_claims_must_match_actual_bytes",
+      "base_sha256": "7739d56a6b6fa5c26ef094ede7daa8f7cf525a25699ed756db84d37761dc202d",
+      "final_sha256": "7739d56a6b6fa5c26ef094ede7daa8f7cf525a25699ed756db84d37761dc202d",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/recording_evidence.rs",
+      "name": "missing_or_corrupt_metadata_retains_the_attempt_and_reason",
+      "base_sha256": "618137f9522ad916d7b3b09e74a2bacce982d1ce6d8f37d9dd33f8c63a46d499",
+      "final_sha256": "618137f9522ad916d7b3b09e74a2bacce982d1ce6d8f37d9dd33f8c63a46d499",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/recording_evidence.rs",
+      "name": "valid_metadata_without_its_recording_is_retained_as_invalid_evidence",
+      "base_sha256": "7e9b43fcead6e6ad862973d2c717ba9a5f508e3bd5ef91b0b21fe149fa93c49b",
+      "final_sha256": "7e9b43fcead6e6ad862973d2c717ba9a5f508e3bd5ef91b0b21fe149fa93c49b",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/recording_evidence.rs",
+      "name": "unrepresentable_path_is_an_invalid_receipt_not_a_serialization_panic",
+      "base_sha256": "1e6c1881f62b89695ec82388066d3193ed7ffe5a99467a4fc7f5588712aaaf88",
+      "final_sha256": "1e6c1881f62b89695ec82388066d3193ed7ffe5a99467a4fc7f5588712aaaf88",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/recording_evidence.rs",
+      "name": "annotation_parser_rejects_negative_values_without_using_software_hints",
+      "base_sha256": "e47a9a86676f4f2a395175d29a6f8f31a2e3098f1678aa705886f248a42544cf",
+      "final_sha256": "e47a9a86676f4f2a395175d29a6f8f31a2e3098f1678aa705886f248a42544cf",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/recording_import.rs",
+      "name": "a_valid_receipt_and_its_wav_are_verified_as_room_evidence",
+      "base_sha256": "23e59879e23e79428997f9dc73fc201d1f7bb6d55432a5810b63d584164817aa",
+      "final_sha256": "23e59879e23e79428997f9dc73fc201d1f7bb6d55432a5810b63d584164817aa",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/recording_import.rs",
+      "name": "roots_real_invalid_receipt_is_retained_and_refused",
+      "base_sha256": "3ce569ef823f0f47b53564c14cc72b10f143cce9e153baf9b42d93eb725f2de1",
+      "final_sha256": "3ce569ef823f0f47b53564c14cc72b10f143cce9e153baf9b42d93eb725f2de1",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/recording_import.rs",
+      "name": "samples_that_differ_from_the_received_pcm_are_refused",
+      "base_sha256": "74b5d8312617a1f826feb7eeee5de3cc0e4a60c84a7aabbf793bde6f00cf25fa",
+      "final_sha256": "74b5d8312617a1f826feb7eeee5de3cc0e4a60c84a7aabbf793bde6f00cf25fa",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/recording_import.rs",
+      "name": "a_wav_in_another_format_or_length_is_refused",
+      "base_sha256": "baa33341e3e33c41d9f0e6a97164f468c05767104bb602b3b7ca34355615ca3b",
+      "final_sha256": "baa33341e3e33c41d9f0e6a97164f468c05767104bb602b3b7ca34355615ca3b",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/recording_import.rs",
+      "name": "inconsistent_or_unsafe_receipts_are_refused",
+      "base_sha256": "f7b84bacae6b42263abe642b9c1abb8883866d130426f777237bb37dddbffa36",
+      "final_sha256": "f7b84bacae6b42263abe642b9c1abb8883866d130426f777237bb37dddbffa36",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/recording_import.rs",
+      "name": "a_receipt_changed_after_import_fails_review_time_verification",
+      "base_sha256": "00089b78fe2f20cef2740a8f046cbda4b703c48fe31ed47c2ceff4296ecc851a",
+      "final_sha256": "00089b78fe2f20cef2740a8f046cbda4b703c48fe31ed47c2ceff4296ecc851a",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/recording_import.rs",
+      "name": "an_imported_trace_with_a_receipt_is_annotated_and_scored_only_after_listening",
+      "base_sha256": "f258f54494c0b5a6be0a1af649d8f73162f0bb91c7c6dcd8144d66f1f1f9b289",
+      "final_sha256": "f258f54494c0b5a6be0a1af649d8f73162f0bb91c7c6dcd8144d66f1f1f9b289",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/recording_import.rs",
+      "name": "an_invalid_receipt_keeps_the_attempt_with_unmeasured_acoustics",
+      "base_sha256": "c0537693b174671201d28d6298339dbc9b22e9b8184a23df50f5ce54eaf6ee36",
+      "final_sha256": "c0537693b174671201d28d6298339dbc9b22e9b8184a23df50f5ce54eaf6ee36",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/recording_import.rs",
+      "name": "an_absurd_receipt_frame_count_is_invalid_evidence_not_a_panic",
+      "base_sha256": "1938481964d25439c4b5ec216d8965c8f83a77c011b45b5287fbcfad465836bb",
+      "final_sha256": "1938481964d25439c4b5ec216d8965c8f83a77c011b45b5287fbcfad465836bb",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/recording_import.rs",
+      "name": "review_rebinds_the_wav_to_the_receipt_not_to_cached_claims",
+      "base_sha256": "3e1ba82f6d0c1352397951df33622e13a7ca70ca21d045e1dfd3b54ca21ed1ee",
+      "final_sha256": "3e1ba82f6d0c1352397951df33622e13a7ca70ca21d045e1dfd3b54ca21ed1ee",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/relay_clock.rs",
+      "name": "receipt_and_exit_timestamps_use_only_the_explicit_clock",
+      "base_sha256": "a23a173b735223026edf16e92573335c2bdaef980f91c40de3f89b340926762c",
+      "final_sha256": "a23a173b735223026edf16e92573335c2bdaef980f91c40de3f89b340926762c",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/relay_clock.rs",
+      "name": "hard_deadline_and_stop_grace_expire_at_their_original_boundaries",
+      "base_sha256": "fde1c12d9203747c21c82b1415d49a9edfeb5a2d487d0c60276da68870bf6a91",
+      "final_sha256": "fde1c12d9203747c21c82b1415d49a9edfeb5a2d487d0c60276da68870bf6a91",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/relay_hardening.rs",
+      "name": "oversized_and_non_utf8_stdout_lines_are_explicit_failures",
+      "base_sha256": "3e5bb64dcd03efd881277820d5008a3e21f34a6b3b2432da61aa1aba0b642592",
+      "final_sha256": "3e5bb64dcd03efd881277820d5008a3e21f34a6b3b2432da61aa1aba0b642592",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/relay_hardening.rs",
+      "name": "a_cut_off_final_trace_record_is_reported_and_the_digest_covers_the_whole_file",
+      "base_sha256": "79e3378a093496e0da8c57d59ba8f09b508be1be9cb0448ea7db7c8a2382290f",
+      "final_sha256": "79e3378a093496e0da8c57d59ba8f09b508be1be9cb0448ea7db7c8a2382290f",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/relay_hardening.rs",
+      "name": "oversized_or_non_utf8_trace_records_stop_the_trace_explicitly",
+      "base_sha256": "73e974736c6c942225926b060e7250d7f30f357b649c22bbfb895086af3e1324",
+      "final_sha256": "73e974736c6c942225926b060e7250d7f30f357b649c22bbfb895086af3e1324",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/relay_hardening.rs",
+      "name": "a_closed_runner_transport_stops_the_runtime_and_its_workers",
+      "base_sha256": "e76216f54f25a5fd5cb2484274c4391c569d33dd5b9e78049c0e1d4e67704234",
+      "final_sha256": "e76216f54f25a5fd5cb2484274c4391c569d33dd5b9e78049c0e1d4e67704234",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/relay_hardening.rs",
+      "name": "workers_left_after_a_normal_exit_are_stopped_and_reported",
+      "base_sha256": "6ba6fb0f407fe681cd5d9af61d927a2abd43774a41dda6d7bc2febe729b794f2",
+      "final_sha256": "6ba6fb0f407fe681cd5d9af61d927a2abd43774a41dda6d7bc2febe729b794f2",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/relay_hardening.rs",
+      "name": "a_clean_session_reports_no_relay_failure",
+      "base_sha256": "9586bc162ba49350b4396f2c1420905bf131d302e85c26bfeb44b7786228256f",
+      "final_sha256": "9586bc162ba49350b4396f2c1420905bf131d302e85c26bfeb44b7786228256f",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/relay_hardening.rs",
+      "name": "an_early_relay_error_after_the_runtime_exited_still_stops_its_workers",
+      "base_sha256": "c2bdb14e26d2104ae43286bd32d872b8dd75ca6d07652b210975d681235b4832",
+      "final_sha256": "c2bdb14e26d2104ae43286bd32d872b8dd75ca6d07652b210975d681235b4832",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/report_validity.rs",
+      "name": "the_fixture_keeps_the_runs_exact_interruption_order",
+      "base_sha256": "b25ab9d2dd0f31bed359a1acabd0f1e30c73d3c7d7fcda0ffe7c3feede8e2a62",
+      "final_sha256": "b25ab9d2dd0f31bed359a1acabd0f1e30c73d3c7d7fcda0ffe7c3feede8e2a62",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/report_validity.rs",
+      "name": "the_4ace_conversation_scores_its_planned_yield_and_correction",
+      "base_sha256": "46f651e5f15bcde53287c659b1640d2b26c098ff82c49de0faee170184909aa7",
+      "final_sha256": "46f651e5f15bcde53287c659b1640d2b26c098ff82c49de0faee170184909aa7",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/report_validity.rs",
+      "name": "a_cancellation_with_no_successor_admission_stays_a_runtime_failure",
+      "base_sha256": "b3116d0fd00842b2d94de2c04dfecf272a3b747e479ab726a3d438c77242c251",
+      "final_sha256": "b3116d0fd00842b2d94de2c04dfecf272a3b747e479ab726a3d438c77242c251",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/report_validity.rs",
+      "name": "a_late_successor_admission_does_not_explain_the_cancellation",
+      "base_sha256": "425dfda784e5a3e690e6871f6b1ad6270fe93603d245ab5b76b0f43a0f4cab51",
+      "final_sha256": "425dfda784e5a3e690e6871f6b1ad6270fe93603d245ab5b76b0f43a0f4cab51",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/report_validity.rs",
+      "name": "a_foreign_boot_or_stale_generation_admission_is_not_the_cause",
+      "base_sha256": "aea28a2ead5850597b4339f4752080aa26d00050a517d7753725193a4e40087f",
+      "final_sha256": "aea28a2ead5850597b4339f4752080aa26d00050a517d7753725193a4e40087f",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/report_validity.rs",
+      "name": "an_earlier_turn_cannot_have_caused_a_later_turns_cancellation",
+      "base_sha256": "48a000eb0fdbca444523c4879ff8b34f5fda2765d65f92473e53dbf6f4dea8ae",
+      "final_sha256": "48a000eb0fdbca444523c4879ff8b34f5fda2765d65f92473e53dbf6f4dea8ae",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/report_validity.rs",
+      "name": "only_the_bound_before_output_correction_supersedes_a_pending_reply",
+      "base_sha256": "4cd615aa29021d1ea7903ef01e74d194298f22c184130435a72f3c28ae2520df",
+      "final_sha256": "4cd615aa29021d1ea7903ef01e74d194298f22c184130435a72f3c28ae2520df",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/report_validity.rs",
+      "name": "a_correction_admitted_after_output_started_is_not_a_tested_supersession",
+      "base_sha256": "0edf34d23d0418faba4884d625c44f45c6d26b8c6ae11aa9b51a21b9d0e5a7aa",
+      "final_sha256": "0edf34d23d0418faba4884d625c44f45c6d26b8c6ae11aa9b51a21b9d0e5a7aa",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/report_validity.rs",
+      "name": "the_endpoint_boundary_states_the_runtimes_observed_silence_wait",
+      "base_sha256": "4dade6dc1ad3b2834ec3d2d0a0c3febcc84766c184b1af8f3fd57fe7dd516395",
+      "final_sha256": "4dade6dc1ad3b2834ec3d2d0a0c3febcc84766c184b1af8f3fd57fe7dd516395",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/report_validity.rs",
+      "name": "the_invalid_room_terminal_report_is_retained_and_surfaced",
+      "base_sha256": "516c2c779e80a62970106ec7048c15c7f0e19aeddbbd43246a28e487aa92cba3",
+      "final_sha256": "516c2c779e80a62970106ec7048c15c7f0e19aeddbbd43246a28e487aa92cba3",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/report_validity.rs",
+      "name": "a_verified_or_absent_room_recording_keeps_its_own_state",
+      "base_sha256": "1cecbeac50a94a3c039d20b78d4c3803dc69da89cde151491339e105fcb97462",
+      "final_sha256": "1cecbeac50a94a3c039d20b78d4c3803dc69da89cde151491339e105fcb97462",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/report_validity.rs",
+      "name": "a_valid_wav_from_a_recorder_that_ended_mid_session_certifies_nothing",
+      "base_sha256": "85b1f1ec7bacd6368d2bdcc7ff62cea6d74c6932bce77db7e028d30f041220c8",
+      "final_sha256": "85b1f1ec7bacd6368d2bdcc7ff62cea6d74c6932bce77db7e028d30f041220c8",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/report_validity.rs",
+      "name": "a_listened_annotation_cannot_certify_a_recording_whose_recorder_exited_early",
+      "base_sha256": "8d16c3c0760274b3ad8804b8854152678a635c50b55da1b2e58f056e7c61bd76",
+      "final_sha256": "8d16c3c0760274b3ad8804b8854152678a635c50b55da1b2e58f056e7c61bd76",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/report_validity.rs",
+      "name": "reevaluating_a_retained_run_preserves_the_original_failed_report",
+      "base_sha256": "5bfb7417a5f73a04fdff3580cecda9d7206936e5192512936e2d8554e86a09d8",
+      "final_sha256": "5bfb7417a5f73a04fdff3580cecda9d7206936e5192512936e2d8554e86a09d8",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/serve_plan.rs",
+      "name": "the_default_plan_hash_is_unchanged",
+      "base_sha256": "591c1655d8e4cc3ef777b2e344397c48abf925852c03aea8377829d81236f2a0",
+      "final_sha256": "591c1655d8e4cc3ef777b2e344397c48abf925852c03aea8377829d81236f2a0",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/serve_plan.rs",
+      "name": "the_serve_example_is_eight_cached_context_linked_turns",
+      "base_sha256": "e1df1fbed113e2665b0f7852af4f7d8c7c79f908e14144c3e11f621ffb86bd2e",
+      "final_sha256": "e1df1fbed113e2665b0f7852af4f7d8c7c79f908e14144c3e11f621ffb86bd2e",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/serve_plan.rs",
+      "name": "a_correction_must_follow_a_request_and_conversations_stop_at_twenty_turns",
+      "base_sha256": "44d802329ee810c1d7de9d39ac10a359d240fc238ed86ace6964e61b1d015959",
+      "final_sha256": "44d802329ee810c1d7de9d39ac10a359d240fc238ed86ace6964e61b1d015959",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/serve_plan.rs",
+      "name": "the_sample_pilot_config_forwards_the_installed_pilot_settings",
+      "base_sha256": "bd4e4c30c7ed48b721c8432d12af6b16d0567dc5e011d66d8f46b35387fae66e",
+      "final_sha256": "bd4e4c30c7ed48b721c8432d12af6b16d0567dc5e011d66d8f46b35387fae66e",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/serve_plan.rs",
+      "name": "the_endpoint_trial_config_adds_only_the_endpoint_flag",
+      "base_sha256": "3fc91422d3dd7a5426eaeac1b8cd70c8cab30f0433a3548a5828deee2bad28f4",
+      "final_sha256": "3fc91422d3dd7a5426eaeac1b8cd70c8cab30f0433a3548a5828deee2bad28f4",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/serve_plan.rs",
+      "name": "a_config_policy_lamp_voice_would_refuse_is_refused_on_the_mac",
+      "base_sha256": "edb3390ee08732ef104feef09287cf4442c3ba0a0c8214f89b03334c8bb05175",
+      "final_sha256": "edb3390ee08732ef104feef09287cf4442c3ba0a0c8214f89b03334c8bb05175",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/serve_relay.rs",
+      "name": "a_runner_stop_is_one_sigterm_and_a_clean_reaped_end",
+      "base_sha256": "24f30b59c030653b85c2bbcf8cfff09843fa764276bdec36979b1f70d40c8601",
+      "final_sha256": "24f30b59c030653b85c2bbcf8cfff09843fa764276bdec36979b1f70d40c8601",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/serve_relay.rs",
+      "name": "a_closed_runner_transport_stops_the_runtime_through_the_same_path",
+      "base_sha256": "4af2fbd73fcd008a69162e0debbd12612d7da13dbc83f030e900ccd8e293edea",
+      "final_sha256": "4af2fbd73fcd008a69162e0debbd12612d7da13dbc83f030e900ccd8e293edea",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/serve_relay.rs",
+      "name": "the_hard_deadline_stops_the_runtime_and_is_an_error",
+      "base_sha256": "baa93d280ee49b3b137250d7121bd2814300a37850af9df7dab767a4009643df",
+      "final_sha256": "baa93d280ee49b3b137250d7121bd2814300a37850af9df7dab767a4009643df",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/serve_relay.rs",
+      "name": "a_runtime_that_ignores_sigterm_is_force_killed_and_never_clean",
+      "base_sha256": "8b7c24fd64496c741935767b93d5405fddebf3c0b58809f020ca2672b9c593a4",
+      "final_sha256": "8b7c24fd64496c741935767b93d5405fddebf3c0b58809f020ca2672b9c593a4",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/serve_relay.rs",
+      "name": "the_pilot_runtime_settings_reach_the_serve_child_exactly",
+      "base_sha256": "0640ae1b9c99c0141188428206b152c08e8625d00e3aa617fc0ecf345a6e674e",
+      "final_sha256": "0640ae1b9c99c0141188428206b152c08e8625d00e3aa617fc0ecf345a6e674e",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/serve_relay.rs",
+      "name": "a_nonzero_runtime_exit_after_clean_metadata_is_a_relay_error",
+      "base_sha256": "84c0bb43468122577f548bbe81f22a5be54569b18dbc3e0869b2b8b2182d7858",
+      "final_sha256": "84c0bb43468122577f548bbe81f22a5be54569b18dbc3e0869b2b8b2182d7858",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/serve_session.rs",
+      "name": "normal_eight_turn_conversation_in_one_serve_session",
+      "base_sha256": "e3533fc3694a2843188a8abf7cbb3593e8d186b0e5859966c563f358ae985e51",
+      "final_sha256": "e3533fc3694a2843188a8abf7cbb3593e8d186b0e5859966c563f358ae985e51",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/serve_session.rs",
+      "name": "delayed_readiness_is_awaited_by_event_not_by_completion",
+      "base_sha256": "ba947814cccda547e7fc9c776529fbb82a4a70d4afbcc2db326d72676f99dacf",
+      "final_sha256": "ba947814cccda547e7fc9c776529fbb82a4a70d4afbcc2db326d72676f99dacf",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/serve_session.rs",
+      "name": "an_extra_candidate_during_the_wait_withholds_the_rest",
+      "base_sha256": "5d412837b6ff43fa85549cae884d78d9a57854e80aab1b6cfdc00dc8a0cc9eaf",
+      "final_sha256": "5d412837b6ff43fa85549cae884d78d9a57854e80aab1b6cfdc00dc8a0cc9eaf",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/serve_session.rs",
+      "name": "stale_duplicate_reordered_foreign_and_lost_cues_end_the_conversation",
+      "base_sha256": "d2d6de7aafc990da34ca4d80cf2c8c50da6db2c608ba5db9f75392b4002ea06f",
+      "final_sha256": "d2d6de7aafc990da34ca4d80cf2c8c50da6db2c608ba5db9f75392b4002ea06f",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/serve_session.rs",
+      "name": "a_provider_outage_is_waited_out_by_event_and_a_terminal_link_ends_it",
+      "base_sha256": "e0e9af6ee163a23da13c90a7ed70cb882b007e432d26be0f10149861d4af4eda",
+      "final_sha256": "e0e9af6ee163a23da13c90a7ed70cb882b007e432d26be0f10149861d4af4eda",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/serve_session.rs",
+      "name": "a_late_first_copy_or_failed_player_withholds_every_later_turn",
+      "base_sha256": "4e90c51f317ae1c995e7c9cedcd286e3577abd741e46e8b32027eb9bf90f7669",
+      "final_sha256": "4e90c51f317ae1c995e7c9cedcd286e3577abd741e46e8b32027eb9bf90f7669",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/serve_session.rs",
+      "name": "a_runtime_stop_mute_or_ignored_sigterm_is_retained_and_reaped",
+      "base_sha256": "fc2fbd185a6904c98883917fa3ceeb5b6b8d344ff932d05be2b54177afe0182e",
+      "final_sha256": "fc2fbd185a6904c98883917fa3ceeb5b6b8d344ff932d05be2b54177afe0182e",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/serve_session.rs",
+      "name": "a_room_recording_that_ends_early_withholds_the_rest",
+      "base_sha256": "aa57cb0b7a77f5520ffc0d3f5218fd42c46c0af263070def939773cc99868e11",
+      "final_sha256": "aa57cb0b7a77f5520ffc0d3f5218fd42c46c0af263070def939773cc99868e11",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/serve_session.rs",
+      "name": "startup_cues_stay_fresh_through_a_slow_transport_and_a_slow_first_preparer",
+      "base_sha256": "87316e842b2ca30ee8a4f2c331919bdd275f975be2e821f87434c30f778baa97",
+      "final_sha256": "87316e842b2ca30ee8a4f2c331919bdd275f975be2e821f87434c30f778baa97",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/serve_session.rs",
+      "name": "a_recorder_that_exits_zero_mid_conversation_withholds_the_rest_and_certifies_nothing",
+      "base_sha256": "5a8931b8e8d94bfb0e14e4f7d958a71a36c19cbeca922efeec46ff92f7e60db0",
+      "final_sha256": "5a8931b8e8d94bfb0e14e4f7d958a71a36c19cbeca922efeec46ff92f7e60db0",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/serve_session.rs",
+      "name": "a_declared_capture_end_before_the_next_prompt_and_its_window_withholds_it",
+      "base_sha256": "a8e9623f9171dcee2d6957ce01b4b9292a15f70c98d71e0a3c7c88ef6393f921",
+      "final_sha256": "a8e9623f9171dcee2d6957ce01b4b9292a15f70c98d71e0a3c7c88ef6393f921",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/serve_session.rs",
+      "name": "the_runner_forwards_pilot_runtime_settings_through_the_relay",
+      "base_sha256": "66d154c814e6a6729e8964f5c59545fb187a54b53c29707c477c82c7c77eb64d",
+      "final_sha256": "66d154c814e6a6729e8964f5c59545fb187a54b53c29707c477c82c7c77eb64d",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/serve_session.rs",
+      "name": "serve_readiness_comes_only_from_the_fresh_cue_never_from_stdout",
+      "base_sha256": "48fcf959d86f537134d361b9aaca0b0f91a806cd3ffda7a32f939d79c41787b9",
+      "final_sha256": "48fcf959d86f537134d361b9aaca0b0f91a806cd3ffda7a32f939d79c41787b9",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/serve_session.rs",
+      "name": "a_nonzero_runtime_exit_never_completes_a_serve_attempt",
+      "base_sha256": "b6bd0c8042088627384b09bc426b3c978426d19568660b6da869d805760f9d20",
+      "final_sha256": "b6bd0c8042088627384b09bc426b3c978426d19568660b6da869d805760f9d20",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/target_audio.rs",
+      "name": "real_render_and_capture_streams_verify_with_contiguous_spans",
+      "base_sha256": "01da4a389011e0038ac257da72b59e7a2a7d6c612c344e84f3c4625b6a9d9d5c",
+      "final_sha256": "01da4a389011e0038ac257da72b59e7a2a7d6c612c344e84f3c4625b6a9d9d5c",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/target_audio.rs",
+      "name": "a_changed_pcm_byte_leaves_only_that_stream_unverified",
+      "base_sha256": "9aaea172e4edb61faf934457a1aaaa4071614b5b2b0dcb7ba94606d130e5ace0",
+      "final_sha256": "9aaea172e4edb61faf934457a1aaaa4071614b5b2b0dcb7ba94606d130e5ace0",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/target_audio.rs",
+      "name": "an_uncertified_or_missing_receipt_is_unverified_not_adapted",
+      "base_sha256": "8e55ffbbacf4832f8edcc18c2747dc3a710d82381ab15e7f3dcec60b14a86542",
+      "final_sha256": "8e55ffbbacf4832f8edcc18c2747dc3a710d82381ab15e7f3dcec60b14a86542",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/target_audio.rs",
+      "name": "a_replaced_marker_or_a_duplicate_identity_fails",
+      "base_sha256": "39b31627a6bc400e6b290a1ebb152dd591cb64fb4ef2590df7e665788d740c28",
+      "final_sha256": "39b31627a6bc400e6b290a1ebb152dd591cb64fb4ef2590df7e665788d740c28",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/target_audio.rs",
+      "name": "pcm_changed_after_verification_is_refused_on_read",
+      "base_sha256": "252b25d73b38cc70188923f777ee1d37ed0af96d1acfbb1c7ccb33599e0ef9c3",
+      "final_sha256": "252b25d73b38cc70188923f777ee1d37ed0af96d1acfbb1c7ccb33599e0ef9c3",
+      "body_byte_exact": true
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/target_audio.rs",
+      "name": "an_absurd_marker_frame_count_is_unverified_not_a_panic",
+      "base_sha256": "8797bddbce32898ce76299906c561101c329a5d8f4918c5eb71a11e3519b9536",
+      "final_sha256": "8797bddbce32898ce76299906c561101c329a5d8f4918c5eb71a11e3519b9536",
+      "body_byte_exact": true
+    }
+  ],
+  "new": [
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/fake_serve_progress_tests.rs",
+      "name": "completed_polls_keep_the_original_sample_and_cumulative_real_progress",
+      "sha256": "724ec1f763fd7fc4423948fe54f79b9ea2ca818e1fb214de29a8205e1a6ce296"
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/fake_serve_progress_tests.rs",
+      "name": "completion_errors_propagate_once_and_poll_sequence_overflow_is_refused",
+      "sha256": "dbec86a7096972004f0983f136c2bad6244b0d0d21848965dd4a637753f7a383"
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/fake_serve_progress_tests.rs",
+      "name": "stdout_counter_overflow_fails_before_emitting_an_unannounced_line",
+      "sha256": "1787834b176e01c2234ecedf98e7e92759896189ccf681a492e39662dea7b501"
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/fake_serve_progress_tests.rs",
+      "name": "room_progress_distinguishes_decoding_injection_and_muted_consumption",
+      "sha256": "6759acb90033b8b09960d7f68c5fb29e488280bd244f14710be088df0817d41f"
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/fake_serve_progress_tests.rs",
+      "name": "room_counter_overflow_never_wraps_or_claims_injection",
+      "sha256": "eff58ce37e82930adb1440c53c6f9426b98b32224b8c0fbadd86e87d3fcac0fe"
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/fake_serve_progress_tests.rs",
+      "name": "signal_barrier_waits_for_the_shared_atomic_under_a_host_deadline",
+      "sha256": "f7f976dc32c929fe476a7400c7a08982c53989ef5608d8766e346af46242e76c"
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/fake_serve_progress_tests.rs",
+      "name": "signal_barrier_never_fabricates_an_observation_or_accepts_another_signal",
+      "sha256": "64972721560300252ede028b44340f7e06a288d8c8ead8501c6b10c39bfdc445"
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/fake_serve_progress_tests.rs",
+      "name": "stdout_counts_only_complete_lines_after_successful_flush",
+      "sha256": "ddcfc0cc4b0adb78613ff7a52d2b6d7925ee12460f20d20958301e759442fc68"
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/prepared_player_progress_tests.rs",
+      "name": "slow_prepare_starts_its_full_delay_only_when_the_room_really_exists",
+      "sha256": "52a8885fc04e96297eb37eabbed2456e5463cb14c1751f092b1845220fb54770"
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/prepared_player_progress_tests.rs",
+      "name": "grant_wait_uses_the_original_logical_duration_and_no_synthetic_input",
+      "sha256": "df8a4933071524198b544b30d3964b2ea756dc9da4f08d113ee467e7936a8b10"
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/prepared_player_progress_tests.rs",
+      "name": "prepare_failure_closes_the_real_ready_channel_and_keeps_its_report",
+      "sha256": "d10849d1091c95008e6dd36fe22173488c56c10053f39dc18d44646ffd31a651"
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/prepared_player_progress_tests.rs",
+      "name": "late_copy_keeps_the_original_delay_expiry_and_cancel_check_order",
+      "sha256": "677b0bd7b1f2b254f4fd4e733a3f02176a31f5735f590f4fed806d221d6db0c8"
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/prepared_player_progress_tests.rs",
+      "name": "closing_control_wakes_resource_grant_and_delayed_copy_workers",
+      "sha256": "656b7d1e91dfdd42ec9c4c9a83c2284ae28bede16c835a5ed97162b96165f4be"
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/prepared_player_progress_tests.rs",
+      "name": "last_controller_clone_drop_wakes_threads_even_if_the_player_factory_survives",
+      "sha256": "2ed05d9b847d9a3f10b51afab8311941bf7d432d755016315205497ac7767ba5"
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/prepared_player_progress_tests.rs",
+      "name": "a_fixture_ready_pump_receives_the_original_host_deadline",
+      "sha256": "0831fff5aad1c92f8ed556a125fb354fbd9abe357be0a33cb7c39a605cdc5c93"
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/prepared_player_progress_tests.rs",
+      "name": "real_ready_grant_consumption_and_room_delivery_finish_at_one_parent_instant",
+      "sha256": "8378eac2561b3f691c1c905ea752868c772e594059f83ac7b7d85c16780224cc"
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/prepared_player_progress_tests.rs",
+      "name": "a_report_boundary_cannot_replace_observing_an_owned_thread_exit",
+      "sha256": "44b393d6ee3dc91453714a39ee34cc5781ccfe46962c821cc88743b580039ec3"
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/prepared_player_progress_tests.rs",
+      "name": "closed_malformed_and_cancelled_inputs_preserve_the_original_decisions",
+      "sha256": "8a72f5f58b991adaefe786714f6a29e88fcc2afb4e56e596c52f327a703bbd8e"
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/prepared_player_progress_tests.rs",
+      "name": "actual_failed_room_send_does_not_increment_the_delivery_counter",
+      "sha256": "9565022927473cefff2b9c9629c0fa3c16830615e40ce44d98276725e0656084"
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/recorder_backend_tests.rs",
+      "name": "terminal_ack_alone_hits_the_host_bound_closes_peers_and_reaps_the_real_child",
+      "sha256": "a13b9677345cd03feaa2baed5fef24f06119185e14c81453aefe9a7063d810e5"
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/recorder_backend_tests.rs",
+      "name": "recorder_configuration_requires_its_separate_explicit_capability",
+      "sha256": "12320690a17109c9e2f19f1acec01cb84ba64131ea2c0b4d3aecc727245bea52"
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/recorder_backend_tests.rs",
+      "name": "terminal_recorder_drain_keeps_prior_declared_coverage_reason_and_real_status",
+      "sha256": "5dad8e0c860bf0df625ff2b6649aedbbae73074b295434216fe7e217bc62e1be"
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/recorder_backend_tests.rs",
+      "name": "a_finish_hook_without_actual_exit_cannot_certify_the_recorder",
+      "sha256": "dddada1ead8b75b206725b85377a79c3bbd07fb4dbc4ac6042cce96087d533f0"
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/recorder_backend_tests.rs",
+      "name": "a_failed_fixture_stays_nonblocking_and_finish_reuses_the_latched_error",
+      "sha256": "56eebaaf60b29a80bcaec520b26d5a961bc23748a1708d5329045530f825e883"
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/recorder_backend_tests.rs",
+      "name": "startup_control_failure_closes_its_driver_before_any_session_is_started",
+      "sha256": "a603ebe560d7f7ba13d2b6c788a5a850b6ba787efdab6e406658ffc49f6e9ff6"
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/recorder_backend_tests.rs",
+      "name": "recorder_settling_does_not_reorder_player_failure_evidence",
+      "sha256": "f412f8ab9208b8dddff9e8f9e681774c77b3a99f0fba71857fefe48dd17382e6"
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/recorder_backend_tests.rs",
+      "name": "startup_reads_the_real_receipt_and_shares_the_original_fifteen_second_bound",
+      "sha256": "2bf601e7f087ddd82b78b23263294e22f7f15caa61cdc13291c74f529d2a3b9b"
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/recorder_backend_tests.rs",
+      "name": "grant_control_failure_closes_once_and_repeated_notifications_queue_one_error",
+      "sha256": "0edba28502980e8144df4aa8be2887e1b95d148f566475b18c9b54a22f7bdd69"
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/recorder_backend_tests.rs",
+      "name": "actual_zero_exit_is_retained_and_only_existing_coverage_logic_marks_it_early",
+      "sha256": "bd42fcdfef14d009f06677aa829faefd7c409593e7859ed22a45941a515afe42"
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/recorder_backend_tests.rs",
+      "name": "both_normal_and_preparation_pumps_wait_for_actual_recorder_exit",
+      "sha256": "bfa28c6c61c30f80226b01d7da657f959f8ed10eeda89b529a6e10a54815ebd6"
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/recorder_fixture_commands_tests.rs",
+      "name": "time_arithmetic_overflows_fail_before_the_shared_body_creates_files",
+      "sha256": "0a260a77dec6d0903fd2eb601c094b3101f927238a9ceb5c49f7770a7f0c1210"
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/recorder_fixture_commands_tests.rs",
+      "name": "first_matching_values_and_missing_optional_values_keep_original_meaning",
+      "sha256": "a295e2632d40b399adbe49fb024b3d1066d6b39839a4b753a770656d58ccf444"
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/recorder_fixture_commands_tests.rs",
+      "name": "explicit_timing_checks_both_nanosecond_boundaries_without_wrapping",
+      "sha256": "c3470a8d0d3d00054e0a2aa6612f421ab44f2f0017a40c419406056b60683807"
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/recorder_fixture_commands_tests.rs",
+      "name": "recorder_command_requires_the_explicit_leading_control_pair",
+      "sha256": "7016c851ee7ce10caad4af5a82f349a8a96002797859dc1dd7d63720c21fa4cd"
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/recorder_fixture_commands_tests.rs",
+      "name": "invalid_shared_arguments_or_output_creation_never_acknowledge_ready",
+      "sha256": "f85b5318425af3c15cee13a3ebc4aa73a6adfd08889afb77fe319680c0eced09"
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/recorder_fixture_commands_tests.rs",
+      "name": "zero_and_limited_durations_keep_real_ready_and_configured_return_codes",
+      "sha256": "54f9fa57f379dd53310fd7d53b0f1da9201de69896e222e9e307b95757df1844"
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/recorder_fixture_commands_tests.rs",
+      "name": "a_lost_parent_returns_a_control_error_without_completing_the_wait",
+      "sha256": "181dbb833fda47a81f60829cdf36b609debdeef1970df0dc4715df5697fae1b7"
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/recorder_fixture_commands_tests.rs",
+      "name": "declared_capture_end_does_not_shorten_the_twenty_three_second_wait",
+      "sha256": "71086c4041e9e55b35ad99e96d81fa766e6c95cb245f10889edd7c4ba3996a97"
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/recorder_fixture_commands_tests.rs",
+      "name": "recorder_first_step_precedes_real_ready_write_and_the_entire_original_wait",
+      "sha256": "19bfb909f02e8e884d49ff73a2e5a0bd0a453c106e81c6616a75ae3cb495960d"
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/recorder_fixture_control_tests.rs",
+      "name": "first_recorder_ack_requires_ready_and_the_held_post_write_start",
+      "sha256": "1a4308b0821d1e5fa64b551999ac1fed6a3011bf80d284cbf2d8cbf5789eb4eb"
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/recorder_fixture_control_tests.rs",
+      "name": "same_time_recorder_rounds_do_not_advance_pure_clock_reads",
+      "sha256": "2da733b5342a8b834b3b158b4b1b308ed1f4ccd296c6ec2bb4839010f7f65de7"
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/recorder_fixture_control_tests.rs",
+      "name": "recorder_and_other_participants_reject_each_others_outer_steps",
+      "sha256": "3bdb30470fd475551b3717bc593e4ec6cb5b4eadcbe816bf99b714f91721bb48"
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/recorder_fixture_control_tests.rs",
+      "name": "recorder_terminal_is_required_exactly_at_or_after_its_due_time",
+      "sha256": "bf739b32bf0bf8cf9144058e89a7d1ef3f2ed160cde9ac724adced6a23f61f82"
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/recorder_fixture_control_tests.rs",
+      "name": "recorder_role_is_isolated_in_hello_and_nested_progress",
+      "sha256": "c475900d74c7669b25aeee6413bfb00aa68b3c347bce5468b62e7d7985a2c426"
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/recorder_fixture_control_tests.rs",
+      "name": "recorder_rounds_polls_and_time_cannot_skip_repeat_regress_or_wrap",
+      "sha256": "7de98542b8f85685eec03cb563be77600e7b95b9d21bc1b611e4bb1504b05850"
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/recorder_fixture_control_tests.rs",
+      "name": "overflowing_recorder_steps_never_update_the_participant_clock",
+      "sha256": "4cdec3f4ad30b37f9e553cafb75916c0f3d17522f9fbdfe10e4030744517ddf1"
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/recorder_fixture_control_tests.rs",
+      "name": "listener_accepts_recorder_once_without_consuming_another_roles_slot",
+      "sha256": "683071003ad8d43ca95a72a887ab3619bcb619b72cd3e71ca006399d4fc3af1f"
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/recorder_fixture_control_tests.rs",
+      "name": "recorder_wire_has_no_status_or_extra_step_fields",
+      "sha256": "9a7f47884867cbaa9bb4f46b9566aa94bfa4c91e11d4d250a3bc4071c15e4f0d"
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/recorder_fixture_control_tests.rs",
+      "name": "recorder_ready_start_and_due_never_change_after_the_first_write",
+      "sha256": "b1f3d133e1b0ad2f8ff2ab164fb95c9323886f4cb68c83b8224ef0a0f7046944"
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/recorder_fixture_control_tests.rs",
+      "name": "recorder_requires_zero_input_and_signal_targets_and_representable_nanoseconds",
+      "sha256": "7e4507d789fdf9d2fbf868ec5f20b636df27c8306a3bc28057ce1a8655715bad"
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/recorder_fixture_control_tests.rs",
+      "name": "a_missing_recorder_ack_expires_and_closes_instead_of_claiming_exit",
+      "sha256": "a19af961abf835aeb56fe71cc13588e583b0e1a8a93d3865c918972afcf513e5"
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/recorder_fixture_driver_tests.rs",
+      "name": "recorder_drains_after_relay_completion_without_stepping_the_runtime_again",
+      "sha256": "f88eb4f4d30e32ccc2620467925d517aa13f422838ea9519155a74cfa048f545"
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/recorder_fixture_driver_tests.rs",
+      "name": "wrapper_other_runtime_and_invalid_recorder_options_fail_without_mutating_config",
+      "sha256": "a2f59b2adcb866770669b760a483befcf377d888bd4af14cbcda4e5800546bfc"
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/recorder_fixture_driver_tests.rs",
+      "name": "recorder_due_before_or_on_a_poll_preserves_the_pending_runtime_deadline",
+      "sha256": "92e05c0159e093b665379bc52605b26474e656975f7e491affa8e94f3c6b8b7f"
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/recorder_fixture_driver_tests.rs",
+      "name": "recorder_starts_at_the_held_epoch_and_clock_reads_do_not_poll_it",
+      "sha256": "9fb11b712424a036136e74ad24dc044fe5e354a3b035b738d9d9d24f87bfd352"
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/recorder_fixture_driver_tests.rs",
+      "name": "recorder_configuration_preserves_every_argument_and_placeholder",
+      "sha256": "c31f753b6dbb75ae61a1db982c652d8527fc7f91c6dc5188f562ef742f4bac2d"
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/recorder_fixture_driver_tests.rs",
+      "name": "players_cannot_finish_before_the_recorder_exits_even_without_pending_players",
+      "sha256": "e6e852a1768b9554cb33642fdc8e7973f8f3441cd686c87a0619812e53dcbc52"
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/recorder_fixture_driver_tests.rs",
+      "name": "recorder_due_before_or_on_bootstrap_holds_registration_until_exit_notification",
+      "sha256": "e51a657b3e0aa6533f735e69467b311ba0cdc9e22b4b26bdbc2d35c34ccac640"
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/recorder_fixture_driver_tests.rs",
+      "name": "expired_recorder_startup_watchdog_closes_the_listener_without_advancing_time",
+      "sha256": "00e75f85de1cb21033ff119200c132285223843afabf9072a4899d12cf919f1c"
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/recorder_fixture_driver_tests.rs",
+      "name": "terminal_recorder_ack_cannot_authorize_a_clock_advance",
+      "sha256": "e1be32233fb771bcc3d63ebc4c16837e8ce5a3ccc3fc3670efd3b8af77e696cd"
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/serve_fixture_commands_tests.rs",
+      "name": "controlled_runtime_modes_are_rejected_before_clock_reads_or_hooks",
+      "sha256": "aee392766977f392fa4bb9023f12d60051c578ff5fc50ea5fc09999eb4838107"
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/serve_fixture_commands_tests.rs",
+      "name": "argv_receipt_requires_the_original_complete_json_line_to_flush",
+      "sha256": "402c281357c5f6dbd70e7a5ad07cf5bbac28ee26b81b3660951ccedfbf371efc"
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/serve_fixture_commands_tests.rs",
+      "name": "all_fake_entrypoints_share_original_option_errors",
+      "sha256": "02e93be9e2d0491857f79627e668213979ffa69736dc32b75849169f2c4d1428"
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/serve_fixture_commands_tests.rs",
+      "name": "serve_runtime_mapping_retains_consumption_injection_cycle_and_signal",
+      "sha256": "9b48240895e3f15fd0f1f6da1c2f26e55550cdca377423f507a177d23ccb0ca2"
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/serve_fixture_commands_tests.rs",
+      "name": "serve_relay_accepts_only_its_local_explicit_serve_command",
+      "sha256": "47592c2023528e4c02255ec2f00e4d6fae64c8a72461f57c3ac1174dfad1392b"
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/serve_fixture_commands_tests.rs",
+      "name": "serve_relay_mapping_keeps_signal_receipt_separate_from_inputs_and_end",
+      "sha256": "0d11c1c5608c93cce850b2a99b5cc93ae00e2ce0eb23e8fb5ba10a312f70ebdc"
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/serve_fixture_control_tests.rs",
+      "name": "serve_participants_reject_wrong_outer_step_roles_before_starting",
+      "sha256": "15691683f2969e31d46f79500985f8cdd26d561c77c769a276917727f0c19d7e"
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/serve_fixture_control_tests.rs",
+      "name": "muted_consumption_is_valid_but_injection_cannot_exceed_consumption",
+      "sha256": "d24cb6e14469e3422a11cb2825ef7295c6d1ff0b5fde439af1772c285629a134"
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/serve_fixture_control_tests.rs",
+      "name": "serve_roles_are_distinct_in_hello_and_nested_progress",
+      "sha256": "a7630ef9d4f9391253b16cb31f6f5de13bc4577e7f90f3efe43d653fa5c02b3e"
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/serve_fixture_control_tests.rs",
+      "name": "the_listener_tracks_four_roles_independently_and_rejects_duplicates",
+      "sha256": "78394f7d8a0d199738e483e1ae0c32e420dc8aecd3fb09562bcbdaabef11c065"
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/serve_fixture_control_tests.rs",
+      "name": "relay_input_targets_and_all_output_counters_are_preserved_for_serve",
+      "sha256": "8e339dcffd0d4046871839e37d6fa018abe6b49d4864503c03399530fa1bd9c3"
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/serve_fixture_control_tests.rs",
+      "name": "serve_relay_receipts_cross_the_wire_without_changing_same_instant_time",
+      "sha256": "78d89ed7dfbcca8624c649fca55735bd4132806f0bf325267f95cbcb19b18651"
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/serve_fixture_control_tests.rs",
+      "name": "observed_signals_cannot_be_cleared_but_signal_numbers_are_not_counters",
+      "sha256": "b87fd789070f3a30472f43c4b73c32a5ce89a3491c47b4db8a5aa154f7fa9c71"
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/serve_fixture_control_tests.rs",
+      "name": "a_signal_target_requires_the_reported_sigterm_observation",
+      "sha256": "028c1f503790c044773918ca1bfbf872446ce001c91fdeb960848128d10ab87a"
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/serve_fixture_control_tests.rs",
+      "name": "an_expired_accept_budget_does_not_consume_a_queued_hello_or_reset_itself",
+      "sha256": "398ead7f29380893de50ee9fdb35f45932c314da034a0d902da559edfe0c5a03"
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/serve_fixture_control_tests.rs",
+      "name": "finite_frames_keep_their_wire_bytes_and_missing_signal_targets_default_to_false",
+      "sha256": "8bd1f2bd0f3dbdabbb37a366936de07f982a3d2a67bb077b0ad30932ca8666b6"
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/serve_fixture_control_tests.rs",
+      "name": "same_instant_serve_rounds_preserve_pure_time_and_terminal_ack_still_requires_exit_tracking",
+      "sha256": "67b2ee1ca91742cabc920fcfe3fc54f6e15517383bc1aae1e30910d9a58db051"
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/serve_fixture_control_tests.rs",
+      "name": "runtime_counters_never_regress_and_only_a_new_cycle_can_reset_runtime_time",
+      "sha256": "d3a15516e10af317383d1222472e5cf5f0529e585287abf803dab3eb0fb9c5d1"
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/serve_fixture_control_tests.rs",
+      "name": "serve_rounds_and_completed_poll_sequences_remain_exact",
+      "sha256": "194443295f85abee45953efa1e7e14f48bd61ee87cea4225e3c6f0a80064324a"
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/serve_fixture_control_tests.rs",
+      "name": "forged_serve_progress_closes_the_endpoint_without_retrying",
+      "sha256": "13aaaab0e3ae6ca10bd54f6c87f759cb3f29947e4ab2d5628572756c0ef37fd8"
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/serve_fixture_control_tests.rs",
+      "name": "only_serve_runtime_steps_can_request_the_signal_barrier",
+      "sha256": "bcfa8f47cf4ca77b8adb57dd20a5e2e639d61744cbc260bc5df70028bc130b2d"
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/serve_fixture_control_tests.rs",
+      "name": "a_successful_send_receipt_is_not_an_exit_claim_and_never_changes",
+      "sha256": "08573b42024e876ef517825c3db506707d5ad8c9760090ad2270be17dfb8508c"
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/serve_fixture_driver.rs",
+      "name": "configuration_keeps_every_fake_argument_and_selects_only_explicit_commands",
+      "sha256": "b2afe6b8cb7297bf119c432523307b17710179a420f1e67110a472ef5adc818f"
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/serve_fixture_driver.rs",
+      "name": "shell_transports_real_runtimes_and_malformed_prefixes_cannot_opt_in",
+      "sha256": "c0dbf3c5fe04050f0c4bfc3e7e2104cec1ba0d8a1220c45a09b5b842ab65e529"
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/serve_fixture_driver.rs",
+      "name": "positive_pure_epoch_preserves_retained_history_and_setup_ping_order",
+      "sha256": "2a54606480234fbac361d073adcdcd7c47fca2dec4e77c728261fbc9cb56e5e0"
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/serve_relay_progress_tests.rs",
+      "name": "successful_signal_receipt_survives_repeated_stop_and_exact_grace_kill",
+      "sha256": "e540dbeffa605af8036f8989ec69c1d9291220d02164b2a1a354c9735d61fd21"
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/slow_transport_fixture_commands_tests.rs",
+      "name": "a_lost_parent_cancels_the_wait_without_completing_its_deadline",
+      "sha256": "2848f59080fdf57c0d5d4b882ac017ae833ff20a292bd265688133fdba83ae42"
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/slow_transport_fixture_commands_tests.rs",
+      "name": "duration_and_domain_overflows_are_rejected_before_any_wait_ack",
+      "sha256": "d85805f37cd6c0b861dc5f20912bf25e81522c359a50c0ba1182ee20ee62748b"
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/slow_transport_fixture_commands_tests.rs",
+      "name": "a_zero_delay_completes_at_its_first_step_without_a_synthetic_exec_receipt",
+      "sha256": "3e0dffd54d55ffc7f1e23416826139636f4f4bf6af228b0c02b64d5558a049c6"
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/slow_transport_fixture_commands_tests.rs",
+      "name": "the_wait_keeps_all_four_hundred_milliseconds_and_distinct_same_time_rounds",
+      "sha256": "6cddc6723ee0120200815cccb5d60b712d48f51f3ff0f87a1977ec02a4d87c1e"
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/slow_transport_fixture_commands_tests.rs",
+      "name": "terminal_delay_ack_still_returns_the_real_exec_error_when_replacement_fails",
+      "sha256": "31183458c8dc82bb37a97a89c1b3440f6d9856e39e45fbbc7ba3492e5ef7aa8e"
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/slow_transport_fixture_commands_tests.rs",
+      "name": "the_explicit_handler_requires_a_leading_absolute_control_pair",
+      "sha256": "45c1dd0c9305b7f72553fdbded506b09a9408bfd1fc48db05c43e09ef8f03e6f"
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/slow_transport_fixture_commands_tests.rs",
+      "name": "a_lost_control_peer_prevents_the_real_command_from_reaching_exec",
+      "sha256": "a63b606a4fbf5152bac418ec4447d8cc359a70ba3962a10792e7882798a2afd3"
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/slow_transport_fixture_commands_tests.rs",
+      "name": "real_exec_occurs_after_the_full_delay_and_preserves_the_same_pipe_pid_and_argv",
+      "sha256": "aa4689fdab2ceb4fe8d082329745baaf94e96c4083d60d1a0a51b6f61187c2df"
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/slow_transport_fixture_commands_tests.rs",
+      "name": "only_the_same_controlled_evaluator_relay_and_socket_are_accepted_without_rewriting",
+      "sha256": "dd796d53f83105deeb669704f5e693f6c6ee250586227c406aa0bf30e289aec2"
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/slow_transport_fixture_control_tests.rs",
+      "name": "repeated_transport_rounds_leave_clock_reads_pure_until_the_next_step",
+      "sha256": "056be4b7f42468cb7def444de84a35702254dacc6ecd2e1b935bf893728ac609"
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/slow_transport_fixture_control_tests.rs",
+      "name": "transport_frames_add_only_the_role_and_fixed_wait_boundary",
+      "sha256": "b2a76d6e144f3b0b996a3c9a2f6ea42815df7cb39d07034769327615e36b3444"
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/slow_transport_fixture_control_tests.rs",
+      "name": "an_invalid_transport_domain_step_never_changes_the_pure_clock",
+      "sha256": "6b8aa584fc69fa424400c5f5f61e4001ea2f969d20dcee424d7d4289fb68e78d"
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/slow_transport_fixture_control_tests.rs",
+      "name": "transport_and_other_roles_reject_each_others_outer_steps",
+      "sha256": "e94614ff46ef220829eb172d9ce11fb1a094b5bee38b4de53338b052cf210f12"
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/slow_transport_fixture_control_tests.rs",
+      "name": "terminal_transport_progress_is_required_if_and_only_if_the_full_delay_elapsed",
+      "sha256": "61896aa49905621348fb1ccbf3f2ed4a45efb858a9d47ca6f51311869570c747"
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/slow_transport_fixture_control_tests.rs",
+      "name": "missing_transport_progress_has_a_bounded_failure_without_an_exec_claim",
+      "sha256": "e6241e6b8295123cd0b391ea2ec375864e7e7aa3e008b6c2d323f5f2360ac75c"
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/slow_transport_fixture_control_tests.rs",
+      "name": "transport_role_is_isolated_from_every_existing_hello_and_progress",
+      "sha256": "3767582dbaeb1eb761bf7db287dfbffea41f2f380231606c7eeff4fa697a11b3"
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/slow_transport_fixture_control_tests.rs",
+      "name": "transport_start_and_due_stay_fixed_in_both_directions",
+      "sha256": "70429c59189a19f838086e8b904bc06150bdc5de176c2b8fbc09a5993604ff3a"
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/slow_transport_fixture_control_tests.rs",
+      "name": "transport_rejects_input_signal_and_unrepresentable_domain_targets",
+      "sha256": "8522800a445b2e248f9631bae64b2a31b30ff6599bd6a002dd0096ce7b6e6525"
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/slow_transport_fixture_control_tests.rs",
+      "name": "a_transport_listener_slot_never_substitutes_for_a_fresh_relay_hello",
+      "sha256": "f2b35e679376e9f01cb3c9969c38fbbe640973c7ee1ea7acc8b09d2bedd8a143"
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/slow_transport_fixture_control_tests.rs",
+      "name": "transport_round_poll_and_time_validation_remain_exact",
+      "sha256": "a7cdc1a8f0c1b9156e2879b939e67be29352e00058757d07ce173feaafc68d6c"
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/slow_transport_fixture_control_tests.rs",
+      "name": "first_transport_wait_starts_at_the_current_held_step",
+      "sha256": "b91a788d76be67102731cd60c47f944c50f5b55efd9512eeea25e8572ee495c4"
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/slow_transport_fixture_driver_tests.rs",
+      "name": "zero_and_sub_poll_delays_register_a_fresh_relay_before_bootstrap_time",
+      "sha256": "31f4951c8fcb2fcba12526ff784ca84a49bbc74c12de5d4b1a007c02eeaf09e2"
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/slow_transport_fixture_driver_tests.rs",
+      "name": "explicit_wrapper_preserves_the_full_delay_and_every_forwarded_argument",
+      "sha256": "545f9e3cdee50ffcc7b7af193f9e28fd79a7d061482fcdcd6273535707059bdf"
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/slow_transport_fixture_driver_tests.rs",
+      "name": "explicit_close_releases_a_parked_wrapper_and_prevents_further_startup",
+      "sha256": "e92cbdd39b44e5bc4762a95154f0d03611f536fd595ea4e09c3f9fc95a0cf318"
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/slow_transport_fixture_driver_tests.rs",
+      "name": "malformed_or_unbounded_wrappers_fail_before_mutating_configuration",
+      "sha256": "3652718c96297c3df041712657111bedb956087015baf95256dc4e4ddfa1abaf"
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/slow_transport_fixture_driver_tests.rs",
+      "name": "a_wrapper_disconnect_before_its_first_ack_cannot_start_the_relay",
+      "sha256": "eab973bea94b2bc6688cd7ba4f07d18aede746d663807c64bca22b9c49fbd253"
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/slow_transport_fixture_driver_tests.rs",
+      "name": "an_already_expired_first_call_never_registers_or_advances_the_wrapper",
+      "sha256": "5b8820250e7377ddec4e41b7ce60cc3a6b1a21304d7c2a2b28aaf0fac7f3380c"
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/slow_transport_fixture_driver_tests.rs",
+      "name": "advancing_without_the_separate_recorder_exit_notification_fails_closed",
+      "sha256": "0e80a2b0deb236d8a9d307fded4473df05abb1a0c095cc85ebc4966dcb391c78"
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/slow_transport_fixture_driver_tests.rs",
+      "name": "delay_completion_followed_by_the_wrong_role_fails_at_the_held_due_time",
+      "sha256": "15216b29765029b59e4a6a0c4dfe2e069a37ad63d4aef5689a0834f6470ed5e7"
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/slow_transport_fixture_driver_tests.rs",
+      "name": "recorder_due_before_or_on_delay_completion_holds_time_until_exit_notification",
+      "sha256": "3b7d06d92597bf15bafb11e621488c73f842276f24bff2f5164e58c2ec913de4"
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/slow_transport_fixture_driver_tests.rs",
+      "name": "terminal_delay_without_a_fresh_relay_hello_cannot_start_or_advance",
+      "sha256": "e961276b1fc8b1142d91d47931b0e69ab30b9495e76f8a990a7840c7cee98706"
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/slow_transport_fixture_driver_tests.rs",
+      "name": "later_caller_deadlines_cannot_extend_the_cumulative_startup_budget",
+      "sha256": "d95fa7a1d09dad9eaf80477a4e2d4d132abce324f5396f8ca0d7afde41e9df6c"
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/slow_transport_fixture_driver_tests.rs",
+      "name": "direct_configuration_and_bootstrap_keep_their_original_path",
+      "sha256": "a23f1343645fba358a71a3d77afe95a610705af4d197a43f58f2141195196f8b"
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/slow_transport_fixture_driver_tests.rs",
+      "name": "four_hundred_ms_wait_uses_two_ms_rounds_and_retains_both_setup_inputs",
+      "sha256": "b99f878d4c686d6a46d0063e56b171aa88e951ce020d070c9b4fc363d7cc3cc0"
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/slow_transport_fixture_driver_tests.rs",
+      "name": "an_expired_retained_startup_budget_cannot_be_renewed_by_the_next_call",
+      "sha256": "b7833efe2257bbcb737bd36ea63e948fb70486b94c922e120583504bb700bbec"
+    }
+  ]
+}

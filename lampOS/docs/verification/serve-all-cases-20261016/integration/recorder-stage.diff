@@ -1,0 +1,3140 @@
+--- a/lampOS/crates/voice-eval/src/main.rs
++++ b/lampOS/crates/voice-eval/src/main.rs
+@@ -192,6 +192,7 @@
+         "fake-clock-session" => return fixture_commands::relay(all),
+         "fake-clock-serve-session" => return fixture_commands::serve_relay(all),
+         "fake-clock-serve-runtime" => return fixture_commands::serve_runtime(all),
++        "fake-clock-room-recorder" => return fixture_commands::recorder(all),
+         "fake-room-recorder" => return fake_lamp::room_recorder(&all),
+         "fake-slow-transport" => return fake_lamp::slow_transport(&all),
+         _ => {}
+--- a/lampOS/crates/voice-eval/src/physical/fixture_commands.rs
++++ b/lampOS/crates/voice-eval/src/physical/fixture_commands.rs
+@@ -1,4 +1,4 @@
+-//! Explicit CLI entrypoints for locally coordinated finite and serve fakes.
++//! Explicit CLI entrypoints for locally coordinated finite, serve and recorder fakes.
+ //!
+ //! The ordinary fake runtime and physical relay keep their original entrypoints.
+ //! These handlers require a leading control-socket argument, use pure clock
+@@ -16,6 +16,7 @@
+     io::{self, Write},
+     path::{Path, PathBuf},
+     rc::Rc,
++    time::Duration,
+ };
+ 
+ /// `fake-clock-lamp-voice --fixture-control SOCKET` followed by the unchanged
+@@ -102,6 +103,104 @@
+     let options = SessionOptions::parse(&arguments)?;
+     validate_serve_relay_options(&options)?;
+     controlled_relay(options, &path, Role::ServeRelay, serve_relay_progress)
++}
++
++/// `fake-clock-room-recorder --fixture-control SOCKET` followed by the original
++/// fake recorder arguments. Its real ready write precedes the first receipt;
++/// completing the configured wait does not prove that the child has exited.
++pub fn recorder(arguments: Vec<String>) -> Result<i32> {
++    let (path, arguments) = controlled_arguments(arguments)?;
++    let participant = Participant::connect(&path, Role::Recorder)?;
++    controlled_recorder(&arguments, participant)
++}
++
++fn controlled_recorder(arguments: &[String], mut participant: Participant) -> Result<i32> {
++    let clock = participant.clock();
++    let timing = recorder_timing(arguments, participant.current_step().at_us)?;
++    fake_lamp::room_recorder_with_clock_and_wait(
++        arguments,
++        // Recorder Steps reject values outside the nanosecond range before
++        // updating this clock. This infallible conversion is a pure read.
++        || clock.now().as_micros() * 1000,
++        |duration, now_ns| {
++            if duration != timing {
++                return Err(invalid(
++                    "controlled recorder duration differs from preflight",
++                ));
++            }
++            let wait_started_us = now_ns() / 1000;
++            let exit_due_us = recorder_exit_due(wait_started_us, duration)?;
++            let mut poll_seq = 1_u64;
++            loop {
++                let at_us = clock.now().as_micros();
++                recorder_nanoseconds(at_us)?;
++                let logical_end = at_us >= exit_due_us;
++                let progress = Progress::Recorder {
++                    poll_seq,
++                    ready_written: true,
++                    wait_started_us,
++                    exit_due_us,
++                    logical_end,
++                };
++                if logical_end {
++                    participant.final_ack(progress)?;
++                    return Ok(());
++                }
++                participant.complete(progress)?;
++                poll_seq = poll_seq
++                    .checked_add(1)
++                    .ok_or_else(|| invalid("controlled recorder poll counter overflow"))?;
++            }
++        },
++    )
++}
++
++/// Reject arithmetic the ordinary fixture intentionally leaves unchanged.
++/// First-match arguments and absent optional values retain its parser's rules.
++/// All checks finish before the shared body creates the output directory.
++fn recorder_timing(arguments: &[String], at_us: u64) -> Result<Duration> {
++    let value = |flag: &str| {
++        arguments
++            .iter()
++            .position(|argument| argument == flag)
++            .and_then(|index| arguments.get(index + 1))
++            .map(String::as_str)
++    };
++    let required = |flag: &str| {
++        value(flag).ok_or_else(|| invalid(&format!("fake-room-recorder needs {flag}")))
++    };
++    let epoch_ns = recorder_nanoseconds(at_us)?;
++    let seconds: u64 = required("--seconds")?.parse()?;
++    let fail_after_ms: u64 = required("--fail-after-ms")?.parse()?;
++    let session_ms = seconds
++        .checked_mul(1000)
++        .ok_or_else(|| invalid("controlled recorder seconds-to-milliseconds overflow"))?;
++    let duration = Duration::from_millis(fail_after_ms.min(session_ms));
++    recorder_exit_due(at_us, duration)?;
++    if let Some(ms) = value("--declare-end-after-ms") {
++        let ms: u64 = ms.parse()?;
++        ms.checked_mul(1_000_000)
++            .and_then(|delay_ns| epoch_ns.checked_add(delay_ns))
++            .ok_or_else(|| invalid("controlled recorder declared-end nanoseconds overflow"))?;
++    }
++    Ok(duration)
++}
++
++fn recorder_nanoseconds(at_us: u64) -> Result<u64> {
++    at_us
++        .checked_mul(1000)
++        .ok_or_else(|| invalid("controlled recorder microseconds-to-nanoseconds overflow"))
++}
++
++fn recorder_exit_due(wait_started_us: u64, duration: Duration) -> Result<u64> {
++    recorder_nanoseconds(wait_started_us)?;
++    let duration_us = u64::try_from(duration.as_micros())
++        .map_err(|_| invalid("controlled recorder wait duration microseconds overflow"))?;
++    let exit_due_us = wait_started_us
++        .checked_add(duration_us)
++        .ok_or_else(|| invalid("controlled recorder wait deadline microseconds overflow"))?;
++    recorder_nanoseconds(exit_due_us)?;
++    Ok(exit_due_us)
+ }
+ 
+ fn controlled_relay(
+@@ -553,3 +652,7 @@
+ #[cfg(test)]
+ #[path = "serve_fixture_commands_tests.rs"]
+ mod serve_tests;
++
++#[cfg(test)]
++#[path = "recorder_fixture_commands_tests.rs"]
++mod recorder_tests;
+--- a/lampOS/crates/voice-eval/src/physical/fixture_control.rs
++++ b/lampOS/crates/voice-eval/src/physical/fixture_control.rs
+@@ -31,6 +31,7 @@
+     Relay,
+     ServeRuntime,
+     ServeRelay,
++    Recorder,
+ }
+ 
+ #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
+@@ -38,9 +39,10 @@
+ pub struct Step {
+     /// Consecutive per-peer sequence, starting at one, including same-time steps.
+     pub round: u64,
++    /// Recorder Steps must also fit in u64 nanoseconds for the shared recorder.
+     pub at_us: u64,
+     /// Complete runtime stdout frames the relay must consume before acknowledging.
+-    /// Both targets must be zero for a runtime participant.
++    /// Both targets must be zero for a runtime or recorder participant.
+     pub stdout_target: u64,
+     /// Complete runner input frames the relay must consume before acknowledging.
+     pub runner_input_target: u64,
+@@ -106,6 +108,17 @@
+         /// The relay engine returned after flushing final output; not OS exit.
+         logical_end: bool,
+     },
++    Recorder {
++        poll_seq: u64,
++        /// The original ready-file write returned successfully; not fsync.
++        ready_written: bool,
++        /// A fresh clock sample after the ready write, fixed for this recorder.
++        wait_started_us: u64,
++        /// The complete original minimum-duration wait ends at this instant.
++        exit_due_us: u64,
++        /// The configured wait completed; the real child exit still follows.
++        logical_end: bool,
++    },
+ }
+ 
+ impl Progress {
+@@ -115,6 +128,7 @@
+             Self::Relay { .. } => Role::Relay,
+             Self::ServeRuntime { .. } => Role::ServeRuntime,
+             Self::ServeRelay { .. } => Role::ServeRelay,
++            Self::Recorder { .. } => Role::Recorder,
+         }
+     }
+ 
+@@ -123,7 +137,8 @@
+             Self::Runtime { poll_seq, .. }
+             | Self::Relay { poll_seq, .. }
+             | Self::ServeRuntime { poll_seq, .. }
+-            | Self::ServeRelay { poll_seq, .. } => poll_seq,
++            | Self::ServeRelay { poll_seq, .. }
++            | Self::Recorder { poll_seq, .. } => poll_seq,
+         }
+     }
+ 
+@@ -132,7 +147,8 @@
+             Self::Runtime { logical_end, .. }
+             | Self::Relay { logical_end, .. }
+             | Self::ServeRuntime { logical_end, .. }
+-            | Self::ServeRelay { logical_end, .. } => logical_end,
++            | Self::ServeRelay { logical_end, .. }
++            | Self::Recorder { logical_end, .. } => logical_end,
+         }
+     }
+ }
+@@ -222,6 +238,7 @@
+             Role::Relay => 2,
+             Role::ServeRuntime => 4,
+             Role::ServeRelay => 8,
++            Role::Recorder => 16,
+         };
+         if self.accepted_roles.get() & role_bit != 0 {
+             return Err(invalid(format!("duplicate {expected:?} participant")));
+@@ -508,6 +525,14 @@
+     {
+         return Err(invalid("runtime Step contains relay-only input targets"));
+     }
++    if role == Role::Recorder && (step.stdout_target != 0 || step.runner_input_target != 0) {
++        return Err(invalid("recorder Step contains relay-only input targets"));
++    }
++    if role == Role::Recorder && step.at_us > u64::MAX / 1000 {
++        return Err(invalid(
++            "recorder Step microseconds-to-nanoseconds overflow",
++        ));
++    }
+     if step.wait_for_sigterm && role != Role::ServeRuntime {
+         return Err(invalid(
+             "SIGTERM observation target requires a serve runtime",
+@@ -549,6 +574,7 @@
+         ));
+     }
+     validate_serve_progress(previous, step, progress)?;
++    validate_recorder_progress(previous, step, progress)?;
+     let regressed = match (previous, progress) {
+         (
+             Some(Progress::Runtime {
+@@ -617,6 +643,7 @@
+                 ..
+             },
+         ) => stdout_frames < old_stdout || runner_inputs < old_input || output_frames < old_output,
++        (Some(Progress::Recorder { .. }), Progress::Recorder { .. }) => false,
+         (Some(_), _) => true,
+         (None, _) => false,
+     };
+@@ -700,7 +727,58 @@
+                 ));
+             }
+         }
+-        Progress::Runtime { .. } | Progress::Relay { .. } => {}
++        Progress::Runtime { .. } | Progress::Relay { .. } | Progress::Recorder { .. } => {}
++    }
++    Ok(())
++}
++
++fn validate_recorder_progress(
++    previous: Option<Progress>,
++    step: Step,
++    progress: Progress,
++) -> io::Result<()> {
++    let Progress::Recorder {
++        ready_written,
++        wait_started_us,
++        exit_due_us,
++        logical_end,
++        ..
++    } = progress
++    else {
++        return Ok(());
++    };
++    if step.stdout_target != 0 || step.runner_input_target != 0 || step.wait_for_sigterm {
++        return Err(invalid(
++            "recorder Ack cannot satisfy input or signal targets",
++        ));
++    }
++    if !ready_written {
++        return Err(invalid(
++            "recorder Ack precedes its successful ready-file write",
++        ));
++    }
++    if wait_started_us > step.at_us || exit_due_us < wait_started_us {
++        return Err(invalid("recorder wait has inconsistent start or due time"));
++    }
++    match previous {
++        Some(Progress::Recorder {
++            wait_started_us: old_start,
++            exit_due_us: old_due,
++            ..
++        }) if wait_started_us != old_start || exit_due_us != old_due => {
++            return Err(invalid("recorder changed its fixed wait start or due time"));
++        }
++        None if wait_started_us != step.at_us => {
++            return Err(invalid(
++                "recorder first wait start differs from its held Step",
++            ));
++        }
++        _ => {}
++    }
++    if logical_end != (step.at_us >= exit_due_us) {
++        return Err(invalid(
++            "recorder terminal flag disagrees with its wait deadline",
++        ));
+     }
+     Ok(())
+ }
+@@ -969,3 +1047,7 @@
+ #[cfg(test)]
+ #[path = "channel_closed_peer_tests.rs"]
+ mod closed_peer_tests;
++
++#[cfg(test)]
++#[path = "recorder_fixture_control_tests.rs"]
++mod recorder_tests;
+--- a/lampOS/crates/voice-eval/src/physical/mac.rs
++++ b/lampOS/crates/voice-eval/src/physical/mac.rs
+@@ -1009,6 +1009,34 @@
+         false
+     }
+ 
++    /// Only a driver that configured an explicit local recorder participant
++    /// can coordinate its ready file, full wait and actual exit barrier.
++    fn supports_recorder(&self) -> bool {
++        false
++    }
++
++    /// Register and start the recorder immediately after its real spawn,
++    /// sharing the original ready-file host deadline.
++    fn start_recorder(&mut self, _host_deadline: Instant) -> Result<()> {
++        Err(invalid("fixture driver does not coordinate a recorder"))
++    }
++
++    /// Terminal progress is pending until the backend observes actual exit.
++    fn recorder_exit_pending(&self) -> bool {
++        false
++    }
++
++    /// Called only after the backend-owned Child returned a real exit status.
++    fn recorder_exit_observed(&mut self) -> Result<()> {
++        Ok(())
++    }
++
++    /// After relay completion, drive the recorder and pending players only;
++    /// return at recorder terminal progress without claiming actual exit.
++    fn finish_recorder(&mut self, _host_deadline: Instant) -> Result<()> {
++        Ok(())
++    }
++
+     /// Called after a real Start or Closed input was successfully sent. It
+     /// acknowledges channel consumption, not acceptance or audible output.
+     fn grant_sent(&mut self, _attempt_id: &str) -> Result<()> {
+@@ -1058,6 +1086,49 @@
+     enqueued: Arc<AtomicU64>,
+     sent: u64,
+     started: bool,
++    recorder_failure: Option<String>,
++}
++
++/// Keep a failed explicit fixture nonblocking while dropping its original
++/// driver closes all peers. A frozen fixture must never fall back to host
++/// channel waits when the runner calls finish after a control error.
++struct FailedRecorderFixture(String);
++
++impl FixtureDriver for FailedRecorderFixture {
++    fn supports_serve(&self) -> bool {
++        true
++    }
++    fn supports_recorder(&self) -> bool {
++        true
++    }
++    fn start_recorder(&mut self, _: Instant) -> Result<()> {
++        Err(invalid(&self.0))
++    }
++    fn grant_sent(&mut self, _: &str) -> Result<()> {
++        Err(invalid(&self.0))
++    }
++    fn recorder_exit_observed(&mut self) -> Result<()> {
++        Err(invalid(&self.0))
++    }
++    fn finish_recorder(&mut self, _: Instant) -> Result<()> {
++        Err(invalid(&self.0))
++    }
++    fn finish_players(&mut self, _: Instant) -> Result<()> {
++        Err(invalid(&self.0))
++    }
++    fn prepare_wait(
++        &mut self,
++        _: MonoTime,
++        _: u64,
++        _: &AtomicU64,
++        _: bool,
++        _: Instant,
++    ) -> Result<()> {
++        Err(invalid(&self.0))
++    }
++    fn wait(&mut self, _: MonoTime, _: u64, _: &AtomicU64, _: bool) -> Result<()> {
++        Err(invalid(&self.0))
++    }
+ }
+ 
+ pub struct PhysicalBackend<'a> {
+@@ -1362,10 +1433,10 @@
+ 
+     /// Install a driver for one explicitly controlled local attempt.
+     /// Serve requires its driver's prepared-player/signal capability. Room
+-    /// recorders still require their own coordination and remain rejected.
++    /// recorders require their driver's separate recorder capability.
+     pub fn with_fixture_driver(mut self, driver: impl FixtureDriver + 'a) -> Result<Self> {
+         if (self.serve() && !driver.supports_serve())
+-            || self.config.room_recorder.is_some()
++            || (self.config.room_recorder.is_some() && !driver.supports_recorder())
+             || self.session.is_some()
+         {
+             return Err(invalid(
+@@ -1380,35 +1451,172 @@
+             enqueued: Arc::new(AtomicU64::new(0)),
+             sent: 0,
+             started: false,
++            recorder_failure: None,
+         });
+         Ok(self)
+     }
+ 
+     fn pump_fixture(&mut self, until_us: u64, queue_drained: bool) -> Result<()> {
+-        if let Some(fixture) = &mut self.fixture {
+-            fixture.driver.wait(
+-                MonoTime::from_micros(until_us),
+-                fixture.sent,
+-                &fixture.enqueued,
+-                queue_drained,
+-            )?;
+-        }
+-        self.settle_fixture_reports(Instant::now() + Duration::from_secs(25))?;
++        let recorder_deadline = self
++            .fixture_recorder()
++            .then(|| Instant::now() + crate::physical::fixture_control::DEFAULT_WATCHDOG);
++        let result: Result<()> = (|| {
++            if let Some(fixture) = &mut self.fixture {
++                fixture.driver.wait(
++                    MonoTime::from_micros(until_us),
++                    fixture.sent,
++                    &fixture.enqueued,
++                    queue_drained,
++                )?;
++            }
++            if let Some(deadline) = recorder_deadline {
++                self.settle_fixture_recorder_exit(deadline)?;
++            }
++            self.settle_fixture_reports(Instant::now() + Duration::from_secs(25))?;
++            Ok(())
++        })();
++        if recorder_deadline.is_some()
++            && let Err(error) = &result
++        {
++            self.fail_fixture_recorder(error.to_string());
++        }
++        result
++    }
++
++    fn pump_preparation_fixture(&mut self, until_us: u64, host_deadline: Instant) -> Result<()> {
++        let recorder = self.fixture_recorder();
++        let result: Result<()> = (|| {
++            if let Some(fixture) = &mut self.fixture {
++                fixture.driver.prepare_wait(
++                    MonoTime::from_micros(until_us),
++                    fixture.sent,
++                    &fixture.enqueued,
++                    true,
++                    host_deadline,
++                )?;
++            }
++            if recorder {
++                self.settle_fixture_recorder_exit(host_deadline)?;
++            }
++            self.settle_fixture_reports(host_deadline)?;
++            Ok(())
++        })();
++        if recorder && let Err(error) = &result {
++            self.fail_fixture_recorder(error.to_string());
++        }
++        result
++    }
++
++    fn fixture_recorder(&self) -> bool {
++        self.config.room_recorder.is_some()
++            && self
++                .fixture
++                .as_ref()
++                .is_some_and(|fixture| fixture.driver.supports_recorder())
++    }
++
++    fn fail_fixture_recorder(&mut self, error: String) {
++        let Some(fixture) = &mut self.fixture else {
++            return;
++        };
++        if fixture.recorder_failure.is_some() {
++            return;
++        }
++        fixture.recorder_failure = Some(error.clone());
++        let old = std::mem::replace(&mut fixture.driver, Box::new(FailedRecorderFixture(error)));
++        drop(old);
++        if let Some((child, _, _)) = &mut self.room {
++            let _ = child.kill();
++            let _ = child.wait();
++        }
++    }
++
++    /// A terminal control Ack permits a bounded real exit wait, not an exit
++    /// claim. Keep logical time fixed and leave coverage decisions untouched.
++    fn settle_fixture_recorder_exit(&mut self, host_deadline: Instant) -> Result<()> {
++        let result = self.observe_fixture_recorder_exit(host_deadline);
++        if let Err(error) = &result {
++            self.fail_fixture_recorder(error.to_string());
++        }
++        result
++    }
++
++    fn observe_fixture_recorder_exit(&mut self, host_deadline: Instant) -> Result<()> {
++        let Some(fixture) = &self.fixture else {
++            return Ok(());
++        };
++        if let Some(error) = &fixture.recorder_failure {
++            return Err(invalid(error));
++        }
++        if !fixture.driver.recorder_exit_pending() {
++            return Ok(());
++        }
++        let at = (self.now)();
++        loop {
++            if (self.now)() != at {
++                return Err(invalid(
++                    "fixture clock advanced before actual recorder exit",
++                ));
++            }
++            let child = &mut self
++                .room
++                .as_mut()
++                .ok_or_else(|| invalid("fixture recorder exit has no owned child"))?
++                .0;
++            if child.try_wait()?.is_some() {
++                break;
++            }
++            let remaining = host_deadline
++                .checked_duration_since(Instant::now())
++                .filter(|remaining| !remaining.is_zero())
++                .ok_or_else(|| {
++                    invalid("fixture recorder did not actually exit within the host bound")
++                })?;
++            // The existing owned-child wait polls every 20 ms on host time.
++            thread::sleep(remaining.min(Duration::from_millis(20)));
++        }
++        self.fixture
++            .as_mut()
++            .unwrap()
++            .driver
++            .recorder_exit_observed()?;
++        if (self.now)() != at {
++            return Err(invalid(
++                "fixture clock advanced while acknowledging actual recorder exit",
++            ));
++        }
+         Ok(())
+     }
+ 
+-    fn pump_preparation_fixture(&mut self, until_us: u64, host_deadline: Instant) -> Result<()> {
+-        if let Some(fixture) = &mut self.fixture {
+-            fixture.driver.prepare_wait(
+-                MonoTime::from_micros(until_us),
+-                fixture.sent,
+-                &fixture.enqueued,
+-                true,
+-                host_deadline,
+-            )?;
+-        }
+-        self.settle_fixture_reports(host_deadline)?;
+-        Ok(())
++    fn finish_fixture_recorder(&mut self, host_deadline: Instant) -> Result<()> {
++        if !self.fixture_recorder() {
++            return Ok(());
++        }
++        let result: Result<()> = (|| {
++            self.fixture
++                .as_mut()
++                .unwrap()
++                .driver
++                .finish_recorder(host_deadline)?;
++            self.settle_fixture_recorder_exit(host_deadline)?;
++            if self
++                .room
++                .as_mut()
++                .ok_or_else(|| invalid("fixture recorder finish has no owned child"))?
++                .0
++                .try_wait()?
++                .is_none()
++            {
++                return Err(invalid(
++                    "fixture recorder finish returned before actual exit",
++                ));
++            }
++            Ok(())
++        })();
++        if let Err(error) = &result {
++            self.fail_fixture_recorder(error.to_string());
++        }
++        result
+     }
+ 
+     fn settle_fixture_reports(&self, deadline: Instant) -> Result<()> {
+@@ -1437,18 +1645,34 @@
+     fn fixture_player_error(&mut self, error: String) {
+         self.unavailable
+             .get_or_insert_with(|| Withheld::ProtocolFailed(error.clone()));
++        if self.evidence_lost
++            && self
++                .fixture
++                .as_ref()
++                .is_some_and(|fixture| fixture.recorder_failure.is_some())
++        {
++            return;
++        }
+         let event = self.lose_evidence("fixture_player".into(), error);
+         self.pending.push_back(event);
+     }
+ 
+     fn notify_prepared_input(&mut self, ready: &Value) -> Result<()> {
+-        if let Some(fixture) = &mut self.fixture {
+-            let attempt = ready["attempt_id"]
+-                .as_str()
+-                .ok_or_else(|| invalid("fixture prepared receipt has no attempt ID"))?;
+-            fixture.driver.grant_sent(attempt)?;
+-        }
+-        Ok(())
++        let result: Result<()> = (|| {
++            if let Some(fixture) = &mut self.fixture {
++                let attempt = ready["attempt_id"]
++                    .as_str()
++                    .ok_or_else(|| invalid("fixture prepared receipt has no attempt ID"))?;
++                fixture.driver.grant_sent(attempt)?;
++            }
++            Ok(())
++        })();
++        if self.fixture_recorder()
++            && let Err(error) = &result
++        {
++            self.fail_fixture_recorder(error.to_string());
++        }
++        result
+     }
+ 
+     fn serve(&self) -> bool {
+@@ -2413,10 +2637,32 @@
+                 .spawn()?;
+             // Stimuli start only after the recorder reports readiness.
+             let ready_deadline = monotonic_us() + 15_000_000;
++            if self.fixture_recorder() {
++                let remaining = ready_deadline.saturating_sub(monotonic_us());
++                let result = self
++                    .fixture
++                    .as_mut()
++                    .unwrap()
++                    .driver
++                    .start_recorder(Instant::now() + Duration::from_micros(remaining));
++                if let Err(error) = result {
++                    let reason = format!("fixture recorder startup failed: {error}");
++                    self.fail_fixture_recorder(reason.clone());
++                    let mut child = child;
++                    let _ = child.kill();
++                    let _ = child.wait();
++                    return Ok(Begin::Withheld(reason));
++                }
++            }
+             while !out.join("ready.json").exists() && monotonic_us() < ready_deadline {
+                 thread::sleep(Duration::from_millis(50));
+             }
+             if !out.join("ready.json").exists() {
++                if self.fixture_recorder() {
++                    self.fail_fixture_recorder(
++                        "room recorder did not report ready.json within 15 s".into(),
++                    );
++                }
+                 let mut child = child;
+                 let _ = child.kill();
+                 let _ = child.wait();
+@@ -2428,6 +2674,16 @@
+             self.room_cover.ready = ready;
+             self.room_cover.end_us = end_us;
+             self.room = Some((child, out, requested));
++            if self.fixture_recorder() {
++                let remaining = ready_deadline.saturating_sub(monotonic_us());
++                if let Err(error) = self
++                    .settle_fixture_recorder_exit(Instant::now() + Duration::from_micros(remaining))
++                {
++                    return Ok(Begin::Withheld(format!(
++                        "fixture recorder startup failed: {error}"
++                    )));
++                }
++            }
+         }
+         let mut argv = self.config.lamp_command.clone();
+         let work = format!(
+@@ -2951,8 +3207,25 @@
+             (Some(reason), Some(transport)) => Some(format!("{reason}; {transport}")),
+             (reason, transport) => reason.or(transport),
+         };
++        // Finish the recorder before the player's internal terminal drain can
++        // advance shared time. Its actual exit is still observed by this owner.
++        let recorder_finish_failure = if self.fixture_recorder() {
++            self.finish_fixture_recorder(
++                Instant::now() + Duration::from_secs(u64::from(self.seconds) + 60),
++            )
++            .err()
++            .map(|error| format!("fixture recorder did not finish: {error}"))
++        } else {
++            None
++        };
++        let aborted = match (aborted, recorder_finish_failure) {
++            (Some(reason), Some(recorder)) => Some(format!("{reason}; {recorder}")),
++            (reason, recorder) => reason.or(recorder),
++        };
+         let playback_bound = monotonic_us() + 25_000_000;
+-        let player_finish_failure = if let Some(fixture) = &mut self.fixture {
++        let player_finish_failure = if let Some(fixture) = &mut self.fixture
++            && fixture.recorder_failure.is_none()
++        {
+             let remaining = playback_bound.saturating_sub(monotonic_us());
+             fixture
+                 .driver
+@@ -2962,6 +3235,11 @@
+         } else {
+             None
+         };
++        if self.fixture_recorder()
++            && let Some(error) = &player_finish_failure
++        {
++            self.fail_fixture_recorder(error.clone());
++        }
+         let aborted = match (aborted, player_finish_failure) {
+             (Some(reason), Some(players)) => Some(format!("{reason}; {players}")),
+             (reason, players) => reason.or(players),
+@@ -4401,3 +4679,7 @@
+ #[cfg(test)]
+ #[path = "prepared_player_progress_tests.rs"]
+ mod prepared_player_progress_tests;
++
++#[cfg(test)]
++#[path = "recorder_backend_tests.rs"]
++mod recorder_backend_tests;
+--- a/lampOS/crates/voice-eval/src/physical/recorder_backend_tests.rs
++++ b/lampOS/crates/voice-eval/src/physical/recorder_backend_tests.rs
+@@ -0,0 +1,644 @@
++//! Recorder progress never substitutes for the backend's actual child status.
++use super::*;
++use std::{
++    cell::{Cell, RefCell},
++    os::unix::fs::PermissionsExt,
++    rc::Rc,
++};
++
++static NEXT: AtomicU64 = AtomicU64::new(0);
++const AT_US: u64 = 1_000_000;
++const GUARD: Duration = Duration::from_secs(5);
++
++struct Fixture {
++    root: PathBuf,
++    assets: AssetIndex,
++}
++
++impl Fixture {
++    fn new() -> Self {
++        let root = PathBuf::from(format!(
++            "/tmp/lve-recorder-backend-{}-{}",
++            std::process::id(),
++            NEXT.fetch_add(1, Ordering::Relaxed)
++        ));
++        fs::create_dir(&root).unwrap();
++        fs::set_permissions(&root, fs::Permissions::from_mode(0o700)).unwrap();
++        fs::create_dir(root.join("objects")).unwrap();
++        let assets = AssetIndex::load(&root, &[], &StimulusCatalog::load().unwrap()).unwrap();
++        Self { root, assets }
++    }
++
++    fn config(&self) -> PhysicalConfig {
++        PhysicalConfig {
++            lamp_command: vec!["/bin/sh".into(), "-c".into(), "exec cat >/dev/null".into()],
++            lamp_work_root: self.root.display().to_string(),
++            mode: LampMode::Serve {
++                provider_config: "/private/unused.json".into(),
++            },
++            noise_suppression: "off".into(),
++            diagnostics: false,
++            room_recorder: Some(vec!["/bin/cat".into()]),
++            room_independent: false,
++            allowance_seconds: 5,
++            ring_channel_ceiling: None,
++            stimulus_source: StimulusSource::LoudspeakerSynthetic,
++            runtime_flags: Default::default(),
++        }
++    }
++
++    fn backend(&self, driver: ProbeDriver, clock: Rc<Cell<u64>>) -> PhysicalBackend<'_> {
++        PhysicalBackend::new_with_clock(
++            self.config(),
++            &self.assets,
++            Box::new(FakeRoomPlayer {
++                room: self.root.join("room.sock"),
++            }),
++            move || MonoTime::from_micros(clock.get()),
++        )
++        .with_fixture_driver(driver)
++        .unwrap()
++    }
++}
++
++impl Drop for Fixture {
++    fn drop(&mut self) {
++        let _ = fs::remove_dir_all(&self.root);
++    }
++}
++
++#[derive(Default)]
++struct State {
++    pending: Cell<bool>,
++    observed: Cell<usize>,
++    starts: Cell<usize>,
++    waits: Cell<usize>,
++    prepare_waits: Cell<usize>,
++    finishes: Cell<usize>,
++    dropped: Cell<usize>,
++    start_deadline: RefCell<Option<Instant>>,
++}
++
++struct ProbeDriver {
++    state: Rc<State>,
++    supports: bool,
++    fail_start: bool,
++    fail_wait: bool,
++    fail_grant: bool,
++    finish_release: Option<ChildStdin>,
++}
++
++impl ProbeDriver {
++    fn new() -> (Self, Rc<State>) {
++        let state = Rc::new(State::default());
++        (
++            Self {
++                state: Rc::clone(&state),
++                supports: true,
++                fail_start: false,
++                fail_wait: false,
++                fail_grant: false,
++                finish_release: None,
++            },
++            state,
++        )
++    }
++}
++
++impl Drop for ProbeDriver {
++    fn drop(&mut self) {
++        self.state.dropped.set(self.state.dropped.get() + 1);
++    }
++}
++
++impl FixtureDriver for ProbeDriver {
++    fn supports_serve(&self) -> bool {
++        true
++    }
++    fn supports_recorder(&self) -> bool {
++        self.supports
++    }
++    fn start_recorder(&mut self, deadline: Instant) -> Result<()> {
++        self.state.starts.set(self.state.starts.get() + 1);
++        *self.state.start_deadline.borrow_mut() = Some(deadline);
++        if self.fail_start {
++            Err(invalid("recorder start control failed"))
++        } else {
++            Ok(())
++        }
++    }
++    fn recorder_exit_pending(&self) -> bool {
++        self.state.pending.get()
++    }
++    fn grant_sent(&mut self, _: &str) -> Result<()> {
++        if self.fail_grant {
++            Err(invalid("prepared grant control failed"))
++        } else {
++            Ok(())
++        }
++    }
++    fn recorder_exit_observed(&mut self) -> Result<()> {
++        assert!(self.state.pending.replace(false));
++        self.state.observed.set(self.state.observed.get() + 1);
++        Ok(())
++    }
++    fn finish_recorder(&mut self, _: Instant) -> Result<()> {
++        self.state.finishes.set(self.state.finishes.get() + 1);
++        if let Some(mut input) = self.finish_release.take() {
++            input.write_all(b"0\n")?;
++            input.flush()?;
++            self.state.pending.set(true);
++        }
++        Ok(())
++    }
++    fn wait(&mut self, _: MonoTime, _: u64, _: &AtomicU64, _: bool) -> Result<()> {
++        self.state.waits.set(self.state.waits.get() + 1);
++        if self.fail_wait {
++            Err(invalid("recorder round control failed"))
++        } else {
++            Ok(())
++        }
++    }
++    fn prepare_wait(
++        &mut self,
++        until: MonoTime,
++        sent: u64,
++        enqueued: &AtomicU64,
++        drained: bool,
++        _: Instant,
++    ) -> Result<()> {
++        self.state
++            .prepare_waits
++            .set(self.state.prepare_waits.get() + 1);
++        self.wait(until, sent, enqueued, drained)
++    }
++}
++
++fn held_recorder() -> (Child, ChildStdin) {
++    // A real pipe gates the process exit; no guessed delay or sleep is used.
++    let mut child = Command::new("/bin/sh")
++        .args(["-c", "IFS= read -r code; exit \"$code\""])
++        .stdin(Stdio::piped())
++        .stdout(Stdio::null())
++        .stderr(Stdio::null())
++        .spawn()
++        .unwrap();
++    let input = child.stdin.take().unwrap();
++    assert!(child.try_wait().unwrap().is_none());
++    (child, input)
++}
++
++fn release(mut input: ChildStdin, code: i32) {
++    writeln!(input, "{code}").unwrap();
++    input.flush().unwrap();
++}
++
++fn live_session() -> (
++    Session,
++    mpsc::Sender<std::result::Result<SessionLine, String>>,
++) {
++    let mut child = Command::new("/bin/cat")
++        .stdin(Stdio::piped())
++        .stdout(Stdio::null())
++        .stderr(Stdio::null())
++        .spawn()
++        .unwrap();
++    let (sender, lines) = mpsc::channel();
++    (
++        Session {
++            stdin: child.stdin.take(),
++            child,
++            lines,
++            next_ping_us: u64::MAX,
++            pings: Vec::new(),
++            best: None,
++            trace: Vec::new(),
++            end: None,
++            end_synthesized: false,
++            ready_seen: false,
++            protocol_errors: Vec::new(),
++            start: None,
++            cues: Vec::new(),
++            cue_order: CueOrder::default(),
++            cue_failed: false,
++            boot_changes: Vec::new(),
++            stop_sent: false,
++            runtime_ended: false,
++            stdout_readiness_us: Vec::new(),
++            clock_samples: Vec::new(),
++            started_runner_us: None,
++            held: std::collections::VecDeque::new(),
++            released: std::collections::VecDeque::new(),
++        },
++        sender,
++    )
++}
++
++#[test]
++fn recorder_configuration_requires_its_separate_explicit_capability() {
++    let fixture = Fixture::new();
++    let (mut driver, state) = ProbeDriver::new();
++    driver.supports = false;
++    let result = PhysicalBackend::new(
++        fixture.config(),
++        &fixture.assets,
++        Box::new(FakeRoomPlayer {
++            room: fixture.root.join("room.sock"),
++        }),
++    )
++    .with_fixture_driver(driver);
++    assert!(result.is_err());
++    assert_eq!(state.starts.get(), 0);
++    assert_eq!(state.dropped.get(), 1);
++}
++
++#[test]
++fn terminal_ack_alone_hits_the_host_bound_closes_peers_and_reaps_the_real_child() {
++    let fixture = Fixture::new();
++    let (driver, state) = ProbeDriver::new();
++    let clock = Rc::new(Cell::new(AT_US));
++    let mut backend = fixture.backend(driver, Rc::clone(&clock));
++    let (child, input) = held_recorder();
++    backend.room = Some((child, fixture.root.join("recording"), AT_US));
++    state.pending.set(true);
++    let first = backend
++        .settle_fixture_recorder_exit(Instant::now())
++        .unwrap_err()
++        .to_string();
++    assert!(first.contains("did not actually exit within the host bound"));
++    assert_eq!(state.observed.get(), 0);
++    assert_eq!(state.dropped.get(), 1);
++    assert_eq!(clock.get(), AT_US);
++    assert!(
++        backend
++            .room
++            .as_mut()
++            .unwrap()
++            .0
++            .try_wait()
++            .unwrap()
++            .is_some()
++    );
++    assert!(backend.fixture.is_some());
++    assert!(backend.room_cover.lost.is_none());
++    assert!(backend.pending.is_empty());
++    let second = backend
++        .settle_fixture_recorder_exit(Instant::now() + GUARD)
++        .unwrap_err()
++        .to_string();
++    assert_eq!(first, second);
++    assert_eq!(state.dropped.get(), 1);
++    assert!(backend.pending.is_empty());
++    drop(input);
++}
++
++#[test]
++fn actual_zero_exit_is_retained_and_only_existing_coverage_logic_marks_it_early() {
++    let fixture = Fixture::new();
++    let (driver, state) = ProbeDriver::new();
++    let clock = Rc::new(Cell::new(AT_US));
++    let mut backend = fixture.backend(driver, Rc::clone(&clock));
++    let (child, input) = held_recorder();
++    backend.room = Some((child, fixture.root.join("recording"), AT_US));
++    state.pending.set(true);
++    release(input, 0);
++    backend
++        .settle_fixture_recorder_exit(Instant::now() + GUARD)
++        .unwrap();
++    assert_eq!(state.observed.get(), 1);
++    assert_eq!(
++        backend
++            .room
++            .as_mut()
++            .unwrap()
++            .0
++            .try_wait()
++            .unwrap()
++            .unwrap()
++            .code(),
++        Some(0)
++    );
++    assert!(backend.room_cover.lost.is_none());
++    assert!(!backend.evidence_lost);
++    assert!(backend.pending.is_empty());
++    assert_eq!(clock.get(), AT_US);
++    let event = backend.poll_evidence().unwrap();
++    assert!(
++        matches!(event.kind, EventKind::EvidenceLost { source, .. } if source == "room_recorder")
++    );
++    assert_eq!(
++        backend.room_cover.lost.as_ref().unwrap().1,
++        RECORDER_EXITED_EARLY
++    );
++    assert!(backend.poll_evidence().is_none());
++    let evidence = load_room_evidence(
++        &fixture.root.join("recording/metadata.json"),
++        false,
++        Some(true),
++    );
++    assert_eq!(evidence["valid"], false);
++    assert_eq!(evidence["status"], "unavailable_final_metadata");
++}
++
++#[test]
++fn both_normal_and_preparation_pumps_wait_for_actual_recorder_exit() {
++    for preparing in [false, true] {
++        let fixture = Fixture::new();
++        let (driver, state) = ProbeDriver::new();
++        let clock = Rc::new(Cell::new(AT_US));
++        let mut backend = fixture.backend(driver, Rc::clone(&clock));
++        let (child, input) = held_recorder();
++        backend.room = Some((child, fixture.root.join("recording"), AT_US));
++        state.pending.set(true);
++        release(input, 7);
++        if preparing {
++            backend
++                .pump_preparation_fixture(AT_US, Instant::now() + GUARD)
++                .unwrap();
++        } else {
++            backend.pump_fixture(AT_US, true).unwrap();
++        }
++        assert_eq!(state.observed.get(), 1);
++        assert_eq!(state.waits.get(), 1);
++        assert_eq!(state.prepare_waits.get(), usize::from(preparing));
++        assert_eq!(
++            backend
++                .room
++                .as_mut()
++                .unwrap()
++                .0
++                .try_wait()
++                .unwrap()
++                .unwrap()
++                .code(),
++            Some(7)
++        );
++        assert_eq!(clock.get(), AT_US);
++        assert!(backend.room_cover.lost.is_none());
++    }
++}
++
++#[test]
++fn recorder_settling_does_not_reorder_player_failure_evidence() {
++    let fixture = Fixture::new();
++    let (driver, state) = ProbeDriver::new();
++    let mut backend = fixture.backend(driver, Rc::new(Cell::new(AT_US)));
++    let (child, input) = held_recorder();
++    backend.room = Some((child, fixture.root.join("recording"), AT_US));
++    state.pending.set(true);
++    release(input, 0);
++    backend
++        .settle_fixture_recorder_exit(Instant::now() + GUARD)
++        .unwrap();
++    let handle = thread::spawn(|| json!({"valid":false,"status":"failed","error":"player fault"}));
++    wait_fixture_thread(&handle, Instant::now() + GUARD).unwrap();
++    backend.playbacks.push(Playback {
++        step: "first".into(),
++        requested_us: AT_US,
++        cancel_file: fixture.root.join("cancel"),
++        handle: Some(handle),
++        report: None,
++        prepared: true,
++        latest_start_us: None,
++    });
++    let event = backend.poll_evidence().unwrap();
++    assert!(
++        matches!(event.kind, EventKind::EvidenceLost { source, .. } if source == "player:first")
++    );
++    assert!(backend.room_cover.lost.is_none());
++}
++
++#[test]
++fn terminal_recorder_drain_keeps_prior_declared_coverage_reason_and_real_status() {
++    let fixture = Fixture::new();
++    let (mut driver, state) = ProbeDriver::new();
++    let (child, input) = held_recorder();
++    driver.finish_release = Some(input);
++    let clock = Rc::new(Cell::new(AT_US));
++    let mut backend = fixture.backend(driver, Rc::clone(&clock));
++    backend.room = Some((child, fixture.root.join("recording"), AT_US));
++    backend.room_cover.end_us = Some(AT_US + 20_000_000);
++    let original = (
++        AT_US,
++        PROMPT_NOT_COVERED,
++        "original declared capture end refusal".to_owned(),
++    );
++    backend.room_cover.lost = Some(original.clone());
++    backend
++        .finish_fixture_recorder(Instant::now() + GUARD)
++        .unwrap();
++    assert_eq!(state.finishes.get(), 1);
++    assert_eq!(state.observed.get(), 1);
++    assert_eq!(backend.room_cover.lost, Some(original));
++    assert_eq!(
++        backend
++            .room
++            .as_mut()
++            .unwrap()
++            .0
++            .try_wait()
++            .unwrap()
++            .unwrap()
++            .code(),
++        Some(0)
++    );
++    assert_eq!(clock.get(), AT_US);
++    assert!(backend.pending.is_empty());
++}
++
++#[test]
++fn a_finish_hook_without_actual_exit_cannot_certify_the_recorder() {
++    let fixture = Fixture::new();
++    let (driver, state) = ProbeDriver::new();
++    let mut backend = fixture.backend(driver, Rc::new(Cell::new(AT_US)));
++    let (child, input) = held_recorder();
++    backend.room = Some((child, fixture.root.join("recording"), AT_US));
++    let error = backend
++        .finish_fixture_recorder(Instant::now() + GUARD)
++        .unwrap_err()
++        .to_string();
++    assert!(error.contains("returned before actual exit"));
++    assert_eq!(state.observed.get(), 0);
++    assert_eq!(state.dropped.get(), 1);
++    assert!(
++        backend
++            .room
++            .as_mut()
++            .unwrap()
++            .0
++            .try_wait()
++            .unwrap()
++            .is_some()
++    );
++    assert!(backend.room_cover.lost.is_none());
++    drop(input);
++}
++
++#[test]
++fn startup_reads_the_real_receipt_and_shares_the_original_fifteen_second_bound() {
++    let fixture = Fixture::new();
++    let (driver, state) = ProbeDriver::new();
++    let clock = Rc::new(Cell::new(AT_US));
++    let mut backend = fixture.backend(driver, Rc::clone(&clock));
++    backend.config.room_recorder = Some(vec!["/bin/sh".into(), "-c".into(),
++        r#"mkdir "$1" && printf '%s' '{"status":"capture_ready","planned_capture_end_host_monotonic_ns":21000000000}' > "$1/ready.json""#.into(),
++        "recorder".into(), "{out}".into()]);
++    state.pending.set(true);
++    let catalog = StimulusCatalog::load().unwrap();
++    let plan = crate::plan::LoadedPlan::parse(crate::plan::SERVE_PLAN, &catalog).unwrap();
++    let context = AttemptContext {
++        attempt_id: "ready".into(),
++        run_id: "test".into(),
++        scenario: &plan.plan.scenarios[0],
++        repetition: 0,
++        order: 0,
++        seed: 1,
++        run_directory: fixture.root.clone(),
++    };
++    let before = Instant::now();
++    assert!(matches!(backend.begin(&context).unwrap(), Begin::Ready));
++    let after = Instant::now();
++    let deadline = state.start_deadline.borrow().unwrap();
++    assert!(deadline >= before + Duration::from_secs(15));
++    assert!(deadline <= after + Duration::from_secs(15));
++    assert_eq!(state.starts.get(), 1);
++    assert_eq!(state.observed.get(), 1);
++    assert_eq!(backend.room_cover.ready["status"], "capture_ready");
++    assert_eq!(backend.room_cover.end_us, Some(21_000_000));
++    assert!(fixture.root.join("ready/room/ready.json").is_file());
++    assert!(!fixture.root.join("ready/room/metadata.json").exists());
++    assert_eq!(
++        backend
++            .room
++            .as_mut()
++            .unwrap()
++            .0
++            .try_wait()
++            .unwrap()
++            .unwrap()
++            .code(),
++        Some(0)
++    );
++    assert_eq!(clock.get(), AT_US);
++}
++
++#[test]
++fn startup_control_failure_closes_its_driver_before_any_session_is_started() {
++    let fixture = Fixture::new();
++    let (mut driver, state) = ProbeDriver::new();
++    driver.fail_start = true;
++    let mut backend = fixture.backend(driver, Rc::new(Cell::new(AT_US)));
++    let catalog = StimulusCatalog::load().unwrap();
++    let plan = crate::plan::LoadedPlan::parse(crate::plan::SERVE_PLAN, &catalog).unwrap();
++    let context = AttemptContext {
++        attempt_id: "start-failed".into(),
++        run_id: "test".into(),
++        scenario: &plan.plan.scenarios[0],
++        repetition: 0,
++        order: 0,
++        seed: 1,
++        run_directory: fixture.root.clone(),
++    };
++    assert!(
++        matches!(backend.begin(&context).unwrap(), Begin::Withheld(reason)
++        if reason.contains("recorder start control failed"))
++    );
++    assert_eq!(state.starts.get(), 1);
++    assert_eq!(state.dropped.get(), 1);
++    assert!(backend.session.is_none());
++    assert!(backend.room.is_none());
++    assert!(backend.fixture.as_ref().unwrap().recorder_failure.is_some());
++}
++
++#[test]
++fn a_failed_fixture_stays_nonblocking_and_finish_reuses_the_latched_error() {
++    let fixture = Fixture::new();
++    let (mut driver, state) = ProbeDriver::new();
++    driver.fail_wait = true;
++    let mut backend = fixture.backend(driver, Rc::new(Cell::new(AT_US)));
++    let (child, input) = held_recorder();
++    backend.room = Some((child, fixture.root.join("recording"), AT_US));
++    let (session, sender) = live_session();
++    backend.session = Some(session);
++    let first = backend
++        .pump_fixture(AT_US + 2_000, true)
++        .unwrap_err()
++        .to_string();
++    assert_eq!(state.dropped.get(), 1);
++    assert_eq!(state.waits.get(), 1);
++    assert!(backend.fixture.is_some());
++    assert!(backend.pending.is_empty());
++    // The actual killed recorder is reported by the unchanged coverage path.
++    assert!(backend.next_event(AT_US + 2_000).unwrap().is_some());
++    assert_eq!(
++        backend.next_event(AT_US + 2_000).unwrap_err().to_string(),
++        first
++    );
++    let catalog = StimulusCatalog::load().unwrap();
++    let plan = crate::plan::LoadedPlan::parse(crate::plan::SERVE_PLAN, &catalog).unwrap();
++    let context = AttemptContext {
++        attempt_id: "failed".into(),
++        run_id: "test".into(),
++        scenario: &plan.plan.scenarios[0],
++        repetition: 0,
++        order: 0,
++        seed: 1,
++        run_directory: fixture.root.clone(),
++    };
++    assert_eq!(backend.finish(&context).err().unwrap().to_string(), first);
++    assert_eq!(state.dropped.get(), 1);
++    assert_eq!(state.waits.get(), 1);
++    assert!(backend.pending.is_empty());
++    assert!(
++        backend
++            .room
++            .as_mut()
++            .unwrap()
++            .0
++            .try_wait()
++            .unwrap()
++            .is_some()
++    );
++    drop(input);
++    drop(sender);
++}
++
++#[test]
++fn grant_control_failure_closes_once_and_repeated_notifications_queue_one_error() {
++    let fixture = Fixture::new();
++    let (mut driver, state) = ProbeDriver::new();
++    driver.fail_grant = true;
++    let clock = Rc::new(Cell::new(AT_US));
++    let mut backend = fixture.backend(driver, Rc::clone(&clock));
++    let (child, input) = held_recorder();
++    backend.room = Some((child, fixture.root.join("recording"), AT_US));
++    let ready = json!({"attempt_id": "prepared"});
++    let first = backend
++        .notify_prepared_input(&ready)
++        .unwrap_err()
++        .to_string();
++    backend.fixture_player_error(first.clone());
++    let second = backend
++        .notify_prepared_input(&ready)
++        .unwrap_err()
++        .to_string();
++    backend.fixture_player_error(second.clone());
++    assert_eq!(first, "prepared grant control failed");
++    assert_eq!(first, second);
++    assert_eq!(state.dropped.get(), 1);
++    assert_eq!(backend.pending.len(), 1);
++    assert!(backend.evidence_lost);
++    assert!(backend.room_cover.lost.is_none());
++    assert_eq!(clock.get(), AT_US);
++    assert!(
++        backend
++            .room
++            .as_mut()
++            .unwrap()
++            .0
++            .try_wait()
++            .unwrap()
++            .is_some()
++    );
++    drop(input);
++}
+--- a/lampOS/crates/voice-eval/src/physical/recorder_fixture_commands_tests.rs
++++ b/lampOS/crates/voice-eval/src/physical/recorder_fixture_commands_tests.rs
+@@ -0,0 +1,355 @@
++//! Handler tests use real private files and bounded local control, not a child
++//! status inferred from progress. The original recorder still records nothing.
++use super::*;
++use crate::physical::fixture_control::{ParentListener, ParentPeer, Step};
++use serde_json::{Value, json};
++use std::{
++    fs,
++    os::unix::fs::{DirBuilderExt, PermissionsExt},
++    sync::{
++        atomic::{AtomicUsize, Ordering},
++        mpsc::{self, Receiver},
++    },
++    thread::{self, JoinHandle},
++};
++
++const WATCHDOG: Duration = Duration::from_secs(2);
++const EPOCH_US: u64 = 1_000_000;
++static NEXT: AtomicUsize = AtomicUsize::new(0);
++
++struct Fixture {
++    root: PathBuf,
++    out: PathBuf,
++}
++
++impl Fixture {
++    fn new() -> Self {
++        let root = PathBuf::from(format!(
++            "/tmp/lve-recorder-command-{}-{}",
++            std::process::id(),
++            NEXT.fetch_add(1, Ordering::Relaxed)
++        ));
++        fs::DirBuilder::new().mode(0o700).create(&root).unwrap();
++        Self {
++            out: root.join("recording with spaces"),
++            root,
++        }
++    }
++
++    fn arguments(&self, seconds: u64, fail_after_ms: u64) -> Vec<String> {
++        vec![
++            "--out".into(),
++            self.out.display().to_string(),
++            "--seconds".into(),
++            seconds.to_string(),
++            "--fail-after-ms".into(),
++            fail_after_ms.to_string(),
++        ]
++    }
++
++    fn start(
++        &self,
++        arguments: Vec<String>,
++    ) -> (
++        ParentListener,
++        ParentPeer,
++        Receiver<Result<i32>>,
++        JoinHandle<()>,
++    ) {
++        let socket = self.root.join("control.sock");
++        let listener = ParentListener::bind_with_watchdog(&socket, WATCHDOG).unwrap();
++        let mut controlled = vec!["--fixture-control".into(), socket.display().to_string()];
++        controlled.extend(arguments);
++        let (result_tx, result_rx) = mpsc::channel();
++        let worker = thread::spawn(move || {
++            let _ = result_tx.send(recorder(controlled));
++        });
++        let peer = listener.accept(Role::Recorder).unwrap();
++        (listener, peer, result_rx, worker)
++    }
++
++    fn assert_only_ready(&self, declared_end: Value) {
++        let ready: Value =
++            serde_json::from_slice(&fs::read(self.out.join("ready.json")).unwrap()).unwrap();
++        assert_eq!(
++            ready,
++            json!({"fake": true, "note": "fake recorder; records nothing",
++                "planned_capture_end_host_monotonic_ns": declared_end})
++        );
++        let names: Vec<_> = fs::read_dir(&self.out)
++            .unwrap()
++            .map(|entry| entry.unwrap().file_name())
++            .collect();
++        assert_eq!(names, vec![std::ffi::OsString::from("ready.json")]);
++        assert!(!self.out.join("metadata.json").exists());
++        assert!(!self.out.join("room.wav").exists());
++        assert_eq!(
++            fs::metadata(&self.out).unwrap().permissions().mode() & 0o777,
++            0o700
++        );
++    }
++}
++
++impl Drop for Fixture {
++    fn drop(&mut self) {
++        let _ = fs::remove_dir_all(&self.root);
++    }
++}
++
++fn step(round: u64, at_us: u64) -> Step {
++    Step {
++        round,
++        at_us,
++        stdout_target: 0,
++        runner_input_target: 0,
++        wait_for_sigterm: false,
++    }
++}
++
++fn progress(poll_seq: u64, due: u64, ended: bool) -> Progress {
++    Progress::Recorder {
++        poll_seq,
++        ready_written: true,
++        wait_started_us: EPOCH_US,
++        exit_due_us: due,
++        logical_end: ended,
++    }
++}
++
++fn finish(result: Receiver<Result<i32>>, worker: JoinHandle<()>) -> Result<i32> {
++    let result = result
++        .recv_timeout(WATCHDOG)
++        .expect("recorder handler did not return");
++    worker.join().unwrap();
++    result
++}
++
++#[test]
++fn recorder_first_step_precedes_real_ready_write_and_the_entire_original_wait() {
++    let fixture = Fixture::new();
++    let (_listener, mut peer, result, worker) = fixture.start(fixture.arguments(260, 6000));
++    // Hello proves the handler is parked at its first Step, without a sleep or
++    // guessed scheduling window. It cannot create readiness before that Step.
++    assert!(!fixture.out.exists());
++    let due = EPOCH_US + 6_000_000;
++    assert_eq!(
++        peer.step(step(1, EPOCH_US)).unwrap(),
++        progress(1, due, false)
++    );
++    fixture.assert_only_ready(Value::Null);
++    let original_ready = fs::read(fixture.out.join("ready.json")).unwrap();
++    assert_eq!(
++        peer.step(step(2, EPOCH_US)).unwrap(),
++        progress(2, due, false)
++    );
++    assert_eq!(
++        peer.step(step(3, due - 1)).unwrap(),
++        progress(3, due, false)
++    );
++    assert!(matches!(result.try_recv(), Err(mpsc::TryRecvError::Empty)));
++    assert_eq!(peer.step(step(4, due)).unwrap(), progress(4, due, true));
++    assert_eq!(finish(result, worker).unwrap(), 1);
++    assert_eq!(
++        fs::read(fixture.out.join("ready.json")).unwrap(),
++        original_ready
++    );
++    fixture.assert_only_ready(Value::Null);
++}
++
++#[test]
++fn declared_capture_end_does_not_shorten_the_twenty_three_second_wait() {
++    let fixture = Fixture::new();
++    let mut arguments = fixture.arguments(260, 23_000);
++    arguments.extend(["--exit-code", "0", "--declare-end-after-ms", "20000"].map(str::to_owned));
++    let (_listener, mut peer, result, worker) = fixture.start(arguments);
++    let due = EPOCH_US + 23_000_000;
++    let declared_us = EPOCH_US + 20_000_000;
++    assert_eq!(
++        peer.step(step(1, EPOCH_US)).unwrap(),
++        progress(1, due, false)
++    );
++    fixture.assert_only_ready(json!(declared_us * 1000));
++    assert_eq!(
++        peer.step(step(2, declared_us)).unwrap(),
++        progress(2, due, false)
++    );
++    assert_eq!(
++        peer.step(step(3, due - 1)).unwrap(),
++        progress(3, due, false)
++    );
++    assert!(matches!(result.try_recv(), Err(mpsc::TryRecvError::Empty)));
++    assert_eq!(peer.step(step(4, due)).unwrap(), progress(4, due, true));
++    assert_eq!(finish(result, worker).unwrap(), 0);
++    fixture.assert_only_ready(json!(declared_us * 1000));
++}
++
++#[test]
++fn zero_and_limited_durations_keep_real_ready_and_configured_return_codes() {
++    for (seconds, fail_after_ms, duration_us, exit_code) in [
++        (0, 6000, 0, 0),
++        (10, 0, 0, 17),
++        (5, 6000, 5_000_000, -9),
++        (260, 6000, 6_000_000, 0),
++    ] {
++        let fixture = Fixture::new();
++        let mut arguments = fixture.arguments(seconds, fail_after_ms);
++        arguments.extend(["--exit-code".to_owned(), exit_code.to_string()]);
++        let (_listener, mut peer, result, worker) = fixture.start(arguments);
++        let due = EPOCH_US + duration_us;
++        assert_eq!(
++            peer.step(step(1, EPOCH_US)).unwrap(),
++            progress(1, due, duration_us == 0)
++        );
++        fixture.assert_only_ready(Value::Null);
++        if duration_us != 0 {
++            assert_eq!(
++                peer.step(step(2, due - 1)).unwrap(),
++                progress(2, due, false)
++            );
++            assert_eq!(peer.step(step(3, due)).unwrap(), progress(3, due, true));
++        }
++        assert_eq!(finish(result, worker).unwrap(), exit_code);
++        fixture.assert_only_ready(Value::Null);
++    }
++}
++
++#[test]
++fn time_arithmetic_overflows_fail_before_the_shared_body_creates_files() {
++    for (seconds, fail_after_ms, declared_ms, expected) in [
++        (u64::MAX / 1000 + 1, 0, None, "seconds-to-milliseconds"),
++        (
++            u64::MAX / 1000,
++            u64::MAX,
++            None,
++            "wait duration microseconds",
++        ),
++        (
++            u64::MAX / 1_000_000 + 1,
++            u64::MAX / 1000,
++            None,
++            "wait deadline microseconds",
++        ),
++        (
++            u64::MAX / 1_000_000_000 + 1,
++            u64::MAX / 1_000_000,
++            None,
++            "microseconds-to-nanoseconds",
++        ),
++        (
++            0,
++            0,
++            Some(u64::MAX / 1_000_000 + 1),
++            "declared-end nanoseconds",
++        ),
++        (0, 0, Some(u64::MAX / 1_000_000), "declared-end nanoseconds"),
++    ] {
++        let fixture = Fixture::new();
++        let mut arguments = fixture.arguments(seconds, fail_after_ms);
++        if let Some(ms) = declared_ms {
++            arguments.extend(["--declare-end-after-ms".to_owned(), ms.to_string()]);
++        }
++        assert!(
++            recorder_timing(&arguments, EPOCH_US)
++                .unwrap_err()
++                .to_string()
++                .contains(expected)
++        );
++        let (_listener, mut peer, result, worker) = fixture.start(arguments);
++        assert!(peer.step(step(1, EPOCH_US)).is_err());
++        let error = finish(result, worker).unwrap_err();
++        assert!(error.to_string().contains(expected), "{error}");
++        assert!(!fixture.out.exists());
++    }
++}
++
++#[test]
++fn explicit_timing_checks_both_nanosecond_boundaries_without_wrapping() {
++    let fixture = Fixture::new();
++    let arguments = fixture.arguments(0, 0);
++    let last_us = u64::MAX / 1000;
++    assert_eq!(
++        recorder_timing(&arguments, last_us).unwrap(),
++        Duration::ZERO
++    );
++    assert!(recorder_timing(&arguments, last_us + 1).is_err());
++    assert_eq!(
++        recorder_nanoseconds(last_us).unwrap(),
++        u64::MAX - u64::MAX % 1000
++    );
++    assert!(recorder_exit_due(last_us, Duration::from_micros(1)).is_err());
++    let mut declared = arguments.clone();
++    declared.extend([
++        "--declare-end-after-ms".to_owned(),
++        ((u64::MAX - EPOCH_US * 1000) / 1_000_000).to_string(),
++    ]);
++    assert_eq!(
++        recorder_timing(&declared, EPOCH_US).unwrap(),
++        Duration::ZERO
++    );
++    assert!(!fixture.out.exists());
++}
++
++#[test]
++fn first_matching_values_and_missing_optional_values_keep_original_meaning() {
++    for missing in ["--exit-code", "--declare-end-after-ms"] {
++        let fixture = Fixture::new();
++        let mut arguments = fixture.arguments(10, 6000);
++        arguments.extend(["--fail-after-ms", "1", "--unused", "kept", missing].map(str::to_owned));
++        let (_listener, mut peer, result, worker) = fixture.start(arguments);
++        let due = EPOCH_US + 6_000_000;
++        assert_eq!(
++            peer.step(step(1, EPOCH_US)).unwrap(),
++            progress(1, due, false)
++        );
++        fixture.assert_only_ready(Value::Null);
++        assert_eq!(peer.step(step(2, due)).unwrap(), progress(2, due, true));
++        assert_eq!(finish(result, worker).unwrap(), 1);
++    }
++}
++
++#[test]
++fn invalid_shared_arguments_or_output_creation_never_acknowledge_ready() {
++    for failure in ["out", "exit", "existing_directory"] {
++        let fixture = Fixture::new();
++        let mut arguments = fixture.arguments(260, 6000);
++        match failure {
++            "out" => {
++                arguments.drain(0..2);
++            }
++            "exit" => arguments.extend(["--exit-code", "invalid"].map(str::to_owned)),
++            _ => fs::create_dir(&fixture.out).unwrap(),
++        }
++        let (_listener, mut peer, result, worker) = fixture.start(arguments);
++        assert!(peer.step(step(1, EPOCH_US)).is_err());
++        assert!(finish(result, worker).is_err());
++        assert!(!fixture.out.join("ready.json").exists());
++    }
++}
++
++#[test]
++fn a_lost_parent_returns_a_control_error_without_completing_the_wait() {
++    let fixture = Fixture::new();
++    let (_listener, mut peer, result, worker) = fixture.start(fixture.arguments(260, 6000));
++    let due = EPOCH_US + 6_000_000;
++    assert_eq!(
++        peer.step(step(1, EPOCH_US)).unwrap(),
++        progress(1, due, false)
++    );
++    drop(peer);
++    let error = finish(result, worker).unwrap_err();
++    assert!(error.to_string().contains("fixture control"));
++    fixture.assert_only_ready(Value::Null);
++}
++
++#[test]
++fn recorder_command_requires_the_explicit_leading_control_pair() {
++    for arguments in [
++        vec![],
++        vec!["--out", "/unused/recorder"],
++        vec!["--fixture-control"],
++        vec!["--fixture-control", "relative.sock"],
++    ] {
++        let error = recorder(arguments.into_iter().map(str::to_owned).collect()).unwrap_err();
++        assert!(error.to_string().contains("fixture-control"));
++    }
++}
+--- a/lampOS/crates/voice-eval/src/physical/recorder_fixture_control_tests.rs
++++ b/lampOS/crates/voice-eval/src/physical/recorder_fixture_control_tests.rs
+@@ -0,0 +1,464 @@
++//! Recorder receipts describe real write/wait boundaries, never child exit.
++use super::*;
++use std::{os::unix::fs::DirBuilderExt, sync::atomic::AtomicUsize, thread};
++
++const WATCHDOG: Duration = Duration::from_secs(2);
++const OTHER_ROLES: [Role; 4] = [
++    Role::Runtime,
++    Role::Relay,
++    Role::ServeRuntime,
++    Role::ServeRelay,
++];
++
++fn step(round: u64, at_us: u64) -> Step {
++    Step {
++        round,
++        at_us,
++        stdout_target: 0,
++        runner_input_target: 0,
++        wait_for_sigterm: false,
++    }
++}
++
++fn recorder(poll_seq: u64, start: u64, due: u64, ended: bool) -> Progress {
++    Progress::Recorder {
++        poll_seq,
++        ready_written: true,
++        wait_started_us: start,
++        exit_due_us: due,
++        logical_end: ended,
++    }
++}
++
++fn other_progress(role: Role) -> Progress {
++    match role {
++        Role::Runtime => Progress::Runtime {
++            poll_seq: 1,
++            stdout_frames: 0,
++            room_inputs: 0,
++            logical_end: false,
++        },
++        Role::Relay => Progress::Relay {
++            poll_seq: 1,
++            stdout_frames: 0,
++            runner_inputs: 0,
++            output_frames: 0,
++            logical_end: false,
++        },
++        Role::ServeRuntime => Progress::ServeRuntime {
++            poll_seq: 1,
++            stdout_frames: 0,
++            room_consumed: 0,
++            room_injected: 0,
++            cycle: 1,
++            cycle_base_us: 100,
++            runtime_us: 0,
++            observed_signal: 0,
++            logical_end: false,
++        },
++        Role::ServeRelay => Progress::ServeRelay {
++            poll_seq: 1,
++            stdout_frames: 0,
++            runner_inputs: 0,
++            output_frames: 0,
++            stop_signal_sent_us: None,
++            logical_end: false,
++        },
++        Role::Recorder => unreachable!(),
++    }
++}
++
++fn hello(role: Role) -> Frame {
++    Frame::Hello {
++        version: VERSION,
++        role,
++    }
++}
++
++#[test]
++fn recorder_wire_has_no_status_or_extra_step_fields() {
++    assert_eq!(
++        serde_json::to_string(&Role::Recorder).unwrap(),
++        "\"recorder\""
++    );
++    assert_eq!(
++        serde_json::to_string(&hello(Role::Recorder)).unwrap(),
++        r#"{"type":"hello","version":1,"role":"recorder"}"#
++    );
++    let progress = recorder(1, 100, 200, false);
++    let encoded = r#"{"role":"recorder","poll_seq":1,"ready_written":true,"wait_started_us":100,"exit_due_us":200,"logical_end":false}"#;
++    assert_eq!(serde_json::to_string(&progress).unwrap(), encoded);
++    assert_eq!(serde_json::from_str::<Progress>(encoded).unwrap(), progress);
++    assert_eq!(
++        serde_json::to_string(&Frame::Step {
++            role: Role::Recorder,
++            step: step(1, 100),
++        })
++        .unwrap(),
++        r#"{"type":"step","role":"recorder","step":{"round":1,"at_us":100,"stdout_target":0,"runner_input_target":0}}"#
++    );
++    let mut extended = serde_json::to_value(progress).unwrap();
++    extended["exit_code"] = 0.into();
++    assert!(serde_json::from_value::<Progress>(extended).is_err());
++}
++
++#[test]
++fn recorder_role_is_isolated_in_hello_and_nested_progress() {
++    for other in OTHER_ROLES {
++        for (expected, actual) in [(Role::Recorder, other), (other, Role::Recorder)] {
++            let (parent, raw) = UnixStream::pair().unwrap();
++            Channel::new(raw, WATCHDOG)
++                .unwrap()
++                .write_frame(&hello(actual), deadline(WATCHDOG).unwrap())
++                .unwrap();
++            let result =
++                ParentPeer::from_stream(parent, expected, WATCHDOG, deadline(WATCHDOG).unwrap());
++            assert_eq!(result.unwrap_err().kind(), io::ErrorKind::InvalidData);
++        }
++        assert!(
++            validate_progress(other, None, step(1, 100), recorder(1, 100, 200, false)).is_err()
++        );
++        assert!(
++            validate_progress(Role::Recorder, None, step(1, 100), other_progress(other)).is_err()
++        );
++    }
++    let (parent, raw) = UnixStream::pair().unwrap();
++    Channel::new(raw, WATCHDOG)
++        .unwrap()
++        .write_frame(&hello(Role::Recorder), deadline(WATCHDOG).unwrap())
++        .unwrap();
++    assert!(
++        ParentPeer::from_stream(
++            parent,
++            Role::Recorder,
++            WATCHDOG,
++            deadline(WATCHDOG).unwrap()
++        )
++        .is_ok()
++    );
++}
++
++#[test]
++fn recorder_and_other_participants_reject_each_others_outer_steps() {
++    for other in OTHER_ROLES {
++        for (expected, actual) in [(Role::Recorder, other), (other, Role::Recorder)] {
++            let (raw, participant) = UnixStream::pair().unwrap();
++            let mut raw = Channel::new(raw, WATCHDOG).unwrap();
++            raw.write_frame(
++                &Frame::Step {
++                    role: actual,
++                    step: step(1, 100),
++                },
++                deadline(WATCHDOG).unwrap(),
++            )
++            .unwrap();
++            let error = Participant::from_stream(participant, expected, WATCHDOG).unwrap_err();
++            assert_eq!(error.kind(), io::ErrorKind::InvalidData);
++            assert!(
++                error
++                    .to_string()
++                    .contains(&format!("expected {expected:?} Step"))
++            );
++        }
++    }
++}
++
++#[test]
++fn recorder_requires_zero_input_and_signal_targets_and_representable_nanoseconds() {
++    for invalid_step in [
++        Step {
++            stdout_target: 1,
++            ..step(1, 100)
++        },
++        Step {
++            runner_input_target: 1,
++            ..step(1, 100)
++        },
++        Step {
++            wait_for_sigterm: true,
++            ..step(1, 100)
++        },
++    ] {
++        assert!(validate_step(Role::Recorder, None, invalid_step).is_err());
++        assert!(
++            validate_progress(
++                Role::Recorder,
++                None,
++                invalid_step,
++                recorder(1, 100, 200, false)
++            )
++            .is_err()
++        );
++    }
++    let last_us = u64::MAX / 1000;
++    assert!(validate_step(Role::Recorder, None, step(1, last_us)).is_ok());
++    let error = validate_step(Role::Recorder, None, step(1, last_us + 1)).unwrap_err();
++    assert!(
++        error
++            .to_string()
++            .contains("microseconds-to-nanoseconds overflow")
++    );
++    for other in OTHER_ROLES {
++        assert!(validate_step(other, None, step(1, u64::MAX)).is_ok());
++    }
++}
++
++#[test]
++fn first_recorder_ack_requires_ready_and_the_held_post_write_start() {
++    assert!(
++        validate_progress(
++            Role::Recorder,
++            None,
++            step(1, 100),
++            recorder(1, 100, 200, false)
++        )
++        .is_ok()
++    );
++    let mut not_ready = recorder(1, 100, 200, false);
++    if let Progress::Recorder { ready_written, .. } = &mut not_ready {
++        *ready_written = false;
++    }
++    for progress in [
++        not_ready,
++        recorder(1, 99, 200, false),
++        recorder(1, 101, 200, false),
++        recorder(1, 100, 99, true),
++    ] {
++        assert!(validate_progress(Role::Recorder, None, step(1, 100), progress).is_err());
++    }
++}
++
++#[test]
++fn recorder_ready_start_and_due_never_change_after_the_first_write() {
++    let previous = Some(recorder(1, 100, 200, false));
++    let next = recorder(2, 100, 200, false);
++    assert!(validate_progress(Role::Recorder, previous, step(2, 150), next).is_ok());
++    let mut not_ready = next;
++    if let Progress::Recorder { ready_written, .. } = &mut not_ready {
++        *ready_written = false;
++    }
++    for progress in [
++        not_ready,
++        recorder(2, 99, 200, false),
++        recorder(2, 101, 200, false),
++        recorder(2, 100, 199, false),
++        recorder(2, 100, 201, false),
++    ] {
++        assert!(validate_progress(Role::Recorder, previous, step(2, 150), progress).is_err());
++    }
++}
++
++#[test]
++fn recorder_terminal_is_required_exactly_at_or_after_its_due_time() {
++    let previous = Some(recorder(1, 100, 200, false));
++    for at_us in [100, 199, 200, 201] {
++        for ended in [false, true] {
++            assert_eq!(
++                validate_progress(
++                    Role::Recorder,
++                    previous,
++                    step(2, at_us),
++                    recorder(2, 100, 200, ended),
++                )
++                .is_ok(),
++                ended == (at_us >= 200),
++                "at {at_us}, ended {ended}"
++            );
++        }
++    }
++    assert!(
++        validate_progress(
++            Role::Recorder,
++            None,
++            step(1, 100),
++            recorder(1, 100, 100, true)
++        )
++        .is_ok()
++    );
++    assert!(
++        validate_progress(
++            Role::Recorder,
++            None,
++            step(1, 100),
++            recorder(1, 100, 100, false)
++        )
++        .is_err()
++    );
++    assert!(
++        validate_progress(
++            Role::Recorder,
++            Some(recorder(2, 100, 200, true)),
++            step(3, 200),
++            recorder(3, 100, 200, true),
++        )
++        .is_err()
++    );
++}
++
++#[test]
++fn recorder_rounds_polls_and_time_cannot_skip_repeat_regress_or_wrap() {
++    for round in [0, 1, 3] {
++        assert!(validate_step(Role::Recorder, Some(step(1, 100)), step(round, 100)).is_err());
++    }
++    assert!(validate_step(Role::Recorder, Some(step(1, 100)), step(2, 99)).is_err());
++    assert!(validate_step(Role::Recorder, Some(step(u64::MAX, 100)), step(0, 100)).is_err());
++    for poll_seq in [0, 1, 3] {
++        assert!(
++            validate_progress(
++                Role::Recorder,
++                Some(recorder(1, 100, 200, false)),
++                step(2, 100),
++                recorder(poll_seq, 100, 200, false),
++            )
++            .is_err()
++        );
++    }
++    assert!(
++        validate_progress(
++            Role::Recorder,
++            Some(recorder(u64::MAX, 100, 200, false)),
++            step(2, 100),
++            recorder(0, 100, 200, false),
++        )
++        .is_err()
++    );
++}
++
++#[test]
++fn same_time_recorder_rounds_do_not_advance_pure_clock_reads() {
++    let (parent, child) = UnixStream::pair().unwrap();
++    let worker = thread::spawn(move || {
++        let mut participant = Participant::from_stream(child, Role::Recorder, WATCHDOG).unwrap();
++        let clock = participant.clock();
++        for _ in 0..32 {
++            assert_eq!(clock.now().as_micros(), 100);
++        }
++        assert_eq!(
++            participant.complete(recorder(1, 100, 200, false)).unwrap(),
++            step(2, 100)
++        );
++        for _ in 0..32 {
++            assert_eq!(clock.now().as_micros(), 100);
++        }
++        assert_eq!(
++            participant.complete(recorder(2, 100, 200, false)).unwrap(),
++            step(3, 200)
++        );
++        assert_eq!(clock.now().as_micros(), 200);
++        participant.final_ack(recorder(3, 100, 200, true)).unwrap();
++        assert!(participant.final_ack(recorder(4, 100, 200, true)).is_err());
++    });
++    let mut parent = ParentPeer::from_stream(
++        parent,
++        Role::Recorder,
++        WATCHDOG,
++        deadline(WATCHDOG).unwrap(),
++    )
++    .unwrap();
++    assert_eq!(
++        parent.step(step(1, 100)).unwrap(),
++        recorder(1, 100, 200, false)
++    );
++    assert_eq!(
++        parent.step(step(2, 100)).unwrap(),
++        recorder(2, 100, 200, false)
++    );
++    assert_eq!(
++        parent.step(step(3, 200)).unwrap(),
++        recorder(3, 100, 200, true)
++    );
++    assert!(parent.step(step(4, 200)).is_err());
++    worker.join().unwrap();
++}
++
++#[test]
++fn overflowing_recorder_steps_never_update_the_participant_clock() {
++    let (raw, child) = UnixStream::pair().unwrap();
++    let mut raw = Channel::new(raw, WATCHDOG).unwrap();
++    for next in [step(1, 100), step(2, u64::MAX / 1000 + 1)] {
++        raw.write_frame(
++            &Frame::Step {
++                role: Role::Recorder,
++                step: next,
++            },
++            deadline(WATCHDOG).unwrap(),
++        )
++        .unwrap();
++    }
++    let mut participant = Participant::from_stream(child, Role::Recorder, WATCHDOG).unwrap();
++    let clock = participant.clock();
++    let error = participant
++        .complete(recorder(1, 100, 200, false))
++        .unwrap_err();
++    assert!(
++        error
++            .to_string()
++            .contains("microseconds-to-nanoseconds overflow")
++    );
++    assert_eq!(clock.now().as_micros(), 100);
++    assert!(participant.closed);
++}
++
++#[test]
++fn a_missing_recorder_ack_expires_and_closes_instead_of_claiming_exit() {
++    let watchdog = Duration::from_millis(20);
++    let (parent, raw) = UnixStream::pair().unwrap();
++    let mut raw = Channel::new(raw, WATCHDOG).unwrap();
++    raw.write_frame(&hello(Role::Recorder), deadline(WATCHDOG).unwrap())
++        .unwrap();
++    let mut parent = ParentPeer::from_stream(
++        parent,
++        Role::Recorder,
++        watchdog,
++        deadline(WATCHDOG).unwrap(),
++    )
++    .unwrap();
++    let error = parent.step(step(1, 100)).unwrap_err();
++    assert_eq!(error.kind(), io::ErrorKind::TimedOut);
++    assert!(parent.failed);
++    assert!(parent.last_progress.is_none());
++    assert!(parent.step(step(1, 100)).is_err());
++}
++
++#[test]
++fn listener_accepts_recorder_once_without_consuming_another_roles_slot() {
++    static NEXT: AtomicUsize = AtomicUsize::new(0);
++    let root = PathBuf::from(format!(
++        "/tmp/lve-recorder-wire-{}-{}",
++        std::process::id(),
++        NEXT.fetch_add(1, Ordering::Relaxed)
++    ));
++    fs::DirBuilder::new().mode(0o700).create(&root).unwrap();
++    let path = root.join("control.sock");
++    let listener = ParentListener::bind_with_watchdog(&path, WATCHDOG).unwrap();
++    for role in [Role::Recorder, Role::Runtime] {
++        let path = path.clone();
++        let worker = thread::spawn(move || {
++            let mut participant =
++                Participant::connect_with_watchdog(&path, role, WATCHDOG).unwrap();
++            let progress = if role == Role::Recorder {
++                recorder(1, 100, 100, true)
++            } else {
++                Progress::Runtime {
++                    poll_seq: 1,
++                    stdout_frames: 0,
++                    room_inputs: 0,
++                    logical_end: true,
++                }
++            };
++            participant.final_ack(progress).unwrap();
++        });
++        let mut peer = listener.accept(role).unwrap();
++        assert!(peer.step(step(1, 100)).unwrap().logical_end());
++        worker.join().unwrap();
++        assert!(
++            listener
++                .accept(role)
++                .unwrap_err()
++                .to_string()
++                .contains("duplicate")
++        );
++    }
++    drop(listener);
++    fs::remove_dir(root).unwrap();
++}
+--- a/lampOS/crates/voice-eval/src/physical/recorder_fixture_driver_tests.rs
++++ b/lampOS/crates/voice-eval/src/physical/recorder_fixture_driver_tests.rs
+@@ -0,0 +1,511 @@
++//! Scheduler checks exchange real control frames with mock participants. Their
++//! receipts are not recording, runtime, signal or process-exit evidence. The
++//! backend's separate tests retain the actual owned-Child exit barrier.
++use super::*;
++use crate::{
++    physical::{fixture_control::Participant, session::RuntimeFlags},
++    record::StimulusSource,
++};
++use std::{
++    io::{self, Read},
++    os::unix::{fs::DirBuilderExt, net::UnixStream},
++    sync::{Arc, Mutex, mpsc},
++    thread::JoinHandle,
++    time::Duration,
++};
++
++const WATCHDOG: Duration = Duration::from_secs(30);
++type Observations = Arc<Mutex<Vec<(Role, Step)>>>;
++
++struct Private(PathBuf);
++
++impl Private {
++    fn new() -> Self {
++        static NEXT: AtomicU64 = AtomicU64::new(0);
++        let path = PathBuf::from(format!(
++            "/tmp/lve-recorder-driver-{}-{}",
++            std::process::id(),
++            NEXT.fetch_add(1, Ordering::Relaxed)
++        ));
++        fs::DirBuilder::new().mode(0o700).create(&path).unwrap();
++        Self(path)
++    }
++}
++
++impl Drop for Private {
++    fn drop(&mut self) {
++        let _ = fs::remove_dir_all(&self.0);
++    }
++}
++
++fn config() -> PhysicalConfig {
++    PhysicalConfig {
++        lamp_command: [
++            "/unused/lamp-voice-eval",
++            "lamp-session",
++            "--runtime",
++            "/unused/lamp-voice-eval",
++            "--runtime-prefix-arg",
++            "fake-lamp-voice",
++            "--runtime-prefix-arg",
++            "--fake-room",
++            "--runtime-prefix-arg",
++            "/private/room with spaces.sock",
++        ]
++        .map(str::to_owned)
++        .into(),
++        lamp_work_root: "/unused/work".into(),
++        mode: LampMode::Serve {
++            provider_config: "/unused/provider.json".into(),
++        },
++        noise_suppression: "on".into(),
++        diagnostics: false,
++        room_recorder: Some(
++            [
++                "/unused/lamp-voice-eval",
++                "fake-room-recorder",
++                "--out",
++                "{out}",
++                "--seconds",
++                "{seconds}",
++                "--fail-after-ms",
++                "6000",
++                "--exit-code",
++                "7",
++                "--declare-end-after-ms",
++                "5000",
++            ]
++            .map(str::to_owned)
++            .into(),
++        ),
++        room_independent: false,
++        allowance_seconds: 10,
++        ring_channel_ceiling: None,
++        runtime_flags: RuntimeFlags::default(),
++        stimulus_source: StimulusSource::LoudspeakerSynthetic,
++    }
++}
++
++fn configured(directory: &Private) -> ClockedServeFixture {
++    let mut fixture = ClockedServeFixture::new(&directory.0).unwrap();
++    fixture.configure(&mut config()).unwrap();
++    assert!(fixture.supports_serve());
++    assert!(fixture.supports_recorder());
++    fixture
++}
++
++fn steps(observations: &Observations, role: Role) -> Vec<Step> {
++    observations
++        .lock()
++        .unwrap()
++        .iter()
++        .filter_map(|(observed_role, step)| (*observed_role == role).then_some(*step))
++        .collect()
++}
++
++fn times(observations: &Observations, role: Role) -> Vec<u64> {
++    steps(observations, role)
++        .into_iter()
++        .map(|step| step.at_us)
++        .collect()
++}
++
++fn observe(participant: &Participant, role: Role, observations: &Observations) -> Step {
++    let step = participant.current_step();
++    assert_eq!(participant.clock().now().as_micros(), step.at_us);
++    assert_eq!(participant.clock().now().as_micros(), step.at_us);
++    assert!(!step.wait_for_sigterm);
++    observations.lock().unwrap().push((role, step));
++    step
++}
++
++fn next_or_closed(participant: &mut Participant, progress: Progress) -> bool {
++    match participant.complete(progress) {
++        Ok(_) => true,
++        // The parent closes only after consuming this Ack. A continuing mock
++        // is parked in its next-Step read when this explicit cleanup occurs.
++        Err(error) if error.kind() == io::ErrorKind::UnexpectedEof => false,
++        Err(error) => panic!("unexpected mock participant failure: {error}"),
++    }
++}
++
++fn spawn_recorder(
++    fixture: &ClockedServeFixture,
++    exit_due_us: u64,
++    observations: &Observations,
++) -> JoinHandle<()> {
++    let path = fixture.control_path.clone();
++    let observations = Arc::clone(observations);
++    thread::spawn(move || {
++        let mut participant =
++            Participant::connect_with_watchdog(&path, Role::Recorder, WATCHDOG).unwrap();
++        let wait_started_us = participant.current_step().at_us;
++        loop {
++            let step = observe(&participant, Role::Recorder, &observations);
++            assert_eq!(step.stdout_target, 0);
++            assert_eq!(step.runner_input_target, 0);
++            let progress = Progress::Recorder {
++                poll_seq: step.round,
++                ready_written: true,
++                wait_started_us,
++                exit_due_us,
++                logical_end: step.at_us >= exit_due_us,
++            };
++            if progress.logical_end() {
++                participant.final_ack(progress).unwrap();
++                return;
++            }
++            if !next_or_closed(&mut participant, progress) {
++                return;
++            }
++        }
++    })
++}
++
++fn spawn_serve(
++    fixture: &ClockedServeFixture,
++    relay_terminal_round: Option<u64>,
++    observations: &Observations,
++) -> [JoinHandle<()>; 2] {
++    let relay_path = fixture.control_path.clone();
++    let runtime_path = fixture.control_path.clone();
++    let relay_observations = Arc::clone(observations);
++    let runtime_observations = Arc::clone(observations);
++    let (relay_started, start_runtime) = mpsc::channel();
++    let relay = thread::spawn(move || {
++        let mut participant =
++            Participant::connect_with_watchdog(&relay_path, Role::ServeRelay, WATCHDOG).unwrap();
++        // The runtime connects only after the parent has actually accepted
++        // the relay. Host scheduling cannot reorder the registration roles.
++        relay_started.send(()).unwrap();
++        loop {
++            let step = observe(&participant, Role::ServeRelay, &relay_observations);
++            let progress = Progress::ServeRelay {
++                poll_seq: step.round,
++                stdout_frames: step.stdout_target,
++                runner_inputs: step.runner_input_target,
++                output_frames: 0,
++                stop_signal_sent_us: None,
++                logical_end: relay_terminal_round == Some(step.round),
++            };
++            if progress.logical_end() {
++                participant.final_ack(progress).unwrap();
++                return;
++            }
++            if !next_or_closed(&mut participant, progress) {
++                return;
++            }
++        }
++    });
++    let runtime = thread::spawn(move || {
++        start_runtime.recv_timeout(WATCHDOG).unwrap();
++        let mut participant =
++            Participant::connect_with_watchdog(&runtime_path, Role::ServeRuntime, WATCHDOG)
++                .unwrap();
++        loop {
++            let step = observe(&participant, Role::ServeRuntime, &runtime_observations);
++            let progress = Progress::ServeRuntime {
++                poll_seq: step.round,
++                stdout_frames: 0,
++                room_consumed: 0,
++                room_injected: 0,
++                cycle: 1,
++                cycle_base_us: BOOTSTRAP_US,
++                runtime_us: step.at_us - BOOTSTRAP_US,
++                observed_signal: 0,
++                logical_end: false,
++            };
++            if !next_or_closed(&mut participant, progress) {
++                return;
++            }
++        }
++    });
++    [relay, runtime]
++}
++
++fn advance(fixture: &mut ClockedServeFixture, until: u64) {
++    fixture
++        .wait(MonoTime::from_micros(until), 0, &AtomicU64::new(0), true)
++        .unwrap();
++}
++
++fn close_and_join(
++    fixture: &mut ClockedServeFixture,
++    workers: impl IntoIterator<Item = JoinHandle<()>>,
++) {
++    fixture.close();
++    for worker in workers {
++        worker.join().unwrap();
++    }
++}
++
++#[test]
++fn recorder_starts_at_the_held_epoch_and_clock_reads_do_not_poll_it() {
++    let directory = Private::new();
++    let mut fixture = configured(&directory);
++    let observations = Observations::default();
++    let worker = spawn_recorder(&fixture, EPOCH_US + 6_000, &observations);
++    fixture.start_recorder(Instant::now() + WATCHDOG).unwrap();
++    assert_eq!(fixture.clock().now().as_micros(), EPOCH_US);
++    assert_eq!(fixture.clock().now().as_micros(), EPOCH_US);
++    advance(&mut fixture, EPOCH_US);
++    assert_eq!(times(&observations, Role::Recorder), [EPOCH_US]);
++    let recorder = fixture.recorder.as_ref().unwrap();
++    assert_eq!(recorder.round, 1);
++    assert_eq!(recorder.wait_started_us, Some(EPOCH_US));
++    assert_eq!(recorder.exit_due_us, Some(EPOCH_US + 6_000));
++    assert!(!fixture.recorder_exit_pending());
++    assert!(!fixture.started);
++    close_and_join(&mut fixture, [worker]);
++}
++
++#[test]
++fn recorder_due_before_or_on_a_poll_preserves_the_pending_runtime_deadline() {
++    for exit_due_us in [BOOTSTRAP_US + POLL_US - 1, BOOTSTRAP_US + POLL_US] {
++        let directory = Private::new();
++        let mut fixture = configured(&directory);
++        let observations = Observations::default();
++        let recorder = spawn_recorder(&fixture, exit_due_us, &observations);
++        fixture.start_recorder(Instant::now() + WATCHDOG).unwrap();
++        let serve = spawn_serve(&fixture, None, &observations);
++        let later = BOOTSTRAP_US + 2 * POLL_US;
++        advance(&mut fixture, later);
++        assert_eq!(times(&observations, Role::ServeRuntime), [BOOTSTRAP_US]);
++        advance(&mut fixture, later);
++        assert_eq!(fixture.clock().now().as_micros(), exit_due_us);
++        assert!(fixture.recorder_exit_pending());
++        assert!(fixture.require_recorder_exit_observed().is_err());
++        assert_eq!(fixture.next_poll_us, BOOTSTRAP_US + POLL_US);
++        assert_eq!(times(&observations, Role::ServeRuntime), [BOOTSTRAP_US]);
++        assert_eq!(
++            times(&observations, Role::ServeRelay),
++            [BOOTSTRAP_US, BOOTSTRAP_US]
++        );
++        // This notification models only the backend's explicit API call.
++        // No mock thread completion is interpreted as a real Child exit.
++        fixture.recorder_exit_observed().unwrap();
++        assert_eq!(fixture.clock().now().as_micros(), exit_due_us);
++        advance(&mut fixture, later);
++        assert_eq!(
++            times(&observations, Role::ServeRuntime),
++            [BOOTSTRAP_US, BOOTSTRAP_US + POLL_US]
++        );
++        assert_eq!(
++            times(&observations, Role::ServeRelay),
++            [BOOTSTRAP_US, BOOTSTRAP_US, BOOTSTRAP_US + POLL_US]
++        );
++        assert_eq!(
++            times(&observations, Role::Recorder),
++            [EPOCH_US, BOOTSTRAP_US, exit_due_us]
++        );
++        assert_eq!(fixture.next_poll_us, later);
++        assert!(!fixture.recorder_exit_pending());
++        assert!(fixture.recorder_exit_observed().is_err());
++        close_and_join(&mut fixture, [recorder].into_iter().chain(serve));
++    }
++}
++
++#[test]
++fn recorder_due_before_or_on_bootstrap_holds_registration_until_exit_notification() {
++    for exit_due_us in [BOOTSTRAP_US - 1, BOOTSTRAP_US] {
++        let directory = Private::new();
++        let mut fixture = configured(&directory);
++        let observations = Observations::default();
++        let recorder = spawn_recorder(&fixture, exit_due_us, &observations);
++        fixture.start_recorder(Instant::now() + WATCHDOG).unwrap();
++        let later = BOOTSTRAP_US + POLL_US;
++        advance(&mut fixture, later);
++        assert_eq!(fixture.clock().now().as_micros(), exit_due_us);
++        assert!(fixture.recorder_exit_pending());
++        assert!(!fixture.started);
++        assert!(fixture.relay.is_none());
++        assert!(fixture.runtime.is_none());
++        fixture.recorder_exit_observed().unwrap();
++        let serve = spawn_serve(&fixture, None, &observations);
++        advance(&mut fixture, later);
++        assert!(fixture.started);
++        assert_eq!(fixture.clock().now().as_micros(), BOOTSTRAP_US);
++        assert_eq!(
++            times(&observations, Role::Recorder),
++            [EPOCH_US, exit_due_us]
++        );
++        assert_eq!(times(&observations, Role::ServeRuntime), [BOOTSTRAP_US]);
++        close_and_join(&mut fixture, [recorder].into_iter().chain(serve));
++    }
++}
++
++#[test]
++fn terminal_recorder_ack_cannot_authorize_a_clock_advance() {
++    let directory = Private::new();
++    let mut fixture = configured(&directory);
++    let observations = Observations::default();
++    let recorder = spawn_recorder(&fixture, EPOCH_US, &observations);
++    fixture.start_recorder(Instant::now() + WATCHDOG).unwrap();
++    assert!(fixture.recorder_exit_pending());
++    let error = fixture
++        .wait(
++            MonoTime::from_micros(BOOTSTRAP_US),
++            0,
++            &AtomicU64::new(0),
++            true,
++        )
++        .unwrap_err();
++    assert!(error.to_string().contains("actual child exit"));
++    assert_eq!(fixture.clock().now().as_micros(), EPOCH_US);
++    assert_eq!(times(&observations, Role::Recorder), [EPOCH_US]);
++    assert!(fixture.failed);
++    assert!(fixture.listener.is_none());
++    assert!(fixture.recorder.is_none());
++    recorder.join().unwrap();
++}
++
++#[test]
++fn recorder_drains_after_relay_completion_without_stepping_the_runtime_again() {
++    let directory = Private::new();
++    let mut fixture = configured(&directory);
++    let observations = Observations::default();
++    let exit_due_us = BOOTSTRAP_US + 3 * POLL_US + 1;
++    let recorder = spawn_recorder(&fixture, exit_due_us, &observations);
++    fixture.start_recorder(Instant::now() + WATCHDOG).unwrap();
++    let serve = spawn_serve(&fixture, Some(3), &observations);
++    advance(&mut fixture, exit_due_us + POLL_US);
++    advance(&mut fixture, exit_due_us + POLL_US);
++    assert!(fixture.relay_done);
++    assert!(fixture.runtime.is_none());
++    assert_eq!(fixture.clock().now().as_micros(), BOOTSTRAP_US + POLL_US);
++    let runtime_before = steps(&observations, Role::ServeRuntime);
++    let relay_before = steps(&observations, Role::ServeRelay);
++    fixture.finish_recorder(Instant::now() + WATCHDOG).unwrap();
++    assert_eq!(fixture.clock().now().as_micros(), exit_due_us);
++    assert!(fixture.recorder_exit_pending());
++    assert_eq!(steps(&observations, Role::ServeRuntime), runtime_before);
++    assert_eq!(steps(&observations, Role::ServeRelay), relay_before);
++    assert_eq!(
++        times(&observations, Role::Recorder),
++        [
++            EPOCH_US,
++            BOOTSTRAP_US,
++            BOOTSTRAP_US + POLL_US,
++            BOOTSTRAP_US + 2 * POLL_US,
++            BOOTSTRAP_US + 3 * POLL_US,
++            exit_due_us,
++        ]
++    );
++    fixture.recorder_exit_observed().unwrap();
++    fixture.finish_players(Instant::now() + WATCHDOG).unwrap();
++    assert_eq!(fixture.clock().now().as_micros(), exit_due_us);
++    close_and_join(&mut fixture, [recorder].into_iter().chain(serve));
++}
++
++#[test]
++fn players_cannot_finish_before_the_recorder_exits_even_without_pending_players() {
++    for duration_us in [0, 6_000] {
++        let directory = Private::new();
++        let mut fixture = configured(&directory);
++        let observations = Observations::default();
++        let recorder = spawn_recorder(&fixture, EPOCH_US + duration_us, &observations);
++        fixture.start_recorder(Instant::now() + WATCHDOG).unwrap();
++        assert!(fixture.players.all_reports_ready());
++        let error = fixture
++            .finish_players(Instant::now() + WATCHDOG)
++            .unwrap_err();
++        assert!(error.to_string().contains("recorder"));
++        assert_eq!(fixture.clock().now().as_micros(), EPOCH_US);
++        assert!(fixture.failed);
++        assert!(fixture.recorder.is_none());
++        assert!(fixture.listener.is_none());
++        recorder.join().unwrap();
++    }
++}
++
++#[test]
++fn recorder_configuration_preserves_every_argument_and_placeholder() {
++    let directory = Private::new();
++    let mut fixture = ClockedServeFixture::new(&directory.0).unwrap();
++    let mut config = config();
++    let original = config.room_recorder.clone().unwrap();
++    fixture.configure(&mut config).unwrap();
++    let changed = config.room_recorder.as_ref().unwrap();
++    assert_eq!(
++        &changed[..4],
++        [
++            original[0].as_str(),
++            "fake-clock-room-recorder",
++            "--fixture-control",
++            fixture.control_path.to_str().unwrap(),
++        ]
++    );
++    assert_eq!(&changed[4..], &original[2..]);
++    assert!(changed.iter().any(|value| value == "{out}"));
++    assert!(changed.iter().any(|value| value == "{seconds}"));
++    assert!(fixture.supports_recorder());
++    assert!(fixture.configure(&mut config).is_err());
++}
++
++#[test]
++fn wrapper_other_runtime_and_invalid_recorder_options_fail_without_mutating_config() {
++    let directory = Private::new();
++    let mut fixture = ClockedServeFixture::new(&directory.0).unwrap();
++    let original = config().room_recorder.unwrap();
++    let mut invalid = vec![Vec::new(), vec![original[0].clone()]];
++    for (index, value) in [
++        (0, "/bin/sh"),
++        (0, "/other/lamp-voice-eval"),
++        (1, "fake-slow-transport"),
++        (1, "fake-lamp-voice"),
++        (2, "--unrecognized"),
++    ] {
++        let mut command = original.clone();
++        command[index] = value.into();
++        invalid.push(command);
++    }
++    let mut incomplete = original;
++    incomplete.pop();
++    invalid.push(incomplete);
++    for recorder in invalid {
++        let mut config = config();
++        config.room_recorder = Some(recorder.clone());
++        let lamp_command = config.lamp_command.clone();
++        assert!(fixture.configure(&mut config).is_err(), "{recorder:?}");
++        assert_eq!(config.lamp_command, lamp_command);
++        assert_eq!(config.room_recorder, Some(recorder));
++        assert!(!fixture.configured);
++        assert!(!fixture.supports_recorder());
++    }
++    let mut wrong_runtime = config();
++    wrong_runtime.lamp_command[3] = "/other/lamp-voice-eval".into();
++    let lamp_command = wrong_runtime.lamp_command.clone();
++    let recorder = wrong_runtime.room_recorder.clone();
++    assert!(fixture.configure(&mut wrong_runtime).is_err());
++    assert_eq!(wrong_runtime.lamp_command, lamp_command);
++    assert_eq!(wrong_runtime.room_recorder, recorder);
++    assert!(!fixture.configured);
++}
++
++#[test]
++fn expired_recorder_startup_watchdog_closes_the_listener_without_advancing_time() {
++    let directory = Private::new();
++    let mut fixture = configured(&directory);
++    // Queue a real connection before expiring the accept budget. No assertion
++    // requires Hello or Step delivery after that deadline has already passed.
++    let mut peer = UnixStream::connect(&fixture.control_path).unwrap();
++    peer.set_nonblocking(true).unwrap();
++    let expired = Instant::now().checked_sub(Duration::from_secs(1)).unwrap();
++    let error = fixture.start_recorder(expired).unwrap_err();
++    assert_eq!(
++        error.downcast_ref::<io::Error>().unwrap().kind(),
++        io::ErrorKind::TimedOut
++    );
++    assert_eq!(fixture.clock().now().as_micros(), EPOCH_US);
++    assert!(fixture.failed);
++    assert!(fixture.listener.is_none());
++    assert!(fixture.recorder.is_none());
++    assert!(!fixture.control_path.exists());
++    match peer.read(&mut [0; 1]) {
++        Ok(0) => {}
++        Err(error) if error.kind() == io::ErrorKind::ConnectionReset => {}
++        result => panic!("expired startup kept its queued connection open: {result:?}"),
++    }
++    assert!(fixture.start_recorder(Instant::now() + WATCHDOG).is_err());
++    assert_eq!(fixture.clock().now().as_micros(), EPOCH_US);
++}
+--- a/lampOS/crates/voice-eval/src/physical/serve_fixture_driver.rs
++++ b/lampOS/crates/voice-eval/src/physical/serve_fixture_driver.rs
+@@ -1,6 +1,6 @@
+ //! Explicit parent scheduler for one local serve fixture. Time advances only
+ //! between completed polls; real players, channels, signals and processes stay
+-//! in the path. Recorder and delayed-transport fixtures need separate support.
++//! in the path. Delayed transports still require separate coordination.
+ use super::{
+     fixture_control::{DEFAULT_WATCHDOG, ParentListener, ParentPeer, Progress, Role, Step},
+     fixture_driver::{
+@@ -27,9 +27,20 @@
+ const EPOCH_US: u64 = 1_000_000;
+ const BOOTSTRAP_US: u64 = EPOCH_US + POLL_US;
+ 
++struct RecorderControl {
++    peer: ParentPeer,
++    round: u64,
++    wait_started_us: Option<u64>,
++    exit_due_us: Option<u64>,
++    logical_end: bool,
++    exit_observed: bool,
++}
++
+ pub struct ClockedServeFixture {
+     relay: Option<ParentPeer>,
+     runtime: Option<ParentPeer>,
++    recorder: Option<RecorderControl>,
++    recorder_configured: bool,
+     listener: Option<ParentListener>,
+     control_path: PathBuf,
+     clock: RunnerFixtureClock,
+@@ -71,6 +82,8 @@
+         Ok(Self {
+             relay: None,
+             runtime: None,
++            recorder: None,
++            recorder_configured: false,
+             listener: Some(listener),
+             control_path,
+             clock,
+@@ -107,17 +120,27 @@
+     }
+ 
+     /// Preserve every fake argument and actual local child. This scheduler
+-    /// cannot opt a real runtime, a shell wrapper or a recorder into its clock.
++    /// cannot opt a real runtime, a shell wrapper or a real recorder into its clock.
+     pub fn configure(&mut self, config: &mut PhysicalConfig) -> Result<()> {
+         if self.configured || self.started {
+             return Err(invalid(
+                 "serve fixture can configure only one fresh attempt",
+             ));
+         }
+-        if !matches!(config.mode, LampMode::Serve { .. }) || config.room_recorder.is_some() {
+-            return Err(invalid("serve fixture requires serve without a recorder"));
+-        }
+-        config.lamp_command = controlled_command(&config.lamp_command, &self.control_path)?;
++        if !matches!(config.mode, LampMode::Serve { .. }) {
++            return Err(invalid("serve fixture requires serve mode"));
++        }
++        let lamp_command = controlled_command(&config.lamp_command, &self.control_path)?;
++        let room_recorder = config
++            .room_recorder
++            .as_deref()
++            .map(|command| {
++                controlled_recorder(command, &config.lamp_command[0], &self.control_path)
++            })
++            .transpose()?;
++        self.recorder_configured = room_recorder.is_some();
++        config.lamp_command = lamp_command;
++        config.room_recorder = room_recorder;
+         self.configured = true;
+         Ok(())
+     }
+@@ -126,7 +149,119 @@
+         self.players.close();
+         drop(self.runtime.take());
+         drop(self.relay.take());
++        drop(self.recorder.take());
+         drop(self.listener.take());
++    }
++
++    fn recorder_pending(&self) -> bool {
++        self.recorder
++            .as_ref()
++            .is_some_and(|recorder| recorder.logical_end && !recorder.exit_observed)
++    }
++
++    fn require_recorder_exit_observed(&self) -> Result<()> {
++        if self.recorder_pending() {
++            return Err(invalid(
++                "recorder terminal acknowledgement still needs actual child exit",
++            ));
++        }
++        Ok(())
++    }
++
++    fn recorder_deadline(&self, proposed: u64) -> u64 {
++        self.recorder
++            .as_ref()
++            .filter(|recorder| !recorder.logical_end)
++            .and_then(|recorder| recorder.exit_due_us)
++            .map_or(proposed, |due| proposed.min(due))
++    }
++
++    fn recorder_step(&mut self, host_until: Instant) -> Result<()> {
++        let Some(recorder) = &mut self.recorder else {
++            return if self.recorder_configured {
++                Err(invalid("configured recorder has not registered"))
++            } else {
++                Ok(())
++            };
++        };
++        if recorder.logical_end {
++            return Ok(());
++        }
++        let round = next_round(recorder.round)?;
++        let progress = recorder.peer.step_until(
++            Step {
++                round,
++                at_us: self.clock.now().as_micros(),
++                stdout_target: 0,
++                runner_input_target: 0,
++                wait_for_sigterm: false,
++            },
++            host_until,
++        )?;
++        let Progress::Recorder {
++            ready_written,
++            wait_started_us,
++            exit_due_us,
++            logical_end,
++            ..
++        } = progress
++        else {
++            return Err(invalid("recorder returned another role's progress"));
++        };
++        if !ready_written
++            || recorder
++                .wait_started_us
++                .is_some_and(|previous| previous != wait_started_us)
++            || recorder
++                .exit_due_us
++                .is_some_and(|previous| previous != exit_due_us)
++        {
++            return Err(invalid(
++                "recorder changed its completed ready/wait boundary",
++            ));
++        }
++        recorder.round = round;
++        recorder.wait_started_us = Some(wait_started_us);
++        recorder.exit_due_us = Some(exit_due_us);
++        recorder.logical_end = logical_end;
++        Ok(())
++    }
++
++    fn advance_with_recorder(&mut self, at_us: u64, host_until: Instant) -> Result<()> {
++        self.require_recorder_exit_observed()?;
++        self.clock.advance(at_us)?;
++        self.recorder_step(host_until)?;
++        self.players.pump_before(host_until)
++    }
++
++    fn start_recorder_inner(&mut self, host_until: Instant) -> Result<()> {
++        if !self.configured
++            || !self.recorder_configured
++            || self.started
++            || self.failed
++            || self.recorder.is_some()
++            || self.clock.now().as_micros() != EPOCH_US
++        {
++            return Err(invalid(
++                "recorder startup requires its fresh configured epoch",
++            ));
++        }
++        let peer = self
++            .listener
++            .as_ref()
++            .ok_or_else(|| invalid("serve listener is closed"))?
++            .accept_until(Role::Recorder, host_until)?;
++        self.recorder = Some(RecorderControl {
++            peer,
++            round: 0,
++            wait_started_us: None,
++            exit_due_us: None,
++            logical_end: false,
++            exit_observed: false,
++        });
++        // The child really writes ready.json before acknowledging this Step.
++        // The backend still reads that file and owns every actual exit check.
++        self.recorder_step(host_until)
+     }
+ 
+     fn runtime_step(&mut self, until: Instant) -> Result<()> {
+@@ -255,8 +390,10 @@
+     }
+ 
+     fn bootstrap(&mut self, sent: u64, enqueued: &AtomicU64, until: Instant) -> Result<()> {
+-        self.clock.advance(BOOTSTRAP_US)?;
+-        self.players.pump_before(until)?;
++        self.advance_with_recorder(BOOTSTRAP_US, until)?;
++        if self.recorder_pending() {
++            return Ok(());
++        }
+         self.relay = Some(
+             self.listener
+                 .as_ref()
+@@ -295,6 +432,7 @@
+             return Err(invalid("serve fixture is unconfigured or failed"));
+         }
+         check_host_deadline(host_until, "serve progress")?;
++        self.require_recorder_exit_observed()?;
+         self.players.settle_before(host_until)?;
+         if sent < self.runner_inputs || self.players.successful_sends() < self.runtime_rooms {
+             return Err(invalid("serve producer counters regressed"));
+@@ -308,9 +446,9 @@
+             return Ok(());
+         }
+         if !self.started {
+-            if until < BOOTSTRAP_US {
+-                self.clock.advance(until)?;
+-                return self.players.pump_before(host_until);
++            let next = self.recorder_deadline(until.min(BOOTSTRAP_US));
++            if next < BOOTSTRAP_US {
++                return self.advance_with_recorder(next, host_until);
+             }
+             return self.bootstrap(sent, enqueued, host_until);
+         }
+@@ -320,16 +458,17 @@
+             let next = at
+                 .checked_add(POLL_US)
+                 .ok_or_else(|| invalid("serve player poll time overflow"))?;
+-            self.clock.advance(until.min(next))?;
+-            return self.players.pump_before(host_until);
++            return self.advance_with_recorder(self.recorder_deadline(until.min(next)), host_until);
+         }
+         if self.runtime_done {
+             return self.finish_runtime_exit(sent, enqueued);
+         }
+-        let next = until.min(self.next_poll_us);
+-        self.clock.advance(next)?;
+-        self.players.pump_before(host_until)?;
+-        if next < self.next_poll_us {
++        let next = self.recorder_deadline(until.min(self.next_poll_us));
++        self.advance_with_recorder(next, host_until)?;
++        // Let the backend observe its real recorder Child at this held instant.
++        // If a runtime poll is also due, its original deadline stays pending
++        // for the next same-instant exchange; no poll is added or skipped.
++        if self.recorder_pending() || next < self.next_poll_us {
+             return Ok(());
+         }
+         self.runtime_step(host_until)?;
+@@ -364,6 +503,68 @@
+         true
+     }
+ 
++    fn supports_recorder(&self) -> bool {
++        self.configured && self.recorder_configured
++    }
++
++    fn start_recorder(&mut self, host_deadline: Instant) -> Result<()> {
++        let result = self.start_recorder_inner(host_deadline);
++        if result.is_err() {
++            self.failed = true;
++            self.close();
++        }
++        result
++    }
++
++    fn recorder_exit_pending(&self) -> bool {
++        self.recorder_pending()
++    }
++
++    fn recorder_exit_observed(&mut self) -> Result<()> {
++        let Some(recorder) = &mut self.recorder else {
++            return Err(invalid("no registered recorder exit to observe"));
++        };
++        if !recorder.logical_end || recorder.exit_observed {
++            return Err(invalid(
++                "recorder exit observation has no pending terminal Ack",
++            ));
++        }
++        // Only the backend calls this after Child::try_wait returned a status.
++        // No status value or recording evidence is supplied by this protocol.
++        recorder.exit_observed = true;
++        Ok(())
++    }
++
++    fn finish_recorder(&mut self, host_deadline: Instant) -> Result<()> {
++        if !self.recorder_configured {
++            return Ok(());
++        }
++        let result = (|| {
++            if self.failed || !self.relay_done || self.recorder.is_none() {
++                return Err(invalid("recorder drain requires a completed serve relay"));
++            }
++            self.players.settle_before(host_deadline)?;
++            while !self.recorder.as_ref().unwrap().logical_end {
++                check_host_deadline(host_deadline, "serve recorder completion")?;
++                let next = self
++                    .clock
++                    .now()
++                    .as_micros()
++                    .checked_add(POLL_US)
++                    .ok_or_else(|| invalid("serve recorder completion time overflow"))?;
++                self.advance_with_recorder(self.recorder_deadline(next), host_deadline)?;
++            }
++            // Return to the backend without another clock advance. Its actual
++            // Child exit barrier precedes every remaining player finish wait.
++            Ok(())
++        })();
++        if result.is_err() {
++            self.failed = true;
++            self.close();
++        }
++        result
++    }
++
+     fn grant_sent(&mut self, attempt_id: &str) -> Result<()> {
+         let result = self.players.grant_sent(attempt_id);
+         if result.is_err() {
+@@ -379,6 +580,15 @@
+ 
+     fn finish_players(&mut self, host_deadline: Instant) -> Result<()> {
+         let result = (|| {
++            self.require_recorder_exit_observed()?;
++            if self.recorder_configured
++                && !self
++                    .recorder
++                    .as_ref()
++                    .is_some_and(|recorder| recorder.exit_observed)
++            {
++                return Err(invalid("players cannot finish ahead of the owned recorder"));
++            }
+             self.players.settle_before(host_deadline)?;
+             while !self.players.all_reports_ready() {
+                 check_host_deadline(host_deadline, "serve prepared-player completion")?;
+@@ -499,6 +709,48 @@
+     }
+     Ok(configured)
+ }
++
++fn controlled_recorder(
++    command: &[String],
++    evaluator: &str,
++    control_path: &Path,
++) -> Result<Vec<String>> {
++    if command.first().map(String::as_str) != Some(evaluator)
++        || command.get(1).map(String::as_str) != Some("fake-room-recorder")
++        || !command.len().is_multiple_of(2)
++        || command[2..].chunks_exact(2).any(|pair| {
++            !matches!(
++                pair[0].as_str(),
++                "--out"
++                    | "--seconds"
++                    | "--fail-after-ms"
++                    | "--exit-code"
++                    | "--declare-end-after-ms"
++            )
++        })
++    {
++        return Err(invalid(
++            "serve fixture requires the same evaluator's direct fake room recorder",
++        ));
++    }
++    let control = control_path
++        .to_str()
++        .ok_or_else(|| invalid("serve control path must be UTF-8"))?;
++    let mut configured = vec![
++        evaluator.into(),
++        "fake-clock-room-recorder".into(),
++        "--fixture-control".into(),
++        control.into(),
++    ];
++    // Keep the actual output/duration placeholders and every original argument.
++    // The shared recorder parser still decides their values and return code.
++    configured.extend_from_slice(&command[2..]);
++    Ok(configured)
++}
++
++#[cfg(test)]
++#[path = "recorder_fixture_driver_tests.rs"]
++mod recorder_tests;
+ 
+ #[cfg(test)]
+ mod tests {
+--- a/lampOS/crates/voice-eval/tests/serve_session.rs
++++ b/lampOS/crates/voice-eval/tests/serve_session.rs
+@@ -6,8 +6,8 @@
+ //! player's first "copy", a fake room datagram. Explicit clock; no audio.
+ //!
+ //! Attempts run one at a time with real child processes and prepared threads.
+-//! The coordinated path retains the unchanged 100 ms lateness bound. Recorder
+-//! and delayed-transport cases keep host time until their own progress is wired.
++//! The coordinated path retains the unchanged 100 ms lateness bound and recorder
++//! lifetimes. The delayed-transport case still keeps its original host clock.
+ mod common;
+ 
+ use lamp_voice_eval::{
+@@ -136,7 +136,7 @@
+         stimulus_source: lamp_voice_eval::record::StimulusSource::LoudspeakerSynthetic,
+         runtime_flags: control.runtime_flags,
+     };
+-    let mut backend = if config.room_recorder.is_none() && control.transport_delay_ms.is_none() {
++    let mut backend = if control.transport_delay_ms.is_none() {
+         let mut fixture = ClockedServeFixture::new(&dir.path).unwrap();
+         fixture.configure(&mut config).unwrap();
+         let clock = fixture.clock();

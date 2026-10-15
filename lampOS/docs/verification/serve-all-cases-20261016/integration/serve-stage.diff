@@ -1,0 +1,4790 @@
+--- a/lampOS/crates/voice-eval/src/main.rs
++++ b/lampOS/crates/voice-eval/src/main.rs
+@@ -190,6 +190,8 @@
+         "fake-lamp-voice" => return fake_lamp::run(&all),
+         "fake-clock-lamp-voice" => return fixture_commands::runtime(all),
+         "fake-clock-session" => return fixture_commands::relay(all),
++        "fake-clock-serve-session" => return fixture_commands::serve_relay(all),
++        "fake-clock-serve-runtime" => return fixture_commands::serve_runtime(all),
+         "fake-room-recorder" => return fake_lamp::room_recorder(&all),
+         "fake-slow-transport" => return fake_lamp::slow_transport(&all),
+         _ => {}
+--- a/lampOS/crates/voice-eval/src/physical/fake_lamp.rs
++++ b/lampOS/crates/voice-eval/src/physical/fake_lamp.rs
+@@ -4,6 +4,7 @@
+ //! own `CueSink`, and writes an `events.jsonl` in lamp-voice's vocabulary. The
+ //! conversation is the fake runtime; "playback" arrives as datagrams on a fake
+ //! room socket instead of sound.
++use super::fake_serve::{self, FakeServe, ServeFaults, ServePollProgress, ServePollTargets};
+ use crate::{
+     Result,
+     events::{EventKind, to_trace},
+@@ -98,14 +99,104 @@
+     run_inner(arguments, false, now, on_poll)
+ }
+ 
+-fn run_inner(
++/// Run only the explicit controlled serve fixture. Parsing and its argv line
++/// are shared with the ordinary fake; only this path flushes and counts that
++/// line before entering the controlled serve engine. The engine's terminal
++/// callback follows final metadata and stdout, but never proves process exit.
++pub fn run_serve_with_controlled_clock(
+     arguments: &[String],
+-    allow_serve: bool,
+     now: impl Fn() -> MonoTime,
+-    mut on_poll: impl FnMut(DirectedPoll) -> Result<()>,
++    before_poll: impl FnMut() -> Result<ServePollTargets>,
++    mut completed_poll: impl FnMut(ServePollProgress) -> Result<()>,
+ ) -> Result<i32> {
++    let parsed = parse_arguments(arguments)?;
++    if !parsed.is_serve() {
++        return Err(invalid("a controlled serve fake supports only serve runs"));
++    }
++    let argv_frames = emit_serve_argv(&mut std::io::stdout().lock(), arguments)?;
++    fake_serve::run_with_controlled_clock(parsed.into_serve()?, now, before_poll, |mut progress| {
++        progress.stdout_lines = progress
++            .stdout_lines
++            .checked_add(argv_frames)
++            .ok_or_else(|| invalid("serve fixture stdout counter overflow"))?;
++        completed_poll(progress)
++    })
++}
++
++/// The receipt is returned only after the original JSON line and its LF flush.
++pub(super) fn emit_serve_argv(out: &mut impl Write, arguments: &[String]) -> Result<u64> {
++    writeln!(
++        out,
++        "{}",
++        json!({"kind": "fake_lamp_argv", "argv": arguments})
++    )?;
++    out.flush()?;
++    Ok(1)
++}
++
++struct FakeArguments<'a> {
++    rest: &'a [String],
++    plan: LoadedPlan,
++    serve: ServeFaults,
++    scenario: Option<String>,
++    profile: Option<String>,
++    room: Option<PathBuf>,
++    seed: u64,
++    session_override: Option<u16>,
++    cue_fault: Option<String>,
++    two_generations: bool,
++}
++
++impl FakeArguments<'_> {
++    fn is_serve(&self) -> bool {
++        self.rest.first().map(String::as_str) == Some("serve")
++    }
++
++    fn into_serve(self) -> Result<FakeServe> {
++        let Self {
++            rest,
++            plan,
++            serve,
++            scenario,
++            profile,
++            room,
++            seed,
++            cue_fault,
++            ..
++        } = self;
++        let cue = rest
++            .iter()
++            .position(|a| a == "--cue-socket")
++            .and_then(|i| rest.get(i + 1))
++            .map(PathBuf::from)
++            .ok_or_else(|| invalid("the fake serve runtime needs --cue-socket"))?;
++        let output = rest
++            .get(2)
++            .map(PathBuf::from)
++            .ok_or_else(|| invalid("expected serve CONFIG OUT"))?;
++        let scenario = plan
++            .scenario(&scenario.ok_or_else(|| invalid("--fake-scenario required"))?)?
++            .clone();
++        let profile = plan
++            .profile(&profile.ok_or_else(|| invalid("--fake-profile required"))?)?
++            .clone();
++        Ok(FakeServe {
++            scenario,
++            profile,
++            fixed_reply: plan.plan.fixed_reply.clone(),
++            seed,
++            output,
++            cue_path: cue,
++            room,
++            cue_fault,
++            faults: serve,
++        })
++    }
++}
++
++fn parse_arguments(arguments: &[String]) -> Result<FakeArguments<'_>> {
+     let mut plan_path = None;
+-    let mut serve = crate::physical::fake_serve::ServeFaults::default();
++    let mut serve = ServeFaults::default();
+     let mut scenario = None;
+     let mut profile = None;
+     let mut room = None;
+@@ -139,7 +230,28 @@
+         Some(path) => LoadedPlan::parse(&fs::read_to_string(path)?, &catalog)?,
+         None => LoadedPlan::default_plan(&catalog)?,
+     };
+-    if rest.first().map(String::as_str) == Some("serve") {
++    Ok(FakeArguments {
++        rest,
++        plan,
++        serve,
++        scenario,
++        profile,
++        room,
++        seed,
++        session_override,
++        cue_fault,
++        two_generations,
++    })
++}
++
++fn run_inner(
++    arguments: &[String],
++    allow_serve: bool,
++    now: impl Fn() -> MonoTime,
++    mut on_poll: impl FnMut(DirectedPoll) -> Result<()>,
++) -> Result<i32> {
++    let parsed = parse_arguments(arguments)?;
++    if parsed.is_serve() {
+         if !allow_serve {
+             return Err(invalid(
+                 "a controlled fake clock supports only finite directed runs",
+@@ -147,34 +259,20 @@
+         }
+         // The exact arguments this child received, for argv forwarding tests.
+         println!("{}", json!({"kind": "fake_lamp_argv", "argv": arguments}));
+-        let cue = rest
+-            .iter()
+-            .position(|a| a == "--cue-socket")
+-            .and_then(|i| rest.get(i + 1))
+-            .map(PathBuf::from)
+-            .ok_or_else(|| invalid("the fake serve runtime needs --cue-socket"))?;
+-        let output = rest
+-            .get(2)
+-            .map(PathBuf::from)
+-            .ok_or_else(|| invalid("expected serve CONFIG OUT"))?;
+-        let scenario = plan
+-            .scenario(&scenario.ok_or_else(|| invalid("--fake-scenario required"))?)?
+-            .clone();
+-        let profile = plan
+-            .profile(&profile.ok_or_else(|| invalid("--fake-profile required"))?)?
+-            .clone();
+-        return crate::physical::fake_serve::run(crate::physical::fake_serve::FakeServe {
+-            scenario,
+-            profile,
+-            fixed_reply: plan.plan.fixed_reply.clone(),
+-            seed,
+-            output,
+-            cue_path: cue,
+-            room,
+-            cue_fault,
+-            faults: serve,
+-        });
+-    }
++        return fake_serve::run(parsed.into_serve()?);
++    }
++    let FakeArguments {
++        rest,
++        plan,
++        serve,
++        scenario,
++        profile,
++        room,
++        seed,
++        session_override,
++        cue_fault,
++        two_generations,
++    } = parsed;
+     if !serve.is_empty() {
+         return Err(invalid("serve faults need the fake serve runtime"));
+     }
+--- a/lampOS/crates/voice-eval/src/physical/fake_serve.rs
++++ b/lampOS/crates/voice-eval/src/physical/fake_serve.rs
+@@ -23,7 +23,7 @@
+ use serde_json::{Value, json};
+ use std::{
+     fs::{self, File, OpenOptions},
+-    io::{BufWriter, Write},
++    io::{self, BufWriter, Write},
+     os::unix::{
+         fs::{DirBuilderExt, OpenOptionsExt},
+         net::UnixDatagram,
+@@ -34,7 +34,7 @@
+         atomic::{AtomicUsize, Ordering},
+     },
+     thread,
+-    time::Duration,
++    time::{Duration, Instant},
+ };
+ 
+ /// The second cycle's runtime identity after a modelled physical mute.
+@@ -260,6 +260,86 @@
+ /// The caller owns time advancement; reads must not advance the clock. Signal
+ /// handling, socket I/O, metadata writes and the 2 ms host sleep are unchanged.
+ pub fn run_with_clock(serve: FakeServe, clock: impl Fn() -> MonoTime) -> Result<i32> {
++    run_engine(serve, clock, None)
++}
++
++/// Conditions that must really be observed before the next scheduled poll.
++#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
++pub struct ServePollTargets {
++    /// Wait for the existing signal handler to report SIGTERM. This does not
++    /// send a signal, change its handler or advance the fixture clock.
++    pub wait_for_sigterm: bool,
++}
++
++/// Completed serve work. Counters are cumulative, not inferred from quiet I/O.
++#[derive(Clone, Copy, Debug, PartialEq, Eq)]
++pub struct ServePollProgress {
++    pub poll_seq: u64,
++    /// The original loop sample, including when finalization takes later samples.
++    pub at: MonoTime,
++    pub cycle: u64,
++    pub cycle_base_us: u64,
++    pub runtime_us: u64,
++    /// Early-ready, cycle-ready and final-metadata lines flushed by this engine.
++    /// A CLI's separately written argv line is outside this count.
++    pub stdout_lines: u64,
++    /// Successfully decoded room datagrams, including those consumed during mute.
++    pub room_consumed: u64,
++    /// Datagrams actually injected into the current runtime; mute does not inject.
++    pub room_injected: u64,
++    /// The latest value read at an original signal check: zero or a signal number.
++    pub observed_signal: usize,
++    /// Final metadata and stdout are finished; this never proves process exit.
++    pub terminal: bool,
++}
++
++struct ServePollControl<'a> {
++    before: &'a mut dyn FnMut() -> Result<ServePollTargets>,
++    completed: &'a mut dyn FnMut(ServePollProgress) -> Result<()>,
++}
++
++#[derive(Default)]
++struct ServePollState {
++    poll_seq: u64,
++    at_us: u64,
++    stdout_lines: u64,
++    room_consumed: u64,
++    room_injected: u64,
++    observed_signal: usize,
++}
++
++const SIGNAL_OBSERVATION_WATCHDOG: Duration = Duration::from_secs(30);
++
++/// Coordinate an explicit local serve fixture using its real signals and I/O.
++/// The clock is a pure read. `before_poll` runs before the original loop sample;
++/// an expected SIGTERM is observed under a separate 30 s host watchdog.
++///
++/// Continuing completion follows all original drains and the segment flush.
++/// The hook replaces the normal 2 ms sleep and must park until the next poll,
++/// with its own bounded host watchdog. Terminal completion follows metadata
++/// finish/fsync and final stdout flush; it must return promptly to permit real
++/// process exit. A hook failure returns an error without fabricating completion.
++pub fn run_with_controlled_clock(
++    serve: FakeServe,
++    clock: impl Fn() -> MonoTime,
++    mut before_poll: impl FnMut() -> Result<ServePollTargets>,
++    mut completed_poll: impl FnMut(ServePollProgress) -> Result<()>,
++) -> Result<i32> {
++    run_engine(
++        serve,
++        clock,
++        Some(ServePollControl {
++            before: &mut before_poll,
++            completed: &mut completed_poll,
++        }),
++    )
++}
++
++fn run_engine(
++    serve: FakeServe,
++    clock: impl Fn() -> MonoTime,
++    mut control: Option<ServePollControl<'_>>,
++) -> Result<i32> {
+     let signal = Arc::new(AtomicUsize::new(0));
+     for number in [signal_hook::consts::SIGTERM, signal_hook::consts::SIGINT] {
+         signal_hook::flag::register_usize(number, Arc::clone(&signal), number as usize)?;
+@@ -284,14 +364,14 @@
+         .map_or_else(|| serve.cue_path.clone(), |relay| relay.path.clone());
+     let mut cues = CueSink::connect(&sink_path)?;
+     let stdout = std::io::stdout();
++    let mut progress = ServePollState::default();
+     if serve.faults.early_ready_stdout {
+         let mut lock = stdout.lock();
+-        writeln!(
+-            lock,
+-            "{}",
+-            json!({"status":"listening_ready","seconds":null})
++        emit_stdout_line(
++            &mut lock,
++            &json!({"status":"listening_ready","seconds":null}),
++            &mut progress.stdout_lines,
+         )?;
+-        lock.flush()?;
+     }
+     let now = clock().as_micros();
+     metadata.record(
+@@ -305,12 +385,17 @@
+     let mut fired = std::collections::BTreeSet::new();
+     let mut muted_until: Option<u64> = None;
+     loop {
++        if let Some(control) = control.as_mut() {
++            await_signal_observation(&signal, (control.before)()?, SIGNAL_OBSERVATION_WATCHDOG)?;
++        }
+         let now = clock().as_micros();
+-        if signal.load(Ordering::SeqCst) != 0 && !serve.faults.ignore_sigterm {
++        progress.at_us = now;
++        progress.observed_signal = signal.load(Ordering::SeqCst);
++        if progress.observed_signal != 0 && !serve.faults.ignore_sigterm {
+             metadata
+                 .record(json!({"kind":"service_stop_requested","at_us":now,"signal":"SIGTERM"}))?;
+             cycle.runtime.shut_down("service_stopped");
+-            drain(&mut cycle, &mut metadata, &stdout)?;
++            drain(&mut cycle, &mut metadata, &stdout, &mut progress)?;
+             break;
+         }
+         if let Some(until) = muted_until {
+@@ -327,7 +412,7 @@
+             {
+                 cycle.runtime.tick();
+             }
+-            if let Some(error) = drain(&mut cycle, &mut metadata, &stdout)? {
++            if let Some(error) = drain(&mut cycle, &mut metadata, &stdout, &mut progress)? {
+                 failed = Some(error);
+                 break;
+             }
+@@ -357,14 +442,14 @@
+                 metadata.record(json!({"kind":"service_provider_ended","at_us":now,
+                     "reason":"provider terminal (fake fault)"}))?;
+                 cycle.runtime.shut_down("runtime_failed");
+-                drain(&mut cycle, &mut metadata, &stdout)?;
++                drain(&mut cycle, &mut metadata, &stdout, &mut progress)?;
+                 failed = Some("provider link terminal (fake fault)".into());
+                 break;
+             }
+             if cycle.due(serve.faults.mute.map(|(t, a, _)| (t, a)), now) && fired.insert("mute") {
+                 let (_, _, duration) = serve.faults.mute.expect("due mute exists");
+                 cycle.runtime.shut_down("privacy_revoked");
+-                drain(&mut cycle, &mut metadata, &stdout)?;
++                drain(&mut cycle, &mut metadata, &stdout, &mut progress)?;
+                 metadata.record(json!({"kind":"service_cycle_muted","at_us":now,
+                     "cycle":cycle.number,"cleanup_verified":true}))?;
+                 metadata.record(json!({"kind":"service_waiting_for_privacy","at_us":now,
+@@ -382,19 +467,20 @@
+             relay.tick(clock().as_micros())?;
+         }
+         if let Some(socket) = &room {
+-            while let Ok(count) = socket.recv(&mut buffer) {
+-                let timing: SceneTiming = serde_json::from_slice(&buffer[..count])?;
+-                if muted_until.is_none() {
+-                    let at = cycle.runtime.now_us();
+-                    cycle.runtime.inject(timing, None, at);
+-                }
+-            }
++            receive_room(
++                socket,
++                &mut buffer,
++                &mut cycle,
++                muted_until.is_some(),
++                &mut progress,
++            )?;
+         }
+         metadata.segment.flush()?;
+-        thread::sleep(Duration::from_millis(2));
++        complete_poll(&mut control, &mut progress, &cycle, false)?;
+     }
+     let now = clock().as_micros();
+-    let signal_name = (signal.load(Ordering::SeqCst) != 0).then_some("SIGTERM");
++    progress.observed_signal = signal.load(Ordering::SeqCst);
++    let signal_name = (progress.observed_signal != 0).then_some("SIGTERM");
+     metadata.record(json!({"kind":"run_end","at_us":now,
+         "status":if failed.is_some(){"failed"}else{"stopped_unscored"},
+         "error":failed,"termination_signal":signal_name,"complete_evidence":false}))?;
+@@ -404,21 +490,120 @@
+     }
+     let health = metadata.finish()?;
+     let mut lock = stdout.lock();
+-    writeln!(
+-        lock,
+-        "{}",
+-        json!({"kind":"service_metadata_finished","health":health,
+-            "output":serve.output,"complete_evidence":false})
++    emit_stdout_line(
++        &mut lock,
++        &json!({"kind":"service_metadata_finished","health":health,
++            "output":serve.output,"complete_evidence":false}),
++        &mut progress.stdout_lines,
+     )?;
+-    lock.flush()?;
++    drop(lock);
+     if let Some(path) = &serve.room {
+         let _ = fs::remove_file(path);
+     }
++    complete_poll(&mut control, &mut progress, &cycle, true)?;
+     Ok(if failed.is_some() {
+         1
+     } else {
+         serve.faults.exit_code.unwrap_or(0)
+     })
++}
++
++fn await_signal_observation(
++    signal: &AtomicUsize,
++    targets: ServePollTargets,
++    watchdog: Duration,
++) -> Result<()> {
++    if !targets.wait_for_sigterm {
++        return Ok(());
++    }
++    let end = Instant::now()
++        .checked_add(watchdog)
++        .ok_or_else(|| invalid("serve fixture signal watchdog overflows host time"))?;
++    loop {
++        match signal.load(Ordering::SeqCst) {
++            number if number == signal_hook::consts::SIGTERM as usize => return Ok(()),
++            0 => {}
++            number => {
++                return Err(invalid(&format!(
++                    "serve fixture expected SIGTERM observation, observed signal {number}"
++                )));
++            }
++        }
++        let remaining = end.saturating_duration_since(Instant::now());
++        if remaining.is_zero() {
++            return Err(io::Error::new(
++                io::ErrorKind::TimedOut,
++                "serve fixture timed out waiting for real SIGTERM observation",
++            )
++            .into());
++        }
++        thread::sleep(remaining.min(Duration::from_millis(1)));
++    }
++}
++
++fn emit_stdout_line(output: &mut impl Write, value: &Value, count: &mut u64) -> Result<()> {
++    let next = count
++        .checked_add(1)
++        .ok_or_else(|| invalid("serve fixture stdout-line counter overflow"))?;
++    writeln!(output, "{value}")?;
++    output.flush()?;
++    *count = next;
++    Ok(())
++}
++
++fn receive_room(
++    socket: &UnixDatagram,
++    buffer: &mut [u8; ROOM_MAX_BYTES],
++    cycle: &mut Cycle,
++    muted: bool,
++    progress: &mut ServePollState,
++) -> Result<()> {
++    while let Ok(count) = socket.recv(buffer) {
++        let timing: SceneTiming = serde_json::from_slice(&buffer[..count])?;
++        progress.room_consumed = progress
++            .room_consumed
++            .checked_add(1)
++            .ok_or_else(|| invalid("serve fixture room-consumed counter overflow"))?;
++        if !muted {
++            let next = progress
++                .room_injected
++                .checked_add(1)
++                .ok_or_else(|| invalid("serve fixture room-injected counter overflow"))?;
++            let at = cycle.runtime.now_us();
++            cycle.runtime.inject(timing, None, at);
++            progress.room_injected = next;
++        }
++    }
++    Ok(())
++}
++
++fn complete_poll(
++    control: &mut Option<ServePollControl<'_>>,
++    progress: &mut ServePollState,
++    cycle: &Cycle,
++    terminal: bool,
++) -> Result<()> {
++    if let Some(control) = control {
++        progress.poll_seq = progress
++            .poll_seq
++            .checked_add(1)
++            .ok_or_else(|| invalid("serve fixture poll sequence overflow"))?;
++        (control.completed)(ServePollProgress {
++            poll_seq: progress.poll_seq,
++            at: MonoTime::from_micros(progress.at_us),
++            cycle: cycle.number,
++            cycle_base_us: cycle.base_us,
++            runtime_us: cycle.runtime.now_us(),
++            stdout_lines: progress.stdout_lines,
++            room_consumed: progress.room_consumed,
++            room_injected: progress.room_injected,
++            observed_signal: progress.observed_signal,
++            terminal,
++        })?;
++    } else if !terminal {
++        thread::sleep(Duration::from_millis(2));
++    }
++    Ok(())
+ }
+ 
+ fn link(state: &str, at_us: u64) -> Value {
+@@ -462,6 +647,7 @@
+     cycle: &mut Cycle,
+     metadata: &mut Metadata,
+     stdout: &std::io::Stdout,
++    progress: &mut ServePollState,
+ ) -> Result<Option<String>> {
+     let mut failure = None;
+     while let Some(mut event) = cycle.runtime.pop() {
+@@ -484,12 +670,11 @@
+         let record = trace_record(cycle, &event);
+         if matches!(event.kind, EventKind::ListeningReady) {
+             let mut lock = stdout.lock();
+-            writeln!(
+-                lock,
+-                "{}",
+-                json!({"status":"listening_ready","seconds":null})
++            emit_stdout_line(
++                &mut lock,
++                &json!({"status":"listening_ready","seconds":null}),
++                &mut progress.stdout_lines,
+             )?;
+-            lock.flush()?;
+         }
+         metadata.record(record)?;
+     }
+@@ -515,3 +700,7 @@
+ #[cfg(test)]
+ #[path = "fake_serve_clock_tests.rs"]
+ mod clock_tests;
++
++#[cfg(test)]
++#[path = "fake_serve_progress_tests.rs"]
++mod progress_tests;
+--- a/lampOS/crates/voice-eval/src/physical/fake_serve_progress_tests.rs
++++ b/lampOS/crates/voice-eval/src/physical/fake_serve_progress_tests.rs
+@@ -0,0 +1,314 @@
++//! Progress helpers are tested without running the signal-owning serve loop.
++use super::*;
++use crate::{
++    plan::{LoadedPlan, SERVE_PLAN},
++    stimulus::StimulusCatalog,
++};
++use std::{cell::RefCell, sync::mpsc};
++
++fn cycle() -> Cycle {
++    let catalog = StimulusCatalog::load().unwrap();
++    let plan = LoadedPlan::parse(SERVE_PLAN, &catalog).unwrap();
++    let serve = FakeServe {
++        scenario: plan.scenario("serve-conversation").unwrap().clone(),
++        profile: plan.profile("v2-serve-v1-reopen").unwrap().clone(),
++        fixed_reply: plan.plan.fixed_reply,
++        seed: 7,
++        output: PathBuf::from("/unused/serve-progress"),
++        cue_path: PathBuf::from("/unused/serve-progress-cue"),
++        room: None,
++        cue_fault: None,
++        faults: ServeFaults::default(),
++    };
++    Cycle::new(1, &serve, &|| MonoTime::from_micros(90_000))
++}
++
++fn sigterm_target() -> ServePollTargets {
++    ServePollTargets {
++        wait_for_sigterm: true,
++    }
++}
++
++#[test]
++fn signal_barrier_never_fabricates_an_observation_or_accepts_another_signal() {
++    // These atomics are stand-ins for the handler state; no handler is registered.
++    let signal = AtomicUsize::new(0);
++    await_signal_observation(&signal, ServePollTargets::default(), Duration::ZERO).unwrap();
++    assert_eq!(signal.load(Ordering::SeqCst), 0);
++
++    let error = await_signal_observation(&signal, sigterm_target(), Duration::ZERO).unwrap_err();
++    assert_eq!(
++        error.downcast_ref::<io::Error>().unwrap().kind(),
++        io::ErrorKind::TimedOut
++    );
++    assert_eq!(signal.load(Ordering::SeqCst), 0);
++
++    signal.store(signal_hook::consts::SIGINT as usize, Ordering::SeqCst);
++    let error = await_signal_observation(&signal, sigterm_target(), Duration::ZERO).unwrap_err();
++    assert!(error.to_string().contains("expected SIGTERM observation"));
++    assert_eq!(
++        signal.load(Ordering::SeqCst),
++        signal_hook::consts::SIGINT as usize
++    );
++
++    signal.store(signal_hook::consts::SIGTERM as usize, Ordering::SeqCst);
++    await_signal_observation(&signal, sigterm_target(), Duration::ZERO).unwrap();
++}
++
++#[test]
++fn signal_barrier_waits_for_the_shared_atomic_under_a_host_deadline() {
++    let signal = Arc::new(AtomicUsize::new(0));
++    let worker_signal = Arc::clone(&signal);
++    let (started, waiting) = mpsc::sync_channel(1);
++    let (finished, result) = mpsc::sync_channel(1);
++    let worker = thread::spawn(move || {
++        started.send(()).unwrap();
++        let outcome =
++            await_signal_observation(&worker_signal, sigterm_target(), Duration::from_secs(5));
++        finished.send(outcome).unwrap();
++    });
++    waiting.recv_timeout(Duration::from_secs(5)).unwrap();
++    assert!(matches!(result.try_recv(), Err(mpsc::TryRecvError::Empty)));
++    // The test owner publishes the stand-in observation; the barrier only reads it.
++    signal.store(signal_hook::consts::SIGTERM as usize, Ordering::SeqCst);
++    result
++        .recv_timeout(Duration::from_secs(5))
++        .unwrap()
++        .unwrap();
++    worker.join().unwrap();
++    assert_eq!(
++        signal.load(Ordering::SeqCst),
++        signal_hook::consts::SIGTERM as usize
++    );
++}
++
++#[derive(Default)]
++struct Output {
++    bytes: Vec<u8>,
++    flushed: Vec<u8>,
++    flushes: usize,
++    fail_after: Option<usize>,
++    fail_flush: bool,
++}
++
++impl Write for Output {
++    fn write(&mut self, bytes: &[u8]) -> io::Result<usize> {
++        let remaining = self
++            .fail_after
++            .map_or(usize::MAX, |limit| limit.saturating_sub(self.bytes.len()));
++        if remaining == 0 {
++            return Err(io::Error::other("test stdout write failed"));
++        }
++        // Short writes exercise writeln's complete-line behavior.
++        let count = bytes.len().min(3).min(remaining);
++        self.bytes.extend_from_slice(&bytes[..count]);
++        Ok(count)
++    }
++
++    fn flush(&mut self) -> io::Result<()> {
++        self.flushes += 1;
++        if self.fail_flush {
++            return Err(io::Error::other("test stdout flush failed"));
++        }
++        self.flushed.clone_from(&self.bytes);
++        Ok(())
++    }
++}
++
++#[test]
++fn stdout_counts_only_complete_lines_after_successful_flush() {
++    let mut output = Output::default();
++    let mut count = 0;
++    let values = [
++        json!({"status":"listening_ready","seconds":null}),
++        json!({"kind":"service_metadata_finished","note":"escaped\nnewline"}),
++    ];
++    let mut expected = Vec::new();
++    for (index, value) in values.iter().enumerate() {
++        emit_stdout_line(&mut output, value, &mut count).unwrap();
++        expected.extend_from_slice(format!("{value}\n").as_bytes());
++        assert_eq!(output.flushed, expected);
++        assert_eq!(output.flushes, index + 1);
++        assert_eq!(count, (index + 1) as u64);
++        assert_eq!(
++            output.flushed.iter().filter(|&&b| b == b'\n').count(),
++            index + 1
++        );
++    }
++
++    let mut write_failure = Output {
++        fail_after: Some(4),
++        ..Output::default()
++    };
++    let mut count = 0;
++    assert!(emit_stdout_line(&mut write_failure, &values[0], &mut count).is_err());
++    assert_eq!(count, 0);
++    assert_eq!(write_failure.bytes.len(), 4);
++    assert_eq!(write_failure.flushes, 0);
++
++    let mut flush_failure = Output {
++        fail_flush: true,
++        ..Output::default()
++    };
++    assert!(emit_stdout_line(&mut flush_failure, &values[0], &mut count).is_err());
++    assert_eq!(count, 0);
++    assert!(flush_failure.bytes.ends_with(b"\n"));
++    assert!(flush_failure.flushed.is_empty());
++}
++
++#[test]
++fn stdout_counter_overflow_fails_before_emitting_an_unannounced_line() {
++    let mut output = Output::default();
++    let mut count = u64::MAX;
++    let error = emit_stdout_line(&mut output, &json!({"line":1}), &mut count).unwrap_err();
++    assert!(error.to_string().contains("stdout-line counter overflow"));
++    assert_eq!(count, u64::MAX);
++    assert!(output.bytes.is_empty());
++    assert_eq!(output.flushes, 0);
++}
++
++#[test]
++fn room_progress_distinguishes_decoding_injection_and_muted_consumption() {
++    let (sender, receiver) = UnixDatagram::pair().unwrap();
++    receiver.set_nonblocking(true).unwrap();
++    let timing = StimulusCatalog::load()
++        .unwrap()
++        .estimate("fast-followup")
++        .unwrap();
++    let bytes = serde_json::to_vec(&timing).unwrap();
++    let mut cycle = cycle();
++    let mut progress = ServePollState::default();
++    let mut buffer = [0; ROOM_MAX_BYTES];
++
++    sender.send(&bytes).unwrap();
++    sender.send(&bytes).unwrap();
++    receive_room(&receiver, &mut buffer, &mut cycle, false, &mut progress).unwrap();
++    assert_eq!((progress.room_consumed, progress.room_injected), (2, 2));
++    assert_eq!(cycle.runtime.now_us(), 0);
++
++    sender.send(&bytes).unwrap();
++    receive_room(&receiver, &mut buffer, &mut cycle, true, &mut progress).unwrap();
++    assert_eq!((progress.room_consumed, progress.room_injected), (3, 2));
++    receive_room(&receiver, &mut buffer, &mut cycle, false, &mut progress).unwrap();
++    assert_eq!((progress.room_consumed, progress.room_injected), (3, 2));
++
++    sender.send(b"{").unwrap();
++    assert!(receive_room(&receiver, &mut buffer, &mut cycle, true, &mut progress).is_err());
++    assert_eq!((progress.room_consumed, progress.room_injected), (3, 2));
++}
++
++#[test]
++fn room_counter_overflow_never_wraps_or_claims_injection() {
++    let timing = StimulusCatalog::load()
++        .unwrap()
++        .estimate("fast-followup")
++        .unwrap();
++    let bytes = serde_json::to_vec(&timing).unwrap();
++    for consumed_overflow in [true, false] {
++        let (sender, receiver) = UnixDatagram::pair().unwrap();
++        receiver.set_nonblocking(true).unwrap();
++        sender.send(&bytes).unwrap();
++        let mut cycle = cycle();
++        let mut progress = ServePollState {
++            room_consumed: if consumed_overflow { u64::MAX } else { 0 },
++            room_injected: if consumed_overflow { 0 } else { u64::MAX },
++            ..ServePollState::default()
++        };
++        let error = receive_room(
++            &receiver,
++            &mut [0; ROOM_MAX_BYTES],
++            &mut cycle,
++            false,
++            &mut progress,
++        )
++        .unwrap_err();
++        assert!(error.to_string().contains("counter overflow"));
++        assert_eq!(
++            (progress.room_consumed, progress.room_injected),
++            if consumed_overflow {
++                (u64::MAX, 0)
++            } else {
++                (1, u64::MAX)
++            }
++        );
++        assert_eq!(cycle.runtime.now_us(), 0);
++    }
++}
++
++#[test]
++fn completed_polls_keep_the_original_sample_and_cumulative_real_progress() {
++    let mut cycle = cycle();
++    let mut state = ServePollState {
++        at_us: 100_000,
++        stdout_lines: 1,
++        room_consumed: 3,
++        room_injected: 2,
++        observed_signal: signal_hook::consts::SIGTERM as usize,
++        ..ServePollState::default()
++    };
++    let polls = RefCell::new(Vec::new());
++    let mut before = || Ok(ServePollTargets::default());
++    let mut completed = |poll| {
++        polls.borrow_mut().push(poll);
++        Ok(())
++    };
++    let mut control = Some(ServePollControl {
++        before: &mut before,
++        completed: &mut completed,
++    });
++    complete_poll(&mut control, &mut state, &cycle, false).unwrap();
++    cycle.runtime.tick();
++    complete_poll(&mut control, &mut state, &cycle, false).unwrap();
++    let mut output = Output::default();
++    emit_stdout_line(
++        &mut output,
++        &json!({"kind":"service_metadata_finished"}),
++        &mut state.stdout_lines,
++    )
++    .unwrap();
++    complete_poll(&mut control, &mut state, &cycle, true).unwrap();
++    let polls = polls.borrow();
++    assert_eq!(polls.len(), 3);
++    for (index, poll) in polls.iter().enumerate() {
++        assert_eq!(poll.poll_seq, (index + 1) as u64);
++        assert_eq!(poll.at, MonoTime::from_micros(100_000));
++        assert_eq!(poll.cycle, 1);
++        assert_eq!(poll.cycle_base_us, 90_000);
++        assert_eq!(poll.room_consumed, 3);
++        assert_eq!(poll.room_injected, 2);
++        assert_eq!(poll.observed_signal, signal_hook::consts::SIGTERM as usize);
++        assert_eq!(poll.terminal, index == 2);
++    }
++    assert_eq!(polls[0].runtime_us, 0);
++    assert_eq!(polls[1].runtime_us, crate::fake::TICK_US);
++    assert_eq!(polls[2].runtime_us, crate::fake::TICK_US);
++    assert_eq!(polls[0].stdout_lines, 1);
++    assert_eq!(polls[1].stdout_lines, 1);
++    assert_eq!(polls[2].stdout_lines, 2);
++}
++
++#[test]
++fn completion_errors_propagate_once_and_poll_sequence_overflow_is_refused() {
++    let cycle = cycle();
++    let calls = RefCell::new(0);
++    let mut before = || Ok(ServePollTargets::default());
++    let mut completed = |_| {
++        *calls.borrow_mut() += 1;
++        Err(invalid("test completion failure"))
++    };
++    let mut control = Some(ServePollControl {
++        before: &mut before,
++        completed: &mut completed,
++    });
++    let mut state = ServePollState::default();
++    let error = complete_poll(&mut control, &mut state, &cycle, false).unwrap_err();
++    assert!(error.to_string().contains("test completion failure"));
++    assert_eq!(*calls.borrow(), 1);
++    assert_eq!(state.poll_seq, 1);
++
++    state.poll_seq = u64::MAX;
++    let error = complete_poll(&mut control, &mut state, &cycle, true).unwrap_err();
++    assert!(error.to_string().contains("poll sequence overflow"));
++    assert_eq!(*calls.borrow(), 1);
++    assert_eq!(state.poll_seq, u64::MAX);
++}
+--- a/lampOS/crates/voice-eval/src/physical/fixture_commands.rs
++++ b/lampOS/crates/voice-eval/src/physical/fixture_commands.rs
+@@ -1,4 +1,4 @@
+-//! Explicit CLI entrypoints for finite, locally coordinated fake fixtures.
++//! Explicit CLI entrypoints for locally coordinated finite and serve fakes.
+ //!
+ //! The ordinary fake runtime and physical relay keep their original entrypoints.
+ //! These handlers require a leading control-socket argument, use pure clock
+@@ -6,6 +6,7 @@
+ //! the caller's actual child-exit, EOF and trace-cleanup checks.
+ use super::{
+     fake_lamp,
++    fake_serve::{ServePollProgress, ServePollTargets},
+     fixture_control::{Participant, Progress, Role},
+     session::{self, RelayPollProgress, RelayPollTargets, SessionMode, SessionOptions},
+ };
+@@ -50,13 +51,66 @@
+     )
+ }
+ 
++/// `fake-clock-serve-runtime --fixture-control SOCKET` followed by the original
++/// fake serve arguments. This role waits for real signal observation when the
++/// parent requires it; a terminal receipt follows the engine's final output.
++pub fn serve_runtime(arguments: Vec<String>) -> Result<i32> {
++    let (path, arguments) = controlled_arguments(arguments)?;
++    let participant = RefCell::new(Participant::connect(&path, Role::ServeRuntime)?);
++    let clock = participant.borrow().clock();
++    fake_lamp::run_serve_with_controlled_clock(
++        &arguments,
++        || clock.now(),
++        || {
++            Ok(ServePollTargets {
++                wait_for_sigterm: participant.borrow().current_step().wait_for_sigterm,
++            })
++        },
++        |poll| {
++            let mut participant = participant.borrow_mut();
++            if poll.at.as_micros() != participant.current_step().at_us {
++                return Err(invalid(
++                    "serve runtime poll did not use its current fixture Step time",
++                ));
++            }
++            let progress = serve_runtime_progress(poll);
++            if poll.terminal {
++                // The engine already finished metadata, flushed final stdout
++                // and unlinked its room. The actual child exit still follows.
++                participant.final_ack(progress)?;
++            } else {
++                participant.complete(progress)?;
++            }
++            Ok(())
++        },
++    )
++}
++
+ /// `fake-clock-session --fixture-control SOCKET` followed by the unchanged
+ /// relay arguments. Only a finite controlled fake in this executable may run.
+ pub fn relay(arguments: Vec<String>) -> Result<i32> {
+     let (path, arguments) = controlled_arguments(arguments)?;
+     let options = SessionOptions::parse(&arguments)?;
+     validate_relay_options(&options)?;
+-    let participant = RefCell::new(Participant::connect(&path, Role::Relay)?);
++    controlled_relay(options, &path, Role::Relay, relay_progress)
++}
++
++/// `fake-clock-serve-session --fixture-control SOCKET` followed by relay serve
++/// arguments. The child must be the explicit serve fake in this executable.
++pub fn serve_relay(arguments: Vec<String>) -> Result<i32> {
++    let (path, arguments) = controlled_arguments(arguments)?;
++    let options = SessionOptions::parse(&arguments)?;
++    validate_serve_relay_options(&options)?;
++    controlled_relay(options, &path, Role::ServeRelay, serve_relay_progress)
++}
++
++fn controlled_relay(
++    options: SessionOptions,
++    path: &Path,
++    role: Role,
++    progress: fn(RelayPollProgress, u64) -> Progress,
++) -> Result<i32> {
++    let participant = RefCell::new(Participant::connect(path, role)?);
+     let clock = participant.borrow().clock();
+     let terminal = Cell::new(None);
+     let stdout = io::stdout();
+@@ -85,7 +139,7 @@
+             } else {
+                 participant
+                     .borrow_mut()
+-                    .complete(relay_progress(poll, flushed_frames.get()))?;
++                    .complete(progress(poll, flushed_frames.get()))?;
+             }
+             Ok(())
+         },
+@@ -96,7 +150,7 @@
+     output.finish()?;
+     participant
+         .borrow_mut()
+-        .final_ack(relay_progress(terminal, flushed_frames.get()))?;
++        .final_ack(progress(terminal, flushed_frames.get()))?;
+     Ok(code)
+ }
+ 
+@@ -106,6 +160,31 @@
+         stdout_frames: poll.stdout_frames,
+         runner_inputs: poll.runner_inputs,
+         output_frames,
++        logical_end: poll.terminal,
++    }
++}
++
++fn serve_runtime_progress(poll: ServePollProgress) -> Progress {
++    Progress::ServeRuntime {
++        poll_seq: poll.poll_seq,
++        stdout_frames: poll.stdout_lines,
++        room_consumed: poll.room_consumed,
++        room_injected: poll.room_injected,
++        cycle: poll.cycle,
++        cycle_base_us: poll.cycle_base_us,
++        runtime_us: poll.runtime_us,
++        observed_signal: poll.observed_signal,
++        logical_end: poll.terminal,
++    }
++}
++
++fn serve_relay_progress(poll: RelayPollProgress, output_frames: u64) -> Progress {
++    Progress::ServeRelay {
++        poll_seq: poll.poll_seq,
++        stdout_frames: poll.stdout_frames,
++        runner_inputs: poll.runner_inputs,
++        output_frames,
++        stop_signal_sent_us: poll.stop_signal_sent_us,
+         logical_end: poll.terminal,
+     }
+ }
+@@ -147,6 +226,29 @@
+     if options.runtime.canonicalize()? != std::env::current_exe()?.canonicalize()? {
+         return Err(invalid(
+             "a controlled fixture relay must launch this evaluator executable",
++        ));
++    }
++    Ok(())
++}
++
++fn validate_serve_relay_options(options: &SessionOptions) -> Result<()> {
++    if !matches!(options.mode, SessionMode::Serve { .. }) {
++        return Err(invalid("a controlled serve relay requires serve mode"));
++    }
++    match options.runtime_prefix.as_slice() {
++        [command, flag, path, ..]
++            if command == "fake-clock-serve-runtime"
++                && flag == "--fixture-control"
++                && Path::new(path).is_absolute() => {}
++        _ => {
++            return Err(invalid(
++                "a controlled serve relay requires runtime prefix fake-clock-serve-runtime --fixture-control SOCKET",
++            ));
++        }
++    }
++    if options.runtime.canonicalize()? != std::env::current_exe()?.canonicalize()? {
++        return Err(invalid(
++            "a controlled serve relay must launch this evaluator executable",
+         ));
+     }
+     Ok(())
+@@ -432,6 +534,7 @@
+                     poll_seq: 5,
+                     stdout_frames: 2,
+                     runner_inputs: 3,
++                    stop_signal_sent_us: None,
+                     terminal: true
+                 },
+                 19
+@@ -446,3 +549,7 @@
+         );
+     }
+ }
++
++#[cfg(test)]
++#[path = "serve_fixture_commands_tests.rs"]
++mod serve_tests;
+--- a/lampOS/crates/voice-eval/src/physical/fixture_control.rs
++++ b/lampOS/crates/voice-eval/src/physical/fixture_control.rs
+@@ -1,4 +1,4 @@
+-//! Explicit local coordination for the evaluator's finite fake-runtime fixtures.
++//! Explicit local coordination for the evaluator's fake-runtime fixtures.
+ //!
+ //! A parent owns fixture time. Participants perform one complete poll, announce
+ //! its counters, then park until the next numbered step. Reading `FixtureClock`
+@@ -29,6 +29,8 @@
+ pub enum Role {
+     Runtime,
+     Relay,
++    ServeRuntime,
++    ServeRelay,
+ }
+ 
+ #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
+@@ -42,6 +44,14 @@
+     pub stdout_target: u64,
+     /// Complete runner input frames the relay must consume before acknowledging.
+     pub runner_input_target: u64,
++    /// Only a serve runtime may wait for its real signal handler to see SIGTERM.
++    /// This target never sends or fabricates a signal.
++    #[serde(default, skip_serializing_if = "is_false")]
++    pub wait_for_sigterm: bool,
++}
++
++fn is_false(value: &bool) -> bool {
++    !*value
+ }
+ 
+ #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
+@@ -68,6 +78,34 @@
+         /// The relay engine returned after flushing final output; not OS exit.
+         logical_end: bool,
+     },
++    ServeRuntime {
++        poll_seq: u64,
++        /// Complete stdout frames successfully flushed by the serve runtime.
++        stdout_frames: u64,
++        /// Decoded room datagrams consumed, including those discarded while muted.
++        room_consumed: u64,
++        /// Consumed room datagrams actually injected into the active runtime.
++        room_injected: u64,
++        cycle: u64,
++        cycle_base_us: u64,
++        /// May reset only when the service starts a later cycle.
++        runtime_us: u64,
++        /// The existing signal-handler atomic, not a send receipt or an exit claim.
++        observed_signal: usize,
++        /// Final metadata finish/fsync and stdout flush completed; not OS exit.
++        logical_end: bool,
++    },
++    ServeRelay {
++        poll_seq: u64,
++        stdout_frames: u64,
++        runner_inputs: u64,
++        output_frames: u64,
++        /// Timestamp of a successful real SIGTERM send. It does not prove that
++        /// the runtime observed the signal or that either process has exited.
++        stop_signal_sent_us: Option<u64>,
++        /// The relay engine returned after flushing final output; not OS exit.
++        logical_end: bool,
++    },
+ }
+ 
+ impl Progress {
+@@ -75,18 +113,26 @@
+         match self {
+             Self::Runtime { .. } => Role::Runtime,
+             Self::Relay { .. } => Role::Relay,
++            Self::ServeRuntime { .. } => Role::ServeRuntime,
++            Self::ServeRelay { .. } => Role::ServeRelay,
+         }
+     }
+ 
+     pub const fn poll_seq(self) -> u64 {
+         match self {
+-            Self::Runtime { poll_seq, .. } | Self::Relay { poll_seq, .. } => poll_seq,
++            Self::Runtime { poll_seq, .. }
++            | Self::Relay { poll_seq, .. }
++            | Self::ServeRuntime { poll_seq, .. }
++            | Self::ServeRelay { poll_seq, .. } => poll_seq,
+         }
+     }
+ 
+     pub const fn logical_end(self) -> bool {
+         match self {
+-            Self::Runtime { logical_end, .. } | Self::Relay { logical_end, .. } => logical_end,
++            Self::Runtime { logical_end, .. }
++            | Self::Relay { logical_end, .. }
++            | Self::ServeRuntime { logical_end, .. }
++            | Self::ServeRelay { logical_end, .. } => logical_end,
+         }
+     }
+ }
+@@ -161,14 +207,26 @@
+     /// One cumulative host watchdog covers accept and the peer's Hello. The
+     /// caller explicitly chooses the expected role; arrival order is no proof.
+     pub fn accept(&self, expected: Role) -> io::Result<ParentPeer> {
++        self.accept_inner(expected, None)
++    }
++
++    /// Retain an existing caller deadline across bootstrap and later resource
++    /// waits. Accept and Hello share the earlier of it and this host watchdog.
++    pub fn accept_until(&self, expected: Role, end: Instant) -> io::Result<ParentPeer> {
++        self.accept_inner(expected, Some(end))
++    }
++
++    fn accept_inner(&self, expected: Role, end: Option<Instant>) -> io::Result<ParentPeer> {
+         let role_bit = match expected {
+             Role::Runtime => 1,
+             Role::Relay => 2,
++            Role::ServeRuntime => 4,
++            Role::ServeRelay => 8,
+         };
+         if self.accepted_roles.get() & role_bit != 0 {
+             return Err(invalid(format!("duplicate {expected:?} participant")));
+         }
+-        let end = deadline(self.watchdog)?;
++        let end = selected_deadline(deadline(self.watchdog)?, end);
+         loop {
+             remaining(end, "accept peer")?;
+             match self.listener.accept() {
+@@ -369,8 +427,9 @@
+     }
+ 
+     /// Announce logical completion without waiting for another Step. This is
+-    /// never evidence of OS exit. Runtime trace writes/fsync and exit follow;
+-    /// a relay wrapper calls this only after final trace/SessionEnd flushes.
++    /// never evidence of OS exit. Finite runtime trace writes/fsync and exit
++    /// follow; a serve runtime first finishes metadata/fsync and stdout, and
++    /// a relay wrapper first finishes final trace/SessionEnd flushes.
+     pub fn final_ack(&mut self, progress: Progress) -> io::Result<()> {
+         let result = (|| {
+             if !progress.logical_end() {
+@@ -444,8 +503,15 @@
+             return Err(invalid("Step input target regressed"));
+         }
+     }
+-    if role == Role::Runtime && (step.stdout_target != 0 || step.runner_input_target != 0) {
++    if matches!(role, Role::Runtime | Role::ServeRuntime)
++        && (step.stdout_target != 0 || step.runner_input_target != 0)
++    {
+         return Err(invalid("runtime Step contains relay-only input targets"));
++    }
++    if step.wait_for_sigterm && role != Role::ServeRuntime {
++        return Err(invalid(
++            "SIGTERM observation target requires a serve runtime",
++        ));
+     }
+     Ok(())
+ }
+@@ -467,6 +533,11 @@
+         )));
+     }
+     if let Progress::Relay {
++        stdout_frames,
++        runner_inputs,
++        ..
++    }
++    | Progress::ServeRelay {
+         stdout_frames,
+         runner_inputs,
+         ..
+@@ -477,6 +548,7 @@
+             "relay Ack has not consumed the announced input targets",
+         ));
+     }
++    validate_serve_progress(previous, step, progress)?;
+     let regressed = match (previous, progress) {
+         (
+             Some(Progress::Runtime {
+@@ -504,6 +576,47 @@
+                 ..
+             },
+         ) => stdout_frames < old_stdout || runner_inputs < old_input || output_frames < old_output,
++        (
++            Some(Progress::ServeRuntime {
++                stdout_frames: old_stdout,
++                room_consumed: old_consumed,
++                room_injected: old_injected,
++                cycle: old_cycle,
++                cycle_base_us: old_base,
++                runtime_us: old_runtime,
++                ..
++            }),
++            Progress::ServeRuntime {
++                stdout_frames,
++                room_consumed,
++                room_injected,
++                cycle,
++                cycle_base_us,
++                runtime_us,
++                ..
++            },
++        ) => {
++            stdout_frames < old_stdout
++                || room_consumed < old_consumed
++                || room_injected < old_injected
++                || cycle < old_cycle
++                || cycle_base_us < old_base
++                || (cycle == old_cycle && runtime_us < old_runtime)
++        }
++        (
++            Some(Progress::ServeRelay {
++                stdout_frames: old_stdout,
++                runner_inputs: old_input,
++                output_frames: old_output,
++                ..
++            }),
++            Progress::ServeRelay {
++                stdout_frames,
++                runner_inputs,
++                output_frames,
++                ..
++            },
++        ) => stdout_frames < old_stdout || runner_inputs < old_input || output_frames < old_output,
+         (Some(_), _) => true,
+         (None, _) => false,
+     };
+@@ -512,6 +625,82 @@
+     }
+     if previous.is_some_and(Progress::logical_end) {
+         return Err(invalid("Ack followed terminal progress"));
++    }
++    Ok(())
++}
++
++fn validate_serve_progress(
++    previous: Option<Progress>,
++    step: Step,
++    progress: Progress,
++) -> io::Result<()> {
++    if step.wait_for_sigterm
++        && !matches!(
++            progress,
++            Progress::ServeRuntime { observed_signal, .. }
++                if observed_signal == signal_hook::consts::SIGTERM as usize
++        )
++    {
++        return Err(invalid("Ack has not observed the requested real SIGTERM"));
++    }
++    match progress {
++        Progress::ServeRuntime {
++            room_consumed,
++            room_injected,
++            cycle,
++            cycle_base_us,
++            observed_signal,
++            ..
++        } => {
++            if room_injected > room_consumed {
++                return Err(invalid(
++                    "serve runtime injected more room inputs than it consumed",
++                ));
++            }
++            if observed_signal != 0
++                && observed_signal != signal_hook::consts::SIGTERM as usize
++                && observed_signal != signal_hook::consts::SIGINT as usize
++            {
++                return Err(invalid("serve runtime reported an unregistered signal"));
++            }
++            if let Some(Progress::ServeRuntime {
++                cycle: old_cycle,
++                cycle_base_us: old_base,
++                observed_signal: old_signal,
++                ..
++            }) = previous
++            {
++                if cycle == old_cycle && cycle_base_us != old_base {
++                    return Err(invalid(
++                        "serve runtime changed the base of an existing cycle",
++                    ));
++                }
++                if old_signal != 0 && observed_signal == 0 {
++                    return Err(invalid("serve runtime cleared its observed signal"));
++                }
++            }
++        }
++        Progress::ServeRelay {
++            stop_signal_sent_us,
++            ..
++        } => {
++            if stop_signal_sent_us.is_some_and(|sent| sent > step.at_us) {
++                return Err(invalid(
++                    "serve relay signal receipt is later than the current Step",
++                ));
++            }
++            if let Some(Progress::ServeRelay {
++                stop_signal_sent_us: Some(sent),
++                ..
++            }) = previous
++                && stop_signal_sent_us != Some(sent)
++            {
++                return Err(invalid(
++                    "serve relay changed its successful signal-send receipt",
++                ));
++            }
++        }
++        Progress::Runtime { .. } | Progress::Relay { .. } => {}
+     }
+     Ok(())
+ }
+@@ -774,5 +963,9 @@
+ mod tests;
+ 
+ #[cfg(test)]
++#[path = "serve_fixture_control_tests.rs"]
++mod serve_tests;
++
++#[cfg(test)]
+ #[path = "channel_closed_peer_tests.rs"]
+-mod channel_closed_peer_tests;
++mod closed_peer_tests;
+--- a/lampOS/crates/voice-eval/src/physical/fixture_control_tests.rs
++++ b/lampOS/crates/voice-eval/src/physical/fixture_control_tests.rs
+@@ -11,6 +11,7 @@
+         at_us,
+         stdout_target: 0,
+         runner_input_target: 0,
++        wait_for_sigterm: false,
+     }
+ }
+ 
+--- a/lampOS/crates/voice-eval/src/physical/fixture_driver.rs
++++ b/lampOS/crates/voice-eval/src/physical/fixture_driver.rs
+@@ -34,11 +34,15 @@
+ pub struct RunnerFixtureClock(Arc<AtomicU64>);
+ 
+ impl RunnerFixtureClock {
++    pub(crate) fn new(at_us: u64) -> Self {
++        Self(Arc::new(AtomicU64::new(at_us)))
++    }
++
+     pub fn now(&self) -> MonoTime {
+         MonoTime::from_micros(self.0.load(Ordering::Acquire))
+     }
+ 
+-    fn advance(&self, at_us: u64) -> Result<()> {
++    pub(crate) fn advance(&self, at_us: u64) -> Result<()> {
+         if at_us < self.now().as_micros() {
+             return Err(invalid("fixture driver clock would regress"));
+         }
+@@ -227,6 +231,7 @@
+                     at_us: self.clock.now().as_micros(),
+                     stdout_target: 0,
+                     runner_input_target: 0,
++                    wait_for_sigterm: false,
+                 },
+                 until,
+             )?;
+@@ -269,6 +274,7 @@
+                     at_us: self.clock.now().as_micros(),
+                     stdout_target: self.runtime_stdout,
+                     runner_input_target: sent_frames,
++                    wait_for_sigterm: false,
+                 },
+                 until,
+             )?;
+@@ -454,7 +460,7 @@
+     }
+ }
+ 
+-fn next_round(previous: u64) -> Result<u64> {
++pub(crate) fn next_round(previous: u64) -> Result<u64> {
+     previous
+         .checked_add(1)
+         .ok_or_else(|| invalid("fixture round overflow"))
+@@ -464,7 +470,7 @@
+ /// bounded pongs, readiness/start/end, and the explicit duplicate-cue fault fit
+ /// before a terminal acknowledgement. The backend reserves its extra error slot
+ /// separately; it is never counted as room for normal announced output.
+-fn ensure_queue_capacity(announced: u64, drained: u64) -> Result<()> {
++pub(crate) fn ensure_queue_capacity(announced: u64, drained: u64) -> Result<()> {
+     if announced < drained {
+         return Err(invalid(
+             "fixture output announcement is behind the drained frame count",
+@@ -478,14 +484,14 @@
+     Ok(())
+ }
+ 
+-fn check_host_deadline(until: Instant, what: &str) -> Result<Duration> {
++pub(crate) fn check_host_deadline(until: Instant, what: &str) -> Result<Duration> {
+     until
+         .checked_duration_since(Instant::now())
+         .filter(|remaining| !remaining.is_zero())
+         .ok_or_else(|| invalid(&format!("fixture {what} exceeded its host watchdog")))
+ }
+ 
+-fn wait_for_enqueued(enqueued: &AtomicU64, target: u64, until: Instant) -> Result<()> {
++pub(crate) fn wait_for_enqueued(enqueued: &AtomicU64, target: u64, until: Instant) -> Result<()> {
+     while enqueued.load(Ordering::Acquire) < target {
+         let remaining = check_host_deadline(until, "backend reader enqueue barrier")?;
+         thread::sleep(remaining.min(Duration::from_millis(1)));
+--- a/lampOS/crates/voice-eval/src/physical/fixture_players.rs
++++ b/lampOS/crates/voice-eval/src/physical/fixture_players.rs
+@@ -0,0 +1,495 @@
++//! Explicit coordination for local prepared-player fixture threads.
++//!
++//! The owner holds the supplied clock still through each round. Workers run
++//! the shared prepared fake and park only after doing all work available at
++//! that instant. Ready and Grant remain real bounded channels, and delivery
++//! remains an actual room datagram. None of these acknowledgements substitutes
++//! for the backend observing its owned JoinHandle's completion.
++use super::mac::{FakePlayerFault, FakePreparedRoomPlayer, Player, PreparedWait, Preparing};
++use crate::{Result, invalid, stimulus::SceneTiming};
++use lamp_observer::playback::GrantInput;
++use lamp_turn_owner::MonoTime;
++use serde_json::Value;
++use std::{
++    collections::BTreeMap,
++    path::{Path, PathBuf},
++    sync::{
++        Arc, Condvar, Mutex, MutexGuard, Weak,
++        mpsc::{Receiver, RecvTimeoutError, TryRecvError},
++    },
++    thread::JoinHandle,
++    time::{Duration, Instant},
++};
++
++const CONTROL_BOUND: Duration = Duration::from_secs(30);
++const ROOM_BOUND: Duration = Duration::from_secs(15);
++
++#[derive(Clone, Copy, PartialEq, Eq)]
++enum Phase {
++    Registered,
++    Running,
++    Parked(u64),
++    ReportReady,
++}
++
++struct Progress {
++    phase: Phase,
++    grant_consumed_at: Option<u64>,
++    grant_acknowledged: bool,
++}
++
++struct State {
++    at_us: u64,
++    round: u64,
++    pumping: bool,
++    closed: bool,
++    error: Option<String>,
++    successful_sends: u64,
++    players: BTreeMap<String, Progress>,
++}
++
++struct Shared {
++    now: Arc<dyn Fn() -> MonoTime + Send + Sync>,
++    state: Mutex<State>,
++    changed: Condvar,
++}
++
++impl Shared {
++    fn lock(&self) -> Result<MutexGuard<'_, State>> {
++        self.state
++            .lock()
++            .map_err(|_| invalid("prepared fixture state was poisoned"))
++    }
++
++    fn close(&self) {
++        let mut state = self.state.lock().unwrap_or_else(|error| error.into_inner());
++        state.closed = true;
++        self.changed.notify_all();
++    }
++}
++
++// The last controller owner closes the workers even while player factories
++// or worker threads still exist. Workers deliberately do not retain this lease.
++struct Owner(Weak<Shared>);
++
++impl Drop for Owner {
++    fn drop(&mut self) {
++        if let Some(shared) = self.0.upgrade() {
++            shared.close();
++        }
++    }
++}
++
++/// Parent-owned scheduler for explicitly controlled prepared fake players.
++/// Clock reads are pure; only the caller advances that clock between settled
++/// rounds. A clone shares the owner lease, not a second independent scheduler.
++#[derive(Clone)]
++pub struct PreparedFixtureController {
++    shared: Arc<Shared>,
++    _owner: Arc<Owner>,
++}
++
++impl PreparedFixtureController {
++    pub fn new(now: impl Fn() -> MonoTime + Send + Sync + 'static) -> Self {
++        let at_us = now().as_micros();
++        let shared = Arc::new(Shared {
++            now: Arc::new(now),
++            state: Mutex::new(State {
++                at_us,
++                round: 0,
++                pumping: false,
++                closed: false,
++                error: None,
++                successful_sends: 0,
++                players: BTreeMap::new(),
++            }),
++            changed: Condvar::new(),
++        });
++        Self {
++            _owner: Arc::new(Owner(Arc::downgrade(&shared))),
++            shared,
++        }
++    }
++
++    pub fn player(
++        &self,
++        room: PathBuf,
++        faults: Vec<(usize, FakePlayerFault)>,
++    ) -> impl Player + use<> {
++        ControlledPlayer {
++            player: FakePreparedRoomPlayer {
++                room,
++                faults,
++                prepared: 0,
++            },
++            shared: Arc::downgrade(&self.shared),
++        }
++    }
++
++    /// Finish work at the current instant before its owner advances time.
++    pub fn settle(&self) -> Result<()> {
++        self.settle_before(Instant::now() + CONTROL_BOUND)
++    }
++
++    /// Recheck channels/resources after a real participant completes work.
++    pub fn pump(&self) -> Result<()> {
++        self.pump_before(Instant::now() + CONTROL_BOUND)
++    }
++
++    /// The preparation owner can impose its shorter original host watchdog.
++    pub fn settle_before(&self, deadline: Instant) -> Result<()> {
++        self.pump_before(deadline)
++    }
++
++    pub fn pump_before(&self, deadline: Instant) -> Result<()> {
++        let deadline = deadline.min(Instant::now() + CONTROL_BOUND);
++        let at_us = (self.shared.now)().as_micros();
++        let mut state = self.shared.lock()?;
++        check_open(&state)?;
++        if state.pumping {
++            return Err(invalid("prepared fixture already has a round in progress"));
++        }
++        if at_us < state.at_us {
++            return Err(invalid("prepared fixture clock moved backwards"));
++        }
++        if at_us != state.at_us
++            && state
++                .players
++                .values()
++                .any(|player| player.phase == Phase::Running)
++        {
++            return Err(invalid(
++                "prepared fixture clock advanced before work settled",
++            ));
++        }
++        let round = state
++            .round
++            .checked_add(1)
++            .ok_or_else(|| invalid("prepared fixture round overflow"))?;
++        state.round = round;
++        state.at_us = at_us;
++        state.pumping = true;
++        self.shared.changed.notify_all();
++        loop {
++            if let Err(error) = check_open(&state) {
++                state.pumping = false;
++                return Err(error);
++            }
++            if state.players.values().all(|player| match player.phase {
++                Phase::ReportReady => true,
++                Phase::Parked(done) => done >= round,
++                _ => false,
++            }) {
++                state.pumping = false;
++                return Ok(());
++            }
++            let Some(remaining) = deadline
++                .checked_duration_since(Instant::now())
++                .filter(|duration| !duration.is_zero())
++            else {
++                state.pumping = false;
++                state.closed = true;
++                state.error =
++                    Some("prepared fixture work did not settle within the host bound".into());
++                self.shared.changed.notify_all();
++                return Err(invalid(state.error.as_deref().unwrap()));
++            };
++            let (next, _) = self
++                .shared
++                .changed
++                .wait_timeout(state, remaining)
++                .map_err(|_| invalid("prepared fixture state was poisoned while settling"))?;
++            state = next;
++        }
++    }
++
++    /// Call only after successfully sending a real Start/Closed/malformed
++    /// input. The acknowledgement proves this worker consumed that input at
++    /// the current instant; it does not assert that the grant was accepted.
++    pub fn grant_sent(&self, attempt_id: &str) -> Result<()> {
++        self.grant_sent_before(attempt_id, Instant::now() + CONTROL_BOUND)
++    }
++
++    pub fn grant_sent_before(&self, attempt_id: &str, deadline: Instant) -> Result<()> {
++        self.pump_before(deadline)?;
++        let mut state = self.shared.lock()?;
++        let at_us = state.at_us;
++        let player = state
++            .players
++            .get_mut(attempt_id)
++            .ok_or_else(|| invalid("prepared fixture grant names an unknown attempt"))?;
++        if player.grant_acknowledged || player.grant_consumed_at != Some(at_us) {
++            return Err(invalid(
++                "prepared fixture did not consume the original grant at this instant",
++            ));
++        }
++        player.grant_acknowledged = true;
++        Ok(())
++    }
++
++    pub fn successful_sends(&self) -> u64 {
++        self.shared
++            .state
++            .lock()
++            .unwrap_or_else(|error| error.into_inner())
++            .successful_sends
++    }
++
++    /// A report boundary alone never proves that the owned OS thread exited.
++    pub fn report_ready(&self, attempt_id: &str) -> bool {
++        self.shared
++            .state
++            .lock()
++            .unwrap_or_else(|error| error.into_inner())
++            .players
++            .get(attempt_id)
++            .is_some_and(|player| player.phase == Phase::ReportReady)
++    }
++
++    /// Registration precedes spawning, so an unstarted worker cannot be
++    /// omitted from this report barrier. Actual thread joins remain separate.
++    pub fn all_reports_ready(&self) -> bool {
++        self.shared
++            .state
++            .lock()
++            .unwrap_or_else(|error| error.into_inner())
++            .players
++            .values()
++            .all(|player| player.phase == Phase::ReportReady)
++    }
++
++    pub fn close(&self) {
++        self.shared.close();
++    }
++}
++
++fn check_open(state: &State) -> Result<()> {
++    if let Some(error) = &state.error {
++        return Err(invalid(error));
++    }
++    if state.closed {
++        return Err(invalid("prepared fixture control is closed"));
++    }
++    Ok(())
++}
++
++struct ControlledPlayer {
++    player: FakePreparedRoomPlayer,
++    shared: Weak<Shared>,
++}
++
++impl Player for ControlledPlayer {
++    fn start(
++        &mut self,
++        wav: &Path,
++        timing: &SceneTiming,
++        directory: &Path,
++        cancel: &Path,
++    ) -> Result<JoinHandle<Value>> {
++        self.player.start(wav, timing, directory, cancel)
++    }
++
++    fn describe(&self) -> Value {
++        self.player.describe()
++    }
++
++    fn prepare(
++        &mut self,
++        wav: &Path,
++        timing: &SceneTiming,
++        _: &Path,
++        cancel: &Path,
++        max_wait_ms: u32,
++    ) -> Result<Option<Preparing>> {
++        let shared = self
++            .shared
++            .upgrade()
++            .ok_or_else(|| invalid("prepared fixture owner no longer exists"))?;
++        {
++            let state = shared.lock()?;
++            check_open(&state)?;
++        }
++        let clock = Arc::clone(&shared.now);
++        self.player.prepare_with_wait(
++            wav,
++            timing,
++            cancel,
++            max_wait_ms,
++            move |phase| {
++                clock().as_micros().checked_mul(1000).ok_or_else(|| {
++                    invalid(&format!("fake prepared {phase} time overflows nanoseconds"))
++                })
++            },
++            move |attempt| {
++                let mut state = shared.lock()?;
++                check_open(&state)?;
++                if state.players.contains_key(attempt) {
++                    return Err(invalid("prepared fixture attempt ID was reused"));
++                }
++                let registered_round = state.round;
++                state.players.insert(
++                    attempt.to_owned(),
++                    Progress {
++                        phase: Phase::Registered,
++                        grant_consumed_at: None,
++                        grant_acknowledged: false,
++                    },
++                );
++                drop(state);
++                Ok(Box::new(WorkerWait {
++                    shared,
++                    attempt: attempt.to_owned(),
++                    registered_round,
++                }))
++            },
++        )
++    }
++}
++
++struct WorkerWait {
++    shared: Arc<Shared>,
++    attempt: String,
++    registered_round: u64,
++}
++
++impl WorkerWait {
++    fn snapshot(&self) -> Result<(u64, u64)> {
++        let state = self.shared.lock()?;
++        check_open(&state)?;
++        Ok((state.round, state.at_us))
++    }
++
++    /// Publish a completed-work boundary for exactly the observed round.
++    /// A newer round cannot be acknowledged using work from an older one.
++    fn park(&mut self, observed_round: u64, deadline: Instant) -> Result<()> {
++        let mut state = self.shared.lock()?;
++        check_open(&state)?;
++        if state.round != observed_round {
++            return Ok(());
++        }
++        state.players.get_mut(&self.attempt).unwrap().phase = Phase::Parked(observed_round);
++        self.shared.changed.notify_all();
++        while state.round == observed_round {
++            check_open(&state)?;
++            let remaining = deadline
++                .checked_duration_since(Instant::now())
++                .filter(|duration| !duration.is_zero())
++                .ok_or_else(|| invalid("prepared fixture wait exceeded its host guard"))?;
++            let (next, _) = self
++                .shared
++                .changed
++                .wait_timeout(state, remaining)
++                .map_err(|_| invalid("prepared fixture state was poisoned while parked"))?;
++            state = next;
++        }
++        check_open(&state)?;
++        state.players.get_mut(&self.attempt).unwrap().phase = Phase::Running;
++        Ok(())
++    }
++
++    fn delay(&mut self, delay_ms: u32) -> Result<()> {
++        let (_, now) = self.snapshot()?;
++        let until = now
++            .checked_add(u64::from(delay_ms) * 1000)
++            .ok_or_else(|| invalid("prepared fixture delay overflow"))?;
++        let deadline = Instant::now() + CONTROL_BOUND;
++        loop {
++            let (round, now) = self.snapshot()?;
++            if now >= until {
++                return Ok(());
++            }
++            self.park(round, deadline)?;
++        }
++    }
++}
++
++impl PreparedWait for WorkerWait {
++    fn begin(&mut self) -> Result<()> {
++        // A spawned thread cannot begin at an arbitrary host scheduling time.
++        // Its first work runs only in an explicitly issued parent round.
++        self.park(self.registered_round, Instant::now() + CONTROL_BOUND)?;
++        let mut state = self.shared.lock()?;
++        check_open(&state)?;
++        state.players.get_mut(&self.attempt).unwrap().phase = Phase::Running;
++        Ok(())
++    }
++
++    fn slow_prepare(&mut self, room: &Path, _: &Path, delay_ms: u32) -> Result<()> {
++        let deadline = Instant::now() + ROOM_BOUND;
++        loop {
++            let (round, _) = self.snapshot()?;
++            if room.exists() {
++                break;
++            }
++            self.park(round, deadline)?;
++        }
++        self.delay(delay_ms)
++    }
++
++    fn receive_grant(
++        &mut self,
++        inputs: &Receiver<GrantInput>,
++        _: &Path,
++        max_wait_ms: u32,
++    ) -> Result<std::result::Result<GrantInput, RecvTimeoutError>> {
++        let (_, at_us) = self.snapshot()?;
++        let until = at_us
++            .checked_add(u64::from(max_wait_ms) * 1000)
++            .ok_or_else(|| invalid("prepared fixture grant timeout overflow"))?;
++        let deadline = Instant::now() + CONTROL_BOUND;
++        loop {
++            let (round, at_us) = self.snapshot()?;
++            // A real queued input wins over the timeout at the same instant,
++            // as recv_timeout does when an input is already available.
++            match inputs.try_recv() {
++                Ok(input) => {
++                    self.shared
++                        .lock()?
++                        .players
++                        .get_mut(&self.attempt)
++                        .unwrap()
++                        .grant_consumed_at = Some(at_us);
++                    return Ok(Ok(input));
++                }
++                Err(TryRecvError::Disconnected) => return Ok(Err(RecvTimeoutError::Disconnected)),
++                Err(TryRecvError::Empty) if at_us >= until => {
++                    return Ok(Err(RecvTimeoutError::Timeout));
++                }
++                Err(TryRecvError::Empty) => self.park(round, deadline)?,
++            }
++        }
++    }
++
++    fn delay_copy(&mut self, _: &Path, delay_ms: u32) -> Result<()> {
++        // Preserve the shared body's expiry-then-cancel ordering. Cleanup
++        // closes the controller to wake a parked delay; a cancel file does
++        // not manufacture an earlier first-copy sample.
++        self.delay(delay_ms)
++    }
++
++    fn delivered(&mut self) -> Result<()> {
++        let mut state = self.shared.lock()?;
++        // The actual send already succeeded, so retain it even if cleanup
++        // closed control immediately afterwards.
++        state.successful_sends = state
++            .successful_sends
++            .checked_add(1)
++            .ok_or_else(|| invalid("prepared fixture successful-send counter overflow"))?;
++        Ok(())
++    }
++}
++
++impl Drop for WorkerWait {
++    fn drop(&mut self) {
++        let mut state = self
++            .shared
++            .state
++            .lock()
++            .unwrap_or_else(|error| error.into_inner());
++        if std::thread::panicking() {
++            state.error = Some(format!("prepared fixture worker {} panicked", self.attempt));
++        }
++        state.players.get_mut(&self.attempt).unwrap().phase = Phase::ReportReady;
++        self.shared.changed.notify_all();
++    }
++}
+--- a/lampOS/crates/voice-eval/src/physical/mac.rs
++++ b/lampOS/crates/voice-eval/src/physical/mac.rs
+@@ -143,6 +143,69 @@
+     }
+ }
+ 
++/// Explicit fixtures replace readiness polling with completed participant
++/// work while retaining the same real ten-second preparation watchdog.
++fn await_ready_fixture(
++    preparing: Preparing,
++    mut idle: impl FnMut(Instant) -> Result<()>,
++) -> Result<PreparedStart> {
++    let Preparing {
++        ready,
++        grant,
++        handle,
++    } = preparing;
++    let deadline = Instant::now() + PREPARE_READY_BOUND;
++    let failure = loop {
++        match ready.try_recv() {
++            Ok(ready) => {
++                return Ok(PreparedStart {
++                    ready,
++                    grant,
++                    handle,
++                });
++            }
++            Err(TryRecvError::Disconnected) => break "ready channel closed".to_owned(),
++            Err(TryRecvError::Empty) if Instant::now() >= deadline => {
++                break "no ready receipt within 10 s".to_owned();
++            }
++            Err(TryRecvError::Empty) => {
++                if let Err(error) = idle(deadline) {
++                    break error.to_string();
++                }
++            }
++        }
++    };
++    let _ = grant.try_send(GrantInput::Closed);
++    drop(grant);
++    // A report-ready acknowledgement is not the JoinHandle's completion.
++    let report = if wait_fixture_thread(&handle, deadline).is_ok() {
++        handle
++            .join()
++            .unwrap_or_else(|_| json!({"status":"panicked"}))
++    } else {
++        json!({"status":"no ready receipt within 10 s; detached"})
++    };
++    Err(invalid(&format!(
++        "prepared player not ready: {} {} ({failure})",
++        report["status"], report["error"]
++    )))
++}
++
++fn wait_fixture_thread(handle: &JoinHandle<Value>, deadline: Instant) -> Result<()> {
++    while !handle.is_finished() {
++        let remaining = deadline
++            .checked_duration_since(Instant::now())
++            .filter(|remaining| !remaining.is_zero())
++            .ok_or_else(|| {
++                invalid(
++                    "fixture player report did not finish its owned thread within the host bound",
++                )
++            })?;
++        thread::sleep(remaining.min(Duration::from_millis(1)));
++    }
++    Ok(())
++}
++
+ /// Cached-WAV playback through `lamp-observer` on the explicit iMac speakers.
+ pub struct ObserverPlayer {
+     pub output_device: String,
+@@ -352,6 +415,53 @@
+     pub prepared: usize,
+ }
+ 
++/// Wait operations for the one shared prepared-fake body. The ordinary
++/// implementation keeps its original host waits; a controlled fixture may
++/// park only at these completed-work boundaries.
++pub(super) trait PreparedWait: Send {
++    fn begin(&mut self) -> Result<()> {
++        Ok(())
++    }
++    fn slow_prepare(&mut self, room: &Path, cancel: &Path, delay_ms: u32) -> Result<()>;
++    fn receive_grant(
++        &mut self,
++        inputs: &Receiver<GrantInput>,
++        cancel: &Path,
++        max_wait_ms: u32,
++    ) -> Result<std::result::Result<GrantInput, RecvTimeoutError>>;
++    fn delay_copy(&mut self, cancel: &Path, delay_ms: u32) -> Result<()>;
++    fn delivered(&mut self) -> Result<()> {
++        Ok(())
++    }
++}
++
++struct HostPreparedWait;
++
++impl PreparedWait for HostPreparedWait {
++    fn slow_prepare(&mut self, room: &Path, _: &Path, delay_ms: u32) -> Result<()> {
++        let until = monotonic_us() + 15_000_000;
++        while !room.exists() && monotonic_us() < until {
++            thread::sleep(Duration::from_millis(2));
++        }
++        thread::sleep(Duration::from_millis(u64::from(delay_ms)));
++        Ok(())
++    }
++
++    fn receive_grant(
++        &mut self,
++        inputs: &Receiver<GrantInput>,
++        _: &Path,
++        max_wait_ms: u32,
++    ) -> Result<std::result::Result<GrantInput, RecvTimeoutError>> {
++        Ok(inputs.recv_timeout(Duration::from_millis(u64::from(max_wait_ms))))
++    }
++
++    fn delay_copy(&mut self, _: &Path, delay_ms: u32) -> Result<()> {
++        thread::sleep(Duration::from_millis(u64::from(delay_ms)));
++        Ok(())
++    }
++}
++
+ impl FakePreparedRoomPlayer {
+     /// Use one explicit clock for preparation, grant receipt and first copy.
+     /// Reads must be pure; clones must read the same clock domain. The worker
+@@ -370,6 +480,20 @@
+         cancel_file: &Path,
+         max_wait_ms: u32,
+         now_ns: impl Fn(&'static str) -> Result<u64> + Send + Sync + 'static,
++    ) -> Result<Option<Preparing>> {
++        self.prepare_with_wait(wav, timing, cancel_file, max_wait_ms, now_ns, |_| {
++            Ok(Box::new(HostPreparedWait))
++        })
++    }
++
++    pub(super) fn prepare_with_wait(
++        &mut self,
++        wav: &Path,
++        timing: &SceneTiming,
++        cancel_file: &Path,
++        max_wait_ms: u32,
++        now_ns: impl Fn(&'static str) -> Result<u64> + Send + Sync + 'static,
++        wait: impl FnOnce(&str) -> Result<Box<dyn PreparedWait>>,
+     ) -> Result<Option<Preparing>> {
+         self.prepared += 1;
+         let number = self.prepared;
+@@ -386,15 +510,22 @@
+         let room = self.room.clone();
+         let cancel_file = cancel_file.to_path_buf();
+         let attempt_id = format!("fake-{number}-{}", now_ns("attempt ID")?);
++        let mut wait = wait(&attempt_id)?;
+         let (grant, inputs) = mpsc::sync_channel::<GrantInput>(9);
+         let (published, ready) = mpsc::sync_channel(1);
+         let handle = thread::spawn(move || {
+-            if let Some(FakePlayerFault::SlowPrepare { delay_ms }) = fault {
+-                let until = monotonic_us() + 15_000_000;
+-                while !room.exists() && monotonic_us() < until {
+-                    thread::sleep(Duration::from_millis(2));
++            let preparing = wait.begin().and_then(|()| {
++                if let Some(FakePlayerFault::SlowPrepare { delay_ms }) = fault {
++                    wait.slow_prepare(&room, &cancel_file, delay_ms)
++                } else {
++                    Ok(())
+                 }
+-                thread::sleep(Duration::from_millis(u64::from(delay_ms)));
++            });
++            if let Err(error) = preparing {
++                return json!({"attempt_id": attempt_id, "valid": false,
++                    "scope": "fake prepared start; no audio",
++                    "counters": {"source_started_host_ns": 0},
++                    "status": "failed", "error": error.to_string()});
+             }
+             let ready_ns = match now_ns("readiness") {
+                 Ok(now) => now,
+@@ -420,7 +551,14 @@
+                 report["status"] = json!("ready_not_published");
+                 return report;
+             }
+-            let input = inputs.recv_timeout(Duration::from_millis(u64::from(max_wait_ms)));
++            let input = match wait.receive_grant(&inputs, &cancel_file, max_wait_ms) {
++                Ok(input) => input,
++                Err(error) => {
++                    report["status"] = json!("failed");
++                    report["error"] = json!(error.to_string());
++                    return report;
++                }
++            };
+             let received = match now_ns("grant receipt") {
+                 Ok(now) => now,
+                 Err(error) => {
+@@ -461,8 +599,12 @@
+             };
+             report["prepared_start"]["grant"] = json!({"decision": "start",
+                 "expires_monotonic_ns": expires, "received_monotonic_ns": received});
+-            if let Some(FakePlayerFault::LateFirstCopy { delay_ms }) = fault {
+-                thread::sleep(Duration::from_millis(u64::from(delay_ms)));
++            if let Some(FakePlayerFault::LateFirstCopy { delay_ms }) = fault
++                && let Err(error) = wait.delay_copy(&cancel_file, delay_ms)
++            {
++                report["status"] = json!("failed");
++                report["error"] = json!(error.to_string());
++                return report;
+             }
+             // The fresh sample at the first copy decides; equality refuses.
+             let copy_ns = match now_ns("first copy") {
+@@ -486,6 +628,11 @@
+             report["counters"]["source_started_host_ns"] = json!(copy_ns);
+             match sent {
+                 Ok(_) => {
++                    if let Err(error) = wait.delivered() {
++                        report["status"] = json!("failed");
++                        report["error"] = json!(error.to_string());
++                        return report;
++                    }
+                     report["valid"] = json!(true);
+                     report["status"] = json!("fake_room_delivery");
+                 }
+@@ -856,6 +1003,47 @@
+ /// Closing/dropping a driver must release its owned control peers so normal
+ /// backend cleanup can stop and reap a participant blocked on a fixture step.
+ pub trait FixtureDriver {
++    /// Only an explicit driver with prepared-player and signal coordination
++    /// can opt into serve. The finite driver keeps rejecting it.
++    fn supports_serve(&self) -> bool {
++        false
++    }
++
++    /// Called after a real Start or Closed input was successfully sent. It
++    /// acknowledges channel consumption, not acceptance or audible output.
++    fn grant_sent(&mut self, _attempt_id: &str) -> Result<()> {
++        Ok(())
++    }
++
++    /// A completed report is not an exited thread. The backend separately
++    /// waits for the actual JoinHandle before advancing or inspecting it.
++    fn player_report_ready(&self, _attempt_id: &str) -> bool {
++        false
++    }
++
++    /// After terminal relay output, finish only outstanding fixture-player
++    /// work within the original join budget. Report markers still require
++    /// the real owned-thread joins below. Errors must close the participants.
++    fn finish_players(&mut self, _host_deadline: Instant) -> Result<()> {
++        Ok(())
++    }
++
++    /// Preparation keeps its original ten-second host watchdog even when
++    /// the driver's ordinary control watchdog is longer. Serve-capable
++    /// drivers must propagate this deadline into every participant wait.
++    fn prepare_wait(
++        &mut self,
++        _until: MonoTime,
++        _sent_frames: u64,
++        _enqueued_frames: &AtomicU64,
++        _queue_drained: bool,
++        _host_deadline: Instant,
++    ) -> Result<()> {
++        Err(invalid(
++            "fixture driver does not coordinate prepared readiness",
++        ))
++    }
++
+     fn wait(
+         &mut self,
+         until: MonoTime,
+@@ -899,6 +1087,8 @@
+     evidence_lost: bool,
+     /// Room coverage for this attempt.
+     room_cover: RoomCover,
++    /// Fixture-only mapping; the original Playback representation stays intact.
++    fixture_player_attempts: BTreeMap<String, String>,
+ }
+ 
+ /// How long the room recording covers the session. A prompt is granted only
+@@ -1166,14 +1356,18 @@
+             trigger: None,
+             evidence_lost: false,
+             room_cover: RoomCover::default(),
+-        }
+-    }
+-
+-    /// Install a driver for one explicitly controlled finite local attempt.
+-    /// Serve/prepared players and room recorders need additional participants
+-    /// and cannot use this first finite-fixture scheduler.
++            fixture_player_attempts: BTreeMap::new(),
++        }
++    }
++
++    /// Install a driver for one explicitly controlled local attempt.
++    /// Serve requires its driver's prepared-player/signal capability. Room
++    /// recorders still require their own coordination and remain rejected.
+     pub fn with_fixture_driver(mut self, driver: impl FixtureDriver + 'a) -> Result<Self> {
+-        if self.serve() || self.config.room_recorder.is_some() || self.session.is_some() {
++        if (self.serve() && !driver.supports_serve())
++            || self.config.room_recorder.is_some()
++            || self.session.is_some()
++        {
+             return Err(invalid(
+                 "fixture stepping requires a fresh finite backend without a recorder",
+             ));
+@@ -1199,6 +1393,61 @@
+                 queue_drained,
+             )?;
+         }
++        self.settle_fixture_reports(Instant::now() + Duration::from_secs(25))?;
++        Ok(())
++    }
++
++    fn pump_preparation_fixture(&mut self, until_us: u64, host_deadline: Instant) -> Result<()> {
++        if let Some(fixture) = &mut self.fixture {
++            fixture.driver.prepare_wait(
++                MonoTime::from_micros(until_us),
++                fixture.sent,
++                &fixture.enqueued,
++                true,
++                host_deadline,
++            )?;
++        }
++        self.settle_fixture_reports(host_deadline)?;
++        Ok(())
++    }
++
++    fn settle_fixture_reports(&self, deadline: Instant) -> Result<()> {
++        let Some(fixture) = &self.fixture else {
++            return Ok(());
++        };
++        for playback in &self.playbacks {
++            if let Some(attempt) = self.fixture_player_attempts.get(&playback.step)
++                && fixture.driver.player_report_ready(attempt)
++                && let Some(handle) = &playback.handle
++            {
++                wait_fixture_thread(handle, deadline)?;
++            }
++        }
++        for (_, ready, handle) in &self.unused {
++            if ready["attempt_id"]
++                .as_str()
++                .is_some_and(|attempt| fixture.driver.player_report_ready(attempt))
++            {
++                wait_fixture_thread(handle, deadline)?;
++            }
++        }
++        Ok(())
++    }
++
++    fn fixture_player_error(&mut self, error: String) {
++        self.unavailable
++            .get_or_insert_with(|| Withheld::ProtocolFailed(error.clone()));
++        let event = self.lose_evidence("fixture_player".into(), error);
++        self.pending.push_back(event);
++    }
++
++    fn notify_prepared_input(&mut self, ready: &Value) -> Result<()> {
++        if let Some(fixture) = &mut self.fixture {
++            let attempt = ready["attempt_id"]
++                .as_str()
++                .ok_or_else(|| invalid("fixture prepared receipt has no attempt ID"))?;
++            fixture.driver.grant_sent(attempt)?;
++        }
+         Ok(())
+     }
+ 
+@@ -1209,7 +1458,11 @@
+     /// Stop an armed player that will never be granted; its report is kept.
+     fn release_armed(&mut self) {
+         if let Some(armed) = self.armed.take() {
+-            let _ = armed.prepared.grant.try_send(GrantInput::Closed);
++            if armed.prepared.grant.try_send(GrantInput::Closed).is_ok()
++                && let Err(error) = self.notify_prepared_input(&armed.prepared.ready)
++            {
++                self.fixture_player_error(error.to_string());
++            }
+             self.unused
+                 .push((armed.step, armed.prepared.ready, armed.prepared.handle));
+         }
+@@ -1231,6 +1484,12 @@
+         stdin.write_all(b"\n")?;
+         stdin.flush()?;
+         session.stop_sent = true;
++        if let Some(fixture) = &mut self.fixture {
++            fixture.sent = fixture
++                .sent
++                .checked_add(1)
++                .ok_or_else(|| invalid("fixture runner input count overflow"))?;
++        }
+         Ok(())
+     }
+ 
+@@ -1490,6 +1749,28 @@
+             )));
+         }
+         let sent_us = grant_clock_us(&self.now);
++        if self.fixture.is_some() {
++            if let Some(attempt) = armed.prepared.ready["attempt_id"].as_str() {
++                self.fixture_player_attempts
++                    .insert(step.id.clone(), attempt.to_owned());
++            }
++            if let Err(error) = self.notify_prepared_input(&armed.prepared.ready) {
++                // The original grant was already sent. Retain its delivery
++                // evidence and invalidate the fixture, never claim no dispatch.
++                self.fixture_player_error(error.to_string());
++            }
++            if let Some(fixture) = &self.fixture
++                && armed.prepared.ready["attempt_id"]
++                    .as_str()
++                    .is_some_and(|attempt| fixture.driver.player_report_ready(attempt))
++                && let Err(error) = wait_fixture_thread(
++                    &armed.prepared.handle,
++                    Instant::now() + Duration::from_secs(25),
++                )
++            {
++                self.fixture_player_error(error.to_string());
++            }
++        }
+         let receipt = json!({"ready": armed.prepared.ready,
+             "armed_runner_us": armed.armed_us, "grant_sent_runner_us": sent_us,
+             "expires_monotonic_ns": expires_ns,
+@@ -2338,6 +2619,19 @@
+             &cancel_file,
+             max_wait_ms,
+         ) {
++            Ok(Some(preparing)) if self.fixture.is_some() => {
++                await_ready_fixture(preparing, |deadline| {
++                    self.consume_transport();
++                    let until = (self.now)()
++                        .as_micros()
++                        .checked_add(2_000)
++                        .ok_or_else(|| invalid("fixture preparation clock overflow"))?;
++                    self.pump_preparation_fixture(until, deadline)?;
++                    self.consume_transport();
++                    Ok(())
++                })
++                .map(Some)
++            }
+             Ok(Some(preparing)) => await_ready(preparing, || self.consume_transport()).map(Some),
+             other => other.map(|_| None),
+         };
+@@ -2357,7 +2651,11 @@
+                     "prepared source {} is not the cached asset {}",
+                     prepared.ready["source_sha256"], asset.wav_sha256
+                 );
+-                let _ = prepared.grant.try_send(GrantInput::Closed);
++                if prepared.grant.try_send(GrantInput::Closed).is_ok()
++                    && let Err(error) = self.notify_prepared_input(&prepared.ready)
++                {
++                    self.fixture_player_error(error.to_string());
++                }
+                 self.unused
+                     .push((step.id.clone(), prepared.ready, prepared.handle));
+                 reason
+@@ -2563,6 +2861,8 @@
+         }
+         let Some(mut session) = self.session.take() else {
+             // Session start failed: release the recorder and players, keep nothing.
++            // Closing explicit control wakes parked workers before host joins.
++            drop(self.fixture.take());
+             if let Some((mut child, _, _)) = self.room.take() {
+                 let _ = child.kill();
+                 let _ = child.wait();
+@@ -2652,6 +2952,20 @@
+             (reason, transport) => reason.or(transport),
+         };
+         let playback_bound = monotonic_us() + 25_000_000;
++        let player_finish_failure = if let Some(fixture) = &mut self.fixture {
++            let remaining = playback_bound.saturating_sub(monotonic_us());
++            fixture
++                .driver
++                .finish_players(Instant::now() + Duration::from_micros(remaining))
++                .err()
++                .map(|error| format!("fixture players did not finish: {error}"))
++        } else {
++            None
++        };
++        let aborted = match (aborted, player_finish_failure) {
++            (Some(reason), Some(players)) => Some(format!("{reason}; {players}")),
++            (reason, players) => reason.or(players),
++        };
+         let mut playbacks = Vec::new();
+         let mut corrected = Vec::new();
+         let mut failed = Vec::new();
+@@ -4083,3 +4397,7 @@
+ #[cfg(test)]
+ #[path = "prepared_player_clock_tests.rs"]
+ mod prepared_player_clock_tests;
++
++#[cfg(test)]
++#[path = "prepared_player_progress_tests.rs"]
++mod prepared_player_progress_tests;
+--- a/lampOS/crates/voice-eval/src/physical/mod.rs
++++ b/lampOS/crates/voice-eval/src/physical/mod.rs
+@@ -12,7 +12,9 @@
+ pub mod fixture_commands;
+ pub mod fixture_control;
+ pub mod fixture_driver;
++pub mod fixture_players;
+ pub mod framing;
+ pub mod mac;
+ pub mod protocol;
++pub mod serve_fixture_driver;
+ pub mod session;
+--- a/lampOS/crates/voice-eval/src/physical/prepared_player_progress_tests.rs
++++ b/lampOS/crates/voice-eval/src/physical/prepared_player_progress_tests.rs
+@@ -0,0 +1,479 @@
++//! Real channel/datagram boundaries for explicitly coordinated prepared fakes.
++use super::*;
++use crate::physical::fixture_players::PreparedFixtureController;
++use std::{os::unix::fs::DirBuilderExt, sync::atomic::AtomicUsize};
++
++static NEXT: AtomicUsize = AtomicUsize::new(0);
++const START_US: u64 = 1_000_000;
++const GRANT_WAIT_MS: u32 = 10_000;
++
++struct Fixture {
++    root: PathBuf,
++    source: PathBuf,
++    cancel: PathBuf,
++    timing: SceneTiming,
++    room: Option<UnixDatagram>,
++}
++
++impl Fixture {
++    fn new(room_ready: bool) -> Self {
++        let root = PathBuf::from(format!(
++            "/tmp/lve-prepared-progress-{}-{}",
++            std::process::id(),
++            NEXT.fetch_add(1, Ordering::Relaxed)
++        ));
++        fs::DirBuilder::new().mode(0o700).create(&root).unwrap();
++        let source = root.join("source.wav");
++        fs::write(&source, b"owned prepared fixture; no audio is decoded").unwrap();
++        let mut fixture = Self {
++            source,
++            cancel: root.join("cancel"),
++            timing: StimulusCatalog::load()
++                .unwrap()
++                .estimate("fast-followup")
++                .unwrap(),
++            room: None,
++            root,
++        };
++        if room_ready {
++            fixture.bind_room();
++        }
++        fixture
++    }
++
++    fn bind_room(&mut self) {
++        let room = UnixDatagram::bind(self.root.join("room")).unwrap();
++        room.set_nonblocking(true).unwrap();
++        self.room = Some(room);
++    }
++
++    fn controller(&self) -> (PreparedFixtureController, Arc<AtomicU64>) {
++        let at = Arc::new(AtomicU64::new(START_US));
++        let now = Arc::clone(&at);
++        (
++            PreparedFixtureController::new(move || {
++                MonoTime::from_micros(now.load(Ordering::SeqCst))
++            }),
++            at,
++        )
++    }
++
++    fn prepare(&self, player: &mut impl Player, max_wait_ms: u32) -> Preparing {
++        player
++            .prepare(
++                &self.source,
++                &self.timing,
++                &self.root,
++                &self.cancel,
++                max_wait_ms,
++            )
++            .unwrap()
++            .unwrap()
++    }
++
++    fn ready(
++        &self,
++        controller: &PreparedFixtureController,
++        player: &mut impl Player,
++    ) -> PreparedStart {
++        let preparing = self.prepare(player, GRANT_WAIT_MS);
++        assert!(matches!(
++            preparing.ready.try_recv(),
++            Err(TryRecvError::Empty)
++        ));
++        controller.pump().unwrap();
++        into_ready(preparing)
++    }
++
++    fn assert_delivery(&self) {
++        let mut bytes = [0; ROOM_MAX_BYTES];
++        let length = self.room.as_ref().unwrap().recv(&mut bytes).unwrap();
++        assert_eq!(
++            &bytes[..length],
++            serde_json::to_vec(&self.timing).unwrap().as_slice()
++        );
++    }
++
++    fn assert_no_delivery(&self) {
++        assert_eq!(
++            self.room
++                .as_ref()
++                .unwrap()
++                .recv(&mut [0; ROOM_MAX_BYTES])
++                .unwrap_err()
++                .kind(),
++            std::io::ErrorKind::WouldBlock
++        );
++    }
++}
++
++impl Drop for Fixture {
++    fn drop(&mut self) {
++        let _ = fs::remove_dir_all(&self.root);
++    }
++}
++
++fn into_ready(preparing: Preparing) -> PreparedStart {
++    PreparedStart {
++        ready: preparing.ready.try_recv().unwrap(),
++        grant: preparing.grant,
++        handle: preparing.handle,
++    }
++}
++
++fn original_grant(ready: &Value, at_us: u64) -> GrantInput {
++    GrantInput::Line(
++        json!({"schema":1,"kind":"start","attempt_id":ready["attempt_id"],
++        "expires_monotonic_ns":at_us * 1000 + 100_000_000})
++        .to_string(),
++    )
++}
++
++fn join_actual(handle: JoinHandle<Value>) -> Value {
++    wait_fixture_thread(&handle, Instant::now() + PREPARE_READY_BOUND).unwrap();
++    handle.join().unwrap()
++}
++
++#[test]
++fn real_ready_grant_consumption_and_room_delivery_finish_at_one_parent_instant() {
++    let fixture = Fixture::new(true);
++    let (controller, at) = fixture.controller();
++    let mut player = controller.player(fixture.root.join("room"), Vec::new());
++    let prepared = fixture.ready(&controller, &mut player);
++    let attempt = prepared.ready["attempt_id"].as_str().unwrap();
++    assert_eq!(prepared.ready["ready_monotonic_ns"], START_US * 1000);
++    assert_eq!(
++        prepared.ready["source_sha256"],
++        lamp_sound_fixtures::hash(&fs::read(&fixture.source).unwrap())
++    );
++    assert_eq!(prepared.ready["max_wait_ms"], GRANT_WAIT_MS);
++    assert_eq!(controller.successful_sends(), 0);
++    assert!(!controller.report_ready(attempt));
++    // A notification cannot substitute for consuming a real input.
++    assert!(controller.grant_sent(attempt).is_err());
++    prepared
++        .grant
++        .send(original_grant(&prepared.ready, START_US))
++        .unwrap();
++    assert_eq!(controller.successful_sends(), 0);
++    fixture.assert_no_delivery();
++    controller.grant_sent(attempt).unwrap();
++    assert!(controller.report_ready(attempt));
++    assert!(controller.grant_sent(attempt).is_err());
++    let report = join_actual(prepared.handle);
++    assert_eq!(report["valid"], true);
++    assert_eq!(report["status"], "fake_room_delivery");
++    assert_eq!(
++        report["prepared_start"]["grant"]["received_monotonic_ns"],
++        START_US * 1000
++    );
++    assert_eq!(
++        report["counters"]["source_started_host_ns"],
++        START_US * 1000
++    );
++    assert_eq!(controller.successful_sends(), 1);
++    assert_eq!(at.load(Ordering::SeqCst), START_US);
++    fixture.assert_delivery();
++    fixture.assert_no_delivery();
++}
++
++#[test]
++fn slow_prepare_starts_its_full_delay_only_when_the_room_really_exists() {
++    let mut fixture = Fixture::new(false);
++    let (controller, at) = fixture.controller();
++    let mut player = controller.player(
++        fixture.root.join("room"),
++        vec![(1, FakePlayerFault::SlowPrepare { delay_ms: 2300 })],
++    );
++    let preparing = fixture.prepare(&mut player, GRANT_WAIT_MS);
++    controller.pump().unwrap();
++    assert!(matches!(
++        preparing.ready.try_recv(),
++        Err(TryRecvError::Empty)
++    ));
++    at.store(START_US + 3_000_000, Ordering::SeqCst);
++    controller.pump().unwrap();
++    assert!(matches!(
++        preparing.ready.try_recv(),
++        Err(TryRecvError::Empty)
++    ));
++    fixture.bind_room();
++    controller.pump().unwrap();
++    at.store(START_US + 5_299_999, Ordering::SeqCst);
++    controller.pump().unwrap();
++    assert!(matches!(
++        preparing.ready.try_recv(),
++        Err(TryRecvError::Empty)
++    ));
++    at.store(START_US + 5_300_000, Ordering::SeqCst);
++    controller.pump().unwrap();
++    let prepared = into_ready(preparing);
++    assert_eq!(
++        prepared.ready["ready_monotonic_ns"],
++        (START_US + 5_300_000) * 1000
++    );
++    prepared.grant.send(GrantInput::Closed).unwrap();
++    controller
++        .grant_sent(prepared.ready["attempt_id"].as_str().unwrap())
++        .unwrap();
++    assert_eq!(
++        join_actual(prepared.handle)["status"],
++        "stopped_before_grant"
++    );
++    assert_eq!(controller.successful_sends(), 0);
++    fixture.assert_no_delivery();
++}
++
++#[test]
++fn late_copy_keeps_the_original_delay_expiry_and_cancel_check_order() {
++    let fixture = Fixture::new(true);
++    let (controller, at) = fixture.controller();
++    let mut player = controller.player(
++        fixture.root.join("room"),
++        vec![(1, FakePlayerFault::LateFirstCopy { delay_ms: 150 })],
++    );
++    let prepared = fixture.ready(&controller, &mut player);
++    let attempt = prepared.ready["attempt_id"].as_str().unwrap();
++    prepared
++        .grant
++        .send(original_grant(&prepared.ready, START_US))
++        .unwrap();
++    controller.grant_sent(attempt).unwrap();
++    assert!(!controller.report_ready(attempt));
++    fs::write(&fixture.cancel, b"cancel\n").unwrap();
++    at.store(START_US + 149_999, Ordering::SeqCst);
++    controller.pump().unwrap();
++    assert!(!controller.report_ready(attempt));
++    fixture.assert_no_delivery();
++    at.store(START_US + 150_000, Ordering::SeqCst);
++    controller.pump().unwrap();
++    assert!(controller.report_ready(attempt));
++    let report = join_actual(prepared.handle);
++    assert_eq!(report["status"], "start_expired");
++    assert_eq!(
++        report["first_copy_attempt_host_ns"],
++        (START_US + 150_000) * 1000
++    );
++    assert_eq!(report["counters"]["source_started_host_ns"], 0);
++    assert_eq!(controller.successful_sends(), 0);
++    fixture.assert_no_delivery();
++}
++
++#[test]
++fn grant_wait_uses_the_original_logical_duration_and_no_synthetic_input() {
++    let fixture = Fixture::new(true);
++    let (controller, at) = fixture.controller();
++    let mut player = controller.player(fixture.root.join("room"), Vec::new());
++    let preparing = fixture.prepare(&mut player, 10);
++    controller.pump().unwrap();
++    let prepared = into_ready(preparing);
++    let attempt = prepared.ready["attempt_id"].as_str().unwrap();
++    at.store(START_US + 9_999, Ordering::SeqCst);
++    controller.pump().unwrap();
++    assert!(!controller.report_ready(attempt));
++    at.store(START_US + 10_000, Ordering::SeqCst);
++    controller.pump().unwrap();
++    assert!(controller.report_ready(attempt));
++    assert!(controller.grant_sent(attempt).is_err());
++    let report = join_actual(prepared.handle);
++    assert_eq!(report["status"], "grant_timeout");
++    assert_eq!(report["counters"]["source_started_host_ns"], 0);
++    assert_eq!(controller.successful_sends(), 0);
++    fixture.assert_no_delivery();
++}
++
++#[test]
++fn closed_malformed_and_cancelled_inputs_preserve_the_original_decisions() {
++    for case in ["closed", "malformed", "cancelled"] {
++        let fixture = Fixture::new(true);
++        let (controller, _) = fixture.controller();
++        let mut player = controller.player(fixture.root.join("room"), Vec::new());
++        let prepared = fixture.ready(&controller, &mut player);
++        let (input, expected) = match case {
++            "closed" => (GrantInput::Closed, "stopped_before_grant"),
++            "malformed" => (GrantInput::Malformed, "grant_refused"),
++            _ => {
++                fs::write(&fixture.cancel, b"cancel\n").unwrap();
++                (
++                    original_grant(&prepared.ready, START_US),
++                    "cancelled_before_first_copy",
++                )
++            }
++        };
++        prepared.grant.send(input).unwrap();
++        controller
++            .grant_sent(prepared.ready["attempt_id"].as_str().unwrap())
++            .unwrap();
++        let report = join_actual(prepared.handle);
++        assert_eq!(report["status"], expected);
++        assert_eq!(report["counters"]["source_started_host_ns"], 0);
++        assert_eq!(controller.successful_sends(), 0);
++        fixture.assert_no_delivery();
++    }
++}
++
++#[test]
++fn actual_failed_room_send_does_not_increment_the_delivery_counter() {
++    let fixture = Fixture::new(true);
++    let (controller, _) = fixture.controller();
++    let mut player = controller.player(fixture.root.join("room"), Vec::new());
++    let prepared = fixture.ready(&controller, &mut player);
++    fs::remove_file(fixture.root.join("room")).unwrap();
++    prepared
++        .grant
++        .send(original_grant(&prepared.ready, START_US))
++        .unwrap();
++    controller
++        .grant_sent(prepared.ready["attempt_id"].as_str().unwrap())
++        .unwrap();
++    let report = join_actual(prepared.handle);
++    assert_eq!(report["valid"], false);
++    assert_eq!(report["status"], "failed");
++    // The existing report samples a first-copy attempt even when send fails.
++    assert_eq!(
++        report["counters"]["source_started_host_ns"],
++        START_US * 1000
++    );
++    assert_eq!(controller.successful_sends(), 0);
++    fixture.assert_no_delivery();
++}
++
++#[test]
++fn prepare_failure_closes_the_real_ready_channel_and_keeps_its_report() {
++    let fixture = Fixture::new(true);
++    let (controller, _) = fixture.controller();
++    let mut player = controller.player(
++        fixture.root.join("room"),
++        vec![(1, FakePlayerFault::PrepareFails)],
++    );
++    let preparing = fixture.prepare(&mut player, GRANT_WAIT_MS);
++    controller.pump().unwrap();
++    let report = join_actual(preparing.handle);
++    assert!(matches!(
++        preparing.ready.try_recv(),
++        Err(TryRecvError::Disconnected)
++    ));
++    assert_eq!(report["status"], "failed");
++    assert_eq!(report["error"], "fake prepare failure");
++    assert_eq!(controller.successful_sends(), 0);
++    fixture.assert_no_delivery();
++}
++
++#[test]
++fn closing_control_wakes_resource_grant_and_delayed_copy_workers() {
++    for case in ["room", "grant", "copy"] {
++        let fixture = Fixture::new(case != "room");
++        let (controller, _) = fixture.controller();
++        let faults = match case {
++            "room" => vec![(1, FakePlayerFault::SlowPrepare { delay_ms: 2300 })],
++            "copy" => vec![(1, FakePlayerFault::LateFirstCopy { delay_ms: 150 })],
++            _ => Vec::new(),
++        };
++        let mut player = controller.player(fixture.root.join("room"), faults);
++        let preparing = fixture.prepare(&mut player, GRANT_WAIT_MS);
++        controller.pump().unwrap();
++        if case == "copy" {
++            let ready = preparing.ready.try_recv().unwrap();
++            preparing
++                .grant
++                .send(original_grant(&ready, START_US))
++                .unwrap();
++            controller
++                .grant_sent(ready["attempt_id"].as_str().unwrap())
++                .unwrap();
++        }
++        controller.close();
++        let report = join_actual(preparing.handle);
++        assert_eq!(report["status"], "failed");
++        assert!(
++            report["error"]
++                .as_str()
++                .unwrap()
++                .contains("control is closed")
++        );
++        assert_eq!(controller.successful_sends(), 0);
++        assert!(controller.pump().is_err());
++    }
++}
++
++#[test]
++fn last_controller_clone_drop_wakes_threads_even_if_the_player_factory_survives() {
++    let fixture = Fixture::new(true);
++    let (controller, _) = fixture.controller();
++    let second = controller.clone();
++    let mut player = controller.player(fixture.root.join("room"), Vec::new());
++    let prepared = fixture.ready(&controller, &mut player);
++    drop(controller);
++    second.settle().unwrap();
++    assert!(!second.report_ready(prepared.ready["attempt_id"].as_str().unwrap()));
++    drop(second);
++    let report = join_actual(prepared.handle);
++    assert_eq!(report["status"], "failed");
++    assert!(
++        report["error"]
++            .as_str()
++            .unwrap()
++            .contains("control is closed")
++    );
++    assert!(
++        player
++            .prepare(
++                &fixture.source,
++                &fixture.timing,
++                &fixture.root,
++                &fixture.cancel,
++                GRANT_WAIT_MS
++            )
++            .is_err()
++    );
++}
++
++#[test]
++fn a_report_boundary_cannot_replace_observing_an_owned_thread_exit() {
++    let (reported, ready) = mpsc::sync_channel(1);
++    let (release, held) = mpsc::sync_channel(1);
++    let handle = thread::spawn(move || {
++        reported.send(()).unwrap();
++        held.recv().unwrap();
++        json!({"status":"finished"})
++    });
++    ready.recv_timeout(PREPARE_READY_BOUND).unwrap();
++    assert!(!handle.is_finished());
++    assert!(wait_fixture_thread(&handle, Instant::now()).is_err());
++    release.send(()).unwrap();
++    assert_eq!(join_actual(handle)["status"], "finished");
++}
++
++#[test]
++fn a_fixture_ready_pump_receives_the_original_host_deadline() {
++    let (published, ready) = mpsc::sync_channel(1);
++    let (grant, inputs) = mpsc::sync_channel(9);
++    let (done, finished) = mpsc::sync_channel(1);
++    let handle = thread::spawn(move || {
++        assert!(matches!(inputs.recv(), Ok(GrantInput::Closed)));
++        done.send(()).unwrap();
++        json!({"status":"stopped_before_grant"})
++    });
++    let started = Instant::now();
++    let result = await_ready_fixture(
++        Preparing {
++            ready,
++            grant,
++            handle,
++        },
++        |deadline| {
++            assert!(deadline >= started + PREPARE_READY_BOUND);
++            assert!(deadline <= Instant::now() + PREPARE_READY_BOUND);
++            Err(invalid("deliberate preparation pump failure"))
++        },
++    );
++    drop(published);
++    assert!(
++        result
++            .err()
++            .unwrap()
++            .to_string()
++            .contains("deliberate preparation pump failure")
++    );
++    finished.recv_timeout(PREPARE_READY_BOUND).unwrap();
++}
+--- a/lampOS/crates/voice-eval/src/physical/serve_fixture_commands_tests.rs
++++ b/lampOS/crates/voice-eval/src/physical/serve_fixture_commands_tests.rs
+@@ -0,0 +1,246 @@
++use super::*;
++use lamp_turn_owner::MonoTime;
++
++fn serve_options() -> SessionOptions {
++    SessionOptions {
++        runtime: std::env::current_exe().unwrap(),
++        runtime_prefix: [
++            "fake-clock-serve-runtime",
++            "--fixture-control",
++            "/private/fixture/serve.sock",
++        ]
++        .map(str::to_owned)
++        .to_vec(),
++        work: "/private/fixture/serve-work".into(),
++        seconds: 240,
++        mode: SessionMode::Serve {
++            provider_config: "/unused/provider.json".into(),
++        },
++        noise_suppression: "on".into(),
++        diagnostics: false,
++        allowance_seconds: 10,
++        ring_channel_ceiling: None,
++        runtime_flags: Default::default(),
++    }
++}
++
++#[test]
++fn serve_relay_accepts_only_its_local_explicit_serve_command() {
++    let mut options = serve_options();
++    validate_serve_relay_options(&options).unwrap();
++    options.mode = SessionMode::Directed {
++        provider_config: "/unused/provider.json".into(),
++    };
++    assert!(
++        validate_serve_relay_options(&options)
++            .unwrap_err()
++            .to_string()
++            .contains("requires serve mode")
++    );
++    options.mode = SessionMode::Fixture {
++        reply: "/unused/reply.wav".into(),
++        sha256: "0".repeat(64),
++    };
++    assert!(validate_serve_relay_options(&options).is_err());
++    options.mode = serve_options().mode;
++    for command in ["fake-clock-lamp-voice", "fake-lamp-voice", "serve"] {
++        options.runtime_prefix[0] = command.into();
++        assert!(
++            validate_serve_relay_options(&options)
++                .unwrap_err()
++                .to_string()
++                .contains("fake-clock-serve-runtime")
++        );
++    }
++    options.runtime_prefix[0] = "fake-clock-serve-runtime".into();
++    options.runtime_prefix[1] = "--other".into();
++    assert!(validate_serve_relay_options(&options).is_err());
++    options.runtime_prefix[1] = "--fixture-control".into();
++    options.runtime_prefix[2] = "relative.sock".into();
++    assert!(validate_serve_relay_options(&options).is_err());
++    options.runtime_prefix[2] = "/private/fixture/serve.sock".into();
++    options.runtime = "/bin/sh".into();
++    assert!(
++        validate_serve_relay_options(&options)
++            .unwrap_err()
++            .to_string()
++            .contains("this evaluator executable")
++    );
++}
++
++#[test]
++fn controlled_runtime_modes_are_rejected_before_clock_reads_or_hooks() {
++    for command in ["directed", "directed-fixture"] {
++        let arguments = [command.to_owned()];
++        let error = fake_lamp::run_serve_with_controlled_clock(
++            &arguments,
++            || panic!("rejected mode read the clock"),
++            || panic!("rejected mode entered a serve poll"),
++            |_| panic!("rejected mode completed a serve poll"),
++        )
++        .unwrap_err();
++        assert!(error.to_string().contains("only serve runs"));
++    }
++    let error = fake_lamp::run_with_clock_and_poll(
++        &["serve".into()],
++        || panic!("finite entrypoint read the serve clock"),
++        |_| panic!("finite entrypoint entered a serve poll"),
++    )
++    .unwrap_err();
++    assert!(error.to_string().contains("only finite directed runs"));
++}
++
++#[test]
++fn all_fake_entrypoints_share_original_option_errors() {
++    for arguments in [
++        vec!["--fake-seed", "invalid", "serve"],
++        vec!["--fake-unknown", "value", "serve"],
++        vec!["--fake-room"],
++    ] {
++        let arguments: Vec<_> = arguments.into_iter().map(str::to_owned).collect();
++        let expected = fake_lamp::run(&arguments).unwrap_err().to_string();
++        let finite = fake_lamp::run_with_clock_and_poll(
++            &arguments,
++            || panic!("invalid arguments read the finite clock"),
++            |_| panic!("invalid arguments entered a finite poll"),
++        )
++        .unwrap_err();
++        let serve = fake_lamp::run_serve_with_controlled_clock(
++            &arguments,
++            || panic!("invalid arguments read the serve clock"),
++            || panic!("invalid arguments entered a serve poll"),
++            |_| panic!("invalid arguments completed a serve poll"),
++        )
++        .unwrap_err();
++        assert_eq!(finite.to_string(), expected);
++        assert_eq!(serve.to_string(), expected);
++    }
++}
++
++struct ArgvWriter {
++    bytes: Vec<u8>,
++    flushes: usize,
++    fail_write: bool,
++    fail_flush: bool,
++}
++
++impl Write for ArgvWriter {
++    fn write(&mut self, bytes: &[u8]) -> io::Result<usize> {
++        if self.fail_write {
++            return Err(io::Error::other("argv write failed"));
++        }
++        let count = bytes.len().min(3);
++        self.bytes.extend_from_slice(&bytes[..count]);
++        Ok(count)
++    }
++
++    fn flush(&mut self) -> io::Result<()> {
++        self.flushes += 1;
++        if self.fail_flush {
++            Err(io::Error::other("argv flush failed"))
++        } else {
++            Ok(())
++        }
++    }
++}
++
++#[test]
++fn argv_receipt_requires_the_original_complete_json_line_to_flush() {
++    let arguments =
++        ["serve", "a path with spaces", "line\nbreak", "--cue-socket"].map(str::to_owned);
++    // Independent attempts exercise failures; no failed write or flush is retried.
++    for (fail_write, fail_flush) in [(true, false), (false, true), (false, false)] {
++        let mut output = CountingWriter::new(ArgvWriter {
++            bytes: Vec::new(),
++            flushes: 0,
++            fail_write,
++            fail_flush,
++        });
++        let receipt = fake_lamp::emit_serve_argv(&mut output, &arguments);
++        if fail_write || fail_flush {
++            assert!(receipt.is_err());
++            assert_eq!(output.flushed_frames.get(), 0);
++        } else {
++            assert_eq!(receipt.unwrap(), 1);
++            assert_eq!(output.flushed_frames.get(), 1);
++        }
++        assert_eq!(output.inner.flushes, usize::from(!fail_write));
++        if fail_write {
++            assert!(output.inner.bytes.is_empty());
++        } else {
++            assert_eq!(output.inner.bytes.last(), Some(&b'\n'));
++            assert_eq!(
++                output
++                    .inner
++                    .bytes
++                    .iter()
++                    .filter(|byte| **byte == b'\n')
++                    .count(),
++                1
++            );
++            let value: serde_json::Value = serde_json::from_slice(&output.inner.bytes).unwrap();
++            assert_eq!(
++                value,
++                serde_json::json!({"kind":"fake_lamp_argv","argv":arguments})
++            );
++        }
++    }
++}
++
++#[test]
++fn serve_runtime_mapping_retains_consumption_injection_cycle_and_signal() {
++    for terminal in [false, true] {
++        let poll = ServePollProgress {
++            poll_seq: 7,
++            at: MonoTime::from_micros(510_000),
++            cycle: 2,
++            cycle_base_us: 500_000,
++            runtime_us: 10_000,
++            stdout_lines: 4,
++            room_consumed: 5,
++            room_injected: 3,
++            observed_signal: signal_hook::consts::SIGTERM as usize,
++            terminal,
++        };
++        assert_eq!(
++            serve_runtime_progress(poll),
++            Progress::ServeRuntime {
++                poll_seq: 7,
++                stdout_frames: 4,
++                room_consumed: 5,
++                room_injected: 3,
++                cycle: 2,
++                cycle_base_us: 500_000,
++                runtime_us: 10_000,
++                observed_signal: signal_hook::consts::SIGTERM as usize,
++                logical_end: terminal,
++            }
++        );
++    }
++}
++
++#[test]
++fn serve_relay_mapping_keeps_signal_receipt_separate_from_inputs_and_end() {
++    for terminal in [false, true] {
++        for stop_signal_sent_us in [None, Some(510_000)] {
++            let poll = RelayPollProgress {
++                poll_seq: 8,
++                stdout_frames: 4,
++                runner_inputs: 3,
++                stop_signal_sent_us,
++                terminal,
++            };
++            assert_eq!(
++                serve_relay_progress(poll, 19),
++                Progress::ServeRelay {
++                    poll_seq: 8,
++                    stdout_frames: 4,
++                    runner_inputs: 3,
++                    output_frames: 19,
++                    stop_signal_sent_us,
++                    logical_end: terminal,
++                }
++            );
++        }
++    }
++}
+--- a/lampOS/crates/voice-eval/src/physical/serve_fixture_control_tests.rs
++++ b/lampOS/crates/voice-eval/src/physical/serve_fixture_control_tests.rs
+@@ -0,0 +1,660 @@
++//! Wire checks use socket pairs and reported observations, never process signals.
++use super::*;
++use std::io::Read;
++use std::thread;
++
++const WATCHDOG: Duration = Duration::from_secs(2);
++const ROLES: [Role; 4] = [
++    Role::Runtime,
++    Role::Relay,
++    Role::ServeRuntime,
++    Role::ServeRelay,
++];
++
++fn step(round: u64, at_us: u64) -> Step {
++    Step {
++        round,
++        at_us,
++        stdout_target: 0,
++        runner_input_target: 0,
++        wait_for_sigterm: false,
++    }
++}
++
++fn runtime(poll_seq: u64) -> Progress {
++    Progress::ServeRuntime {
++        poll_seq,
++        stdout_frames: 3,
++        room_consumed: 4,
++        room_injected: 2,
++        cycle: 1,
++        cycle_base_us: 100,
++        runtime_us: 50,
++        observed_signal: 0,
++        logical_end: false,
++    }
++}
++
++fn relay(poll_seq: u64, stop_signal_sent_us: Option<u64>) -> Progress {
++    Progress::ServeRelay {
++        poll_seq,
++        stdout_frames: 3,
++        runner_inputs: 2,
++        output_frames: 5,
++        stop_signal_sent_us,
++        logical_end: false,
++    }
++}
++
++fn hello(role: Role) -> Frame {
++    Frame::Hello {
++        version: VERSION,
++        role,
++    }
++}
++
++#[test]
++fn finite_frames_keep_their_wire_bytes_and_missing_signal_targets_default_to_false() {
++    let encoded = r#"{"type":"step","role":"runtime","step":{"round":1,"at_us":150,"stdout_target":0,"runner_input_target":0}}"#;
++    assert_eq!(
++        serde_json::to_string(&Frame::Step {
++            role: Role::Runtime,
++            step: step(1, 150),
++        })
++        .unwrap(),
++        encoded
++    );
++    assert!(matches!(
++        serde_json::from_str::<Frame>(encoded).unwrap(),
++        Frame::Step { role: Role::Runtime, step: received } if received == step(1, 150)
++    ));
++    assert_eq!(
++        serde_json::to_string(&hello(Role::Relay)).unwrap(),
++        r#"{"type":"hello","version":1,"role":"relay"}"#
++    );
++    assert_eq!(
++        serde_json::to_string(&Progress::Runtime {
++            poll_seq: 1,
++            stdout_frames: 3,
++            room_inputs: 2,
++            logical_end: false,
++        })
++        .unwrap(),
++        r#"{"role":"runtime","poll_seq":1,"stdout_frames":3,"room_inputs":2,"logical_end":false}"#
++    );
++    assert_eq!(
++        serde_json::to_string(&Progress::Relay {
++            poll_seq: 1,
++            stdout_frames: 3,
++            runner_inputs: 2,
++            output_frames: 5,
++            logical_end: false,
++        })
++        .unwrap(),
++        r#"{"role":"relay","poll_seq":1,"stdout_frames":3,"runner_inputs":2,"output_frames":5,"logical_end":false}"#
++    );
++    let targeted = Step {
++        wait_for_sigterm: true,
++        ..step(1, 150)
++    };
++    let encoded = serde_json::to_value(targeted).unwrap();
++    assert_eq!(encoded["wait_for_sigterm"], true);
++    assert_eq!(serde_json::from_value::<Step>(encoded).unwrap(), targeted);
++}
++
++#[test]
++fn serve_roles_are_distinct_in_hello_and_nested_progress() {
++    let progress = [
++        Progress::Runtime {
++            poll_seq: 1,
++            stdout_frames: 0,
++            room_inputs: 0,
++            logical_end: false,
++        },
++        Progress::Relay {
++            poll_seq: 1,
++            stdout_frames: 0,
++            runner_inputs: 0,
++            output_frames: 0,
++            logical_end: false,
++        },
++        runtime(1),
++        relay(1, None),
++    ];
++    for expected in ROLES {
++        for actual in ROLES {
++            let (parent, raw) = UnixStream::pair().unwrap();
++            Channel::new(raw, WATCHDOG)
++                .unwrap()
++                .write_frame(&hello(actual), deadline(WATCHDOG).unwrap())
++                .unwrap();
++            let result =
++                ParentPeer::from_stream(parent, expected, WATCHDOG, deadline(WATCHDOG).unwrap());
++            assert_eq!(
++                result.is_ok(),
++                expected == actual,
++                "{expected:?}/{actual:?}"
++            );
++        }
++        for candidate in progress {
++            let result = validate_progress(expected, None, step(1, 150), candidate);
++            assert_eq!(result.is_ok(), expected == candidate.role());
++        }
++    }
++    assert_eq!(
++        serde_json::to_string(&Role::ServeRuntime).unwrap(),
++        "\"serve_runtime\""
++    );
++    assert_eq!(
++        serde_json::to_string(&Role::ServeRelay).unwrap(),
++        "\"serve_relay\""
++    );
++}
++
++#[test]
++fn serve_participants_reject_wrong_outer_step_roles_before_starting() {
++    for expected in [Role::ServeRuntime, Role::ServeRelay] {
++        for actual in ROLES.into_iter().filter(|role| *role != expected) {
++            let (raw, participant) = UnixStream::pair().unwrap();
++            let mut raw = Channel::new(raw, WATCHDOG).unwrap();
++            raw.write_frame(
++                &Frame::Step {
++                    role: actual,
++                    step: step(1, 150),
++                },
++                deadline(WATCHDOG).unwrap(),
++            )
++            .unwrap();
++            let error = Participant::from_stream(participant, expected, WATCHDOG).unwrap_err();
++            assert_eq!(error.kind(), io::ErrorKind::InvalidData);
++            assert!(
++                error
++                    .to_string()
++                    .contains(&format!("expected {expected:?} Step"))
++            );
++        }
++    }
++}
++
++#[test]
++fn only_serve_runtime_steps_can_request_the_signal_barrier() {
++    let targeted = Step {
++        wait_for_sigterm: true,
++        ..step(1, 150)
++    };
++    for role in ROLES {
++        assert_eq!(
++            validate_step(role, None, targeted).is_ok(),
++            role == Role::ServeRuntime
++        );
++    }
++    for role in [Role::Runtime, Role::ServeRuntime] {
++        for input in [
++            Step {
++                stdout_target: 1,
++                ..step(1, 150)
++            },
++            Step {
++                runner_input_target: 1,
++                ..step(1, 150)
++            },
++        ] {
++            assert!(validate_step(role, None, input).is_err());
++        }
++    }
++    // The signal target is per poll, so a completed observation can be followed
++    // by an ordinary step at the same instant.
++    assert!(validate_step(Role::ServeRuntime, Some(targeted), step(2, 150)).is_ok());
++}
++
++#[test]
++fn a_signal_target_requires_the_reported_sigterm_observation() {
++    let targeted = Step {
++        wait_for_sigterm: true,
++        ..step(1, 150)
++    };
++    for signal in [
++        0,
++        signal_hook::consts::SIGINT as usize,
++        signal_hook::consts::SIGTERM as usize,
++    ] {
++        let mut progress = runtime(1);
++        if let Progress::ServeRuntime {
++            observed_signal, ..
++        } = &mut progress
++        {
++            *observed_signal = signal;
++        }
++        assert_eq!(
++            validate_progress(Role::ServeRuntime, None, targeted, progress).is_ok(),
++            signal == signal_hook::consts::SIGTERM as usize
++        );
++    }
++    // A successful send receipt belongs to the relay. It cannot satisfy a
++    // runtime observation barrier or authorize that barrier for another role.
++    assert!(validate_progress(Role::ServeRelay, None, targeted, relay(1, Some(150))).is_err());
++}
++
++#[test]
++fn observed_signals_cannot_be_cleared_but_signal_numbers_are_not_counters() {
++    let mut previous = runtime(1);
++    if let Progress::ServeRuntime {
++        observed_signal, ..
++    } = &mut previous
++    {
++        *observed_signal = signal_hook::consts::SIGTERM as usize;
++    }
++    assert!(
++        validate_progress(Role::ServeRuntime, Some(previous), step(2, 150), runtime(2)).is_err()
++    );
++    let mut next = runtime(2);
++    if let Progress::ServeRuntime {
++        observed_signal, ..
++    } = &mut next
++    {
++        *observed_signal = signal_hook::consts::SIGINT as usize;
++    }
++    assert!(validate_progress(Role::ServeRuntime, Some(previous), step(2, 150), next).is_ok());
++    let mut invalid = runtime(1);
++    if let Progress::ServeRuntime {
++        observed_signal, ..
++    } = &mut invalid
++    {
++        *observed_signal = usize::MAX;
++    }
++    assert!(validate_progress(Role::ServeRuntime, None, step(1, 150), invalid).is_err());
++}
++
++#[test]
++fn runtime_counters_never_regress_and_only_a_new_cycle_can_reset_runtime_time() {
++    let previous = runtime(1);
++    for counter in 0..6 {
++        let mut next = runtime(2);
++        if let Progress::ServeRuntime {
++            stdout_frames,
++            room_consumed,
++            room_injected,
++            cycle,
++            cycle_base_us,
++            runtime_us,
++            ..
++        } = &mut next
++        {
++            match counter {
++                0 => *stdout_frames -= 1,
++                1 => *room_consumed -= 1,
++                2 => *room_injected -= 1,
++                3 => *cycle -= 1,
++                4 => {
++                    *cycle += 1;
++                    *cycle_base_us -= 1;
++                }
++                5 => *runtime_us -= 1,
++                _ => unreachable!(),
++            }
++        }
++        assert!(
++            validate_progress(Role::ServeRuntime, Some(previous), step(2, 200), next).is_err(),
++            "counter {counter}"
++        );
++    }
++    let mut changed_base = runtime(2);
++    if let Progress::ServeRuntime { cycle_base_us, .. } = &mut changed_base {
++        *cycle_base_us += 1;
++    }
++    assert!(
++        validate_progress(
++            Role::ServeRuntime,
++            Some(previous),
++            step(2, 200),
++            changed_base
++        )
++        .is_err()
++    );
++
++    let mut restarted = runtime(2);
++    if let Progress::ServeRuntime {
++        cycle,
++        cycle_base_us,
++        runtime_us,
++        ..
++    } = &mut restarted
++    {
++        *cycle = 2;
++        *cycle_base_us = 200;
++        *runtime_us = 0;
++    }
++    assert!(validate_progress(Role::ServeRuntime, Some(previous), step(2, 200), restarted).is_ok());
++    assert!(
++        validate_progress(Role::ServeRuntime, Some(previous), step(2, 150), runtime(2)).is_ok()
++    );
++}
++
++#[test]
++fn muted_consumption_is_valid_but_injection_cannot_exceed_consumption() {
++    let previous = runtime(1);
++    let mut muted = runtime(2);
++    if let Progress::ServeRuntime { room_consumed, .. } = &mut muted {
++        *room_consumed += 2;
++    }
++    assert!(validate_progress(Role::ServeRuntime, Some(previous), step(2, 150), muted).is_ok());
++    let mut impossible = runtime(1);
++    if let Progress::ServeRuntime { room_injected, .. } = &mut impossible {
++        *room_injected = 5;
++    }
++    assert!(validate_progress(Role::ServeRuntime, None, step(1, 150), impossible).is_err());
++}
++
++#[test]
++fn relay_input_targets_and_all_output_counters_are_preserved_for_serve() {
++    let targeted = Step {
++        stdout_target: 3,
++        runner_input_target: 2,
++        ..step(2, 150)
++    };
++    let previous = relay(1, None);
++    for counter in 0..3 {
++        let mut next = relay(2, None);
++        if let Progress::ServeRelay {
++            stdout_frames,
++            runner_inputs,
++            output_frames,
++            ..
++        } = &mut next
++        {
++            match counter {
++                0 => *stdout_frames -= 1,
++                1 => *runner_inputs -= 1,
++                2 => *output_frames -= 1,
++                _ => unreachable!(),
++            }
++        }
++        assert!(validate_progress(Role::ServeRelay, Some(previous), targeted, next).is_err());
++    }
++    assert!(validate_progress(Role::ServeRelay, Some(previous), targeted, relay(2, None)).is_ok());
++    for missing_target in [
++        Step {
++            stdout_target: 4,
++            ..step(1, 150)
++        },
++        Step {
++            runner_input_target: 3,
++            ..step(1, 150)
++        },
++    ] {
++        assert!(validate_progress(Role::ServeRelay, None, missing_target, relay(1, None)).is_err());
++    }
++    for regressing in [
++        Step {
++            round: 3,
++            stdout_target: 2,
++            ..targeted
++        },
++        Step {
++            round: 3,
++            runner_input_target: 1,
++            ..targeted
++        },
++    ] {
++        assert!(validate_step(Role::ServeRelay, Some(targeted), regressing).is_err());
++    }
++}
++
++#[test]
++fn a_successful_send_receipt_is_not_an_exit_claim_and_never_changes() {
++    assert!(validate_progress(Role::ServeRelay, None, step(1, 0), relay(1, Some(0))).is_ok());
++    assert!(validate_progress(Role::ServeRelay, None, step(1, 150), relay(1, Some(151))).is_err());
++    let previous = relay(1, None);
++    let sent = relay(2, Some(150));
++    assert!(validate_progress(Role::ServeRelay, Some(previous), step(2, 150), sent).is_ok());
++    assert!(!sent.logical_end());
++    for changed in [None, Some(149), Some(151)] {
++        assert!(
++            validate_progress(
++                Role::ServeRelay,
++                Some(sent),
++                step(3, 200),
++                relay(3, changed)
++            )
++            .is_err()
++        );
++    }
++    assert!(
++        validate_progress(
++            Role::ServeRelay,
++            Some(sent),
++            step(3, 150),
++            relay(3, Some(150))
++        )
++        .is_ok()
++    );
++}
++
++#[test]
++fn serve_relay_receipts_cross_the_wire_without_changing_same_instant_time() {
++    let (parent, child) = UnixStream::pair().unwrap();
++    let first = Step {
++        stdout_target: 3,
++        runner_input_target: 2,
++        ..step(1, 150)
++    };
++    let second = Step { round: 2, ..first };
++    let mut terminal = relay(2, Some(150));
++    if let Progress::ServeRelay { logical_end, .. } = &mut terminal {
++        *logical_end = true;
++    }
++    let worker = thread::spawn(move || {
++        let mut participant = Participant::from_stream(child, Role::ServeRelay, WATCHDOG).unwrap();
++        assert_eq!(participant.current_step(), first);
++        assert_eq!(participant.complete(relay(1, None)).unwrap(), second);
++        assert_eq!(participant.clock().now().as_micros(), 150);
++        participant.final_ack(terminal).unwrap();
++    });
++    let mut parent = ParentPeer::from_stream(
++        parent,
++        Role::ServeRelay,
++        WATCHDOG,
++        deadline(WATCHDOG).unwrap(),
++    )
++    .unwrap();
++    assert_eq!(parent.step(first).unwrap(), relay(1, None));
++    assert_eq!(parent.step(second).unwrap(), terminal);
++    assert!(parent.step(Step { round: 3, ..first }).is_err());
++    worker.join().unwrap();
++}
++
++#[test]
++fn serve_rounds_and_completed_poll_sequences_remain_exact() {
++    for role in [Role::ServeRuntime, Role::ServeRelay] {
++        let first = step(1, 150);
++        for bad in [step(1, 150), step(3, 150), step(2, 149)] {
++            assert!(validate_step(role, Some(first), bad).is_err());
++        }
++        assert!(validate_step(role, Some(first), step(2, 150)).is_ok());
++        for poll_seq in [0, 2, u64::MAX] {
++            let progress = if role == Role::ServeRuntime {
++                runtime(poll_seq)
++            } else {
++                relay(poll_seq, None)
++            };
++            assert!(validate_progress(role, None, first, progress).is_err());
++        }
++        let previous = if role == Role::ServeRuntime {
++            runtime(1)
++        } else {
++            relay(1, None)
++        };
++        for poll_seq in [1, 3] {
++            let progress = if role == Role::ServeRuntime {
++                runtime(poll_seq)
++            } else {
++                relay(poll_seq, None)
++            };
++            assert!(validate_progress(role, Some(previous), step(2, 150), progress).is_err());
++        }
++    }
++}
++
++#[test]
++fn same_instant_serve_rounds_preserve_pure_time_and_terminal_ack_still_requires_exit_tracking() {
++    let (parent, child) = UnixStream::pair().unwrap();
++    let first = step(1, 150);
++    let second = Step {
++        wait_for_sigterm: true,
++        ..step(2, 150)
++    };
++    let mut terminal = runtime(2);
++    if let Progress::ServeRuntime {
++        observed_signal,
++        logical_end,
++        ..
++    } = &mut terminal
++    {
++        // Reported fixture evidence only. This test never sends an OS signal.
++        *observed_signal = signal_hook::consts::SIGTERM as usize;
++        *logical_end = true;
++    }
++    let worker = thread::spawn(move || {
++        let mut participant =
++            Participant::from_stream(child, Role::ServeRuntime, WATCHDOG).unwrap();
++        let clock = participant.clock();
++        assert_eq!(participant.current_step(), first);
++        for _ in 0..1000 {
++            assert_eq!(clock.now().as_micros(), 150);
++        }
++        assert_eq!(participant.complete(runtime(1)).unwrap(), second);
++        for _ in 0..1000 {
++            assert_eq!(clock.now().as_micros(), 150);
++        }
++        participant.final_ack(terminal).unwrap();
++        // Logical completion returns normally while this thread is still alive.
++        assert!(participant.closed);
++        clock
++    });
++    let mut parent = ParentPeer::from_stream(
++        parent,
++        Role::ServeRuntime,
++        WATCHDOG,
++        deadline(WATCHDOG).unwrap(),
++    )
++    .unwrap();
++    assert_eq!(parent.step(first).unwrap(), runtime(1));
++    assert_eq!(parent.step(second).unwrap(), terminal);
++    assert!(parent.step(step(3, 150)).is_err());
++    assert_eq!(worker.join().unwrap().now().as_micros(), 150);
++}
++
++#[test]
++fn forged_serve_progress_closes_the_endpoint_without_retrying() {
++    for progress in [relay(1, None), runtime(1)] {
++        let (parent, raw) = UnixStream::pair().unwrap();
++        let worker = thread::spawn(move || {
++            let mut raw = Channel::new(raw, WATCHDOG).unwrap();
++            raw.write_frame(&hello(Role::ServeRuntime), deadline(WATCHDOG).unwrap())
++                .unwrap();
++            raw.read_frame(deadline(WATCHDOG).unwrap()).unwrap();
++            raw.write_frame(
++                &Frame::Ack {
++                    role: Role::ServeRuntime,
++                    round: 1,
++                    at_us: 150,
++                    progress,
++                },
++                deadline(WATCHDOG).unwrap(),
++            )
++            .unwrap();
++            raw.reader
++                .get_ref()
++                .set_read_timeout(Some(WATCHDOG))
++                .unwrap();
++            let mut byte = [0];
++            assert_eq!(raw.reader.read(&mut byte).unwrap(), 0);
++        });
++        let mut parent = ParentPeer::from_stream(
++            parent,
++            Role::ServeRuntime,
++            WATCHDOG,
++            deadline(WATCHDOG).unwrap(),
++        )
++        .unwrap();
++        let targeted = Step {
++            wait_for_sigterm: true,
++            ..step(1, 150)
++        };
++        assert_eq!(
++            parent.step(targeted).unwrap_err().kind(),
++            io::ErrorKind::InvalidData
++        );
++        assert!(parent.step(targeted).is_err());
++        worker.join().unwrap();
++    }
++}
++
++struct SocketDirectory(PathBuf);
++
++impl SocketDirectory {
++    fn new() -> Self {
++        static SERIAL: AtomicU64 = AtomicU64::new(0);
++        let path = std::env::temp_dir().join(format!(
++            "serve-control-{}-{}",
++            std::process::id(),
++            SERIAL.fetch_add(1, Ordering::Relaxed)
++        ));
++        fs::create_dir(&path).unwrap();
++        fs::set_permissions(&path, fs::Permissions::from_mode(0o700)).unwrap();
++        Self(path)
++    }
++}
++
++impl Drop for SocketDirectory {
++    fn drop(&mut self) {
++        fs::remove_dir(&self.0).unwrap();
++    }
++}
++
++#[test]
++fn an_expired_accept_budget_does_not_consume_a_queued_hello_or_reset_itself() {
++    let directory = SocketDirectory::new();
++    let path = directory.0.join("control.sock");
++    let listener = ParentListener::bind_with_watchdog(&path, WATCHDOG).unwrap();
++    let mut raw = Channel::new(UnixStream::connect(&path).unwrap(), WATCHDOG).unwrap();
++    raw.write_frame(&hello(Role::ServeRuntime), deadline(WATCHDOG).unwrap())
++        .unwrap();
++    let expired = Instant::now();
++    for _ in 0..2 {
++        let error = listener
++            .accept_until(Role::ServeRuntime, expired)
++            .unwrap_err();
++        assert_eq!(error.kind(), io::ErrorKind::TimedOut);
++        assert!(error.to_string().contains("accept peer"));
++        assert_eq!(listener.accepted_roles.get(), 0);
++    }
++    // The queued peer is untouched by both rejected calls.
++    let peer = listener
++        .accept_until(Role::ServeRuntime, deadline(WATCHDOG).unwrap())
++        .unwrap();
++    assert_eq!(peer.role, Role::ServeRuntime);
++}
++
++#[test]
++fn the_listener_tracks_four_roles_independently_and_rejects_duplicates() {
++    let directory = SocketDirectory::new();
++    let path = directory.0.join("control.sock");
++    let listener = ParentListener::bind_with_watchdog(&path, WATCHDOG).unwrap();
++    let mut mask = 0;
++    for (role, bit) in ROLES.into_iter().zip([1, 2, 4, 8]) {
++        let mut raw = Channel::new(UnixStream::connect(&path).unwrap(), WATCHDOG).unwrap();
++        raw.write_frame(&hello(role), deadline(WATCHDOG).unwrap())
++            .unwrap();
++        let peer = listener
++            .accept_until(role, deadline(WATCHDOG).unwrap())
++            .unwrap();
++        assert_eq!(peer.role, role);
++        mask |= bit;
++        assert_eq!(listener.accepted_roles.get(), mask);
++        let error = listener.accept_until(role, Instant::now()).unwrap_err();
++        assert_eq!(error.kind(), io::ErrorKind::InvalidData);
++        assert!(error.to_string().contains("duplicate"));
++    }
++    assert_eq!(listener.accepted_roles.get(), 15);
++}
+--- a/lampOS/crates/voice-eval/src/physical/serve_fixture_driver.rs
++++ b/lampOS/crates/voice-eval/src/physical/serve_fixture_driver.rs
+@@ -0,0 +1,594 @@
++//! Explicit parent scheduler for one local serve fixture. Time advances only
++//! between completed polls; real players, channels, signals and processes stay
++//! in the path. Recorder and delayed-transport fixtures need separate support.
++use super::{
++    fixture_control::{DEFAULT_WATCHDOG, ParentListener, ParentPeer, Progress, Role, Step},
++    fixture_driver::{
++        RunnerFixtureClock, check_host_deadline, ensure_queue_capacity, next_round,
++        wait_for_enqueued,
++    },
++    fixture_players::PreparedFixtureController,
++    mac::{FakePlayerFault, FixtureDriver, LampMode, PhysicalConfig, Player},
++};
++use crate::{Result, invalid};
++use lamp_turn_owner::MonoTime;
++use std::{
++    fs,
++    os::unix::fs::PermissionsExt,
++    path::{Path, PathBuf},
++    sync::atomic::{AtomicU64, Ordering},
++    thread,
++    time::Instant,
++};
++
++const POLL_US: u64 = 2_000;
++// Retained startup readiness is 150 ms old. A positive epoch preserves that
++// age instead of saturating it at zero. The setup Ping still precedes startup.
++const EPOCH_US: u64 = 1_000_000;
++const BOOTSTRAP_US: u64 = EPOCH_US + POLL_US;
++
++pub struct ClockedServeFixture {
++    relay: Option<ParentPeer>,
++    runtime: Option<ParentPeer>,
++    listener: Option<ParentListener>,
++    control_path: PathBuf,
++    clock: RunnerFixtureClock,
++    players: PreparedFixtureController,
++    configured: bool,
++    started: bool,
++    failed: bool,
++    runtime_round: u64,
++    relay_round: u64,
++    runtime_stdout: u64,
++    runtime_rooms: u64,
++    runner_inputs: u64,
++    output_frames: u64,
++    drained_frames: u64,
++    next_poll_us: u64,
++    runtime_done: bool,
++    relay_done: bool,
++    stop_signal_sent_us: Option<u64>,
++    await_sigterm: bool,
++    terminal_until: Option<Instant>,
++}
++
++impl ClockedServeFixture {
++    pub fn new(private_root: &Path) -> Result<Self> {
++        let metadata = fs::symlink_metadata(private_root)?;
++        if !private_root.is_absolute()
++            || !metadata.is_dir()
++            || metadata.permissions().mode() & 0o077 != 0
++        {
++            return Err(invalid(
++                "serve fixture needs an absolute caller-owned private directory",
++            ));
++        }
++        let control_path = private_root.join("serve-fixture.sock");
++        let listener = ParentListener::bind(&control_path)?;
++        let clock = RunnerFixtureClock::new(EPOCH_US);
++        let player_clock = clock.clone();
++        let players = PreparedFixtureController::new(move || player_clock.now());
++        Ok(Self {
++            relay: None,
++            runtime: None,
++            listener: Some(listener),
++            control_path,
++            clock,
++            players,
++            configured: false,
++            started: false,
++            failed: false,
++            runtime_round: 0,
++            relay_round: 0,
++            runtime_stdout: 0,
++            runtime_rooms: 0,
++            runner_inputs: 0,
++            output_frames: 0,
++            drained_frames: 0,
++            next_poll_us: BOOTSTRAP_US,
++            runtime_done: false,
++            relay_done: false,
++            stop_signal_sent_us: None,
++            await_sigterm: false,
++            terminal_until: None,
++        })
++    }
++
++    pub fn clock(&self) -> RunnerFixtureClock {
++        self.clock.clone()
++    }
++
++    pub fn player(
++        &self,
++        room: PathBuf,
++        faults: Vec<(usize, FakePlayerFault)>,
++    ) -> impl Player + use<> {
++        self.players.player(room, faults)
++    }
++
++    /// Preserve every fake argument and actual local child. This scheduler
++    /// cannot opt a real runtime, a shell wrapper or a recorder into its clock.
++    pub fn configure(&mut self, config: &mut PhysicalConfig) -> Result<()> {
++        if self.configured || self.started {
++            return Err(invalid(
++                "serve fixture can configure only one fresh attempt",
++            ));
++        }
++        if !matches!(config.mode, LampMode::Serve { .. }) || config.room_recorder.is_some() {
++            return Err(invalid("serve fixture requires serve without a recorder"));
++        }
++        config.lamp_command = controlled_command(&config.lamp_command, &self.control_path)?;
++        self.configured = true;
++        Ok(())
++    }
++
++    fn close(&mut self) {
++        self.players.close();
++        drop(self.runtime.take());
++        drop(self.relay.take());
++        drop(self.listener.take());
++    }
++
++    fn runtime_step(&mut self, until: Instant) -> Result<()> {
++        let round = next_round(self.runtime_round)?;
++        let progress = self
++            .runtime
++            .as_mut()
++            .ok_or_else(|| invalid("serve runtime is not connected"))?
++            .step_until(
++                Step {
++                    round,
++                    at_us: self.clock.now().as_micros(),
++                    stdout_target: 0,
++                    runner_input_target: 0,
++                    wait_for_sigterm: self.await_sigterm,
++                },
++                until,
++            )?;
++        let Progress::ServeRuntime {
++            stdout_frames,
++            room_consumed,
++            observed_signal,
++            logical_end,
++            ..
++        } = progress
++        else {
++            return Err(invalid("serve runtime returned another role's progress"));
++        };
++        let sent = self.players.successful_sends();
++        // An original stop check precedes the original room drain. A terminal
++        // poll may leave sent inputs unconsumed; never announce them as read.
++        if room_consumed > sent || (!logical_end && room_consumed != sent) {
++            return Err(invalid(&format!(
++                "serve runtime consumed {room_consumed} datagrams after {sent} actual sends"
++            )));
++        }
++        if self.await_sigterm && observed_signal != signal_hook::consts::SIGTERM as usize {
++            return Err(invalid(
++                "serve runtime did not observe the delivered SIGTERM",
++            ));
++        }
++        self.await_sigterm = false;
++        self.runtime_round = round;
++        self.runtime_stdout = stdout_frames;
++        self.runtime_rooms = room_consumed;
++        self.runtime_done = logical_end;
++        if logical_end {
++            self.terminal_until = Some(until);
++        }
++        Ok(())
++    }
++
++    fn relay_step(&mut self, sent: u64, enqueued: &AtomicU64, until: Instant) -> Result<()> {
++        let round = next_round(self.relay_round)?;
++        let progress = self
++            .relay
++            .as_mut()
++            .ok_or_else(|| invalid("serve relay is not connected"))?
++            .step_until(
++                Step {
++                    round,
++                    at_us: self.clock.now().as_micros(),
++                    stdout_target: self.runtime_stdout,
++                    runner_input_target: sent,
++                    wait_for_sigterm: false,
++                },
++                until,
++            )?;
++        let Progress::ServeRelay {
++            stdout_frames,
++            runner_inputs,
++            output_frames,
++            stop_signal_sent_us,
++            logical_end,
++            ..
++        } = progress
++        else {
++            return Err(invalid("serve relay returned another role's progress"));
++        };
++        if stdout_frames != self.runtime_stdout || runner_inputs != sent {
++            return Err(invalid(&format!(
++                "serve relay consumed stdout/input {stdout_frames}/{runner_inputs}, expected {}/{sent}",
++                self.runtime_stdout
++            )));
++        }
++        if output_frames < self.output_frames {
++            return Err(invalid("serve relay output count regressed"));
++        }
++        ensure_queue_capacity(output_frames, self.drained_frames)?;
++        wait_for_enqueued(enqueued, output_frames, until)?;
++        if stop_signal_sent_us != self.stop_signal_sent_us {
++            if self.stop_signal_sent_us.is_some() || stop_signal_sent_us.is_none() {
++                return Err(invalid(
++                    "serve relay changed its actual signal-send receipt",
++                ));
++            }
++            self.stop_signal_sent_us = stop_signal_sent_us;
++            self.await_sigterm = !self.runtime_done;
++        }
++        self.relay_round = round;
++        self.runner_inputs = runner_inputs;
++        self.output_frames = output_frames;
++        self.relay_done = logical_end;
++        if logical_end {
++            // The relay's terminal wrapper already completed actual cleanup
++            // and output. In the forced-kill case no further runtime poll is
++            // possible or needed; EOF alone would not establish this state.
++            drop(self.runtime.take());
++        }
++        Ok(())
++    }
++
++    fn finish_runtime_exit(&mut self, sent: u64, enqueued: &AtomicU64) -> Result<()> {
++        if !self.runtime_done || self.relay_done {
++            return Ok(());
++        }
++        let until = self
++            .terminal_until
++            .ok_or_else(|| invalid("missing serve terminal host deadline"))?;
++        while !self.relay_done {
++            check_host_deadline(until, "serve child exit and final relay output")?;
++            self.relay_step(sent, enqueued, until)?;
++            thread::yield_now();
++        }
++        Ok(())
++    }
++
++    fn bootstrap(&mut self, sent: u64, enqueued: &AtomicU64, until: Instant) -> Result<()> {
++        self.clock.advance(BOOTSTRAP_US)?;
++        self.players.pump_before(until)?;
++        self.relay = Some(
++            self.listener
++                .as_ref()
++                .ok_or_else(|| invalid("serve listener is closed"))?
++                .accept_until(Role::ServeRelay, until)?,
++        );
++        self.relay_step(sent, enqueued, until)?;
++        if self.relay_done {
++            return Err(invalid("serve relay ended before runtime registration"));
++        }
++        self.runtime = Some(
++            self.listener
++                .as_ref()
++                .ok_or_else(|| invalid("serve listener is closed"))?
++                .accept_until(Role::ServeRuntime, until)?,
++        );
++        self.runtime_step(until)?;
++        // Room readiness is an actual filesystem observation by the owned
++        // preparer. Pump it again at this same instant after runtime startup.
++        self.players.pump_before(until)?;
++        self.relay_step(sent, enqueued, until)?;
++        self.started = true;
++        self.next_poll_us = BOOTSTRAP_US + POLL_US;
++        self.finish_runtime_exit(sent, enqueued)
++    }
++
++    fn wait_inner(
++        &mut self,
++        logical_until: MonoTime,
++        sent: u64,
++        enqueued: &AtomicU64,
++        queue_drained: bool,
++        host_until: Instant,
++    ) -> Result<()> {
++        if !self.configured || self.failed {
++            return Err(invalid("serve fixture is unconfigured or failed"));
++        }
++        check_host_deadline(host_until, "serve progress")?;
++        self.players.settle_before(host_until)?;
++        if sent < self.runner_inputs || self.players.successful_sends() < self.runtime_rooms {
++            return Err(invalid("serve producer counters regressed"));
++        }
++        if queue_drained {
++            self.drained_frames = enqueued.load(Ordering::Acquire);
++        }
++        let at = self.clock.now().as_micros();
++        let until = logical_until.as_micros();
++        if until <= at {
++            return Ok(());
++        }
++        if !self.started {
++            if until < BOOTSTRAP_US {
++                self.clock.advance(until)?;
++                return self.players.pump_before(host_until);
++            }
++            return self.bootstrap(sent, enqueued, host_until);
++        }
++        if self.relay_done {
++            // A relay's end does not complete a prepared player's pending
++            // delay. Preserve its polling cadence through actual completion.
++            let next = at
++                .checked_add(POLL_US)
++                .ok_or_else(|| invalid("serve player poll time overflow"))?;
++            self.clock.advance(until.min(next))?;
++            return self.players.pump_before(host_until);
++        }
++        if self.runtime_done {
++            return self.finish_runtime_exit(sent, enqueued);
++        }
++        let next = until.min(self.next_poll_us);
++        self.clock.advance(next)?;
++        self.players.pump_before(host_until)?;
++        if next < self.next_poll_us {
++            return Ok(());
++        }
++        self.runtime_step(host_until)?;
++        self.players.pump_before(host_until)?;
++        self.relay_step(sent, enqueued, host_until)?;
++        self.next_poll_us = next
++            .checked_add(POLL_US)
++            .ok_or_else(|| invalid("serve poll time overflow"))?;
++        self.finish_runtime_exit(sent, enqueued)
++    }
++
++    fn wait_before(
++        &mut self,
++        until: MonoTime,
++        sent: u64,
++        enqueued: &AtomicU64,
++        queue_drained: bool,
++        host_until: Instant,
++    ) -> Result<()> {
++        let host_until = host_until.min(Instant::now() + DEFAULT_WATCHDOG);
++        let result = self.wait_inner(until, sent, enqueued, queue_drained, host_until);
++        if result.is_err() {
++            self.failed = true;
++            self.close();
++        }
++        result
++    }
++}
++
++impl FixtureDriver for ClockedServeFixture {
++    fn supports_serve(&self) -> bool {
++        true
++    }
++
++    fn grant_sent(&mut self, attempt_id: &str) -> Result<()> {
++        let result = self.players.grant_sent(attempt_id);
++        if result.is_err() {
++            self.failed = true;
++            self.close();
++        }
++        result
++    }
++
++    fn player_report_ready(&self, attempt_id: &str) -> bool {
++        self.players.report_ready(attempt_id)
++    }
++
++    fn finish_players(&mut self, host_deadline: Instant) -> Result<()> {
++        let result = (|| {
++            self.players.settle_before(host_deadline)?;
++            while !self.players.all_reports_ready() {
++                check_host_deadline(host_deadline, "serve prepared-player completion")?;
++                let next = self
++                    .clock
++                    .now()
++                    .as_micros()
++                    .checked_add(POLL_US)
++                    .ok_or_else(|| invalid("serve player completion time overflow"))?;
++                self.clock.advance(next)?;
++                self.players.pump_before(host_deadline)?;
++            }
++            Ok(())
++        })();
++        if result.is_err() {
++            self.failed = true;
++            self.close();
++        }
++        result
++    }
++
++    fn wait(
++        &mut self,
++        until: MonoTime,
++        sent: u64,
++        enqueued: &AtomicU64,
++        queue_drained: bool,
++    ) -> Result<()> {
++        self.wait_before(
++            until,
++            sent,
++            enqueued,
++            queue_drained,
++            Instant::now() + DEFAULT_WATCHDOG,
++        )
++    }
++
++    fn prepare_wait(
++        &mut self,
++        until: MonoTime,
++        sent: u64,
++        enqueued: &AtomicU64,
++        queue_drained: bool,
++        host_deadline: Instant,
++    ) -> Result<()> {
++        self.wait_before(until, sent, enqueued, queue_drained, host_deadline)
++    }
++}
++
++impl Drop for ClockedServeFixture {
++    fn drop(&mut self) {
++        self.close();
++    }
++}
++
++fn controlled_command(command: &[String], control_path: &Path) -> Result<Vec<String>> {
++    let executable = command
++        .first()
++        .ok_or_else(|| invalid("missing evaluator command"))?;
++    let path = Path::new(executable);
++    if !path.is_absolute()
++        || path.file_name().and_then(|name| name.to_str()) != Some("lamp-voice-eval")
++        || command.get(1).map(String::as_str) != Some("lamp-session")
++    {
++        return Err(invalid(
++            "serve fixture requires a direct local evaluator relay",
++        ));
++    }
++    let mut runtime = None;
++    let mut prefix = Vec::new();
++    let mut index = 2;
++    while index < command.len() {
++        let value = command
++            .get(index + 1)
++            .ok_or_else(|| invalid("incomplete serve fixture option"))?;
++        match command[index].as_str() {
++            "--runtime" if runtime.is_none() => runtime = Some(value),
++            "--runtime-prefix-arg" => prefix.push(value.clone()),
++            _ => {
++                return Err(invalid(
++                    "serve fixture accepts one runtime and explicit prefix arguments",
++                ));
++            }
++        }
++        index += 2;
++    }
++    if runtime != Some(executable) || prefix.first().map(String::as_str) != Some("fake-lamp-voice")
++    {
++        return Err(invalid(
++            "serve fixture requires the same evaluator's fake runtime",
++        ));
++    }
++    if prefix.len() % 2 != 1
++        || prefix[1..]
++            .chunks_exact(2)
++            .any(|pair| !pair[0].starts_with("--fake-"))
++    {
++        return Err(invalid(
++            "serve fixture prefix needs --fake-* option/value pairs",
++        ));
++    }
++    let control = control_path
++        .to_str()
++        .ok_or_else(|| invalid("serve control path must be UTF-8"))?;
++    let mut configured = vec![
++        executable.clone(),
++        "fake-clock-serve-session".into(),
++        "--fixture-control".into(),
++        control.into(),
++        "--runtime".into(),
++        executable.clone(),
++    ];
++    for value in ["fake-clock-serve-runtime", "--fixture-control", control] {
++        configured.extend(["--runtime-prefix-arg".into(), value.into()]);
++    }
++    for value in &prefix[1..] {
++        configured.extend(["--runtime-prefix-arg".into(), value.clone()]);
++    }
++    Ok(configured)
++}
++
++#[cfg(test)]
++mod tests {
++    use super::*;
++
++    fn command() -> Vec<String> {
++        [
++            "/unused/lamp-voice-eval",
++            "lamp-session",
++            "--runtime",
++            "/unused/lamp-voice-eval",
++            "--runtime-prefix-arg",
++            "fake-lamp-voice",
++            "--runtime-prefix-arg",
++            "--fake-room",
++            "--runtime-prefix-arg",
++            "/private/room with spaces.sock",
++            "--runtime-prefix-arg",
++            "--fake-ignore-sigterm",
++            "--runtime-prefix-arg",
++            "yes",
++        ]
++        .map(str::to_owned)
++        .into()
++    }
++
++    #[test]
++    fn configuration_keeps_every_fake_argument_and_selects_only_explicit_commands() {
++        let original = command();
++        let changed = controlled_command(&original, Path::new("/private/control.sock")).unwrap();
++        assert_eq!(
++            &changed[..6],
++            [
++                "/unused/lamp-voice-eval",
++                "fake-clock-serve-session",
++                "--fixture-control",
++                "/private/control.sock",
++                "--runtime",
++                "/unused/lamp-voice-eval"
++            ]
++        );
++        assert_eq!(
++            &changed[6..12],
++            [
++                "--runtime-prefix-arg",
++                "fake-clock-serve-runtime",
++                "--runtime-prefix-arg",
++                "--fixture-control",
++                "--runtime-prefix-arg",
++                "/private/control.sock"
++            ]
++        );
++        assert_eq!(&changed[12..], &original[6..]);
++    }
++
++    #[test]
++    fn shell_transports_real_runtimes_and_malformed_prefixes_cannot_opt_in() {
++        assert!(controlled_command(&[], Path::new("/private/control.sock")).is_err());
++        for (index, value) in [
++            (0, "lamp-voice-eval"),
++            (1, "fake-slow-transport"),
++            (3, "/unused/lamp-live"),
++            (5, "serve"),
++            (7, "--real-room"),
++        ] {
++            let mut bad = command();
++            bad[index] = value.into();
++            assert!(
++                controlled_command(&bad, Path::new("/private/control.sock")).is_err(),
++                "{bad:?}"
++            );
++        }
++        let mut bad = command();
++        bad.pop();
++        assert!(controlled_command(&bad, Path::new("/private/control.sock")).is_err());
++    }
++
++    #[test]
++    fn positive_pure_epoch_preserves_retained_history_and_setup_ping_order() {
++        let clock = RunnerFixtureClock::new(EPOCH_US);
++        let before = clock.now();
++        assert_eq!(clock.now(), before);
++        assert_eq!(clock.now(), before);
++        clock.advance(BOOTSTRAP_US).unwrap();
++        assert!(before < clock.now());
++        assert_eq!(
++            clock.now().as_micros().saturating_sub(150_000),
++            BOOTSTRAP_US - 150_000
++        );
++        assert!(clock.advance(EPOCH_US).is_err());
++        assert_eq!(clock.now().as_micros(), BOOTSTRAP_US);
++    }
++}
+--- a/lampOS/crates/voice-eval/src/physical/serve_relay_progress_tests.rs
++++ b/lampOS/crates/voice-eval/src/physical/serve_relay_progress_tests.rs
+@@ -0,0 +1,191 @@
++use super::*;
++use std::{
++    cell::{Cell, RefCell},
++    fs::OpenOptions,
++    io,
++    os::unix::net::UnixStream,
++    rc::Rc,
++    sync::atomic::{AtomicU64, Ordering},
++};
++
++struct Private(PathBuf);
++
++impl Private {
++    fn new() -> Self {
++        static NEXT: AtomicU64 = AtomicU64::new(0);
++        let path = std::env::temp_dir().join(format!(
++            "lve-serve-poll-{}-{}",
++            std::process::id(),
++            NEXT.fetch_add(1, Ordering::Relaxed)
++        ));
++        fs::DirBuilder::new().mode(0o700).create(&path).unwrap();
++        Self(path)
++    }
++}
++
++impl Drop for Private {
++    fn drop(&mut self) {
++        let _ = fs::remove_dir_all(&self.0);
++    }
++}
++
++#[derive(Debug)]
++enum Event {
++    Flushed(SessionLine),
++    Completed(RelayPollProgress),
++}
++
++struct Output {
++    pending: Vec<u8>,
++    events: Rc<RefCell<Vec<Event>>>,
++}
++
++impl Write for Output {
++    fn write(&mut self, bytes: &[u8]) -> io::Result<usize> {
++        self.pending.extend_from_slice(bytes);
++        Ok(bytes.len())
++    }
++
++    fn flush(&mut self) -> io::Result<()> {
++        while let Some(end) = self.pending.iter().position(|byte| *byte == b'\n') {
++            let line = serde_json::from_slice(&self.pending[..end])?;
++            self.pending.drain(..=end);
++            self.events.borrow_mut().push(Event::Flushed(line));
++        }
++        Ok(())
++    }
++}
++
++#[test]
++fn successful_signal_receipt_survives_repeated_stop_and_exact_grace_kill() {
++    let directory = Private::new();
++    let fifo = directory.0.join("commands");
++    assert!(
++        Command::new("mkfifo")
++            .args(["-m", "600"])
++            .arg(&fifo)
++            .status()
++            .unwrap()
++            .success()
++    );
++    let _child_commands = OpenOptions::new()
++        .read(true)
++        .write(true)
++        .open(&fifo)
++        .unwrap();
++    // Only this owned, inert child ignores TERM. Its ready line proves that
++    // the disposition is installed before the relay sends the real signal.
++    let child = r#"trap '' TERM; exec 3< "$1"; printf 'ready:%s\n' "$$"; IFS= read -r command <&3"#;
++    let options = SessionOptions {
++        runtime: "/bin/sh".into(),
++        runtime_prefix: vec![
++            "-c".into(),
++            child.into(),
++            "serve-relay-poll-child".into(),
++            fifo.display().to_string(),
++        ],
++        work: directory.0.join("work"),
++        seconds: 1,
++        mode: SessionMode::Serve {
++            provider_config: "/unused/provider.json".into(),
++        },
++        noise_suppression: "off".into(),
++        diagnostics: false,
++        allowance_seconds: 5,
++        ring_channel_ceiling: None,
++        runtime_flags: RuntimeFlags::default(),
++    };
++    let (mut runner, input) = UnixStream::pair().unwrap();
++    let signal_at = 1_002_000;
++    let poll_times = [
++        1_000_000,
++        signal_at,
++        signal_at + SERVE_STOP_GRACE_US - 1,
++        signal_at + SERVE_STOP_GRACE_US,
++    ];
++    let input_targets = [0, 1, 2, 2];
++    let at_us = Cell::new(poll_times[0]);
++    let polls = Cell::new(0_usize);
++    let events = Rc::new(RefCell::new(Vec::new()));
++    let mut output = Output {
++        pending: Vec::new(),
++        events: Rc::clone(&events),
++    };
++    let result = run_with_controlled_clock(
++        &options,
++        input,
++        &mut output,
++        || MonoTime::from_micros(at_us.get()),
++        || {
++            let poll = polls.get();
++            assert!(poll < poll_times.len(), "terminal poll requested another step");
++            at_us.set(poll_times[poll]);
++            polls.set(poll + 1);
++            match poll {
++                1 => writeln!(runner, "{{\"type\":\"stop\",\"reason\":\"first stop\"}}")?,
++                2 => writeln!(runner, "{{\"type\":\"stop\",\"reason\":\"repeated stop\"}}")?,
++                _ => {}
++            }
++            Ok(RelayPollTargets {
++                stdout_frames: 1,
++                runner_inputs: input_targets[poll],
++            })
++        },
++        |progress| {
++            let poll = polls.get() - 1;
++            assert_eq!(progress.poll_seq, polls.get() as u64);
++            assert_eq!(progress.stdout_frames, 1);
++            assert_eq!(progress.runner_inputs, input_targets[poll]);
++            assert_eq!(progress.stop_signal_sent_us, (poll > 0).then_some(signal_at));
++            assert_eq!(progress.terminal, poll == 3);
++            let mut events = events.borrow_mut();
++            assert!(!events.iter().any(|event| matches!(
++                event,
++                Event::Flushed(SessionLine::SessionEnd { .. })
++            )));
++            let pid = events
++                .iter()
++                .find_map(|event| match event {
++                    Event::Flushed(SessionLine::Stdout { line, .. }) => line
++                        .strip_prefix("ready:")
++                        .and_then(|pid| pid.parse().ok()),
++                    _ => None,
++                })
++                .unwrap();
++            let pid = rustix::process::Pid::from_raw(pid).unwrap();
++            assert_eq!(
++                rustix::process::test_kill_process(pid).is_err(),
++                progress.terminal,
++                "the child survives until the exact grace boundary, then is killed and reaped before terminal progress"
++            );
++            events.push(Event::Completed(progress));
++            Ok(())
++        },
++    )
++    .unwrap();
++    assert_eq!(result, 3);
++    assert_eq!(polls.get(), 4);
++    let events = events.borrow();
++    let terminal = events
++        .iter()
++        .position(|event| matches!(event, Event::Completed(progress) if progress.terminal))
++        .unwrap();
++    assert!(terminal < events.len() - 1);
++    let Some(Event::Flushed(SessionLine::SessionEnd {
++        killed,
++        serve: Some(end),
++        ..
++    })) = events.last()
++    else {
++        panic!("final output must follow the terminal poll: {events:?}");
++    };
++    assert!(*killed);
++    assert_eq!(end.stop_cause, "runner_stop");
++    assert_eq!(end.stop_reason.as_deref(), Some("first stop"));
++    assert_eq!(end.stop_requested_us, Some(signal_at));
++    assert_eq!(end.signal_sent_us, Some(signal_at));
++    assert_eq!(end.signal_error, None);
++    assert!(end.forced_kill);
++    assert!(end.group_reaped);
++    assert_eq!(end.exited_us, None);
++}
+--- a/lampOS/crates/voice-eval/src/physical/session.rs
++++ b/lampOS/crates/voice-eval/src/physical/session.rs
+@@ -1002,6 +1002,9 @@
+     pub poll_seq: u64,
+     pub stdout_frames: u64,
+     pub runner_inputs: u64,
++    /// The existing fresh sample after a successful serve SIGTERM send. It
++    /// does not prove that the runtime observed the signal or exited.
++    pub stop_signal_sent_us: Option<u64>,
+     pub terminal: bool,
+ }
+ 
+@@ -1043,6 +1046,7 @@
+ fn complete_poll(
+     control: &mut Option<PollControl<'_>>,
+     progress: &mut RelayPollProgress,
++    stop: Option<&StopRequest>,
+     terminal: bool,
+ ) -> Result<()> {
+     if let Some(control) = control {
+@@ -1050,6 +1054,7 @@
+             .poll_seq
+             .checked_add(1)
+             .ok_or_else(|| invalid("relay fixture poll sequence overflow"))?;
++        progress.stop_signal_sent_us = stop.and_then(|request| request.signal_sent_us);
+         progress.terminal = terminal;
+         (control.completed)(*progress)?;
+     } else if !terminal {
+@@ -1218,7 +1223,7 @@
+         }
+         if let Some(status) = child.try_wait()? {
+             let exited_us = now().as_micros();
+-            complete_poll(&mut control, &mut progress, true)?;
++            complete_poll(&mut control, &mut progress, stop.as_ref(), true)?;
+             break (Some(status), Some(exited_us));
+         }
+         if runner_closed && stop.is_none() {
+@@ -1229,7 +1234,7 @@
+             if !serve {
+                 kill(child);
+                 killed = true;
+-                complete_poll(&mut control, &mut progress, true)?;
++                complete_poll(&mut control, &mut progress, stop.as_ref(), true)?;
+                 break (None, None);
+             }
+             stop = Some(request_stop(child, "transport_closed", None, &now));
+@@ -1238,7 +1243,7 @@
+             if !serve {
+                 kill(child);
+                 killed = true;
+-                complete_poll(&mut control, &mut progress, true)?;
++                complete_poll(&mut control, &mut progress, stop.as_ref(), true)?;
+                 break (None, None);
+             }
+             errors.push("the serve hard deadline passed; the relay stopped the runtime".into());
+@@ -1255,10 +1260,10 @@
+                 "the runtime outlived the {} ms stop grace; its process group was killed",
+                 SERVE_STOP_GRACE_US / 1000
+             ));
+-            complete_poll(&mut control, &mut progress, true)?;
++            complete_poll(&mut control, &mut progress, stop.as_ref(), true)?;
+             break (None, None);
+         }
+-        complete_poll(&mut control, &mut progress, false)?;
++        complete_poll(&mut control, &mut progress, stop.as_ref(), false)?;
+     };
+     // A normal runtime exit must not leave workers behind in its group. Any
+     // stopped straggler is reported as evidence; the trace itself is unaffected.
+@@ -1365,6 +1370,10 @@
+ #[cfg(test)]
+ #[path = "relay_progress_tests.rs"]
+ mod relay_progress_tests;
++
++#[cfg(test)]
++#[path = "serve_relay_progress_tests.rs"]
++mod serve_relay_progress_tests;
+ 
+ #[cfg(test)]
+ mod clock_tests {
+--- a/lampOS/crates/voice-eval/tests/serve_session.rs
++++ b/lampOS/crates/voice-eval/tests/serve_session.rs
+@@ -3,11 +3,11 @@
+ //! `lamp-voice serve` (cues through lamp-voice's own `CueSink`, serve-shaped
+ //! rolling metadata, SIGTERM stop). Every stimulus is prepared before its
+ //! trigger and started by one original expiring grant at the fake prepared
+-//! player's first "copy", a fake room datagram. Real time; no audio.
++//! player's first "copy", a fake room datagram. Explicit clock; no audio.
+ //!
+-//! Attempts run one at a time: they are real-time processes, and ordinary
+-//! scheduling must meet the unchanged 100 ms lateness bound without any
+-//! widened lease.
++//! Attempts run one at a time with real child processes and prepared threads.
++//! The coordinated path retains the unchanged 100 ms lateness bound. Recorder
++//! and delayed-transport cases keep host time until their own progress is wired.
+ mod common;
+ 
+ use lamp_voice_eval::{
+@@ -16,6 +16,7 @@
+     physical::mac::{
+         FakePlayerFault, FakePreparedRoomPlayer, LampMode, PhysicalBackend, PhysicalConfig,
+     },
++    physical::serve_fixture_driver::ClockedServeFixture,
+     plan::{LoadedPlan, SERVE_PLAN, TriggerEvent},
+     record::{AttemptRecord, AttemptStatus, StepStatus, Stratum},
+     runner::{SuiteOptions, run_suite},
+@@ -120,7 +121,7 @@
+         argv.extend(control.recorder_args.iter().map(|s| s.to_string()));
+         argv
+     });
+-    let config = PhysicalConfig {
++    let mut config = PhysicalConfig {
+         lamp_command: command,
+         lamp_work_root: lamp_root.display().to_string(),
+         mode: LampMode::Serve {
+@@ -135,12 +136,22 @@
+         stimulus_source: lamp_voice_eval::record::StimulusSource::LoudspeakerSynthetic,
+         runtime_flags: control.runtime_flags,
+     };
+-    let player = FakePreparedRoomPlayer {
+-        room,
+-        faults: control.player_faults,
+-        prepared: 0,
++    let mut backend = if config.room_recorder.is_none() && control.transport_delay_ms.is_none() {
++        let mut fixture = ClockedServeFixture::new(&dir.path).unwrap();
++        fixture.configure(&mut config).unwrap();
++        let clock = fixture.clock();
++        let player = fixture.player(room, control.player_faults);
++        PhysicalBackend::new_with_clock(config, &assets, Box::new(player), move || clock.now())
++            .with_fixture_driver(fixture)
++            .unwrap()
++    } else {
++        let player = FakePreparedRoomPlayer {
++            room,
++            faults: control.player_faults,
++            prepared: 0,
++        };
++        PhysicalBackend::new(config, &assets, Box::new(player))
+     };
+-    let mut backend = PhysicalBackend::new(config, &assets, Box::new(player));
+     let run = dir.join("run");
+     lamp_voice_eval::ledger::create_run_directory(&run).unwrap();
+     let options = SuiteOptions {

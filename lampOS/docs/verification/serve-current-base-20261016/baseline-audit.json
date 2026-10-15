@@ -1,0 +1,35 @@
+{
+  "date_from_date": "2026-10-16 06:13:56 +0700",
+  "base": "e7d0f673d0c4bde4a770b19783d6084a8d935ec3",
+  "source_manifest_rows": 836,
+  "all_source_manifest_hashes_match_exact_base_git_blobs": true,
+  "source_manifest_sha256": "9965c89d0c7aa39a103dc9a6bad7bae03dc3a12ab7087fc1712658789140e09f",
+  "completed_sha256": "4a75a4117a0f0293b8f8b01906ac901bbf533c2cfd440e509e51d859fd2de77a",
+  "both_listing_stages_exit_zero": true,
+  "clean_source_unchanged_through_lists": true,
+  "serve_listing_command": {
+    "name": "serve-evaluator",
+    "command": [
+      "cargo",
+      "nextest",
+      "list",
+      "--locked",
+      "--offline",
+      "-p",
+      "lamp-voice-eval",
+      "--message-format",
+      "json"
+    ],
+    "cwd": "/private/tmp/lampos-tests-serve-release/lampOS",
+    "target": "/private/tmp/tests-823-rebase-target",
+    "start": "2026-10-16 06:01:01 +0700",
+    "finish": "2026-10-16 06:02:39 +0700",
+    "exit_code": 0
+  },
+  "serve_list_sha256": "a02f0b623ec3c068df47f1b8aa12f8bd2e404df7216e396c385c40f0738258df",
+  "copied_root_baseline_bytes_exact": true,
+  "compiled_count": 377,
+  "ignored": 0,
+  "no_tests_executed_by_list": true,
+  "limits": "The provider-affected listing is retained for complete baseline provenance; its identities are not added to the Evaluator test count."
+}

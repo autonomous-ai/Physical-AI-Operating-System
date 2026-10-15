@@ -1,0 +1,1031 @@
+{
+  "date_from_date": "2026-10-16 05:51:12 +0700",
+  "source_tree": "/private/tmp/lampos-tests-serve-all-cases",
+  "base": "d60124f8280f9c76576d6ca7bf859bc5c3983828",
+  "raw_copies": [
+    {
+      "source": "/private/tmp/tests-823-serve-all-cases-evidence/base/lampOS/crates/voice-eval/src/main.rs",
+      "destination": "integration/base/lampOS/crates/voice-eval/src/main.rs",
+      "scope": "archived integration proof or initial compiled-identity rejection; predates the module-name correction",
+      "sha256": "638cd8fa8c072d0639997c5de800ff7238f5f9f33de39ecba7d5d91243a18eee",
+      "bytes": 37175
+    },
+    {
+      "source": "/private/tmp/tests-823-serve-all-cases-evidence/base/lampOS/crates/voice-eval/src/physical/fake_lamp.rs",
+      "destination": "integration/base/lampOS/crates/voice-eval/src/physical/fake_lamp.rs",
+      "scope": "archived integration proof or initial compiled-identity rejection; predates the module-name correction",
+      "sha256": "1d0cf3b4f57c1e8ecad0590ebbf1c343a6e527dfc06eba521fb7ea6da0597ba1",
+      "bytes": 20183
+    },
+    {
+      "source": "/private/tmp/tests-823-serve-all-cases-evidence/base/lampOS/crates/voice-eval/src/physical/fake_serve.rs",
+      "destination": "integration/base/lampOS/crates/voice-eval/src/physical/fake_serve.rs",
+      "scope": "archived integration proof or initial compiled-identity rejection; predates the module-name correction",
+      "sha256": "3d1026d1b8a4ca11ee4e2f38fa00a518badf4f74193b049c13cf6515aa254d51",
+      "bytes": 20616
+    },
+    {
+      "source": "/private/tmp/tests-823-serve-all-cases-evidence/base/lampOS/crates/voice-eval/src/physical/fixture_commands.rs",
+      "destination": "integration/base/lampOS/crates/voice-eval/src/physical/fixture_commands.rs",
+      "scope": "archived integration proof or initial compiled-identity rejection; predates the module-name correction",
+      "sha256": "f96208110fec892608b3099f9b33b0cf86a966e9dd21971b03ee56dc85e6086a",
+      "bytes": 15409
+    },
+    {
+      "source": "/private/tmp/tests-823-serve-all-cases-evidence/base/lampOS/crates/voice-eval/src/physical/fixture_control.rs",
+      "destination": "integration/base/lampOS/crates/voice-eval/src/physical/fixture_control.rs",
+      "scope": "archived integration proof or initial compiled-identity rejection; predates the module-name correction",
+      "sha256": "318381580f7725db297e8efe4c510270ad574a75204e1b43f9845643f88ef33b",
+      "bytes": 26527
+    },
+    {
+      "source": "/private/tmp/tests-823-serve-all-cases-evidence/base/lampOS/crates/voice-eval/src/physical/fixture_control_tests.rs",
+      "destination": "integration/base/lampOS/crates/voice-eval/src/physical/fixture_control_tests.rs",
+      "scope": "archived integration proof or initial compiled-identity rejection; predates the module-name correction",
+      "sha256": "22e02e09239c5471fcc78818785bf2e186f033b272e08ccba0864307c8563087",
+      "bytes": 23366
+    },
+    {
+      "source": "/private/tmp/tests-823-serve-all-cases-evidence/base/lampOS/crates/voice-eval/src/physical/fixture_driver.rs",
+      "destination": "integration/base/lampOS/crates/voice-eval/src/physical/fixture_driver.rs",
+      "scope": "archived integration proof or initial compiled-identity rejection; predates the module-name correction",
+      "sha256": "6f518d5c02ea54a540b528aa7ac22a0fca1ffe4837f191c0cc20e369183b789e",
+      "bytes": 28997
+    },
+    {
+      "source": "/private/tmp/tests-823-serve-all-cases-evidence/base/lampOS/crates/voice-eval/src/physical/mac.rs",
+      "destination": "integration/base/lampOS/crates/voice-eval/src/physical/mac.rs",
+      "scope": "archived integration proof or initial compiled-identity rejection; predates the module-name correction",
+      "sha256": "2435350939e44a1ccfa2dd04d35f906a406668209b6786cc1c04711c4a6e6bc2",
+      "bytes": 167430
+    },
+    {
+      "source": "/private/tmp/tests-823-serve-all-cases-evidence/base/lampOS/crates/voice-eval/src/physical/mod.rs",
+      "destination": "integration/base/lampOS/crates/voice-eval/src/physical/mod.rs",
+      "scope": "archived integration proof or initial compiled-identity rejection; predates the module-name correction",
+      "sha256": "74a0279bf483658835bde00306a05d0e9caeb4d0384d8682d4f071ffad615ae5",
+      "bytes": 787
+    },
+    {
+      "source": "/private/tmp/tests-823-serve-all-cases-evidence/base/lampOS/crates/voice-eval/src/physical/session.rs",
+      "destination": "integration/base/lampOS/crates/voice-eval/src/physical/session.rs",
+      "scope": "archived integration proof or initial compiled-identity rejection; predates the module-name correction",
+      "sha256": "a54ea45fdaea1c330eb30abc30aa9d3a8cb86767c2b8f40782158b5bfe266e31",
+      "bytes": 65599
+    },
+    {
+      "source": "/private/tmp/tests-823-serve-all-cases-evidence/base/lampOS/crates/voice-eval/tests/serve_session.rs",
+      "destination": "integration/base/lampOS/crates/voice-eval/tests/serve_session.rs",
+      "scope": "archived integration proof or initial compiled-identity rejection; predates the module-name correction",
+      "sha256": "bb8e83a7c0cb08703852638749b01d32e88eb696b35aacb093a5462bd4ddcf49",
+      "bytes": 30067
+    },
+    {
+      "source": "/private/tmp/tests-823-serve-all-cases-evidence/base/lampOS/docs/realtime-tests.md",
+      "destination": "integration/base/lampOS/docs/realtime-tests.md",
+      "scope": "archived integration proof or initial compiled-identity rejection; predates the module-name correction",
+      "sha256": "29c7edf1028ad20d49c4f79adeb5951c754701378869646272317ac309fc2e74",
+      "bytes": 34141
+    },
+    {
+      "source": "/private/tmp/tests-823-serve-all-cases-evidence/base-inventory.json",
+      "destination": "integration/base-inventory.json",
+      "scope": "archived integration proof or initial compiled-identity rejection; predates the module-name correction",
+      "sha256": "16e99aff7d3253ee93d6ba24cc40676184b4cff6781b06d63c6df574a8f2460b",
+      "bytes": 2089912
+    },
+    {
+      "source": "/private/tmp/tests-823-serve-all-cases-evidence/baseline-compiled-identities.json",
+      "destination": "integration/baseline-compiled-identities.json",
+      "scope": "archived integration proof or initial compiled-identity rejection; predates the module-name correction",
+      "sha256": "3464a42d95c2411694a20fb5c818bc1fd4eaf5e5c4567abbf0bf273a5d8d4f08",
+      "bytes": 65539
+    },
+    {
+      "source": "/private/tmp/tests-823-serve-all-cases-evidence/corrected-module-name/correction.diff",
+      "destination": "current/correction.diff",
+      "scope": "corrected current source and fresh gate",
+      "sha256": "7e1853b51e94889eaa988d3067af1d0fd90d4ec2f97e5ebe9e6266ed41d18d3f",
+      "bytes": 258
+    },
+    {
+      "source": "/private/tmp/tests-823-serve-all-cases-evidence/corrected-module-name/correction.json",
+      "destination": "current/correction.json",
+      "scope": "corrected current source and fresh gate",
+      "sha256": "456f737d008300ea469d78e7d873540ffaecf6675713e2cb541db51c224ea7d5",
+      "bytes": 3718
+    },
+    {
+      "source": "/private/tmp/tests-823-serve-all-cases-evidence/corrected-module-name/expected-after-identities-source-only.json",
+      "destination": "current/expected-after-identities-source-only.json",
+      "scope": "corrected current source and fresh gate",
+      "sha256": "49309bf5f95aa08f4109d002bb85922549718f58e80fac78504224e492b8f4e4",
+      "bytes": 101531
+    },
+    {
+      "source": "/private/tmp/tests-823-serve-all-cases-evidence/corrected-module-name/final-source-proof.json",
+      "destination": "current/final-source-proof.json",
+      "scope": "corrected current source and fresh gate",
+      "sha256": "0501e863fda97d7d4af9988bc1527a74458f13e11aaaa10122a2ca6535217963",
+      "bytes": 6994
+    },
+    {
+      "source": "/private/tmp/tests-823-serve-all-cases-evidence/corrected-module-name/fixture_control.after.rs",
+      "destination": "current/fixture_control.after.rs",
+      "scope": "corrected current source and fresh gate",
+      "sha256": "ca68dec8488bc9e86f42c8801ba4185a901f02d71c2879691bdb8351899fb412",
+      "bytes": 39406
+    },
+    {
+      "source": "/private/tmp/tests-823-serve-all-cases-evidence/corrected-module-name/fixture_control.before.rs",
+      "destination": "current/fixture_control.before.rs",
+      "scope": "corrected current source and fresh gate",
+      "sha256": "fd764a6a67b3c83295e3fad677a39ef0c6a10a70a7305f9d92aa2fe10d64daf2",
+      "bytes": 39398
+    },
+    {
+      "source": "/private/tmp/tests-823-serve-all-cases-evidence/corrected-module-name/root-baseline-list.log",
+      "destination": "current/root-baseline-list.log",
+      "scope": "corrected current source and fresh gate",
+      "sha256": "5870ff83da124e2ce7f60554c78727d98b052d32d217aa5f62c27815ff51e433",
+      "bytes": 70461
+    },
+    {
+      "source": "/private/tmp/tests-823-serve-all-cases-evidence/corrected-module-name/root-build.log",
+      "destination": "current/root-build.log",
+      "scope": "corrected current source and fresh gate",
+      "sha256": "8b3e9aa0a539b8c3afcbce8eed6b1b049db130116990e154c070a0b3d07681ec",
+      "bytes": 3896
+    },
+    {
+      "source": "/private/tmp/tests-823-serve-all-cases-evidence/corrected-module-name/root-clippy.log",
+      "destination": "current/root-clippy.log",
+      "scope": "corrected current source and fresh gate",
+      "sha256": "4dddc0a24afd4aa9cbde5becad885359a8aef9f10a94d873c5ca59fd04e43dce",
+      "bytes": 178
+    },
+    {
+      "source": "/private/tmp/tests-823-serve-all-cases-evidence/corrected-module-name/root-fmt.log",
+      "destination": "current/root-fmt.log",
+      "scope": "corrected current source and fresh gate",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "source": "/private/tmp/tests-823-serve-all-cases-evidence/corrected-module-name/root-gates.json",
+      "destination": "current/root-gates.json",
+      "scope": "corrected current source and fresh gate",
+      "sha256": "07bc142d3e545c1f3a67453ec506939a023b668bb0e59d8e17352c08670fd85d",
+      "bytes": 2154
+    },
+    {
+      "source": "/private/tmp/tests-823-serve-all-cases-evidence/corrected-module-name/root-identity-proof.json",
+      "destination": "current/root-identity-proof.json",
+      "scope": "corrected current source and fresh gate",
+      "sha256": "a203982f445a41592175b070d8828354bd5f5b01c150afc92b03d35878fbead7",
+      "bytes": 19365
+    },
+    {
+      "source": "/private/tmp/tests-823-serve-all-cases-evidence/corrected-module-name/root-list.log",
+      "destination": "current/root-list.log",
+      "scope": "corrected current source and fresh gate",
+      "sha256": "f3cdb16af11865447b2510a1c9b8183a60238e424ff1892fdda39c4a28936ddd",
+      "bytes": 90846
+    },
+    {
+      "source": "/private/tmp/tests-823-serve-all-cases-evidence/corrected-module-name/root-result.json",
+      "destination": "current/root-result.json",
+      "scope": "corrected current source and fresh gate",
+      "sha256": "930df7c9f50f7f64a3d392a1fa073c0e82155e8e68d7da36a9069979a3e64e50",
+      "bytes": 162
+    },
+    {
+      "source": "/private/tmp/tests-823-serve-all-cases-evidence/corrected-module-name/root-source-before.json",
+      "destination": "current/root-source-before.json",
+      "scope": "corrected current source and fresh gate",
+      "sha256": "b918642b4dfe8d3e7b0866e65a155ce0f14a021f0def7e415ee8637b11fcc613",
+      "bytes": 9737
+    },
+    {
+      "source": "/private/tmp/tests-823-serve-all-cases-evidence/corrected-module-name/root-tests.log",
+      "destination": "current/root-tests.log",
+      "scope": "corrected current source and fresh gate",
+      "sha256": "4cb1fa2149ff665b9e922373b5a67aa2291753b509cb20528b1c69d0f42cde3c",
+      "bytes": 54540
+    },
+    {
+      "source": "/private/tmp/tests-823-serve-all-cases-evidence/current-base-to-integrated.diff",
+      "destination": "integration/current-base-to-integrated.diff",
+      "scope": "archived integration proof or initial compiled-identity rejection; predates the module-name correction",
+      "sha256": "1e0d3a354be07807b589608bb0b73b3682072fa5bfc49277ccd78c9399441685",
+      "bytes": 351364
+    },
+    {
+      "source": "/private/tmp/tests-823-serve-all-cases-evidence/doc-append.md",
+      "destination": "integration/doc-append.md",
+      "scope": "archived integration proof or initial compiled-identity rejection; predates the module-name correction",
+      "sha256": "65198569e6a0fe6662f9f1ca78861534eba3143701d7bee26c65b458f7fd05de",
+      "bytes": 3037
+    },
+    {
+      "source": "/private/tmp/tests-823-serve-all-cases-evidence/expected-after-identities-source-only.json",
+      "destination": "integration/expected-after-identities-source-only.json",
+      "scope": "archived integration proof or initial compiled-identity rejection; predates the module-name correction",
+      "sha256": "49309bf5f95aa08f4109d002bb85922549718f58e80fac78504224e492b8f4e4",
+      "bytes": 101531
+    },
+    {
+      "source": "/private/tmp/tests-823-serve-all-cases-evidence/final-source/lampOS/crates/voice-eval/src/main.rs",
+      "destination": "integration/final-source/lampOS/crates/voice-eval/src/main.rs",
+      "scope": "archived integration proof or initial compiled-identity rejection; predates the module-name correction",
+      "sha256": "1751caa8d8246f8217674397c2c979bab40dc6eaa3d81834784e88cc29ef6607",
+      "bytes": 37502
+    },
+    {
+      "source": "/private/tmp/tests-823-serve-all-cases-evidence/final-source/lampOS/crates/voice-eval/src/physical/fake_lamp.rs",
+      "destination": "integration/final-source/lampOS/crates/voice-eval/src/physical/fake_lamp.rs",
+      "scope": "archived integration proof or initial compiled-identity rejection; predates the module-name correction",
+      "sha256": "7707b987700293a31096338ccd4364e34aa70bce59bca2dd3c1cdaef15c0c9a1",
+      "bytes": 22868
+    },
+    {
+      "source": "/private/tmp/tests-823-serve-all-cases-evidence/final-source/lampOS/crates/voice-eval/src/physical/fake_serve.rs",
+      "destination": "integration/final-source/lampOS/crates/voice-eval/src/physical/fake_serve.rs",
+      "scope": "archived integration proof or initial compiled-identity rejection; predates the module-name correction",
+      "sha256": "5168b08f121fc374972f9a1bb10f86e30396c83c17ee12c2ea9858cd74ef780d",
+      "bytes": 27346
+    },
+    {
+      "source": "/private/tmp/tests-823-serve-all-cases-evidence/final-source/lampOS/crates/voice-eval/src/physical/fake_serve_progress_tests.rs",
+      "destination": "integration/final-source/lampOS/crates/voice-eval/src/physical/fake_serve_progress_tests.rs",
+      "scope": "archived integration proof or initial compiled-identity rejection; predates the module-name correction",
+      "sha256": "43af2f78890ec502bc3d12cd95214bf2aaa65578eeac1e9abaa1a6c4d0611f7a",
+      "bytes": 11362
+    },
+    {
+      "source": "/private/tmp/tests-823-serve-all-cases-evidence/final-source/lampOS/crates/voice-eval/src/physical/fixture_commands.rs",
+      "destination": "integration/final-source/lampOS/crates/voice-eval/src/physical/fixture_commands.rs",
+      "scope": "archived integration proof or initial compiled-identity rejection; predates the module-name correction",
+      "sha256": "df424358eb99ab6982ef8cd3ea3d7484f55bf3c033aabcf29ca0b07c0df5ab0a",
+      "bytes": 27975
+    },
+    {
+      "source": "/private/tmp/tests-823-serve-all-cases-evidence/final-source/lampOS/crates/voice-eval/src/physical/fixture_control.rs",
+      "destination": "integration/final-source/lampOS/crates/voice-eval/src/physical/fixture_control.rs",
+      "scope": "archived integration proof or initial compiled-identity rejection; predates the module-name correction",
+      "sha256": "fd764a6a67b3c83295e3fad677a39ef0c6a10a70a7305f9d92aa2fe10d64daf2",
+      "bytes": 39398
+    },
+    {
+      "source": "/private/tmp/tests-823-serve-all-cases-evidence/final-source/lampOS/crates/voice-eval/src/physical/fixture_control_tests.rs",
+      "destination": "integration/final-source/lampOS/crates/voice-eval/src/physical/fixture_control_tests.rs",
+      "scope": "archived integration proof or initial compiled-identity rejection; predates the module-name correction",
+      "sha256": "90dab0a1075f0fbb819d819f391aede2994363c3238e54445a5a73e5f12f604a",
+      "bytes": 23399
+    },
+    {
+      "source": "/private/tmp/tests-823-serve-all-cases-evidence/final-source/lampOS/crates/voice-eval/src/physical/fixture_driver.rs",
+      "destination": "integration/final-source/lampOS/crates/voice-eval/src/physical/fixture_driver.rs",
+      "scope": "archived integration proof or initial compiled-identity rejection; predates the module-name correction",
+      "sha256": "3e4a99a9e5029b7c770b2420c4df70271c5702e30c6f97a3dcfc954fce1871d9",
+      "bytes": 29239
+    },
+    {
+      "source": "/private/tmp/tests-823-serve-all-cases-evidence/final-source/lampOS/crates/voice-eval/src/physical/fixture_players.rs",
+      "destination": "integration/final-source/lampOS/crates/voice-eval/src/physical/fixture_players.rs",
+      "scope": "archived integration proof or initial compiled-identity rejection; predates the module-name correction",
+      "sha256": "2378acf5a32c53b013cc90b96d827bdb82307dbb054d7c94e30ede8752dc5dab",
+      "bytes": 16371
+    },
+    {
+      "source": "/private/tmp/tests-823-serve-all-cases-evidence/final-source/lampOS/crates/voice-eval/src/physical/mac.rs",
+      "destination": "integration/final-source/lampOS/crates/voice-eval/src/physical/mac.rs",
+      "scope": "archived integration proof or initial compiled-identity rejection; predates the module-name correction",
+      "sha256": "c14c40669ad423baf9c21672587bd6e97e47a64e102d6d22c2714e3e399d78e2",
+      "bytes": 189541
+    },
+    {
+      "source": "/private/tmp/tests-823-serve-all-cases-evidence/final-source/lampOS/crates/voice-eval/src/physical/mod.rs",
+      "destination": "integration/final-source/lampOS/crates/voice-eval/src/physical/mod.rs",
+      "scope": "archived integration proof or initial compiled-identity rejection; predates the module-name correction",
+      "sha256": "c55ab4bd4fad65b806f4e66f533d7334f947c25c87d8d072ce69ff848db2e582",
+      "bytes": 842
+    },
+    {
+      "source": "/private/tmp/tests-823-serve-all-cases-evidence/final-source/lampOS/crates/voice-eval/src/physical/prepared_player_progress_tests.rs",
+      "destination": "integration/final-source/lampOS/crates/voice-eval/src/physical/prepared_player_progress_tests.rs",
+      "scope": "archived integration proof or initial compiled-identity rejection; predates the module-name correction",
+      "sha256": "1ac1f3a24b267c0968fe291befbd65739c06a1baf4e2f5c9b24eca8f841055b7",
+      "bytes": 16419
+    },
+    {
+      "source": "/private/tmp/tests-823-serve-all-cases-evidence/final-source/lampOS/crates/voice-eval/src/physical/recorder_backend_tests.rs",
+      "destination": "integration/final-source/lampOS/crates/voice-eval/src/physical/recorder_backend_tests.rs",
+      "scope": "archived integration proof or initial compiled-identity rejection; predates the module-name correction",
+      "sha256": "a9ed66168aea14d40b3ae28a17c46450ca8e966e6d6f46f550565daea2e7bbde",
+      "bytes": 20666
+    },
+    {
+      "source": "/private/tmp/tests-823-serve-all-cases-evidence/final-source/lampOS/crates/voice-eval/src/physical/recorder_fixture_commands_tests.rs",
+      "destination": "integration/final-source/lampOS/crates/voice-eval/src/physical/recorder_fixture_commands_tests.rs",
+      "scope": "archived integration proof or initial compiled-identity rejection; predates the module-name correction",
+      "sha256": "500cd9e92ed12a7328f67d99c60d68105f5130f31d8db2ecd76265fd5fb01d37",
+      "bytes": 12023
+    },
+    {
+      "source": "/private/tmp/tests-823-serve-all-cases-evidence/final-source/lampOS/crates/voice-eval/src/physical/recorder_fixture_control_tests.rs",
+      "destination": "integration/final-source/lampOS/crates/voice-eval/src/physical/recorder_fixture_control_tests.rs",
+      "scope": "archived integration proof or initial compiled-identity rejection; predates the module-name correction",
+      "sha256": "3e9c7eb09f574cbda46a06fb9ac452993df5a9b4417c5f0d9691f9deba27cf80",
+      "bytes": 14478
+    },
+    {
+      "source": "/private/tmp/tests-823-serve-all-cases-evidence/final-source/lampOS/crates/voice-eval/src/physical/recorder_fixture_driver_tests.rs",
+      "destination": "integration/final-source/lampOS/crates/voice-eval/src/physical/recorder_fixture_driver_tests.rs",
+      "scope": "archived integration proof or initial compiled-identity rejection; predates the module-name correction",
+      "sha256": "da5c382c25fd8d63f7fac9e3ff17d6caff216df95ae2289af40da6c1225c3ff1",
+      "bytes": 19522
+    },
+    {
+      "source": "/private/tmp/tests-823-serve-all-cases-evidence/final-source/lampOS/crates/voice-eval/src/physical/serve_fixture_commands_tests.rs",
+      "destination": "integration/final-source/lampOS/crates/voice-eval/src/physical/serve_fixture_commands_tests.rs",
+      "scope": "archived integration proof or initial compiled-identity rejection; predates the module-name correction",
+      "sha256": "54f60e0f676d94989b5220f707f9c5c085cbec83de0aa0e0a3d4ba5f892642ea",
+      "bytes": 8262
+    },
+    {
+      "source": "/private/tmp/tests-823-serve-all-cases-evidence/final-source/lampOS/crates/voice-eval/src/physical/serve_fixture_control_tests.rs",
+      "destination": "integration/final-source/lampOS/crates/voice-eval/src/physical/serve_fixture_control_tests.rs",
+      "scope": "archived integration proof or initial compiled-identity rejection; predates the module-name correction",
+      "sha256": "fdb57e00dd9e3028ae6f5a5aa6df81d1147bee4fc582ad00b117368951b80bcf",
+      "bytes": 21007
+    },
+    {
+      "source": "/private/tmp/tests-823-serve-all-cases-evidence/final-source/lampOS/crates/voice-eval/src/physical/serve_fixture_driver.rs",
+      "destination": "integration/final-source/lampOS/crates/voice-eval/src/physical/serve_fixture_driver.rs",
+      "scope": "archived integration proof or initial compiled-identity rejection; predates the module-name correction",
+      "sha256": "3ba9b3405c82198e4c56e4baa3c982be74d8a2e0588766be11c34a2fa62e8014",
+      "bytes": 37054
+    },
+    {
+      "source": "/private/tmp/tests-823-serve-all-cases-evidence/final-source/lampOS/crates/voice-eval/src/physical/serve_relay_progress_tests.rs",
+      "destination": "integration/final-source/lampOS/crates/voice-eval/src/physical/serve_relay_progress_tests.rs",
+      "scope": "archived integration proof or initial compiled-identity rejection; predates the module-name correction",
+      "sha256": "d7ccf7f0ddcd46a07d9d6cfc768d5126d507c133b0b708dc69881f124f238ed4",
+      "bytes": 6205
+    },
+    {
+      "source": "/private/tmp/tests-823-serve-all-cases-evidence/final-source/lampOS/crates/voice-eval/src/physical/session.rs",
+      "destination": "integration/final-source/lampOS/crates/voice-eval/src/physical/session.rs",
+      "scope": "archived integration proof or initial compiled-identity rejection; predates the module-name correction",
+      "sha256": "660cea49d4e1389ad23e5786a5efded083e7f6d98912dfc9ad9887dad85ccd24",
+      "bytes": 66071
+    },
+    {
+      "source": "/private/tmp/tests-823-serve-all-cases-evidence/final-source/lampOS/crates/voice-eval/src/physical/slow_transport_fixture_commands_tests.rs",
+      "destination": "integration/final-source/lampOS/crates/voice-eval/src/physical/slow_transport_fixture_commands_tests.rs",
+      "scope": "archived integration proof or initial compiled-identity rejection; predates the module-name correction",
+      "sha256": "dee37c32bd463a6603ab0b2f1dc5f0b2a9ae4b62da98b26a9b9aea560b7ef7c1",
+      "bytes": 16999
+    },
+    {
+      "source": "/private/tmp/tests-823-serve-all-cases-evidence/final-source/lampOS/crates/voice-eval/src/physical/slow_transport_fixture_control_tests.rs",
+      "destination": "integration/final-source/lampOS/crates/voice-eval/src/physical/slow_transport_fixture_control_tests.rs",
+      "scope": "archived integration proof or initial compiled-identity rejection; predates the module-name correction",
+      "sha256": "1032118bfae8aec9a555f87ca6f3f334c16599c361a90b38768d5c1d454d3359",
+      "bytes": 13252
+    },
+    {
+      "source": "/private/tmp/tests-823-serve-all-cases-evidence/final-source/lampOS/crates/voice-eval/src/physical/slow_transport_fixture_driver_tests.rs",
+      "destination": "integration/final-source/lampOS/crates/voice-eval/src/physical/slow_transport_fixture_driver_tests.rs",
+      "scope": "archived integration proof or initial compiled-identity rejection; predates the module-name correction",
+      "sha256": "0026046f596309aa8cc2698de1893825d0b4d006e5f7951a5af81d1158a85187",
+      "bytes": 29399
+    },
+    {
+      "source": "/private/tmp/tests-823-serve-all-cases-evidence/final-source/lampOS/crates/voice-eval/tests/serve_session.rs",
+      "destination": "integration/final-source/lampOS/crates/voice-eval/tests/serve_session.rs",
+      "scope": "archived integration proof or initial compiled-identity rejection; predates the module-name correction",
+      "sha256": "1850248165b8c7d5022ec06f3267b5de1a829fa375135cdda26aa3bfe539b905",
+      "bytes": 30354
+    },
+    {
+      "source": "/private/tmp/tests-823-serve-all-cases-evidence/final-source-proof.json",
+      "destination": "integration/final-source-proof.json",
+      "scope": "archived integration proof or initial compiled-identity rejection; predates the module-name correction",
+      "sha256": "4f95a70ab05f89bca902b70041e21e8ef28f768d927ffaea327aea17b10f40e2",
+      "bytes": 6608
+    },
+    {
+      "source": "/private/tmp/tests-823-serve-all-cases-evidence/final-status.txt",
+      "destination": "integration/final-status.txt",
+      "scope": "archived integration proof or initial compiled-identity rejection; predates the module-name correction",
+      "sha256": "cdbeae075c9cb12da01d9c2b5dff2e9667bb26859f0d9c80bb4577b4e300ce89",
+      "bytes": 1648
+    },
+    {
+      "source": "/private/tmp/tests-823-serve-all-cases-evidence/full-evaluator-rust-final.json",
+      "destination": "integration/full-evaluator-rust-final.json",
+      "scope": "archived integration proof or initial compiled-identity rejection; predates the module-name correction",
+      "sha256": "f4e7670f124b28b8be4447c24375fcb108b4f4afc8253d282f7890700545f98a",
+      "bytes": 9713
+    },
+    {
+      "source": "/private/tmp/tests-823-serve-all-cases-evidence/handoff.md",
+      "destination": "integration/handoff.md",
+      "scope": "archived integration proof or initial compiled-identity rejection; predates the module-name correction",
+      "sha256": "d0ee92a6ebedff60ca3a66ca6f1b69ef466038786caf1137fcd438823a982e4e",
+      "bytes": 11121
+    },
+    {
+      "source": "/private/tmp/tests-823-serve-all-cases-evidence/inherited-base-delta.txt",
+      "destination": "integration/inherited-base-delta.txt",
+      "scope": "archived integration proof or initial compiled-identity rejection; predates the module-name correction",
+      "sha256": "8a6ed86e9ff60d9f69fedc7cd42768c146116b1598176fe4d719d13ee3ec9b82",
+      "bytes": 4554
+    },
+    {
+      "source": "/private/tmp/tests-823-serve-all-cases-evidence/integration.json",
+      "destination": "integration/integration.json",
+      "scope": "archived integration proof or initial compiled-identity rejection; predates the module-name correction",
+      "sha256": "e5cb607374ccde835e0a32da3df6322ca7e917a5c2f8e2b1a0442359b542e3e0",
+      "bytes": 8268
+    },
+    {
+      "source": "/private/tmp/tests-823-serve-all-cases-evidence/original-serve-preservation.json",
+      "destination": "integration/original-serve-preservation.json",
+      "scope": "archived integration proof or initial compiled-identity rejection; predates the module-name correction",
+      "sha256": "7c092db44060b37a817af885167f4aec23a015fe43fc05af0f6863a03c7bf387",
+      "bytes": 6760
+    },
+    {
+      "source": "/private/tmp/tests-823-serve-all-cases-evidence/preflight.json",
+      "destination": "integration/preflight.json",
+      "scope": "archived integration proof or initial compiled-identity rejection; predates the module-name correction",
+      "sha256": "9b65b52e2337c9c4c5ee843c39c5dedcfb4f33649cc54ea60da568f97eaa71a3",
+      "bytes": 19804
+    },
+    {
+      "source": "/private/tmp/tests-823-serve-all-cases-evidence/published-realtime-tests.md",
+      "destination": "integration/published-realtime-tests.md",
+      "scope": "archived integration proof or initial compiled-identity rejection; predates the module-name correction",
+      "sha256": "eb3f3e2b8beb25d5320d060507444d49b87ab3926422779ce15a038a5d487eef",
+      "bytes": 35824
+    },
+    {
+      "source": "/private/tmp/tests-823-serve-all-cases-evidence/recorder-stage/lampOS/crates/voice-eval/src/main.rs",
+      "destination": "integration/recorder-stage/lampOS/crates/voice-eval/src/main.rs",
+      "scope": "archived integration proof or initial compiled-identity rejection; predates the module-name correction",
+      "sha256": "1c58c33e90aeff37cd0e895655373dc435d2570f1cbb819966c91d2d5dda9ba9",
+      "bytes": 37417
+    },
+    {
+      "source": "/private/tmp/tests-823-serve-all-cases-evidence/recorder-stage/lampOS/crates/voice-eval/src/physical/fake_lamp.rs",
+      "destination": "integration/recorder-stage/lampOS/crates/voice-eval/src/physical/fake_lamp.rs",
+      "scope": "archived integration proof or initial compiled-identity rejection; predates the module-name correction",
+      "sha256": "7707b987700293a31096338ccd4364e34aa70bce59bca2dd3c1cdaef15c0c9a1",
+      "bytes": 22868
+    },
+    {
+      "source": "/private/tmp/tests-823-serve-all-cases-evidence/recorder-stage/lampOS/crates/voice-eval/src/physical/fake_serve.rs",
+      "destination": "integration/recorder-stage/lampOS/crates/voice-eval/src/physical/fake_serve.rs",
+      "scope": "archived integration proof or initial compiled-identity rejection; predates the module-name correction",
+      "sha256": "5168b08f121fc374972f9a1bb10f86e30396c83c17ee12c2ea9858cd74ef780d",
+      "bytes": 27346
+    },
+    {
+      "source": "/private/tmp/tests-823-serve-all-cases-evidence/recorder-stage/lampOS/crates/voice-eval/src/physical/fake_serve_progress_tests.rs",
+      "destination": "integration/recorder-stage/lampOS/crates/voice-eval/src/physical/fake_serve_progress_tests.rs",
+      "scope": "archived integration proof or initial compiled-identity rejection; predates the module-name correction",
+      "sha256": "43af2f78890ec502bc3d12cd95214bf2aaa65578eeac1e9abaa1a6c4d0611f7a",
+      "bytes": 11362
+    },
+    {
+      "source": "/private/tmp/tests-823-serve-all-cases-evidence/recorder-stage/lampOS/crates/voice-eval/src/physical/fixture_commands.rs",
+      "destination": "integration/recorder-stage/lampOS/crates/voice-eval/src/physical/fixture_commands.rs",
+      "scope": "archived integration proof or initial compiled-identity rejection; predates the module-name correction",
+      "sha256": "464820ece7888f7d0767d7024d7b1e399d9d18601f09922f14dba5b0e328234c",
+      "bytes": 23716
+    },
+    {
+      "source": "/private/tmp/tests-823-serve-all-cases-evidence/recorder-stage/lampOS/crates/voice-eval/src/physical/fixture_control.rs",
+      "destination": "integration/recorder-stage/lampOS/crates/voice-eval/src/physical/fixture_control.rs",
+      "scope": "archived integration proof or initial compiled-identity rejection; predates the module-name correction",
+      "sha256": "16f31e16dcb8c03168c8f8d2e76323c6d09882936c88bd05c1691bdaa7a888fa",
+      "bytes": 36192
+    },
+    {
+      "source": "/private/tmp/tests-823-serve-all-cases-evidence/recorder-stage/lampOS/crates/voice-eval/src/physical/fixture_control_tests.rs",
+      "destination": "integration/recorder-stage/lampOS/crates/voice-eval/src/physical/fixture_control_tests.rs",
+      "scope": "archived integration proof or initial compiled-identity rejection; predates the module-name correction",
+      "sha256": "90dab0a1075f0fbb819d819f391aede2994363c3238e54445a5a73e5f12f604a",
+      "bytes": 23399
+    },
+    {
+      "source": "/private/tmp/tests-823-serve-all-cases-evidence/recorder-stage/lampOS/crates/voice-eval/src/physical/fixture_driver.rs",
+      "destination": "integration/recorder-stage/lampOS/crates/voice-eval/src/physical/fixture_driver.rs",
+      "scope": "archived integration proof or initial compiled-identity rejection; predates the module-name correction",
+      "sha256": "3e4a99a9e5029b7c770b2420c4df70271c5702e30c6f97a3dcfc954fce1871d9",
+      "bytes": 29239
+    },
+    {
+      "source": "/private/tmp/tests-823-serve-all-cases-evidence/recorder-stage/lampOS/crates/voice-eval/src/physical/fixture_players.rs",
+      "destination": "integration/recorder-stage/lampOS/crates/voice-eval/src/physical/fixture_players.rs",
+      "scope": "archived integration proof or initial compiled-identity rejection; predates the module-name correction",
+      "sha256": "2378acf5a32c53b013cc90b96d827bdb82307dbb054d7c94e30ede8752dc5dab",
+      "bytes": 16371
+    },
+    {
+      "source": "/private/tmp/tests-823-serve-all-cases-evidence/recorder-stage/lampOS/crates/voice-eval/src/physical/mac.rs",
+      "destination": "integration/recorder-stage/lampOS/crates/voice-eval/src/physical/mac.rs",
+      "scope": "archived integration proof or initial compiled-identity rejection; predates the module-name correction",
+      "sha256": "c14c40669ad423baf9c21672587bd6e97e47a64e102d6d22c2714e3e399d78e2",
+      "bytes": 189541
+    },
+    {
+      "source": "/private/tmp/tests-823-serve-all-cases-evidence/recorder-stage/lampOS/crates/voice-eval/src/physical/mod.rs",
+      "destination": "integration/recorder-stage/lampOS/crates/voice-eval/src/physical/mod.rs",
+      "scope": "archived integration proof or initial compiled-identity rejection; predates the module-name correction",
+      "sha256": "c55ab4bd4fad65b806f4e66f533d7334f947c25c87d8d072ce69ff848db2e582",
+      "bytes": 842
+    },
+    {
+      "source": "/private/tmp/tests-823-serve-all-cases-evidence/recorder-stage/lampOS/crates/voice-eval/src/physical/prepared_player_progress_tests.rs",
+      "destination": "integration/recorder-stage/lampOS/crates/voice-eval/src/physical/prepared_player_progress_tests.rs",
+      "scope": "archived integration proof or initial compiled-identity rejection; predates the module-name correction",
+      "sha256": "1ac1f3a24b267c0968fe291befbd65739c06a1baf4e2f5c9b24eca8f841055b7",
+      "bytes": 16419
+    },
+    {
+      "source": "/private/tmp/tests-823-serve-all-cases-evidence/recorder-stage/lampOS/crates/voice-eval/src/physical/recorder_backend_tests.rs",
+      "destination": "integration/recorder-stage/lampOS/crates/voice-eval/src/physical/recorder_backend_tests.rs",
+      "scope": "archived integration proof or initial compiled-identity rejection; predates the module-name correction",
+      "sha256": "a9ed66168aea14d40b3ae28a17c46450ca8e966e6d6f46f550565daea2e7bbde",
+      "bytes": 20666
+    },
+    {
+      "source": "/private/tmp/tests-823-serve-all-cases-evidence/recorder-stage/lampOS/crates/voice-eval/src/physical/recorder_fixture_commands_tests.rs",
+      "destination": "integration/recorder-stage/lampOS/crates/voice-eval/src/physical/recorder_fixture_commands_tests.rs",
+      "scope": "archived integration proof or initial compiled-identity rejection; predates the module-name correction",
+      "sha256": "500cd9e92ed12a7328f67d99c60d68105f5130f31d8db2ecd76265fd5fb01d37",
+      "bytes": 12023
+    },
+    {
+      "source": "/private/tmp/tests-823-serve-all-cases-evidence/recorder-stage/lampOS/crates/voice-eval/src/physical/recorder_fixture_control_tests.rs",
+      "destination": "integration/recorder-stage/lampOS/crates/voice-eval/src/physical/recorder_fixture_control_tests.rs",
+      "scope": "archived integration proof or initial compiled-identity rejection; predates the module-name correction",
+      "sha256": "832b0d1a345f119ec83f1579dc2864ed7935b9abb86468810292a1c02b01f25f",
+      "bytes": 14456
+    },
+    {
+      "source": "/private/tmp/tests-823-serve-all-cases-evidence/recorder-stage/lampOS/crates/voice-eval/src/physical/recorder_fixture_driver_tests.rs",
+      "destination": "integration/recorder-stage/lampOS/crates/voice-eval/src/physical/recorder_fixture_driver_tests.rs",
+      "scope": "archived integration proof or initial compiled-identity rejection; predates the module-name correction",
+      "sha256": "da5c382c25fd8d63f7fac9e3ff17d6caff216df95ae2289af40da6c1225c3ff1",
+      "bytes": 19522
+    },
+    {
+      "source": "/private/tmp/tests-823-serve-all-cases-evidence/recorder-stage/lampOS/crates/voice-eval/src/physical/serve_fixture_commands_tests.rs",
+      "destination": "integration/recorder-stage/lampOS/crates/voice-eval/src/physical/serve_fixture_commands_tests.rs",
+      "scope": "archived integration proof or initial compiled-identity rejection; predates the module-name correction",
+      "sha256": "54f60e0f676d94989b5220f707f9c5c085cbec83de0aa0e0a3d4ba5f892642ea",
+      "bytes": 8262
+    },
+    {
+      "source": "/private/tmp/tests-823-serve-all-cases-evidence/recorder-stage/lampOS/crates/voice-eval/src/physical/serve_fixture_control_tests.rs",
+      "destination": "integration/recorder-stage/lampOS/crates/voice-eval/src/physical/serve_fixture_control_tests.rs",
+      "scope": "archived integration proof or initial compiled-identity rejection; predates the module-name correction",
+      "sha256": "fdb57e00dd9e3028ae6f5a5aa6df81d1147bee4fc582ad00b117368951b80bcf",
+      "bytes": 21007
+    },
+    {
+      "source": "/private/tmp/tests-823-serve-all-cases-evidence/recorder-stage/lampOS/crates/voice-eval/src/physical/serve_fixture_driver.rs",
+      "destination": "integration/recorder-stage/lampOS/crates/voice-eval/src/physical/serve_fixture_driver.rs",
+      "scope": "archived integration proof or initial compiled-identity rejection; predates the module-name correction",
+      "sha256": "b7deaea4fb28cc44f48675cade095d38aea77f9dba668f7b9e32e9060e5170bb",
+      "bytes": 28934
+    },
+    {
+      "source": "/private/tmp/tests-823-serve-all-cases-evidence/recorder-stage/lampOS/crates/voice-eval/src/physical/serve_relay_progress_tests.rs",
+      "destination": "integration/recorder-stage/lampOS/crates/voice-eval/src/physical/serve_relay_progress_tests.rs",
+      "scope": "archived integration proof or initial compiled-identity rejection; predates the module-name correction",
+      "sha256": "d7ccf7f0ddcd46a07d9d6cfc768d5126d507c133b0b708dc69881f124f238ed4",
+      "bytes": 6205
+    },
+    {
+      "source": "/private/tmp/tests-823-serve-all-cases-evidence/recorder-stage/lampOS/crates/voice-eval/src/physical/session.rs",
+      "destination": "integration/recorder-stage/lampOS/crates/voice-eval/src/physical/session.rs",
+      "scope": "archived integration proof or initial compiled-identity rejection; predates the module-name correction",
+      "sha256": "660cea49d4e1389ad23e5786a5efded083e7f6d98912dfc9ad9887dad85ccd24",
+      "bytes": 66071
+    },
+    {
+      "source": "/private/tmp/tests-823-serve-all-cases-evidence/recorder-stage/lampOS/crates/voice-eval/tests/serve_session.rs",
+      "destination": "integration/recorder-stage/lampOS/crates/voice-eval/tests/serve_session.rs",
+      "scope": "archived integration proof or initial compiled-identity rejection; predates the module-name correction",
+      "sha256": "485ef6bc04c292666b633c819baa7c16465aaa756e97271c9c0708cd2c3e6186",
+      "bytes": 30679
+    },
+    {
+      "source": "/private/tmp/tests-823-serve-all-cases-evidence/recorder-stage.diff",
+      "destination": "integration/recorder-stage.diff",
+      "scope": "archived integration proof or initial compiled-identity rejection; predates the module-name correction",
+      "sha256": "318a32549cbc678672350a6e20ee2405f67dcd34cb16fcc41b9d2076874d13af",
+      "bytes": 112867
+    },
+    {
+      "source": "/private/tmp/tests-823-serve-all-cases-evidence/reversed-to-current-base/lampOS/crates/voice-eval/src/main.rs",
+      "destination": "integration/reversed-to-current-base/lampOS/crates/voice-eval/src/main.rs",
+      "scope": "archived integration proof or initial compiled-identity rejection; predates the module-name correction",
+      "sha256": "638cd8fa8c072d0639997c5de800ff7238f5f9f33de39ecba7d5d91243a18eee",
+      "bytes": 37175
+    },
+    {
+      "source": "/private/tmp/tests-823-serve-all-cases-evidence/reversed-to-current-base/lampOS/crates/voice-eval/src/physical/fake_lamp.rs",
+      "destination": "integration/reversed-to-current-base/lampOS/crates/voice-eval/src/physical/fake_lamp.rs",
+      "scope": "archived integration proof or initial compiled-identity rejection; predates the module-name correction",
+      "sha256": "1d0cf3b4f57c1e8ecad0590ebbf1c343a6e527dfc06eba521fb7ea6da0597ba1",
+      "bytes": 20183
+    },
+    {
+      "source": "/private/tmp/tests-823-serve-all-cases-evidence/reversed-to-current-base/lampOS/crates/voice-eval/src/physical/fake_serve.rs",
+      "destination": "integration/reversed-to-current-base/lampOS/crates/voice-eval/src/physical/fake_serve.rs",
+      "scope": "archived integration proof or initial compiled-identity rejection; predates the module-name correction",
+      "sha256": "3d1026d1b8a4ca11ee4e2f38fa00a518badf4f74193b049c13cf6515aa254d51",
+      "bytes": 20616
+    },
+    {
+      "source": "/private/tmp/tests-823-serve-all-cases-evidence/reversed-to-current-base/lampOS/crates/voice-eval/src/physical/fixture_commands.rs",
+      "destination": "integration/reversed-to-current-base/lampOS/crates/voice-eval/src/physical/fixture_commands.rs",
+      "scope": "archived integration proof or initial compiled-identity rejection; predates the module-name correction",
+      "sha256": "f96208110fec892608b3099f9b33b0cf86a966e9dd21971b03ee56dc85e6086a",
+      "bytes": 15409
+    },
+    {
+      "source": "/private/tmp/tests-823-serve-all-cases-evidence/reversed-to-current-base/lampOS/crates/voice-eval/src/physical/fixture_control.rs",
+      "destination": "integration/reversed-to-current-base/lampOS/crates/voice-eval/src/physical/fixture_control.rs",
+      "scope": "archived integration proof or initial compiled-identity rejection; predates the module-name correction",
+      "sha256": "318381580f7725db297e8efe4c510270ad574a75204e1b43f9845643f88ef33b",
+      "bytes": 26527
+    },
+    {
+      "source": "/private/tmp/tests-823-serve-all-cases-evidence/reversed-to-current-base/lampOS/crates/voice-eval/src/physical/fixture_control_tests.rs",
+      "destination": "integration/reversed-to-current-base/lampOS/crates/voice-eval/src/physical/fixture_control_tests.rs",
+      "scope": "archived integration proof or initial compiled-identity rejection; predates the module-name correction",
+      "sha256": "22e02e09239c5471fcc78818785bf2e186f033b272e08ccba0864307c8563087",
+      "bytes": 23366
+    },
+    {
+      "source": "/private/tmp/tests-823-serve-all-cases-evidence/reversed-to-current-base/lampOS/crates/voice-eval/src/physical/fixture_driver.rs",
+      "destination": "integration/reversed-to-current-base/lampOS/crates/voice-eval/src/physical/fixture_driver.rs",
+      "scope": "archived integration proof or initial compiled-identity rejection; predates the module-name correction",
+      "sha256": "6f518d5c02ea54a540b528aa7ac22a0fca1ffe4837f191c0cc20e369183b789e",
+      "bytes": 28997
+    },
+    {
+      "source": "/private/tmp/tests-823-serve-all-cases-evidence/reversed-to-current-base/lampOS/crates/voice-eval/src/physical/mac.rs",
+      "destination": "integration/reversed-to-current-base/lampOS/crates/voice-eval/src/physical/mac.rs",
+      "scope": "archived integration proof or initial compiled-identity rejection; predates the module-name correction",
+      "sha256": "2435350939e44a1ccfa2dd04d35f906a406668209b6786cc1c04711c4a6e6bc2",
+      "bytes": 167430
+    },
+    {
+      "source": "/private/tmp/tests-823-serve-all-cases-evidence/reversed-to-current-base/lampOS/crates/voice-eval/src/physical/mod.rs",
+      "destination": "integration/reversed-to-current-base/lampOS/crates/voice-eval/src/physical/mod.rs",
+      "scope": "archived integration proof or initial compiled-identity rejection; predates the module-name correction",
+      "sha256": "74a0279bf483658835bde00306a05d0e9caeb4d0384d8682d4f071ffad615ae5",
+      "bytes": 787
+    },
+    {
+      "source": "/private/tmp/tests-823-serve-all-cases-evidence/reversed-to-current-base/lampOS/crates/voice-eval/src/physical/session.rs",
+      "destination": "integration/reversed-to-current-base/lampOS/crates/voice-eval/src/physical/session.rs",
+      "scope": "archived integration proof or initial compiled-identity rejection; predates the module-name correction",
+      "sha256": "a54ea45fdaea1c330eb30abc30aa9d3a8cb86767c2b8f40782158b5bfe266e31",
+      "bytes": 65599
+    },
+    {
+      "source": "/private/tmp/tests-823-serve-all-cases-evidence/reversed-to-current-base/lampOS/crates/voice-eval/tests/serve_session.rs",
+      "destination": "integration/reversed-to-current-base/lampOS/crates/voice-eval/tests/serve_session.rs",
+      "scope": "archived integration proof or initial compiled-identity rejection; predates the module-name correction",
+      "sha256": "bb8e83a7c0cb08703852638749b01d32e88eb696b35aacb093a5462bd4ddcf49",
+      "bytes": 30067
+    },
+    {
+      "source": "/private/tmp/tests-823-serve-all-cases-evidence/reversed-to-current-base/lampOS/docs/realtime-tests.md",
+      "destination": "integration/reversed-to-current-base/lampOS/docs/realtime-tests.md",
+      "scope": "archived integration proof or initial compiled-identity rejection; predates the module-name correction",
+      "sha256": "29c7edf1028ad20d49c4f79adeb5951c754701378869646272317ac309fc2e74",
+      "bytes": 34141
+    },
+    {
+      "source": "/private/tmp/tests-823-serve-all-cases-evidence/root-baseline-list.json",
+      "destination": "integration/root-baseline-list.json",
+      "scope": "archived integration proof or initial compiled-identity rejection; predates the module-name correction",
+      "sha256": "3821dd03b7b244dbce05d944416770459c0c40bc07455e048e8d21a16748c502",
+      "bytes": 539
+    },
+    {
+      "source": "/private/tmp/tests-823-serve-all-cases-evidence/root-baseline-list.log",
+      "destination": "integration/root-baseline-list.log",
+      "scope": "archived integration proof or initial compiled-identity rejection; predates the module-name correction",
+      "sha256": "5870ff83da124e2ce7f60554c78727d98b052d32d217aa5f62c27815ff51e433",
+      "bytes": 70461
+    },
+    {
+      "source": "/private/tmp/tests-823-serve-all-cases-evidence/root-clippy.log",
+      "destination": "integration/root-clippy.log",
+      "scope": "archived integration proof or initial compiled-identity rejection; predates the module-name correction",
+      "sha256": "eeb557833eca8fda0ea835440eb807655836989a7ef8fb210e4e16a203e9302d",
+      "bytes": 1853
+    },
+    {
+      "source": "/private/tmp/tests-823-serve-all-cases-evidence/root-compiled-rejection.json",
+      "destination": "integration/root-compiled-rejection.json",
+      "scope": "archived integration proof or initial compiled-identity rejection; predates the module-name correction",
+      "sha256": "456f737d008300ea469d78e7d873540ffaecf6675713e2cb541db51c224ea7d5",
+      "bytes": 3718
+    },
+    {
+      "source": "/private/tmp/tests-823-serve-all-cases-evidence/root-fmt.log",
+      "destination": "integration/root-fmt.log",
+      "scope": "archived integration proof or initial compiled-identity rejection; predates the module-name correction",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "source": "/private/tmp/tests-823-serve-all-cases-evidence/root-gates.json",
+      "destination": "integration/root-gates.json",
+      "scope": "archived integration proof or initial compiled-identity rejection; predates the module-name correction",
+      "sha256": "a040abbc1917e55e1a9bde4f2511862981eb411ad5745cfe383749c803fd94bf",
+      "bytes": 1297
+    },
+    {
+      "source": "/private/tmp/tests-823-serve-all-cases-evidence/root-list.log",
+      "destination": "integration/root-list.log",
+      "scope": "archived integration proof or initial compiled-identity rejection; predates the module-name correction",
+      "sha256": "b2670ea85b03177decfc2d8dda418d068f9838a3dcfeabefe1461f7a94234e70",
+      "bytes": 90766
+    },
+    {
+      "source": "/private/tmp/tests-823-serve-all-cases-evidence/root-source-before.json",
+      "destination": "integration/root-source-before.json",
+      "scope": "archived integration proof or initial compiled-identity rejection; predates the module-name correction",
+      "sha256": "29229ab09ad9207f636d676f7e9df5228426a70556fe699244e4fbb6ade780c3",
+      "bytes": 9737
+    },
+    {
+      "source": "/private/tmp/tests-823-serve-all-cases-evidence/serve-seed/lampOS/crates/voice-eval/src/main.rs",
+      "destination": "integration/serve-seed/lampOS/crates/voice-eval/src/main.rs",
+      "scope": "archived integration proof or initial compiled-identity rejection; predates the module-name correction",
+      "sha256": "2267fce371633f875cc8cea94a43e5081d8ec30870ef20555847b10c656a747a",
+      "bytes": 37339
+    },
+    {
+      "source": "/private/tmp/tests-823-serve-all-cases-evidence/serve-seed/lampOS/crates/voice-eval/src/physical/fake_lamp.rs",
+      "destination": "integration/serve-seed/lampOS/crates/voice-eval/src/physical/fake_lamp.rs",
+      "scope": "archived integration proof or initial compiled-identity rejection; predates the module-name correction",
+      "sha256": "7707b987700293a31096338ccd4364e34aa70bce59bca2dd3c1cdaef15c0c9a1",
+      "bytes": 22868
+    },
+    {
+      "source": "/private/tmp/tests-823-serve-all-cases-evidence/serve-seed/lampOS/crates/voice-eval/src/physical/fake_serve.rs",
+      "destination": "integration/serve-seed/lampOS/crates/voice-eval/src/physical/fake_serve.rs",
+      "scope": "archived integration proof or initial compiled-identity rejection; predates the module-name correction",
+      "sha256": "5168b08f121fc374972f9a1bb10f86e30396c83c17ee12c2ea9858cd74ef780d",
+      "bytes": 27346
+    },
+    {
+      "source": "/private/tmp/tests-823-serve-all-cases-evidence/serve-seed/lampOS/crates/voice-eval/src/physical/fake_serve_progress_tests.rs",
+      "destination": "integration/serve-seed/lampOS/crates/voice-eval/src/physical/fake_serve_progress_tests.rs",
+      "scope": "archived integration proof or initial compiled-identity rejection; predates the module-name correction",
+      "sha256": "43af2f78890ec502bc3d12cd95214bf2aaa65578eeac1e9abaa1a6c4d0611f7a",
+      "bytes": 11362
+    },
+    {
+      "source": "/private/tmp/tests-823-serve-all-cases-evidence/serve-seed/lampOS/crates/voice-eval/src/physical/fixture_commands.rs",
+      "destination": "integration/serve-seed/lampOS/crates/voice-eval/src/physical/fixture_commands.rs",
+      "scope": "archived integration proof or initial compiled-identity rejection; predates the module-name correction",
+      "sha256": "c755e44894013fa6ff40dc107b0d5a13ae2fea2235b6bd04a4fa4d8b68ba4474",
+      "bytes": 19397
+    },
+    {
+      "source": "/private/tmp/tests-823-serve-all-cases-evidence/serve-seed/lampOS/crates/voice-eval/src/physical/fixture_control.rs",
+      "destination": "integration/serve-seed/lampOS/crates/voice-eval/src/physical/fixture_control.rs",
+      "scope": "archived integration proof or initial compiled-identity rejection; predates the module-name correction",
+      "sha256": "ee8ab5de43e99f1b0636dfb144385e7b7237de8f6b4a677cae766e9a4d8f4d81",
+      "bytes": 33317
+    },
+    {
+      "source": "/private/tmp/tests-823-serve-all-cases-evidence/serve-seed/lampOS/crates/voice-eval/src/physical/fixture_control_tests.rs",
+      "destination": "integration/serve-seed/lampOS/crates/voice-eval/src/physical/fixture_control_tests.rs",
+      "scope": "archived integration proof or initial compiled-identity rejection; predates the module-name correction",
+      "sha256": "90dab0a1075f0fbb819d819f391aede2994363c3238e54445a5a73e5f12f604a",
+      "bytes": 23399
+    },
+    {
+      "source": "/private/tmp/tests-823-serve-all-cases-evidence/serve-seed/lampOS/crates/voice-eval/src/physical/fixture_driver.rs",
+      "destination": "integration/serve-seed/lampOS/crates/voice-eval/src/physical/fixture_driver.rs",
+      "scope": "archived integration proof or initial compiled-identity rejection; predates the module-name correction",
+      "sha256": "3e4a99a9e5029b7c770b2420c4df70271c5702e30c6f97a3dcfc954fce1871d9",
+      "bytes": 29239
+    },
+    {
+      "source": "/private/tmp/tests-823-serve-all-cases-evidence/serve-seed/lampOS/crates/voice-eval/src/physical/fixture_players.rs",
+      "destination": "integration/serve-seed/lampOS/crates/voice-eval/src/physical/fixture_players.rs",
+      "scope": "archived integration proof or initial compiled-identity rejection; predates the module-name correction",
+      "sha256": "2378acf5a32c53b013cc90b96d827bdb82307dbb054d7c94e30ede8752dc5dab",
+      "bytes": 16371
+    },
+    {
+      "source": "/private/tmp/tests-823-serve-all-cases-evidence/serve-seed/lampOS/crates/voice-eval/src/physical/mac.rs",
+      "destination": "integration/serve-seed/lampOS/crates/voice-eval/src/physical/mac.rs",
+      "scope": "archived integration proof or initial compiled-identity rejection; predates the module-name correction",
+      "sha256": "a0fe85c17fd430a91c12703b0747da32d56309b4fb12900018bd3392f8f844f9",
+      "bytes": 179470
+    },
+    {
+      "source": "/private/tmp/tests-823-serve-all-cases-evidence/serve-seed/lampOS/crates/voice-eval/src/physical/mod.rs",
+      "destination": "integration/serve-seed/lampOS/crates/voice-eval/src/physical/mod.rs",
+      "scope": "archived integration proof or initial compiled-identity rejection; predates the module-name correction",
+      "sha256": "c55ab4bd4fad65b806f4e66f533d7334f947c25c87d8d072ce69ff848db2e582",
+      "bytes": 842
+    },
+    {
+      "source": "/private/tmp/tests-823-serve-all-cases-evidence/serve-seed/lampOS/crates/voice-eval/src/physical/prepared_player_progress_tests.rs",
+      "destination": "integration/serve-seed/lampOS/crates/voice-eval/src/physical/prepared_player_progress_tests.rs",
+      "scope": "archived integration proof or initial compiled-identity rejection; predates the module-name correction",
+      "sha256": "1ac1f3a24b267c0968fe291befbd65739c06a1baf4e2f5c9b24eca8f841055b7",
+      "bytes": 16419
+    },
+    {
+      "source": "/private/tmp/tests-823-serve-all-cases-evidence/serve-seed/lampOS/crates/voice-eval/src/physical/serve_fixture_commands_tests.rs",
+      "destination": "integration/serve-seed/lampOS/crates/voice-eval/src/physical/serve_fixture_commands_tests.rs",
+      "scope": "archived integration proof or initial compiled-identity rejection; predates the module-name correction",
+      "sha256": "54f60e0f676d94989b5220f707f9c5c085cbec83de0aa0e0a3d4ba5f892642ea",
+      "bytes": 8262
+    },
+    {
+      "source": "/private/tmp/tests-823-serve-all-cases-evidence/serve-seed/lampOS/crates/voice-eval/src/physical/serve_fixture_control_tests.rs",
+      "destination": "integration/serve-seed/lampOS/crates/voice-eval/src/physical/serve_fixture_control_tests.rs",
+      "scope": "archived integration proof or initial compiled-identity rejection; predates the module-name correction",
+      "sha256": "fdb57e00dd9e3028ae6f5a5aa6df81d1147bee4fc582ad00b117368951b80bcf",
+      "bytes": 21007
+    },
+    {
+      "source": "/private/tmp/tests-823-serve-all-cases-evidence/serve-seed/lampOS/crates/voice-eval/src/physical/serve_fixture_driver.rs",
+      "destination": "integration/serve-seed/lampOS/crates/voice-eval/src/physical/serve_fixture_driver.rs",
+      "scope": "archived integration proof or initial compiled-identity rejection; predates the module-name correction",
+      "sha256": "ab7f78684e4e1e9b13035a14bce3c0c3d474529f789f83d5fa1d444ceb9a232c",
+      "bytes": 20199
+    },
+    {
+      "source": "/private/tmp/tests-823-serve-all-cases-evidence/serve-seed/lampOS/crates/voice-eval/src/physical/serve_relay_progress_tests.rs",
+      "destination": "integration/serve-seed/lampOS/crates/voice-eval/src/physical/serve_relay_progress_tests.rs",
+      "scope": "archived integration proof or initial compiled-identity rejection; predates the module-name correction",
+      "sha256": "d7ccf7f0ddcd46a07d9d6cfc768d5126d507c133b0b708dc69881f124f238ed4",
+      "bytes": 6205
+    },
+    {
+      "source": "/private/tmp/tests-823-serve-all-cases-evidence/serve-seed/lampOS/crates/voice-eval/src/physical/session.rs",
+      "destination": "integration/serve-seed/lampOS/crates/voice-eval/src/physical/session.rs",
+      "scope": "archived integration proof or initial compiled-identity rejection; predates the module-name correction",
+      "sha256": "660cea49d4e1389ad23e5786a5efded083e7f6d98912dfc9ad9887dad85ccd24",
+      "bytes": 66071
+    },
+    {
+      "source": "/private/tmp/tests-823-serve-all-cases-evidence/serve-seed/lampOS/crates/voice-eval/tests/serve_session.rs",
+      "destination": "integration/serve-seed/lampOS/crates/voice-eval/tests/serve_session.rs",
+      "scope": "archived integration proof or initial compiled-identity rejection; predates the module-name correction",
+      "sha256": "cffbb51a9f21b03f2262099b23de526842eb098c600c02f3ec8eca187f800923",
+      "bytes": 30713
+    },
+    {
+      "source": "/private/tmp/tests-823-serve-all-cases-evidence/serve-session.reversed.rs",
+      "destination": "integration/serve-session.reversed.rs",
+      "scope": "archived integration proof or initial compiled-identity rejection; predates the module-name correction",
+      "sha256": "bb8e83a7c0cb08703852638749b01d32e88eb696b35aacb093a5462bd4ddcf49",
+      "bytes": 30067
+    },
+    {
+      "source": "/private/tmp/tests-823-serve-all-cases-evidence/serve-stage.diff",
+      "destination": "integration/serve-stage.diff",
+      "scope": "archived integration proof or initial compiled-identity rejection; predates the module-name correction",
+      "sha256": "e044593a807fa0a6b7f0dbbb02c3d4da73cd9bce4632da6ca59cbc47939485f9",
+      "bytes": 171853
+    },
+    {
+      "source": "/private/tmp/tests-823-serve-all-cases-evidence/slow-stage.diff",
+      "destination": "integration/slow-stage.diff",
+      "scope": "archived integration proof or initial compiled-identity rejection; predates the module-name correction",
+      "sha256": "17044792ec0663c28689efbf74f81daee4536024649151aa2072f90bc37f0583",
+      "bytes": 90410
+    },
+    {
+      "source": "/private/tmp/tests-823-serve-all-cases-evidence/stage-provenance.json",
+      "destination": "integration/stage-provenance.json",
+      "scope": "archived integration proof or initial compiled-identity rejection; predates the module-name correction",
+      "sha256": "e8e687092e5864385321904dd66db2ee84c88a5493bb6108f7ea9166212e9130",
+      "bytes": 18249
+    },
+    {
+      "source": "/private/tmp/tests-823-serve-all-cases-evidence/test-source-preservation.json",
+      "destination": "integration/test-source-preservation.json",
+      "scope": "archived integration proof or initial compiled-identity rejection; predates the module-name correction",
+      "sha256": "db9adad02dc7a15cedf73df28f85f9039db42d256edc7e6907137e0dc07816ed",
+      "bytes": 172193
+    },
+    {
+      "source": "/private/tmp/tests-823-serve-all-cases-evidence/worker-rustfmt.json",
+      "destination": "integration/worker-rustfmt.json",
+      "scope": "archived integration proof or initial compiled-identity rejection; predates the module-name correction",
+      "sha256": "72ad808f39bd737668c7b93e82ae89291d3adf8956c1faecc7ba7d9191ff3af9",
+      "bytes": 2207
+    },
+    {
+      "source": "/private/tmp/tests-823-serve-all-cases-evidence/worker-rustfmt.log",
+      "destination": "integration/worker-rustfmt.log",
+      "scope": "archived integration proof or initial compiled-identity rejection; predates the module-name correction",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "source": "/private/tmp/tests-823-serve-rebased-independent-review.md",
+      "destination": "review/serve-rebased.md",
+      "scope": "historical source review; exact applicability is established by integration stages and the explicit current module-name correction",
+      "sha256": "c0adbdd262dcd01746a40a644cd9b19cc7be0be2b4da4c229d2b100afe6a3f77",
+      "bytes": 7309
+    },
+    {
+      "source": "/private/tmp/tests-823-serve-rebased-independent-evidence/proof.json",
+      "destination": "review/serve-rebased-proof.json",
+      "scope": "historical source review; exact applicability is established by integration stages and the explicit current module-name correction",
+      "sha256": "aa8117ee477c1c6008e2ee0c5f4fcb7a1ddd6b5ee54054ccb90360f116adb780",
+      "bytes": 33206
+    },
+    {
+      "source": "/private/tmp/tests-823-recorder-cross-review.md",
+      "destination": "review/recorder-cross-boundary.md",
+      "scope": "historical source review; exact applicability is established by integration stages and the explicit current module-name correction",
+      "sha256": "3ef35b4504a106dbffab9256412bd6fc9daef82b4f31346846eafb610be96b20",
+      "bytes": 10576
+    },
+    {
+      "source": "/private/tmp/tests-823-slow-transport-driver-evidence/review.md",
+      "destination": "review/slow-transport-driver.md",
+      "scope": "historical source review; exact applicability is established by integration stages and the explicit current module-name correction",
+      "sha256": "2c48191a3e5a6f29241266c4883002ceaab8041b924a992cb0e248ad5842272a",
+      "bytes": 5291
+    },
+    {
+      "source": "/private/tmp/tests-823-slow-transport-driver-evidence/audit.json",
+      "destination": "review/slow-transport-driver-audit.json",
+      "scope": "historical source review; exact applicability is established by integration stages and the explicit current module-name correction",
+      "sha256": "482a8c803d89d1e0feae61ef119898270f081eb8d1f5d6ee77b222da16c8017e",
+      "bytes": 13559
+    },
+    {
+      "source": "/private/tmp/tests-823-slow-transport-control-review.md",
+      "destination": "review/slow-transport-control.md",
+      "scope": "historical source review; exact applicability is established by integration stages and the explicit current module-name correction",
+      "sha256": "1ba2733d37911457fa27a2535ae22f5e89fbc907df6af5b4eb1e0f1986b49eb4",
+      "bytes": 5653
+    },
+    {
+      "source": "/private/tmp/tests-823-slow-transport-onto-recorder-plan/source-audit.json",
+      "destination": "review/slow-transport-integration-audit.json",
+      "scope": "historical source review; exact applicability is established by integration stages and the explicit current module-name correction",
+      "sha256": "de950f8aa5e65db59d1a74b3bb1c891a34d378dfeae3d9f9fabb50d1469444b9",
+      "bytes": 24954
+    },
+    {
+      "source": "/private/tmp/tests-823-slow-transport-onto-recorder-plan/handoff.md",
+      "destination": "review/slow-transport-integration-handoff.md",
+      "scope": "historical source review; exact applicability is established by integration stages and the explicit current module-name correction",
+      "sha256": "740aefdaa6c7208b2499563a2cfaa7e77f301ca39421665f5ea0f9ee541c3ced",
+      "bytes": 12403
+    }
+  ],
+  "excluded_scratch_scripts": [
+    {
+      "path": "/private/tmp/tests-823-serve-all-cases-evidence/final-verify.py",
+      "sha256": "738e95862f839125dd6f947aa47d493949da2e9577a115497e1cf0b9bc288360",
+      "reason": "Scratch orchestration stays outside the Rust-only repository."
+    },
+    {
+      "path": "/private/tmp/tests-823-serve-all-cases-evidence/integrate.py",
+      "sha256": "fe9f1bec8c224f735b2279d2d31e3a9d712cda4683dd53a8f4a66c0da3e4aa1b",
+      "reason": "Scratch orchestration stays outside the Rust-only repository."
+    },
+    {
+      "path": "/private/tmp/tests-823-serve-all-cases-evidence/preflight.py",
+      "sha256": "8e605798031855469128bb470d38fc3d5175460a158fdf3dddad2471c39cce3d",
+      "reason": "Scratch orchestration stays outside the Rust-only repository."
+    }
+  ],
+  "historical_files": "historical-evidence.json",
+  "all_raw_copy_bytes_equal": true,
+  "all_26_owned_source_hashes_unchanged": true,
+  "all_previous_tracked_bytes_and_modes_unchanged_by_packaging": true,
+  "tracked_entry_count": 6741,
+  "no_git_mutation_no_cargo_no_network_no_devices": true
+}

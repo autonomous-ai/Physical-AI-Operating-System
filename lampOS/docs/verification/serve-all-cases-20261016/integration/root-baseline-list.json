@@ -1,0 +1,20 @@
+{
+  "command": [
+    "cargo",
+    "nextest",
+    "list",
+    "--locked",
+    "--offline",
+    "-p",
+    "lamp-voice-eval",
+    "--message-format",
+    "json"
+  ],
+  "date_started": "2026-10-16 05:06:24 +0700",
+  "cwd": "/private/tmp/lampos-tests-serve-all-cases/lampOS",
+  "target": "/private/tmp/tests-823-slow-progress-target",
+  "base": "d60124f8280f9c76576d6ca7bf859bc5c3983828",
+  "date_finished": "2026-10-16 05:07:43 +0700",
+  "exit_code": 0,
+  "raw_log_sha256": "5870ff83da124e2ce7f60554c78727d98b052d32d217aa5f62c27815ff51e433"
+}

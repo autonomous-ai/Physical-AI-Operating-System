@@ -143,6 +143,69 @@ fn await_ready(preparing: Preparing, mut idle: impl FnMut()) -> Result<PreparedS
     }
 }
 
+/// Explicit fixtures replace readiness polling with completed participant
+/// work while retaining the same real ten-second preparation watchdog.
+fn await_ready_fixture(
+    preparing: Preparing,
+    mut idle: impl FnMut(Instant) -> Result<()>,
+) -> Result<PreparedStart> {
+    let Preparing {
+        ready,
+        grant,
+        handle,
+    } = preparing;
+    let deadline = Instant::now() + PREPARE_READY_BOUND;
+    let failure = loop {
+        match ready.try_recv() {
+            Ok(ready) => {
+                return Ok(PreparedStart {
+                    ready,
+                    grant,
+                    handle,
+                });
+            }
+            Err(TryRecvError::Disconnected) => break "ready channel closed".to_owned(),
+            Err(TryRecvError::Empty) if Instant::now() >= deadline => {
+                break "no ready receipt within 10 s".to_owned();
+            }
+            Err(TryRecvError::Empty) => {
+                if let Err(error) = idle(deadline) {
+                    break error.to_string();
+                }
+            }
+        }
+    };
+    let _ = grant.try_send(GrantInput::Closed);
+    drop(grant);
+    // A report-ready acknowledgement is not the JoinHandle's completion.
+    let report = if wait_fixture_thread(&handle, deadline).is_ok() {
+        handle
+            .join()
+            .unwrap_or_else(|_| json!({"status":"panicked"}))
+    } else {
+        json!({"status":"no ready receipt within 10 s; detached"})
+    };
+    Err(invalid(&format!(
+        "prepared player not ready: {} {} ({failure})",
+        report["status"], report["error"]
+    )))
+}
+
+fn wait_fixture_thread(handle: &JoinHandle<Value>, deadline: Instant) -> Result<()> {
+    while !handle.is_finished() {
+        let remaining = deadline
+            .checked_duration_since(Instant::now())
+            .filter(|remaining| !remaining.is_zero())
+            .ok_or_else(|| {
+                invalid(
+                    "fixture player report did not finish its owned thread within the host bound",
+                )
+            })?;
+        thread::sleep(remaining.min(Duration::from_millis(1)));
+    }
+    Ok(())
+}
+
 /// Cached-WAV playback through `lamp-observer` on the explicit iMac speakers.
 pub struct ObserverPlayer {
     pub output_device: String,
@@ -352,6 +415,53 @@ pub struct FakePreparedRoomPlayer {
     pub prepared: usize,
 }
 
+/// Wait operations for the one shared prepared-fake body. The ordinary
+/// implementation keeps its original host waits; a controlled fixture may
+/// park only at these completed-work boundaries.
+pub(super) trait PreparedWait: Send {
+    fn begin(&mut self) -> Result<()> {
+        Ok(())
+    }
+    fn slow_prepare(&mut self, room: &Path, cancel: &Path, delay_ms: u32) -> Result<()>;
+    fn receive_grant(
+        &mut self,
+        inputs: &Receiver<GrantInput>,
+        cancel: &Path,
+        max_wait_ms: u32,
+    ) -> Result<std::result::Result<GrantInput, RecvTimeoutError>>;
+    fn delay_copy(&mut self, cancel: &Path, delay_ms: u32) -> Result<()>;
+    fn delivered(&mut self) -> Result<()> {
+        Ok(())
+    }
+}
+
+struct HostPreparedWait;
+
+impl PreparedWait for HostPreparedWait {
+    fn slow_prepare(&mut self, room: &Path, _: &Path, delay_ms: u32) -> Result<()> {
+        let until = monotonic_us() + 15_000_000;
+        while !room.exists() && monotonic_us() < until {
+            thread::sleep(Duration::from_millis(2));
+        }
+        thread::sleep(Duration::from_millis(u64::from(delay_ms)));
+        Ok(())
+    }
+
+    fn receive_grant(
+        &mut self,
+        inputs: &Receiver<GrantInput>,
+        _: &Path,
+        max_wait_ms: u32,
+    ) -> Result<std::result::Result<GrantInput, RecvTimeoutError>> {
+        Ok(inputs.recv_timeout(Duration::from_millis(u64::from(max_wait_ms))))
+    }
+
+    fn delay_copy(&mut self, _: &Path, delay_ms: u32) -> Result<()> {
+        thread::sleep(Duration::from_millis(u64::from(delay_ms)));
+        Ok(())
+    }
+}
+
 impl FakePreparedRoomPlayer {
     /// Use one explicit clock for preparation, grant receipt and first copy.
     /// Reads must be pure; clones must read the same clock domain. The worker
@@ -371,6 +481,20 @@ impl FakePreparedRoomPlayer {
         max_wait_ms: u32,
         now_ns: impl Fn(&'static str) -> Result<u64> + Send + Sync + 'static,
     ) -> Result<Option<Preparing>> {
+        self.prepare_with_wait(wav, timing, cancel_file, max_wait_ms, now_ns, |_| {
+            Ok(Box::new(HostPreparedWait))
+        })
+    }
+
+    pub(super) fn prepare_with_wait(
+        &mut self,
+        wav: &Path,
+        timing: &SceneTiming,
+        cancel_file: &Path,
+        max_wait_ms: u32,
+        now_ns: impl Fn(&'static str) -> Result<u64> + Send + Sync + 'static,
+        wait: impl FnOnce(&str) -> Result<Box<dyn PreparedWait>>,
+    ) -> Result<Option<Preparing>> {
         self.prepared += 1;
         let number = self.prepared;
         let fault = self
@@ -386,15 +510,22 @@ impl FakePreparedRoomPlayer {
         let room = self.room.clone();
         let cancel_file = cancel_file.to_path_buf();
         let attempt_id = format!("fake-{number}-{}", now_ns("attempt ID")?);
+        let mut wait = wait(&attempt_id)?;
         let (grant, inputs) = mpsc::sync_channel::<GrantInput>(9);
         let (published, ready) = mpsc::sync_channel(1);
         let handle = thread::spawn(move || {
-            if let Some(FakePlayerFault::SlowPrepare { delay_ms }) = fault {
-                let until = monotonic_us() + 15_000_000;
-                while !room.exists() && monotonic_us() < until {
-                    thread::sleep(Duration::from_millis(2));
+            let preparing = wait.begin().and_then(|()| {
+                if let Some(FakePlayerFault::SlowPrepare { delay_ms }) = fault {
+                    wait.slow_prepare(&room, &cancel_file, delay_ms)
+                } else {
+                    Ok(())
                 }
-                thread::sleep(Duration::from_millis(u64::from(delay_ms)));
+            });
+            if let Err(error) = preparing {
+                return json!({"attempt_id": attempt_id, "valid": false,
+                    "scope": "fake prepared start; no audio",
+                    "counters": {"source_started_host_ns": 0},
+                    "status": "failed", "error": error.to_string()});
             }
             let ready_ns = match now_ns("readiness") {
                 Ok(now) => now,
@@ -420,7 +551,14 @@ impl FakePreparedRoomPlayer {
                 report["status"] = json!("ready_not_published");
                 return report;
             }
-            let input = inputs.recv_timeout(Duration::from_millis(u64::from(max_wait_ms)));
+            let input = match wait.receive_grant(&inputs, &cancel_file, max_wait_ms) {
+                Ok(input) => input,
+                Err(error) => {
+                    report["status"] = json!("failed");
+                    report["error"] = json!(error.to_string());
+                    return report;
+                }
+            };
             let received = match now_ns("grant receipt") {
                 Ok(now) => now,
                 Err(error) => {
@@ -461,8 +599,12 @@ impl FakePreparedRoomPlayer {
             };
             report["prepared_start"]["grant"] = json!({"decision": "start",
                 "expires_monotonic_ns": expires, "received_monotonic_ns": received});
-            if let Some(FakePlayerFault::LateFirstCopy { delay_ms }) = fault {
-                thread::sleep(Duration::from_millis(u64::from(delay_ms)));
+            if let Some(FakePlayerFault::LateFirstCopy { delay_ms }) = fault
+                && let Err(error) = wait.delay_copy(&cancel_file, delay_ms)
+            {
+                report["status"] = json!("failed");
+                report["error"] = json!(error.to_string());
+                return report;
             }
             // The fresh sample at the first copy decides; equality refuses.
             let copy_ns = match now_ns("first copy") {
@@ -486,6 +628,11 @@ impl FakePreparedRoomPlayer {
             report["counters"]["source_started_host_ns"] = json!(copy_ns);
             match sent {
                 Ok(_) => {
+                    if let Err(error) = wait.delivered() {
+                        report["status"] = json!("failed");
+                        report["error"] = json!(error.to_string());
+                        return report;
+                    }
                     report["valid"] = json!(true);
                     report["status"] = json!("fake_room_delivery");
                 }
@@ -856,6 +1003,75 @@ const SELF_END_BOUND_US: u64 = 10_000_000;
 /// Closing/dropping a driver must release its owned control peers so normal
 /// backend cleanup can stop and reap a participant blocked on a fixture step.
 pub trait FixtureDriver {
+    /// Only an explicit driver with prepared-player and signal coordination
+    /// can opt into serve. The finite driver keeps rejecting it.
+    fn supports_serve(&self) -> bool {
+        false
+    }
+
+    /// Only a driver that configured an explicit local recorder participant
+    /// can coordinate its ready file, full wait and actual exit barrier.
+    fn supports_recorder(&self) -> bool {
+        false
+    }
+
+    /// Register and start the recorder immediately after its real spawn,
+    /// sharing the original ready-file host deadline.
+    fn start_recorder(&mut self, _host_deadline: Instant) -> Result<()> {
+        Err(invalid("fixture driver does not coordinate a recorder"))
+    }
+
+    /// Terminal progress is pending until the backend observes actual exit.
+    fn recorder_exit_pending(&self) -> bool {
+        false
+    }
+
+    /// Called only after the backend-owned Child returned a real exit status.
+    fn recorder_exit_observed(&mut self) -> Result<()> {
+        Ok(())
+    }
+
+    /// After relay completion, drive the recorder and pending players only;
+    /// return at recorder terminal progress without claiming actual exit.
+    fn finish_recorder(&mut self, _host_deadline: Instant) -> Result<()> {
+        Ok(())
+    }
+
+    /// Called after a real Start or Closed input was successfully sent. It
+    /// acknowledges channel consumption, not acceptance or audible output.
+    fn grant_sent(&mut self, _attempt_id: &str) -> Result<()> {
+        Ok(())
+    }
+
+    /// A completed report is not an exited thread. The backend separately
+    /// waits for the actual JoinHandle before advancing or inspecting it.
+    fn player_report_ready(&self, _attempt_id: &str) -> bool {
+        false
+    }
+
+    /// After terminal relay output, finish only outstanding fixture-player
+    /// work within the original join budget. Report markers still require
+    /// the real owned-thread joins below. Errors must close the participants.
+    fn finish_players(&mut self, _host_deadline: Instant) -> Result<()> {
+        Ok(())
+    }
+
+    /// Preparation keeps its original ten-second host watchdog even when
+    /// the driver's ordinary control watchdog is longer. Serve-capable
+    /// drivers must propagate this deadline into every participant wait.
+    fn prepare_wait(
+        &mut self,
+        _until: MonoTime,
+        _sent_frames: u64,
+        _enqueued_frames: &AtomicU64,
+        _queue_drained: bool,
+        _host_deadline: Instant,
+    ) -> Result<()> {
+        Err(invalid(
+            "fixture driver does not coordinate prepared readiness",
+        ))
+    }
+
     fn wait(
         &mut self,
         until: MonoTime,
@@ -870,6 +1086,49 @@ struct FixtureProgress<'a> {
     enqueued: Arc<AtomicU64>,
     sent: u64,
     started: bool,
+    recorder_failure: Option<String>,
+}
+
+/// Keep a failed explicit fixture nonblocking while dropping its original
+/// driver closes all peers. A frozen fixture must never fall back to host
+/// channel waits when the runner calls finish after a control error.
+struct FailedRecorderFixture(String);
+
+impl FixtureDriver for FailedRecorderFixture {
+    fn supports_serve(&self) -> bool {
+        true
+    }
+    fn supports_recorder(&self) -> bool {
+        true
+    }
+    fn start_recorder(&mut self, _: Instant) -> Result<()> {
+        Err(invalid(&self.0))
+    }
+    fn grant_sent(&mut self, _: &str) -> Result<()> {
+        Err(invalid(&self.0))
+    }
+    fn recorder_exit_observed(&mut self) -> Result<()> {
+        Err(invalid(&self.0))
+    }
+    fn finish_recorder(&mut self, _: Instant) -> Result<()> {
+        Err(invalid(&self.0))
+    }
+    fn finish_players(&mut self, _: Instant) -> Result<()> {
+        Err(invalid(&self.0))
+    }
+    fn prepare_wait(
+        &mut self,
+        _: MonoTime,
+        _: u64,
+        _: &AtomicU64,
+        _: bool,
+        _: Instant,
+    ) -> Result<()> {
+        Err(invalid(&self.0))
+    }
+    fn wait(&mut self, _: MonoTime, _: u64, _: &AtomicU64, _: bool) -> Result<()> {
+        Err(invalid(&self.0))
+    }
 }
 
 pub struct PhysicalBackend<'a> {
@@ -899,6 +1158,8 @@ pub struct PhysicalBackend<'a> {
     evidence_lost: bool,
     /// Room coverage for this attempt.
     room_cover: RoomCover,
+    /// Fixture-only mapping; the original Playback representation stays intact.
+    fixture_player_attempts: BTreeMap<String, String>,
 }
 
 /// How long the room recording covers the session. A prompt is granted only
@@ -1166,14 +1427,18 @@ impl<'a> PhysicalBackend<'a> {
             trigger: None,
             evidence_lost: false,
             room_cover: RoomCover::default(),
+            fixture_player_attempts: BTreeMap::new(),
         }
     }
 
-    /// Install a driver for one explicitly controlled finite local attempt.
-    /// Serve/prepared players and room recorders need additional participants
-    /// and cannot use this first finite-fixture scheduler.
+    /// Install a driver for one explicitly controlled local attempt.
+    /// Serve requires its driver's prepared-player/signal capability. Room
+    /// recorders require their driver's separate recorder capability.
     pub fn with_fixture_driver(mut self, driver: impl FixtureDriver + 'a) -> Result<Self> {
-        if self.serve() || self.config.room_recorder.is_some() || self.session.is_some() {
+        if (self.serve() && !driver.supports_serve())
+            || (self.config.room_recorder.is_some() && !driver.supports_recorder())
+            || self.session.is_some()
+        {
             return Err(invalid(
                 "fixture stepping requires a fresh finite backend without a recorder",
             ));
@@ -1186,20 +1451,228 @@ impl<'a> PhysicalBackend<'a> {
             enqueued: Arc::new(AtomicU64::new(0)),
             sent: 0,
             started: false,
+            recorder_failure: None,
         });
         Ok(self)
     }
 
     fn pump_fixture(&mut self, until_us: u64, queue_drained: bool) -> Result<()> {
-        if let Some(fixture) = &mut self.fixture {
-            fixture.driver.wait(
-                MonoTime::from_micros(until_us),
-                fixture.sent,
-                &fixture.enqueued,
-                queue_drained,
-            )?;
+        let recorder_deadline = self
+            .fixture_recorder()
+            .then(|| Instant::now() + crate::physical::fixture_control::DEFAULT_WATCHDOG);
+        let result: Result<()> = (|| {
+            if let Some(fixture) = &mut self.fixture {
+                fixture.driver.wait(
+                    MonoTime::from_micros(until_us),
+                    fixture.sent,
+                    &fixture.enqueued,
+                    queue_drained,
+                )?;
+            }
+            if let Some(deadline) = recorder_deadline {
+                self.settle_fixture_recorder_exit(deadline)?;
+            }
+            self.settle_fixture_reports(Instant::now() + Duration::from_secs(25))?;
+            Ok(())
+        })();
+        if recorder_deadline.is_some()
+            && let Err(error) = &result
+        {
+            self.fail_fixture_recorder(error.to_string());
+        }
+        result
+    }
+
+    fn pump_preparation_fixture(&mut self, until_us: u64, host_deadline: Instant) -> Result<()> {
+        let recorder = self.fixture_recorder();
+        let result: Result<()> = (|| {
+            if let Some(fixture) = &mut self.fixture {
+                fixture.driver.prepare_wait(
+                    MonoTime::from_micros(until_us),
+                    fixture.sent,
+                    &fixture.enqueued,
+                    true,
+                    host_deadline,
+                )?;
+            }
+            if recorder {
+                self.settle_fixture_recorder_exit(host_deadline)?;
+            }
+            self.settle_fixture_reports(host_deadline)?;
+            Ok(())
+        })();
+        if recorder && let Err(error) = &result {
+            self.fail_fixture_recorder(error.to_string());
+        }
+        result
+    }
+
+    fn fixture_recorder(&self) -> bool {
+        self.config.room_recorder.is_some()
+            && self
+                .fixture
+                .as_ref()
+                .is_some_and(|fixture| fixture.driver.supports_recorder())
+    }
+
+    fn fail_fixture_recorder(&mut self, error: String) {
+        let Some(fixture) = &mut self.fixture else {
+            return;
+        };
+        if fixture.recorder_failure.is_some() {
+            return;
+        }
+        fixture.recorder_failure = Some(error.clone());
+        let old = std::mem::replace(&mut fixture.driver, Box::new(FailedRecorderFixture(error)));
+        drop(old);
+        if let Some((child, _, _)) = &mut self.room {
+            let _ = child.kill();
+            let _ = child.wait();
+        }
+    }
+
+    /// A terminal control Ack permits a bounded real exit wait, not an exit
+    /// claim. Keep logical time fixed and leave coverage decisions untouched.
+    fn settle_fixture_recorder_exit(&mut self, host_deadline: Instant) -> Result<()> {
+        let result = self.observe_fixture_recorder_exit(host_deadline);
+        if let Err(error) = &result {
+            self.fail_fixture_recorder(error.to_string());
+        }
+        result
+    }
+
+    fn observe_fixture_recorder_exit(&mut self, host_deadline: Instant) -> Result<()> {
+        let Some(fixture) = &self.fixture else {
+            return Ok(());
+        };
+        if let Some(error) = &fixture.recorder_failure {
+            return Err(invalid(error));
+        }
+        if !fixture.driver.recorder_exit_pending() {
+            return Ok(());
+        }
+        let at = (self.now)();
+        loop {
+            if (self.now)() != at {
+                return Err(invalid(
+                    "fixture clock advanced before actual recorder exit",
+                ));
+            }
+            let child = &mut self
+                .room
+                .as_mut()
+                .ok_or_else(|| invalid("fixture recorder exit has no owned child"))?
+                .0;
+            if child.try_wait()?.is_some() {
+                break;
+            }
+            let remaining = host_deadline
+                .checked_duration_since(Instant::now())
+                .filter(|remaining| !remaining.is_zero())
+                .ok_or_else(|| {
+                    invalid("fixture recorder did not actually exit within the host bound")
+                })?;
+            // The existing owned-child wait polls every 20 ms on host time.
+            thread::sleep(remaining.min(Duration::from_millis(20)));
+        }
+        self.fixture
+            .as_mut()
+            .unwrap()
+            .driver
+            .recorder_exit_observed()?;
+        if (self.now)() != at {
+            return Err(invalid(
+                "fixture clock advanced while acknowledging actual recorder exit",
+            ));
         }
         Ok(())
+    }
+
+    fn finish_fixture_recorder(&mut self, host_deadline: Instant) -> Result<()> {
+        if !self.fixture_recorder() {
+            return Ok(());
+        }
+        let result: Result<()> = (|| {
+            self.fixture
+                .as_mut()
+                .unwrap()
+                .driver
+                .finish_recorder(host_deadline)?;
+            self.settle_fixture_recorder_exit(host_deadline)?;
+            if self
+                .room
+                .as_mut()
+                .ok_or_else(|| invalid("fixture recorder finish has no owned child"))?
+                .0
+                .try_wait()?
+                .is_none()
+            {
+                return Err(invalid(
+                    "fixture recorder finish returned before actual exit",
+                ));
+            }
+            Ok(())
+        })();
+        if let Err(error) = &result {
+            self.fail_fixture_recorder(error.to_string());
+        }
+        result
+    }
+
+    fn settle_fixture_reports(&self, deadline: Instant) -> Result<()> {
+        let Some(fixture) = &self.fixture else {
+            return Ok(());
+        };
+        for playback in &self.playbacks {
+            if let Some(attempt) = self.fixture_player_attempts.get(&playback.step)
+                && fixture.driver.player_report_ready(attempt)
+                && let Some(handle) = &playback.handle
+            {
+                wait_fixture_thread(handle, deadline)?;
+            }
+        }
+        for (_, ready, handle) in &self.unused {
+            if ready["attempt_id"]
+                .as_str()
+                .is_some_and(|attempt| fixture.driver.player_report_ready(attempt))
+            {
+                wait_fixture_thread(handle, deadline)?;
+            }
+        }
+        Ok(())
+    }
+
+    fn fixture_player_error(&mut self, error: String) {
+        self.unavailable
+            .get_or_insert_with(|| Withheld::ProtocolFailed(error.clone()));
+        if self.evidence_lost
+            && self
+                .fixture
+                .as_ref()
+                .is_some_and(|fixture| fixture.recorder_failure.is_some())
+        {
+            return;
+        }
+        let event = self.lose_evidence("fixture_player".into(), error);
+        self.pending.push_back(event);
+    }
+
+    fn notify_prepared_input(&mut self, ready: &Value) -> Result<()> {
+        let result: Result<()> = (|| {
+            if let Some(fixture) = &mut self.fixture {
+                let attempt = ready["attempt_id"]
+                    .as_str()
+                    .ok_or_else(|| invalid("fixture prepared receipt has no attempt ID"))?;
+                fixture.driver.grant_sent(attempt)?;
+            }
+            Ok(())
+        })();
+        if self.fixture_recorder()
+            && let Err(error) = &result
+        {
+            self.fail_fixture_recorder(error.to_string());
+        }
+        result
     }
 
     fn serve(&self) -> bool {
@@ -1209,7 +1682,11 @@ impl<'a> PhysicalBackend<'a> {
     /// Stop an armed player that will never be granted; its report is kept.
     fn release_armed(&mut self) {
         if let Some(armed) = self.armed.take() {
-            let _ = armed.prepared.grant.try_send(GrantInput::Closed);
+            if armed.prepared.grant.try_send(GrantInput::Closed).is_ok()
+                && let Err(error) = self.notify_prepared_input(&armed.prepared.ready)
+            {
+                self.fixture_player_error(error.to_string());
+            }
             self.unused
                 .push((armed.step, armed.prepared.ready, armed.prepared.handle));
         }
@@ -1231,6 +1708,12 @@ impl<'a> PhysicalBackend<'a> {
         stdin.write_all(b"\n")?;
         stdin.flush()?;
         session.stop_sent = true;
+        if let Some(fixture) = &mut self.fixture {
+            fixture.sent = fixture
+                .sent
+                .checked_add(1)
+                .ok_or_else(|| invalid("fixture runner input count overflow"))?;
+        }
         Ok(())
     }
 
@@ -1490,6 +1973,28 @@ impl<'a> PhysicalBackend<'a> {
             )));
         }
         let sent_us = grant_clock_us(&self.now);
+        if self.fixture.is_some() {
+            if let Some(attempt) = armed.prepared.ready["attempt_id"].as_str() {
+                self.fixture_player_attempts
+                    .insert(step.id.clone(), attempt.to_owned());
+            }
+            if let Err(error) = self.notify_prepared_input(&armed.prepared.ready) {
+                // The original grant was already sent. Retain its delivery
+                // evidence and invalidate the fixture, never claim no dispatch.
+                self.fixture_player_error(error.to_string());
+            }
+            if let Some(fixture) = &self.fixture
+                && armed.prepared.ready["attempt_id"]
+                    .as_str()
+                    .is_some_and(|attempt| fixture.driver.player_report_ready(attempt))
+                && let Err(error) = wait_fixture_thread(
+                    &armed.prepared.handle,
+                    Instant::now() + Duration::from_secs(25),
+                )
+            {
+                self.fixture_player_error(error.to_string());
+            }
+        }
         let receipt = json!({"ready": armed.prepared.ready,
             "armed_runner_us": armed.armed_us, "grant_sent_runner_us": sent_us,
             "expires_monotonic_ns": expires_ns,
@@ -2132,10 +2637,32 @@ impl Backend for PhysicalBackend<'_> {
                 .spawn()?;
             // Stimuli start only after the recorder reports readiness.
             let ready_deadline = monotonic_us() + 15_000_000;
+            if self.fixture_recorder() {
+                let remaining = ready_deadline.saturating_sub(monotonic_us());
+                let result = self
+                    .fixture
+                    .as_mut()
+                    .unwrap()
+                    .driver
+                    .start_recorder(Instant::now() + Duration::from_micros(remaining));
+                if let Err(error) = result {
+                    let reason = format!("fixture recorder startup failed: {error}");
+                    self.fail_fixture_recorder(reason.clone());
+                    let mut child = child;
+                    let _ = child.kill();
+                    let _ = child.wait();
+                    return Ok(Begin::Withheld(reason));
+                }
+            }
             while !out.join("ready.json").exists() && monotonic_us() < ready_deadline {
                 thread::sleep(Duration::from_millis(50));
             }
             if !out.join("ready.json").exists() {
+                if self.fixture_recorder() {
+                    self.fail_fixture_recorder(
+                        "room recorder did not report ready.json within 15 s".into(),
+                    );
+                }
                 let mut child = child;
                 let _ = child.kill();
                 let _ = child.wait();
@@ -2147,6 +2674,16 @@ impl Backend for PhysicalBackend<'_> {
             self.room_cover.ready = ready;
             self.room_cover.end_us = end_us;
             self.room = Some((child, out, requested));
+            if self.fixture_recorder() {
+                let remaining = ready_deadline.saturating_sub(monotonic_us());
+                if let Err(error) = self
+                    .settle_fixture_recorder_exit(Instant::now() + Duration::from_micros(remaining))
+                {
+                    return Ok(Begin::Withheld(format!(
+                        "fixture recorder startup failed: {error}"
+                    )));
+                }
+            }
         }
         let mut argv = self.config.lamp_command.clone();
         let work = format!(
@@ -2338,6 +2875,19 @@ impl Backend for PhysicalBackend<'_> {
             &cancel_file,
             max_wait_ms,
         ) {
+            Ok(Some(preparing)) if self.fixture.is_some() => {
+                await_ready_fixture(preparing, |deadline| {
+                    self.consume_transport();
+                    let until = (self.now)()
+                        .as_micros()
+                        .checked_add(2_000)
+                        .ok_or_else(|| invalid("fixture preparation clock overflow"))?;
+                    self.pump_preparation_fixture(until, deadline)?;
+                    self.consume_transport();
+                    Ok(())
+                })
+                .map(Some)
+            }
             Ok(Some(preparing)) => await_ready(preparing, || self.consume_transport()).map(Some),
             other => other.map(|_| None),
         };
@@ -2357,7 +2907,11 @@ impl Backend for PhysicalBackend<'_> {
                     "prepared source {} is not the cached asset {}",
                     prepared.ready["source_sha256"], asset.wav_sha256
                 );
-                let _ = prepared.grant.try_send(GrantInput::Closed);
+                if prepared.grant.try_send(GrantInput::Closed).is_ok()
+                    && let Err(error) = self.notify_prepared_input(&prepared.ready)
+                {
+                    self.fixture_player_error(error.to_string());
+                }
                 self.unused
                     .push((step.id.clone(), prepared.ready, prepared.handle));
                 reason
@@ -2563,6 +3117,8 @@ impl Backend for PhysicalBackend<'_> {
         }
         let Some(mut session) = self.session.take() else {
             // Session start failed: release the recorder and players, keep nothing.
+            // Closing explicit control wakes parked workers before host joins.
+            drop(self.fixture.take());
             if let Some((mut child, _, _)) = self.room.take() {
                 let _ = child.kill();
                 let _ = child.wait();
@@ -2651,7 +3207,43 @@ impl Backend for PhysicalBackend<'_> {
             (Some(reason), Some(transport)) => Some(format!("{reason}; {transport}")),
             (reason, transport) => reason.or(transport),
         };
+        // Finish the recorder before the player's internal terminal drain can
+        // advance shared time. Its actual exit is still observed by this owner.
+        let recorder_finish_failure = if self.fixture_recorder() {
+            self.finish_fixture_recorder(
+                Instant::now() + Duration::from_secs(u64::from(self.seconds) + 60),
+            )
+            .err()
+            .map(|error| format!("fixture recorder did not finish: {error}"))
+        } else {
+            None
+        };
+        let aborted = match (aborted, recorder_finish_failure) {
+            (Some(reason), Some(recorder)) => Some(format!("{reason}; {recorder}")),
+            (reason, recorder) => reason.or(recorder),
+        };
         let playback_bound = monotonic_us() + 25_000_000;
+        let player_finish_failure = if let Some(fixture) = &mut self.fixture
+            && fixture.recorder_failure.is_none()
+        {
+            let remaining = playback_bound.saturating_sub(monotonic_us());
+            fixture
+                .driver
+                .finish_players(Instant::now() + Duration::from_micros(remaining))
+                .err()
+                .map(|error| format!("fixture players did not finish: {error}"))
+        } else {
+            None
+        };
+        if self.fixture_recorder()
+            && let Some(error) = &player_finish_failure
+        {
+            self.fail_fixture_recorder(error.clone());
+        }
+        let aborted = match (aborted, player_finish_failure) {
+            (Some(reason), Some(players)) => Some(format!("{reason}; {players}")),
+            (reason, players) => reason.or(players),
+        };
         let mut playbacks = Vec::new();
         let mut corrected = Vec::new();
         let mut failed = Vec::new();
@@ -4083,3 +4675,11 @@ mod backend_progress_tests;
 #[cfg(test)]
 #[path = "prepared_player_clock_tests.rs"]
 mod prepared_player_clock_tests;
+
+#[cfg(test)]
+#[path = "prepared_player_progress_tests.rs"]
+mod prepared_player_progress_tests;
+
+#[cfg(test)]
+#[path = "recorder_backend_tests.rs"]
+mod recorder_backend_tests;

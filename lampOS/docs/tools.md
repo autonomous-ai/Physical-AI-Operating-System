@@ -196,7 +196,7 @@ remember ([memory.md](memory.md#what-a-person-teaches-and-corrects-813)):
 
 | Function | When the model calls it | What it is told |
 |---|---|---|
-| `keep_rule {rule, speaking_up?}` | The person corrects how it behaves or says how they want it to behave from now on. `speaking_up` is `never_first` or `not_first_in_mornings`, only for a rule about speaking first | `{"kept_rule":true,"note":"Follow it from now on, ..."}`; a rule over 200 bytes or with no words is refused, and so is a seventh rule (`"kept_rule":false`, ask which to drop) |
+| `keep_rule {rule, speaking_up?}` | The person corrects how it behaves or says how they want it to behave from now on, also in passing ("from now on…", "always…", "never…", "stop…", "don't call me…"), even when it has already begun to do so; never for a one-off request about the answer at hand. `speaking_up` is `never_first` or `not_first_in_mornings`, only for a rule about speaking first | `{"kept_rule":true,"note":"Follow it from now on, ..."}`; a rule over 200 bytes or with no words is refused, and so is a seventh rule (`"kept_rule":false`, ask which to drop) |
 | `forget_rule {number}` | The person takes a rule back ("you can tell me the weather again", "forget that rule"). The number is required, as numbered in the session's rules or by `list_rules` | `{"forgotten":true}`; with no number or one that is not theirs nothing is removed, `false` with a note to call `list_rules` and ask which |
 | `list_rules {}` | "What have I asked you not to do?", or to find a rule's number | `{"rules":[{"number":3,"rule":"...","when":"yesterday"}],"note":"The numbers are for forget_rule only: never say them."}`, or an empty list |
 

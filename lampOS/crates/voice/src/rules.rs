@@ -79,12 +79,17 @@ pub fn tools() -> Vec<Tool> {
     vec![
         Tool {
             name: KEEP_RULE.into(),
-            description: "Call this only when the person corrects how you behave with them or tells you how they want \
-                          you to behave from now on: what to call them, how long your answers should be, a topic to \
-                          skip, when not to speak up, something you keep getting wrong. Not for tasks, reminders or \
-                          things to remember: those are remember. Give the rule as one short plain sentence about \
-                          what you will or will not do, such as 'Do not tell them the weather in the morning.', never \
-                          their whole words. Then say back briefly what you will do differently."
+            description: "Call this every time the person corrects how you behave with them or says how you should \
+                          behave from now on, even when they say it in passing and you have already started doing \
+                          it: anything with 'from now on', 'always', 'never', 'stop ...', 'don't call me ...', \
+                          'you don't need to ...' about you. For example 'from now on keep your answers to one short \
+                          sentence', 'please stop calling me buddy', 'never tell me the weather unless I ask'. Doing \
+                          it only in this conversation is not enough: without this call you will do it wrong again \
+                          tomorrow. Not for a one-off request about this answer alone ('say that again more slowly'), \
+                          and not for tasks, reminders or things to remember: those are remember. Give the rule as \
+                          one short plain sentence about what you will or will not do, such as 'Keep answers to one \
+                          short sentence.', never their whole words. Then say back briefly what you will do \
+                          differently."
                 .into(),
             parameters: Some(json!({
                 "type": "object",
@@ -445,6 +450,36 @@ mod tests {
             .clone()
     }
 
+    /// lamp-52e6, PR #822: "from now on please keep your answers to one
+    /// short sentence" was obeyed in the session and never kept. The
+    /// declaration names the standing forms, and leaves one-off requests out.
+    #[test]
+    fn keep_rule_is_declared_for_standing_corrections_and_not_one_off_requests() {
+        let tools = tools();
+        for tool in &tools {
+            tool.validate().unwrap();
+        }
+        let keep = &tools[0].description;
+        for form in [
+            "from now on",
+            "'always'",
+            "'never'",
+            "'stop ...'",
+            "'don't call me ...'",
+            "one short sentence",
+            "not enough",
+            "one-off request",
+        ] {
+            assert!(keep.contains(form), "{form}");
+        }
+        let forget = &tools[1];
+        assert!(forget.description.contains("list_rules"));
+        assert_eq!(
+            forget.parameters.as_ref().unwrap()["required"],
+            json!(["number"])
+        );
+    }
+
     #[test]
     fn a_rule_is_kept_beside_the_persons_memory_with_its_mark() {
         assert_eq!(scope(Some("p-be9688998f085098")), "r-be9688998f085098");
@@ -540,29 +575,29 @@ mod tests {
                 .success()
         );
         bus_on(&root);
-        // A memory with one room rule and no session note.
+        // A memory with one room rule and no session note, answering every
+        // request: a failed open is closed by the client in the background.
         let socket = root.join("m.sock");
         let listener = UnixListener::bind(&socket).unwrap();
-        let served = std::thread::spawn(move || {
-            for _ in 0..2 {
-                let (mut stream, _) = listener.accept().unwrap();
+        std::thread::spawn(move || {
+            for stream in listener.incoming() {
+                let Ok(mut stream) = stream else { continue };
                 let mut line = String::new();
                 BufReader::new(stream.try_clone().unwrap())
                     .read_line(&mut line)
-                    .unwrap();
+                    .ok();
                 let answer = if line.contains("\"kept\"") {
                     json!({"ok":true,"entries":[{"id":1,"at_unix_ms":1,"text":"[quiet] Never speak first."}]})
                 } else {
                     json!({"ok":false,"error":"storage"})
                 };
-                stream.write_all(format!("{answer}\n").as_bytes()).unwrap();
+                let _ = stream.write_all(format!("{answer}\n").as_bytes());
             }
         });
         let client = crate::remember::DaysClient::new(socket).unwrap();
         let started = Instant::now();
         let note = client.told_for_session(1, None, true);
         let took = started.elapsed();
-        served.join().unwrap();
         assert!(note.contains("- (1) Never speak first.\n"), "{note}");
         assert!(took < Duration::from_millis(300), "{took:?}");
         // Let the publisher's open of the FIFO end, then take the FIFO away.

@@ -271,7 +271,8 @@ updater (lamp-52e6, 2026-10-14), or part by part through `lamp-update`
 (lamp-4ace, build 188, 2026-10-15). For a lamp in a home there should be
 one. Which one is the first builder's and the owner's call; the install
 command is written for `lamp-update`'s layout, since signed updates are on
-the ship list (#737), and installs the keeper's unit beside it.
+the ship list (#737). It does not install the keeper's unit or setup's yet
+(below, "What the image must hold").
 
 ## What the image must hold
 
@@ -294,6 +295,13 @@ reads itself:
 - None of the old runtime's units running (`hal`, `os-server`,
   `led-boot`, `led-shutdown`): the voice refuses to start beside them
   (keeper.md).
+- **Setup's unit, `lamp-setup.service`, and what starts it while the
+  marker is missing** (the keeper's `--setup-marker`, #816 and #817).
+  `deploy/product/` carries neither yet (#806 hands back setup's unit), and
+  setup's unit has no `[Install]` of its own. Until they are added here, a
+  blank lamp with only this install never enters setup, and so never
+  starts the lamp: the parts wait for setup's marker (the reviewer on
+  #815).
 
 ## The install command
 

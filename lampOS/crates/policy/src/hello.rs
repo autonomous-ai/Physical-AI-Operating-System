@@ -440,9 +440,18 @@ impl Hello {
             }
             Voice::Speaking => {
                 if self.voice != Some(Voice::Speaking) && unasked {
-                    self.unasked.push_back(now);
-                    if let Some(turn) = self.own_turn.as_mut() {
-                        turn.spoke = true;
+                    match self.own_turn.as_mut() {
+                        // Its first sound only: one turn may speak, think
+                        // and speak again (a later generation for the same
+                        // owner, the coordinator's continued generation),
+                        // and is one turn the lamp began (the reviewer on
+                        // #883, 04:55).
+                        Some(turn) if turn.spoke => {}
+                        Some(turn) => {
+                            turn.spoke = true;
+                            self.unasked.push_back(now);
+                        }
+                        None => self.unasked.push_back(now),
                     }
                 }
                 self.last_talk = Some(now);
@@ -959,5 +968,36 @@ mod tests {
         assert_eq!(run(Some(Duration::from_secs(30))), (1, Choice::SayNow));
         // Cancelled before its first sound: the hello chosen, once.
         assert_eq!(run(None), (1, Choice::SayNow));
+    }
+
+    /// The reviewer on #883 (04:55): one turn of the lamp's own may speak,
+    /// think and speak again before it ends (a later generation for the
+    /// same owner). It is one turn, counted once; two turns are two.
+    #[test]
+    fn a_turn_that_speaks_twice_is_one_turn_and_two_turns_are_two() {
+        let count = |turns: &[&[Voice]]| {
+            let options = Options::new(Duration::from_millis(50), None);
+            let mut hello = Hello::start(Never, options).unwrap();
+            let t = Instant::now();
+            let mut at = t;
+            for turn in turns {
+                for state in *turn {
+                    at += Duration::from_millis(700);
+                    hello.voice(*state, at);
+                }
+                // A while apart, none of it listened to.
+                at += Duration::from_secs(60);
+            }
+            decided(&mut hello, 9, t + Duration::from_secs(600))
+                .line
+                .context
+                .spoke_up_last_hour
+        };
+        use Voice::{Resting, Speaking, Thinking};
+        let twice_in_one: &[Voice] = &[Thinking, Speaking, Thinking, Speaking, Resting];
+        assert_eq!(count(&[twice_in_one]), 1);
+        let once: &[Voice] = &[Thinking, Speaking, Resting];
+        assert_eq!(count(&[once, once]), 2);
+        assert_eq!(count(&[twice_in_one, once]), 2);
     }
 }

@@ -1514,13 +1514,16 @@ is counted too. So a turn the lamp begins itself (its first `thinking` or
 in shadow is taken for that same greeting (`ONE_GREETING_WITHIN`; the
 reviewer on #883), and followed to its end, however late its first sound
 comes: the coordinator says `thinking` while it waits for the model, which
-may take up to 30 s. Spoken, it is counted once, as a turn the lamp began;
+may take up to 30 s. Spoken, it is counted once, as a turn the lamp began,
+however often it speaks before it ends (one owner may think and speak
+again: the reviewer on #883, 04:55);
 ended without a sound (cancelled), the hello chosen is counted once, as
 chosen. A greeting said before the decision came needs nothing: the lamp
 was talking, so the hard rule answered `wait` and no note was made. Tests:
 `one_greeting_is_counted_once_in_shadow_or_acting` and
 `a_greeting_whose_first_sound_comes_late_is_still_counted_once` (first
-sound 6 s and 30 s after the turn began, and a turn cancelled before it).
+sound 6 s and 30 s after the turn began, and a turn cancelled before it),
+and `a_turn_that_speaks_twice_is_one_turn_and_two_turns_are_two`.
 
 **What is published and written.** On `policy/decisions`: `about` `hello`,
 `say_now` or `wait`, the probability, the two answers, `by`, `took_ms`,

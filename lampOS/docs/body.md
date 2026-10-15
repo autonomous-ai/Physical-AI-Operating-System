@@ -1112,7 +1112,14 @@ the next start found it 99 counts off its way and the lamp would not
 stand. Otherwise it is held there
 until what is wanted of it moves 20 counts or more from what was wanted
 when it stalled (a new mood, the arm rising or folding), and then follows
-again. Torque is never written off for that. Why these numbers:
+again. Torque is never written off for that. A joint that stops again within
+6 counts of where it last stopped is held again quietly: not counted in
+`stalls` and not logged. On lamp-4ace on 2026-10-15 a standing shoulder
+resting short of its goal under its own weight was counted and logged twice
+a minute with nobody touching the lamp (67 lines in 28 minutes), each time
+a scene moved its goal a little and it stopped at the same place. A hand that
+takes a joint elsewhere and stops it there is counted as before. Why these
+numbers:
 
 - 1.5 s is longer than the rules already there take to stop a joint
   pushing at rest (arrived for 0.3 s, at rest for 1 s), so it catches only

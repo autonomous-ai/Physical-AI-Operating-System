@@ -4603,3 +4603,36 @@ fn a_short_push_a_contact_floor_and_the_arm_under_a_hand() {
     assert_eq!(report.released_by_hand, [0; 3]);
     assert!(lamp.registers.iter().all(|(_, address, _)| *address != 40));
 }
+
+/// A standing shoulder resting short of its goal under its own weight stops
+/// pushing once; each later goal that moves a little and stops it at the same
+/// place again is held quietly, not counted again. A hand that takes it
+/// elsewhere and stops it there is counted.
+#[test]
+fn a_shoulder_resting_short_at_the_same_place_is_counted_once() {
+    let rest = Sample {
+        position: 2_629,
+        load: 124,
+        temperature: 40,
+        status: 0,
+    };
+    let stop = |stall: &mut Stall, goal: u16, is: Sample| {
+        (0..=STALL_STEPS)
+            .map(|_| stall.step(goal, is, goal))
+            .filter(|said| *said)
+            .count()
+    };
+    let mut stall = Stall::default();
+    assert_eq!(stop(&mut stall, 2_659, rest), 1);
+    // A scene moves the goal 25 counts: let go, and the same rest again.
+    assert!(stall.holding(2_684).is_none());
+    assert_eq!(stop(&mut stall, 2_684, rest), 0);
+    assert!(stall.hold.is_some(), "still held, only not counted");
+    // A hand lifts it 70 counts and holds it there: counted.
+    assert!(stall.holding(2_720).is_none());
+    let lifted = Sample {
+        position: 2_699,
+        ..rest
+    };
+    assert_eq!(stop(&mut stall, 2_740, lifted), 1);
+}

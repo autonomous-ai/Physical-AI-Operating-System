@@ -1,7 +1,7 @@
 //! The self-test's tone through the production dispatch and receipt
 //! handlers, with owned local IPC; no audio device.
 use super::*;
-use crate::coordinator::speaker_tone::{SpeakerTone, commit_tone_turn, verdict};
+use crate::coordinator::speaker_tone::{SpeakerTone, begin_tone, commit_tone_turn, verdict};
 use crate::speaker_check::{self, Heard};
 use lamp_audio::ownership::PlaybackCursor;
 use lamp_bus::Bus;
@@ -187,7 +187,7 @@ fn a_request_not_for_the_factory_or_on_demand_is_answered_and_never_played() {
         },
     )
     .unwrap();
-    assert_eq!(tone.next_request(monotonic_us()).unwrap(), None);
+    assert_eq!(tone.next_request(monotonic_us()), None);
     let refused = answer(&bus);
     assert_eq!(
         (refused.id.as_str(), refused.verdict.as_str()),
@@ -201,15 +201,12 @@ fn a_request_not_for_the_factory_or_on_demand_is_answered_and_never_played() {
         },
     )
     .unwrap();
-    assert_eq!(
-        tone.next_request(monotonic_us()).unwrap().as_deref(),
-        Some("asked")
-    );
+    assert_eq!(tone.next_request(monotonic_us()).as_deref(), Some("asked"));
     // A turn that ends before its first chunk is said so.
     let mut owner = listening_owner();
     let turn = owner.admit(now(), AdmittedInput::NewTurn).unwrap();
     tone.began("asked".into(), turn);
-    tone.tick(None, monotonic_us()).unwrap();
+    tone.tick(None, monotonic_us());
     let ended = answer(&bus);
     assert_eq!(ended.id, "asked");
     assert!(ended.reason.contains("before it was played"), "{ended:?}");
@@ -237,4 +234,111 @@ fn the_verdict_passes_a_cancelled_tone_and_fails_an_unheard_or_uncancelled_one()
     };
     assert_eq!(verdict(&silent).0, "fail");
     assert_eq!(verdict(&Heard::NoBaseline).0, "not_checked");
+}
+
+#[test]
+fn the_ring_prepares_no_frame_for_the_tone_even_in_the_pass_that_admits_it() {
+    // Without telling the ring first, the pass that admits a turn can
+    // prepare a Waiting frame for it: the control.
+    let mut owner = listening_owner();
+    let mut reply = None;
+    let mut ring = crate::choreography::RingChoreographer::new(40).unwrap();
+    commit_tone_turn(
+        &mut owner,
+        &mut reply,
+        0,
+        PlayoutStart::default(),
+        &mut SessionState::default(),
+        |_| Ok(()),
+    )
+    .unwrap();
+    let frame = ring.prepare(&mut owner, now()).unwrap();
+    assert!(
+        frame.is_some(),
+        "the control shows the frame the tone must not have"
+    );
+    // Begun as the loop begins it: nothing, in that pass and after.
+    let mut owner = listening_owner();
+    let mut reply = None;
+    let mut ring = crate::choreography::RingChoreographer::new(40).unwrap();
+    begin_tone(
+        &mut owner,
+        &mut reply,
+        Some(&mut ring),
+        PlayoutStart::default(),
+        &mut SessionState::default(),
+        |_| Ok(()),
+    )
+    .unwrap();
+    assert!(owner.snapshot(now()).unwrap().owner().is_some());
+    assert!(ring.prepare(&mut owner, now()).unwrap().is_none());
+    assert!(ring.prepare(&mut owner, now()).unwrap().is_none());
+}
+
+/// A tone whose answers cannot be written: the answer topic's kept value
+/// is a directory, so every publication fails.
+fn broken_answers(name: &str) -> (SpeakerTone, std::path::PathBuf) {
+    let (bus, root) = bus(name);
+    let tone = SpeakerTone::on(&bus).unwrap();
+    let kept = root.join(SpeakerCheck::TOPIC).join("latest");
+    let _ = std::fs::remove_file(&kept);
+    std::fs::create_dir_all(kept.join("in-the-way")).unwrap();
+    (tone, root)
+}
+
+#[test]
+fn an_answer_that_cannot_be_written_switches_the_check_off_and_the_voice_goes_on() {
+    // On a refusal.
+    let (mut tone, root) = broken_answers("broken-refusal");
+    tone.refuse("r1", "the voice is busy with a turn", monotonic_us());
+    assert!(tone.is_off());
+    assert_eq!(tone.next_request(monotonic_us()), None);
+    std::fs::remove_dir_all(root).unwrap();
+    // On completion: a tone played, its answer due.
+    let (mut tone, root) = broken_answers("broken-answer");
+    let directory = SessionDirectory::create().unwrap();
+    let (mut parent, _speaker) = pair(&directory, "speaker");
+    let mut owner = listening_owner();
+    let mut reply = None;
+    let (mut snapshot, turn) = commit_tone_turn(
+        &mut owner,
+        &mut reply,
+        0,
+        PlayoutStart::default(),
+        &mut SessionState::default(),
+        |_| Ok(()),
+    )
+    .unwrap();
+    tone.began("r2".into(), turn);
+    dispatch_speaker_chunk(
+        &mut owner,
+        &mut reply,
+        &mut parent.data,
+        &mut None,
+        &mut 0,
+        &mut snapshot,
+        &mut PlaybackMask::new(TurnTaking::VadOnly),
+    )
+    .unwrap();
+    tone.tick(reply.as_ref(), monotonic_us());
+    assert!(!tone.is_off(), "nothing to answer yet");
+    tone.tick(None, monotonic_us() + speaker_check::LISTEN_US + 1);
+    assert!(tone.is_off());
+    std::fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
+fn requests_that_cannot_be_read_switch_the_check_off() {
+    let (bus, root) = bus("unreadable");
+    let mut tone = SpeakerTone::on(&bus).unwrap();
+    assert_eq!(
+        tone.take(
+            Err(io::Error::other("the socket went away")),
+            monotonic_us()
+        ),
+        None
+    );
+    assert!(tone.is_off());
+    assert_eq!(tone.next_request(monotonic_us()), None);
+    std::fs::remove_dir_all(root).unwrap();
 }

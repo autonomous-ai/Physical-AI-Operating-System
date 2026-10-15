@@ -3,12 +3,15 @@
 //! turn of the lamp's own with no provider, the voice microphone's evidence
 //! kept around it, and the answer on `selftest/speaker`.
 //!
-//! Off unless `LAMP_SELFTEST_SPEAKER=on`. The turn shows no face and moves
+//! Off unless `LAMP_SELFTEST_SPEAKER=on`. It is a check, not the
+//! conversation: a request that cannot be read or an answer that cannot be
+//! written is said once in the log and switches the check off for the rest
+//! of the service; the voice goes on. The turn shows no face and moves
 //! nothing: the loop treats it as no turn for the ring, the expression, the
 //! body, the room and the bus's voice state.
 use super::*;
 use crate::speaker_check::{self, Block, Heard};
-use lamp_bus::{Bus, Publisher, Subscriber};
+use lamp_bus::{Bus, Message, Publisher, Subscriber};
 use lamp_msgs::{SpeakerCheck, SpeakerCheckRequest};
 
 /// The switch.
@@ -32,6 +35,8 @@ pub(super) struct SpeakerTone {
     answers: Publisher,
     blocks: VecDeque<Block>,
     playing: Option<Playing>,
+    /// Switched off after a bus failure of its own.
+    off: bool,
 }
 
 impl SpeakerTone {
@@ -64,6 +69,7 @@ impl SpeakerTone {
             )?,
             blocks: VecDeque::with_capacity(KEPT_BLOCKS + 100),
             playing: None,
+            off: false,
         })
     }
 
@@ -87,33 +93,61 @@ impl SpeakerTone {
 
     /// The next request, if one is waiting and none is being played. One
     /// that is not for the factory or on demand is answered at once.
-    pub(super) fn next_request(&mut self, at_us: u64) -> io::Result<Option<String>> {
-        if self.playing.is_some() {
-            return Ok(None);
+    pub(super) fn next_request(&mut self, at_us: u64) -> Option<String> {
+        if self.off || self.playing.is_some() {
+            return None;
         }
-        let Some(message) = self.requests.recv(Duration::ZERO)? else {
-            return Ok(None);
+        let received = self.requests.recv(Duration::ZERO);
+        self.take(received, at_us)
+    }
+
+    /// What one look at the requests gave.
+    pub(super) fn take(
+        &mut self,
+        received: io::Result<Option<Message>>,
+        at_us: u64,
+    ) -> Option<String> {
+        let message = match received {
+            Ok(Some(message)) if !message.expired => message,
+            Ok(_) => return None,
+            Err(error) => {
+                self.fail("its requests cannot be read", &error);
+                return None;
+            }
         };
-        if message.expired {
-            return Ok(None);
-        }
         let request = match message.parse::<SpeakerCheckRequest>() {
             Ok(request) => request,
             Err(error) => {
                 eprintln!("lamp-voice: a speaker check request that is not one: {error}");
-                return Ok(None);
+                return None;
             }
         };
         if let Err(why) = request.check() {
-            self.answer(&request.id, "not_checked", &why.0, None, at_us)?;
-            return Ok(None);
+            self.answer(&request.id, "not_checked", &why.0, None, at_us);
+            return None;
         }
-        Ok(Some(request.id))
+        (!self.off).then_some(request.id)
     }
 
     /// Says why the tone was not played for `id`.
-    pub(super) fn refuse(&mut self, id: &str, why: &str, at_us: u64) -> io::Result<()> {
-        self.answer(id, "not_checked", why, None, at_us)
+    pub(super) fn refuse(&mut self, id: &str, why: &str, at_us: u64) {
+        self.answer(id, "not_checked", why, None, at_us);
+    }
+
+    /// Whether a failure of its own has switched the check off.
+    #[cfg(test)]
+    pub(super) fn is_off(&self) -> bool {
+        self.off
+    }
+
+    fn fail(&mut self, what: &str, error: &io::Error) {
+        if !self.off {
+            eprintln!(
+                "lamp-voice: the self-test's speaker check is off for this service: {what}: {error}"
+            );
+        }
+        self.off = true;
+        self.playing = None;
     }
 
     /// The tone's turn has begun.
@@ -129,51 +163,45 @@ impl SpeakerTone {
     /// Call each pass with the reply, if any. Notes when the tone's first
     /// chunk left, and when it is over; answers once the microphone has had
     /// its time to hear it.
-    pub(super) fn tick(&mut self, reply: Option<&Reply>, at_us: u64) -> io::Result<()> {
+    pub(super) fn tick(&mut self, reply: Option<&Reply>, at_us: u64) {
         let Some(playing) = self.playing.as_mut() else {
-            return Ok(());
+            return;
         };
         let ours = reply.filter(|current| current.owner == playing.turn);
         if let Some(current) = ours {
             if playing.started_us.is_none() {
                 playing.started_us = current.notice.attempted_at_us();
             }
-            return Ok(());
+            return;
         }
         // The turn is over: settled, or cancelled before it played.
         let Some(started_us) = playing.started_us else {
             let id = playing.id.clone();
             self.playing = None;
-            return self.answer(
+            self.answer(
                 &id,
                 "not_checked",
                 "the tone's turn ended before it was played",
                 None,
                 at_us,
             );
+            return;
         };
         let due = *playing
             .answer_at_us
             .get_or_insert(started_us + speaker_check::LISTEN_US);
         if at_us < due {
-            return Ok(());
+            return;
         }
         let id = playing.id.clone();
         let blocks: Vec<Block> = self.blocks.iter().copied().collect();
         self.playing = None;
         let heard = speaker_check::heard(&blocks, started_us);
         let (verdict, reason) = verdict(&heard);
-        self.answer(&id, verdict, &reason, Some(&heard), at_us)
+        self.answer(&id, verdict, &reason, Some(&heard), at_us);
     }
 
-    fn answer(
-        &mut self,
-        id: &str,
-        verdict: &str,
-        reason: &str,
-        heard: Option<&Heard>,
-        at_us: u64,
-    ) -> io::Result<()> {
+    fn answer(&mut self, id: &str, verdict: &str, reason: &str, heard: Option<&Heard>, at_us: u64) {
         let (rise_db, delay_ms, cancelled_db) = match heard {
             Some(Heard::Yes {
                 rise_db,
@@ -190,8 +218,9 @@ impl SpeakerTone {
             delay_ms,
             cancelled_db,
         };
-        self.answers.publish_json(at_us, &answer)?;
-        Ok(())
+        if let Err(error) = self.answers.publish_json(at_us, &answer) {
+            self.fail("its answer cannot be written", &error);
+        }
     }
 }
 
@@ -219,6 +248,23 @@ pub(super) fn verdict(heard: &Heard) -> (&'static str, String) {
             "too little of the microphone's evidence before the tone".to_owned(),
         ),
     }
+}
+
+/// Begins the tone: the ring is told to show nothing before the turn
+/// exists, so no frame of the tone's turn is ever prepared, not even in
+/// the pass that admits it; then the turn is opened.
+pub(super) fn begin_tone(
+    owner: &mut Controller,
+    reply: &mut Option<Reply>,
+    choreography: Option<&mut RingChoreographer>,
+    playout_start: PlayoutStart,
+    trace: &mut SessionState,
+    publish: impl FnMut(Snapshot) -> io::Result<()>,
+) -> Result<(Snapshot, TurnOwner)> {
+    if let Some(choreography) = choreography {
+        choreography.set_unshown(true);
+    }
+    commit_tone_turn(owner, reply, 0, playout_start, trace, publish)
 }
 
 /// Opens the tone's turn: the lamp's own, with no provider request, ended

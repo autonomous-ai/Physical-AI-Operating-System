@@ -82,6 +82,14 @@ impl Kept {
     }
 }
 
+/// The camera closed, for whatever reason: the working frame and a full
+/// look's still are both gone, at once (#842).
+pub fn forget_all(working: &mut Option<Kept>, still: &mut Option<Kept>) {
+    for kept in [working, still].into_iter().flatten() {
+        kept.forget();
+    }
+}
+
 /// One line saying how large the near face is, kept fresh while there is
 /// one: how the voice service knows someone has come to sit in front of the
 /// lamp (`lamp-voice`, `LAMP_EYES_PRESENCE_FILE`). No picture, no place, no
@@ -139,6 +147,32 @@ impl Drop for Kept {
 mod tests {
     use super::*;
     use std::os::unix::fs::PermissionsExt;
+
+    /// Reviewer's case on #842: a still finished just before the eyes close
+    /// the camera to try the full size again, and the reopen fails. Every
+    /// close goes through `forget_all`, so the still is gone with the
+    /// working frame at once, not left for a 3 s expiry that a failed
+    /// reopen's early return would skip.
+    #[test]
+    fn a_camera_close_removes_the_working_frame_and_the_still_at_once() {
+        let directory = std::env::temp_dir().join(format!(
+            "lamp-eyes-forget-all-{}-{:?}",
+            std::process::id(),
+            std::thread::current().id()
+        ));
+        fs::create_dir_all(&directory).unwrap();
+        let (working_path, still_path) = (directory.join("sight.jpg"), directory.join("full.jpg"));
+        let mut working = Some(Kept::new(working_path.clone()));
+        let mut still = Some(Kept::new(still_path.clone()));
+        working.as_mut().unwrap().keep(&frame(true, 10)).unwrap();
+        still.as_mut().unwrap().keep(&frame(true, 10)).unwrap();
+        assert!(working_path.exists() && still_path.exists());
+        forget_all(&mut working, &mut still);
+        assert!(!working_path.exists() && !still_path.exists());
+        // Without the files, nothing to do.
+        forget_all(&mut None, &mut None);
+        fs::remove_dir_all(&directory).unwrap();
+    }
 
     /// A frame shaped like the lamp's camera gives: two quantisation tables,
     /// the frame header, Huffman tables, a restart interval, the scan.

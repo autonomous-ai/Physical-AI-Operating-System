@@ -342,6 +342,12 @@ pub struct DirectedOptions {
     /// second or less, a second above it. It must be shorter than the
     /// end-of-speech wait in force, and needs an end-of-turn model.
     pub endpoint_commit_blocks: Option<u16>,
+    /// How long an utterance that is only the lamp's name ("Hey Lamp,")
+    /// waits for the rest before it ends (`--call-wait-ms`), in 10 ms
+    /// blocks (#782). None, the default: it ends as any other. Longer than
+    /// the end-of-speech wait, 3 s at most; it needs the bus, where the
+    /// lamp's name is heard (`LAMP_BUS=on` and `lamp-name`).
+    pub call_wait_blocks: Option<u16>,
     /// A capture block quieter than this, on the face's scale of loudness
     /// after cancellation (`ring_face::level_of`), is not speech whatever
     /// the detector scores it. None leaves every block to the detector.
@@ -450,6 +456,15 @@ impl DirectedOptions {
                     }
                     options.endpoint_commit_blocks = Some(value / 10);
                 }
+                "--call-wait-ms" if options.call_wait_blocks.is_none() => {
+                    let value = required_value(&mut arguments)?
+                        .parse::<u16>()
+                        .map_err(|_| invalid_options())?;
+                    if value == 0 || value % 10 != 0 {
+                        return Err(invalid_options());
+                    }
+                    options.call_wait_blocks = Some(value / 10);
+                }
                 EARLY_END_FLAG if options.early_end_blocks.is_none() => {
                     let value = required_value(&mut arguments)?
                         .parse::<u16>()
@@ -494,6 +509,13 @@ impl DirectedOptions {
         if let Some(early) = options.early_end_blocks
             && (early >= options.end_silence_window_blocks()
                 || options.provider_continuation != Continuation::KeptStart)
+        {
+            return Err(invalid_options());
+        }
+        // A call waits longer than any other utterance, and not for long.
+        if let Some(wait) = options.call_wait_blocks
+            && (wait <= options.end_silence_window_blocks()
+                || wait > crate::activity::MAX_CALL_WAIT_BLOCKS)
         {
             return Err(invalid_options());
         }
@@ -1030,6 +1052,33 @@ mod tests {
                 "600",
             ],
             vec!["--endpoint", "smart-turn-fast", "--endpoint-commit-ms"],
+        ] {
+            assert!(parse(&wrong).is_err(), "{wrong:?}");
+        }
+    }
+
+    #[test]
+    fn a_call_waits_only_when_chosen_and_longer_than_the_end_of_speech_wait() {
+        let parse = |extra: &[&str]| {
+            let mut all = vec!["--turn-taking", "duplex", "--end-silence-ms", "600"];
+            all.extend_from_slice(extra);
+            SessionOptions::parse(&args(&all))
+        };
+        assert_eq!(parse(&[]).unwrap().directed.call_wait_blocks, None);
+        assert_eq!(
+            parse(&["--call-wait-ms", "2000"])
+                .unwrap()
+                .directed
+                .call_wait_blocks,
+            Some(200)
+        );
+        for wrong in [
+            vec!["--call-wait-ms", "600"],
+            vec!["--call-wait-ms", "3010"],
+            vec!["--call-wait-ms", "2005"],
+            vec!["--call-wait-ms", "0"],
+            vec!["--call-wait-ms"],
+            vec!["--call-wait-ms", "2000", "--call-wait-ms", "2000"],
         ] {
             assert!(parse(&wrong).is_err(), "{wrong:?}");
         }
@@ -1602,6 +1651,7 @@ mod tests {
                         end_silence_blocks: None,
                         early_end_blocks: None,
                         endpoint_commit_blocks: None,
+                        call_wait_blocks: None,
                         faint_level: None,
                         microphone: Microphone::Mic2,
                         playout_start: PlayoutStart::default(),

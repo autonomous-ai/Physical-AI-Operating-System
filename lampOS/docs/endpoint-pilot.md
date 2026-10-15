@@ -858,6 +858,50 @@ clock, and prints each turn's start, end and decision, and every verdict.
 voice's own level and floor. Nothing is played. Its evidence for #782 is in
 [verification/comma-pause-20261015/](verification/comma-pause-20261015/).
 
+## A bare call ends nothing (#782, 2026-10-15)
+
+Off unless the voice is started with `--call-wait-ms MS` (built by the
+fourth builder, as the first builder asked on #782 at 21:53). An utterance
+that is only the lamp's name so far ("Hey Lamp," or "Lamp,", with or
+without a greeting) waits that long for the rest instead of ending at the
+window or at a confident verdict. When the rest comes, it is the same
+utterance, and its own pause ends it as any other. When nothing comes, it
+ends when the wait runs out, and its `local_endpoint` record says
+`call_wait_ms`.
+
+Why: on lamp-4ace at 21:47 and 21:50 (`cutname.sh`, two people trading
+lines, then "Hey Lamp, [600 ms] what is the capital of Japan?"), each of
+three rounds' first piece was "Hey Lamp," ended by `silence_fallback` at
+600 ms. The question was then dropped by the busy room's floor hold, or the
+name alone was answered.
+
+How it knows it is a call:
+- the lamp's name was heard by `lamp-name` (`name/heard` on the bus, so it
+  needs `LAMP_BUS=on`), beginning no more than 0.5 s before the utterance
+  began (`CALL_BEFORE_US`);
+- the utterance so far holds at most 1.2 s of speech
+  (`CALL_SPEECH_BLOCKS`). "Hey Lamp," at the office's rate is about 0.7 s;
+- it waits once per utterance.
+
+The wait must be longer than the end-of-speech wait in force and 3 s at
+most, or the voice refuses to start. The `call_wait_policy` record says
+the wait in force, and a `call_wait` record says each time one began.
+
+While it waits the turn is still being listened to, so the eye shows
+Listening as it does for any utterance, and the body's look at a heard
+name (`--look-at-name`, on by default) glances up. The cost is that a
+false hearing of the name in a short utterance ("Yeah.") delays its end by
+up to the wait.
+
+Tests (`crates/voice/tests/call_wait.rs`, `options.rs`):
+- only the name waits, and its record says so;
+- the rest is the same utterance, and ends at its own pause;
+- the wait's bounds, and a name heard long before;
+- the option is refused at or under the window.
+
+Not yet tested: the coordinator's path from the bus to the detector, which
+the first builder's run on lamp-4ace exercises.
+
 ## Pilot acceptance and rollback rule
 
 Applies to the candidate (`--endpoint smart-turn`) only.

@@ -894,6 +894,7 @@ fn run_policy_with_peers(
         turn_taking,
         playout_start: PlayoutStart::default(),
         endpoint: Some(endpoint),
+        call_wait_blocks: None,
         cut_keeps_name: lamp.cut_keeps_name,
         paused: Box::new(|| false),
     };
@@ -1385,6 +1386,7 @@ fn mute_with_endpoint(endpoint: EndpointRig) -> (Result<()>, SessionState) {
         turn_taking: TurnTaking::V1Baseline,
         playout_start: PlayoutStart::default(),
         endpoint: Some(endpoint),
+        call_wait_blocks: None,
         cut_keeps_name: false,
         paused: Box::new(|| false),
     };

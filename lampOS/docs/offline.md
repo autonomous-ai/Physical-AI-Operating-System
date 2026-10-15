@@ -152,6 +152,13 @@ session is told it does not know the time, never to guess
   second. No probe of its own and no new process. Off unless set.
 - Next: the voice's recorded line and Expression's look, from `lamp/online`.
 
+## Smaller mends
+
+- **The updater's name lookup** (`crates/update/src/fetch.rs`,
+  `lookup_within`) is given the connect time, 10 s, on a thread of its own;
+  one that runs over is said as "cannot be reached" and the round goes on.
+  This changes every lamp's default, only for a lookup over 10 s.
+
 ## What steps 2 to 4 will build
 
 - A part that watches reachability from the links' own state first (the

@@ -1,0 +1,37 @@
+[
+  {
+    "after": "#[cfg(test)]\n#[path = \"transport_probe.rs\"]\npub(crate) mod probe;\n\n",
+    "before": "",
+    "count": 1
+  },
+  {
+    "after": "    #[cfg(test)]\n    probe: probe::Slot,\n",
+    "before": "",
+    "count": 1
+  },
+  {
+    "after": "            #[cfg(test)]\n            probe: probe::Slot::new(sender, peer),\n",
+    "before": "",
+    "count": 1
+  },
+  {
+    "after": "    /// Attach fixture observations before any send or receive attempt.\n    #[cfg(test)]\n    pub(crate) fn install_probe(&mut self) -> io::Result<probe::Probe> {\n        self.probe.install(&self.name)\n    }\n\n",
+    "before": "",
+    "count": 1
+  },
+  {
+    "after": "        #[cfg(test)]\n        self.probe.attempt();\n",
+    "before": "",
+    "count": 2
+  },
+  {
+    "after": "        #[cfg(test)]\n        self.probe\n            .record(probe::Direction::Send, self.sender, sequence);\n",
+    "before": "",
+    "count": 1
+  },
+  {
+    "after": "        #[cfg(test)]\n        self.probe\n            .record(probe::Direction::Receive, packet.boot, packet.sequence);\n",
+    "before": "",
+    "count": 1
+  }
+]

@@ -1,0 +1,30 @@
+{
+  "recorded_at_from_date": "2026-10-16 05:55:29 +0700",
+  "base": "7ae0eb647914e286817c29bff2abc2934fb19546",
+  "host": "Darwin x86_64",
+  "affected_gate_green": false,
+  "totals": {
+    "passed": 1946,
+    "failed": 5,
+    "ignored": 13,
+    "cargo_summaries": 64
+  },
+  "focused": {
+    "passed": 36,
+    "failed": 0,
+    "ignored": 1
+  },
+  "compiled_baseline": 1950,
+  "compiled_after": 1964,
+  "all_original_identities_and_ignored_flags_preserved": true,
+  "new_probe_tests": 14,
+  "new_probe_tests_pass_once_in_full_and_focused": true,
+  "source_unchanged_since_qualification": true,
+  "native_pending": true,
+  "draft_required": true,
+  "scenario_migrations": 0,
+  "speedup_claimed": false,
+  "test_retries": 0,
+  "commands_and_dates": "local/root-gates.json",
+  "failure_triage": "motor-triage/README.md"
+}

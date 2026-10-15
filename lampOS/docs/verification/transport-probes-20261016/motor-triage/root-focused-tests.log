@@ -1,0 +1,61 @@
+   Compiling lamp-ipc v0.1.0 (/private/tmp/lampos-tests-transport-probes/lampOS/crates/ipc)
+   Compiling lamp-bus v0.1.0 (/private/tmp/lampos-tests-transport-probes/lampOS/crates/bus)
+   Compiling lamp-turn-owner v0.1.0 (/private/tmp/lampos-tests-transport-probes/lampOS/crates/turn-owner)
+   Compiling lamp-msgs v0.1.0 (/private/tmp/lampos-tests-transport-probes/lampOS/crates/msgs)
+   Compiling lamp-audio v0.1.0 (/private/tmp/lampos-tests-transport-probes/lampOS/crates/audio)
+   Compiling lamp-keeper v0.1.0 (/private/tmp/lampos-tests-transport-probes/lampOS/crates/keeper)
+   Compiling lamp-body v0.1.0 (/private/tmp/lampos-tests-transport-probes/lampOS/crates/body)
+   Compiling lamp-schedule v0.1.0 (/private/tmp/lampos-tests-transport-probes/lampOS/crates/schedule)
+   Compiling lamp-actions v0.1.0 (/private/tmp/lampos-tests-transport-probes/lampOS/crates/actions)
+   Compiling lamp-expression v0.1.0 (/private/tmp/lampos-tests-transport-probes/lampOS/crates/expression)
+   Compiling lamp-policy v0.1.0 (/private/tmp/lampos-tests-transport-probes/lampOS/crates/policy)
+   Compiling lamp-controls v0.1.0 (/private/tmp/lampos-tests-transport-probes/lampOS/crates/controls)
+   Compiling lamp-camera v0.1.0 (/private/tmp/lampos-tests-transport-probes/lampOS/crates/camera)
+   Compiling lamp-gemini v0.1.0 (/private/tmp/lampos-tests-transport-probes/lampOS/crates/gemini)
+   Compiling lamp-ring v0.1.0 (/private/tmp/lampos-tests-transport-probes/lampOS/crates/ring)
+   Compiling lamp-turn-end-wire v0.1.0 (/private/tmp/lampos-tests-transport-probes/lampOS/crates/turn-end-wire)
+   Compiling lamp-voice v0.1.0 (/private/tmp/lampos-tests-transport-probes/lampOS/crates/voice)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 58.69s
+     Running unittests src/lib.rs (/private/tmp/lampos-tests-capacity/lampOS/target/debug/deps/lamp_voice-45883b7cbe100653)
+
+running 37 tests
+test reminders::transport::tests::child_fixture ... ok
+test reminders::transport::tests::claim_path_traps_are_refused_without_replacing_existing_data ... ok
+test reminders::transport::tests::claim_retention_boundary_fixture ... ok
+test reminders::transport::tests::claim_without_descriptor_and_rights_with_ordinary_json_are_rejected ... ok
+test reminders::transport::tests::duplicate_claim_does_not_replace_or_release_existing_lock ... ok
+test reminders::transport::tests::exact_packet_bound_and_bidirectional_json_roundtrip ... ok
+test reminders::transport::tests::excess_ancillary_descriptors_fault_without_installing_a_claim ... ok
+test reminders::transport::tests::flood_is_backpressured_and_poll_retains_only_one_ordered_packet ... ok
+test reminders::transport::tests::in_process_test_helper_transfers_and_releases_the_real_claim ... ok
+test reminders::transport::tests::lost_wait_ownership_drop_retains_claim_until_fixture_exit ... ok
+test reminders::transport::tests::malformed_or_unknown_json_shape_faults_the_receiver ... ok
+test reminders::transport::tests::messages_before_claim_are_never_delivered ... ok
+test reminders::transport::tests::oversize_preflight_sends_nothing_and_leaves_valid_sender_usable ... ok
+test reminders::transport::tests::oversized_raw_datagram_is_rejected_instead_of_truncated_json ... ok
+test reminders::transport::tests::poll_cost ... ignored, host-only timing probe; run alone with --ignored --exact --nocapture
+test reminders::transport::tests::production_retention_survives_drop_until_the_parent_process_exits ... ok
+test reminders::transport::tests::real_child_exit_does_not_drop_the_parent_claim_or_start_replacement ... ok
+test reminders::transport::tests::releasing_a_claim_preserves_its_inode_and_private_mode ... ok
+test reminders::transport::tests::stop_signals_once_and_actual_child_exit_can_be_polled_without_waiting ... ok
+test reminders::transport::tests::term_resistant_child_drop_retains_claim_until_fixture_exit ... ok
+test reminders::transport::tests::transferred_claim_survives_child_side_close_and_is_cloexec ... ok
+test transport::probe::tests::a_latched_probe_fault_never_changes_actual_send_or_receive_success ... ok
+test transport::probe::tests::a_snapshot_of_corrupt_stable_state_latches_failure ... ok
+test transport::probe::tests::accepted_grace_and_one_sender_stall_count_only_after_the_original_checks ... ok
+test transport::probe::tests::accepted_sequence_gaps_keep_the_first_gap_and_do_not_extend_a_prefix ... ok
+test transport::probe::tests::actual_full_socket_would_block_does_not_count_or_commit_a_send ... ok
+test transport::probe::tests::boot_order_and_shared_state_faults_are_sticky_and_do_not_publish_more ... ok
+test transport::probe::tests::causally_held_publication_returns_busy_without_waiting_or_claiming_a_receipt ... ok
+test transport::probe::tests::counter_and_publication_overflow_latch_without_fabricating_success ... ok
+test transport::probe::tests::decode_boot_age_future_and_order_rejections_do_not_count_receives ... ok
+test transport::probe::tests::encoding_and_unconnected_send_failures_do_not_commit_sequence_or_evidence ... ok
+test transport::probe::tests::late_installation_is_rejected_even_after_failed_or_empty_io ... ok
+test transport::probe::tests::ordinary_channel_worker_and_reference_constructors_have_no_probe ... ok
+test transport::probe::tests::snapshots_keep_allocation_identity_after_channel_and_probe_drop ... ok
+test transport::probe::tests::successful_send_and_accepted_receive_are_separate_pure_observations ... ok
+test transport::tests::a_receiver_held_up_takes_what_queued_meanwhile_within_a_bound ... ok
+test transport::tests::only_the_next_message_in_order_may_come_late_from_a_held_up_sender ... ok
+
+test result: ok. 36 passed; 0 failed; 1 ignored; 0 measured; 1172 filtered out; finished in 2.35s
+

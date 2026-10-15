@@ -1,0 +1,14 @@
+{
+  "date": "2026-10-16 05:15:03 +0700",
+  "base": "7ae0eb647914e286817c29bff2abc2934fb19546",
+  "copied_from": "/private/tmp/tests-823-scenario-moments-evidence",
+  "raw_list_sha256": "d474a57d3ad8dd726260e4e97a87cd428ecc6a6c2f72126c36e762b9fdc9d9a9",
+  "verified_dependency_files": 637,
+  "own_source_sha256": {
+    "lampOS/crates/voice/src/transport.rs": "ea318a0e1be7523411b8c4d8ca878d3c743965bf3a5b69b6b3026b4cb720c29b",
+    "lampOS/crates/voice/src/transport_probe.rs": "99f86fe4b888c9e61b4ddef1d1ad70c9d1795830667ed013f21d2a086de777e8",
+    "lampOS/crates/voice/src/transport_probe_tests.rs": "d2a1e5cca930741f727d7c9c4647a84ed532490adbb3663cc8f20edff571fa2b",
+    "lampOS/docs/voice-test-fixtures.md": "04bf0a07ddbd0e9de139988b65c51aa23a11bb1b542176a8185a473d923a19d4"
+  },
+  "reason": "Same base, unchanged manifests/features and all conservative dependency inputs except the four named probe-owned paths. Baseline contains no new Moment cases."
+}

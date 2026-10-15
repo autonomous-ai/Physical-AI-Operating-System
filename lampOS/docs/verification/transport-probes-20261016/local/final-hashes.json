@@ -1,0 +1,16 @@
+{
+  "finished_from_date": "2026-10-16 05:10:55+0700",
+  "sources": {
+    "lampOS/crates/voice/src/transport.rs": "ea318a0e1be7523411b8c4d8ca878d3c743965bf3a5b69b6b3026b4cb720c29b",
+    "lampOS/crates/voice/src/transport_probe.rs": "99f86fe4b888c9e61b4ddef1d1ad70c9d1795830667ed013f21d2a086de777e8",
+    "lampOS/crates/voice/src/transport_probe_tests.rs": "d2a1e5cca930741f727d7c9c4647a84ed532490adbb3663cc8f20edff571fa2b",
+    "lampOS/docs/voice-test-fixtures.md": "04bf0a07ddbd0e9de139988b65c51aa23a11bb1b542176a8185a473d923a19d4"
+  },
+  "evidence": {
+    "before.json": "84d5926d5d0a3b4ccf5bd6b8d34d8b697800e61552c1e2ee3483ca86aa815919",
+    "source-proof.json": "00573409496423491d99163008a92fcb673253be3da088565b3851de390499b2",
+    "reversal-additions.json": "7499d0f22fdc6874c58a2b05719ebfd3605d8ab08d82b0e3062efbb132e64066",
+    "rustfmt-final.json": "251bb2e04fef4906d1343d9d1d89bde55e7c9f78e8d6dfb66001e0351eef3d9d",
+    "handoff.md": "2912b825a483ac7e3d5c7968451a1cd90e5b72ff2a93defd68e0bc32bb9ee4de"
+  }
+}

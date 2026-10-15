@@ -1,0 +1,12 @@
+{
+  "date": "2026-10-16 05:10:35 +0700",
+  "source_sha256": {
+    "lampOS/crates/voice/src/transport.rs": "ea318a0e1be7523411b8c4d8ca878d3c743965bf3a5b69b6b3026b4cb720c29b",
+    "lampOS/crates/voice/src/transport_probe.rs": "99f86fe4b888c9e61b4ddef1d1ad70c9d1795830667ed013f21d2a086de777e8",
+    "lampOS/crates/voice/src/transport_probe_tests.rs": "d2a1e5cca930741f727d7c9c4647a84ed532490adbb3663cc8f20edff571fa2b",
+    "lampOS/docs/voice-test-fixtures.md": "04bf0a07ddbd0e9de139988b65c51aa23a11bb1b542176a8185a473d923a19d4"
+  },
+  "exact_default_transport_reversal": true,
+  "original_transport_sha256": "49308fd4a3e19ba1179a0410785e85912ed018757d79872497f40517529eae73",
+  "scope": "Root independent source review only; no execution claimed"
+}

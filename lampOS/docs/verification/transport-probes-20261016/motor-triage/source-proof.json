@@ -1,0 +1,153 @@
+{
+  "captured_at_from_date": "2026-10-16 05:48:56 +0700",
+  "base": "7ae0eb647914e286817c29bff2abc2934fb19546",
+  "head": "7ae0eb647914e286817c29bff2abc2934fb19546",
+  "files": [
+    {
+      "path": "lampOS/crates/voice/src/coordinator/motor/tests.rs",
+      "sha256": "3ada54ec863826f2d33aa38c1a0db5d282fc5035c8c0839f7b28d95c5f9c539a",
+      "base_sha256": "3ada54ec863826f2d33aa38c1a0db5d282fc5035c8c0839f7b28d95c5f9c539a",
+      "unchanged_from_base": true
+    },
+    {
+      "path": "lampOS/crates/voice/src/coordinator/motor.rs",
+      "sha256": "29b82801801be234ae865f7593c957a79537acc3469805401b759c21cf6c748e",
+      "base_sha256": "29b82801801be234ae865f7593c957a79537acc3469805401b759c21cf6c748e",
+      "unchanged_from_base": true
+    },
+    {
+      "path": "lampOS/crates/voice/src/process.rs",
+      "sha256": "f9f1173bd1d33ea9f5ebc9ed3ed6247b802dbf299d017dabef90f93eca074d54",
+      "base_sha256": "f9f1173bd1d33ea9f5ebc9ed3ed6247b802dbf299d017dabef90f93eca074d54",
+      "unchanged_from_base": true
+    },
+    {
+      "path": "lampOS/crates/body/src/runtime.rs",
+      "sha256": "f70ac6cb58b472a85130c8b81eed4258f689afc644de9ffbab98e087f71a0c8b",
+      "base_sha256": "f70ac6cb58b472a85130c8b81eed4258f689afc644de9ffbab98e087f71a0c8b",
+      "unchanged_from_base": true
+    },
+    {
+      "path": "lampOS/crates/body/src/runtime/channel.rs",
+      "sha256": "471c6cad77547060ec69348ccf08cbb98878463d2038aa34999e4d4f5f3a48ee",
+      "base_sha256": "471c6cad77547060ec69348ccf08cbb98878463d2038aa34999e4d4f5f3a48ee",
+      "unchanged_from_base": true
+    },
+    {
+      "path": "lampOS/crates/body/src/runtime/supervisor.rs",
+      "sha256": "103009ea8a3baf449a760cf7f1dc43d0aa0b47d999b585c4084c65ff63ff2a3f",
+      "base_sha256": "103009ea8a3baf449a760cf7f1dc43d0aa0b47d999b585c4084c65ff63ff2a3f",
+      "unchanged_from_base": true
+    },
+    {
+      "path": "lampOS/crates/body/src/runtime/worker.rs",
+      "sha256": "d126a1b0020f202c22a0a7a9ec64f54dcb6a52d9f6d02e965d61871aa6ab4cca",
+      "base_sha256": "d126a1b0020f202c22a0a7a9ec64f54dcb6a52d9f6d02e965d61871aa6ab4cca",
+      "unchanged_from_base": true
+    },
+    {
+      "path": "lampOS/crates/voice/src/transport.rs",
+      "sha256": "ea318a0e1be7523411b8c4d8ca878d3c743965bf3a5b69b6b3026b4cb720c29b",
+      "base_sha256": "49308fd4a3e19ba1179a0410785e85912ed018757d79872497f40517529eae73",
+      "unchanged_from_base": false
+    },
+    {
+      "path": "lampOS/crates/voice/src/transport_probe.rs",
+      "sha256": "99f86fe4b888c9e61b4ddef1d1ad70c9d1795830667ed013f21d2a086de777e8",
+      "base_sha256": null,
+      "unchanged_from_base": false
+    },
+    {
+      "path": "lampOS/crates/voice/src/transport_probe_tests.rs",
+      "sha256": "d2a1e5cca930741f727d7c9c4647a84ed532490adbb3663cc8f20edff571fa2b",
+      "base_sha256": null,
+      "unchanged_from_base": false
+    }
+  ],
+  "default_transport_exact_reversal": true,
+  "reversed_transport_sha256": "49308fd4a3e19ba1179a0410785e85912ed018757d79872497f40517529eae73",
+  "install_probe_calls": [
+    {
+      "path": "lampOS/crates/voice/src/transport.rs",
+      "line": 85,
+      "text": "pub(crate) fn install_probe(&mut self) -> io::Result<probe::Probe> {"
+    },
+    {
+      "path": "lampOS/crates/voice/src/transport_probe_tests.rs",
+      "line": 30,
+      "text": "let sent = sender.install_probe().unwrap();"
+    },
+    {
+      "path": "lampOS/crates/voice/src/transport_probe_tests.rs",
+      "line": 31,
+      "text": "let received = receiver.install_probe().unwrap();"
+    },
+    {
+      "path": "lampOS/crates/voice/src/transport_probe_tests.rs",
+      "line": 106,
+      "text": "let probe = sender.install_probe().unwrap();"
+    },
+    {
+      "path": "lampOS/crates/voice/src/transport_probe_tests.rs",
+      "line": 270,
+      "text": "let probe = channel.install_probe().unwrap();"
+    },
+    {
+      "path": "lampOS/crates/voice/src/transport_probe_tests.rs",
+      "line": 274,
+      "text": "let probe = channel.install_probe().unwrap();"
+    },
+    {
+      "path": "lampOS/crates/voice/src/transport_probe_tests.rs",
+      "line": 295,
+      "text": "assert!(send_failure.install_probe().is_err());"
+    },
+    {
+      "path": "lampOS/crates/voice/src/transport_probe_tests.rs",
+      "line": 299,
+      "text": "assert!(encode_failure.install_probe().is_err());"
+    },
+    {
+      "path": "lampOS/crates/voice/src/transport_probe_tests.rs",
+      "line": 303,
+      "text": "assert!(receive_failure.install_probe().is_err());"
+    },
+    {
+      "path": "lampOS/crates/voice/src/transport_probe_tests.rs",
+      "line": 309,
+      "text": "assert!(receiver.install_probe().is_err());"
+    },
+    {
+      "path": "lampOS/crates/voice/src/transport_probe_tests.rs",
+      "line": 311,
+      "text": "assert!(sender.install_probe().is_err());"
+    },
+    {
+      "path": "lampOS/crates/voice/src/transport_probe_tests.rs",
+      "line": 320,
+      "text": "assert!(sender.install_probe().is_err());"
+    }
+  ],
+  "root_summary_totals": [
+    1946,
+    5,
+    13
+  ],
+  "root_summary_count": 64,
+  "five_failures": [
+    "coordinator::motor::tests::explicit_current_segment_reaches_inert_counts_without_completing_voice",
+    "coordinator::motor::tests::fixture_preflight_rejects_missing_wrong_and_failed_markers_and_reaps",
+    "coordinator::motor::tests::frozen_config_and_executable_are_exact_and_source_changes_are_not_adopted",
+    "coordinator::motor::tests::frozen_fixture_preflight_is_not_motor_startup",
+    "coordinator::motor::tests::idle_ready_never_inspects_moves_or_claims_listening"
+  ],
+  "tests_rerun_in_triage": false,
+  "source_edits_in_triage": false,
+  "gh_mutations_in_triage": false,
+  "voice_body_ipc_tracked_files": 221,
+  "changed_tracked_voice_body_ipc_files": [
+    "lampOS/crates/voice/src/transport.rs"
+  ],
+  "all_existing_voice_body_ipc_other_than_transport_byte_exact": true,
+  "assessment_host_uname": "Darwin x86_64"
+}

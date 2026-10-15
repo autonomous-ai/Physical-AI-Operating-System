@@ -7,7 +7,7 @@
 //! conversation thread as a Live session is, with the same tools, and each
 //! turn kept in that thread and the memory's journal as the Live route
 //! keeps its own.
-use super::{ANNOUNCEMENT, Engine, Net, ToolRunner, output_request};
+use super::{ANNOUNCEMENT, Engine, Net, Told, ToolRunner, output_request};
 use crate::{
     provider_flow::OutputSender,
     provider_link::{LinkContext, ProviderLink, ProviderLinkState},
@@ -241,7 +241,7 @@ pub fn serve(
     let system = move || {
         let now = Instant::now();
         let Ok(mut sessions) = sessions.lock() else {
-            return String::new();
+            return Told::default();
         };
         let (changed, person) = sessions.open(who.as_deref(), now);
         let memory = match &socket {
@@ -251,12 +251,15 @@ pub fn serve(
             Some(socket) => crate::remember::told_for_session(socket, 0, person.as_deref()),
             None => crate::remember::told(),
         };
-        system_message(
-            &character,
-            crate::local_time::told_here(clock).as_deref(),
-            &memory,
-            file.as_deref(),
-        )
+        Told {
+            text: system_message(
+                &character,
+                crate::local_time::told_here(clock).as_deref(),
+                &memory,
+                file.as_deref(),
+            ),
+            whose: person,
+        }
     };
     let runner: ToolRunner = Arc::new(move |request, name, args| {
         let settings = tools.clone();
@@ -523,7 +526,7 @@ mod tests {
             .unwrap();
         let mut engine = Engine::new(
             Arc::new(Silent),
-            String::new,
+            Told::default,
             Arc::new(|_, _, _| Box::pin(async { serde_json::Value::Null })),
         );
         let mut gate = Gate::new(boot, now_us);

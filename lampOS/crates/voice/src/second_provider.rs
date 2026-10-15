@@ -79,10 +79,28 @@ const SENTENCE_PACKETS: usize = crate::provider_flow::MAX_REPLY_SAMPLES / PACKET
 /// Runs one tool call: `(request, name, arguments)` to the result the
 /// model reads.
 pub type ToolRunner = Arc<dyn Fn(u64, String, Value) -> BoxFuture<'static, Value> + Send + Sync>;
-/// The system message for a turn, built when the turn's chat begins.
-pub type System = Arc<dyn Fn() -> String + Send + Sync>;
+/// The system message for a turn, built when the turn's chat begins, and
+/// whose turn it is.
+pub type System = Arc<dyn Fn() -> Told + Send + Sync>;
+
+/// What a turn's chat is told, and whose turn it is: a memory id, or
+/// `None` for the room's (`crate::thread::Thread::opened_for`).
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct Told {
+    pub text: String,
+    pub whose: Option<String>,
+}
+impl From<String> for Told {
+    /// The room's.
+    fn from(text: String) -> Self {
+        Self { text, whose: None }
+    }
+}
 /// The engine's clock, for the announcement's spell.
 pub type Clock = Arc<dyn Fn() -> Instant + Send + Sync>;
+
+/// One exchange kept for the next chat: when, whose, asked and answered.
+type Exchange = (Instant, Option<String>, Message, Message);
 
 /// What every turn task shares.
 struct Shared {
@@ -94,9 +112,10 @@ struct Shared {
     answered_at: Mutex<Option<Instant>>,
     /// Audio packets sent by this process.
     sequence: AtomicU64,
-    /// The last exchanges, as the chat is given them: a Live session keeps
-    /// its own, and a question like "and how many live there?" needs it.
-    history: Mutex<VecDeque<(Instant, Message, Message)>>,
+    /// The last exchanges, as the chat is given them, each with whose it
+    /// was: a Live session keeps its own, and a question like "and how many
+    /// live there?" needs it. A turn is given only its own person's.
+    history: Mutex<VecDeque<Exchange>>,
     out: mpsc::Sender<ProviderOutput>,
 }
 
@@ -129,7 +148,7 @@ impl Engine {
     /// turn's chat (character, memory note and conversation so far).
     pub fn new(
         services: Arc<dyn Services>,
-        system: impl Fn() -> String + Send + Sync + 'static,
+        system: impl Fn() -> Told + Send + Sync + 'static,
         tools: ToolRunner,
     ) -> Self {
         Self::with_clock(services, Arc::new(system), tools, Arc::new(Instant::now))
@@ -345,22 +364,23 @@ impl Shared {
         .await;
     }
 
-    /// The exchanges of the last [`HISTORY_WITHIN`], oldest first.
-    fn recent(&self) -> Vec<Message> {
+    /// `whose`'s exchanges of the last [`HISTORY_WITHIN`], oldest first.
+    fn recent(&self, whose: Option<&str>) -> Vec<Message> {
         let now = (self.clock)();
         let Ok(mut history) = self.history.lock() else {
             return Vec::new();
         };
-        history.retain(|(at, _, _)| now.saturating_duration_since(*at) < HISTORY_WITHIN);
+        history.retain(|(at, ..)| now.saturating_duration_since(*at) < HISTORY_WITHIN);
         history
             .iter()
-            .flat_map(|(_, asked, answered)| [asked.clone(), answered.clone()])
+            .filter(|(_, theirs, ..)| theirs.as_deref() == whose)
+            .flat_map(|(_, _, asked, answered)| [asked.clone(), answered.clone()])
             .collect()
     }
 
-    fn remember(&self, asked: Message, answered: Message) {
+    fn remember(&self, whose: Option<String>, asked: Message, answered: Message) {
         if let Ok(mut history) = self.history.lock() {
-            history.push_back(((self.clock)(), asked, answered));
+            history.push_back(((self.clock)(), whose, asked, answered));
             while history.len() > HISTORY_EXCHANGES {
                 history.pop_front();
             }
@@ -455,8 +475,9 @@ async fn answer(shared: &Shared, request: u64, said: String) {
     let began = Instant::now();
     let asked = Message::user(said.clone());
     let writing = async move {
-        let mut messages = vec![Message::system((shared.system)())];
-        messages.extend(shared.recent());
+        let told = (shared.system)();
+        let mut messages = vec![Message::system(told.text)];
+        messages.extend(shared.recent(told.whose.as_deref()));
         messages.push(asked.clone());
         let mut answered = String::new();
         for round in 1..=MAX_ROUNDS {
@@ -513,7 +534,7 @@ async fn answer(shared: &Shared, request: u64, said: String) {
             }
             answered.push_str(&text);
             if calls.is_empty() {
-                shared.remember(asked, Message::assistant(answered));
+                shared.remember(told.whose.clone(), asked, Message::assistant(answered));
                 return Ok(());
             }
             messages.push(Message::assistant_calls(Some(text), &calls));

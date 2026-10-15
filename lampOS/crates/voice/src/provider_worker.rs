@@ -1085,8 +1085,14 @@ async fn serve_with_visual<C: Connect>(
                 // while no provider event is being taken.
                 service_link(&mut provider, link_clock.as_mut(), &mut link_status, |link|
                     channels.control.send(WorkerEvent::ProviderLink { link }))?;
-                // The lamp's actions kept for the Policy's decision (#800).
-                desk.release(&provider);
+                // The lamp's actions kept for the Policy's decision (#800),
+                // each let go if its turn was retired meanwhile. A turn's end
+                // is noted first, so that a decision taken in this same tick
+                // finds it waiting.
+                if let Some((request, at_us)) = intake.handoff.ended {
+                    desk.turn_ended(request, at_us);
+                }
+                desk.release(&provider, |request| intake.handoff.retired(request));
                 // What the executive made of the calls it was asked.
                 desk.answer(&provider);
                 // Each call answered, for the first-output record when
@@ -1602,34 +1608,29 @@ async fn serve_with_visual<C: Connect>(
                     })),
                     Ok(Notice::Event(Event::ToolCall { lineage, call })) => {
                         let held = attention.holds(lineage.request.get());
-                        // The turn as the Policy's decision is paired with
-                        // it (#800): none for a turn the lamp wrote itself.
-                        // With the rule for whom it answers, as it follows
-                        // the turn, its name included; without, by when its
-                        // sound was ended, the name not known here.
-                        let turn = attention
-                            .in_hand()
-                            .filter(|turn| turn.request == lineage.request.get())
-                            .map(|turn| Turn {
-                                after_us: turn.ended_us.unwrap_or(turn.began_us),
-                                name_heard: turn.name_score >= crate::policy_holds::NAME_FROM,
-                            })
-                            .or_else(|| {
-                                intake
-                                    .handoff
-                                    .ended
-                                    .filter(|(ended, _)| {
-                                        *ended == lineage.request.get()
-                                            && crate::attention::OWN_REQUEST
-                                                .load(std::sync::atomic::Ordering::Acquire)
-                                                != *ended
-                                    })
-                                    .map(|(_, at_us)| Turn {
-                                        after_us: at_us,
-                                        name_heard: false,
-                                    })
+                        // The turn, for the Policy's decision about it (#800):
+                        // none for a turn the lamp wrote itself. Its name is
+                        // known here with the rule for whom it answers, which
+                        // follows the turn; without it, not.
+                        let request = lineage.request.get();
+                        let turn = (crate::attention::OWN_REQUEST
+                            .load(std::sync::atomic::Ordering::Acquire)
+                            != request)
+                            .then(|| Turn {
+                                name_heard: attention.in_hand().is_some_and(|turn| {
+                                    turn.request == request
+                                        && turn.name_score >= crate::policy_holds::NAME_FROM
+                                }),
                             });
                         desk.called(&provider, lineage, call, held, turn)
+                    }
+                    // Calls the service withdrew are not run if they still
+                    // wait for the Policy's decision (#800).
+                    Ok(Notice::Event(event @ Event::ToolCallsCancelled { .. })) => {
+                        if let Event::ToolCallsCancelled { session, ids } = &event {
+                            desk.withdrawn(*session, ids);
+                        }
+                        forward(event, &mut output, &mut output_sequence, &mut discards)?
                     }
                     // The model said this request was not for it: none of
                     // its sound is let out, and none of its words are kept
@@ -1750,12 +1751,9 @@ struct ToolDesk {
     /// sound is let out.
     quieted: Option<u64>,
 }
-/// The turn a call came in, as the Policy's decision is paired with it.
+/// The turn a call came in, someone's, not the lamp's own.
 #[derive(Clone, Copy, Debug, PartialEq)]
 struct Turn {
-    /// The decision about it comes after this: its sound's end, or its
-    /// beginning if it has not ended.
-    after_us: u64,
     /// The lamp's name was heard in it ([`crate::policy_holds::NAME_FROM`]).
     name_heard: bool,
 }
@@ -1826,6 +1824,32 @@ impl ToolDesk {
     /// Whether the Policy held one of `request`'s actions (#800).
     fn quieted(&self, request: RequestId) -> bool {
         self.quieted == Some(request.get())
+    }
+    /// The sound of `request` ended at `at_us`: with the Policy holding the
+    /// lamp's actions, it waits for the Policy's decision about it (#800).
+    /// A turn the lamp wrote itself is judged by nobody.
+    fn turn_ended(&mut self, request: u64, at_us: u64) {
+        if crate::attention::OWN_REQUEST.load(std::sync::atomic::Ordering::Acquire) == request {
+            return;
+        }
+        if let Some(verdicts) = self.verdicts.as_mut() {
+            verdicts.ended(request, at_us);
+        }
+    }
+    /// The service withdrew calls: those still waiting for the Policy's
+    /// decision are let go, neither run nor answered (the reviewer on #908).
+    fn withdrawn(&mut self, session: SessionId, ids: &[String]) {
+        self.parked.retain(|parked| {
+            let gone = parked.lineage.session == session && ids.contains(&parked.call.id);
+            if gone {
+                eprintln!(
+                    "lamp-voice provider: request {} asked for {}; withdrawn by the service while it waited for the Policy's decision; not run",
+                    parked.lineage.request.get(),
+                    parked.call.name
+                );
+            }
+            !gone
+        });
     }
     /// One call from the model. Names only are logged, never arguments.
     fn called<C: Connect>(
@@ -2085,24 +2109,47 @@ impl ToolDesk {
     /// are taken every tick, whether or not an action waits, so that each
     /// is dated when it came and not when an action next asked: one about an
     /// earlier turn is never taken for a later one's.
-    fn release<C: Connect>(&mut self, provider: &Supervisor<C>) {
+    /// A parked call is let go, neither run nor answered, when its turn was
+    /// `retired` (its owner gone: cancelled, or a newer turn) or its session
+    /// is no longer the live one, looked at right before it would run (the
+    /// reviewer on #908).
+    fn release<C: Connect>(&mut self, provider: &Supervisor<C>, retired: impl Fn(u64) -> bool) {
         let now = monotonic_us();
         let Some(verdicts) = self.verdicts.as_mut() else {
             return;
         };
         verdicts.take(now);
         for parked in std::mem::take(&mut self.parked) {
-            let stay_quiet = self
+            let request = parked.lineage.request.get();
+            if retired(request) || provider.live_session() != Some(parked.lineage.session) {
+                // Answered all the same, as every call is, so that the
+                // service is not left waiting for it (refused, harmlessly,
+                // if its session has gone); never run.
+                let _ = provider.try_tool_response(
+                    parked.lineage.session,
+                    &parked.call.id,
+                    &parked.call.name,
+                    &serde_json::json!({"done": false}),
+                );
+                eprintln!(
+                    "lamp-voice provider: request {request} asked for {}; its turn ended while it waited for the Policy's decision; not run",
+                    parked.call.name
+                );
+                continue;
+            }
+            let verdict = self
                 .verdicts
                 .as_ref()
-                .and_then(|verdicts| verdicts.after(parked.turn.after_us));
+                .and_then(|verdicts| verdicts.verdict(request));
             let waited = Duration::from_micros(now.saturating_sub(parked.called_us));
-            let request = parked.lineage.request.get();
-            match crate::policy_holds::gate(stay_quiet, parked.turn.name_heard, waited) {
+            match crate::policy_holds::gate(verdict, parked.turn.name_heard, waited) {
                 crate::policy_holds::Gate::Wait => self.parked.push(parked),
                 crate::policy_holds::Gate::Run => {
-                    let why = match stay_quiet {
+                    let why = match verdict {
                         _ if parked.turn.name_heard => "its name was heard",
+                        Some(crate::policy_holds::Verdict::Ambiguous) => {
+                            "two turns waited for one decision, so whose it was is not known"
+                        }
                         Some(_) => "the Policy took the turn as the lamp's",
                         None => "no decision came in time",
                     };
@@ -2823,6 +2870,12 @@ struct SubmittedInput {
 }
 
 impl InputHandoff {
+    /// Whether `request` is no longer the lamp's: retired, given up, or
+    /// failed. A call made in it is not to be run any more (#800).
+    fn retired(&self, request: u64) -> bool {
+        request <= self.retired_through.max(self.failed_through)
+    }
+
     fn defer_reminder(
         &mut self,
         request: u64,

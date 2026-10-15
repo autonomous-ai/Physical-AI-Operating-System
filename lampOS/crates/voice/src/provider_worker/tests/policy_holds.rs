@@ -233,3 +233,61 @@ fn the_switch_is_read_after_sounds_checked() {
         .into();
     assert!(parse_flags(dir, &wrong).is_err());
 }
+
+/// The turn heard, ended, and the model asking for `volume_up`, kept for
+/// the Policy's decision, which never comes here.
+async fn parked_volume(desk: &mut Desk) -> (LiveRig, Dial) {
+    let mut rig = LiveRig::start_with(quick_policy(), desk.options(true));
+    let mut dial = rig.ready().await;
+    rig.speak(&mut dial, false, true).await;
+    dial.service.send(volume_up("v1")).await;
+    // Kept: nothing is answered at once.
+    assert!(
+        outputs_for(&mut rig, Duration::from_millis(100))
+            .await
+            .is_empty()
+    );
+    (rig, dial)
+}
+
+/// The reviewer on #908: a call kept for the Policy's decision whose turn
+/// is cancelled meanwhile (its owner gone) is never run, also after the
+/// wait in which an uncancelled one would have run.
+#[tokio::test]
+async fn a_kept_action_whose_turn_is_cancelled_is_never_run() {
+    let mut desk = Desk::new("cancelled");
+    let (mut rig, mut dial) = parked_volume(&mut desk).await;
+    let owner = rig.snapshot.owner().unwrap();
+    rig.owner.cancel_turn(real_time(), owner).unwrap();
+    rig.publish();
+    // The service settles the turn it was asked to stop, as Gemini does.
+    dial.service.send(idle_complete()).await;
+    // Never run, also after the wait in which an uncancelled one would have
+    // run.
+    outputs_for(
+        &mut rig,
+        crate::policy_holds::WAIT + Duration::from_millis(300),
+    )
+    .await;
+    assert!(!rig.worker.is_finished(), "the worker ended");
+    assert!(desk.asked.try_recv().is_err(), "volume_up was run");
+    rig.stop().await;
+}
+
+/// The reviewer on #908: a call the service withdrew while it was kept is
+/// never run.
+#[tokio::test]
+async fn a_kept_action_the_service_withdrew_is_never_run() {
+    let mut desk = Desk::new("withdrawn");
+    let (mut rig, mut dial) = parked_volume(&mut desk).await;
+    dial.service
+        .send(json!({"toolCallCancellation":{"ids":["v1"]}}))
+        .await;
+    outputs_for(
+        &mut rig,
+        crate::policy_holds::WAIT + Duration::from_millis(300),
+    )
+    .await;
+    assert!(desk.asked.try_recv().is_err(), "volume_up was run");
+    rig.stop().await;
+}

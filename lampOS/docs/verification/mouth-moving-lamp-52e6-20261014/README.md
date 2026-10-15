@@ -1,5 +1,34 @@
 # Whether a mouth moves, lamp-52e6, 2026-10-14 (task 39, #720)
 
+## For the person at the lamp: about ten minutes
+
+Sit about a metre in front of lamp-52e6, facing it, and read the big words
+the Mac shows. Only numbers are kept (how much each face's mouth moves, with
+the time); no picture, no sound.
+
+1. **Talking** (30 s): speak, anything, on SPEAK; be still on QUIET.
+2. **Over the lamp** (30 s): the Mac asks the lamp for a long story; speak
+   over it on SPEAK.
+3. **Silent** (15 s): look at the lamp and say nothing.
+4. **Chewing and smiling** (20 s): chew on CHEW (gum or nothing), smile and
+   laugh silently on SMILE.
+5. **Two people** (25 s, only if a second person is there, `TWO=1`): A
+   speaks on A, B on B.
+
+The builder starts it from the Mac (it waits until the camera looks, which
+on lamp-52e6 can take minutes after the eyes restart):
+
+```sh
+sh mouths.sh orangepi@lamp-52e6.local 9bac623906beeb40c78e3b019226a469265398491c0aa130d79c54e0bd77f8e7 ~/mouths-run
+```
+
+The build is `fifth/mouth-moving` at `5f0cb6056` (rebased on lamp-voice
+`96974cd0b`, with #766's still-face filter: the mouths are read for the faces
+it keeps), built on the Mac with zigbuild, installed (not run) on lamp-52e6
+under `/opt/lampOS/eyes/9bac6239…/`. The lamp's own eyes unit is restored on
+exit. By hand: `~/mouth-mode.sh on|off` on the lamp.
+
+
 The build: `lamp-eyes` from `fifth/mouth-moving` (sha256
 `5ab783951d28…` for the trial below), run with `LAMP_BUS=on
 LAMP_EYES_MOUTH=on` in a drop-in for the trial only. Nobody was by the lamp

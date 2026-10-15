@@ -56,7 +56,15 @@ scene() {
 
 echo "Turning the mouths on for this run."
 on
-sleep 4
+# The camera opens only while the voice permits it, and after a restart of
+# lamp-eyes it can fail to open for minutes (DeadlineExceeded): wait for a look.
+echo "Waiting for the camera to look (up to 10 minutes)..."
+since=$(ssh "$LAMP" 'date +%T')
+i=0
+until ssh "$LAMP" "journalctl -u lamp-eyes --since $since --no-pager -o cat | grep -q 'looked at [1-9]'"; do
+    i=$((i + 1)); [ $i -lt 120 ] || { echo "The camera has not looked; stopping."; exit 1; }
+    sleep 5
+done
 OFF=$(offset)
 
 echo "1. Talking to the lamp. Face it. Speak (anything) when it says SPEAK, be still when it says QUIET."

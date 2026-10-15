@@ -184,6 +184,50 @@ hotspot returns, so nothing of it is kept. V1's eight failure cases, from its
 own captured wpa_supplicant lines, are tests here (`crates/setup/tests/wifi.rs`),
 with the join's timing against a fake lamp.
 
+## The setup server (built, off unless set)
+
+```sh
+lamp-setup serve --config SERVE.json --plan PLAN.json --enable
+```
+
+The keeper starts it, as `lamp-setup.service`, only when the setup marker is
+missing (#702). In order, it finishes an interrupted reset, refuses to run on
+a lamp that is already set up, raises the hotspot with the image's
+`device-ap-mode` (as V1's `os-server` does at a first boot) and answers V1's
+setup API with V1's shapes and wrapper (`{"status","data","message"}`):
+
+| Route | What it does |
+|---|---|
+| `GET /api/device/setup/status` | V1's `phase` (`idle`/`connecting`/`connected`/`failed`), `lan_ip`, `error`, `mac` (the host name, `lamp-xxxx`), `run`, `set_up_completed`, `runtime_phase`. |
+| `GET /api/network` | `iw dev wlan0 scan`, parsed as V1 does, in V1's `domain.Network` fields. |
+| `POST /api/device/setup` | V1's `SetupRequest`; its other fields are accepted and ignored. Checked before anything is touched: the network's name and password as for the join; `llm_api_key` (the voice's credential, 1–512 printable characters); V2's own `name` (up to 64 characters) and `timezone` (an IANA name with a file under the zone data). Replies at once, then, 2 s later as in V1, joins; one run at a time; refused once the lamp is set up. |
+
+While joining it reads the station address every second and publishes it as
+`lan_ip`, V1's fix for the page that lost the lamp. Once joined, it saves the
+credential, the name and the time zone (`/etc/localtime` linked to the zone,
+`/etc/timezone` naming it, as V1's `timezone.go`), each private and synced,
+and only then the marker; the keeper starts the lamp. If anything cannot be
+saved, there is no marker and the hotspot comes back. After setup it goes on
+answering for 10 minutes, so the page can follow the lamp onto the home network
+and see it done.
+
+`crates/setup/fixtures/serve-behind-v1-nginx.json` answers on
+`127.0.0.1:5000`, where `os-server` did, so V1's nginx and V1's own page serve
+the person (question 3). `serve-own-page.json` answers on port 80 with
+`page: true`: this crate's own page (`src/page.html`, one step: network,
+password, the voice's key unless the account page passed one, the person's
+name; the time zone comes from the phone), and 204 to the phones' sign-in
+checks, as V1's nginx does. Its progress screen keeps V1's timings: status
+every 600 ms, the hotspot lost after 5 s of silence, then the new address
+first and `<name>.local` every 2 s, and a failure shown at 80 s.
+
+Host tests (`crates/setup/tests/serve.rs`): every refused request, a run that
+joins and saves in order with the address published while joining, a wrong
+password that saves nothing, a save that fails and leaves no marker, the
+private files and the zone link, V1's routes and shapes, one run at a time, no
+second setup, the page and the 204s only with `page`, and the scan with iw's
+escapes. No phone, router or radio was used.
+
 ## Open questions (asked on #806)
 
 1. Where does a home lamp's voice credential come from: the autonomous.ai

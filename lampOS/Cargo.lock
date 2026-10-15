@@ -1986,12 +1986,15 @@ dependencies = [
 name = "lamp-setup"
 version = "0.1.0"
 dependencies = [
+ "axum",
  "lamp-bus",
  "lamp-ipc",
  "lamp-msgs",
  "rustix",
  "serde",
  "serde_json",
+ "tokio",
+ "tower",
 ]
 
 [[package]]

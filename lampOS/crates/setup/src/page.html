@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Set up your lamp</title>
+<style>
+  :root { --ink: #1d1d1f; --soft: #6e6e73; --line: #d2d2d7; --bg: #fbfbfd; --accent: #0071e3; --bad: #c9252d; }
+  @media (prefers-color-scheme: dark) { :root { --ink: #f5f5f7; --soft: #a1a1a6; --line: #424245; --bg: #1d1d1f; --accent: #2997ff; --bad: #ff6961; } }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 17px/1.45 -apple-system, system-ui, sans-serif; color: var(--ink); background: var(--bg); }
+  main { max-width: 420px; margin: 0 auto; padding: 24px 16px 48px; }
+  h1 { font-size: 26px; margin: 8px 0 4px; }
+  p { color: var(--soft); margin: 0 0 20px; }
+  label { display: block; font-weight: 600; margin: 16px 0 6px; }
+  input, select, button { width: 100%; font: inherit; padding: 12px; border-radius: 10px; border: 1px solid var(--line); background: transparent; color: inherit; }
+  button { background: var(--accent); color: #fff; border: 0; font-weight: 600; margin-top: 24px; }
+  button.quiet { background: transparent; color: var(--accent); margin-top: 8px; }
+  .error { color: var(--bad); }
+  .hint { font-size: 14px; color: var(--soft); margin-top: 6px; }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<main>
+  <section id="form">
+    <h1>Set up your lamp</h1>
+    <p>Choose your home Wi-Fi. The lamp leaves its own network while it joins yours.</p>
+    <label for="ssid">Wi-Fi network</label>
+    <select id="ssid"><option value="">Looking for networks…</option></select>
+    <button class="quiet" id="rescan" type="button">Look again</button>
+    <label for="password">Wi-Fi password</label>
+    <input id="password" type="password" autocomplete="off">
+    <div id="key-row">
+      <label for="key">Voice key</label>
+      <input id="key" type="password" autocomplete="off">
+      <div class="hint">The key for the lamp's voice service.</div>
+    </div>
+    <label for="name">Your name</label>
+    <input id="name" maxlength="64" autocomplete="given-name">
+    <div class="hint" id="zone-hint"></div>
+    <div class="error" id="form-error" role="alert"></div>
+    <button id="go" type="button">Set up</button>
+  </section>
+  <section id="progress" hidden>
+    <h1 id="progress-title">Your lamp is joining Wi-Fi…</h1>
+    <p id="progress-text">This takes up to a minute. Keep this page open.</p>
+    <div class="error" id="progress-error" role="alert"></div>
+    <button class="quiet" id="again" type="button" hidden>Try again</button>
+  </section>
+</main>
+<script>
+"use strict";
+// V1's timings (useSetupStatusPolling.ts): poll every 600 ms, the hotspot is
+// lost after 5 s of silence, then the new address first and <name>.local
+// every 2 s, and a failure shown at 80 s.
+const POLL_MS = 600, LOST_MS = 5000, LOCAL_MS = 2000, GIVE_UP_MS = 80000;
+const params = new URLSearchParams(location.search);
+const zone = Intl.DateTimeFormat().resolvedOptions().timeZone || "";
+const $ = (id) => document.getElementById(id);
+if (params.get("llm_api_key")) $("key-row").hidden = true;
+$("zone-hint").textContent = zone ? "Time zone: " + zone + " (from this phone)" : "";
+
+async function api(path, options) {
+  const reply = await fetch(path, Object.assign({ cache: "no-store" }, options));
+  const body = await reply.json();
+  if (body.status !== 1) throw new Error(body.message || "the lamp said no");
+  return body.data;
+}
+
+async function scan() {
+  const select = $("ssid");
+  select.innerHTML = "<option value=\"\">Looking for networks…</option>";
+  try {
+    const seen = new Map();
+    for (const n of await api("/api/network")) {
+      if (!seen.has(n.ssid) || seen.get(n.ssid).signal < n.signal) seen.set(n.ssid, n);
+    }
+    const list = [...seen.values()].sort((a, b) => b.signal - a.signal);
+    select.innerHTML = list.length ? "" : "<option value=\"\">No networks found</option>";
+    for (const n of list) {
+      const option = document.createElement("option");
+      option.value = n.ssid;
+      option.textContent = n.ssid;
+      select.appendChild(option);
+    }
+  } catch (e) {
+    select.innerHTML = "<option value=\"\">Could not look for networks</option>";
+  }
+}
+
+let startedRun = 0, lanIp = "", host = "", startedAt = 0, lastHeard = 0, timer = 0;
+
+function show(form) { $("form").hidden = !form; $("progress").hidden = form; }
+
+function done(title, text) {
+  clearTimeout(timer);
+  $("progress-title").textContent = title;
+  $("progress-text").textContent = text;
+}
+
+function failed(message) {
+  clearTimeout(timer);
+  $("progress-title").textContent = "The lamp could not join";
+  $("progress-text").textContent = "Join the lamp's own Wi-Fi again, then try once more.";
+  $("progress-error").textContent = message;
+  $("again").hidden = false;
+}
+
+function seen(status) {
+  lastHeard = Date.now();
+  if (status.lan_ip) lanIp = status.lan_ip;
+  if (status.mac) host = status.mac;
+  if (status.run < startedRun) return false;
+  if (status.phase === "connected" || status.set_up_completed) {
+    done("Your lamp is set up", "It is starting now. In a minute, say “Hey Lamp”.");
+    return true;
+  }
+  if (status.phase === "failed") { failed(status.error || "Something went wrong."); return true; }
+  return false;
+}
+
+async function reachable(origin) {
+  try { await fetch(origin + "/api/device/setup/status", { mode: "no-cors", cache: "no-store" }); return true; }
+  catch (e) { return false; }
+}
+
+async function poll() {
+  try {
+    if (seen(await api("/api/device/setup/status"))) return;
+  } catch (e) {
+    const quiet = Date.now() - lastHeard;
+    if (Date.now() - startedAt > GIVE_UP_MS) {
+      failed("The lamp did not come back. If its light shows it joined, open http://" + (host || "the lamp") + ".local/setup");
+      return;
+    }
+    if (quiet > LOST_MS) {
+      // The hotspot is gone: follow the lamp onto the home network.
+      if (lanIp && await reachable("http://" + lanIp)) { location.href = "http://" + lanIp + "/setup?after=" + startedRun; return; }
+      if (host && await reachable("http://" + host + ".local")) { location.href = "http://" + host + ".local/setup?after=" + startedRun; return; }
+      timer = setTimeout(poll, LOCAL_MS);
+      return;
+    }
+  }
+  timer = setTimeout(poll, POLL_MS);
+}
+
+$("go").addEventListener("click", async () => {
+  $("form-error").textContent = "";
+  try {
+    const before = await api("/api/device/setup/status");
+    startedRun = before.run + 1;
+    host = before.mac;
+    await api("/api/device/setup", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        ssid: $("ssid").value,
+        password: $("password").value,
+        llm_api_key: params.get("llm_api_key") || $("key").value,
+        llm_base_url: params.get("llm_base_url") || "",
+        device_id: params.get("device_id") || "",
+        name: $("name").value,
+        timezone: zone,
+      }),
+    });
+  } catch (e) {
+    $("form-error").textContent = e.message;
+    return;
+  }
+  startedAt = lastHeard = Date.now();
+  show(false);
+  timer = setTimeout(poll, POLL_MS);
+});
+
+$("rescan").addEventListener("click", scan);
+$("again").addEventListener("click", () => { $("again").hidden = true; $("progress-error").textContent = ""; show(true); scan(); });
+
+// Reopened on the home network after the move: carry on watching that run.
+if (params.get("after")) {
+  startedRun = Number(params.get("after")) || 0;
+  startedAt = lastHeard = Date.now();
+  show(false);
+  poll();
+} else {
+  scan();
+}
+</script>
+</body>
+</html>

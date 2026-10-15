@@ -15,6 +15,12 @@ const NAME: &str = "setup";
 
 const USAGE: &str = "\
 usage: lamp-setup COMMAND [OPTIONS]
+  serve --config FILE --plan FILE [--seconds N] [--enable]
+      The lamp's first boot, started by the keeper when the setup marker is
+      missing: finish an interrupted reset, bring up the lamp's hotspot and
+      answer V1's setup API until the home's Wi-Fi is joined and the
+      person's settings are saved; then write the marker, and go on
+      answering for 10 minutes so the page can follow the lamp.
   check --plan FILE
       Check a reset plan and print it. Touches nothing.
   watch-reset --plan FILE [--bus-root PATH] [--clock-id ID] [--seconds N] [--enable]
@@ -43,7 +49,15 @@ fn options(
             enabled = true;
             continue;
         }
-        if !["--plan", "--bus-root", "--clock-id", "--seconds"].contains(&key.as_str()) {
+        if ![
+            "--plan",
+            "--config",
+            "--bus-root",
+            "--clock-id",
+            "--seconds",
+        ]
+        .contains(&key.as_str())
+        {
             return Err(format!("unknown option {key}"));
         }
         let value = given.next().ok_or(format!("{key} needs a value"))?;
@@ -152,8 +166,147 @@ fn run() -> Result<bool, Box<dyn std::error::Error>> {
             );
             Ok(true)
         }
+        "serve" => {
+            let config_path =
+                PathBuf::from(options.remove("--config").ok_or("--config is required")?);
+            let seconds = match options.remove("--seconds") {
+                Some(seconds) => Some(
+                    seconds
+                        .parse::<u64>()
+                        .ok()
+                        .filter(|n| (1..=86_400).contains(n))
+                        .ok_or("--seconds must be 1..86400")?,
+                ),
+                None => None,
+            };
+            if !options.is_empty() {
+                return Err("serve takes --config, --plan, --seconds and --enable".into());
+            }
+            let config = serve_config(&config_path)?;
+            if !enabled {
+                println!(
+                    "{}",
+                    serde_json::json!({"enabled": false, "reason": "--enable was not set"})
+                );
+                return Ok(true);
+            }
+            serve(config, plan, seconds)
+        }
         _ => Err(format!("unknown command {command}").into()),
     }
+}
+
+fn serve_config(path: &Path) -> Result<lamp_setup::serve::Config, Box<dyn std::error::Error>> {
+    let mut bytes = Vec::new();
+    File::open(path)?.take(16_385).read_to_end(&mut bytes)?;
+    if bytes.len() > 16_384 {
+        return Err("the configuration exceeds 16 KiB".into());
+    }
+    let config: lamp_setup::serve::Config = serde_json::from_slice(&bytes)?;
+    config.check()?;
+    Ok(config)
+}
+
+/// How long the page may still need the server after setup is done.
+const LINGER: Duration = Duration::from_secs(600);
+
+fn serve(
+    config: lamp_setup::serve::Config,
+    plan: Plan,
+    seconds: Option<u64>,
+) -> Result<bool, Box<dyn std::error::Error>> {
+    use lamp_setup::{
+        http::{Shared, router},
+        serve::{Files, Status},
+        wifi::{Host, ImageHost},
+    };
+    use std::sync::{Arc, Mutex};
+    // A reset a power cut or a failed stop left unfinished comes first.
+    let finished = reset::resume(&plan, &mut System)?;
+    if !finished.is_empty() {
+        eprintln!("lamp-setup: finished an interrupted reset");
+    }
+    if config.marker.exists() {
+        eprintln!("lamp-setup: this lamp is already set up; nothing to serve");
+        return Ok(true);
+    }
+    let mac = std::fs::read_to_string("/etc/hostname")
+        .map(|name| name.trim().to_owned())
+        .unwrap_or_default();
+    let status = Arc::new(Mutex::new(Status::new(mac)));
+    // The hotspot, as V1's os-server raises it at a first boot.
+    ImageHost::new().hotspot()?;
+    eprintln!(
+        "lamp-setup: the lamp's hotspot is up; answering on {}",
+        config.listen
+    );
+    let shared = Arc::new(Shared {
+        config: config.clone(),
+        status: Arc::clone(&status),
+        start: Box::new({
+            let status = Arc::clone(&status);
+            let config = config.clone();
+            move |accepted| {
+                let status = Arc::clone(&status);
+                let config = config.clone();
+                std::thread::spawn(move || {
+                    // V1 replies first and starts 2 s later, so the reply
+                    // reaches the phone before the hotspot goes.
+                    std::thread::sleep(Duration::from_secs(2));
+                    let interface = config.interface.clone();
+                    let hotspot = config.hotspot_address.clone();
+                    lamp_setup::serve::run(
+                        &status,
+                        &accepted,
+                        &config.country,
+                        &mut ImageHost::new(),
+                        &mut Files(&config),
+                        move || lamp_setup::serve::station_ip(&interface, &hotspot),
+                    );
+                    let now = status.lock().unwrap().clone();
+                    eprintln!(
+                        "lamp-setup: run {} ended {:?}{}",
+                        now.run,
+                        now.phase,
+                        if now.error.is_empty() {
+                            String::new()
+                        } else {
+                            format!(": {}", now.error)
+                        }
+                    );
+                });
+            }
+        }),
+        scan: Box::new({
+            let interface = config.interface.clone();
+            move || lamp_setup::scan::scan(&interface)
+        }),
+    });
+    let runtime = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()?;
+    runtime.block_on(async move {
+        let listener = tokio::net::TcpListener::bind(&config.listen).await?;
+        let limit = seconds.map(Duration::from_secs);
+        let started = tokio::time::Instant::now();
+        let done = async move {
+            loop {
+                tokio::time::sleep(Duration::from_millis(500)).await;
+                if limit.is_some_and(|limit| started.elapsed() >= limit) {
+                    return;
+                }
+                let completed = status.lock().unwrap().set_up_completed;
+                if completed {
+                    tokio::time::sleep(LINGER).await;
+                    return;
+                }
+            }
+        };
+        axum::serve(listener, router(shared))
+            .with_graceful_shutdown(done)
+            .await
+    })?;
+    Ok(true)
 }
 
 fn main() -> ExitCode {

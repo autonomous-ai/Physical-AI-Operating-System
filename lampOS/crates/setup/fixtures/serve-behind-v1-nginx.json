@@ -1,0 +1,7 @@
+{
+  "listen": "127.0.0.1:5000",
+  "marker": "/var/lib/lampos-setup/done",
+  "credential": "/etc/lampOS/voice/credential",
+  "name": "/etc/lampOS/person/name",
+  "country": "VN"
+}

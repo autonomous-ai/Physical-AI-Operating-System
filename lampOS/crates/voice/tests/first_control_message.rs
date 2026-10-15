@@ -1,6 +1,9 @@
 //! A worker's first control message may have waited for the receiver to
-//! start reading; its first data message, and any later control message, may
-//! not (#762).
+//! start reading (#762). Any later message may wait only as long as the
+//! receiver was itself held up, at most 1.5 s (#784): a receiver that has
+//! not looked for longer than its bound is taken to have been held up, as by
+//! the kernel re-tuning lamp-4ace's SD/MMC hosts, and what queued meanwhile
+//! is in order and still carries its own deadlines.
 use lamp_voice::{
     process::{SessionDirectory, new_boot},
     transport::WorkerChannels,
@@ -25,13 +28,14 @@ fn a_first_control_message_may_wait_for_the_receiver_and_nothing_after_it() {
         parent.control.receive::<WorkerEvent>().unwrap(),
         Some(WorkerEvent::Ready)
     ));
-    // A later one that waits as long is refused, and says which socket.
+    // A later one that waits past the longest hold-up is refused, and says
+    // which socket.
     worker.control.send(WorkerEvent::Ready).unwrap();
-    sleep(Duration::from_millis(300));
+    sleep(Duration::from_millis(1_700));
     let error = parent.control.receive::<WorkerEvent>().unwrap_err();
     assert!(error.to_string().starts_with("capture.c.p: "), "{error}");
-    // A first data message gets no such wait.
+    // A first data message gets no first-message grace either.
     worker.data.send(WorkerEvent::Ready).unwrap();
-    sleep(Duration::from_millis(300));
+    sleep(Duration::from_millis(1_700));
     assert!(parent.data.receive::<WorkerEvent>().is_err());
 }

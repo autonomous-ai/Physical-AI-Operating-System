@@ -3,6 +3,7 @@
 //! Everything here goes through the library the lamp's processes use, so a
 //! `tap` is an ordinary subscriber and can be as slow as it likes without a
 //! publisher noticing.
+use lamp_bus::logging::{Log, LogLevel};
 use lamp_bus::{Bus, Declaration, Header, Kind, Message, Notice, Publisher, Subscriber};
 use serde::Deserialize;
 use std::{
@@ -35,6 +36,10 @@ usage: lamp-bus [--root PATH] COMMAND ...
       is JSON, else <N bytes>. A value the topic keeps is printed too, once
       nothing else is waiting. Ends after N messages or S seconds, and with
       status 1 if N was asked for and fewer came.
+  logs [--part NAME] [--level LEVEL] [--count N] [--seconds S]
+      Follow validated operational logs, optionally one part, at LEVEL or
+      higher (info). Levels: debug, info, warn, error, fatal. Count only
+      matching logs. No history or persistent storage is implied.
   latest TOPIC
       Print the topic's current value, expired or not. Status 1 if it keeps
       none.
@@ -54,8 +59,8 @@ The root is --root, else $LAMP_BUS_ROOT, else /run/lampos-bus.
 ";
 
 /// Every option takes one value.
-const OPTIONS: [&str; 8] = [
-    "root", "name", "count", "seconds", "max-mb", "speed", "at-us", "type",
+const OPTIONS: [&str; 10] = [
+    "root", "name", "count", "seconds", "max-mb", "speed", "at-us", "type", "part", "level",
 ];
 
 /// A wait is cut into pieces this long: an empty one is when a subscriber
@@ -211,6 +216,26 @@ fn run(given: impl Iterator<Item = String>) -> Result<ExitCode, Failure> {
             let words = arguments.words(1, 1)?;
             let subscriber = bus.subscribe(&words[0], name.as_deref().unwrap_or("tap"))?;
             tap(subscriber, count, seconds.map(Duration::from_secs_f64))
+        }
+        "logs" => {
+            let part = arguments.option::<String>("part", "a part name")?;
+            let level = arguments
+                .option::<LogLevel>("level", "debug, info, warn, error or fatal")?
+                .unwrap_or(LogLevel::Info);
+            let count = arguments.option::<u64>("count", "a whole number")?;
+            let seconds = arguments.amount("seconds")?;
+            arguments.words(0, 0)?;
+            if let Some(part) = &part {
+                Log::check_part(part)?;
+            }
+            let subscriber = bus.subscribe_typed(Log::TOPIC, "logs", Log::TYPE)?;
+            logs(
+                subscriber,
+                part.as_deref(),
+                level,
+                count,
+                seconds.map(Duration::from_secs_f64),
+            )
         }
         "latest" => {
             let words = arguments.words(1, 1)?;
@@ -503,6 +528,63 @@ fn tap(
             break;
         }
         printed += 1;
+    }
+    Ok(if count.is_some_and(|count| printed < count) {
+        ExitCode::FAILURE
+    } else {
+        ExitCode::SUCCESS
+    })
+}
+
+fn logs(
+    mut subscriber: Subscriber,
+    part: Option<&str>,
+    level: LogLevel,
+    count: Option<u64>,
+    lasting: Option<Duration>,
+) -> Result<ExitCode, Failure> {
+    let until = lasting.map(|lasting| Instant::now() + lasting);
+    let mut printed = 0;
+    let mut invalid = 0;
+    while count.is_none_or(|count| printed < count) {
+        let Some(wait) = tick(until) else {
+            break;
+        };
+        let Some(message) = subscriber.recv(wait)? else {
+            continue;
+        };
+        let log = match Log::from_message(&message) {
+            Ok(log) => log,
+            Err(_) => {
+                invalid += 1;
+                continue;
+            }
+        };
+        if part.is_some_and(|part| log.part != part) || log.level < level {
+            continue;
+        }
+        // Debug-escaped text stays on one terminal line, including ESC and C1
+        // controls. The part/code/header identity has already been validated.
+        if !say(&format!(
+            "{} {} {} [{}] {:?} attempt={} boot={} bus_seq={} bus_gap={} restarted={}",
+            log.created_unix_ms,
+            log.level.as_str(),
+            log.part,
+            log.code,
+            log.message,
+            log.attempt,
+            message.header.boot,
+            message.header.seq,
+            message.gap,
+            message.publisher_restarted,
+        )) {
+            break;
+        }
+        printed += 1;
+    }
+    let rejected = invalid + subscriber.malformed() + subscriber.wrong_type();
+    if rejected > 0 {
+        eprintln!("lamp-bus: logs: passed over {rejected} malformed or non-log messages");
     }
     Ok(if count.is_some_and(|count| printed < count) {
         ExitCode::FAILURE

@@ -1,0 +1,18 @@
+# The lamp's first boot (#806, docs/setup.md). Started by the keeper, with
+# --setup-marker /var/lib/lampos-setup/done (#816), only when that marker is
+# missing; never part of lampos.target. It finishes an interrupted reset,
+# raises the lamp's hotspot, starts nginx for V1's page and answers V1's setup
+# API until the home's Wi-Fi is joined and the person's settings are saved;
+# then it writes the marker and the keeper starts the lamp.
+[Unit]
+Description=lampOS setup: the lamp's hotspot and setup page, while it is not set up
+
+[Service]
+Type=simple
+# Root: the radio scripts, wpa_supplicant's file, /etc/localtime, nginx.
+User=root
+StateDirectory=lampos-setup
+StateDirectoryMode=0700
+ExecStart=/opt/lampOS/setup/BUILD/lamp-setup serve --config /etc/lampOS/setup/serve.json --plan /etc/lampOS/setup/reset-plan.json --enable
+Restart=on-failure
+RestartSec=5

@@ -10,7 +10,8 @@
 //! the faces in view on the lamp's bus: boxes and whether each is turned to
 //! the lamp, never a picture. [`who`] says whose face it is, for the people
 //! who asked the lamp to remember them, and nobody else. With
-//! `--leave-still-faces on`, [`still`] leaves out a face that never moves.
+//! `--leave-still-faces on`, [`still`] leaves out a face at a place where no
+//! person has been seen, only small faint faces for half an hour.
 pub mod bus_out;
 pub mod faces;
 pub mod facing;

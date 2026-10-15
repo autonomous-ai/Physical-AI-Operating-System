@@ -53,7 +53,7 @@ followed by one of `lampos.target`.
    (where every servo was found, how far and how long it rose), and
    `lamp/health`, and says whether the lamp came back by itself.
 
-## The unplug, 07:44–07:51 (Leo at the lamp)
+## The unplug, 07:44–07:51 (a colleague at the lamp)
 
 The plug pulled and put back by hand, twice. The first time the board did
 not start: the journal has no boot between the last one and the next

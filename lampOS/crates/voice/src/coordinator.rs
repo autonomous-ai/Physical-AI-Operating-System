@@ -4,6 +4,8 @@
 //! Refuse to present its directed-session results as general desk-conversation
 //! qualification. Audio-critical failures end the run; optional ring failure disables
 //! presentation while retaining the child and truthful cleanup evidence.
+#[cfg(test)]
+use crate::scenario_clock::monotonic_us;
 use crate::{
     activity::{Activity, ObservedAudio, TurnDetector},
     admission::{
@@ -42,6 +44,7 @@ use lamp_audio::{
     duplex::{Confirmation, Hearing, Step as DuplexStep},
     playout::{StartGate, StartNeed},
 };
+#[cfg(not(test))]
 use lamp_ipc::monotonic_us;
 use lamp_turn_owner::{
     AdmissionState, AdmittedInput, BootId, CaptureState, Controller, MonoTime, OutputKind,
@@ -82,6 +85,20 @@ pub const MAX_DIRECTED_SECONDS: u64 = 600;
 const INPUT_READINESS_TIMEOUT: Duration = Duration::from_secs(25);
 const DIAGNOSTIC_SHUTDOWN_GRACE: Duration = Duration::from_millis(750);
 const INPUT_LEASE_US: u64 = 100_000;
+
+/// Only explicitly scoped unit-test scenarios replace this clock. Child
+/// startup/shutdown deadlines continue using Instant::now directly.
+#[inline]
+fn session_instant() -> Instant {
+    #[cfg(test)]
+    {
+        crate::scenario_clock::instant()
+    }
+    #[cfg(not(test))]
+    {
+        Instant::now()
+    }
+}
 /// How long a just-asked lamp keeps the floor from the next voice in a busy
 /// room while its answer has not begun. Answers begin 1.0 to 1.5 s after the
 /// question ends.
@@ -459,6 +476,13 @@ impl Rig {
         let mut ring_blank_confirmed = self.ring.blank_confirmed();
         let mut final_drain = false;
         loop {
+            #[cfg(test)]
+            if let Err(error) =
+                crate::scenario_clock::step(crate::scenario_clock::Phase::Shutdown { deadline })
+            {
+                // Fixture failure never bypasses the real supervisor's cleanup.
+                failure = Some(error);
+            }
             if let Some(motor) = &mut self.motor {
                 motor.poll(|event| { let _ = record(trace, json!({"kind":"motor_shutdown_receipt","at_us":monotonic_us(),"details":event,"physical_stop_verified":false})); });
             }
@@ -2376,14 +2400,82 @@ fn conversation_with_controls(
     controls: &mut Option<HandControls>,
     reminders: &mut Option<crate::reminders::Reminders>,
 ) -> Result<()> {
+    conversation_with_gate(
+        rig,
+        owner,
+        lifetime,
+        trace,
+        startup,
+        reply,
+        cues,
+        termination,
+        notices,
+        controls,
+        reminders,
+        PrivacyGate::default(),
+        #[cfg(test)]
+        None,
+    )
+}
+
+/// An explicit policy allowance for a real-worker ordering fixture. The
+/// source clock and IPC bounds stay real; the watchdog bounds the host run.
+#[cfg(test)]
+#[allow(clippy::too_many_arguments)]
+fn conversation_with_fixture_privacy(
+    rig: &mut Rig,
+    owner: &mut Controller,
+    lifetime: Lifetime,
+    trace: &mut SessionState,
+    startup: StartupEvents,
+    reply: &mut Option<Reply>,
+    cues: &mut Option<CueSink>,
+    termination: &Termination,
+    notices: &FailureNotices,
+    gate: PrivacyGate,
+    host_deadline: Instant,
+) -> Result<()> {
+    conversation_with_gate(
+        rig,
+        owner,
+        lifetime,
+        trace,
+        startup,
+        reply,
+        cues,
+        termination,
+        notices,
+        &mut None,
+        &mut None,
+        gate,
+        Some(host_deadline),
+    )
+}
+
+#[allow(clippy::too_many_arguments)]
+fn conversation_with_gate(
+    rig: &mut Rig,
+    owner: &mut Controller,
+    lifetime: Lifetime,
+    trace: &mut SessionState,
+    startup: StartupEvents,
+    reply: &mut Option<Reply>,
+    cues: &mut Option<CueSink>,
+    termination: &Termination,
+    notices: &FailureNotices,
+    controls: &mut Option<HandControls>,
+    reminders: &mut Option<crate::reminders::Reminders>,
+    mut gate: PrivacyGate,
+    #[cfg(test)] host_deadline: Option<Instant>,
+) -> Result<()> {
     let mut cloud = startup.cloud;
     let mut output_flow = startup.output_flow;
     for event in startup.events {
         record(trace, event)?;
     }
-    let mut session_clock = SessionClock::new(lifetime, Instant::now(), INPUT_READINESS_TIMEOUT)?;
-    let mut gate = PrivacyGate::default();
-    let privacy_started = Instant::now();
+    let mut session_clock =
+        SessionClock::new(lifetime, session_instant(), INPUT_READINESS_TIMEOUT)?;
+    let privacy_started = session_instant();
     let mut privacy_sequence = 0u64;
     let mut permitted = false;
     let mut capture_requested = false;
@@ -2589,6 +2681,16 @@ fn conversation_with_controls(
     let mut highest_known_turn = snapshot.owner().map(|owner| owner.turn());
     rig.publish(snapshot)?;
     loop {
+        #[cfg(test)]
+        if host_deadline.is_some_and(|deadline| Instant::now() >= deadline) {
+            return Err(io::Error::new(
+                io::ErrorKind::TimedOut,
+                "real-provider fixture exceeded its host watchdog",
+            )
+            .into());
+        }
+        #[cfg(test)]
+        crate::scenario_clock::step(crate::scenario_clock::Phase::Run)?;
         let loop_start = Instant::now();
         if let Some(current) = reply.as_ref() {
             let turn = current.owner.turn();
@@ -2604,7 +2706,7 @@ fn conversation_with_controls(
         }
         termination.check()?;
         let clock = monotonic_us();
-        if session_clock.startup_expired(Instant::now()) {
+        if session_clock.startup_expired(session_instant()) {
             return Err(io::Error::other("voice input never became ready").into());
         }
         // Privacy always precedes input, model output, or actuator work.
@@ -2677,8 +2779,8 @@ fn conversation_with_controls(
                 }
                 PrivacyState::Unavailable
                     if privacy_sequence != 0
-                        || privacy_started.elapsed()
-                            >= Duration::from_micros(crate::privacy::PRIVACY_FRESH_US) =>
+                        || session_instant().saturating_duration_since(privacy_started)
+                            >= Duration::from_micros(gate.freshness_us()) =>
                 {
                     return Err(
                         io::Error::other("physical privacy unavailable; not a user mute").into(),
@@ -3160,7 +3262,7 @@ fn conversation_with_controls(
                 }
             }
         }
-        if session_clock.expired(Instant::now()) {
+        if session_clock.expired(session_instant()) {
             // Drain fault channels and inspect children before accepting the
             // deadline. A crashed or forcibly killed worker is never success.
             rig.running()?;
@@ -3232,7 +3334,7 @@ fn conversation_with_controls(
                 && provider_control_empty
                 && !submission_draining
             {
-                session_clock.activate(Instant::now())?;
+                session_clock.activate(session_instant())?;
                 // The link state readiness was just validated against, as a
                 // current-state publication. Retained startup link records can
                 // be older than the cue bound; they stay history, never re-stamped.
@@ -4448,6 +4550,10 @@ fn conversation_with_controls(
             last_hand_health = clock;
         }
         flush_cues(trace, cues);
+        #[cfg(test)]
+        if crate::scenario_clock::is_active() {
+            continue;
+        }
         if let Some(wait) = Duration::from_millis(2).checked_sub(loop_start.elapsed()) {
             std::thread::sleep(wait);
         }

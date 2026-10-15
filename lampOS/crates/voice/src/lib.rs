@@ -67,4 +67,6 @@ mod service_trace;
 mod session_lifetime;
 mod session_state;
 
+#[cfg(test)]
+mod scenario_clock;
 mod service_privacy;

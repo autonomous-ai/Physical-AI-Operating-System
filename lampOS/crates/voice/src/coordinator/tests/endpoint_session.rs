@@ -6,6 +6,7 @@ use super::*;
 use crate::{
     provider_link::{LinkContext, ProviderLinkState},
     provider_worker::{ProviderInput, ProviderOutput},
+    scenario_clock,
     wire::{CaptureTiming, ReferenceTiming, SpeakerChunk},
 };
 use lamp_audio::ownership::PlaybackCursor;
@@ -23,11 +24,18 @@ use std::{
 
 const SPEECH: f32 = 0.95;
 const QUIET: f32 = 0.05;
+// Real-worker ordering tests accept bounded host scheduling delay. This does
+// not measure the lamp's 50 ms privacy response; input and IPC still expire at
+// 100 ms, and classifier startup/result/cleanup clocks remain real.
+const PROCESS_FIXTURE_PRIVACY_FRESH_US: u64 = 100_000;
+const PROCESS_FIXTURE_WATCHDOG: Duration = Duration::from_secs(12);
 
-/// Emulated sessions keep the production freshness bounds (50 ms for
-/// privacy) and their peers poll every millisecond. One runs at a time, so
-/// parallel test threads cannot starve each other's peers. A test takes the
-/// slot before it starts its endpoint worker, whose timing it asserts.
+/// Stepped and mute/cleanup sessions retain the default 50 ms privacy bound.
+/// Finite real-worker ordering sessions explicitly select the 100 ms fixture
+/// policy and poll peers every millisecond. Stepped sessions complete every
+/// peer step before advancing their clock.
+/// A test takes this slot before starting the endpoint worker whose timing it
+/// asserts, so other tests here cannot compete for the same scheduler slot.
 static ONE_SESSION: Mutex<()> = Mutex::new(());
 
 pub(super) fn one_session() -> std::sync::MutexGuard<'static, ()> {
@@ -48,6 +56,68 @@ struct Seen {
     chunks: Vec<(u64, Instant)>,
     /// When the capture peer sent its first frame.
     capture_started: Option<Instant>,
+    capture_delivery: CaptureDelivery,
+    privacy_delivery: PrivacyDelivery,
+}
+
+/// Bounded source/delivery diagnostics. Delivery is observed immediately after
+/// a successful channel send; it is not coordinator consumption or lamp latency.
+#[derive(Debug, Default)]
+struct CaptureDelivery {
+    frames: u64,
+    /// Last (sequence, acquired_at_us, after_send_at_us), on the selected clock.
+    last: Option<(u64, u64, u64)>,
+    max_source_gap_us: u64,
+    max_delivery_gap_us: u64,
+    max_delivery_age_us: u64,
+}
+
+impl CaptureDelivery {
+    fn sent(&mut self, sequence: u64, acquired_at_us: u64, delivered_at_us: u64) {
+        if let Some((_, source, delivery)) = self.last {
+            self.max_source_gap_us = self
+                .max_source_gap_us
+                .max(acquired_at_us.saturating_sub(source));
+            self.max_delivery_gap_us = self
+                .max_delivery_gap_us
+                .max(delivered_at_us.saturating_sub(delivery));
+        }
+        self.max_delivery_age_us = self
+            .max_delivery_age_us
+            .max(delivered_at_us.saturating_sub(acquired_at_us));
+        self.frames += 1;
+        self.last = Some((sequence, acquired_at_us, delivered_at_us));
+    }
+}
+
+/// Bounded privacy producer observations, never coordinator consumption age.
+/// The acquisition timestamp is captured before send and is never refreshed.
+#[derive(Debug, Default)]
+struct PrivacyDelivery {
+    observations: u64,
+    /// Last (acquired_at_us, after_send_at_us), on the selected clock.
+    last: Option<(u64, u64)>,
+    max_acquisition_gap_us: u64,
+    max_after_send_gap_us: u64,
+    max_after_send_age_us: u64,
+}
+
+impl PrivacyDelivery {
+    fn sent(&mut self, acquired_at_us: u64, after_send_at_us: u64) {
+        if let Some((acquired, sent)) = self.last {
+            self.max_acquisition_gap_us = self
+                .max_acquisition_gap_us
+                .max(acquired_at_us.saturating_sub(acquired));
+            self.max_after_send_gap_us = self
+                .max_after_send_gap_us
+                .max(after_send_at_us.saturating_sub(sent));
+        }
+        self.max_after_send_age_us = self
+            .max_after_send_age_us
+            .max(after_send_at_us.saturating_sub(acquired_at_us));
+        self.observations += 1;
+        self.last = Some((acquired_at_us, after_send_at_us));
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -71,65 +141,77 @@ struct ProviderReply {
     packets: usize,
 }
 
-fn drain_control(channels: &mut WorkerChannels, generation: &mut u64) -> bool {
-    while let Some(control) = channels.control.receive::<Control>().unwrap() {
+// The threaded and stepped modes share exactly the same peer state machines.
+// No peer can keep a coordinator step busy by producing an endless queue.
+const PEER_STEP_BUDGET: usize = 64;
+type PeerStep = Box<dyn FnMut() -> io::Result<bool> + Send>;
+
+fn drain_control(channels: &mut WorkerChannels, generation: &mut u64) -> io::Result<bool> {
+    for _ in 0..PEER_STEP_BUDGET {
+        let Some(control) = channels.control.receive::<Control>()? else {
+            break;
+        };
         match control {
             Control::Authority { snapshot } => *generation = snapshot.microphone_generation(),
-            Control::Stop => return false,
+            Control::Stop => return Ok(false),
             Control::StartCapture => {}
             _ => {}
         }
     }
-    true
+    Ok(true)
 }
 
-fn capture_peer(
-    mut channels: WorkerChannels,
-    script: Script,
-    seen: Arc<Mutex<Seen>>,
-    stop: Arc<AtomicBool>,
-) {
+fn capture_peer(mut channels: WorkerChannels, script: Script, seen: Arc<Mutex<Seen>>) -> PeerStep {
     let mut generation = 0;
     let mut started = None;
     let mut sequence = 0u64;
-    while !stop.load(Ordering::SeqCst) {
-        while let Some(control) = channels.control.receive::<Control>().unwrap() {
+    Box::new(move || {
+        for _ in 0..PEER_STEP_BUDGET {
+            let Some(control) = channels.control.receive::<Control>()? else {
+                break;
+            };
             match control {
                 Control::Authority { snapshot } => generation = snapshot.microphone_generation(),
                 Control::StartCapture if started.is_none() => {
                     let at = monotonic_us();
-                    channels
-                        .control
-                        .send(WorkerEvent::CaptureStarted {
-                            epoch: 1,
-                            dsp_epoch: 1,
-                            noise_suppression: NoiseSuppression::On,
-                            privacy_generation: generation,
-                            rate: 16_000,
-                            channels: 1,
-                            period_frames: 160,
-                            buffer_frames: 640,
-                            monotonic_status_timestamps: false,
-                            open_started_at_us: at,
-                            prepared_at_us: at,
-                            capture_started_at_us: at,
-                            start_completed_at_us: at,
-                        })
-                        .unwrap();
-                    let now = Instant::now();
-                    started = Some(now);
-                    seen.lock().unwrap().capture_started = Some(now);
+                    let instant = scenario_clock::instant();
+                    channels.control.send(WorkerEvent::CaptureStarted {
+                        epoch: 1,
+                        dsp_epoch: 1,
+                        noise_suppression: NoiseSuppression::On,
+                        privacy_generation: generation,
+                        rate: 16_000,
+                        channels: 1,
+                        period_frames: 160,
+                        buffer_frames: 640,
+                        monotonic_status_timestamps: false,
+                        open_started_at_us: at,
+                        prepared_at_us: at,
+                        capture_started_at_us: at,
+                        start_completed_at_us: at,
+                    })?;
+                    started = Some(at);
+                    seen.lock().unwrap().capture_started = Some(instant);
                 }
-                Control::Stop => return,
+                Control::Stop => return Ok(false),
                 _ => {}
             }
         }
-        // Frames follow a fixed 10 ms schedule, like a capture device.
-        while let Some(start) = started
-            && start + Duration::from_millis(10 * sequence) <= Instant::now()
-        {
+        // This synthetic PCM source acquires one block every 10 ms, regardless
+        // of when its delivery thread runs. Keep that original source timestamp
+        // when delivering a backlog: refreshing it here would hide stale audio
+        // and turn a scheduling pause into a false gap between source samples.
+        // Both modes use the same timeline; unscoped real-worker tests still use
+        // real monotonic time for this origin, envelope delivery and all policy.
+        for _ in 0..PEER_STEP_BUDGET {
+            let Some(start) = started else {
+                break;
+            };
+            let at = start + 10_000 * sequence;
+            if at > monotonic_us() {
+                break;
+            }
             sequence += 1;
-            let at = monotonic_us();
             let probability = script(sequence);
             let level = if probability >= 0.5 { 2_000 } else { 20 };
             let frame = MicrophoneFrame {
@@ -161,9 +243,208 @@ fn capture_peer(
                     },
                 },
             };
-            channels.data.send(frame).unwrap();
+            channels.data.send(frame)?;
+            let delivered_at_us = monotonic_us();
+            seen.lock()
+                .unwrap()
+                .capture_delivery
+                .sent(sequence, at, delivered_at_us);
         }
-        thread::sleep(Duration::from_millis(1));
+        Ok(true)
+    })
+}
+
+mod capture_timeline {
+    use super::*;
+
+    struct Probe {
+        channels: WorkerChannels,
+        step: PeerStep,
+        seen: Arc<Mutex<Seen>>,
+        owner: Controller,
+        lineage: CaptureLineage,
+        origin_us: u64,
+        // The sockets must drop before their private directory.
+        _directory: SessionDirectory,
+    }
+
+    impl Probe {
+        fn start() -> Self {
+            let directory = SessionDirectory::create().unwrap();
+            let parent = new_boot().unwrap();
+            let worker = new_boot().unwrap();
+            let mut channels =
+                WorkerChannels::bind(&directory.path, "capture", parent, worker, false).unwrap();
+            let mut peer =
+                WorkerChannels::bind(&directory.path, "capture", parent, worker, true).unwrap();
+            channels.connect(&directory.path, "capture", false).unwrap();
+            peer.connect(&directory.path, "capture", true).unwrap();
+            let origin_us = monotonic_us();
+            let at = MonoTime::from_micros(origin_us);
+            let mut owner = Controller::new(parent, at);
+            owner
+                .set_microphone_permission(at, Permission::Allowed)
+                .unwrap();
+            let snapshot = owner.snapshot(at).unwrap();
+            let lineage = CaptureLineage {
+                worker,
+                epoch: 1,
+                dsp_epoch: 1,
+                privacy_generation: snapshot.microphone_generation(),
+            };
+            channels
+                .control
+                .send(Control::Authority { snapshot })
+                .unwrap();
+            channels.control.send(Control::StartCapture).unwrap();
+            let seen = Arc::new(Mutex::new(Seen::default()));
+            let mut step = capture_peer(peer, |_| QUIET, seen.clone());
+            assert!(step().unwrap());
+            assert!(matches!(
+                channels.control.receive::<WorkerEvent>().unwrap(),
+                Some(WorkerEvent::CaptureStarted { capture_started_at_us, .. })
+                    if capture_started_at_us == origin_us
+            ));
+            Self {
+                channels,
+                step,
+                seen,
+                owner,
+                lineage,
+                origin_us,
+                _directory: directory,
+            }
+        }
+
+        fn frame(&mut self) -> MicrophoneFrame {
+            let frame = self
+                .channels
+                .data
+                .receive::<MicrophoneFrame>()
+                .unwrap()
+                .unwrap();
+            assert_eq!(frame.epoch, self.lineage.epoch);
+            assert_eq!(frame.dsp_epoch, self.lineage.dsp_epoch);
+            assert_eq!(frame.privacy_generation, self.lineage.privacy_generation);
+            let source = self.origin_us + 10_000 * (frame.frame_sequence - 1);
+            assert_eq!(frame.read_completed_at_us, source);
+            assert_eq!(frame.timing.first_read_started_at_us, source);
+            assert_eq!(frame.timing.last_read_started_at_us, source);
+            assert_eq!(frame.timing.processing_completed_at_us, source);
+            frame
+        }
+
+        fn context(&mut self, at_us: u64) -> AdmissionContext {
+            let at = MonoTime::from_micros(at_us);
+            let until = MonoTime::from_micros(at_us + 100_000);
+            self.owner
+                .set_capture(at, CaptureState::RetainingUntil(until))
+                .unwrap();
+            self.owner
+                .set_admission(at, AdmissionState::OpenUntil(until))
+                .unwrap();
+            AdmissionContext {
+                capture: self.lineage,
+                authority: self.owner.snapshot(at).unwrap(),
+            }
+        }
+    }
+
+    fn observed(frame: MicrophoneFrame) -> ObservedAudio {
+        ObservedAudio {
+            sequence: frame.frame_sequence,
+            captured_at_us: frame.read_completed_at_us,
+            samples: frame.samples.try_into().unwrap(),
+        }
+    }
+
+    fn delivery_clock() -> scenario_clock::Scope {
+        let scope = scenario_clock::Scope::enter(Duration::from_secs(12)).unwrap();
+        // Deliberately advance the source timeline while its delivery peer is
+        // unscheduled. No host sleep or real process deadline is involved.
+        scope.set_pump(|_| Ok(())).unwrap();
+        scope
+    }
+
+    fn advance(milliseconds: u64) {
+        assert_eq!(milliseconds % 2, 0);
+        for _ in 0..milliseconds / 2 {
+            assert!(scenario_clock::step(scenario_clock::Phase::Run).unwrap());
+        }
+    }
+
+    #[test]
+    fn delayed_delivery_preserves_contiguous_ten_millisecond_samples() {
+        let _scope = delivery_clock();
+        let mut probe = Probe::start();
+        let mut detector = TurnDetector::v1_baseline();
+        let first = probe.frame();
+        assert_eq!(first.frame_sequence, 1);
+        assert!(matches!(
+            detector.push(observed(first), QUIET),
+            Activity::Quiet
+        ));
+
+        advance(60);
+        assert!((probe.step)().unwrap());
+        for sequence in 2..=7 {
+            let frame = probe.frame();
+            assert_eq!(frame.frame_sequence, sequence);
+            assert!(matches!(
+                detector.push(observed(frame), QUIET),
+                Activity::Quiet
+            ));
+        }
+        assert!(
+            probe
+                .channels
+                .data
+                .receive::<MicrophoneFrame>()
+                .unwrap()
+                .is_none()
+        );
+        let seen = probe.seen.lock().unwrap();
+        assert_eq!(seen.capture_delivery.frames, 7);
+        assert_eq!(seen.capture_delivery.max_source_gap_us, 10_000);
+        assert_eq!(seen.capture_delivery.max_delivery_gap_us, 60_000);
+        assert_eq!(seen.capture_delivery.max_delivery_age_us, 50_000);
+    }
+
+    #[test]
+    fn a_fresh_envelope_does_not_refresh_a_stale_source_sample() {
+        for (queued_ms, source_age_us, accepted) in [
+            (48, 98_000, true),
+            (50, 100_000, false),
+            (52, 102_000, false),
+        ] {
+            let _scope = delivery_clock();
+            let mut probe = Probe::start();
+            assert_eq!(probe.frame().frame_sequence, 1);
+            advance(60);
+            assert!((probe.step)().unwrap());
+            // These six envelopes were just sent at +60 ms. Leave them queued
+            // briefly: transport receipt must succeed even when source age
+            // reaches the production admission gate's strict 100 ms boundary.
+            advance(queued_ms);
+            let frame = probe.frame();
+            assert_eq!(frame.frame_sequence, 2);
+            let at_us = monotonic_us();
+            assert_eq!(at_us - frame.read_completed_at_us, source_age_us);
+            let context = probe.context(at_us);
+            let result = InputAdmission::default().observe(
+                Activity::Start(vec![observed(frame)]),
+                context,
+                at_us,
+            );
+            if accepted {
+                assert!(matches!(result.unwrap().step, AdmissionStep::Candidate(_)));
+            } else {
+                assert_eq!(
+                    result.unwrap_err().to_string(),
+                    "candidate trigger is stale or future"
+                );
+            }
+        }
     }
 }
 
@@ -173,65 +454,76 @@ fn privacy_peer(
     mut channels: WorkerChannels,
     seen: Arc<Mutex<Seen>>,
     mute_at: Option<u64>,
-    stop: Arc<AtomicBool>,
-) {
+) -> PeerStep {
     let mut generation = 0;
-    let mut next = Instant::now();
-    while !stop.load(Ordering::SeqCst) && drain_control(&mut channels, &mut generation) {
-        if Instant::now() >= next {
+    let mut next = None;
+    Box::new(move || {
+        if !drain_control(&mut channels, &mut generation)? {
+            return Ok(false);
+        }
+        let now = scenario_clock::instant();
+        let next = next.get_or_insert(now);
+        if now >= *next {
             let muted = {
                 let seen = seen.lock().unwrap();
                 match (mute_at, seen.capture_started) {
-                    (Some(block), Some(_)) => Instant::now() >= seen.block(block),
+                    (Some(block), Some(_)) => now >= seen.block(block),
                     _ => false,
                 }
             };
-            channels
-                .control
-                .send(WorkerEvent::Privacy {
-                    acquired_at_us: monotonic_us(),
-                    muted,
-                })
-                .unwrap();
-            next += Duration::from_millis(10);
+            let acquired_at_us = monotonic_us();
+            channels.control.send(WorkerEvent::Privacy {
+                acquired_at_us,
+                muted,
+            })?;
+            let after_send_at_us = monotonic_us();
+            seen.lock()
+                .unwrap()
+                .privacy_delivery
+                .sent(acquired_at_us, after_send_at_us);
+            *next += Duration::from_millis(10);
         }
-        thread::sleep(Duration::from_millis(1));
-    }
+        Ok(true)
+    })
 }
 
 fn provider_peer(
     mut channels: WorkerChannels,
     seen: Arc<Mutex<Seen>>,
     reply: Option<ProviderReply>,
-    stop: Arc<AtomicBool>,
-) {
-    let at = monotonic_us();
-    channels
-        .control
-        .send(WorkerEvent::ProviderLink {
-            link: crate::provider_link::ProviderLink {
-                revision: 1,
-                session: 1,
-                observed_at_us: at,
-                source_clock: None,
-                state: ProviderLinkState::Ready {
-                    setup_us: 1_000,
-                    attempts: 1,
-                    context: LinkContext::Initial,
-                    outage_started_at_us: None,
-                    after: None,
-                },
-            },
-        })
-        .unwrap();
+) -> PeerStep {
+    assert!(reply.is_none_or(|reply| reply.packets <= PEER_STEP_BUDGET));
+    let mut ready = false;
     // Output is credited: the coordinator grants two packets, then more.
     let (mut granted, mut sent) = (2u64, 0u64);
     let mut outbox: VecDeque<ProviderOutput> = VecDeque::new();
-    let mut due: Vec<(Instant, u64)> = Vec::new();
+    let mut due: VecDeque<(Instant, u64)> = VecDeque::new();
     let mut sequence = 0u64;
-    while !stop.load(Ordering::SeqCst) {
+    Box::new(move || {
+        if !ready {
+            let at = monotonic_us();
+            channels.control.send(WorkerEvent::ProviderLink {
+                link: crate::provider_link::ProviderLink {
+                    revision: 1,
+                    session: 1,
+                    observed_at_us: at,
+                    source_clock: None,
+                    state: ProviderLinkState::Ready {
+                        setup_us: 1_000,
+                        attempts: 1,
+                        context: LinkContext::Initial,
+                        outage_started_at_us: None,
+                        after: None,
+                    },
+                },
+            })?;
+            ready = true;
+        }
         let mut open = true;
-        while let Some(control) = channels.control.receive::<Control>().unwrap() {
+        for _ in 0..PEER_STEP_BUDGET {
+            let Some(control) = channels.control.receive::<Control>()? else {
+                break;
+            };
             match control {
                 Control::ProviderOutputCapacity { through } => granted = granted.max(through),
                 Control::Stop => open = false,
@@ -239,9 +531,12 @@ fn provider_peer(
             }
         }
         if !open {
-            break;
+            return Ok(false);
         }
-        while let Some(input) = channels.data.receive::<ProviderInput>().unwrap() {
+        for _ in 0..PEER_STEP_BUDGET {
+            let Some(input) = channels.data.receive::<ProviderInput>()? else {
+                break;
+            };
             let mut seen = seen.lock().unwrap();
             match input {
                 ProviderInput::Start {
@@ -268,21 +563,25 @@ fn provider_peer(
                 ProviderInput::End { request, .. } => {
                     seen.provider.push("end");
                     if let Some(entry) = seen.requests.iter_mut().find(|r| r.request == request) {
-                        entry.ended_at = Some(Instant::now());
+                        entry.ended_at = Some(scenario_clock::instant());
                     }
                     if let Some(reply) = reply {
-                        due.push((Instant::now() + reply.after_end, request));
+                        due.push_back((scenario_clock::instant() + reply.after_end, request));
                     }
                 }
                 ProviderInput::Written { .. } => seen.provider.push("written"),
                 ProviderInput::Reminder { .. } => panic!("reminders are disabled in this fixture"),
             }
         }
-        let now = Instant::now();
-        due.retain(|&(at, request)| {
+        let now = scenario_clock::instant();
+        for _ in 0..PEER_STEP_BUDGET {
+            let Some(&(at, request)) = due.front() else {
+                break;
+            };
             if at > now {
-                return true;
+                break;
             }
+            due.pop_front();
             let packets = reply.map_or(0, |reply| reply.packets);
             for _ in 0..packets {
                 sequence += 1;
@@ -300,51 +599,63 @@ fn provider_peer(
                 request,
                 idle: true,
             });
-            false
-        });
-        while sent < granted
-            && let Some(output) = outbox.pop_front()
-        {
-            channels.data.send(output).unwrap();
+        }
+        for _ in 0..PEER_STEP_BUDGET {
+            if sent >= granted {
+                break;
+            }
+            let Some(output) = outbox.pop_front() else {
+                break;
+            };
+            channels.data.send(output)?;
             sent += 1;
         }
-        thread::sleep(Duration::from_millis(1));
-    }
+        Ok(true)
+    })
 }
 
 /// Records every chunk and acknowledges it as ALSA would, so the v1-baseline
 /// mask sees genuine write evidence.
-fn speaker_peer(mut channels: WorkerChannels, seen: Arc<Mutex<Seen>>, stop: Arc<AtomicBool>) {
+fn speaker_peer(mut channels: WorkerChannels, seen: Arc<Mutex<Seen>>) -> PeerStep {
     let mut generation = 0;
     let mut frame = 1_000u64;
-    while !stop.load(Ordering::SeqCst) && drain_control(&mut channels, &mut generation) {
-        while let Some(chunk) = channels.data.receive::<SpeakerChunk>().unwrap() {
+    Box::new(move || {
+        if !drain_control(&mut channels, &mut generation)? {
+            return Ok(false);
+        }
+        for _ in 0..PEER_STEP_BUDGET {
+            let Some(chunk) = channels.data.receive::<SpeakerChunk>()? else {
+                break;
+            };
             let owner = chunk.permit.owner();
             seen.lock()
                 .unwrap()
                 .chunks
-                .push((owner.turn(), Instant::now()));
+                .push((owner.turn(), scenario_clock::instant()));
             let frames = chunk.samples.len();
             let at = monotonic_us();
-            channels
-                .control
-                .send(WorkerEvent::Playback {
-                    owner,
-                    first_sample: PlaybackCursor { epoch: 1, frame },
-                    end_sample: PlaybackCursor {
-                        epoch: 1,
-                        frame: frame + frames as u64,
-                    },
-                    queue_observed_at_us: at,
-                    turn: owner.turn(),
-                    sequence: chunk.chunk_sequence,
-                    queued_frames: frames,
-                    accepted_frames: frames,
-                    observed_at_us: at,
-                })
-                .unwrap();
+            channels.control.send(WorkerEvent::Playback {
+                owner,
+                first_sample: PlaybackCursor { epoch: 1, frame },
+                end_sample: PlaybackCursor {
+                    epoch: 1,
+                    frame: frame + frames as u64,
+                },
+                queue_observed_at_us: at,
+                turn: owner.turn(),
+                sequence: chunk.chunk_sequence,
+                queued_frames: frames,
+                accepted_frames: frames,
+                observed_at_us: at,
+            })?;
             frame += frames as u64;
         }
+        Ok(true)
+    })
+}
+
+fn run_peer(mut step: PeerStep, stop: Arc<AtomicBool>) {
+    while !stop.load(Ordering::SeqCst) && step().unwrap() {
         thread::sleep(Duration::from_millis(1));
     }
 }
@@ -365,69 +676,186 @@ impl Session {
     }
 }
 
-fn run(seconds: u64, script: Script, endpoint: EndpointRig) -> Session {
-    run_with(seconds, script, endpoint, None)
-}
-
-fn run_with(
+fn run_process_with_privacy_tolerance(
     seconds: u64,
     script: Script,
     endpoint: EndpointRig,
-    reply: Option<ProviderReply>,
 ) -> Session {
-    run_muting(seconds, script, endpoint, reply, None)
+    run_process_policy_with_privacy_tolerance(TurnTaking::V1Baseline, seconds, script, endpoint)
 }
 
-fn run_muting(
+fn run_process_policy_with_privacy_tolerance(
+    turn_taking: TurnTaking,
     seconds: u64,
     script: Script,
     endpoint: EndpointRig,
-    reply: Option<ProviderReply>,
-    mute_at: Option<u64>,
 ) -> Session {
-    run_policy(
-        TurnTaking::V1Baseline,
+    run_policy_with_peers(
+        turn_taking,
         seconds,
         script,
         endpoint,
-        reply,
-        mute_at,
+        None,
+        None,
+        PeerMode::RealProcessWithPrivacyTolerance,
     )
 }
 
-fn run_policy(
+#[derive(Clone, Copy)]
+enum PeerMode {
+    RealProcessWithPrivacyTolerance,
+    Stepped,
+}
+
+impl PeerMode {
+    fn fixture_privacy(self) -> Option<PrivacyGate> {
+        match self {
+            Self::RealProcessWithPrivacyTolerance => {
+                Some(PrivacyGate::with_fixture_freshness(PROCESS_FIXTURE_PRIVACY_FRESH_US).unwrap())
+            }
+            Self::Stepped => None,
+        }
+    }
+}
+
+fn require_real_process_clock() {
+    assert!(
+        !scenario_clock::is_active(),
+        "real endpoint worker fixture requires the host clock"
+    );
+}
+
+mod fixture_policy_tests {
+    use super::*;
+
+    #[test]
+    fn only_real_process_ordering_tolerates_a_gap_beyond_fifty_milliseconds() {
+        assert!(PeerMode::Stepped.fixture_privacy().is_none());
+        let mut stepped = PeerMode::Stepped.fixture_privacy().unwrap_or_default();
+        let mut process = PeerMode::RealProcessWithPrivacyTolerance
+            .fixture_privacy()
+            .unwrap();
+        let mut unrelated = PrivacyGate::default();
+        for (index, acquired) in (10_000..=70_000).step_by(10_000).enumerate() {
+            for gate in [&mut stepped, &mut process, &mut unrelated] {
+                gate.observe(
+                    index as u64 + 1,
+                    MonoTime::from_micros(acquired),
+                    MonoTime::from_micros(acquired),
+                    false,
+                );
+            }
+        }
+        let after_gap = MonoTime::from_micros(145_000);
+        assert_eq!(stepped.state(after_gap), PrivacyState::Unavailable);
+        assert_eq!(unrelated.state(after_gap), PrivacyState::Unavailable);
+        assert_eq!(process.state(after_gap), PrivacyState::Allowed);
+        assert_eq!(
+            process.state(MonoTime::from_micros(169_999)),
+            PrivacyState::Allowed
+        );
+        assert_eq!(
+            process.state(MonoTime::from_micros(170_000)),
+            PrivacyState::Unavailable
+        );
+        assert_eq!(PrivacyGate::default().freshness_us(), 50_000);
+    }
+
+    #[test]
+    #[should_panic(expected = "real endpoint worker fixture requires the host clock")]
+    fn a_logical_clock_is_rejected_before_the_process_constructor() {
+        let _scope = scenario_clock::Scope::enter(Duration::from_secs(12)).unwrap();
+        let _endpoint = scripted_process(&[], "exit 0", Limits::default());
+    }
+}
+
+/// Only an in-process classifier can use the logical scenario clock. Real
+/// ProcessClassifier readiness, deadlines and teardown stay on the host clock.
+fn run_scenario(seconds: u64, script: Script, classifier: Box<dyn Classifier>) -> Session {
+    run_scenario_with(seconds, script, classifier, None)
+}
+
+fn run_scenario_with(
+    seconds: u64,
+    script: Script,
+    classifier: Box<dyn Classifier>,
+    reply: Option<ProviderReply>,
+) -> Session {
+    run_scenario_policy(TurnTaking::V1Baseline, seconds, script, classifier, reply)
+}
+
+fn run_scenario_policy(
+    turn_taking: TurnTaking,
+    seconds: u64,
+    script: Script,
+    classifier: Box<dyn Classifier>,
+    reply: Option<ProviderReply>,
+) -> Session {
+    run_policy_with_peers(
+        turn_taking,
+        seconds,
+        script,
+        EndpointRig::double(classifier),
+        reply,
+        None,
+        PeerMode::Stepped,
+    )
+}
+
+fn run_policy_with_peers(
     turn_taking: TurnTaking,
     seconds: u64,
     script: Script,
     endpoint: EndpointRig,
     reply: Option<ProviderReply>,
     mute_at: Option<u64>,
+    mode: PeerMode,
 ) -> Session {
+    let fixture_privacy = mode.fixture_privacy();
+    if fixture_privacy.is_some() {
+        require_real_process_clock();
+    }
     let dir = SessionDirectory::create().unwrap();
     let (capture, capture_peer_channels) = Worker::sleeping_fixture(&dir.path, "capture");
     let (speaker, speaker_peer_channels) = Worker::sleeping_fixture(&dir.path, "speaker");
     let (provider, provider_peer_channels) = Worker::sleeping_fixture(&dir.path, "provider");
     let (privacy, privacy_peer_channels) = Worker::sleeping_fixture(&dir.path, "privacy");
+    // Starting children is real OS work. Enter only after their startup barriers
+    // and keep the scope through shutdown and collection of scenario timestamps.
+    let mut scope = match mode {
+        PeerMode::RealProcessWithPrivacyTolerance => None,
+        PeerMode::Stepped => Some(scenario_clock::Scope::enter(Duration::from_secs(12)).unwrap()),
+    };
     let stop = Arc::new(AtomicBool::new(false));
     let seen = Arc::new(Mutex::new(Seen::default()));
-    let peers = [
-        thread::spawn({
-            let (stop, seen) = (stop.clone(), seen.clone());
-            move || capture_peer(capture_peer_channels, script, seen, stop)
-        }),
-        thread::spawn({
-            let (stop, seen) = (stop.clone(), seen.clone());
-            move || privacy_peer(privacy_peer_channels, seen, mute_at, stop)
-        }),
-        thread::spawn({
-            let (stop, seen) = (stop.clone(), seen.clone());
-            move || provider_peer(provider_peer_channels, seen, reply, stop)
-        }),
-        thread::spawn({
-            let (stop, seen) = (stop.clone(), seen.clone());
-            move || speaker_peer(speaker_peer_channels, seen, stop)
-        }),
+    let steps = [
+        capture_peer(capture_peer_channels, script, seen.clone()),
+        privacy_peer(privacy_peer_channels, seen.clone(), mute_at),
+        provider_peer(provider_peer_channels, seen.clone(), reply),
+        speaker_peer(speaker_peer_channels, seen.clone()),
     ];
+    let peers: Vec<_> = if let Some(scope) = scope.as_mut() {
+        let mut steps = steps.map(|step| (true, step));
+        scope
+            .set_pump(move |_| {
+                for (open, step) in &mut steps {
+                    if *open {
+                        *open = step()?;
+                    }
+                }
+                Ok(())
+            })
+            .unwrap();
+        Vec::new()
+    } else {
+        steps
+            .into_iter()
+            .map(|step| {
+                let stop = stop.clone();
+                thread::spawn(move || run_peer(step, stop))
+            })
+            .collect()
+    };
     let mut rig = Rig {
         microphone: crate::options::Microphone::Mic2,
         end_silence_blocks: None,
@@ -451,17 +879,33 @@ fn run_policy(
     let mut trace = SessionState::finite();
     let mut reply = None;
     let started = Instant::now();
-    let result = conversation(
-        &mut rig,
-        &mut owner,
-        Lifetime::Finite(seconds),
-        &mut trace,
-        StartupEvents::default(),
-        &mut reply,
-        &mut None,
-        &Termination::inactive(),
-        &FailureNotices::none(),
-    );
+    let result = if let Some(gate) = fixture_privacy {
+        conversation_with_fixture_privacy(
+            &mut rig,
+            &mut owner,
+            Lifetime::Finite(seconds),
+            &mut trace,
+            StartupEvents::default(),
+            &mut reply,
+            &mut None,
+            &Termination::inactive(),
+            &FailureNotices::none(),
+            gate,
+            started + PROCESS_FIXTURE_WATCHDOG,
+        )
+    } else {
+        conversation(
+            &mut rig,
+            &mut owner,
+            Lifetime::Finite(seconds),
+            &mut trace,
+            StartupEvents::default(),
+            &mut reply,
+            &mut None,
+            &Termination::inactive(),
+            &FailureNotices::none(),
+        )
+    };
     let elapsed = started.elapsed();
     // Sleeping fixtures need forced reaping; only the endpoint record matters.
     let _ = rig.shutdown(&mut trace);
@@ -470,6 +914,17 @@ fn run_policy(
         peer.join().unwrap();
     }
     let seen = std::mem::take(&mut *seen.lock().unwrap());
+    if let Err(error) = &result {
+        let clock = match mode {
+            PeerMode::RealProcessWithPrivacyTolerance => "host, explicit 100 ms privacy fixture",
+            PeerMode::Stepped => "logical",
+        };
+        eprintln!(
+            "endpoint fixture failed: {error}; packet/source clock {clock}; real conversation {elapsed:?}; capture after-send observations {:?}; privacy producer observations (not consumption) {:?}",
+            seen.capture_delivery, seen.privacy_delivery
+        );
+    }
+    drop(scope);
     Session {
         result,
         trace: trace.to_vec(),
@@ -481,6 +936,7 @@ fn run_policy(
 /// A real child process that replays fixed answer bytes and then sleeps or
 /// exits, written with POSIX `printf` octal escapes.
 fn scripted_process(responses: &[Response], then: &str, limits: Limits) -> EndpointRig {
+    require_real_process_clock();
     let bytes: String = responses
         .iter()
         .flat_map(Response::encode)
@@ -527,7 +983,7 @@ fn missing_model_session_ends_on_the_unchanged_silence_fallback() {
         request: 0,
         reason: "model /lamp/smart-turn-v3.2-gpu.onnx: No such file or directory".into(),
     };
-    let session = run(
+    let session = run_process_with_privacy_tolerance(
         4,
         one_question,
         scripted_process(&[missing], "exit 2", Limits::default()),
@@ -594,12 +1050,13 @@ fn hung_worker_never_delays_capture_endpoint_or_session_end() {
             QUIET
         }
     }
-    let session = run(
+    let session = run_process_with_privacy_tolerance(
         6,
         two_questions,
         scripted_process(&[ready()], "exec sleep 60", limits),
     );
-    // A stalled loop would have failed the 100 ms capture and privacy leases.
+    // A stalled loop still fails the unchanged 100 ms capture lease and this
+    // explicit 100 ms integration privacy bound, not the lamp's 50 ms bound.
     session.result.as_ref().unwrap();
     assert!(
         session.elapsed < Duration::from_secs(8),
@@ -630,7 +1087,8 @@ fn hung_worker_never_delays_capture_endpoint_or_session_end() {
     assert!(last["report"]["spawned"].as_u64().unwrap() >= 2, "{last}");
 }
 
-/// Answers each request with a fixed probability after a real delay.
+/// Answers each request after a delay on the selected fixture clock. An
+/// ordinary threaded session keeps the original real delay.
 struct Delayed {
     probability: f32,
     delay: Duration,
@@ -645,12 +1103,12 @@ impl Classifier for Delayed {
         }
         let mut requests = self.requests.lock().unwrap();
         requests.push(token);
-        self.pending = Some((token, requests.len() as u64, Instant::now()));
+        self.pending = Some((token, requests.len() as u64, scenario_clock::instant()));
         Submit::Accepted
     }
     fn poll(&mut self) -> Option<Outcome> {
         let (token, request, at) = self.pending?;
-        if at.elapsed() < self.delay {
+        if scenario_clock::instant().duration_since(at) < self.delay {
             return None;
         }
         self.pending = None;
@@ -690,7 +1148,7 @@ fn complete_verdict_ends_early_but_resumed_speech_keeps_the_turn() {
         pending: None,
         requests: requests.clone(),
     };
-    let session = run(4, resumed, EndpointRig::double(Box::new(double)));
+    let session = run_scenario(4, resumed, Box::new(double));
     session.result.as_ref().unwrap();
     let endpoints = endpoint_rows(&session);
     assert_eq!(endpoints.len(), 1, "split: {endpoints:?}");
@@ -720,13 +1178,14 @@ fn complete_verdict_ends_early_but_resumed_speech_keeps_the_turn() {
 #[ignore = "requires a built lamp-turn-end and the pinned model"]
 fn real_worker_session_records_verdict_provenance() {
     let _one = one_session();
+    require_real_process_clock();
     let worker = std::env::var_os("LAMP_ENDPOINT_WORKER").expect("LAMP_ENDPOINT_WORKER");
     let model = std::env::var_os("LAMP_SMART_TURN_MODEL").expect("LAMP_SMART_TURN_MODEL");
     let endpoint = EndpointRig::process(
         WorkerCommand::smart_turn(worker.into(), model.into()),
         Limits::default(),
     );
-    let session = run(4, one_question, endpoint);
+    let session = run_process_with_privacy_tolerance(4, one_question, endpoint);
     session.result.as_ref().unwrap();
     for row in session.events("endpoint_worker") {
         eprintln!("{row}");
@@ -754,6 +1213,7 @@ fn real_worker_session_records_verdict_provenance() {
 /// endpoint worker's teardown can fail the cleanup.
 fn mute_with_endpoint(endpoint: EndpointRig) -> (Result<()>, SessionState) {
     use crate::service_privacy::PhysicalMute;
+    require_real_process_clock();
     let directory = SessionDirectory::create().unwrap();
     let (speaker, speaker_peer, speaker_input) =
         Worker::cooperative_fixture(&directory.path, "speaker");
@@ -922,13 +1382,13 @@ fn confirmed_endpoint_exit_keeps_the_restartable_mute() {
 
 // Pilot stress: the conservative `smart-turn` path through the real loop.
 
-fn delayed(probability: f32, delay: Duration) -> EndpointRig {
-    EndpointRig::double(Box::new(Delayed {
+fn delayed(probability: f32, delay: Duration) -> Box<dyn Classifier> {
+    Box::new(Delayed {
         probability,
         delay,
         pending: None,
         requests: Arc::new(Mutex::new(Vec::new())),
-    }))
+    })
 }
 
 fn bases(session: &Session) -> Vec<(String, Option<String>, u64)> {
@@ -950,7 +1410,7 @@ fn a_worker_still_loading_leaves_the_baseline_window() {
     let _one = one_session();
     // Ready only after 6 s: the whole session runs while it loads.
     let endpoint = scripted_process(&[], "sleep 6; exit 0", Limits::default());
-    let session = run(4, one_question, endpoint);
+    let session = run_process_with_privacy_tolerance(4, one_question, endpoint);
     session.result.as_ref().unwrap();
     assert_eq!(
         bases(&session),
@@ -969,7 +1429,7 @@ fn verdicts_after_the_result_timeout_fall_back_on_every_turn() {
         }
     }
     // Every verdict arrives 700 ms after its request, beyond the 500 ms bound.
-    let session = run(6, two, delayed(0.99, Duration::from_millis(700)));
+    let session = run_scenario(6, two, delayed(0.99, Duration::from_millis(700)));
     session.result.as_ref().unwrap();
     assert_eq!(
         bases(&session),
@@ -992,7 +1452,7 @@ fn rapid_resumes_never_end_the_turn_early() {
         after_end: Duration::from_millis(200),
         packets: 2,
     };
-    let session = run_with(
+    let session = run_scenario_with(
         5,
         bursts,
         delayed(0.99, Duration::from_millis(50)),
@@ -1018,7 +1478,7 @@ fn a_complete_verdict_ends_at_one_second_and_its_answer_plays() {
         after_end: Duration::from_millis(300),
         packets: 3,
     };
-    let session = run_with(
+    let session = run_scenario_with(
         5,
         one_question,
         delayed(0.95, Duration::from_millis(60)),
@@ -1056,17 +1516,17 @@ impl Classifier for Recovering {
             return Submit::Busy;
         }
         self.requests += 1;
-        self.pending = Some((token, Instant::now()));
+        self.pending = Some((token, scenario_clock::instant()));
         Submit::Accepted
     }
     fn poll(&mut self) -> Option<Outcome> {
         let (token, at) = self.pending?;
-        if at.elapsed() < Duration::from_millis(50) {
+        if scenario_clock::instant().duration_since(at) < Duration::from_millis(50) {
             return None;
         }
         self.pending = None;
         let result = if self.requests == 1 {
-            self.failed_at = Some(Instant::now());
+            self.failed_at = Some(scenario_clock::instant());
             Err("worker exited: signal 9".into())
         } else {
             Ok(Verdict {
@@ -1083,7 +1543,7 @@ impl Classifier for Recovering {
     }
     fn availability(&self) -> Availability {
         match self.failed_at {
-            Some(at) if at.elapsed() < self.recovery => {
+            Some(at) if scenario_clock::instant().duration_since(at) < self.recovery => {
                 Availability::Recovering("worker exited: signal 9".into())
             }
             _ => Availability::Ready,
@@ -1105,13 +1565,13 @@ fn a_worker_failure_falls_back_through_recovery_and_then_resumes() {
             QUIET
         }
     }
-    let endpoint = EndpointRig::double(Box::new(Recovering {
+    let endpoint = Box::new(Recovering {
         recovery: Duration::from_secs(3),
         failed_at: None,
         requests: 0,
         pending: None,
-    }));
-    let session = run(9, three, endpoint);
+    });
+    let session = run_scenario(9, three, endpoint);
     session.result.as_ref().unwrap();
     assert_eq!(
         bases(&session),
@@ -1168,13 +1628,12 @@ fn duplex_complete_verdict_ends_at_one_second_and_its_answer_plays() {
         after_end: Duration::from_millis(300),
         packets: 3,
     };
-    let session = run_policy(
+    let session = run_scenario_policy(
         TurnTaking::Duplex,
         5,
         one_question,
         delayed(0.95, Duration::from_millis(60)),
         Some(reply),
-        None,
     );
     session.result.as_ref().unwrap();
     assert_eq!(
@@ -1196,13 +1655,11 @@ fn duplex_missing_model_session_ends_on_the_unchanged_silence_fallback() {
         request: 0,
         reason: "model /lamp/smart-turn-v3.2-gpu.onnx: No such file or directory".into(),
     };
-    let session = run_policy(
+    let session = run_process_policy_with_privacy_tolerance(
         TurnTaking::Duplex,
         4,
         one_question,
         scripted_process(&[missing], "exit 2", Limits::default()),
-        None,
-        None,
     );
     session.result.as_ref().unwrap();
     let endpoints = endpoint_rows(&session);

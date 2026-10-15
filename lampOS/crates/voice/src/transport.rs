@@ -1,6 +1,10 @@
 //! Two independent process channels. Control can progress while PCM is full.
+#[cfg(test)]
+use crate::scenario_clock::monotonic_us;
 use crate::wire::{Envelope, ReceiveOrder, ReferenceControl, decode, encode};
-use lamp_ipc::{Endpoint, MAX_DATAGRAM_BYTES, monotonic_us};
+#[cfg(not(test))]
+use lamp_ipc::monotonic_us;
+use lamp_ipc::{Endpoint, MAX_DATAGRAM_BYTES};
 use lamp_turn_owner::BootId;
 use serde::{Serialize, de::DeserializeOwned};
 use std::{io, path::Path};

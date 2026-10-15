@@ -29,9 +29,10 @@ use std::{
     thread,
 };
 
-/// The peer keeps production freshness bounds (50 ms privacy, 100 ms
-/// capture leases) and polls every millisecond. One session runs at a time
-/// so parallel test threads cannot starve it.
+/// The peers keep production freshness bounds (50 ms privacy, 100 ms
+/// capture leases). Threaded scenarios poll every millisecond; explicitly
+/// stepped scenarios advance only after every peer has run.
+/// Serialize sessions because SIGTERM is process-wide.
 static ONE_SESSION: Mutex<()> = Mutex::new(());
 
 fn one_session() -> std::sync::MutexGuard<'static, ()> {
@@ -81,6 +82,9 @@ enum When {
 enum Act {
     /// Physical privacy reports muted from now on.
     Mute,
+    /// Stepped-only fault: expire the accepted privacy lease, then queue a
+    /// newly acquired mute before the coordinator resumes its next iteration.
+    ExpirePrivacyThenMute,
     /// The capture child reports a worker fault.
     CaptureFault,
     /// The capture peer stops sending frames but stays connected.
@@ -124,8 +128,19 @@ enum SpeakerMode {
     Partial,
 }
 
+/// Single-cycle policy scenarios use synchronous steps and scoped time without
+/// changing production freshness limits or the real process cleanup deadline.
+/// Cross-cycle privacy waits keep peer threads. A stalled metadata writer can
+/// remain a real blocked thread while its independent policy peers are stepped.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Fixture {
+    Threaded,
+    Stepped,
+}
+
 #[derive(Clone, Debug)]
 struct Script {
+    fixture: Fixture,
     /// Capture frames scored as speech, by 1-based frame index. Later
     /// turns start with `Act::Speak`.
     speech: std::ops::Range<u64>,
@@ -146,9 +161,11 @@ struct Script {
 
 impl Script {
     /// One user question, then the given answer, then a mute once the
-    /// coordinator has settled the turn.
-    fn question(answer: Answer) -> Self {
+    /// coordinator has settled the turn. Every caller chooses its clock;
+    /// no fixture silently changes between host and scenario time.
+    fn question(fixture: Fixture, answer: Answer) -> Self {
         Self {
+            fixture,
             speech: 20..80,
             answers: vec![answer],
             actions: vec![(When::Settled(1), Act::Mute)],
@@ -212,6 +229,10 @@ struct Seen {
     starts: Vec<u64>,
     ends: Vec<u64>,
     capture_frames: u64,
+    /// Producer-side send attempts, not coordinator consumption timestamps.
+    capture_attempt_gap_us: u64,
+    capture_source_age_at_attempt_us: u64,
+    last_capture_attempt_us: Option<u64>,
     /// When each action fired.
     fired: Vec<(Act, u64)>,
     /// Roles that observed priority Stop.
@@ -229,9 +250,18 @@ struct Seen {
     /// microseconds: the peer's own share of any freshness loss.
     privacy_gap_us: u64,
     last_privacy_us: Option<u64>,
+    /// Explicit fault's logical-clock bounds; normal steps remain 2 ms.
+    privacy_expiry_jump: Option<(u64, u64)>,
+    /// A successful send on the real privacy channel, after the expiry jump.
+    fresh_mute_queued_at_us: Option<u64>,
+    /// Actual host time immediately before sending SIGTERM, never policy time.
+    sigterm_sent_at: Option<Instant>,
 }
 
+/// Packet, privacy and policy timestamps use the selected fixture clock.
+/// `elapsed`, watchdogs and child exit observations always use real host time.
 struct Run {
+    fixture: Fixture,
     result: Result<()>,
     trace: Vec<Value>,
     seen: Seen,
@@ -244,8 +274,11 @@ struct Run {
     /// The controller of this runtime cycle.
     boot: BootId,
     /// Before the first child was spawned, and after every child was reaped.
+    /// Stepped runs use scenario time after startup, never elapsed host time.
     started_us: u64,
     finished_us: u64,
+    /// Actual host time after every real child exit/reap check.
+    reaped_at: Instant,
 }
 
 impl Run {
@@ -319,11 +352,19 @@ impl Run {
             }
         }
         format!(
-            "result {:?}\nkinds {kinds:?}\npeer privacy gap {} us, refused writes {}, end-to-speaker revocation {:?} us\nframes {} starts {:?} ends {:?} chunks {} accepted {} fired {:?} stopped {:?} abandoned {:?}",
+            "fixture {:?}, packet and policy clock {}, real conversation and cleanup {:?}\nresult {:?}\nkinds {kinds:?}\npeer privacy gap {} us, refused writes {}, end-to-speaker revocation {:?} us\ncapture send-attempt gap {} us, oldest source age at send attempt {} us (producer; consumption age unmeasured)\nframes {} starts {:?} ends {:?} chunks {} accepted {} fired {:?} stopped {:?} abandoned {:?}",
+            self.fixture,
+            match self.fixture {
+                Fixture::Threaded => "host",
+                Fixture::Stepped => "logical",
+            },
+            self.elapsed,
             self.result.as_ref().map_err(|e| e.to_string()),
             self.seen.privacy_gap_us,
             self.seen.chunks.iter().filter(|c| !c.accepted).count(),
             self.revocations(),
+            self.seen.capture_attempt_gap_us,
+            self.seen.capture_source_age_at_attempt_us,
             self.seen.capture_frames,
             self.seen.starts,
             self.seen.ends,
@@ -394,8 +435,8 @@ impl Run {
                 );
             }
         }
-        // The asynchronous bound: once the coordinator ended a turn, a
-        // speaker that installs authority must have installed authority
+        // The policy bound, in the selected fixture clock: once the
+        // coordinator ended a turn, an installing speaker must have authority
         // without that owner within one channel packet age (100 ms). It is
         // required, not merely checked when present. Exempt only a speaker
         // that installs nothing by design (a Stop-only stall or an abandoned
@@ -475,11 +516,54 @@ struct Peer {
     role: &'static str,
     channels: WorkerChannels,
     input: Option<std::process::ChildStdin>,
+    child_pid: u32,
     snapshot: Option<Snapshot>,
     stopped: bool,
 }
 
-/// What the peer thread owns between ticks.
+impl Peer {
+    /// Observe the real child exit before the scenario clock advances again.
+    /// WNOWAIT leaves the coordinator responsible for the actual reap. A
+    /// shutdown step shares its one real deadline across every peer.
+    fn close_input(&mut self, deadline: Option<Instant>) -> io::Result<()> {
+        let input = self.input.take();
+        let closed = input.is_some();
+        drop(input);
+        if closed && let Some(deadline) = deadline {
+            crate::scenario_clock::wait_child_exited(self.child_pid, deadline)?;
+        }
+        Ok(())
+    }
+}
+
+/// A continuous synthetic source starts when StartCapture is received. A late
+/// delivery keeps each block's original acquisition time; catching up cannot
+/// create a source gap or make old audio fresh again.
+struct CaptureSchedule {
+    origin_us: u64,
+    next_sequence: u64,
+}
+
+impl CaptureSchedule {
+    fn new(origin_us: u64) -> Self {
+        Self {
+            origin_us,
+            next_sequence: 1,
+        }
+    }
+
+    fn next_due(&mut self, now_us: u64) -> Option<(u64, u64)> {
+        let sequence = self.next_sequence;
+        let acquired_at_us = self.origin_us + 10_000 * (sequence - 1);
+        if acquired_at_us > now_us {
+            return None;
+        }
+        self.next_sequence += 1;
+        Some((sequence, acquired_at_us))
+    }
+}
+
+/// State owned either by one real-time thread or by the synchronous pump.
 struct Peers {
     script: Script,
     peers: Vec<Peer>,
@@ -492,7 +576,8 @@ struct Peers {
     pending_failure: Option<u64>,
     /// Shared with the privacy thread, which reports it.
     muted: Arc<AtomicBool>,
-    capture_started: bool,
+    fresh_mute_pending: bool,
+    capture: Option<CaptureSchedule>,
     capture_silent: bool,
     camera: Option<BootId>,
     camera_started: bool,
@@ -501,8 +586,7 @@ struct Peers {
     speaker: SpeakerMode,
     provider_gone: bool,
     speech_offset: Option<u64>,
-    next_capture: Instant,
-    /// The speaker accepts PCM at the device rate, as ALSA does.
+    /// The speaker models the PCM sample cadence; this is not an ALSA clock.
     next_write: Instant,
     cursor: u64,
     audio_sequence: u64,
@@ -513,10 +597,18 @@ struct Peers {
 }
 
 impl Peers {
-    fn fire(&mut self, act: Act) {
+    fn fire(&mut self, act: Act, deadline: Option<Instant>) -> io::Result<()> {
         self.seen.lock().unwrap().fired.push((act, monotonic_us()));
         match act {
             Act::Mute => self.muted.store(true, Ordering::SeqCst),
+            Act::ExpirePrivacyThenMute => {
+                if self.script.fixture != Fixture::Stepped {
+                    return Err(io::Error::other(
+                        "privacy expiry fault requires stepped peers",
+                    ));
+                }
+                self.fresh_mute_pending = true;
+            }
             Act::CaptureFault => {
                 if let Some(capture) = self.peers.iter_mut().find(|p| p.role == "capture") {
                     let _ = capture.channels.control.send(WorkerEvent::Fault {
@@ -529,7 +621,7 @@ impl Peers {
                 self.provider_gone = true;
                 if let Some(provider) = self.peers.iter_mut().find(|p| p.role == "provider") {
                     // Closing stdin ends the child; the sockets close with it.
-                    provider.input.take();
+                    provider.close_input(deadline)?;
                     provider.stopped = true;
                 }
                 self.seen.lock().unwrap().abandoned.push("provider");
@@ -541,6 +633,7 @@ impl Peers {
             Act::StallSpeakerInstalling => self.speaker = SpeakerMode::Installing,
             Act::StallSpeakerPartial => self.speaker = SpeakerMode::Partial,
             Act::Sigterm => {
+                self.seen.lock().unwrap().sigterm_sent_at = Some(Instant::now());
                 rustix::process::kill_process(
                     rustix::process::getpid(),
                     rustix::process::Signal::TERM,
@@ -587,7 +680,7 @@ impl Peers {
             }
             Act::RingGone => {
                 if let Some(ring) = self.peers.iter_mut().find(|p| p.role == "ring") {
-                    ring.input.take();
+                    ring.close_input(deadline)?;
                     ring.stopped = true;
                 }
                 self.seen.lock().unwrap().abandoned.push("ring");
@@ -598,6 +691,7 @@ impl Peers {
                 self.speech_offset = Some(frames);
             }
         }
+        Ok(())
     }
 
     fn due(&self, when: When) -> bool {
@@ -618,31 +712,37 @@ impl Peers {
         scripted || spoken
     }
 
-    fn tick(&mut self) {
+    fn tick(&mut self, deadline: Option<Instant>) -> io::Result<()> {
         let actions = std::mem::take(&mut self.script.actions);
         let (due, waiting): (Vec<_>, Vec<_>) =
             actions.into_iter().partition(|&(when, _)| self.due(when));
         self.script.actions = waiting;
         for (_, act) in due {
-            self.fire(act);
+            self.fire(act, deadline)?;
+        }
+        // The expiry fault belongs between coordinated steps. Do not create
+        // extra capture or speaker progress after the deliberate time jump.
+        if self.fresh_mute_pending {
+            return Ok(());
         }
         for index in 0..self.peers.len() {
-            self.tick_peer(index);
+            self.tick_peer(index, deadline)?;
         }
+        Ok(())
     }
 
-    fn tick_peer(&mut self, index: usize) {
+    fn tick_peer(&mut self, index: usize, deadline: Option<Instant>) -> io::Result<()> {
         if self.peers[index].stopped {
-            return;
+            return Ok(());
         }
         let role = self.peers[index].role;
         if role == "speaker" && self.speaker == SpeakerMode::StopOnly {
             // Consumes control, installs nothing, still sees Stop.
             if let Ok(Some(Control::Stop)) = self.peers[index].channels.control.receive::<Control>()
             {
-                self.stop(index);
+                self.stop(index, deadline)?;
             }
-            return;
+            return Ok(());
         }
         for _ in 0..16 {
             match self.peers[index].channels.control.receive::<Control>() {
@@ -659,9 +759,9 @@ impl Peers {
                     self.output.grant(through).unwrap()
                 }
                 Ok(Some(Control::StartCapture)) if role == "camera" => self.start_camera(index),
-                Ok(Some(Control::StartCapture)) => {
-                    self.capture_started = true;
+                Ok(Some(Control::StartCapture)) if role == "capture" && self.capture.is_none() => {
                     let at = monotonic_us();
+                    self.capture = Some(CaptureSchedule::new(at));
                     let generation = self.peers[index].snapshot.unwrap().microphone_generation();
                     self.peers[index]
                         .channels
@@ -698,23 +798,37 @@ impl Peers {
                             },
                         });
                     }
-                    self.stop(index);
-                    return;
+                    self.stop(index, deadline)?;
+                    return Ok(());
                 }
                 Ok(Some(_)) => {}
                 Ok(None) | Err(_) => break,
             }
         }
         match role {
-            "capture" if self.capture_started && !self.capture_silent => {
+            "capture" if self.capture.is_some() && !self.capture_silent => {
                 // Frames follow a fixed 10 ms schedule, like a capture device.
-                while Instant::now() >= self.next_capture {
-                    let frame = {
-                        let mut seen = self.seen.lock().unwrap();
-                        seen.capture_frames += 1;
-                        seen.capture_frames
+                for _ in 0..64 {
+                    let attempted_at_us = monotonic_us();
+                    let Some((frame, at)) =
+                        self.capture.as_mut().unwrap().next_due(attempted_at_us)
+                    else {
+                        break;
                     };
-                    let at = monotonic_us();
+                    {
+                        let mut seen = self.seen.lock().unwrap();
+                        seen.capture_frames = frame;
+                        if let Some(previous) =
+                            seen.last_capture_attempt_us.replace(attempted_at_us)
+                        {
+                            seen.capture_attempt_gap_us = seen
+                                .capture_attempt_gap_us
+                                .max(attempted_at_us.saturating_sub(previous));
+                        }
+                        seen.capture_source_age_at_attempt_us = seen
+                            .capture_source_age_at_attempt_us
+                            .max(attempted_at_us - at);
+                    }
                     let speech = self.speech(frame);
                     let peer = &mut self.peers[index];
                     let sent = peer.channels.data.send(MicrophoneFrame {
@@ -744,7 +858,6 @@ impl Peers {
                             },
                         },
                     });
-                    self.next_capture += Duration::from_millis(10);
                     if sent.is_err() {
                         break;
                     }
@@ -753,18 +866,22 @@ impl Peers {
             "provider" if !self.provider_gone => self.tick_provider(index),
             "speaker" if self.speaker != SpeakerMode::Installing => self.tick_speaker(index),
             "camera" if self.camera_started && !self.camera_silent => {
-                if Instant::now() >= self.next_camera {
+                if crate::scenario_clock::instant() >= self.next_camera {
                     let _ = self.peers[index].channels.data.send(CameraEvent::Progress {
                         at_us: monotonic_us(),
                         counts: Counts::default(),
                         last_read: None,
                         startup_discards: None,
                     });
-                    self.next_camera = Instant::now() + Duration::from_millis(50);
+                    self.next_camera = crate::scenario_clock::instant() + Duration::from_millis(50);
                 }
             }
             "ring" => {
-                while let Ok(Some(frame)) = self.peers[index].channels.data.receive::<RingFrame>() {
+                for _ in 0..64 {
+                    let Ok(Some(frame)) = self.peers[index].channels.data.receive::<RingFrame>()
+                    else {
+                        break;
+                    };
                     self.seen.lock().unwrap().ring_frames += 1;
                     let at = monotonic_us();
                     let _ = self.peers[index].channels.control.send(WorkerEvent::Ring {
@@ -780,6 +897,7 @@ impl Peers {
             }
             _ => {}
         }
+        Ok(())
     }
 
     fn tick_provider(&mut self, index: usize) {
@@ -844,7 +962,10 @@ impl Peers {
             });
         }
         let peer = &mut self.peers[index];
-        while let Some(event) = self.queued.front() {
+        for _ in 0..64 {
+            let Some(event) = self.queued.front() else {
+                break;
+            };
             match self.output.try_send(|| peer.channels.data.send(event)) {
                 Ok(true) => {
                     self.queued.pop_front();
@@ -869,7 +990,7 @@ impl Peers {
     }
 
     fn tick_speaker(&mut self, index: usize) {
-        if Instant::now() < self.next_write {
+        if crate::scenario_clock::instant() < self.next_write {
             return;
         }
         let Ok(Some(chunk)) = self.peers[index].channels.data.receive::<SpeakerChunk>() else {
@@ -878,7 +999,7 @@ impl Peers {
         // 24 kHz output: 24 samples per millisecond.
         self.next_write = self
             .next_write
-            .max(Instant::now() - Duration::from_millis(20))
+            .max(crate::scenario_clock::instant() - Duration::from_millis(20))
             + Duration::from_micros(chunk.samples.len() as u64 * 1_000 / 24);
         // As the real speaker: install the chunk's own view (an older one is
         // ignored), then check the permit immediately before the write. A
@@ -1053,55 +1174,88 @@ impl Peers {
         }
     }
 
-    fn stop(&mut self, index: usize) {
+    fn stop(&mut self, index: usize, deadline: Option<Instant>) -> io::Result<()> {
         let peer = &mut self.peers[index];
         peer.stopped = true;
-        peer.input.take();
+        peer.close_input(deadline)?;
         let mut seen = self.seen.lock().unwrap();
         seen.stopped.push(peer.role);
         if peer.role == "speaker" {
             seen.speaker_stopped_us = Some(monotonic_us());
         }
+        Ok(())
     }
 }
 
 /// Fresh privacy observations every 5 ms, muted once a scenario says so.
-fn privacy_peer(
-    mut peer: Peer,
+/// The same bounded step serves the real thread and the scoped-clock pump.
+struct PrivacyPeer {
+    peer: Peer,
     seen: Arc<Mutex<Seen>>,
     muted: Arc<AtomicBool>,
-    finished: Arc<AtomicBool>,
-) -> impl FnOnce() + Send + 'static {
-    move || {
-        let mut next = Instant::now();
-        while !finished.load(Ordering::SeqCst) {
-            while !peer.stopped
-                && let Ok(Some(control)) = peer.channels.control.receive::<Control>()
+    next: Instant,
+}
+
+impl PrivacyPeer {
+    fn tick(&mut self, deadline: Option<Instant>) -> io::Result<()> {
+        for _ in 0..16 {
+            if self.peer.stopped {
+                break;
+            }
+            let Ok(Some(control)) = self.peer.channels.control.receive::<Control>() else {
+                break;
+            };
+            if matches!(control, Control::Stop) {
+                self.peer.stopped = true;
+                self.peer.close_input(deadline)?;
+                self.seen.lock().unwrap().stopped.push("privacy");
+            }
+        }
+        if !self.peer.stopped && crate::scenario_clock::instant() >= self.next {
+            let at = monotonic_us();
             {
-                if matches!(control, Control::Stop) {
-                    peer.stopped = true;
-                    peer.input.take();
-                    seen.lock().unwrap().stopped.push("privacy");
+                let mut seen = self.seen.lock().unwrap();
+                if let Some(last) = seen.last_privacy_us {
+                    seen.privacy_gap_us = seen.privacy_gap_us.max(at - last);
                 }
+                seen.last_privacy_us = Some(at);
             }
-            if !peer.stopped && Instant::now() >= next {
-                let at = monotonic_us();
-                {
-                    let mut seen = seen.lock().unwrap();
-                    if let Some(last) = seen.last_privacy_us {
-                        seen.privacy_gap_us = seen.privacy_gap_us.max(at - last);
-                    }
-                    seen.last_privacy_us = Some(at);
-                }
-                let _ = peer.channels.control.send(WorkerEvent::Privacy {
-                    acquired_at_us: at,
-                    muted: muted.load(Ordering::SeqCst),
-                });
-                next = Instant::now() + Duration::from_millis(5);
-            }
+            let _ = self.peer.channels.control.send(WorkerEvent::Privacy {
+                acquired_at_us: at,
+                muted: self.muted.load(Ordering::SeqCst),
+            });
+            self.next = crate::scenario_clock::instant() + Duration::from_millis(5);
+        }
+        Ok(())
+    }
+
+    fn queue_fresh_mute(&mut self) -> io::Result<()> {
+        if self.peer.stopped {
+            return Err(io::Error::other("privacy peer stopped before expiry fault"));
+        }
+        self.muted.store(true, Ordering::SeqCst);
+        let at = monotonic_us();
+        self.peer.channels.control.send(WorkerEvent::Privacy {
+            acquired_at_us: at,
+            muted: true,
+        })?;
+        let mut seen = self.seen.lock().unwrap();
+        if let Some(last) = seen.last_privacy_us {
+            seen.privacy_gap_us = seen.privacy_gap_us.max(at - last);
+        }
+        seen.last_privacy_us = Some(at);
+        seen.fresh_mute_queued_at_us = Some(at);
+        self.next = crate::scenario_clock::instant() + Duration::from_millis(5);
+        Ok(())
+    }
+
+    fn run(mut self, finished: Arc<AtomicBool>) {
+        self.next = Instant::now();
+        while !finished.load(Ordering::SeqCst) {
+            self.tick(None).unwrap();
             thread::sleep(Duration::from_millis(1));
         }
-        peer.input.take();
+        self.peer.close_input(None).unwrap();
     }
 }
 
@@ -1115,6 +1269,7 @@ fn run_in(script: Script, trace: &mut SessionState) -> Run {
     let first_event = trace.iter().count();
     let started_us = monotonic_us();
     let cleanup_fails = script.cleanup_fails;
+    let fixture = script.fixture;
     let notices = if script.notices {
         FailureNotices::synthetic()
     } else {
@@ -1128,11 +1283,15 @@ fn run_in(script: Script, trace: &mut SessionState) -> Run {
     let directory = SessionDirectory::create().unwrap();
     let mut peers = Vec::new();
     let mut spawn = |role| {
-        let (worker, channels, input) = Worker::cooperative_fixture(&directory.path, role);
+        let (worker, channels, input) = match fixture {
+            Fixture::Threaded => Worker::cooperative_fixture(&directory.path, role),
+            Fixture::Stepped => Worker::cooperative_ready_fixture(&directory.path, role),
+        };
         peers.push(Peer {
             role,
             channels,
             input: Some(input),
+            child_pid: worker.fixture_pid(),
             snapshot: None,
             stopped: false,
         });
@@ -1172,6 +1331,11 @@ fn run_in(script: Script, trace: &mut SessionState) -> Run {
         playout_start: PlayoutStart::default(),
         endpoint: None,
     };
+    // The clock starts only after every real child has crossed its startup
+    // barrier. All coordinator and peer timestamps below share this scope;
+    // the real watchdog still bounds both the conversation and its cleanup.
+    let mut clock_scope = (fixture == Fixture::Stepped)
+        .then(|| crate::scenario_clock::Scope::enter(SCENARIO_LIMIT).unwrap());
     let mut owner = Controller::new(new_boot().unwrap(), now());
     let boot = owner.snapshot(now()).unwrap().boot();
     let mut startup = StartupEvents::default();
@@ -1182,70 +1346,108 @@ fn run_in(script: Script, trace: &mut SessionState) -> Run {
     let seen = Arc::new(Mutex::new(Seen::default()));
     let finished = Arc::new(AtomicBool::new(false));
     let muted = Arc::new(AtomicBool::new(false));
-    // Privacy runs on its own thread, as the privacy worker is its own
-    // process: its 5 ms observations never wait behind the other roles.
     let privacy_at = peers.iter().position(|p| p.role == "privacy").unwrap();
-    let privacy = thread::spawn(privacy_peer(
-        peers.remove(privacy_at),
-        seen.clone(),
-        muted.clone(),
-        finished.clone(),
-    ));
-    let worker = thread::spawn({
-        let (seen, finished, muted) = (seen.clone(), finished.clone(), muted.clone());
-        move || {
-            let camera = camera_boot;
-            let mut state = Peers {
-                script,
-                peers,
-                seen,
-                guard: BoundaryGuard::new(boot, now()),
-                output: OutputSender::default(),
-                queued: VecDeque::new(),
-                requests: Vec::new(),
-                pending_failure: None,
-                muted: muted.clone(),
-                capture_started: false,
-                capture_silent: false,
-                camera,
-                camera_started: false,
-                camera_silent: false,
-                next_camera: Instant::now(),
-                speaker: SpeakerMode::Healthy,
-                provider_gone: false,
-                speech_offset: None,
-                next_capture: Instant::now(),
-                next_write: Instant::now(),
-                cursor: 0,
-                audio_sequence: 0,
-                accepted: 0,
-                notice_accepted: 0,
-                ended: 0,
-                settled_after: None,
-            };
-            let started = Instant::now();
-            let mut limit_reported = false;
-            // Endpoints stay open until the supervisor has finished, as a
-            // worker's sockets do until its process is reaped.
-            while !finished.load(Ordering::SeqCst) {
-                if started.elapsed() > SCENARIO_LIMIT && !limit_reported {
-                    limit_reported = true;
-                    // Report a hung run through the session instead of
-                    // blocking: a fault the coordinator must end on.
-                    if let Some(capture) = state.peers.iter_mut().find(|p| p.role == "capture") {
-                        let _ = capture.channels.control.send(WorkerEvent::Fault {
-                            code: "pilot fault scenario limit".into(),
-                        });
+    let privacy = PrivacyPeer {
+        peer: peers.remove(privacy_at),
+        seen: seen.clone(),
+        muted: muted.clone(),
+        next: crate::scenario_clock::instant(),
+    };
+    let state = Peers {
+        script,
+        peers,
+        seen: seen.clone(),
+        guard: BoundaryGuard::new(boot, now()),
+        output: OutputSender::default(),
+        queued: VecDeque::new(),
+        requests: Vec::new(),
+        pending_failure: None,
+        muted,
+        fresh_mute_pending: false,
+        capture: None,
+        capture_silent: false,
+        camera: camera_boot,
+        camera_started: false,
+        camera_silent: false,
+        next_camera: crate::scenario_clock::instant(),
+        speaker: SpeakerMode::Healthy,
+        provider_gone: false,
+        speech_offset: None,
+        next_write: crate::scenario_clock::instant(),
+        cursor: 0,
+        audio_sequence: 0,
+        accepted: 0,
+        notice_accepted: 0,
+        ended: 0,
+        settled_after: None,
+    };
+    let threads = if let Some(scope) = clock_scope.as_mut() {
+        let mut privacy = privacy;
+        let mut state = state;
+        scope
+            .set_pump(move |phase| {
+                // Real child exit cannot be simulated. One deadline bounds
+                // all children this step stops, and shutdown supplies its
+                // existing shared budget instead of granting a new one.
+                let deadline = match phase {
+                    crate::scenario_clock::Phase::Run => {
+                        Instant::now() + Duration::from_millis(300)
                     }
+                    crate::scenario_clock::Phase::Shutdown { deadline } => deadline,
+                };
+                privacy.tick(Some(deadline))?;
+                state.tick(Some(deadline))?;
+                if std::mem::take(&mut state.fresh_mute_pending) {
+                    let before = monotonic_us();
+                    crate::scenario_clock::elapse_for_fault(Duration::from_millis(50))?;
+                    let after = monotonic_us();
+                    privacy.queue_fresh_mute()?;
+                    state.seen.lock().unwrap().privacy_expiry_jump = Some((before, after));
                 }
-                state.tick();
-                thread::sleep(Duration::from_millis(1));
+                Ok(())
+            })
+            .unwrap();
+        None
+    } else {
+        // Cross-cycle mute/reopen retains its independent privacy thread and
+        // crosses the production service's host-clock privacy waits.
+        let privacy = thread::spawn({
+            let finished = finished.clone();
+            move || privacy.run(finished)
+        });
+        let worker = thread::spawn({
+            let finished = finished.clone();
+            move || {
+                let mut state = state;
+                // Speaker and camera schedules begin with the peer thread.
+                // Capture starts only on the coordinator's StartCapture.
+                state.guard = BoundaryGuard::new(boot, now());
+                state.next_camera = Instant::now();
+                state.next_write = Instant::now();
+                let started = Instant::now();
+                let mut limit_reported = false;
+                // Endpoints stay open until the supervisor has finished, as
+                // worker sockets do until the process is reaped.
+                while !finished.load(Ordering::SeqCst) {
+                    if started.elapsed() > SCENARIO_LIMIT && !limit_reported {
+                        limit_reported = true;
+                        if let Some(capture) = state.peers.iter_mut().find(|p| p.role == "capture")
+                        {
+                            let _ = capture.channels.control.send(WorkerEvent::Fault {
+                                code: "pilot fault scenario limit".into(),
+                            });
+                        }
+                    }
+                    state.tick(None).unwrap();
+                    thread::sleep(Duration::from_millis(1));
+                }
+                for peer in &mut state.peers {
+                    peer.close_input(None).unwrap();
+                }
             }
-            for peer in &mut state.peers {
-                peer.input.take();
-            }
-        }
-    });
+        });
+        Some((worker, privacy))
+    };
     let mut reply = None;
     let started = Instant::now();
     let result = conversation(
@@ -1273,18 +1475,24 @@ fn run_in(script: Script, trace: &mut SessionState) -> Run {
     if let Some(camera) = rig.camera.as_mut() {
         exits.push(("camera", matches!(camera.worker.try_exit(), Ok(Some(_)))));
     }
+    let reaped_at = Instant::now();
     let finished_us = monotonic_us();
     finished.store(true, Ordering::SeqCst);
-    worker.join().unwrap();
-    privacy.join().unwrap();
+    if let Some((worker, privacy)) = threads {
+        worker.join().unwrap();
+        privacy.join().unwrap();
+    }
+    drop(clock_scope);
     assert!(reply.is_none(), "an answer outlived its run");
     let seen = std::mem::take(&mut *seen.lock().unwrap());
     Run {
+        fixture,
         result,
         trace: trace.iter().skip(first_event).cloned().collect(),
         boot,
         started_us,
         finished_us,
+        reaped_at,
         seen,
         elapsed,
         exits,
@@ -1299,10 +1507,123 @@ fn is_mute(result: &Result<()>) -> bool {
         .is_some_and(|error| error.downcast_ref::<PhysicalMute>().is_some())
 }
 
+mod capture_schedule_tests {
+    use super::*;
+
+    fn observed((sequence, captured_at_us): (u64, u64)) -> ObservedAudio {
+        ObservedAudio {
+            sequence,
+            captured_at_us,
+            samples: [7; 160],
+        }
+    }
+
+    #[test]
+    fn a_delivery_pause_keeps_contiguous_original_acquisition_times() {
+        let origin_us = 1_000_000;
+        let mut schedule = CaptureSchedule::new(origin_us);
+        let mut detector = TurnDetector::v1_baseline();
+        assert!(schedule.next_due(origin_us - 1).is_none());
+        let first = schedule.next_due(origin_us).unwrap();
+        assert_eq!(first, (1, origin_us));
+        assert!(matches!(
+            detector.push(observed(first), 0.0),
+            Activity::Quiet
+        ));
+        assert!(schedule.next_due(origin_us + 9_999).is_none());
+        // The delivery peer was not run for 60 ms. The source still acquired
+        // all six blocks at 10 ms intervals, so the real detector sees no gap.
+        for sequence in 2..=7 {
+            let next = schedule.next_due(origin_us + 60_000).unwrap();
+            assert_eq!(next, (sequence, origin_us + 10_000 * (sequence - 1)));
+            assert!(matches!(
+                detector.push(observed(next), 0.0),
+                Activity::Quiet
+            ));
+        }
+        assert!(schedule.next_due(origin_us + 60_000).is_none());
+    }
+
+    #[test]
+    fn late_delivery_cannot_refresh_a_stale_admission_trigger() {
+        let origin_us = 1_000_000;
+        let mut schedule = CaptureSchedule::new(origin_us);
+        assert_eq!(schedule.next_due(origin_us), Some((1, origin_us)));
+        let delivered_at_us = origin_us + 110_000;
+        let late = schedule.next_due(delivered_at_us).unwrap();
+        assert_eq!(late, (2, origin_us + 10_000));
+        assert_eq!(delivered_at_us - late.1, 100_000);
+
+        let at = MonoTime::from_micros(delivered_at_us - 1);
+        let until = MonoTime::from_micros(delivered_at_us + 100_000);
+        let mut owner = Controller::new(BootId::new([1; 16]).unwrap(), at);
+        owner
+            .set_microphone_permission(at, Permission::Allowed)
+            .unwrap();
+        owner
+            .set_capture(at, CaptureState::RetainingUntil(until))
+            .unwrap();
+        owner
+            .set_admission(at, AdmissionState::OpenUntil(until))
+            .unwrap();
+        let authority = owner.snapshot(at).unwrap();
+        let context = AdmissionContext {
+            capture: CaptureLineage {
+                worker: BootId::new([2; 16]).unwrap(),
+                epoch: 1,
+                dsp_epoch: 1,
+                privacy_generation: authority.microphone_generation(),
+            },
+            authority,
+        };
+        let fresh = InputAdmission::default()
+            .observe(
+                Activity::Start(vec![observed(late)]),
+                context,
+                delivered_at_us - 1,
+            )
+            .unwrap();
+        assert!(matches!(fresh.step, AdmissionStep::Candidate(_)));
+        let stale = InputAdmission::default()
+            .observe(
+                Activity::Start(vec![observed(late)]),
+                context,
+                delivered_at_us,
+            )
+            .unwrap_err();
+        assert_eq!(stale.to_string(), "candidate trigger is stale or future");
+    }
+
+    #[test]
+    fn a_dropped_block_or_real_source_gap_still_faults() {
+        let origin_us = 1_000_000;
+        let mut schedule = CaptureSchedule::new(origin_us);
+        let first = schedule.next_due(origin_us).unwrap();
+        // Deliberately lose block 2; no delivery catch-up can renumber block 3.
+        assert_eq!(
+            schedule.next_due(origin_us + 10_000),
+            Some((2, origin_us + 10_000))
+        );
+        let after_drop = schedule.next_due(origin_us + 20_000).unwrap();
+        assert_eq!(after_drop, (3, origin_us + 20_000));
+        for broken in [after_drop, (2, origin_us + 50_001)] {
+            let mut detector = TurnDetector::v1_baseline();
+            assert!(matches!(
+                detector.push(observed(first), 0.0),
+                Activity::Quiet
+            ));
+            assert!(matches!(
+                detector.push(observed(broken), 0.0),
+                Activity::Fault("capture discontinuity")
+            ));
+        }
+    }
+}
+
 #[test]
 fn control_one_question_is_answered_once_then_mute_ends_the_run() {
     let _one = one_session();
-    let run = run(Script::question(Answer::Complete(12)));
+    let run = run(Script::question(Fixture::Stepped, Answer::Complete(12)));
     run.assert_invariants();
     assert!(is_mute(&run.result), "{:?}", run.result);
     assert_eq!(run.seen.starts.len(), 1);
@@ -1327,7 +1648,7 @@ fn control_one_question_is_answered_once_then_mute_ends_the_run() {
 #[test]
 fn readiness_publishes_the_link_state_it_was_validated_against() {
     let _one = one_session();
-    let run = run(Script::question(Answer::Complete(12)));
+    let run = run(Script::question(Fixture::Stepped, Answer::Complete(12)));
     run.assert_invariants();
     let current = run.events("provider_link_current");
     assert_eq!(current.len(), 1);
@@ -1362,7 +1683,7 @@ fn first(run: &Run) -> u64 {
 #[test]
 fn provider_failure_before_output_settles_failed_without_speech() {
     let _one = one_session();
-    let run = run(Script::question(Answer::FailBeforeOutput));
+    let run = run(Script::question(Fixture::Stepped, Answer::FailBeforeOutput));
     run.assert_invariants();
     assert!(is_mute(&run.result), "{:?}", run.result);
     assert_eq!(run.outcomes()[&first(&run)], ["provider_failed"]);
@@ -1373,7 +1694,10 @@ fn provider_failure_before_output_settles_failed_without_speech() {
 #[test]
 fn provider_failure_during_output_never_becomes_a_completed_answer() {
     let _one = one_session();
-    let run = run(Script::question(Answer::FailDuringOutput(12)));
+    let run = run(Script::question(
+        Fixture::Stepped,
+        Answer::FailDuringOutput(12),
+    ));
     run.assert_invariants();
     assert!(is_mute(&run.result), "{:?}", run.result);
     let turn = first(&run);
@@ -1387,7 +1711,7 @@ fn provider_process_lost_before_output_ends_the_run_without_speech() {
     let _one = one_session();
     let run = run(Script {
         answers: vec![],
-        ..Script::question(Answer::FailBeforeOutput)
+        ..Script::question(Fixture::Stepped, Answer::FailBeforeOutput)
     }
     .then(When::InputEnded(1), Act::ProviderGone));
     run.assert_invariants();
@@ -1403,7 +1727,8 @@ fn provider_process_lost_before_output_ends_the_run_without_speech() {
 #[test]
 fn provider_process_lost_during_output_stops_speech_and_fails_the_turn() {
     let _one = one_session();
-    let run = run(Script::question(Answer::Hold(40)).then(When::Accepted(3), Act::ProviderGone));
+    let run = run(Script::question(Fixture::Stepped, Answer::Hold(40))
+        .then(When::Accepted(3), Act::ProviderGone));
     run.assert_invariants();
     assert!(
         run.result.is_err() && !is_mute(&run.result),
@@ -1428,7 +1753,8 @@ fn provider_process_lost_during_output_stops_speech_and_fails_the_turn() {
 #[test]
 fn capture_fault_during_output_cancels_the_answer_and_ends_the_run() {
     let _one = one_session();
-    let run = run(Script::question(Answer::Hold(40)).then(When::Accepted(3), Act::CaptureFault));
+    let run = run(Script::question(Fixture::Stepped, Answer::Hold(40))
+        .then(When::Accepted(3), Act::CaptureFault));
     run.assert_invariants();
     assert!(
         run.result.is_err() && !is_mute(&run.result),
@@ -1443,7 +1769,7 @@ fn capture_stall_during_a_question_ends_the_run_without_an_answer() {
     let _one = one_session();
     let run = run(Script {
         speech: 20..400,
-        ..Script::question(Answer::Complete(12))
+        ..Script::question(Fixture::Stepped, Answer::Complete(12))
     }
     .then(When::Block(60), Act::CaptureSilent));
     run.assert_invariants();
@@ -1464,7 +1790,7 @@ fn mute_while_answer_speech_is_queued_cuts_it_and_never_resumes() {
     let _one = one_session();
     let run = run(Script {
         actions: vec![(When::Accepted(3), Act::Mute)],
-        ..Script::question(Answer::Complete(40))
+        ..Script::question(Fixture::Stepped, Answer::Complete(40))
     });
     run.assert_invariants();
     assert!(is_mute(&run.result), "{:?}", run.result);
@@ -1480,7 +1806,7 @@ fn sigterm_while_answer_speech_is_pending_stops_cleanly() {
     let run = run(Script {
         actions: vec![(When::Accepted(3), Act::Sigterm)],
         signals: true,
-        ..Script::question(Answer::Hold(40))
+        ..Script::question(Fixture::Stepped, Answer::Hold(40))
     });
     run.assert_invariants();
     assert!(run.result.is_ok(), "{:?}", run.result);
@@ -1498,7 +1824,7 @@ fn failure_notice_plays_once_keeps_the_failure_and_yields_to_the_next_owner() {
             (When::Settled(2), Act::Mute),
         ],
         notices: true,
-        ..Script::question(Answer::FailBeforeOutput)
+        ..Script::question(Fixture::Stepped, Answer::FailBeforeOutput)
     });
     run.assert_invariants();
     assert!(is_mute(&run.result), "{:?}", run.result);
@@ -1523,19 +1849,20 @@ fn failure_notice_plays_once_keeps_the_failure_and_yields_to_the_next_owner() {
 #[test]
 fn stalled_speaker_during_output_is_bounded_and_never_completes_the_answer() {
     let _one = one_session();
-    let run =
-        run(Script::question(Answer::Complete(40)).then(When::Accepted(3), Act::StallSpeaker));
+    let run = run(Script::question(Fixture::Stepped, Answer::Complete(40))
+        .then(When::Accepted(3), Act::StallSpeaker));
     run.assert_invariants();
     let turn = first(&run);
     assert_eq!(run.outcomes()[&turn], ["runtime_failed"]);
-    // V1-baseline's existing bound: write evidence within the 200 ms
-    // decision budget of each dispatch, checked on every capture block.
+    // V1-baseline's existing policy bound: write evidence within 200 ms
+    // of each dispatch, checked on every modeled capture block. These
+    // timestamps are scenario time, not measured host or lamp latency.
     let error = run.result.as_ref().unwrap_err().to_string();
     assert!(error.contains("speaker write evidence expired"), "{error}");
     let stalled = run.fired_at(Act::StallSpeaker);
     let ended = run.events("turn_finished")[0]["at_us"].as_u64().unwrap();
     let after_ms = (ended - stalled) / 1_000;
-    eprintln!("stall to turn end {after_ms} ms");
+    eprintln!("scenario stall to turn end {after_ms} ms");
     // The last unacknowledged chunk may have been dispatched just before the
     // stall; detection follows at the next capture block after its budget.
     assert!((190..=300).contains(&after_ms), "{after_ms} ms");
@@ -1551,7 +1878,7 @@ fn stalled_speaker_under_vad_only_is_bounded_too() {
     let _one = one_session();
     let run = run(Script {
         turn_taking: TurnTaking::VadOnly,
-        ..Script::question(Answer::Complete(40))
+        ..Script::question(Fixture::Stepped, Answer::Complete(40))
     }
     .then(When::Accepted(3), Act::StallSpeaker));
     run.assert_invariants();
@@ -1561,7 +1888,7 @@ fn stalled_speaker_under_vad_only_is_bounded_too() {
     let stalled = run.fired_at(Act::StallSpeaker);
     let ended = run.events("turn_finished")[0]["at_us"].as_u64().unwrap();
     let after_ms = (ended - stalled) / 1_000;
-    eprintln!("stall to turn end {after_ms} ms");
+    eprintln!("scenario stall to turn end {after_ms} ms");
     assert!((190..=300).contains(&after_ms), "{after_ms} ms");
 }
 
@@ -1578,7 +1905,7 @@ fn failure_notice_yields_mid_play_to_a_new_owner_under_vad_only() {
         ],
         notices: true,
         turn_taking: TurnTaking::VadOnly,
-        ..Script::question(Answer::FailBeforeOutput)
+        ..Script::question(Fixture::Stepped, Answer::FailBeforeOutput)
     });
     run.assert_invariants();
     assert_eq!(run.seen.starts.len(), 2, "the next owner was not served");
@@ -1619,7 +1946,8 @@ fn failure_notice_yields_mid_play_to_a_new_owner_under_vad_only() {
 #[test]
 fn provider_worker_fault_during_output_fails_the_turn_and_ends_the_run() {
     let _one = one_session();
-    let run = run(Script::question(Answer::Hold(40)).then(When::Accepted(3), Act::ProviderFault));
+    let run = run(Script::question(Fixture::Stepped, Answer::Hold(40))
+        .then(When::Accepted(3), Act::ProviderFault));
     run.assert_invariants();
     assert!(
         run.result.is_err() && !is_mute(&run.result),
@@ -1632,8 +1960,8 @@ fn provider_worker_fault_during_output_fails_the_turn_and_ends_the_run() {
 #[test]
 fn terminal_provider_link_during_output_settles_failed_and_ends_service() {
     let _one = one_session();
-    let run =
-        run(Script::question(Answer::Hold(40)).then(When::Accepted(3), Act::ProviderTerminal));
+    let run = run(Script::question(Fixture::Stepped, Answer::Hold(40))
+        .then(When::Accepted(3), Act::ProviderTerminal));
     run.assert_invariants();
     let error = run.result.as_ref().unwrap_err().to_string();
     assert!(
@@ -1650,7 +1978,7 @@ fn mute_while_the_failure_notice_plays_cuts_it_and_keeps_the_failure() {
     let run = run(Script {
         actions: vec![(When::NoticeAccepted(3), Act::Mute)],
         notices: true,
-        ..Script::question(Answer::FailBeforeOutput)
+        ..Script::question(Fixture::Stepped, Answer::FailBeforeOutput)
     });
     run.assert_invariants();
     assert!(is_mute(&run.result), "{:?}", run.result);
@@ -1674,7 +2002,7 @@ fn sigterm_while_the_failure_notice_plays_stops_cleanly() {
         actions: vec![(When::NoticeAccepted(3), Act::Sigterm)],
         notices: true,
         signals: true,
-        ..Script::question(Answer::FailBeforeOutput)
+        ..Script::question(Fixture::Stepped, Answer::FailBeforeOutput)
     });
     run.assert_invariants();
     assert!(run.result.is_ok(), "{:?}", run.result);
@@ -1689,7 +2017,7 @@ fn ring_fault_during_an_answer_keeps_the_conversation_and_cleans_up() {
     let _one = one_session();
     let run = run(Script {
         ring: true,
-        ..Script::question(Answer::Complete(12))
+        ..Script::question(Fixture::Stepped, Answer::Complete(12))
     }
     .then(When::Accepted(3), Act::RingFault));
     run.assert_invariants();
@@ -1706,12 +2034,43 @@ fn ring_fault_during_an_answer_keeps_the_conversation_and_cleans_up() {
 }
 
 #[test]
+fn expired_accepted_privacy_rejects_a_fresh_queued_mute_in_stepped_run() {
+    let _one = one_session();
+    let run = run(Script {
+        actions: vec![(When::Accepted(1), Act::ExpirePrivacyThenMute)],
+        ..Script::question(Fixture::Stepped, Answer::Hold(12))
+    });
+    run.assert_invariants();
+    let (before, after) = run.seen.privacy_expiry_jump.expect("privacy lease expired");
+    assert_eq!(after - before, 50_000, "exact production privacy boundary");
+    assert_eq!(run.fired_at(Act::ExpirePrivacyThenMute), before);
+    assert_eq!(run.seen.fresh_mute_queued_at_us, Some(after));
+    // An accepted answer proves the coordinator had already installed a
+    // permissive sensor lease before the injected expiry; startup grace is
+    // not the condition under test.
+    assert!(
+        run.accepted(first(&run))
+            .iter()
+            .any(|chunk| chunk.checked_us < before)
+    );
+    assert_eq!(
+        run.result.as_ref().unwrap_err().to_string(),
+        "service privacy freshness lost before next observation"
+    );
+    // A fresh mute was already waiting on the real channel. The expired
+    // accepted lease must still fail before that packet can manufacture a
+    // healthy, restartable physical-mute lifecycle.
+    assert!(!is_mute(&run.result));
+    assert!(run.events("physical_mute").is_empty());
+}
+
+#[test]
 fn ring_lost_without_blanking_keeps_the_answer_but_cleanup_fails_truthfully() {
     let _one = one_session();
     let run = run(Script {
         ring: true,
         cleanup_fails: true,
-        ..Script::question(Answer::Complete(12))
+        ..Script::question(Fixture::Stepped, Answer::Complete(12))
     }
     .then(When::Accepted(3), Act::RingGone));
     run.assert_invariants();
@@ -1729,7 +2088,7 @@ fn camera_loss_during_an_answer_revokes_only_sight() {
     let _one = one_session();
     let run = run(Script {
         camera: true,
-        ..Script::question(Answer::Complete(12))
+        ..Script::question(Fixture::Stepped, Answer::Complete(12))
     }
     .then(When::Accepted(3), Act::CameraSilent));
     run.assert_invariants();
@@ -1784,7 +2143,7 @@ fn rapid_mute_and_reopen_never_overlaps_workers_or_carries_speech_across() {
             let mut run = run_in(
                 Script {
                     actions: vec![(When::Accepted(3), Act::Mute)],
-                    ..Script::question(Answer::Complete(40))
+                    ..Script::question(Fixture::Threaded, Answer::Complete(40))
                 },
                 trace,
             );
@@ -1794,6 +2153,13 @@ fn rapid_mute_and_reopen_never_overlaps_workers_or_carries_speech_across() {
                 .err()
                 .and_then(|e| e.downcast_ref::<PhysicalMute>())
                 .map(|mute| mute.observed_at_us);
+            if mute.is_none() {
+                eprintln!(
+                    "runtime cycle {} did not end in physical mute:\n{}",
+                    runs.borrow().len() + 1,
+                    run.summary()
+                );
+            }
             let result = match mute {
                 Some(observed_at_us) => Err(Box::new(PhysicalMute { observed_at_us }) as _),
                 None => std::mem::replace(&mut run.result, Ok(())),
@@ -1842,37 +2208,136 @@ fn rapid_mute_and_reopen_never_overlaps_workers_or_carries_speech_across() {
     eprintln!("reaped-to-next-spawn {reopen_ms:?} ms");
 }
 
+/// The release token must survive every assertion until it is sent. Dropping a
+/// sender without sending would make the real stalled writer panic on recv.
+struct MetadataRelease(Option<std::sync::mpsc::Sender<()>>);
+
+impl MetadataRelease {
+    fn release(&mut self) -> io::Result<()> {
+        self.0
+            .take()
+            .ok_or_else(|| io::Error::other("metadata writer already released"))?
+            .send(())
+            .map_err(io::Error::other)
+    }
+}
+
+impl Drop for MetadataRelease {
+    fn drop(&mut self) {
+        if let Some(release) = self.0.take() {
+            // This unbounded-channel send cannot wait. Do not replace an
+            // existing test failure with a second panic during unwinding.
+            let _ = release.send(());
+        }
+    }
+}
+
+struct StalledMetadata {
+    trace: SessionState,
+    entered: std::sync::mpsc::Receiver<()>,
+    release: MetadataRelease,
+}
+
+impl StalledMetadata {
+    fn new() -> Self {
+        let deadline = Instant::now() + Duration::from_secs(2);
+        let (writer, entered, release) = crate::service_trace::ServiceTrace::stalled();
+        let mut fixture = Self {
+            trace: SessionState::with_writer(writer),
+            entered,
+            release: MetadataRelease(Some(release)),
+        };
+        // Prime the production submission path before any child or policy
+        // clock starts. The writer cannot complete this first event until the
+        // release token is sent, including throughout the later audio run.
+        fixture
+            .trace
+            .record(json!({"kind":"fixture_metadata_stall","at_us":monotonic_us()}))
+            .unwrap();
+        fixture.trace.flush(&mut None, monotonic_us());
+        fixture
+            .entered
+            .recv_timeout(deadline.saturating_duration_since(Instant::now()))
+            .expect("metadata writer never stalled");
+        fixture
+    }
+
+    fn release_and_finish(&mut self) -> crate::service_trace::Report {
+        self.release.release().expect("metadata writer disappeared");
+        self.trace
+            .finish_logging()
+            .expect("metadata writer cleanup report")
+    }
+}
+
+impl Drop for StalledMetadata {
+    fn drop(&mut self) {
+        if self.release.0.is_some() {
+            let _ = self.release.release();
+            // Preserve the original assertion failure while attempting bounded
+            // real cleanup. Keep the entered receiver alive during this wait.
+            // Successful scenarios check this receipt explicitly instead.
+            let _ = self.trace.finish_logging();
+        }
+    }
+}
+
+#[test]
+fn metadata_release_on_unwind_unblocks_the_real_writer_and_keeps_the_panic() {
+    use crate::service_trace::{FINISH_WAIT, ServiceTrace};
+    struct ScenarioFailure;
+
+    let (mut writer, entered, release) = ServiceTrace::stalled();
+    let release = MetadataRelease(Some(release));
+    writer.submit(&json!({"kind":"fixture_metadata_stall"}));
+    entered.recv_timeout(Duration::from_secs(2)).unwrap();
+    let failed = std::panic::catch_unwind(std::panic::AssertUnwindSafe(move || {
+        let _release_on_unwind = release;
+        std::panic::panic_any(ScenarioFailure);
+    }));
+    assert!(failed.unwrap_err().is::<ScenarioFailure>());
+    let report = writer.finish(FINISH_WAIT);
+    assert!(report.acknowledged, "{report:?}");
+    assert!(!report.writer_failed, "{report:?}");
+    assert_eq!(report.written_events, 1);
+}
+
 /// Metadata storage stalls from the first event (a stuck disk). Answer audio
 /// must keep flowing, a real SIGTERM must still stop the runtime cleanly, and
 /// the unacknowledged metadata must be reported within the finish bound
 /// rather than hidden or waited on.
 #[test]
 fn sigterm_while_metadata_storage_is_stalled_stops_cleanly_and_reports_the_loss() {
-    use crate::service_trace::{FINISH_WAIT, ServiceTrace};
+    use crate::service_trace::FINISH_WAIT;
     let _one = one_session();
-    let (writer, entered, release) = ServiceTrace::stalled();
-    let mut trace = SessionState::with_writer(writer);
+    let mut metadata = StalledMetadata::new();
     let run = run_in(
         Script {
             actions: vec![(When::Accepted(10), Act::Sigterm)],
             signals: true,
-            ..Script::question(Answer::Hold(40))
+            ..Script::question(Fixture::Stepped, Answer::Hold(40))
         },
-        &mut trace,
+        &mut metadata.trace,
     );
-    // The writer really was stalled during the run.
-    entered.try_recv().expect("metadata writer never stalled");
+    // The real writer entered its blocked first event before this run began.
     run.assert_invariants();
     assert!(run.result.is_ok(), "{:?}", run.result);
     // Ten chunks were accepted while every metadata write was blocked.
     assert!(run.seen.chunks.iter().filter(|c| c.accepted).count() >= 10);
-    let stopped = run.fired_at(Act::Sigterm);
-    let shutdown_ms = (run.finished_us - stopped) / 1_000;
+    let stopped = run.seen.sigterm_sent_at.expect("SIGTERM was sent");
+    let shutdown_ms = run.reaped_at.duration_since(stopped).as_millis();
     let finishing = Instant::now();
-    let report = trace.finish_logging().expect("service metadata report");
+    let report = metadata
+        .trace
+        .finish_logging()
+        .expect("service metadata report");
     let finish_wait = finishing.elapsed();
-    release.send(()).unwrap();
-    eprintln!("sigterm to reaped {shutdown_ms} ms; metadata finish {finish_wait:?}; {report:?}");
+    let cleanup = metadata.release_and_finish();
+    assert!(cleanup.acknowledged, "{cleanup:?}");
+    assert_eq!(report.written_events, 0, "metadata was blocked throughout");
+    eprintln!(
+        "real SIGTERM-send to all children reaped {shutdown_ms} ms; real metadata finish {finish_wait:?}; {report:?}"
+    );
     assert!(
         !report.acknowledged && report.finish_attempted,
         "{report:?}"
@@ -1909,7 +2374,8 @@ fn speaker_progress_is_due_strictly_after_lease_plus_report_age() {
     );
 }
 
-// Further speaker controls through the same fixture, thresholds unchanged.
+// Further speaker policy controls in scenario time, thresholds unchanged.
+// Each run still measures real cleanup wall time and proves actual child reap.
 
 fn stall_end(run: &Run, act: Act) -> (String, u64) {
     let error = run.result.as_ref().unwrap_err().to_string();
@@ -1921,13 +2387,12 @@ fn stall_end(run: &Run, act: Act) -> (String, u64) {
 #[test]
 fn partial_write_then_stall_is_bounded_under_v1_baseline() {
     let _one = one_session();
-    let run =
-        run(Script::question(Answer::Complete(40))
-            .then(When::Accepted(3), Act::StallSpeakerPartial));
+    let run = run(Script::question(Fixture::Stepped, Answer::Complete(40))
+        .then(When::Accepted(3), Act::StallSpeakerPartial));
     run.assert_invariants();
     assert_eq!(run.outcomes()[&first(&run)], ["runtime_failed"]);
     let (error, after_ms) = stall_end(&run, Act::StallSpeakerPartial);
-    eprintln!("partial stall: {error}; {after_ms} ms");
+    eprintln!("scenario partial stall: {error}; {after_ms} ms");
     assert!(error.contains("speaker write evidence expired"), "{error}");
     assert!((190..=300).contains(&after_ms), "{after_ms} ms");
 }
@@ -1937,13 +2402,13 @@ fn partial_write_then_stall_is_bounded_under_vad_only() {
     let _one = one_session();
     let run = run(Script {
         turn_taking: TurnTaking::VadOnly,
-        ..Script::question(Answer::Complete(40))
+        ..Script::question(Fixture::Stepped, Answer::Complete(40))
     }
     .then(When::Accepted(3), Act::StallSpeakerPartial));
     run.assert_invariants();
     assert_eq!(run.outcomes()[&first(&run)], ["runtime_failed"]);
     let (error, after_ms) = stall_end(&run, Act::StallSpeakerPartial);
-    eprintln!("partial stall: {error}; {after_ms} ms");
+    eprintln!("scenario partial stall: {error}; {after_ms} ms");
     assert!(error.contains("speaker acknowledgment expired"), "{error}");
     assert!((190..=300).contains(&after_ms), "{after_ms} ms");
 }
@@ -1951,14 +2416,13 @@ fn partial_write_then_stall_is_bounded_under_vad_only() {
 #[test]
 fn control_progress_without_settlement_is_bounded_under_v1_baseline() {
     let _one = one_session();
-    let run =
-        run(Script::question(Answer::Complete(40))
-            .then(When::Accepted(3), Act::StallSpeakerInstalling));
+    let run = run(Script::question(Fixture::Stepped, Answer::Complete(40))
+        .then(When::Accepted(3), Act::StallSpeakerInstalling));
     // The installing speaker must have seen the turn revoked.
     run.assert_invariants();
     assert_eq!(run.outcomes()[&first(&run)], ["runtime_failed"]);
     let (error, after_ms) = stall_end(&run, Act::StallSpeakerInstalling);
-    eprintln!("installing stall: {error}; {after_ms} ms");
+    eprintln!("scenario installing stall: {error}; {after_ms} ms");
     assert!(error.contains("speaker write evidence expired"), "{error}");
     assert!((190..=300).contains(&after_ms), "{after_ms} ms");
     assert!(run.revoked_at(first(&run)).is_some());
@@ -1969,13 +2433,13 @@ fn control_progress_without_settlement_is_bounded_under_vad_only() {
     let _one = one_session();
     let run = run(Script {
         turn_taking: TurnTaking::VadOnly,
-        ..Script::question(Answer::Complete(40))
+        ..Script::question(Fixture::Stepped, Answer::Complete(40))
     }
     .then(When::Accepted(3), Act::StallSpeakerInstalling));
     run.assert_invariants();
     assert_eq!(run.outcomes()[&first(&run)], ["runtime_failed"]);
     let (error, after_ms) = stall_end(&run, Act::StallSpeakerInstalling);
-    eprintln!("installing stall: {error}; {after_ms} ms");
+    eprintln!("scenario installing stall: {error}; {after_ms} ms");
     assert!(error.contains("speaker acknowledgment expired"), "{error}");
     assert!((190..=300).contains(&after_ms), "{after_ms} ms");
     assert!(run.revoked_at(first(&run)).is_some());
@@ -1986,7 +2450,7 @@ fn duplex_control_answers_once() {
     let _one = one_session();
     let run = run(Script {
         turn_taking: TurnTaking::Duplex,
-        ..Script::question(Answer::Complete(12))
+        ..Script::question(Fixture::Stepped, Answer::Complete(12))
     });
     run.assert_invariants();
     assert!(is_mute(&run.result), "{:?}", run.result);
@@ -2004,13 +2468,13 @@ fn duplex_stalled_speaker_is_bounded() {
     let _one = one_session();
     let run = run(Script {
         turn_taking: TurnTaking::Duplex,
-        ..Script::question(Answer::Complete(40))
+        ..Script::question(Fixture::Stepped, Answer::Complete(40))
     }
     .then(When::Accepted(3), Act::StallSpeakerInstalling));
     run.assert_invariants();
     assert_eq!(run.outcomes()[&first(&run)], ["runtime_failed"]);
     let (error, after_ms) = stall_end(&run, Act::StallSpeakerInstalling);
-    eprintln!("duplex installing stall: {error}; {after_ms} ms");
+    eprintln!("scenario duplex installing stall: {error}; {after_ms} ms");
     // Duplex keeps V1-baseline's playback mask, so its lease reports first.
     assert!(error.contains("speaker write evidence expired"), "{error}");
     assert!((190..=300).contains(&after_ms), "{after_ms} ms");

@@ -1,5 +1,54 @@
 # Tests work log
 
+## 2026-10-15 21:44 +0700 — #783 follow-up ready; #823 clock work continues
+
+Ready for lamp-voice: yes (#850, #852)
+
+- #839's Health/Memory log barriers and #843's dispatch transport cleanup
+  are merged by the reviewer. Original assertions are retained.
+- #843 exact head `a25450bd742cca4108920d1dff5bc5fc9e7a6c4e` also passed
+  the existing full-profile ARM64 run `38737583302`: 4,633 unique executed
+  identities, comprising 4,631 PASS and two LEAK statuses. All 123 frozen
+  identities are present, totaling 848.449 s; this is a sum across four
+  shards, not serial suite wall time or a controlled aggregate speedup.
+  All 13 final-dispatch cases passed, totaling 5.226 s. The paired local
+  release comparison remains 29.938 s to 6.487 s.
+- The full run's two leak warnings are endpoint-session loading and
+  unconfirmed-endpoint-exit cases; root is checking existing reports and
+  recording the original warnings separately. Green does not erase them.
+- #850, head `21c9b55b8f742e5b46f250584eaa4d3f65ca5fe2`, is ready:
+  ARM64 `38741600267` passed 4,585 tests with 118 existing profile skips;
+  all 11 Bus CLI cases ran. The original failed run compiled no tests
+  because of three upstream Start fields; rebasing onto merged #851 fixed
+  that source error. Bus source/evidence did not change during rebase.
+  Fmt, strict clippy, 66 Bus tests, Voice test compilation and workspace
+  build passed on the rebased source. #846 and #783 have the full report.
+- #852, head `fef1377efc3f22573e379f5024f5b06aad875411`, is ready:
+  ARM64 `38739080219` passed 4,586 tests with 118 existing profile skips.
+  All three new relay clock tests ran. Local fmt, strict clippy, all 287
+  evaluator tests and workspace build passed. This preserves the default
+  system clock and adds an explicit clock API; no existing speedup claimed.
+- Capacity fixture: unchanged 20-second/500-packet/5-second-buffer/4-second
+  hold assertions pass with paused Tokio time: 24.049 s to 0.516 s in the
+  paired release run. All three affected packages and workspace build
+  passed locally. It is uncommitted, rebased onto `71a15e75d`; final gates
+  are now running on that newer integration code.
+- The backend/player explicit clock API is uncommitted. Independent source
+  review found no blocker, existing 27 clock-related unit identities remain,
+  and all 32 focused tests passed. Full evaluator/workspace gates are now
+  running after rebasing onto `a583fda28`. No stepped scenario or speedup is
+  claimed for this seam.
+- #832 remains draft on #838's separate policy name-context failure. #837's
+  normal-exit stderr loss is still open; #839 does not fix it. The eighth
+  retains policy loaded qualification and #783's close decision.
+- The approval service briefly refused a rebase-cleanup command because of
+  its usage limit; it executed no action. Review succeeded after the user
+  resumed work. An inactive owned dispatch build cache is being cleaned to
+  make room for the two current gates; source and raw evidence stay intact.
+
+No lamp, workflow, runner, profile or repository setting was changed.
+The under-two-minute complete-group target remains open.
+
 ## 2026-10-15 19:15 +0700 — #783 sweep ready
 
 Ready for lamp-voice: yes (#839)

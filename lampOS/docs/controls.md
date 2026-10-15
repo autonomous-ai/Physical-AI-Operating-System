@@ -271,9 +271,13 @@ First's on-lamp sequence is:
       of step 3, the charge current and time the chip chose, and how often the
       old thresholds counted a touch in step 3. It also gives the **footprint**:
       how many working pads were lit at once while a pad was touched, as the
-      chip said with the profile's thresholds and as the same readings stand
-      against the new ones. The base's Touch and Sleep need three pads at once,
-      so a new footprint of one or two means those gestures would not qualify.
+      chip said with the profile's thresholds, and as the same readings replay
+      with the new ones: a pad lights after the profile's touch debounce above
+      its touch threshold and stays lit until as many readings below its
+      release threshold. The replay uses the deltas as read; the chip may
+      compare up to 3 more (baseline bits it does not show) and samples between
+      readings, so it shows the likely footprint, not the chip's. The base's
+      Touch and Sleep need three pads at once.
 
    `--record FILE` keeps the session's readings (a new private file);
    `--replay FILE` computes the report and the pins file from kept readings,

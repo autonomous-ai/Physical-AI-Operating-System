@@ -555,14 +555,50 @@ fn a_neighbours_touch_is_coupling_not_a_swipe() {
     }
     assert!(report.all_ok());
     // With the old thresholds the chip lit the pad and its two neighbours
-    // (three at once, as the base's touch needs); the new thresholds sit above
-    // the coupling, so the same readings light one pad.
-    let readings: u64 = report.footprint_new.iter().sum();
+    // (three at once, as the base's touch needs); the new release threshold
+    // (8) is above the coupling (7), so the same readings never light two.
     assert_eq!(
-        report.footprint_new[1], readings,
+        report.footprint_new[2..],
+        [0; 4],
         "{:?}",
         report.footprint_new
     );
+    assert!(
+        report.footprint_new[1] > 2_900,
+        "{:?}",
+        report.footprint_new
+    );
+}
+
+/// The reviewer's case on #797: each pad swiped alone at 30 (touch 13,
+/// release 8), then a finger held on E0, E1 and E2 in turn, one second each,
+/// with the pads it left at 9: under the touch threshold, above the release.
+fn stacked(t: u64) -> [i32; 12] {
+    let mut deltas = [0; 12];
+    if t >= 22 * S {
+        let order = [0, 1, 2, 3, 5, 6, 7, 9, 10, 11];
+        match ((t - 22 * S) / S) as usize {
+            second @ 0..10 => deltas[order[second]] = 30,
+            10 => deltas[0] = 30,
+            11 => deltas[..2].copy_from_slice(&[9, 30]),
+            12 => deltas[..3].copy_from_slice(&[9, 9, 30]),
+            _ => {}
+        }
+    }
+    deltas
+}
+
+#[test]
+fn the_new_footprint_keeps_a_pad_lit_until_it_falls_below_its_release() {
+    let (report, _) = run(stacked, None).unwrap();
+    assert!(report.all_ok());
+    for pad in &report.pads {
+        assert_eq!((pad.touch_threshold, pad.release_threshold), (13, 8));
+    }
+    // A pad left at 9 is still lit: two pads through E1's second, three
+    // through E2's, not one each time as single crossings would say.
+    let [_, _, two, three, ..] = report.footprint_new;
+    assert!(two >= 95 && three >= 95, "{:?}", report.footprint_new);
 }
 
 #[test]
@@ -572,6 +608,10 @@ fn the_own_level_ignores_a_swipe_that_only_grazed_the_pad() {
     assert_eq!(own_level(&[30]), Some(30));
     // 9 is under half of 33: a graze, not the level.
     assert_eq!(own_level(&[33, 9, 27, 30]), Some(27));
+    // So is 16, which rounding half of 33 down would let in; 17 is not.
+    assert_eq!(own_level(&[33, 16, 27, 30]), Some(27));
+    assert_eq!(own_level(&[33, 17, 27]), Some(17));
+    assert_eq!(own_level(&[1, 0]), Some(1));
     assert_eq!(own_level(&[17, 9, 10]), Some(9));
 }
 

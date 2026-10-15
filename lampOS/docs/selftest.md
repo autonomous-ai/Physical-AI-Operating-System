@@ -54,7 +54,13 @@ owner already has.
 | storage | (none) | `/dev/kmsg`, read to its end: no SD/MMC re-tune that timed out ("dma hold bit clear timeout", #784) and no I/O error on `mmcblk` since boot, each counted; unreadable (no `CAP_SYSLOG` under `dmesg_restrict`) is `not_checked` | done |
 
 A reading never given is `not_checked` (its owner may not run on this
-lamp); one older than its freshness, or unreadable, is `fail`. Each joint
+lamp); one older than its freshness, or unreadable, is `fail`. A topic
+never given a reading is not the end of it: the air, the room microphone
+and the joints then ask their owner's item in `lamp/health` (`air`,
+`ears`, `body`), and the owner's own warning fails the part with its words
+(lamp-4ace, 2026-10-16: `lamp-air` alive since a power cut and no reading
+yet). Touch with no `controls/touch_state` but a fresh `controls/state` is
+`not_checked`, "not enabled": Controls runs without `--touch`. Each joint
 of the five is its own part. Run it with
 
 ```sh
@@ -70,6 +76,15 @@ hand without it, storage is `not_checked`.
 Exit status: 0 every part passed or is not fitted, 1 a part failed, 3 a
 part could not be checked, 2 the arguments were wrong.
 
-## Not shown yet
+## Shown on lamps
 
-No check has run on a lamp. The first builder runs it on lamp-4ace.
+- **lamp-75c9**, 2026-10-16, V1 runtime only, an empty bus: every part
+  `not_checked` with its reason, exit 3, 2.0 s, nothing lit or moved
+  ([evidence](verification/selftest-lamp-75c9-20261016/)).
+- **lamp-4ace**, 2026-10-16 01:14, by the first builder, on its bus with
+  sudo (#812): both microphones, board, camera, the five joints and the ring
+  (ten colours seen, the light put back) pass; storage fails on a real
+  fault, 9 SD/MMC re-tunes timed out since boot, as `dmesg` agrees; air and
+  touch were `not_checked` for the two reasons mended above.
+
+The speaker's tone and the servos' small move are not built yet.

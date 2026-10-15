@@ -998,8 +998,9 @@ through them as they are.
   was in conversation and whether its name was heard, the kinds of what was
   heard (`words`, `names_lamp`, `other_language`), what was chosen on the
   day, what should have happened if labelled, and each model's choice,
-  probability, time (`took_ms`) and name as its service gave it, or why it
-  failed.
+  probability, time (`took_ms`), name as its service gave it and seven
+  answers (numbers, by the question's name, for fitting the weights to a
+  model they were not fitted to), or why it failed.
 - **The summary,** for each model: how many it answered and how fast
   (`took_ms` p50, p95, most), what it chose, how often its choice was the
   logged one, and how often it did what should have happened: over all, for

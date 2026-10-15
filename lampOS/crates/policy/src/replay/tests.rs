@@ -138,10 +138,13 @@ fn each_model_is_asked_what_was_sent_and_chooses_by_the_same_weights() {
             by,
             choice,
             took_ms,
+            answers,
             ..
         } => {
             assert_eq!(by, "typesafe/jev-1.14-20261014");
             assert_eq!(took_ms, 410);
+            assert_eq!(answers.len(), 7);
+            assert!(answers.values().all(|yes| *yes == 0.95));
             let answers = attention::Answers::of(
                 &attention::questions()
                     .into_iter()
@@ -181,6 +184,7 @@ fn a_line_holds_no_words() {
                     choice: "stay_quiet".into(),
                     probability: 0.26043,
                     took_ms: 531,
+                    answers: [("calls_lamp".to_owned(), 0.05)].into(),
                 },
             ),
             ("typesafe/jev-1.14".into(), Replayed::Failed("timed_out")),
@@ -193,6 +197,7 @@ fn a_line_holds_no_words() {
     assert_eq!(line["should"], "stay_quiet");
     assert_eq!(line["other_language"], true);
     assert_eq!(line["judges"][0]["probability"], 0.2604);
+    assert_eq!(line["judges"][0]["answers"], json!({"calls_lamp": 0.05}));
     assert_eq!(line["judges"][1]["failed"], "timed_out");
     assert_eq!(line["name_heard"], Value::Null);
 }
@@ -208,6 +213,7 @@ fn the_summary_counts_each_model_and_each_two_alike() {
         choice: choice.into(),
         probability: 0.5,
         took_ms,
+        answers: BTreeMap::new(),
     };
     let lines = [
         // A named request in a busy room: the old model left it, the new answered.
@@ -282,6 +288,7 @@ fn an_earlier_run_is_counted_again_with_labels() {
         choice: choice.into(),
         probability: 0.5,
         took_ms: 100,
+        answers: BTreeMap::new(),
     };
     let lines = [
         line(

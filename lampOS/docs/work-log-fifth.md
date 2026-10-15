@@ -433,6 +433,18 @@ Ready for lamp-voice: yes (fifth-P7)
   builder's own `fifth.md` was made (fifth-P5). So the sixth and seventh
   builders (#754, #733) need only "you are sixth" from their person.
 
+## 2026-10-15 — whole-lamp (#702) — a real unplug on lamp-52e6
+
+Ready for lamp-voice: yes (#745)
+
+- The plug pulled and put back by the person at 07:44–07:51. The lamp came
+  back by itself: keeper ready, every part active by 19.6 s, voice
+  listening at 36.5 s, body standing at 54.9 s on its second start (the
+  first ended at 19.5 s on servos not yet answering; mended in a separate
+  pull request). Readings in
+  `docs/verification/whole-lamp-lamp-52e6-20261015/README.md`, "The
+  unplug", on `fifth/whole-lamp`, `9fb0ab8bf`.
+
 ## 2026-10-14 — mouth-moving (task 39, #720) — whether a face's mouth moves
 
 Ready for lamp-voice: no (the recordings with a person are not done; draft pull request)
@@ -508,3 +520,4 @@ for its owner, not mended here.
   between permitted spells (journal from 18:00), then open again.
 - 2026-10-15, lamp-52e6: `lamp-air` cannot read its sensor ("word 0 fails its CRC", once "command 0xd014: Invalid argument"), though `i2cdetect -y 0` shows it at 0x6b. Seen in `journalctl -u lamp-air`.
 - 2026-10-15, lamp-52e6: `lamp-expression` warns "waiting for light setting, fresh room state" with every part running.
+- 2026-10-15, lamp-52e6, after a power cut: `lamp-voice` restarts three times before it listens (36.5 s): exit 1 at 19.8 s, "Connection refused (os error 111)" from its provider at 24.7 s, "snd_pcm_open failed with errno 16" at 31.0 s. Told on #702.

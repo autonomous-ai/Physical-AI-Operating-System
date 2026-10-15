@@ -60,8 +60,9 @@ pub const MAX_ROUNDS: usize = 4;
 /// The tool whose call means the words were not for the lamp.
 const NOT_FOR_ME: &str = "not_for_me";
 /// Microphone packets (10 ms each) held while speech-to-text connects:
-/// 15 s, more than its 10 s connect bound.
-const AUDIO_QUEUE: usize = 1_500;
+/// 30 s, more than its 10 s connect bound and as much as the coordinator
+/// replays at once when a line moves to this route (`coordinator/second.rs`).
+const AUDIO_QUEUE: usize = 3_000;
 /// Output events waiting for the worker loop; the rest wait in their task.
 const OUTPUT_QUEUE: usize = 4;
 /// Sentences queued ahead of the one being said.

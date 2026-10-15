@@ -9,6 +9,9 @@ const ABBREVIATIONS: &[&str] = &[
     "mr", "mrs", "ms", "dr", "st", "jr", "sr", "vs", "etc", "prof",
 ];
 
+/// The fewest words a first clause is said on its own with.
+pub const CLAUSE_WORDS: usize = 4;
+
 #[derive(Debug, Default)]
 pub struct Sentences {
     text: String,
@@ -42,6 +45,28 @@ impl Sentences {
         done
     }
 
+    /// The words written so far up to a comma, semicolon or colon, if at
+    /// least [`CLAUSE_WORDS`] words come before it: for an answer's first
+    /// words, so speech starts before the first sentence is finished.
+    pub fn clause(&mut self) -> Option<String> {
+        let mut words = 0;
+        let mut chars = self.text.char_indices().peekable();
+        while let Some((at, c)) = chars.next() {
+            if c.is_whitespace() {
+                words += 1;
+            }
+            let Some(&(next_at, next)) = chars.peek() else {
+                break;
+            };
+            if matches!(c, ',' | ';' | ':') && next.is_whitespace() && words + 1 >= CLAUSE_WORDS {
+                let clause = self.text[..=at].trim().to_owned();
+                self.text.drain(..next_at);
+                return Some(clause);
+            }
+        }
+        None
+    }
+
     /// Whatever is left when the text ends.
     pub fn finish(&mut self) -> Option<String> {
         let rest = std::mem::take(&mut self.text);
@@ -69,6 +94,19 @@ mod tests {
         let mut out: Vec<String> = pieces.iter().flat_map(|p| sentences.push(p)).collect();
         out.extend(sentences.finish());
         out
+    }
+
+    #[test]
+    fn a_first_clause_of_four_words_is_cut_at_its_comma() {
+        let mut sentences = Sentences::default();
+        assert!(sentences.push("Well, ").is_empty());
+        assert_eq!(sentences.clause(), None);
+        sentences.push("it is about nine million, give or take");
+        assert_eq!(
+            sentences.clause().as_deref(),
+            Some("Well, it is about nine million,")
+        );
+        assert_eq!(sentences.finish().as_deref(), Some("give or take"));
     }
 
     #[test]

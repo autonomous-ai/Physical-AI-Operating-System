@@ -192,7 +192,17 @@ journal did not take them"). A line already begun is always finished.
 Before a process ends, and after a panic's message, it waits up to half a
 second for its last lines to go. "Gone" means written or held: the relay
 marks itself busy before each read, so an empty pipe whose bytes it has
-taken but not yet written does not count as done (#837). `std::process::exit`
+taken but not yet written does not count as done (#837). Tests pin that
+window (#886): `log_relay`'s `finish_waits_for_words_read_from_the_pipe_and_not_yet_written`
+and `finish_waits_for_the_usage_line_held_after_the_error_line_went` stop the
+relay, through a test-only hook, just after its read and just after the
+error line, with the writer still open, and require `finish` not to say done
+until it goes on, then the exact error and usage lines. Both fail without the
+busy mark. `finish_is_bounded_by_a_full_journal_and_freed_by_a_broken_one`
+keeps the bounds, and `tests/relay_exit.rs` checks 200 normal exits of a real
+child for exactly its two lines. Run: `cargo test -p lamp-ipc` (23 passed on
+2026-10-16; ARM64 run 38785245580). They show the window is closed, not that
+it caused each earlier lost line. `std::process::exit`
 runs no destructor, so a part that exits that way calls
 `lamp_ipc::log_relay::finish` first (tasks, schedule and voice do): tasks
 lost its `bad_request` refusal on the loaded ARM64 runner without it (#876).

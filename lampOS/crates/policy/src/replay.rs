@@ -489,11 +489,18 @@ fn assign(lines: &[Value], labels: &BTreeMap<u64, Should>) -> (Vec<Option<Should
 }
 
 /// The counts over the picture lines, with no words: how often a frame was
-/// sent and why not; for the asking without the picture and with it, how
-/// often each answered, how fast and how often it did what should have
+/// sent, whether the service answered a request with it or that is not
+/// known, how often the asking was withdrawn after one went, and why none
+/// was sent; for the asking without the picture and with it, how often each
+/// answered and failed, how fast, and how often it did what should have
 /// happened; and for each picture question, and for the eyes' own count of
 /// faces turned to the lamp, how often its yes would have been right. The
 /// labels are matched by [`assign`].
+///
+/// Both askings are counted right on the same lines: a frame sent and both
+/// chose. A line where either made no choice is in neither's right; why is
+/// in that asking's `failed` (the reviewer on #873): one side is never counted on
+/// lines the other is not.
 pub fn pictures_summary(lines: &[Value], labels: &BTreeMap<u64, Should>) -> Value {
     let (assigned, matching) = assign(lines, labels);
     let mut why_not = BTreeMap::new();
@@ -507,24 +514,47 @@ pub fn pictures_summary(lines: &[Value], labels: &BTreeMap<u64, Should>) -> Valu
         .zip(assigned.iter().copied())
         .filter(|(line, _)| line["picture"]["sent"] == true)
         .collect();
+    let mut delivery = BTreeMap::new();
+    for (line, _) in &sent {
+        if let Some(how) = line["picture"]["delivery"].as_str() {
+            *delivery.entry(how.to_owned()).or_insert(0_u64) += 1;
+        }
+    }
+    let withdrawn_after_sending = sent
+        .iter()
+        .filter(|(line, _)| line["picture"]["withdrawn"] == true)
+        .count();
+    // Labelled lines where both chose: what each is counted right on.
+    let compared: Vec<(Should, &Value)> = sent
+        .iter()
+        .filter_map(|(line, should)| Some(((*should)?, *line)))
+        .filter(|(_, line)| {
+            line["without"]["choice"].is_string() && line["with"]["choice"].is_string()
+        })
+        .collect();
     let asking = |which: &str| {
         let mut took: Vec<u64> = sent
             .iter()
             .filter_map(|(line, _)| line[which]["took_ms"].as_u64())
             .collect();
         took.sort_unstable();
-        let labelled: Vec<(Should, &str)> = sent
+        let mut failed = BTreeMap::new();
+        for (line, _) in &sent {
+            if let Some(kind) = line[which]["failed"].as_str() {
+                *failed.entry(kind.to_owned()).or_insert(0_u64) += 1;
+            }
+        }
+        let right = compared
             .iter()
-            .filter_map(|(line, should)| Some(((*should)?, line[which]["choice"].as_str()?)))
-            .collect();
-        let right = labelled
-            .iter()
-            .filter(|(should, choice)| should.met_by(choice))
+            .filter(|(should, line)| {
+                should.met_by(line[which]["choice"].as_str().unwrap_or_default())
+            })
             .count();
         json!({
             "answered": took.len(),
+            "failed": failed,
             "took_ms": {"p50": percentile(&took, 50), "p95": percentile(&took, 95), "max": took.last()},
-            "right": {"labelled": labelled.len(), "right": right},
+            "right": {"labelled": compared.len(), "right": right},
         })
     };
     // A sign is right when its yes goes with `yes_means`.
@@ -557,6 +587,8 @@ pub fn pictures_summary(lines: &[Value], labels: &BTreeMap<u64, Should>) -> Valu
         "status": "pictures_summary",
         "questions": lines.len(),
         "picture_sent": sent.len(),
+        "delivery": delivery,
+        "withdrawn_after_sending": withdrawn_after_sending,
         "why_not": why_not,
         "without": asking("without"),
         "with": asking("with"),

@@ -604,21 +604,69 @@ fn chunked<S: Read>(stream: &mut S, mut held: Vec<u8>) -> Result<(Vec<u8>, bool)
 
 /// How an exchange on a connection went wrong.
 enum Lost {
-    /// Before a byte of an answer came: the request could not be sent, or
-    /// the other end had closed. On a connection kept from an earlier
-    /// asking that is the ordinary end of its life, not a failure.
+    /// The request could not be written whole: `written` of its bytes were
+    /// taken by the connection before it failed.
+    Unsent {
+        failed: Failed,
+        written: usize,
+    },
+    /// Written whole, and the other end closed before a byte of an answer
+    /// came. On a connection kept from an earlier asking that, like the
+    /// above, is the ordinary end of its life, not a failure.
     Unanswered(Failed),
     Failed(Failed),
+}
+
+/// What became of one request as it was written (#871, the reviewer on
+/// #873), told by [`Jev::ask_with_pictures`] after each try: so that a
+/// request with a picture that went and was not answered is never taken
+/// for one that never went.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Delivery {
+    /// Not written whole: this many of its bytes were taken by the
+    /// connection before it failed, none if 0.
+    Partly(usize),
+    /// Written whole, and the connection ended with no answer: whether it
+    /// arrived is not known.
+    Uncertain,
+    /// An answer to it came, whole or not: it arrived.
+    Answered,
+}
+
+impl Delivery {
+    fn of<T>(talked: &Result<T, Lost>) -> Self {
+        match talked {
+            Ok(_) | Err(Lost::Failed(_)) => Self::Answered,
+            Err(Lost::Unanswered(_)) => Self::Uncertain,
+            Err(Lost::Unsent { written, .. }) => Self::Partly(*written),
+        }
+    }
+
+    /// Whether any of the request left this side.
+    pub fn went(self) -> bool {
+        self != Self::Partly(0)
+    }
 }
 
 /// Send the request and read the answer's body. The second value says
 /// whether the connection is at the start of whatever comes next and the
 /// other end has not said it will close.
 fn talk<S: Read + Write>(stream: &mut S, request: &[u8]) -> Result<(Vec<u8>, bool), Lost> {
-    stream
-        .write_all(request)
-        .and_then(|()| stream.flush())
-        .map_err(|error| Lost::Unanswered(failed(SENDING, &error)))?;
+    // As `write_all`, counting what was taken before a failure.
+    let mut written = 0;
+    let unsent = |error: &io::Error, written| Lost::Unsent {
+        failed: failed(SENDING, error),
+        written,
+    };
+    while written < request.len() {
+        match stream.write(&request[written..]) {
+            Ok(0) => return Err(unsent(&io::ErrorKind::WriteZero.into(), written)),
+            Ok(taken) => written += taken,
+            Err(error) if error.kind() == io::ErrorKind::Interrupted => {}
+            Err(error) => return Err(unsent(&error, written)),
+        }
+    }
+    stream.flush().map_err(|error| unsent(&error, written))?;
     let mut held = Vec::with_capacity(4096);
     let (start, framing, closing) = loop {
         if let Some(found) = head(&held).map_err(Lost::Failed)? {
@@ -976,9 +1024,11 @@ impl Jev {
     /// the connection kept from the last asking if there is one. A kept
     /// connection that turns out to have ended before a byte of an answer
     /// came is replaced once: the request has no effect to repeat.
+    /// `told` hears what became of each request written ([`Delivery`]).
     fn exchange(
         &mut self,
         make: &dyn Fn() -> Result<Vec<u8>, Failed>,
+        told: &dyn Fn(Delivery),
         until: Instant,
     ) -> Result<(Vec<u8>, Connection), Failed> {
         let mut on = Connection::New;
@@ -989,7 +1039,9 @@ impl Jev {
             // Made at the last moment before anything is written.
             let request = make()?;
             on = Connection::Replaced;
-            match line.talk(&request) {
+            let talked = line.talk(&request);
+            told(Delivery::of(&talked));
+            match talked {
                 Ok((body, again)) => {
                     if again {
                         let there_until = Instant::now() + self.keeping.answered;
@@ -1000,15 +1052,21 @@ impl Jev {
                 // It had ended, which is how a kept connection's life
                 // ordinarily ends. With no time left there is nothing to
                 // try again with, and what it failed of is the failure.
-                Err(Lost::Unanswered(failed)) if Instant::now() >= until => return Err(failed),
-                Err(Lost::Unanswered(_)) => {}
+                Err(Lost::Unanswered(failed) | Lost::Unsent { failed, .. })
+                    if Instant::now() >= until =>
+                {
+                    return Err(failed);
+                }
+                Err(Lost::Unanswered(_) | Lost::Unsent { .. }) => {}
                 Err(Lost::Failed(failed)) => return Err(failed),
             }
         }
         let mut line = self.open(until)?;
         // After the looking up and the connecting, however long they took.
         let request = make()?;
-        match line.talk(&request) {
+        let talked = line.talk(&request);
+        told(Delivery::of(&talked));
+        match talked {
             Ok((body, again)) => {
                 if again {
                     let there_until = Instant::now() + self.keeping.answered;
@@ -1016,7 +1074,9 @@ impl Jev {
                 }
                 Ok((body, on))
             }
-            Err(Lost::Unanswered(failed) | Lost::Failed(failed)) => Err(failed),
+            Err(Lost::Unanswered(failed) | Lost::Unsent { failed, .. } | Lost::Failed(failed)) => {
+                Err(failed)
+            }
         }
     }
 
@@ -1081,13 +1141,16 @@ impl Jev {
     /// `take` gives then, never something it gave before a slow connection
     /// (the reviewer on #873). If it fails, nothing is written and the asking
     /// has failed as it says ([`Failed::Withdrawn`] for a picture no longer
-    /// permitted).
+    /// permitted). `told` hears, after each request `take` gave pictures
+    /// for, what became of it: so a request that went, and was not
+    /// answered, before one withdrawn is known to have gone.
     pub fn ask_with_pictures(
         &mut self,
         state: &str,
         questions: &[(String, Question)],
         deadline: Duration,
         take: &dyn Fn() -> Result<Vec<Picture>, Failed>,
+        told: &dyn Fn(Delivery),
     ) -> Result<Asked, Failed> {
         let started = Instant::now();
         let request = self.request_maker();
@@ -1099,7 +1162,7 @@ impl Jev {
                 !pictures.is_empty(),
             ))
         };
-        self.answered(&make, questions, started, deadline)
+        self.answered(&make, told, questions, started, deadline)
     }
 
     /// What puts a request together from its body, with the images header
@@ -1135,11 +1198,12 @@ impl Jev {
     fn answered(
         &mut self,
         make: &dyn Fn() -> Result<Vec<u8>, Failed>,
+        told: &dyn Fn(Delivery),
         questions: &[(String, Question)],
         started: Instant,
         deadline: Duration,
     ) -> Result<Asked, Failed> {
-        let (answer, connection) = self.exchange(make, started + deadline)?;
+        let (answer, connection) = self.exchange(make, told, started + deadline)?;
         let answered = answers(&answer, questions)?;
         Ok(Asked {
             answers: answered.answers,
@@ -1162,7 +1226,13 @@ impl Decider for Jev {
     ) -> Result<Asked, Failed> {
         let started = Instant::now();
         let request = self.request_maker()(&body(&self.model, state, questions, &[]), false);
-        self.answered(&|| Ok(request.clone()), questions, started, deadline)
+        self.answered(
+            &|| Ok(request.clone()),
+            &|_| {},
+            questions,
+            started,
+            deadline,
+        )
     }
 
     fn ready(&mut self, within: Duration) {

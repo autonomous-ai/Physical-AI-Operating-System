@@ -15,7 +15,7 @@
 //! its size and its age, or why none was.
 use crate::{
     attention::{self, Context},
-    decide::{Asked, Failed, Jev, Picture},
+    decide::{Asked, Delivery, Failed, Jev, Picture},
     policy::Seen,
     record::Record,
 };
@@ -265,16 +265,22 @@ pub fn ask_both(without: &mut Jev, with: &mut Jev, job: &Job, options: &Options)
     }
     let state = attention::state_text(&job.context);
     let pictured = attention::state_text_with_picture(&job.context, KEY);
-    // What was sent: the frame taken at the moment of writing.
-    let sent: RefCell<Option<Taken>> = RefCell::new(None);
+    // Each try at writing the request with the picture: the frame taken at
+    // the moment of writing, then what became of the request.
+    let tries: RefCell<Vec<(Taken, Option<Delivery>)>> = RefCell::new(Vec::new());
     let take = || -> Result<Vec<Picture>, Failed> {
         let taken = take_now(&options.sight_file).map_err(|_| Failed::Withdrawn)?;
         let picture = Picture {
             key: KEY.into(),
             jpeg: taken.jpeg.clone(),
         };
-        *sent.borrow_mut() = Some(taken);
+        tries.borrow_mut().push((taken, None));
         Ok(vec![picture])
+    };
+    let delivered = |delivery: Delivery| {
+        if let Some((_, told)) = tries.borrow_mut().last_mut() {
+            *told = Some(delivery);
+        }
     };
     let (plain, seen) = thread::scope(|scope| {
         let plain = scope.spawn(|| {
@@ -285,27 +291,68 @@ pub fn ask_both(without: &mut Jev, with: &mut Jev, job: &Job, options: &Options)
             &attention::questions_with_picture(),
             options.deadline,
             &take,
+            &delivered,
         );
         (plain.join().unwrap_or(Err(Failed::TimedOut)), seen)
     });
-    let picture = match (&seen, sent.into_inner()) {
-        (Err(Failed::Withdrawn), _) | (_, None) => {
-            // There was a frame when the utterance was asked about, and none
-            // that may go by the time the picture was to be written.
-            json!({"sent": false, "why_not": "withdrawn"})
-        }
-        (_, Some(taken)) => json!({
-            "sent": true, "bytes": taken.jpeg.len(), "eyes_bytes": taken.eyes_bytes,
-            "width": taken.size.0, "height": taken.size.1,
-            "age_ms": u64::try_from(taken.age.as_millis()).unwrap_or(u64::MAX),
-        }),
-    };
+    let picture = picture(&tries.into_inner(), &seen);
     line(
         job,
         picture,
         told(plain, &job.context, false),
         told(seen, &job.context, true),
     )
+}
+
+/// What the line says of the picture, from each try at writing it and how
+/// the asking ended (the reviewer on #873). `sent` is whether any of a
+/// request with a frame in it left the lamp, in any try, whatever came
+/// after: a request written and not answered was sent, though a later try
+/// was withdrawn. Then `delivery`: `answered` if the service answered one,
+/// else `uncertain`; and the last frame that went, its size and age; each
+/// try's `written` and `answered`; and `withdrawn` if the asking ended
+/// because no frame might go by then. With nothing sent, `why_not`:
+/// `withdrawn`, or `not_written` for a frame taken whose request did not
+/// go.
+fn picture(tries: &[(Taken, Option<Delivery>)], seen: &Result<Asked, Failed>) -> Value {
+    let withdrawn = matches!(seen, Err(Failed::Withdrawn));
+    let went: Vec<&(Taken, Option<Delivery>)> = tries
+        .iter()
+        // A try not told of is taken to have gone: it cannot be, since each
+        // request written is told of, and if it were, it is the safe side.
+        .filter(|(_, delivery)| delivery.is_none_or(Delivery::went))
+        .collect();
+    let Some((taken, _)) = went.last() else {
+        let why_not = if tries.is_empty() || withdrawn {
+            "withdrawn"
+        } else {
+            "not_written"
+        };
+        return json!({"sent": false, "why_not": why_not});
+    };
+    let answered = went
+        .iter()
+        .any(|(_, delivery)| *delivery == Some(Delivery::Answered));
+    let each: Vec<Value> = tries
+        .iter()
+        .map(|(_, delivery)| match delivery {
+            Some(Delivery::Answered) => json!({"written": "whole", "answered": true}),
+            Some(Delivery::Uncertain) => json!({"written": "whole", "answered": false}),
+            Some(Delivery::Partly(bytes)) => {
+                json!({"written": "part", "request_bytes_written": bytes, "answered": false})
+            }
+            None => json!({"written": "unknown", "answered": false}),
+        })
+        .collect();
+    json!({
+        "sent": true,
+        "delivery": if answered { "answered" } else { "uncertain" },
+        "bytes": taken.jpeg.len(), "eyes_bytes": taken.eyes_bytes,
+        "width": taken.size.0, "height": taken.size.1,
+        "age_ms": u64::try_from(taken.age.as_millis()).unwrap_or(u64::MAX),
+        "tries": each,
+        "withdrawn": withdrawn,
+    })
 }
 
 /// A frame taken to be sent: as TypeSafe takes it, its size, the eyes'

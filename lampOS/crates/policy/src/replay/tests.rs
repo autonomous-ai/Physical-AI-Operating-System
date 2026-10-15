@@ -381,6 +381,74 @@ fn the_picture_lines_are_counted_against_labels_by_the_nearest_moment() {
     );
 }
 
+/// The reviewer on #873: a picture that went counts as sent whatever came
+/// after, with how it was delivered and whether the asking was withdrawn
+/// after; and the two askings are counted right on the same lines, a line
+/// where either made no choice being in neither's right, with why in its
+/// `failed`.
+#[test]
+fn a_picture_that_went_is_counted_and_both_askings_are_counted_on_the_same_lines() {
+    let line = |at: u64, picture: Value, without: Value, with: Value| {
+        json!({"at_unix_ms": at, "about": "attention_picture", "picture": picture,
+               "without": without, "with": with})
+    };
+    let answered = json!({"sent": true, "delivery": "answered", "withdrawn": false});
+    let chose = |choice: &str| json!({"choice": choice, "took_ms": 500});
+    let lines = [
+        line(
+            10_000,
+            answered.clone(),
+            chose("stay_quiet"),
+            chose("answer"),
+        ),
+        // The picture went, its connection closed, and the next try was
+        // withdrawn: sent, and the picture's asking failed. The asking
+        // without the picture chose, but is not counted here either.
+        line(
+            20_000,
+            json!({"sent": true, "delivery": "uncertain", "withdrawn": true}),
+            chose("answer"),
+            json!({"failed": "withdrawn"}),
+        ),
+        // The asking without the picture failed: neither is counted.
+        line(
+            30_000,
+            answered.clone(),
+            json!({"failed": "timed_out"}),
+            chose("answer"),
+        ),
+        line(
+            40_000,
+            json!({"sent": false, "why_not": "not_written"}),
+            Value::Null,
+            json!({"failed": "unreachable"}),
+        ),
+    ];
+    let labels = labels(
+        "{\"at_unix_ms\": 10000, \"should\": \"answer\"}\n{\"at_unix_ms\": 20000, \"should\": \"answer\"}\n{\"at_unix_ms\": 30000, \"should\": \"answer\"}",
+    )
+    .unwrap();
+    let summary = pictures_summary(&lines, &labels);
+    assert_eq!(summary["picture_sent"], 3);
+    assert_eq!(summary["delivery"], json!({"answered": 2, "uncertain": 1}));
+    assert_eq!(summary["withdrawn_after_sending"], 1);
+    assert_eq!(summary["why_not"], json!({"not_written": 1}));
+    assert_eq!(
+        summary["without"]["right"],
+        json!({"labelled": 1, "right": 0})
+    );
+    assert_eq!(summary["with"]["right"], json!({"labelled": 1, "right": 1}));
+    assert_eq!(summary["with"]["failed"], json!({"withdrawn": 1}));
+    assert_eq!(summary["without"]["failed"], json!({"timed_out": 1}));
+    assert_eq!(
+        (
+            &summary["without"]["answered"],
+            &summary["with"]["answered"]
+        ),
+        (&json!(2), &json!(2))
+    );
+}
+
 /// The reviewer on #873: one label near two lines labels only the nearer,
 /// so a decision nobody labelled is not counted as labelled; a label nearer
 /// a line with no frame stays with that line; a label equally near two is

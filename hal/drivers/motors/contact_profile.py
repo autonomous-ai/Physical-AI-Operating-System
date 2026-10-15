@@ -33,14 +33,18 @@ PASSIVE_FALL_SHARE = 0.25
 PASSIVE_CEILING_LAG = 300
 # A contact pause nobody held through (no torque release) reads as a false stop: the
 # envelope there rises at once to where that sample would not have stopped it, at
-# most this many times a day per recording, and does not fall for PASSIVE_HOLD_S
-# after. On a capped joint a stop at its cap (within PASSIVE_CAP_SLACK, 0.1 %) means
-# its load says nothing in that recording: lamp-c0a4's elbow reaches its 60 % cap at
-# varying idle frames, and stopped idle every 5 s on a 41 % floor. Its whole channel
-# rises to the cap there, leaving that joint to its lag.
+# most this many times a day per recording, and those frames of that channel do not
+# fall for PASSIVE_HOLD_S after. Only them: on lamp-75c9 four early idle stops held
+# all five joints of idle near their fixed floors for a day. On a capped joint a stop
+# at its cap (within PASSIVE_CAP_SLACK, 0.1 %) means its load says nothing around
+# there: lamp-c0a4's elbow reaches its cap at idle frames that vary from run to run,
+# and stopped idle every 5 s on a 41 % floor. The channel then rises to the cap over
+# PASSIVE_CAP_FRAMES either side (1 s at 30 fps), leaving that stretch to its lag;
+# where the load stays clear of the cap, the learned floor still stops it.
 PASSIVE_LOOSEN_PER_DAY = 10
 PASSIVE_HOLD_S = 86400.0
 PASSIVE_CAP_SLACK = 10
+PASSIVE_CAP_FRAMES = 30
 # A passive update is saved at most this often; the runs themselves stay in RAM.
 PASSIVE_SAVE_S = 60.0
 
@@ -61,11 +65,19 @@ class ContactProfile:
         # What the envelope was learned under (the torque caps), saved beside it.
         self.signature = signature
         self._data: Dict[str, Dict[str, List[Optional[int]]]] = data or {}
+        # The highest value actually measured per frame (learn runs, clean passive runs),
+        # saved beside the envelope: the envelope never falls below it. Above it the
+        # envelope still holds a fixed floor it is falling from, or a false stop's raise.
+        self._measured: Dict[str, Dict[str, List[Optional[int]]]] = {}
         self._lock = threading.Lock()
 
     @property
     def signature_path(self) -> str:
         return self.path + ".signature"
+
+    @property
+    def measured_path(self) -> str:
+        return self.path + ".measured"
 
     @classmethod
     def load(
@@ -101,6 +113,13 @@ class ContactProfile:
             )
             profile._data = {}
             return profile
+        try:
+            with open(profile.measured_path) as f:
+                measured = json.load(f)
+            if isinstance(measured, dict):
+                profile._measured = measured
+        except (OSError, ValueError):
+            pass   # Older saves: every value is still free to fall to what is measured next.
         logger.info("[contact] load envelope from %s (%d recordings)", path, len(data))
         return profile
 
@@ -118,17 +137,28 @@ class ContactProfile:
     def learn(self, recording: str, frame: int, loads: Dict[str, int]) -> None:
         """Fold one free-run sample into the envelope (max per frame)."""
         with self._lock:
-            joints = self._data.setdefault(recording, {})
-            for joint, load in loads.items():
-                series = joints.setdefault(joint, [])
-                if len(series) <= frame:
-                    series.extend([None] * (frame + 1 - len(series)))
-                if series[frame] is None or load > series[frame]:
-                    series[frame] = load
+            for store in (self._data, self._measured):
+                joints = store.setdefault(recording, {})
+                for joint, load in loads.items():
+                    series = joints.setdefault(joint, [])
+                    if len(series) <= frame:
+                        series.extend([None] * (frame + 1 - len(series)))
+                    if series[frame] is None or load > series[frame]:
+                        series[frame] = load
 
     def forget(self, recording: str) -> None:
         with self._lock:
             self._data.pop(recording, None)
+            self._measured.pop(recording, None)
+
+    def measured(self, recording: str) -> Series:
+        """A copy of the highest values measured per frame, {} when none."""
+        with self._lock:
+            return {name: list(series) for name, series in self._measured.get(recording, {}).items()}
+
+    def replace_measured(self, recording: str, series: Series) -> None:
+        with self._lock:
+            self._measured[recording] = series
 
     def envelope(self, recording: str) -> Series:
         """A copy of one recording's learned series, {} when it has none."""
@@ -158,6 +188,7 @@ class ContactProfile:
     def save(self) -> None:
         with self._lock:
             text = json.dumps(self._data, separators=(",", ":"))
+            measured = json.dumps(self._measured, separators=(",", ":"))
         directory = os.path.dirname(self.path)
         if directory:
             os.makedirs(directory, exist_ok=True)
@@ -165,6 +196,9 @@ class ContactProfile:
         with open(tmp, "w") as f:
             f.write(text)
         os.replace(tmp, self.path)
+        with open(tmp, "w") as f:
+            f.write(measured)
+        os.replace(tmp, self.measured_path)
         if self.signature is not None:
             with open(tmp, "w") as f:
                 f.write(self.signature)
@@ -181,10 +215,11 @@ class PassiveLearner:
     clean run updates its envelope toward them: their per-frame max while the ring is
     not full (the loosest), then the second highest, so one run a hand brushed does
     not count. A higher value replaces the envelope at once (capped), so a heavy frame
-    never stops the arm for long; a lower one takes PASSIVE_FALL_SHARE of the gap per
-    update, so a few cool runs do not make it touchy. A recording's first envelope
-    falls the same way from the fixed floors (`defaults`, {channel: floor}): it starts
-    where the lamp stood before it learned. A stop nobody held through is taken as
+    never stops the arm for long. What was measured once (here or by a learn run) is
+    never lowered by lighter runs after it; only what sits above it falls,
+    PASSIVE_FALL_SHARE of the gap per update: a recording's first envelope, which
+    starts at the fixed floors (`defaults`, {channel: floor}) where the lamp stood
+    before it learned, and a false stop's raise. A stop nobody held through is taken as
     false (loosen()): runs that trip never count, so this is what frees an envelope
     too tight to run clean. Driven from the monitor thread; forget() may come from a
     learn run.
@@ -204,6 +239,8 @@ class PassiveLearner:
         self._lock = threading.Lock()
         self._runs: Dict[str, List[Series]] = {}
         self._loosened: Dict[str, List[float]] = {}
+        # {recording: {channel: [(first frame, last frame, when)]}} a false stop raised.
+        self._held: Dict[str, Dict[str, List[Tuple[int, int, float]]]] = {}
         self._draft: Optional[Tuple[str, int, int, Series]] = None   # rec, total, reached, samples
         self._tainted = False
         self._dirty = False
@@ -260,14 +297,15 @@ class PassiveLearner:
         with self._lock:
             self._runs.pop(recording, None)
             self._loosened.pop(recording, None)
+            self._held.pop(recording, None)
             self._tainted = True
 
     def loosen(self, recording: str, frame: int, name: str, value: int) -> bool:
         """A stop at `frame` on `name` (sample `value`) that nobody held through.
 
-        Raises the envelope around that frame to where `value` would not have stopped
-        it, or the whole channel to the cap when a capped joint stopped at it. True when
-        it changed.
+        Raises that channel's envelope around that frame to where `value` would not have
+        stopped it, or to the cap over PASSIVE_CAP_FRAMES either side when a capped joint
+        stopped at it, and holds those frames up for PASSIVE_HOLD_S. True when it changed.
         """
         margin = self._margin(name)
         if margin is None:
@@ -285,12 +323,10 @@ class PassiveLearner:
             if not values:
                 return False
             needed = max(value, cap) if at_cap else value - margin + 1
-            frames = (
-                range(len(values)) if at_cap
-                else range(max(0, frame - WINDOW_FRAMES), min(len(values), frame + WINDOW_FRAMES + 1))
-            )
+            reach = PASSIVE_CAP_FRAMES if at_cap else WINDOW_FRAMES
+            first, last = max(0, frame - reach), min(len(values) - 1, frame + reach)
             changed = False
-            for i in frames:
+            for i in range(first, last + 1):
                 if values[i] is not None and values[i] < needed:
                     values[i] = needed
                     changed = True
@@ -298,10 +334,12 @@ class PassiveLearner:
                 return False
             self.profile.replace(recording, series)
             self._loosened[recording] = recent + [now]
+            held = self._held.setdefault(recording, {})
+            held[name] = [s for s in held.get(name, []) if now - s[2] < PASSIVE_HOLD_S] + [(first, last, now)]
             self._dirty = True
         logger.info(
-            "[contact] %s frame %d: stop nobody held, %s envelope raised%s",
-            recording, frame, name, " to its cap throughout" if at_cap else "",
+            "[contact] %s frame %d: stop nobody held, %s envelope raised over frames %d-%d%s",
+            recording, frame, name, first, last, " to its cap" if at_cap else "",
         )
         return True
 
@@ -321,8 +359,10 @@ class PassiveLearner:
             return
         now = self._clock()
         old = self.profile.envelope(rec)
-        holding = any(now - t < PASSIVE_HOLD_S for t in self._loosened.get(rec, []))
+        measured = self.profile.measured(rec)
+        held = self._held.get(rec, {})
         new: Series = {}
+        real: Series = {}
         for name in set().union(*runs):
             ceiling = PASSIVE_CEILING_LAG if name.startswith(LAG_PREFIX) else self._load_ceiling
             # A frame with nothing learned yet falls from its learned neighbours (±3
@@ -332,7 +372,10 @@ class PassiveLearner:
             # window there.
             start = self._start(name)
             before = old.get(name, [])
+            known = measured.get(name, [])
+            spans = [(first, last) for first, last, t in held.get(name, []) if now - t < PASSIVE_HOLD_S]
             values: List[Optional[int]] = []
+            highest: List[Optional[int]] = []
             for frame in range(total):
                 seen = sorted(
                     (run[name][frame] for run in runs if name in run and run[name][frame] is not None),
@@ -345,15 +388,27 @@ class PassiveLearner:
                         if v is not None
                     ]
                     prior = max(near) if near else start
+                was = known[frame] if frame < len(known) else None
                 if not seen:
                     values.append(before[frame] if frame < len(before) else None)
+                    highest.append(was)
                     continue
                 value = min(seen[1] if len(runs) >= PASSIVE_RUNS and len(seen) > 1 else seen[0], ceiling)
+                # Measured once, a value stays: a lighter run does not lower it.
+                if was is not None and was > value:
+                    value = was
+                highest.append(value)
+                # Only what is above the measured (a fixed floor it starts from, a false
+                # stop's raise) falls, a share of the gap per update; not a false stop's
+                # frames while they are held.
                 if prior is not None and value < prior:
+                    holding = any(first <= frame <= last for first, last in spans)
                     value = prior if holding else prior - max(1, round((prior - value) * PASSIVE_FALL_SHARE))
                 values.append(value)
             new[name] = values
+            real[name] = highest
         self.profile.replace(rec, new)
+        self.profile.replace_measured(rec, real)
         self._dirty = True
 
     def _maybe_save(self) -> None:

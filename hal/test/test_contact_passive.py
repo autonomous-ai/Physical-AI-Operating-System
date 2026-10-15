@@ -170,13 +170,34 @@ def test_a_false_stop_holds_the_envelope_up_for_a_day(tmp_path):
     assert profile.floors("idle", 5)["base_pitch"] < raised
 
 
-def test_a_capped_joint_stopped_at_its_cap_rises_to_the_cap_throughout(tmp_path):
-    """lamp-c0a4: the elbow hits its 60 % cap at varying idle frames; its load says nothing."""
-    learner, profile, _ = _learner(tmp_path, {"idle": {"elbow_pitch": [300] * 20}})
+def test_a_false_stop_holds_only_its_frames_of_its_channel(tmp_path):
+    """lamp-75c9: early idle stops on pitch held all five joints of idle for a day."""
+    total = 20
+    learner, profile, _ = _learner(
+        tmp_path, {"idle": {"base_pitch": [300] * total, "lag:base_pitch": [80] * total}})
+    learner.loosen("idle", 15, "base_pitch", 500)       # raises frames 12-18
+    for _ in range(cp.PASSIVE_MIN_RUNS):
+        for frame in range(total):
+            learner.observe("idle", frame, total, {"base_pitch": 200, "lag:base_pitch": 40})
+        learner.end()
+    values = profile.envelope("idle")["base_pitch"]
+    assert values[12:19] == [401] * 7                   # held
+    assert values[5] < 300                              # same channel, other frames fall
+    assert profile.envelope("idle")["lag:base_pitch"][15] < 80   # other channel falls
+
+
+def test_a_capped_joint_stopped_at_its_cap_rises_to_the_cap_around_the_frame(tmp_path):
+    """lamp-c0a4: the elbow hits its cap at idle frames that vary; its load says nothing there."""
+    total = 100
+    learner, profile, _ = _learner(tmp_path, {"idle": {"elbow_pitch": [300] * total}})
     learner._caps = {"elbow_pitch": 600}
-    assert learner.loosen("idle", 2, "elbow_pitch", 600)
-    assert profile.envelope("idle")["elbow_pitch"] == [600] * 20
-    assert profile.floors("idle", 15)["elbow_pitch"] == 700   # past what the cap lets it read
+    assert learner.loosen("idle", 40, "elbow_pitch", 600)
+    values = profile.envelope("idle")["elbow_pitch"]
+    span = range(40 - cp.PASSIVE_CAP_FRAMES, 40 + cp.PASSIVE_CAP_FRAMES + 1)
+    assert all(values[i] == 600 for i in span)
+    assert profile.floors("idle", 40)["elbow_pitch"] == 700   # past what the cap lets it read
+    # lamp-75c9: the whole channel at the cap left idle's elbow load unwatched everywhere.
+    assert values[0] == values[total - 1] == 300
 
 
 def test_a_capped_joint_stopped_under_its_cap_rises_around_the_frame_only(tmp_path):
@@ -275,3 +296,48 @@ def test_an_envelope_saved_before_signatures_is_kept(tmp_path):
     path = str(tmp_path / "p.json")
     ContactProfile(path, 100, {"idle": {"base_pitch": [300]}}).save()
     assert ContactProfile.load(path, 100, signature="caps=700").floors("idle", 0) == {"base_pitch": 400}
+
+
+# --- Measured values are never lowered -------------------------------------------
+
+
+def test_a_lighter_run_does_not_lower_what_a_learn_run_measured(tmp_path):
+    learner, profile, _ = _learner(tmp_path, defaults={"base_pitch": 570})
+    for frame in range(TOTAL):
+        profile.learn("idle", frame, {"base_pitch": 300})
+    for _ in range(8):
+        _run(learner, 200)
+    assert profile.envelope("idle")["base_pitch"] == [300] * TOTAL
+
+
+def test_the_fixed_floor_falls_only_down_to_the_highest_measured(tmp_path):
+    """470 (fixed floor) falls toward the 270 measured first; lighter runs after never pull it under."""
+    learner, profile, _ = _learner(tmp_path, defaults={"base_pitch": 570})
+    for _ in range(cp.PASSIVE_MIN_RUNS):
+        _run(learner, 270)
+    assert profile.envelope("idle")["base_pitch"][5] == 420
+    for _ in range(30):
+        _run(learner, 150)
+    assert profile.envelope("idle")["base_pitch"] == [270] * TOTAL
+
+
+def test_a_heavier_run_still_raises_at_once(tmp_path):
+    learner, profile, _ = _learner(tmp_path)
+    for frame in range(TOTAL):
+        profile.learn("idle", frame, {"base_pitch": 300})
+    for _ in range(cp.PASSIVE_MIN_RUNS):
+        _run(learner, 360)
+    assert profile.envelope("idle")["base_pitch"] == [360] * TOTAL
+
+
+def test_what_was_measured_survives_a_restart(tmp_path):
+    learner, profile, _ = _learner(tmp_path, defaults={"base_pitch": 570})
+    for _ in range(cp.PASSIVE_MIN_RUNS):
+        _run(learner, 270)
+    profile.save()
+    reloaded = ContactProfile.load(str(tmp_path / "p.json"), 100, 30)
+    assert reloaded.measured("idle")["base_pitch"] == [270] * TOTAL
+    again = PassiveLearner(reloaded, {"base_pitch": 570}, clock=_Clock())
+    for _ in range(30):
+        _run(again, 150)
+    assert reloaded.envelope("idle")["base_pitch"] == [270] * TOTAL

@@ -1,6 +1,6 @@
 ---
 name: connectors
-description: "Discover and use linked third-party services (Gmail, Google Calendar, Google Drive, Notion, Figma, Asana, Linear, GitHub, Ahrefs, Amazon seller account, Facebook Fan Page, Shopify store and others). Use for connection-status questions and requests to read, search or act on those services (\"post to my fan page\", \"publish an image to my page\", \"add a draft product to my store\" apply here). Discover credentials on disk first; never infer connection from missing MCP/CLI tools or install another client for a covered service. Token services use the documented API or mail protocol; MCP services use their available tools. Follow the credential-safety and write-confirmation rules in this skill. Takes priority over runtime-bundled skills for the same services."
+description: "Discover and use linked third-party services (Gmail, Google Calendar, Google Drive, Notion, Figma, Asana, Linear, GitHub, Ahrefs, Amazon seller account, Facebook Fan Page, Shopify store, eBay seller and others). Use for connection-status questions and requests to read, search or act on those services (\"post to my fan page\", \"publish an image to my page\", \"add a draft product to my store\", \"change my eBay price\", \"any new eBay orders\" apply here). Discover credentials on disk first; never infer connection from missing MCP/CLI tools or install another client for a covered service. Token services use the documented API or mail protocol; MCP services use their available tools. Follow the credential-safety and write-confirmation rules in this skill. Takes priority over runtime-bundled skills for the same services."
 ---
 
 # Connectors
@@ -274,6 +274,7 @@ connector with its own file** — having one does not give you the others:
 - **`notion` / `figma` / `asana` / `linear` / `github` / `amazon`** → use the `<code>` MCP tools you already have. Don't read the file. (`amazon` has its own section below.)
 - **`amazon_sp`** → Amazon's Selling Partner API directly, through `connector.py call` (see the section below).
 - **`ahrefs` or any `api_key`** → same `connector.py call`; the helper uses `api_key` when there is no `access_token`.
+- **`ebay`** → `connector.py call ebay …`; see *eBay seller* below.
 - **anything else** → use its MCP tools if it has them. The helper refuses a connector it has no official host for (exit 4); then tell the user this device can't call that service directly yet — never fall back to reading the token yourself.
 
 **Send email (OAuth Gmail)** — ⛔ message class: first read `To · Subject · Body`
@@ -492,6 +493,100 @@ Shopify errors — what the helper prints and what to do:
 - **HTTP 401 from an API call** — the helper already minted a new token and retried once, so a 401 that remains means the credentials were revoked: reconnect Shopify. **403 or "access denied" on a field** — the app lacks that permission: add it to the app's version and release it (see the notes above).
 - **429 or `THROTTLED`** — Shopify is rate limiting; wait a few seconds and retry once.
 - **`userErrors`** — fix the named field (missing title, bad blog id) and retry, or tell the user what Shopify rejected.
+
+**eBay seller (special case):** the user registers their **own** eBay developer
+app and links it from the device's **Settings → Connectors → eBay** page with
+the app's Client ID and Client Secret, then signs in to their seller account
+with **Sign in with eBay** there; the device turns that sign-in into a stored
+refresh token. `connector.py` mints a short-lived access token from
+them on every call (cached, re-minted when it expires), so there is nothing to
+renew by hand for about 18 months. `info ebay` prints the non-secret
+`environment` (`production` / `sandbox`) and `marketplace_id` (e.g. `EBAY_US`).
+
+Hosts: production `https://api.ebay.com/` (and `apiz.ebay.com`), sandbox
+`https://api.sandbox.ebay.com/` (and `apiz.sandbox.ebay.com`). The helper refuses
+the other environment's host. It sets `X-EBAY-C-MARKETPLACE-ID` from the link and,
+on requests with a body, the `Content-Language` eBay requires (e.g. `en-US`);
+pass `--header` only to override them. Prices are strings with the
+marketplace's currency: `{"value":"19.99","currency":"USD"}`.
+
+Write classes (⛔ read back and wait for yes, as everywhere in this skill):
+- **Price or quantity change** → status/field change: name the SKU and title, **old → new** value.
+- **Create and publish a listing** → public content: title, price, quantity, condition, category and the photos it will show. Publishing makes it live for buyers.
+- **Withdraw (end) a listing or delete an item** → delete class: name exactly what disappears. Deleting an inventory item also ends its live listing.
+- **Mark an order shipped** → message to people: eBay notifies the buyer; read back order, buyer, carrier and tracking number.
+
+Reads (no confirmation):
+
+```bash
+# Products in the Inventory API (SKU, title, quantity)
+python3 scripts/connector.py call ebay GET "https://api.ebay.com/sell/inventory/v1/inventory_item" \
+  --query limit=50 --query offset=0 \
+  | jq '{total, items: [.inventoryItems[]? | {sku, title: .product.title, qty: .availability.shipToLocationAvailability.quantity}]}'
+
+# A SKU's offer: price, status (PUBLISHED / UNPUBLISHED), offerId, listingId
+python3 scripts/connector.py call ebay GET "https://api.ebay.com/sell/inventory/v1/offer" --query sku=<SKU> \
+  | jq '[.offers[]? | {offerId, status, price: .pricingSummary.price, qty: .availableQuantity, listingId: .listing.listingId}]'
+
+# Orders still to ship
+python3 scripts/connector.py call ebay GET "https://api.ebay.com/sell/fulfillment/v1/order" \
+  --query "filter=orderfulfillmentstatus:{NOT_STARTED|IN_PROGRESS}" --query limit=50 \
+  | jq '[.orders[]? | {orderId, creationDate, buyer: .buyer.username, total: .pricingSummary.total, items: [.lineItems[] | {lineItemId, title, sku, quantity}]}]'
+```
+
+**Listings made on ebay.com are not in the Inventory API.** An empty
+`inventory_item` list does not mean the shop is empty: listings created on the
+website or in Seller Hub stay invisible to these endpoints until they are
+migrated (`POST https://api.ebay.com/sell/inventory/v1/bulk_migrate_listing`,
+body `{"requests":[{"listingId":"<id>"}]}`, up to 5 per call). Migration is a
+one-way change to how the listing is managed: explain that and get a yes
+before running it. Never report "you have no products" from an empty list.
+
+Change price and/or quantity (one call, up to 25 SKUs):
+
+```bash
+python3 scripts/connector.py call ebay POST "https://api.ebay.com/sell/inventory/v1/bulk_update_price_quantity" \
+  --json '{"requests":[{"sku":"<SKU>","shipToLocationAvailability":{"quantity":5},
+           "offers":[{"offerId":"<offerId>","availableQuantity":5,"price":{"value":"24.99","currency":"USD"}}]}]}'
+```
+
+The response lists a `statusCode` per SKU/offer; report any that is not 200.
+
+Create a new listing (four steps; read everything back before step 3's publish):
+1. Find the category: `GET https://api.ebay.com/commerce/taxonomy/v1/get_default_category_tree_id --query marketplace_id=<marketplace>` → `categoryTreeId`, then `GET https://api.ebay.com/commerce/taxonomy/v1/category_tree/<categoryTreeId>/get_category_suggestions --query q=<what it is>`. Required item specifics: `GET …/category_tree/<categoryTreeId>/get_item_aspects_for_category --query category_id=<id>` (aspects with `aspectConstraint.aspectRequired: true`).
+2. Create the item (HTTP 204 = done): `PUT https://api.ebay.com/sell/inventory/v1/inventory_item/<SKU>` with `{"condition":"NEW","product":{"title":"…","description":"…","aspects":{"Brand":["…"]},"imageUrls":["https://…"]},"availability":{"shipToLocationAvailability":{"quantity":3}}}`. Photos must be public https URLs.
+3. Create the offer: `POST https://api.ebay.com/sell/inventory/v1/offer` with `{"sku":"<SKU>","marketplaceId":"<marketplace>","format":"FIXED_PRICE","availableQuantity":3,"categoryId":"<id>","pricingSummary":{"price":{"value":"19.99","currency":"USD"}},"listingPolicies":{"fulfillmentPolicyId":"…","paymentPolicyId":"…","returnPolicyId":"…"},"merchantLocationKey":"<key>"}` → `offerId`. Policy ids: `GET https://api.ebay.com/sell/account/v1/{fulfillment_policy|payment_policy|return_policy} --query marketplace_id=<marketplace>`. Location keys: `GET https://api.ebay.com/sell/inventory/v1/location`. If either list is empty, follow "One-time selling setup" below.
+4. Publish: `POST https://api.ebay.com/sell/inventory/v1/offer/<offerId>/publish` → `listingId`. The listing is now live at `https://www.ebay.com/itm/<listingId>` (use the marketplace's own domain; a sandbox listing is at `https://sandbox.ebay.com/itm/<listingId>`). Before publishing there is no page to link to — an unpublished item or offer is not visible on eBay or in Seller Hub; asked for a preview, say so and read the item and offer back instead.
+
+Asked to "try" or "test" a listing without details: propose a title, price,
+quantity, condition and category, read them back and wait for yes. A request to
+try is not approval of values the user has not seen.
+
+One-time selling setup (⛔ account changes: read back every value below and
+wait for an explicit yes before the first call; "create a test product" is not
+that yes). Never invent a ship-from address, shipping cost or return terms:
+ask for them, or offer a default and get it approved. Each call is separate;
+report which ones succeeded.
+- Opt in to business policies (only after errorId 20403): `POST https://api.ebay.com/sell/account/v1/program/opt_in` with `{"programType":"SELLING_POLICY_MANAGEMENT"}`.
+- Ship-from location (HTTP 204 = done): `POST https://api.ebay.com/sell/inventory/v1/location/<key>` with `{"name":"…","location":{"address":{"city":"…","stateOrProvince":"…","postalCode":"…","country":"US"}},"locationTypes":["WAREHOUSE"],"merchantLocationStatus":"ENABLED"}`.
+- Payment policy — eBay collects payment itself, so send **no** `paymentMethods`: `POST https://api.ebay.com/sell/account/v1/payment_policy` with `{"name":"…","marketplaceId":"<marketplace>","categoryTypes":[{"name":"ALL_EXCLUDING_MOTORS_VEHICLES"}],"immediatePay":true}`.
+- Return policy: `POST https://api.ebay.com/sell/account/v1/return_policy` with `{"name":"…","marketplaceId":"<marketplace>","categoryTypes":[{"name":"ALL_EXCLUDING_MOTORS_VEHICLES"}],"returnsAccepted":true,"returnPeriod":{"value":30,"unit":"DAY"},"returnShippingCostPayer":"BUYER"}`.
+- Fulfillment policy: `POST https://api.ebay.com/sell/account/v1/fulfillment_policy` with `{"name":"…","marketplaceId":"<marketplace>","categoryTypes":[{"name":"ALL_EXCLUDING_MOTORS_VEHICLES"}],"handlingTime":{"value":1,"unit":"DAY"},"shippingOptions":[{"optionType":"DOMESTIC","costType":"FLAT_RATE","shippingServices":[{"shippingCarrierCode":"USPS","shippingServiceCode":"USPSPriority","shippingCost":{"value":"0.00","currency":"USD"},"freeShipping":true,"sortOrder":1}]}]}`.
+
+Each policy call returns its id (`paymentPolicyId`, `returnPolicyId`,
+`fulfillmentPolicyId`); a policy that already exists with the same name returns
+an error naming it — list the policies and reuse it instead of creating another.
+
+End a listing but keep the item: `POST https://api.ebay.com/sell/inventory/v1/offer/<offerId>/withdraw`.
+
+Mark shipped: `POST https://api.ebay.com/sell/fulfillment/v1/order/<orderId>/shipping_fulfillment` with `{"lineItems":[{"lineItemId":"…","quantity":1}],"shippingCarrierCode":"USPS","trackingNumber":"…"}`.
+
+Common errors:
+- **exit 3 "eBay rejected the saved refresh token"** — expired (about 18 months) or revoked: ask the user to reconnect in Settings → Connectors → eBay. **"the provider rejected the saved client ID/secret"** — same fix, with the right keyset.
+- **exit 4 "this eBay link is production/sandbox"** — the URL is on the other environment's host; use the host for the linked environment.
+- **HTTP 403 / errorId 1100 "Access denied" or "Insufficient permissions"** — the refresh token was minted without the scope this API needs; ask the user to mint a new one with the sell scopes ticked.
+- **errorId 20403 "User is not eligible for Business Policy"** (on `sell/account/v1/*_policy`) — the seller has not opted in to business policies, which publishing needs. Opting in is a one-time account change: follow "One-time selling setup" above (use the sandbox host on a sandbox link). eBay can take a while to apply it.
+- **errorId 25002 / 25007 and similar on publish** — a missing item specific, policy or location; the response's `parameters` name it. Fill it in and retry — do not guess values the user did not give.
 
 **iMessage via BlueBubbles (special case — Hermes runtime only for THIS path):**
 unlike every other entry in this skill, iMessage is NOT a service the agent

@@ -924,6 +924,11 @@ USER_BEARING_PATH: str = os.environ.get(
 CONTACT_PROFILE_PATH: str = os.environ.get(
     "HAL_CONTACT_PROFILE_PATH", "/var/lib/hal/contact_profile.json"
 )
+# Learned holding load of base_pitch / elbow_pitch per pose (contact release); per
+# unit like the envelope, and dropped with it when the torque caps change.
+CONTACT_HOLD_PATH: str = os.environ.get(
+    "HAL_CONTACT_HOLD_PATH", "/var/lib/hal/contact_hold.json"
+)
 # Owner's resting LED choice from the web UI; survives reboots and OTA.
 RESTING_LED_PATH: str = os.environ.get(
     "HAL_RESTING_LED_PATH", "/var/lib/hal/resting_led.json"

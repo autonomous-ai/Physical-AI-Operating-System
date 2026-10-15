@@ -107,12 +107,16 @@ samples every joint's `Present_Load` at 20 Hz (`hal/drivers/motors/overload.py`)
   does not drop), silently, and blocks goal writes for 3 s. Then it eases back
   into idle from the pose it stopped at. A hand still holding the arm 1 s into that
   pause (`release_after_s`), the stopped joint still at the load or lag floor that
-  stopped it or pushed 1° off its pinned pose (`base_pitch`/`elbow_pitch` only on their `off_playback` floor or the
-  cut-off: they hold the arm's weight even untouched), releases torque instead, like the overload cut-off. On lamp-52e6 these joints peak at 52 % in free
+  stopped it or pushed 1° further off its pinned pose than it settled to (that offset capped
+  at 3°), or another of `base_yaw` and the wrists at
+  the floor that stop compared it against (`base_pitch`/`elbow_pitch` on the load and
+  lag they learned to hold still in that pose plus the profile margins, else their
+  `off_playback` floor or the cut-off: they hold the arm's weight even untouched), releases torque instead, like the overload cut-off. On lamp-52e6 these joints peak at 52 % in free
   motion and a hand on `base_yaw` drives it to 94-100 %. `base_pitch` and `elbow_pitch`
   carry the arm's weight and reach 83-100 % in free motion, so they get no fixed floor;
-  they and `base_yaw` are capped at 60 % torque (`torque_limit`; 70 % cost the worst
-  recording, `shock`, 1° of extra lag, 50 % cost 7°).
+  they and `base_yaw` are capped at 60 % torque, `elbow_pitch` at 70 % (`torque_limit`;
+  70 % cost the worst recording, `shock`, 1° of extra lag, 50 % cost 7°; lamp-75c9's
+  elbow sat at 60 % in untouched `idle`).
 - **Learned envelope.** During playback every joint, the weight-bearing ones included,
   is held to what a free run loaded at that frame plus 12 % (`contact.profile_margin`),
   and to how far it trailed its goal there plus 3.5° (`contact.lag_margin`), which
@@ -124,9 +128,13 @@ samples every joint's `Present_Load` at 20 Hz (`hal/drivers/motors/overload.py`)
   play of a recording (see [safety](../../../docs/safety.md)). The frame index it looks up is the playback
   frame, so the envelope follows the recording after speed-cap resampling; re-learn
   after recalibration. A `torque_limit` change drops the envelope, and a recording
-  whose length changed starts its passive runs over. Outside playback
+  whose length changed starts its passive runs over. The holding load per pose is
+  learned alongside, from every still spell (a learn run holds each end pose 4 s), into
+  `/var/lib/hal/contact_hold.json`. Outside playback
   (gaze, tracking, `/servo/move`, holds) the fixed `contact.off_playback` floors apply,
-  except during a direct move and 0.5 s after it (a fast move outruns the servo's ramp).
+  except during a direct move and 0.5 s after it (a fast move outruns the servo's ramp)
+  and during the ramp into a recording. After a cut-off lockout the contact stop also sits
+  out the resume's ramp back.
   Settled idle uses this unit's own envelope when it has learned idle, else `off_playback`.
 - **Overload cut-off.** A joint at 80 % or more for 1.5 s (the arm is still forced while
   held) cuts torque on all servos, plays the ack chime and blocks every goal write for

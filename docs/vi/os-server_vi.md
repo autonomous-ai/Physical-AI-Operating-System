@@ -96,7 +96,7 @@ hủy gesture đang chờ bật.
 | POST | `/api/system/reboot` | Cần admin auth: trả ACK, rồi yêu cầu HAL phát cue và reboot OS |
 | POST | `/api/system/shutdown` | Cần admin auth: trả ACK, rồi yêu cầu HAL phát cue, release servo và shutdown OS |
 | POST | `/api/system/software-update/:target` | Cần admin auth: cài ngay bản đã publish của một component qua bootstrap `POST 127.0.0.1:8080/force-update/<target>` (`agent` được phân giải sang key của runtime đang cấu hình). Giới hạn tần suất theo từng target |
-| POST | `/api/system/factory-reset` | Admin hoặc loopback: soft factory reset (xoá config/key/enrollment/thông tin WiFi, reset agent backend đang chạy) rồi reboot vào AP setup. Trả `202`; `409` nếu đang chạy, `429` trong thời gian cooldown |
+| POST | `/api/system/factory-reset` | Admin hoặc loopback: soft factory reset (xoá config/key/enrollment/thông tin WiFi/credential của connector, reset agent backend đang chạy) rồi reboot vào AP setup. Trả `202`; `409` nếu đang chạy, `429` trong thời gian cooldown |
 | POST | `/api/system/exec` | Chỉ loopback: chạy `{cmd}` bằng `sh -c` (timeout 30 giây), trả `{stdout, stderr, exit_code}` |
 | GET | `/api/system/shell` | WebSocket cần admin auth: PTY `/bin/bash` cho terminal xterm.js trên web |
 | POST | `/api/system/restart/:target` | Cần admin auth, chỉ restart service `hal` hoặc `os-server`. Trả `202` với `{target, scheduled: true}` khi systemd nhận lịch restart; target không hỗ trợ trả `400`, lỗi đặt lịch trả `500`. |

@@ -179,6 +179,31 @@ HTTP API có bảo vệ admin: `GET /api/device/runtime-login` (provider và phi
 Các runtime được hỗ trợ cũng có mục mở rộng **Use existing runtime configuration** dành cho tài khoản/model đã cấu hình sẵn. Mục này chọn runtime mode qua luồng Save Changes hiện có, không bắt đăng nhập lại và không khẳng định quyền truy cập tài khoản. Runtime khác giữ flow Terminal thủ công: cấu hình tài khoản và model trước, xác nhận đã cấu hình trong Settings, rồi lưu runtime mode. Khôi phục mặc định AI Brain chọn rõ `os` và buộc áp dụng kể cả khi giá trị đã lưu không đổi. Lỗi áp dụng được hiển thị sau khi mode đã lưu; sửa nguyên nhân rồi thử lại. Cấu hình thành công và runtime sẵn sàng chưa chứng minh quyền subscription; cần kiểm tra một lượt chat thật riêng.
 
 
+**eBay connector** (`/setting#ebay`, Settings → Connectors → eBay). Chủ thiết
+bị tự đăng ký app trong eBay Developer Program và thêm một eBay redirect URL
+(RuName) có *auth accepted URL* là một trang https bất kỳ. Card hỏi môi trường
+(Production hoặc Sandbox), marketplace (ví dụ `EBAY_US`), **App ID (Client ID)**,
+**Cert ID (Client Secret)** và **RuName** của app, và từ chối App ID có keyset
+(`-PRD-` / `-SBX-`) không khớp môi trường. **Sign in with eBay** mở trang cấp
+quyền của eBay (`auth.ebay.com` / `auth.sandbox.ebay.com` `/oauth2/authorize`,
+scope `api_scope`, `sell.inventory`, `sell.account`, `sell.fulfillment`); sau khi
+người bán đồng ý, eBay mở trang accept kèm `?code=…`, và chủ thiết bị dán địa
+chỉ đó (hoặc chỉ phần code) vào card trong vòng năm phút code còn hiệu lực.
+**Connect** gửi tất cả tới `PUT /api/device/connectors/ebay`, endpoint này đổi
+code lấy refresh token trên `api.ebay.com` / `api.sandbox.ebay.com`
+(`grant_type=authorization_code`). Ai đã có sẵn refresh token có thể dán thẳng
+(*I already have a refresh token*); thiết bị kiểm tra nó một lần bằng
+`grant_type=refresh_token`. eBay từ chối thì không lưu gì. Liên kết được lưu với
+connector `ebay`: refresh token nằm trong `api_key`; `client_id`,
+`client_secret`, `marketplace_id`, `environment` và `ru_name` nằm trong
+`credentials`. `GET /api/device/connectors/:code` không bao giờ trả về
+`client_secret`; khi tải lại trang, App ID, RuName, marketplace và môi trường
+được điền lại, còn kết nối lại thì cần secret và đăng nhập eBay lại. Mọi thứ ở
+trên thiết bị. Helper của skill `connectors` dùng chúng để lấy access token eBay
+ngắn hạn mỗi lần gọi và cache trong `ebay.token.json` (mode 0600, xóa mỗi lần
+lưu) cạnh các file connector; khi refresh token hết hạn (khoảng 18 tháng) hoặc
+bị thu hồi, agent nhắc chủ thiết bị kết nối lại ở đây.
+
 **Remote MCP Tools** (`/setting#mcp`). Hoàn tất onboarding runtime đã chọn,
 sau đó đăng nhập giao diện admin của thiết bị. Nhập **Name** duy nhất, **URL**
 của MCP server từ xa và **Headers** cần thiết, rồi bấm **Add Tool**. Ví dụ,
@@ -591,7 +616,7 @@ Overview chia thành ba vùng luôn hiển thị: **System health** (Agent, Netw
 Các tài khoản bên thứ ba mà robot có thể dùng được gom trong **Settings → Connectors**, cạnh các mục Settings khác. Không có nút Save Changes chung; mỗi trang tự lưu kết nối của nó.
 
 - **Facebook** — Page ID và Page Access Token, lưu qua `POST /api/device/connectors/pat`.
-- **Shopify** — cửa hàng được liên kết bằng **app Shopify riêng của khách hàng**: trang hỏi **Store domain**, **Client ID** và **Client secret** của app (ẩn, có nút hiện/ẩn). Domain được làm sạch khi gửi (cắt khoảng trắng, chuyển chữ thường, bỏ `https://…` hoặc đường dẫn dán kèm, tự thêm `.myshopify.com` nếu chỉ nhập handle) và thiết bị kiểm tra cả ba giá trị với Shopify một lần trước khi lưu (`PUT /api/device/connectors/shopify`). Sau đó trang hiển thị cửa hàng đã kết nối, kèm **Reconnect** và **Disconnect**. Secret không bao giờ hiển thị lại và API không bao giờ trả về. Dưới form có hướng dẫn thu gọn được **How to create your Shopify app** (sáu bước và phần xử lý sự cố), cùng nội dung với form kết nối trên autonomous.ai. Token có hiệu lực 24 giờ và thiết bị tự gia hạn, không cần làm mới thủ công.
+- **Shopify** — cửa hàng được liên kết bằng **app Shopify riêng của khách hàng**: trang hỏi **Store domain**, **Client ID** và **Client secret** của app (ẩn, có nút hiện/ẩn). Domain được làm sạch khi gửi (cắt khoảng trắng, chuyển chữ thường, bỏ `https://…` hoặc đường dẫn dán kèm, tự thêm `.myshopify.com` nếu chỉ nhập handle) và thiết bị kiểm tra cả ba giá trị với Shopify một lần trước khi lưu (`PUT /api/device/connectors/shopify`). Sau đó trang hiển thị cửa hàng đã kết nối, kèm **Reconnect** và **Disconnect**; khi tải lại trang, ô Store domain và Client ID được điền lại từ liên kết đã lưu, và **Cancel** khôi phục chúng. Secret không bao giờ hiển thị lại và API không bao giờ trả về: ô secret báo đã lưu, và muốn kết nối lại hoặc đổi cửa hàng thì phải dán lại secret. Dưới form có hướng dẫn thu gọn được **How to create your Shopify app** (sáu bước và phần xử lý sự cố), cùng nội dung với form kết nối trên autonomous.ai. Token có hiệu lực 24 giờ và thiết bị tự gia hạn, không cần làm mới thủ công.
 - **Amazon** — hai cách liên kết tài khoản người bán. **Cách 1, app Amazon riêng của bạn:** form nhập **Client ID**, **Client secret** và **Refresh token** của app cùng **Region** (North America, Europe hoặc Far East), kèm hướng dẫn thu gọn được để tạo app Selling Partner API riêng (private) và cấp quyền cho chính tài khoản người bán (Seller Central → Apps and Services → Develop Apps). Thiết bị kiểm tra ba giá trị với Login with Amazon một lần trước khi lưu (`PUT /api/device/connectors/amazon_sp`); trang sau đó hiện **connected** cùng nút **Reconnect** và **Disconnect**, không bao giờ hiện lại secret hay token. **Cách 2, connector của Amazon (beta):** đăng nhập nằm ở card **Amazon** trong MCP Tools (hoặc từ tài khoản autonomous.ai). Trang cũng hiển thị có nút **Disconnect**, và quản lý các skill tùy chọn của Amazon: **Install Amazon's skills** (tải skill Amazon đã công bố từ GitHub ở một commit cố định; chỉ file markdown và JSON, không chạy gì), **Reinstall** và **Remove** (chỉ xóa những gì nó đã cài). Trang nói rõ Amazon hiện chỉ hỗ trợ Mỹ và robot sẽ hỏi trước khi đổi listing, giá, tồn kho hoặc lô hàng.
 
 Trang lưu credential trên thiết bị và chỉ báo trạng thái đã kết nối lên tài khoản, nên dòng quyền riêng tư ghi "Saved on this device. Only the connected status is shared with your account."

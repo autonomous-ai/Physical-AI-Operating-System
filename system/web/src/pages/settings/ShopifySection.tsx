@@ -34,6 +34,9 @@ export function ShopifySection({ active }: { active: boolean }) {
   const [connected, setConnected] = useState(false);
   const [connectedShop, setConnectedShop] = useState("");
   const [connectedAt, setConnectedAt] = useState(0);
+  // Non-secret values of the saved link, shown again after a reload.
+  const [savedClientId, setSavedClientId] = useState("");
+  const [hasSecret, setHasSecret] = useState(false);
   const [shop, setShop] = useState("");
   const [clientId, setClientId] = useState("");
   const [clientSecret, setClientSecret] = useState("");
@@ -55,6 +58,10 @@ export function ShopifySection({ active }: { active: boolean }) {
         setConnected(!!r.connected);
         setConnectedShop(r.shop ?? "");
         setConnectedAt(r.obtained_at ?? 0);
+        setSavedClientId(r.client_id ?? "");
+        setHasSecret(!!r.connected && !!r.has_secret);
+        setShop(r.shop ?? "");
+        setClientId(r.client_id ?? "");
       })
       .catch(() => {
         // A never-linked connector reports connected:false; stay silent on errors.
@@ -64,14 +71,16 @@ export function ShopifySection({ active }: { active: boolean }) {
   useEffect(load, []);
 
   const reset = () => {
-    setShop("");
-    setClientId("");
+    setShop(connectedShop);
+    setClientId(savedClientId);
     setClientSecret("");
     setError(null);
     setShowSecret(false);
   };
 
   const canSubmit = !!shop.trim() && !!clientId.trim() && !!clientSecret.trim();
+  // Anything typed that differs from the saved link (Cancel restores it).
+  const dirty = shop !== connectedShop || clientId !== savedClientId || !!clientSecret;
 
   // Click handler, not a form submit: this renders inside SettingsPanel's form, and nested forms never submit.
   const onSubmit = async (e: React.MouseEvent | React.KeyboardEvent) => {
@@ -114,7 +123,12 @@ export function ShopifySection({ active }: { active: boolean }) {
       setConnected(false);
       setConnectedShop("");
       setConnectedAt(0);
-      reset();
+      setSavedClientId("");
+      setHasSecret(false);
+      setShop("");
+      setClientId("");
+      setClientSecret("");
+      setError(null);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Disconnect failed.");
     } finally {
@@ -226,7 +240,7 @@ export function ShopifySection({ active }: { active: boolean }) {
             type={showSecret ? "text" : "password"}
             value={clientSecret}
             onChange={(e) => setClientSecret(e.target.value)}
-            placeholder="paste the Client secret"
+            placeholder={hasSecret ? "saved; paste it again to reconnect or change it" : "paste the Client secret"}
             autoComplete="off"
             spellCheck={false}
             style={{ ...inputStyle, marginBottom: 12, fontFamily: "monospace" }}
@@ -367,14 +381,14 @@ export function ShopifySection({ active }: { active: boolean }) {
               <button
                 type="button"
                 onClick={reset}
-                disabled={submitting || (!shop && !clientId && !clientSecret)}
+                disabled={submitting || !dirty}
                 style={{
                   padding: "8px 18px", borderRadius: 8, fontSize: 12, fontWeight: 500,
                   background: "none",
                   border: `1px solid ${C.border}`,
                   color: C.text,
-                  cursor: submitting || (!shop && !clientId && !clientSecret) ? "not-allowed" : "pointer",
-                  opacity: submitting || (!shop && !clientId && !clientSecret) ? 0.5 : 1,
+                  cursor: submitting || !dirty ? "not-allowed" : "pointer",
+                  opacity: submitting || !dirty ? 0.5 : 1,
                 }}
               >
                 Cancel

@@ -352,6 +352,7 @@ async def lifespan(app: FastAPI):
                         _servo_overload_config.contact.release_after_s
                         if _servo_overload_config and _servo_overload_config.contact else None
                     ),
+                    contact_hold_profile=_contact_profile(hold=True),
                 )
             else:
                 # SDK backends carry the safety policy themselves.
@@ -1101,18 +1102,23 @@ def _on_servo_overload(joint: str, load: int) -> None:
         logger.warning("[overload] stop tracking failed: %s", e)
 
 
-def _contact_profile():
-    """The learned contact envelope when the device sets contact.profile_margin."""
+def _contact_profile(hold: bool = False):
+    """The learned contact envelope when the device sets contact.profile_margin.
+
+    hold=True: the learned holding load per pose instead (the contact release), with
+    the same margins.
+    """
     contact = _servo_overload_config.contact if _servo_overload_config else None
     if contact is None or contact.profile_margin is None:
         return None
-    from hal.config import CONTACT_PROFILE_PATH
+    from hal.config import CONTACT_HOLD_PATH, CONTACT_PROFILE_PATH
     from hal.drivers.motors.contact_profile import ContactProfile
     # Only what this unit learned (a learn run or passively); no shared default. Saved
     # with the torque caps it was learned under, and dropped when they change.
     caps = json.dumps(_servo_overload_config.torque_limit or {}, sort_keys=True, separators=(",", ":"))
     return ContactProfile.load(
-        CONTACT_PROFILE_PATH, contact.profile_margin, contact.lag_margin, signature="torque_limit=" + caps,
+        CONTACT_HOLD_PATH if hold else CONTACT_PROFILE_PATH, contact.profile_margin, contact.lag_margin,
+        signature="torque_limit=" + caps,
     )
 
 

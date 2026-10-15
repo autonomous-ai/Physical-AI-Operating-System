@@ -14,3 +14,12 @@ func TestFactoryResetWipesTheLogSpool(t *testing.T) {
 		t.Fatalf("deviceWipePaths %v does not include the GELF spool %s", deviceWipePaths, syspath.GELFSpoolDir())
 	}
 }
+
+// Connector credentials sit under the OpenClaw workspace, which only the
+// OpenClaw reset wipes; on any other runtime the next owner would inherit them.
+func TestFactoryResetWipesConnectorCredentials(t *testing.T) {
+	const configs = "/root/.openclaw/workspace/configs"
+	if !slices.Contains(deviceWipePaths, configs) {
+		t.Fatalf("deviceWipePaths %v does not include the connector credentials %s", deviceWipePaths, configs)
+	}
+}

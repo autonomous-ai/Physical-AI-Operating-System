@@ -26,6 +26,10 @@ var deviceWipePaths = []string{
 	"/var/lib/hal/snapshots",                        // persistent camera snapshots (sensing_face / motion / emotion, 72h TTL)
 	"/etc/wpa_supplicant/wpa_supplicant-wlan0.conf", // home WiFi credentials → forces AP mode on next boot
 	syspath.GELFSpoolDir(),                          // unshipped logs (may hold speech) must not ship with the next owner's key
+	// Connector credentials (tokens, app secrets, refresh tokens) for every
+	// runtime. They live under the OpenClaw workspace, which only the OpenClaw
+	// reset wipes, so on any other runtime they would survive a reset.
+	"/root/.openclaw/workspace/configs",
 }
 
 // FactoryResetMinInterval is the minimum gap between two factory-reset

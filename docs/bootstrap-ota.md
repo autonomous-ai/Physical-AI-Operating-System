@@ -1443,3 +1443,46 @@ If an automatic activation fails after the transition starts, recovery restores
 the previous services and records the rejected version so polling does not keep
 retrying it. A pending recovery journal is retained if that rejection cannot be
 persisted. `ACTIVATE=0` preserves existing version floors.
+
+### Build the V2 supervisor from main
+
+From a checkout containing the release tooling, run:
+
+```bash
+make upload-lamp-os
+```
+
+This command fetches `refs/heads/lamp-voice` from the checkout's `origin` into a
+private temporary repository, freezes the fetched commit, and extracts only
+`lampOS/`. It does not switch the current branch or include dirty source files.
+Using that workspace's pinned Rust toolchain and lockfile, it runs
+`cargo zigbuild --locked --release --target aarch64-unknown-linux-gnu -p lamp-keeper`.
+Prerequisites are Cargo/rustup, cargo-zigbuild, Zig, the pinned toolchain's
+`aarch64-unknown-linux-gnu` target, and authenticated `gsutil`.
+
+The resulting supervisor is uploaded as `lamp-os`, with `build.json`, `VERSION` and
+`SHA256SUMS`, under
+`gs://${GCS_BUCKET}/${BUCKET_PREFIX}/services/lamp-os/builds/<version>/<commit>/<sha256>/`.
+The existing defaults are `s3-autonomous-upgrade-3` and `os`; environment overrides
+work as for other release commands. The command downloads the stored binary and
+checks its SHA-256 before reporting success. It validates an ARM64 ELF header
+before uploading. This is a build/provenance check, not a hardware qualification.
+
+This first-stage artifact is the `lamp-keeper` supervisor, intended to become
+`bin/service` in a later `lamp-os` service package. It is **not** the complete V2
+OTA ZIP: child binaries, models, device configuration/calibration and rendered
+units must be packaged and qualified separately. No OTA metadata, version floor,
+or activation setting is changed. Use `upload-service` only once that full
+package is ready; V1 and other device types remain unaffected by this upload.
+
+`system/VERSION_LAMP_OS` tracks this release stream independently of HAL and
+bootstrap. It starts at `0.0.0`; after a valid binary build, `upload-lamp-os`
+increments its patch version (first upload: `0.0.1`). That version is written to
+`build.json`, the uploaded `VERSION` file, and the GCS path. The keeper reads the
+release's `VERSION` file for OTA health; this command does not modify the Rust
+crate version. As with the existing release commands, a failed upload after the
+bump leaves the version file advanced. Keep release invocations serialized and
+retain the updated version file in the release history; do not hand-bump it.
+
+If Cargo is missing from the caller's PATH, the command also checks
+`${CARGO_HOME:-$HOME/.cargo}/bin` for an existing installation. It does not install Rust.

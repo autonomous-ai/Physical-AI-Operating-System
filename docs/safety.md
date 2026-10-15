@@ -427,20 +427,43 @@ Six conditions are enforced today; setup-incomplete is reserved.
       an arm still forced while held trips the cut-off as before. With
       `contact.release_after_s` set (Lamp: `1` s), a hand still **holding** the arm that
       long into the pause — the stopped joint still at or above the floor that stopped
-      it (its learned envelope load or lag floor when one applied) or pushed 1° off its
-      pinned pose (`CONTACT_RELEASE_LAG`), if that joint has a fixed contact floor, or any
-      joint past its fixed
-      contact floor or `off_playback` load/lag floor — is not a bump: the driver logs `[contact] … releasing torque` and
+      it (its learned envelope load or lag floor when one applied) or pushed 1°
+      (`CONTACT_RELEASE_LAG`) further off its pin than it had settled to 0.5 s in, that
+      settled offset capped at 3° (`CONTACT_RELEASE_LAG_BASE_MAX`: pinned untouched at
+      −72°, lamp-75c9's `base_yaw` held 40-45 % against its cable and sat 2.5-2.7° off, and
+      a bare 1° let it go limp), if that joint has a fixed contact floor, or any
+      other fixed-floor joint (`base_yaw`, the wrists) at the floor that stop compared it
+      against (its learned envelope there, never above its fixed floor: on lamp-75c9 a
+      hand held `wrist_pitch` at 32 % under a 17 % envelope floor while `wrist_roll` had
+      stopped the arm, and the fixed 65 % kept it on), or a weight-bearing joint past its
+      learned hold or `off_playback` load/lag floor — is not a bump: the driver logs `[contact] … releasing torque` and
       hands over to the cut-off's torque-off (arm goes limp, `retry_s` lockout, the
-      cut-off's chime). A bump let go within the window only pauses. The stopping floor
+      cut-off's chime). After that lockout the resume ramps the limp arm back at up to its
+      torque cap, so the contact stop sits out the ramp (`duration` + 0.5 s): on lamp-75c9
+      it stopped `base_yaw` at 60 %, released it again and looped every lockout. A bump let go within the window only pauses. The stopping floor
       matters on a learned unit: on lamp-52e6 a hand stopped `base_yaw` at 39.6 % (envelope
       18 %), holding it at 23-36 %; on lamp-a0ae (`P=16`) a hand held `base_yaw` at only
       12-16 % but 1.3-8.5° off, while a pinned `base_yaw` left alone drifted 0.0°. A weight-bearing joint (no fixed floor: `base_pitch`,
       `elbow_pitch`) never releases on its learned floor: pinned, it keeps a gravity load
       (and some sag) that depends on the pose it stopped in, not the one the envelope learned. Untouched,
       lamp-a0ae's `elbow_pitch` stopped at 38.0 % over a 22.7 % floor and then held 33.4 %,
-      so even a 10 % margin let it go limp. Those joints release on their `off_playback`
-      floor or the cut-off only. Surfaced at
+      so even a 10 % margin let it go limp. They release on what they learned to **hold
+      still in that pose** instead (`HoldLearner`, `hal/drivers/motors/hold_profile.py`):
+      every spell in which all goals stay still (within 0.5°) for the 3 s pause with
+      torque on, learn run or not, is sampled the way a pause sees a pinned arm, past a
+      0.5 s settle for the last move's lag, for `base_pitch` / `elbow_pitch` load and lag.
+      The peaks are kept per pose cell of 5° x 5° (`base_pitch`, `elbow_pitch`) and
+      updated like the passive envelope (2 spells, falling 50 % of the gap per spell, twice the envelope's share since the lamp is rarely still for a whole pause, from
+      the fixed floor but never under a hold once measured, a heavier one rising at once; a learn run's spells,
+      held 4 s at each recording's end pose, set the cell outright). In a pause these
+      joints release at the learned peak plus the profile margins, the cell's own
+      envelope raised by what its ±1 neighbours actually measured (not their envelopes:
+      a neighbour learned once still sits near the fixed floor it falls from, and on
+      lamp-75c9 one held a learned cell's elbow release at 51 % against its 21 %), and only where that is under their `off_playback` floor (and, for a
+      capped load, under the cap): an unlearned pose, or a cell a hand raised, keeps the
+      `off_playback` floor or the cut-off as before. Saved at most once a minute to
+      `/var/lib/hal/contact_hold.json` (`HAL_CONTACT_HOLD_PATH`), dropped like the
+      envelope when `torque_limit` changes. Surfaced at
       `GET /health.servo_overload.contact` (`active`, `resume_in_s`, `trips`,
       `last_trip`, thresholds). Lamp's floors come from lamp-52e6 (2026-10-09): over
       19 recordings the free-motion peaks were `base_yaw` 46 %, `wrist_roll` 52 %,
@@ -482,7 +505,10 @@ Six conditions are enforced today; setup-incomplete is reserved.
       (`move_to`/`move_to_raw`: gaze/search turns, aim, `/servo/move`, startup, zero, park) and `OFF_PLAYBACK_SETTLE_S`
       (0.5 s) after it, when only the fixed floors apply: a fast move outruns the
       servo's acceleration ramp, and on lamp-a0ae that lag (`wrist_roll` 12-14°) and
-      spin-up load (`elbow_pitch` 54 %) stopped the arm 0.2 s into untouched moves. A
+      spin-up load (`elbow_pitch` 54 %) stopped the arm 0.2 s into untouched moves. They
+      sit out the ramp into a recording too, which only the fixed floors watch: idle's
+      settled flag outlives a halt into the ramp back, and on lamp-75c9 that ramp from a
+      −72° aim trailed `base_yaw` 17° and stopped on the still floor of 10°. A
       unit that has learned the recording playing — settled idle included — uses its
       own envelope instead of `off_playback` (lamp-a0ae's heavier elbow idles at
       54-60 % against the 52 % taken from lamp-52e6). On
@@ -497,30 +523,40 @@ Six conditions are enforced today; setup-incomplete is reserved.
       them: their per-frame max while fewer than 5 (the loosest), then the second
       highest, so one run a hand brushed does not count. A higher value replaces the
       envelope at once, so a heavy frame stops the arm only once, up to the cut-off's
-      80 % for load and 30° for lag; a lower one comes down a quarter of the gap per
-      update, so a few cool runs do not make it touchy. A recording's first envelope
-      comes down the same way from the fixed floors it ran under before (Lamp: the
-      contact `load` floors, then `off_playback` load and lag, then a capped joint's
-      `torque_limit`), so it starts where the lamp stood. A frame a later run reaches for
+      80 % for load and 30° for lag. A value once measured (by a clean run or a learn
+      run; the highest per frame is saved in `contact_profile.json.measured`) is never
+      lowered by lighter runs after it. Only what sits above it comes down, a quarter of
+      the gap per update: a recording's first envelope, which starts at the fixed floors
+      it ran under before (Lamp: the contact `load` floors, then `off_playback` load and
+      lag, then a capped joint's `torque_limit`), so it starts where the lamp stood, and
+      a false stop's raise. A frame a later run reaches for
       the first time (20 Hz sampling skips some 30 fps frames on each run) falls from
       its learned neighbours within ±3 frames instead, so it does not hold its whole
       floor window up at the fixed floor. A run that trips never
-      counts, so a contact pause nobody holds through (it ends without a torque
-      release) is taken as a false stop instead: the envelope within ±3 frames of it
+      counts, so a contact pause nobody touches (it ends without a torque release, and
+      from 0.5 s in, `CONTACT_HELD_SETTLE_S`, no joint reached its release floor even
+      briefly) is taken as a false stop instead. A pause a hand held short of a release
+      leaves the envelope alone: on lamp-75c9 hands holding `elbow_pitch` at 30-45 %
+      loosened it at every pause, and one at its 60 % cap lifted `idle`'s whole elbow
+      channel past the cap. For a false stop the envelope within ±3 frames of it
       rises at once to where that sample would not have stopped it, at most 10 times
-      a day per recording, and does not come down for 24 h after. A capped joint
-      stopped at its `torque_limit` (within 1 %) rises to the cap across the whole
-      recording instead, leaving that joint to its lag there: lamp-c0a4's elbow
-      reaches its 60 % cap at varying `idle` frames, and stopped `idle` every 5 s on a
-      41 % floor. Updates are saved at most once a minute (the file is overwritten,
+      a day per recording, and those frames of that joint's channel do not come down
+      for 24 h after (kept in RAM, so a HAL restart ends it); every other frame and
+      channel keeps falling (on lamp-75c9 a hold over the whole recording kept all five
+      joints of `idle` near their fixed floors for a day after four early stops). A
+      capped joint stopped at its `torque_limit` (within 1 %) rises to the cap within
+      ±30 frames (1 s) of the stop instead, leaving that stretch to its lag: lamp-c0a4's
+      elbow reaches its cap at `idle` frames that vary from run to run, and stopped
+      `idle` every 5 s on a 41 % floor. Raising the whole channel, as before, left
+      lamp-75c9's `idle` elbow load unwatched at every frame. Updates are saved at most once a minute (the file is overwritten,
       about 100 KB a write). The envelope is saved with the `torque_limit`
       it was learned under (`contact_profile.json.signature`); after a `torque_limit`
       change it is dropped at startup and the fixed floors apply until it is learned
       again (an envelope learned at 60 % tripped lamp-c0a4's idle `base_pitch` about
       300 times in 25 min at 70 %).
       `GET /health.servo_overload.contact.profile` shows `margin`, how many recordings
-      are learned, which one a learn run is on and `passive_runs` (clean runs held per
-      recording).
+      are learned, which one a learn run is on, `passive_runs` (clean runs held per
+      recording) and `hold_cells` (pose cells with a learned hold).
       **Limits:** nothing is seen before the touch, and a light object the arm can
       simply push, such as a cup or a photo frame, may never load a joint enough to trip.
 - [x] **Servo torque cap → a softer arm.** An optional `torque_limit` map
@@ -528,10 +564,12 @@ Six conditions are enforced today; setup-incomplete is reserved.
       each servo's `Torque_Limit` (STS3215 register 48) at every configure, so that
       joint pushes at most that hard into a hand or an object. `Present_Load` then
       tops out at the limit, so a load floor above it (the cut-off's 80 %) never trips
-      on that joint. Lamp caps `base_yaw`, `base_pitch` and `elbow_pitch` at `600` (60 %):
-      over the 19 recordings on lamp-52e6 a 70 % cap moved the worst tracking lag from
-      17° to 18° (`shock`) and 50 % stretched it to 24°; 60 % trades a little lag for a
-      gentler push. The cut-off's 80 % therefore never trips on these three joints (the
+      on that joint. Lamp caps `base_yaw` and `base_pitch` at `600` (60 %) and
+      `elbow_pitch` at `700` (70 %): over the 19 recordings on lamp-52e6 a 70 % cap
+      moved the worst tracking lag from 17° to 18° (`shock`) and 50 % stretched it to
+      24°; 60 % trades a little lag for a gentler push. The elbow sat at its 60 % cap in
+      untouched `idle` on lamp-75c9, leaving its load nothing to tell a hand by there, so
+      it gets 70 %. The cut-off's 80 % therefore never trips on these three joints (the
       cap itself bounds their drive); it still guards `wrist_roll` and `wrist_pitch`.
 - [x] **Servo overload (stall) → cut torque, chime, timed retry.** Gear protection for
       a blocked or forced arm. Driver-level and feetech-only (`AnimationService`),

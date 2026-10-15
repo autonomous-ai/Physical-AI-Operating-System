@@ -694,6 +694,135 @@ class ShopifyClientCredentialsTests(HelperTestCase):
         self.assertNotIn(CLIENT_SECRET, scrubbed)
 
 
+EBAY_REFRESH = 'v^1.1#refresh-' + 'r' * 30
+EBAY_SECRET = 'PRD-secret-' + 's' * 20
+EBAY_ACCESS = 'v^1.1#access-' + 'a' * 30
+EBAY_INVENTORY = 'https://api.ebay.com/sell/inventory/v1/inventory_item'
+
+
+class EbayConnectorTests(HelperTestCase):
+    """The customer's own eBay app: access tokens minted from a refresh token."""
+
+    def setUp(self):
+        super().setUp()
+        self.link()
+        self.token_calls = []
+        self.api_calls = []
+
+    def link(self, obtained_at=1000, **creds):
+        credentials = {'client_id': 'App-PRD-123', 'client_secret': EBAY_SECRET, 'marketplace_id': 'EBAY_GB'}
+        credentials.update(creds)
+        self.write('ebay', {'auth_type': 'pat', 'api_key': EBAY_REFRESH, 'credentials': credentials,
+                            'obtained_at': obtained_at})
+
+    def fake_open(self, api_status=200, api_body='{"inventoryItems": []}', token_error=None):
+        def opener(req, timeout):
+            if req.full_url.endswith('/identity/v1/oauth2/token'):
+                self.token_calls.append(req)
+                if token_error:
+                    raise urllib.error.HTTPError(req.full_url, 400, 'Bad Request', {},
+                                                 io.BytesIO(json.dumps({'error': token_error}).encode()))
+                return FakeResponse(json.dumps({'access_token': EBAY_ACCESS + str(len(self.token_calls)),
+                                                'expires_in': 7200}))
+            self.api_calls.append(req)
+            status = api_status(len(self.api_calls)) if callable(api_status) else api_status
+            if status >= 400:
+                raise urllib.error.HTTPError(req.full_url, status, 'err', {}, io.BytesIO(b'{"errors": []}'))
+            return FakeResponse(api_body)
+        return opener
+
+    def test_call_mints_token_and_sets_marketplace_headers(self):
+        with patch.object(self.mod._OPENER, 'open', self.fake_open()):
+            code, out, _ = self.run_main('call', 'ebay', 'PUT', EBAY_INVENTORY + '/SKU-1', '--json', '{"product": {}}')
+        self.assertEqual(code, 0)
+        token_req = self.token_calls[0]
+        self.assertEqual(token_req.full_url, 'https://api.ebay.com/identity/v1/oauth2/token')
+        self.assertTrue(token_req.get_header('Authorization').startswith('Basic '))
+        self.assertIn(b'grant_type=refresh_token', token_req.data)
+        api_req = self.api_calls[0]
+        self.assertEqual(api_req.get_header('Authorization'), 'Bearer ' + EBAY_ACCESS + '1')
+        self.assertEqual(api_req.get_header('X-ebay-c-marketplace-id'), 'EBAY_GB')
+        self.assertEqual(api_req.get_header('Content-language'), 'en-GB')
+        self.assertEqual(json.loads(out), {'inventoryItems': []})
+
+    def test_refresh_token_is_never_sent_as_access_token(self):
+        with patch.object(self.mod._OPENER, 'open', self.fake_open()):
+            self.run_main('call', 'ebay', 'GET', EBAY_INVENTORY)
+        self.assertNotIn(EBAY_REFRESH, self.api_calls[0].get_header('Authorization'))
+
+    def test_cached_token_is_reused(self):
+        with patch.object(self.mod._OPENER, 'open', self.fake_open()):
+            self.run_main('call', 'ebay', 'GET', EBAY_INVENTORY)
+            self.run_main('call', 'ebay', 'GET', EBAY_INVENTORY)
+        self.assertEqual(len(self.token_calls), 1)
+        self.assertEqual(len(self.api_calls), 2)
+        self.assertEqual((self.dir / 'ebay.token.json').stat().st_mode & 0o777, 0o600)
+
+    def test_relinking_ignores_cached_token(self):
+        with patch.object(self.mod._OPENER, 'open', self.fake_open()):
+            self.run_main('call', 'ebay', 'GET', EBAY_INVENTORY)
+            self.link(obtained_at=2000)
+            self.run_main('call', 'ebay', 'GET', EBAY_INVENTORY)
+        self.assertEqual(len(self.token_calls), 2)
+
+    def test_rejected_cached_token_is_minted_again_once(self):
+        with patch.object(self.mod._OPENER, 'open', self.fake_open()):
+            self.run_main('call', 'ebay', 'GET', EBAY_INVENTORY)
+        self.api_calls.clear()
+        with patch.object(self.mod._OPENER, 'open', self.fake_open(api_status=lambda n: 401 if n == 1 else 200)):
+            code, _, _ = self.run_main('call', 'ebay', 'GET', EBAY_INVENTORY)
+        self.assertEqual(code, 0)
+        self.assertEqual(self.api_calls[-1].get_header('Authorization'), 'Bearer ' + EBAY_ACCESS + '2')
+
+    def test_revoked_refresh_token_asks_to_reconnect(self):
+        with patch.object(self.mod._OPENER, 'open', self.fake_open(token_error='invalid_grant')):
+            code, out, err = self.run_main('call', 'ebay', 'GET', EBAY_INVENTORY)
+        self.assertEqual(code, 3)
+        self.assertEqual(out, '')
+        self.assertIn('refresh token', err)
+        self.assertEqual(self.api_calls, [])
+
+    def test_sandbox_host_refused_for_production_link(self):
+        with patch.object(self.mod._OPENER, 'open') as opener:
+            code, _, err = self.run_main('call', 'ebay', 'GET', 'https://api.sandbox.ebay.com/sell/inventory/v1/inventory_item')
+        self.assertEqual(code, 4)
+        self.assertIn('production', err)
+        opener.assert_not_called()
+
+    def test_sandbox_link_uses_sandbox_token_host(self):
+        self.link(environment='sandbox')
+        with patch.object(self.mod._OPENER, 'open', self.fake_open()):
+            code, _, _ = self.run_main('call', 'ebay', 'GET', 'https://api.sandbox.ebay.com/sell/inventory/v1/inventory_item')
+        self.assertEqual(code, 0)
+        self.assertEqual(self.token_calls[0].full_url, 'https://api.sandbox.ebay.com/identity/v1/oauth2/token')
+
+    def test_missing_client_secret_cannot_call(self):
+        self.link(client_secret='')
+        with patch.object(self.mod._OPENER, 'open') as opener:
+            code, _, err = self.run_main('call', 'ebay', 'GET', EBAY_INVENTORY)
+        self.assertEqual(code, 3)
+        self.assertIn('reconnect', err)
+        opener.assert_not_called()
+
+    def test_secrets_are_scrubbed_from_output(self):
+        echo = ' '.join((EBAY_REFRESH, EBAY_SECRET, EBAY_ACCESS + '1'))
+        with patch.object(self.mod._OPENER, 'open', self.fake_open(api_body=echo)):
+            code, out, _ = self.run_main('call', 'ebay', 'GET', EBAY_INVENTORY)
+        self.assertEqual(code, 0)
+        for secret in (EBAY_REFRESH, EBAY_SECRET, EBAY_ACCESS):
+            self.assertNotIn(secret, out)
+
+    def test_info_shows_marketplace_without_secrets(self):
+        code, out, _ = self.run_main('info', 'ebay')
+        self.assertEqual(code, 0)
+        info = json.loads(out)
+        self.assertEqual(info['marketplace_id'], 'EBAY_GB')
+        self.assertEqual(info['environment'], 'production')
+        self.assertTrue(info['auto_refresh'])
+        for secret in (EBAY_REFRESH, EBAY_SECRET):
+            self.assertNotIn(secret, out)
+
+
 def urllib_parse_qsl(text):
     from urllib.parse import parse_qsl
     return parse_qsl(text, keep_blank_values=True)

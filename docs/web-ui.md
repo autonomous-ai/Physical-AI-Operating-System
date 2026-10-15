@@ -180,6 +180,33 @@ The admin HTTP API is `GET /api/device/runtime-login` (providers and current ses
 The supported runtimes also expose **Use existing runtime configuration** under an advanced disclosure, for an account/model already configured locally. This selects the existing runtime mode through the normal Save Changes flow without another login or an account-access claim. Other runtimes retain the manual Terminal flow: configure account and model first, confirm that configuration in Settings, then save runtime mode. Restoring AI Brain defaults explicitly selects `os` and forces apply even if saved values are unchanged. An apply error is shown after mode has been saved; resolve the cause and retry applying. Configuration success and runtime readiness do not prove subscription entitlement; verify an actual chat separately.
 
 
+**eBay connector** (`/setting#ebay`, Settings → Connectors → eBay). The owner
+registers their own app in the eBay Developer Program and adds an eBay redirect
+URL (RuName) whose *auth accepted URL* is any https page. The card asks for the
+environment (Production or Sandbox), marketplace (e.g. `EBAY_US`), the app's
+**App ID (Client ID)**, **Cert ID (Client Secret)** and **RuName**, and rejects
+an App ID whose keyset (`-PRD-` / `-SBX-`) does not match the environment.
+**Sign in with eBay** opens eBay's consent page
+(`auth.ebay.com` / `auth.sandbox.ebay.com` `/oauth2/authorize`, scopes
+`api_scope`, `sell.inventory`, `sell.account`, `sell.fulfillment`); after the
+seller agrees, eBay opens the accept page with `?code=…`, and the owner pastes
+that address (or just the code) into the card within the code's five minutes.
+**Connect** sends everything to `PUT /api/device/connectors/ebay`, which
+exchanges the code for a refresh token on `api.ebay.com` /
+`api.sandbox.ebay.com` (`grant_type=authorization_code`). Owners who already
+hold a refresh token can paste it instead (*I already have a refresh token*);
+the device checks it once with `grant_type=refresh_token`. Nothing is saved when
+eBay rejects the values. The link is stored as connector `ebay`: the refresh
+token in `api_key`, and `client_id`, `client_secret`, `marketplace_id`,
+`environment` and `ru_name` in `credentials`. `GET /api/device/connectors/:code`
+never returns `client_secret`; after a reload the App ID, RuName, marketplace and
+environment are filled in again, and reconnecting needs the secret and a new
+sign-in. Everything stays on the device. The `connectors` skill helper mints a
+short-lived eBay access token from these on each call and caches it in
+`ebay.token.json` (mode 0600, dropped on every save) next to the connector
+files; when the refresh token expires (about 18 months) or is revoked, the agent
+asks the owner to reconnect here.
+
 **Remote MCP Tools** (`/setting#mcp`). Finish onboarding the selected runtime,
 then sign in to the device's admin UI. Enter a unique **Name**, the remote MCP
 server's **URL**, and any required **Headers**, then click **Add Tool**. For
@@ -608,7 +635,7 @@ Overview is organized into three always-visible zones: **System health** (Agent,
 Third-party accounts the robot can use are grouped under **Settings → Connectors**, next to the other Settings sections. They have no shared Save Changes button; each page saves its own connection.
 
 - **Facebook** — a Page ID and a Page Access Token, saved through `POST /api/device/connectors/pat`.
-- **Shopify** — the store is linked with the customer's **own Shopify app**: the page asks for the **Store domain**, the app's **Client ID** and its **Client secret** (masked, with a show/hide toggle). The domain is cleaned up on submit (trimmed, lowercased, a pasted `https://…` or path removed, a bare handle completed to `<handle>.myshopify.com`) and the device checks all three against Shopify once before saving (`PUT /api/device/connectors/shopify`). The page then shows the connected store, with **Reconnect** and **Disconnect**. The secret is never shown again and is never returned by the API. A collapsible **How to create your Shopify app** guide (six steps plus troubleshooting) sits under the form; it is the same text the autonomous.ai connect form shows. Tokens last 24 hours and the device renews them itself, so there is nothing to refresh by hand.
+- **Shopify** — the store is linked with the customer's **own Shopify app**: the page asks for the **Store domain**, the app's **Client ID** and its **Client secret** (masked, with a show/hide toggle). The domain is cleaned up on submit (trimmed, lowercased, a pasted `https://…` or path removed, a bare handle completed to `<handle>.myshopify.com`) and the device checks all three against Shopify once before saving (`PUT /api/device/connectors/shopify`). The page then shows the connected store, with **Reconnect** and **Disconnect**; after a reload the Store domain and Client ID fields are filled in again from the saved link, and **Cancel** restores them. The secret is never shown again and is never returned by the API: its field says it is saved, and reconnecting or changing the store needs it pasted again. A collapsible **How to create your Shopify app** guide (six steps plus troubleshooting) sits under the form; it is the same text the autonomous.ai connect form shows. Tokens last 24 hours and the device renews them itself, so there is nothing to refresh by hand.
 - **Amazon** — two ways to link a seller account. **Option 1, your own Amazon app:** a form for the app's **Client ID**, **Client secret** and **Refresh token** plus the **Region** (North America, Europe or Far East), with a collapsible guide to creating a private Selling Partner API app and authorizing it on the seller's own account (Seller Central → Apps and Services → Develop Apps). The device checks the three values with Login with Amazon once before saving (`PUT /api/device/connectors/amazon_sp`); the page then shows **connected** with **Reconnect** and **Disconnect**, and never shows the secret or token again. **Option 2, Amazon's own connector (beta):** the sign-in lives on the **Amazon** card in MCP Tools (or the autonomous.ai account). The page also shows with a **Disconnect** button, and manages Amazon's optional skills: **Install Amazon's skills** (downloads Amazon's published skills from GitHub at a pinned commit; markdown and JSON files only, nothing is run), **Reinstall** and **Remove** (removes only what it installed). The page tells the user that Amazon is US-only for now and that the robot asks before it changes a listing, a price, stock or a shipment.
 
 The page saves the credentials on the device and only the connected status is reported to the account, so the privacy line reads "Saved on this device. Only the connected status is shared with your account."

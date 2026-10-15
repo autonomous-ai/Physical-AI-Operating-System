@@ -46,6 +46,9 @@ type DeviceMQTTHandler struct {
 	// amazonToolkitRun, when set, replaces the call to the connectors skill's Amazon helper so tests
 	// don't need Python or a network.
 	amazonToolkitRun amazonToolkitRunner
+	// ebayHTTP is the client for the eBay sign-in exchange on the local
+	// Settings page; nil means the default (short timeout, no redirects).
+	ebayHTTP *http.Client
 	// publishConnectorResult, when set, replaces publishDataResult for the local
 	// connector pages so tests don't need a broker.
 	publishConnectorResult func(kind, status, errMsg string, data interface{}) error

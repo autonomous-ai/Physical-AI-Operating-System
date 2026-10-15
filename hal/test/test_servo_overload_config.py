@@ -45,7 +45,7 @@ class TestServoOverloadConfig(unittest.TestCase):
                                       "lag:elbow_pitch": 120, "lag:wrist_roll": 90,
                                       "lag:wrist_pitch": 120,
                                   }, 1.0),
-                {"base_yaw": 600, "base_pitch": 600, "elbow_pitch": 600},
+                {"base_yaw": 600, "base_pitch": 600, "elbow_pitch": 700},
             ),
         )
         self.assertIsNone(load_servo_overload_config(root / "intern-v2", "orangepi_sun60"))

@@ -71,7 +71,7 @@ Ambient LED restoration delegates to HAL `/led/restore` after the quiet window. 
 | POST | `/api/system/reboot` | Admin-gated: acknowledge, then ask HAL to announce and reboot the OS |
 | POST | `/api/system/shutdown` | Admin-gated: acknowledge, then ask HAL to announce, release servos, and shut down the OS |
 | POST | `/api/system/software-update/:target` | Admin-gated: install the published version of one component now via bootstrap `POST 127.0.0.1:8080/force-update/<target>` (`agent` resolves to the configured runtime's key). Rate-limited per target |
-| POST | `/api/system/factory-reset` | Admin or loopback: soft factory reset (wipe config/keys/enrollments/WiFi creds, reset the active agent backend) then reboot into AP setup. `202`; `409` if already running, `429` inside the cooldown |
+| POST | `/api/system/factory-reset` | Admin or loopback: soft factory reset (wipe config/keys/enrollments/WiFi creds/connector credentials, reset the active agent backend) then reboot into AP setup. `202`; `409` if already running, `429` inside the cooldown |
 | POST | `/api/system/exec` | Loopback-only: run `{cmd}` with `sh -c` (30 s timeout), returns `{stdout, stderr, exit_code}` |
 | GET | `/api/system/shell` | Admin-gated WebSocket: `/bin/bash` PTY for the web xterm.js terminal |
 | POST | `/api/system/restart/:target` | Admin-gated service restart for `hal` or `os-server` only. Returns `202` with `{target, scheduled: true}` after systemd accepts the restart timer; unsupported targets return `400`, scheduling failures return `500`. |

@@ -569,6 +569,9 @@ func (s *Server) Serve(closeFn func()) error {
 	connectorGroup.GET("shopify", adminAuthMiddleware(s.config), s.deviceMQTTHandler.GetShopify)
 	connectorGroup.PUT("shopify", adminAuthMiddleware(s.config), s.deviceMQTTHandler.SetShopify)
 	connectorGroup.DELETE("shopify", adminAuthMiddleware(s.config), s.deviceMQTTHandler.RemoveShopify)
+	// eBay saves through its own route: it exchanges the seller's sign-in code
+	// for a refresh token on the device. GET/DELETE use the generic :code routes.
+	connectorGroup.PUT("ebay", adminAuthMiddleware(s.config), s.deviceMQTTHandler.SetEbay)
 	// Amazon is linked from the web (its sign-in needs an https return address), so it has no credential
 	// route here; the local page only manages Amazon's optional skills.
 	connectorGroup.GET("amazon_sp", adminAuthMiddleware(s.config), s.deviceMQTTHandler.GetAmazonSP)

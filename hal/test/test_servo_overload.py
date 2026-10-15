@@ -772,15 +772,79 @@ def test_gravity_sag_over_a_learned_lag_floor_only_pauses(contact_rig, monkeypat
 
 
 def test_a_hand_pushing_a_pinned_base_yaw_off_its_pose_releases_torque(contact_rig, monkeypatch):
-    """lamp-a0ae: a hand held base_yaw at only 12-16 % (stop floor 18 %) but 1.3-8.5 deg off."""
+    """lamp-a0ae: a hand held base_yaw at only 12-16 % (stop floor 18 %) but 1.3-8.5 deg off,
+    pushing it further than the pin had settled to."""
     contact_rig.svc._contact_release_s = 0.5
     _hit_under_learned_floor(contact_rig, monkeypatch, "base_yaw", 180, 320)
     contact_rig.bus.loads = _stalled("base_yaw", 140)
-    monkeypatch.setattr(contact_rig.svc, "_read_lags", lambda: {"lag:base_yaw": 25})
+    lag = {"lag:base_yaw": 3}
+    monkeypatch.setattr(contact_rig.svc, "_read_lags", lambda: dict(lag))
+    for _ in range(11):                          # settles 0.3 deg off
+        contact_rig.svc._overload_tick()
+        contact_rig.clock.advance(0.05)
+    lag["lag:base_yaw"] = 25                     # then pushed 2.5 deg off
     for _ in range(12):
         contact_rig.svc._overload_tick()
         contact_rig.clock.advance(0.05)
     assert contact_rig.svc.overload_active
+
+
+def test_a_pinned_base_yaw_held_off_by_its_cable_only_pauses(contact_rig, monkeypatch):
+    """lamp-75c9: pinned untouched at -72 deg, base_yaw held 40 % and sat 2.7 deg off its pin."""
+    contact_rig.svc._contact_release_s = 0.5
+    _hit_under_learned_floor(contact_rig, monkeypatch, "base_yaw", 180, 320)
+    contact_rig.bus.loads = _stalled("base_yaw", 100)
+    monkeypatch.setattr(contact_rig.svc, "_read_lags", lambda: {"lag:base_yaw": 27})
+    for _ in range(50):
+        contact_rig.svc._overload_tick()
+        contact_rig.clock.advance(0.05)
+    assert contact_rig.svc.contact_active and not contact_rig.svc.overload_active
+    assert contact_rig.svc._contact_hold_floors["lag:base_yaw"] == 27 + 10
+
+
+def test_a_hand_on_a_pinned_joint_from_the_stop_still_releases_past_the_cap(contact_rig, monkeypatch):
+    contact_rig.svc._contact_release_s = 0.5
+    _hit_under_learned_floor(contact_rig, monkeypatch, "base_yaw", 180, 320)
+    contact_rig.bus.loads = _stalled("base_yaw", 140)
+    monkeypatch.setattr(contact_rig.svc, "_read_lags", lambda: {"lag:base_yaw": 85})
+    for _ in range(25):
+        contact_rig.svc._overload_tick()
+        contact_rig.clock.advance(0.05)
+    assert contact_rig.svc.overload_active
+
+
+def test_the_ramp_back_to_idle_is_not_held_to_the_still_floors(profile_rig, monkeypatch):
+    """lamp-75c9: halted at a -72 deg aim, the ramp back trailed base_yaw 17 deg; idle's settled
+    flag was still up and the still floor (10 deg) stopped it."""
+    svc = profile_rig.svc
+    svc._contact_off_playback = {"lag:base_yaw": 100}
+    svc._current_recording = "idle"
+    svc._idle_settled = True
+    svc._interpolation_frames = 30
+    monkeypatch.setattr(svc, "_read_lags", lambda: {"lag:base_yaw": 173})
+    samples, floors = svc._contact_samples(dict(IDLE))
+    assert floors is None and "lag:base_yaw" not in samples
+    svc._interpolation_frames = 0
+    samples, floors = svc._contact_samples(dict(IDLE))
+    assert floors == {"lag:base_yaw": 100}
+
+
+def test_the_resume_after_a_cut_off_does_not_stop_on_its_own_ramp(contact_rig):
+    """lamp-75c9: the ramp back from limp hit base_yaw's 60 % cap, stopped, released and looped."""
+    _trip_now(contact_rig)
+    contact_rig.clock.advance(120.0)
+    contact_rig.svc._overload_tick()              # lockout over: resume
+    contact_rig.svc.resume.assert_called_once()
+    contact_rig.bus.loads = _stalled("base_yaw", 1000)
+    for _ in range(8):
+        contact_rig.svc._overload_tick()
+        contact_rig.clock.advance(0.05)
+    assert not contact_rig.svc.contact_active
+    contact_rig.bus.loads = dict(IDLE)
+    contact_rig.clock.advance(contact_rig.svc.duration + 0.5)
+    contact_rig.svc._overload_tick()
+    _hit(contact_rig, "base_yaw", 1000)
+    assert contact_rig.svc.contact_active
 
 
 def test_a_pinned_base_yaw_left_alone_only_pauses(contact_rig, monkeypatch):
@@ -1178,3 +1242,29 @@ def test_a_stop_held_into_a_torque_release_leaves_the_envelope(passive_rig):
     assert passive_rig.svc.overload_active
     passive_rig.svc._contact_recover()
     assert passive_rig.profile.envelope("stretching")["base_pitch"][4] == 300
+
+
+def test_a_hand_on_the_arm_short_of_a_release_is_no_false_stop(passive_rig):
+    """lamp-75c9: hands held elbow_pitch at 30-45 % under its release floor; each pause
+    loosened the envelope, and one at its 60 % cap lifted idle's whole elbow channel."""
+    passive_rig.svc._contact_release_s = 5.0        # past the pause: never releases here
+    _stop_on_envelope(passive_rig)
+    passive_rig.clock.advance(0.6)
+    passive_rig.bus.loads = {**IDLE, "base_pitch": 960}
+    passive_rig.svc._overload_tick()                 # a moment over its floor, then let go
+    passive_rig.bus.loads = dict(IDLE)
+    passive_rig.clock.advance(2.4)
+    passive_rig.svc._overload_tick()
+    assert not passive_rig.svc.contact_active
+    assert passive_rig.profile.envelope("stretching")["base_pitch"][4] == 300
+
+
+def test_the_stop_itself_settling_is_not_taken_for_a_hand(passive_rig):
+    passive_rig.svc._contact_release_s = 5.0
+    _stop_on_envelope(passive_rig)
+    passive_rig.bus.loads = {**IDLE, "base_pitch": 960}
+    passive_rig.svc._overload_tick()                 # still decelerating, inside the settle
+    passive_rig.bus.loads = dict(IDLE)
+    passive_rig.clock.advance(3.0)
+    passive_rig.svc._overload_tick()
+    assert passive_rig.profile.envelope("stretching")["base_pitch"][4] == 500 - 150 + 1

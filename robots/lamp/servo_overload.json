@@ -28,7 +28,7 @@
       "torque_limit": {
         "base_yaw": 600,
         "base_pitch": 600,
-        "elbow_pitch": 600
+        "elbow_pitch": 700
       }
     }
   }

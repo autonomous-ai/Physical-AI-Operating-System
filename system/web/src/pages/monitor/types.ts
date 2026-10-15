@@ -141,7 +141,7 @@ export interface DisplayEvent extends MonitorEvent {
   _seq: number;
 }
 
-export type Section = "overview" | "system" | "flow" | "camera" | "servo" | "face-owners" | "analytics" | "logs" | "chat" | "pairing" | "cli" | "sensing" | "bluetooth" | "api-docs" | "agent-config" | "settings:device" | "settings:wifi" | "settings:llm" | "settings:runtime" | "settings:voice" | "settings:face" | "settings:privacy" | "settings:tts" | "settings:realtime" | "settings:stt" | "settings:channel" | "settings:mqtt" | "settings:mcp" | "settings:plugins" | "settings:timezone" | "settings:led" | "settings:scheduled" | "settings:facebook" | "settings:shopify" | "settings:amazon";
+export type Section = "overview" | "system" | "flow" | "camera" | "servo" | "face-owners" | "analytics" | "logs" | "chat" | "pairing" | "cli" | "sensing" | "bluetooth" | "api-docs" | "agent-config" | "settings:device" | "settings:wifi" | "settings:llm" | "settings:runtime" | "settings:voice" | "settings:face" | "settings:privacy" | "settings:tts" | "settings:realtime" | "settings:stt" | "settings:channel" | "settings:mqtt" | "settings:mcp" | "settings:plugins" | "settings:timezone" | "settings:led" | "settings:scheduled" | "settings:facebook" | "settings:shopify" | "settings:ebay" | "settings:amazon";
 
 export type Area = "monitor" | "setting";
 
@@ -177,6 +177,7 @@ const SHORT_TO_SETTING: Record<string, Section> = {
   facebook: "settings:facebook",
   shopify: "settings:shopify",
   amazon: "settings:amazon",
+  ebay: "settings:ebay",
 };
 const SETTING_TO_SHORT: Record<string, string> = Object.fromEntries(
   Object.entries(SHORT_TO_SETTING).map(([short, id]) => [id, short]),
@@ -264,6 +265,7 @@ export const NAV: NavEntry[] = [
           { id: "settings:facebook", label: "Facebook", icon: "❦" },
           { id: "settings:shopify", label: "Shopify", icon: "◈" },
           { id: "settings:amazon", label: "Amazon", icon: "◉" },
+          { id: "settings:ebay", label: "eBay", icon: "⛁" },
         ],
       },
     ],

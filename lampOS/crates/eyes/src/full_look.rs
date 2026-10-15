@@ -201,6 +201,26 @@ impl Wanted {
 /// [`LONGEST_SIDE`] by averaging and encoded at the best quality that fits
 /// in `most_bytes`. With its size, across and down.
 pub fn fit(frame: &[u8], most_bytes: usize) -> Result<(Vec<u8>, (usize, usize)), String> {
+    fit_within(frame, most_bytes, LONGEST_SIDE)
+}
+
+/// The working frame kept in `--sight-file` while the stream runs at the
+/// full size: the frame at 320 across, as the eyes kept it before (#873
+/// reads it at any time). A frame already that small goes as it is.
+// ponytail: decodes the frame a second time after the detector's decode;
+// share one decode if the eyes' ms a look at the full size matters.
+pub fn working(frame: &[u8]) -> Result<Vec<u8>, String> {
+    fit_within(frame, crate::kept::MOST_BYTES, WORKING_SIDE).map(|(jpeg, _)| jpeg)
+}
+
+/// The working frame's longer side.
+pub const WORKING_SIDE: usize = 320;
+
+fn fit_within(
+    frame: &[u8],
+    most_bytes: usize,
+    longest: usize,
+) -> Result<(Vec<u8>, (usize, usize)), String> {
     let options = DecoderOptions::default()
         .set_max_width(MAX_SIDE)
         .set_max_height(MAX_SIDE)
@@ -210,16 +230,13 @@ pub fn fit(frame: &[u8], most_bytes: usize) -> Result<(Vec<u8>, (usize, usize)),
         .decode_headers()
         .map_err(|error| format!("jpeg: {error:?}"))?;
     let (width, height) = decoder.dimensions().ok_or("a jpeg without a size")?;
-    if frame.len() <= most_bytes
-        && width.max(height) <= LONGEST_SIDE
-        && crate::kept::whole_jpeg(frame)
-    {
+    if frame.len() <= most_bytes && width.max(height) <= longest && crate::kept::whole_jpeg(frame) {
         return Ok((frame.to_vec(), (width, height)));
     }
     let rgb = decoder
         .decode()
         .map_err(|error| format!("jpeg: {error:?}"))?;
-    let (mut rgb, mut size) = shrink(&rgb, (width, height), LONGEST_SIDE);
+    let (mut rgb, mut size) = shrink(&rgb, (width, height), longest);
     loop {
         for quality in QUALITIES {
             let mut out = Vec::new();
@@ -486,6 +503,26 @@ mod tests {
         assert!(small.len() <= most);
         assert_eq!(fit(&small, most).unwrap(), (small.clone(), (320, 240)));
         assert!(fit(b"not a jpeg", most).is_err());
+    }
+
+    #[test]
+    fn the_working_frame_of_a_full_size_stream_is_320_by_240() {
+        let (working, size) = fit_within(
+            &camera_frame(1_280, 960, 90),
+            crate::kept::MOST_BYTES,
+            WORKING_SIDE,
+        )
+        .unwrap();
+        assert_eq!(size, (320, 240));
+        assert!(crate::kept::whole_jpeg(&working));
+        assert!(working.len() <= crate::kept::MOST_BYTES);
+        assert_eq!(
+            super::working(&camera_frame(1_280, 960, 90)).unwrap(),
+            working
+        );
+        // A 320x240 frame, as a stream fallen back to it gives, goes as it is.
+        let small = camera_frame(320, 240, 80);
+        assert_eq!(super::working(&small).unwrap(), small);
     }
 
     #[test]

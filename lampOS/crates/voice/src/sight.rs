@@ -89,12 +89,31 @@ pub fn arguments_from_environment() -> Vec<String> {
     };
     let mut arguments = named(ENVIRONMENT, FLAG);
     let look = named(LOOK_ENVIRONMENT, LOOK_FLAG);
-    let full = !look.is_empty() && look_full_on();
-    arguments.extend(look);
-    if full {
-        arguments.push(LOOK_FULL_FLAG.to_owned());
+    // A full look reads its still from its own file; the eyes' working
+    // frame stays where it was for whoever else reads it (#873).
+    match full_look_file().filter(|_| !look.is_empty()) {
+        Some(path) => arguments.extend([
+            LOOK_FLAG.to_owned(),
+            path.to_string_lossy().into_owned(),
+            LOOK_FULL_FLAG.to_owned(),
+        ]),
+        None => arguments.extend(look),
     }
     arguments
+}
+
+/// The file the eyes keep a full look's still in
+/// (`lamp-eyes --full-look-file`), apart from their working frame.
+pub const FULL_LOOK_FILE_ENVIRONMENT: &str = "LAMP_EYES_FULL_LOOK_FILE";
+
+/// The full look's file, when a look is a full look: `LAMP_LOOK_FULL=on`
+/// and a usable `LAMP_EYES_FULL_LOOK_FILE`. Either missing: no full look.
+pub fn full_look_file() -> Option<PathBuf> {
+    look_full_on()
+        .then(|| std::env::var_os(FULL_LOOK_FILE_ENVIRONMENT))
+        .flatten()
+        .map(PathBuf::from)
+        .filter(|path| usable(path))
 }
 
 /// Whether a look is a full look (`LAMP_LOOK_FULL=on`).
@@ -139,8 +158,7 @@ pub struct Look {
 impl Look {
     /// From `LAMP_LOOK_FULL` and the look's file, for a lamp that looks.
     pub fn from_environment() -> Self {
-        let path = std::env::var_os(LOOK_ENVIRONMENT).map(PathBuf::from);
-        Self::new(path.filter(|_| look_full_on()))
+        Self::new(full_look_file())
     }
 
     pub fn new(full: Option<PathBuf>) -> Self {

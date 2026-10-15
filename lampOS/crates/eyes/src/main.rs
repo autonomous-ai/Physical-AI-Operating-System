@@ -6,7 +6,7 @@
 
 use std::{ffi::OsString, path::PathBuf};
 
-const USAGE: &str = "lamp-eyes --device ABSOLUTE_PATH --lock-directory PRIVATE_ABSOLUTE_DIRECTORY --usb VENDOR:PRODUCT@TOPOLOGY --model ABSOLUTE_PATH --permit-socket ABSOLUTE_PATH --body-socket ABSOLUTE_PATH [--sight-file ABSOLUTE_PATH] [--presence-file ABSOLUTE_PATH] [--recogniser ABSOLUTE_PATH --people ABSOLUTE_PATH --who-socket ABSOLUTE_PATH [--known-file ABSOLUTE_PATH]] [--leave-still-faces on|off] [--full-look WIDTHxHEIGHT]\n\nOwns the camera at --device (checked against the USB identity given, hex vendor and\nproduct and the port topology, for example 01da:5875@3-1.1.4) and looks for a face in\nits frames four times a second while there is one and less than twice a second when\nthere is none, with the pinned YuNet model at --model. Each look\nsends one datagram to --body-socket: {\"face\":{\"x\":..,\"y\":..,\"size\":..,\"turned\":..}} or\n{\"face\":null}. The camera is open only while {\"camera\":true} keeps arriving on\n--permit-socket, at least every 1.5 s; {\"camera\":false} closes it at once. Without\n--sight-file no frame is written anywhere and none leaves this process. With it the\nnewest frame, and only that one, is kept in that file (mode 0600) while the camera is\nopen and removed when it closes: it is what the voice service shows the model. With\n--presence-file one line, the near face's height as a share of the picture's, is kept\nfresh in that file while there is a face: no picture, only that number. With\n--recogniser (the pinned SFace model), --people and --who-socket, the eyes remember\na face when the voice service asks ({\"remember\":\"NAME\"} on the socket), forget it\n({\"forget\":\"NAME\"}), list the names ({\"list\":true}) and say whose face is at the\nlamp ({\"who\":true}). Only the prints of people who asked are kept, in --people\n(mode 0600); no picture. With --known-file, the name of the one known at the lamp is\nkept fresh in that file while they are there. With --leave-still-faces on, a face at a place\nwhere faces have come from for half an hour, every one small (under 0.14 of the height)\nand faint (scored under 0.8), is not a person: it is left out of what the body is told,\nthe bus and recognition (off unless given). With --full-look (it needs --sight-file) the\ncamera runs at that size, the working frame is not kept, and {\"look_full\":ID} on\n--permit-socket asks for one still: taken once the head has settled\n(body/joint_states on the bus, at most 2 s), at most 1024 across and 64 KiB, marked\nwith the ID in a JPEG comment, kept in --sight-file for 3 s and removed (off unless given).\n";
+const USAGE: &str = "lamp-eyes --device ABSOLUTE_PATH --lock-directory PRIVATE_ABSOLUTE_DIRECTORY --usb VENDOR:PRODUCT@TOPOLOGY --model ABSOLUTE_PATH --permit-socket ABSOLUTE_PATH --body-socket ABSOLUTE_PATH [--sight-file ABSOLUTE_PATH] [--presence-file ABSOLUTE_PATH] [--recogniser ABSOLUTE_PATH --people ABSOLUTE_PATH --who-socket ABSOLUTE_PATH [--known-file ABSOLUTE_PATH]] [--leave-still-faces on|off] [--full-look WIDTHxHEIGHT --full-look-file ABSOLUTE_PATH]\n\nOwns the camera at --device (checked against the USB identity given, hex vendor and\nproduct and the port topology, for example 01da:5875@3-1.1.4) and looks for a face in\nits frames four times a second while there is one and less than twice a second when\nthere is none, with the pinned YuNet model at --model. Each look\nsends one datagram to --body-socket: {\"face\":{\"x\":..,\"y\":..,\"size\":..,\"turned\":..}} or\n{\"face\":null}. The camera is open only while {\"camera\":true} keeps arriving on\n--permit-socket, at least every 1.5 s; {\"camera\":false} closes it at once. Without\n--sight-file no frame is written anywhere and none leaves this process. With it the\nnewest frame, and only that one, is kept in that file (mode 0600) while the camera is\nopen and removed when it closes: it is what the voice service shows the model. With\n--presence-file one line, the near face's height as a share of the picture's, is kept\nfresh in that file while there is a face: no picture, only that number. With\n--recogniser (the pinned SFace model), --people and --who-socket, the eyes remember\na face when the voice service asks ({\"remember\":\"NAME\"} on the socket), forget it\n({\"forget\":\"NAME\"}), list the names ({\"list\":true}) and say whose face is at the\nlamp ({\"who\":true}). Only the prints of people who asked are kept, in --people\n(mode 0600); no picture. With --known-file, the name of the one known at the lamp is\nkept fresh in that file while they are there. With --leave-still-faces on, a face at a place\nwhere faces have come from for half an hour, every one small (under 0.14 of the height)\nand faint (scored under 0.8), is not a person: it is left out of what the body is told,\nthe bus and recognition (off unless given). With --full-look and --full-look-file the\ncamera runs at that size, the working frame is kept in --sight-file at 320 across as before, and {\"look_full\":ID} on\n--permit-socket asks for one still: taken once the head has settled\n(body/joint_states on the bus, at most 2 s), at most 1024 across and 64 KiB, marked\nwith the ID in a JPEG comment, kept in --full-look-file for 3 s and removed (off unless given).\n";
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 struct Usb {
@@ -34,6 +34,8 @@ struct Arguments {
     leave_still: bool,
     /// The camera's size for a full look (#836), when one may be asked for.
     full_look: Option<(u32, u32)>,
+    /// Where a full look's still is kept, apart from the working frame.
+    full_look_file: Option<PathBuf>,
 }
 
 /// `VENDOR:PRODUCT@TOPOLOGY`, the two numbers as four hex digits each.
@@ -69,13 +71,6 @@ fn opened_at(full_look: Option<(u32, u32)>, full_failed: bool) -> (u32, u32) {
     full_look.filter(|_| !full_failed).unwrap_or(WORKING)
 }
 
-/// Whether every working frame is kept in `--sight-file`: yes, as always,
-/// without a full look; with one only a still asked for is.
-#[cfg_attr(not(any(target_os = "linux", test)), allow(dead_code))]
-fn keeps_working_frame(full_look: Option<(u32, u32)>) -> bool {
-    full_look.is_none()
-}
-
 /// `WIDTHxHEIGHT`, each even, from 320 by 240 to 1280 by 960: the camera's
 /// bounds (`lamp_camera::MAX_WIDTH`, `MAX_HEIGHT`), so that a size it would
 /// refuse is refused here, at start, and not at every open.
@@ -95,7 +90,7 @@ fn parse(args: impl IntoIterator<Item = OsString>) -> Result<Option<Arguments>, 
     let (mut model, mut permit_socket, mut body_socket) = (None, None, None);
     let (mut sight_file, mut presence_file) = (None, None);
     let (mut recogniser, mut people, mut who_socket, mut known_file) = (None, None, None, None);
-    let (mut leave_still, mut full_look) = (None, None);
+    let (mut leave_still, mut full_look, mut full_look_file) = (None, None, None);
     while let Some(key) = args.next() {
         if key == "--help" {
             let alone = device.is_none()
@@ -112,6 +107,7 @@ fn parse(args: impl IntoIterator<Item = OsString>) -> Result<Option<Arguments>, 
                 && known_file.is_none()
                 && leave_still.is_none()
                 && full_look.is_none()
+                && full_look_file.is_none()
                 && args.next().is_none();
             return if alone {
                 Ok(None)
@@ -149,6 +145,9 @@ fn parse(args: impl IntoIterator<Item = OsString>) -> Result<Option<Arguments>, 
                     _ => return Err("--leave-still-faces is on or off"),
                 });
             }
+            Some("--full-look-file") if full_look_file.is_none() => {
+                full_look_file = Some(PathBuf::from(value));
+            }
             Some("--full-look") if full_look.is_none() => {
                 full_look = Some(value.to_str().and_then(size_of).ok_or(
                     "--full-look is WIDTHxHEIGHT, for example 1280x960, from 320x240 to 1280x960",
@@ -180,9 +179,12 @@ fn parse(args: impl IntoIterator<Item = OsString>) -> Result<Option<Arguments>, 
         known_file,
         leave_still: leave_still.unwrap_or(false),
         full_look,
+        full_look_file,
     };
-    if result.full_look.is_some() && result.sight_file.is_none() {
-        return Err("--full-look needs --sight-file");
+    if result.full_look.is_some() != result.full_look_file.is_some()
+        || (result.full_look_file.is_some() && result.full_look_file == result.sight_file)
+    {
+        return Err("--full-look and --full-look-file go together, apart from --sight-file");
     }
     if result.known_file.is_some() && result.who.is_none() {
         return Err("--known-file needs --recogniser, --people and --who-socket");
@@ -196,6 +198,7 @@ fn parse(args: impl IntoIterator<Item = OsString>) -> Result<Option<Arguments>, 
     ]
     .into_iter()
     .chain(&result.sight_file)
+    .chain(&result.full_look_file)
     .chain(&result.presence_file)
     .chain(
         result
@@ -387,6 +390,8 @@ fn run(arguments: Arguments) -> Result<(), Box<dyn std::error::Error + Send + Sy
     };
 
     let mut kept = arguments.sight_file.clone().map(Kept::new);
+    // A full look's still, in its own file.
+    let mut still_kept = arguments.full_look_file.clone().map(Kept::new);
     // A full look (#836): the one still asked for, when it was written, and
     // where the body says how its joints are. A camera that did not open at
     // the full size is opened at the working size the next time.
@@ -542,6 +547,9 @@ fn run(arguments: Arguments) -> Result<(), Box<dyn std::error::Error + Send + Sy
             if let Some(kept) = kept.as_mut() {
                 kept.forget();
             }
+            if let Some(kept) = still_kept.as_mut() {
+                kept.forget();
+            }
             wanted = None;
             if let Some(presence) = presence.as_mut() {
                 presence.gone();
@@ -663,6 +671,9 @@ fn run(arguments: Arguments) -> Result<(), Box<dyn std::error::Error + Send + Sy
             if let Some(kept) = kept.as_mut() {
                 kept.forget();
             }
+            if let Some(kept) = still_kept.as_mut() {
+                kept.forget();
+            }
             if let Some(presence) = presence.as_mut() {
                 presence.gone();
             }
@@ -699,7 +710,7 @@ fn run(arguments: Arguments) -> Result<(), Box<dyn std::error::Error + Send + Sy
                         // The ask's id goes with the picture, so that a
                         // late still is never taken for a later ask.
                         let still = lamp_eyes::full_look::tagged(&still, wanted_id);
-                        let written = kept.as_mut().map(|kept| kept.keep(&still));
+                        let written = still_kept.as_mut().map(|kept| kept.keep(&still));
                         eprintln!(
                             "lamp-eyes: a full look: {} by {}, {} bytes, the head waited for {waited_ms} ms, made in {} ms{}",
                             size.0,
@@ -726,7 +737,7 @@ fn run(arguments: Arguments) -> Result<(), Box<dyn std::error::Error + Send + Sy
             .is_some_and(|at| at.elapsed() >= Duration::from_micros(lamp_eyes::full_look::KEPT_US))
         {
             still_at = None;
-            if let Some(kept) = kept.as_mut() {
+            if let Some(kept) = still_kept.as_mut() {
                 kept.forget();
             }
         }
@@ -744,10 +755,12 @@ fn run(arguments: Arguments) -> Result<(), Box<dyn std::error::Error + Send + Sy
             // not whole leaves the one before it.
             // With a full look the frame is larger than is kept, and only
             // a still asked for is.
-            if let Some(kept) = kept.as_mut()
-                && keeps_working_frame(arguments.full_look)
-            {
-                let _ = kept.keep(&frame[..used]);
+            if let Some(kept) = kept.as_mut() {
+                if arguments.full_look.is_none() {
+                    let _ = kept.keep(&frame[..used]);
+                } else if let Ok(working) = lamp_eyes::full_look::working(&frame[..used]) {
+                    let _ = kept.keep(&working);
+                }
             }
             let found = Picture::from_jpeg(&frame[..used]).and_then(|picture| {
                 detector
@@ -984,16 +997,50 @@ mod tests {
     }
 
     #[test]
-    fn a_full_look_is_off_unless_given_a_size_and_the_sight_file() {
+    fn a_full_look_is_off_unless_given_a_size_and_its_own_file() {
         // Without it the camera is opened at 320 by 240 as before.
-        assert_eq!(parse(args(&FULL)).unwrap().unwrap().full_look, None);
-        let sight = ["--sight-file", "/run/lampos-eyes/sight.jpg"];
+        let without = parse(args(&FULL)).unwrap().unwrap();
+        assert_eq!((without.full_look, without.full_look_file), (None, None));
+        let sight = [
+            "--sight-file",
+            "/run/lampos-eyes/sight.jpg",
+            "--full-look-file",
+            "/run/lampos-eyes/full-look.jpg",
+        ];
         let full = [&FULL[..], &sight[..], &["--full-look", "1280x960"]].concat();
+        let with = parse(args(&full)).unwrap().unwrap();
+        assert_eq!(with.full_look, Some((1_280, 960)));
+        // The still has its own file: the working frame stays in the
+        // sight file for whoever reads it at any time (#873).
         assert_eq!(
-            parse(args(&full)).unwrap().unwrap().full_look,
-            Some((1_280, 960))
+            with.full_look_file,
+            Some(PathBuf::from("/run/lampos-eyes/full-look.jpg"))
         );
+        assert_eq!(
+            with.sight_file,
+            Some(PathBuf::from("/run/lampos-eyes/sight.jpg"))
+        );
+        // One without the other, or the still in the sight file: refused.
         assert!(parse(args(&[&FULL[..], &["--full-look", "1280x960"]].concat())).is_err());
+        assert!(parse(args(&[&FULL[..], &sight[..]].concat())).is_err());
+        let same = [
+            "--sight-file",
+            "/run/lampos-eyes/sight.jpg",
+            "--full-look-file",
+            "/run/lampos-eyes/sight.jpg",
+            "--full-look",
+            "1280x960",
+        ];
+        assert!(parse(args(&[&FULL[..], &same[..]].concat())).is_err());
+        // Without a sight file the full look is still taken; no working
+        // frame is kept, as without the full look.
+        let alone = [
+            "--full-look-file",
+            "/run/lampos-eyes/full-look.jpg",
+            "--full-look",
+            "1280x960",
+        ];
+        assert!(parse(args(&[&FULL[..], &alone[..]].concat())).is_ok());
         for refused in [
             "1280",
             "1280x",
@@ -1030,16 +1077,14 @@ mod tests {
     }
 
     #[test]
-    fn without_a_full_look_the_camera_opens_as_before_and_every_frame_is_kept() {
+    fn without_a_full_look_the_camera_opens_as_before() {
         let without = parse(args(&FULL)).unwrap().unwrap().full_look;
         // Whatever the last open did.
         assert_eq!(opened_at(without, false), (320, 240));
         assert_eq!(opened_at(without, true), (320, 240));
-        assert!(keeps_working_frame(without));
         let with = Some((1_280, 960));
         assert_eq!(opened_at(with, false), (1_280, 960));
         // After failing at the full size, the working size once.
         assert_eq!(opened_at(with, true), (320, 240));
-        assert!(!keeps_working_frame(with));
     }
 }

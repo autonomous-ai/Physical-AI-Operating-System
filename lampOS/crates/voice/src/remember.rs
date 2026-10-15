@@ -1943,6 +1943,9 @@ mod tests {
                     }
                     Err(error) => panic!("{error}"),
                 };
+                // An accepted stream inherits the listener's nonblocking mode on
+                // macOS but not on Linux; the reads below must wait for the line.
+                stream.set_nonblocking(false).unwrap();
                 stream
                     .set_read_timeout(Some(Duration::from_secs(1)))
                     .unwrap();
@@ -2099,6 +2102,9 @@ mod tests {
                     }
                     Err(error) => panic!("{error}"),
                 };
+                // An accepted stream inherits the listener's nonblocking mode on
+                // macOS but not on Linux; the reads below must wait for the line.
+                stream.set_nonblocking(false).unwrap();
                 stream
                     .set_read_timeout(Some(Duration::from_secs(1)))
                     .unwrap();

@@ -61,6 +61,12 @@ of the five is its own part. Run it with
 lamp-selftest --occasion factory|first-boot|on-demand [--dir ABSOLUTE] [--bus-root ABSOLUTE]
 ```
 
+The storage part reads `/dev/kmsg`, which a lamp with `kernel.dmesg_restrict = 1`
+(lamp-75c9, 2026-10-16) opens only to a process with `CAP_SYSLOG`; the
+journal is no substitute there (two kernel lines for the whole boot). A unit
+that runs the self-test gives it `AmbientCapabilities=CAP_SYSLOG`; run by
+hand without it, storage is `not_checked`.
+
 Exit status: 0 every part passed or is not fitted, 1 a part failed, 3 a
 part could not be checked, 2 the arguments were wrong.
 

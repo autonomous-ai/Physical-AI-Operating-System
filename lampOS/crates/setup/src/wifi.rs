@@ -9,7 +9,7 @@ use serde::Serialize;
 use std::{
     io,
     net::{SocketAddr, TcpStream},
-    sync::{Arc, mpsc},
+    sync::{Arc, Mutex, OnceLock, PoisonError, mpsc},
     time::{Duration, Instant},
 };
 
@@ -301,6 +301,25 @@ fn system_lookup(address: &str) -> io::Result<Vec<SocketAddr>> {
     std::net::ToSocketAddrs::to_socket_addrs(address).map(Iterator::collect)
 }
 
+type Lookup = mpsc::Receiver<io::Result<Vec<SocketAddr>>>;
+
+/// Where the one name lookup that has not come back yet is kept, for the
+/// address it is for. The system's lookup takes no time limit and cannot be
+/// stopped, so one left behind is waited on by the next check, never started
+/// again. Every check of the running service shares one ([`Self::process`]),
+/// so a lookup left by one setup attempt is the next attempt's too (#845).
+#[derive(Clone, Default)]
+pub struct LookupSlot(Arc<Mutex<Option<(String, Lookup)>>>);
+
+static PROCESS_SLOT: OnceLock<LookupSlot> = OnceLock::new();
+
+impl LookupSlot {
+    /// The process's own: at most one lookup outstanding in all of it.
+    pub fn process() -> Self {
+        PROCESS_SLOT.get_or_init(Self::default).clone()
+    }
+}
+
 /// V1's `tlsReach`, the Internet check when ping is blocked: a TLS handshake
 /// with the voice's service, completed and closed. A TCP connection alone is
 /// not enough: anything that accepts and then stays silent, or answers in
@@ -310,26 +329,35 @@ pub struct Reach {
     pub address: String,
     pub timeout: Duration,
     resolve: Resolve,
-    /// A lookup that has not come back yet. The system's lookup takes no
-    /// time limit and can take many seconds with no network, so it runs on a
-    /// thread of its own and is waited for only until the deadline. One left
-    /// behind is waited on by the next check, never started again: there is
-    /// never more than one.
-    pending: Option<mpsc::Receiver<io::Result<Vec<SocketAddr>>>>,
+    /// The lookup that has not come back yet, shared ([`LookupSlot`]). It
+    /// runs on a thread of its own and is waited for only until the deadline.
+    pending: LookupSlot,
     tls: Option<Arc<rustls::ClientConfig>>,
 }
 
 impl Reach {
+    /// The system's lookup, sharing the process's one outstanding lookup.
     pub fn new(address: impl Into<String>, timeout: Duration) -> Self {
-        Self::with_lookup(address, timeout, system_lookup)
+        Self::with_lookup_in(address, timeout, system_lookup, LookupSlot::process())
     }
 
+    /// With `resolve` in place of the system's, and a slot of its own.
     pub fn with_lookup(address: impl Into<String>, timeout: Duration, resolve: Resolve) -> Self {
+        Self::with_lookup_in(address, timeout, resolve, LookupSlot::default())
+    }
+
+    /// With `resolve`, sharing `slot`'s outstanding lookup.
+    pub fn with_lookup_in(
+        address: impl Into<String>,
+        timeout: Duration,
+        resolve: Resolve,
+        slot: LookupSlot,
+    ) -> Self {
         Self {
             address: address.into(),
             timeout,
             resolve,
-            pending: None,
+            pending: slot,
             tls: None,
         }
     }
@@ -377,8 +405,22 @@ impl Reach {
     }
 
     fn addresses(&mut self, until: Instant) -> io::Result<Vec<SocketAddr>> {
-        let pending = match self.pending.take() {
-            Some(pending) => pending,
+        // Held while waiting, at most until the deadline: no second check can
+        // start a lookup meanwhile.
+        let mut slot = self
+            .pending
+            .0
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner);
+        let pending = match slot.take() {
+            Some((address, pending)) if address == self.address => pending,
+            Some(other) => {
+                *slot = Some(other);
+                return Err(io::Error::new(
+                    io::ErrorKind::TimedOut,
+                    "another name's lookup is still out",
+                ));
+            }
             None => {
                 let (send, receive) = mpsc::channel();
                 let (address, resolve) = (self.address.clone(), self.resolve);
@@ -393,7 +435,7 @@ impl Reach {
         match pending.recv_timeout(until.saturating_duration_since(Instant::now())) {
             Ok(found) => found,
             Err(mpsc::RecvTimeoutError::Timeout) => {
-                self.pending = Some(pending);
+                *slot = Some((self.address.clone(), pending));
                 Err(io::ErrorKind::TimedOut.into())
             }
             Err(mpsc::RecvTimeoutError::Disconnected) => {

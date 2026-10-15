@@ -575,6 +575,7 @@ mod tests {
             session: 1,
             privacy_generation: state.microphone_generation(),
             continues: false,
+            continues_cut_off: false,
         };
         assert!(gate.admits(now_us, &start(first.turn())).unwrap());
         engine.submit(start(first.turn()));

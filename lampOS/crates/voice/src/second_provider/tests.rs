@@ -139,6 +139,7 @@ fn start(request: u64) -> ProviderInput {
         session: 1,
         privacy_generation: 1,
         continues: false,
+        continues_cut_off: false,
     }
 }
 fn audio(request: u64, sequence: u64) -> ProviderInput {

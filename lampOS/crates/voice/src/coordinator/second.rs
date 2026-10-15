@@ -504,6 +504,7 @@ mod tests {
             session: 1,
             privacy_generation: 1,
             continues: false,
+            continues_cut_off: false,
         }
     }
 

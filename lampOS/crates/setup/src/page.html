@@ -55,6 +55,16 @@
 // lost after 5 s of silence, then the new address first and <name>.local
 // every 2 s, and a failure shown at 80 s.
 const POLL_MS = 600, LOST_MS = 5000, LOCAL_MS = 2000, GIVE_UP_MS = 80000;
+// A fetch to a hotspot that has just gone can hang for tens of seconds; each
+// one gives up after 2 s, so the checks above run on time.
+const FETCH_MS = 2000;
+
+function timed(url, options) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), FETCH_MS);
+  return fetch(url, Object.assign({ cache: "no-store", signal: controller.signal }, options))
+    .finally(() => clearTimeout(timer));
+}
 const params = new URLSearchParams(location.search);
 const zone = Intl.DateTimeFormat().resolvedOptions().timeZone || "";
 const $ = (id) => document.getElementById(id);
@@ -62,7 +72,7 @@ if (params.get("llm_api_key")) $("key-row").hidden = true;
 $("zone-hint").textContent = zone ? "Time zone: " + zone + " (from this phone)" : "";
 
 async function api(path, options) {
-  const reply = await fetch(path, Object.assign({ cache: "no-store" }, options));
+  const reply = await timed(path, options);
   const body = await reply.json();
   if (body.status !== 1) throw new Error(body.message || "the lamp said no");
   return body.data;
@@ -121,7 +131,7 @@ function seen(status) {
 }
 
 async function reachable(origin) {
-  try { await fetch(origin + "/api/device/setup/status", { mode: "no-cors", cache: "no-store" }); return true; }
+  try { await timed(origin + "/api/device/setup/status", { mode: "no-cors" }); return true; }
   catch (e) { return false; }
 }
 

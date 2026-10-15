@@ -197,29 +197,43 @@ pub fn check(request: &SetupRequest, config: &Config) -> Result<Accepted, String
     if name.chars().count() > 64 || name.chars().any(char::is_control) {
         return Err("a name has at most 64 characters".into());
     }
+    // A zone the lamp's zone data lacks does not block setup: the lamp keeps
+    // its own zone, as a V1 lamp did, and the person can set it later.
     let timezone = request.timezone.trim();
-    if !timezone.is_empty() && !zone_known(timezone, &config.zoneinfo) {
-        return Err("the time zone is not one the lamp knows".into());
-    }
     Ok(Accepted {
         ssid: request.ssid.trim().to_owned(),
         password: request.password.clone(),
         credential: credential.to_owned(),
         name: (!name.is_empty()).then(|| name.to_owned()),
-        timezone: (!timezone.is_empty()).then(|| timezone.to_owned()),
+        timezone: zone_known(timezone, &config.zoneinfo).then(|| timezone.to_owned()),
     })
 }
 
-/// An IANA name such as `Asia/Ho_Chi_Minh` with a file under the zone data.
+/// An IANA name such as `Asia/Ho_Chi_Minh` whose file, links followed, is a
+/// zone file (`TZif`) inside the zone data. That refuses `localtime`, which on
+/// Debian links to `/etc/localtime` and would link it to itself, and the data's
+/// text files such as `leapseconds`.
 pub fn zone_known(zone: &str, zoneinfo: &Path) -> bool {
-    zone.len() <= 64
-        && zone
+    if zone.is_empty()
+        || zone.len() > 64
+        || !zone
             .split('/')
             .all(|part| !part.is_empty() && part != "." && part != "..")
-        && zone
+        || !zone
             .bytes()
             .all(|b| b.is_ascii_alphanumeric() || b"/_+-".contains(&b))
-        && zoneinfo.join(zone).is_file()
+    {
+        return false;
+    }
+    let (Ok(root), Ok(file)) = (zoneinfo.canonicalize(), zoneinfo.join(zone).canonicalize()) else {
+        return false;
+    };
+    let mut magic = [0u8; 4];
+    file.starts_with(&root)
+        && fs::File::open(&file)
+            .and_then(|mut opened| io::Read::read_exact(&mut opened, &mut magic))
+            .is_ok()
+        && &magic == b"TZif"
 }
 
 /// What a finished setup writes. Injected for tests.
@@ -232,6 +246,9 @@ pub trait Save {
 
 /// Write a private file durably: temporary file, sync, rename, directory sync.
 pub fn write_private(path: &Path, bytes: &[u8]) -> io::Result<()> {
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent)?;
+    }
     let temporary = path.with_extension("lamp-setup-tmp");
     let _ = fs::remove_file(&temporary);
     let mut file = OpenOptions::new()
@@ -265,11 +282,25 @@ impl Save for Files<'_> {
         let _ = fs::remove_file(&link);
         std::os::unix::fs::symlink(self.0.zoneinfo.join(zone), &link)?;
         fs::rename(&link, &self.0.localtime)?;
+        if let Some(parent) = self.0.localtime.parent() {
+            fs::File::open(parent)?.sync_all()?;
+        }
         let mut zone_line = zone.to_owned();
         zone_line.push('\n');
         let temporary = self.0.timezone_file.with_extension("lamp-setup-tmp");
-        fs::write(&temporary, zone_line)?;
-        fs::rename(&temporary, &self.0.timezone_file)
+        let _ = fs::remove_file(&temporary);
+        let mut file = OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .mode(0o644)
+            .open(&temporary)?;
+        file.write_all(zone_line.as_bytes())?;
+        file.sync_all()?;
+        fs::rename(&temporary, &self.0.timezone_file)?;
+        if let Some(parent) = self.0.timezone_file.parent() {
+            fs::File::open(parent)?.sync_all()?;
+        }
+        Ok(())
     }
     fn marker(&mut self) -> io::Result<()> {
         write_private(&self.0.marker, b"")
@@ -285,8 +316,9 @@ pub fn run(
     country: &str,
     host: &mut impl Host,
     save: &mut impl Save,
-    station_ip: impl Fn() -> Option<String> + Send + 'static,
+    station_ip: impl Fn() -> Option<String> + Send + Sync + 'static,
 ) {
+    let station_ip = Arc::new(station_ip);
     {
         let mut status = status.lock().unwrap();
         status.run += 1;
@@ -298,6 +330,7 @@ pub fn run(
     let watcher = {
         let status = Arc::clone(status);
         let watching = Arc::clone(&watching);
+        let station_ip = Arc::clone(&station_ip);
         thread::spawn(move || {
             while *watching.lock().unwrap() {
                 if let Some(address) = station_ip() {
@@ -307,6 +340,8 @@ pub fn run(
             }
         })
     };
+    // Kept to put back if the settings cannot be saved after a good join.
+    let previous = host.read_conf().ok().flatten();
     let joined = wifi::join(host, country, &accepted.ssid, &accepted.password);
     *watching.lock().unwrap() = false;
     let _ = watcher.join();
@@ -327,17 +362,25 @@ pub fn run(
             match saved {
                 Ok(()) => None,
                 Err(_) => {
-                    // Joined but not saved: back to the hotspot, so the
-                    // person can try again.
+                    // Joined but not saved: nothing of it kept, the previous
+                    // Wi-Fi file back, and the hotspot, so the person can try
+                    // again.
+                    let _ = host.write_conf(previous.as_deref());
                     let _ = host.hotspot();
                     Some("the lamp joined the Wi-Fi but could not save its settings".into())
                 }
             }
         }
     };
+    let address = failure.is_none().then(|| station_ip()).flatten();
     let mut status = status.lock().unwrap();
     match failure {
         None => {
+            // The address once more, now that the join is done: the watcher
+            // may not have caught it before the join returned.
+            if let Some(address) = address {
+                status.lan_ip = address;
+            }
             status.phase = Phase::Connected;
             status.set_up_completed = true;
             // V1's page shows "Preparing your robot's voice…" while this is

@@ -123,7 +123,10 @@ then released into one `controls/touch` event, `source: reset`,
 `--touch` path with a `reset` line in the pins file). `watch-reset` acts on the
 first such event that is valid, comes from an **enabled** Controls (a shadow
 Controls never resets a lamp), is on this boot's clock and is less than 500 ms
-old. Then, in this order:
+old. It does not reset in its own process: it is part of `lampos.target`, which
+the keeper's stop ends, so it hands the reset to a unit of its own with the
+plan's `detach` (`systemd-run --no-block --collect --unit=lamp-setup-wipe …
+lamp-setup reset-now`). That unit, in this order:
 
 1. it writes a journal, durably (temporary file, sync, rename, directory sync);
 2. it removes the setup marker, so that from here any restart comes back into
@@ -132,15 +135,21 @@ old. Then, in this order:
    (#767): the voice pauses, `lampos.target` stops, the body folds the lamp;
 4. it wipes each path in the plan: a file is removed, a directory keeps itself
    (systemd units name some of them and would not start without them) and
-   loses everything in it; links are removed, never followed;
-5. it removes the journal, syncs, and reboots.
+   loses everything in it. It walks by handle, one component at a time from
+   `/`, following no link anywhere: a part that swaps a directory for a link
+   mid-wipe makes the wipe fail instead of reaching outside the plan;
+5. it removes the journal, syncs, and reboots. If the wipe fails it still
+   reboots, and if the reboot command fails it forces one: a lamp left dark
+   with no marker would wait for a hand.
 
 With the keeper's `--setup-marker` (the fifth builder's, agreed on #702), a
 lamp with no marker starts only `lamp-setup.service`. So if the stop fails,
 `lamp-setup` reboots at once without wiping; if the power goes during the
 wipe, the lamp also comes back with no marker and a journal. Either way
 `resume-reset`, the first thing `lamp-setup.service` runs, finishes the wipe
-with nothing of the lamp running, without a second reboot. A plan is refused unless every path is absolute and
+with nothing of the lamp running, without a second reboot. A power cut between
+the journal and the marker's removal leaves both, so the lamp starts; then
+`watch-reset` finds the journal at its start and carries on with the reset. A plan is refused unless every path is absolute and
 plain (no `.` or `..`, read from the text itself), at least two levels below a
 top directory, and outside the software (`/opt/lampOS`), the update trust
 (`/etc/lampOS/update`) and the system (`/usr`, `/boot`, `/home`, …); the
@@ -174,13 +183,18 @@ wpa_supplicant's journal since the join began and `wpa_cli status`, with key
 evidence first. The radio is switched by the image's own `device-sta-mode` and
 `device-ap-mode`.
 
-Two changes from V1. The network's name and password are written to
+Three changes from V1. The network's name and password are written to
 `wpa_supplicant-wlan0.conf` by this code (private, synced, renamed into place),
 not passed to `connect-wifi` on a command line; a name or password holding a
 line break, a password outside 8–63 printable ASCII characters, or a name over
 32 bytes is refused before anything is written (V1 would have written a line
-break into the file). And a failed join puts the previous file back before the
-hotspot returns, so nothing of it is kept. V1's eight failure cases, from its
+break into the file). The name is written in hex and the password raw between
+quotes: wpa_supplicant takes everything between the first and last quote as it
+is, so V1's `\"` and `\\` escapes made a name or password holding `"` or `\`
+never match. And a failed join puts the previous file back before the hotspot
+returns, so nothing of it is kept. `wpa_cli status` prints the joined network's
+name with C escapes ("Nhà Lan" as `Nh\xc3\xa0 Lan`); it is decoded before it is
+compared with the name asked for. V1's eight failure cases, from its
 own captured wpa_supplicant lines, are tests here (`crates/setup/tests/wifi.rs`),
 with the join's timing against a fake lamp.
 
@@ -200,14 +214,18 @@ setup API with V1's shapes and wrapper (`{"status","data","message"}`):
 |---|---|
 | `GET /api/device/setup/status` | V1's `phase` (`idle`/`connecting`/`connected`/`failed`), `lan_ip`, `error`, `mac` (the host name, `lamp-xxxx`), `run`, `set_up_completed`, `runtime_phase`. |
 | `GET /api/network` | `iw dev wlan0 scan`, parsed as V1 does, in V1's `domain.Network` fields. |
-| `POST /api/device/setup` | V1's `SetupRequest`; its other fields are accepted and ignored. Checked before anything is touched: the network's name and password as for the join; `llm_api_key` (the voice's credential, 1–512 printable characters); V2's own `name` (up to 64 characters) and `timezone` (an IANA name with a file under the zone data). Replies at once, then, 2 s later as in V1, joins; one run at a time; refused once the lamp is set up. |
+| `POST /api/device/setup` | V1's `SetupRequest`; its other fields are accepted and ignored. Checked before anything is touched: the network's name and password as for the join; `llm_api_key` (the voice's credential, 1–512 printable characters); V2's own `name` (up to 64 characters) and `timezone` (an IANA name whose file, links followed, is a `TZif` zone file inside the zone data; one the lamp lacks is skipped, not a reason to refuse setup). Replies at once, then, 2 s later as in V1, joins; one run at a time; refused once the lamp is set up. |
 
 While joining it reads the station address every second and publishes it as
-`lan_ip`, V1's fix for the page that lost the lamp. Once joined, it saves the
+`lan_ip`, V1's fix for the page that lost the lamp, and once more when the join
+is done; a new run clears the last run's address at once, so V1's page cannot
+follow an old one. Once joined, it saves the
 credential, the name and the time zone (`/etc/localtime` linked to the zone,
 `/etc/timezone` naming it, as V1's `timezone.go`), each private and synced,
 and only then the marker; the keeper starts the lamp. If anything cannot be
-saved, there is no marker and the hotspot comes back. After setup it goes on
+saved, there is no marker, the previous Wi-Fi file goes back, and the hotspot
+comes back. A temporary file a crash left behind is removed at the next start.
+One network scan runs at a time, and its list answers for 5 s. After setup it goes on
 answering for 10 minutes, so the page can follow the lamp onto the home network
 and see it done.
 
@@ -215,8 +233,8 @@ and see it done.
 read on lamp-4ace: nginx 1.22.1 installed but stopped; V1's built page still in
 `/usr/share/nginx/html/setup`). `crates/setup/fixtures/serve-behind-v1-nginx.json`
 answers on `127.0.0.1:5000`, where `os-server` did, starts nginx once the
-hotspot is up and stops it when serving ends: nginx is on only while the lamp
-is not set up. `crates/setup/fixtures/nginx-setup.conf` is V1's site with what
+hotspot is up and stops it when serving ends, 10 minutes after setup is done
+(the unit's `ExecStopPost` stops it however serving ends). `crates/setup/fixtures/nginx-setup.conf` is V1's site with what
 a V2 lamp has not removed (`hal`, `openclaw`, and V1's shell, exec, openapi,
 buddy and harness routes): V1's page and cache rules, `/api/` to `lamp-setup`,
 and the 204 sign-in answers. A home lamp's image (#811) must carry nginx, that
@@ -234,7 +252,9 @@ password, the voice's key unless the account page passed one, the person's
 name; the time zone comes from the phone), and 204 to the phones' sign-in
 checks, as V1's nginx does. Its progress screen keeps V1's timings: status
 every 600 ms, the hotspot lost after 5 s of silence, then the new address
-first and `<name>.local` every 2 s, and a failure shown at 80 s.
+first and `<name>.local` every 2 s, and a failure shown at 80 s. Each fetch
+gives up after 2 s, so a request to a hotspot that has just gone cannot hold
+those checks back.
 
 Host tests (`crates/setup/tests/serve.rs`): every refused request, a run that
 joins and saves in order with the address published while joining, a wrong

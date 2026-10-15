@@ -1,0 +1,25 @@
+[package]
+name = "lamp-setup"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+# A lamp's first boot and its way back there (#806, docs/setup.md). This
+# first slice is the reset: the reset button held 5 s, as Controls publishes
+# it, stops the lamp, wipes the person's data and reboots into setup. Off
+# unless started with --enable.
+[[bin]]
+name = "lamp-setup"
+path = "src/main.rs"
+
+[dependencies]
+lamp-ipc = { path = "../ipc" }
+lamp-bus = { path = "../bus" }
+lamp-msgs = { path = "../msgs" }
+serde.workspace = true
+serde_json.workspace = true
+rustix = { version = "=1.1.5", features = ["fs"] }
+
+[lints]
+workspace = true

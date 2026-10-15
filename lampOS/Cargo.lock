@@ -1983,6 +1983,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "lamp-setup"
+version = "0.1.0"
+dependencies = [
+ "lamp-bus",
+ "lamp-ipc",
+ "lamp-msgs",
+ "rustix",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "lamp-sound-fixtures"
 version = "0.1.0"
 dependencies = [

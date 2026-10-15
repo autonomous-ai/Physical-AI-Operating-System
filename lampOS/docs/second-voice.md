@@ -396,6 +396,15 @@ and its authority kept fresh during the rest of startup.
   as `Backpressure` (reported `local`) when it is full. Sent at eight a
   tick, a line held 1.9 s overran it 37 ms after Gemini's first Ready on
   lamp-52e6 (PR #885 run 2, lampOS#892), and the second route answered.
+  The pace alone does not hold through a write that stalls: a 90 ms stall,
+  within the link's 200 ms write bound, still filled the queue at two a
+  tick. So Gemini's provider worker offers a command only when the queue
+  has room (`InputSender::has_room`); one that finds it full waits, first in
+  line, with nothing more read from the coordinator, for up to
+  `ROOM_WAIT_US` (250 ms, past the write bound), and then goes, a queue
+  still full being the link's failure as before. What the coordinator
+  sends meanwhile waits in its own socket and queue, in order. At the pace
+  of speech the queue never fills, so ordinary input is not changed.
 - **Without a configured route** `Rig::second` is `None`, the three
   intercepts (the send site, the output receipt, the gate's `movable`) are
   the old calls, and nothing else changes.

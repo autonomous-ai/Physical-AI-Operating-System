@@ -725,6 +725,13 @@ impl<C: Connect> Supervisor<C> {
         })
     }
 
+    /// Whether the ready connection's input queue has a free place. True
+    /// with no ready connection: an offer then is refused for that, never
+    /// for room.
+    pub fn input_has_room(&self) -> bool {
+        self.input().map_or(true, |(input, _)| input.has_room())
+    }
+
     fn submitted_input(&self, request: RequestId) -> Result<&InputSender> {
         let (input, session) = self.input()?;
         if self.submitted.get() != Some(Lineage { session, request }) {

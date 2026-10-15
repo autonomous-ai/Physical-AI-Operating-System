@@ -19,6 +19,8 @@
 //!   its first sound the decision was known.
 //! - [`progress`]: the second decision, "say this progress now?", about
 //!   the work the lamp handed over (`lamp-policy --progress`).
+//! - [`hello`]: "say hello now?", when someone comes back and sits down
+//!   (`lamp-policy --hello`).
 //! - [`rules`]: what the people at the lamp asked it about speaking first
 //!   (#813), obeyed by the progress question (`lamp-policy --rules`).
 //! - [`policy`]: the loop that listens on the bus and does the rest.
@@ -32,6 +34,7 @@
 pub mod attention;
 pub mod decide;
 pub mod gather;
+pub mod hello;
 pub mod outcome;
 pub mod policy;
 pub mod progress;

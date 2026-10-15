@@ -157,6 +157,7 @@ fn every_first_topic_is_declared_on_the_bus_and_carries_its_type() {
         shadow: true,
         request: None,
         task: None,
+        arrival: None,
     };
     assert_eq!(
         publisher(Decision::TOPIC)

@@ -182,6 +182,7 @@ impl Place {
             shadow,
             request: None,
             task: Some(task.into()),
+            arrival: None,
         };
         self.decisions.publish_json(0, &decision).unwrap();
     }

@@ -983,6 +983,7 @@ impl Progress {
             shadow: !self.options.act,
             request: None,
             task: Some(context.key()),
+            arrival: None,
         };
         let line = Line {
             at_unix_ms: unix_ms,

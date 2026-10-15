@@ -301,6 +301,96 @@ speak has asked the Policy's gate first ([skills.md](skills.md)).
 conversation's last turn: a reminder takes that second today, and a skill
 may not need it.
 
+## Asking the policy (#752)
+
+Built by the second builder on 2026-10-15. **Off unless the voice starts
+with `LAMP_HELLO_ASKS_POLICY=on`**; it needs the presence file as before.
+`LAMP_SPEAK_FIRST=on` stays the switch for the lamp to say anything first.
+
+The owner: the policy is the part that decides when the lamp speaks first.
+With the switch, a hello that is due and could be begun (the rule above,
+nothing owed, a provider ready) is not said at once:
+
+1. The voice says so on `voice/arrival` (`lamp_msgs/VoiceArrival`): the
+   arrival's number (the voice's clock in microseconds), minutes away,
+   seconds there, seconds of quiet, and minutes since its last hello if it
+   has said one since it started. No picture, no face, nobody's identity.
+2. It holds the hello up to 2 s (`speak_up::ASK_FOR_US`) for the policy's
+   decision about that number on `policy/decisions` (`about` `hello`,
+   `lamp-policy --hello`, [policy.md](policy.md#hello-on-arrival-say-hello-now-752)):
+   - `say_now`, acting: said, as before (with `LAMP_SPEAK_FIRST=on`), by
+     name for someone the lamp knows ([eyes.md](eyes.md)); the policy is
+     never told the name;
+   - `wait`, acting: not said, and recorded (`hello_due` with
+     `"policy":"wait"`, and "the policy said not now" in the journal);
+   - a decision in shadow: the rule above, at once;
+   - none within 2 s: the rule above.
+3. Either way the hello counts as made for that arrival: no second asking.
+   An answer the lamp could not act on within 10 s (it was in a turn) is
+   old, and the policy is asked again. Someone new arriving drops what was
+   asked for the one before.
+
+The session record gets one line for each answer acted on:
+`{"kind":"hello_policy","at_us":…,"arrival":…,"answer":"say_now|wait|shadow|none","waited_ms":…}`,
+and the journal "a hello is due; asking the policy (arrival N)" and "the
+policy's answer to the hello: say_now after N ms". What the policy decided
+and why is in its own log.
+
+**Without the switch** nothing here touches the bus (no `voice/arrival`
+publisher, no subscription), the hello is the rule's on the very tick it
+is due and ready, and the session record and journal are as they were:
+`without_the_switch_the_hello_is_as_it_was_and_nothing_is_said_on_the_bus`
+and `speak_up::tests::without_asking_a_ready_hello_is_the_rules_at_once`.
+
+**How long a hello now waits**, measured on the development Mac (Apple M2
+Max, macOS 26.6.2, release build), with `cargo run --release -p lamp-voice
+--example hello_wait -- --samples 30`: from the first call that says the
+arrival to the call that takes the policy's `say_now`, the voice calling
+every 2 ms as its loop does, through a bus in `/tmp`, the policy's own loop
+and a stand-in judge that answers at once: **31.6 ms in the middle, 38.0 ms
+at most** (33.2 ms the first) in one run of 30, and 22.4 ms in the middle,
+36.3 ms at most in a second. Without the switch it waits nothing (0.0 ms,
+the same call). On the lamp Jev's own time comes on top: 0.5 to 1 s as
+measured from lamp-4ace for the attention question, and never more than
+1.5 s, since the hello question's asking is cut there and the policy's
+rule answers in its place; past 2 s the voice's rule does. So a hello comes
+about 0.5 to 1 s later than before. These are the Mac's numbers, not the
+lamp's ([verification](verification/hello-asks-host-20261015/README.md)).
+
+**On the lamp** (the first builder; the smallest step first):
+
+1. Install the ARM64 run's `lamp-voice` and `lamp-policy` with the switches
+   as they are, and see the minute out.
+2. Shadow first: add `--hello` to `lamp-policy`'s `ExecStart` and
+   `Environment=LAMP_HELLO_ASKS_POLICY=on` to `lamp-voice.service`,
+   `sudo systemctl daemon-reload`, restart both. `journalctl -u lamp-policy
+   -n 5` says `hello=true`; `lamp-bus info voice/arrival` lists the voice as
+   publisher and `policy.` as subscriber.
+3. Make one hello due, as at 07:59 on 2026-10-15: with nobody seen for
+   five minutes and no hello for twenty, write a near face into the
+   presence file for eight seconds:
+
+   ```sh
+   for i in $(seq 16); do echo 0.30 | sudo -u orangepi tee /run/lampos-eyes/present >/dev/null; sleep 0.5; done
+   journalctl -u lamp-voice --since -1min | grep -E 'hello|policy'
+   journalctl -u lamp-policy --since -1min | grep 'hello decision'
+   ```
+
+   Expected: "asking the policy", "the policy's answer to the hello: shadow
+   after N ms" (N about Jev's time), the lamp's hello as before, and one
+   `hello decision` line.
+4. Then act: add `--act hello` beside `--hello`, restart the policy, and
+   repeat step 3 after twenty minutes. "say_now after N ms" and the hello,
+   or "wait" and none; a second try within twenty minutes is a `wait` with
+   `guard=greeted_recently`.
+5. Hand back N for each, the lamp's words, and the policy's decision lines.
+
+**Most likely wrong on the lamp.** That the half second to a second of
+Jev's time reads as the lamp hesitating, not as it noticing; that `wait`
+from Jev, asked a question it was not built for, keeps a hello a person
+would have liked; and the eyes: no real person has yet made a hello due on
+lamp-4ace ([why](#when)), so this has been tried only by the written file.
+
 ## Tests
 
 `say::tests`: a request read and checked, each refusal naming its field
@@ -329,8 +419,15 @@ while they stay an hour, looking away now and then; none for someone there
 at the start, away two minutes, walking past, or arriving into a room in
 conversation until it has been quiet for half a minute; none again within
 twenty minutes; a hello that could not be begun stays due; the eyes'
-file counts only fresh and only for a near face; and only the lamp saying
-it will look asks for a look. `session::tests` in
+file counts only fresh and only for a near face; only the lamp saying
+it will look asks for a look; and, asking the policy, a ready hello is the
+rule's at once without the switch, is held for its own arrival's answer
+(another arrival's is not taken), takes `say_now`, `wait` or a decision in
+shadow as above, keeps an answer that comes while the lamp is busy, and is
+the rule's after 2 s without one. `tests/hello_asks.rs` runs the policy's
+own loop with a stand-in judge: an arrival, a `say_now`, one hello, and a
+`wait` for the next within twenty minutes; a `wait` kept; someone talking,
+a `wait`; a policy in shadow or silent, the rule. `session::tests` in
 `lamp-gemini`: a written request is one message with no activity opened,
 what comes back is its own, an ordinary request follows it, and a look
 is the same one message with the picture before the note; a fact is one

@@ -1,0 +1,111 @@
+Oct 15 13:00:16 lamp-52e6 lamp-voice[108273]: lamp-voice provider: the memory is answering
+Oct 15 13:00:16 lamp-52e6 lamp-voice[108273]: lamp-voice provider: whom it answers is not recorded: No such file or directory (os error 2)
+Oct 15 13:00:18 lamp-52e6 lamp-voice[108262]: {"seconds":null,"status":"listening_ready"}
+Oct 15 13:00:55 lamp-52e6 lamp-voice[108273]: lamp-voice provider: request 1: the model said it was not for it
+Oct 15 13:00:55 lamp-52e6 lamp-voice[108273]: lamp-voice provider: usage total=Some(4229) prompt=Some(4221) prompt_audio=Some(196) response=Some(8) response_audio=None thoughts=None cached=None
+Oct 15 13:01:04 lamp-52e6 systemd[1]: Stopping lamp-voice.service - lampOS voice (lamp-voice serve)...
+Oct 15 13:01:04 lamp-52e6 lamp-voice[108262]: {"complete_evidence":false,"health":{"acknowledged":true,"degraded":false,"dropped_events":0,"finish_attempted":true,"initialization_failed":false,"oversized_events":0,"rotations":0,"unconfirmed_events":0,"writer_failed":false,"written_events":139},"kind":"service_metadata_finished","output":"/var/lib/lampOS/voice/sessions/238ba48e35bb47c6ba6becedb4011254"}
+Oct 15 13:01:04 lamp-52e6 systemd[1]: lamp-voice.service: Deactivated successfully.
+Oct 15 13:01:04 lamp-52e6 systemd[1]: Stopped lamp-voice.service - lampOS voice (lamp-voice serve).
+Oct 15 13:01:04 lamp-52e6 systemd[1]: lamp-voice.service: Consumed 18.818s CPU time.
+Oct 15 13:01:04 lamp-52e6 systemd[1]: Starting lamp-voice.service - lampOS voice (lamp-voice serve)...
+Oct 15 13:01:04 lamp-52e6 systemd[1]: Started lamp-voice.service - lampOS voice (lamp-voice serve).
+Oct 15 13:01:04 lamp-52e6 lamp-voice[109697]: lamp-voice provider: whom it answers is not recorded: No such file or directory (os error 2)
+Oct 15 13:01:07 lamp-52e6 lamp-voice[109697]: lamp-voice provider: told the new session that nobody is talking to the lamp
+Oct 15 13:01:07 lamp-52e6 lamp-voice[109697]: {"seconds":null,"status":"listening_ready"}
+Oct 15 13:01:29 lamp-52e6 lamp-voice[109697]: lamp-voice provider: the person at the lamp has changed; a new session is opened between turns
+Oct 15 13:01:31 lamp-52e6 lamp-voice[109697]: lamp-voice provider: told the new session that nobody is talking to the lamp
+Oct 15 13:01:32 lamp-52e6 lamp-voice[109697]: lamp-voice provider: request 1: told the session who is at the lamp
+Oct 15 13:01:34 lamp-52e6 lamp-voice[109697]: lamp-voice provider: request 2: the model is told the lamp's name was heard
+Oct 15 13:01:35 lamp-52e6 lamp-voice[109697]: lamp-voice provider: usage total=Some(4573) prompt=Some(4489) prompt_audio=Some(195) response=Some(84) response_audio=Some(84) thoughts=None cached=None
+Oct 15 13:01:35 lamp-52e6 lamp-voice[109697]: lamp-voice provider: barrier Settled: superseded=Some(1) successor=Some(2) waited_ms=2110 quiet_ms=0 successor_input_open=true end_withheld_ms=None withheld audio_frames=16 text_frames=0 generation_complete=0 interrupted=1 completions_not_idle=0 start_held_ms=Some(1388) start_released_by=Some(FirstOutput) retained_samples=23680 waiting_for_input=0 resumable_updates=0 unresumable_updates=0
+Oct 15 13:01:38 lamp-52e6 lamp-voice[109697]: lamp-voice provider: request 2 asked for remember; the memory answered in 26 ms; the answer was sent
+Oct 15 13:01:38 lamp-52e6 lamp-voice[109697]: lamp-voice provider: usage total=Some(4723) prompt=Some(4702) prompt_audio=Some(299) response=Some(21) response_audio=None thoughts=None cached=None
+Oct 15 13:01:41 lamp-52e6 lamp-voice[109697]: lamp-voice provider: usage total=Some(4810) prompt=Some(4736) prompt_audio=Some(299) response=Some(74) response_audio=Some(74) thoughts=None cached=None
+Oct 15 13:02:27 lamp-52e6 lamp-voice[109697]: lamp-voice provider: the person at the lamp has changed; a new session is opened between turns
+Oct 15 13:02:29 lamp-52e6 lamp-voice[109697]: lamp-voice provider: told the new session that nobody is talking to the lamp
+Oct 15 13:02:40 lamp-52e6 lamp-voice[109697]: lamp-voice provider: request 3: the model is told the lamp's name was heard
+Oct 15 13:02:46 lamp-52e6 lamp-voice[109697]: lamp-voice provider: usage total=Some(4500) prompt=Some(4396) prompt_audio=Some(236) response=Some(104) response_audio=Some(104) thoughts=None cached=None
+Oct 15 13:02:46 lamp-52e6 lamp-voice[109697]: lamp-voice provider: Days memory is answering
+Oct 15 13:02:52 lamp-52e6 lamp-voice[109697]: lamp-voice provider: request 4: the model said it was not for it
+Oct 15 13:02:52 lamp-52e6 lamp-voice[109697]: lamp-voice provider: usage total=Some(4576) prompt=Some(4568) prompt_audio=Some(364) response=Some(8) response_audio=None thoughts=None cached=None
+Oct 15 13:03:02 lamp-52e6 lamp-voice[109697]: lamp-voice provider: the person at the lamp has changed; a new session is opened between turns
+Oct 15 13:03:07 lamp-52e6 lamp-voice[109697]: lamp-voice provider: request 5: told the session who is at the lamp
+Oct 15 13:03:08 lamp-52e6 lamp-voice[109697]: lamp-voice provider: request 5: the model is told the lamp's name was heard
+Oct 15 13:03:10 lamp-52e6 lamp-voice[109697]: lamp-voice provider: request 5 asked for recall; the memory answered in 6 ms; the answer was sent
+Oct 15 13:03:10 lamp-52e6 lamp-voice[109697]: lamp-voice provider: usage total=Some(4693) prompt=Some(4682) prompt_audio=Some(238) response=Some(11) response_audio=None thoughts=None cached=None
+Oct 15 13:03:13 lamp-52e6 lamp-voice[109697]: lamp-voice provider: usage total=Some(4877) prompt=Some(4830) prompt_audio=Some(238) response=Some(47) response_audio=Some(47) thoughts=None cached=None
+Oct 15 13:03:13 lamp-52e6 lamp-voice[109697]: lamp-voice provider: memory conversation end was not acknowledged; no retry
+Oct 15 13:03:42 lamp-52e6 lamp-voice[109697]: lamp-voice provider: usage total=Some(4985) prompt=Some(4927) prompt_audio=Some(308) response=Some(58) response_audio=Some(58) thoughts=None cached=None
+Oct 15 13:03:42 lamp-52e6 lamp-voice[109697]: lamp-voice provider: memory conversation end was not acknowledged; no retry
+Oct 15 13:03:47 lamp-52e6 lamp-voice[109697]: lamp-voice provider: request 7: the model is told the lamp's name was heard
+Oct 15 13:03:52 lamp-52e6 lamp-voice[109697]: lamp-voice provider: usage total=Some(5200) prompt=Some(5157) prompt_audio=Some(449) response=Some(43) response_audio=Some(43) thoughts=None cached=None
+Oct 15 13:03:52 lamp-52e6 lamp-voice[109697]: lamp-voice provider: memory conversation end was not acknowledged; no retry
+Oct 15 13:04:32 lamp-52e6 systemd[1]: Stopping lamp-voice.service - lampOS voice (lamp-voice serve)...
+Oct 15 13:04:32 lamp-52e6 lamp-voice[109697]: {"complete_evidence":false,"health":{"acknowledged":true,"degraded":false,"dropped_events":0,"finish_attempted":true,"initialization_failed":false,"oversized_events":0,"rotations":0,"unconfirmed_events":0,"writer_failed":false,"written_events":1000},"kind":"service_metadata_finished","output":"/var/lib/lampOS/voice/sessions/c6be68cd0ca040e3a4b531ead667cafc"}
+Oct 15 13:04:32 lamp-52e6 systemd[1]: lamp-voice.service: Deactivated successfully.
+Oct 15 13:04:32 lamp-52e6 systemd[1]: Stopped lamp-voice.service - lampOS voice (lamp-voice serve).
+Oct 15 13:04:32 lamp-52e6 systemd[1]: lamp-voice.service: Consumed 1min 18.343s CPU time.
+Oct 15 13:04:32 lamp-52e6 systemd[1]: Starting lamp-voice.service - lampOS voice (lamp-voice serve)...
+Oct 15 13:04:32 lamp-52e6 systemd[1]: Started lamp-voice.service - lampOS voice (lamp-voice serve).
+Oct 15 13:04:32 lamp-52e6 lamp-voice[115834]: lamp-voice provider: whom it answers is not recorded: No such file or directory (os error 2)
+Oct 15 13:04:32 lamp-52e6 lamp-voice[115834]: lamp-voice provider: the memory is answering
+Oct 15 13:04:34 lamp-52e6 lamp-voice[115834]: lamp-voice provider: told the new session that nobody is talking to the lamp
+Oct 15 13:04:34 lamp-52e6 lamp-voice[115819]: {"seconds":null,"status":"listening_ready"}
+Oct 15 13:04:49 lamp-52e6 lamp-voice[115834]: lamp-voice provider: a sound (request 1) got no answer in 4007 ms, as a sound should; closed, connection kept
+Oct 15 13:05:20 lamp-52e6 systemd[1]: Stopping lamp-voice.service - lampOS voice (lamp-voice serve)...
+Oct 15 13:05:21 lamp-52e6 lamp-voice[115819]: {"complete_evidence":false,"health":{"acknowledged":true,"degraded":false,"dropped_events":0,"finish_attempted":true,"initialization_failed":false,"oversized_events":0,"rotations":0,"unconfirmed_events":0,"writer_failed":false,"written_events":143},"kind":"service_metadata_finished","output":"/var/lib/lampOS/voice/sessions/2ad2eea1ed2f4c1b9bbb8613f7263ac1"}
+Oct 15 13:05:21 lamp-52e6 systemd[1]: lamp-voice.service: Deactivated successfully.
+Oct 15 13:05:21 lamp-52e6 systemd[1]: Stopped lamp-voice.service - lampOS voice (lamp-voice serve).
+Oct 15 13:05:21 lamp-52e6 systemd[1]: lamp-voice.service: Consumed 18.902s CPU time.
+Oct 15 13:05:21 lamp-52e6 systemd[1]: Starting lamp-voice.service - lampOS voice (lamp-voice serve)...
+Oct 15 13:05:21 lamp-52e6 systemd[1]: Started lamp-voice.service - lampOS voice (lamp-voice serve).
+Oct 15 13:05:21 lamp-52e6 lamp-voice[117273]: lamp-voice provider: whom it answers is not recorded: No such file or directory (os error 2)
+Oct 15 13:05:21 lamp-52e6 lamp-voice[117273]: lamp-voice provider: the memory is answering
+Oct 15 13:05:21 lamp-52e6 lamp-voice[117273]: lamp-voice provider: the memory is answering
+Oct 15 13:05:21 lamp-52e6 lamp-voice[117273]: {"seconds":null,"status":"listening_ready"}
+Oct 15 13:05:47 lamp-52e6 lamp-voice[117273]: lamp-voice second: request 1 heard 0 words, the last 1080 ms after the line ended
+Oct 15 13:06:27 lamp-52e6 lamp-voice[117273]: lamp-voice second: request 2 heard 8 words, the last 598 ms after the line ended
+Oct 15 13:06:27 lamp-52e6 lamp-voice[117273]: lamp-voice: took the thread another voice route wrote
+Oct 15 13:06:29 lamp-52e6 lamp-voice[117273]: lamp-voice second: request 2 chat round 1 first event in 1466 ms
+Oct 15 13:06:29 lamp-52e6 lamp-voice[117273]: lamp-voice second: request 2 first answer audio 1466 ms after the words were heard
+Oct 15 13:06:32 lamp-52e6 lamp-voice[117273]: lamp-voice: took the thread another voice route wrote
+Oct 15 13:07:20 lamp-52e6 lamp-voice[117273]: lamp-voice second: request 3 heard 5 words, the last 769 ms after the line ended
+Oct 15 13:07:21 lamp-52e6 lamp-voice[117273]: lamp-voice second: request 3 chat round 1 first event in 1324 ms
+Oct 15 13:07:22 lamp-52e6 lamp-voice[117273]: lamp-voice second: request 3 first answer audio 1822 ms after the words were heard
+Oct 15 13:07:24 lamp-52e6 lamp-voice[117273]: lamp-voice: took the thread another voice route wrote
+Oct 15 13:07:29 lamp-52e6 lamp-voice[117273]: lamp-voice second: request 4 heard 0 words, the last 1431 ms after the line ended
+Oct 15 13:07:31 lamp-52e6 lamp-voice[117273]: lamp-voice second: request 5 heard 0 words, the last 960 ms after the line ended
+Oct 15 13:07:56 lamp-52e6 lamp-voice[117273]: lamp-voice second: request 6 heard 9 words, the last 778 ms after the line ended
+Oct 15 13:08:02 lamp-52e6 lamp-voice[117273]: lamp-voice second: request 6 chat round 1 first event in 5601 ms
+Oct 15 13:08:02 lamp-52e6 lamp-voice[117273]: lamp-voice second: request 6 chat round 1 called light_dimmer
+Oct 15 13:08:02 lamp-52e6 lamp-voice[117273]: lamp-voice second: request 6 asked for light_dimmer; the executive answered in 42 ms; the answer was sent
+Oct 15 13:08:06 lamp-52e6 lamp-voice[117273]: lamp-voice second: request 6 chat round 2 first event in 10343 ms
+Oct 15 13:08:07 lamp-52e6 lamp-voice[117273]: lamp-voice second: request 6 first answer audio 10953 ms after the words were heard
+Oct 15 13:08:12 lamp-52e6 lamp-voice[117273]: lamp-voice: took the thread another voice route wrote
+Oct 15 13:08:29 lamp-52e6 lamp-voice[117273]: lamp-voice second: request 7 heard 5 words, the last 872 ms after the line ended
+Oct 15 13:08:30 lamp-52e6 lamp-voice[117273]: lamp-voice second: request 7 chat round 1 first event in 1271 ms
+Oct 15 13:08:31 lamp-52e6 lamp-voice[117273]: lamp-voice second: request 7 first answer audio 1627 ms after the words were heard
+Oct 15 13:08:32 lamp-52e6 lamp-voice[117273]: lamp-voice: took the thread another voice route wrote
+Oct 15 13:09:24 lamp-52e6 lamp-voice[117273]: lamp-voice second: request 8 heard 8 words, the last 894 ms after the line ended
+Oct 15 13:09:32 lamp-52e6 lamp-voice[117273]: lamp-voice second: request 8 chat round 1 first event in 7665 ms
+Oct 15 13:09:32 lamp-52e6 lamp-voice[117273]: lamp-voice second: request 8 first answer audio 8039 ms after the words were heard
+Oct 15 13:09:36 lamp-52e6 lamp-voice[117273]: lamp-voice: took the thread another voice route wrote
+Oct 15 13:09:51 lamp-52e6 lamp-voice[117273]: lamp-voice second: request 10 heard 0 words, the last 999 ms after the line ended
+Oct 15 13:10:01 lamp-52e6 lamp-voice[117273]: lamp-voice second: request 11 heard 0 words, the last 1020 ms after the line ended
+Oct 15 13:10:23 lamp-52e6 lamp-voice[117273]: lamp-voice second: request 12 heard 6 words, the last 913 ms after the line ended
+Oct 15 13:10:25 lamp-52e6 lamp-voice[117273]: lamp-voice second: request 12 chat round 1 first event in 2555 ms
+Oct 15 13:10:26 lamp-52e6 lamp-voice[117273]: lamp-voice second: request 12 first answer audio 3067 ms after the words were heard
+Oct 15 13:10:28 lamp-52e6 lamp-voice[117273]: lamp-voice: took the thread another voice route wrote
+Oct 15 13:10:39 lamp-52e6 lamp-voice[117273]: lamp-voice second: request 13 heard 0 words, the last 943 ms after the line ended
+Oct 15 13:11:18 lamp-52e6 lamp-voice[117273]: lamp-voice second: request 14 heard 7 words, the last 848 ms after the line ended
+Oct 15 13:11:20 lamp-52e6 lamp-voice[117273]: lamp-voice second: request 14 chat round 1 first event in 2034 ms
+Oct 15 13:11:20 lamp-52e6 lamp-voice[117273]: lamp-voice second: request 14 chat round 1 called light_on
+Oct 15 13:11:20 lamp-52e6 lamp-voice[117273]: lamp-voice second: request 14 asked for light_on; the executive answered in 32 ms; the answer was sent
+Oct 15 13:11:22 lamp-52e6 lamp-voice[117273]: lamp-voice second: request 14 chat round 2 first event in 4197 ms
+Oct 15 13:11:22 lamp-52e6 lamp-voice[117273]: lamp-voice second: request 14 first answer audio 4761 ms after the words were heard
+Oct 15 13:11:24 lamp-52e6 lamp-voice[117273]: lamp-voice: took the thread another voice route wrote
+Oct 15 13:11:51 lamp-52e6 lamp-voice[117273]: lamp-voice second: request 15 heard 5 words, the last 576 ms after the line ended
+Oct 15 13:11:52 lamp-52e6 lamp-voice[117273]: lamp-voice second: request 15 chat round 1 first event in 1223 ms
+Oct 15 13:11:52 lamp-52e6 lamp-voice[117273]: lamp-voice second: request 15 first answer audio 1581 ms after the words were heard
+Oct 15 13:11:56 lamp-52e6 lamp-voice[117273]: lamp-voice: took the thread another voice route wrote

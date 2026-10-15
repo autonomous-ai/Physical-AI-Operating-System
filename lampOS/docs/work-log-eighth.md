@@ -16,6 +16,26 @@ Nothing yet.
 
 None yet.
 
+## 2026-10-15 — #739 voice fixtures — taken
+
+Ready for lamp-voice: no
+
+- Taken at 12:50 +07, moved from the fourth by the first builder at 12:25,
+  worked while #704 waits on lamp-75c9 (its person is using it). Branch
+  `eighth/voice-fixtures`: the fourth's `ddb13741b` (`fourth/voice-fixtures`,
+  v8: nine clean loaded runs, run 10 not started) rebased without conflict
+  on `lamp-voice` at `08e94288e`. Production bounds in it are unchanged:
+  `PRIVACY_FRESH_US` is still 50,000 us, and the fixture clock and the
+  fixture freshness exist only under `cfg(test)`.
+- This Mac differs from the fourth's: Apple M-series, arm64, 15 cores,
+  Docker with 2 CPUs (the fourth's: Intel x86_64 with a Podman VM). Rust
+  1.96.0 installed here today through rustup, with the person's yes.
+- Unloaded, the rebased branch, `cargo test -p lamp-voice -- --test-threads=1`
+  once: lib 984 passed, 0 failed, 8 ignored (326 s); every other suite
+  passed. The load for the qualification: a Docker linux/arm64 release build
+  of the workspace and a native release build at `-j 8`, each cleaned and
+  repeated, with the load average sampled every 30 s.
+
 ## 2026-10-15 — #704 weigh — taken
 
 Ready for lamp-voice: no

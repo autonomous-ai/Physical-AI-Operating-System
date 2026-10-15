@@ -1,0 +1,9 @@
+{
+  "base": "a583fda2889c7282014680f40d0a2ac95862ffa4",
+  "recorded_at_from_date": "2026-10-15 21:53 +0700",
+  "files": {
+    "lampOS/crates/voice-eval/src/physical/mac.rs": "91dde7080b81fbad19f1b4fffb96e1290929b92230ab202f3fe622b82dbfc29d",
+    "lampOS/crates/voice-eval/src/physical/backend_clock_tests.rs": "4ca9f50df684e9aa33e9c00dba6533df37d9d4e7563d0e5b1031aae8afb63e96"
+  },
+  "independent_review": "No correctness blocker; separate host-duration and OS-reap probe not run by the read-only reviewer."
+}

@@ -1,0 +1,36 @@
+{
+  "cargo_build_jobs": 2,
+  "target_dir": "/private/tmp/lampos-tests-relay-clock/lampOS/target",
+  "base": "a583fda2889c7282014680f40d0a2ac95862ffa4",
+  "gates": {
+    "fmt": {
+      "command": "cargo fmt --all --check",
+      "started": "2026-10-15 21:38:50 +0700",
+      "finished": "2026-10-15 21:38:56 +0700",
+      "exit": 0
+    },
+    "clippy": {
+      "command": "cargo clippy --locked --offline -p lamp-voice-eval --all-targets -- -D warnings",
+      "started": "2026-10-15 21:38:56 +0700",
+      "finished": "2026-10-15 21:39:12 +0700",
+      "exit": 0
+    },
+    "tests": {
+      "command": "cargo test --locked --offline -p lamp-voice-eval --no-fail-fast -- --test-threads=1",
+      "started": "2026-10-15 21:39:12 +0700",
+      "finished": "2026-10-15 21:52:32 +0700",
+      "exit": 0,
+      "counts": {
+        "passed": 289,
+        "failed": 0,
+        "ignored": 0
+      }
+    },
+    "build": {
+      "command": "cargo build --locked --offline --workspace",
+      "started": "2026-10-15 21:52:32 +0700",
+      "finished": "2026-10-15 21:55:23 +0700",
+      "exit": 0
+    }
+  }
+}

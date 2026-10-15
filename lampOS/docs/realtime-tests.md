@@ -238,3 +238,28 @@ timed stimuli. The selected group is unchanged.
 [Local serial comparison](verification/dispatch-transport-20261015/README.md):
 13 passed before and after, 29.938 s to 6.487 s on x86_64 macOS. This is one
 fixture cleanup step in #823; the whole-group two-minute goal remains open.
+
+## Evaluator backend clock entry point
+
+`PhysicalBackend::new_with_clock` accepts a pure `Fn() -> MonoTime` for
+runner timestamps, clock-map samples, cue freshness, grants, dispatch and
+pre-end logical deadlines. `PhysicalBackend::new` keeps the existing system
+clock. `FakeRoomPlayer { room }.with_clock(...)` uses the same source for its
+immediate delivery report; the original struct construction still uses the
+system clock and both paths share the datagram/report implementation. The
+microsecond-to-nanosecond report conversion rejects overflow before delivery.
+
+This prepares #823's coordinated evaluator fixture. It does not advance time,
+replace the existing channel waits or sleeps, or accelerate any existing test.
+Every participating relay, runtime and player must share a clock before a
+scenario can use a controlled time source. Prepared players and recorders have
+not been migrated. The 10 s runtime self-end wait and the overall pre-end bound
+use the runner clock; the 300 ms drain after `session_end`, actual child exit,
+25 s player join, 5 s unused-player join, recorder readiness and all cleanup
+bounds remain on host time, with their existing limits.
+
+Focused regressions cover pure reads, separate ping/receipt/cue-decision
+samples, a completed session drained and reaped with a frozen clock, identical
+fake-room datagrams and report shape, timestamp overflow refusal, and the
+unchanged system defaults. Existing test assertions, identities, profiles and
+workflows remain unchanged. This entry point alone establishes no speedup.

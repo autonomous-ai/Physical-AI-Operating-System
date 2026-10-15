@@ -32,6 +32,7 @@ use crate::{
 };
 use lamp_ipc::{monotonic_ns, monotonic_us};
 use lamp_observer::playback::GrantInput;
+use lamp_turn_owner::MonoTime;
 use serde_json::{Value, json};
 use std::{
     collections::BTreeMap,
@@ -259,6 +260,34 @@ pub struct FakeRoomPlayer {
     pub room: PathBuf,
 }
 
+impl FakeRoomPlayer {
+    /// Use the backend's explicit clock for the immediate delivery report.
+    /// The callback only reads time; it must not advance a fixture or wait.
+    /// It is sampled before sending, never from the report's worker thread.
+    pub fn with_clock(self, now: impl Fn() -> MonoTime) -> impl Player {
+        ClockedFakeRoomPlayer { player: self, now }
+    }
+
+    fn start_with_clock(
+        &self,
+        timing: &SceneTiming,
+        now: impl FnOnce() -> MonoTime,
+    ) -> Result<JoinHandle<Value>> {
+        let bytes = serde_json::to_vec(timing)?;
+        if bytes.len() > ROOM_MAX_BYTES {
+            return Err(invalid("stimulus timing exceeds the fake room datagram"));
+        }
+        let requested_ns = now()
+            .as_micros()
+            .checked_mul(1000)
+            .ok_or_else(|| invalid("fake room delivery time overflows nanoseconds"))?;
+        UnixDatagram::unbound()?.send_to(&bytes, &self.room)?;
+        Ok(thread::spawn(
+            move || json!({"valid": true, "status": "fake_room_delivery", "start_requested_host_monotonic_ns": requested_ns}),
+        ))
+    }
+}
+
 impl Player for FakeRoomPlayer {
     fn start(
         &mut self,
@@ -267,18 +296,31 @@ impl Player for FakeRoomPlayer {
         _: &Path,
         _: &Path,
     ) -> Result<JoinHandle<Value>> {
-        let bytes = serde_json::to_vec(timing)?;
-        if bytes.len() > ROOM_MAX_BYTES {
-            return Err(invalid("stimulus timing exceeds the fake room datagram"));
-        }
-        let requested = monotonic_us();
-        UnixDatagram::unbound()?.send_to(&bytes, &self.room)?;
-        Ok(thread::spawn(
-            move || json!({"valid": true, "status": "fake_room_delivery", "start_requested_host_monotonic_ns": requested * 1000}),
-        ))
+        self.start_with_clock(timing, || MonoTime::from_micros(monotonic_us()))
     }
     fn describe(&self) -> Value {
         json!({"kind": "fake room datagrams", "note": "loopback test; no audio"})
+    }
+}
+
+struct ClockedFakeRoomPlayer<C> {
+    player: FakeRoomPlayer,
+    now: C,
+}
+
+impl<C: Fn() -> MonoTime> Player for ClockedFakeRoomPlayer<C> {
+    fn start(
+        &mut self,
+        _: &Path,
+        timing: &SceneTiming,
+        _: &Path,
+        _: &Path,
+    ) -> Result<JoinHandle<Value>> {
+        self.player.start_with_clock(timing, &self.now)
+    }
+
+    fn describe(&self) -> Value {
+        self.player.describe()
     }
 }
 
@@ -709,6 +751,7 @@ pub struct PhysicalBackend<'a> {
     config: PhysicalConfig,
     assets: &'a AssetIndex,
     player: Box<dyn Player + 'a>,
+    now: Box<dyn Fn() -> MonoTime + 'a>,
     session: Option<Session>,
     room: Option<(Child, PathBuf, u64)>,
     playbacks: Vec<Playback>,
@@ -962,10 +1005,27 @@ impl<'a> PhysicalBackend<'a> {
         assets: &'a AssetIndex,
         player: Box<dyn Player + 'a>,
     ) -> Self {
+        Self::new_with_clock(config, assets, player, || {
+            MonoTime::from_micros(monotonic_us())
+        })
+    }
+
+    /// Use an explicit clock for runner timestamps and logical deadlines.
+    /// Reads must be pure and all participating fixtures must share this
+    /// clock domain. This entry point does not coordinate or advance them:
+    /// channel waits and sleeps still wait on the host. Resource readiness,
+    /// post-end draining and process/thread cleanup retain their host bounds.
+    pub fn new_with_clock(
+        config: PhysicalConfig,
+        assets: &'a AssetIndex,
+        player: Box<dyn Player + 'a>,
+        now: impl Fn() -> MonoTime + 'a,
+    ) -> Self {
         Self {
             config,
             assets,
             player,
+            now: Box::new(now),
             session: None,
             room: None,
             playbacks: Vec::new(),
@@ -1057,16 +1117,16 @@ impl<'a> PhysicalBackend<'a> {
         let (due, sent) = self.session.as_ref().map_or((u64::MAX, MAX_PINGS), |s| {
             (s.next_ping_us, s.pings.len() as u64)
         });
-        if sent < MAX_PINGS && monotonic_us() >= due {
+        if sent < MAX_PINGS && (self.now)().as_micros() >= due {
             // A failed write means the transport closed; session_end reports it.
             let _ = self.send_ping(sent + 1);
         }
-        while let Some(line) = self.wait_line(monotonic_us()) {
+        while let Some(line) = self.wait_line((self.now)().as_micros()) {
             if let Some(event) = self.take(line) {
                 self.pending.push_back(event);
             }
         }
-        if let Some(event) = self.expire_held(monotonic_us()) {
+        if let Some(event) = self.expire_held((self.now)().as_micros()) {
             self.pending.push_back(event);
         }
     }
@@ -1118,7 +1178,7 @@ impl<'a> PhysicalBackend<'a> {
     /// exited, or its declared capture end passed. Latched with its kind.
     fn room_ended(&mut self) -> Option<String> {
         let (child, _, _) = self.room.as_mut()?;
-        let now = monotonic_us();
+        let now = (self.now)().as_micros();
         let declared_end = self.room_cover.end_us.filter(|end| now >= *end);
         let (kind, reason) = match child.try_wait() {
             Ok(Some(status)) if declared_end.is_none() => (
@@ -1144,7 +1204,7 @@ impl<'a> PhysicalBackend<'a> {
         let mut event = RuntimeEvent::new(
             EventKind::EvidenceLost { source, reason },
             None,
-            monotonic_us(),
+            (self.now)().as_micros(),
             ClockDomain::RunnerMonotonic,
             EventSource::Runner,
         );
@@ -1237,7 +1297,7 @@ impl<'a> PhysicalBackend<'a> {
                 "the original deadline overflows the clock".into(),
             ));
         };
-        let now = grant_clock_us();
+        let now = grant_clock_us(&self.now);
         if now >= deadline_us {
             let late = now - deadline_us;
             self.armed = Some(armed);
@@ -1269,7 +1329,7 @@ impl<'a> PhysicalBackend<'a> {
                 report["status"], report["error"]
             )));
         }
-        let sent_us = grant_clock_us();
+        let sent_us = grant_clock_us(&self.now);
         let receipt = json!({"ready": armed.prepared.ready,
             "armed_runner_us": armed.armed_us, "grant_sent_runner_us": sent_us,
             "expires_monotonic_ns": expires_ns,
@@ -1363,7 +1423,7 @@ impl<'a> PhysicalBackend<'a> {
                 Some(cue_failure(
                     session,
                     format!("relay protocol failure: {error}"),
-                    monotonic_us(),
+                    (self.now)().as_micros(),
                 ))
             }
         };
@@ -1389,7 +1449,7 @@ impl<'a> PhysicalBackend<'a> {
         let Some(stdin) = session.stdin.as_mut() else {
             return Ok(());
         };
-        let sent = monotonic_us();
+        let sent = (self.now)().as_micros();
         serde_json::to_writer(&mut *stdin, &RunnerLine::Ping { seq })?;
         stdin.write_all(b"\n")?;
         stdin.flush()?;
@@ -1400,7 +1460,7 @@ impl<'a> PhysicalBackend<'a> {
 
     /// Convert one relay line into a runtime event, updating the clock map.
     fn handle(&mut self, line: SessionLine) -> Option<RuntimeEvent> {
-        let received = monotonic_us();
+        let received = (self.now)().as_micros();
         let serve = self.serve();
         // Human speech has no inferred onset window. Its timing must be
         // reviewed; timed acceptance is withheld by the evaluator.
@@ -1441,7 +1501,7 @@ impl<'a> PhysicalBackend<'a> {
                     }
                     if better {
                         session.best = Some(mapping);
-                        release_held(session, monotonic_us);
+                        release_held(session, || (self.now)().as_micros());
                     }
                 }
                 return None;
@@ -1469,7 +1529,9 @@ impl<'a> PhysicalBackend<'a> {
                     session.held.push_back((received, lamp_received_us, cue));
                     return None;
                 }
-                return decide_cue(session, received, lamp_received_us, cue, monotonic_us);
+                return decide_cue(session, received, lamp_received_us, cue, || {
+                    (self.now)().as_micros()
+                });
             }
             SessionLine::CueInvalid { error, .. } => {
                 if session.cue_failed {
@@ -1590,7 +1652,24 @@ impl<'a> PhysicalBackend<'a> {
 
     fn wait_line(&mut self, until_us: u64) -> Option<std::result::Result<SessionLine, String>> {
         let session = self.session.as_mut()?;
-        let now = monotonic_us();
+        Self::receive_line(session, until_us, || (self.now)().as_micros())
+    }
+
+    /// After session_end only real transport work remains. Its drain must
+    /// finish even if the fixture clock has stopped with the runtime.
+    fn wait_line_on_host(
+        &mut self,
+        until_us: u64,
+    ) -> Option<std::result::Result<SessionLine, String>> {
+        Self::receive_line(self.session.as_mut()?, until_us, monotonic_us)
+    }
+
+    fn receive_line(
+        session: &mut Session,
+        until_us: u64,
+        now_us: impl FnOnce() -> u64,
+    ) -> Option<std::result::Result<SessionLine, String>> {
+        let now = now_us();
         let received = if now >= until_us {
             session.lines.try_recv().map_err(|error| match error {
                 TryRecvError::Empty => RecvTimeoutError::Timeout,
@@ -1803,7 +1882,7 @@ impl Backend for PhysicalBackend<'_> {
                         .replace("{seconds}", &total_seconds.to_string())
                 })
                 .collect();
-            let requested = monotonic_us();
+            let requested = (self.now)().as_micros();
             let child = Command::new(&argv[0])
                 .args(&argv[1..])
                 .stdin(Stdio::null())
@@ -1911,7 +1990,7 @@ impl Backend for PhysicalBackend<'_> {
         Ok(Begin::Ready)
     }
     fn now_us(&mut self) -> u64 {
-        monotonic_us()
+        (self.now)().as_micros()
     }
     fn next_event(&mut self, until_us: u64) -> Result<Option<RuntimeEvent>> {
         if let Some(event) = self.pending.pop_front() {
@@ -1921,30 +2000,28 @@ impl Backend for PhysicalBackend<'_> {
             if let Some(event) = self.poll_evidence() {
                 return Ok(Some(event));
             }
-            if let Some(event) = self.expire_held(monotonic_us()) {
+            if let Some(event) = self.expire_held((self.now)().as_micros()) {
                 return Ok(Some(event));
             }
             let (due, sent) = self.session.as_ref().map_or((u64::MAX, MAX_PINGS), |s| {
                 (s.next_ping_us, s.pings.len() as u64)
             });
-            if sent < MAX_PINGS && monotonic_us() >= due {
+            if sent < MAX_PINGS && (self.now)().as_micros() >= due {
                 // A failed write means the transport closed; session_end reports it.
                 let _ = self.send_ping(sent + 1);
             }
-            let mut wait_until = until_us.min(
-                self.session
-                    .as_ref()
-                    .map_or(until_us, |s| s.next_ping_us.max(monotonic_us() + 1_000)),
-            );
+            let mut wait_until = until_us.min(self.session.as_ref().map_or(until_us, |s| {
+                s.next_ping_us.max((self.now)().as_micros() + 1_000)
+            }));
             if self.serve() {
                 // Player and recorder ends are polled, not signalled.
-                wait_until = wait_until.min(monotonic_us() + 20_000);
+                wait_until = wait_until.min((self.now)().as_micros() + 20_000);
             }
             if let Some(due) = self.held_due() {
                 wait_until = wait_until.min(due);
             }
             let Some(line) = self.wait_line(wait_until) else {
-                if monotonic_us() >= until_us {
+                if (self.now)().as_micros() >= until_us {
                     return Ok(None);
                 }
                 continue;
@@ -1956,7 +2033,7 @@ impl Backend for PhysicalBackend<'_> {
             if let Some(event) = self.pending.pop_front() {
                 return Ok(Some(event));
             }
-            if monotonic_us() >= until_us {
+            if (self.now)().as_micros() >= until_us {
                 return Ok(None);
             }
         }
@@ -1972,7 +2049,9 @@ impl Backend for PhysicalBackend<'_> {
                 ),
             ),
             _ => (
-                event.received_us.unwrap_or_else(monotonic_us),
+                event
+                    .received_us
+                    .unwrap_or_else(|| (self.now)().as_micros()),
                 "runner receipt time".into(),
             ),
         }
@@ -2001,7 +2080,7 @@ impl Backend for PhysicalBackend<'_> {
         let cancel_file = directory.join(format!("cancel-{}", step.id));
         let max_wait_ms =
             (step.trigger.deadline_ms + step.trigger.delay_ms + 5_000).min(MAX_PREPARED_WAIT_MS);
-        let armed_us = monotonic_us();
+        let armed_us = (self.now)().as_micros();
         let prepared = match self.player.prepare(
             &asset.wav,
             timing,
@@ -2057,8 +2136,8 @@ impl Backend for PhysicalBackend<'_> {
             .attempt_directory
             .clone()
             .ok_or_else(|| invalid("no attempt directory"))?;
-        while monotonic_us() < at_us {
-            let remaining = at_us.saturating_sub(monotonic_us());
+        while (self.now)().as_micros() < at_us {
+            let remaining = at_us.saturating_sub((self.now)().as_micros());
             thread::sleep(Duration::from_micros(remaining.min(1_000)));
         }
         // Final dispatch check: take the lines already relayed, within a
@@ -2067,7 +2146,7 @@ impl Backend for PhysicalBackend<'_> {
         // first seen in this drain.
         let mut exhausted = true;
         for _ in 0..MAX_DISPATCH_DRAIN_LINES {
-            let Some(line) = self.wait_line(monotonic_us()) else {
+            let Some(line) = self.wait_line((self.now)().as_micros()) else {
                 exhausted = false;
                 break;
             };
@@ -2075,23 +2154,20 @@ impl Backend for PhysicalBackend<'_> {
                 self.pending.push_back(event);
             }
         }
-        if let Some(event) = self.expire_held(monotonic_us()) {
+        if let Some(event) = self.expire_held((self.now)().as_micros()) {
             self.pending.push_back(event);
         }
         if self.session.is_none() {
             self.unavailable
                 .get_or_insert_with(|| Withheld::SessionEnded("no runtime session is open".into()));
         }
-        let refuse = |withheld: Withheld, pending: usize, exhausted: bool| {
-            let now = monotonic_us();
-            Injection {
-                started_us: now,
-                receipt: json!({"wav_sha256": asset.wav_sha256, "dispatched": false,
+        let refuse = |withheld: Withheld, pending: usize, exhausted: bool, now: u64| Injection {
+            started_us: now,
+            receipt: json!({"wav_sha256": asset.wav_sha256, "dispatched": false,
                     "withheld_cause": withheld.cause(), "reason": withheld.reason(),
                     "unobserved_events": pending, "drain_exhausted": exhausted,
                     "late_us": now.saturating_sub(at_us)}),
-                withheld: Some(withheld),
-            }
+            withheld: Some(withheld),
         };
         // Never start while the runner has not observed every consumed
         // event, or while lines remain undrained: one may end the overlap or
@@ -2102,18 +2178,23 @@ impl Backend for PhysicalBackend<'_> {
             (exhausted || held || !self.pending.is_empty()).then_some(Withheld::Revalidate)
         });
         if let Some(withheld) = withheld {
-            return Ok(refuse(withheld, self.pending.len(), exhausted));
+            return Ok(refuse(
+                withheld,
+                self.pending.len(),
+                exhausted,
+                (self.now)().as_micros(),
+            ));
         }
         let cancel_file = directory.join(format!("cancel-{}", step.id));
         // The original target's lateness bound holds at the side effect
         // itself, even when no new event surfaced (MAIN-030).
-        let requested_us = monotonic_us();
+        let requested_us = (self.now)().as_micros();
         if requested_us > at_us.saturating_add(MAX_TRIGGER_LATENESS_US) {
             let stale = Withheld::Stale(format!(
                 "planned start passed {} ms before the player could start",
                 (requested_us - at_us) / 1000
             ));
-            return Ok(refuse(stale, 0, false));
+            return Ok(refuse(stale, 0, false, (self.now)().as_micros()));
         }
         // A prompt starts only while the room recording covers it and the
         // scenario's observation window. Otherwise the loss becomes a runner
@@ -2123,7 +2204,12 @@ impl Backend for PhysicalBackend<'_> {
         {
             let event = self.lose_evidence("room_recorder".into(), reason);
             self.pending.push_back(event);
-            return Ok(refuse(Withheld::Revalidate, self.pending.len(), false));
+            return Ok(refuse(
+                Withheld::Revalidate,
+                self.pending.len(),
+                false,
+                (self.now)().as_micros(),
+            ));
         }
         if self.serve() {
             return Ok(match self.grant(step) {
@@ -2138,7 +2224,7 @@ impl Backend for PhysicalBackend<'_> {
                             "boundary": "grant sent; the player checks the expiry with a fresh CLOCK_MONOTONIC sample before its first source copy; the acoustic onset is later"}),
                     }
                 }
-                Err(withheld) => refuse(withheld, 0, false),
+                Err(withheld) => refuse(withheld, 0, false, (self.now)().as_micros()),
             });
         }
         let handle = self.player.start(
@@ -2182,9 +2268,9 @@ impl Backend for PhysicalBackend<'_> {
                 .as_ref()
                 .is_some_and(|s| s.runtime_ended && s.end.is_none())
             {
-                let until = monotonic_us() + SELF_END_BOUND_US;
+                let until = (self.now)().as_micros() + SELF_END_BOUND_US;
                 while self.session.as_ref().is_some_and(|s| s.end.is_none())
-                    && monotonic_us() < until
+                    && (self.now)().as_micros() < until
                 {
                     if self.next_event(until)?.is_none() {
                         break;
@@ -2200,16 +2286,18 @@ impl Backend for PhysicalBackend<'_> {
                 let _ = self.send_stop(reason);
             }
         }
-        let bound = monotonic_us()
+        let bound = (self.now)().as_micros()
             + (u64::from(self.seconds) + u64::from(self.config.allowance_seconds) + 30) * 1_000_000;
-        while self.session.as_ref().is_some_and(|s| s.end.is_none()) && monotonic_us() < bound {
+        while self.session.as_ref().is_some_and(|s| s.end.is_none())
+            && (self.now)().as_micros() < bound
+        {
             if self.next_event(bound)?.is_none() {
                 break;
             }
         }
         // Keep the transport open until session_end has relayed the trace.
         while self.session.as_ref().is_some_and(|s| s.end.is_some()) {
-            match self.wait_line(monotonic_us() + 300_000) {
+            match self.wait_line_on_host(monotonic_us() + 300_000) {
                 Some(Ok(line)) => {
                     let _ = self.handle(line);
                 }
@@ -2811,12 +2899,12 @@ mod relay_reader_tests {
 // Test-only clock seam from the independent serve-boundary review
 // (coordination/reviews/serve-boundaries-20261012): tests can model a
 // scheduler pause between the grant check and its send.
-fn grant_clock_us() -> u64 {
+fn grant_clock_us(now: impl FnOnce() -> MonoTime) -> u64 {
     #[cfg(test)]
     if let Some(now) = audit_grant_tests::CLOCK.with(|times| times.borrow_mut().pop_front()) {
         return now;
     }
-    monotonic_us()
+    now().as_micros()
 }
 
 #[cfg(test)]
@@ -3726,3 +3814,7 @@ mod audit_grant_tests {
         assert!(!proves_unexpired(&map, 10_001, 13_000).1);
     }
 }
+
+#[cfg(test)]
+#[path = "backend_clock_tests.rs"]
+mod backend_clock_tests;

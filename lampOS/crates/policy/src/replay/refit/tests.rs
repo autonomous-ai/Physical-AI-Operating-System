@@ -270,7 +270,7 @@ fn the_fit_finds_the_weights_the_examples_were_drawn_from() {
         })
         .collect();
     let all: Vec<&Example> = examples.iter().collect();
-    let found = fit(&all).unwrap();
+    let found = fit(&all, 1.0).unwrap();
     for (index, (found, known)) in found.iter().zip(known).enumerate() {
         assert!((found - known).abs() < 0.5, "{index}: {found} for {known}");
     }
@@ -279,7 +279,53 @@ fn the_fit_finds_the_weights_the_examples_were_drawn_from() {
         .iter()
         .filter(|example| example.should == Should::Answer)
         .collect();
-    assert!(fit(&one_kind).is_none());
+    assert!(fit(&one_kind, 1.0).is_none());
+
+    // Answering what was not for the lamp made to cost three times an
+    // ignored request (#871): the sum starts lower, so fewer of those to be
+    // left alone are taken up, and more of those to be answered are not.
+    let costly = fit(&all, 3.0).unwrap();
+    assert!(
+        costly[0] < found[0] - 0.5,
+        "{} against {}",
+        costly[0],
+        found[0]
+    );
+    let taken_up = |weights: &Weights, should: Should| {
+        examples
+            .iter()
+            .filter(|example| example.should == should)
+            .filter(|example| {
+                crate::attention::Choice::at(probability(weights, &example.terms) as f32)
+                    != crate::attention::Choice::StayQuiet
+            })
+            .count()
+    };
+    assert!(taken_up(&costly, Should::StayQuiet) < taken_up(&found, Should::StayQuiet));
+    assert!(taken_up(&costly, Should::Answer) <= taken_up(&found, Should::Answer));
+}
+
+/// With a cost, the summary says it, and what the mistakes cost on the
+/// kept-back halves, for the day's weights and the refit alike.
+#[test]
+fn the_cost_of_the_mistakes_is_counted_with_the_ratio_given() {
+    let lines = run(240, 7, &[("same", as_given as Answering)]);
+    let models = ["same".to_owned()];
+    let even = summary(&lines, &models);
+    assert_eq!(even["cost_ratio"], 1.0);
+    let told = &even["models"]["same"]["day_weights"];
+    let cost = |told: &Value| told["cost"].as_f64().unwrap();
+    let mistakes = |told: &Value| {
+        told["answered_not_for_the_lamp"].as_f64().unwrap()
+            + told["ignored_for_the_lamp"].as_f64().unwrap()
+    };
+    assert!((cost(told) - mistakes(told)).abs() < 0.11, "{told}");
+    let costly = summary_costing(&lines, &models, 3.0);
+    assert_eq!(costly["cost_ratio"], 3.0);
+    let told = &costly["models"]["same"]["day_weights"];
+    let three = 3.0 * told["answered_not_for_the_lamp"].as_f64().unwrap()
+        + told["ignored_for_the_lamp"].as_f64().unwrap();
+    assert!((cost(told) - three).abs() < 0.11, "{told}");
 }
 
 /// The halves are drawn from the seed alone: two counts of one run are the

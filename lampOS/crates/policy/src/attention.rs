@@ -12,7 +12,7 @@
 //! state and the same answers the same judgement: what the log holds can
 //! be judged again later, with other numbers.
 use crate::decide::{Answer, Question};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use std::collections::BTreeMap;
 
@@ -131,7 +131,7 @@ const WITH_NAME: ([f64; 7], f64, f64, f64, f64) = (
 pub const NAME_HEARD_FROM: f32 = 0.9;
 
 /// What the room sounds like, as far as anyone has judged.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Room {
     /// Nobody else has been talking.
@@ -152,8 +152,9 @@ impl Room {
     }
 }
 
-/// What was known when something was heard.
-#[derive(Clone, Debug, PartialEq, Serialize)]
+/// What was known when something was heard. Read back from the decisions
+/// log by [`crate::replay`].
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Context {
     /// What the recogniser wrote for what was said.
     pub heard: String,
@@ -171,7 +172,7 @@ pub struct Context {
     /// was not heard. Not there at all when nothing on the lamp is
     /// listening for the name: not heard and not known are two things.
     /// The model is not shown it.
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub name_heard: Option<f32>,
 }
 
@@ -195,6 +196,24 @@ impl Context {
             .is_some_and(|seconds| seconds <= IN_CONVERSATION_SECONDS);
         self.lamp_is_speaking || (said_words && lately)
     }
+}
+
+/// Whether `heard` names the lamp in words: one of the ways people call it
+/// or the recogniser has been seen to write its name, as a whole word or
+/// words, in any case. For counting named requests apart (#871); it decides
+/// nothing.
+pub fn names_the_lamp(heard: &str) -> bool {
+    let words: Vec<String> = heard
+        .split(|c: char| !c.is_alphanumeric())
+        .filter(|word| !word.is_empty())
+        .map(str::to_lowercase)
+        .collect();
+    CALLED_WITH.iter().chain(WRITTEN_AS.iter()).any(|form| {
+        let form: Vec<String> = form.split_whitespace().map(str::to_lowercase).collect();
+        words
+            .windows(form.len())
+            .any(|window| window == form.as_slice())
+    })
 }
 
 /// The end of `said`: at most the last [`MOST_SAID_BYTES`] of it, begun at

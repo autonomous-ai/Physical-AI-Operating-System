@@ -15,7 +15,7 @@ RuntimeDirectoryMode=0755
 # Reminders and timers by voice (#709, #747).
 Environment=LAMP_SCHEDULE_TOOLS=on
 Environment=LAMP_SCHEDULE_SOCKET=/run/lampos-schedule/call.sock
-ExecStart=/opt/lampOS/actions/33a16f446b32697b608d6ab5307ebd4917b32265635800266240b3be541dc6cb/lamp-actions --dir /run/lampos-actions --mixer-card allwinnerhdmi --mixer-control Speaker --volume-ceiling 100 --bus-root /run/lampos-bus
+ExecStart=/opt/lampOS/actions/2c4aad6713b74ccccf55e5c2b6138f88ec8af9b5dc8d898b34138c320e6e4588/lamp-actions --dir /run/lampos-actions --mixer-card allwinnerhdmi --mixer-control Speaker --volume-ceiling 100 --bus-root /run/lampos-bus
 Restart=on-failure
 RestartSec=2s
 SyslogIdentifier=lamp-actions

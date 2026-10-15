@@ -16,7 +16,7 @@ use std::{
 };
 
 const USAGE: &str = "\
-lamp-keeper [serve] [--act] [--unwell-seconds N] [--most N]
+lamp-keeper [serve] [--act] [--unwell-seconds N] [--most N] [--setup-marker PATH]
 lamp-keeper status
 lamp-keeper health
 lamp-keeper start|stop|restart PART|lamp
@@ -42,6 +42,10 @@ pause says on lamp/pause that the lamp is paused: each part that honours it
 does no new work and holds what it has (the body rests); resume undoes it.
 stop lamp pauses first, waits up to 45 s for the voice to say it is
 resting, stops lampos.target, and then clears the pause.
+With --setup-marker, a lamp whose marker does not exist yet (not set up for
+a home) starts only lamp-setup.service, not lampos.target, and is not ready;
+serve starts lampos.target once the marker appears. Installed by the
+updater, serve also keeps /usr/local/bin/lamp-keeper pointing at itself.
 ";
 
 fn main() -> ExitCode {
@@ -144,6 +148,7 @@ fn usage() -> ExitCode {
 
 fn serve_with(options: &[&str]) -> ExitCode {
     let mut rules = Rules::default();
+    let mut setup_marker: Option<PathBuf> = None;
     let mut options = options.iter();
     while let Some(option) = options.next() {
         let mut number = || options.next().and_then(|value| value.parse::<u64>().ok());
@@ -156,6 +161,10 @@ fn serve_with(options: &[&str]) -> ExitCode {
             "--most" => match number().filter(|n| (1..=100).contains(n)) {
                 Some(most) => rules.most = most as usize,
                 None => return usage(),
+            },
+            "--setup-marker" => match options.next().map(PathBuf::from) {
+                Some(path) if path.is_absolute() => setup_marker = Some(path),
+                _ => return usage(),
             },
             _ => return usage(),
         }
@@ -185,15 +194,36 @@ fn serve_with(options: &[&str]) -> ExitCode {
             let legacy_stopped = package::clear_legacy(&mut Systemctl);
             make_bus_root(&release);
             let drop_ins = Path::new("/etc/systemd/system").join(format!("{}.d", units::LAMP));
-            if let Err(why) = package::bring_up(&mut Systemctl, &release, &service, &drop_ins) {
-                eprintln!("lamp-keeper: bringing the lamp up: {why}");
-                return ExitCode::FAILURE;
+            let started = match package::bring_up(
+                &mut Systemctl,
+                &release,
+                &service,
+                &drop_ins,
+                setup_marker.as_deref(),
+            ) {
+                Ok(started) => started,
+                Err(why) => {
+                    eprintln!("lamp-keeper: bringing the lamp up: {why}");
+                    return ExitCode::FAILURE;
+                }
+            };
+            if started {
+                eprintln!(
+                    "lamp-keeper: the lamp is started from {}",
+                    release.root.display()
+                );
+            } else {
+                eprintln!(
+                    "lamp-keeper: not set up yet ({} absent): only {} is started",
+                    setup_marker.as_deref().unwrap_or(Path::new("")).display(),
+                    package::SETUP
+                );
             }
-            eprintln!(
-                "lamp-keeper: the lamp is started from {}",
-                release.root.display()
-            );
-            Some((release, legacy_stopped))
+            if let Err(why) = package::link_command(&release, Path::new(package::COMMAND_LINK)) {
+                eprintln!("lamp-keeper: {why}");
+            }
+            let waiting_setup = if started { None } else { setup_marker };
+            Some((release, legacy_stopped, waiting_setup))
         }
         Err(_) => None,
     };
@@ -253,7 +283,7 @@ fn voice_resting(bus: &Bus) -> bool {
         .is_some_and(|said| said.state == Voice::Resting)
 }
 
-fn serve(rules: Rules, package: Option<(Release, Vec<String>)>) -> ExitCode {
+fn serve(rules: Rules, mut package: Option<(Release, Vec<String>, Option<PathBuf>)>) -> ExitCode {
     // ponytail: no signal handling (the standard library has none, as for
     // lamp-health): SIGTERM ends it where it stands, between two looks.
     let notify = Notify::from_environment();
@@ -273,8 +303,22 @@ fn serve(rules: Rules, package: Option<(Release, Vec<String>)>) -> ExitCode {
         if bus.is_none() {
             bus = Bus::from_environment().ok();
         }
-        if let Some((release, legacy_stopped)) = &package {
-            let waiting_for = package::waiting_for(&mut Systemctl, release);
+        if let Some((release, legacy_stopped, waiting_setup)) = &mut package {
+            if let Some(marker) = waiting_setup.as_deref() {
+                match package::start_when_set_up(&mut Systemctl, marker) {
+                    Ok(true) => {
+                        eprintln!("lamp-keeper: set up; the lamp is started");
+                        *waiting_setup = None;
+                    }
+                    Ok(false) => {}
+                    Err(why) => eprintln!("lamp-keeper: starting the lamp after setup: {why}"),
+                }
+            }
+            let waiting_for = if waiting_setup.is_some() {
+                vec!["setup".to_owned()]
+            } else {
+                package::waiting_for(&mut Systemctl, release)
+            };
             let answer = Answer {
                 ready: waiting_for.is_empty(),
                 version: release.version(),

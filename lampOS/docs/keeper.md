@@ -239,6 +239,22 @@ Started that way (`AUTONOMOUS_SERVICE_NAME` set), `lamp-keeper serve`:
 4. starts `lampos.target`, and from then on writes after every look whether
    every part the release carries is running, with its own process id,
    which `health` prints.
+5. points `/usr/local/bin/lamp-keeper` at its own `bin/service` (a new
+   link under a temporary name, renamed over the old one), so that the
+   setup's reset can run `/usr/local/bin/lamp-keeper stop lamp` by one path
+   whatever the version.
+
+### Not set up for a home yet (#806)
+
+With `--setup-marker PATH` (off unless given; the third's setup uses
+`/var/lib/lampos-setup/done`), step 4 looks for the marker first. Present:
+as above, call for call (a test compares the calls with and without the
+switch). Absent: only `lamp-setup.service` is started, not
+`lampos.target`, so nothing of lampOS listens before the lamp is set up;
+the answer is not ready, `waiting_for: ["setup"]`. The serve loop looks for
+the marker once a second and, once it exists, starts `lampos.target`, once.
+The setup's reset removes the marker first, then runs `lamp-keeper stop
+lamp`, wipes and reboots, so a lamp cut off mid-reset comes back into setup.
 
 ### What the old runtime leaves behind
 

@@ -32,6 +32,8 @@ pub struct RingChoreographer {
     level: u8,
     /// Stamped into the next frame; see [`RingFrame::attending`].
     attending: bool,
+    /// Stamped into the next frame; see [`RingFrame::listening`].
+    listening: bool,
     unshown: bool,
 }
 
@@ -47,6 +49,7 @@ impl RingChoreographer {
             faulted: false,
             level: 0,
             attending: false,
+            listening: false,
             unshown: false,
         })
     }
@@ -61,6 +64,13 @@ impl RingChoreographer {
     /// changes how the next frame looks and nothing else.
     pub fn set_attending(&mut self, attending: bool) {
         self.attending = attending;
+    }
+
+    /// Whether the turn in hand is the head tap's "hm?" (#711), shown as the
+    /// listening face throughout. Like the level, it changes how the next
+    /// frame looks and nothing else.
+    pub fn set_listening(&mut self, listening: bool) {
+        self.listening = listening;
     }
 
     /// Whether the turn in hand is one the ring does not show: the
@@ -149,6 +159,7 @@ impl RingChoreographer {
             requested_at_us,
             level: self.level,
             attending: self.attending,
+            listening: self.listening,
         };
         self.pending = Some(frame);
         self.last_frame = Some(frame);
@@ -485,6 +496,31 @@ mod tests {
         controller.complete_turn(t(23), owner).unwrap();
         assert!(policy.prepare(&mut controller, t(23)).unwrap().is_none());
         assert_eq!(controller.snapshot(t(23)).unwrap().owner(), None);
+    }
+
+    #[test]
+    fn the_head_taps_hum_is_the_listening_face_in_every_phase_of_its_turn() {
+        use crate::ring_face::Mood;
+        let mut controller = ready();
+        let owner = controller.admit(t(10), AdmittedInput::NewTurn).unwrap();
+        controller.input_ended(t(11), owner).unwrap();
+        let mut policy = RingChoreographer::new(40).unwrap();
+        policy.set_listening(true);
+        // Admitted, not yet heard: never a frame of thinking.
+        let waiting = policy.prepare(&mut controller, t(12)).unwrap().unwrap();
+        assert_eq!(
+            (waiting.phase, waiting.mood()),
+            (RingPhase::Waiting, Mood::Listening)
+        );
+        acknowledge(&mut policy, &mut controller, waiting, 13);
+        let speech = speaking_permit(&mut controller, owner, 14);
+        controller.playback_started(t(15), speech).unwrap();
+        let playing = policy.prepare(&mut controller, t(15)).unwrap().unwrap();
+        assert!(playing.listening);
+        assert_eq!(
+            (playing.phase, playing.mood()),
+            (RingPhase::Speaking, Mood::Listening)
+        );
     }
 
     #[test]

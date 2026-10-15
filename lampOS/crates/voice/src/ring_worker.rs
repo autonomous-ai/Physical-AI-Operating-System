@@ -387,6 +387,7 @@ fn service(
         let tick = monotonic_us();
         if let Some(head) = head.as_mut() {
             face.hand(head.tick(tick));
+            face.tapped(head.tapped_until());
         }
         let mut budget = CONTROL_BUDGET;
         if controls(link, ring, &mut guard, &mut budget)? {

@@ -141,7 +141,14 @@ the release. After a Stroke the letting go asks nothing: it was affection.
 hand now". A contact that overlaps a push asks nothing more from then on and
 reports no `held_us`; a push felt before the touch qualifies stops even the
 Stop. A Stop already sent stands: waiting to feel a push would break the
-150 ms stop. Its runtime input waits on the body's signal (#703).
+150 ms stop. In `--touch` serve, the runtime reads the body's `body/hand`
+(#848) every 20 ms, before each step's head samples, so a touch that begins
+during a push asks nothing from its first sample. Only a fresh message from
+the body that says `pushed` counts: missing, expired (the body gives each one
+at most a second) or from anyone else is not a push, so a stopped body never
+silences the head. A change is recorded as `head_pushed`, and a replay applies
+it as the runtime did. The body feels a push reliably with `--give-way`, on
+lamp-4ace since 2026-10-15 (the fifth, #703).
 Polling can miss a pulse shorter than its interval; start qualification at
 5 ms, and measure actual hand latency.
 

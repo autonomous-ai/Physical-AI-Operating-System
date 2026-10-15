@@ -78,3 +78,13 @@ Ready for lamp-voice: yes (#815)
   green on it. Kind: changes nothing on a lamp running today (the 15 old
   rounds pass unchanged; the link path is taken only by product units, on
   no lamp yet). The second reads `crates/update` before it merges.
+
+## 2026-10-15 — no internet at home (#830) — taken
+
+Ready for lamp-voice: no
+
+- Task: #830, given in the Queue after #811 went ready; with the first
+  builder's addition of 18:18 (no battery clock: a clock not set is said,
+  and reminders and the night wait for it). Claimed 18:21.
+- Base: `origin/lamp-voice` at `4ad0ec5c3`. Branch: `nine/offline`.
+- First: each part offline, read in its code, then `docs/offline.md`.

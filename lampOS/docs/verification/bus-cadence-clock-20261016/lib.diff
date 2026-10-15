@@ -1,0 +1,54 @@
+--- lib.before
++++ lampOS/crates/bus/src/lib.rs
+@@ -79,7 +79,7 @@
+         net::UnixDatagram,
+     },
+     path::{Path, PathBuf},
+-    time::Duration,
++    time::{Duration, Instant},
+ };
+ 
+ /// Where the topics are when nothing else is said: memory, not a disk, and
+@@ -197,6 +197,21 @@
+         Publisher::new(self, topic, kind, source)
+     }
+ 
++    /// A publisher with an explicit clock for subscriber rescans and
++    /// presence refreshes in a local fixture. Reads must be pure and in one
++    /// nondecreasing Instant domain; the caller alone advances the clock.
++    /// Construction does not sample it. Header UTC, filesystem lease times
++    /// and real delivery keep their ordinary clocks and behavior.
++    pub fn publisher_with_cadence_clock(
++        &self,
++        topic: &str,
++        kind: Kind,
++        source: &str,
++        now: impl Fn() -> Instant + Send + Sync + 'static,
++    ) -> io::Result<Publisher> {
++        Publisher::new_with_cadence_clock(self, topic, kind, source, now)
++    }
++
+     /// A publisher that says what `topic` carries. The declaration is
+     /// written to `<topic>/declaration`, every message names its type, and
+     /// a declared lifespan is put in every header. It fails if the topic is
+@@ -209,6 +224,20 @@
+         source: &str,
+     ) -> io::Result<Publisher> {
+         Publisher::declared(self, topic, declaration, source)
++    }
++
++    /// A declared publisher with the explicit cadence clock described by
++    /// [`Self::publisher_with_cadence_clock`]. The clock is installed before
++    /// the original first presence refresh, after the real declaration
++    /// write. Invalid inputs and a failed declaration write do not sample it.
++    pub fn publisher_declared_with_cadence_clock(
++        &self,
++        topic: &str,
++        declaration: &Declaration,
++        source: &str,
++        now: impl Fn() -> Instant + Send + Sync + 'static,
++    ) -> io::Result<Publisher> {
++        Publisher::declared_with_cadence_clock(self, topic, declaration, source, now)
+     }
+ 
+     /// Bind a socket in the topic's `subs/`, creating the directories that

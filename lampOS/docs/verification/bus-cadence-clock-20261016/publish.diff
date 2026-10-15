@@ -1,0 +1,92 @@
+--- publish.before
++++ lampOS/crates/bus/src/publish.rs
+@@ -145,6 +145,8 @@
+     listed: bool,
+     /// The last try to show it failed.
+     unlisted: bool,
++    /// Pure cadence reads; the caller owns any fixture-time advancement.
++    cadence_now: Box<dyn Fn() -> Instant + Send + Sync>,
+ }
+ 
+ /// Sixteen hex characters no other publisher instance is likely to have:
+@@ -166,6 +168,16 @@
+ 
+ impl Publisher {
+     pub(crate) fn new(bus: &Bus, topic: &str, kind: wire::Kind, source: &str) -> io::Result<Self> {
++        Self::new_with_cadence_clock(bus, topic, kind, source, Instant::now)
++    }
++
++    pub(crate) fn new_with_cadence_clock(
++        bus: &Bus,
++        topic: &str,
++        kind: wire::Kind,
++        source: &str,
++        now: impl Fn() -> Instant + Send + Sync + 'static,
++    ) -> io::Result<Self> {
+         name::topic(topic)?;
+         name::source(source)?;
+         let directory = bus.root.join(topic);
+@@ -206,6 +218,7 @@
+             shown: None,
+             listed: false,
+             unlisted: false,
++            cadence_now: Box::new(now),
+         })
+     }
+ 
+@@ -220,8 +233,19 @@
+         declaration: &Declaration,
+         source: &str,
+     ) -> io::Result<Self> {
++        Self::declared_with_cadence_clock(bus, topic, declaration, source, Instant::now)
++    }
++
++    pub(crate) fn declared_with_cadence_clock(
++        bus: &Bus,
++        topic: &str,
++        declaration: &Declaration,
++        source: &str,
++        now: impl Fn() -> Instant + Send + Sync + 'static,
++    ) -> io::Result<Self> {
+         declaration.check()?;
+-        let mut publisher = Self::new(bus, topic, declaration.kind, source)?;
++        let mut publisher =
++            Self::new_with_cadence_clock(bus, topic, declaration.kind, source, now)?;
+         let place = publisher.directory.display().to_string();
+         let named = |error: io::Error| match error.kind() {
+             // A disagreement names the topic itself.
+@@ -239,7 +263,7 @@
+         publisher.header.type_name = Some(declaration.type_name.clone());
+         publisher.header.expires_ms = declaration.lifespan_ms;
+         publisher.declaration = Some(declaration.clone());
+-        publisher.show(Instant::now()).map_err(named)?;
++        publisher.show((publisher.cadence_now)()).map_err(named)?;
+         Ok(publisher)
+     }
+ 
+@@ -275,7 +299,7 @@
+     /// subscribers are told after a lease of silence that the source has
+     /// gone. Costs nothing when the entry was refreshed a moment ago.
+     pub fn alive(&mut self) -> io::Result<()> {
+-        let now = Instant::now();
++        let now = (self.cadence_now)();
+         if !self.unlisted && !self.due(now) {
+             return Ok(());
+         }
+@@ -392,7 +416,7 @@
+             ));
+         }
+         self.trouble = None;
+-        let now = Instant::now();
++        let now = (self.cadence_now)();
+         let looked = self
+             .scanned
+             .is_none_or(|at| now.saturating_duration_since(at) >= self.rescan_every);
+@@ -613,3 +637,7 @@
+         }
+     }
+ }
++
++#[cfg(test)]
++#[path = "publisher_clock_tests.rs"]
++mod clock_tests;

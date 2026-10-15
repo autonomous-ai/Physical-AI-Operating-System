@@ -995,13 +995,23 @@ impl Attention {
             self.verdict = Some(verdict);
             return Some(verdict);
         }
+        let called_in_text = if self.name_in_passing_ignored {
+            called_by_name(&self.heard)
+        } else {
+            called(&self.heard)
+        };
         // A short sound let through in a quiet room (#800): on lamp-52e6 on
         // 2026-10-15 at 13:03 a room sound of 0.7 s was heard as "¿Qué?" and
         // answered, nobody having spoken to the lamp. It is answered only
         // when what was heard is a short word said to the lamp, or it was
         // said close to the lamp, or someone is turned to it.
         if self.sound_in_hand() && !own {
-            let verdict = if crate::not_speech::short_word(&self.heard) {
+            // A reply to someone the room had just called by name is not
+            // the lamp's, short or not (the reviewer on #918 at 06:06): only
+            // the lamp's name lets it out.
+            let verdict = if answering_another && !(called_in_text || self.named) {
+                Verdict::Hold(ANSWERING_ANOTHER)
+            } else if crate::not_speech::short_word(&self.heard) {
                 Verdict::Play(SOUND_A_WORD)
             } else if self.near {
                 Verdict::Play(SOUND_NEAR)
@@ -1055,11 +1065,6 @@ impl Attention {
             self.verdict = Some(verdict);
             return Some(verdict);
         }
-        let called_in_text = if self.name_in_passing_ignored {
-            called_by_name(&self.heard)
-        } else {
-            called(&self.heard)
-        };
         let verdict = match decide_called(
             room,
             going_on,
@@ -1897,6 +1902,40 @@ mod tests {
             reply(false, CALLED, 1, ANSWER, None),
             Verdict::Play(_)
         ));
+        // The same reply as a short sound let through and checked (the
+        // reviewer on #918 at 06:06): a short word, said close, or with a
+        // face turned to the lamp, is still the other person's; the lamp's
+        // name still lets it out, and without the switch it plays.
+        let short = |spoken_to: bool, answer: &str, near: bool, turned: Option<bool>| {
+            let mut attention = Attention::default();
+            attention.speak_when_spoken_to(spoken_to);
+            attention.check_sounds(true);
+            attention.began_at(31, 6, 100 * S);
+            attention.heard(CALLED);
+            attention.ended(31, 103 * S);
+            attention.began_at(32, 6, 104 * S);
+            attention.ended_as_sound(32);
+            attention.set_near(near);
+            attention.heard(answer);
+            attention
+                .first_output_busy(32, Room::Quiet, true, false, turned)
+                .unwrap()
+        };
+        for (near, turned) in [(false, None), (true, None), (false, Some(true))] {
+            assert_eq!(
+                short(true, "Yes.", near, turned),
+                Verdict::Hold(ANSWERING_ANOTHER),
+                "{near} {turned:?}"
+            );
+        }
+        assert!(matches!(
+            short(true, "Lamp?", false, None),
+            Verdict::Play(_)
+        ));
+        assert_eq!(
+            short(false, "Yes.", false, None),
+            Verdict::Play(SOUND_A_WORD)
+        );
     }
 
     #[test]

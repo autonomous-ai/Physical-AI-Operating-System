@@ -1106,7 +1106,10 @@ means a capitalised name set off by a comma, opening the line ("Daniel,
 lamp's name, a word the service writes for it, or a word like "Okay," or
 "Well," (`addresses_someone_else`). For that line only the lamp's name
 counts: not the conversation, the lamp's news, a question about its work,
-or a face, since the person replying is often facing the lamp's way.
+or a face, since the person replying is often facing the lamp's way. A
+short sound let through and checked (#800) is held the same way: a short
+word, said close, or with a face turned to the lamp, is still the other
+person's reply (the reviewer on #918 at 06:06).
 
 Beyond the reply to the lamp's news, the question about its work and the
 name without a face, the switch only holds: what the rule holds without it

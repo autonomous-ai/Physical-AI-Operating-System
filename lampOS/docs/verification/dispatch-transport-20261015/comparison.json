@@ -1,0 +1,81 @@
+{
+  "source_before": "bd37eb8087ff61148b48be889dfb640f6617831d",
+  "host": "x86_64-apple-darwin",
+  "serial": true,
+  "retries": 0,
+  "source_unchanged_except_fixture_shutdown": true,
+  "identity_lists_identical": true,
+  "tests": {
+    "a_final_drain_that_exhausts_its_budget_requires_revalidation": {
+      "before": 2.399,
+      "after": 0.474
+    },
+    "a_healthy_session_still_dispatches_once": {
+      "before": 2.303,
+      "after": 0.347
+    },
+    "a_known_invalid_cue_withholds_dispatch_as_a_protocol_failure": {
+      "before": 2.142,
+      "after": 0.152
+    },
+    "a_known_run_end_cue_withholds_dispatch": {
+      "before": 2.093,
+      "after": 0.136
+    },
+    "a_known_session_end_withholds_dispatch": {
+      "before": 2.11,
+      "after": 0.141
+    },
+    "a_relay_framing_error_first_seen_in_the_final_drain_withholds": {
+      "before": 2.901,
+      "after": 0.949
+    },
+    "a_session_end_first_seen_in_the_final_drain_withholds_and_is_kept": {
+      "before": 2.885,
+      "after": 0.93
+    },
+    "a_transport_closed_during_the_final_drain_withholds": {
+      "before": 0.881,
+      "after": 0.911
+    },
+    "an_invalid_cue_first_seen_in_the_final_drain_withholds": {
+      "before": 2.923,
+      "after": 0.953
+    },
+    "an_unobserved_event_in_the_final_drain_requires_revalidation": {
+      "before": 2.905,
+      "after": 0.949
+    },
+    "audit_physical_boundary_does_not_dispatch_during_post_exit_trace_relay": {
+      "before": 2.138,
+      "after": 0.198
+    },
+    "audit_physical_boundary_rejects_a_target_already_over_100ms_late": {
+      "before": 2.162,
+      "after": 0.189
+    },
+    "the_first_terminal_cause_wins_and_a_provider_failure_stays_provider_unavailable": {
+      "before": 2.094,
+      "after": 0.149
+    }
+  },
+  "before": {
+    "execution_seconds": 29.938,
+    "command_started": "2026-10-15 19:14:57 +0700",
+    "command_finished": "2026-10-15 19:15:28 +0700",
+    "date_delimited_command_seconds": 31.0,
+    "passed": 13,
+    "failed": 0,
+    "skipped": 0
+  },
+  "after": {
+    "execution_seconds": 6.487,
+    "command_started": "2026-10-15 19:18:54 +0700",
+    "command_finished": "2026-10-15 19:19:02 +0700",
+    "date_delimited_command_seconds": 8.0,
+    "passed": 13,
+    "failed": 0,
+    "skipped": 0
+  },
+  "saved_seconds": 23.451
+}

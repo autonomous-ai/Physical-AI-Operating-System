@@ -225,3 +225,16 @@ runs' times when both ran it). Binary, then test.
 | 0.0 | `lamp-voice-eval::physical_loopback` | `directed_mode_keeps_provider_fault_and_asset_restrictions` |
 | 0.0 | `lamp-voice` | `coordinator::tests::pilot_faults::distinct_rejects_an_item_that_returns_later` |
 | 0.0 | `lamp-voice` | `coordinator::tests::pilot_faults::speaker_progress_is_due_strictly_after_lease_plus_report_age` |
+
+## Dispatch fixture shutdown
+
+The 13 final-dispatch cases keep their assertions and timed evidence. The
+stay-open shell transport now consumes control lines silently and exits on
+stdin EOF from the existing backend Drop, avoiding its two-second kill
+fallback on twelve cases. This replaces the helper's independent 30-second
+lifetime; it does not change a production deadline or accelerate the remaining
+timed stimuli. The selected group is unchanged.
+
+[Local serial comparison](verification/dispatch-transport-20261015/README.md):
+13 passed before and after, 29.938 s to 6.487 s on x86_64 macOS. This is one
+fixture cleanup step in #823; the whole-group two-minute goal remains open.

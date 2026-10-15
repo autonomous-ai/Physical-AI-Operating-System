@@ -121,7 +121,9 @@ impl Rig {
         fs::write(self.dir.join("now.jsonl"), lines(now)).unwrap();
         fs::write(self.dir.join("later.jsonl"), later).unwrap();
         let end = match then {
-            Then::StayOpen => "exec sleep 30",
+            // Keep the transport open while owned, consume pings silently,
+            // and exit when the backend's existing Drop closes stdin.
+            Then::StayOpen => "while IFS= read -r runner_line; do :; done",
             Then::Close => "exit 0",
         };
         let script = format!(

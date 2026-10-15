@@ -1,0 +1,15 @@
+#!/bin/zsh
+# Gate for #782 on the committed head; each stage's exit code is recorded, not piped away.
+export PATH="$HOME/.cargo/bin:$PATH"
+export CARGO_BUILD_JOBS=6
+OUT=$1
+cd /Users/autonomous/harnesses/worktrees/autonomous-os/brave-fjord/lampOS || exit 9
+git rev-parse HEAD > $OUT/head.txt
+git status --short > $OUT/status-before.txt
+run() { name=$1; shift; s=$(date -u +%FT%TZ); "$@" > $OUT/$name.txt 2>&1; rc=$?; echo "$name rc=$rc start=$s end=$(date -u +%FT%TZ)" >> $OUT/stages.txt; return $rc; }
+run fmt-touched rustfmt --edition 2024 --check crates/voice-eval/examples/turn_end_replay.rs crates/voice/src/attention.rs crates/voice/src/coordinator.rs crates/voice/src/fixture_provider.rs crates/voice/src/provider_worker.rs crates/voice/tests/fixture_provider.rs crates/voice/src/coordinator/cloud.rs crates/voice/src/coordinator/tests/duplex.rs crates/voice/src/coordinator/tests/failure_notice.rs crates/voice/src/coordinator/tests/provider_pair.rs crates/voice/src/coordinator/tests/provider_terminal.rs crates/voice/src/options.rs crates/voice/src/coordinator/endpoint.rs || exit 1
+run clippy cargo clippy --workspace --all-targets --locked -- -D warnings || exit 2
+run test-dependents cargo test --locked -p lamp-voice -p lamp-voice-eval -p lamp-memory --no-fail-fast -- --test-threads=1
+run build cargo build --workspace --locked
+git status --short > $OUT/status-after.txt
+echo done >> $OUT/stages.txt

@@ -1,0 +1,8 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.23s
+     Running unittests src/lib.rs (target/debug/deps/lamp_voice-13e5b9c4a19eb2d0)
+
+running 1 test
+test coordinator::tests::endpoint_session::a_worker_still_loading_leaves_the_baseline_window ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1006 filtered out; finished in 4.71s
+

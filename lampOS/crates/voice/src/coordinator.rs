@@ -4691,20 +4691,21 @@ fn conversation_with_gate(
                         && let Some(provider_session) = unasked_session(&cloud, paused)
                     {
                         look_wanted = None;
+                        let (note, with_picture) = look.turn();
                         if look.full() {
                             record(
                                 trace,
                                 json!({"kind":"look_full_still","turn":turn,"at_us":clock,
                                     "after_asked_ms":waited.as_millis() as u64,
-                                    "still":look.still()}),
+                                    "still":with_picture}),
                             )?;
                         }
                         snapshot = commit_written_turn(
                             owner,
                             reply,
                             &mut provider_queue,
-                            look.note(),
-                            true,
+                            note,
+                            with_picture,
                             "lamp_looks",
                             provider_session,
                             rig.playout_start,

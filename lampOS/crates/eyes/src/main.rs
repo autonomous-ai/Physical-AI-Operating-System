@@ -59,6 +59,23 @@ fn usb_of(value: &str) -> Option<Usb> {
     })
 }
 
+/// The camera's working size, the only one without `--full-look`.
+const WORKING: (u32, u32) = (320, 240);
+
+/// The size the camera is opened at: the working size without a full look,
+/// and with one after it last failed to open at the full size.
+#[cfg_attr(not(any(target_os = "linux", test)), allow(dead_code))]
+fn opened_at(full_look: Option<(u32, u32)>, full_failed: bool) -> (u32, u32) {
+    full_look.filter(|_| !full_failed).unwrap_or(WORKING)
+}
+
+/// Whether every working frame is kept in `--sight-file`: yes, as always,
+/// without a full look; with one only a still asked for is.
+#[cfg_attr(not(any(target_os = "linux", test)), allow(dead_code))]
+fn keeps_working_frame(full_look: Option<(u32, u32)>) -> bool {
+    full_look.is_none()
+}
+
 /// `WIDTHxHEIGHT`, each even, from 320 by 240 to 4096 by 4096.
 fn size_of(value: &str) -> Option<(u32, u32)> {
     let (width, height) = value.split_once('x')?;
@@ -238,6 +255,7 @@ fn run(arguments: Arguments) -> Result<(), Box<dyn std::error::Error + Send + Sy
     };
     use lamp_eyes::{
         faces::Detector,
+        full_look::Head,
         kept::{Kept, Presence},
         picture::Picture,
         sight::{Seen, choose},
@@ -377,7 +395,7 @@ fn run(arguments: Arguments) -> Result<(), Box<dyn std::error::Error + Send + Sy
         .full_look
         .and_then(|_| lamp_bus::Bus::from_environment().ok());
     let mut joints_read_at: Option<Instant> = None;
-    let mut head_still: Option<bool> = None;
+    let mut head = Head::Absent;
     // Every frame the camera has given, and the bytes of the newest.
     let (mut frames_all, mut newest) = (0u64, 0usize);
     let mut presence = arguments.presence_file.clone().map(Presence::new);
@@ -501,7 +519,7 @@ fn run(arguments: Arguments) -> Result<(), Box<dyn std::error::Error + Send + Sy
             if arguments.full_look.is_some() && lamp_eyes::full_look::asked(&datagram) {
                 if port.is_some() {
                     wanted = Some(lamp_eyes::full_look::Wanted::new(lamp_ipc::monotonic_us()));
-                    (head_still, joints_read_at) = (None, None);
+                    (head, joints_read_at) = (Head::Absent, None);
                 } else {
                     eprintln!("lamp-eyes: a full look asked for with the camera shut");
                 }
@@ -546,10 +564,7 @@ fn run(arguments: Arguments) -> Result<(), Box<dyn std::error::Error + Send + Sy
             )
             .map_err(|error| format!("camera configuration: {error:?}"))?;
             let mut opening = LinuxPort::new(config);
-            let (width, height) = arguments
-                .full_look
-                .filter(|_| !full_failed)
-                .unwrap_or((320, 240));
+            let (width, height) = opened_at(arguments.full_look, full_failed);
             let started = opening.start(
                 CaptureConfig {
                     source,
@@ -606,7 +621,7 @@ fn run(arguments: Arguments) -> Result<(), Box<dyn std::error::Error + Send + Sy
                     let _ = opening.stop(budget(STOP));
                     camera = lamp_eyes::bus_out::Camera::NotOpening;
                     // At the full size, the working size next; and back.
-                    full_failed = arguments.full_look.is_some() && (width, height) != (320, 240);
+                    full_failed = arguments.full_look.is_some() && (width, height) != WORKING;
                     retry_at = Instant::now() + RETRY;
                     continue;
                 }
@@ -657,15 +672,15 @@ fn run(arguments: Arguments) -> Result<(), Box<dyn std::error::Error + Send + Sy
                 && joints_read_at.is_none_or(|at| at.elapsed() >= Duration::from_millis(50))
             {
                 joints_read_at = Some(Instant::now());
-                head_still = bus
+                head = bus
                     .latest(lamp_msgs::JointState::TOPIC)
                     .ok()
                     .flatten()
                     .filter(|message| !message.expired)
                     .and_then(|message| message.parse::<lamp_msgs::JointState>().ok())
-                    .map(|joints| lamp_eyes::full_look::head_still(&joints));
+                    .map_or(Head::Absent, |joints| lamp_eyes::full_look::head(&joints));
             }
-            asked.body(head_still, now_us, frames_all);
+            asked.body(head, now_us, frames_all);
             if asked.take(frames_all) && newest > 0 {
                 let made = Instant::now();
                 let waited_ms = asked.waited_us().unwrap_or(0) / 1_000;
@@ -717,7 +732,7 @@ fn run(arguments: Arguments) -> Result<(), Box<dyn std::error::Error + Send + Sy
             // With a full look the frame is larger than is kept, and only
             // a still asked for is.
             if let Some(kept) = kept.as_mut()
-                && arguments.full_look.is_none()
+                && keeps_working_frame(arguments.full_look)
             {
                 let _ = kept.keep(&frame[..used]);
             }
@@ -986,5 +1001,19 @@ mod tests {
         assert!(parse(args(&[&full[..], &["--full-look", "640x480"]].concat())).is_err());
         // Its ask is not a permission, and says nothing to the camera.
         assert_eq!(lamp_eyes::permit::of(br#"{"look_full":true}"#), None);
+    }
+
+    #[test]
+    fn without_a_full_look_the_camera_opens_as_before_and_every_frame_is_kept() {
+        let without = parse(args(&FULL)).unwrap().unwrap().full_look;
+        // Whatever the last open did.
+        assert_eq!(opened_at(without, false), (320, 240));
+        assert_eq!(opened_at(without, true), (320, 240));
+        assert!(keeps_working_frame(without));
+        let with = Some((1_280, 960));
+        assert_eq!(opened_at(with, false), (1_280, 960));
+        // After failing at the full size, the working size once.
+        assert_eq!(opened_at(with, true), (320, 240));
+        assert!(!keeps_working_frame(with));
     }
 }

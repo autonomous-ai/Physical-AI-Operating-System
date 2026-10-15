@@ -16,10 +16,12 @@
 //!
 //! The head is the body's: it already turns to the face the eyes see and to
 //! a call. The still waits for it to stop, as `body/joint_states` says, for
-//! [`STILL_FOR_US`] with every head joint within [`ARRIVED_RADIANS`] of
-//! where it was asked to be (the body's own arrival rule, 6 counts held for
-//! 15 steps at 50 Hz), and no longer than [`SETTLE_AT_MOST_US`]. With no
-//! body on the bus the still is taken at once.
+//! [`STILL_FOR_US`]: every head joint within [`ARRIVED_RADIANS`] of where it
+//! was asked to be (the body's own arrival rule, 6 counts held for 15 steps
+//! at 50 Hz), turning slower than [`STILL_RADIANS_A_SECOND`], and asked to
+//! be in the same place throughout. A head that moves again before the
+//! frame comes is waited for again. No longer than [`SETTLE_AT_MOST_US`] in
+//! all. With no body on the bus the still is taken at once.
 use lamp_msgs::JointState;
 use std::f64::consts::TAU;
 use zune_jpeg::{
@@ -31,6 +33,10 @@ use zune_jpeg::{
 pub const HEAD: [&str; 3] = ["base_yaw", "head_pitch", "head_roll"];
 /// Six of a servo's 4096 counts a turn.
 pub const ARRIVED_RADIANS: f64 = 6.0 * TAU / 4_096.0;
+/// Two counts in the 80 ms over which the body works out how fast a joint
+/// turns: more than a count of jitter, less than a head following a slow
+/// move at 50 counts a second.
+pub const STILL_RADIANS_A_SECOND: f64 = 25.0 * TAU / 4_096.0;
 pub const STILL_FOR_US: u64 = 300_000;
 pub const SETTLE_AT_MOST_US: u64 = 2_000_000;
 /// No still this long after the ask: there is none for it.
@@ -55,15 +61,40 @@ pub fn asked(datagram: &[u8]) -> bool {
     serde_json::from_slice::<Ask>(datagram).is_ok_and(|ask| ask.look_full)
 }
 
-/// Whether the head is where it was asked to be. A body that does not say
-/// where its joints were asked to be cannot be waited for: still.
-pub fn head_still(joints: &JointState) -> bool {
-    joints.commanded.len() != joints.name.len()
-        || joints.position.len() != joints.name.len()
-        || joints.name.iter().enumerate().all(|(at, name)| {
-            !HEAD.contains(&name.as_str())
-                || (joints.commanded[at] - joints.position[at]).abs() <= ARRIVED_RADIANS
-        })
+/// What the body says of the head.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum Head {
+    /// No body says anything: nothing to wait for.
+    Absent,
+    Moving,
+    /// Not moving, and where each head joint was asked to be.
+    Still([f64; 3]),
+}
+
+/// The head from what the body says: still when every head joint is within
+/// [`ARRIVED_RADIANS`] of where it was asked to be and turning slower than
+/// [`STILL_RADIANS_A_SECOND`]. A small error alone is not enough: a servo
+/// that follows a slow move lags its goal by a count or so all the way.
+/// What the body does not say (velocity, goals) is not waited for.
+pub fn head(joints: &JointState) -> Head {
+    let given = |list: &[f64]| list.len() == joints.name.len();
+    let mut goals = [0.0; 3];
+    for (at, name) in joints.name.iter().enumerate() {
+        let Some(which) = HEAD.iter().position(|head| head == name) else {
+            continue;
+        };
+        let off = given(&joints.commanded)
+            && given(&joints.position)
+            && (joints.commanded[at] - joints.position[at]).abs() > ARRIVED_RADIANS;
+        let turning = given(&joints.velocity) && joints.velocity[at].abs() > STILL_RADIANS_A_SECOND;
+        if off || turning {
+            return Head::Moving;
+        }
+        if given(&joints.commanded) {
+            goals[which] = joints.commanded[at];
+        }
+    }
+    Head::Still(goals)
 }
 
 /// One full look asked for: when the head has settled, and the first frame
@@ -71,7 +102,8 @@ pub fn head_still(joints: &JointState) -> bool {
 #[derive(Debug)]
 pub struct Wanted {
     asked_us: u64,
-    still_since_us: Option<u64>,
+    /// Since when the head has been still, and where it was asked to be.
+    still_since: Option<(u64, [f64; 3])>,
     /// When it settled, and how many frames there had been by then.
     settled: Option<(u64, u64)>,
 }
@@ -80,29 +112,46 @@ impl Wanted {
     pub fn new(now_us: u64) -> Self {
         Self {
             asked_us: now_us,
-            still_since_us: None,
+            still_since: None,
             settled: None,
         }
     }
 
-    /// What the body says of the head now: `None` when there is no body to
-    /// wait for. `frames` is how many frames the camera has given so far.
-    pub fn body(&mut self, head_still: Option<bool>, now_us: u64, frames: u64) {
-        if self.settled.is_some() {
-            return;
-        }
-        let settled = match head_still {
-            None => true,
-            Some(true) => {
-                let since = *self.still_since_us.get_or_insert(now_us);
-                now_us.saturating_sub(since) >= STILL_FOR_US
-            }
-            Some(false) => {
-                self.still_since_us = None;
+    /// What the body says of the head now. `frames` is how many frames the
+    /// camera has given so far. A head that moves again before the still is
+    /// taken is waited for again, until [`SETTLE_AT_MOST_US`].
+    pub fn body(&mut self, head: Head, now_us: u64, frames: u64) {
+        let capped = now_us.saturating_sub(self.asked_us) >= SETTLE_AT_MOST_US;
+        let mut moved = false;
+        let settled = match head {
+            Head::Absent => true,
+            Head::Moving => {
+                moved = true;
                 false
             }
+            Head::Still(goals) => {
+                // Goals that move are a head still being turned.
+                moved = self.still_since.is_some_and(|(_, was)| {
+                    was.iter()
+                        .zip(goals)
+                        .any(|(was, now)| (was - now).abs() > ARRIVED_RADIANS)
+                });
+                if moved {
+                    self.still_since = None;
+                }
+                let (since, _) = *self.still_since.get_or_insert((now_us, goals));
+                now_us.saturating_sub(since) >= STILL_FOR_US
+            }
         };
-        if settled || now_us.saturating_sub(self.asked_us) >= SETTLE_AT_MOST_US {
+        if moved {
+            if matches!(head, Head::Moving) {
+                self.still_since = None;
+            }
+            if !capped {
+                self.settled = None;
+            }
+        }
+        if self.settled.is_none() && (settled || capped) {
             self.settled = Some((now_us, frames));
         }
     }
@@ -213,14 +262,19 @@ mod tests {
 
     const MS: u64 = 1_000;
 
-    fn joints(off: f64) -> JointState {
+    const COUNT: f64 = TAU / 4_096.0;
+    const STILL: Head = Head::Still([0.1, 0.5, 0.4]);
+
+    /// The body's message: the head's yaw `off` from its goal `goal`,
+    /// turning at `velocity`; the shoulder far from its goal throughout.
+    fn joints(goal: f64, off: f64, velocity: f64) -> JointState {
         let name = ["base_yaw", "shoulder", "elbow", "head_roll", "head_pitch"];
         JointState {
             name: name.map(str::to_owned).to_vec(),
-            position: vec![0.1, 0.2, 0.3, 0.4, 0.5],
-            velocity: vec![],
+            position: vec![goal - off, 0.2, 0.3, 0.4, 0.5],
+            velocity: vec![velocity, 0.0, 0.0, 0.0, 0.0],
             effort: vec![],
-            commanded: vec![0.1 + off, 0.2 + 1.0, 0.3, 0.4, 0.5],
+            commanded: vec![goal, 0.2 + 1.0, 0.3, 0.4, 0.5],
         }
     }
 
@@ -238,57 +292,107 @@ mod tests {
     }
 
     #[test]
-    fn the_head_is_still_when_its_joints_are_where_they_were_asked_to_be() {
+    fn the_head_is_still_when_it_is_where_it_was_asked_to_be_and_not_turning() {
         // The shoulder far from its goal does not move the camera's aim
         // as the head joints do, and is not waited for.
-        assert!(head_still(&joints(0.0)));
-        assert!(head_still(&joints(ARRIVED_RADIANS * 0.9)));
-        assert!(!head_still(&joints(ARRIVED_RADIANS * 2.0)));
-        let mut unknown = joints(1.0);
+        assert_eq!(head(&joints(0.1, 0.0, 0.0)), STILL);
+        assert_eq!(head(&joints(0.1, 5.0 * COUNT, COUNT)), STILL);
+        assert_eq!(head(&joints(0.1, 12.0 * COUNT, 0.0)), Head::Moving);
+        // A count behind its goal but turning at 50 counts a second.
+        assert_eq!(head(&joints(0.1, COUNT, 50.0 * COUNT)), Head::Moving);
+        let mut unknown = joints(0.1, 1.0, 0.0);
         unknown.commanded.clear();
-        assert!(head_still(&unknown));
+        unknown.velocity.clear();
+        assert_eq!(head(&unknown), Head::Still([0.0; 3]));
     }
 
     #[test]
-    fn the_still_is_the_first_frame_after_the_head_has_turned_and_settled() {
+    fn a_truly_still_head_gets_the_first_frame_after_it_settles() {
         let mut wanted = Wanted::new(0);
         // Turning toward the person for half a second: no still.
         for at in (0..500).step_by(20) {
-            wanted.body(Some(false), at * MS, at / 100);
+            wanted.body(Head::Moving, at * MS, at / 100);
             assert!(!wanted.take(at / 100 + 1));
         }
         // Still from 500 ms: settled at 800, after 8 frames.
         for at in (500..800).step_by(20) {
-            wanted.body(Some(true), at * MS, 8);
+            wanted.body(STILL, at * MS, 8);
             assert!(!wanted.take(8));
         }
-        wanted.body(Some(true), 800 * MS, 8);
+        wanted.body(STILL, 800 * MS, 8);
         assert_eq!(wanted.waited_us(), Some(800 * MS));
         // The frame it had is from before; the next one is the still.
         assert!(!wanted.take(8));
         assert!(wanted.take(9));
-        // A movement after settling changes nothing.
-        wanted.body(Some(false), 820 * MS, 9);
-        assert!(wanted.take(9));
+    }
+
+    #[test]
+    fn a_head_following_a_slow_move_with_a_count_of_lag_is_not_still() {
+        // Reviewer's case on #842: 50 counts a second, one count behind,
+        // as the body's own publisher reports it every 20 ms.
+        let mut wanted = Wanted::new(0);
+        for step in 0..100u64 {
+            let goal = step as f64 * COUNT;
+            let joints = joints(goal, COUNT, 50.0 * COUNT);
+            wanted.body(head(&joints), step * 20 * MS, step);
+            assert!(!wanted.take(step + 1), "taken at {} ms", step * 20);
+        }
+        // Even were its speed not told: the goal moves under it.
+        let mut wanted = Wanted::new(0);
+        for step in 0..100u64 {
+            let goal = step as f64 * COUNT;
+            let mut joints = joints(goal, COUNT, 0.0);
+            joints.velocity.clear();
+            wanted.body(head(&joints), step * 20 * MS, step);
+            assert!(!wanted.take(step + 1), "taken at {} ms", step * 20);
+        }
+        // The 2 s bound still holds.
+        wanted.body(Head::Moving, SETTLE_AT_MOST_US, 100);
+        assert!(wanted.take(101));
+    }
+
+    #[test]
+    fn a_head_that_moves_again_before_the_frame_is_waited_for_again() {
+        // Reviewer's case on #842: settled at 300 ms, moving at 350, a
+        // frame at 400.
+        let mut wanted = Wanted::new(0);
+        wanted.body(STILL, 0, 0);
+        wanted.body(STILL, 300 * MS, 3);
+        assert_eq!(wanted.waited_us(), Some(300 * MS));
+        wanted.body(Head::Moving, 350 * MS, 3);
+        assert!(!wanted.take(4));
+        assert_eq!(wanted.waited_us(), None);
+        // So does one asked to be somewhere else while it seemed still.
+        wanted.body(STILL, 400 * MS, 4);
+        wanted.body(Head::Still([0.2, 0.5, 0.4]), 600 * MS, 5);
+        wanted.body(Head::Still([0.2, 0.5, 0.4]), 800 * MS, 6);
+        assert!(!wanted.take(7));
+        wanted.body(Head::Still([0.2, 0.5, 0.4]), 900 * MS, 6);
+        assert!(wanted.take(7));
+        // After the bound a movement no longer holds the still back.
+        let mut late = Wanted::new(0);
+        late.body(Head::Moving, SETTLE_AT_MOST_US, 1);
+        late.body(Head::Moving, SETTLE_AT_MOST_US + 20 * MS, 1);
+        assert!(late.take(2));
     }
 
     #[test]
     fn a_head_that_never_settles_or_no_body_still_gets_a_still() {
         let mut moving = Wanted::new(0);
         for at in (0..SETTLE_AT_MOST_US).step_by(20_000) {
-            moving.body(Some(false), at, 1);
+            moving.body(Head::Moving, at, 1);
         }
         assert!(!moving.take(2));
-        moving.body(Some(false), SETTLE_AT_MOST_US, 1);
+        moving.body(Head::Moving, SETTLE_AT_MOST_US, 1);
         assert!(moving.take(2));
         // Moving, then still but not long enough: the bound holds.
         let mut late = Wanted::new(0);
-        late.body(Some(true), SETTLE_AT_MOST_US - 100 * MS, 1);
-        late.body(Some(true), SETTLE_AT_MOST_US, 1);
+        late.body(STILL, SETTLE_AT_MOST_US - 100 * MS, 1);
+        late.body(STILL, SETTLE_AT_MOST_US, 1);
         assert_eq!(late.waited_us(), Some(SETTLE_AT_MOST_US));
         // No body: at once.
         let mut alone = Wanted::new(5 * MS);
-        alone.body(None, 5 * MS, 3);
+        alone.body(Head::Absent, 5 * MS, 3);
         assert_eq!(alone.waited_us(), Some(0));
         assert!(alone.take(4));
         assert!(!alone.given_up(5 * MS + GIVE_UP_US - 1));

@@ -12,8 +12,7 @@
 //!   once at start their goal speed and acceleration, so that the servo
 //!   itself is slow whatever this process sends.
 //! - It never touches torque unless told to take hold (`Limits::torque_on`),
-//!   to let go under overload or, with `Limits::limp`, to let one joint of
-//!   the three go limp under a hand.
+//!   to let go under overload or, with `Limits::limp`, under a hand.
 //!   A joint whose torque is off, or whose status byte is not clear, is a
 //!   reason not to start; told to take hold, it first sets the goal of a
 //!   joint found without torque to where it is and then writes torque on.
@@ -97,12 +96,17 @@ const WAKE_COUNTS: f32 = 20.0;
 /// that for `HAND_STEPS` steps in a row (V1's `release_after_s`, 1.0 s):
 /// its load over the lower of the bound that stopped it and its floor, or
 /// held more than `LIMP_LAG` counts (V1's `CONTACT_RELEASE_LAG`, one
-/// degree) from where it stopped, and its torque alone goes off. Left
-/// alone, moving no more than `LIMP_STILL` counts for `LIMP_STEPS` steps
-/// (two seconds), it is taken hold of where it is. On lamp-52e6 on
-/// 2026-10-14 a head that only gave way by its goal, torque on, could not
-/// be pushed at all: roll 2,019 to 1,958 at a load of 256, yaw 2,035 to
-/// 1,986 at 188.
+/// degree) from where it stopped, and the lamp lets go as V1's contact
+/// stop handed over to its overload cut-off: torque off on all five, the
+/// lamp slumps, and `OVERLOAD_REST` later (V1's `retry_s`) every joint is
+/// held where it lies and the head and base are brought home slowly, as
+/// under `--overload release`. Unlike that, a hand never ends the run: it
+/// may make the lamp slump again as often as it pushes, as V1's did. On
+/// lamp-52e6 on 2026-10-14 a head that only gave way by its goal, torque
+/// on, could not be pushed at all: roll 2,019 to 1,958 at a load of 256,
+/// yaw 2,035 to 1,986 at 188; on 2026-10-15 a port that let go of the base
+/// alone did not slump, and a hand still on it after it was taken again
+/// ended the run.
 const CONTACT_FLOOR: [u16; 3] = [650, 750, 550];
 /// With a force limit the base's floor is this share of it, in percent:
 /// V1's 550 is 55% of full drive.
@@ -111,8 +115,6 @@ const CONTACT_STEPS: u8 = 3;
 const HAND_STEPS: u16 = 50;
 const HAND_MOVED: u16 = 15;
 const LIMP_LAG: u16 = 11;
-const LIMP_STILL: u16 = 3;
-const LIMP_STEPS: u16 = 100;
 /// With `--give-way`, a joint whose goal is more than `STALL_SLACK` counts
 /// from where it is, whose load is over `STALL_LOAD` and which moves no
 /// more than `STALL_SLACK` counts for `STALL_STEPS` steps is told to stop
@@ -483,8 +485,8 @@ pub struct Limits {
     /// this was chosen, exactly.
     pub give_way: Option<GiveWay>,
     /// With `give_way`, meet a hand as V1 did: one still pushed a second
-    /// after it stopped goes limp (see `CONTACT_FLOOR`). Off: it gives way
-    /// again where it is, its torque on.
+    /// after it stopped makes the lamp slump (see `CONTACT_FLOOR`). Off: it
+    /// gives way again where it is, its torque on.
     pub limp: bool,
     /// Let go under overload as the old runtime did: any joint at 80% of
     /// its full load (or of its force limit) for 1.5 s switches torque off
@@ -691,9 +693,6 @@ pub struct Glimpse {
     /// torque is off now.
     pub released: u16,
     pub limp: bool,
-    /// With `--give-way`: which of the three joints a hand has left with
-    /// its torque off now.
-    pub hand_limp: [bool; 3],
 }
 
 /// Why the run ended. Only `Cancelled` is an ordinary end.
@@ -767,8 +766,8 @@ pub struct BodyReport {
     /// With `--give-way`, times each joint (pitch, roll, yaw, shoulder,
     /// elbow) pushed without moving and was told to stop.
     pub stalls: [u16; 5],
-    /// With `--give-way`, times each commanded joint was still pushed a
-    /// second after it stopped under a hand and had its torque switched off.
+    /// With `--limp on`, times each commanded joint was still pushed a
+    /// second after it stopped under a hand and the lamp slumped.
     pub released_by_hand: [u16; 3],
     /// With `--wake on`, times each commanded joint stopped a little short
     /// of its goal and was let rest there.
@@ -961,17 +960,6 @@ fn all_goals_write(goals: [u16; 3], arm: [u16; 2]) -> [u8; 23] {
     packet
 }
 
-/// One sync write of the goal position of the joints given, in that order.
-fn some_goals_write(entries: &[(Joint, u16)]) -> Vec<u8> {
-    let mut packet = vec![0xff, 0xff, 0xfe, (entries.len() * 3 + 4) as u8, 0x83, 42, 2];
-    for (joint, goal) in entries {
-        let [low, high] = goal.to_le_bytes();
-        packet.extend([joint.id(), low, high]);
-    }
-    packet.push(checksum(&packet[2..]));
-    packet
-}
-
 fn nothing_yet(error: &io::Error) -> bool {
     matches!(
         error.kind(),
@@ -982,9 +970,6 @@ fn nothing_yet(error: &io::Error) -> bool {
 struct Bus<'a, P, R> {
     io: &'a mut P,
     runtime: &'a mut R,
-    /// Commanded joints let go under a hand: no goal is written to them,
-    /// since a goal written to one of these servos turns its torque on.
-    limp: [bool; 3],
 }
 
 impl<P: PortIo, R: Runtime> Bus<'_, P, R> {
@@ -1171,20 +1156,6 @@ impl<P: PortIo, R: Runtime> Bus<'_, P, R> {
     /// The goals of the head and base, and with them the arm's for a body
     /// that may stand.
     fn send_goals(&mut self, goals: [u16; 3], arm: Option<[u16; 2]>) -> Result<(), String> {
-        if self.limp.contains(&true) {
-            let entries: Vec<(Joint, u16)> = COMMANDED
-                .into_iter()
-                .zip(goals)
-                .zip(self.limp)
-                .filter(|(_, limp)| !limp)
-                .map(|(entry, _)| entry)
-                .chain(arm.into_iter().flat_map(|arm| ARM.into_iter().zip(arm)))
-                .collect();
-            if entries.is_empty() {
-                return Ok(());
-            }
-            return self.send(&some_goals_write(&entries));
-        }
         match arm {
             Some(arm) => self.send(&all_goals_write(goals, arm)),
             None => self.send(&goals_write(goals)),
@@ -1841,16 +1812,6 @@ fn in_hand_after(steps: &mut u16, is: Sample, bound: u16, from: u16, goal: u16) 
     Some(is.position.abs_diff(from) > HAND_MOVED)
 }
 
-/// A commanded joint let go under a hand: whether its torque off has been
-/// acknowledged, where it was last seen moving and the steps it has been
-/// still since.
-#[derive(Clone, Copy, Debug)]
-struct Limp {
-    acknowledged: bool,
-    at: u16,
-    still: u16,
-}
-
 /// One joint pushing at a goal it does not reach, under `--give-way`.
 #[derive(Clone, Copy, Debug, Default)]
 struct Stall {
@@ -2036,11 +1997,7 @@ pub(crate) fn run_alive(
         released: Vec::new(),
         stop: Stop::Cancelled,
     };
-    let mut bus = Bus {
-        io,
-        runtime,
-        limp: [false; 3],
-    };
+    let mut bus = Bus { io, runtime };
     let refused = |why: String| Stop::Refused { why };
 
     // What is there, before anything is written.
@@ -2132,7 +2089,7 @@ pub(crate) fn run_alive(
     // Only a home that was given is one to wake to: without it, the home is
     // wherever the lamp was found.
     let may_wake = limits.wake && home.is_some();
-    let home = home.unwrap_or(found_pose);
+    let mut home = home.unwrap_or(found_pose);
     report.home = Some(home);
     for (index, joint) in COMMANDED.iter().enumerate() {
         let sample = found[joint.index()];
@@ -2270,7 +2227,7 @@ pub(crate) fn run_alive(
             return report;
         }
     }
-    let home_found = home_of(standing, stand);
+    let mut home_found = home_of(standing, stand);
     for (index, joint) in COMMANDED.iter().enumerate() {
         let apart = (f32::from(found_pose[index]) - home_found[index]).abs();
         // Found part of the way up, the head is wherever that way put it.
@@ -2280,6 +2237,18 @@ pub(crate) fn run_alive(
             limits.start_reach.max(150)
         };
         if may_wake && apart > f32::from(allowed.max(WAKE_REACH)) {
+            // `--limp on`: a head roll or a base that a hand left far off,
+            // as after the lamp slumped, is taken hold of where it lies, as
+            // V1 did, and it runs from there: its home moved there. Never
+            // the head's pitch, which carries the head.
+            if limits.limp && index != 0 {
+                let moved = i32::from(home[index]) + i32::from(found_pose[index])
+                    - home_found[index].round() as i32;
+                home[index] = moved.clamp(0, 4_095) as u16;
+                home_found[index] = f32::from(found_pose[index]);
+                report.home = Some(home);
+                continue;
+            }
             report.stop = refused(format!(
                 "{joint} is {apart:.0} counts from its home, more than waking brings back ({WAKE_REACH})"
             ));
@@ -2494,7 +2463,6 @@ pub(crate) fn run_alive(
 
     // Woken from wherever it was found: brought home slowly, the way
     // something alive wakes, before the body takes it as found.
-    let mut home = home;
     let found_pose = if to_wake {
         let to = home_found.map(|count| count.round() as u16);
         match wake(
@@ -2647,8 +2615,7 @@ pub(crate) fn run_alive(
     // Under `--give-way`: where each joint last gave way, steps in a row a
     // hand has pushed it since, the offset from home a hand left each where
     // it put it, and each of the five joints' pushing without moving; each
-    // commanded joint's contact floor (V1's), steps in a row over it, and
-    // the joints a hand has left limp.
+    // commanded joint's contact floor (V1's) and steps in a row over it.
     let mut gave_at = [0u16; 3];
     let mut in_hand = [0u16; 3];
     let mut kept = [0.0f32; 3];
@@ -2661,7 +2628,6 @@ pub(crate) fn run_alive(
             .map_or(CONTACT_FLOOR[2], |force| force * CONTACT_YAW_SHARE / 100),
     ];
     let mut contact = [0u8; 3];
-    let mut limp: [Option<Limp>; 3] = [None; 3];
     let mut misses = 0u8;
     let mut unsent = 0u8;
     let mut leaving: Option<Duration> = None;
@@ -2691,6 +2657,9 @@ pub(crate) fn run_alive(
     });
     let mut overloaded = [0u16; 5];
     let mut let_go_at: Option<Duration> = None;
+    // Under `--limp on`: a hand that stopped the lamp coming up again lets
+    // it go again on the next step.
+    let mut slump_again: Option<(Joint, u16)> = None;
     let mut left_as_is = false;
     let mut slumped = false;
     let mut started = bus.runtime.now();
@@ -3002,7 +2971,7 @@ pub(crate) fn run_alive(
         let stay = limits.give_way == Some(GiveWay::Stay) && leaving.is_none();
         // Either way it gives, a joint that gave way may have a hand on it.
         let in_a_hand = limits.give_way.is_some() && leaving.is_none();
-        // `--limp on`: a hand held a second makes the joint go limp, as V1.
+        // `--limp on`: a hand held a second makes the lamp slump, as V1.
         let limping = in_a_hand && limits.limp;
         if leaving.is_some() {
             kept = [0.0; 3];
@@ -3157,9 +3126,8 @@ pub(crate) fn run_alive(
         if resting_steps >= REST_STEPS && !relaxed {
             let positions = COMMANDED.map(|joint| samples[joint.index()].position);
             let near = (0..3).all(|index| {
-                bus.limp[index]
-                    || positions[index].abs_diff(written[index]) <= REST_SLACK
-                        && velocity[index].abs() < 3.0
+                positions[index].abs_diff(written[index]) <= REST_SLACK
+                    && velocity[index].abs() < 3.0
             });
             if near {
                 let sent = positions == written
@@ -3262,7 +3230,6 @@ pub(crate) fn run_alive(
             stalls: report.stalls,
             released: report.released.len().try_into().unwrap_or(u16::MAX),
             limp: false,
-            hand_limp: bus.limp,
         };
         watch(&glimpse);
         // A joint pushing at a goal it does not reach, and not moving, is
@@ -3297,13 +3264,7 @@ pub(crate) fn run_alive(
         let mut surprise = None;
         for joint in Joint::ALL {
             let (was, is) = (found[joint.index()], samples[joint.index()]);
-            // Torque off may change what a servo flags: a joint a hand left
-            // limp is judged again once it is taken hold of.
-            let limp_now = COMMANDED
-                .iter()
-                .position(|commanded| *commanded == joint)
-                .is_some_and(|index| bus.limp[index]);
-            if is.status != was.status && !limp_now {
+            if is.status != was.status {
                 surprise.get_or_insert(Stop::Status {
                     joint: joint.id(),
                     found: was.status,
@@ -3389,8 +3350,8 @@ pub(crate) fn run_alive(
                 }
             }
         }
-        // A joint a hand left limp and then let be, to take hold of again.
-        let mut retake: Option<usize> = None;
+        // A joint still pushed by a hand a second after it stopped.
+        let mut hand_tripped: Option<(Joint, u16)> = None;
         for (index, joint) in COMMANDED.iter().enumerate() {
             let is = samples[joint.index()];
             report.peak_load[index] = report.peak_load[index].max(is.load);
@@ -3412,30 +3373,6 @@ pub(crate) fn run_alive(
             } else {
                 0
             };
-            // Let go under a hand: read every step and written nothing, so
-            // nothing about it ends the run. Still for two seconds, it is
-            // taken hold of where it is (below), but not while leaving.
-            if let Some(limp) = limp[index].as_mut() {
-                (over_load[index], off_track[index], contact[index]) = (0, 0, 0);
-                easing[index] = EASE_STEPS;
-                if !limp.acknowledged
-                    && bus
-                        .write_acknowledged(*joint, &torque_write(*joint, 0), true)
-                        .is_ok()
-                {
-                    limp.acknowledged = true;
-                    report.torque_writes = report.torque_writes.saturating_add(1);
-                }
-                if is.position.abs_diff(limp.at) > LIMP_STILL {
-                    (limp.at, limp.still) = (is.position, 0);
-                } else {
-                    limp.still = limp.still.saturating_add(1);
-                }
-                if limping && limp.acknowledged && limp.still >= LIMP_STEPS {
-                    retake.get_or_insert(index);
-                }
-                continue;
-            }
             // V1's contact floor, for three steps: a hand, whatever the
             // joint's own bound has seen.
             contact[index] = if limping && is.load > contact_floor[index] {
@@ -3468,7 +3405,7 @@ pub(crate) fn run_alive(
                 // It gave way, and a hand may be on it. As V1: still pushed
                 // a second on, by load over the lower of the bound that
                 // stopped it and its contact floor, or held a degree off
-                // where it stopped, it lets go of that joint alone. A load
+                // where it stopped, the lamp slumps (below). A load
                 // and a tracking that would end the run are what a hand
                 // looks like, so nothing else is judged meanwhile.
                 over_load[index] = 0;
@@ -3478,19 +3415,7 @@ pub(crate) fn run_alive(
                 in_hand[index] = if pushed { in_hand[index] + 1 } else { 0 };
                 if in_hand[index] >= HAND_STEPS {
                     in_hand[index] = 0;
-                    bus.limp[index] = true;
-                    let acknowledged = bus
-                        .write_acknowledged(*joint, &torque_write(*joint, 0), true)
-                        .is_ok();
-                    if acknowledged {
-                        report.torque_writes = report.torque_writes.saturating_add(1);
-                    }
-                    limp[index] = Some(Limp {
-                        acknowledged,
-                        at: is.position,
-                        still: 0,
-                    });
-                    easing[index] = EASE_STEPS;
+                    hand_tripped.get_or_insert((*joint, is.load));
                     report.released_by_hand[index] =
                         report.released_by_hand[index].saturating_add(1);
                 }
@@ -3618,83 +3543,13 @@ pub(crate) fn run_alive(
                 });
             }
         }
-        // A joint a hand left limp, still for two seconds: taken hold of
-        // where it is, its goal first and then its torque. Told to stay, it
-        // stays there, and later moods are laid from there; told to return,
-        // it is brought home as a lamp wakes, slowly.
-        if let Some(index) = retake.filter(|_| surprise.is_none()) {
-            let joint = COMMANDED[index];
-            (bus.limp[index], limp[index]) = (false, None);
-            let now = match take_hold(&mut bus, &mut report, &[joint], &samples) {
-                Ok(now) => now,
-                Err(stop) => break stop,
-            };
-            // Torque off and on may change what it flags.
-            found[joint.index()].status = now[joint.index()].status;
-            written[index] = samples[joint.index()].position;
-            (easing[index], in_hand[index], contact[index]) = (0, 0, 0);
-            (asleep[index], arriving[index], velocity[index]) = (false, 0, 0.0);
-            stalls[index] = Stall::default();
-            (resting_steps, relaxed) = (0, false);
-            if limits.give_way == Some(GiveWay::Stay) {
-                commanded[index] = f32::from(written[index]).clamp(low[index], high[index]);
-                kept[index] = commanded[index] - home_now[index] - offsets[index];
-                report.kept_where_put[index] = report.kept_where_put[index].saturating_add(1);
-            } else {
-                let from = written;
-                let mut to = from;
-                to[index] = home_now[index].clamp(low[index], high[index]).round() as u16;
-                // The run's own wake record is kept as it was.
-                let woke_at_start = report.woke.take();
-                let woken = wake(
-                    &mut bus,
-                    &mut report,
-                    &limits,
-                    (from, to),
-                    standing.map(|_| arm_written),
-                    now,
-                    Some((&mut watch, glimpse)),
-                );
-                report.woke = woke_at_start;
-                let now = match woken {
-                    Ok(now) => now,
-                    Err(stop) => {
-                        if let Some(last) = report.last {
-                            let hold = COMMANDED.map(|joint| last[joint.index()].position);
-                            if bus.send_goals(hold, standing.map(|_| arm_written)).is_ok() {
-                                report.goal_writes += 1;
-                                report.held_at = Some(hold);
-                            }
-                        }
-                        left_as_is = true;
-                        break stop;
-                    }
-                };
-                // Settled short of home: it rests where it is.
-                let settled = now[joint.index()].position;
-                kept[index] = 0.0;
-                if settled.abs_diff(to[index]) > limits.tracking {
-                    kept[index] = f32::from(settled) - f32::from(to[index]);
-                    to[index] = settled;
-                    if let Err(detail) = bus.send_goals(to, standing.map(|_| arm_written)) {
-                        break Stop::Bus {
-                            detail: format!("taking hold again: {detail}"),
-                        };
-                    }
-                    report.goal_writes += 1;
-                }
-                written = to;
-                commanded = to.map(f32::from);
-                velocity = [0.0; 3];
-            }
-            started = bus.runtime.now();
-            first_step = report.steps;
-        }
         // Under `--overload release`: a joint at its trip load for 1.5 s.
         // One told to stop pushing on this step is given its chance first:
         // its count starts again, and it trips only if it stays loaded.
-        let mut tripped: Option<(Joint, u16)> = None;
-        if limits.overload_release {
+        // A hand (`--limp on`) makes it let go too, and never ends the run.
+        let by_hand = hand_tripped.is_some() || slump_again.is_some();
+        let mut tripped: Option<(Joint, u16)> = hand_tripped.or(slump_again.take());
+        if limits.overload_release && !by_hand {
             for joint in Joint::ALL {
                 let (index, is) = (joint.index(), samples[joint.index()]);
                 overloaded[index] = if is.load >= trip_at[index] && !stopped_pushing[index] {
@@ -3713,7 +3568,8 @@ pub(crate) fn run_alive(
         // that is the old runtime's answer to a servo pushed this hard.
         if let Some((joint, load)) = tripped {
             let now = bus.runtime.now();
-            let again = let_go_at.is_some_and(|at| now.saturating_sub(at) < OVERLOAD_AGAIN);
+            let again =
+                !by_hand && let_go_at.is_some_and(|at| now.saturating_sub(at) < OVERLOAD_AGAIN);
             let_go_at = Some(now);
             report.released.push(Released {
                 joint: joint.name(),
@@ -3827,12 +3683,25 @@ pub(crate) fn run_alive(
                 Ok(now) => now,
                 Err(stop) => {
                     // Stop pushing: each goal becomes where its joint is now.
+                    let mut hold = None;
                     if let Some(last) = report.last {
-                        let hold = COMMANDED.map(|joint| last[joint.index()].position);
-                        if bus.send_goals(hold, standing.map(|_| arm_written)).is_ok() {
+                        let at = COMMANDED.map(|joint| last[joint.index()].position);
+                        if bus.send_goals(at, standing.map(|_| arm_written)).is_ok() {
                             report.goal_writes += 1;
-                            report.held_at = Some(hold);
+                            report.held_at = Some(at);
+                            hold = Some(at);
                         }
+                    }
+                    // A hand on it while it came up: as V1, it lets go again.
+                    if let (true, Some(at), Stop::Load { .. } | Stop::Tracking { .. }) =
+                        (by_hand, hold, &stop)
+                    {
+                        written = at;
+                        commanded = at.map(f32::from);
+                        velocity = [0.0; 3];
+                        easing = [EASE_STEPS; 3];
+                        slump_again = Some((joint, load));
+                        continue;
                     }
                     left_as_is = true;
                     break stop;
@@ -3870,7 +3739,7 @@ pub(crate) fn run_alive(
             (kept, asleep, arriving) = ([0.0; 3], [false; 3], [0; 3]);
             (arm_over, arm_off, arm_hot) = ([0; 2], [0; 2], [0; 2]);
             stalls = [Stall::default(); 5];
-            (contact, limp, bus.limp) = ([0; 3], [None; 3], [false; 3]);
+            contact = [0; 3];
             overloaded = [0; 5];
             (resting_steps, relaxed, still_steps, down_steps) = (0, false, 0, 0);
             arm_rests = stand <= 0.0;

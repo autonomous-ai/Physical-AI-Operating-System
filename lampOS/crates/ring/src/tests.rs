@@ -321,20 +321,36 @@ fn primary_and_cleanup_errors_are_both_reported_and_not_retried() {
 }
 
 #[test]
-fn slow_write_is_an_observed_fault_not_a_claimed_timeout() {
+fn one_late_write_is_a_late_frame_not_a_fault() {
+    // As lamp-4ace's ring at 03:26:20 on 16 Oct: one write returned after
+    // 15.2 ms while the SD/MMC host re-tuned (#911). The frame went out.
     let (mut ring, _, _, light) = setup();
-    ring.sink.delay_us = WRITE_BUDGET_US + 1;
-    let error = paint(&mut ring, light).unwrap_err();
-    assert!(matches!(
-        error.cause,
-        Failure::Write(WriteFailure::OverBudget { .. })
-    ));
-    assert!(matches!(
-        error.cleanup_error,
-        Some(WriteFailure::OverBudget { .. })
-    ));
-    assert!(ring.is_faulted());
-    assert_eq!(ring.sink.frames.len(), 3);
+    ring.sink.delay_us = 15_197;
+    paint(&mut ring, light).unwrap();
+    assert!(!ring.is_faulted());
+    assert_eq!(ring.late_writes(), 1);
+    ring.sink.delay_us = 0;
+    paint(&mut ring, light).unwrap();
+    assert!(!ring.is_faulted());
+    assert_eq!(ring.late_writes(), 1);
+}
+
+#[test]
+fn late_writes_lasting_the_late_run_are_an_observed_fault_not_a_claimed_timeout() {
+    let (mut ring, _, _, _) = setup();
+    ring.sink.delay_us = 15_000;
+    let frame = EncodedFrame::black();
+    let mut kept = 0u64;
+    let failure = loop {
+        match ring.transfer(&frame, clock()) {
+            Ok(_) => kept += 1,
+            Err(failure) => break failure,
+        }
+    };
+    assert!(matches!(failure, WriteFailure::OverBudget { .. }));
+    // About two seconds of late writes were kept as frames first.
+    assert_eq!(kept, LATE_RUN_US / 15_000);
+    assert_eq!(ring.late_writes(), kept);
 }
 
 #[test]

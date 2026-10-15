@@ -72,7 +72,7 @@ of 5 alone.
   "nothing of its answer heard" condition removed, the third fails
   (`[false, true, true]`).
 
-## What it cannot reach (`floor-holds.txt`, `floor_holds.py`)
+## What it cannot reach (`floor-holds.txt`)
 
 Once the last three things the lamp heard went unanswered
 (`body_link::Attention::busy`), a new sound within 1.8 s of an end, while
@@ -90,3 +90,10 @@ and counted only:
 
 Which of the 401 were the same person going on, and which the room's other
 voices, was not measured.
+
+How it was counted: a Python script in Fourth's scratch folder, outside the
+repository (lampOS is Rust only). It read every `events-*.jsonl` of those
+sessions once, in file order, keeping the newest `local_endpoint` (its turn,
+`at_us` and `endpoint.basis`). For each `floor_held` of the same turn it
+counted the time from that end; for each `input_admitted` of the next turn,
+the time from that end; and it counted those within 1,000 ms.

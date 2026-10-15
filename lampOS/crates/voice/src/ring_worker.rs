@@ -207,6 +207,25 @@ fn report_start_failure(link: &mut impl RingLink, error: io::Error) -> io::Resul
     Err(error)
 }
 
+/// As [`run_with_sink_resting`], with the senses an all-day ring takes from
+/// the bus, for host tests of the same loop the device's worker runs.
+pub fn run_with_sink_senses(
+    mut link: impl RingLink,
+    controller_boot: BootId,
+    sink: impl FrameSink,
+    resting: Option<u16>,
+    senses: Senses,
+) -> io::Result<()> {
+    let resting = match resting.map(ChannelCeiling::new).transpose() {
+        Ok(resting) => resting,
+        Err(error) => return report_start_failure(&mut link, io::Error::other(error)),
+    };
+    match GuardedRing::new(sink, controller_boot) {
+        Ok(ring) => run_guarded(link, controller_boot, ring, false, resting, senses),
+        Err(error) => report_start_failure(&mut link, io::Error::other(error)),
+    }
+}
+
 fn run_guarded(
     mut link: impl RingLink,
     controller_boot: BootId,
@@ -385,10 +404,6 @@ fn service(
             );
         }
         let tick = monotonic_us();
-        if let Some(head) = head.as_mut() {
-            face.hand(head.tick(tick));
-            face.tapped(head.tapped_until());
-        }
         let mut budget = CONTROL_BUDGET;
         if controls(link, ring, &mut guard, &mut budget)? {
             return Ok(());
@@ -403,6 +418,12 @@ fn service(
             at,
             guard.state().map(|state| state.expires_at().as_micros()),
         )?;
+        // The head is optional input: read after revocation and expiry, and
+        // only a bounded few at a time (#849 review).
+        if let Some(head) = head.as_mut() {
+            face.hand(head.tick(at));
+            face.tapped(head.tapped_until());
+        }
         if budget > 0 && pending.is_none() {
             pending = link.receive_frame()?;
         }

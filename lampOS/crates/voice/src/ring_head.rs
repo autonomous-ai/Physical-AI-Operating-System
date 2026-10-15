@@ -30,6 +30,11 @@ pub const TAP_LISTENS_US: u64 = 2_000_000;
 /// The ring's name among the head's subscribers.
 const SUBSCRIBER: &str = "voice_ring";
 
+/// At most this many head requests are read in one tick of the ring (2 ms):
+/// far more than hands make, and never so many that a flood of them holds
+/// back the worker's revocation and expiry (#849 review).
+const MOST_AT_ONCE: usize = 4;
+
 pub struct RingHead {
     bus: Bus,
     looked_at_us: Option<u64>,
@@ -60,9 +65,12 @@ impl RingHead {
     /// Call from the ring's loop with its clock: how long a hand has been on
     /// the head, as Controls counts it, or `None`.
     pub fn tick(&mut self, now_us: u64) -> Option<u64> {
-        // Taps on every tick: they wait in the queue, and the face should
-        // answer within the same moment as the hum.
-        while let Ok(Some(message)) = self.taps.recv(Duration::ZERO) {
+        // Taps on every tick, a few at a time: they wait in the queue, and
+        // the face should answer within the same moment as the hum.
+        for _ in 0..MOST_AT_ONCE {
+            let Ok(Some(message)) = self.taps.recv(Duration::ZERO) else {
+                break;
+            };
             if tapped(&message) {
                 self.tapped_until_us = Some(now_us + TAP_LISTENS_US);
             }

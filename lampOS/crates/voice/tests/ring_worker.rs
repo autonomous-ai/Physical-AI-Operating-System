@@ -7,7 +7,7 @@ use lamp_turn_owner::{
 use lamp_voice::{
     process::{SessionDirectory, new_boot},
     ring_wire::{RingBlankReason, RingFeedback, RingFrame, RingPhase, RingRejection},
-    ring_worker::{RingLink, run_with_sink},
+    ring_worker::{RingLink, Senses, run_with_sink, run_with_sink_senses},
     transport::WorkerChannels,
     wire::{Control, WorkerEvent, decode, encode},
 };
@@ -84,6 +84,13 @@ impl Rig {
         Self::start_with(fail_at, false)
     }
     fn start_with(fail_at: &[usize], late_first: bool) -> Self {
+        Self::start_full(fail_at, late_first, None)
+    }
+    /// With the all-day worker's senses, for the head's requests (#711).
+    fn start_with_senses(senses: Senses) -> Self {
+        Self::start_full(&[], false, Some(senses))
+    }
+    fn start_full(fail_at: &[usize], late_first: bool, senses: Option<Senses>) -> Self {
         let directory = SessionDirectory::create().unwrap();
         let boot = new_boot().unwrap();
         let child_boot = new_boot().unwrap();
@@ -108,7 +115,10 @@ impl Rig {
         let sink = Sink(writes.clone());
         let (tx, completion) = mpsc::channel();
         let worker = thread::spawn(move || {
-            let _ = tx.send(run_with_sink(link, boot, sink));
+            let _ = tx.send(match senses {
+                Some(senses) => run_with_sink_senses(link, boot, sink, None, senses),
+                None => run_with_sink(link, boot, sink),
+            });
         });
         Self {
             _directory: directory,
@@ -763,5 +773,115 @@ fn local_socket_request_to_fake_sink_latency_is_measured_without_physical_claim(
         delays[19],
         delays[39],
         p95 <= 50_000
+    );
+}
+
+/// A tap on the head as `--touch` Controls says it (#711).
+fn head_tap() -> lamp_msgs::TouchEvent {
+    use lamp_msgs::{ClockStamp, TouchEvent, TouchGesture, TouchIntent, TouchSource};
+    let at = monotonic_us();
+    let event = TouchEvent {
+        stamp: ClockStamp {
+            clock_id: "boot".into(),
+            at_us: at,
+            sequence: 1,
+        },
+        session_id: "controls-one".into(),
+        reader_session_id: "gpio".into(),
+        enabled: true,
+        source: TouchSource::Head,
+        name: "head".into(),
+        contact_id: 1,
+        gesture: TouchGesture::Tap,
+        when_speaking: TouchIntent::Attend,
+        when_quiet: TouchIntent::Attend,
+        when_asleep: Some(TouchIntent::Wake),
+        began_us: at - 350_000,
+        observed_us: at,
+        released_us: Some(at - 150_000),
+        active_mask: 0,
+        active_names: vec![],
+        position: None,
+        toward_pad: None,
+        distance: 0.0,
+        speed: 0.0,
+    };
+    event.check().unwrap();
+    event
+}
+
+/// #849 review: head requests are optional input. A flood of them, from four
+/// senders as fast as they can, never holds back a pending Stop or a
+/// permit's expiry: both are measured while the flood still runs.
+#[test]
+fn a_flood_of_head_requests_never_holds_back_revocation_or_expiry() {
+    use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+    let root = std::path::PathBuf::from(format!("/tmp/lrw-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&root);
+    let head = lamp_voice::ring_head::RingHead::on(&root).unwrap();
+    let mut rig = Rig::start_with_senses(Senses {
+        head: Some(head),
+        ..Senses::default()
+    });
+    rig.ready();
+    let flooding = Arc::new(AtomicBool::new(true));
+    let sent = Arc::new(AtomicU64::new(0));
+    let senders: Vec<_> = (0..4)
+        .map(|_| {
+            let (root, flooding, sent) = (root.clone(), flooding.clone(), sent.clone());
+            thread::spawn(move || {
+                let bus = lamp_bus::Bus::new(&root).unwrap();
+                let mut out = bus
+                    .publisher_declared(
+                        lamp_msgs::TouchEvent::TOPIC,
+                        &lamp_msgs::TouchEvent::declaration(),
+                        "controls",
+                    )
+                    .unwrap();
+                let tap = head_tap();
+                while flooding.load(Ordering::Acquire) {
+                    if out.publish_json(1, &tap).is_ok() {
+                        sent.fetch_add(1, Ordering::Relaxed);
+                    }
+                }
+            })
+        })
+        .collect();
+    thread::sleep(Duration::from_millis(100));
+    // A colored frame whose permit lasts 50 ms is blanked when it expires.
+    let (mut controller, owner) = conversation(rig.boot);
+    let shown = Instant::now();
+    present(&rig, frame(&mut controller, owner, 50_000));
+    assert!(matches!(
+        rig.event(),
+        WorkerEvent::Ring {
+            report: RingFeedback::Blanked {
+                reason: RingBlankReason::AuthorityLost {
+                    reason: RingRejection::ExpiredPermit
+                },
+                ..
+            }
+        }
+    ));
+    let expired_after = shown.elapsed();
+    // A Stop ends the worker at once.
+    let asked = Instant::now();
+    rig.control(Control::Stop);
+    rig.finish().unwrap();
+    let stopped_after = asked.elapsed();
+    let still_flooding = flooding.swap(false, Ordering::AcqRel);
+    for sender in senders {
+        sender.join().unwrap();
+    }
+    let _ = std::fs::remove_dir_all(&root);
+    assert!(still_flooding);
+    assert!(sent.load(Ordering::Relaxed) > 1_000, "{sent:?}");
+    assert!(
+        expired_after < Duration::from_millis(150),
+        "{expired_after:?}"
+    );
+    assert!(
+        stopped_after < Duration::from_millis(50),
+        "{stopped_after:?}"
     );
 }

@@ -336,7 +336,9 @@ impl Publishing {
         let seen_us = u64::try_from(seen.saturating_duration_since(self.started).as_micros())
             .unwrap_or(u64::MAX);
         self.pushed_since = glimpse.hand.then(|| self.pushed_since.unwrap_or(seen_us));
-        let age = now.saturating_duration_since(seen);
+        // Measured after the joints are said: that write is file I/O and
+        // may itself have taken time the hand has aged by.
+        let age = Instant::now().saturating_duration_since(seen);
         if let Some(left) = LASTS.checked_sub(age).filter(|left| !left.is_zero()) {
             let hand = Hand {
                 pushed: glimpse.hand,
@@ -836,6 +838,44 @@ mod tests {
         publishing.step(&seen, false, Instant::now());
         let said = bus.latest(Hand::TOPIC).unwrap().unwrap();
         assert!(said.header.expires_ms.unwrap() >= 990);
+        drop(publishing);
+        std::fs::remove_dir_all(root).unwrap();
+    }
+
+    /// A hand is aged by what came before it on the same step too: the
+    /// joints' write is file I/O, and here it is held up 1.2 s (the
+    /// reviewer's case, a FIFO where the joints' next value is written), so
+    /// a push seen as the step began is a second and more old by the time
+    /// it would be said, and is not said as fresh.
+    #[test]
+    fn a_hand_after_a_slow_joints_write_is_aged_by_it() {
+        let root = std::path::PathBuf::from(format!("/tmp/lb-handio-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        std::fs::create_dir_all(&root).unwrap();
+        let bus = Bus::new(&root).unwrap();
+        let mut publishing = Publishing::on(&bus).unwrap();
+        publishing.step(&glimpse(0), false, Instant::now());
+        let boot = bus.latest(JointState::TOPIC).unwrap().unwrap().header.boot;
+        let fifo = root
+            .join(JointState::TOPIC)
+            .join(format!(".latest.{boot}.new"));
+        assert!(
+            std::process::Command::new("mkfifo")
+                .arg(&fifo)
+                .status()
+                .unwrap()
+                .success()
+        );
+        let reader = std::thread::spawn(move || {
+            std::thread::sleep(Duration::from_millis(1_200));
+            let _ = std::fs::read(&fifo);
+        });
+        let mut pushed = glimpse(EVERY_STEPS);
+        pushed.hand = true;
+        publishing.step(&pushed, false, Instant::now());
+        reader.join().unwrap();
+        let said: Hand = bus.latest(Hand::TOPIC).unwrap().unwrap().parse().unwrap();
+        assert!(!said.pushed, "a push 1.2 s old is not said as fresh");
         drop(publishing);
         std::fs::remove_dir_all(root).unwrap();
     }

@@ -5,20 +5,29 @@ on the real clock form the nextest test group `realtime`
 ([`.config/nextest.toml`](../.config/nextest.toml)). In the ARM64 run
 (`.github/workflows/lampos-arm64.yml`):
 
-| Event | nextest profile | Realtime group | Runners | Tests at once |
+| Run | Runners | nextest profile | Tests at once | Realtime group |
 |---|---|---|---|---|
-| Pull request into `lamp-voice`, manual run | `pr` | skipped | 1 | one per core |
-| Push to `lamp-voice` (every merge) | `default` | run | 4 | one, as before |
+| Pull request into `lamp-voice`, manual run | 1 | `pr` | one per core | skipped |
+| Push to `lamp-voice` (every merge; its binaries are what [updates](updates.md) downloads) | 1 | `pr` | one per core | skipped |
+| Full run: nightly, or manual with `full` | 4 | `default` | one, as before | run |
 
-A pull request uses one runner because each runner compiles every test
-binary again (about 5 of its 10 minutes); its tests without the realtime
-group take about a minute in parallel. Run 38719393271 (four shards, one
-test at a time) spent 47 to 59 s per shard on tests.
+The nightly full run starts at 19:00 UTC (02:00 in Vietnam) from
+`.github/workflows/lampos-nightly.yml` on `main`: GitHub starts a scheduled
+workflow only from the default branch. It starts this workflow on
+`lamp-voice` as a manual run with `full`, so the job is defined in one place.
+By hand: Actions, "lampOS on ARM64", "Run workflow", branch `lamp-voice`,
+tick `full`; or `gh workflow run lampos-arm64.yml --ref lamp-voice -f full=true`.
 
-When a run on `lamp-voice` fails, a job opens an issue titled "lampOS: the
-full ARM64 run on lamp-voice failed", or comments on the open one. Nothing
-the tests assert was changed. The runners are unchanged (`ubuntu-22.04-arm`):
-larger runners cost too much.
+When a full run fails, a job opens an issue titled "lampOS: the full ARM64
+run failed", or comments on the open one. Nothing the tests assert was
+changed. The runners are unchanged (`ubuntu-22.04-arm`): larger runners cost
+too much.
+
+Each runner compiles every test binary again (about 5 of its 10 minutes), so
+one runner is used where the realtime group is skipped; those tests take
+about a minute in parallel (run 38721013037: 4,399 tests, 55 s, 4 cores).
+A merge costs one runner for about 11 minutes; until 2026-10-15 it cost four
+for about 15.
 
 ## Why
 
@@ -30,14 +39,12 @@ and fakes that play a conversation at real speed. For example,
 `serve_session::normal_eight_turn_conversation_in_one_serve_session` takes
 65 s because `fixtures/voice-eval-serve-v1.json` has 26.5 s of `speech_ms`,
 2 s `startup_ms`, 1.5 s `first_audio_ms` per turn and 6.6 s of trigger
-`delay_ms`. Without the group, a pull request's tests take about 215 s in
-total, about 54 s per shard. A merge into `lamp-voice` still takes the full
-time.
+`delay_ms`. Without the group, the rest take about 215 s one at a time.
 
 The waiting is real time by design in most of these suites (see each file's
 header). They are slow, not flaky; they did not fail in these runs. Skipping
 them everywhere was rejected: they catch timing faults in whole
-conversations, so every merge still runs them.
+conversations, so the nightly full run still runs them.
 
 ## What is in the group
 
@@ -55,7 +62,8 @@ selection), which must stay identical:
 - single tests that took 4 s or more outside those, named exactly.
 
 Because whole binaries and modules are matched, a new test added to one of
-them is also skipped on pull requests, and is first run when it is merged.
+them is also skipped on pull requests and merges, and is first run by the
+nightly full run after it is merged.
 
 ## Running it
 
@@ -65,7 +73,7 @@ From `lampOS/`, the group alone, one test at a time as on the runner:
 cargo nextest run --release --workspace --profile realtime -j 1
 ```
 
-What a pull request runs: `--profile pr`. Everything, as on `lamp-voice`:
+What a pull request runs: `--profile pr`. Everything, as the full run:
 `cargo nextest run --release --workspace -j 1`. `cargo test` is unaffected
 and runs everything.
 
@@ -75,19 +83,17 @@ A test leaves the group when it no longer waits on the real clock: an
 injectable clock, a paused tokio clock, a time scale on a fake, or a shorter
 fixture, without weakening what it asserts. Remove it from all three
 filtersets in the same pull request, and update this list. When the group is
-empty, delete it, the `pr` and `realtime` profiles, the `--profile`
-selection in the workflow, and this page.
+empty, delete it, the `pr` and `realtime` profiles, the `full` input and the
+nightly workflow, and this page.
 
 Review points:
 
-- How often does the full run on `lamp-voice` fail on a realtime test, and
-  how long until it is fixed?
-- Who decides that a red `lamp-voice` run holds the next merge? The workflow
-  only opens the issue; it does not block merging.
-- A nightly full run would need the workflow on the default branch (`main`);
-  a scheduled run starts only from there.
-- Does a pull request's run list the expected number of tests (about 4,384
-  run plus the skipped)?
+- How often does the nightly full run fail on a realtime test, and how long
+  until it is fixed? A failure names a day's merges, not one pull request.
+- Who decides that a red full run holds the next merge? The workflow only
+  opens the issue; it does not block merging.
+- Does a pull request's run list the expected number of tests (about 4,400
+  run, about 100 skipped)?
 
 ## The measured list
 

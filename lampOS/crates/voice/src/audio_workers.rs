@@ -59,6 +59,11 @@ fn busy_at_start(error: &lamp_audio::capture::CaptureError, since: &mut Option<I
 /// How long a microphone closed by a stall may stay closed before the
 /// worker gives up: the coordinator's own bound on a capture gap (#784).
 const REOPEN_US: u64 = 1_500_000;
+/// A tick that comes this long after the last was held up.
+const HELD_UP: Duration = Duration::from_millis(50);
+/// What a held-up capture worker may read in one tick: snapshots come no
+/// faster than one a capture block, so 1.5 s leaves at most 150.
+const HELD_UP_CONTROL: usize = 256;
 
 /// A discontinuity a short stall of this worker causes: the authority it
 /// held lapsed while it was held up, or its 40 ms buffer overran. Anything
@@ -407,14 +412,23 @@ fn capture_loop<D: CaptureDevice>(
     // reference's barrier to keep, and a stall in it still ends the worker.
     let mut gap: Option<u64> = None;
     let mut started = false;
+    let mut last_tick = Instant::now();
     channels.control.send(WorkerEvent::Ready)?;
     loop {
         let tick = Instant::now();
-        for index in 0..=MAX_CONTROL {
+        // A worker held up (#784) finds the snapshots sent meanwhile queued:
+        // they are read in this tick, up to what the longest gap can leave.
+        let bound = if tick.duration_since(last_tick) > HELD_UP {
+            HELD_UP_CONTROL
+        } else {
+            MAX_CONTROL
+        };
+        last_tick = tick;
+        for index in 0..=bound {
             let Some(control) = channels.control.receive::<Control>()? else {
                 break;
             };
-            if index == MAX_CONTROL {
+            if index == bound {
                 return Err(io::Error::other("capture control tick bound").into());
             }
             match control {
@@ -525,7 +539,13 @@ fn capture_loop<D: CaptureDevice>(
             let mut control_count = 0;
             // Receive data first, then recheck priority lifecycle before using
             // it: two sockets can become readable between separate drains.
-            for data_index in 0..=MAX_REFERENCE {
+            // Held up, the speaker's reference queued as well: read it all.
+            let reference_bound = if bound == MAX_CONTROL {
+                MAX_REFERENCE
+            } else {
+                HELD_UP_CONTROL
+            };
+            for data_index in 0..=reference_bound {
                 let packet = link.data.receive::<RenderReference>()?;
                 for _ in 0..=MAX_CONTROL {
                     let Some(control) = link.control.receive::<ReferenceControl>()? else {
@@ -613,7 +633,7 @@ fn capture_loop<D: CaptureDevice>(
                 let Some(packet) = packet else {
                     break;
                 };
-                if data_index == MAX_REFERENCE {
+                if data_index == reference_bound {
                     return Err(reference
                         .fault(ReferenceFaultKind::ReferenceBacklog, monotonic_us())
                         .into());

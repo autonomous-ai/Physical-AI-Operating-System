@@ -164,6 +164,62 @@ fn a_run_without_answers_is_not_fitted() {
     assert_eq!(counted["models"]["old"]["labelled"], 0);
 }
 
+/// The reviewer on #873: labels of one kind, on every line or on the lines
+/// a model answered, give no fit, and the model is said not fitted, why,
+/// and given no counts that could be taken for measured ones. A balanced
+/// run is fitted on every half.
+#[test]
+fn a_model_with_labels_of_one_kind_is_not_fitted_and_given_no_counts() {
+    let models = ["a".to_owned(), "b".to_owned()];
+    let mut lines = run(
+        90,
+        3,
+        &[("a", as_given as Answering), ("b", as_given as Answering)],
+    );
+    let counted = summary(&lines, &models);
+    for model in &models {
+        let told = &counted["models"][model];
+        assert_eq!(told["fitted"], true, "{told}");
+        assert_eq!(
+            (&told["halves_fitted"], &told["halves_unfitted"]),
+            (&json!(200), &json!(0))
+        );
+    }
+    // `b` gave no answers on the lines to be answered: what it answered is
+    // all to be left alone.
+    let mut to_answer = 0;
+    for line in &mut lines {
+        if line["should"] == "answer" {
+            to_answer += 1;
+            line["judges"][1].as_object_mut().unwrap().remove("answers");
+        }
+    }
+    let counted = summary(&lines, &models);
+    assert_eq!(counted["models"]["a"]["fitted"], true);
+    assert_eq!(
+        counted["models"]["b"],
+        json!({"labelled": 90, "without_answers": to_answer, "fitted": false,
+               "why_not": "its labelled lines with answers are all of one kind"})
+    );
+    // Every line to be left alone: neither is fitted.
+    for line in &mut lines {
+        line["should"] = json!("stay_quiet");
+    }
+    let counted = summary(&lines, &models);
+    for model in &models {
+        let told = &counted["models"][model];
+        assert_eq!(told["fitted"], false, "{told}");
+        for count in [
+            "day_weights",
+            "refitted",
+            "weights_on_every_label",
+            "halves_fitted",
+        ] {
+            assert!(told.get(count).is_none(), "{count} in {told}");
+        }
+    }
+}
+
 /// Fitted on many examples drawn from known weights, the weights found are
 /// those, near enough; and the order of the terms is the seven questions,
 /// then the room, the conversation and the name.

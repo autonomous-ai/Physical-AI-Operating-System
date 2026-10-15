@@ -1070,7 +1070,7 @@ through them as they are.
         --days 2026-10-14,2026-10-15 --models typesafe/jev-1.13,typesafe/jev-1.14 \
         [--labels ABSOLUTE_FILE] [--only-labelled] [--endpoint URL] \
         [--deadline-ms 10000] [--pace-ms 500] [--most N] > replay.jsonl
-    lamp-policy-replay --again replay.jsonl --labels ABSOLUTE_FILE
+    lamp-policy-replay --again replay.jsonl --labels ABSOLUTE_FILE [--refit]
 
 - **Where:** on the lamp, where the logs are. They hold what was heard, so
   they stay there. What is heard is sent to the model's service again, as on
@@ -1093,6 +1093,24 @@ through them as they are.
   or `"stay_quiet"`, the moment as the lines give it. `answer` is met by
   `answer` or `look_up`. A run can be labelled after it is seen:
   `--again` counts its printed lines again with the labels, asking nothing.
+- **`--refit`,** with `--again`: whether a model loses only because the
+  weights were fitted to another model's answers. For each model, the
+  weights are fitted again to its own seven answers, the quiet room, the
+  conversation and the name heard (a logistic regression, as the day's
+  were, its weights pulled towards nothing as scikit-learn's default
+  `C = 1` pulls them), on half the labelled lines, and counted on the other
+  half; 200 times, on halves drawn from one seed, the same for every model
+  and every run. Beside it, the run's own choices (the day's weights),
+  counted on the same halves. It prints one more line, `refit_summary`:
+  for both, the mean right over all, for requests that name the lamp, in a
+  busy room and for another language, and how often each answered what was
+  not for the lamp and ignored what was; and the weights fitted on every
+  labelled line, to be read. It needs lines with answers (a run from
+  `28a38cbb1` on); with fewer than 20 labelled lines with answers a model is
+  not fitted, and the line says why. The day's weights are two sums, with
+  and without something listening for the name; this is one sum, the name
+  heard one more term, not heard and not known both counted as not heard.
+  It changes nothing the lamp does.
 - **The kinds are rough:** `names_lamp` is one of the ways people call it or
   the recogniser writes its name, as a word; `other_language` is a letter
   outside English's, `¿` or `¡` (not the call "Lamp ơi" itself), or three
@@ -1101,7 +1119,12 @@ through them as they are.
 
 Tests: `crates/policy/src/replay/tests.rs` (the log read with each line's
 place, kinds, each model asked the text sent on the day and choosing by the
-same weights, no words in a line, the counts, labels, counting again) and
+same weights, no words in a line, the counts, labels, counting again),
+`crates/policy/src/replay/refit/tests.rs` (a model whose answers are on
+another scale done badly by the day's weights and as well as the other
+once fitted to its own, on the same halves; a run without answers not
+fitted; the weights found from examples drawn from known ones; the same
+halves every time) and
 `crates/policy/tests/replay_program.rs` (the program against a service
 played on this machine: two models asked in turn, the state sent equal to
 the day's, and none of what was heard in its output).

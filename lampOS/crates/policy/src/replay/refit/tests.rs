@@ -1,0 +1,240 @@
+use super::*;
+use crate::{
+    attention::{Answers, Context},
+    decide::Answer,
+    replay::{Logged, Replayed, line},
+};
+use std::collections::BTreeMap;
+
+/// The seven answers a model that answers well gives for a line whose
+/// truth is `call` (the lamp is spoken to), `business` (people's own talk)
+/// or neither (a question in a quiet room), with `jitter` from 0 to 0.1.
+fn truth(call: bool, business: bool, jitter: f64) -> [f64; 7] {
+    let yes = |when: bool, high: f64, low: f64| if when { high - jitter } else { low + jitter };
+    [
+        yes(call, 0.9, 0.1),
+        0.1 + jitter,
+        yes(business, 0.9, 0.1),
+        yes(!business, 0.8, 0.3),
+        0.1,
+        0.1 + jitter / 2.0,
+        0.05,
+    ]
+}
+
+/// `n` labelled lines as `lamp-policy-replay` prints them, drawn from
+/// `seed`: a third call the lamp, in either room (to be answered); a third
+/// are people's own talk in a busy room (left alone); and the rest are
+/// questions in a quiet room (to be answered).
+/// Each model's answers are `answers(truth)`, and its choice is made from
+/// them by the day's weights, as the run makes it.
+/// How a model answers, from what a model that answers well would.
+type Answering = fn([f64; 7]) -> [f64; 7];
+
+fn run(n: usize, seed: u64, models: &[(&str, Answering)]) -> Vec<Value> {
+    let mut draw = Draw(seed);
+    let names = terms();
+    (0..n)
+        .map(|index| {
+            let kind = draw.next() % 3;
+            let quiet = match kind {
+                0 => draw.next().is_multiple_of(2),
+                1 => false,
+                _ => true,
+            };
+            let jitter = (draw.next() % 100) as f64 / 1_000.0;
+            let (call, business) = (kind == 0, kind == 1);
+            let should = if business {
+                Should::StayQuiet
+            } else {
+                Should::Answer
+            };
+            let context = Context {
+                heard: String::new(),
+                room: if quiet { Room::Quiet } else { Room::Busy },
+                lamp_is_speaking: false,
+                lamp_last_said: None,
+                seconds_since_lamp_spoke: None,
+                name_heard: None,
+            };
+            let replayed: Vec<(String, Replayed)> = models
+                .iter()
+                .map(|(model, answers)| {
+                    let seven = answers(truth(call, business, jitter));
+                    let asked: BTreeMap<String, Answer> = names
+                        .iter()
+                        .zip(seven)
+                        .map(|(name, yes)| (name.clone(), Answer::Noul(yes as f32)))
+                        .collect();
+                    let judgement = attention::combine(&Answers::of(&asked).unwrap(), &context);
+                    (
+                        (*model).to_owned(),
+                        Replayed::Chose {
+                            by: (*model).to_owned(),
+                            choice: judgement.choice.as_str().to_owned(),
+                            probability: f64::from(judgement.probability),
+                            took_ms: 400,
+                            answers: names.iter().cloned().zip(seven).collect(),
+                        },
+                    )
+                })
+                .collect();
+            let logged = Logged {
+                id: format!("2026-10-15#{}", index + 1),
+                at_unix_ms: 1_760_000_000_000 + index as u64 * 1_000,
+                context,
+                choice: "stay_quiet".into(),
+                probability: 0.3,
+                by: "typesafe/jev-1.13-20260917".into(),
+            };
+            line(&logged, Some(should), &replayed)
+        })
+        .collect()
+}
+
+fn as_given(seven: [f64; 7]) -> [f64; 7] {
+    seven
+}
+
+/// Another scale: the two questions that carry most weight answered the
+/// other way round.
+fn turned(mut seven: [f64; 7]) -> [f64; 7] {
+    seven[0] = 1.0 - seven[0];
+    seven[2] = 1.0 - seven[2];
+    seven
+}
+
+fn share(counted: &Value) -> f64 {
+    counted["right"].as_f64().unwrap() / counted["labelled"].as_f64().unwrap()
+}
+
+/// The case the refit is for: a model whose answers mean as much but are on
+/// another scale does badly by the day's weights and as well as the other
+/// once fitted to its own answers, counted on the same halves.
+#[test]
+fn a_model_on_another_scale_is_told_apart_from_a_worse_one() {
+    let models = [("same", as_given as Answering), ("turned", turned)];
+    let lines = run(240, 7, &models);
+    let names: Vec<String> = models.iter().map(|(name, _)| (*name).to_owned()).collect();
+    let counted = summary(&lines, &names);
+    assert_eq!(counted["status"], "refit_summary");
+    let same = &counted["models"]["same"];
+    let turned = &counted["models"]["turned"];
+    // Both counted on the same halves: 120 kept back each time.
+    assert_eq!(same["day_weights"]["right"]["labelled"], 120.0);
+    assert_eq!(turned["refitted"]["right"]["labelled"], 120.0);
+    assert_eq!(
+        same["refitted"]["right_busy"]["labelled"],
+        turned["refitted"]["right_busy"]["labelled"]
+    );
+    assert!(share(&same["day_weights"]["right"]) > 0.9, "{same}");
+    assert!(share(&same["refitted"]["right"]) > 0.9, "{same}");
+    assert!(share(&turned["day_weights"]["right"]) < 0.7, "{turned}");
+    assert!(share(&turned["refitted"]["right"]) > 0.9, "{turned}");
+    // The weights on every label say which way each one answers.
+    let weight =
+        |model: &Value, term: &str| model["weights_on_every_label"][term].as_f64().unwrap();
+    assert!(weight(same, "calls_lamp") > 0.0 && weight(same, "others_business") < 0.0);
+    assert!(weight(turned, "calls_lamp") < 0.0 && weight(turned, "others_business") > 0.0);
+    assert!(weight(same, "quiet") > 0.0);
+    assert_eq!(same["halves_unfitted"], 0);
+    assert_eq!(counted["words"], "none: counts and weights only");
+}
+
+/// Lines from a run before the answers were kept: nothing to fit, and said
+/// so, not a fit of nothing.
+#[test]
+fn a_run_without_answers_is_not_fitted() {
+    let mut lines = run(40, 3, &[("old", as_given as Answering)]);
+    for line in &mut lines {
+        line["judges"][0].as_object_mut().unwrap().remove("answers");
+    }
+    let counted = summary(&lines, &["old".to_owned()]);
+    assert_eq!(
+        counted["models"]["old"],
+        json!({"labelled": 40, "without_answers": 40, "fitted": false,
+               "why_not": "fewer than 20 labelled lines with answers"})
+    );
+    // Lines nobody labelled are not counted at all.
+    let mut unlabelled = run(40, 3, &[("old", as_given as Answering)]);
+    for line in &mut unlabelled {
+        line["should"] = Value::Null;
+    }
+    let counted = summary(&unlabelled, &["old".to_owned()]);
+    assert_eq!(counted["models"]["old"]["labelled"], 0);
+}
+
+/// Fitted on many examples drawn from known weights, the weights found are
+/// those, near enough; and the order of the terms is the seven questions,
+/// then the room, the conversation and the name.
+#[test]
+fn the_fit_finds_the_weights_the_examples_were_drawn_from() {
+    assert_eq!(
+        terms(),
+        [
+            "calls_lamp",
+            "names_someone_else",
+            "others_business",
+            "lamp_could_answer",
+            "follows_lamp",
+            "listening_noise",
+            "asks_to_stop",
+            "quiet",
+            "in_conversation",
+            "name_heard",
+        ]
+    );
+    let known: Weights = [-0.5, 2.0, -0.5, -2.0, 1.0, 0.0, -1.0, 0.5, 1.5, -0.3, 2.5];
+    let mut draw = Draw(11);
+    let mut unit = move || (draw.next() % 10_001) as f64 / 10_000.0;
+    let examples: Vec<Example> = (0..4_000)
+        .map(|place| {
+            let mut terms = [0.0; TERMS];
+            for (index, term) in terms.iter_mut().enumerate() {
+                *term = if index < 7 {
+                    unit()
+                } else {
+                    f64::from(u8::from(unit() < 0.5))
+                };
+            }
+            let should = if unit() < probability(&known, &terms) {
+                Should::Answer
+            } else {
+                Should::StayQuiet
+            };
+            Example {
+                place,
+                terms,
+                should,
+                chose: "answer".into(),
+                named: false,
+                busy: false,
+                other_language: false,
+            }
+        })
+        .collect();
+    let all: Vec<&Example> = examples.iter().collect();
+    let found = fit(&all).unwrap();
+    for (index, (found, known)) in found.iter().zip(known).enumerate() {
+        assert!((found - known).abs() < 0.5, "{index}: {found} for {known}");
+    }
+    // All of one kind: no fit.
+    let one_kind: Vec<&Example> = examples
+        .iter()
+        .filter(|example| example.should == Should::Answer)
+        .collect();
+    assert!(fit(&one_kind).is_none());
+}
+
+/// The halves are drawn from the seed alone: two counts of one run are the
+/// same, on any machine.
+#[test]
+fn the_halves_are_the_same_every_time() {
+    assert_eq!(Draw(SEED).order(8), Draw(SEED).order(8));
+    let mut sorted = Draw(SEED).order(50);
+    sorted.sort_unstable();
+    assert_eq!(sorted, (0..50).collect::<Vec<_>>());
+    let lines = run(60, 5, &[("same", as_given as Answering)]);
+    let models = ["same".to_owned()];
+    assert_eq!(summary(&lines, &models), summary(&lines, &models));
+}

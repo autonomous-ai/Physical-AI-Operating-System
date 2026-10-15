@@ -352,28 +352,24 @@ pub struct FakePreparedRoomPlayer {
     pub prepared: usize,
 }
 
-impl Player for FakePreparedRoomPlayer {
-    fn start(
-        &mut self,
-        _: &Path,
-        _: &SceneTiming,
-        _: &Path,
-        _: &Path,
-    ) -> Result<JoinHandle<Value>> {
-        Err(invalid("the prepared fake player starts only on a grant"))
+impl FakePreparedRoomPlayer {
+    /// Use one explicit clock for preparation, grant receipt and first copy.
+    /// Reads must be pure; clones must read the same clock domain. The worker
+    /// owns a clone, while resource waits, fault delays and joins use host time.
+    pub fn with_clock(
+        self,
+        now: impl Fn() -> MonoTime + Clone + Send + Sync + 'static,
+    ) -> impl Player {
+        ClockedFakePreparedRoomPlayer { player: self, now }
     }
-    fn describe(&self) -> Value {
-        json!({"kind": "fake prepared room datagrams",
-            "note": "loopback test; mirrors the prepared grant contract; no audio",
-            "faults": self.faults.iter().map(|(n, f)| json!({"prepare": n, "fault": format!("{f:?}")})).collect::<Vec<_>>()})
-    }
-    fn prepare(
+
+    fn prepare_with_ns_clock(
         &mut self,
         wav: &Path,
         timing: &SceneTiming,
-        _: &Path,
         cancel_file: &Path,
         max_wait_ms: u32,
+        now_ns: impl Fn(&'static str) -> Result<u64> + Send + Sync + 'static,
     ) -> Result<Option<Preparing>> {
         self.prepared += 1;
         let number = self.prepared;
@@ -389,7 +385,7 @@ impl Player for FakePreparedRoomPlayer {
         let source_sha256 = lamp_sound_fixtures::hash(&fs::read(wav)?);
         let room = self.room.clone();
         let cancel_file = cancel_file.to_path_buf();
-        let attempt_id = format!("fake-{number}-{}", monotonic_ns());
+        let attempt_id = format!("fake-{number}-{}", now_ns("attempt ID")?);
         let (grant, inputs) = mpsc::sync_channel::<GrantInput>(9);
         let (published, ready) = mpsc::sync_channel(1);
         let handle = thread::spawn(move || {
@@ -400,7 +396,15 @@ impl Player for FakePreparedRoomPlayer {
                 }
                 thread::sleep(Duration::from_millis(u64::from(delay_ms)));
             }
-            let ready_ns = monotonic_ns();
+            let ready_ns = match now_ns("readiness") {
+                Ok(now) => now,
+                Err(error) => {
+                    return json!({"attempt_id": attempt_id, "valid": false,
+                        "scope": "fake prepared start; no audio",
+                        "counters": {"source_started_host_ns": 0},
+                        "status": "failed", "error": error.to_string()});
+                }
+            };
             let mut report = json!({"attempt_id": attempt_id, "valid": false,
                 "scope": "fake prepared start; no audio", "counters": {"source_started_host_ns": 0}});
             if fault == Some(FakePlayerFault::PrepareFails) {
@@ -417,7 +421,14 @@ impl Player for FakePreparedRoomPlayer {
                 return report;
             }
             let input = inputs.recv_timeout(Duration::from_millis(u64::from(max_wait_ms)));
-            let received = monotonic_ns();
+            let received = match now_ns("grant receipt") {
+                Ok(now) => now,
+                Err(error) => {
+                    report["status"] = json!("failed");
+                    report["error"] = json!(error.to_string());
+                    return report;
+                }
+            };
             let decision = match input {
                 Err(_) => Err("grant_timeout"),
                 Ok(GrantInput::Closed) => Err("stopped_before_grant"),
@@ -454,7 +465,14 @@ impl Player for FakePreparedRoomPlayer {
                 thread::sleep(Duration::from_millis(u64::from(delay_ms)));
             }
             // The fresh sample at the first copy decides; equality refuses.
-            let copy_ns = monotonic_ns();
+            let copy_ns = match now_ns("first copy") {
+                Ok(now) => now,
+                Err(error) => {
+                    report["status"] = json!("failed");
+                    report["error"] = json!(error.to_string());
+                    return report;
+                }
+            };
             if copy_ns >= expires {
                 report["status"] = json!("start_expired");
                 report["first_copy_attempt_host_ns"] = json!(copy_ns);
@@ -483,6 +501,80 @@ impl Player for FakePreparedRoomPlayer {
             grant,
             handle,
         }))
+    }
+}
+
+impl Player for FakePreparedRoomPlayer {
+    fn start(
+        &mut self,
+        _: &Path,
+        _: &SceneTiming,
+        _: &Path,
+        _: &Path,
+    ) -> Result<JoinHandle<Value>> {
+        Err(invalid("the prepared fake player starts only on a grant"))
+    }
+    fn describe(&self) -> Value {
+        json!({"kind": "fake prepared room datagrams",
+            "note": "loopback test; mirrors the prepared grant contract; no audio",
+            "faults": self.faults.iter().map(|(n, f)| json!({"prepare": n, "fault": format!("{f:?}")})).collect::<Vec<_>>()})
+    }
+    fn prepare(
+        &mut self,
+        wav: &Path,
+        timing: &SceneTiming,
+        _: &Path,
+        cancel_file: &Path,
+        max_wait_ms: u32,
+    ) -> Result<Option<Preparing>> {
+        self.prepare_with_ns_clock(
+            wav,
+            timing,
+            cancel_file,
+            max_wait_ms,
+            |_| Ok(monotonic_ns()),
+        )
+    }
+}
+
+struct ClockedFakePreparedRoomPlayer<C> {
+    player: FakePreparedRoomPlayer,
+    now: C,
+}
+
+impl<C: Fn() -> MonoTime + Clone + Send + Sync + 'static> Player
+    for ClockedFakePreparedRoomPlayer<C>
+{
+    fn start(
+        &mut self,
+        wav: &Path,
+        timing: &SceneTiming,
+        report_directory: &Path,
+        cancel_file: &Path,
+    ) -> Result<JoinHandle<Value>> {
+        self.player
+            .start(wav, timing, report_directory, cancel_file)
+    }
+
+    fn describe(&self) -> Value {
+        self.player.describe()
+    }
+
+    fn prepare(
+        &mut self,
+        wav: &Path,
+        timing: &SceneTiming,
+        _: &Path,
+        cancel_file: &Path,
+        max_wait_ms: u32,
+    ) -> Result<Option<Preparing>> {
+        let now = self.now.clone();
+        self.player
+            .prepare_with_ns_clock(wav, timing, cancel_file, max_wait_ms, move |phase| {
+                now().as_micros().checked_mul(1000).ok_or_else(|| {
+                    invalid(&format!("fake prepared {phase} time overflows nanoseconds"))
+                })
+            })
     }
 }
 
@@ -3987,3 +4079,7 @@ mod backend_clock_tests;
 #[cfg(test)]
 #[path = "backend_progress_tests.rs"]
 mod backend_progress_tests;
+
+#[cfg(test)]
+#[path = "prepared_player_clock_tests.rs"]
+mod prepared_player_clock_tests;

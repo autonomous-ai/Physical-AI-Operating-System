@@ -1,0 +1,63 @@
+{
+  "audited_at": "2026-10-15 23:09:23 +0700",
+  "base_reported_by_root": "a3dba0c0a",
+  "exact_source_reversal": "passed",
+  "original_and_reversed_sha256": "91dde7080b81fbad19f1b4fffb96e1290929b92230ab202f3fe622b82dbfc29d",
+  "unchanged_other_voice_eval_rust_files": 48,
+  "unchanged_integration_test_files": 23,
+  "old_inline_mac_test_names": [
+    "a_prompt_is_covered_only_through_its_speech_and_observation_window",
+    "a_grant_sent_after_its_expiry_keeps_a_negative_margin_without_overflow",
+    "readiness_cues_are_unowned_but_still_sequenced",
+    "cue_order_rejects_missing_duplicate_relabelled_and_out_of_order_owners",
+    "cue_receipt_at_expiry_or_before_send_is_not_fresh",
+    "retired_audio_can_be_cancelled_without_reviving_playback",
+    "fresh_delayed_child_observation_keeps_its_earlier_event_time",
+    "each_occurrence_is_matched_and_only_whole_completion_is_terminal",
+    "legacy_missing_occurrence_live_cue_is_withheld",
+    "oversized_non_utf8_and_cut_off_lines_are_protocol_errors",
+    "a_never_terminated_line_still_ends_at_the_session_byte_bound",
+    "reading_stops_with_an_error_above_the_session_byte_bound",
+    "r2_a_grant_never_outlives_the_recordings_latest_covered_start",
+    "audit_grant_within_deadline_control",
+    "audit_grant_deschedule_after_send_must_not_panic_or_lose_tracking",
+    "r2_an_actual_first_copy_after_the_covered_start_is_retained_as_a_violation",
+    "audit_failed_outer_transport_cannot_certify_nominal_runtime_end",
+    "audit_reaped_successful_transport_certifies_nominal_runtime_end",
+    "audit_transport_that_outlives_its_bound_is_killed_and_never_certified",
+    "audit_successful_runtime_exit_control",
+    "audit_nonzero_runtime_exit_must_invalidate_attempt",
+    "audit_serve_stdout_readiness_cannot_mint_an_original_cue",
+    "audit_startup_unmapped_expired_readiness_cannot_be_accepted",
+    "fast_startup_cues_before_the_first_live_pong_are_published_in_order_with_original_times",
+    "a_held_startup_cue_that_expired_before_the_live_map_is_refused",
+    "held_batch_resamples_after_parse_and_refuses_a_later_expired_cue",
+    "the_original_expiry_refuses_at_equality"
+  ],
+  "distinct_prepared_clock_read_sites": 4,
+  "default_clock": "monotonic_ns, full precision; shared prepare implementation",
+  "explicit_clock": "pure Fn() -> MonoTime + Clone + Send + Sync + static; checked_mul(1000)",
+  "overflow_branches": {
+    "attempt ID": "Err before channel creation/thread spawn",
+    "readiness": "invalid failed report before Ready publication",
+    "grant receipt": "invalid failed report retaining Ready before grant validation",
+    "first copy": "invalid failed report retaining Ready and accepted grant before datagram send"
+  },
+  "new_clock_tests": [
+    "a_shared_pure_clock_keeps_original_grants_and_real_datagram_delivery",
+    "the_fresh_first_copy_sample_decides_the_original_expiry_boundary",
+    "original_grant_validation_still_refuses_invalid_identity_shape_and_horizon",
+    "closed_and_malformed_inputs_still_withhold_delivery",
+    "cancellation_after_ready_still_withholds_the_first_copy",
+    "unrepresentable_clock_samples_fail_at_each_stage_before_delivery"
+  ],
+  "new_tests_use_host_sleeps_or_binaries": false,
+  "documentation_append_only": true,
+  "final_source_hashes": {
+    "lampOS/crates/voice-eval/src/physical/mac.rs": "bf8e187cbab683866d933f8b8fccd34650edf793428cb053f4915d6a38cb3c24",
+    "lampOS/crates/voice-eval/src/physical/prepared_player_clock_tests.rs": "df9cc11554b19af4c4663d3cf1d67bd5f26afe8521b7c3620597c9936d1d1b61",
+    "lampOS/docs/realtime-tests.md": "3b8a82639dfe09cd34ec0e5e739097ab32e8ec9b13df2cea03075564f25c15a2"
+  },
+  "cargo_build_test_clippy": "not run; root owns shared targets and gate",
+  "speedup_claim": null
+}

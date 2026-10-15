@@ -756,6 +756,9 @@ fn run(arguments: Arguments) -> Result<(), Box<dyn std::error::Error + Send + Sy
             eprintln!(
                 "lamp-eyes: closing the camera to try the full size again (try {tries}); at the working size if it does not open"
             );
+            // Stopped and freed within STOP, as every close is (#921): the
+            // reopen at the full size comes next, through the same
+            // `permit.opened` as any open.
             let _ = open.stop(budget(STOP));
             camera = lamp_eyes::bus_out::Camera::Closed;
             lamp_eyes::kept::forget_all(&mut kept, &mut still_kept);

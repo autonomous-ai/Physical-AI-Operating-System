@@ -442,6 +442,5 @@ is relaxed for stale hands: the 1.2 s queued sample is still dropped, the
 joint-state write still ages the hand
 (`a_hand_after_a_slow_joints_write_is_aged_by_it`).
 
-Author's evidence (fifth, a Mac, not a reviewer run): 200 runs of
-`cargo test -p lamp-body --lib bus_out::tests::a_hand_that_waited_in_the_queue_is_not_said_as_fresh`
-while parallel cargo builds held the load average near 25, none failed.
+Author's evidence (fifth, a Mac, not a reviewer run): 200 runs of this
+test under parallel build load (load average about 25), no failure.

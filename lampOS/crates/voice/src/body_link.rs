@@ -327,10 +327,11 @@ impl EyesLink {
         let _ = self.socket.send_to(message, &self.path);
     }
 
-    /// Ask the eyes for one full look (#836). Eyes started without
-    /// `--full-look` take it for nothing.
-    pub fn look_full(&mut self) {
-        let _ = self.socket.send_to(br#"{"look_full":true}"#, &self.path);
+    /// Ask the eyes for one full look (#836), whose still comes marked with
+    /// `id`. Eyes started without `--full-look` take it for nothing.
+    pub fn look_full(&mut self, id: u64) {
+        let message = format!(r#"{{"look_full":{id}}}"#);
+        let _ = self.socket.send_to(message.as_bytes(), &self.path);
     }
 }
 
@@ -347,10 +348,14 @@ mod tests {
         let _ = std::fs::remove_file(&path);
         let eyes = UnixDatagram::bind(&path).unwrap();
         let mut link = EyesLink::to(path.clone()).unwrap();
-        link.look_full();
+        link.look_full(1_760_000_000_042);
         let mut got = [0u8; 64];
         let length = eyes.recv(&mut got).unwrap();
-        assert_eq!(&got[..length], br#"{"look_full":true}"#);
+        assert_eq!(&got[..length], br#"{"look_full":1760000000042}"#);
+        // The largest id fits the eyes' 64-byte read.
+        link.look_full(u64::MAX);
+        let length = eyes.recv(&mut got).unwrap();
+        assert!(length < 64);
         std::fs::remove_dir_all(&directory).unwrap();
     }
 

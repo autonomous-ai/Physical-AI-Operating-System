@@ -4668,9 +4668,9 @@ fn conversation_with_gate(
         // saying so. Someone speaking first takes the turn and the look is
         // dropped; so is one that could not begin within fifteen seconds of being asked for.
         if let Some((turn, asked_us)) = look_wanted {
-            if look.ask(turn, std::time::SystemTime::now()) {
+            if let Some(id) = look.ask(turn) {
                 if let Some(eyes) = eyes_link.as_mut() {
-                    eyes.look_full();
+                    eyes.look_full(id);
                 }
                 record(
                     trace,

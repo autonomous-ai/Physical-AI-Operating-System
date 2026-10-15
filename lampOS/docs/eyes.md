@@ -168,7 +168,7 @@ opened at that size instead of 320 by 240, and nothing else about the faces
 changes: the detector shrinks every frame to its own 320 by 256, as it
 always could, and every face size is a share of the picture. No working
 frame is kept. The sight file holds only a still taken when the voice
-service asks, `{"look_full":true}` on `--permit-socket`:
+service asks, `{"look_full":ID}` on `--permit-socket` (an id from 1):
 
 1. The head is the body's. It already turns to the face the eyes see
    (`--gaze-socket`) and to a call (`--look-at-name on`); nothing new is
@@ -186,10 +186,15 @@ service asks, `{"look_full":true}` on `--permit-socket`:
 2. The still is the first frame after that. It is passed as it is when it is
    a whole JPEG of at most 64 KiB and 1024 across; otherwise it is decoded,
    shrunk to 1024 across by averaging, and encoded (`jpeg-encoder`, pure
-   Rust) at quality 85, 75, 65 or 50, the first that fits 64 KiB, smaller
-   again if none does. 64 KiB is the provider's image bound
+   Rust) at quality 85, 75, 65 or 50, the first that fits 64 KiB less 64
+   bytes, smaller again if none does. 64 KiB is the provider's image bound
    (`lamp_gemini::MAX_IMAGE_BYTES`).
-3. It is written to the sight file as frames were, and removed 3 s later,
+3. It is marked with the ask's id: a JPEG comment right after the start of
+   the image, `lamp-look ID` (`full_look::tagged`), a number and nothing
+   more. The voice service takes a still only with its own ask's id, so a
+   still of an earlier ask that is written late, after a newer ask was
+   sent, is never taken for the newer one.
+4. It is written to the sight file as frames were, and removed 3 s later,
    or when the camera closes. One line in the journal: its size, its bytes,
    how long the head was waited for and how long it took to make. No
    picture is logged.

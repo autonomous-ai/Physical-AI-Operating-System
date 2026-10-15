@@ -297,6 +297,62 @@ fn shrink(
     (out, to)
 }
 
+/// Opens tried at the full size before the working size is tried too: six,
+/// thirty seconds at one try every five. A camera that refuses for a moment
+/// still opens at the full size; one that refuses for minutes (lamp-52e6,
+/// lamp-4ace: 6 to 18 min, #763) gets every other try at the working size,
+/// so the eyes see as soon as the camera lets them, and [`Upgrade`] brings
+/// the full size back later.
+pub const FULL_FIRST: u32 = 6;
+
+/// Whether the next open is at the full size, after `failures` opens in a
+/// row that did not open: the first [`FULL_FIRST`], then every other one.
+pub fn full_next(failures: u32) -> bool {
+    failures < FULL_FIRST || (failures - FULL_FIRST) % 2 == 1
+}
+
+/// After the stream opened at the working size for want of the full one:
+/// when to close it and try the full size once more. Only after streaming
+/// that long with nobody in view and no look asked for, so that nobody sees
+/// the eyes shut; then after half an hour, then every hour.
+#[derive(Debug, Default)]
+pub struct Upgrade {
+    /// Since when the stream has run at the working size, if it does.
+    fallback_since_us: Option<u64>,
+    /// Tries made since the stream last opened at the full size.
+    tries: u32,
+}
+
+pub const UPGRADE_AFTER_US: [u64; 3] = [600_000_000, 1_800_000_000, 3_600_000_000];
+
+impl Upgrade {
+    /// The stream opened now, at the full size or not.
+    pub fn opened(&mut self, full: bool, now_us: u64) {
+        if full {
+            *self = Self::default();
+        } else {
+            self.fallback_since_us = Some(now_us);
+        }
+    }
+
+    /// Whether to close the working-size stream now and try the full size.
+    pub fn due(&self, now_us: u64, somebody_in_view: bool, look_pending: bool) -> bool {
+        let wait = UPGRADE_AFTER_US[(self.tries as usize).min(UPGRADE_AFTER_US.len() - 1)];
+        !somebody_in_view
+            && !look_pending
+            && self
+                .fallback_since_us
+                .is_some_and(|since| now_us.saturating_sub(since) >= wait)
+    }
+
+    /// A try is made now: the stream closes.
+    pub fn tried(&mut self) -> u32 {
+        self.fallback_since_us = None;
+        self.tries += 1;
+        self.tries
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -317,6 +373,52 @@ mod tests {
             effort: vec![],
             commanded: vec![goal, 0.2 + 1.0, 0.3, 0.4, 0.5],
         }
+    }
+
+    const MINUTE: u64 = 60_000_000;
+
+    #[test]
+    fn the_full_size_is_tried_first_six_times_then_every_other_time() {
+        let sizes: Vec<bool> = (0..10).map(full_next).collect();
+        assert_eq!(
+            sizes,
+            [true, true, true, true, true, true, false, true, false, true]
+        );
+    }
+
+    #[test]
+    fn a_fallback_stream_tries_the_full_size_after_ten_quiet_minutes_and_backs_off() {
+        let mut upgrade = Upgrade::default();
+        // Opened at the full size: nothing to do.
+        upgrade.opened(true, 0);
+        assert!(!upgrade.due(100 * MINUTE, false, false));
+        // Fallen back at minute 0.
+        upgrade.opened(false, 0);
+        assert!(!upgrade.due(10 * MINUTE - 1, false, false));
+        // Not while somebody is in view or a look is asked for.
+        assert!(!upgrade.due(10 * MINUTE, true, false));
+        assert!(!upgrade.due(10 * MINUTE, false, true));
+        assert!(upgrade.due(10 * MINUTE, false, false));
+        // The try fails: reopened at the working size at minute 11, the next
+        // try half an hour later, then every hour.
+        assert_eq!(upgrade.tried(), 1);
+        assert!(!upgrade.due(11 * MINUTE, false, false));
+        upgrade.opened(false, 11 * MINUTE);
+        assert!(!upgrade.due(40 * MINUTE, false, false));
+        assert!(upgrade.due(41 * MINUTE, false, false));
+        assert_eq!(upgrade.tried(), 2);
+        upgrade.opened(false, 42 * MINUTE);
+        assert!(!upgrade.due(101 * MINUTE, false, false));
+        assert!(upgrade.due(102 * MINUTE, false, false));
+        assert_eq!(upgrade.tried(), 3);
+        upgrade.opened(false, 103 * MINUTE);
+        assert!(upgrade.due(163 * MINUTE, false, false));
+        // A try that opens at the full size ends it.
+        upgrade.tried();
+        upgrade.opened(true, 164 * MINUTE);
+        assert!(!upgrade.due(1_000 * MINUTE, false, false));
+        upgrade.opened(false, 1_000 * MINUTE);
+        assert!(upgrade.due(1_010 * MINUTE, false, false));
     }
 
     #[test]

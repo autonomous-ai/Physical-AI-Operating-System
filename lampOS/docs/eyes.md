@@ -214,12 +214,23 @@ The stream is not switched to a larger mode for the still and back. On UVC a
 mode switch is a stop and a start, and lamp-52e6's camera often fails to
 start again for 6 to 18 minutes (#763), which would leave the lamp unable to
 see faces. One mode, opened once, costs a larger decode on every look
-instead, and nothing at the moment of asking. A camera that does not open at
-the full size is opened at 320 by 240 the next time, and at the full size
-again the time after that; the still is then whatever that stream gives.
-A stream that opened at 320 by 240 stays at it until the camera next closes
-(the microphone muted, a fault): closing it on purpose to try the full size
-again would risk the minutes without a camera that it is there to avoid.
+instead, and nothing at the moment of asking.
+
+A camera that does not open is tried at the full size six times (thirty
+seconds, one try every five), then at 320 by 240 and the full size in turn
+(`full_look::full_next`): a moment's refusal still ends at the full size,
+and one that lasts minutes (lamp-52e6 and lamp-4ace refused StreamOn for 6
+to 18 minutes after a close, #763; lamp-4ace 169 times in 14 minutes on
+2026-10-16) lets the eyes see at 320 by 240 as soon as the camera allows,
+with the still then whatever that stream gives. A stream at 320 by 240 for
+want of the full size is closed and tried at the full size once
+(`full_look::Upgrade`) after it has run 10 minutes with nobody in view and no
+look asked for, so nobody sees the eyes shut; if that does not open, it is
+back at 320 by 240 by the turns above and the next try is 30 minutes later,
+then every hour. One journal line for each try ("closing the camera to try
+the full size again (try N)") and the usual "camera open, W by H" after it.
+Resetting the camera's USB port to end a refusal is the fifth builder's
+idea, not built here.
 
 The size is at most 1280 by 960, the camera runtime's bound
 ([camera-runtime.md](camera-runtime.md)); larger is refused at start. On

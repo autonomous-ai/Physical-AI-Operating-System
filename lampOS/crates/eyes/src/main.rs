@@ -67,8 +67,10 @@ const WORKING: (u32, u32) = (320, 240);
 /// The size the camera is opened at: the working size without a full look,
 /// and with one after it last failed to open at the full size.
 #[cfg_attr(not(any(target_os = "linux", test)), allow(dead_code))]
-fn opened_at(full_look: Option<(u32, u32)>, full_failed: bool) -> (u32, u32) {
-    full_look.filter(|_| !full_failed).unwrap_or(WORKING)
+fn opened_at(full_look: Option<(u32, u32)>, failures: u32) -> (u32, u32) {
+    full_look
+        .filter(|_| lamp_eyes::full_look::full_next(failures))
+        .unwrap_or(WORKING)
 }
 
 /// `WIDTHxHEIGHT`, each even, from 320 by 240 to 1280 by 960: the camera's
@@ -399,7 +401,10 @@ fn run(arguments: Arguments) -> Result<(), Box<dyn std::error::Error + Send + Sy
     // The id of the ask that is wanted, written with its still.
     let mut wanted_id = 0u64;
     let mut still_at: Option<Instant> = None;
-    let mut full_failed = false;
+    // Opens in a row that failed, and when to try the full size again
+    // after falling back to the working size.
+    let mut failures = 0u32;
+    let mut upgrade = lamp_eyes::full_look::Upgrade::default();
     let joints_bus = arguments
         .full_look
         .and_then(|_| lamp_bus::Bus::from_environment().ok());
@@ -579,7 +584,7 @@ fn run(arguments: Arguments) -> Result<(), Box<dyn std::error::Error + Send + Sy
             )
             .map_err(|error| format!("camera configuration: {error:?}"))?;
             let mut opening = LinuxPort::new(config);
-            let (width, height) = opened_at(arguments.full_look, full_failed);
+            let (width, height) = opened_at(arguments.full_look, failures);
             let started = opening.start(
                 CaptureConfig {
                     source,
@@ -623,7 +628,10 @@ fn run(arguments: Arguments) -> Result<(), Box<dyn std::error::Error + Send + Sy
                         "lamp-eyes: camera open, {} by {}, in {took_ms} ms",
                         mode.width, mode.height
                     );
-                    full_failed = false;
+                    failures = 0;
+                    if let Some(full) = arguments.full_look {
+                        upgrade.opened((mode.width, mode.height) == full, lamp_ipc::monotonic_us());
+                    }
                     port = Some(opening);
                     camera = lamp_eyes::bus_out::Camera::Open;
                     reported_at = Instant::now();
@@ -635,8 +643,8 @@ fn run(arguments: Arguments) -> Result<(), Box<dyn std::error::Error + Send + Sy
                     );
                     let _ = opening.stop(budget(STOP));
                     camera = lamp_eyes::bus_out::Camera::NotOpening;
-                    // At the full size, the working size next; and back.
-                    full_failed = arguments.full_look.is_some() && (width, height) != WORKING;
+                    // The full size first, then the two in turn.
+                    failures = failures.saturating_add(1);
                     retry_at = Instant::now() + RETRY;
                     continue;
                 }
@@ -740,6 +748,31 @@ fn run(arguments: Arguments) -> Result<(), Box<dyn std::error::Error + Send + Sy
             if let Some(kept) = still_kept.as_mut() {
                 kept.forget();
             }
+        }
+        // Streaming at the working size for want of the full one: try the
+        // full size again once nobody is in view and no look is asked for.
+        if arguments.full_look.is_some()
+            && upgrade.due(
+                lamp_ipc::monotonic_us(),
+                face_at.is_some_and(|at| at.elapsed() < FOLLOW_FOR),
+                wanted.is_some(),
+            )
+            && let Some(mut open) = port.take()
+        {
+            let tries = upgrade.tried();
+            eprintln!(
+                "lamp-eyes: closing the camera to try the full size again (try {tries}); at the working size if it does not open"
+            );
+            let _ = open.stop(budget(STOP));
+            camera = lamp_eyes::bus_out::Camera::Closed;
+            if let Some(kept) = kept.as_mut() {
+                kept.forget();
+            }
+            latest = None;
+            // One try at the full size, then the two in turn.
+            failures = lamp_eyes::full_look::FULL_FIRST - 1;
+            retry_at = Instant::now();
+            continue;
         }
         let every = if face_at.is_some_and(|at| at.elapsed() < FOLLOW_FOR) {
             LOOK_EVERY
@@ -1080,11 +1113,14 @@ mod tests {
     fn without_a_full_look_the_camera_opens_as_before() {
         let without = parse(args(&FULL)).unwrap().unwrap().full_look;
         // Whatever the last open did.
-        assert_eq!(opened_at(without, false), (320, 240));
-        assert_eq!(opened_at(without, true), (320, 240));
+        assert_eq!(opened_at(without, 0), (320, 240));
+        assert_eq!(opened_at(without, 7), (320, 240));
         let with = Some((1_280, 960));
-        assert_eq!(opened_at(with, false), (1_280, 960));
+        assert_eq!(opened_at(with, 0), (1_280, 960));
         // After failing at the full size, the working size once.
-        assert_eq!(opened_at(with, true), (320, 240));
+        assert_eq!(
+            opened_at(with, lamp_eyes::full_look::FULL_FIRST),
+            (320, 240)
+        );
     }
 }

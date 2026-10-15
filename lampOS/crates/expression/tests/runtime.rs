@@ -656,3 +656,63 @@ mod sleep_name {
         );
     }
 }
+
+/// The keeper's end of `lamp/pause`.
+fn keeper(bus: &Bus) -> lamp_bus::Publisher {
+    bus.publisher_declared(
+        lamp_msgs::Pause::TOPIC,
+        &lamp_msgs::Pause::declaration(),
+        "keeper",
+    )
+    .unwrap()
+}
+
+#[test]
+fn paused_by_the_keeper_nothing_is_asked_of_the_body_or_the_light_until_resumed() {
+    let root = Root::new();
+    let bus = Bus::new(&root.0).unwrap();
+    populate(&bus, 10_000_000);
+    let mut keeper = keeper(&bus);
+    keeper
+        .publish_json(1, &lamp_msgs::Pause { paused: true })
+        .unwrap();
+    let mut service = runtime::Service::new(&bus, Catalogue::builtin(), true, "test").unwrap();
+    let paused = service.step(|| 10_000_000, runtime::unix_ms());
+    assert!(paused.body.is_none() && paused.light.is_none());
+    assert!(bus.latest(ExpressionBody::TOPIC).unwrap().is_none());
+    assert!(bus.latest(ExpressionLight::TOPIC).unwrap().is_none());
+    keeper
+        .publish_json(2, &lamp_msgs::Pause { paused: false })
+        .unwrap();
+    // The pause is looked at once a second, as the body looks at it.
+    std::thread::sleep(std::time::Duration::from_millis(1_100));
+    populate(&bus, 10_100_000);
+    let resumed = service.step(|| 10_100_000, runtime::unix_ms());
+    assert!(resumed.body.is_some() && resumed.light.is_some());
+    assert!(bus.latest(ExpressionBody::TOPIC).unwrap().is_some());
+    assert!(bus.latest(ExpressionLight::TOPIC).unwrap().is_some());
+}
+
+#[test]
+fn without_a_pause_said_expression_asks_exactly_as_before() {
+    // Nothing kept on `lamp/pause`, and a kept "not paused": the same
+    // requests, but for the lease each new session names.
+    let asked = |said: Option<bool>| {
+        let root = Root::new();
+        let bus = Bus::new(&root.0).unwrap();
+        populate(&bus, 10_000_000);
+        if let Some(paused) = said {
+            keeper(&bus)
+                .publish_json(1, &lamp_msgs::Pause { paused })
+                .unwrap();
+        }
+        let mut service = runtime::Service::new(&bus, Catalogue::builtin(), true, "test").unwrap();
+        let output = service.step(|| 10_000_000, runtime::unix_ms());
+        let mut body = serde_json::to_value(output.body.expect("a body request")).unwrap();
+        let mut light = serde_json::to_value(output.light.expect("a light request")).unwrap();
+        body["lease"].take();
+        light["lease"].take();
+        (body, light)
+    };
+    assert_eq!(asked(None), asked(Some(false)));
+}

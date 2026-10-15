@@ -11,6 +11,8 @@ serde_json.workspace = true
 lamp-msgs = { path = "../msgs" }
 lamp-bus = { path = "../bus" }
 lamp-ipc = { path = "../ipc" }
+# The keeper's pause, read as the body reads it (`lamp_body::pause_in`).
+lamp-body = { path = "../body" }
 base64 = "0.22"
 
 [lints]

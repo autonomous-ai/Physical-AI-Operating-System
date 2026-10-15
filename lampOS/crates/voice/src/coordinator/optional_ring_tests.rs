@@ -37,6 +37,7 @@ fn fixture_with_command(directory: &SessionDirectory, command: &str) -> (Rig, Pe
             turn_taking: TurnTaking::VadOnly,
             playout_start: PlayoutStart::default(),
             endpoint: None,
+            paused: Box::new(|| false),
         },
         Peers {
             speaker: speaker_peer,

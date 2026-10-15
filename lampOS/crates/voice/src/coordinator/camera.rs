@@ -633,6 +633,7 @@ mod tests {
             turn_taking: TurnTaking::VadOnly,
             playout_start: PlayoutStart::default(),
             endpoint: None,
+            paused: Box::new(|| false),
         };
         let boot = new_boot().unwrap();
         let mut owner = Controller::new(boot, now());

@@ -342,7 +342,31 @@ struct Rig {
     microphone: crate::options::Microphone,
     /// Opt-in end-of-turn worker client; its process is not a `Rig` child.
     endpoint: Option<EndpointRig>,
+    /// Whether the keeper has paused the lamp ([`keeper_pause`]).
+    paused: KeeperPause,
 }
+
+/// Whether the keeper has paused the lamp, asked once a loop.
+type KeeperPause = Box<dyn FnMut() -> bool>;
+
+/// The voice's one look at `lamp/pause` (`docs/keeper.md`, "Named states
+/// and the pause"), read as the body reads it: from the kept value, at most
+/// once a second, never waiting longer than a file read. Nothing kept, or a
+/// bus it cannot reach, is not paused. Paused, the voice takes no new turn
+/// and begins none itself; a turn under way is finished.
+fn keeper_pause(bus: io::Result<lamp_bus::Bus>) -> KeeperPause {
+    let mut pause = bus.ok().map(lamp_body::pause_in::PauseIn::on);
+    Box::new(move || pause.as_mut().is_some_and(|pause| pause.paused()))
+}
+
+/// The provider session a turn nobody asked for may begin on: the hello,
+/// the news, a reminder, the look the lamp said it would take, and the
+/// second look. None while the keeper has paused the lamp; otherwise
+/// exactly the ready session.
+fn unasked_session(cloud: &CloudAvailability, paused: bool) -> Option<u64> {
+    cloud.ready_session().filter(|_| !paused)
+}
+
 impl Rig {
     /// A hand cancellation has already reached the speaker. Deliver revocation
     /// to every remaining child even if one local channel has gone away.
@@ -2069,6 +2093,7 @@ fn spawn_rig(
         playout_start: options.playout_start,
         microphone: options.microphone,
         endpoint,
+        paused: keeper_pause(lamp_bus::Bus::from_environment()),
     })
 }
 
@@ -2588,6 +2613,11 @@ fn conversation_with_controls(
     let mut snapshot = owner.snapshot(now())?;
     let mut highest_known_turn = snapshot.owner().map(|owner| owner.turn());
     rig.publish(snapshot)?;
+    // Paused by the keeper as of the last loop, for the record of a change.
+    let mut was_paused = false;
+    // Whether a sound not taken for the pause has been recorded during it:
+    // once a pause, not once a block.
+    let mut refused_while_paused = false;
     loop {
         let loop_start = Instant::now();
         if let Some(current) = reply.as_ref() {
@@ -2604,6 +2634,23 @@ fn conversation_with_controls(
         }
         termination.check()?;
         let clock = monotonic_us();
+        let paused = (rig.paused)();
+        if paused != was_paused {
+            was_paused = paused;
+            refused_while_paused = false;
+            eprintln!(
+                "lamp-voice: {}",
+                if paused {
+                    "paused by the keeper: no new turn; one under way is finished"
+                } else {
+                    "resumed by the keeper"
+                }
+            );
+            record(
+                trace,
+                json!({"kind":"keeper_pause","paused":paused,"at_us":clock}),
+            )?;
+        }
         if session_clock.startup_expired(Instant::now()) {
             return Err(io::Error::other("voice input never became ready").into());
         }
@@ -3490,6 +3537,22 @@ fn conversation_with_controls(
                                     })
                                 }
                         });
+                    if paused {
+                        // Paused by the keeper: a new sound takes no turn,
+                        // whether or not one is under way; that one goes on.
+                        if let Some(rejection) = admission.release_prospective(monotonic_us())? {
+                            record_input_rejection(trace, rejection)?;
+                        }
+                        detector.clear_prospective();
+                        if !refused_while_paused {
+                            refused_while_paused = true;
+                            record(
+                                trace,
+                                json!({"kind":"input_not_taken_paused","at_us":at_us}),
+                            )?;
+                        }
+                        continue;
+                    }
                     if holding {
                         // Read the clock again: the admission's own must
                         // not be handed a time before its last.
@@ -4235,7 +4298,7 @@ fn conversation_with_controls(
                         && !admission.owns_stream()
                         && !submission_draining
                         && snapshot.listening_ready(now())
-                        && let Some(provider_session) = cloud.ready_session()
+                        && let Some(provider_session) = unasked_session(&cloud, paused)
                     {
                         look_wanted = None;
                         snapshot = commit_written_turn(
@@ -4269,7 +4332,7 @@ fn conversation_with_controls(
             && !admission.owns_stream()
             && !submission_draining
             && snapshot.listening_ready(now())
-            && let Some(provider_session) = cloud.ready_session()
+            && let Some(provider_session) = unasked_session(&cloud, paused)
         {
             let heard_it = second_look.is_for(provider_session);
             second_look.taken();
@@ -4323,7 +4386,7 @@ fn conversation_with_controls(
                 last_capture,
             )
             && playback_mask.available(reminder_now_us)
-            && let Some(provider_session) = cloud.ready_session()
+            && let Some(provider_session) = unasked_session(&cloud, paused)
             && let Some(offer) = idle_reminder_offer(
                 reminders,
                 reply,
@@ -4356,7 +4419,7 @@ fn conversation_with_controls(
             && !admission.owns_stream()
             && !submission_draining
             && snapshot.listening_ready(now())
-            && let Some(provider_session) = cloud.ready_session()
+            && let Some(provider_session) = unasked_session(&cloud, paused)
         {
             arrival.said(clock);
             if arrival.speaks() {
@@ -4407,7 +4470,7 @@ fn conversation_with_controls(
             && !admission.owns_stream()
             && !submission_draining
             && snapshot.listening_ready(now())
-            && let Some(provider_session) = cloud.ready_session()
+            && let Some(provider_session) = unasked_session(&cloud, paused)
             && let Some(told) = news.tell()
         {
             eprintln!(
@@ -5786,6 +5849,7 @@ mod tests {
             turn_taking: TurnTaking::VadOnly,
             playout_start: PlayoutStart::default(),
             endpoint: None,
+            paused: Box::new(|| false),
         };
         let started = Instant::now();
         let mut trace = SessionState::default();
@@ -6024,6 +6088,45 @@ mod tests {
             })
             .unwrap();
         assert!(startup.poll(&mut parent, "provider").is_err());
+    }
+
+    #[test]
+    fn the_keeper_pause_is_read_as_the_body_reads_it() {
+        use lamp_msgs::Pause;
+        // A bus it cannot reach is not paused.
+        assert!(!keeper_pause(lamp_bus::Bus::new("not/absolute"))());
+        let root = std::env::temp_dir().join(format!("lamp-voice-pause-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&root);
+        fs::create_dir_all(&root).unwrap();
+        let bus = lamp_bus::Bus::new(&root).unwrap();
+        // Nothing kept is not paused.
+        assert!(!keeper_pause(Ok(bus.clone()))());
+        let mut keeper = bus
+            .publisher_declared(Pause::TOPIC, &Pause::declaration(), "keeper")
+            .unwrap();
+        keeper.publish_json(1, &Pause { paused: false }).unwrap();
+        assert!(!keeper_pause(Ok(bus.clone()))());
+        keeper.publish_json(2, &Pause { paused: true }).unwrap();
+        assert!(keeper_pause(Ok(bus.clone()))());
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn unasked_turns_wait_for_the_pause_and_are_otherwise_unchanged() {
+        let mut startup = StartupEvents::default();
+        assert_eq!(unasked_session(&startup.cloud, false), None);
+        assert_eq!(unasked_session(&startup.cloud, true), None);
+        startup
+            .cloud
+            .observe(ready_link(1, 1), monotonic_us())
+            .unwrap();
+        // Not paused, exactly the ready session, as before the pause.
+        assert_eq!(
+            unasked_session(&startup.cloud, false),
+            startup.cloud.ready_session()
+        );
+        assert_eq!(unasked_session(&startup.cloud, false), Some(1));
+        assert_eq!(unasked_session(&startup.cloud, true), None);
     }
 
     fn submitted_request() -> CloudRequest {

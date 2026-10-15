@@ -113,6 +113,10 @@ enum Act {
     /// The optional camera stops reporting progress, as a stalled or
     /// unplugged sensor does, while its process keeps serving Stop.
     CameraSilent,
+    /// The keeper pauses the lamp (`lamp/pause` says paused).
+    Pause,
+    /// The keeper resumes it.
+    Resume,
 }
 
 /// How the speaker peer behaves.
@@ -142,6 +146,8 @@ struct Script {
     ring: bool,
     /// Run with the optional camera worker.
     camera: bool,
+    /// The keeper has paused the lamp before the run begins.
+    paused: bool,
 }
 
 impl Script {
@@ -158,6 +164,7 @@ impl Script {
             cleanup_fails: false,
             ring: false,
             camera: false,
+            paused: false,
         }
     }
     fn then(mut self, when: When, act: Act) -> Self {
@@ -492,6 +499,8 @@ struct Peers {
     pending_failure: Option<u64>,
     /// Shared with the privacy thread, which reports it.
     muted: Arc<AtomicBool>,
+    /// What the coordinator reads as the keeper's pause.
+    paused: Arc<AtomicBool>,
     capture_started: bool,
     capture_silent: bool,
     camera: Option<BootId>,
@@ -593,6 +602,8 @@ impl Peers {
                 self.seen.lock().unwrap().abandoned.push("ring");
             }
             Act::CameraSilent => self.camera_silent = true,
+            Act::Pause => self.paused.store(true, Ordering::SeqCst),
+            Act::Resume => self.paused.store(false, Ordering::SeqCst),
             Act::Speak => {
                 let frames = self.seen.lock().unwrap().capture_frames;
                 self.speech_offset = Some(frames);
@@ -1153,6 +1164,7 @@ fn run_in(script: Script, trace: &mut SessionState) -> Run {
         };
         OptionalCamera::new(worker, source)
     });
+    let paused = Arc::new(AtomicBool::new(script.paused));
     let mut rig = Rig {
         microphone: crate::options::Microphone::Mic2,
         end_silence_blocks: None,
@@ -1171,6 +1183,10 @@ fn run_in(script: Script, trace: &mut SessionState) -> Run {
         turn_taking: script.turn_taking,
         playout_start: PlayoutStart::default(),
         endpoint: None,
+        paused: Box::new({
+            let paused = paused.clone();
+            move || paused.load(Ordering::SeqCst)
+        }),
     };
     let mut owner = Controller::new(new_boot().unwrap(), now());
     let boot = owner.snapshot(now()).unwrap().boot();
@@ -1205,6 +1221,7 @@ fn run_in(script: Script, trace: &mut SessionState) -> Run {
                 requests: Vec::new(),
                 pending_failure: None,
                 muted: muted.clone(),
+                paused,
                 capture_started: false,
                 capture_silent: false,
                 camera,
@@ -2014,4 +2031,86 @@ fn duplex_stalled_speaker_is_bounded() {
     // Duplex keeps V1-baseline's playback mask, so its lease reports first.
     assert!(error.contains("speaker write evidence expired"), "{error}");
     assert!((190..=300).contains(&after_ms), "{after_ms} ms");
+}
+
+/// The control run's question, with the lamp paused by the keeper
+/// (`lamp/pause`) from the start.
+fn paused_question() -> Script {
+    Script {
+        paused: true,
+        actions: vec![(When::Block(160), Act::Mute)],
+        ..Script::question(Answer::Complete(12))
+    }
+}
+
+#[test]
+fn a_paused_lamp_takes_no_question_and_says_why() {
+    let _one = one_session();
+    let run = run(paused_question());
+    run.assert_invariants();
+    assert!(is_mute(&run.result), "{:?}", run.result);
+    assert!(run.seen.starts.is_empty(), "a request reached the provider");
+    assert!(run.seen.chunks.is_empty());
+    assert!(run.events("input_admitted").is_empty());
+    assert_eq!(run.events("input_not_taken_paused").len(), 1);
+    let pause = run.events("keeper_pause");
+    assert_eq!(pause.len(), 1);
+    assert_eq!(pause[0]["paused"], true);
+}
+
+#[test]
+fn a_turn_under_way_when_paused_is_finished_and_the_next_is_not_taken() {
+    let _one = one_session();
+    let script = Script {
+        actions: vec![
+            // Paused once the question has gone to the provider, before
+            // its answer is spoken; someone speaks again once it is.
+            (When::InputEnded(1), Act::Pause),
+            (When::Settled(1), Act::Speak),
+            (When::Block(500), Act::Mute),
+        ],
+        ..Script::question(Answer::Complete(12))
+    };
+    let run = run(script);
+    run.assert_invariants();
+    assert!(is_mute(&run.result), "{:?}", run.result);
+    assert_eq!(run.seen.starts.len(), 1, "a second request was taken");
+    let turn = first(&run);
+    assert_eq!(run.outcomes()[&turn], ["audio_written_unscored"]);
+    assert_eq!(
+        run.accepted(turn).iter().map(|c| c.frames).sum::<usize>(),
+        12 * PACKET,
+        "the answer under way was cut"
+    );
+    assert_eq!(run.events("input_admitted").len(), 1);
+    assert_eq!(run.events("input_not_taken_paused").len(), 1);
+}
+
+#[test]
+fn resumed_the_lamp_answers_again() {
+    let _one = one_session();
+    let script = Script {
+        paused: true,
+        actions: vec![
+            (When::Block(120), Act::Resume),
+            (When::Block(130), Act::Speak),
+            (When::Settled(1), Act::Mute),
+        ],
+        ..Script::question(Answer::Complete(12))
+    };
+    let run = run(script);
+    run.assert_invariants();
+    assert!(is_mute(&run.result), "{:?}", run.result);
+    assert_eq!(run.seen.starts.len(), 1);
+    assert_eq!(run.outcomes()[&first(&run)], ["audio_written_unscored"]);
+    // What was said while paused was not taken; what was said after is.
+    let admitted = run.events("input_admitted");
+    assert_eq!(admitted.len(), 1);
+    assert!(admitted[0]["at_us"].as_u64().unwrap() > run.fired_at(Act::Resume));
+    let pause: Vec<_> = run
+        .events("keeper_pause")
+        .iter()
+        .map(|event| event["paused"].clone())
+        .collect();
+    assert_eq!(pause, [true, false]);
 }

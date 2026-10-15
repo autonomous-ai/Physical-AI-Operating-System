@@ -796,6 +796,26 @@ impl NameHeard {
     }
 }
 
+/// Whether the lamp is paused (`lamp/pause`), as the keeper was last told
+/// (`docs/keeper.md`, "Named states and the pause"). A paused part does no
+/// new work and holds what it has; it is still running and ready.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Pause {
+    pub paused: bool,
+}
+
+impl Pause {
+    pub const TYPE: &str = "lamp_msgs/Pause";
+    pub const VERSION: u32 = 1;
+    pub const TOPIC: &str = "lamp/pause";
+
+    /// Said when it changes and kept until the next: a lamp is paused until
+    /// it is resumed, or until the bus is made again at power-up.
+    pub fn declaration() -> Declaration {
+        Declaration::new(Self::TYPE, Self::VERSION, Kind::Latest)
+    }
+}
+
 /// One thing the policy decided (`policy/decisions`): what the question
 /// was about, what was chosen, how likely the policy held it to be right,
 /// and what each judgement behind it was.
@@ -889,6 +909,11 @@ pub fn first_topics() -> Vec<(&'static str, Declaration)> {
 }
 
 /// How `topic` is declared, if it is one of the first topics.
+/// The keeper's topic, separate from the original seventeen.
+pub fn keeper_topics() -> Vec<(&'static str, Declaration)> {
+    vec![(Pause::TOPIC, Pause::declaration())]
+}
+
 pub fn declaration_of(topic: &str) -> Option<Declaration> {
     first_topics()
         .into_iter()
@@ -896,6 +921,7 @@ pub fn declaration_of(topic: &str) -> Option<Declaration> {
         .chain(controls_topics())
         .chain(touch_topics())
         .chain(schedule_topics())
+        .chain(keeper_topics())
         .find_map(|(name, declaration)| (name == topic).then_some(declaration))
 }
 
@@ -1445,6 +1471,20 @@ mod tests {
                  \"answers\":{},\"by\":\"rule\",\"took_ms\":0,\"shadow\":true}"
             )
             .is_err()
+        );
+    }
+
+    #[test]
+    fn the_pause_is_kept_apart_from_the_first_topics_and_still_recognised() {
+        assert!(!first_topics().iter().any(|(name, _)| *name == Pause::TOPIC));
+        let declared = declaration_of(Pause::TOPIC).unwrap();
+        assert_eq!(
+            (
+                declared.type_name.as_str(),
+                declared.kind,
+                declared.period_ms
+            ),
+            (Pause::TYPE, Kind::Latest, None)
         );
     }
 

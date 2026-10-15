@@ -7,7 +7,7 @@ use lamp_keeper::{
     package::{self, Answer, Release},
     units::{self, Systemctl, Systemd},
 };
-use lamp_msgs::{Diagnostic, Health, Level, Voice, VoiceState};
+use lamp_msgs::{Diagnostic, Health, Level, Pause, Voice, VoiceState};
 use std::{
     path::{Path, PathBuf},
     process::ExitCode,
@@ -20,6 +20,7 @@ lamp-keeper [serve] [--act] [--unwell-seconds N] [--most N]
 lamp-keeper status
 lamp-keeper health
 lamp-keeper start|stop|restart PART|lamp
+lamp-keeper pause|resume
 
 serve watches lamp/health on the bus (LAMP_BUS_ROOT, or /run/lampos-bus).
 Without --act it only says, in its journal, which part it would restart.
@@ -37,6 +38,10 @@ its ready, version and pid as JSON for the updater: ready once every part the re
 carries runs.
 status prints every lampOS unit: its state, its build and its health.
 start, stop and restart act on lamp-PART.service, or lampos.target for lamp.
+pause says on lamp/pause that the lamp is paused: each part that honours it
+does no new work and holds what it has (the body rests); resume undoes it.
+stop lamp pauses first, waits up to 45 s for the voice to say it is
+resting, stops lampos.target, and then clears the pause.
 ";
 
 fn main() -> ExitCode {
@@ -53,6 +58,9 @@ fn main() -> ExitCode {
             println!("{}", serde_json::to_string(&answer).unwrap_or_default());
             ExitCode::SUCCESS
         }
+        ["pause"] => say_pause(true),
+        ["resume"] => say_pause(false),
+        ["stop", "lamp"] => stop_lamp(),
         [verb @ ("start" | "stop" | "restart"), part] if units::is_part_name(part) => {
             match Systemctl.command(verb, &units::unit_of(part)) {
                 Ok(()) => ExitCode::SUCCESS,
@@ -64,6 +72,68 @@ fn main() -> ExitCode {
         }
         ["serve", rest @ ..] => serve_with(rest),
         rest => serve_with(rest),
+    }
+}
+
+/// Say on `lamp/pause` whether the lamp is paused. The value is kept on the
+/// bus until the next, so the parts read it whenever they look.
+fn say_pause(paused: bool) -> ExitCode {
+    match Bus::from_environment().and_then(|bus| publish_pause(&bus, paused)) {
+        Ok(()) => ExitCode::SUCCESS,
+        Err(why) => {
+            eprintln!("lamp-keeper: lamp/pause: {why}");
+            ExitCode::FAILURE
+        }
+    }
+}
+
+fn publish_pause(bus: &Bus, paused: bool) -> std::io::Result<()> {
+    bus.publisher_declared(Pause::TOPIC, &Pause::declaration(), NAME)?
+        .publish_json(0, &Pause { paused })
+        .map(|_| ())
+}
+
+/// The longest a stop waits for the voice to finish a turn: task 12's quiet
+/// (docs/surround.md, "the owner protocol").
+const QUIET: Duration = Duration::from_secs(45);
+
+/// Pause, wait for the voice to rest, stop the lamp, clear the pause: a
+/// stop that cuts nobody off.
+fn stop_lamp() -> ExitCode {
+    let bus = Bus::from_environment().ok();
+    if let Some(bus) = &bus {
+        if let Err(why) = publish_pause(bus, true) {
+            eprintln!("lamp-keeper: lamp/pause: {why}");
+        }
+        if !wait_until(QUIET, Duration::from_millis(500), || voice_resting(bus)) {
+            eprintln!("lamp-keeper: the voice did not rest within 45 s; stopping all the same");
+        }
+    }
+    let stopped = Systemctl.command("stop", units::LAMP);
+    // A pause left kept would hold the lamp paused when it is next started.
+    if let Some(bus) = &bus {
+        let _ = publish_pause(bus, false);
+    }
+    match stopped {
+        Ok(()) => ExitCode::SUCCESS,
+        Err(why) => {
+            eprintln!("lamp-keeper: stop lamp: {why}");
+            ExitCode::FAILURE
+        }
+    }
+}
+
+/// True as soon as `done` is, looking every `every`; false after `longest`.
+fn wait_until(longest: Duration, every: Duration, mut done: impl FnMut() -> bool) -> bool {
+    let until = Instant::now() + longest;
+    loop {
+        if done() {
+            return true;
+        }
+        if Instant::now() >= until {
+            return false;
+        }
+        thread::sleep(every);
     }
 }
 
@@ -271,4 +341,45 @@ fn status() -> ExitCode {
         units::status_lines(&units::parse_show(&text), health.as_ref())
     );
     ExitCode::SUCCESS
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_pause_is_kept_on_the_bus_until_resumed() {
+        let root = std::env::temp_dir().join(format!("lamp-keeper-pause-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        std::fs::create_dir_all(&root).unwrap();
+        let bus = Bus::new(&root).unwrap();
+        let kept = || {
+            bus.latest(Pause::TOPIC)
+                .unwrap()
+                .map(|message| message.parse::<Pause>().unwrap().paused)
+        };
+        assert_eq!(kept(), None);
+        publish_pause(&bus, true).unwrap();
+        assert_eq!(kept(), Some(true));
+        publish_pause(&bus, false).unwrap();
+        assert_eq!(kept(), Some(false));
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn waiting_ends_when_it_is_done_or_after_the_longest() {
+        let mut looks = 0;
+        assert!(wait_until(Duration::from_secs(5), Duration::ZERO, || {
+            looks += 1;
+            looks == 3
+        }));
+        assert_eq!(looks, 3);
+        let started = Instant::now();
+        assert!(!wait_until(
+            Duration::from_millis(30),
+            Duration::from_millis(5),
+            || false
+        ));
+        assert!(started.elapsed() >= Duration::from_millis(30));
+    }
 }

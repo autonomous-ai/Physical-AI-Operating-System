@@ -568,7 +568,14 @@ fn run(arguments: Arguments) -> Result<bool, Box<dyn std::error::Error>> {
     let mut cancelled = false;
     // A gesture asked for on the same socket, until the body takes it.
     let gesture_asked = std::cell::Cell::new(None);
+    // Paused by the keeper (`lamp/pause`): it rests and takes nothing new
+    // until resumed. Looked at with the moods, once a step.
+    let mut pause = lamp_bus::Bus::from_environment()
+        .ok()
+        .map(lamp_body::pause_in::PauseIn::on);
+    let paused = std::cell::Cell::new(false);
     let news = || {
+        paused.set(pause.as_mut().is_some_and(|pause| pause.paused()));
         // Everything waiting, and only the newest of it counts.
         let mut latest = None;
         let mut datagram = [0u8; 128];
@@ -580,6 +587,10 @@ fn run(arguments: Arguments) -> Result<bool, Box<dyn std::error::Error>> {
                 },
                 Err(_) => break,
             }
+        }
+        if paused.get() {
+            gesture_asked.set(None);
+            return Some((lamp_body::gesture::Mood::Resting, 0));
         }
         latest
     };
@@ -636,6 +647,7 @@ fn run(arguments: Arguments) -> Result<bool, Box<dyn std::error::Error>> {
     let watch = |glimpse: &lamp_body::body::Glimpse| {
         step_said(&notify, &ready);
         if let Some(bus) = bus.as_mut() {
+            bus.paused = paused.get();
             bus.offer(glimpse);
         }
         let due = match said {
@@ -825,15 +837,29 @@ fn run(arguments: Arguments) -> Result<bool, Box<dyn std::error::Error>> {
         standing,
         looking,
         news,
-        || lamp_body::body::Asked {
-            seen: eyes(),
-            gesture: gesture_asked.take(),
-            expression: expression.as_mut().and_then(|asked| {
-                asked.offsets(lamp_ipc::monotonic_us(), |why| {
-                    eprintln!("lamp-body: {why}")
-                })
-            }),
-            called: name.as_mut().is_some_and(|name| name.called()),
+        || {
+            let asked = lamp_body::body::Asked {
+                seen: eyes(),
+                gesture: gesture_asked.take(),
+                expression: expression.as_mut().and_then(|asked| {
+                    asked.offsets(lamp_ipc::monotonic_us(), |why| {
+                        eprintln!("lamp-body: {why}")
+                    })
+                }),
+                called: name.as_mut().is_some_and(|name| name.called()),
+            };
+            // Read all the same, so that nothing kept from before the pause
+            // is acted on after it.
+            if paused.get() {
+                lamp_body::body::Asked {
+                    seen: None,
+                    gesture: None,
+                    expression: None,
+                    called: false,
+                }
+            } else {
+                asked
+            }
         },
         watch,
         || {

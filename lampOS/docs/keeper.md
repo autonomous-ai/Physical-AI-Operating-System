@@ -184,6 +184,27 @@ protocol"), then `systemctl stop lampos.target`. `systemctl stop` alone
 does not pause: the body still folds on its way down, but the voice may be
 ended mid-word.
 
+**How it is asked.** `lamp-keeper pause` says `{"paused": true}` on
+`lamp/pause`, a latched topic ([msgs.md](msgs.md)); `lamp-keeper resume`
+says false. The value is kept on the bus until the next, so a part reads it
+whenever it looks, and a part started while the lamp is paused starts
+paused. `/run` is not kept, so a power-up is never paused. `lamp-keeper stop
+lamp` pauses, waits up to 45 s for `voice/state` to say resting, stops
+`lampos.target`, and then clears the pause, so that the lamp is not paused
+when it is next started.
+
+**Who honours it now.** The body: it reads the kept value at most once a
+second; paused, every mood it is told is rest, and gestures, looks,
+Expression's requests and calls are read and dropped, so nothing from
+before the pause is acted on after it. A standing body folds once its
+awake time has run out (`--awake-seconds`, 90 s on lamp-52e6), as it would
+with nobody there; it is not made to fold sooner. Its report on
+`diagnostics` says `state` `paused` instead of `ready`. The voice and
+Expression do not honour it yet: those are the first builder's parts, and
+each needs one look at `lamp/pause` (`lamp_body::pause_in` is what the body
+does). Until the voice does, `stop lamp` is still the pause, the wait for
+the voice to rest, and the stop.
+
 ## Switches
 
 Every action the keeper takes is behind a switch, off unless set: without
@@ -296,8 +317,13 @@ keeper's `health` says no more than that.
   `CONFIG_RT_GROUP_SCHED`, so its real-time threads should start in any
   slice; lamp-52e6 still runs it in `system.slice`, as lamp-4ace does.
 - The voice's limit of ten starts in ten minutes.
-- The pause, in any part: none honours one yet. The update and reset
-  choreography (task 12's owner protocol) and a command topic on the bus
-  are not built.
+- The pause on a lamp: shown with host tests only (the kept value read
+  and cleared, the body's report saying `paused`). The voice and
+  Expression do not honour it yet (above).
+- The update choreography is `lamp-update`'s (#737, second builder):
+  quiet judged from the bus, each part switched and checked, rolled back
+  if unwell. The reset of task 12 waits on setup, which the owner has not
+  decided. The keeper takes no command from the bus but the pause: starting
+  and stopping parts stays on its command line.
 - lamp-4ace's units are unchanged here: they have no target, no slices and
   no watchdog.

@@ -173,6 +173,15 @@ pub fn health(glimpse: &Glimpse, resisted: u32) -> Diagnostic {
     }
 }
 
+/// The state said in `report` becomes `paused`.
+fn said_paused(report: &mut Diagnostic) {
+    for value in &mut report.values {
+        if value.key == lamp_keeper::STATE {
+            value.value = lamp_keeper::PartState::Paused.as_str().to_owned();
+        }
+    }
+}
+
 /// A joint by its servo's number, for a person.
 fn joint_word(id: u8) -> &'static str {
     usize::from(id)
@@ -256,7 +265,8 @@ pub fn stopped(stop: &Stop) -> Diagnostic {
 
 /// What the thread is given.
 enum Out {
-    Step(Glimpse),
+    /// A step, and whether the lamp is paused.
+    Step(Glimpse, bool),
     Stopped(Diagnostic),
 }
 
@@ -266,6 +276,8 @@ pub struct BusOut {
     thread: Option<thread::JoinHandle<()>>,
     /// Steps the thread had no room for.
     pub let_go: u64,
+    /// The lamp is paused (`lamp/pause`): the state it says is `paused`.
+    pub paused: bool,
 }
 
 /// What the publishing thread holds between two steps.
@@ -304,7 +316,7 @@ impl Publishing {
         u64::try_from(self.started.elapsed().as_micros()).unwrap_or(u64::MAX)
     }
 
-    fn step(&mut self, glimpse: &Glimpse) {
+    fn step(&mut self, glimpse: &Glimpse, paused: bool) {
         let now = Instant::now();
         let state = joint_state(glimpse, self.before);
         self.before = Some((glimpse.step, in_order(glimpse).0));
@@ -320,10 +332,13 @@ impl Publishing {
         self.since_report = Some(since);
         if since >= REPORT_EVERY {
             self.since_report = Some(0);
-            let report = health(
+            let mut report = health(
                 glimpse,
                 u32::try_from(self.resisted.len()).unwrap_or(u32::MAX),
             );
+            if paused {
+                said_paused(&mut report);
+            }
             let _ = self.health.publish_json(self.at_us(), &report);
         }
     }
@@ -353,7 +368,7 @@ impl BusOut {
         let thread = thread::Builder::new().name("bus".into()).spawn(move || {
             for out in offered {
                 match out {
-                    Out::Step(glimpse) => publishing.step(&glimpse),
+                    Out::Step(glimpse, paused) => publishing.step(&glimpse, paused),
                     Out::Stopped(report) => {
                         let at_us = publishing.at_us();
                         let _ = publishing.health.publish_json(at_us, &report);
@@ -365,6 +380,7 @@ impl BusOut {
             steps,
             thread: Some(thread),
             let_go: 0,
+            paused: false,
         })
     }
 
@@ -374,7 +390,11 @@ impl BusOut {
         if !glimpse.step.is_multiple_of(EVERY_STEPS) {
             return;
         }
-        if self.steps.try_send(Out::Step(*glimpse)).is_err() {
+        if self
+            .steps
+            .try_send(Out::Step(*glimpse, self.paused))
+            .is_err()
+        {
             self.let_go += 1;
         }
     }
@@ -490,6 +510,23 @@ mod tests {
                 .velocity
                 .is_empty()
         );
+    }
+
+    #[test]
+    fn a_paused_body_says_paused_and_nothing_else_changes() {
+        let well = health(&glimpse(50), 0);
+        let mut paused = well.clone();
+        said_paused(&mut paused);
+        let state = |report: &Diagnostic| {
+            report
+                .values
+                .iter()
+                .find(|value| value.key == lamp_keeper::STATE)
+                .map(|value| value.value.clone())
+        };
+        assert_eq!(state(&well).as_deref(), Some("ready"));
+        assert_eq!(state(&paused).as_deref(), Some("paused"));
+        assert_eq!((paused.level, &paused.message), (well.level, &well.message));
     }
 
     #[test]

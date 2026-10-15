@@ -382,9 +382,13 @@ fn note(task: &Value, data: &Value, age_ms: u64) -> Option<String> {
              starting with something like \"Oh, {who} just finished…\" (or \"earlier\" if it was a while ago), then the gist of the result in plain words. \
              Do not read out code, lists, file paths or links; if there is more than fits, say the rest is on their computer. No question at the end.)"
         ),
+        "needs-input" if answer.is_empty() && more.is_empty() => format!(
+            "{opening} {who} has stopped and is waiting for them about the task they gave it: \"{asked}\". {})",
+            waiting(who, "")
+        ),
         "needs-input" => format!(
-            "{opening} {who} has stopped to ask them something about the task they gave it: \"{asked}\". What it says: \"{answer}{more}\". \
-             Tell them briefly that {who} needs them, and ask its question in your own words, in one short sentence.)"
+            "{opening} {who} has stopped and is waiting for them about the task they gave it: \"{asked}\". What it last said: \"{answer}{more}\". {})",
+            waiting(who, answer)
         ),
         _ => format!(
             "{opening} {who} stopped without finishing the task they gave it: \"{asked}\". What it last said: \"{answer}{more}\". \
@@ -392,6 +396,26 @@ fn note(task: &Value, data: &Value, age_ms: u64) -> Option<String> {
         ),
     };
     fitted(&asked, &answer, cut, say)
+}
+
+/// What the model is told to say while the agent waits for the person
+/// (`needs-input`), in both the news and `check_agent_task`. Harness
+/// 0.4.6's `show` carries no question while it waits (probed 2026-10-15,
+/// #770): `answer` is empty or the previous answer. So the model is never
+/// asked to voice a question it was not given.
+pub(crate) fn waiting(who: &str, answer: &str) -> String {
+    let tell = format!(
+        "Tell them once, in one short sentence, that {who} is waiting for them on their computer and that they can answer it there."
+    );
+    if answer.is_empty() {
+        format!(
+            "{tell} It did not say what it is asking: do not ask a question for it or guess one."
+        )
+    } else {
+        format!(
+            "{tell} If what it last said is a question to them, you may pass it on in your own words; otherwise do not ask a question for it or guess one."
+        )
+    }
 }
 
 /// Said after an answer that was cut.
@@ -505,11 +529,16 @@ mod tests {
         let later = super::note(&task("codex", json!([])), &finished, JUST_MS + 1).unwrap();
         assert!(later.contains("Codex a while ago"), "{later}");
         // Asking, and stopped.
+        // Asking with words: waiting on their computer, by name; what it
+        // last said may be passed on only if it is a question.
         let asking = json!({"state":"needs-input","answer":"Which folder?"});
+        let waits = super::note(&task("claude", json!([])), &asking, 0).unwrap();
         assert!(
-            super::note(&task("claude", json!([])), &asking, 0)
-                .unwrap()
-                .contains("ask its question")
+            waits.contains("Claude Code is waiting for them on their computer")
+                && waits.contains("What it last said: \"Which folder?\"")
+                && waits.contains("you may pass it on")
+                && !waits.contains("ask its question"),
+            "{waits}"
         );
         let stopped = json!({"state":"stopped","answer":"I could not reach the repository.","truncated":true});
         let told = super::note(&task("claude", json!([])), &stopped, 0).unwrap();
@@ -606,6 +635,47 @@ mod tests {
              starting with something like \"Oh, Claude Code just finished…\" (or \"earlier\" if it was a while ago), then the gist of the result in plain words. \
              Do not read out code, lists, file paths or links; if there is more than fits, say the rest is on their computer. No question at the end.)"
         );
+    }
+
+    /// Harness 0.4.6 in auto mode, waiting on a question (#770): `show`
+    /// says `needs-input` with no question text. The person is told the
+    /// agent, by name, is waiting for them on their computer, and the
+    /// model is never asked to voice a question it was not given.
+    #[test]
+    fn an_agent_waiting_with_no_question_is_told_as_waiting_on_their_computer() {
+        let waiting = json!({"state":"needs-input","answer":"","truncated":false});
+        for (engine, who) in [
+            ("claude", "Claude Code"),
+            ("codex", "Codex"),
+            ("opencode", "OpenCode"),
+        ] {
+            let told = note(&task(engine, json!([])), &waiting, 0).unwrap();
+            assert_eq!(
+                told,
+                format!(
+                    "(Nobody has spoken. News from work you handed over for the person. {who} has stopped and is waiting for them about the task they gave it: \
+                     \"Suggest three 'friendly' names for a desk lamp\". \
+                     Tell them once, in one short sentence, that {who} is waiting for them on their computer and that they can answer it there. \
+                     It did not say what it is asking: do not ask a question for it or guess one.)"
+                )
+            );
+            assert!(!told.contains("What it last said") && !told.contains("ask its question"));
+        }
+    }
+
+    /// The other states' notes are byte for byte what they were before
+    /// #770 (idle is pinned in `every_note_fits_in_one_written_turn`).
+    #[test]
+    fn a_stop_or_a_failure_is_told_as_before() {
+        for state in ["stopped", "failed"] {
+            let data = json!({"state":state,"answer":"I could not reach the repository.","truncated":false});
+            assert_eq!(
+                note(&task("claude", json!([])), &data, 0).unwrap(),
+                "(Nobody has spoken. News from work you handed over for the person. Claude Code stopped without finishing the task they gave it: \
+                 \"Suggest three 'friendly' names for a desk lamp\". What it last said: \"I could not reach the repository.\". \
+                 Tell them in one short, plain sentence, without alarm.)"
+            );
+        }
     }
 
     #[test]

@@ -337,7 +337,10 @@ As root, on a lamp with the base image (`crates/update/src/install.rs`):
    reviewer on #815). What it is about to write is recorded in
    `state.json` (`settings_writing`) before the first write, and what it
    wrote after the last, so a run stopped or failed in between leaves no
-   file of install's that the next run takes for the lamp's.
+   file of install's that the next run takes for the lamp's. A file that is
+   install's only by such a record is recorded as install's before the next
+   run's own intent takes the record's place, so two failed runs in a row
+   lose nothing either (the reviewer on #815, 21:42).
 6. Writes `/etc/lampOS/zone.env` from the system's zone if it is not there.
    It never writes `/etc/lampOS/body/lamp.env`, and says that the body waits
    for it.

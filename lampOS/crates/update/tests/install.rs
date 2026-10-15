@@ -821,3 +821,81 @@ fn a_setting_written_but_not_yet_recorded_is_still_installs() {
     assert_eq!(on_disk.settings[path], sha256_hex(b"one hundred\n"));
     assert!(on_disk.settings_writing.is_empty());
 }
+
+/// The reviewer on #815 (21:42): the first run writes one setting and fails
+/// on the next; the second, with newer defaults, fails on its first write;
+/// the third must still know the first file as install's. Each run's own
+/// record is what it saved before it failed.
+#[test]
+fn two_failed_runs_in_a_row_keep_a_written_setting_as_installs() {
+    let lamp = Lamp::new(188, &[]);
+    let (first, second) = ("/etc/lampOS/a/first.json", "/etc/lampOS/a/second.json");
+    // A folder where a file's write goes beside it: that write fails, and
+    // the file itself is still there to read.
+    let block = |path: &str| {
+        let name = Path::new(path)
+            .file_name()
+            .unwrap()
+            .to_string_lossy()
+            .into_owned();
+        let beside = lamp.on(path).with_file_name(format!(".{name}.lamp-update"));
+        fs::create_dir_all(beside.join("in-the-way")).unwrap();
+        beside
+    };
+    let run = |defaults: &[(&str, &str)], on_disk: &State, blocked: &str| {
+        let mut state = on_disk.clone();
+        let mut saved: Vec<State> = Vec::new();
+        let result = install::settings(
+            &lamp.config,
+            defaults,
+            &mut state,
+            &mut Vec::new(),
+            &mut |_| {},
+            &mut |state| {
+                saved.push(state.clone());
+                if saved.len() == 1 && !blocked.is_empty() {
+                    block(blocked);
+                }
+                Ok(())
+            },
+        );
+        (
+            result,
+            saved.last().cloned().unwrap_or_else(|| on_disk.clone()),
+        )
+    };
+
+    let (result, on_disk) = run(
+        &[(first, "99\n"), (second, "99\n")],
+        &State::default(),
+        second,
+    );
+    assert!(result.unwrap_err().starts_with(second));
+    assert_eq!(fs::read_to_string(lamp.on(first)).unwrap(), "99\n");
+    fs::remove_dir_all(lamp.on("/etc/lampOS/a/.second.json.lamp-update")).unwrap();
+
+    let (result, on_disk) = run(&[(first, "100\n"), (second, "100\n")], &on_disk, first);
+    assert!(result.unwrap_err().starts_with(first));
+    assert_eq!(fs::read_to_string(lamp.on(first)).unwrap(), "99\n");
+    fs::remove_dir_all(lamp.on("/etc/lampOS/a/.first.json.lamp-update")).unwrap();
+
+    let mut said = Vec::new();
+    let mut state = on_disk;
+    let mut changed = Vec::new();
+    install::settings(
+        &lamp.config,
+        &[(first, "100\n"), (second, "100\n")],
+        &mut state,
+        &mut changed,
+        &mut |line| said.push(line.to_owned()),
+        &mut |_| Ok(()),
+    )
+    .unwrap();
+    assert_eq!(said, Vec::<String>::new(), "nothing kept as the lamp's own");
+    assert_eq!(
+        changed,
+        [format!("wrote {first}"), format!("wrote {second}")]
+    );
+    assert_eq!(fs::read_to_string(lamp.on(first)).unwrap(), "100\n");
+    assert!(state.settings_writing.is_empty());
+}

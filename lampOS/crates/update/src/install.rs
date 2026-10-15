@@ -489,7 +489,17 @@ pub fn settings(
             Some(now) if !installs(&now) => say(&format!(
                 "kept {path}: this lamp's own, not a default an install wrote; the build's default is not written"
             )),
-            _ => writes.push((*path, *text, default)),
+            _ => {
+                // A file that is install's only by an earlier run's intent
+                // (written, then that run failed or stopped) is settled as
+                // install's now, before this run's intent takes the
+                // intent's place: a second failure must not lose it (the
+                // reviewer on #815, 21:42).
+                if let Some(now) = now {
+                    state.settings.insert((*path).to_owned(), now);
+                }
+                writes.push((*path, *text, default));
+            }
         }
     }
     if !writes.is_empty() {

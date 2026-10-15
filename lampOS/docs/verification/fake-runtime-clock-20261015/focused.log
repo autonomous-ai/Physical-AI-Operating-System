@@ -1,0 +1,31 @@
+   Compiling lamp-ipc v0.1.0 (/private/tmp/lampos-tests-fake-clock/lampOS/crates/ipc)
+   Compiling lamp-bus v0.1.0 (/private/tmp/lampos-tests-fake-clock/lampOS/crates/bus)
+   Compiling lamp-msgs v0.1.0 (/private/tmp/lampos-tests-fake-clock/lampOS/crates/msgs)
+   Compiling lamp-turn-owner v0.1.0 (/private/tmp/lampos-tests-fake-clock/lampOS/crates/turn-owner)
+   Compiling lamp-camera v0.1.0 (/private/tmp/lampos-tests-fake-clock/lampOS/crates/camera)
+   Compiling lamp-keeper v0.1.0 (/private/tmp/lampos-tests-fake-clock/lampOS/crates/keeper)
+   Compiling lamp-turn-end-wire v0.1.0 (/private/tmp/lampos-tests-fake-clock/lampOS/crates/turn-end-wire)
+   Compiling lamp-gemini v0.1.0 (/private/tmp/lampos-tests-fake-clock/lampOS/crates/gemini)
+   Compiling lamp-body v0.1.0 (/private/tmp/lampos-tests-fake-clock/lampOS/crates/body)
+   Compiling lamp-controls v0.1.0 (/private/tmp/lampos-tests-fake-clock/lampOS/crates/controls)
+   Compiling lamp-schedule v0.1.0 (/private/tmp/lampos-tests-fake-clock/lampOS/crates/schedule)
+   Compiling lamp-audio v0.1.0 (/private/tmp/lampos-tests-fake-clock/lampOS/crates/audio)
+   Compiling lamp-ring v0.1.0 (/private/tmp/lampos-tests-fake-clock/lampOS/crates/ring)
+   Compiling lamp-observer v0.1.0 (/private/tmp/lampos-tests-fake-clock/lampOS/crates/observer)
+   Compiling lamp-voice v0.1.0 (/private/tmp/lampos-tests-fake-clock/lampOS/crates/voice)
+   Compiling lamp-turn-end v0.1.0 (/private/tmp/lampos-tests-fake-clock/lampOS/crates/turn-end)
+   Compiling lamp-sound-fixtures v0.1.0 (/private/tmp/lampos-tests-fake-clock/lampOS/crates/sound-fixtures)
+   Compiling lamp-voice-eval v0.1.0 (/private/tmp/lampos-tests-fake-clock/lampOS/crates/voice-eval)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 55.41s
+     Running unittests src/lib.rs (/private/tmp/lampos-tests-relay-clock/lampOS/target/debug/deps/lamp_voice_eval-a7d94099255692bf)
+
+running 4 tests
+test physical::fake_lamp::clock_tests::a_failed_poll_hook_stops_before_another_tick_or_final_trace ... ok
+test physical::fake_lamp::clock_tests::a_pure_clock_keeps_tick_boundaries_and_frozen_polls_distinct ... {"seconds":0,"status":"listening_ready"}
+ok
+test physical::fake_lamp::clock_tests::completed_polls_prove_room_consumption_and_keep_cue_fault_timing ... {"seconds":8,"status":"listening_ready"}
+ok
+test physical::fake_lamp::clock_tests::controlled_serve_is_refused_before_clock_hooks_or_output ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 84 filtered out; finished in 0.16s
+

@@ -1,0 +1,24 @@
+   Compiling lamp-bus v0.1.0 (/private/tmp/lampos-tests-fake-clock/lampOS/crates/bus)
+   Compiling lamp-camera v0.1.0 (/private/tmp/lampos-tests-fake-clock/lampOS/crates/camera)
+   Compiling lamp-msgs v0.1.0 (/private/tmp/lampos-tests-fake-clock/lampOS/crates/msgs)
+   Compiling lamp-keeper v0.1.0 (/private/tmp/lampos-tests-fake-clock/lampOS/crates/keeper)
+   Compiling lamp-body v0.1.0 (/private/tmp/lampos-tests-fake-clock/lampOS/crates/body)
+   Compiling lamp-controls v0.1.0 (/private/tmp/lampos-tests-fake-clock/lampOS/crates/controls)
+   Compiling lamp-schedule v0.1.0 (/private/tmp/lampos-tests-fake-clock/lampOS/crates/schedule)
+   Compiling lamp-voice v0.1.0 (/private/tmp/lampos-tests-fake-clock/lampOS/crates/voice)
+   Compiling lamp-voice-eval v0.1.0 (/private/tmp/lampos-tests-fake-clock/lampOS/crates/voice-eval)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 35.93s
+────────────
+ Nextest run ID 5f0e462e-2620-4265-813f-f847e860f0e9 with nextest profile: default
+    Starting 9 tests across 1 binary (85 tests skipped)
+        PASS [   0.206s] (1/9) lamp-voice-eval physical::fake_lamp::clock_tests::a_failed_poll_hook_stops_before_another_tick_or_final_trace
+        PASS [   0.156s] (2/9) lamp-voice-eval physical::fake_lamp::clock_tests::a_pure_clock_keeps_tick_boundaries_and_frozen_polls_distinct
+        PASS [   0.176s] (3/9) lamp-voice-eval physical::fake_lamp::clock_tests::completed_polls_prove_room_consumption_and_keep_cue_fault_timing
+        PASS [   0.131s] (4/9) lamp-voice-eval physical::fake_lamp::clock_tests::controlled_serve_is_refused_before_clock_hooks_or_output
+        PASS [   0.139s] (5/9) lamp-voice-eval physical::mac::backend_clock_tests::an_unrepresentable_player_timestamp_is_rejected_before_delivery
+        PASS [   0.135s] (6/9) lamp-voice-eval physical::mac::backend_clock_tests::backend_reads_only_the_supplied_clock_and_the_default_stays_on_host_time
+        PASS [   0.135s] (7/9) lamp-voice-eval physical::mac::backend_clock_tests::immediate_player_keeps_datagrams_and_reports_in_the_selected_clock_domain
+        PASS [   0.154s] (8/9) lamp-voice-eval physical::mac::backend_clock_tests::ping_receipts_and_each_cue_decision_take_their_own_clock_sample
+        PASS [   0.467s] (9/9) lamp-voice-eval physical::mac::backend_clock_tests::post_end_drain_and_transport_reap_finish_with_a_frozen_clock
+────────────
+     Summary [   1.703s] 9 tests run: 9 passed, 85 skipped

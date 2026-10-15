@@ -1,0 +1,12 @@
+{
+  "lampOS/crates/voice-eval/src/physical/fake_lamp.rs": {
+    "unchanged": true,
+    "sha256": "fecb70fc79a85675749bd4208cfa5ec760d2ea5c56b2b6865acd56caee57649d"
+  },
+  "lampOS/crates/voice-eval/src/physical/fake_runtime_clock_tests.rs": {
+    "unchanged": true,
+    "sha256": "06572780eeb16d10975437ddcec6b1b82944d570373d10312e763f4a2c73467a"
+  },
+  "recorded_from_date": "2026-10-15 23:22:46 +0700",
+  "rebase_onto": "b60062b861f8c2350675c87eb3802a7ceac4c86a"
+}

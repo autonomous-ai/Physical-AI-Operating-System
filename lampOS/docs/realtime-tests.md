@@ -286,3 +286,34 @@ samples, a completed session drained and reaped with a frozen clock, identical
 fake-room datagrams and report shape, timestamp overflow refusal, and the
 unchanged system defaults. Existing test assertions, identities, profiles and
 workflows remain unchanged. This entry point alone establishes no speedup.
+
+## Finite fake-runtime clock and poll boundary
+
+`physical::fake_lamp::run_with_clock_and_poll` is an explicit library seam for
+coordinated finite fixtures. The clock callback returns `MonoTime` without
+advancing it. A separate poll hook runs after the original tick, event/stdout
+drain, production `CueSink` scan, fault relay and room-input consumption. The
+snapshot counts complete flushed stdout lines, successfully decoded and
+injected room datagrams, and trace records. Its poll number advances even when
+time is frozen, so a sender's successful datagram write cannot masquerade as
+runtime consumption.
+
+The wrapper keeps the original base sample and fresh clock reads for the tick,
+CueSink and fault relay. Runtime ticks remain 10 ms; the stale-cue fault still
+holds the original bytes for 150 ms with their original 100 ms expiry. The
+existing `run` and CLI keep system time, the two-millisecond sleep between
+continuing polls, and their existing serve path. The controlled entrypoint
+rejects serve before producing output because that separate runtime has no
+controlled-clock seam yet. No CLI flag or environment variable enables this
+entrypoint.
+
+A hook may acknowledge completed work and park until the coordinator's next
+poll, with a separate bounded host watchdog supplied by that coordinator. The
+terminal poll reports that the simulated runtime ended; the final trace is
+written and synced only after the hook returns. That snapshot does not prove
+file durability or subprocess exit. The outer fixture must still wait for the
+actual child and relay completion. Focused tests cover frozen-time polling,
+the exact tick boundary, consumed room input before its next tick, production
+cue delivery and the unchanged stale-completion delay, serve refusal, and hook
+failure propagation. This preparatory seam does not migrate the loopback
+identities or establish a speedup.

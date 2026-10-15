@@ -1,0 +1,31 @@
+run 1 start 13:31:04 { 10.71 13.69 12.92 }
+run 1 end 13:38:14 rc=101 { 36.72 30.34 21.56 } 987 passed 1 failed 8 ignored
+test coordinator::motor::tests::native_head::native_head_four_explicit_actions_use_original_owner_and_reap ... FAILED
+---- coordinator::motor::tests::native_head::native_head_four_explicit_actions_use_original_owner_and_reap stdout ----
+run 2 start 13:38:14 { 36.72 30.34 21.56 }
+run 2 end 13:45:02 rc=0 { 15.39 18.34 18.70 } 1181 passed 0 failed 8 ignored
+run 3 start 13:45:02 { 15.39 18.34 18.70 }
+run 3 end 13:51:50 rc=0 { 11.89 16.58 18.28 } 1181 passed 0 failed 8 ignored
+run 4 start 13:51:50 { 11.89 16.58 18.28 }
+run 4 end 13:58:32 rc=0 { 16.96 16.93 17.87 } 1181 passed 0 failed 8 ignored
+run 5 start 13:58:32 { 16.96 16.93 17.87 }
+run 5 end 14:05:23 rc=101 { 17.79 18.31 18.09 } 988 passed 1 failed 8 ignored
+test coordinator::motor::tests::native_head::native_head_absence_of_explicit_next_action_never_schedules_return ... FAILED
+---- coordinator::motor::tests::native_head::native_head_absence_of_explicit_next_action_never_schedules_return stdout ----
+run 6 start 14:05:23 { 17.79 18.31 18.09 }
+run 6 end 14:12:14 rc=0 { 19.45 19.00 18.47 } 1181 passed 0 failed 8 ignored
+run 7 start 14:12:14 { 19.45 19.00 18.47 }
+run 7 end 14:19:05 rc=101 { 16.38 17.71 17.89 } 986 passed 2 failed 8 ignored
+test coordinator::motor::tests::native_head::native_head_replayed_receipt_and_changed_camera_grant_are_terminal ... FAILED
+test coordinator::motor::tests::native_head::native_head_six_explicit_actions_prepare_profile_then_new_requests ... FAILED
+---- coordinator::motor::tests::native_head::native_head_replayed_receipt_and_changed_camera_grant_are_terminal stdout ----
+---- coordinator::motor::tests::native_head::native_head_six_explicit_actions_prepare_profile_then_new_requests stdout ----
+run 8 start 14:19:05 { 16.38 17.71 17.89 }
+run 8 end 14:25:50 rc=101 { 29.57 21.40 19.24 } 987 passed 2 failed 8 ignored
+test remember::tests::kept_out_reminder_is_not_journalled_by_days_but_next_exchange_is ... FAILED
+---- remember::tests::kept_out_reminder_is_not_journalled_by_days_but_next_exchange_is stdout ----
+test remember::tests::kept_out_reminder_is_not_journalled_by_days_but_next_exchange_is ... FAILED
+run 9 start 14:25:50 { 29.57 21.40 19.24 }
+run 9 end 14:32:42 rc=0 { 21.94 22.79 21.44 } 1181 passed 0 failed 8 ignored
+run 10 start 14:32:42 { 21.94 22.79 21.44 }
+run 10 end 14:39:22 rc=0 { 18.76 21.19 21.08 } 1181 passed 0 failed 8 ignored

@@ -97,7 +97,7 @@ frame/capture identity exhaustion faults.
 ## Explicit negotiation and timestamp meaning
 
 The first codec contract is MJPG only. Configuration requires a source label,
-exact dimensions (up to 1280x720), an optional rational frame interval, a frame
+exact dimensions (up to 1280x960; 1280x960 since #836, for the eyes' full look), an optional rational frame interval, a frame
 byte ceiling, and 2–4 requested buffers. Actual negotiation must report the same
 source and dimensions, MJPG, nonzero bounded `size_image`, and 2 through the
 requested number of buffers. If an interval was explicitly requested, an actual

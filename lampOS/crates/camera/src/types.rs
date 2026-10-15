@@ -3,7 +3,9 @@ use std::{fmt, num::NonZeroU64};
 
 pub const MAX_FRAME_BYTES: usize = 2 * 1024 * 1024;
 pub const MAX_WIDTH: u32 = 1280;
-pub const MAX_HEIGHT: u32 = 720;
+/// 1280 by 960 is the whole 4:3 picture of the lamps' camera at 1280 across: a
+/// full look asks for it (`lamp-eyes --full-look`, #836).
+pub const MAX_HEIGHT: u32 = 960;
 pub const POLL_TARGET_US: u64 = 2_000;
 pub const REVOKE_TARGET_US: u64 = 20_000;
 pub const READ_BUDGET_US: u64 = 10_000;

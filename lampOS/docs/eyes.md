@@ -210,6 +210,18 @@ see faces. One mode, opened once, costs a larger decode on every look
 instead, and nothing at the moment of asking. A camera that does not open at
 the full size is opened at 320 by 240 the next time, and at the full size
 again the time after that; the still is then whatever that stream gives.
+A stream that opened at 320 by 240 stays at it until the camera next closes
+(the microphone muted, a fault): closing it on purpose to try the full size
+again would risk the minutes without a camera that it is there to avoid.
+
+The size is at most 1280 by 960, the camera runtime's bound
+([camera-runtime.md](camera-runtime.md)); larger is refused at start. On
+lamp-52e6 on 2026-10-15 the first build asked for 1280 by 960 against the
+runtime's old bound of 1280 by 720: every open at the full size was refused
+before the device was touched ("camera did not open: InvalidData None"),
+and the eyes ran at 320 by 240. The bound is now 960 high; 1280 by 960 is
+the whole 4:3 picture of this camera at 1280 across (it also lists
+1600x1200 up to 3264x2448, which the runtime does not take).
 
 Measured on a laptop (Apple M-series, release build), not yet on a lamp: a
 1280 by 960 synthetic frame of 548 KB made into a 768 by 576 still of

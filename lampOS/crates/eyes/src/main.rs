@@ -76,12 +76,14 @@ fn keeps_working_frame(full_look: Option<(u32, u32)>) -> bool {
     full_look.is_none()
 }
 
-/// `WIDTHxHEIGHT`, each even, from 320 by 240 to 4096 by 4096.
+/// `WIDTHxHEIGHT`, each even, from 320 by 240 to 1280 by 960: the camera's
+/// bounds (`lamp_camera::MAX_WIDTH`, `MAX_HEIGHT`), so that a size it would
+/// refuse is refused here, at start, and not at every open.
 fn size_of(value: &str) -> Option<(u32, u32)> {
     let (width, height) = value.split_once('x')?;
     let (width, height) = (width.parse::<u32>().ok()?, height.parse::<u32>().ok()?);
-    ((320..=4_096).contains(&width)
-        && (240..=4_096).contains(&height)
+    ((320..=1_280).contains(&width)
+        && (240..=960).contains(&height)
         && width % 2 == 0
         && height % 2 == 0)
         .then_some((width, height))
@@ -149,7 +151,7 @@ fn parse(args: impl IntoIterator<Item = OsString>) -> Result<Option<Arguments>, 
             }
             Some("--full-look") if full_look.is_none() => {
                 full_look = Some(value.to_str().and_then(size_of).ok_or(
-                    "--full-look is WIDTHxHEIGHT, for example 1280x960, from 320x240 to 4096x4096",
+                    "--full-look is WIDTHxHEIGHT, for example 1280x960, from 320x240 to 1280x960",
                 )?);
             }
             Some("--usb") if usb.is_none() => {
@@ -999,6 +1001,8 @@ mod tests {
             "160x120",
             "8192x6144",
             "1281x960",
+            "1600x1200",
+            "1280x962",
             "big",
         ] {
             assert!(
@@ -1012,6 +1016,17 @@ mod tests {
         assert!(parse(args(&[&full[..], &["--full-look", "640x480"]].concat())).is_err());
         // Its ask is not a permission, and says nothing to the camera.
         assert_eq!(lamp_eyes::permit::of(br#"{"look_full":7}"#), None);
+    }
+
+    /// The largest full look is the largest size the camera opens (#836: at
+    /// 1280x960 against a bound of 720 it never opened on lamp-52e6).
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn the_largest_full_look_is_the_camera_s_largest_size() {
+        let (width, height) = (lamp_camera::MAX_WIDTH, lamp_camera::MAX_HEIGHT);
+        assert_eq!(size_of(&format!("{width}x{height}")), Some((width, height)));
+        assert_eq!(size_of(&format!("{}x{height}", width + 2)), None);
+        assert_eq!(size_of(&format!("{width}x{}", height + 2)), None);
     }
 
     #[test]

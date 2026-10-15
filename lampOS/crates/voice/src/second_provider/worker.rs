@@ -7,7 +7,7 @@
 //! conversation thread as a Live session is, with the same tools, and each
 //! turn kept in that thread and the memory's journal as the Live route
 //! keeps its own.
-use super::{ANNOUNCEMENT, Engine, Net, Told, ToolRunner, output_request};
+use super::{ANNOUNCEMENT, Engine, Net, Told, ToolRunner, net::Message, output_request};
 use crate::{
     provider_flow::OutputSender,
     provider_link::{LinkContext, ProviderLink, ProviderLinkState},
@@ -251,15 +251,12 @@ pub fn serve(
             Some(socket) => crate::remember::told_for_session(socket, 0, person.as_deref()),
             None => crate::remember::told(),
         };
-        Told {
-            text: system_message(
-                &character,
-                crate::local_time::told_here(clock).as_deref(),
-                &memory,
-                file.as_deref(),
-            ),
-            whose: person,
-        }
+        system_message(
+            &character,
+            crate::local_time::told_here(clock).as_deref(),
+            &memory,
+            file.as_deref(),
+        )
     };
     let runner: ToolRunner = Arc::new(move |request, name, args| {
         let settings = tools.clone();
@@ -328,19 +325,40 @@ impl Sessions {
 /// is told its instruction (`crate::thread::Recalling`): the character,
 /// the time and place, the memory note, and the thread in the room the
 /// rest leave it, taken first from `file` if the Live route wrote it since.
+///
+/// With it, the person's last exchanges as messages: up to
+/// [`HISTORY_EXCHANGES`] of the last [`HISTORY_WITHIN`]. A Live session keeps
+/// its own, and "and how many live there?" needs the one before. Taken
+/// from the thread under the same lock as the recall, after the thread's
+/// forgetting and reload, so a forgotten exchange is never given back.
 pub(crate) fn system_message(
     character: &str,
     time: Option<&str>,
     memory: &str,
     file: Option<&Path>,
-) -> String {
+) -> Told {
     let told = format!("{character}{}{memory}", time.unwrap_or_default());
     let room = lamp_gemini::MAX_INSTRUCTION_BYTES.saturating_sub(told.len());
-    let thread = crate::thread::current(file, |thread| thread.recall(Instant::now(), room))
-        .flatten()
-        .unwrap_or_default();
-    told + &thread
+    let now = Instant::now();
+    let (thread, recent) = crate::thread::current(file, |thread| {
+        (
+            thread.recall(now, room),
+            thread.recent(now, HISTORY_WITHIN, HISTORY_EXCHANGES),
+        )
+    })
+    .unwrap_or_default();
+    Told {
+        text: told + &thread.unwrap_or_default(),
+        history: recent
+            .into_iter()
+            .flat_map(|(person, lamp)| [Message::user(person), Message::assistant(lamp)])
+            .collect(),
+    }
 }
+
+/// Exchanges given to the chat as messages, and for how long since each.
+pub const HISTORY_EXCHANGES: usize = 6;
+pub const HISTORY_WITHIN: Duration = Duration::from_secs(300);
 
 /// Keep what a turn's output says in the thread, as the Live route keeps
 /// its transcripts: the person's words, the lamp's (not the announcement),
@@ -705,9 +723,33 @@ mod tests {
             &crate::remember::told(),
             Some(&file),
         );
-        assert!(told.starts_with("You are a lamp. It is noon.\n\nYour memory\n"));
-        assert!(told.contains("- coffee black\n"));
-        assert!(told.contains("Person: What should I drink?\nYou: Try some tea. It is calm.\n"));
+        assert!(
+            told.text
+                .starts_with("You are a lamp. It is noon.\n\nYour memory\n")
+        );
+        assert!(told.text.contains("- coffee black\n"));
+        assert!(
+            told.text
+                .contains("Person: What should I drink?\nYou: Try some tea. It is calm.\n")
+        );
+        assert_eq!(
+            told.history,
+            [
+                Message::user("What should I drink?"),
+                Message::assistant("Try some tea. It is calm.")
+            ]
+        );
+        // Forgotten, then another person's turn, then back: nothing of it
+        // is told or given again (first builder's reviewer on #778).
+        crate::thread::THREAD.lock().unwrap().forget();
+        for whose in [Some("sam"), None] {
+            let mut thread = crate::thread::THREAD.lock().unwrap();
+            thread.at_lamp(whose.map(str::to_owned));
+            thread.opening(Instant::now());
+        }
+        let told = system_message("You are a lamp.", None, "", Some(&file));
+        assert!(told.history.is_empty(), "{:?}", told.history);
+        assert!(!told.text.contains("Try some tea"), "{}", told.text);
         std::fs::remove_dir_all(&dir).unwrap();
     }
 }

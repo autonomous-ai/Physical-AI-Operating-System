@@ -148,13 +148,14 @@ order is kept. A written turn is the same from the chat on.
 - **The first words go early.** Until some of the answer is on its way, a
   clause of at least four words ending in a comma, semicolon or colon is
   said on its own (`Sentences::clause`).
-- **The chat is given the last exchanges of the same person.** Up to six,
-  each said within five minutes and kept with whose it was (`Told::whose`,
-  the person the thread was opened for); another person's are never given.
-  They go as user and assistant messages after the system message: a Live
-  session keeps its own, and "and how many people live there?" needs the
-  one before (on lamp-52e6, without it, "there" became the lamp's own
-  city).
+- **The chat is given the person's last exchanges.** Up to six, each said
+  within five minutes, as user and assistant messages after the system
+  message: a Live session keeps its own, and "and how many people live
+  there?" needs the one before (on lamp-52e6, without it, "there" became
+  the lamp's own city). They are read from the thread (`Thread::recent`),
+  under the same lock as its recall and after its forgetting and reload
+  (`thread::current`), so they are only the person's at the lamp and never
+  something forgotten. The route keeps no copy of its own.
 - **Each turn is one person's**, as a Live session is since #775: before
   the chat, the thread is opened for whoever the eyes know at the lamp
   (`Sessions::open`), and that person's kept things are asked for. With

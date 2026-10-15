@@ -186,8 +186,11 @@ this room" until someone asks to be recognised.
   YuNet does. The near face is cut out upright from YuNet's five marks onto
   OpenCV's 112 by 112 reference (`who::align`). It gives 128 numbers of
   length one, and two prints of one person have a cosine of 0.363 or more
-  (OpenCV's own threshold for this model). One print took 68 ms on the
-  development Mac. On the lamp it is not yet timed.
+  (OpenCV's own threshold for this model). One print takes 152 ms on
+  lamp-4ace's processor (236 ms the first time, 320 ms to load and
+  optimise the model; 68 ms on the development Mac), and the 128 numbers
+  were the same to the last digit on both. At one print every two seconds
+  while someone is at the lamp that is about 8 % of one core.
 - **When.** Only for the largest face that is at the lamp: at least a tenth
   of the picture's height (people at lamp-4ace's desk were 0.12 to 0.27).
   At most every two seconds, or at every look while someone is being

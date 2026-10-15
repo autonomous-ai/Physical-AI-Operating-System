@@ -22,6 +22,10 @@
 //!
 //! Shadow first: decisions are published on `policy/decisions` and written
 //! down with the state they were made from, and nothing acts on them.
+//! With `lamp-policy --act progress` (#752) they are published with
+//! `shadow: false`, and the voice tells a `say_now` (`task_news`, with
+//! `LAMP_PROGRESS_NEWS=on`); every other question stays shadow, and the log
+//! is written either way.
 use crate::{
     attention::Room,
     decide::{Answer, Asked, Connection, Decider, Failed, Question, Usage},
@@ -68,6 +72,10 @@ pub struct Options {
     /// a test.
     pub note_every: Duration,
     pub quiet_for: Duration,
+    /// The decisions act (`lamp-policy --act progress`): they are published
+    /// with `shadow: false`, and the voice tells a `say_now`. Off unless
+    /// set: shadow, as every other question.
+    pub act: bool,
 }
 
 impl Options {
@@ -77,6 +85,7 @@ impl Options {
             utc_offset_minutes,
             note_every: NOTE_EVERY,
             quiet_for: QUIET_FOR,
+            act: false,
         }
     }
 }
@@ -491,6 +500,11 @@ impl Progress {
         self.totals
     }
 
+    /// Whether its decisions act ([`Options::act`]).
+    pub fn acts(&self) -> bool {
+        self.options.act
+    }
+
     /// A new status from the tasks part. A message that fails its check is
     /// passed over. Another store begins again. Another run of the tasks
     /// part (it restarted, keeping its store and task numbers, and counts
@@ -766,8 +780,18 @@ impl Progress {
                 .last_talk
                 .map(|at| now.saturating_duration_since(at).as_secs()),
             room,
-            spoke_up_last_hour: u32::try_from(self.unasked.len() + self.notes.len())
-                .unwrap_or(u32::MAX),
+            // In shadow nobody hears the notes chosen, so they are counted
+            // here; acting, the voice says them and they are counted as
+            // turns the lamp began itself, once.
+            spoke_up_last_hour: u32::try_from(
+                self.unasked.len()
+                    + if self.options.act {
+                        0
+                    } else {
+                        self.notes.len()
+                    },
+            )
+            .unwrap_or(u32::MAX),
             hour: self
                 .options
                 .utc_offset_minutes
@@ -863,14 +887,14 @@ impl Progress {
             answers: answers.clone(),
             by: by.clone(),
             took_ms,
-            shadow: crate::policy::SHADOW,
+            shadow: !self.options.act,
             request: None,
             task: Some(context.key()),
         };
         let line = Line {
             at_unix_ms: unix_ms,
             about: ABOUT,
-            shadow: crate::policy::SHADOW,
+            shadow: !self.options.act,
             state: state(&context),
             context,
             asked: self.judge_name.clone(),

@@ -10,7 +10,9 @@ adds the explicitly enabled [local second judge](#the-local-second-judge-task-17
 through `lamp-policy-judges`; its deadlines, fallback and logs are described
 separately below. `lamp-policy --progress` adds a second question, [say this
 progress now?](#progress-news-say-this-progress-now-732), about the work the
-lamp handed over. None of them authorizes Voice or Body to act.
+lamp handed over, and `--act progress` makes that one question's decisions
+act: [the first decision the policy really makes](#acting---act-progress-752).
+Nothing else authorizes Voice or Body to act.
 
 ## What it is for
 
@@ -47,6 +49,7 @@ owner's rules for this part:
 | `--bus-root` | The bus's directory | `LAMP_BUS_ROOT`, or `/run/lampos-bus` |
 | `--progress` | Also ask, in shadow, whether progress of the work handed over is worth telling now ([below](#progress-news-say-this-progress-now-732)) | off |
 | `--utc-offset-minutes` | The lamp's local time east of UTC, for that question's hour of the day | the hour is null |
+| `--act progress` | That question's decisions act: published with `shadow: false`, so that the voice tells a `say_now` ([below](#acting---act-progress-752)). Needs `--progress` | shadow |
 
 A wrong or missing option prints the usage and exits with 2. So does a
 `--log-dir` that cannot be made, or that its group or everyone can enter. A
@@ -982,6 +985,7 @@ attention one, nor the other way round.
 |---|---|---|
 | `--progress` | Listen to `tasks/status` and ask the progress question | off |
 | `--utc-offset-minutes` | The lamp's local time east of UTC, -720 to 840, for the hour of the day the model is shown | the hour is null |
+| `--act progress` | Its decisions act ([below](#acting---act-progress-752)) | shadow |
 
 **When it asks.** For a task whose agent is `working` and whose progress
 line has changed (`changes`) since it was last judged. What a task says the
@@ -1048,8 +1052,8 @@ speak with nobody listened to in the 10 s before. Nothing on the bus says
 so outright (task news and hellos are told as written turns inside the
 voice), so this is a stand-in for that, and a late or missed `listening`
 would count an answer as unasked. In shadow nothing is said, so the notes
-this part chose are counted too; once it acts, they would be counted
-twice, and that sum is to change with the wiring.
+this part chose are counted too. Acting (`--act progress`) they are not:
+the voice says them, and they count once, as turns the lamp began itself.
 
 **What the model is shown**, its fields in this order (made-up numbers):
 
@@ -1146,8 +1150,50 @@ signs in the state are what made the step worth telling.
 
 **Not shown.** No real model was asked: every test and measurement used a
 stand-in. Nothing ran on a lamp, against real `tasks/status`, or for longer
-than a few seconds. Nothing acts on these decisions, and no voice reads
-them.
+than a few seconds. In shadow nothing acts on these decisions.
+
+### Acting: `--act progress` (#752)
+
+Built by the second builder on 2026-10-15. Since 06:58 that day lamp-4ace
+runs the question above in shadow. The owner: build every component of the
+brain first, then perfect each one; the policy is the part that decides
+when the lamp speaks first, and until now it decided nothing. **Off unless
+`lamp-policy --progress --act progress` is given.**
+
+- **What acts.** Only the progress question. Its decisions go out on
+  `policy/decisions` with `shadow: false`; "is this said to the lamp?" is
+  published with `shadow: true` as before, in the same process. The log
+  line of each progress decision says `"shadow":false`; the log is written
+  for every question either way.
+- **Who acts on it.** The voice's task news, with `LAMP_PROGRESS_NEWS=on`
+  ([tasks.md](tasks.md#the-voices-side-of-progress-news-752)): a `say_now`
+  at most 60 s old, of the store and about the newest change `tasks/status`
+  shows, is fetched and told under the voice's own gates. A `wait` does
+  nothing. Neither side acts without its own switch.
+- **The hard rules** are unchanged and hold before the voice's gates: no
+  question while anyone is talking to the lamp, at most one note per task in
+  15 minutes. Acting, the notes chosen are no longer added to the turns the
+  lamp began itself in the hour: the voice says them, and `voice/state`
+  counts them once.
+- **What it says of itself.** The start line ends `progress=true
+  act=progress`, and the diagnostics add `progress_acts` `true`.
+
+**Without `--act`** the decisions are `shadow: true`, their log lines
+`"shadow":true`, and the diagnostics carry no `progress_acts`, as on the
+branch before (`a_change_is_asked_about_once_decided_in_shadow_and_written_down_with_its_state`);
+with it, `acting_a_say_now_goes_out_for_real_while_the_attention_question_stays_shadow`
+(`crates/policy/tests/progress.rs`) shows `shadow: false` for progress and
+`true` for attention. The chain from a change on `tasks/status` to one note
+offered by the voice runs with this crate's own loop and a stand-in judge in
+`crates/voice/tests/progress_news.rs`.
+
+**On the lamp** (the first builder): the steps are in
+[tasks.md](tasks.md#playing-progress-news-on-lamp-4ace).
+
+**Most likely wrong.** That Jev's yes to the progress question is a yes a
+person would give: with nothing labelled, the first real decisions are the
+first measurement. That one note in 15 minutes per task is few enough, and
+several tasks at once still more than a person wants.
 
 ## Not shown
 

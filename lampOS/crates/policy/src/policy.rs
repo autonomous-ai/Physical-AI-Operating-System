@@ -1136,13 +1136,22 @@ impl Policy<'_> {
             .with("by_rule", self.totals.by_rule)
             .with("shadow", SHADOW);
         // Only with `--progress`: without it the report is as it was.
-        match self.progress.as_ref().map(Progress::totals) {
-            Some(totals) => report
-                .with("progress_decided", totals.decided)
-                .with("progress_by_rule", totals.by_rule)
-                .with("progress_said", totals.said)
-                .with("progress_held_talking", totals.held_talking)
-                .with("progress_held_recent", totals.held_recent),
+        match self.progress.as_ref() {
+            Some(progress) => {
+                let totals = progress.totals();
+                let report = report
+                    .with("progress_decided", totals.decided)
+                    .with("progress_by_rule", totals.by_rule)
+                    .with("progress_said", totals.said)
+                    .with("progress_held_talking", totals.held_talking)
+                    .with("progress_held_recent", totals.held_recent);
+                // Only with `--act progress`.
+                if progress.acts() {
+                    report.with("progress_acts", true)
+                } else {
+                    report
+                }
+            }
             None => report,
         }
     }
@@ -1222,7 +1231,8 @@ pub fn run<D: Decider + Send + 'static>(
 /// [`run`], and beside it the progress question ([`crate::progress`]):
 /// `tasks/status` is listened to, and `progress_decider`, a judge of its
 /// own on a thread of its own, is asked whether a change is worth telling
-/// now. Always shadow. Only `lamp-policy --progress` comes here.
+/// now. Shadow unless `progress.act` (`--act progress`); "is this said to
+/// the lamp?" is shadow always. Only `lamp-policy --progress` comes here.
 pub fn run_with_progress<D, P>(
     bus: &Bus,
     decider: D,

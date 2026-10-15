@@ -16,16 +16,27 @@
 //! On whenever the tasks part is ([`crate::agent_tasks::ENVIRONMENT`]).
 //! `LAMP_TASKS_TOLD` names the file of what was told, [`DEFAULT_TOLD`]
 //! unless set.
+//!
+//! **Progress** while an agent works (#732, #752) is told too, only with
+//! [`PROGRESS_ENVIRONMENT`] `on`: the policy decides on `policy/decisions`
+//! whether a change of the agent's progress line is worth telling now
+//! (`lamp-policy --progress --act progress`), and a `say_now` that is fresh,
+//! of this store and about the newest change on `tasks/status` is fetched
+//! (`get_progress`) and offered here like any other news, under the same
+//! gates.
+use lamp_bus::{Bus, Subscriber};
+use lamp_msgs::{AgentState, Decision, Sign, TaskStatus};
 use serde_json::{Value, json};
 use std::{
-    collections::{BTreeSet, VecDeque},
+    collections::{BTreeMap, BTreeSet, VecDeque},
     io::Write,
     path::{Path, PathBuf},
     sync::{
         Arc, Mutex,
+        atomic::{AtomicBool, Ordering},
         mpsc::{self, Receiver, Sender},
     },
-    time::Duration,
+    time::{Duration, Instant, SystemTime, UNIX_EPOCH},
 };
 
 /// Where the coordinator reads the file of what was told.
@@ -48,14 +59,56 @@ pub const QUIET_US: u64 = 15_000_000;
 /// Without eyes that say someone is there, something said this recently
 /// says it.
 pub const HEARD_WITHIN_US: u64 = 120_000_000;
+/// Progress news is told only with this set to `on`, read at start (#752).
+/// Off unless set: without it nothing more is subscribed to, asked or kept.
+pub const PROGRESS_ENVIRONMENT: &str = "LAMP_PROGRESS_NEWS";
+/// A decision to say progress is let go this long after it was made: told
+/// later, it would be old news.
+pub const PROGRESS_FRESH_MS: u64 = 60_000;
+/// The most of the agent's progress line put before the model.
+pub(crate) const MOST_ABOUT_CHARS: usize = 400;
+/// How long the progress reader waits for a decision before it looks again
+/// whether it is to stop.
+const PROGRESS_WAIT: Duration = Duration::from_millis(200);
 
 /// One piece of news, ready to tell.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct News {
-    /// The tasks part's store, task and observation: what is told once.
+    /// The tasks part's store, task and observation (or `hand-over`, or
+    /// `progress-<run>-<change>`): what is told once.
     pub key: String,
     /// The note the model is given.
     pub note: String,
+    /// Let go if not told by then: progress is told fresh or not at all.
+    pub until: Option<Instant>,
+    /// For progress, which change of which task it tells: withdrawn once
+    /// `tasks/status` no longer shows that change of that task at work.
+    pub progress: Option<ProgressOf>,
+}
+
+/// The piece of progress a note tells: a change is named by its count and
+/// the run of the tasks part that counted it, since counts begin again at
+/// each run.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ProgressOf {
+    pub store: String,
+    pub task: u64,
+    pub change: u32,
+    pub run: u64,
+}
+
+/// Whether `of` is still the newest change of a task whose agent works,
+/// as the newest `tasks/status` says: what a progress note may still say.
+fn still_current(status: Option<&TaskStatus>, of: &ProgressOf) -> bool {
+    status.is_some_and(|status| {
+        status.store_id == of.store
+            && status.run == of.run
+            && status.tasks.iter().any(|entry| {
+                entry.task == of.task
+                    && entry.state == AgentState::Working
+                    && entry.changes == of.change
+            })
+    })
 }
 
 pub struct TaskNews {
@@ -66,6 +119,22 @@ pub struct TaskNews {
     /// news the person asked for and heard ([`crate::agent_tasks`]) is not
     /// told again.
     told_already: Arc<Mutex<BTreeSet<String>>>,
+    /// Set when this is let go, so that the progress reader ends.
+    stopping: Arc<AtomicBool>,
+    /// The newest `tasks/status` the progress reader has: a queued note is
+    /// checked against it, never waited on.
+    status: Arc<Mutex<Option<TaskStatus>>>,
+}
+
+impl Drop for TaskNews {
+    fn drop(&mut self) {
+        self.stopping.store(true, Ordering::Relaxed);
+    }
+}
+
+/// Whether progress news is on: `on`, and nothing else.
+pub fn progress_on(value: Option<&str>) -> bool {
+    value == Some("on")
 }
 
 /// The file of what was told.
@@ -98,15 +167,68 @@ fn read_told(file: &Path) -> BTreeSet<String> {
 }
 
 impl TaskNews {
-    /// Reading starts on a thread of its own when the tasks part is set.
+    /// Reading starts on a thread of its own when the tasks part is set;
+    /// progress too, with [`PROGRESS_ENVIRONMENT`] `on`, on the lamp's bus.
     pub fn from_environment() -> Option<Self> {
         let directory = std::env::var_os(crate::agent_tasks::ENVIRONMENT)
             .map(PathBuf::from)
             .filter(|path| path.is_absolute())?;
-        let told_file = told_file();
+        let bus = if progress_on(std::env::var(PROGRESS_ENVIRONMENT).ok().as_deref()) {
+            match Bus::from_environment() {
+                Ok(bus) => Some(bus),
+                Err(error) => {
+                    eprintln!(
+                        "lamp-voice: progress news is on and the bus cannot be used: {error}"
+                    );
+                    None
+                }
+            }
+        } else {
+            None
+        };
+        Self::start(&directory, told_file(), bus.as_ref())
+    }
+
+    /// Read the tasks part in `directory` and keep what is told in
+    /// `told_file`; with a `bus`, take progress decisions from it too.
+    /// Without one nothing is subscribed to and no progress is asked for.
+    pub fn start(directory: &Path, told_file: PathBuf, bus: Option<&Bus>) -> Option<Self> {
+        let directory = directory.to_path_buf();
         let (offer, offered) = mpsc::channel();
         let (told, heard_told) = mpsc::channel();
         let told_already = Arc::new(Mutex::new(BTreeSet::new()));
+        let stopping = Arc::new(AtomicBool::new(false));
+        let status = Arc::new(Mutex::new(None));
+        if let Some(bus) = bus {
+            // Subscribed before this returns: nothing published after it is
+            // missed, and `tasks/status`'s kept value comes first.
+            let made = bus
+                .subscribe_typed(Decision::TOPIC, "voice", Decision::TYPE)
+                .and_then(|decisions| {
+                    Ok((
+                        decisions,
+                        bus.subscribe_typed(TaskStatus::TOPIC, "voice", TaskStatus::TYPE)?,
+                    ))
+                });
+            match made {
+                Ok((decisions, statuses)) => {
+                    let reader = ProgressReader {
+                        socket: directory.join("request.sock"),
+                        offer: offer.clone(),
+                        told: told_already.clone(),
+                        stopping: stopping.clone(),
+                        status: status.clone(),
+                    };
+                    std::thread::Builder::new()
+                        .name("lamp-voice-progress-news".into())
+                        .spawn(move || reader.run(decisions, statuses))
+                        .ok()?;
+                }
+                Err(error) => {
+                    eprintln!("lamp-voice: progress news cannot subscribe: {error}");
+                }
+            }
+        }
         let shared = told_already.clone();
         std::thread::Builder::new()
             .name("lamp-voice-task-news".into())
@@ -117,6 +239,8 @@ impl TaskNews {
             told,
             waiting: VecDeque::new(),
             told_already,
+            stopping,
+            status,
         })
     }
 
@@ -130,12 +254,44 @@ impl TaskNews {
         if let Ok(told) = self.told_already.try_lock() {
             self.waiting.retain(|news| !told.contains(&news.key));
         }
+        // Progress not told in time is old news, and progress whose task
+        // has finished, gone or moved on would say what is no longer so:
+        // let go. The status is looked at only if it is free this tick.
+        let now = Instant::now();
+        self.waiting
+            .retain(|news| news.until.is_none_or(|until| now < until));
+        if self.waiting.iter().any(|news| news.progress.is_some())
+            && let Ok(status) = self.status.try_lock()
+        {
+            self.waiting.retain(|news| {
+                news.progress
+                    .as_ref()
+                    .is_none_or(|of| still_current(status.as_ref(), of))
+            });
+        }
         self.waiting.front()
     }
 
     /// Take the news waiting, as it is being told: it is not offered again.
+    /// Progress is looked at once more first: one past its time, or whose
+    /// task finished, went or moved on while the lamp waited for its moment
+    /// (`coordinator`: quiet, someone there, a provider ready), is let go
+    /// and nothing is told this tick; one whose status is being written
+    /// just now is kept for the next tick. Never waits.
     pub fn tell(&mut self) -> Option<News> {
+        let front = self.waiting.front()?;
+        let past = front.until.is_some_and(|until| Instant::now() >= until);
+        let moved_on = match (&front.progress, past) {
+            (Some(of), false) => match self.status.try_lock() {
+                Ok(status) => !still_current(status.as_ref(), of),
+                Err(_) => return None,
+            },
+            _ => false,
+        };
         let news = self.waiting.pop_front()?;
+        if past || moved_on {
+            return None;
+        }
         let _ = self.told.send(news.key.clone());
         Some(news)
     }
@@ -242,7 +398,12 @@ fn read_once(
                     && let Some(task) = ask(socket, &json!({"op":"get_task","id":id}))
                     && let Some(note) = note_failed(&task, failed)
                 {
-                    news.push(News { key, note });
+                    news.push(News {
+                        key,
+                        note,
+                        until: None,
+                        progress: None,
+                    });
                 }
                 continue;
             }
@@ -266,7 +427,12 @@ fn read_once(
                 continue;
             };
             if let Some(note) = note(&task, &observation["data"], age_ms) {
-                news.push(News { key, note });
+                news.push(News {
+                    key,
+                    note,
+                    until: None,
+                    progress: None,
+                });
             }
         }
         match page["next_after_id"].as_u64() {
@@ -415,6 +581,295 @@ pub(crate) fn waiting(who: &str, answer: &str) -> String {
         format!(
             "{tell} If what it last said is a question to them, you may pass it on in your own words; otherwise do not ask a question for it or guess one."
         )
+    }
+}
+
+/// A progress decision that is to be told: what it is about.
+#[derive(Clone, Debug, PartialEq, Eq)]
+struct Wanted {
+    store: String,
+    task: u64,
+    change: u32,
+    /// The run of the tasks part that counted the change.
+    run: u64,
+    /// Seconds the agent has been at it, as `tasks/status` says.
+    working_s: Option<u64>,
+}
+
+impl Wanted {
+    /// What is kept as told. The run is in it: a restart of the tasks part
+    /// keeps the store and the task numbers and counts changes from
+    /// nothing, and its change 1 is not the last run's (#765 review,
+    /// 2026-10-15).
+    fn key(&self) -> String {
+        format!(
+            "{}:{}:progress-{}-{}",
+            self.store, self.task, self.run, self.change
+        )
+    }
+}
+
+/// Whether `decision`, made `age_ms` ago, is progress to tell: `progress`,
+/// `say_now`, acting (not shadow), at most [`PROGRESS_FRESH_MS`] old, of
+/// the store and the run `tasks/status` is of, and about that task's
+/// newest change while its agent still works. Its `task` is
+/// `<store>:<task>:<change>@<run>`. Why not, in one word, if not.
+fn wanted(
+    decision: &Decision,
+    age_ms: u64,
+    status: Option<&TaskStatus>,
+) -> Result<Wanted, &'static str> {
+    if decision.about != "progress" {
+        return Err("not_progress");
+    }
+    if decision.choice != "say_now" {
+        return Err("wait");
+    }
+    if decision.shadow {
+        return Err("shadow");
+    }
+    let parts: Vec<&str> = decision
+        .task
+        .as_deref()
+        .unwrap_or_default()
+        .split(':')
+        .collect();
+    let [store, task, change_of_run] = parts[..] else {
+        return Err("no_task");
+    };
+    let Some((change, run)) = change_of_run.split_once('@') else {
+        return Err("no_task");
+    };
+    let (Ok(task), Ok(change), Ok(run)) = (
+        task.parse::<u64>(),
+        change.parse::<u32>(),
+        run.parse::<u64>(),
+    ) else {
+        return Err("no_task");
+    };
+    if age_ms > PROGRESS_FRESH_MS {
+        return Err("stale");
+    }
+    let Some(status) = status else {
+        return Err("no_status");
+    };
+    if status.store_id != store {
+        return Err("other_store");
+    }
+    if status.run != run {
+        return Err("other_run");
+    }
+    let Some(entry) = status.tasks.iter().find(|entry| entry.task == task) else {
+        return Err("not_watched");
+    };
+    if entry.changes > change {
+        return Err("older_change");
+    }
+    if entry.state != AgentState::Working {
+        return Err("not_working");
+    }
+    Ok(Wanted {
+        store: store.to_owned(),
+        task,
+        change,
+        run,
+        working_s: entry.working_s,
+    })
+}
+
+/// A sign in the words the person would use.
+fn sign_words(sign: Sign) -> &'static str {
+    match sign {
+        Sign::TestsPass => "the tests pass",
+        Sign::BuildWorks => "the build works",
+        Sign::Fixed => "something was fixed",
+        Sign::Found => "something was found",
+        Sign::Done => "a part was done",
+        Sign::PullRequest => "a pull request was opened",
+    }
+}
+
+/// What the model is told of progress: who, the task's words, the agent's
+/// progress line, the signs not told yet in words and how long it has been
+/// at it, cut to one written turn ([`fitted`]).
+fn note_progress(
+    task: &Value,
+    about: &str,
+    signs: &BTreeSet<Sign>,
+    working_s: Option<u64>,
+) -> Option<String> {
+    let who = who(task);
+    let (asked, _) = quoted(task["text"].as_str()?, MOST_TASK_CHARS);
+    let (about, cut) = quoted(about, MOST_ABOUT_CHARS);
+    if about.is_empty() {
+        return None;
+    }
+    let signs = if signs.is_empty() {
+        String::new()
+    } else {
+        let words: Vec<&str> = signs.iter().map(|sign| sign_words(*sign)).collect();
+        format!(" Signs of a step forward in it: {}.", words.join(", "))
+    };
+    let time = match working_s.map(|s| (s + 30) / 60) {
+        None => String::new(),
+        Some(0 | 1) => " It has been at it for about a minute.".to_owned(),
+        Some(minutes) => format!(" It has been at it for about {minutes} minutes."),
+    };
+    let say = |asked: &str, about: &str, more: &str| {
+        format!(
+            "(Nobody has spoken. Progress on work you handed over for the person: {who} is still working on the task they gave it: \"{asked}\". \
+             Its latest progress line: \"{about}{more}\".{signs}{time} \
+             Tell them how it is going in one short, natural sentence, the way a good chief of staff mentions it in passing, \
+             starting with something like \"Oh, {who} has…\". Do not read the line out word for word, and no code, file paths or links. \
+             No question at the end.)"
+        )
+    };
+    fitted(&asked, &about, cut, say)
+}
+
+/// Reads progress decisions and offers each one to tell as news.
+struct ProgressReader {
+    socket: PathBuf,
+    offer: Sender<News>,
+    told: Arc<Mutex<BTreeSet<String>>>,
+    stopping: Arc<AtomicBool>,
+    /// Where the newest status is kept for [`TaskNews`].
+    status: Arc<Mutex<Option<TaskStatus>>>,
+}
+
+fn unix_ms() -> u64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map_or(0, |since| {
+            u64::try_from(since.as_millis()).unwrap_or(u64::MAX)
+        })
+}
+
+impl ProgressReader {
+    fn run(self, mut decisions: Subscriber, mut statuses: Subscriber) {
+        let mut status: Option<TaskStatus> = None;
+        // The signs already put in a note, for each store and task: a note
+        // names only those not told yet.
+        let mut mentioned: BTreeMap<(String, u64), BTreeSet<Sign>> = BTreeMap::new();
+        while !self.stopping.load(Ordering::Relaxed) {
+            let received = decisions.recv(PROGRESS_WAIT);
+            // The newest status, taken after the wait: a decision is made
+            // after the status it is about was published.
+            while let Ok(Some(message)) = statuses.recv(Duration::ZERO) {
+                if let Ok(newer) = message.parse::<TaskStatus>()
+                    && newer.check().is_ok()
+                {
+                    // Kept for the notes already queued as well: a task that
+                    // finishes or moves on withdraws them (#765 review).
+                    if let Ok(mut shared) = self.status.lock() {
+                        *shared = Some(newer.clone());
+                    }
+                    status = Some(newer);
+                }
+            }
+            let message = match received {
+                Ok(Some(message)) => message,
+                Ok(None) => continue,
+                Err(_) => {
+                    std::thread::sleep(PROGRESS_WAIT);
+                    continue;
+                }
+            };
+            let Ok(decision) = message.parse::<Decision>() else {
+                continue;
+            };
+            let age_ms = unix_ms().saturating_sub(message.header.at_unix_ms);
+            // The one time it is let go, counted from when it was made: the
+            // words fetched below take time of their own.
+            let expires =
+                Instant::now() + Duration::from_millis(PROGRESS_FRESH_MS.saturating_sub(age_ms));
+            let wanted = match wanted(&decision, age_ms, status.as_ref()) {
+                Ok(wanted) => wanted,
+                Err(why) => {
+                    if decision.about == "progress" && decision.choice == "say_now" {
+                        eprintln!("lamp-voice: progress to say let go ({why})");
+                    }
+                    continue;
+                }
+            };
+            if self
+                .told
+                .lock()
+                .is_ok_and(|told| told.contains(&wanted.key()))
+            {
+                continue;
+            }
+            let said = mentioned
+                .entry((wanted.store.clone(), wanted.task))
+                .or_default();
+            match self.news(&wanted, said, expires) {
+                Ok(news) => {
+                    eprintln!("lamp-voice: progress to say offered ({})", news.key);
+                    if self.offer.send(news).is_err() {
+                        return;
+                    }
+                }
+                Err(why) => eprintln!("lamp-voice: progress to say let go ({why})"),
+            }
+        }
+    }
+
+    /// The words, fetched now that the lamp will say them: the progress
+    /// line (`get_progress`) and the task (`get_task`), both of the store
+    /// decided about, the agent still at work, and exactly the change
+    /// decided about. A snapshot of anything else is let go: the task
+    /// finished, or moved on, while the decision travelled. So is one that
+    /// comes back at or past `expires`.
+    fn news(
+        &self,
+        wanted: &Wanted,
+        said: &mut BTreeSet<Sign>,
+        expires: Instant,
+    ) -> Result<News, &'static str> {
+        let progress = ask(&self.socket, &json!({"op":"get_progress","id":wanted.task}))
+            .ok_or("no_progress")?;
+        let task =
+            ask(&self.socket, &json!({"op":"get_task","id":wanted.task})).ok_or("no_task")?;
+        if progress["store_id"].as_str() != Some(wanted.store.as_str())
+            || task["store_id"].as_str() != Some(wanted.store.as_str())
+        {
+            return Err("other_store");
+        }
+        if Instant::now() >= expires {
+            return Err("stale");
+        }
+        let progress = &progress["progress"];
+        if progress["run"].as_u64() != Some(wanted.run) {
+            return Err("other_run");
+        }
+        if progress["state"].as_str() != Some("working") {
+            return Err("not_working");
+        }
+        if progress["changes"].as_u64() != Some(u64::from(wanted.change)) {
+            return Err("other_change");
+        }
+        let seen: BTreeSet<Sign> =
+            serde_json::from_value(progress["signs_seen"].clone()).unwrap_or_default();
+        let new: BTreeSet<Sign> = seen.difference(said).copied().collect();
+        let note = note_progress(
+            &task,
+            progress["about"].as_str().unwrap_or_default(),
+            &new,
+            wanted.working_s,
+        )
+        .ok_or("nothing_to_say")?;
+        said.extend(new);
+        Ok(News {
+            key: wanted.key(),
+            note,
+            until: Some(expires),
+            progress: Some(ProgressOf {
+                store: wanted.store.clone(),
+                task: wanted.task,
+                change: wanted.change,
+                run: wanted.run,
+            }),
+        })
     }
 }
 
@@ -773,6 +1228,275 @@ mod tests {
         );
     }
 
+    const RUN: u64 = 1_791_964_000_000;
+
+    fn status(store: &str, changes: u32, state: AgentState) -> TaskStatus {
+        TaskStatus {
+            store_id: store.into(),
+            run: RUN,
+            tasks: vec![lamp_msgs::TaskProgress {
+                task: 3,
+                engine: "claude".into(),
+                state,
+                working_s: Some(125),
+                last_active_unix_ms: None,
+                read_unix_ms: 0,
+                changes,
+                changed: changes > 0,
+                new_share: 0.5,
+                signs: vec![],
+                signs_seen: vec![],
+            }],
+        }
+    }
+    fn decided(choice: &str, shadow: bool, task: &str) -> Decision {
+        Decision {
+            about: "progress".into(),
+            choice: choice.into(),
+            probability: 0.9,
+            answers: Default::default(),
+            by: "stand-in".into(),
+            took_ms: 1,
+            shadow,
+            request: None,
+            task: Some(task.into()),
+        }
+    }
+    const STORE: &str = "0123456789abcdef0123456789abcdef";
+
+    #[test]
+    fn only_a_fresh_acting_say_now_about_the_newest_change_of_this_store_is_told() {
+        let key = format!("{STORE}:3:4@{RUN}");
+        let now = status(STORE, 4, AgentState::Working);
+        let good = wanted(&decided("say_now", false, &key), 1_000, Some(&now)).unwrap();
+        assert_eq!(good.key(), format!("{STORE}:3:progress-{RUN}-4"));
+        assert_eq!(good.run, RUN);
+        assert_eq!(good.working_s, Some(125));
+        // A status that lags behind the decision is no reason to drop it.
+        let behind = status(STORE, 3, AgentState::Working);
+        assert!(wanted(&decided("say_now", false, &key), 0, Some(&behind)).is_ok());
+        let attention = Decision {
+            about: "attention".into(),
+            ..decided("say_now", false, &key)
+        };
+        for (decision, age, status, why) in [
+            (attention, 0, Some(&now), "not_progress"),
+            (decided("wait", false, &key), 0, Some(&now), "wait"),
+            (decided("say_now", true, &key), 0, Some(&now), "shadow"),
+            (decided("say_now", false, "3:4"), 0, Some(&now), "no_task"),
+            // Without its run a count names no change.
+            (
+                decided("say_now", false, &format!("{STORE}:3:4")),
+                0,
+                Some(&now),
+                "no_task",
+            ),
+            // Another run of the tasks part: its count 4 is another change.
+            (
+                decided("say_now", false, &format!("{STORE}:3:4@{}", RUN + 1)),
+                0,
+                Some(&now),
+                "other_run",
+            ),
+            (
+                decided("say_now", false, &key),
+                PROGRESS_FRESH_MS + 1,
+                Some(&now),
+                "stale",
+            ),
+            (decided("say_now", false, &key), 0, None, "no_status"),
+            (
+                decided("say_now", false, &key),
+                0,
+                Some(&status(&"f".repeat(32), 4, AgentState::Working)),
+                "other_store",
+            ),
+            (
+                decided("say_now", false, &key),
+                0,
+                Some(&status(STORE, 5, AgentState::Working)),
+                "older_change",
+            ),
+            (
+                decided("say_now", false, &key),
+                0,
+                Some(&status(STORE, 4, AgentState::Idle)),
+                "not_working",
+            ),
+            (
+                decided("say_now", false, &format!("{STORE}:9:4@{RUN}")),
+                0,
+                Some(&now),
+                "not_watched",
+            ),
+        ] {
+            assert_eq!(wanted(&decision, age, status), Err(why));
+        }
+        assert!(
+            wanted(
+                &decided("say_now", false, &key),
+                PROGRESS_FRESH_MS,
+                Some(&now)
+            )
+            .is_ok()
+        );
+    }
+
+    /// A progress note is one written turn too: long tasks and long lines,
+    /// in letters of one byte or of several, fit and are taken.
+    #[test]
+    fn a_progress_note_says_who_what_how_far_and_fits_in_one_written_turn() {
+        let signs = BTreeSet::from([Sign::TestsPass, Sign::PullRequest]);
+        let short = note_progress(
+            &task("claude", json!([])),
+            "Fixed the tokenizer / all 118 tests pass",
+            &signs,
+            Some(600),
+        )
+        .unwrap();
+        assert_eq!(
+            short,
+            "(Nobody has spoken. Progress on work you handed over for the person: Claude Code is still working on the task they gave it: \
+             \"Suggest three 'friendly' names for a desk lamp\". Its latest progress line: \"Fixed the tokenizer / all 118 tests pass\". \
+             Signs of a step forward in it: the tests pass, a pull request was opened. It has been at it for about 10 minutes. \
+             Tell them how it is going in one short, natural sentence, the way a good chief of staff mentions it in passing, \
+             starting with something like \"Oh, Claude Code has…\". Do not read the line out word for word, and no code, file paths or links. \
+             No question at the end.)"
+        );
+        // No signs, a minute, Codex; nothing to say without a line.
+        let bare = note_progress(
+            &task("codex", json!([])),
+            "Reading the parser",
+            &BTreeSet::new(),
+            Some(40),
+        )
+        .unwrap();
+        assert!(
+            bare.contains("Codex is still working")
+                && bare.contains("about a minute.")
+                && !bare.contains("Signs")
+        );
+        assert!(note_progress(&task("claude", json!([])), "  ", &signs, None).is_none());
+        let english =
+            "Read src/parser.rs and the failing test, fixed the end index, ran the suite. "
+                .repeat(20);
+        let vietnamese =
+            "Đã đọc tệp phân tích cú pháp, sửa chỉ số cuối và chạy lại toàn bộ kiểm thử. "
+                .repeat(20);
+        let asks = [
+            "Fix the quoted string bug in the parser".to_owned(),
+            "Sửa lỗi chuỗi trong ngoặc kép ở bộ phân tích cú pháp, rồi chạy lại kiểm thử. "
+                .repeat(10),
+        ];
+        for asked in &asks {
+            for about in [&english, &vietnamese] {
+                let told = note_progress(
+                    &json!({"text": asked, "target": {"engine": "claude"}}),
+                    about,
+                    &BTreeSet::from([
+                        Sign::TestsPass,
+                        Sign::BuildWorks,
+                        Sign::Fixed,
+                        Sign::Found,
+                        Sign::Done,
+                        Sign::PullRequest,
+                    ]),
+                    Some(86_400),
+                )
+                .unwrap();
+                assert!(
+                    told.len() <= lamp_gemini::wire::MAX_NOTE_BYTES,
+                    "{} bytes",
+                    told.len()
+                );
+                lamp_gemini::wire::encode_written_turn(&told, None).unwrap();
+                assert!(
+                    told.contains("(it goes on)") && told.ends_with("No question at the end.)"),
+                    "{told}"
+                );
+            }
+        }
+    }
+
+    /// #765 review: words that come back at or past the decision's time
+    /// are let go, however long the fetching took.
+    #[test]
+    fn words_that_come_back_past_the_decisions_time_are_let_go() {
+        let root = std::env::temp_dir().join(format!("task-news-late-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        std::fs::create_dir_all(&root).unwrap();
+        let socket = root.join("request.sock");
+        let listener = UnixListener::bind(&socket).unwrap();
+        std::thread::spawn(move || {
+            for stream in listener.incoming() {
+                let mut stream = stream.unwrap();
+                let mut line = String::new();
+                BufReader::new(&stream).read_line(&mut line).unwrap();
+                let answer = json!({"ok":true,"store_id":STORE,"text":"Fix the parser",
+                    "target":{"engine":"claude"},"progress":{"state":"working","run":RUN,"changes":4,
+                    "about":"All tests pass","signs_seen":[]}});
+                writeln!(stream, "{answer}").unwrap();
+            }
+        });
+        let (offer, _offered) = mpsc::channel();
+        let reader = ProgressReader {
+            socket,
+            offer,
+            told: Arc::new(Mutex::new(BTreeSet::new())),
+            stopping: Arc::new(AtomicBool::new(false)),
+            status: Arc::new(Mutex::new(None)),
+        };
+        let wanted = Wanted {
+            store: STORE.into(),
+            task: 3,
+            change: 4,
+            run: RUN,
+            working_s: None,
+        };
+        let mut said = BTreeSet::new();
+        assert_eq!(
+            reader.news(&wanted, &mut said, Instant::now()).unwrap_err(),
+            "stale"
+        );
+        let fresh = Instant::now() + Duration::from_secs(60);
+        let news = reader.news(&wanted, &mut said, fresh).unwrap();
+        assert_eq!(news.until, Some(fresh));
+        assert_eq!(
+            news.progress,
+            Some(ProgressOf {
+                store: STORE.into(),
+                task: 3,
+                change: 4,
+                run: RUN,
+            })
+        );
+        std::fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn progress_not_told_in_time_is_let_go() {
+        let (offer, offered) = mpsc::channel();
+        let (told, _heard) = mpsc::channel();
+        let mut news = TaskNews {
+            offered,
+            told,
+            waiting: VecDeque::new(),
+            told_already: Arc::new(Mutex::new(BTreeSet::new())),
+            stopping: Arc::new(AtomicBool::new(false)),
+            status: Arc::new(Mutex::new(None)),
+        };
+        let soon = News {
+            key: "s:3:progress-1".into(),
+            note: "(…)".into(),
+            until: Some(Instant::now() + Duration::from_millis(50)),
+            progress: None,
+        };
+        offer.send(soon.clone()).unwrap();
+        assert_eq!(news.waiting(), Some(&soon));
+        std::thread::sleep(Duration::from_millis(60));
+        assert!(news.waiting().is_none());
+    }
+
     #[test]
     fn news_waits_once_and_telling_takes_it() {
         let (offer, offered) = mpsc::channel();
@@ -783,11 +1507,15 @@ mod tests {
             told,
             waiting: VecDeque::new(),
             told_already: told_already.clone(),
+            stopping: Arc::new(AtomicBool::new(false)),
+            status: Arc::new(Mutex::new(None)),
         };
         assert!(news.waiting().is_none());
         let one = News {
             key: "s:1:1".into(),
             note: "(…)".into(),
+            until: None,
+            progress: None,
         };
         offer.send(one.clone()).unwrap();
         offer.send(one.clone()).unwrap();
@@ -799,6 +1527,8 @@ mod tests {
         let two = News {
             key: "s:2:1".into(),
             note: "(…)".into(),
+            until: None,
+            progress: None,
         };
         offer.send(two.clone()).unwrap();
         assert_eq!(news.waiting(), Some(&two));

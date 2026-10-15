@@ -26,7 +26,14 @@ only where they are the synthetic played lines.
 - **The gaze**: follows the largest face once still for 0.4 s, never the
   voice.
 
-## What was played (`two-people-scene.txt`, `scripts/answered.py`)
+The counts were made with Python scripts in Fourth's scratch folder,
+outside the repository (lampOS is Rust only); each is described where its
+result is.
+
+## What was played (`two-people-scene.txt`)
+
+Counted by reading each scene's `PLAY` and `LAMP` lines in order: a played
+line was answered when a `LAMP` line came before the next `PLAY` line.
 
 46 runs on lamp-4ace, 14 and 15 October, of one scene
 (`~/lamp-voice-data/tools/twopeople.sh`): nine lines between Daniel and
@@ -47,7 +54,8 @@ decisions. Nine answers were let out in a busy room because a conversation
 was going on:
 
 - 6 with nobody facing, all in one live exchange (session 1, 15:25 to
-  15:33), with no played line near them (`scripts/going_on.py`);
+  15:33). None began within 4 s of a `#PLAY_US` line of any scene on the
+  lamp's clock, so none was a played line;
 - 3 with someone facing.
 
 A rule that "going on" needs a face turned to the lamp would have held 6
@@ -84,8 +92,12 @@ of the 9. So the follow-up needs the same voice, not a face ("Plan", step
 
 ## Plan, each step behind a switch
 
-1. Scenes for the four cases (`scenes.sh`, for the first builder's
-   `scenario.py`, which plays every voice from one loudspeaker).
+1. Scenes for the four cases, given to the first builder on #829 for
+   `scenario.py` (which plays every voice from one loudspeaker). Each opens
+   with three lines between the two people, so the room counts as busy:
+   A asks the lamp while B talks to A; the lamp named in passing; A asks,
+   B follows up ("And what about tomorrow?"), then they talk; B cuts in on
+   the lamp's answer to A.
 2. A follow-up within 45 s goes on only for the same voice; a different
    voice needs the name, a call or a face turned to the lamp. Needs a small
    speaker-embedding model; researched next.

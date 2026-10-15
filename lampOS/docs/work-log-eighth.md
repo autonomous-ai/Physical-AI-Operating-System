@@ -7,6 +7,7 @@ The eighth builder's log, newest first. Role file:
 
 | Id | Proposal | Answer |
 |---|---|---|
+| eighth-P1 | A lock kept on each lamp (`~orangepi/lamp.lock`), taken with `lampOS/tools/lamp-lock.sh`, so builders on any machine take turns; tests on a lamp run only under it (#833, pull request #834) | waiting |
 
 ## Found, not mine
 

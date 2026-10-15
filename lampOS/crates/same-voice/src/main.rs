@@ -50,7 +50,10 @@ fn pairs(model: &Path, list: &Path) -> Result<(), String> {
     }
     for (i, (a, first)) in clips.iter().enumerate() {
         for (b, second) in &clips[i + 1..] {
-            println!("{a}\t{b}\t{:.4}", cosine(first, second));
+            match cosine(first, second) {
+                Some(value) => println!("{a}\t{b}\t{value:.4}"),
+                None => return Err(format!("{a} and {b}: no cosine between their embeddings")),
+            }
         }
     }
     Ok(())

@@ -190,11 +190,26 @@ impl Voice {
     }
 }
 
-/// The cosine between two embeddings: 1 for the same direction.
-pub fn cosine(a: &[f32], b: &[f32]) -> f32 {
-    let dot: f32 = a.iter().zip(b).map(|(x, y)| x * y).sum();
-    let norm = |v: &[f32]| v.iter().map(|x| x * x).sum::<f32>().sqrt();
-    dot / (norm(a) * norm(b)).max(f32::EPSILON)
+/// The cosine between two embeddings: 1 for the same direction, whatever
+/// their scale, summed in f64 so that neither very small nor very large
+/// values lose it. None where it is not defined: vectors of different
+/// lengths, an empty or all-zero one, or one with a value that is not
+/// finite.
+pub fn cosine(a: &[f32], b: &[f32]) -> Option<f32> {
+    if a.len() != b.len() || a.iter().chain(b).any(|value| !value.is_finite()) {
+        return None;
+    }
+    let (mut dot, mut aa, mut bb) = (0.0f64, 0.0f64, 0.0f64);
+    for (&x, &y) in a.iter().zip(b) {
+        let (x, y) = (f64::from(x), f64::from(y));
+        dot += x * y;
+        aa += x * x;
+        bb += y * y;
+    }
+    if aa == 0.0 || bb == 0.0 {
+        return None;
+    }
+    Some((dot / (aa.sqrt() * bb.sqrt())).clamp(-1.0, 1.0) as f32)
 }
 
 /// A 16 kHz mono 16-bit WAV, in [-1, 1].
@@ -252,7 +267,18 @@ mod tests {
 
     #[test]
     fn the_cosine_is_one_for_the_same_and_zero_for_a_right_angle() {
-        assert!((cosine(&[1.0, 2.0], &[2.0, 4.0]) - 1.0).abs() < 1e-6);
-        assert!(cosine(&[1.0, 0.0], &[0.0, 3.0]).abs() < 1e-6);
+        assert!((cosine(&[1.0, 2.0], &[2.0, 4.0]).unwrap() - 1.0).abs() < 1e-6);
+        assert!(cosine(&[1.0, 0.0], &[0.0, 3.0]).unwrap().abs() < 1e-6);
+        // The same at any scale (the reviewer's on #865).
+        assert_eq!(cosine(&[0.0001, 0.0], &[0.0001, 0.0]), Some(1.0));
+        assert_eq!(cosine(&[1e-30, 2e-30], &[2e-30, 4e-30]), Some(1.0));
+        assert_eq!(cosine(&[1e20, 0.0], &[1e20, 0.0]), Some(1.0));
+        assert_eq!(cosine(&[3e38, -3e38], &[-3e38, 3e38]), Some(-1.0));
+        // Not defined: said so, never a number.
+        assert_eq!(cosine(&[0.0, 0.0], &[1.0, 0.0]), None);
+        assert_eq!(cosine(&[], &[]), None);
+        assert_eq!(cosine(&[1.0], &[1.0, 0.0]), None);
+        assert_eq!(cosine(&[f32::NAN, 1.0], &[1.0, 1.0]), None);
+        assert_eq!(cosine(&[f32::INFINITY, 1.0], &[1.0, 1.0]), None);
     }
 }

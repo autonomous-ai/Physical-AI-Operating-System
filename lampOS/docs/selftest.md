@@ -46,7 +46,7 @@ owner already has.
 | room microphone (C-Media) | lamp-ears | `ears/level` arrives, above digital silence (-90 dBFS) | listens: done |
 | speaker | lamp-voice | a played tone heard by both microphones | needs a tone request in lamp-voice; none exists |
 | servos 1 to 5 | lamp-body | `body/joint_states` fresh for all five joints; a small move through `expression/body` (±0.35 rad at most, lease-held) and back | readback done; the move to be agreed with the fifth builder |
-| ring | lamp-voice | each colour on `light/command`, seen on `light/state`; the person's own setting restored after | to do |
+| ring | lamp-voice | at the factory and on demand, each of the ten colours asked for on `light/command` (level 3) and seen on `light/state` within 1 s, held 0.4 s; then the light last asked for (the person's own, which the bus keeps) is asked for again and seen. At the first boot only `light/state` fresh (3 s): a new lamp does not run through ten colours in its new home | done |
 | camera | lamp-eyes | `humans/faces/tracked` published within 2 s (the eyes publish each look while the camera is open); otherwise the `eyes` item of `lamp/health`: a warning ("does not open", "stopped giving pictures") fails, ok means closed because seeing is not permitted now and is `not_checked`. The self-test never opens the camera itself, so the privacy switch stays authoritative | listens: done |
 | touch pads, button | lamp-controls | `controls/touch_state` ready, no fault, nothing held 10 s or more; a swipe only at the factory | idle done; swipe to do |
 | air | lamp-air | `air/state` fresh (15 s) and in range | done |

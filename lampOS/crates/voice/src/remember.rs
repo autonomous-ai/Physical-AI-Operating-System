@@ -631,7 +631,18 @@ impl DaysClient {
             })
             .unwrap_or_else(|| UNAVAILABLE.into());
         if rules {
-            note.push_str(&self.rules_note(person, started + FIRST_READ));
+            let read = self.tell_policy(person, started + FIRST_READ);
+            let told = read
+                .as_ref()
+                .map(|(room, theirs)| crate::rules::note(room, theirs.as_deref()))
+                .unwrap_or_default();
+            // Rules that could not be read may still be in the thread told.
+            let in_context = read.is_none() || !told.is_empty();
+            match self.context.lock() {
+                Ok(mut context) => context.rules_in_context = in_context,
+                Err(_) => return UNAVAILABLE.into(),
+            }
+            note.push_str(&told);
         }
         note
     }
@@ -716,6 +727,12 @@ struct DaysContext {
     /// A write whose acknowledgement is not known may have committed. Keep
     /// journalling inhibited after an ambiguous response; never invent its ID.
     uncertain_writes: u64,
+    /// The provider's context may hold a rule ([`crate::rules`]): the
+    /// session was told one, or a rule's function was called in it. Rules
+    /// live in another scope, so an exchange cannot be linked to one, and
+    /// one forgotten must not come back through the journal: until a
+    /// session opens told no rule, no exchange is journalled.
+    rules_in_context: bool,
 }
 
 impl DaysContext {
@@ -1088,6 +1105,10 @@ impl DaysClient {
             self.lost.fetch_add(1, Ordering::Relaxed);
             return false;
         }
+        // Left out on purpose, not lost: tidy-up goes on.
+        if context.rules_in_context {
+            return false;
+        }
         let sent = self
             .jobs
             .try_send(DaysJob::Exchange {
@@ -1122,11 +1143,31 @@ impl DaysClient {
         person: Option<&str>,
     ) -> (Value, bool) {
         let until = Instant::now() + deadline.min(crate::tools::ASK_DEADLINE);
+        // A rule's words reach the provider with this call, whatever comes
+        // of it.
+        match self.context.try_lock() {
+            Ok(mut context) => context.rules_in_context = true,
+            Err(_) => return (gone(), false),
+        }
         let now = unix_ms();
-        let line = match crate::rules::request(call, now, &crate::rules::scope(person)) {
+        let scope = crate::rules::scope(person);
+        let line = match crate::rules::request(call, now, &scope) {
             Ok(line) => line,
             Err(told) => return (told, true),
         };
+        if call.name == crate::rules::KEEP_RULE {
+            let kept = until
+                .checked_duration_since(Instant::now())
+                .and_then(|left| {
+                    bounded_exchange(&self.socket, &crate::rules::read_request(&scope), left)
+                })
+                .and_then(|answer| crate::rules::rules(&answer));
+            match kept.map(|kept| crate::rules::admit(&kept)) {
+                None => return (gone(), false),
+                Some(Err(told)) => return (told, true),
+                Some(Ok(())) => {}
+            }
+        }
         let offset = crate::local_time::offset_at(&self.zone, (now / 1000) as i64).unwrap_or(0);
         let told = until
             .checked_duration_since(Instant::now())
@@ -1140,20 +1181,21 @@ impl DaysClient {
             return (gone(), false);
         };
         if changed {
+            if call.name == crate::rules::FORGET_RULE {
+                // What was said under the rule is not told to the next
+                // session's recap either, as for `forget`.
+                FORGET_THREAD.store(true, Ordering::Release);
+                if let Ok(mut thread) = crate::thread::THREAD.try_lock() {
+                    clear_forgotten_thread(&mut thread);
+                }
+            }
             self.tell_policy(person, until);
         }
         (told, true)
     }
 
-    /// The rules a session for this person is told, read before `until`,
-    /// and said to the policy. Nothing when there are none or they could
-    /// not be read.
-    pub fn rules_note(&self, person: Option<&str>, until: Instant) -> String {
-        self.tell_policy(person, until)
-            .map(|(room, theirs)| crate::rules::note(&room, theirs.as_deref()))
-            .unwrap_or_default()
-    }
-
+    /// Every rule of the room's, and of this person's, read before `until`,
+    /// and said to the policy in the background.
     #[allow(clippy::type_complexity)]
     fn tell_policy(
         &self,
@@ -2385,7 +2427,7 @@ mod tests {
         assert_eq!(read[0], read[1]);
         assert_eq!(
             read[2],
-            json!({"op":"kept","person":"r-everyone","max_bytes":600})
+            json!({"op":"kept","person":"r-everyone","max_bytes":16384})
         );
         drop(client);
         std::fs::remove_file(socket).unwrap();

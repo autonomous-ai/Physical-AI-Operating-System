@@ -178,18 +178,21 @@ With `LAMP_MEMORY_RULES=on` as well (passed to the provider like
 keeps what a person teaches and corrects as rules
 ([memory.md](memory.md#what-a-person-teaches-and-corrects-813)). They use
 existing requests only, in the scope `r-<hex>` beside the known person's
-`p-<hex>`, or `r-everyone` for the room: `remember` to keep one (the
-store's per-scope kept limit applies; a full list is told to the model as
-such), `kept` with `max_bytes` 600 to read them, `forget {id}` or
-`forget_last {kind:"kept"}` to take one back. No schema or store change.
-After the frozen note, a session's 300 ms also covers one `kept` for the
-room's rules and one for the known person's; rules that could not be read
-in what is left are not told, and the note is otherwise unchanged. A rule
-kept or forgotten re-reads both within the call's 1.5 s and publishes
-`lamp_msgs::Rules` on `memory/rules` for the policy. Rules are not journal
-sources, so keeping or forgetting one never inhibits journalling. Without
-the switch the client sends exactly what it did
-(`remember::tests::without_the_rules_switch_nothing_changes`).
+`p-<hex>`, or `r-everyone` for the room: `kept` with `max_bytes` 16,384
+(the store's most, so every rule is read), `remember` to keep one after
+that read found fewer than six, and `forget {id}` to take one back by its
+number; there is no default. No schema or store change. After the frozen
+note, a session's 300 ms also covers one `kept` for the room's rules and
+one for the known person's; rules that could not be read in what is left
+are not told, and the note is otherwise unchanged. A rule kept or
+forgotten re-reads both within the call's 1.5 s. Either way
+`lamp_msgs::Rules` is handed to a background thread that publishes the
+newest on `memory/rules`, so the bus's file work is outside both budgets.
+Rules cannot be journal sources (another scope), so a session told a rule,
+or unable to read them, or in which a rule's function was called, journals
+no exchange until a session opens told none; this is not counted as a
+loss and does not stop tidy-up. Without the switch the client sends
+exactly what it did (`remember::tests::without_the_rules_switch_nothing_changes`).
 
 ### Played scenes for First
 

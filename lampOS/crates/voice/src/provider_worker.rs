@@ -1136,7 +1136,7 @@ async fn serve_with_visual<C: Connect>(
                     let turn_open = intake.handoff.visual_turn().is_some();
                     let due = crate::thread::THREAD.lock().is_ok_and(|mut thread| {
                         thread.at_lamp(whose);
-                        thread.switch_now(turn_open, !output.is_empty())
+                        thread.switch_now(turn_open, !output.is_empty(), Instant::now())
                     });
                     let live = provider.live_session();
                     if due

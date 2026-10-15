@@ -166,7 +166,8 @@ lamp-4ace it has acted about a dozen times with no fault.
 With a memory and eyes that remember faces (#764), each exchange is kept
 as whose it was: the room's, or the memory id (never the name) of the known
 person at the lamp as the worker counts it (a different known person at
-once, nobody after 30 s unseen). Each keeps their own last eight, four
+once, nobody after 30 s unseen and two minutes with no exchange; until
+then what is said is still the known person's). Each keeps their own last eight, four
 threads at most with the room's (32 exchanges), the oldest going first past
 that. A session is told only the exchanges of the person it was opened for,
 and the worker opens a new session between turns when that person changes

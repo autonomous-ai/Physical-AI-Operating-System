@@ -93,6 +93,8 @@ pub(super) enum NoticeDelivery {
         recording: Arc<Recording>,
         cursor: usize,
         attempted_at_us: Option<u64>,
+        /// When the speaker first accepted frames of it.
+        first_accepted_at_us: Option<u64>,
         retired_at_us: Option<u64>,
         final_acceptance: Option<(u64, PlaybackCursor)>,
         gaps: u64,
@@ -115,19 +117,41 @@ impl NoticeDelivery {
             }),
             cursor: 0,
             attempted_at_us: None,
+            first_accepted_at_us: None,
             retired_at_us: None,
             final_acceptance: None,
             gaps: 0,
         }
     }
-    /// When its first chunk was handed to the speaker.
-    pub(super) fn attempted_at_us(&self) -> Option<u64> {
+    /// The speaker's first acceptance of frames of it, once.
+    pub(super) fn first_accepted(&mut self, at_us: u64) {
+        if let Self::Selected {
+            first_accepted_at_us: first @ None,
+            ..
+        } = self
+        {
+            *first = Some(at_us);
+        }
+    }
+    /// When the speaker first accepted frames of it.
+    pub(super) fn first_accepted_at_us(&self) -> Option<u64> {
         match self {
             Self::Selected {
-                attempted_at_us, ..
-            } => *attempted_at_us,
+                first_accepted_at_us,
+                ..
+            } => *first_accepted_at_us,
             _ => None,
         }
+    }
+    /// Whether all of it was played: its final sample retired.
+    pub(super) fn retired(&self) -> bool {
+        matches!(
+            self,
+            Self::Selected {
+                retired_at_us: Some(_),
+                ..
+            }
+        )
     }
     pub(super) fn settled(&self) -> bool {
         !matches!(
@@ -319,6 +343,7 @@ pub(super) fn select_failure_notice(
             recording: Arc::clone(recording),
             cursor: 0,
             attempted_at_us: None,
+            first_accepted_at_us: None,
             retired_at_us: None,
             final_acceptance: None,
             gaps: 0,

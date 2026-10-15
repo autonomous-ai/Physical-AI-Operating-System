@@ -24,8 +24,10 @@ const KEPT_BLOCKS: usize = 80;
 struct Playing {
     id: String,
     turn: TurnOwner,
-    /// When its first chunk went to the speaker; the delay is from here.
+    /// When the speaker first accepted frames of it; the delay is from here.
     started_us: Option<u64>,
+    /// Whether it was played to its end: its final sample retired.
+    whole: bool,
     /// Once it has settled, the answer is given at this time.
     answer_at_us: Option<u64>,
 }
@@ -156,6 +158,7 @@ impl SpeakerTone {
             id,
             turn,
             started_us: None,
+            whole: false,
             answer_at_us: None,
         });
     }
@@ -169,22 +172,21 @@ impl SpeakerTone {
         };
         let ours = reply.filter(|current| current.owner == playing.turn);
         if let Some(current) = ours {
-            if playing.started_us.is_none() {
-                playing.started_us = current.notice.attempted_at_us();
-            }
+            playing.started_us = current.notice.first_accepted_at_us();
+            playing.whole = current.notice.retired();
             return;
         }
-        // The turn is over: settled, or cancelled before it played.
-        let Some(started_us) = playing.started_us else {
+        // The turn is over. Only a tone played to its end is judged: one cut
+        // short (a person speaking, a hand, the microphone closing) says so.
+        let (Some(started_us), true) = (playing.started_us, playing.whole) else {
             let id = playing.id.clone();
+            let why = if playing.started_us.is_none() {
+                "the tone's turn ended before the speaker took any of it"
+            } else {
+                "the tone was cut short before its end: its turn was cancelled"
+            };
             self.playing = None;
-            self.answer(
-                &id,
-                "not_checked",
-                "the tone's turn ended before it was played",
-                None,
-                at_us,
-            );
+            self.answer(&id, "not_checked", why, None, at_us);
             return;
         };
         let due = *playing

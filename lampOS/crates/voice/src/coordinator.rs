@@ -1385,6 +1385,9 @@ fn service_speaker_control(
                     if pending.accepted > 240 {
                         return Err(io::Error::other("speaker accepted too many frames").into());
                     }
+                    if pending.origin.local() {
+                        current.notice.first_accepted(observed_at_us);
+                    }
                     if current.playback.is_none() {
                         let token = owner.playback_started(now(), pending.permit)?;
                         current.playback = Some(token);

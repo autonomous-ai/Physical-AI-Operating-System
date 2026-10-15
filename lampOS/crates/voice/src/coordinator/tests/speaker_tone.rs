@@ -121,7 +121,14 @@ fn the_tone_plays_whole_through_the_speaker_path_and_its_turn_settles_with_no_pr
         !reply.as_ref().unwrap().cloud.started,
         "no invented provider Started"
     );
-    assert!(reply.as_ref().unwrap().notice.attempted_at_us().is_some());
+    assert!(
+        reply
+            .as_ref()
+            .unwrap()
+            .notice
+            .first_accepted_at_us()
+            .is_some()
+    );
     let mut retired = Receipts {
         events: vec![WorkerEvent::SpeechRetired {
             owner: turn,
@@ -209,7 +216,10 @@ fn a_request_not_for_the_factory_or_on_demand_is_answered_and_never_played() {
     tone.tick(None, monotonic_us());
     let ended = answer(&bus);
     assert_eq!(ended.id, "asked");
-    assert!(ended.reason.contains("before it was played"), "{ended:?}");
+    assert!(
+        ended.reason.contains("before the speaker took"),
+        "{ended:?}"
+    );
     drop(asks);
     std::fs::remove_dir_all(root).unwrap();
 }
@@ -341,4 +351,152 @@ fn requests_that_cannot_be_read_switch_the_check_off() {
     assert!(tone.is_off());
     assert_eq!(tone.next_request(monotonic_us()), None);
     std::fs::remove_dir_all(root).unwrap();
+}
+
+/// Plays the tone's first `chunks` chunks through the real dispatch and
+/// receipt handlers, each accepted `accept_after` after it was sent, and
+/// retires its final sample if all were played and `retire`.
+fn play(
+    chunks: usize,
+    accept_after: Duration,
+    retire: bool,
+) -> (Controller, Option<Reply>, TurnOwner, u64) {
+    let directory = SessionDirectory::create().unwrap();
+    let (mut parent, mut speaker) = pair(&directory, "speaker");
+    let mut owner = listening_owner();
+    let mut reply = None;
+    let mut trace = SessionState::default();
+    let (mut snapshot, turn) = commit_tone_turn(
+        &mut owner,
+        &mut reply,
+        0,
+        PlayoutStart::default(),
+        &mut trace,
+        |_| Ok(()),
+    )
+    .unwrap();
+    let mut pending = None;
+    let mut mask = PlaybackMask::new(TurnTaking::VadOnly);
+    let (mut sequence, mut last_publish, mut played) = (0, 0, 0u64);
+    let sent_us = monotonic_us();
+    let mut last = None;
+    for _ in 0..chunks {
+        dispatch_speaker_chunk(
+            &mut owner,
+            &mut reply,
+            &mut parent.data,
+            &mut pending,
+            &mut sequence,
+            &mut snapshot,
+            &mut mask,
+        )
+        .unwrap();
+        let chunk = speaker.data.receive::<SpeakerChunk>().unwrap().unwrap();
+        trace.receipts.dispatched(turn, sequence).unwrap();
+        std::thread::sleep(accept_after);
+        let mut receipts = Receipts {
+            events: vec![accepted(&chunk, played)].into(),
+        };
+        service_speaker_control(
+            &mut receipts,
+            &mut owner,
+            &mut reply,
+            &mut pending,
+            &mut mask,
+            &mut snapshot,
+            &mut last_publish,
+            &mut 16,
+            &mut trace,
+        )
+        .unwrap();
+        played += 240;
+        last = Some(chunk);
+    }
+    if retire && let Some(last) = last.filter(|chunk| chunk.end_of_speech) {
+        let mut retired = Receipts {
+            events: vec![WorkerEvent::SpeechRetired {
+                owner: turn,
+                sequence: last.chunk_sequence,
+                final_sample: PlaybackCursor {
+                    epoch: 1,
+                    frame: played,
+                },
+                observed_at_us: monotonic_us(),
+            }]
+            .into(),
+        };
+        service_speaker_control(
+            &mut retired,
+            &mut owner,
+            &mut reply,
+            &mut pending,
+            &mut mask,
+            &mut snapshot,
+            &mut last_publish,
+            &mut 16,
+            &mut trace,
+        )
+        .unwrap();
+    }
+    (owner, reply, turn, sent_us)
+}
+
+/// The tone's answer after its turn: watched while it played, then gone.
+fn answered(name: &str, reply: Option<&Reply>, turn: TurnOwner) -> SpeakerCheck {
+    let (bus, root) = bus(name);
+    let mut tone = SpeakerTone::on(&bus).unwrap();
+    tone.began("t".into(), turn);
+    tone.tick(reply, monotonic_us());
+    tone.tick(None, monotonic_us() + speaker_check::LISTEN_US + 1);
+    let said = answer(&bus);
+    std::fs::remove_dir_all(root).unwrap();
+    said
+}
+
+#[test]
+fn a_tone_cancelled_before_the_speaker_took_it_or_cut_short_is_not_judged() {
+    let (_, reply, turn, _) = play(0, Duration::ZERO, false);
+    let before = answered("cut-before", reply.as_ref(), turn);
+    assert_eq!(before.verdict, "not_checked");
+    assert!(
+        before.reason.contains("before the speaker took"),
+        "{before:?}"
+    );
+    let (_, reply, turn, _) = play(5, Duration::ZERO, false);
+    let partial = answered("cut-partial", reply.as_ref(), turn);
+    assert_eq!(partial.verdict, "not_checked");
+    assert!(partial.reason.contains("cut short"), "{partial:?}");
+    // All of it played but its final sample never retired: still cut short.
+    let (_, reply, turn, _) = play(30, Duration::ZERO, false);
+    assert!(
+        answered("cut-unretired", reply.as_ref(), turn)
+            .reason
+            .contains("cut short")
+    );
+}
+
+#[test]
+fn a_tone_played_to_its_end_is_judged_on_its_evidence() {
+    let (_, reply, turn, _) = play(30, Duration::ZERO, true);
+    assert!(reply.as_ref().unwrap().notice.retired());
+    // No microphone evidence was given here: judged, and too little of it.
+    let judged = answered("whole", reply.as_ref(), turn);
+    assert_eq!(judged.verdict, "not_checked");
+    assert!(judged.reason.contains("evidence"), "{judged:?}");
+}
+
+#[test]
+fn the_delay_starts_at_the_speakers_first_acceptance_not_at_dispatch() {
+    let (_, reply, _, sent_us) = play(1, Duration::from_millis(30), false);
+    let first = reply
+        .as_ref()
+        .unwrap()
+        .notice
+        .first_accepted_at_us()
+        .unwrap();
+    assert!(
+        first >= sent_us + 30_000,
+        "accepted {} us after sending",
+        first - sent_us
+    );
 }

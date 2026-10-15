@@ -1,0 +1,4 @@
+lampOS — build and test on Linux ARM64 (4/4)	UNKNOWN STEP	2026-10-15T16:25:21.6907791Z      Summary [ 292.348s] 1276 tests run: 1276 passed, 3625 skipped
+lampOS — build and test on Linux ARM64 (1/4)	UNKNOWN STEP	2026-10-15T16:25:24.8709912Z      Summary [ 290.227s] 1211 tests run: 1211 passed, 3690 skipped
+lampOS — build and test on Linux ARM64 (2/4)	UNKNOWN STEP	2026-10-15T16:21:21.0224910Z      Summary [  49.299s] 791/1237 tests run: 790 passed, 1 failed, 3664 skipped
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-15T16:26:05.4892860Z      Summary [ 335.623s] 1140 tests run: 1140 passed (2 slow), 3761 skipped

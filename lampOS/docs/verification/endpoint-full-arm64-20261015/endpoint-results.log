@@ -1,0 +1,2 @@
+lampOS — build and test on Linux ARM64 (1/4)	UNKNOWN STEP	2026-10-15T16:22:00.5613123Z         PASS [   1.518s] ( 888/1211) lamp-voice coordinator::tests::endpoint_session::unconfirmed_endpoint_exit_fails_mute_cleanup_and_never_reopens_service
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-15T16:21:48.4834772Z         PASS [   4.379s] ( 824/1140) lamp-voice coordinator::tests::endpoint_session::a_worker_still_loading_leaves_the_baseline_window

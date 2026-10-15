@@ -1,0 +1,26 @@
+lampOS — build and test on Linux ARM64 (2/4)	UNKNOWN STEP	2026-10-15T16:21:21.0181696Z         FAIL [   0.005s] ( 791/1237) lamp-tasks::runtime command_line_rejects_duplicate_fields_before_connecting
+lampOS — build and test on Linux ARM64 (2/4)	UNKNOWN STEP	2026-10-15T16:21:21.0182423Z   stdout ───
+lampOS — build and test on Linux ARM64 (2/4)	UNKNOWN STEP	2026-10-15T16:21:21.0182530Z 
+lampOS — build and test on Linux ARM64 (2/4)	UNKNOWN STEP	2026-10-15T16:21:21.0182606Z     running 1 test
+lampOS — build and test on Linux ARM64 (2/4)	UNKNOWN STEP	2026-10-15T16:21:21.0182931Z     test command_line_rejects_duplicate_fields_before_connecting ... FAILED
+lampOS — build and test on Linux ARM64 (2/4)	UNKNOWN STEP	2026-10-15T16:21:21.0183211Z 
+lampOS — build and test on Linux ARM64 (2/4)	UNKNOWN STEP	2026-10-15T16:21:21.0183277Z     failures:
+lampOS — build and test on Linux ARM64 (2/4)	UNKNOWN STEP	2026-10-15T16:21:21.0183380Z 
+lampOS — build and test on Linux ARM64 (2/4)	UNKNOWN STEP	2026-10-15T16:21:21.0183443Z     failures:
+lampOS — build and test on Linux ARM64 (2/4)	UNKNOWN STEP	2026-10-15T16:21:21.0183676Z         command_line_rejects_duplicate_fields_before_connecting
+lampOS — build and test on Linux ARM64 (2/4)	UNKNOWN STEP	2026-10-15T16:21:21.0183904Z 
+lampOS — build and test on Linux ARM64 (2/4)	UNKNOWN STEP	2026-10-15T16:21:21.0184157Z     test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 10 filtered out; finished in 0.00s
+lampOS — build and test on Linux ARM64 (2/4)	UNKNOWN STEP	2026-10-15T16:21:21.0184498Z 
+lampOS — build and test on Linux ARM64 (2/4)	UNKNOWN STEP	2026-10-15T16:21:21.0184596Z   stderr ───
+lampOS — build and test on Linux ARM64 (2/4)	UNKNOWN STEP	2026-10-15T16:21:21.0185163Z 
+lampOS — build and test on Linux ARM64 (2/4)	UNKNOWN STEP	2026-10-15T16:21:21.0185517Z     thread 'command_line_rejects_duplicate_fields_before_connecting' (23815) panicked at crates/tasks/tests/runtime.rs:430:9:
+lampOS — build and test on Linux ARM64 (2/4)	UNKNOWN STEP	2026-10-15T16:21:21.0186163Z     assertion failed: String::from_utf8_lossy(&output.stderr).contains("bad_request")
+lampOS — build and test on Linux ARM64 (2/4)	UNKNOWN STEP	2026-10-15T16:21:21.0186653Z     note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+lampOS — build and test on Linux ARM64 (2/4)	UNKNOWN STEP	2026-10-15T16:21:21.0186939Z 
+lampOS — build and test on Linux ARM64 (2/4)	UNKNOWN STEP	2026-10-15T16:21:21.0187021Z   Cancelling due to test failure
+lampOS — build and test on Linux ARM64 (2/4)	UNKNOWN STEP	2026-10-15T16:21:21.0224537Z ────────────
+lampOS — build and test on Linux ARM64 (2/4)	UNKNOWN STEP	2026-10-15T16:21:21.0224910Z      Summary [  49.299s] 791/1237 tests run: 790 passed, 1 failed, 3664 skipped
+lampOS — build and test on Linux ARM64 (2/4)	UNKNOWN STEP	2026-10-15T16:21:21.0225469Z         FAIL [   0.005s] ( 791/1237) lamp-tasks::runtime command_line_rejects_duplicate_fields_before_connecting
+lampOS — build and test on Linux ARM64 (2/4)	UNKNOWN STEP	2026-10-15T16:21:21.0226163Z warning: 446/1237 tests were not run due to test failure (run with --no-fail-fast to run all tests, or run with --max-fail)
+lampOS — build and test on Linux ARM64 (2/4)	UNKNOWN STEP	2026-10-15T16:21:21.0260937Z error: test run failed
+lampOS — build and test on Linux ARM64 (2/4)	UNKNOWN STEP	2026-10-15T16:21:21.0289634Z ##[error]Process completed with exit code 100.

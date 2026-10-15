@@ -1,5 +1,44 @@
 # Tests work log
 
+## 2026-10-15 23:45 +0700 — clock preparations gated; full ARM64 blocker preserved
+
+Ready for lamp-voice: no (new heads await native qualification)
+
+- #867 was rebased after #861 onto `b60062b86`, preserving both clock APIs
+  and both documentation sections. Head `09b7512f4` has byte-identical source
+  to the reviewed head. Fresh fmt, strict evaluator clippy, nine shared clock
+  checks and workspace build pass; the original and independent reviewer
+  288-test full gates are retained. Draft until native `38769725447` completes.
+- Finite loopback's final rebased gate is complete: **342 passed, zero failures
+  or ignores**, plus workspace strict clippy, fmt and build. The retained
+  paired measurement is 248.575 s to 28.471 s for the same 12 identities and
+  100 assertions. Its separate PR follows the #867 dependency's merge.
+- Pure serve clock is draft [#875](https://github.com/autonomous-ai/lampOS/pull/875),
+  `5020ed55a`: 296 full evaluator tests pass, zero failures or ignores, plus
+  fmt/clippy/build. Native `38769997069` is running. No scenario migration or
+  speedup is claimed by this preparation.
+- Prepared-player clock is draft [#877](https://github.com/autonomous-ai/lampOS/pull/877),
+  `3fb8aacb2`: 298 full evaluator tests pass, zero failures or ignores, plus
+  fmt/clippy/build. Native `38771112900` is running. Default nanosecond precision,
+  fault delays, grants and actual channels/sends remain unchanged.
+- #872's PR-profile native run `38766269454` passed 4,717 with 127 profile
+  skips; the endpoint module is among those skipped. Full run `38766285196`
+  passed both original LEAK cases without LEAK (1.518 s and 4.379 s), but
+  the new panic-cleanup case was **not run**. Unchanged Tasks duplicate-field
+  stderr assertion failed: #876; full total 4,417 passed, one failed, 446
+  selected cases unrun after fail-fast. [Raw result rows and source audit](verification/endpoint-full-arm64-20261015/README.md).
+  #872 stays draft. No retry or product change.
+- Coordinated serve integration now retains all 14 identities and 22 attempts:
+  ten identities select the controlled clock; three recorder identities and
+  the delayed-transport identity remain fully present on host time. Compile,
+  focused boundary checks and independent review are in progress. No measured
+  serve speedup is claimed yet.
+
+Capacity #868 remains draft on #869; the separate capture-stall #866 is
+unclaimed. #832 waits on #838. #837 and the eighth's #783 qualification remain
+separate. No workflow, runner, setting or device changes. The full 123-test
+serial under-two-minute goal stays open.
+
 ## 2026-10-15 23:09 +0700 — finite loopback pair measured; endpoint cleanup in native qualification
 
 Ready for lamp-voice: yes (#867)

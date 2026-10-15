@@ -125,7 +125,7 @@ fn scripted(script: Arc<Script>) -> (Engine, Calls, Arc<Mutex<Instant>>) {
     let clock = now.clone();
     let engine = Engine::with_clock(
         script,
-        Arc::new(|| "SYSTEM".to_owned()),
+        Arc::new(|| "SYSTEM".to_owned().into()),
         tools,
         Arc::new(move || *clock.lock().unwrap()),
     );
@@ -528,4 +528,52 @@ async fn the_next_chat_is_given_the_last_exchange_until_it_is_five_minutes_old()
         ]
     );
     assert_eq!(asked[2][1..], [Message::user("A yellow fruit?")]);
+}
+
+/// First builder's reviewer on #778: a turn is given only its own person's
+/// exchanges, never the last person's, though both are within five minutes.
+#[tokio::test]
+async fn a_new_persons_chat_is_not_given_the_last_persons_exchanges() {
+    let script = Arc::new(Script {
+        chats: Mutex::new(
+            [
+                vec![text("Kept: 417."), Ok(ChatEvent::Done)],
+                vec![text("Hello."), Ok(ChatEvent::Done)],
+                vec![text("417."), Ok(ChatEvent::Done)],
+            ]
+            .into(),
+        ),
+        ..Script::default()
+    });
+    let whose = Arc::new(Mutex::new(Some("minh".to_owned())));
+    let now = Instant::now();
+    let tools: ToolRunner = Arc::new(|_, _, _| Box::pin(async { json!({"ok": true}) }));
+    let person = whose.clone();
+    let mut engine = Engine::with_clock(
+        script.clone(),
+        Arc::new(move || Told {
+            text: "SYSTEM".into(),
+            whose: person.lock().unwrap().clone(),
+        }),
+        tools,
+        Arc::new(move || now),
+    );
+    engine.submit(written(1, "My locker is 417."));
+    turn(&mut engine).await;
+    *whose.lock().unwrap() = Some("sam".to_owned());
+    engine.submit(written(2, "Hi."));
+    turn(&mut engine).await;
+    *whose.lock().unwrap() = Some("minh".to_owned());
+    engine.submit(written(3, "What is my locker?"));
+    turn(&mut engine).await;
+    let asked = script.asked.lock().unwrap();
+    assert_eq!(asked[1][1..], [Message::user("Hi.")]);
+    assert_eq!(
+        asked[2][1..],
+        [
+            Message::user("My locker is 417."),
+            Message::assistant("Kept: 417."),
+            Message::user("What is my locker?"),
+        ]
+    );
 }

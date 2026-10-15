@@ -1,0 +1,1601 @@
+[
+  {
+    "binary": "lamp-actions::server",
+    "test": "the_light_is_offered_when_its_owner_appears_and_withdrawn_when_it_goes",
+    "result": "PASS",
+    "seconds": "4.113",
+    "job": "lampOS \u2014 build and test on Linux ARM64 (2/4)",
+    "log_line": 3533,
+    "original_source": {
+      "path": "crates/actions/tests/server.rs",
+      "line": 163
+    },
+    "observations": 1
+  },
+  {
+    "binary": "lamp-health::program",
+    "test": "between_two_healths_five_seconds_apart_the_program_is_not_taken_for_gone",
+    "result": "PASS",
+    "seconds": "5.009",
+    "job": "lampOS \u2014 build and test on Linux ARM64 (2/4)",
+    "log_line": 3941,
+    "original_source": {
+      "path": "crates/health/tests/program.rs",
+      "line": 543
+    },
+    "observations": 1
+  },
+  {
+    "binary": "lamp-memory::health",
+    "test": "legacy_reports_retained_counts_and_stays_well_after_caller_refusals",
+    "result": "PASS",
+    "seconds": "0.017",
+    "job": "lampOS \u2014 build and test on Linux ARM64 (3/4)",
+    "log_line": 1607,
+    "original_source": {
+      "path": "crates/memory/tests/health.rs",
+      "line": 290
+    },
+    "observations": 1
+  },
+  {
+    "binary": "lamp-memory::health",
+    "test": "a_failed_legacy_write_stays_warn_through_reads_until_a_write_succeeds",
+    "result": "PASS",
+    "seconds": "0.016",
+    "job": "lampOS \u2014 build and test on Linux ARM64 (1/4)",
+    "log_line": 8929,
+    "original_source": {
+      "path": "crates/memory/tests/health.rs",
+      "line": 300
+    },
+    "observations": 1
+  },
+  {
+    "binary": "lamp-memory::health",
+    "test": "sqlite_reports_retained_counts_and_stays_well_after_caller_refusals",
+    "result": "PASS",
+    "seconds": "0.035",
+    "job": "lampOS \u2014 build and test on Linux ARM64 (4/4)",
+    "log_line": 6487,
+    "original_source": {
+      "path": "crates/memory/tests/health.rs",
+      "line": 295
+    },
+    "observations": 1
+  },
+  {
+    "binary": "lamp-memory::health",
+    "test": "a_working_bus_that_fails_stays_failed_until_publication_really_recovers",
+    "result": "PASS",
+    "seconds": "0.020",
+    "job": "lampOS \u2014 build and test on Linux ARM64 (4/4)",
+    "log_line": 6485,
+    "original_source": {
+      "path": "crates/memory/tests/health.rs",
+      "line": 414
+    },
+    "observations": 1
+  },
+  {
+    "binary": "lamp-memory::health",
+    "test": "the_environment_alone_does_not_enable_reporting_or_create_bus_data",
+    "result": "PASS",
+    "seconds": "4.461",
+    "job": "lampOS \u2014 build and test on Linux ARM64 (3/4)",
+    "log_line": 1608,
+    "original_source": {
+      "path": "crates/memory/tests/health.rs",
+      "line": 366
+    },
+    "observations": 1
+  },
+  {
+    "binary": "lamp-memory::health",
+    "test": "an_unusable_bus_does_not_prevent_serving_and_reports_recover_when_it_returns",
+    "result": "PASS",
+    "seconds": "0.013",
+    "job": "lampOS \u2014 build and test on Linux ARM64 (4/4)",
+    "log_line": 6486,
+    "original_source": {
+      "path": "crates/memory/tests/health.rs",
+      "line": 390
+    },
+    "observations": 1
+  },
+  {
+    "binary": "lamp-memory::health",
+    "test": "a_store_that_cannot_open_never_claims_readiness_and_any_delivered_report_is_warn",
+    "result": "PASS",
+    "seconds": "0.545",
+    "job": "lampOS \u2014 build and test on Linux ARM64 (4/4)",
+    "log_line": 6484,
+    "original_source": {
+      "path": "crates/memory/tests/health.rs",
+      "line": 499
+    },
+    "observations": 1
+  },
+  {
+    "binary": "lamp-records::records",
+    "test": "real_reporter_reloads_switch_and_policy_and_requires_a_matching_receipt",
+    "result": "PASS",
+    "seconds": "5.009",
+    "job": "lampOS \u2014 build and test on Linux ARM64 (1/4)",
+    "log_line": 9080,
+    "original_source": {
+      "path": "crates/records/tests/records.rs",
+      "line": 213
+    },
+    "observations": 1
+  },
+  {
+    "binary": "lamp-voice",
+    "test": "provider_worker::tests::twenty_second_answer_through_a_five_second_reply_buffer_follows_capacity",
+    "result": "PASS",
+    "seconds": "24.030",
+    "job": "lampOS \u2014 build and test on Linux ARM64 (1/4)",
+    "log_line": 9517,
+    "original_source": {
+      "path": "crates/voice/src/provider_worker.rs",
+      "line": 7546
+    },
+    "observations": 1
+  },
+  {
+    "binary": "lamp-voice",
+    "test": "coordinator::tests::early_end::an_answer_that_arrives_after_the_lamp_is_sure_begins_400_ms_sooner_than_without",
+    "result": "PASS",
+    "seconds": "10.756",
+    "job": "lampOS \u2014 build and test on Linux ARM64 (4/4)",
+    "log_line": 6907,
+    "original_source": {
+      "path": "crates/voice/src/coordinator/tests/early_end.rs",
+      "line": 862
+    },
+    "observations": 1
+  },
+  {
+    "binary": "lamp-voice",
+    "test": "coordinator::tests::endpoint_session::a_worker_failure_falls_back_through_recovery_and_then_resumes",
+    "result": "PASS",
+    "seconds": "0.368",
+    "job": "lampOS \u2014 build and test on Linux ARM64 (2/4)",
+    "log_line": 4463,
+    "original_source": {
+      "path": "crates/voice/src/coordinator/tests/endpoint_session.rs",
+      "line": 1100
+    },
+    "observations": 1
+  },
+  {
+    "binary": "lamp-voice",
+    "test": "coordinator::tests::pilot_faults::rapid_mute_and_reopen_never_overlaps_workers_or_carries_speech_across",
+    "result": "PASS",
+    "seconds": "8.592",
+    "job": "lampOS \u2014 build and test on Linux ARM64 (1/4)",
+    "log_line": 9407,
+    "original_source": {
+      "path": "crates/voice/src/coordinator/tests/pilot_faults.rs",
+      "line": 1769
+    },
+    "observations": 1
+  },
+  {
+    "binary": "lamp-voice",
+    "test": "coordinator::tests::early_end::the_link_dropping_in_between_fails_the_request_unheard_and_the_next_is_answered",
+    "result": "PASS",
+    "seconds": "6.383",
+    "job": "lampOS \u2014 build and test on Linux ARM64 (1/4)",
+    "log_line": 9384,
+    "original_source": {
+      "path": "crates/voice/src/coordinator/tests/early_end.rs",
+      "line": 905
+    },
+    "observations": 1
+  },
+  {
+    "binary": "lamp-voice",
+    "test": "coordinator::tests::early_end::speech_resumed_at_three_tenths_nothing_of_the_first_answer_is_played_and_one_turn_is_heard",
+    "result": "PASS",
+    "seconds": "6.382",
+    "job": "lampOS \u2014 build and test on Linux ARM64 (2/4)",
+    "log_line": 4460,
+    "original_source": {
+      "path": "crates/voice/src/coordinator/tests/early_end.rs",
+      "line": 765
+    },
+    "observations": 1
+  },
+  {
+    "binary": "lamp-voice",
+    "test": "coordinator::tests::early_end::speech_resumed_at_three_tenths_under_the_lamps_duplex_policy",
+    "result": "PASS",
+    "seconds": "6.383",
+    "job": "lampOS \u2014 build and test on Linux ARM64 (1/4)",
+    "log_line": 9383,
+    "original_source": {
+      "path": "crates/voice/src/coordinator/tests/early_end.rs",
+      "line": 780
+    },
+    "observations": 1
+  },
+  {
+    "binary": "lamp-voice",
+    "test": "coordinator::tests::early_end::without_the_option_every_message_and_record_is_what_it_was",
+    "result": "PASS",
+    "seconds": "6.383",
+    "job": "lampOS \u2014 build and test on Linux ARM64 (3/4)",
+    "log_line": 1996,
+    "original_source": {
+      "path": "crates/voice/src/coordinator/tests/early_end.rs",
+      "line": 1056
+    },
+    "observations": 1
+  },
+  {
+    "binary": "lamp-voice",
+    "test": "coordinator::tests::endpoint_session::hung_worker_never_delays_capture_endpoint_or_session_end",
+    "result": "PASS",
+    "seconds": "6.378",
+    "job": "lampOS \u2014 build and test on Linux ARM64 (3/4)",
+    "log_line": 2003,
+    "original_source": {
+      "path": "crates/voice/src/coordinator/tests/endpoint_session.rs",
+      "line": 583
+    },
+    "observations": 1
+  },
+  {
+    "binary": "lamp-voice",
+    "test": "coordinator::tests::endpoint_session::verdicts_after_the_result_timeout_fall_back_on_every_turn",
+    "result": "PASS",
+    "seconds": "0.350",
+    "job": "lampOS \u2014 build and test on Linux ARM64 (3/4)",
+    "log_line": 2004,
+    "original_source": {
+      "path": "crates/voice/src/coordinator/tests/endpoint_session.rs",
+      "line": 964
+    },
+    "observations": 1
+  },
+  {
+    "binary": "lamp-voice",
+    "test": "coordinator::tests::early_end::a_lone_lamp_and_a_pause_and_the_question_go_as_one_request",
+    "result": "PASS",
+    "seconds": "5.383",
+    "job": "lampOS \u2014 build and test on Linux ARM64 (1/4)",
+    "log_line": 9380,
+    "original_source": {
+      "path": "crates/voice/src/coordinator/tests/early_end.rs",
+      "line": 1034
+    },
+    "observations": 1
+  },
+  {
+    "binary": "lamp-voice",
+    "test": "coordinator::tests::early_end::lamp_stop_over_an_answer_stops_it_and_only_the_answer_to_the_whole_is_played",
+    "result": "PASS",
+    "seconds": "5.380",
+    "job": "lampOS \u2014 build and test on Linux ARM64 (3/4)",
+    "log_line": 1995,
+    "original_source": {
+      "path": "crates/voice/src/coordinator/tests/early_end.rs",
+      "line": 953
+    },
+    "observations": 1
+  },
+  {
+    "binary": "lamp-voice",
+    "test": "coordinator::tests::endpoint_session::duplex_complete_verdict_ends_at_one_second_and_its_answer_plays",
+    "result": "PASS",
+    "seconds": "0.343",
+    "job": "lampOS \u2014 build and test on Linux ARM64 (1/4)",
+    "log_line": 9386,
+    "original_source": {
+      "path": "crates/voice/src/coordinator/tests/endpoint_session.rs",
+      "line": 1167
+    },
+    "observations": 1
+  },
+  {
+    "binary": "lamp-voice",
+    "test": "coordinator::tests::endpoint_session::a_complete_verdict_ends_at_one_second_and_its_answer_plays",
+    "result": "PASS",
+    "seconds": "0.342",
+    "job": "lampOS \u2014 build and test on Linux ARM64 (3/4)",
+    "log_line": 1998,
+    "original_source": {
+      "path": "crates/voice/src/coordinator/tests/endpoint_session.rs",
+      "line": 1017
+    },
+    "observations": 1
+  },
+  {
+    "binary": "lamp-voice",
+    "test": "coordinator::tests::endpoint_session::rapid_resumes_never_end_the_turn_early",
+    "result": "PASS",
+    "seconds": "0.343",
+    "job": "lampOS \u2014 build and test on Linux ARM64 (1/4)",
+    "log_line": 9389,
+    "original_source": {
+      "path": "crates/voice/src/coordinator/tests/endpoint_session.rs",
+      "line": 986
+    },
+    "observations": 1
+  },
+  {
+    "binary": "lamp-voice",
+    "test": "provider_worker::tests::review_2026_10_14::review_a_name_heard_after_a_requests_sound_ended_does_not_let_out_its_answer",
+    "result": "PASS",
+    "seconds": "5.229",
+    "job": "lampOS \u2014 build and test on Linux ARM64 (3/4)",
+    "log_line": 2120,
+    "original_source": {
+      "path": "crates/voice/src/provider_worker/tests/review_2026_10_14.rs",
+      "line": 132
+    },
+    "observations": 1
+  },
+  {
+    "binary": "lamp-voice",
+    "test": "coordinator::tests::pilot_faults::a_turn_under_way_when_paused_is_finished_and_the_next_is_not_taken",
+    "result": "PASS",
+    "seconds": "0.047",
+    "job": "lampOS \u2014 build and test on Linux ARM64 (3/4)",
+    "log_line": 2015,
+    "original_source": {
+      "path": "crates/voice/src/coordinator/tests/pilot_faults.rs",
+      "line": 2062
+    },
+    "observations": 1
+  },
+  {
+    "binary": "lamp-voice",
+    "test": "coordinator::tests::endpoint_session::a_worker_still_loading_leaves_the_baseline_window",
+    "result": "PASS",
+    "seconds": "4.379",
+    "job": "lampOS \u2014 build and test on Linux ARM64 (3/4)",
+    "log_line": 2000,
+    "original_source": {
+      "path": "crates/voice/src/coordinator/tests/endpoint_session.rs",
+      "line": 951
+    },
+    "observations": 1
+  },
+  {
+    "binary": "lamp-voice",
+    "test": "provider_worker::tests::kept_start::with_no_first_answer_the_patience_ends_in_the_strict_timeout_and_no_end",
+    "result": "PASS",
+    "seconds": "4.522",
+    "job": "lampOS \u2014 build and test on Linux ARM64 (2/4)",
+    "log_line": 4557,
+    "original_source": {
+      "path": "crates/voice/src/provider_worker.rs",
+      "line": 8425
+    },
+    "observations": 1
+  },
+  {
+    "binary": "lamp-voice",
+    "test": "provider_worker::tests::review_2026_10_14::review_sound_a_name_heard_as_a_request_began_lets_out_the_answer_the_rule_would_hold",
+    "result": "PASS",
+    "seconds": "4.428",
+    "job": "lampOS \u2014 build and test on Linux ARM64 (4/4)",
+    "log_line": 7042,
+    "original_source": {
+      "path": "crates/voice/src/provider_worker/tests/review_2026_10_14.rs",
+      "line": 175
+    },
+    "observations": 1
+  },
+  {
+    "binary": "lamp-voice",
+    "test": "coordinator::tests::early_end::an_answer_that_arrives_before_the_lamp_is_sure_begins_at_that_moment",
+    "result": "PASS",
+    "seconds": "4.387",
+    "job": "lampOS \u2014 build and test on Linux ARM64 (2/4)",
+    "log_line": 4457,
+    "original_source": {
+      "path": "crates/voice/src/coordinator/tests/early_end.rs",
+      "line": 799
+    },
+    "observations": 1
+  },
+  {
+    "binary": "lamp-voice",
+    "test": "coordinator::tests::early_end::an_answer_with_nothing_said_before_the_lamp_is_sure_is_never_played",
+    "result": "PASS",
+    "seconds": "4.380",
+    "job": "lampOS \u2014 build and test on Linux ARM64 (2/4)",
+    "log_line": 4458,
+    "original_source": {
+      "path": "crates/voice/src/coordinator/tests/early_end.rs",
+      "line": 834
+    },
+    "observations": 1
+  },
+  {
+    "binary": "lamp-voice",
+    "test": "coordinator::tests::endpoint_session::duplex_missing_model_session_ends_on_the_unchanged_silence_fallback",
+    "result": "PASS",
+    "seconds": "4.379",
+    "job": "lampOS \u2014 build and test on Linux ARM64 (1/4)",
+    "log_line": 9387,
+    "original_source": {
+      "path": "crates/voice/src/coordinator/tests/endpoint_session.rs",
+      "line": 1195
+    },
+    "observations": 1
+  },
+  {
+    "binary": "lamp-voice",
+    "test": "coordinator::tests::endpoint_session::missing_model_session_ends_on_the_unchanged_silence_fallback",
+    "result": "PASS",
+    "seconds": "4.379",
+    "job": "lampOS \u2014 build and test on Linux ARM64 (2/4)",
+    "log_line": 4467,
+    "original_source": {
+      "path": "crates/voice/src/coordinator/tests/endpoint_session.rs",
+      "line": 525
+    },
+    "observations": 1
+  },
+  {
+    "binary": "lamp-voice",
+    "test": "coordinator::tests::early_end::quiet_to_the_end_the_answer_starts_when_the_lamp_is_sure_and_not_before",
+    "result": "PASS",
+    "seconds": "4.384",
+    "job": "lampOS \u2014 build and test on Linux ARM64 (4/4)",
+    "log_line": 6910,
+    "original_source": {
+      "path": "crates/voice/src/coordinator/tests/early_end.rs",
+      "line": 677
+    },
+    "observations": 1
+  },
+  {
+    "binary": "lamp-voice",
+    "test": "coordinator::tests::endpoint_session::complete_verdict_ends_early_but_resumed_speech_keeps_the_turn",
+    "result": "PASS",
+    "seconds": "0.338",
+    "job": "lampOS \u2014 build and test on Linux ARM64 (1/4)",
+    "log_line": 9385,
+    "original_source": {
+      "path": "crates/voice/src/coordinator/tests/endpoint_session.rs",
+      "line": 676
+    },
+    "observations": 1
+  },
+  {
+    "binary": "lamp-voice",
+    "test": "coordinator::tests::pilot_faults::failure_notice_plays_once_keeps_the_failure_and_yields_to_the_next_owner",
+    "result": "PASS",
+    "seconds": "0.046",
+    "job": "lampOS \u2014 build and test on Linux ARM64 (3/4)",
+    "log_line": 2020,
+    "original_source": {
+      "path": "crates/voice/src/coordinator/tests/pilot_faults.rs",
+      "line": 1509
+    },
+    "observations": 1
+  },
+  {
+    "binary": "lamp-voice",
+    "test": "provider_worker::tests::resumed_question_survives_a_silent_service_and_the_assumption_is_reported",
+    "result": "PASS",
+    "seconds": "4.057",
+    "job": "lampOS \u2014 build and test on Linux ARM64 (2/4)",
+    "log_line": 4564,
+    "original_source": {
+      "path": "crates/voice/src/provider_worker.rs",
+      "line": 8044
+    },
+    "observations": 1
+  },
+  {
+    "binary": "lamp-voice",
+    "test": "coordinator::tests::pilot_faults::resumed_the_lamp_answers_again",
+    "result": "PASS",
+    "seconds": "0.040",
+    "job": "lampOS \u2014 build and test on Linux ARM64 (1/4)",
+    "log_line": 9408,
+    "original_source": {
+      "path": "crates/voice/src/coordinator/tests/pilot_faults.rs",
+      "line": 2090
+    },
+    "observations": 1
+  },
+  {
+    "binary": "lamp-voice",
+    "test": "coordinator::tests::pilot_faults::failure_notice_yields_mid_play_to_a_new_owner_under_vad_only",
+    "result": "PASS",
+    "seconds": "0.038",
+    "job": "lampOS \u2014 build and test on Linux ARM64 (1/4)",
+    "log_line": 9405,
+    "original_source": {
+      "path": "crates/voice/src/coordinator/tests/pilot_faults.rs",
+      "line": 1588
+    },
+    "observations": 1
+  },
+  {
+    "binary": "lamp-voice",
+    "test": "coordinator::tests::pilot_faults::sigterm_while_metadata_storage_is_stalled_stops_cleanly_and_reports_the_loss",
+    "result": "PASS",
+    "seconds": "0.533",
+    "job": "lampOS \u2014 build and test on Linux ARM64 (2/4)",
+    "log_line": 4474,
+    "original_source": {
+      "path": "crates/voice/src/coordinator/tests/pilot_faults.rs",
+      "line": 1867
+    },
+    "observations": 1
+  },
+  {
+    "binary": "lamp-voice",
+    "test": "coordinator::tests::pilot_faults::camera_loss_during_an_answer_revokes_only_sight",
+    "result": "PASS",
+    "seconds": "0.039",
+    "job": "lampOS \u2014 build and test on Linux ARM64 (3/4)",
+    "log_line": 2016,
+    "original_source": {
+      "path": "crates/voice/src/coordinator/tests/pilot_faults.rs",
+      "line": 1745
+    },
+    "observations": 1
+  },
+  {
+    "binary": "lamp-voice",
+    "test": "coordinator::tests::pilot_faults::control_one_question_is_answered_once_then_mute_ends_the_run",
+    "result": "PASS",
+    "seconds": "0.033",
+    "job": "lampOS \u2014 build and test on Linux ARM64 (4/4)",
+    "log_line": 6926,
+    "original_source": {
+      "path": "crates/voice/src/coordinator/tests/pilot_faults.rs",
+      "line": 1320
+    },
+    "observations": 1
+  },
+  {
+    "binary": "lamp-voice",
+    "test": "coordinator::tests::pilot_faults::readiness_publishes_the_link_state_it_was_validated_against",
+    "result": "PASS",
+    "seconds": "0.034",
+    "job": "lampOS \u2014 build and test on Linux ARM64 (3/4)",
+    "log_line": 2025,
+    "original_source": {
+      "path": "crates/voice/src/coordinator/tests/pilot_faults.rs",
+      "line": 1345
+    },
+    "observations": 1
+  },
+  {
+    "binary": "lamp-voice",
+    "test": "coordinator::tests::pilot_faults::ring_fault_during_an_answer_keeps_the_conversation_and_cleans_up",
+    "result": "PASS",
+    "seconds": "0.043",
+    "job": "lampOS \u2014 build and test on Linux ARM64 (4/4)",
+    "log_line": 6931,
+    "original_source": {
+      "path": "crates/voice/src/coordinator/tests/pilot_faults.rs",
+      "line": 1705
+    },
+    "observations": 1
+  },
+  {
+    "binary": "lamp-voice",
+    "test": "coordinator::tests::pilot_faults::duplex_control_answers_once",
+    "result": "PASS",
+    "seconds": "0.033",
+    "job": "lampOS \u2014 build and test on Linux ARM64 (1/4)",
+    "log_line": 9403,
+    "original_source": {
+      "path": "crates/voice/src/coordinator/tests/pilot_faults.rs",
+      "line": 2002
+    },
+    "observations": 1
+  },
+  {
+    "binary": "lamp-voice",
+    "test": "coordinator::tests::pilot_faults::ring_lost_without_blanking_keeps_the_answer_but_cleanup_fails_truthfully",
+    "result": "PASS",
+    "seconds": "0.044",
+    "job": "lampOS \u2014 build and test on Linux ARM64 (3/4)",
+    "log_line": 2026,
+    "original_source": {
+      "path": "crates/voice/src/coordinator/tests/pilot_faults.rs",
+      "line": 1726
+    },
+    "observations": 1
+  },
+  {
+    "binary": "lamp-voice",
+    "test": "coordinator::tests::pilot_faults::provider_failure_during_output_never_becomes_a_completed_answer",
+    "result": "PASS",
+    "seconds": "0.033",
+    "job": "lampOS \u2014 build and test on Linux ARM64 (4/4)",
+    "log_line": 6929,
+    "original_source": {
+      "path": "crates/voice/src/coordinator/tests/pilot_faults.rs",
+      "line": 1391
+    },
+    "observations": 1
+  },
+  {
+    "binary": "lamp-voice",
+    "test": "coordinator::tests::pilot_faults::terminal_provider_link_during_output_settles_failed_and_ends_service",
+    "result": "PASS",
+    "seconds": "0.032",
+    "job": "lampOS \u2014 build and test on Linux ARM64 (4/4)",
+    "log_line": 6932,
+    "original_source": {
+      "path": "crates/voice/src/coordinator/tests/pilot_faults.rs",
+      "line": 1650
+    },
+    "observations": 1
+  },
+  {
+    "binary": "lamp-voice",
+    "test": "coordinator::tests::pilot_faults::partial_write_then_stall_is_bounded_under_v1_baseline",
+    "result": "PASS",
+    "seconds": "0.033",
+    "job": "lampOS \u2014 build and test on Linux ARM64 (1/4)",
+    "log_line": 9406,
+    "original_source": {
+      "path": "crates/voice/src/coordinator/tests/pilot_faults.rs",
+      "line": 1939
+    },
+    "observations": 1
+  },
+  {
+    "binary": "lamp-voice",
+    "test": "coordinator::tests::pilot_faults::control_progress_without_settlement_is_bounded_under_v1_baseline",
+    "result": "PASS",
+    "seconds": "0.031",
+    "job": "lampOS \u2014 build and test on Linux ARM64 (1/4)",
+    "log_line": 9402,
+    "original_source": {
+      "path": "crates/voice/src/coordinator/tests/pilot_faults.rs",
+      "line": 1969
+    },
+    "observations": 1
+  },
+  {
+    "binary": "lamp-voice",
+    "test": "coordinator::tests::pilot_faults::duplex_stalled_speaker_is_bounded",
+    "result": "PASS",
+    "seconds": "0.032",
+    "job": "lampOS \u2014 build and test on Linux ARM64 (3/4)",
+    "log_line": 2019,
+    "original_source": {
+      "path": "crates/voice/src/coordinator/tests/pilot_faults.rs",
+      "line": 2020
+    },
+    "observations": 1
+  },
+  {
+    "binary": "lamp-voice",
+    "test": "coordinator::tests::pilot_faults::stalled_speaker_during_output_is_bounded_and_never_completes_the_answer",
+    "result": "PASS",
+    "seconds": "0.034",
+    "job": "lampOS \u2014 build and test on Linux ARM64 (1/4)",
+    "log_line": 9410,
+    "original_source": {
+      "path": "crates/voice/src/coordinator/tests/pilot_faults.rs",
+      "line": 1541
+    },
+    "observations": 1
+  },
+  {
+    "binary": "lamp-voice",
+    "test": "coordinator::tests::pilot_faults::provider_process_lost_before_output_ends_the_run_without_speech",
+    "result": "PASS",
+    "seconds": "0.029",
+    "job": "lampOS \u2014 build and test on Linux ARM64 (3/4)",
+    "log_line": 2024,
+    "original_source": {
+      "path": "crates/voice/src/coordinator/tests/pilot_faults.rs",
+      "line": 1403
+    },
+    "observations": 1
+  },
+  {
+    "binary": "lamp-voice",
+    "test": "coordinator::tests::pilot_faults::provider_process_lost_during_output_stops_speech_and_fails_the_turn",
+    "result": "PASS",
+    "seconds": "0.029",
+    "job": "lampOS \u2014 build and test on Linux ARM64 (2/4)",
+    "log_line": 4473,
+    "original_source": {
+      "path": "crates/voice/src/coordinator/tests/pilot_faults.rs",
+      "line": 1421
+    },
+    "observations": 1
+  },
+  {
+    "binary": "lamp-voice",
+    "test": "coordinator::tests::pilot_faults::mute_while_answer_speech_is_queued_cuts_it_and_never_resumes",
+    "result": "PASS",
+    "seconds": "0.029",
+    "job": "lampOS \u2014 build and test on Linux ARM64 (3/4)",
+    "log_line": 2022,
+    "original_source": {
+      "path": "crates/voice/src/coordinator/tests/pilot_faults.rs",
+      "line": 1480
+    },
+    "observations": 1
+  },
+  {
+    "binary": "lamp-voice",
+    "test": "coordinator::tests::pilot_faults::mute_while_the_failure_notice_plays_cuts_it_and_keeps_the_failure",
+    "result": "PASS",
+    "seconds": "0.029",
+    "job": "lampOS \u2014 build and test on Linux ARM64 (3/4)",
+    "log_line": 2023,
+    "original_source": {
+      "path": "crates/voice/src/coordinator/tests/pilot_faults.rs",
+      "line": 1665
+    },
+    "observations": 1
+  },
+  {
+    "binary": "lamp-voice",
+    "test": "coordinator::tests::pilot_faults::capture_fault_during_output_cancels_the_answer_and_ends_the_run",
+    "result": "PASS",
+    "seconds": "0.029",
+    "job": "lampOS \u2014 build and test on Linux ARM64 (4/4)",
+    "log_line": 6923,
+    "original_source": {
+      "path": "crates/voice/src/coordinator/tests/pilot_faults.rs",
+      "line": 1446
+    },
+    "observations": 1
+  },
+  {
+    "binary": "lamp-voice",
+    "test": "coordinator::tests::pilot_faults::sigterm_while_answer_speech_is_pending_stops_cleanly",
+    "result": "PASS",
+    "seconds": "0.030",
+    "job": "lampOS \u2014 build and test on Linux ARM64 (3/4)",
+    "log_line": 2027,
+    "original_source": {
+      "path": "crates/voice/src/coordinator/tests/pilot_faults.rs",
+      "line": 1495
+    },
+    "observations": 1
+  },
+  {
+    "binary": "lamp-voice",
+    "test": "coordinator::tests::pilot_faults::sigterm_while_the_failure_notice_plays_stops_cleanly",
+    "result": "PASS",
+    "seconds": "0.029",
+    "job": "lampOS \u2014 build and test on Linux ARM64 (3/4)",
+    "log_line": 2028,
+    "original_source": {
+      "path": "crates/voice/src/coordinator/tests/pilot_faults.rs",
+      "line": 1688
+    },
+    "observations": 1
+  },
+  {
+    "binary": "lamp-voice",
+    "test": "coordinator::tests::pilot_faults::provider_failure_before_output_settles_failed_without_speech",
+    "result": "PASS",
+    "seconds": "0.029",
+    "job": "lampOS \u2014 build and test on Linux ARM64 (4/4)",
+    "log_line": 6928,
+    "original_source": {
+      "path": "crates/voice/src/coordinator/tests/pilot_faults.rs",
+      "line": 1380
+    },
+    "observations": 1
+  },
+  {
+    "binary": "lamp-voice",
+    "test": "coordinator::tests::pilot_faults::provider_worker_fault_during_output_fails_the_turn_and_ends_the_run",
+    "result": "PASS",
+    "seconds": "0.029",
+    "job": "lampOS \u2014 build and test on Linux ARM64 (4/4)",
+    "log_line": 6930,
+    "original_source": {
+      "path": "crates/voice/src/coordinator/tests/pilot_faults.rs",
+      "line": 1637
+    },
+    "observations": 1
+  },
+  {
+    "binary": "lamp-voice",
+    "test": "coordinator::tests::pilot_faults::a_paused_lamp_takes_no_question_and_says_why",
+    "result": "PASS",
+    "seconds": "0.024",
+    "job": "lampOS \u2014 build and test on Linux ARM64 (3/4)",
+    "log_line": 2012,
+    "original_source": {
+      "path": "crates/voice/src/coordinator/tests/pilot_faults.rs",
+      "line": 2047
+    },
+    "observations": 1
+  },
+  {
+    "binary": "lamp-voice",
+    "test": "coordinator::tests::pilot_faults::stalled_speaker_under_vad_only_is_bounded_too",
+    "result": "PASS",
+    "seconds": "0.030",
+    "job": "lampOS \u2014 build and test on Linux ARM64 (3/4)",
+    "log_line": 2029,
+    "original_source": {
+      "path": "crates/voice/src/coordinator/tests/pilot_faults.rs",
+      "line": 1567
+    },
+    "observations": 1
+  },
+  {
+    "binary": "lamp-voice",
+    "test": "coordinator::tests::pilot_faults::control_progress_without_settlement_is_bounded_under_vad_only",
+    "result": "PASS",
+    "seconds": "0.029",
+    "job": "lampOS \u2014 build and test on Linux ARM64 (3/4)",
+    "log_line": 2017,
+    "original_source": {
+      "path": "crates/voice/src/coordinator/tests/pilot_faults.rs",
+      "line": 1985
+    },
+    "observations": 1
+  },
+  {
+    "binary": "lamp-voice",
+    "test": "coordinator::tests::pilot_faults::partial_write_then_stall_is_bounded_under_vad_only",
+    "result": "PASS",
+    "seconds": "0.028",
+    "job": "lampOS \u2014 build and test on Linux ARM64 (4/4)",
+    "log_line": 6927,
+    "original_source": {
+      "path": "crates/voice/src/coordinator/tests/pilot_faults.rs",
+      "line": 1953
+    },
+    "observations": 1
+  },
+  {
+    "binary": "lamp-voice",
+    "test": "coordinator::tests::early_end::a_name_note_told_with_a_request_ended_early_does_not_survive_it",
+    "result": "PASS",
+    "seconds": "1.114",
+    "job": "lampOS \u2014 build and test on Linux ARM64 (3/4)",
+    "log_line": 1993,
+    "original_source": {
+      "path": "crates/voice/src/coordinator/tests/early_end.rs",
+      "line": 1143
+    },
+    "observations": 1
+  },
+  {
+    "binary": "lamp-voice",
+    "test": "coordinator::tests::endpoint_session::unconfirmed_endpoint_exit_fails_mute_cleanup_and_never_reopens_service",
+    "result": "PASS",
+    "seconds": "1.518",
+    "job": "lampOS \u2014 build and test on Linux ARM64 (1/4)",
+    "log_line": 9390,
+    "original_source": {
+      "path": "crates/voice/src/coordinator/tests/endpoint_session.rs",
+      "line": 865
+    },
+    "observations": 1
+  },
+  {
+    "binary": "lamp-voice",
+    "test": "coordinator::tests::pilot_faults::capture_stall_during_a_question_ends_the_run_without_an_answer",
+    "result": "PASS",
+    "seconds": "0.029",
+    "job": "lampOS \u2014 build and test on Linux ARM64 (4/4)",
+    "log_line": 6925,
+    "original_source": {
+      "path": "crates/voice/src/coordinator/tests/pilot_faults.rs",
+      "line": 1459
+    },
+    "observations": 1
+  },
+  {
+    "binary": "lamp-voice",
+    "test": "coordinator::tests::endpoint_session::mute_then_reopen_never_overlaps_endpoint_workers",
+    "result": "PASS",
+    "seconds": "0.620",
+    "job": "lampOS \u2014 build and test on Linux ARM64 (1/4)",
+    "log_line": 9388,
+    "original_source": {
+      "path": "crates/voice/src/coordinator/tests/endpoint_session.rs",
+      "line": 1135
+    },
+    "observations": 1
+  },
+  {
+    "binary": "lamp-voice",
+    "test": "coordinator::tests::endpoint_session::confirmed_endpoint_exit_keeps_the_restartable_mute",
+    "result": "PASS",
+    "seconds": "0.312",
+    "job": "lampOS \u2014 build and test on Linux ARM64 (2/4)",
+    "log_line": 4464,
+    "original_source": {
+      "path": "crates/voice/src/coordinator/tests/endpoint_session.rs",
+      "line": 911
+    },
+    "observations": 1
+  },
+  {
+    "binary": "lamp-voice",
+    "test": "coordinator::tests::pilot_faults::distinct_rejects_an_item_that_returns_later",
+    "result": "PASS",
+    "seconds": "0.005",
+    "job": "lampOS \u2014 build and test on Linux ARM64 (3/4)",
+    "log_line": 2018,
+    "original_source": {
+      "path": "crates/voice/src/coordinator/tests/pilot_faults.rs",
+      "line": 1367
+    },
+    "observations": 1
+  },
+  {
+    "binary": "lamp-voice",
+    "test": "coordinator::tests::pilot_faults::speaker_progress_is_due_strictly_after_lease_plus_report_age",
+    "result": "PASS",
+    "seconds": "0.005",
+    "job": "lampOS \u2014 build and test on Linux ARM64 (1/4)",
+    "log_line": 9409,
+    "original_source": {
+      "path": "crates/voice/src/coordinator/tests/pilot_faults.rs",
+      "line": 1905
+    },
+    "observations": 1
+  },
+  {
+    "binary": "lamp-voice-eval",
+    "test": "physical::mac::audit_grant_tests::audit_transport_that_outlives_its_bound_is_killed_and_never_certified",
+    "result": "PASS",
+    "seconds": "5.012",
+    "job": "lampOS \u2014 build and test on Linux ARM64 (4/4)",
+    "log_line": 7232,
+    "original_source": {
+      "path": "crates/voice-eval/src/physical/mac.rs",
+      "line": 3279
+    },
+    "observations": 1
+  },
+  {
+    "binary": "lamp-voice-eval::final_dispatch",
+    "test": "a_relay_framing_error_first_seen_in_the_final_drain_withholds",
+    "result": "PASS",
+    "seconds": "0.849",
+    "job": "lampOS \u2014 build and test on Linux ARM64 (2/4)",
+    "log_line": 4792,
+    "original_source": {
+      "path": "crates/voice-eval/tests/final_dispatch.rs",
+      "line": 307
+    },
+    "observations": 1
+  },
+  {
+    "binary": "lamp-voice-eval::final_dispatch",
+    "test": "an_invalid_cue_first_seen_in_the_final_drain_withholds",
+    "result": "PASS",
+    "seconds": "0.849",
+    "job": "lampOS \u2014 build and test on Linux ARM64 (3/4)",
+    "log_line": 2323,
+    "original_source": {
+      "path": "crates/voice-eval/tests/final_dispatch.rs",
+      "line": 292
+    },
+    "observations": 1
+  },
+  {
+    "binary": "lamp-voice-eval::final_dispatch",
+    "test": "an_unobserved_event_in_the_final_drain_requires_revalidation",
+    "result": "PASS",
+    "seconds": "0.849",
+    "job": "lampOS \u2014 build and test on Linux ARM64 (2/4)",
+    "log_line": 4793,
+    "original_source": {
+      "path": "crates/voice-eval/tests/final_dispatch.rs",
+      "line": 393
+    },
+    "observations": 1
+  },
+  {
+    "binary": "lamp-voice-eval::final_dispatch",
+    "test": "a_session_end_first_seen_in_the_final_drain_withholds_and_is_kept",
+    "result": "PASS",
+    "seconds": "0.850",
+    "job": "lampOS \u2014 build and test on Linux ARM64 (1/4)",
+    "log_line": 9711,
+    "original_source": {
+      "path": "crates/voice-eval/tests/final_dispatch.rs",
+      "line": 270
+    },
+    "observations": 1
+  },
+  {
+    "binary": "lamp-voice-eval::final_dispatch",
+    "test": "a_final_drain_that_exhausts_its_budget_requires_revalidation",
+    "result": "PASS",
+    "seconds": "0.351",
+    "job": "lampOS \u2014 build and test on Linux ARM64 (3/4)",
+    "log_line": 2321,
+    "original_source": {
+      "path": "crates/voice-eval/tests/final_dispatch.rs",
+      "line": 476
+    },
+    "observations": 1
+  },
+  {
+    "binary": "lamp-voice-eval::final_dispatch",
+    "test": "a_healthy_session_still_dispatches_once",
+    "result": "PASS",
+    "seconds": "0.250",
+    "job": "lampOS \u2014 build and test on Linux ARM64 (4/4)",
+    "log_line": 7272,
+    "original_source": {
+      "path": "crates/voice-eval/tests/final_dispatch.rs",
+      "line": 333
+    },
+    "observations": 1
+  },
+  {
+    "binary": "lamp-voice-eval::final_dispatch",
+    "test": "audit_physical_boundary_does_not_dispatch_during_post_exit_trace_relay",
+    "result": "PASS",
+    "seconds": "0.100",
+    "job": "lampOS \u2014 build and test on Linux ARM64 (4/4)",
+    "log_line": 7274,
+    "original_source": {
+      "path": "crates/voice-eval/tests/final_dispatch.rs",
+      "line": 448
+    },
+    "observations": 1
+  },
+  {
+    "binary": "lamp-voice-eval::final_dispatch",
+    "test": "audit_physical_boundary_rejects_a_target_already_over_100ms_late",
+    "result": "PASS",
+    "seconds": "0.099",
+    "job": "lampOS \u2014 build and test on Linux ARM64 (3/4)",
+    "log_line": 2324,
+    "original_source": {
+      "path": "crates/voice-eval/tests/final_dispatch.rs",
+      "line": 420
+    },
+    "observations": 1
+  },
+  {
+    "binary": "lamp-voice-eval::final_dispatch",
+    "test": "a_known_invalid_cue_withholds_dispatch_as_a_protocol_failure",
+    "result": "PASS",
+    "seconds": "0.051",
+    "job": "lampOS \u2014 build and test on Linux ARM64 (4/4)",
+    "log_line": 7273,
+    "original_source": {
+      "path": "crates/voice-eval/tests/final_dispatch.rs",
+      "line": 234
+    },
+    "observations": 1
+  },
+  {
+    "binary": "lamp-voice-eval::final_dispatch",
+    "test": "a_known_session_end_withholds_dispatch",
+    "result": "PASS",
+    "seconds": "0.049",
+    "job": "lampOS \u2014 build and test on Linux ARM64 (2/4)",
+    "log_line": 4791,
+    "original_source": {
+      "path": "crates/voice-eval/tests/final_dispatch.rs",
+      "line": 217
+    },
+    "observations": 1
+  },
+  {
+    "binary": "lamp-voice-eval::final_dispatch",
+    "test": "the_first_terminal_cause_wins_and_a_provider_failure_stays_provider_unavailable",
+    "result": "PASS",
+    "seconds": "0.051",
+    "job": "lampOS \u2014 build and test on Linux ARM64 (1/4)",
+    "log_line": 9713,
+    "original_source": {
+      "path": "crates/voice-eval/tests/final_dispatch.rs",
+      "line": 360
+    },
+    "observations": 1
+  },
+  {
+    "binary": "lamp-voice-eval::final_dispatch",
+    "test": "a_known_run_end_cue_withholds_dispatch",
+    "result": "PASS",
+    "seconds": "0.052",
+    "job": "lampOS \u2014 build and test on Linux ARM64 (3/4)",
+    "log_line": 2322,
+    "original_source": {
+      "path": "crates/voice-eval/tests/final_dispatch.rs",
+      "line": 251
+    },
+    "observations": 1
+  },
+  {
+    "binary": "lamp-voice-eval::final_dispatch",
+    "test": "a_transport_closed_during_the_final_drain_withholds",
+    "result": "PASS",
+    "seconds": "0.830",
+    "job": "lampOS \u2014 build and test on Linux ARM64 (1/4)",
+    "log_line": 9712,
+    "original_source": {
+      "path": "crates/voice-eval/tests/final_dispatch.rs",
+      "line": 317
+    },
+    "observations": 1
+  },
+  {
+    "binary": "lamp-voice-eval::physical_loopback",
+    "test": "directed_missing_or_stale_retirement_never_falls_back_to_a_timer_or_final_trace",
+    "result": "PASS",
+    "seconds": "0.982",
+    "job": "lampOS \u2014 build and test on Linux ARM64 (2/4)",
+    "log_line": 4795,
+    "original_source": {
+      "path": "crates/voice-eval/tests/physical_loopback.rs",
+      "line": 428
+    },
+    "observations": 1
+  },
+  {
+    "binary": "lamp-voice-eval::physical_loopback",
+    "test": "missing_or_stale_whole_completion_withholds_followup_after_valid_retirement",
+    "result": "PASS",
+    "seconds": "1.004",
+    "job": "lampOS \u2014 build and test on Linux ARM64 (3/4)",
+    "log_line": 2325,
+    "original_source": {
+      "path": "crates/voice-eval/tests/physical_loopback.rs",
+      "line": 670
+    },
+    "observations": 1
+  },
+  {
+    "binary": "lamp-voice-eval::physical_loopback",
+    "test": "directed_interruption_during_second_occurrence_preserves_owner_and_yields",
+    "result": "PASS",
+    "seconds": "0.669",
+    "job": "lampOS \u2014 build and test on Linux ARM64 (2/4)",
+    "log_line": 4794,
+    "original_source": {
+      "path": "crates/voice-eval/tests/physical_loopback.rs",
+      "line": 637
+    },
+    "observations": 1
+  },
+  {
+    "binary": "lamp-voice-eval::physical_loopback",
+    "test": "directed_natural_interruption_runs_during_reply_with_original_cancel_reason",
+    "result": "PASS",
+    "seconds": "0.701",
+    "job": "lampOS \u2014 build and test on Linux ARM64 (1/4)",
+    "log_line": 9716,
+    "original_source": {
+      "path": "crates/voice-eval/tests/physical_loopback.rs",
+      "line": 391
+    },
+    "observations": 1
+  },
+  {
+    "binary": "lamp-voice-eval::physical_loopback",
+    "test": "directed_two_occurrences_wait_for_true_completion_before_followup",
+    "result": "PASS",
+    "seconds": "0.749",
+    "job": "lampOS \u2014 build and test on Linux ARM64 (4/4)",
+    "log_line": 7279,
+    "original_source": {
+      "path": "crates/voice-eval/tests/physical_loopback.rs",
+      "line": 594
+    },
+    "observations": 1
+  },
+  {
+    "binary": "lamp-voice-eval::physical_loopback",
+    "test": "directed_followup_waits_for_whole_reply_completion_then_admits_a_new_turn",
+    "result": "PASS",
+    "seconds": "0.668",
+    "job": "lampOS \u2014 build and test on Linux ARM64 (4/4)",
+    "log_line": 7277,
+    "original_source": {
+      "path": "crates/voice-eval/tests/physical_loopback.rs",
+      "line": 355
+    },
+    "observations": 1
+  },
+  {
+    "binary": "lamp-voice-eval::physical_loopback",
+    "test": "physical_next_turn_ready_follows_lamp_voice_readiness_cues",
+    "result": "PASS",
+    "seconds": "0.656",
+    "job": "lampOS \u2014 build and test on Linux ARM64 (4/4)",
+    "log_line": 7281,
+    "original_source": {
+      "path": "crates/voice-eval/tests/physical_loopback.rs",
+      "line": 709
+    },
+    "observations": 1
+  },
+  {
+    "binary": "lamp-voice-eval::physical_loopback",
+    "test": "cue_triggered_acknowledgment_is_injected_during_playback_and_scored",
+    "result": "PASS",
+    "seconds": "0.426",
+    "job": "lampOS \u2014 build and test on Linux ARM64 (4/4)",
+    "log_line": 7276,
+    "original_source": {
+      "path": "crates/voice-eval/tests/physical_loopback.rs",
+      "line": 166
+    },
+    "observations": 1
+  },
+  {
+    "binary": "lamp-voice-eval::physical_loopback",
+    "test": "echo_only_window_passes_through_the_relay_without_extra_admissions",
+    "result": "PASS",
+    "seconds": "0.381",
+    "job": "lampOS \u2014 build and test on Linux ARM64 (4/4)",
+    "log_line": 7280,
+    "original_source": {
+      "path": "crates/voice-eval/tests/physical_loopback.rs",
+      "line": 221
+    },
+    "observations": 1
+  },
+  {
+    "binary": "lamp-voice-eval::physical_loopback",
+    "test": "undelivered_stimuli_are_withheld_not_scored_as_silence",
+    "result": "PASS",
+    "seconds": "0.407",
+    "job": "lampOS \u2014 build and test on Linux ARM64 (3/4)",
+    "log_line": 2326,
+    "original_source": {
+      "path": "crates/voice-eval/tests/physical_loopback.rs",
+      "line": 495
+    },
+    "observations": 1
+  },
+  {
+    "binary": "lamp-voice-eval::physical_loopback",
+    "test": "a_transport_that_closes_mid_trace_invalidates_the_attempt",
+    "result": "PASS",
+    "seconds": "0.037",
+    "job": "lampOS \u2014 build and test on Linux ARM64 (1/4)",
+    "log_line": 9715,
+    "original_source": {
+      "path": "crates/voice-eval/tests/physical_loopback.rs",
+      "line": 539
+    },
+    "observations": 1
+  },
+  {
+    "binary": "lamp-voice-eval::physical_loopback",
+    "test": "directed_mode_keeps_provider_fault_and_asset_restrictions",
+    "result": "PASS",
+    "seconds": "0.020",
+    "job": "lampOS \u2014 build and test on Linux ARM64 (4/4)",
+    "log_line": 7278,
+    "original_source": {
+      "path": "crates/voice-eval/tests/physical_loopback.rs",
+      "line": 236
+    },
+    "observations": 1
+  },
+  {
+    "binary": "lamp-voice-eval::serve_relay",
+    "test": "a_runtime_that_ignores_sigterm_is_force_killed_and_never_clean",
+    "result": "PASS",
+    "seconds": "13.008",
+    "job": "lampOS \u2014 build and test on Linux ARM64 (4/4)",
+    "log_line": 7303,
+    "original_source": {
+      "path": "crates/voice-eval/tests/serve_relay.rs",
+      "line": 201
+    },
+    "observations": 1
+  },
+  {
+    "binary": "lamp-voice-eval::serve_relay",
+    "test": "the_hard_deadline_stops_the_runtime_and_is_an_error",
+    "result": "PASS",
+    "seconds": "6.014",
+    "job": "lampOS \u2014 build and test on Linux ARM64 (1/4)",
+    "log_line": 9735,
+    "original_source": {
+      "path": "crates/voice-eval/tests/serve_relay.rs",
+      "line": 190
+    },
+    "observations": 1
+  },
+  {
+    "binary": "lamp-voice-eval::serve_relay",
+    "test": "a_nonzero_runtime_exit_after_clean_metadata_is_a_relay_error",
+    "result": "PASS",
+    "seconds": "3.025",
+    "job": "lampOS \u2014 build and test on Linux ARM64 (1/4)",
+    "log_line": 9734,
+    "original_source": {
+      "path": "crates/voice-eval/tests/serve_relay.rs",
+      "line": 303
+    },
+    "observations": 1
+  },
+  {
+    "binary": "lamp-voice-eval::serve_relay",
+    "test": "a_runner_stop_is_one_sigterm_and_a_clean_reaped_end",
+    "result": "PASS",
+    "seconds": "3.025",
+    "job": "lampOS \u2014 build and test on Linux ARM64 (2/4)",
+    "log_line": 4816,
+    "original_source": {
+      "path": "crates/voice-eval/tests/serve_relay.rs",
+      "line": 142
+    },
+    "observations": 1
+  },
+  {
+    "binary": "lamp-voice-eval::serve_relay",
+    "test": "the_pilot_runtime_settings_reach_the_serve_child_exactly",
+    "result": "PASS",
+    "seconds": "3.025",
+    "job": "lampOS \u2014 build and test on Linux ARM64 (3/4)",
+    "log_line": 2345,
+    "original_source": {
+      "path": "crates/voice-eval/tests/serve_relay.rs",
+      "line": 227
+    },
+    "observations": 1
+  },
+  {
+    "binary": "lamp-voice-eval::serve_relay",
+    "test": "a_closed_runner_transport_stops_the_runtime_through_the_same_path",
+    "result": "PASS",
+    "seconds": "3.010",
+    "job": "lampOS \u2014 build and test on Linux ARM64 (3/4)",
+    "log_line": 2344,
+    "original_source": {
+      "path": "crates/voice-eval/tests/serve_relay.rs",
+      "line": 175
+    },
+    "observations": 1
+  },
+  {
+    "binary": "lamp-voice-eval::serve_session",
+    "test": "normal_eight_turn_conversation_in_one_serve_session",
+    "result": "PASS",
+    "seconds": "64.970",
+    "job": "lampOS \u2014 build and test on Linux ARM64 (3/4)",
+    "log_line": 2349,
+    "original_source": {
+      "path": "crates/voice-eval/tests/serve_session.rs",
+      "line": 248
+    },
+    "observations": 1
+  },
+  {
+    "binary": "lamp-voice-eval::serve_session",
+    "test": "stale_duplicate_reordered_foreign_and_lost_cues_end_the_conversation",
+    "result": "PASS",
+    "seconds": "63.526",
+    "job": "lampOS \u2014 build and test on Linux ARM64 (3/4)",
+    "log_line": 2352,
+    "original_source": {
+      "path": "crates/voice-eval/tests/serve_session.rs",
+      "line": 399
+    },
+    "observations": 1
+  },
+  {
+    "binary": "lamp-voice-eval::serve_session",
+    "test": "a_runtime_stop_mute_or_ignored_sigterm_is_retained_and_reaped",
+    "result": "PASS",
+    "seconds": "48.285",
+    "job": "lampOS \u2014 build and test on Linux ARM64 (1/4)",
+    "log_line": 9739,
+    "original_source": {
+      "path": "crates/voice-eval/tests/serve_session.rs",
+      "line": 547
+    },
+    "observations": 1
+  },
+  {
+    "binary": "lamp-voice-eval::serve_session",
+    "test": "a_provider_outage_is_waited_out_by_event_and_a_terminal_link_ends_it",
+    "result": "PASS",
+    "seconds": "34.719",
+    "job": "lampOS \u2014 build and test on Linux ARM64 (2/4)",
+    "log_line": 4818,
+    "original_source": {
+      "path": "crates/voice-eval/tests/serve_session.rs",
+      "line": 436
+    },
+    "observations": 1
+  },
+  {
+    "binary": "lamp-voice-eval::serve_session",
+    "test": "delayed_readiness_is_awaited_by_event_not_by_completion",
+    "result": "PASS",
+    "seconds": "30.265",
+    "job": "lampOS \u2014 build and test on Linux ARM64 (4/4)",
+    "log_line": 7304,
+    "original_source": {
+      "path": "crates/voice-eval/tests/serve_session.rs",
+      "line": 330
+    },
+    "observations": 1
+  },
+  {
+    "binary": "lamp-voice-eval::serve_session",
+    "test": "a_late_first_copy_or_failed_player_withholds_every_later_turn",
+    "result": "PASS",
+    "seconds": "26.747",
+    "job": "lampOS \u2014 build and test on Linux ARM64 (1/4)",
+    "log_line": 9737,
+    "original_source": {
+      "path": "crates/voice-eval/tests/serve_session.rs",
+      "line": 494
+    },
+    "observations": 1
+  },
+  {
+    "binary": "lamp-voice-eval::serve_session",
+    "test": "a_declared_capture_end_before_the_next_prompt_and_its_window_withholds_it",
+    "result": "PASS",
+    "seconds": "23.098",
+    "job": "lampOS \u2014 build and test on Linux ARM64 (1/4)",
+    "log_line": 9736,
+    "original_source": {
+      "path": "crates/voice-eval/tests/serve_session.rs",
+      "line": 744
+    },
+    "observations": 1
+  },
+  {
+    "binary": "lamp-voice-eval::serve_session",
+    "test": "startup_cues_stay_fresh_through_a_slow_transport_and_a_slow_first_preparer",
+    "result": "PASS",
+    "seconds": "21.660",
+    "job": "lampOS \u2014 build and test on Linux ARM64 (2/4)",
+    "log_line": 4819,
+    "original_source": {
+      "path": "crates/voice-eval/tests/serve_session.rs",
+      "line": 637
+    },
+    "observations": 1
+  },
+  {
+    "binary": "lamp-voice-eval::serve_session",
+    "test": "an_extra_candidate_during_the_wait_withholds_the_rest",
+    "result": "PASS",
+    "seconds": "12.697",
+    "job": "lampOS \u2014 build and test on Linux ARM64 (3/4)",
+    "log_line": 2347,
+    "original_source": {
+      "path": "crates/voice-eval/tests/serve_session.rs",
+      "line": 366
+    },
+    "observations": 1
+  },
+  {
+    "binary": "lamp-voice-eval::serve_session",
+    "test": "the_runner_forwards_pilot_runtime_settings_through_the_relay",
+    "result": "PASS",
+    "seconds": "10.546",
+    "job": "lampOS \u2014 build and test on Linux ARM64 (1/4)",
+    "log_line": 9740,
+    "original_source": {
+      "path": "crates/voice-eval/tests/serve_session.rs",
+      "line": 782
+    },
+    "observations": 1
+  },
+  {
+    "binary": "lamp-voice-eval::serve_session",
+    "test": "a_nonzero_runtime_exit_never_completes_a_serve_attempt",
+    "result": "PASS",
+    "seconds": "10.540",
+    "job": "lampOS \u2014 build and test on Linux ARM64 (2/4)",
+    "log_line": 4817,
+    "original_source": {
+      "path": "crates/voice-eval/tests/serve_session.rs",
+      "line": 868
+    },
+    "observations": 1
+  },
+  {
+    "binary": "lamp-voice-eval::serve_session",
+    "test": "serve_readiness_comes_only_from_the_fresh_cue_never_from_stdout",
+    "result": "PASS",
+    "seconds": "10.542",
+    "job": "lampOS \u2014 build and test on Linux ARM64 (3/4)",
+    "log_line": 2350,
+    "original_source": {
+      "path": "crates/voice-eval/tests/serve_session.rs",
+      "line": 837
+    },
+    "observations": 1
+  },
+  {
+    "binary": "lamp-voice-eval::serve_session",
+    "test": "a_recorder_that_exits_zero_mid_conversation_withholds_the_rest_and_certifies_nothing",
+    "result": "PASS",
+    "seconds": "6.090",
+    "job": "lampOS \u2014 build and test on Linux ARM64 (1/4)",
+    "log_line": 9738,
+    "original_source": {
+      "path": "crates/voice-eval/tests/serve_session.rs",
+      "line": 718
+    },
+    "observations": 1
+  },
+  {
+    "binary": "lamp-voice-eval::serve_session",
+    "test": "a_room_recording_that_ends_early_withholds_the_rest",
+    "result": "PASS",
+    "seconds": "6.091",
+    "job": "lampOS \u2014 build and test on Linux ARM64 (3/4)",
+    "log_line": 2346,
+    "original_source": {
+      "path": "crates/voice-eval/tests/serve_session.rs",
+      "line": 613
+    },
+    "observations": 1
+  },
+  {
+    "binary": "lamp-voice::capture_hold_worker",
+    "test": "another_microphone_is_handed_on_at_once_and_its_early_sound_is_not_accounted_for",
+    "result": "PASS",
+    "seconds": "5.107",
+    "job": "lampOS \u2014 build and test on Linux ARM64 (4/4)",
+    "log_line": 7173,
+    "original_source": {
+      "path": "crates/voice/tests/capture_hold_worker.rs",
+      "line": 548
+    },
+    "observations": 1
+  },
+  {
+    "binary": "lamp-voice::capture_hold_worker",
+    "test": "mic1_frames_wait_four_blocks_with_their_own_times_and_a_stop_drops_what_is_held",
+    "result": "PASS",
+    "seconds": "5.108",
+    "job": "lampOS \u2014 build and test on Linux ARM64 (4/4)",
+    "log_line": 7174,
+    "original_source": {
+      "path": "crates/voice/tests/capture_hold_worker.rs",
+      "line": 491
+    },
+    "observations": 1
+  },
+  {
+    "binary": "lamp-voice::capture_hold_worker",
+    "test": "mic1_muted_while_frames_are_held_hands_none_of_them_on",
+    "result": "PASS",
+    "seconds": "2.107",
+    "job": "lampOS \u2014 build and test on Linux ARM64 (3/4)",
+    "log_line": 2225,
+    "original_source": {
+      "path": "crates/voice/tests/capture_hold_worker.rs",
+      "line": 529
+    },
+    "observations": 1
+  },
+  {
+    "binary": "lamp-voice::capture_hold_worker",
+    "test": "a_microphone_busy_for_a_moment_at_start_is_opened_once_it_is_free",
+    "result": "PASS",
+    "seconds": "1.610",
+    "job": "lampOS \u2014 build and test on Linux ARM64 (3/4)",
+    "log_line": 2224,
+    "original_source": {
+      "path": "crates/voice/tests/capture_hold_worker.rs",
+      "line": 583
+    },
+    "observations": 1
+  }
+]

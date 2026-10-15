@@ -1,0 +1,97 @@
+{
+  "captured_at_from_date": "2026-10-16 04:50:53 +0700",
+  "checkout_commit": "1fc012725fdf530f6391a25dd0495074715daa63",
+  "requests": [
+    {
+      "argv": [
+        "gh",
+        "api",
+        "repos/autonomous-ai/lampOS/git/blobs/610df9470a9d4f73b182c0af79852c4d00f45cad"
+      ],
+      "cwd": "/private/tmp",
+      "started_from_date": "2026-10-16 04:50:51 +0700",
+      "finished_from_date": "2026-10-16 04:50:53 +0700",
+      "exit_code": 0,
+      "raw_response": "/private/tmp/tests-823-native-20261016/919-38810705612.original-inventory.response.json",
+      "raw_sha256": "727c4cb9d596be8ddd6b925b73a7604cdaba0c04649cc460bcdb8da51a0c9d5c",
+      "stderr": "/private/tmp/tests-823-native-20261016/919-38810705612.original-inventory.stderr",
+      "stderr_bytes": 0,
+      "decoded_source": "/private/tmp/tests-823-native-20261016/919-38810705612.original-inventory.json",
+      "decoded_bytes": 416179,
+      "decoded_sha256": "72d671f8b22246898f9142c0216c9fbced55e350e46b83ffec787c81496fb1fc",
+      "git_blob": "610df9470a9d4f73b182c0af79852c4d00f45cad"
+    },
+    {
+      "argv": [
+        "gh",
+        "api",
+        "repos/autonomous-ai/lampOS/contents/.github/workflows/lampos-arm64.yml?ref=1fc012725fdf530f6391a25dd0495074715daa63"
+      ],
+      "cwd": "/private/tmp",
+      "started_from_date": "2026-10-16 04:50:51 +0700",
+      "finished_from_date": "2026-10-16 04:50:52 +0700",
+      "exit_code": 0,
+      "raw_response": "/private/tmp/tests-823-native-20261016/919-38810705612.workflow.response.json",
+      "raw_sha256": "b2c7af78eb133a3ceb07269af00d7bb9e4447e5b8f81e47ec51996ba5f96b9ad",
+      "stderr": "/private/tmp/tests-823-native-20261016/919-38810705612.workflow.stderr",
+      "stderr_bytes": 0,
+      "decoded_source": "/private/tmp/tests-823-native-20261016/919-38810705612.workflow.yml",
+      "decoded_bytes": 7440,
+      "decoded_sha256": "11cbcf5ced5022ca685b5c9e51f349c986259a5044575a20f39d3b8e869a045f",
+      "git_blob": "01309b57005ff770d23ee3dbc378a3ccfa2cf014"
+    },
+    {
+      "argv": [
+        "gh",
+        "api",
+        "repos/autonomous-ai/lampOS/contents/lampOS/.config/nextest.toml?ref=1fc012725fdf530f6391a25dd0495074715daa63"
+      ],
+      "cwd": "/private/tmp",
+      "started_from_date": "2026-10-16 04:50:51 +0700",
+      "finished_from_date": "2026-10-16 04:50:52 +0700",
+      "exit_code": 0,
+      "raw_response": "/private/tmp/tests-823-native-20261016/919-38810705612.nextest.response.json",
+      "raw_sha256": "d67fc470b725e7052ba9d12494e4f0f1a76f01b1912e0aad30148ee4828489dd",
+      "stderr": "/private/tmp/tests-823-native-20261016/919-38810705612.nextest.stderr",
+      "stderr_bytes": 0,
+      "decoded_source": "/private/tmp/tests-823-native-20261016/919-38810705612.nextest.toml",
+      "decoded_bytes": 6466,
+      "decoded_sha256": "33254521c34198ae2d4f988c4b7d04391c03da769ad91769e691171ae3b87367",
+      "git_blob": "f83b3204b9c159d19c7bb90e003a28f05fd61268"
+    },
+    {
+      "argv": [
+        "gh",
+        "api",
+        "repos/autonomous-ai/lampOS/contents/lampOS/crates/memory/tests/health.rs?ref=1fc012725fdf530f6391a25dd0495074715daa63"
+      ],
+      "cwd": "/private/tmp",
+      "started_from_date": "2026-10-16 04:50:51 +0700",
+      "finished_from_date": "2026-10-16 04:50:52 +0700",
+      "exit_code": 0,
+      "raw_response": "/private/tmp/tests-823-native-20261016/919-38810705612.memory-health.response.json",
+      "raw_sha256": "d26a5c9a861d27375ce1862b01f858265c059ef7a0e39cd20c2aa24c5f036b49",
+      "stderr": "/private/tmp/tests-823-native-20261016/919-38810705612.memory-health.stderr",
+      "stderr_bytes": 0,
+      "decoded_source": "/private/tmp/tests-823-native-20261016/919-38810705612.memory-health.rs",
+      "decoded_bytes": 24315,
+      "decoded_sha256": "0d829067a29a9e5105326b1e0b50c09436e6aefe5091849a683be282910f9d91",
+      "git_blob": "7b133c8f0f767ade981b488521d9253bcbcfd4fa"
+    },
+    {
+      "argv": [
+        "gh",
+        "api",
+        "repos/autonomous-ai/lampOS/git/commits/1fc012725fdf530f6391a25dd0495074715daa63"
+      ],
+      "cwd": "/private/tmp",
+      "started_from_date": "2026-10-16 04:50:51 +0700",
+      "finished_from_date": "2026-10-16 04:50:52 +0700",
+      "exit_code": 0,
+      "raw_response": "/private/tmp/tests-823-native-20261016/919-38810705612.checkout-commit.response.json",
+      "raw_sha256": "af8f45ab2b95f54e6dcd7095c7f2550373d9b949a81257882d445608a6308455",
+      "stderr": "/private/tmp/tests-823-native-20261016/919-38810705612.checkout-commit.stderr",
+      "stderr_bytes": 0
+    }
+  ]
+}

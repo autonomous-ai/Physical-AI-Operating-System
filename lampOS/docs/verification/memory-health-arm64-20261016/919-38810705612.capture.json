@@ -1,0 +1,64 @@
+{
+  "captured_at_from_date": "2026-10-16 04:49:09 +0700",
+  "run": 38810705612,
+  "expected_head": "0ca920465115ab239663e7ce0ef405320f45a592",
+  "commands": [
+    {
+      "argv": [
+        "gh",
+        "run",
+        "view",
+        "38810705612",
+        "-R",
+        "autonomous-ai/lampOS",
+        "--log"
+      ],
+      "cwd": "/private/tmp",
+      "started_from_date": "2026-10-16 04:49:03 +0700",
+      "finished_from_date": "2026-10-16 04:49:09 +0700",
+      "exit_code": 0,
+      "stdout": "/private/tmp/tests-823-native-20261016/919-38810705612.log",
+      "stdout_bytes": 1209462,
+      "stdout_sha256": "d0ef0dfd2295e0321436c9d0e1ab482cc8caf9cd331259159b92a1f7ecd4fef5",
+      "stderr": "/private/tmp/tests-823-native-20261016/919-38810705612.log.stderr",
+      "stderr_bytes": 0,
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "argv": [
+        "gh",
+        "api",
+        "repos/autonomous-ai/lampOS/actions/runs/38810705612"
+      ],
+      "cwd": "/private/tmp",
+      "started_from_date": "2026-10-16 04:49:03 +0700",
+      "finished_from_date": "2026-10-16 04:49:03 +0700",
+      "exit_code": 0,
+      "stdout": "/private/tmp/tests-823-native-20261016/919-38810705612.run-final.json",
+      "stdout_bytes": 12715,
+      "stdout_sha256": "af432c69bc8fb635148e5927f3414571ac9ec20b2718633cbc455c2ea091d9be",
+      "stderr": "/private/tmp/tests-823-native-20261016/919-38810705612.run-final.json.stderr",
+      "stderr_bytes": 0,
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "argv": [
+        "gh",
+        "api",
+        "repos/autonomous-ai/lampOS/actions/runs/38810705612/jobs?per_page=100"
+      ],
+      "cwd": "/private/tmp",
+      "started_from_date": "2026-10-16 04:49:03 +0700",
+      "finished_from_date": "2026-10-16 04:49:03 +0700",
+      "exit_code": 0,
+      "stdout": "/private/tmp/tests-823-native-20261016/919-38810705612.jobs-final.json",
+      "stdout_bytes": 4259,
+      "stdout_sha256": "46f977a1b08d3746b78e7143413261bbd0a4183bde5b79ba84dbb07fb168f2e8",
+      "stderr": "/private/tmp/tests-823-native-20261016/919-38810705612.jobs-final.json.stderr",
+      "stderr_bytes": 0,
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  ],
+  "raw_stdout_unedited": true,
+  "no_run_dispatch_retry_or_poll": true
+}

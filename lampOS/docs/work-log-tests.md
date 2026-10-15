@@ -1,5 +1,18 @@
 # Tests work log
 
+## 2026-10-16 05:02:44 +0700 — Memory health native complete; Records preparation published
+
+Ready for lamp-voice: yes (#919); no (#922 and other continuations)
+
+- Memory health [#919](https://github.com/autonomous-ai/lampOS/pull/919), exact head `0ca920465115ab239663e7ce0ef405320f45a592`, passes normal ARM64 **38810705612: 4,962 unique PASS** and its first full **38810870002: 5,104 unique PASS**. Full has **all original 123 and all 35 new Memory helpers exactly once**, no FAIL/LEAK or duplicate outcomes. The seven health cases total **5.107 s** across shards (five controlled: **0.101 s**; two retained host: **5.006 s**). [Unedited native evidence and independent membership audits](verification/memory-health-arm64-20261016/README.md). The normal profile excludes all original 123; only full supplies their native outcomes.
+- Local Memory Bus/Memory gate remains **296/0/6 existing ignores**, fmt, strict Clippy and workspace build. [Qualified source and local evidence](https://github.com/autonomous-ai/lampOS/tree/0ca920465115ab239663e7ce0ef405320f45a592/lampOS/docs/verification/memory-health-clock-20261016). All original assertions, real files/messages, host guards and actual child cleanup remain. The earlier seven-case Mac pair remains 39.498 → 14.547 s with unequal shared-host load, separate from native observations.
+- Records cadence preparation is [#922](https://github.com/autonomous-ai/lampOS/pull/922), head `e3d3366cad8113c3374b8e29faedb099b5e47d92`; native **38812973372** is running. Fresh complete Records/Settings gate **170/0/2 existing ignores**, all 160 original compiled identities retained plus 12 cases, strict Clippy/fmt/workspace build pass. Its first **164/6/2** gate failed six new fixtures on excessive macOS Unix socket path length; only two fixture roots changed, every test body stayed exact, and both attempts remain in the PR evidence. No original case migrates in this preparation.
+- The separate Records real-child migration is underway with bounded inherited pipes, the original four-second search guard, full one-second periods, six actual Event diagnostics, all 16 assertions and actual kill/reap. A single unchanged-case baseline on the shared Mac is **5.614 s**, with raw evidence still local pending the paired migration result.
+- Current-base Gemini capture-clock and pure Moment preparations are completing full dependent gates. Gemini has another retained original Threaded `rapid_mute_and_reopen_never_overlaps_workers_or_carries_speech_across` failure, service privacy freshness lost, covered by #893; no retry or original assertion change. A separate explicit test-only transport success probe is underway and Fifth is notified on #823. No Provider scenario migration is claimed yet.
+- Serve #909 remains draft after normal green and incomplete prior full coverage; #914's proposed production fix remains with its owners. #783's merged sweep remains with eighth for loaded qualification/close. No workflow/profile/runner/settings/device change.
+
+The full run's original-123 case-duration sum is **588.754 s** across four concurrent internally serial shards, not standalone serial elapsed. The combined original-123 under-two-minute target remains unproved.
+
 ## 2026-10-16 04:27 +0700 — Reporter merged; Serve normal green; distinct Voice failure retained
 
 Ready for lamp-voice: no (new continuations); #910 is merged

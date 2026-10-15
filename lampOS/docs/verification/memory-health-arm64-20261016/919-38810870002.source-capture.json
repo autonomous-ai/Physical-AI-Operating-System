@@ -1,0 +1,132 @@
+{
+  "captured_at_from_date": "2026-10-16 04:57:35 +0700",
+  "checkout_commit": "0ca920465115ab239663e7ce0ef405320f45a592",
+  "requests": [
+    {
+      "argv": [
+        "gh",
+        "api",
+        "repos/autonomous-ai/lampOS/contents/.github/workflows/lampos-arm64.yml?ref=0ca920465115ab239663e7ce0ef405320f45a592"
+      ],
+      "source_path": ".github/workflows/lampos-arm64.yml",
+      "source_ref": "0ca920465115ab239663e7ce0ef405320f45a592",
+      "cwd": "/private/tmp",
+      "started_from_date": "2026-10-16 04:57:33 +0700",
+      "finished_from_date": "2026-10-16 04:57:34 +0700",
+      "exit_code": 0,
+      "raw_response": "/private/tmp/tests-823-native-20261016/919-38810870002.workflow.yml.response.json",
+      "raw_sha256": "abd4e2fbd0f7a152c3fa656de038fcbfbe4409cb6c64c3b648fe5ee0d7747982",
+      "stderr": "/private/tmp/tests-823-native-20261016/919-38810870002.workflow.yml.stderr",
+      "stderr_bytes": 0,
+      "decoded_source": "/private/tmp/tests-823-native-20261016/919-38810870002.workflow.yml",
+      "decoded_bytes": 7440,
+      "decoded_sha256": "11cbcf5ced5022ca685b5c9e51f349c986259a5044575a20f39d3b8e869a045f",
+      "git_blob": "01309b57005ff770d23ee3dbc378a3ccfa2cf014"
+    },
+    {
+      "argv": [
+        "gh",
+        "api",
+        "repos/autonomous-ai/lampOS/contents/lampOS/.config/nextest.toml?ref=0ca920465115ab239663e7ce0ef405320f45a592"
+      ],
+      "source_path": "lampOS/.config/nextest.toml",
+      "source_ref": "0ca920465115ab239663e7ce0ef405320f45a592",
+      "cwd": "/private/tmp",
+      "started_from_date": "2026-10-16 04:57:33 +0700",
+      "finished_from_date": "2026-10-16 04:57:34 +0700",
+      "exit_code": 0,
+      "raw_response": "/private/tmp/tests-823-native-20261016/919-38810870002.nextest.toml.response.json",
+      "raw_sha256": "d5386ff471983222bc2bdea613a7bf055b450deeb03f053e6c350c32bcae21e3",
+      "stderr": "/private/tmp/tests-823-native-20261016/919-38810870002.nextest.toml.stderr",
+      "stderr_bytes": 0,
+      "decoded_source": "/private/tmp/tests-823-native-20261016/919-38810870002.nextest.toml",
+      "decoded_bytes": 6466,
+      "decoded_sha256": "33254521c34198ae2d4f988c4b7d04391c03da769ad91769e691171ae3b87367",
+      "git_blob": "f83b3204b9c159d19c7bb90e003a28f05fd61268"
+    },
+    {
+      "argv": [
+        "gh",
+        "api",
+        "repos/autonomous-ai/lampOS/contents/lampOS/crates/memory/tests/health.rs?ref=0ca920465115ab239663e7ce0ef405320f45a592"
+      ],
+      "source_path": "lampOS/crates/memory/tests/health.rs",
+      "source_ref": "0ca920465115ab239663e7ce0ef405320f45a592",
+      "cwd": "/private/tmp",
+      "started_from_date": "2026-10-16 04:57:33 +0700",
+      "finished_from_date": "2026-10-16 04:57:34 +0700",
+      "exit_code": 0,
+      "raw_response": "/private/tmp/tests-823-native-20261016/919-38810870002.memory-health.rs.response.json",
+      "raw_sha256": "592b57452d9f9e2f7879e66f674be74e3295a6b3dda1516364ce0f960cc5c21c",
+      "stderr": "/private/tmp/tests-823-native-20261016/919-38810870002.memory-health.rs.stderr",
+      "stderr_bytes": 0,
+      "decoded_source": "/private/tmp/tests-823-native-20261016/919-38810870002.memory-health.rs",
+      "decoded_bytes": 24315,
+      "decoded_sha256": "0d829067a29a9e5105326b1e0b50c09436e6aefe5091849a683be282910f9d91",
+      "git_blob": "7b133c8f0f767ade981b488521d9253bcbcfd4fa"
+    },
+    {
+      "argv": [
+        "gh",
+        "api",
+        "repos/autonomous-ai/lampOS/contents/lampOS/crates/memory/tests/fixture_child.rs?ref=0ca920465115ab239663e7ce0ef405320f45a592"
+      ],
+      "source_path": "lampOS/crates/memory/tests/fixture_child.rs",
+      "source_ref": "0ca920465115ab239663e7ce0ef405320f45a592",
+      "cwd": "/private/tmp",
+      "started_from_date": "2026-10-16 04:57:34 +0700",
+      "finished_from_date": "2026-10-16 04:57:35 +0700",
+      "exit_code": 0,
+      "raw_response": "/private/tmp/tests-823-native-20261016/919-38810870002.memory-fixture-child.rs.response.json",
+      "raw_sha256": "77fdcb272586503cd9ca4e765dabc5523ba6749a8895e7794bc000f2b939ac1f",
+      "stderr": "/private/tmp/tests-823-native-20261016/919-38810870002.memory-fixture-child.rs.stderr",
+      "stderr_bytes": 0,
+      "decoded_source": "/private/tmp/tests-823-native-20261016/919-38810870002.memory-fixture-child.rs",
+      "decoded_bytes": 16790,
+      "decoded_sha256": "26928e7411dd17789addf27b648760d38d7f69bfb18a0464412e5f2c6c741982",
+      "git_blob": "20a9803fc8f70be4dbb4d8878fa6cfc4ce6b3869"
+    },
+    {
+      "argv": [
+        "gh",
+        "api",
+        "repos/autonomous-ai/lampOS/contents/lampOS/crates/memory/tests/health_control.rs?ref=0ca920465115ab239663e7ce0ef405320f45a592"
+      ],
+      "source_path": "lampOS/crates/memory/tests/health_control.rs",
+      "source_ref": "0ca920465115ab239663e7ce0ef405320f45a592",
+      "cwd": "/private/tmp",
+      "started_from_date": "2026-10-16 04:57:33 +0700",
+      "finished_from_date": "2026-10-16 04:57:34 +0700",
+      "exit_code": 0,
+      "raw_response": "/private/tmp/tests-823-native-20261016/919-38810870002.memory-health-control.rs.response.json",
+      "raw_sha256": "dc3c13b51becc63b9a0b219f5aa5d2cd4e3fadb16fc2fd23296fae9e108a019f",
+      "stderr": "/private/tmp/tests-823-native-20261016/919-38810870002.memory-health-control.rs.stderr",
+      "stderr_bytes": 0,
+      "decoded_source": "/private/tmp/tests-823-native-20261016/919-38810870002.memory-health-control.rs",
+      "decoded_bytes": 30394,
+      "decoded_sha256": "e90c17dd703d4d9879732d4b2ead58d725d9e7f712f53fd2e56bd8198c771325",
+      "git_blob": "bc0b003c39b5aac5aaf7cb44c353f13672e2c7e7"
+    },
+    {
+      "argv": [
+        "gh",
+        "api",
+        "repos/autonomous-ai/lampOS/contents/lampOS/docs/verification/memory-health-clock-20261016/README.md?ref=0ca920465115ab239663e7ce0ef405320f45a592"
+      ],
+      "source_path": "lampOS/docs/verification/memory-health-clock-20261016/README.md",
+      "source_ref": "0ca920465115ab239663e7ce0ef405320f45a592",
+      "cwd": "/private/tmp",
+      "started_from_date": "2026-10-16 04:57:33 +0700",
+      "finished_from_date": "2026-10-16 04:57:34 +0700",
+      "exit_code": 0,
+      "raw_response": "/private/tmp/tests-823-native-20261016/919-38810870002.pr-evidence-README.md.response.json",
+      "raw_sha256": "2afa4984a64d5da505b074bfd6cbe18ab5a3c360d9b438fad0527c6d3f004b19",
+      "stderr": "/private/tmp/tests-823-native-20261016/919-38810870002.pr-evidence-README.md.stderr",
+      "stderr_bytes": 0,
+      "decoded_source": "/private/tmp/tests-823-native-20261016/919-38810870002.pr-evidence-README.md",
+      "decoded_bytes": 5194,
+      "decoded_sha256": "01b61de413b951bf298a12775df071e564f9a6c691f064910add0e223e5ca04f",
+      "git_blob": "49f799c2f6ee86c1e0ca9e7672517c904c46d5f0"
+    }
+  ]
+}

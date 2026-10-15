@@ -1,0 +1,19 @@
+{"at_us": 3827691832, "turn": null, "input_correlation": "unreliable; session scoped", "text": "Please remember that my locker code is 417."}
+{"at_us": 3828746214, "turn": 3, "input_correlation": "output lineage", "text": "Got it, locker "}
+{"at_us": 3829184334, "turn": 3, "input_correlation": "output lineage", "text": "code 417"}
+{"at_us": 3829325023, "turn": 3, "input_correlation": "output lineage", "text": " saved."}
+{"at_us": 3842005289, "turn": 4, "input_correlation": "output lineage", "text": "It's twelve to twelve "}
+{"at_us": 3842492175, "turn": 4, "input_correlation": "output lineage", "text": "in the morning."}
+{"at_us": 3904293386, "turn": null, "input_correlation": "unreliable; session scoped", "text": " Please remember that my locker code is 992."}
+{"at_us": 3905607824, "turn": 10, "input_correlation": "output lineage", "text": "Got it, locker "}
+{"at_us": 3906126554, "turn": 10, "input_correlation": "output lineage", "text": "code 992"}
+{"at_us": 3906261152, "turn": 10, "input_correlation": "output lineage", "text": " saved."}
+{"at_us": 3934236202, "turn": 12, "input_correlation": "output lineage", "text": "You told me your "}
+{"at_us": 3934735816, "turn": 12, "input_correlation": "output lineage", "text": "locker code is 992."}
+{"at_us": 3961433371, "turn": null, "input_correlation": "unreliable; session scoped", "text": "lay, what is my locker code?"}
+{"at_us": 3962826301, "turn": 14, "input_correlation": "output lineage", "text": "You told me your "}
+{"at_us": 3963303138, "turn": 14, "input_correlation": "output lineage", "text": "locker code is 417."}
+{"at_us": 3988869440, "turn": null, "input_correlation": "unreliable; session scoped", "text": "Hey, what is my locker code?"}
+{"at_us": 3990704944, "turn": 15, "input_correlation": "output lineage", "text": "I don't remember you "}
+{"at_us": 3991686061, "turn": 15, "input_correlation": "output lineage", "text": "telling me your locker"}
+{"at_us": 3991829193, "turn": 15, "input_correlation": "output lineage", "text": " code."}

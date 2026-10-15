@@ -391,3 +391,185 @@ fn days_a_rule_is_told_in_the_next_session_to_that_person_only_until_it_is_forgo
     assert!(!to_minh.contains("weather"), "{to_minh}");
     assert_eq!(list(&minh).0["rules"], json!([]));
 }
+
+fn keep(client: &DaysClient, person: &str, args: Value) -> Value {
+    let (told, ok) = client.rule_for(
+        &call(lamp_voice::rules::KEEP_RULE, args),
+        BUDGET,
+        Some(person),
+    );
+    assert!(ok, "{told}");
+    told
+}
+
+fn listed(client: &DaysClient, person: &str) -> Vec<(u64, String)> {
+    let (told, ok) = client.rule_for(
+        &call(lamp_voice::rules::LIST_RULES, json!({})),
+        BUDGET,
+        Some(person),
+    );
+    assert!(ok, "{told}");
+    told["rules"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|rule| {
+            (
+                rule["number"].as_u64().unwrap(),
+                rule["rule"].as_str().unwrap().to_owned(),
+            )
+        })
+        .collect()
+}
+
+/// lamp-52e6, PR #822: "forget that rule" took back the last rule kept,
+/// not the one meant. A rule is taken back by its number only; no number,
+/// or one that is not theirs, removes nothing.
+#[test]
+fn days_a_rule_is_taken_back_by_its_number_and_never_by_default() {
+    let fixture = Fixture::new(|options, now| Days::open(options, now).unwrap());
+    let minh = person_id("Minh");
+    let client = DaysClient::new(fixture.socket.clone()).unwrap();
+    let weather = "Never tell them the weather unless they ask.";
+    let buddy = "Do not call them buddy.";
+    for rule in [weather, buddy] {
+        assert_eq!(
+            keep(&client, &minh, json!({"rule":rule}))["kept_rule"],
+            true
+        );
+    }
+    let rules = listed(&client, &minh);
+    assert_eq!(
+        rules
+            .iter()
+            .map(|(_, text)| text.as_str())
+            .collect::<Vec<_>>(),
+        [weather, buddy]
+    );
+    let forget = |args: Value| {
+        client.rule_for(
+            &call(lamp_voice::rules::FORGET_RULE, args),
+            BUDGET,
+            Some(&minh),
+        )
+    };
+    for args in [
+        json!({}),
+        json!({"number":0}),
+        json!({"number":-1}),
+        json!({"number":"first"}),
+        json!({"number":rules[1].0 + 100}),
+    ] {
+        let (told, ok) = forget(args.clone());
+        assert!(ok && told["forgotten"] == false, "{args}: {told}");
+        assert!(told["note"].as_str().unwrap().contains("list_rules"));
+        assert_eq!(listed(&client, &minh), rules, "{args}");
+    }
+    let (told, _) = forget(json!({"number":rules[0].0}));
+    assert_eq!(told["forgotten"], true, "{told}");
+    assert_eq!(listed(&client, &minh), [rules[1].clone()]);
+}
+
+/// Every rule kept is listed, told and counted: a seventh is refused with
+/// words to say, and no older rule is dropped to make room for it.
+#[test]
+fn days_every_rule_kept_is_told_and_a_rule_past_the_most_is_refused() {
+    let fixture = Fixture::new(|options, now| Days::open(options, now).unwrap());
+    let minh = person_id("Minh");
+    let client = DaysClient::new(fixture.socket.clone()).unwrap();
+    assert_eq!(
+        keep(
+            &client,
+            &minh,
+            json!({"rule":"Never speak first.","speaking_up":"never_first"})
+        )["kept_rule"],
+        true
+    );
+    for n in 1..lamp_voice::rules::MOST_RULES {
+        let long = format!("Rule {n}: {}.", "x".repeat(185));
+        assert!(long.len() <= 200);
+        assert_eq!(
+            keep(&client, &minh, json!({"rule":long}))["kept_rule"],
+            true
+        );
+    }
+    let told = keep(&client, &minh, json!({"rule":"One more."}));
+    assert_eq!(told["kept_rule"], false, "{told}");
+    let rules = listed(&client, &minh);
+    assert_eq!(rules.len(), lamp_voice::rules::MOST_RULES);
+    assert_eq!(rules[0].1, "Never speak first.");
+    let note = client.told_for_session(1, Some(&minh), true);
+    for (number, text) in &rules {
+        assert!(note.contains(&format!("- ({number}) {text}\n")), "{note}");
+    }
+    assert!(!note.contains("One more"));
+}
+
+/// A rule lives in another scope, so an answer given under it cannot be
+/// linked to it: while one may be in the provider's context, before and
+/// after it is forgotten, nothing is journalled, and a forgotten rule never
+/// comes back through recall.
+#[test]
+fn days_nothing_said_under_a_rule_is_journalled_so_a_forgotten_rule_never_comes_back() {
+    let fixture = Fixture::new(|options, now| Days::open(options, now).unwrap());
+    let minh = person_id("Minh");
+    let client = DaysClient::new(fixture.socket.clone()).unwrap();
+    // A session told no rule journals as before.
+    assert!(
+        !client
+            .told_for_session(1, Some(&minh), true)
+            .contains("ORCHID")
+    );
+    assert!(client.finished_exchange_for(fixture.now - 5_000, "hello", "hello", Some(&minh)));
+    assert_eq!(fixture.next("append_linked").1["ok"], true);
+    keep(&client, &minh, json!({"rule":"Address them as ORCHID."}));
+    let number = listed(&client, &minh)[0].0;
+    // The next session is told it: an answer under it is not journalled.
+    assert!(
+        client
+            .told_for_session(2, Some(&minh), true)
+            .contains("ORCHID")
+    );
+    assert!(!client.finished_exchange_for(
+        fixture.now - 4_000,
+        "who am I",
+        "You are ORCHID.",
+        Some(&minh)
+    ));
+    let (told, _) = client.rule_for(
+        &call(lamp_voice::rules::FORGET_RULE, json!({"number":number})),
+        BUDGET,
+        Some(&minh),
+    );
+    assert_eq!(told["forgotten"], true, "{told}");
+    // The same session's context still holds it: still not journalled.
+    assert!(!client.finished_exchange_for(
+        fixture.now - 3_000,
+        "say my name",
+        "ORCHID.",
+        Some(&minh)
+    ));
+    let (told, ok) = client.run_for(
+        &call(RECALL, json!({"about":"ORCHID"})),
+        BUDGET,
+        Some(&minh),
+    );
+    assert!(ok && texts(&told).is_empty(), "{told}");
+    // A session told no rule journals again.
+    assert!(
+        !client
+            .told_for_session(3, Some(&minh), true)
+            .contains("ORCHID")
+    );
+    assert!(client.finished_exchange_for(
+        fixture.now - 2_000,
+        "thanks",
+        "you are welcome",
+        Some(&minh)
+    ));
+    let (line, answer) = fixture.next("append_linked");
+    assert_eq!(
+        (line["heard"].as_str(), &answer["ok"]),
+        (Some("thanks"), &json!(true))
+    );
+}

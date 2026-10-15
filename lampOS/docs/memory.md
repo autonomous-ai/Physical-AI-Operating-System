@@ -423,23 +423,43 @@ facts stay `remember`.
   are reached only through their own `r-` scope. A rule about speaking
   first is marked in its text (`[quiet] ` or `[quiet_mornings] `); the mark
   is taken off before anything is told to the model.
-- **Used.** Each new session is told, after its memory note, the room's
-  rules and then the known person's, at most 600 bytes of rule text each,
-  as "How you were asked to behave", within the note's 300 ms. Another
-  person's rules are never read for it. The rules `forget_rule` acts on
-  are numbered; the model is told never to say the numbers.
-- **Undone.** `forget_rule {number}` sends `forget` with that id in the
-  person's own `r-` scope, so nobody can take back another's rule;
-  `forget_rule {}` forgets the last one kept. A forgotten rule is erased
-  by the store and never told again. `list_rules` answers "what have I
-  asked you not to do?" from the same scope.
+- **Bounded when kept, never cut when told.** A scope keeps at most six
+  rules (`rules::MOST_RULES`, so at most 1,200 bytes of rule text). A
+  seventh is refused, with words for the model to say: ask which rule to
+  drop. No older rule is ever dropped to make room, and every read asks
+  for the whole scope, so the note, `list_rules` and the policy's fact all
+  see every rule.
+- **Used.** Each new session is told, after its memory note, every rule of
+  the room's and then of the known person's, as "How you were asked to
+  behave", within the note's 300 ms. Another person's rules are never read
+  for it. The rules `forget_rule` acts on are numbered; the model is told
+  never to say the numbers.
+- **Undone, by number only.** `forget_rule {number}` sends `forget` with
+  that id in the person's own `r-` scope, so nobody can take back
+  another's rule. The number is required: on lamp-52e6 a default to the
+  last rule kept took back the wrong one ([verification](verification/rules-lamp-52e6-20261015/README.md)).
+  No number, one that is not a positive integer, or one that is not theirs
+  removes nothing and tells the model to call `list_rules` and ask which.
+  `list_rules` gives each rule with its number. A forgotten rule is erased
+  by the store and never told again, and the conversation recap is
+  cleared as for `forget`.
+- **Nothing said under a rule is journalled.** A rule is in another scope,
+  so an exchange cannot be linked to it, and forgetting it could not reach
+  an answer that repeated it. So, conservatively: from a session told any
+  rule (or whose rules could not be read), or in which a rule's function
+  was called, no exchange is journalled, also after the rule is forgotten
+  in it, until a session opens told no rule. Those exchanges are left out,
+  not counted as lost, and tidy-up goes on. The cost: a person with rules,
+  or a room with rules, has no journal of their conversations while the
+  rules stand.
 - **The policy's typed fact.** At each session open, and after each rule
   kept or forgotten, the voice publishes `lamp_msgs::Rules` on the bus's
   kept topic `memory/rules` ([msgs.md](msgs.md)): the person id, `quiet`
   (asked never to speak first), `quiet_mornings` (asked not to speak first
   in the mornings, or never) and the count of rules. Never a rule's words.
-  The policy reads it with `latest`; reading and obeying it is the
-  policy's own change (#752).
+  It is said from a thread of its own, newest fact only, so a bus that
+  hangs never holds up a session's note or a call. The policy reads it
+  with `latest`; reading and obeying it is the policy's own change (#752).
 - The exchange in which a rule was kept, forgotten or listed stays out of
   the journal, like `remember` and `forget`.
 
@@ -448,6 +468,11 @@ Host test: `crates/memory/tests/voice_people.rs`
 keeps Minh's rule through the real Days store, tells it in Minh's next
 session and never in Sam's or the room's, lists it, does not return it
 from a recall, refuses Sam's attempt to forget it and forgets it for Minh.
+Beside it: two rules, the first taken back by its number and the second
+left, with no number, 0, -1, a word and a number not theirs removing
+nothing; six rules kept and all told and listed, a seventh refused; and an
+answer under a rule not journalled before or after it is forgotten, nor
+found by recall, while a session told no rule journals again.
 Known limits: whether the model calls `keep_rule` for a spoken correction
 is not shown on the host; `memory/rules` holds the person of the last
 session opened or rule changed, not whoever is at the lamp now; a `forget_all`

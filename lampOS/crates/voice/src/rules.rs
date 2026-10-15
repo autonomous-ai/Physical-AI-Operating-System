@@ -14,7 +14,7 @@
 //!   `r-<hex>`, and the room's of `r-everyone` ([`scope`]). So a recall
 //!   never returns a rule, and a rule is never told to anyone else.
 //! - **Told to each new session** ([`note`]): the room's, and the known
-//!   person's after them, within 600 bytes of rule text each.
+//!   person's after them: every rule, at most six a scope ([`admit`]).
 //! - **A typed fact for the policy** ([`facts`], `lamp_msgs::Rules` on
 //!   `memory/rules`): whether someone asked the lamp not to speak first,
 //!   at all or in the mornings. Never the words of a rule.
@@ -24,7 +24,10 @@ use lamp_gemini::{Tool, ToolCall};
 use serde_json::{Value, json};
 use std::{
     path::{Path, PathBuf},
-    sync::{Mutex, OnceLock},
+    sync::{
+        Mutex, OnceLock,
+        mpsc::{Receiver, SyncSender, sync_channel},
+    },
     time::{Duration, Instant},
 };
 
@@ -39,15 +42,19 @@ pub const LIST_RULES: &str = "list_rules";
 
 /// The longest rule kept: one short sentence, never a person's whole words.
 const RULE_BYTES: usize = 200;
-/// The most rule text of one scope a session is told or a list gives.
-const SCOPE_BYTES: u64 = 600;
+/// The most rules one scope keeps. A new one past it is refused with words
+/// the model can say, never made room for by dropping an older one; so a
+/// session is told every rule, at most 6 x 200 bytes of rule text a scope.
+pub const MOST_RULES: usize = 6;
+/// What a read of one scope asks for: the store's most, so that every rule
+/// is listed, told and counted in the fact, never a newest slice of them.
+const READ_BYTES: u64 = 16_384;
 /// What a rule about speaking first is marked with in the memory.
 const QUIET: &str = "[quiet] ";
 const QUIET_MORNINGS: &str = "[quiet_mornings] ";
 
 static ON: OnceLock<bool> = OnceLock::new();
 static BUS: OnceLock<PathBuf> = OnceLock::new();
-static OUT: Mutex<Option<lamp_bus::Publisher>> = Mutex::new(None);
 
 pub fn from_environment() -> bool {
     std::env::var(ENVIRONMENT).ok().as_deref() == Some("on")
@@ -93,19 +100,22 @@ pub fn tools() -> Vec<Tool> {
         Tool {
             name: FORGET_RULE.into(),
             description: "Call this when the person takes back one of the rules they gave you, such as 'you can tell \
-                          me the weather again' or 'forget that rule'. Give its number from your rules or from \
-                          list_rules; leave it out for the rule they gave last. Then stop following it."
+                          me the weather again' or 'forget that rule'. Give the number of the rule they take back, \
+                          as numbered under 'How you were asked to behave' or by list_rules; if you are not sure \
+                          which one, call list_rules first. Then stop following it."
                 .into(),
             parameters: Some(json!({
                 "type": "object",
-                "properties": {"number": {"type": "integer", "description": "The rule's number."}}
+                "properties": {"number": {"type": "integer", "description": "The number of the rule they take back."}},
+                "required": ["number"]
             })),
             silent: false,
         },
         Tool {
             name: LIST_RULES.into(),
             description: "Call this when the person asks what they asked you to do or not to do, or how they asked \
-                          you to behave. Tell them the rules in your own words, never their numbers."
+                          you to behave. Each rule comes with its number, for forget_rule only: tell them the \
+                          rules in your own words, never their numbers."
                 .into(),
             parameters: None,
             silent: false,
@@ -149,6 +159,8 @@ pub fn request(call: &ToolCall, now_unix_ms: u64, scope: &str) -> Result<Value, 
             };
             json!({"op":"remember","person":scope,"at_unix_ms":now_unix_ms,"text":format!("{mark}{rule}")})
         }
+        // Never a default: "forget that rule" once took back the last rule
+        // kept instead of the one meant (lamp-52e6, PR #822).
         FORGET_RULE => match call
             .args
             .get("number")
@@ -156,10 +168,16 @@ pub fn request(call: &ToolCall, now_unix_ms: u64, scope: &str) -> Result<Value, 
             .filter(|id| *id > 0 && *id <= i64::MAX as u64)
         {
             Some(id) => json!({"op":"forget","person":scope,"id":id}),
-            None => json!({"op":"forget_last","person":scope,"kind":"kept"}),
+            None => return Err(which()),
         },
-        _ => json!({"op":"kept","person":scope,"max_bytes":SCOPE_BYTES}),
+        _ => read_request(scope),
     })
+}
+
+/// What the model is told for a number not given or not one of theirs:
+/// nothing was removed.
+fn which() -> Value {
+    json!({"forgotten": false, "note": "Nothing was removed: I need the number of the rule they take back. Call list_rules, and if it is still not clear which one, ask them."})
 }
 
 /// One kept rule, without its mark.
@@ -231,14 +249,8 @@ pub fn answer_for(
             )
         }
         FORGET_RULE => match answer.get("removed")? {
-            Value::Null => (
-                json!({"forgotten": false, "note": "There was no such rule."}),
-                false,
-            ),
-            Value::Number(count) if count.as_u64() == Some(0) => (
-                json!({"forgotten": false, "note": "There was no such rule."}),
-                false,
-            ),
+            Value::Null => (which(), false),
+            Value::Number(count) if count.as_u64() == Some(0) => (which(), false),
             _ => (
                 json!({"forgotten": true, "note": "Stop following it from now on."}),
                 true,
@@ -255,10 +267,29 @@ pub fn answer_for(
                     false,
                 )
             } else {
-                (json!({ "rules": listed }), false)
+                (
+                    json!({"rules": listed, "note": "The numbers are for forget_rule only: never say them."}),
+                    false,
+                )
             }
         }
     })
+}
+
+/// The memory's request for every rule of a scope.
+pub fn read_request(scope: &str) -> Value {
+    json!({"op":"kept","person":scope,"max_bytes":READ_BYTES})
+}
+
+/// Whether one more rule may be kept beside these, or what to tell the
+/// model: nothing is dropped to make room.
+pub fn admit(kept: &[Rule]) -> Result<(), Value> {
+    if kept.len() >= MOST_RULES {
+        return Err(json!({"kept_rule": false, "note": format!(
+            "Nothing was kept: I already keep {MOST_RULES} rules for them, the most I keep. Tell them, and ask which rule they want me to drop; then call forget_rule with its number and keep the new one."
+        )}));
+    }
+    Ok(())
 }
 
 /// The room's rules, and the known person's when someone is, read before
@@ -271,10 +302,7 @@ pub fn read(
 ) -> Option<(Vec<Rule>, Option<Vec<Rule>>)> {
     let one = |person: Option<&str>| {
         let left = until.checked_duration_since(Instant::now())?;
-        rules(&ask(
-            &json!({"op":"kept","person":scope(person),"max_bytes":SCOPE_BYTES}),
-            left,
-        )?)
+        rules(&ask(&read_request(&scope(person)), left)?)
     };
     let room = one(None)?;
     let theirs = match person {
@@ -339,30 +367,64 @@ pub fn facts(person: Option<&str>, room: &[Rule], theirs: &[Rule]) -> lamp_msgs:
     }
 }
 
-/// Say the fact on `memory/rules`, kept until the next. Never waits for a
-/// lock; a bus that cannot be used is said once and changes nothing else.
+/// Say the fact on `memory/rules`, kept until the next, from a thread of its
+/// own: the bus's file work never holds up a session's note or a call.
+/// Coalescing: only the newest fact waits, and an older one not yet said is
+/// replaced. A bus that cannot be used is said once and changes nothing
+/// else.
 pub fn publish(facts: &lamp_msgs::Rules) {
     let Some(root) = BUS.get() else { return };
-    let Ok(mut out) = OUT.try_lock() else { return };
-    if out.is_none() {
-        static SAID: OnceLock<()> = OnceLock::new();
-        *out = lamp_bus::Bus::new(root)
-            .and_then(|bus| {
-                bus.publisher_declared(
-                    lamp_msgs::Rules::TOPIC,
-                    &lamp_msgs::Rules::declaration(),
-                    crate::bus_out::SOURCE,
-                )
-            })
-            .map_err(|error| {
-                SAID.get_or_init(|| {
-                    eprintln!("lamp-voice provider: rules are not published on the bus: {error}")
-                });
-            })
-            .ok();
-    }
-    if let Some(publisher) = out.as_mut() {
-        let _ = publisher.publish_json(0, facts);
+    let Ok(mut waiting) = WAITING.try_lock() else {
+        return;
+    };
+    *waiting = Some(facts.clone());
+    drop(waiting);
+    let wake = WAKE.get_or_init(|| {
+        let (wake, woken) = sync_channel::<()>(1);
+        let root = root.clone();
+        let spawned = std::thread::Builder::new()
+            .name("lamp-voice-rules-bus".into())
+            .spawn(move || publisher(&root, &woken));
+        if spawned.is_err() {
+            eprintln!("lamp-voice provider: no thread for the rules' bus; they are not published");
+        }
+        wake
+    });
+    let _ = wake.try_send(());
+}
+
+/// The newest fact not yet said, and the publisher thread's wake-up.
+static WAITING: Mutex<Option<lamp_msgs::Rules>> = Mutex::new(None);
+static WAKE: OnceLock<SyncSender<()>> = OnceLock::new();
+
+fn publisher(root: &Path, woken: &Receiver<()>) {
+    let mut out: Option<lamp_bus::Publisher> = None;
+    let mut said = false;
+    while woken.recv().is_ok() {
+        let Some(facts) = WAITING.lock().ok().and_then(|mut waiting| waiting.take()) else {
+            continue;
+        };
+        if out.is_none() {
+            out = lamp_bus::Bus::new(root)
+                .and_then(|bus| {
+                    bus.publisher_declared(
+                        lamp_msgs::Rules::TOPIC,
+                        &lamp_msgs::Rules::declaration(),
+                        crate::bus_out::SOURCE,
+                    )
+                })
+                .map_err(|error| {
+                    if !std::mem::replace(&mut said, true) {
+                        eprintln!(
+                            "lamp-voice provider: rules are not published on the bus: {error}"
+                        );
+                    }
+                })
+                .ok();
+        }
+        if let Some(publisher) = out.as_mut() {
+            let _ = publisher.publish_json(0, &facts);
+        }
     }
 }
 
@@ -402,13 +464,15 @@ mod tests {
             request(&call(FORGET_RULE, json!({"number":3})), 7, "r-x").unwrap(),
             json!({"op":"forget","person":"r-x","id":3})
         );
-        assert_eq!(
-            request(&call(FORGET_RULE, json!({})), 7, "r-x").unwrap(),
-            json!({"op":"forget_last","person":"r-x","kind":"kept"})
-        );
+        // No number, or not a rule's: the memory is asked nothing.
+        for args in [json!({}), json!({"number":0}), json!({"number":"first"})] {
+            let told = request(&call(FORGET_RULE, args), 7, "r-x").unwrap_err();
+            assert_eq!(told["forgotten"], false);
+            assert!(told["note"].as_str().unwrap().contains("list_rules"));
+        }
         assert_eq!(
             request(&call(LIST_RULES, json!({})), 7, "r-x").unwrap(),
-            json!({"op":"kept","person":"r-x","max_bytes":600})
+            json!({"op":"kept","person":"r-x","max_bytes":16384})
         );
     }
 
@@ -438,8 +502,8 @@ mod tests {
         .unwrap();
         assert!(!changed);
         assert_eq!(
-            listed,
-            json!({"rules":[{"number":1,"rule":"Do not speak first in the morning.","when":"today"}]})
+            listed["rules"],
+            json!([{"number":1,"rule":"Do not speak first in the morning.","when":"today"}])
         );
     }
 
@@ -456,12 +520,66 @@ mod tests {
     }
 
     /// The only test that names a bus: [`BUS`] is set once per process.
+    /// A bus whose declaration hangs (a FIFO nobody writes) does not hold up
+    /// a session's note; once the bus can be used the fact is kept there.
     #[test]
-    fn the_fact_is_kept_on_the_bus_for_the_policy_to_read() {
+    fn the_fact_is_kept_on_the_bus_and_a_stalled_bus_never_holds_up_a_session() {
+        use std::{
+            io::{BufRead, BufReader, Write},
+            os::unix::{fs::OpenOptionsExt, net::UnixListener},
+        };
         let root = PathBuf::from(format!("/tmp/lvr-rules-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&root);
-        std::fs::create_dir_all(&root).unwrap();
+        let declaration = root.join(lamp_msgs::Rules::TOPIC).join("declaration");
+        std::fs::create_dir_all(declaration.parent().unwrap()).unwrap();
+        assert!(
+            std::process::Command::new("mkfifo")
+                .arg(&declaration)
+                .status()
+                .unwrap()
+                .success()
+        );
         bus_on(&root);
+        // A memory with one room rule and no session note.
+        let socket = root.join("m.sock");
+        let listener = UnixListener::bind(&socket).unwrap();
+        let served = std::thread::spawn(move || {
+            for _ in 0..2 {
+                let (mut stream, _) = listener.accept().unwrap();
+                let mut line = String::new();
+                BufReader::new(stream.try_clone().unwrap())
+                    .read_line(&mut line)
+                    .unwrap();
+                let answer = if line.contains("\"kept\"") {
+                    json!({"ok":true,"entries":[{"id":1,"at_unix_ms":1,"text":"[quiet] Never speak first."}]})
+                } else {
+                    json!({"ok":false,"error":"storage"})
+                };
+                stream.write_all(format!("{answer}\n").as_bytes()).unwrap();
+            }
+        });
+        let client = crate::remember::DaysClient::new(socket).unwrap();
+        let started = Instant::now();
+        let note = client.told_for_session(1, None, true);
+        let took = started.elapsed();
+        served.join().unwrap();
+        assert!(note.contains("- (1) Never speak first.\n"), "{note}");
+        assert!(took < Duration::from_millis(300), "{took:?}");
+        // Let the publisher's open of the FIFO end, then take the FIFO away.
+        let until = Instant::now() + Duration::from_secs(2);
+        while Instant::now() < until {
+            if std::fs::OpenOptions::new()
+                .write(true)
+                // Fails at once while nobody reads it, instead of waiting.
+                .custom_flags(rustix::fs::OFlags::NONBLOCK.bits() as i32)
+                .open(&declaration)
+                .is_ok()
+            {
+                break;
+            }
+            std::thread::sleep(Duration::from_millis(10));
+        }
+        let _ = std::fs::remove_file(&declaration);
         let fact = facts(
             Some("p-1"),
             &[],
@@ -470,15 +588,22 @@ mod tests {
                 "[quiet_mornings] Do not speak first in the morning.",
             )],
         );
-        publish(&fact);
-        let kept = lamp_bus::Bus::new(&root)
-            .unwrap()
-            .latest(lamp_msgs::Rules::TOPIC)
-            .unwrap()
-            .unwrap()
-            .parse::<lamp_msgs::Rules>()
-            .unwrap();
-        assert_eq!(kept, fact);
+        let bus = lamp_bus::Bus::new(&root).unwrap();
+        let until = Instant::now() + Duration::from_secs(5);
+        let kept = loop {
+            publish(&fact);
+            std::thread::sleep(Duration::from_millis(20));
+            let kept = bus
+                .latest(lamp_msgs::Rules::TOPIC)
+                .ok()
+                .flatten()
+                .and_then(|message| message.parse::<lamp_msgs::Rules>().ok());
+            if kept.as_ref() == Some(&fact) || Instant::now() > until {
+                break kept;
+            }
+        };
+        assert_eq!(kept, Some(fact));
+        drop(client);
         std::fs::remove_dir_all(root).unwrap();
     }
 

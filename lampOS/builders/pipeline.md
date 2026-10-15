@@ -9,6 +9,14 @@ and each re-run cost another 30 minutes. The pipeline builder makes that
 wait short and the result trustworthy. How a builder works is in
 [joining.md](../docs/joining.md).
 
+**Changed 2026-10-15 17:17 (the owner):** the human devops team now owns the
+GitHub workflow, the runners and the CI setup. The pipeline builder moves to
+the code side of slow and flaky tests: tests that wait on the real clock, and
+tests that fail at random. Its tasks are #823 (the 123 real-clock tests on a
+test clock) and the sweep of program tests that kill a part and read its lines
+(#783). It no longer changes `.github/workflows/` or runners; it asks the
+devops team on #788 when the workflow needs something.
+
 - **Name:** `pipeline`
 - **Person:** the owner, who starts its sessions (a Codex agent)
 - **Lamp(s):** none
@@ -16,7 +24,8 @@ wait short and the result trustworthy. How a builder works is in
 
 ## What it owns
 
-- `.github/workflows/lampos-arm64.yml`, and any script it calls.
+- Test harnesses and test clocks across the workspace (not what a test
+  asserts), for #823 and #783. The workflow is the devops team's.
 - Test determinism across the workspace, with the eighth (#739, #783): a
   test that fails at random gets an issue and is made deterministic. It is
   never ignored or weakened.

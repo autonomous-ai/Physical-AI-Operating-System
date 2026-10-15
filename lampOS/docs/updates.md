@@ -207,7 +207,9 @@ and the job fails without moving the head.
    build`.
    The name lookup is given the connect time, 10 s, on a thread of its own
    (the system's lookup has no timeout): a resolver that never answers is
-   "the channel cannot be reached", not a round held for good (#830).
+   "the channel cannot be reached", not a round held for good (#830). One
+   lookup runs at a time: while one that ran over has not ended, a round
+   starts none and says "an earlier name lookup has not ended".
 3. **The build.** The envelope's key fingerprint must be the lamp's, its
    signature must match the manifest's bytes, the manifest must be schema 1
    of the channel followed, every name plain (`lamp-<name>`, never a path),

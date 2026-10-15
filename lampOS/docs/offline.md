@@ -156,7 +156,8 @@ session is told it does not know the time, never to guess
 
 - **The updater's name lookup** (`crates/update/src/fetch.rs`,
   `lookup_within`) is given the connect time, 10 s, on a thread of its own;
-  one that runs over is said as "cannot be reached" and the round goes on.
+  one that runs over is said as "cannot be reached" and the round goes on,
+  and no round starts another lookup until it ends (one at a time).
   This changes every lamp's default, only for a lookup over 10 s.
 - **Tasks' health** (`crates/tasks/src/engine.rs`, `runtime.rs`) is a
   warning, "Tasks could not hand the last task over", while the newest

@@ -400,3 +400,58 @@ fn every_part_of_the_brain_has_a_product_unit() {
         assert!(units.contains(&unit.as_str()), "{name} has no product unit");
     }
 }
+
+/// Setup's marker (agreed with the third on #811, 2026-10-15 17:07; the
+/// `marker` of setup's plan).
+const SETUP_DONE: &str = "/var/lib/lampos-setup/done";
+
+/// The lines of one section of a unit, without comments.
+fn section<'a>(text: &'a str, name: &str) -> Vec<&'a str> {
+    let header = format!("[{name}]");
+    let mut inside = false;
+    let mut lines = Vec::new();
+    for line in text.lines().map(str::trim) {
+        if line.starts_with('[') {
+            inside = line == header;
+        } else if inside && !line.is_empty() && !line.starts_with('#') {
+            lines.push(line);
+        }
+    }
+    lines
+}
+
+/// Nothing of the lamp starts before setup has finished, on any boot
+/// (#806). systemd checks a unit's condition only when its own job runs,
+/// after the jobs it pulls in are queued, so the target's condition holds
+/// back none of its parts (the reviewer on #815): each part in the target
+/// carries the condition itself, in `[Unit]` where systemd reads it. The
+/// two units outside the target listen to nothing and run before setup.
+#[test]
+fn every_part_of_the_lamp_waits_for_setups_marker_itself() {
+    let condition = format!("ConditionPathExists={SETUP_DONE}");
+    let mut gated = Vec::new();
+    for (name, text) in PRODUCT {
+        let unit = section(text, "Unit");
+        let part_of = unit.contains(&"PartOf=lampos.target");
+        let wanted = section(text, "Install").contains(&"WantedBy=lampos.target");
+        assert_eq!(part_of, wanted, "{name}: in the target one way only");
+        if part_of || *name == "lampos.target" {
+            assert!(
+                unit.contains(&condition.as_str()),
+                "{name} starts before setup"
+            );
+            gated.push(*name);
+        } else {
+            assert!(
+                !text.contains("lampos-setup"),
+                "{name} is outside the target and names setup"
+            );
+        }
+    }
+    assert_eq!(gated.len(), 15, "{gated:?}");
+    for outside in ["lamp-update.service", "lamp-records.timer"] {
+        assert!(!gated.contains(&outside), "{outside}");
+    }
+    let page = include_str!("../../../docs/install.md");
+    assert!(page.contains(&format!("`{condition}`")));
+}

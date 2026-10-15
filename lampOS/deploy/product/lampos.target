@@ -2,6 +2,7 @@
 #   systemctl start lampos.target / stop / restart
 # Nothing of the lamp starts before setup has finished (#806): setup writes the marker below
 # and starts this target; at every later power-up the marker is there and the lamp starts.
+# Each part carries the same condition: this one holds back none of what the target pulls in.
 [Unit]
 Description=lampOS: the lamp
 After=local-fs.target

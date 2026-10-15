@@ -3,6 +3,8 @@
 [Unit]
 Description=lampOS schedule (lamp-schedule)
 PartOf=lampos.target
+# Not before setup has finished (#806). The target's own condition holds back none of its parts.
+ConditionPathExists=/var/lib/lampos-setup/done
 After=local-fs.target time-sync.target
 StartLimitIntervalSec=600
 StartLimitBurst=5

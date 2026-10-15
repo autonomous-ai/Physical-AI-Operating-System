@@ -118,10 +118,27 @@ impl Step {
             Step::WhereYouSit => SIT_NOTE,
             Step::WhoYouAre => WHO_NOTE,
             Step::Preferences => PREFERENCES_NOTE,
-            _ => "",
+            // PLACEHOLDER (#841): each owner words its own step's note,
+            // opening with "one more thing I can do now" for the re-offer.
+            _ => ONE_MORE_NOTE,
+        }
+    }
+
+    /// The one move the body is asked for when the step is done (#841,
+    /// First's addition 1): a nod when it sees them well, a greeting when
+    /// it knows them, a nod for the rest. The body has no lean yet.
+    fn gesture(self) -> &'static str {
+        match self {
+            Step::WhoYouAre => "greeting",
+            _ => "nod",
         }
     }
 }
+
+pub const ONE_MORE_NOTE: &str = "(Nobody has spoken. Tell them in a few words that there is one more thing you can do now that you could not when you first met, and show them.)";
+/// A step not available at the first walk is offered again at most this
+/// often, until it has an outcome.
+const OFFER_EVERY_S: u64 = 86_400;
 
 pub const SIT_NOTE: &str = "(Nobody has spoken. You are meeting the person you will live with for the first time. Say hello in a few warm words, then ask them to sit where they usually sit and look at you, so you learn where they are. Nothing more.)";
 pub const SIT_NO_FACE: &str = "(You cannot see their face. Ask them in a few words to sit where they usually sit and look at you.)";
@@ -175,6 +192,9 @@ pub struct Kept {
     pub at_unix_s: u64,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub framing: Option<Framing>,
+    /// When a step that was not available was last offered again.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub offered_at_unix_s: Option<u64>,
 }
 
 /// The onboarding file: each step's outcome, by its name.
@@ -209,6 +229,10 @@ pub struct Onboarding {
     /// Whether the body has said where its joints are, or whether a hand
     /// is on it, since this voice started.
     body_heard: bool,
+    /// Which steps this voice has (`Step::available`; tests set their own).
+    available: fn(Step) -> bool,
+    /// The move asked of the body for a step just done, until taken.
+    gesture: Option<&'static str>,
 }
 
 /// What a read of a body topic found: nothing ever, a message
@@ -288,6 +312,8 @@ impl Onboarding {
             finished_recorded: false,
             records: Vec::new(),
             eyes: None,
+            available: Step::available,
+            gesture: None,
             looked: None,
             felt: None,
             goals: None,
@@ -445,7 +471,7 @@ impl Onboarding {
                 }
                 return None;
             };
-            if step.available() {
+            if (self.available)(step) {
                 break step;
             }
             self.finish(step, Outcome::NotAvailable, None, now_us);
@@ -466,9 +492,16 @@ impl Onboarding {
             if can_speak && face.is_some() && quiet_us >= START_QUIET_US {
                 led.asked_us = Some(now_us);
                 led.guided_us = Some(now_us);
+                let again = self.kept.steps.get_mut(step.name()).map(|kept| {
+                    kept.offered_at_unix_s = Some(unix_ms() / 1_000);
+                });
                 self.records.push(
-                    json!({"kind":"onboarding_step","step":step.name(),"state":"asked","at_us":now_us}),
+                    json!({"kind":"onboarding_step","step":step.name(),"state":"asked",
+                        "offered_again":again.is_some(),"at_us":now_us}),
                 );
+                if again.is_some() {
+                    self.save();
+                }
                 return Some(step.note());
             }
             return None;
@@ -527,10 +560,37 @@ impl Onboarding {
         None
     }
 
+    /// The first step with no outcome; once every step has one, a step that
+    /// was not available then and is now, offered at most once a day and
+    /// never before the walk is over (First's addition 2).
     fn next_step(&self) -> Option<Step> {
+        let unix_s = unix_ms() / 1_000;
         Step::ALL
             .into_iter()
             .find(|step| !self.kept.steps.contains_key(step.name()))
+            .or_else(|| {
+                // One being offered again now is led to its end.
+                self.led
+                    .as_ref()
+                    .filter(|led| led.asked_us.is_some())
+                    .map(|led| led.step)
+            })
+            .or_else(|| {
+                Step::ALL.into_iter().find(|step| {
+                    (self.available)(*step)
+                        && self.kept.steps.get(step.name()).is_some_and(|kept| {
+                            kept.outcome == Outcome::NotAvailable
+                                && kept
+                                    .offered_at_unix_s
+                                    .is_none_or(|at| unix_s.saturating_sub(at) >= OFFER_EVERY_S)
+                        })
+                })
+            })
+    }
+
+    /// The move to ask of the body for a step just done, once.
+    pub fn take_gesture(&mut self) -> Option<&'static str> {
+        self.gesture.take()
     }
 
     fn finish(&mut self, step: Step, outcome: Outcome, framing: Option<Framing>, now_us: u64) {
@@ -543,8 +603,12 @@ impl Onboarding {
                 outcome,
                 at_unix_s,
                 framing,
+                offered_at_unix_s: None,
             },
         );
+        if outcome == Outcome::Done {
+            self.gesture = Some(step.gesture());
+        }
         if self.led.as_ref().is_some_and(|led| led.step == step) {
             self.led = None;
         }
@@ -1054,6 +1118,78 @@ mod tests {
         let mut stale = Room::new("stale-first");
         felt(&mut stale, 20 * S, || Heard::Stale, || Heard::Never);
         assert_eq!(stale.outcome(Step::WhereYouSit), None);
+    }
+
+    /// A walk to its end with every step skipped but the first.
+    fn walked(name: &str) -> Room {
+        let mut room = Room::new(name);
+        assert_eq!(room.wait(8 * S, Some(NEAR_MIDDLE)), [SIT_NOTE, SIT_DONE]);
+        assert_eq!(room.walk.take_gesture(), Some("nod"));
+        assert_eq!(room.wait(4 * S, Some(NEAR_MIDDLE)), [WHO_NOTE]);
+        report(&room.walk, "who_you_are", "done");
+        assert_eq!(room.wait(4 * S, Some(NEAR_MIDDLE)), [PREFERENCES_NOTE]);
+        assert_eq!(room.walk.take_gesture(), Some("greeting"));
+        report(&room.walk, "preferences", "skipped");
+        assert_eq!(room.wait(4 * S, Some(NEAR_MIDDLE)), NONE);
+        assert_eq!(room.walk.take_gesture(), None);
+        room
+    }
+
+    #[test]
+    fn a_step_done_asks_the_body_for_one_move_and_a_skip_for_none() {
+        let mut room = walked("gesture");
+        assert_eq!(room.walk.kept().steps.len(), 7);
+        assert_eq!(room.walk.take_gesture(), None);
+    }
+
+    #[test]
+    fn a_step_that_was_not_available_is_offered_once_a_day_when_it_is() {
+        let room = walked("offer");
+        // The same voice: nothing more is offered.
+        let mut same = Room {
+            walk: Onboarding::at(room.walk.file.clone()),
+            at: 0,
+            said: 0,
+            still: true,
+            body_on_bus: false,
+        };
+        assert_eq!(same.wait(30 * S, Some(NEAR_MIDDLE)), NONE);
+        // A later voice that has hearing: offered, after the walk.
+        let mut later = Room {
+            walk: Onboarding::at(room.walk.file.clone()),
+            at: 0,
+            said: 0,
+            still: true,
+            body_on_bus: false,
+        };
+        later.walk.available =
+            |step| step != Step::Touch && step != Step::Privacy && step != Step::GivingWay;
+        assert_eq!(later.wait(4 * S, Some(NEAR_MIDDLE)), [ONE_MORE_NOTE]);
+        assert!(later.walk.leading());
+        // Led to its end like any step, while it is being led.
+        assert_eq!(later.wait(20 * S, Some(NEAR_MIDDLE)), NONE);
+        assert!(later.walk.leading());
+        // They leave before it ends: not offered again today.
+        later.wait(31 * S, None);
+        assert!(!later.walk.leading());
+        assert_eq!(later.wait(60 * S, Some(NEAR_MIDDLE)), NONE);
+        assert_eq!(
+            later.outcome(Step::HowYouSound),
+            Some(Outcome::NotAvailable)
+        );
+        // A day later it is offered again, and done it is kept.
+        later
+            .walk
+            .kept
+            .steps
+            .get_mut("how_you_sound")
+            .unwrap()
+            .offered_at_unix_s = Some(unix_ms() / 1_000 - OFFER_EVERY_S);
+        assert_eq!(later.wait(4 * S, Some(NEAR_MIDDLE)), [ONE_MORE_NOTE]);
+        report(&later.walk, "how_you_sound", "done");
+        assert_eq!(later.wait(60 * S, Some(NEAR_MIDDLE)), NONE);
+        assert_eq!(later.outcome(Step::HowYouSound), Some(Outcome::Done));
+        assert_eq!(later.walk.take_gesture(), Some("nod"));
     }
 
     #[test]

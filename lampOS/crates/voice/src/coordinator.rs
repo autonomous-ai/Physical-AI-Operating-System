@@ -4899,6 +4899,18 @@ fn conversation_with_gate(
             for line in walk.take_records() {
                 record(trace, line)?;
             }
+            // A step done: one move asked of the body, by the path the
+            // answers' nods take. None without a body or while paused.
+            if let Some(gesture) = walk.take_gesture()
+                && !paused
+                && let Some(body) = body_link.as_mut()
+            {
+                body.gesture(gesture);
+                record(
+                    trace,
+                    json!({"kind":"body_gesture_asked","why":"onboarding","gesture":gesture,"at_us":clock}),
+                )?;
+            }
             if let Some(note) = note
                 && let Some(provider_session) = unasked_session(&cloud, paused)
             {

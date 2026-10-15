@@ -57,6 +57,7 @@ pub mod session_fact;
 pub mod short_turns;
 pub mod sight;
 pub mod speak_up;
+pub mod speaker_check;
 pub mod task_news;
 mod termination;
 pub mod thread;

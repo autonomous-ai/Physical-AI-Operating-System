@@ -988,10 +988,16 @@ line has changed (`changes`) since it was last judged. What a task says the
 first time the policy sees it is where judging begins, not news. Counts are
 of one run of the tasks part (`run`): a restart keeps the store and the
 task numbers and counts from nothing, so for a task already followed a new
-run is judged from its own beginning, whatever count the last run reached,
-and a yes about one run's change that comes back once another run is there
-is `outdated`. The quarter hour after a note stays across a restart. One
-progress question is out at a time.
+run is judged from its own beginning, whatever count the last run reached
+and at whatever count the new run is first seen (its first status may be
+missed), and a yes about one run's change that comes back once another run
+is there is `outdated`. While the tasks part is gone (its publisher's lease
+ran out), nothing is asked and an answer that comes back is `outdated`; what
+is kept of each task stays, so the quarter hour after a note holds across
+the tasks part going and coming back as another run (the reviewer on #751,
+17:05: `a_new_run_first_seen_at_a_lower_count_is_asked_about`,
+`the_quarter_hour_after_a_note_outlives_the_tasks_part_going_and_coming_back`).
+One progress question is out at a time.
 
 **Two hard rules, around the decider and not left to it.** A question is
 not asked while either holds, and is asked once it no longer does, about

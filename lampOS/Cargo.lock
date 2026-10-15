@@ -1966,6 +1966,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "lamp-same-voice"
+version = "0.1.0"
+dependencies = [
+ "hound",
+ "rustfft",
+ "tract-onnx",
+]
+
+[[package]]
 name = "lamp-schedule"
 version = "0.1.0"
 dependencies = [

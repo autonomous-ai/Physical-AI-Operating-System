@@ -780,6 +780,16 @@ they stay on the lamp and are not published. Not recorded yet: whether any
 sound of the answer was played (`request_outcome`), when a request began, and
 which transcript, name and eyes messages the rule read.
 
+## A short sound let through in a quiet room (#800)
+
+With `LAMP_SHORT_SOUNDS=quiet-room-checked` ([not-speech.md](not-speech.md#a-room-sound-let-through-and-answered-800))
+the rule has one more case, before the busy-room ones: a request whose end
+came marked as a short sound let through is played only when what was heard
+is a short word said to the lamp, it was said close to the lamp (the room
+microphone, as for `--attention-near`), someone is turned to the lamp, or
+the lamp began the turn itself; otherwise it is held. Off unless set; the
+rule is otherwise as above.
+
 ## Switch
 
 `LAMP_ATTENTION=on` in the voice unit (the worker's `--attention`). Off by

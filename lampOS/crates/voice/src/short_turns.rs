@@ -21,76 +21,11 @@
 use serde_json::{Value, json};
 use std::{collections::BTreeMap, path::Path};
 
-/// Short things a person says to the lamp, in English as it is spoken to:
-/// a heard text that is one of these, whole, is a word, not a sound.
-pub const SHORT_WORDS: &[&str] = &[
-    "yes",
-    "yeah",
-    "yep",
-    "yup",
-    "no",
-    "nope",
-    "stop",
-    "what",
-    "okay",
-    "ok",
-    "sure",
-    "go ahead",
-    "yes go ahead",
-    "go on",
-    "thanks",
-    "thank you",
-    "hello",
-    "hi",
-    "hey",
-    "lamp",
-    "hey lamp",
-    "please",
-    "wait",
-    "right",
-    "cool",
-    "great",
-    "nice",
-    "again",
-    "sorry",
-    "pardon",
-    "huh",
-    "really",
-    "why",
-    "how",
-    "when",
-    "who",
-    "where",
-    "done",
-    "louder",
-    "quieter",
-    "good",
-    "fine",
-    "never mind",
-    "nevermind",
-    "bye",
-    "goodbye",
-    "good night",
-    "morning",
-    "good morning",
-    "do it",
-    "start",
-    "cancel",
-    "shush",
-    "quiet",
-    "be quiet",
-    "enough",
-    "that's it",
-    "that's all",
-    "all right",
-    "alright",
-];
-
 /// What was heard, as kinds: no word of it.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct Heard {
     pub words: usize,
-    /// It is one of [`SHORT_WORDS`], whole.
+    /// It is one of [`crate::not_speech::SHORT_WORDS`], whole.
     pub short_word: bool,
     /// It has marks English does not: `¿`, `¡`, or a letter with an accent.
     pub other_marks: bool,
@@ -101,20 +36,9 @@ pub fn heard(text: &str) -> Heard {
     let other_marks = text
         .chars()
         .any(|c| c == '¿' || c == '¡' || (c.is_alphabetic() && !c.is_ascii()));
-    let plain: String = text
-        .chars()
-        .map(|c| {
-            if c.is_alphanumeric() || c == '\'' {
-                c.to_ascii_lowercase()
-            } else {
-                ' '
-            }
-        })
-        .collect();
-    let words: Vec<&str> = plain.split_whitespace().collect();
     Heard {
-        words: words.len(),
-        short_word: !words.is_empty() && SHORT_WORDS.contains(&words.join(" ").as_str()),
+        words: crate::not_speech::plain_words(text).len(),
+        short_word: crate::not_speech::short_word(text),
         other_marks,
     }
 }

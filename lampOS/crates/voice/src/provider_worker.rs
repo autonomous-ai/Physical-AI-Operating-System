@@ -142,6 +142,10 @@ pub struct Files {
     /// Where whom it answered is recorded (`--first-output-log`,
     /// [`crate::first_output`]), if anywhere.
     pub first_output: Option<std::path::PathBuf>,
+    /// Whether a short sound let through in a quiet room is held unless
+    /// something shows it was said to the lamp (`--sounds-checked`,
+    /// `crate::not_speech::CHECKED`). Only with `attention`.
+    pub sounds_checked: bool,
 }
 
 /// The bus's root for this worker, if it publishes.
@@ -187,6 +191,7 @@ pub fn parse_flags(dir: &std::path::Path, flags: &[String]) -> io::Result<Parsed
     let (name_note, name_note_busy_face, flags) = crate::called::take(flags);
     let (bus_root, flags) = crate::bus_out::take_root(flags)?;
     let (first_output, flags) = crate::first_output::take(flags)?;
+    let (sounds_checked, flags) = crate::not_speech::take_checked(flags);
     let visual = VisualSource::parse(dir, flags)?;
     let files = Files {
         look,
@@ -205,6 +210,7 @@ pub fn parse_flags(dir: &std::path::Path, flags: &[String]) -> io::Result<Parsed
         name_note_busy_face,
         bus_root,
         first_output,
+        sounds_checked,
     };
     Ok((continuation, sight, files, visual))
 }
@@ -621,6 +627,10 @@ pub(crate) struct Options {
     pub(crate) attention: Option<fn() -> (crate::room_told::Room, bool)>,
     /// The model is asked to say when it hears the lamp's name.
     pub(crate) name_signal: bool,
+    /// A short sound let through in a quiet room is answered only when
+    /// something shows it was said to the lamp (`--sounds-checked`, #800).
+    /// Only with `attention`.
+    pub(crate) sounds_checked: bool,
 }
 /// How the room is and whether the lamp is in a conversation, now.
 fn attention_now() -> (crate::room_told::Room, bool) {
@@ -643,6 +653,7 @@ impl Options {
             tools: crate::tools::Settings::default(),
             attention: None,
             name_signal: false,
+            sounds_checked: false,
         }
     }
 }
@@ -835,6 +846,7 @@ pub async fn run_with_continuation(
         tools: files.tools,
         attention: files.attention.then_some(attention_now),
         name_signal: files.name_signal,
+        sounds_checked: files.attention && files.sounds_checked,
     };
     let visual = visual
         .map(|(source, worker)| ContextDelivery::new(source, boot, worker))
@@ -966,11 +978,13 @@ async fn serve_with_visual<C: Connect>(
     let name_note = NAME_NOTE.load(std::sync::atomic::Ordering::Relaxed);
     let busy_needs_face = NAME_NOTE_BUSY_FACE.load(std::sync::atomic::Ordering::Relaxed);
     let attention_busy = ATTENTION_BUSY.load(std::sync::atomic::Ordering::Relaxed);
+    let sounds_checked = options.attention.is_some() && options.sounds_checked;
     // The eyes, for whether anyone is turned to the lamp. Read only in a
-    // busy room, when a note is due or an answer is decided.
+    // busy room, when a note is due or an answer is decided, and for a
+    // short sound being checked.
     let eyes = BUS_ROOT
         .get()
-        .filter(|_| busy_needs_face || attention_busy || addressed)
+        .filter(|_| busy_needs_face || attention_busy || addressed || sounds_checked)
         .and_then(|root| lamp_bus::Bus::new(root).ok());
     // Whether each request was said to the lamp from close to it: the eyes'
     // looks of the last 30 s, and the topic it is published on. A bus that
@@ -992,6 +1006,7 @@ async fn serve_with_visual<C: Connect>(
     let mut desk = ToolDesk::new(options.tools.clone());
     desk.name_signal = options.name_signal;
     let mut attention = crate::attention::Attention::default();
+    attention.check_sounds(sounds_checked);
     // The record of whom it answered, off unless set.
     let mut first_output = FIRST_OUTPUT.get().and_then(|directory| {
         match crate::first_output::FirstOutputLog::open(directory) {
@@ -1058,6 +1073,9 @@ async fn serve_with_visual<C: Connect>(
                 // request's sound ended is not that request's.
                 if let Some((request, at_us)) = intake.handoff.ended {
                     attention.ended(request, at_us);
+                    if intake.handoff.ended_as_sound == Some(request) {
+                        attention.ended_as_sound(request);
+                    }
                 }
                 if addressed
                     && let Some(request) = attention.in_hand()
@@ -1427,7 +1445,8 @@ async fn serve_with_visual<C: Connect>(
                             let sampled_start_us = monotonic_us();
                             let (room, going_on) = now();
                             let request = lineage.request.get();
-                            let turned = (attention_busy && room == crate::room_told::Room::Busy)
+                            let turned = (attention_busy && room == crate::room_told::Room::Busy
+                                || attention.sound_in_hand())
                                 .then(|| eyes.as_ref().and_then(crate::bus_out::someone_turned_to_lamp))
                                 .flatten();
                             let sampled_end_us = monotonic_us();
@@ -2542,6 +2561,9 @@ struct InputHandoff {
     /// The newest request that continues the one before it after an early
     /// end, as its Start said (`ProviderInput::Start::continues`).
     continued: Option<u64>,
+    /// The newest request ended as a short sound let through
+    /// (`ProviderInput::End { sound: true }`, #800).
+    ended_as_sound: Option<u64>,
     /// Requests the provider will not serve. Their remaining input is dropped
     /// here, exactly like retired input, until the coordinator retires them.
     failed_through: u64,
@@ -2904,6 +2926,9 @@ impl InputHandoff {
                     }
                 }
                 self.ended = Some((request.get(), now_us));
+                if sound {
+                    self.ended_as_sound = Some(request.get());
+                }
                 if let Some(submitted) = self.submitted.as_mut() {
                     submitted.open = false;
                 }
@@ -5756,6 +5781,7 @@ mod tests {
             tools,
             attention: None,
             name_signal: false,
+            sounds_checked: false,
         }
     }
 
@@ -5772,6 +5798,7 @@ mod tests {
                 tools: crate::tools::Settings::default(),
                 attention: None,
                 name_signal: true,
+                sounds_checked: false,
             },
         );
         let mut dial = rig.ready().await;
@@ -5813,6 +5840,7 @@ mod tests {
                 tools: crate::tools::Settings::default(),
                 attention: Some(busy),
                 name_signal: false,
+                sounds_checked: false,
             },
         );
         let mut dial = rig.ready().await;
@@ -6089,6 +6117,7 @@ mod tests {
                 },
                 attention: Some(busy),
                 name_signal: false,
+                sounds_checked: false,
             },
         );
         let mut dial = rig.ready().await;
@@ -8818,6 +8847,7 @@ mod tests {
                     tools: crate::tools::Settings::default(),
                     attention: Some(busy),
                     name_signal: false,
+                    sounds_checked: false,
                 },
                 BARRIER,
                 false,
@@ -9168,4 +9198,7 @@ mod tests {
     /// Review of the night of 2026-10-14: tests only
     /// (`docs/voice-review-2026-10-14.md`).
     mod review_2026_10_14;
+
+    /// Short sounds let through and checked (#800): tests only.
+    mod sounds;
 }

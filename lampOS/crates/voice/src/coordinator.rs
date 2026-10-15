@@ -1921,6 +1921,7 @@ fn provider_arguments(
     arguments.extend(crate::called::arguments_from_environment());
     arguments.extend(crate::bus_out::worker_arguments_from_environment());
     arguments.extend(crate::first_output::arguments_from_environment());
+    arguments.extend(crate::not_speech::arguments_from_environment());
     if let Some(camera) = camera {
         arguments.extend(camera.source.arguments());
     }

@@ -268,6 +268,39 @@ Then counts: let through, let through and answered, and of those how many
 were heard as a short word, with other marks, or as nothing; thrown out;
 short and taken as said, and answered.
 
+**Checked (`LAMP_SHORT_SOUNDS=quiet-room-checked`, off unless set).** It
+lets a sound through in a quiet room as `quiet-room` does, and passes the
+provider worker `--sounds-checked`. There the rule for whom the lamp answers
+(`crate::attention`, which needs `LAMP_ATTENTION` on) takes a request whose
+end came marked `sound` as one to check, and plays its answer only when:
+- what was heard is, whole, one of the short things said to the lamp
+  (`not_speech::SHORT_WORDS`: "yes", "stop", "what", "go ahead", …);
+- or the room microphone rose 18 dB or more over its quiet during it, said
+  close to the lamp (this needs the ears, read with `LAMP_ATTENTION=busy-near`);
+- or someone is turned to the lamp (the eyes are read for it whatever the
+  room);
+- or the lamp began the turn itself.
+
+Otherwise the answer is held, as a held answer always is (its sound and
+words are not let out, a call in it is answered and not run), with the
+reason "a short sound, and nothing shows it was said to the lamp", and the
+first-output record says so. A sound let through is never counted against
+the room. What the 4 s after the lamp's own words and speech over the lamp
+excuse from being a sound is not changed, so a "yes" to a read-back (#736)
+is not a sound at all. Tests: `a_short_sound_is_answered_only_when_something_shows_it_was_said_to_the_lamp`
+(`attention.rs`), `a_sound_heard_as_another_language_is_held_and_a_short_word_is_answered`
+(the worker's own loop against the scripted service: "¿Qué?" held, "Yes."
+answered, and both answered without the switch),
+`the_checked_value_lets_sounds_through_and_has_the_worker_check_them` and
+`a_short_word_is_one_said_to_the_lamp_whole` (`not_speech.rs`).
+
+**Not shown.** No recorded sound was played: the repository holds none of
+the office's. Whether the input transcript always comes before the first
+of the answer (in 24 of 24 answers measured it did, `attention.md`) decides
+whether a real short word is held for want of its text. How often a real
+short word is said to the lamp out of the blue, not after its own words, is
+not counted either; `short-turns` on a lamp's records says.
+
 ## An answer with no word in it
 
 Told to stay quiet, the model sometimes says so aloud: an answer whose

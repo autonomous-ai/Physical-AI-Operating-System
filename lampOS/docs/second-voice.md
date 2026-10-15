@@ -353,10 +353,19 @@ and its authority kept fresh during the rest of startup.
 - **At startup**, before Gemini's first Ready of this voice process, the
   second route only stands in (that swap and the swap back are not
   recorded): a request admitted on it is held, nothing of it sent, for up
-  to `STARTUP_HOLD_US` (3 s, lampOS#779). If Gemini's link is Ready in that
+  to `STARTUP_HOLD_US` (lampOS#779). If Gemini's link is Ready in that
   time the turn is rebound to Gemini's session and its whole line goes
   there; if not, or once Gemini's link has ended, the second route is given
-  the whole line, as a switch. One hold only: a request after that goes as
+  the whole line, as a switch, even when Gemini's Ready comes in the same
+  tick. The hold is derived from Gemini's audio age bound
+  (`lamp_gemini::MAX_INPUT_AGE`, 2.5 s) less the line's lead-in (the
+  detector's 30-block pre-roll, 300 ms) and a 300 ms margin: 1.9 s. A line
+  held longer would replay a first block older than the bound, which
+  Gemini's worker refuses as stale, and the worker ends (lampOS#892). It
+  was 3 s when the four lamp-52e6 runs of PR #885 were measured: runs 1, 3
+  and 4 (held 1.0 to 1.2 s) fall inside the new hold; run 2 (held 1897 ms)
+  is at its edge and would now go to the second route if held 3 ms
+  longer. One hold only: a request after that goes as
   at rest. A held turn cancelled and replaced before the next tick's
   upkeep gives up its hold there and then, so its replacement is held
   afresh rather than sent to the second route. After Gemini's first Ready

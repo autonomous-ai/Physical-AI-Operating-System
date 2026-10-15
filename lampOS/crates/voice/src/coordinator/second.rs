@@ -33,11 +33,22 @@ use std::ffi::OsString;
 const MAX_LINE_SAMPLES: usize = 30 * 16_000;
 /// Standby control and output packets taken per coordinator tick.
 const STANDBY_SLICE: usize = 16;
+/// The audio a line keeps from before its request was admitted: the
+/// activity detector's pre-roll, 300 ms.
+const LEAD_IN_US: u64 =
+    crate::activity::PRE_ROLL_BLOCKS as u64 * lamp_audio::CAPTURE_SAMPLES as u64 * 1_000_000
+        / lamp_audio::CAPTURE_RATE as u64;
+/// Room for the detector's own delay before admission and for the replay's
+/// first block to reach Gemini's link.
+const HOLD_MARGIN_US: u64 = 300_000;
 /// How long a request that begins before Gemini's first Ready of this
 /// process waits for it before the second route is given the line
 /// (lampOS#779: on lamp-4ace Gemini's first Ready came 1.9 s after the
-/// second route's).
-const STARTUP_HOLD_US: u64 = 3_000_000;
+/// second route's). It is what Gemini's audio age bound leaves after the
+/// lead-in and a margin, 1.9 s: a line held longer would replay a block
+/// Gemini's worker refuses as stale, which ends the worker (lampOS#892).
+pub(super) const STARTUP_HOLD_US: u64 =
+    lamp_gemini::MAX_INPUT_AGE.as_micros() as u64 - LEAD_IN_US - HOLD_MARGIN_US;
 /// Commands of a replay sent to Gemini per coordinator tick (2 ms): about
 /// ten times the pace of speech. Its link takes input into a queue of
 /// [`lamp_gemini::INPUT_QUEUE_CAPACITY`] and gives the connection up when
@@ -425,7 +436,8 @@ fn resolve_hold(
     };
     let at = monotonic_us();
     let held_us = at.saturating_sub(since);
-    let to = if route.cloud.available() {
+    // Past the hold its oldest block may be too old for Gemini, Ready or not.
+    let to = if held_us < STARTUP_HOLD_US && route.cloud.available() {
         "live"
     } else if held_us >= STARTUP_HOLD_US
         || route.live_was_ready
@@ -999,6 +1011,77 @@ mod tests {
         }
         assert_eq!(received(&mut bench.gemini), sequences(turn, 2));
         assert!(received(&mut bench.second).is_empty());
+    }
+
+    /// Gemini Ready in the last 20 ms of the hold: the line, its first
+    /// block captured the lead-in and most of the margin before the hold
+    /// began, reaches Gemini whole, every block younger than Gemini's
+    /// audio age bound when it is sent (lampOS#892).
+    #[test]
+    fn a_line_given_to_gemini_at_the_end_of_the_hold_is_never_too_old() {
+        let mut bench = Bench::standing_in();
+        let (_owner, current) = unsent_reply();
+        let turn = current.owner.turn();
+        let mut reply = Some(current);
+        let now = monotonic_us();
+        let since = now - (STARTUP_HOLD_US - 20_000);
+        let first = since - LEAD_IN_US - (HOLD_MARGIN_US - 100_000);
+        let blocks = (now - first) / 10_000;
+        let mut queue = VecDeque::from([start(turn)]);
+        queue.extend((1..=blocks).map(|sequence| ProviderInput::Audio {
+            request: turn,
+            privacy_generation: 1,
+            sequence,
+            read_completed_at_us: first + (sequence - 1) * 10_000,
+            samples: vec![7; 160],
+        }));
+        bench.flush(&mut reply, &mut queue);
+        bench.route().hold = Some((turn, since));
+        bench.gemini_link(1, true);
+        bench.service(&mut reply, &mut queue);
+        assert!(
+            !bench.route().second_active,
+            "the line went to the second route"
+        );
+        let bound = lamp_gemini::MAX_INPUT_AGE.as_micros() as u64;
+        let mut sent = 0;
+        while !bench.route().replay.is_empty() {
+            bench.flush(&mut reply, &mut queue);
+            while let Some(command) = bench.gemini.data.receive::<ProviderInput>().unwrap() {
+                if let ProviderInput::Audio {
+                    read_completed_at_us,
+                    ..
+                } = command
+                {
+                    let age = monotonic_us() - read_completed_at_us;
+                    assert!(age < bound, "a block {age} us old was sent to Gemini");
+                }
+                sent += 1;
+            }
+        }
+        assert_eq!(sent, blocks + 1);
+        assert!(received(&mut bench.second).is_empty());
+    }
+
+    /// Past the hold the line goes to the second route even when Gemini's
+    /// Ready is there in the same tick.
+    #[test]
+    fn a_ready_after_the_hold_leaves_the_line_to_the_second_route() {
+        let mut bench = Bench::standing_in();
+        let (_owner, current) = unsent_reply();
+        let turn = current.owner.turn();
+        let mut reply = Some(current);
+        let mut queue = whole_line(turn, 2);
+        bench.flush(&mut reply, &mut queue);
+        bench.route().hold = Some((turn, monotonic_us() - STARTUP_HOLD_US));
+        bench.gemini_link(1, true);
+        bench.service(&mut reply, &mut queue);
+        assert!(bench.route().second_active);
+        while !bench.route().replay.is_empty() {
+            bench.flush(&mut reply, &mut queue);
+        }
+        assert_eq!(received(&mut bench.second), sequences(turn, 2));
+        assert!(received(&mut bench.gemini).is_empty());
     }
 
     /// lamp-52e6, PR #885 run 2: a line held 1.9 s went to Gemini at its

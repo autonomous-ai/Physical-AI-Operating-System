@@ -1,0 +1,47 @@
+2026-10-15T12:07:04+0700 lamp-52e6 lamp-voice[58696]: lamp-voice provider: request 37 got no answer in 4009 ms; closed as unanswered, connection kept
+2026-10-15T12:07:17+0700 lamp-52e6 lamp-voice[58696]: lamp-voice provider: request 38 got no answer in 4009 ms; closed as unanswered, connection kept
+2026-10-15T12:07:24+0700 lamp-52e6 lamp-voice[58696]: lamp-voice provider: request 39 got no answer in 4005 ms; closed as unanswered, connection kept
+2026-10-15T12:07:28+0700 lamp-52e6 lamp-voice[58696]: lamp-voice provider: request 40: the model is told the lamp's name was heard
+2026-10-15T12:07:35+0700 lamp-52e6 lamp-voice[58696]: lamp-voice provider: request 40 got no answer in 4005 ms; closed as unanswered, connection kept
+2026-10-15T12:08:01+0700 lamp-52e6 lamp-voice[58696]: lamp-voice provider: request 41: the model is told the lamp's name was heard
+2026-10-15T12:08:03+0700 lamp-52e6 lamp-eyes[63861]: lamp-eyes: asked to remember a face
+2026-10-15T12:08:04+0700 lamp-52e6 lamp-eyes[63861]: lamp-eyes: remembered a face; 1 people known
+2026-10-15T12:08:04+0700 lamp-52e6 lamp-voice[58696]: lamp-voice provider: request 41 asked for remember_my_face; the eyes answered in 1370 ms; the answer was sent
+2026-10-15T12:08:31+0700 lamp-52e6 lamp-voice[58696]: lamp-voice provider: request 42: told the session who is at the lamp
+2026-10-15T12:08:32+0700 lamp-52e6 lamp-voice[58696]: lamp-voice provider: request 43: the model is told the lamp's name was heard
+2026-10-15T12:08:37+0700 lamp-52e6 lamp-voice[58696]: lamp-voice provider: request 43 asked for remember; the memory answered in 23 ms; the answer was sent
+2026-10-15T12:09:15+0700 lamp-52e6 lamp-voice[58696]: lamp-voice provider: a sound (request 44) got no answer in 4005 ms, as a sound should; closed, connection kept
+2026-10-15T12:09:58+0700 lamp-52e6 lamp-voice[58696]: lamp-voice provider: told the session (For you to know, not to answer: the office around you is busy, with people talking to each other.)
+2026-10-15T12:10:03+0700 lamp-52e6 lamp-voice[58696]: lamp-voice provider: request 45: told the session who is at the lamp
+2026-10-15T12:10:08+0700 lamp-52e6 lamp-voice[58696]: lamp-voice provider: request 45 got no answer in 4006 ms; closed as unanswered, connection kept
+2026-10-15T12:10:50+0700 lamp-52e6 lamp-voice[58696]: lamp-voice provider: a sound (request 46) got no answer in 4000 ms, as a sound should; closed, connection kept
+2026-10-15T12:11:12+0700 lamp-52e6 lamp-voice[58696]: lamp-voice provider: a sound (request 47) got no answer in 4005 ms, as a sound should; closed, connection kept
+2026-10-15T12:11:30+0700 lamp-52e6 lamp-voice[58696]: lamp-voice provider: a sound (request 48) got no answer in 4000 ms, as a sound should; closed, connection kept
+2026-10-15T12:11:36+0700 lamp-52e6 lamp-voice[58696]: lamp-voice provider: request 49: its answer is held back: a busy room, and nothing shows it was called or that anyone is turned to the lamp
+2026-10-15T12:11:36+0700 lamp-52e6 lamp-voice[58696]: lamp-voice provider: request 49 asked for recall; not done: its answer is held back
+2026-10-15T12:11:43+0700 lamp-52e6 lamp-voice[58696]: lamp-voice provider: request 50 got no answer in 4009 ms; closed as unanswered, connection kept
+2026-10-15T12:11:57+0700 lamp-52e6 lamp-voice[58696]: lamp-voice provider: a sound (request 51) got no answer in 4007 ms, as a sound should; closed, connection kept
+2026-10-15T12:12:09+0700 lamp-52e6 lamp-voice[58696]: lamp-voice provider: a sound (request 52) got no answer in 4004 ms, as a sound should; closed, connection kept
+2026-10-15T12:12:15+0700 lamp-52e6 lamp-voice[58696]: lamp-voice provider: request 53: its answer is held back: a busy room, and nothing shows it was called or that anyone is turned to the lamp
+2026-10-15T12:12:29+0700 lamp-52e6 lamp-voice[58696]: lamp-voice provider: request 54 got no answer in 4000 ms; closed as unanswered, connection kept
+2026-10-15T12:12:40+0700 lamp-52e6 lamp-voice[58696]: lamp-voice provider: request 55: the model is told the lamp's name was heard
+2026-10-15T12:13:05+0700 lamp-52e6 lamp-voice[58696]: lamp-voice provider: request 56 got no answer in 4004 ms; closed as unanswered, connection kept
+2026-10-15T12:13:48+0700 lamp-52e6 lamp-voice[58696]: lamp-voice provider: a sound (request 57) got no answer in 4004 ms, as a sound should; closed, connection kept
+2026-10-15T12:14:10+0700 lamp-52e6 lamp-voice[58696]: lamp-voice provider: request 58 got no answer in 4003 ms; closed as unanswered, connection kept
+2026-10-15T12:14:59+0700 lamp-52e6 lamp-voice[58696]: lamp-voice provider: request 60 got no answer in 4000 ms; closed as unanswered, connection kept
+2026-10-15T12:15:41+0700 lamp-52e6 lamp-voice[58696]: lamp-voice provider: a sound (request 61) got no answer in 4004 ms, as a sound should; closed, connection kept
+2026-10-15T12:16:11+0700 lamp-52e6 lamp-voice[58696]: lamp-voice provider: a sound (request 62) got no answer in 4009 ms, as a sound should; closed, connection kept
+2026-10-15T12:16:42+0700 lamp-52e6 lamp-voice[58696]: lamp-voice provider: request 63 got no answer in 4002 ms; closed as unanswered, connection kept
+2026-10-15T12:17:36+0700 lamp-52e6 lamp-voice[58696]: lamp-voice provider: a sound (request 64) got no answer in 4004 ms, as a sound should; closed, connection kept
+2026-10-15T12:18:02+0700 lamp-52e6 lamp-voice[58696]: lamp-voice provider: a sound (request 65) got no answer in 4007 ms, as a sound should; closed, connection kept
+2026-10-15T12:18:13+0700 lamp-52e6 lamp-voice[58696]: lamp-voice provider: a sound (request 66) got no answer in 4006 ms, as a sound should; closed, connection kept
+2026-10-15T12:18:21+0700 lamp-52e6 lamp-voice[58696]: lamp-voice provider: request 67 got no answer in 4003 ms; closed as unanswered, connection kept
+2026-10-15T12:19:38+0700 lamp-52e6 lamp-voice[58696]: lamp-voice provider: a sound (request 68) got no answer in 4002 ms, as a sound should; closed, connection kept
+2026-10-15T12:20:10+0700 lamp-52e6 lamp-voice[58696]: lamp-voice provider: a sound (request 70) got no answer in 4004 ms, as a sound should; closed, connection kept
+2026-10-15T12:20:36+0700 lamp-52e6 lamp-voice[58696]: lamp-voice provider: a sound (request 71) got no answer in 4001 ms, as a sound should; closed, connection kept
+2026-10-15T12:21:32+0700 lamp-52e6 lamp-voice[58696]: lamp-voice provider: request 72 got no answer in 4003 ms; closed as unanswered, connection kept
+2026-10-15T12:21:57+0700 lamp-52e6 lamp-voice[58696]: lamp-voice provider: request 73 got no answer in 4002 ms; closed as unanswered, connection kept
+2026-10-15T12:22:09+0700 lamp-52e6 lamp-voice[58696]: lamp-voice provider: request 74: the model is told the lamp's name was heard
+2026-10-15T12:22:35+0700 lamp-52e6 lamp-voice[58696]: lamp-voice provider: request 76: the model is told the lamp's name was heard
+2026-10-15T12:22:39+0700 lamp-52e6 lamp-eyes[63861]: lamp-eyes: asked to forget a face; forgotten: true
+2026-10-15T12:22:39+0700 lamp-52e6 lamp-voice[58696]: lamp-voice provider: request 76 asked for forget_my_face; the eyes answered in 11 ms; the answer was sent

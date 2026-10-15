@@ -1050,7 +1050,9 @@ fn a_question_goes_to_the_second_route_once_the_startup_hold_is_over() {
     let held = run.events("voice_route_held");
     assert_eq!(held.len(), 1, "{held:?}");
     assert_eq!(held[0]["to"], "second");
-    assert!(held[0]["held_ms"].as_u64().unwrap() >= 3_000);
+    assert!(
+        held[0]["held_ms"].as_u64().unwrap() >= crate::coordinator::second::STARTUP_HOLD_US / 1_000
+    );
     let switch = run.events("voice_route_switched");
     assert_eq!(switch.len(), 1, "{switch:?}");
     assert_eq!(switch[0]["why"], "live_link_not_ready");

@@ -1,5 +1,6 @@
 //! A software inhibit belongs to the input/output owner, not to a GPIO reader.
 //! Disk I/O here is explicit and must run outside the owner's urgent stop path.
+use lamp_msgs::MuteReason;
 use serde::{Deserialize, Serialize};
 use std::{
     fs::{self, File, OpenOptions},
@@ -31,6 +32,11 @@ pub struct MuteRecord {
     /// An explicit clear advances this watermark so retained requests do not
     /// undo it after an owner restart.
     pub through_us: u64,
+    /// Why, while muted (#711): `sleep` when a hand held on the head asked
+    /// for it, and a head tap may then clear it. Absent is the mute's
+    /// original meaning, and a record without it reads as before.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reason: Option<MuteReason>,
 }
 
 fn invalid(why: impl Into<String>) -> io::Error {
@@ -44,6 +50,7 @@ impl MuteRecord {
             clock_id: clock_id.to_owned(),
             muted: false,
             through_us: 0,
+            reason: None,
         };
         out.check()?;
         Ok(out)
@@ -57,18 +64,42 @@ impl MuteRecord {
         {
             return Err(invalid("invalid mute record version or clock identity"));
         }
+        if !self.muted && self.reason.is_some() {
+            return Err(invalid("an unmuted record has no mute reason"));
+        }
         Ok(())
     }
 
     /// A one-way request, with its original observation time. Call only after
     /// validating the Controls publisher, session and enclosing fresh state.
+    /// A hold's mute is a person's privacy: it takes over a sleep, so a head
+    /// tap can no longer clear it.
     pub fn request_mute(&mut self, at_us: u64) -> bool {
         if at_us <= self.through_us {
             return false;
         }
         self.through_us = at_us;
         self.muted = true;
+        self.reason = None;
         true
+    }
+
+    /// Sleep (#711): the same one-way mute, with its reason. A lamp already
+    /// muted keeps its mute and its reason, so sleep never weakens privacy.
+    /// Call only after validating the head's hold.
+    pub fn request_sleep(&mut self, at_us: u64) -> bool {
+        if self.muted || at_us <= self.through_us {
+            return false;
+        }
+        self.through_us = at_us;
+        self.muted = true;
+        self.reason = Some(MuteReason::Sleep);
+        true
+    }
+
+    /// Muted because the lamp was put to sleep.
+    pub fn asleep(&self) -> bool {
+        self.muted && self.reason == Some(MuteReason::Sleep)
     }
 
     /// For a separate, explicit user action at the owner. This never grants
@@ -82,6 +113,7 @@ impl MuteRecord {
         }
         self.through_us = now_us;
         self.muted = false;
+        self.reason = None;
         Ok(())
     }
 
@@ -125,6 +157,7 @@ impl MuteRecord {
             // local hold, and rebasing must never turn a saved mute into clear.
             let mut rebased = Self::new(clock_id)?;
             rebased.muted = state.muted;
+            rebased.reason = state.reason;
             return Ok(rebased);
         }
         if state.through_us > now_us {

@@ -855,6 +855,54 @@ impl Hand {
     }
 }
 
+/// Why the voice switched its microphones off (#711). None is the mute as it
+/// always was: a person's privacy, cleared only by a fresh hold.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum MuteReason {
+    /// A hand kept three seconds on the head put the lamp to sleep; a tap on
+    /// the head wakes it, as the usual unmute does.
+    Sleep,
+}
+
+/// The voice's software mute (`voice/mute`, #711): whether its microphones
+/// are switched off, and why. With `LAMP_HEAD_TOUCH=on` and
+/// `--controls-mute`, the voice says it when it changes and every second, in
+/// a conversation and in the wait while muted. Expression shows sleep from
+/// it. The physical slide is not in it.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct VoiceMute {
+    pub muted: bool,
+    /// Only while muted; absent is the mute's present meaning.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reason: Option<MuteReason>,
+}
+
+impl VoiceMute {
+    pub const TYPE: &str = "lamp_msgs/VoiceMute";
+    pub const VERSION: u32 = 1;
+    pub const TOPIC: &str = "voice/mute";
+
+    pub fn declaration() -> Declaration {
+        Declaration::new(Self::TYPE, Self::VERSION, Kind::Latest)
+            .every(Duration::from_secs(1))
+            .lasting(Duration::from_secs(3))
+    }
+
+    /// A reason belongs only to a mute.
+    pub fn check(&self) -> Result<(), Invalid> {
+        if !self.muted && self.reason.is_some() {
+            return Err(Invalid("an unmuted voice has no mute reason".into()));
+        }
+        Ok(())
+    }
+
+    /// Muted because the lamp was put to sleep.
+    pub fn asleep(&self) -> bool {
+        self.muted && self.reason == Some(MuteReason::Sleep)
+    }
+}
+
 /// What the people at the lamp asked it about speaking up, as typed facts
 /// for the policy (`memory/rules`, `docs/memory-days.md`, "Rules"). The
 /// voice says it when a session opens for someone and when one of their
@@ -911,6 +959,11 @@ impl Rules {
 /// The body's topic beside the first ones.
 pub fn body_topics() -> Vec<(&'static str, Declaration)> {
     vec![(Hand::TOPIC, Hand::declaration())]
+}
+
+/// The voice's mute and its reason (#711), beside the first topics.
+pub fn mute_topics() -> Vec<(&'static str, Declaration)> {
+    vec![(VoiceMute::TOPIC, VoiceMute::declaration())]
 }
 
 /// One thing the policy decided (`policy/decisions`): what the question
@@ -1063,6 +1116,7 @@ pub fn declaration_of(topic: &str) -> Option<Declaration> {
         .chain(keeper_topics())
         .chain(body_topics())
         .chain(name_topics())
+        .chain(mute_topics())
         .chain(tasks_topics())
         .chain(logging_topics())
         .chain(memory_topics())
@@ -1639,6 +1693,44 @@ mod tests {
         assert_eq!(
             (declared.type_name.as_str(), declared.kind),
             (Hand::TYPE, Kind::Latest)
+        );
+    }
+
+    #[test]
+    fn the_voice_mute_says_why_only_while_muted() {
+        let asleep = VoiceMute {
+            muted: true,
+            reason: Some(MuteReason::Sleep),
+        };
+        round_trip(&asleep, "{\"muted\":true,\"reason\":\"sleep\"}");
+        assert!(asleep.check().is_ok() && asleep.asleep());
+        // The mute as it always was writes no reason.
+        let muted = VoiceMute {
+            muted: true,
+            reason: None,
+        };
+        round_trip(&muted, "{\"muted\":true}");
+        assert!(muted.check().is_ok() && !muted.asleep());
+        needs::<VoiceMute>("{\"muted\":true}", "muted");
+        let wrong = VoiceMute {
+            muted: false,
+            reason: Some(MuteReason::Sleep),
+        };
+        assert!(wrong.check().is_err() && !wrong.asleep());
+        assert!(serde_json::from_str::<VoiceMute>("{\"muted\":true,\"reason\":\"nap\"}").is_err());
+        assert!(
+            !first_topics()
+                .iter()
+                .any(|(name, _)| *name == VoiceMute::TOPIC)
+        );
+        let declared = declaration_of(VoiceMute::TOPIC).unwrap();
+        assert_eq!(
+            (
+                declared.type_name.as_str(),
+                declared.kind,
+                declared.period_ms
+            ),
+            (VoiceMute::TYPE, Kind::Latest, Some(1_000))
         );
     }
 

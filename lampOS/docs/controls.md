@@ -662,7 +662,7 @@ Voice's switches are independent and absent by default:
 | `--controls-stop` | Consume fresh, deduplicated Stop in the coordinator. |
 | `--controls-mute ABS_PRIVATE_RECORD` | Restore software mute and enable released-hold mute/fresh-second-hold clear. The parent directory must already exist, be trusted and private (0700). |
 | `--controls-bus-root ABS_PATH` | Override `LAMP_BUS_ROOT` or `/run/lampos-bus`; this option alone enables nothing. |
-| `LAMP_HEAD_TOUCH=on` (environment) | Consume the head pads' requests from `--touch` Controls (#711). A qualified head touch stops the lamp while it says its answer (its reply has audio or playback), through the same cancellation as Stop; while it is quiet or still thinking, it is only noted (`head_touch_noticed`). A head tap counts as a call for 6 s in the attention rule, with `LAMP_BUS=on` ([attention.md](attention.md#a-tap-on-its-head-is-a-call-711)). A hand kept on the head dims the ring's face from 1 to 3 s, a countdown to sleep ([ring-choreography.md](ring-choreography.md#a-hand-kept-on-the-head-the-countdown-711)). |
+| `LAMP_HEAD_TOUCH=on` (environment) | Consume the head pads' requests from `--touch` Controls (#711). A qualified head touch stops the lamp while it says its answer (its reply has audio or playback), through the same cancellation as Stop; while it is quiet or still thinking, it is only noted (`head_touch_noticed`). With `--controls-mute` too, a hand held 3 s on the head puts the lamp to sleep: the software mute with the reason `sleep`, traced as `head_sleep` (`hand_control_cancel` and `service_cycle_muted`); a later tap on the head wakes it through the saved clear, as the usual unmute does. The voice then says `voice/mute` (muted, and `reason: sleep` while asleep) when it changes and every second, in a conversation and in the wait, from its one controls pump. Without `--controls-mute` a hold is not a sleep and `voice/mute` is not said. A head tap counts as a call for 6 s in the attention rule, with `LAMP_BUS=on` ([attention.md](attention.md#a-tap-on-its-head-is-a-call-711)). A hand kept on the head dims the ring's face from 1 to 3 s, a countdown to sleep ([ring-choreography.md](ring-choreography.md#a-hand-kept-on-the-head-the-countdown-711)). |
 
 For example, append the selected options to `lamp-voice serve
 PRIVATE_CONFIG.json NEW_OUTPUT`. No controls clock/file read or pump starts
@@ -698,6 +698,25 @@ preference now survives a **machine reboot** as well as a service restart;
 timestamps are rebased to the new boot while the muted value is preserved.
 The same-boot release watermark prevents a retained pre-clear hold from
 re-muting. The JSON file is private; no CLI edits it behind the live owner.
+
+**Sleep from the head is this mute with a reason (#711).** First decided it
+on #711: one way to switch the microphones off, kept across restarts and
+updates, so a lamp put to sleep stays asleep. `MuteRecord` has an optional
+`reason`, written only while muted (`"reason":"sleep"`); a record without it
+reads as before, and an unmuted record with one is refused.
+- `Receiver::request_sleep` takes a head Hold that `TouchReceiver` accepted:
+  muted, reason `sleep`, persisted as any new mute. A contact that began at
+  or before the last mute change or clear asks nothing, so a hand that woke
+  the lamp cannot send it back. A lamp already muted keeps its mute and
+  reason: sleep never takes over a person's privacy mute.
+- `Receiver::request_wake` takes a head Tap that `TouchReceiver` accepted,
+  only while the reason is `sleep`, only with `with_hold_clear`, only for a
+  tap that began after the owner's clear fence and the sleep, and released
+  within 500 ms. It marks the clear pending; the quiescent owner prepares,
+  saves and commits it exactly as for a clearing hold.
+- The button's hold still clears a sleep. A button hold that becomes a mute
+  instead makes the reason none: a person's privacy, which a tap never opens.
+- A rebased record keeps its reason across a machine reboot.
 
 Before audio starts, `arm_active` durably stores a conservative muted recovery
 record without changing the live preference. A crash, provider fault or failed

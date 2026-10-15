@@ -51,14 +51,18 @@ turn is admitted, so not even the pass that admits it prepares a frame.
 
 ## What it measures
 
+Only a tone played to its end (its final sample retired by the speaker) is
+judged. One whose turn was cancelled first (a person speaking, a hand, the
+microphone closing) is `not_checked` and says so.
+
 The cleaned microphone sound cannot carry the tone: the canceller takes out
 what the lamp itself plays. So each capture block's `EchoEvidence` is kept
 (`speaker_check::heard`):
 
 - **heard:** the level before the canceller rises 10 dB or more over the
-  mean of the half second before the first chunk was handed to the speaker,
+  mean of the half second before the speaker first accepted frames of it,
   within 0.8 s. Not heard is `fail` (speaker or voice microphone);
-- **delay:** from that first chunk to the first block over the rise: the
+- **delay:** from that first acceptance to the first block over the rise: the
   echo path the canceller relies on. The level is over 120 ms windows, so
   the onset is to a few tens of milliseconds;
 - **cancelled:** at the tone's loudest block, the level after the

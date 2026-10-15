@@ -1,0 +1,51 @@
+[
+  {
+    "name": "paired-before-list",
+    "command": [
+      "cargo",
+      "nextest",
+      "list",
+      "--locked",
+      "--offline",
+      "-p",
+      "lamp-voice-eval",
+      "--test",
+      "serve_session",
+      "--message-format",
+      "json"
+    ],
+    "start_from_date": "2026-10-16 00:11:33 +0700",
+    "finish_from_date": "2026-10-16 00:11:39 +0700",
+    "exit_code": 0
+  },
+  {
+    "name": "paired-before-tests",
+    "command": [
+      "cargo",
+      "nextest",
+      "run",
+      "--locked",
+      "--offline",
+      "-p",
+      "lamp-voice-eval",
+      "--test",
+      "serve_session",
+      "--profile",
+      "realtime",
+      "--test-threads",
+      "1",
+      "--retries",
+      "0",
+      "--no-fail-fast",
+      "--status-level",
+      "pass",
+      "--final-status-level",
+      "fail",
+      "--color",
+      "never"
+    ],
+    "start_from_date": "2026-10-16 00:11:39 +0700",
+    "finish_from_date": "2026-10-16 00:18:17 +0700",
+    "exit_code": 0
+  }
+]

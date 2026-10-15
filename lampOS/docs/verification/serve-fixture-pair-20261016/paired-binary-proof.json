@@ -1,0 +1,8 @@
+{
+  "date": "2026-10-16 00:18:17 +0700",
+  "helper_sha256": "2ea287c65beee3968b41d7e4aff95a342e965ab301f026e1b8f8a06fc516602c",
+  "helper_after_sha256": "2ea287c65beee3968b41d7e4aff95a342e965ab301f026e1b8f8a06fc516602c",
+  "before_source_sha256": "bb8e83a7c0cb08703852638749b01d32e88eb696b35aacb093a5462bd4ddcf49",
+  "after_source_restored_sha256": "cffbb51a9f21b03f2262099b23de526842eb098c600c02f3ec8eca187f800923",
+  "note": "Only original versus controlled test constructors changed; evaluator helper is identical. After run preceded before run; no retry."
+}

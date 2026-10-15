@@ -1,0 +1,63 @@
+--- a3dba0c0a/tests/serve_session.rs
++++ current/tests/serve_session.rs
+@@ -3,11 +3,11 @@
+ //! `lamp-voice serve` (cues through lamp-voice's own `CueSink`, serve-shaped
+ //! rolling metadata, SIGTERM stop). Every stimulus is prepared before its
+ //! trigger and started by one original expiring grant at the fake prepared
+-//! player's first "copy", a fake room datagram. Real time; no audio.
++//! player's first "copy", a fake room datagram. Explicit clock; no audio.
+ //!
+-//! Attempts run one at a time: they are real-time processes, and ordinary
+-//! scheduling must meet the unchanged 100 ms lateness bound without any
+-//! widened lease.
++//! Attempts run one at a time with real child processes and prepared threads.
++//! The coordinated path retains the unchanged 100 ms lateness bound. Recorder
++//! and delayed-transport cases keep host time until their own progress is wired.
+ mod common;
+ 
+ use lamp_voice_eval::{
+@@ -16,6 +16,7 @@
+     physical::mac::{
+         FakePlayerFault, FakePreparedRoomPlayer, LampMode, PhysicalBackend, PhysicalConfig,
+     },
++    physical::serve_fixture_driver::ClockedServeFixture,
+     plan::{LoadedPlan, SERVE_PLAN, TriggerEvent},
+     record::{AttemptRecord, AttemptStatus, StepStatus, Stratum},
+     runner::{SuiteOptions, run_suite},
+@@ -120,7 +121,7 @@
+         argv.extend(control.recorder_args.iter().map(|s| s.to_string()));
+         argv
+     });
+-    let config = PhysicalConfig {
++    let mut config = PhysicalConfig {
+         lamp_command: command,
+         lamp_work_root: lamp_root.display().to_string(),
+         mode: LampMode::Serve {
+@@ -135,12 +136,22 @@
+         stimulus_source: lamp_voice_eval::record::StimulusSource::LoudspeakerSynthetic,
+         runtime_flags: control.runtime_flags,
+     };
+-    let player = FakePreparedRoomPlayer {
+-        room,
+-        faults: control.player_faults,
+-        prepared: 0,
++    let mut backend = if config.room_recorder.is_none() && control.transport_delay_ms.is_none() {
++        let mut fixture = ClockedServeFixture::new(&dir.path).unwrap();
++        fixture.configure(&mut config).unwrap();
++        let clock = fixture.clock();
++        let player = fixture.player(room, control.player_faults);
++        PhysicalBackend::new_with_clock(config, &assets, Box::new(player), move || clock.now())
++            .with_fixture_driver(fixture)
++            .unwrap()
++    } else {
++        let player = FakePreparedRoomPlayer {
++            room,
++            faults: control.player_faults,
++            prepared: 0,
++        };
++        PhysicalBackend::new(config, &assets, Box::new(player))
+     };
+-    let mut backend = PhysicalBackend::new(config, &assets, Box::new(player));
+     let run = dir.join("run");
+     lamp_voice_eval::ledger::create_run_directory(&run).unwrap();
+     let options = SuiteOptions {

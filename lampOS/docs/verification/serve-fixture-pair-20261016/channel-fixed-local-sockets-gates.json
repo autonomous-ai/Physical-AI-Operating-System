@@ -1,0 +1,77 @@
+[
+  {
+    "stage": "lib",
+    "command": [
+      "cargo",
+      "test",
+      "--locked",
+      "--offline",
+      "-p",
+      "lamp-voice-eval",
+      "--lib",
+      "--",
+      "--test-threads=1"
+    ],
+    "cwd": "/private/tmp/lampos-tests-serve-progress/lampOS",
+    "start_from_date": "2026-10-16 00:06:20 +0700",
+    "finish_from_date": "2026-10-16 00:06:30 +0700",
+    "exit_code": 0,
+    "log": "/private/tmp/tests-823-serve-integration-evidence/channel-fixed-local-sockets-lib.log",
+    "target": "/private/tmp/lampos-tests-relay-clock/lampOS/target"
+  },
+  {
+    "stage": "serve-list",
+    "command": [
+      "cargo",
+      "nextest",
+      "list",
+      "--locked",
+      "--offline",
+      "-p",
+      "lamp-voice-eval",
+      "--test",
+      "serve_session",
+      "--message-format",
+      "json"
+    ],
+    "cwd": "/private/tmp/lampos-tests-serve-progress/lampOS",
+    "start_from_date": "2026-10-16 00:06:30 +0700",
+    "finish_from_date": "2026-10-16 00:06:45 +0700",
+    "exit_code": 0,
+    "log": "/private/tmp/tests-823-serve-integration-evidence/channel-fixed-local-sockets-serve-list.log",
+    "target": "/private/tmp/lampos-tests-relay-clock/lampOS/target"
+  },
+  {
+    "stage": "serve-tests",
+    "command": [
+      "cargo",
+      "nextest",
+      "run",
+      "--locked",
+      "--offline",
+      "-p",
+      "lamp-voice-eval",
+      "--test",
+      "serve_session",
+      "--profile",
+      "realtime",
+      "--test-threads",
+      "1",
+      "--retries",
+      "0",
+      "--no-fail-fast",
+      "--status-level",
+      "pass",
+      "--final-status-level",
+      "fail",
+      "--color",
+      "never"
+    ],
+    "cwd": "/private/tmp/lampos-tests-serve-progress/lampOS",
+    "start_from_date": "2026-10-16 00:06:45 +0700",
+    "finish_from_date": "2026-10-16 00:08:37 +0700",
+    "exit_code": 0,
+    "log": "/private/tmp/tests-823-serve-integration-evidence/channel-fixed-local-sockets-serve-tests.log",
+    "target": "/private/tmp/lampos-tests-relay-clock/lampOS/target"
+  }
+]

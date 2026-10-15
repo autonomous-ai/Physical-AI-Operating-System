@@ -1,5 +1,41 @@
 # Tests work log
 
+## 2026-10-16 00:33 +0700 — serve pair measured; finite dependency merged
+
+Ready for lamp-voice: no (coordinated migrations still qualifying)
+
+- The same 14 serve-session identities pass before and after: **396.970 s to
+  111.763 s**, serial debug nextest on x86_64 macOS, no skips or retries.
+  All 22 attempts and every original assertion remain. Ten controlled
+  identities / 18 attempts sum to 334.354 s before and 49.402 s after; the
+  four retained host-clock cases sum to 62.610 s and 62.338 s. Same helper
+  SHA-256 across the pair. [Raw logs, compiled lists, per-case timings and
+  source proof](verification/serve-fixture-pair-20261016/README.md).
+- The after run happened first. The independent finite full gate overlapped
+  the before run on the same host; matching load is not established. This is
+  an observed local pair, not a quiet benchmark or native/full-group result.
+- #867 is merged. Finite coordination's corrected full local gate passed
+  **352 tests / zero failures or ignores**, plus fmt, strict workspace clippy
+  and build. Rebase onto `6b08a70d5` preserves all 57 evaluator Rust source
+  files byte-for-byte. Fresh rebase checks and a corrected-channel release
+  pair are running before its PR.
+- Reviewer's independent full gates also passed for #875 (296) and #877
+  (298). Both requested rebases after #867. Only appended documentation
+  conflicts were resolved; both implementation pairs and all 23 integration
+  files retain their hashes. #875 rebase gates are running; #877 will retain
+  the serve section when #875 merges before its next native qualification.
+- Recorder's pure clock/wait seam passes fmt and strict clippy; full evaluator
+  gate is running. The three recorder migrations are isolated, with distinct
+  readiness, declared coverage, logical duration and actual child-exit barriers.
+- Seventh has traced #876 to a log-relay exit race and opened #881, which also
+  addresses #837's read-before-write finish window. #872 stays draft until
+  the owner fix lands and a new full native run covers its remaining test.
+
+No workflow/profile/runner/settings/device changes. #868 stays draft on #869,
+#866 remains unclaimed, #832 remains on #838, and the complete 123-test serial
+under-two-minute target remains open. The eighth retains #783's qualification
+and issue-close decision.
+
 ## 2026-10-16 00:16 +0700 — three clock preparations ready; serve coordination passes all existing cases
 
 Ready for lamp-voice: yes (#867, #875, #877)

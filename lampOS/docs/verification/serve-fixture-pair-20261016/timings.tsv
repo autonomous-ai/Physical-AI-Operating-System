@@ -1,0 +1,15 @@
+identity	after_route	attempts	before_seconds	after_seconds	saved_seconds
+a_declared_capture_end_before_the_next_prompt_and_its_window_withholds_it	host	1	24.625	24.897	-0.272
+a_late_first_copy_or_failed_player_withholds_every_later_turn	clock	2	28.903	4.638	24.265
+a_nonzero_runtime_exit_never_completes_a_serve_attempt	clock	1	11.197	1.431	9.766
+a_provider_outage_is_waited_out_by_event_and_a_terminal_link_ends_it	clock	2	36.859	5.000	31.859
+a_recorder_that_exits_zero_mid_conversation_withholds_the_rest_and_certifies_nothing	host	1	8.037	7.272	0.765
+a_room_recording_that_ends_early_withholds_the_rest	host	1	7.225	7.563	-0.338
+a_runtime_stop_mute_or_ignored_sigterm_is_retained_and_reaped	clock	3	51.091	7.720	43.371
+an_extra_candidate_during_the_wait_withholds_the_rest	clock	1	14.138	2.704	11.434
+delayed_readiness_is_awaited_by_event_not_by_completion	clock	1	31.510	4.387	27.123
+normal_eight_turn_conversation_in_one_serve_session	clock	1	68.799	9.099	59.700
+serve_readiness_comes_only_from_the_fresh_cue_never_from_stdout	clock	1	11.218	1.504	9.714
+stale_duplicate_reordered_foreign_and_lost_cues_end_the_conversation	clock	5	68.700	11.479	57.221
+startup_cues_stay_fresh_through_a_slow_transport_and_a_slow_first_preparer	host	1	22.723	22.606	0.117
+the_runner_forwards_pilot_runtime_settings_through_the_relay	clock	1	11.939	1.440	10.499

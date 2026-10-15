@@ -1,0 +1,38 @@
+{
+  "date": "2026-10-16 01:55:07 +0700",
+  "prior_full_gate_base": "587a361a373bd856bb790c8cf92b92f4f7211066",
+  "new_base": "2bf2eaf76f2b273215c5a3fe3e9a6e018f3d6617",
+  "source_reversal_matches_new_base": true,
+  "docs_reversal_matches_new_base": true,
+  "unchanged_new_tests_sha256": "7478dae0e6ca89f1cae6b1aee14c22f5aa0871e5151ea50681a480d48baa1dea",
+  "current_owned_hashes": {
+    "lampOS/crates/voice-eval/src/physical/fake_lamp.rs": "1d0cf3b4f57c1e8ecad0590ebbf1c343a6e527dfc06eba521fb7ea6da0597ba1",
+    "lampOS/docs/realtime-tests.md": "160cddec5209c8fed25e1818fe92fdc5d0680f0cef887ce97ba8c1b475251602",
+    "lampOS/crates/voice-eval/src/physical/slow_transport_clock_tests.rs": "7478dae0e6ca89f1cae6b1aee14c22f5aa0871e5151ea50681a480d48baa1dea"
+  },
+  "all_23_integration_sources_match_new_base": {
+    "lampOS/crates/voice-eval/tests/provider_failed.rs": "ecee93a72313d1c2b9af53c7821f476c9b501fac9acd7b227052fb2b9f902022",
+    "lampOS/crates/voice-eval/tests/recording_evidence.rs": "b41f7b0a176723b61944392262205f9a96cda9d43f13d936cc8158b8ae4887c6",
+    "lampOS/crates/voice-eval/tests/recording_import.rs": "5e3bee18d84ffc8c8faa1d5f4d5bd30db8a334fd31e0ee6c6e2b6220b866d14e",
+    "lampOS/crates/voice-eval/tests/audit_runner_dispatch.rs": "2d7a83137a49f160c147decdee27cd5f8a49715655929c2b6c9a008139174f9a",
+    "lampOS/crates/voice-eval/tests/audit_importer.rs": "9ff483cbc358a0c39d26a7fd7b67e413868843771c3835c449f84208fa563ec0",
+    "lampOS/crates/voice-eval/tests/serve_plan.rs": "d67f787f3bd35a54e4da0894a2da5749ef8b8441e3f27803597895667d22bf63",
+    "lampOS/crates/voice-eval/tests/target_audio.rs": "3248cc8ae4d32d73659a20f33d08bcc1758e9a5e2f64113287316761dd256892",
+    "lampOS/crates/voice-eval/tests/serve_session.rs": "bb8e83a7c0cb08703852638749b01d32e88eb696b35aacb093a5462bd4ddcf49",
+    "lampOS/crates/voice-eval/tests/fake_runtime.rs": "37707ba30007771d2abd19c14687f1f3ca73299b1c250ece2564e873b2413c86",
+    "lampOS/crates/voice-eval/tests/playback_occurrences.rs": "46b845dc3e597476203f6826be3cb16673069ce1d19f99f60e99d84ff85c75cd",
+    "lampOS/crates/voice-eval/tests/relay_clock.rs": "7de3f59adc480869877fdb75109412f959745c13ba57b855e4aebf2bf56504b6",
+    "lampOS/crates/voice-eval/tests/evaluator.rs": "1ec1e23cdfa2acd5847e982352ca9e3ea09cad9195d41d0bd6de4f5463826874",
+    "lampOS/crates/voice-eval/tests/final_dispatch.rs": "600ad54a33c7a98ba0abf9c6aadeca366cb319d121b3847f36211cc5b0a30a29",
+    "lampOS/crates/voice-eval/tests/serve_relay.rs": "53f5cc802a0101518da7214b63b77e052b3406fe1b5db3ce43d5c0c305145bf5",
+    "lampOS/crates/voice-eval/tests/relay_hardening.rs": "ba0d39f2b2f2c4e809ff65ed90fa84d1857c64fd25d9ab072384ddd306769b82",
+    "lampOS/crates/voice-eval/tests/answer_review.rs": "54f0f7df24ddda86bf702d535f344d70c961eded126fd0ad57f5f69957493885",
+    "lampOS/crates/voice-eval/tests/physical_loopback.rs": "de31d80698e7188af40278c9e982eceed0c15a1ccf8fe42323365dca028d3d98",
+    "lampOS/crates/voice-eval/tests/next_turn_ready.rs": "66ff9408a1ce150fa5fedb649506f55aa51e2794e523eebcb154026316d4770f",
+    "lampOS/crates/voice-eval/tests/audit_final_dispatch.rs": "688ec4f9ec50e7f26e2e0efd97f061f5744f13e7f85f307ad9ca529ba45b146f",
+    "lampOS/crates/voice-eval/tests/report_validity.rs": "69c9c5b33d02bab0c4b7262f4773e122d37ba58a7315c117660a340b91db18dc",
+    "lampOS/crates/voice-eval/tests/canary_plan.rs": "d9aac255b58008e51b66b099a938729aa251958cd0f4118e6a09d062585bfb92",
+    "lampOS/crates/voice-eval/tests/acceptance_boundaries.rs": "525d3d6bb744bc02d2e813bb0d5596b82f4d4dcd36b30378de3efcb057f924bc",
+    "lampOS/crates/voice-eval/tests/common/mod.rs": "39d30134e50f4f0b291c1bc78f36a9b87a11f9ae8f65872a43eb3dc94e7a102d"
+  }
+}

@@ -77,6 +77,18 @@ What a pull request runs: `--profile pr`. Everything, as the full run:
 `cargo nextest run --release --workspace -j 1`. `cargo test` is unaffected
 and runs everything.
 
+## Slow-transport wait entry point (#823)
+
+`fake_lamp::slow_transport_with_wait` accepts a fallible `FnOnce(Duration)`
+after the original argument parsing. It passes the complete millisecond delay
+once, then uses the original real `exec`, arguments, and inherited streams.
+A wait error returns unchanged before exec. The default `slow_transport`
+still performs its one host sleep; neither entrypoint adds a clock sample.
+
+This is preparation only. It adds no CLI or global switch and migrates no
+test: coordinating a delayed relay still needs an explicit bounded parent
+wait and proof that the real exec reached the relay before runtime stepping.
+
 ## Relay clock preparation (#823)
 
 `lamp_voice_eval::physical::session::run_with_clock` accepts an explicit

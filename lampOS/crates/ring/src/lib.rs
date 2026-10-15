@@ -19,7 +19,8 @@ pub const SPI_SPEED_HZ: u32 = 6_400_000;
 /// An observed-return budget, not a timeout capable of interrupting a kernel call.
 pub const WRITE_BUDGET_US: u64 = 10_000;
 /// Writes over the budget are a run of late frames, not a fault, until the
-/// run has lasted this long. The frame of a late write did go out. On
+/// run has lasted this long. A dark, idle ring between two late writes ends
+/// the run. The frame of a late write did go out. On
 /// lamp-4ace the SD/MMC host re-tunes about once an hour and holds the bus
 /// for 0.3 s; one write then returns after 11 to 15 ms (#911).
 pub const LATE_RUN_US: u64 = 2_000_000;
@@ -515,6 +516,11 @@ impl<S: FrameSink> GuardedRing<S> {
     }
 
     fn reconcile(&mut self) -> Result<Option<BlankReceipt>, WriteFailure> {
+        // A dark, idle ring writes nothing, so it ends any run of late writes:
+        // a late write after the gap starts a new run, not a 5 s-long one.
+        if self.active.is_none() && !self.resting {
+            self.late_since = None;
+        }
         let reason = if self.guard.is_faulted() {
             self.faulted = true;
             Some(lamp_turn_owner::Error::Faulted)

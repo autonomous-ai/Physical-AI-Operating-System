@@ -326,4 +326,5 @@ frame on the strip, so it now counts as a late frame: the ring goes on, and the
 voice's journal says it once ("an SPI write came back over its 10000 us
 budget; the frame was kept"). Only writes that stay late for
 `lamp_ring::LATE_RUN_US` (2 s) in a row are the fault they were before, with
-the same blank and the same report.
+the same blank and the same report. A dark, idle ring between two late writes
+ends the run, so a late write after a long dark gap is one late frame again.

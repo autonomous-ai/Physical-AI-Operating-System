@@ -74,6 +74,9 @@ pub struct RingLight {
     now: Light,
     /// A self-test's colour and until when it is shown.
     testing: Option<(Light, u64)>,
+    /// When the newest light the person asked for was asked (wall clock,
+    /// as the bus stamps it). A test asked no later is never shown.
+    asked_at_ms: u64,
     looked_at_us: u64,
     said_at_us: Option<u64>,
     /// The light last said drawn, and when.
@@ -109,6 +112,7 @@ impl RingLight {
                 drawn,
                 now,
                 testing: None,
+                asked_at_ms: 0,
                 looked_at_us: 0,
                 said_at_us: None,
                 drew: None,
@@ -139,6 +143,7 @@ impl RingLight {
                         changed = Some(face);
                     }
                     self.now = asked;
+                    self.asked_at_ms = self.asked_at_ms.max(message.header.at_unix_ms);
                 }
             }
             for _ in 0..MOST_AT_ONCE {
@@ -148,6 +153,11 @@ impl RingLight {
                 // A test asked for more than a second ago, kept by the bus
                 // for a ring that started since, is not shown.
                 if message.expired || unix_ms().saturating_sub(message.header.at_unix_ms) > 1_000 {
+                    continue;
+                }
+                // The person's request is the newer wish: a test asked at
+                // or before it, in this look or a later one, is passed over.
+                if message.header.at_unix_ms <= self.asked_at_ms {
                     continue;
                 }
                 let Ok(test) = message.parse::<Light>() else {
@@ -471,5 +481,46 @@ mod tests {
         ring.drew(3_100_000);
         let message = hears.recv(Duration::from_millis(200)).unwrap().unwrap();
         assert_eq!(message.parse::<Light>().unwrap(), light(true, "cyan", 4));
+    }
+
+    #[test]
+    fn a_test_older_than_the_persons_request_in_the_same_look_is_passed_over() {
+        let root = Root::new("light-test-order");
+        let (mut ring, _) = RingLight::on(&root.0).unwrap();
+        let bus = Bus::new(&root.0).unwrap();
+        let mut asks = bus
+            .publisher_declared(Light::TOPICS[0], &Light::declaration(), "actions")
+            .unwrap();
+        let mut tests = bus
+            .publisher_declared(TEST_TOPIC, &Light::declaration(), "selftest")
+            .unwrap();
+        let mut at = 0u64;
+        ring.tick(at);
+        // Both before one look: the test first, the person 27 ms later.
+        tests.publish_json(1, &light(true, "red", 3)).unwrap();
+        std::thread::sleep(Duration::from_millis(27));
+        asks.publish_json(1, &light(false, "blue", 5)).unwrap();
+        std::thread::sleep(Duration::from_millis(5));
+        at += LOOK_EVERY_US;
+        assert_eq!(ring.tick(at), Lit::of(false, "blue", 5));
+        assert_eq!(ring.face(), &light(false, "blue", 5));
+        // And it stays the person's: the test is not taken later either.
+        for _ in 0..5 {
+            at += LOOK_EVERY_US;
+            ring.tick(at);
+        }
+        assert_eq!(ring.face(), &light(false, "blue", 5));
+        // The same, with the person asking for the light already set.
+        tests.publish_json(2, &light(true, "green", 3)).unwrap();
+        std::thread::sleep(Duration::from_millis(5));
+        asks.publish_json(2, &light(false, "blue", 5)).unwrap();
+        std::thread::sleep(Duration::from_millis(5));
+        at += LOOK_EVERY_US;
+        ring.tick(at);
+        assert_eq!(ring.face(), &light(false, "blue", 5));
+        // A test asked after the person's request is still shown.
+        std::thread::sleep(Duration::from_millis(5));
+        tests.publish_json(3, &light(true, "cyan", 2)).unwrap();
+        assert_eq!(taken(&mut ring, &mut at), Lit::of(true, "cyan", 2));
     }
 }

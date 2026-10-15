@@ -38,6 +38,20 @@ const TICK: Duration = Duration::from_millis(2);
 const MAX_CONTROL: usize = 8;
 const MAX_REFERENCE: usize = 16;
 const BARRIER_US: u64 = 100_000;
+/// At start the microphone may still be held for a moment by the voice that
+/// ran before (lamp-52e6, 2026-10-15: `systemctl restart lamp-voice` found it
+/// busy 330 ms after the old process had gone, and after a power cut too).
+/// Its open is tried again for this long before the worker gives up.
+const BUSY_AT_START: Duration = Duration::from_secs(3);
+
+/// True while a microphone found busy at start may be tried again: the
+/// first busy answer starts the wait, and it ends after [`BUSY_AT_START`].
+fn busy_at_start(error: &lamp_audio::capture::CaptureError, since: &mut Option<Instant>) -> bool {
+    error
+        .device_error
+        .is_some_and(|fault| fault.call == "open" && fault.errno == lamp_audio::device::errno::BUSY)
+        && since.get_or_insert_with(Instant::now).elapsed() < BUSY_AT_START
+}
 
 struct Recording {
     recorder: Recorder,
@@ -299,6 +313,7 @@ fn capture_loop<D: CaptureDevice>(
     let mut link: Option<ReferenceChannels> = None;
     let mut prepare_requested = false;
     let mut capture_prepared = false;
+    let mut busy_since = None;
     let mut privacy = 0;
     // The fixed margin is the default and the fallback. The capture-clocked
     // reference follows the difference between the two USB clocks; loss,
@@ -375,17 +390,28 @@ fn capture_loop<D: CaptureDevice>(
         {
             if prepare_requested && !capture_prepared {
                 microphone.reset()?;
-                let report = microphone.prepare()?;
-                privacy = report.microphone_generation;
-                capture_prepared = true;
-                channels.control.send(WorkerEvent::CapturePrepared {
-                    epoch: report.epoch,
-                    privacy_generation: privacy,
-                    prepared_at_us: report.prepared_at_us,
-                })?;
-                link.control.send(ReferenceControl::CapturePrepared {
-                    privacy_generation: privacy,
-                })?;
+                let report = match microphone.prepare() {
+                    Ok(report) => Some(report),
+                    Err(error) if busy_at_start(&error, &mut busy_since) => None,
+                    Err(error) => return Err(error.into()),
+                };
+                if let Some(report) = report {
+                    if busy_since.take().is_some() {
+                        eprintln!(
+                            "lamp-voice: capture: the microphone was busy at start, and is open now"
+                        );
+                    }
+                    privacy = report.microphone_generation;
+                    capture_prepared = true;
+                    channels.control.send(WorkerEvent::CapturePrepared {
+                        epoch: report.epoch,
+                        privacy_generation: privacy,
+                        prepared_at_us: report.prepared_at_us,
+                    })?;
+                    link.control.send(ReferenceControl::CapturePrepared {
+                        privacy_generation: privacy,
+                    })?;
+                }
             }
             let mut control_count = 0;
             // Receive data first, then recheck priority lifecycle before using

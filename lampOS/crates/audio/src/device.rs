@@ -24,6 +24,8 @@ pub use crate::alsa_device::AlsaCapture;
 pub mod errno {
     use rustix::io::Errno;
     pub const AGAIN: i32 = Errno::AGAIN.raw_os_error();
+    /// Another handle still has the device.
+    pub const BUSY: i32 = Errno::BUSY.raw_os_error();
     pub const IO: i32 = Errno::IO.raw_os_error();
     pub const NODEV: i32 = Errno::NODEV.raw_os_error();
     pub const NOENT: i32 = Errno::NOENT.raw_os_error();

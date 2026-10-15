@@ -670,6 +670,17 @@ pub fn import_bus_with_anchor(paths: &[PathBuf], anchor: &ClockAnchor) -> Result
 /// through its anchor, `utc_offset_minutes` east of UTC. A recording has no
 /// time of day of its own; without this a replay never sees night.
 pub fn add_daytime(imported: &mut Imported, utc_offset_minutes: i32) -> Result<(), Error> {
+    add_local_daytime(
+        imported,
+        &crate::local_time::LocalTime::Offset(utc_offset_minutes),
+    )
+}
+
+/// As [`add_daytime`], in a zone whose offset is taken at each moment (#820).
+pub fn add_local_daytime(
+    imported: &mut Imported,
+    local: &crate::local_time::LocalTime,
+) -> Result<(), Error> {
     let (Some(first), Some(last)) = (imported.records.first(), imported.records.last()) else {
         return Ok(());
     };
@@ -691,7 +702,7 @@ pub fn add_daytime(imported: &mut Imported, utc_offset_minutes: i32) -> Result<(
                     at_us,
                     sequence,
                 },
-                minute: crate::runtime::minute_of_day(wall, utc_offset_minutes),
+                minute: local.minute_of_day(wall),
             },
         });
         at_us = at_us.saturating_add(crate::runtime::DAYTIME_EVERY_US);

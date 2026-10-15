@@ -193,7 +193,8 @@ breaks; its name, a touch, a reminder coming due or its own answer wake it
 with a 2.7 s stretch. Asleep, no clip begins and the voice's posture gives
 way to the sleeping pose. It reads two more topics, `controls/gesture` and
 `schedule/due`, and a local time of day the service makes itself from
-`--utc-offset-minutes`, which `serve` requires of a catalogue with sleep.
+`--zone system` or `--utc-offset-minutes`, one of which `serve` requires of
+a catalogue with sleep (`docs/alive.md`; #820).
 
 ## Optional recent playout level
 
@@ -289,7 +290,7 @@ legacy observation age; it does not convert transcripts into audio timing.
 | `ears/sudden` / `SuddenSound` | Ears ([ears.md](ears.md)): a short sound that rose suddenly out of the room's quiet starts the optional `sudden` clip; a sound that went on starts nothing |
 | `controls/gesture` / `ControlGesture` | Controls: with an `alive` part, an enabled tap or stroke wakes a sleeping lamp ([alive.md](alive.md)); a long press does not |
 | `schedule/due` / `ScheduleDue` | Schedule: with an `alive` part, a notice newly due wakes a sleeping lamp, once for each delivery |
-| The local time of day (not a topic) | `serve --utc-offset-minutes N` itself, at start and every minute; `import --utc-offset-minutes N` from a recording's wall clock. Only sleep reads it |
+| The local time of day (not a topic) | `serve --zone system` or `--utc-offset-minutes N` itself, at start and every minute; `import` with either, from a recording's wall clock. Only sleep reads it |
 | `light/command` | Actions: the user's lasting on/color/level setting. No light request is emitted before a valid setting is known |
 
 The existing `voice/state` does not carry the private BodyLink's pre-audio

@@ -139,11 +139,15 @@ not more life.
 | `voice/activity` | The voice's validated person-speech detector | Corroborates a sleeping name only with `sleep.name_requires_speech: true` |
 | `controls/gesture` | Controls | Waking, by an enabled tap or stroke. New to Expression |
 | `schedule/due` | Schedule | Waking, once for each notice that comes due. New to Expression |
-| The local time of day | The live service itself, from the wall clock and `--utc-offset-minutes` (420 in Vietnam), at start and every minute | Night. Not a bus topic. `serve` refuses a catalogue with sleep without it |
+| The local time of day | The live service itself, from the wall clock and `--zone system` (the lamp's own time zone, written at setup) or `--utc-offset-minutes` (420 in Vietnam), at start and every minute | Night. Not a bus topic. `serve` refuses a catalogue with sleep without one |
 
-`lamp-expression import --utc-offset-minutes N` adds the same time of day
-to an imported recording, from the recording's own wall clock, so that a
-replay can see night.
+`--zone system` (or `--zone America/New_York`) takes the zone's offset at
+each moment, so night stays at the same clock hours across a daylight-saving
+change (#820); `--utc-offset-minutes` is the same all year, as before. The two
+together are refused; an unknown zone ends the start (never a silent UTC).
+`lamp-expression import --zone NAME` or `--utc-offset-minutes N` adds the same
+time of day to an imported recording, from the recording's own wall clock, so
+that a replay can see night.
 
 ## Measured
 

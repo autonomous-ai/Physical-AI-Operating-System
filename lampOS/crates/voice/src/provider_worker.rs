@@ -1865,6 +1865,7 @@ impl ToolDesk {
                     | Route::Tasks(_)
                     | Route::Faces(_)
                     | Route::Mark(_)
+                    | Route::Onboarding(_)
             )
         {
             let (sent, sent_us) = tell(&crate::tools::declined());
@@ -1987,7 +1988,8 @@ impl ToolDesk {
             | Route::Memory(_)
             | Route::Tasks(_)
             | Route::Faces(_)
-            | Route::Mark(_))
+            | Route::Mark(_)
+            | Route::Onboarding(_))
                 if self.waiting < lamp_gemini::MAX_TOOL_CALLS =>
             {
                 self.run(provider, lineage, call, route, called_us);
@@ -1998,6 +2000,7 @@ impl ToolDesk {
             | Route::Tasks(_)
             | Route::Faces(_)
             | Route::Mark(_)
+            | Route::Onboarding(_)
             | Route::Nobody => {
                 let (sent, sent_us) = tell(&crate::tools::unavailable());
                 self.line(

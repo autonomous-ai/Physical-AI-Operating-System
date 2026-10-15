@@ -2703,6 +2703,13 @@ fn conversation_with_gate(
         None
     };
     let mut last_turn_us = monotonic_us();
+    // The first five minutes with a new person, led by the lamp
+    // (`docs/onboarding.md`). Off unless `LAMP_ONBOARDING=on`.
+    let mut onboarding = if lifetime.continuous() {
+        crate::onboarding::Onboarding::from_environment()
+    } else {
+        None
+    };
     // News from the work handed to agents on other computers, told
     // unasked at a good moment (`docs/tasks.md`).
     let mut task_news = if lifetime.continuous() {
@@ -4860,10 +4867,47 @@ fn conversation_with_gate(
                 Err(why) => tone.refuse(&id, &why, at_us),
             }
         }
+        if let Some(walk) = onboarding.as_mut() {
+            let can_speak = reply.is_none()
+                && provider_queue.is_empty()
+                && !admission.owns_stream()
+                && !submission_draining
+                && snapshot.listening_ready(now())
+                && unasked_session(&cloud, paused).is_some();
+            let face = walk.face_now(clock);
+            let note = walk.tick(
+                clock,
+                clock.saturating_sub(last_turn_us),
+                can_speak,
+                paused,
+                face,
+            );
+            for line in walk.take_records() {
+                record(trace, line)?;
+            }
+            if let Some(note) = note
+                && let Some(provider_session) = unasked_session(&cloud, paused)
+            {
+                snapshot = commit_written_turn(
+                    owner,
+                    reply,
+                    &mut provider_queue,
+                    note,
+                    false,
+                    "lamp_leads_setup",
+                    provider_session,
+                    rig.playout_start,
+                    trace,
+                    |state| rig.publish(state),
+                )?;
+                last_publish = monotonic_us();
+            }
+        }
         if let Some(arrival) = arrival.as_mut() {
             arrival.watch(clock);
         }
         if let Some(arrival) = arrival.as_mut()
+            && onboarding.as_ref().is_none_or(|walk| !walk.leading())
             && arrival.due(clock.saturating_sub(last_turn_us), clock)
             && reply.is_none()
             && provider_queue.is_empty()

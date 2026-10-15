@@ -9,6 +9,15 @@ use lamp_turn_owner::BootId;
 use serde::{Serialize, de::DeserializeOwned};
 use std::{io, path::Path};
 
+/// The longest a receiver may itself have been held up and still take what
+/// queued for it meanwhile. On lamp-4ace the kernel re-tuning the SD/MMC
+/// hosts held the voice's processes for about 0.3 s some eleven times a
+/// day, and every worker then found its waiting messages older than the
+/// channel's 100 ms and ended the whole voice (#784). Messages late through
+/// the receiver's own stall are not stale: they come in order from the same
+/// boot, and each still carries its own deadlines.
+const HELD_UP_US: u64 = 1_500_000;
+
 pub struct Channel {
     /// The socket's own name, said with a refused message.
     name: String,
@@ -21,6 +30,10 @@ pub struct Channel {
     /// up to [`FIRST_CONTROL_MAX_AGE_US`] for the receiver to start reading.
     first_grace: bool,
     received: bool,
+    /// When `receive` last looked, and how long it had not looked before a
+    /// backlog it is still draining.
+    last_look_us: Option<u64>,
+    held_up_us: u64,
 }
 
 /// A worker's first control message is sent as soon as its peer is there and
@@ -51,6 +64,8 @@ impl Channel {
             max_age_us,
             first_grace: false,
             received: false,
+            last_look_us: None,
+            held_up_us: 0,
         })
     }
 
@@ -79,10 +94,22 @@ impl Channel {
     }
 
     pub fn receive<T: DeserializeOwned>(&mut self) -> io::Result<Option<T>> {
+        let now = monotonic_us();
+        if let Some(last) = self.last_look_us {
+            let gap = now.saturating_sub(last);
+            if gap > self.max_age_us {
+                self.held_up_us = self.held_up_us.max(gap.min(HELD_UP_US));
+            }
+        }
+        self.last_look_us = Some(now);
         let mut data = [0; MAX_DATAGRAM_BYTES];
         let count = match self.endpoint.try_recv(&mut data) {
             Ok(count) => count,
-            Err(error) if error.kind() == io::ErrorKind::WouldBlock => return Ok(None),
+            Err(error) if error.kind() == io::ErrorKind::WouldBlock => {
+                // Drained: what comes from now on is fresh again.
+                self.held_up_us = 0;
+                return Ok(None);
+            }
             Err(error) => return Err(error),
         };
         let packet: Envelope<T> = decode(&data[..count])?;
@@ -92,7 +119,7 @@ impl Channel {
             self.max_age_us
         };
         self.incoming
-            .accept(&packet, monotonic_us(), max_age_us)
+            .accept(&packet, now, max_age_us + self.held_up_us)
             .map_err(|error| io::Error::new(error.kind(), format!("{}: {error}", self.name)))?;
         self.received = true;
         Ok(Some(packet.payload))
@@ -236,5 +263,40 @@ impl ReferenceChannels {
             }
             Err(error) => Err(error),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::process::{SessionDirectory, new_boot};
+    use std::{thread, time::Duration};
+
+    fn pair(dir: &Path) -> (Channel, Channel) {
+        let (a, b) = (new_boot().unwrap(), new_boot().unwrap());
+        let mut sender = Channel::bind(&dir.join("s"), a, b, 100_000).unwrap();
+        let mut receiver = Channel::bind(&dir.join("r"), b, a, 100_000).unwrap();
+        sender.connect(&dir.join("r")).unwrap();
+        receiver.connect(&dir.join("s")).unwrap();
+        (sender, receiver)
+    }
+
+    /// A receiver held up for 400 ms takes the backlog that queued meanwhile;
+    /// held up past `HELD_UP_US`, it is refused as before.
+    #[test]
+    fn a_receiver_held_up_takes_what_queued_meanwhile_within_a_bound() {
+        let dir = SessionDirectory::create().unwrap();
+        let (mut sender, mut receiver) = pair(&dir.path);
+        assert_eq!(receiver.receive::<u32>().unwrap(), None);
+        sender.send(1u32).unwrap();
+        sender.send(2u32).unwrap();
+        thread::sleep(Duration::from_millis(400));
+        assert_eq!(receiver.receive::<u32>().unwrap(), Some(1));
+        assert_eq!(receiver.receive::<u32>().unwrap(), Some(2));
+        assert_eq!(receiver.receive::<u32>().unwrap(), None);
+
+        sender.send(3u32).unwrap();
+        thread::sleep(Duration::from_millis(1_700));
+        assert!(receiver.receive::<u32>().is_err());
     }
 }

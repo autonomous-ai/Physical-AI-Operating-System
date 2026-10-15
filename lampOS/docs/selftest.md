@@ -77,7 +77,9 @@ On lamp-4ace the unit is `deploy/lamp-4ace/lamp-selftest.service`: a
 oneshot, started only by hand (`sudo systemctl start lamp-selftest`), never
 at boot, as `orangepi` with `CAP_SYSLOG` and no other capability,
 `--occasion on-demand` on `/run/lampos-bus`, keeping its runs in
-`/var/lib/lampOS/selftest` (its `StateDirectory`). The first boot (#806) can
+`/var/lib/lamp-selftest` (its own `StateDirectory`: the other parts keep
+theirs under `/var/lib/lampOS`, which is root's alone, so `orangepi` cannot
+reach a directory made inside it; lamp-4ace, 2026-10-16 06:43). The first boot (#806) can
 run the same binary with `--occasion first-boot`.
 
 Exit status: 0 every part passed or is not fitted, 1 a part failed, 3 a

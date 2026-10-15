@@ -1,5 +1,5 @@
 # lampOS self-test: checks each part of the lamp once and says pass, fail or not checked for each, keeping the
-# report under /var/lib/lampOS/selftest and saying it on lamp/selftest (lampOS/docs/selftest.md). A oneshot run on
+# report under /var/lib/lamp-selftest and saying it on lamp/selftest (lampOS/docs/selftest.md). A oneshot run on
 # demand only (`sudo systemctl start lamp-selftest`), never at boot: on demand it plays one short tone and runs the
 # ring through its colours, so it is not started by itself in a home. CAP_SYSLOG, and only that, so that its
 # storage part can read the kernel's log (/dev/kmsg is restricted on this lamp).
@@ -12,11 +12,11 @@ ConditionHost=lamp-4ace
 Type=oneshot
 User=orangepi
 Group=orangepi
-ExecStart=/opt/lampOS/selftest/a429b26e69d48cae11303db249cf34c9183ab017ec8789247b9d9aa7c87f6ab5/lamp-selftest --occasion on-demand --bus-root /run/lampos-bus --dir /var/lib/lampOS/selftest
+ExecStart=/opt/lampOS/selftest/a429b26e69d48cae11303db249cf34c9183ab017ec8789247b9d9aa7c87f6ab5/lamp-selftest --occasion on-demand --bus-root /run/lampos-bus --dir /var/lib/lamp-selftest
 AmbientCapabilities=CAP_SYSLOG
 CapabilityBoundingSet=CAP_SYSLOG
 NoNewPrivileges=yes
-StateDirectory=lampOS/selftest
+StateDirectory=lamp-selftest
 SyslogIdentifier=lamp-selftest
 ProtectSystem=strict
 ReadWritePaths=/run/lampos-bus

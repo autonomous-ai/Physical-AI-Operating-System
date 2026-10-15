@@ -6,7 +6,7 @@
 //! - [`run`]: every check in turn, each timed, the whole inside a budget.
 //! - [`listen`]: the checks that only listen to a part on the bus.
 //! - [`kernel`]: the storage, from what the kernel said since boot.
-//! - [`ring`]: each colour asked for and seen shown.
+//! - [`ring`]: the ring's owner, listened to.
 //! - [`mic`]: a second of the voice microphone, and its level.
 //! - [`report`]: where a run is kept, and what a person reads.
 

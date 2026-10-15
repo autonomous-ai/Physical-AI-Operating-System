@@ -4,8 +4,11 @@
 and `second_provider/{net,services,worker}.rs`; the switch in
 `crates/voice/src/coordinator/second.rs`. Issue
 [#754](https://github.com/autonomous-ai/lampOS/issues/754). Status on
-2026-10-15: host tests only, the switch included. Nothing here has run on
-a lamp.
+2026-10-15: host tests, the switch included, and four played runs on
+lamp-52e6 with Gemini made unreachable (the last kept in
+[verification](verification/754-lamp-52e6-20261015/README.md)): the
+second route answered eight of eight questions there. A switch mid-line and
+Gemini's return have run on the host only.
 
 ## Why
 
@@ -140,7 +143,8 @@ timeout ResponseTimeout.
 ## A turn on the second route
 
 `Started` at once, and speech to text opened while the person is still
-talking. Up to 15 s of microphone audio waits while it connects. At the
+talking. Up to 30 s of microphone audio waits while it connects, the
+length of the coordinator's line buffer, so a replayed line fits. At the
 end of the line: the person's words, then the chat answer, each sentence
 said as it is complete while the next is still being written. Sentence
 order is kept. A written turn is the same from the chat on.
@@ -373,5 +377,6 @@ spoken over, the second route's answer stops as Gemini's does. The
 comparison across runs is of kinds, fields and sequences, not bytes:
 times and boots differ from run to run.
 
-Not shown: anything on a lamp, the real second worker behind the switch
-(the tests' second route is a peer), and the latency targets.
+Not shown on the host: the real second worker behind the switch (the
+tests' second route is a peer). On a lamp: a switch mid-line and Gemini's
+return, and the latency targets, which lamp-52e6 did not meet (above).

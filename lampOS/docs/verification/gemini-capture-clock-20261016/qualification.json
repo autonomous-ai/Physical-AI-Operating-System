@@ -1,0 +1,67 @@
+{
+  "date_from_date": "2026-10-16 05:26:03 +0700",
+  "base": "7ae0eb647914e286817c29bff2abc2934fb19546",
+  "overall_status": "RED: affected-package test gate failed; native pending",
+  "draft_required": true,
+  "native_qualification": "pending",
+  "counts": {
+    "gemini-default": {
+      "passed": 268,
+      "failed": 0,
+      "ignored": 2,
+      "measured": 0,
+      "filtered_out": 0,
+      "summary_blocks": 6,
+      "failed_identities": []
+    },
+    "gemini-feature": {
+      "passed": 268,
+      "failed": 0,
+      "ignored": 2,
+      "measured": 0,
+      "filtered_out": 0,
+      "summary_blocks": 6,
+      "failed_identities": []
+    },
+    "affected-tests": {
+      "passed": 2196,
+      "failed": 1,
+      "ignored": 13,
+      "measured": 0,
+      "filtered_out": 0,
+      "summary_blocks": 84,
+      "failed_identities": [
+        "coordinator::tests::pilot_faults::rapid_mute_and_reopen_never_overlaps_workers_or_carries_speech_across"
+      ]
+    }
+  },
+  "all_gemini_new_cases_pass_default_and_feature": true,
+  "all_lint_and_build_stages_exit_zero": true,
+  "all_stages_green": false,
+  "failed_gate_exit": 101,
+  "failure_issue": "https://github.com/autonomous-ai/lampOS/issues/893",
+  "failure_excerpt_start_line": 1868,
+  "failure_excerpt": [
+    "---- coordinator::tests::pilot_faults::rapid_mute_and_reopen_never_overlaps_workers_or_carries_speech_across stdout ----",
+    "{\"seconds\":null,\"status\":\"listening_ready\"}",
+    "{\"seconds\":null,\"status\":\"listening_ready\"}",
+    "{\"seconds\":null,\"status\":\"listening_ready\"}",
+    "runtime cycle 3 did not end in physical mute:",
+    "fixture Threaded, packet and policy clock host, real conversation and cleanup 199.014019ms",
+    "result Err(\"service privacy freshness lost before next observation\")",
+    "kinds [\"endpoint_policy\", \"turn_taking_availability\", \"capture_started\", \"provider_link_current\", \"listening_ready\", \"worker_shutdown_event\"]",
+    "peer privacy gap 77895 us, refused writes 0, end-to-speaker revocation [] us",
+    "capture send-attempt gap 77842 us, oldest source age at send attempt 69165 us (producer; consumption age unmeasured)",
+    "frames 14 starts [] ends [] chunks 0 accepted 0 fired [] stopped [\"provider\", \"privacy\", \"speaker\", \"capture\"] abandoned []",
+    "",
+    "thread 'coordinator::tests::pilot_faults::rapid_mute_and_reopen_never_overlaps_workers_or_carries_speech_across' (578829819) panicked at crates/voice/src/coordinator/tests/pilot_faults.rs:2395:5:",
+    "Err(Custom { kind: Other, error: \"service privacy freshness lost before next observation\" })",
+    "",
+    ""
+  ],
+  "failure_limits": "Sole failing original identity; no assertion/source fix or retry is part of this preparation. An issue association and unchanged source do not establish root cause.",
+  "fresh_gate_reason": "actual merged base changes Voice, Msgs and Memory compiled inputs",
+  "feature_contract": "Empty default-off fixture-clock feature; custom API and variant are also cfg(test), so normal unit/native builds include the 12 new cases. Existing factories explicitly select System even under feature unification.",
+  "no_scenario_migration": true,
+  "no_latency_native_or_original123_completion_claim": true
+}

@@ -1,0 +1,166 @@
+{
+  "date": "2026-10-16 03:34:20 +0700",
+  "worktree": "/private/tmp/lampos-tests-gemini-capture-clock/lampOS",
+  "base_reported_by_parent": "48b3737d5",
+  "original_19_snapshot_comparison": [
+    {
+      "path": "crates/gemini/src/session.rs",
+      "matches_planning_snapshot_on_new_base": true
+    },
+    {
+      "path": "crates/gemini/src/testing.rs",
+      "matches_planning_snapshot_on_new_base": true
+    },
+    {
+      "path": "crates/gemini/src/lib.rs",
+      "matches_planning_snapshot_on_new_base": true
+    },
+    {
+      "path": "crates/gemini/Cargo.toml",
+      "matches_planning_snapshot_on_new_base": true
+    },
+    {
+      "path": "crates/gemini/src/session/tests.rs",
+      "matches_planning_snapshot_on_new_base": true
+    },
+    {
+      "path": "crates/gemini/src/session/tests/continuation.rs",
+      "matches_planning_snapshot_on_new_base": true
+    },
+    {
+      "path": "crates/gemini/src/session/tests/followups.rs",
+      "matches_planning_snapshot_on_new_base": true
+    },
+    {
+      "path": "crates/gemini/src/session/tests/images.rs",
+      "matches_planning_snapshot_on_new_base": true
+    },
+    {
+      "path": "crates/gemini/src/session/tests/open_activity.rs",
+      "matches_planning_snapshot_on_new_base": true
+    },
+    {
+      "path": "crates/gemini/src/session/tests/playback.rs",
+      "matches_planning_snapshot_on_new_base": true
+    },
+    {
+      "path": "crates/gemini/src/session/tests/retain.rs",
+      "matches_planning_snapshot_on_new_base": true
+    },
+    {
+      "path": "crates/gemini/src/session/tests/tools.rs",
+      "matches_planning_snapshot_on_new_base": true
+    },
+    {
+      "path": "crates/gemini/tests/comparison_config.rs",
+      "matches_planning_snapshot_on_new_base": true
+    },
+    {
+      "path": "crates/gemini/tests/review_2026_10_14.rs",
+      "matches_planning_snapshot_on_new_base": true
+    },
+    {
+      "path": "crates/gemini/tests/wire.rs",
+      "matches_planning_snapshot_on_new_base": true
+    },
+    {
+      "path": "Cargo.toml",
+      "matches_planning_snapshot_on_new_base": true
+    },
+    {
+      "path": "crates/voice/Cargo.toml",
+      "matches_planning_snapshot_on_new_base": true
+    },
+    {
+      "path": "crates/surround/Cargo.toml",
+      "matches_planning_snapshot_on_new_base": true
+    },
+    {
+      "path": "crates/voice-eval/Cargo.toml",
+      "matches_planning_snapshot_on_new_base": true
+    }
+  ],
+  "owned_files": [
+    {
+      "path": "crates/gemini/Cargo.toml",
+      "sha256": "5b94eadddf2bdc8677d8e584a6cc3ffbdf38f79eba775a9dd141268b1c9a0816",
+      "bytes": 1215
+    },
+    {
+      "path": "crates/gemini/src/session.rs",
+      "sha256": "27f0d1b329d5407e2b85941a60fd747d12eed3fc7aa07accbf0ceda373ae6073",
+      "bytes": 98978
+    },
+    {
+      "path": "crates/gemini/src/testing.rs",
+      "sha256": "ac34ac1c456b9e87557bec5aa9c6c4f1a5bc86fcbd09d9518bc13c98859081d3",
+      "bytes": 10430
+    },
+    {
+      "path": "crates/gemini/src/session/capture_clock_tests.rs",
+      "sha256": "5c2bbcae2d621c982213fb49d23a2a841d21f089e692e97aa465d4d6d2aeef05",
+      "bytes": 21701
+    },
+    {
+      "path": "docs/gemini-session-reliability.md",
+      "sha256": "753906cd40b84c767b04769e136b065b0ac17a6c8e970f3181f116ffcd50275e",
+      "bytes": 106064
+    }
+  ],
+  "unchanged_existing_gemini_rust_files": [
+    "crates/gemini/examples/early_end_probe/tests.rs",
+    "crates/gemini/examples/early_end_probe/trials.rs",
+    "crates/gemini/examples/early_end_probe.rs",
+    "crates/gemini/examples/service_probe/strict.rs",
+    "crates/gemini/examples/service_probe/strict_tests.rs",
+    "crates/gemini/examples/service_probe.rs",
+    "crates/gemini/examples/shared/provider.rs",
+    "crates/gemini/src/config.rs",
+    "crates/gemini/src/lib.rs",
+    "crates/gemini/src/recovery/tests/availability.rs",
+    "crates/gemini/src/recovery/tests/checked.rs",
+    "crates/gemini/src/recovery/tests/context.rs",
+    "crates/gemini/src/recovery/tests/drain.rs",
+    "crates/gemini/src/recovery/tests/endless.rs",
+    "crates/gemini/src/recovery/tests/pressure.rs",
+    "crates/gemini/src/recovery/tests/soak.rs",
+    "crates/gemini/src/recovery/tests.rs",
+    "crates/gemini/src/recovery.rs",
+    "crates/gemini/src/session/tests/continuation.rs",
+    "crates/gemini/src/session/tests/followups.rs",
+    "crates/gemini/src/session/tests/images.rs",
+    "crates/gemini/src/session/tests/open_activity.rs",
+    "crates/gemini/src/session/tests/playback.rs",
+    "crates/gemini/src/session/tests/retain.rs",
+    "crates/gemini/src/session/tests/tools.rs",
+    "crates/gemini/src/session/tests.rs",
+    "crates/gemini/src/wire.rs",
+    "crates/gemini/tests/comparison_config.rs",
+    "crates/gemini/tests/review_2026_10_14.rs",
+    "crates/gemini/tests/wire.rs"
+  ],
+  "existing_gemini_rust_count": 32,
+  "new_gemini_rust_files": [
+    "crates/gemini/src/session/capture_clock_tests.rs"
+  ],
+  "new_unit_tests": [
+    "custom_setup_and_sender_clones_share_one_pure_capture_clock",
+    "every_existing_factory_keeps_system_capture_time_with_fixture_support",
+    "audio_offer_keeps_the_exact_full_bound_and_refusal_order",
+    "queued_audio_is_checked_again_by_the_actor_at_the_exact_bound",
+    "sequence_and_capture_order_fail_after_one_actor_read_not_two",
+    "image_offer_and_actual_send_keep_the_full_bound_and_refusal_order",
+    "pending_image_expires_on_an_actual_actor_turn_and_leaves_audio_live",
+    "held_audio_is_written_one_nanosecond_inside_its_full_extended_bound",
+    "held_audio_at_its_full_extended_bound_fails_before_any_pcm_write",
+    "capture_updates_do_not_move_tokio_or_prevent_its_read_deadline",
+    "connector_attempts_share_the_explicit_clock_and_keep_setup_metadata",
+    "connector_keeps_the_requested_duplex_capacity_and_original_write_timeout"
+  ],
+  "new_unit_test_cfg": "cfg(test); clock APIs/source variant under cfg(any(test, feature = \"fixture-clock\"))",
+  "old_selected_test_source_count": 174,
+  "old_selected_assert_macro_sites": 789,
+  "tokio_now_count_unchanged": 23,
+  "tokio_intervals_unchanged": 2,
+  "qualification": "No compilation or tests executed by this subagent; no timing or native claim."
+}

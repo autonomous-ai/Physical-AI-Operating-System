@@ -1,0 +1,137 @@
+--- HEAD:crates/gemini/src/testing.rs
++++ current:crates/gemini/src/testing.rs
+@@ -3,11 +3,13 @@
+ //! request here, and nothing in this module is used by the runtime.
+ use crate::{
+     Attempt, Connect, Connection, Result, ResumptionHandle, SessionConfig, SessionId,
+-    session::{setup_and_spawn, socket_config},
++    session::{CaptureClockSource, setup_and_spawn_with_capture_clock, socket_config},
+ };
+ use base64::{Engine, engine::general_purpose::STANDARD};
+ use futures_util::{SinkExt, StreamExt};
+ use serde_json::{Value, json};
++#[cfg(any(test, feature = "fixture-clock"))]
++use std::sync::Arc;
+ use std::time::Duration;
+ use tokio::{io::DuplexStream, sync::mpsc, time::timeout};
+ use tokio_tungstenite::{
+@@ -19,6 +21,17 @@
+ };
+ 
+ const RECEIVE_TIMEOUT: Duration = Duration::from_secs(2);
++
++/// Capture time supplied explicitly to an in-memory fixture connection.
++///
++/// Reads must return the current admitted acquisition-domain Instant promptly,
++/// without advancing time, pumping tasks or sampling the Tokio clock. Acquisition
++/// timestamps must use that same domain. The controller owns monotonic updates,
++/// epoch validation and cancellation: invalidation must never switch to host time.
++#[cfg(any(test, feature = "fixture-clock"))]
++pub trait CaptureClock: Send + Sync + 'static {
++    fn now(&self) -> std::time::Instant;
++}
+ 
+ /// The server end of one scripted connection.
+ pub struct FakeService {
+@@ -144,13 +157,46 @@
+     impl Future<Output = Result<Connection>> + Send + 'static,
+     FakeService,
+ ) {
++    pair_with_clock_source(config, session, capacity, CaptureClockSource::System).await
++}
++
++/// The same actual setup and session as [`pair`], with an explicit capture clock
++/// shared by its InputSender and Actor. Protocol deadlines still use Tokio time.
++#[cfg(any(test, feature = "fixture-clock"))]
++pub async fn pair_with_capture_clock(
++    config: SessionConfig,
++    session: SessionId,
++    capacity: usize,
++    clock: Arc<dyn CaptureClock>,
++) -> (
++    impl Future<Output = Result<Connection>> + Send + 'static,
++    FakeService,
++) {
++    pair_with_clock_source(
++        config,
++        session,
++        capacity,
++        CaptureClockSource::Fixture(clock),
++    )
++    .await
++}
++
++async fn pair_with_clock_source(
++    config: SessionConfig,
++    session: SessionId,
++    capacity: usize,
++    capture_clock: CaptureClockSource,
++) -> (
++    impl Future<Output = Result<Connection>> + Send + 'static,
++    FakeService,
++) {
+     let (client, server) = tokio::io::duplex(capacity);
+     let client =
+         WebSocketStream::from_raw_socket(client, Role::Client, Some(socket_config())).await;
+     let server =
+         WebSocketStream::from_raw_socket(server, Role::Server, Some(socket_config())).await;
+     (
+-        setup_and_spawn(client, config, session),
++        setup_and_spawn_with_capture_clock(client, config, session, capture_clock),
+         FakeService {
+             socket: server,
+             closed: false,
+@@ -172,6 +218,7 @@
+     config: SessionConfig,
+     dials: mpsc::UnboundedSender<Dial>,
+     capacity: usize,
++    capture_clock: CaptureClockSource,
+ }
+ pub fn connector(config: SessionConfig) -> (FakeConnector, mpsc::UnboundedReceiver<Dial>) {
+     connector_with_capacity(config, crate::MAX_WIRE_BYTES * 2)
+@@ -181,6 +228,25 @@
+ pub fn connector_with_capacity(
+     config: SessionConfig,
+     capacity: usize,
++) -> (FakeConnector, mpsc::UnboundedReceiver<Dial>) {
++    connector_with_clock_source(config, capacity, CaptureClockSource::System)
++}
++
++/// Scripted connection attempts sharing one explicit capture clock, including
++/// reconnects. Existing connector factories always retain the system clock.
++#[cfg(any(test, feature = "fixture-clock"))]
++pub fn connector_with_capture_clock(
++    config: SessionConfig,
++    capacity: usize,
++    clock: Arc<dyn CaptureClock>,
++) -> (FakeConnector, mpsc::UnboundedReceiver<Dial>) {
++    connector_with_clock_source(config, capacity, CaptureClockSource::Fixture(clock))
++}
++
++fn connector_with_clock_source(
++    config: SessionConfig,
++    capacity: usize,
++    capture_clock: CaptureClockSource,
+ ) -> (FakeConnector, mpsc::UnboundedReceiver<Dial>) {
+     let (dials, observed) = mpsc::unbounded_channel();
+     (
+@@ -188,6 +254,7 @@
+             config,
+             dials,
+             capacity,
++            capture_clock,
+         },
+         observed,
+     )
+@@ -198,8 +265,10 @@
+         let config = self.config.clone().resume(resume);
+         let dials = self.dials.clone();
+         let capacity = self.capacity;
++        let capture_clock = self.capture_clock.clone();
+         Box::pin(async move {
+-            let (attempt, service) = pair(config, session, capacity).await;
++            let (attempt, service) =
++                pair_with_clock_source(config, session, capacity, capture_clock).await;
+             let _ = dials.send(Dial {
+                 session,
+                 resumed,

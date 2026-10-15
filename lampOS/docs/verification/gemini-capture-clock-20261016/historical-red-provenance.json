@@ -1,0 +1,64 @@
+{
+  "date_from_date": "2026-10-16 05:26:02 +0700",
+  "status": "RED retained, not superseded as passing",
+  "old_base": "48b3737d5e83efa00278172cb602d3525d368a43",
+  "counts": [
+    2011,
+    1,
+    8
+  ],
+  "failed_identity": "coordinator::tests::pilot_faults::a_stall_while_the_lamp_answers_cuts_the_reply_and_the_voice_goes_on",
+  "signature": "Err(StaleOwner), pilot_faults.rs:1964",
+  "issue": "https://github.com/autonomous-ai/lampOS/issues/866",
+  "commit": "99611db2bbcf3724c83a28db6ec3b6bddce53997",
+  "files": [
+    {
+      "path": "lampOS/docs/verification/test-clock-progress-20261016-0425/gemini/full-affected-tests.log",
+      "commit": "99611db2bbcf3724c83a28db6ec3b6bddce53997",
+      "url": "https://github.com/autonomous-ai/lampOS/blob/99611db2bbcf3724c83a28db6ec3b6bddce53997/lampOS/docs/verification/test-clock-progress-20261016-0425/gemini/full-affected-tests.log",
+      "sha256": "9866c80a7793f6687d91b3b2bee0f1baed55a7e212130245b00d2ddbee9a6157",
+      "bytes": 210530,
+      "matches_local_raw_bytes": true
+    },
+    {
+      "path": "lampOS/docs/verification/test-clock-progress-20261016-0425/gemini/full-gates.json",
+      "commit": "99611db2bbcf3724c83a28db6ec3b6bddce53997",
+      "url": "https://github.com/autonomous-ai/lampOS/blob/99611db2bbcf3724c83a28db6ec3b6bddce53997/lampOS/docs/verification/test-clock-progress-20261016-0425/gemini/full-gates.json",
+      "sha256": "927f9fbb3b821b1727f0f473fa9ce88037b72e6dc58b21501dc889bb3ad5900b",
+      "bytes": 3624,
+      "matches_local_raw_bytes": true
+    },
+    {
+      "path": "lampOS/docs/verification/test-clock-progress-20261016-0425/gemini/full-result.json",
+      "commit": "99611db2bbcf3724c83a28db6ec3b6bddce53997",
+      "url": "https://github.com/autonomous-ai/lampOS/blob/99611db2bbcf3724c83a28db6ec3b6bddce53997/lampOS/docs/verification/test-clock-progress-20261016-0425/gemini/full-result.json",
+      "sha256": "5f20229779f4f812e562a23db9c7cdde93c53e80f4562510dfd8fccc88e81edc",
+      "bytes": 509,
+      "matches_local_raw_bytes": true
+    },
+    {
+      "path": "lampOS/docs/verification/test-clock-progress-20261016-0425/gemini/tests-823-gemini-voice-stall-triage.md",
+      "commit": "99611db2bbcf3724c83a28db6ec3b6bddce53997",
+      "url": "https://github.com/autonomous-ai/lampOS/blob/99611db2bbcf3724c83a28db6ec3b6bddce53997/lampOS/docs/verification/test-clock-progress-20261016-0425/gemini/tests-823-gemini-voice-stall-triage.md",
+      "sha256": "74ddf4635a39e4d82f6f2ed71c9702c57c1de71a5042479c5ecd26e3b6689c5b",
+      "bytes": 8995,
+      "matches_local_raw_bytes": true
+    },
+    {
+      "path": "lampOS/docs/verification/test-clock-progress-20261016-0425/gemini/tests-823-gemini-voice-stall-triage-evidence.json",
+      "commit": "99611db2bbcf3724c83a28db6ec3b6bddce53997",
+      "url": "https://github.com/autonomous-ai/lampOS/blob/99611db2bbcf3724c83a28db6ec3b6bddce53997/lampOS/docs/verification/test-clock-progress-20261016-0425/gemini/tests-823-gemini-voice-stall-triage-evidence.json",
+      "sha256": "8ff85d48a828b881d89375c90ecefe69e16503d3140c91215af7399484e0c87e",
+      "bytes": 4816,
+      "matches_local_raw_bytes": true
+    },
+    {
+      "path": "lampOS/docs/verification/test-clock-progress-20261016-0425/gemini/issue-866-current.json",
+      "commit": "99611db2bbcf3724c83a28db6ec3b6bddce53997",
+      "url": "https://github.com/autonomous-ai/lampOS/blob/99611db2bbcf3724c83a28db6ec3b6bddce53997/lampOS/docs/verification/test-clock-progress-20261016-0425/gemini/issue-866-current.json",
+      "sha256": "1182248ed519c83658280aebbc87e419e46574b1239c2333e2361aef911c800c",
+      "bytes": 3606,
+      "matches_local_raw_bytes": true
+    }
+  ]
+}

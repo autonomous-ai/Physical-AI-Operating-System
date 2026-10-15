@@ -1,0 +1,4 @@
+   Compiling lamp-voice v0.1.0 (/private/tmp/lampos-tests-gemini-capture-release/lampOS/crates/voice)
+   Compiling lamp-surround v0.1.0 (/private/tmp/lampos-tests-gemini-capture-release/lampOS/crates/surround)
+   Compiling lamp-voice-eval v0.1.0 (/private/tmp/lampos-tests-gemini-capture-release/lampOS/crates/voice-eval)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 31.99s

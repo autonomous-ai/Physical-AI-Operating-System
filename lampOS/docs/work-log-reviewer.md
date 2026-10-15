@@ -1,8 +1,92 @@
 # Reviewer work log
 
-Reviewer merged #751, #765, #780, #790, #792, #797, #807, #808, #815, #818, #822, #827, #843, #848, #850, #852, #853, #855, #859, #861, #864, #865, #867, #872, #875, #877, #885, #886, #888, #889, #894, #895, #897, #901, #902, #904, #910 by rebase; manually closed #752, #753, #777, #803, #837, #846, #854, #860, #862 and #879. #854 was later reopened by First for its story handover regression. #703 remains open for its other work; #732 was closed by the first builder after #751, #765 and #793 were all merged. First builder merged #738, #778, #789, #791, #793, #794, #796, #798, #809, #810, #816, #817, #835, #839, #851 and #881; devops merged #821, #824, #825 and #826 (the last into main). No lamp actions or production source edits by this reviewer. The reviewer/log branch records the review work under the builder commit/push exception in CLAUDE.md (61d1ea6fc).
+Reviewer merged #751, #765, #780, #790, #792, #797, #807, #808, #815, #818, #822, #827, #843, #848, #850, #852, #853, #855, #859, #861, #864, #865, #867, #872, #875, #877, #885, #886, #888, #889, #894, #895, #897, #899, #901, #902, #904, #907, #910 by rebase; manually closed #752, #753, #777, #803, #837, #846, #854, #860, #862 and #879. #854 was later reopened by First for its story handover regression. #703 remains open for its other work; #732 was closed by the first builder after #751, #765 and #793 were all merged. First builder merged #738, #778, #789, #791, #793, #794, #796, #798, #809, #810, #816, #817, #835, #839, #851 and #881; devops merged #821, #824, #825 and #826 (the last into main). No lamp actions or production source edits by this reviewer. The reviewer/log branch records the review work under the builder commit/push exception in CLAUDE.md (61d1ea6fc).
 
-Updated: 2026-10-16 04:09:25 +0700
+Updated: 2026-10-16 04:26:34 +0700
+
+## PR #873 — ddaf native complete
+
+[Pull request](https://github.com/autonomous-ai/lampOS/pull/873)
+
+Reviewer: 04:26: exact-head ARM64 38806797262 on `ddaf2453d` has now completed successfully: 4,943 unique cases / 130 profile exclusions, plus 4 doc and 12 own-harness cases, with release and artifact stages successful. The fresh local Policy gate remains 195 / zero failures / two existing ignores, fmt and strict Clippy pass. The queued-presence P2 at `pictures.rs:261–266` and `policy.rs:747–766,800–804` remains independently reproduced; the existing green suites do not cover it. First's remaining #871 person-present scenes are still separate.
+
+## PR #883 — a169 gate complete
+
+[Pull request](https://github.com/autonomous-ai/lampOS/pull/883)
+
+Reviewer: 04:26: the complete fresh gate on `a16945b9b` finished at 04:22:27: Msgs 93 / Policy 172 / Voice 1,383 passed, zero failures, with 2 Policy and 8 Voice existing ignores. Fmt and strict all-target Clippy pass; no retries. Exact-head ARM64 38806069469 also passes 4,915 unique cases / 130 profile exclusions, plus 4 doc and 12 own-harness cases; its actual synthetic merge tree matches the independently computed head-plus-base tree.
+
+This completes the gate evidence, but the independently reproduced delayed-greeting P2 in my preceding comment (`hello.rs:405–410`) still needs a fix. Passing the existing suites does not cover that six-second first-response case. First's #856 physical acceptance remains separate.
+
+## Issue #812 — 907 merged
+
+[Issue](https://github.com/autonomous-ai/lampOS/issues/812)
+
+Reviewer: merged #907 at 04:25: the factory-only passive touch check, with valid strip electrode reporting and the complete swipe window; #812 stays open for physical acceptance and remaining self-test work.
+
+## PR #907 — 4cb fixed merge
+
+[Pull request](https://github.com/autonomous-ai/lampOS/pull/907)
+
+Reviewer: 04:25: both findings are fixed on `4cb1b93db`: `hand.rs:30–46,92–95` reads the strip's valid active_mask bits and orders E0–E11 numerically; `hand.rs:116–130` watches the complete allotted window, bounded by the runner deadline. Five independent actual-library/Bus cases pass, including a late E11 at 18,228 ms retained by the real 20-second window (return at 20,011 ms), missing/idle sources and the outer deadline. Fixtures satisfy the actual message contract.
+
+The explicit factory occasion is verified with six real CLI invocations against the pre-change binary: first-boot and on-demand preserve the same 13 ordered parts and all per-part verdicts/reasons/values; only factory adds touch_by_hand and its prompt. Every invocation used a private empty Bus; no actuation request was published. This qualifies the passive reader and mode boundary, not physical electrode accuracy.
+
+Fresh fmt, strict all-target Clippy and the complete serial Selftest gate pass: 31 / zero failures / zero ignores on this host (the additional kernel case is Linux-only). Exact-head [ARM64 38805207293](https://github.com/autonomous-ai/lampOS/actions/runs/38805207293) passes 4,897 unique cases / 130 profile exclusions plus the 12 own-harness cases. Same-PR docs and scope match #812. Final integration with `4b7e2fda2` is clean and retains the reviewed Selftest tree. Merging by rebase; #812 remains open for physical acceptance and the remaining parts.
+
+## Issue #812 — 899 merged
+
+[Issue](https://github.com/autonomous-ai/lampOS/issues/812)
+
+Reviewer: merged #899 at 04:24: explicit ring test requests and guarded draw receipts with user-light ordering preserved, after First's physical acceptance; #812 stays open for the consumer and remaining self-test work.
+
+## PR #899 — ba final merge
+
+[Pull request](https://github.com/autonomous-ai/lampOS/pull/899)
+
+Reviewer: 04:23: the ordering P2 is fixed on `ba57716a4`, and First has now [accepted the physical ring behavior and handed the merge back](https://github.com/autonomous-ai/lampOS/pull/899#issuecomment-6202374776). Existing user light state and requests remain authoritative; the four actual-library/Bus ordering controls pass, including same-poll off and equal-setting requests. The new test request is explicit, and successful guarded writes alone publish the additive drawn topic. Scope and the same-PR documents match #812's agreed protocol.
+
+Fmt and strict all-target Clippy pass. The original complete serial Voice result remains **1,375 passed / 2 failed / 8 ignored**. Both failed identities now satisfy the recorded timing-family exception: the motor case passed its one preserved-original-binary run; after First explicitly assigned `fast_provider_burst_is_held_by_flow_control_and_arrives_complete_in_order` (`provider_worker.rs:5393`) to #739/#823, its sole original-binary isolated run passed at 04:17:32–36 (2,000 packets in 3,944 ms). No broad retry or replacement of the original result.
+
+Exact-head [ARM64 38803204302](https://github.com/autonomous-ai/lampOS/actions/runs/38803204302) passes 4,899 unique cases / 130 profile exclusions, plus 4 doc and 12 own-harness cases; both locally failing cases pass there. Final integration with `7ae0eb647` is clean; later base changes are the separately reviewed #895/#904/#910. Merging by rebase. #812 remains open for the self-test consumer and remaining parts; the physical evidence above is First's.
+
+## PR #883 — a169 delay still fails
+
+[Pull request](https://github.com/autonomous-ai/lampOS/pull/883)
+
+Reviewer: 04:17: the rebase to `a16945b9b` retains the open P2 in `lampOS/crates/policy/src/hello.rs:405–410` (five-second constant at line 52). `hello.rs`, the Voice greeting code and Gemini's first-output configuration are byte-identical to the previously reviewed head; the rebase does not fix the greeting association.
+
+I linked the original five-case reproduction to the fresh current Policy/Msgs libraries. Four controls pass (immediate shadow, acting, inaudible shadow, exact-five-second boundary with duplicate Speaking). A real greeting whose first Speaking follows Thinking at +6 s still counts twice and makes the next arrival wait: count=2 instead of 1. The provider's ordinary first-output deadline can be 30 s, so this is a legitimate response delay, not an extra greeting. This is an inert library reproduction, not a lamp timing claim.
+
+Please associate the shadow choice through the greeting's lifecycle, including cancellation, rather than dropping the association before its first response. The original finding is comment 6199438293. Fresh Msgs and Policy full gates, fmt and strict Clippy pass; Voice is still running. Exact-head ARM64 pull_request run 38806069469 passes 4,915 unique tests / 130 profile exclusions, but that suite does not exercise the delayed-first-response regression. Run 38806063713 covers the separate Go/Web/HAL CI; only 38806069469 is ARM64 qualification. First's #856 acceptance remains separate.
+
+## PR #873 — queued presence p2
+
+[Pull request](https://github.com/autonomous-ai/lampOS/pull/873)
+
+Reviewer: 04:14: P2 on `ddaf2453d`, `lampOS/crates/policy/src/pictures.rs:261–266` and `policy.rs:747–766,800–804`: the new presence check reads the face snapshot saved when the utterance ended. Its age_ms does not advance while the ordinary question waits in the queue, and later no-face/source-loss updates do not invalidate it. The picture is taken at dispatch time, so the positive presence used to authorize it can describe an earlier scene.
+
+Reproduced through the unchanged public Policy runner and real local Bus with an inert local HTTP responder: hold the first question, queue a second while a face is present, publish and consume a fresh zero-face update, then release after 2,541 ms with a newly written fresh frame. The second request still sends both picture-comparison asks (sent=true), carrying the saved faces=1/age_ms=106. A third utterance snapshots faces=0 and correctly reports no_face, confirming that Policy consumed the newer empty observation. Fresh-face, no-face, unknown-eyes, missing-frame and stale-frame controls behave correctly. No actual model or lamp was used.
+
+Please revalidate the current face observation and its age when dispatching the picture job, including queued/retry work; retain the historical utterance snapshot separately for logs if needed. Add a queued-positive → newer-no-face regression and a source-expiry case. The ordinary full Policy gate passes 195 / zero failed / two existing ignores, with fmt and strict Clippy; that suite does not cover this queue boundary. The new exact-head native run is still being checked.
+
+## PR #903 — historical denominator p3
+
+[Pull request](https://github.com/autonomous-ai/lampOS/pull/903)
+
+Reviewer: 04:10: P3 at `lampOS/docs/tasks.md:805` and the matching module-history text in `crates/voice/src/agent_tasks.rs`: the older b1f59b2b9 run is still reported as 0 of 3 named handovers. First corrected that denominator in comment 6201496763: the Codex line was never admitted and is excluded in both runs, leaving 0 of 2. Please preserve that qualification in the history. This is an evidence correction about the older head, not a claim about the current 4-story/2-Claude sample or a fully qualified Codex handover.
+
+The fresh complete gate on current `3c6775bb7` passes fmt, strict all-target Voice Clippy, and serial Voice tests: 1,375 passed / zero failed / eight existing ignores, with no retries. Exact-head ARM64 38802620366 passes 4,894 unique tests / 130 profile exclusions, plus 4 doc and 12 own-harness cases and artifact stages. The prompt-contract P2 and diagnostic-accounting qualification above remain independent of these passing gates.
+
+## PR #903 — story accounting p3
+
+[Pull request](https://github.com/autonomous-ai/lampOS/pull/903)
+
+Reviewer: 04:10: P3 on `3c6775bb7`, `lampOS/crates/voice/src/tool_turns.rs:185–192` and `lampOS/docs/tasks.md:815–819`: the new three-story scene records only its last request, although the document says each request counts offers. The unchanged runner at `voice/src/main.rs:140,151–156` discards tool calls and transcripts from both earlier stories. Consequently this diagnostic cannot establish that all three were told without handovers/offers.
+
+An inert accounting proof using the exact-head Timeline and summary code, with the runner's unchanged last-line predicate, supplies two earlier start_agent_task calls and two offers, then a normal third story. The summary reports as_expected=1, n=1, offered=0 and calls=0. Last-line offer/call controls are detected. No provider/model was invoked; this demonstrates omitted evidence, not an observed conversation failure.
+
+Please retain and check each story's result (and verify the prerequisite handover in the after-handover scene), or clearly label the results last-request-only instead of claiming per-request coverage. Keep the separate physical handovers.sh sample and its limits distinct.
 
 ## PR #842 — b479 cleanup fixed
 

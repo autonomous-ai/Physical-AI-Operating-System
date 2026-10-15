@@ -1037,16 +1037,41 @@ fn run_until_fault(
 /// `ended_by`: the provider's fault, or a mute that came first.
 fn run_until_error(
     controls: impl FnOnce() -> HandControls,
-    mut owner: Controller,
-    mut reply: Option<Reply>,
+    owner: Controller,
+    reply: Option<Reply>,
     ended_by: &str,
 ) -> (SessionState, Option<Reply>, Vec<Snapshot>) {
+    let ran = run_loop(controls, owner, reply, true);
+    assert!(ran.error.contains(ended_by), "{}", ran.error);
+    (ran.trace, ran.left, ran.told)
+}
+
+/// What one run of the loop left.
+struct Ran {
+    error: String,
+    trace: SessionState,
+    left: Option<Reply>,
+    told: Vec<Snapshot>,
+    /// Every chunk the speaker was sent.
+    chunks: Vec<SpeakerChunk>,
+}
+
+/// The loop with these controls, ended by a provider fault queued before
+/// it starts (`fault_first`), or else by itself a few passes in: the
+/// fixture's privacy worker says nothing, so physical privacy becomes
+/// unavailable.
+fn run_loop(
+    controls: impl FnOnce() -> HandControls,
+    mut owner: Controller,
+    mut reply: Option<Reply>,
+    fault_first: bool,
+) -> Ran {
     let directory = SessionDirectory::create().unwrap();
-    let (speaker, mut speaker_peer, speaker_input) =
+    let (speaker, speaker_peer, speaker_input) =
         Worker::cooperative_fixture(&directory.path, "speaker");
     let (capture, capture_peer, capture_input) =
         Worker::cooperative_fixture(&directory.path, "capture");
-    let (provider, mut provider_peer, provider_input) =
+    let (provider, provider_peer, provider_input) =
         Worker::cooperative_fixture(&directory.path, "provider");
     let (privacy, privacy_peer, privacy_input) =
         Worker::cooperative_fixture(&directory.path, "privacy");
@@ -1072,12 +1097,70 @@ fn run_until_error(
         paused: Box::new(|| false),
         early_end_blocks: None,
     };
-    provider_peer
-        .control
-        .send(WorkerEvent::Fault {
-            code: "synthetic same-tick provider fault".into(),
+    // Every worker's side is read while the loop runs, as a worker reads
+    // it: a message is stale 100 ms after it is sent. The speaker's keeps
+    // what it is told and sent until the loop has ended.
+    use std::sync::{
+        Arc,
+        atomic::{AtomicBool, AtomicUsize, Ordering},
+    };
+    let mut provider_peer = provider_peer;
+    if fault_first {
+        provider_peer
+            .control
+            .send(WorkerEvent::Fault {
+                code: "synthetic same-tick provider fault".into(),
+            })
+            .unwrap();
+    }
+    let running = Arc::new(AtomicBool::new(true));
+    let drained = Arc::new(AtomicUsize::new(0));
+    let peers = [
+        (true, speaker_peer, speaker_input),
+        (false, capture_peer, capture_input),
+        (false, provider_peer, provider_input),
+        (false, privacy_peer, privacy_input),
+    ]
+    .into_iter()
+    .map(|(speaker, mut peer, input)| {
+        let (running, drained) = (Arc::clone(&running), Arc::clone(&drained));
+        std::thread::spawn(move || {
+            let (mut told, mut chunks) = (Vec::new(), Vec::new());
+            let mut keeping = true;
+            let deadline = Instant::now() + Duration::from_secs(10);
+            loop {
+                let ended = !running.load(Ordering::Acquire);
+                while let Some(message) = peer.control.receive::<Control>().unwrap() {
+                    match message {
+                        Control::Stop => {
+                            drop(input);
+                            return (peer, told, chunks);
+                        }
+                        Control::Authority { snapshot } if speaker && keeping => {
+                            told.push(snapshot)
+                        }
+                        Control::Authority { .. } => {}
+                        _ => panic!("unexpected command to a head-touch fixture worker"),
+                    }
+                }
+                if speaker {
+                    while let Some(chunk) = peer.data.receive::<SpeakerChunk>().unwrap() {
+                        if keeping {
+                            chunks.push(chunk);
+                        }
+                    }
+                }
+                // Everything sent before the loop ended has been read now.
+                if ended && keeping {
+                    keeping = false;
+                    drained.fetch_add(1, Ordering::AcqRel);
+                }
+                assert!(Instant::now() < deadline, "mock peer did not receive Stop");
+                std::thread::sleep(Duration::from_millis(1));
+            }
         })
-        .unwrap();
+    })
+    .collect::<Vec<_>>();
     let mut trace = SessionState::default();
     // Made last, just before the loop first polls it: a touch is fresh for
     // 100 ms only.
@@ -1096,35 +1179,12 @@ fn run_until_error(
         &mut None,
     )
     .unwrap_err();
-    assert!(error.to_string().contains(ended_by), "{error}");
-    let mut told = Vec::new();
-    while let Some(Control::Authority { snapshot }) = speaker_peer.control.receive().unwrap() {
-        told.push(snapshot);
+    let message = error.to_string();
+    running.store(false, Ordering::Release);
+    while drained.load(Ordering::Acquire) < peers.len() {
+        std::thread::sleep(Duration::from_millis(1));
     }
     let left = reply.take();
-    let peers = [
-        (speaker_peer, speaker_input),
-        (capture_peer, capture_input),
-        (provider_peer, provider_input),
-        (privacy_peer, privacy_input),
-    ]
-    .map(|(mut peer, input)| {
-        std::thread::spawn(move || {
-            let deadline = Instant::now() + Duration::from_secs(3);
-            loop {
-                match peer.control.receive::<Control>().unwrap() {
-                    Some(Control::Stop) => {
-                        drop(input);
-                        return peer;
-                    }
-                    Some(Control::Authority { .. }) | None => {}
-                    Some(_) => panic!("unexpected command during head-touch fixture cleanup"),
-                }
-                assert!(Instant::now() < deadline, "mock peer did not receive Stop");
-                std::thread::sleep(Duration::from_millis(1));
-            }
-        })
-    });
     let _ = finish_active_run(
         &mut rig,
         &mut owner,
@@ -1133,8 +1193,12 @@ fn run_until_error(
         &mut None,
         Err(error),
     );
+    let (mut told, mut chunks) = (Vec::new(), Vec::new());
     for peer in peers {
-        drop(peer.join().unwrap());
+        let (peer, peer_told, peer_chunks) = peer.join().unwrap();
+        drop(peer);
+        told.extend(peer_told);
+        chunks.extend(peer_chunks);
     }
     for worker in [
         &mut rig.speaker,
@@ -1146,7 +1210,13 @@ fn run_until_error(
     }
     drop(rig);
     fs::remove_dir(&directory.path).unwrap();
-    (trace, left, told)
+    Ran {
+        error: message,
+        trace,
+        left,
+        told,
+        chunks,
+    }
 }
 
 /// A head touch whose newest sample is 15 ms old: never in the future, which
@@ -1196,6 +1266,113 @@ fn a_lamp_put_to_sleep_from_the_head_ends_its_conversation_as_a_mute_named_head_
         .expect("a cancellation");
     assert_eq!(cancel["reason"], "head_sleep");
     assert!(!record.exists());
+}
+
+/// A lamp at rest: microphone allowed, listening, no turn.
+fn quiet_owner() -> Controller {
+    let mut owner = Controller::new(new_boot().unwrap(), now());
+    owner
+        .set_microphone_permission(now(), Permission::Allowed)
+        .unwrap();
+    let until = MonoTime::from_micros(monotonic_us() + 500_000);
+    owner
+        .set_capture(now(), CaptureState::RetainingUntil(until))
+        .unwrap();
+    owner
+        .set_admission(now(), AdmissionState::OpenUntil(until))
+        .unwrap();
+    owner
+}
+
+/// A tap whose last step is 20 ms old when the loop first polls it.
+fn head_tap() -> HandControls {
+    HandControls::with_test_tap("test-hand-clock", monotonic_us() - 420_000).unwrap()
+}
+
+#[test]
+fn a_tap_on_a_quiet_lamps_head_plays_its_hm_as_a_turn_of_its_own() {
+    // #711: a soft "hm?", through the speaker path, nothing to the provider.
+    let ran = run_loop(head_tap, quiet_owner(), None, false);
+    let cue = ran
+        .trace
+        .iter()
+        .find(|row| row["kind"] == "head_tap_cue")
+        .expect("the tap is judged");
+    assert_eq!(cue["plays"], true, "{cue}");
+    assert!(cue["acquired_at_us"].as_u64() < cue["at_us"].as_u64());
+    let admitted = ran
+        .trace
+        .iter()
+        .find(|row| row["kind"] == "input_admitted")
+        .expect("its own turn");
+    assert_eq!(admitted["admission_basis"], "head_tap_cue");
+    assert!(admitted["provider_session"].is_null());
+    let hum = crate::head_cue::hum(crate::head_cue::DBFS);
+    let first = ran.chunks.first().expect("the hum reached the speaker");
+    assert_eq!(first.samples, hum[..240]);
+    assert!(
+        ran.trace
+            .iter()
+            .all(|row| row["kind"] != "provider_request_started")
+    );
+}
+
+#[test]
+fn a_tap_while_the_lamp_is_still_thinking_keeps_its_answer_and_does_not_hum() {
+    // Still thinking: the tap is noted, the answer kept, no hum.
+    let (owner, mut current, _) = active_reply();
+    current.had_audio = false;
+    current.playback = None;
+    let ran = run_loop(head_tap, owner, Some(current), false);
+    let cue = ran
+        .trace
+        .iter()
+        .find(|row| row["kind"] == "head_tap_cue")
+        .expect("the tap is judged");
+    assert_eq!(
+        (cue["plays"].clone(), cue["why"].clone()),
+        (false.into(), "not_quiet".into())
+    );
+    assert!(ran.left.is_some(), "the answer is kept");
+    assert!(
+        ran.chunks
+            .iter()
+            .all(|chunk| chunk.samples[..] != crate::head_cue::hum(crate::head_cue::DBFS)[..240])
+    );
+}
+
+#[test]
+#[ignore = "manual host probe: the hum's decision to its first chunk sent to the speaker; no lamp claim"]
+fn head_tap_cue_decision_to_speaker_dispatch_latency() {
+    let mut elapsed_us = Vec::new();
+    for _ in 0..50 {
+        let ran = run_loop(head_tap, quiet_owner(), None, false);
+        let at = |kind: &str| {
+            ran.trace
+                .iter()
+                .find(|row| row["kind"] == kind)
+                .and_then(|row| row["at_us"].as_u64())
+                .unwrap()
+        };
+        elapsed_us.push(at("head_tap_cue_attempted") - at("head_tap_cue"));
+    }
+    elapsed_us.sort_unstable();
+    let count = elapsed_us.len();
+    println!(
+        "{}",
+        json!({
+            "measurement":"head_tap_cue_decision_to_speaker_dispatch",
+            "host_os":std::env::consts::OS,
+            "host_arch":std::env::consts::ARCH,
+            "boundary":"the coordinator's head_tap_cue decision to its first chunk reserved for the speaker transport",
+            "excludes":["the hand on the pad", "Controls' qualification and release", "the bus and the coordinator's poll (head_touch_bus_to_poll_latency)", "the speaker worker and ALSA (head_tap_cue_first_write on a lamp)", "acoustic onset"],
+            "samples":count,
+            "median_us":elapsed_us[(count - 1) / 2],
+            "p95_us":elapsed_us[(count * 95).div_ceil(100) - 1],
+            "worst_us":elapsed_us[count - 1],
+            "lamp_measurement":false
+        })
+    );
 }
 
 #[test]

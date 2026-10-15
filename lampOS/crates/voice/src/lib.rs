@@ -28,6 +28,7 @@ pub mod known_faces;
 pub mod local_time;
 pub mod marked;
 pub use lamp_ipc::log_relay;
+pub mod head_cue;
 pub mod not_speech;
 pub mod onboarding;
 pub mod options;

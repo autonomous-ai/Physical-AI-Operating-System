@@ -775,8 +775,41 @@ the lamp: a hand on the lamp's head is surer than any hearing of its name.
 A short sound is the exception: the check for short sounds (#800) judges it
 first, so a cough after a tap is not taken for a question.
 A tap read more than 2 s after its release, or the same tap again, counts for
-nothing. Later requests are judged as before. What it does not do yet: the
-"hm?", the eye looking up and the settling when nothing is said (#711, next).
+nothing. Later requests are judged as before.
+
+**The "hm?"** (`crates/voice/src/head_cue.rs`, First's design on #711): a tap
+on a quiet lamp's head plays a soft hum of its own, two short tones rising
+like a question (330 and 415 Hz with two soft overtones, 110 and 160 ms with
+30 ms between, each gliding up 4%, faded in and out over 25 ms; 7,200
+samples at 24 kHz). It is its own turn, as the self-test's tone is
+([speaker-check.md](speaker-check.md)): admitted with
+`admission_basis: head_tap_cue`, nothing sent to the provider, played whole
+through the voice's own speaker path so the echo canceller has it, and none
+for the face, the head, the room or the voice's state. Each tap writes a
+`head_tap_cue` row with `plays` and, when it does not, `why`:
+- `microphone_not_allowed`;
+- `was_speaking`: the lamp was heard speaking after the hand arrived (that
+  touch stopped it, and stopping is the whole answer);
+- `not_quiet`: a turn, input, reply, playback or the keeper's pause;
+- `listening_not_ready`, `reply_owed` (a look it was asked for);
+- `hummed_recently`: at most one in 30 s; the tap is still a call.
+
+Its level is -35 dBFS RMS while it sounds: the lamp's speech taken as about
+-20 dBFS, less 15 dB, not yet measured against a lamp's own speech.
+`LAMP_HEAD_TAP_CUE_DBFS` (from -60 to -20) sets it for tuning by ear; a value
+outside that refuses the voice's start. The trace's
+`head_tap_cue_attempted`, `head_tap_cue_first_write` (ALSA accepted) and
+`head_tap_cue_final_sample_retired` follow it to the speaker.
+
+How fast: Controls raises a tap 150 ms (`head_gap_ms`) after the hand lifts,
+so a pulse in the pad is not a new contact. On Third's Mac the hum's decision
+to its first chunk sent to the speaker took 2.3 ms median and 2.7 ms p95
+(`head_tap_cue_decision_to_speaker_dispatch_latency`, ignored by default);
+the bus to the voice's poll took 1.8–2.1 ms median before. Controls' tap to
+the speaker's write on a lamp is not measured yet (First's target: under
+150 ms). What it does not do yet: the eye looking up and opening bright, and
+the settling when nothing is said; the ring shows faces only within a turn,
+and the hum's turn shows none.
 
 ## The record of whom it answered
 

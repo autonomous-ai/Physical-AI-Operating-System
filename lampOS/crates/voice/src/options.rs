@@ -630,6 +630,12 @@ impl SessionOptions {
             head_touch: crate::hand_controls::head_touch_from_environment(),
             ..Default::default()
         };
+        // The head tap's "hm?" level, tuned by ear (#711): refused at start
+        // when wrong, never found wrong at the first tap.
+        if controls.head_touch {
+            crate::head_cue::level_from_environment()
+                .map_err(|why| io::Error::new(io::ErrorKind::InvalidInput, why))?;
+        }
         let mut arguments = arguments.iter();
         while let Some(argument) = arguments.next() {
             if matches!(

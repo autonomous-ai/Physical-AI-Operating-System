@@ -1,0 +1,72 @@
+{
+  "baseline_archive": {
+    "command": [
+      "git",
+      "archive",
+      "--format=tar",
+      "--output=/private/tmp/lamp-fourth-sleep-name-compat/baseline-source.tar",
+      "e4922a3cb18153bda9344b7049ad0c8d9d342753",
+      "lampOS"
+    ],
+    "path": "/private/tmp/lamp-fourth-sleep-name-compat/baseline-source.tar",
+    "sha256": "ecd1eb2816fa33c51c9a7be723fa72c6a3f198c279e8bf2b2ada1611a47a5458"
+  },
+  "baseline_commit": "e4922a3cb18153bda9344b7049ad0c8d9d342753",
+  "catalogue_origin": {
+    "only_baseline_adjustment": "alive.sleep.nobody_us = 60000000",
+    "path": "/private/tmp/lamp-fourth-sleep-name-compat/baseline-source/lampOS/crates/expression/alive-behaviours.json",
+    "sha256": "995a620b3a6fff0563b72fe11aa00b6b52e5266126bf4c3b0e9950b645e00ea5"
+  },
+  "catalogues": {
+    "absent": {
+      "path": "/private/tmp/lamp-fourth-sleep-name-compat/inputs/catalogue-absent.json",
+      "sha256": "d025866a99db75715a09dcecc140759dc71faad4d0538f201af63348ab2c6a86"
+    },
+    "false": {
+      "path": "/private/tmp/lamp-fourth-sleep-name-compat/inputs/catalogue-false.json",
+      "sha256": "e01e19a89387b2142acfa067c2da669f38663a91d335506826402a208834447c"
+    },
+    "true": {
+      "path": "/private/tmp/lamp-fourth-sleep-name-compat/inputs/catalogue-true.json",
+      "sha256": "698d42f42589c337ecd8179e10baeb5276bb3a37972c17348f59c260af114685"
+    }
+  },
+  "clock_id": "fourth-sleep-name-authored-compat",
+  "expected_counts_stays_asleep": {
+    "asleep": 551,
+    "falling asleep": 200,
+    "waking": 0
+  },
+  "expected_counts_wakes": {
+    "asleep": 51,
+    "falling asleep": 200,
+    "waking": 136
+  },
+  "expected_fully_asleep_us": 1064000000,
+  "expected_sleep_starts_us": 1060000000,
+  "expected_ticks": 3751,
+  "expected_wake_tick_us": 1065020000,
+  "scope": "Authored injected-clock planner requests. No device, actual microphone/speaker, bus service or lamp measurement.",
+  "start_us": 1000000000,
+  "synthetic_only": true,
+  "tick_us": 20000,
+  "traces": {
+    "name-then-speech": {
+      "input_records": 3110,
+      "name_source_onset_us": 1064601700,
+      "path": "/private/tmp/lamp-fourth-sleep-name-compat/inputs/name-then-speech.jsonl",
+      "sha256": "105f2073b8279d906ec6c759e51c208d9d64f1bf0bb0fb9ed1198fc1b164c688",
+      "speech_arrival_us": 1065006701,
+      "unsupported_name_arrival_us": 1065001700
+    },
+    "unsupported-name": {
+      "input_records": 3008,
+      "name_source_onset_us": 1064601700,
+      "path": "/private/tmp/lamp-fourth-sleep-name-compat/inputs/unsupported-name.jsonl",
+      "sha256": "fc56a1104fcc4ecf8a0a1d54415c436162c939775cea66e3f276343013dc34bb",
+      "speech_arrival_us": null,
+      "unsupported_name_arrival_us": 1065001700
+    }
+  },
+  "until_us": 1075000000
+}

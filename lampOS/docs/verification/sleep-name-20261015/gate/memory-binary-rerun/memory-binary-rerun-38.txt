@@ -1,0 +1,19 @@
+
+running 1 test
+test a_relative_path_or_an_unknown_option_gets_the_usage_line_and_exit_code_two ... FAILED
+
+failures:
+
+---- a_relative_path_or_an_unknown_option_gets_the_usage_line_and_exit_code_two stdout ----
+
+thread 'a_relative_path_or_an_unknown_option_gets_the_usage_line_and_exit_code_two' (567712072) panicked at crates/memory/tests/binary.rs:152:9:
+lamp-memory: --keep-days is a whole number of days, at least 1
+
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    a_relative_path_or_an_unknown_option_gets_the_usage_line_and_exit_code_two
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 3 filtered out; finished in 0.03s
+

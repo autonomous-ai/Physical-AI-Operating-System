@@ -1,0 +1,19 @@
+{
+  "baseline_archive_sha256": "ecd1eb2816fa33c51c9a7be723fa72c6a3f198c279e8bf2b2ada1611a47a5458",
+  "baseline_build_input_manifest_sha256": "101bdd2e9441a10eebb1c1ffaeea9c61e71d3dba48bf48bf824654df07cb0d7d",
+  "baseline_commit": "e4922a3cb18153bda9344b7049ad0c8d9d342753",
+  "before_after_input_manifests_equal_for_both_qualified_builds": true,
+  "modified_build_input_manifest_sha256": "b8d86c19bf08432b44d4b8691022e51c0ed6cd0bcc67e32da2629fdf09314972",
+  "production_source_hashes": {
+    "crates/expression/src/alive.rs": {
+      "sha256": "3bc4f99e446bf36a33877c90d767aad611d75c708cf949cb314dc24085d3cdfb"
+    },
+    "crates/expression/src/engine.rs": {
+      "sha256": "3cf12057e8abf698149047011b7fc8de0f89c57c2a371ccdba6ec26dbf3a5d04"
+    },
+    "crates/expression/src/runtime.rs": {
+      "sha256": "0d06ffb88d28fcf3d5ea81b44a0c2962ce8e921748e349b6263241fe2a9ead6e"
+    }
+  },
+  "source_manifest_scope": "Cargo.toml, Cargo.lock, and regular files/symlinks under crates/ and .cargo/. Both before/after manifests are retained locally; equal before manifests are included here."
+}

@@ -1,0 +1,5 @@
+   Compiling lamp-bus v0.1.0 (/private/tmp/lamp-fourth-sleep-name-compat/baseline-source/lampOS/crates/bus)
+   Compiling lamp-ipc v0.1.0 (/private/tmp/lamp-fourth-sleep-name-compat/baseline-source/lampOS/crates/ipc)
+   Compiling lamp-msgs v0.1.0 (/private/tmp/lamp-fourth-sleep-name-compat/baseline-source/lampOS/crates/msgs)
+   Compiling lamp-expression v0.1.0 (/private/tmp/lamp-fourth-sleep-name-compat/baseline-source/lampOS/crates/expression)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 6.74s

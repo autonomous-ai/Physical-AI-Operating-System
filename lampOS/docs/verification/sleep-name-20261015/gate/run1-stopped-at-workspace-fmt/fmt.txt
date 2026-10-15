@@ -1,0 +1,11 @@
+Diff in /private/tmp/lamp-fourth-sleep-name/lampOS/crates/voice/src/agent_tasks.rs:396:
+         "stopped" | "failed" => {
+             "Tell them in one plain sentence that it stopped without finishing."
+         }
+[31m-        _ => "Tell them in a few words that it is still working on it and that you will tell them yourself when it is done. Do not check again unless they ask again.",
+[m[32m+        _ => {
+[m[32m+            "Tell them in a few words that it is still working on it and that you will tell them yourself when it is done. Do not check again unless they ask again."
+[m[32m+        }
+[m     };
+     (
+         json!({"who": who, "task": asked, "state": state, "answer": answer,

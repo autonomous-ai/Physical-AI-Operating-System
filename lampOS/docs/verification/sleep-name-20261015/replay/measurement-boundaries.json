@@ -1,0 +1,33 @@
+{
+  "build_elapsed_seconds": {
+    "end": "After Cargo wait/cleanup, before after-source hashing and copying the executable.",
+    "start": "Immediately before opening compiler logs and spawning Cargo."
+  },
+  "machine": "Fourth Intel Mac, macOS 26.6.2 x86_64; no lamp access",
+  "per_run_elapsed_seconds": {
+    "clarification": "These fields are complete per-run harness wall times. The original summary shorthand CLI wall time is not a claim of isolated CLI execution or planner CPU cost.",
+    "end": "After CLI completion, per-tick JSONL parsing/behaviour audit, and binary/input/catalogue hash checks; before hashing retained output files and writing result.json.",
+    "excludes": [
+      "compilation",
+      "actuators",
+      "bus service",
+      "real-time input",
+      "journal stalls"
+    ],
+    "includes": [
+      "CLI process startup",
+      "replay parsing and planning",
+      "raw JSONL disk output",
+      "parent JSONL audit",
+      "parent binary/input/catalogue hash checks"
+    ],
+    "start": "Immediately before opening CLI stdout/stderr files and spawning the copied CLI."
+  },
+  "planner_latency": {
+    "clock": "authored injected monotonic timestamps, not elapsed wall time",
+    "name_receipt_to_first_waking_frame_us": 18300,
+    "no_motor_light_acoustic_or_live_service_claim": true,
+    "tick_period_us": 20000,
+    "validated_speech_receipt_to_first_waking_frame_us": 13299
+  }
+}

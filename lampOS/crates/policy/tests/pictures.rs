@@ -7,6 +7,7 @@ use lamp_policy::{
     attention::{self, Context, Room},
     decide::{IMAGES_HEADER, Jev},
     pictures::{self, Job, KEY},
+    policy::Seen,
 };
 use serde_json::{Value, json};
 use std::{
@@ -104,7 +105,13 @@ fn job() -> Job {
             seconds_since_lamp_spoke: None,
             name_heard: Some(0.97),
         },
-        seen: None,
+        // Someone at the desk, turned to the lamp, as the eyes saw.
+        seen: Some(Seen {
+            faces: 1,
+            near: 1,
+            facing: 1,
+            age_ms: 40,
+        }),
         sent_at_unix_ms: 1_760_541_000_000,
     }
 }
@@ -137,6 +144,29 @@ fn the_same_question_is_asked_without_the_picture_and_with_it_and_the_picture_is
         deadline: Duration::from_secs(5),
         log_dir: place.0.clone(),
     };
+
+    // Nobody in sight, or the eyes saying nothing: nothing is asked, frame
+    // or not (the first builder on #871).
+    fs::write(&sight, frame()).unwrap();
+    for (seen, why) in [
+        (
+            Some(Seen {
+                faces: 0,
+                near: 0,
+                facing: 0,
+                age_ms: 40,
+            }),
+            "no_face",
+        ),
+        (None, "eyes_unknown"),
+    ] {
+        let nobody = Job { seen, ..job() };
+        let line = pictures::ask_both(&mut without, &mut with, &nobody, &options);
+        assert_eq!(line["picture"], json!({"sent": false, "why_not": why}));
+        assert!(line["without"].is_null() && line["with"].is_null());
+    }
+    assert!(requests.recv_timeout(Duration::from_millis(300)).is_err());
+    fs::remove_file(&sight).unwrap();
 
     // No frame: the camera is not permitted. Nothing is asked.
     let none = pictures::ask_both(&mut without, &mut with, &job(), &options);

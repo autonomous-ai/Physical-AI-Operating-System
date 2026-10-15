@@ -1145,7 +1145,13 @@ the day's, and none of what was heard in its output).
 
 `lamp-policy --images MODEL [--sight-file ABSOLUTE_PATH]`, off unless set,
 shadow. As the policy sends each attention question, it hands the same
-utterance to a thread of its own, if that thread is free. The thread asks
+utterance to a thread of its own, if that thread is free. **Only when the
+eyes see someone** (`seen.faces` above 0, their list at most 2 s old) is
+anything asked: on lamp-4ace on 2026-10-16 at 03:47 to 03:53, with nobody
+at the desk, `picture_person` came back 0.26 to 0.51 thirteen times while
+the eyes saw no face each time, so whether anyone is there is the eyes' to
+say (the first builder on #871). Otherwise the line says `no_face`, or
+`eyes_unknown` when the eyes said nothing fresh, and nothing is asked. The thread asks
 `MODEL` (`typesafe/jev-1.14`) twice at once, on two connections:
 - **without** the picture: the seven questions as sent on the day;
 - **with** the picture: the state with `picture` last, the seven questions,
@@ -1188,8 +1194,9 @@ TypeSafe takes 256 to 1,568 pixels a side and 78,400 in all, so the eyes'
 again. It goes as one of TypeSafe's `assets` with the
 `TypeSafe-Danger-Zone-Images: true` header, which only that request carries.
 The picture is written nowhere. The line says only whether one was sent,
-its size, the eyes' size and its age, or why not (`no_frame`, `stale`,
-`too_large`, `not_a_jpeg`, `unreadable`, `withdrawn`, `not_written`).
+its size, the eyes' size and its age, or why not (`no_face`,
+`eyes_unknown`, `no_frame`, `stale`, `too_large`, `not_a_jpeg`,
+`unreadable`, `withdrawn`, `not_written`).
 
 **Sent** means some of a request with a frame in it left the lamp, in any
 try, whatever came after (the reviewer on #873). A request written whole

@@ -1,0 +1,13 @@
+pairs	same	different	same median	different median	EER	threshold
+lamp over one or both	195	349	0.14	0.12	47.1%	0.13
+lamp over one or both, both >= 3 s	39	0	0.19	nan	-	-
+lamp over one or both, shorter 1.5-3 s	44	57	0.01	0.18	63.4%	0.16
+lamp over one or both, shorter clip < 1.5 s	112	292	0.13	0.10	45.9%	0.11
+lamp quiet in both	75	96	0.53	0.20	6.5%	0.29
+lamp quiet in both, both >= 3 s	21	0	0.95	nan	-	-
+lamp quiet in both, shorter 1.5-3 s	16	29	0.57	0.22	0.0%	0.39
+lamp quiet in both, shorter clip < 1.5 s	38	67	0.41	0.19	7.7%	0.26
+partly	70	35	0.85	0.17	2.9%	0.36
+partly, both >= 3 s	45	0	0.88	nan	-	-
+partly, shorter 1.5-3 s	10	15	0.58	0.21	0.0%	0.36
+partly, shorter clip < 1.5 s	15	20	0.41	0.15	0.0%	0.23

@@ -284,7 +284,8 @@ impl Profile {
 /// One reading of what the chip compares with its thresholds, for every
 /// electrode: the 10-bit filtered signal and the 10-bit baseline. A finger
 /// lowers the signal, so `baseline - filtered` (the delta) rises with touch.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct Signals {
     pub touched: u16,
     pub filtered: [u16; 12],
@@ -314,7 +315,8 @@ impl Signals {
 
 /// The charge current (µA) and time code each electrode uses now, as
 /// auto-configuration left them. Zero means it inherits the global value.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct Charge {
     pub cdc: [u8; 12],
     pub cdt: [u8; 12],

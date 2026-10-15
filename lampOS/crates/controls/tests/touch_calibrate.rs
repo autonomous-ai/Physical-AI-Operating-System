@@ -219,10 +219,16 @@ fn the_noise_counts_the_baseline_bits_the_chip_does_not_show() {
     let noise = quiet_swing(512 - 512);
     assert_eq!(noise, 3);
     assert_eq!(thresholds(noise, 5, &PLAN), Err(Verdict::TooCloseToNoise));
-    // Through the whole calibration: a perfectly flat read and swipes of 7.
+    // Through the whole calibration: a perfectly flat read, then each pad
+    // swiped in turn at 7.
     let (report, _) = run(
         |t| {
-            if t >= 22 * S { [7; 12] } else { [0; 12] }
+            let mut deltas = [0; 12];
+            if t >= 22 * S {
+                let pad = [0, 1, 2, 3, 5, 6, 7, 9, 10, 11][((t - 22 * S) / S % 10) as usize];
+                deltas[pad] = 7;
+            }
+            deltas
         },
         None,
     )
@@ -502,4 +508,134 @@ fn off_linux_the_command_says_it_has_no_chip_and_writes_nothing() {
         String::from_utf8_lossy(&result.stderr)
     );
     assert!(!output.exists());
+}
+
+/// First's run on lamp-4ace (#797, 18:10): a finger on one pad also raises its
+/// neighbours, so every pad seemed to be swiped 40 times and its "weakest
+/// swipe" was a neighbour's touch. Here each pad is swiped in turn at 30 and
+/// lifts its two neighbours to 7 while it is.
+fn coupled(t: u64) -> [i32; 12] {
+    let mut deltas = [0; 12];
+    if t >= 22 * S {
+        let order = [0, 1, 2, 3, 5, 6, 7, 9, 10, 11];
+        let at = ((t - 22 * S) / S % 10) as usize;
+        let pad = order[at];
+        deltas[pad] = 30;
+        for neighbour in [at.checked_sub(1), Some(at + 1)].into_iter().flatten() {
+            if let Some(&other) = order.get(neighbour) {
+                deltas[other] = 7;
+            }
+        }
+    }
+    deltas
+}
+
+#[test]
+fn a_neighbours_touch_is_coupling_not_a_swipe() {
+    let (report, _) = run(coupled, None).unwrap();
+    for pad in &report.pads {
+        let e = pad.electrode;
+        assert_eq!(pad.swipes, 3, "E{e}: only its own swipes, three passes");
+        assert_eq!(
+            (pad.weakest, pad.strongest, pad.level),
+            (30, 30, 30),
+            "E{e}"
+        );
+        assert_eq!(
+            pad.coupling, 7,
+            "E{e}: what it reads while a neighbour is touched"
+        );
+        assert_eq!(pad.verdict, Verdict::Ok, "E{e}");
+        // Noise 3 (flat read), level 30: 3 + 40% of 27, 3 + 20% of 27.
+        assert_eq!(
+            (pad.touch_threshold, pad.release_threshold),
+            (13, 8),
+            "E{e}"
+        );
+    }
+    assert!(report.all_ok());
+    // With the old thresholds the chip lit the pad and its two neighbours
+    // (three at once, as the base's touch needs); the new thresholds sit above
+    // the coupling, so the same readings light one pad.
+    let readings: u64 = report.footprint_new.iter().sum();
+    assert_eq!(
+        report.footprint_new[1], readings,
+        "{:?}",
+        report.footprint_new
+    );
+}
+
+#[test]
+fn the_own_level_ignores_a_swipe_that_only_grazed_the_pad() {
+    use lamp_controls::touch_calibrate::own_level;
+    assert_eq!(own_level(&[]), None);
+    assert_eq!(own_level(&[30]), Some(30));
+    // 9 is under half of 33: a graze, not the level.
+    assert_eq!(own_level(&[33, 9, 27, 30]), Some(27));
+    assert_eq!(own_level(&[17, 9, 10]), Some(9));
+}
+
+#[test]
+fn a_kept_session_replays_to_the_same_report_without_a_chip() {
+    use lamp_controls::touch_calibrate::{analyse, collect};
+    let base = base();
+    let time = Rc::new(Cell::new(7 * S));
+    let mut clock = FakeClock(time.clone());
+    let mut chip = FakeChip {
+        clock: time,
+        script: coupled,
+        reads: 0,
+        fail_after: None,
+        charge: Charge {
+            cdc: [53, 57, 55, 51, 31, 50, 49, 42, 31, 41, 46, 47],
+            cdt: [1; 12],
+        },
+    };
+    let session = collect(&mut chip, &mut clock, base.every_ms, PLAN, |_| {}).unwrap();
+    let live = analyse(&session, &base.pads, &base.profile, PLAN);
+    let kept = serde_json::to_vec(&session).unwrap();
+    let back = serde_json::from_slice(&kept).unwrap();
+    assert_eq!(analyse(&back, &base.pads, &base.profile, PLAN), live);
+
+    // The command, from that file, with no chip, writes the new pins.
+    let file = scratch("session.json");
+    fs::write(&file, &kept).unwrap();
+    let output = scratch("replayed-pins.json");
+    let result = program(&[
+        "calibrate-touch",
+        "--pins",
+        fixture("strip-711-working-pins-example.json")
+            .to_str()
+            .unwrap(),
+        "--output",
+        output.to_str().unwrap(),
+        "--replay",
+        file.to_str().unwrap(),
+    ]);
+    assert!(
+        result.status.success(),
+        "{}",
+        String::from_utf8_lossy(&result.stderr)
+    );
+    let report: serde_json::Value = serde_json::from_slice(&result.stdout).unwrap();
+    assert_eq!(report["pads"][0]["coupling"], 7);
+    let pins: serde_json::Value = serde_json::from_slice(&fs::read(&output).unwrap()).unwrap();
+    assert_eq!(pins["base"]["profile"]["touch_thresholds"][0], 13);
+    // A kept file is never written over, and record and replay do not mix.
+    let again = program(&[
+        "calibrate-touch",
+        "--pins",
+        fixture("strip-711-working-pins-example.json")
+            .to_str()
+            .unwrap(),
+        "--output",
+        scratch("unused.json").to_str().unwrap(),
+        "--replay",
+        file.to_str().unwrap(),
+        "--record",
+        file.to_str().unwrap(),
+    ]);
+    assert!(!again.status.success());
+    fs::remove_file(&file).unwrap();
+    fs::remove_file(&output).unwrap();
 }

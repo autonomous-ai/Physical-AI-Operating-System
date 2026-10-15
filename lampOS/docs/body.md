@@ -891,6 +891,12 @@ Its facts are the mood, how far it has stood up, the warmest joint and
 its reading, and how often a joint gave way in the last minute and since
 it started.
 
+**Paused.** Whether or not it publishes, a body that can reach the bus
+reads `lamp/pause` at most once a second ([keeper.md](keeper.md), "Named
+states and the pause"). Paused, every mood is rest and nothing else asked
+of it is taken; its report says `state` `paused`. Nothing kept on the
+topic, or a bus it cannot reach, is not paused.
+
 The loop that talks to the servos never waits for the bus. It hands
 every fourth step to a thread of its own, which has room for sixteen; a
 step that finds no room is let go and counted, and the count is written

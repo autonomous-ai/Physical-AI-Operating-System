@@ -32,7 +32,8 @@ Each type has `TYPE`, the name the bus compares (`lamp_msgs/JointState`),
 hands to `Bus::publisher_declared`. `first_topics()` keeps the original
 seventeen topics; `expression_topics()` lists the optional Expression
 contracts separately, and `controls_topics()` lists the optional Controls
-contracts. `declaration_of()` recognizes all three catalogues.
+contracts, and `keeper_topics()` the keeper's pause. `declaration_of()`
+recognizes every catalogue.
 
 ## The types
 
@@ -51,6 +52,7 @@ contracts. `declaration_of()` recognizes all three catalogues.
 | `Health` | `lamp/health` | latest | 5 s, means nothing after 15 s | How the whole lamp is: the worst level, one sentence, every part that has reported with its level, message and age, worst first, and the parts that are expected and never reported |
 | `BoardState` | `board/state` | latest | 5 s, means nothing after 15 s | The computer's numbers: each temperature by sensor (°C), load per processor, memory in use and disk free as fractions, uptime, and the Wi-Fi signal and whether the clock is set if they could be asked |
 | `NameHeard` | `name/heard` | event | none | The lamp's name was heard in what its microphone hears: how sure the listener was, from 0 to 1, and how many milliseconds before this was sent the name began. A sign, never proof ([name.md](name.md)) |
+| `Pause` | `lamp/pause` | latest | none | Whether the lamp is paused, as `lamp-keeper pause` or `resume` last said; kept until the next, read with `latest` by each part that honours it ([keeper.md](keeper.md), "Named states and the pause") |
 | `Decision` | `policy/decisions` | event | none | What the policy decided ([policy.md](policy.md)): what it was about, the choice, its probability, the decision model's answer to each question by the question's name, who decided, how long the asking took, whether anything acts on it, and the request's number if known. Not what was heard |
 
 The kind and the period are the table of first topics in [bus.md](bus.md)
@@ -63,7 +65,8 @@ the bus's lease needs its publisher to call `alive()`.
 
 `policy/decisions`, `lamp/health`, `board/state` and `name/heard` were
 added after that table was written and are not in it: this table is where
-they are listed.
+they are listed. `lamp/pause` is not one of the first topics either:
+`keeper_topics()` lists it, and `declaration_of()` recognizes it.
 `first_topics()` has them with the others. The last two are the only
 topics with a lifespan: a kept report of how things are must not outlive
 whoever wrote it.

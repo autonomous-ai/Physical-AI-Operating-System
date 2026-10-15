@@ -161,6 +161,24 @@ Checked by a session test beside the one for an announced close (idle: it
 ends at once; with an answer in progress: the answer completes first). On
 lamp-4ace it has acted about a dozen times with no fault.
 
+## Each person's own thread
+
+With a memory and eyes that remember faces (#764), each exchange is kept
+as whose it was: the room's, or the memory id (never the name) of the known
+person at the lamp as the worker counts it (a different known person at
+once, nobody after 30 s unseen). Each keeps their own last eight, four
+threads at most with the room's (32 exchanges), the oldest going first past
+that. A session is told only the exchanges of the person it was opened for,
+and the worker opens a new session between turns when that person changes
+([memory.md](memory.md#a-session-for-each-person-764-follow-up)), so one
+person's conversation never reaches another's session, and someone who
+comes back within ten minutes is told theirs again. The file keeps whose
+each exchange is (`whose`, left out for the room's, so a thread with
+nobody known is written as before); an entry whose `whose` is not a memory
+id is not read back. Forgetting still drops every thread. With nobody ever
+known everything is the room's and nothing here changes
+(`thread::tests::with_nobody_ever_known_nothing_changes`).
+
 ## What it keeps to itself
 
 By itself the thread lives in the provider worker's memory and nowhere

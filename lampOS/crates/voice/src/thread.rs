@@ -28,6 +28,14 @@
 //! belongs in the service's own runtime directory, which is memory and not
 //! a disk, and holds nothing older than the ten minutes a thread is told
 //! for.
+//!
+//! Each exchange is also kept as whose it was: the room's, or that of the
+//! person the eyes knew at the lamp ([`Thread::at_lamp`], a memory id, never
+//! a name). A session is told only the exchanges of the person it was opened
+//! for, and the worker opens a new session between turns when that person
+//! changes (#764), so one person's conversation never reaches another's
+//! session and theirs is there again when they come back. With nobody ever
+//! known everything is the room's, as it always was.
 use lamp_gemini::{Attempt, Connect, Dialer, ResumptionHandle, SessionConfig, SessionId};
 use serde::{Deserialize, Serialize};
 use std::{
@@ -39,8 +47,12 @@ use std::{
     time::{Duration, Instant, SystemTime, UNIX_EPOCH},
 };
 
-/// Exchanges kept, and the most of each side of one that is kept.
+/// Exchanges kept for each person (and for the room), and the most of each
+/// side of one that is kept.
 const EXCHANGES: usize = 8;
+/// Whose threads are kept at once, the room's among them: past this the
+/// oldest exchanges go, whoever's they were.
+const PEOPLE: usize = 4;
 const PERSON_BYTES: usize = 300;
 const LAMP_BYTES: usize = 400;
 /// What a person said counts as the question to an answer that begins within
@@ -70,6 +82,8 @@ struct Exchange {
     lamp: String,
     /// Handed on to the lamp's memory, or not for it to have.
     journalled: bool,
+    /// The memory id of the known person it was with; `None`: the room's.
+    whose: Option<String>,
 }
 
 pub struct Thread {
@@ -82,6 +96,11 @@ pub struct Thread {
     changed: bool,
     /// The answer that opened with a function's name, if the newest did.
     unsaid: Option<u64>,
+    /// Who is at the lamp now, as the worker counts it; whose a new
+    /// exchange is.
+    whose: Option<String>,
+    /// Whom the newest session was opened for: the only exchanges it is told.
+    opened_for: Option<String>,
 }
 
 /// One exchange as it is kept in the file: when, by the wall clock, since
@@ -92,6 +111,8 @@ struct Kept {
     at_unix_ms: u64,
     person: String,
     lamp: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    whose: Option<String>,
 }
 
 /// This process's one thread. The provider worker is one process with one
@@ -130,7 +151,39 @@ impl Thread {
             heard_done: false,
             changed: false,
             unsaid: None,
+            whose: None,
+            opened_for: None,
         }
+    }
+
+    /// Who is at the lamp now: a memory id, or `None` for nobody known.
+    pub fn at_lamp(&mut self, whose: Option<String>) {
+        self.whose = whose;
+    }
+
+    /// The person at the lamp is not the one the session was opened for.
+    pub fn switch_due(&self) -> bool {
+        self.whose != self.opened_for
+    }
+
+    /// Whether to open a new session for the person at the lamp now: only
+    /// between turns, with no request open and none of an answer still to
+    /// be handed on. A change during a turn waits for its end.
+    pub fn switch_now(&self, turn_open: bool, output_pending: bool) -> bool {
+        self.switch_due() && !turn_open && !output_pending
+    }
+
+    /// A session is being opened now, for whoever is at the lamp: returns
+    /// whether that is someone other than the last session's.
+    pub fn opening(&mut self) -> bool {
+        let changed = self.switch_due();
+        self.opened_for = self.whose.clone();
+        changed
+    }
+
+    /// Whom the session being opened is for.
+    pub fn opened_for(&self) -> Option<&str> {
+        self.opened_for.as_deref()
     }
 
     /// The exchanges still worth telling, as the file's text, if anything
@@ -152,6 +205,7 @@ impl Thread {
                     .saturating_sub(now.saturating_duration_since(exchange.at).as_millis() as u64),
                 person: exchange.person.clone(),
                 lamp: exchange.lamp.clone(),
+                whose: exchange.whose.clone(),
             })
             .collect();
         serde_json::to_string(&kept).ok()
@@ -169,7 +223,7 @@ impl Thread {
             return thread;
         };
         let wall_ms = wall.as_millis() as u64;
-        let from = kept.len().saturating_sub(EXCHANGES);
+        let from = kept.len().saturating_sub(EXCHANGES * PEOPLE);
         for (index, kept) in kept.into_iter().enumerate().skip(from) {
             let Some(age) = wall_ms
                 .checked_sub(kept.at_unix_ms)
@@ -180,6 +234,15 @@ impl Thread {
             let Some(at) = now.checked_sub(age).filter(|_| age <= REMEMBERED_FOR) else {
                 continue;
             };
+            // Only a memory id ([`crate::remember::person_id`]) is whose.
+            if kept.whose.as_ref().is_some_and(|whose| {
+                whose.len() > 32
+                    || !whose
+                        .bytes()
+                        .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'-')
+            }) {
+                continue;
+            }
             let (mut person, mut lamp) = (String::new(), String::new());
             add(&mut person, &kept.person, PERSON_BYTES);
             add(&mut lamp, &kept.lamp, LAMP_BYTES);
@@ -191,6 +254,7 @@ impl Thread {
                 lamp,
                 // The process that wrote the file handed it on.
                 journalled: true,
+                whose: kept.whose,
             });
         }
         thread
@@ -237,7 +301,15 @@ impl Thread {
             self.heard.clear();
             self.heard_at = None;
             self.heard_done = false;
-            if self.exchanges.len() == EXCHANGES {
+            // Each person's last eight; with nobody ever known, the room's
+            // eight are all there is.
+            let whose = self.whose.clone();
+            let theirs = self.exchanges.iter().filter(|e| e.whose == whose);
+            if theirs.count() == EXCHANGES {
+                if let Some(oldest) = self.exchanges.iter().position(|e| e.whose == whose) {
+                    self.exchanges.remove(oldest);
+                }
+            } else if self.exchanges.len() == EXCHANGES * PEOPLE {
                 self.exchanges.pop_front();
             }
             self.exchanges.push_back(Exchange {
@@ -246,6 +318,7 @@ impl Thread {
                 person,
                 lamp: String::new(),
                 journalled: false,
+                whose,
             });
         }
         if let Some(last) = self.exchanges.back_mut() {
@@ -331,12 +404,14 @@ impl Thread {
     }
 
     /// What to tell a new session, if anything was said lately, in at most
-    /// `room` bytes: the latest exchanges that fit, in the order they went.
+    /// `room` bytes: the latest exchanges that fit, in the order they went,
+    /// of the person the session is opened for ([`Self::opening`]) only.
     pub fn recall(&self, now: Instant, room: usize) -> Option<String> {
         // An answer with no word in it ("...") is the model keeping quiet
         // aloud. Told back to it, it is what it does next.
         let told = |exchange: &&Exchange| {
-            now.saturating_duration_since(exchange.at) <= REMEMBERED_FOR
+            exchange.whose == self.opened_for
+                && now.saturating_duration_since(exchange.at) <= REMEMBERED_FOR
                 && exchange.lamp.chars().any(char::is_alphanumeric)
         };
         let newest = self.exchanges.iter().rev().find(told)?;
@@ -448,6 +523,14 @@ pub struct Recalling {
     config: SessionConfig,
     tools: crate::tools::Settings,
     name_signal: bool,
+    /// The person at the lamp has changed once: no resumption handle is
+    /// presented again, since one could carry the earlier person's
+    /// conversation into the new session.
+    // ponytail: off for the rest of the process after the first change,
+    // even for a later reconnect of one person's session; lamps run with
+    // resumption off (the relay does not forward it), and the thread
+    // covers a fresh session. Per-handle ownership if that changes.
+    fresh_only: bool,
 }
 
 impl Recalling {
@@ -456,6 +539,7 @@ impl Recalling {
             config,
             tools: crate::tools::Settings::default(),
             name_signal: false,
+            fresh_only: false,
         }
     }
 
@@ -510,12 +594,24 @@ impl Recalling {
 }
 
 impl Connect for Recalling {
-    fn connect(&mut self, session: SessionId, resume: Option<ResumptionHandle>) -> Attempt {
+    fn connect(&mut self, session: SessionId, mut resume: Option<ResumptionHandle>) -> Attempt {
+        // The session is for whoever is at the lamp now, and only theirs:
+        // their thread below, and their kept things.
+        let person = match THREAD.lock() {
+            Ok(mut thread) => {
+                self.fresh_only |= thread.opening();
+                thread.opened_for().map(str::to_owned)
+            }
+            Err(_) => None,
+        };
+        if self.fresh_only {
+            resume = None;
+        }
         let mut time = crate::local_time::told_here(self.tools.clock);
         // The legacy cached note, or an explicitly opted-in Days snapshot
         // with its provenance and a total acquisition budget of 300 ms.
         if let Some(socket) = &self.tools.memory {
-            let kept = crate::remember::told_for_session(socket, session.get());
+            let kept = crate::remember::told_for_session(socket, session.get(), person.as_deref());
             if !kept.is_empty() {
                 time = Some(time.unwrap_or_default() + &kept);
             }
@@ -900,5 +996,139 @@ mod tests {
             told.instruction_text()
                 .ends_with("Person: My name is Sam.\nYou: Nice to meet you, Sam.\n")
         );
+    }
+
+    /// #764: each session is one person's. Played with the eyes' presence
+    /// as the worker counts it and the instruction a new session is sent.
+    #[test]
+    fn a_session_is_told_only_the_thread_of_the_person_it_is_opened_for() {
+        use crate::known_faces::{GONE_AFTER, Presence};
+        use lamp_gemini::{Credential, GOOGLE_ENDPOINT};
+        let config = SessionConfig::new(GOOGLE_ENDPOINT, Credential::api_key("test-only").unwrap())
+            .unwrap()
+            .instruction("You are a lamp.")
+            .unwrap();
+        let recalling = Recalling::new(config);
+        let start = Instant::now();
+        let at = |seconds: u64| start + Duration::from_secs(seconds);
+        let (a, b) = (
+            crate::remember::person_id("Minh"),
+            crate::remember::person_id("Sam"),
+        );
+        let mut presence = Presence::default();
+        let mut thread = Thread::new();
+        let mut seen = |thread: &mut Thread, known: Option<&str>, now: Instant| {
+            thread.at_lamp(
+                presence
+                    .seen(known.map(str::to_owned), now)
+                    .map(str::to_owned),
+            );
+        };
+        let opened = |thread: &mut Thread, now: Instant| {
+            thread.opening();
+            recalling
+                .recalled(thread, now, None)
+                .instruction_text()
+                .to_owned()
+        };
+        // The room talks first, then Minh sits down.
+        thread.person("Is it raining?", true, at(0));
+        thread.lamp(1, "Not yet.", at(1));
+        seen(&mut thread, Some(&a), at(2));
+        assert!(thread.switch_now(false, false));
+        let minh = opened(&mut thread, at(2));
+        assert!(!minh.contains("raining"), "only theirs: {minh}");
+        thread.person("Keep my locker code, 417.", true, at(3));
+        thread.lamp(2, "Kept: 417.", at(4));
+        // (b) Minh looks away for a few seconds: the same session.
+        seen(&mut thread, None, at(10));
+        assert!(!thread.switch_due());
+        seen(&mut thread, Some(&a), at(12));
+        // (a) Minh gone 30 s: a new session for the room, nothing of Minh's.
+        seen(
+            &mut thread,
+            None,
+            at(12) + GONE_AFTER - Duration::from_secs(1),
+        );
+        assert!(!thread.switch_due());
+        seen(&mut thread, None, at(12) + GONE_AFTER);
+        assert!(thread.switch_now(false, false));
+        let room = opened(&mut thread, at(43));
+        assert!(!room.contains("417"), "{room}");
+        assert!(room.contains("Not yet."), "the room's own: {room}");
+        assert!(!thread.switch_due());
+        // (c) Minh, then Sam at once: Sam's session has only Sam's.
+        seen(&mut thread, Some(&a), at(50));
+        opened(&mut thread, at(50));
+        seen(&mut thread, Some(&b), at(51));
+        assert!(thread.switch_now(false, false));
+        // (e) Sam speaks before the switch: deferred while the turn is open
+        // or its answer is still being handed on, and the exchange is Sam's.
+        thread.person("What is my locker code?", true, at(52));
+        assert!(!thread.switch_now(true, false) && !thread.switch_now(false, true));
+        thread.lamp(3, "I don't remember.", at(53));
+        assert!(thread.switch_now(false, false));
+        let sam = opened(&mut thread, at(54));
+        assert!(!sam.contains("417") && !sam.contains("Not yet."), "{sam}");
+        assert!(sam.contains("I don't remember."), "{sam}");
+        // (d) Minh comes back: their thread is there again.
+        seen(&mut thread, Some(&a), at(60));
+        let back = opened(&mut thread, at(60));
+        assert!(back.contains("Kept: 417."), "{back}");
+        assert!(!back.contains("I don't remember.") && !back.contains("Not yet."));
+        // The file keeps whose each exchange is, as a memory id only.
+        let text = thread.save(at(61), SystemTime::now()).unwrap();
+        assert!(text.contains(&a) && text.contains(&b) && !text.contains("Minh"));
+        let mut read = Thread::load(&text, at(61), SystemTime::now());
+        read.at_lamp(Some(b.clone()));
+        read.opening();
+        let told = read.recall(at(61), ROOM).unwrap();
+        assert!(told.contains("I don't remember.") && !told.contains("417"));
+        let forged = text.replace(&a, "../Minh");
+        let mut read = Thread::load(&forged, at(61), SystemTime::now());
+        read.at_lamp(Some("../Minh".into()));
+        read.opening();
+        assert_eq!(read.recall(at(61), ROOM), None);
+    }
+
+    /// With nobody ever known, a thread is what it always was: the room's,
+    /// never switched, saved as before, eight exchanges.
+    #[test]
+    fn with_nobody_ever_known_nothing_changes() {
+        let mut thread = Thread::new();
+        let start = Instant::now();
+        assert!(!thread.switch_due() && !thread.switch_now(false, false));
+        assert!(!thread.opening());
+        for request in 0..12u64 {
+            thread.person("hello", true, start);
+            thread.lamp(request, "hi", start);
+        }
+        assert_eq!(thread.exchanges.len(), EXCHANGES);
+        let text = thread.save(start, SystemTime::now()).unwrap();
+        assert!(!text.contains("whose"), "{text}");
+        assert!(!thread.opening());
+    }
+
+    /// Each person's thread is bounded, and so is how many are kept.
+    #[test]
+    fn each_persons_thread_holds_only_so_much() {
+        let mut thread = Thread::new();
+        let start = Instant::now();
+        let mut request = 0;
+        for person in 0..6 {
+            let whose = format!("p-{person}");
+            thread.at_lamp(Some(whose.clone()));
+            for _ in 0..10 {
+                request += 1;
+                thread.lamp(request, "hi", start);
+            }
+            let theirs = thread
+                .exchanges
+                .iter()
+                .filter(|e| e.whose.as_deref() == Some(whose.as_str()))
+                .count();
+            assert_eq!(theirs, EXCHANGES);
+        }
+        assert_eq!(thread.exchanges.len(), EXCHANGES * PEOPLE);
     }
 }

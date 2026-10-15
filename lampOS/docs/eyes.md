@@ -229,6 +229,10 @@ this room" until someone asks to be recognised.
     goes to their own scope, and a recall asks theirs first, then the
     room's (#764, [memory.md](memory.md#each-persons-own-764)). Forgetting
     a face does not forget what that person said.
+  - With a memory, each provider session is one person's: when the known
+    person changes (someone else at once, nobody after 30 s unseen), a new
+    session is opened between turns and told only their thread and kept
+    things ([memory.md](memory.md#a-session-for-each-person-764-follow-up)).
 
 On lamp-4ace on 2026-10-15 at 08:22, with the office empty, the socket
 answered `list` and `who` at once, `remember` with `no_face` after 4.0 s,

@@ -835,6 +835,15 @@ async fn serve_with_visual<C: Connect>(
         .map(crate::known_faces::known_file_of);
     let mut known_read_at: Option<Instant> = None;
     let mut known_told: Option<(SessionId, String)> = None;
+    // With a memory too, each session is one person's (#764): whose it is
+    // counted from the same file, and a new one opened between turns when
+    // that changes. Without both, nothing of this runs.
+    let switch_file = known_file
+        .as_deref()
+        .filter(|_| options.tools.memory.is_some());
+    let mut presence = crate::known_faces::Presence::default();
+    let mut presence_read_at: Option<Instant> = None;
+    let mut switch_asked: Option<SessionId> = None;
     // With a memory, the session is also told that what they say is theirs.
     let theirs = if options.tools.memory.is_some() {
         crate::remember::THEIRS
@@ -1109,6 +1118,36 @@ async fn serve_with_visual<C: Connect>(
                         eprintln!(
                             "lamp-voice provider: request {}: told the session who is at the lamp",
                             open.request.get()
+                        );
+                    }
+                }
+                // Whose session it is: the person at the lamp changed (gone
+                // 30 s, or someone else known), so a new session is opened
+                // for them, told only their thread and kept things. Asked
+                // only between turns, and the session itself waits until
+                // nothing is owed on it, so it never cuts anyone off.
+                if let Some(path) = switch_file
+                    && presence_read_at.is_none_or(|at| at.elapsed() >= Duration::from_millis(500))
+                {
+                    presence_read_at = Some(Instant::now());
+                    let known = crate::known_faces::known_now(path)
+                        .map(|name| crate::remember::person_id(&name));
+                    let whose = presence.seen(known, Instant::now()).map(str::to_owned);
+                    let turn_open = intake.handoff.visual_turn().is_some();
+                    let due = crate::thread::THREAD.lock().is_ok_and(|mut thread| {
+                        thread.at_lamp(whose);
+                        thread.switch_now(turn_open, !output.is_empty())
+                    });
+                    let live = provider.live_session();
+                    if due
+                        && live.is_some()
+                        && live != switch_asked
+                        && provider.renew_when_idle()
+                    {
+                        switch_asked = live;
+                        renewed_at = Instant::now();
+                        eprintln!(
+                            "lamp-voice provider: the person at the lamp has changed; a new session is opened between turns"
                         );
                     }
                 }

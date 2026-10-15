@@ -919,16 +919,21 @@ identity run it, and `serde_json` reads it.
   together (#765 review, 2026-10-15).
 - **What is put on the bus.** `tasks/status` (`lamp_msgs/TaskStatus`,
   [msgs.md](msgs.md#the-tasks-contract)), a kept (`latest`) value with no
-  period. It is published at start, with no task, so the kept topic always
-  has a value and a reader can tell "nothing being worked on" from "the
-  tasks part is not there"; after every read; and at once when a task that
-  was on it leaves the watch (settled, or a day old). Its publisher says
-  once a second that it is alive. One message holds every
+  period. It is published at start, so the kept topic always has a value
+  and a reader can tell "nothing being worked on" from "the tasks part is
+  not there"; after every read; and at once when the set of tasks watched
+  changes, a task joining or leaving the watch (settled, or a day old). A
+  task watched whose progress has not been read yet in this run (just handed
+  over, there when the run began, or every read of it failed so far) is in
+  `unread`, not in `tasks`, so `tasks` and `unread` both empty is nothing
+  being worked on, and `tasks` empty alone is not (the reviewer on #793,
+  16:46). Its publisher says once a second that it is alive. One message holds every
   task being read, so the one kept value is always all of them:
 
   | Field | What it says |
   |---|---|
   | `store_id` | The store the task numbers belong to |
+  | `unread` | The tasks watched whose progress has not been read yet in this run, in order; left out when none |
   | `run` | Which run of the tasks part counted these changes: when it began to read progress, in milliseconds since 1970. Counts begin again at each run |
   | `task` | The task's number (`get_task`, `get_progress`) |
   | `engine` | Who has it: `claude` or `codex`, as its target names it |
@@ -969,7 +974,7 @@ identity run it, and `serde_json` reads it.
   socket: `{"op":"get_progress","id":3}` answers `{"ok":true,"store_id":…,
   "revision":…,"completion":"unverified","id":3,"progress":{"engine","state",
   "about","run","changes","signs_seen","last_active_unix_ms","read_unix_ms"}}`;
-  `not_found` for a task not being read, and `progress_off` without the
+  `not_read` for a task watched and not read yet, `not_found` for one not watched, and `progress_off` without the
   switch. That is the only way the line leaves the tasks part.
 - **The journal.** One line a read, so a minute on the lamp can be judged:
   `tasks: progress read of <machine> in 412 ms: 2 listed; task 7 working,

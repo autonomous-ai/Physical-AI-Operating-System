@@ -291,6 +291,9 @@ pub struct Tracker {
     /// The watched tasks a `ps` has been asked for since they came into the
     /// watch. A machine with one that has not is read at once.
     asked_for: BTreeSet<u64>,
+    /// Every task being watched, read or not: those not in `tasks` are
+    /// published as unread (#793 review, 2026-10-15).
+    watched: BTreeSet<u64>,
     reads: Reads,
     /// A value worth publishing has not been taken yet.
     fresh: bool,
@@ -308,6 +311,7 @@ impl Tracker {
             tasks: BTreeMap::new(),
             asked: BTreeMap::new(),
             asked_for: BTreeSet::new(),
+            watched: BTreeSet::new(),
             reads: Reads::default(),
             fresh: true,
         }
@@ -321,17 +325,25 @@ impl Tracker {
         self.reads
     }
 
-    /// Lets go of the tasks no longer watched (settled, or a day old); when
-    /// one that was on the bus goes, a value without it is published.
+    /// Which tasks are watched now: those no longer watched (settled, or a
+    /// day old) are let go, and those new to the watch are unread until a
+    /// read of them comes back. When the set changes, a value is published.
     pub fn watching(&mut self, watched: &[Watched]) {
         let before = self.tasks.len();
         self.tasks
             .retain(|id, _| watched.iter().any(|w| w.task_id == *id));
         self.asked_for
             .retain(|id| watched.iter().any(|w| w.task_id == *id));
-        if self.tasks.len() != before {
+        let now: BTreeSet<u64> = watched.iter().map(|w| w.task_id).collect();
+        if self.tasks.len() != before || now != self.watched {
+            self.watched = now;
             self.fresh = true;
         }
+    }
+
+    /// Whether `task` is watched but its progress has not been read yet.
+    pub fn unread(&self, task: u64) -> bool {
+        self.watched.contains(&task) && !self.tasks.contains_key(&task)
     }
 
     /// The machine whose `ps` is due, if any. At once for a machine with a
@@ -529,6 +541,12 @@ impl Tracker {
                     signs_seen: tracked.signs_seen.iter().copied().collect(),
                 })
                 .collect(),
+            unread: self
+                .watched
+                .iter()
+                .filter(|task| !self.tasks.contains_key(task))
+                .copied()
+                .collect(),
         })
     }
 
@@ -723,20 +741,62 @@ mod tests {
             (store.as_str(), 0)
         );
         assert!(tracker.take(&store).is_none());
-        // A task that was never read was never on the bus: no value for it
-        // leaving.
+        // A task that joins the watch is on the bus as unread (#793
+        // review), and leaves it as it leaves the watch, read or not.
         tracker.watching(&[watched(1, OFFICE, A, Some(0))]);
+        assert_eq!(tracker.take(&store).unwrap().unread, vec![1]);
         tracker.watching(&[]);
-        assert!(tracker.take(&store).is_none());
-        // One that was read leaves the bus as it leaves the watch.
+        let left = tracker.take(&store).unwrap();
+        assert!(left.tasks.is_empty() && left.unread.is_empty());
         let one = vec![watched(2, OFFICE, A, Some(0))];
+        tracker.watching(&one);
+        assert_eq!(tracker.take(&store).unwrap().unread, vec![2]);
         let _ = tracker.read(OFFICE, Ok(vec![listed(A, "working", None)]), &one, 1, 1);
-        assert_eq!(tracker.take(&store).unwrap().tasks.len(), 1);
+        let read = tracker.take(&store).unwrap();
+        assert_eq!((read.tasks.len(), read.unread.len()), (1, 0));
         tracker.watching(&one);
         assert!(tracker.take(&store).is_none());
         tracker.watching(&[]);
         assert!(tracker.take(&store).unwrap().tasks.is_empty());
         assert!(tracker.take(&store).is_none());
+    }
+
+    /// The reviewer on #793 (16:46): a task watched and not yet read was
+    /// published as nothing at all, so `tasks: []` could mean work going
+    /// on. It is `unread` until a read of it comes back, and a failed read
+    /// keeps it so.
+    #[test]
+    fn a_watched_task_not_yet_read_is_published_as_unread() {
+        let store = "0".repeat(32);
+        let mut tracker = Tracker::started(RUN);
+        let one = vec![watched(4, OFFICE, A, Some(0))];
+        tracker.watching(&one);
+        let waiting = tracker.take(&store).unwrap();
+        waiting.check().unwrap();
+        assert_eq!((waiting.tasks.len(), waiting.unread.clone()), (0, vec![4]));
+        assert!(tracker.unread(4) && !tracker.unread(5));
+        // A failed read changes nothing: still unread, nothing new to say.
+        let _ = tracker.read(OFFICE, Err("timeout".into()), &one, 1, 10_000);
+        assert!(tracker.take(&store).is_none());
+        assert!(tracker.unread(4));
+        // Read: among the tasks, no longer unread.
+        let _ = tracker.read(OFFICE, Ok(vec![listed(A, "working", None)]), &one, 2, 1);
+        let read = tracker.take(&store).unwrap();
+        assert_eq!((read.tasks.len(), read.unread.len()), (1, 0));
+        assert!(!tracker.unread(4));
+        // Another joins: published at once, unread beside the one read.
+        let two = vec![
+            watched(4, OFFICE, A, Some(0)),
+            watched(5, OFFICE, B, Some(0)),
+        ];
+        tracker.watching(&two);
+        let both = tracker.take(&store).unwrap();
+        both.check().unwrap();
+        assert_eq!((both.tasks.len(), both.unread.clone()), (1, vec![5]));
+        // Both leave the watch: gone from both.
+        tracker.watching(&[]);
+        let none = tracker.take(&store).unwrap();
+        assert!(none.tasks.is_empty() && none.unread.is_empty());
     }
 
     #[test]

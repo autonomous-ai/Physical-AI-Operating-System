@@ -1234,6 +1234,7 @@ mod tests {
         TaskStatus {
             store_id: store.into(),
             run: RUN,
+            unread: vec![],
             tasks: vec![lamp_msgs::TaskProgress {
                 task: 3,
                 engine: "claude".into(),

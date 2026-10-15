@@ -35,6 +35,8 @@ struct Counts {
     listings: AtomicUsize,
     /// What `ps` lists next: the agent's progress line.
     about: Mutex<Option<String>>,
+    /// `ps` fails while set.
+    ps_fails: AtomicBool,
 }
 struct Script {
     counts: Arc<Counts>,
@@ -73,6 +75,9 @@ impl Adapter for Script {
     fn status(&self, machine: &str) -> Result<Vec<Listed>, String> {
         self.counts.listings.fetch_add(1, Ordering::SeqCst);
         assert_eq!(machine, "0123456789abcdef0123456789abcdef");
+        if self.counts.ps_fails.load(Ordering::SeqCst) {
+            return Err("timeout".into());
+        }
         Ok(vec![Listed {
             agent_id: AGENT.into(),
             state: "working".into(),
@@ -581,6 +586,49 @@ fn with_progress_a_value_from_the_start_each_task_read_at_once_then_on_schedule_
         }
     };
     assert!(left.tasks.is_empty(), "{left:?}");
+}
+
+/// The reviewer on #793 (16:46): with every `ps` failing, a task handed
+/// over, and again after a restart of the persisted store, was on the bus
+/// as nothing, and `get_progress` said there was no such task. It is
+/// `unread` on `tasks/status`, and `get_progress` says it has not been read.
+#[test]
+fn a_watched_task_whose_reads_fail_is_unread_not_gone_and_after_a_restart_too() {
+    let mut s = Running::with(false, true);
+    s.counts.ps_fails.store(true, Ordering::SeqCst);
+    let bus = Bus::new(&s.config.bus_root).unwrap();
+    let mut watch = bus
+        .subscribe_typed(TaskStatus::TOPIC, "tasks_test", TaskStatus::TYPE)
+        .unwrap();
+    let prepared = s.prepare();
+    assert_eq!(s.trusted(s.confirmation(&prepared))["ok"], true);
+    let id = prepared["id"].as_u64().unwrap();
+    let unread = |watch: &mut lamp_bus::Subscriber| loop {
+        let status = next_status(watch);
+        if status.unread == [id] {
+            break status;
+        }
+    };
+    let first = unread(&mut watch);
+    assert!(first.tasks.is_empty());
+    let asked = s.ask(json!({"op":"get_progress","id":id}));
+    assert_eq!(asked["error"], "not_read", "{asked}");
+    // Restarted, the store kept, reads still failing: unread again.
+    s.stop();
+    s.start();
+    let again = unread(&mut watch);
+    assert!(again.tasks.is_empty() && again.run > first.run);
+    // Reads come back: read, no longer unread.
+    s.counts.ps_fails.store(false, Ordering::SeqCst);
+    s.clock.0.lock().unwrap().monotonic_ms = 30_000;
+    let read = loop {
+        let status = next_status(&mut watch);
+        if !status.tasks.is_empty() {
+            break status;
+        }
+    };
+    assert!(read.unread.is_empty());
+    assert_eq!(read.tasks[0].task, id);
 }
 
 #[test]

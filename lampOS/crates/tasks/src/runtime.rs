@@ -414,6 +414,10 @@ fn owner<C: Clock>(
                 {
                     let answer = match tracker.words(*id) {
                         Some(progress) => engine.identified(json!({"id":id,"progress":progress})),
+                        None if tracker.unread(*id) => Err(EngineError {
+                            code: "not_read",
+                            message: "That task is watched, and its progress has not been read yet.",
+                        }),
                         None => Err(EngineError {
                             code: "not_found",
                             message: "No task with that ID is being read for progress.",
@@ -927,7 +931,10 @@ pub fn serve_with_adapter<C: Clock, A: Adapter>(
                 last_ready = Some(ready);
             }
         }
-        if owner.is_finished() || cli.is_finished() {
+        // A worker that ended because the service was asked to stop has
+        // not failed: the stop can come between this loop's check and
+        // here. One that failed on its own still says so when joined.
+        if !stop.load(Ordering::Acquire) && (owner.is_finished() || cli.is_finished()) {
             failure = Some(io::Error::other("Tasks worker stopped"));
         }
         if failure.is_some() {

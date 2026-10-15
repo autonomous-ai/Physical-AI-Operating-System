@@ -150,6 +150,7 @@ fn main() -> io::Result<()> {
     let work = |changes: u32| TaskStatus {
         store_id: STORE.into(),
         run: 1,
+        unread: vec![],
         tasks: vec![TaskProgress {
             task: 3,
             engine: "claude".into(),

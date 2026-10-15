@@ -1244,6 +1244,13 @@ mod tests {
         }
         let _ = std::fs::remove_dir_all(&directory);
     }
+
+    /// How long a test waits for its fake tasks part to answer, or for a line
+    /// it sent. A fixture's progress bound, not a latency: on a loaded Mac
+    /// (2026-10-15) a peer thread missed 2 s. Production's own bounds, such as
+    /// `FIRST_READ` and the deadline the provider worker passes, are unchanged.
+    const PEER_WAIT: Duration = Duration::from_secs(10);
+
     #[test]
     fn a_yes_counts_only_when_heard_after_the_task_and_soon() {
         let at = Instant::now();
@@ -1399,7 +1406,7 @@ mod tests {
             name: name.into(),
             args,
         };
-        let deadline = Duration::from_secs(2);
+        let deadline = PEER_WAIT;
         let (told, answered) = run(
             &place,
             &call(START, json!({"task":"Write hello.txt"})),
@@ -1595,7 +1602,7 @@ mod tests {
                 ),
             ],
         );
-        let (told_model, answered) = check(&place, None, &told, Duration::from_secs(2));
+        let (told_model, answered) = check(&place, None, &told, PEER_WAIT);
         assert!(answered);
         assert_eq!(told_model["who"], "Claude Code");
         assert_eq!(told_model["state"], "idle");
@@ -1651,7 +1658,7 @@ mod tests {
                 ),
             ],
         );
-        let (answered, ok) = check(&place, None, told, Duration::from_secs(2));
+        let (answered, ok) = check(&place, None, told, PEER_WAIT);
         assert!(ok, "{answered}");
         answered
     }
@@ -1847,7 +1854,7 @@ mod tests {
             name: name.into(),
             args,
         };
-        let deadline = Duration::from_secs(2);
+        let deadline = PEER_WAIT;
         let calls = [(call(START, start), 3), (call(CONFIRM, json!({})), 4)];
         let told: Vec<Value> = calls
             .iter()
@@ -1859,7 +1866,7 @@ mod tests {
             .collect();
         let sent = (0..4)
             .map(|_| {
-                let mut line = seen.recv_timeout(Duration::from_secs(2)).unwrap();
+                let mut line = seen.recv_timeout(PEER_WAIT).unwrap();
                 if let Some(guard) = line.get_mut("guard").and_then(Value::as_object_mut) {
                     assert!(guard.remove("request_id").is_some());
                 }
@@ -2307,7 +2314,7 @@ mod tests {
             name: CHECK.into(),
             args: json!({"who":who}),
         };
-        let deadline = Duration::from_secs(2);
+        let deadline = PEER_WAIT;
         let (told, answered) = run_for(&on, &two(), &call("codecs"), 5, true, deadline);
         assert!(answered);
         assert_eq!(told["who"], "Codex");
@@ -2343,9 +2350,9 @@ mod tests {
             ],
         );
         let socket = directory.join("request.sock");
-        read_staff(&socket, Duration::from_secs(2));
+        read_staff(&socket, PEER_WAIT);
         assert_eq!(seen.recv().unwrap(), json!({"op":"targets"}));
-        read_staff(&socket, Duration::from_secs(2));
+        read_staff(&socket, PEER_WAIT);
         assert_eq!(seen.recv().unwrap(), json!({"op":"targets"}));
         let on = place(&directory, true);
         let told = tools(&on);

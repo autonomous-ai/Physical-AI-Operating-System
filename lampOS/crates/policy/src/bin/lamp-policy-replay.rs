@@ -8,19 +8,21 @@ use lamp_policy::{
 use std::{
     collections::{BTreeMap, BTreeSet},
     io::{self, Write},
-    path::PathBuf,
+    path::{Path, PathBuf},
     process::ExitCode,
     thread,
     time::Duration,
 };
 
-const USAGE: &str = "usage: lamp-policy-replay --key-file ABSOLUTE_PATH --log-dir ABSOLUTE_DIR --days YYYY-MM-DD[,YYYY-MM-DD...] --models NAME[,NAME...] [--labels ABSOLUTE_FILE] [--only-labelled] [--endpoint URL] [--deadline-ms 10000] [--pace-ms 500] [--most N]\n       lamp-policy-replay --again ABSOLUTE_FILE --labels ABSOLUTE_FILE";
+const USAGE: &str = "usage: lamp-policy-replay --key-file ABSOLUTE_PATH --log-dir ABSOLUTE_DIR --days YYYY-MM-DD[,YYYY-MM-DD...] --models NAME[,NAME...] [--labels ABSOLUTE_FILE] [--only-labelled] [--endpoint URL] [--deadline-ms 10000] [--pace-ms 500] [--most N]\n       lamp-policy-replay --again ABSOLUTE_FILE --labels ABSOLUTE_FILE\n       lamp-policy-replay --pictures --log-dir ABSOLUTE_DIR --days YYYY-MM-DD[,...] [--labels ABSOLUTE_FILE]";
 const HELP: &str = "Asks each attention decision in the decisions logs of the days given again, of each\n\
 model given in turn (at most four), as it was asked on the day, and prints one line per\n\
 decision and a summary: each model's choice, probability and time, and the kinds of what\n\
 was heard (words, the lamp named, another language), never the words. --labels gives what\n\
 should have happened, one JSON line each: {\"at_unix_ms\": N, \"should\": \"answer\"|\"stay_quiet\"}.\n\
 --again counts an earlier run's printed lines again with --labels, and asks nothing.\n\
+--pictures counts the lines lamp-policy --images wrote (pictures-YYYY-MM-DD.jsonl), a label\n\
+taken for the line nearest it within 3 s, and asks nothing.\n\
 What was heard is sent to the decision model's service again, as on the day.";
 
 #[derive(Debug, PartialEq)]
@@ -30,6 +32,12 @@ enum Run {
     Again {
         lines: PathBuf,
         labels: PathBuf,
+    },
+    /// The picture lines of these days, counted (#871).
+    Pictures {
+        log: PathBuf,
+        days: Vec<String>,
+        labels: Option<PathBuf>,
     },
 }
 
@@ -77,6 +85,7 @@ fn parse(args: impl Iterator<Item = String>) -> Result<Option<Run>, String> {
     let mut args = args;
     let (mut key, mut log, mut days, mut models, mut labels) = (None, None, None, None, None);
     let mut again = None;
+    let mut pictures = false;
     let mut only_labelled = false;
     let mut endpoint = DEFAULT_ENDPOINT.to_owned();
     let (mut deadline, mut pace, mut most) = (10_000, 500, None);
@@ -90,6 +99,10 @@ fn parse(args: impl Iterator<Item = String>) -> Result<Option<Run>, String> {
         }
         if option == "--only-labelled" {
             only_labelled = true;
+            continue;
+        }
+        if option == "--pictures" {
+            pictures = true;
             continue;
         }
         let value = args.next().ok_or(format!("{option} needs a value"))?;
@@ -123,6 +136,16 @@ fn parse(args: impl Iterator<Item = String>) -> Result<Option<Run>, String> {
             _ => return Err(format!("{option} is not an option")),
         }
     }
+    if pictures {
+        if key.is_some() || models.is_some() || again.is_some() || only_labelled {
+            return Err("--pictures takes --log-dir, --days and --labels only".into());
+        }
+        return Ok(Some(Run::Pictures {
+            log: log.ok_or("--log-dir is required")?,
+            days: days.ok_or("--days is required")?,
+            labels,
+        }));
+    }
     if let Some(lines) = again {
         if seen.len() != 2 {
             return Err("--again takes --labels and nothing else".into());
@@ -145,6 +168,16 @@ fn parse(args: impl Iterator<Item = String>) -> Result<Option<Run>, String> {
         pace: Duration::from_millis(pace),
         most,
     })))
+}
+
+fn pictures(log: &Path, days: &[String], labels: Option<&PathBuf>) -> io::Result<()> {
+    let labels = match labels {
+        Some(path) => replay::labels(&std::fs::read_to_string(path)?).map_err(io::Error::other)?,
+        None => BTreeMap::new(),
+    };
+    let lines = replay::read_pictures(log, days)?;
+    println!("{}", replay::pictures_summary(&lines, &labels));
+    Ok(())
 }
 
 fn again(lines: &PathBuf, labels: &PathBuf) -> io::Result<()> {
@@ -214,6 +247,7 @@ fn main() -> ExitCode {
         Ok(Some(chosen)) => match match &chosen {
             Run::Ask(arguments) => run(arguments),
             Run::Again { lines, labels } => again(lines, labels),
+            Run::Pictures { log, days, labels } => pictures(log, days, labels.as_ref()),
         } {
             Ok(()) => ExitCode::SUCCESS,
             Err(error) => {
@@ -235,7 +269,7 @@ mod tests {
     fn of(line: &str) -> Result<Option<Arguments>, String> {
         match parse(line.split_whitespace().map(str::to_owned))? {
             Some(Run::Ask(arguments)) => Ok(Some(arguments)),
-            Some(Run::Again { .. }) => Err("again".into()),
+            Some(Run::Again { .. } | Run::Pictures { .. }) => Err("another run".into()),
             None => Ok(None),
         }
     }
@@ -270,7 +304,25 @@ mod tests {
                 labels: "/l".into()
             })
         );
-        for refused in ["--again /r", "--again /r --labels /l --days 2026-10-15"] {
+        assert_eq!(
+            parse(
+                "--pictures --log-dir /d --days 2026-10-15"
+                    .split_whitespace()
+                    .map(str::to_owned)
+            )
+            .unwrap(),
+            Some(Run::Pictures {
+                log: "/d".into(),
+                days: vec!["2026-10-15".into()],
+                labels: None
+            })
+        );
+        for refused in [
+            "--again /r",
+            "--again /r --labels /l --days 2026-10-15",
+            "--pictures --log-dir /d --days 2026-10-15 --models m",
+            "--pictures --days 2026-10-15",
+        ] {
             assert!(
                 parse(refused.split_whitespace().map(str::to_owned)).is_err(),
                 "{refused}"

@@ -21,6 +21,7 @@ use crate::{
     gather::{Gather, Lamp, Utterance},
     hello::{self, Hello},
     outcome::{Begun, Watch},
+    pictures::{self, Pictures},
     progress::{self, Progress},
     record::Record,
 };
@@ -759,6 +760,8 @@ struct Policy<'a> {
     hello: Option<Hello>,
     /// Skills' asks of an act not judged here yet, to be answered `wait`.
     not_judged: Vec<u64>,
+    /// The picture's askings (`--images`, #871), if started.
+    pictures: Option<Pictures>,
 }
 
 impl Policy<'_> {
@@ -834,7 +837,17 @@ impl Policy<'_> {
                 self.asker.states.try_send(Ask::About(state))
             };
             match sent {
-                Ok(()) => self.asking = Some((waiting, now)),
+                Ok(()) => {
+                    // The picture's askings, if they are free: never waited for.
+                    if let Some(pictures) = &self.pictures {
+                        pictures.offer(pictures::Job {
+                            context: waiting.context.clone(),
+                            seen: waiting.seen,
+                            sent_at_unix_ms: unix_ms(),
+                        });
+                    }
+                    self.asking = Some((waiting, now));
+                }
                 // The thread has not come back for its next question yet.
                 Err(mpsc::TrySendError::Full(_)) => {
                     self.waiting.push_front(waiting);
@@ -1407,7 +1420,7 @@ pub fn run<D: Decider + Send + 'static>(
     stop: &AtomicBool,
     say: &mut dyn FnMut(Note),
 ) -> io::Result<Totals> {
-    run_inner(bus, decider, options, stop, say, None, (None, None))
+    run_inner(bus, decider, options, stop, say, None, Beside::default())
 }
 
 /// [`run`], and beside it the progress question ([`crate::progress`]):
@@ -1429,14 +1442,16 @@ where
     P: Decider + Send + 'static,
 {
     let progress = Progress::start(progress_decider, progress)?;
-    run_inner(
+    run_beside(
         bus,
         decider,
         options,
         stop,
         say,
-        None,
-        (Some(progress), None),
+        Beside {
+            progress: Some(progress),
+            ..Beside::default()
+        },
     )
 }
 
@@ -1454,7 +1469,42 @@ pub fn run_with_questions<D: Decider + Send + 'static>(
     progress: Option<Progress>,
     hello: Option<Hello>,
 ) -> io::Result<Totals> {
-    run_inner(bus, decider, options, stop, say, None, (progress, hello))
+    run_beside(
+        bus,
+        decider,
+        options,
+        stop,
+        say,
+        Beside {
+            progress,
+            hello,
+            pictures: None,
+        },
+    )
+}
+
+/// What may run beside the attention question, each only if given: the
+/// questions that may speak first, and the picture's askings
+/// ([`crate::pictures`], #871), which each attention question is also
+/// handed to as it is sent, if they are free, and which write their own
+/// lines. Shadow: the decision never waits for them.
+#[derive(Default)]
+pub struct Beside {
+    pub progress: Option<Progress>,
+    pub hello: Option<Hello>,
+    pub pictures: Option<Pictures>,
+}
+
+/// [`run`], with whatever [`Beside`] gives. With nothing, it is [`run`].
+pub fn run_beside<D: Decider + Send + 'static>(
+    bus: &Bus,
+    decider: D,
+    options: &Options,
+    stop: &AtomicBool,
+    say: &mut dyn FnMut(Note),
+    beside: Beside,
+) -> io::Result<Totals> {
+    run_inner(bus, decider, options, stop, say, None, beside)
 }
 
 /// The separate, explicitly enabled second-judge path. It is always shadow.
@@ -1467,7 +1517,15 @@ pub fn run_with_local<D: Decider + Send + 'static>(
     local: judges::Options,
 ) -> io::Result<Totals> {
     local.validate()?;
-    run_inner(bus, decider, options, stop, say, Some(local), (None, None))
+    run_inner(
+        bus,
+        decider,
+        options,
+        stop,
+        say,
+        Some(local),
+        Beside::default(),
+    )
 }
 
 fn run_inner<D: Decider + Send + 'static>(
@@ -1477,9 +1535,13 @@ fn run_inner<D: Decider + Send + 'static>(
     stop: &AtomicBool,
     say: &mut dyn FnMut(Note),
     local: Option<judges::Options>,
-    // The questions that may speak first, each if given.
-    (progress, hello): (Option<Progress>, Option<Hello>),
+    beside: Beside,
 ) -> io::Result<Totals> {
+    let Beside {
+        progress,
+        hello,
+        pictures,
+    } = beside;
     let mut heard = Ear::new(bus, HEARD, Speech::TYPE)?;
     let mut said = Ear::new(bus, SAID, Speech::TYPE)?;
     let mut voice = Ear::new(bus, VoiceState::TOPIC, VoiceState::TYPE)?;
@@ -1549,6 +1611,7 @@ fn run_inner<D: Decider + Send + 'static>(
         attention_shadow: SHADOW && !options.act_attention,
         hello,
         not_judged: Vec::new(),
+        pictures,
     };
     policy.second();
     if let Some(judges) = policy.judges.take() {

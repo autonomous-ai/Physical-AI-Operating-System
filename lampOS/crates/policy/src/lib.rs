@@ -41,6 +41,7 @@ pub mod gather;
 pub mod hello;
 pub mod moment;
 pub mod outcome;
+pub mod pictures;
 pub mod policy;
 pub mod progress;
 pub mod record;

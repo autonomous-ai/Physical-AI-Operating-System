@@ -320,3 +320,56 @@ fn an_earlier_run_is_counted_again_with_labels() {
     );
     assert!(relabelled("{\"status\": \"other\"}", &labels).is_err());
 }
+
+/// The picture lines counted: sent or why not, the two askings, and each
+/// sign beside the eyes' own, a label taken for the nearest line within 3 s.
+#[test]
+fn the_picture_lines_are_counted_against_labels_by_the_nearest_moment() {
+    let sent = |at: u64, without: &str, with: &str, faces: f64, facing: u64| {
+        json!({"at_unix_ms": at, "about": "attention_picture",
+               "picture": {"sent": true, "width": 640, "height": 480},
+               "seen": {"faces": 1, "near": 1, "facing": facing, "age_ms": 40},
+               "without": {"choice": without, "took_ms": 600},
+               "with": {"choice": with, "took_ms": 1_400,
+                        "answers": {"picture_faces_lamp": faces, "picture_away": 0.1}}})
+    };
+    let lines = [
+        // A named request at the lamp: the picture's asking got it right.
+        sent(10_000, "stay_quiet", "answer", 0.9, 1),
+        // Two people talking: both left it.
+        sent(20_000, "stay_quiet", "stay_quiet", 0.2, 0),
+        json!({"at_unix_ms": 30_000, "about": "attention_picture",
+               "picture": {"sent": false, "why_not": "no_frame"}}),
+        // Nobody labelled this one.
+        sent(90_000, "answer", "answer", 0.9, 1),
+    ];
+    let labels = labels(
+        "{\"at_unix_ms\": 11500, \"should\": \"answer\"}\n{\"at_unix_ms\": 19000, \"should\": \"stay_quiet\"}\n{\"at_unix_ms\": 50000, \"should\": \"answer\"}",
+    )
+    .unwrap();
+    let summary = pictures_summary(&lines, &labels);
+    assert_eq!(summary["questions"], 4);
+    assert_eq!(summary["picture_sent"], 3);
+    assert_eq!(summary["why_not"], json!({"no_frame": 1}));
+    assert_eq!(
+        summary["without"]["right"],
+        json!({"labelled": 2, "right": 1})
+    );
+    assert_eq!(summary["with"]["right"], json!({"labelled": 2, "right": 2}));
+    assert_eq!(
+        summary["with"]["took_ms"],
+        json!({"p50": 1400, "p95": 1400, "max": 1400})
+    );
+    assert_eq!(
+        summary["signs"]["picture_faces_lamp"],
+        json!({"labelled": 2, "right": 2, "yes": 1})
+    );
+    assert_eq!(
+        summary["signs"]["eyes_facing"],
+        json!({"labelled": 2, "right": 2, "yes": 1})
+    );
+    assert_eq!(
+        summary["signs"]["picture_away"],
+        json!({"labelled": 2, "right": 1, "yes": 0})
+    );
+}

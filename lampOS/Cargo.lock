@@ -1957,6 +1957,7 @@ version = "0.1.0"
 dependencies = [
  "base64 0.22.1",
  "httparse",
+ "jpeg-encoder",
  "lamp-bus",
  "lamp-ipc",
  "lamp-local-time",
@@ -1965,6 +1966,7 @@ dependencies = [
  "serde",
  "serde_json",
  "webpki-roots 1.0.9",
+ "zune-jpeg",
 ]
 
 [[package]]

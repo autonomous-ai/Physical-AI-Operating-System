@@ -26,6 +26,10 @@ webpki-roots = "1"
 # A picture sent with a question, as TypeSafe takes it (#871). The same
 # version as lamp-update's.
 base64 = "0.22"
+# The eyes' frame made as large as TypeSafe takes a picture (#871): decoded
+# as the eyes decode it, and encoded again.
+zune-jpeg = "=0.4.21"
+jpeg-encoder = "=0.7.1"
 lamp-bus = { path = "../bus" }
 lamp-msgs = { path = "../msgs" }
 # The hour of the day across daylight saving (#820).

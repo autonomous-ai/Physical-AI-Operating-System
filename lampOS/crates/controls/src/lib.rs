@@ -13,6 +13,7 @@ pub mod replay;
 pub mod runtime;
 pub mod strip_worker;
 pub mod touch;
+pub mod touch_calibrate;
 pub mod touch_pins;
 pub mod touch_receiver;
 pub mod touch_replay;

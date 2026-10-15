@@ -49,7 +49,7 @@ impl DeviceClaim {
     }
 
     #[cfg(target_os = "linux")]
-    fn acquire(config: &mpr121::Config) -> io::Result<Self> {
+    pub(crate) fn acquire(config: &mpr121::Config) -> io::Result<Self> {
         Self::at(Path::new(&format!(
             "/run/lock/lamp-controls-mpr121-{}-{:02x}.lock",
             config.bus, config.address

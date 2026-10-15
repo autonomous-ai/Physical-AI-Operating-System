@@ -1016,3 +1016,72 @@ fn linux_open_checks_configuration_before_opening_device() {
     let error = lamp_controls::mpr121::LinuxIo::open(&config).err().unwrap();
     assert_eq!(error.kind(), io::ErrorKind::InvalidInput);
 }
+
+#[test]
+fn signals_read_every_electrode_filtered_and_baseline_after_the_checked_mask() {
+    let (io, mut device) = device();
+    {
+        let mut rig = io.0.borrow_mut();
+        // E0 touched: filtered 0x2a5, baseline byte 0xac = 0x2b0, delta 11.
+        rig.registers[0x00] = 0x01;
+        rig.registers[0x04] = 0xa5;
+        rig.registers[0x05] = 0x02;
+        rig.registers[0x1e] = 0xac;
+        // E11: the high byte keeps only its two data bits.
+        rig.registers[0x04 + 22] = 0x10;
+        rig.registers[0x04 + 23] = 0xff;
+        rig.registers[0x1e + 11] = 0x40;
+        rig.events.clear();
+    }
+    let signals = device.read_signals().unwrap();
+    assert_eq!(signals.touched, 1);
+    assert_eq!(signals.filtered[0], 0x2a5);
+    assert_eq!(signals.baseline[0], 0x2b0);
+    assert_eq!(signals.delta(0), 11);
+    assert_eq!(signals.filtered[11], 0x310);
+    assert_eq!(signals.baseline[11], 0x100);
+    assert_eq!(signals.delta(11), 0x100 - 0x310);
+    // The same checks as a served read, then one more transfer of 39 bytes.
+    assert_eq!(
+        io.0.borrow().events,
+        [
+            Event::Read(0, 4),
+            Event::Read(0x2b, 85),
+            Event::Read(0, 4),
+            Event::Read(0x5e, 1),
+            Event::Read(0x04, 39),
+        ]
+    );
+}
+
+#[test]
+fn signals_share_the_served_reads_faults_and_stay_unavailable_after_one() {
+    let (io, mut device) = device();
+    io.0.borrow_mut().registers[0x01] = 0x80;
+    assert!(matches!(device.read_signals(), Err(Error::OverCurrent)));
+    io.0.borrow_mut().registers[0x01] = 0;
+    assert!(matches!(device.read_signals(), Err(Error::Unavailable)));
+    assert!(matches!(device.charge(), Err(Error::Unavailable)));
+
+    let (io, mut second) = self::device();
+    io.0.borrow_mut().operations = 0;
+    io.0.borrow_mut().fail_at = Some(5);
+    assert!(matches!(second.read_signals(), Err(Error::Io(_))));
+    assert!(matches!(second.read(), Err(Error::Unavailable)));
+}
+
+#[test]
+fn charge_reads_what_auto_configuration_left_per_electrode() {
+    let (io, mut device) = device();
+    {
+        let mut rig = io.0.borrow_mut();
+        rig.registers[0x5f + 3] = 40;
+        // 0x6e holds E4 in its low nibble and E5 in its high one.
+        rig.registers[0x6e] = 0x63;
+        rig.events.clear();
+    }
+    let charge = device.charge().unwrap();
+    assert_eq!(charge.cdc, [53, 57, 55, 40, 31, 50, 49, 42, 31, 41, 46, 47]);
+    assert_eq!(charge.cdt, [1, 1, 1, 1, 3, 6, 1, 1, 1, 1, 1, 1]);
+    assert_eq!(io.0.borrow().events, [Event::Read(0x5f, 19)]);
+}

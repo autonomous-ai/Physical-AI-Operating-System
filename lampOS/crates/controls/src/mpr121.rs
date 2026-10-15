@@ -6,6 +6,12 @@ use serde::{Deserialize, Serialize};
 use std::{fmt, io, time::Duration};
 
 const STATUS: u8 = 0x00;
+/// Filtered data, two bytes per electrode (10 bits, low byte first), then one
+/// baseline byte per electrode (its upper 8 of 10 bits), ending at 0x2a.
+const FILTERED: u8 = 0x04;
+const SIGNALS_LEN: usize = 0x2b - FILTERED as usize;
+const CDC: u8 = 0x5f;
+const CHARGE_LEN: usize = 0x72 - CDC as usize;
 const CONFIG_START: u8 = 0x2b;
 const CONFIG_END: u8 = 0x7f;
 const CONFIG_LEN: usize = (CONFIG_END - CONFIG_START + 1) as usize;
@@ -275,6 +281,45 @@ impl Profile {
     }
 }
 
+/// One reading of what the chip compares with its thresholds, for every
+/// electrode: the 10-bit filtered signal and the 10-bit baseline. A finger
+/// lowers the signal, so `baseline - filtered` (the delta) rises with touch.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
+pub struct Signals {
+    pub touched: u16,
+    pub filtered: [u16; 12],
+    pub baseline: [u16; 12],
+}
+
+impl Signals {
+    pub fn delta(&self, electrode: usize) -> i32 {
+        i32::from(self.baseline[electrode]) - i32::from(self.filtered[electrode])
+    }
+
+    fn parse(touched: u16, bytes: &[u8; SIGNALS_LEN]) -> Self {
+        let mut filtered = [0; 12];
+        let mut baseline = [0; 12];
+        for electrode in 0..12 {
+            filtered[electrode] =
+                u16::from_le_bytes([bytes[2 * electrode], bytes[2 * electrode + 1]]) & 0x3ff;
+            baseline[electrode] = u16::from(bytes[26 + electrode]) << 2;
+        }
+        Self {
+            touched,
+            filtered,
+            baseline,
+        }
+    }
+}
+
+/// The charge current (µA) and time code each electrode uses now, as
+/// auto-configuration left them. Zero means it inherits the global value.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
+pub struct Charge {
+    pub cdc: [u8; 12],
+    pub cdt: [u8; 12],
+}
+
 /// Implementations must fill the complete read buffer or return an error, and
 /// must report short transfers as errors. The maximum requested read is 85B.
 pub trait RegisterIo {
@@ -432,6 +477,45 @@ impl<T: RegisterIo> Device<T> {
             self.failed = true;
         }
         result
+    }
+
+    /// The touch mask with every electrode's signal and baseline, checked like
+    /// [`Self::read`]. For calibration only: the served path reads the mask.
+    pub fn read_signals(&mut self) -> Result<Signals, Error> {
+        if self.failed {
+            return Err(Error::Unavailable);
+        }
+        let result = self.read_validated().and_then(|touched| {
+            let mut bytes = [0; SIGNALS_LEN];
+            self.io.read(FILTERED, &mut bytes)?;
+            Ok(Signals::parse(touched, &bytes))
+        });
+        if result.is_err() {
+            self.failed = true;
+        }
+        result
+    }
+
+    /// The per-electrode charge settings the chip holds now.
+    pub fn charge(&mut self) -> Result<Charge, Error> {
+        if self.failed {
+            return Err(Error::Unavailable);
+        }
+        let mut bytes = [0; CHARGE_LEN];
+        if let Err(error) = self.io.read(CDC, &mut bytes) {
+            self.failed = true;
+            return Err(error.into());
+        }
+        let mut charge = Charge {
+            cdc: [0; 12],
+            cdt: [0; 12],
+        };
+        for electrode in 0..12 {
+            charge.cdc[electrode] = bytes[electrode] & 0x3f;
+            let pair = bytes[usize::from(0x6c - CDC) + electrode / 2];
+            charge.cdt[electrode] = if electrode % 2 == 0 { pair } else { pair >> 4 } & 0x07;
+        }
+        Ok(charge)
     }
 
     fn read_validated(&mut self) -> Result<u16, Error> {

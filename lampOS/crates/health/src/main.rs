@@ -14,7 +14,7 @@
 
 use lamp_bus::Bus;
 use lamp_health::{
-    board::Places,
+    board::{ClockSource, Places},
     parts,
     serve::{self, DEFAULT_STALE_AFTER, Options, Times},
     show,
@@ -27,7 +27,7 @@ use std::{
     time::Duration,
 };
 
-const USAGE: &str = "usage: lamp-health serve [--bus-root ABSOLUTE_DIR] [--expect NAME]... [--stale-ms N] [--judge-zone BEGINNING]... [--proc DIR] [--sys DIR] [--run DIR] [--disk PATH]\n       lamp-health [show] [--bus-root ABSOLUTE_DIR] [--json]\n       lamp-health --help";
+const USAGE: &str = "usage: lamp-health serve [--bus-root ABSOLUTE_DIR] [--expect NAME]... [--stale-ms N] [--judge-zone BEGINNING]... [--proc DIR] [--sys DIR] [--run DIR] [--disk PATH] [--clock timesync|kernel]\n       lamp-health [show] [--bus-root ABSOLUTE_DIR] [--json]\n       lamp-health --help";
 const HELP: &str = "How the lamp is. See docs/health.md.
 
 serve: listens to every part's report on the bus (diagnostics), reads the board, and
@@ -95,6 +95,7 @@ fn parse_serve(mut arguments: impl Iterator<Item = String>) -> Result<Command, S
     let (mut proc, mut sys, mut run, mut disk) = (None, None, None, None);
     let mut expected: Vec<String> = Vec::new();
     let mut judged: Vec<String> = Vec::new();
+    let mut clock = None;
     while let Some(option) = arguments.next() {
         if option == "--help" || option == "-h" {
             return Ok(Command::Help);
@@ -140,6 +141,13 @@ fn parse_serve(mut arguments: impl Iterator<Item = String>) -> Result<Command, S
                 expected.push(value);
                 false
             }
+            "--clock" => clock
+                .replace(
+                    value
+                        .parse::<ClockSource>()
+                        .map_err(|()| "--clock is timesync or kernel")?,
+                )
+                .is_some(),
             "--stale-ms" => {
                 let milliseconds = value
                     .parse::<u64>()
@@ -167,6 +175,7 @@ fn parse_serve(mut arguments: impl Iterator<Item = String>) -> Result<Command, S
             run: run.unwrap_or(places.run),
             disk: disk.unwrap_or(places.disk),
             judged,
+            clock: clock.unwrap_or(places.clock),
         },
     }))
 }
@@ -326,7 +335,7 @@ mod tests {
         assert_eq!(
             serving(
                 "serve --bus-root /run/lampos-bus --expect voice --stale-ms 8000 --proc /p \
-                 --judge-zone cpu --expect body --sys /s --run /r --disk /var --judge-zone skin"
+                 --judge-zone cpu --expect body --sys /s --run /r --disk /var --judge-zone skin --clock kernel"
             ),
             ServeArguments {
                 bus: Some("/run/lampos-bus".into()),
@@ -338,6 +347,7 @@ mod tests {
                     run: "/r".into(),
                     disk: "/var".into(),
                     judged: vec!["cpu".into(), "skin".into()],
+                    clock: ClockSource::Kernel,
                 },
             }
         );
@@ -353,9 +363,12 @@ mod tests {
                     run: "/run".into(),
                     disk: "/".into(),
                     judged: Vec::new(),
+                    clock: ClockSource::Timesync,
                 },
             }
         );
+        assert!(of("serve --clock ntp").is_err());
+        assert!(of("serve --clock kernel --clock kernel").is_err());
         assert_eq!(
             serving("serve --stale-ms 100").stale_after,
             Duration::from_millis(100)

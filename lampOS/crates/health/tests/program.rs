@@ -694,7 +694,7 @@ fn wrong_arguments_print_the_usage_and_end_with_2_for_serve_and_64_for_show() {
             .output()
             .unwrap()
     };
-    let usage = "\nusage: lamp-health serve [--bus-root ABSOLUTE_DIR] [--expect NAME]... [--stale-ms N] [--judge-zone BEGINNING]... [--proc DIR] [--sys DIR] [--run DIR] [--disk PATH]\n       lamp-health [show] [--bus-root ABSOLUTE_DIR] [--json]\n       lamp-health --help\n";
+    let usage = "\nusage: lamp-health serve [--bus-root ABSOLUTE_DIR] [--expect NAME]... [--stale-ms N] [--judge-zone BEGINNING]... [--proc DIR] [--sys DIR] [--run DIR] [--disk PATH] [--clock timesync|kernel]\n       lamp-health [show] [--bus-root ABSOLUTE_DIR] [--json]\n       lamp-health --help\n";
     for (arguments, ends) in [
         (&["serve", "--bus-root", "relative"][..], 2),
         (&["serve", "--stale-ms", "99"], 2),

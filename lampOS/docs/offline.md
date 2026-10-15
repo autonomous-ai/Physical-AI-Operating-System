@@ -108,6 +108,16 @@ covers the link as before (`crates/voice/src/session_lifetime.rs`, tests
 Kind: off unless set. Not yet shown on a host with its network cut or on a
 lamp.
 
+## Step 2: the board knows when its clock is set (`lamp-health --clock kernel`)
+
+`lamp-health serve --clock kernel` reads `clock_synced` from the kernel
+(`adjtimex`, as `timedatectl`'s `NTPSynchronized`), so it is known on a
+board with no timesyncd; timesyncd's marker is still believed first. On
+lamp-75c9 (2026-10-16) the clock is kept by chrony, there is no
+`/run/systemd/timesync`, and `timedatectl` says `NTPSynchronized=yes`.
+Kind: off unless set (`timesync`, the default, reads as before). Next:
+schedule, Expression's night and the voice's time read it from the bus.
+
 ## What steps 2 to 4 will build
 
 - A part that watches reachability from the links' own state first (the

@@ -293,8 +293,16 @@ and its authority kept fresh during the rest of startup.
 - **At rest** (no turn in flight, nothing queued): to the second route
   while Gemini is not Ready and has not ended; back to Gemini, silently, on
   the first idle tick its link is Ready again or has ended (so Gemini's end
-  still ends the service). At startup the second route is taken until
-  Gemini's first Ready.
+  still ends the service).
+- **At startup**, before Gemini's first Ready of this voice process, the
+  second route only stands in (that swap and the swap back are not
+  recorded): a request admitted on it is held, nothing of it sent, for up
+  to `STARTUP_HOLD_US` (3 s, lampOS#779). If Gemini's link is Ready in that
+  time the turn is rebound to Gemini's session and its whole line goes
+  there; if not, or once Gemini's link has ended, the second route is given
+  the whole line, as a switch. One hold only: a request after that goes as
+  at rest. After Gemini's first Ready nothing is held and an outage
+  switches at once, as above.
 - **Mid-turn**, while Gemini is active, nothing of its answer was heard and
   the line was kept whole: a `TurnFailed` of that turn, or a link change
   during the line (the request is marked `movable`, so the gate leaves it
@@ -314,7 +322,8 @@ and its authority kept fresh during the rest of startup.
   intercepts (the send site, the output receipt, the gate's `movable`) are
   the old calls, and nothing else changes.
 - Trace: `voice_route_switched` (`to`, `why`, `turn`, `replayed_commands`,
-  and the failure's `stage` and `reason`); the standby's startup link
+  and the failure's `stage` and `reason`); `voice_route_held` (`turn`,
+  `held_ms`, `to`: `live` or `second`) when a startup hold ends; the standby's startup link
   record carries `"route":"second"`; an Ended of the standby, `"standby":true`.
 
 ## Not done

@@ -13,6 +13,10 @@
 //! - At rest, to the second route while Gemini's link is not Ready (and has
 //!   not ended for good: Gemini's end still ends the service), and back to
 //!   Gemini, silently, on the first idle tick its link is Ready again.
+//! - At startup, before Gemini's first Ready, the second route only stands
+//!   in: a request admitted on it is held, for up to [`STARTUP_HOLD_US`],
+//!   and goes to Gemini if its link is Ready by then; only otherwise (or
+//!   when Gemini's link has ended) is the second route given the line.
 //! - Mid-turn, when Gemini fails the turn before any of its answer was
 //!   heard, or its link changes during the line: the line is replayed to
 //!   the second route from [`Line`], a copy of what was sent for it.
@@ -29,6 +33,11 @@ use std::ffi::OsString;
 const MAX_LINE_SAMPLES: usize = 30 * 16_000;
 /// Standby control and output packets taken per coordinator tick.
 const STANDBY_SLICE: usize = 16;
+/// How long a request that begins before Gemini's first Ready of this
+/// process waits for it before the second route is given the line
+/// (lampOS#779: on lamp-4ace Gemini's first Ready came 1.9 s after the
+/// second route's).
+const STARTUP_HOLD_US: u64 = 3_000_000;
 
 /// What was sent to the active Live route for the line in hand.
 #[derive(Default)]
@@ -95,8 +104,15 @@ pub(super) struct Route {
     second_active: bool,
     line: Line,
     /// A line being replayed to the second route, sent before anything
-    /// queued after it.
+    /// queued after it; or, while a request is held, all of it so far.
     replay: VecDeque<ProviderInput>,
+    /// Gemini's link has been Ready in this process.
+    live_was_ready: bool,
+    /// The second route is active only to stand in before Gemini's first
+    /// Ready: a request admitted on it is held, not given to it.
+    stand_in: bool,
+    /// The request held while the second route stands in, and since when.
+    hold: Option<(u64, u64)>,
 }
 
 /// The configuration's path when the variable names one.
@@ -132,6 +148,9 @@ impl Route {
             second_active: false,
             line: Line::default(),
             replay: VecDeque::new(),
+            live_was_ready: false,
+            stand_in: false,
+            hold: None,
         }
     }
 
@@ -233,6 +252,23 @@ impl Route {
             && (!current.cloud.start_submitted || self.line.covers(current.owner.turn()))
     }
 
+    /// A request held while the second route stands in: nothing of it is
+    /// sent until Gemini is Ready or the hold is over.
+    fn holds(&mut self, reply: Option<&Reply>) -> bool {
+        if self.stand_in
+            && self.hold.is_none()
+            && let Some(current) = reply.filter(|current| {
+                !current.cloud.start_submitted
+                    && current.cloud.outcome.is_none()
+                    && current.reminder.is_none()
+            })
+        {
+            self.hold = Some((current.owner.turn(), monotonic_us()));
+        }
+        self.hold
+            .is_some_and(|(turn, _)| reply.is_some_and(|current| current.owner.turn() == turn))
+    }
+
     /// A line goes once it is answered or abandoned, and a replay with
     /// the request it was for.
     fn upkeep(&mut self, reply: Option<&Reply>) {
@@ -309,9 +345,6 @@ fn take_over(
     queue: &mut VecDeque<ProviderInput>,
 ) -> io::Result<usize> {
     swap(provider, cloud, flow, route);
-    let session = cloud
-        .ready_session()
-        .ok_or_else(|| io::Error::other("second route lost its link before a replay"))?;
     let turn = current.owner.turn();
     let sent = if route.line.covers(turn) {
         std::mem::take(&mut route.line.commands)
@@ -321,7 +354,20 @@ fn take_over(
     route.line.clear();
     route.replay = sent.into();
     route.replay.extend(queue.drain(..));
-    for command in &mut route.replay {
+    rebind(cloud, current, &mut route.replay)?;
+    Ok(route.replay.len())
+}
+
+/// The turn in hand and its commands to the active route's session.
+fn rebind(
+    cloud: &CloudAvailability,
+    current: &mut Reply,
+    commands: &mut VecDeque<ProviderInput>,
+) -> io::Result<()> {
+    let session = cloud
+        .ready_session()
+        .ok_or_else(|| io::Error::other("a route lost its link before a replay"))?;
+    for command in commands {
         if let ProviderInput::Start { session: s, .. }
         | ProviderInput::Written { session: s, .. }
         | ProviderInput::Reminder { session: s, .. } = command
@@ -330,7 +376,61 @@ fn take_over(
         }
     }
     current.cloud = CloudRequest::new(session)?;
-    Ok(route.replay.len())
+    Ok(())
+}
+
+/// A held request: to Gemini once its link is Ready; to the second route
+/// once the hold is over or Gemini's link has ended; let go with its turn.
+fn resolve_hold(
+    provider: &mut Worker,
+    cloud: &mut CloudAvailability,
+    flow: &mut OutputReceiver,
+    route: &mut Route,
+    reply: &mut Option<Reply>,
+    queue: &mut VecDeque<ProviderInput>,
+    trace: &mut SessionState,
+) -> Result<()> {
+    let Some((turn, since)) = route.hold else {
+        return Ok(());
+    };
+    let Some(current) = reply.as_mut().filter(|current| {
+        current.owner.turn() == turn
+            && current.cloud.outcome.is_none()
+            && !current.cloud.input_abandoned
+    }) else {
+        route.hold = None;
+        route.replay.clear();
+        return Ok(());
+    };
+    let at = monotonic_us();
+    let held_us = at.saturating_sub(since);
+    let to = if route.cloud.available() {
+        "live"
+    } else if held_us >= STARTUP_HOLD_US || route.cloud.terminal() || route.cloud.output_ended() {
+        "second"
+    } else {
+        return Ok(());
+    };
+    route.hold = None;
+    route.stand_in = false;
+    route.replay.extend(queue.drain(..));
+    if to == "live" {
+        swap(provider, cloud, flow, route);
+        rebind(cloud, current, &mut route.replay)?;
+    }
+    record(
+        trace,
+        json!({"kind":"voice_route_held","at_us":at,"turn":turn,
+        "held_ms":held_us / 1_000,"to":to}),
+    )?;
+    if to == "second" {
+        record(
+            trace,
+            json!({"kind":"voice_route_switched","at_us":at,"to":"second",
+            "why":"live_link_not_ready","turn":turn,"replayed_commands":route.replay.len()}),
+        )?;
+    }
+    Ok(())
 }
 
 /// Once per tick, after the first priority link service: the standby's
@@ -353,6 +453,12 @@ pub(super) fn service(
     };
     route.drain(trace)?;
     route.upkeep(reply.as_ref());
+    resolve_hold(provider, cloud, flow, route, reply, queue, trace)?;
+    route.live_was_ready |= if route.second_active {
+        route.cloud.available()
+    } else {
+        cloud.available()
+    };
     if let Some(current) = reply.as_mut() {
         // The link changed during the line, which the gate left for this.
         let changed = current.cloud.movable
@@ -382,23 +488,29 @@ pub(super) fn service(
         && route.cloud.available()
     {
         swap(provider, cloud, flow, route);
-        record(
-            trace,
-            json!({"kind":"voice_route_switched","at_us":monotonic_us(),"to":"second",
-            "why":"live_link_not_ready","turn":null,"replayed_commands":0}),
-        )?;
+        // Before Gemini's first Ready the second route only stands in.
+        route.stand_in = !route.live_was_ready;
+        if route.live_was_ready {
+            record(
+                trace,
+                json!({"kind":"voice_route_switched","at_us":monotonic_us(),"to":"second",
+                "why":"live_link_not_ready","turn":null,"replayed_commands":0}),
+            )?;
+        }
     } else if route.second_active
         && at_rest
         && reply.is_none()
         && (route.cloud.available() || route.cloud.terminal() || route.cloud.output_ended())
     {
         swap(provider, cloud, flow, route);
-        record(
-            trace,
-            json!({"kind":"voice_route_switched","at_us":monotonic_us(),"to":"live",
-            "why":if cloud.available() {"live_link_ready"} else {"live_link_ended"},
-            "turn":null,"replayed_commands":0}),
-        )?;
+        if !std::mem::take(&mut route.stand_in) {
+            record(
+                trace,
+                json!({"kind":"voice_route_switched","at_us":monotonic_us(),"to":"live",
+                "why":if cloud.available() {"live_link_ready"} else {"live_link_ended"},
+                "turn":null,"replayed_commands":0}),
+            )?;
+        }
     }
     Ok(())
 }
@@ -467,15 +579,20 @@ pub(super) fn flush(
     // A replay goes with the request it was for (a cancellation in this
     // tick may have ended it).
     route.upkeep(reply.as_ref());
-    if !route.replay.is_empty() {
+    if route.holds(reply.as_ref()) {
         route.replay.extend(queue.drain(..));
-        return flush_provider_input_with(cloud, reply, &mut route.replay, |command| {
-            channel.send(command)
-        });
+        return Ok(());
     }
+    let source = if route.replay.is_empty() {
+        queue
+    } else {
+        route.replay.extend(queue.drain(..));
+        &mut route.replay
+    };
+    // A line given back to Gemini after a hold is kept as any other.
     let keep = !route.second_active;
     let line = &mut route.line;
-    flush_provider_input_with(cloud, reply, queue, |command| {
+    flush_provider_input_with(cloud, reply, source, |command| {
         channel.send(command)?;
         if keep {
             line.keep(command);

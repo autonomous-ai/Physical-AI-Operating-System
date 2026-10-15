@@ -67,6 +67,9 @@ struct Script {
     /// The Live link is Ready again, with a new session, once this many
     /// turns are settled.
     live_back_after: Option<usize>,
+    /// Gemini's link is not Ready at startup: it is Ready at this capture
+    /// frame (10 ms each), or never.
+    live_late: Option<Option<u64>>,
     turn_taking: TurnTaking,
 }
 
@@ -79,6 +82,7 @@ impl Script {
             speak_again: None,
             turns: 1,
             live_back_after: None,
+            live_late: None,
             turn_taking: TurnTaking::V1Baseline,
         }
     }
@@ -241,6 +245,7 @@ struct Peers {
     audio_sequence: u64,
     link_dropped: bool,
     link_back: bool,
+    live_ready_sent: bool,
 }
 
 impl Peers {
@@ -281,6 +286,19 @@ impl Peers {
                 .control
                 .send(WorkerEvent::ProviderLink {
                     link: ready_link(3, 2),
+                });
+        }
+        if let Some(Some(frame)) = self.script.live_late
+            && self.frames >= frame
+            && !self.live_ready_sent
+            && let Some(index) = self.index("provider")
+        {
+            self.live_ready_sent = true;
+            let _ = self.peers[index]
+                .channels
+                .control
+                .send(WorkerEvent::ProviderLink {
+                    link: ready_link(1, 1),
                 });
         }
         for index in 0..self.peers.len() {
@@ -686,10 +704,12 @@ fn run(script: Script) -> Run {
     let mut owner = Controller::new(new_boot().unwrap(), now());
     let boot = owner.snapshot(now()).unwrap().boot();
     let mut startup = StartupEvents::default();
-    startup
-        .cloud
-        .observe(ready_link(1, 1), monotonic_us())
-        .unwrap();
+    if script.live_late.is_none() {
+        startup
+            .cloud
+            .observe(ready_link(1, 1), monotonic_us())
+            .unwrap();
+    }
     let seen = Arc::new(Mutex::new(Seen::default()));
     let finished = Arc::new(AtomicBool::new(false));
     let muted = Arc::new(AtomicBool::new(false));
@@ -722,6 +742,7 @@ fn run(script: Script) -> Run {
                 audio_sequence: 0,
                 link_dropped: false,
                 link_back: false,
+                live_ready_sent: false,
             };
             let started = Instant::now();
             let mut reported = false;
@@ -991,4 +1012,49 @@ fn spoken_over_the_second_routes_answer_stops_as_gemini_does() {
     }
     assert!(switched.played(1).iter().all(|&v| v == SECOND));
     assert_eq!(dedup(&live.seen.installs), dedup(&switched.seen.installs));
+}
+
+/// (h) Gemini is Ready 1 s after the voice starts and the question began
+/// before that: it is held, then Gemini's, and the second route hears none
+/// of it (lampOS#779).
+#[test]
+fn a_question_before_geminis_first_ready_waits_for_it() {
+    let _one = super::pilot_faults::one_session();
+    let run = run(Script {
+        live_late: Some(Some(100)),
+        ..Script::question(Live::Answer(12))
+    });
+    run.assert_clean();
+    assert!(run.events("voice_route_switched").is_empty());
+    let held = run.events("voice_route_held");
+    assert_eq!(held.len(), 1, "{held:?}");
+    assert_eq!(held[0]["to"], "live");
+    assert!(held[0]["held_ms"].as_u64().unwrap() < 3_000);
+    assert!(run.seen.second.is_empty());
+    whole_line(&run.seen.live, 1);
+    assert_eq!(run.played(1), vec![LIVE; 48]);
+}
+
+/// (i) Gemini is never Ready: after the hold the second route is given the
+/// whole line and answers it.
+#[test]
+fn a_question_goes_to_the_second_route_once_the_startup_hold_is_over() {
+    let _one = super::pilot_faults::one_session();
+    let run = run(Script {
+        live_late: Some(None),
+        ..Script::question(Live::Answer(12))
+    });
+    run.assert_clean();
+    let held = run.events("voice_route_held");
+    assert_eq!(held.len(), 1, "{held:?}");
+    assert_eq!(held[0]["to"], "second");
+    assert!(held[0]["held_ms"].as_u64().unwrap() >= 3_000);
+    let switch = run.events("voice_route_switched");
+    assert_eq!(switch.len(), 1, "{switch:?}");
+    assert_eq!(switch[0]["why"], "live_link_not_ready");
+    assert_eq!(switch[0]["turn"], 1);
+    let blocks = whole_line(&run.seen.second, 1);
+    assert_eq!(switch[0]["replayed_commands"], blocks + 2);
+    assert!(run.seen.live.is_empty());
+    assert_eq!(run.played(1), vec![SECOND; 48]);
 }

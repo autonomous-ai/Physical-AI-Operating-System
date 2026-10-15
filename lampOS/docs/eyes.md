@@ -341,10 +341,14 @@ lamp-eyes --device /dev/video0 --lock-directory /home/WORKER/private-camera-lock
 Every option shown is required; `--sight-file ABSOLUTE_PATH` and `--leave-still-faces on` may be added.
 `--usb` is `VENDOR:PRODUCT@TOPOLOGY`, the two numbers as four hex digits; the
 lock directory must be private to the user it runs as. A camera that does not open, or fails, is tried again every five
-seconds while permission lasts. A start may take up to 2 s (`OPEN_BUDGET_US`)
-and a close up to 250 ms, so a camera slow to answer after a close is opened
-rather than given up as late, and is left stopped with its buffers released
-before its file is closed (#911). Each open and each failed one is logged
+seconds while permission lasts. A start is given a 2 s budget (`OPEN_BUDGET_US`)
+and a close 250 ms, so a camera slow to answer after a close is opened rather
+than given up as late (#911). These are budgets the caller checks after each
+camera call returns, not time limits: a call blocked in the driver is not
+interrupted, and one that returns past the budget is reported as expired. A
+close always closes the file, but releases the buffers first only when the
+stream stopped cleanly; after a failed or late stop it skips the release and
+relies on the close. The eyes do not look at the stop's result. Each open and each failed one is logged
 with how long it took: about 50 ms on lamp-52e6.
 
 To look at one JPEG file without a camera:

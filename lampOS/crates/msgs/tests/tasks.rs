@@ -27,6 +27,7 @@ fn status() -> TaskStatus {
     TaskStatus {
         store_id: "0123456789abcdef0123456789abcdef".into(),
         run: 1_791_964_000_000,
+        unread: vec![],
         tasks: vec![progress()],
     }
 }
@@ -129,6 +130,25 @@ fn the_check_holds_the_bounds_and_the_signs_to_their_sense() {
         ..status()
     };
     empty.check().unwrap();
+    // Watched and not read yet (#793 review): apart from the tasks read,
+    // once each, in order, and left out of the message when there is none.
+    let waiting = TaskStatus {
+        tasks: Vec::new(),
+        unread: vec![3, 7],
+        ..status()
+    };
+    waiting.check().unwrap();
+    let text = serde_json::to_string(&waiting).unwrap();
+    assert!(text.contains("\"unread\":[3,7]"), "{text}");
+    assert!(!serde_json::to_string(&status()).unwrap().contains("unread"));
+    let older: TaskStatus = serde_json::from_str(
+        r#"{"store_id":"0123456789abcdef0123456789abcdef","run":1,"tasks":[]}"#,
+    )
+    .unwrap();
+    assert!(older.unread.is_empty());
+    assert!(wrong(|s| s.unread = vec![7, 3]).contains("unread"));
+    assert!(wrong(|s| s.unread = vec![3, 3]).contains("unread"));
+    assert!(wrong(|s| s.unread = vec![s.tasks[0].task]).contains("unread"));
 }
 
 #[test]

@@ -224,6 +224,7 @@ impl Rig {
         let status = TaskStatus {
             store_id: STORE.into(),
             run: RUN,
+            unread: vec![],
             tasks: vec![TaskProgress {
                 task: 3,
                 engine: "claude".into(),

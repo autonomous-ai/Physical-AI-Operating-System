@@ -1001,6 +1001,10 @@ is kept of each task stays, so the quarter hour after a note holds across
 the tasks part going and coming back as another run (the reviewer on #751,
 17:05: `a_new_run_first_seen_at_a_lower_count_is_asked_about`,
 `the_quarter_hour_after_a_note_outlives_the_tasks_part_going_and_coming_back`).
+A task the tasks part lists as `unread` (watched, not read yet in this run)
+keeps what is kept of it, and nothing is asked of it until a read of this
+run comes; one in neither list has left the watch and is let go
+(`a_task_unread_in_a_new_run_is_kept_and_not_asked_about_until_read`).
 One progress question is out at a time.
 
 **Two hard rules, around the decider and not left to it.** A question is

@@ -111,6 +111,7 @@ impl Place {
         let status = TaskStatus {
             store_id: STORE.into(),
             run,
+            unread: vec![],
             tasks: vec![TaskProgress {
                 task: 3,
                 engine: "claude".into(),
@@ -135,6 +136,7 @@ impl Place {
         let status = TaskStatus {
             store_id: STORE.into(),
             run,
+            unread: vec![],
             tasks: Vec::new(),
         };
         self.status.publish_json(0, &status).unwrap();

@@ -98,6 +98,13 @@ pub struct TaskStatus {
     /// each run, so a change is named by its run and its count together.
     pub run: u64,
     pub tasks: Vec<TaskProgress>,
+    /// Tasks being watched whose progress has not been read yet in this
+    /// run: just handed over, or there when the run began, or every read of
+    /// them has failed so far. Not in `tasks`; so `tasks` empty and this
+    /// empty is nothing being worked on, and either alone is not (#793
+    /// review, 2026-10-15). Added 2026-10-15; left out when empty.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub unread: Vec<u64>,
 }
 
 fn sorted_unique(signs: &[Sign]) -> bool {
@@ -185,6 +192,17 @@ impl TaskStatus {
             .all(|pair| pair[0].task < pair[1].task)
         {
             return Err(Invalid("tasks are listed once each, in order".into()));
+        }
+        if self.unread.len() > TASK_STATUS_MOST_TASKS
+            || !self.unread.windows(2).all(|pair| pair[0] < pair[1])
+            || self
+                .unread
+                .iter()
+                .any(|task| self.tasks.iter().any(|read| read.task == *task))
+        {
+            return Err(Invalid(
+                "unread tasks are listed once each, in order, and not among the tasks read".into(),
+            ));
         }
         self.tasks.iter().try_for_each(TaskProgress::check)
     }

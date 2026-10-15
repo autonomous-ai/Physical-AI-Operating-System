@@ -423,6 +423,10 @@ struct Tracked {
     told_at: Option<Instant>,
     told: BTreeSet<Sign>,
     notes: u32,
+    /// No progress of it has been read in this run yet (`unread` on
+    /// `tasks/status`, or a new run that has not read it): `last` is an
+    /// earlier run's, and nothing is asked about it until a read comes.
+    unread: bool,
 }
 
 type Answered = (Result<Asked, Failed>, Duration);
@@ -528,11 +532,16 @@ impl Progress {
             for tracked in self.tasks.values_mut() {
                 tracked.judged = 0;
                 tracked.held = None;
+                tracked.unread = true;
             }
             self.run = Some(status.run);
         }
-        self.tasks
-            .retain(|task, _| status.tasks.iter().any(|t| t.task == *task));
+        // A task still watched but not read in this run (it restarted, or
+        // its reads failed) keeps what is kept of it; one gone from the
+        // watch is let go.
+        self.tasks.retain(|task, _| {
+            status.tasks.iter().any(|t| t.task == *task) || status.unread.contains(task)
+        });
         for progress in status.tasks {
             match self.tasks.get_mut(&progress.task) {
                 Some(tracked) => {
@@ -546,6 +555,7 @@ impl Progress {
                         tracked.judged = progress.changes;
                     }
                     tracked.last = progress;
+                    tracked.unread = false;
                 }
                 None => {
                     // What it says now is where judging begins: a change
@@ -559,10 +569,16 @@ impl Progress {
                             told_at: None,
                             told: BTreeSet::new(),
                             notes: 0,
+                            unread: false,
                             last: progress,
                         },
                     );
                 }
+            }
+        }
+        for task in &status.unread {
+            if let Some(tracked) = self.tasks.get_mut(task) {
+                tracked.unread = true;
             }
         }
     }
@@ -635,7 +651,9 @@ impl Progress {
             && self.store_id.as_deref() == Some(context.store_id.as_str())
             && self.run == Some(context.run)
             && self.tasks.get(&context.task).is_some_and(|tracked| {
-                tracked.last.state == AgentState::Working && tracked.last.changes == context.change
+                !tracked.unread
+                    && tracked.last.state == AgentState::Working
+                    && tracked.last.changes == context.change
             })
     }
 
@@ -719,7 +737,10 @@ impl Progress {
         let mut found = None;
         let mut holds = Vec::new();
         for (task, tracked) in &self.tasks {
-            if tracked.last.state != AgentState::Working || tracked.last.changes <= tracked.judged {
+            if tracked.unread
+                || tracked.last.state != AgentState::Working
+                || tracked.last.changes <= tracked.judged
+            {
                 continue;
             }
             match self.hold(tracked, now) {
@@ -1076,6 +1097,7 @@ mod tests {
         TaskStatus {
             store_id: "0123456789abcdef0123456789abcdef".into(),
             run,
+            unread: vec![],
             tasks: vec![TaskProgress {
                 task: 3,
                 engine: "codex".into(),
@@ -1219,6 +1241,7 @@ mod tests {
                 progress.status(TaskStatus {
                     store_id: "0123456789abcdef0123456789abcdef".into(),
                     run: RUN_A,
+                    unread: vec![],
                     tasks: vec![],
                 });
                 progress.voice(Voice::Listening, then);
@@ -1406,6 +1429,42 @@ mod tests {
         assert_eq!(progress.tasks[&3].notes, 1);
         // After the quarter hour, the new run's change is asked about.
         assert_eq!(progress.next(then + NOTE_EVERY), Some(3));
+    }
+
+    /// The reviewer on #793 (16:46): a new run's first value lists its
+    /// watched tasks as `unread` until a read comes. The policy keeps what
+    /// it knows of them through it, and asks nothing of a task whose only
+    /// progress is an earlier run's.
+    #[test]
+    fn a_task_unread_in_a_new_run_is_kept_and_not_asked_about_until_read() {
+        let then = Instant::now() + Duration::from_secs(120);
+        let (mut progress, decided) = asked_then(|_| {}, then);
+        assert_eq!(decided.decision.choice, "say_now");
+        // Run B starts: nothing read yet, task 3 still watched.
+        progress.status(TaskStatus {
+            store_id: "0123456789abcdef0123456789abcdef".into(),
+            run: RUN_B,
+            unread: vec![3],
+            tasks: vec![],
+        });
+        let kept = &progress.tasks[&3];
+        assert!(kept.unread && kept.notes == 1 && kept.told_at.is_some());
+        // Run A's change 2 is no change of run B's to ask about.
+        assert_eq!(progress.next(then + NOTE_EVERY), None);
+        // Its first read in run B: asked about once there is a change.
+        progress.status(status_of(RUN_B, 0, AgentState::Working));
+        assert!(!progress.tasks[&3].unread);
+        assert_eq!(progress.next(then + NOTE_EVERY), None);
+        progress.status(status_of(RUN_B, 1, AgentState::Working));
+        assert_eq!(progress.next(then + NOTE_EVERY), Some(3));
+        // A task neither read nor unread has left the watch: let go.
+        progress.status(TaskStatus {
+            store_id: "0123456789abcdef0123456789abcdef".into(),
+            run: RUN_B,
+            unread: vec![],
+            tasks: vec![],
+        });
+        assert!(progress.tasks.is_empty());
     }
 
     #[test]

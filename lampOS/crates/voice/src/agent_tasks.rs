@@ -761,7 +761,10 @@ fn run_for(
 /// How the newest task handed over is going (to `only`, if named), from
 /// what the tasks part last saw: no new look at the agent, so the answer
 /// comes at once. A finished one the person now hears about is kept as
-/// told.
+/// told. One they were already told is said to be, so the model answers
+/// "it's the one I mentioned" rather than telling it again as new: on
+/// lamp-4ace on 2026-10-15 at 08:02 news told unasked was announced again,
+/// as if new, when the person asked 12 s later (#757).
 fn check(
     place: &Place,
     only: Option<&Member>,
@@ -840,20 +843,47 @@ fn check(
         "needs-input" | "stopped" | "failed" => true,
         _ => false,
     };
-    if settled {
-        crate::task_news::keep_told(told_file, &format!("{store}:{id}:{observation_id}"));
+    let key = format!("{store}:{id}:{observation_id}");
+    let told_before = settled && crate::task_news::was_told(told_file, &key);
+    if settled && !told_before {
+        crate::task_news::keep_told(told_file, &key);
     }
-    let next = next(state, settled, who, &answer);
-    (
-        json!({"who": who, "task": asked, "state": state, "answer": answer,
-            "more": cut || data["truncated"] == json!(true), "next": next}),
-        true,
-    )
+    let more = cut || data["truncated"] == json!(true);
+    let next = next(state, settled, who, &answer, told_before, more);
+    let mut answered = json!({"who": who, "task": asked, "state": state, "answer": answer,
+        "more": more, "next": next});
+    if told_before {
+        answered["told_before"] = json!(true);
+    }
+    (answered, true)
 }
 
 /// What the model is told to do with the last look at the agent.
-fn next(state: &str, settled: bool, who: &str, answer: &str) -> String {
+fn next(
+    state: &str,
+    settled: bool,
+    who: &str,
+    answer: &str,
+    told_before: bool,
+    more: bool,
+) -> String {
     match state {
+        // Told already, unasked or asked (#757): the one mentioned, not
+        // news again.
+        "idle" if told_before => {
+            "You already told them this. Do not tell it again as if it were new: say in a few words that it is done, the one you mentioned. If you gave no gist of it then, give it now in one plain line; otherwise add nothing unless they ask for more. No code, lists, paths or links."
+        }
+        "needs-input" if told_before => {
+            return format!(
+                "You already told them {who} is waiting for them. Say in a few words that it is still waiting for them on their computer; do not ask a question for it or guess one."
+            );
+        }
+        "stopped" | "failed" if told_before => {
+            "You already told them it stopped. Say so again in a few words, as the one you mentioned, without alarm."
+        }
+        "idle" if settled && more => {
+            "Give them the gist of what it came back with in one plain spoken line first (a story: who it is about and what happens; code: what it does now), then say the rest is on their computer; never only that. No code, lists, paths or links."
+        }
         "idle" if settled => {
             "Give them the gist of what it came back with in one or two plain spoken sentences; no code, lists, paths or links. If there is more, say the rest is on their computer."
         }
@@ -1142,6 +1172,132 @@ mod tests {
         );
         // Heard now, so not told again unasked.
         assert_eq!(std::fs::read_to_string(&told).unwrap(), "s1:2:4\n");
+        assert!(told_model.get("told_before").is_none(), "{told_model}");
+        assert!(
+            told_model["next"]
+                .as_str()
+                .unwrap()
+                .starts_with("Give them the gist"),
+            "{told_model}"
+        );
+        std::fs::remove_dir_all(directory).unwrap();
+    }
+
+    /// The tasks part answering one `check`: a page with task 2, the task,
+    /// and its observation 4 with `data`.
+    fn checked(directory: &Path, told: &Path, state: &str, answer: &str, truncated: bool) -> Value {
+        let _ = std::fs::remove_file(directory.join("request.sock"));
+        let _ = std::fs::remove_file(directory.join("voice.sock"));
+        let place = Place {
+            directory: directory.to_owned(),
+            target: DEFAULT_TARGET.into(),
+            who: false,
+            lead_in: false,
+        };
+        let _seen = tasks_part(
+            directory,
+            vec![
+                (
+                    "request.sock",
+                    json!({"ok":true,"store_id":"s1","items":[{"id":2,"dispatch":{"state":"accepted"}}]}),
+                ),
+                (
+                    "request.sock",
+                    json!({"ok":true,"text":"Write a 300-word story about a desk lamp that learns to sing","target":{"engine":"claude"},
+                        "observations":[{"id":4,"state":state}]}),
+                ),
+                (
+                    "request.sock",
+                    json!({"ok":true,"data":{"state":state,"answer":answer,"truncated":truncated}}),
+                ),
+            ],
+        );
+        let (answered, ok) = check(&place, None, told, Duration::from_secs(2));
+        assert!(ok, "{answered}");
+        answered
+    }
+
+    /// On lamp-4ace on 2026-10-15 at 08:02 the story was told unasked at
+    /// 193 s, and at 205 s "How is that task going?" got the same news
+    /// again, as if new (#757). Asked about news already told, the model is
+    /// told so, and asked for a short follow-up, not a second announcement.
+    #[test]
+    fn asked_about_news_already_told_the_lamp_says_it_is_the_one_it_mentioned() {
+        let directory =
+            std::env::temp_dir().join(format!("agent-told-before-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&directory);
+        std::fs::create_dir_all(&directory).unwrap();
+        let told = directory.join("told");
+        let story = "Every night, when the office emptied, the desk lamp hummed. ".repeat(30);
+        // Told unasked first: its key is in the file.
+        crate::task_news::keep_told(&told, "s1:2:4");
+        let answered = checked(&directory, &told, "idle", &story, false);
+        assert_eq!(answered["told_before"], true, "{answered}");
+        let next = answered["next"].as_str().unwrap();
+        assert!(
+            next.starts_with("You already told them this. Do not tell it again as if it were new"),
+            "{next}"
+        );
+        assert!(next.contains("the one you mentioned"), "{next}");
+        // The words are still there, for the gist if none was given.
+        assert!(
+            answered["answer"]
+                .as_str()
+                .unwrap()
+                .starts_with("Every night")
+        );
+        // Kept once, not again.
+        assert_eq!(std::fs::read_to_string(&told).unwrap(), "s1:2:4\n");
+
+        // Asked twice, never told unasked: the second answer is the short one.
+        std::fs::remove_file(&told).unwrap();
+        let first = checked(&directory, &told, "idle", "Lumi, Sunny and Archie.", false);
+        assert!(first.get("told_before").is_none(), "{first}");
+        let second = checked(&directory, &told, "idle", "Lumi, Sunny and Archie.", false);
+        assert_eq!(second["told_before"], true, "{second}");
+        assert_eq!(std::fs::read_to_string(&told).unwrap(), "s1:2:4\n");
+
+        // A question already told is asked again, shorter; a stop already
+        // told is said again without alarm.
+        let asking = checked(&directory, &told, "needs-input", "Which folder?", false);
+        assert!(
+            asking["next"]
+                .as_str()
+                .unwrap()
+                .contains("still waiting for them"),
+            "{asking}"
+        );
+        let stopped = checked(&directory, &told, "stopped", "No repository.", false);
+        assert!(
+            stopped["next"]
+                .as_str()
+                .unwrap()
+                .starts_with("You already told them it stopped"),
+            "{stopped}"
+        );
+        std::fs::remove_dir_all(directory).unwrap();
+    }
+
+    /// A long result asked about gets its gist first, then where the rest is.
+    #[test]
+    fn asked_about_a_long_result_the_gist_comes_before_the_rest_is_on_the_computer() {
+        let directory = std::env::temp_dir().join(format!("agent-gist-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&directory);
+        std::fs::create_dir_all(&directory).unwrap();
+        let told = directory.join("told");
+        let story = "Every night, when the office emptied, the desk lamp hummed. ".repeat(30);
+        for (answer, truncated) in [(story.as_str(), false), ("A short start.", true)] {
+            let _ = std::fs::remove_file(&told);
+            let answered = checked(&directory, &told, "idle", answer, truncated);
+            assert_eq!(answered["more"], true, "{answered}");
+            let next = answered["next"].as_str().unwrap();
+            assert!(
+                next.starts_with(
+                    "Give them the gist of what it came back with in one plain spoken line first"
+                ) && next.contains("then say the rest is on their computer; never only that"),
+                "{next}"
+            );
+        }
         std::fs::remove_dir_all(directory).unwrap();
     }
 
@@ -1712,31 +1868,38 @@ mod tests {
     /// are byte for byte what they were before.
     #[test]
     fn asked_while_the_agent_waits_with_no_question_the_lamp_says_it_waits_on_their_computer() {
-        let waits = next("needs-input", true, "Codex", "");
+        let waits = next("needs-input", true, "Codex", "", false, false);
         assert_eq!(
             waits,
             "Tell them once, in one short sentence, that Codex is waiting for them on their computer and that they can answer it there. \
              It did not say what it is asking: do not ask a question for it or guess one."
         );
         assert!(!waits.contains("ask its question"));
-        let with_words = next("needs-input", true, "Claude Code", "Which folder?");
+        let with_words = next(
+            "needs-input",
+            true,
+            "Claude Code",
+            "Which folder?",
+            false,
+            false,
+        );
         assert!(
             with_words.contains("Claude Code is waiting for them on their computer")
                 && with_words.contains("you may pass it on")
         );
         assert_eq!(
-            next("idle", true, "Claude Code", "Lumi."),
+            next("idle", true, "Claude Code", "Lumi.", false, false),
             "Give them the gist of what it came back with in one or two plain spoken sentences; no code, lists, paths or links. If there is more, say the rest is on their computer."
         );
         for state in ["stopped", "failed"] {
             assert_eq!(
-                next(state, true, "Claude Code", "x"),
+                next(state, true, "Claude Code", "x", false, false),
                 "Tell them in one plain sentence that it stopped without finishing."
             );
         }
         for (state, settled) in [("idle", false), ("working", false), ("unknown", false)] {
             assert_eq!(
-                next(state, settled, "Claude Code", ""),
+                next(state, settled, "Claude Code", "", false, false),
                 "Tell them in a few words that it is still working on it and that you will tell them yourself when it is done. Do not check again unless they ask again."
             );
         }

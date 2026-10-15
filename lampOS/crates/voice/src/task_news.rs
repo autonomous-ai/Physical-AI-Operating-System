@@ -54,6 +54,12 @@ const JUST_MS: u64 = 10 * 60_000;
 pub(crate) const MOST_ANSWER_CHARS: usize = 1_200;
 /// The most of the task's own words.
 pub(crate) const MOST_TASK_CHARS: usize = 300;
+/// When a note is too long, the task's words are cut to this many first:
+/// the person knows their task from a few words, and the gist is in the
+/// answer. With a task of 300 characters the note kept 163 bytes of a
+/// long answer; on lamp-4ace on 2026-10-15 at 08:02 the lamp then told a
+/// 300-word story as only "the rest is waiting on your computer" (#757).
+const TASK_CHARS_KEPT_FIRST: usize = 100;
 /// Nothing said by or to the lamp for this long before news is told.
 pub const QUIET_US: u64 = 15_000_000;
 /// Without eyes that say someone is there, something said this recently
@@ -158,6 +164,12 @@ pub fn keep_told(file: &Path, key: &str) {
             file.display()
         );
     }
+}
+
+/// Whether `key` is in the file of what was told: news told unasked, or
+/// heard when the person asked.
+pub(crate) fn was_told(file: &Path, key: &str) -> bool {
+    read_told(file).contains(key)
 }
 
 fn read_told(file: &Path) -> BTreeSet<String> {
@@ -542,6 +554,13 @@ fn note(task: &Value, data: &Value, age_ms: u64) -> Option<String> {
         _ => return None,
     };
     let say = |asked: &str, answer: &str, more: &str| match state {
+        // Cut: the gist first, from what is kept, then where the rest is.
+        "idle" if !more.is_empty() => format!(
+            "{opening} {who} {when} finished the task they gave it: \"{asked}\". Its answer is long; it begins: \"{answer}{more}\". \
+             Tell them now in one or two natural spoken sentences, as a good chief of staff would: \"Oh, {who} just finished…\" (\"earlier\" if it was a while ago), \
+             then its gist in one plain line from that beginning (a story: who it is about and what happens; code: what it does now), \
+             then that the rest is on their computer. Never only that. No code, lists, file paths or links, and no question.)"
+        ),
         "idle" => format!(
             "{opening} {who} {when} finished the task they gave it: \"{asked}\". What it came back with: \"{answer}{more}\". \
              Tell them now, the way a good chief of staff tells the person they work for: one or two natural spoken sentences, \
@@ -881,9 +900,10 @@ const GOES_ON: &str = " …(it goes on)";
 /// one as `InvalidConfiguration`, and the provider worker ends on that
 /// refusal: on lamp-4ace on 2026-10-15 the voice ended so 4 ms after
 /// committing news, three times in three.
-/// The agent's answer is cut first, then the task's words, by whole
-/// characters, and the answer is then said to go on. A note that fits is
-/// exactly what `say` makes.
+/// The task's words are cut to [`TASK_CHARS_KEPT_FIRST`] first, then the
+/// agent's answer, then the rest of the task's words, by whole characters,
+/// and a cut answer is said to go on. A note that fits is exactly what
+/// `say` makes.
 fn fitted(
     asked: &str,
     answer: &str,
@@ -909,7 +929,9 @@ fn fitted(
         if over == 0 {
             return Some(text);
         }
-        if answer_kept > 0 {
+        if asked_kept > TASK_CHARS_KEPT_FIRST {
+            asked_kept = asked_kept.saturating_sub(over).max(TASK_CHARS_KEPT_FIRST);
+        } else if answer_kept > 0 {
             answer_kept = answer_kept.saturating_sub(over);
         } else if asked_kept > 0 {
             asked_kept = asked_kept.saturating_sub(over);
@@ -1131,6 +1153,80 @@ mod tests {
                  Tell them in one short, plain sentence, without alarm.)"
             );
         }
+    }
+
+    /// On lamp-4ace on 2026-10-15 at 08:02 a 300-word story was told as only
+    /// "the rest is waiting on your computer" (#757): the note kept 163 bytes
+    /// of it after a long task, and asked for the gist only in passing. A
+    /// cut answer now keeps the task's words to a hundred characters first,
+    /// keeps more of the answer, and asks for the gist in one line before
+    /// where the rest is.
+    #[test]
+    fn a_long_result_keeps_enough_for_a_gist_and_asks_for_it_first() {
+        let story =
+            "Every night, when the office emptied, the desk lamp hummed a little tune to itself. "
+                .repeat(20);
+        let long_task =
+            "Write me a short story of about three hundred words about a desk lamp that \
+                         learns to sing at night when everyone has gone home, with a happy ending, \
+                         something gentle I could read to my daughter before bed, and keep the \
+                         words simple enough for a six year old to follow along"
+                .to_owned();
+        assert!(long_task.chars().count() > 250);
+        for asked in [long_task.as_str(), "Write a story about a lamp"] {
+            for age_ms in [0, JUST_MS + 1] {
+                let told = note(
+                    &json!({"text": asked, "target": {"engine": "claude"}}),
+                    &json!({"state": "idle", "answer": story}),
+                    age_ms,
+                )
+                .unwrap();
+                lamp_gemini::wire::encode_written_turn(&told, None).unwrap();
+                // The gist first, in one line, then where the rest is.
+                assert!(
+                    told.contains("then its gist in one plain line from that beginning")
+                        && told
+                            .contains("then that the rest is on their computer. Never only that."),
+                    "{told}"
+                );
+                // At least 300 characters of the story to make it from,
+                // even after a long task.
+                let kept = told
+                    .split("it begins: \"")
+                    .nth(1)
+                    .and_then(|rest| rest.split(" …(it goes on)").next())
+                    .unwrap();
+                assert!(
+                    kept.chars().count() >= 300,
+                    "{} kept: {told}",
+                    kept.chars().count()
+                );
+                // The task's words are cut to a hundred characters, no fewer.
+                let quoted_task = told
+                    .split("finished the task they gave it: \"")
+                    .nth(1)
+                    .and_then(|rest| rest.split('"').next())
+                    .unwrap();
+                assert_eq!(
+                    quoted_task.chars().count(),
+                    asked.chars().count().min(TASK_CHARS_KEPT_FIRST),
+                    "{told}"
+                );
+            }
+        }
+        // A question or a stop that is cut is as it was: the task first,
+        // then the answer, by the same rule.
+        let asking = note(
+            &json!({"text": long_task, "target": {"engine": "codex"}}),
+            &json!({"state": "needs-input", "answer": story}),
+            0,
+        )
+        .unwrap();
+        assert!(
+            asking.contains("is waiting for them on their computer"),
+            "{asking}"
+        );
+        assert!(!asking.contains("gist"), "{asking}");
     }
 
     #[test]

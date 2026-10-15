@@ -529,7 +529,10 @@ used only to say it.
   and up to 1,200 characters of the answer, and asks for one or two natural
   sentences starting like "Oh, Claude Code just finished…" ("earlier" after
   ten minutes), the gist in plain words, no code, lists, paths or links, and
-  the rest left on the computer. An agent waiting for the person
+  the rest left on the computer. When the answer is too long for the note,
+  the note asks for its gist in one plain line first, from the beginning
+  kept, and only then that the rest is on their computer, never only that
+  (#757). An agent waiting for the person
   (`needs-input`) is told once, by name, as waiting for them on their
   computer, to be answered there; the model is never asked to voice a
   question the observation does not contain. With no answer text it is told
@@ -541,7 +544,11 @@ used only to say it.
 - **Asked** (`check_agent_task`). "How's it going?" or "what did Claude Code
   say?" is answered at once from what was last seen, with no new read; a
   finished answer heard this way is kept as told, so it is not told again
-  unasked.
+  unasked. One the person was already told, unasked or asked, is answered
+  with `told_before: true` and asks the model to say it is the one it
+  mentioned, giving a gist only if it gave none then, not to tell it again
+  as new (#757). A long one asks for the gist in one line first, then where
+  the rest is.
 - **Progress** is #732: `show` is empty while an agent works (measured
   2026-10-15, 00:05), so the progress signal is `ps --machine`, put on the
   bus as typed state, with Jev deciding whether a step is worth telling
@@ -633,7 +640,9 @@ about 400 bytes was over. The poem told at 01:27 was short enough.
 
 Now the note is cut to fit (`task_news::fitted`, the second builder):
 the answer first, then the task's words, by whole characters, the answer
-then marked "…(it goes on)". A note that fits is as it was, byte for byte
+then marked "…(it goes on)". Since #757 the task's words are cut to 100
+characters before the answer is cut, so that enough of a long answer is
+kept for its gist. A note that fits is as it was, byte for byte
 (a test); every note, for long answers and long tasks in English and
 Vietnamese, in every state, fits and is taken by the transport (a test).
 The same bound holds for any written turn: a note made from other text
@@ -651,6 +660,68 @@ turn, and each answer's `next` says the person has heard it
 ([tools.md](tools.md#where-a-turn-with-a-function-call-spends-its-time-799)).
 What a prepared or handed-over task is, and what reaches the tasks part, is
 unchanged.
+
+### Told twice, and no gist (#757, 2026-10-15)
+
+In the day played on lamp-4ace on 2026-10-15 at 08:02 (review page, Brain
+tab, log "08:10"), the first builder found two faults in how news is told:
+
+1. **Told twice.** At 193 s, unasked: "Oh, Claude Code just finished that
+   story about the singing desk lamp, and the rest is waiting on your
+   computer." At 205 s the person asked "How is that task going?" and heard
+   the news again, as if new. `check_agent_task` read the observation and
+   kept it as told, but said nothing of it having been told.
+2. **No gist.** The story was over a thousand characters. After a task of
+   about 300 characters and the note's own 545 bytes, the note kept about
+   163 bytes of it, and asked for the gist only in passing ("if there is
+   more than fits, say the rest is on their computer"). The model said only
+   where the rest was.
+
+Changed (the second builder, `second/news-polish`):
+
+- **Asked about news already told.** Before keeping it, `check` looks for
+  the key in the told file. If it is there, the answer carries
+  `told_before: true` and its `next` says: "You already told them this. Do
+  not tell it again as if it were new: say in a few words that it is done,
+  the one you mentioned. If you gave no gist of it then, give it now in one
+  plain line; otherwise add nothing unless they ask for more." An agent
+  already told to be waiting is said to be still waiting on their computer,
+  with no question voiced for it (#770); a stop already told is said again
+  without alarm. The answer's words are still given, for a gist. Asked
+  twice, the second answer is the short one too. The key is kept once.
+- **A long result's note.** When the answer is cut, the idle note is
+  another, of the same length: "Its answer is long; it begins: "…" … then
+  its gist in one plain line from that beginning (a story: who it is about
+  and what happens; code: what it does now), then that the rest is on their
+  computer. Never only that." A note that fits is byte for byte as before
+  (the pinned test).
+- **More of the answer kept.** `fitted` cuts the task's words to 100
+  characters before it cuts the answer, then the answer, then the rest of
+  the task's words. With a 273-character task and a long story the note
+  keeps 364 characters of the story when it has just finished and 324 when
+  it finished a while ago, where it kept 190 and 150 before; with a short
+  task, 438 and 398 (measured by the test on the Mac). The same order holds
+  for a question or a stop.
+- **Asked about a long result**, `check`'s `next` asks for the gist in one
+  plain spoken line first, then where the rest is, never only that.
+
+Tests: `a_long_result_keeps_enough_for_a_gist_and_asks_for_it_first`
+(`crates/voice/src/task_news.rs`: at least 300 characters of the story kept
+after a long or a short task, just or a while ago, the gist asked for
+before where the rest is, the task's words cut to 100 and no fewer, and the
+note taken by the transport), and
+`asked_about_news_already_told_the_lamp_says_it_is_the_one_it_mentioned` and
+`asked_about_a_long_result_the_gist_comes_before_the_rest_is_on_the_computer`
+(`crates/voice/src/agent_tasks.rs`, against a stand-in tasks part).
+
+**Not shown.** What the model says from these notes: no model was asked on
+the Mac. The first builder plays the day again on lamp-4ace: a story handed
+over by voice, told unasked, then "How is that task going?" a few seconds
+later. Expected: the news with a one-line gist and where the rest is, then
+a short "it's the one I mentioned". Most likely wrong there: the model still
+giving only where the rest is, or announcing the news again despite
+`told_before`; both would show in the session record's `function_response`
+and the transcript.
 
 ## Who gets the work (task 41, #733, 2026-10-15)
 

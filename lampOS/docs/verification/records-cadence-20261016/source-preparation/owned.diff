@@ -1,0 +1,1384 @@
+--- a/lampOS/crates/records/src/main.rs
++++ b/lampOS/crates/records/src/main.rs
+@@ -1,304 +1,28 @@
+-use lamp_records::{
+-    RunReport,
+-    config::{Config, absolute_path, invalid},
+-    json_file::{self, CONFIG_BYTES, REPORT_BYTES},
+-    report::{Reporter, diagnostic},
+-    run,
+-};
+-use std::{
+-    env, io,
+-    path::{Path, PathBuf},
+-    process::ExitCode,
+-    time::{Duration, Instant, SystemTime, UNIX_EPOCH},
+-};
++include!("application.rs");
+ 
+-const USAGE: &str = "lamp-records defaults | check CONFIG [--apply] [--report RESULT] | report CONFIG RESULT [--seconds N]\ncheck is a dry run unless --apply is present; apply also requires enabled=true in CONFIG.\nDry runs write only stdout. The independent report process publishes the last result every second.";
++struct SystemSchedule;
+ 
+-#[derive(Debug, PartialEq, Eq)]
+-enum Command {
+-    Defaults,
+-    Check {
+-        config: PathBuf,
+-        apply: bool,
+-        report: Option<PathBuf>,
+-    },
+-    Report {
+-        config: PathBuf,
+-        result: PathBuf,
+-        seconds: Option<u64>,
+-    },
+-}
++impl ReportSchedule for SystemSchedule {
++    fn now(&self) -> Instant {
++        Instant::now()
++    }
+ 
+-fn arguments(args: &[String]) -> io::Result<Command> {
+-    match args {
+-        [one] if one == "defaults" => Ok(Command::Defaults),
+-        [one, config, rest @ ..] if one == "check" => {
+-            let mut apply = false;
+-            let mut report = None;
+-            let mut options = rest.iter();
+-            while let Some(option) = options.next() {
+-                match option.as_str() {
+-                    "--apply" if !apply => apply = true,
+-                    "--report" if report.is_none() => {
+-                        report = Some(PathBuf::from(
+-                            options
+-                                .next()
+-                                .ok_or_else(|| invalid("--report needs a path"))?,
+-                        ));
+-                    }
+-                    _ => return Err(invalid(USAGE)),
+-                }
+-            }
+-            if report.is_some() && !apply {
+-                return Err(invalid("a dry run cannot write a report file"));
+-            }
+-            absolute_path(&PathBuf::from(config))?;
+-            if let Some(path) = &report {
+-                absolute_path(path)?;
+-            }
+-            Ok(Command::Check {
+-                config: config.into(),
+-                apply,
+-                report,
+-            })
+-        }
+-        [one, config, result, rest @ ..] if one == "report" => {
+-            let seconds = match rest {
+-                [] => None,
+-                [flag, value] if flag == "--seconds" => {
+-                    let count = value
+-                        .parse::<u64>()
+-                        .map_err(|_| invalid("seconds must be an integer"))?;
+-                    if !(1..=86_400).contains(&count) {
+-                        return Err(invalid("seconds must be 1..86400"));
+-                    }
+-                    Some(count)
+-                }
+-                _ => return Err(invalid(USAGE)),
+-            };
+-            absolute_path(&PathBuf::from(config))?;
+-            absolute_path(&PathBuf::from(result))?;
+-            Ok(Command::Report {
+-                config: config.into(),
+-                result: result.into(),
+-                seconds,
+-            })
+-        }
+-        _ => Err(invalid(USAGE)),
++    fn wait(&mut self, _cycle: ReportCycle, remaining: Duration) -> io::Result<()> {
++        std::thread::sleep(remaining);
++        Ok(())
+     }
+ }
+ 
+-fn now() -> io::Result<u64> {
+-    Ok(SystemTime::now()
+-        .duration_since(UNIX_EPOCH)
+-        .map_err(io::Error::other)?
+-        .as_secs())
+-}
+-
+-fn print(value: &impl serde::Serialize) -> io::Result<()> {
+-    use io::Write;
+-    let mut stdout = io::stdout().lock();
+-    serde_json::to_writer(&mut stdout, value).map_err(io::Error::other)?;
+-    writeln!(stdout)?;
+-    Ok(())
+-}
+-
+-fn synthetic(config: &Config, at_unix_s: u64, error: Option<String>) -> RunReport {
+-    RunReport {
+-        schema_version: 1,
+-        config_fingerprint: config.fingerprint(),
+-        at_unix_s,
+-        mode: "apply".into(),
+-        enabled: config.enabled,
+-        roots: vec![],
+-        error,
+-    }
+-}
+-
+-fn persist(config: &Config, path: &Path, result: &mut RunReport) {
+-    let persisted = result
+-        .validate()
+-        .and_then(|()| json_file::write(path, result));
+-    if let Err(error) = persisted {
+-        // An oversized/invalid result must not poison the next timer run.
+-        // Keep detailed outcomes on stdout and try a small, valid failure
+-        // receipt for the live reporter.
+-        result.error = Some(format!("cannot persist full cleanup result: {error}"));
+-        let failure = synthetic(
+-            config,
+-            result.at_unix_s,
+-            Some("cannot persist full cleanup result; see cleanup stdout".into()),
+-        );
+-        if json_file::write(path, &failure).is_err() {
+-            eprintln!("lamp-records: cannot persist even the failure receipt");
+-        }
+-    }
+-}
+-
+-fn reporting(config_path: PathBuf, result: PathBuf, seconds: Option<u64>) -> io::Result<()> {
+-    let mut config: Config = json_file::read(&config_path, CONFIG_BYTES)?;
+-    config.validate()?;
+-    let mut config_stamp = None;
+-    let mut result_stamp = None;
+-    let mut cached: Option<RunReport> = None;
+-    let mut publisher: Option<Reporter> = None;
+-    let began = Instant::now();
+-    let mut last_error = None;
+-    loop {
+-        let step = Instant::now();
+-        let at = now()?;
+-        let config_result =
+-            json_file::read_changed::<Config>(&config_path, CONFIG_BYTES, config_stamp.as_ref());
+-        let config_error = match config_result {
+-            Ok(Some((next, stamp))) => match next.validate() {
+-                Ok(()) => {
+-                    if next.bus_root != config.bus_root {
+-                        publisher = None;
+-                    }
+-                    config = next;
+-                    config_stamp = Some(stamp);
+-                    None
+-                }
+-                Err(_) => Some("records configuration is invalid".to_owned()),
+-            },
+-            Ok(None) => None,
+-            Err(_) => Some("records configuration cannot be read".to_owned()),
+-        };
+-        let fallback;
+-        let status = if let Some(error) = config_error {
+-            fallback = synthetic(&config, at, Some(error));
+-            &fallback
+-        } else if !config.enabled {
+-            fallback = synthetic(&config, at, None);
+-            &fallback
+-        } else {
+-            match json_file::read_changed::<RunReport>(&result, REPORT_BYTES, result_stamp.as_ref())
+-            {
+-                Ok(Some((report, stamp))) => {
+-                    cached = Some(report);
+-                    result_stamp = Some(stamp);
+-                }
+-                Ok(None) => {}
+-                Err(_) => {
+-                    cached = None;
+-                    result_stamp = None;
+-                }
+-            }
+-            if let Some(report) = cached
+-                .as_ref()
+-                .filter(|report| report.config_fingerprint == config.fingerprint())
+-            {
+-                report
+-            } else {
+-                fallback = synthetic(
+-                    &config,
+-                    at,
+-                    Some("no readable cleanup result for the current configuration".into()),
+-                );
+-                &fallback
+-            }
+-        };
+-        // A file/transport failure never controls or restarts any producer.
+-        let published = (|| -> io::Result<()> {
+-            if publisher.is_none() {
+-                publisher = Some(Reporter::new(&config.bus_root)?);
+-            }
+-            publisher
+-                .as_mut()
+-                .unwrap()
+-                .publish(&diagnostic(Some(status), at))
+-        })();
+-        if published.is_err() {
+-            publisher = None;
+-            if last_error.is_none_or(|time: Instant| time.elapsed() >= Duration::from_secs(60)) {
+-                eprintln!(
+-                    "lamp-records: diagnostics unavailable; will retry, cleanup is independent"
+-                );
+-                last_error = Some(Instant::now());
+-            }
+-        }
+-        if seconds.is_some_and(|limit| began.elapsed() >= Duration::from_secs(limit)) {
+-            break;
+-        }
+-        std::thread::sleep(Duration::from_secs(1).saturating_sub(step.elapsed()));
+-    }
+-    Ok(())
++fn reporting(config: PathBuf, result: PathBuf, seconds: Option<u64>) -> io::Result<()> {
++    reporting_with(config, result, seconds, &mut SystemSchedule, Reporter::new)
+ }
+ 
+ fn command(command: Command) -> io::Result<u8> {
+-    match command {
+-        Command::Defaults => {
+-            print(&Config::customer_default())?;
+-            Ok(0)
+-        }
+-        Command::Check {
+-            config: config_path,
+-            apply,
+-            report,
+-        } => {
+-            let config: Config = json_file::read(&config_path, CONFIG_BYTES)?;
+-            config.validate()?;
+-            if let Some(path) = &report {
+-                let temporary = json_file::temporary_path(path)?;
+-                if path == &config_path
+-                    || temporary == config_path
+-                    || json_file::same_file(&config_path, path)?
+-                    || json_file::same_file(&config_path, &temporary)?
+-                {
+-                    return Err(invalid("report file must not replace the configuration"));
+-                }
+-                // Result output is explicitly separate from every retention
+-                // root and the live bus. Never replace records with a receipt.
+-                if config.roots.iter().any(|root| path.starts_with(&root.path))
+-                    || path.starts_with(&config.bus_root)
+-                {
+-                    return Err(invalid(
+-                        "report file must be outside record roots and the bus",
+-                    ));
+-                }
+-                // Refuse an unrelated existing file. Atomic prior receipts can
+-                // be replaced; corrupted/unknown files need operator review.
+-                match json_file::read::<RunReport>(path, REPORT_BYTES) {
+-                    Ok(_) => {}
+-                    Err(error) if error.kind() == io::ErrorKind::NotFound => {}
+-                    Err(_) => {
+-                        return Err(invalid(
+-                            "existing report file is not a recognized cleanup result",
+-                        ));
+-                    }
+-                }
+-            }
+-            let mut result = run::execute(&config, now()?, apply);
+-            if let Some(path) = report {
+-                persist(&config, &path, &mut result);
+-            }
+-            print(&result)?;
+-            Ok(run::exit_code(&result))
+-        }
+-        Command::Report {
+-            config,
+-            result,
+-            seconds,
+-        } => {
+-            reporting(config, result, seconds)?;
+-            Ok(0)
+-        }
+-    }
++    command_with_reporting(command, reporting)
+ }
+ 
+ fn main() -> ExitCode {
+-    let args: Vec<_> = env::args().skip(1).collect();
+-    if args == ["--help"] || args == ["-h"] {
+-        println!("{USAGE}");
+-        return ExitCode::SUCCESS;
+-    }
+-    match arguments(&args).and_then(command) {
+-        Ok(code) => ExitCode::from(code),
+-        Err(error) => {
+-            eprintln!("lamp-records: {error}");
+-            ExitCode::from(64)
+-        }
+-    }
++    entrypoint(command)
+ }
+ 
+ #[cfg(test)]
+@@ -465,3 +189,6 @@
+         fs::remove_dir_all(dir).unwrap();
+     }
+ }
++
++#[cfg(test)]
++mod application_schedule_tests;
+--- a/lampOS/crates/records/src/application.rs
++++ b/lampOS/crates/records/src/application.rs
+@@ -0,0 +1,344 @@
++use lamp_records::{
++    RunReport,
++    config::{Config, absolute_path, invalid},
++    json_file::{self, CONFIG_BYTES, REPORT_BYTES},
++    report::{Reporter, diagnostic},
++    run,
++};
++use std::{
++    env, io,
++    path::{Path, PathBuf},
++    process::ExitCode,
++    time::{Duration, Instant, SystemTime, UNIX_EPOCH},
++};
++
++const USAGE: &str = "lamp-records defaults | check CONFIG [--apply] [--report RESULT] | report CONFIG RESULT [--seconds N]\ncheck is a dry run unless --apply is present; apply also requires enabled=true in CONFIG.\nDry runs write only stdout. The independent report process publishes the last result every second.";
++
++#[derive(Debug, PartialEq, Eq)]
++enum Command {
++    Defaults,
++    Check {
++        config: PathBuf,
++        apply: bool,
++        report: Option<PathBuf>,
++    },
++    Report {
++        config: PathBuf,
++        result: PathBuf,
++        seconds: Option<u64>,
++    },
++}
++
++fn arguments(args: &[String]) -> io::Result<Command> {
++    match args {
++        [one] if one == "defaults" => Ok(Command::Defaults),
++        [one, config, rest @ ..] if one == "check" => {
++            let mut apply = false;
++            let mut report = None;
++            let mut options = rest.iter();
++            while let Some(option) = options.next() {
++                match option.as_str() {
++                    "--apply" if !apply => apply = true,
++                    "--report" if report.is_none() => {
++                        report = Some(PathBuf::from(
++                            options
++                                .next()
++                                .ok_or_else(|| invalid("--report needs a path"))?,
++                        ));
++                    }
++                    _ => return Err(invalid(USAGE)),
++                }
++            }
++            if report.is_some() && !apply {
++                return Err(invalid("a dry run cannot write a report file"));
++            }
++            absolute_path(&PathBuf::from(config))?;
++            if let Some(path) = &report {
++                absolute_path(path)?;
++            }
++            Ok(Command::Check {
++                config: config.into(),
++                apply,
++                report,
++            })
++        }
++        [one, config, result, rest @ ..] if one == "report" => {
++            let seconds = match rest {
++                [] => None,
++                [flag, value] if flag == "--seconds" => {
++                    let count = value
++                        .parse::<u64>()
++                        .map_err(|_| invalid("seconds must be an integer"))?;
++                    if !(1..=86_400).contains(&count) {
++                        return Err(invalid("seconds must be 1..86400"));
++                    }
++                    Some(count)
++                }
++                _ => return Err(invalid(USAGE)),
++            };
++            absolute_path(&PathBuf::from(config))?;
++            absolute_path(&PathBuf::from(result))?;
++            Ok(Command::Report {
++                config: config.into(),
++                result: result.into(),
++                seconds,
++            })
++        }
++        _ => Err(invalid(USAGE)),
++    }
++}
++
++fn now() -> io::Result<u64> {
++    Ok(SystemTime::now()
++        .duration_since(UNIX_EPOCH)
++        .map_err(io::Error::other)?
++        .as_secs())
++}
++
++fn print(value: &impl serde::Serialize) -> io::Result<()> {
++    use io::Write;
++    let mut stdout = io::stdout().lock();
++    serde_json::to_writer(&mut stdout, value).map_err(io::Error::other)?;
++    writeln!(stdout)?;
++    Ok(())
++}
++
++fn synthetic(config: &Config, at_unix_s: u64, error: Option<String>) -> RunReport {
++    RunReport {
++        schema_version: 1,
++        config_fingerprint: config.fingerprint(),
++        at_unix_s,
++        mode: "apply".into(),
++        enabled: config.enabled,
++        roots: vec![],
++        error,
++    }
++}
++
++fn persist(config: &Config, path: &Path, result: &mut RunReport) {
++    let persisted = result
++        .validate()
++        .and_then(|()| json_file::write(path, result));
++    if let Err(error) = persisted {
++        // An oversized/invalid result must not poison the next timer run.
++        // Keep detailed outcomes on stdout and try a small, valid failure
++        // receipt for the live reporter.
++        result.error = Some(format!("cannot persist full cleanup result: {error}"));
++        let failure = synthetic(
++            config,
++            result.at_unix_s,
++            Some("cannot persist full cleanup result; see cleanup stdout".into()),
++        );
++        if json_file::write(path, &failure).is_err() {
++            eprintln!("lamp-records: cannot persist even the failure receipt");
++        }
++    }
++}
++
++/// Completed work immediately before the original reporting wait. The result
++/// covers publisher construction and publication together: an error does not
++/// claim that publish was called, and success does not prove delivery or exit.
++#[derive(Debug)]
++pub struct ReportCycle {
++    pub started: Instant,
++    pub host_started: Instant,
++    pub host_seconds: Option<u64>,
++    pub construction_or_publish: io::Result<()>,
++}
++
++/// Explicit cadence for the synchronous report loop. Reads must be pure and
++/// nondecreasing; only the caller may advance a fixture's clock. All other
++/// clocks, including the independent host lifetime, remain unchanged.
++pub trait ReportSchedule {
++    fn now(&self) -> Instant;
++
++    /// Called after the actual work and host lifetime check, with the original
++    /// one-second residual. Zero is not a positive parked boundary. A fixture
++    /// must bound its own wait by the supplied real host lifetime as well.
++    fn wait(&mut self, cycle: ReportCycle, remaining: Duration) -> io::Result<()>;
++}
++
++fn reporting_with(
++    config_path: PathBuf,
++    result: PathBuf,
++    seconds: Option<u64>,
++    schedule: &mut impl ReportSchedule,
++    mut make_reporter: impl FnMut(&Path) -> io::Result<Reporter>,
++) -> io::Result<()> {
++    let mut config: Config = json_file::read(&config_path, CONFIG_BYTES)?;
++    config.validate()?;
++    let mut config_stamp = None;
++    let mut result_stamp = None;
++    let mut cached: Option<RunReport> = None;
++    let mut publisher: Option<Reporter> = None;
++    let began = Instant::now();
++    let mut last_error = None;
++    loop {
++        let step = schedule.now();
++        let at = now()?;
++        let config_result =
++            json_file::read_changed::<Config>(&config_path, CONFIG_BYTES, config_stamp.as_ref());
++        let config_error = match config_result {
++            Ok(Some((next, stamp))) => match next.validate() {
++                Ok(()) => {
++                    if next.bus_root != config.bus_root {
++                        publisher = None;
++                    }
++                    config = next;
++                    config_stamp = Some(stamp);
++                    None
++                }
++                Err(_) => Some("records configuration is invalid".to_owned()),
++            },
++            Ok(None) => None,
++            Err(_) => Some("records configuration cannot be read".to_owned()),
++        };
++        let fallback;
++        let status = if let Some(error) = config_error {
++            fallback = synthetic(&config, at, Some(error));
++            &fallback
++        } else if !config.enabled {
++            fallback = synthetic(&config, at, None);
++            &fallback
++        } else {
++            match json_file::read_changed::<RunReport>(&result, REPORT_BYTES, result_stamp.as_ref())
++            {
++                Ok(Some((report, stamp))) => {
++                    cached = Some(report);
++                    result_stamp = Some(stamp);
++                }
++                Ok(None) => {}
++                Err(_) => {
++                    cached = None;
++                    result_stamp = None;
++                }
++            }
++            if let Some(report) = cached
++                .as_ref()
++                .filter(|report| report.config_fingerprint == config.fingerprint())
++            {
++                report
++            } else {
++                fallback = synthetic(
++                    &config,
++                    at,
++                    Some("no readable cleanup result for the current configuration".into()),
++                );
++                &fallback
++            }
++        };
++        // A file/transport failure never controls or restarts any producer.
++        let published = (|| -> io::Result<()> {
++            if publisher.is_none() {
++                publisher = Some(make_reporter(&config.bus_root)?);
++            }
++            publisher
++                .as_mut()
++                .unwrap()
++                .publish(&diagnostic(Some(status), at))
++        })();
++        if published.is_err() {
++            publisher = None;
++            if last_error.is_none_or(|time: Instant| time.elapsed() >= Duration::from_secs(60)) {
++                eprintln!(
++                    "lamp-records: diagnostics unavailable; will retry, cleanup is independent"
++                );
++                last_error = Some(Instant::now());
++            }
++        }
++        if seconds.is_some_and(|limit| began.elapsed() >= Duration::from_secs(limit)) {
++            break;
++        }
++        let remaining =
++            Duration::from_secs(1).saturating_sub(schedule.now().saturating_duration_since(step));
++        schedule.wait(
++            ReportCycle {
++                started: step,
++                host_started: began,
++                host_seconds: seconds,
++                construction_or_publish: published,
++            },
++            remaining,
++        )?;
++    }
++    Ok(())
++}
++
++fn command_with_reporting(
++    command: Command,
++    reporting: impl FnOnce(PathBuf, PathBuf, Option<u64>) -> io::Result<()>,
++) -> io::Result<u8> {
++    match command {
++        Command::Defaults => {
++            print(&Config::customer_default())?;
++            Ok(0)
++        }
++        Command::Check {
++            config: config_path,
++            apply,
++            report,
++        } => {
++            let config: Config = json_file::read(&config_path, CONFIG_BYTES)?;
++            config.validate()?;
++            if let Some(path) = &report {
++                let temporary = json_file::temporary_path(path)?;
++                if path == &config_path
++                    || temporary == config_path
++                    || json_file::same_file(&config_path, path)?
++                    || json_file::same_file(&config_path, &temporary)?
++                {
++                    return Err(invalid("report file must not replace the configuration"));
++                }
++                // Result output is explicitly separate from every retention
++                // root and the live bus. Never replace records with a receipt.
++                if config.roots.iter().any(|root| path.starts_with(&root.path))
++                    || path.starts_with(&config.bus_root)
++                {
++                    return Err(invalid(
++                        "report file must be outside record roots and the bus",
++                    ));
++                }
++                // Refuse an unrelated existing file. Atomic prior receipts can
++                // be replaced; corrupted/unknown files need operator review.
++                match json_file::read::<RunReport>(path, REPORT_BYTES) {
++                    Ok(_) => {}
++                    Err(error) if error.kind() == io::ErrorKind::NotFound => {}
++                    Err(_) => {
++                        return Err(invalid(
++                            "existing report file is not a recognized cleanup result",
++                        ));
++                    }
++                }
++            }
++            let mut result = run::execute(&config, now()?, apply);
++            if let Some(path) = report {
++                persist(&config, &path, &mut result);
++            }
++            print(&result)?;
++            Ok(run::exit_code(&result))
++        }
++        Command::Report {
++            config,
++            result,
++            seconds,
++        } => {
++            reporting(config, result, seconds)?;
++            Ok(0)
++        }
++    }
++}
++
++fn entrypoint(run_command: impl FnOnce(Command) -> io::Result<u8>) -> ExitCode {
++    let args: Vec<_> = env::args().skip(1).collect();
++    if args == ["--help"] || args == ["-h"] {
++        println!("{USAGE}");
++        return ExitCode::SUCCESS;
++    }
++    match arguments(&args).and_then(run_command) {
++        Ok(code) => ExitCode::from(code),
++        Err(error) => {
++            eprintln!("lamp-records: {error}");
++            ExitCode::from(64)
++        }
++    }
++}
+--- a/lampOS/crates/records/src/report.rs
++++ b/lampOS/crates/records/src/report.rs
+@@ -211,12 +211,25 @@
+ 
+ impl Reporter {
+     pub fn new(bus: &Path) -> io::Result<Self> {
++        Self::new_with_cadence_clock(bus, Instant::now)
++    }
++
++    /// Use an explicit pure clock for Bus rescans and presence refreshes in a
++    /// local fixture, installed before the first declared presence write.
++    /// Reads must share one nondecreasing Instant domain. The caller advances
++    /// that clock; report age, this reporter's header time, Bus UTC, filesystem
++    /// lease timestamps and actual message delivery keep their ordinary clocks.
++    pub fn new_with_cadence_clock(
++        bus: &Path,
++        now: impl Fn() -> Instant + Send + Sync + 'static,
++    ) -> io::Result<Self> {
+         let bus = Bus::new(bus)?;
+         Ok(Self {
+-            publisher: bus.publisher_declared(
++            publisher: bus.publisher_declared_with_cadence_clock(
+                 Diagnostic::TOPIC,
+                 &Diagnostic::declaration(),
+                 NAME,
++                now,
+             )?,
+             started: Instant::now(),
+         })
+@@ -227,6 +240,10 @@
+         self.publisher.publish_json(at_us, report).map(|_| ())
+     }
+ }
++
++#[cfg(test)]
++#[path = "reporter_clock_tests.rs"]
++mod clock_tests;
+ 
+ #[cfg(test)]
+ mod tests {
+--- a/lampOS/crates/records/src/application_schedule_tests.rs
++++ b/lampOS/crates/records/src/application_schedule_tests.rs
+@@ -0,0 +1,483 @@
++use super::*;
++use lamp_bus::Bus;
++use lamp_msgs::Diagnostic;
++use std::{
++    cell::Cell,
++    fs,
++    os::unix::fs::PermissionsExt,
++    sync::{
++        Arc,
++        atomic::{AtomicU64, AtomicUsize, Ordering},
++        mpsc,
++    },
++    thread,
++};
++
++static NEXT: AtomicU64 = AtomicU64::new(0);
++const HOST_WAIT: Duration = Duration::from_secs(4);
++
++struct Scratch(PathBuf);
++
++impl Scratch {
++    fn new() -> Self {
++        let path = fs::canonicalize(env::temp_dir()).unwrap().join(format!(
++            "rc-{}-{}",
++            std::process::id(),
++            NEXT.fetch_add(1, Ordering::Relaxed)
++        ));
++        fs::create_dir(&path).unwrap();
++        fs::set_permissions(&path, fs::Permissions::from_mode(0o700)).unwrap();
++        Self(path)
++    }
++
++    fn config(&self) -> (PathBuf, Config) {
++        let mut config = Config::customer_default();
++        config.bus_root = self.0.join("bus");
++        config.roots[0].path = self.0.join("sessions");
++        let path = self.0.join("config.json");
++        json_file::write(&path, &config).unwrap();
++        (path, config)
++    }
++}
++
++impl Drop for Scratch {
++    fn drop(&mut self) {
++        fs::remove_dir_all(&self.0).unwrap();
++    }
++}
++
++#[derive(Clone)]
++struct Clock {
++    origin: Instant,
++    micros: Arc<AtomicU64>,
++}
++
++impl Clock {
++    fn new() -> Self {
++        Self {
++            origin: Instant::now(),
++            micros: Arc::new(AtomicU64::new(0)),
++        }
++    }
++
++    fn now(&self) -> Instant {
++        self.origin
++            .checked_add(Duration::from_micros(self.micros.load(Ordering::SeqCst)))
++            .unwrap()
++    }
++
++    fn advance(&self, duration: Duration) {
++        let micros = u64::try_from(duration.as_micros()).unwrap();
++        self.micros
++            .fetch_update(Ordering::SeqCst, Ordering::SeqCst, |before| {
++                before.checked_add(micros)
++            })
++            .unwrap();
++    }
++}
++
++struct Schedule<F> {
++    clock: Clock,
++    reads: Arc<AtomicUsize>,
++    wait: F,
++}
++
++impl<F: FnMut(ReportCycle, Duration) -> io::Result<()>> ReportSchedule for Schedule<F> {
++    fn now(&self) -> Instant {
++        self.reads.fetch_add(1, Ordering::SeqCst);
++        self.clock.now()
++    }
++
++    fn wait(&mut self, cycle: ReportCycle, remaining: Duration) -> io::Result<()> {
++        (self.wait)(cycle, remaining)
++    }
++}
++
++fn stopped() -> io::Result<()> {
++    Err(io::Error::new(
++        io::ErrorKind::Interrupted,
++        "explicit fixture wait stopped",
++    ))
++}
++
++fn assert_stopped(result: io::Result<()>) {
++    let error = result.unwrap_err();
++    assert_eq!(error.kind(), io::ErrorKind::Interrupted);
++    assert_eq!(error.to_string(), "explicit fixture wait stopped");
++}
++
++#[test]
++fn system_schedule_samples_host_time_and_keeps_a_zero_wait_successful() {
++    let before = Instant::now();
++    let mut schedule = SystemSchedule;
++    let sampled = schedule.now();
++    assert!(sampled >= before && sampled <= Instant::now());
++    schedule
++        .wait(
++            ReportCycle {
++                started: sampled,
++                host_started: before,
++                host_seconds: Some(30),
++                construction_or_publish: Err(io::Error::other("publication failed")),
++            },
++            Duration::ZERO,
++        )
++        .unwrap();
++}
++
++#[test]
++fn initial_config_errors_precede_clock_factory_and_wait() {
++    let scratch = Scratch::new();
++    let (config_path, mut config) = scratch.config();
++    config.roots.clear();
++    json_file::write(&config_path, &config).unwrap();
++    let reads = Arc::new(AtomicUsize::new(0));
++    let mut schedule = Schedule {
++        clock: Clock::new(),
++        reads: Arc::clone(&reads),
++        wait: |_, _| panic!("invalid configuration reached the wait"),
++    };
++    for path in [scratch.0.join("missing.json"), config_path] {
++        assert!(
++            reporting_with(
++                path,
++                scratch.0.join("last.json"),
++                Some(30),
++                &mut schedule,
++                |_| { panic!("invalid configuration reached the factory") }
++            )
++            .is_err()
++        );
++    }
++    assert_eq!(reads.load(Ordering::SeqCst), 0);
++    assert!(!config.bus_root.exists());
++}
++
++#[test]
++fn report_command_passes_the_original_arguments_once_and_check_does_not_select_it() {
++    let scratch = Scratch::new();
++    let config = scratch.0.join("missing-config.json");
++    let result = scratch.0.join("last.json");
++    let expected = (config.clone(), result.clone(), Some(30));
++    let calls = Cell::new(0);
++    let error = command_with_reporting(
++        Command::Report {
++            config: config.clone(),
++            result,
++            seconds: Some(30),
++        },
++        |config, result, seconds| {
++            assert_eq!((config, result, seconds), expected);
++            drop(expected);
++            calls.set(calls.get() + 1);
++            Err(io::Error::new(
++                io::ErrorKind::PermissionDenied,
++                "factory selected",
++            ))
++        },
++    )
++    .unwrap_err();
++    assert_eq!(calls.get(), 1);
++    assert_eq!(error.kind(), io::ErrorKind::PermissionDenied);
++    assert!(
++        command_with_reporting(
++            Command::Check {
++                config,
++                apply: false,
++                report: None,
++            },
++            |_, _, _| panic!("check selected the reporter"),
++        )
++        .is_err()
++    );
++}
++
++#[test]
++fn cadence_reads_preserve_work_residual_and_reuse_the_actual_publisher() {
++    let scratch = Scratch::new();
++    let (config_path, config) = scratch.config();
++    let mut subscriber = Bus::new(&config.bus_root)
++        .unwrap()
++        .subscribe_typed(Diagnostic::TOPIC, "cadence", Diagnostic::TYPE)
++        .unwrap();
++    let clock = Clock::new();
++    let reads = Arc::new(AtomicUsize::new(0));
++    let calls = Cell::new(0);
++    let mut cycles = 0;
++    let mut host_started = None;
++    let before_host = Instant::now();
++    let mut schedule = Schedule {
++        clock: clock.clone(),
++        reads: Arc::clone(&reads),
++        wait: |cycle: ReportCycle, remaining| {
++            cycles += 1;
++            assert_eq!(reads.load(Ordering::SeqCst), cycles * 2);
++            assert_eq!(
++                cycle.started,
++                clock.origin + Duration::from_secs((cycles - 1) as u64)
++            );
++            assert_eq!(cycle.host_seconds, Some(30));
++            assert!(cycle.host_started >= before_host && cycle.host_started <= Instant::now());
++            assert_eq!(
++                *host_started.get_or_insert(cycle.host_started),
++                cycle.host_started
++            );
++            cycle.construction_or_publish.unwrap();
++            let message = subscriber.recv(Duration::ZERO).unwrap().unwrap();
++            assert_eq!(message.header.seq, cycles as u64);
++            let report: Diagnostic = serde_json::from_value(message.json().unwrap()).unwrap();
++            assert_eq!(report.name, "records");
++            assert!(report.message.contains("disabled"));
++            assert_eq!(
++                remaining,
++                if cycles == 1 {
++                    Duration::from_millis(750)
++                } else {
++                    Duration::from_secs(1)
++                }
++            );
++            if cycles == 3 {
++                return stopped();
++            }
++            clock.advance(remaining);
++            Ok(())
++        },
++    };
++    assert_stopped(reporting_with(
++        config_path,
++        scratch.0.join("last.json"),
++        Some(30),
++        &mut schedule,
++        |root| {
++            calls.set(calls.get() + 1);
++            assert_eq!(root, config.bus_root.as_path());
++            clock.advance(Duration::from_millis(250));
++            let first_read = clock.now();
++            let second_read = clock.now();
++            assert_eq!(first_read, clock.origin + Duration::from_millis(250));
++            assert_eq!(first_read, second_read);
++            let publisher_clock = clock.clone();
++            Reporter::new_with_cadence_clock(root, move || publisher_clock.now())
++        },
++    ));
++    assert_eq!(calls.get(), 1);
++    assert_eq!(cycles, 3);
++    assert_eq!(reads.load(Ordering::SeqCst), 6);
++    assert!(!scratch.0.join("last.json").exists());
++}
++
++#[test]
++fn zero_residual_is_preserved_and_logical_time_does_not_exhaust_the_host_lifetime() {
++    let scratch = Scratch::new();
++    let (config_path, _) = scratch.config();
++    let clock = Clock::new();
++    let mut waits = 0;
++    let mut schedule = Schedule {
++        clock: clock.clone(),
++        reads: Arc::new(AtomicUsize::new(0)),
++        wait: |cycle: ReportCycle, remaining| {
++            waits += 1;
++            cycle.construction_or_publish.unwrap();
++            assert_eq!(cycle.host_seconds, Some(30));
++            assert_eq!(
++                remaining,
++                if waits == 1 {
++                    Duration::ZERO
++                } else {
++                    Duration::from_secs(1)
++                }
++            );
++            if waits == 1 { Ok(()) } else { stopped() }
++        },
++    };
++    assert_stopped(reporting_with(
++        config_path,
++        scratch.0.join("last.json"),
++        Some(30),
++        &mut schedule,
++        |root| {
++            clock.advance(Duration::from_secs(3600));
++            let publisher_clock = clock.clone();
++            Reporter::new_with_cadence_clock(root, move || publisher_clock.now())
++        },
++    ));
++    assert_eq!(waits, 2);
++}
++
++#[test]
++fn failed_construction_is_observed_after_real_work_and_retried_only_next_cycle() {
++    let scratch = Scratch::new();
++    let (config_path, config) = scratch.config();
++    let mut subscriber = Bus::new(&config.bus_root)
++        .unwrap()
++        .subscribe_typed(Diagnostic::TOPIC, "failure", Diagnostic::TYPE)
++        .unwrap();
++    let clock = Clock::new();
++    let calls = Cell::new(0);
++    let mut waits = 0;
++    let mut schedule = Schedule {
++        clock: clock.clone(),
++        reads: Arc::new(AtomicUsize::new(0)),
++        wait: |cycle: ReportCycle, remaining| {
++            waits += 1;
++            assert_eq!(calls.get(), waits);
++            assert_eq!(remaining, Duration::from_secs(1));
++            if waits == 1 {
++                assert_eq!(
++                    cycle.construction_or_publish.unwrap_err().to_string(),
++                    "construction refused"
++                );
++                assert!(subscriber.recv(Duration::ZERO).unwrap().is_none());
++                clock.advance(remaining);
++                Ok(())
++            } else {
++                cycle.construction_or_publish.unwrap();
++                assert!(subscriber.recv(Duration::ZERO).unwrap().is_some());
++                stopped()
++            }
++        },
++    };
++    assert_stopped(reporting_with(
++        config_path,
++        scratch.0.join("last.json"),
++        None,
++        &mut schedule,
++        |root| {
++            calls.set(calls.get() + 1);
++            if calls.get() == 1 {
++                return Err(io::Error::other("construction refused"));
++            }
++            let publisher_clock = clock.clone();
++            Reporter::new_with_cadence_clock(root, move || publisher_clock.now())
++        },
++    ));
++    assert_eq!(waits, 2);
++}
++
++#[test]
++fn actual_bus_root_reload_recreates_the_selected_factory() {
++    let scratch = Scratch::new();
++    let (config_path, mut config) = scratch.config();
++    let first = config.bus_root.clone();
++    let second = scratch.0.join("other");
++    let mut subscribers = [&first, &second].map(|root| {
++        Bus::new(root)
++            .unwrap()
++            .subscribe_typed(Diagnostic::TOPIC, "reload", Diagnostic::TYPE)
++            .unwrap()
++    });
++    let clock = Clock::new();
++    let mut calls = Vec::new();
++    let mut waits = 0;
++    let mut schedule = Schedule {
++        clock: clock.clone(),
++        reads: Arc::new(AtomicUsize::new(0)),
++        wait: |cycle: ReportCycle, remaining| {
++            cycle.construction_or_publish.unwrap();
++            assert!(subscribers[waits].recv(Duration::ZERO).unwrap().is_some());
++            waits += 1;
++            if waits == 2 {
++                return stopped();
++            }
++            config.bus_root = second.clone();
++            json_file::write(&config_path, &config).unwrap();
++            clock.advance(remaining);
++            Ok(())
++        },
++    };
++    assert_stopped(reporting_with(
++        config_path.clone(),
++        scratch.0.join("last.json"),
++        None,
++        &mut schedule,
++        |root| {
++            calls.push(root.to_path_buf());
++            let publisher_clock = clock.clone();
++            Reporter::new_with_cadence_clock(root, move || publisher_clock.now())
++        },
++    ));
++    assert_eq!(calls, vec![first, second]);
++}
++
++#[test]
++fn a_real_publish_error_is_retained_after_successful_construction() {
++    let scratch = Scratch::new();
++    let (config_path, config) = scratch.config();
++    let mut subscriber = Bus::new(&config.bus_root)
++        .unwrap()
++        .subscribe_typed(Diagnostic::TOPIC, "blocked", Diagnostic::TYPE)
++        .unwrap();
++    let clock = Clock::new();
++    let constructed = Cell::new(false);
++    let mut schedule = Schedule {
++        clock: clock.clone(),
++        reads: Arc::new(AtomicUsize::new(0)),
++        wait: |cycle: ReportCycle, remaining| {
++            assert!(constructed.get());
++            assert!(cycle.construction_or_publish.is_err());
++            assert_eq!(remaining, Duration::from_secs(1));
++            assert!(subscriber.recv(Duration::ZERO).unwrap().is_none());
++            stopped()
++        },
++    };
++    assert_stopped(reporting_with(
++        config_path,
++        scratch.0.join("last.json"),
++        None,
++        &mut schedule,
++        |root| {
++            let publisher_clock = clock.clone();
++            let reporter = Reporter::new_with_cadence_clock(root, move || publisher_clock.now())?;
++            constructed.set(true);
++            fs::rename(root, scratch.0.join("saved-bus"))?;
++            fs::write(root, b"actual obstruction")?;
++            Ok(reporter)
++        },
++    ));
++    assert_eq!(fs::read(config.bus_root).unwrap(), b"actual obstruction");
++}
++
++#[test]
++fn a_held_factory_cannot_reach_the_wait_or_fabricate_a_bus_message() {
++    let scratch = Scratch::new();
++    let (config_path, config) = scratch.config();
++    let result_path = scratch.0.join("last.json");
++    let mut subscriber = Bus::new(&config.bus_root)
++        .unwrap()
++        .subscribe_typed(Diagnostic::TOPIC, "held", Diagnostic::TYPE)
++        .unwrap();
++    let (entered, entry) = mpsc::sync_channel(1);
++    let (release, released) = mpsc::sync_channel(1);
++    let (completed, completion) = mpsc::sync_channel(1);
++    thread::scope(|scope| {
++        let worker = scope.spawn(move || {
++            let clock = Clock::new();
++            let mut schedule = Schedule {
++                clock: clock.clone(),
++                reads: Arc::new(AtomicUsize::new(0)),
++                wait: |cycle: ReportCycle, remaining| {
++                    cycle.construction_or_publish.unwrap();
++                    assert_eq!(remaining, Duration::from_secs(1));
++                    completed.send(()).unwrap();
++                    stopped()
++                },
++            };
++            reporting_with(config_path, result_path, Some(30), &mut schedule, |root| {
++                entered.send(()).unwrap();
++                released.recv_timeout(HOST_WAIT).unwrap();
++                let publisher_clock = clock.clone();
++                Reporter::new_with_cadence_clock(root, move || publisher_clock.now())
++            })
++        });
++        entry.recv_timeout(HOST_WAIT).unwrap();
++        assert!(matches!(
++            completion.try_recv(),
++            Err(mpsc::TryRecvError::Empty)
++        ));
++        assert!(subscriber.recv(Duration::ZERO).unwrap().is_none());
++        release.send(()).unwrap();
++        completion.recv_timeout(HOST_WAIT).unwrap();
++        assert!(subscriber.recv(Duration::ZERO).unwrap().is_some());
++        assert_stopped(worker.join().unwrap());
++    });
++}
+--- a/lampOS/crates/records/src/reporter_clock_tests.rs
++++ b/lampOS/crates/records/src/reporter_clock_tests.rs
+@@ -0,0 +1,139 @@
++use super::*;
++use std::{
++    fs,
++    path::PathBuf,
++    sync::{
++        Arc,
++        atomic::{AtomicU64, AtomicUsize, Ordering},
++    },
++    time::Duration,
++};
++
++static NEXT: AtomicU64 = AtomicU64::new(0);
++
++struct Scratch(PathBuf);
++
++impl Scratch {
++    fn new() -> Self {
++        let path = fs::canonicalize(std::env::temp_dir())
++            .unwrap()
++            .join(format!(
++                "rp-{}-{}",
++                std::process::id(),
++                NEXT.fetch_add(1, Ordering::Relaxed)
++            ));
++        fs::create_dir(&path).unwrap();
++        Self(path)
++    }
++}
++
++impl Drop for Scratch {
++    fn drop(&mut self) {
++        fs::remove_dir_all(&self.0).unwrap();
++    }
++}
++
++#[test]
++fn rejected_roots_and_failed_declarations_do_not_sample_the_cadence_clock() {
++    let scratch = Scratch::new();
++    let blocked = scratch.0.join("blocked");
++    fs::write(&blocked, b"keep this file").unwrap();
++    let reads = Arc::new(AtomicUsize::new(0));
++    let fixed = Instant::now();
++    for root in [Path::new("relative-reporter-clock"), blocked.as_path()] {
++        let counted = Arc::clone(&reads);
++        assert!(
++            Reporter::new_with_cadence_clock(root, move || {
++                counted.fetch_add(1, Ordering::SeqCst);
++                fixed
++            })
++            .is_err()
++        );
++    }
++    assert_eq!(reads.load(Ordering::SeqCst), 0);
++    assert_eq!(fs::read(blocked).unwrap(), b"keep this file");
++}
++
++#[test]
++fn declaration_samples_the_clock_before_the_separate_real_header_start() {
++    let scratch = Scratch::new();
++    let bus = Bus::new(&scratch.0).unwrap();
++    let mut subscriber = bus
++        .subscribe_typed(Diagnostic::TOPIC, "header", Diagnostic::TYPE)
++        .unwrap();
++    let root = scratch.0.clone();
++    let reads = Arc::new(AtomicUsize::new(0));
++    let counted = Arc::clone(&reads);
++    let before = Instant::now();
++    let future = before + Duration::from_secs(3600);
++    let mut reporter = Reporter::new_with_cadence_clock(&scratch.0, move || {
++        if counted.fetch_add(1, Ordering::SeqCst) == 0 {
++            assert!(root.join("diagnostics/declaration").is_file());
++            assert!(!root.join("diagnostics/pubs").exists());
++        }
++        future
++    })
++    .unwrap();
++    assert_eq!(reads.load(Ordering::SeqCst), 1);
++    assert!(reporter.started >= before && reporter.started <= Instant::now());
++    let report = Diagnostic::ok("records");
++    reporter.publish(&report).unwrap();
++    let after = Instant::now();
++    assert_eq!(reads.load(Ordering::SeqCst), 2);
++    let message = subscriber.recv(Duration::ZERO).unwrap().unwrap();
++    assert!(u128::from(message.header.at_us) <= after.duration_since(before).as_micros());
++    assert_eq!(message.header.seq, 1);
++    assert_eq!(message.header.type_name.as_deref(), Some(Diagnostic::TYPE));
++    let received: Diagnostic = serde_json::from_value(message.json().unwrap()).unwrap();
++    assert_eq!(received, report);
++}
++
++#[test]
++fn the_records_constructor_installs_the_original_scan_and_presence_cadence() {
++    let scratch = Scratch::new();
++    let bus = Bus::new(&scratch.0).unwrap();
++    let mut first = bus
++        .subscribe_typed(Diagnostic::TOPIC, "first", Diagnostic::TYPE)
++        .unwrap();
++    let origin = Instant::now();
++    let micros = Arc::new(AtomicU64::new(0));
++    let current = Arc::clone(&micros);
++    let mut reporter = Reporter::new_with_cadence_clock(&scratch.0, move || {
++        origin + Duration::from_micros(current.load(Ordering::SeqCst))
++    })
++    .unwrap();
++    let report = Diagnostic::ok("records");
++    reporter.publish(&report).unwrap();
++    assert_eq!(first.recv(Duration::ZERO).unwrap().unwrap().header.seq, 1);
++    let mut later = bus
++        .subscribe_typed(Diagnostic::TOPIC, "later", Diagnostic::TYPE)
++        .unwrap();
++    for (at, sequence) in [(0, 2), (199_999, 3)] {
++        micros.store(at, Ordering::SeqCst);
++        reporter.publish(&report).unwrap();
++        assert_eq!(
++            first.recv(Duration::ZERO).unwrap().unwrap().header.seq,
++            sequence
++        );
++        assert!(later.recv(Duration::ZERO).unwrap().is_none());
++    }
++    micros.store(200_000, Ordering::SeqCst);
++    reporter.publish(&report).unwrap();
++    assert_eq!(first.recv(Duration::ZERO).unwrap().unwrap().header.seq, 4);
++    assert_eq!(later.recv(Duration::ZERO).unwrap().unwrap().header.seq, 4);
++
++    let mut entries = fs::read_dir(scratch.0.join("diagnostics/pubs")).unwrap();
++    let entry = entries.next().unwrap().unwrap().path();
++    assert!(entries.next().is_none());
++    fs::remove_file(&entry).unwrap();
++    micros.store(999_999, Ordering::SeqCst);
++    reporter.publish(&report).unwrap();
++    assert!(!entry.exists());
++    assert!(first.recv(Duration::ZERO).unwrap().is_some());
++    assert!(later.recv(Duration::ZERO).unwrap().is_some());
++    micros.store(1_000_000, Ordering::SeqCst);
++    reporter.publish(&report).unwrap();
++    assert!(entry.is_file());
++    assert!(first.recv(Duration::ZERO).unwrap().is_some());
++    assert!(later.recv(Duration::ZERO).unwrap().is_some());
++}
+--- a/lampOS/docs/records.md
++++ b/lampOS/docs/records.md
+@@ -323,6 +323,39 @@
+ A stopped reporter itself becomes stale normally. A missing bus does not
+ block cleanup or any other component.
+ 
++### Explicit reporter cadence for local fixtures
++
++The ordinary executable and a future explicit fixture can share the private
++application body. Ordinary startup still supplies the real reporting function;
++the parser, initial config read/validation, cleanup commands, file reloads,
++publication, error handling and exit codes retain their existing order. The
++original main-binary tests remain at the same paths. This preparation adds no
++fixture executable, control protocol, environment switch or migrated scenario.
++
++The reporting loop accepts an explicit schedule with pure, nondecreasing
++`Instant` reads and a wait callback, plus a publisher factory selected only at
++the existing construction/reconstruction site. The system schedule still reads
++`Instant::now` at each cycle start and residual calculation, then calls
++`thread::sleep` once with the original one-second period minus work time,
++including a zero residual. A supplied wait sees the actual combined publisher
++construction/publication result after error handling and the host lifetime
++check. Construction failure does not claim a publication attempt; a returned
++success does not prove that a subscriber received an Event, or that a child
++exited. A fixture's wait must preserve full periods and separately enforce the
++supplied real host lifetime; zero residual is not a parked boundary.
++
++`Reporter::new_with_cadence_clock` installs an explicit pure Bus cadence source
++before its first declared presence refresh. It retains the Bus's 200 ms
++subscriber rescan and one-second presence cadence. `Reporter::new` keeps its
++ordinary clock and declaration-before-start ordering. The reporter's own
++monotonic header timestamp remains real, as do receipt/diagnostic wall time,
++Bus UTC and filesystem lease timestamps, actual atomic files and datagrams,
++the 60-second error-log throttle, and the independent `--seconds` host lifetime.
++The application schedule and publisher cadence are explicit separate inputs;
++a coordinated fixture must supply the same clock domain to both. Clock reads
++never advance it. No clock replacement reaches retention guards, cleanup,
++subscriber liveness or the operating system's child-status evidence.
++
+ The saved result under `/run` is lost at reboot. With cleanup enabled, the
+ reporter can therefore show a missing-result error until the next hourly
+ cleanup completes. The timer's `Persistent=true` only catches missed calendar

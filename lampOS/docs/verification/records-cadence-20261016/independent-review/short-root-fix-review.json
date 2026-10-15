@@ -1,0 +1,65 @@
+{
+  "at_from_date": "2026-10-16 04:41:41 +0700",
+  "corrected_root": "/private/tmp/lampos-tests-records-cadence",
+  "base_from_root_manifest": "7ae0eb647914e286817c29bff2abc2934fb19546",
+  "files": [
+    {
+      "path": "lampOS/crates/records/src/main.rs",
+      "frozen_sha256": "33c9354f0d8de852e265002c3a56a8efa7b799bdb2fe5504ff5c326a2460e60f",
+      "corrected_sha256": "33c9354f0d8de852e265002c3a56a8efa7b799bdb2fe5504ff5c326a2460e60f",
+      "byte_identical_to_frozen": true
+    },
+    {
+      "path": "lampOS/crates/records/src/application.rs",
+      "frozen_sha256": "85af4d56754ff6e8b87180401bce78ebdfcbf5d7444d3b32a2dbcfc39ffc0320",
+      "corrected_sha256": "85af4d56754ff6e8b87180401bce78ebdfcbf5d7444d3b32a2dbcfc39ffc0320",
+      "byte_identical_to_frozen": true
+    },
+    {
+      "path": "lampOS/crates/records/src/report.rs",
+      "frozen_sha256": "0a3667e74d854c6b963e659dcb478d5eb8bf5b8faa68be3b6ed49c00d865ead2",
+      "corrected_sha256": "0a3667e74d854c6b963e659dcb478d5eb8bf5b8faa68be3b6ed49c00d865ead2",
+      "byte_identical_to_frozen": true
+    },
+    {
+      "path": "lampOS/crates/records/src/application_schedule_tests.rs",
+      "frozen_sha256": "46dab0c3551a72a62d7903a0fe6d322e036031fc680d3cba6535e0d03caeec75",
+      "corrected_sha256": "8cf8e5cfbe5790e762f638d033e97294870bf94812570a78493f8fe7636714ac",
+      "only_short_root_comment_and_format_changed": true,
+      "all_bytes_from_first_test_unchanged": true,
+      "tests_region_sha256": "4a8a6e4dba8dd0ab11f2d87b8d53ee135678e3f3fe8903238143ac9e7a6c5c20",
+      "source_tests": 9
+    },
+    {
+      "path": "lampOS/crates/records/src/reporter_clock_tests.rs",
+      "frozen_sha256": "f9fb5a5ccf3b7f967c51289d8a83cb26dded33116c633bcc9f12ef261de350c1",
+      "corrected_sha256": "9e2760715d599b4c36a0e075ae2f3188f6fd2924b2ea50db92cdff9dd104ae2f",
+      "only_short_root_comment_and_format_changed": true,
+      "all_bytes_from_first_test_unchanged": true,
+      "tests_region_sha256": "d4e524031d1113dce86cd54b9f969e8f9dca454b0679a2b2333f4544c885bb86",
+      "source_tests": 3
+    },
+    {
+      "path": "lampOS/docs/records.md",
+      "frozen_sha256": "5bf9effbd4b91af3f12bea9da7e4ea6892cb5f0183d172b94df57882b27bf8e8",
+      "corrected_sha256": "5bf9effbd4b91af3f12bea9da7e4ea6892cb5f0183d172b94df57882b27bf8e8",
+      "byte_identical_to_frozen": true
+    }
+  ],
+  "failed_first_gate_log_byte_identical": true,
+  "failed_test_source_copies": [
+    {
+      "path": "/private/tmp/tests-823-records-cadence-evidence/failed-application_schedule_tests.rs",
+      "sha256": "46dab0c3551a72a62d7903a0fe6d322e036031fc680d3cba6535e0d03caeec75",
+      "matches_frozen_path": "lampOS/crates/records/src/application_schedule_tests.rs"
+    },
+    {
+      "path": "/private/tmp/tests-823-records-cadence-evidence/failed-reporter_clock_tests.rs",
+      "sha256": "f9fb5a5ccf3b7f967c51289d8a83cb26dded33116c633bcc9f12ef261de350c1",
+      "matches_frozen_path": "lampOS/crates/records/src/reporter_clock_tests.rs"
+    }
+  ],
+  "root_manifest_sha256": "022166ef9a360c99c8ae2f2dcc497242afc351eefd0c77a79161ce46427e2547",
+  "no_tests_run_by_reviewer": true,
+  "execution_status": "Corrected gate running under root ownership; no passing result inferred."
+}

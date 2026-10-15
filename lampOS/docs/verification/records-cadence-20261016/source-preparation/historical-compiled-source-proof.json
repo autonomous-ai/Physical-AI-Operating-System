@@ -1,0 +1,22 @@
+{
+  "head": "8a7521661cb06997a18eed32ead13d8d9ee81fd9",
+  "base": "48b3737d5e83efa00278172cb602d3525d368a43",
+  "at_from_date": "2026-10-16 04:32:42 +0700",
+  "files": [
+    {
+      "path": "lampOS/crates/records/src/main.rs",
+      "sha256": "bae0df20da9c890ed0fcb3255150abbc01c1a70c47f685131d02ea8593d7a569",
+      "historical_compiled_head_matches_base": true
+    },
+    {
+      "path": "lampOS/crates/records/src/report.rs",
+      "sha256": "7dd0fca735054fc095d867ca54238aa978a80d741681bf0a7368b5f097ef6c5c",
+      "historical_compiled_head_matches_base": true
+    },
+    {
+      "path": "lampOS/crates/records/Cargo.toml",
+      "sha256": "92f90b54a3690be6cd6843a9cabb20c300468a9e716c09e58f874c0cdc7bdcfc",
+      "historical_compiled_head_matches_base": true
+    }
+  ]
+}

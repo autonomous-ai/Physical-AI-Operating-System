@@ -1,0 +1,49 @@
+{
+  "date": "2026-10-16 04:36:31 +0700",
+  "base": "7ae0eb647914e286817c29bff2abc2934fb19546",
+  "source": "/private/tmp/lampos-tests-records-report-clock",
+  "owned_sha256": {
+    "lampOS/crates/records/src/main.rs": "33c9354f0d8de852e265002c3a56a8efa7b799bdb2fe5504ff5c326a2460e60f",
+    "lampOS/crates/records/src/application.rs": "85af4d56754ff6e8b87180401bce78ebdfcbf5d7444d3b32a2dbcfc39ffc0320",
+    "lampOS/crates/records/src/report.rs": "0a3667e74d854c6b963e659dcb478d5eb8bf5b8faa68be3b6ed49c00d865ead2",
+    "lampOS/crates/records/src/application_schedule_tests.rs": "8cf8e5cfbe5790e762f638d033e97294870bf94812570a78493f8fe7636714ac",
+    "lampOS/crates/records/src/reporter_clock_tests.rs": "9e2760715d599b4c36a0e075ae2f3188f6fd2924b2ea50db92cdff9dd104ae2f",
+    "lampOS/docs/records.md": "5bf9effbd4b91af3f12bea9da7e4ea6892cb5f0183d172b94df57882b27bf8e8"
+  },
+  "original_records_files": {
+    "lampOS/crates/records/Cargo.toml": "92f90b54a3690be6cd6843a9cabb20c300468a9e716c09e58f874c0cdc7bdcfc",
+    "lampOS/crates/records/records.example.json": "173dc05e7da89ef5a49be5d832759b9e98fa62db92de4002d4d45be21493f003",
+    "lampOS/crates/records/systemd/lamp-records.timer": "5e0a975c32a5cb49b9da40750a5031a10e8abfbebbf20bc7b83c0d8df316cc1b",
+    "lampOS/crates/records/systemd/lamp-records-report.service": "1a6252cd3f1f92985238b7b3f6bc15db155b491b8623ebe04a76c612246575d0",
+    "lampOS/crates/records/systemd/lamp-records.service": "94a7bb3d84fa0fb48a893ab4e086f37f3b6ac26e8472aac23427a8cb7cc6a0aa",
+    "lampOS/crates/records/tests/records.rs": "b40cf09e6c77e4dfd5876e381a75d2878e2589b115345c2832ce6623f14370bd",
+    "lampOS/crates/records/src/json_file.rs": "80d533545280f90a367e6e04e05f03e293d3244dacee8f5c7572849f180e520c",
+    "lampOS/crates/records/src/config.rs": "b57c20226ed8898d1f7f43f6499d32dd623392db7871d3b1f3782b3afc916d80",
+    "lampOS/crates/records/src/lib.rs": "ede122aef027cc8010a25401d14b682542859d2ad8d94110f56f1f73a56f7471",
+    "lampOS/crates/records/src/store.rs": "c20e2a9d3a3abac7e16756208cb98f4460ab84d285839122bd62dd89be9af693",
+    "lampOS/crates/records/src/run.rs": "4c0dd2b3c845ec31ad75d60a21c04ae823e02174bb214cfa503b9bbeaf732419",
+    "lampOS/crates/records/src/plan.rs": "5442c93db91cd27559be4f152e0bf58476699b3bde23c63dc424a8ed095b6801",
+    "lampOS/crates/records/src/report.rs": "7dd0fca735054fc095d867ca54238aa978a80d741681bf0a7368b5f097ef6c5c",
+    "lampOS/crates/records/src/main.rs": "bae0df20da9c890ed0fcb3255150abbc01c1a70c47f685131d02ea8593d7a569",
+    "lampOS/crates/records/src/guard.rs": "6cb5cc66196be122e666deeddd84a15a03454127f502d0c0693e1b25717593f8"
+  },
+  "original_integration_source_unchanged": true,
+  "inherited_dependent_input_changes": [
+    "lampOS/crates/msgs/src/lib.rs",
+    "lampOS/crates/msgs/src/speaker_check.rs"
+  ],
+  "fix_date": "2026-10-16 04:40:18 +0700",
+  "narrow_new_test_root_fix": {
+    "lampOS/crates/records/src/application_schedule_tests.rs": {
+      "before": "46dab0c3551a72a62d7903a0fe6d322e036031fc680d3cba6535e0d03caeec75",
+      "after": "8cf8e5cfbe5790e762f638d033e97294870bf94812570a78493f8fe7636714ac",
+      "all_test_bodies_byte_identical": true
+    },
+    "lampOS/crates/records/src/reporter_clock_tests.rs": {
+      "before": "f9fb5a5ccf3b7f967c51289d8a83cb26dded33116c633bcc9f12ef261de350c1",
+      "after": "9e2760715d599b4c36a0e075ae2f3188f6fd2924b2ea50db92cdff9dd104ae2f",
+      "all_test_bodies_byte_identical": true
+    }
+  },
+  "failed_first_gate_retained": "root-tests.log"
+}

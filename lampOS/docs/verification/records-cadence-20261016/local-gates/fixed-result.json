@@ -1,0 +1,63 @@
+{
+  "date": "2026-10-16 04:42:32 +0700",
+  "totals": [
+    170,
+    0,
+    2
+  ],
+  "summaries": 9,
+  "baseline_compiled": 160,
+  "after_compiled": 172,
+  "all_original_names_and_ignored_flags_preserved": true,
+  "new_tests": [
+    [
+      "lamp-records",
+      "report::clock_tests::declaration_samples_the_clock_before_the_separate_real_header_start"
+    ],
+    [
+      "lamp-records",
+      "report::clock_tests::rejected_roots_and_failed_declarations_do_not_sample_the_cadence_clock"
+    ],
+    [
+      "lamp-records",
+      "report::clock_tests::the_records_constructor_installs_the_original_scan_and_presence_cadence"
+    ],
+    [
+      "lamp-records::bin/lamp-records",
+      "application_schedule_tests::a_held_factory_cannot_reach_the_wait_or_fabricate_a_bus_message"
+    ],
+    [
+      "lamp-records::bin/lamp-records",
+      "application_schedule_tests::a_real_publish_error_is_retained_after_successful_construction"
+    ],
+    [
+      "lamp-records::bin/lamp-records",
+      "application_schedule_tests::actual_bus_root_reload_recreates_the_selected_factory"
+    ],
+    [
+      "lamp-records::bin/lamp-records",
+      "application_schedule_tests::cadence_reads_preserve_work_residual_and_reuse_the_actual_publisher"
+    ],
+    [
+      "lamp-records::bin/lamp-records",
+      "application_schedule_tests::failed_construction_is_observed_after_real_work_and_retried_only_next_cycle"
+    ],
+    [
+      "lamp-records::bin/lamp-records",
+      "application_schedule_tests::initial_config_errors_precede_clock_factory_and_wait"
+    ],
+    [
+      "lamp-records::bin/lamp-records",
+      "application_schedule_tests::report_command_passes_the_original_arguments_once_and_check_does_not_select_it"
+    ],
+    [
+      "lamp-records::bin/lamp-records",
+      "application_schedule_tests::system_schedule_samples_host_time_and_keeps_a_zero_wait_successful"
+    ],
+    [
+      "lamp-records::bin/lamp-records",
+      "application_schedule_tests::zero_residual_is_preserved_and_logical_time_does_not_exhaust_the_host_lifetime"
+    ]
+  ],
+  "source_unchanged": true
+}

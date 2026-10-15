@@ -1,0 +1,247 @@
+{
+  "at_from_date": "2026-10-16 04:38:02 +0700",
+  "reviewed_root": "/private/tmp/lampos-tests-records-report-clock",
+  "base_from_author_evidence": "48b3737d5e83efa00278172cb602d3525d368a43",
+  "scope": "Independent local source review; no Cargo/test/build/Git/network execution",
+  "frozen_files": [
+    {
+      "path": "lampOS/crates/records/src/main.rs",
+      "sha256": "33c9354f0d8de852e265002c3a56a8efa7b799bdb2fe5504ff5c326a2460e60f",
+      "bytes": 6841,
+      "matches_author_frozen_snapshot": true
+    },
+    {
+      "path": "lampOS/crates/records/src/application.rs",
+      "sha256": "85af4d56754ff6e8b87180401bce78ebdfcbf5d7444d3b32a2dbcfc39ffc0320",
+      "bytes": 12360,
+      "matches_author_frozen_snapshot": true
+    },
+    {
+      "path": "lampOS/crates/records/src/report.rs",
+      "sha256": "0a3667e74d854c6b963e659dcb478d5eb8bf5b8faa68be3b6ed49c00d865ead2",
+      "bytes": 22388,
+      "matches_author_frozen_snapshot": true
+    },
+    {
+      "path": "lampOS/crates/records/src/application_schedule_tests.rs",
+      "sha256": "46dab0c3551a72a62d7903a0fe6d322e036031fc680d3cba6535e0d03caeec75",
+      "bytes": 15817,
+      "matches_author_frozen_snapshot": true
+    },
+    {
+      "path": "lampOS/crates/records/src/reporter_clock_tests.rs",
+      "sha256": "f9fb5a5ccf3b7f967c51289d8a83cb26dded33116c633bcc9f12ef261de350c1",
+      "bytes": 5016,
+      "matches_author_frozen_snapshot": true
+    },
+    {
+      "path": "lampOS/docs/records.md",
+      "sha256": "5bf9effbd4b91af3f12bea9da7e4ea6892cb5f0183d172b94df57882b27bf8e8",
+      "bytes": 35363,
+      "matches_author_frozen_snapshot": true
+    }
+  ],
+  "source_reversal": {
+    "main_byte_exact": true,
+    "main_sha256": "bae0df20da9c890ed0fcb3255150abbc01c1a70c47f685131d02ea8593d7a569",
+    "report_byte_exact": true,
+    "report_sha256": "7dd0fca735054fc095d867ca54238aa978a80d741681bf0a7368b5f097ef6c5c",
+    "docs_byte_exact": true,
+    "docs_sha256": "1f62e6f87b468015d337f3f398cd7f80d9bc9fcbe392a5da52ecaf89094c6b3d",
+    "default_wrapper_exact": true
+  },
+  "old_main_tests": {
+    "byte_identical": true,
+    "sha256": "7ce0939150b711ebf02059f9261a7c8dcb137f43a1d75009c5b3aed9e6ca0a19",
+    "names": [
+      "check_defaults_to_dry_and_never_accepts_a_live_override",
+      "reporter_has_explicit_bounded_test_lifetime",
+      "output_cannot_overwrite_config_or_an_unrelated_file",
+      "old_result_does_not_match_a_changed_age_policy_or_enable_switch",
+      "oversized_result_leaves_readable_failure_and_next_cleanup_can_replace_it"
+    ],
+    "assertion_sites": 25
+  },
+  "old_report_tests": {
+    "byte_identical": true,
+    "sha256": "a188dc9307f4ba514cdb9bfeb349d863e96bc9e5ca1ae92f63fcaa07ab0409a0",
+    "names": [
+      "healthy_report_identifies_snapshot_age_and_aggregates_without_record_ids",
+      "no_report_and_an_enabled_empty_report_are_errors",
+      "disabled_cleanup_is_visible_without_claiming_a_disk_scan",
+      "a_disabled_flag_does_not_hide_a_failure_or_impossible_removal",
+      "unsupported_schema_invalid_mode_and_clock_rollback_are_errors",
+      "two_hour_boundary_is_exact_and_large_clock_jumps_do_not_wrap",
+      "repeated_reports_do_not_refresh_the_cleanup_timestamp",
+      "stale_warning_or_error_is_not_downgraded",
+      "exact_disk_boundaries_do_not_round_a_warning_away",
+      "missing_zero_or_impossible_disk_values_are_errors",
+      "the_worst_root_disk_is_not_hidden_by_averaging_or_double_counting",
+      "refusals_byte_overruns_and_root_failures_remain_visible",
+      "dry_run_never_claims_enforced_retention_or_removals",
+      "large_counts_and_private_strings_do_not_overflow_or_expand_the_message",
+      "invalid_in_memory_reports_never_become_ok_or_publish_unvalidated_counters",
+      "reporter_refuses_a_relative_bus_without_creating_a_directory"
+    ],
+    "assertion_sites": 78
+  },
+  "old_integration": {
+    "byte_identical": true,
+    "sha256": "b40cf09e6c77e4dfd5876e381a75d2878e2589b115345c2832ce6623f14370bd",
+    "names": [
+      "public_tree_pipeline_dry_then_apply_keeps_live_memory_and_outside_link",
+      "real_cli_apply_with_unknown_service_cannot_delete_any_fixture_record",
+      "diagnostic_is_delivered_over_the_real_local_bus_without_record_contents",
+      "real_reporter_reloads_switch_and_policy_and_requires_a_matching_receipt"
+    ],
+    "assertion_sites": 50,
+    "selected_name": "real_reporter_reloads_switch_and_policy_and_requires_a_matching_receipt",
+    "selected_sha256": "8176cad80df7587ef6a81e1373711027bdcb5b693561785ab6bef642c0e7e7e3",
+    "selected_assertion_sites": 16
+  },
+  "new_test_source_names": [
+    "application_schedule_tests::system_schedule_samples_host_time_and_keeps_a_zero_wait_successful",
+    "application_schedule_tests::initial_config_errors_precede_clock_factory_and_wait",
+    "application_schedule_tests::report_command_passes_the_original_arguments_once_and_check_does_not_select_it",
+    "application_schedule_tests::cadence_reads_preserve_work_residual_and_reuse_the_actual_publisher",
+    "application_schedule_tests::zero_residual_is_preserved_and_logical_time_does_not_exhaust_the_host_lifetime",
+    "application_schedule_tests::failed_construction_is_observed_after_real_work_and_retried_only_next_cycle",
+    "application_schedule_tests::actual_bus_root_reload_recreates_the_selected_factory",
+    "application_schedule_tests::a_real_publish_error_is_retained_after_successful_construction",
+    "application_schedule_tests::a_held_factory_cannot_reach_the_wait_or_fabricate_a_bus_message",
+    "report::clock_tests::rejected_roots_and_failed_declarations_do_not_sample_the_cadence_clock",
+    "report::clock_tests::declaration_samples_the_clock_before_the_separate_real_header_start",
+    "report::clock_tests::the_records_constructor_installs_the_original_scan_and_presence_cadence"
+  ],
+  "new_tests_executed": false,
+  "unchanged_baseline_files": [
+    {
+      "path": "lampOS/crates/bus/src/lib.rs",
+      "sha256": "3ab858b5195382e190b4988415177c7cf0b567cae33ecdbf097167eb7978b919"
+    },
+    {
+      "path": "lampOS/crates/bus/src/publish.rs",
+      "sha256": "53a43999a7035b31e06d29abfb4d0975f514ca0402f4e2614d46796894e1e563"
+    },
+    {
+      "path": "lampOS/crates/records/Cargo.toml",
+      "sha256": "92f90b54a3690be6cd6843a9cabb20c300468a9e716c09e58f874c0cdc7bdcfc"
+    },
+    {
+      "path": "lampOS/crates/records/records.example.json",
+      "sha256": "173dc05e7da89ef5a49be5d832759b9e98fa62db92de4002d4d45be21493f003"
+    },
+    {
+      "path": "lampOS/crates/records/src/config.rs",
+      "sha256": "b57c20226ed8898d1f7f43f6499d32dd623392db7871d3b1f3782b3afc916d80"
+    },
+    {
+      "path": "lampOS/crates/records/src/guard.rs",
+      "sha256": "6cb5cc66196be122e666deeddd84a15a03454127f502d0c0693e1b25717593f8"
+    },
+    {
+      "path": "lampOS/crates/records/src/json_file.rs",
+      "sha256": "80d533545280f90a367e6e04e05f03e293d3244dacee8f5c7572849f180e520c"
+    },
+    {
+      "path": "lampOS/crates/records/src/lib.rs",
+      "sha256": "ede122aef027cc8010a25401d14b682542859d2ad8d94110f56f1f73a56f7471"
+    },
+    {
+      "path": "lampOS/crates/records/src/plan.rs",
+      "sha256": "5442c93db91cd27559be4f152e0bf58476699b3bde23c63dc424a8ed095b6801"
+    },
+    {
+      "path": "lampOS/crates/records/src/run.rs",
+      "sha256": "4c0dd2b3c845ec31ad75d60a21c04ae823e02174bb214cfa503b9bbeaf732419"
+    },
+    {
+      "path": "lampOS/crates/records/src/store.rs",
+      "sha256": "c20e2a9d3a3abac7e16756208cb98f4460ab84d285839122bd62dd89be9af693"
+    },
+    {
+      "path": "lampOS/crates/records/systemd/lamp-records-report.service",
+      "sha256": "1a6252cd3f1f92985238b7b3f6bc15db155b491b8623ebe04a76c612246575d0"
+    },
+    {
+      "path": "lampOS/crates/records/systemd/lamp-records.service",
+      "sha256": "94a7bb3d84fa0fb48a893ab4e086f37f3b6ac26e8472aac23427a8cb7cc6a0aa"
+    },
+    {
+      "path": "lampOS/crates/records/systemd/lamp-records.timer",
+      "sha256": "5e0a975c32a5cb49b9da40750a5031a10e8abfbebbf20bc7b83c0d8df316cc1b"
+    },
+    {
+      "path": "lampOS/crates/records/tests/records.rs",
+      "sha256": "b40cf09e6c77e4dfd5876e381a75d2878e2589b115345c2832ce6623f14370bd"
+    }
+  ],
+  "author_evidence_hashes": {
+    "source-preservation.json": "4a8ac8c65c8a8ba4b5d8f79b8f733e9943055f0dd28b2de251b73609f7c18386",
+    "before-source.json": "db98dcdb42acb36e7e5b0985b8b6ce6df589e0bdd2848b7373b6f53095bd3a77",
+    "owned.diff": "3f78fefdb0e253ae23e19112cb8e9e4461aaf47903fe7cd7afcc61bf860ff4b8"
+  },
+  "completed_at_from_date": "2026-10-16 04:40:03 +0700",
+  "records_file_inventory": {
+    "original_files": 15,
+    "current_files": 18,
+    "only_new_paths": [
+      "lampOS/crates/records/src/application.rs",
+      "lampOS/crates/records/src/application_schedule_tests.rs",
+      "lampOS/crates/records/src/reporter_clock_tests.rs"
+    ],
+    "missing_original_files": []
+  },
+  "root_execution_failure_evidence": {
+    "path": "/private/tmp/tests-823-records-cadence-evidence/root-tests.log",
+    "sha256": "06dc125c367cb042157957aeadde7a2970daeb8a3e0e0d7acac83f2c5e9c5580",
+    "reported_by_root_and_independently_read": true,
+    "reviewer_did_not_execute_tests": true,
+    "aggregate_counts": {
+      "passed": 164,
+      "failed": 6,
+      "ignored": 2,
+      "measured": 0,
+      "filtered_out": 0
+    },
+    "failures": [
+      {
+        "name": "report::clock_tests::declaration_samples_the_clock_before_the_separate_real_header_start",
+        "source": "crates/records/src/reporter_clock_tests.rs:63:10",
+        "diagnostic": "called `Result::unwrap()` on an `Err` value: Custom { kind: InvalidInput, error: \"socket path /private/var/folders/qg/lhfdx6q166z5cj705q22mh480000gn/T/rp-49243-0/diagnostics/subs/header.49243.0.sock is 104 bytes and a Unix socket's address holds 103: use a shorter root, topic or subscriber name\" }",
+        "log_line": 118
+      },
+      {
+        "name": "application_schedule_tests::a_held_factory_cannot_reach_the_wait_or_fabricate_a_bus_message",
+        "source": "crates/records/src/application_schedule_tests.rs:448:10",
+        "diagnostic": "called `Result::unwrap()` on an `Err` value: Custom { kind: InvalidInput, error: \"socket path /private/var/folders/qg/lhfdx6q166z5cj705q22mh480000gn/T/rc-49598-0/bus/diagnostics/subs/held.49598.0.sock is 106 bytes and a Unix socket's address holds 103: use a shorter root, topic or subscriber name\" }",
+        "log_line": 152
+      },
+      {
+        "name": "application_schedule_tests::a_real_publish_error_is_retained_after_successful_construction",
+        "source": "crates/records/src/application_schedule_tests.rs:409:10",
+        "diagnostic": "called `Result::unwrap()` on an `Err` value: Custom { kind: InvalidInput, error: \"socket path /private/var/folders/qg/lhfdx6q166z5cj705q22mh480000gn/T/rc-49598-1/bus/diagnostics/subs/blocked.49598.1.sock is 109 bytes and a Unix socket's address holds 103: use a shorter root, topic or subscriber name\" }",
+        "log_line": 158
+      },
+      {
+        "name": "application_schedule_tests::actual_bus_root_reload_recreates_the_selected_factory",
+        "source": "crates/records/src/application_schedule_tests.rs:367:14",
+        "diagnostic": "called `Result::unwrap()` on an `Err` value: Custom { kind: InvalidInput, error: \"socket path /private/var/folders/qg/lhfdx6q166z5cj705q22mh480000gn/T/rc-49598-2/bus/diagnostics/subs/reload.49598.2.sock is 108 bytes and a Unix socket's address holds 103: use a shorter root, topic or subscriber name\" }",
+        "log_line": 163
+      },
+      {
+        "name": "application_schedule_tests::cadence_reads_preserve_work_residual_and_reuse_the_actual_publisher",
+        "source": "crates/records/src/application_schedule_tests.rs:202:10",
+        "diagnostic": "called `Result::unwrap()` on an `Err` value: Custom { kind: InvalidInput, error: \"socket path /private/var/folders/qg/lhfdx6q166z5cj705q22mh480000gn/T/rc-49598-3/bus/diagnostics/subs/cadence.49598.3.sock is 109 bytes and a Unix socket's address holds 103: use a shorter root, topic or subscriber name\" }",
+        "log_line": 168
+      },
+      {
+        "name": "application_schedule_tests::failed_construction_is_observed_after_real_work_and_retried_only_next_cycle",
+        "source": "crates/records/src/application_schedule_tests.rs:314:10",
+        "diagnostic": "called `Result::unwrap()` on an `Err` value: Custom { kind: InvalidInput, error: \"socket path /private/var/folders/qg/lhfdx6q166z5cj705q22mh480000gn/T/rc-49598-4/bus/diagnostics/subs/failure.49598.4.sock is 109 bytes and a Unix socket's address holds 103: use a shorter root, topic or subscriber name\" }",
+        "log_line": 173
+      }
+    ],
+    "classification": "Six new fixture construction failures: long macOS temp root makes actual Unix datagram socket paths 104-109 bytes versus 103-byte address limit. The affected behavioral assertions were not reached."
+  }
+}

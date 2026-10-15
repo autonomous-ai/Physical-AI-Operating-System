@@ -1,0 +1,281 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.19s
+     Running unittests src/lib.rs (/private/tmp/tests-823-memory-application-target/debug/deps/lamp_records-5af4d2f925586872)
+
+running 108 tests
+test config::tests::broad_ambiguous_and_overlapping_paths_are_rejected ... ok
+test config::tests::customer_defaults_are_explicit_and_off ... ok
+test config::tests::malformed_service_and_limits_are_rejected ... ok
+test config::tests::unknown_fields_and_kinds_do_not_enable_generic_cleanup ... ok
+test guard::implementation::tests::a_live_empty_command_or_missing_metadata_still_refuses ... ok
+test guard::implementation::tests::a_single_recheck_distinguishes_exit_from_empty_live_arguments ... ok
+test guard::implementation::tests::absent_stat_and_esrch_are_gone_but_denied_or_invalid_stat_refuse ... ok
+test guard::implementation::tests::an_exited_main_process_still_refuses_even_if_its_invocation_is_known ... ok
+test guard::implementation::tests::an_exiting_flag_does_not_hide_unreadable_arguments_or_other_live_threads ... ok
+test guard::implementation::tests::an_expired_budget_cannot_turn_a_failed_inspection_into_a_skip ... ok
+test guard::implementation::tests::any_manager_change_or_failure_refuses ... ok
+test guard::implementation::tests::both_process_passes_keep_their_protected_paths ... ok
+test guard::implementation::tests::deadline_and_metadata_limits_refuse ... ok
+test guard::implementation::tests::disappearing_pinned_process_is_reported_and_never_follows_a_reused_pid ... ok
+test guard::implementation::tests::ending_a_process_does_not_remove_protection_already_discovered ... ok
+test guard::implementation::tests::exits_in_a_scan_do_not_weaken_protection_for_a_live_file_holder ... ok
+test guard::implementation::tests::failed_service_still_protects_an_old_live_coordinator ... ok
+test guard::implementation::tests::fake_manager_success_failure_timeout_and_output_cap ... ok
+test guard::implementation::tests::incomplete_process_evidence_and_unknown_workers_refuse ... ok
+test guard::implementation::tests::main_executable_mismatch_refuses_even_with_the_right_binary_name ... ok
+test guard::implementation::tests::main_process_must_match_the_manager_and_be_present ... ok
+test guard::implementation::tests::manager_identity_and_invocation_are_strict ... ok
+test guard::implementation::tests::persistent_zero_thread_metadata_never_passes_process_inspection ... ok
+test guard::implementation::tests::pid_reuse_and_parenthesized_comm_do_not_confuse_identity ... ok
+test guard::implementation::tests::pid_reuse_or_changed_process_kind_cannot_be_reclassified_as_exit ... ok
+test guard::implementation::tests::pinned_proc_directory_does_not_switch_to_reused_name ... ok
+test guard::implementation::tests::process_exits_and_known_kernel_threads_are_reported_without_reading_hidden_arguments ... ok
+test guard::implementation::tests::relative_and_alias_outputs_are_resolved ... ok
+test guard::implementation::tests::renamed_manual_binary_uses_direct_root_evidence_without_voice_parsing ... ok
+test guard::implementation::tests::retained_invocation_is_protected_in_all_known_states ... ok
+test guard::implementation::tests::scan_keeps_current_old_survivor_manual_and_diagnostic_child ... ok
+test guard::implementation::tests::the_voices_end_of_turn_worker_is_known_and_its_files_still_checked ... ok
+test guard::implementation::tests::the_voices_schedule_consumer_is_known_and_its_files_still_checked ... ok
+test guard::implementation::tests::unit_argument_cannot_be_a_pattern_or_option ... ok
+test guard::implementation::tests::unknown_same_cgroup_process_refuses ... ok
+test guard::implementation::tests::unrelated_serve_commands_do_not_use_the_voice_argument_layout ... ok
+test guard::implementation::tests::zero_threads_require_one_followup_that_positively_establishes_exit ... ok
+test guard::platform_tests::unsupported_platform_never_claims_an_empty_live_set ... ok
+test json_file::tests::atomic_result_replaces_only_known_file_and_cache_detects_change ... ok
+test json_file::tests::one_private_reserved_temporary_is_recovered_after_an_interrupted_write ... ok
+test json_file::tests::result_symlink_and_hardlink_are_refused_without_touching_target ... ok
+test plan::tests::age_is_strict_and_independent_from_size ... ok
+test plan::tests::clock_reversal_preserves_future_records_and_reports_pressure ... ok
+test plan::tests::duplicates_bad_names_and_overflow_are_errors_not_empty_success ... ok
+test plan::tests::live_session_is_kept_even_if_alone_older_and_larger_than_both_limits ... ok
+test plan::tests::recent_quarantine_is_resumed_but_never_while_protected ... ok
+test plan::tests::size_removes_oldest_whole_sessions_until_within_bound ... ok
+test plan::tests::tied_times_use_stable_names_and_both_bounds_apply ... ok
+test report::clock_tests::declaration_samples_the_clock_before_the_separate_real_header_start ... FAILED
+test report::clock_tests::rejected_roots_and_failed_declarations_do_not_sample_the_cadence_clock ... ok
+test report::clock_tests::the_records_constructor_installs_the_original_scan_and_presence_cadence ... ok
+test report::tests::a_disabled_flag_does_not_hide_a_failure_or_impossible_removal ... ok
+test report::tests::disabled_cleanup_is_visible_without_claiming_a_disk_scan ... ok
+test report::tests::dry_run_never_claims_enforced_retention_or_removals ... ok
+test report::tests::exact_disk_boundaries_do_not_round_a_warning_away ... ok
+test report::tests::healthy_report_identifies_snapshot_age_and_aggregates_without_record_ids ... ok
+test report::tests::invalid_in_memory_reports_never_become_ok_or_publish_unvalidated_counters ... ok
+test report::tests::large_counts_and_private_strings_do_not_overflow_or_expand_the_message ... ok
+test report::tests::missing_zero_or_impossible_disk_values_are_errors ... ok
+test report::tests::no_report_and_an_enabled_empty_report_are_errors ... ok
+test report::tests::refusals_byte_overruns_and_root_failures_remain_visible ... ok
+test report::tests::repeated_reports_do_not_refresh_the_cleanup_timestamp ... ok
+test report::tests::reporter_refuses_a_relative_bus_without_creating_a_directory ... ok
+test report::tests::stale_warning_or_error_is_not_downgraded ... ok
+test report::tests::the_worst_root_disk_is_not_hidden_by_averaging_or_double_counting ... ok
+test report::tests::two_hour_boundary_is_exact_and_large_clock_jumps_do_not_wrap ... ok
+test report::tests::unsupported_schema_invalid_mode_and_clock_rollback_are_errors ... ok
+test run::tests::disabled_apply_does_not_even_open_a_configured_root ... ok
+test run::tests::dry_run_plans_but_never_mutates_and_protects_old_live_session ... ok
+test run::tests::expired_budget_cannot_reach_protection_or_deletion ... ok
+test run::tests::full_disk_is_not_permission_to_bypass_safe_mutation_failures ... ok
+test run::tests::partial_unlinks_are_accounted_without_claiming_complete_session_removal ... ok
+test run::tests::unknown_protection_refuses_entire_root_but_reports_full_disk ... ok
+test store::tests::a_mutated_record_invalidates_the_whole_candidate_before_any_unlink ... ok
+test store::tests::accounting_rejects_overflow_and_snapshots_include_ctime_but_not_atime ... ok
+test store::tests::changed_file_inode_even_with_same_size_and_mtime_is_refused ... ok
+test store::tests::cleaner_lock_is_nonblocking_and_does_not_create_a_file ... ok
+test store::tests::combined_live_and_quarantine_entry_budget_is_enforced_and_clears_prior_authority ... ok
+test store::tests::conflicting_quarantine_id_never_overwrites_and_duplicate_inventory_refuses_both ... ok
+test store::tests::fsync_failures_keep_truthful_counts_and_a_recognizable_remainder ... ok
+test store::tests::full_disk_before_mutation_never_falls_back_to_in_place_deletion ... ok
+test store::tests::interrupted_unlinks_report_actual_progress_and_every_remainder_recovers ... ok
+test store::tests::invalid_quarantine_shares_the_total_entry_budget_and_clears_prior_authority ... ok
+test store::tests::inventory_is_read_only_and_uses_allocated_bytes_and_newest_mtime ... ok
+test store::tests::links_specials_unknown_layouts_and_permissions_are_refused_without_reads ... ok
+test store::tests::moved_or_replaced_root_is_detected_before_mutation ... ok
+test store::tests::partial_start_with_empty_metadata_is_known_but_empty_live_session_is_not ... ok
+test store::tests::public_constructor_accepts_a_private_tree_below_root_owned_sticky_temp ... ok
+test store::tests::public_constructor_rejects_writable_nonsticky_ancestors_open_root_and_symlinks ... ok
+test store::tests::refusal_limit_is_utf8_bytes_including_escaped_name_and_prefix ... ok
+test store::tests::removes_only_inventoried_sessions_and_requires_fresh_inventory_for_retry ... ok
+test store::tests::replaced_session_and_metadata_directory_keep_both_trees_intact ... ok
+test store::tests::sparse_file_allocation_is_not_confused_with_logical_length ... ok
+test store::tests::sticky_exception_requires_root_ownership_and_never_relaxes_final_root ... ok
+test store::tests::traversal_ids_invalid_roots_and_bounded_enumeration_fail_closed ... ok
+test store::tests::unknown_or_linked_quarantine_is_preserved ... ok
+test store::tests::vanished_candidate_is_not_recreated_or_confused_with_a_replacement ... ok
+test tests::fingerprint_is_required_and_exactly_lowercase_sha256_hex ... ok
+test tests::overflow_stops_before_reading_or_allocating_the_extra_value_or_tail ... ok
+test tests::paths_units_and_error_strings_have_byte_limits ... ok
+test tests::process_examples_are_bounded_and_remain_in_a_failed_root_report ... ok
+test tests::process_observations_are_optional_for_old_receipts_and_empty_output_is_unchanged ... ok
+test tests::process_report_counts_examples_and_unknown_reasons_fail_closed ... ok
+test tests::record_strings_are_bounded_by_decoded_utf8_bytes ... ok
+test tests::root_and_all_record_arrays_have_exact_count_bounds_even_for_empty_strings ... ok
+test tests::schema_mode_unknown_fields_and_numeric_types_fail_closed ... ok
+test tests::valid_report_round_trips_without_imposing_counter_relationships ... ok
+test tests::values_built_in_memory_follow_the_same_resource_limits ... ok
+
+failures:
+
+---- report::clock_tests::declaration_samples_the_clock_before_the_separate_real_header_start stdout ----
+
+thread 'report::clock_tests::declaration_samples_the_clock_before_the_separate_real_header_start' (578662393) panicked at crates/records/src/reporter_clock_tests.rs:63:10:
+called `Result::unwrap()` on an `Err` value: Custom { kind: InvalidInput, error: "socket path /private/var/folders/qg/lhfdx6q166z5cj705q22mh480000gn/T/rp-49243-0/diagnostics/subs/header.49243.0.sock is 104 bytes and a Unix socket's address holds 103: use a shorter root, topic or subscriber name" }
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    report::clock_tests::declaration_samples_the_clock_before_the_separate_real_header_start
+
+test result: FAILED. 107 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.78s
+
+error: test failed, to rerun pass `-p lamp-records --lib`
+     Running unittests src/main.rs (/private/tmp/tests-823-memory-application-target/debug/deps/lamp_records-3bd5b895a7c3d7d2)
+
+running 14 tests
+test application_schedule_tests::a_held_factory_cannot_reach_the_wait_or_fabricate_a_bus_message ... FAILED
+test application_schedule_tests::a_real_publish_error_is_retained_after_successful_construction ... FAILED
+test application_schedule_tests::actual_bus_root_reload_recreates_the_selected_factory ... FAILED
+test application_schedule_tests::cadence_reads_preserve_work_residual_and_reuse_the_actual_publisher ... FAILED
+test application_schedule_tests::failed_construction_is_observed_after_real_work_and_retried_only_next_cycle ... FAILED
+test application_schedule_tests::initial_config_errors_precede_clock_factory_and_wait ... ok
+test application_schedule_tests::report_command_passes_the_original_arguments_once_and_check_does_not_select_it ... ok
+test application_schedule_tests::system_schedule_samples_host_time_and_keeps_a_zero_wait_successful ... ok
+test application_schedule_tests::zero_residual_is_preserved_and_logical_time_does_not_exhaust_the_host_lifetime ... ok
+test tests::check_defaults_to_dry_and_never_accepts_a_live_override ... ok
+test tests::old_result_does_not_match_a_changed_age_policy_or_enable_switch ... ok
+test tests::output_cannot_overwrite_config_or_an_unrelated_file ... ok
+test tests::oversized_result_leaves_readable_failure_and_next_cleanup_can_replace_it ... {"schema_version":1,"config_fingerprint":"9da4e81a001e0412d2acc5aa8c273ddd175ccb5a20999d1807133040b056b99d","at_unix_s":1792100228,"mode":"apply","enabled":false,"roots":[],"error":null}
+ok
+test tests::reporter_has_explicit_bounded_test_lifetime ... ok
+
+failures:
+
+---- application_schedule_tests::a_held_factory_cannot_reach_the_wait_or_fabricate_a_bus_message stdout ----
+
+thread 'application_schedule_tests::a_held_factory_cannot_reach_the_wait_or_fabricate_a_bus_message' (578663161) panicked at crates/records/src/application_schedule_tests.rs:448:10:
+called `Result::unwrap()` on an `Err` value: Custom { kind: InvalidInput, error: "socket path /private/var/folders/qg/lhfdx6q166z5cj705q22mh480000gn/T/rc-49598-0/bus/diagnostics/subs/held.49598.0.sock is 106 bytes and a Unix socket's address holds 103: use a shorter root, topic or subscriber name" }
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+---- application_schedule_tests::a_real_publish_error_is_retained_after_successful_construction stdout ----
+
+thread 'application_schedule_tests::a_real_publish_error_is_retained_after_successful_construction' (578663165) panicked at crates/records/src/application_schedule_tests.rs:409:10:
+called `Result::unwrap()` on an `Err` value: Custom { kind: InvalidInput, error: "socket path /private/var/folders/qg/lhfdx6q166z5cj705q22mh480000gn/T/rc-49598-1/bus/diagnostics/subs/blocked.49598.1.sock is 109 bytes and a Unix socket's address holds 103: use a shorter root, topic or subscriber name" }
+
+---- application_schedule_tests::actual_bus_root_reload_recreates_the_selected_factory stdout ----
+
+thread 'application_schedule_tests::actual_bus_root_reload_recreates_the_selected_factory' (578663331) panicked at crates/records/src/application_schedule_tests.rs:367:14:
+called `Result::unwrap()` on an `Err` value: Custom { kind: InvalidInput, error: "socket path /private/var/folders/qg/lhfdx6q166z5cj705q22mh480000gn/T/rc-49598-2/bus/diagnostics/subs/reload.49598.2.sock is 108 bytes and a Unix socket's address holds 103: use a shorter root, topic or subscriber name" }
+
+---- application_schedule_tests::cadence_reads_preserve_work_residual_and_reuse_the_actual_publisher stdout ----
+
+thread 'application_schedule_tests::cadence_reads_preserve_work_residual_and_reuse_the_actual_publisher' (578663336) panicked at crates/records/src/application_schedule_tests.rs:202:10:
+called `Result::unwrap()` on an `Err` value: Custom { kind: InvalidInput, error: "socket path /private/var/folders/qg/lhfdx6q166z5cj705q22mh480000gn/T/rc-49598-3/bus/diagnostics/subs/cadence.49598.3.sock is 109 bytes and a Unix socket's address holds 103: use a shorter root, topic or subscriber name" }
+
+---- application_schedule_tests::failed_construction_is_observed_after_real_work_and_retried_only_next_cycle stdout ----
+
+thread 'application_schedule_tests::failed_construction_is_observed_after_real_work_and_retried_only_next_cycle' (578663337) panicked at crates/records/src/application_schedule_tests.rs:314:10:
+called `Result::unwrap()` on an `Err` value: Custom { kind: InvalidInput, error: "socket path /private/var/folders/qg/lhfdx6q166z5cj705q22mh480000gn/T/rc-49598-4/bus/diagnostics/subs/failure.49598.4.sock is 109 bytes and a Unix socket's address holds 103: use a shorter root, topic or subscriber name" }
+
+
+failures:
+    application_schedule_tests::a_held_factory_cannot_reach_the_wait_or_fabricate_a_bus_message
+    application_schedule_tests::a_real_publish_error_is_retained_after_successful_construction
+    application_schedule_tests::actual_bus_root_reload_recreates_the_selected_factory
+    application_schedule_tests::cadence_reads_preserve_work_residual_and_reuse_the_actual_publisher
+    application_schedule_tests::failed_construction_is_observed_after_real_work_and_retried_only_next_cycle
+
+test result: FAILED. 9 passed; 5 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.71s
+
+error: test failed, to rerun pass `-p lamp-records --bin lamp-records`
+     Running tests/records.rs (/private/tmp/tests-823-memory-application-target/debug/deps/records-a829e6621a2a1d7d)
+
+running 5 tests
+test diagnostic_is_delivered_over_the_real_local_bus_without_record_contents ... ok
+test public_tree_pipeline_dry_then_apply_keeps_live_memory_and_outside_link ... ok
+test real_cli_apply_with_unknown_service_cannot_delete_any_fixture_record ... ok
+test real_reporter_reloads_switch_and_policy_and_requires_a_matching_receipt ... ok
+test records_cost ... ignored, finite release timing of disposable records; report machine separately
+
+test result: ok. 4 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 5.74s
+
+     Running unittests src/lib.rs (/private/tmp/tests-823-memory-application-target/debug/deps/lamp_settings-a178a1ec000dfaa1)
+
+running 31 tests
+test engine::tests::failed_save_before_or_after_replacement_poisoned_until_reopen ... ok
+test engine::tests::invalid_atomic_batch_and_read_only_values_leave_all_state_unchanged ... ok
+test engine::tests::malformed_and_inconsistent_state_is_never_reset ... ok
+test engine::tests::missing_state_gets_defaults_and_reopening_preserves_identity ... ok
+test engine::tests::no_op_has_a_receipt_and_evicted_retries_cannot_pass_the_stale_guard ... ok
+test engine::tests::oversized_library_mutation_fails_before_storage_without_poisoning ... ok
+test engine::tests::reordered_atomic_changes_have_the_same_request_fingerprint ... ok
+test engine::tests::same_revision_rivals_have_one_winner_and_retry_is_durable ... ok
+test engine::tests::sixteen_maximum_wire_mutations_fit_with_a_large_admitted_catalog ... ok
+test model::tests::catalog_admission_reserves_space_for_values_and_full_retry_window ... ok
+test model::tests::first_three_have_existing_units_defaults_and_limits ... ok
+test model::tests::invalid_catalogs_fail_without_normalizing_names_or_defaults ... ok
+test model::tests::numeric_kinds_bounds_and_nonfinite_values_are_exact ... ok
+test model::tests::text_is_bounded_in_utf8_bytes_and_choices_are_explicit ... ok
+test model::tests::unknown_fields_duplicate_fields_and_wrong_json_kinds_are_refused ... ok
+test protocol::tests::a_bare_ok_or_another_commit_does_not_confirm_a_set ... ok
+test protocol::tests::reads_and_status_need_their_own_fields_and_an_honest_reliability ... ok
+test protocol::tests::strict_bounded_requests_have_no_hidden_apply_or_authority_flag ... ok
+test store::tests::data_temp_and_lock_refuse_links_special_files_and_public_permissions ... ok
+test store::tests::directory_and_lock_replacements_are_detected_before_save ... ok
+test store::tests::document_bound_is_checked_before_parse_or_write ... ok
+test store::tests::failed_records_write_poison_requires_reopen ... ok
+test store::tests::known_temporary_is_recovered_without_accumulating_residue ... ok
+test store::tests::noncanonical_missing_and_untrusted_directories_are_refused ... ok
+test store::tests::oversized_files_and_invalid_json_never_become_loaded_state ... ok
+test store::tests::oversized_temporary_is_refused_without_deleting_it ... ok
+test store::tests::owner_lock_excludes_another_process ... ok
+test store::tests::owner_lock_is_lifetime_exclusive_and_persists_for_reopen ... ok
+test store::tests::state_replacement_outside_owner_is_detected ... ok
+test store::tests::state_round_trips_without_erasing_duplicate_fields ... ok
+test store::tests::writable_ancestor_is_refused_even_when_final_directory_is_private ... ok
+
+test result: ok. 31 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.65s
+
+     Running unittests src/main.rs (/private/tmp/tests-823-memory-application-target/debug/deps/lamp_settings-739101112f9f525b)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/client.rs (/private/tmp/tests-823-memory-application-target/debug/deps/client-3bac62b4b257a2ee)
+
+running 9 tests
+test closed_truncated_nonobject_malformed_and_multiple_replies_are_ambiguous ... ok
+test complete_request_without_reply_times_out_without_retrying_or_exposing_payload ... ok
+test exact_reply_limit_is_accepted_and_one_more_byte_is_refused ... ok
+test fragmented_reply_preserves_escaped_content_and_accepts_trailing_whitespace ... ok
+test invalid_or_oversized_requests_are_refused_before_connecting ... ok
+test invalid_paths_and_expired_deadline_never_connect ... ok
+test maximum_request_is_sent_once_and_partial_response_cannot_reset_deadline ... ok
+test missing_stale_and_nonsocket_endpoints_are_unavailable_without_sending ... ok
+test multiple_hops_share_one_absolute_deadline ... ok
+
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 4.03s
+
+     Running tests/runtime.rs (/private/tmp/tests-823-memory-application-target/debug/deps/runtime-dc3b15e517c48035)
+
+running 5 tests
+test concurrent_editors_get_one_commit_and_retry_survives_recovery ... ok
+test expired_client_does_not_cancel_a_started_durable_save ... ok
+test read_keeps_progressing_while_storage_waits_and_failure_is_not_rollback ... ok
+test save_round_trip_latency_on_this_machine ... ignored, host measurement: socket and private-directory save on this machine
+test slow_input_and_bad_lines_do_not_block_another_reader ... ok
+
+test result: ok. 4 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 1.67s
+
+   Doc-tests lamp_records
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests lamp_settings
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+error: 2 targets failed:
+    `-p lamp-records --lib`
+    `-p lamp-records --bin lamp-records`

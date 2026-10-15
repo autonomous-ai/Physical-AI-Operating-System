@@ -1,0 +1,79 @@
+{
+  "at_from_date": "2026-10-16 04:22:06 +0700",
+  "base": "48b3737d5e83efa00278172cb602d3525d368a43",
+  "all_match_base": true,
+  "files": [
+    {
+      "path": "lampOS/crates/bus/src/lib.rs",
+      "sha256": "3ab858b5195382e190b4988415177c7cf0b567cae33ecdbf097167eb7978b919"
+    },
+    {
+      "path": "lampOS/crates/bus/src/publish.rs",
+      "sha256": "53a43999a7035b31e06d29abfb4d0975f514ca0402f4e2614d46796894e1e563"
+    },
+    {
+      "path": "lampOS/crates/records/Cargo.toml",
+      "sha256": "92f90b54a3690be6cd6843a9cabb20c300468a9e716c09e58f874c0cdc7bdcfc"
+    },
+    {
+      "path": "lampOS/crates/records/records.example.json",
+      "sha256": "173dc05e7da89ef5a49be5d832759b9e98fa62db92de4002d4d45be21493f003"
+    },
+    {
+      "path": "lampOS/crates/records/src/config.rs",
+      "sha256": "b57c20226ed8898d1f7f43f6499d32dd623392db7871d3b1f3782b3afc916d80"
+    },
+    {
+      "path": "lampOS/crates/records/src/guard.rs",
+      "sha256": "6cb5cc66196be122e666deeddd84a15a03454127f502d0c0693e1b25717593f8"
+    },
+    {
+      "path": "lampOS/crates/records/src/json_file.rs",
+      "sha256": "80d533545280f90a367e6e04e05f03e293d3244dacee8f5c7572849f180e520c"
+    },
+    {
+      "path": "lampOS/crates/records/src/lib.rs",
+      "sha256": "ede122aef027cc8010a25401d14b682542859d2ad8d94110f56f1f73a56f7471"
+    },
+    {
+      "path": "lampOS/crates/records/src/main.rs",
+      "sha256": "bae0df20da9c890ed0fcb3255150abbc01c1a70c47f685131d02ea8593d7a569"
+    },
+    {
+      "path": "lampOS/crates/records/src/plan.rs",
+      "sha256": "5442c93db91cd27559be4f152e0bf58476699b3bde23c63dc424a8ed095b6801"
+    },
+    {
+      "path": "lampOS/crates/records/src/report.rs",
+      "sha256": "7dd0fca735054fc095d867ca54238aa978a80d741681bf0a7368b5f097ef6c5c"
+    },
+    {
+      "path": "lampOS/crates/records/src/run.rs",
+      "sha256": "4c0dd2b3c845ec31ad75d60a21c04ae823e02174bb214cfa503b9bbeaf732419"
+    },
+    {
+      "path": "lampOS/crates/records/src/store.rs",
+      "sha256": "c20e2a9d3a3abac7e16756208cb98f4460ab84d285839122bd62dd89be9af693"
+    },
+    {
+      "path": "lampOS/crates/records/systemd/lamp-records-report.service",
+      "sha256": "1a6252cd3f1f92985238b7b3f6bc15db155b491b8623ebe04a76c612246575d0"
+    },
+    {
+      "path": "lampOS/crates/records/systemd/lamp-records.service",
+      "sha256": "94a7bb3d84fa0fb48a893ab4e086f37f3b6ac26e8472aac23427a8cb7cc6a0aa"
+    },
+    {
+      "path": "lampOS/crates/records/systemd/lamp-records.timer",
+      "sha256": "5e0a975c32a5cb49b9da40750a5031a10e8abfbebbf20bc7b83c0d8df316cc1b"
+    },
+    {
+      "path": "lampOS/crates/records/tests/records.rs",
+      "sha256": "b40cf09e6c77e4dfd5876e381a75d2878e2589b115345c2832ce6623f14370bd"
+    },
+    {
+      "path": "lampOS/docs/records.md",
+      "sha256": "1f62e6f87b468015d337f3f398cd7f80d9bc9fcbe392a5da52ecaf89094c6b3d"
+    }
+  ]
+}

@@ -1,0 +1,18 @@
+{
+  "at_from_date": "2026-10-16 04:32:42 +0700",
+  "command": [
+    "/Users/autonomous/.rustup/toolchains/1.96.0-x86_64-apple-darwin/bin/rustfmt",
+    "--check",
+    "--edition",
+    "2024",
+    "--config",
+    "skip_children=true",
+    "lampOS/crates/records/src/main.rs",
+    "lampOS/crates/records/src/application.rs",
+    "lampOS/crates/records/src/report.rs",
+    "lampOS/crates/records/src/application_schedule_tests.rs",
+    "lampOS/crates/records/src/reporter_clock_tests.rs"
+  ],
+  "exit_code": 0,
+  "cargo_run_by_worker": false
+}

@@ -1,0 +1,5 @@
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-15T18:05:42.9781230Z         PASS [   0.004s] ( 579/1167) lamp-records::bin/lamp-records tests::check_defaults_to_dry_and_never_accepts_a_live_override
+lampOS — build and test on Linux ARM64 (2/4)	UNKNOWN STEP	2026-10-15T18:04:33.1589441Z         PASS [   0.003s] ( 615/1256) lamp-records::bin/lamp-records tests::reporter_has_explicit_bounded_test_lifetime
+lampOS — build and test on Linux ARM64 (3/4)	UNKNOWN STEP	2026-10-15T18:05:42.9824217Z         PASS [   0.004s] ( 580/1167) lamp-records::bin/lamp-records tests::output_cannot_overwrite_config_or_an_unrelated_file
+lampOS — build and test on Linux ARM64 (1/4)	UNKNOWN STEP	2026-10-15T18:04:22.6323421Z         PASS [   0.004s] ( 591/1232) lamp-records::bin/lamp-records tests::old_result_does_not_match_a_changed_age_policy_or_enable_switch
+lampOS — build and test on Linux ARM64 (1/4)	UNKNOWN STEP	2026-10-15T18:04:22.6501317Z         PASS [   0.018s] ( 592/1232) lamp-records::bin/lamp-records tests::oversized_result_leaves_readable_failure_and_next_cleanup_can_replace_it

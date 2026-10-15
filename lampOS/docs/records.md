@@ -323,6 +323,39 @@ one-second diagnostic; the private result and stdout retain session IDs.
 A stopped reporter itself becomes stale normally. A missing bus does not
 block cleanup or any other component.
 
+### Explicit reporter cadence for local fixtures
+
+The ordinary executable and a future explicit fixture can share the private
+application body. Ordinary startup still supplies the real reporting function;
+the parser, initial config read/validation, cleanup commands, file reloads,
+publication, error handling and exit codes retain their existing order. The
+original main-binary tests remain at the same paths. This preparation adds no
+fixture executable, control protocol, environment switch or migrated scenario.
+
+The reporting loop accepts an explicit schedule with pure, nondecreasing
+`Instant` reads and a wait callback, plus a publisher factory selected only at
+the existing construction/reconstruction site. The system schedule still reads
+`Instant::now` at each cycle start and residual calculation, then calls
+`thread::sleep` once with the original one-second period minus work time,
+including a zero residual. A supplied wait sees the actual combined publisher
+construction/publication result after error handling and the host lifetime
+check. Construction failure does not claim a publication attempt; a returned
+success does not prove that a subscriber received an Event, or that a child
+exited. A fixture's wait must preserve full periods and separately enforce the
+supplied real host lifetime; zero residual is not a parked boundary.
+
+`Reporter::new_with_cadence_clock` installs an explicit pure Bus cadence source
+before its first declared presence refresh. It retains the Bus's 200 ms
+subscriber rescan and one-second presence cadence. `Reporter::new` keeps its
+ordinary clock and declaration-before-start ordering. The reporter's own
+monotonic header timestamp remains real, as do receipt/diagnostic wall time,
+Bus UTC and filesystem lease timestamps, actual atomic files and datagrams,
+the 60-second error-log throttle, and the independent `--seconds` host lifetime.
+The application schedule and publisher cadence are explicit separate inputs;
+a coordinated fixture must supply the same clock domain to both. Clock reads
+never advance it. No clock replacement reaches retention guards, cleanup,
+subscriber liveness or the operating system's child-status evidence.
+
 The saved result under `/run` is lost at reboot. With cleanup enabled, the
 reporter can therefore show a missing-result error until the next hourly
 cleanup completes. The timer's `Persistent=true` only catches missed calendar

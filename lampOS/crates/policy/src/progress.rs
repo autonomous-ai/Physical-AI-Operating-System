@@ -453,9 +453,22 @@ pub struct Progress {
     voice: Option<Voice>,
     last_talk: Option<Instant>,
     last_listening: Option<Instant>,
+    /// The turn the voice is in, from its first `listening`, `thinking` or
+    /// `speaking` to `resting`.
+    turn: Option<Turn>,
     unasked: VecDeque<Instant>,
     notes: VecDeque<Instant>,
     totals: Totals,
+}
+
+/// One turn of the voice's, as it was known at its beginning.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+struct Turn {
+    /// The lamp began it itself: its first state was `thinking` or
+    /// `speaking`, with nobody listened to in the [`UNASKED_AFTER`] before.
+    unasked: bool,
+    /// Its sound has begun.
+    spoke: bool,
 }
 
 impl Progress {
@@ -494,6 +507,7 @@ impl Progress {
             voice: None,
             last_talk: None,
             last_listening: None,
+            turn: None,
             unasked: VecDeque::new(),
             notes: VecDeque::new(),
             totals: Totals::default(),
@@ -594,29 +608,45 @@ impl Progress {
         self.live = false;
     }
 
-    /// What the voice is doing. A turn the lamp begins to speak with nobody
-    /// listened to in the [`UNASKED_AFTER`] before is one it began itself.
+    /// What the voice is doing. A turn whose first state is `thinking` or
+    /// `speaking`, with nobody listened to in the [`UNASKED_AFTER`] before,
+    /// is one the lamp began itself, counted once at its first sound
+    /// however often it speaks before it ends. Whether a turn was asked
+    /// for is known at its beginning and kept to its end: an answer whose
+    /// first sound is slow (the model may take 30 s) is still an answer
+    /// (the reviewer on #883, 05:22, of the hello's same count).
     pub fn voice(&mut self, state: Voice, now: Instant) {
         match state {
             Voice::Listening => {
+                // Someone is listened to: whatever turn this is, it was
+                // asked for.
+                self.turn = Some(Turn {
+                    unasked: false,
+                    spoke: false,
+                });
                 self.last_listening = Some(now);
                 self.last_talk = Some(now);
             }
-            Voice::Speaking => {
-                if self.voice != Some(Voice::Speaking)
-                    && self
+            Voice::Thinking | Voice::Speaking => {
+                let turn = self.turn.get_or_insert(Turn {
+                    unasked: self
                         .last_listening
-                        .is_none_or(|at| now.saturating_duration_since(at) > UNASKED_AFTER)
-                {
+                        .is_none_or(|at| now.saturating_duration_since(at) > UNASKED_AFTER),
+                    spoke: false,
+                });
+                if state == Voice::Speaking && turn.unasked && !turn.spoke {
                     self.unasked.push_back(now);
+                }
+                if state == Voice::Speaking {
+                    turn.spoke = true;
                 }
                 self.last_talk = Some(now);
             }
-            Voice::Thinking => self.last_talk = Some(now),
             // The quiet begins when the voice stops, not at its last
             // heartbeat before: an active state is said again once a
             // second, so that one can be most of a second old.
             Voice::Resting => {
+                self.turn = None;
                 if matches!(
                     self.voice,
                     Some(Voice::Listening | Voice::Thinking | Voice::Speaking)
@@ -630,6 +660,7 @@ impl Progress {
 
     pub fn voice_gone(&mut self) {
         self.voice = None;
+        self.turn = None;
     }
 
     /// Something was heard, or said by the lamp.
@@ -1175,6 +1206,52 @@ mod tests {
         assert!(!progress.talking(t + Duration::from_secs(62) + QUIET_FOR));
         progress.talk(t + Duration::from_secs(100));
         assert!(progress.talking(t + Duration::from_secs(101)));
+    }
+
+    /// The reviewer on #883 (05:22), of the hello's same count: an answer
+    /// is an answer however slow its first sound, and one turn that speaks,
+    /// thinks and speaks again is one turn. A turn the lamp began itself is
+    /// counted, also when its sound is late.
+    #[test]
+    fn a_slow_answer_is_not_unasked_and_a_turn_is_counted_once() {
+        let count = |turns: &[&[(Voice, u64)]]| {
+            let mut progress =
+                Progress::start(Never, Options::new(Duration::from_secs(1), None)).unwrap();
+            let mut at = Instant::now();
+            for turn in turns {
+                for (state, after) in *turn {
+                    progress.voice(*state, at + Duration::from_secs(*after));
+                }
+                at += Duration::from_secs(120);
+            }
+            progress.unasked.len()
+        };
+        use Voice::{Listening, Resting, Speaking, Thinking};
+        // Thinking is said again once a second while it waits.
+        let slow: Vec<(Voice, u64)> = [(Listening, 0)]
+            .into_iter()
+            .chain((1..30).map(|second| (Thinking, second)))
+            .chain([(Speaking, 30), (Resting, 33)])
+            .collect();
+        let quick: &[(Voice, u64)] = &[(Listening, 0), (Thinking, 1), (Speaking, 1), (Resting, 4)];
+        assert_eq!(count(&[&slow, &slow]), 0);
+        assert_eq!(count(&[quick, quick]), 0);
+        // Begun by the lamp itself: once each, however often it speaks.
+        let own: &[(Voice, u64)] = &[
+            (Thinking, 0),
+            (Speaking, 2),
+            (Thinking, 5),
+            (Speaking, 6),
+            (Resting, 9),
+        ];
+        assert_eq!(count(&[own]), 1);
+        assert_eq!(count(&[own, own]), 2);
+        // Its first sound late: still its own.
+        let late: Vec<(Voice, u64)> = (0..30)
+            .map(|second| (Thinking, second))
+            .chain([(Speaking, 30), (Resting, 33)])
+            .collect();
+        assert_eq!(count(&[&late]), 1);
     }
 
     /// Says yes to everything, each answer only when the test lets it go.

@@ -326,11 +326,33 @@ impl EyesLink {
         // Nobody listening, a full queue, a missing path: all the same here.
         let _ = self.socket.send_to(message, &self.path);
     }
+
+    /// Ask the eyes for one full look (#836). Eyes started without
+    /// `--full-look` take it for nothing.
+    pub fn look_full(&mut self) {
+        let _ = self.socket.send_to(br#"{"look_full":true}"#, &self.path);
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_eyes_are_asked_for_a_full_look_in_one_exact_datagram() {
+        let directory =
+            std::env::temp_dir().join(format!("lamp-voice-eyes-{}", std::process::id()));
+        std::fs::create_dir_all(&directory).unwrap();
+        let path = directory.join("permit.sock");
+        let _ = std::fs::remove_file(&path);
+        let eyes = UnixDatagram::bind(&path).unwrap();
+        let mut link = EyesLink::to(path.clone()).unwrap();
+        link.look_full();
+        let mut got = [0u8; 64];
+        let length = eyes.recv(&mut got).unwrap();
+        assert_eq!(&got[..length], br#"{"look_full":true}"#);
+        std::fs::remove_dir_all(&directory).unwrap();
+    }
 
     #[test]
     fn a_turn_let_through_only_to_be_judged_does_not_make_the_room_busy() {

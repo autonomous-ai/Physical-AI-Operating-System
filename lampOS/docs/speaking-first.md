@@ -113,6 +113,24 @@ giving the model one with everything said was switched off).
   ([conversation-thread.md](conversation-thread.md)). Until then a
   follow-up ("and what colour is it?") is answered from the same picture.
 
+- With `LAMP_LOOK_FULL=on` (#836, off unless set) a look is a full look.
+  As soon as the lamp's words ask for its eyes, the eyes are asked for one
+  larger still (`{"look_full":true}` on the eyes' permit socket,
+  `look_full_asked` in the record), taken once the head has settled
+  ([eyes.md](eyes.md), "A full look"), while the lamp is still saying
+  "Let me look". The look then waits until the eyes' file has been written
+  since that ask, or at most 2.6 s after the lamp said it would look
+  (`look_full_still` in the record, with how long after and whether the
+  still was there). The worker is started with `--eyes-look-full` after
+  `--eyes-look PATH` and takes a picture up to 3 s old instead of 1 s. The
+  note (`LOOK_FULL_NOTE`) adds: "If you cannot make out what they are
+  showing you, say so plainly and ask them to hold it a bit closer to you;
+  never guess what it might be." Eyes without `--full-look` take the ask
+  for nothing and keep writing their working frame, so the look goes at
+  once with that frame, as before but with the new note. Eyes with it that
+  make no still leave no fresh file, and the look says the eye was shut.
+  Without the variable nothing is asked, waited for or said differently.
+
 A picture leaves the lamp only on such a look: when a person has asked the
 lamp to and the lamp has said it will.
 

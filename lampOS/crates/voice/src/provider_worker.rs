@@ -72,6 +72,8 @@ const RENEW_AT_MOST_EVERY: Duration = Duration::from_secs(900);
 static UNANSWERED: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
 /// Where the eyes keep their newest frame, when the lamp may take a look.
 static LOOK_FILE: std::sync::OnceLock<std::path::PathBuf> = std::sync::OnceLock::new();
+/// A look is a full look (`--eyes-look-full`): its still may be older.
+static LOOK_FULL: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 /// Where the conversation's thread is kept across a restart, if anywhere.
 static THREAD_FILE: std::sync::OnceLock<std::path::PathBuf> = std::sync::OnceLock::new();
 /// Whether a new session is told how things stand.
@@ -102,6 +104,8 @@ static ADDRESSED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool:
 pub struct Files {
     /// The eyes' newest frame (`--eyes-look`).
     pub look: Option<std::path::PathBuf>,
+    /// A look is a full look (`--eyes-look-full`, #836).
+    pub look_full: bool,
     /// The conversation's thread (`--thread-file`).
     pub thread: Option<std::path::PathBuf>,
     /// Whether a new session is told how things stand (`--session-fact`).
@@ -180,6 +184,7 @@ pub fn parse_flags(dir: &std::path::Path, flags: &[String]) -> io::Result<Parsed
     let (continuation, flags) = Continuation::take(flags)?;
     let (sight, flags) = crate::sight::Sight::take(flags)?;
     let (look, flags) = crate::sight::take_look(flags)?;
+    let (look_full, flags) = crate::sight::take_look_full(flags);
     let (thread, flags) = crate::thread::take_file(flags)?;
     let (session_fact, flags) = crate::session_fact::take(flags);
     let (room_facts, flags) = crate::room_told::take(flags);
@@ -199,6 +204,7 @@ pub fn parse_flags(dir: &std::path::Path, flags: &[String]) -> io::Result<Parsed
     let visual = VisualSource::parse(dir, flags)?;
     let files = Files {
         look,
+        look_full,
         thread,
         session_fact,
         room_facts,
@@ -778,6 +784,7 @@ pub async fn run_with_continuation(
     if let Some(path) = files.look {
         let _ = LOOK_FILE.set(path);
     }
+    LOOK_FULL.store(files.look_full, std::sync::atomic::Ordering::Relaxed);
     SESSION_FACT.store(files.session_fact, std::sync::atomic::Ordering::Relaxed);
     ROOM_FACTS.store(files.room_facts, std::sync::atomic::Ordering::Relaxed);
     AIR_FACTS.store(files.air_facts, std::sync::atomic::Ordering::Relaxed);
@@ -2960,7 +2967,14 @@ impl InputHandoff {
                 let picture = look
                     .then(|| LOOK_FILE.get())
                     .flatten()
-                    .and_then(|path| crate::sight::fresh(path, std::time::SystemTime::now()).ok())
+                    .and_then(|path| {
+                        let within = if LOOK_FULL.load(std::sync::atomic::Ordering::Relaxed) {
+                            crate::sight::FULL_FRESH
+                        } else {
+                            std::time::Duration::from_secs(1)
+                        };
+                        crate::sight::fresh_within(path, std::time::SystemTime::now(), within).ok()
+                    })
                     .map(|(jpeg, _)| jpeg);
                 let text = if look && picture.is_none() {
                     crate::speak_up::NO_LOOK_NOTE

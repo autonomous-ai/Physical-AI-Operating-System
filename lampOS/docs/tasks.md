@@ -775,6 +775,55 @@ and counts how often each is handed over (`as_expected`), with the switch
 ([tools.md](tools.md#where-a-turn-with-a-function-call-spends-its-time-799)).
 The model reads the words there; on the lamp it hears them.
 
+**Reopened: a story asked of the lamp was offered to Claude Code (2026-10-16).**
+On lamp-4ace at 02:00 to 02:12, with the switch, "Hey Lamp, tell me a story
+about a clever fox, at least eight sentences long." got "Claude Code can write
+that story about the clever fox. Should I start it?", 3 of 3, and five-sentence
+ones too. It was neither the length nor the build: some sessions offered
+every story (9 of 10 in one), others none, and a session that began offering
+went on offering. The wording above says to hand over "a story … even one
+the lamp could do itself", with no limit on who was asked.
+
+Changed (the second builder, pull request #903): **only the session note.**
+After its hand-over sentence, kept word for word, it says:
+"A name that comes to you garbled, such as "Claude Co" for Claude Code,
+still names them. But a story, a poem or anything else they ask of you
+without naming Claude Code, however long, is yours: tell it yourself,
+gladly, and never offer it to Claude Code or ask whether Claude Code should,
+even after you handed something over earlier in this conversation."
+`start_agent_task`, its description and what it takes are as they were.
+
+Two heads of #903 that changed `start_agent_task` were played on lamp-4ace
+by the first builder, and both lost the hand-overs while telling the stories
+4 of 4:
+- one began its description "call it **only** when the person names …":
+  "Hey Lamp, can you ask Claude Code to write a short poem about the sea?"
+  (heard "… Claude Co …") got "I can't write code or use your office
+  computer", 2 of 2 (02:43);
+- the next gave it two more required arguments, `named` and
+  `on_the_computer`, and prepared nothing without either: the model then
+  never called it, 0 of 3, and twice said "I've passed that along to them"
+  or "I've got that request handled for you" with no call (03:10). A lamp
+  that says it handed work over when it did not is the worst of the three.
+So the function the hand-overs worked with is left alone, and the stories
+are told by the note.
+
+Tests: `with_work_asked_of_the_staff_every_ask_is_a_hand_over_and_without_it_nothing_changes`
+(`crates/voice/src/agent_tasks.rs`: the function and what it takes as
+before, the note's hand-over sentence as before and the exception after it).
+`provider-check --hand-overs` has the two named poems as they were heard
+(`named_poem_sea`, `named_poem_rain`) and three more of the lamp's own: the
+eight-sentence story (`own_story_long`), the same after a hand-over and its
+yes in one session (`own_story_after_hand_over`), and three stories in a row
+(`own_stories_in_a_row`); each request also counts `offered`, the times what
+the lamp said named Claude Code. **The acceptance is the first builder's
+`handovers.sh`** on lamp-4ace: one session, three stories and a poem asked
+of the lamp interleaved with two "ask Claude Code to …" and one "have Codex
+…", each declined; it passes at told 4 of 4, offered 0, handed over 3 of 3
+with the read-back. **Not shown yet.** Most likely wrong: the note alone may
+not hold the stories in a session that has already handed over, which only
+`handovers.sh` shows.
+
 ### Told twice, and no gist (#757, 2026-10-15)
 
 In the day played on lamp-4ace on 2026-10-15 at 08:02 (review page, Brain

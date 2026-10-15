@@ -58,6 +58,20 @@
 //! name was never taken, in played scenes or in the model check, and the
 //! model asked about its guess before the read-back as well, so twice.
 //!
+//! A story asked of the lamp is the lamp's (#854, reopened 2026-10-16): with
+//! the switch, on lamp-4ace at 02:00 to 02:12, "tell me a story about a
+//! clever fox, at least eight sentences long", asked of the lamp, got
+//! "Claude Code can write that story. Should I start it?", and a session
+//! that began offering stories went on offering every one. The session note
+//! ([`session_note`]) now says, after its hand-over sentence, word for word
+//! as before, that what is asked of the lamp without naming the staff is
+//! the lamp's, however long, even after a hand-over. Only the note: two
+//! heads of #903 that changed [`START`] lost the hand-overs on lamp-4ace,
+//! one by beginning "call it only when …" ("I can't write code or use your
+//! office computer", 2 of 2), the other by giving it two more required
+//! arguments (no call at all, 0 of 3, and twice "I've passed that along"
+//! said without one). [`START`] is as it was.
+//!
 //! Hearing back: the tasks part watches what it started (on unless `serve --no-watch`),
 //! [`crate::task_news`] tells the person unasked when the agent has
 //! finished or asks something, and [`CHECK`] answers "how's it going?" from
@@ -420,7 +434,8 @@ fn examples_of(name: &str) -> String {
 
 /// What a new session is told after the persona with [`ASKED_FLAG`]: the
 /// persona asks for stories to be told gladly, and a story asked of one of
-/// the staff is theirs (#854). `None` without the switch.
+/// the staff is theirs, but one asked of the lamp is its own (#854). `None`
+/// without the switch.
 pub fn session_note(place: &Place) -> Option<String> {
     if !place.asked {
         return None;
@@ -439,7 +454,11 @@ pub fn session_note(place: &Place) -> Option<String> {
         "\nWhen the person asks to have {whom} do something, it is theirs to do, not yours: \
          hand it over with start_agent_task every time, whatever it is, a story or a poem as \
          much as code, even one you could tell yourself, and even in the middle of a story you \
-         are telling. Never do it yourself instead."
+         are telling. Never do it yourself instead. A name that comes to you garbled, such as \
+         \"Claude Co\" for Claude Code, still names them. But a story, a poem or anything else \
+         they ask of you without naming {whom}, however long, is yours: tell it yourself, \
+         gladly, and never offer it to {whom} or ask whether {whom} should, even after you \
+         handed something over earlier in this conversation."
     ))
 }
 
@@ -2219,6 +2238,11 @@ mod tests {
             "{note}"
         );
         assert!(note.contains("even in the middle of a story you are telling"));
+        // After it, the lamp's own (2026-10-16): a story asked of it is
+        // told, and a name heard garbled still names the staff.
+        assert!(note.contains(
+            "Never do it yourself instead. A name that comes to you garbled, such as \"Claude Co\" for Claude Code, still names them. But a story, a poem or anything else they ask of you without naming Claude Code, however long, is yours: tell it yourself, gladly, and never offer it to Claude Code or ask whether Claude Code should, even after you handed something over earlier in this conversation."
+        ));
         assert_eq!(
             noted(Some("time".into()), Some(&on)),
             Some(format!("time{note}"))

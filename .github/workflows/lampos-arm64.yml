@@ -8,10 +8,10 @@ name: lampOS on ARM64
 # a builder's work on a lamp without building it again. See
 # lampOS/docs/joining.md.
 #
-# The tests are split across four runners (cargo-nextest partitions), each
-# still running one test at a time, as on a lamp's few cores: one serial run
-# took about 20 of the job's 30 minutes. Doc tests, the two tests with their
-# own harness and the binaries' artifact come from the first runner only.
+# Build once, then send the same nextest archive to four serial test runners.
+# Doc tests, the two tests with their own harness and release binaries stay
+# on the build runner. Test inventories prove that the archive and partitions
+# execute the original selection. See lampOS/docs/arm64-ci.md.
 
 # Not on every push to every builder's branch: with nine builders and four
 # runners a run, that queued eleven runs behind eight on 2026-10-15, lamp-voice's
@@ -27,14 +27,145 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: lampos-arm64-${{ github.event.pull_request.number || github.ref }}
+  # A shared group retains only one pending run even with cancellation off.
+  # Give every lamp-voice run its own group so every merge is actually tested.
+  group: lampos-arm64-${{ github.event.pull_request.number || (github.ref == 'refs/heads/lamp-voice' && github.run_id) || github.ref }}
   # A newer push to a pull request makes the running one moot: it is cancelled.
   # lamp-voice's own runs are never cancelled, so every merge is tested.
   cancel-in-progress: ${{ github.ref != 'refs/heads/lamp-voice' }}
 
+permissions:
+  contents: read
+
+env:
+  NEXTEST_VERSION: '0.9.148'
+  NEXTEST_FILTER: 'not (binary_id(lamp-ipc::relay_signals) | binary_id(lamp-turn-end-wire::process))'
+  CARGO_TERM_COLOR: never
+
+defaults:
+  run:
+    shell: bash
+
 jobs:
+  build:
+    name: lampOS — build once on Linux ARM64
+    runs-on: ubuntu-22.04-arm
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - name: system packages
+        run: |
+          sudo apt-get update
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+            ca-certificates curl git build-essential pkg-config clang libclang-dev libasound2-dev procps file jq
+      - name: Rust 1.96.0
+        run: |
+          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolchain 1.96.0 -c clippy -c rustfmt
+          echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+      - name: restore the build cache (including lamp-voice's shared cache)
+        uses: actions/cache/restore@v4
+        id: cache
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            lampOS/target
+          key: lampos-arm64-u2204-rust196-v2-${{ hashFiles('lampOS/Cargo.lock', 'lampOS/rust-toolchain.toml', 'lampOS/**/Cargo.toml', 'lampOS/.cargo/**') }}-${{ github.sha }}
+          restore-keys: |
+            lampos-arm64-u2204-rust196-v2-${{ hashFiles('lampOS/Cargo.lock', 'lampOS/rust-toolchain.toml', 'lampOS/**/Cargo.toml', 'lampOS/.cargo/**') }}-
+            lampos-arm64-u2204-rust196-v2-
+            lampos-arm64-u2204-${{ hashFiles('lampOS/Cargo.lock') }}
+            lampos-arm64-u2204-
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-nextest@${{ env.NEXTEST_VERSION }}
+      - name: build and archive all test binaries once
+        working-directory: lampOS
+        run: |
+          mkdir -p "$RUNNER_TEMP/lampos-test-build"
+          date -u '+%Y-%m-%dT%H:%M:%SZ' | tee "$RUNNER_TEMP/lampos-test-build/build-started.txt"
+          cargo nextest archive --locked --release --workspace \
+            --archive-file "$RUNNER_TEMP/lampos-test-build/tests.tar.zst"
+      - name: build (release, the lamps' binaries)
+        working-directory: lampOS
+        run: cargo build --locked --release --workspace --bins --examples
+      - name: compare the original test selection with all four partitions
+        working-directory: lampOS
+        run: |
+          evidence="$RUNNER_TEMP/lampos-test-build"
+          cargo nextest list --locked --release --workspace -E "$NEXTEST_FILTER" \
+            --message-format json > "$evidence/original.json"
+          bash ci/test-inventory.sh inventory "$evidence/original.json" > "$evidence/original.tsv"
+          for shard in 1 2 3 4; do
+            cargo nextest list --locked --release --workspace -E "$NEXTEST_FILTER" \
+              --partition "hash:$shard/4" --message-format json > "$evidence/shard-$shard.json"
+            bash ci/test-inventory.sh inventory "$evidence/shard-$shard.json" > "$evidence/shard-$shard.tsv"
+          done
+          LC_ALL=C sort "$evidence"/shard-*.tsv > "$evidence/partitions.tsv"
+          cmp "$evidence/original.tsv" "$evidence/partitions.tsv"
+          git rev-parse HEAD > "$evidence/source-sha.txt"
+          pwd -P > "$evidence/workspace.txt"
+          date -u '+%Y-%m-%dT%H:%M:%SZ' > "$evidence/build-finished.txt"
+          cd "$evidence"
+          sha256sum -- tests.tar.zst *.json *.tsv *.txt > SHA256SUMS
+      - name: refresh the shared cache after compilation
+        # PRs can read their base branch's cache. Only lamp-voice publishes it;
+        # a failed test must not discard a successfully compiled build cache.
+        if: github.event_name == 'push' && github.ref == 'refs/heads/lamp-voice' && steps.cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            lampOS/target
+          key: ${{ steps.cache.outputs.cache-primary-key }}
+      - name: share the compiled tests and their original inventory
+        uses: actions/upload-artifact@v4
+        with:
+          name: lampos-test-build-${{ github.run_id }}
+          path: ${{ runner.temp }}/lampos-test-build/
+          compression-level: 0
+          # A rerun of failed shards reuses this run's successful build.
+          overwrite: true
+          retention-days: 1
+          if-no-files-found: error
+      - name: doc tests and the own-harness tests (nextest runs neither)
+        working-directory: lampOS
+        run: |
+          mkdir -p "$RUNNER_TEMP/lampos-extra-tests"
+          cargo test --locked --release --workspace --doc -- --test-threads=1 2>&1 | tee "$RUNNER_TEMP/lampos-extra-tests/doc.log"
+          cargo test --locked --release -p lamp-ipc --test relay_signals 2>&1 | tee "$RUNNER_TEMP/lampos-extra-tests/relay-signals.log"
+          cargo test --locked --release -p lamp-turn-end-wire --test process 2>&1 | tee "$RUNNER_TEMP/lampos-extra-tests/process.log"
+      - name: SHA-256 of each binary
+        working-directory: lampOS/target/release
+        run: |
+          mkdir -p ../../arm64-out
+          for f in lamp-* examples/schedule_check examples/replay_cost; do
+            [ -f "$f" ] && [ -x "$f" ] && case "$f" in *.d) ;; *) cp "$f" ../../arm64-out/ ;; esac
+          done
+          cd ../../arm64-out && sha256sum -- * | tee SHA256SUMS
+      - uses: actions/upload-artifact@v4
+        with:
+          # A pull request runs on its merge with lamp-voice; the name is its own head commit.
+          name: lampos-arm64-${{ github.event.pull_request.head.sha || github.sha }}
+          path: lampOS/arm64-out/
+          overwrite: true
+          retention-days: 7
+          if-no-files-found: error
+      - name: retain doc and own-harness test evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lampos-extra-tests-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/lampos-extra-tests/
+          retention-days: 7
+
   arm64:
     name: lampOS — build and test on Linux ARM64 (${{ matrix.shard }}/4)
+    needs: build
+    # Preserve the existing check names as failing gates when compilation,
+    # doctests or a custom harness fails or is cancelled; skipped checks can pass.
+    if: ${{ always() }}
     runs-on: ubuntu-22.04-arm
     timeout-minutes: 90
     strategy:
@@ -42,57 +173,61 @@ jobs:
       matrix:
         shard: [1, 2, 3, 4]
     steps:
+      - name: require the producer and its extra tests to pass
+        if: ${{ cancelled() || needs.build.result != 'success' }}
+        run: |
+          echo '::error::The run was cancelled or the ARM64 build, doctests or custom harnesses did not succeed.'
+          exit 1
+      - uses: actions/checkout@v4
       - name: system packages
         run: |
           sudo apt-get update
           sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-            ca-certificates curl git build-essential pkg-config clang libclang-dev libasound2-dev procps file
-      - uses: actions/checkout@v4
-      - name: Rust 1.96.0
-        run: |
-          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolchain 1.96.0 -c clippy -c rustfmt
-          echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
-      - uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            lampOS/target
-          key: lampos-arm64-u2204-${{ hashFiles('lampOS/Cargo.lock') }}
-          restore-keys: lampos-arm64-u2204-
+            ca-certificates curl git build-essential pkg-config clang libclang-dev libasound2-dev procps file jq
       - uses: taiki-e/install-action@v2
         with:
-          tool: cargo-nextest
-      - name: build (release, the lamps' binaries)
-        working-directory: lampOS
-        run: cargo build --locked --release --workspace --bins --examples
-      - name: test (one test at a time, as on a lamp's few cores; this runner's share)
-        working-directory: lampOS
-        # The two tests with their own harness (harness = false) cannot be listed by nextest; the first runner runs them below.
-        run: >-
-          cargo nextest run --locked --release --workspace --no-tests=pass -j 1
-          --partition hash:${{ matrix.shard }}/4
-          -E 'not (binary_id(lamp-ipc::relay_signals) | binary_id(lamp-turn-end-wire::process))'
-      - name: doc tests and the own-harness tests (nextest runs neither)
-        if: matrix.shard == 1
-        working-directory: lampOS
-        run: |
-          cargo test --locked --release --workspace --doc -- --test-threads=1
-          cargo test --locked --release -p lamp-ipc --test relay_signals
-          cargo test --locked --release -p lamp-turn-end-wire --test process
-      - name: SHA-256 of each binary
-        if: matrix.shard == 1
-        working-directory: lampOS/target/release
-        run: |
-          mkdir -p ../../arm64-out
-          for f in lamp-* examples/schedule_check examples/replay_cost; do
-            [ -f "$f" ] && [ -x "$f" ] && case "$f" in *.d) ;; *) cp "$f" ../../arm64-out/ ;; esac
-          done
-          cd ../../arm64-out && sha256sum * | tee SHA256SUMS
-      - uses: actions/upload-artifact@v4
-        if: matrix.shard == 1
+          tool: cargo-nextest@${{ env.NEXTEST_VERSION }}
+      - uses: actions/download-artifact@v4
         with:
-          # A pull request runs on its merge with lamp-voice; the name is its own head commit.
-          name: lampos-arm64-${{ github.event.pull_request.head.sha || github.sha }}
-          path: lampOS/arm64-out/
+          name: lampos-test-build-${{ github.run_id }}
+          path: ${{ runner.temp }}/lampos-test-build
+      - name: verify and extract the build at its original paths
+        working-directory: lampOS
+        env:
+          SHARD: ${{ matrix.shard }}
+        run: |
+          evidence="$RUNNER_TEMP/lampos-test-build"
+          results="$RUNNER_TEMP/lampos-test-results"
+          mkdir -p "$results"
+          (cd "$evidence" && sha256sum --check SHA256SUMS)
+          test "$(git rev-parse HEAD)" = "$(cat "$evidence/source-sha.txt")"
+          test "$(pwd -P)" = "$(cat "$evidence/workspace.txt")"
+          # Compiled CARGO_BIN_EXE and CARGO_MANIFEST_DIR constants cannot be
+          # remapped. --extract-to adds target/ beneath this exact workspace.
+          cargo-nextest nextest list --archive-file "$evidence/tests.tar.zst" \
+            --extract-to "$PWD" --partition "hash:$SHARD/4" -E "$NEXTEST_FILTER" \
+            --message-format json > "$results/archive.json"
+          bash ci/test-inventory.sh inventory "$results/archive.json" > "$results/expected.tsv"
+          cmp "$evidence/shard-$SHARD.tsv" "$results/expected.tsv"
+      - name: test (one test at a time, using the already-built binaries)
+        working-directory: lampOS
+        env:
+          SHARD: ${{ matrix.shard }}
+        run: |
+          results="$RUNNER_TEMP/lampos-test-results"
+          date -u '+%Y-%m-%dT%H:%M:%SZ' > "$results/started.txt"
+          cargo-nextest nextest run \
+            --cargo-metadata target/nextest/cargo-metadata.json \
+            --binaries-metadata target/nextest/binaries-metadata.json \
+            --no-tests=pass -j 1 --partition "hash:$SHARD/4" -E "$NEXTEST_FILTER" \
+            --color never --status-level pass --final-status-level fail 2>&1 | tee "$results/nextest.log"
+          date -u '+%Y-%m-%dT%H:%M:%SZ' > "$results/finished.txt"
+          bash ci/test-inventory.sh executed "$results/nextest.log" > "$results/executed.tsv"
+          cmp "$results/expected.tsv" "$results/executed.tsv"
+      - name: retain test identities and results even on failure
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lampos-test-results-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.shard }}
+          path: ${{ runner.temp }}/lampos-test-results/
           retention-days: 7

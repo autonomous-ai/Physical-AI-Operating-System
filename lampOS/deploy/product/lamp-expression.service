@@ -1,0 +1,32 @@
+# lampOS expression: plans what the lamp shows while it listens, thinks and speaks (lampOS/docs/expression.md).
+# The product unit (lampOS/docs/install.md).
+[Unit]
+Description=lampOS expression (lamp-expression)
+PartOf=lampos.target
+After=lamp-voice.service lamp-body.service
+StartLimitIntervalSec=600
+StartLimitBurst=5
+
+[Service]
+Type=simple
+User=lampos
+Group=lampos
+Slice=lampos-parts.slice
+Nice=5
+# LAMP_UTC_OFFSET_MINUTES: the lamp's zone, written by the install and by setup (lampOS/docs/install.md).
+EnvironmentFile=/etc/lampOS/zone.env
+ExecStart=/opt/lampOS/expression/current/lamp-expression serve --enable --bus-root /run/lampos-bus --catalogue /etc/lampOS/expression/expression.json --utc-offset-minutes ${LAMP_UTC_OFFSET_MINUTES}
+Restart=on-failure
+RestartSec=5s
+StandardInput=null
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=lamp-expression
+NoNewPrivileges=yes
+ProtectSystem=strict
+ReadWritePaths=/run/lampos-bus
+ProtectHome=yes
+PrivateTmp=yes
+
+[Install]
+WantedBy=lampos.target

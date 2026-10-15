@@ -1,0 +1,8 @@
+# Every lampOS part but the voice. The ordinary weight: together they get no more of
+# the processor than one ordinary service would, and each has its own Nice as well.
+[Unit]
+Description=lampOS parts slice
+
+[Slice]
+CPUWeight=100
+IOWeight=100

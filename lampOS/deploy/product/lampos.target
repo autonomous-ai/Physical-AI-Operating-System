@@ -1,0 +1,11 @@
+# The lamp as one, on every lamp (lampOS/docs/install.md). Every part is PartOf this target.
+#   systemctl start lampos.target / stop / restart
+# Nothing of the lamp starts before setup has finished (#806): setup writes the marker below
+# and starts this target; at every later power-up the marker is there and the lamp starts.
+[Unit]
+Description=lampOS: the lamp
+After=local-fs.target
+ConditionPathExists=/var/lib/lampos-setup/done
+
+[Install]
+WantedBy=multi-user.target

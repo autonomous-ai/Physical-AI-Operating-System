@@ -185,6 +185,7 @@ impl Harness {
             &mut queue,
             accepted,
             1,
+            false,
             PlayoutStart::default(),
             &mut self.trace,
             |_| Ok(()),

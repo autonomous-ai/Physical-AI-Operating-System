@@ -314,8 +314,9 @@ pub enum ProviderInput {
         /// The connection selected at admission, never replaced at dequeue.
         session: u64,
         privacy_generation: u64,
-        /// The same utterance going on after the lamp ended it early
-        /// (`continue_after_early_end`), said only with
+        /// The same utterance going on after the lamp ended it, soon after
+        /// the end or after an end sent early (`EndedTurn::goes_on_in`,
+        /// `continue_after_early_end` in the coordinator), said only with
         /// `LAMP_CUT_KEEPS_NAME=on` ([`crate::attention::cut_keeps_name`]):
         /// the busy-room rule keeps what it knew of the request before.
         /// Without the switch it is never sent, and the Start is as it was.

@@ -678,6 +678,7 @@ fn run(script: Script) -> Run {
     };
     let mut rig = Rig {
         second: None,
+        cut_keeps_name: false,
         paused: Box::new(|| false),
         microphone: crate::options::Microphone::Mic2,
         end_silence_blocks: None,

@@ -51,7 +51,8 @@ pub const ENVIRONMENT: &str = "LAMP_ATTENTION";
 pub const FLAG: &str = "--attention";
 
 /// Where the coordinator reads whether a request that continues one the lamp
-/// ended early keeps what the rule knew of it (#782). `on` only.
+/// ended early, within a second of that end or after an end sent early,
+/// keeps what the rule knew of it (#782). `on` only.
 ///
 /// Why: the 400 ms early end (`--endpoint smart-turn-fast`) ends a turn at a
 /// pause the person goes on after, and the rest comes as a new request.

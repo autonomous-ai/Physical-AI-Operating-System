@@ -946,6 +946,30 @@ mod tests {
         assert_eq!(frame.samples, block(302));
     }
 
+    /// A microphone a stall closed opens again only under a fresh authority
+    /// that still allows it: muted in the meantime, it stays closed (#784).
+    #[test]
+    fn after_a_stall_a_muted_authority_keeps_the_microphone_closed() {
+        let (mut microphone, device, mut controller) = permitted("scripted:stall-mute");
+        microphone.start().unwrap();
+        device.push(&[301; 400]);
+        device.fail_next("read", errno::PIPE);
+        let error = microphone.try_read().unwrap_err();
+        assert_eq!(discontinuity(error), Discontinuity::XRun);
+        microphone.reset().unwrap();
+        controller
+            .set_microphone_permission(now(), Permission::Denied)
+            .unwrap();
+        microphone
+            .install(controller.snapshot(now()).unwrap())
+            .unwrap();
+        assert!(matches!(
+            microphone.prepare().unwrap_err().kind,
+            ErrorKind::NotPermitted
+        ));
+        assert_eq!(device.counts().0, 1, "not opened again while muted");
+    }
+
     #[test]
     fn a_device_that_vanishes_or_stops_running_is_a_discontinuity_never_silence() {
         for (index, (state, expected)) in [

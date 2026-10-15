@@ -92,6 +92,10 @@ enum Act {
     /// The capture peer sends nothing for half a second and then catches
     /// up, as a capture held up by the kernel re-tuning the SD/MMC host.
     CaptureStall,
+    /// The capture worker is held up 400 ms, its authority lapses and its
+    /// microphone closes: it says so, and opens it again under a new epoch,
+    /// as the worker does after a stall (#784).
+    CaptureReopen,
     /// The provider peer closes its channels: the provider is gone.
     ProviderGone,
     /// Stop-only stall: the speaker consumes control messages but installs no
@@ -562,6 +566,12 @@ impl CaptureSchedule {
         }
     }
 
+    /// Nothing is read before `at_us`: the next frame is the first due then.
+    fn skip_to(&mut self, at_us: u64) {
+        let skipped = at_us.saturating_sub(self.origin_us).div_ceil(10_000);
+        self.next_sequence = self.next_sequence.max(skipped + 1);
+    }
+
     fn next_due(&mut self, now_us: u64) -> Option<(u64, u64)> {
         let sequence = self.next_sequence;
         let acquired_at_us = self.origin_us + 10_000 * (sequence - 1);
@@ -592,6 +602,8 @@ struct Peers {
     capture: Option<CaptureSchedule>,
     capture_silent: bool,
     capture_stalled_until: Option<Instant>,
+    capture_epoch: u64,
+    capture_reopen: bool,
     camera: Option<BootId>,
     camera_started: bool,
     camera_silent: bool,
@@ -610,6 +622,29 @@ struct Peers {
 }
 
 impl Peers {
+    fn send_capture_started(&mut self, index: usize) {
+        let at = monotonic_us();
+        let generation = self.peers[index].snapshot.unwrap().microphone_generation();
+        self.peers[index]
+            .channels
+            .control
+            .send(WorkerEvent::CaptureStarted {
+                epoch: self.capture_epoch,
+                dsp_epoch: 1,
+                noise_suppression: NoiseSuppression::On,
+                privacy_generation: generation,
+                rate: 16_000,
+                channels: 1,
+                period_frames: 160,
+                buffer_frames: 640,
+                monotonic_status_timestamps: false,
+                open_started_at_us: at,
+                prepared_at_us: at,
+                capture_started_at_us: at,
+                start_completed_at_us: at,
+            })
+            .unwrap();
+    }
     fn fire(&mut self, act: Act, deadline: Option<Instant>) -> io::Result<()> {
         self.seen.lock().unwrap().fired.push((act, monotonic_us()));
         match act {
@@ -635,6 +670,28 @@ impl Peers {
                 // what it read while the worker was held up comes after.
                 self.capture_stalled_until =
                     Some(crate::scenario_clock::instant() + Duration::from_millis(500));
+            }
+            Act::CaptureReopen => {
+                self.capture_stalled_until =
+                    Some(crate::scenario_clock::instant() + Duration::from_millis(400));
+                // A closed microphone reads nothing: frames start again at
+                // the reopen, not caught up.
+                if let Some(schedule) = self.capture.as_mut() {
+                    schedule.skip_to(monotonic_us() + 400_000);
+                }
+                self.capture_reopen = true;
+                let epoch = self.capture_epoch;
+                if let Some(capture) = self.peers.iter_mut().find(|p| p.role == "capture") {
+                    capture
+                        .channels
+                        .control
+                        .send(WorkerEvent::CaptureGap {
+                            epoch,
+                            reason: "AuthorityExpired".to_owned(),
+                            closed_at_us: monotonic_us(),
+                        })
+                        .unwrap();
+                }
             }
             Act::ProviderGone => {
                 self.provider_gone = true;
@@ -781,28 +838,8 @@ impl Peers {
                 }
                 Ok(Some(Control::StartCapture)) if role == "camera" => self.start_camera(index),
                 Ok(Some(Control::StartCapture)) if role == "capture" && self.capture.is_none() => {
-                    let at = monotonic_us();
-                    self.capture = Some(CaptureSchedule::new(at));
-                    let generation = self.peers[index].snapshot.unwrap().microphone_generation();
-                    self.peers[index]
-                        .channels
-                        .control
-                        .send(WorkerEvent::CaptureStarted {
-                            epoch: 1,
-                            dsp_epoch: 1,
-                            noise_suppression: NoiseSuppression::On,
-                            privacy_generation: generation,
-                            rate: 16_000,
-                            channels: 1,
-                            period_frames: 160,
-                            buffer_frames: 640,
-                            monotonic_status_timestamps: false,
-                            open_started_at_us: at,
-                            prepared_at_us: at,
-                            capture_started_at_us: at,
-                            start_completed_at_us: at,
-                        })
-                        .unwrap();
+                    self.capture = Some(CaptureSchedule::new(monotonic_us()));
+                    self.send_capture_started(index);
                 }
                 Ok(Some(Control::Stop)) => {
                     if role == "camera" {
@@ -834,6 +871,10 @@ impl Peers {
                         .capture_stalled_until
                         .is_none_or(|until| crate::scenario_clock::instant() >= until) =>
             {
+                if std::mem::take(&mut self.capture_reopen) {
+                    self.capture_epoch += 1;
+                    self.send_capture_started(index);
+                }
                 // Frames follow a fixed 10 ms schedule, like a capture device.
                 for _ in 0..64 {
                     let attempted_at_us = monotonic_us();
@@ -859,7 +900,7 @@ impl Peers {
                     let speech = self.speech(frame);
                     let peer = &mut self.peers[index];
                     let sent = peer.channels.data.send(MicrophoneFrame {
-                        epoch: 1,
+                        epoch: self.capture_epoch,
                         dsp_epoch: 1,
                         privacy_generation: peer.snapshot.unwrap().microphone_generation(),
                         frame_sequence: frame,
@@ -1401,6 +1442,8 @@ fn run_in(script: Script, trace: &mut SessionState) -> Run {
         capture: None,
         capture_silent: false,
         capture_stalled_until: None,
+        capture_epoch: 1,
+        capture_reopen: false,
         camera: camera_boot,
         camera_started: false,
         camera_silent: false,
@@ -1807,7 +1850,7 @@ fn a_half_second_capture_stall_is_a_gap_and_the_voice_goes_on() {
     let _one = one_session();
     let run = run(Script {
         speech: 80..140,
-        ..Script::question(Answer::Complete(12))
+        ..Script::question(Fixture::Threaded, Answer::Complete(12))
     }
     .then(When::Block(30), Act::CaptureStall));
     run.assert_invariants();
@@ -1815,12 +1858,71 @@ fn a_half_second_capture_stall_is_a_gap_and_the_voice_goes_on() {
     let gaps = run.events("capture_gap");
     assert_eq!(gaps.len(), 1, "{gaps:?}");
     assert!(
-        gaps[0]["stalled_us"].as_u64().unwrap() >= 450_000,
+        // The harness's capture schedule (lamp-voice's own since #835's
+        // base) resumes on its 10 ms grid, a little inside the 500 ms hold.
+        gaps[0]["stalled_us"].as_u64().unwrap() >= 400_000,
         "{gaps:?}"
     );
     assert_eq!(run.seen.starts.len(), 1);
     let turn = run.seen.starts[0];
     assert_eq!(run.outcomes()[&turn], ["audio_written_unscored"]);
+}
+
+/// A capture worker held up 400 ms whose microphone closed (#784) opens it
+/// again under a new epoch; the voice goes on and answers the question
+/// asked after it.
+#[test]
+fn a_microphone_closed_by_a_stall_reopens_under_a_new_epoch_and_the_voice_goes_on() {
+    let _one = one_session();
+    let run = run(Script {
+        speech: 80..140,
+        ..Script::question(Fixture::Threaded, Answer::Complete(12))
+    }
+    .then(When::Block(30), Act::CaptureReopen));
+    run.assert_invariants();
+    assert!(is_mute(&run.result), "{:?}", run.result);
+    assert_eq!(run.events("capture_gap_closed").len(), 1);
+    let started: Vec<_> = run
+        .events("capture_started")
+        .iter()
+        .map(|event| event["details"]["epoch"].as_u64().unwrap())
+        .collect();
+    assert_eq!(started, [1, 2]);
+    let gaps = run.events("capture_gap");
+    assert_eq!(gaps.len(), 1, "{gaps:?}");
+    assert!(
+        gaps[0]["stalled_us"].as_u64().unwrap() >= 350_000,
+        "{gaps:?}"
+    );
+    assert_eq!(run.seen.starts.len(), 1);
+    let turn = run.seen.starts[0];
+    assert_eq!(run.outcomes()[&turn], ["audio_written_unscored"]);
+}
+
+/// A stall inside someone's question: what was heard is abandoned as a hand
+/// Stop abandons it, never glued to what follows the gap, and the voice
+/// goes on.
+#[test]
+fn a_stall_inside_a_question_abandons_it_and_the_voice_goes_on() {
+    let _one = one_session();
+    let run = run(Script {
+        speech: 40..90,
+        actions: vec![
+            (When::Block(60), Act::CaptureReopen),
+            (When::Block(250), Act::Mute),
+        ],
+        ..Script::question(Fixture::Threaded, Answer::Complete(12))
+    });
+    run.assert_invariants();
+    assert!(is_mute(&run.result), "{:?}", run.result);
+    let cancels = run.events("hand_control_cancel");
+    assert_eq!(cancels.len(), 1, "{cancels:?}");
+    assert_eq!(cancels[0]["reason"], "capture_gap");
+    assert!(
+        run.seen.ends.is_empty(),
+        "a question cut by a gap was sent as finished: {:?}",
+        run.seen.ends
+    );
 }
 
 #[test]

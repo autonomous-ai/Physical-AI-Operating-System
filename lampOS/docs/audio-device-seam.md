@@ -83,11 +83,30 @@ last eight are new behavior coverage that did not exist off Linux:
 | `open_and_configuration_failures_leave_nothing_open` | A missing device; a failing configure, with the opened handle discarded; four out-of-bounds formats refused |
 | `privacy_lineage_change_discards_an_incomplete_block` | Denied and allowed again inside one snapshot: closed, 40 samples erased |
 | `a_failed_discard_is_reported_and_the_handle_is_still_gone` | The close error is returned and the device is closed regardless |
+| `after_a_stall_a_muted_authority_keeps_the_microphone_closed` | After an overrun, a fresh snapshot that mutes the microphone: `prepare` refuses with `NotPermitted` and the device is not opened again |
 
 The existing Linux tests against ALSA's `null` plugin
 (`crates/audio/tests/capture_linux.rs`) still run through `AlsaCapture`.
 
 Results are in [Agent 1's status](../coordination/agent-1.md).
+
+## After a stall (#784)
+
+A capture worker held up for a few hundred milliseconds (on lamp-4ace, the
+kernel re-tuning its SD/MMC hosts) comes back to a lapsed authority or an
+overrun buffer: `AuthorityExpired`, `XRun`, `PartialTimeout` or
+`ReadBudgetExceeded` closes the device as before. Once the microphone has
+started, the worker (`audio_workers.rs`) no longer ends on these: it says
+`CaptureGap` with the closed epoch, keeps the microphone closed, and opens it
+again only through `reset` and `prepare` under the coordinator's next fresh
+snapshot, which checks the privacy switch and the mute before the device is
+touched (the test above). It then starts it without waiting for the speaker
+clock, which is already running, and reports `CaptureStarted` with the new
+epoch. A changed privacy generation in the gap, any other discontinuity, or
+no reopen within 1.5 s still ends the worker. The coordinator drops the
+closed epoch's frames still in flight, and an utterance the gap cut into is
+abandoned as a hand Stop abandons it; what is still said of it after the gap
+is dropped until its speaker pauses, so it is not a new question.
 
 ## Not done
 

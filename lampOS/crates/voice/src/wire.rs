@@ -107,6 +107,15 @@ pub enum WorkerEvent {
         start_completed_at_us: u64,
     },
     CaptureStopped,
+    /// A stall closed the microphone (its authority lapsed, or its buffer
+    /// overran while the worker was held up). It stays closed until the next
+    /// fresh authority opens it again under a new epoch, or the worker gives
+    /// up. Not a fault: a gap.
+    CaptureGap {
+        epoch: u64,
+        reason: String,
+        closed_at_us: u64,
+    },
     /// The capture worker's echo reference changed trust. Not a fault:
     /// capture goes on, and each frame says whether it was cancelled.
     ReferenceStatus {

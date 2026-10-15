@@ -618,12 +618,12 @@ fn a_microphone_busy_for_a_moment_at_start_is_opened_once_it_is_free() {
 /// authority and closes the microphone, and each time it opens again under a
 /// new epoch. On lamp-4ace the second stall of one worker ended the voice.
 #[test]
-fn three_stalls_in_a_row_each_reopen_the_microphone_under_a_new_epoch() {
+fn five_stalls_in_a_row_each_reopen_the_microphone_while_the_reference_goes_on() {
     warm_up();
     let signal = Signal::new(400);
-    let mut rig = Rig::start_with("scripted three stalls", 0, ReferenceRecovery::Bounded);
+    let mut rig = Rig::start_with("scripted five stalls", 0, ReferenceRecovery::Bounded);
     rig.stream(&signal, 50);
-    for stall in 1..=3 {
+    for stall in 1..=5 {
         rig.hold_up(400);
         rig.stream(&signal, 50);
         let deadline = Instant::now() + Duration::from_secs(2);
@@ -638,8 +638,8 @@ fn three_stalls_in_a_row_each_reopen_the_microphone_under_a_new_epoch() {
             sleep(Duration::from_micros(500));
         }
     }
-    assert_eq!(rig.epochs, [1, 2, 3, 4]);
-    assert_eq!(rig.gaps, 3);
+    assert_eq!(rig.epochs, [1, 2, 3, 4, 5, 6]);
+    assert_eq!(rig.gaps, 5);
     rig.parent.control.send(Control::Stop).unwrap();
     rig.finish();
 }

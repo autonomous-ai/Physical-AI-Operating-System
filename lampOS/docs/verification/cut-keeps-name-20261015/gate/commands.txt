@@ -1,0 +1,21 @@
+Run from lampOS/ on Fourth's Intel Mac (macOS 26.6.2, i7-10700K, Rust 1.96.0),
+CARGO_BUILD_JOBS=6, each stage's exit code in stages.txt.
+
+rustfmt --edition 2024 --check <the changed .rs files>
+cargo clippy --workspace --all-targets --locked -- -D warnings
+cargo test --locked -p lamp-voice -p lamp-voice-eval -p lamp-memory --no-fail-fast -- --test-threads=1
+cargo build --workspace --locked
+
+Head b77130759: lamp-voice 740e1e892, this change, and the same three
+`continues_cut_off: false` lines #851 then merged (426ad0991). The build
+failed at the link of `lamp-voice` with "No space left on device" (the
+Mac's disk, shared with other sessions, had 238 MB free; build.txt). After
+`target/debug/incremental` (7.3 GB) was deleted it was run again with
+CARGO_INCREMENTAL=0 and passed (build-rerun.txt).
+
+before-rebase-6a467c3a4/: the first gate, on lamp-voice e12a6cc83, after
+`cargo clean`. One test failed:
+coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement,
+a read of the fixture child's `child-position-writes` before the child had
+written it (a process timing test, #739's kind, on a path this change does
+not touch). Alone afterwards it passed 5 of 5 (motor-alone.txt).

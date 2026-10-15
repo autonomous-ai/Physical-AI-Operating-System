@@ -1,0 +1,4 @@
+lamp_memory: 151 passed, 0 failed, 5 ignored
+lamp_voice: 1321 passed, 0 failed, 8 ignored
+lamp_voice_eval: 284 passed, 0 failed, 0 ignored
+total: 1756 passed, 0 failed, 13 ignored

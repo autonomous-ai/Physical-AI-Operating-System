@@ -33,11 +33,24 @@ by hand at the provider worker and never crossed the coordinator.
   that tells the model the request goes on from one cut off, `39eb93085`)
   stays `false` on this path, as it was; only an end sent early sets it.
 - `lamp-voice` at `740e1e892` did not build its tests: three Starts in the
-  second voice's tests lacked `continues_cut_off`. A separate commit adds
-  `continues_cut_off: false` to each (said on #705 at 19:51), so that this
-  branch's gate could run.
+  second voice's tests lacked `continues_cut_off` (said on #705 by the
+  second builder at 19:49 and by Fourth at 19:51). The gate ran with the
+  same three lines that #851 then merged; the branch is rebased past it.
 
-## Tests (`gate/`)
+## Gate (`gate/`, `gate/commands.txt`)
+
+On `b77130759` (this change on `lamp-voice` `740e1e892`, with #851's three
+lines), Fourth's Intel Mac: the changed files' format, the workspace's
+Clippy and build passed; Voice 1,321, Voice-eval 284 and Memory 151 passed,
+none failed, 13 ignored (`counts-by-crate.txt`). The build passed when run
+again after the disk was full (`commands.txt`). The pull request's head is
+the same change rebased on `a583fda28`, which differs in these crates by
+#851's lines and four lines of a Voice-eval test (`final_dispatch.rs`); its
+ARM64 run is on that head. The first gate, before the rebase
+(`before-rebase-6a467c3a4/`): one process timing test failed, and passed 5
+of 5 alone.
+
+## Tests
 
 - `coordinator::tests::endpoint_session::a_turn_ended_at_a_comma_goes_on_in_the_next_request_only_with_the_switch`:
   the coordinator's own loop on the logical clock, duplex, the 600 ms window,

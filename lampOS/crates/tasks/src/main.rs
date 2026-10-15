@@ -3,7 +3,7 @@ use std::{
     io::{self, Read},
     path::PathBuf,
     sync::{Arc, atomic::AtomicBool},
-    time::Duration,
+    time::{Duration, Instant},
 };
 
 fn run() -> Result<(), Box<dyn std::error::Error>> {
@@ -129,21 +129,31 @@ fn main() {
         // An error is also a shutdown path. A full stderr pipe or blocked
         // logging filesystem must not keep the service alive after it has
         // withdrawn readiness. Exit even if this one writer cannot finish.
+        // One deadline covers both the writer and the relay: the line is
+        // queued before an empty relay is taken as finished (#876).
+        let deadline = Instant::now() + Duration::from_millis(500);
         let message = format!("tasks: {error}");
         let (done, received) = std::sync::mpsc::sync_channel(1);
         if std::thread::Builder::new()
             .name("tasks-exit-report".into())
             .spawn(move || {
+                // Test seam (debug builds only): a writer that is slow to run.
+                #[cfg(debug_assertions)]
+                if let Some(ms) = std::env::var("LAMP_TASKS_TEST_SLOW_EXIT_REPORT_MS")
+                    .ok()
+                    .and_then(|ms| ms.parse().ok())
+                {
+                    std::thread::sleep(Duration::from_millis(ms));
+                }
                 eprintln!("{message}");
                 let _ = done.try_send(());
             })
             .is_ok()
         {
-            let _ = received.recv_timeout(Duration::from_millis(10));
+            let _ = received.recv_timeout(deadline.saturating_duration_since(Instant::now()));
         }
-        // `exit` runs no destructor, so the guard would not pass the line
-        // on: without this it was lost when the relay was slow (#876).
-        lamp_ipc::log_relay::finish(Duration::from_millis(500));
+        // `exit` runs no destructor, so the guard would not pass the line on.
+        lamp_ipc::log_relay::finish(deadline.saturating_duration_since(Instant::now()));
         std::process::exit(1);
     }
 }

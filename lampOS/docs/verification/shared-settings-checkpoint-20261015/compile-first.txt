@@ -1,0 +1,33 @@
+   Compiling rustix v1.1.5
+   Compiling serde_json v1.0.151
+   Compiling lamp-bus v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/bus)
+   Compiling lamp-msgs v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/msgs)
+   Compiling tempfile v3.27.0
+   Compiling lamp-records v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/records)
+   Compiling lamp-settings v0.1.0 (/Users/d/code/autonomous-os/lampOS/crates/settings)
+error[E0308]: mismatched types
+   --> crates/settings/src/runtime.rs:270:88
+    |
+270 |               Diagnostic { name:"settings".into(), level, message:message.into(), values:BTreeMap::from([
+    |  ________________________________________________________________________________________^
+271 | |                 ("revision".into(), current.snapshot.revision.to_string()),
+272 | |                 ("completed".into(), current.completed.to_string()),
+273 | |                 ("last_save_ms".into(), current.last_save_ms.to_string()),
+274 | |             ]) }
+    | |______________^ expected `Vec<KeyValue>`, found `BTreeMap<_, String>`
+    |
+    = note: expected struct `Vec<KeyValue>`
+               found struct `BTreeMap<_, std::string::String>`
+
+error[E0425]: cannot find function `mkfifoat` in module `unix`
+   --> crates/settings/src/store.rs:502:31
+    |
+502 |                         unix::mkfifoat(&File::open(&dir.0).unwrap(), name, Mode::RUSR | Mode::WUSR)
+    |                               ^^^^^^^^ not found in `unix`
+
+For more information about this error, try `rustc --explain E0308`.
+error: could not compile `lamp-settings` (lib) due to 1 previous error
+warning: build failed, waiting for other jobs to finish...
+Some errors have detailed explanations: E0308, E0425.
+For more information about an error, try `rustc --explain E0308`.
+error: could not compile `lamp-settings` (lib test) due to 2 previous errors

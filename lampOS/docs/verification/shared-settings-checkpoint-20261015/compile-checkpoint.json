@@ -1,0 +1,19 @@
+{
+  "command": [
+    "cargo",
+    "test",
+    "--offline",
+    "-p",
+    "lamp-settings",
+    "-p",
+    "lamp-bus",
+    "-p",
+    "lamp-msgs",
+    "--no-run"
+  ],
+  "cwd": "/Users/d/code/autonomous-os/lampOS",
+  "started_at": "2026-10-15T00:21:00.453673+00:00",
+  "elapsed_s": 14.578518622,
+  "exit_code": 0,
+  "output": "/private/tmp/lamp-third-settings-compile-checkpoint.txt"
+}

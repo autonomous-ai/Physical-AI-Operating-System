@@ -1,0 +1,15 @@
+{
+  "command": [
+    "cargo",
+    "test",
+    "--offline",
+    "-p",
+    "lamp-settings",
+    "--no-run"
+  ],
+  "cwd": "/Users/d/code/autonomous-os/lampOS",
+  "started_at": "2026-10-15T00:15:18.952140+00:00",
+  "elapsed_s": 16.220124488,
+  "exit_code": 101,
+  "output": "/private/tmp/lamp-third-settings-compile-first.txt"
+}

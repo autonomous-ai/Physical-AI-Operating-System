@@ -42,7 +42,7 @@ owner already has.
 
 | Part | Owner | How | State |
 |------|-------|-----|-------|
-| voice microphone (Jieli) | lamp-voice | `mic2/audio` blocks arrive, level from the PCM | to do (needs the tone) |
+| voice microphone (Jieli) | lamp-voice | a second of `mic2/audio` blocks (given with `LAMP_BUS=on` and `LAMP_BUS_AUDIO=on`), their level above digital silence (-90 dBFS) and blocks lost counted; none in 2 s is `not_checked` (closed by the privacy switch, or not given). The played tone is still to do | listens: done |
 | room microphone (C-Media) | lamp-ears | `ears/level` arrives, above digital silence (-90 dBFS) | listens: done |
 | speaker | lamp-voice | a played tone heard by both microphones | needs a tone request in lamp-voice; none exists |
 | servos 1 to 5 | lamp-body | `body/joint_states` fresh for all five joints; a small move through `expression/body` (±0.35 rad at most, lease-held) and back | readback done; the move to be agreed with the fifth builder |

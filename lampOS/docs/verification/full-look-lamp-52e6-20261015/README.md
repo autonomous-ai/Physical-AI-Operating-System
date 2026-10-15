@@ -49,11 +49,13 @@ capture: the coordinator records `look_full_still` only once the lamp's
 previous reply ("Let me look.") has ended and the next turn may start, so a
 still already taken waits there. The eyes logged a head wait of 0 ms for each
 full look in `eyes-journal.txt`, so the head's settle was not the cause; the
-capture's own time was not kept. From "Let me look." to the first word of the
-answer: 2.0–3.6 s in seven looks; in three, no answer came before the next
-question (about 32 s later). Per-request camera-ready and first-word
-timestamps were not kept, so these are not yet comparable with the issue's
-~300 ms aim. The eyes' working cost at 1280x960 was 87 ms a look (64–81 ms
+capture's own time was not kept. Not measured: the time from "Let me look."
+to the first word of the answer. An unverified observation only: in the
+session's events, the gap from each `look_asked` to the next
+`provider_first_audio` was 2.0–3.6 s in seven looks, but those events are
+not bound to requests, so the audio may belong to another turn. Per-request
+camera-ready and first-word timestamps were not kept, so none of this is yet
+comparable with the issue's ~300 ms aim. The eyes' working cost at 1280x960 was 87 ms a look (64–81 ms
 at 320x240).
 
 Not shown: objects held up by a person, the head turning toward a person

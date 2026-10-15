@@ -126,7 +126,19 @@ pub fn labels(text: &str) -> Result<BTreeMap<u64, Should>, String> {
                 ));
             }
         };
-        labels.insert(at, should);
+        // The same label twice at one moment is one label; two that
+        // disagree at one moment are refused, whichever comes first (the
+        // reviewer on #873): neither may become ground truth by its place.
+        if let Some(earlier) = labels.insert(at, should)
+            && earlier != should
+        {
+            return Err(format!(
+                "label line {} says {} at {at}, where an earlier line says {}",
+                index + 1,
+                should.as_str(),
+                earlier.as_str()
+            ));
+        }
     }
     Ok(labels)
 }

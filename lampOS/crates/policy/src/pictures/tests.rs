@@ -105,18 +105,21 @@ fn the_state_with_a_picture_names_it_last_and_five_questions_are_added() {
     }
 }
 
-/// What is asked at the moment a picture is to be sent: the eyes still keep
-/// a fresh frame. Removed, as the eyes remove it when the camera is closed,
-/// or stale, it may not go.
+/// What is taken at the moment a picture is to be sent: the eyes' frame
+/// then, made as large as the service takes, with its own age. Removed, as
+/// the eyes remove it when the camera is closed, or stale, none is taken.
 #[test]
-fn a_picture_may_go_only_while_the_eyes_keep_a_fresh_frame() {
-    let dir = std::env::temp_dir().join(format!("policy-permitted-{}", std::process::id()));
+fn a_picture_is_taken_only_while_the_eyes_keep_a_fresh_frame() {
+    let dir = std::env::temp_dir().join(format!("policy-take-{}", std::process::id()));
     let _ = fs::remove_dir_all(&dir);
     fs::create_dir_all(&dir).unwrap();
     let path = dir.join("sight.jpg");
-    assert!(!permitted_now(&path));
-    fs::write(&path, jpeg(320, 240)).unwrap();
-    assert!(permitted_now(&path));
+    assert_eq!(take_now(&path).unwrap_err(), "no_frame");
+    let frame = jpeg(320, 240);
+    fs::write(&path, &frame).unwrap();
+    let taken = take_now(&path).unwrap();
+    assert_eq!((taken.size, taken.eyes_bytes), ((640, 480), frame.len()));
+    assert!(taken.age <= FRESH);
     let old = SystemTime::now() - Duration::from_secs(2);
     fs::File::options()
         .write(true)
@@ -124,9 +127,8 @@ fn a_picture_may_go_only_while_the_eyes_keep_a_fresh_frame() {
         .unwrap()
         .set_modified(old)
         .unwrap();
-    assert!(!permitted_now(&path));
-    fs::write(&path, jpeg(320, 240)).unwrap();
+    assert_eq!(take_now(&path).unwrap_err(), "stale");
     fs::remove_file(&path).unwrap();
-    assert!(!permitted_now(&path));
+    assert_eq!(take_now(&path).unwrap_err(), "no_frame");
     fs::remove_dir_all(&dir).unwrap();
 }

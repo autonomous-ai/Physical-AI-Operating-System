@@ -978,21 +978,18 @@ impl Jev {
     /// came is replaced once: the request has no effect to repeat.
     fn exchange(
         &mut self,
-        request: &[u8],
+        make: &dyn Fn() -> Result<Vec<u8>, Failed>,
         until: Instant,
-        permitted: &dyn Fn() -> bool,
     ) -> Result<(Vec<u8>, Connection), Failed> {
         let mut on = Connection::New;
         if let Some((mut line, there_until, kind)) = self.kept.take()
             && Instant::now() < there_until
         {
             line.until(until);
-            // Asked at the last moment before anything is written.
-            if !permitted() {
-                return Err(Failed::Withdrawn);
-            }
+            // Made at the last moment before anything is written.
+            let request = make()?;
             on = Connection::Replaced;
-            match line.talk(request) {
+            match line.talk(&request) {
                 Ok((body, again)) => {
                     if again {
                         let there_until = Instant::now() + self.keeping.answered;
@@ -1010,10 +1007,8 @@ impl Jev {
         }
         let mut line = self.open(until)?;
         // After the looking up and the connecting, however long they took.
-        if !permitted() {
-            return Err(Failed::Withdrawn);
-        }
-        match line.talk(request) {
+        let request = make()?;
+        match line.talk(&request) {
             Ok((body, again)) => {
                 if again {
                     let there_until = Instant::now() + self.keeping.answered;
@@ -1077,54 +1072,74 @@ fn secure(roots: rustls::RootCertStore) -> io::Result<rustls::ClientConfig> {
 }
 
 impl Jev {
-    /// [`Decider::ask`] with `pictures`, which the state or the questions
+    /// [`Decider::ask`] with pictures, which the state or the questions
     /// name by their keys (#871). Sent with [`IMAGES_HEADER`].
     ///
-    /// `permitted` is asked last, after any looking up and connecting, at
-    /// the moment the request is to be written, and again before it is sent
-    /// on another connection: if it says no, nothing is written and the
-    /// asking has failed, [`Failed::Withdrawn`]. A picture a slow connection
-    /// held up is never sent after it stopped being permitted.
+    /// `take` gives the pictures, and it is called only at the moment the
+    /// request is to be written: after any looking up and connecting, and
+    /// again if it has to go on another connection. So what is sent is what
+    /// `take` gives then, never something it gave before a slow connection
+    /// (the reviewer on #873). If it fails, nothing is written and the asking
+    /// has failed as it says ([`Failed::Withdrawn`] for a picture no longer
+    /// permitted).
     pub fn ask_with_pictures(
         &mut self,
         state: &str,
         questions: &[(String, Question)],
-        pictures: &[Picture],
         deadline: Duration,
-        permitted: &dyn Fn() -> bool,
-    ) -> Result<Asked, Failed> {
-        self.asking(state, questions, pictures, deadline, permitted)
-    }
-
-    fn asking(
-        &mut self,
-        state: &str,
-        questions: &[(String, Question)],
-        pictures: &[Picture],
-        deadline: Duration,
-        permitted: &dyn Fn() -> bool,
+        take: &dyn Fn() -> Result<Vec<Picture>, Failed>,
     ) -> Result<Asked, Failed> {
         let started = Instant::now();
-        let body = body(&self.model, state, questions, pictures);
-        let images = if pictures.is_empty() {
-            String::new()
-        } else {
-            format!("{IMAGES_HEADER}\r\n")
+        let request = self.request_maker();
+        let model = self.model.clone();
+        let make = || -> Result<Vec<u8>, Failed> {
+            let pictures = take()?;
+            Ok(request(
+                &body(&model, state, questions, &pictures),
+                !pictures.is_empty(),
+            ))
         };
-        // `identity`: this reads no compressed answer.
-        let mut request = format!(
-            "POST {} HTTP/1.1\r\nHost: {}\r\nAuthorization: {}\r\n\
-             Content-Type: application/json\r\nAccept: application/json\r\n\
-             Accept-Encoding: identity\r\nUser-Agent: lamp-policy\r\n{images}\
-             Content-Length: {}\r\nConnection: keep-alive\r\n\r\n",
-            self.endpoint.path,
+        self.answered(&make, questions, started, deadline)
+    }
+
+    /// What puts a request together from its body, with the images header
+    /// or not: owned, so that it can be called while the connection is in
+    /// hand.
+    fn request_maker(&self) -> impl Fn(&str, bool) -> Vec<u8> + use<> {
+        let (path, authority, authorization) = (
+            self.endpoint.path.clone(),
             self.endpoint.authority(),
-            self.authorization,
-            body.len()
-        )
-        .into_bytes();
-        request.extend_from_slice(body.as_bytes());
-        let (answer, connection) = self.exchange(&request, started + deadline, permitted)?;
+            self.authorization.clone(),
+        );
+        move |body: &str, images: bool| {
+            let images = if images {
+                format!("{IMAGES_HEADER}\r\n")
+            } else {
+                String::new()
+            };
+            // `identity`: this reads no compressed answer.
+            let mut request = format!(
+                "POST {path} HTTP/1.1\r\nHost: {authority}\r\nAuthorization: {authorization}\r\n\
+                 Content-Type: application/json\r\nAccept: application/json\r\n\
+                 Accept-Encoding: identity\r\nUser-Agent: lamp-policy\r\n{images}\
+                 Content-Length: {}\r\nConnection: keep-alive\r\n\r\n",
+                body.len()
+            )
+            .into_bytes();
+            request.extend_from_slice(body.as_bytes());
+            request
+        }
+    }
+
+    /// The request `make` gives, sent, and its answer read and checked.
+    fn answered(
+        &mut self,
+        make: &dyn Fn() -> Result<Vec<u8>, Failed>,
+        questions: &[(String, Question)],
+        started: Instant,
+        deadline: Duration,
+    ) -> Result<Asked, Failed> {
+        let (answer, connection) = self.exchange(make, started + deadline)?;
         let answered = answers(&answer, questions)?;
         Ok(Asked {
             answers: answered.answers,
@@ -1145,7 +1160,9 @@ impl Decider for Jev {
         questions: &[(String, Question)],
         deadline: Duration,
     ) -> Result<Asked, Failed> {
-        self.asking(state, questions, &[], deadline, &|| true)
+        let started = Instant::now();
+        let request = self.request_maker()(&body(&self.model, state, questions, &[]), false);
+        self.answered(&|| Ok(request.clone()), questions, started, deadline)
     }
 
     fn ready(&mut self, within: Duration) {

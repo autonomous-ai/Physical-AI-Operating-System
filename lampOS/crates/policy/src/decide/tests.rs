@@ -1319,14 +1319,8 @@ fn a_picture_is_sent_as_an_asset_under_its_key_with_the_images_header() {
     );
     let state = "{\"picture\":\"lamp-sight-7f3a\"}";
     good(
-        &jev.ask_with_pictures(
-            state,
-            &questions(),
-            std::slice::from_ref(&picture),
-            LONG,
-            &|| true,
-        )
-        .unwrap(),
+        &jev.ask_with_pictures(state, &questions(), LONG, &|| Ok(vec![picture.clone()]))
+            .unwrap(),
     );
     let request = server.request();
     let (head, body) = request.split_once("\r\n\r\n").unwrap();
@@ -1343,60 +1337,113 @@ fn a_picture_is_sent_as_an_asset_under_its_key_with_the_images_header() {
     assert!(body.starts_with("{\"model\":\"typesafe/jev-1.13\",\"state\":{\"picture\""));
 }
 
-static PERMITTED: AtomicBool = AtomicBool::new(true);
-static PICTURE_PORT: AtomicU16 = AtomicU16::new(0);
+/// A frame as the eyes keep one: 320 by 240, of one shade.
+fn eyes_frame(shade: u8) -> Vec<u8> {
+    let mut out = Vec::new();
+    jpeg_encoder::Encoder::new(&mut out, 80)
+        .encode(
+            &vec![shade; 320 * 240 * 3],
+            320,
+            240,
+            jpeg_encoder::ColorType::Rgb,
+        )
+        .unwrap();
+    out
+}
 
-/// A lookup that takes 300 ms, during which the picture stops being
-/// permitted.
-fn withdrawing_lookup(_: &str, _: u16) -> io::Result<Vec<SocketAddr>> {
-    thread::sleep(Duration::from_millis(150));
-    PERMITTED.store(false, Ordering::SeqCst);
-    thread::sleep(Duration::from_millis(150));
-    let port = PICTURE_PORT.load(Ordering::SeqCst);
+/// Written as the eyes write it: beside, then renamed over it.
+fn keep_frame(path: &Path, bytes: &[u8]) {
+    let beside = path.with_extension("jpg.new");
+    std::fs::write(&beside, bytes).unwrap();
+    std::fs::rename(&beside, path).unwrap();
+}
+
+static SCENE: std::sync::atomic::AtomicU8 = std::sync::atomic::AtomicU8::new(0);
+static SCENE_PORT: AtomicU16 = AtomicU16::new(0);
+static SCENE_FILE: std::sync::Mutex<Option<PathBuf>> = std::sync::Mutex::new(None);
+
+/// A slow lookup, during which the eyes' frame changes as [`SCENE`] says:
+/// 1, it is removed (the camera closed, as `Kept::forget` does); 2, removed,
+/// and 1.1 s later another frame kept (closed and opened again); 3, another
+/// frame kept over it, with no gap.
+fn scene_lookup(_: &str, _: u16) -> io::Result<Vec<SocketAddr>> {
+    let path = SCENE_FILE.lock().unwrap().clone().unwrap();
+    thread::sleep(Duration::from_millis(100));
+    match SCENE.load(Ordering::SeqCst) {
+        1 => std::fs::remove_file(&path).unwrap(),
+        2 => {
+            std::fs::remove_file(&path).unwrap();
+            thread::sleep(Duration::from_millis(1_100));
+            keep_frame(&path, &eyes_frame(200));
+        }
+        3 => keep_frame(&path, &eyes_frame(200)),
+        _ => {}
+    }
+    let port = SCENE_PORT.load(Ordering::SeqCst);
     Ok(vec![SocketAddr::from(([127, 0, 0, 1], port))])
 }
 
-/// The reviewer on #873: a picture read while it was permitted, held up by a
-/// slow lookup, and no longer permitted when the connection is made, is not
-/// sent: whether it may go is asked at the last moment, after the
-/// connecting, and the asking ends as withdrawn with nothing written.
+/// The reviewer on #873: what is sent is the eyes' frame at the moment the
+/// request is written, after any slow looking up and connecting, never a
+/// frame taken before. Removed meanwhile, nothing is sent; closed and opened
+/// again, or replaced, the new frame is sent, with its own age, and the old
+/// one never.
 #[test]
-fn a_picture_no_longer_permitted_when_it_is_to_be_written_is_not_sent() {
-    let server = answering(with_length(GOOD));
-    PICTURE_PORT.store(server.port, Ordering::SeqCst);
-    PERMITTED.store(true, Ordering::SeqCst);
-    let url = format!("http://localhost:{}/api/alpha/decisions", server.port);
-    let mut jev = jev(&url, "withdrawn");
-    jev.lookup.resolve = withdrawing_lookup;
-    let picture = Picture {
-        key: "lamp-sight-picture-871".into(),
-        jpeg: vec![0xff, 0xd8, 0xff, 0xd9],
+fn a_picture_is_the_eyes_frame_when_it_is_written_never_one_taken_before() {
+    use base64::Engine as _;
+    let dir = std::env::temp_dir().join(format!("policy-scenes-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    let path = dir.join("sight.jpg");
+    *SCENE_FILE.lock().unwrap() = Some(path.clone());
+    let encoded = |shade: u8| {
+        let (jpeg, _) = crate::pictures::for_jev(&eyes_frame(shade)).unwrap();
+        base64::engine::general_purpose::STANDARD.encode(jpeg)
     };
-    let asked = jev.ask_with_pictures(
-        "{\"picture\":\"lamp-sight-picture-871\"}",
-        &questions(),
-        std::slice::from_ref(&picture),
-        LONG,
-        &|| PERMITTED.load(Ordering::SeqCst),
-    );
-    assert_eq!(asked, Err(Failed::Withdrawn));
-    assert_eq!(Failed::Withdrawn.kind(), "withdrawn");
-    // Nothing whole reached the service.
-    assert!(!matches!(
-        server.requests.recv_timeout(Duration::from_millis(500)),
-        Ok(Some(_))
-    ));
-    // With nothing withdrawn, the same asking is sent and answered.
-    PERMITTED.store(true, Ordering::SeqCst);
-    jev.lookup.resolve = |_, port| Ok(vec![SocketAddr::from(([127, 0, 0, 1], port))]);
-    good(
-        &jev.ask_with_pictures(
-            "{}",
+    for scene in [1, 2, 3] {
+        keep_frame(&path, &eyes_frame(40));
+        let server = answering(with_length(GOOD));
+        SCENE_PORT.store(server.port, Ordering::SeqCst);
+        SCENE.store(scene, Ordering::SeqCst);
+        let url = format!("http://localhost:{}/api/alpha/decisions", server.port);
+        let mut jev = jev(&url, "scene");
+        jev.lookup.resolve = scene_lookup;
+        let taken = std::cell::RefCell::new(None);
+        let asked = jev.ask_with_pictures(
+            "{\"picture\":\"lamp-sight-picture-871\"}",
             &questions(),
-            std::slice::from_ref(&picture),
             LONG,
-            &|| PERMITTED.load(Ordering::SeqCst),
-        )
-        .unwrap(),
-    );
+            &|| {
+                let now = crate::pictures::take_now(&path).map_err(|_| Failed::Withdrawn)?;
+                let picture = Picture {
+                    key: "lamp-sight-picture-871".into(),
+                    jpeg: now.jpeg.clone(),
+                };
+                *taken.borrow_mut() = Some(now);
+                Ok(vec![picture])
+            },
+        );
+        if scene == 1 {
+            assert_eq!(asked, Err(Failed::Withdrawn));
+            assert!(taken.borrow().is_none());
+            // Nothing whole reached the service.
+            assert!(!matches!(
+                server.requests.recv_timeout(Duration::from_millis(500)),
+                Ok(Some(_))
+            ));
+            continue;
+        }
+        good(&asked.unwrap());
+        let request = server.request();
+        let (_, body) = request.split_once("\r\n\r\n").unwrap();
+        let sent: serde_json::Value = serde_json::from_str(body).unwrap();
+        let picture = sent["assets"]["lamp-sight-picture-871"]["data_base64"]
+            .as_str()
+            .unwrap();
+        assert_eq!(picture, encoded(200), "scene {scene}");
+        assert_ne!(picture, encoded(40), "scene {scene}");
+        let age = taken.borrow().as_ref().unwrap().age;
+        assert!(age < Duration::from_millis(500), "scene {scene}: {age:?}");
+    }
+    std::fs::remove_dir_all(&dir).unwrap();
 }

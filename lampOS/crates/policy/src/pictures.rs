@@ -21,6 +21,7 @@ use crate::{
 };
 use serde_json::{Value, json};
 use std::{
+    cell::RefCell,
     fs,
     io::{self, Read},
     path::{Path, PathBuf},
@@ -63,7 +64,7 @@ pub fn fresh_picture(path: &Path, now: SystemTime) -> Result<(Vec<u8>, Duration)
 /// Whether the eyes keep a fresh frame now, and how old it is: they keep
 /// one only while the camera is permitted (the microphone is), and remove it
 /// at once when it is not. Asked again at the moment a picture is to be
-/// sent ([`permitted_now`]).
+/// sent ([`take_now`]).
 fn keeping(path: &Path, now: SystemTime) -> Result<Duration, &'static str> {
     let metadata = match fs::metadata(path) {
         Ok(metadata) => metadata,
@@ -84,15 +85,6 @@ fn keeping(path: &Path, now: SystemTime) -> Result<Duration, &'static str> {
         return Err("too_large");
     }
     Ok(age)
-}
-
-/// Whether a picture taken from `path` may still leave the lamp now: the
-/// eyes still keep a fresh frame there. Asked at the last moment before the
-/// request with the picture is written, after any slow looking up or
-/// connecting (the reviewer on #873): removing the frame, as the eyes do
-/// when the camera is closed, stops a picture not yet sent.
-pub fn permitted_now(path: &Path) -> bool {
-    keeping(path, SystemTime::now()).is_ok()
 }
 
 /// `jpeg` as TypeSafe takes it, with its size: as it is if it fits, or
@@ -260,26 +252,30 @@ impl Pictures {
 
 /// Both askings at once, for one utterance, if there is a picture to send.
 pub fn ask_both(without: &mut Jev, with: &mut Jev, job: &Job, options: &Options) -> Value {
-    let frame = fresh_picture(&options.sight_file, SystemTime::now())
-        .and_then(|(jpeg, age)| for_jev(&jpeg).map(|(sent, size)| (sent, size, age, jpeg.len())));
-    let (jpeg, size, age, kept_bytes) = match frame {
-        Ok(frame) => frame,
-        Err(why) => {
-            return line(
-                job,
-                json!({"sent": false, "why_not": why}),
-                Value::Null,
-                Value::Null,
-            );
-        }
-    };
+    // A frame now, or no asking at all.
+    if let Err(why) = fresh_picture(&options.sight_file, SystemTime::now())
+        .and_then(|(jpeg, _)| for_jev(&jpeg).map(|_| ()))
+    {
+        return line(
+            job,
+            json!({"sent": false, "why_not": why}),
+            Value::Null,
+            Value::Null,
+        );
+    }
     let state = attention::state_text(&job.context);
     let pictured = attention::state_text_with_picture(&job.context, KEY);
-    let picture = Picture {
-        key: KEY.into(),
-        jpeg,
+    // What was sent: the frame taken at the moment of writing.
+    let sent: RefCell<Option<Taken>> = RefCell::new(None);
+    let take = || -> Result<Vec<Picture>, Failed> {
+        let taken = take_now(&options.sight_file).map_err(|_| Failed::Withdrawn)?;
+        let picture = Picture {
+            key: KEY.into(),
+            jpeg: taken.jpeg.clone(),
+        };
+        *sent.borrow_mut() = Some(taken);
+        Ok(vec![picture])
     };
-    let sent_bytes = picture.jpeg.len();
     let (plain, seen) = thread::scope(|scope| {
         let plain = scope.spawn(|| {
             crate::decide::Decider::ask(without, &state, &attention::questions(), options.deadline)
@@ -287,18 +283,22 @@ pub fn ask_both(without: &mut Jev, with: &mut Jev, job: &Job, options: &Options)
         let seen = with.ask_with_pictures(
             &pictured,
             &attention::questions_with_picture(),
-            std::slice::from_ref(&picture),
             options.deadline,
-            &|| permitted_now(&options.sight_file),
+            &take,
         );
         (plain.join().unwrap_or(Err(Failed::TimedOut)), seen)
     });
-    let picture = if matches!(seen, Err(Failed::Withdrawn)) {
-        // Taken while permitted, and no longer by the time it was to go.
-        json!({"sent": false, "why_not": "withdrawn"})
-    } else {
-        json!({"sent": true, "bytes": sent_bytes, "eyes_bytes": kept_bytes,
-               "width": size.0, "height": size.1, "age_ms": u64::try_from(age.as_millis()).unwrap_or(u64::MAX)})
+    let picture = match (&seen, sent.into_inner()) {
+        (Err(Failed::Withdrawn), _) | (_, None) => {
+            // There was a frame when the utterance was asked about, and none
+            // that may go by the time the picture was to be written.
+            json!({"sent": false, "why_not": "withdrawn"})
+        }
+        (_, Some(taken)) => json!({
+            "sent": true, "bytes": taken.jpeg.len(), "eyes_bytes": taken.eyes_bytes,
+            "width": taken.size.0, "height": taken.size.1,
+            "age_ms": u64::try_from(taken.age.as_millis()).unwrap_or(u64::MAX),
+        }),
     };
     line(
         job,
@@ -306,6 +306,31 @@ pub fn ask_both(without: &mut Jev, with: &mut Jev, job: &Job, options: &Options)
         told(plain, &job.context, false),
         told(seen, &job.context, true),
     )
+}
+
+/// A frame taken to be sent: as TypeSafe takes it, its size, the eyes'
+/// bytes, and how old it was when it was taken.
+#[derive(Clone, Debug)]
+pub struct Taken {
+    pub jpeg: Vec<u8>,
+    pub size: (usize, usize),
+    pub eyes_bytes: usize,
+    pub age: Duration,
+}
+
+/// The eyes' frame now, if it may leave the lamp now: called at the moment
+/// the request with it is written, so what is sent is the frame the eyes
+/// keep then, at most [`FRESH`] old, never one copied before a slow
+/// connection (the reviewer on #873).
+pub fn take_now(path: &Path) -> Result<Taken, &'static str> {
+    let (jpeg, age) = fresh_picture(path, SystemTime::now())?;
+    let (sent, size) = for_jev(&jpeg)?;
+    Ok(Taken {
+        jpeg: sent,
+        size,
+        eyes_bytes: jpeg.len(),
+        age,
+    })
 }
 
 #[cfg(test)]

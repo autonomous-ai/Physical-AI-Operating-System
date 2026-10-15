@@ -428,3 +428,24 @@ fn each_label_is_given_once_to_the_nearest_line() {
         json!({"given": 6, "matched": 2, "unmatched": 1, "ambiguous": 1, "conflicting": 2})
     );
 }
+
+/// The reviewer on #873: two labels at one moment that disagree are refused,
+/// in either order; the same label twice is one.
+#[test]
+fn labels_that_disagree_at_one_moment_are_refused_and_a_repeat_is_one() {
+    let answer = "{\"at_unix_ms\": 10000, \"should\": \"answer\"}";
+    let quiet = "{\"at_unix_ms\": 10000, \"should\": \"stay_quiet\"}";
+    for text in [format!("{answer}\n{quiet}"), format!("{quiet}\n{answer}")] {
+        let why = labels(&text).unwrap_err();
+        assert!(why.starts_with("label line 2 says"), "{why}");
+    }
+    let repeated = labels(&format!("{answer}\n{answer}")).unwrap();
+    assert_eq!(repeated.len(), 1);
+    let lines = [json!({"at_unix_ms": 10_000, "about": "attention_picture",
+                        "picture": {"sent": true}, "seen": {"facing": 1},
+                        "with": {"choice": "answer", "took_ms": 900}})];
+    assert_eq!(
+        pictures_summary(&lines, &repeated)["labels"],
+        json!({"given": 1, "matched": 1, "unmatched": 0, "ambiguous": 0, "conflicting": 0})
+    );
+}

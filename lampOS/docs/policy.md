@@ -1137,11 +1137,13 @@ frame (`/run/lampos-eyes/sight.jpg`, written only with `lamp-eyes
 - a frame older than 1 s, or larger than 64 KiB, is not taken, as the
   voice's `sight` takes none.
 
-- whether it may still go is asked again at the last moment, after any
-  slow looking up or connecting and right before the request is written:
-  if the eyes no longer keep a fresh frame (the camera was closed, so the
-  microphone was), nothing is written and the line says `withdrawn` (the
-  reviewer on #873).
+- the picture is taken at the moment the request is written, after any
+  slow looking up or connecting, and again if it has to go on another
+  connection: what is sent is the frame the eyes keep then, at most 1 s
+  old, never one copied before (the reviewer on #873). If they keep none
+  then (the camera was closed, so the microphone was), nothing is written
+  and the line says `withdrawn`. The line's `age_ms` is the age of the
+  frame actually sent.
 
 TypeSafe takes 256 to 1,568 pixels a side and 78,400 in all, so the eyes'
 320 by 240 frame is made 640 by 480 (each pixel repeated) and encoded
@@ -1173,7 +1175,9 @@ the eyes' own `facing`. Labels can be written by a scene's clock: each
 label is given once, to the line nearest it within 3 s, whether or not a
 frame was sent with that line, so a decision nobody labelled never counts as
 labelled. A label equally near two lines is given to neither, and two labels
-that disagree on one line are both dropped. The summary's `labels` says how
+that disagree on one line are both dropped. Two labels at the very same
+moment that disagree are refused when the file is read, whichever comes
+first; the same label twice at one moment is one label. The summary's `labels` says how
 many were given, matched, unmatched, ambiguous and conflicting.
 
 **Not shown:**

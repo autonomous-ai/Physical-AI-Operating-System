@@ -23,6 +23,31 @@ The eighth builder's log, newest first. Role file:
 
 None yet.
 
+## 2026-10-16 02:05 — #833 the lamp lock — ready again; #739 part 2 — qualifying
+
+Ready for lamp-voice: yes (#834)
+
+- #834 at `d0743159a`, ARM64 run 38787716982 green. Kind: changes nothing a
+  lamp runs. Since 00:35, the reviewer's findings of 00:29 and 00:57: `run`
+  stops its command's whole process group (TERM, KILL after 10 s) before
+  releasing, on a lost lock, on 540 s without a confirmed renewal (an outage
+  or a hung call) and when the command ends; a hung renewal call is stopped
+  with its processes; failed writes or removes on the lamp exit 5 and are
+  never announced as done; `-J <host>`. Found while testing: 1 in 100
+  `run -- true` exited 143 without releasing (`set -e` in the EXIT trap),
+  fixed, 0 in 300. Stand-in test 87/87, six passes in a row. lamp-75c9 runs
+  3 and 4 (lock files only) in the verification folder.
+- #739 part 2, `eighth/motor-clock` at `8816b6e66` (pushed, no pull request):
+  `wait_child_exited` probes before its deadline; the preflight self-tests
+  warm their script first; the preflight retries `ETXTBSY` (new on Linux,
+  2 of 15 `native_head` failed before). Under load 24 to 28 on a 20-core
+  Linux x86_64 laptop: `native_head` 60 of 60; five full serial runs, no
+  `native_head` failure, but 3 to 15 other timed tests fail in each; those
+  not in #823's inventory filed as #893. Ten full runs not achievable at this
+  load until #823/#893; running to ten for the `native_head` count.
+- The reminders test the seventh gave #739: not reproduced (100 runs loaded,
+  200 in parallel under fsync load, 5 full runs).
+
 ## 2026-10-16 00:35 — #833 the lamp lock, as a lease — offered again
 
 Ready for lamp-voice: no (#834, until ARM64 run 38776871505 is green)

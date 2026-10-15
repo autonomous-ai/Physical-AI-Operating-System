@@ -21,7 +21,13 @@ The words are the task's own lines; nothing of a person's voice is here.
 - cut-c: its recording was never finished (`result.json` empty), and
   `replay-aec` refuses it.
 
-## What was run (`scripts/`)
+## What was run
+
+The scripts named here are in Fourth's scratch folder, outside the
+repository (lampOS is Rust only): this says what each read and counted, so
+that it can be written again. The Rust parts are in the repository:
+`lamp-audio replay-aec --suppressor`, `crates/voice/examples/hearing_replay.rs`
+and `lamp-name check`.
 
 1. `replay-all.sh`: `lamp-audio replay-aec RUN OUT --suppressor S` for
    `standard`, `near-end` and `transparent`, into `lampOS/.cache/`, then

@@ -16,6 +16,7 @@ fn config(enabled: bool) -> TouchConfig {
         reset: None,
         head_pads: Vec::new(),
         strip_pads: Some((0..12).collect()),
+        ..TouchConfig::default()
     }
 }
 

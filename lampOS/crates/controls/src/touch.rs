@@ -11,8 +11,10 @@
 //! The head (#711, `docs/creature.md` "Touch"): a touch qualified at 20 ms
 //! asks a talking lamp to stop and a quiet one nothing; a tap let go before
 //! 0.5 s asks it to listen, or to wake; a hand kept 1 s is a stroke and 3 s
-//! sleep. Gaps shorter than [`HEAD_GAP_US`] join one hand. A contact the body
-//! felt as a push on the head asks nothing more from then on.
+//! sleep. Released gaps shorter than the configured gap join one hand. A
+//! contact the body felt as a push on the head asks nothing more from then on.
+//! The qualification, the shortest tap and the gap are settings
+//! ([`HeadTiming`]), to be sized from a recording of the lamp's own pads.
 use crate::{
     base::strip::{StripDirection, StripEffectKind, StripError, StripRecognizer},
     input::{InputError, Level, check_name},
@@ -28,12 +30,37 @@ pub const HEAD_SETTLE_US: u64 = 500_000;
 pub const HEAD_QUALIFY_US: u64 = 20_000;
 /// A tap is let go before this, from its first acquisition.
 pub const HEAD_TAP_US: u64 = 500_000;
+/// The default shortest tap: just above the lone 117 ms edge lamp-4ace's
+/// journal showed with nobody known at the lamp (#711, 2026-10-15 19:25).
+pub const HEAD_TAP_MIN_US: u64 = 120_000;
 pub const HEAD_STROKE_US: u64 = 1_000_000;
 pub const HEAD_SLEEP_US: u64 = 3_000_000;
-/// Released acquisitions for less than this do not end a hand: V1's TTP223
-/// pads can pulse every 50-100 ms under a resting hand. Authored, to be set
-/// from a recording of lamp-4ace's pads under a resting hand (#711).
+/// The default gap: released acquisitions for less than this do not end a
+/// hand, because V1's TTP223 pads can pulse every 50-100 ms under a resting
+/// hand. Authored, to be set from a recording of lamp-4ace's pads (#711).
 pub const HEAD_GAP_US: u64 = 150_000;
+
+/// The head's timing, from the touch pins file (`head_qualify_ms`,
+/// `head_tap_min_ms`, `head_gap_ms`), each defaulting to the constants above.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct HeadTiming {
+    /// An unbroken active run this long qualifies a touch (Stop if speaking).
+    pub qualify_us: u64,
+    /// A tap is let go no sooner than this after its first acquisition.
+    pub tap_min_us: u64,
+    /// Released acquisitions shorter than this do not end a hand.
+    pub gap_us: u64,
+}
+
+impl Default for HeadTiming {
+    fn default() -> Self {
+        Self {
+            qualify_us: HEAD_QUALIFY_US,
+            tap_min_us: HEAD_TAP_MIN_US,
+            gap_us: HEAD_GAP_US,
+        }
+    }
+}
 pub const BUTTON_DEBOUNCE_US: u64 = 200_000;
 pub const PRIMARY_HOLD_US: u64 = 2_000_000;
 pub const RESET_HOLD_US: u64 = 5_000_000;
@@ -50,6 +77,13 @@ pub struct TouchConfig {
     /// The ordered 3..12 working electrodes selected for this lamp. Excluded
     /// electrodes remain in raw acquisitions but never count as contact.
     pub strip_pads: Option<Vec<u8>>,
+    /// The head's timing; each absent value is its default ([`HeadTiming`]).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub head_qualify_ms: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub head_tap_min_ms: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub head_gap_ms: Option<u64>,
 }
 
 impl TouchConfig {
@@ -84,7 +118,26 @@ impl TouchConfig {
                 "at least one touch input is required",
             ));
         }
+        let timing = self.head_timing();
+        if !(20_000..=200_000).contains(&timing.qualify_us)
+            || !(timing.qualify_us..HEAD_TAP_US).contains(&timing.tap_min_us)
+            || timing.gap_us > 500_000
+        {
+            return Err(error(
+                ControlFault::Invalid,
+                "head timing: qualify 20..200 ms, shortest tap from qualify to under 500 ms, gap 0..500 ms",
+            ));
+        }
         Ok(())
+    }
+    pub fn head_timing(&self) -> HeadTiming {
+        let default = HeadTiming::default();
+        let us = |ms: Option<u64>, or: u64| ms.map_or(or, |ms| ms.saturating_mul(1_000));
+        HeadTiming {
+            qualify_us: us(self.head_qualify_ms, default.qualify_us),
+            tap_min_us: us(self.head_tap_min_ms, default.tap_min_us),
+            gap_us: us(self.head_gap_ms, default.gap_us),
+        }
     }
     fn has_gpio(&self) -> bool {
         self.primary.is_some() || self.reset.is_some() || !self.head_pads.is_empty()
@@ -355,6 +408,7 @@ struct Head {
     pushed: bool,
     /// This contact overlapped a push: it asks nothing more.
     spoiled: bool,
+    timing: HeadTiming,
 }
 
 /// What one head acquisition produced, and the release it confirmed, if any.
@@ -365,6 +419,7 @@ impl Head {
         *self = Self {
             counter: self.counter,
             pushed: self.pushed,
+            timing: self.timing,
             ..Self::default()
         };
     }
@@ -403,14 +458,14 @@ impl Head {
         if mask == 0 {
             self.run_began = None;
             let released = *self.released.get_or_insert(at);
-            if at - self.last_active < HEAD_GAP_US {
+            if at - self.last_active < self.timing.gap_us {
                 return Ok(Vec::new());
             }
             // Let go: only a short, qualified, unspoiled contact was a tap.
             let tap = self.touch_sent
                 && !self.stroke_sent
                 && !self.spoiled
-                && released - contact.began < HEAD_TAP_US;
+                && (self.timing.tap_min_us..HEAD_TAP_US).contains(&(released - contact.began));
             self.end();
             return Ok(if tap {
                 vec![(contact, TouchGesture::Tap, Some(released))]
@@ -425,7 +480,7 @@ impl Head {
         if self.spoiled {
             return Ok(effects);
         }
-        if !self.touch_sent && at - run_began >= HEAD_QUALIFY_US {
+        if !self.touch_sent && at - run_began >= self.timing.qualify_us {
             self.touch_sent = true;
             effects.push((contact, TouchGesture::Touch, None));
         }
@@ -490,6 +545,10 @@ impl TouchEngine {
             .iter()
             .flatten()
             .fold(0, |mask, &pad| mask | (1 << pad));
+        let head = Head {
+            timing: config.head_timing(),
+            ..Head::default()
+        };
         Ok(Self {
             config,
             clock_id,
@@ -500,7 +559,7 @@ impl TouchEngine {
             strip_fence: Fence::default(),
             primary: Button::default(),
             reset: Button::default(),
-            head: Head::default(),
+            head,
             strip,
             strip_selected_mask,
             strip_mask: 0,

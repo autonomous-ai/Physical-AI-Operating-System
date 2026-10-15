@@ -21,6 +21,10 @@ enum Extra {
         #[serde(default)]
         said: String,
         source_ids: Vec<u64>,
+        /// Rules of the person's own rules scope the answer may have
+        /// followed (#813): forgetting one removes this exchange.
+        #[serde(default)]
+        rule_ids: Vec<u64>,
     },
     Search {
         #[serde(default)]
@@ -162,8 +166,9 @@ fn extra(store: &mut Days, request: Extra) -> Result<Value> {
             heard,
             said,
             source_ids,
+            rule_ids,
         } => {
-            json!({"ok":true,"id":store.append(&one(person)?,at_unix_ms,&heard,&said,&source_ids)?})
+            json!({"ok":true,"id":store.append_ruled(&one(person)?,at_unix_ms,&heard,&said,&source_ids,&rule_ids)?})
         }
         Extra::Search {
             person,
@@ -485,6 +490,8 @@ mod tests {
             names,
             [
                 "search",
+                "append_linked",
+                // With the rules it may have followed (#813).
                 "append_linked",
                 "forget",
                 "session_open",

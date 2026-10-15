@@ -188,10 +188,16 @@ are not told, and the note is otherwise unchanged. A rule kept or
 forgotten re-reads both within the call's 1.5 s. Either way
 `lamp_msgs::Rules` is handed to a background thread that publishes the
 newest on `memory/rules`, so the bus's file work is outside both budgets.
-Rules cannot be journal sources (another scope), so a session told a rule,
-or unable to read them, or in which a rule's function was called, journals
-no exchange until a session opens told none; this is not counted as a
-loss and does not stop tidy-up. Without the switch the client sends
+Each `append_linked` also carries `rule_ids` (omitted when empty): the
+rules of the person's own rules scope that the session was told, kept or
+listed. The store checks they are kept entries of `Person::rules()` of
+that person and links them by row, so forgetting a rule removes the
+exchanges linked to it (and their descendants); a rule is never treated
+as evidence when an observation is forgotten, and a record's
+`source_ids` list only its own person's. A confirmed `forget_rule`
+inhibits journalling until a fresh worker, as `forget` does. Keeping a
+rule counts and writes under one lock, so concurrent calls cannot pass
+six. Without the switch the client sends
 exactly what it did (`remember::tests::without_the_rules_switch_nothing_changes`).
 
 ### Played scenes for First
@@ -323,7 +329,7 @@ message. A refusal leaves the connection usable.
 | Request | Successful response and rules |
 |---|---|
 | `search {query, day?, limit?, max_bytes?, history?}` | `{ok:true, entries:[Record...]}` in relevance order. Searches raw records, kept items and current observations; `history` defaults false. `day` restricts to journal exchanges on that local day. Defaults: 8 results, 4,096 text bytes; maxima 50 and 16,384. Empty or tokenless queries return no records. |
-| `append_linked {at_unix_ms, heard?, said?, source_ids}` | `{ok:true,id}`. Like append, with at most 64 distinct existing source IDs in the same person's store. Sources can be raw records, kept facts or observations. |
+| `append_linked {at_unix_ms, heard?, said?, source_ids, rule_ids?}` | `{ok:true,id}`. Like append, with at most 64 distinct existing source IDs in the same person's store. Sources can be raw records, kept facts or observations. `rule_ids` (#813), at most 64, are kept entries of the person's own rules scope (`r-<hex>` beside `p-<hex>`, `r-everyone` beside `everyone`); forgetting one removes this exchange. |
 | `forget {id}` | `{ok:true,removed:N}` after transitive deletion and verification; missing ID gives zero. |
 | `session_open {session, max_bytes?}` | `{ok:true,snapshot:Note}`. Default/max cap 1,200 UTF-8 bytes for `Note.note`, including its inner JSON framing and escaping. Outer response metadata and re-escaping are outside that cap. |
 | `session_close {session}` | `{ok:true}`; safe to repeat. |

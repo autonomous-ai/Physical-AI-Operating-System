@@ -341,12 +341,26 @@ impl Days {
         said: &str,
         sources: &[u64],
     ) -> Result<u64> {
+        self.append_ruled(person, at, heard, said, sources, &[])
+    }
+    /// [`Self::append`], linked also to rules of the person's own rules
+    /// scope ([`Person::rules`]) that the answer may have followed, so that
+    /// forgetting such a rule removes this exchange too (#813).
+    pub fn append_ruled(
+        &mut self,
+        person: &Person,
+        at: u64,
+        heard: &str,
+        said: &str,
+        sources: &[u64],
+        rules: &[u64],
+    ) -> Result<u64> {
         let heard = store::tidy(heard, store::HEARD_BYTES);
         let said = store::tidy(said, store::SAID_BYTES);
         if heard.is_empty() && said.is_empty() {
             return Err(Error::new("empty", "there is no exchange to remember"));
         }
-        self.add(person, at, &heard, &said, "", sources)
+        self.add(person, at, &heard, &said, "", sources, rules)
     }
     pub fn remember(&mut self, person: &Person, at: u64, text: &str) -> Result<u64> {
         let text = store::tidy(text, store::TEXT_BYTES);
@@ -364,8 +378,11 @@ impl Days {
                 "the kept list is full; nothing was removed",
             ));
         }
-        self.add(person, at, "", "", &text, &[])
+        self.add(person, at, "", "", &text, &[], &[])
     }
+    // The one private writer of an exchange or a kept entry: each argument
+    // is a column or its links.
+    #[allow(clippy::too_many_arguments)]
     fn add(
         &mut self,
         person: &Person,
@@ -374,6 +391,7 @@ impl Days {
         said: &str,
         text: &str,
         sources: &[u64],
+        rules: &[u64],
     ) -> Result<u64> {
         if Day::of(at, self.offset).is_none() {
             return Err(Error::new(
@@ -384,6 +402,28 @@ impl Days {
         let tx = self.db.transaction()?;
         ensure_person(&tx, person)?;
         validate_sources(&tx, person, sources, false)?;
+        // Rules are the person's own, in the scope beside theirs, and only
+        // kept entries: another person's are never linked.
+        let ruled = match rules {
+            [] => None,
+            _ => {
+                let scope = person
+                    .rules()
+                    .ok_or_else(|| bad("this person has no rules scope"))?;
+                validate_sources(&tx, &scope, rules, false)?;
+                for id in rules {
+                    let kept: bool = tx.query_row(
+                        "SELECT EXISTS(SELECT 1 FROM entries WHERE person=? AND id=? AND kind='kept')",
+                        params![scope.as_str(), id],
+                        |r| r.get(0),
+                    )?;
+                    if !kept {
+                        return Err(bad("a rule ID is not a kept rule"));
+                    }
+                }
+                Some(scope)
+            }
+        };
         let id = next_id(&tx, person)?;
         let record = Record {
             id,
@@ -399,6 +439,19 @@ impl Days {
             active: true,
         };
         insert_record(&tx, &record, self.offset, self.now)?;
+        if let Some(scope) = ruled {
+            let rid: i64 = tx.query_row(
+                "SELECT rid FROM entries WHERE person=? AND id=?",
+                params![person.as_str(), id],
+                |r| r.get(0),
+            )?;
+            for rule in rules {
+                tx.execute(
+                    "INSERT INTO sources(child,parent) SELECT ?1,rid FROM entries WHERE person=?2 AND id=?3",
+                    params![rid, scope.as_str(), rule],
+                )?;
+            }
+        }
         tx.commit()?;
         Ok(id)
     }
@@ -518,7 +571,9 @@ impl Days {
         // later tidy pass could simply extract the same fact again. This can
         // remove an entire exchange containing more than one subject.
         if record.kind == "observation" {
-            tx.execute("WITH RECURSIVE roots(rid) AS (SELECT rid FROM doomed UNION SELECT s.parent FROM sources s JOIN roots r ON s.child=r.rid) INSERT OR IGNORE INTO doomed SELECT rid FROM roots",[])?;
+            // Only the person's own evidence: a rule the exchange followed,
+            // in the scope beside theirs, is not evidence of the fact.
+            tx.execute("WITH RECURSIVE roots(rid) AS (SELECT rid FROM doomed UNION SELECT s.parent FROM sources s JOIN roots r ON s.child=r.rid JOIN entries e ON e.rid=s.parent WHERE e.person=?1) INSERT OR IGNORE INTO doomed SELECT rid FROM roots",[person.as_str()])?;
         }
         descendants(&tx, true)?;
         let count = erase(&tx)?;
@@ -1167,7 +1222,7 @@ fn category_name(category: &tidy::Category) -> &'static str {
 fn read_record(db: &Connection, person: &Person, id: u64) -> Result<Option<Record>> {
     let mut record=db.query_row("SELECT id,kind,at_unix_ms,heard,said,text,category,active FROM entries WHERE person=? AND id=?",params![person.as_str(),id],|r|{let category:Option<String>=r.get(6)?; Ok(Record{id:r.get(0)?,person:person.as_str().into(),kind:r.get(1)?,at_unix_ms:r.get(2)?,heard:r.get(3)?,said:r.get(4)?,text:r.get(5)?,category:category.map(|c|match c.as_str(){"promise"=>tidy::Category::Promise,"preference"=>tidy::Category::Preference,_=>tidy::Category::Thread}),source_ids:vec![],supersedes:None,active:r.get(7)?})}).optional()?;
     if let Some(record) = &mut record {
-        record.source_ids=db.prepare("SELECT p.id FROM sources s JOIN entries c ON c.rid=s.child JOIN entries p ON p.rid=s.parent WHERE c.person=? AND c.id=? ORDER BY p.id")?.query_map(params![person.as_str(),id],|r|r.get(0))?.collect::<rusqlite::Result<Vec<_>>>()?;
+        record.source_ids=db.prepare("SELECT p.id FROM sources s JOIN entries c ON c.rid=s.child JOIN entries p ON p.rid=s.parent WHERE c.person=? AND c.id=? AND p.person=c.person ORDER BY p.id")?.query_map(params![person.as_str(),id],|r|r.get(0))?.collect::<rusqlite::Result<Vec<_>>>()?;
         record.supersedes=db.query_row("SELECT p.id FROM replacements s JOIN entries c ON c.rid=s.newer JOIN entries p ON p.rid=s.older WHERE c.person=? AND c.id=?",params![person.as_str(),id],|r|r.get(0)).optional()?;
     }
     Ok(record)

@@ -505,71 +505,188 @@ fn days_every_rule_kept_is_told_and_a_rule_past_the_most_is_refused() {
     assert!(!note.contains("One more"));
 }
 
-/// A rule lives in another scope, so an answer given under it cannot be
-/// linked to it: while one may be in the provider's context, before and
-/// after it is forgotten, nothing is journalled, and a forgotten rule never
-/// comes back through recall.
+/// Eight keep_rule calls at once, as ToolDesk can run them, with five rules
+/// kept: one more is kept, never past the most.
 #[test]
-fn days_nothing_said_under_a_rule_is_journalled_so_a_forgotten_rule_never_comes_back() {
+fn days_rules_kept_at_once_never_pass_the_most() {
     let fixture = Fixture::new(|options, now| Days::open(options, now).unwrap());
     let minh = person_id("Minh");
     let client = DaysClient::new(fixture.socket.clone()).unwrap();
-    // A session told no rule journals as before.
+    for n in 1..lamp_voice::rules::MOST_RULES {
+        keep(&client, &minh, json!({"rule":format!("Rule {n}.")}));
+    }
+    let kept: Vec<Value> = std::thread::scope(|scope| {
+        let calls: Vec<_> = (0..8)
+            .map(|n| {
+                let (client, minh) = (&client, &minh);
+                scope.spawn(move || keep(client, minh, json!({"rule":format!("At once {n}.")})))
+            })
+            .collect();
+        calls.into_iter().map(|call| call.join().unwrap()).collect()
+    });
+    assert_eq!(
+        kept.iter().filter(|told| told["kept_rule"] == true).count(),
+        1,
+        "{kept:?}"
+    );
+    assert_eq!(listed(&client, &minh).len(), lamp_voice::rules::MOST_RULES);
+}
+
+/// An answer given under a rule is journalled, linked to that rule in the
+/// person's own rules scope: it is recalled the next day, forgetting the
+/// rule removes it and nothing else, what follows in that session's stale
+/// context is refused rather than kept without it, and another person's
+/// rules are never linked.
+#[test]
+fn days_an_answer_under_a_rule_is_journalled_and_goes_when_the_rule_is_forgotten() {
+    const DAY: u64 = 86_400_000;
+    let fixture = Fixture::new(|options, now| Days::open(options, now).unwrap());
+    let (minh, sam) = (person_id("Minh"), person_id("Sam"));
+    let client = DaysClient::new(fixture.socket.clone()).unwrap();
+    // Before any rule, a session told none: its answer links no rule.
     assert!(
         !client
-            .told_for_session(1, Some(&minh), true)
-            .contains("ORCHID")
+            .told_for_session(9, Some(&minh), true)
+            .contains("How you were")
     );
-    assert!(client.finished_exchange_for(fixture.now - 5_000, "hello", "hello", Some(&minh)));
-    assert_eq!(fixture.next("append_linked").1["ok"], true);
-    keep(&client, &minh, json!({"rule":"Address them as ORCHID."}));
-    let number = listed(&client, &minh)[0].0;
-    // The next session is told it: an answer under it is not journalled.
-    assert!(
-        client
-            .told_for_session(2, Some(&minh), true)
-            .contains("ORCHID")
-    );
-    assert!(!client.finished_exchange_for(
-        fixture.now - 4_000,
-        "who am I",
-        "You are ORCHID.",
+    assert!(client.finished_exchange_for(
+        fixture.now - DAY - 1_000,
+        "what is the time",
+        "Half past ten.",
         Some(&minh)
     ));
+    let (line, answer) = fixture.next("append_linked");
+    assert_eq!(answer["ok"], true, "{answer}");
+    assert!(line.get("rule_ids").is_none(), "{line}");
+    keep(&client, &minh, json!({"rule":"Address them as Orchid."}));
+    keep(&client, &sam, json!({"rule":"Address them as Fern."}));
+    let number = listed(&client, &minh)[0].0;
+    // Yesterday, a session told Minh's rule: an answer under it is
+    // journalled, linked to Minh's rule only.
+    assert!(
+        client
+            .told_for_session(1, Some(&minh), true)
+            .contains("Orchid")
+    );
+    assert!(client.finished_exchange_for(
+        fixture.now - DAY,
+        "who am I",
+        "You are Orchid.",
+        Some(&minh)
+    ));
+    let (line, answer) = fixture.next("append_linked");
+    assert_eq!(answer["ok"], true, "{answer}");
+    assert_eq!(line["rule_ids"], json!([number]), "{line}");
+    // Sam's session links Sam's own rule, never Minh's.
+    assert!(
+        client
+            .told_for_session(2, Some(&sam), true)
+            .contains("Fern")
+    );
+    assert!(client.finished_exchange_for(
+        fixture.now - DAY + 2_000,
+        "and me",
+        "You are Fern.",
+        Some(&sam)
+    ));
+    let (line, answer) = fixture.next("append_linked");
+    assert_eq!(answer["ok"], true, "{answer}");
+    assert_eq!(line["person"], sam.as_str());
+    assert_eq!(
+        line["rule_ids"],
+        json!([1]),
+        "Sam's own rule 1, in Sam's scope"
+    );
+    // Recalled the next day.
+    let recall = |person: &str, about: &str| {
+        let (told, ok) = client.run_for(
+            &call(RECALL, json!({"about":about,"days_ago":1})),
+            BUDGET,
+            Some(person),
+        );
+        assert!(ok, "{told}");
+        texts(&told)
+    };
+    assert!(recall(&minh, "Orchid").contains(&"You are Orchid.".into()));
+    // Minh takes the rule back in a new session: the answer under it goes,
+    // the other answer and Sam's stay.
+    assert!(
+        client
+            .told_for_session(3, Some(&minh), true)
+            .contains("Orchid")
+    );
     let (told, _) = client.rule_for(
         &call(lamp_voice::rules::FORGET_RULE, json!({"number":number})),
         BUDGET,
         Some(&minh),
     );
     assert_eq!(told["forgotten"], true, "{told}");
-    // The same session's context still holds it: still not journalled.
+    assert!(!recall(&minh, "Orchid").contains(&"You are Orchid.".into()));
+    assert!(recall(&minh, "time").contains(&"Half past ten.".into()));
+    assert!(recall(&sam, "Fern").contains(&"You are Fern.".into()));
+    // The provider's context still holds the rule, as after `forget`: this
+    // worker journals nothing more, so it cannot come back unlinked.
     assert!(!client.finished_exchange_for(
-        fixture.now - 3_000,
+        fixture.now - 1_000,
         "say my name",
-        "ORCHID.",
+        "Orchid.",
         Some(&minh)
     ));
-    let (told, ok) = client.run_for(
-        &call(RECALL, json!({"about":"ORCHID"})),
+    assert!(
+        !client
+            .told_for_session(4, Some(&minh), true)
+            .contains("Orchid")
+    );
+    assert!(!client.finished_exchange_for(fixture.now - 500, "again", "Orchid.", Some(&minh)));
+    let (told, _) = client.run_for(
+        &call(RECALL, json!({"about":"Orchid"})),
         BUDGET,
         Some(&minh),
     );
-    assert!(ok && texts(&told).is_empty(), "{told}");
-    // A session told no rule journals again.
+    assert!(texts(&told).is_empty(), "{told}");
+    // A fresh worker told no rule journals as before, with no rule_ids.
+    drop(client);
+    let client = DaysClient::new(fixture.socket.clone()).unwrap();
     assert!(
         !client
-            .told_for_session(3, Some(&minh), true)
-            .contains("ORCHID")
+            .told_for_session(5, Some(&minh), true)
+            .contains("Orchid")
     );
-    assert!(client.finished_exchange_for(
-        fixture.now - 2_000,
-        "thanks",
-        "you are welcome",
-        Some(&minh)
-    ));
+    assert!(client.finished_exchange_for(fixture.now, "thanks", "You are welcome.", Some(&minh)));
     let (line, answer) = fixture.next("append_linked");
-    assert_eq!(
-        (line["heard"].as_str(), &answer["ok"]),
-        (Some("thanks"), &json!(true))
-    );
+    assert_eq!(answer["ok"], true, "{answer}");
+    assert!(line.get("rule_ids").is_none(), "{line}");
+}
+
+/// The store links an exchange only to its own person's rules scope.
+#[test]
+fn days_store_never_links_another_persons_rule() {
+    let fixture = Fixture::new(|options, now| {
+        let mut store = Days::open(options, now).unwrap();
+        let minh = Person::new(&person_id("Minh")).unwrap();
+        let theirs = minh.rules().unwrap();
+        store
+            .remember(&theirs, now, "Address them as Orchid.")
+            .unwrap();
+        // A kept thing of Minh's own scope is not a rule.
+        store.remember(&minh, now, "locker 417").unwrap();
+        let sam = Person::new(&person_id("Sam")).unwrap();
+        assert!(
+            store
+                .append_ruled(&sam, now, "hi", "hello", &[], &[1])
+                .is_err()
+        );
+        assert!(
+            store
+                .append_ruled(&minh, now, "hi", "hello", &[], &[2])
+                .is_err()
+        );
+        assert!(
+            store
+                .append_ruled(&minh, now, "hi", "Orchid", &[], &[1])
+                .is_ok()
+        );
+        store
+    });
+    drop(fixture);
 }

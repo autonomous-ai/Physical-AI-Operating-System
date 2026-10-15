@@ -632,17 +632,23 @@ impl DaysClient {
             .unwrap_or_else(|| UNAVAILABLE.into());
         if rules {
             let read = self.tell_policy(person, started + FIRST_READ);
-            let told = read
-                .as_ref()
-                .map(|(room, theirs)| crate::rules::note(room, theirs.as_deref()))
-                .unwrap_or_default();
-            // Rules that could not be read may still be in the thread told.
-            let in_context = read.is_none() || !told.is_empty();
+            let Some((room, theirs)) = read else {
+                // Rules that could not be read: the session's are kept.
+                return note;
+            };
+            // What this session's provider is told is what its exchanges
+            // follow: a rule forgotten in an earlier one is not among them.
             match self.context.lock() {
-                Ok(mut context) => context.rules_in_context = in_context,
+                Ok(mut context) => {
+                    context.rules.clear();
+                    context.rule(None, room.iter().map(|rule| rule.id));
+                    if let (Some(person), Some(theirs)) = (person, &theirs) {
+                        context.rule(Some(person), theirs.iter().map(|rule| rule.id));
+                    }
+                }
                 Err(_) => return UNAVAILABLE.into(),
             }
-            note.push_str(&told);
+            note.push_str(&crate::rules::note(&room, theirs.as_deref()));
         }
         note
     }
@@ -706,6 +712,8 @@ pub struct DaysClient {
     // for timezone lookup; offset_at still follows listed DST transitions.
     zone: Vec<u8>,
     context: Mutex<DaysContext>,
+    /// Held while a rule is counted and kept ([`crate::rules::admit`]).
+    keeping: Mutex<()>,
     jobs: SyncSender<DaysJob>,
     lost: Arc<AtomicU64>,
 }
@@ -727,12 +735,13 @@ struct DaysContext {
     /// A write whose acknowledgement is not known may have committed. Keep
     /// journalling inhibited after an ambiguous response; never invent its ID.
     uncertain_writes: u64,
-    /// The provider's context may hold a rule ([`crate::rules`]): the
-    /// session was told one, or a rule's function was called in it. Rules
-    /// live in another scope, so an exchange cannot be linked to one, and
-    /// one forgotten must not come back through the journal: until a
-    /// session opens told no rule, no exchange is journalled.
-    rules_in_context: bool,
+    /// The rules ([`crate::rules`]) the provider's context may hold, each
+    /// with whose rules scope it is in (`None` for the room's): those the
+    /// session was told, and those kept or listed in it. An exchange is
+    /// linked to its person's own (`rule_ids`), so forgetting one of them
+    /// removes it; one forgotten in this session stays here, so that what
+    /// follows is refused rather than journalled without it.
+    rules: Vec<(Option<String>, u64)>,
 }
 
 impl DaysContext {
@@ -749,6 +758,29 @@ impl DaysContext {
         }
     }
 
+    /// Rules now in the provider's context, of this person's rules scope.
+    fn rule(&mut self, person: Option<&str>, ids: impl IntoIterator<Item = u64>) {
+        for id in ids {
+            let rule = (person.map(str::to_owned), id);
+            if !self.rules.contains(&rule) {
+                if self.rules.len() == SOURCE_IDS {
+                    self.journal_inhibited = true;
+                    return;
+                }
+                self.rules.push(rule);
+            }
+        }
+    }
+
+    /// This person's own rules, for a write to their scope.
+    fn rules_of(&self, person: Option<&str>) -> Vec<u64> {
+        self.rules
+            .iter()
+            .filter(|(whose, _)| whose.as_deref() == person)
+            .map(|(_, id)| *id)
+            .collect()
+    }
+
     /// This person's sources, for a write to their scope.
     fn of(&self, person: Option<&str>) -> Vec<u64> {
         self.sources
@@ -757,6 +789,15 @@ impl DaysContext {
             .map(|(_, id)| *id)
             .collect()
     }
+}
+
+/// An append with the rules it may have followed: no `rule_ids` at all
+/// without any, as before rules (#813).
+fn linked(mut line: Value, rules: Vec<u64>) -> Value {
+    if !rules.is_empty() {
+        line["rule_ids"] = json!(rules);
+    }
+    line
 }
 
 /// `line` for this person: no `person` at all for the room's, as before.
@@ -774,6 +815,8 @@ enum DaysJob {
         heard: String,
         said: String,
         sources: Vec<u64>,
+        /// The person's own rules it may have followed (#813).
+        rules: Vec<u64>,
         person: Option<String>,
     },
     Close(String, Option<String>),
@@ -809,6 +852,7 @@ impl DaysClient {
             prefix,
             zone,
             context: Mutex::new(DaysContext::default()),
+            keeping: Mutex::new(()),
             jobs,
             lost,
         })
@@ -1105,10 +1149,6 @@ impl DaysClient {
             self.lost.fetch_add(1, Ordering::Relaxed);
             return false;
         }
-        // Left out on purpose, not lost: tidy-up goes on.
-        if context.rules_in_context {
-            return false;
-        }
         let sent = self
             .jobs
             .try_send(DaysJob::Exchange {
@@ -1117,6 +1157,7 @@ impl DaysClient {
                 heard: heard.to_owned(),
                 said: said.to_owned(),
                 sources: context.of(person),
+                rules: context.rules_of(person),
                 person: person.map(str::to_owned),
             })
             .is_ok();
@@ -1143,19 +1184,25 @@ impl DaysClient {
         person: Option<&str>,
     ) -> (Value, bool) {
         let until = Instant::now() + deadline.min(crate::tools::ASK_DEADLINE);
-        // A rule's words reach the provider with this call, whatever comes
-        // of it.
-        match self.context.try_lock() {
-            Ok(mut context) => context.rules_in_context = true,
-            Err(_) => return (gone(), false),
-        }
         let now = unix_ms();
         let scope = crate::rules::scope(person);
         let line = match crate::rules::request(call, now, &scope) {
             Ok(line) => line,
             Err(told) => return (told, true),
         };
-        if call.name == crate::rules::KEEP_RULE {
+        // Counting and keeping are one step: up to eight calls run at once,
+        // and each of them must see the others' rules.
+        let _keeping = if call.name == crate::rules::KEEP_RULE {
+            let keeping = loop {
+                match self.keeping.try_lock() {
+                    Ok(keeping) => break keeping,
+                    Err(std::sync::TryLockError::Poisoned(_)) => return (gone(), false),
+                    Err(std::sync::TryLockError::WouldBlock) if Instant::now() < until => {
+                        std::thread::sleep(Duration::from_millis(2));
+                    }
+                    Err(std::sync::TryLockError::WouldBlock) => return (gone(), false),
+                }
+            };
             let kept = until
                 .checked_duration_since(Instant::now())
                 .and_then(|left| {
@@ -1167,23 +1214,51 @@ impl DaysClient {
                 Some(Err(told)) => return (told, true),
                 Some(Ok(())) => {}
             }
-        }
+            Some(keeping)
+        } else {
+            None
+        };
         let offset = crate::local_time::offset_at(&self.zone, (now / 1000) as i64).unwrap_or(0);
-        let told = until
+        let Some(answer) = until
             .checked_duration_since(Instant::now())
             .and_then(|left| bounded_exchange(&self.socket, &line, left))
-            .and_then(|answer| {
-                crate::rules::answer_for(&call.name, &answer, |at| {
-                    when(local_day(now, offset) - local_day(at, offset))
-                })
-            });
+        else {
+            return (gone(), false);
+        };
+        let told = crate::rules::answer_for(&call.name, &answer, |at| {
+            when(local_day(now, offset) - local_day(at, offset))
+        });
         let Some((told, changed)) = told.filter(|(told, _)| crate::tools::sendable(told)) else {
             return (gone(), false);
         };
+        // The rule kept or listed is now in the provider's context: what is
+        // said under it is linked to it.
+        let shown: Vec<u64> = match call.name.as_str() {
+            crate::rules::KEEP_RULE => answer["id"].as_u64().into_iter().collect(),
+            crate::rules::LIST_RULES => crate::rules::rules(&answer)
+                .unwrap_or_default()
+                .iter()
+                .map(|rule| rule.id)
+                .collect(),
+            _ => vec![],
+        };
+        if !shown.is_empty() {
+            match self.context.lock() {
+                Ok(mut context) => context.rule(person, shown),
+                // Without the link nothing said now may be journalled.
+                Err(poisoned) => poisoned.into_inner().journal_inhibited = true,
+            }
+        }
         if changed {
             if call.name == crate::rules::FORGET_RULE {
-                // What was said under the rule is not told to the next
-                // session's recap either, as for `forget`.
+                // The store removed what was said under the rule. As for
+                // `forget`: the next session's recap is not told it, and
+                // already-delivered context could recreate it unlinked, so
+                // journalling stops until a fresh worker.
+                self.context
+                    .lock()
+                    .unwrap_or_else(std::sync::PoisonError::into_inner)
+                    .journal_inhibited = true;
                 FORGET_THREAD.store(true, Ordering::Release);
                 if let Ok(mut thread) = crate::thread::THREAD.try_lock() {
                     clear_forgotten_thread(&mut thread);
@@ -1415,6 +1490,7 @@ fn days_writer(
                 heard,
                 said,
                 sources,
+                rules,
                 person,
             }) => {
                 // Someone else at the lamp is another conversation, in
@@ -1430,7 +1506,10 @@ fn days_writer(
                 let answer = bounded_exchange(
                     socket,
                     &for_person(
-                        json!({"op":"append_linked","at_unix_ms":at_unix_ms,"heard":heard,"said":said,"source_ids":sources}),
+                        linked(
+                            json!({"op":"append_linked","at_unix_ms":at_unix_ms,"heard":heard,"said":said,"source_ids":sources}),
+                            rules,
+                        ),
                         person.as_deref(),
                     ),
                     WRITER_DEADLINE,
@@ -1978,6 +2057,7 @@ mod tests {
                 heard: heard.into(),
                 said: "answer".into(),
                 sources: vec![],
+                rules: vec![],
                 person: None,
             })
             .unwrap();

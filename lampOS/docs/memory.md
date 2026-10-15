@@ -202,6 +202,7 @@ order; it does not return observations. New operations are:
 ```json
 {"op":"search","person":"everyone","query":"cà phê","limit":8,"max_bytes":4096,"history":false}
 {"op":"append_linked","at_unix_ms":1791892800000,"heard":"My coffee?","said":"Black.","source_ids":[2]}
+{"op":"append_linked","person":"p-be9688998f085098","at_unix_ms":1791892800000,"heard":"Who am I?","said":"Minh.","source_ids":[],"rule_ids":[1]}
 {"op":"forget","id":2}
 {"op":"session_open","session":"voice_1","max_bytes":1200}
 {"op":"session_close","session":"voice_1"}
@@ -443,15 +444,19 @@ facts stay `remember`.
   `list_rules` gives each rule with its number. A forgotten rule is erased
   by the store and never told again, and the conversation recap is
   cleared as for `forget`.
-- **Nothing said under a rule is journalled.** A rule is in another scope,
-  so an exchange cannot be linked to it, and forgetting it could not reach
-  an answer that repeated it. So, conservatively: from a session told any
-  rule (or whose rules could not be read), or in which a rule's function
-  was called, no exchange is journalled, also after the rule is forgotten
-  in it, until a session opens told no rule. Those exchanges are left out,
-  not counted as lost, and tidy-up goes on. The cost: a person with rules,
-  or a room with rules, has no journal of their conversations while the
-  rules stand.
+- **What is said under a rule is journalled, linked to it.** Journalling
+  stays on whatever rules exist. Each exchange's `append_linked` also
+  carries `rule_ids`: the rules of the person's own rules scope that the
+  provider's context may hold (those the session was told, kept or listed
+  in it). The store accepts only kept entries of that one scope beside the
+  person's (`Person::rules`), so another person's rules are never linked.
+  Forgetting a rule removes every exchange linked to it, as forgetting a
+  kept thing removes what was linked to that; the links are per session,
+  so they may remove more than the one answer that used it. As after
+  `forget`, the conversation recap is cleared and the worker journals
+  nothing more until a fresh one, since the provider's context still holds
+  the rule. Limit: a room rule told in a known person's session is in the
+  room's scope, so it is not linked from their exchanges, as for room facts.
 - **The policy's typed fact.** At each session open, and after each rule
   kept or forgotten, the voice publishes `lamp_msgs::Rules` on the bus's
   kept topic `memory/rules` ([msgs.md](msgs.md)): the person id, `quiet`
@@ -470,9 +475,12 @@ session and never in Sam's or the room's, lists it, does not return it
 from a recall, refuses Sam's attempt to forget it and forgets it for Minh.
 Beside it: two rules, the first taken back by its number and the second
 left, with no number, 0, -1, a word and a number not theirs removing
-nothing; six rules kept and all told and listed, a seventh refused; and an
-answer under a rule not journalled before or after it is forgotten, nor
-found by recall, while a session told no rule journals again.
+nothing; six rules kept and all told and listed, a seventh refused, also
+with eight keep_rule calls at once; an answer under a rule journalled with
+its rule_ids and recalled the next day, gone when the rule is forgotten
+while an answer from before the rule and another person's stay, nothing
+journalled after the forget in that worker, and a fresh worker journalling
+again; and the store refusing another person's rule IDs.
 Known limits: whether the model calls `keep_rule` for a spoken correction
 is not shown on the host; `memory/rules` holds the person of the last
 session opened or rule changed, not whoever is at the lamp now; a `forget_all`

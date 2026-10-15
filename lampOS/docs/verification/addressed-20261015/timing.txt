@@ -1,0 +1,5 @@
+#753 timing, Fourth's Intel Mac (macOS 26.6.2, i7-10700K), 2026-10-15 12:51-12:53 ICT, load average 9.96 to 13.59.
+Temporary test (not committed): judge() with 300 rises and 200 looks all in a 30 s window, 2,000 calls; Looks::read of bus.latest(humans/faces/tracked) on a real bus in /tmp, 2,000 reads.
+debug:   JUDGE p50=24.789us p95=25.196us p99=25.902us max=109.414us; READ p50=47.604us p95=48.281us p99=49.743us max=212.323us
+release: JUDGE p50=1.54us p95=1.555us p99=1.566us max=7.241us;    READ p50=21.116us p95=21.7us p99=23.903us max=76.743us
+Not a lamp measurement.

@@ -1,0 +1,81 @@
+   Compiling libc v0.2.190
+    Checking rustix v1.1.5
+    Checking lamp-msgs v0.1.0 (/Users/autonomous/harnesses/worktrees/autonomous-os/brave-fjord/lampOS/crates/msgs)
+    Checking tokio v1.53.1
+    Checking objc2-core-foundation v0.3.2
+    Checking core-foundation v0.10.1
+    Checking security-framework-sys v2.17.0
+    Checking security-framework v3.7.0
+   Compiling jobserver v0.1.35
+    Checking parking_lot_core v0.9.12
+   Compiling cc v1.7.0
+    Checking lamp-ipc v0.1.0 (/Users/autonomous/harnesses/worktrees/autonomous-os/brave-fjord/lampOS/crates/ipc)
+    Checking lamp-camera v0.1.0 (/Users/autonomous/harnesses/worktrees/autonomous-os/brave-fjord/lampOS/crates/camera)
+    Checking lamp-audio v0.1.0 (/Users/autonomous/harnesses/worktrees/autonomous-os/brave-fjord/lampOS/crates/audio)
+    Checking lamp-turn-end-wire v0.1.0 (/Users/autonomous/harnesses/worktrees/autonomous-os/brave-fjord/lampOS/crates/turn-end-wire)
+    Checking lamp-controls v0.1.0 (/Users/autonomous/harnesses/worktrees/autonomous-os/brave-fjord/lampOS/crates/controls)
+    Checking lamp-keeper v0.1.0 (/Users/autonomous/harnesses/worktrees/autonomous-os/brave-fjord/lampOS/crates/keeper)
+    Checking lamp-body v0.1.0 (/Users/autonomous/harnesses/worktrees/autonomous-os/brave-fjord/lampOS/crates/body)
+    Checking lamp-ring v0.1.0 (/Users/autonomous/harnesses/worktrees/autonomous-os/brave-fjord/lampOS/crates/ring)
+    Checking tempfile v3.27.0
+    Checking lamp-expression v0.1.0 (/Users/autonomous/harnesses/worktrees/autonomous-os/brave-fjord/lampOS/crates/expression)
+    Checking objc2-core-audio v0.3.2
+    Checking objc2-audio-toolbox v0.3.2
+   Compiling ring v0.17.14
+   Compiling libsqlite3-sys v0.38.2
+   Compiling cmake v0.1.58
+    Checking coreaudio-rs v0.14.2
+   Compiling aws-lc-sys v0.46.0
+    Checking cpal v0.19.0 (https://github.com/RustAudio/cpal.git?rev=79275c2313da30e9f8b1ad8168385d091a2c9ada#79275c23)
+    Checking hyper v1.12.0
+    Checking tower v0.5.3
+    Checking lamp-observer v0.1.0 (/Users/autonomous/harnesses/worktrees/autonomous-os/brave-fjord/lampOS/crates/observer)
+    Checking tokio-util v0.7.20
+    Checking hyper-util v0.1.21
+    Checking tower-http v0.6.11
+   Compiling tract-linalg v0.23.8
+    Checking parking_lot v0.12.5
+    Checking tract-data v0.23.8
+    Checking axum v0.8.9
+   Compiling rustls v0.23.45
+    Checking rusqlite v0.40.2
+    Checking xattr v1.6.1
+    Checking filetime v0.2.29
+    Checking rustls-webpki v0.103.15
+    Checking tar v0.4.46
+    Checking lamp-schedule v0.1.0 (/Users/autonomous/harnesses/worktrees/autonomous-os/brave-fjord/lampOS/crates/schedule)
+    Checking rand_distr v0.6.0
+    Checking memmap2 v0.9.11
+    Checking lamp-memory v0.1.0 (/Users/autonomous/harnesses/worktrees/autonomous-os/brave-fjord/lampOS/crates/memory)
+    Checking lamp-tasks v0.1.0 (/Users/autonomous/harnesses/worktrees/autonomous-os/brave-fjord/lampOS/crates/tasks)
+    Checking lamp-actions v0.1.0 (/Users/autonomous/harnesses/worktrees/autonomous-os/brave-fjord/lampOS/crates/actions)
+    Checking lamp-mood v0.1.0 (/Users/autonomous/harnesses/worktrees/autonomous-os/brave-fjord/lampOS/crates/mood)
+    Checking tokio-rustls v0.26.6
+    Checking tungstenite v0.30.0
+    Checking hyper-rustls v0.27.10
+    Checking rustls-platform-verifier v0.7.1
+    Checking lamp-policy v0.1.0 (/Users/autonomous/harnesses/worktrees/autonomous-os/brave-fjord/lampOS/crates/policy)
+    Checking lamp-lean v0.1.0 (/Users/autonomous/harnesses/worktrees/autonomous-os/brave-fjord/lampOS/crates/lean)
+    Checking reqwest v0.13.5
+    Checking tokio-tungstenite v0.30.0
+    Checking lamp-gemini v0.1.0 (/Users/autonomous/harnesses/worktrees/autonomous-os/brave-fjord/lampOS/crates/gemini)
+    Checking lamp-health v0.1.0 (/Users/autonomous/harnesses/worktrees/autonomous-os/brave-fjord/lampOS/crates/health)
+    Checking lamp-update v0.1.0 (/Users/autonomous/harnesses/worktrees/autonomous-os/brave-fjord/lampOS/crates/update)
+    Checking lamp-records v0.1.0 (/Users/autonomous/harnesses/worktrees/autonomous-os/brave-fjord/lampOS/crates/records)
+    Checking lamp-ears v0.1.0 (/Users/autonomous/harnesses/worktrees/autonomous-os/brave-fjord/lampOS/crates/ears)
+    Checking lamp-air v0.1.0 (/Users/autonomous/harnesses/worktrees/autonomous-os/brave-fjord/lampOS/crates/air)
+    Checking lamp-voice v0.1.0 (/Users/autonomous/harnesses/worktrees/autonomous-os/brave-fjord/lampOS/crates/voice)
+    Checking tract-core v0.23.8
+    Checking lamp-voice-eval v0.1.0 (/Users/autonomous/harnesses/worktrees/autonomous-os/brave-fjord/lampOS/crates/voice-eval)
+    Checking tract-nnef v0.23.8
+    Checking tract-hir v0.23.8
+    Checking tract-extra v0.23.8
+    Checking tract-onnx-opl v0.23.8
+    Checking tract-onnx v0.23.8
+    Checking lamp-turn-end v0.1.0 (/Users/autonomous/harnesses/worktrees/autonomous-os/brave-fjord/lampOS/crates/turn-end)
+    Checking lamp-eyes v0.1.0 (/Users/autonomous/harnesses/worktrees/autonomous-os/brave-fjord/lampOS/crates/eyes)
+    Checking lamp-name v0.1.0 (/Users/autonomous/harnesses/worktrees/autonomous-os/brave-fjord/lampOS/crates/name)
+   Compiling aws-lc-rs v1.18.2
+    Checking tough v0.24.0 (/Users/autonomous/harnesses/worktrees/autonomous-os/brave-fjord/lampOS/vendor/tough)
+    Checking lamp-surround v0.1.0 (/Users/autonomous/harnesses/worktrees/autonomous-os/brave-fjord/lampOS/crates/surround)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 1m 08s

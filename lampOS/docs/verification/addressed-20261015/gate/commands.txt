@@ -1,0 +1,16 @@
+#!/bin/zsh
+# Gate for #753 on the committed head; each stage's exit code is recorded, not piped away.
+export PATH="$HOME/.cargo/bin:$PATH"
+export CARGO_BUILD_JOBS=6
+OUT=$1
+cd /Users/autonomous/harnesses/worktrees/autonomous-os/brave-fjord/lampOS || exit 9
+git rev-parse HEAD > $OUT/head.txt
+git status --short > $OUT/status-before.txt
+run() { name=$1; shift; s=$(date -u +%FT%TZ); "$@" > $OUT/$name.txt 2>&1; rc=$?; echo "$name rc=$rc start=$s end=$(date -u +%FT%TZ)" >> $OUT/stages.txt; return $rc; }
+run fmt-workspace cargo fmt --all --check
+run fmt-touched rustfmt --edition 2024 --check crates/msgs/src/attention.rs crates/voice/src/addressed.rs crates/voice/src/attention.rs crates/voice/src/coordinator.rs crates/voice/src/first_output.rs crates/voice/src/main.rs crates/voice/src/provider_worker.rs || exit 1
+run clippy cargo clippy --workspace --all-targets --locked -- -D warnings || exit 2
+run test-workspace cargo test --workspace --locked --no-fail-fast -- --test-threads=1
+run build cargo build --workspace --locked
+git status --short > $OUT/status-after.txt
+echo done >> $OUT/stages.txt

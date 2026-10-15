@@ -30,13 +30,15 @@ use crate::{
     attention::Room,
     decide::{Answer, Asked, Connection, Decider, Failed, Question, Usage},
 };
+/// Where the lamp is in time (#820).
+pub use lamp_local_time::LocalTime;
 use lamp_msgs::{AgentState, Decision, Sign, TaskProgress, TaskStatus, Voice};
 use serde::Serialize;
 use serde_json::{Value, json};
 use std::{
     collections::{BTreeMap, BTreeSet, VecDeque},
     io,
-    sync::mpsc,
+    sync::{Arc, mpsc},
     thread,
     time::{Duration, Instant},
 };
@@ -61,13 +63,15 @@ pub const RULE_YES: f32 = 0.6;
 pub const RULE_NO: f32 = 0.1;
 
 /// How the progress question is asked (`lamp-policy --progress`).
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug)]
 pub struct Options {
     /// How long the decision model has for one asking.
     pub deadline: Duration,
-    /// The lamp's local time, east of UTC, for the hour of the day. Without
-    /// it the hour is not known and is shown as null.
-    pub utc_offset_minutes: Option<i32>,
+    /// The lamp's local time, for the hour of the day: a fixed offset
+    /// (`--utc-offset-minutes`) or a zone (`--zone`), whose offset is taken
+    /// at the decision's moment (#820). Without it the hour is not known and
+    /// is shown as null.
+    pub local: Option<Arc<LocalTime>>,
     /// The two hard rules ([`NOTE_EVERY`], [`QUIET_FOR`]); shorter only in
     /// a test.
     pub note_every: Duration,
@@ -79,10 +83,10 @@ pub struct Options {
 }
 
 impl Options {
-    pub fn new(deadline: Duration, utc_offset_minutes: Option<i32>) -> Self {
+    pub fn new(deadline: Duration, local: Option<Arc<LocalTime>>) -> Self {
         Self {
             deadline,
-            utc_offset_minutes,
+            local,
             note_every: NOTE_EVERY,
             quiet_for: QUIET_FOR,
             act: false,
@@ -849,8 +853,9 @@ impl Progress {
             .unwrap_or(u32::MAX),
             hour: self
                 .options
-                .utc_offset_minutes
-                .map(|offset| hour_of_day(unix_ms, offset)),
+                .local
+                .as_ref()
+                .map(|local| local.hour_of_day(unix_ms)),
         }
     }
 
@@ -1562,6 +1567,23 @@ mod tests {
             tasks: vec![],
         });
         assert!(progress.tasks.is_empty());
+    }
+
+    #[test]
+    fn with_a_zone_the_hour_is_the_zones_at_the_moment_of_the_decision() {
+        // #820: 23:00 in New York is 04:00 UTC in winter, 03:00 in summer.
+        let york = Arc::new(LocalTime::zone("America/New_York").unwrap());
+        let mut progress =
+            Progress::start(Never, Options::new(Duration::from_secs(1), Some(york))).unwrap();
+        let now = Instant::now();
+        progress.status(status(5, AgentState::Working));
+        progress.status(status(6, AgentState::Working));
+        let task = progress.next(now).unwrap();
+        let hour = |unix_ms| progress.context(task, now, unix_ms, Room::Quiet, None).hour;
+        assert_eq!(hour(1_768_449_600_000), Some(23));
+        assert_eq!(hour(1_784_084_400_000), Some(23));
+        // A fixed 300 minutes west is an hour off in summer.
+        assert_eq!(hour_of_day(1_784_084_400_000, -300), 22);
     }
 
     #[test]

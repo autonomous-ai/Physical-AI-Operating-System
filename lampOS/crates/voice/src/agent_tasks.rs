@@ -82,6 +82,10 @@ const MOST_TASK_BYTES: usize = 1_000;
 /// lamp-4ace in 35 ms (`docs/tasks.md`), and a socket nobody serves fails
 /// at once.
 const FIRST_READ: Duration = Duration::from_millis(300);
+/// The longest a call about work waits for the tasks part, every try
+/// included: longer than [`crate::tools::ASK_DEADLINE`], so that a change
+/// the tasks part is unsure of after its own 1.1 s can be asked for again.
+pub const DEADLINE: Duration = Duration::from_millis(3_500);
 /// How often the staff are read again, so that a tasks part started after
 /// the voice, or restarted with other targets, is seen by the next session.
 const READ_AGAIN: Duration = Duration::from_secs(30);
@@ -639,15 +643,19 @@ fn run_for(
                 &json!({"op":"status"}),
                 left(),
             ) else {
+                eprintln!(
+                    "lamp-voice provider: request {request}: no answer to the status before preparing, {} ms in",
+                    started.elapsed().as_millis()
+                );
                 return (crate::tools::unavailable(), false);
             };
             let Some(guard) = guard(&status, format!("voice-{request}-prepare-{}", nonce())) else {
                 return (crate::tools::unavailable(), false);
             };
-            let prepared = ask(
+            let prepared = ask_until_sure(
                 &place.directory.join("request.sock"),
                 &json!({"op":"prepare","guard":guard,"text":task,"target":target}),
-                left(),
+                left,
             );
             match prepared {
                 Some(answer) if answer.get("ok") == Some(&json!(true)) => {
@@ -677,11 +685,29 @@ fn run_for(
                         true,
                     )
                 }
-                Some(_) => (
-                    json!({"error": "The work could not be prepared just now."}),
-                    true,
-                ),
-                None => (crate::tools::unavailable(), false),
+                Some(answer) => {
+                    // The tasks part's code only, never the task's words.
+                    eprintln!(
+                        "lamp-voice provider: request {request}: the tasks part did not prepare the work ({}, {} ms in)",
+                        answer
+                            .get("error")
+                            .and_then(Value::as_str)
+                            .filter(|code| alias(code))
+                            .unwrap_or("no code"),
+                        started.elapsed().as_millis()
+                    );
+                    (
+                        json!({"error": "The work could not be prepared just now."}),
+                        true,
+                    )
+                }
+                None => {
+                    eprintln!(
+                        "lamp-voice provider: request {request}: no answer to the preparation, {} ms in",
+                        started.elapsed().as_millis()
+                    );
+                    (crate::tools::unavailable(), false)
+                }
             }
         }
         CONFIRM => {
@@ -714,10 +740,10 @@ fn run_for(
             ) else {
                 return (crate::tools::unavailable(), false);
             };
-            let confirmed = ask(
+            let confirmed = ask_until_sure(
                 &place.directory.join("voice.sock"),
                 &json!({"op":"confirm","guard":guard,"id":pending.id,"prepared_digest":pending.digest,"session_id":session}),
-                left(),
+                left,
             );
             match confirmed {
                 Some(answer) if answer.get("ok") == Some(&json!(true)) => {
@@ -911,6 +937,34 @@ fn ask(socket: &Path, line: &Value, deadline: Duration) -> Option<Value> {
     crate::tools::exchange_up_to(socket, line, deadline, crate::tools::MAX_TASKS_ANSWER_BYTES)
 }
 
+/// What the tasks part answers when it cannot say whether a change was made
+/// (`uncertain`: its store took longer than the 1.1 s it waits), or when the
+/// change never began (`busy`, `timeout`). Its answer asks for the same
+/// request again, exactly, which gives back what was done if it was.
+const ASK_AGAIN: [&str; 3] = ["uncertain", "busy", "timeout"];
+/// Time between one try and the next.
+const AGAIN_AFTER: Duration = Duration::from_millis(100);
+
+/// [`ask`], and again with the very same line while the tasks part says it
+/// is not sure and there is time. On lamp-4ace on 2026-10-15 two hand-overs
+/// were answered `uncertain` after 1.1 s, while the lamp's disk was busy just
+/// after a restart, and the lamp said the work could not be prepared; the
+/// tasks part had prepared each of them a moment later.
+fn ask_until_sure(socket: &Path, line: &Value, left: impl Fn() -> Duration) -> Option<Value> {
+    loop {
+        let answer = ask(socket, line, left())?;
+        let again = answer.get("ok") != Some(&json!(true))
+            && answer
+                .get("error")
+                .and_then(Value::as_str)
+                .is_some_and(|code| ASK_AGAIN.contains(&code));
+        if !again || left() <= AGAIN_AFTER {
+            return Some(answer);
+        }
+        std::thread::sleep(AGAIN_AFTER);
+    }
+}
+
 fn nonce() -> u128 {
     std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
@@ -1079,6 +1133,86 @@ mod tests {
         // Started once: nothing is waiting any more.
         let (told, _) = run(&place, &call(CONFIRM, json!({})), 5, true, deadline);
         assert!(told.get("error").is_some(), "{told}");
+        std::fs::remove_dir_all(directory).unwrap();
+    }
+
+    /// lamp-4ace, 2026-10-15: the tasks part said `uncertain` after 1.1 s and
+    /// had prepared the work a moment later. The very same line again gives
+    /// back what was done; any other refusal is not asked again.
+    #[test]
+    fn a_change_the_tasks_part_is_unsure_of_is_asked_for_again_exactly() {
+        let _one = ONE_AT_A_TIME
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        let directory =
+            std::env::temp_dir().join(format!("agent-tasks-again-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&directory);
+        std::fs::create_dir_all(&directory).unwrap();
+        let status = |revision: u64| json!({"ok":true,"store_id":"s1","revision":revision,"summary":{"session_id":"sess"}});
+        let unsure = json!({"ok":false,"error":"uncertain","message":"No receipt arrived."});
+        let seen = tasks_part(
+            &directory,
+            vec![
+                ("request.sock", status(0)),
+                ("request.sock", unsure.clone()),
+                (
+                    "request.sock",
+                    json!({"ok":true,"id":7,"prepared_digest":"abc","revision":1}),
+                ),
+                ("request.sock", status(1)),
+                ("voice.sock", unsure),
+                (
+                    "voice.sock",
+                    json!({"ok":true,"id":7,"queued":true,"revision":2}),
+                ),
+                ("request.sock", status(2)),
+                (
+                    "request.sock",
+                    json!({"ok":false,"error":"conflict","message":"Tasks changed."}),
+                ),
+            ],
+        );
+        let place = Place {
+            directory: directory.clone(),
+            target: "office".into(),
+            who: false,
+            lead_in: false,
+        };
+        let call = |name: &str, args: Value| ToolCall {
+            id: "c".into(),
+            name: name.into(),
+            args,
+        };
+        let (told, answered) = run(
+            &place,
+            &call(START, json!({"task":"Write hello.txt"})),
+            3,
+            true,
+            DEADLINE,
+        );
+        assert!(answered && told["prepared"] == json!(true), "{told}");
+        assert_eq!(seen.recv().unwrap()["op"], "status");
+        let first = seen.recv().unwrap();
+        assert_eq!(first["op"], "prepare");
+        assert_eq!(seen.recv().unwrap(), first, "asked again exactly");
+        let (told, answered) = run(&place, &call(CONFIRM, json!({})), 4, true, DEADLINE);
+        assert!(answered && told["handing_over"] == json!(true), "{told}");
+        assert_eq!(seen.recv().unwrap()["op"], "status");
+        let first = seen.recv().unwrap();
+        assert_eq!(first["op"], "confirm");
+        assert_eq!(seen.recv().unwrap(), first, "asked again exactly");
+        // A conflict is an answer: asked once, and the model is told.
+        let (told, answered) = run(
+            &place,
+            &call(START, json!({"task":"Write bye.txt"})),
+            5,
+            true,
+            DEADLINE,
+        );
+        assert!(answered && told.get("error").is_some(), "{told}");
+        assert_eq!(seen.recv().unwrap()["op"], "status");
+        assert_eq!(seen.recv().unwrap()["op"], "prepare");
+        assert!(seen.recv_timeout(Duration::from_millis(300)).is_err());
         std::fs::remove_dir_all(directory).unwrap();
     }
 

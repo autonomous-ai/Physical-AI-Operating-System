@@ -450,7 +450,8 @@ pub fn declined() -> Value {
 }
 
 /// Run one call on the part its route names, waiting at most
-/// [`ASK_DEADLINE`] where the part takes a deadline. Blocking: for a thread
+/// [`ASK_DEADLINE`] where the part takes a deadline ([`crate::agent_tasks::DEADLINE`]
+/// for the tasks part). Blocking: for a thread
 /// of its own. Shared by every voice route's worker, so that a call is run
 /// the same way whichever model asked. Returns who answered, in the words
 /// the log uses, with what to tell the model and whether that part answered.
@@ -467,7 +468,7 @@ pub fn run_call(
         Route::Executive(directory) => ("the executive", ask(directory, call, deadline)),
         Route::Tasks(place) => (
             "the tasks part",
-            crate::agent_tasks::run(place, call, request, heard, deadline),
+            crate::agent_tasks::run(place, call, request, heard, crate::agent_tasks::DEADLINE),
         ),
         Route::Schedule(directory) => (
             "the schedule through the executive",

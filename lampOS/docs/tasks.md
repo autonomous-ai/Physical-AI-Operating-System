@@ -495,6 +495,49 @@ first arrived after the second had taken over and was dropped
 (`UnownedToolCall`), and the model then said it could not start the task. A
 yes said in one breath worked.
 
+### Three ways a hand-over failed on lamp-4ace (first builder, 2026-10-15 evening)
+
+Played between 20:07 and 20:29 with progress news on. The lamp faced the
+office iMac's speaker about 60 cm away.
+
+- **The tasks part was not sure, and the voice gave up.** The tasks part
+  waits 1.1 s for its store (`REQUEST_DEADLINE`). If the store takes longer,
+  the tasks part answers `{"ok":false,"error":"uncertain"}`, asking for the
+  exact request again because it may have been done. Twice, within two
+  minutes of a restart on the lamp (the tasks part's at 20:06, the Harness
+  daemon's at 20:19), `start_agent_task` was answered so after 1,107 and
+  1,110 ms. The lamp said the work "couldn't be prepared", and the yes then
+  found nothing waiting, though the store held both tasks as prepared. Every
+  other hand-over that day was answered in 36 to 106 ms. Now `prepare` and
+  `confirm` are sent again, the very same line, while the answer is
+  `uncertain`, `busy` or `timeout` and there is time left. Calls to the
+  tasks part may take 3.5 s in all (`agent_tasks::DEADLINE`), where the
+  other parts get 1.5 s. A refusal of any other kind is told to the model
+  as before, and a journal line gives its code, never the task's words.
+- **A call made before the request was whole.** "…learns to sing, in five
+  chapters…" was ended at its comma after 400 ms. The call the model made
+  for the first piece was answered as not done (`UnownedToolCall`, above).
+  The model called again for the whole and the task was prepared, but it
+  spoke of the first answer: "That's strange, the work couldn't be prepared
+  right now." That answer is now sent under `not_done`, not `error`, and
+  says that nothing went wrong and to say nothing about it
+  ([gemini-session-reliability.md](gemini-session-reliability.md)). Not yet
+  played again with a cut at a comma.
+- **Harness was not running after a power cut.** The tasks part hands work
+  over through the Harness daemon on the lamp. Nothing started it after the
+  power cut at 18:15, so a confirmed hand-over at 20:10 ended `new_failed`
+  ("Harness is not running here") after the lamp had said it was handing
+  it over. The failed-hand-over news then told the person. Since 20:19 the
+  daemon runs as a systemd user unit (`harness service install`), with
+  lingering on for `orangepi` so that it starts at boot; the install is
+  asked to do the same (#811).
+
+Also seen: the service's transcript of "Claude Code" in the synthetic voices
+was often wrong ("Claude Poe", "your go", "George Jones"). Once the lamp
+answered as if asked for Codex, and once it took the request as the person's
+own and told the story itself. Twice after that, in the same session, it went
+on telling the story when asked again.
+
 ## The lamp as chief of staff: watching and telling (2026-10-15)
 
 The owner, just after midnight: the lamp is the person's chief of staff at

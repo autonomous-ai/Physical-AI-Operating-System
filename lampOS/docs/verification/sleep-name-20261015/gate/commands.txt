@@ -1,0 +1,18 @@
+#!/bin/zsh
+# Gate for #749 on the rebased head; each stage's exit code is recorded, not piped away.
+export PATH="$HOME/.cargo/bin:$PATH"
+export CARGO_TARGET_DIR=/Users/autonomous/harnesses/worktrees/autonomous-os/brave-fjord/lampOS/target
+export CARGO_BUILD_JOBS=6
+OUT=$1
+cd /private/tmp/lamp-fourth-sleep-name/lampOS || exit 9
+git rev-parse HEAD > $OUT/head.txt
+git status --short > $OUT/status-before.txt
+run() { name=$1; shift; s=$(date -u +%FT%TZ); "$@" > $OUT/$name.txt 2>&1; rc=$?; echo "$name rc=$rc start=$s end=$(date -u +%FT%TZ)" >> $OUT/stages.txt; return $rc; }
+run fmt-workspace cargo fmt --all --check
+run fmt-expression cargo fmt -p lamp-expression --check || exit 1
+run clippy cargo clippy --workspace --all-targets --locked -- -D warnings || exit 2
+run test-expression cargo test --locked -p lamp-expression --no-fail-fast -- --test-threads=1 || exit 3
+run test-dependents cargo test --locked -p lamp-lean -p lamp-voice -p lamp-memory -p lamp-voice-eval --no-fail-fast -- --test-threads=1
+run build cargo build --workspace --locked
+git status --short > $OUT/status-after.txt
+echo done >> $OUT/stages.txt

@@ -1,0 +1,108 @@
+{
+  "all_cli_children_terminal": true,
+  "baseline_commit": "e4922a3cb18153bda9344b7049ad0c8d9d342753",
+  "build_records_sha256": "e8398fcde0431040ea6d0c837fc1fb0a99b9575c84ecb02bf1f68981579cfebe",
+  "comparisons": [
+    {
+      "baseline_sha256": "e9de6258f5420d4ff7732653b8ec1957fdda3f43318eeb0b1dcb217fbb165572",
+      "byte_identical_full_per_tick_body_light_state_jsonl": true,
+      "modified_gate": "absent",
+      "modified_sha256": "e9de6258f5420d4ff7732653b8ec1957fdda3f43318eeb0b1dcb217fbb165572",
+      "scenario": "name-then-speech"
+    },
+    {
+      "baseline_sha256": "e9de6258f5420d4ff7732653b8ec1957fdda3f43318eeb0b1dcb217fbb165572",
+      "byte_identical_full_per_tick_body_light_state_jsonl": true,
+      "modified_gate": "false",
+      "modified_sha256": "e9de6258f5420d4ff7732653b8ec1957fdda3f43318eeb0b1dcb217fbb165572",
+      "scenario": "name-then-speech"
+    },
+    {
+      "baseline_sha256": "e9de6258f5420d4ff7732653b8ec1957fdda3f43318eeb0b1dcb217fbb165572",
+      "byte_identical_full_per_tick_body_light_state_jsonl": true,
+      "modified_gate": "true",
+      "modified_sha256": "e9de6258f5420d4ff7732653b8ec1957fdda3f43318eeb0b1dcb217fbb165572",
+      "scenario": "name-then-speech"
+    },
+    {
+      "baseline_sha256": "154157faa8564e8bc2c102354c2935cd5ffb68541c23fe2aae46fab2e9039774",
+      "byte_identical_full_per_tick_body_light_state_jsonl": true,
+      "modified_gate": "absent",
+      "modified_sha256": "154157faa8564e8bc2c102354c2935cd5ffb68541c23fe2aae46fab2e9039774",
+      "scenario": "unsupported-name"
+    },
+    {
+      "baseline_sha256": "154157faa8564e8bc2c102354c2935cd5ffb68541c23fe2aae46fab2e9039774",
+      "byte_identical_full_per_tick_body_light_state_jsonl": true,
+      "modified_gate": "false",
+      "modified_sha256": "154157faa8564e8bc2c102354c2935cd5ffb68541c23fe2aae46fab2e9039774",
+      "scenario": "unsupported-name"
+    },
+    {
+      "baseline_sha256": "154157faa8564e8bc2c102354c2935cd5ffb68541c23fe2aae46fab2e9039774",
+      "first_different_tick_us": 1065020000,
+      "identical_before_first_qualifying_tick_then_expected_difference": true,
+      "modified_gate": "true",
+      "modified_sha256": "8c5183dcf92b44489f249707420089291d379b819b7fe66da8ce41b59bfd534f",
+      "scenario": "unsupported-name"
+    }
+  ],
+  "completed_cli_runs": 8,
+  "error": null,
+  "expected_cli_runs": 8,
+  "finished_at_utc": "2026-10-15T00:40:32.322972+00:00",
+  "host": {
+    "cpu_count": 16,
+    "label": "Fourth Intel Mac; authored fake-clock planner output, not lamp or live-service timing",
+    "machine": "x86_64",
+    "platform": "macOS-26.6.2-x86_64-i386-64bit-Mach-O",
+    "python": "3.14.2 (main, Dec  5 2025, 16:49:16) [Clang 17.0.0 (clang-1700.4.4.1)]"
+  },
+  "input_manifest_sha256": "b88114719f05dc84de028707e61f88cc454c45c9fa7db9163f9b595f882db7a2",
+  "negative_baseline_schema_probe": {
+    "artifacts": {
+      "stderr.txt": {
+        "bytes": 160,
+        "sha256": "9b56a9a3108b45a117ad6e241ce9d695457e2b2c570e0b41d3162a0183fda3a2"
+      },
+      "stdout.txt": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    },
+    "baseline_binary_sha256": "e47251f917d7a9f95066ff2df3dd01d0be8c4805124a6d59a4bb21d6784243f2",
+    "catalogue_sha256": "e01e19a89387b2142acfa067c2da669f38663a91d335506826402a208834447c",
+    "command": [
+      "/private/tmp/lamp-fourth-sleep-name-compat/bin/lamp-expression-baseline-rebuilt",
+      "replay",
+      "--input",
+      "/private/tmp/lamp-fourth-sleep-name-compat/inputs/unsupported-name.jsonl",
+      "--output",
+      "/private/tmp/lamp-fourth-sleep-name-compat/comparison-1/baseline-schema-probe/unexpected-plan.jsonl",
+      "--clock-id",
+      "fourth-sleep-name-authored-compat",
+      "--enable",
+      "--catalogue",
+      "/private/tmp/lamp-fourth-sleep-name-compat/inputs/catalogue-false.json",
+      "--until-us",
+      "1075000000"
+    ],
+    "cwd": "/private/tmp/lamp-fourth-sleep-name-compat",
+    "elapsed_seconds": 0.6924402699805796,
+    "exit_code": 1,
+    "finished_at_utc": "2026-10-15T00:39:59.747358+00:00",
+    "outer_watchdog_seconds": 60,
+    "passed": true,
+    "started_at_utc": "2026-10-15T00:39:59.043043+00:00"
+  },
+  "passed": true,
+  "runner_sha256": "27940bfaae44d2152d43298b38e4f358e2ff31c169a608976adca8d17f844c98",
+  "runtime_limitations": [
+    "No device or actual acoustic/motor/light timing.",
+    "No bus transport, live service scheduling, journal stalls or CPU-load qualification.",
+    "Measured elapsed_seconds are CLI wall time on Fourth Intel Mac, not a planner latency or lamp result."
+  ],
+  "scope": "Authored injected-clock planner requests. No device, actual microphone/speaker, bus service or lamp measurement.",
+  "started_at_utc": "2026-10-15T00:39:59.042672+00:00",
+  "synthetic_only": true
+}

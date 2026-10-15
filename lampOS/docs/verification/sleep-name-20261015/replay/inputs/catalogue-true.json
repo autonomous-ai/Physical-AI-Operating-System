@@ -1,0 +1,514 @@
+{
+  "alive": {
+    "blend_us": 350000,
+    "breath": {
+      "inhale": {
+        "base_yaw": 0.0,
+        "elbow": 0.0,
+        "head_pitch": -0.03,
+        "head_roll": 0.0,
+        "shoulder": 0.0
+      },
+      "period_us": 5200000
+    },
+    "drift": {
+      "every_us": [
+        30000000,
+        90000000
+      ],
+      "high": {
+        "base_yaw": 0.0,
+        "elbow": 0.0,
+        "head_pitch": 0.0,
+        "head_roll": 0.02,
+        "shoulder": 0.0
+      },
+      "low": {
+        "base_yaw": 0.0,
+        "elbow": 0.0,
+        "head_pitch": -0.035,
+        "head_roll": -0.02,
+        "shoulder": 0.0
+      },
+      "move_us": 3000000
+    },
+    "energy": 0.5,
+    "sleep": {
+      "breath": {
+        "inhale": {
+          "base_yaw": 0.0,
+          "elbow": 0.0,
+          "head_pitch": -0.015,
+          "head_roll": 0.0,
+          "shoulder": 0.0
+        },
+        "period_us": 9000000
+      },
+      "name_requires_speech": true,
+      "night": [
+        1380,
+        360
+      ],
+      "nobody_us": 60000000,
+      "pose": {
+        "base_yaw": 0.0,
+        "elbow": 0.0,
+        "head_pitch": 0.023,
+        "head_roll": 0.0,
+        "shoulder": 0.0
+      },
+      "settle_us": 4000000
+    },
+    "states": [
+      "resting"
+    ],
+    "wake": {
+      "keyframes": [
+        {
+          "at_us": 0,
+          "brightness": 0.0,
+          "offsets": {
+            "base_yaw": 0.0,
+            "elbow": 0.0,
+            "head_pitch": 0.0,
+            "head_roll": 0.0,
+            "shoulder": 0.0
+          }
+        },
+        {
+          "at_us": 900000,
+          "brightness": 0.0,
+          "offsets": {
+            "base_yaw": 0.0,
+            "elbow": 0.0,
+            "head_pitch": -0.065,
+            "head_roll": 0.0,
+            "shoulder": 0.0
+          }
+        },
+        {
+          "at_us": 1500000,
+          "brightness": 0.0,
+          "offsets": {
+            "base_yaw": 0.03,
+            "elbow": 0.0,
+            "head_pitch": -0.065,
+            "head_roll": 0.04,
+            "shoulder": 0.0
+          }
+        },
+        {
+          "at_us": 2000000,
+          "brightness": 0.0,
+          "offsets": {
+            "base_yaw": 0.03,
+            "elbow": 0.0,
+            "head_pitch": -0.045,
+            "head_roll": 0.04,
+            "shoulder": 0.0
+          }
+        },
+        {
+          "at_us": 2700000,
+          "brightness": 0.0,
+          "offsets": {
+            "base_yaw": 0.0,
+            "elbow": 0.0,
+            "head_pitch": 0.0,
+            "head_roll": 0.0,
+            "shoulder": 0.0
+          }
+        }
+      ]
+    },
+    "work": {
+      "face_area": 0.04,
+      "hold_us": 30000000,
+      "still": 0.05,
+      "still_us": 5000000
+    }
+  },
+  "behaviours": [
+    {
+      "cooldown_us": 0,
+      "delay_us": 0,
+      "hold": true,
+      "keyframes": [
+        {
+          "at_us": 0,
+          "brightness": 0.0,
+          "offsets": {
+            "base_yaw": 0.0,
+            "elbow": 0.0,
+            "head_pitch": 0.0,
+            "head_roll": 0.0,
+            "shoulder": 0.0
+          }
+        },
+        {
+          "at_us": 250000,
+          "brightness": 0.0,
+          "offsets": {
+            "base_yaw": 0.065,
+            "elbow": 0.0,
+            "head_pitch": -0.015,
+            "head_roll": -0.02,
+            "shoulder": 0.0
+          }
+        }
+      ],
+      "name": "look away and back",
+      "quiet_only": false,
+      "repeat": false,
+      "states": [
+        "thinking"
+      ],
+      "stop_when_concentrating": true,
+      "stroke_us": 250000,
+      "trigger": "thinking",
+      "weight": 1.0
+    },
+    {
+      "continue_in": [
+        "thinking"
+      ],
+      "cooldown_us": 4000000,
+      "delay_us": 240000,
+      "hold": false,
+      "keyframes": [
+        {
+          "at_us": 0,
+          "brightness": 0.0,
+          "offsets": {
+            "base_yaw": 0.0,
+            "elbow": 0.0,
+            "head_pitch": 0.0,
+            "head_roll": 0.0,
+            "shoulder": 0.0
+          }
+        },
+        {
+          "at_us": 500000,
+          "brightness": 0.0,
+          "offsets": {
+            "base_yaw": 0.0,
+            "elbow": 0.0,
+            "head_pitch": 0.08,
+            "head_roll": 0.0,
+            "shoulder": 0.0
+          }
+        },
+        {
+          "at_us": 650000,
+          "brightness": 0.0,
+          "offsets": {
+            "base_yaw": 0.0,
+            "elbow": 0.0,
+            "head_pitch": 0.08,
+            "head_roll": 0.0,
+            "shoulder": 0.0
+          }
+        },
+        {
+          "at_us": 1200000,
+          "brightness": 0.0,
+          "offsets": {
+            "base_yaw": 0.0,
+            "elbow": 0.0,
+            "head_pitch": 0.0,
+            "head_roll": 0.0,
+            "shoulder": 0.0
+          }
+        }
+      ],
+      "name": "nod as speech ends",
+      "quiet_only": true,
+      "repeat": false,
+      "states": [
+        "listening"
+      ],
+      "stop_when_concentrating": true,
+      "stroke_us": 600000,
+      "trigger": "pause",
+      "weight": 1.0
+    },
+    {
+      "cooldown_us": 0,
+      "delay_us": 0,
+      "hold": false,
+      "keyframes": [
+        {
+          "at_us": 0,
+          "brightness": 0.4,
+          "offsets": {
+            "base_yaw": 0.0,
+            "elbow": 0.0,
+            "head_pitch": 0.012,
+            "head_roll": 0.0,
+            "shoulder": 0.0
+          }
+        },
+        {
+          "at_us": 300000,
+          "brightness": 0.4,
+          "offsets": {
+            "base_yaw": 0.0,
+            "elbow": -0.004,
+            "head_pitch": 0.022,
+            "head_roll": 0.009,
+            "shoulder": 0.004
+          }
+        },
+        {
+          "at_us": 600000,
+          "brightness": 0.4,
+          "offsets": {
+            "base_yaw": 0.0,
+            "elbow": 0.0,
+            "head_pitch": 0.012,
+            "head_roll": 0.0,
+            "shoulder": 0.0
+          }
+        },
+        {
+          "at_us": 900000,
+          "brightness": 0.4,
+          "offsets": {
+            "base_yaw": 0.0,
+            "elbow": 0.004,
+            "head_pitch": 0.022,
+            "head_roll": -0.009,
+            "shoulder": -0.004
+          }
+        },
+        {
+          "at_us": 1200000,
+          "brightness": 0.4,
+          "offsets": {
+            "base_yaw": 0.0,
+            "elbow": 0.0,
+            "head_pitch": 0.012,
+            "head_roll": 0.0,
+            "shoulder": 0.0
+          }
+        }
+      ],
+      "name": "follow played sound",
+      "quiet_only": true,
+      "repeat": true,
+      "states": [
+        "speaking"
+      ],
+      "stop_when_concentrating": true,
+      "stroke_us": 300000,
+      "trigger": "playout",
+      "weight": 1.0
+    },
+    {
+      "cooldown_us": 0,
+      "delay_us": 0,
+      "hold": false,
+      "keyframes": [
+        {
+          "at_us": 0,
+          "brightness": 0.0,
+          "offsets": {
+            "base_yaw": 0.0,
+            "elbow": 0.0,
+            "head_pitch": 0.0,
+            "head_roll": 0.0,
+            "shoulder": 0.0
+          }
+        },
+        {
+          "at_us": 350000,
+          "brightness": 0.0,
+          "offsets": {
+            "base_yaw": 0.0,
+            "elbow": 0.0,
+            "head_pitch": 0.0,
+            "head_roll": 0.0,
+            "shoulder": 0.0
+          }
+        }
+      ],
+      "name": "yield when interrupted",
+      "quiet_only": false,
+      "repeat": false,
+      "states": [
+        "listening"
+      ],
+      "stop_when_concentrating": true,
+      "stroke_us": 0,
+      "trigger": "interrupted",
+      "weight": 1.0
+    },
+    {
+      "cooldown_us": 0,
+      "delay_us": 0,
+      "hold": true,
+      "keyframes": [
+        {
+          "at_us": 0,
+          "brightness": 0.0,
+          "offsets": {
+            "base_yaw": 0.0,
+            "elbow": 0.0,
+            "head_pitch": 0.0,
+            "head_roll": 0.0,
+            "shoulder": 0.0
+          }
+        },
+        {
+          "at_us": 20000,
+          "brightness": 0.0,
+          "offsets": {
+            "base_yaw": 0.0,
+            "elbow": 0.0,
+            "head_pitch": 0.0,
+            "head_roll": 0.0,
+            "shoulder": 0.0
+          }
+        }
+      ],
+      "name": "stay still for work",
+      "quiet_only": false,
+      "repeat": false,
+      "states": [
+        "resting",
+        "listening",
+        "thinking",
+        "speaking"
+      ],
+      "stop_when_concentrating": false,
+      "stroke_us": 0,
+      "trigger": "concentrating",
+      "weight": 1.0
+    },
+    {
+      "cooldown_us": 30000000,
+      "delay_us": 0,
+      "hold": false,
+      "keyframes": [
+        {
+          "at_us": 0,
+          "brightness": 0.0,
+          "offsets": {
+            "base_yaw": 0.0,
+            "elbow": 0.0,
+            "head_pitch": 0.0,
+            "head_roll": 0.0,
+            "shoulder": 0.0
+          }
+        },
+        {
+          "at_us": 250000,
+          "brightness": 0.0,
+          "offsets": {
+            "base_yaw": 0.0,
+            "elbow": 0.0,
+            "head_pitch": -0.07,
+            "head_roll": 0.0,
+            "shoulder": 0.0
+          }
+        },
+        {
+          "at_us": 800000,
+          "brightness": 0.0,
+          "offsets": {
+            "base_yaw": 0.0,
+            "elbow": 0.0,
+            "head_pitch": -0.07,
+            "head_roll": 0.03,
+            "shoulder": 0.0
+          }
+        },
+        {
+          "at_us": 1600000,
+          "brightness": 0.0,
+          "offsets": {
+            "base_yaw": 0.0,
+            "elbow": 0.0,
+            "head_pitch": 0.0,
+            "head_roll": 0.0,
+            "shoulder": 0.0
+          }
+        }
+      ],
+      "name": "glance at a sound",
+      "quiet_only": false,
+      "repeat": false,
+      "states": [
+        "resting",
+        "listening",
+        "thinking"
+      ],
+      "stop_when_concentrating": true,
+      "stroke_us": 200000,
+      "trigger": "sudden",
+      "weight": 1.0
+    }
+  ],
+  "face_levels": {
+    "listening": 0.4,
+    "resting": 0.15,
+    "speaking": 0.3,
+    "thinking": 0.3,
+    "unavailable": 0.1
+  },
+  "gaze": {
+    "minimum_confidence": 0.6,
+    "quiet_only": true
+  },
+  "limits": {
+    "base_yaw": 0.1,
+    "elbow": 0.025,
+    "head_pitch": 0.085,
+    "head_roll": 0.065,
+    "shoulder": 0.025
+  },
+  "postures": {
+    "listening": {
+      "base_yaw": 0.0,
+      "elbow": 0.0,
+      "head_pitch": -0.025,
+      "head_roll": 0.02,
+      "shoulder": 0.0
+    },
+    "resting": {
+      "base_yaw": 0.0,
+      "elbow": 0.0,
+      "head_pitch": 0.0,
+      "head_roll": 0.0,
+      "shoulder": 0.0
+    },
+    "speaking": {
+      "base_yaw": 0.0,
+      "elbow": 0.0,
+      "head_pitch": -0.015,
+      "head_roll": 0.0,
+      "shoulder": 0.0
+    },
+    "thinking": {
+      "base_yaw": 0.0,
+      "elbow": 0.0,
+      "head_pitch": -0.025,
+      "head_roll": 0.02,
+      "shoulder": 0.0
+    }
+  },
+  "resumable_voice": true,
+  "timing": {
+    "activity_stale_us": 300000,
+    "body_lag_us": 300000,
+    "context_stale_us": 5000000,
+    "faces_stale_us": 500000,
+    "interrupt_us": 350000,
+    "joints_stale_us": 300000,
+    "max_future_audio_us": 2000000,
+    "return_before_us": 40000,
+    "return_us": 250000,
+    "voice_stale_us": 500000
+  },
+  "version": 1
+}

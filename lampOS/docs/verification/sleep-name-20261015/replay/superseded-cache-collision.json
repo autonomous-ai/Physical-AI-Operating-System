@@ -1,0 +1,8 @@
+{
+  "baseline_source_has_new_field": false,
+  "original_build_records_sha256": "31b35d59228e4b32987ed1346d28366db349dee32b902b00dbe8228495e1162c",
+  "reason": "Original build pair is unqualified as a baseline comparison: archived source mtimes predated shared-target artifacts and both commands reused the identical modified executable.",
+  "remediation": "Refresh extracted scratch build-input mtimes without changing bytes, rebuild and require a compilation line plus distinct executable hash and a negative catalogue-schema probe.",
+  "same_binary_sha256": "76ee8d3e6bc7f8013b83c9f0f315502ba4e173ed865ef469e584339b77f10f70",
+  "used_for_baseline_comparison": false
+}

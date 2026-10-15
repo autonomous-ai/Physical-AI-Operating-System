@@ -1,0 +1,36 @@
+{
+  "artifacts": {
+    "stderr.txt": {
+      "bytes": 160,
+      "sha256": "9b56a9a3108b45a117ad6e241ce9d695457e2b2c570e0b41d3162a0183fda3a2"
+    },
+    "stdout.txt": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  },
+  "baseline_binary_sha256": "e47251f917d7a9f95066ff2df3dd01d0be8c4805124a6d59a4bb21d6784243f2",
+  "catalogue_sha256": "e01e19a89387b2142acfa067c2da669f38663a91d335506826402a208834447c",
+  "command": [
+    "/private/tmp/lamp-fourth-sleep-name-compat/bin/lamp-expression-baseline-rebuilt",
+    "replay",
+    "--input",
+    "/private/tmp/lamp-fourth-sleep-name-compat/inputs/unsupported-name.jsonl",
+    "--output",
+    "/private/tmp/lamp-fourth-sleep-name-compat/comparison-1/baseline-schema-probe/unexpected-plan.jsonl",
+    "--clock-id",
+    "fourth-sleep-name-authored-compat",
+    "--enable",
+    "--catalogue",
+    "/private/tmp/lamp-fourth-sleep-name-compat/inputs/catalogue-false.json",
+    "--until-us",
+    "1075000000"
+  ],
+  "cwd": "/private/tmp/lamp-fourth-sleep-name-compat",
+  "elapsed_seconds": 0.6924402699805796,
+  "exit_code": 1,
+  "finished_at_utc": "2026-10-15T00:39:59.747358+00:00",
+  "outer_watchdog_seconds": 60,
+  "passed": true,
+  "started_at_utc": "2026-10-15T00:39:59.043043+00:00"
+}

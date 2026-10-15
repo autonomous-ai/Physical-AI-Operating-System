@@ -1,0 +1,84 @@
+{
+  "artifacts": {
+    "plan.jsonl": {
+      "bytes": 3534341,
+      "sha256": "e9de6258f5420d4ff7732653b8ec1957fdda3f43318eeb0b1dcb217fbb165572"
+    },
+    "stderr.txt": {
+      "bytes": 719,
+      "sha256": "3aa49e295dfd9e120709c08c554c22cce39e64c9842ff36020b4ab4f3c09f194"
+    },
+    "stdout.txt": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  },
+  "audit": {
+    "behaviour_starts": {
+      "asleep": 1,
+      "breathing": 1,
+      "falling asleep": 1,
+      "waking": 1
+    },
+    "behaviour_ticks": {
+      "asleep": 51,
+      "breathing": 3198,
+      "falling asleep": 200,
+      "waking": 136
+    },
+    "cli_summary": {
+      "accepted": 3110,
+      "first_tick_us": 1000000000,
+      "input_records": 3110,
+      "last_tick_us": 1075000000,
+      "rejected": 0,
+      "ticks": 3751
+    },
+    "first_behaviour_tick_us": {
+      "asleep": 1064000000,
+      "breathing": 1000020000,
+      "falling asleep": 1060000000,
+      "waking": 1065020000
+    },
+    "last_behaviour_tick_us": {
+      "asleep": 1065000000,
+      "breathing": 1063960000,
+      "falling asleep": 1063980000,
+      "waking": 1067720000
+    },
+    "requested_body_ticks": 3751,
+    "requested_light_ticks": 3751,
+    "wake_from_name_receipt_us": 18300,
+    "wake_from_validated_speech_receipt_us": 13299
+  },
+  "binary_sha256": "76ee8d3e6bc7f8013b83c9f0f315502ba4e173ed865ef469e584339b77f10f70",
+  "catalogue_sha256": "d025866a99db75715a09dcecc140759dc71faad4d0538f201af63348ab2c6a86",
+  "child_terminal": true,
+  "command": [
+    "/private/tmp/lamp-fourth-sleep-name-compat/bin/lamp-expression-modified",
+    "replay",
+    "--input",
+    "/private/tmp/lamp-fourth-sleep-name-compat/inputs/name-then-speech.jsonl",
+    "--output",
+    "/private/tmp/lamp-fourth-sleep-name-compat/comparison-1/name-then-speech-modified-absent/plan.jsonl",
+    "--clock-id",
+    "fourth-sleep-name-authored-compat",
+    "--enable",
+    "--catalogue",
+    "/private/tmp/lamp-fourth-sleep-name-compat/inputs/catalogue-absent.json",
+    "--until-us",
+    "1075000000"
+  ],
+  "cwd": "/private/tmp/lamp-fourth-sleep-name-compat",
+  "elapsed_seconds": 4.340387518052012,
+  "exit_code": 0,
+  "finished_at_utc": "2026-10-15T00:40:07.949698+00:00",
+  "gate": "absent",
+  "name": "name-then-speech-modified-absent",
+  "outer_watchdog_seconds": 60,
+  "passed": true,
+  "scenario": "name-then-speech",
+  "started_at_utc": "2026-10-15T00:40:03.609415+00:00",
+  "trace_sha256": "105f2073b8279d906ec6c759e51c208d9d64f1bf0bb0fb9ed1198fc1b164c688",
+  "version": "modified"
+}

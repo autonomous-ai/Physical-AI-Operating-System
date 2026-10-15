@@ -1,0 +1,1 @@
+lamp-expression: catalogue JSON: unknown field `name_requires_speech`, expected one of `night`, `nobody_us`, `settle_us`, `pose`, `breath` at line 47 column 28

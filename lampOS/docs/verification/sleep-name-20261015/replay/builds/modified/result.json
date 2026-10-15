@@ -1,0 +1,41 @@
+{
+  "baseline_commit": null,
+  "binary": "/private/tmp/lamp-fourth-sleep-name-compat/bin/lamp-expression-modified",
+  "binary_bytes": 5677624,
+  "binary_sha256": "76ee8d3e6bc7f8013b83c9f0f315502ba4e173ed865ef469e584339b77f10f70",
+  "changed_source_files": [],
+  "child_terminal": true,
+  "command": [
+    "/Users/autonomous/.cargo/bin/cargo",
+    "build",
+    "--offline",
+    "--locked",
+    "-p",
+    "lamp-expression",
+    "--bin",
+    "lamp-expression"
+  ],
+  "cwd": "/private/tmp/lamp-fourth-sleep-name/lampOS",
+  "elapsed_seconds": 0.252022675704211,
+  "environment_overrides": {
+    "CARGO_BUILD_JOBS": "4",
+    "CARGO_TARGET_DIR": "/Users/autonomous/harnesses/worktrees/autonomous-os/brave-fjord/lampOS/target"
+  },
+  "exit_code": 0,
+  "finished_at_utc": "2026-10-15T00:36:22.344370+00:00",
+  "host": {
+    "cpu_count": 16,
+    "label": "Fourth Intel Mac; local compile wall time, not lamp timing",
+    "machine": "x86_64",
+    "platform": "macOS-26.6.2-x86_64-i386-64bit-Mach-O",
+    "python": "3.14.2 (main, Dec  5 2025, 16:49:16) [Clang 17.0.0 (clang-1700.4.4.1)]"
+  },
+  "name": "modified",
+  "passed": true,
+  "source-after.json_sha256": "b8d86c19bf08432b44d4b8691022e51c0ed6cd0bcc67e32da2629fdf09314972",
+  "source-before.json_sha256": "b8d86c19bf08432b44d4b8691022e51c0ed6cd0bcc67e32da2629fdf09314972",
+  "started_at_utc": "2026-10-15T00:36:22.092203+00:00",
+  "stderr.txt_sha256": "f0788aa36d1c86b6ccdfb7f4042a5574102d82061c046422a2d42e008a1e4710",
+  "stdout.txt_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "timeout_seconds": 900
+}

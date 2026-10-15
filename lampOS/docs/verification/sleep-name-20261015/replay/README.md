@@ -1,0 +1,11 @@
+Authored sleeping-name CLI compatibility evidence
+
+Eight copied-CLI replays passed on Fourth Intel Mac: 3,751 requested frames per replay (30,008 total), with zero rejected inputs. Both 75-second traces first fall asleep after 60 seconds and settle for four seconds. All names, speech observations, joints, faces and clocks are synthetic.
+
+The e492 baseline and modified absent/explicit-false catalogues produce byte-identical complete per-tick body/light/state JSONL for both traces. With the gate enabled, an unsupported name leaves the planner asleep through the trace. With retained Listening and validated speech following the name, enabled output also matches baseline byte-for-byte and first requests waking 13,299 microseconds after authored speech receipt (18,300 microseconds after the name). These are fake-clock planner timings, not lamp or live-service measurements.
+
+The baseline explicitly rejects the new name_requires_speech=false field as unknown, while the modified binary accepts it. This negative probe guards the shared-target cache problem found during preparation: the first archived-source build reused the modified executable because archive mtimes were older. That unqualified build pair is retained in build-results-superseded.json and superseded-cache-collision.json. The qualified baseline was rebuilt after refreshing scratch input mtimes only; source bytes stayed unchanged, a lamp-expression compilation line was recorded, and the copied executable hash differs.
+
+Raw per-tick plans remain complete at the local paths in local-raw-output-index.json; their hashes, sizes and counts are recorded here. Those large files are excluded from this compact allowlist. The two complete synthetic inputs, three catalogue variants, exact per-run argv, source/binary hashes, build records, raw compiler/CLI stderr, negative probe, audits and comparison results reproduce and explain the byte comparison. No output is trimmed and called raw.
+
+Read measurement-boundaries.json for exact measurement boundaries. Per-run elapsed_seconds includes the CLI and parent validation/hash work; it is not isolated planner CPU cost. No binaries, scripts, extracted source tree or actual recordings are included in this evidence bundle.

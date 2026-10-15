@@ -1,0 +1,74 @@
+[
+  {
+    "bytes": 3534341,
+    "included_in_commit_allowlist": false,
+    "local_raw_output": "/private/tmp/lamp-fourth-sleep-name-compat/comparison-1/name-then-speech-baseline-absent/plan.jsonl",
+    "run": "name-then-speech-baseline-absent",
+    "scope": "Complete raw per-tick body/light/state JSONL is retained locally; no trimmed file is presented as raw.",
+    "sha256": "e9de6258f5420d4ff7732653b8ec1957fdda3f43318eeb0b1dcb217fbb165572",
+    "ticks": 3751
+  },
+  {
+    "bytes": 3534341,
+    "included_in_commit_allowlist": false,
+    "local_raw_output": "/private/tmp/lamp-fourth-sleep-name-compat/comparison-1/name-then-speech-modified-absent/plan.jsonl",
+    "run": "name-then-speech-modified-absent",
+    "scope": "Complete raw per-tick body/light/state JSONL is retained locally; no trimmed file is presented as raw.",
+    "sha256": "e9de6258f5420d4ff7732653b8ec1957fdda3f43318eeb0b1dcb217fbb165572",
+    "ticks": 3751
+  },
+  {
+    "bytes": 3534341,
+    "included_in_commit_allowlist": false,
+    "local_raw_output": "/private/tmp/lamp-fourth-sleep-name-compat/comparison-1/name-then-speech-modified-false/plan.jsonl",
+    "run": "name-then-speech-modified-false",
+    "scope": "Complete raw per-tick body/light/state JSONL is retained locally; no trimmed file is presented as raw.",
+    "sha256": "e9de6258f5420d4ff7732653b8ec1957fdda3f43318eeb0b1dcb217fbb165572",
+    "ticks": 3751
+  },
+  {
+    "bytes": 3534341,
+    "included_in_commit_allowlist": false,
+    "local_raw_output": "/private/tmp/lamp-fourth-sleep-name-compat/comparison-1/name-then-speech-modified-true/plan.jsonl",
+    "run": "name-then-speech-modified-true",
+    "scope": "Complete raw per-tick body/light/state JSONL is retained locally; no trimmed file is presented as raw.",
+    "sha256": "e9de6258f5420d4ff7732653b8ec1957fdda3f43318eeb0b1dcb217fbb165572",
+    "ticks": 3751
+  },
+  {
+    "bytes": 3541692,
+    "included_in_commit_allowlist": false,
+    "local_raw_output": "/private/tmp/lamp-fourth-sleep-name-compat/comparison-1/unsupported-name-baseline-absent/plan.jsonl",
+    "run": "unsupported-name-baseline-absent",
+    "scope": "Complete raw per-tick body/light/state JSONL is retained locally; no trimmed file is presented as raw.",
+    "sha256": "154157faa8564e8bc2c102354c2935cd5ffb68541c23fe2aae46fab2e9039774",
+    "ticks": 3751
+  },
+  {
+    "bytes": 3541692,
+    "included_in_commit_allowlist": false,
+    "local_raw_output": "/private/tmp/lamp-fourth-sleep-name-compat/comparison-1/unsupported-name-modified-absent/plan.jsonl",
+    "run": "unsupported-name-modified-absent",
+    "scope": "Complete raw per-tick body/light/state JSONL is retained locally; no trimmed file is presented as raw.",
+    "sha256": "154157faa8564e8bc2c102354c2935cd5ffb68541c23fe2aae46fab2e9039774",
+    "ticks": 3751
+  },
+  {
+    "bytes": 3541692,
+    "included_in_commit_allowlist": false,
+    "local_raw_output": "/private/tmp/lamp-fourth-sleep-name-compat/comparison-1/unsupported-name-modified-false/plan.jsonl",
+    "run": "unsupported-name-modified-false",
+    "scope": "Complete raw per-tick body/light/state JSONL is retained locally; no trimmed file is presented as raw.",
+    "sha256": "154157faa8564e8bc2c102354c2935cd5ffb68541c23fe2aae46fab2e9039774",
+    "ticks": 3751
+  },
+  {
+    "bytes": 3538041,
+    "included_in_commit_allowlist": false,
+    "local_raw_output": "/private/tmp/lamp-fourth-sleep-name-compat/comparison-1/unsupported-name-modified-true/plan.jsonl",
+    "run": "unsupported-name-modified-true",
+    "scope": "Complete raw per-tick body/light/state JSONL is retained locally; no trimmed file is presented as raw.",
+    "sha256": "8c5183dcf92b44489f249707420089291d379b819b7fe66da8ce41b59bfd534f",
+    "ticks": 3751
+  }
+]

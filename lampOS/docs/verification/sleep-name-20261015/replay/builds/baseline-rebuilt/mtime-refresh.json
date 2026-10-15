@@ -1,0 +1,3642 @@
+[
+  {
+    "after_ns": 1792024758724070000,
+    "before_ns": 1792023212000000000,
+    "path": ".cargo/config.toml"
+  },
+  {
+    "after_ns": 1792024758724125000,
+    "before_ns": 1792023212000000000,
+    "path": "Cargo.lock"
+  },
+  {
+    "after_ns": 1792024758724172000,
+    "before_ns": 1792023212000000000,
+    "path": "Cargo.toml"
+  },
+  {
+    "after_ns": 1792024758724212000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/actions/Cargo.toml"
+  },
+  {
+    "after_ns": 1792024758724252000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/actions/src/lib.rs"
+  },
+  {
+    "after_ns": 1792024758724292000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/actions/src/light.rs"
+  },
+  {
+    "after_ns": 1792024758724329000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/actions/src/main.rs"
+  },
+  {
+    "after_ns": 1792024758724366000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/actions/src/schedule.rs"
+  },
+  {
+    "after_ns": 1792024758724403000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/actions/src/server.rs"
+  },
+  {
+    "after_ns": 1792024758724439000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/actions/src/sound.rs"
+  },
+  {
+    "after_ns": 1792024758724476000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/actions/tests/schedule.rs"
+  },
+  {
+    "after_ns": 1792024758724518000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/actions/tests/server.rs"
+  },
+  {
+    "after_ns": 1792024758724558000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/air/Cargo.toml"
+  },
+  {
+    "after_ns": 1792024758724600000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/air/src/lib.rs"
+  },
+  {
+    "after_ns": 1792024758724644000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/air/src/main.rs"
+  },
+  {
+    "after_ns": 1792024758724681000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/audio/Cargo.toml"
+  },
+  {
+    "after_ns": 1792024758724718000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/audio/src/alsa_device.rs"
+  },
+  {
+    "after_ns": 1792024758724754000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/audio/src/capture.rs"
+  },
+  {
+    "after_ns": 1792024758724791000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/audio/src/device.rs"
+  },
+  {
+    "after_ns": 1792024758724826000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/audio/src/drift.rs"
+  },
+  {
+    "after_ns": 1792024758724866000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/audio/src/duplex.rs"
+  },
+  {
+    "after_ns": 1792024758724904000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/audio/src/evidence.rs"
+  },
+  {
+    "after_ns": 1792024758724940000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/audio/src/lib.rs"
+  },
+  {
+    "after_ns": 1792024758724976000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/audio/src/main.rs"
+  },
+  {
+    "after_ns": 1792024758725012000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/audio/src/notice.rs"
+  },
+  {
+    "after_ns": 1792024758725048000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/audio/src/ownership.rs"
+  },
+  {
+    "after_ns": 1792024758725084000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/audio/src/pcm.rs"
+  },
+  {
+    "after_ns": 1792024758725135000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/audio/src/playout.rs"
+  },
+  {
+    "after_ns": 1792024758725172000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/audio/src/qualification.rs"
+  },
+  {
+    "after_ns": 1792024758725208000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/audio/src/replay.rs"
+  },
+  {
+    "after_ns": 1792024758725243000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/audio/src/steady.rs"
+  },
+  {
+    "after_ns": 1792024758725281000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/audio/src/testing.rs"
+  },
+  {
+    "after_ns": 1792024758725320000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/audio/tests/cancelled_tail.rs"
+  },
+  {
+    "after_ns": 1792024758725356000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/audio/tests/capture_linux.rs"
+  },
+  {
+    "after_ns": 1792024758725393000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/audio/tests/dsp.rs"
+  },
+  {
+    "after_ns": 1792024758725430000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/audio/tests/evidence.rs"
+  },
+  {
+    "after_ns": 1792024758725466000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/audio/tests/fixtures.rs"
+  },
+  {
+    "after_ns": 1792024758725502000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/audio/tests/notice.rs"
+  },
+  {
+    "after_ns": 1792024758725538000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/audio/tests/pcm_linux.rs"
+  },
+  {
+    "after_ns": 1792024758725575000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/audio/tests/playout_continuity/main.rs"
+  },
+  {
+    "after_ns": 1792024758725612000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/audio/tests/playout_continuity/replies.tsv"
+  },
+  {
+    "after_ns": 1792024758725658000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/audio/tests/playout_current_arrivals.rs"
+  },
+  {
+    "after_ns": 1792024758725696000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/audio/tests/queued_ownership.rs"
+  },
+  {
+    "after_ns": 1792024758725731000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/audio/tests/replay.rs"
+  },
+  {
+    "after_ns": 1792024758725768000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/audio/tests/steady_reference.rs"
+  },
+  {
+    "after_ns": 1792024758725804000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/body/Cargo.toml"
+  },
+  {
+    "after_ns": 1792024758725841000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/body/examples/expression_ask.rs"
+  },
+  {
+    "after_ns": 1792024758725889000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/body/examples/head_plan.rs"
+  },
+  {
+    "after_ns": 1792024758725929000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/body/src/bin/lamp-body-inspect.rs"
+  },
+  {
+    "after_ns": 1792024758725971000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/body/src/bin/lamp-body-worker.rs"
+  },
+  {
+    "after_ns": 1792024758726008000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/body/src/bin/lamp-body.rs"
+  },
+  {
+    "after_ns": 1792024758726045000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/body/src/body.rs"
+  },
+  {
+    "after_ns": 1792024758726082000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/body/src/body/tests.rs"
+  },
+  {
+    "after_ns": 1792024758726118000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/body/src/bus_out.rs"
+  },
+  {
+    "after_ns": 1792024758726154000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/body/src/calibration.rs"
+  },
+  {
+    "after_ns": 1792024758726195000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/body/src/clips.rs"
+  },
+  {
+    "after_ns": 1792024758726235000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/body/src/clips/data.rs"
+  },
+  {
+    "after_ns": 1792024758726273000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/body/src/command.rs"
+  },
+  {
+    "after_ns": 1792024758726309000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/body/src/control.rs"
+  },
+  {
+    "after_ns": 1792024758726348000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/body/src/control/profile.rs"
+  },
+  {
+    "after_ns": 1792024758726384000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/body/src/expression_in.rs"
+  },
+  {
+    "after_ns": 1792024758726420000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/body/src/gaze.rs"
+  },
+  {
+    "after_ns": 1792024758726456000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/body/src/gesture.rs"
+  },
+  {
+    "after_ns": 1792024758726493000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/body/src/inspection.rs"
+  },
+  {
+    "after_ns": 1792024758726529000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/body/src/inspection/tests.rs"
+  },
+  {
+    "after_ns": 1792024758726569000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/body/src/lib.rs"
+  },
+  {
+    "after_ns": 1792024758726605000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/body/src/linux.rs"
+  },
+  {
+    "after_ns": 1792024758726652000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/body/src/linux/motion.rs"
+  },
+  {
+    "after_ns": 1792024758726689000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/body/src/name_in.rs"
+  },
+  {
+    "after_ns": 1792024758726731000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/body/src/protocol.rs"
+  },
+  {
+    "after_ns": 1792024758726767000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/body/src/readback.rs"
+  },
+  {
+    "after_ns": 1792024758726802000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/body/src/runtime.rs"
+  },
+  {
+    "after_ns": 1792024758726838000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/body/src/runtime/channel.rs"
+  },
+  {
+    "after_ns": 1792024758726874000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/body/src/runtime/config.rs"
+  },
+  {
+    "after_ns": 1792024758726911000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/body/src/runtime/native.rs"
+  },
+  {
+    "after_ns": 1792024758726947000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/body/src/runtime/qualification.rs"
+  },
+  {
+    "after_ns": 1792024758726983000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/body/src/runtime/supervisor.rs"
+  },
+  {
+    "after_ns": 1792024758727022000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/body/src/runtime/supervisor/tests.rs"
+  },
+  {
+    "after_ns": 1792024758727059000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/body/src/runtime/wire.rs"
+  },
+  {
+    "after_ns": 1792024758727097000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/body/src/runtime/worker.rs"
+  },
+  {
+    "after_ns": 1792024758727134000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/body/src/trajectory.rs"
+  },
+  {
+    "after_ns": 1792024758727170000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/body/src/units.rs"
+  },
+  {
+    "after_ns": 1792024758727209000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/body/tests/calibration.rs"
+  },
+  {
+    "after_ns": 1792024758727249000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/body/tests/control.rs"
+  },
+  {
+    "after_ns": 1792024758727286000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/body/tests/fixtures/sdk-position-frames.json"
+  },
+  {
+    "after_ns": 1792024758727323000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/body/tests/head_qualification.rs"
+  },
+  {
+    "after_ns": 1792024758727359000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/body/tests/protocol.rs"
+  },
+  {
+    "after_ns": 1792024758727396000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/body/tests/readback.rs"
+  },
+  {
+    "after_ns": 1792024758727436000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/body/tests/runtime/support.rs"
+  },
+  {
+    "after_ns": 1792024758727472000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/body/tests/selection.rs"
+  },
+  {
+    "after_ns": 1792024758727508000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/body/tests/worker.rs"
+  },
+  {
+    "after_ns": 1792024758727543000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/body/tests/worker_config.rs"
+  },
+  {
+    "after_ns": 1792024758727579000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/bus/Cargo.toml"
+  },
+  {
+    "after_ns": 1792024758727616000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/bus/src/declare.rs"
+  },
+  {
+    "after_ns": 1792024758727652000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/bus/src/lib.rs"
+  },
+  {
+    "after_ns": 1792024758727687000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/bus/src/live.rs"
+  },
+  {
+    "after_ns": 1792024758727723000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/bus/src/main.rs"
+  },
+  {
+    "after_ns": 1792024758727765000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/bus/src/name.rs"
+  },
+  {
+    "after_ns": 1792024758727800000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/bus/src/publish.rs"
+  },
+  {
+    "after_ns": 1792024758727837000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/bus/src/subscribe.rs"
+  },
+  {
+    "after_ns": 1792024758727876000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/bus/src/wire.rs"
+  },
+  {
+    "after_ns": 1792024758727922000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/bus/tests/bus.rs"
+  },
+  {
+    "after_ns": 1792024758727958000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/bus/tests/cli.rs"
+  },
+  {
+    "after_ns": 1792024758727995000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/camera/Cargo.toml"
+  },
+  {
+    "after_ns": 1792024758728032000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/camera/build.rs"
+  },
+  {
+    "after_ns": 1792024758728068000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/camera/src/backend.rs"
+  },
+  {
+    "after_ns": 1792024758728108000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/camera/src/backend/tests.rs"
+  },
+  {
+    "after_ns": 1792024758728146000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/camera/src/capture.rs"
+  },
+  {
+    "after_ns": 1792024758728181000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/camera/src/frames.rs"
+  },
+  {
+    "after_ns": 1792024758728218000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/camera/src/lib.rs"
+  },
+  {
+    "after_ns": 1792024758728253000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/camera/src/linux.rs"
+  },
+  {
+    "after_ns": 1792024758728291000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/camera/src/linux/identity.rs"
+  },
+  {
+    "after_ns": 1792024758728328000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/camera/src/linux/params.rs"
+  },
+  {
+    "after_ns": 1792024758728363000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/camera/src/linux/queue.rs"
+  },
+  {
+    "after_ns": 1792024758728399000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/camera/src/types.rs"
+  },
+  {
+    "after_ns": 1792024758728434000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/camera/tests/frames.rs"
+  },
+  {
+    "after_ns": 1792024758728473000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/camera/tests/lifecycle.rs"
+  },
+  {
+    "after_ns": 1792024758728510000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/camera/tests/timestamp_diagnostics.rs"
+  },
+  {
+    "after_ns": 1792024758728547000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/controls/Cargo.toml"
+  },
+  {
+    "after_ns": 1792024758728583000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/controls/examples/replay_cost.rs"
+  },
+  {
+    "after_ns": 1792024758728620000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/controls/fixtures/controls.json"
+  },
+  {
+    "after_ns": 1792024758728656000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/controls/fixtures/hand-controls.jsonl"
+  },
+  {
+    "after_ns": 1792024758728693000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/controls/fixtures/strip-711-README.md"
+  },
+  {
+    "after_ns": 1792024758728733000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/controls/fixtures/strip-711-changes.jsonl"
+  },
+  {
+    "after_ns": 1792024758728770000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/controls/fixtures/strip-711-controls.json"
+  },
+  {
+    "after_ns": 1792024758728810000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/controls/fixtures/strip-711-pins-example.json"
+  },
+  {
+    "after_ns": 1792024758728847000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/controls/fixtures/strip-711-reconstruction.jsonl"
+  },
+  {
+    "after_ns": 1792024758728884000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/controls/fixtures/strip-711-replay.jsonl"
+  },
+  {
+    "after_ns": 1792024758728921000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/controls/fixtures/strip-711-working-controls.json"
+  },
+  {
+    "after_ns": 1792024758728961000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/controls/fixtures/strip-711-working-pins-example.json"
+  },
+  {
+    "after_ns": 1792024758729010000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/controls/src/base.rs"
+  },
+  {
+    "after_ns": 1792024758729047000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/controls/src/base/strip.rs"
+  },
+  {
+    "after_ns": 1792024758729092000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/controls/src/engine.rs"
+  },
+  {
+    "after_ns": 1792024758729134000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/controls/src/head_discovery.rs"
+  },
+  {
+    "after_ns": 1792024758729172000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/controls/src/input.rs"
+  },
+  {
+    "after_ns": 1792024758729208000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/controls/src/lib.rs"
+  },
+  {
+    "after_ns": 1792024758729243000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/controls/src/main.rs"
+  },
+  {
+    "after_ns": 1792024758729279000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/controls/src/mpr121.rs"
+  },
+  {
+    "after_ns": 1792024758729315000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/controls/src/mute.rs"
+  },
+  {
+    "after_ns": 1792024758729351000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/controls/src/pins.rs"
+  },
+  {
+    "after_ns": 1792024758729387000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/controls/src/receiver.rs"
+  },
+  {
+    "after_ns": 1792024758729422000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/controls/src/record.rs"
+  },
+  {
+    "after_ns": 1792024758729459000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/controls/src/replay.rs"
+  },
+  {
+    "after_ns": 1792024758729504000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/controls/src/runtime.rs"
+  },
+  {
+    "after_ns": 1792024758729540000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/controls/src/strip_worker.rs"
+  },
+  {
+    "after_ns": 1792024758729588000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/controls/src/touch.rs"
+  },
+  {
+    "after_ns": 1792024758729623000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/controls/src/touch_pins.rs"
+  },
+  {
+    "after_ns": 1792024758729659000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/controls/src/touch_receiver.rs"
+  },
+  {
+    "after_ns": 1792024758729695000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/controls/src/touch_replay.rs"
+  },
+  {
+    "after_ns": 1792024758729732000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/controls/src/touch_runtime.rs"
+  },
+  {
+    "after_ns": 1792024758729770000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/controls/tests/base.rs"
+  },
+  {
+    "after_ns": 1792024758729807000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/controls/tests/engine.rs"
+  },
+  {
+    "after_ns": 1792024758729853000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/controls/tests/head_discovery.rs"
+  },
+  {
+    "after_ns": 1792024758729895000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/controls/tests/hold_clear.rs"
+  },
+  {
+    "after_ns": 1792024758729935000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/controls/tests/mpr121.rs"
+  },
+  {
+    "after_ns": 1792024758729972000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/controls/tests/mute.rs"
+  },
+  {
+    "after_ns": 1792024758730009000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/controls/tests/program.rs"
+  },
+  {
+    "after_ns": 1792024758730044000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/controls/tests/receiver.rs"
+  },
+  {
+    "after_ns": 1792024758730081000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/controls/tests/replay.rs"
+  },
+  {
+    "after_ns": 1792024758730116000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/controls/tests/runtime.rs"
+  },
+  {
+    "after_ns": 1792024758730152000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/controls/tests/strip.rs"
+  },
+  {
+    "after_ns": 1792024758730188000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/controls/tests/strip_worker.rs"
+  },
+  {
+    "after_ns": 1792024758730223000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/controls/tests/touch.rs"
+  },
+  {
+    "after_ns": 1792024758730258000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/controls/tests/touch_pins.rs"
+  },
+  {
+    "after_ns": 1792024758730294000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/controls/tests/touch_program.rs"
+  },
+  {
+    "after_ns": 1792024758730334000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/controls/tests/touch_receiver.rs"
+  },
+  {
+    "after_ns": 1792024758730371000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/controls/tests/touch_replay.rs"
+  },
+  {
+    "after_ns": 1792024758730412000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/controls/tests/touch_runtime.rs"
+  },
+  {
+    "after_ns": 1792024758730448000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/ears/Cargo.toml"
+  },
+  {
+    "after_ns": 1792024758730484000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/ears/src/lib.rs"
+  },
+  {
+    "after_ns": 1792024758730520000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/ears/src/main.rs"
+  },
+  {
+    "after_ns": 1792024758730556000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/environment/Cargo.toml"
+  },
+  {
+    "after_ns": 1792024758730592000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/environment/examples/snapshot_latency.rs"
+  },
+  {
+    "after_ns": 1792024758730629000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/environment/src/lib.rs"
+  },
+  {
+    "after_ns": 1792024758730667000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/environment/src/types.rs"
+  },
+  {
+    "after_ns": 1792024758730703000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/environment/tests/snapshots.rs"
+  },
+  {
+    "after_ns": 1792024758730739000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/expression/Cargo.toml"
+  },
+  {
+    "after_ns": 1792024758730776000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/expression/alive-behaviours.json"
+  },
+  {
+    "after_ns": 1792024758730812000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/expression/behaviours.json"
+  },
+  {
+    "after_ns": 1792024758730849000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/expression/examples/recent_playout_cost.rs"
+  },
+  {
+    "after_ns": 1792024758730885000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/expression/examples/replay_cost.rs"
+  },
+  {
+    "after_ns": 1792024758730924000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/expression/examples/rest_cost.rs"
+  },
+  {
+    "after_ns": 1792024758730965000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/expression/fixtures/finish-nod.jsonl"
+  },
+  {
+    "after_ns": 1792024758731003000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/expression/fixtures/five-behaviours.jsonl"
+  },
+  {
+    "after_ns": 1792024758731042000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/expression/fixtures/held-cancelled.jsonl"
+  },
+  {
+    "after_ns": 1792024758731079000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/expression/fixtures/held-resumed.jsonl"
+  },
+  {
+    "after_ns": 1792024758731116000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/expression/fixtures/no-concentration.jsonl"
+  },
+  {
+    "after_ns": 1792024758731154000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/expression/fixtures/recent-playout-generation.jsonl"
+  },
+  {
+    "after_ns": 1792024758731195000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/expression/fixtures/recent-playout.jsonl"
+  },
+  {
+    "after_ns": 1792024758731231000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/expression/fixtures/rest-busy.jsonl"
+  },
+  {
+    "after_ns": 1792024758731268000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/expression/fixtures/rest-concentrating.jsonl"
+  },
+  {
+    "after_ns": 1792024758731304000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/expression/fixtures/rest-expired.jsonl"
+  },
+  {
+    "after_ns": 1792024758731339000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/expression/fixtures/rest-quiet.jsonl"
+  },
+  {
+    "after_ns": 1792024758731378000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/expression/playout-behaviours.json"
+  },
+  {
+    "after_ns": 1792024758731414000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/expression/rest-behaviours.json"
+  },
+  {
+    "after_ns": 1792024758731453000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/expression/src/alive.rs"
+  },
+  {
+    "after_ns": 1792024758731490000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/expression/src/catalogue.rs"
+  },
+  {
+    "after_ns": 1792024758731530000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/expression/src/engine.rs"
+  },
+  {
+    "after_ns": 1792024758731566000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/expression/src/lib.rs"
+  },
+  {
+    "after_ns": 1792024758731602000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/expression/src/main.rs"
+  },
+  {
+    "after_ns": 1792024758731648000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/expression/src/replay.rs"
+  },
+  {
+    "after_ns": 1792024758731687000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/expression/src/runtime.rs"
+  },
+  {
+    "after_ns": 1792024758731724000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/expression/tests/alive_engine.rs"
+  },
+  {
+    "after_ns": 1792024758731761000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/expression/tests/alive_replay.rs"
+  },
+  {
+    "after_ns": 1792024758731798000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/expression/tests/catalogue_playout.rs"
+  },
+  {
+    "after_ns": 1792024758731834000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/expression/tests/catalogue_rest.rs"
+  },
+  {
+    "after_ns": 1792024758731870000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/expression/tests/engine.rs"
+  },
+  {
+    "after_ns": 1792024758731906000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/expression/tests/program.rs"
+  },
+  {
+    "after_ns": 1792024758731942000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/expression/tests/recent_playout.rs"
+  },
+  {
+    "after_ns": 1792024758731980000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/expression/tests/recent_playout_replay.rs"
+  },
+  {
+    "after_ns": 1792024758732017000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/expression/tests/recent_playout_runtime.rs"
+  },
+  {
+    "after_ns": 1792024758732053000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/expression/tests/replay.rs"
+  },
+  {
+    "after_ns": 1792024758732094000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/expression/tests/rest_engine.rs"
+  },
+  {
+    "after_ns": 1792024758732140000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/expression/tests/rest_replay.rs"
+  },
+  {
+    "after_ns": 1792024758732176000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/expression/tests/runtime.rs"
+  },
+  {
+    "after_ns": 1792024758732212000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/expression/tests/sudden_engine.rs"
+  },
+  {
+    "after_ns": 1792024758732248000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/eyes/Cargo.toml"
+  },
+  {
+    "after_ns": 1792024758732285000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/eyes/examples/look.rs"
+  },
+  {
+    "after_ns": 1792024758732323000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/eyes/src/bus_out.rs"
+  },
+  {
+    "after_ns": 1792024758732358000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/eyes/src/faces.rs"
+  },
+  {
+    "after_ns": 1792024758732394000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/eyes/src/facing.rs"
+  },
+  {
+    "after_ns": 1792024758732433000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/eyes/src/kept.rs"
+  },
+  {
+    "after_ns": 1792024758732468000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/eyes/src/lib.rs"
+  },
+  {
+    "after_ns": 1792024758732505000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/eyes/src/main.rs"
+  },
+  {
+    "after_ns": 1792024758732541000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/eyes/src/picture.rs"
+  },
+  {
+    "after_ns": 1792024758732576000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/eyes/src/sight.rs"
+  },
+  {
+    "after_ns": 1792024758732611000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/gemini/Cargo.toml"
+  },
+  {
+    "after_ns": 1792024758732658000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/gemini/examples/early_end_probe.rs"
+  },
+  {
+    "after_ns": 1792024758732695000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/gemini/examples/early_end_probe/tests.rs"
+  },
+  {
+    "after_ns": 1792024758732733000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/gemini/examples/early_end_probe/trials.rs"
+  },
+  {
+    "after_ns": 1792024758732773000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/gemini/examples/service_probe.rs"
+  },
+  {
+    "after_ns": 1792024758732809000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/gemini/examples/service_probe/strict.rs"
+  },
+  {
+    "after_ns": 1792024758732845000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/gemini/examples/service_probe/strict_tests.rs"
+  },
+  {
+    "after_ns": 1792024758732884000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/gemini/examples/shared/provider.rs"
+  },
+  {
+    "after_ns": 1792024758732921000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/gemini/src/config.rs"
+  },
+  {
+    "after_ns": 1792024758732958000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/gemini/src/lib.rs"
+  },
+  {
+    "after_ns": 1792024758732993000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/gemini/src/recovery.rs"
+  },
+  {
+    "after_ns": 1792024758733031000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/gemini/src/recovery/tests.rs"
+  },
+  {
+    "after_ns": 1792024758733074000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/gemini/src/recovery/tests/availability.rs"
+  },
+  {
+    "after_ns": 1792024758733114000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/gemini/src/recovery/tests/checked.rs"
+  },
+  {
+    "after_ns": 1792024758733151000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/gemini/src/recovery/tests/context.rs"
+  },
+  {
+    "after_ns": 1792024758733189000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/gemini/src/recovery/tests/drain.rs"
+  },
+  {
+    "after_ns": 1792024758733226000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/gemini/src/recovery/tests/endless.rs"
+  },
+  {
+    "after_ns": 1792024758733263000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/gemini/src/recovery/tests/pressure.rs"
+  },
+  {
+    "after_ns": 1792024758733301000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/gemini/src/recovery/tests/soak.rs"
+  },
+  {
+    "after_ns": 1792024758733337000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/gemini/src/session.rs"
+  },
+  {
+    "after_ns": 1792024758733375000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/gemini/src/session/tests.rs"
+  },
+  {
+    "after_ns": 1792024758733412000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/gemini/src/session/tests/continuation.rs"
+  },
+  {
+    "after_ns": 1792024758733452000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/gemini/src/session/tests/followups.rs"
+  },
+  {
+    "after_ns": 1792024758733489000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/gemini/src/session/tests/images.rs"
+  },
+  {
+    "after_ns": 1792024758733526000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/gemini/src/session/tests/open_activity.rs"
+  },
+  {
+    "after_ns": 1792024758733566000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/gemini/src/session/tests/playback.rs"
+  },
+  {
+    "after_ns": 1792024758733605000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/gemini/src/session/tests/retain.rs"
+  },
+  {
+    "after_ns": 1792024758733643000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/gemini/src/session/tests/tools.rs"
+  },
+  {
+    "after_ns": 1792024758733680000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/gemini/src/testing.rs"
+  },
+  {
+    "after_ns": 1792024758733717000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/gemini/src/wire.rs"
+  },
+  {
+    "after_ns": 1792024758733755000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/gemini/tests/comparison_config.rs"
+  },
+  {
+    "after_ns": 1792024758733793000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/gemini/tests/review_2026_10_14.rs"
+  },
+  {
+    "after_ns": 1792024758733830000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/gemini/tests/wire.rs"
+  },
+  {
+    "after_ns": 1792024758733878000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/health/Cargo.toml"
+  },
+  {
+    "after_ns": 1792024758733915000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/health/src/board.rs"
+  },
+  {
+    "after_ns": 1792024758733952000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/health/src/lib.rs"
+  },
+  {
+    "after_ns": 1792024758733987000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/health/src/main.rs"
+  },
+  {
+    "after_ns": 1792024758734024000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/health/src/parts.rs"
+  },
+  {
+    "after_ns": 1792024758734060000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/health/src/serve.rs"
+  },
+  {
+    "after_ns": 1792024758734097000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/health/src/show.rs"
+  },
+  {
+    "after_ns": 1792024758734134000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/health/tests/board.rs"
+  },
+  {
+    "after_ns": 1792024758734173000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/health/tests/program.rs"
+  },
+  {
+    "after_ns": 1792024758734209000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/health/tests/serve.rs"
+  },
+  {
+    "after_ns": 1792024758734248000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/health/tests/tree/mod.rs"
+  },
+  {
+    "after_ns": 1792024758734285000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/ipc/Cargo.toml"
+  },
+  {
+    "after_ns": 1792024758734322000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/ipc/src/bin/lamp-ipc-probe.rs"
+  },
+  {
+    "after_ns": 1792024758734359000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/ipc/src/lib.rs"
+  },
+  {
+    "after_ns": 1792024758734394000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/ipc/tests/probe.rs"
+  },
+  {
+    "after_ns": 1792024758734432000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/ipc/tests/sockets.rs"
+  },
+  {
+    "after_ns": 1792024758734468000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/keeper/Cargo.toml"
+  },
+  {
+    "after_ns": 1792024758734505000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/keeper/src/keep.rs"
+  },
+  {
+    "after_ns": 1792024758734541000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/keeper/src/lib.rs"
+  },
+  {
+    "after_ns": 1792024758734576000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/keeper/src/main.rs"
+  },
+  {
+    "after_ns": 1792024758734615000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/keeper/src/notify.rs"
+  },
+  {
+    "after_ns": 1792024758734651000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/keeper/src/package.rs"
+  },
+  {
+    "after_ns": 1792024758734688000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/keeper/src/units.rs"
+  },
+  {
+    "after_ns": 1792024758734724000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/lean/Cargo.toml"
+  },
+  {
+    "after_ns": 1792024758734764000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/lean/examples/check.rs"
+  },
+  {
+    "after_ns": 1792024758734800000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/lean/geometry.stand-in.json"
+  },
+  {
+    "after_ns": 1792024758734836000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/lean/src/data.rs"
+  },
+  {
+    "after_ns": 1792024758734871000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/lean/src/footprint.rs"
+  },
+  {
+    "after_ns": 1792024758734906000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/lean/src/lib.rs"
+  },
+  {
+    "after_ns": 1792024758734942000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/lean/src/model.rs"
+  },
+  {
+    "after_ns": 1792024758734977000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/lean/src/path.rs"
+  },
+  {
+    "after_ns": 1792024758735013000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/lean/tests/catalogue.rs"
+  },
+  {
+    "after_ns": 1792024758735049000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/lean/tests/cost.rs"
+  },
+  {
+    "after_ns": 1792024758735084000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/lean/tests/first_software.rs"
+  },
+  {
+    "after_ns": 1792024758735158000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/lean/tests/paths.rs"
+  },
+  {
+    "after_ns": 1792024758735193000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/lean/tests/poses.rs"
+  },
+  {
+    "after_ns": 1792024758735229000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/lean/tools/from_first_software.py"
+  },
+  {
+    "after_ns": 1792024758735266000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/memory/Cargo.toml"
+  },
+  {
+    "after_ns": 1792024758735303000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/memory/src/bin/lamp-memory-eval.rs"
+  },
+  {
+    "after_ns": 1792024758735339000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/memory/src/days.rs"
+  },
+  {
+    "after_ns": 1792024758735374000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/memory/src/days.sql"
+  },
+  {
+    "after_ns": 1792024758735414000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/memory/src/days_protocol.rs"
+  },
+  {
+    "after_ns": 1792024758735452000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/memory/src/health.rs"
+  },
+  {
+    "after_ns": 1792024758735488000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/memory/src/health_counts.rs"
+  },
+  {
+    "after_ns": 1792024758735524000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/memory/src/lib.rs"
+  },
+  {
+    "after_ns": 1792024758735560000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/memory/src/main.rs"
+  },
+  {
+    "after_ns": 1792024758735596000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/memory/src/protocol.rs"
+  },
+  {
+    "after_ns": 1792024758735632000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/memory/src/search.rs"
+  },
+  {
+    "after_ns": 1792024758735669000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/memory/src/server.rs"
+  },
+  {
+    "after_ns": 1792024758735704000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/memory/src/store.rs"
+  },
+  {
+    "after_ns": 1792024758735741000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/memory/src/tidy.rs"
+  },
+  {
+    "after_ns": 1792024758735776000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/memory/tests/binary.rs"
+  },
+  {
+    "after_ns": 1792024758735816000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/memory/tests/days.rs"
+  },
+  {
+    "after_ns": 1792024758735851000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/memory/tests/days_timing.rs"
+  },
+  {
+    "after_ns": 1792024758735886000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/memory/tests/health.rs"
+  },
+  {
+    "after_ns": 1792024758735921000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/memory/tests/health_timing.rs"
+  },
+  {
+    "after_ns": 1792024758735957000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/memory/tests/retrieval.rs"
+  },
+  {
+    "after_ns": 1792024758735992000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/memory/tests/server.rs"
+  },
+  {
+    "after_ns": 1792024758736027000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/memory/tests/timing.rs"
+  },
+  {
+    "after_ns": 1792024758736062000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/memory/tests/voice.rs"
+  },
+  {
+    "after_ns": 1792024758736097000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/memory/tests/voice_submit.rs"
+  },
+  {
+    "after_ns": 1792024758736132000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/memory/tests/voice_timing.rs"
+  },
+  {
+    "after_ns": 1792024758736169000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/mood/Cargo.toml"
+  },
+  {
+    "after_ns": 1792024758736208000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/mood/examples/replay_day.rs"
+  },
+  {
+    "after_ns": 1792024758736244000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/mood/src/engine.rs"
+  },
+  {
+    "after_ns": 1792024758736279000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/mood/src/input.rs"
+  },
+  {
+    "after_ns": 1792024758736314000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/mood/src/lib.rs"
+  },
+  {
+    "after_ns": 1792024758736349000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/mood/src/main.rs"
+  },
+  {
+    "after_ns": 1792024758736385000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/mood/src/replay.rs"
+  },
+  {
+    "after_ns": 1792024758736420000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/mood/src/runtime.rs"
+  },
+  {
+    "after_ns": 1792024758736455000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/mood/tests/engine.rs"
+  },
+  {
+    "after_ns": 1792024758736491000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/mood/tests/input.rs"
+  },
+  {
+    "after_ns": 1792024758736526000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/mood/tests/program.rs"
+  },
+  {
+    "after_ns": 1792024758736561000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/mood/tests/replay.rs"
+  },
+  {
+    "after_ns": 1792024758736596000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/mood/tests/runtime.rs"
+  },
+  {
+    "after_ns": 1792024758736630000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/mood/tests/timing.rs"
+  },
+  {
+    "after_ns": 1792024758736666000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/msgs/Cargo.toml"
+  },
+  {
+    "after_ns": 1792024758736701000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/msgs/src/air.rs"
+  },
+  {
+    "after_ns": 1792024758736736000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/msgs/src/controls.rs"
+  },
+  {
+    "after_ns": 1792024758736771000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/msgs/src/ears.rs"
+  },
+  {
+    "after_ns": 1792024758736812000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/msgs/src/expression.rs"
+  },
+  {
+    "after_ns": 1792024758736848000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/msgs/src/lib.rs"
+  },
+  {
+    "after_ns": 1792024758736883000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/msgs/src/mood.rs"
+  },
+  {
+    "after_ns": 1792024758736918000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/msgs/src/schedule.rs"
+  },
+  {
+    "after_ns": 1792024758736953000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/msgs/tests/bus.rs"
+  },
+  {
+    "after_ns": 1792024758736988000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/msgs/tests/controls.rs"
+  },
+  {
+    "after_ns": 1792024758737023000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/msgs/tests/expression.rs"
+  },
+  {
+    "after_ns": 1792024758737058000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/msgs/tests/expression_rest.rs"
+  },
+  {
+    "after_ns": 1792024758737094000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/msgs/tests/schedule.rs"
+  },
+  {
+    "after_ns": 1792024758737129000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/msgs/tests/touch.rs"
+  },
+  {
+    "after_ns": 1792024758737165000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/name/Cargo.toml"
+  },
+  {
+    "after_ns": 1792024758737203000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/name/src/hear.rs"
+  },
+  {
+    "after_ns": 1792024758737239000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/name/src/lib.rs"
+  },
+  {
+    "after_ns": 1792024758737273000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/name/src/main.rs"
+  },
+  {
+    "after_ns": 1792024758737310000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/name/src/said.rs"
+  },
+  {
+    "after_ns": 1792024758737345000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/name/tests/review_2026_10_14.rs"
+  },
+  {
+    "after_ns": 1792024758737381000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/observer/Cargo.toml"
+  },
+  {
+    "after_ns": 1792024758737420000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/observer/src/authorization.rs"
+  },
+  {
+    "after_ns": 1792024758737461000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/observer/src/capture.rs"
+  },
+  {
+    "after_ns": 1792024758737498000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/observer/src/files.rs"
+  },
+  {
+    "after_ns": 1792024758737534000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/observer/src/lib.rs"
+  },
+  {
+    "after_ns": 1792024758737569000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/observer/src/macos.rs"
+  },
+  {
+    "after_ns": 1792024758737604000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/observer/src/main.rs"
+  },
+  {
+    "after_ns": 1792024758737640000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/observer/src/playback.rs"
+  },
+  {
+    "after_ns": 1792024758737677000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/observer/src/playback/macos.rs"
+  },
+  {
+    "after_ns": 1792024758737712000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/observer/src/playback/tests.rs"
+  },
+  {
+    "after_ns": 1792024758737748000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/policy/Cargo.toml"
+  },
+  {
+    "after_ns": 1792024758737784000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/policy/src/attention.rs"
+  },
+  {
+    "after_ns": 1792024758737822000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/policy/src/bin/lamp-policy-fit.rs"
+  },
+  {
+    "after_ns": 1792024758737858000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/policy/src/bin/lamp-policy-judges.rs"
+  },
+  {
+    "after_ns": 1792024758737894000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/policy/src/decide.rs"
+  },
+  {
+    "after_ns": 1792024758737930000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/policy/src/decide/tests.rs"
+  },
+  {
+    "after_ns": 1792024758737966000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/policy/src/decide/tests/certificates.rs"
+  },
+  {
+    "after_ns": 1792024758738002000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/policy/src/gather.rs"
+  },
+  {
+    "after_ns": 1792024758738039000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/policy/src/lib.rs"
+  },
+  {
+    "after_ns": 1792024758738075000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/policy/src/main.rs"
+  },
+  {
+    "after_ns": 1792024758738114000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/policy/src/outcome.rs"
+  },
+  {
+    "after_ns": 1792024758738150000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/policy/src/policy.rs"
+  },
+  {
+    "after_ns": 1792024758738188000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/policy/src/policy/baseline.rs"
+  },
+  {
+    "after_ns": 1792024758738223000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/policy/src/policy/fit.rs"
+  },
+  {
+    "after_ns": 1792024758738259000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/policy/src/policy/judge_log.rs"
+  },
+  {
+    "after_ns": 1792024758738296000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/policy/src/policy/judge_log/tests.rs"
+  },
+  {
+    "after_ns": 1792024758738332000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/policy/src/policy/judges.rs"
+  },
+  {
+    "after_ns": 1792024758738368000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/policy/src/policy/judges/tests.rs"
+  },
+  {
+    "after_ns": 1792024758738404000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/policy/src/policy/local.rs"
+  },
+  {
+    "after_ns": 1792024758738441000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/policy/src/record.rs"
+  },
+  {
+    "after_ns": 1792024758738476000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/policy/tests/baseline.rs"
+  },
+  {
+    "after_ns": 1792024758738512000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/policy/tests/fit_lamp_scenes.rs"
+  },
+  {
+    "after_ns": 1792024758738548000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/policy/tests/judges.rs"
+  },
+  {
+    "after_ns": 1792024758738583000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/policy/tests/judges_program.rs"
+  },
+  {
+    "after_ns": 1792024758738619000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/policy/tests/local_comparison.rs"
+  },
+  {
+    "after_ns": 1792024758738657000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/policy/tests/local_fit.rs"
+  },
+  {
+    "after_ns": 1792024758738695000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/policy/tests/local_model.rs"
+  },
+  {
+    "after_ns": 1792024758738731000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/policy/tests/local_timing.rs"
+  },
+  {
+    "after_ns": 1792024758738768000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/policy/tests/policy.rs"
+  },
+  {
+    "after_ns": 1792024758738805000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/policy/tests/program.rs"
+  },
+  {
+    "after_ns": 1792024758738841000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/records/Cargo.toml"
+  },
+  {
+    "after_ns": 1792024758738876000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/records/records.example.json"
+  },
+  {
+    "after_ns": 1792024758738912000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/records/src/config.rs"
+  },
+  {
+    "after_ns": 1792024758738947000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/records/src/guard.rs"
+  },
+  {
+    "after_ns": 1792024758738982000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/records/src/json_file.rs"
+  },
+  {
+    "after_ns": 1792024758739018000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/records/src/lib.rs"
+  },
+  {
+    "after_ns": 1792024758739054000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/records/src/main.rs"
+  },
+  {
+    "after_ns": 1792024758739090000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/records/src/plan.rs"
+  },
+  {
+    "after_ns": 1792024758739129000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/records/src/report.rs"
+  },
+  {
+    "after_ns": 1792024758739164000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/records/src/run.rs"
+  },
+  {
+    "after_ns": 1792024758739200000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/records/src/store.rs"
+  },
+  {
+    "after_ns": 1792024758739236000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/records/systemd/lamp-records-report.service"
+  },
+  {
+    "after_ns": 1792024758739275000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/records/systemd/lamp-records.service"
+  },
+  {
+    "after_ns": 1792024758739312000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/records/systemd/lamp-records.timer"
+  },
+  {
+    "after_ns": 1792024758739349000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/records/tests/records.rs"
+  },
+  {
+    "after_ns": 1792024758739385000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/ring/Cargo.toml"
+  },
+  {
+    "after_ns": 1792024758739420000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/ring/README.md"
+  },
+  {
+    "after_ns": 1792024758739459000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/ring/examples/pixel_map.rs"
+  },
+  {
+    "after_ns": 1792024758739496000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/ring/src/lib.rs"
+  },
+  {
+    "after_ns": 1792024758739531000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/ring/src/linux.rs"
+  },
+  {
+    "after_ns": 1792024758739566000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/ring/src/tests.rs"
+  },
+  {
+    "after_ns": 1792024758739602000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/schedule/Cargo.toml"
+  },
+  {
+    "after_ns": 1792024758739638000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/schedule/examples/schedule_check.rs"
+  },
+  {
+    "after_ns": 1792024758739675000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/schedule/src/client.rs"
+  },
+  {
+    "after_ns": 1792024758739716000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/schedule/src/delivery.rs"
+  },
+  {
+    "after_ns": 1792024758739754000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/schedule/src/engine.rs"
+  },
+  {
+    "after_ns": 1792024758739790000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/schedule/src/lib.rs"
+  },
+  {
+    "after_ns": 1792024758739826000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/schedule/src/main.rs"
+  },
+  {
+    "after_ns": 1792024758739861000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/schedule/src/protocol.rs"
+  },
+  {
+    "after_ns": 1792024758739898000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/schedule/src/runtime.rs"
+  },
+  {
+    "after_ns": 1792024758739934000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/schedule/src/store.rs"
+  },
+  {
+    "after_ns": 1792024758739969000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/schedule/src/time.rs"
+  },
+  {
+    "after_ns": 1792024758740006000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/schedule/tests/calendar.rs"
+  },
+  {
+    "after_ns": 1792024758740043000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/schedule/tests/client.rs"
+  },
+  {
+    "after_ns": 1792024758740081000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/schedule/tests/delivery_ledger.rs"
+  },
+  {
+    "after_ns": 1792024758740118000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/schedule/tests/engine.rs"
+  },
+  {
+    "after_ns": 1792024758740154000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/schedule/tests/protocol.rs"
+  },
+  {
+    "after_ns": 1792024758740191000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/schedule/tests/runtime.rs"
+  },
+  {
+    "after_ns": 1792024758740228000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/schedule/tests/runtime_failures.rs"
+  },
+  {
+    "after_ns": 1792024758740264000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/schedule/tests/storage.rs"
+  },
+  {
+    "after_ns": 1792024758740299000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/sound-fixtures/Cargo.toml"
+  },
+  {
+    "after_ns": 1792024758740335000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/sound-fixtures/src/lib.rs"
+  },
+  {
+    "after_ns": 1792024758740371000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/sound-fixtures/src/main.rs"
+  },
+  {
+    "after_ns": 1792024758740407000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/sound-fixtures/tests/cache_and_mix.rs"
+  },
+  {
+    "after_ns": 1792024758740445000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/surround/Cargo.toml"
+  },
+  {
+    "after_ns": 1792024758740481000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/surround/examples/operator_bench.rs"
+  },
+  {
+    "after_ns": 1792024758740521000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/surround/examples/update_replay.rs"
+  },
+  {
+    "after_ns": 1792024758740559000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/surround/fixtures/releases/README.md"
+  },
+  {
+    "after_ns": 1792024758740596000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/surround/fixtures/releases/support.rs"
+  },
+  {
+    "after_ns": 1792024758740633000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/surround/fixtures/surround.json"
+  },
+  {
+    "after_ns": 1792024758740669000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/surround/src/atomic.rs"
+  },
+  {
+    "after_ns": 1792024758740709000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/surround/src/config.rs"
+  },
+  {
+    "after_ns": 1792024758740747000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/surround/src/configuration.rs"
+  },
+  {
+    "after_ns": 1792024758740783000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/surround/src/http_limit.rs"
+  },
+  {
+    "after_ns": 1792024758740819000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/surround/src/lib.rs"
+  },
+  {
+    "after_ns": 1792024758740855000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/surround/src/main.rs"
+  },
+  {
+    "after_ns": 1792024758740890000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/surround/src/network.rs"
+  },
+  {
+    "after_ns": 1792024758740926000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/surround/src/operator.rs"
+  },
+  {
+    "after_ns": 1792024758740961000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/surround/src/owner.rs"
+  },
+  {
+    "after_ns": 1792024758740997000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/surround/src/release.rs"
+  },
+  {
+    "after_ns": 1792024758741032000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/surround/src/reset.rs"
+  },
+  {
+    "after_ns": 1792024758741071000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/surround/src/runtime.rs"
+  },
+  {
+    "after_ns": 1792024758741109000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/surround/src/selection.rs"
+  },
+  {
+    "after_ns": 1792024758741147000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/surround/src/setup.rs"
+  },
+  {
+    "after_ns": 1792024758741186000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/surround/src/startup.rs"
+  },
+  {
+    "after_ns": 1792024758741221000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/surround/src/update.rs"
+  },
+  {
+    "after_ns": 1792024758741258000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/surround/src/worker.rs"
+  },
+  {
+    "after_ns": 1792024758741372000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/surround/tests/atomic.rs"
+  },
+  {
+    "after_ns": 1792024758741485000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/surround/tests/cli.rs"
+  },
+  {
+    "after_ns": 1792024758741593000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/surround/tests/config.rs"
+  },
+  {
+    "after_ns": 1792024758741670000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/surround/tests/configuration.rs"
+  },
+  {
+    "after_ns": 1792024758741751000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/surround/tests/http_limit.rs"
+  },
+  {
+    "after_ns": 1792024758741819000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/surround/tests/network.rs"
+  },
+  {
+    "after_ns": 1792024758741881000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/surround/tests/operator.rs"
+  },
+  {
+    "after_ns": 1792024758741993000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/surround/tests/owner.rs"
+  },
+  {
+    "after_ns": 1792024758742054000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/surround/tests/release.rs"
+  },
+  {
+    "after_ns": 1792024758742101000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/surround/tests/reset.rs"
+  },
+  {
+    "after_ns": 1792024758742142000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/surround/tests/runtime.rs"
+  },
+  {
+    "after_ns": 1792024758742182000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/surround/tests/selection.rs"
+  },
+  {
+    "after_ns": 1792024758742222000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/surround/tests/setup.rs"
+  },
+  {
+    "after_ns": 1792024758742263000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/surround/tests/startup.rs"
+  },
+  {
+    "after_ns": 1792024758742302000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/surround/tests/tls_provider.rs"
+  },
+  {
+    "after_ns": 1792024758742341000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/surround/tests/update.rs"
+  },
+  {
+    "after_ns": 1792024758742382000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/surround/tests/worker.rs"
+  },
+  {
+    "after_ns": 1792024758742435000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/surround/web/app.css"
+  },
+  {
+    "after_ns": 1792024758742475000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/surround/web/app.js"
+  },
+  {
+    "after_ns": 1792024758742514000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/surround/web/app.test.cjs"
+  },
+  {
+    "after_ns": 1792024758742553000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/surround/web/index.html"
+  },
+  {
+    "after_ns": 1792024758742594000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/tasks/Cargo.toml"
+  },
+  {
+    "after_ns": 1792024758742633000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/tasks/examples/tasks_check.rs"
+  },
+  {
+    "after_ns": 1792024758742678000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/tasks/src/engine.rs"
+  },
+  {
+    "after_ns": 1792024758742722000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/tasks/src/harness.rs"
+  },
+  {
+    "after_ns": 1792024758742761000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/tasks/src/lib.rs"
+  },
+  {
+    "after_ns": 1792024758742799000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/tasks/src/main.rs"
+  },
+  {
+    "after_ns": 1792024758742837000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/tasks/src/protocol.rs"
+  },
+  {
+    "after_ns": 1792024758742874000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/tasks/src/runtime.rs"
+  },
+  {
+    "after_ns": 1792024758742911000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/tasks/src/store.rs"
+  },
+  {
+    "after_ns": 1792024758742953000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/tasks/tests/fixtures/harness_cli.rs"
+  },
+  {
+    "after_ns": 1792024758742992000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/tasks/tests/harness.rs"
+  },
+  {
+    "after_ns": 1792024758743030000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/tasks/tests/runtime.rs"
+  },
+  {
+    "after_ns": 1792024758743079000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/tasks/tests/runtime_failures.rs"
+  },
+  {
+    "after_ns": 1792024758743119000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/tasks/tests/store.rs"
+  },
+  {
+    "after_ns": 1792024758743158000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/turn-end-wire/Cargo.toml"
+  },
+  {
+    "after_ns": 1792024758743197000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/turn-end-wire/src/client.rs"
+  },
+  {
+    "after_ns": 1792024758743237000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/turn-end-wire/src/frame.rs"
+  },
+  {
+    "after_ns": 1792024758743274000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/turn-end-wire/src/lib.rs"
+  },
+  {
+    "after_ns": 1792024758743312000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/turn-end-wire/src/serve.rs"
+  },
+  {
+    "after_ns": 1792024758743351000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/turn-end-wire/tests/process.rs"
+  },
+  {
+    "after_ns": 1792024758743390000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/turn-end/Cargo.toml"
+  },
+  {
+    "after_ns": 1792024758743435000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/turn-end/src/clips.rs"
+  },
+  {
+    "after_ns": 1792024758743474000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/turn-end/src/commands.rs"
+  },
+  {
+    "after_ns": 1792024758743512000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/turn-end/src/cores.rs"
+  },
+  {
+    "after_ns": 1792024758743549000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/turn-end/src/eight_bit.rs"
+  },
+  {
+    "after_ns": 1792024758743587000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/turn-end/src/fast.rs"
+  },
+  {
+    "after_ns": 1792024758743626000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/turn-end/src/features.rs"
+  },
+  {
+    "after_ns": 1792024758743664000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/turn-end/src/lib.rs"
+  },
+  {
+    "after_ns": 1792024758743703000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/turn-end/src/main.rs"
+  },
+  {
+    "after_ns": 1792024758743740000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/turn-end/src/model.rs"
+  },
+  {
+    "after_ns": 1792024758743779000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/turn-end/src/reference.rs"
+  },
+  {
+    "after_ns": 1792024758743818000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/turn-end/tests/fast.rs"
+  },
+  {
+    "after_ns": 1792024758743859000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/turn-end/tests/fixtures/README.md"
+  },
+  {
+    "after_ns": 1792024758743898000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/turn-end/tests/fixtures/pipecat-reference.json"
+  },
+  {
+    "after_ns": 1792024758743935000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/turn-end/tests/parity.rs"
+  },
+  {
+    "after_ns": 1792024758743983000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/turn-owner/Cargo.toml"
+  },
+  {
+    "after_ns": 1792024758744020000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/turn-owner/src/controller.rs"
+  },
+  {
+    "after_ns": 1792024758744057000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/turn-owner/src/guard.rs"
+  },
+  {
+    "after_ns": 1792024758744095000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/turn-owner/src/lib.rs"
+  },
+  {
+    "after_ns": 1792024758744132000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/turn-owner/src/observation.rs"
+  },
+  {
+    "after_ns": 1792024758744170000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/turn-owner/src/types.rs"
+  },
+  {
+    "after_ns": 1792024758744208000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/turn-owner/tests/camera_authority.rs"
+  },
+  {
+    "after_ns": 1792024758744245000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/turn-owner/tests/observations.rs"
+  },
+  {
+    "after_ns": 1792024758744283000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/turn-owner/tests/ownership.rs"
+  },
+  {
+    "after_ns": 1792024758744322000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/turn-owner/tests/zero_authority.rs"
+  },
+  {
+    "after_ns": 1792024758744359000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/update/Cargo.toml"
+  },
+  {
+    "after_ns": 1792024758744397000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/update/src/fetch.rs"
+  },
+  {
+    "after_ns": 1792024758744434000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/update/src/judge.rs"
+  },
+  {
+    "after_ns": 1792024758744484000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/update/src/lib.rs"
+  },
+  {
+    "after_ns": 1792024758744521000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/update/src/main.rs"
+  },
+  {
+    "after_ns": 1792024758744557000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/update/src/manifest.rs"
+  },
+  {
+    "after_ns": 1792024758744594000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/update/src/publish.rs"
+  },
+  {
+    "after_ns": 1792024758744630000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/update/src/quiet.rs"
+  },
+  {
+    "after_ns": 1792024758744666000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/update/src/records.rs"
+  },
+  {
+    "after_ns": 1792024758744702000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/update/src/round.rs"
+  },
+  {
+    "after_ns": 1792024758744739000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/update/src/unit.rs"
+  },
+  {
+    "after_ns": 1792024758744774000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/update/src/world.rs"
+  },
+  {
+    "after_ns": 1792024758744811000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/update/tests/round.rs"
+  },
+  {
+    "after_ns": 1792024758744849000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/voice-eval/Cargo.toml"
+  },
+  {
+    "after_ns": 1792024758744888000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/voice-eval/src/annotations.rs"
+  },
+  {
+    "after_ns": 1792024758744925000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/voice-eval/src/canary.rs"
+  },
+  {
+    "after_ns": 1792024758744961000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/voice-eval/src/evaluate.rs"
+  },
+  {
+    "after_ns": 1792024758744999000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/voice-eval/src/events.rs"
+  },
+  {
+    "after_ns": 1792024758745037000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/voice-eval/src/fake.rs"
+  },
+  {
+    "after_ns": 1792024758745074000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/voice-eval/src/import.rs"
+  },
+  {
+    "after_ns": 1792024758745110000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/voice-eval/src/ledger.rs"
+  },
+  {
+    "after_ns": 1792024758745147000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/voice-eval/src/lib.rs"
+  },
+  {
+    "after_ns": 1792024758745184000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/voice-eval/src/main.rs"
+  },
+  {
+    "after_ns": 1792024758745227000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/voice-eval/src/physical/fake_lamp.rs"
+  },
+  {
+    "after_ns": 1792024758745266000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/voice-eval/src/physical/fake_serve.rs"
+  },
+  {
+    "after_ns": 1792024758745304000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/voice-eval/src/physical/framing.rs"
+  },
+  {
+    "after_ns": 1792024758745341000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/voice-eval/src/physical/mac.rs"
+  },
+  {
+    "after_ns": 1792024758745379000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/voice-eval/src/physical/mod.rs"
+  },
+  {
+    "after_ns": 1792024758745417000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/voice-eval/src/physical/protocol.rs"
+  },
+  {
+    "after_ns": 1792024758745454000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/voice-eval/src/physical/session.rs"
+  },
+  {
+    "after_ns": 1792024758745491000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/voice-eval/src/plan.rs"
+  },
+  {
+    "after_ns": 1792024758745528000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/voice-eval/src/playback.rs"
+  },
+  {
+    "after_ns": 1792024758745564000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/voice-eval/src/record.rs"
+  },
+  {
+    "after_ns": 1792024758745601000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/voice-eval/src/report.rs"
+  },
+  {
+    "after_ns": 1792024758745640000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/voice-eval/src/runner.rs"
+  },
+  {
+    "after_ns": 1792024758745678000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/voice-eval/src/stats.rs"
+  },
+  {
+    "after_ns": 1792024758745714000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/voice-eval/src/stimulus.rs"
+  },
+  {
+    "after_ns": 1792024758745751000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/voice-eval/src/target_audio.rs"
+  },
+  {
+    "after_ns": 1792024758745789000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/voice-eval/tests/acceptance_boundaries.rs"
+  },
+  {
+    "after_ns": 1792024758745837000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/voice-eval/tests/answer_review.rs"
+  },
+  {
+    "after_ns": 1792024758745876000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/voice-eval/tests/audit_final_dispatch.rs"
+  },
+  {
+    "after_ns": 1792024758745919000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/voice-eval/tests/audit_importer.rs"
+  },
+  {
+    "after_ns": 1792024758745961000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/voice-eval/tests/audit_runner_dispatch.rs"
+  },
+  {
+    "after_ns": 1792024758746000000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/voice-eval/tests/canary_plan.rs"
+  },
+  {
+    "after_ns": 1792024758746038000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/voice-eval/tests/common/mod.rs"
+  },
+  {
+    "after_ns": 1792024758746075000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/voice-eval/tests/evaluator.rs"
+  },
+  {
+    "after_ns": 1792024758746112000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/voice-eval/tests/fake_runtime.rs"
+  },
+  {
+    "after_ns": 1792024758746148000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/voice-eval/tests/final_dispatch.rs"
+  },
+  {
+    "after_ns": 1792024758746205000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/voice-eval/tests/fixtures/recording-import-examples.json"
+  },
+  {
+    "after_ns": 1792024758746245000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/voice-eval/tests/next_turn_ready.rs"
+  },
+  {
+    "after_ns": 1792024758746282000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/voice-eval/tests/physical_loopback.rs"
+  },
+  {
+    "after_ns": 1792024758746321000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/voice-eval/tests/playback_occurrences.rs"
+  },
+  {
+    "after_ns": 1792024758746360000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/voice-eval/tests/provider_failed.rs"
+  },
+  {
+    "after_ns": 1792024758746399000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/voice-eval/tests/recording_evidence.rs"
+  },
+  {
+    "after_ns": 1792024758746436000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/voice-eval/tests/recording_import.rs"
+  },
+  {
+    "after_ns": 1792024758746475000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/voice-eval/tests/relay_hardening.rs"
+  },
+  {
+    "after_ns": 1792024758746512000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/voice-eval/tests/report_validity.rs"
+  },
+  {
+    "after_ns": 1792024758746548000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/voice-eval/tests/serve_plan.rs"
+  },
+  {
+    "after_ns": 1792024758746585000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/voice-eval/tests/serve_relay.rs"
+  },
+  {
+    "after_ns": 1792024758746622000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/voice-eval/tests/serve_session.rs"
+  },
+  {
+    "after_ns": 1792024758746659000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/voice-eval/tests/target_audio.rs"
+  },
+  {
+    "after_ns": 1792024758746696000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/voice/Cargo.toml"
+  },
+  {
+    "after_ns": 1792024758746733000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/voice/examples/admission_latency.rs"
+  },
+  {
+    "after_ns": 1792024758746772000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/voice/examples/duplex_lab.rs"
+  },
+  {
+    "after_ns": 1792024758746810000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/voice/examples/head_qualification_operator.rs"
+  },
+  {
+    "after_ns": 1792024758746848000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/voice/examples/reference_pace.rs"
+  },
+  {
+    "after_ns": 1792024758746885000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/voice/examples/ring_process_probe.rs"
+  },
+  {
+    "after_ns": 1792024758746922000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/voice/src/activity.rs"
+  },
+  {
+    "after_ns": 1792024758746965000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/voice/src/admission.rs"
+  },
+  {
+    "after_ns": 1792024758747007000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/voice/src/agent_tasks.rs"
+  },
+  {
+    "after_ns": 1792024758747047000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/voice/src/air_told.rs"
+  },
+  {
+    "after_ns": 1792024758747086000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/voice/src/attention.rs"
+  },
+  {
+    "after_ns": 1792024758747125000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/voice/src/audio_workers.rs"
+  },
+  {
+    "after_ns": 1792024758747161000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/voice/src/body_link.rs"
+  },
+  {
+    "after_ns": 1792024758747197000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/voice/src/bus_out.rs"
+  },
+  {
+    "after_ns": 1792024758747233000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/voice/src/called.rs"
+  },
+  {
+    "after_ns": 1792024758747270000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/voice/src/camera_config.rs"
+  },
+  {
+    "after_ns": 1792024758747307000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/voice/src/camera_inspect.rs"
+  },
+  {
+    "after_ns": 1792024758747345000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/voice/src/camera_inspect/supervision.rs"
+  },
+  {
+    "after_ns": 1792024758747382000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/voice/src/camera_worker.rs"
+  },
+  {
+    "after_ns": 1792024758747419000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/voice/src/camera_worker/linux.rs"
+  },
+  {
+    "after_ns": 1792024758747470000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/voice/src/camera_worker/shutdown.rs"
+  },
+  {
+    "after_ns": 1792024758747516000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/voice/src/choreography.rs"
+  },
+  {
+    "after_ns": 1792024758747556000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/voice/src/config.rs"
+  },
+  {
+    "after_ns": 1792024758747593000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/voice/src/coordinator.rs"
+  },
+  {
+    "after_ns": 1792024758747632000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/voice/src/coordinator/camera.rs"
+  },
+  {
+    "after_ns": 1792024758747670000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/voice/src/coordinator/cloud.rs"
+  },
+  {
+    "after_ns": 1792024758747708000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/voice/src/coordinator/early_end.rs"
+  },
+  {
+    "after_ns": 1792024758747746000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/voice/src/coordinator/endpoint.rs"
+  },
+  {
+    "after_ns": 1792024758747782000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/voice/src/coordinator/hand.rs"
+  },
+  {
+    "after_ns": 1792024758747821000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/voice/src/coordinator/motor.rs"
+  },
+  {
+    "after_ns": 1792024758747862000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/voice/src/coordinator/motor/head.rs"
+  },
+  {
+    "after_ns": 1792024758747900000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/voice/src/coordinator/motor/tests.rs"
+  },
+  {
+    "after_ns": 1792024758747939000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/voice/src/coordinator/motor/tests/native_head.rs"
+  },
+  {
+    "after_ns": 1792024758747977000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/voice/src/coordinator/notices.rs"
+  },
+  {
+    "after_ns": 1792024758748014000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/voice/src/coordinator/optional_ring.rs"
+  },
+  {
+    "after_ns": 1792024758748053000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/voice/src/coordinator/optional_ring_tests.rs"
+  },
+  {
+    "after_ns": 1792024758748092000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/voice/src/coordinator/ring_trace.rs"
+  },
+  {
+    "after_ns": 1792024758748130000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/voice/src/coordinator/ring_trace_tests.rs"
+  },
+  {
+    "after_ns": 1792024758748166000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/voice/src/coordinator/service.rs"
+  },
+  {
+    "after_ns": 1792024758748204000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/voice/src/coordinator/tests/duplex.rs"
+  },
+  {
+    "after_ns": 1792024758748243000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/voice/src/coordinator/tests/early_end.rs"
+  },
+  {
+    "after_ns": 1792024758748283000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/voice/src/coordinator/tests/endpoint_session.rs"
+  },
+  {
+    "after_ns": 1792024758748323000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/voice/src/coordinator/tests/failure_notice.rs"
+  },
+  {
+    "after_ns": 1792024758748361000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/voice/src/coordinator/tests/hand_controls.rs"
+  },
+  {
+    "after_ns": 1792024758748398000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/voice/src/coordinator/tests/pilot_faults.rs"
+  },
+  {
+    "after_ns": 1792024758748436000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/voice/src/coordinator/tests/playout_continuity.rs"
+  },
+  {
+    "after_ns": 1792024758748474000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/voice/src/coordinator/tests/playout_start.rs"
+  },
+  {
+    "after_ns": 1792024758748513000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/voice/src/coordinator/tests/provider_pair.rs"
+  },
+  {
+    "after_ns": 1792024758748554000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/voice/src/coordinator/tests/provider_terminal.rs"
+  },
+  {
+    "after_ns": 1792024758748595000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/voice/src/coordinator/tests/reminder_roundtrip.rs"
+  },
+  {
+    "after_ns": 1792024758748633000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/voice/src/coordinator/tests/reminders.rs"
+  },
+  {
+    "after_ns": 1792024758748671000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/voice/src/coordinator/tests/service.rs"
+  },
+  {
+    "after_ns": 1792024758748713000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/voice/src/coordinator/tests/service_mute.rs"
+  },
+  {
+    "after_ns": 1792024758748751000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/voice/src/coordinator/tests/startup_cues.rs"
+  },
+  {
+    "after_ns": 1792024758748789000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/voice/src/coordinator/tests/termination.rs"
+  },
+  {
+    "after_ns": 1792024758748826000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/voice/src/coordinator/tests/turn_taking.rs"
+  },
+  {
+    "after_ns": 1792024758748864000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/voice/src/diagnostic_control.rs"
+  },
+  {
+    "after_ns": 1792024758748901000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/voice/src/diagnostics.rs"
+  },
+  {
+    "after_ns": 1792024758748939000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/voice/src/expression_out.rs"
+  },
+  {
+    "after_ns": 1792024758748977000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/voice/src/first_output.rs"
+  },
+  {
+    "after_ns": 1792024758749015000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/voice/src/fixture_provider.rs"
+  },
+  {
+    "after_ns": 1792024758749051000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/voice/src/hand_controls.rs"
+  },
+  {
+    "after_ns": 1792024758749089000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/voice/src/hand_controls/tests.rs"
+  },
+  {
+    "after_ns": 1792024758749130000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/voice/src/head_qualification.rs"
+  },
+  {
+    "after_ns": 1792024758749168000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/voice/src/lib.rs"
+  },
+  {
+    "after_ns": 1792024758749205000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/voice/src/local_time.rs"
+  },
+  {
+    "after_ns": 1792024758749241000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/voice/src/main.rs"
+  },
+  {
+    "after_ns": 1792024758749278000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/voice/src/not_speech.rs"
+  },
+  {
+    "after_ns": 1792024758749314000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/voice/src/options.rs"
+  },
+  {
+    "after_ns": 1792024758749350000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/voice/src/physical_privacy.rs"
+  },
+  {
+    "after_ns": 1792024758749386000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/voice/src/playback.rs"
+  },
+  {
+    "after_ns": 1792024758749423000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/voice/src/privacy.rs"
+  },
+  {
+    "after_ns": 1792024758749459000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/voice/src/process.rs"
+  },
+  {
+    "after_ns": 1792024758749497000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/voice/src/process/ring_startup.rs"
+  },
+  {
+    "after_ns": 1792024758749534000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/voice/src/process/ring_startup_tests.rs"
+  },
+  {
+    "after_ns": 1792024758749573000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/voice/src/provider_flow.rs"
+  },
+  {
+    "after_ns": 1792024758749611000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/voice/src/provider_flow/tests.rs"
+  },
+  {
+    "after_ns": 1792024758749648000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/voice/src/provider_link.rs"
+  },
+  {
+    "after_ns": 1792024758749686000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/voice/src/provider_worker.rs"
+  },
+  {
+    "after_ns": 1792024758749724000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/voice/src/provider_worker/reminder_policy.rs"
+  },
+  {
+    "after_ns": 1792024758749764000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/voice/src/provider_worker/tests/reminders.rs"
+  },
+  {
+    "after_ns": 1792024758749805000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/voice/src/provider_worker/tests/review_2026_10_14.rs"
+  },
+  {
+    "after_ns": 1792024758749844000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/voice/src/receipt_history.rs"
+  },
+  {
+    "after_ns": 1792024758749885000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/voice/src/reference.rs"
+  },
+  {
+    "after_ns": 1792024758749924000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/voice/src/reference/hold.rs"
+  },
+  {
+    "after_ns": 1792024758749972000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/voice/src/reference/prime.rs"
+  },
+  {
+    "after_ns": 1792024758750009000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/voice/src/reference/recovery.rs"
+  },
+  {
+    "after_ns": 1792024758750046000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/voice/src/reference/recovery_tests.rs"
+  },
+  {
+    "after_ns": 1792024758750084000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/voice/src/remember.rs"
+  },
+  {
+    "after_ns": 1792024758750121000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/voice/src/reminders.rs"
+  },
+  {
+    "after_ns": 1792024758750157000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/voice/src/reminders/consumer.rs"
+  },
+  {
+    "after_ns": 1792024758750196000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/voice/src/reminders/consumer/roundtrip_tests.rs"
+  },
+  {
+    "after_ns": 1792024758750236000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/voice/src/reminders/consumer/tests.rs"
+  },
+  {
+    "after_ns": 1792024758750275000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/voice/src/reminders/scheduling.rs"
+  },
+  {
+    "after_ns": 1792024758750312000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/voice/src/reminders/tests.rs"
+  },
+  {
+    "after_ns": 1792024758750349000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/voice/src/reminders/transport.rs"
+  },
+  {
+    "after_ns": 1792024758750385000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/voice/src/ring_face.rs"
+  },
+  {
+    "after_ns": 1792024758750422000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/voice/src/ring_light.rs"
+  },
+  {
+    "after_ns": 1792024758750459000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/voice/src/ring_sight.rs"
+  },
+  {
+    "after_ns": 1792024758750495000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/voice/src/ring_wire.rs"
+  },
+  {
+    "after_ns": 1792024758750533000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/voice/src/ring_worker.rs"
+  },
+  {
+    "after_ns": 1792024758750569000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/voice/src/room_floor.rs"
+  },
+  {
+    "after_ns": 1792024758750606000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/voice/src/room_told.rs"
+  },
+  {
+    "after_ns": 1792024758750642000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/voice/src/second_look.rs"
+  },
+  {
+    "after_ns": 1792024758750679000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/voice/src/service_privacy.rs"
+  },
+  {
+    "after_ns": 1792024758750719000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/voice/src/service_trace.rs"
+  },
+  {
+    "after_ns": 1792024758750759000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/voice/src/session_fact.rs"
+  },
+  {
+    "after_ns": 1792024758750796000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/voice/src/session_lifetime.rs"
+  },
+  {
+    "after_ns": 1792024758750832000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/voice/src/session_state.rs"
+  },
+  {
+    "after_ns": 1792024758750870000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/voice/src/sight.rs"
+  },
+  {
+    "after_ns": 1792024758750907000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/voice/src/speak_up.rs"
+  },
+  {
+    "after_ns": 1792024758750944000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/voice/src/task_news.rs"
+  },
+  {
+    "after_ns": 1792024758750981000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/voice/src/termination.rs"
+  },
+  {
+    "after_ns": 1792024758751018000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/voice/src/thread.rs"
+  },
+  {
+    "after_ns": 1792024758751054000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/voice/src/tools.rs"
+  },
+  {
+    "after_ns": 1792024758751091000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/voice/src/tools/schedule_integration_tests.rs"
+  },
+  {
+    "after_ns": 1792024758751131000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/voice/src/transport.rs"
+  },
+  {
+    "after_ns": 1792024758751169000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/voice/src/turn_taking.rs"
+  },
+  {
+    "after_ns": 1792024758751204000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/voice/src/visual_context.rs"
+  },
+  {
+    "after_ns": 1792024758751242000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/voice/src/visual_context/tests.rs"
+  },
+  {
+    "after_ns": 1792024758751281000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/voice/src/wire.rs"
+  },
+  {
+    "after_ns": 1792024758751318000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/voice/tests/admission.rs"
+  },
+  {
+    "after_ns": 1792024758751357000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/voice/tests/camera_config.rs"
+  },
+  {
+    "after_ns": 1792024758751398000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/voice/tests/camera_runtime.rs"
+  },
+  {
+    "after_ns": 1792024758751437000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/voice/tests/capture_hold_worker.rs"
+  },
+  {
+    "after_ns": 1792024758751475000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/voice/tests/core.rs"
+  },
+  {
+    "after_ns": 1792024758751513000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/voice/tests/diagnostics.rs"
+  },
+  {
+    "after_ns": 1792024758751552000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/voice/tests/end_silence.rs"
+  },
+  {
+    "after_ns": 1792024758751589000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/voice/tests/endpoint_confirmation.rs"
+  },
+  {
+    "after_ns": 1792024758751627000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/voice/tests/expression_out.rs"
+  },
+  {
+    "after_ns": 1792024758751666000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/voice/tests/fixture_provider.rs"
+  },
+  {
+    "after_ns": 1792024758751708000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/voice/tests/privacy_state.rs"
+  },
+  {
+    "after_ns": 1792024758751746000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/voice/tests/process.rs"
+  },
+  {
+    "after_ns": 1792024758751785000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/voice/tests/provider_config.rs"
+  },
+  {
+    "after_ns": 1792024758751824000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/voice/tests/reference_link.rs"
+  },
+  {
+    "after_ns": 1792024758751862000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/voice/tests/reference_prime.rs"
+  },
+  {
+    "after_ns": 1792024758751900000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/voice/tests/review_2026_10_14.rs"
+  },
+  {
+    "after_ns": 1792024758751938000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/voice/tests/ring_worker.rs"
+  },
+  {
+    "after_ns": 1792024758751976000,
+    "before_ns": 1792023212000000000,
+    "path": "crates/voice/tests/visual_options.rs"
+  }
+]

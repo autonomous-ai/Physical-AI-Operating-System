@@ -512,13 +512,18 @@ fn a_newer_default_replaces_only_a_setting_nobody_changed() {
     );
     fs::create_dir_all(lamp.on("/etc/lampOS/a")).unwrap();
     fs::write(lamp.on(there_before), "the lamp's own\n").unwrap();
-    let mut written = BTreeMap::new();
+    let mut written = State::default();
     let mut said = Vec::new();
-    let mut run = |defaults: &[(&str, &str)], written: &mut BTreeMap<String, String>| {
+    let mut run = |defaults: &[(&str, &str)], written: &mut State| {
         let mut changed = Vec::new();
-        install::settings(&lamp.config, defaults, written, &mut changed, &mut |line| {
-            said.push(line.to_owned())
-        })
+        install::settings(
+            &lamp.config,
+            defaults,
+            written,
+            &mut changed,
+            &mut |line| said.push(line.to_owned()),
+            &mut |_| Ok(()),
+        )
         .unwrap();
         changed
     };
@@ -538,7 +543,7 @@ fn a_newer_default_replaces_only_a_setting_nobody_changed() {
             format!("wrote {changed_here}")
         ]
     );
-    assert!(!written.contains_key(there_before));
+    assert!(!written.settings.contains_key(there_before));
     fs::write(lamp.on(changed_here), "mine\n").unwrap();
 
     let second = run(
@@ -559,9 +564,9 @@ fn a_newer_default_replaces_only_a_setting_nobody_changed() {
     assert_eq!(read(changed_here), "mine\n");
     assert_eq!(read(there_before), "the lamp's own\n");
     assert_eq!(read(missing), "two\n");
-    assert_eq!(written[untouched], sha256_hex(b"two\n"));
+    assert_eq!(written.settings[untouched], sha256_hex(b"two\n"));
     assert_eq!(
-        written[changed_here],
+        written.settings[changed_here],
         sha256_hex(b"one\n"),
         "left as it was"
     );
@@ -570,7 +575,7 @@ fn a_newer_default_replaces_only_a_setting_nobody_changed() {
     // next build's default replaces it.
     fs::write(lamp.on(changed_here), "two\n").unwrap();
     assert!(run(&[(changed_here, "two\n")], &mut written).is_empty());
-    assert_eq!(written[changed_here], sha256_hex(b"two\n"));
+    assert_eq!(written.settings[changed_here], sha256_hex(b"two\n"));
     assert_eq!(
         run(&[(changed_here, "three\n")], &mut written),
         [format!("wrote {changed_here}")]
@@ -646,7 +651,7 @@ fn an_install_whose_enable_failed_enables_at_the_next_run_and_keeps_its_settings
     // The default the failed run wrote is still known as install's: a later
     // build's default replaces it.
     let (path, _) = SETTINGS[2];
-    let mut written = lamp.state().settings;
+    let mut written = lamp.state();
     let mut changed = Vec::new();
     install::settings(
         &lamp.config,
@@ -654,24 +659,165 @@ fn an_install_whose_enable_failed_enables_at_the_next_run_and_keeps_its_settings
         &mut written,
         &mut changed,
         &mut |_| {},
+        &mut |_| Ok(()),
     )
     .unwrap();
     assert_eq!(changed, [format!("wrote {path}")]);
 }
 
-/// A setting that cannot be written stops the install, and those written
-/// before it are recorded all the same.
+/// A setting that cannot be read stops the install before any setting is
+/// written; out of the way, the next run writes and records them all.
 #[test]
-fn settings_written_before_one_that_fails_are_recorded() {
+fn a_setting_in_the_way_stops_the_install_before_any_is_written() {
     let mut lamp = Lamp::new(188, &[]);
     let (last, _) = SETTINGS[SETTINGS.len() - 1];
-    // A folder where the file goes: it cannot be written over.
+    // A folder where the file goes: it cannot be read or written over.
     fs::create_dir_all(lamp.on(last).join("in-the-way")).unwrap();
     let why = lamp.install().unwrap_err();
     assert!(why.starts_with(last), "{why}");
+    for (path, _) in &SETTINGS[..SETTINGS.len() - 1] {
+        assert!(!lamp.on(path).exists(), "{path}");
+    }
+
+    fs::remove_dir_all(lamp.on(last)).unwrap();
+    lamp.install().unwrap();
     let state = lamp.state();
-    for (path, text) in &SETTINGS[..SETTINGS.len() - 1] {
+    assert!(state.settings_writing.is_empty(), "{state:?}");
+    for (path, text) in SETTINGS {
         assert_eq!(state.settings[*path], sha256_hex(text.as_bytes()), "{path}");
     }
-    assert!(!state.settings.contains_key(last));
+}
+
+/// A later setting's write that fails leaves the earlier ones written and
+/// still known as install's, from what was recorded before the first write:
+/// a newer default replaces them.
+#[test]
+fn settings_written_before_one_that_fails_are_still_installs() {
+    let lamp = Lamp::new(188, &[]);
+    let (first, second) = ("/etc/lampOS/a/first.json", "/etc/lampOS/a/second.json");
+    let mut state = State::default();
+    let mut saved: Vec<State> = Vec::new();
+    let failed = install::settings(
+        &lamp.config,
+        &[(first, "one\n"), (second, "one\n")],
+        &mut state,
+        &mut Vec::new(),
+        &mut |_| {},
+        &mut |state| {
+            saved.push(state.clone());
+            // Once the intent is saved, something takes the second's place.
+            fs::create_dir_all(lamp.on(second).join("in-the-way")).unwrap();
+            Ok(())
+        },
+    );
+    assert!(failed.unwrap_err().starts_with(second));
+    assert_eq!(fs::read_to_string(lamp.on(first)).unwrap(), "one\n");
+    // What is on disk is the intent: the final record was never made.
+    assert_eq!(saved.len(), 1);
+    let mut on_disk = saved.remove(0);
+    assert!(!on_disk.settings.contains_key(first));
+
+    fs::remove_dir_all(lamp.on(second)).unwrap();
+    let mut changed = Vec::new();
+    install::settings(
+        &lamp.config,
+        &[(first, "two\n"), (second, "two\n")],
+        &mut on_disk,
+        &mut changed,
+        &mut |line| panic!("{line}"),
+        &mut |_| Ok(()),
+    )
+    .unwrap();
+    assert_eq!(
+        changed,
+        [format!("wrote {first}"), format!("wrote {second}")]
+    );
+    assert!(on_disk.settings_writing.is_empty());
+}
+
+/// The reviewer on #815 (19:32): an install stopped after its units,
+/// settings and zone were written but before it saved anything else (there,
+/// at its "the body waits" line) left no debt, and the next run asked
+/// systemd nothing. The debt is now saved before the first unit is written.
+#[test]
+fn an_install_stopped_after_writing_its_units_enables_at_the_next_run() {
+    let mut lamp = Lamp::new(188, &[]);
+    let stopped = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        install::install(
+            &lamp.config,
+            &mut lamp.channel,
+            &mut lamp.host,
+            &mut |line: &str| {
+                if line.starts_with("the body waits") {
+                    panic!("stopped here");
+                }
+            },
+        )
+    }));
+    assert!(stopped.is_err());
+    assert!(lamp.on("/etc/systemd/system/lamp-ears.service").exists());
+    assert!(lamp.state().systemd_owed);
+    assert!(
+        lamp.host
+            .calls
+            .iter()
+            .all(|call| !call.starts_with("enable"))
+    );
+
+    let again = lamp.install().unwrap();
+    assert!(
+        again
+            .changed
+            .iter()
+            .any(|line| line.starts_with("enabled ")),
+        "{:?}",
+        again.changed
+    );
+    assert!(!lamp.state().systemd_owed);
+}
+
+/// A run stopped between writing a setting and recording it: the next
+/// run, with a newer default, still knows the file as install's and
+/// replaces it, from what was recorded before the write.
+#[test]
+fn a_setting_written_but_not_yet_recorded_is_still_installs() {
+    let lamp = Lamp::new(188, &[]);
+    let path = "/etc/lampOS/a/setting.json";
+    let mut state = State::default();
+    let mut saved: Vec<State> = Vec::new();
+    // The first save is the intent; the run is stopped at the second, after
+    // the write: what is on disk is the first.
+    let stopped = install::settings(
+        &lamp.config,
+        &[(path, "ninety-nine\n")],
+        &mut state,
+        &mut Vec::new(),
+        &mut |_| {},
+        &mut |state| {
+            saved.push(state.clone());
+            if saved.len() == 2 {
+                Err("stopped".into())
+            } else {
+                Ok(())
+            }
+        },
+    );
+    assert!(stopped.is_err());
+    assert_eq!(fs::read_to_string(lamp.on(path)).unwrap(), "ninety-nine\n");
+    let mut on_disk = saved[0].clone();
+    assert!(!on_disk.settings.contains_key(path));
+
+    let mut changed = Vec::new();
+    install::settings(
+        &lamp.config,
+        &[(path, "one hundred\n")],
+        &mut on_disk,
+        &mut changed,
+        &mut |line| panic!("{line}"),
+        &mut |_| Ok(()),
+    )
+    .unwrap();
+    assert_eq!(changed, [format!("wrote {path}")]);
+    assert_eq!(on_disk.settings[path], sha256_hex(b"one hundred\n"));
+    assert!(on_disk.settings_writing.is_empty());
 }

@@ -322,8 +322,8 @@ records writable, `Nice=10` and idle I/O, not part of `lampos.target`.
 In `/var/lib/lampos-update/` (`records.rs`), each written whole:
 `state.json` (the build the lamp runs and the one before, up to 32 builds
 refused with why, the folders made, the SHA-256 of each product setting as
-`install` last wrote it, and whether systemd is still owed an install's
-`enable`), `journal.json` (only while a switch is
+`install` last wrote it and of each it is about to write, and whether
+systemd is still owed an install's `enable`), `journal.json` (only while a switch is
 under way; for a product part it holds the link and the build it named, so
 a switch cut short is put back by the link too), `previous/` (the units
 before the last switch, and for each product part `<unit>.link`, one line:

@@ -1839,13 +1839,31 @@ struct Stall {
     /// lamp-4ace on 2026-10-15 that same rest was counted and logged twice
     /// a minute with nobody touching the lamp.
     last_at: Option<u16>,
+    /// The hold just made was at that same place: held, not counted.
+    pub(crate) again: bool,
+    /// Steps in a row it has moved freely away from where it last stopped;
+    /// after `HAND_STEPS` of them that place is forgotten, so a later stall
+    /// there is a new one and counted.
+    free: u16,
 }
 
 impl Stall {
     /// One step of a joint whose goal is `goal` and of which `wanted` is
-    /// wanted. True when it has just been told to stop pushing.
+    /// wanted. True when it has just been told to stop pushing; `again`
+    /// then says whether that was where it last stopped (not to be counted).
     fn step(&mut self, goal: u16, is: Sample, wanted: u16) -> bool {
         let pushing = goal.abs_diff(is.position) > STALL_SLACK && is.load > STALL_LOAD;
+        let away = self
+            .last_at
+            .is_some_and(|at| at.abs_diff(is.position) > STALL_SLACK);
+        self.free = if away && is.load <= STALL_LOAD {
+            self.free.saturating_add(1)
+        } else {
+            0
+        };
+        if self.free >= HAND_STEPS {
+            self.last_at = None;
+        }
         if !pushing || self.steps == 0 || is.position.abs_diff(self.at) > STALL_SLACK {
             self.at = is.position;
             self.steps = u16::from(pushing);
@@ -1858,11 +1876,11 @@ impl Stall {
         self.steps = 0;
         self.hold = Some((wanted, is.position));
         self.held = 0;
-        let again = self
+        self.again = self
             .last_at
             .is_some_and(|at| at.abs_diff(is.position) <= STALL_SLACK);
         self.last_at = Some(is.position);
-        !again
+        true
     }
 
     /// Where it is held, while what is wanted of it has not moved
@@ -3276,7 +3294,9 @@ pub(crate) fn run_alive(
                 }
                 let is = samples[COMMANDED[index].index()];
                 if stalls[index].step(written[index], is, wanted_of[index].round() as u16) {
-                    report.stalls[index] = report.stalls[index].saturating_add(1);
+                    if !stalls[index].again {
+                        report.stalls[index] = report.stalls[index].saturating_add(1);
+                    }
                     stopped_pushing[COMMANDED[index].index()] = true;
                 }
             }
@@ -3284,7 +3304,9 @@ pub(crate) fn run_alive(
                 for (index, joint) in ARM.iter().enumerate() {
                     let is = samples[joint.index()];
                     if stalls[3 + index].step(arm_written[index], is, arm_written[index]) {
-                        report.stalls[3 + index] = report.stalls[3 + index].saturating_add(1);
+                        if !stalls[3 + index].again {
+                            report.stalls[3 + index] = report.stalls[3 + index].saturating_add(1);
+                        }
                         stopped_pushing[joint.index()] = true;
                     }
                 }

@@ -1113,8 +1113,10 @@ stand. Otherwise it is held there
 until what is wanted of it moves 20 counts or more from what was wanted
 when it stalled (a new mood, the arm rising or folding), and then follows
 again. Torque is never written off for that. A joint that stops again within
-6 counts of where it last stopped is held again quietly: not counted in
-`stalls` and not logged. On lamp-4ace on 2026-10-15 a standing shoulder
+6 counts of where it last stopped is held again (it still stops pushing,
+which `--overload release` counts on) but not counted in `stalls` and not
+logged; a joint that has moved freely away, unloaded, for a second forgets
+that place, so a later stall there is counted. On lamp-4ace on 2026-10-15 a standing shoulder
 resting short of its goal under its own weight was counted and logged twice
 a minute with nobody touching the lamp (67 lines in 28 minutes), each time
 a scene moved its goal a little and it stopped at the same place. A hand that

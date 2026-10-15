@@ -11,7 +11,9 @@
 //!
 //! Run again, it changes nothing that is as it should be, and says so.
 //! It never writes what is one lamp's own (`/etc/lampOS/body/lamp.env`) or
-//! what setup writes, and never a unit's drop-ins.
+//! what setup writes, and never a unit's drop-ins. A product setting
+//! changed on the lamp since an install wrote it is the lamp's own too, and
+//! is kept ([`settings`]).
 use crate::{
     fetch::{Channel, Fetch},
     manifest::{self, Manifest},
@@ -21,6 +23,7 @@ use crate::{
 };
 use ring::digest;
 use std::{
+    collections::BTreeMap,
     fs, io,
     os::unix::fs::{DirBuilderExt, PermissionsExt},
     path::{Path, PathBuf},
@@ -288,6 +291,7 @@ pub fn install(
     let _lock = records
         .lock()
         .map_err(|error| format!("another lamp-update is running: {error}"))?;
+    let mut state = records.peek_state();
     let mut changed = Vec::new();
 
     // The users first: a folder or a part made below may name them.
@@ -359,9 +363,8 @@ pub fn install(
         0o644,
         &mut changed,
     )?;
-    for (path, text) in SETTINGS {
-        put(config, path, text.as_bytes(), 0o644, &mut changed)?;
-    }
+    let settings_before = state.settings.clone();
+    settings(config, SETTINGS, &mut state.settings, &mut changed, say)?;
     // Made 0755 here on a blank lamp. One made closed before (lamp-4ace's is
     // root's alone) is not opened: credentials may be below it. Said instead.
     if let Ok(meta) = fs::metadata(config.on("/etc/lampOS"))
@@ -395,7 +398,6 @@ pub fn install(
         changed.push(format!("enabled {}", enabled().join(" ")));
     }
 
-    let mut state = records.peek_state();
     let build = Build {
         sequence: manifest.sequence,
         commit: manifest.commit.clone(),
@@ -406,7 +408,10 @@ pub fn install(
         .into_iter()
         .filter(|folder| !state.made.contains(folder))
         .collect();
-    if state.installed.as_ref() != Some(&build) || !new_folders.is_empty() {
+    if state.installed.as_ref() != Some(&build)
+        || !new_folders.is_empty()
+        || state.settings != settings_before
+    {
         if state.installed.as_ref() != Some(&build) {
             state.previous = state.installed.replace(build);
         }
@@ -422,6 +427,42 @@ pub fn install(
         sequence: manifest.sequence,
         changed,
     })
+}
+
+/// The product's settings, from `defaults` (path, bytes): each written
+/// where it is missing, or where it is still exactly what an install wrote
+/// before (by its SHA-256 in `written`, the state's record), so a newer
+/// build's default reaches a lamp that never changed it. One that differs
+/// from both was changed on the lamp, or was there before any install (a
+/// lamp's own pins, its calibration): it is kept, and said, and its record
+/// is left as it was. Rerunning install is also how the updater upgrades
+/// itself, so this holds at every run (the reviewer on #815).
+pub fn settings(
+    config: &Install,
+    defaults: &[(&str, &str)],
+    written: &mut BTreeMap<String, String>,
+    changed: &mut Vec<String>,
+    say: &mut dyn FnMut(&str),
+) -> Result<(), String> {
+    for (path, text) in defaults {
+        let now = match fs::read(config.on(path)) {
+            Ok(bytes) => Some(bytes),
+            Err(error) if error.kind() == io::ErrorKind::NotFound => None,
+            Err(error) => return Err(format!("{path}: {error}")),
+        };
+        if let Some(now) = &now
+            && now != text.as_bytes()
+            && written.get(*path) != Some(&manifest::sha256_hex(now))
+        {
+            say(&format!(
+                "kept {path}: this lamp's own, not a default an install wrote; the build's default is not written"
+            ));
+            continue;
+        }
+        put(config, path, text.as_bytes(), 0o644, changed)?;
+        written.insert((*path).to_owned(), manifest::sha256_hex(text.as_bytes()));
+    }
+    Ok(())
 }
 
 /// The channel's newest build, checked with the image's key.

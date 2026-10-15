@@ -2,7 +2,9 @@
 //!
 //! - `state.json`: the build the lamp runs and the one before, the builds
 //!   refused after a failed switch (so the same build is not tried again),
-//!   and the folders it made (the only ones it ever removes).
+//!   the folders it made (the only ones it ever removes), and the product
+//!   settings as `install` last wrote them (a setting changed since is the
+//!   lamp's own and is kept).
 //! - `journal.json`: a switch under way. Written before any unit is
 //!   changed and removed once the switch is over, so a switch cut short by
 //!   a stop or a power cut is put back at the next start.
@@ -15,6 +17,7 @@
 //! V1's updater did.
 use serde::{Deserialize, Serialize};
 use std::{
+    collections::BTreeMap,
     fs::{self, File, OpenOptions},
     io::{self, Write},
     os::unix::fs::{DirBuilderExt, OpenOptionsExt},
@@ -50,6 +53,12 @@ pub struct State {
     pub refused: Vec<Refusal>,
     /// Build folders this program made, as the lamp names them.
     pub made: Vec<String>,
+    /// Each product setting `install` wrote, or found already the build's
+    /// default, by path: the SHA-256 of those bytes. A setting whose bytes
+    /// no longer match was changed on the lamp and is never written over
+    /// (docs/install.md). Absent from a state written before.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub settings: BTreeMap<String, String>,
 }
 
 impl State {
@@ -325,6 +334,23 @@ impl Records {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// A state written before `settings` was kept reads as one with none,
+    /// and a state with none is written as before.
+    #[test]
+    fn a_state_from_before_the_settings_reads_and_writes_as_before() {
+        let before =
+            r#"{"installed":{"sequence":188,"commit":"a"},"previous":null,"refused":[],"made":[]}"#;
+        let state: State = serde_json::from_str(before).unwrap();
+        assert!(state.settings.is_empty());
+        assert_eq!(state.installed.as_ref().unwrap().sequence, 188);
+        assert_eq!(serde_json::to_string(&state).unwrap(), before);
+        let mut kept = state;
+        kept.settings
+            .insert("/etc/lampOS/a.json".into(), "0".repeat(64));
+        let again: State = serde_json::from_str(&serde_json::to_string(&kept).unwrap()).unwrap();
+        assert_eq!(again, kept);
+    }
 
     #[test]
     fn state_journal_and_previous_units_are_kept() {

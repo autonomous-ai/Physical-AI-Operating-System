@@ -10,6 +10,10 @@ so that what the lamp runs is in the repository. They name one lamp
 a template for another unit. No credential is in them: the provider's are in
 a private file the voice unit only names.
 
+`lamp-selftest.service` is the self-test, a oneshot started only by hand
+(`sudo systemctl start lamp-selftest`), never at boot, with `CAP_SYSLOG` for
+its storage part ([selftest.md](../../docs/selftest.md)).
+
 The long hexadecimal directories in `ExecStart` are the SHA-256 of the binary
 installed there. The character file the voice unit's configuration names is
 [`../character/lamp.txt`](../character/lamp.txt).

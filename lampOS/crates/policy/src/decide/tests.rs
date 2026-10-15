@@ -1301,3 +1301,38 @@ fn a_handshake_that_never_finishes_ends_at_the_deadline() {
     assert!(took >= deadline && took < deadline + MARGIN, "{took:?}");
     drop(listener);
 }
+
+/// #871: a picture goes as one of TypeSafe's `assets`, in standard base64
+/// under the key the state names it by, with the header TypeSafe asks for;
+/// a question without one is sent as it always was (the test above).
+#[test]
+fn a_picture_is_sent_as_an_asset_under_its_key_with_the_images_header() {
+    let server = answering(with_length(GOOD));
+    let mut jev = jev(&server.url(), "picture");
+    let picture = Picture {
+        key: "lamp-sight-7f3a".into(),
+        jpeg: vec![0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, b'J', b'F', b'I', b'F'],
+    };
+    assert_eq!(
+        format!("{picture:?}"),
+        "Picture { key: \"lamp-sight-7f3a\", bytes: 10 }"
+    );
+    let state = "{\"picture\":\"lamp-sight-7f3a\"}";
+    good(
+        &jev.ask_with_pictures(state, &questions(), std::slice::from_ref(&picture), LONG)
+            .unwrap(),
+    );
+    let request = server.request();
+    let (head, body) = request.split_once("\r\n\r\n").unwrap();
+    assert!(
+        head.split("\r\n").any(|line| line == IMAGES_HEADER),
+        "{head}"
+    );
+    let sent: serde_json::Value = serde_json::from_str(body).unwrap();
+    assert_eq!(sent["state"]["picture"], "lamp-sight-7f3a");
+    assert_eq!(
+        sent["assets"],
+        serde_json::json!({"lamp-sight-7f3a": {"type": "image", "format": "jpg", "data_base64": "/9j/4AAQSkZJRg=="}})
+    );
+    assert!(body.starts_with("{\"model\":\"typesafe/jev-1.13\",\"state\":{\"picture\""));
+}

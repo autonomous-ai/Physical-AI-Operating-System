@@ -23,6 +23,9 @@ httparse = "1.10"
 # The same features as lamp-gemini, so that one rustls is built for both.
 rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12"] }
 webpki-roots = "1"
+# A picture sent with a question, as TypeSafe takes it (#871). The same
+# version as lamp-update's.
+base64 = "0.22"
 lamp-bus = { path = "../bus" }
 lamp-msgs = { path = "../msgs" }
 

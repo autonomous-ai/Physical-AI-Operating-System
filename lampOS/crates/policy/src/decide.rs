@@ -63,6 +63,30 @@ const ENDED_EARLY: &str = "it ended before it was whole";
 const NOT_A_PROBABILITY: &str = "a probability is not a number from 0 to 1";
 const ANOTHER_TYPE: &str = "an answer is of another type than its question";
 
+/// The header TypeSafe asks for with a picture (#871); sent only then.
+pub const IMAGES_HEADER: &str = "TypeSafe-Danger-Zone-Images: true";
+
+/// A picture sent with a question (#871), as TypeSafe's `assets` take one:
+/// `key` is a string the state or a question holds where the picture
+/// belongs, and the service puts the picture there. A JPEG's bytes. It is
+/// never shown: its `Debug` says its key and size only.
+#[derive(Clone, PartialEq, Eq)]
+pub struct Picture {
+    pub key: String,
+    pub jpeg: Vec<u8>,
+}
+
+impl fmt::Debug for Picture {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "Picture {{ key: {:?}, bytes: {} }}",
+            self.key,
+            self.jpeg.len()
+        )
+    }
+}
+
 /// One question put to a decision model.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Question {
@@ -694,7 +718,12 @@ fn quoted(text: &str) -> String {
 /// The request's body. Written by hand so that the state goes as the text
 /// it was given as and the questions in the order they were asked in: the
 /// library's own map would put both in the order of the alphabet.
-fn body(model: &str, state: &str, questions: &[(String, Question)]) -> String {
+fn body(
+    model: &str,
+    state: &str,
+    questions: &[(String, Question)],
+    pictures: &[Picture],
+) -> String {
     let mut body = format!(
         "{{\"model\":{},\"state\":{state},\"questions\":{{",
         quoted(model)
@@ -729,7 +758,23 @@ fn body(model: &str, state: &str, questions: &[(String, Question)]) -> String {
         }
         body.push('}');
     }
-    body.push_str("}}");
+    body.push('}');
+    // Without a picture the body is as it always was.
+    if !pictures.is_empty() {
+        use base64::Engine as _;
+        body.push_str(",\"assets\":{");
+        for (index, picture) in pictures.iter().enumerate() {
+            if index > 0 {
+                body.push(',');
+            }
+            body.push_str(&quoted(&picture.key));
+            body.push_str(":{\"type\":\"image\",\"format\":\"jpg\",\"data_base64\":\"");
+            body.push_str(&base64::engine::general_purpose::STANDARD.encode(&picture.jpeg));
+            body.push_str("\"}");
+        }
+        body.push('}');
+    }
+    body.push('}');
     body
 }
 
@@ -1015,20 +1060,38 @@ fn secure(roots: rustls::RootCertStore) -> io::Result<rustls::ClientConfig> {
     Ok(config)
 }
 
-impl Decider for Jev {
-    fn ask(
+impl Jev {
+    /// [`Decider::ask`] with `pictures`, which the state or the questions
+    /// name by their keys (#871). Sent with [`IMAGES_HEADER`].
+    pub fn ask_with_pictures(
         &mut self,
         state: &str,
         questions: &[(String, Question)],
+        pictures: &[Picture],
+        deadline: Duration,
+    ) -> Result<Asked, Failed> {
+        self.asking(state, questions, pictures, deadline)
+    }
+
+    fn asking(
+        &mut self,
+        state: &str,
+        questions: &[(String, Question)],
+        pictures: &[Picture],
         deadline: Duration,
     ) -> Result<Asked, Failed> {
         let started = Instant::now();
-        let body = body(&self.model, state, questions);
+        let body = body(&self.model, state, questions, pictures);
+        let images = if pictures.is_empty() {
+            String::new()
+        } else {
+            format!("{IMAGES_HEADER}\r\n")
+        };
         // `identity`: this reads no compressed answer.
         let mut request = format!(
             "POST {} HTTP/1.1\r\nHost: {}\r\nAuthorization: {}\r\n\
              Content-Type: application/json\r\nAccept: application/json\r\n\
-             Accept-Encoding: identity\r\nUser-Agent: lamp-policy\r\n\
+             Accept-Encoding: identity\r\nUser-Agent: lamp-policy\r\n{images}\
              Content-Length: {}\r\nConnection: keep-alive\r\n\r\n",
             self.endpoint.path,
             self.endpoint.authority(),
@@ -1048,6 +1111,17 @@ impl Decider for Jev {
             usage: answered.usage,
             connection: Some(connection),
         })
+    }
+}
+
+impl Decider for Jev {
+    fn ask(
+        &mut self,
+        state: &str,
+        questions: &[(String, Question)],
+        deadline: Duration,
+    ) -> Result<Asked, Failed> {
+        self.asking(state, questions, &[], deadline)
     }
 
     fn ready(&mut self, within: Duration) {

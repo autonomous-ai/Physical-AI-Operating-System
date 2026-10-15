@@ -6,7 +6,7 @@
 //! `--zone system` follows `/etc/localtime`. The lamp's setup points it at the
 //! phone's zone by renaming a new link over it (`crates/setup`), often after
 //! the parts have started with the image's zone. So the file is looked at again
-//! at every reading (two `stat` calls) and read again only when it changed: a
+//! at every reading (three `stat` calls and a `readlink`) and read again only when it changed: a
 //! new zone counts from the next reading, without a restart. `TZ` is not read;
 //! the lamp's units do not set it, and the file is what setup writes.
 
@@ -94,37 +94,51 @@ impl LocalTime {
 pub struct SystemZone {
     localtime: PathBuf,
     timezone: PathBuf,
-    state: Mutex<State>,
+    /// Boxed: what is looked at is far larger than the other kinds of local
+    /// time, and only this kind needs it.
+    state: Box<Mutex<State>>,
 }
 
 #[derive(Debug)]
 struct State {
-    /// The files as they were when `zone` was read; `None` when missing.
-    seen: Option<Seen>,
+    /// The files as they were when `zone` was read.
+    seen: Seen,
     zone: TimeZone,
 }
 
-/// Enough of the link and the file it leads to that renaming a new one over
-/// either, or writing it in place, shows as a change.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-struct Seen {
-    link: (u64, u64, i64, i64),
-    file: (u64, u64, u64, i64, i64),
+/// One file's identity: renaming a new one over it, or writing it in place,
+/// changes it.
+type Identity = (u64, u64, u64, i64, i64);
+
+fn identity(metadata: &fs::Metadata) -> Identity {
+    (
+        metadata.dev(),
+        metadata.ino(),
+        metadata.len(),
+        metadata.mtime(),
+        metadata.mtime_nsec(),
+    )
 }
 
-fn look(localtime: &Path) -> Option<Seen> {
-    let link = fs::symlink_metadata(localtime).ok()?;
-    let file = fs::metadata(localtime).ok()?;
-    Some(Seen {
-        link: (link.dev(), link.ino(), link.mtime(), link.mtime_nsec()),
-        file: (
-            file.dev(),
-            file.ino(),
-            file.len(),
-            file.mtime(),
-            file.mtime_nsec(),
-        ),
-    })
+/// Everything the zone is read from, each looked at on its own (#844): the
+/// link, even when what it points at is gone; where it points; the file it
+/// leads to; and the name file read when that cannot be. `None` for one that
+/// is not there.
+#[derive(Clone, Debug, PartialEq, Eq)]
+struct Seen {
+    link: Option<Identity>,
+    target: Option<PathBuf>,
+    file: Option<Identity>,
+    named: Option<Identity>,
+}
+
+fn look(localtime: &Path, timezone: &Path) -> Seen {
+    Seen {
+        link: fs::symlink_metadata(localtime).ok().map(|m| identity(&m)),
+        target: fs::read_link(localtime).ok(),
+        file: fs::metadata(localtime).ok().map(|m| identity(&m)),
+        named: fs::metadata(timezone).ok().map(|m| identity(&m)),
+    }
 }
 
 /// `America/New_York` from a link to `/usr/share/zoneinfo/America/New_York`.
@@ -166,12 +180,12 @@ impl SystemZone {
     /// Reads the zone now; a zone that cannot be read is an error.
     pub fn open(localtime: impl Into<PathBuf>, timezone: impl Into<PathBuf>) -> io::Result<Self> {
         let (localtime, timezone) = (localtime.into(), timezone.into());
-        let seen = look(&localtime);
+        let seen = look(&localtime, &timezone);
         let zone = read(&localtime, &timezone)?;
         Ok(Self {
             localtime,
             timezone,
-            state: Mutex::new(State { seen, zone }),
+            state: Box::new(Mutex::new(State { seen, zone })),
         })
     }
 
@@ -180,7 +194,7 @@ impl SystemZone {
     /// the next reading.
     pub fn current(&self) -> TimeZone {
         let mut state = self.state.lock().unwrap_or_else(PoisonError::into_inner);
-        let seen = look(&self.localtime);
+        let seen = look(&self.localtime, &self.timezone);
         if seen != state.seen
             && let Ok(zone) = read(&self.localtime, &self.timezone)
         {

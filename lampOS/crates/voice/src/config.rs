@@ -208,14 +208,11 @@ impl ProviderConfig {
         self,
         camera: bool,
     ) -> Result<SessionConfig, Box<dyn std::error::Error + Send + Sync>> {
-        let bytes = read_private(Path::new(&self.credential_file), 4098)?;
-        let value = std::str::from_utf8(&bytes)
-            .map_err(|_| io::Error::new(io::ErrorKind::InvalidData, "credential must be UTF-8"))?
-            .trim_end_matches(['\r', '\n']);
+        let value = read_credential(Path::new(&self.credential_file))?;
         let credential = match self.authentication {
-            Authentication::ApiKey => Credential::api_key(value)?,
-            Authentication::Bearer => Credential::bearer(value)?,
-            Authentication::Ephemeral => Credential::ephemeral(value)?,
+            Authentication::ApiKey => Credential::api_key(&value)?,
+            Authentication::Bearer => Credential::bearer(&value)?,
+            Authentication::Ephemeral => Credential::ephemeral(&value)?,
         };
         let written = match &self.instruction_file {
             Some(path) => {
@@ -273,7 +270,15 @@ impl ProviderConfig {
     }
 }
 
-fn read_private(path: &Path, max: usize) -> io::Result<Vec<u8>> {
+/// A private credential file's text, without its trailing line ending.
+pub(crate) fn read_credential(path: &Path) -> io::Result<String> {
+    let bytes = read_private(path, 4098)?;
+    let text = String::from_utf8(bytes)
+        .map_err(|_| io::Error::new(io::ErrorKind::InvalidData, "credential must be UTF-8"))?;
+    Ok(text.trim_end_matches(['\r', '\n']).to_owned())
+}
+
+pub(crate) fn read_private(path: &Path, max: usize) -> io::Result<Vec<u8>> {
     let flags =
         rustix::fs::OFlags::NOFOLLOW | rustix::fs::OFlags::NONBLOCK | rustix::fs::OFlags::CLOEXEC;
     let mut file = OpenOptions::new()

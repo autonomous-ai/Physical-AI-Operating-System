@@ -1219,6 +1219,19 @@ impl DaysClient {
             None
         };
         let offset = crate::local_time::offset_at(&self.zone, (now / 1000) as i64).unwrap_or(0);
+        // A write whose acknowledgement is lost may still have committed: a
+        // rule kept without its ID here would let what is said under it be
+        // journalled unlinked. As for `remember` and `forget`, journalling
+        // waits until the write is acknowledged, and for good if it never is.
+        let writes = call.name != crate::rules::LIST_RULES;
+        if writes {
+            match self.context.try_lock() {
+                Ok(mut context) => {
+                    context.uncertain_writes = context.uncertain_writes.saturating_add(1);
+                }
+                Err(_) => return (gone(), false),
+            }
+        }
         let Some(answer) = until
             .checked_duration_since(Instant::now())
             .and_then(|left| bounded_exchange(&self.socket, &line, left))
@@ -1242,12 +1255,16 @@ impl DaysClient {
                 .collect(),
             _ => vec![],
         };
-        if !shown.is_empty() {
-            match self.context.lock() {
-                Ok(mut context) => context.rule(person, shown),
-                // Without the link nothing said now may be journalled.
-                Err(poisoned) => poisoned.into_inner().journal_inhibited = true,
+        // The rule is linked before the fence is lifted.
+        match self.context.lock() {
+            Ok(mut context) => {
+                context.rule(person, shown);
+                if writes {
+                    context.uncertain_writes = context.uncertain_writes.saturating_sub(1);
+                }
             }
+            // Without the link nothing said now may be journalled.
+            Err(poisoned) => poisoned.into_inner().journal_inhibited = true,
         }
         if changed {
             if call.name == crate::rules::FORGET_RULE {

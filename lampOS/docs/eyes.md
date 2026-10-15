@@ -172,26 +172,47 @@ picture's or more is the one reported: somebody at the lamp, not somebody
 across the room. With several people near, that is whoever is nearest the
 camera, and it can change from look to look.
 
-### A face that never moves (#763)
+### A face at a place where no person has been seen (#763)
 
 With `--leave-still-faces on` (off unless given; `src/still.rs`), a face
-that has not moved is not a person. lamp-4ace's eyes reported a face all
-night in an empty office (14 to 15 October, 01:00 to 05:59): 54 of 55
-detections at one spot, its box the same to a pixel or two, at 0.60 to
-0.79. A person sitting still still moves their box by a few pixels within
-seconds.
+at a place where only small, faint faces have ever been seen is not a
+person. lamp-4ace's eyes reported a face all night in an empty office (14
+to 15 October, 01:00 to 05:59): 55 of 55 detections at one spot, about 0.7
+across and 0.6 down, 0.09 to 0.12 of the picture's height, at 0.60 to
+0.79. Its box is not still: it wanders 0.01 to 0.02 of the picture from
+look to look, as much as a person sitting at the desk does, so a stillness
+rule cannot tell them apart. Replayed through the day's recording, a box
+held within two pixels for two minutes left out 4 of the 55, and a centre
+held within 0.02 for five minutes left out over a third of the morning's
+real faces. What tells them apart is that the spot never gave a face 0.14
+of the height or taller, nor one scored 0.8 or more, in a day, while the
+people at the desk did within seconds and the people at the picture's edge,
+small too, scored up to 0.90.
 
-So each spot where a face is seen is remembered with the box as first seen
-there. A box whose centre falls within half that box's size is near it:
-if every edge is within 0.007 of the picture (about two pixels of the
-camera's 320 by 240 frame) it is the same box, otherwise the face has moved and
-the count starts again from the new box. A box that has stayed the same for
-two minutes, however rarely it was seen, is left out before anything else
-uses the look: the body is not told of it, it is not on the bus, and it is
-not recognised. A spot nothing has been seen at for half an hour is
-forgotten (the night's face came every few minutes); at most 32 spots are
-remembered, the one seen longest ago going first. The journal's ten-second
-line says how many faces were left out so far.
+So each place a face is seen is remembered: its centre and height, a face
+being at it when both coordinates of its centre and its height are within
+0.03 of the place's; with how many faces came from it, since when, and
+whether any of them was a person's (0.14 of the height or more, or scored
+0.8 or more). A face at a place that has given faces for half an hour or
+more, ten or more of them, none of them a person's, is left out before
+anything else uses the look: the body is not told of it, it is not on the
+bus, and it is not recognised. A place nothing has been seen at for two
+hours is forgotten (the night's face came back after at most 52 minutes);
+at most 32 places are remembered, the one seen longest ago going first. The
+journal's ten-second line says how many faces were left out so far.
+
+Replayed in order through the whole recording (14 Oct 18:23 to 15 Oct
+13:17, `docs/verification/still-face-lamp-4ace-20261014/`, a host test):
+the night's 55 faces are all left out; at the false spot the rest of the
+time 448 of 540 are (the first half hour after it is forgotten passes);
+none of the 390 faces of the people at the edge in the evening, nor of the
+10,853 at the desk in the morning, is.
+
+Raising the detector's least score (`LEAST_SCORE`, 0.6) instead would cost
+real faces before it removed the false one: at 0.75 it drops 574 of the
+595 false-spot faces but also 105 of the 390 at the edge and 1,526 of the
+10,853 at the desk; at 0.8, all 595 false ones, 160 at the edge and 2,398
+at the desk.
 
 Not shown yet: the day's recording replayed through it, with the counts
 before and after, and whether raising the 0.6 score would do the same.

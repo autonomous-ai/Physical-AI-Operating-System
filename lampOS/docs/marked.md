@@ -39,8 +39,15 @@ The copy is outside `sessions/`, so `lamp-records`, which deletes whole
 closed session folders (over 2 GB or 14 days, [records.md](records.md)),
 never touches it. Nothing is held inside `sessions/`.
 
-A mark is deleted 7 days after it was made: each new mark first deletes the
-marks older than that, by the time in their folder's name. Nothing is
+A mark is deleted 7 days after it was made, by the time in its folder's
+name: marks past that are deleted when a serving voice starts with the
+switch on, when a new mark is made, and when the marks are listed, so they
+go even if nobody marks again.
+
+If the session's records cannot be read (the `metadata` folder or one of its
+files), nothing is kept and the model is told the part is not running, so
+the person is never thanked for a mark that holds nothing. Only a line
+still being written, or one that is not JSON, is left out. Nothing is
 uploaded or published; marks stay on the lamp.
 
 ## Listing
@@ -66,5 +73,6 @@ Host tests in `marked.rs` and `tools.rs`: the flag only with the switch on
 and a session; the function declared and routed only with the flag, never
 the executive's; a mark keeps exactly the 60 s window (lines at its edges
 kept, one microsecond outside not, unfinished and non-JSON lines left out);
-marks older than 7 days deleted and the rest listed newest first; a written
-turn marks nothing.
+marks older than 7 days deleted, also with no later mark, and the rest
+listed newest first; records that cannot be read are an error, never an
+empty mark; a written turn marks nothing.

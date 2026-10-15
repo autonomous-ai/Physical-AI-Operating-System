@@ -40,9 +40,15 @@ const REASON_BYTES: usize = 200;
 /// the provider worker can be told it.
 static SESSION: OnceLock<PathBuf> = OnceLock::new();
 
-/// The coordinator made its session folder.
+/// The coordinator made its session folder. With the switch on, marks past
+/// [`KEPT_FOR`] are deleted now too, so they go even if nobody marks again.
 pub fn session_opened(folder: &Path) {
     let _ = SESSION.set(folder.to_owned());
+    if std::env::var(ENVIRONMENT).as_deref() == Ok("on")
+        && let Some(marks) = marks_of(folder)
+    {
+        expire(&marks, SystemTime::now());
+    }
 }
 
 /// The provider worker's arguments: the flag and the session folder, with
@@ -123,7 +129,7 @@ pub fn mark(session: &Path, reason: &str, now_us: u64, wall: SystemTime) -> io::
         .recursive(true)
         .mode(0o700)
         .create(&marks)?;
-    sweep(&marks, wall);
+    expire(&marks, wall);
     let wall_ms = wall
         .duration_since(UNIX_EPOCH)
         .map_err(io::Error::other)?
@@ -141,7 +147,7 @@ pub fn mark(session: &Path, reason: &str, now_us: u64, wall: SystemTime) -> io::
         said.push(if c.is_control() { ' ' } else { c });
     }
     let from_us = now_us.saturating_sub(WINDOW.as_micros() as u64);
-    let lines = window(session, from_us, now_us);
+    let lines = window(session, from_us, now_us)?;
     let folder = marks.join(format!("{wall_ms}-{id}"));
     fs::DirBuilder::new().mode(0o700).create(&folder)?;
     write_private(
@@ -171,22 +177,21 @@ pub fn mark(session: &Path, reason: &str, now_us: u64, wall: SystemTime) -> io::
 }
 
 /// The session's record lines whose `at_us` is in `[from_us, to_us]`, in
-/// time order. A line being written as it is read, or not JSON, is left out.
-fn window(session: &Path, from_us: u64, to_us: u64) -> Vec<String> {
+/// time order. A line being written as it is read, or not JSON, is left out;
+/// a folder or file that cannot be read is an error, never an empty window.
+fn window(session: &Path, from_us: u64, to_us: u64) -> io::Result<Vec<String>> {
     let mut kept: Vec<(u64, String)> = Vec::new();
-    let Ok(entries) = fs::read_dir(session.join("metadata")) else {
-        return Vec::new();
-    };
-    for entry in entries.flatten() {
+    for entry in fs::read_dir(session.join("metadata"))? {
+        let entry = entry?;
         let name = entry.file_name();
         let name = name.to_string_lossy();
         if !(name.starts_with("events-") && name.ends_with(".jsonl")) {
             continue;
         }
-        let Ok(file) = fs::File::open(entry.path()) else {
-            continue;
-        };
-        for line in BufReader::new(file).lines().map_while(Result::ok) {
+        for line in BufReader::new(fs::File::open(entry.path())?).split(b'\n') {
+            let Ok(line) = String::from_utf8(line?) else {
+                continue;
+            };
             let at = serde_json::from_str::<Value>(&line)
                 .ok()
                 .and_then(|event| event.get("at_us").and_then(Value::as_u64));
@@ -196,11 +201,13 @@ fn window(session: &Path, from_us: u64, to_us: u64) -> Vec<String> {
         }
     }
     kept.sort_by_key(|(at, _)| *at);
-    kept.into_iter().map(|(_, line)| line).collect()
+    Ok(kept.into_iter().map(|(_, line)| line).collect())
 }
 
 /// Delete marks older than [`KEPT_FOR`], by the time in their folder's name.
-fn sweep(marks: &Path, wall: SystemTime) {
+/// Run when a serving voice starts with the switch on, when a mark is made,
+/// and when the marks are listed.
+pub fn expire(marks: &Path, wall: SystemTime) {
     let Ok(entries) = fs::read_dir(marks) else {
         return;
     };
@@ -231,6 +238,7 @@ fn write_private(path: &Path, bytes: &[u8]) -> io::Result<()> {
 
 /// `lamp-voice marked [MARKS]`: the marks, newest first, one line each.
 pub fn list(marks: &Path) -> io::Result<Vec<String>> {
+    expire(marks, SystemTime::now());
     let mut found: Vec<(u64, String)> = Vec::new();
     for entry in fs::read_dir(marks)?.flatten() {
         let Ok(text) = fs::read_to_string(entry.path().join("mark.json")) else {
@@ -355,6 +363,44 @@ mod tests {
         let listed = list(&marks).unwrap();
         assert_eq!(listed.len(), 2, "{listed:?}");
         assert!(listed[0].contains("that was wrong") && listed[1].contains("bad answer"));
+        let _ = fs::remove_dir_all(session.parent().unwrap().parent().unwrap());
+    }
+
+    /// Reviewer on #855: a mark goes after seven days with no later mark.
+    #[test]
+    fn an_old_mark_expires_with_no_later_mark() {
+        let session = folder("expire");
+        let start = UNIX_EPOCH + Duration::from_secs(1_700_000_000);
+        let made = mark(&session, "that was weird", 1, start).unwrap();
+        let marks = marks_of(&session).unwrap();
+        expire(&marks, start + KEPT_FOR - Duration::from_secs(1));
+        assert!(made.join("events.jsonl").exists());
+        expire(&marks, start + KEPT_FOR + Duration::from_secs(1));
+        assert!(!made.exists());
+        // Listing runs the same expiry, at the real time: this mark was
+        // made long before it.
+        let old = mark(&session, "bad answer", 2, start).unwrap();
+        assert!(list(&marks).unwrap().is_empty());
+        assert!(!old.exists());
+        let _ = fs::remove_dir_all(session.parent().unwrap().parent().unwrap());
+    }
+
+    /// Reviewer on #855: records that cannot be read are a failure, and the
+    /// person is not thanked as if they were kept.
+    #[test]
+    fn records_that_cannot_be_read_are_not_a_kept_mark() {
+        let session = folder("unreadable");
+        fs::remove_dir_all(session.join("metadata")).unwrap();
+        fs::write(session.join("metadata"), "not a folder").unwrap();
+        let wall = UNIX_EPOCH + Duration::from_secs(1_800_000_000);
+        assert!(mark(&session, "that was weird", 1, wall).is_err());
+        let call = ToolCall {
+            id: String::new(),
+            name: MARK.into(),
+            args: json!({"reason": "that was weird"}),
+        };
+        let (told, answered) = run(&session, &call, true);
+        assert!(!answered && told.get("ok").is_none(), "{told}");
         let _ = fs::remove_dir_all(session.parent().unwrap().parent().unwrap());
     }
 

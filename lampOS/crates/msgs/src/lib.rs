@@ -64,7 +64,9 @@ mod mood;
 pub use mood::*;
 mod attention;
 pub use attention::*;
+mod speaker_check;
 mod tasks;
+pub use speaker_check::*;
 pub use tasks::*;
 
 /// Why a message is not one its type allows, in words.

@@ -1,0 +1,4 @@
+# Register the organization-defined larger-runner label for static validation.
+self-hosted-runner:
+  labels:
+    - lampos-arm64-16

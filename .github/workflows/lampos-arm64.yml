@@ -35,7 +35,8 @@ concurrency:
 jobs:
   arm64:
     name: lampOS — build and test on Linux ARM64 (${{ matrix.shard }}/4)
-    runs-on: ubuntu-22.04-arm
+    # Organization pool: Ubuntu 22.04 ARM64, 16 cores; see lampOS/docs/arm64-runner.md.
+    runs-on: lampos-arm64-16
     timeout-minutes: 90
     strategy:
       fail-fast: false
@@ -88,7 +89,7 @@ jobs:
           for f in lamp-* examples/schedule_check examples/replay_cost; do
             [ -f "$f" ] && [ -x "$f" ] && case "$f" in *.d) ;; *) cp "$f" ../../arm64-out/ ;; esac
           done
-          cd ../../arm64-out && sha256sum * | tee SHA256SUMS
+          cd ../../arm64-out && sha256sum -- * | tee SHA256SUMS
       - uses: actions/upload-artifact@v4
         if: matrix.shard == 1
         with:

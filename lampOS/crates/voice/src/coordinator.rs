@@ -4887,12 +4887,14 @@ fn conversation_with_gate(
                 && snapshot.listening_ready(now())
                 && unasked_session(&cloud, paused).is_some();
             let face = walk.face_now(clock);
+            let still = walk.still_now(clock);
             let note = walk.tick(
                 clock,
                 clock.saturating_sub(last_turn_us),
                 can_speak,
                 paused,
                 face,
+                still,
             );
             for line in walk.take_records() {
                 record(trace, line)?;

@@ -202,6 +202,10 @@ pub struct Onboarding {
     records: Vec<Value>,
     eyes: Option<lamp_bus::Bus>,
     looked: Option<(u64, Option<Framing>)>,
+    /// When the body was last read, and whether it was still then.
+    felt: Option<(u64, bool)>,
+    /// Where the head joints were last asked to be.
+    goals: Option<[f64; 3]>,
 }
 
 /// The onboarding file, when the switch is on and the path is absolute.
@@ -246,6 +250,8 @@ impl Onboarding {
             records: Vec::new(),
             eyes: None,
             looked: None,
+            felt: None,
+            goals: None,
         }
     }
 
@@ -276,6 +282,35 @@ impl Onboarding {
         }
     }
 
+    /// Whether the head is still and no hand is on the lamp, from the
+    /// body's topics (`body/joint_states`, `body/hand`), read as often as
+    /// the face. No body on the bus: nothing moves the head, still.
+    pub fn still_now(&mut self, now_us: u64) -> bool {
+        if let Some((at, still)) = self.felt
+            && now_us.saturating_sub(at) < READ_EVERY_US / 2
+        {
+            return still;
+        }
+        let fresh = |message: &lamp_bus::Message| {
+            !message.expired && unix_ms().saturating_sub(message.header.at_unix_ms) <= FRESH_MS
+        };
+        let latest = |topic| {
+            self.eyes
+                .as_ref()
+                .and_then(|bus| bus.latest(topic).ok().flatten())
+                .filter(|message| fresh(message))
+        };
+        let joints = latest(lamp_msgs::JointState::TOPIC)
+            .and_then(|message| message.parse::<lamp_msgs::JointState>().ok());
+        let hand = latest(lamp_msgs::Hand::TOPIC)
+            .and_then(|message| message.parse::<lamp_msgs::Hand>().ok())
+            .is_some_and(|hand| hand.pushed);
+        let head = joints.is_none_or(|joints| head_still(&joints, &mut self.goals));
+        let still = head && !hand;
+        self.felt = Some((now_us, still));
+        still
+    }
+
     fn look(&self) -> Option<Framing> {
         let message = self
             .eyes
@@ -294,8 +329,9 @@ impl Onboarding {
 
     /// Call every loop. `quiet_us` is how long nothing has been said to the
     /// lamp or by it; `can_speak` that it may begin a turn of its own now;
-    /// `face` the near face. A note returned is a turn the caller begins
-    /// now as a written request.
+    /// `face` the near face; `still` that the head is still and no hand is
+    /// on the lamp ([`Self::still_now`]). A note returned is a turn the
+    /// caller begins now as a written request.
     pub fn tick(
         &mut self,
         now_us: u64,
@@ -303,6 +339,7 @@ impl Onboarding {
         can_speak: bool,
         paused: bool,
         face: Option<Framing>,
+        still: bool,
     ) -> Option<&'static str> {
         if self
             .read_us
@@ -380,8 +417,11 @@ impl Onboarding {
             }
             return None;
         }
-        // Where you sit: what the eyes see ends it.
-        match face.filter(Framing::good) {
+        // Where you sit: what the eyes see ends it, and only while the head
+        // is still and no hand is on the lamp: a lamp turning toward them,
+        // or being turned, can pass through a good framing mid-move. Any
+        // motion starts the three seconds again.
+        match face.filter(|face| still && face.good()) {
             Some(framing) => {
                 let since = *led.held_since.get_or_insert(now_us);
                 if now_us.saturating_sub(since) >= HOLD_US {
@@ -528,6 +568,47 @@ fn write_private(path: &Path, bytes: &[u8]) -> std::io::Result<()> {
     std::fs::rename(&next, path)
 }
 
+/// The joints that move the camera, as the eyes' full look has them (#842).
+const HEAD: [&str; 3] = ["base_yaw", "head_pitch", "head_roll"];
+/// Six of a servo's 4096 counts a turn from where it was asked to be.
+const ARRIVED_RADIANS: f64 = 6.0 * std::f64::consts::TAU / 4_096.0;
+/// Slower than this is not turning (the full look's line).
+const STILL_RADIANS_A_SECOND: f64 = 25.0 * std::f64::consts::TAU / 4_096.0;
+
+/// Whether the head is still: every head joint within [`ARRIVED_RADIANS`]
+/// of its goal, turning slower than [`STILL_RADIANS_A_SECOND`], and asked
+/// to be where it was asked to be at the last reading. `goals` keeps that
+/// reading. What the body does not say (velocity, goals) is not waited for.
+fn head_still(joints: &lamp_msgs::JointState, goals: &mut Option<[f64; 3]>) -> bool {
+    let given = |list: &[f64]| list.len() == joints.name.len();
+    let mut now = [0.0; 3];
+    for (at, name) in joints.name.iter().enumerate() {
+        let Some(which) = HEAD.iter().position(|head| head == name) else {
+            continue;
+        };
+        let off = given(&joints.commanded)
+            && given(&joints.position)
+            && (joints.commanded[at] - joints.position[at]).abs() > ARRIVED_RADIANS;
+        let turning = given(&joints.velocity) && joints.velocity[at].abs() > STILL_RADIANS_A_SECOND;
+        if off || turning {
+            *goals = None;
+            return false;
+        }
+        if given(&joints.commanded) {
+            now[which] = joints.commanded[at];
+        }
+    }
+    let unchanged = goals.is_none_or(|before| before == now);
+    *goals = Some(now);
+    unchanged
+}
+
+fn unix_ms() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_or(0, |since| since.as_millis() as u64)
+}
+
 /// The largest face in a look, as a framing.
 fn nearest(faces: &lamp_msgs::Faces) -> Option<Framing> {
     faces
@@ -661,6 +742,7 @@ mod tests {
         walk: Onboarding,
         at: u64,
         said: u64,
+        still: bool,
     }
 
     impl Room {
@@ -669,6 +751,7 @@ mod tests {
                 walk: Onboarding::at(file(name)),
                 at: 0,
                 said: 0,
+                still: true,
             }
         }
 
@@ -677,9 +760,9 @@ mod tests {
             let mut notes = Vec::new();
             let until = self.at + for_us;
             while self.at < until {
-                if let Some(note) = self
-                    .walk
-                    .tick(self.at, self.at - self.said, true, false, face)
+                if let Some(note) =
+                    self.walk
+                        .tick(self.at, self.at - self.said, true, false, face, self.still)
                 {
                     notes.push(note);
                     self.said = self.at;
@@ -757,6 +840,7 @@ mod tests {
             walk: Onboarding::at(room.walk.file.clone()),
             at: 0,
             said: 0,
+            still: true,
         };
         assert_eq!(again.walk.kept(), room.walk.kept());
         assert_eq!(again.wait(30 * S, Some(NEAR_MIDDLE)), NONE);
@@ -790,6 +874,63 @@ mod tests {
             args: json!({"step": "dance", "outcome": "done"}),
         };
         assert!(run(&room.walk.file, &wrong).0.get("error").is_some());
+    }
+
+    #[test]
+    fn where_you_sit_holds_only_while_the_head_is_still() {
+        // A head that keeps moving never completes the framing.
+        let mut room = Room::new("moving");
+        room.still = false;
+        let notes = room.wait(30 * S, Some(NEAR_MIDDLE));
+        assert_eq!(notes.first(), Some(&SIT_NOTE));
+        assert!(!notes.contains(&SIT_DONE));
+        assert_eq!(room.outcome(Step::WhereYouSit), None);
+        // Still now: three seconds complete it.
+        room.still = true;
+        assert_eq!(room.wait(3 * S + S / 2, Some(NEAR_MIDDLE)), [SIT_DONE]);
+        assert_eq!(room.outcome(Step::WhereYouSit), Some(Outcome::Done));
+        // Motion mid-hold starts the three seconds again.
+        let mut room = Room::new("mid-hold");
+        assert_eq!(room.wait(4 * S, Some(SIDE)), [SIT_NOTE]);
+        room.wait(2 * S, Some(NEAR_MIDDLE));
+        room.still = false;
+        room.wait(S / 4, Some(NEAR_MIDDLE));
+        room.still = true;
+        room.wait(2 * S + S / 2, Some(NEAR_MIDDLE));
+        assert_eq!(room.outcome(Step::WhereYouSit), None);
+        room.wait(S, Some(NEAR_MIDDLE));
+        assert_eq!(room.outcome(Step::WhereYouSit), Some(Outcome::Done));
+    }
+
+    #[test]
+    fn the_head_is_still_only_at_its_goal_slow_and_with_the_same_goals() {
+        let joints = |off: f64, velocity: f64, goal: f64| lamp_msgs::JointState {
+            name: ["base_yaw", "shoulder", "head_pitch", "head_roll"]
+                .map(String::from)
+                .to_vec(),
+            position: vec![goal + off, 1.0, 0.2, 0.3],
+            velocity: vec![velocity, 2.0, 0.0, 0.0],
+            effort: vec![],
+            commanded: vec![goal, 0.0, 0.2, 0.3],
+        };
+        let count = std::f64::consts::TAU / 4_096.0;
+        let mut goals = None;
+        // At the goal, slow, a moving shoulder: still.
+        assert!(head_still(&joints(5.0 * count, 0.0, 0.1), &mut goals));
+        assert!(head_still(&joints(0.0, 20.0 * count, 0.1), &mut goals));
+        // Seven counts off, or turning fast: moving.
+        assert!(!head_still(&joints(7.0 * count, 0.0, 0.1), &mut goals));
+        assert!(head_still(&joints(0.0, 0.0, 0.1), &mut goals));
+        assert!(!head_still(&joints(0.0, 30.0 * count, 0.1), &mut goals));
+        assert!(head_still(&joints(0.0, 0.0, 0.1), &mut goals));
+        // A new goal, even one already reached: moving, once.
+        assert!(!head_still(&joints(0.0, 0.0, 0.2), &mut goals));
+        assert!(head_still(&joints(0.0, 0.0, 0.2), &mut goals));
+        // A body that says only where its joints are: still.
+        let mut bare = joints(0.0, 0.0, 0.2);
+        bare.velocity.clear();
+        bare.commanded.clear();
+        assert!(head_still(&bare, &mut None));
     }
 
     #[test]
@@ -859,7 +1000,7 @@ mod tests {
         for at in 0..40 {
             assert_eq!(
                 room.walk
-                    .tick(4 * S + at * S, 60 * S, true, true, Some(SIDE)),
+                    .tick(4 * S + at * S, 60 * S, true, true, Some(SIDE), true),
                 None
             );
         }
@@ -875,7 +1016,10 @@ mod tests {
         // Not at rest: nothing is begun.
         let mut busy = Onboarding::at(file("busy"));
         for at in 0..20 {
-            assert_eq!(busy.tick(at * S, 60 * S, false, false, Some(SIDE)), None);
+            assert_eq!(
+                busy.tick(at * S, 60 * S, false, false, Some(SIDE), true),
+                None
+            );
         }
     }
 

@@ -434,7 +434,9 @@ fn section<'a>(text: &'a str, name: &str) -> Vec<&'a str> {
 /// after the jobs it pulls in are queued, so the target's condition holds
 /// back none of its parts (the reviewer on #815): each part in the target
 /// carries the condition itself, in `[Unit]` where systemd reads it. The
-/// two units outside the target listen to nothing and run before setup.
+/// units outside the target listen to nothing and run before setup, but
+/// setup itself, which runs only while the marker is missing, and the path
+/// unit that starts the lamp once it is there (#811).
 #[test]
 fn every_part_of_the_lamp_waits_for_setups_marker_itself() {
     let condition = format!("ConditionPathExists={SETUP_DONE}");
@@ -450,6 +452,14 @@ fn every_part_of_the_lamp_waits_for_setups_marker_itself() {
                 "{name} starts before setup"
             );
             gated.push(*name);
+        } else if *name == "lamp-setup.service" {
+            // Setup is the one that runs while the marker is missing.
+            assert!(unit.contains(&format!("ConditionPathExists=!{SETUP_DONE}").as_str()));
+        } else if *name == "lampos-setup-done.path" {
+            // And this starts the lamp once it is there.
+            let path = section(text, "Path");
+            assert!(path.contains(&format!("PathExists={SETUP_DONE}").as_str()));
+            assert!(path.contains(&"Unit=lampos.target"));
         } else {
             assert!(
                 !text.contains("lampos-setup"),
@@ -457,7 +467,7 @@ fn every_part_of_the_lamp_waits_for_setups_marker_itself() {
             );
         }
     }
-    assert_eq!(gated.len(), 15, "{gated:?}");
+    assert_eq!(gated.len(), 16, "{gated:?}");
     for outside in ["lamp-update.service", "lamp-records.timer"] {
         assert!(!gated.contains(&outside), "{outside}");
     }

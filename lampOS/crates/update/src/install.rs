@@ -112,6 +112,20 @@ pub const PRODUCT: &[(&str, &str)] = &[
         "lamp-update.service",
         include_str!("../../../deploy/product/lamp-update.service"),
     ),
+    // Setup at first boot, its reset, and the start of the lamp once it is
+    // set up (#806, #811).
+    (
+        "lamp-setup.service",
+        include_str!("../../../deploy/product/lamp-setup.service"),
+    ),
+    (
+        "lamp-setup-reset.service",
+        include_str!("../../../deploy/product/lamp-setup-reset.service"),
+    ),
+    (
+        "lampos-setup-done.path",
+        include_str!("../../../deploy/product/lampos-setup-done.path"),
+    ),
 ];
 
 /// The product's settings that no build carries, and where each goes:
@@ -154,7 +168,11 @@ fn enabled() -> Vec<String> {
         .iter()
         .map(|(name, _)| *name)
         .filter(|name| name.ends_with(".service") && *name != "lamp-records.service")
-        .chain(["lampos.target", "lamp-records.timer"])
+        .chain([
+            "lampos.target",
+            "lamp-records.timer",
+            "lampos-setup-done.path",
+        ])
         .map(str::to_owned)
         .collect()
 }
@@ -173,9 +191,16 @@ pub fn part(text: &str) -> Option<Part> {
     unit::linked(text).map(|(folder, binary)| Part { folder, binary })
 }
 
-/// Every part of the product, in the order of `PRODUCT`.
+/// Every part of the product, in the order of `PRODUCT`, each once: setup
+/// and its reset start the same binary.
 pub fn parts() -> Vec<Part> {
-    PRODUCT.iter().filter_map(|(_, text)| part(text)).collect()
+    let mut parts: Vec<Part> = Vec::new();
+    for part in PRODUCT.iter().filter_map(|(_, text)| part(text)) {
+        if !parts.contains(&part) {
+            parts.push(part);
+        }
+    }
+    parts
 }
 
 /// What `install` asks of the machine, behind a trait so that the tests
@@ -729,11 +754,18 @@ mod tests {
     #[test]
     fn every_product_part_starts_through_its_current_link() {
         let parts = parts();
+        for (name, text) in PRODUCT
+            .iter()
+            .filter(|(name, _)| name.ends_with(".service"))
+        {
+            assert!(part(text).is_some(), "{name} starts through a current link");
+        }
+        // Setup and its reset share one binary; every other service is a part.
         let services = PRODUCT
             .iter()
             .filter(|(name, _)| name.ends_with(".service"))
             .count();
-        assert_eq!(parts.len(), services, "every product service is a part");
+        assert_eq!(parts.len(), services - 1, "every product service is a part");
         for part in &parts {
             let name = part.binary.trim_start_matches("lamp-");
             assert_eq!(part.folder, format!("/opt/lampOS/{name}/"), "{part:?}");

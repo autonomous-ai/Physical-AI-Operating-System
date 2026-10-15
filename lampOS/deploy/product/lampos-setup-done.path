@@ -1,0 +1,12 @@
+# Starts the lamp once setup has written its marker (#806, lampOS/docs/install.md): the moment setup
+# finishes, and at every later power-up, when the marker is already there. On a lamp brought up by
+# the keeper's package the keeper does this instead (--setup-marker, #816).
+[Unit]
+Description=lampOS: start the lamp once it is set up
+
+[Path]
+PathExists=/var/lib/lampos-setup/done
+Unit=lampos.target
+
+[Install]
+WantedBy=multi-user.target

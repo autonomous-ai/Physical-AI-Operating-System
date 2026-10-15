@@ -295,13 +295,26 @@ reads itself:
 - None of the old runtime's units running (`hal`, `os-server`,
   `led-boot`, `led-shutdown`): the voice refuses to start beside them
   (keeper.md).
-- **Setup's unit, `lamp-setup.service`, and what starts it while the
-  marker is missing** (the keeper's `--setup-marker`, #816 and #817).
-  `deploy/product/` carries neither yet (#806 hands back setup's unit), and
-  setup's unit has no `[Install]` of its own. Until they are added here, a
-  blank lamp with only this install never enters setup, and so never
-  starts the lamp: the parts wait for setup's marker (the reviewer on
-  #815).
+- **Setup's settings**, `/etc/lampOS/setup/serve.json` and
+  `/etc/lampOS/setup/reset-plan.json` (docs/setup.md, "On a lamp"). Not yet
+  written by `install` (asked on #811: the credential's path and the
+  product's stores). Until they are there, `lamp-setup.service` does not
+  start (its conditions), so a blank lamp does not enter setup.
+
+## Setup at first boot, without the keeper
+
+The keeper honours `--setup-marker` only when it runs as the old updater's
+package (#816); a lamp installed by `install` has no keeper bring-up. So the
+product does it with systemd alone (#811):
+
+| Unit | Runs | Does |
+|---|---|---|
+| `lamp-setup.service` | at boot, `WantedBy=multi-user.target`, only while `/var/lib/lampos-setup/done` is missing and setup's two settings exist | the hotspot and V1's setup page until the home's Wi-Fi and the person's settings are saved; then writes the marker |
+| `lampos-setup-done.path` | at boot, `WantedBy=multi-user.target` | starts `lampos.target` once the marker exists: the moment setup writes it, and at every later boot |
+| `lamp-setup-reset.service` | in the target, after setup | the reset button held 5 s: stops the lamp, wipes, removes the marker, reboots into setup |
+
+Setup and its reset start the same binary, `/opt/lampOS/setup/current/lamp-setup`.
+`install` writes and enables all three and starts none.
 
 ## The install command
 

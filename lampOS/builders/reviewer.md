@@ -44,12 +44,26 @@ Every ready pull request into `lamp-voice` (not a draft), oldest first.
    <time>`), and close the issue by hand if the pull request says it closes
    it: a merge into `lamp-voice` does not close issues.
 4. **Leave it to the first builder**, with a comment
-   `Reviewer: for the first builder: <why>`, when any of these hold: it is
-   on by default or changes what lamp-4ace does now; it needs a lamp to
-   judge (how a sound, a movement or a light looks or feels to a person);
-   it changes `lamp-voice`'s shared contracts (`crates/msgs`, `crates/bus`,
-   `crates/ipc`) in a way other parts read; or its builder asks for a
-   minute on lamp-4ace.
+   `Reviewer: for the first builder: <why>`, only when one of these holds:
+   - it is **on by default**, so merging it changes what lamp-4ace does at
+     its next install (a fix that is on by default included);
+   - it touches the **privacy path**: what opens or closes a microphone or
+     the camera, or the mute;
+   - it **changes or removes** a field or meaning in `crates/msgs`,
+     `crates/bus` or `crates/ipc` that another part already reads;
+   - its builder asks for a minute on lamp-4ace.
+
+   **These are yours to merge** (first builder, 2026-10-15 15:22; the first
+   rule sent nearly everything back and made the first builder the
+   bottleneck again):
+   - a **new** message type, topic or optional field, when its readers are
+     behind the same switch or in the same pull request;
+   - a physical behaviour (sound, movement, light) behind a switch that its
+     builder has **shown on its own lamp**, with the verification in the
+     pull request. lamp-4ace's minute comes when the first builder switches
+     it on, not before the merge;
+   - a pull request that depends on another: merge the other first, then
+     this one.
 
 Take a time from `date` for every comment. Keep a log of what was merged
 and left, newest first, in `lampOS/docs/work-log-reviewer.md` on a

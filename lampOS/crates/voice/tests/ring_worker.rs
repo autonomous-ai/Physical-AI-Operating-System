@@ -27,6 +27,7 @@ fn now() -> MonoTime {
 struct Writes {
     frames: Vec<EncodedFrame>,
     fail_at: Vec<usize>,
+    late_first: bool,
 }
 #[derive(Clone)]
 struct Sink(Arc<Mutex<Writes>>);
@@ -35,6 +36,10 @@ impl FrameSink for Sink {
         let mut writes = self.0.lock().unwrap();
         writes.frames.push(frame.clone());
         let call = writes.frames.len();
+        if writes.late_first && call == 1 {
+            // Over lamp_ring::WRITE_BUDGET_US, as a bus held by SD/MMC re-tuning.
+            thread::sleep(Duration::from_millis(15));
+        }
         if writes.fail_at.contains(&call) {
             return Err(io::Error::other(format!("injected write {call}")));
         }
@@ -76,6 +81,9 @@ struct Rig {
 }
 impl Rig {
     fn start(fail_at: &[usize]) -> Self {
+        Self::start_with(fail_at, false)
+    }
+    fn start_with(fail_at: &[usize], late_first: bool) -> Self {
         let directory = SessionDirectory::create().unwrap();
         let boot = new_boot().unwrap();
         let child_boot = new_boot().unwrap();
@@ -88,6 +96,7 @@ impl Rig {
         let parent = Arc::new(Mutex::new(parent));
         let writes = Arc::new(Mutex::new(Writes {
             fail_at: fail_at.to_vec(),
+            late_first,
             ..Writes::default()
         }));
         let after_receive = Arc::new(Mutex::new(VecDeque::new()));
@@ -226,6 +235,47 @@ fn startup_stop_and_no_turn_never_invent_readiness_color() {
     ));
     rig.finish().unwrap();
     assert_eq!(rig.colored(), 0);
+}
+
+#[test]
+fn late_startup_black_write_is_reported_once_on_stderr() {
+    // The report is on stderr, so the scenario runs in a child copy of this
+    // test binary and the parent reads what it printed.
+    const CHILD: &str = "LAMP_RING_LATE_STARTUP_CHILD";
+    if std::env::var_os(CHILD).is_some() {
+        let mut rig = Rig::start_with(&[], true);
+        rig.ready();
+        rig.control(Control::Stop);
+        assert!(matches!(
+            rig.event(),
+            WorkerEvent::Ring {
+                report: RingFeedback::Blanked {
+                    reason: RingBlankReason::Shutdown,
+                    ..
+                }
+            }
+        ));
+        rig.finish().unwrap();
+        return;
+    }
+    let output = std::process::Command::new(std::env::current_exe().unwrap())
+        .args([
+            "--exact",
+            "late_startup_black_write_is_reported_once_on_stderr",
+            "--nocapture",
+            "--test-threads=1",
+        ])
+        .env(CHILD, "1")
+        .output()
+        .unwrap();
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(output.status.success(), "child failed: {stderr}");
+    assert_eq!(
+        stderr.matches("came back over its 10000 us budget").count(),
+        1,
+        "stderr: {stderr}"
+    );
+    assert!(stderr.contains("(1 so far)"), "stderr: {stderr}");
 }
 
 #[test]

@@ -356,7 +356,8 @@ fn service(
     face.eye(eye);
     face.eye_strong(eye_strong);
     let mut rested_at = 0u64;
-    let mut late_said = ring.late_writes();
+    // From zero, so a late startup black write in GuardedRing::new is said too.
+    let mut late_said = 0;
     loop {
         // A late SPI write (the SD/MMC host re-tuning holds the bus) is a
         // late frame, said once each; only a run of them ends the ring (#911).

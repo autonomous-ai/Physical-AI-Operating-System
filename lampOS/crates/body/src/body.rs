@@ -2664,7 +2664,8 @@ pub(crate) fn run_alive(
         _ => OVERLOAD_LOAD,
     });
     let mut overloaded = [0u16; 5];
-    let mut let_go_at: Option<Duration> = None;
+    // When an overload last let the lamp go: a slump from a hand is not one.
+    let mut overload_at: Option<Duration> = None;
     // Under `--limp on`: a hand that stopped the lamp coming up again lets
     // it go again on the next step.
     let mut slump_again: Option<(Joint, u16)> = None;
@@ -3578,8 +3579,10 @@ pub(crate) fn run_alive(
         if let Some((joint, load)) = tripped {
             let now = bus.runtime.now();
             let again =
-                !by_hand && let_go_at.is_some_and(|at| now.saturating_sub(at) < OVERLOAD_AGAIN);
-            let_go_at = Some(now);
+                !by_hand && overload_at.is_some_and(|at| now.saturating_sub(at) < OVERLOAD_AGAIN);
+            if !by_hand {
+                overload_at = Some(now);
+            }
             report.released.push(Released {
                 joint: joint.name(),
                 load,

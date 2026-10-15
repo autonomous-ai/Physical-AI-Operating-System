@@ -4237,7 +4237,7 @@ fn a_call_is_glanced_for_over_a_shift_at_rest() {
 #[test]
 fn a_base_still_pushed_a_second_after_it_stopped_makes_the_lamp_slump_as_v1() {
     let secs = Duration::from_secs_f32;
-    let ran = |limp: bool, cancel: f32, again: f32| {
+    let ran = |give_way: Option<GiveWay>, limp: bool, cancel: f32, again: f32| {
         let (mut lamp, mut clock) = folded(secs(cancel));
         lamp.may_take_hold = true;
         // A hand turns the base 30 counts and holds it there until 3 s;
@@ -4250,7 +4250,7 @@ fn a_base_still_pushed_a_second_after_it_stopped_makes_the_lamp_slump_as_v1() {
             (secs(again), secs(again + 2.0), YAW, 600),
         ];
         let limits = Limits {
-            give_way: limp.then_some(GiveWay::Return),
+            give_way,
             limp,
             ..giving_way(GiveWay::Return)
         };
@@ -4265,7 +4265,7 @@ fn a_base_still_pushed_a_second_after_it_stopped_makes_the_lamp_slump_as_v1() {
         (lamp, report)
     };
 
-    let (lamp, report) = ran(true, 280.0, 135.0);
+    let (lamp, report) = ran(Some(GiveWay::Return), true, 280.0, 135.0);
     assert_eq!(report.stop, Stop::Cancelled, "{report:?}");
     assert_eq!(report.released.len(), 2, "{:?}", report.released);
     assert_eq!(report.released[0].joint, "base_yaw");
@@ -4297,19 +4297,96 @@ fn a_base_still_pushed_a_second_after_it_stopped_makes_the_lamp_slump_as_v1() {
     // The second, from the push once it was up.
     assert!(report.released[1].seconds > 135.0, "{:?}", report.released);
 
-    // Without the option: never a torque write, and the run ends.
     // Pushed while it is brought up again: it lets go again at once.
-    let (_, report) = ran(true, 280.0, 123.0);
+    let (_, report) = ran(Some(GiveWay::Return), true, 280.0, 123.0);
     assert_eq!(report.stop, Stop::Cancelled, "{report:?}");
     assert_eq!(report.released.len(), 2, "{:?}", report.released);
     assert!(report.released[1].seconds < 126.0, "{:?}", report.released);
 
-    let (lamp, report) = ran(false, 8.0, 135.0);
+    // Without `--limp`, `--give-way return` as it was: the same hands are
+    // given way to, the run goes on, never a torque write, and every goal
+    // written is the one `--give-way return` alone writes.
+    let (with_limp_off, report) = ran(Some(GiveWay::Return), false, 280.0, 135.0);
+    assert_eq!(report.stop, Stop::Cancelled, "{report:?}");
+    assert!(report.released.is_empty(), "{:?}", report.released);
+    assert!(
+        with_limp_off
+            .registers
+            .iter()
+            .all(|(_, address, _)| *address != 40)
+    );
+    let (mut alone, mut clock) = folded(secs(280.0));
+    alone.may_take_hold = true;
+    alone.hand = Some((secs(1.5), secs(3.0), YAW, 2_045.0));
+    alone.strains = vec![
+        (secs(1.5), secs(3.0), YAW, 600),
+        (secs(135.0), secs(137.0), YAW, 600),
+    ];
+    let baseline = run(
+        &mut alone,
+        &mut clock,
+        giving_way(GiveWay::Return),
+        None,
+        || Some((Mood::Resting, 0)),
+        |_| {},
+    );
+    assert_eq!(baseline.stop, report.stop);
+    assert_eq!(alone.goals, with_limp_off.goals);
+    assert_eq!(alone.registers, with_limp_off.registers);
+
+    // Without either option the same hand ends the run, as before.
+    let (lamp, report) = ran(None, false, 8.0, 135.0);
     assert!(
         matches!(report.stop, Stop::Load { joint: 1, .. }),
         "{report:?}"
     );
     assert!(lamp.registers.iter().all(|(_, address, _)| *address != 40));
+}
+
+/// A slump from a hand is not an overload: the first true overload after
+/// it rests two minutes and is taken up again, rather than being counted
+/// as the second within ten minutes, which would end the run with torque
+/// left off.
+#[test]
+fn a_hand_slump_then_an_overload_rests_and_comes_back_instead_of_ending_the_run() {
+    let secs = Duration::from_secs_f32;
+    let (mut lamp, mut clock) = folded(secs(400.0));
+    lamp.may_take_hold = true;
+    lamp.hand = Some((secs(1.5), secs(3.0), YAW, 2_045.0));
+    lamp.strains = vec![
+        (secs(1.5), secs(3.0), YAW, 600),
+        // Then the shoulder, which no hand rule watches, at 900 for 3 s.
+        (secs(150.0), secs(153.0), 1, 900),
+    ];
+    let limits = Limits {
+        limp: true,
+        overload_release: true,
+        ..giving_way(GiveWay::Return)
+    };
+    let report = run(
+        &mut lamp,
+        &mut clock,
+        limits,
+        None,
+        || Some((Mood::Resting, 0)),
+        |_| {},
+    );
+    assert_eq!(report.stop, Stop::Cancelled, "{report:?}");
+    assert_eq!(report.released.len(), 2, "{:?}", report.released);
+    assert_eq!(report.released_by_hand, [0, 0, 1]);
+    assert_eq!(report.released[1].joint, "base_pitch");
+    // Taken hold of again two minutes after the overload: torque on again.
+    let overload = secs(report.released[1].seconds);
+    assert!(
+        lamp.register_times
+            .iter()
+            .zip(&lamp.registers)
+            .any(|(t, (_, address, data))| *t > overload + OVERLOAD_REST
+                && *address == 40
+                && data == &vec![1]),
+        "{:?}",
+        report.released
+    );
 }
 
 /// As lamp-52e6 on 2026-10-15: after a slump the head lies low and lifts

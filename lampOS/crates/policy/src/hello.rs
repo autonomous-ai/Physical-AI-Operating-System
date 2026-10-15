@@ -46,10 +46,23 @@ pub const QUIET_FOR: Duration = Duration::from_secs(15);
 pub const UNASKED_AFTER: Duration = Duration::from_secs(10);
 /// The voice holds a due hello this long for the decision.
 pub const VOICE_WAITS: Duration = Duration::from_secs(2);
-/// In shadow, a hello chosen and a turn the lamp began itself this close
-/// together are one greeting: the voice said its own rule's hello for the
-/// same arrival, after holding it for the decision (the reviewer on #883).
+/// In shadow, a hello chosen and a turn the lamp began itself (its first
+/// `thinking` or `speaking`) this close together are one greeting: the voice
+/// said its own rule's hello for the same arrival, after holding it for the
+/// decision (the reviewer on #883). The turn is followed from its beginning
+/// to its end, however late its first sound comes (the model may take up to
+/// 30 s to answer): spoken, it is counted once, as a turn the lamp began;
+/// ended without a sound, the hello chosen is counted once, as chosen.
 pub const ONE_GREETING_WITHIN: Duration = Duration::from_secs(5);
+
+/// A turn the lamp began itself, unasked, from its beginning to its end.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+struct OwnTurn {
+    /// The shadow hello it is the greeting of, taken from `notes`.
+    claimed: Option<Instant>,
+    /// Its sound began: it is counted in `unasked`.
+    spoke: bool,
+}
 /// The most one asking may take, whatever `--deadline-ms` says: a model late
 /// past it leaves the rule time to answer before the voice stops waiting.
 pub const MOST_ASKING: Duration = Duration::from_millis(1_500);
@@ -313,6 +326,8 @@ pub struct Hello {
     /// Hellos chosen, which in shadow nobody hears, and the last one that
     /// acted.
     notes: VecDeque<Instant>,
+    /// The turn the lamp began itself, while it lasts.
+    own_turn: Option<OwnTurn>,
     greeted: Option<Instant>,
     totals: Totals,
 }
@@ -352,6 +367,7 @@ impl Hello {
             last_listening: None,
             unasked: VecDeque::new(),
             notes: VecDeque::new(),
+            own_turn: None,
             greeted: None,
             totals: Totals::default(),
         })
@@ -387,27 +403,46 @@ impl Hello {
 
     /// What the voice is doing, as the progress question takes it.
     pub fn voice(&mut self, state: Voice, now: Instant) {
+        let unasked = self
+            .last_listening
+            .is_none_or(|at| now.saturating_duration_since(at) > UNASKED_AFTER);
+        // A turn the lamp begins itself: its first `thinking` or `speaking`
+        // with nobody listened to lately. In shadow, the hello chosen just
+        // before is this very greeting, said by the voice's own rule after
+        // holding it for the decision: it is taken from the notes now, and
+        // given back if the turn ends without a sound ([`ONE_GREETING_WITHIN`]).
+        if matches!(state, Voice::Thinking | Voice::Speaking)
+            && !matches!(
+                self.voice,
+                Some(Voice::Listening | Voice::Thinking | Voice::Speaking)
+            )
+            && unasked
+            && self.own_turn.is_none()
+        {
+            let claimed = (!self.options.act)
+                .then(|| {
+                    self.notes.iter().rposition(|chosen| {
+                        now.saturating_duration_since(*chosen) <= ONE_GREETING_WITHIN
+                    })
+                })
+                .flatten()
+                .and_then(|at| self.notes.remove(at));
+            self.own_turn = Some(OwnTurn {
+                claimed,
+                spoke: false,
+            });
+        }
         match state {
             Voice::Listening => {
+                self.end_own_turn();
                 self.last_listening = Some(now);
                 self.last_talk = Some(now);
             }
             Voice::Speaking => {
-                if self.voice != Some(Voice::Speaking)
-                    && self
-                        .last_listening
-                        .is_none_or(|at| now.saturating_duration_since(at) > UNASKED_AFTER)
-                {
+                if self.voice != Some(Voice::Speaking) && unasked {
                     self.unasked.push_back(now);
-                    // In shadow, the hello chosen just before is this very
-                    // greeting, said by the voice's own rule: counted once,
-                    // as the turn the lamp began.
-                    if !self.options.act
-                        && let Some(at) = self.notes.iter().rposition(|chosen| {
-                            now.saturating_duration_since(*chosen) <= ONE_GREETING_WITHIN
-                        })
-                    {
-                        self.notes.remove(at);
+                    if let Some(turn) = self.own_turn.as_mut() {
+                        turn.spoke = true;
                     }
                 }
                 self.last_talk = Some(now);
@@ -418,6 +453,7 @@ impl Hello {
             // second, so that one can be most of a second old (the
             // reviewer's finding on #751's progress question, the same).
             Voice::Resting => {
+                self.end_own_turn();
                 if matches!(
                     self.voice,
                     Some(Voice::Listening | Voice::Thinking | Voice::Speaking)
@@ -429,7 +465,22 @@ impl Hello {
         self.voice = Some(state);
     }
 
+    /// The turn the lamp began itself is over. One that never made a sound
+    /// was not heard: the hello it had taken is a hello chosen again, in its
+    /// place among the notes.
+    fn end_own_turn(&mut self) {
+        if let Some(OwnTurn {
+            claimed: Some(at),
+            spoke: false,
+        }) = self.own_turn.take()
+        {
+            let place = self.notes.partition_point(|chosen| *chosen <= at);
+            self.notes.insert(place, at);
+        }
+    }
+
     pub fn voice_gone(&mut self) {
+        self.end_own_turn();
         self.voice = None;
     }
 
@@ -872,5 +923,41 @@ mod tests {
         assert_eq!(spoke(false, Some(true)), (1, Choice::SayNow));
         assert_eq!(spoke(false, None), (1, Choice::SayNow));
         assert_eq!(spoke(true, Some(true)), (1, Choice::SayNow));
+    }
+
+    /// The reviewer on #883 (01:33): the voice's greeting begins with
+    /// `thinking` and may make its first sound much later (the model may
+    /// take up to 30 s). Followed from its beginning, it is still one
+    /// greeting; a turn that ends without a sound leaves the hello chosen
+    /// counted once, as chosen.
+    #[test]
+    fn a_greeting_whose_first_sound_comes_late_is_still_counted_once() {
+        let run = |speaks_at: Option<Duration>| {
+            let options = Options::new(Duration::from_millis(50), None);
+            let mut hello = Hello::start(Never, options).unwrap();
+            let t = Instant::now();
+            let first = decided(&mut hello, 1, t + Duration::from_millis(500));
+            assert_eq!(first.line.judgement.choice, Choice::SayNow);
+            // Waiting for the model is said as thinking, once a second.
+            hello.voice(Voice::Thinking, t + Duration::from_millis(600));
+            hello.voice(Voice::Thinking, t + Duration::from_millis(1_600));
+            match speaks_at {
+                Some(at) => {
+                    hello.voice(Voice::Speaking, t + at);
+                    hello.voice(Voice::Resting, t + at + Duration::from_secs(2));
+                }
+                None => hello.voice(Voice::Resting, t + Duration::from_secs(3)),
+            }
+            let later = t + AT_MOST_EVERY + Duration::from_secs(1);
+            let second = decided(&mut hello, 2, later);
+            (
+                second.line.context.spoke_up_last_hour,
+                second.line.judgement.choice,
+            )
+        };
+        assert_eq!(run(Some(Duration::from_secs(6))), (1, Choice::SayNow));
+        assert_eq!(run(Some(Duration::from_secs(30))), (1, Choice::SayNow));
+        // Cancelled before its first sound: the hello chosen, once.
+        assert_eq!(run(None), (1, Choice::SayNow));
     }
 }

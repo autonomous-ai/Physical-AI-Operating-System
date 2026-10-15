@@ -20,6 +20,28 @@ fn main() {
         std::process::exit(1);
     }
 }
+/// `stt-check`'s `[ROUNDS] [--held-ms MS]`, in that order: three rounds,
+/// and nothing held, unless said. At most 20 rounds and 1.6 s held, the
+/// longest a paused reply holds (#828).
+fn stt_check_options(rest: &[String]) -> Result<(u32, u32)> {
+    let usage = || io::Error::other("usage: stt-check CONFIG WAV [ROUNDS] [--held-ms MS]");
+    let (rounds, rest) = match rest {
+        [rounds, rest @ ..] if !rounds.starts_with("--") => {
+            (rounds.parse().map_err(|_| usage())?, rest)
+        }
+        _ => (3, rest),
+    };
+    let held = match rest {
+        [] => 0,
+        [flag, ms] if flag == "--held-ms" => ms.parse().map_err(|_| usage())?,
+        _ => return Err(usage().into()),
+    };
+    if !(1..=20).contains(&rounds) || held > 1_600 {
+        return Err(usage().into());
+    }
+    Ok((rounds, held))
+}
+
 fn run() -> Result<()> {
     let args = std::env::args().skip(1).collect::<Vec<_>>();
     match args.as_slice() {
@@ -30,6 +52,54 @@ fn run() -> Result<()> {
             let shorts=lamp_voice::short_turns::short_turns(&lamp_voice::short_turns::records_under(Path::new(sessions))?);
             for short in &shorts { println!("{}",short.row()); }
             println!("{}",lamp_voice::short_turns::summary(&shorts));
+        },
+        // stt-check CONFIG WAV [ROUNDS] [--held-ms MS]: how soon the second
+        // voice's speech-to-text (its CONFIG, the file
+        // LAMP_VOICE_SECOND_CONFIG names) gives back the first words of a
+        // recorded line, 16 kHz mono (#828). The first MS of the line go at
+        // once, as a paused reply's held audio would; the rest at the pace
+        // it was said. One line a round, with the words heard.
+        [command, config, wav, rest @ ..] if command == "stt-check" && rest.len() <= 3 => {
+            let (rounds, held_ms) = stt_check_options(rest)?;
+            let config = lamp_voice::second_config::load_from_path(Path::new(config))?;
+            let mut reader = hound::WavReader::open(wav)?;
+            let spec = reader.spec();
+            if spec.sample_rate != 16_000 || spec.channels != 1 || spec.bits_per_sample != 16 {
+                return Err(io::Error::other("stt-check: the line must be 16 kHz mono 16-bit").into());
+            }
+            let samples = reader.samples::<i16>().collect::<std::result::Result<Vec<_>, _>>()?;
+            let held = samples.len().min(held_ms as usize * 16);
+            tokio::runtime::Builder::new_current_thread().enable_all().build()?.block_on(async {
+                use tokio::time::{Duration, Instant, interval};
+                for round in 1..=rounds {
+                    let asked = Instant::now();
+                    let stream = lamp_voice::second_provider::net::SttStream::connect(&config).await?;
+                    let connected = asked.elapsed();
+                    let first_words = stream.first_words();
+                    let sent = Instant::now();
+                    if held > 0 {
+                        stream.send(&samples[..held])?;
+                    }
+                    let mut pace = interval(Duration::from_millis(20));
+                    for frame in samples[held..].chunks(320) {
+                        pace.tick().await;
+                        stream.send(frame)?;
+                    }
+                    let audio_end = Instant::now();
+                    let words = stream.finish(u64::from(round)).await?;
+                    let finished = audio_end.elapsed();
+                    let first = first_words
+                        .get()
+                        .map_or_else(|| "none".to_owned(), |at| at.duration_since(sent).as_millis().to_string());
+                    println!(
+                        "round={round} held_ms={held_ms} connect_ms={} first_words_ms={first} audio_ms={} final_after_audio_ms={} words={words:?}",
+                        connected.as_millis(),
+                        audio_end.duration_since(sent).as_millis(),
+                        finished.as_millis()
+                    );
+                }
+                Ok::<_, Box<dyn std::error::Error + Send + Sync>>(())
+            })?;
         },
         [command] if command == "schedule-consumer" => {
             lamp_voice::reminders::run_consumer()?;
@@ -570,5 +640,33 @@ fn probe(mut channels: WorkerChannels) -> Result<()> {
             return Err(io::Error::other("controller heartbeat expired").into());
         }
         std::thread::sleep(std::time::Duration::from_millis(2));
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::stt_check_options;
+
+    fn options(list: &[&str]) -> Option<(u32, u32)> {
+        let list = list.iter().map(|s| (*s).to_owned()).collect::<Vec<_>>();
+        stt_check_options(&list).ok()
+    }
+
+    #[test]
+    fn stt_checks_options_are_rounds_then_what_is_held_within_their_bounds() {
+        assert_eq!(options(&[]), Some((3, 0)));
+        assert_eq!(options(&["5"]), Some((5, 0)));
+        assert_eq!(options(&["--held-ms", "600"]), Some((3, 600)));
+        assert_eq!(options(&["2", "--held-ms", "1600"]), Some((2, 1_600)));
+        for refused in [
+            &["0"][..],
+            &["21"],
+            &["--held-ms", "1601"],
+            &["--held-ms"],
+            &["2", "--held"],
+            &["many"],
+        ] {
+            assert_eq!(options(refused), None, "{refused:?}");
+        }
     }
 }

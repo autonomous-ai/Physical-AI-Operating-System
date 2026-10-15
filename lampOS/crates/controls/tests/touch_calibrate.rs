@@ -1,6 +1,6 @@
 use lamp_controls::{
     mpr121::{self, Charge, Config, Signals},
-    touch_calibrate::{self, Chip, Clock, Plan, Verdict, thresholds},
+    touch_calibrate::{self, Chip, Clock, Plan, Verdict, quiet_swing, thresholds},
 };
 use std::{
     cell::Cell,
@@ -159,7 +159,7 @@ fn the_rule_sets_each_threshold_between_noise_and_the_weakest_swipe() {
     assert_eq!(thresholds(2, 6, &PLAN), Err(Verdict::TooCloseToNoise));
     assert_eq!(thresholds(2, 7, &PLAN), Ok((4, 3)));
     assert_eq!(thresholds(3, 43, &PLAN), Ok((19, 11)));
-    assert_eq!(thresholds(0, 1023, &PLAN), Ok((255, 205)));
+    assert_eq!(thresholds(0, 1023, &PLAN), Ok((255, 204)));
     assert_eq!(thresholds(254, 1023, &PLAN), Err(Verdict::TooCloseToNoise));
     let half = Plan {
         touch_percent: 50,
@@ -167,14 +167,38 @@ fn the_rule_sets_each_threshold_between_noise_and_the_weakest_swipe() {
         ..PLAN
     };
     assert_eq!(thresholds(4, 44, &half), Ok((24, 14)));
-    for plan in [PLAN, half] {
-        for noise in 0..=300 {
-            for weakest in 0..=1023 {
-                if let Ok((touch, release)) = thresholds(noise, weakest, &plan) {
-                    let (touch, release) = (u16::from(touch), u16::from(release));
-                    assert!(release < touch, "{noise} {weakest}");
-                    assert!(release > noise, "{noise} {weakest}");
-                    assert!(touch >= noise + 2 && touch < weakest, "{noise} {weakest}");
+    // Reviewer, #797: at 90% the weakest swipe 7 must still be above touch,
+    // since the chip needs its delta strictly above the threshold.
+    let ninety = Plan {
+        touch_percent: 90,
+        ..PLAN
+    };
+    assert_eq!(thresholds(2, 7, &ninety), Ok((6, 3)));
+    // Every accepted pair of percentages keeps noise < release < touch < weakest.
+    for touch_percent in 10..=90 {
+        for release_percent in 0..touch_percent {
+            let plan = Plan {
+                touch_percent,
+                release_percent,
+                ..PLAN
+            };
+            plan.check().unwrap();
+            for noise in [0, 1, 2, 3, 5, 8, 13, 40, 100, 200, 250, 252, 253, 254] {
+                let near = noise..noise + 30;
+                for weakest in near.chain([noise + 61, noise + 255, 640, 1023]) {
+                    match thresholds(noise, weakest, &plan) {
+                        Ok((touch, release)) => {
+                            let (touch, release) = (u16::from(touch), u16::from(release));
+                            assert!(
+                                noise < release && release < touch && touch < weakest,
+                                "{touch_percent}/{release_percent}: {noise} {weakest} -> {touch}/{release}"
+                            );
+                        }
+                        Err(verdict) => {
+                            assert_eq!(verdict, Verdict::TooCloseToNoise);
+                            assert!(weakest < noise + 5 || noise > 253, "{noise} {weakest}");
+                        }
+                    }
                 }
             }
         }
@@ -182,9 +206,39 @@ fn the_rule_sets_each_threshold_between_noise_and_the_weakest_swipe() {
 }
 
 #[test]
+fn the_noise_counts_the_baseline_bits_the_chip_does_not_show() {
+    // The chip keeps a 10-bit baseline and shows its upper 8 bits.
+    assert_eq!(quiet_swing(0), 3);
+    assert_eq!(quiet_swing(2), 5);
+    assert_eq!(quiet_swing(-1), 2);
+    assert_eq!(quiet_swing(-2), 2);
+    assert_eq!(quiet_swing(-5), 5);
+    // Reviewer, #797: internal baseline 515, filtered 512, read baseline 512.
+    // The read delta is 0, but the chip compares 3, so a weakest swipe of 5
+    // leaves no room for a release above what the quiet room already does.
+    let noise = quiet_swing(512 - 512);
+    assert_eq!(noise, 3);
+    assert_eq!(thresholds(noise, 5, &PLAN), Err(Verdict::TooCloseToNoise));
+    // Through the whole calibration: a perfectly flat read and swipes of 7.
+    let (report, _) = run(
+        |t| {
+            if t >= 22 * S { [7; 12] } else { [0; 12] }
+        },
+        None,
+    )
+    .unwrap();
+    for pad in &report.pads {
+        assert_eq!(pad.noise, 3, "E{}", pad.electrode);
+        assert_eq!(pad.weakest, 7, "E{}", pad.electrode);
+        assert_eq!(pad.verdict, Verdict::TooCloseToNoise, "E{}", pad.electrode);
+    }
+    assert_eq!(report.apply(&base().profile), None);
+}
+
+#[test]
 fn the_three_steps_measure_noise_and_swipes_of_working_pads_only() {
     // E9 is swiped too lightly and E10 never, but for one flick.
-    let (report, said) = run(script(6, 0), None).unwrap();
+    let (report, said) = run(script(9, 0), None).unwrap();
     assert_eq!(said.len(), 3);
     assert!(said[0].starts_with("hands away"), "{said:?}");
     assert!(said[1].contains("noise for 5 s"), "{said:?}");
@@ -202,12 +256,13 @@ fn the_three_steps_measure_noise_and_swipes_of_working_pads_only() {
     assert_eq!(electrodes, [0, 1, 2, 3, 5, 6, 7, 9, 10, 11]);
     for pad in &report.pads {
         let e = usize::from(pad.electrode);
-        assert_eq!(pad.noise, if e == 6 { 5 } else { 2 }, "E{e}");
+        // Read swings of ±2 (E6: ±5), plus the 3 hidden baseline counts.
+        assert_eq!(pad.noise, if e == 6 { 8 } else { 5 }, "E{e}");
         assert_eq!(pad.baseline_quiet, 512);
         assert_eq!(pad.baseline_end, 512);
         assert_eq!(pad.cdc, [53, 57, 55, 51, 31, 50, 49, 42, 31, 41, 46, 47][e]);
         let expected = match e {
-            9 => (3, 6, 6, Verdict::TooCloseToNoise),
+            9 => (3, 9, 9, Verdict::TooCloseToNoise),
             10 => (0, 0, 0, Verdict::NotTouched),
             _ => (3, 24, 40, Verdict::Ok),
         };
@@ -225,10 +280,10 @@ fn the_three_steps_measure_noise_and_swipes_of_working_pads_only() {
             .unwrap();
         (pad.touch_threshold, pad.release_threshold)
     };
-    // Noise 2, weakest 24: 2 + 40% of 22, 2 + 20% of 22.
-    assert_eq!(set(0), (11, 6));
-    // Noise 5, weakest 24: 5 + 40% of 19, 5 + 20% of 19.
-    assert_eq!(set(6), (13, 9));
+    // Noise 5, weakest 24: 5 + 40% of 19, 5 + 20% of 19, rounded down.
+    assert_eq!(set(0), (12, 8));
+    // Noise 8, weakest 24: 8 + 40% of 16, 8 + 20% of 16.
+    assert_eq!(set(6), (14, 11));
     // A pad without thresholds keeps its old ones, and says why.
     let old = base().profile;
     assert_eq!(set(9), (old.touch_thresholds[9], old.release_thresholds[9]));
@@ -267,14 +322,14 @@ fn only_when_every_working_pad_is_clear_are_its_thresholds_saved() {
             assert_eq!(new.release_thresholds[electrode], pad.release_threshold);
         }
     }
-    // Noise 2: weakest 40 gives 17/10, weakest 36 gives 16/9.
+    // Noise 5: weakest 40 gives 19/12, weakest 36 gives 17/11.
     assert_eq!(
         (new.touch_thresholds[9], new.release_thresholds[9]),
-        (17, 10)
+        (19, 12)
     );
     assert_eq!(
         (new.touch_thresholds[10], new.release_thresholds[10]),
-        (16, 9)
+        (17, 11)
     );
     // Nothing but the thresholds changes.
     assert_eq!(new.cdc, old.cdc);

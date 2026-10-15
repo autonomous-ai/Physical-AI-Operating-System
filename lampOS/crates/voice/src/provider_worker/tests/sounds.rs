@@ -78,7 +78,8 @@ async fn a_sound_heard_as_another_language_is_held_and_a_short_word_is_answered(
 /// The worker reads `--sounds-checked` where the coordinator puts it, after
 /// the first-output file and before the camera; and the second voice's
 /// worker, which takes the same flags, takes it too, rather than refusing
-/// it as unknown and leaving the lamp without its second voice.
+/// it as unknown and leaving the lamp without its second voice, and checks
+/// sounds with it (`second_provider`'s own test holds the answer).
 #[test]
 fn both_workers_take_the_flag_that_checks_sounds() {
     let dir = std::path::Path::new("/run/lamp-voice");
@@ -98,5 +99,12 @@ fn both_workers_take_the_flag_that_checks_sounds() {
     let (_, _, files, _) = parse_flags(dir, &flags(&["--attention"])).unwrap();
     assert!(!files.sounds_checked);
     let (_, _, files, _) = crate::second_provider::worker::parse_flags(dir, &checked).unwrap();
-    assert!(files.sounds_checked);
+    assert!(crate::second_provider::worker::checks_sounds(&files));
+    // As on the Live route, only with the attention rule on.
+    let (_, _, files, _) = crate::second_provider::worker::parse_flags(
+        dir,
+        &flags(&[crate::not_speech::CHECKED_FLAG]),
+    )
+    .unwrap();
+    assert!(files.sounds_checked && !crate::second_provider::worker::checks_sounds(&files));
 }

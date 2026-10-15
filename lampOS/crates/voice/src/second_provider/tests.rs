@@ -568,3 +568,49 @@ async fn a_tool_call_is_heard_only_in_a_spoken_turn() {
     let heard: Vec<bool> = calls.lock().unwrap().iter().map(|c| c.2).collect();
     assert_eq!(heard, [false, true]);
 }
+
+/// A spoken turn whose end is marked as a short sound let through, heard as
+/// `heard`, with sounds `checked` or not: its outputs, and how many times
+/// the chat was asked.
+async fn sound_turn(checked: bool, marked: bool, heard: &str) -> (Vec<String>, usize) {
+    let script = Arc::new(Script {
+        heard: Mutex::new([Ok(heard.to_owned())].into()),
+        chats: Mutex::new([vec![text("Yes?"), Ok(ChatEvent::Done)]].into()),
+        ..Script::default()
+    });
+    let (engine, _, _) = scripted(script.clone());
+    let mut engine = engine.checking_sounds(checked);
+    engine.submit(start(1));
+    engine.submit(audio(1, 1));
+    engine.submit(ProviderInput::End {
+        request: 1,
+        privacy_generation: 1,
+        sound: marked,
+    });
+    let labels = turn(&mut engine).await;
+    let asked = script.asked.lock().unwrap().len();
+    (labels, asked)
+}
+
+/// #800 on this route (the reviewer on #818, 20:11): with sounds checked, a
+/// short sound heard as "¿Qué?" ends quietly after its words and the chat
+/// is never asked; heard as "Yes." it is answered; and with sounds not
+/// checked, or an end not marked as a sound, "¿Qué?" is answered as before.
+#[tokio::test]
+async fn a_short_sound_not_heard_as_a_short_word_is_held_when_sounds_are_checked() {
+    let (held, asked) = sound_turn(true, true, "¿Qué?").await;
+    assert_eq!(held, ["started:1", "heard:¿Qué?", "complete"]);
+    assert_eq!(asked, 0);
+    for (checked, marked, heard) in [
+        (true, true, "Yes."),
+        (false, true, "¿Qué?"),
+        (true, false, "¿Qué?"),
+    ] {
+        let (labels, asked) = sound_turn(checked, marked, heard).await;
+        assert!(
+            labels.iter().any(|label| label.starts_with("audio:")),
+            "{checked} {marked} {heard}: {labels:?}"
+        );
+        assert_eq!(asked, 1, "{checked} {marked} {heard}");
+    }
+}

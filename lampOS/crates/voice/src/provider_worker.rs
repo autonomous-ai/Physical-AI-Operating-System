@@ -8913,7 +8913,7 @@ mod tests {
         /// lamp on in the kitchen", said by one person to another, shows a
         /// call to the rule without the switch and its answer is played;
         /// with `--name-in-passing-ignored` it is held, as other talk is.
-        async fn the_lamp_spoken_of(ignored: bool) -> bool {
+        async fn the_lamp_spoken_of(text: &str, ignored: bool) -> bool {
             fn busy() -> (crate::room_told::Room, bool) {
                 (crate::room_told::Room::Busy, false)
             }
@@ -8933,9 +8933,7 @@ mod tests {
             );
             let mut dial = rig.ready().await;
             let request = rig.speak(&mut dial, false, true).await;
-            dial.service
-                .send(heard("I left the lamp on in the kitchen."))
-                .await;
+            dial.service.send(heard(text)).await;
             dial.service.send(provider_audio(7, 240)).await;
             dial.service.send(idle_complete()).await;
             let mut played = false;
@@ -8950,14 +8948,36 @@ mod tests {
             played
         }
 
+        const SPOKEN_OF: [&str; 4] = [
+            "I left the lamp on in the kitchen.",
+            "I bought a new lamp yesterday.",
+            "The old lamp stopped working.",
+            "Did you see her desk lamp?",
+        ];
+        /// Calls with the name at the end, set off by a comma (#864's review).
+        const CALLED_AT_THE_END: [&str; 2] = ["Can you explain that, Lamp?", "What is this, Lamp?"];
+
         #[tokio::test]
         async fn the_lamp_spoken_of_is_a_call_in_a_busy_room_without_the_switch() {
-            assert!(the_lamp_spoken_of(false).await);
+            for text in SPOKEN_OF {
+                assert!(the_lamp_spoken_of(text, false).await, "{text}");
+            }
         }
 
         #[tokio::test]
         async fn the_lamp_spoken_of_is_held_in_a_busy_room_with_the_switch() {
-            assert!(!the_lamp_spoken_of(true).await);
+            for text in SPOKEN_OF {
+                assert!(!the_lamp_spoken_of(text, true).await, "{text}");
+            }
+        }
+
+        #[tokio::test]
+        async fn a_call_with_the_name_at_the_end_is_played_with_the_switch_and_without() {
+            for text in CALLED_AT_THE_END {
+                for ignored in [false, true] {
+                    assert!(the_lamp_spoken_of(text, ignored).await, "{text}");
+                }
+            }
         }
 
         #[tokio::test]

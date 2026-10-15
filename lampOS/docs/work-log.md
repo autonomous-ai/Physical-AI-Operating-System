@@ -30,7 +30,7 @@ log and nothing a lamp runs ([joining.md](joining.md),
 | 45 | Updates: a lamp keeps its lampOS current by itself (issue #737, MVP) | `second/updates` | 2026-10-15 | on `lamp-voice` (#741, `78b984b69`); lamp-4ace updated itself to build 188 from a signed test channel at 03:48; the publishing proposal agreed on #737; the CI `publish:` job not added by this session (it handles the signing secret and makes releases; this session's safety check refused the edit); left to the first builder or the owner |
 | 44 | A yes said in two breaths still starts the task (issue #736, MVP) | `second/two-breath-yes` | 2026-10-15 | #740 closed as not needed, 2026-10-15: `d128c458a` (the model told why a call was not done) started five of five on lamp-4ace; the branch kept at `0ebd994d5`; the news crash found in its minute fixed in #756 |
 | 40 | Progress news through the tasks part and Jev (issue #732, `second-P2`) | `second/progress-news` | 2026-10-15 | pull request #751 into `lamp-voice`; on lamp-4ace since 06:58; the answers and the voice's side are #752 |
-| 41 | Codex and the others: the person names who gets the work (issue #733, `second-P3`) | `second/who-gets-the-work` | 2026-10-15 | moved to the fourth builder at 07:07; the branch rebased on `e4922a3cb` with the tests the schedule tools needed, its state said on #733 |
+| 41 | Codex and the others: the person names who gets the work (issue #733, `second-P3`) | `second/who-gets-the-work` | 2026-10-15 | moved to the fourth builder at 07:07; the branch at `ec2fb2a4d` on `2176cd38a`, gated, with the tests the schedule tools needed; its state said on #733 and the claim released |
 | 48 | The Policy decides when the lamp speaks first: progress news, then hello (issue #752) | `second/policy-speaks` | 2026-10-15 | being built |
 | 43 | The person's phone over Bluetooth (issue #735, `second-P4`) | none | 2026-10-15 | cancelled by the owner the same night before any work was kept; released on #735 |
 
@@ -234,7 +234,21 @@ tried.
 
 ### Task 44: a yes said in two breaths still starts the task (2026-10-15, issue #736, MVP)
 
-Ready for lamp-voice: yes (#740)
+Ready for lamp-voice: no (#740 closed as not needed, 2026-10-15)
+
+**Closed.** In its first minute on lamp-4ace (02:28 to 02:37) nothing was
+carried: the call came while "Yes." itself was still being heard, a shape
+this does not carry, and the voice ended on long news (#756). The first
+builder's `d128c458a` then answered such a call as not done because the
+person was still speaking, and five of five two-breath yeses started the
+task (07:22 to 07:32). That answer also covers the shape below, one model
+round trip later, without letting "Yes... no, wait" through, so carrying
+was not worth its path in the transport. The branch is kept at `0ebd994d5`
+(on `e4922a3cb`, with the call records the first builder asked for on
+#736, and the window test given a barrier bound past the window, after it
+failed 3 times in 5 at the 2 s default).
+
+What follows is the hand-back as it was.
 
 **Kind: off unless set** (`LAMP_CARRY_CALLS=on` in the voice's unit, read
 by its provider worker into `lamp_gemini::SessionConfig::carry_calls`). One

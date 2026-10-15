@@ -4228,29 +4228,28 @@ fn a_call_is_glanced_for_over_a_shift_at_rest() {
     assert!(second < Duration::from_millis(13_300), "{second:?}");
 }
 
-/// As V1: a base held by a hand a second after it stopped goes limp, its
-/// torque alone switched off, the packet byte for byte, and nothing else
-/// written to it; let be for two seconds it is taken hold of where it was
-/// left, its goal first. Told to stay it stays there; told to return it
-/// is brought home slowly. Without the option no torque is ever written.
+/// As V1: a base held by a hand a second after it stopped hands over to
+/// the overload cut-off. Torque off to all five, byte for byte; nothing
+/// written for two minutes; then each joint held where it lies, goal
+/// first. Pushed again once it is up, it slumps again and the run goes on:
+/// a hand never ends it. Without the option no torque is ever written and
+/// the same hand ends the run as before.
 #[test]
-fn a_joint_still_pushed_a_second_after_it_stopped_goes_limp_and_is_taken_hold_of_where_left() {
-    let hex = |bytes: &[u8]| bytes.iter().map(|b| format!("{b:02x}")).collect::<String>();
-    assert_eq!(hex(&torque_write(Joint::BaseYaw, 0)), "ffff0104032800cf");
-    // The goals of the joints still held are the same sync write.
-    let all: Vec<(Joint, u16)> = COMMANDED.into_iter().zip(HOME).collect();
-    assert_eq!(some_goals_write(&all), goals_write(HOME).to_vec());
-    let ms = Duration::from_millis;
-    let ran = |give_way: Option<GiveWay>| {
-        let (mut lamp, mut clock) = folded(Duration::from_secs(12));
+fn a_base_still_pushed_a_second_after_it_stopped_makes_the_lamp_slump_as_v1() {
+    let secs = Duration::from_secs_f32;
+    let ran = |limp: bool, cancel: f32, again: f32| {
+        let (mut lamp, mut clock) = folded(secs(cancel));
         lamp.may_take_hold = true;
-        // A hand turns the base 30 counts and holds it there until 3 s.
-        lamp.hand = Some((ms(1_500), ms(3_000), YAW, 2_045.0));
-        lamp.strains = vec![(ms(1_500), ms(3_000), YAW, 300)];
-        let mut seen = Vec::new();
+        // A hand turns the base 30 counts and holds it there until 3 s;
+        // pushed again, without moving it, once it is up.
+        lamp.hand = Some((secs(1.5), secs(3.0), YAW, 2_045.0));
+        lamp.strains = vec![
+            (secs(1.5), secs(3.0), YAW, 300),
+            (secs(again), secs(again + 2.0), YAW, 300),
+        ];
         let limits = Limits {
-            give_way,
-            limp: give_way.is_some(),
+            give_way: limp.then_some(GiveWay::Return),
+            limp,
             ..giving_way(GiveWay::Return)
         };
         let report = run(
@@ -4259,92 +4258,89 @@ fn a_joint_still_pushed_a_second_after_it_stopped_goes_limp_and_is_taken_hold_of
             limits,
             None,
             || Some((Mood::Resting, 0)),
-            |glimpse| seen.push(*glimpse),
+            |_| {},
         );
-        (lamp, report, seen)
+        (lamp, report)
     };
 
-    for mode in [GiveWay::Stay, GiveWay::Return] {
-        let (lamp, report, seen) = ran(Some(mode));
-        assert_eq!(report.stop, Stop::Cancelled, "{mode:?} {report:?}");
-        assert_eq!(report.eased, [0, 0, 1], "{mode:?}");
-        assert_eq!(report.released_by_hand, [0, 0, 1], "{mode:?}");
-        // Torque off to the base alone, a second after it stopped (1.62 s),
-        // and then its goal where it was left and its torque on.
-        let off = lamp
-            .registers
+    let (lamp, report) = ran(true, 280.0, 135.0);
+    assert_eq!(report.stop, Stop::Cancelled, "{report:?}");
+    assert_eq!(report.released.len(), 2, "{:?}", report.released);
+    assert_eq!(report.released[0].joint, "base_yaw");
+    assert_eq!(report.released_by_hand, [0, 0, 2]);
+    // The first: a second after it stopped (about 1.62 s), torque off to
+    // all five in servo order, nothing written for two minutes, then each
+    // joint taken hold of where it lies, its goal first.
+    let tripped = secs(report.released[0].seconds);
+    assert!((secs(2.5)..secs(2.8)).contains(&tripped), "{tripped:?}");
+    let off: Vec<(u8, u8, Vec<u8>)> = Joint::ALL.iter().map(|j| (j.id(), 40, vec![0])).collect();
+    let at = lamp
+        .registers
+        .iter()
+        .position(|(_, address, data)| *address == 40 && data == &vec![0])
+        .unwrap();
+    assert_eq!(lamp.registers[at..at + 5], off[..]);
+    let rest = tripped..tripped + OVERLOAD_REST;
+    assert!(lamp.goal_times.iter().all(|t| !rest.contains(t)));
+    assert!(
+        lamp.register_times[at + 5..]
             .iter()
-            .position(|(_, address, _)| *address == 40)
-            .unwrap();
-        assert!(
-            (ms(2_580)..ms(2_700)).contains(&lamp.register_times[off]),
-            "{:?}",
-            lamp.register_times[off]
-        );
-        let goal = |value: u16| value.to_le_bytes().to_vec();
-        assert_eq!(
-            lamp.registers[off..],
-            [(1, 40, vec![0]), (1, 42, goal(2_045)), (1, 40, vec![1])],
-            "{mode:?}"
-        );
-        let (limp_at, held_at) = (lamp.register_times[off], lamp.register_times[off + 2]);
-        // The hand has held it still since 1.8 s: taken hold of two
-        // seconds after it went limp, the hand gone by then.
-        assert!(
-            (limp_at + ms(1_980)..limp_at + ms(2_100)).contains(&held_at),
-            "{held_at:?}"
-        );
-        // Nothing written to it while limp; the others may be.
-        assert!(
-            lamp.goals
-                .iter()
-                .zip(&lamp.goal_times)
-                .filter(|(_, t)| (limp_at..held_at).contains(*t))
-                .all(|(write, _)| write.iter().all(|(id, _)| *id != 1))
-        );
-        assert!(
-            seen.iter()
-                .filter(|g| (limp_at + TICK..held_at).contains(&clock_of(g)))
-                .all(|g| g.hand_limp == [false, false, true])
-        );
-        let at = |time: Duration| *seen.iter().find(|g| clock_of(g) >= time).unwrap();
-        match mode {
-            // Left where the hand put it, goal and position.
-            GiveWay::Stay => {
-                let rested = at(ms(9_000));
-                assert_eq!(report.kept_where_put, [0, 0, 1]);
-                assert_eq!((rested.goals[2], rested.positions[2]), (2_045, 2_045));
-            }
-            // Brought home slowly: never away from it, never a jump.
-            GiveWay::Return => {
-                let yaw: Vec<u16> = lamp
-                    .goals
-                    .iter()
-                    .zip(&lamp.goal_times)
-                    .filter(|(_, t)| (held_at..ms(11_000)).contains(*t))
-                    .map(|(write, _)| goal_of(write, Joint::BaseYaw))
-                    .collect();
-                assert!(
-                    yaw.windows(2)
-                        .all(|two| two[1] <= two[0] && two[0] - two[1] <= 2),
-                    "{yaw:?}"
-                );
-                let rested = at(ms(11_000));
-                assert_eq!(report.kept_where_put, [0; 3]);
-                assert_eq!(rested.goals[2], 2_015, "{rested:?}");
-                assert!(rested.positions[2].abs_diff(2_015) <= 1, "{rested:?}");
-            }
-        }
-    }
+            .all(|t| !rest.contains(t))
+    );
+    assert_eq!(
+        lamp.registers[at + 9],
+        (1, 42, 2_045u16.to_le_bytes().to_vec())
+    );
+    assert_eq!(lamp.registers[at + 10], (1, 40, vec![1]));
+    // The second, from the push once it was up.
+    assert!(report.released[1].seconds > 135.0, "{:?}", report.released);
 
-    // Without the option it never writes torque: held still loaded, the
-    // run ends as before.
-    let (lamp, report, _) = ran(None);
+    // Without the option: never a torque write, and the run ends.
+    // Pushed while it is brought up again: it lets go again at once.
+    let (_, report) = ran(true, 280.0, 123.0);
+    assert_eq!(report.stop, Stop::Cancelled, "{report:?}");
+    assert_eq!(report.released.len(), 2, "{:?}", report.released);
+    assert!(report.released[1].seconds < 126.0, "{:?}", report.released);
+
+    let (lamp, report) = ran(false, 8.0, 135.0);
     assert!(
         matches!(report.stop, Stop::Load { joint: 1, .. }),
         "{report:?}"
     );
     assert!(lamp.registers.iter().all(|(_, address, _)| *address != 40));
+}
+
+/// After a slump a hand may leave the base far off. With `--limp on` the
+/// next start takes hold of it where it lies, as V1 did, and runs from
+/// there; without, it is refused as before.
+#[test]
+fn a_base_found_far_from_home_is_taken_hold_of_where_it_lies_only_with_limp() {
+    let ran = |limp: bool| {
+        let (mut lamp, mut clock) = folded(Duration::from_secs(3));
+        let far = f32::from(HOME[2]) + 545.0;
+        (lamp.servos[YAW].position, lamp.servos[YAW].goal) = (far, far as u16);
+        let limits = Limits {
+            give_way: Some(GiveWay::Return),
+            limp,
+            ..waking()
+        };
+        run(
+            &mut lamp,
+            &mut clock,
+            limits,
+            Some(HOME),
+            || Some((Mood::Resting, 0)),
+            |_| {},
+        )
+    };
+    let report = ran(true);
+    assert_eq!(report.stop, Stop::Cancelled, "{report:?}");
+    assert_eq!(report.home.unwrap()[2], HOME[2] + 545);
+    let report = ran(false);
+    assert!(
+        matches!(&report.stop, Stop::Refused { why } if why.contains("more than waking brings back")),
+        "{report:?}"
+    );
 }
 
 /// A push under a second gives way and comes back with its torque on;

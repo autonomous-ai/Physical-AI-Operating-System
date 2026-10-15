@@ -1,0 +1,30 @@
+--- before/lampOS/crates/records/tests/records_control.rs
++++ after/lampOS/crates/records/tests/records_control.rs
+@@ -323,6 +323,27 @@
+ 
+ #[test]
+ fn a_complete_checked_queued_before_peer_close_is_consumed_and_committed() {
++    {
++        let (mut parent, mut peer) = channels();
++        let end = deadline();
++        let expected = reply(
++            &Step {
++                nonce: NONCE.into(),
++                round: 1,
++                at_ns: 0,
++            },
++            1,
++            0,
++        );
++        peer.write_until(&expected, end).unwrap();
++        peer.close();
++        let checked: Checked = parent.read_until(end).unwrap();
++        assert_eq!(checked, expected);
++        assert_eq!(
++            parent.read_until::<Checked>(end).unwrap_err().kind(),
++            io::ErrorKind::UnexpectedEof
++        );
++    }
+     thread::scope(|threads| {
+         let (parent, mut peer) = channels();
+         let end = deadline();

@@ -325,12 +325,12 @@ block cleanup or any other component.
 
 ### Explicit reporter cadence for local fixtures
 
-The ordinary executable and a future explicit fixture can share the private
+The ordinary executable and the explicit fixture share the private
 application body. Ordinary startup still supplies the real reporting function;
 the parser, initial config read/validation, cleanup commands, file reloads,
 publication, error handling and exit codes retain their existing order. The
-original main-binary tests remain at the same paths. This preparation adds no
-fixture executable, control protocol, environment switch or migrated scenario.
+original main-binary tests remain at the same paths. Ordinary execution has no
+fixture environment switch or control protocol.
 
 The reporting loop accepts an explicit schedule with pure, nondecreasing
 `Instant` reads and a wait callback, plus a publisher factory selected only at
@@ -355,6 +355,31 @@ The application schedule and publisher cadence are explicit separate inputs;
 a coordinated fixture must supply the same clock domain to both. Clock reads
 never advance it. No clock replacement reaches retention guards, cleanup,
 subscriber liveness or the operating system's child-status evidence.
+
+`lamp-records-fixture` is a separate local test executable. It accepts the same
+report arguments with an explicit bounded `--seconds`, and takes versioned,
+nonce/round-checked control frames only through private inherited stdin/stdout
+pipes. Frames are at most 4096 bytes; nonblocking reads and writes share an
+absolute host deadline. Its pure clock is shared with the Bus cadence source.
+The first settle at logical zero is acknowledged only after the real first
+iteration reaches a positive wait. Same-time and pre-due steps hold that wait;
+an exact due step releases it but receives no acknowledgement until the next
+actual reporting iteration reaches its positive wait. Periods remain one
+second. Invalid frames, time or receipts permanently fail the fixture.
+
+The reload integration case retains its six actual Event diagnostics, original
+file/fingerprint transitions and all original assertions. It drains the real
+subscriber queue before each due step and requires an actual matching datagram;
+the control reply reports the combined construction/publication outcome only.
+Each status search keeps its original four-second absolute host deadline and
+one four-second logical window. Its child keeps `--seconds 30` in real host
+time, including when blocked on control. A blocked-control lifetime timeout
+uses the existing error exit 64; it does not fabricate a normal successful
+exit. Real `try_wait`, kill and wait remain authoritative on success, setup
+failure and panic. Kernel filesystem operations, inherited stderr and actual
+reaping do not acquire a universal hard return guarantee from these deadlines.
+No background reader, observer worker, stderr marker or synthetic Event is
+involved, and no runtime speedup is claimed without paired execution evidence.
 
 The saved result under `/run` is lost at reboot. With cleanup enabled, the
 reporter can therefore show a missing-result error until the next hourly

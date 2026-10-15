@@ -1,0 +1,29 @@
+{
+  "recorded_at_from_date": "2026-10-16 06:16:10 +0700",
+  "base": "9b28324e2232d62ff905e705d16f53c7836599f9",
+  "complete_local_gate_passed": true,
+  "totals": [
+    190,
+    0,
+    2
+  ],
+  "summaries": 10,
+  "compiled_before": 172,
+  "compiled_after": 192,
+  "all_original_identities_and_ignored_flags_preserved": true,
+  "new_cases_pass_once": 20,
+  "migrated_original_case_passes_once": true,
+  "source_files_unchanged": 807,
+  "all_ten_qualified_source_hashes_exact": true,
+  "historical_package_files_unchanged": 82,
+  "native_pending": true,
+  "draft": true,
+  "first_current_base_execution": true,
+  "reruns_or_retries": 0,
+  "current_base_timing_pair_run": false,
+  "historical_case_durations_seconds": [
+    5.614,
+    0.735
+  ],
+  "historical_pair_comparability": "Shared Mac/debug with unequal background load; compilation excluded. Not current-base, native, isolated or combined original-123 evidence."
+}

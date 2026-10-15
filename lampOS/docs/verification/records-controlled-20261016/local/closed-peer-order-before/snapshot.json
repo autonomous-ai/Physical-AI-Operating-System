@@ -1,0 +1,24 @@
+{
+  "date_from_date": "2026-10-16 05:21:10 +0700",
+  "hashes": {
+    "owned.diff": "4b69a91b901cd0ae4cdd49effe97b7c8fc41aea34a1c83050be71a171437d3ce",
+    "format-result.json": "700f0d2c29b63c94f20b29d00b049238f280a3834353914331271396f6b9c69e",
+    "tests-823-records-controlled-independent-review.json": "0e44d4588b9be949f74090a28b0d4498274252c3ccdac349836ef0a6809c702f",
+    "tests-823-records-controlled-independent-review.md": "f0e71d0d9d94ea721c174ebb9da8fbe4723b35464a2db8a17166d5a0f123e432",
+    "source-proof.json": "a195789b55c0c4d50c56cd1be5c582e42026fb8c3638bad47337fcea4a7b1774",
+    "handoff.md": "a3567a175d47555908ec0766bed206b5430a008331845aaae8a484d3cc968ddc",
+    "records_control.rs": "d2e2a7cfc165b966006c949859ddea8ace92989fde73c45218e3cd0be0fcf22f"
+  },
+  "source_hashes": {
+    "lampOS/crates/records/Cargo.toml": "d624cddfc993a78af2510a9fef47ef192221da0a49c00051aa2ab63da25dada1",
+    "lampOS/crates/records/src/main.rs": "40d8eba533e42937e71b2995ae022acb2d7e1994e8e162005c166726041a2400",
+    "lampOS/crates/records/src/bin/lamp-records-fixture.rs": "56ed3d6bd78679b9f93b911ba531487fc02507abd88f4903939920aa360604d7",
+    "lampOS/crates/records/src/fixture_protocol.rs": "4d2bd95d5b273b7af70a408d513fa47a6ceb4e9d16fb81c68e604520dfdb48d3",
+    "lampOS/crates/records/src/fixture_schedule.rs": "54a8e0c9562ceada01ce3b0d26bdc2d92c0d5d8e954e880e011ddaef71a9a187",
+    "lampOS/crates/records/src/fixture_schedule_tests.rs": "cb7ff4cf0928ef0dd539ce696f6036943e788f8fbe80482b7815205a9b1e46c1",
+    "lampOS/crates/records/tests/support/records_control.rs": "b769a36f1cf542c436704cbf90ca1a50bf3b6ab371d907be95c5c1f0f67e8234",
+    "lampOS/crates/records/tests/records_control.rs": "d2e2a7cfc165b966006c949859ddea8ace92989fde73c45218e3cd0be0fcf22f",
+    "lampOS/crates/records/tests/records.rs": "ed3504349c3a48400f2db666a5653588eee25cc602d664b95bea5962a20535f9",
+    "lampOS/docs/records.md": "940ea122d4b3328d5aac12a3cdf2cecf2eb2e262a75a8244e06d43c5c1014ce2"
+  }
+}

@@ -1,0 +1,40 @@
+{
+  "date_from_date": "2026-10-16 05:19:48 +0700",
+  "review": "/private/tmp/tests-823-records-controlled-independent-review.md",
+  "review_sha256": "b613afddc834126e5181b10d587b267c1e88f40a982c239dde6668295295fb18",
+  "source_proof": "/private/tmp/tests-823-records-controlled-independent-review-evidence/source-proof.json",
+  "source_proof_sha256": "18b51dd812d1b3ae557138363788df0213f9633f540c3f7655839029cd89b0e2",
+  "blockers": [],
+  "coverage_caveats": [
+    {
+      "file": "lampOS/crates/records/tests/records_control.rs",
+      "line": 325,
+      "description": "Writer is joined after successful receipt; test does not force close-before-successful-read ordering."
+    }
+  ],
+  "source_frozen_hashes": {
+    "lampOS/crates/records/Cargo.toml": "d624cddfc993a78af2510a9fef47ef192221da0a49c00051aa2ab63da25dada1",
+    "lampOS/crates/records/src/main.rs": "40d8eba533e42937e71b2995ae022acb2d7e1994e8e162005c166726041a2400",
+    "lampOS/crates/records/src/bin/lamp-records-fixture.rs": "56ed3d6bd78679b9f93b911ba531487fc02507abd88f4903939920aa360604d7",
+    "lampOS/crates/records/src/fixture_protocol.rs": "4d2bd95d5b273b7af70a408d513fa47a6ceb4e9d16fb81c68e604520dfdb48d3",
+    "lampOS/crates/records/src/fixture_schedule.rs": "54a8e0c9562ceada01ce3b0d26bdc2d92c0d5d8e954e880e011ddaef71a9a187",
+    "lampOS/crates/records/src/fixture_schedule_tests.rs": "cb7ff4cf0928ef0dd539ce696f6036943e788f8fbe80482b7815205a9b1e46c1",
+    "lampOS/crates/records/tests/support/records_control.rs": "b769a36f1cf542c436704cbf90ca1a50bf3b6ab371d907be95c5c1f0f67e8234",
+    "lampOS/crates/records/tests/records_control.rs": "d2e2a7cfc165b966006c949859ddea8ace92989fde73c45218e3cd0be0fcf22f",
+    "lampOS/crates/records/tests/records.rs": "ed3504349c3a48400f2db666a5653588eee25cc602d664b95bea5962a20535f9",
+    "lampOS/docs/records.md": "940ea122d4b3328d5aac12a3cdf2cecf2eb2e262a75a8244e06d43c5c1014ce2"
+  },
+  "runtime_qualification": false,
+  "review_before_close_order_addendum_sha256": "f0e71d0d9d94ea721c174ebb9da8fbe4723b35464a2db8a17166d5a0f123e432",
+  "close_order_addendum": {
+    "date_from_date": "2026-10-16 05:22:13 +0700",
+    "only_changed_source": "lampOS/crates/records/tests/records_control.rs",
+    "before_sha256": "d2e2a7cfc165b966006c949859ddea8ace92989fde73c45218e3cd0be0fcf22f",
+    "after_sha256": "04083e277b0d02d65ab4193afe7814218b60e287059a81e7cf7a46e2a7d51924",
+    "coverage_caveat_resolved_in_source": true,
+    "original_source_proof_retained": true,
+    "current_source_proof_sha256": "4f061f36b6c26b489ba9eb3e7125f581bdc3a9fc05d8bc729631ab79fb459905",
+    "root_independent_delta_review_pending": true,
+    "runtime_qualification": false
+  }
+}

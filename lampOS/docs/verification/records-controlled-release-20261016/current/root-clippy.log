@@ -1,0 +1,5 @@
+    Checking lamp-bus v0.1.0 (/private/tmp/lampos-tests-records-fixture/lampOS/crates/bus)
+    Checking lamp-msgs v0.1.0 (/private/tmp/lampos-tests-records-fixture/lampOS/crates/msgs)
+    Checking lamp-records v0.1.0 (/private/tmp/lampos-tests-records-fixture/lampOS/crates/records)
+    Checking lamp-settings v0.1.0 (/private/tmp/lampos-tests-records-fixture/lampOS/crates/settings)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 6.97s

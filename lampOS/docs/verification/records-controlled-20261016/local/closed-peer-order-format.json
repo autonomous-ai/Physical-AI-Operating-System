@@ -1,0 +1,14 @@
+{
+  "started_from_date": "2026-10-16 05:21:42 +0700",
+  "finished_from_date": "2026-10-16 05:21:42 +0700",
+  "command": [
+    "/Users/autonomous/.rustup/toolchains/1.96.0-x86_64-apple-darwin/bin/rustfmt",
+    "--edition",
+    "2024",
+    "--config",
+    "skip_children=true",
+    "--check",
+    "lampOS/crates/records/tests/records_control.rs"
+  ],
+  "exit_code": 0
+}

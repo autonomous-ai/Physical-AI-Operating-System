@@ -1,0 +1,11 @@
+{
+  "date": "2026-10-16 06:11:44 +0700",
+  "toolchain": "[toolchain]\nchannel = \"1.96.0\"\nprofile = \"minimal\"\ncomponents = [\"clippy\", \"rustfmt\"]\n",
+  "rustc": "rustc 1.96.0 (ac68faa20 2026-05-25)\nbinary: rustc\ncommit-hash: ac68faa20c58cbccd01ee7208bf3b6e93a7d7f96\ncommit-date: 2026-05-25\nhost: x86_64-apple-darwin\nrelease: 1.96.0\nLLVM version: 22.1.2\n",
+  "cargo": "cargo 1.96.0 (30a34c682 2026-05-25)\n",
+  "uname": "Darwin x86_64",
+  "build_jobs": 2,
+  "incremental": 0,
+  "target": "/private/tmp/tests-823-memory-application-target",
+  "source_count": 807
+}

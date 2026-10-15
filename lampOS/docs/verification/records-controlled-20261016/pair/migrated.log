@@ -1,0 +1,8 @@
+   Compiling lamp-records v0.1.0 (/private/tmp/lampos-tests-records-controlled/lampOS/crates/records)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 2.25s
+────────────
+ Nextest run ID 0469a78c-4dfd-4b9e-bb56-9a6b0200f842 with nextest profile: realtime
+    Starting 1 test across 1 binary (4 tests skipped)
+        PASS [   0.735s] (1/1) lamp-records::records real_reporter_reloads_switch_and_policy_and_requires_a_matching_receipt
+────────────
+     Summary [   0.736s] 1 test run: 1 passed, 4 skipped

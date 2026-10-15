@@ -1,0 +1,21 @@
+{
+  "started_from_date": "2026-10-16 05:12:30 +0700",
+  "finished_from_date": "2026-10-16 05:12:30 +0700",
+  "command": [
+    "/Users/autonomous/.rustup/toolchains/1.96.0-x86_64-apple-darwin/bin/rustfmt",
+    "--edition",
+    "2024",
+    "--config",
+    "skip_children=true",
+    "--check",
+    "lampOS/crates/records/src/main.rs",
+    "lampOS/crates/records/src/bin/lamp-records-fixture.rs",
+    "lampOS/crates/records/src/fixture_protocol.rs",
+    "lampOS/crates/records/src/fixture_schedule.rs",
+    "lampOS/crates/records/src/fixture_schedule_tests.rs",
+    "lampOS/crates/records/tests/support/records_control.rs",
+    "lampOS/crates/records/tests/records_control.rs",
+    "lampOS/crates/records/tests/records.rs"
+  ],
+  "exit_code": 0
+}

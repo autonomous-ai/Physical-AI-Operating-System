@@ -1,0 +1,24 @@
+{
+  "date_from_date": "2026-10-16 05:21:42 +0700",
+  "before": "d2e2a7cfc165b966006c949859ddea8ace92989fde73c45218e3cd0be0fcf22f",
+  "after": "04083e277b0d02d65ab4193afe7814218b60e287059a81e7cf7a46e2a7d51924",
+  "only_changed_source": "lampOS/crates/records/tests/records_control.rs",
+  "removed_addition_reconstructs_entire_pre_edit_file_byte_exact": true,
+  "all_14_parent_child_framing_test_ids_unchanged": true,
+  "all_20_new_case_ids_unchanged": true,
+  "all_old_assertions_and_current_controller_subcase_byte_exact": true,
+  "added_assertion_sites": 2,
+  "other_nine_source_hashes_unchanged": true,
+  "four_original_file_reversals_still_exact": true,
+  "original_16_scenario_assertions_unchanged": true,
+  "synchronous_order": [
+    "bounded nonblocking write_until of full Checked on empty owned pipe",
+    "peer.close drops sole reply writer",
+    "Channel read_until returns exact Checked",
+    "next read_until returns UnexpectedEof"
+  ],
+  "shared_absolute_host_deadline": true,
+  "rustfmt_check_exit_code": 0,
+  "runtime_tests_executed": false,
+  "source_proof_sha256": "4f061f36b6c26b489ba9eb3e7125f581bdc3a9fc05d8bc729631ab79fb459905"
+}

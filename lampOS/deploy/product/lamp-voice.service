@@ -5,6 +5,8 @@
 [Unit]
 Description=lampOS voice (lamp-voice serve)
 PartOf=lampos.target
+# Not before setup has finished (#806). The target's own condition holds back none of its parts.
+ConditionPathExists=/var/lib/lampos-setup/done
 # Memory, actions, schedule and tasks answer its calls from the first turn: all first.
 After=network-online.target sound.target lamp-memory.service lamp-actions.service lamp-schedule.service lamp-tasks.service
 Wants=network-online.target

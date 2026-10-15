@@ -240,10 +240,16 @@ What steps 2 and 3 build, unless an answer on #811 changes it.
   (`/etc/systemd/system/lamp-<part>.service.d/`), which no update touches.
 - **The person's settings** (zone, name, Wi-Fi, credential) are setup's, in
   setup's files.
-- **Nothing starts before setup:** `lampos.target` has
-  `ConditionPathExists=/var/lib/lampos-setup/done`, setup's marker (the
-  path agreed with the third on #811, 2026-10-15 17:07); the install enables
-  the target and the parts and starts none of them. On a lamp brought up by
+- **Nothing starts before setup:** every part in `lampos.target`, and the
+  target itself, has `ConditionPathExists=/var/lib/lampos-setup/done`,
+  setup's marker (the path agreed with the third on #811, 2026-10-15
+  17:07). The condition is on each part because systemd checks a unit's
+  condition only when its own job runs, after the jobs it pulls in are
+  queued: the target's alone held back none of its parts (the reviewer on
+  #815, from systemd 252's `systemd.unit(5)`, "Conditions and Asserts").
+  `lamp-update.service` and `lamp-records.timer` are outside the target
+  and listen to nothing; they run before setup as after it. The install
+  enables the target and the parts and starts none of them. On a lamp brought up by
   the keeper, the keeper's `--setup-marker` (#816, the fifth's) starts only
   `lamp-setup.service` until the marker is there; the target's condition
   keeps the same rule on a lamp without the keeper. `lamp-setup.service`

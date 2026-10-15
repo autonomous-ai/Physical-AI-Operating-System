@@ -3,6 +3,8 @@
 [Unit]
 Description=lampOS expression (lamp-expression)
 PartOf=lampos.target
+# Not before setup has finished (#806). The target's own condition holds back none of its parts.
+ConditionPathExists=/var/lib/lampos-setup/done
 After=lamp-voice.service lamp-body.service
 StartLimitIntervalSec=600
 StartLimitBurst=5

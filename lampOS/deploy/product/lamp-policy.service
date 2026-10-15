@@ -3,6 +3,8 @@
 [Unit]
 Description=lampOS policy (lamp-policy)
 PartOf=lampos.target
+# Not before setup has finished (#806). The target's own condition holds back none of its parts.
+ConditionPathExists=/var/lib/lampos-setup/done
 After=network-online.target lamp-voice.service
 Wants=network-online.target
 StartLimitIntervalSec=600

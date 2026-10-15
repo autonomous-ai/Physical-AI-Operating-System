@@ -53,6 +53,7 @@ without changing `first_topics()`.
 | `Speech` | `voice/heard`, `voice/said` | event | none | Text, whether it is finished, and the locale and the request's number if known. After `hri_msgs/LiveSpeech` |
 | `VoiceState` | `voice/state` | latest | 1 s | Resting, listening, thinking or speaking |
 | `VoiceLink` | `voice/link` | latest | 1 s | Ready, or unavailable with one of seven kinds of reason |
+| `Online` | `lamp/online` | latest | 1 s | `online` true, false or absent (nobody knows), `from` the part whose link said so, `down_for_s` while offline |
 | `RoomState` | `room/state` | latest | none | Unknown, quiet or busy |
 | `Light` | `light/command`, `light/state`, `light/test`, `light/drawn` | latest | 1 s | On or off, one of ten colours by name, a level from 1 to 5 |
 | `Diagnostic` | `diagnostics` | event | 1 s | ROS's `DiagnosticStatus`: ok, warn, error or stale, a name, a message, a few keys and values |

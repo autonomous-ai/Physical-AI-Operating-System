@@ -18,7 +18,7 @@ use crate::{
     parts::{self, Parts, Taken},
 };
 use lamp_bus::{Bus, Declaration, Publisher, Subscriber};
-use lamp_msgs::{BoardState, Diagnostic, Health, Level};
+use lamp_msgs::{BoardState, Diagnostic, Health, Level, Online};
 use serde::Serialize;
 use std::{
     fmt, io,
@@ -72,6 +72,8 @@ pub struct Options {
     /// After how long without a report a part is stale.
     pub stale_after: Duration,
     pub times: Times,
+    /// Also publish `lamp/online`, once each report's time (#830).
+    pub online: bool,
 }
 
 /// What was counted from start to stop.
@@ -296,6 +298,7 @@ struct Serve<'a> {
     health_out: Out,
     board_out: Out,
     reports_out: Out,
+    online_out: Out,
     unreadable: Trouble,
     /// When a message that was no report last came.
     unreadable_at: Option<Instant>,
@@ -353,6 +356,18 @@ impl Serve<'_> {
             self.totals.unpublished += 1;
         }
         self.parts.take(report, now);
+    }
+
+    /// Whether the lamp is online, from the parts' links, when asked for.
+    fn report_online(&mut self, now: Instant) {
+        if !self.options.online {
+            return;
+        }
+        let online = parts::online(self.parts.reports(), now, self.options.stale_after);
+        let at_us = self.at_us();
+        if !self.online_out.publish(at_us, &online, self.say) {
+            self.totals.unpublished += 1;
+        }
     }
 
     fn not_a_report(&mut self, messages: u64) {
@@ -513,6 +528,7 @@ pub fn run(
         health_out: Out::new(Health::TOPIC, Health::declaration()),
         board_out: Out::new(BoardState::TOPIC, BoardState::declaration()),
         reports_out: Out::new(Diagnostic::TOPIC, Diagnostic::declaration()),
+        online_out: Out::new(Online::TOPIC, Online::declaration()),
         unreadable: Trouble::default(),
         unreadable_at: None,
         receiving: Trouble::default(),
@@ -534,6 +550,9 @@ pub fn run(
             ] {
                 out.make(bus, serve.say);
             }
+            if options.online {
+                serve.online_out.make(bus, serve.say);
+            }
         }
         if due(board_read, times.board_every, now) {
             board_read = Some(now);
@@ -542,6 +561,7 @@ pub fn run(
         if due(reported, times.report_every, now) {
             reported = Some(now);
             serve.report_board(now);
+            serve.report_online(now);
             work_out = true;
         }
         // The wait of the loop is here: for a report, and no longer than
@@ -564,6 +584,9 @@ pub fn run(
             &mut serve.reports_out,
         ] {
             out.alive(serve.say);
+        }
+        if options.online {
+            serve.online_out.alive(serve.say);
         }
     }
     Ok(serve.totals)

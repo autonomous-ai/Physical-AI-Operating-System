@@ -5,7 +5,10 @@ use super::{CONNECT, Error, Result, openai_base, tls};
 use crate::second_config::{SecondConfig, Stt};
 use futures_util::{SinkExt, StreamExt};
 use serde::Deserialize;
-use std::{sync::Arc, time::Duration};
+use std::{
+    sync::{Arc, OnceLock},
+    time::Duration,
+};
 use tokio::{sync::mpsc, task::JoinHandle, time::Instant};
 use tokio_tungstenite::{
     Connector, connect_async_tls_with_config,
@@ -231,6 +234,8 @@ pub struct SttStream {
     audio: Option<mpsc::Sender<Vec<u8>>>,
     /// The words, and the account of the end of the line once it came.
     task: JoinHandle<Result<(String, Option<String>)>>,
+    /// When the first words came back, interim or final (#828).
+    words_at: Arc<OnceLock<Instant>>,
 }
 
 impl SttStream {
@@ -276,10 +281,19 @@ impl SttStream {
         S: tokio::io::AsyncRead + tokio::io::AsyncWrite + Send + Unpin + 'static,
     {
         let (audio, queued) = mpsc::channel(QUEUE);
+        let words_at = Arc::new(OnceLock::new());
         Self {
             audio: Some(audio),
-            task: tokio::spawn(run(socket, queued)),
+            task: tokio::spawn(run(socket, queued, Arc::clone(&words_at))),
+            words_at,
         }
+    }
+
+    /// When the service first gave back words for this stream, interim or
+    /// final, once it has; it stays readable after [`Self::finish`]. For
+    /// measuring how soon a word said can be known (#828).
+    pub fn first_words(&self) -> Arc<OnceLock<Instant>> {
+        Arc::clone(&self.words_at)
     }
 
     /// Queue 16 kHz mono samples. Fails when the socket has gone or the
@@ -328,6 +342,7 @@ impl Drop for SttStream {
 async fn run<S>(
     socket: tokio_tungstenite::WebSocketStream<S>,
     mut queued: mpsc::Receiver<Vec<u8>>,
+    words_at: Arc<OnceLock<Instant>>,
 ) -> Result<(String, Option<String>)>
 where
     S: tokio::io::AsyncRead + tokio::io::AsyncWrite + Unpin,
@@ -393,6 +408,9 @@ where
             message = read.next() => match message {
                 Some(Ok(Message::Text(text))) => {
                     if let Some(words) = heard(&text) {
+                        if !words.transcript.is_empty() {
+                            let _ = words_at.set(Instant::now());
+                        }
                         let finalized = words.from_finalize;
                         if words.is_final && finalize_by.is_none() {
                             last_final = Some(Instant::now());
@@ -631,6 +649,60 @@ mod tests {
         assert_eq!(words, "from close");
         assert_eq!(took, FINALIZE + Duration::from_millis(800));
         assert!(at_end.ends_with(", words from=close_stream"), "{at_end}");
+    }
+
+    /// #828: when the first words came back is kept, from the first result
+    /// with words, interim or final, and it stays readable after the finish.
+    #[tokio::test(start_paused = true)]
+    async fn the_first_words_are_timed_from_the_first_result_with_words() {
+        use tokio_tungstenite::{WebSocketStream, tungstenite::protocol::Role};
+        const SILENT: &str = r#"{"type":"Results","is_final":false,"speech_final":false,"start":0.0,"duration":0.2,"channel":{"alternatives":[{"transcript":""}]}}"#;
+        const FINALIZED: &str = r#"{"type":"Results","is_final":true,"speech_final":true,"from_finalize":true,"start":0.0,"duration":0.6,"channel":{"alternatives":[{"transcript":"hello"}]}}"#;
+        let (near, far) = tokio::io::duplex(1 << 16);
+        let server = tokio::spawn(async move {
+            let mut socket = WebSocketStream::from_raw_socket(far, Role::Server, None).await;
+            let mut blocks = 0;
+            while let Some(Ok(message)) = socket.next().await {
+                match message {
+                    Message::Binary(_) => {
+                        blocks += 1;
+                        if blocks == 1 {
+                            socket.send(Message::text(SILENT)).await.unwrap();
+                        } else if blocks == 2 {
+                            tokio::time::sleep(Duration::from_millis(300)).await;
+                            socket.send(Message::text(INTERIM)).await.unwrap();
+                        }
+                    }
+                    Message::Text(text) if text.contains("Finalize") => {
+                        socket.send(Message::text(FINALIZED)).await.unwrap();
+                    }
+                    Message::Text(text) if text.contains("CloseStream") => break,
+                    _ => {}
+                }
+            }
+        });
+        let stream =
+            SttStream::start(WebSocketStream::from_raw_socket(near, Role::Client, None).await);
+        let first_words = stream.first_words();
+        let began = Instant::now();
+        stream.send(&[0; 320]).unwrap();
+        tokio::time::sleep(Duration::from_millis(100)).await;
+        assert!(
+            first_words.get().is_none(),
+            "a result with no words is not words"
+        );
+        stream.send(&[0; 320]).unwrap();
+        tokio::time::sleep(Duration::from_millis(500)).await;
+        let at = *first_words.get().expect("the words never came");
+        let after = at - began;
+        assert!(
+            (Duration::from_millis(400)..Duration::from_millis(450)).contains(&after),
+            "{after:?}"
+        );
+        let (words, _) = stream.finish_told().await.unwrap();
+        assert_eq!(words, "hello");
+        assert_eq!(first_words.get().copied(), Some(at));
+        server.abort();
     }
 
     const SET_A_TIMER: &str = r#"{"type":"Results","is_final":true,"speech_final":true,"start":0.0,"duration":1.0,"channel":{"alternatives":[{"transcript":"set a timer"}]}}"#;

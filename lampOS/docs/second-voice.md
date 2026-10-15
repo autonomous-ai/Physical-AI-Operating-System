@@ -331,6 +331,27 @@ and a direct provider key are the owner's and the relay team's.
 
 A switch on a response timeout cannot meet the first (above).
 
+## Timing the first words (#828)
+
+`lamp-voice stt-check CONFIG WAV [ROUNDS] [--held-ms MS]` streams a recorded
+line (16 kHz mono 16-bit) to this route's speech-to-text, as `CONFIG` (the
+file `LAMP_VOICE_SECOND_CONFIG` names) sets it up, and prints one line a
+round:
+- `connect_ms`: opening the stream;
+- `first_words_ms`: from the first audio sent to the first result with
+  words, interim or final (`SttStream::first_words`);
+- `audio_ms`: how long sending the line took;
+- `final_after_audio_ms`: from the line's end to its final words;
+- `words`: the final words.
+
+The first `MS` of the line go at once, as a paused reply's held audio would
+(#828, step 2: a stop word heard during the pause), and the rest at the
+pace it was said. Three rounds and nothing held, unless said; at most 20
+rounds and 1,600 ms held. It reads the credential file the config names,
+so on a lamp it runs as the voice's user or root. The time to the first
+words is what a 1.1 s pause has to wait for: the relay's has not been
+measured yet.
+
 ## Coordinator switch
 
 `coordinator/second.rs`. With `LAMP_VOICE_SECOND_CONFIG` set in the

@@ -1211,8 +1211,18 @@ the one `--overload release` makes ("Letting go under overload"):
   Still pushed in the second after it stopped (50 steps in a row): its load over the lower of the bound that stopped it and its
   floor, or more than 11 counts (about a degree) from where it stopped.
   Then the lamp lets go as under overload: torque off on all five, the
-  lamp slumps, nothing is written for 120 s, then every joint is held
-  where it lies and the head and the base are brought home slowly. The
+  lamp slumps, nothing is written for 5 s, then every joint is held
+  where it lies and the head and the base are brought home slowly. V1
+  rested 120 s here too, its `retry_s`, which is for a servo cooling
+  from overload; a hand is not heat, and a lamp limp for two minutes
+  after a push reads as broken, where a creature pushed hard flops and
+  gathers itself within seconds (the first builder on #780). 5 s is a
+  little over V1's contact pause (`pause_s`, 3 s). The servos do not
+  need longer: through run 8 on lamp-52e6 (2026-10-15 14:14 to 14:21,
+  the slump included) the shoulder and the elbow read 44 to 48 °C, far
+  under the 62 at which the body stops, and a hand on the base for a
+  second or two warms nothing. A slump from overload (`--overload
+  release`) still rests 120 s. The
   report counts it in `released` and, per joint, in `released_by_hand`
   (pitch, roll, yaw); the log says so. A first version (2026-10-15 13:41
   on lamp-52e6) let go of the base alone: the lamp did not slump, as the
@@ -1260,8 +1270,8 @@ at 1,920 when told to stay, and is back at 1,960 when told to come back.
 
 Four tests for `--limp on`: a base turned 30 counts by a hand at 600 and
 held makes the lamp slump about a second after it stopped (torque off to all
-five, byte for byte), nothing is written for two minutes, and each joint
-is then held where it lies; pushed again once up, or while it is brought
+five, byte for byte), nothing is written for 5 s (and it is taken hold
+of within a second after), and each joint is then held where it lies; pushed again once up, or while it is brought
 up, it slumps again and the run goes on; without `--give-way` and
 `--limp` the run ends on its load with no torque ever written. A base
 found 545 counts from home starts held where it lies with `--limp on`

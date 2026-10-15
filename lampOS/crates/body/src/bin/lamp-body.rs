@@ -689,7 +689,7 @@ fn run(arguments: Arguments) -> Result<bool, Box<dyn std::error::Error>> {
                 glimpse.step,
                 if limp {
                     format!(
-                        "let go under overload or a hand (time {}): torque off on all five for 120 s, or for good if overload trips it twice within ten minutes",
+                        "let go under overload or a hand (time {}): torque off on all five for 5 s after a hand or 120 s after overload, or for good if overload trips it twice within ten minutes",
                         glimpse.released
                     )
                 } else {

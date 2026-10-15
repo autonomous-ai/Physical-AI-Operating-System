@@ -73,6 +73,10 @@ pub struct Decision {
     /// When the request's sound began and, if known, ended.
     pub input_began_us: Option<u64>,
     pub input_ended_us: Option<u64>,
+    /// Whether it was said to the lamp from close to it, when that is
+    /// judged (`LAMP_ADDRESSED=on`, `crate::addressed`). Not in the line
+    /// otherwise, so a line without the switch is as it was.
+    pub addressed: Option<lamp_msgs::Addressed>,
 }
 
 #[derive(Default)]
@@ -150,7 +154,7 @@ impl FirstOutputLog {
     /// Record one decision. Never waits.
     pub fn decided(&mut self, decision: &Decision) {
         self.seq += 1;
-        let line = json!({
+        let mut line = json!({
             "schema": 1,
             "event": "voice_first_output",
             "machine": self.machine,
@@ -171,6 +175,9 @@ impl FirstOutputLog {
             "input_ended_us": decision.input_ended_us,
             "at_unix_ms": unix_ms(),
         });
+        if let (Some(addressed), Some(fields)) = (&decision.addressed, line.as_object_mut()) {
+            fields.insert("addressed".into(), json!(addressed));
+        }
         self.send(line.to_string());
     }
 
@@ -333,6 +340,7 @@ mod tests {
             evaluated_us: 13,
             input_began_us: Some(1),
             input_ended_us: None,
+            addressed: None,
         }
     }
 
@@ -378,9 +386,51 @@ mod tests {
         assert_eq!(baseline["facing"], serde_json::Value::Null);
         assert_eq!(baseline["text"], "And tomorrow?");
         assert_eq!(lines[0]["input_ended_us"], serde_json::Value::Null);
+        assert!(lines[0].get("addressed").is_none());
         assert_eq!(lines[2]["event"], "capture_end");
         assert_eq!(lines[2]["decisions"], 2);
         assert_eq!(lines[2]["dropped"], 0);
+        std::fs::remove_dir_all(directory).unwrap();
+    }
+
+    #[test]
+    fn whether_it_was_said_to_the_lamp_goes_beside_the_decision_only_when_judged() {
+        let directory = private_directory("addressed");
+        let said = lamp_msgs::Addressed {
+            session: 7,
+            request: 5,
+            began_us: 1,
+            ended_us: Some(2),
+            rise_db: Some(21.0),
+            near: Some(true),
+            looks: 6,
+            facing_height: Some(0.2),
+            facing_share: Some(0.5),
+            facing_close: Some(true),
+            name_score: 0.0,
+            addressed: true,
+        };
+        let path = {
+            let mut log = FirstOutputLog::open(&directory).unwrap();
+            log.decided(&Decision {
+                addressed: Some(said),
+                ..decision(5, true)
+            });
+            log.path().to_owned()
+        };
+        let lines: Vec<serde_json::Value> = std::fs::read_to_string(&path)
+            .unwrap()
+            .lines()
+            .map(|line| serde_json::from_str(line).unwrap())
+            .collect();
+        let line = &lines[1];
+        assert_eq!(line["event"], "voice_first_output");
+        assert_eq!(
+            serde_json::from_value::<lamp_msgs::Addressed>(line["addressed"].clone()).unwrap(),
+            said
+        );
+        // The Policy's seven baseline fields are untouched.
+        assert_eq!(line["baseline"].as_object().unwrap().len(), 7);
         std::fs::remove_dir_all(directory).unwrap();
     }
 

@@ -93,6 +93,9 @@ static ATTENTION_BUSY: std::sync::atomic::AtomicBool = std::sync::atomic::Atomic
 /// Whether a name heard close to the lamp counts as a call
 /// (`crate::attention::NEAR_FLAG`).
 static ATTENTION_NEAR: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+/// Whether requests are judged said to the lamp from close to it
+/// (`crate::addressed`): only with the rule that follows them.
+static ADDRESSED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 
 /// Files the provider worker is told of by its flags.
 #[derive(Default)]
@@ -120,6 +123,10 @@ pub struct Files {
     /// Whether a name heard close to the lamp counts as a call in a busy
     /// room (`--attention-near`).
     pub attention_near: bool,
+    /// Whether each request is judged said to the lamp from close to it,
+    /// published, and let out in a busy room (`--addressed`,
+    /// `crate::addressed`).
+    pub addressed: bool,
     /// Whether the model is asked to say when it hears the lamp's name
     /// (`--name-signal`).
     pub name_signal: bool,
@@ -705,6 +712,10 @@ pub async fn run_with_continuation(
         files.attention && files.attention_busy && files.attention_near,
         std::sync::atomic::Ordering::Relaxed,
     );
+    ADDRESSED.store(
+        files.attention && files.addressed,
+        std::sync::atomic::Ordering::Relaxed,
+    );
     // The conversation a service that ended a moment ago was in.
     if let Some(path) = files.thread {
         if let Ok(text) = std::fs::read_to_string(&path)
@@ -843,9 +854,11 @@ async fn serve_with_visual<C: Connect>(
     };
     // The room microphone's rise over its quiet, for whether a voice is
     // close to the lamp: read from the ears every 100 ms, the last 30 s kept.
+    let attention_near = ATTENTION_NEAR.load(std::sync::atomic::Ordering::Relaxed);
+    let addressed = ADDRESSED.load(std::sync::atomic::Ordering::Relaxed);
     let ears_bus = BUS_ROOT
         .get()
-        .filter(|_| ATTENTION_NEAR.load(std::sync::atomic::Ordering::Relaxed))
+        .filter(|_| attention_near || addressed)
         .and_then(|root| lamp_bus::Bus::new(root).ok());
     let mut ears_levels: VecDeque<(u64, f32)> = VecDeque::new();
     let mut ears_read_at: Option<Instant> = None;
@@ -881,8 +894,24 @@ async fn serve_with_visual<C: Connect>(
     // busy room, when a note is due or an answer is decided.
     let eyes = BUS_ROOT
         .get()
-        .filter(|_| busy_needs_face || attention_busy)
+        .filter(|_| busy_needs_face || attention_busy || addressed)
         .and_then(|root| lamp_bus::Bus::new(root).ok());
+    // Whether each request was said to the lamp from close to it: the eyes'
+    // looks of the last 30 s, and the topic it is published on. A bus that
+    // cannot be used is said once; the rule then has no such sign.
+    let mut looks = crate::addressed::Looks::default();
+    // The request judged last, judged once: as its sound ended or, if its
+    // answer began first, then.
+    let mut addressed_said: Option<lamp_msgs::Addressed> = None;
+    let mut addressed_out = BUS_ROOT.get().filter(|_| addressed).and_then(|root| {
+        crate::addressed::AddressedOut::on(root)
+            .map_err(|error| {
+                eprintln!(
+                    "lamp-voice provider: whether a request was said to the lamp is not published on the bus: {error}"
+                )
+            })
+            .ok()
+    });
     let mut called = crate::called::Called::default();
     let mut desk = ToolDesk::new(options.tools.clone());
     desk.name_signal = options.name_signal;
@@ -946,6 +975,21 @@ async fn serve_with_visual<C: Connect>(
                 // request's sound ended is not that request's.
                 if let Some((request, at_us)) = intake.handoff.ended {
                     attention.ended(request, at_us);
+                }
+                if addressed
+                    && let Some(request) = attention.in_hand()
+                    && request.ended_us.is_some()
+                    && !crate::addressed::judged(addressed_said.as_ref(), &request)
+                {
+                    let now = monotonic_us();
+                    let said = crate::addressed::judge(request, &ears_levels, &looks, now);
+                    attention.set_addressed(said.addressed);
+                    if let Some(out) = addressed_out.as_mut()
+                        && let Err(error) = out.tell(&said, now)
+                    {
+                        eprintln!("lamp-voice provider: request {}: whether it was said to the lamp was not published: {error}", said.request);
+                    }
+                    addressed_said = Some(said);
                 }
                 if let Some(names) = name_in.as_mut()
                     && let Some((began, score)) = names.newest_scored(monotonic_us())
@@ -1051,6 +1095,13 @@ async fn serve_with_visual<C: Connect>(
                     }
                     while ears_levels.front().is_some_and(|(at, _)| now.saturating_sub(*at) > 30_000_000) {
                         ears_levels.pop_front();
+                    }
+                    if addressed
+                        && let Some(message) = eyes.as_ref().and_then(|eyes| {
+                            eyes.latest(lamp_msgs::Faces::TOPIC).ok().flatten()
+                        })
+                    {
+                        looks.read(&message, now);
                     }
                 }
                 // The air: read every five seconds; a stuffy room is told
@@ -1241,7 +1292,8 @@ async fn serve_with_visual<C: Connect>(
                                 .then(|| eyes.as_ref().and_then(crate::bus_out::someone_turned_to_lamp))
                                 .flatten();
                             let sampled_end_us = monotonic_us();
-                            if ears_bus.is_some()
+                            if attention_near
+                                && ears_bus.is_some()
                                 && let Some((began, ended)) = attention.window()
                             {
                                 let until = ended.unwrap_or_else(monotonic_us);
@@ -1251,6 +1303,23 @@ async fn serve_with_visual<C: Connect>(
                                     .map(|(_, rise)| *rise)
                                     .fold(f32::MIN, f32::max);
                                 attention.set_near(rise >= crate::attention::NEAR_RISE_DB);
+                            }
+                            // Said to the lamp from close to it, over the
+                            // request's sound so far, if it was not judged
+                            // as the sound ended.
+                            if addressed
+                                && let Some(in_hand) = attention.in_hand().filter(|in_hand| in_hand.request == request)
+                                && !crate::addressed::judged(addressed_said.as_ref(), &in_hand)
+                            {
+                                let now = monotonic_us();
+                                let said = crate::addressed::judge(in_hand, &ears_levels, &looks, now);
+                                attention.set_addressed(said.addressed);
+                                if let Some(out) = addressed_out.as_mut()
+                                    && let Err(error) = out.tell(&said, now)
+                                {
+                                    eprintln!("lamp-voice provider: request {}: whether it was said to the lamp was not published: {error}", said.request);
+                                }
+                                addressed_said = Some(said);
                             }
                             let verdict = attention.first_output_busy(request, room, going_on, attention_busy, turned);
                             if let (Some(log), Some(verdict)) = (first_output.as_mut(), verdict) {
@@ -1276,6 +1345,9 @@ async fn serve_with_visual<C: Connect>(
                                     evaluated_us: monotonic_us(),
                                     input_began_us: window.map(|(began, _)| began),
                                     input_ended_us: window.and_then(|(_, ended)| ended),
+                                    addressed: addressed_said.filter(|said| {
+                                        said.session == lineage.session.get() && said.request == request
+                                    }),
                                 });
                             }
                             match verdict {

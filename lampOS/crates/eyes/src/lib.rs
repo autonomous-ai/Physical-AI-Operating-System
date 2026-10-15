@@ -9,11 +9,13 @@
 //! show the model, and no other. With `LAMP_BUS=on`, [`bus_out`] publishes
 //! the faces in view on the lamp's bus: boxes and whether each is turned to
 //! the lamp, never a picture. [`who`] says whose face it is, for the people
-//! who asked the lamp to remember them, and nobody else.
+//! who asked the lamp to remember them, and nobody else. With
+//! `--leave-still-faces on`, [`still`] leaves out a face that never moves.
 pub mod bus_out;
 pub mod faces;
 pub mod facing;
 pub mod kept;
 pub mod picture;
 pub mod sight;
+pub mod still;
 pub mod who;

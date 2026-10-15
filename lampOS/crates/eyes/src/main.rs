@@ -6,7 +6,7 @@
 
 use std::{ffi::OsString, path::PathBuf};
 
-const USAGE: &str = "lamp-eyes --device ABSOLUTE_PATH --lock-directory PRIVATE_ABSOLUTE_DIRECTORY --usb VENDOR:PRODUCT@TOPOLOGY --model ABSOLUTE_PATH --permit-socket ABSOLUTE_PATH --body-socket ABSOLUTE_PATH [--sight-file ABSOLUTE_PATH] [--presence-file ABSOLUTE_PATH] [--recogniser ABSOLUTE_PATH --people ABSOLUTE_PATH --who-socket ABSOLUTE_PATH [--known-file ABSOLUTE_PATH]]\n\nOwns the camera at --device (checked against the USB identity given, hex vendor and\nproduct and the port topology, for example 01da:5875@3-1.1.4) and looks for a face in\nits frames four times a second while there is one and less than twice a second when\nthere is none, with the pinned YuNet model at --model. Each look\nsends one datagram to --body-socket: {\"face\":{\"x\":..,\"y\":..,\"size\":..,\"turned\":..}} or\n{\"face\":null}. The camera is open only while {\"camera\":true} keeps arriving on\n--permit-socket, at least every 1.5 s; {\"camera\":false} closes it at once. Without\n--sight-file no frame is written anywhere and none leaves this process. With it the\nnewest frame, and only that one, is kept in that file (mode 0600) while the camera is\nopen and removed when it closes: it is what the voice service shows the model. With\n--presence-file one line, the near face's height as a share of the picture's, is kept\nfresh in that file while there is a face: no picture, only that number. With\n--recogniser (the pinned SFace model), --people and --who-socket, the eyes remember\na face when the voice service asks ({\"remember\":\"NAME\"} on the socket), forget it\n({\"forget\":\"NAME\"}), list the names ({\"list\":true}) and say whose face is at the\nlamp ({\"who\":true}). Only the prints of people who asked are kept, in --people\n(mode 0600); no picture. With --known-file, the name of the one known at the lamp is\nkept fresh in that file while they are there.\n";
+const USAGE: &str = "lamp-eyes --device ABSOLUTE_PATH --lock-directory PRIVATE_ABSOLUTE_DIRECTORY --usb VENDOR:PRODUCT@TOPOLOGY --model ABSOLUTE_PATH --permit-socket ABSOLUTE_PATH --body-socket ABSOLUTE_PATH [--sight-file ABSOLUTE_PATH] [--presence-file ABSOLUTE_PATH] [--recogniser ABSOLUTE_PATH --people ABSOLUTE_PATH --who-socket ABSOLUTE_PATH [--known-file ABSOLUTE_PATH]] [--leave-still-faces on|off]\n\nOwns the camera at --device (checked against the USB identity given, hex vendor and\nproduct and the port topology, for example 01da:5875@3-1.1.4) and looks for a face in\nits frames four times a second while there is one and less than twice a second when\nthere is none, with the pinned YuNet model at --model. Each look\nsends one datagram to --body-socket: {\"face\":{\"x\":..,\"y\":..,\"size\":..,\"turned\":..}} or\n{\"face\":null}. The camera is open only while {\"camera\":true} keeps arriving on\n--permit-socket, at least every 1.5 s; {\"camera\":false} closes it at once. Without\n--sight-file no frame is written anywhere and none leaves this process. With it the\nnewest frame, and only that one, is kept in that file (mode 0600) while the camera is\nopen and removed when it closes: it is what the voice service shows the model. With\n--presence-file one line, the near face's height as a share of the picture's, is kept\nfresh in that file while there is a face: no picture, only that number. With\n--recogniser (the pinned SFace model), --people and --who-socket, the eyes remember\na face when the voice service asks ({\"remember\":\"NAME\"} on the socket), forget it\n({\"forget\":\"NAME\"}), list the names ({\"list\":true}) and say whose face is at the\nlamp ({\"who\":true}). Only the prints of people who asked are kept, in --people\n(mode 0600); no picture. With --known-file, the name of the one known at the lamp is\nkept fresh in that file while they are there. With --leave-still-faces on, a face whose box\nhas not moved by more than about two pixels for two minutes is not a person: it is left\nout of what the body is told, the bus and recognition (off unless given).\n";
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 struct Usb {
@@ -30,6 +30,8 @@ struct Arguments {
     who: Option<(PathBuf, PathBuf, PathBuf)>,
     /// The name of whoever known is at the lamp, kept fresh while they are.
     known_file: Option<PathBuf>,
+    /// Leave out a face that never moves (#763).
+    leave_still: bool,
 }
 
 /// `VENDOR:PRODUCT@TOPOLOGY`, the two numbers as four hex digits each.
@@ -61,6 +63,7 @@ fn parse(args: impl IntoIterator<Item = OsString>) -> Result<Option<Arguments>, 
     let (mut model, mut permit_socket, mut body_socket) = (None, None, None);
     let (mut sight_file, mut presence_file) = (None, None);
     let (mut recogniser, mut people, mut who_socket, mut known_file) = (None, None, None, None);
+    let mut leave_still = None;
     while let Some(key) = args.next() {
         if key == "--help" {
             let alone = device.is_none()
@@ -75,6 +78,7 @@ fn parse(args: impl IntoIterator<Item = OsString>) -> Result<Option<Arguments>, 
                 && people.is_none()
                 && who_socket.is_none()
                 && known_file.is_none()
+                && leave_still.is_none()
                 && args.next().is_none();
             return if alone {
                 Ok(None)
@@ -105,6 +109,13 @@ fn parse(args: impl IntoIterator<Item = OsString>) -> Result<Option<Arguments>, 
             Some("--people") if people.is_none() => people = Some(PathBuf::from(value)),
             Some("--who-socket") if who_socket.is_none() => who_socket = Some(PathBuf::from(value)),
             Some("--known-file") if known_file.is_none() => known_file = Some(PathBuf::from(value)),
+            Some("--leave-still-faces") if leave_still.is_none() => {
+                leave_still = Some(match value.to_str() {
+                    Some("on") => true,
+                    Some("off") => false,
+                    _ => return Err("--leave-still-faces is on or off"),
+                });
+            }
             Some("--usb") if usb.is_none() => {
                 usb =
                     Some(value.to_str().and_then(usb_of).ok_or(
@@ -129,6 +140,7 @@ fn parse(args: impl IntoIterator<Item = OsString>) -> Result<Option<Arguments>, 
             _ => return Err("--recogniser, --people and --who-socket go together"),
         },
         known_file,
+        leave_still: leave_still.unwrap_or(false),
     };
     if result.known_file.is_some() && result.who.is_none() {
         return Err("--known-file needs --recogniser, --people and --who-socket");
@@ -348,6 +360,8 @@ fn run(arguments: Arguments) -> Result<(), Box<dyn std::error::Error + Send + Sy
     let mut presence = arguments.presence_file.clone().map(Presence::new);
     // The faces in view, for whoever listens on the lamp's bus.
     let mut bus_out = lamp_eyes::bus_out::BusOut::from_environment();
+    // Faces that never move, left out when asked.
+    let mut still = arguments.leave_still.then(lamp_eyes::still::Still::default);
     let mut epoch = 0u64;
     let mut port: Option<LinuxPort> = None;
     let mut permitted_at: Option<Instant> = None;
@@ -596,7 +610,16 @@ fn run(arguments: Arguments) -> Result<(), Box<dyn std::error::Error + Send + Sy
             let found = Picture::from_jpeg(&frame[..used]).and_then(|picture| {
                 detector
                     .find(&picture)
-                    .map(|faces| {
+                    .map(|mut faces| {
+                        if let Some(still) = still.as_mut() {
+                            let now_us = lamp_ipc::monotonic_us();
+                            faces.retain(|face| {
+                                !still.leave_out(
+                                    lamp_eyes::bus_out::edges(face, picture.filled),
+                                    now_us,
+                                )
+                            });
+                        }
                         if let Some(bus) = bus_out.as_mut() {
                             bus.saw(&faces, picture.filled, lamp_ipc::monotonic_us());
                         }
@@ -659,8 +682,12 @@ fn run(arguments: Arguments) -> Result<(), Box<dyn std::error::Error + Send + Sy
         }
         if reported_at.elapsed() >= REPORT_EVERY {
             eprintln!(
-                "lamp-eyes: {frames} frames, looked at {looks}, a face in {with_face}, {unreadable} unreadable, {:.0} ms a look",
-                spent.as_secs_f32() * 1e3 / (looks + unreadable).max(1) as f32
+                "lamp-eyes: {frames} frames, looked at {looks}, a face in {with_face}, {unreadable} unreadable, {:.0} ms a look{}",
+                spent.as_secs_f32() * 1e3 / (looks + unreadable).max(1) as f32,
+                still.as_ref().map_or(String::new(), |still| format!(
+                    ", {} still faces left out so far",
+                    still.left_out
+                ))
             );
             (frames, looks, with_face, unreadable) = (0, 0, 0, 0);
             spent = Duration::ZERO;
@@ -754,6 +781,13 @@ mod tests {
             PathBuf::from("/run/lampos-body/gaze.sock")
         );
         assert!(parse(args(&["--help"])).unwrap().is_none());
+        // A face that never moves is kept unless asked otherwise.
+        assert!(!value.leave_still);
+        let leaving = [&FULL[..], &["--leave-still-faces", "on"]].concat();
+        assert!(parse(args(&leaving)).unwrap().unwrap().leave_still);
+        let keeping = [&FULL[..], &["--leave-still-faces", "off"]].concat();
+        assert!(!parse(args(&keeping)).unwrap().unwrap().leave_still);
+        assert!(parse(args(&[&FULL[..], &["--leave-still-faces", "yes"]].concat())).is_err());
         // The newest frame is kept for the voice service only when asked.
         assert_eq!(value.sight_file, None);
         let seeing = [&FULL[..], &["--sight-file", "/run/lampos-eyes/sight.jpg"]].concat();

@@ -81,6 +81,18 @@ impl Ids {
     }
 }
 
+/// A face's box as fractions of the picture: (xmin, ymin, xmax, ymax).
+/// `filled` is how much of the detector's picture the camera frame fills.
+pub fn edges(face: &faces::Face, filled: (usize, usize)) -> [f32; 4] {
+    let (width, height) = (filled.0.max(1) as f32, filled.1.max(1) as f32);
+    [
+        (face.x / width).clamp(0.0, 1.0),
+        (face.y / height).clamp(0.0, 1.0),
+        ((face.x + face.width) / width).clamp(0.0, 1.0),
+        ((face.y + face.height) / height).clamp(0.0, 1.0),
+    ]
+}
+
 /// The faces the detector found, as the message. `filled` is how much of
 /// the detector's picture the camera frame fills, in its units.
 ///
@@ -91,17 +103,7 @@ impl Ids {
 /// the picture is not mirrored. That has not been checked against a person.
 pub fn message(found: &[faces::Face], filled: (usize, usize), ids: &mut Ids, now_us: u64) -> Faces {
     let (width, height) = (filled.0.max(1) as f32, filled.1.max(1) as f32);
-    let boxes: Vec<[f32; 4]> = found
-        .iter()
-        .map(|face| {
-            [
-                (face.x / width).clamp(0.0, 1.0),
-                (face.y / height).clamp(0.0, 1.0),
-                ((face.x + face.width) / width).clamp(0.0, 1.0),
-                ((face.y + face.height) / height).clamp(0.0, 1.0),
-            ]
-        })
-        .collect();
+    let boxes: Vec<[f32; 4]> = found.iter().map(|face| edges(face, filled)).collect();
     let ids = ids.of(&boxes, now_us);
     let faces = found
         .iter()

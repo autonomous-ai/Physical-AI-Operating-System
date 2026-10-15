@@ -156,6 +156,13 @@ order is kept. A written turn is the same from the chat on.
   under the same lock as its recall and after its forgetting and reload
   (`thread::current`), so they are only the person's at the lamp and never
   something forgotten. The route keeps no copy of its own.
+- **A written request stays with its answer as a note.** When the lamp
+  begins a turn itself, the request's text is kept on that exchange in the
+  thread (`Thread::written`, a `written` field in the file) and given to the
+  next chat as a system note ("A note you were given in writing, not words
+  anyone said: ..."), never as a user message. A person who said nothing
+  sends no empty user message. A Live session's recall is unchanged: it is
+  not read the note.
 - **Each turn is one person's**, as a Live session is since #775: before
   the chat, the thread is opened for whoever the eyes know at the lamp
   (`Sessions::open`), and that person's kept things are asked for. With

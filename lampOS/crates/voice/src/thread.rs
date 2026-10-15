@@ -89,6 +89,9 @@ struct Exchange {
     journalled: bool,
     /// The memory id of the known person it was with; `None`: the room's.
     whose: Option<String>,
+    /// The note the lamp was given in writing for it, when it began the
+    /// turn itself (a written request): not words anyone said.
+    written: Option<String>,
 }
 
 pub struct Thread {
@@ -106,6 +109,8 @@ pub struct Thread {
     whose: Option<String>,
     /// Whom the newest session was opened for: the only exchanges it is told.
     opened_for: Option<String>,
+    /// A written request not yet answered ([`Self::written`]).
+    note: Option<String>,
     /// How new a thread file this holds: the modification time of the file
     /// last read or written, or the moment of the last forgetting, whichever
     /// is later. A file no newer than this is not read again.
@@ -122,6 +127,18 @@ struct Kept {
     lamp: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     whose: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    written: Option<String>,
+}
+
+/// One exchange as [`Thread::recent`] gives it.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Recent {
+    /// The note of a request the lamp was given in writing, if it was one.
+    pub written: Option<String>,
+    /// What the person said; empty for none.
+    pub person: String,
+    pub lamp: String,
 }
 
 /// This process's one thread. The provider worker is one process with one
@@ -162,6 +179,7 @@ impl Thread {
             unsaid: None,
             whose: None,
             opened_for: None,
+            note: None,
             held: None,
         }
     }
@@ -230,10 +248,12 @@ impl Thread {
         };
         // Who is at the lamp and whom the session was opened for are this
         // process's own; each exchange keeps its `whose` through the file.
-        let (whose, opened_for) = (self.whose.take(), self.opened_for.take());
+        let (whose, opened_for, note) =
+            (self.whose.take(), self.opened_for.take(), self.note.take());
         *self = Self::load(&text, now, wall);
         self.whose = whose;
         self.opened_for = opened_for;
+        self.note = note;
         self.held = Some(at);
         true
     }
@@ -264,6 +284,7 @@ impl Thread {
                 person: exchange.person.clone(),
                 lamp: exchange.lamp.clone(),
                 whose: exchange.whose.clone(),
+                written: exchange.written.clone(),
             })
             .collect();
         serde_json::to_string(&kept).ok()
@@ -313,6 +334,11 @@ impl Thread {
                 // The process that wrote the file handed it on.
                 journalled: true,
                 whose: kept.whose,
+                written: kept.written.map(|text| {
+                    let mut written = String::new();
+                    add(&mut written, &text, PERSON_BYTES);
+                    written
+                }),
             });
         }
         thread
@@ -332,6 +358,14 @@ impl Thread {
         add(&mut self.heard, text, PERSON_BYTES);
         self.heard_at = Some(now);
         self.heard_done = finished;
+    }
+
+    /// The note of a request the lamp was given in writing: kept with the
+    /// answer to it, apart from what anyone said.
+    pub fn written(&mut self, text: &str) {
+        let mut note = String::new();
+        add(&mut note, text, PERSON_BYTES);
+        self.note = Some(note);
     }
 
     /// A piece of what the lamp said in answer `request`.
@@ -378,6 +412,7 @@ impl Thread {
                 lamp: String::new(),
                 journalled: false,
                 whose,
+                written: self.note.take(),
             });
         }
         if let Some(last) = self.exchanges.back_mut() {
@@ -467,8 +502,8 @@ impl Thread {
     /// The person's exchanges ([`Self::opening`]) of the last `within`,
     /// at most `most`, oldest first, as (what they said, what the lamp said):
     /// for a route that gives a model the conversation as messages.
-    pub fn recent(&self, now: Instant, within: Duration, most: usize) -> Vec<(String, String)> {
-        let mut recent: Vec<(String, String)> = self
+    pub fn recent(&self, now: Instant, within: Duration, most: usize) -> Vec<Recent> {
+        let mut recent: Vec<Recent> = self
             .exchanges
             .iter()
             .rev()
@@ -478,11 +513,10 @@ impl Thread {
                     && exchange.lamp.chars().any(char::is_alphanumeric)
             })
             .take(most)
-            .map(|exchange| {
-                (
-                    exchange.person.trim().to_owned(),
-                    exchange.lamp.trim().to_owned(),
-                )
+            .map(|exchange| Recent {
+                written: exchange.written.clone(),
+                person: exchange.person.trim().to_owned(),
+                lamp: exchange.lamp.trim().to_owned(),
             })
             .collect();
         recent.reverse();
@@ -1295,8 +1329,13 @@ mod tests {
             thread.person(said, true, now);
             thread.lamp(i as u64 + 1, &format!("heard {said}"), now);
         }
+        let said: Vec<(String, String)> = thread
+            .recent(now, Duration::from_secs(300), 2)
+            .into_iter()
+            .map(|r| (r.person, r.lamp))
+            .collect();
         assert_eq!(
-            thread.recent(now, Duration::from_secs(300), 2),
+            said,
             [
                 ("two".to_owned(), "heard two".to_owned()),
                 ("three".to_owned(), "heard three".to_owned())
@@ -1310,6 +1349,40 @@ mod tests {
         open(&mut thread, &sam);
         open(&mut thread, &minh);
         assert!(thread.recent(now, Duration::from_secs(300), 6).is_empty());
+    }
+
+    /// First builder's reviewer on #778: a request the lamp was given in
+    /// writing stays with its answer, as a note and not as anyone's words,
+    /// through the file too, so the next turn has it (ORCHID).
+    #[test]
+    fn a_written_request_is_kept_with_its_answer_as_a_note() {
+        let now = Instant::now();
+        let wall = SystemTime::now();
+        let mut thread = Thread::new();
+        thread.written("Tell them the code word is ORCHID.");
+        thread.lamp(1, "The code word is ORCHID.", now);
+        let recent = thread.recent(now, Duration::from_secs(300), 6);
+        assert_eq!(
+            recent,
+            [Recent {
+                written: Some("Tell them the code word is ORCHID.".into()),
+                person: String::new(),
+                lamp: "The code word is ORCHID.".into(),
+            }]
+        );
+        // The note is the written turn's alone: a spoken one after it has none.
+        thread.person("What was it again?", true, now);
+        thread.lamp(2, "ORCHID.", now);
+        let read = Thread::load(&thread.save(now, wall).unwrap(), now, wall);
+        let recent = read.recent(now, Duration::from_secs(300), 6);
+        assert_eq!(
+            recent[0].written.as_deref(),
+            Some("Tell them the code word is ORCHID.")
+        );
+        assert_eq!(recent[1].written, None);
+        assert_eq!(recent[1].person, "What was it again?");
+        // A Live session's recall is as before: no note is read to it.
+        assert!(!read.recall(now, ROOM).unwrap().contains("Tell them"));
     }
 
     /// First builder on #778: a person's exchange made on the second route

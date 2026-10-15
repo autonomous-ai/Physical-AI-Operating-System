@@ -894,7 +894,9 @@ it started.
 **Paused.** Whether or not it publishes, a body that can reach the bus
 reads `lamp/pause` at most once a second ([keeper.md](keeper.md), "Named
 states and the pause"). Paused, every mood is rest and nothing else asked
-of it is taken; its report says `state` `paused`. Nothing kept on the
+of it is taken, and it sees nobody, so a standing lamp folds when its awake
+time runs out even with somebody in front of it; its report says `state`
+`paused`. Nothing kept on the
 topic, or a bus it cannot reach, is not paused.
 
 The loop that talks to the servos never waits for the bus. It hands

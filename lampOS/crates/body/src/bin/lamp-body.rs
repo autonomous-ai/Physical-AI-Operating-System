@@ -849,10 +849,12 @@ fn run(arguments: Arguments) -> Result<bool, Box<dyn std::error::Error>> {
                 called: name.as_mut().is_some_and(|name| name.called()),
             };
             // Read all the same, so that nothing kept from before the pause
-            // is acted on after it.
+            // is acted on after it. Paused, it sees nobody: with no look at
+            // all a face counted before the pause kept it standing for good
+            // (lamp-52e6, 2026-10-15, still up six minutes into a pause).
             if paused.get() {
                 lamp_body::body::Asked {
-                    seen: None,
+                    seen: Some(lamp_body::gaze::Seen { face: None }),
                     gesture: None,
                     expression: None,
                     called: false,

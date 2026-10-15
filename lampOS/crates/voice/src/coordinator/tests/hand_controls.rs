@@ -1026,7 +1026,7 @@ fn local_hand_stop_dispatch_latency() {
 /// provider fault queued beside them ends the loop. Returns the trace, the
 /// reply left and every authority the speaker was sent before teardown.
 fn run_until_fault(
-    controls: HandControls,
+    controls: impl FnOnce() -> HandControls,
     mut owner: Controller,
     mut reply: Option<Reply>,
 ) -> (SessionState, Option<Reply>, Vec<Snapshot>) {
@@ -1060,7 +1060,6 @@ fn run_until_fault(
         paused: Box::new(|| false),
         early_end_blocks: None,
     };
-    let mut controls = Some(controls);
     provider_peer
         .control
         .send(WorkerEvent::Fault {
@@ -1068,6 +1067,9 @@ fn run_until_fault(
         })
         .unwrap();
     let mut trace = SessionState::default();
+    // Made last, just before the loop first polls it: a touch is fresh for
+    // 100 ms only.
+    let mut controls = Some(controls());
     let error = conversation_with_controls(
         &mut rig,
         &mut owner,
@@ -1135,8 +1137,10 @@ fn run_until_fault(
     (trace, left, told)
 }
 
+/// A head touch whose newest sample is 15 ms old: never in the future, which
+/// the receiver refuses, and well inside its 100 ms freshness.
 fn head_controls() -> HandControls {
-    let touched = monotonic_us() - 25_000;
+    let touched = monotonic_us() - 45_000;
     let (state, events) = crate::hand_controls::test_head_touch("test-hand-clock", touched);
     assert_eq!(events.len(), 1, "one qualified head touch");
     HandControls::with_test_touch("test-hand-clock", touched - 600_000, state, events).unwrap()
@@ -1147,7 +1151,7 @@ fn a_head_touch_stops_the_lamp_while_it_says_its_answer() {
     // #711: a hand on its head while it talks means "stop", as the button.
     let (owner, current, _) = active_reply();
     let turn = current.owner.turn();
-    let (trace, left, told) = run_until_fault(head_controls(), owner, Some(current));
+    let (trace, left, told) = run_until_fault(head_controls, owner, Some(current));
     assert!(left.is_none(), "the answer was dropped");
     assert!(told.last().is_some_and(|stopped| stopped.owner().is_none()));
     let cancel = trace
@@ -1167,7 +1171,7 @@ fn a_head_touch_while_the_lamp_is_still_thinking_asks_nothing() {
     let (owner, mut current, _) = active_reply();
     current.had_audio = false;
     current.playback = None;
-    let (trace, left, _) = run_until_fault(head_controls(), owner, Some(current));
+    let (trace, left, _) = run_until_fault(head_controls, owner, Some(current));
     assert!(left.is_some(), "the answer is kept");
     assert!(!trace.iter().any(|row| row["kind"] == "hand_control_cancel"));
     assert!(trace.iter().any(|row| row["kind"] == "head_touch_noticed"));

@@ -801,6 +801,10 @@ pub async fn run_with_continuation(
                 .as_deref()
                 .map(crate::known_faces::known_file_of),
         );
+        // The rules' typed fact for the policy, when rules are on.
+        if let Some(root) = files.bus_root.as_deref().filter(|_| crate::rules::on()) {
+            crate::rules::bus_on(root);
+        }
     }
     // Who work can go to, if the person may name them.
     if let Some(place) = &files.tools.tasks {

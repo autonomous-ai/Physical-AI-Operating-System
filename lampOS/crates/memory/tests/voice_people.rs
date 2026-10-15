@@ -325,3 +325,69 @@ fn days_two_known_people_and_the_room_are_never_answered_from_each_other() {
     assert!(!texts(&to_minh).contains(&"Minh takes coffee black".into()));
     assert!(texts(&to_sam).contains(&"Sam takes coffee with milk".into()));
 }
+
+/// #813: a correction kept in one session is told in the next, to that
+/// person only; listing and forgetting are theirs alone; a recall never
+/// returns a rule. Voice's Days client against the real store.
+#[test]
+fn days_a_rule_is_told_in_the_next_session_to_that_person_only_until_it_is_forgotten() {
+    use lamp_voice::rules::{FORGET_RULE, KEEP_RULE, LIST_RULES};
+    let fixture = Fixture::new(|options, now| Days::open(options, now).unwrap());
+    let (minh, sam) = (person_id("Minh"), person_id("Sam"));
+    let client = DaysClient::new(fixture.socket.clone()).unwrap();
+    let rule = "Do not tell them the weather in the morning.";
+    let (told, ok) = client.rule_for(
+        &call(
+            KEEP_RULE,
+            json!({"rule":rule,"speaking_up":"not_first_in_mornings"}),
+        ),
+        BUDGET,
+        Some(&minh),
+    );
+    assert!(ok && told["kept_rule"] == true, "{told}");
+    let (line, answer) = fixture.next("remember");
+    assert_eq!(line["person"], format!("r-{}", &minh[2..]));
+    let number = answer["id"].as_u64().unwrap();
+    // The next session with Minh at the lamp is told it; Sam's and the
+    // room's are not, and without the switch nobody is.
+    let to_minh = client.told_for_session(1, Some(&minh), true);
+    assert!(
+        to_minh.contains(&format!("- ({number}) {rule}\n")),
+        "{to_minh}"
+    );
+    assert!(!to_minh.contains("[quiet_mornings]"), "{to_minh}");
+    for note in [
+        client.told_for_session(2, Some(&sam), true),
+        client.told_for_session(3, None, true),
+        client.told_for_session(4, Some(&minh), false),
+    ] {
+        assert!(!note.contains("weather"), "{note}");
+    }
+    // Asked, Minh hears it back; Sam hears there is none.
+    let list = |person: &str| client.rule_for(&call(LIST_RULES, json!({})), BUDGET, Some(person));
+    let (told, ok) = list(&minh);
+    assert!(ok, "{told}");
+    assert_eq!(told["rules"][0]["rule"], rule);
+    assert_eq!(told["rules"][0]["number"], number);
+    assert_eq!(list(&sam).0["rules"], json!([]));
+    // A recall in Minh's memory never returns the rule.
+    let (told, ok) = client.run_for(
+        &call(RECALL, json!({"about":"weather"})),
+        BUDGET,
+        Some(&minh),
+    );
+    assert!(ok && texts(&told).is_empty(), "{told}");
+    // Sam cannot take Minh's rule back; Minh can, and it is never told again.
+    let forget = |person: &str| {
+        client.rule_for(
+            &call(FORGET_RULE, json!({"number":number})),
+            BUDGET,
+            Some(person),
+        )
+    };
+    assert_eq!(forget(&sam).0["forgotten"], false);
+    assert_eq!(forget(&minh).0["forgotten"], true);
+    let to_minh = client.told_for_session(5, Some(&minh), true);
+    assert!(!to_minh.contains("weather"), "{to_minh}");
+    assert_eq!(list(&minh).0["rules"], json!([]));
+}

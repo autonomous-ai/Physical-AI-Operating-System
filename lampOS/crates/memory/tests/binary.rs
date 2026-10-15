@@ -8,11 +8,12 @@ use std::{
     path::{Path, PathBuf},
     process::{Child, Command, Output, Stdio},
     thread,
-    time::{Duration, SystemTime, UNIX_EPOCH},
+    time::{Duration, Instant, SystemTime, UNIX_EPOCH},
 };
 
 const BINARY: &str = env!("CARGO_BIN_EXE_lamp-memory");
 const USAGE: &str = "usage: lamp-memory --dir ABSOLUTE_DIR --socket ABSOLUTE_SOCKET_PATH [--keep-days N] [--utc-offset-minutes M] [--memory-days] [--bus-root ABSOLUTE_DIR]";
+const LOG_WAIT: Duration = Duration::from_secs(5);
 
 struct Scratch(PathBuf);
 
@@ -54,7 +55,30 @@ fn run(scratch: &Scratch, args: &[&str]) -> Output {
 }
 
 /// A running `lamp-memory`, killed when the test lets go of it.
-struct Process(Child);
+struct Process {
+    child: Child,
+    log: PathBuf,
+}
+
+/// Only complete records count. A repeated terminal record must be the
+/// requested occurrence, after all the requests whose logs will be checked.
+fn log_reached(bytes: &[u8], records: usize, terminal: &str, occurrence: usize) -> bool {
+    let mut complete = 0;
+    let mut matched = 0;
+    for line in bytes.split_inclusive(|byte| *byte == b'\n') {
+        if !line.ends_with(b"\n") {
+            continue;
+        }
+        complete += 1;
+        if line.starts_with(terminal.as_bytes()) {
+            matched += 1;
+            if complete >= records && matched >= occurrence {
+                return true;
+            }
+        }
+    }
+    false
+}
 
 impl Process {
     /// Start it with its log in a file: a pipe nobody reads would fill.
@@ -63,7 +87,8 @@ impl Process {
     }
 
     fn start_with(scratch: &Scratch, dir: &str, socket: &str, log: &str, extra: &[&str]) -> Self {
-        let log = fs::File::create(scratch.0.join(log)).unwrap();
+        let log_path = scratch.0.join(log);
+        let log = fs::File::create(&log_path).unwrap();
         let child = Command::new(BINARY)
             .args([
                 "--dir",
@@ -78,19 +103,59 @@ impl Process {
             .stderr(log)
             .spawn()
             .unwrap();
-        Self(child)
+        Self {
+            child,
+            log: log_path,
+        }
     }
 
-    fn kill(mut self) {
-        self.0.kill().unwrap();
-        self.0.wait().unwrap();
+    /// A reply follows the request log's submission to the relay, not its
+    /// delivery. Observe the final complete record before killing the relay
+    /// with the process. The caller still reads the whole file after the kill.
+    fn kill(mut self, records: usize, terminal: &str, occurrence: usize) {
+        let started = Instant::now();
+        loop {
+            let bytes = fs::read(&self.log).unwrap_or_else(|error| {
+                panic!(
+                    "cannot read {} before killing lamp-memory: {error}",
+                    self.log.display()
+                )
+            });
+            let status = self.child.try_wait().unwrap_or_else(|error| {
+                panic!(
+                    "cannot check lamp-memory before killing it ({}): {error}",
+                    self.log.display()
+                )
+            });
+            assert!(
+                status.is_none(),
+                "lamp-memory exited before SIGKILL: {status:?}; {}: {}",
+                self.log.display(),
+                String::from_utf8_lossy(&bytes)
+            );
+            let left = LOG_WAIT.saturating_sub(started.elapsed());
+            assert!(
+                !left.is_zero(),
+                "{} did not reach {records} complete records and occurrence {occurrence} of \
+                 {terminal:?} before SIGKILL in {LOG_WAIT:?}; {} complete records: {}",
+                self.log.display(),
+                bytes.iter().filter(|byte| **byte == b'\n').count(),
+                String::from_utf8_lossy(&bytes)
+            );
+            if log_reached(&bytes, records, terminal, occurrence) {
+                break;
+            }
+            thread::sleep(left.min(Duration::from_millis(10)));
+        }
+        self.child.kill().unwrap();
+        self.child.wait().unwrap();
     }
 }
 
 impl Drop for Process {
     fn drop(&mut self) {
-        let _ = self.0.kill();
-        let _ = self.0.wait();
+        let _ = self.child.kill();
+        let _ = self.child.wait();
     }
 }
 
@@ -248,7 +313,7 @@ fn a_killed_process_leaves_a_store_the_next_one_loads_and_a_socket_it_replaces()
 
     // Killed, with no chance to tidy: the socket and the word stay, and
     // nobody answers.
-    first.kill();
+    first.kill(4, "lamp-memory: status person=* ok ", 1);
     assert_eq!(
         scratch.names(),
         ["log1", "m.sock", "made", "other", "ready"]
@@ -285,7 +350,7 @@ fn a_killed_process_leaves_a_store_the_next_one_loads_and_a_socket_it_replaces()
         fs::read_to_string(scratch.0.join("ready")).unwrap(),
         "ready\n"
     );
-    second.kill();
+    second.kill(4, "lamp-memory: status person=* ok ", 1);
 
     // Each said what it found as it started and one line for each request,
     // with none of the text in any of them.
@@ -351,7 +416,7 @@ fn opted_in_memory_migrates_and_forgets_linked_facts_across_sigkill_restarts() {
         .unwrap();
     assert!(scratch.0.join("store/everyone/kept.jsonl").exists());
     assert!(!database.exists());
-    legacy.kill();
+    legacy.kill(3, "lamp-memory: remember person=everyone ok ", 1);
     assert!(UnixStream::connect(&socket).is_err());
 
     let first = Process::start_with(&scratch, "store", "m.sock", "days1.log", &["--memory-days"]);
@@ -400,7 +465,7 @@ fn opted_in_memory_migrates_and_forgets_linked_facts_across_sigkill_restarts() {
         ids(ask(&socket, json!({"op":"search","query":"heliotrope"}))),
         [source, fact, linked]
     );
-    first.kill();
+    first.kill(8, "lamp-memory: search person=everyone ok ", 1);
     assert!(UnixStream::connect(&socket).is_err());
 
     // Every acknowledged record and the prepared context survive SIGKILL.
@@ -430,7 +495,7 @@ fn opted_in_memory_migrates_and_forgets_linked_facts_across_sigkill_restarts() {
     );
     assert_eq!(cleared["snapshot"]["invalidated"], true);
     assert_eq!(cleared["snapshot"]["note"], "");
-    second.kill();
+    second.kill(7, "lamp-memory: session_open person=everyone ok ", 2);
     assert!(UnixStream::connect(&socket).is_err());
 
     // Deletion, snapshot invalidation and job invalidation also survive a kill.
@@ -457,7 +522,7 @@ fn opted_in_memory_migrates_and_forgets_linked_facts_across_sigkill_restarts() {
     let fresh = ask(&socket, json!({"op":"append","at_unix_ms":now(),"heard":"A pear grows in the orchard","said":"Noted"}))["id"].as_u64().unwrap();
     assert!(fresh > linked);
     assert!(ids(ask(&socket, json!({"op":"search","query":"heliotrope"}))).is_empty());
-    third.kill();
+    third.kill(9, "lamp-memory: search person=everyone ok ", 2);
 
     // Turning the option off must not silently revive the removed JSONL store
     // or make an empty legacy store beside the authoritative SQLite database.
@@ -512,4 +577,30 @@ fn opted_in_memory_migrates_and_forgets_linked_facts_across_sigkill_restarts() {
             .unwrap()
             .contains("tidy_apply person=everyone refused error=stale")
     );
+}
+
+#[test]
+fn log_completion_waits_for_the_newline_after_a_private_suffix() {
+    let terminal = "lamp-memory: search person=everyone ok ";
+    let record = b"lamp-memory: search person=everyone ok entries=0 private=orchid\n";
+    assert!(!log_reached(terminal.as_bytes(), 1, terminal, 1));
+    assert!(!log_reached(&record[..record.len() - 1], 1, terminal, 1));
+    // Accept the complete record including its bad suffix, so the existing
+    // whole-file privacy assertion can inspect it rather than a filtered log.
+    assert!(log_reached(record, 1, terminal, 1));
+}
+
+#[test]
+fn log_completion_waits_for_the_later_repeated_terminal_record() {
+    let terminal = "lamp-memory: session_open person=everyone ok ";
+    let first =
+        b"started\nlamp-memory: session_open person=everyone ok entries=0\nstatus\nforget\n";
+    assert!(!log_reached(first, 4, terminal, 2));
+    let incomplete = [first.as_slice(), terminal.as_bytes()].concat();
+    assert!(!log_reached(&incomplete, 4, terminal, 2));
+    let complete = [incomplete.as_slice(), b"entries=0\n"].concat();
+    assert!(log_reached(&complete, 5, terminal, 2));
+    assert!(!log_reached(&complete, 6, terminal, 2));
+    let later_unrelated = [complete.as_slice(), b"unrelated\n"].concat();
+    assert!(!log_reached(&later_unrelated, 6, terminal, 2));
 }

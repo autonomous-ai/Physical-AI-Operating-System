@@ -1,0 +1,196 @@
+   Compiling cfg-if v1.0.5
+   Compiling libc v0.2.190
+   Compiling serde_core v1.0.229
+   Compiling itoa v1.0.18
+   Compiling zmij v1.0.23
+   Compiling memchr v2.8.3
+   Compiling bitflags v2.13.2
+   Compiling typenum v1.20.1
+   Compiling cpufeatures v0.3.1
+   Compiling once_cell v1.21.4
+   Compiling errno v0.3.14
+   Compiling rustix v1.1.5
+   Compiling nix v0.29.0
+   Compiling cpufeatures v0.2.17
+   Compiling zeroize v1.9.1
+   Compiling pin-project-lite v0.2.17
+   Compiling rustls-pki-types v1.15.1
+   Compiling generic-array v0.14.7
+   Compiling serde_json v1.0.151
+   Compiling serde v1.0.229
+   Compiling hybrid-array v0.4.15
+   Compiling getrandom v0.2.17
+   Compiling foldhash v0.2.0
+   Compiling lamp-ipc v0.1.0 (/private/tmp/lampos-tests-783/lampOS/crates/ipc)
+   Compiling lamp-bus v0.1.0 (/private/tmp/lampos-tests-783/lampOS/crates/bus)
+   Compiling rand_core v0.10.1
+   Compiling untrusted v0.9.0
+   Compiling lamp-msgs v0.1.0 (/private/tmp/lampos-tests-783/lampOS/crates/msgs)
+   Compiling ring v0.17.14
+   Compiling hashbrown v0.17.1
+   Compiling crypto-common v0.1.7
+   Compiling block-buffer v0.10.4
+   Compiling bytes v1.12.1
+   Compiling libsqlite3-sys v0.38.2
+   Compiling digest v0.10.7
+   Compiling rustls-webpki v0.103.15
+   Compiling hashlink v0.12.2
+   Compiling derive_more v2.1.1
+   Compiling getrandom v0.4.3
+   Compiling block-buffer v0.12.1
+   Compiling crypto-common v0.2.2
+   Compiling sonora-simd v0.2.0
+   Compiling fallible-streaming-iterator v0.1.9
+   Compiling sonora-fft v0.2.0
+   Compiling const-oid v0.10.2
+   Compiling fallible-iterator v0.3.0
+   Compiling smallvec v1.16.3
+   Compiling subtle v2.6.1
+   Compiling digest v0.11.3
+   Compiling rusqlite v0.40.2
+   Compiling rustls v0.23.45
+   Compiling sonora-common-audio v0.2.0
+   Compiling sha2 v0.10.9
+   Compiling chacha20 v0.10.2
+   Compiling lamp-turn-owner v0.1.0 (/private/tmp/lampos-tests-783/lampOS/crates/turn-owner)
+   Compiling mio v1.2.4
+   Compiling socket2 v0.6.5
+   Compiling tracing-core v0.1.36
+   Compiling thiserror v2.0.21
+   Compiling tokio v1.53.1
+   Compiling tracing v0.1.44
+   Compiling bytemuck v1.25.2
+   Compiling rand v0.10.3
+   Compiling sha1 v0.11.0
+   Compiling httparse v1.10.1
+   Compiling http v1.5.0
+   Compiling webpki-roots v1.0.9
+   Compiling signal-hook-registry v1.4.8
+   Compiling slab v0.4.12
+   Compiling log v0.4.34
+   Compiling futures-task v0.3.34
+   Compiling futures-sink v0.3.34
+   Compiling tinyvec v1.13.3
+   Compiling futures-core v0.3.34
+   Compiling data-encoding v2.11.1
+   Compiling unicode-normalization v0.1.25
+   Compiling tungstenite v0.30.0
+   Compiling futures-util v0.3.34
+   Compiling tokio-rustls v0.26.6
+   Compiling signal-hook v0.4.4
+   Compiling webpki-roots v0.26.11
+   Compiling lamp-camera v0.1.0 (/private/tmp/lampos-tests-783/lampOS/crates/camera)
+   Compiling sonora-agc2 v0.2.0
+   Compiling sonora-aec3 v0.2.0
+   Compiling sonora-ns v0.2.0
+   Compiling jiff-core v0.1.1
+   Compiling jiff-tzdb v0.1.9
+   Compiling tokio-tungstenite v0.30.0
+   Compiling lamp-keeper v0.1.0 (/private/tmp/lampos-tests-783/lampOS/crates/keeper)
+   Compiling jiff v0.2.38
+   Compiling sonora v0.2.0
+   Compiling hound v3.5.1
+   Compiling base64 v0.22.1
+   Compiling lamp-body v0.1.0 (/private/tmp/lampos-tests-783/lampOS/crates/body)
+   Compiling lamp-audio v0.1.0 (/private/tmp/lampos-tests-783/lampOS/crates/audio)
+   Compiling lamp-gemini v0.1.0 (/private/tmp/lampos-tests-783/lampOS/crates/gemini)
+   Compiling lamp-schedule v0.1.0 (/private/tmp/lampos-tests-783/lampOS/crates/schedule)
+   Compiling lamp-controls v0.1.0 (/private/tmp/lampos-tests-783/lampOS/crates/controls)
+   Compiling lamp-memory v0.1.0 (/private/tmp/lampos-tests-783/lampOS/crates/memory)
+   Compiling lamp-ring v0.1.0 (/private/tmp/lampos-tests-783/lampOS/crates/ring)
+   Compiling lamp-turn-end-wire v0.1.0 (/private/tmp/lampos-tests-783/lampOS/crates/turn-end-wire)
+   Compiling rtrb v0.4.0
+   Compiling lamp-voice v0.1.0 (/private/tmp/lampos-tests-783/lampOS/crates/voice)
+   Compiling lamp-health v0.1.0 (/private/tmp/lampos-tests-783/lampOS/crates/health)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 50.49s
+     Running unittests src/lib.rs (target/debug/deps/lamp_health-472553590b52e6a6)
+
+running 19 tests
+test parts::tests::a_lamp_whose_parts_are_all_well_is_ok_and_says_nothing ... ok
+test parts::tests::a_name_is_something_short_on_one_line_and_a_message_is_kept_on_one ... ok
+test parts::tests::a_part_is_stale_once_it_has_been_quiet_for_longer_than_the_stale_time ... ok
+test parts::tests::a_part_that_calls_itself_stale_is_taken_at_its_word ... ok
+test parts::tests::a_part_that_comes_back_from_stale_is_what_it_says_again ... ok
+test parts::tests::a_part_that_is_not_ok_and_says_nothing_is_still_named ... ok
+test parts::tests::a_report_is_kept_by_its_name_and_the_newest_replaces_the_one_before ... ok
+test parts::tests::each_level_is_the_lamps_when_nothing_is_worse ... ok
+test parts::tests::expected_parts_that_never_reported_are_missing_in_the_order_given ... ok
+test parts::tests::no_more_than_sixty_four_parts_are_kept_and_those_kept_still_report ... ok
+test parts::tests::the_items_are_worst_first_then_by_name_and_the_lamp_is_as_bad_as_its_worst ... ok
+test parts::tests::two_healths_are_the_same_news_when_only_ages_differ ... ok
+test show::tests::a_lamp_with_troubles_is_shown_worst_first_with_the_board_below ... ok
+test show::tests::a_time_is_said_in_its_two_largest_units ... ok
+test show::tests::each_level_has_its_first_line_and_its_status ... ok
+test show::tests::json_is_the_two_values_as_they_were_published_on_one_line ... ok
+test show::tests::the_boards_line_has_what_the_board_could_be_asked ... ok
+test show::tests::what_came_from_the_bus_is_printed_on_its_own_line_whatever_it_holds ... ok
+test show::tests::with_no_health_it_says_that_nobody_is_reporting_and_ends_with_3 ... ok
+
+test result: ok. 19 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/main.rs (target/debug/deps/lamp_health-37bda65a0e48df47)
+
+running 3 tests
+test tests::a_wrong_option_to_serve_is_refused_with_the_reason_and_status_2 ... ok
+test tests::serve_reads_its_options_and_the_rest_have_their_defaults ... ok
+test tests::show_is_what_no_command_means_and_its_mistakes_end_with_64 ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/board.rs (target/debug/deps/board-106eefe6fef16b2d)
+
+running 15 tests
+test a_board_with_no_thermal_zones_still_has_its_other_numbers ... ok
+test a_clock_that_is_known_not_to_be_set_is_a_warning ... ok
+test a_number_whose_file_is_missing_is_not_read_and_the_report_says_which ... ok
+test a_zone_is_an_error_at_its_second_passive_point_or_ten_degrees_under_critical ... ok
+test a_zone_that_names_no_trip_point_warns_from_80_and_is_an_error_from_90 ... ok
+test a_zone_warns_from_its_first_passive_point_and_not_before ... ok
+test garbage_in_a_file_is_a_number_not_read_and_never_a_wrong_one ... ok
+test memory_warns_over_nine_tenths_used_and_load_over_one_and_a_half ... ok
+test only_the_zones_named_are_judged_and_every_zone_is_still_published ... ok
+test the_default_places_are_the_systems_own ... ok
+test the_disk_warns_under_a_tenth_free_and_is_an_error_under_three_hundredths ... ok
+test the_real_boards_files_are_read_as_its_numbers ... ok
+test the_report_is_the_worst_finding_and_of_two_as_bad_the_first ... ok
+test the_wifi_signal_is_the_level_of_the_first_device_that_has_one ... ok
+test trip_points_are_read_by_their_kind_and_the_lowest_passive_comes_first ... ok
+
+test result: ok. 15 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.14s
+
+     Running tests/program.rs (target/debug/deps/program-5702a177ffe2448d)
+
+running 7 tests
+test a_bus_that_cannot_be_subscribed_to_ends_serve_before_it_listens ... ok
+test a_part_that_is_expected_and_silent_or_has_gone_quiet_ends_show_with_3 ... FAILED
+test between_two_healths_five_seconds_apart_the_program_is_not_taken_for_gone ... ok
+test journal_completion_waits_for_the_whole_terminal_record ... ok
+test show_says_how_the_lamp_is_and_ends_with_its_level ... ok
+test with_nobody_serving_show_says_so_and_ends_with_3 ... ok
+test wrong_arguments_print_the_usage_and_end_with_2_for_serve_and_64_for_show ... FAILED
+
+failures:
+
+---- a_part_that_is_expected_and_silent_or_has_gone_quiet_ends_show_with_3 stdout ----
+the board is not ok on this machine (the disk is filling up: 4% of it is free): the test checks statuses and not every line
+
+thread 'a_part_that_is_expected_and_silent_or_has_gone_quiet_ends_show_with_3' (571645903) panicked at crates/health/tests/program.rs:95:9:
+journal did not finish ["lamp-health: started bus_root=", "lamp-health: health stale: eyes: has never reported"] within 5s: lamp-health: started bus_root=/tmp/lhp-stale-29195 expect=eyes,voice stale_ms=1500 proc=/var/folders/qg/lhfdx6q166z5cj705q22mh480000gn/T/lamp-health-program-stale-29195/proc sys=/var/folders/qg/lhfdx6q166z5cj705q22mh480000gn/T/lamp-health-program-stale-29195/sys run=/var/folders/qg/lhfdx6q166z5cj705q22mh480000gn/T/lamp-health-program-stale-29195/run disk=/var/folders/qg/lhfdx6q166z5cj705q22mh480000gn/T/lamp-health-program-stale-29195/disk
+lamp-health: health warn: board: the disk is filling up: 4% of it is free
+
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+---- wrong_arguments_print_the_usage_and_end_with_2_for_serve_and_64_for_show stdout ----
+
+thread 'wrong_arguments_print_the_usage_and_end_with_2_for_serve_and_64_for_show' (571648849) panicked at crates/health/tests/program.rs:722:9:
+["serve", "--stale-ms", "99"]: lamp-health: --stale-ms is a whole number from 100 to 600000
+
+
+
+failures:
+    a_part_that_is_expected_and_silent_or_has_gone_quiet_ends_show_with_3
+    wrong_arguments_print_the_usage_and_end_with_2_for_serve_and_64_for_show
+
+test result: FAILED. 5 passed; 2 failed; 0 ignored; 0 measured; 0 filtered out; finished in 13.02s
+
+error: test failed, to rerun pass `-p lamp-health --test program`

@@ -24,6 +24,9 @@ clips are left out. "Lamp quiet": under 0.1; "over": over 0.5.
 - `lamp-same-voice pairs campplus_en_voxceleb.onnx list.tsv`
   (`pairs.tsv`, `timing.txt`), with the model of
   [docs/same-voice.md](../../same-voice.md), checked by its SHA-256.
+  `pairs.tsv` is from `cd6917f51`, whose cosine sums in f64: one of the
+  1,081 values differs by 0.0001 from the first run's, and
+  `separation.tsv` is the same from either.
 - A Python script in Fourth's scratch folder, outside the repository
   (lampOS is Rust only), for `separation.tsv`. For each pair it took the
   same-or-different from the clips' voices and the condition from both

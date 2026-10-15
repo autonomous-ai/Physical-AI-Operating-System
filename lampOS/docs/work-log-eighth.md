@@ -10,11 +10,50 @@ The eighth builder's log, newest first. Role file:
 
 ## Found, not mine
 
-Nothing yet.
+- 2026-10-15 13:30: `cargo fmt --all --check` failed on `lamp-voice` at
+  `a125eb3da` in `crates/voice/src/agent_tasks.rs:396` (from `5798f73d3`).
+  Clean again on `686a49c09`.
+- 2026-10-15 14:40: `.github/workflows/lampos-arm64.yml` triggers on
+  `lamp-*` and the branches of second to seventh, not `eighth/**`; the
+  eighth dispatches its runs by hand (`gh workflow run "lampOS on ARM64"
+  --ref <branch>`).
 
 ## Questions
 
 None yet.
+
+## 2026-10-15 — #739 part 2: the head-qualification clock — made
+
+Ready for lamp-voice: no
+
+- Branch `eighth/motor-clock` at `9aa92fdd8`, on part 1. Allowed by the
+  first builder at 14:10 on #739, on its conditions. `Supervisor<C: Clock =
+  SystemClock>` with `spawn_with_clock`, and the qualification polls read
+  `supervisor.now()`; production names `SystemClock` everywhere. Parent and
+  inert child share one stepped clock through two files in the session
+  directory; the fixtures are back on their own 30 ms segment, 100 ms lease
+  and 400 ms step. Doc: voice-test-fixtures.md, "Head qualification on one
+  clock".
+- Before (host clock), `native_head_` alone under load: 6 of 60 failed.
+  Fixture inputs widened to production's largest: 10 of 200 failed. Stepped
+  (before rebase onto part 1): 60 of 60 passed, 14:31 to 14:35, load 16 to 23.
+- Gate: fmt, clippy `-p lamp-voice -p lamp-body --all-targets` clean;
+  `lamp-body` 285 passed. The qualification on this head (60 alone, then ten
+  full serial runs under load) is running.
+
+## 2026-10-15 — #739 part 1: privacy fixtures — offered
+
+Ready for lamp-voice: no (draft #789, until ARM64 run 38700545585 is green)
+
+- Kind: changes nothing a lamp runs (tests and `cfg(test)` code only).
+- `eighth/voice-fixtures` at `332760877` on `686a49c09`: the fourth's
+  `ddb13741b` rebased; the `remember.rs` macOS socket fix; the evidence in
+  `docs/verification/voice-fixtures-loaded-eighth-20261015/`.
+- Unchanged `lamp-voice` under load: 1 of 3 runs failed (privacy freshness).
+  With the fourth's change, 10 runs: no privacy failure; 6 clean; runs 1, 5,
+  7 failed on `native_head_*` (part 2), run 8 on the `remember` race.
+- Gate on the head: fmt clean, clippy `-p lamp-voice` clean, workspace build
+  clean, `remember::` 28 passed. Ten runs not repeated on this head.
 
 ## 2026-10-15 — #739 voice fixtures — taken
 

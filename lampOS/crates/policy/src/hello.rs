@@ -401,7 +401,11 @@ impl Hello {
         self.waiting.push_back((arrival, now));
     }
 
-    /// What the voice is doing, as the progress question takes it.
+    /// What the voice is doing, as the progress question takes it. Whether
+    /// a turn was asked for is known at its beginning and kept to its end:
+    /// an answer whose first sound is slow (the model may take 30 s) is
+    /// still an answer, never counted as speaking up unasked (the reviewer
+    /// on #883, 05:22).
     pub fn voice(&mut self, state: Voice, now: Instant) {
         let unasked = self
             .last_listening
@@ -439,20 +443,15 @@ impl Hello {
                 self.last_talk = Some(now);
             }
             Voice::Speaking => {
-                if self.voice != Some(Voice::Speaking) && unasked {
-                    match self.own_turn.as_mut() {
-                        // Its first sound only: one turn may speak, think
-                        // and speak again (a later generation for the same
-                        // owner, the coordinator's continued generation),
-                        // and is one turn the lamp began (the reviewer on
-                        // #883, 04:55).
-                        Some(turn) if turn.spoke => {}
-                        Some(turn) => {
-                            turn.spoke = true;
-                            self.unasked.push_back(now);
-                        }
-                        None => self.unasked.push_back(now),
-                    }
+                // A turn the lamp began itself, at its first sound only:
+                // one turn may speak, think and speak again (a later
+                // generation for the same owner, the coordinator's
+                // continued generation), and is one turn the lamp began
+                // (the reviewer on #883, 04:55). Any other turn was asked
+                // for, however long ago the person was listened to.
+                if let Some(turn) = self.own_turn.as_mut().filter(|turn| !turn.spoke) {
+                    turn.spoke = true;
+                    self.unasked.push_back(now);
                 }
                 self.last_talk = Some(now);
             }
@@ -999,5 +998,49 @@ mod tests {
         let once: &[Voice] = &[Thinking, Speaking, Resting];
         assert_eq!(count(&[once, once]), 2);
         assert_eq!(count(&[twice_in_one, once]), 2);
+    }
+
+    /// The reviewer on #883 (05:22): an answer is an answer however slow
+    /// its first sound. Two turns asked for, two minutes apart, each
+    /// `listening, thinking, speaking, resting`; then a hello. With the
+    /// first sound 1 s or 30 s after the person was listened to, nothing
+    /// was said unasked, and the rule says hello both times. A turn the
+    /// lamp began itself is still counted, also when its sound is late.
+    #[test]
+    fn a_slow_answer_is_never_counted_as_speaking_up_unasked() {
+        let run = |first_sound: Duration, own: bool| {
+            let options = Options::new(Duration::from_millis(50), None);
+            let mut hello = Hello::start(Never, options).unwrap();
+            let t = Instant::now();
+            let mut at = t;
+            for _ in 0..2 {
+                if !own {
+                    hello.voice(Voice::Listening, at);
+                }
+                hello.voice(Voice::Thinking, at + Duration::from_millis(400));
+                // Thinking is said again once a second while it waits.
+                let mut waited = Duration::from_secs(1);
+                while waited < first_sound {
+                    hello.voice(Voice::Thinking, at + waited);
+                    waited += Duration::from_secs(1);
+                }
+                hello.voice(Voice::Speaking, at + first_sound);
+                hello.voice(Voice::Resting, at + first_sound + Duration::from_secs(3));
+                at += Duration::from_secs(120);
+            }
+            let decision = decided(&mut hello, 9, t + Duration::from_secs(20 * 60));
+            (
+                decision.line.context.spoke_up_last_hour,
+                decision.line.judgement.choice,
+            )
+        };
+        for first_sound in [Duration::from_secs(1), Duration::from_secs(30)] {
+            assert_eq!(
+                run(first_sound, false),
+                (0, Choice::SayNow),
+                "{first_sound:?}"
+            );
+            assert_eq!(run(first_sound, true), (2, Choice::Wait), "{first_sound:?}");
+        }
     }
 }

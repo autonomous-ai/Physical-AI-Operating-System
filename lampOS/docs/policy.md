@@ -1369,11 +1369,17 @@ however often it speaks before it ends (one owner may think and speak
 again: the reviewer on #883, 04:55);
 ended without a sound (cancelled), the hello chosen is counted once, as
 chosen. A greeting said before the decision came needs nothing: the lamp
-was talking, so the hard rule answered `wait` and no note was made. Tests:
-`one_greeting_is_counted_once_in_shadow_or_acting` and
+was talking, so the hard rule answered `wait` and no note was made. Whether
+a turn was asked for is known at its beginning and kept to its end: only a
+turn the lamp began itself is counted, at its first sound, and an answer
+whose first sound is slow is never counted (the reviewer on #883, 05:22).
+Tests: `one_greeting_is_counted_once_in_shadow_or_acting`,
 `a_greeting_whose_first_sound_comes_late_is_still_counted_once` (first
 sound 6 s and 30 s after the turn began, and a turn cancelled before it),
-and `a_turn_that_speaks_twice_is_one_turn_and_two_turns_are_two`.
+`a_turn_that_speaks_twice_is_one_turn_and_two_turns_are_two` and
+`a_slow_answer_is_never_counted_as_speaking_up_unasked` (two answers with
+their first sound 1 s and 30 s after the person was listened to: none
+counted, and the rule says hello; two turns the lamp began itself: two).
 
 **What is published and written.** On `policy/decisions`: `about` `hello`,
 `say_now` or `wait`, the probability, the two answers, `by`, `took_ms`,

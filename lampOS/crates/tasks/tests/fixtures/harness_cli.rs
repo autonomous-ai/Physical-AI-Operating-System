@@ -116,7 +116,7 @@ pub fn main() -> io::Result<()> {
             "new" => println!(
                 "{}",
                 json!({"ok":true,"machineId":flag("--machine"),"agent":{
-                    "id":"11111111-1111-4111-8111-111111111111","name":flag("--name"),"engine":args.get(1),"permissionMode":"ask","bypassPermission":null
+                    "id":"11111111-1111-4111-8111-111111111111","name":flag("--name"),"engine":args.get(1),"permissionMode":"auto","bypassPermission":true
                 }})
             ),
             "show" => println!(

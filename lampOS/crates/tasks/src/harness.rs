@@ -759,12 +759,19 @@ fn parse_launch(bytes: &[u8], launch: &Launch) -> LaunchOutcome {
     if !uuid(&agent.id)
         || agent.name != launch.name
         || agent.engine != launch.target.engine
-        || agent.permission_mode != "ask"
-        || !(agent.bypass_permission.is_null() || agent.bypass_permission == false)
+        || !auto_permission(&agent.permission_mode, &agent.bypass_permission)
     {
         return uncertain("invalid_reply");
     }
     LaunchOutcome::Created { agent_id: agent.id }
+}
+
+/// The launch asks for `--mode auto`. Harness 0.4.6 reports that mode as
+/// `permissionMode: "auto"` with `bypassPermission: true` (the agent does not
+/// ask before ordinary edits; it still stops for risky actions). Any other
+/// mode, `full` among them, is not what was asked for.
+fn auto_permission(mode: &str, bypass: &Value) -> bool {
+    mode == "auto" && (bypass.is_null() || bypass.is_boolean())
 }
 
 #[derive(Deserialize)]

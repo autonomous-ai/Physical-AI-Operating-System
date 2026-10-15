@@ -117,7 +117,7 @@ fn launch() -> Launch {
     }
 }
 fn created() -> Value {
-    json!({"ok":true,"machineId":MACHINE,"agent":{"id":AGENT,"name":"lamp-task-001","engine":"codex","permissionMode":"ask","bypassPermission":null}})
+    json!({"ok":true,"machineId":MACHINE,"agent":{"id":AGENT,"name":"lamp-task-001","engine":"codex","permissionMode":"auto","bypassPermission":true}})
 }
 fn shown() -> Value {
     json!({"id":AGENT,"state":"idle","ask":"An older unrelated question","answer":"Observed output only","truncated":false,"tools":2})
@@ -133,7 +133,7 @@ fn not_sent(code: &str) -> LaunchOutcome {
 }
 
 #[test]
-fn launch_uses_exact_argv_ask_mode_null_stdin_and_stable_generic_identity() {
+fn launch_uses_exact_argv_auto_mode_null_stdin_and_stable_generic_identity() {
     let rig = Rig::new();
     rig.plan(json!({"machines":{"default":true,"stdin_eof":true},"new":{"default":true,"stdin_eof":true}}));
     let mut request = launch();
@@ -411,7 +411,8 @@ fn created_requires_every_identity_and_permission_binding() {
         ("name", json!("other")),
         ("engine", json!("claude")),
         ("permissionMode", json!("full")),
-        ("bypassPermission", json!(true)),
+        ("permissionMode", json!("ask")),
+        ("bypassPermission", json!("yes")),
     ] {
         let mut reply = created();
         reply["agent"][field] = value;
@@ -431,14 +432,17 @@ fn created_requires_every_identity_and_permission_binding() {
         assert_eq!(rig.cli().launch(&launch()), uncertain("invalid_reply"));
         assert_eq!(rig.calls().len(), 2);
     }
-    let rig = Rig::new();
-    let mut reply = created();
-    reply["agent"]["bypassPermission"] = json!(false);
-    rig.new_step(step(reply));
-    assert!(matches!(
-        rig.cli().launch(&launch()),
-        LaunchOutcome::Created { .. }
-    ));
+    // Auto mode with the bypass reported as true, false or null.
+    for bypass in [json!(true), json!(false), Value::Null] {
+        let rig = Rig::new();
+        let mut reply = created();
+        reply["agent"]["bypassPermission"] = bypass;
+        rig.new_step(step(reply));
+        assert!(matches!(
+            rig.cli().launch(&launch()),
+            LaunchOutcome::Created { .. }
+        ));
+    }
 }
 
 #[test]

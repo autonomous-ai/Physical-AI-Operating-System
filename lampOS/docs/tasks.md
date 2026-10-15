@@ -198,6 +198,14 @@ at the computer to answer: on lamp-4ace a two-line poem waited on "Do you want t
 create coffee_poem.txt?", which Harness reports as state `unknown`, while the lamp
 said "still working" (#770 makes the lamp say when an agent waits for the person).
 
+A launch counts as started only when Harness's reply names the agent with
+`permissionMode: "auto"` and a `bypassPermission` of true, false or null;
+Harness 0.4.6 reports auto mode as `"auto"` with `true`. Any other mode, `full`
+or `ask` among them, leaves the task `uncertain` with `invalid_reply`. Before
+this fix (2026-10-15) the check still demanded `ask`, so every auto-mode launch on
+lamp-4ace was refused after Harness had started it, and the lamp said it had
+not gone through.
+
 The machine is named with `--machine` since Harness 0.4.2 (openharness #1333,
 2026-10-14), on `new` and on `show`, and `show` reads the agent on the machine
 the task was started on. The `@<id>` form before it is refused ("Name the

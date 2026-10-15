@@ -668,6 +668,17 @@ fn real_service_subscribes_to_exactly_one_complete_voice_protocol() {
                 .publish_json(3, &payload)
                 .unwrap();
         }
+        // Loosest limit first, strictest last (#912): the room and the
+        // light, the voice's progress (500 ms), the joints (300 ms in the
+        // engine), its playout and sound (200 ms).
+        let joints = &source
+            .iter()
+            .find(|row| row["input"]["kind"] == "joints")
+            .unwrap()["input"]["value"];
+        bus.publisher_declared(JointState::TOPIC, &JointState::declaration(), "fixture")
+            .unwrap()
+            .publish_json(13, joints)
+            .unwrap();
         let mut frame = source
             .iter()
             .find(|row| row["input"]["kind"] == "sound")
@@ -694,17 +705,8 @@ fn real_service_subscribes_to_exactly_one_complete_voice_protocol() {
                 .publish_json(4, &payload)
                 .unwrap();
         }
-        // The joints last (their limit is 500 ms, the others' 2 s), and the
-        // wall clock just after: a loaded machine's delay between publishes
-        // or before the step cannot age the fixture past its freshness.
-        let joints = &source
-            .iter()
-            .find(|row| row["input"]["kind"] == "joints")
-            .unwrap()["input"]["value"];
-        bus.publisher_declared(JointState::TOPIC, &JointState::declaration(), "fixture")
-            .unwrap()
-            .publish_json(13, joints)
-            .unwrap();
+        // The wall clock just after publishing: a loaded machine's delay
+        // before the step cannot age the fixture past its freshness.
         let wall = runtime::unix_ms();
         let output = service.step(|| 10_000_000, wall);
         assert_eq!(service.counts.accepted, 5);

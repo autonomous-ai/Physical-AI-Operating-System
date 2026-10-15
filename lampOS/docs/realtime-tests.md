@@ -478,3 +478,48 @@ joint-state write still ages the hand
 
 Author's evidence (fifth, a Mac, not a reviewer run): 200 runs of this
 test under parallel build load (load average about 25), no failure.
+
+## Expression's runtime fixtures and the wall clock (#912)
+
+The reviewer's full serial gate on #844 failed six Expression tests on
+stale inputs (joints 1,263 ms and 2,301 ms old at the step):
+`real_service_subscribes_to_exactly_one_complete_voice_protocol`
+(`tests/rest_replay.rs`), and in `tests/runtime.rs`
+`enabled_output_uses_a_new_session_and_expires_after_input_loss`,
+`paused_by_the_keeper_nothing_is_asked_of_the_body_or_the_light_until_resumed`,
+`without_a_pause_said_expression_asks_exactly_as_before` and the two
+`sleep_name` cases. The service judges each input's age by the wall clock it
+is given against the bus's own publication stamp, and four of these tests
+read that clock only after making the service, with the inputs already
+published.
+
+What changed, tests only:
+- `populate` returns the wall clock read just after its last publication,
+  and the tests step with it (and `+ 2_000` where they step 2 s later). The
+  sleeping-name fixture and the real-service case read it the same way. A
+  stall after that read, making the service or anything else, no longer ages
+  the inputs.
+- Each fixture publishes from the loosest limit to the strictest, so the
+  inputs with short limits go back to back just before the clock read:
+  `populate` the light (a setting, no age), the voice timing (500 ms), the
+  joints (300 ms in the engine); the sleeping-name fixture the room (2 s),
+  the voice's progress and the faces (500 ms), the joints; the real-service
+  case the room and the light, the progress (500 ms), the joints, the
+  playout and sound (200 ms).
+- Nothing in the service changed. The deliberately stale and future inputs,
+  the expiry after input loss (`wall + 2_000`), the restart that must not
+  reuse old joints, and the pause's one-second look are all as before.
+
+The limit that remains: a stall inside a fixture's own publications, after
+an input with a short limit and before the clock read, longer than that
+limit (200 to 500 ms), still fails. Two injected 1.3 s delays at
+`fe8dd0ebd`, both in throwaway copies:
+- Third's, after the first publication of each fixture (before the
+  reorder): `lamp-voice` `48b3737d5` failed exactly the six, `fe8dd0ebd`
+  passed all 34.
+- The reviewer's, after the faces in the sleeping-name fixture's first step:
+  the old order failed 6 of 34 and `fe8dd0ebd` failed the 2 `sleep_name`
+  cases, the faces being 500 ms long.
+
+With the reorder the faces are followed only by the joints' publication, so
+that window is a single publication, not removed.

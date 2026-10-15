@@ -1,0 +1,14 @@
+voice_mic  not checked nothing was ever said on mic2/audio: lamp-voice gives it only with LAMP_BUS=on and LAMP_BUS_AUDIO=on
+room_mic   not checked nothing was ever said on ears/level: is lamp-ears running?
+air        not checked nothing was ever said on air/state: is lamp-air running?
+touch      not checked nothing was ever said on controls/touch_state: is lamp-controls running?
+board      not checked nothing was ever said on board/state: is lamp-health running?
+camera     not checked nothing was ever said on lamp/health: is lamp-health running?
+base_yaw   not checked nothing was ever said on body/joint_states: is lamp-body running?
+shoulder   not checked nothing was ever said on body/joint_states: is lamp-body running?
+elbow      not checked nothing was ever said on body/joint_states: is lamp-body running?
+head_roll  not checked nothing was ever said on body/joint_states: is lamp-body running?
+head_pitch not checked nothing was ever said on body/joint_states: is lamp-body running?
+ring       not checked nothing was ever said on light/state: is lamp-voice running?
+storage    not checked the kernel's log cannot be read: Operation not permitted (os error 1)
+selftest   not checked in 2 s

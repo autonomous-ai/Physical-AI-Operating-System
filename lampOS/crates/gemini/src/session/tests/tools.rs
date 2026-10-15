@@ -334,7 +334,7 @@ async fn a_call_nobody_can_own_is_answered_as_cancelled_and_not_reported() {
     assert_eq!(
         receive(&mut server).await,
         json!({"toolResponse":{"functionResponses":[
-            {"id":"stray","name":"light_on","response":{"error":crate::NOT_DONE_STILL_SPEAKING}}
+            {"id":"stray","name":"light_on","response":{"not_done":crate::NOT_DONE_STILL_SPEAKING}}
         ]}})
     );
     discarded(&mut connection, Discard::UnownedToolCall).await;
@@ -352,7 +352,7 @@ async fn a_call_nobody_can_own_is_answered_as_cancelled_and_not_reported() {
     send_json(&mut server, call("early", "light_on", json!({}))).await;
     assert_eq!(
         receive(&mut server).await["toolResponse"]["functionResponses"][0]["response"],
-        json!({"error":crate::NOT_DONE_STILL_SPEAKING})
+        json!({"not_done":crate::NOT_DONE_STILL_SPEAKING})
     );
     discarded(&mut connection, Discard::UnownedToolCall).await;
     assert_eq!(connection.state(), State::Ready);

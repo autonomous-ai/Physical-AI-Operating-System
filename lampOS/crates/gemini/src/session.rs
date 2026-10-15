@@ -1916,7 +1916,7 @@ impl<S: AsyncRead + AsyncWrite + Unpin> Actor<S> {
                 let message = wire::encode_tool_response(
                     &call.id,
                     &call.name,
-                    &serde_json::json!({"error": crate::NOT_DONE_STILL_SPEAKING}),
+                    &serde_json::json!({"not_done": crate::NOT_DONE_STILL_SPEAKING}),
                     silent,
                 )?;
                 self.write(Message::text(message), self.timeouts.write)

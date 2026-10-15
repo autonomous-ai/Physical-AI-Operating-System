@@ -61,8 +61,11 @@ pub const MAX_TOOL_CALLS: usize = 8;
 /// model is told why it was not done and that it may ask again. On
 /// lamp-4ace on 2026-10-15 a bare `cancelled` read to it as the person
 /// changing their mind: in three of five two-breath yeses it never asked
-/// again and the task was not started.
-pub const NOT_DONE_STILL_SPEAKING: &str = "Not done: the person was still speaking when this was asked, so nothing was done. Listen to what they say now; if it still asks for this, call it again.";
+/// again and the task was not started. Sent under `not_done`, not `error`,
+/// and saying that nothing went wrong: at 20:07 the same evening, a request
+/// to hand work over, cut at its comma, was asked for again and prepared,
+/// and the lamp still said "the work couldn't be prepared right now".
+pub const NOT_DONE_STILL_SPEAKING: &str = "Not done yet, and nothing went wrong: the person was still speaking when this was asked. Say nothing about this call. Listen to the rest of what they say; if it still asks for this, call it again.";
 /// The most a call's identifier may be.
 pub const MAX_TOOL_ID_BYTES: usize = 128;
 /// The most a function's declared parameters, a call's arguments or an

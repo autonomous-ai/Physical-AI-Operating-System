@@ -167,6 +167,20 @@ const GAZE_FULL: f32 = 0.22;
 /// Looking to one side, the far side of the eye dims by this much at most;
 /// the side toward the person keeps its light.
 const LOOK_DIM: f32 = 0.75;
+/// The strong eye ([`Face::eye_strong`]): it leans from a person this near
+/// the middle, fully at [`GAZE_FULL_STRONG`], and its far side dims by
+/// [`LOOK_DIM_STRONG`]. On lamp-4ace on 2026-10-15 the owner found the eye
+/// too subtle: the head turns to a face, so the face sits near the middle
+/// of the picture, inside [`GAZE_STRAIGHT`], and the eye rarely leant.
+const GAZE_STRAIGHT_STRONG: f32 = 0.03;
+const GAZE_FULL_STRONG: f32 = 0.14;
+const LOOK_DIM_STRONG: f32 = 0.9;
+/// The strong eye notices a person: when a face is seen after none for this
+/// long, the eye brightens at once by [`NOTICE_GAIN`] of its light, and
+/// settles back over [`NOTICE_US`], as eyes widen at someone who arrives.
+const NOTICE_AFTER_US: u64 = 3_000_000;
+const NOTICE_GAIN: f32 = 0.35;
+const NOTICE_US: f32 = 300_000.0;
 /// A blink at rest: this long, this far down, and the next one this many
 /// microseconds later, from the first to the first plus the second, so
 /// that blinks never come as a clock's would.
@@ -190,6 +204,12 @@ pub struct Face {
     /// The eye (task 34, #712), off unless set: listening, the face looks
     /// toward the person, and at rest it blinks now and then.
     eye: bool,
+    /// The strong eye, with the eye only: it leans sooner and further, and
+    /// notices a person who arrives (`LAMP_RING_EYE=strong`).
+    strong: bool,
+    /// When a face was last seen, and when the eye last noticed one.
+    seen_us: Option<u64>,
+    noticed_us: Option<u64>,
     /// Where the person is, as how far right and how far up of the middle
     /// of the camera's picture they are, seen from in front of the lamp,
     /// each from -0.5 to 0.5: `None` while no fresh face is seen.
@@ -217,6 +237,9 @@ impl Face {
             let_go_us: None,
             lit: Lit::first(),
             eye: false,
+            strong: false,
+            seen_us: None,
+            noticed_us: None,
             toward: None,
             gaze: [0.0; 2],
             next_blink_us: None,
@@ -227,6 +250,11 @@ impl Face {
     /// Switch the eye on or off ([`Face::eye`]'s field says what it does).
     pub fn eye(&mut self, on: bool) {
         self.eye = on;
+    }
+
+    /// Switch the strong eye on or off. It changes nothing without the eye.
+    pub fn eye_strong(&mut self, on: bool) {
+        self.strong = on;
     }
 
     /// Where the person the eye looks at is, as [`toward`] gives it, or
@@ -322,13 +350,36 @@ impl Face {
                 *shown += (wanted - *shown) * pace;
             }
             let [right, up] = self.gaze;
-            let lean =
-                ((right.hypot(up) - GAZE_STRAIGHT) / (GAZE_FULL - GAZE_STRAIGHT)).clamp(0.0, 1.0);
-            let look_to = (lean > 0.0).then(|| (right.atan2(up).rem_euclid(TAU), lean));
+            let (straight, full, dim) = if self.strong {
+                (GAZE_STRAIGHT_STRONG, GAZE_FULL_STRONG, LOOK_DIM_STRONG)
+            } else {
+                (GAZE_STRAIGHT, GAZE_FULL, LOOK_DIM)
+            };
+            let lean = ((right.hypot(up) - straight) / (full - straight)).clamp(0.0, 1.0);
+            let look_to = (lean > 0.0).then(|| (right.atan2(up).rem_euclid(TAU), dim * lean));
             (look_to, self.blink(mood, now_us))
         } else {
             (None, 1.0)
         };
+        // The strong eye notices a person who arrives, listening or at rest.
+        let mut notice = 0.0;
+        if self.eye && self.strong {
+            if self.toward.is_some() {
+                if self
+                    .seen_us
+                    .is_none_or(|seen| now_us.saturating_sub(seen) >= NOTICE_AFTER_US)
+                {
+                    self.noticed_us = Some(now_us);
+                }
+                self.seen_us = Some(now_us);
+            }
+            if matches!(mood, Mood::Listening | Mood::Resting) {
+                notice = self.noticed_us.map_or(0.0, |at| {
+                    (-(now_us.saturating_sub(at) as f32) / NOTICE_US).exp()
+                });
+            }
+        }
+        let brighten = 1.0 + NOTICE_GAIN * notice;
         let open = open * blink;
         let seconds = (now_us % 3_600_000_000) as f32 / 1_000_000.0;
         let ease = follow(step_us, EASE_US);
@@ -337,7 +388,7 @@ impl Face {
             let angle = TAU * pixel as f32 / PIXEL_COUNT as f32;
             let wanted = look(mood, self.level, seconds, angle, self.lit, ceiling, look_to);
             for (channel, target) in shown.iter_mut().zip(wanted) {
-                *channel += (target * open - *channel) * ease;
+                *channel += (target * brighten * open - *channel) * ease;
             }
             // A share of the ceiling rarely lands on a whole step. Each pixel
             // rounds at its own fixed point, so a level between two steps is
@@ -389,7 +440,7 @@ pub fn toward(xmin: f32, ymin: f32, xmax: f32, ymax: f32) -> [f32; 2] {
 
 /// The wanted colour of one pixel, each channel as a share of the ceiling.
 /// `look_to`: the eye's look, as the angle around the ring toward the
-/// person and how far it leans, from 0 to 1.
+/// person and how much the far side dims, from 0 to 1.
 fn look(
     mood: Mood,
     level: f32,
@@ -431,9 +482,9 @@ fn look(
             let glow = 0.42 + 0.40 * level + 0.07 * shimmer;
             // The eye looks toward the person: the side toward them keeps
             // its light and the far side dims, as much as the look leans.
-            let looking = look_to.map_or(1.0, |(toward, lean)| {
+            let looking = look_to.map_or(1.0, |(toward, dim)| {
                 let near = (0.5 + 0.5 * (angle - toward).cos()).powi(2);
-                1.0 - LOOK_DIM * lean * (1.0 - near)
+                1.0 - dim * (1.0 - near)
             });
             ([0.50, 0.85, 1.0], glow * looking)
         }
@@ -928,6 +979,100 @@ mod tests {
             .map(brightness)
             .collect();
         assert!(plain.iter().all(|light| *light * 10 >= usual * 7));
+    }
+
+    /// A person a little to the lamp's left of the middle of the picture,
+    /// where the head has turned toward them and stopped short.
+    const NEAR_THE_MIDDLE: [f32; 4] = [0.40, 0.40, 0.50, 0.60];
+
+    fn strong() -> Face {
+        let mut face = Face::new();
+        face.eye(true);
+        face.eye_strong(true);
+        face
+    }
+
+    #[test]
+    fn the_strong_eye_leans_toward_a_person_the_plain_eye_looks_straight_at() {
+        let run = |strong: bool, seen: Option<[f32; 2]>| {
+            let mut face = Face::new();
+            face.eye(true);
+            face.eye_strong(strong);
+            face.toward(seen);
+            *play(&mut face, Mood::Listening, 120, 1_000, 100)
+                .last()
+                .unwrap()
+        };
+        // Near the middle the plain eye is the whole eye, as with nobody.
+        assert_eq!(run(false, at(NEAR_THE_MIDDLE)), run(false, None));
+        // The strong eye leans: its far side dims, its near side keeps its
+        // light.
+        let (leaning, whole) = (run(true, at(NEAR_THE_MIDDLE)), run(true, None));
+        assert!(around(&leaning, 24) * 10 < around(&whole, 24) * 9);
+        assert!(around(&leaning, 8) * 10 >= around(&whole, 8) * 9);
+        // Further off, its far side is dimmer than the plain eye's.
+        assert!(around(&run(true, at(ON_THE_LEFT)), 24) < around(&run(false, at(ON_THE_LEFT)), 24));
+    }
+
+    #[test]
+    fn the_strong_eye_notices_a_person_who_arrives_once_and_settles() {
+        // The strong eye beside the plain one, frame for frame, so that the
+        // resting breath is the same in both.
+        let mut face = strong();
+        let mut plain = Face::new();
+        plain.eye(true);
+        for each in [&mut face, &mut plain] {
+            each.light(Lit::of(true, "white", 3).unwrap());
+        }
+        let mut both = |seen: Option<[f32; 2]>, from: u64, frames: u64| {
+            face.toward(seen);
+            plain.toward(seen);
+            let strong = play(&mut face, Mood::Resting, 0, from, frames);
+            let plain = play(&mut plain, Mood::Resting, 0, from, frames);
+            strong
+                .iter()
+                .zip(&plain)
+                .map(|(strong, plain)| brightness(strong) as f32 / brightness(plain).max(1) as f32)
+                .collect::<Vec<f32>>()
+        };
+        // Nobody for five seconds: the two are the same.
+        let settled = both(None, 1_000, 250);
+        assert!(
+            settled[200..]
+                .iter()
+                .all(|ratio| (ratio - 1.0).abs() < 0.02)
+        );
+        // Someone arrives: brighter at once, the same again within two seconds.
+        let arrived = both(at(IN_THE_MIDDLE), 5_001_000, 100);
+        let peak = arrived[..15].iter().cloned().fold(0.0, f32::max);
+        assert!(peak > 1.2, "{peak}");
+        assert!((arrived[99] - 1.0).abs() < 0.03, "{}", arrived[99]);
+        // Gone for a moment and back: no second notice.
+        both(None, 7_001_000, 50);
+        let again = both(at(IN_THE_MIDDLE), 8_001_000, 30);
+        assert!(again.iter().all(|ratio| *ratio < 1.05), "{again:?}");
+        // Gone for longer than three seconds, then back: noticed again.
+        both(None, 8_601_000, 200);
+        let back = both(at(IN_THE_MIDDLE), 12_601_000, 15);
+        assert!(back.iter().cloned().fold(0.0, f32::max) > 1.2);
+    }
+
+    #[test]
+    fn the_strong_eye_without_the_eye_changes_nothing() {
+        let (mut before, mut now) = (Face::new(), Face::new());
+        now.eye_strong(true);
+        now.toward(at(NEAR_THE_MIDDLE));
+        for (mood, from) in [
+            (Mood::Resting, 1_000),
+            (Mood::Listening, 21_000_000),
+            (Mood::Speaking, 25_000_000),
+        ] {
+            assert_eq!(
+                play(&mut before, mood, 140, from, 100),
+                play(&mut now, mood, 140, from, 100),
+                "{mood:?}"
+            );
+        }
     }
 
     #[test]

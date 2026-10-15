@@ -51,7 +51,7 @@ work with. Nothing is dithered in time.
 
 ### The eye (task 34, #712)
 
-Off unless set: `LAMP_RING_EYE=on` in the voice's unit, which the voice
+Off unless set: `LAMP_RING_EYE=on` (or `strong`, below) in the voice's unit, which the voice
 passes to its all-day ring worker as `--eye` (`crates/voice/src/ring_sight.rs`).
 Without it every frame is what it was (a test renders every mood with and
 without the switch, with a face seen, and compares them pixel for pixel). With
@@ -69,6 +69,27 @@ it the face is the lamp's eye in two ways:
   thinking and speaking keep their own faces.
 - **It blinks at rest,** now and then: every 7 to 16 s, not on a beat, the
   resting face dims to a quarter for 150 ms, eased in and out.
+
+**The strong eye** (`LAMP_RING_EYE=strong`, passed as `--eye --eye-strong`;
+first builder, 2026-10-16). On lamp-4ace on 15 Oct the owner found the eye too
+subtle: the body turns the head to a face, so the face sits near the middle of
+the picture, inside the 6 %, and the eye rarely leant. The strong eye is the
+eye with two changes, and `on` is as before:
+
+- **It leans sooner and further:** from 3 % off the middle, fully at 14 %
+  (6 % and 22 % for the plain eye), and its far side dims by up to nine
+  tenths (three quarters).
+- **It notices a person who arrives:** when a face is seen after none for
+  3 s, the whole face brightens by a third at once and settles back over
+  about a second (0.3 s to a third of the way), listening or at rest, as eyes
+  widen at someone who comes in. A face lost for a moment and found again is
+  not noticed again.
+
+Tests: the strong eye leans toward a person near the middle whom the plain eye
+looks straight at; it notices an arrival once, against a plain eye run frame
+for frame beside it, and again only after 3 s without a face; with the eye off
+it changes nothing. Not yet seen on a lamp: it is for the owner's face and the
+iMac's camera on 16 Oct.
 
 Which way the ring counts was measured on lamp-4ace on 2026-10-14 at 19:54:
 with the voice stopped, `crates/ring/examples/pixel_map.rs` lit pixel 0 red,

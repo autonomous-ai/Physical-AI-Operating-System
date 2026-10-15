@@ -519,12 +519,13 @@ fn run() -> Result<()> {
             };
             let (bus_root, flags) = lamp_voice::bus_out::take_root(flags)?;
             let (eye, flags) = lamp_voice::ring_sight::take(flags);
+            let (eye_strong, flags) = lamp_voice::ring_sight::take_strong(flags);
             if !flags.is_empty() {
                 return Err(io::Error::new(io::ErrorKind::InvalidInput, "unknown ring worker option").into());
             }
             let mut channels = WorkerChannels::bind(Path::new(dir), role, parent, worker, true)?;
             channels.connect(Path::new(dir), role, true)?;
-            lamp_voice::ring_worker::run_continuous(channels, parent, ceiling, bus_root.as_deref(), eye)?;
+            lamp_voice::ring_worker::run_continuous(channels, parent, ceiling, bus_root.as_deref(), eye, eye_strong)?;
         }
         [command,role,dir,parent,worker] if command=="worker" => {
             let parent=parse_boot(parent)?;

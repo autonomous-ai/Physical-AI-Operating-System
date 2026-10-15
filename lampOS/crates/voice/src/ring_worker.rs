@@ -58,6 +58,8 @@ fn now() -> MonoTime {
 pub struct Senses {
     pub light: Option<(RingLight, Lit)>,
     pub eye: bool,
+    /// The strong eye ([`Face::eye_strong`]), only with `eye`.
+    pub eye_strong: bool,
     pub sight: Option<RingSight>,
 }
 
@@ -121,6 +123,7 @@ pub fn run_continuous(
     resting: Option<u16>,
     bus_root: Option<&std::path::Path>,
     eye: bool,
+    eye_strong: bool,
 ) -> io::Result<()> {
     let light = bus_root.and_then(|root| match RingLight::on(root) {
         Ok(light) => Some(light),
@@ -138,7 +141,12 @@ pub fn run_continuous(
                 None
             }
         });
-    let senses = Senses { light, eye, sight };
+    let senses = Senses {
+        light,
+        eye,
+        eye_strong,
+        sight,
+    };
     let resting = match resting.map(ChannelCeiling::new).transpose() {
         Ok(resting) => resting,
         Err(error) => return report_start_failure(&mut link, io::Error::other(error)),
@@ -338,6 +346,7 @@ fn service(
     let Senses {
         light,
         eye,
+        eye_strong,
         mut sight,
     } = senses;
     let mut light = light.map(|(light, begins)| {
@@ -345,6 +354,7 @@ fn service(
         light
     });
     face.eye(eye);
+    face.eye_strong(eye_strong);
     let mut rested_at = 0u64;
     loop {
         let tick = monotonic_us();

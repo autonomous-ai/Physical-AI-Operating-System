@@ -4,15 +4,20 @@
 //! which way to look; it never decides whether the ring may show anything.
 //!
 //! The eye is switched on in the voice's unit with `LAMP_RING_EYE=on`, which
-//! the voice passes to its ring worker as `--eye`. Off unless set.
+//! the voice passes to its ring worker as `--eye`. Off unless set. With
+//! `LAMP_RING_EYE=strong` it is the strong eye as well (`--eye --eye-strong`,
+//! [`crate::ring_face::Face::eye_strong`]).
 use lamp_bus::{Bus, Message};
 use lamp_msgs::Faces;
 use std::{io, path::Path};
 
-/// Where the coordinator reads whether the ring has an eye. `on` only.
+/// Where the coordinator reads whether the ring has an eye: `on`, or
+/// `strong`.
 pub const ENVIRONMENT: &str = "LAMP_RING_EYE";
 /// The ring worker's flag for it.
 pub const FLAG: &str = "--eye";
+/// The ring worker's flag for the strong eye, only after [`FLAG`].
+pub const STRONG_FLAG: &str = "--eye-strong";
 
 /// The eyes look ten times a second; so does this.
 const LOOK_EVERY_US: u64 = 100_000;
@@ -63,10 +68,10 @@ pub fn arguments_from_environment() -> Vec<String> {
 }
 
 fn arguments(value: Option<&str>) -> Vec<String> {
-    if value == Some("on") {
-        vec![FLAG.to_owned()]
-    } else {
-        Vec::new()
+    match value {
+        Some("on") => vec![FLAG.to_owned()],
+        Some("strong") => vec![FLAG.to_owned(), STRONG_FLAG.to_owned()],
+        _ => Vec::new(),
     }
 }
 
@@ -74,6 +79,15 @@ fn arguments(value: Option<&str>) -> Vec<String> {
 pub fn take(flags: &[String]) -> (bool, &[String]) {
     match flags {
         [flag, rest @ ..] if flag == FLAG => (true, rest),
+        _ => (false, flags),
+    }
+}
+
+/// Take a leading `--eye-strong` off the ring worker's flags, after
+/// [`take`].
+pub fn take_strong(flags: &[String]) -> (bool, &[String]) {
+    match flags {
+        [flag, rest @ ..] if flag == STRONG_FLAG => (true, rest),
         _ => (false, flags),
     }
 }
@@ -108,6 +122,22 @@ mod tests {
     use super::*;
     use lamp_msgs::Face;
     use std::time::Duration;
+
+    #[test]
+    fn on_gives_the_eye_strong_the_strong_eye_and_anything_else_nothing() {
+        assert_eq!(arguments(Some("on")), [FLAG]);
+        assert_eq!(arguments(Some("strong")), [FLAG, STRONG_FLAG]);
+        for value in [None, Some(""), Some("off"), Some("ON"), Some("yes")] {
+            assert!(arguments(value).is_empty(), "{value:?}");
+        }
+        let flags = arguments(Some("strong"));
+        let (eye, rest) = take(&flags);
+        let (strong, rest) = take_strong(rest);
+        assert!(eye && strong && rest.is_empty());
+        let flags = arguments(Some("on"));
+        let (eye, rest) = take(&flags);
+        assert_eq!((eye, take_strong(rest).0), (true, false));
+    }
 
     fn face(xmin: f32, width: f32) -> Face {
         Face {

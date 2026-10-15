@@ -195,6 +195,12 @@ pub struct Rule {
     pub quiet_mornings: bool,
 }
 
+/// A record ID as the store gives them, 1 to `i64::MAX`; anything else is
+/// a malformed answer.
+pub fn valid_id(id: &Value) -> Option<u64> {
+    id.as_u64().filter(|id| *id > 0 && *id <= i64::MAX as u64)
+}
+
 /// The rules in the memory's answer to `kept`, oldest first.
 pub fn rules(answer: &Value) -> Option<Vec<Rule>> {
     if answer["ok"] != true {
@@ -214,7 +220,7 @@ pub fn rules(answer: &Value) -> Option<Vec<Rule>> {
                 (false, false, text)
             };
             Some(Rule {
-                id: entry.get("id")?.as_u64()?,
+                id: entry.get("id").and_then(valid_id)?,
                 at_unix_ms: entry.get("at_unix_ms")?.as_u64()?,
                 text: text.to_owned(),
                 quiet,
@@ -247,15 +253,15 @@ pub fn answer_for(
     }
     Some(match name {
         KEEP_RULE => {
-            answer.get("id")?.as_u64()?;
+            answer.get("id").and_then(valid_id)?;
             (
                 json!({"kept_rule": true, "note": "Follow it from now on, with them, without being reminded."}),
                 true,
             )
         }
-        FORGET_RULE => match answer.get("removed")? {
-            Value::Null => (which(), false),
-            Value::Number(count) if count.as_u64() == Some(0) => (which(), false),
+        // `forget {id}` answers how many records went: a count, nothing else.
+        FORGET_RULE => match answer.get("removed")?.as_u64()? {
+            0 => (which(), false),
             _ => (
                 json!({"forgotten": true, "note": "Stop following it from now on."}),
                 true,
@@ -648,16 +654,33 @@ mod tests {
             answer_for(FORGET_RULE, &json!({"ok":true,"removed":removed}), |_| {
                 String::new()
             })
-            .unwrap()
         };
-        assert_eq!(forgot(json!(1)).0["forgotten"], true);
-        assert!(forgot(json!(1)).1);
-        assert_eq!(forgot(json!(0)).0["forgotten"], false);
-        assert_eq!(forgot(json!(null)).0["forgotten"], false);
-        assert_eq!(
-            forgot(json!({"kind":"kept","id":2,"at_unix_ms":1})).0["forgotten"],
-            true
-        );
+        assert_eq!(forgot(json!(1)).unwrap().0["forgotten"], true);
+        assert!(forgot(json!(1)).unwrap().1);
+        assert_eq!(forgot(json!(0)).unwrap().0["forgotten"], false);
+        // Anything but a count is a malformed acknowledgement.
+        for removed in [
+            json!(null),
+            json!(false),
+            json!(true),
+            json!("1"),
+            json!(-1),
+            json!(1.5),
+            json!({"kind":"kept","id":2,"at_unix_ms":1}),
+        ] {
+            assert!(forgot(removed.clone()).is_none(), "{removed}");
+        }
+        let kept = |id| answer_for(KEEP_RULE, &json!({"ok":true,"id":id}), |_| String::new());
+        assert_eq!(kept(json!(1)).unwrap().0["kept_rule"], true);
+        for id in [
+            json!(0),
+            json!(u64::MAX),
+            json!(-1),
+            json!("1"),
+            json!(null),
+        ] {
+            assert!(kept(id.clone()).is_none(), "{id}");
+        }
         assert!(
             answer_for(KEEP_RULE, &json!({"ok":false,"error":"storage"}), |_| {
                 String::new()

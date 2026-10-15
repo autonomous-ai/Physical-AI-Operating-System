@@ -761,3 +761,77 @@ fn days_a_rule_kept_without_its_acknowledgement_lets_nothing_unlinked_be_journal
     );
     assert!(ok && texts(&told).is_empty(), "{told}");
 }
+
+/// The real store, with the answer to each rule write (`remember` or
+/// `forget` in an `r-` scope) replaced after it committed.
+struct MangledRuleAck<M> {
+    store: M,
+    mangle: fn(&str, Value) -> Value,
+}
+
+impl<M: Memory> Memory for MangledRuleAck<M> {
+    fn answer(&mut self, line: &[u8], now: u64) -> Answer {
+        let mut answer = self.store.answer(line, now);
+        let request: Value = serde_json::from_slice(line).unwrap();
+        let op = request["op"].as_str().unwrap_or_default();
+        if matches!(op, "remember" | "forget")
+            && request["person"]
+                .as_str()
+                .is_some_and(|p| p.starts_with("r-"))
+        {
+            answer.line =
+                (self.mangle)(op, serde_json::from_str(&answer.line).unwrap()).to_string();
+        }
+        answer
+    }
+}
+
+/// A rule write committed with an acknowledgement that is not one (an ID
+/// of 0 or past `i64::MAX`, a `removed` that is not a count) is told as
+/// not answering, and journalling stays fenced.
+#[test]
+fn days_a_malformed_rule_acknowledgement_is_not_taken_and_journals_nothing() {
+    for (keep_id, removed) in [(json!(0), json!(false)), (json!(u64::MAX), json!("1"))] {
+        // The server runs on its own thread, and the mangler is a plain fn:
+        // the values go by a static, set before the server starts.
+        static BAD: std::sync::Mutex<Option<(Value, Value)>> = std::sync::Mutex::new(None);
+        *BAD.lock().unwrap() = Some((keep_id.clone(), removed.clone()));
+        let fixture = Fixture::new(|options, now| MangledRuleAck {
+            store: Days::open(options, now).unwrap(),
+            mangle: |op, mut answer| {
+                let (id, removed) = BAD.lock().unwrap().clone().unwrap();
+                if op == "remember" {
+                    answer["id"] = id;
+                } else {
+                    answer["removed"] = removed;
+                }
+                answer
+            },
+        });
+        let minh = person_id("Minh");
+        let client = DaysClient::new(fixture.socket.clone()).unwrap();
+        let (told, ok) = client.rule_for(
+            &call(
+                lamp_voice::rules::KEEP_RULE,
+                json!({"rule":"Address them as Orchid."}),
+            ),
+            BUDGET,
+            Some(&minh),
+        );
+        assert!(!ok, "{keep_id}: {told}");
+        assert!(!client.finished_exchange_for(
+            fixture.now - 1_000,
+            "who am I",
+            "You are Orchid.",
+            Some(&minh)
+        ));
+        let number = listed(&client, &minh)[0].0;
+        let (told, ok) = client.rule_for(
+            &call(lamp_voice::rules::FORGET_RULE, json!({"number":number})),
+            BUDGET,
+            Some(&minh),
+        );
+        assert!(!ok, "{removed}: {told}");
+        assert!(!client.finished_exchange_for(fixture.now - 500, "again", "Orchid.", Some(&minh)));
+    }
+}

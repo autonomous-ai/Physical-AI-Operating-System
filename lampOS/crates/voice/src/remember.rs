@@ -1247,7 +1247,7 @@ impl DaysClient {
         // The rule kept or listed is now in the provider's context: what is
         // said under it is linked to it.
         let shown: Vec<u64> = match call.name.as_str() {
-            crate::rules::KEEP_RULE => answer["id"].as_u64().into_iter().collect(),
+            crate::rules::KEEP_RULE => crate::rules::valid_id(&answer["id"]).into_iter().collect(),
             crate::rules::LIST_RULES => crate::rules::rules(&answer)
                 .unwrap_or_default()
                 .iter()

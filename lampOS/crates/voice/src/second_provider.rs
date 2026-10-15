@@ -57,11 +57,6 @@ pub const ANNOUNCEMENT: &str = "My voice sounds a little different just now.";
 pub const ANNOUNCE_AFTER: Duration = Duration::from_secs(120);
 /// Chat requests in one turn, tool rounds included.
 pub const MAX_ROUNDS: usize = 4;
-/// Exchanges kept for the next chat, and for how long since each was said.
-// ponytail: a fixed window in this process; the thread file carries the
-// conversation across processes and across a return to Gemini.
-pub const HISTORY_EXCHANGES: usize = 6;
-pub const HISTORY_WITHIN: Duration = Duration::from_secs(300);
 /// The tool whose call means the words were not for the lamp.
 const NOT_FOR_ME: &str = "not_for_me";
 /// Microphone packets (10 ms each) held while speech-to-text connects:
@@ -83,24 +78,26 @@ pub type ToolRunner = Arc<dyn Fn(u64, String, Value) -> BoxFuture<'static, Value
 /// whose turn it is.
 pub type System = Arc<dyn Fn() -> Told + Send + Sync>;
 
-/// What a turn's chat is told, and whose turn it is: a memory id, or
-/// `None` for the room's (`crate::thread::Thread::opened_for`).
+/// What a turn's chat is told: the system message, and the exchanges just
+/// before it as messages (user, then assistant), oldest first. Both come
+/// from the thread, so they are the person's at the lamp only and nothing
+/// that was forgotten (`crate::thread::Thread::forget`).
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct Told {
     pub text: String,
-    pub whose: Option<String>,
+    pub history: Vec<Message>,
 }
 impl From<String> for Told {
-    /// The room's.
+    /// With no exchanges before it.
     fn from(text: String) -> Self {
-        Self { text, whose: None }
+        Self {
+            text,
+            history: Vec::new(),
+        }
     }
 }
 /// The engine's clock, for the announcement's spell.
 pub type Clock = Arc<dyn Fn() -> Instant + Send + Sync>;
-
-/// One exchange kept for the next chat: when, whose, asked and answered.
-type Exchange = (Instant, Option<String>, Message, Message);
 
 /// What every turn task shares.
 struct Shared {
@@ -112,10 +109,6 @@ struct Shared {
     answered_at: Mutex<Option<Instant>>,
     /// Audio packets sent by this process.
     sequence: AtomicU64,
-    /// The last exchanges, as the chat is given them, each with whose it
-    /// was: a Live session keeps its own, and a question like "and how many
-    /// live there?" needs it. A turn is given only its own person's.
-    history: Mutex<VecDeque<Exchange>>,
     out: mpsc::Sender<ProviderOutput>,
 }
 
@@ -169,7 +162,6 @@ impl Engine {
                 clock,
                 answered_at: Mutex::new(None),
                 sequence: AtomicU64::new(0),
-                history: Mutex::new(VecDeque::new()),
                 out,
             }),
             output,
@@ -364,29 +356,6 @@ impl Shared {
         .await;
     }
 
-    /// `whose`'s exchanges of the last [`HISTORY_WITHIN`], oldest first.
-    fn recent(&self, whose: Option<&str>) -> Vec<Message> {
-        let now = (self.clock)();
-        let Ok(mut history) = self.history.lock() else {
-            return Vec::new();
-        };
-        history.retain(|(at, ..)| now.saturating_duration_since(*at) < HISTORY_WITHIN);
-        history
-            .iter()
-            .filter(|(_, theirs, ..)| theirs.as_deref() == whose)
-            .flat_map(|(_, _, asked, answered)| [asked.clone(), answered.clone()])
-            .collect()
-    }
-
-    fn remember(&self, whose: Option<String>, asked: Message, answered: Message) {
-        if let Ok(mut history) = self.history.lock() {
-            history.push_back(((self.clock)(), whose, asked, answered));
-            while history.len() > HISTORY_EXCHANGES {
-                history.pop_front();
-            }
-        }
-    }
-
     fn announcement_due(&self) -> bool {
         let now = (self.clock)();
         self.answered_at
@@ -473,13 +442,12 @@ async fn answer(shared: &Shared, request: u64, said: String) {
         started: false,
     };
     let began = Instant::now();
-    let asked = Message::user(said.clone());
+    let asked = Message::user(said);
     let writing = async move {
         let told = (shared.system)();
         let mut messages = vec![Message::system(told.text)];
-        messages.extend(shared.recent(told.whose.as_deref()));
-        messages.push(asked.clone());
-        let mut answered = String::new();
+        messages.extend(told.history);
+        messages.push(asked);
         for round in 1..=MAX_ROUNDS {
             let mut stream = shared.services.chat(messages.clone());
             let mut first = true;
@@ -532,9 +500,7 @@ async fn answer(shared: &Shared, request: u64, said: String) {
             if let Some(rest) = split.finish() {
                 queue.push(rest).await?;
             }
-            answered.push_str(&text);
             if calls.is_empty() {
-                shared.remember(told.whose.clone(), asked, Message::assistant(answered));
                 return Ok(());
             }
             messages.push(Message::assistant_calls(Some(text), &calls));

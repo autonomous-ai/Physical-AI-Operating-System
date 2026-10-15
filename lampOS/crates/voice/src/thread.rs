@@ -464,6 +464,31 @@ impl Thread {
         })
     }
 
+    /// The person's exchanges ([`Self::opening`]) of the last `within`,
+    /// at most `most`, oldest first, as (what they said, what the lamp said):
+    /// for a route that gives a model the conversation as messages.
+    pub fn recent(&self, now: Instant, within: Duration, most: usize) -> Vec<(String, String)> {
+        let mut recent: Vec<(String, String)> = self
+            .exchanges
+            .iter()
+            .rev()
+            .filter(|exchange| {
+                exchange.whose == self.opened_for
+                    && now.saturating_duration_since(exchange.at) <= within
+                    && exchange.lamp.chars().any(char::is_alphanumeric)
+            })
+            .take(most)
+            .map(|exchange| {
+                (
+                    exchange.person.trim().to_owned(),
+                    exchange.lamp.trim().to_owned(),
+                )
+            })
+            .collect();
+        recent.reverse();
+        recent
+    }
+
     /// What to tell a new session, if anything was said lately, in at most
     /// `room` bytes: the latest exchanges that fit, in the order they went,
     /// of the person the session is opened for ([`Self::opening`]) only.
@@ -1250,6 +1275,41 @@ mod tests {
         read.at_lamp(Some("../Minh".into()));
         read.opening(at(141));
         assert_eq!(read.recall(at(141), ROOM), None);
+    }
+
+    /// The exchanges a route gives a model as messages: the person's only,
+    /// the newest few, and none once forgotten (first builder's reviewer on
+    /// #778: A, forget, B, A).
+    #[test]
+    fn recent_exchanges_are_the_persons_own_and_none_after_a_forgetting() {
+        let now = Instant::now();
+        let minh = Some(crate::remember::person_id("Minh"));
+        let sam = Some(crate::remember::person_id("Sam"));
+        let mut thread = Thread::new();
+        let open = |thread: &mut Thread, whose: &Option<String>| {
+            thread.at_lamp(whose.clone());
+            thread.opening(now);
+        };
+        open(&mut thread, &minh);
+        for (i, said) in ["one", "two", "three"].iter().enumerate() {
+            thread.person(said, true, now);
+            thread.lamp(i as u64 + 1, &format!("heard {said}"), now);
+        }
+        assert_eq!(
+            thread.recent(now, Duration::from_secs(300), 2),
+            [
+                ("two".to_owned(), "heard two".to_owned()),
+                ("three".to_owned(), "heard three".to_owned())
+            ]
+        );
+        open(&mut thread, &sam);
+        assert!(thread.recent(now, Duration::from_secs(300), 6).is_empty());
+        open(&mut thread, &minh);
+        assert_eq!(thread.recent(now, Duration::from_secs(300), 6).len(), 3);
+        thread.forget();
+        open(&mut thread, &sam);
+        open(&mut thread, &minh);
+        assert!(thread.recent(now, Duration::from_secs(300), 6).is_empty());
     }
 
     /// First builder on #778: a person's exchange made on the second route

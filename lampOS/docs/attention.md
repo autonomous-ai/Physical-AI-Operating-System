@@ -861,6 +861,68 @@ Tests:
 What it does not do: tell who said a call. A person who says "Lamp" to the
 lamp while facing someone else is still calling it.
 
+## The Policy holds the lamp's actions (#800)
+
+Off unless `LAMP_POLICY_HOLDS_ACTIONS=on` in the voice's environment (the
+coordinator passes the worker `--policy-holds-actions`, right after
+`--sounds-checked`), and nothing without `LAMP_BUS=on`.
+
+On lamp-4ace on 15 October at 14:49 the lamp heard "Thailand" in a busy
+office, ran `volume_up` and stayed 7 dB louder for eleven hours. The
+Policy's decision in the same second was `stay_quiet` (p = 0.235). Of
+3,698 attention decisions from 13 to 16 October, the Policy chose
+`stay_quiet` for 2,345, and the lamp spoke anyway on 437 of them (the first
+builder, #800). That is too many to hold all speech on the Policy yet, but
+an action changes the lamp and outlasts the moment.
+
+With the switch, a call that changes the lamp, any of the executive's
+functions (the volume and the light), waits for the Policy's attention
+decision about its turn:
+- **The turn's decision** is the first attention decision the Policy
+  publishes for real (`policy/decisions`, `about` `attention`, `shadow`
+  false: `lamp-policy --act attention`) after the turn's sound ended (as the
+  rule for whom it answers follows the turn, or, without it, as the worker
+  ended its sound). The
+  Policy's decisions carry no request of the voice's yet, so they are paired
+  by time. Each is dated by the worker's tick it was taken on, and they are
+  taken on every tick, so that one about an earlier turn is never dated as
+  a later call.
+- **`stay_quiet`, and the lamp's name not heard** in the turn (a hearing of
+  0.9 or more on `name/heard`, as the Policy counts it; known here only with
+  `LAMP_ATTENTION`, which follows the turn, and without it the Policy's
+  decision alone, which weighs the name itself): the action is not run. The model is told `{"done": false, "next": "Not done: it was not
+  clear that was said to you. Say nothing at all."}`, and none of the turn's
+  sound is let out after it.
+- **`answer` or `look_up`, or the name heard:** it runs.
+- **No decision within 2 s** of the call: it runs, as without the switch.
+  While it waits nothing else does: the call is kept aside and looked at on
+  each tick.
+- Speech stays as it is, and so does every other call. A request the
+  voice's own rule holds ([#829](#the-lamp-spoken-of-is-not-a-call-829),
+  the busy room) has its calls answered and not run before this is reached.
+  A turn the lamp wrote itself is not held. The second voice has no bus: its
+  actions run as before.
+
+The worker logs, with no words of what was heard: `request N asked for
+volume_up; waiting for the Policy's decision`, then `run after M ms:
+the Policy took the turn as the lamp's` (or `its name was heard`, or `no
+decision came in time`), or `not done: the Policy judged the turn not for
+the lamp, and its name was not heard (M ms)`.
+
+Tests: `crates/voice/src/policy_holds.rs` (the gate, the switch, the turn's
+decision the first made for real after its sound ended, shadow and progress
+decisions passed over) and `crates/voice/src/provider_worker/tests/policy_holds.rs`
+(the worker's own loop against the scripted service, an executive and a bus
+of the test's own: `stay_quiet` not done, nothing asked of the executive and
+none of the turn's sound out; `answer` and `look_up` run and the sound after
+comes out; no decision, run after the wait; without the switch, run at
+once; the flag's place).
+
+**Needs the Policy's side:** `lamp-policy --act attention`, which publishes
+its attention decisions with `shadow: false` (#800, to come after #873 and
+#883 merge, as they change the same files). Until then every action waits
+2 s and runs: so the switch stays off until both are on the lamp.
+
 ## Switch
 
 `LAMP_ATTENTION=on` in the voice unit (the worker's `--attention`). Off by
@@ -894,6 +956,12 @@ lamp-4ace since 11:52 on 2026-10-14.
 right after `--attention-near`; nothing without `LAMP_ATTENTION`): "the
 lamp" spoken of in what was heard is no call (above). Off by default; not
 on any lamp.
+
+`LAMP_POLICY_HOLDS_ACTIONS=on` (the worker's `--policy-holds-actions`,
+right after `--sounds-checked`; nothing without `LAMP_BUS=on`): the lamp's
+actions wait up to 2 s for the Policy's attention decision and are not run
+on a `stay_quiet` without the name (above). Off by default; not on any
+lamp; needs `lamp-policy --act attention`.
 
 ## Not shown
 

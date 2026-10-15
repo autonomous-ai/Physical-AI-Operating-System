@@ -34,6 +34,7 @@ pub mod options;
 pub mod physical_privacy;
 #[cfg(any(target_os = "linux", test))]
 mod playback;
+pub mod policy_holds;
 pub mod privacy;
 pub mod process;
 pub(crate) mod provider_flow;

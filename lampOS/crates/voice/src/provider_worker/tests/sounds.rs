@@ -16,6 +16,7 @@ fn checked(on: bool) -> Options {
         name_signal: false,
         sounds_checked: on,
         name_in_passing_ignored: false,
+        policy_holds: None,
     }
 }
 

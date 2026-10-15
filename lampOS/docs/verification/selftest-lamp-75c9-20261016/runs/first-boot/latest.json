@@ -1,0 +1,86 @@
+{
+  "occasion": "first_boot",
+  "started": 1792086640.9352226,
+  "took": 2.033128265,
+  "verdict": "not_checked",
+  "parts": [
+    {
+      "part": "voice_mic",
+      "verdict": "not_checked",
+      "reason": "nothing was ever said on mic2/audio: lamp-voice gives it only with LAMP_BUS=on and LAMP_BUS_AUDIO=on",
+      "took": 2.03247621
+    },
+    {
+      "part": "room_mic",
+      "verdict": "not_checked",
+      "reason": "nothing was ever said on ears/level: is lamp-ears running?",
+      "took": 0.000082834
+    },
+    {
+      "part": "air",
+      "verdict": "not_checked",
+      "reason": "nothing was ever said on air/state: is lamp-air running?",
+      "took": 0.000054376
+    },
+    {
+      "part": "touch",
+      "verdict": "not_checked",
+      "reason": "nothing was ever said on controls/touch_state: is lamp-controls running?",
+      "took": 0.000053834
+    },
+    {
+      "part": "board",
+      "verdict": "not_checked",
+      "reason": "nothing was ever said on board/state: is lamp-health running?",
+      "took": 0.000049668
+    },
+    {
+      "part": "camera",
+      "verdict": "not_checked",
+      "reason": "nothing was ever said on lamp/health: is lamp-health running?",
+      "took": 0.000094335
+    },
+    {
+      "part": "base_yaw",
+      "verdict": "not_checked",
+      "reason": "nothing was ever said on body/joint_states: is lamp-body running?",
+      "took": 0.000049501
+    },
+    {
+      "part": "shoulder",
+      "verdict": "not_checked",
+      "reason": "nothing was ever said on body/joint_states: is lamp-body running?",
+      "took": 0.000033292
+    },
+    {
+      "part": "elbow",
+      "verdict": "not_checked",
+      "reason": "nothing was ever said on body/joint_states: is lamp-body running?",
+      "took": 0.000031209
+    },
+    {
+      "part": "head_roll",
+      "verdict": "not_checked",
+      "reason": "nothing was ever said on body/joint_states: is lamp-body running?",
+      "took": 0.000031083
+    },
+    {
+      "part": "head_pitch",
+      "verdict": "not_checked",
+      "reason": "nothing was ever said on body/joint_states: is lamp-body running?",
+      "took": 0.000030793
+    },
+    {
+      "part": "ring",
+      "verdict": "not_checked",
+      "reason": "nothing was ever said on light/state: is lamp-voice running?",
+      "took": 0.00005246
+    },
+    {
+      "part": "storage",
+      "verdict": "not_checked",
+      "reason": "the kernel's log cannot be read: Operation not permitted (os error 1)",
+      "took": 0.000078085
+    }
+  ]
+}

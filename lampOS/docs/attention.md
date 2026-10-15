@@ -876,10 +876,13 @@ builder, #800). That is too many to hold all speech on the Policy yet, but
 an action changes the lamp and outlasts the moment.
 
 With the switch, a call that changes the lamp, any of the executive's
-functions (the volume and the light) or the schedule's (`set_timer`,
-`set_reminder`, `cancel_reminder`: on lamp-4ace on 16 October "Yes, give me
-five minutes", said to someone else, set a five-minute timer; the first
-builder on #908), waits for the Policy's attention decision about its turn:
+functions (the volume and the light), or one of the schedule's three that
+set or take away something to come (`set_timer`, `set_reminder`,
+`cancel_reminder`: on lamp-4ace on 16 October "Yes, give me five minutes",
+said to someone else, set a five-minute timer; the first builder on #908),
+waits for the Policy's attention decision about its turn. The schedule's
+other three, `list_reminders`, `repeat_reminder` and `snooze_reminder`, are
+not held (the first builder, 05:57), nor is any other call:
 - **The turn's decision** is an attention decision the Policy publishes
   for real (`policy/decisions`, `about` `attention`, `shadow` false:
   `lamp-policy --act attention`) about the turn **by its number**
@@ -916,7 +919,8 @@ builder on #908), waits for the Policy's attention decision about its turn:
   (`call_withdrawn`), which notes it as it reads it off the connection:
   while the output is full no provider event is taken, and its event may
   wait behind the sound before it (the reviewer, 05:11).
-- Speech stays as it is, and so does every other call. A request the
+- Speech stays as it is, and so does every other call, the schedule's
+  other three among them. A request the
   voice's own rule holds ([#829](#the-lamp-spoken-of-is-not-a-call-829),
   the busy room) has its calls answered and not run before this is reached.
   A turn the lamp wrote itself is not held. The second voice has no bus: its
@@ -929,8 +933,8 @@ decision came in time`), or `not done: the Policy judged the turn not for the
 lamp, and its name was not heard (M ms)`, or that it was withdrawn or its
 turn ended while it waited, and not run.
 
-Tests: `crates/voice/src/policy_holds.rs` (the gate; the switch; each
-decision its own turn's by number, also before the action is asked for,
+Tests: `crates/voice/src/policy_holds.rs` (the gate; the switch; which
+calls are held; each decision its own turn's by number, also before the action is asked for,
 shadow and progress decisions and ones without a number passed over; a late
 decision of the turn before neither releasing nor holding this turn's
 action, in both orders; one still owed to an earlier turn never settling a
@@ -944,7 +948,8 @@ known before its event is taken) and `crates/voice/src/provider_worker/tests/pol
 of the test's own: `stay_quiet` not done, nothing asked of the executive and
 none of the turn's sound out; `answer` and `look_up` run and the sound after
 comes out; no decision, run after the wait; without the switch, run at
-once; another turn's `stay_quiet` holding nothing; the flag's place; a
+once; another turn's `stay_quiet` holding nothing; listing reminders not
+held; the flag's place; a
 kept call whose turn is cancelled, one the service withdrew, and one
 withdrawn while the output is full, never run; a timer on `stay_quiet` not
 set).

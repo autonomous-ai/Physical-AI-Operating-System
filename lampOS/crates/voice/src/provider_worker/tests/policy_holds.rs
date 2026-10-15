@@ -291,7 +291,8 @@ async fn parked_volume_on(mut rig: LiveRig) -> (LiveRig, Dial) {
 
 /// The reviewer on #908: a call kept for the Policy's decision whose turn
 /// is cancelled meanwhile (its owner gone) is never run, also after the
-/// wait in which an uncancelled one would have run.
+/// wait in which an uncancelled one would have run, the worker healthy all
+/// through and stopped cleanly at the end (the reviewer, 05:52).
 #[tokio::test]
 async fn a_kept_action_whose_turn_is_cancelled_is_never_run() {
     let mut desk = Desk::new("cancelled");
@@ -299,24 +300,36 @@ async fn a_kept_action_whose_turn_is_cancelled_is_never_run() {
     let owner = rig.snapshot.owner().unwrap();
     rig.owner.cancel_turn(real_time(), owner).unwrap();
     rig.publish();
-    // The service settles the turn it was asked to stop, as Gemini does. In
-    // this rig a stopped turn the service never settles ends the worker at
-    // its barrier's bound, with or without a call kept; if the settling
-    // comes before the stop has reached the session, that may still happen
-    // here. Whether the worker lives is not what this asks.
+    // The stop as the session sends it, an interruption of the answer that
+    // waits on the call; settled only once it has come, as Gemini settles
+    // one. A stopped turn the service never settles would end the worker at
+    // its barrier's bound.
+    let deadline = Instant::now() + Duration::from_secs(3);
+    loop {
+        let message = rig.service_message(&mut dial).await;
+        if message["realtimeInput"].get("activityStart").is_some() {
+            break;
+        }
+        // Only the retired call's answer may come before it.
+        assert_eq!(response(&message), json!({"done": false}), "{message}");
+        assert!(Instant::now() < deadline, "the stop never came");
+    }
+    dial.service
+        .send(json!({"serverContent":{"interrupted":true}}))
+        .await;
     dial.service.send(idle_complete()).await;
-    // Never run, also after the wait in which an uncancelled one would have
-    // run.
+    // Never run, through the wait in which an uncancelled one would have
+    // run, the worker alive and taking its heartbeat all along.
     let until = Instant::now() + crate::policy_holds::WAIT + Duration::from_millis(300);
-    while Instant::now() < until && !rig.worker.is_finished() {
-        let _ = rig.heartbeat();
+    while Instant::now() < until {
+        assert!(!rig.worker.is_finished(), "the worker ended");
+        rig.publish();
         while rig.take().is_some() {}
         tokio::time::sleep(Duration::from_millis(5)).await;
     }
     assert!(desk.asked.try_recv().is_err(), "volume_up was run");
-    if !rig.worker.is_finished() {
-        rig.stop().await;
-    }
+    // And it stops cleanly: its result is Ok.
+    rig.stop().await;
 }
 
 /// The reviewer on #908: a call the service withdrew while it was kept is
@@ -370,6 +383,33 @@ async fn a_kept_action_withdrawn_while_the_output_is_full_is_never_run() {
     rig.pump(crate::policy_holds::WAIT + Duration::from_millis(300))
         .await;
     assert!(desk.asked.try_recv().is_err(), "volume_up was run");
+    rig.stop().await;
+}
+
+/// The first builder on #908 (05:57): listing reminders is not held. On
+/// `stay_quiet` without the name it is asked at once, as without the
+/// switch.
+#[tokio::test]
+async fn listing_reminders_is_not_held() {
+    let mut desk = Desk::new("list");
+    let mut rig = LiveRig::start_with(quick_policy(), desk.options(true));
+    let mut dial = rig.ready().await;
+    let request = rig.speak(&mut dial, false, true).await;
+    desk.decide(Some(request), "stay_quiet");
+    let called = Instant::now();
+    dial.service
+        .send(json!({"toolCall":{"functionCalls":[
+            {"id":"l1","name":"list_reminders","args":{}}
+        ]}}))
+        .await;
+    let told = rig.service_message(&mut dial).await;
+    assert_ne!(
+        response(&told),
+        json!({"done": false, "next": crate::policy_holds::HELD})
+    );
+    assert!(called.elapsed() < Duration::from_secs(1));
+    // The schedule was asked (through the same socket here).
+    assert!(desk.asked.try_recv().is_ok());
     rig.stop().await;
 }
 

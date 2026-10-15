@@ -202,8 +202,10 @@ this room" until someone asks to be recognised.
 - **Asked.** One line of JSON on `--who-socket` (on lamp-4ace
   `/run/lampos-eyes/who.sock`) and one line back:
   - `{"remember":"Minh"}` takes five prints over the next looks while that
-    one face is at the lamp and answers `{"remembered":"Minh"}`. After four
-    seconds without them it answers `no_face`, `too_far` or `two_faces`.
+    one face is at the lamp and answers `{"remembered":"Minh"}`. With no face
+    in view at all it answers `no_face` after 1.5 s. With a face too far
+    away, or two at the lamp, it gives them four seconds and then answers
+    `too_far` or `two_faces`.
   - `{"forget":"Minh"}` answers `{"forgot":true}` once the file no longer
     has it.
   - `{"list":true}` answers the names.
@@ -224,7 +226,11 @@ this room" until someone asks to be recognised.
 
 On lamp-4ace on 2026-10-15 at 08:22, with the office empty, the socket
 answered `list` and `who` at once, `remember` with `no_face` after 4.0 s,
-and `forget` of an unknown name with `false`.
+and `forget` of an unknown name with `false`. By voice at 08:33, "Hey Lamp,
+can you remember my face? I'm Sam." (played, nobody in view) was answered
+"I couldn't quite see you. Would you mind looking right at me and asking
+again?", the eyes having looked for 4.2 s. Since 08:39 the eyes say no face
+after 1.5 s: the same request was answered 3.5 s after the end of speech.
 
 ## On the bus
 

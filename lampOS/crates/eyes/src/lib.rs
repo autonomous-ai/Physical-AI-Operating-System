@@ -11,11 +11,13 @@
 //! the lamp, never a picture. [`who`] says whose face it is, for the people
 //! who asked the lamp to remember them, and nobody else. With
 //! `--leave-still-faces on`, [`still`] leaves out a face at a place where no
-//! person has been seen, only small faint faces for half an hour.
+//! person has been seen, only small faint faces for half an hour. [`permit`]
+//! says whether the camera may be open.
 pub mod bus_out;
 pub mod faces;
 pub mod facing;
 pub mod kept;
+pub mod permit;
 pub mod picture;
 pub mod sight;
 pub mod still;

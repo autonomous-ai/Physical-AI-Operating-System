@@ -18,6 +18,11 @@ pub const FRAME_BYTES: usize = PRIMER_BYTES + PIXEL_COUNT * 24 + RESET_BYTES;
 pub const SPI_SPEED_HZ: u32 = 6_400_000;
 /// An observed-return budget, not a timeout capable of interrupting a kernel call.
 pub const WRITE_BUDGET_US: u64 = 10_000;
+/// Writes over the budget are a run of late frames, not a fault, until the
+/// run has lasted this long. The frame of a late write did go out. On
+/// lamp-4ace the SD/MMC host re-tunes about once an hour and holds the bus
+/// for 0.3 s; one write then returns after 11 to 15 ms (#911).
+pub const LATE_RUN_US: u64 = 2_000_000;
 
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub struct Rgb {
@@ -247,6 +252,10 @@ pub struct GuardedRing<S: FrameSink> {
     resting: bool,
     faulted: bool,
     stopped: bool,
+    /// When the current run of late writes began.
+    late_since: Option<MonoTime>,
+    /// Late writes so far that were kept as frames, for the owner to say.
+    late_writes: u64,
     clock: fn() -> MonoTime,
     black: EncodedFrame,
 }
@@ -268,6 +277,8 @@ impl<S: FrameSink> GuardedRing<S> {
             resting: false,
             faulted: false,
             stopped: false,
+            late_since: None,
+            late_writes: 0,
             clock,
             black: EncodedFrame::black(),
         };
@@ -402,6 +413,11 @@ impl<S: FrameSink> GuardedRing<S> {
         self.faulted || (!self.stopped && self.guard.is_faulted())
     }
 
+    /// Late writes so far that were kept as frames (see [`LATE_RUN_US`]).
+    pub fn late_writes(&self) -> u64 {
+        self.late_writes
+    }
+
     pub fn is_stopped(&self) -> bool {
         self.stopped
     }
@@ -434,7 +450,13 @@ impl<S: FrameSink> GuardedRing<S> {
             .checked_sub(started_at.as_micros())
             .ok_or(WriteFailure::ClockRegression)?;
         if elapsed_us > WRITE_BUDGET_US {
-            return Err(WriteFailure::OverBudget { elapsed_us });
+            let since = *self.late_since.get_or_insert(started_at);
+            if finished_at.as_micros().saturating_sub(since.as_micros()) >= LATE_RUN_US {
+                return Err(WriteFailure::OverBudget { elapsed_us });
+            }
+            self.late_writes += 1;
+        } else {
+            self.late_since = None;
         }
         Ok(WriteReceipt {
             started_at,

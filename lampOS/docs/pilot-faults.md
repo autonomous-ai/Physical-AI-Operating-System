@@ -314,3 +314,16 @@ Two of the voice's start-up failures, found on lamp-52e6 and lamp-4ace on
 Not found yet: the power cut's first exit (exit 1 at 19.8 s, with no message
 of its own) and the provider's "Connection refused" at 24.7 s; that boot's
 journal is gone, and both need a second power cut with this build to see.
+
+## A late SPI write to the ring (#911)
+
+The ring's writer measures each SPI frame write against a 10 ms budget
+(`lamp_ring::WRITE_BUDGET_US`). On lamp-4ace the SD/MMC host re-tunes about
+once an hour and holds the bus for about 0.3 s; one write then returns after
+11 to 15 ms, and until #911 that one late write latched the ring's fault and
+left it dark until the voice restarted. A write that returns late did put its
+frame on the strip, so it now counts as a late frame: the ring goes on, and the
+voice's journal says it once ("an SPI write came back over its 10000 us
+budget; the frame was kept"). Only writes that stay late for
+`lamp_ring::LATE_RUN_US` (2 s) in a row are the fault they were before, with
+the same blank and the same report.

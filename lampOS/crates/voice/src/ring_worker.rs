@@ -356,7 +356,17 @@ fn service(
     face.eye(eye);
     face.eye_strong(eye_strong);
     let mut rested_at = 0u64;
+    let mut late_said = ring.late_writes();
     loop {
+        // A late SPI write (the SD/MMC host re-tuning holds the bus) is a
+        // late frame, said once each; only a run of them ends the ring (#911).
+        if ring.late_writes() != late_said {
+            late_said = ring.late_writes();
+            eprintln!(
+                "lamp-voice ring: an SPI write came back over its {} us budget; the frame was kept ({late_said} so far)",
+                lamp_ring::WRITE_BUDGET_US
+            );
+        }
         let tick = monotonic_us();
         let mut budget = CONTROL_BUDGET;
         if controls(link, ring, &mut guard, &mut budget)? {

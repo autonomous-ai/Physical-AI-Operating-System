@@ -3,8 +3,20 @@ use std::{io, path::Path};
 type Result<T> = std::result::Result<T, Box<dyn std::error::Error + Send + Sync>>;
 
 fn main() {
-    if let Err(error) = run() {
+    // The service and its workers: a log line never blocks them or ends
+    // them (`lamp_voice::log_relay`), and their last lines are passed on.
+    let relayed = matches!(std::env::args().nth(1).as_deref(), Some("serve" | "worker"))
+        && lamp_voice::log_relay::install()
+            .map_err(|error| eprintln!("lamp-voice: log lines go straight to the journal: {error}"))
+            .is_ok();
+    let result = run();
+    if let Err(error) = &result {
         eprintln!("lamp-voice: {error}");
+    }
+    if relayed {
+        lamp_voice::log_relay::finish(std::time::Duration::from_millis(500));
+    }
+    if result.is_err() {
         std::process::exit(1);
     }
 }

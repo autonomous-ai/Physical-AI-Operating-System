@@ -25,6 +25,7 @@ pub mod hand_controls;
 pub mod head_qualification;
 pub mod known_faces;
 pub mod local_time;
+pub mod log_relay;
 pub mod not_speech;
 pub mod options;
 #[cfg(target_os = "linux")]

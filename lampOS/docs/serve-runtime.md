@@ -177,6 +177,25 @@ SD card), ended nothing at the default scheduling, so those two faults are
 not explained by that load alone. They have not recurred since; that is a
 few hours.
 
+## Log lines never block or end the voice
+
+Every process of the voice (`serve` and each `worker`) starts by putting a
+pipe of its own on stderr (`crates/voice/src/log_relay.rs`). A thread
+drains that pipe at once and copies whole lines to the real stderr, the
+journal's stream, with non-blocking writes. When the journal does not take
+them, up to 64 KiB is held, the oldest whole lines are dropped, and the
+count is said once lines go through again ("N log lines dropped because the
+journal did not take them"). A line already begun is always finished.
+Before a process ends, and after a panic's message, it waits up to half a
+second for its last lines to go.
+
+Why: `eprintln!` blocks while the journal does not read and panics when its
+stream breaks. On lamp-4ace on 2026-10-15 a journald restart (01:52) ended
+the ring worker (#744). At 09:00:01 the RAM log was full, journald could
+not write, and the capture worker overran its read budget and ended the
+voice. That second crash is the likeliest effect of a blocked stderr; it is
+not proven.
+
 ## Stop and current limits
 
 After entering the coordinator loop, SIGTERM/SIGINT records a service-stop request,

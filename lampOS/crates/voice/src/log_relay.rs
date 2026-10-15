@@ -1,0 +1,268 @@
+//! A voice process's log lines never block it and never end it.
+//!
+//! Every lampOS part writes its log to stderr, which systemd connects to the
+//! journal. A write there blocks when the journal does not keep up, and
+//! fails when its stream breaks, and `eprintln!` panics on a failed write.
+//! On lamp-4ace on 2026-10-15 the failure ended the ring worker (journald
+//! restarted at 01:52, #744), and the block is the likeliest reason the
+//! capture worker overran its read budget at 09:00:01, when the RAM log was
+//! full and journald could not write. So each voice process puts a pipe of
+//! its own on stderr when it starts ([`install`]). One thread drains that
+//! pipe at once and copies what it reads to the real stderr without ever
+//! waiting on it: what the journal will not take is dropped, counted, and
+//! the count said once the journal takes lines again. A writer only ever
+//! writes into a pipe that is being emptied.
+use rustix::{
+    event::{PollFd, PollFlags, Timespec},
+    fd::{AsFd, OwnedFd},
+    io::Errno,
+};
+use std::{
+    io,
+    sync::{
+        Arc, OnceLock,
+        atomic::{AtomicU64, AtomicUsize, Ordering},
+    },
+    time::{Duration, Instant},
+};
+
+/// What [`finish`] needs: the pipe's reading end, to see what is still in
+/// it, and how much the relay holds.
+static RELAY: OnceLock<(OwnedFd, Arc<AtomicUsize>)> = OnceLock::new();
+
+/// Kept for the journal while it does not take lines: at most this much.
+pub const MOST_HELD: usize = 64 * 1024;
+/// A line longer than this goes out in pieces rather than waiting for its
+/// end.
+const LONGEST_LINE: usize = 4096;
+/// How often held lines are offered again while nothing new arrives.
+const RETRY: Timespec = Timespec {
+    tv_sec: 0,
+    tv_nsec: 100_000_000,
+};
+
+/// Put this process's stderr through a relay. Lines the journal would not
+/// take are counted in the value returned. An error leaves stderr as it was.
+pub fn install() -> io::Result<Arc<AtomicU64>> {
+    let real = rustix::io::fcntl_dupfd_cloexec(io::stderr().as_fd(), 3)?;
+    rustix::io::ioctl_fionbio(&real, true)?;
+    let (read, write) = rustix::pipe::pipe()?;
+    rustix::io::fcntl_setfd(&read, rustix::io::FdFlags::CLOEXEC)?;
+    let dropped = Arc::new(AtomicU64::new(0));
+    let counted = dropped.clone();
+    let held = Arc::new(AtomicUsize::new(0));
+    let holding = held.clone();
+    let watched = rustix::io::fcntl_dupfd_cloexec(&read, 3)?;
+    std::thread::Builder::new()
+        .name("lamp-log-relay".into())
+        .spawn(move || relay_holding(read, real, &counted, &holding))?;
+    rustix::stdio::dup2_stderr(&write)?;
+    let _ = RELAY.set((watched, held));
+    // A panic's message is a process's last words: give the relay the
+    // moment it needs to pass them on.
+    let before = std::panic::take_hook();
+    std::panic::set_hook(Box::new(move |info| {
+        before(info);
+        finish(Duration::from_millis(300));
+    }));
+    Ok(dropped)
+}
+
+/// Wait, at most `longest`, until every line written so far has gone to
+/// the journal: before a process ends, so that its last lines are not lost.
+pub fn finish(longest: Duration) {
+    let Some((read, held)) = RELAY.get() else {
+        return;
+    };
+    let until = Instant::now() + longest;
+    while Instant::now() < until {
+        let waiting = rustix::io::ioctl_fionread(read).unwrap_or(0);
+        if waiting == 0 && held.load(Ordering::Relaxed) == 0 {
+            return;
+        }
+        std::thread::sleep(Duration::from_millis(5));
+    }
+}
+
+/// Drain `from` until every writer has closed it, and pass what it holds to
+/// `to`, which is non-blocking: never wait on `to`, never fail.
+pub fn relay(from: OwnedFd, to: OwnedFd, dropped: &AtomicU64) {
+    relay_holding(from, to, dropped, &AtomicUsize::new(0));
+}
+
+fn relay_holding(from: OwnedFd, to: OwnedFd, dropped: &AtomicU64, holding: &AtomicUsize) {
+    let mut held: Vec<u8> = Vec::new();
+    // How much of the first held line has gone already: a line once begun
+    // is finished, never cut, so the journal never gets half of one.
+    let mut begun = 0usize;
+    let mut buffer = [0u8; 8192];
+    let mut told = 0u64;
+    let lines = |bytes: &[u8]| bytes.iter().filter(|byte| **byte == b'\n').count().max(1) as u64;
+    loop {
+        let mut fds = [PollFd::new(&from, PollFlags::IN)];
+        let ready = matches!(rustix::event::poll(&mut fds, Some(&RETRY)), Ok(n) if n > 0);
+        let mut ended = false;
+        if ready {
+            match rustix::io::read(&from, &mut buffer) {
+                // Every writer has gone: say what is held, if the journal
+                // takes it, and stop.
+                Ok(0) => ended = true,
+                Ok(n) => held.extend_from_slice(&buffer[..n]),
+                Err(Errno::INTR | Errno::AGAIN) => {}
+                Err(_) => return,
+            }
+        }
+        // Too much held: whole lines go, oldest first, but never the one
+        // being written.
+        if held.len() > MOST_HELD {
+            let keep_from = if begun > 0 {
+                held.iter()
+                    .position(|byte| *byte == b'\n')
+                    .map_or(held.len(), |at| at + 1)
+            } else {
+                0
+            };
+            let over = held.len() - MOST_HELD;
+            let cut = held[keep_from + over.min(held.len() - keep_from)..]
+                .iter()
+                .position(|byte| *byte == b'\n')
+                .map_or(held.len(), |at| {
+                    keep_from + over.min(held.len() - keep_from) + at + 1
+                });
+            if cut > keep_from {
+                dropped.fetch_add(lines(&held[keep_from..cut]), Ordering::Relaxed);
+                held.drain(keep_from..cut);
+            }
+        }
+        // Line by line, as much as the journal takes now and no more.
+        while !held.is_empty() {
+            // Only a whole line goes: the rest of one may still be in the
+            // pipe. A very long one, or the last when every writer has
+            // gone, goes as it is.
+            let end = match held.iter().position(|byte| *byte == b'\n') {
+                Some(at) => at + 1,
+                None if ended || held.len() >= LONGEST_LINE => held.len(),
+                None => break,
+            };
+            match rustix::io::write(&to, &held[begun..end]) {
+                Ok(0) => break,
+                Ok(n) => {
+                    begun += n;
+                    if begun == end {
+                        held.drain(..end);
+                        begun = 0;
+                    }
+                }
+                Err(Errno::INTR) => {}
+                Err(Errno::AGAIN) => break,
+                // A broken stream: what is held cannot go anywhere.
+                Err(_) => {
+                    dropped.fetch_add(lines(&held), Ordering::Relaxed);
+                    held.clear();
+                    begun = 0;
+                }
+            }
+        }
+        holding.store(held.len(), Ordering::Relaxed);
+        let now = dropped.load(Ordering::Relaxed);
+        if held.is_empty() && begun == 0 && now != told {
+            let line = format!(
+                "lamp-voice: {} log lines dropped because the journal did not take them\n",
+                now - told
+            );
+            if matches!(rustix::io::write(&to, line.as_bytes()), Ok(n) if n == line.len()) {
+                told = now;
+            }
+        }
+        if ended {
+            return;
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::time::{Duration, Instant};
+
+    fn nonblocking_pipe() -> (OwnedFd, OwnedFd) {
+        let (read, write) = rustix::pipe::pipe().unwrap();
+        rustix::io::ioctl_fionbio(&write, true).unwrap();
+        (read, write)
+    }
+
+    #[test]
+    fn a_journal_that_takes_nothing_never_holds_a_writer_and_the_loss_is_counted_then_said() {
+        // The journal: a pipe nobody reads until the end.
+        let (journal_read, journal_write) = nonblocking_pipe();
+        let (from, into) = rustix::pipe::pipe().unwrap();
+        let dropped = Arc::new(AtomicU64::new(0));
+        let counted = dropped.clone();
+        let relay = std::thread::spawn(move || relay(from, journal_write, &counted));
+        // Far more than the journal's pipe and the relay together hold.
+        let line = [b'x'; 99]
+            .iter()
+            .copied()
+            .chain([b'\n'])
+            .collect::<Vec<u8>>();
+        let started = Instant::now();
+        for _ in 0..20_000 {
+            let mut left = &line[..];
+            while !left.is_empty() {
+                let n = rustix::io::write(&into, left).unwrap();
+                left = &left[n..];
+            }
+        }
+        // Two megabytes went in without the writer waiting on the journal.
+        assert!(
+            started.elapsed() < Duration::from_secs(5),
+            "{:?}",
+            started.elapsed()
+        );
+        assert!(dropped.load(Ordering::Relaxed) > 0);
+        // The journal reads again while the writer is still there: what is
+        // held goes, then the count is said.
+        let mut said = Vec::new();
+        let mut buffer = [0u8; 65536];
+        let deadline = Instant::now() + Duration::from_secs(5);
+        while Instant::now() < deadline
+            && !String::from_utf8_lossy(&said).contains("log lines dropped")
+        {
+            match rustix::io::read(&journal_read, &mut buffer) {
+                Ok(n) if n > 0 => said.extend_from_slice(&buffer[..n]),
+                _ => std::thread::sleep(Duration::from_millis(5)),
+            }
+        }
+        // The last writer goes, and the relay with it.
+        drop(into);
+        relay.join().unwrap();
+        let said = String::from_utf8_lossy(&said);
+        assert!(
+            said.contains("log lines dropped because the journal did not take them"),
+            "{}",
+            &said[said.len().saturating_sub(300)..]
+        );
+        // Whole lines only: every line kept is a whole one.
+        let broken: Vec<&str> = said
+            .lines()
+            .filter(|text| text.len() != 99 && !text.starts_with("lamp-voice:"))
+            .collect();
+        assert!(broken.is_empty(), "{} broken: {:?}", broken.len(), broken);
+    }
+
+    #[test]
+    fn a_broken_journal_stream_ends_nothing() {
+        let (journal_read, journal_write) = nonblocking_pipe();
+        drop(journal_read);
+        let (from, into) = rustix::pipe::pipe().unwrap();
+        let dropped = Arc::new(AtomicU64::new(0));
+        let counted = dropped.clone();
+        let relay = std::thread::spawn(move || relay(from, journal_write, &counted));
+        for _ in 0..100 {
+            rustix::io::write(&into, b"a line the journal will never see\n").unwrap();
+        }
+        drop(into);
+        relay.join().unwrap();
+        assert!(dropped.load(Ordering::Relaxed) >= 1);
+    }
+}

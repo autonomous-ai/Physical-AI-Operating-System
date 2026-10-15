@@ -24,7 +24,7 @@ lamp-msgs = { path = "../msgs" }
 lamp-controls = { path = "../controls" }
 lamp-schedule = { path = "../schedule" }
 tokio = { version = "=1.53.1", features = ["rt", "time", "macros"] }
-rustix = { version = "=1.1.5", features = ["fs", "process", "net"] }
+rustix = { version = "=1.1.5", features = ["fs", "process", "net", "pipe", "stdio", "event"] }
 sonora-agc2 = "=0.2.0"
 sonora-simd = "=0.2.0"
 signal-hook = { version = "=0.4.4", default-features = false }

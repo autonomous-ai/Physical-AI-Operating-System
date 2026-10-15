@@ -1,0 +1,9 @@
+    Checking lamp-msgs v0.1.0 (/private/tmp/lampos-tests-fixture-progress/lampOS/crates/msgs)
+    Checking lamp-camera v0.1.0 (/private/tmp/lampos-tests-fixture-progress/lampOS/crates/camera)
+    Checking lamp-keeper v0.1.0 (/private/tmp/lampos-tests-fixture-progress/lampOS/crates/keeper)
+    Checking lamp-controls v0.1.0 (/private/tmp/lampos-tests-fixture-progress/lampOS/crates/controls)
+    Checking lamp-body v0.1.0 (/private/tmp/lampos-tests-fixture-progress/lampOS/crates/body)
+    Checking lamp-schedule v0.1.0 (/private/tmp/lampos-tests-fixture-progress/lampOS/crates/schedule)
+    Checking lamp-voice v0.1.0 (/private/tmp/lampos-tests-fixture-progress/lampOS/crates/voice)
+    Checking lamp-voice-eval v0.1.0 (/private/tmp/lampos-tests-fixture-progress/lampOS/crates/voice-eval)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 24.99s

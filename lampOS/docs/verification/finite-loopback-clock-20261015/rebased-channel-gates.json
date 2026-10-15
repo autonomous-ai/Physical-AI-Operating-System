@@ -1,0 +1,165 @@
+[
+  {
+    "stage": "rebased-channel-fmt",
+    "command": [
+      "cargo",
+      "fmt",
+      "--all",
+      "--check"
+    ],
+    "start_from_date": "2026-10-16 00:29:08 +0700",
+    "finish_from_date": "2026-10-16 00:29:13 +0700",
+    "exit_code": 0
+  },
+  {
+    "stage": "rebased-channel-clippy",
+    "command": [
+      "cargo",
+      "clippy",
+      "--locked",
+      "--offline",
+      "-p",
+      "lamp-voice-eval",
+      "--all-targets",
+      "--",
+      "-D",
+      "warnings"
+    ],
+    "start_from_date": "2026-10-16 00:29:13 +0700",
+    "finish_from_date": "2026-10-16 00:29:38 +0700",
+    "exit_code": 0
+  },
+  {
+    "stage": "rebased-channel-lib",
+    "command": [
+      "cargo",
+      "test",
+      "--locked",
+      "--offline",
+      "--release",
+      "-p",
+      "lamp-voice-eval",
+      "--lib",
+      "--",
+      "--test-threads=1"
+    ],
+    "start_from_date": "2026-10-16 00:29:38 +0700",
+    "finish_from_date": "2026-10-16 00:31:25 +0700",
+    "exit_code": 0
+  },
+  {
+    "stage": "rebased-channel-build",
+    "command": [
+      "cargo",
+      "build",
+      "--locked",
+      "--offline",
+      "--workspace"
+    ],
+    "start_from_date": "2026-10-16 00:31:25 +0700",
+    "finish_from_date": "2026-10-16 00:32:28 +0700",
+    "exit_code": 0
+  },
+  {
+    "stage": "release-pair-before-list",
+    "command": [
+      "cargo",
+      "nextest",
+      "list",
+      "--locked",
+      "--offline",
+      "--release",
+      "-p",
+      "lamp-voice-eval",
+      "--test",
+      "physical_loopback",
+      "--message-format",
+      "json"
+    ],
+    "start_from_date": "2026-10-16 00:32:28 +0700",
+    "finish_from_date": "2026-10-16 00:33:06 +0700",
+    "exit_code": 0
+  },
+  {
+    "stage": "release-pair-before",
+    "command": [
+      "cargo",
+      "nextest",
+      "run",
+      "--locked",
+      "--offline",
+      "--release",
+      "-p",
+      "lamp-voice-eval",
+      "--test",
+      "physical_loopback",
+      "--profile",
+      "realtime",
+      "--test-threads",
+      "1",
+      "--retries",
+      "0",
+      "--no-fail-fast",
+      "--status-level",
+      "pass",
+      "--final-status-level",
+      "fail",
+      "--color",
+      "never"
+    ],
+    "start_from_date": "2026-10-16 00:33:06 +0700",
+    "finish_from_date": "2026-10-16 00:37:06 +0700",
+    "exit_code": 0
+  },
+  {
+    "stage": "release-pair-after-list",
+    "command": [
+      "cargo",
+      "nextest",
+      "list",
+      "--locked",
+      "--offline",
+      "--release",
+      "-p",
+      "lamp-voice-eval",
+      "--test",
+      "physical_loopback",
+      "--message-format",
+      "json"
+    ],
+    "start_from_date": "2026-10-16 00:37:06 +0700",
+    "finish_from_date": "2026-10-16 00:37:12 +0700",
+    "exit_code": 0
+  },
+  {
+    "stage": "release-pair-after",
+    "command": [
+      "cargo",
+      "nextest",
+      "run",
+      "--locked",
+      "--offline",
+      "--release",
+      "-p",
+      "lamp-voice-eval",
+      "--test",
+      "physical_loopback",
+      "--profile",
+      "realtime",
+      "--test-threads",
+      "1",
+      "--retries",
+      "0",
+      "--no-fail-fast",
+      "--status-level",
+      "pass",
+      "--final-status-level",
+      "fail",
+      "--color",
+      "never"
+    ],
+    "start_from_date": "2026-10-16 00:37:12 +0700",
+    "finish_from_date": "2026-10-16 00:37:24 +0700",
+    "exit_code": 0
+  }
+]

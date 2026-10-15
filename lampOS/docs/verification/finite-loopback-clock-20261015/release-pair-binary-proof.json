@@ -1,0 +1,11 @@
+{
+  "date": "2026-10-16 00:37:24 +0700",
+  "helper_hashes": {
+    "before": "5af71f030d17b8cc6dc339e3867e7fd32513a01b859453bc1c463cdbb7ea067d",
+    "after": "5af71f030d17b8cc6dc339e3867e7fd32513a01b859453bc1c463cdbb7ea067d"
+  },
+  "restored_source_sha256": "de31d80698e7188af40278c9e982eceed0c15a1ccf8fe42323365dca028d3d98",
+  "source_head": "763faf285c320aebb589e04863c2aff5a5b03415",
+  "base": "6b08a70d56e37b061e7a9a6b013072b13639a0b7",
+  "load_note": "Serial within each invocation on shared x86_64 macOS host; independent recorder-seam full gate may overlap. Not quiet benchmark, ARM64 or complete realtime group proof."
+}

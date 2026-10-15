@@ -1,0 +1,43 @@
+#879 finite-branch port audit — 2026-10-16 00:12:40 +0700
+Worktree: /private/tmp/lampos-tests-fixture-progress
+Result: no behavioral deviation found. Channel span and all ten regression bodies match the independently reviewed implementation exactly. The finite protocol retains only Runtime/Relay roles and its original Step shape; serve additions were not copied.
+
+Evidence boundaries
+Files were frozen at 2026-10-16 00:08:06 +0700 and their live hashes were rechecked unchanged at this handoff. This audit edited only /private/tmp/tests-879-finite-audit-evidence. No Cargo, builds, test binaries, Git mutations, network, or device commands ran. Read-only git show supplied the requested current origin/lamp-voice loopback source.
+
+Exact port proof
+The Channel span SHA256 is fe332dc9a0e3588167eede72d52ad135564228448b1c1b7ad377530067a512ba, identical to bounded-channel-port.rs and finite-port.json. The full finite protocol is exactly its pre-port snapshot plus that reviewed span, the two imports, and the new test-module declaration; audit.py checks every byte. The ten-test source hash is e9469a7b2c0ce0a988d69f46d064162214a1af8a2eefb54c2dd07e1a85c1fbba, identical to the reviewed serve regression file and the port record. The original finite test file equals both its dated pre-port source snapshot and finite-port.json's expected hash 22e02e09239c5471fcc78818785bf2e186f033b272e08ccba0864307c8563087.
+
+Two explicit, harmless port differences
+1. Cargo feature order is [fs, process, event] in finite versus [event, fs, process] in serve. After sorting that one list, Cargo.toml is identical; the feature set and existing dependency version are unchanged.
+2. The private module declaration is channel_closed_peer_tests in finite versus closed_peer_tests in serve. The ten source files' leaf identities and assertions are identical, but their newly registered qualified names use those respective module prefixes. No original finite test identity changed. This difference was found by the initial full-file audit, inspected, and then explicitly included in the expected port proof; it is not a behavioral change.
+
+Identity and assertion accounting
+- Original finite protocol tests: 21 identities, 80 static assert!/assert_eq!/assert_ne! calls; all original bytes and assertions unchanged.
+- Added closed-peer regressions: 10 identities, 29 static assertion calls; exact reviewed source.
+- physical_loopback: 12 identities, 100 static assertion calls in the full file (86 in test bodies plus 14 in assertion helpers), identical counts before/after.
+These are source macro invocation counts, not counts of loop-expanded checks at execution time. Full lists, body hashes and per-test counts are in audit.json and the three *-identities.txt files.
+
+Loopback reversal proof
+The frozen before source and current origin/lamp-voice source match SHA256 4d9619fbe20b112784dc82e8957d6065c01a87953c3dbf4fb2573b9c485d7f27.
+Current loopback SHA256 is de31d80698e7188af40278c9e982eceed0c15a1ccf8fe42323365dca028d3d98.
+Its exact diff has four authorized hunks: header wording; ClockedFixture import; the run_plan constructor selecting the fixture clock/player/driver; and the undelivered-stimuli constructor selecting the same clock/driver while retaining BrokenPlayer. Reversing only those hunks restores the complete origin file byte-for-byte (physical_loopback.reversed.rs). Eleven test bodies are directly byte-identical; the twelfth, undelivered_stimuli_are_withheld_not_scored_as_silence, is byte-identical after reversing only its constructor. Every assertion, fault loop, scene/config argument, expected outcome, delay/bound, seed, repetition and helper remains unchanged. The asset-restriction test's original host constructor and the partial-transport shell test's original host constructor remain intact, as required by those cases.
+
+Execution status is separate
+This is source proof only. Root reported the restricted serve run passed all ten closed-peer regressions and the original #879 failure cases, while 30 socket-dependent tests hit sandbox EPERM. That environment limitation is not a flaky-test retry or a source-audit result; root preserved that log and is running the appropriately authorized local-socket gate. No execution, gate completion, fresh finite timing, or speedup is claimed here. Root owns those results and renewed full-binary measurement for the changed Channel.
+
+Files
+- audit.py / audit.json: reproducible expected-port and exact constructor-reversal checks.
+- snapshot.json / snapshot/: audited sources and date/hash boundaries.
+- physical-loopback.diff / physical_loopback.reversed.rs: exact migration diff and original reconstruction.
+- *-identities.txt: 21 original protocol, 10 new closed-peer, and 12 loopback identities.
+
+SHA256
+fe332dc9a0e3588167eede72d52ad135564228448b1c1b7ad377530067a512ba  reviewed_channel_span
+318381580f7725db297e8efe4c510270ad574a75204e1b43f9845643f88ef33b  finite_protocol
+5762a21da9b2eb9cbcd235612890b289edc0ef312ee579c951236a307547b082  finite_pre_port_protocol
+22e02e09239c5471fcc78818785bf2e186f033b272e08ccba0864307c8563087  finite_original_tests
+e9469a7b2c0ce0a988d69f46d064162214a1af8a2eefb54c2dd07e1a85c1fbba  closed_peer_regressions
+de31d80698e7188af40278c9e982eceed0c15a1ccf8fe42323365dca028d3d98  physical_loopback
+4d9619fbe20b112784dc82e8957d6065c01a87953c3dbf4fb2573b9c485d7f27  origin_and_reversed_physical_loopback
+9854d29463c6671cc2ffcd83181d58e440a72f5be81df2e154d9bf2c1fee753d  finite_cargo_toml

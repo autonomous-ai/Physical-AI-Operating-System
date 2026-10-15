@@ -1,0 +1,319 @@
+{
+  "reviewed_at_from_date": "2026-10-15 22:58:04 +0700",
+  "scope": "Read-only finite-clock final peer review; retained logs inspected, no tests/builds run by reviewer",
+  "blockers": [],
+  "baseline_file": "/private/tmp/tests-823-progress-evidence/physical_loopback.before.rs",
+  "current_file": "/private/tmp/lampos-tests-fixture-progress/lampOS/crates/voice-eval/tests/physical_loopback.rs",
+  "baseline_sha256": "4d9619fbe20b112784dc82e8957d6065c01a87953c3dbf4fb2573b9c485d7f27",
+  "current_sha256": "de31d80698e7188af40278c9e982eceed0c15a1ccf8fe42323365dca028d3d98",
+  "restored_sha256": "4d9619fbe20b112784dc82e8957d6065c01a87953c3dbf4fb2573b9c485d7f27",
+  "whole_file_equal_after_exactly_four_allowed_region_replacements": true,
+  "allowed_regions": [
+    {
+      "name": "header",
+      "before_sha256": "3d44f515c7c9ca1e9827e9c3d52165211323275d14d20126619538c44edf326d",
+      "after_sha256": "e9cac00609ec6a9678d1bc45a562931689ec3aeff877ecfd01b96ed4e9865e28"
+    },
+    {
+      "name": "import",
+      "before_sha256": "df4d600266fb2e371cb764d9555df3097cdaf44ea8327f78111cdc240c6c52b0",
+      "after_sha256": "d7e643f798bf7ce0466bf758b40098eb9ca47b0bc189a5bc51b5c42a59773664"
+    },
+    {
+      "name": "run_plan fixture setup",
+      "before_sha256": "8a9b159817d5f78177d57b98cb5e8a463cb5d28ce79bf281b7d09f32053faf83",
+      "after_sha256": "ec87b6a4aa6d534f2ee81eb9f8d89dec8dc768b0926aee1fb793131c5d837815"
+    },
+    {
+      "name": "BrokenPlayer fixture setup",
+      "before_sha256": "da40057615c835175cf4cd4e4b025197aeb580f47b5120351555f174f089935a",
+      "after_sha256": "66f5c58738dce66d861e296bc0d88b1a433559f59a463bae09fcc5d3536407d1"
+    }
+  ],
+  "test_identities_equal": true,
+  "test_count": 12,
+  "literal_unchanged_test_bodies": 11,
+  "all_test_bodies_equal_after_setup_restoration": true,
+  "all_assertion_macros_preserved": "Whole-source restoration is byte-exact and all four replaced regions contain zero assertion macros.",
+  "assertion_macro_counts_before": {
+    "assert": 51,
+    "assert_eq": 44,
+    "assert_ne": 5
+  },
+  "assertion_macro_counts_after": {
+    "assert": 51,
+    "assert_eq": 44,
+    "assert_ne": 5
+  },
+  "fault_iterations_unchanged": true,
+  "fault_iteration_literals": [
+    "\"drop-retirement\", \"stale-retirement\"",
+    "\"drop-completion\", \"stale-completion\""
+  ],
+  "test_bodies": [
+    {
+      "name": "cue_triggered_acknowledgment_is_injected_during_playback_and_scored",
+      "body_byte_identical": true,
+      "body_byte_identical_after_allowed_setup_restoration": true,
+      "before_body_sha256": "ae2474532613a4bfcb06ac00f5ab0b67825d8eea51903043d44ffe0c796e8b42",
+      "current_body_sha256": "ae2474532613a4bfcb06ac00f5ab0b67825d8eea51903043d44ffe0c796e8b42",
+      "restored_body_sha256": "ae2474532613a4bfcb06ac00f5ab0b67825d8eea51903043d44ffe0c796e8b42",
+      "direct_assertion_macro_count": 12
+    },
+    {
+      "name": "echo_only_window_passes_through_the_relay_without_extra_admissions",
+      "body_byte_identical": true,
+      "body_byte_identical_after_allowed_setup_restoration": true,
+      "before_body_sha256": "edd5fbb6524d657045960391ec4f48eb40c54e904b4ec18c6259f4d0f45fe1ad",
+      "current_body_sha256": "edd5fbb6524d657045960391ec4f48eb40c54e904b4ec18c6259f4d0f45fe1ad",
+      "restored_body_sha256": "edd5fbb6524d657045960391ec4f48eb40c54e904b4ec18c6259f4d0f45fe1ad",
+      "direct_assertion_macro_count": 5
+    },
+    {
+      "name": "directed_mode_keeps_provider_fault_and_asset_restrictions",
+      "body_byte_identical": true,
+      "body_byte_identical_after_allowed_setup_restoration": true,
+      "before_body_sha256": "ea4d0b3d912b1ee8af8fddfd4dc2afd647febc3d1bbca14943a96d462292ae3b",
+      "current_body_sha256": "ea4d0b3d912b1ee8af8fddfd4dc2afd647febc3d1bbca14943a96d462292ae3b",
+      "restored_body_sha256": "ea4d0b3d912b1ee8af8fddfd4dc2afd647febc3d1bbca14943a96d462292ae3b",
+      "direct_assertion_macro_count": 5
+    },
+    {
+      "name": "directed_followup_waits_for_whole_reply_completion_then_admits_a_new_turn",
+      "body_byte_identical": true,
+      "body_byte_identical_after_allowed_setup_restoration": true,
+      "before_body_sha256": "d1bb8d51b88fc3cb10d16b5b2ebc6f2441a78952ee6589ffe5907f83027ee6bf",
+      "current_body_sha256": "d1bb8d51b88fc3cb10d16b5b2ebc6f2441a78952ee6589ffe5907f83027ee6bf",
+      "restored_body_sha256": "d1bb8d51b88fc3cb10d16b5b2ebc6f2441a78952ee6589ffe5907f83027ee6bf",
+      "direct_assertion_macro_count": 10
+    },
+    {
+      "name": "directed_natural_interruption_runs_during_reply_with_original_cancel_reason",
+      "body_byte_identical": true,
+      "body_byte_identical_after_allowed_setup_restoration": true,
+      "before_body_sha256": "123d5b63616ade7bf30ba1ca8446d6a9e632bba0b469107c78107ee98ad15dca",
+      "current_body_sha256": "123d5b63616ade7bf30ba1ca8446d6a9e632bba0b469107c78107ee98ad15dca",
+      "restored_body_sha256": "123d5b63616ade7bf30ba1ca8446d6a9e632bba0b469107c78107ee98ad15dca",
+      "direct_assertion_macro_count": 10
+    },
+    {
+      "name": "directed_missing_or_stale_retirement_never_falls_back_to_a_timer_or_final_trace",
+      "body_byte_identical": true,
+      "body_byte_identical_after_allowed_setup_restoration": true,
+      "before_body_sha256": "e530409279477f7b6d9ff0d32269b9c662a605d49f3db4f0a84b54b0850988b3",
+      "current_body_sha256": "e530409279477f7b6d9ff0d32269b9c662a605d49f3db4f0a84b54b0850988b3",
+      "restored_body_sha256": "e530409279477f7b6d9ff0d32269b9c662a605d49f3db4f0a84b54b0850988b3",
+      "direct_assertion_macro_count": 9
+    },
+    {
+      "name": "undelivered_stimuli_are_withheld_not_scored_as_silence",
+      "body_byte_identical": false,
+      "body_byte_identical_after_allowed_setup_restoration": true,
+      "before_body_sha256": "b03b924cabc14078158ab9bc872e383feac22d5a4ebd02883d1dc156c954d899",
+      "current_body_sha256": "eea086d330f4900785e11fcad3effbcb4e2ddf1b6c7157ea44d13e7cfd66101c",
+      "restored_body_sha256": "b03b924cabc14078158ab9bc872e383feac22d5a4ebd02883d1dc156c954d899",
+      "direct_assertion_macro_count": 3
+    },
+    {
+      "name": "a_transport_that_closes_mid_trace_invalidates_the_attempt",
+      "body_byte_identical": true,
+      "body_byte_identical_after_allowed_setup_restoration": true,
+      "before_body_sha256": "aeb34000865c3f9230b2235d6d56f3f937c2593b49aad2914c0311f0e66210a7",
+      "current_body_sha256": "aeb34000865c3f9230b2235d6d56f3f937c2593b49aad2914c0311f0e66210a7",
+      "restored_body_sha256": "aeb34000865c3f9230b2235d6d56f3f937c2593b49aad2914c0311f0e66210a7",
+      "direct_assertion_macro_count": 2
+    },
+    {
+      "name": "directed_two_occurrences_wait_for_true_completion_before_followup",
+      "body_byte_identical": true,
+      "body_byte_identical_after_allowed_setup_restoration": true,
+      "before_body_sha256": "8406928b4bc780df7a5c50c29d69403bee52f5ddf68e5e3fadea34df36d9b7c9",
+      "current_body_sha256": "8406928b4bc780df7a5c50c29d69403bee52f5ddf68e5e3fadea34df36d9b7c9",
+      "restored_body_sha256": "8406928b4bc780df7a5c50c29d69403bee52f5ddf68e5e3fadea34df36d9b7c9",
+      "direct_assertion_macro_count": 10
+    },
+    {
+      "name": "directed_interruption_during_second_occurrence_preserves_owner_and_yields",
+      "body_byte_identical": true,
+      "body_byte_identical_after_allowed_setup_restoration": true,
+      "before_body_sha256": "cf0dc88b3aca4b22c9dd6d00f55b10b843848d972d5f155a33ee4ddebf5effda",
+      "current_body_sha256": "cf0dc88b3aca4b22c9dd6d00f55b10b843848d972d5f155a33ee4ddebf5effda",
+      "restored_body_sha256": "cf0dc88b3aca4b22c9dd6d00f55b10b843848d972d5f155a33ee4ddebf5effda",
+      "direct_assertion_macro_count": 7
+    },
+    {
+      "name": "missing_or_stale_whole_completion_withholds_followup_after_valid_retirement",
+      "body_byte_identical": true,
+      "body_byte_identical_after_allowed_setup_restoration": true,
+      "before_body_sha256": "afc85f30aab4f30eeb9e75d3e5cdac6a20a2dd4e85093b448a3bda12e8ad443b",
+      "current_body_sha256": "afc85f30aab4f30eeb9e75d3e5cdac6a20a2dd4e85093b448a3bda12e8ad443b",
+      "restored_body_sha256": "afc85f30aab4f30eeb9e75d3e5cdac6a20a2dd4e85093b448a3bda12e8ad443b",
+      "direct_assertion_macro_count": 7
+    },
+    {
+      "name": "physical_next_turn_ready_follows_lamp_voice_readiness_cues",
+      "body_byte_identical": true,
+      "body_byte_identical_after_allowed_setup_restoration": true,
+      "before_body_sha256": "d7922806b4326b7811f02b9f6fc11b61acdc5ea2d6959e80c2d63bc3b7b7f268",
+      "current_body_sha256": "d7922806b4326b7811f02b9f6fc11b61acdc5ea2d6959e80c2d63bc3b7b7f268",
+      "restored_body_sha256": "d7922806b4326b7811f02b9f6fc11b61acdc5ea2d6959e80c2d63bc3b7b7f268",
+      "direct_assertion_macro_count": 6
+    }
+  ],
+  "before": {
+    "summary_seconds": 248.575,
+    "passed": 12,
+    "skipped": 0,
+    "exit_code": 0,
+    "failure_retry_markers": false,
+    "cases": [
+      {
+        "name": "a_transport_that_closes_mid_trace_invalidates_the_attempt",
+        "seconds": 0.576
+      },
+      {
+        "name": "cue_triggered_acknowledgment_is_injected_during_playback_and_scored",
+        "seconds": 15.813
+      },
+      {
+        "name": "directed_followup_waits_for_whole_reply_completion_then_admits_a_new_turn",
+        "seconds": 25.037
+      },
+      {
+        "name": "directed_interruption_during_second_occurrence_preserves_owner_and_yields",
+        "seconds": 27.185
+      },
+      {
+        "name": "directed_missing_or_stale_retirement_never_falls_back_to_a_timer_or_final_trace",
+        "seconds": 35.992
+      },
+      {
+        "name": "directed_mode_keeps_provider_fault_and_asset_restrictions",
+        "seconds": 0.43
+      },
+      {
+        "name": "directed_natural_interruption_runs_during_reply_with_original_cancel_reason",
+        "seconds": 27.037
+      },
+      {
+        "name": "directed_two_occurrences_wait_for_true_completion_before_followup",
+        "seconds": 26.024
+      },
+      {
+        "name": "echo_only_window_passes_through_the_relay_without_extra_admissions",
+        "seconds": 14.644
+      },
+      {
+        "name": "missing_or_stale_whole_completion_withholds_followup_after_valid_retirement",
+        "seconds": 35.871
+      },
+      {
+        "name": "physical_next_turn_ready_follows_lamp_voice_readiness_cues",
+        "seconds": 25.09
+      },
+      {
+        "name": "undelivered_stimuli_are_withheld_not_scored_as_silence",
+        "seconds": 14.874
+      }
+    ],
+    "log_sha256": "edc671b1add80d8f29b44c2e841e1d8f2a266e1fc8f3ad4cb424900857c8c8c1"
+  },
+  "after": {
+    "summary_seconds": 28.471,
+    "passed": 12,
+    "skipped": 0,
+    "exit_code": 0,
+    "failure_retry_markers": false,
+    "cases": [
+      {
+        "name": "a_transport_that_closes_mid_trace_invalidates_the_attempt",
+        "seconds": 0.578
+      },
+      {
+        "name": "cue_triggered_acknowledgment_is_injected_during_playback_and_scored",
+        "seconds": 3.397
+      },
+      {
+        "name": "directed_followup_waits_for_whole_reply_completion_then_admits_a_new_turn",
+        "seconds": 2.469
+      },
+      {
+        "name": "directed_interruption_during_second_occurrence_preserves_owner_and_yields",
+        "seconds": 2.726
+      },
+      {
+        "name": "directed_missing_or_stale_retirement_never_falls_back_to_a_timer_or_final_trace",
+        "seconds": 4.091
+      },
+      {
+        "name": "directed_mode_keeps_provider_fault_and_asset_restrictions",
+        "seconds": 0.368
+      },
+      {
+        "name": "directed_natural_interruption_runs_during_reply_with_original_cancel_reason",
+        "seconds": 2.692
+      },
+      {
+        "name": "directed_two_occurrences_wait_for_true_completion_before_followup",
+        "seconds": 2.588
+      },
+      {
+        "name": "echo_only_window_passes_through_the_relay_without_extra_admissions",
+        "seconds": 1.558
+      },
+      {
+        "name": "missing_or_stale_whole_completion_withholds_followup_after_valid_retirement",
+        "seconds": 4.168
+      },
+      {
+        "name": "physical_next_turn_ready_follows_lamp_voice_readiness_cues",
+        "seconds": 2.443
+      },
+      {
+        "name": "undelivered_stimuli_are_withheld_not_scored_as_silence",
+        "seconds": 1.391
+      }
+    ],
+    "log_sha256": "d9787fb929ff99babd8f9302b34744dee075ff5a1fcd6038a1a1f0c210463f2e"
+  },
+  "speedup_ratio": 8.730813810544062,
+  "elapsed_reduction_percent": 88.54631398974153,
+  "reviewed_source_sha256": {
+    "main.rs": "638cd8fa8c072d0639997c5de800ff7238f5f9f33de39ecba7d5d91243a18eee",
+    "physical/mod.rs": "74a0279bf483658835bde00306a05d0e9caeb4d0384d8682d4f071ffad615ae5",
+    "physical/mac.rs": "3e50a3e823d19af617019536a3cf6c83be6ffebe90f1b3d0b304d85471c46e13",
+    "physical/session.rs": "a54ea45fdaea1c330eb30abc30aa9d3a8cb86767c2b8f40782158b5bfe266e31",
+    "physical/fake_lamp.rs": "fecb70fc79a85675749bd4208cfa5ec760d2ea5c56b2b6865acd56caee57649d",
+    "physical/fixture_control.rs": "5762a21da9b2eb9cbcd235612890b289edc0ef312ee579c951236a307547b082",
+    "physical/fixture_control_tests.rs": "22e02e09239c5471fcc78818785bf2e186f033b272e08ccba0864307c8563087",
+    "physical/fixture_commands.rs": "f96208110fec892608b3099f9b33b0cf86a966e9dd21971b03ee56dc85e6086a",
+    "physical/fixture_driver.rs": "6f518d5c02ea54a540b528aa7ac22a0fca1ffe4837f191c0cc20e369183b789e",
+    "physical/backend_progress_tests.rs": "9fcc0168aeb882e513823932b97f6e2b77d4cbc1c4fd1f9e90279539d9cd15cb",
+    "physical/relay_progress_tests.rs": "71e2bcc10a20f9dd77f26fba869a487bde99bbc0e8752793e3ecad2633c46d9f",
+    "physical/fake_runtime_clock_tests.rs": "06572780eeb16d10975437ddcec6b1b82944d570373d10312e763f4a2c73467a"
+  },
+  "limits": [
+    "Local retained debug nextest logs only; not ARM64 CI or device verification.",
+    "Focused additional-test suite: 46 passed and 94 unrelated filtered; original loopback suite: 12 passed and zero skipped.",
+    "Parent plans dependency rebase and full final gate after this review."
+  ],
+  "saved_baseline_manifest_matches": true,
+  "queue_test_file_matches_prior_preservation_audit": true,
+  "backend_file_matches_prior_preservation_audit": false,
+  "additional_test_retained_result": {
+    "passed": 46,
+    "filtered": 94,
+    "failed": 0,
+    "seconds": 6.088,
+    "exit_code": 0,
+    "source": "focused.log and focused.exit; inspected, not rerun"
+  },
+  "review_findings": {
+    "bounded_queue": "Resolved: fixture-only 50,404 normal-record total limit plus one terminal-error slot, try_send, reader closure on overflow, original 96 MiB byte limit. Default remains blocking 4096.",
+    "ordering": "Runtime parks after actual tick/output/cue/room work; relay waits for complete LF frames to be enqueued, drains cues/stdout/input and performs exit/deadline checks before Ack; backend reader must enqueue all flushed output before driver returns.",
+    "advancement": "Only explicit driver advances logical clocks. next_event requests queue_drained=true only after nonblocking receive returns none; inject preserves original wait-before-bounded-final-drain order and passes false.",
+    "completion": "Runtime logical-end Ack precedes its real trace sync/exit; parent repeatedly steps relay at unchanged logical time under one host deadline. Relay terminal Ack follows run_engine final trace/SessionEnd/cleanup and final output flush. Backend still drains/waits/reaps on host clock.",
+    "defaults": "Ordinary lamp-session/fake-lamp-voice keep host clock and original 2 ms sleep; fixture constructor is explicit, rejects serve/recorder/reuse and rewrites only same-executable fake command. Existing default backend constructor has no driver.",
+    "watchdog_test_review": "Earlier negative-test scheduling concern resolved: exact Step/Hello or empty EOF before send accepted; actual TimedOut and EOF still asserted; elapsed upper limits removed; deadline selection tested with explicit Instants."
+  }
+}

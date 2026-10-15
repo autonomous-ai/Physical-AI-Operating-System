@@ -1,0 +1,13 @@
+binary_id	test	before_seconds	after_seconds	saved_seconds
+lamp-voice-eval::physical_loopback	a_transport_that_closes_mid_trace_invalidates_the_attempt	0.158	0.175	-0.017
+lamp-voice-eval::physical_loopback	cue_triggered_acknowledgment_is_injected_during_playback_and_scored	14.855	1.114	13.741
+lamp-voice-eval::physical_loopback	directed_followup_waits_for_whole_reply_completion_then_admits_a_new_turn	24.764	1.502	23.262
+lamp-voice-eval::physical_loopback	directed_interruption_during_second_occurrence_preserves_owner_and_yields	26.298	1.167	25.131
+lamp-voice-eval::physical_loopback	directed_missing_or_stale_retirement_never_falls_back_to_a_timer_or_final_trace	34.544	1.245	33.299
+lamp-voice-eval::physical_loopback	directed_mode_keeps_provider_fault_and_asset_restrictions	0.070	0.063	0.007
+lamp-voice-eval::physical_loopback	directed_natural_interruption_runs_during_reply_with_original_cancel_reason	26.311	0.999	25.312
+lamp-voice-eval::physical_loopback	directed_two_occurrences_wait_for_true_completion_before_followup	25.312	1.128	24.184
+lamp-voice-eval::physical_loopback	echo_only_window_passes_through_the_relay_without_extra_admissions	14.222	0.756	13.466
+lamp-voice-eval::physical_loopback	missing_or_stale_whole_completion_withholds_followup_after_valid_retirement	34.579	1.811	32.768
+lamp-voice-eval::physical_loopback	physical_next_turn_ready_follows_lamp_voice_readiness_cues	24.326	0.940	23.386
+lamp-voice-eval::physical_loopback	undelivered_stimuli_are_withheld_not_scored_as_silence	14.272	0.536	13.736

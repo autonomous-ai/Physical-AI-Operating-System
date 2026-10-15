@@ -312,6 +312,65 @@ fake-room datagrams and report shape, timestamp overflow refusal, and the
 unchanged system defaults. Existing test assertions, identities, profiles and
 workflows remain unchanged. This entry point alone establishes no speedup.
 
+## Stepped finite loopback fixtures
+
+The finite `physical_loopback` scenarios now select an explicit
+`physical::fixture_driver::ClockedFixture`. The runner, immediate fake player,
+real relay process and finite fake runtime share a pure `MonoTime` source.
+Only the parent scheduler advances it. The two quick transport/restriction
+checks keep their original construction. All 12 identities, all 100 assertion
+macros, the original scenario durations, fault iterations, cue freshness and
+grant bounds remain unchanged.
+
+The driver recognizes only the evaluator's direct local fake-runtime command.
+It selects `fake-clock-session` and `fake-clock-lamp-voice` with a private
+control socket. Regular commands and constructors keep their system clocks,
+2 ms host polling and existing reader bounds. Serve, prepared players,
+recorders, arbitrary transports and reuse for another attempt are rejected by
+this finite driver; they need their own coordinated participants.
+
+Each control round names its time and the complete input frames it must
+consume. The runtime polls first, then the relay consumes the acknowledged
+runtime stdout and runner controls. Only successful room sends count as
+expected runtime input. The relay acknowledges complete output after flushing;
+the backend reader must actually enqueue that output before the parent moves
+on. `next_event` drains queued frames before advancing. A scheduled injection
+preserves its existing wait and final-drain ordering. Reads never move time,
+and the original 2 ms runtime/relay and 10 ms model tick intervals remain.
+
+The private socket uses bounded newline-delimited frames, role/round/counter
+checks and absolute host watchdogs. Nonblocking reads/writes use bounded
+readiness polling, so queued final frames remain readable after peer closure.
+A failed participant closes control peers before
+the backend's existing process cleanup. Terminal runtime progress freezes
+logical time while the relay observes actual child exit and streams the final
+trace. Only the relay's final flushed `Trace`/`SessionEnd` output completes its
+acknowledgement; logical completion never substitutes for OS reaping.
+
+Final trace output can exceed the normal 4,096-line reader queue while the
+parent waits for that acknowledgement. The explicit fixture reader therefore
+accepts at most 50,404 transcript records plus one reserved error slot, using
+nonblocking enqueue. That bound covers a maximum 25,000-line trace, up to
+25,000 cues, 400 pings and four control/fault records. The existing per-line and 96 MiB
+byte caps still apply. Overflow publishes a terminal error and closes the
+reader instead of blocking the child before its acknowledgement. The default
+reader retains its original queue and blocking behavior.
+
+[Fresh corrected-channel release evidence](verification/finite-loopback-clock-20261015/README.md)
+passes the same 12 compiled tests before and after: **239.720 s to 11.439 s**,
+serial nextest on x86_64 macOS, with no retries, ignored or skipped cases.
+The evaluator helper hash is identical; only the authorized test constructors
+change. Nextest execution excludes build/list time. This is an observed pair
+on a shared host with uncontrolled independent load, not a quiet benchmark.
+
+The corrected full local gate passed 352 evaluator tests before rebase. All
+57 evaluator Rust files remain byte-identical across rebase; new qualification
+passed 150 release library tests, evaluator all-target clippy, formatting,
+workspace build and the release pair. The full 352-test run was not repeated
+after rebase. The earlier 248.575 s to 28.471 s debug pair remains historical
+pre-#879 evidence. Native ARM64 speed and the complete 123-test under-two-minute
+target are not established. Profiles and workflow selection are unchanged.
+
 ## Finite fake-runtime clock and poll boundary
 
 `physical::fake_lamp::run_with_clock_and_poll` is an explicit library seam for

@@ -1,0 +1,8 @@
+{
+  "existing_test_suffix_unchanged": true,
+  "old_mac_test_count": 27,
+  "new_mac_test_count": 27,
+  "new_progress_test_count": 7,
+  "mac_sha256": "0ac69ff0b18f3a061ef4550e05a6275e70afcd097f6deca6b1cb7cfa3a6f27d5",
+  "tests_sha256": "9fcc0168aeb882e513823932b97f6e2b77d4cbc1c4fd1f9e90279539d9cd15cb"
+}

@@ -1,0 +1,39 @@
+[
+  {
+    "stage": "tests",
+    "command": [
+      "cargo",
+      "test",
+      "--locked",
+      "--offline",
+      "--release",
+      "-p",
+      "lamp-voice-eval",
+      "--no-fail-fast",
+      "--",
+      "--test-threads=1"
+    ],
+    "cwd": "/private/tmp/lampos-tests-fixture-progress/lampOS",
+    "start_from_date": "2026-10-16 00:09:02 +0700",
+    "finish_from_date": "2026-10-16 00:19:47 +0700",
+    "exit_code": 0,
+    "log": "/private/tmp/tests-823-progress-evidence/channel-fixed-local-sockets-tests.log",
+    "target": "/private/tmp/lampos-tests-capacity/lampOS/target"
+  },
+  {
+    "stage": "build",
+    "command": [
+      "cargo",
+      "build",
+      "--locked",
+      "--offline",
+      "--workspace"
+    ],
+    "cwd": "/private/tmp/lampos-tests-fixture-progress/lampOS",
+    "start_from_date": "2026-10-16 00:19:47 +0700",
+    "finish_from_date": "2026-10-16 00:20:21 +0700",
+    "exit_code": 0,
+    "log": "/private/tmp/tests-823-progress-evidence/channel-fixed-local-sockets-build.log",
+    "target": "/private/tmp/lampos-tests-capacity/lampOS/target"
+  }
+]

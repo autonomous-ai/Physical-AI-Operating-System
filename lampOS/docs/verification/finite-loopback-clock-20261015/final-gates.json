@@ -1,0 +1,37 @@
+{
+  "base": "a3dba0c0af457774e5fe7e09af42828c311738b9",
+  "gates": [
+    {
+      "command": "cargo fmt --all --check",
+      "started_from_date": "2026-10-15 22:56:50 +0700",
+      "finished_from_date": "2026-10-15 22:56:55 +0700",
+      "exit": 0
+    },
+    {
+      "command": "cargo clippy --locked --offline --workspace --all-targets -- -D warnings",
+      "started_from_date": "2026-10-15 22:56:55 +0700",
+      "finished_from_date": "2026-10-15 22:59:13 +0700",
+      "exit": 0
+    },
+    {
+      "command": "cargo test --locked --offline --release -p lamp-voice-eval --no-fail-fast -- --test-threads=1",
+      "started_from_date": "2026-10-15 22:59:13 +0700",
+      "finished_from_date": "2026-10-15 23:18:36 +0700",
+      "exit": 0
+    },
+    {
+      "command": "cargo build --locked --offline --workspace",
+      "started_from_date": "2026-10-15 23:18:36 +0700",
+      "finished_from_date": "2026-10-15 23:20:00 +0700",
+      "exit": 0
+    }
+  ],
+  "full_evaluator_totals": {
+    "passed": 342,
+    "failed": 0,
+    "ignored": 0
+  },
+  "target": "/private/tmp/lampos-tests-capacity/lampOS/target",
+  "build_jobs": 2,
+  "profile": "release"
+}

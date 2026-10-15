@@ -47,9 +47,12 @@ use std::{
     os::unix::{fs::DirBuilderExt, net::UnixDatagram, process::CommandExt},
     path::{Path, PathBuf},
     process::{Child, Command, Stdio},
-    sync::mpsc::{self, Receiver, TryRecvError},
+    sync::{
+        Arc, Condvar, Mutex,
+        mpsc::{self, Receiver, TryRecvError},
+    },
     thread,
-    time::Duration,
+    time::{Duration, Instant},
 };
 
 #[derive(Clone, Debug)]
@@ -430,6 +433,87 @@ impl RelayErrors {
 
 type Framed = std::result::Result<String, String>;
 
+const READER_QUEUE_CAPACITY: usize = 256;
+const READER_PROGRESS_GUARD: Duration = Duration::from_secs(30);
+
+struct QueuedFrame {
+    item: Framed,
+    /// Only an actual newline completes a producer's announced frame.
+    complete: bool,
+}
+
+#[derive(Default)]
+struct EnqueuedState {
+    frames: u64,
+    closed: bool,
+}
+
+#[derive(Default)]
+struct EnqueuedFrames {
+    state: Mutex<EnqueuedState>,
+    changed: Condvar,
+}
+
+impl EnqueuedFrames {
+    fn sent(&self, complete: bool) {
+        if complete {
+            let mut state = self.state.lock().expect("reader progress lock");
+            state.frames += 1;
+            self.changed.notify_all();
+        }
+    }
+
+    fn close(&self) {
+        self.state.lock().expect("reader progress lock").closed = true;
+        self.changed.notify_all();
+    }
+
+    fn wait_until(&self, target: u64, until: Instant, what: &str) -> Result<()> {
+        let mut state = self.state.lock().expect("reader progress lock");
+        loop {
+            if state.frames >= target {
+                return Ok(());
+            }
+            if state.closed {
+                return Err(invalid(&format!(
+                    "{what} ended after {} complete frames, before fixture target {target}",
+                    state.frames
+                )));
+            }
+            let Some(remaining) = until.checked_duration_since(Instant::now()) else {
+                return Err(invalid(&format!(
+                    "{what} enqueued {} complete frames, below fixture target {target} at the host reader deadline",
+                    state.frames
+                )));
+            };
+            (state, _) = self
+                .changed
+                .wait_timeout(state, remaining)
+                .expect("reader progress lock");
+        }
+    }
+}
+
+struct FramedReader {
+    receiver: Receiver<QueuedFrame>,
+    /// System-clock sessions keep the original queue without progress locks.
+    enqueued: Option<Arc<EnqueuedFrames>>,
+}
+
+impl FramedReader {
+    fn wait_until(&self, target: u64, consumed: u64, until: Instant, what: &str) -> Result<()> {
+        if target.saturating_sub(consumed) > READER_QUEUE_CAPACITY as u64 {
+            return Err(invalid(&format!(
+                "{what} fixture target {target} exceeds the {READER_QUEUE_CAPACITY}-frame queue after {consumed} consumed frames"
+            )));
+        }
+        self.enqueued
+            .as_ref()
+            .ok_or_else(|| invalid("fixture reader progress was not enabled"))?
+            .wait_until(target, until, what)
+    }
+}
+
 /// Frame a byte stream on its own thread. Invalid frames arrive as `Err`
 /// text; the thread ends at end of input, after a read error, or when the
 /// receiver is dropped.
@@ -438,27 +522,54 @@ fn line_reader<R: Read + Send + 'static>(
     max: usize,
     total: u64,
     what: &'static str,
-) -> Receiver<Framed> {
-    let (sender, receiver) = mpsc::sync_channel(256);
+    controlled: bool,
+) -> FramedReader {
+    let (sender, receiver) = mpsc::sync_channel(READER_QUEUE_CAPACITY);
+    let enqueued = controlled.then(|| Arc::new(EnqueuedFrames::default()));
+    let progress = enqueued.clone();
     thread::spawn(move || {
         let mut framer = LineFramer::with_total_limit(source, max, total);
         loop {
-            let (item, last) = match framer.next_frame() {
+            let (item, complete, last) = match framer.next_frame() {
                 Ok(None) => break,
-                Ok(Some(Frame::Line(line))) => (Ok(line), false),
-                Ok(Some(frame)) => (Err(frame.failure(what, max).unwrap_or_default()), false),
+                Ok(Some(Frame::Line(line))) => (Ok(line), true, false),
+                Ok(Some(frame)) => {
+                    let complete = matches!(
+                        frame,
+                        Frame::Oversized {
+                            terminated: true,
+                            ..
+                        } | Frame::InvalidUtf8 { .. }
+                    );
+                    (
+                        Err(frame.failure(what, max).unwrap_or_default()),
+                        complete,
+                        false,
+                    )
+                }
                 Err(error) if error.to_string() == STREAM_LIMIT => (
                     Err(format!("{what} exceeded {total} bytes; reading stopped")),
+                    false,
                     true,
                 ),
-                Err(error) => (Err(format!("{what} read failed: {error}")), true),
+                Err(error) => (Err(format!("{what} read failed: {error}")), false, true),
             };
-            if sender.send(item).is_err() || last {
+            if sender.send(QueuedFrame { item, complete }).is_err() {
+                break;
+            }
+            if let Some(progress) = &progress {
+                // A read or a blocked send is not an enqueued frame.
+                progress.sent(complete);
+            }
+            if last {
                 break;
             }
         }
+        if let Some(progress) = progress {
+            progress.close();
+        }
     });
-    receiver
+    FramedReader { receiver, enqueued }
 }
 
 /// The relay line for one framed runtime stdout item.
@@ -872,6 +983,88 @@ pub fn run_with_clock<R: Read + Send + 'static>(
     out: &mut impl Write,
     now: impl Fn() -> MonoTime,
 ) -> Result<i32> {
+    run_engine(options, input, out, now, None)
+}
+
+/// Complete frames already sent by the parked fixture participants. The relay
+/// waits for its reader threads to enqueue these targets before polling.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct RelayPollTargets {
+    pub stdout_frames: u64,
+    pub runner_inputs: u64,
+}
+
+/// Work consumed by completed relay polls, never inferred from a Pong or a
+/// clock sample. `terminal` marks the last poll; final trace/SessionEnd output
+/// and process cleanup still follow it before the run returns.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct RelayPollProgress {
+    pub poll_seq: u64,
+    pub stdout_frames: u64,
+    pub runner_inputs: u64,
+    pub terminal: bool,
+}
+
+struct PollControl<'a> {
+    before: &'a mut dyn FnMut() -> Result<RelayPollTargets>,
+    completed: &'a mut dyn FnMut(RelayPollProgress) -> Result<()>,
+}
+
+/// Run an explicitly coordinated local fixture with real relay I/O and child
+/// exit checks. `now` remains a pure read. `before_poll` supplies the current
+/// step's producer frame targets; a separate 30-second host guard bounds their
+/// enqueue barrier without advancing logical time.
+///
+/// `completed_poll` runs after cue/stdout/input drains and exit/deadline/grace
+/// checks. For a continuing poll it acknowledges work and parks until the next
+/// step, replacing only the normal 2 ms sleep. For a terminal poll it must only
+/// record progress and return promptly: the caller can acknowledge final output
+/// only after this function returns. Neither hook proves the relay's OS exit.
+pub fn run_with_controlled_clock<R: Read + Send + 'static>(
+    options: &SessionOptions,
+    input: R,
+    out: &mut impl Write,
+    now: impl Fn() -> MonoTime,
+    mut before_poll: impl FnMut() -> Result<RelayPollTargets>,
+    mut completed_poll: impl FnMut(RelayPollProgress) -> Result<()>,
+) -> Result<i32> {
+    run_engine(
+        options,
+        input,
+        out,
+        now,
+        Some(PollControl {
+            before: &mut before_poll,
+            completed: &mut completed_poll,
+        }),
+    )
+}
+
+fn complete_poll(
+    control: &mut Option<PollControl<'_>>,
+    progress: &mut RelayPollProgress,
+    terminal: bool,
+) -> Result<()> {
+    if let Some(control) = control {
+        progress.poll_seq = progress
+            .poll_seq
+            .checked_add(1)
+            .ok_or_else(|| invalid("relay fixture poll sequence overflow"))?;
+        progress.terminal = terminal;
+        (control.completed)(*progress)?;
+    } else if !terminal {
+        thread::sleep(Duration::from_millis(2));
+    }
+    Ok(())
+}
+
+fn run_engine<R: Read + Send + 'static>(
+    options: &SessionOptions,
+    input: R,
+    out: &mut impl Write,
+    now: impl Fn() -> MonoTime,
+    mut control: Option<PollControl<'_>>,
+) -> Result<i32> {
     fs::DirBuilder::new().mode(0o700).create(&options.work)?;
     let mut cleanup = Cleanup {
         child: None,
@@ -915,12 +1108,14 @@ pub fn run_with_clock<R: Read + Send + 'static>(
         MAX_STDOUT_LINE_BYTES,
         MAX_STDOUT_TOTAL_BYTES,
         "runtime stdout",
+        control.is_some(),
     );
     let input = line_reader(
         input,
         MAX_RUNNER_LINE_BYTES,
         MAX_RUNNER_TOTAL_BYTES,
         "runner transport",
+        control.is_some(),
     );
     let deadline = now().as_micros()
         + (u64::from(options.seconds) + u64::from(options.allowance_seconds)) * 1_000_000;
@@ -930,6 +1125,7 @@ pub fn run_with_clock<R: Read + Send + 'static>(
     let mut stop: Option<StopRequest> = None;
     let mut forced_kill = false;
     let mut finished_line: Option<Value> = None;
+    let mut progress = RelayPollProgress::default();
     let relay_stdout = |out: &mut dyn Write,
                         item: Framed,
                         errors: &mut RelayErrors,
@@ -949,6 +1145,22 @@ pub fn run_with_clock<R: Read + Send + 'static>(
         Ok(())
     };
     let (status, exited_us) = loop {
+        if let Some(control) = &mut control {
+            let targets = (control.before)()?;
+            let until = Instant::now() + READER_PROGRESS_GUARD;
+            stdout.wait_until(
+                targets.stdout_frames,
+                progress.stdout_frames,
+                until,
+                "runtime stdout",
+            )?;
+            input.wait_until(
+                targets.runner_inputs,
+                progress.runner_inputs,
+                until,
+                "runner transport",
+            )?;
+        }
         for _ in 0..64 {
             match socket.recv(&mut buffer) {
                 Ok(count) => emit(out, &cue_line(now().as_micros(), &buffer[..count])?)?,
@@ -956,32 +1168,47 @@ pub fn run_with_clock<R: Read + Send + 'static>(
                 Err(error) => return Err(error.into()),
             }
         }
-        while let Ok(item) = stdout.try_recv() {
-            relay_stdout(out, item, &mut errors, &mut finished_line)?;
+        while let Ok(frame) = stdout.receiver.try_recv() {
+            relay_stdout(out, frame.item, &mut errors, &mut finished_line)?;
+            if frame.complete {
+                progress.stdout_frames += 1;
+            }
         }
         let mut runner_closed = false;
         loop {
-            match input.try_recv() {
-                Ok(Ok(line)) => match serde_json::from_str(&line) {
-                    Ok(RunnerLine::Ping { seq }) => emit(
-                        out,
-                        &SessionLine::Pong {
-                            seq,
-                            lamp_us: now().as_micros(),
+            match input.receiver.try_recv() {
+                Ok(frame) => {
+                    if frame.complete {
+                        progress.runner_inputs += 1;
+                    }
+                    match frame.item {
+                        Ok(line) => match serde_json::from_str(&line) {
+                            Ok(RunnerLine::Ping { seq }) => emit(
+                                out,
+                                &SessionLine::Pong {
+                                    seq,
+                                    lamp_us: now().as_micros(),
+                                },
+                            )?,
+                            Ok(RunnerLine::Stop { reason }) if serve => {
+                                // A repeated stop changes nothing: one signal, one grace.
+                                if stop.is_none() {
+                                    stop = Some(request_stop(
+                                        child,
+                                        "runner_stop",
+                                        Some(reason),
+                                        &now,
+                                    ));
+                                }
+                            }
+                            Ok(RunnerLine::Stop { .. }) => {
+                                errors.push("stop is only defined for serve sessions".into())
+                            }
+                            Err(error) => errors.push(format!("invalid runner line: {error}")),
                         },
-                    )?,
-                    Ok(RunnerLine::Stop { reason }) if serve => {
-                        // A repeated stop changes nothing: one signal, one grace.
-                        if stop.is_none() {
-                            stop = Some(request_stop(child, "runner_stop", Some(reason), &now));
-                        }
+                        Err(error) => errors.push(error),
                     }
-                    Ok(RunnerLine::Stop { .. }) => {
-                        errors.push("stop is only defined for serve sessions".into())
-                    }
-                    Err(error) => errors.push(format!("invalid runner line: {error}")),
-                },
-                Ok(Err(error)) => errors.push(error),
+                }
                 Err(TryRecvError::Empty) => break,
                 Err(TryRecvError::Disconnected) => {
                     runner_closed = true;
@@ -990,7 +1217,9 @@ pub fn run_with_clock<R: Read + Send + 'static>(
             }
         }
         if let Some(status) = child.try_wait()? {
-            break (Some(status), Some(now().as_micros()));
+            let exited_us = now().as_micros();
+            complete_poll(&mut control, &mut progress, true)?;
+            break (Some(status), Some(exited_us));
         }
         if runner_closed && stop.is_none() {
             errors.push(
@@ -1000,6 +1229,7 @@ pub fn run_with_clock<R: Read + Send + 'static>(
             if !serve {
                 kill(child);
                 killed = true;
+                complete_poll(&mut control, &mut progress, true)?;
                 break (None, None);
             }
             stop = Some(request_stop(child, "transport_closed", None, &now));
@@ -1008,6 +1238,7 @@ pub fn run_with_clock<R: Read + Send + 'static>(
             if !serve {
                 kill(child);
                 killed = true;
+                complete_poll(&mut control, &mut progress, true)?;
                 break (None, None);
             }
             errors.push("the serve hard deadline passed; the relay stopped the runtime".into());
@@ -1024,9 +1255,10 @@ pub fn run_with_clock<R: Read + Send + 'static>(
                 "the runtime outlived the {} ms stop grace; its process group was killed",
                 SERVE_STOP_GRACE_US / 1000
             ));
+            complete_poll(&mut control, &mut progress, true)?;
             break (None, None);
         }
-        thread::sleep(Duration::from_millis(2));
+        complete_poll(&mut control, &mut progress, false)?;
     };
     // A normal runtime exit must not leave workers behind in its group. Any
     // stopped straggler is reported as evidence; the trace itself is unaffected.
@@ -1061,8 +1293,8 @@ pub fn run_with_clock<R: Read + Send + 'static>(
     // Late stdout/cues after exit are still relayed, within a short bound.
     let drain_until = monotonic_us() + 200_000;
     while monotonic_us() < drain_until {
-        match stdout.recv_timeout(Duration::from_millis(20)) {
-            Ok(item) => relay_stdout(out, item, &mut errors, &mut finished_line)?,
+        match stdout.receiver.recv_timeout(Duration::from_millis(20)) {
+            Ok(frame) => relay_stdout(out, frame.item, &mut errors, &mut finished_line)?,
             Err(mpsc::RecvTimeoutError::Timeout) => {}
             Err(mpsc::RecvTimeoutError::Disconnected) => break,
         }
@@ -1129,6 +1361,10 @@ pub fn run_with_clock<R: Read + Send + 'static>(
     drop(cleanup);
     Ok(if killed { 3 } else { 0 })
 }
+
+#[cfg(test)]
+#[path = "relay_progress_tests.rs"]
+mod relay_progress_tests;
 
 #[cfg(test)]
 mod clock_tests {

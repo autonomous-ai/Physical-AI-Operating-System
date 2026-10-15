@@ -41,7 +41,11 @@ use std::{
     os::unix::net::UnixDatagram,
     path::{Path, PathBuf},
     process::{Child, ChildStdin, Command, Stdio},
-    sync::mpsc::{self, Receiver, RecvTimeoutError, SyncSender, TryRecvError},
+    sync::{
+        Arc,
+        atomic::{AtomicU64, Ordering},
+        mpsc::{self, Receiver, RecvTimeoutError, SyncSender, TryRecvError},
+    },
     thread::{self, JoinHandle},
     time::{Duration, Instant},
 };
@@ -528,6 +532,12 @@ const MAX_DISPATCH_DRAIN_LINES: usize = 1024;
 /// Keep refining the clock map during the session, within a bound.
 const PING_INTERVAL_US: u64 = 250_000;
 const MAX_PINGS: u64 = 400;
+/// A controlled finite fake may flush its whole trace before acknowledging a
+/// poll. Reserve its trace, one cue per trace record, one duplicated fault cue,
+/// every pong, runtime readiness, SessionStart and SessionEnd. The reader also
+/// reserves one separate terminal-error slot; the session byte cap still holds.
+pub(crate) const FIXTURE_RELAY_QUEUE_CAPACITY: usize =
+    2 * crate::physical::protocol::MAX_TRACE_LINES + MAX_PINGS as usize + 4;
 
 /// Scheduling identity only; this never changes Lamp conversation authority.
 #[derive(Default)]
@@ -747,11 +757,35 @@ const TRANSPORT_EXIT_BOUND_US: u64 = 5_000_000;
 /// before the runner stops it.
 const SELF_END_BOUND_US: u64 = 10_000_000;
 
+/// Coordinates a finite local fixture before a logical wait. The driver owns
+/// time advancement and must acknowledge real participant/reader progress.
+/// `sent_frames` counts flushed runner control frames; `enqueued_frames`
+/// counts complete relay frames already queued for this backend to consume.
+/// Closing/dropping a driver must release its owned control peers so normal
+/// backend cleanup can stop and reap a participant blocked on a fixture step.
+pub trait FixtureDriver {
+    fn wait(
+        &mut self,
+        until: MonoTime,
+        sent_frames: u64,
+        enqueued_frames: &AtomicU64,
+        queue_drained: bool,
+    ) -> Result<()>;
+}
+
+struct FixtureProgress<'a> {
+    driver: Box<dyn FixtureDriver + 'a>,
+    enqueued: Arc<AtomicU64>,
+    sent: u64,
+    started: bool,
+}
+
 pub struct PhysicalBackend<'a> {
     config: PhysicalConfig,
     assets: &'a AssetIndex,
     player: Box<dyn Player + 'a>,
     now: Box<dyn Fn() -> MonoTime + 'a>,
+    fixture: Option<FixtureProgress<'a>>,
     session: Option<Session>,
     room: Option<(Child, PathBuf, u64)>,
     playbacks: Vec<Playback>,
@@ -1026,6 +1060,7 @@ impl<'a> PhysicalBackend<'a> {
             assets,
             player,
             now: Box::new(now),
+            fixture: None,
             session: None,
             room: None,
             playbacks: Vec::new(),
@@ -1040,6 +1075,39 @@ impl<'a> PhysicalBackend<'a> {
             evidence_lost: false,
             room_cover: RoomCover::default(),
         }
+    }
+
+    /// Install a driver for one explicitly controlled finite local attempt.
+    /// Serve/prepared players and room recorders need additional participants
+    /// and cannot use this first finite-fixture scheduler.
+    pub fn with_fixture_driver(mut self, driver: impl FixtureDriver + 'a) -> Result<Self> {
+        if self.serve() || self.config.room_recorder.is_some() || self.session.is_some() {
+            return Err(invalid(
+                "fixture stepping requires a fresh finite backend without a recorder",
+            ));
+        }
+        if self.fixture.is_some() {
+            return Err(invalid("fixture driver already installed"));
+        }
+        self.fixture = Some(FixtureProgress {
+            driver: Box::new(driver),
+            enqueued: Arc::new(AtomicU64::new(0)),
+            sent: 0,
+            started: false,
+        });
+        Ok(self)
+    }
+
+    fn pump_fixture(&mut self, until_us: u64, queue_drained: bool) -> Result<()> {
+        if let Some(fixture) = &mut self.fixture {
+            fixture.driver.wait(
+                MonoTime::from_micros(until_us),
+                fixture.sent,
+                &fixture.enqueued,
+                queue_drained,
+            )?;
+        }
+        Ok(())
     }
 
     fn serve(&self) -> bool {
@@ -1453,6 +1521,12 @@ impl<'a> PhysicalBackend<'a> {
         serde_json::to_writer(&mut *stdin, &RunnerLine::Ping { seq })?;
         stdin.write_all(b"\n")?;
         stdin.flush()?;
+        if let Some(fixture) = &mut self.fixture {
+            fixture.sent = fixture
+                .sent
+                .checked_add(1)
+                .ok_or_else(|| invalid("fixture control frame count overflow"))?;
+        }
         session.pings.push((seq, sent));
         session.next_ping_us = sent + PING_INTERVAL_US;
         Ok(())
@@ -1652,7 +1726,12 @@ impl<'a> PhysicalBackend<'a> {
 
     fn wait_line(&mut self, until_us: u64) -> Option<std::result::Result<SessionLine, String>> {
         let session = self.session.as_mut()?;
-        Self::receive_line(session, until_us, || (self.now)().as_micros())
+        Self::receive_line(
+            session,
+            until_us,
+            || (self.now)().as_micros(),
+            self.fixture.is_some(),
+        )
     }
 
     /// After session_end only real transport work remains. Its drain must
@@ -1661,16 +1740,19 @@ impl<'a> PhysicalBackend<'a> {
         &mut self,
         until_us: u64,
     ) -> Option<std::result::Result<SessionLine, String>> {
-        Self::receive_line(self.session.as_mut()?, until_us, monotonic_us)
+        Self::receive_line(self.session.as_mut()?, until_us, monotonic_us, false)
     }
 
     fn receive_line(
         session: &mut Session,
         until_us: u64,
         now_us: impl FnOnce() -> u64,
+        nonblocking: bool,
     ) -> Option<std::result::Result<SessionLine, String>> {
         let now = now_us();
-        let received = if now >= until_us {
+        // A fixture driver has already acknowledged every announced frame.
+        // Its next wait is another scheduler step, never a host-time delay.
+        let received = if nonblocking || now >= until_us {
             session.lines.try_recv().map_err(|error| match error {
                 TryRecvError::Empty => RecvTimeoutError::Timeout,
                 TryRecvError::Disconnected => RecvTimeoutError::Disconnected,
@@ -1710,6 +1792,9 @@ impl<'a> PhysicalBackend<'a> {
 /// killed if it has not exited shortly afterwards.
 impl Drop for PhysicalBackend<'_> {
     fn drop(&mut self) {
+        // Closing the private control peers unblocks fixture hooks before the
+        // original transport/group cleanup waits for real process exit.
+        drop(self.fixture.take());
         self.release_armed();
         for playback in &self.playbacks {
             let _ = fs::write(&playback.cancel_file, b"cancel\n");
@@ -1732,8 +1817,40 @@ impl Drop for PhysicalBackend<'_> {
 fn relay_reader<R: std::io::Read + Send + 'static>(
     stdout: R,
 ) -> Receiver<std::result::Result<SessionLine, String>> {
-    let (sender, lines) = mpsc::sync_channel(4096);
+    relay_reader_with_progress(stdout, None)
+}
+
+fn relay_reader_with_progress<R: std::io::Read + Send + 'static>(
+    stdout: R,
+    enqueued: Option<Arc<AtomicU64>>,
+) -> Receiver<std::result::Result<SessionLine, String>> {
+    relay_reader_with_progress_capacity(stdout, enqueued, FIXTURE_RELAY_QUEUE_CAPACITY)
+}
+
+fn relay_reader_with_progress_capacity<R: std::io::Read + Send + 'static>(
+    stdout: R,
+    enqueued: Option<Arc<AtomicU64>>,
+    fixture_capacity: usize,
+) -> Receiver<std::result::Result<SessionLine, String>> {
+    let controlled = enqueued.is_some();
+    // Controlled output is bounded over the whole transcript, not just its
+    // current backlog. One extra slot always remains for a terminal error,
+    // even when the driver is waiting for an Ack and consumes no output yet.
+    let capacity = if controlled {
+        fixture_capacity + 1
+    } else {
+        4096
+    };
+    let (sender, lines) = mpsc::sync_channel(capacity);
     thread::spawn(move || {
+        let terminal = |error| {
+            if controlled {
+                let _ = sender.try_send(Err(error));
+            } else {
+                let _ = sender.send(Err(error));
+            }
+        };
+        let mut forwarded = 0;
         // Raw bytes are counted before framing, so even one endless line
         // without a newline ends the session at the bound.
         let mut framer = LineFramer::with_total_limit(stdout, MAX_LINE_BYTES, MAX_SESSION_BYTES);
@@ -1742,16 +1859,33 @@ fn relay_reader<R: std::io::Read + Send + 'static>(
                 Ok(Some(frame)) => frame,
                 Ok(None) => break,
                 Err(error) if error.to_string() == STREAM_LIMIT => {
-                    let _ = sender.send(Err(format!(
+                    terminal(format!(
                         "relay exceeded {MAX_SESSION_BYTES} bytes in one session; reading stopped"
-                    )));
+                    ));
                     break;
                 }
                 Err(error) => {
-                    let _ = sender.send(Err(format!("relay transport read failed: {error}")));
+                    terminal(format!("relay transport read failed: {error}"));
                     break;
                 }
             };
+            if controlled && forwarded == fixture_capacity {
+                terminal(format!(
+                    "fixture relay exceeded {fixture_capacity} framed records in one session; reading stopped"
+                ));
+                // Dropping the framer closes stdout, so a relay blocked while
+                // writing cannot remain stuck waiting for the driver to drain.
+                break;
+            }
+            let complete = matches!(
+                &frame,
+                Frame::Line(_)
+                    | Frame::InvalidUtf8 { .. }
+                    | Frame::Oversized {
+                        terminated: true,
+                        ..
+                    }
+            );
             let parsed = match frame {
                 Frame::Line(line) => serde_json::from_str::<SessionLine>(&line)
                     .map_err(|e| format!("{e}: {line:.200}")),
@@ -1759,8 +1893,19 @@ fn relay_reader<R: std::io::Read + Send + 'static>(
                     .failure("relay transport", MAX_LINE_BYTES)
                     .unwrap_or_default()),
             };
-            if sender.send(parsed).is_err() {
+            if controlled {
+                // This is the sole producer and fewer than fixture_capacity
+                // records have been sent. Full is impossible with the extra
+                // error slot; a disconnected consumer ends the reader too.
+                if sender.try_send(parsed).is_err() {
+                    break;
+                }
+            } else if sender.send(parsed).is_err() {
                 break;
+            }
+            forwarded += 1;
+            if complete && let Some(enqueued) = &enqueued {
+                enqueued.fetch_add(1, Ordering::Release);
             }
         }
     });
@@ -1857,6 +2002,11 @@ impl Backend for PhysicalBackend<'_> {
             .map(|scene| format!("no verified cached asset for scene {scene}; cached speech is not regenerated by the runner"))
     }
     fn begin(&mut self, context: &AttemptContext) -> Result<Begin> {
+        if let Some(fixture) = &mut self.fixture
+            && std::mem::replace(&mut fixture.started, true)
+        {
+            return Err(invalid("a fixture driver owns exactly one attempt"));
+        }
         let directory = context.run_directory.join(&context.attempt_id);
         crate::ledger::create_run_directory(&directory)?;
         self.attempt_directory = Some(directory.clone());
@@ -1956,7 +2106,10 @@ impl Backend for PhysicalBackend<'_> {
             .stdout
             .take()
             .ok_or_else(|| invalid("session stdout unavailable"))?;
-        let lines = relay_reader(stdout);
+        let lines = match &self.fixture {
+            Some(fixture) => relay_reader_with_progress(stdout, Some(fixture.enqueued.clone())),
+            None => relay_reader(stdout),
+        };
         self.session = Some(Session {
             stdin: child.stdin.take(),
             next_ping_us: 0,
@@ -2020,7 +2173,12 @@ impl Backend for PhysicalBackend<'_> {
             if let Some(due) = self.held_due() {
                 wait_until = wait_until.min(due);
             }
-            let Some(line) = self.wait_line(wait_until) else {
+            let mut line = self.wait_line(wait_until);
+            if line.is_none() && self.fixture.is_some() {
+                self.pump_fixture(wait_until, true)?;
+                line = self.wait_line(wait_until);
+            }
+            let Some(line) = line else {
                 if (self.now)().as_micros() >= until_us {
                     return Ok(None);
                 }
@@ -2138,7 +2296,14 @@ impl Backend for PhysicalBackend<'_> {
             .ok_or_else(|| invalid("no attempt directory"))?;
         while (self.now)().as_micros() < at_us {
             let remaining = at_us.saturating_sub((self.now)().as_micros());
-            thread::sleep(Duration::from_micros(remaining.min(1_000)));
+            if self.fixture.is_some() {
+                let until = (self.now)()
+                    .as_micros()
+                    .saturating_add(remaining.min(1_000));
+                self.pump_fixture(until, false)?;
+            } else {
+                thread::sleep(Duration::from_micros(remaining.min(1_000)));
+            }
         }
         // Final dispatch check: take the lines already relayed, within a
         // budget (keeping the events for the runner), and refuse to start
@@ -3818,3 +3983,7 @@ mod audit_grant_tests {
 #[cfg(test)]
 #[path = "backend_clock_tests.rs"]
 mod backend_clock_tests;
+
+#[cfg(test)]
+#[path = "backend_progress_tests.rs"]
+mod backend_progress_tests;

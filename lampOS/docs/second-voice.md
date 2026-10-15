@@ -301,14 +301,20 @@ and its authority kept fresh during the rest of startup.
   time the turn is rebound to Gemini's session and its whole line goes
   there; if not, or once Gemini's link has ended, the second route is given
   the whole line, as a switch. One hold only: a request after that goes as
-  at rest. After Gemini's first Ready nothing is held and an outage
-  switches at once, as above.
+  at rest. A held turn cancelled and replaced before the next tick's
+  upkeep gives up its hold there and then, so its replacement is held
+  afresh rather than sent to the second route. After Gemini's first Ready
+  nothing is held and an outage switches at once, as above: the first
+  Ready is latched as it is observed (`CloudAvailability::was_ready`), so a
+  Ready and its loss in one control drain still count, and a hold then in
+  hand goes to the second route at once.
 - **Mid-turn**, while Gemini is active, nothing of its answer was heard and
   the line was kept whole: a `TurnFailed` of that turn, or a link change
   during the line (the request is marked `movable`, so the gate leaves it
   for the switch). The turn is rebound to the second route's session and
-  its line queued again: Start, every sent block from 1, the unsent ones,
-  End if it was sent. A reminder turn is not moved.
+  its line queued again: Start, every sent block from 1, the unsent ones
+  (a held line's replay tail not yet sent to Gemini included), then what
+  is queued, End among them. A reminder turn is not moved.
 - **The line** (`second::Line`) is what the one send site sent Gemini for
   the turn in hand: in memory only, never on disk or the bus, at most 30 s
   of 16 kHz mono (beyond that it is dropped and the turn is not moved),

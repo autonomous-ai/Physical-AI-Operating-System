@@ -126,11 +126,20 @@ pub(crate) fn heard(text: &str) -> Option<Heard> {
     })
 }
 
-/// True for a `SpeechStarted` message: someone is talking again.
-pub(crate) fn speech_started(text: &str) -> bool {
-    serde_json::from_str::<serde_json::Value>(text)
-        .ok()
-        .is_some_and(|message| message["type"] == "SpeechStarted")
+/// For a `SpeechStarted` message (someone is talking again), where in the
+/// audio the speech began, in seconds.
+pub(crate) fn speech_started(text: &str) -> Option<f64> {
+    let message = serde_json::from_str::<serde_json::Value>(text).ok()?;
+    (message["type"] == "SpeechStarted").then(|| message["timestamp"].as_f64().unwrap_or(0.0))
+}
+
+/// What was heard since the last final, and where in the audio, in seconds.
+#[derive(Clone, Copy)]
+enum Pending {
+    /// An interim result with words, ending there.
+    Interim(f64),
+    /// A `SpeechStarted`, starting there.
+    SpeechStarted(f64),
 }
 
 /// The final segments in the order heard, joined by spaces. Interim
@@ -144,24 +153,26 @@ pub(crate) struct Transcript {
     /// The last final segment closed an utterance (`speech_final`).
     ended: bool,
     /// Words (an interim result or `SpeechStarted`) since the last final.
-    pending: bool,
+    pending: Option<Pending>,
 }
 
 impl Transcript {
     pub fn add(&mut self, heard: Heard) {
         if !heard.is_final {
-            self.pending |= !heard.transcript.is_empty();
+            if !heard.transcript.is_empty() {
+                self.pending = Some(Pending::Interim(heard.end));
+            }
             return;
         }
         self.covered = Some(heard.end);
         self.ended = heard.speech_final;
-        self.pending = false;
+        self.pending = None;
         if !heard.transcript.is_empty() {
             self.segments.push(heard.transcript);
         }
     }
-    pub fn speech_started(&mut self) {
-        self.pending = true;
+    pub fn speech_started(&mut self, at: f64) {
+        self.pending = Some(Pending::SpeechStarted(at));
     }
     /// Nothing more is coming for the `sent` seconds of audio: the service
     /// has closed the utterance, or final segments cover all of it, and
@@ -171,11 +182,36 @@ impl Transcript {
     // and `SpeechStarted` are still on their way are lost here; the
     // coordinator ends a line on silence, so there should be none.
     pub fn settled(&self, sent: f64) -> bool {
-        !self.pending
+        self.pending.is_none()
             && (self.ended
                 || self
                     .covered
                     .is_some_and(|covered| covered + COVERED >= sent))
+    }
+    /// What [`Self::settled`] decided on for `sent` seconds, in ms and
+    /// without words: the journal's account of the end of the line (#779).
+    fn at_end(&self, sent: f64) -> String {
+        let ms = |seconds: f64| (seconds * 1000.0).round() as i64;
+        let covered = self
+            .covered
+            .map_or("none".to_owned(), |covered| ms(covered).to_string());
+        let pending = match self.pending {
+            None => "none".to_owned(),
+            Some(Pending::Interim(at)) => format!(
+                "interim {} ms after the last final",
+                ms(at - self.covered.unwrap_or(0.0))
+            ),
+            Some(Pending::SpeechStarted(at)) => format!(
+                "speech_started {} ms after the last final",
+                ms(at - self.covered.unwrap_or(0.0))
+            ),
+        };
+        format!(
+            "settled={}, speech_final={}, finals cover {covered} of {} ms sent, pending={pending}",
+            self.settled(sent),
+            self.ended,
+            ms(sent)
+        )
     }
     pub fn text(&self) -> String {
         self.segments.join(" ")
@@ -187,7 +223,8 @@ impl Transcript {
 pub struct SttStream {
     /// `None` once finishing: the task then sends `CloseStream`.
     audio: Option<mpsc::Sender<Vec<u8>>>,
-    task: JoinHandle<Result<String>>,
+    /// The words, and the account of the end of the line once it came.
+    task: JoinHandle<Result<(String, Option<String>)>>,
 }
 
 impl SttStream {
@@ -255,11 +292,17 @@ impl SttStream {
 
     /// Ask for the last words and wait, bounded, for the service to close.
     /// The final segments, joined; empty when nothing was heard.
-    /// Dropping the stream instead abandons it at once.
-    pub async fn finish(mut self) -> Result<String> {
+    /// Dropping the stream instead abandons it at once. Journals, for
+    /// `request`, what the words' state was when the line ended.
+    pub async fn finish(mut self, request: u64) -> Result<String> {
         self.audio = None;
         match tokio::time::timeout(FINISH, &mut self.task).await {
-            Ok(Ok(result)) => result,
+            Ok(Ok(result)) => result.map(|(words, at_end)| {
+                if let Some(at_end) = at_end {
+                    eprintln!("lamp-voice second: request {request} at the line's end: {at_end}");
+                }
+                words
+            }),
             Ok(Err(_)) => Err(Error::Transport("speech-to-text stream")),
             Err(_) => Err(Error::Timeout("speech-to-text final transcript")),
         }
@@ -275,7 +318,7 @@ impl Drop for SttStream {
 async fn run<S>(
     socket: tokio_tungstenite::WebSocketStream<S>,
     mut queued: mpsc::Receiver<Vec<u8>>,
-) -> Result<String>
+) -> Result<(String, Option<String>)>
 where
     S: tokio::io::AsyncRead + tokio::io::AsyncWrite + Unpin,
 {
@@ -284,6 +327,8 @@ where
     let mut last_sent = Instant::now();
     let mut samples_sent = 0usize;
     let mut closing = false;
+    let mut last_final: Option<Instant> = None;
+    let mut at_end = None;
     loop {
         tokio::select! {
             frame = queued.recv(), if !closing => {
@@ -301,8 +346,15 @@ where
                 last_sent = Instant::now();
                 // At the end of the line, words already settled are the
                 // answer: CloseStream's round trip is not waited for.
-                if closing && transcript.settled(samples_sent as f64 / 16_000.0) {
-                    return Ok(transcript.text());
+                if closing {
+                    let sent = samples_sent as f64 / 16_000.0;
+                    let before = last_final.map_or("none".to_owned(), |at| {
+                        format!("{} ms before End", at.elapsed().as_millis())
+                    });
+                    at_end = Some(format!("{}, last final {before}", transcript.at_end(sent)));
+                    if transcript.settled(sent) {
+                        return Ok((transcript.text(), at_end));
+                    }
                 }
             }
             _ = tokio::time::sleep_until(last_sent + KEEP_ALIVE), if !closing => {
@@ -315,14 +367,17 @@ where
             message = read.next() => match message {
                 Some(Ok(Message::Text(text))) => {
                     if let Some(words) = heard(&text) {
+                        if words.is_final && !closing {
+                            last_final = Some(Instant::now());
+                        }
                         transcript.add(words);
-                    } else if speech_started(&text) {
-                        transcript.speech_started();
+                    } else if let Some(at) = speech_started(&text) {
+                        transcript.speech_started(at);
                     }
                 }
                 Some(Ok(Message::Close(_))) | None => {
                     return if closing {
-                        Ok(transcript.text())
+                        Ok((transcript.text(), at_end))
                     } else {
                         Err(Error::Transport("speech-to-text stream"))
                     };
@@ -417,9 +472,36 @@ mod tests {
         assert!(transcript.settled(2.5), "the utterance ended");
         transcript.add(result("", false, false, 2.5));
         assert!(transcript.settled(2.5), "an empty interim is silence");
-        transcript.speech_started();
+        transcript.speech_started(2.6);
         assert!(!transcript.settled(2.5), "someone talks again");
         assert_eq!(transcript.text(), "what time is it");
+    }
+
+    #[test]
+    fn the_end_of_the_line_is_told_in_ms_without_words() {
+        let mut transcript = Transcript::default();
+        assert_eq!(
+            transcript.at_end(1.5),
+            "settled=false, speech_final=false, finals cover none of 1500 ms sent, pending=none"
+        );
+        transcript.add(Heard {
+            transcript: "secret words".to_owned(),
+            is_final: true,
+            speech_final: true,
+            end: 1.23,
+        });
+        assert_eq!(
+            speech_started(r#"{"type":"SpeechStarted","timestamp":1.35}"#),
+            Some(1.35)
+        );
+        transcript.speech_started(1.35);
+        let told = transcript.at_end(1.5);
+        assert_eq!(
+            told,
+            "settled=false, speech_final=true, finals cover 1230 of 1500 ms sent, \
+             pending=speech_started 120 ms after the last final"
+        );
+        assert!(!told.contains("secret"));
     }
 
     /// Speech to text in memory, on the paused clock: the server reads
@@ -455,7 +537,7 @@ mod tests {
         }
         tokio::time::sleep(Duration::from_millis(300)).await;
         let began = Instant::now();
-        let words = stream.finish().await.unwrap();
+        let words = stream.finish(1).await.unwrap();
         let took = began.elapsed();
         server.abort();
         (words, took)
@@ -512,7 +594,7 @@ mod tests {
         let stream = SttStream::open(url, "secret").await.unwrap();
         stream.send(&[1, -1, 3]).unwrap();
         stream.send(&[7]).unwrap();
-        assert_eq!(stream.finish().await.unwrap(), "hello lamp");
+        assert_eq!(stream.finish(1).await.unwrap(), "hello lamp");
         assert_eq!(server.await.unwrap(), 8);
     }
 }

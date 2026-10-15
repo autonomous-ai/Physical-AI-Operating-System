@@ -163,7 +163,15 @@ order is kept. A written turn is the same from the chat on.
   Otherwise the words wait for `CloseStream`'s answer, up to 15 s. Host
   tests on the paused clock (`net/stt.rs`): 0 ms to the words with a
   `speech_final` before the end, against the scripted 800 ms round trip
-  without one. Not yet measured on a lamp.
+  without one. Not yet measured on a lamp. Why a turn waited is
+  journaled once, without words, when the end of the line reaches speech
+  to text: "lamp-voice second: request N at the line's end:
+  settled=<bool>, speech_final=<bool>, finals cover <ms|none> of <ms> ms
+  sent, pending=<none|interim D ms after the last final|speech_started D
+  ms after the last final>, last final <T ms before End|none>". D is audio
+  time from the last final's end to the pending interim's end or
+  `SpeechStarted`'s timestamp (negative: inside audio a final already
+  covers); T is wall time since that final arrived.
 
 - **The first words go early.** Until some of the answer is on its way, a
   clause of at least four words ending in a comma, semicolon or colon is
@@ -195,7 +203,9 @@ order is kept. A written turn is the same from the chat on.
   (`Sessions::open`), and that person's kept things are asked for. With
   Days memory, the note is asked once per run of turns for one person.
 - **Each turn is logged** as "lamp-voice second: request N ...": the words
-  heard and how long after the line, each chat round's first event, the
+  heard and how long after the line, the state of the words at the line's
+  end (above), each chat round's first event (the first text or tool
+  calls: a role-only chunk carries neither and is not an event), the
   tools called, the first answer audio, and any failure.
 
 - Up to four chat requests in a turn, tool rounds included (`MAX_ROUNDS`).

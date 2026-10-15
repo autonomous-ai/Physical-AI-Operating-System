@@ -1,0 +1,18 @@
+    Checking serde v1.0.229
+    Checking rustix v1.1.5
+    Checking lamp-bus v0.1.0 (/private/tmp/lampos-tests-bus-clock/lampOS/crates/bus)
+    Checking lamp-msgs v0.1.0 (/private/tmp/lampos-tests-bus-clock/lampOS/crates/msgs)
+    Checking lamp-ipc v0.1.0 (/private/tmp/lampos-tests-bus-clock/lampOS/crates/ipc)
+    Checking lamp-turn-owner v0.1.0 (/private/tmp/lampos-tests-bus-clock/lampOS/crates/turn-owner)
+   Compiling lamp-camera v0.1.0 (/private/tmp/lampos-tests-bus-clock/lampOS/crates/camera)
+    Checking lamp-keeper v0.1.0 (/private/tmp/lampos-tests-bus-clock/lampOS/crates/keeper)
+    Checking lamp-gemini v0.1.0 (/private/tmp/lampos-tests-bus-clock/lampOS/crates/gemini)
+    Checking lamp-body v0.1.0 (/private/tmp/lampos-tests-bus-clock/lampOS/crates/body)
+    Checking lamp-audio v0.1.0 (/private/tmp/lampos-tests-bus-clock/lampOS/crates/audio)
+    Checking lamp-memory v0.1.0 (/private/tmp/lampos-tests-bus-clock/lampOS/crates/memory)
+    Checking lamp-controls v0.1.0 (/private/tmp/lampos-tests-bus-clock/lampOS/crates/controls)
+    Checking lamp-schedule v0.1.0 (/private/tmp/lampos-tests-bus-clock/lampOS/crates/schedule)
+    Checking lamp-ring v0.1.0 (/private/tmp/lampos-tests-bus-clock/lampOS/crates/ring)
+    Checking lamp-turn-end-wire v0.1.0 (/private/tmp/lampos-tests-bus-clock/lampOS/crates/turn-end-wire)
+    Checking lamp-voice v0.1.0 (/private/tmp/lampos-tests-bus-clock/lampOS/crates/voice)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 21.48s

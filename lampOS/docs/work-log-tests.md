@@ -1,5 +1,17 @@
 # Tests work log
 
+## 2026-10-16 01:16 +0700 — all 123 identities present in finite migration's full ARM64 run
+
+Ready for lamp-voice: yes (#889); no (#877 new head pending, Bus blocked)
+
+- #889 head `8a7521661` has green normal and full native runs. Full `38780759392` has 4,951 unique outcomes: 4,949 PASS and two known endpoint LEAKs, whose separate cleanup is #872. Every original identity is present exactly once. All 12 migrated finite-loopback cases pass, totalling 6.797 s. [Raw logs and exact membership audit](verification/finite-loopback-arm64-full-20261016/README.md).
+- The original 123 sum to 619.655 s across four concurrent shards. This is not standalone serial elapsed time, and the under-two-minute target remains open. The normal PR profile excludes the migrated binary; it alone would not qualify this migration.
+- #877 rebased head `be1368bdd` preserves its two owned Rust files and all 23 integration files. Fresh 100-library/fmt/clippy/build gate passed; native run `38783870443` is pending. The original complete 298-test root and reviewer gates remain retained.
+- The Bus cadence-clock preparation passed fmt, strict Bus/Memory clippy, all nine new boundary tests and the seven existing Memory health tests. The complete serial gate stopped at 249 PASS, one unchanged Memory usage-stderr failure and six existing ignores; workspace build was not reached. [Raw failure and source proof](verification/bus-clock-memory-stderr-20261016/README.md). This is additional #837/#862 evidence; no retry was made. Bus stays local pending the owner's relay fix. #881 now has a producer-completion follow-up, awaiting qualification.
+- Memory's explicit Reporter scheduler and eight new boundary tests are ready for source review and local gates; no existing scenario is migrated yet. The final slow-transport preparation is independent work.
+
+No assertion, test-membership, workflow/profile/runner/settings/device change. #783's merged sweep still awaits the eighth's qualification/close decision.
+
 ## 2026-10-16 01:05 +0700 — finite migration published; recorder migration passes full local gate
 
 Ready for lamp-voice: yes (#875, #888); no (#889 native qualification pending)

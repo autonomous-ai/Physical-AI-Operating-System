@@ -1,0 +1,26 @@
+{
+  "recorded_at": "2026-10-16 01:15:36 +0700",
+  "run": 38780759392,
+  "head": "8a7521661cb06997a18eed32ead13d8d9ee81fd9",
+  "rows": 4951,
+  "unique": 4951,
+  "statuses": {
+    "PASS": 4949,
+    "LEAK": 2
+  },
+  "duplicates": [],
+  "original_123_count": 123,
+  "original_123_missing_or_duplicated": [],
+  "original_123_sum_seconds": 619.655,
+  "original_123_baseline_max_sum_seconds": 976.935,
+  "finite_count": 12,
+  "finite_sum_seconds": 6.797,
+  "finite_statuses": {
+    "PASS": 12
+  },
+  "limitations": [
+    "Sum of test durations across four concurrent shards is not a new whole-group serial elapsed measurement.",
+    "Native full run is green but reports two pre-existing endpoint leaks; #872 is their separate cleanup change.",
+    "Only the finite fixture constructor is migrated in this PR; other original tests may have independently merged changes."
+  ]
+}

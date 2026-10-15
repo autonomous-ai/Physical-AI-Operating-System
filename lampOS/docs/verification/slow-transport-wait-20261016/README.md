@@ -4,7 +4,7 @@ Recorded 2026-10-16 01:58:12 +0700, from `date`, for #823. Kind: off unless an e
 
 `slow_transport_with_wait` parses the original arguments and calls one fallible `FnOnce(Duration)` with the full u64 millisecond duration, then executes the original command with the original arguments and inherited streams. The ordinary entrypoint supplies the original one `thread::sleep`; neither entrypoint adds a clock sample. A wait error returns unchanged before exec.
 
-Six new boundary tests cover malformed shape/numbers before waiting; zero, 400 ms, beyond-u32 and full-u64 durations; consuming typed errors; actual exec failure; and an owned real child replaced by exec while preserving its PID, literal argv, two queued input lines and exit 37. Tests own bounded cleanup/reaping and introduce no retries or sleeps. All 23 original integration Rust files remain byte-identical to the integration base. The new test file is unchanged across rebase. Reversing only the adapter and test-module addition restores the entire base `fake_lamp.rs`; removing only the documentation section restores the entire base document.
+Six new boundary tests cover malformed shape/numbers before waiting; zero, 400 ms, beyond-u32 and full-u64 durations; consuming typed errors; actual exec failure; and an owned real child replaced by exec while preserving its PID, literal argv, one queued input line and exit 37. Tests own bounded cleanup/reaping and introduce no retries or sleeps. All 23 original integration Rust files remain byte-identical to the integration base. The new test file is unchanged across rebase. Reversing only the adapter and test-module addition restores the entire base `fake_lamp.rs`; removing only the documentation section restores the entire base document.
 
 ## Validation
 

@@ -381,7 +381,8 @@ its unit has `LAMP_BUS=on` (`crates/voice/src/bus_out.rs`), each declared
 with its type from `lamp-msgs`. The state comes when it changes and once a
 second (on the lamp: one a second, gaps of 1,000.9 ms on average, 0.2 ms
 old on arrival); the two streams carry the provider's text in pieces, the
-lamp's with the number of the request it answered, and between things
+lamp's with the number of the request it answered, what was heard with the
+number of the turn whose input began last before it, and between things
 said the voice says once a second that it is alive on them. Before it did,
 their subscribers were told "no publisher is alive" before and after
 every sentence.

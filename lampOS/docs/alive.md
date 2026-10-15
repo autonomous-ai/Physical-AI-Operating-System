@@ -140,6 +140,7 @@ not more life.
 | `controls/gesture` | Controls | Waking, by an enabled tap or stroke. New to Expression |
 | `schedule/due` | Schedule | Waking, once for each notice that comes due. New to Expression |
 | `controls/touch`, `controls/touch_state` | `--touch` Controls, only with `serve --head-touch` | The head (#711, below) |
+| `voice/mute` | The voice, with `LAMP_HEAD_TOUCH=on` and `--controls-mute`; read only with `serve --head-touch` | Sleep from the head, the voice's mute with the reason `sleep` (#711, below) |
 | The local time of day | The live service itself, from the wall clock and `--utc-offset-minutes` (420 in Vietnam), at start and every minute | Night. Not a bus topic. `serve` refuses a catalogue with sleep without it. With `--kernel-clock` it is given only while the kernel says the clock is set (`lamp_ipc::clock_synced`, #830): a lamp has no battery clock, and one not set knows no night, so it neither falls asleep nor wakes by a wrong hour; one line says each change |
 
 `lamp-expression import --utc-offset-minutes N` adds the same time of day
@@ -163,8 +164,20 @@ Off unless `lamp-expression serve --head-touch`, and Controls runs with
 - Nothing else: a request not enabled, or not from the head, does nothing.
   Asleep, only a tap does anything.
 
-The eye's countdown between one and three seconds is the voice's ring's,
-and the microphones closing for sleep are the voice's (#711, to come).
+**Where the voice says its mute** (`voice/mute`, said every second and kept
+three), sleep from the head is the voice's, because it is the voice's
+software mute with the reason `sleep`: microphones off (First, #711).
+- While the voice says it was put to sleep, the lamp sleeps, by day too, and
+  nothing else wakes it: not a tap the voice did not take, its name, a
+  touch, a reminder or a face. After a restart of either part it is asleep
+  again from the voice's first word.
+- When the voice opens again (a tap on the head, or the button's hold), it
+  wakes.
+- A hold the voice did not take as sleep (the voice open, or muted for a
+  person's privacy) is not a sleep here either.
+- When the voice has said nothing for three seconds, the head acts as above.
+
+The eye's countdown between one and three seconds is the voice's ring's.
 
 ## Measured
 

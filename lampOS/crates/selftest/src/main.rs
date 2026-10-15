@@ -93,6 +93,7 @@ fn main() -> ExitCode {
     if arguments.occasion == Occasion::Factory {
         checks.push(Box::new(hand::ByHand {
             bus: &bus,
+            given: hand::GIVEN,
             ask: Box::new(|what| eprintln!("lamp-selftest: {what}")),
         }));
     }

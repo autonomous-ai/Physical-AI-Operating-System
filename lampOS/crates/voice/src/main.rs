@@ -57,6 +57,61 @@ fn run() -> Result<()> {
         },
         // A whole turn with a written note in place of speech, to see what the
         // service makes of one. Nothing is captured and nothing is played.
+        // Where a turn with a function call spends its time (#799): the
+        // fixed requests of `tool_turns::SCRIPT`, ROUNDS times, each on a
+        // connection of its own, told of the voice's own functions and the
+        // agent tasks' as on the lamp. Every call is answered at once by a
+        // stand-in: nothing reaches the tasks part or anything else, and
+        // nothing is captured or played. One line a request, then medians.
+        [command,path,flag,rounds] if command=="provider-check" && flag=="--tool-turns" => {
+            use lamp_voice::tool_turns::{SCRIPT,Timeline,stand_in,summary};
+            let rounds:usize=rounds.parse().ok().filter(|rounds|(1..=20).contains(rounds)).ok_or("ROUNDS is a number from 1 to 20")?;
+            let place=lamp_voice::agent_tasks::Place{directory:"/nonexistent".into(),target:lamp_voice::agent_tasks::DEFAULT_TARGET.into(),who:false};
+            let colour=lamp_gemini::Tool{name:"light_colour".into(),description:"Set the colour of your own light when you are asked to.".into(),parameters:Some(serde_json::json!({"type":"object","properties":{"colour":{"type":"string","enum":["white","warm","red","green","blue","purple"]}},"required":["colour"]})),silent:false};
+            let tools:Vec<lamp_gemini::Tool>=lamp_voice::tools::declared(&lamp_voice::tools::Settings{decline:true,exec:None,memory:None,clock:false,..Default::default()}).into_iter().chain([colour]).chain(lamp_voice::agent_tasks::tools(&place)).collect();
+            let mut results=Vec::new();
+            tokio::runtime::Builder::new_current_thread().enable_all().build()?.block_on(async {
+                use lamp_gemini::Event;
+                for round in 0..rounds {
+                    for scripted in SCRIPT {
+                        let config=ProviderConfig::load(Path::new(path))?.into_session()?.tools(tools.clone())?;
+                        let mut connection=lamp_gemini::connect(config,lamp_gemini::SessionId::new(1)?).await?;
+                        let input=connection.input();
+                        let mut timeline=Timeline::default();
+                        for (index,line) in scripted.lines.iter().enumerate() {
+                            // Only the last line is timed; those before it set the scene.
+                            let timed=index+1==scripted.lines.len();
+                            input.try_written(lamp_gemini::RequestId::new(index as u64+1)?,line,None)?;
+                            let asked=lamp_ipc::monotonic_us();
+                            let since=||lamp_ipc::monotonic_us().saturating_sub(asked);
+                            let deadline=tokio::time::Instant::now()+std::time::Duration::from_secs(14);
+                            loop {
+                                match tokio::time::timeout_at(deadline,connection.next_event()).await {
+                                    Ok(Some(Event::ToolCall{call,..})) => {
+                                        if timed { timeline.call(&call.name,since()); }
+                                        let answer=stand_in(&call.name,&call.args);
+                                        if input.try_tool_response(&call.id,&call.name,&answer).is_ok() && timed { timeline.answered(since()); }
+                                    }
+                                    Ok(Some(Event::Audio{pcm,..})) => if timed { timeline.audio(pcm.len(),since()); },
+                                    Ok(Some(Event::OutputTranscript{text,..})) => if timed { timeline.said(&text); },
+                                    Ok(Some(Event::TurnComplete{..})) => { if timed { timeline.ended("turn_complete",since()); } break; }
+                                    Ok(Some(Event::Unanswered{..})) => { if timed { timeline.ended("unanswered",since()); } break; }
+                                    Ok(Some(_)) => {}
+                                    Ok(None) => { timeline.ended("connection_ended",since()); break; }
+                                    Err(_) => { timeline.ended("timeout",since()); break; }
+                                }
+                            }
+                        }
+                        let row=timeline.result(scripted,round);
+                        println!("{row}");
+                        results.push(row);
+                        connection.shutdown();
+                    }
+                }
+                Ok::<(),Box<dyn std::error::Error+Send+Sync>>(())
+            })?;
+            println!("{}",summary(&results));
+        },
         // A written request to a session that was told of two functions:
         // the voice's own way of saying a thing was not for it, and one of
         // the kind the executive will offer. Does the service take the

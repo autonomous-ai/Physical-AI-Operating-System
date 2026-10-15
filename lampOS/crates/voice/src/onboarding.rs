@@ -206,6 +206,28 @@ pub struct Onboarding {
     felt: Option<(u64, bool)>,
     /// Where the head joints were last asked to be.
     goals: Option<[f64; 3]>,
+    /// Whether the body has said where its joints are, or whether a hand
+    /// is on it, since this voice started.
+    joints_heard: bool,
+    hand_heard: bool,
+}
+
+/// What the body last said on a topic.
+enum Heard<T> {
+    Never,
+    Stale,
+    Fresh(T),
+}
+
+impl Heard<lamp_bus::Message> {
+    /// A fresh word that does not parse is not evidence of anything.
+    fn parsed<T: serde::de::DeserializeOwned>(self) -> Heard<T> {
+        match self {
+            Heard::Never => Heard::Never,
+            Heard::Stale => Heard::Stale,
+            Heard::Fresh(message) => message.parse().map_or(Heard::Stale, Heard::Fresh),
+        }
+    }
 }
 
 /// The onboarding file, when the switch is on and the path is absolute.
@@ -252,6 +274,8 @@ impl Onboarding {
             looked: None,
             felt: None,
             goals: None,
+            joints_heard: false,
+            hand_heard: false,
         }
     }
 
@@ -291,24 +315,58 @@ impl Onboarding {
         {
             return still;
         }
-        let fresh = |message: &lamp_bus::Message| {
-            !message.expired && unix_ms().saturating_sub(message.header.at_unix_ms) <= FRESH_MS
-        };
-        let latest = |topic| {
-            self.eyes
+        let read = |topic| -> Heard<lamp_bus::Message> {
+            match self
+                .eyes
                 .as_ref()
                 .and_then(|bus| bus.latest(topic).ok().flatten())
-                .filter(|message| fresh(message))
+            {
+                None => Heard::Never,
+                Some(message)
+                    if message.expired
+                        || unix_ms().saturating_sub(message.header.at_unix_ms) > FRESH_MS =>
+                {
+                    Heard::Stale
+                }
+                Some(message) => Heard::Fresh(message),
+            }
         };
-        let joints = latest(lamp_msgs::JointState::TOPIC)
-            .and_then(|message| message.parse::<lamp_msgs::JointState>().ok());
-        let hand = latest(lamp_msgs::Hand::TOPIC)
-            .and_then(|message| message.parse::<lamp_msgs::Hand>().ok())
-            .is_some_and(|hand| hand.pushed);
-        let head = joints.is_none_or(|joints| head_still(&joints, &mut self.goals));
-        let still = head && !hand;
+        let joints = read(lamp_msgs::JointState::TOPIC).parsed::<lamp_msgs::JointState>();
+        let hand = read(lamp_msgs::Hand::TOPIC).parsed::<lamp_msgs::Hand>();
+        let still = self.judge(joints, hand);
         self.felt = Some((now_us, still));
         still
+    }
+
+    /// Still only on positive, fresh evidence: once the body has said
+    /// where its joints are, or whether a hand is on it, a stale or missing
+    /// word is not still, and a hand last felt is still there. Only a lamp
+    /// whose body has never said either goes without that gate.
+    fn judge(
+        &mut self,
+        joints: Heard<lamp_msgs::JointState>,
+        hand: Heard<lamp_msgs::Hand>,
+    ) -> bool {
+        let head = match joints {
+            Heard::Fresh(joints) => {
+                self.joints_heard = true;
+                head_still(&joints, &mut self.goals)
+            }
+            Heard::Never if !self.joints_heard => true,
+            _ => {
+                self.goals = None;
+                false
+            }
+        };
+        let released = match hand {
+            Heard::Fresh(hand) => {
+                self.hand_heard = true;
+                !hand.pushed
+            }
+            Heard::Never => !self.hand_heard,
+            Heard::Stale => false,
+        };
+        head && released
     }
 
     fn look(&self) -> Option<Framing> {
@@ -874,6 +932,113 @@ mod tests {
             args: json!({"step": "dance", "outcome": "done"}),
         };
         assert!(run(&room.walk.file, &wrong).0.get("error").is_some());
+    }
+
+    /// Ticks every quarter second for `for_us` with what the body says on
+    /// each, judged as the coordinator judges it.
+    fn felt(
+        room: &mut Room,
+        for_us: u64,
+        joints: impl Fn() -> Heard<lamp_msgs::JointState>,
+        hand: impl Fn() -> Heard<lamp_msgs::Hand>,
+    ) {
+        let until = room.at + for_us;
+        while room.at < until {
+            let still = room.walk.judge(joints(), hand());
+            if room
+                .walk
+                .tick(
+                    room.at,
+                    room.at - room.said,
+                    true,
+                    false,
+                    Some(NEAR_MIDDLE),
+                    still,
+                )
+                .is_some()
+            {
+                room.said = room.at;
+            }
+            room.at += S / 4;
+        }
+    }
+
+    fn body(velocity: f64) -> lamp_msgs::JointState {
+        lamp_msgs::JointState {
+            name: HEAD.map(String::from).to_vec(),
+            position: vec![0.1, 0.2, 0.3],
+            velocity: vec![velocity, 0.0, 0.0],
+            effort: vec![],
+            commanded: vec![0.1, 0.2, 0.3],
+        }
+    }
+
+    const RELEASED: lamp_msgs::Hand = lamp_msgs::Hand {
+        pushed: false,
+        since_us: 0,
+    };
+
+    #[test]
+    fn where_you_sit_holds_only_on_fresh_evidence_from_the_body() {
+        // The head last seen moving, then silence: never done.
+        let mut room = Room::new("moving-silent");
+        felt(
+            &mut room,
+            S,
+            || Heard::Fresh(body(1.0)),
+            || Heard::Fresh(RELEASED),
+        );
+        felt(
+            &mut room,
+            20 * S,
+            || Heard::Never,
+            || Heard::Fresh(RELEASED),
+        );
+        felt(
+            &mut room,
+            20 * S,
+            || Heard::Stale,
+            || Heard::Fresh(RELEASED),
+        );
+        assert_eq!(room.outcome(Step::WhereYouSit), None);
+        // A hand last felt on the lamp, then silence: never done.
+        let mut room = Room::new("pushed-silent");
+        let pushed = || {
+            Heard::Fresh(lamp_msgs::Hand {
+                pushed: true,
+                since_us: 5,
+            })
+        };
+        felt(&mut room, S, || Heard::Fresh(body(0.0)), pushed);
+        felt(
+            &mut room,
+            20 * S,
+            || Heard::Fresh(body(0.0)),
+            || Heard::Never,
+        );
+        felt(
+            &mut room,
+            20 * S,
+            || Heard::Fresh(body(0.0)),
+            || Heard::Stale,
+        );
+        assert_eq!(room.outcome(Step::WhereYouSit), None);
+        // Fresh, still and released throughout: done.
+        felt(
+            &mut room,
+            4 * S,
+            || Heard::Fresh(body(0.0)),
+            || Heard::Fresh(RELEASED),
+        );
+        assert_eq!(room.outcome(Step::WhereYouSit), Some(Outcome::Done));
+        // A body that has never said either: no gate.
+        let mut bare = Room::new("no-body");
+        felt(&mut bare, 8 * S, || Heard::Never, || Heard::Never);
+        assert_eq!(bare.outcome(Step::WhereYouSit), Some(Outcome::Done));
+        // A topic present on the bus but stale is a body that has spoken.
+        let mut stale = Room::new("stale-first");
+        felt(&mut stale, 20 * S, || Heard::Stale, || Heard::Never);
+        assert_eq!(stale.outcome(Step::WhereYouSit), None);
     }
 
     #[test]

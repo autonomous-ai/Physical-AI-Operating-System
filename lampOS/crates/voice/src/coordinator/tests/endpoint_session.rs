@@ -446,6 +446,7 @@ fn run_policy(
         turn_taking,
         playout_start: PlayoutStart::default(),
         endpoint: Some(endpoint),
+        paused: Box::new(|| false),
     };
     let mut owner = Controller::new(new_boot().unwrap(), now());
     let mut trace = SessionState::finite();
@@ -813,6 +814,7 @@ fn mute_with_endpoint(endpoint: EndpointRig) -> (Result<()>, SessionState) {
         turn_taking: TurnTaking::V1Baseline,
         playout_start: PlayoutStart::default(),
         endpoint: Some(endpoint),
+        paused: Box::new(|| false),
     };
     let (mut controller, current, _) = active_reply();
     let mut reply = Some(current);

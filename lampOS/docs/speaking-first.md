@@ -28,10 +28,13 @@ service decides (`Arrival`). A hello is due when all of these hold:
 | they were away | nobody for five minutes or more before that. A face lost for under twenty seconds is someone who looked away |
 | the lamp is at rest | nothing said to it or by it for half a minute, nothing being heard, a provider ready |
 | it has not just done this | no hello in the last twenty minutes |
+| it is not paused | the keeper has not said `{"paused": true}` on `lamp/pause` ([keeper.md](keeper.md), "Named states and the pause") |
 
 Someone already there when the service starts was never away and gets none.
-A hello that is due but cannot be begun (the lamp is in a turn) stays due
-until it can be.
+A hello that is due but cannot be begun (the lamp is in a turn, or paused)
+stays due until it can be. The pause holds every turn the lamp begins
+itself the same way: the look it said it would take, the second look, a
+reminder and news.
 
 `LAMP_EYES_PRESENCE_FILE` in the voice service's environment names the
 eyes' file; without it none of this runs. `LAMP_SPEAK_FIRST=on` lets the

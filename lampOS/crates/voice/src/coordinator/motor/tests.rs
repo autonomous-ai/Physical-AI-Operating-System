@@ -699,6 +699,7 @@ fn motor_crash_preserves_actual_voice_owner_and_next_audio_dispatch() {
         turn_taking: TurnTaking::VadOnly,
         playout_start: PlayoutStart::default(),
         endpoint: None,
+        paused: Box::new(|| false),
     };
     let mut trace = SessionState::default();
     let until = Instant::now() + Duration::from_secs(2);
@@ -1065,6 +1066,7 @@ fn failed_reap_after_stopped_is_latched_and_reported_once() {
         turn_taking: TurnTaking::VadOnly,
         playout_start: PlayoutStart::default(),
         endpoint: None,
+        paused: Box::new(|| false),
     };
     let mut trace = SessionState::default();
     service_motor(&mut rig, &mut trace).unwrap();

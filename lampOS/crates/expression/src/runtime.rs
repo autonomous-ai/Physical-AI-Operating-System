@@ -301,6 +301,10 @@ pub struct Service {
     last_state: Option<u64>,
     utc_offset_minutes: Option<i32>,
     last_daytime: Option<u64>,
+    /// The keeper's pause (`lamp/pause`), read as the body reads it: paused,
+    /// nothing is asked of the body or the light.
+    pause: lamp_body::pause_in::PauseIn,
+    paused: bool,
     pub counts: Counts,
     _lock: File,
 }
@@ -354,6 +358,8 @@ impl Service {
             last_state: None,
             utc_offset_minutes: None,
             last_daytime: None,
+            pause: lamp_body::pause_in::PauseIn::on(bus.clone()),
+            paused: false,
             counts: Counts::default(),
             _lock: lock,
         })
@@ -440,7 +446,25 @@ impl Service {
             }
         }
         let at_us = now();
-        let output = self.engine.tick(at_us);
+        let mut output = self.engine.tick(at_us);
+        // Paused by the keeper: no new request to the body or the light;
+        // those already sent run out with their leases.
+        let paused = self.pause.paused();
+        if paused != self.paused {
+            self.paused = paused;
+            eprintln!(
+                "lamp-expression: {}",
+                if paused {
+                    "paused by the keeper: nothing is asked of the body or the light"
+                } else {
+                    "resumed by the keeper"
+                }
+            );
+        }
+        if paused {
+            output.light = None;
+            output.body = None;
+        }
         // Publish face first. Consumers still enforce lease/time/ownership;
         // datagram order between topics is not a physical timing guarantee.
         if let Some(light) = &output.light {

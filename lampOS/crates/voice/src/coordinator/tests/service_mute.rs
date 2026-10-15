@@ -27,6 +27,7 @@ fn cleanup_failure_cannot_leave_a_restartable_physical_mute() {
         turn_taking: TurnTaking::VadOnly,
         playout_start: PlayoutStart::default(),
         endpoint: None,
+        paused: Box::new(|| false),
     };
     let (mut controller, current, _) = active_reply();
     let mut reply = Some(current);
@@ -165,6 +166,7 @@ fn active_mute(trace: &mut SessionState, invalid: bool) -> Result<()> {
         turn_taking: TurnTaking::VadOnly,
         playout_start: PlayoutStart::default(),
         endpoint: None,
+        paused: Box::new(|| false),
     };
     let (mut controller, current, permit) = active_reply();
     let mut reply = Some(current);

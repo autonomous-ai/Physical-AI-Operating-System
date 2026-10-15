@@ -596,6 +596,7 @@ impl Setup {
             // As lamp-4ace.
             playout_start: PlayoutStart::new(350).unwrap(),
             endpoint: None,
+            paused: Box::new(|| false),
         };
         // The worker says it is ready before anything else.
         let deadline = Instant::now() + Duration::from_secs(3);

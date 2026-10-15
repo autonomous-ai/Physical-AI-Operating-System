@@ -199,11 +199,25 @@ Expression's requests and calls are read and dropped, so nothing from
 before the pause is acted on after it. A standing body folds once its
 awake time has run out (`--awake-seconds`, 90 s on lamp-52e6), as it would
 with nobody there; it is not made to fold sooner. Its report on
-`diagnostics` says `state` `paused` instead of `ready`. The voice and
-Expression do not honour it yet: those are the first builder's parts, and
-each needs one look at `lamp/pause` (`lamp_body::pause_in` is what the body
-does). Until the voice does, `stop lamp` is still the pause, the wait for
-the voice to rest, and the stop.
+`diagnostics` says `state` `paused` instead of `ready`.
+
+The voice and Expression read it the same way, with the body's own reader
+(`lamp_body::pause_in`): the kept value at most once a second, a file read
+and no more; nothing kept, or a bus it cannot reach, is not paused. The
+voice asks once a turn of its loop. Paused, a new sound takes no turn,
+whether or not one is under way (`input_not_taken_paused`, once a pause,
+in its session record), and it begins none itself: no hello, no news, no
+reminder, no
+look it said it would take and no second look at a request made by name.
+Those wait, as they wait while the lamp is in a turn, and each keeps its
+own expiry. A turn under way, and its answer, are finished, and someone
+still speaking after an end sent early goes on with the same request.
+`voice/state` then says resting as for any finished turn, which is what
+`stop lamp` waits for. A change is a line in the journal and `keeper_pause`
+in the session record. Expression, paused, publishes nothing on
+`expression/body` or `expression/light`; what it sent runs out with its
+200 ms lease, and the next request after resume is the planner's own.
+With nothing said on `lamp/pause` both do exactly what they did before.
 
 ## Switches
 
@@ -334,8 +348,11 @@ keeper's `health` says no more than that.
   slice; lamp-52e6 still runs it in `system.slice`, as lamp-4ace does.
 - The voice's limit of ten starts in ten minutes.
 - The pause on a lamp: shown with host tests only (the kept value read
-  and cleared, the body's report saying `paused`). The voice and
-  Expression do not honour it yet (above).
+  and cleared, the body's report saying `paused`; the voice's real service
+  loop with fixture workers refusing a question while paused, finishing
+  the answer under way, and answering again once resumed; Expression
+  asking nothing while paused). `lamp-keeper pause` in the middle of a
+  conversation on lamp-52e6 is still to be shown.
 - The update choreography is `lamp-update`'s (#737, second builder):
   quiet judged from the bus, each part switched and checked, rolled back
   if unwell. The reset of task 12 waits on setup, which the owner has not

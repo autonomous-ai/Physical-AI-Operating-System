@@ -550,6 +550,14 @@ Expression and verify that fallback on the lamp. A privacy or input-readiness
 failure must never be masked by an expressive listening face. A hold is an
 expression request, not permission to override a stop or safety inhibit.
 
+While the keeper has paused the lamp (`lamp/pause`, read as the body reads
+it, at most once a second; [keeper.md](keeper.md), "Named states and the
+pause"), the service publishes neither `expression/body` nor
+`expression/light`, and the returned and recorded output has neither.
+The planner still takes its inputs and says its state, and what it sent
+before runs out with its lease. Nothing kept on the topic, or a bus it
+cannot reach, is not paused.
+
 The planner publishes light before body, but the bus promises no cross-topic
 ordering. Compare requested apply times and actual ring/joint observations;
 publish order alone cannot establish that a person saw the face change first.

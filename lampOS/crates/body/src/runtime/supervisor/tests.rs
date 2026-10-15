@@ -100,6 +100,11 @@ fn inert_child() {
     } else {
         worker::run(worker, &mut channels)
     };
+    // The child's stderr is not kept, so its worker's own error goes to a
+    // report file the fixture names, for the parent's failure message (#914).
+    if let (Err(e), Ok(report)) = (&result, std::env::var("LAMP_MOTOR_TEST_REPORT")) {
+        let _ = std::fs::write(report, e.to_string());
+    }
     if mode == "parent_lost" {
         assert!(result.is_err());
     } else {
@@ -119,7 +124,8 @@ fn fixture(mode: &str) -> (Supervisor, Controller) {
     .env("LAMP_MOTOR_TEST_DIRECTORY", &directory)
     .env("LAMP_MOTOR_TEST_PARENT", boot_text(parent))
     .env("LAMP_MOTOR_TEST_WORKER", boot_text(worker))
-    .env("LAMP_MOTOR_TEST_MODE", mode);
+    .env("LAMP_MOTOR_TEST_MODE", mode)
+    .env("LAMP_MOTOR_TEST_REPORT", child_report(worker));
     let supervisor = Supervisor::spawn_command(cmd, &directory, parent, worker).unwrap();
     let mut controller = Controller::new(parent, SystemClock.now());
     controller
@@ -129,6 +135,10 @@ fn fixture(mode: &str) -> (Supervisor, Controller) {
         .set_camera_permission(SystemClock.now(), Permission::Allowed)
         .unwrap();
     (supervisor, controller)
+}
+/// Where the inert child writes its worker's error, outside the IPC directory.
+fn child_report(worker: BootId) -> PathBuf {
+    PathBuf::from("/tmp").join(format!("mw-{}.error", boot_text(worker)))
 }
 fn until(s: &mut Supervisor, mut f: impl FnMut(&mut Supervisor) -> bool) {
     let deadline = Instant::now() + Duration::from_secs(2);
@@ -142,8 +152,42 @@ fn until(s: &mut Supervisor, mut f: impl FnMut(&mut Supervisor) -> bool) {
     }
 }
 fn ready(s: &mut Supervisor, c: &mut Controller) {
+    // What the fixture saw, for a failure message: the supervisor's latched
+    // lifecycle, the age of the last event it consumed, and the parent's own
+    // largest gap between polls (#914).
+    let mut polls = 0u32;
+    let mut last_poll = Instant::now();
+    let mut largest_gap = Duration::ZERO;
     until(s, |s| {
-        s.poll().unwrap();
+        largest_gap = largest_gap.max(last_poll.elapsed());
+        last_poll = Instant::now();
+        polls += 1;
+        let event = s.poll().unwrap();
+        if s.failure().is_some() || s.killed_at.is_some() || s.exit.is_some() || s.stop_at.is_some()
+        {
+            let now = SystemClock.now().as_micros();
+            let child = (0..100)
+                .find_map(|_| {
+                    let text = std::fs::read_to_string(child_report(s.worker)).ok();
+                    if text.is_none() {
+                        std::thread::sleep(Duration::from_millis(10));
+                    }
+                    text
+                })
+                .unwrap_or_else(|| "none written in 1 s".into());
+            let _ = std::fs::remove_file(child_report(s.worker));
+            panic!(
+                "readiness lost at poll {polls}: failure {:?}, event {event:?}, \
+                 last observed {} us before now, largest parent poll gap {largest_gap:?}, \
+                 killed {:?} us ago, stop {:?}, exit {:?}, connected {}; the child's error: {child}",
+                s.failure(),
+                now.saturating_sub(s.last_observed),
+                s.killed_at.map(|k| now.saturating_sub(k)),
+                s.stop_at,
+                s.exit,
+                s.connected(),
+            );
+        }
         if s.connected() && !s.ready {
             s.send_control(&Control::Authority {
                 snapshot: c.snapshot(SystemClock.now()).unwrap(),

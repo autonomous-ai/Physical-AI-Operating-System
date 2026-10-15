@@ -183,7 +183,9 @@ functions, declared by the voice and run by `lamp-memory`
 
 They take the same road as the executive's: a thread of its own, 1.5 s at
 most, at most eight waiting, the answer only to the connection that
-asked. A memory that does not answer is told to the model as "My memory
+asked. While someone the eyes know is at the lamp they use that person's
+memory, and a recall's entries from it carry `"theirs":true`, before the
+room's ([memory.md](memory.md#each-persons-own-764)). A memory that does not answer is told to the model as "My memory
 is not answering right now, so I could not do that." An executive that
 lists a function of one of these names does not get it.
 

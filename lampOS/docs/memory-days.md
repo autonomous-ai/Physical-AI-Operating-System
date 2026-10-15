@@ -162,6 +162,15 @@ change requires a worker restart. Memory's configured day offset must agree
 with Voice's local date; the store still has a fixed offset and no automatic
 summer-time adjustment. Startup file access is outside the note/call budgets.
 
+With someone the eyes know at the lamp (#764,
+[memory.md](memory.md#each-persons-own-764)), every request above names
+their person id: `remember`, `forget_last`, their `session_open` beside the
+room's (validated against the store's person scope), `search` or `recall`
+for theirs before the room's, `append_linked` with only their own source IDs,
+and `conversation_end` and `session_close` in their scope. The source union
+keeps each ID with its person. With nobody known no request carries a
+`person` and nothing above changes.
+
 ### Played scenes for First
 
 After the host gate is complete, use First's

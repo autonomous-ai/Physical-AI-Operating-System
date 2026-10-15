@@ -225,7 +225,10 @@ this room" until someone asks to be recognised.
   - The hello for someone known is by name.
   - What a known person says is told their name once a session ("The person
     at the lamp now is Minh: you know their face.").
-  - Memory does not yet keep each person's things apart; that is next.
+  - With a memory, what a known person asks it to keep and what they say
+    goes to their own scope, and a recall asks theirs first, then the
+    room's (#764, [memory.md](memory.md#each-persons-own-764)). Forgetting
+    a face does not forget what that person said.
 
 On lamp-4ace on 2026-10-15 at 08:22, with the office empty, the socket
 answered `list` and `who` at once, `remember` with `no_face` after 4.0 s,

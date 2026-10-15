@@ -64,6 +64,7 @@ fn context() -> Context {
         store_id: STORE.into(),
         task: 3,
         change: 4,
+        run: 1,
         engine: "claude".into(),
         state: AgentState::Working,
         working_s: Some(754),
@@ -148,6 +149,7 @@ fn main() -> io::Result<()> {
     )?;
     let work = |changes: u32| TaskStatus {
         store_id: STORE.into(),
+        run: 1,
         tasks: vec![TaskProgress {
             task: 3,
             engine: "claude".into(),
@@ -173,7 +175,7 @@ fn main() -> io::Result<()> {
                 .recv(Duration::from_secs(5))?
                 .ok_or_else(|| io::Error::other("no decision"))?;
             let decision: Decision = message.parse()?;
-            if decision.task.as_deref() == Some(&*format!("{STORE}:3:{change}")) {
+            if decision.task.as_deref() == Some(&*format!("{STORE}:3:{change}@1")) {
                 break;
             }
         }

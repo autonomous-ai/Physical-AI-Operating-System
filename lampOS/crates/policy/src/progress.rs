@@ -139,8 +139,11 @@ pub struct Judgement {
 pub struct Context {
     pub store_id: String,
     pub task: u64,
-    /// The count of changes of the progress line that is judged.
+    /// The count of changes of the progress line that is judged, and the
+    /// run of the tasks part that counted it: counts begin again at each
+    /// run.
     pub change: u32,
+    pub run: u64,
     pub engine: String,
     pub state: AgentState,
     pub working_s: Option<u64>,
@@ -168,9 +171,12 @@ pub struct Context {
 }
 
 impl Context {
-    /// `<store>:<task>:<change>`, as `Decision::task` has it.
+    /// `<store>:<task>:<change>@<run>`, as `Decision::task` has it.
     pub fn key(&self) -> String {
-        format!("{}:{}:{}", self.store_id, self.task, self.change)
+        format!(
+            "{}:{}:{}@{}",
+            self.store_id, self.task, self.change, self.run
+        )
     }
 }
 
@@ -423,6 +429,8 @@ pub struct Progress {
     asker_gone: bool,
     asking: Option<(Context, Instant)>,
     store_id: Option<String>,
+    /// The run of the tasks part the counts now kept are of.
+    run: Option<u64>,
     tasks: BTreeMap<u64, Tracked>,
     voice: Option<Voice>,
     last_talk: Option<Instant>,
@@ -462,6 +470,7 @@ impl Progress {
             asker_gone: false,
             asking: None,
             store_id: None,
+            run: None,
             tasks: BTreeMap::new(),
             voice: None,
             last_talk: None,
@@ -477,7 +486,13 @@ impl Progress {
     }
 
     /// A new status from the tasks part. A message that fails its check is
-    /// passed over. Another store begins again.
+    /// passed over. Another store begins again. Another run of the tasks
+    /// part (it restarted, keeping its store and task numbers, and counts
+    /// again from nothing) is judged from its own beginning for the tasks
+    /// already followed: every change it counts is new here, whatever count
+    /// an earlier run reached. Their notes and the quarter hour after one
+    /// stay: those are the person's. A task seen for the first time is
+    /// judged from what it says then, as always.
     pub fn status(&mut self, status: TaskStatus) {
         if status.check().is_err() {
             return;
@@ -485,6 +500,13 @@ impl Progress {
         if self.store_id.as_deref() != Some(status.store_id.as_str()) {
             self.tasks.clear();
             self.store_id = Some(status.store_id.clone());
+            self.run = Some(status.run);
+        } else if self.run != Some(status.run) {
+            for tracked in self.tasks.values_mut() {
+                tracked.judged = 0;
+                tracked.held = None;
+            }
+            self.run = Some(status.run);
         }
         self.tasks
             .retain(|task, _| status.tasks.iter().any(|t| t.task == *task));
@@ -580,6 +602,7 @@ impl Progress {
     /// at the same change.
     fn current(&self, context: &Context) -> bool {
         self.store_id.as_deref() == Some(context.store_id.as_str())
+            && self.run == Some(context.run)
             && self.tasks.get(&context.task).is_some_and(|tracked| {
                 tracked.last.state == AgentState::Working && tracked.last.changes == context.change
             })
@@ -703,6 +726,7 @@ impl Progress {
             store_id: self.store_id.clone().unwrap_or_default(),
             task,
             change: last.changes,
+            run: self.run.unwrap_or_default(),
             engine: last.engine.clone(),
             state: last.state,
             working_s: last.working_s,
@@ -853,6 +877,7 @@ mod tests {
             store_id: "0123456789abcdef0123456789abcdef".into(),
             task: 3,
             change: 4,
+            run: 1_791_964_000_000,
             engine: "claude".into(),
             state: AgentState::Working,
             working_s: Some(754),
@@ -908,7 +933,10 @@ mod tests {
         ] {
             assert!(value[part][field].is_null(), "{field}");
         }
-        assert_eq!(context().key(), "0123456789abcdef0123456789abcdef:3:4");
+        assert_eq!(
+            context().key(),
+            "0123456789abcdef0123456789abcdef:3:4@1791964000000"
+        );
     }
 
     fn answers(three: [f32; 3]) -> BTreeMap<String, Answer> {
@@ -993,9 +1021,17 @@ mod tests {
         }
     }
 
+    const RUN_A: u64 = 1_791_964_000_000;
+    const RUN_B: u64 = 1_791_965_000_000;
+
     fn status(changes: u32, state: AgentState) -> TaskStatus {
+        status_of(RUN_A, changes, state)
+    }
+
+    fn status_of(run: u64, changes: u32, state: AgentState) -> TaskStatus {
         TaskStatus {
             store_id: "0123456789abcdef0123456789abcdef".into(),
+            run,
             tasks: vec![TaskProgress {
                 task: 3,
                 engine: "codex".into(),
@@ -1134,6 +1170,7 @@ mod tests {
             |progress| {
                 progress.status(TaskStatus {
                     store_id: "0123456789abcdef0123456789abcdef".into(),
+                    run: RUN_A,
                     tasks: vec![],
                 });
                 progress.voice(Voice::Listening, then);
@@ -1152,7 +1189,7 @@ mod tests {
         );
         assert_eq!(
             decided.decision.task.as_deref(),
-            Some("0123456789abcdef0123456789abcdef:3:2")
+            Some("0123456789abcdef0123456789abcdef:3:2@1791964000000")
         );
 
         // Another store's task 3 took its place: a wait, and that task is
@@ -1191,6 +1228,62 @@ mod tests {
             then,
         );
         assert_eq!(decided.line.guard, Some(Hold::Outdated));
+    }
+
+    /// The reviewer's finding on #765 (2026-10-15, 16:02): the tasks part
+    /// counts changes afresh in each run and keeps its store and task
+    /// numbers, so run B's change 2 is not run A's. A yes asked about run
+    /// A's change 2 coming back once run B has reached change 2 too is
+    /// about a line that is no longer there: a wait, and run B's change is
+    /// asked about in its own right.
+    #[test]
+    fn a_yes_about_one_runs_change_coming_back_at_anothers_same_count_is_outdated() {
+        let then = Instant::now() + Duration::from_secs(120);
+        let (mut progress, decided) = asked_then(
+            |progress| {
+                progress.status(status_of(RUN_B, 0, AgentState::Working));
+                progress.status(status_of(RUN_B, 2, AgentState::Working));
+            },
+            then,
+        );
+        assert_eq!(
+            (decided.decision.choice.as_str(), decided.line.guard),
+            ("wait", Some(Hold::Outdated))
+        );
+        assert_eq!(
+            decided.decision.task.as_deref(),
+            Some("0123456789abcdef0123456789abcdef:3:2@1791964000000")
+        );
+        assert_eq!(progress.tasks[&3].judged, 0);
+        assert_eq!(progress.next(then), Some(3), "run B's change is asked");
+        let asked = progress.context(3, then, 0, Room::Quiet, Some(true));
+        assert_eq!(
+            asked.key(),
+            "0123456789abcdef0123456789abcdef:3:2@1791965000000"
+        );
+    }
+
+    /// The same finding, for the question: after a restart the line at
+    /// the count the last run was judged at is another line, and is asked
+    /// about, even when the new run's first count was missed. The quarter
+    /// hour after a note stays across the restart.
+    #[test]
+    fn a_restart_with_another_line_at_the_same_count_is_asked_about_again() {
+        let mut progress =
+            Progress::start(Never, Options::new(Duration::from_secs(1), None)).unwrap();
+        let now = Instant::now();
+        progress.status(status_of(RUN_A, 0, AgentState::Working));
+        progress.status(status_of(RUN_A, 1, AgentState::Working));
+        assert_eq!(progress.next(now), Some(3));
+        progress.tasks.get_mut(&3).unwrap().judged = 1;
+        assert_eq!(progress.next(now), None, "run A's change 1 was judged");
+        // Run B, its first count not seen here, at the same count.
+        progress.status(status_of(RUN_B, 1, AgentState::Working));
+        assert_eq!(progress.next(now), Some(3));
+        // A note told a moment ago still holds the task back.
+        progress.tasks.get_mut(&3).unwrap().told_at = Some(now);
+        progress.status(status_of(RUN_A, 1, AgentState::Working));
+        assert_eq!(progress.next(now), None);
     }
 
     /// The reviewer's finding on #751 (15:26): `Resting` left the quiet

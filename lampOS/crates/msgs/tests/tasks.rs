@@ -26,6 +26,7 @@ fn progress() -> TaskProgress {
 fn status() -> TaskStatus {
     TaskStatus {
         store_id: "0123456789abcdef0123456789abcdef".into(),
+        run: 1_791_964_000_000,
         tasks: vec![progress()],
     }
 }
@@ -37,7 +38,7 @@ fn a_status_is_typed_state_without_words_and_ignores_fields_added_later() {
     let text = serde_json::to_string(&expected).unwrap();
     assert_eq!(
         text,
-        r#"{"store_id":"0123456789abcdef0123456789abcdef","tasks":[{"task":3,"engine":"claude","state":"working","working_s":754,"last_active_unix_ms":1791964800000,"read_unix_ms":1791964812345,"changes":4,"changed":true,"new_share":0.5,"signs":["tests_pass"],"signs_seen":["tests_pass","found"]}]}"#
+        r#"{"store_id":"0123456789abcdef0123456789abcdef","run":1791964000000,"tasks":[{"task":3,"engine":"claude","state":"working","working_s":754,"last_active_unix_ms":1791964800000,"read_unix_ms":1791964812345,"changes":4,"changed":true,"new_share":0.5,"signs":["tests_pass"],"signs_seen":["tests_pass","found"]}]}"#
     );
     assert_eq!(serde_json::from_str::<TaskStatus>(&text).unwrap(), expected);
     let mut value: Value = serde_json::from_str(&text).unwrap();
@@ -60,6 +61,10 @@ fn a_status_is_typed_state_without_words_and_ignores_fields_added_later() {
     let mut value = serde_json::to_value(status()).unwrap();
     value["tasks"][0]["signs_seen"] = json!(["shipped"]);
     assert!(serde_json::from_value::<TaskStatus>(value).is_err());
+    // The run is required: counts mean nothing without it.
+    let mut without_run = serde_json::to_value(status()).unwrap();
+    without_run.as_object_mut().unwrap().remove("run");
+    assert!(serde_json::from_value::<TaskStatus>(without_run).is_err());
     // Every other field has to be there.
     let value = serde_json::to_value(progress()).unwrap();
     for field in [
@@ -98,6 +103,7 @@ fn the_check_holds_the_bounds_and_the_signs_to_their_sense() {
         value.check().unwrap_err().0
     };
     assert!(wrong(|s| s.store_id = "XYZ".into()).contains("store_id"));
+    assert!(wrong(|s| s.run = 0).contains("run"));
     assert!(
         wrong(|s| s.tasks = vec![progress(); TASK_STATUS_MOST_TASKS + 1]).contains("at most 16")
     );
@@ -160,18 +166,23 @@ fn a_progress_decision_names_its_work_and_an_attention_one_is_written_as_before(
     let progress = Decision {
         about: "progress".into(),
         choice: "say_now".into(),
-        task: Some("0123456789abcdef0123456789abcdef:3:4".into()),
+        task: Some("0123456789abcdef0123456789abcdef:3:4@1791964000000".into()),
         ..attention
     };
     progress.check().unwrap();
     let text = serde_json::to_string(&progress).unwrap();
-    assert!(text.ends_with(",\"task\":\"0123456789abcdef0123456789abcdef:3:4\"}"));
+    assert!(text.ends_with(",\"task\":\"0123456789abcdef0123456789abcdef:3:4@1791964000000\"}"));
     assert_eq!(serde_json::from_str::<Decision>(&text).unwrap(), progress);
     for task in [
         "0123456789abcdef0123456789abcdef:3",
-        "0123456789ABCDEF0123456789ABCDEF:3:4",
-        "0123456789abcdef0123456789abcdef:x:4",
-        "0123456789abcdef0123456789abcdef:3:4:5",
+        // Without its run, a count names no change.
+        "0123456789abcdef0123456789abcdef:3:4",
+        "0123456789abcdef0123456789abcdef:3:4@",
+        "0123456789abcdef0123456789abcdef:3:@5",
+        "0123456789abcdef0123456789abcdef:3:4@x",
+        "0123456789ABCDEF0123456789ABCDEF:3:4@5",
+        "0123456789abcdef0123456789abcdef:x:4@5",
+        "0123456789abcdef0123456789abcdef:3:4:5@6",
         "",
     ] {
         let wrong = Decision {

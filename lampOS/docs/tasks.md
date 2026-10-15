@@ -909,7 +909,10 @@ identity run it, and `serde_json` reads it.
   The read is never retried.
 - **What is kept.** The latest progress line of each task, in memory only:
   never in the store's files and never on the bus. A restart begins again
-  from the next read.
+  from the next read, as another run: it keeps the store and the task
+  numbers and counts changes from nothing, so every status says its `run`
+  (when that run began, in milliseconds since 1970), and a change is named
+  by its run and its count together (#765 review, 2026-10-15).
 - **What is put on the bus.** `tasks/status` (`lamp_msgs/TaskStatus`,
   [msgs.md](msgs.md#the-tasks-contract)), a kept (`latest`) value with no
   period, published after every read and when a task leaves the watch; its
@@ -919,13 +922,14 @@ identity run it, and `serde_json` reads it.
   | Field | What it says |
   |---|---|
   | `store_id` | The store the task numbers belong to |
+  | `run` | Which run of the tasks part counted these changes: when it began to read progress, in milliseconds since 1970. Counts begin again at each run |
   | `task` | The task's number (`get_task`, `get_progress`) |
   | `engine` | Who has it: `claude` or `codex`, as its target names it |
   | `state` | `working`, `idle`, `needs_input`, `starting`, `installing`, `stopped`, `offline`, `failed`, `unknown`, or `missing` when the agent is not in the list (stopped, or gone). A state Harness may add later is `unknown` |
   | `working_s` | Seconds since it was handed over, if that was in this boot |
   | `last_active_unix_ms` | When Harness last saw the agent do anything |
   | `read_unix_ms` | When it was read |
-  | `changes` | How many times its progress line changed since reading began. The first line read is where counting begins, not a change |
+  | `changes` | How many times its progress line changed since this run began reading it. The first line read is where counting begins, not a change |
   | `changed` | Whether the line changed at the read this message was made from. A read of one machine sets it only for that machine's tasks |
   | `new_share` | At the latest change, the share of the line's distinct words that were not in the line before, 0 to 1 |
   | `signs` | Signs in the line at its latest change that were not in the line before |
@@ -957,7 +961,7 @@ identity run it, and `serde_json` reads it.
 - **The words, when the lamp will speak.** `get_progress` on the request
   socket: `{"op":"get_progress","id":3}` answers `{"ok":true,"store_id":…,
   "revision":…,"completion":"unverified","id":3,"progress":{"engine","state",
-  "about","changes","signs_seen","last_active_unix_ms","read_unix_ms"}}`;
+  "about","run","changes","signs_seen","last_active_unix_ms","read_unix_ms"}}`;
   `not_found` for a task not being read, and `progress_off` without the
   switch. That is the only way the line leaves the tasks part.
 - **Health.** With the switch, the `tasks` diagnostics add `status_reads`,
@@ -981,7 +985,8 @@ progress note:
 
 - **Topic:** `policy/decisions`, `about` `progress`, `choice` `say_now`,
   `shadow` false (it is `true` until the first builder makes it act), and
-  `task` = `<store>:<task>:<change>` ([policy.md](policy.md#progress-news-say-this-progress-now-732)).
+  `task` = `<store>:<task>:<change>` ([policy.md](policy.md#progress-news-say-this-progress-now-732);
+  since the #765 review `<store>:<task>:<change>@<run>`).
   A decision older than 60 s, of another store than `status` says, or whose
   change is older than the newest `changes` on `tasks/status`, is let go.
 - **Words:** `get_progress` with that task, on the request socket, at once.

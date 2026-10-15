@@ -28,6 +28,7 @@ use std::{
 
 const WAIT: Duration = Duration::from_secs(5);
 const STORE: &str = "0123456789abcdef0123456789abcdef";
+const RUN: u64 = 1_791_964_000_000;
 
 fn ms(n: u64) -> Duration {
     Duration::from_millis(n)
@@ -216,6 +217,7 @@ impl Rig {
     fn work(&mut self, state: AgentState, changes: u32, signs_seen: &[Sign]) {
         let status = TaskStatus {
             store_id: STORE.into(),
+            run: RUN,
             tasks: vec![TaskProgress {
                 task: 3,
                 engine: "claude".into(),
@@ -346,7 +348,10 @@ fn a_change_is_asked_about_once_decided_in_shadow_and_written_down_with_its_stat
     assert_eq!(decided.choice, "say_now");
     assert_eq!(decided.by, "stand-in-1.0-20261015");
     assert!(decided.shadow);
-    assert_eq!(decided.task.as_deref(), Some(&*format!("{STORE}:3:3")));
+    assert_eq!(
+        decided.task.as_deref(),
+        Some(&*format!("{STORE}:3:3@{RUN}"))
+    );
     assert!((decided.probability - 0.729).abs() < 1e-3);
     assert_eq!(decided.answers.len(), 3);
     let line = &rig.log(1)[0];

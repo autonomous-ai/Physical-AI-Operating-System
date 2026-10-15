@@ -53,7 +53,7 @@ recognizes every catalogue.
 | `BoardState` | `board/state` | latest | 5 s, means nothing after 15 s | The computer's numbers: each temperature by sensor (°C), load per processor, memory in use and disk free as fractions, uptime, and the Wi-Fi signal and whether the clock is set if they could be asked |
 | `NameHeard` | `name/heard` | event | none | The lamp's name was heard in what its microphone hears: how sure the listener was, from 0 to 1, and how many milliseconds before this was sent the name began. A sign, never proof ([name.md](name.md)) |
 | `Pause` | `lamp/pause` | latest | none | Whether the lamp is paused, as `lamp-keeper pause` or `resume` last said; kept until the next, read with `latest` by each part that honours it ([keeper.md](keeper.md), "Named states and the pause") |
-| `Decision` | `policy/decisions` | event | none | What the policy decided ([policy.md](policy.md)): what it was about, the choice, its probability, the decision model's answer to each question by the question's name, who decided, how long the asking took, whether anything acts on it, the request's number if known, and for a `progress` decision the work it was about (`task`, `<store>:<task>:<change>`, added 2026-10-15 as an optional field). Not what was heard |
+| `Decision` | `policy/decisions` | event | none | What the policy decided ([policy.md](policy.md)): what it was about, the choice, its probability, the decision model's answer to each question by the question's name, who decided, how long the asking took, whether anything acts on it, the request's number if known, and for a `progress` decision the work it was about (`task`, `<store>:<task>:<change>@<run>`, added 2026-10-15 as an optional field). Not what was heard |
 
 The kind and the period are the table of first topics in [bus.md](bus.md)
 read as declarations. A stream is `event` and a latched topic `latest`. "How
@@ -266,11 +266,12 @@ Added by the second builder on 2026-10-15 (#732). The type lives in
 
 | Type | Topic | Kind | Period / lifespan | Meaning |
 |---|---|---|---|---|
-| `TaskStatus` | `tasks/status` | latest | none / none | How each piece of work handed over is going ([tasks.md](tasks.md#progress-on-the-bus-serve---progress-732)): the store, and for each task its engine, `AgentState`, seconds at it, when last active, when read, how many times its progress line changed, whether it changed at this read, the share of it that is new, and the `Sign`s new in it and seen in it. Never the agent's words |
+| `TaskStatus` | `tasks/status` | latest | none / none | How each piece of work handed over is going ([tasks.md](tasks.md#progress-on-the-bus-serve---progress-732)): the store, the run of the tasks part that counted the changes (counts begin again at each run), and for each task its engine, `AgentState`, seconds at it, when last active, when read, how many times its progress line changed, whether it changed at this read, the share of it that is new, and the `Sign`s new in it and seen in it. Never the agent's words |
 
 Published by `lamp-tasks serve --progress` only, after each read; its
 publisher says once a second that it is alive. `check()` holds the store to
-32 lowercase hexadecimal characters, at most 16 tasks listed once each in
+32 lowercase hexadecimal characters, the run to a positive number, at most
+16 tasks listed once each in
 order of their numbers, a positive task number, an engine of 1 to 32
 lowercase letters, digits or underscores, times within years 1970 to 9999,
 `new_share` from 0 to 1, signs listed once each in order with every new

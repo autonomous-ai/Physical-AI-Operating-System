@@ -450,7 +450,7 @@ fn next_status(watch: &mut lamp_bus::Subscriber) -> TaskStatus {
 
 #[test]
 fn with_progress_each_machine_is_listed_on_the_watchs_schedule_and_the_words_stay_here() {
-    let s = Running::with(false, true);
+    let mut s = Running::with(false, true);
     let bus = Bus::new(&s.config.bus_root).unwrap();
     let mut watch = bus
         .subscribe_typed(TaskStatus::TOPIC, "tasks_test", TaskStatus::TYPE)
@@ -502,6 +502,7 @@ fn with_progress_each_machine_is_listed_on_the_watchs_schedule_and_the_words_sta
     assert_eq!(words["ok"], true, "{words}");
     assert_eq!(words["progress"]["about"], "Fixed it; all tests pass");
     assert_eq!(words["progress"]["changes"], 1);
+    assert_eq!(words["progress"]["run"], changed.run);
     assert_eq!(words["store_id"], changed.store_id);
     assert_eq!(
         s.ask(json!({"op":"get_progress","id":99}))["error"],
@@ -522,6 +523,27 @@ fn with_progress_each_machine_is_listed_on_the_watchs_schedule_and_the_words_sta
         }
         assert!(start.elapsed() < Duration::from_secs(3), "no status_reads");
     }
+    // A restart keeps the store and the task's number and counts again
+    // from nothing, as another run: a count names a change only with it.
+    assert_eq!(first.run, changed.run);
+    s.stop();
+    *s.counts.about.lock().unwrap() = Some("Another line altogether".into());
+    s.start();
+    s.clock.0.lock().unwrap().monotonic_ms = 120_000;
+    let again = next_status(&mut watch);
+    assert_eq!(again.store_id, changed.store_id);
+    assert_eq!(
+        (again.tasks[0].task, again.tasks[0].changes),
+        (prepared["id"].as_u64().unwrap(), 0)
+    );
+    assert!(
+        again.run > changed.run,
+        "{} after {}",
+        again.run,
+        changed.run
+    );
+    let words = s.ask(json!({"op":"get_progress","id":prepared["id"]}));
+    assert_eq!(words["progress"]["run"], again.run);
 }
 
 #[test]

@@ -80,7 +80,7 @@ fn measure(samples: usize) -> io::Result<Value> {
         );
         serde::Serialize::serialize(&listing(rows), &mut writer).map_err(io::Error::other)?;
         let (mut parse, mut signs, mut track) = (Vec::new(), Vec::new(), Vec::new());
-        let mut tracker = Tracker::default();
+        let mut tracker = Tracker::started(1);
         for sample in 0..samples {
             let began = Instant::now();
             let listed = parse_ps(&text).map_err(io::Error::other)?;

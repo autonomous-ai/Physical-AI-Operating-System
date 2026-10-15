@@ -23,7 +23,6 @@ use crate::{
 };
 use ring::digest;
 use std::{
-    collections::BTreeMap,
     fs, io,
     os::unix::fs::{DirBuilderExt, PermissionsExt},
     path::{Path, PathBuf},
@@ -346,32 +345,34 @@ pub fn install(
         link(config, part, build, &mut changed)?;
     }
 
-    // The units, the tmpfiles and the zone.
-    for (name, text) in PRODUCT {
-        put(
-            config,
-            &format!("{UNITS}{name}"),
-            text.as_bytes(),
-            0o644,
-            &mut changed,
-        )?;
-    }
-    put(
-        config,
-        TMPFILES_PATH,
-        TMPFILES.as_bytes(),
-        0o644,
-        &mut changed,
-    )?;
-    let settings_before = state.settings.clone();
-    let settled = settings(config, SETTINGS, &mut state.settings, &mut changed, say);
-    // What was written is recorded at once, even when a later setting
-    // failed: an install cut short must not take its own default for the
-    // lamp's at the next run (the reviewer on #815, 19:17).
-    if state.settings != settings_before {
+    // The units and the tmpfiles. systemd must be told of any of them
+    // written, so that is recorded before the first is: a run stopped
+    // anywhere after leaves the debt for the next (the reviewer on #815,
+    // 19:17 and 19:32).
+    let for_systemd: Vec<(String, &[u8])> = PRODUCT
+        .iter()
+        .map(|(name, text)| (format!("{UNITS}{name}"), text.as_bytes()))
+        .chain([(TMPFILES_PATH.to_owned(), TMPFILES.as_bytes())])
+        .collect();
+    if !state.systemd_owed
+        && for_systemd
+            .iter()
+            .any(|(path, bytes)| fs::read(config.on(path)).map_or(true, |now| now != *bytes))
+    {
+        state.systemd_owed = true;
         save(&records, &state)?;
     }
-    settled?;
+    for (path, bytes) in &for_systemd {
+        put(config, path, bytes, 0o644, &mut changed)?;
+    }
+    settings(
+        config,
+        SETTINGS,
+        &mut state,
+        &mut changed,
+        say,
+        &mut |state| save(&records, state),
+    )?;
     // Made 0755 here on a blank lamp. One made closed before (lamp-4ace's is
     // root's alone) is not opened: credentials may be below it. Said instead.
     if let Ok(meta) = fs::metadata(config.on("/etc/lampOS"))
@@ -447,36 +448,66 @@ fn save(records: &Records, state: &State) -> Result<(), String> {
 
 /// The product's settings, from `defaults` (path, bytes): each written
 /// where it is missing, or where it is still exactly what an install wrote
-/// before (by its SHA-256 in `written`, the state's record), so a newer
-/// build's default reaches a lamp that never changed it. One that differs
-/// from both was changed on the lamp, or was there before any install (a
-/// lamp's own pins, its calibration): it is kept, and said, and its record
-/// is left as it was. Rerunning install is also how the updater upgrades
-/// itself, so this holds at every run (the reviewer on #815).
+/// before (by its SHA-256 in the state's `settings`, or in
+/// `settings_writing` when a run stopped between writing it and recording
+/// it), so a newer build's default reaches a lamp that never changed it.
+/// One that differs from all of these was changed on the lamp, or was
+/// there before any install (a lamp's own pins, its calibration): it is
+/// kept, and said, and its record is left as it was. Rerunning install is
+/// also how the updater upgrades itself, so this holds at every run (the
+/// reviewer on #815).
+///
+/// What is about to be written is recorded through `persist` before the
+/// first write, and what was written after the last, so that no stop in
+/// between leaves a file of install's that the next run takes for the
+/// lamp's.
 pub fn settings(
     config: &Install,
     defaults: &[(&str, &str)],
-    written: &mut BTreeMap<String, String>,
+    state: &mut State,
     changed: &mut Vec<String>,
     say: &mut dyn FnMut(&str),
+    persist: &mut dyn FnMut(&State) -> Result<(), String>,
 ) -> Result<(), String> {
+    let before = state.clone();
+    let mut writes = Vec::new();
     for (path, text) in defaults {
+        let default = manifest::sha256_hex(text.as_bytes());
         let now = match fs::read(config.on(path)) {
-            Ok(bytes) => Some(bytes),
+            Ok(bytes) => Some(manifest::sha256_hex(&bytes)),
             Err(error) if error.kind() == io::ErrorKind::NotFound => None,
             Err(error) => return Err(format!("{path}: {error}")),
         };
-        if let Some(now) = &now
-            && now != text.as_bytes()
-            && written.get(*path) != Some(&manifest::sha256_hex(now))
-        {
-            say(&format!(
+        let installs = |hash: &String| {
+            state.settings.get(*path) == Some(hash)
+                || state.settings_writing.get(*path) == Some(hash)
+        };
+        match now {
+            Some(now) if now == default => {
+                state.settings.insert((*path).to_owned(), default);
+            }
+            Some(now) if !installs(&now) => say(&format!(
                 "kept {path}: this lamp's own, not a default an install wrote; the build's default is not written"
-            ));
-            continue;
+            )),
+            _ => writes.push((*path, *text, default)),
         }
-        put(config, path, text.as_bytes(), 0o644, changed)?;
-        written.insert((*path).to_owned(), manifest::sha256_hex(text.as_bytes()));
+    }
+    if !writes.is_empty() {
+        for (path, _, default) in &writes {
+            state
+                .settings_writing
+                .insert((*path).to_owned(), default.clone());
+        }
+        persist(state)?;
+        for (path, text, default) in writes {
+            put(config, path, text.as_bytes(), 0o644, changed)?;
+            state.settings.insert(path.to_owned(), default);
+        }
+    }
+    // Every setting is settled: nothing is being written any more.
+    state.settings_writing.clear();
+    if *state != before {
+        persist(state)?;
     }
     Ok(())
 }

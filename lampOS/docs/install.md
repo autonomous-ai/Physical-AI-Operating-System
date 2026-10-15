@@ -334,21 +334,25 @@ As root, on a lamp with the base image (`crates/update/src/install.rs`):
    install (lamp-4ace's own pins), is the lamp's: it is kept, and said
    (`kept /etc/lampOS/controls/controls-pins.json: …`). Rerunning install is
    how the updater upgrades itself, so this holds at every run (the
-   reviewer on #815). What it wrote is recorded in `state.json` at once,
-   even when a later setting fails.
+   reviewer on #815). What it is about to write is recorded in
+   `state.json` (`settings_writing`) before the first write, and what it
+   wrote after the last, so a run stopped or failed in between leaves no
+   file of install's that the next run takes for the lamp's.
 6. Writes `/etc/lampOS/zone.env` from the system's zone if it is not there.
    It never writes `/etc/lampOS/body/lamp.env`, and says that the body waits
    for it.
-7. Records the build, the folders it made and, if anything changed, that
-   systemd is owed (`systemd_owed`) in `/var/lib/lampos-update/state.json`,
-   as a round does, under the same lock: all of it before systemd is asked
-   anything.
+7. Records the build and the folders it made in
+   `/var/lib/lampos-update/state.json`, as a round does, under the same
+   lock, before systemd is asked anything. That systemd is owed
+   (`systemd_owed`) is recorded earlier still, before the first unit or
+   `lampos.conf` is written (step 5), and after anything else changed.
 8. If systemd is owed: `systemd-tmpfiles --create`, `systemctl
    daemon-reload`, and `systemctl enable` of every part, `lampos.target`,
    `lamp-update.service` and `lamp-records.timer`; then records the debt
    paid. It starts nothing and never writes setup's marker. A run whose
-   enable fails leaves the debt, and the next run pays it though it writes
-   nothing (the reviewer on #815, 19:17).
+   enable fails, or that is stopped anywhere after its first unit is
+   written, leaves the debt, and the next run pays it though it writes
+   nothing (the reviewer on #815, 19:17 and 19:32).
 
 Run again with nothing new and nothing owed, it writes nothing and asks
 nothing of systemd.

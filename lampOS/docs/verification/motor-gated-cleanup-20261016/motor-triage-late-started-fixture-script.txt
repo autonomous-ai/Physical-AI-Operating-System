@@ -1,0 +1,5 @@
+#!/bin/sh
+if [ "$1" = --fixture-preflight ]; then printf R; exit 0; fi
+export LAMP_LIVE_MOTOR_TEST_CONFIG="$2" LAMP_LIVE_MOTOR_TEST_DIRECTORY="$4" LAMP_LIVE_MOTOR_TEST_PARENT="$6" LAMP_LIVE_MOTOR_TEST_WORKER="$8"
+export LAMP_LIVE_MOTOR_TEST_MODE='gate_segment'
+exec '/private/tmp/lampos-tests-capacity/lampOS/target/debug/deps/lamp_voice-94030bfed518176a' --exact coordinator::motor::tests::inert_child --nocapture >"$LAMP_LIVE_MOTOR_TEST_DIRECTORY/child-output" 2>&1

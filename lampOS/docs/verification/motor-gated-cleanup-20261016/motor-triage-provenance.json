@@ -1,0 +1,109 @@
+{
+  "recorded_at_from_date": "2026-10-16 02:56:17 +0700",
+  "worktree": "/private/tmp/lampos-tests-provider-moment",
+  "source_sha256": {
+    "lampOS/crates/voice/src/coordinator/motor/tests.rs": "94ede047a31058d3ab68e7ce5a35beb40224bc605613ec8a6f83d71cae85723f",
+    "lampOS/crates/voice/src/coordinator/motor.rs": "29b82801801be234ae865f7593c957a79537acc3469805401b759c21cf6c748e",
+    "lampOS/crates/voice/src/coordinator/motor/tests/native_head.rs": "a6870c6a1c2f063f5b83ec4e17bf3ed3f7e4d1c6c0bff3ee1942d1108ada38cc",
+    "lampOS/crates/voice/src/process.rs": "f9f1173bd1d33ea9f5ebc9ed3ed6247b802dbf299d017dabef90f93eca074d54",
+    "lampOS/crates/body/src/runtime.rs": "f70ac6cb58b472a85130c8b81eed4258f689afc644de9ffbab98e087f71a0c8b",
+    "lampOS/crates/body/src/runtime/supervisor.rs": "103009ea8a3baf449a760cf7f1dc43d0aa0b47d999b585c4084c65ff63ff2a3f",
+    "lampOS/crates/body/src/runtime/worker.rs": "d126a1b0020f202c22a0a7a9ec64f54dcb6a52d9f6d02e965d61871aa6ab4cca",
+    "lampOS/crates/ipc/src/lib.rs": "f9789cc83665f00bd39aff1d8670af525de8403c8821f0f143c04a02e644f6bf",
+    "lampOS/crates/voice/src/scenario_clock.rs": "4bb0811dbc62ad2345755eca06daa8f91a4e64a8dc1bfab66f763afe5cd7a5f6",
+    "lampOS/crates/voice/src/lib.rs": "7605ba6eac6ea3eb4c82b4a72f60f1158e4f16690360d7b20775f15a30be2b6c"
+  },
+  "voice_sources_unchanged_from_before_snapshot": {
+    "lampOS/crates/voice/src/coordinator/motor/tests.rs": true,
+    "lampOS/crates/voice/src/coordinator/motor.rs": true,
+    "lampOS/crates/voice/src/coordinator/motor/tests/native_head.rs": true,
+    "lampOS/crates/voice/src/process.rs": true,
+    "lampOS/crates/voice/src/lib.rs": true
+  },
+  "authorized_gate_log_sha256": "a7d98f32fdf4f45d3f37f1f02c8b418502496491c992840234c10d77b5ed8bf9",
+  "exact_diagnostics_file": "root-voice-library-failures.json",
+  "retained_fixture_diagnostics": [
+    {
+      "correlated_case": "pending-inspection",
+      "identity_mapping_limit": "Inferred from exact binary, gate time window, unique surviving mode/go text and the three recorded failures; the child log itself does not embed the parent test name.",
+      "directory": "/private/tmp/lampOS-cdb3c96c5d52035f76ef3044ca3089d2",
+      "mode": "gate",
+      "go_contents": "release inert child",
+      "receipt_files": {
+        "child-finish": "",
+        "child-position-writes": null,
+        "child-final-counts": null,
+        "child-emitted-mask": null
+      },
+      "files": [
+        {
+          "source": "/private/tmp/lampOS-cdb3c96c5d52035f76ef3044ca3089d2/motor/child-output",
+          "saved": "motor-triage-pending-inspection-child-output.log",
+          "sha256": "de70f8c11c41ce4a37989e8fab48d8e772294d5150aa58be14af702657eda7ff",
+          "bytes": 233
+        },
+        {
+          "source": "/private/tmp/lampOS-cdb3c96c5d52035f76ef3044ca3089d2/test-worker",
+          "saved": "motor-triage-pending-inspection-fixture-script.txt",
+          "sha256": "e3ae416504ba6e1738ca93aacb46a6d6a1e9b7eb7282f694f7d122c856985121",
+          "bytes": 460
+        }
+      ]
+    },
+    {
+      "correlated_case": "same-owner-end",
+      "identity_mapping_limit": "Inferred from exact binary, gate time window, unique surviving mode/go text and the three recorded failures; the child log itself does not embed the parent test name.",
+      "directory": "/private/tmp/lampOS-0a6ce55dff27a816e33fdabd5d5d2d75",
+      "mode": "gate_segment",
+      "go_contents": "release inert child",
+      "receipt_files": {
+        "child-finish": null,
+        "child-position-writes": null,
+        "child-final-counts": null,
+        "child-emitted-mask": null
+      },
+      "files": [
+        {
+          "source": "/private/tmp/lampOS-0a6ce55dff27a816e33fdabd5d5d2d75/motor/child-output",
+          "saved": "motor-triage-same-owner-end-child-output.log",
+          "sha256": "eabde4462ca842b6d7c5099c4d9bd8de970efc5a4ba36bbb2f85342cddf7ae1a",
+          "bytes": 233
+        },
+        {
+          "source": "/private/tmp/lampOS-0a6ce55dff27a816e33fdabd5d5d2d75/test-worker",
+          "saved": "motor-triage-same-owner-end-fixture-script.txt",
+          "sha256": "3f149efc23c8328d904ec9d5f8e7210c62619e60d8ec8945aa9124707bb0d1f5",
+          "bytes": 468
+        }
+      ]
+    },
+    {
+      "correlated_case": "late-started",
+      "identity_mapping_limit": "Inferred from exact binary, gate time window, unique surviving mode/go text and the three recorded failures; the child log itself does not embed the parent test name.",
+      "directory": "/private/tmp/lampOS-f34a6f89a39cf04fa5616a8039eca49b",
+      "mode": "gate_segment",
+      "go_contents": "release inert worker",
+      "receipt_files": {
+        "child-finish": null,
+        "child-position-writes": null,
+        "child-final-counts": null,
+        "child-emitted-mask": null
+      },
+      "files": [
+        {
+          "source": "/private/tmp/lampOS-f34a6f89a39cf04fa5616a8039eca49b/motor/child-output",
+          "saved": "motor-triage-late-started-child-output.log",
+          "sha256": "62cfb653f10c3c01cbf09bd83a445152886ea8e15f467e9d329ebb6d8fb2441d",
+          "bytes": 233
+        },
+        {
+          "source": "/private/tmp/lampOS-f34a6f89a39cf04fa5616a8039eca49b/test-worker",
+          "saved": "motor-triage-late-started-fixture-script.txt",
+          "sha256": "3f149efc23c8328d904ec9d5f8e7210c62619e60d8ec8945aa9124707bb0d1f5",
+          "bytes": 468
+        }
+      ]
+    }
+  ],
+  "actions": "Source and existing task-produced fixture files read only; no Cargo, tests, Git, network, device or source edits."
+}

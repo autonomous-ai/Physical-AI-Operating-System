@@ -1,0 +1,6 @@
+
+running 1 test
+motor_fixture_phase=child_entry at_us=2620084226309
+motor_fixture_phase=channels_bound at_us=2620084268737
+motor_fixture_phase=channels_connected at_us=2620084268894
+motor_fixture_phase=ready_send at_us=2620084287001

@@ -1,0 +1,41 @@
+{
+  "selection": "exact authorized gate start/finish window, same compiled binary, gate or gate_segment mode; no process rerun or modification",
+  "candidates": [
+    {
+      "directory": "/private/tmp/lampOS-cdb3c96c5d52035f76ef3044ca3089d2",
+      "mode": "gate",
+      "child_output": "\nrunning 1 test\nmotor_fixture_phase=child_entry at_us=2620095269483\nmotor_fixture_phase=channels_bound at_us=2620095290069\nmotor_fixture_phase=channels_connected at_us=2620095290287\nmotor_fixture_phase=ready_send at_us=2620095292917\n",
+      "receipt_files": {
+        "child-finish": "",
+        "child-position-writes": null,
+        "child-final-counts": null,
+        "child-emitted-mask": null
+      },
+      "go_contents": "release inert child"
+    },
+    {
+      "directory": "/private/tmp/lampOS-0a6ce55dff27a816e33fdabd5d5d2d75",
+      "mode": "gate_segment",
+      "child_output": "\nrunning 1 test\nmotor_fixture_phase=child_entry at_us=2620099340162\nmotor_fixture_phase=channels_bound at_us=2620099358254\nmotor_fixture_phase=channels_connected at_us=2620099379836\nmotor_fixture_phase=ready_send at_us=2620099380499\n",
+      "receipt_files": {
+        "child-finish": null,
+        "child-position-writes": null,
+        "child-final-counts": null,
+        "child-emitted-mask": null
+      },
+      "go_contents": "release inert child"
+    },
+    {
+      "directory": "/private/tmp/lampOS-f34a6f89a39cf04fa5616a8039eca49b",
+      "mode": "gate_segment",
+      "child_output": "\nrunning 1 test\nmotor_fixture_phase=child_entry at_us=2620084226309\nmotor_fixture_phase=channels_bound at_us=2620084268737\nmotor_fixture_phase=channels_connected at_us=2620084268894\nmotor_fixture_phase=ready_send at_us=2620084287001\n",
+      "receipt_files": {
+        "child-finish": null,
+        "child-position-writes": null,
+        "child-final-counts": null,
+        "child-emitted-mask": null
+      },
+      "go_contents": "release inert worker"
+    }
+  ]
+}

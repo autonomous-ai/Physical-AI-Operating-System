@@ -1,0 +1,64 @@
+{
+  "checked_at_from_date": "2026-10-16 02:59:04 +0700",
+  "authorized_gate_start": "2026-10-16 02:30:18 +0700",
+  "authorized_gate_finish": "2026-10-16 02:48:48 +0700",
+  "files": [
+    {
+      "source": "/private/tmp/lampOS-cdb3c96c5d52035f76ef3044ca3089d2/motor/child-output",
+      "saved": "motor-triage-pending-inspection-child-output.log",
+      "device": 16777221,
+      "inode": 410228621,
+      "mtime_ns": 1792092656212954459,
+      "mtime_formatted_by_date": "2026-10-16 02:30:56 +0700",
+      "sha256": "de70f8c11c41ce4a37989e8fab48d8e772294d5150aa58be14af702657eda7ff"
+    },
+    {
+      "source": "/private/tmp/lampOS-cdb3c96c5d52035f76ef3044ca3089d2/test-worker",
+      "saved": "motor-triage-pending-inspection-fixture-script.txt",
+      "device": 16777221,
+      "inode": 410228564,
+      "mtime_ns": 1792092655443844955,
+      "mtime_formatted_by_date": "2026-10-16 02:30:55 +0700",
+      "sha256": "e3ae416504ba6e1738ca93aacb46a6d6a1e9b7eb7282f694f7d122c856985121"
+    },
+    {
+      "source": "/private/tmp/lampOS-0a6ce55dff27a816e33fdabd5d5d2d75/motor/child-output",
+      "saved": "motor-triage-same-owner-end-child-output.log",
+      "device": 16777221,
+      "inode": 410228886,
+      "mtime_ns": 1792092660302691454,
+      "mtime_formatted_by_date": "2026-10-16 02:31:00 +0700",
+      "sha256": "eabde4462ca842b6d7c5099c4d9bd8de970efc5a4ba36bbb2f85342cddf7ae1a"
+    },
+    {
+      "source": "/private/tmp/lampOS-0a6ce55dff27a816e33fdabd5d5d2d75/test-worker",
+      "saved": "motor-triage-same-owner-end-fixture-script.txt",
+      "device": 16777221,
+      "inode": 410228865,
+      "mtime_ns": 1792092659752764871,
+      "mtime_formatted_by_date": "2026-10-16 02:30:59 +0700",
+      "sha256": "3f149efc23c8328d904ec9d5f8e7210c62619e60d8ec8945aa9124707bb0d1f5"
+    },
+    {
+      "source": "/private/tmp/lampOS-f34a6f89a39cf04fa5616a8039eca49b/motor/child-output",
+      "saved": "motor-triage-late-started-child-output.log",
+      "device": 16777221,
+      "inode": 410227836,
+      "mtime_ns": 1792092645191545158,
+      "mtime_formatted_by_date": "2026-10-16 02:30:45 +0700",
+      "sha256": "62cfb653f10c3c01cbf09bd83a445152886ea8e15f467e9d329ebb6d8fb2441d"
+    },
+    {
+      "source": "/private/tmp/lampOS-f34a6f89a39cf04fa5616a8039eca49b/test-worker",
+      "saved": "motor-triage-late-started-fixture-script.txt",
+      "device": 16777221,
+      "inode": 410227809,
+      "mtime_ns": 1792092644251203182,
+      "mtime_formatted_by_date": "2026-10-16 02:30:44 +0700",
+      "sha256": "3f149efc23c8328d904ec9d5f8e7210c62619e60d8ec8945aa9124707bb0d1f5"
+    }
+  ],
+  "all_saved_raw_files_still_match_sources": true,
+  "all_ten_reviewed_source_hashes_still_match": true,
+  "all_nine_original_triage_artifact_hashes_match": true
+}

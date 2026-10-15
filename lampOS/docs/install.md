@@ -317,9 +317,16 @@ As root, on a lamp with the base image (`crates/update/src/install.rs`):
    exactly the build's files is kept. Only when every folder is whole does
    any `current` link move, each replaced whole by a new link renamed over
    it.
-5. Writes each product unit, `lampos.conf`, and the product settings
-   (Expression's catalogue, the controls' two files), each only if it is not
-   already exactly that.
+5. Writes each product unit and `lampos.conf`, each only if it is not
+   already exactly that. The product settings (Expression's catalogue, the
+   controls' two files) are written only where one is missing or is still
+   exactly what an install wrote before, by the SHA-256 kept for it in
+   `state.json`, so a newer build's default reaches a lamp that never
+   changed it. A setting changed on the lamp since, or there before any
+   install (lamp-4ace's own pins), is the lamp's: it is kept, and said
+   (`kept /etc/lampOS/controls/controls-pins.json: …`). Rerunning install is
+   how the updater upgrades itself, so this holds at every run (the
+   reviewer on #815).
 6. Writes `/etc/lampOS/zone.env` from the system's zone if it is not there.
    It never writes `/etc/lampOS/body/lamp.env`, and says that the body waits
    for it.

@@ -455,3 +455,136 @@ fn every_part_of_the_lamp_waits_for_setups_marker_itself() {
     let page = include_str!("../../../docs/install.md");
     assert!(page.contains(&format!("`{condition}`")));
 }
+
+const PINS: &str = "/etc/lampOS/controls/controls-pins.json";
+
+/// The reviewer's case on #815: install, move the primary button to
+/// another line on this lamp, install the same build again. The lamp's
+/// line stays, it is said, and nothing else is written or asked.
+#[test]
+fn a_setting_changed_on_the_lamp_is_kept_when_install_runs_again() {
+    let mut lamp = Lamp::new(188, &[]);
+    lamp.install().unwrap();
+    let pins = fs::read_to_string(lamp.on(PINS)).unwrap();
+    let ours = pins.replace("\"line\": 99", "\"line\": 100");
+    assert_ne!(ours, pins);
+    let parsed: serde_json::Value = serde_json::from_str(&ours).unwrap();
+    assert_eq!(parsed["buttons"][0]["line"], 100);
+    fs::write(lamp.on(PINS), &ours).unwrap();
+    let before = tree(&lamp.root);
+    let calls = lamp.host.calls.len();
+    lamp.said.clear();
+
+    let again = lamp.install().unwrap();
+    assert_eq!(fs::read_to_string(lamp.on(PINS)).unwrap(), ours);
+    assert_eq!(again.changed, Vec::<String>::new());
+    assert_eq!(tree(&lamp.root), before);
+    assert_eq!(lamp.host.calls.len(), calls, "nothing asked of the machine");
+    assert!(
+        lamp.said
+            .iter()
+            .any(|line| line.starts_with(&format!("kept {PINS}"))),
+        "{:?}",
+        lamp.said
+    );
+}
+
+/// A newer build's default reaches a setting nobody changed; a setting
+/// changed on the lamp, or there before any install, keeps the lamp's
+/// bytes; a setting that is missing is written.
+#[test]
+fn a_newer_default_replaces_only_a_setting_nobody_changed() {
+    let lamp = Lamp::new(188, &[]);
+    let (untouched, changed_here, there_before, missing) = (
+        "/etc/lampOS/a/untouched.json",
+        "/etc/lampOS/a/changed.json",
+        "/etc/lampOS/a/before.json",
+        "/etc/lampOS/a/missing.json",
+    );
+    fs::create_dir_all(lamp.on("/etc/lampOS/a")).unwrap();
+    fs::write(lamp.on(there_before), "the lamp's own\n").unwrap();
+    let mut written = BTreeMap::new();
+    let mut said = Vec::new();
+    let mut run = |defaults: &[(&str, &str)], written: &mut BTreeMap<String, String>| {
+        let mut changed = Vec::new();
+        install::settings(&lamp.config, defaults, written, &mut changed, &mut |line| {
+            said.push(line.to_owned())
+        })
+        .unwrap();
+        changed
+    };
+
+    let first = run(
+        &[
+            (untouched, "one\n"),
+            (changed_here, "one\n"),
+            (there_before, "one\n"),
+        ],
+        &mut written,
+    );
+    assert_eq!(
+        first,
+        [
+            format!("wrote {untouched}"),
+            format!("wrote {changed_here}")
+        ]
+    );
+    assert!(!written.contains_key(there_before));
+    fs::write(lamp.on(changed_here), "mine\n").unwrap();
+
+    let second = run(
+        &[
+            (untouched, "two\n"),
+            (changed_here, "two\n"),
+            (there_before, "two\n"),
+            (missing, "two\n"),
+        ],
+        &mut written,
+    );
+    assert_eq!(
+        second,
+        [format!("wrote {untouched}"), format!("wrote {missing}")]
+    );
+    let read = |path: &str| fs::read_to_string(lamp.on(path)).unwrap();
+    assert_eq!(read(untouched), "two\n");
+    assert_eq!(read(changed_here), "mine\n");
+    assert_eq!(read(there_before), "the lamp's own\n");
+    assert_eq!(read(missing), "two\n");
+    assert_eq!(written[untouched], sha256_hex(b"two\n"));
+    assert_eq!(
+        written[changed_here],
+        sha256_hex(b"one\n"),
+        "left as it was"
+    );
+
+    // Set back to the default by hand, it is the default's again, and the
+    // next build's default replaces it.
+    fs::write(lamp.on(changed_here), "two\n").unwrap();
+    assert!(run(&[(changed_here, "two\n")], &mut written).is_empty());
+    assert_eq!(written[changed_here], sha256_hex(b"two\n"));
+    assert_eq!(
+        run(&[(changed_here, "three\n")], &mut written),
+        [format!("wrote {changed_here}")]
+    );
+    assert_eq!(read(changed_here), "three\n");
+
+    // Said each time one was kept: the one there before, twice, and the
+    // changed one once; never the others.
+    let kept: Vec<&String> = said
+        .iter()
+        .filter(|line| line.starts_with("kept "))
+        .collect();
+    assert_eq!(kept.len(), 3, "{said:?}");
+    assert_eq!(
+        kept.iter()
+            .filter(|line| line.contains(there_before))
+            .count(),
+        2
+    );
+    assert_eq!(
+        kept.iter()
+            .filter(|line| line.contains(changed_here))
+            .count(),
+        1
+    );
+}

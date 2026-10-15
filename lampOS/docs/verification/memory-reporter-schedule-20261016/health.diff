@@ -1,0 +1,180 @@
+--- health.before
++++ lampOS/crates/memory/src/health.rs
+@@ -326,6 +326,58 @@
+     (state.generation.load(SeqCst) == generation).then_some(result)
+ }
+ 
++/// The publication call's result, not a subscriber or downstream log receipt.
++#[derive(Clone, Copy, Debug, PartialEq, Eq)]
++pub enum PublicationOutcome {
++    NotAttempted,
++    ReturnedOk,
++    ReturnedErr,
++}
++
++/// Completed worker work and a checked positive wait in an explicit fixture.
++/// Neither observation claims that the worker parked, exited, or delivered
++/// an Event or a line to the process's final log destination.
++#[derive(Clone, Copy, Debug, PartialEq, Eq)]
++pub enum ReportProgress {
++    CycleComplete {
++        started: Instant,
++        publication: PublicationOutcome,
++    },
++    WaitChecked {
++        started: Instant,
++        at: Instant,
++        remaining: Duration,
++    },
++}
++
++/// A local fixture's scheduling source, independent of State's real latency
++/// measurements. Reads must be pure and in one nondecreasing Instant domain.
++pub trait ReportSchedule: Send + Sync + 'static {
++    fn now(&self) -> Instant;
++
++    /// Wait using the current thread's park token, returning when its Thread
++    /// is unparked. This includes an unpark before this call and allows the
++    /// unchanged bounded Reporter::finish to wake a frozen fixture.
++    fn park(&self, remaining: Duration);
++
++    /// Observe locally without blocking or waiting for a controller. A
++    /// positive WaitChecked precedes parking; the retained unpark token
++    /// handles a controller wake between this observation and park.
++    fn observe(&self, _progress: ReportProgress) {}
++}
++
++struct SystemSchedule;
++
++impl ReportSchedule for SystemSchedule {
++    fn now(&self) -> Instant {
++        Instant::now()
++    }
++
++    fn park(&self, remaining: Duration) {
++        thread::park_timeout(remaining);
++    }
++}
++
+ /// One worker for this process's lifetime. A blocked filesystem operation is
+ /// not cancellable; shutdown waits at most 100 ms, then leaves that one worker
+ /// to exit when the operation returns. The binary's exit also ends the worker.
+@@ -338,14 +390,30 @@
+ 
+ impl Reporter {
+     pub fn start(root: PathBuf, counts: CountSource) -> io::Result<Self> {
++        Self::start_with_schedule(root, counts, Arc::new(SystemSchedule))
++    }
++
++    /// Use an explicit local schedule for this worker and its publisher's
++    /// cadence. This does not change the State measurement clock or install
++    /// a process-wide clock; the caller owns advancement and progress checks.
++    pub fn start_with_schedule(
++        root: PathBuf,
++        counts: CountSource,
++        schedule: Arc<dyn ReportSchedule>,
++    ) -> io::Result<Self> {
++        let publisher_schedule = Arc::clone(&schedule);
+         let mut publisher = None;
+-        Self::start_with(counts, move |report| {
++        Self::start_scheduled_with(counts, schedule, move |report| {
+             if publisher.is_none() {
+-                publisher = Some(lamp_bus::Bus::new(&root)?.publisher_declared(
+-                    Diagnostic::TOPIC,
+-                    &Diagnostic::declaration(),
+-                    "memory",
+-                )?);
++                let cadence = Arc::clone(&publisher_schedule);
++                publisher = Some(
++                    lamp_bus::Bus::new(&root)?.publisher_declared_with_cadence_clock(
++                        Diagnostic::TOPIC,
++                        &Diagnostic::declaration(),
++                        "memory",
++                        move || cadence.now(),
++                    )?,
++                );
+             }
+             let result = publisher
+                 .as_mut()
+@@ -361,8 +429,17 @@
+         })
+     }
+ 
++    #[cfg(test)]
+     fn start_with(
+         source: CountSource,
++        publish: impl FnMut(&Diagnostic) -> io::Result<()> + Send + 'static,
++    ) -> io::Result<Self> {
++        Self::start_scheduled_with(source, Arc::new(SystemSchedule), publish)
++    }
++
++    fn start_scheduled_with(
++        source: CountSource,
++        schedule: Arc<dyn ReportSchedule>,
+         mut publish: impl FnMut(&Diagnostic) -> io::Result<()> + Send + 'static,
+     ) -> io::Result<Self> {
+         let state = Arc::new(State::default());
+@@ -377,7 +454,8 @@
+                 let mut count_fault = false;
+                 let mut delivery_failed = false;
+                 loop {
+-                    let started = Instant::now();
++                    let started = schedule.now();
++                    let mut publication = PublicationOutcome::NotAttempted;
+                     if let CountSource::Legacy(dir) = &source
+                         && let Some(read) =
+                             count_when_idle(&shared, || crate::health_counts::legacy(dir))
+@@ -402,6 +480,11 @@
+                             snapshot.count_fault = count_fault;
+                         }
+                         let failed = publish(&diagnostic(&snapshot, now)).is_err();
++                        publication = if failed {
++                            PublicationOutcome::ReturnedErr
++                        } else {
++                            PublicationOutcome::ReturnedOk
++                        };
+                         if failed != delivery_failed {
+                             eprintln!(
+                                 "lamp-memory: health delivery {}",
+@@ -410,17 +493,28 @@
+                             delivery_failed = failed;
+                         }
+                     }
++                    schedule.observe(ReportProgress::CycleComplete {
++                        started,
++                        publication,
++                    });
+                     if stopping.load(SeqCst) {
+                         break;
+                     }
+                     // park_timeout may wake spuriously. Recheck the deadline
+                     // so those wakes do not create extra reports or retries.
+                     while !stopping.load(SeqCst) {
+-                        let left = REPORT_EVERY.saturating_sub(started.elapsed());
++                        let at = schedule.now();
++                        let left =
++                            REPORT_EVERY.saturating_sub(at.saturating_duration_since(started));
+                         if left.is_zero() {
+                             break;
+                         }
+-                        thread::park_timeout(left);
++                        schedule.observe(ReportProgress::WaitChecked {
++                            started,
++                            at,
++                            remaining: left,
++                        });
++                        schedule.park(left);
+                     }
+                 }
+                 // Publisher cleanup can itself touch the filesystem. It must
+@@ -461,6 +555,10 @@
+         }
+     }
+ }
++
++#[cfg(test)]
++#[path = "reporter_schedule_tests.rs"]
++mod schedule_tests;
+ 
+ #[cfg(test)]
+ mod tests {

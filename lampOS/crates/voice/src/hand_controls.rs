@@ -108,8 +108,10 @@ pub struct Observation {
     /// (#711). It asks a speaking lamp to stop and a quiet one nothing; the
     /// coordinator, which knows which it is, decides.
     pub head_touch_at_us: Option<u64>,
-    /// The acquisition of a head tap accepted in this poll (#711).
+    /// The acquisition of a head tap accepted in this poll (#711), and when
+    /// its hand arrived.
     pub head_tap_at_us: Option<u64>,
+    pub head_tap_began_us: Option<u64>,
     /// The software mute is set because a hand held on the head put the lamp
     /// to sleep (#711); always with `muted`.
     pub asleep: bool,
@@ -302,6 +304,53 @@ impl HandControls {
         Ok(owner)
     }
 
+    /// As [`Self::with_test_touch`], for a tap on the head (#711): the head
+    /// seen settled from `tapped_us - 900 ms`, a hand on it from `tapped_us`
+    /// for 200 ms, then off until `tapped_us + 400 ms`. Every step before
+    /// the tap is raised is taken now; the rest, the tap with it, wait in
+    /// the queue for the first poll. So a tap's hand began after its
+    /// reader was seen, as on a lamp, and the tap is fresh at that poll.
+    #[cfg(test)]
+    pub(crate) fn with_test_tap(clock_id: &str, tapped_us: u64) -> io::Result<Self> {
+        let (sender, input) = mpsc::sync_channel(QUEUE_CAPACITY);
+        let mut owner = Self::from_parts(
+            ControlsOptions {
+                head_touch: true,
+                ..Default::default()
+            },
+            clock_id,
+            MuteRecord::new(clock_id)?,
+            input,
+            Arc::new(Shared::default()),
+            tapped_us - 1_000_000,
+        )?;
+        let mut head = TestHead::new(clock_id, tapped_us - 900_000);
+        let mut ticks = head.run(tapped_us - 10_000, false);
+        ticks.extend(head.run(tapped_us + 190_000, true));
+        ticks.extend(head.run(tapped_us + 400_000, false));
+        let raised = ticks
+            .iter()
+            .position(|(_, _, events)| events.iter().any(|e| e.gesture == TouchGesture::Tap))
+            .expect("Controls raises a tap");
+        let waiting = ticks.split_off(raised);
+        for (at, state, events) in ticks {
+            enqueue(&sender, &owner.shared, Input::TouchState(Box::new(state)));
+            for event in events {
+                enqueue(&sender, &owner.shared, Input::Touch(Box::new(event)));
+            }
+            owner.poll_with_clock(|| at)?;
+        }
+        for (_, state, events) in waiting {
+            enqueue(&sender, &owner.shared, Input::TouchState(Box::new(state)));
+            for event in events {
+                enqueue(&sender, &owner.shared, Input::Touch(Box::new(event)));
+            }
+        }
+        // The queue's sender stays open: a closed one is input lost.
+        std::mem::forget(sender);
+        Ok(owner)
+    }
+
     /// As [`Self::with_test_touch`], already put to sleep by a hand held on
     /// the head (#711), its durable mute at `record` (never written here).
     #[cfg(test)]
@@ -442,6 +491,11 @@ impl HandControls {
 
     fn muted(&self) -> bool {
         self.options.mute_record.is_some() && self.receiver.mute_record().muted
+    }
+
+    /// The head pads' requests are read (`LAMP_HEAD_TOUCH=on`, #711).
+    pub fn head_touch(&self) -> bool {
+        self.options.head_touch
     }
 
     fn asleep(&self) -> bool {
@@ -587,6 +641,7 @@ impl HandControls {
             }
             TouchGesture::Tap => {
                 earlier(&mut observation.head_tap_at_us, event.observed_us);
+                earlier(&mut observation.head_tap_began_us, event.began_us);
                 if mute
                     && let Some(released_us) = event.released_us
                     && self

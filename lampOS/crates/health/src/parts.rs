@@ -8,7 +8,7 @@
 //!
 //! [`health`] is the whole of the rule and touches nothing: the reports,
 //! the time and what is expected go in, and a `Health` comes out.
-use lamp_msgs::{Diagnostic, Health, HealthItem, Level};
+use lamp_msgs::{Diagnostic, Health, HealthItem, Level, Online};
 use std::{
     collections::BTreeMap,
     time::{Duration, Instant},
@@ -31,6 +31,10 @@ pub struct Kept {
     pub message: String,
     /// When it arrived, by this program's own clock.
     pub at: Instant,
+    /// Its link to something on the internet, as its `link` fact says it
+    /// (`ready`, `connecting`, `down`), with `down_for_s` (#830).
+    pub link: Option<String>,
+    pub down_for_s: Option<u64>,
 }
 
 /// What became of a report.
@@ -69,6 +73,8 @@ impl Parts {
                 level: report.level,
                 message: one_line(&report.message),
                 at,
+                link: fact(report, "link").map(one_line),
+                down_for_s: fact(report, "down_for_s").and_then(|value| value.parse().ok()),
             },
         );
         Taken::Kept
@@ -76,6 +82,49 @@ impl Parts {
 
     pub fn reports(&self) -> &BTreeMap<String, Kept> {
         &self.kept
+    }
+}
+
+fn fact<'a>(report: &'a Diagnostic, key: &str) -> Option<&'a str> {
+    report
+        .values
+        .iter()
+        .find(|value| value.key == key)
+        .map(|value| value.value.as_str())
+}
+
+/// The parts whose `link` says whether the lamp can reach the internet,
+/// in the order they are believed. Today only the voice's link to its
+/// speech service.
+pub const ONLINE_FROM: [&str; 1] = ["voice"];
+
+/// Whether the lamp is online at `now` (`lamp/online`): from the first
+/// part in [`ONLINE_FROM`] with a fresh report that has a link. `ready`
+/// and `connecting` (down under the voice's 5 s grace) are online, `down`
+/// is not; with none of them fresh, nobody knows.
+pub fn online(reports: &BTreeMap<String, Kept>, now: Instant, stale_after: Duration) -> Online {
+    for name in ONLINE_FROM {
+        let Some(kept) = reports.get(name) else {
+            continue;
+        };
+        if now.saturating_duration_since(kept.at) >= stale_after {
+            continue;
+        }
+        let online = match kept.link.as_deref() {
+            Some("ready" | "connecting") => true,
+            Some("down") => false,
+            _ => continue,
+        };
+        return Online {
+            online: Some(online),
+            from: name.into(),
+            down_for_s: if online { None } else { kept.down_for_s },
+        };
+    }
+    Online {
+        online: None,
+        from: String::new(),
+        down_for_s: None,
     }
 }
 
@@ -581,9 +630,50 @@ mod tests {
             Kept {
                 level: Level::Ok,
                 message: String::new(),
-                at: now + ms(10)
+                at: now + ms(10),
+                link: None,
+                down_for_s: None,
             }
         );
+    }
+
+    #[test]
+    fn online_is_the_voice_link_while_its_report_is_fresh() {
+        let now = Instant::now();
+        let stale = Duration::from_secs(5);
+        let mut parts = Parts::new();
+        let with = |link: &str, down: Option<&str>| {
+            let mut report = report(Level::Ok, "voice", "");
+            report.values.push(lamp_msgs::KeyValue {
+                key: "link".into(),
+                value: link.into(),
+            });
+            if let Some(down) = down {
+                report.values.push(lamp_msgs::KeyValue {
+                    key: "down_for_s".into(),
+                    value: down.into(),
+                });
+            }
+            report
+        };
+        // Nobody reporting a link: unknown.
+        parts.take(&report(Level::Ok, "body", ""), now);
+        assert_eq!(online(parts.reports(), now, stale).online, None);
+        for (link, down, said, for_s) in [
+            ("ready", None, Some(true), None),
+            ("connecting", None, Some(true), None),
+            ("down", Some("12"), Some(false), Some(12)),
+            ("down", None, Some(false), None),
+            ("something else", None, None, None),
+        ] {
+            parts.take(&with(link, down), now);
+            let found = online(parts.reports(), now, stale);
+            assert_eq!((found.online, found.down_for_s), (said, for_s), "{link}");
+            assert!(found.check().is_ok());
+        }
+        // A voice that has stopped reporting says nothing any more.
+        parts.take(&with("down", Some("3")), now);
+        assert_eq!(online(parts.reports(), now + stale, stale).online, None);
     }
 
     #[test]

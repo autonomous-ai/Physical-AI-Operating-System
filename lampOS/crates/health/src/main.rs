@@ -27,7 +27,7 @@ use std::{
     time::Duration,
 };
 
-const USAGE: &str = "usage: lamp-health serve [--bus-root ABSOLUTE_DIR] [--expect NAME]... [--stale-ms N] [--judge-zone BEGINNING]... [--proc DIR] [--sys DIR] [--run DIR] [--disk PATH] [--clock timesync|kernel]\n       lamp-health [show] [--bus-root ABSOLUTE_DIR] [--json]\n       lamp-health --help";
+const USAGE: &str = "usage: lamp-health serve [--bus-root ABSOLUTE_DIR] [--expect NAME]... [--stale-ms N] [--judge-zone BEGINNING]... [--proc DIR] [--sys DIR] [--run DIR] [--disk PATH] [--clock timesync|kernel] [--online on|off]\n       lamp-health [show] [--bus-root ABSOLUTE_DIR] [--json]\n       lamp-health --help";
 const HELP: &str = "How the lamp is. See docs/health.md.
 
 serve: listens to every part's report on the bus (diagnostics), reads the board, and
@@ -59,6 +59,8 @@ struct ServeArguments {
     expected: Vec<String>,
     stale_after: Duration,
     places: Places,
+    /// Publish `lamp/online` too.
+    online: bool,
 }
 
 #[derive(Debug, Eq, PartialEq)]
@@ -96,6 +98,7 @@ fn parse_serve(mut arguments: impl Iterator<Item = String>) -> Result<Command, S
     let mut expected: Vec<String> = Vec::new();
     let mut judged: Vec<String> = Vec::new();
     let mut clock = None;
+    let mut online = None;
     while let Some(option) = arguments.next() {
         if option == "--help" || option == "-h" {
             return Ok(Command::Help);
@@ -148,6 +151,13 @@ fn parse_serve(mut arguments: impl Iterator<Item = String>) -> Result<Command, S
                         .map_err(|()| "--clock is timesync or kernel")?,
                 )
                 .is_some(),
+            "--online" => online
+                .replace(match value.as_str() {
+                    "on" => true,
+                    "off" => false,
+                    _ => return Err("--online is on or off".into()),
+                })
+                .is_some(),
             "--stale-ms" => {
                 let milliseconds = value
                     .parse::<u64>()
@@ -177,6 +187,7 @@ fn parse_serve(mut arguments: impl Iterator<Item = String>) -> Result<Command, S
             judged,
             clock: clock.unwrap_or(places.clock),
         },
+        online: online.unwrap_or(false),
     }))
 }
 
@@ -254,6 +265,7 @@ fn serve(arguments: &ServeArguments) -> io::Result<()> {
         expected: arguments.expected.clone(),
         stale_after: arguments.stale_after,
         times: Times::with_stale_after(arguments.stale_after),
+        online: arguments.online,
     };
     // Nothing sets the flag: the process runs until it is killed.
     let stop = AtomicBool::new(false);
@@ -335,7 +347,7 @@ mod tests {
         assert_eq!(
             serving(
                 "serve --bus-root /run/lampos-bus --expect voice --stale-ms 8000 --proc /p \
-                 --judge-zone cpu --expect body --sys /s --run /r --disk /var --judge-zone skin --clock kernel"
+                 --judge-zone cpu --expect body --sys /s --run /r --disk /var --judge-zone skin --clock kernel --online on"
             ),
             ServeArguments {
                 bus: Some("/run/lampos-bus".into()),
@@ -349,6 +361,7 @@ mod tests {
                     judged: vec!["cpu".into(), "skin".into()],
                     clock: ClockSource::Kernel,
                 },
+                online: true,
             }
         );
         assert_eq!(
@@ -365,9 +378,11 @@ mod tests {
                     judged: Vec::new(),
                     clock: ClockSource::Timesync,
                 },
+                online: false,
             }
         );
         assert!(of("serve --clock ntp").is_err());
+        assert!(of("serve --online yes").is_err());
         assert!(of("serve --clock kernel --clock kernel").is_err());
         assert_eq!(
             serving("serve --stale-ms 100").stale_after,

@@ -144,8 +144,13 @@ session is told it does not know the time, never to guess
   been down for 5 s (`LINK_GRACE_US`, so a session renewing itself is not
   an outage), with the reason `transport` (the coordinator keeps only
   whether the link is up). Off unless set.
-- Next: `lamp/online` from it, then the voice's recorded line and
-  Expression's look.
+- **`lamp/online`** (`crates/msgs/src/online.rs`, `Online`), published by
+  `lamp-health serve --online on`, which already runs and already hears every
+  part's `diagnostics`: online while the voice's fresh report says its link
+  is `ready` or `connecting`, offline when it says `down` (past the voice's
+  5 s grace), with `down_for_s`; unknown while no voice reports. Once a
+  second. No probe of its own and no new process. Off unless set.
+- Next: the voice's recorded line and Expression's look, from `lamp/online`.
 
 ## What steps 2 to 4 will build
 

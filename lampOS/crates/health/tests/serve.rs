@@ -141,6 +141,7 @@ impl Rig {
                 health_every: ms(300),
                 board_every: ms(100),
             },
+            online: false,
         };
         change(&mut options);
         let (said_so, saying) = mpsc::channel();
@@ -1023,4 +1024,56 @@ fn the_lamps_own_times_follow_from_the_stale_time() {
     assert_eq!(Times::with_stale_after(ms(3_000)), times);
     assert_eq!(Times::with_stale_after(ms(600)).report_every, ms(200));
     assert_eq!(Times::with_stale_after(ms(100)).report_every, ms(100) / 3);
+}
+
+#[test]
+fn lamp_online_follows_the_voice_link_only_when_asked() {
+    // Off: nothing is published on the topic.
+    let mut quiet = Rig::new("offline-off");
+    let mut voice = quiet.part("voice");
+    report(&mut voice, Level::Ok, "voice", "");
+    quiet.health_where("the voice is in", |health| {
+        level_of(health, "voice").is_some()
+    });
+    assert!(
+        quiet
+            .bus
+            .latest(lamp_msgs::Online::TOPIC)
+            .unwrap()
+            .is_none()
+    );
+    quiet.stop();
+    // On: the voice's link, as it says it.
+    let mut rig = Rig::with("offline-on", |options| options.online = true, None, |_| {});
+    let mut voice = rig.part("voice");
+    let mut online = rig
+        .bus
+        .subscribe_typed(lamp_msgs::Online::TOPIC, "test", lamp_msgs::Online::TYPE)
+        .unwrap();
+    for (link, wanted) in [("ready", Some(true)), ("down", Some(false))] {
+        let sent = voice
+            .publish_json(
+                0,
+                &Diagnostic::new(Level::Warn, "voice", "it cannot reach the speech service")
+                    .with("link", link)
+                    .with("down_for_s", 7),
+            )
+            .unwrap();
+        assert!(sent.delivered >= 1);
+        let deadline = std::time::Instant::now() + Duration::from_secs(5);
+        loop {
+            assert!(std::time::Instant::now() < deadline, "{link}: never said");
+            let Some(message) = online.recv(ms(50)).unwrap() else {
+                continue;
+            };
+            let said = message.parse::<lamp_msgs::Online>().unwrap();
+            if said.online == wanted {
+                assert!(said.check().is_ok());
+                assert_eq!(said.from, "voice");
+                assert_eq!(said.down_for_s, (wanted == Some(false)).then_some(7));
+                break;
+            }
+        }
+    }
+    rig.stop();
 }

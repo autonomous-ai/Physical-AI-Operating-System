@@ -261,6 +261,17 @@ When the user explicitly says to commit:
 3. Commit with the one-line message above, nothing else in it.
 4. Commit only. Do not push unless the user says to.
 
+**Exception for lampOS builders (the owner, 2026-10-15 19:36: "change it!",
+after being told builders stopped at every commit waiting for a person).** A
+lampOS builder (a session working as a builder named in `lampOS/builders/`,
+as `lampOS/docs/joining.md` describes) **may commit and push its own branches
+without asking**: `<name>/*` and `lamp-<name>`, once the change passes its gate
+(the checks its task and role file name). The rest of this section still
+holds for it: one-line messages, the exact files only, never `git add -A`. It
+never pushes to `lamp-voice`, `main` or another builder's branch. Work reaches
+`lamp-voice` only by a pull request, merged by the reviewer or the first
+builder. Outside lampOS builder work, the rule above stands unchanged.
+
 ### Naming (paths under `system/`)
 - Handlers: `server/<domain>/delivery/http/handler.go`
 - Services: `<domain>/service.go` (system managers live at `system/<domain>/`, e.g. `ambient/service.go`)

@@ -302,6 +302,10 @@ dependency had to be found by hand. Decided: yes, but as follows.
   unless set, a lamp's own folder, or changes every lamp's default); the
   switch and the test that shows nothing changes without it; the
   verification folder; the gate as run, with counts. No attribution.
+- **Commit and push your own branches without asking** (the owner,
+  2026-10-15, the exception in the repository's `CLAUDE.md`, "Committing"):
+  `<name>/*` and `lamp-<name>`, once your gate passes. Never `lamp-voice`,
+  `main` or another builder's branch. A person is not asked for each commit.
 - **Each commit in it is one the first builder would write:** one line,
   `lampOS: ...`, passing the gate on its own. Fold fix-ups into it on your
   branch before marking it ready.

@@ -966,6 +966,13 @@ async fn serve_with_visual<C: Connect>(
                     channels.control.send(WorkerEvent::ProviderLink { link }))?;
                 // What the executive made of the calls it was asked.
                 desk.answer(&provider);
+                // Each call answered, for the first-output record when
+                // there is one (#799); let go when there is none.
+                for line in desk.take_lines() {
+                    if let Some(log) = first_output.as_mut() {
+                        log.tool_call(&line);
+                    }
+                }
                 // A session that has answered nothing for a long run of
                 // requests is replaced the next time nothing is owed on it.
                 if UNANSWERED.load(std::sync::atomic::Ordering::Relaxed) >= RENEW_AFTER_UNANSWERED
@@ -1549,7 +1556,12 @@ struct ToolDesk {
     named: Option<(u64, u64)>,
     /// The newest request an answer's sound came for, and when it began.
     sounded: Option<(u64, u64)>,
+    /// Each call answered since the worker last took them, for the
+    /// first-output record (#799).
+    lines: Vec<crate::first_output::ToolCallLine>,
 }
+/// Calls kept for the first-output record between two ticks at most.
+const MOST_CALL_LINES: usize = 64;
 /// A call the executive or the memory was asked, with what to tell the
 /// model.
 struct Asked {
@@ -1561,6 +1573,8 @@ struct Asked {
     whom: &'static str,
     answered: bool,
     took: Duration,
+    /// When the call reached the worker.
+    called_us: u64,
 }
 impl ToolDesk {
     fn new(settings: crate::tools::Settings) -> Self {
@@ -1575,6 +1589,7 @@ impl ToolDesk {
             name_signal: false,
             named: None,
             sounded: None,
+            lines: Vec::new(),
         }
     }
     /// The first sound of an answer to `request` has come. Said once for a
@@ -1609,8 +1624,11 @@ impl ToolDesk {
     ) {
         use crate::tools::Route;
         let request = lineage.request.get();
+        let called_us = monotonic_us();
         let tell = |told: &serde_json::Value| {
-            let _ = provider.try_tool_response(lineage.session, &call.id, &call.name, told);
+            provider
+                .try_tool_response(lineage.session, &call.id, &call.name, told)
+                .is_ok()
         };
         // A request whose answer is held back has nothing done for it
         // either: the call is answered, and not run.
@@ -1624,7 +1642,8 @@ impl ToolDesk {
                     | Route::Faces(_)
             )
         {
-            tell(&crate::tools::declined());
+            let sent = tell(&crate::tools::declined());
+            self.line(lineage.session, request, &call.name, called_us, true, sent);
             eprintln!(
                 "lamp-voice provider: request {request} asked for {}; not done: its answer is held back",
                 call.name
@@ -1632,7 +1651,8 @@ impl ToolDesk {
             return;
         }
         if self.name_signal && call.name == crate::attention::HEARD_MY_NAME {
-            tell(&crate::tools::declined());
+            let sent = tell(&crate::tools::declined());
+            self.line(lineage.session, request, &call.name, called_us, true, sent);
             let now = monotonic_us();
             self.named = Some((request, now));
             match self.sounded {
@@ -1649,7 +1669,8 @@ impl ToolDesk {
         match crate::tools::route(&self.settings, &call.name) {
             Route::Clock => {
                 let told = crate::tools::time_now();
-                tell(&told);
+                let sent = tell(&told);
+                self.line(lineage.session, request, &call.name, called_us, true, sent);
                 eprintln!(
                     "lamp-voice provider: request {request}: the model asked the time; told {told}"
                 );
@@ -1657,14 +1678,16 @@ impl ToolDesk {
             Route::Decline if self.acted == Some(request) => {
                 // Every call is answered, this one too. What the model
                 // says next is not dropped.
-                tell(&crate::tools::declined());
+                let sent = tell(&crate::tools::declined());
+                self.line(lineage.session, request, &call.name, called_us, true, sent);
                 eprintln!(
                     "lamp-voice provider: request {request}: the model said it was not for it after doing what was asked; not taken"
                 );
             }
             Route::Decline => {
                 self.declined = Some(request);
-                tell(&crate::tools::declined());
+                let sent = tell(&crate::tools::declined());
+                self.line(lineage.session, request, &call.name, called_us, true, sent);
                 eprintln!(
                     "lamp-voice provider: request {request}: the model said it was not for it"
                 );
@@ -1731,11 +1754,15 @@ impl ToolDesk {
                             whom,
                             answered,
                             took: started.elapsed(),
+                            called_us,
                         });
                     });
                 match spawned {
                     Ok(_) => self.waiting += 1,
-                    Err(_) => tell(&crate::tools::unavailable()),
+                    Err(_) => {
+                        let sent = tell(&crate::tools::unavailable());
+                        self.line(lineage.session, request, &call.name, called_us, false, sent);
+                    }
                 }
             }
             Route::Executive(_)
@@ -1744,7 +1771,8 @@ impl ToolDesk {
             | Route::Tasks(_)
             | Route::Faces(_)
             | Route::Nobody => {
-                tell(&crate::tools::unavailable());
+                let sent = tell(&crate::tools::unavailable());
+                self.line(lineage.session, request, &call.name, called_us, false, sent);
                 eprintln!(
                     "lamp-voice provider: request {request} asked for {}, which nobody here runs; told so",
                     call.name
@@ -1756,11 +1784,17 @@ impl ToolDesk {
     /// for a connection that has gone is refused by the supervisor: the
     /// call went with it.
     fn answer<C: Connect>(&mut self, provider: &Supervisor<C>) {
+        self.answer_with(|done| {
+            provider
+                .try_tool_response(done.session, &done.call.id, &done.call.name, &done.told)
+                .is_ok()
+        });
+    }
+    /// As [`Self::answer`], with `send` handing an answer to the connection.
+    fn answer_with(&mut self, mut send: impl FnMut(&Asked) -> bool) {
         while let Ok(done) = self.answers.try_recv() {
             self.waiting = self.waiting.saturating_sub(1);
-            let taken = provider
-                .try_tool_response(done.session, &done.call.id, &done.call.name, &done.told)
-                .is_ok();
+            let taken = send(&done);
             eprintln!(
                 "lamp-voice provider: request {} asked for {}; {} {} in {} ms; the answer was {}",
                 done.request,
@@ -1778,7 +1812,41 @@ impl ToolDesk {
                     "not sent: its connection has gone"
                 }
             );
+            self.line(
+                done.session,
+                done.request,
+                &done.call.name,
+                done.called_us,
+                done.answered,
+                taken,
+            );
         }
+    }
+    /// One call answered, kept for the first-output record.
+    fn line(
+        &mut self,
+        session: SessionId,
+        request: u64,
+        name: &str,
+        called_us: u64,
+        answered: bool,
+        sent: bool,
+    ) {
+        if self.lines.len() < MOST_CALL_LINES {
+            self.lines.push(crate::first_output::ToolCallLine {
+                session: session.get(),
+                request,
+                name: name.to_owned(),
+                called_us,
+                sent_us: monotonic_us(),
+                answered,
+                sent,
+            });
+        }
+    }
+    /// The calls answered since the last take.
+    fn take_lines(&mut self) -> Vec<crate::first_output::ToolCallLine> {
+        std::mem::take(&mut self.lines)
     }
 }
 
@@ -2841,6 +2909,64 @@ mod tests {
     use std::cell::{Cell, RefCell};
 
     const NOW: u64 = 10_000_000;
+
+    /// #799: each call answered is kept for the first-output record with
+    /// when it came and when its answer was sent, whether the connection
+    /// took it or not, and what is taken is not kept again.
+    #[test]
+    fn each_call_answered_is_kept_for_the_record_with_when_it_came_and_was_sent() {
+        let mut desk = ToolDesk::new(crate::tools::Settings::default());
+        let asked = |request: u64, name: &str, answered: bool| Asked {
+            session: SessionId::new(2).unwrap(),
+            request,
+            call: lamp_gemini::ToolCall {
+                id: format!("call-{request}"),
+                name: name.into(),
+                args: serde_json::json!({"task": "private words"}),
+            },
+            told: serde_json::json!({"prepared": true}),
+            whom: "the tasks part",
+            answered,
+            took: Duration::from_millis(41),
+            called_us: 1_000,
+        };
+        desk.asked.send(asked(7, "start_agent_task", true)).unwrap();
+        desk.asked
+            .send(asked(8, "check_agent_task", false))
+            .unwrap();
+        desk.waiting = 2;
+        let before = monotonic_us();
+        let mut sent = Vec::new();
+        desk.answer_with(|done| {
+            sent.push(done.request);
+            done.request == 7
+        });
+        assert_eq!(sent, [7, 8]);
+        assert_eq!(desk.waiting, 0);
+        let lines = desk.take_lines();
+        assert_eq!(lines.len(), 2);
+        assert_eq!(
+            (lines[0].session, lines[0].request, lines[0].name.as_str()),
+            (2, 7, "start_agent_task")
+        );
+        assert_eq!(lines[0].called_us, 1_000);
+        assert!(lines[0].sent_us >= before);
+        assert_eq!((lines[0].answered, lines[0].sent), (true, true));
+        assert_eq!((lines[1].answered, lines[1].sent), (false, false));
+        assert!(desk.take_lines().is_empty());
+        // Never more than a tick's worth is kept.
+        for request in 0..(MOST_CALL_LINES as u64 + 5) {
+            desk.line(
+                SessionId::new(2).unwrap(),
+                request,
+                "the_time",
+                1,
+                true,
+                true,
+            );
+        }
+        assert_eq!(desk.take_lines().len(), MOST_CALL_LINES);
+    }
 
     #[test]
     fn started_wire_retains_actual_source_session_and_requires_it_on_decode() {

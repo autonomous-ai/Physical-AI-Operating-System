@@ -277,7 +277,7 @@ the request ended. Nothing is captured, played or changed on the lamp.
 
 ### Where a turn with a function call spends its time (#799)
 
-    lamp-voice provider-check /etc/lampOS/voice/provider.json --tool-turns 5
+    lamp-voice provider-check /etc/lampOS/voice/provider.json --tool-turns 5 [--thinking TOKENS]
 
 On lamp-4ace on 2026-10-15 a plain answer began 0.87 to 1.45 s after the
 end of speech was decided, and a turn with a function call 1.8 to 2.9 s
@@ -312,11 +312,42 @@ times in milliseconds from the request being written: `call_ms`,
 (the model's second generation), `lead_in_ms` (audio said before the
 call), what was said and how it ended. Then a `tool_turns_summary` line
 with the medians for each request, for plain turns and for turns that
-called the function expected.
+called the function expected. `--thinking TOKENS` sets the thinking budget
+for that run alone (lamp-4ace's `provider.json` has 128), so `--thinking 0`
+against none says what thinking costs each of the two generations; the
+summary says which budget it ran with.
 
 A written request is not speech. These times leave out the lamp's end of
 speech, its 350 ms playout start and the speaker, and measure only what
 the model adds; the first sound in the room comes later by those.
+
+**From the lamp's own turns:**
+
+    lamp-voice turn-times SESSIONS [FIRST_OUTPUT]
+
+reads the session records under SESSIONS (`<session>/metadata/events-*.jsonl`)
+and, if given, the provider worker's first-output files under FIRST_OUTPUT
+(`LAMP_FIRST_OUTPUT`), and prints one line a turn, every time in
+milliseconds after the voice decided the person had finished
+(`local_endpoint`):
+- the model's first output and what it was (`audio`, `output_transcript` or
+  `tool_call`);
+- the first function call and when our answer was sent (from the
+  `voice_tool_call` lines, [attention.md](attention.md#the-record-of-whom-it-answered));
+- the model's first audio (`provider_first_audio`);
+- the first write the speaker accepted (`speaker_first_write`);
+- how the turn ended.
+
+Then medians for turns with a function call and for plain ones, with each
+step of the first: the call, our answer, the model's audio after it, and the
+sound. A turn whose only calls are `not_for_me` or `heard_my_name` is plain:
+those say whom the model heard, not something to do. A first-output line is
+matched to the turn of its number whose end of speech came at most a minute
+before it, since turn numbers begin again each time the voice starts. Every
+time is the lamp's monotonic clock, and nothing is read but numbers and
+function names: no words heard or said are printed. Records written before
+`voice_tool_call` lines existed still give each turn's first output (a call
+when it came first) and its sound.
 
 ## Not shown
 

@@ -320,7 +320,6 @@ fn run(arguments: Arguments) -> Result<(), Box<dyn std::error::Error + Send + Sy
         Err(error) => return Err(error.into()),
     }
     let permits = UnixDatagram::bind(&arguments.permit_socket)?;
-    permits.set_nonblocking(true)?;
     let out = UnixDatagram::unbound()?;
     out.set_nonblocking(true)?;
     let tell = |seen: Seen| {
@@ -352,7 +351,7 @@ fn run(arguments: Arguments) -> Result<(), Box<dyn std::error::Error + Send + Sy
     let mut still = arguments.leave_still.then(lamp_eyes::still::Still::default);
     let mut epoch = 0u64;
     let mut port: Option<LinuxPort> = None;
-    let mut permit = lamp_eyes::permit::Permit::default();
+    let permit = lamp_eyes::permit::Permit::listen(permits)?;
     let mut retry_at = Instant::now();
     let mut frame = vec![0u8; MAX_FRAME_BYTES];
     // Bytes of a frame that has not been looked at yet.
@@ -462,7 +461,6 @@ fn run(arguments: Arguments) -> Result<(), Box<dyn std::error::Error + Send + Sy
                 }
             }
         }
-        permit.hear(&permits);
         if !permit.holds() {
             if let Some(mut open) = port.take() {
                 let _ = open.stop(budget(STOP));
@@ -517,7 +515,8 @@ fn run(arguments: Arguments) -> Result<(), Box<dyn std::error::Error + Send + Sy
                     epoch: NonZeroU64::new(epoch).ok_or("no epoch")?,
                 },
                 // A camera closed a moment ago is slow to start (#911). The
-                // permission is heard again as soon as the start returns.
+                // permission is heard all the while, on a thread of its own,
+                // and checked again as soon as the start returns.
                 budget(OPEN_BUDGET_US),
             );
             let took_ms = opening.diagnostics().start.map_or(0, |timing| {
@@ -531,7 +530,7 @@ fn run(arguments: Arguments) -> Result<(), Box<dyn std::error::Error + Send + Sy
                 Ok(mode) => {
                     // The open may outlast the permission, or it may be taken
                     // back meanwhile: then no frame is read and it closes now.
-                    let Some(opening) = permit.opened(&permits, opening, |mut opening| {
+                    let Some(opening) = permit.opened(opening, |mut opening| {
                         let _ = opening.stop(budget(STOP));
                     }) else {
                         eprintln!(

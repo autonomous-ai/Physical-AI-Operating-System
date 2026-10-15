@@ -129,8 +129,13 @@ minute.
 `lamp-expression serve --kernel-clock` gives the alive layer the time of day
 only while the kernel says the clock is set; with none it knows no night, so
 it does not fall asleep or wake by a wrong clock, and says once when the
-clock is found not set and again when it is set. Off unless set. Next: the
-voice's time.
+clock is found not set and again when it is set. Off unless set.
+
+The voice with `LAMP_KERNEL_CLOCK=on` asks the kernel before telling a time:
+while the clock is not set, `the_time` says it has not been set and a new
+session is told it does not know the time, never to guess
+([tools.md](tools.md)). Off unless set. Next: the voice and the light when
+the internet is down (`lamp/online`, the recorded line).
 
 ## What steps 2 to 4 will build
 

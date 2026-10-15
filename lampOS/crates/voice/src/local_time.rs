@@ -284,8 +284,36 @@ pub fn offset_here() -> Option<i32> {
     offset_at(&file, i64::try_from(now).ok()?)
 }
 
+/// `on` for the voice to ask the kernel whether the clock is set before it
+/// tells or is told a time (#830, `docs/offline.md`). The lamp has no
+/// battery clock: until a time client sets it, it is its last saved time.
+pub const KERNEL_CLOCK_ENVIRONMENT: &str = "LAMP_KERNEL_CLOCK";
+
+/// What a session is told when the clock has not been set.
+pub const TOLD_UNSET: &str = "\n\nThe time\nYour clock has not been set yet, so you do not know the time or the date. If someone asks, say plainly that you do not know the time right now; never guess one.";
+
+/// What the model is told when it asks the time and the clock is not set.
+pub const SAID_UNSET: &str =
+    "My clock has not been set yet, so I do not know the time or the date right now.";
+
+/// Whether the clock is known not to be set: only with the switch on, and
+/// only when the kernel does not say it is set.
+pub fn unset(switch: Option<&str>, kernel: Option<bool>) -> bool {
+    switch == Some("on") && kernel != Some(true)
+}
+
+fn unset_here() -> bool {
+    unset(
+        std::env::var(KERNEL_CLOCK_ENVIRONMENT).ok().as_deref(),
+        lamp_ipc::clock_synced(),
+    )
+}
+
 /// The same for this machine, now.
 pub fn told_here(clock: bool) -> Option<String> {
+    if unset_here() {
+        return Some(TOLD_UNSET.to_owned());
+    }
     let (file, now) = here()?;
     if clock {
         told_with_clock(&file, now)
@@ -294,10 +322,16 @@ pub fn told_here(clock: bool) -> Option<String> {
     }
 }
 
-/// The time now where the lamp stands, exactly, in words.
-pub fn now_here() -> Option<String> {
-    let (file, now) = here()?;
-    said(&file, now)
+/// The time now where the lamp stands, exactly, in words; `Err` with what
+/// to say when the clock is known not to be set.
+pub fn now_here() -> Result<Option<String>, &'static str> {
+    if unset_here() {
+        return Err(SAID_UNSET);
+    }
+    let Some((file, now)) = here() else {
+        return Ok(None);
+    };
+    Ok(said(&file, now))
 }
 
 fn here() -> Option<(Vec<u8>, i64)> {
@@ -312,6 +346,16 @@ fn here() -> Option<(Vec<u8>, i64)> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_clock_is_unset_only_with_the_switch_on_and_no_set_from_the_kernel() {
+        assert!(!unset(None, Some(false)));
+        assert!(!unset(Some("off"), None));
+        assert!(!unset(Some("on"), Some(true)));
+        assert!(unset(Some("on"), Some(false)));
+        assert!(unset(Some("on"), None));
+        assert!(TOLD_UNSET.contains("not been set") && SAID_UNSET.contains("not been set"));
+    }
 
     /// A zone file: `changes` are (moment, kind), `offsets` the seconds east
     /// of each kind, `rule` the line after the second table.

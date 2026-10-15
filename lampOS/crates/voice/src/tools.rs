@@ -316,11 +316,13 @@ fn the_time() -> Tool {
 }
 
 /// What the model is told when it asks the time: the lamp's clock now, in
-/// words, or that the clock could not be read.
+/// words, that it has not been set (`LAMP_KERNEL_CLOCK`), or that it could
+/// not be read.
 pub fn time_now() -> Value {
     match crate::local_time::now_here() {
-        Some(now) => json!({ "now": now }),
-        None => json!({"error": "My clock could not be read just now."}),
+        Ok(Some(now)) => json!({ "now": now }),
+        Ok(None) => json!({"error": "My clock could not be read just now."}),
+        Err(unset) => json!({ "error": unset }),
     }
 }
 

@@ -214,6 +214,16 @@ It is told `{"now":"It is 11:47 in the morning, Wednesday 14 October
 or `{"error":"My clock could not be read just now."}`. Unlike
 `not_for_me`, it is not silent: the model says what it was told. A whole five is said as past or to ("ten past six", "quarter to seven"), any other minute as the clock reads ("twelve forty-two", "six oh seven"): on lamp-4ace on 2026-10-16 the lamp said "eighteen to one at night", which nobody says.
 
+With `LAMP_KERNEL_CLOCK=on` as well (#830, [offline.md](offline.md)) the
+voice first asks the kernel whether the clock is set
+(`lamp_ipc::clock_synced`, as `timedatectl`'s `NTPSynchronized`). While it
+is not, `the_time` answers `{"error":"My clock has not been set yet, so I do
+not know the time or the date right now."}` and a new session is told that
+its clock has not been set, that it does not know the time or the date, and
+never to guess one, in place of the time it woke: a lamp has no battery
+clock, and after power with no internet its clock is its last saved time.
+Off unless set; with it off both are as above.
+
 Why: a session is told the time when it opens, and may run for hours. On
 lamp-4ace on 2026-10-14 a session opened at 10:48 told someone at 11:17
 that it was "roughly around ten forty-five": it was doing as told ("this

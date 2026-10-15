@@ -1,0 +1,7 @@
+FAIL: it says the lock is unchanged (no 'the lock is unchanged' in /tmp/tmp.rlwvvkTr9e/out)
+FAIL: it does not say nothing changed (expected exit 0, got 1)
+FAIL: the log records the attempt (no 'bob (s2) is taking it from:' in /tmp/tmp.rlwvvkTr9e/lamp/lamp.lock.log)
+FAIL: and its failure (no 'bob (s2) could not replace it' in /tmp/tmp.rlwvvkTr9e/lamp/lamp.lock.log)
+FAIL: the log never says taken (expected exit 0, got 1)
+FAIL: run ends from the fork window within its bound (expected exit 0, got 1)
+lamp-lock: 102 passed, 6 failed

@@ -1,0 +1,5 @@
+FAIL: a run from a terminal whose command reads input (expected exit 0, got 124)
+FAIL: it ends, not stopped by the terminal (expected exit 0, got 1)
+FAIL: the command read an empty input (no 'read:[]' in /tmp/tmp.KX5aELkigu/out)
+FAIL: and the lock released after the terminal run (expected exit 0, got 1)
+lamp-lock: 108 passed, 4 failed

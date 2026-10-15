@@ -1,0 +1,1 @@
+lamp-lock: 108 passed, 0 failed

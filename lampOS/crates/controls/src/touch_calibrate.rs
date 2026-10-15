@@ -184,8 +184,11 @@ pub struct Report {
     /// How many working pads were lit at once while a pad was touched, in the
     /// swipe step: index 0 to 4 counts readings with that many, index 5 with
     /// five or more. `footprint_old` is what the chip said with the profile's
-    /// thresholds; `footprint_new` is the same readings against the new ones.
-    /// The base's touch needs three pads at once (`docs/controls.md`).
+    /// thresholds; `footprint_new` replays the same readings with the new
+    /// thresholds, the release below the touch and the profile's debounce, as
+    /// the chip keeps a pad lit (`docs/controls.md`). It is a replay of the
+    /// deltas as read: the chip may compare up to [`BASELINE_HIDDEN`] more,
+    /// and it samples between the readings.
     pub footprint_old: [u64; 6],
     pub footprint_new: [u64; 6],
 }
@@ -257,14 +260,15 @@ pub fn thresholds(noise: u16, level: u16, plan: &Plan) -> Result<(u8, u8), Verdi
     Ok((touch as u8, release as u8))
 }
 
-/// The lowest of `peaks` that reached [`OWN_SHARE_PERCENT`] of the highest.
+/// The lowest of `peaks` that reached [`OWN_SHARE_PERCENT`] of the highest,
+/// compared without rounding: 16 is under half of 33.
 pub fn own_level(peaks: &[u16]) -> Option<u16> {
     let strongest = *peaks.iter().max()?;
-    let floor = u32::from(strongest) * u32::from(OWN_SHARE_PERCENT) / 100;
+    let cutoff = u32::from(strongest) * u32::from(OWN_SHARE_PERCENT);
     peaks
         .iter()
         .copied()
-        .filter(|&peak| u32::from(peak) >= floor)
+        .filter(|&peak| u32::from(peak) * 100 >= cutoff)
         .min()
 }
 
@@ -430,7 +434,30 @@ pub fn analyse(session: &Session, pads: &[u8], profile: &Profile, plan: Plan) ->
         .collect();
     let mut footprint_old = [0_u64; 6];
     let mut footprint_new = [0_u64; 6];
+    // Each pad as the chip would hold it with the new thresholds: lit after
+    // debounce + 1 readings in a row above its touch threshold, and unlit
+    // only after as many below its release threshold, so a pad between the
+    // two stays lit (#797 review).
+    let (to_touch, to_release) = (
+        u32::from(profile.debounce_touch) + 1,
+        u32::from(profile.debounce_release) + 1,
+    );
+    let mut lit = vec![false; pads_report.len()];
+    let mut streak = vec![0_u32; pads_report.len()];
     for (signals, touched) in session.swipe.iter().zip(&active) {
+        for (index, pad) in pads_report.iter().enumerate() {
+            let delta = signals.delta(usize::from(pad.electrode));
+            let (crossing, needed) = if lit[index] {
+                (delta < i32::from(pad.release_threshold), to_release)
+            } else {
+                (delta > i32::from(pad.touch_threshold), to_touch)
+            };
+            streak[index] = if crossing { streak[index] + 1 } else { 0 };
+            if streak[index] >= needed {
+                lit[index] = !lit[index];
+                streak[index] = 0;
+            }
+        }
         if touched.is_none() {
             continue;
         }
@@ -438,12 +465,7 @@ pub fn analyse(session: &Session, pads: &[u8], profile: &Profile, plan: Plan) ->
             .iter()
             .filter(|&&e| signals.touched & (1 << e) != 0)
             .count();
-        let new = pads_report
-            .iter()
-            .filter(|pad| {
-                signals.delta(usize::from(pad.electrode)) > i32::from(pad.touch_threshold)
-            })
-            .count();
+        let new = lit.iter().filter(|&&lit| lit).count();
         footprint_old[old.min(5)] += 1;
         footprint_new[new.min(5)] += 1;
     }

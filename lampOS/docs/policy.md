@@ -1003,7 +1003,9 @@ the tasks part going and coming back as another run (the reviewer on #751,
 `the_quarter_hour_after_a_note_outlives_the_tasks_part_going_and_coming_back`).
 A task the tasks part lists as `unread` (watched, not read yet in this run)
 keeps what is kept of it, and nothing is asked of it until a read of this
-run comes; one in neither list has left the watch and is let go
+run comes; that first read is judged from the run's beginning at whatever
+count it comes, even when an earlier read of the run was missed (the
+reviewer on #793, 17:48); one in neither list has left the watch and is let go
 (`a_task_unread_in_a_new_run_is_kept_and_not_asked_about_until_read`).
 One progress question is out at a time.
 

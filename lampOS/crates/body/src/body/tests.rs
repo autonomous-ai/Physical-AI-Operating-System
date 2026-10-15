@@ -3314,6 +3314,59 @@ fn a_standing_shoulder_pushing_short_of_its_goal_is_told_to_stop_and_keeps_its_t
     assert!(lamp.servos.iter().all(|servo| servo.torque == 1));
 }
 
+/// A folded arm lifted by a hand and held is told to stop pushing, and is
+/// held there only for a while: then it goes back down to where it rested,
+/// so that the next start does not find it off its way.
+#[test]
+fn a_folded_elbow_lifted_and_held_by_a_hand_goes_back_down_once_let_go() {
+    let ms = Duration::from_millis;
+    let ran = |give_way: Option<GiveWay>| {
+        let (mut lamp, mut clock) = folded(Duration::from_secs(14));
+        lamp.arm_moves = true;
+        lamp.overload_clears = 1;
+        let rest = lamp.servos[2].position;
+        // Lifted 200 counts, past what a standing arm may be off its goal,
+        // held there for three seconds, let go.
+        lamp.hand = Some((ms(3_000), ms(7_000), 2, rest + 200.0));
+        lamp.strains = vec![(ms(3_000), ms(7_000), 2, 200)];
+        let news = || Some((Mood::Resting, 0));
+        let mut seen = Vec::new();
+        let limits = Limits {
+            give_way,
+            ..giving_way(GiveWay::Return)
+        };
+        let report = run_standing(
+            &mut lamp,
+            &mut clock,
+            limits,
+            Some(HOME),
+            Some(standing(100, 60)),
+            news,
+            |glimpse| seen.push(*glimpse),
+        );
+        (report, seen, rest)
+    };
+    let (report, seen, rest) = ran(Some(GiveWay::Return));
+    assert_eq!(report.stop, Stop::Cancelled, "{report:?}");
+    assert!(!report.stood, "{report:?}");
+    assert!(report.stalls[4] >= 1, "{report:?}");
+    let end = seen.last().unwrap();
+    assert!(
+        (f32::from(end.arm_goals[1]) - rest).abs() <= 2.0
+            && (f32::from(end.arm_positions[1]) - rest).abs() <= 6.0,
+        "{end:?}"
+    );
+    // Without the option, as before: no stall rule, and the elbow's goal
+    // never leaves where it rested.
+    let (report, seen, rest) = ran(None);
+    assert_eq!(report.stalls, [0; 5], "{report:?}");
+    assert!(
+        seen.iter()
+            .all(|g| (f32::from(g.arm_goals[1]) - rest).abs() <= 2.0),
+        "{report:?}"
+    );
+}
+
 /// lamp-52e6 after its power was cut and came back on 2026-10-14: every
 /// servo with torque off and a goal of 0, the head drooped from 1,771 to
 /// 2,034, the base and the roll moved. Its unit's options, with `--wake on`.

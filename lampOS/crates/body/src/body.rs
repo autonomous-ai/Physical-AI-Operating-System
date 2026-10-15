@@ -1771,6 +1771,8 @@ struct Stall {
     /// Told to stop pushing: the goal wanted of it then, and where it is
     /// held instead.
     hold: Option<(u16, u16)>,
+    /// Steps it has been held so far.
+    held: u16,
 }
 
 impl Stall {
@@ -1789,6 +1791,7 @@ impl Stall {
         }
         self.steps = 0;
         self.hold = Some((wanted, is.position));
+        self.held = 0;
         true
     }
 
@@ -1796,7 +1799,10 @@ impl Stall {
     /// `WAKE_COUNTS` from what was wanted when it stalled.
     fn holding(&mut self, wanted: u16) -> Option<u16> {
         match self.hold {
-            Some((was, at)) if f32::from(wanted.abs_diff(was)) < WAKE_COUNTS => Some(at),
+            Some((was, at)) if f32::from(wanted.abs_diff(was)) < WAKE_COUNTS => {
+                self.held = self.held.saturating_add(1);
+                Some(at)
+            }
             _ => {
                 self.hold = None;
                 None
@@ -2973,7 +2979,22 @@ pub(crate) fn run_alive(
             }
             if standing.is_some() {
                 for index in 0..2 {
-                    if let Some(at) = stalls[3 + index].holding(arm_goals[index]) {
+                    // A resting arm's goal is kept from step to step, not
+                    // made again: held where a hand lifted it, that goal
+                    // stayed there for good, and on lamp-52e6 on 2026-10-15
+                    // the next start found the elbow 99 counts off its way
+                    // and would not stand. So what is wanted of it is what
+                    // it rested at, it is held only as long as a joint that
+                    // gave way is, and then goes back down; a hand still on
+                    // it is given way to again.
+                    let wanted = match stalls[3 + index].hold {
+                        Some((was, _)) if arm_rests => was,
+                        _ => arm_goals[index],
+                    };
+                    if arm_rests && stalls[3 + index].held >= EASE_STEPS {
+                        stalls[3 + index].hold = None;
+                        arm_goals[index] = wanted;
+                    } else if let Some(at) = stalls[3 + index].holding(wanted) {
                         arm_goals[index] = at;
                     }
                 }

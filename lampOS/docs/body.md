@@ -1091,7 +1091,13 @@ and the elbow of a lamp given `--stand`) whose goal is more than 6 counts
 from where it is, whose load is over 100 and which moves no more than 6
 counts for 1.5 s, is given its own position as its goal (not one that gave
 way and may be in a hand: held where a hand left it, it would never come
-back). It is held there
+back). A folded arm at rest (its goal kept where it came to rest) has
+nothing to push at but a hand: it is held where the hand has it for two
+seconds, as a joint that gave way is, and then its goal goes back to where
+it rested, the hand given way to again if still there. On lamp-52e6 on
+2026-10-15 a hand lifted the folded elbow 103 counts; held there for good,
+the next start found it 99 counts off its way and the lamp would not
+stand. Otherwise it is held there
 until what is wanted of it moves 20 counts or more from what was wanted
 when it stalled (a new mood, the arm rising or folding), and then follows
 again. Torque is never written off for it. Why these numbers:
@@ -1161,7 +1167,9 @@ torque write is ever anything but on; told to come back, a head tilted 60
 counts by a hand at a load of 240 and held for three seconds, and a base
 turned 40 counts at 120, give way, the run goes on, and each is back
 where it was once let go, while without the option the same hand ends the
-run.
+run; a folded elbow lifted 200 counts by a hand for three seconds is
+given way to and is back where it rested once let go, and without the
+option it has no stall rule and its goal never leaves where it rested.
 
 **Not shown:** that any of it is right against a hand. Whether a real
 hand reads over the load bounds while it moves a joint (a servo whose

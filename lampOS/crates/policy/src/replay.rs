@@ -570,19 +570,54 @@ pub fn pictures_summary(lines: &[Value], labels: &BTreeMap<u64, Should>) -> Valu
         json!({"labelled": judged.len(), "right": right,
                "yes": judged.iter().filter(|(_, yes)| *yes).count()})
     };
-    let mut signs = serde_json::Map::new();
-    for (name, means) in [
+    let answered =
+        |line: &Value, name: &str| line["with"]["answers"][name].as_f64().map(|yes| yes >= 0.5);
+    // The questions that take a person for granted, and what a yes to
+    // each means.
+    const OF_A_PERSON: [(&str, Should); 4] = [
         ("picture_faces_lamp", Should::Answer),
         ("picture_asks_with_a_look", Should::Answer),
         ("picture_absorbed", Should::StayQuiet),
         ("picture_talking_to_another", Should::StayQuiet),
-        ("picture_away", Should::StayQuiet),
-    ] {
-        let yes = |line: &Value| line["with"]["answers"][name].as_f64().map(|yes| yes >= 0.5);
+    ];
+    let mut signs = serde_json::Map::new();
+    for (name, means) in OF_A_PERSON
+        .into_iter()
+        .chain([("picture_away", Should::StayQuiet)])
+    {
+        let yes = |line: &Value| answered(line, name);
         signs.insert(name.to_owned(), sign(&yes, means));
     }
     let facing = |line: &Value| line["seen"]["facing"].as_u64().map(|facing| facing > 0);
     signs.insert("eyes_facing".to_owned(), sign(&facing, Should::Answer));
+    // The same, only where the picture was said to have a person in it
+    // (`picture_person`, the first builder on #871): on an empty desk they
+    // are answered near chance.
+    let mut given_a_person = serde_json::Map::new();
+    for (name, means) in OF_A_PERSON {
+        let yes = |line: &Value| {
+            answered(line, "picture_person")
+                .filter(|person| *person)
+                .and_then(|_| answered(line, name))
+        };
+        given_a_person.insert(name.to_owned(), sign(&yes, means));
+    }
+    // Whether the picture's person and the eyes' faces agree, line by line.
+    let both: Vec<(bool, bool)> = sent
+        .iter()
+        .filter_map(|(line, _)| {
+            Some((
+                answered(line, "picture_person")?,
+                line["seen"]["faces"].as_u64()? > 0,
+            ))
+        })
+        .collect();
+    let person = json!({
+        "lines": both.len(),
+        "yes": both.iter().filter(|(person, _)| *person).count(),
+        "eyes_saw_a_face": both.iter().filter(|(_, face)| *face).count(),
+        "agree": both.iter().filter(|(person, face)| person == face).count(),
+    });
     json!({
         "status": "pictures_summary",
         "questions": lines.len(),
@@ -593,6 +628,8 @@ pub fn pictures_summary(lines: &[Value], labels: &BTreeMap<u64, Should>) -> Valu
         "without": asking("without"),
         "with": asking("with"),
         "signs": signs,
+        "signs_given_a_person": given_a_person,
+        "picture_person": person,
         "label_within_ms": LABEL_WITHIN_MS,
         "labels": matching,
         "words": "none: kinds and counts only",

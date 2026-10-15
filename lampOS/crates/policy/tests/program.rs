@@ -641,7 +641,7 @@ fn with_images_the_question_is_asked_again_with_the_eyes_frame_beside_the_decisi
     assert_eq!(line["picture"]["sent"], true, "{}", line["picture"]);
     assert_eq!(line["picture"]["width"], 640);
     assert_eq!(line["without"]["by"], "typesafe/jev-1.13-20260917");
-    assert_eq!(line["with"]["answers"].as_object().unwrap().len(), 12);
+    assert_eq!(line["with"]["answers"].as_object().unwrap().len(), 13);
     let output = running.end(&["lamp-policy: started"]);
     let stderr = String::from_utf8(output.stderr).unwrap();
     assert!(stderr.contains(" images=typesafe/jev-1.14"), "{stderr}");

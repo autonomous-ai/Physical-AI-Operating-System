@@ -295,7 +295,15 @@ pub fn state_text_with_picture(context: &Context, key: &str) -> String {
 
 /// What is asked about a picture (#871), each its own simple question,
 /// beside the seven: signs for the policy, none of which decides alone.
-const PICTURE_ASKED: [(&str, &str); 5] = [
+/// Whether anyone is in it comes first: on lamp-4ace on 2026-10-16 at 02:28,
+/// with nobody at the desk, "two people talking" was answered 0.62 to 0.69,
+/// so the questions that take a person for granted are read only given one
+/// (the first builder on #871).
+const PICTURE_ASKED: [(&str, &str); 6] = [
+    (
+        "picture_person",
+        "Is there at least one person in state.picture?",
+    ),
     (
         "picture_faces_lamp",
         "Is a person in state.picture looking toward the camera?",
@@ -322,7 +330,7 @@ const PICTURE_ASKED: [(&str, &str); 5] = [
 const PICTURE_OPENING: &str =
     "state.picture is what the lamp's own camera sees now, from the desk. ";
 
-/// The seven questions and the picture's five (#871), in that order.
+/// The seven questions and the picture's six (#871), in that order.
 pub fn questions_with_picture() -> Vec<(String, Question)> {
     let mut asked = questions();
     asked.extend(PICTURE_ASKED.iter().map(|(name, rest)| {

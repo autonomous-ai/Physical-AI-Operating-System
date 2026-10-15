@@ -1142,7 +1142,10 @@ utterance to a thread of its own, if that thread is free. The thread asks
 `MODEL` (`typesafe/jev-1.14`) twice at once, on two connections:
 - **without** the picture: the seven questions as sent on the day;
 - **with** the picture: the state with `picture` last, the seven questions,
-  and five about the picture, each its own simple question:
+  and six about the picture, each its own simple question:
+  - `picture_person`: is anyone in the picture at all (first: on an empty
+    desk on lamp-4ace at 02:28 the others were answered near chance,
+    "two people talking" 0.62 to 0.69);
   - `picture_faces_lamp`: is a person looking toward the camera;
   - `picture_absorbed`: typing, reading, on a call, in headphones;
   - `picture_talking_to_another`: two people facing each other;
@@ -1219,7 +1222,11 @@ chose. A line where either made no choice is in neither's right, and why
 is in that asking's `failed`, so one is never counted on lines the other
 is not. For each picture question, it says how
 often its yes (0.5 or more) went with what should have happened, beside
-the eyes' own `facing`. Labels can be written by a scene's clock: each
+the eyes' own `facing`; and again in `signs_given_a_person` for the four
+that take a person for granted (faces the lamp, asks with a look, absorbed,
+talking to another), only where `picture_person` was yes. `picture_person`
+says how often the picture had a person in it, how often the eyes saw a
+face, and how often the two agreed. Labels can be written by a scene's clock: each
 label is given once, to the line nearest it within 3 s, whether or not a
 frame was sent with that line, so a decision nobody labelled never counts as
 labelled. A label equally near two lines is given to neither, and two labels
@@ -1240,8 +1247,8 @@ many were given, matched, unmatched, ambiguous and conflicting.
 
 Tests:
 - `crates/policy/src/pictures/tests.rs`: the voice's rule for a frame, the
-  frame made as large as the service takes, the state and the twelve
-  questions; the picture told as sent if any try went; and the reviewer's
+  frame made as large as the service takes, the state and the thirteen
+  questions, whether anyone is in the picture first; the picture told as sent if any try went; and the reviewer's
   case on #873, a request with the picture written whole on a kept
   connection the service closed unanswered, then withdrawn on a new one
   where nothing was written, told as sent, `uncertain`, withdrawn.

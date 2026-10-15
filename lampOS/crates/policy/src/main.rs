@@ -67,7 +67,7 @@ acts on it. See docs/policy.md.\n\
                  news or start something itself, with the hello question or a moment question\n\
                  of its own: the decision names the ask. Needs --hello and --act hello\n\
   --images       also ask MODEL (typesafe/jev-1.14 takes pictures) each attention question twice at once,\n\
-                 without the eyes' newest frame and with it and five questions about it, and write both\n\
+                 without the eyes' newest frame and with it and six questions about it, and write both\n\
                  to pictures-YYYY-MM-DD.jsonl. Shadow; the decision never waits for it. A frame is sent\n\
                  only while the eyes keep one (the camera is permitted while the microphone is) and it\n\
                  is at most 1 s old; it is never written. Off unless set\n\

@@ -1,7 +1,7 @@
 //! The lamp's picture with the attention question (#871, `lamp-policy
 //! --images`), in shadow: for each utterance the policy asks about, the
 //! images model is asked twice at once, on two connections, the same
-//! questions without the picture and with it and the picture's own five
+//! questions without the picture and with it and the picture's own six
 //! ([`attention::questions_with_picture`]), and one line is written with
 //! both answers, both times and what the eyes saw. Nothing acts on it, and
 //! the policy's own decision does not wait for it.

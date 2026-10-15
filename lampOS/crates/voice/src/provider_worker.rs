@@ -725,11 +725,8 @@ pub async fn run_with_continuation(
     );
     // The conversation a service that ended a moment ago was in.
     if let Some(path) = files.thread {
-        if let Ok(text) = std::fs::read_to_string(&path)
-            && let Ok(mut thread) = crate::thread::THREAD.lock()
-        {
-            *thread =
-                crate::thread::Thread::load(&text, Instant::now(), std::time::SystemTime::now());
+        if let Ok(mut thread) = crate::thread::THREAD.lock() {
+            thread.reload(&path, Instant::now(), std::time::SystemTime::now());
         }
         let _ = THREAD_FILE.set(path);
     }
@@ -771,7 +768,8 @@ pub async fn run_with_continuation(
     let provider = Supervisor::new(
         crate::thread::Recalling::new(config)
             .tools(files.tools.clone())
-            .name_signal(files.name_signal),
+            .name_signal(files.name_signal)
+            .file(THREAD_FILE.get().cloned()),
         recovery,
     )?;
     let options = Options {
@@ -1237,10 +1235,14 @@ async fn serve_with_visual<C: Connect>(
                     let text = crate::thread::THREAD.lock().ok().and_then(|mut thread| {
                         thread.save(Instant::now(), std::time::SystemTime::now())
                     });
-                    if let Some(text) = text {
-                        // A file that cannot be written loses the thread at
-                        // the next restart and nothing else.
-                        let _ = crate::thread::write_file(path, &text);
+                    // A file that cannot be written loses the thread at the
+                    // next restart and nothing else. One written is not
+                    // read back as another route's.
+                    if let Some(text) = text
+                        && crate::thread::write_file(path, &text).is_ok()
+                        && let Ok(mut thread) = crate::thread::THREAD.lock()
+                    {
+                        thread.wrote(path);
                     }
                 }
                 // And one that holds a picture, once the talk has paused.

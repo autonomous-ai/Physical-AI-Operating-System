@@ -42,7 +42,7 @@ use std::{
     collections::VecDeque,
     io::Write,
     os::unix::fs::OpenOptionsExt,
-    path::Path,
+    path::{Path, PathBuf},
     sync::Mutex,
     time::{Duration, Instant, SystemTime, UNIX_EPOCH},
 };
@@ -106,6 +106,10 @@ pub struct Thread {
     whose: Option<String>,
     /// Whom the newest session was opened for: the only exchanges it is told.
     opened_for: Option<String>,
+    /// How new a thread file this holds: the modification time of the file
+    /// last read or written, or the moment of the last forgetting, whichever
+    /// is later. A file no newer than this is not read again.
+    held: Option<SystemTime>,
 }
 
 /// One exchange as it is kept in the file: when, by the wall clock, since
@@ -158,6 +162,7 @@ impl Thread {
             unsaid: None,
             whose: None,
             opened_for: None,
+            held: None,
         }
     }
 
@@ -207,6 +212,37 @@ impl Thread {
     /// Whom the session being opened is for.
     pub fn opened_for(&self) -> Option<&str> {
         self.opened_for.as_deref()
+    }
+
+
+    /// Take the thread from `path` if the file is newer than what this
+    /// holds: another voice route wrote it while this one was away. Says
+    /// whether it did. A file that cannot be read changes nothing.
+    // ponytail: the file's modification time, not a stamp inside it. A
+    // filesystem clock a few ms coarse, or the wall clock stepped back, can
+    // only miss a reload, never bring back what was forgotten; a generation
+    // stamp in the file if that ever matters.
+    pub fn reload(&mut self, path: &Path, now: Instant, wall: SystemTime) -> bool {
+        let Some(at) = modified(path).filter(|at| self.held.is_none_or(|held| *at > held)) else {
+            return false;
+        };
+        let Ok(text) = std::fs::read_to_string(path) else {
+            return false;
+        };
+        // Who is at the lamp and whom the session was opened for are this
+        // process's own; each exchange keeps its `whose` through the file.
+        let (whose, opened_for) = (self.whose.take(), self.opened_for.take());
+        *self = Self::load(&text, now, wall);
+        self.whose = whose;
+        self.opened_for = opened_for;
+        self.held = Some(at);
+        true
+    }
+
+    /// This process has just written the thread to `path`: what is in the
+    /// file now is what it holds.
+    pub fn wrote(&mut self, path: &Path) {
+        self.held = self.held.max(modified(path));
     }
 
     /// The exchanges still worth telling, as the file's text, if anything
@@ -416,6 +452,8 @@ impl Thread {
         self.heard_at = None;
         self.heard_done = false;
         self.changed = true;
+        // A file written before now holds what was forgotten.
+        self.held = self.held.max(Some(SystemTime::now()));
     }
 
     /// Whether the lamp said something to someone so lately that a
@@ -520,6 +558,12 @@ pub fn take_file(flags: &[String]) -> std::io::Result<(Option<std::path::PathBuf
     }
 }
 
+fn modified(path: &Path) -> Option<SystemTime> {
+    std::fs::metadata(path)
+        .and_then(|file| file.modified())
+        .ok()
+}
+
 /// Put the thread's text in its file, whole or not at all, for its owner
 /// only.
 pub fn write_file(path: &Path, text: &str) -> std::io::Result<()> {
@@ -555,6 +599,7 @@ pub struct Recalling {
     // resumption off (the relay does not forward it), and the thread
     // covers a fresh session. Per-handle ownership if that changes.
     fresh_only: bool,
+    file: Option<PathBuf>,
 }
 
 impl Recalling {
@@ -564,7 +609,15 @@ impl Recalling {
             tools: crate::tools::Settings::default(),
             name_signal: false,
             fresh_only: false,
+            file: None,
         }
+    }
+
+    /// Each session first takes the thread from this file if another voice
+    /// route wrote it since ([`Thread::reload`]).
+    pub fn file(mut self, file: Option<PathBuf>) -> Self {
+        self.file = file;
+        self
     }
 
     /// Each session is also asked to say when it hears the lamp's name
@@ -642,7 +695,17 @@ impl Connect for Recalling {
         }
         let config = match THREAD.lock() {
             Ok(mut thread) => {
+                // Forgetting first, so that a file written before it is
+                // not taken back.
                 crate::remember::clear_forgotten_thread(&mut thread);
+                if let Some(path) = &self.file
+                    && thread.reload(path, Instant::now(), SystemTime::now())
+                {
+                    eprintln!(
+                        "lamp-voice provider: session {}: took the thread another voice route wrote",
+                        session.get()
+                    );
+                }
                 self.recalled(&thread, Instant::now(), time.as_deref())
             }
             Err(_) => self.config.clone(),
@@ -968,6 +1031,73 @@ mod tests {
         assert_eq!(fewer.matches("You: ").count(), 7);
         assert!(recalled.ends_with(&fewer[GOING_ON.len()..]));
         assert_eq!(thread.recall(at(730), GOING_ON.len() + 10), None);
+    }
+
+    /// Second answers while Gemini is away and writes the thread; Gemini's
+    /// next session is told that talk. A forgetting after Second wrote keeps
+    /// the file from bringing it back.
+    #[test]
+    fn a_thread_another_route_wrote_while_this_one_was_away_is_told_again() {
+        use lamp_gemini::{Credential, GOOGLE_ENDPOINT};
+        let directory = std::env::temp_dir().join(format!(
+            "lamp-voice-thread-reload-{}-{:?}",
+            std::process::id(),
+            std::thread::current().id()
+        ));
+        std::fs::create_dir_all(&directory).unwrap();
+        let path = directory.join("thread.json");
+        // File timestamps can be a few ms coarser than the wall clock.
+        let tick = || std::thread::sleep(Duration::from_millis(30));
+        let now = Instant::now();
+        let wall = SystemTime::now();
+        // Gemini talks, and writes its file.
+        let mut gemini = Thread::new();
+        gemini.person("My name is Sam.", true, now);
+        gemini.lamp(3, "Nice to meet you, Sam.", now);
+        write_file(&path, &gemini.save(now, wall).unwrap()).unwrap();
+        gemini.wrote(&path);
+        assert!(!gemini.reload(&path, now, wall), "its own file is not news");
+        // The outage: Second reads the file, talks, and writes it whole.
+        tick();
+        let mut second = Thread::load(&std::fs::read_to_string(&path).unwrap(), now, wall);
+        second.person("Is it raining?", true, now);
+        second.lamp(7, "Not right now.", now);
+        write_file(&path, &second.save(now, wall).unwrap()).unwrap();
+        // Gemini returns: its first session is told the outage's talk.
+        let config = SessionConfig::new(GOOGLE_ENDPOINT, Credential::api_key("test-only").unwrap())
+            .unwrap()
+            .instruction("You are a lamp.")
+            .unwrap();
+        let recalling = Recalling::new(config).file(Some(path.clone()));
+        assert!(gemini.reload(&path, now, wall));
+        let told = recalling.recalled(&gemini, now, None);
+        assert!(
+            told.instruction_text().ends_with(
+                "Person: My name is Sam.\nYou: Nice to meet you, Sam.\nPerson: Is it raining?\nYou: Not right now.\n"
+            ),
+            "{}",
+            told.instruction_text()
+        );
+        assert!(!gemini.reload(&path, now, wall), "once");
+        // Second writes again during another outage, then something is
+        // forgotten before Gemini connects: the file is not taken back.
+        tick();
+        second.person("Remember my code is 1234.", true, now);
+        second.lamp(8, "Kept.", now);
+        write_file(&path, &second.save(now, wall).unwrap()).unwrap();
+        tick();
+        gemini.forget();
+        assert!(!gemini.reload(&path, now, wall));
+        assert_eq!(gemini.recall(now, ROOM), None);
+        // A file written after the forgetting is.
+        tick();
+        let mut after = Thread::new();
+        after.person("Hello again.", true, now);
+        after.lamp(9, "Hello.", now);
+        write_file(&path, &after.save(now, wall).unwrap()).unwrap();
+        assert!(gemini.reload(&path, now, wall));
+        assert!(!gemini.recall(now, ROOM).unwrap().contains("1234"));
+        std::fs::remove_dir_all(&directory).unwrap();
     }
 
     #[test]

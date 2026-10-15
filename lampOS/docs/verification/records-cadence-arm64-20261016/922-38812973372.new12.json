@@ -1,0 +1,110 @@
+[
+  {
+    "result": "PASS",
+    "seconds": "0.004",
+    "ordinal": 2392,
+    "total": 4946,
+    "binary": "lamp-records",
+    "test": "report::clock_tests::declaration_samples_the_clock_before_the_separate_real_header_start",
+    "line": 2917
+  },
+  {
+    "result": "PASS",
+    "seconds": "0.004",
+    "ordinal": 2393,
+    "total": 4946,
+    "binary": "lamp-records",
+    "test": "report::clock_tests::rejected_roots_and_failed_declarations_do_not_sample_the_cadence_clock",
+    "line": 2918
+  },
+  {
+    "result": "PASS",
+    "seconds": "0.004",
+    "ordinal": 2394,
+    "total": 4946,
+    "binary": "lamp-records",
+    "test": "report::clock_tests::the_records_constructor_installs_the_original_scan_and_presence_cadence",
+    "line": 2919
+  },
+  {
+    "result": "PASS",
+    "seconds": "0.006",
+    "ordinal": 2457,
+    "total": 4946,
+    "binary": "lamp-records::bin/lamp-records",
+    "test": "application_schedule_tests::a_held_factory_cannot_reach_the_wait_or_fabricate_a_bus_message",
+    "line": 2982
+  },
+  {
+    "result": "PASS",
+    "seconds": "0.005",
+    "ordinal": 2458,
+    "total": 4946,
+    "binary": "lamp-records::bin/lamp-records",
+    "test": "application_schedule_tests::a_real_publish_error_is_retained_after_successful_construction",
+    "line": 2983
+  },
+  {
+    "result": "PASS",
+    "seconds": "0.007",
+    "ordinal": 2459,
+    "total": 4946,
+    "binary": "lamp-records::bin/lamp-records",
+    "test": "application_schedule_tests::actual_bus_root_reload_recreates_the_selected_factory",
+    "line": 2984
+  },
+  {
+    "result": "PASS",
+    "seconds": "0.006",
+    "ordinal": 2460,
+    "total": 4946,
+    "binary": "lamp-records::bin/lamp-records",
+    "test": "application_schedule_tests::cadence_reads_preserve_work_residual_and_reuse_the_actual_publisher",
+    "line": 2985
+  },
+  {
+    "result": "PASS",
+    "seconds": "0.006",
+    "ordinal": 2461,
+    "total": 4946,
+    "binary": "lamp-records::bin/lamp-records",
+    "test": "application_schedule_tests::failed_construction_is_observed_after_real_work_and_retried_only_next_cycle",
+    "line": 2986
+  },
+  {
+    "result": "PASS",
+    "seconds": "0.008",
+    "ordinal": 2462,
+    "total": 4946,
+    "binary": "lamp-records::bin/lamp-records",
+    "test": "application_schedule_tests::initial_config_errors_precede_clock_factory_and_wait",
+    "line": 2987
+  },
+  {
+    "result": "PASS",
+    "seconds": "0.004",
+    "ordinal": 2463,
+    "total": 4946,
+    "binary": "lamp-records::bin/lamp-records",
+    "test": "application_schedule_tests::report_command_passes_the_original_arguments_once_and_check_does_not_select_it",
+    "line": 2988
+  },
+  {
+    "result": "PASS",
+    "seconds": "0.004",
+    "ordinal": 2464,
+    "total": 4946,
+    "binary": "lamp-records::bin/lamp-records",
+    "test": "application_schedule_tests::system_schedule_samples_host_time_and_keeps_a_zero_wait_successful",
+    "line": 2989
+  },
+  {
+    "result": "PASS",
+    "seconds": "0.006",
+    "ordinal": 2465,
+    "total": 4946,
+    "binary": "lamp-records::bin/lamp-records",
+    "test": "application_schedule_tests::zero_residual_is_preserved_and_logical_time_does_not_exhaust_the_host_lifetime",
+    "line": 2990
+  }
+]

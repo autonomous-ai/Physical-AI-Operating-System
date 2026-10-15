@@ -1,5 +1,17 @@
 # Tests work log
 
+## 2026-10-16 05:22:44 +0700 — Records preparation native green; complete Serve integration gated
+
+Ready for lamp-voice: yes (#922 and #919); no (new continuations)
+
+- Records cadence [#922](https://github.com/autonomous-ai/lampOS/pull/922), head `e3d3366cad8113c3374b8e29faedb099b5e47d92`, passes its first native **38812973372: 4,946 unique PASS**, all 12 new boundaries once, with all six qualified sources exact in the tested merge. [Raw native evidence and source proof](verification/records-cadence-arm64-20261016/README.md). Local complete Records/Settings remains **170/0/2 existing ignores**, every 160 original identity retained. No original scenario migrates yet. The separate child/controller passed independent source review; a new closed-pipe coverage case is being made causally explicit before its first gate.
+- Memory health #919 remains ready after normal and first full native success, with all original 123 once in the full run. Its native seven-case sum **5.107 s** and full original-123 sum **588.754 s** remain shard observations, not standalone serial evidence.
+- Gemini capture-clock fresh complete gate: default and feature each **268/0/2**; affected crates **2,196/1/13**, solely the original Threaded rapid-mute failure already covered by #893. Pure Moment fresh gate **1,960/2/13** retains rapid-mute plus the exact reminder AckConfirmed case accepted by Eighth into #739. Both changes pass fmt, strict Clippy, identity comparisons and workspace builds. Local failures remain red and retained; no retry or original assertion change. The reminder cause remains unproved, and the case is outside the original 123. Native qualification is still required before either preparation is ready.
+- All 14 original Serve scenarios are now integrated on current `d60124f`, preserving 114 assertions and 22 attempts, with 121 added boundary cases expected from compiled baseline 377. Fresh complete gates are running. This substantive expansion of #909 to include Recorder and SlowTransport is not a retry or claimed fix for #914; the earlier native failures remain recorded.
+- Transport success probes pass the focused 36/0/1-existing-ignore gate; full Voice/Memory/Evaluator validation continues. #783's merged sweep remains with eighth for loaded qualification/close. No workflow/profile/runner/settings/device change.
+
+The original 123 combined standalone serial under-two-minute target remains unproved.
+
 ## 2026-10-16 05:02:44 +0700 — Memory health native complete; Records preparation published
 
 Ready for lamp-voice: yes (#919); no (#922 and other continuations)

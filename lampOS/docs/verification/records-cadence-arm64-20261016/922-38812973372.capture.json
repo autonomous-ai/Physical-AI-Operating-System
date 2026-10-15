@@ -1,0 +1,35 @@
+[
+  {
+    "args": [
+      "gh",
+      "run",
+      "view",
+      "38812973372",
+      "-R",
+      "autonomous-ai/lampOS",
+      "--json",
+      "databaseId,headSha,status,conclusion,createdAt,startedAt,updatedAt,event,jobs"
+    ],
+    "start_from_date": "2026-10-16 05:06:24 +0700",
+    "finish_from_date": "2026-10-16 05:06:25 +0700",
+    "exit_code": 0,
+    "file": "922-38812973372.run-final.json",
+    "sha256": "a34611ba071334c4150dfe3029675f8678b14bf03db6102fbf033f0edb0a454f"
+  },
+  {
+    "args": [
+      "gh",
+      "run",
+      "view",
+      "38812973372",
+      "-R",
+      "autonomous-ai/lampOS",
+      "--log"
+    ],
+    "start_from_date": "2026-10-16 05:06:25 +0700",
+    "finish_from_date": "2026-10-16 05:06:33 +0700",
+    "exit_code": 0,
+    "file": "922-38812973372.log",
+    "sha256": "959bd4242494fe556c89ec70165e23ae4ffeeec677a364a9413affcb486fb3df"
+  }
+]

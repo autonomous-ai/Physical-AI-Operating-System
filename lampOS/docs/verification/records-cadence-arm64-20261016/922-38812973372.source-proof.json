@@ -1,0 +1,133 @@
+{
+  "date": "2026-10-16 05:11:27 +0700",
+  "checkout": "101c8a0978692e5609c71f66710d1be0474d1fb8",
+  "parents": [
+    "d60124f8280f9c76576d6ca7bf859bc5c3983828",
+    "e3d3366cad8113c3374b8e29faedb099b5e47d92"
+  ],
+  "six_qualified_sources_exact_in_native_merge": [
+    {
+      "path": "lampOS/crates/records/src/main.rs",
+      "sha256": "33c9354f0d8de852e265002c3a56a8efa7b799bdb2fe5504ff5c326a2460e60f",
+      "git_blob": "b78c3ca4dbf9e7e6cc2816b15e2ccf43dc1748ec"
+    },
+    {
+      "path": "lampOS/crates/records/src/application.rs",
+      "sha256": "85af4d56754ff6e8b87180401bce78ebdfcbf5d7444d3b32a2dbcfc39ffc0320",
+      "git_blob": "33dfcafe45030fcc84ab96dd211b5bdf54af6162"
+    },
+    {
+      "path": "lampOS/crates/records/src/report.rs",
+      "sha256": "0a3667e74d854c6b963e659dcb478d5eb8bf5b8faa68be3b6ed49c00d865ead2",
+      "git_blob": "402bb7f92ff2879c2159db8faff6931892c782d8"
+    },
+    {
+      "path": "lampOS/crates/records/src/application_schedule_tests.rs",
+      "sha256": "8cf8e5cfbe5790e762f638d033e97294870bf94812570a78493f8fe7636714ac",
+      "git_blob": "acd8c88e0811575e5fed8ad663691703455f7eed"
+    },
+    {
+      "path": "lampOS/crates/records/src/reporter_clock_tests.rs",
+      "sha256": "9e2760715d599b4c36a0e075ae2f3188f6fd2924b2ea50db92cdff9dd104ae2f",
+      "git_blob": "8e8e258c98cf1a788340ef990fb678a99f0ab136"
+    },
+    {
+      "path": "lampOS/docs/records.md",
+      "sha256": "5bf9effbd4b91af3f12bea9da7e4ea6892cb5f0183d172b94df57882b27bf8e8",
+      "git_blob": "4414710ffc32880f44b1d79f3335196c4e198f1d"
+    }
+  ],
+  "captures": [
+    {
+      "label": "checkout",
+      "command": [
+        "gh",
+        "api",
+        "repos/autonomous-ai/lampOS/git/commits/101c8a0978692e5609c71f66710d1be0474d1fb8"
+      ],
+      "started_from_date": "2026-10-16 05:11:26 +0700",
+      "finished_from_date": "2026-10-16 05:11:27 +0700",
+      "exit_code": 0,
+      "raw_path": "922-38812973372.checkout.response.json",
+      "raw_sha256": "9f69de0303c3fe8f507841481a3d84d92f9d904f7dcce61a2d5622f6e87c5635"
+    },
+    {
+      "label": "main.rs",
+      "command": [
+        "gh",
+        "api",
+        "repos/autonomous-ai/lampOS/contents/lampOS/crates/records/src/main.rs?ref=101c8a0978692e5609c71f66710d1be0474d1fb8"
+      ],
+      "started_from_date": "2026-10-16 05:11:26 +0700",
+      "finished_from_date": "2026-10-16 05:11:27 +0700",
+      "exit_code": 0,
+      "raw_path": "922-38812973372.main.rs.response.json",
+      "raw_sha256": "5aa3b77e5c39bd218586e6a2eb3427eeb2e1488d792782f9e62e97137f89cf0a"
+    },
+    {
+      "label": "application.rs",
+      "command": [
+        "gh",
+        "api",
+        "repos/autonomous-ai/lampOS/contents/lampOS/crates/records/src/application.rs?ref=101c8a0978692e5609c71f66710d1be0474d1fb8"
+      ],
+      "started_from_date": "2026-10-16 05:11:26 +0700",
+      "finished_from_date": "2026-10-16 05:11:27 +0700",
+      "exit_code": 0,
+      "raw_path": "922-38812973372.application.rs.response.json",
+      "raw_sha256": "513923bf1059342466621516515c0e12fc81d2eaa4faddf40fbfc6e507fb6bee"
+    },
+    {
+      "label": "report.rs",
+      "command": [
+        "gh",
+        "api",
+        "repos/autonomous-ai/lampOS/contents/lampOS/crates/records/src/report.rs?ref=101c8a0978692e5609c71f66710d1be0474d1fb8"
+      ],
+      "started_from_date": "2026-10-16 05:11:26 +0700",
+      "finished_from_date": "2026-10-16 05:11:27 +0700",
+      "exit_code": 0,
+      "raw_path": "922-38812973372.report.rs.response.json",
+      "raw_sha256": "94aa9166ab13c07a7ac9b320051535e148e4e32cc8e3eaeffbe616be59e0fd3e"
+    },
+    {
+      "label": "application_schedule_tests.rs",
+      "command": [
+        "gh",
+        "api",
+        "repos/autonomous-ai/lampOS/contents/lampOS/crates/records/src/application_schedule_tests.rs?ref=101c8a0978692e5609c71f66710d1be0474d1fb8"
+      ],
+      "started_from_date": "2026-10-16 05:11:27 +0700",
+      "finished_from_date": "2026-10-16 05:11:27 +0700",
+      "exit_code": 0,
+      "raw_path": "922-38812973372.application_schedule_tests.rs.response.json",
+      "raw_sha256": "ec9d4466b54276eff2ce196f0e3647d2075a3ca5c4d1c05a4d0c253f0bcce7a7"
+    },
+    {
+      "label": "reporter_clock_tests.rs",
+      "command": [
+        "gh",
+        "api",
+        "repos/autonomous-ai/lampOS/contents/lampOS/crates/records/src/reporter_clock_tests.rs?ref=101c8a0978692e5609c71f66710d1be0474d1fb8"
+      ],
+      "started_from_date": "2026-10-16 05:11:27 +0700",
+      "finished_from_date": "2026-10-16 05:11:27 +0700",
+      "exit_code": 0,
+      "raw_path": "922-38812973372.reporter_clock_tests.rs.response.json",
+      "raw_sha256": "aaecc3c698a7025d3bb07b0712649e6c98df377b432823f0a764f96d53394663"
+    },
+    {
+      "label": "records.md",
+      "command": [
+        "gh",
+        "api",
+        "repos/autonomous-ai/lampOS/contents/lampOS/docs/records.md?ref=101c8a0978692e5609c71f66710d1be0474d1fb8"
+      ],
+      "started_from_date": "2026-10-16 05:11:27 +0700",
+      "finished_from_date": "2026-10-16 05:11:27 +0700",
+      "exit_code": 0,
+      "raw_path": "922-38812973372.records.md.response.json",
+      "raw_sha256": "94f047eab6077f2becff02acb655c10dc0fb85ced7d1a2b92c4da813e2774cc8"
+    }
+  ]
+}

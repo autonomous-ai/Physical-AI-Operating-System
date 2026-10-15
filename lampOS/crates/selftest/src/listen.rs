@@ -5,7 +5,10 @@
 //! [`PartResult`], and [`Listen`], which reads the bus for it.
 use crate::Check;
 use lamp_bus::Bus;
-use lamp_msgs::{AirState, BoardState, JointState, PartResult, RoomSound, TouchState, Verdict};
+use lamp_msgs::{
+    AirState, BoardState, Faces, Health, JointState, Level, PartResult, RoomSound, TouchState,
+    Verdict,
+};
 use serde::de::DeserializeOwned;
 use std::{
     marker::PhantomData,
@@ -32,6 +35,10 @@ pub const AIR_FRESH: Duration = Duration::from_secs(15);
 pub const BOARD_FRESH: Duration = Duration::from_secs(15);
 /// The room level, the joints and the pads come ten times a second.
 pub const FAST_FRESH: Duration = Duration::from_secs(1);
+
+/// The eyes publish each look, a few times a second, while the camera is
+/// open; a list older than this was not from a picture taken now.
+pub const SIGHT_FRESH: Duration = Duration::from_secs(2);
 
 /// A room microphone at or under this level gives nothing: even a quiet
 /// room is well above it.
@@ -228,6 +235,76 @@ pub fn board(heard: &Heard<BoardState>) -> PartResult {
     result
 }
 
+/// The camera gives pictures: the eyes published a look a moment ago. The
+/// self-test never opens the camera itself; it is open only while seeing
+/// is permitted (the privacy switch, `lamp-voice`), so a closed camera is
+/// not checked, and a camera the eyes say will not open fails.
+pub fn camera(sight: &Heard<Faces>, health: &Heard<Health>) -> PartResult {
+    let part = "camera";
+    if let Ok(Some(seen)) = sight
+        && seen.age <= SIGHT_FRESH
+    {
+        return PartResult::new(part, Verdict::Pass, "")
+            .with("age_s", format!("{:.1}", seen.age.as_secs_f64()));
+    }
+    let eyes = match health {
+        Err(why) => {
+            return PartResult::new(
+                part,
+                Verdict::Fail,
+                &format!("{} cannot be read: {why}", Health::TOPIC),
+            );
+        }
+        Ok(None) => {
+            return PartResult::new(
+                part,
+                Verdict::NotChecked,
+                &format!(
+                    "nothing was ever said on {}: is lamp-health running?",
+                    Health::TOPIC
+                ),
+            );
+        }
+        Ok(Some(seen)) => seen.value.items.iter().find(|item| item.name == "eyes"),
+    };
+    match eyes {
+        None => PartResult::new(
+            part,
+            Verdict::NotChecked,
+            "lamp-eyes does not report its health: is it running, with LAMP_BUS=on?",
+        ),
+        Some(item) if item.level == Level::Ok => PartResult::new(
+            part,
+            Verdict::NotChecked,
+            "the camera is closed: seeing is not permitted now (privacy switch, or the voice is not listening)",
+        ),
+        Some(item) => PartResult::new(
+            part,
+            Verdict::Fail,
+            &format!("lamp-eyes: {} ({})", item.message, item.level.as_str()),
+        ),
+    }
+}
+
+/// The camera's check reads two topics: the eyes' looks and the lamp's
+/// health.
+pub struct Sight<'a> {
+    pub bus: &'a Bus,
+}
+
+impl Check for Sight<'_> {
+    fn part(&self) -> &str {
+        "camera"
+    }
+
+    fn run(&mut self, _deadline: Instant) -> PartResult {
+        camera(
+            &newest(self.bus, Faces::TOPIC),
+            &newest(self.bus, Health::TOPIC),
+        )
+    }
+}
+
 /// The newest reading on `topic`, and its age by the publisher's wall clock.
 pub fn newest<T: DeserializeOwned>(bus: &Bus, topic: &str) -> Heard<T> {
     let Some(message) = bus.latest(topic).map_err(|e| e.to_string())? else {
@@ -288,6 +365,7 @@ pub fn checks(bus: &Bus) -> Vec<Box<dyn Check + '_>> {
         Box::new(Listen::new("air", bus, AirState::TOPIC, air)),
         Box::new(Listen::new("touch", bus, TouchState::TOPIC, touch)),
         Box::new(Listen::new("board", bus, BoardState::TOPIC, board)),
+        Box::new(Sight { bus }),
     ];
     for name in JOINTS {
         checks.push(Box::new(Listen::new(
@@ -429,6 +507,45 @@ mod tests {
         assert!(full.reason.contains("all but full"), "{}", full.reason);
     }
 
+    fn health_with(eyes: Option<(Level, &str)>) -> Health {
+        let items: Vec<_> = eyes
+            .map(|(level, message)| lamp_msgs::HealthItem {
+                name: "eyes".into(),
+                level,
+                message: message.into(),
+                age_ms: 300,
+            })
+            .into_iter()
+            .collect();
+        Health {
+            level: items.first().map_or(Level::Ok, |i| i.level),
+            message: String::new(),
+            items,
+            missing: vec![],
+        }
+    }
+
+    #[test]
+    fn a_camera_giving_looks_passes_and_one_that_will_not_open_fails() {
+        let looks = seen(400, Faces { faces: vec![] });
+        let health = seen(1_000, health_with(Some((Level::Ok, ""))));
+        assert_eq!(camera(&looks, &health).verdict, Verdict::Pass);
+        let stale = seen(30_000, Faces { faces: vec![] });
+        let closed = camera(&stale, &health);
+        assert_eq!(closed.verdict, Verdict::NotChecked);
+        assert!(closed.reason.contains("not permitted"), "{}", closed.reason);
+        let broken = seen(
+            1_000,
+            health_with(Some((Level::Warn, "the camera does not open"))),
+        );
+        let failed = camera(&Ok(None), &broken);
+        assert_eq!(failed.verdict, Verdict::Fail);
+        assert!(failed.reason.contains("does not open"), "{}", failed.reason);
+        let absent = camera(&Ok(None), &seen(1_000, health_with(None)));
+        assert!(absent.reason.contains("LAMP_BUS"), "{}", absent.reason);
+        assert_eq!(camera(&Ok(None), &Ok(None)).verdict, Verdict::NotChecked);
+    }
+
     #[test]
     fn every_part_that_listens_is_checked_once() {
         let root = std::env::temp_dir().join(format!("lamp-selftest-bus-{}", std::process::id()));
@@ -444,6 +561,7 @@ mod tests {
                 "air",
                 "touch",
                 "board",
+                "camera",
                 "base_yaw",
                 "shoulder",
                 "elbow",

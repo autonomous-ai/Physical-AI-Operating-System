@@ -5,6 +5,7 @@
 //!   to a device another process owns.
 //! - [`run`]: every check in turn, each timed, the whole inside a budget.
 //! - [`listen`]: the checks that only listen to a part on the bus.
+//! - [`kernel`]: the storage, from what the kernel said since boot.
 //! - [`report`]: where a run is kept, and what a person reads.
 
 // Nothing in this library prints; the program prints what it is given.
@@ -13,6 +14,7 @@
 use lamp_msgs::{Occasion, PartResult, SelfTest, Verdict};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
+pub mod kernel;
 pub mod listen;
 pub mod report;
 

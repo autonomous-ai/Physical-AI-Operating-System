@@ -77,5 +77,13 @@ The owner does not relay routine agent reports.
 - With Rust implementation changes, run formatting, clippy and applicable tests.
   Replays and unit tests do not establish acoustic latency or motor safety.
   Report real-device measurements separately, with exact boundaries.
+- Tests must not wait on the real clock when they can avoid it: inject the
+  clock, pause tokio time, scale a fake's timing or shorten the fixture,
+  without weakening what the test asserts. A test that must wait in real
+  time (more than about 1 s) goes in nextest's `realtime` group in
+  `.config/nextest.toml` (all three filtersets), which GitHub Actions
+  temporarily skips. When you change a crate that has realtime tests, run
+  `cargo nextest run --release --workspace --profile realtime -j 1` and
+  report the result. See [realtime tests](docs/realtime-tests.md).
 - Do not commit, push or deploy without the authorization required by the
   repository and current conversation.

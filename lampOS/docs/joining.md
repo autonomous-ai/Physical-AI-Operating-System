@@ -199,7 +199,7 @@ The loops in work-split.md, in short, with the names from your role file:
 
    and the lamp build above for any crate the lamp runs. Since 2026-10-14
    every push of `lamp-<name>` or `<name>/*` also builds and tests the whole
-   workspace natively on Linux ARM64 in Debian 12, as the lamps run
+   workspace natively on Linux ARM64 in Debian 12, as the lamps run, except the realtime tests ([realtime-tests.md](realtime-tests.md))
    (`.github/workflows/lampos-arm64.yml`), and keeps the binaries with their
    SHA-256 for a week: `gh run list --branch lamp-<name> --workflow "lampOS
    on ARM64"`. A piece is ready only when that run is green; say its run's
@@ -315,6 +315,14 @@ dependency had to be found by hand. Decided: yes, but as follows.
   the pull request's head commit. The first builder installs that run's
   binaries on lamp-4ace for the minute with the switch off; it does not
   build them again.
+- **The ARM64 run skips the realtime tests** (since 2026-10-15,
+  temporarily): the tests that wait on the real clock, in nextest's
+  `realtime` group ([realtime-tests.md](realtime-tests.md)). If the pull
+  request touches `crates/voice`, `crates/voice-eval`, `crates/memory`,
+  `crates/health`, `crates/records` or `crates/actions`, run
+  `cargo nextest run --release --workspace --profile realtime -j 1` and put
+  its counts and time in the body. A new test that waits in real time goes
+  in that group.
 - **A known flaky test does not hold a piece back** (first builder,
   2026-10-15). Until #739 is solved, the voice's timed process tests can
   fail on a loaded Mac with unchanged code. If the ARM64 run is green and

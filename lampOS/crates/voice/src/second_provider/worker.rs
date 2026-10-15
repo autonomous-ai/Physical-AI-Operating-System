@@ -187,6 +187,12 @@ impl Gate {
     }
 }
 
+/// Whether this route checks short sounds: as the Live route does, only
+/// with `--sounds-checked` and `--attention` together.
+pub fn checks_sounds(files: &crate::provider_worker::Files) -> bool {
+    files.attention && files.sounds_checked
+}
+
 /// The `worker second` flags: the Live provider worker's, as
 /// `coordinator::provider_arguments` passes them, parsed by the same code,
 /// but for `--keep-link`: this route has no link to keep.
@@ -213,6 +219,7 @@ pub fn serve(
 ) -> io::Result<()> {
     let character = crate::config::ProviderConfig::load(provider_config)?.instruction(false)?;
     let config = crate::second_config::load_from_path(second_config)?;
+    let checked = checks_sounds(&files);
     let tools = files.tools;
     if let Some(socket) = &tools.memory {
         // As the Live route starts it: each known person's memory apart.
@@ -276,7 +283,7 @@ pub fn serve(
             .unwrap_or_else(|_| crate::tools::unavailable())
         })
     });
-    let engine = Engine::new(Arc::new(net), system, runner);
+    let engine = Engine::new(Arc::new(net), system, runner).checking_sounds(checked);
     tokio::runtime::Builder::new_current_thread()
         .enable_all()
         .build()?

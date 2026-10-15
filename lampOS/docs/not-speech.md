@@ -294,6 +294,18 @@ answered, and both answered without the switch),
 `the_checked_value_lets_sounds_through_and_has_the_worker_check_them` and
 `a_short_word_is_one_said_to_the_lamp_whole` (`not_speech.rs`).
 
+**On the second voice** (when Gemini is down, [second-voice.md](second-voice.md)),
+the worker takes the same flag and checks a marked sound too (the reviewer
+on #818, 20:11). That route has no ears and no eyes, so only the heard words
+can show the sound was said to the lamp: one not heard, whole, as a short
+word ends quietly after its words, and its chat is never asked. A sound said
+close or facing the lamp but not heard as a short word is held there, where
+the Live route would answer it. Tests:
+`a_short_sound_not_heard_as_a_short_word_is_held_when_sounds_are_checked`
+(`second_provider/tests.rs`: "¿Qué?" held with the chat never asked, "Yes."
+answered, and "¿Qué?" answered unchecked or unmarked) and
+`both_workers_take_the_flag_that_checks_sounds`.
+
 **Not shown.** No recorded sound was played: the repository holds none of
 the office's. Whether the input transcript always comes before the first
 of the answer (in 24 of 24 answers measured it did, `attention.md`) decides

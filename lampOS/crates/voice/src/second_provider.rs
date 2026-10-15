@@ -15,6 +15,15 @@
 //! while the chat is still writing the next one; audio keeps sentence order.
 //! A written turn is the same from the chat on.
 //!
+//! With `--sounds-checked` (`LAMP_SHORT_SOUNDS=quiet-room-checked`, #800),
+//! a spoken turn whose end came marked as a short sound let through is
+//! answered only when what was heard is, whole, a short word said to the
+//! lamp ([`crate::not_speech::short_word`]); otherwise it ends quietly
+//! after its words, as the Live route holds it. This route has no ears and
+//! no eyes, so the heard words are all that can show it was said to the
+//! lamp: a sound said close or facing the lamp but not heard as a short
+//! word is held here where the Live route would answer it.
+//!
 //! Failures are `TurnFailed` with the stage the coordinator accepts
 //! (`coordinator/cloud.rs`): `InputOpen` while the request's input is still
 //! coming (speech-to-text could not be opened or fed); `AwaitingResponse`
@@ -119,6 +128,9 @@ struct Turn {
     request: u64,
     /// Open until the request's End; `None` after it.
     audio: Option<mpsc::Sender<Vec<i16>>>,
+    /// The End came marked as a short sound let through; set before the
+    /// audio queue closes, read by the turn's task after.
+    sound: Arc<AtomicBool>,
     task: JoinHandle<()>,
 }
 impl Drop for Turn {
@@ -137,6 +149,9 @@ pub struct Engine {
     urgent: VecDeque<ProviderOutput>,
     turn: Option<Turn>,
     retired_through: u64,
+    /// `--sounds-checked`: a short sound is answered only when heard as a
+    /// short word.
+    sounds_checked: bool,
 }
 
 impl Engine {
@@ -171,7 +186,14 @@ impl Engine {
             urgent: VecDeque::new(),
             turn: None,
             retired_through: 0,
+            sounds_checked: false,
         }
+    }
+
+    /// Short sounds let through are checked (`--sounds-checked`, #800).
+    pub fn checking_sounds(mut self, on: bool) -> Self {
+        self.sounds_checked = on;
+        self
     }
 
     /// Take one input. Must run inside a tokio runtime: a turn is a task.
@@ -186,10 +208,13 @@ impl Engine {
                     return;
                 }
                 let (audio, heard) = mpsc::channel(AUDIO_QUEUE);
-                let task = tokio::spawn(spoken(self.shared.clone(), request, heard));
+                let sound = Arc::new(AtomicBool::new(false));
+                let checked = self.sounds_checked.then(|| sound.clone());
+                let task = tokio::spawn(spoken(self.shared.clone(), request, heard, checked));
                 self.turn = Some(Turn {
                     request,
                     audio: Some(audio),
+                    sound,
                     task,
                 });
             }
@@ -217,8 +242,9 @@ impl Engine {
                     }
                 }
             }
-            ProviderInput::End { request, .. } => {
+            ProviderInput::End { request, sound, .. } => {
                 if let Some(turn) = self.turn.as_mut().filter(|turn| turn.request == request) {
+                    turn.sound.store(sound, Ordering::Release);
                     // Closing the queue is the end of input for the task.
                     turn.audio = None;
                 }
@@ -238,6 +264,7 @@ impl Engine {
                 self.turn = Some(Turn {
                     request,
                     audio: None,
+                    sound: Arc::default(),
                     task,
                 });
             }
@@ -369,7 +396,14 @@ impl Shared {
 }
 
 /// A spoken turn: listen until the queue closes, then answer the words.
-async fn spoken(shared: Arc<Shared>, request: u64, mut heard: mpsc::Receiver<Vec<i16>>) {
+/// With `checked` (the sound mark, when sounds are checked), a short sound
+/// not heard as a short word is not answered.
+async fn spoken(
+    shared: Arc<Shared>,
+    request: u64,
+    mut heard: mpsc::Receiver<Vec<i16>>,
+    checked: Option<Arc<AtomicBool>>,
+) {
     let listener = match shared.services.listen().await {
         Ok(listener) => listener,
         Err(error) => return shared.fail(request, FailedStage::InputOpen, &error).await,
@@ -407,7 +441,14 @@ async fn spoken(shared: Arc<Shared>, request: u64, mut heard: mpsc::Receiver<Vec
     {
         return;
     }
-    if empty {
+    let held = checked.is_some_and(|sound| sound.load(Ordering::Acquire))
+        && !crate::not_speech::short_word(&text);
+    if held && !empty {
+        eprintln!(
+            "lamp-voice second: request {request}: its answer is held back: a short sound, and nothing shows it was said to the lamp: not heard as a short word (this route has no ears or eyes)"
+        );
+    }
+    if empty || held {
         shared
             .emit(ProviderOutput::TurnComplete {
                 request,

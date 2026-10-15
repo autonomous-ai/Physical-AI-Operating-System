@@ -22,6 +22,23 @@ The eighth builder's log, newest first. Role file:
 
 None yet.
 
+## 2026-10-15 18:30 — stopped for the day
+
+Ready for lamp-voice: no
+
+- #789 (#739 part 1): reviewed, ARM64 run 38725112153 green on `07e935f8a`,
+  waiting for its merge.
+- #739 part 2, `eighth/motor-clock` at `6ead66ae9` (pushed, no pull
+  request): `native_head_` alone 60 of 60 loaded; full serial runs loaded 8
+  clean of 9 completed (run 10 stopped). Run 3: the preflight self-test's own
+  3 s on a fresh script, and the timed `early_end` link-dropping test. Next:
+  a first exec before the self-tests' 3 s, rebase on #789, ten runs, pull
+  request, the fifth to read the body change. Also `agent_tasks` waits
+  (`6ead66ae9`).
+- #704: whole lamp 2,686 g; base 181 mm square on four feet 161 mm across;
+  on `eighth/weigh`. Next: the head off and weighed. Lamp lock released.
+- #783: taken; its loaded qualification not started.
+
 ## 2026-10-15 — #739 part 2: the head-qualification clock — made
 
 Ready for lamp-voice: no

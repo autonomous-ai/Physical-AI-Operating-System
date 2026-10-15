@@ -17,7 +17,7 @@
 use crate::{
     fetch::{Channel, Fetch},
     manifest::{self, Manifest},
-    records::{Build, Records, replace_link, sync_parent, write_whole},
+    records::{Build, Records, State, replace_link, sync_parent, write_whole},
     round::{Hashing, file_sha256, filling},
     unit,
 };
@@ -364,7 +364,14 @@ pub fn install(
         &mut changed,
     )?;
     let settings_before = state.settings.clone();
-    settings(config, SETTINGS, &mut state.settings, &mut changed, say)?;
+    let settled = settings(config, SETTINGS, &mut state.settings, &mut changed, say);
+    // What was written is recorded at once, even when a later setting
+    // failed: an install cut short must not take its own default for the
+    // lamp's at the next run (the reviewer on #815, 19:17).
+    if state.settings != settings_before {
+        save(&records, &state)?;
+    }
+    settled?;
     // Made 0755 here on a blank lamp. One made closed before (lamp-4ace's is
     // root's alone) is not opened: credentials may be below it. Said instead.
     if let Ok(meta) = fs::metadata(config.on("/etc/lampOS"))
@@ -391,13 +398,7 @@ pub fn install(
         );
     }
 
-    // Started by nothing: enabled, for the next power-up after setup.
-    if !changed.is_empty() {
-        host.tmpfiles(TMPFILES_PATH)?;
-        host.enable(&enabled())?;
-        changed.push(format!("enabled {}", enabled().join(" ")));
-    }
-
+    let before = state.clone();
     let build = Build {
         sequence: manifest.sequence,
         commit: manifest.commit.clone(),
@@ -408,17 +409,26 @@ pub fn install(
         .into_iter()
         .filter(|folder| !state.made.contains(folder))
         .collect();
-    if state.installed.as_ref() != Some(&build)
-        || !new_folders.is_empty()
-        || state.settings != settings_before
-    {
-        if state.installed.as_ref() != Some(&build) {
-            state.previous = state.installed.replace(build);
-        }
-        state.made.extend(new_folders);
-        records
-            .save_state(&state)
-            .map_err(|error| format!("the state cannot be written: {error}"))?;
+    if state.installed.as_ref() != Some(&build) {
+        state.previous = state.installed.replace(build);
+    }
+    state.made.extend(new_folders);
+    // Everything on disk is recorded before systemd is asked anything,
+    // with what is owed to it: a run whose enable fails leaves the debt,
+    // and the next run pays it though it writes nothing (the reviewer on
+    // #815, 19:17).
+    state.systemd_owed |= !changed.is_empty();
+    if state != before {
+        save(&records, &state)?;
+    }
+
+    // Started by nothing: enabled, for the next power-up after setup.
+    if state.systemd_owed {
+        host.tmpfiles(TMPFILES_PATH)?;
+        host.enable(&enabled())?;
+        changed.push(format!("enabled {}", enabled().join(" ")));
+        state.systemd_owed = false;
+        save(&records, &state)?;
     }
     for line in &changed {
         say(line);
@@ -427,6 +437,12 @@ pub fn install(
         sequence: manifest.sequence,
         changed,
     })
+}
+
+fn save(records: &Records, state: &State) -> Result<(), String> {
+    records
+        .save_state(state)
+        .map_err(|error| format!("the state cannot be written: {error}"))
 }
 
 /// The product's settings, from `defaults` (path, bytes): each written

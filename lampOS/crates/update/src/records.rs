@@ -59,6 +59,11 @@ pub struct State {
     /// (docs/install.md). Absent from a state written before.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub settings: BTreeMap<String, String>,
+    /// `install` wrote what systemd has not yet been told of
+    /// (`systemd-tmpfiles --create`, `systemctl enable`): the next install
+    /// tells it, though nothing else has changed.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub systemd_owed: bool,
 }
 
 impl State {

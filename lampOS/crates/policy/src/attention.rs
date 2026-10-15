@@ -282,6 +282,65 @@ pub fn state_text(context: &Context) -> String {
     )
 }
 
+/// [`state_text`] with a picture (#871): the same text, with `picture`
+/// last, holding `key`, the string the service replaces with the picture.
+pub fn state_text_with_picture(context: &Context, key: &str) -> String {
+    let mut text = state_text(context);
+    text.pop();
+    text.push_str(",\"picture\":");
+    text.push_str(&json!(key).to_string());
+    text.push('}');
+    text
+}
+
+/// What is asked about a picture (#871), each its own simple question,
+/// beside the seven: signs for the policy, none of which decides alone.
+const PICTURE_ASKED: [(&str, &str); 5] = [
+    (
+        "picture_faces_lamp",
+        "Is a person in state.picture looking toward the camera?",
+    ),
+    (
+        "picture_absorbed",
+        "Is the person nearest the camera in state.picture absorbed in something else: typing, reading, on a phone call, or wearing headphones?",
+    ),
+    (
+        "picture_talking_to_another",
+        "Are two or more people in state.picture, facing each other, or one talking to another?",
+    ),
+    (
+        "picture_asks_with_a_look",
+        "Is a person in state.picture waving at the camera, or looking at it as if asking something?",
+    ),
+    (
+        "picture_away",
+        "Is nobody at the desk in state.picture, or is the person there asleep?",
+    ),
+];
+
+/// How each picture question begins.
+const PICTURE_OPENING: &str =
+    "state.picture is what the lamp's own camera sees now, from the desk. ";
+
+/// The seven questions and the picture's five (#871), in that order.
+pub fn questions_with_picture() -> Vec<(String, Question)> {
+    let mut asked = questions();
+    asked.extend(PICTURE_ASKED.iter().map(|(name, rest)| {
+        (
+            (*name).to_owned(),
+            Question::Noul {
+                instructions: format!("{PICTURE_OPENING}{rest}"),
+            },
+        )
+    }));
+    asked
+}
+
+/// The names of the picture's questions.
+pub fn picture_questions() -> impl Iterator<Item = &'static str> {
+    PICTURE_ASKED.iter().map(|(name, _)| *name)
+}
+
 /// The seven questions, in the order they are asked in.
 pub fn questions() -> Vec<(String, Question)> {
     ASKED

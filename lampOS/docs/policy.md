@@ -1022,6 +1022,89 @@ same weights, no words in a line, the counts, labels, counting again) and
 played on this machine: two models asked in turn, the state sent equal to
 the day's, and none of what was heard in its output).
 
+## The lamp's picture with the question (#871, `--images`)
+
+`lamp-policy --images MODEL [--sight-file ABSOLUTE_PATH]`, off unless set,
+shadow. As the policy sends each attention question, it hands the same
+utterance to a thread of its own, if that thread is free. The thread asks
+`MODEL` (`typesafe/jev-1.14`) twice at once, on two connections:
+- **without** the picture: the seven questions as sent on the day;
+- **with** the picture: the state with `picture` last, the seven questions,
+  and five about the picture, each its own simple question:
+  - `picture_faces_lamp`: is a person looking toward the camera;
+  - `picture_absorbed`: typing, reading, on a call, in headphones;
+  - `picture_talking_to_another`: two people facing each other;
+  - `picture_asks_with_a_look`: a wave, or a look that asks;
+  - `picture_away`: nobody at the desk, or asleep.
+
+It writes one line for both to `pictures-YYYY-MM-DD.jsonl` in the log's
+folder. Nothing acts on it, and the decision is never late for it: an
+utterance that comes while the thread is still asking is passed over. Each
+picture question is a sign for later, one among the name, the room, the
+microphone's rise and the eyes' own count of faces turned to the lamp; none
+decides alone.
+
+**The picture, and when it may leave the lamp.** It is the eyes' newest
+frame (`/run/lampos-eyes/sight.jpg`, written only with `lamp-eyes
+--sight-file`), sent by the voice's rule ([eyes.md](eyes.md)):
+- the eyes keep the file only while the voice permits the camera, which is
+  exactly while the microphone may listen, so a muted lamp, or one whose
+  privacy switch is on, has none;
+- a frame older than 1 s, or larger than 64 KiB, is not taken, as the
+  voice's `sight` takes none.
+
+TypeSafe takes 256 to 1,568 pixels a side and 78,400 in all, so the eyes'
+320 by 240 frame is made 640 by 480 (each pixel repeated) and encoded
+again. It goes as one of TypeSafe's `assets` with the
+`TypeSafe-Danger-Zone-Images: true` header, which only that request carries.
+The picture is written nowhere. The line says only whether one was sent,
+its size, the eyes' size and its age, or why not (`no_frame`, `stale`,
+`too_large`, `not_a_jpeg`, `unreadable`).
+
+**The line:**
+- `at_unix_ms`: when the question was sent;
+- `context`: what was heard, in words, as in the decisions log, in the same
+  private folder;
+- `seen`: the eyes' counts;
+- `picture`;
+- `without` and `with`: each has `by`, `took_ms`, its answers, and the
+  `choice` and `probability` the same weights make of its seven answers,
+  or why it failed.
+
+**Counted, asking nothing:**
+
+    lamp-policy-replay --pictures --log-dir /var/lib/lampos-policy --days 2026-10-16 [--labels ABSOLUTE_FILE]
+
+The summary says how often a frame was sent and why not. For each asking,
+without the picture and with it, it gives `took_ms` p50/p95 and how often
+it did what should have happened. For each picture question, it says how
+often its yes (0.5 or more) went with what should have happened, beside
+the eyes' own `facing`. A label is taken for the line nearest it within
+3 s, so labels can be written by a scene's clock.
+
+**Not shown:**
+- No picture was sent to the service from the Mac. Whether the decisions
+  endpoint the policy uses (OpenRouter's) passes `assets` and the header on
+  to TypeSafe is for the lamp's first run to show: a `refused` in every
+  `with` would say no.
+- On lamp-4ace the eyes' `--sight-file` has been off since 2026-10-13
+  ([eyes.md](eyes.md)): without it every line says `no_frame`.
+- The file is the eyes' user's and mode 0600: the policy has to run as
+  that user to read it.
+
+Tests:
+- `crates/policy/src/pictures/tests.rs`: the voice's rule for a frame, the
+  frame made as large as the service takes, the state and the twelve
+  questions.
+- `crates/policy/tests/pictures.rs`: the two askings against a played
+  service, only one with the picture and the header, the line without the
+  picture, nothing asked with no frame, and the thread passing over what
+  comes while it asks.
+- `crates/policy/tests/program.rs`,
+  `with_images_the_question_is_asked_again_with_the_eyes_frame_beside_the_decision`:
+  the program itself, the decision published as before and the picture's
+  line beside it.
+
 ## Progress news: "say this progress now?" (#732)
 
 Built by the second builder on 2026-10-15 (`second-P2`). **Off unless

@@ -33,6 +33,7 @@ pub mod attention;
 pub mod decide;
 pub mod gather;
 pub mod outcome;
+pub mod pictures;
 pub mod policy;
 pub mod progress;
 pub mod record;

@@ -388,6 +388,112 @@ pub fn summary(lines: &[Value], models: &[String]) -> Value {
     })
 }
 
+/// The lines of `pictures-YYYY-MM-DD.jsonl` for `days` (`lamp-policy
+/// --images`, #871), in order.
+pub fn read_pictures(dir: &Path, days: &[String]) -> io::Result<Vec<Value>> {
+    let mut read = Vec::new();
+    for day in days {
+        let text = match fs::read_to_string(dir.join(format!("pictures-{day}.jsonl"))) {
+            Ok(text) => text,
+            Err(error) if error.kind() == io::ErrorKind::NotFound => continue,
+            Err(error) => return Err(error),
+        };
+        read.extend(
+            text.lines()
+                .filter_map(|line| serde_json::from_str::<Value>(line).ok())
+                .filter(|line| line["about"] == "attention_picture"),
+        );
+    }
+    Ok(read)
+}
+
+/// How far a label's moment may be from a picture line's: the line is
+/// written at the moment the question was sent, and a label is written by a
+/// scene's clock.
+pub const LABEL_WITHIN_MS: u64 = 3_000;
+
+/// The counts over the picture lines, with no words: how often a frame was
+/// sent and why not; for the asking without the picture and with it, how
+/// often each answered, how fast and how often it did what should have
+/// happened; and for each picture question, and for the eyes' own count of
+/// faces turned to the lamp, how often its yes would have been right.
+pub fn pictures_summary(lines: &[Value], labels: &BTreeMap<u64, Should>) -> Value {
+    let should = |line: &Value| -> Option<Should> {
+        let at = line["at_unix_ms"].as_u64()?;
+        labels
+            .range(at.saturating_sub(LABEL_WITHIN_MS)..=at + LABEL_WITHIN_MS)
+            .min_by_key(|(moment, _)| moment.abs_diff(at))
+            .map(|(_, should)| *should)
+    };
+    let mut why_not = BTreeMap::new();
+    for line in lines {
+        if let Some(why) = line["picture"]["why_not"].as_str() {
+            *why_not.entry(why.to_owned()).or_insert(0_u64) += 1;
+        }
+    }
+    let sent: Vec<&Value> = lines
+        .iter()
+        .filter(|line| line["picture"]["sent"] == true)
+        .collect();
+    let asking = |which: &str| {
+        let mut took: Vec<u64> = sent
+            .iter()
+            .filter_map(|line| line[which]["took_ms"].as_u64())
+            .collect();
+        took.sort_unstable();
+        let labelled: Vec<(Should, &str)> = sent
+            .iter()
+            .filter_map(|line| Some((should(line)?, line[which]["choice"].as_str()?)))
+            .collect();
+        let right = labelled
+            .iter()
+            .filter(|(should, choice)| should.met_by(choice))
+            .count();
+        json!({
+            "answered": took.len(),
+            "took_ms": {"p50": percentile(&took, 50), "p95": percentile(&took, 95), "max": took.last()},
+            "right": {"labelled": labelled.len(), "right": right},
+        })
+    };
+    // A sign is right when its yes goes with `yes_means`.
+    let sign = |yes: &dyn Fn(&Value) -> Option<bool>, yes_means: Should| {
+        let judged: Vec<(Should, bool)> = sent
+            .iter()
+            .filter_map(|line| Some((should(line)?, yes(line)?)))
+            .collect();
+        let right = judged
+            .iter()
+            .filter(|(should, yes)| *yes == (*should == yes_means))
+            .count();
+        json!({"labelled": judged.len(), "right": right,
+               "yes": judged.iter().filter(|(_, yes)| *yes).count()})
+    };
+    let mut signs = serde_json::Map::new();
+    for (name, means) in [
+        ("picture_faces_lamp", Should::Answer),
+        ("picture_asks_with_a_look", Should::Answer),
+        ("picture_absorbed", Should::StayQuiet),
+        ("picture_talking_to_another", Should::StayQuiet),
+        ("picture_away", Should::StayQuiet),
+    ] {
+        let yes = |line: &Value| line["with"]["answers"][name].as_f64().map(|yes| yes >= 0.5);
+        signs.insert(name.to_owned(), sign(&yes, means));
+    }
+    let facing = |line: &Value| line["seen"]["facing"].as_u64().map(|facing| facing > 0);
+    signs.insert("eyes_facing".to_owned(), sign(&facing, Should::Answer));
+    json!({
+        "status": "pictures_summary",
+        "questions": lines.len(),
+        "picture_sent": sent.len(),
+        "why_not": why_not,
+        "without": asking("without"),
+        "with": asking("with"),
+        "signs": signs,
+        "label_within_ms": LABEL_WITHIN_MS,
+        "words": "none: kinds and counts only",
+    })
+}
+
 /// The `percent`th percentile of sorted `values`, by the nearest rank.
 fn percentile(values: &[u64], percent: usize) -> Option<u64> {
     if values.is_empty() {

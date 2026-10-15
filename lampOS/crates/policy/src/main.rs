@@ -16,6 +16,7 @@ use lamp_bus::Bus;
 use lamp_policy::{
     decide::{DEFAULT_DEADLINE, DEFAULT_ENDPOINT, DEFAULT_MODEL, Endpoint, Jev},
     gather::PAUSE,
+    pictures::{self, Pictures},
     policy::{self, Options},
     progress,
     record::private_dir,
@@ -28,7 +29,7 @@ use std::{
     time::Duration,
 };
 
-const USAGE: &str = "usage: lamp-policy --key-file ABSOLUTE_PATH --log-dir ABSOLUTE_DIR [--endpoint URL] [--model NAME] [--deadline-ms N] [--bus-root ABSOLUTE_DIR] [--progress [--utc-offset-minutes N] [--act progress]]";
+const USAGE: &str = "usage: lamp-policy --key-file ABSOLUTE_PATH --log-dir ABSOLUTE_DIR [--endpoint URL] [--model NAME] [--deadline-ms N] [--bus-root ABSOLUTE_DIR] [--progress [--utc-offset-minutes N] [--act progress]] [--images MODEL [--sight-file ABSOLUTE_PATH]]";
 const HELP: &str = "The lamp's policy, in shadow mode: judges whether each thing the voice hears was said to\n\
 the lamp, publishes the decision on the bus (policy/decisions) and writes it down. Nothing\n\
 acts on it. See docs/policy.md.\n\
@@ -47,6 +48,12 @@ acts on it. See docs/policy.md.\n\
                  question is shown (-720 to 840); without it the hour is not known\n\
   --act progress the progress decisions act: published with shadow false, so that the voice\n\
                  tells a say_now. Needs --progress. \"Is this said to the lamp?\" stays shadow\n\
+  --images       also ask MODEL (typesafe/jev-1.14 takes pictures) each attention question twice at once,\n\
+                 without the eyes' newest frame and with it and five questions about it, and write both\n\
+                 to pictures-YYYY-MM-DD.jsonl. Shadow; the decision never waits for it. A frame is sent\n\
+                 only while the eyes keep one (the camera is permitted while the microphone is) and it\n\
+                 is at most 1 s old; it is never written. Off unless set\n\
+  --sight-file   the eyes' frame (default /run/lampos-eyes/sight.jpg). Needs --images\n\
 What is heard is sent to the decision model's service. Do not run this on real speech in the\n\
 office until the owner has said so: it is for played tests.";
 
@@ -63,12 +70,17 @@ struct Arguments {
     utc_offset_minutes: Option<i32>,
     /// Its decisions act (`--act progress`): off unless set.
     act_progress: bool,
+    /// The images model asked with the eyes' frame (`--images`, #871): off
+    /// unless set.
+    images: Option<String>,
+    sight_file: Option<PathBuf>,
 }
 
 fn parse(arguments: impl Iterator<Item = String>) -> Result<Option<Arguments>, String> {
     let (mut key_file, mut log_dir, mut endpoint, mut model, mut deadline, mut bus) =
         (None, None, None, None, None, None);
     let (mut progress, mut utc_offset_minutes, mut act) = (false, None, None);
+    let (mut images, mut sight_file) = (None, None);
     let mut arguments = arguments;
     while let Some(option) = arguments.next() {
         if option == "--help" || option == "-h" {
@@ -94,6 +106,14 @@ fn parse(arguments: impl Iterator<Item = String>) -> Result<Option<Arguments>, S
             "--key-file" => key_file.replace(absolute(&value)?).is_some(),
             "--log-dir" => log_dir.replace(absolute(&value)?).is_some(),
             "--bus-root" => bus.replace(absolute(&value)?).is_some(),
+            "--sight-file" => sight_file.replace(absolute(&value)?).is_some(),
+            "--images" => {
+                if value.is_empty() || value.chars().any(char::is_control) || value.starts_with('-')
+                {
+                    return Err("--images is the model asked with the picture".into());
+                }
+                images.replace(value).is_some()
+            }
             "--endpoint" => {
                 Endpoint::parse(&value)?;
                 endpoint.replace(value).is_some()
@@ -138,6 +158,9 @@ fn parse(arguments: impl Iterator<Item = String>) -> Result<Option<Arguments>, S
     if act.is_some() && !progress {
         return Err("--act progress needs --progress".into());
     }
+    if sight_file.is_some() && images.is_none() {
+        return Err("--sight-file needs --images".into());
+    }
     Ok(Some(Arguments {
         key_file: key_file.ok_or("--key-file is required")?,
         log_dir: log_dir.ok_or("--log-dir is required")?,
@@ -148,6 +171,8 @@ fn parse(arguments: impl Iterator<Item = String>) -> Result<Option<Arguments>, S
         progress,
         utc_offset_minutes,
         act_progress: act.unwrap_or(false),
+        images,
+        sight_file,
     }))
 }
 
@@ -166,7 +191,7 @@ fn run(arguments: &Arguments) -> io::Result<()> {
         None => Bus::from_environment()?,
     };
     log(&format!(
-        "started endpoint={} model={} deadline_ms={} pause_ms={} log_dir={} bus_root={} shadow={}{}",
+        "started endpoint={} model={} deadline_ms={} pause_ms={} log_dir={} bus_root={} shadow={}{}{}",
         arguments.endpoint,
         arguments.model,
         arguments.deadline.as_millis(),
@@ -179,6 +204,10 @@ fn run(arguments: &Arguments) -> io::Result<()> {
             (true, false) => " progress=true",
             _ => "",
         },
+        arguments
+            .images
+            .as_ref()
+            .map_or_else(String::new, |model| format!(" images={model}")),
     ));
     let options = Options {
         log_dir: arguments.log_dir.clone(),
@@ -187,28 +216,46 @@ fn run(arguments: &Arguments) -> io::Result<()> {
     };
     // Nothing sets the flag: the process runs until it is killed.
     let stop = AtomicBool::new(false);
-    if arguments.progress {
+    // The picture's two askings, each on its own connection to the images
+    // model, on a thread of their own (#871).
+    let pictures = match &arguments.images {
+        Some(model) => Some(Pictures::start(
+            Jev::new(&arguments.endpoint, model, &arguments.key_file)?,
+            Jev::new(&arguments.endpoint, model, &arguments.key_file)?,
+            pictures::Options {
+                sight_file: arguments
+                    .sight_file
+                    .clone()
+                    .unwrap_or_else(|| pictures::SIGHT_FILE.into()),
+                deadline: arguments.deadline.max(Duration::from_secs(10)),
+                log_dir: arguments.log_dir.clone(),
+            },
+        )?),
+        None => None,
+    };
+    let progress = if arguments.progress {
         // A judge of its own, on its own connection: a progress question
         // never waits for an attention one.
         let second = Jev::new(&arguments.endpoint, &arguments.model, &arguments.key_file)?;
-        let progress = progress::Options {
-            act: arguments.act_progress,
-            ..progress::Options::new(arguments.deadline, arguments.utc_offset_minutes)
-        };
-        return policy::run_with_progress(
-            &bus,
-            jev,
-            &options,
-            &stop,
-            &mut |note| log(&note.to_string()),
+        Some((
             second,
-            progress,
-        )
-        .map(|_| ());
-    }
-    policy::run(&bus, jev, &options, &stop, &mut |note| {
-        log(&note.to_string());
-    })
+            progress::Options {
+                act: arguments.act_progress,
+                ..progress::Options::new(arguments.deadline, arguments.utc_offset_minutes)
+            },
+        ))
+    } else {
+        None
+    };
+    policy::run_with_extras(
+        &bus,
+        jev,
+        &options,
+        &stop,
+        &mut |note| log(&note.to_string()),
+        progress,
+        pictures,
+    )
     .map(|_| ())
 }
 
@@ -267,6 +314,8 @@ mod tests {
                 progress: false,
                 utc_offset_minutes: None,
                 act_progress: false,
+                images: None,
+                sight_file: None,
             }
         );
         let least = of("--log-dir /d --key-file /k").unwrap().unwrap();
@@ -282,6 +331,8 @@ mod tests {
                 progress: false,
                 utc_offset_minutes: None,
                 act_progress: false,
+                images: None,
+                sight_file: None,
             }
         );
         // The progress question, and the lamp's local time for it.
@@ -290,6 +341,22 @@ mod tests {
             .unwrap();
         assert!(progress.progress && !progress.act_progress);
         assert_eq!(progress.utc_offset_minutes, Some(420));
+        // The picture's askings (#871), with the eyes' frame where it is
+        // unless another is named.
+        let pictured = of("--log-dir /d --key-file /k --images typesafe/jev-1.14")
+            .unwrap()
+            .unwrap();
+        assert_eq!(
+            (pictured.images.as_deref(), pictured.sight_file.as_deref()),
+            (Some("typesafe/jev-1.14"), None)
+        );
+        let elsewhere = of("--log-dir /d --key-file /k --images m --sight-file /tmp/sight.jpg")
+            .unwrap()
+            .unwrap();
+        assert_eq!(
+            elsewhere.sight_file.as_deref(),
+            Some(std::path::Path::new("/tmp/sight.jpg"))
+        );
         // And acting on it.
         let acting = of("--log-dir /d --progress --act progress --key-file /k")
             .unwrap()
@@ -340,6 +407,10 @@ mod tests {
             "--key-file /k --log-dir /d --utc-offset-minutes -721",
             "--key-file /k --log-dir /d --utc-offset-minutes 7h",
             "--key-file /k --log-dir /d --utc-offset-minutes 1 --utc-offset-minutes 1",
+            "--key-file /k --log-dir /d --sight-file /s",
+            "--key-file /k --log-dir /d --images m --sight-file s",
+            "--key-file /k --log-dir /d --images --progress",
+            "--key-file /k --log-dir /d --images m --images m",
         ] {
             assert!(of(refused).is_err(), "{refused:?}");
         }

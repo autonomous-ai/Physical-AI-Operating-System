@@ -251,6 +251,7 @@ fn isolated_signal_child() {
         peer(privacy_peer, None),
     ];
     let mut rig = Rig {
+        second: None,
         microphone: crate::options::Microphone::Mic2,
         end_silence_blocks: None,
         early_end_blocks: None,
@@ -463,6 +464,7 @@ fn service_signal_child(
         })
     });
     let mut rig = Rig {
+        second: None,
         microphone: crate::options::Microphone::Mic2,
         end_silence_blocks: None,
         early_end_blocks: None,

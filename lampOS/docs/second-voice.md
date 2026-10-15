@@ -1,10 +1,11 @@
 # The second voice route
 
 `crates/voice/src/second_config.rs`, `crates/voice/src/second_provider.rs`
-and `second_provider/{net,services,worker}.rs`. Issue
+and `second_provider/{net,services,worker}.rs`; the switch in
+`crates/voice/src/coordinator/second.rs`. Issue
 [#754](https://github.com/autonomous-ai/lampOS/issues/754). Status on
-2026-10-15: host tests only. The coordinator switch is being written
-(below). Nothing here has run on a lamp.
+2026-10-15: host tests only, the switch included. Nothing here has run on
+a lamp.
 
 ## Why
 
@@ -133,10 +134,11 @@ order is kept. A written turn is the same from the chat on.
 
 ## What a person hears
 
-When the coordinator switches (being written, below):
+When the coordinator switches (below):
 
-- **Switched at once:** a turn that fails with a quota, a refusal, a rate
-  limit or a server rejection, or a link that drops during the line.
+- **Switched at once:** a turn Gemini fails before any of its answer was
+  heard, whatever the fault (a quota, a refusal, a rate limit, a server
+  rejection, a dropped connection), or a link that changes during the line.
 - **Switched on a response timeout:** not sooner than Gemini's
   `response_timeout_ms`, which cannot go below 2 s (`config.rs`). A turn
   switched this way cannot meet the 1.2 s target below. With
@@ -186,8 +188,10 @@ When the coordinator switches (being written, below):
 The route's audio goes through the same speaker worker, so the echo
 canceller and "spoken over: it stops" behave as now. The ring, the body and
 Expression follow the same provider states. Its turns are journalled like
-any other. The first builder asked for this to be shown with the fixture
-provider's tests; that showing comes with the coordinator switch.
+any other. Shown with peer processes in `coordinator/tests/second_route.rs`
+(below): a turn the second route answers leaves the speaker the same
+authorities, the ring the same phases and the trace the same finished-turn
+record as one Gemini answers, and spoken over it stops the same way.
 
 ## The trade-off
 
@@ -210,27 +214,55 @@ A switch on a response timeout cannot meet the first (above).
 
 ## Coordinator switch
 
-**(being written; see the pull request)**
+`coordinator/second.rs`. With `LAMP_VOICE_SECOND_CONFIG` set in the
+service's (`serve`) environment and the Gemini source, `spawn_rig` starts
+the standby `second` worker just before the privacy worker, with
+`second::arguments`: the Gemini worker's arguments, the second
+configuration after the first, less `--keep-link`. Its readiness is taken
+and its authority kept fresh during the rest of startup.
 
-The design agreed on the issue:
-
-- A standby worker, `second`, beside the Gemini one, with its own link
-  register and output flow. When Gemini is not Ready, the second route is
-  Ready and no turn is in flight, the two are swapped, so every existing
-  provider path runs unchanged. The standby's output is drained and
-  dropped, which is how a late Gemini answer is lost.
-- A buffer of the current line, at most 30 s of 16 kHz mono, in memory
-  only: never on disk or the bus. Cleared when the line is answered or
-  abandoned, and at once on mute or privacy.
-- The intercepts that replay the line act only when a second route is
-  configured. Without one, the coordinator's packets and records are
-  byte for byte as before.
+- **One active route.** `Rig::second` holds the standby worker, its own
+  link register and output credit. A switch swaps all three with
+  `rig.provider`, `cloud` and the output flow, so every provider path runs
+  unchanged against the other route. The standby gets every authority;
+  its link reports go to its register; its output is drained, credited and
+  dropped (how a late Gemini answer is lost).
+- **At rest** (no turn in flight, nothing queued): to the second route
+  while Gemini is not Ready and has not ended; back to Gemini, silently, on
+  the first idle tick its link is Ready again or has ended (so Gemini's end
+  still ends the service). At startup the second route is taken until
+  Gemini's first Ready.
+- **Mid-turn**, while Gemini is active, nothing of its answer was heard and
+  the line was kept whole: a `TurnFailed` of that turn, or a link change
+  during the line (the request is marked `movable`, so the gate leaves it
+  for the switch). The turn is rebound to the second route's session and
+  its line queued again: Start, every sent block from 1, the unsent ones,
+  End if it was sent. A reminder turn is not moved.
+- **The line** (`second::Line`) is what the one send site sent Gemini for
+  the turn in hand: in memory only, never on disk or the bus, at most 30 s
+  of 16 kHz mono (beyond that it is dropped and the turn is not moved),
+  cleared when the line is answered or abandoned and at once when an
+  authority without its owner or with the microphone closed is published
+  (mute, privacy, cancellation).
+- **Pace.** A replay goes eight commands a tick, before what was queued
+  since; the second worker takes eight inputs a tick, as the Gemini worker
+  does, and holds 30 s of input while its speech-to-text connects.
+- **Without a configured route** `Rig::second` is `None`, the three
+  intercepts (the send site, the output receipt, the gate's `movable`) are
+  the old calls, and nothing else changes.
+- Trace: `voice_route_switched` (`to`, `why`, `turn`, `replayed_commands`,
+  and the failure's `stage` and `reason`); the standby's startup link
+  record carries `"route":"second"`; an Ended of the standby, `"standby":true`.
 
 ## Not done
 
 - **Gemini Terminal** (a wrong key or configuration) still ends the voice
   service as before. The second route covers Unavailable and failed turns
   only.
+- **The standby is a voice worker:** if it exits or its channel fails, the
+  runtime cycle ends as for the Gemini worker, not as an optional part.
+- A link change in the very first tick of a line, before the line is
+  marked `movable`, abandons the line as before.
 - **Onboarding writing `second.json`:** waits on the owner's choice of how a
   lamp is set up. Not built.
 - **`gemini` and `piper` speech:** `gemini` fails with Gemini; `piper` on
@@ -269,4 +301,18 @@ bytes and a local server (`net/*`); the engine's (`second_provider/tests.rs`);
 the worker's authority and a turn kept in the thread, its file and the
 journal (`worker.rs`); the thread reload (`thread::tests`).
 
-Not shown: anything on a lamp, the switch, and the latency targets.
+The switch: `coordinator::second::tests` (the line's 30 s bound, its
+request, its clearing on mute or a closed microphone and once answered or
+abandoned, the worker arguments) and `coordinator::tests::second_route`,
+the production `conversation()` with peer processes on real local IPC:
+without a route nothing of it is seen and a route standing by leaves
+Gemini's packets and the kinds and fields of every record unchanged; a
+spent quota moves the whole line and the rest of the lamp sees the same
+turn; a link dropped mid-line loses nothing; Gemini's audio after its
+failure is never played; the next turn goes back to Gemini once Ready;
+spoken over, the second route's answer stops as Gemini's does. The
+comparison across runs is of kinds, fields and sequences, not bytes:
+times and boots differ from run to run.
+
+Not shown: anything on a lamp, the real second worker behind the switch
+(the tests' second route is a peer), and the latency targets.

@@ -295,7 +295,7 @@ const CONTROL_SLICE: usize = 16;
 const INPUT_SLICE: usize = 8;
 const RETAINED_INPUT_US: u64 = 100_000;
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum ProviderInput {
     Start {

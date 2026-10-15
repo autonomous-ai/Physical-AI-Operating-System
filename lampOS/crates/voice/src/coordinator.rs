@@ -69,6 +69,7 @@ mod early_end;
 mod endpoint;
 mod hand;
 mod notices;
+mod second;
 mod service;
 use camera::{OptionalCamera, PreparedCamera, service_camera};
 use early_end::{EarlyEnd, Heard as HeardAfterEnd};
@@ -361,6 +362,8 @@ struct Rig {
     endpoint: Option<EndpointRig>,
     /// Whether the keeper has paused the lamp ([`keeper_pause`]).
     paused: KeeperPause,
+    /// The standby voice route, when one is configured (`second.rs`).
+    second: Option<second::Route>,
 }
 
 /// Whether the keeper has paused the lamp, asked once a loop.
@@ -398,6 +401,9 @@ impl Rig {
                 failure.get_or_insert(error);
             }
         }
+        if let Some(Err(error)) = self.second.as_mut().map(|route| route.publish(snapshot)) {
+            failure.get_or_insert(error);
+        }
         if let Some(motor) = &mut self.motor {
             motor.publish(snapshot);
         }
@@ -428,6 +434,9 @@ impl Rig {
                 .control
                 .send(Control::Authority { snapshot })?;
         }
+        if let Some(route) = &mut self.second {
+            route.publish(snapshot)?;
+        }
         self.ring.publish(snapshot);
         if let Some(camera) = self.camera.as_mut()
             && !camera.failed
@@ -448,7 +457,10 @@ impl Rig {
             &mut self.capture,
             &mut self.speaker,
             &mut self.privacy,
-        ] {
+        ]
+        .into_iter()
+        .chain(self.second.as_mut().map(second::Route::worker_mut))
+        {
             worker.check_running()?;
         }
         self.ring.check_running();
@@ -483,6 +495,7 @@ impl Rig {
         .into_iter()
         .chain(self.ring.iter_mut())
         .chain(self.camera.iter_mut().map(|camera| &mut camera.worker))
+        .chain(self.second.as_mut().map(second::Route::worker_mut))
         {
             if let Err(error) = worker.channels.control.send(Control::Stop) {
                 let _ = record(
@@ -494,8 +507,12 @@ impl Rig {
         }
         let mut failure = self.ring.cleanup_error();
         let ring_stop_requested_at_us = self.ring.stop_requested_at(stop_requested_at_us);
-        let mut exited =
-            vec![false; 4 + usize::from(self.ring.is_some()) + usize::from(self.camera.is_some())];
+        let mut exited = vec![
+            false;
+            4 + usize::from(self.ring.is_some())
+                + usize::from(self.camera.is_some())
+                + usize::from(self.second.is_some())
+        ];
         let mut receipts: [Option<DiagnosticFinished>; 2] = [None, None];
         let mut ring_blank_confirmed = self.ring.blank_confirmed();
         let mut final_drain = false;
@@ -521,6 +538,7 @@ impl Rig {
             .into_iter()
             .chain(self.ring.iter_mut())
             .chain(self.camera.iter_mut().map(|camera| &mut camera.worker))
+            .chain(self.second.as_mut().map(second::Route::worker_mut))
             .enumerate()
             {
                 for _ in 0..32 {
@@ -668,6 +686,7 @@ impl Rig {
                 .into_iter()
                 .chain(self.ring.iter_mut())
                 .chain(self.camera.iter_mut().map(|camera| &mut camera.worker))
+                .chain(self.second.as_mut().map(second::Route::worker_mut))
                 .enumerate()
                 {
                     if !exited[index] {
@@ -1919,6 +1938,13 @@ fn spawn_rig(
     let endpoint = EndpointRig::start(&options, &executable);
     let provider_boot = new_boot()?;
     let arguments = provider_arguments(source, &options, lifetime, camera.as_ref())?;
+    // A service that runs all day may keep a second voice route standing by.
+    let second_arguments = second::configured(
+        std::env::var_os(crate::second_config::SECOND_CONFIG_ENV)
+            .filter(|_| lifetime.continuous() && matches!(source, ProviderSource::Gemini(_))),
+    )
+    .map(|config| second::arguments(&arguments, &config))
+    .transpose()?;
     let arguments: Vec<&str> = arguments.iter().map(String::as_str).collect();
     let mut provider = Worker::spawn_with_boot_and_tick(
         &executable,
@@ -2057,7 +2083,7 @@ fn spawn_rig(
     } else {
         None
     };
-    let privacy = Worker::spawn_with_tick(&executable, directory, "privacy", boot, &[], || {
+    let mut later_tick = |second: Option<&mut second::Route>| -> io::Result<()> {
         controls_startup(controls)?;
         let previous = last;
         pulse(
@@ -2081,7 +2107,24 @@ fn spawn_rig(
                 .map_err(io::Error::other)?;
             camera.startup_tick(startup, snapshot);
         }
+        if let Some(route) = second {
+            let snapshot = (previous != last)
+                .then(|| owner.snapshot(now()))
+                .transpose()
+                .map_err(io::Error::other)?;
+            route.startup_tick(snapshot, startup)?;
+        }
         Ok(())
+    };
+    let mut second = second::Route::spawn(
+        &executable,
+        directory,
+        boot,
+        second_arguments.as_deref(),
+        || later_tick(None),
+    )?;
+    let privacy = Worker::spawn_with_tick(&executable, directory, "privacy", boot, &[], || {
+        later_tick(second.as_mut())
     })?;
     for (worker, expected_stream) in [
         (&capture, DiagnosticStream::Capture),
@@ -2119,6 +2162,7 @@ fn spawn_rig(
         microphone: options.microphone,
         endpoint,
         paused: keeper_pause(lamp_bus::Bus::from_environment()),
+        second,
     })
 }
 
@@ -2962,6 +3006,15 @@ fn conversation_with_gate(
             &mut submission_draining,
             trace,
         )?;
+        second::service(
+            rig,
+            &mut cloud,
+            &mut output_flow,
+            reply,
+            &mut provider_queue,
+            submission_draining,
+            trace,
+        )?;
         drain_capture_control(
             &mut rig.capture.channels.control,
             &mut capture_epoch,
@@ -3009,6 +3062,17 @@ fn conversation_with_gate(
             };
             output_flow.received()?;
             if hand::cancelled_output(&event, hand_cancelled_through) {
+                continue;
+            }
+            if second::takes_failed_turn(
+                rig,
+                &mut cloud,
+                &mut output_flow,
+                reply,
+                &mut provider_queue,
+                &event,
+                trace,
+            )? {
                 continue;
             }
             observe_provider_output(&mut cloud, reply, &event)?;
@@ -4124,12 +4188,7 @@ fn conversation_with_gate(
             last_publish = monotonic_us();
         }
         if provider_control_empty {
-            flush_provider_input(
-                &cloud,
-                reply,
-                &mut provider_queue,
-                &mut rig.provider.channels.data,
-            )?;
+            second::flush(rig, &cloud, reply, &mut provider_queue)?;
         }
         select_failure_notice(notices, reply, &speaker_pending, trace)?;
         let prior_speaker_sequence = speaker_sequence;
@@ -5833,6 +5892,7 @@ mod tests {
     mod provider_terminal;
     mod reminder_roundtrip;
     mod reminders;
+    mod second_route;
     mod service;
     mod service_mute;
     mod startup_cues;
@@ -5943,6 +6003,7 @@ mod tests {
         let (privacy, _privacy_peer) = Worker::sleeping_fixture(&directory.path, "privacy");
         let (ring, _ring_peer) = Worker::sleeping_fixture(&directory.path, "ring");
         let mut rig = Rig {
+            second: None,
             end_silence_blocks: None,
             early_end_blocks: None,
             faint_level: None,

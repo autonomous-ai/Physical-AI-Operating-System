@@ -543,6 +543,7 @@ fn conversation_sends_hand_stop_before_a_provider_fault_queued_in_the_same_tick(
     let (privacy, privacy_peer, privacy_input) =
         Worker::cooperative_fixture(&directory.path, "privacy");
     let mut rig = Rig {
+        second: None,
         microphone: crate::options::Microphone::Mic2,
         end_silence_blocks: None,
         faint_level: None,

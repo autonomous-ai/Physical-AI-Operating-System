@@ -25,7 +25,7 @@ use serde_json::{Value, json};
 use std::{
     path::{Path, PathBuf},
     sync::{
-        Mutex, OnceLock,
+        Condvar, Mutex, OnceLock,
         mpsc::{Receiver, SyncSender, sync_channel},
     },
     time::{Duration, Instant},
@@ -385,11 +385,12 @@ pub fn facts(person: Option<&str>, room: &[Rule], theirs: &[Rule]) -> lamp_msgs:
 /// else.
 pub fn publish(facts: &lamp_msgs::Rules) {
     let Some(root) = BUS.get() else { return };
-    let Ok(mut waiting) = WAITING.try_lock() else {
-        return;
-    };
-    *waiting = Some(facts.clone());
-    drop(waiting);
+    // Held only to put or take one fact, never across the bus's work: a
+    // newer fact must not be dropped because the publisher is taking one.
+    match WAITING.lock() {
+        Ok(mut waiting) => *waiting = Some(facts.clone()),
+        Err(_) => return,
+    }
     let wake = WAKE.get_or_init(|| {
         let (wake, woken) = sync_channel::<()>(1);
         let root = root.clone();
@@ -415,6 +416,9 @@ fn publisher(root: &Path, woken: &Receiver<()>) {
         let Some(facts) = WAITING.lock().ok().and_then(|mut waiting| waiting.take()) else {
             continue;
         };
+        // A test holds this to stand for a bus whose file work hangs.
+        #[cfg(test)]
+        let _stalled = tests::STALL.lock();
         if out.is_none() {
             out = lamp_bus::Bus::new(root)
                 .and_then(|bus| {
@@ -436,7 +440,37 @@ fn publisher(root: &Path, woken: &Receiver<()>) {
         if let Some(publisher) = out.as_mut() {
             let _ = publisher.publish_json(0, &facts);
         }
+        let (count, changed) = &HANDLED;
+        if let Ok(mut count) = count.lock() {
+            *count += 1;
+            changed.notify_all();
+        }
     }
+}
+
+/// How many facts the publisher thread has handled, published or not: what
+/// a test waits on instead of the clock.
+static HANDLED: (Mutex<u64>, Condvar) = (Mutex::new(0), Condvar::new());
+
+#[cfg(test)]
+fn handled() -> u64 {
+    *HANDLED.0.lock().unwrap()
+}
+
+/// Wait until the publisher thread has handled a fact after `seen`. The
+/// timeout only guards against a hung test; it decides nothing.
+#[cfg(test)]
+fn wait_handled(seen: u64) {
+    let (count, changed) = &HANDLED;
+    let (count, timeout) = changed
+        .wait_timeout_while(count.lock().unwrap(), Duration::from_secs(60), |count| {
+            *count <= seen
+        })
+        .unwrap();
+    assert!(
+        !timeout.timed_out(),
+        "the publisher handled nothing: {count}"
+    );
 }
 
 #[cfg(test)]
@@ -560,26 +594,22 @@ mod tests {
         assert!(note(&room, None).contains("- (4) Answer in short sentences.\n"));
     }
 
+    /// What the publisher thread waits on while a test stands for a bus
+    /// whose file work hangs (a declaration FIFO nobody writes, on the lamp).
+    pub(super) static STALL: Mutex<()> = Mutex::new(());
+
     /// The only test that names a bus: [`BUS`] is set once per process.
-    /// A bus whose declaration hangs (a FIFO nobody writes) does not hold up
-    /// a session's note; once the bus can be used the fact is kept there.
+    /// A bus that hangs does not hold up a session's note; once it moves the
+    /// fact is kept there. Nothing here waits on the clock but a hang guard.
     #[test]
     fn the_fact_is_kept_on_the_bus_and_a_stalled_bus_never_holds_up_a_session() {
         use std::{
             io::{BufRead, BufReader, Write},
-            os::unix::{fs::OpenOptionsExt, net::UnixListener},
+            os::unix::net::UnixListener,
         };
         let root = PathBuf::from(format!("/tmp/lvr-rules-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&root);
-        let declaration = root.join(lamp_msgs::Rules::TOPIC).join("declaration");
-        std::fs::create_dir_all(declaration.parent().unwrap()).unwrap();
-        assert!(
-            std::process::Command::new("mkfifo")
-                .arg(&declaration)
-                .status()
-                .unwrap()
-                .success()
-        );
+        std::fs::create_dir_all(&root).unwrap();
         bus_on(&root);
         // A memory with one room rule and no session note, answering every
         // request: a failed open is closed by the client in the background.
@@ -601,26 +631,16 @@ mod tests {
             }
         });
         let client = crate::remember::DaysClient::new(socket).unwrap();
+        let stalled = STALL.lock().unwrap();
+        let before = handled();
         let started = Instant::now();
         let note = client.told_for_session(1, None, true);
         let took = started.elapsed();
         assert!(note.contains("- (1) Never speak first.\n"), "{note}");
         assert!(took < Duration::from_millis(300), "{took:?}");
-        // Let the publisher's open of the FIFO end, then take the FIFO away.
-        let until = Instant::now() + Duration::from_secs(2);
-        while Instant::now() < until {
-            if std::fs::OpenOptions::new()
-                .write(true)
-                // Fails at once while nobody reads it, instead of waiting.
-                .custom_flags(rustix::fs::OFlags::NONBLOCK.bits() as i32)
-                .open(&declaration)
-                .is_ok()
-            {
-                break;
-            }
-            std::thread::sleep(Duration::from_millis(10));
-        }
-        let _ = std::fs::remove_file(&declaration);
+        // The publisher is still held: nothing it was given is done.
+        assert_eq!(handled(), before);
+        drop(stalled);
         let fact = facts(
             Some("p-1"),
             &[],
@@ -630,22 +650,26 @@ mod tests {
             )],
         );
         let bus = lamp_bus::Bus::new(&root).unwrap();
-        let until = Instant::now() + Duration::from_secs(5);
-        let kept = loop {
+        // Each try waits for the publisher to handle a fact, not for the
+        // clock; another test's fact can be the one handled, so a few tries.
+        let mut kept = None;
+        for _ in 0..20 {
+            let seen = handled();
             publish(&fact);
-            std::thread::sleep(Duration::from_millis(20));
-            let kept = bus
+            wait_handled(seen);
+            kept = bus
                 .latest(lamp_msgs::Rules::TOPIC)
                 .ok()
                 .flatten()
                 .and_then(|message| message.parse::<lamp_msgs::Rules>().ok());
-            if kept.as_ref() == Some(&fact) || Instant::now() > until {
-                break kept;
+            if kept.as_ref() == Some(&fact) {
+                break;
             }
-        };
+        }
         assert_eq!(kept, Some(fact));
         drop(client);
-        std::fs::remove_dir_all(root).unwrap();
+        // The client's background closes may still be writing beside it.
+        let _ = std::fs::remove_dir_all(root);
     }
 
     #[test]

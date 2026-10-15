@@ -1,0 +1,8 @@
+Rendered lines (say, 111):
+inside n=107  energy dB/100ms median -4.75 (rising 5%)   pitch st/100ms median -3.57 (rising 12%, n=104)
+end    n=111  energy dB/100ms median -4.33 (rising 14%)   pitch st/100ms median -0.66 (rising 47%, n=98)
+
+Held-out human clips (1,167):
+inside n=1089  energy dB/100ms median -2.08 (rising 35%)   pitch st/100ms median +0.18 (rising 55%, n=786)
+end-unfinished n=569  energy dB/100ms median -0.72 (rising 37%)   pitch st/100ms median +0.09 (rising 53%, n=463)
+end-finished n=598  energy dB/100ms median -0.25 (rising 43%)   pitch st/100ms median -0.03 (rising 49%, n=430)

@@ -811,6 +811,44 @@ that in a busy room the second part has no name in it, so the busy-room rule
 holds it. That second loss is what `LAMP_CUT_KEEPS_NAME` mends
 ([attention.md](attention.md), "A cut keeps its name").
 
+**The commit, as a switch.** `--endpoint-commit-ms MS` sets how long a pause
+must last before a confident verdict ends the turn (`ConfirmPolicy::commit_blocks`,
+a multiple of 10 ms). Without it the profile keeps its own: 400 ms under a
+window of a second or less, as lamp-4ace runs, one second above it. It needs
+an `--endpoint` model and must be shorter than the end-of-speech wait in
+force; the voice refuses to start otherwise. The record of the policy
+(`endpoint_policy`) says the commit in force. Measured on the 1,167
+held-out human clips (digital replay, the real detector, lamp-4ace's 600 ms
+window, verdicts 130 ms late), every 50 ms the commit waits:
+
+| Commit | Splits (the person went on) | Clips with a split | Wait at a finished end, median (mean) |
+|---|---|---|---|
+| 400 ms, as now | 527 | 384 | 400 ms (468) |
+| 450 ms | 474 | 350 | 450 ms (504), +50 |
+| 500 ms | 424 | 320 | 500 ms (539), +100 |
+| 550 ms | 369 | 285 | 550 ms (571), +150 |
+| none, the 600 ms window only | 330 | 258 | 600 ms (606), +200 |
+
+So the 400 ms commit adds 197 splits to what the window alone makes, and
+550 ms takes 158 of them away (80%) for 150 ms more at every confident end.
+Most of the rest are the window's own: at 600 ms it ends pauses that the
+1,200 ms baseline above keeps (13 splits there), nearly all of them in the
+long recordings (`liva_1`, 311 of the 330). Kept-start continues those.
+
+On the scenes played to lamp-4ace, the comma pauses it heard (400 to 560 ms)
+say what a commit would have kept whole: 450 ms 1 of the 9, 500 ms 6, 550 ms
+7, and only the window 9. The window itself still ends the two "Hey Lamp,"
+pauses of 600 and 630 ms.
+
+**Holding on a rise.** Whether the last 300 ms before the quiet rose in
+pitch or level does not tell a pause from an end. In the rendered lines,
+`say` falls before a comma (pitch −3.6 semitones per 100 ms at the median,
+rising in 12%) and rises before the end of a question (47%). In the
+held-out human clips, pitch rose before 55% of the pauses the person went
+on after and before 49% of finished ends, and the level fell before both.
+A rule built on it would hold about as many finished turns as it keeps
+pauses whole, so it was not built.
+
 **The replay.** `cargo run --release -p lamp-voice-eval --example
 turn_end_replay -- MODEL CLIPS.json --profile NAME:COMMIT_MS:P:LEAST_MS …`
 feeds 16 kHz mono WAV files through `TurnDetector` with the model in its own

@@ -176,20 +176,6 @@ fn parse(args: impl IntoIterator<Item = OsString>) -> Result<Option<Arguments>, 
     Ok(Some(result))
 }
 
-/// What the voice service says about the camera: `Some(true)` it may be
-/// open, `Some(false)` it must close now. Anything else says nothing.
-#[cfg_attr(not(any(target_os = "linux", test)), allow(dead_code))]
-fn permit_of(datagram: &[u8]) -> Option<bool> {
-    #[derive(serde::Deserialize)]
-    #[serde(deny_unknown_fields)]
-    struct Message {
-        camera: bool,
-    }
-    serde_json::from_slice::<Message>(datagram)
-        .ok()
-        .map(|message| message.camera)
-}
-
 fn main() -> std::process::ExitCode {
     // Its log lines never block it or end it, and its last ones reach the
     // journal (`lamp_ipc::log_relay`).
@@ -244,7 +230,6 @@ fn run(arguments: Arguments) -> Result<(), Box<dyn std::error::Error + Send + Sy
     };
 
     /// A permission older than this is none.
-    const PERMIT_STALE: Duration = Duration::from_millis(1_500);
     /// The newest frame is looked at this often at most while there is a
     /// face to follow, and for a few seconds after the last one.
     const LOOK_EVERY: Duration = Duration::from_millis(250);
@@ -367,7 +352,7 @@ fn run(arguments: Arguments) -> Result<(), Box<dyn std::error::Error + Send + Sy
     let mut still = arguments.leave_still.then(lamp_eyes::still::Still::default);
     let mut epoch = 0u64;
     let mut port: Option<LinuxPort> = None;
-    let mut permitted_at: Option<Instant> = None;
+    let mut permit = lamp_eyes::permit::Permit::default();
     let mut retry_at = Instant::now();
     let mut frame = vec![0u8; MAX_FRAME_BYTES];
     // Bytes of a frame that has not been looked at yet.
@@ -477,18 +462,8 @@ fn run(arguments: Arguments) -> Result<(), Box<dyn std::error::Error + Send + Sy
                 }
             }
         }
-        let mut datagram = [0u8; 64];
-        for _ in 0..32 {
-            match permits.recv(&mut datagram) {
-                Ok(length) => match permit_of(&datagram[..length]) {
-                    Some(true) => permitted_at = Some(Instant::now()),
-                    Some(false) => permitted_at = None,
-                    None => {}
-                },
-                Err(_) => break,
-            }
-        }
-        if permitted_at.is_none_or(|at| at.elapsed() >= PERMIT_STALE) {
+        permit.hear(&permits);
+        if !permit.holds() {
             if let Some(mut open) = port.take() {
                 let _ = open.stop(budget(STOP));
                 eprintln!("lamp-eyes: camera closed: not permitted");
@@ -541,8 +516,8 @@ fn run(arguments: Arguments) -> Result<(), Box<dyn std::error::Error + Send + Sy
                     worker,
                     epoch: NonZeroU64::new(epoch).ok_or("no epoch")?,
                 },
-                // A camera closed a moment ago is slow to start (#911): the
-                // eyes have no other work that cannot wait for it.
+                // A camera closed a moment ago is slow to start (#911). The
+                // permission is heard again as soon as the start returns.
                 budget(OPEN_BUDGET_US),
             );
             let took_ms = opening.diagnostics().start.map_or(0, |timing| {
@@ -554,6 +529,16 @@ fn run(arguments: Arguments) -> Result<(), Box<dyn std::error::Error + Send + Sy
             });
             match started {
                 Ok(mode) => {
+                    // The open may outlast the permission, or it may be taken
+                    // back meanwhile: then no frame is read and it closes now.
+                    let Some(opening) = permit.opened(&permits, opening, |mut opening| {
+                        let _ = opening.stop(budget(STOP));
+                    }) else {
+                        eprintln!(
+                            "lamp-eyes: camera closed: not permitted after opening in {took_ms} ms"
+                        );
+                        continue;
+                    };
                     eprintln!(
                         "lamp-eyes: camera open, {} by {}, in {took_ms} ms",
                         mode.width, mode.height
@@ -854,21 +839,6 @@ mod tests {
             "zzzz:5875@3-1",
         ] {
             assert_eq!(usb_of(refused), None, "{refused}");
-        }
-    }
-
-    #[test]
-    fn a_permission_is_one_exact_object_and_anything_else_says_nothing() {
-        assert_eq!(permit_of(br#"{"camera":true}"#), Some(true));
-        assert_eq!(permit_of(br#"{"camera":false}"#), Some(false));
-        for ignored in [
-            &br#"{"camera":1}"#[..],
-            br#"{"camera":true,"save":true}"#,
-            br#"{"mood":"listening","level":3}"#,
-            b"true",
-            b"",
-        ] {
-            assert_eq!(permit_of(ignored), None);
         }
     }
 }

@@ -348,7 +348,11 @@ camera call returns, not time limits: a call blocked in the driver is not
 interrupted, and one that returns past the budget is reported as expired. A
 close always closes the file, but releases the buffers first only when the
 stream stopped cleanly; after a failed or late stop it skips the release and
-relies on the close. The eyes do not look at the stop's result. Each open and each failed one is logged
+relies on the close. The eyes do not look at the stop's result. An open can
+outlast the 1.5 s permission, or the permission can be taken back while it
+blocks: so the permission is heard again as soon as the open returns, and a
+camera opened without it is closed at once, before any frame is read, kept or
+published. A blocked open is not interrupted; it is closed when it returns. Each open and each failed one is logged
 with how long it took: about 50 ms on lamp-52e6.
 
 To look at one JPEG file without a camera:

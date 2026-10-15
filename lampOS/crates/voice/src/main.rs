@@ -26,6 +26,13 @@ fn run() -> Result<()> {
         [command] if command == "schedule-consumer" => {
             lamp_voice::reminders::run_consumer()?;
         },
+        // marked [MARKS]: the moments people marked for review, newest first.
+        [command, rest @ ..] if command == "marked" && rest.len() <= 1 => {
+            let marks = rest.first().map_or(lamp_voice::marked::DEFAULT_MARKS, String::as_str);
+            for line in lamp_voice::marked::list(Path::new(marks))? {
+                println!("{line}");
+            }
+        },
         // The same with one JPEG beside the note: the lamp taking a look.
         [command,path,flag,picture,note] if command=="provider-check" && flag=="--look" => {
             let config=ProviderConfig::load(Path::new(path))?.into_session()?;

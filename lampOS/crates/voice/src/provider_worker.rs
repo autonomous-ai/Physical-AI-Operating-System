@@ -1727,6 +1727,7 @@ impl ToolDesk {
                     | Route::Memory(_)
                     | Route::Tasks(_)
                     | Route::Faces(_)
+                    | Route::Mark(_)
             )
         {
             let (sent, sent_us) = tell(&crate::tools::declined());
@@ -1823,7 +1824,8 @@ impl ToolDesk {
             | Route::Schedule(_)
             | Route::Memory(_)
             | Route::Tasks(_)
-            | Route::Faces(_))
+            | Route::Faces(_)
+            | Route::Mark(_))
                 if self.waiting < lamp_gemini::MAX_TOOL_CALLS =>
             {
                 // Being asked to keep or forget something is not itself
@@ -1833,7 +1835,11 @@ impl ToolDesk {
                 }
                 if matches!(
                     route,
-                    Route::Executive(_) | Route::Schedule(_) | Route::Tasks(_) | Route::Faces(_)
+                    Route::Executive(_)
+                        | Route::Schedule(_)
+                        | Route::Tasks(_)
+                        | Route::Faces(_)
+                        | Route::Mark(_)
                 ) {
                     self.acted = Some(request);
                 }
@@ -1883,6 +1889,7 @@ impl ToolDesk {
             | Route::Memory(_)
             | Route::Tasks(_)
             | Route::Faces(_)
+            | Route::Mark(_)
             | Route::Nobody => {
                 let (sent, sent_us) = tell(&crate::tools::unavailable());
                 self.line(

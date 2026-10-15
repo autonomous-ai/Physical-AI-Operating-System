@@ -34,7 +34,7 @@ impl Listener for ScriptListener {
         self.samples.fetch_add(samples.len(), Ordering::Relaxed);
         Ok(())
     }
-    fn finish(self: Box<Self>) -> BoxFuture<'static, net::Result<String>> {
+    fn finish(self: Box<Self>, _request: u64) -> BoxFuture<'static, net::Result<String>> {
         Box::pin(async move { self.heard })
     }
 }

@@ -380,7 +380,7 @@ async fn spoken(shared: Arc<Shared>, request: u64, mut heard: mpsc::Receiver<Vec
         }
     }
     let finishing = Instant::now();
-    let text = match listener.finish().await {
+    let text = match listener.finish(request).await {
         Ok(text) => {
             eprintln!(
                 "lamp-voice second: request {request} heard {} words, the last {} ms after the line ended",

@@ -25,15 +25,16 @@ pub trait Listener: Send {
     /// Queue 16 kHz mono samples; nothing waits.
     fn send(&self, samples: &[i16]) -> net::Result<()>;
     /// The final words; empty when nothing was heard.
-    fn finish(self: Box<Self>) -> BoxFuture<'static, net::Result<String>>;
+    /// `request` names the turn in the journal.
+    fn finish(self: Box<Self>, request: u64) -> BoxFuture<'static, net::Result<String>>;
 }
 
 impl Listener for SttStream {
     fn send(&self, samples: &[i16]) -> net::Result<()> {
         SttStream::send(self, samples)
     }
-    fn finish(self: Box<Self>) -> BoxFuture<'static, net::Result<String>> {
-        Box::pin(SttStream::finish(*self))
+    fn finish(self: Box<Self>, request: u64) -> BoxFuture<'static, net::Result<String>> {
+        Box::pin(SttStream::finish(*self, request))
     }
 }
 

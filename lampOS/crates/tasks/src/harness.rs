@@ -364,8 +364,14 @@ impl Cli {
             launch.target.project.clone().into(),
             "--name".into(),
             launch.name.clone().into(),
+            // Harness's default, approved by the owner on 2026-10-15: Claude
+            // Code works in its own project folder without asking, and still
+            // stops for anything risky. With `ask` it asked before every file
+            // it wrote, with nobody at the computer to answer: a two-line poem
+            // waited on "Do you want to create coffee_poem.txt?" while the
+            // lamp said "still working".
             "--mode".into(),
-            "ask".into(),
+            "auto".into(),
             "--json".into(),
             "--task".into(),
             launch.prompt.clone().into(),

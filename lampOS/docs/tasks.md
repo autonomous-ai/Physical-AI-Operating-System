@@ -187,9 +187,16 @@ Only three argv forms are constructed, without a shell:
 
 ```text
 harness machines --json
-harness new codex --machine <full-machine-id> <project> --name <unique-label> --mode ask --json --task <exact-text>
+harness new codex --machine <full-machine-id> <project> --name <unique-label> --mode auto --json --task <exact-text>
 harness show --machine <full-machine-id> <full-agent-id> --chars 4000 --json
 ```
+
+`--mode auto` (Harness's default) since 2026-10-15, approved by the owner: the
+agent works in its own project folder without asking and still stops for anything
+risky. With `--mode ask` Claude Code asked before every file it wrote, with nobody
+at the computer to answer: on lamp-4ace a two-line poem waited on "Do you want to
+create coffee_poem.txt?", which Harness reports as state `unknown`, while the lamp
+said "still working" (#770 makes the lamp say when an agent waits for the person).
 
 The machine is named with `--machine` since Harness 0.4.2 (openharness #1333,
 2026-10-14), on `new` and on `show`, and `show` reads the agent on the machine

@@ -158,7 +158,7 @@ fn launch_uses_exact_argv_ask_mode_null_stdin_and_stable_generic_identity() {
             "--name",
             "lamp-task-001",
             "--mode",
-            "ask",
+            "auto",
             "--json",
             "--task",
             request.prompt

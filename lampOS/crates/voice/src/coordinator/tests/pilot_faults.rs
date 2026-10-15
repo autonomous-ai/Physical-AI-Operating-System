@@ -96,6 +96,8 @@ enum Act {
     /// microphone closes: it says so, and opens it again under a new epoch,
     /// as the worker does after a stall (#784).
     CaptureReopen,
+    /// The same with a 50 ms close, as an XRun the worker reopens at once.
+    CaptureXRun,
     /// The provider peer closes its channels: the provider is gone.
     ProviderGone,
     /// Stop-only stall: the speaker consumes control messages but installs no
@@ -671,13 +673,14 @@ impl Peers {
                 self.capture_stalled_until =
                     Some(crate::scenario_clock::instant() + Duration::from_millis(500));
             }
-            Act::CaptureReopen => {
+            Act::CaptureReopen | Act::CaptureXRun => {
+                let ms = if act == Act::CaptureXRun { 50 } else { 400 };
                 self.capture_stalled_until =
-                    Some(crate::scenario_clock::instant() + Duration::from_millis(400));
+                    Some(crate::scenario_clock::instant() + Duration::from_millis(ms));
                 // A closed microphone reads nothing: frames start again at
                 // the reopen, not caught up.
                 if let Some(schedule) = self.capture.as_mut() {
-                    schedule.skip_to(monotonic_us() + 400_000);
+                    schedule.skip_to(monotonic_us() + ms * 1_000);
                 }
                 self.capture_reopen = true;
                 let epoch = self.capture_epoch;
@@ -1923,6 +1926,65 @@ fn a_stall_inside_a_question_abandons_it_and_the_voice_goes_on() {
         "a question cut by a gap was sent as finished: {:?}",
         run.seen.ends
     );
+}
+
+/// The microphone closed and reopened while the lamp answers (#784): the
+/// reply is cut as a hand Stop cuts it, and the voice goes on.
+#[test]
+fn a_reopen_while_the_lamp_answers_cuts_the_reply_and_the_voice_goes_on() {
+    let _one = one_session();
+    let run = run(Script {
+        actions: vec![
+            (When::Accepted(3), Act::CaptureReopen),
+            (When::Block(400), Act::Mute),
+        ],
+        ..Script::question(Fixture::Threaded, Answer::Hold(40))
+    });
+    run.assert_invariants();
+    assert!(is_mute(&run.result), "{:?}", run.result);
+    let cancels = run.events("hand_control_cancel");
+    assert_eq!(cancels.len(), 1, "{cancels:?}");
+    assert_eq!(cancels[0]["reason"], "capture_gap");
+}
+
+/// A capture held up half a second while the lamp answers, with no close
+/// reported: the lapsed lease cuts the reply, and the voice goes on.
+#[test]
+fn a_stall_while_the_lamp_answers_cuts_the_reply_and_the_voice_goes_on() {
+    let _one = one_session();
+    let run = run(Script {
+        actions: vec![
+            (When::Accepted(3), Act::CaptureStall),
+            (When::Block(400), Act::Mute),
+        ],
+        ..Script::question(Fixture::Threaded, Answer::Hold(40))
+    });
+    run.assert_invariants();
+    assert!(is_mute(&run.result), "{:?}", run.result);
+    let cancels = run.events("hand_control_cancel");
+    assert_eq!(cancels.len(), 1, "{cancels:?}");
+    assert_eq!(cancels[0]["reason"], "capture_gap");
+}
+
+/// An XRun closes and reopens the microphone within 50 ms, inside a
+/// question: the question is abandoned and the voice goes on.
+#[test]
+fn a_short_xrun_reopen_inside_a_question_abandons_it_and_the_voice_goes_on() {
+    let _one = one_session();
+    let run = run(Script {
+        speech: 40..90,
+        actions: vec![
+            (When::Block(60), Act::CaptureXRun),
+            (When::Block(250), Act::Mute),
+        ],
+        ..Script::question(Fixture::Threaded, Answer::Complete(12))
+    });
+    run.assert_invariants();
+    assert!(is_mute(&run.result), "{:?}", run.result);
+    let cancels = run.events("hand_control_cancel");
+    assert_eq!(cancels.len(), 1, "{cancels:?}");
+    assert_eq!(cancels[0]["reason"], "capture_gap");
+    assert!(run.seen.ends.is_empty(), "{:?}", run.seen.ends);
 }
 
 #[test]

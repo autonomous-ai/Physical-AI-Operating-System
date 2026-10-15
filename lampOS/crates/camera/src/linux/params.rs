@@ -317,6 +317,32 @@ mod tests {
             assert!(capture_parameters(raw).is_err());
         }
     }
+    /// lamp-52e6's ZVCAI asked for 1280x960 MJPG (#836) replies with
+    /// bytes per line 0 and size image 2,457,600: refused at SetFormat under
+    /// the old 2 MiB frame bound, taken now.
+    #[test]
+    fn the_lamp_camera_s_1280_by_960_format_reply_is_taken() {
+        let config = CaptureConfig {
+            source: crate::SourceId::new("lamp-eyes").unwrap(),
+            width: 1280,
+            height: 960,
+            interval: None,
+            max_frame_bytes: crate::MAX_FRAME_BYTES,
+            buffers: 2,
+        };
+        let reply = Format {
+            width: 1280,
+            height: 960,
+            pixelformat: b"MJPG".into(),
+            plane_fmt: vec![v4l2r::PlaneLayout {
+                sizeimage: 2_457_600,
+                bytesperline: 0,
+            }],
+        };
+        let raw = bindings::v4l2_format::try_from((QUEUE, &reply)).unwrap();
+        assert!(format(raw, config, Stage::SetFormat).is_ok());
+    }
+
     #[test]
     fn format_reply_cannot_change_queue_codec_dimensions_or_exceed_image_bound() {
         let config = CaptureConfig {

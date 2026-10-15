@@ -1,7 +1,11 @@
 use lamp_turn_owner::{BootId, CameraGrant, MonoTime};
 use std::{fmt, num::NonZeroU64};
 
-pub const MAX_FRAME_BYTES: usize = 2 * 1024 * 1024;
+/// The largest buffer a frame may need. A UVC driver sizes an MJPG buffer at
+/// two bytes a pixel: 1,843,200 at 1280x720 and 2,457,600 at 1280x960 (the
+/// ZVCAI on lamp-52e6, 2026-10-15), which a bound of 2 MiB refused at
+/// SetFormat (#836).
+pub const MAX_FRAME_BYTES: usize = 4 * 1024 * 1024;
 pub const MAX_WIDTH: u32 = 1280;
 /// 1280 by 960 is the whole 4:3 picture of the lamps' camera at 1280 across: a
 /// full look asks for it (`lamp-eyes --full-look`, #836).
@@ -447,3 +451,43 @@ impl fmt::Display for Error {
     }
 }
 impl std::error::Error for Error {}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// What the ZVCAI on lamp-52e6 negotiates for a full look (#836):
+    /// `v4l2-ctl --set-fmt-video=width=1280,height=960,pixelformat=MJPG`
+    /// gave MJPG 1280x960, bytes per line 0, size image 2,457,600, and
+    /// `--set-parm=10` 10 frames a second.
+    #[test]
+    fn the_lamp_camera_s_1280_by_960_mjpg_mode_is_accepted() {
+        let config = CaptureConfig {
+            source: SourceId::new("lamp-eyes").unwrap(),
+            width: 1280,
+            height: 960,
+            interval: Some(FrameInterval::new(1, 10).unwrap()),
+            max_frame_bytes: MAX_FRAME_BYTES,
+            buffers: 2,
+        };
+        assert!(config.validate().is_ok());
+        let mode = NegotiatedMode {
+            source: config.source,
+            format: PixelFormat::MJPG,
+            width: 1280,
+            height: 960,
+            interval: config.interval,
+            size_image: 2_457_600,
+            buffers: 2,
+        };
+        assert!(mode.validate(config).is_ok());
+        assert!(
+            NegotiatedMode {
+                size_image: MAX_FRAME_BYTES + 1,
+                ..mode
+            }
+            .validate(config)
+            .is_err()
+        );
+    }
+}

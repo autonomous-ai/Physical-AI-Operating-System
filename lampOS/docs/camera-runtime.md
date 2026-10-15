@@ -64,7 +64,10 @@ Already exported bytes or cloud requests cannot be retracted by this library.
 
 There are exactly three construction-time storage slots: one read scratch
 buffer, one newest pending frame, and one in-flight handoff. Each configured
-capacity is 4 bytes through 2 MiB, so application frame storage is at most 6 MiB.
+capacity is 4 bytes through 4 MiB, so application frame storage is at most 12 MiB
+(4 MiB since #836: a UVC driver sizes a 1280x960 MJPG buffer at 2,457,600 bytes,
+two a pixel, which 2 MiB refused at SetFormat). A caller sets its own capacity;
+the eyes' working 320x240 stream needs 153,600.
 Poll and handoff swap these buffers without frame-sized allocation or cloning.
 The slice passed to the port is capped by the validated negotiated `size_image`.
 This limit excludes driver/kernel buffers. The Linux backend validates all
@@ -220,8 +223,8 @@ queue abstraction.
 The driver is asked for 2–4 buffers and must return 2 through the requested
 count. **Every** returned layout is checked before the first mapping: expected
 index, unique offset, checked offset/length, and an image-sized length of at most
-2 MiB. There are at most four mappings (8 MiB mapped bytes) plus the three
-application slots (6 MiB). These are application/mapping ceilings, not a claim
+4 MiB. There are at most four mappings (16 MiB mapped bytes) plus the three
+application slots (12 MiB). These are application/mapping ceilings, not a claim
 about total RSS or memory a faulty kernel allocated before returning REQBUFS.
 
 Each slot moves through mapped, queued and dequeued ownership. Only a successful

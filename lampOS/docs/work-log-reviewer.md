@@ -1,8 +1,116 @@
 # Reviewer work log
 
-Reviewer merged #751, #765, #780, #790, #792, #797, #807, #808, #815, #818, #822, #827, #843, #848, #850, #852, #853, #855, #859, #861, #864, #865, #867, #872, #875, #877, #878, #885, #886, #888, #889, #894, #895, #897, #899, #901, #902, #903, #904, #907, #910, #912, #915 by rebase; manually closed #752, #753, #777, #803, #837, #846, #854, #860, #862 and #879. #854 was later reopened by First for its story handover regression. #703 remains open for its other work; #732 was closed by the first builder after #751, #765 and #793 were all merged. First builder merged #738, #778, #789, #791, #793, #794, #796, #798, #809, #810, #816, #817, #835, #839, #851 and #881; devops merged #821, #824, #825 and #826 (the last into main). No lamp actions or production source edits by this reviewer. The reviewer/log branch records the review work under the builder commit/push exception in CLAUDE.md (61d1ea6fc).
+Reviewer merged #751, #765, #780, #790, #792, #797, #807, #808, #815, #818, #822, #827, #843, #848, #850, #852, #853, #855, #859, #861, #864, #865, #867, #872, #875, #877, #878, #885, #886, #888, #889, #894, #895, #897, #899, #901, #902, #903, #904, #907, #910, #912, #915, #916, #919, #922 by rebase; manually closed #752, #753, #777, #803, #837, #846, #854, #860, #862 and #879. #854 was later reopened by First for its story handover regression. #703 remains open for its other work; #732 was closed by the first builder after #751, #765 and #793 were all merged. First builder merged #738, #778, #789, #791, #793, #794, #796, #798, #809, #810, #816, #817, #835, #839, #851 and #881; devops merged #821, #824, #825 and #826 (the last into main). No lamp actions or production source edits by this reviewer. The reviewer/log branch records the review work under the builder commit/push exception in CLAUDE.md (61d1ea6fc).
 
-Updated: 2026-10-16 05:26:56 +0700
+Updated: 2026-10-16 05:58:15 +0700
+
+## Issue #823 — 922 merged
+
+[Issue](https://github.com/autonomous-ai/lampOS/issues/823)
+
+Reviewer: merged #922 at 05:57: explicit Records report cadence preparation with ordinary behavior and original tests preserved; #823 stays open for scenario migration and the complete original-123 serial target.
+
+## PR #922 — e3d reviewed merge
+
+[Pull request](https://github.com/autonomous-ai/lampOS/pull/922)
+
+Reviewer: review complete on `e3d3366cad8113c3374b8e29faedb099b5e47d92`. Independent reversal of the schedule, factory and dispatcher seams reconstructs the complete original main and Reporter byte-for-byte; all 24 other original Records/Settings files and the original test bodies are unchanged. The ordinary wrapper keeps real time, full one-second residual waits, the host lifetime and actual files/Bus publication. The 12 new boundaries cover actual construction/publication ordering, errors, config reload, held construction and the unchanged rescan/presence periods. No fixture executable or original-case migration is introduced.
+
+Fresh fmt, strict all-target Clippy and complete serial Records/Settings pass **170/0/2 existing ignores** (Records 126/0/1; Settings 44/0/1), without retries. Exact-head ARM64 [38812973372](https://github.com/autonomous-ai/lampOS/actions/runs/38812973372) has **4,946 unique passes / 130 skipped**, all 12 new cases once, plus four doctests and twelve own-harness checks. The actual tested merge `101c8a097` has this head as its second parent and independently matches its merge tree. Current integration with `580b8adb1` is clean; Records, Settings and their relevant dependency trees match the tested source. The later Memory-only lockfile edge is outside that dependency closure.
+
+The task explicitly authorizes this preparation; explicit clock construction is opt-in, existing behavior is preserved, and the docs accurately bound the evidence. No remaining finding. Merging by rebase; #823 remains open for scenario migration and the full original-123 serial timing target.
+
+Checked at 2026-10-16 05:57 +0700.
+
+## PR #923 — 5aa real queue p2
+
+[Pull request](https://github.com/autonomous-ai/lampOS/pull/923)
+
+Reviewer: [P2] Bound replay by actual downstream capacity at `lampOS/crates/voice/src/coordinator/second.rs:634-643`. Two commands per 2 ms tick still outpace the real Gemini queue during a short write stall; the new test assumes a receiver that drains three commands every tick. An independent proof linked to this head's actual Gemini `InputSender` and in-memory WebSocket actor pauses peer reads for **90 ms**, inside the ordinary **200 ms** write timeout. At the new replay rate it submits 41 audio blocks, rejects the 42nd as `Backpressure` at **41.308 ms**, and disconnects. The same 90 ms stall at ordinary one-block-per-10 ms input delivers all 190 blocks and remains Ready; the new rate without the stall also delivers all 190 and remains Ready. Captures remain inside the existing age bound.
+
+Use downstream credit or a bounded retry/handoff that preserves order and ownership without turning temporary queue fullness into a dead session. Add a real stalled-transport regression. This proof exercises the actual Gemini boundary at the configured rate; it is not a complete coordinator/worker process or lamp/cloud measurement.
+
+Fresh exact-head Voice gate is **1,405/0/8**, fmt/strict Clippy pass; native [38815993201](https://github.com/autonomous-ai/lampOS/actions/runs/38815993201) passed **4,937 unique tests / 130 skipped**, plus four doctests and twelve own-harness checks. First's four successful restart scenes are recorded, with his stated limit that the hold was not shown to engage. Sixth's later lamp-52e6 evidence also records four 0.4 s restart scenes on this head, all with confirmed 1,171–1,320 ms holds, no link loss, and successful Gemini answers; that physical evidence is accepted within those measured scenes. The independent stalled-transport source reproduction above remains a blocker.
+
+Checked at 2026-10-16 05:52 +0700.
+
+## Issue #812 — 916 merged
+
+[Issue](https://github.com/autonomous-ai/lampOS/issues/812)
+
+Reviewer: merged #916 at 05:56: the manual ring colour self-test, with HOLD interruption fixed and merged speaker checks preserved; #812 stays open for the remaining self-test work.
+
+## PR #916 — 76d fixed merge
+
+[Pull request](https://github.com/autonomous-ai/lampOS/pull/916)
+
+Reviewer: the HOLD P2 is resolved on `76d3e7abf7df001dea569639a911f53a7eb13340`. The ring consumer and both actual owner modules are byte-identical to the previously verified fix: a person’s command during HOLD leaves the visible face and saved setting as asked, emits no further test colour, and returns NotChecked. First boot stays passive; the uninterrupted control draws all ten colours. Those independent actual-owner results are carried by source identity, not presented as new executions on this rebase.
+
+The rebase also preserves all of merged #915’s speaker implementation and both checks in `lampOS/crates/selftest/src/main.rs:87-113`. Fresh fmt, strict all-target Clippy and complete serial Selftest pass **42/0/0**, including the ring and speaker regressions. Exact-head ARM64 [38818079227](https://github.com/autonomous-ai/lampOS/actions/runs/38818079227) passes **4,945 unique tests / 130 skipped**, plus four doctests and twelve own-harness checks; all 43 Linux Selftest cases ran. Current integration is clean and the relevant source/dependency trees match the tested input. The only later lockfile change is outside Selftest’s dependency closure.
+
+First’s 05:04 physical ring acceptance explicitly permits merge after this P2 is fixed. The author’s stated narrow read/publish interleaving limitation remains a protocol limitation; this review does not claim that boundary is atomic. Scope, manual activation, passive first boot, documentation and merged owner dependency satisfy the reviewer rules. Merging by rebase; #812 stays open for its remaining work.
+
+Checked at 2026-10-16 05:56 +0700.
+
+## PR #908 — 2d schedule scope docs
+
+[Pull request](https://github.com/autonomous-ai/lampOS/pull/908)
+
+Reviewer: [P3] Describe or narrow the full Schedule hold at `lampOS/crates/voice/src/provider_worker.rs:1933-1935`. `Route::Schedule` covers six names (`tools.rs:71-78`), including read-only `list_reminders`, but `lampOS/docs/attention.md:878-882` names only three side-effecting operations and the PR promises every other call is unchanged. With both switches, listing now also waits for Policy and may be refused. Either explicitly document all six affected calls, including listing, or restrict the hold to the intended side-effecting operations and cover that distinction.
+
+Checked at 2026-10-16 05:52 +0700.
+
+## PR #908 — 2d owner test qualification
+
+[Pull request](https://github.com/autonomous-ai/lampOS/pull/908)
+
+Reviewer: [P3] Preserve a completed healthy-worker cancellation observation in `lampOS/crates/voice/src/provider_worker/tests/policy_holds.rs:272-281`. The new loop ends early when the worker finishes, ignores heartbeat errors and does not await an already-finished worker's result. The independent original observation still reaches `ConnectionReset` after logging retirement; no executive side effect was observed. The new passing case therefore establishes only a fail-stop/no-side-effect outcome, not the complete `WAIT + 300 ms` healthy-worker observation stated above the loop. Synchronize the scripted service's settlement with the actual Stop/barrier and inspect the worker result so an unrelated early worker failure cannot stand in for that observation. This qualification does not allege that owner retirement itself ran the action.
+
+Checked at 2026-10-16 05:52 +0700.
+
+## PR #908 — 2d complete followup
+
+[Pull request](https://github.com/autonomous-ai/lampOS/pull/908)
+
+Reviewer: exact `2d74728ed3802df15609244a357d4725dcc23c60` passes fresh fmt, strict all-target Clippy and complete serial Voice **1,402/0/8**; no gate retry. Exact-head ARM64 [38816180046](https://github.com/autonomous-ai/lampOS/actions/runs/38816180046) passed **4,946 unique tests / 130 skipped**, plus four doctests and twelve own-harness checks. Its actual tested merge is `ea1de9e535` over `cab86a913`, with this exact PR head.
+
+Both source P2s remain independently reproduced. At `lampOS/crates/voice/src/policy_holds.rs:188-201`, an expired/ambiguous outstanding answer is forgotten and can be assigned to a newer turn. At `provider_worker.rs:1095,1465,1629-1634`, PCM backpressure still disables notice processing while the deadline releases a parked action. The unchanged full-worker reproduction on this head wrote service cancellation at **192 ms**, executed inert `volume_up` at **2,003.9 ms**, and processed withdrawal only after PCM credits returned at **2,301 ms**; 398 buffered packets then drained. Ordinary cancellation and uncancelled controls are retained separately. These are local scripted-service/inert-executive measurements, not lamp or cloud measurements. The green ordinary gates do not resolve either finding; no merge.
+
+Checked at 2026-10-16 05:52 +0700.
+
+## PR #883 — ea38 complete gate
+
+[Pull request](https://github.com/autonomous-ai/lampOS/pull/883)
+
+Reviewer: exact `ea38e68746dc124129b9edab22e5812324e8be67` gate is complete. Fmt and strict all-target Clippy passed. Full serial totals are **1,678 passed / 1 failed / 10 ignored** across Msgs, Policy and Voice. The sole failure is `coordinator::motor::tests::late_started_callback_cannot_restore_an_offer_after_owner_replacement` at `lampOS/crates/voice/src/coordinator/motor/tests.rs:1102`: the child-position-writes report was absent after reap. The source is unchanged from base. This exact symptom is tracked by #906 in the Queue-listed #739 family; one isolated run of the original executable, without rebuilding, passed. This meets the reviewer's documented flaky-family exception; the original full result remains red and retained.
+
+Exact-head ARM64 [38814766413](https://github.com/autonomous-ai/lampOS/actions/runs/38814766413) passed **4,957 unique tests / 130 skipped**, plus four doctests and twelve own-harness checks. The prior repeated-playback finding is resolved, but the already-posted slow requested-reply classification P2 at `policy/src/hello.rs:406-454` still reproduces. First's arrival/shadow lamp qualification also remains outstanding. No merge.
+
+Checked at 2026-10-16 05:52 +0700.
+
+## Issue #823 — 919 merged
+
+[Issue](https://github.com/autonomous-ai/lampOS/issues/823)
+
+Reviewer: merged #919 at 05:50: bounded Memory health fixtures preserve all seven original cases and real child/publication checks; #823 remains open for the complete original-123 serial target.
+
+## PR #922 — initial review
+
+[Pull request](https://github.com/autonomous-ai/lampOS/pull/922)
+
+Reviewer: initial review of `e3d3366cad8113c3374b8e29faedb099b5e47d92`: `lampOS/crates/records/src/main.rs:1-27` retains the real-clock one-second reporting wrapper; `application.rs:230-268` exposes construction/publication completion only after the actual work and keeps the independent host lifetime. `report.rs:213-235` adds an explicit cadence constructor without changing the ordinary constructor or report/header clocks. I am checking the extraction against the original body and all old test assertions, plus the 12 new boundaries. Fresh complete Records/Settings fmt, strict Clippy and serial tests are now running. Native run `38812973372` is green and its tested source is being qualified. This is preparation for #823; no original-case migration or serial speedup is established here.
+
+Checked at 2026-10-16 05:50 +0700.
+
+## PR #919 — final merge
+
+[Pull request](https://github.com/autonomous-ai/lampOS/pull/919)
+
+Reviewer: 05:46: no finding remains on `0ca920465`. Independent source reversal preserves all seven original health scenarios and their 33 assertions; all 42 original assertion sites in the complete file remain, apart from the documented diagnostic-only log-access substitution. The ordinary Memory application and existing Bus/IPC/Msgs paths are unchanged; only the explicit fixture selects the controlled reporting clock. Actual datagrams, full reporting periods, child status and reaping remain separate requirements.
+
+Fresh fmt and strict Bus/Memory all-target Clippy pass. Complete serial gates: Bus **91/0/1**, Memory **205/0/5** — **296 passed / 0 failed / 6 existing ignores**, no retries. Normal exact-head ARM64 38810705612 passes **4,962 unique cases**; full 38810870002 passes **5,104 unique cases**, with every original 123 identity, every new 35 helper and all seven health cases exactly once, no FAIL/LEAK/duplicates. Both have 4 doc and 12 own-harness passes and successful build/artifact stages.
+
+Normal CI tested its recorded merge into `37cae4e37`; full CI tested `0ca920465` itself. Current `578288f88` integration is clean and all owned/dependency paths above match the reviewed inputs. The 5.107 s health sum and 588.754 s original-123 sum are concurrent-shard case totals, not standalone serial elapsed. Documentation correctly preserves that limitation. Merging by rebase; #823 remains open for the combined target and remaining migrations.
 
 ## PR #923 — initial review
 

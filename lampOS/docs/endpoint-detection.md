@@ -149,6 +149,27 @@ The process tests (`crates/turn-end-wire/tests/process.rs`) re-execute their
 own binary as a scripted worker. Every path above runs through a real child
 process and real pipes.
 
+The six in-process classifier scenarios explicitly use the stepped peer
+clock described in [Voice fixtures](voice-test-fixtures.md), including
+resumed speech, delayed verdicts, recovery and answer ordering. Their original
+endpoint and audio assertions remain; real process-classifier cases keep
+their host clocks. Scenario timestamps do not measure lamp or host latency.
+
+The finite real-worker ordering fixture explicitly selects a test-only
+100,000 us privacy allowance and a 12-second real conversation watchdog for
+missing-model, hung-worker, loading-worker and duplex missing-model cases
+(also the existing ignored real-model provenance case). The allowance is
+capped at the existing IPC ceiling. The six stepped cases and all three
+mute/cleanup scenarios keep the default 50,000 us gate. Normal builds,
+source/channel freshness, reopening and actual classifier deadlines are
+unchanged. A host-clock guard runs before real child construction. No Ready
+barrier hides the intentionally missing or still-loading worker. Privacy
+producer diagnostics remain distinct from unmeasured coordinator consumption
+age; these fixtures do not qualify the lamp's real privacy margin.
+The synthetic capture source retains its scheduled 10 ms acquisition times
+when a delivery thread is delayed. Fresh transport envelopes do not refresh
+old audio; controlled-delay tests retain the 100 ms source-age refusal.
+
 Endpoint authority never depends on trace metadata. Decisions come only from
 detector state and the client's in-memory availability; the trace events below
 are records written afterwards.

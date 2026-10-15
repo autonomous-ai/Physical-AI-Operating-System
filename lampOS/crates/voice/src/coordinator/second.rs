@@ -54,6 +54,8 @@ pub(super) const STARTUP_HOLD_US: u64 =
 /// [`lamp_gemini::INPUT_QUEUE_CAPACITY`] and gives the connection up when
 /// that is full; a held line of 1.9 s sent at the ordinary eight per tick
 /// overran it 37 ms after Gemini's first Ready on lamp-52e6 (lampOS#892).
+/// A write that stalls still fills the queue at this pace; the provider
+/// worker then waits for room (`ROOM_WAIT_US`) rather than overrun it.
 /// The second route's replay is not paced.
 const LIVE_REPLAY_PER_TICK: usize = 2;
 

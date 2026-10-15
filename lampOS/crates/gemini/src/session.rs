@@ -519,6 +519,12 @@ impl InputSender {
     pub fn shutdown(&self) {
         self.shared.fail(Error::Closed);
     }
+    /// Whether the input queue has a free place now, so the next command
+    /// offered is taken rather than ending the connection as
+    /// [`Error::Backpressure`].
+    pub fn has_room(&self) -> bool {
+        self.commands.capacity() > 0
+    }
     fn ensure_ready(&self) -> Result<()> {
         if self.shared.stop.borrow().is_some() || *self.state.borrow() != State::Ready {
             return Err(Error::Closed);

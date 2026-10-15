@@ -311,6 +311,10 @@ impl FromStr for Continuation {
 const CONTROL_SLICE: usize = 16;
 const INPUT_SLICE: usize = 8;
 const RETAINED_INPUT_US: u64 = 100_000;
+/// How long a command waits, first in line, for room in Gemini's input
+/// queue: past the link's own write bound (200 ms), so a write that is only
+/// slow is waited out and one that is stuck has failed the link first.
+const ROOM_WAIT_US: u64 = 250_000;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
@@ -2608,6 +2612,9 @@ enum ControlDrain {
 struct RetainedInput {
     command: ProviderInput,
     received_at_us: u64,
+    /// Held for room in Gemini's input queue, which bounds it by
+    /// [`ROOM_WAIT_US`] instead of [`RETAINED_INPUT_US`].
+    awaiting_room: bool,
 }
 
 /// Local process intake; this never grants authority or contacts the provider.
@@ -2651,7 +2658,13 @@ impl ProviderIntake {
         if self.retained.as_ref().is_some_and(|retained| {
             now_us
                 .checked_sub(retained.received_at_us)
-                .is_none_or(|age| age >= RETAINED_INPUT_US)
+                .is_none_or(|age| {
+                    age >= if retained.awaiting_room {
+                        ROOM_WAIT_US + RETAINED_INPUT_US
+                    } else {
+                        RETAINED_INPUT_US
+                    }
+                })
         }) {
             return Err(
                 io::Error::other("provider retained input expired or clock regressed").into(),
@@ -2786,6 +2799,7 @@ impl ProviderIntake {
                 self.retained = Some(RetainedInput {
                     command,
                     received_at_us: now(),
+                    awaiting_room: false,
                 });
             }
             // The parent sends Authority before its dependent input. Both can
@@ -2802,12 +2816,24 @@ impl ProviderIntake {
                 return Ok(control);
             }
             self.check_retained(now())?;
-            let Some(retained) = self.retained.take() else {
+            let Some(mut retained) = self.retained.take() else {
                 break;
             };
+            // Gemini's link gives its connection up when its input queue is
+            // full, as it is for a moment when a write is slow and input
+            // comes faster than speech (a held line replayed, lampOS#892).
+            // The command waits here, first in line, and nothing more is
+            // read; past ROOM_WAIT_US it goes, and a queue still full is
+            // the link's failure as before.
+            let now_us = now();
+            if !input.has_room() && now_us.saturating_sub(retained.received_at_us) < ROOM_WAIT_US {
+                retained.awaiting_room = true;
+                self.retained = Some(retained);
+                break;
+            }
             // Empty control plus unknown owner is a protocol error, not a reason
             // to invent an authority grace period or relabel this command.
-            self.handoff.submit(retained.command, now(), input)?;
+            self.handoff.submit(retained.command, now_us, input)?;
         }
         Ok(ControlDrain::Empty)
     }
@@ -3315,6 +3341,11 @@ trait InputSink {
     fn belongs_to_replaced_connection(&self, _request: RequestId) -> bool {
         false
     }
+    /// Whether the next command offered can be queued without ending the
+    /// connection for want of room.
+    fn has_room(&self) -> bool {
+        true
+    }
 }
 
 /// What the model is told beside a request that goes on from one whose end
@@ -3387,6 +3418,9 @@ impl<C: Connect> InputSink for Supervisor<C> {
     }
     fn belongs_to_replaced_connection(&self, request: RequestId) -> bool {
         self.input_belongs_to_replaced_connection(request)
+    }
+    fn has_room(&self) -> bool {
+        self.input_has_room()
     }
 }
 
@@ -8760,6 +8794,101 @@ mod tests {
             .unwrap();
         let next = rig.speak(&mut redial, false, true).await;
         assert!(next > request);
+        assert!(!rig.worker.is_finished());
+    }
+
+    /// lampOS#892, the reviewer's proof: input faster than speech (a held
+    /// line replayed, two blocks every 2 ms) meets a write that stalls for
+    /// 90 ms, within the link's 200 ms write bound. Gemini's input queue
+    /// fills; the worker waits for room instead of offering what would end
+    /// the connection, so every block arrives in order and nothing is lost.
+    #[tokio::test]
+    async fn a_short_stall_under_fast_input_waits_for_room_and_loses_nothing() {
+        const BLOCKS: u64 = 190;
+        let mut rig = LiveRig::start_capacity(
+            RecoveryPolicy {
+                outage_budget: Duration::from_secs(5),
+                require_context: false,
+                ..quick_policy()
+            },
+            Options::reporting(Reporting::Typed),
+            BARRIER,
+            false,
+            Continuation::Off,
+            2_048,
+        );
+        let mut dial = rig.ready().await;
+        let request = rig.speak(&mut dial, false, false).await;
+        let privacy_generation = rig.snapshot.microphone_generation();
+        // The service reads nothing for 90 ms, then everything it is sent.
+        let mut service = dial.service;
+        let reader = tokio::spawn(async move {
+            tokio::time::sleep(Duration::from_millis(90)).await;
+            let mut sequence = Vec::new();
+            while (sequence.len() as u64) < BLOCKS - 1 {
+                let Some(message) = service.try_receive(Duration::from_secs(1)).await else {
+                    break;
+                };
+                if message["realtimeInput"].get("audio").is_some() {
+                    sequence.push(message);
+                }
+            }
+            (sequence.len() as u64, service)
+        });
+        let mut pending: VecDeque<ProviderInput> = VecDeque::new();
+        let mut next = 2;
+        let deadline = Instant::now() + Duration::from_secs(3);
+        while next <= BLOCKS || !pending.is_empty() {
+            assert!(Instant::now() < deadline, "the input was never all taken");
+            rig.publish();
+            for _ in 0..2 {
+                if next <= BLOCKS {
+                    pending.push_back(ProviderInput::Audio {
+                        request,
+                        privacy_generation,
+                        sequence: next,
+                        read_completed_at_us: monotonic_us(),
+                        samples: vec![3; 160],
+                    });
+                    next += 1;
+                }
+            }
+            while let Some(command) = pending.front() {
+                match rig.parent.data.send(command) {
+                    Ok(()) => {
+                        pending.pop_front();
+                    }
+                    Err(error) if error.kind() == io::ErrorKind::WouldBlock => break,
+                    Err(error) => panic!("provider input: {error}"),
+                }
+            }
+            while let Some(wire) = rig.take() {
+                assert!(
+                    !matches!(wire, Wire::Status(ProviderStatus::TurnFailed { .. })),
+                    "the request was lost to a short stall: {wire:?}"
+                );
+            }
+            assert!(
+                !rig.worker.is_finished(),
+                "the worker ended on a short stall"
+            );
+            tokio::time::sleep(Duration::from_millis(2)).await;
+        }
+        // Held open, so the connection outlives the check.
+        let (received, _service) = reader.await.unwrap();
+        assert_eq!(received, BLOCKS - 1);
+        rig.pump(Duration::from_millis(200)).await;
+        while let Some(wire) = rig.take() {
+            assert!(
+                !matches!(
+                    wire,
+                    Wire::Status(
+                        ProviderStatus::TurnFailed { .. } | ProviderStatus::Unavailable { .. }
+                    )
+                ),
+                "the link was given up for a short stall: {wire:?}"
+            );
+        }
         assert!(!rig.worker.is_finished());
     }
 

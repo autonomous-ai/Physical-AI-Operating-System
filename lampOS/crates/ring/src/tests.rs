@@ -602,3 +602,235 @@ fn a_resting_frame_is_not_a_cue_and_a_stop_still_ends_everything() {
             .is_err()
     );
 }
+
+// The physical-mute indication never uses or changes conversational permits.
+fn muted() -> (GuardedRing<Sink>, Controller, PrivacyObservation) {
+    advance_to(10);
+    let mut controller = Controller::new(boot(1), at(0));
+    controller
+        .set_microphone_permission(clock(), Permission::Denied)
+        .unwrap();
+    controller
+        .set_camera_permission(clock(), Permission::Denied)
+        .unwrap();
+    let state = controller.snapshot(clock()).unwrap();
+    let observation = PrivacyObservation {
+        controller_boot: boot(1),
+        microphone_generation: state.microphone_generation(),
+        observed_at: clock(),
+        expires_at: at(50_010),
+        permitted: false,
+        physical_muted: Some(true),
+    };
+    let mut ring = GuardedRing::with_clock(Sink::default(), boot(1), clock).unwrap();
+    ring.install_authority(state).unwrap();
+    (ring, controller, observation)
+}
+
+#[test]
+fn physical_mute_needs_denied_authority_and_a_matching_fresh_low_observation() {
+    let (_, _, evidence) = muted();
+    let mut no_authority = GuardedRing::with_clock(Sink::default(), boot(1), clock).unwrap();
+    assert!(
+        no_authority
+            .show_privacy_muted(Some(evidence))
+            .unwrap()
+            .is_none()
+    );
+    assert_eq!(no_authority.sink.frames.len(), 1);
+    let (mut allowed, _) = idle();
+    assert!(
+        allowed
+            .show_privacy_muted(Some(evidence))
+            .unwrap()
+            .is_none()
+    );
+    assert_eq!(allowed.sink.frames.len(), 1);
+
+    let mut invalid = [evidence; 10];
+    invalid[0].physical_muted = None;
+    invalid[1].physical_muted = Some(false);
+    invalid[2].permitted = true;
+    invalid[3].controller_boot = boot(2);
+    invalid[4].microphone_generation += 1;
+    invalid[5].observed_at = at(11);
+    invalid[6].expires_at = at(10);
+    invalid[7].expires_at = at(50_011);
+    invalid[8].observed_at = at(0);
+    invalid[9].expires_at = at(9);
+    for observation in invalid {
+        let (mut ring, _, valid) = muted();
+        assert!(
+            ring.show_privacy_muted(Some(observation))
+                .unwrap()
+                .is_none()
+        );
+        assert!(ring.sink.frames.iter().all(is_black));
+        ring.show_privacy_muted(Some(valid)).unwrap();
+        assert!(!is_black(ring.sink.frames.last().unwrap()));
+        assert!(
+            ring.show_privacy_muted(Some(observation))
+                .unwrap()
+                .is_none()
+        );
+        assert!(is_black(ring.sink.frames.last().unwrap()));
+    }
+    let (mut ring, mut controller, evidence) = muted();
+    assert!(ring.show_privacy_muted(None).unwrap().is_none());
+    assert!(ring.show_privacy_muted(Some(evidence)).unwrap().is_some());
+    assert!(!is_black(ring.sink.frames.last().unwrap()));
+    let state = controller.snapshot(clock()).unwrap();
+    assert_eq!(state.microphone_permission(), Permission::Denied);
+    assert!(!state.listening_ready(clock()));
+    assert!(rest(&mut ring).is_none());
+}
+
+#[test]
+fn physical_mute_breath_has_only_dim_red_and_a_bounded_paint_rate() {
+    let (mut ring, mut controller, mut evidence) = muted();
+    for us in (10..=4_000_010).step_by(10_000) {
+        advance_to(us);
+        ring.install_authority(controller.snapshot(clock()).unwrap())
+            .unwrap();
+        evidence.observed_at = clock();
+        evidence.expires_at = at(us + 50_000);
+        ring.show_privacy_muted(Some(evidence)).unwrap();
+    }
+    assert!(ring.sink.frames.len() <= 162);
+    let mut minimum = u8::MAX;
+    let mut maximum = 0;
+    for frame in ring.sink.frames.iter().skip(1) {
+        for pixel in frame.bytes()[PRIMER_BYTES..FRAME_BYTES - RESET_BYTES].chunks_exact(24) {
+            let red = decode_channel(&pixel[8..16]);
+            assert_eq!(decode_channel(&pixel[..8]), 0);
+            assert_eq!(decode_channel(&pixel[16..]), 0);
+            assert!((2..=10).contains(&red));
+            minimum = minimum.min(red);
+            maximum = maximum.max(red);
+        }
+    }
+    assert_eq!((minimum, maximum), (2, 10));
+}
+
+#[test]
+fn missing_or_reopened_switch_blanks_red_even_before_the_next_paint() {
+    for missing in [false, true] {
+        let (mut ring, _, mut evidence) = muted();
+        ring.show_privacy_muted(Some(evidence)).unwrap();
+        advance_to(11);
+        evidence.physical_muted = Some(false);
+        ring.show_privacy_muted((!missing).then_some(evidence))
+            .unwrap();
+        assert!(is_black(ring.sink.frames.last().unwrap()));
+        let count = ring.sink.frames.len();
+        assert!(ring.tick().unwrap().is_none());
+        assert_eq!(ring.sink.frames.len(), count);
+    }
+}
+
+#[test]
+fn physical_mute_expires_without_new_messages_and_allowed_authority_blanks_it() {
+    let (mut ring, _, evidence) = muted();
+    ring.show_privacy_muted(Some(evidence)).unwrap();
+    advance_to(50_010);
+    assert!(ring.tick().unwrap().is_some());
+    assert!(is_black(ring.sink.frames.last().unwrap()));
+    assert!(ring.tick().unwrap().is_none());
+
+    let (mut ring, mut controller, evidence) = muted();
+    ring.show_privacy_muted(Some(evidence)).unwrap();
+    advance_to(11);
+    controller
+        .set_microphone_permission(clock(), Permission::Allowed)
+        .unwrap();
+    assert!(
+        ring.install_authority(controller.snapshot(clock()).unwrap())
+            .unwrap()
+            .is_some()
+    );
+    assert!(is_black(ring.sink.frames.last().unwrap()));
+    assert!(ring.show_privacy_muted(Some(evidence)).unwrap().is_none());
+}
+
+#[test]
+fn physical_mute_does_not_refresh_parent_authority_or_survive_a_write_expiry() {
+    let (mut ring, _, mut evidence) = muted();
+    ring.show_privacy_muted(Some(evidence)).unwrap();
+    advance_to(250_010);
+    evidence.observed_at = clock();
+    evidence.expires_at = at(300_010);
+    assert!(ring.show_privacy_muted(Some(evidence)).unwrap().is_none());
+    assert!(is_black(ring.sink.frames.last().unwrap()));
+
+    let (mut ring, _, mut evidence) = muted();
+    evidence.expires_at = at(15);
+    ring.sink.delay_us = 5;
+    assert!(ring.show_privacy_muted(Some(evidence)).is_err());
+    assert_eq!(ring.sink.frames.len(), 3);
+    assert!(is_black(ring.sink.frames.last().unwrap()));
+}
+
+#[test]
+fn physical_mute_write_and_control_failures_blank_once_and_latch() {
+    let (mut ring, _, evidence) = muted();
+    ring.sink.failures = 2;
+    let error = ring.show_privacy_muted(Some(evidence)).unwrap_err();
+    assert!(matches!(error.cause, Failure::Write(WriteFailure::Io(_))));
+    assert!(matches!(error.cleanup_error, Some(WriteFailure::Io(_))));
+    assert_eq!(ring.sink.frames.len(), 3);
+    assert!(ring.show_privacy_muted(Some(evidence)).is_err());
+    assert_eq!(ring.sink.frames.len(), 3);
+
+    let (mut ring, _, evidence) = muted();
+    ring.show_privacy_muted(Some(evidence)).unwrap();
+    ring.control_lost().unwrap();
+    assert!(is_black(ring.sink.frames.last().unwrap()));
+    assert!(ring.show_privacy_muted(Some(evidence)).is_err());
+}
+
+#[test]
+fn privacy_writer_handoff_requires_destruction_even_after_shutdown_black() {
+    use std::rc::Rc;
+    struct ExclusiveSink(Rc<Cell<bool>>);
+    impl ExclusiveSink {
+        fn open(held: &Rc<Cell<bool>>) -> io::Result<Self> {
+            if held.replace(true) {
+                return Err(io::Error::from(io::ErrorKind::WouldBlock));
+            }
+            Ok(Self(held.clone()))
+        }
+    }
+    impl FrameSink for ExclusiveSink {
+        fn write_frame(&mut self, _: &EncodedFrame) -> io::Result<()> {
+            assert!(self.0.get());
+            Ok(())
+        }
+    }
+    impl Drop for ExclusiveSink {
+        fn drop(&mut self) {
+            self.0.set(false);
+        }
+    }
+    let held = Rc::new(Cell::new(false));
+    let (_, mut controller, evidence) = muted();
+    let mut privacy =
+        GuardedRing::with_clock(ExclusiveSink::open(&held).unwrap(), boot(1), clock).unwrap();
+    privacy
+        .install_authority(controller.snapshot(clock()).unwrap())
+        .unwrap();
+    privacy.show_privacy_muted(Some(evidence)).unwrap();
+    assert!(ExclusiveSink::open(&held).is_err());
+    assert_eq!(
+        privacy.shutdown().unwrap().unwrap().reason,
+        BlankReason::Shutdown
+    );
+    assert!(ExclusiveSink::open(&held).is_err());
+    assert!(privacy.show_privacy_muted(Some(evidence)).is_err());
+    drop(privacy);
+    let mut next =
+        GuardedRing::with_clock(ExclusiveSink::open(&held).unwrap(), boot(2), clock).unwrap();
+    assert!(next.show_privacy_muted(Some(evidence)).unwrap().is_none());
+    next.shutdown().unwrap();
+    drop(next);
+    assert!(!held.get());
+}

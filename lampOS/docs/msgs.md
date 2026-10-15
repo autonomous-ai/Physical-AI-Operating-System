@@ -38,9 +38,10 @@ seventeen topics; `expression_topics()` lists the optional Expression
 contracts separately, and `controls_topics()` lists the optional Controls
 contracts, `keeper_topics()` the keeper's pause, `memory_topics()` the
 memory's typed rules, and `name_topics()` the first sign of a hearing of the
-lamp's name (`name/rising`). `logging_topics()` adds the optional
-operational log stream. `declaration_of()` recognizes every catalogue
-without changing `first_topics()`.
+lamp's name (`name/rising`). Touch, Schedule, Ears and privacy have separate
+additive catalogues. `logging_topics()` adds the optional operational log
+stream. `declaration_of()` recognizes every catalogue without changing
+`first_topics()`.
 
 ## The types
 
@@ -171,9 +172,53 @@ The owner must additionally fence publisher/session changes, deduplicate
 requests, and apply its own privacy and safety rules. `SoftwareMute` requests
 a lasting software inhibit; neither Stop nor any gesture permits reopening.
 An owner that accepts it retains the inhibit independently of message expiry
-or Controls restart. Physical privacy stays with Voice. These are typed
+or Controls restart. Physical capture permission stays with Voice. These are typed
 handoff contracts; see [Controls](controls.md) for the consumer obligations and
 [service privacy](service-privacy.md) for the existing physical authority.
+
+### Selected physical privacy observation (#755)
+
+With `LAMP_PRIVACY_CONTROLS=on`, `ControlsState.privacy` contains a
+`PrivacySwitch`: its original acquisition `ClockStamp`, GPIO reader session,
+optional `muted` level and optional fault. A known level has no fault; an
+unknown level has a fault. Its independent freshness limit is 50 ms, even
+though the containing state has a 300 ms transport lifespan. Publication of
+another heartbeat does not change the acquisition stamp. Hand-input `ready`
+and `enabled` do not grant or suppress this physical observation. Selected
+Controls normally publishes every 20 ms and immediately on a level or fault
+transition; the existing 100 ms topic declaration is unchanged.
+
+Absent/off omits the field from serialized state. Older messages without it
+still deserialize; a selected Voice treats absence as unknown and denies
+capture. [Privacy switch](privacy-switch.md) describes wiring, authority and
+the coordinated opt-in across Controls, Voice and Ears.
+
+## Optional microphone permission contract (#755)
+
+`privacy_topics()` declares one new topic, separate from the original
+seventeen. Only Voice's selected privacy worker publishes it.
+
+| Type | Topic | Kind | Period / lifespan | Meaning |
+|---|---|---|---|---|
+| `MicrophonePrivacy` | `voice/privacy` | latest | 10 / 50 ms | Voice controller identity, microphone generation, original physical acquisition, expiry, capture permission and known/unknown physical mute |
+
+Version 1 of `lamp_msgs/MicrophonePrivacy` carries a publication `ClockStamp`,
+16-character hexadecimal Bus `session_id`, 32-character hexadecimal
+`controller_boot`, positive `microphone_generation`, `observed_us`,
+`expires_at_us`, `permitted`, and optional `physical_muted`. Unknown physical
+state uses `observed_us = 0` and cannot permit capture. A known sample's expiry
+cannot exceed acquisition plus 50 ms. Permission also expires with the
+controller snapshot; a fresh publication cannot extend either source.
+
+`check()` validates shape and timestamp relationships. `from_message()` also
+checks the exact topic/type/kind/encoding/source, Bus boot and sequence,
+publication stamp, wall-clock envelope age, monotonic clock and current expiry.
+Consumers additionally fence ordering, loss, retired sessions and generation
+changes. Ears discards buffered PCM and destroys its handle before crossing a
+capture era. The muted ring requires denied microphone and camera authority
+plus fresh physical LOW; a software mute alone is not a physical indication.
+These are software permission contracts, not evidence of electrical power
+removal or measured handle-close/visible-light latency.
 
 ### Opt-in touch contracts (Task 33)
 

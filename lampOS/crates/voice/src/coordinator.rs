@@ -1390,9 +1390,12 @@ fn run_source(
             let executable = std::env::current_exe()?;
             // While it waits out a mute or a closed privacy switch, a lamp
             // with a ring shows the asleep face (#712, `LAMP_RING_ASLEEP=on`).
-            let asleep_ceiling = options
-                .ring_channel_ceiling
-                .filter(|_| crate::ring_asleep::enabled_from_environment());
+            // Not with the Controls privacy route: its wait paints the
+            // physical-mute indication, and the ring has one writer (#795).
+            let asleep_ceiling = options.ring_channel_ceiling.filter(|_| {
+                crate::ring_asleep::enabled_from_environment()
+                    && !matches!(crate::privacy_bus::root_from_environment(), Ok(Some(_)))
+            });
             service::supervise(
                 &mut trace,
                 &mut cues,
@@ -1403,7 +1406,7 @@ fn run_source(
                     #[cfg(not(target_os = "linux"))]
                     let _ = asleep_ceiling;
                     let trace = RefCell::new(trace);
-                    let outcome = service_privacy::wait_with_gate(
+                    let outcome = crate::service_privacy_controls::wait_selected(
                         &executable,
                         termination,
                         |state, boot, at_us| {
@@ -2463,6 +2466,9 @@ fn spawn_rig(
     } else {
         None
     };
+    let privacy_root = crate::privacy_bus::root_from_environment()?;
+    let privacy_arguments = crate::privacy_bus::worker_arguments(privacy_root.as_deref())?;
+    let privacy_arguments: Vec<&str> = privacy_arguments.iter().map(String::as_str).collect();
     let mut later_tick = |second: Option<&mut second::Route>| -> io::Result<()> {
         controls_startup(controls)?;
         let previous = last;
@@ -2503,9 +2509,14 @@ fn spawn_rig(
         second_arguments.as_deref(),
         || later_tick(None),
     )?;
-    let privacy = Worker::spawn_with_tick(&executable, directory, "privacy", boot, &[], || {
-        later_tick(second.as_mut())
-    })?;
+    let privacy = Worker::spawn_with_tick(
+        &executable,
+        directory,
+        "privacy",
+        boot,
+        &privacy_arguments,
+        || later_tick(second.as_mut()),
+    )?;
     for (worker, expected_stream) in [
         (&capture, DiagnosticStream::Capture),
         (&speaker, DiagnosticStream::Render),

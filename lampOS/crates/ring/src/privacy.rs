@@ -1,0 +1,141 @@
+//! A physical-mute indication is deliberately narrower than a light permit.
+use super::{
+    ChannelCeiling, Error, FrameSink, GuardedRing, PIXEL_COUNT, Rgb, WriteReceipt, encode,
+};
+use lamp_turn_owner::{BootId, Error as Denial, MonoTime, Permission};
+
+/// A trusted reader has checked the Voice publisher, bus incarnation, sequence
+/// and kernel clock. The ring independently checks the controller incarnation,
+/// microphone generation and original observation lifetime before each write.
+/// This evidence can authorize only the fixed physical-mute indication.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct PrivacyObservation {
+    pub controller_boot: BootId,
+    pub microphone_generation: u64,
+    pub observed_at: MonoTime,
+    pub expires_at: MonoTime,
+    pub permitted: bool,
+    pub physical_muted: Option<bool>,
+}
+
+const FRESH_US: u64 = 50_000;
+const BREATH_US: u64 = 4_000_000;
+const PAINT_INTERVAL_US: u64 = 25_000;
+
+impl<S: FrameSink> GuardedRing<S> {
+    /// Paint only a dark-red physical-mute breath, with red in 2..=10 and no
+    /// other channels. No caller-supplied pixels, ceiling or light permit exist
+    /// on this path. A fresh, denied, ownerless controller and a matching fresh
+    /// physical LOW are both required. Ordinary Allowed snapshots never qualify.
+    ///
+    /// Missing, unknown, open or expired evidence blanks an existing privacy
+    /// indication immediately. It cannot erase a separately authorized cue.
+    /// Fresh observations refresh evidence without painting more than 40 times
+    /// a second. Keep calling `tick` so either lease can expire on its own.
+    pub fn show_privacy_muted(
+        &mut self,
+        observation: Option<PrivacyObservation>,
+    ) -> Result<Option<WriteReceipt>, Error> {
+        self.ensure_live()?;
+        let started_at = (self.clock)();
+        let denial = observation.map_or(Some(Denial::NoAuthority), |observation| {
+            self.privacy_denial(observation, started_at)
+        });
+        if let Some(reason) = denial {
+            if reason == Denial::ClockRegression {
+                self.latch_fault();
+                return Err(self.reject(reason));
+            }
+            if self.privacy.is_some() {
+                return self
+                    .blank(super::BlankReason::AuthorityLost(reason))
+                    .map(|_| None)
+                    .map_err(|failure| {
+                        self.latch_fault();
+                        Error {
+                            cause: super::Failure::Write(failure),
+                            cleanup_error: None,
+                        }
+                    });
+            }
+            return Ok(None);
+        }
+        if self.active.is_some() || self.resting {
+            return Ok(None);
+        }
+        let observation = observation.expect("validated physical-mute evidence");
+        if self.privacy_painted_at.is_some_and(|last| {
+            started_at
+                .as_micros()
+                .checked_sub(last.as_micros())
+                .is_some_and(|elapsed| elapsed < PAINT_INTERVAL_US)
+        }) {
+            self.privacy = Some(observation);
+            return Ok(None);
+        }
+        let frame = encode(&muted_pixels(started_at), ChannelCeiling(10));
+        let receipt = match self.transfer(&frame, started_at) {
+            Ok(receipt) => receipt,
+            Err(failure) => return Err(self.write_fault(failure)),
+        };
+        self.privacy = Some(observation);
+        self.privacy_painted_at = Some(started_at);
+        // An observation or controller lease may expire during a kernel write.
+        // A successful transfer cannot leave that now-unauthorized red latched.
+        if let Some(reason) = self.privacy_denial(observation, (self.clock)()) {
+            return Err(self.reject(reason));
+        }
+        Ok(Some(receipt))
+    }
+
+    pub(super) fn privacy_denial(
+        &self,
+        observation: PrivacyObservation,
+        now: MonoTime,
+    ) -> Option<Denial> {
+        if self.guard.is_faulted() {
+            return Some(Denial::Faulted);
+        }
+        let Some(state) = self.guard.state() else {
+            return Some(Denial::NoAuthority);
+        };
+        if state.boot() != observation.controller_boot {
+            Some(Denial::WrongBoot)
+        } else if self.privacy_painted_at.is_some_and(|last| now < last) {
+            Some(Denial::ClockRegression)
+        } else if state.issued_at() > now {
+            Some(Denial::FutureState)
+        } else if now >= state.expires_at() {
+            Some(Denial::ExpiredState)
+        } else if state.microphone_permission() != Permission::Denied
+            || state.camera_permission() != Permission::Denied
+            || state.owner().is_some()
+            || observation.permitted
+            || observation.physical_muted != Some(true)
+        {
+            Some(Denial::PrivacyClosed)
+        } else if state.microphone_generation() != observation.microphone_generation {
+            Some(Denial::StateRegression)
+        } else if observation.observed_at.as_micros() == 0
+            || observation
+                .expires_at
+                .as_micros()
+                .checked_sub(observation.observed_at.as_micros())
+                .is_none_or(|lease| lease == 0 || lease > FRESH_US)
+        {
+            Some(Denial::InvalidLease)
+        } else if observation.observed_at > now {
+            Some(Denial::FutureObservation)
+        } else if now >= observation.expires_at {
+            Some(Denial::ExpiredState)
+        } else {
+            None
+        }
+    }
+}
+
+fn muted_pixels(at: MonoTime) -> [Rgb; PIXEL_COUNT] {
+    let phase = (at.as_micros() % BREATH_US) as f64 / BREATH_US as f64;
+    let red = (2.0 + 4.0 * (1.0 - (phase * std::f64::consts::TAU).cos())).round() as u8;
+    [Rgb::new(red.min(10), 0, 0); PIXEL_COUNT]
+}

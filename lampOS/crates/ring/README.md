@@ -1,9 +1,10 @@
 # Lamp ring driver
 
 `lamp-ring` is a Rust library for the fixed 32-pixel WS2812 ring, not a complete
-runtime or a running ring process. It adds no animation, filler, idle behavior,
-privacy color or listening cue. Its caller must choose purposeful pixels and
-hold an actual `lamp-turn-owner` light permit.
+runtime or a running ring process. Conversational pixels require an actual
+`lamp-turn-owner` light permit. A separate, narrow physical-mute method can
+render only a dim red breath under fresh denied authority and a matching
+physical switch observation. Neither path manufactures listening readiness.
 
 `lamp-voice` now supplies an optional supervised writer and a phase policy for
 directed qualification. See [conversation/ring ownership](../../docs/ring-choreography.md)
@@ -28,6 +29,27 @@ waiting for another paint; `tick` expires the displayed cue when no new work
 arrives. Drain priority control messages before output and call `tick` at least
 every 10 ms. The owner must refresh authority and policy; the driver never
 manufactures readiness or permits from its last displayed color.
+
+`show_privacy_muted` accepts a `PrivacyObservation`, never arbitrary pixels or
+a light permit. A trusted Voice reader checks the typed bus envelope, source,
+publisher incarnation, sequence and kernel clock. The ring independently
+requires fresh denied microphone and camera authority with no turn, the same
+controller boot and microphone generation, `permitted:false`, and a physical
+mute observed no more than 50 ms before its expiry. Unknown, missing, open,
+future or expired evidence cannot paint red. Ordinary Allowed snapshots cannot
+authorize this path. The fixed four-second breath uses red 2–10, green/blue 0,
+and at most 40 writes per second. Evidence can refresh between writes; switch
+reopening or evidence loss blanks the indication immediately, and `tick`
+expires it without new messages. The post-write check also blanks a frame whose
+lease expired in I/O.
+
+Voice selects this separate quiescent worker only with
+`LAMP_PRIVACY_CONTROLS=on`; unset preserves the previous ring behavior. Its
+shutdown black receipt and process exit must precede the next ring writer.
+Shutdown itself does not release the SPI handle: destruction does. The same
+exclusive SPI lock protects both workers. A red frame asserts only fresh
+physical-mute evidence and denied authority, never an electrical microphone
+power cut or optically verified state.
 
 Rejected old permits or stale/duplicate snapshots preserve a newer valid cue.
 The displayed cue's own expiry/revocation causes one black frame. Malformed
@@ -64,4 +86,7 @@ outside the permitted range, hue quantization, guarded cancellation/privacy,
 idle expiry, stale-message preservation, short writes, fault cleanup and
 shutdown. Linux-only tests also reject incorrect configuration readback. Unit
 tests are not physical LED tests; device timing, visual brightness, ownership
-handover and failure recovery still need qualification.
+handover and failure recovery still need qualification. Fake-sink privacy
+checks cover denied/allowed authority, observation identity and expiry,
+low-to-high and missing input, paint bounds, write failure, authority loss and
+destruction before a successor writer can acquire ownership.

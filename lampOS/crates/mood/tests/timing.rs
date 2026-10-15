@@ -186,6 +186,7 @@ fn authored_bus_cues_to_observed_state_first_and_repeated() {
                 latest_mute: None,
                 event_sequence: touch_sequence,
                 rejected_inputs: 0,
+                privacy: None,
             };
             controls.publish_json(now, &state).unwrap();
         } else {

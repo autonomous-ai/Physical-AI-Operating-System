@@ -80,6 +80,8 @@ mod skill_ask;
 pub use skill_ask::*;
 mod arbitration;
 pub use arbitration::*;
+mod privacy;
+pub use privacy::*;
 
 /// Why a message is not one its type allows, in words.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -1145,6 +1147,7 @@ pub fn declaration_of(topic: &str) -> Option<Declaration> {
         .chain(online_topics())
         .chain(arrival_topics())
         .chain(skill_ask_topics())
+        .chain(privacy_topics())
         .find_map(|(name, declaration)| (name == topic).then_some(declaration))
 }
 

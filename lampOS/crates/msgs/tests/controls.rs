@@ -48,6 +48,7 @@ fn state() -> ControlsState {
         latest_mute: None,
         event_sequence: 1,
         rejected_inputs: 0,
+        privacy: None,
     }
 }
 

@@ -167,6 +167,7 @@ pub fn run(seconds: u64) -> io::Result<Report> {
         probes[index] = GpioLines::probe(chip, *line)?;
     }
     let wiring = PinsConfig {
+        privacy: None,
         chip: chip.into(),
         buttons: vec![],
         every_ms: 5,

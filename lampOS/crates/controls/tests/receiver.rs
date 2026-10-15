@@ -28,6 +28,7 @@ fn gesture(intent: ControlIntent, session: &str, sequence: u64, at_us: u64) -> C
 
 fn state(session: &str, sequence: u64, at_us: u64) -> ControlsState {
     ControlsState {
+        privacy: None,
         stamp: ClockStamp {
             clock_id: "boot".into(),
             at_us,

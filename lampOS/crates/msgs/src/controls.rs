@@ -177,6 +177,45 @@ pub fn hold_tier(held_us: u64) -> HoldTier {
     }
 }
 
+/// Physical switch evidence expires independently of the Controls heartbeat.
+pub const PRIVACY_SWITCH_TTL_US: u64 = 50_000;
+
+/// An electrical observation, never microphone permission or software mute.
+/// Unknown evidence has no level and names its fault. Sequence zero is reserved
+/// for the unknown sentinel before any acquisition has been accepted.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct PrivacySwitch {
+    pub stamp: ClockStamp,
+    pub reader_session_id: String,
+    pub muted: Option<bool>,
+    pub fault: Option<ControlFault>,
+}
+
+impl PrivacySwitch {
+    pub fn check(&self) -> Result<(), Invalid> {
+        self.stamp.check()?;
+        control_name(&self.reader_session_id)?;
+        if self.muted.is_some() == self.fault.is_some()
+            || (self.muted.is_some() && self.stamp.sequence == 0)
+            || (self.stamp.sequence == 0 && self.stamp.at_us != 0)
+        {
+            return Err(Invalid(
+                "privacy needs an acquired level or an unknown fault".into(),
+            ));
+        }
+        Ok(())
+    }
+
+    pub fn fresh_at(&self, clock: &str, now_us: u64) -> bool {
+        self.check().is_ok()
+            && self.muted.is_some()
+            && self.stamp.clock_id == clock
+            && self.stamp.at_us <= now_us
+            && now_us - self.stamp.at_us < PRIVACY_SWITCH_TTL_US
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ControlsState {
     pub stamp: ClockStamp,
@@ -202,6 +241,9 @@ pub struct ControlsState {
     pub latest_mute: Option<ControlGesture>,
     pub event_sequence: u64,
     pub rejected_inputs: u64,
+    /// Independent chip-1 evidence; absent when its explicit opt-in is off.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub privacy: Option<PrivacySwitch>,
 }
 
 impl ControlsState {
@@ -218,6 +260,18 @@ impl ControlsState {
     pub fn check(&self) -> Result<(), Invalid> {
         self.stamp.check()?;
         control_name(&self.session_id)?;
+        if let Some(privacy) = &self.privacy {
+            privacy.check()?;
+            if privacy.stamp.clock_id != self.stamp.clock_id
+                || privacy.stamp.at_us > self.stamp.at_us
+                || (privacy.muted.is_some()
+                    && !privacy.fresh_at(&self.stamp.clock_id, self.stamp.at_us))
+            {
+                return Err(Invalid(
+                    "privacy evidence has a foreign, future or stale acquisition".into(),
+                ));
+            }
+        }
         if self.ready == self.fault.is_some() || self.buttons.len() > CONTROL_MAX_BUTTONS {
             return Err(Invalid(
                 "ready controls have no input fault and at most eight buttons".into(),

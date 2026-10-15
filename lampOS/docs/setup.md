@@ -158,6 +158,29 @@ until `resume-reset` finishes, a start with no journal touching nothing,
 refused plans, every reason an event is not a reset, the watcher on a real bus
 acting once and only logging with the switch off, and the command line.
 
+## Joining the home's Wi-Fi (built, not yet served)
+
+`lamp_setup::wifi` is V1's join (`system/network/service.go`, `SetupNetwork`;
+`setup_failure.go`) in Rust, with V1's numbers: up to 60 s for the named
+network **and** the Internet (ping `8.8.8.8`, else a TCP reach of the voice's
+service), checked every second; on every third check, two keys rejected by the
+router end it early as `wrong_password`. A failure is named as V1 names it
+(`wrong_password`, `association_rejected`, `ssid_not_found`, `no_dhcp`,
+`no_internet`, `ssid_too_long`, `wifi_connect_error`, `unknown`), from
+wpa_supplicant's journal since the join began and `wpa_cli status`, with key
+evidence first. The radio is switched by the image's own `device-sta-mode` and
+`device-ap-mode`.
+
+Two changes from V1. The network's name and password are written to
+`wpa_supplicant-wlan0.conf` by this code (private, synced, renamed into place),
+not passed to `connect-wifi` on a command line; a name or password holding a
+line break, a password outside 8–63 printable ASCII characters, or a name over
+32 bytes is refused before anything is written (V1 would have written a line
+break into the file). And a failed join puts the previous file back before the
+hotspot returns, so nothing of it is kept. V1's eight failure cases, from its
+own captured wpa_supplicant lines, are tests here (`crates/setup/tests/wifi.rs`),
+with the join's timing against a fake lamp.
+
 ## Open questions (asked on #806)
 
 1. Where does a home lamp's voice credential come from: the autonomous.ai

@@ -1,5 +1,43 @@
 # Tests work log
 
+## 2026-10-15 23:09 +0700 — finite loopback pair measured; endpoint cleanup in native qualification
+
+Ready for lamp-voice: yes (#867)
+
+- #861's backend/player clock is merged at `a3dba0c0a`.
+  #867 remains ready: ARM64 `38759844287` passed 4,687 tests, 126 existing
+  profile skips, including all four new fake-runtime clock cases.
+  [Native result rows](verification/fake-runtime-clock-arm64-20261015/README.md).
+- Finite loopback's paired serial local run is **248.575 s to 28.471 s**,
+  all 12 original identities passing without skips/retries. All 100 assertions,
+  scenarios and fault-loop cases remain; real children, sockets and cleanup
+  stay in the path. The controlled queue deadlock found in review is fixed,
+  and all 46 focused control/queue tests passed. Independent review found no
+  blocker. [Pair and preservation proof](verification/finite-loopback-pair-20261015/README.md).
+  Final rebased gate is running; native qualification remains pending.
+- Endpoint fixture cleanup #860 is draft PR #872, head
+  `b34cd3b90a3be77fa9bce5c03cc3ae9b64070318`. Full local affected/dependent
+  gate: 1,767 passed, zero failures, 13 existing ignored measurements.
+  Both formerly leaking cases and the new panic regression pass without LEAK.
+  After rebase the source hash is identical; fmt, strict clippy, workspace
+  build and the three focused cases pass again (9.382 s). The earlier full
+  gate's base is explicit. Native PR `38766269454` and full run `38766285196`
+  are running; a PR-profile pass alone would skip this endpoint module.
+- Capacity #868 remains draft. ARM64 `38760383411` failed unchanged Schedule
+  cleanup: 2,551 passed, one failed, 2,145 selected unrun and 126 profile skips.
+  [Original failure excerpt](verification/capacity-arm64-failure-20261015/README.md).
+  Filed #869 for the Schedule owner; no product change or retry. The separate
+  original local capture-stall failure remains #866, unclaimed.
+- Serve's pure nine-read clock seam is implemented with unchanged system
+  defaults and four new timestamp regressions; its full local evaluator gate
+  is running. The prepared-player clock seam is being built separately,
+  preserving the original nanosecond precision on the default path.
+
+No workflow, profile, runner, setting or device changes. The complete 123-test
+serial under-two-minute goal remains open. #832 still waits on #838;
+#837's normal-exit stderr loss and the eighth's policy qualification remain
+separate from the delivered #783 sweep.
+
 ## 2026-10-15 22:30 +0700 — explicit clocks ready; capacity timing and fixture failures retained
 
 Ready for lamp-voice: yes (#861)

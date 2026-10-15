@@ -1,0 +1,216 @@
+{
+  "recorded_from_date": "2026-10-15 23:02:48 +0700",
+  "platform": "x86_64-apple-darwin",
+  "profile": "debug; nextest realtime",
+  "execution_threads": 1,
+  "retries": 0,
+  "before": {
+    "summary_seconds": 248.575,
+    "passed": 12,
+    "skipped": 0,
+    "exit_code": 0,
+    "failure_retry_markers": false,
+    "cases": [
+      {
+        "name": "a_transport_that_closes_mid_trace_invalidates_the_attempt",
+        "seconds": 0.576
+      },
+      {
+        "name": "cue_triggered_acknowledgment_is_injected_during_playback_and_scored",
+        "seconds": 15.813
+      },
+      {
+        "name": "directed_followup_waits_for_whole_reply_completion_then_admits_a_new_turn",
+        "seconds": 25.037
+      },
+      {
+        "name": "directed_interruption_during_second_occurrence_preserves_owner_and_yields",
+        "seconds": 27.185
+      },
+      {
+        "name": "directed_missing_or_stale_retirement_never_falls_back_to_a_timer_or_final_trace",
+        "seconds": 35.992
+      },
+      {
+        "name": "directed_mode_keeps_provider_fault_and_asset_restrictions",
+        "seconds": 0.43
+      },
+      {
+        "name": "directed_natural_interruption_runs_during_reply_with_original_cancel_reason",
+        "seconds": 27.037
+      },
+      {
+        "name": "directed_two_occurrences_wait_for_true_completion_before_followup",
+        "seconds": 26.024
+      },
+      {
+        "name": "echo_only_window_passes_through_the_relay_without_extra_admissions",
+        "seconds": 14.644
+      },
+      {
+        "name": "missing_or_stale_whole_completion_withholds_followup_after_valid_retirement",
+        "seconds": 35.871
+      },
+      {
+        "name": "physical_next_turn_ready_follows_lamp_voice_readiness_cues",
+        "seconds": 25.09
+      },
+      {
+        "name": "undelivered_stimuli_are_withheld_not_scored_as_silence",
+        "seconds": 14.874
+      }
+    ],
+    "log_sha256": "edc671b1add80d8f29b44c2e841e1d8f2a266e1fc8f3ad4cb424900857c8c8c1"
+  },
+  "after": {
+    "summary_seconds": 28.471,
+    "passed": 12,
+    "skipped": 0,
+    "exit_code": 0,
+    "failure_retry_markers": false,
+    "cases": [
+      {
+        "name": "a_transport_that_closes_mid_trace_invalidates_the_attempt",
+        "seconds": 0.578
+      },
+      {
+        "name": "cue_triggered_acknowledgment_is_injected_during_playback_and_scored",
+        "seconds": 3.397
+      },
+      {
+        "name": "directed_followup_waits_for_whole_reply_completion_then_admits_a_new_turn",
+        "seconds": 2.469
+      },
+      {
+        "name": "directed_interruption_during_second_occurrence_preserves_owner_and_yields",
+        "seconds": 2.726
+      },
+      {
+        "name": "directed_missing_or_stale_retirement_never_falls_back_to_a_timer_or_final_trace",
+        "seconds": 4.091
+      },
+      {
+        "name": "directed_mode_keeps_provider_fault_and_asset_restrictions",
+        "seconds": 0.368
+      },
+      {
+        "name": "directed_natural_interruption_runs_during_reply_with_original_cancel_reason",
+        "seconds": 2.692
+      },
+      {
+        "name": "directed_two_occurrences_wait_for_true_completion_before_followup",
+        "seconds": 2.588
+      },
+      {
+        "name": "echo_only_window_passes_through_the_relay_without_extra_admissions",
+        "seconds": 1.558
+      },
+      {
+        "name": "missing_or_stale_whole_completion_withholds_followup_after_valid_retirement",
+        "seconds": 4.168
+      },
+      {
+        "name": "physical_next_turn_ready_follows_lamp_voice_readiness_cues",
+        "seconds": 2.443
+      },
+      {
+        "name": "undelivered_stimuli_are_withheld_not_scored_as_silence",
+        "seconds": 1.391
+      }
+    ],
+    "log_sha256": "d9787fb929ff99babd8f9302b34744dee075ff5a1fcd6038a1a1f0c210463f2e"
+  },
+  "compiled_identities_equal": true,
+  "compiled_cases": {
+    "lamp-voice-eval::physical_loopback a_transport_that_closes_mid_trace_invalidates_the_attempt": {
+      "kind": "test",
+      "ignored": false,
+      "filter-match": {
+        "status": "matches"
+      }
+    },
+    "lamp-voice-eval::physical_loopback cue_triggered_acknowledgment_is_injected_during_playback_and_scored": {
+      "kind": "test",
+      "ignored": false,
+      "filter-match": {
+        "status": "matches"
+      }
+    },
+    "lamp-voice-eval::physical_loopback directed_followup_waits_for_whole_reply_completion_then_admits_a_new_turn": {
+      "kind": "test",
+      "ignored": false,
+      "filter-match": {
+        "status": "matches"
+      }
+    },
+    "lamp-voice-eval::physical_loopback directed_interruption_during_second_occurrence_preserves_owner_and_yields": {
+      "kind": "test",
+      "ignored": false,
+      "filter-match": {
+        "status": "matches"
+      }
+    },
+    "lamp-voice-eval::physical_loopback directed_missing_or_stale_retirement_never_falls_back_to_a_timer_or_final_trace": {
+      "kind": "test",
+      "ignored": false,
+      "filter-match": {
+        "status": "matches"
+      }
+    },
+    "lamp-voice-eval::physical_loopback directed_mode_keeps_provider_fault_and_asset_restrictions": {
+      "kind": "test",
+      "ignored": false,
+      "filter-match": {
+        "status": "matches"
+      }
+    },
+    "lamp-voice-eval::physical_loopback directed_natural_interruption_runs_during_reply_with_original_cancel_reason": {
+      "kind": "test",
+      "ignored": false,
+      "filter-match": {
+        "status": "matches"
+      }
+    },
+    "lamp-voice-eval::physical_loopback directed_two_occurrences_wait_for_true_completion_before_followup": {
+      "kind": "test",
+      "ignored": false,
+      "filter-match": {
+        "status": "matches"
+      }
+    },
+    "lamp-voice-eval::physical_loopback echo_only_window_passes_through_the_relay_without_extra_admissions": {
+      "kind": "test",
+      "ignored": false,
+      "filter-match": {
+        "status": "matches"
+      }
+    },
+    "lamp-voice-eval::physical_loopback missing_or_stale_whole_completion_withholds_followup_after_valid_retirement": {
+      "kind": "test",
+      "ignored": false,
+      "filter-match": {
+        "status": "matches"
+      }
+    },
+    "lamp-voice-eval::physical_loopback physical_next_turn_ready_follows_lamp_voice_readiness_cues": {
+      "kind": "test",
+      "ignored": false,
+      "filter-match": {
+        "status": "matches"
+      }
+    },
+    "lamp-voice-eval::physical_loopback undelivered_stimuli_are_withheld_not_scored_as_silence": {
+      "kind": "test",
+      "ignored": false,
+      "filter-match": {
+        "status": "matches"
+      }
+    }
+  },
+  "removed": [],
+  "added": [],
+  "baseline_matches_final_rebase_source": "a3dba0c0a",
+  "same_evaluator_binary": true,
+  "elapsed_reduction_seconds": 220.104,
+  "scope": "One binary only; no native ARM64 or whole-group claim"
+}

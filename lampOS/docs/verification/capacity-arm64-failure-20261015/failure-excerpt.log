@@ -1,0 +1,29 @@
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T15:38:11.5900796Z         FAIL [   0.016s] (2549/4697) lamp-schedule::runtime a_finite_service_stops_and_releases_its_owner
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T15:38:11.5902532Z   stdout ───
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T15:38:11.5902886Z 
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T15:38:11.5903141Z     running 1 test
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T15:38:11.5903441Z     test a_finite_service_stops_and_releases_its_owner ... FAILED
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T15:38:11.5903690Z 
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T15:38:11.5903763Z     failures:
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T15:38:11.5903871Z 
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T15:38:11.5903936Z     failures:
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T15:38:11.5904155Z         a_finite_service_stops_and_releases_its_owner
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T15:38:11.5904355Z 
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T15:38:11.5904614Z     test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 17 filtered out; finished in 0.01s
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T15:38:11.5904965Z 
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T15:38:11.5905155Z   stderr ───
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T15:38:11.5905288Z 
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T15:38:11.5905609Z     thread 'a_finite_service_stops_and_releases_its_owner' (20786) panicked at crates/schedule/tests/runtime.rs:105:36:
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T15:38:11.5906307Z     called `Result::unwrap()` on an `Err` value: Custom { kind: Other, error: "Schedule store worker stopped" }
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T15:38:11.5906872Z     note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T15:38:11.5907172Z 
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T15:38:11.5907297Z   Cancelling due to test failure: 3 tests still running
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T15:38:11.6003214Z         PASS [   0.026s] (2550/4697) lamp-schedule::runtime a_second_owner_cannot_replace_the_live_socket_or_database
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T15:38:11.8728109Z         PASS [   0.298s] (2551/4697) lamp-schedule::runtime a_full_client_pool_does_not_stop_due_publication
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T15:38:13.1584829Z         PASS [   2.007s] (2552/4697) lamp-schedule::client a_second_hop_keeps_the_original_absolute_deadline
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T15:38:13.1587820Z ────────────
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T15:38:13.1588720Z      Summary [  32.886s] 2552/4697 tests run: 2551 passed, 1 failed, 126 skipped
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T15:38:13.1589327Z         FAIL [   0.016s] (2549/4697) lamp-schedule::runtime a_finite_service_stops_and_releases_its_owner
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T15:38:13.1590022Z warning: 2145/4697 tests were not run due to test failure (run with --no-fail-fast to run all tests, or run with --max-fail)
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T15:38:13.1627133Z error: test run failed
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T15:38:13.1657748Z ##[error]Process completed with exit code 100.

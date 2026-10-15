@@ -1,0 +1,5 @@
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T15:34:28.9349004Z         PASS [   0.005s] (4451/4687) lamp-voice-eval physical::fake_lamp::clock_tests::a_failed_poll_hook_stops_before_another_tick_or_final_trace
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T15:34:28.9375401Z         PASS [   0.006s] (4452/4687) lamp-voice-eval physical::fake_lamp::clock_tests::a_pure_clock_keeps_tick_boundaries_and_frozen_polls_distinct
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T15:34:28.9393112Z         PASS [   0.004s] (4453/4687) lamp-voice-eval physical::fake_lamp::clock_tests::controlled_serve_is_refused_before_clock_hooks_or_output
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T15:34:28.9445125Z         PASS [   0.011s] (4456/4687) lamp-voice-eval physical::fake_lamp::clock_tests::completed_polls_prove_room_consumption_and_keep_cue_fault_timing
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T15:34:29.9347380Z      Summary [  74.148s] 4687 tests run: 4687 passed, 126 skipped

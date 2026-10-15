@@ -19,7 +19,9 @@
 //! # Ok::<(), std::io::Error>(())
 //! ```
 
+mod clock;
 pub mod log_relay;
+pub use clock::clock_synced;
 
 use std::fs::{self, Permissions};
 use std::io;

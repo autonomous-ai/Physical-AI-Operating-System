@@ -8,7 +8,7 @@ use std::{
 fn run() -> Result<(), Box<dyn std::error::Error>> {
     let mut args = std::env::args().skip(1);
     if args.next().as_deref() != Some("serve") {
-        return Err("usage: lamp-schedule serve --dir ABS --socket ABS --zone IANA [--bus-root ABS] [--boot-id ID] [--trust-clock] [--run-for-ms N] [--enable]".into());
+        return Err("usage: lamp-schedule serve --dir ABS --socket ABS --zone IANA [--bus-root ABS] [--boot-id ID] [--trust-clock] [--kernel-clock] [--run-for-ms N] [--enable]".into());
     }
     let mut dir = None;
     let mut socket = None;
@@ -16,6 +16,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     let mut bus_root = PathBuf::from(lamp_bus::DEFAULT_ROOT);
     let mut boot_id = None;
     let mut trust_clock = false;
+    let mut kernel_clock = false;
     let mut enabled = false;
     let mut run_for = None;
     let mut seen = std::collections::BTreeSet::new();
@@ -26,6 +27,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         match arg.as_str() {
             "--enable" => enabled = true,
             "--trust-clock" => trust_clock = true,
+            "--kernel-clock" => kernel_clock = true,
             "--dir" => dir = Some(PathBuf::from(args.next().ok_or("--dir needs a path")?)),
             "--socket" => socket = Some(PathBuf::from(args.next().ok_or("--socket needs a path")?)),
             "--zone" => zone = Some(args.next().ok_or("--zone needs an IANA name")?),
@@ -58,7 +60,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         zone: zone.ok_or("--zone is required")?,
         run_for,
     };
-    let clock = SystemClock::new(boot_id.as_deref(), trust_clock)?;
+    let clock = SystemClock::new(boot_id.as_deref(), trust_clock)?.with_kernel_clock(kernel_clock);
     let stop = Arc::new(AtomicBool::new(false));
     signal_hook::flag::register(signal_hook::consts::SIGTERM, stop.clone())?;
     signal_hook::flag::register(signal_hook::consts::SIGINT, stop.clone())?;

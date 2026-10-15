@@ -22,9 +22,6 @@ serde_json.workspace = true
 rustix = { version = "=1.1.5", features = ["fs"] }
 lamp-bus = { path = "../bus" }
 lamp-msgs = { path = "../msgs" }
-# Whether the kernel's clock is set (adjtimex), which neither the standard
-# library nor rustix asks. Already in the lockfile.
-libc = "0.2"
 
 [lints]
 workspace = true

@@ -42,6 +42,10 @@ pub trait Clock: Send + 'static {
 pub struct SystemClock {
     boot_id: String,
     trust_clock: bool,
+    /// Also trust the wall clock when the kernel says a time client has set
+    /// it (`--kernel-clock`, #830): a board kept by chrony or ntpd has no
+    /// timesyncd marker.
+    kernel_clock: bool,
 }
 
 fn invalid(message: &'static str) -> io::Error {
@@ -62,12 +66,19 @@ impl SystemClock {
         let clock = Self {
             boot_id,
             trust_clock,
+            kernel_clock: false,
         };
         clock
             .sample()?
             .check()
             .map_err(|_| invalid("invalid clock identity or sample"))?;
         Ok(clock)
+    }
+
+    /// Trusts the wall clock also when the kernel says it is set.
+    pub fn with_kernel_clock(mut self, on: bool) -> Self {
+        self.kernel_clock = on;
+        self
     }
 }
 
@@ -96,7 +107,8 @@ impl Clock for SystemClock {
         // cannot establish the accuracy or authenticity of upstream NTP.
         let wall_trusted = self.trust_clock
             || (cfg!(target_os = "linux")
-                && Path::new("/run/systemd/timesync/synchronized").is_file());
+                && Path::new("/run/systemd/timesync/synchronized").is_file())
+            || (self.kernel_clock && lamp_ipc::clock_synced() == Some(true));
         Ok(ClockSample {
             unix_ms,
             boot_ms,

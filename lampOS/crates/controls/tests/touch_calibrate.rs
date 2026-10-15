@@ -77,6 +77,8 @@ const PLAN: Plan = Plan {
     settle: 10,
     quiet: 5,
     swipe: 30,
+    touch_percent: 40,
+    release_percent: 20,
 };
 const S: u64 = 1_000_000;
 
@@ -112,8 +114,9 @@ fn run<F: FnMut(u64) -> [i32; 12]>(
 
 /// Settle: the baseline is still far off on every electrode. Quiet: ±2 on
 /// the working pads, ±5 on E6. Swipe: each working pad in turn, one second
-/// each, three times over, peaking at 40, except E9 and E10 as given. The
-/// excluded E4 and E8 swing wildly throughout and must be ignored.
+/// each, three passes peaking at 40, 24 and 32, except E9 and E10, which
+/// peak at the given value every pass (0: never touched). The not-working
+/// E4 and E8 swing wildly throughout and must be ignored.
 fn script(e9: i32, e10: i32) -> impl FnMut(u64) -> [i32; 12] {
     move |t| lamp(t, e9, e10)
 }
@@ -141,38 +144,47 @@ fn lamp(t: u64, e9: i32, e10: i32) -> [i32; 12] {
         deltas[pad] = match pad {
             9 => e9,
             10 => e10,
-            _ => 40,
+            _ => [40, 24, 32][(second / 10) as usize],
         };
+        // A two-reading flick on E10 is not a swipe.
+        if e10 == 0 && since < 15 * S + 20_000 {
+            deltas[10] = 30;
+        }
     }
     deltas
 }
 
 #[test]
-fn the_rule_keeps_each_threshold_between_noise_and_touch() {
-    assert_eq!(thresholds(0, 2), Err(Verdict::NotTouched));
-    assert_eq!(thresholds(0, 3), Err(Verdict::TooCloseToNoise));
-    assert_eq!(thresholds(0, 4), Ok((2, 1)));
-    assert_eq!(thresholds(3, 40), Ok((20, 12)));
-    assert_eq!(thresholds(10, 30), Ok((15, 11)));
-    assert_eq!(thresholds(5, 13), Err(Verdict::TooCloseToNoise));
-    assert_eq!(thresholds(5, 7), Err(Verdict::NotTouched));
-    assert_eq!(thresholds(2, 1023), Ok((255, 153)));
-    for noise in 0..=300 {
-        for peak in 0..=1023 {
-            if let Ok((touch, release)) = thresholds(noise, peak) {
-                let (touch, release) = (u16::from(touch), u16::from(release));
-                assert!(release < touch, "{noise} {peak}");
-                assert!(release > noise, "{noise} {peak}");
-                assert!(touch >= noise + 2 && touch <= peak / 2, "{noise} {peak}");
+fn the_rule_sets_each_threshold_between_noise_and_the_weakest_swipe() {
+    assert_eq!(thresholds(2, 6, &PLAN), Err(Verdict::TooCloseToNoise));
+    assert_eq!(thresholds(2, 7, &PLAN), Ok((4, 3)));
+    assert_eq!(thresholds(3, 43, &PLAN), Ok((19, 11)));
+    assert_eq!(thresholds(0, 1023, &PLAN), Ok((255, 205)));
+    assert_eq!(thresholds(254, 1023, &PLAN), Err(Verdict::TooCloseToNoise));
+    let half = Plan {
+        touch_percent: 50,
+        release_percent: 25,
+        ..PLAN
+    };
+    assert_eq!(thresholds(4, 44, &half), Ok((24, 14)));
+    for plan in [PLAN, half] {
+        for noise in 0..=300 {
+            for weakest in 0..=1023 {
+                if let Ok((touch, release)) = thresholds(noise, weakest, &plan) {
+                    let (touch, release) = (u16::from(touch), u16::from(release));
+                    assert!(release < touch, "{noise} {weakest}");
+                    assert!(release > noise, "{noise} {weakest}");
+                    assert!(touch >= noise + 2 && touch < weakest, "{noise} {weakest}");
+                }
             }
         }
     }
 }
 
 #[test]
-fn the_three_steps_measure_noise_and_peaks_of_working_pads_only() {
-    // E9 peaks just under twice its floor and E10 is never touched.
-    let (report, said) = run(script(7, 0), None).unwrap();
+fn the_three_steps_measure_noise_and_swipes_of_working_pads_only() {
+    // E9 is swiped too lightly and E10 never, but for one flick.
+    let (report, said) = run(script(6, 0), None).unwrap();
     assert_eq!(said.len(), 3);
     assert!(said[0].starts_with("hands away"), "{said:?}");
     assert!(said[1].contains("noise for 5 s"), "{said:?}");
@@ -180,38 +192,53 @@ fn the_three_steps_measure_noise_and_peaks_of_working_pads_only() {
     // Every 10 ms: five and thirty seconds of readings, nothing from the settle.
     assert_eq!(report.quiet_readings, 500);
     assert_eq!(report.swipe_readings, 3_000);
+    assert_eq!(report.not_working, [4, 8]);
+    assert!(report.rule.text.contains("touch at 40% and release at 20%"));
+    assert_eq!(
+        (report.rule.touch_percent, report.rule.release_percent),
+        (40, 20)
+    );
     let electrodes: Vec<u8> = report.pads.iter().map(|pad| pad.electrode).collect();
     assert_eq!(electrodes, [0, 1, 2, 3, 5, 6, 7, 9, 10, 11]);
     for pad in &report.pads {
-        let noise = if pad.electrode == 6 { 5 } else { 2 };
-        assert_eq!(pad.noise, noise, "E{}", pad.electrode);
+        let e = usize::from(pad.electrode);
+        assert_eq!(pad.noise, if e == 6 { 5 } else { 2 }, "E{e}");
         assert_eq!(pad.baseline_quiet, 512);
-        assert_eq!(
-            pad.cdc,
-            [53, 57, 55, 51, 31, 50, 49, 42, 31, 41, 46, 47][usize::from(pad.electrode)]
-        );
-        let expected = match pad.electrode {
-            9 => (7, Verdict::TooCloseToNoise),
-            10 => (0, Verdict::NotTouched),
-            _ => (40, Verdict::Ok),
+        assert_eq!(pad.baseline_end, 512);
+        assert_eq!(pad.cdc, [53, 57, 55, 51, 31, 50, 49, 42, 31, 41, 46, 47][e]);
+        let expected = match e {
+            9 => (3, 6, 6, Verdict::TooCloseToNoise),
+            10 => (0, 0, 0, Verdict::NotTouched),
+            _ => (3, 24, 40, Verdict::Ok),
         };
-        assert_eq!((pad.peak, pad.verdict), expected, "E{}", pad.electrode);
+        assert_eq!(
+            (pad.swipes, pad.weakest, pad.strongest, pad.verdict),
+            expected,
+            "E{e}"
+        );
     }
-    let e6 = &report.pads[5];
-    assert_eq!((e6.touch_threshold, e6.release_threshold), (20, 12));
-    // The old thresholds of a failed pad are reported, not invented.
-    let e9 = &report.pads[7];
-    assert_eq!(
-        (e9.touch_threshold, e9.release_threshold),
-        (
-            base().profile.touch_thresholds[9],
-            base().profile.release_thresholds[9]
-        )
-    );
-    assert_eq!(report.swipe_touched_old[4], 0);
-    assert!(report.swipe_touched_old[0] > 0);
+    let set = |e: usize| {
+        let pad = report
+            .pads
+            .iter()
+            .find(|pad| usize::from(pad.electrode) == e)
+            .unwrap();
+        (pad.touch_threshold, pad.release_threshold)
+    };
+    // Noise 2, weakest 24: 2 + 40% of 22, 2 + 20% of 22.
+    assert_eq!(set(0), (11, 6));
+    // Noise 5, weakest 24: 5 + 40% of 19, 5 + 20% of 19.
+    assert_eq!(set(6), (13, 9));
+    // A pad without thresholds keeps its old ones, and says why.
+    let old = base().profile;
+    assert_eq!(set(9), (old.touch_thresholds[9], old.release_thresholds[9]));
+    assert!(report.pads[0].touched_old > 0);
     assert!(!report.all_ok());
-    assert_eq!(report.apply(&base().profile), None);
+    assert_eq!(report.apply(&old), None);
+    let json = serde_json::to_value(&report).unwrap();
+    assert_eq!(json["not_working"], serde_json::json!([4, 8]));
+    assert_eq!(json["pads"][8]["verdict"], "not_touched");
+    assert_eq!(json["pads"][7]["verdict"], "too_close_to_noise");
 }
 
 #[test]
@@ -240,8 +267,15 @@ fn only_when_every_working_pad_is_clear_are_its_thresholds_saved() {
             assert_eq!(new.release_thresholds[electrode], pad.release_threshold);
         }
     }
-    assert_eq!(new.touch_thresholds[10], 18);
-    assert_eq!(new.release_thresholds[10], 10);
+    // Noise 2: weakest 40 gives 17/10, weakest 36 gives 16/9.
+    assert_eq!(
+        (new.touch_thresholds[9], new.release_thresholds[9]),
+        (17, 10)
+    );
+    assert_eq!(
+        (new.touch_thresholds[10], new.release_thresholds[10]),
+        (16, 9)
+    );
     // Nothing but the thresholds changes.
     assert_eq!(new.cdc, old.cdc);
     assert_eq!(new.baseline, old.baseline);
@@ -256,14 +290,30 @@ fn a_chip_fault_during_the_swipe_ends_the_calibration_with_nothing_kept() {
 }
 
 #[test]
-fn each_step_lasts_one_to_six_hundred_seconds() {
+fn each_step_lasts_one_to_six_hundred_seconds_and_release_is_below_touch() {
     assert!(Plan::DEFAULT.check().is_ok());
-    for (settle, quiet, swipe) in [(0, 5, 30), (10, 0, 30), (10, 5, 0), (601, 5, 30)] {
-        let plan = Plan {
-            settle,
-            quiet,
-            swipe,
-        };
+    assert_eq!(Plan::DEFAULT, PLAN);
+    for plan in [
+        Plan { settle: 0, ..PLAN },
+        Plan { quiet: 0, ..PLAN },
+        Plan { swipe: 0, ..PLAN },
+        Plan {
+            settle: 601,
+            ..PLAN
+        },
+        Plan {
+            touch_percent: 9,
+            ..PLAN
+        },
+        Plan {
+            touch_percent: 91,
+            ..PLAN
+        },
+        Plan {
+            release_percent: 40,
+            ..PLAN
+        },
+    ] {
         assert!(plan.check().is_err(), "{plan:?}");
     }
 }
@@ -314,6 +364,33 @@ fn the_command_needs_pins_and_a_new_output_and_writes_nothing_on_failure() {
             out,
             "--seconds",
             "5",
+        ],
+        vec![
+            "calibrate-touch",
+            "--pins",
+            pins,
+            "--output",
+            out,
+            "--touch-percent",
+            "95",
+        ],
+        vec![
+            "calibrate-touch",
+            "--pins",
+            pins,
+            "--output",
+            out,
+            "--release-percent",
+            "40",
+        ],
+        vec![
+            "calibrate-touch",
+            "--pins",
+            pins,
+            "--output",
+            out,
+            "--touch-percent",
+            "x",
         ],
     ] {
         let result = program(&args);

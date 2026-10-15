@@ -244,35 +244,41 @@ First's on-lamp sequence is:
       auto-calibrates its charge. Nothing is measured.
    2. **5 s more, hands away.** Each working pad's noise: the largest
       |baseline − filtered| seen.
-   3. **30 s: swipe each working pad a few times**, end to end. Each pad's
-      peak: the largest baseline − filtered seen.
-   4. **Saved.** For each working pad: floor = noise + 2; touch = peak / 2
-      (at most 255); release = the larger of touch × 6/10 and noise + 1.
-      A pad whose peak never passed its floor is `not_touched`; one whose
-      peak is under twice its floor is `too_close_to_noise`. Only if every
-      working pad has thresholds is the output written: the same pins file
-      with those pads' thresholds replaced, and nothing else changed. The
-      excluded electrodes keep theirs. The report on stdout keeps, per pad,
-      the noise, the peak, the verdict, the thresholds, the baseline at the
-      start of step 2 and the end of step 3, the charge current and time the
-      chip chose, and how often the old thresholds counted a touch in step 3.
+   3. **30 s: swipe each working pad a few times**, end to end. A swipe over
+      a pad is 3 or more readings in a row more than 2 above its noise; the
+      peak (baseline − filtered) of each is kept, and the weakest counts.
+   4. **Saved.** For each working pad, **touch at 40% and release at 20% of
+      the way from its noise to its weakest swipe** (`--touch-percent`,
+      `--release-percent`), release at least noise + 1 and touch at least
+      noise + 2. A pad with no swipe is `not_touched`; one whose weakest
+      swipe is less than 5 above its noise is `too_close_to_noise`. Only if
+      every working pad has thresholds is the output written: the same pins
+      file with those pads' thresholds replaced and nothing else changed.
+      Electrodes left out of the working set are reported as `not_working`
+      (E4 and E8 on lamp-4ace) and keep their thresholds. The report on stdout
+      gives the rule in numbers and, per pad, the noise, the number of swipes,
+      the weakest and strongest, the verdict, the thresholds, the baseline at
+      the start of step 2 and the end of step 3, the charge current and time
+      the chip chose, and how often the old thresholds counted a touch in
+      step 3, for comparing with the hardware team's bench values.
 
    `--settle-seconds`, `--quiet-seconds` and `--swipe-seconds` change the
    steps (1..600 s each). An existing output file is refused. A chip fault
    (overcurrent, out of range on a working pad, auto-configuration failure,
    a register that changed) ends the run and nothing is saved. The rule is
-   authored, not a datasheet value: it keeps each threshold at least two
-   counts above anything seen with nobody touching and at most half the
-   strongest swipe, so a lighter touch still counts. Edit the saved file if
-   the hardware team wants other numbers. The noise filter settings
+   authored, not a datasheet value: it aims to catch a touch lighter than the
+   lightest swipe seen while staying clear of the noise. Edit the saved file
+   if the hardware team wants other numbers. The noise filter settings
    (MHD/NHD/NCL/FDL) are the profile's and are not changed by this command.
-   Charge auto-configuration still runs at each start, so the saved charge
+   Charge auto-configuration still runs at each start, so the reported charge
    values are a record, not settings.
 
-   Then **10 minutes with nobody touching**, the hardware team's last step, on
-   the saved file: step 3 below with `--seconds 600` and `--record`, hands
-   away, then replay the record with the saved pins file. It must show no
-   touch event. Verify any excluded pad does not cause a global chip fault.
+   Then **10 minutes with nobody touching, with the office as it is**: people
+   walking past, phones on the desk, not a quiet room, since phantom touches
+   come from the room. That is the hardware team's last step, on the saved
+   file: step 3 below with `--seconds 600` and `--record`, hands off the lamp,
+   then replay the record with the saved pins file. It must show no touch
+   event. Verify any excluded pad does not cause a global chip fault.
 2. With hands away initially, run `lamp-controls discover-head --seconds 20`,
    then touch and release each physical pad twice. It probes pull-down/up,
    requires driven idle and two complete ≥20 ms pulses, prints candidate
@@ -302,10 +308,9 @@ First's on-lamp sequence is:
    on Sleep, one Wake from an asleep touch, and no Wake→Sleep from the same
    still-held hand. Qualify motor/light responses separately.
 
-Most likely wrong on the lamp: the authored calibration rule (half the
-strongest swipe may still be too high for a light touch, or too low for a
-hand near the shell); a quiet step taken at a quieter moment than the room's
-day; per-pad thresholds admitting a nearby hand;
+Most likely wrong on the lamp: the authored calibration rule (40% of the
+way to the weakest swipe may still miss a lighter touch, or catch a hand near
+the shell); a noise step taken at a quieter moment than the room's day; per-pad thresholds admitting a nearby hand;
 startup-baseline learning; a faulty excluded pad upsetting auto-configuration;
 a narrow finger becoming unobserved over a dead pad; the pulsed head not providing
 sustained-hand evidence; sampled slide speed around pauses; I²C load alongside

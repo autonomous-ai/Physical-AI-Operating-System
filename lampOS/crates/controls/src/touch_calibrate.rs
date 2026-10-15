@@ -1,24 +1,37 @@
 //! The hardware team's touch calibration for the base strip (#711), run by
 //! hand at the lamp: the chip calibrates itself with nobody touching, each
-//! pad's noise is measured, a person swipes each pad, and per-pad touch and
-//! release thresholds are chosen between the two and saved.
+//! pad's noise is measured, a person swipes each pad a few times, and per-pad
+//! touch and release thresholds are set between the noise and the weakest
+//! swipe, and saved.
 //!
 //! Nothing here runs unless `lamp-controls calibrate-touch` is started. It
-//! serves nothing and publishes nothing. The threshold rule is authored, not
-//! a datasheet value; see `docs/controls.md`.
+//! serves nothing and publishes nothing. The rule is authored, not a
+//! datasheet value; its numbers are in every report. See `docs/controls.md`.
 
 use crate::mpr121::{self, Charge, Profile, Signals};
 use serde::Serialize;
 
-/// How long each step lasts, in seconds.
+/// A delta must pass the pad's noise by more than this to count as touch.
+pub const CONTACT_ABOVE_NOISE: u16 = 2;
+/// A swipe over a pad is at least this many readings in a row above that.
+pub const CONTACT_READINGS: u32 = 3;
+/// The weakest swipe must pass the noise by at least this much, so that the
+/// release threshold is above the noise and the touch threshold above both.
+pub const MIN_GAP: u16 = 5;
+
+/// How long each step lasts, and where the thresholds go.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
 pub struct Plan {
-    /// Hands away while the chip starts and auto-calibrates. Nothing measured.
+    /// Seconds, hands away, while the chip starts and auto-calibrates.
     pub settle: u64,
-    /// Hands away still: each pad's noise is measured.
+    /// Seconds, hands away still: each pad's noise is measured.
     pub quiet: u64,
-    /// Each working pad is swiped a few times: each pad's peak is kept.
+    /// Seconds in which each working pad is swiped a few times.
     pub swipe: u64,
+    /// Touch at this percent of the way from the noise to the weakest swipe.
+    pub touch_percent: u8,
+    /// Release at this percent of the same way. Below `touch_percent`.
+    pub release_percent: u8,
 }
 
 impl Default for Plan {
@@ -32,6 +45,8 @@ impl Plan {
         settle: 10,
         quiet: 5,
         swipe: 30,
+        touch_percent: 40,
+        release_percent: 20,
     };
 
     pub fn check(&self) -> Result<(), String> {
@@ -40,6 +55,9 @@ impl Plan {
             || !(1..=600).contains(&self.swipe)
         {
             return Err("each calibration step lasts 1..600 seconds".into());
+        }
+        if !(10..=90).contains(&self.touch_percent) || self.release_percent >= self.touch_percent {
+            return Err("touch is at 10..90 percent, and release below it".into());
         }
         Ok(())
     }
@@ -80,13 +98,12 @@ impl Clock for SystemClock {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Verdict {
-    /// Thresholds were chosen.
+    /// Thresholds were set.
     Ok,
-    /// The swipe never rose above the noise: the pad was not touched, or
-    /// does not sense through the shell.
+    /// No swipe was seen on the pad: it was not touched, or it does not
+    /// sense through the shell.
     NotTouched,
-    /// The swipe rose, but less than twice the noise floor: no threshold
-    /// would keep a clear margin from both.
+    /// The weakest swipe passed the noise by less than [`MIN_GAP`].
     TooCloseToNoise,
 }
 
@@ -95,30 +112,48 @@ pub struct Pad {
     pub electrode: u8,
     /// Largest |baseline - filtered| while nobody touched.
     pub noise: u16,
-    /// Largest baseline - filtered during the swipe.
-    pub peak: u16,
+    /// Swipes seen: runs of [`CONTACT_READINGS`] or more readings above
+    /// noise + [`CONTACT_ABOVE_NOISE`].
+    pub swipes: u32,
+    /// The lowest and highest peak (baseline - filtered) among those swipes.
+    pub weakest: u16,
+    pub strongest: u16,
     pub verdict: Verdict,
-    /// Chosen thresholds; with any other verdict, the old ones, unchanged.
+    /// Set thresholds; with any other verdict, the old ones, unchanged.
     pub touch_threshold: u8,
     pub release_threshold: u8,
-    /// The baseline when the noise step began and when the swipe ended.
+    /// The baseline when the noise step began and when the swipe step ended.
     pub baseline_quiet: u16,
     pub baseline_end: u16,
+    /// The charge current (µA) and time code the chip chose for the pad.
     pub cdc: u8,
     pub cdt: u8,
+    /// Readings in the swipe step that the old thresholds counted as touch.
+    pub touched_old: u64,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+pub struct Rule {
+    pub touch_percent: u8,
+    pub release_percent: u8,
+    pub contact_above_noise: u16,
+    pub contact_readings: u32,
+    pub min_gap: u16,
+    pub text: String,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 pub struct Report {
     pub plan: Plan,
+    pub rule: Rule,
     pub every_ms: u64,
     pub quiet_readings: u64,
     pub swipe_readings: u64,
-    /// The readings in the swipe step that the chip itself counted as touched
-    /// with the old thresholds, per electrode.
-    pub swipe_touched_old: [u64; 12],
+    /// The working pads, in the pins file's order.
     pub pads: Vec<Pad>,
-    pub rule: &'static str,
+    /// Electrodes left out of the working set in the pins file: not working
+    /// on this unit (E4 and E8 on lamp-4ace). Their thresholds are kept.
+    pub not_working: Vec<u8>,
 }
 
 impl Report {
@@ -126,7 +161,7 @@ impl Report {
         self.pads.iter().all(|pad| pad.verdict == Verdict::Ok)
     }
 
-    /// The profile with the new thresholds of the working pads. Excluded
+    /// The profile with the new thresholds of the working pads. Not-working
     /// electrodes keep theirs. None unless every working pad is Ok.
     pub fn apply(&self, profile: &Profile) -> Option<Profile> {
         if !self.all_ok() {
@@ -143,26 +178,69 @@ impl Report {
     }
 }
 
-pub const RULE: &str = "floor = noise + 2; not touched if peak <= floor; too close to noise if peak < 2 * floor; else touch = min(peak / 2, 255) and release = max(touch * 6 / 10, noise + 1)";
+fn rule(plan: &Plan) -> Rule {
+    Rule {
+        touch_percent: plan.touch_percent,
+        release_percent: plan.release_percent,
+        contact_above_noise: CONTACT_ABOVE_NOISE,
+        contact_readings: CONTACT_READINGS,
+        min_gap: MIN_GAP,
+        text: format!(
+            "touch at {}% and release at {}% of the way from the pad's noise to its weakest swipe; \
+             a swipe is {} or more readings in a row more than {} above the noise; \
+             the weakest swipe must be at least {} above the noise",
+            plan.touch_percent,
+            plan.release_percent,
+            CONTACT_READINGS,
+            CONTACT_ABOVE_NOISE,
+            MIN_GAP
+        ),
+    }
+}
 
 /// The touch and release thresholds for one pad, from the largest swing
-/// seen with nobody touching and the largest delta seen while swiped.
-pub fn thresholds(noise: u16, peak: u16) -> Result<(u8, u8), Verdict> {
-    let floor = u32::from(noise) + 2;
-    let peak = u32::from(peak);
-    if peak <= floor {
-        return Err(Verdict::NotTouched);
-    }
-    if peak < 2 * floor {
+/// seen with nobody touching and the peak of its weakest swipe.
+pub fn thresholds(noise: u16, weakest: u16, plan: &Plan) -> Result<(u8, u8), Verdict> {
+    let noise = u32::from(noise);
+    let gap = u32::from(weakest).saturating_sub(noise);
+    if gap < u32::from(MIN_GAP) || noise + 2 > 255 {
         return Err(Verdict::TooCloseToNoise);
     }
-    // peak >= 2 * floor, so peak / 2 >= floor > noise + 1.
-    let touch = (peak / 2).min(255);
-    let release = (touch * 6 / 10).max(u32::from(noise) + 1);
-    if release >= touch {
-        return Err(Verdict::TooCloseToNoise);
-    }
+    let at = |percent: u8| noise + (gap * u32::from(percent) + 50) / 100;
+    let touch = at(plan.touch_percent).clamp(noise + 2, 255);
+    let release = at(plan.release_percent).clamp(noise + 1, touch - 1);
     Ok((touch as u8, release as u8))
+}
+
+/// One pad's swipes, found as they happen.
+#[derive(Default)]
+struct Swipes {
+    run: u32,
+    run_peak: u16,
+    count: u32,
+    weakest: Option<u16>,
+    strongest: u16,
+}
+
+impl Swipes {
+    fn reading(&mut self, delta: i32, noise: u16) {
+        if delta > i32::from(noise) + i32::from(CONTACT_ABOVE_NOISE) {
+            self.run += 1;
+            self.run_peak = self.run_peak.max(delta.min(i32::from(u16::MAX)) as u16);
+        } else {
+            self.end();
+        }
+    }
+
+    fn end(&mut self) {
+        if self.run >= CONTACT_READINGS {
+            self.count += 1;
+            self.weakest = Some(self.weakest.map_or(self.run_peak, |w| w.min(self.run_peak)));
+            self.strongest = self.strongest.max(self.run_peak);
+        }
+        self.run = 0;
+        self.run_peak = 0;
+    }
 }
 
 /// Run the three steps on `chip`, reading every `every_ms`. `say` tells the
@@ -179,8 +257,8 @@ pub fn measure(
     plan.check().map_err(mpr121::Error::InvalidConfig)?;
     let every_us = every_ms.max(1) * 1_000;
     let mut noise = [0_u16; 12];
-    let mut peak = [0_u16; 12];
-    let mut swipe_touched_old = [0_u64; 12];
+    let mut swipes: [Swipes; 12] = Default::default();
+    let mut touched_old = [0_u64; 12];
     let mut baseline_quiet = None;
     let mut baseline_end = [0_u16; 12];
     let mut quiet_readings = 0;
@@ -213,21 +291,25 @@ pub fn measure(
         baseline_end = signals.baseline;
         for &electrode in pads {
             let e = usize::from(electrode);
-            let delta = signals.delta(e).clamp(0, i32::from(u16::MAX)) as u16;
-            peak[e] = peak[e].max(delta);
+            swipes[e].reading(signals.delta(e), noise[e]);
             if signals.touched & (1 << e) != 0 {
-                swipe_touched_old[e] += 1;
+                touched_old[e] += 1;
             }
         }
     })?;
     let charge = chip.charge()?;
     let baseline_quiet = baseline_quiet.unwrap_or([0; 12]);
-    let pads = pads
+    let pads_report = pads
         .iter()
         .map(|&electrode| {
             let e = usize::from(electrode);
-            let (verdict, touch_threshold, release_threshold) = match thresholds(noise[e], peak[e])
-            {
+            swipes[e].end();
+            let found = &swipes[e];
+            let result = match found.weakest {
+                None => Err(Verdict::NotTouched),
+                Some(weakest) => thresholds(noise[e], weakest, &plan),
+            };
+            let (verdict, touch_threshold, release_threshold) = match result {
                 Ok((touch, release)) => (Verdict::Ok, touch, release),
                 Err(verdict) => (
                     verdict,
@@ -238,7 +320,9 @@ pub fn measure(
             Pad {
                 electrode,
                 noise: noise[e],
-                peak: peak[e],
+                swipes: found.count,
+                weakest: found.weakest.unwrap_or(0),
+                strongest: found.strongest,
                 verdict,
                 touch_threshold,
                 release_threshold,
@@ -246,17 +330,18 @@ pub fn measure(
                 baseline_end: baseline_end[e],
                 cdc: charge.cdc[e],
                 cdt: charge.cdt[e],
+                touched_old: touched_old[e],
             }
         })
         .collect();
     Ok(Report {
         plan,
+        rule: rule(&plan),
         every_ms,
         quiet_readings,
         swipe_readings,
-        swipe_touched_old,
-        pads,
-        rule: RULE,
+        pads: pads_report,
+        not_working: (0..12).filter(|e| !pads.contains(e)).collect(),
     })
 }
 

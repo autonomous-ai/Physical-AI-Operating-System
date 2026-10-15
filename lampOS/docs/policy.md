@@ -12,6 +12,8 @@ separately below. `lamp-policy --progress` adds a second question, [say this
 progress now?](#progress-news-say-this-progress-now-732), about the work the
 lamp handed over, and `--act progress` makes that one question's decisions
 act: [the first decision the policy really makes](#acting---act-progress-752).
+`--hello` asks [say hello now?](#hello-on-arrival-say-hello-now-752) when the
+voice holds a due hello, and `--act hello` makes those decisions act.
 `--act attention` publishes "is this said to the lamp?" for real, for the
 voice to [hold the lamp's actions](#acting-on-the-lamps-actions---act-attention-800)
 by; speech is not held.
@@ -40,7 +42,7 @@ owner's rules for this part:
 
 ## The process
 
-    lamp-policy --key-file ABSOLUTE_PATH --log-dir ABSOLUTE_DIR [--endpoint URL] [--model NAME] [--deadline-ms N] [--bus-root ABSOLUTE_DIR] [--progress [--utc-offset-minutes N] [--act progress] [--rules]] [--act attention]
+    lamp-policy --key-file ABSOLUTE_PATH --log-dir ABSOLUTE_DIR [--endpoint URL] [--model NAME] [--deadline-ms N] [--bus-root ABSOLUTE_DIR] [--progress] [--hello] [--utc-offset-minutes N] [--act progress] [--act hello] [--rules] [--act attention]
 
 | Option | What it is | If left out |
 |---|---|---|
@@ -53,6 +55,8 @@ owner's rules for this part:
 | `--progress` | Also ask, in shadow, whether progress of the work handed over is worth telling now ([below](#progress-news-say-this-progress-now-732)) | off |
 | `--utc-offset-minutes` | The lamp's local time east of UTC, for that question's hour of the day | the hour is null |
 | `--act progress` | That question's decisions act: published with `shadow: false`, so that the voice tells a `say_now` ([below](#acting---act-progress-752)). Needs `--progress` | shadow |
+| `--hello` | Also ask, when the voice holds a due hello, whether to say it now ([below](#hello-on-arrival-say-hello-now-752)) | off |
+| `--act hello` | Those decisions act. Needs `--hello` | shadow |
 | `--act attention` | "Is this said to the lamp?" is published with `shadow: false`, for the voice to hold the lamp's actions by ([below](#acting-on-the-lamps-actions---act-attention-800)) | shadow |
 | `--rules` | That question obeys what the people at the lamp asked about it speaking first (`memory/rules`, [above](#a-persons-rules-about-speaking-first-813)). Needs `--progress` | not listened to |
 
@@ -1293,6 +1297,98 @@ offered by the voice runs with this crate's own loop and a stand-in judge in
 person would give: with nothing labelled, the first real decisions are the
 first measurement. That one note in 15 minutes per task is few enough, and
 several tasks at once still more than a person wants.
+
+## Hello on arrival: "say hello now?" (#752)
+
+Built by the second builder on 2026-10-15. **Off unless `lamp-policy
+--hello` is given**, and shadow unless `--act hello` is given too.
+
+**What it is for.** The voice says hello to someone who comes back and sits
+down, by a fixed rule ([speaking-first.md](speaking-first.md)). With
+`LAMP_HELLO_ASKS_POLICY=on` it holds a due hello up to 2 s and asks this
+question on `voice/arrival` ([speaking-first.md](speaking-first.md#asking-the-policy-752)).
+It is asked by a judge of its own, a third `Jev` with its own connection, on
+a thread of its own.
+
+| Option | What it is | If left out |
+|---|---|---|
+| `--hello` | Listen to `voice/arrival` and ask the hello question | off |
+| `--act hello` | Its decisions act: `say_now` says the hello, `wait` keeps it. Needs `--hello`; `--act` may be given once for each question | shadow |
+
+**Two hard rules, around the decider.** While either holds the answer is
+`wait`, by the rule (`by` `rule`, a `guard` in the log), and no model is
+asked: the voice is waiting, and a question left unanswered would leave the
+hello to its rule.
+
+- **Never while anyone is talking to the lamp:** the voice listening,
+  thinking or speaking, or anything heard or said in the last 15 s.
+- **No hello within twenty minutes of the last:** the voice's minutes since
+  its last hello, or the last `say_now` this acted on.
+
+A yes that comes back once someone has begun to talk is turned to `wait`.
+Asking never takes longer than 1.5 s, whatever `--deadline-ms` says
+(`hello::MOST_ASKING`): past it the rule answers, still inside the voice's
+2 s. An arrival not decided within those 2 s is let go (`hello_late`).
+
+**What is known, and shown.** The arrival (minutes away, seconds there,
+minutes since the last hello), and the room as the progress question has it
+plus facing: someone near (the eyes' list, no older than 2 s), whether such
+a face is turned to the lamp (null without a near face), the seconds since
+anything was said (the voice's count), the room, the turns the lamp began
+itself in the hour (with the hellos chosen in shadow, as for progress), and
+the hour. Made-up numbers:
+
+    {"lamp":"A small desk lamp robot on the desk of the person it works for, like a friend at the next desk: when someone comes back and sits down it may greet them with a few warm words, and otherwise it keeps quiet.","arrival":{"minutes_away":42,"seconds_there":3,"minutes_since_the_lamp_last_said_hello":95},"room":{"someone_at_the_lamp":true,"facing_the_lamp":true,"seconds_since_anything_was_said":310,"room":"quiet: nobody else has been talking","times_the_lamp_spoke_up_unasked_in_the_last_hour":0,"hour_of_day":9}}
+
+**What is asked.** Two questions, each beginning "state.arrival says
+someone has just come back to the lamp's desk and sat down in front of it;
+state.room is how things are around the lamp now.":
+
+| Name | The question |
+|---|---|
+| `welcome` | Would a friend at the next desk greet them now with a few warm words, given how long they were away, whether they are turned to the lamp, and the hour? |
+| `intrusive` | Would a hello now more likely interrupt or annoy them than please them: the room is busy with other people's talk, it is late at night or early in the morning, they were away only a short while, or the lamp has spoken up unasked often in the last hour? |
+
+`probability = welcome × (1 − intrusive)`, `say_now` from 0.5. Authored,
+not fitted. With no model's answer, the rule: a hello unless the room is
+known to be busy, the lamp began two turns or more itself in the hour, or it
+is before eight or after ten (when the hour is known); 0.6 or 0.1,
+unmeasured.
+
+**What is published and written.** On `policy/decisions`: `about` `hello`,
+`say_now` or `wait`, the probability, the two answers, `by`, `took_ms`,
+`shadow` (`false` only with `--act hello`) and `arrival`, the number
+`voice/arrival` gave. The new optional `arrival` field is left out of every
+other decision, whose bytes are as they were (`crates/msgs/tests/arrival.rs`).
+The log gets a line in `decisions-YYYY-MM-DD.jsonl` with the context, the
+state shown, the answers, the judgement and any `guard`, `failed` or
+`usage`; the journal one line with no words:
+
+    lamp-policy: hello decision 2 arrival=98563000000 choice=say_now probability=0.720 by=model took_ms=612 guard=none
+
+The diagnostics add `hello_decided`, `hello_by_rule`, `hello_said`,
+`hello_held_talking`, `hello_held_recent`, `hello_late`, and `hello_acts`
+with `--act hello`; the start line `hello=true`, and `act=` names each
+question that acts (`act=progress,hello`).
+
+**Without the switch** `voice/arrival` is not subscribed to, no judge or
+thread is made, and the start line, decisions and diagnostics are as they
+were (`without_the_switch_arrivals_are_not_listened_to_and_the_report_is_as_before`,
+`crates/policy/tests/hello.rs`, which also covers shadow, acting and the
+twenty minutes, talking, and a failed model).
+
+**How long it takes** is in [speaking-first.md](speaking-first.md#asking-the-policy-752):
+on the development Mac, with a stand-in judge that answers at once, a held
+hello had its answer 22 to 38 ms after it was said on the bus; on the lamp
+Jev's own time (0.5 to 1 s, at most 1.5 s) comes on top.
+
+**On the lamp:** the steps are in
+[speaking-first.md](speaking-first.md#asking-the-policy-752), shadow first.
+
+**Most likely wrong.** That Jev answers a question it was not built for
+the way a person would. That the hour, the room and facing are what a
+person weighs before saying hello. That the hellos chosen in shadow and the
+voice's own turns are a fair count of "spoke up unasked".
 
 ## Not shown
 

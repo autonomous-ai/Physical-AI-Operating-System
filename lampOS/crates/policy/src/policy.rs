@@ -19,6 +19,7 @@ use crate::{
     attention::{self, Answers, Choice, Context, Judgement, Room},
     decide::{Asked, Connection, Decider, Failed, Usage},
     gather::{Gather, Lamp, Utterance},
+    hello::{self, Hello},
     outcome::{Begun, Watch},
     progress::{self, Progress},
     record::Record,
@@ -26,7 +27,7 @@ use crate::{
 use lamp_bus::{Bus, Notice, Publisher, Subscriber};
 use lamp_msgs::{
     Decision, Diagnostic, Faces, Level, NameHeard, RoomState, Rules, Speech, TaskStatus, Voice,
-    VoiceState,
+    VoiceArrival, VoiceState,
 };
 use serde::{Serialize, de::DeserializeOwned};
 use std::{
@@ -142,6 +143,18 @@ pub enum Note {
         took_ms: u32,
         /// A hard rule that turned the answer to `wait`.
         guard: Option<progress::Hold>,
+    },
+    /// A hello decision was made (`lamp-policy --hello`), for the arrival
+    /// it names.
+    HelloDecided {
+        number: u64,
+        arrival: u64,
+        choice: progress::Choice,
+        probability: f32,
+        by_rule: bool,
+        took_ms: u32,
+        /// A hard rule that answered `wait`, or turned a yes to it.
+        guard: Option<hello::Hold>,
     },
     /// A decision was made.
     Decided {
@@ -271,6 +284,21 @@ impl fmt::Display for Note {
                 choice.as_str(),
                 if by_rule { RULE } else { "model" },
                 guard.map_or("none", progress::Hold::as_str),
+            ),
+            Self::HelloDecided {
+                number,
+                arrival,
+                choice,
+                probability,
+                by_rule,
+                took_ms,
+                guard,
+            } => write!(
+                f,
+                "hello decision {number} arrival={arrival} choice={} probability={probability:.3} by={} took_ms={took_ms} guard={}",
+                choice.as_str(),
+                if by_rule { RULE } else { "model" },
+                guard.map_or("none", hello::Hold::as_str),
             ),
             Self::Decided {
                 number,
@@ -725,6 +753,8 @@ struct Policy<'a> {
     /// Whether the attention decisions are shadow: always, unless
     /// `--act attention` ([`Options::act_attention`], #800).
     attention_shadow: bool,
+    /// The hello question, only with `--hello` (`run_with_questions`).
+    hello: Option<Hello>,
 }
 
 impl Policy<'_> {
@@ -916,6 +946,7 @@ impl Policy<'_> {
             shadow: self.attention_shadow,
             request: utterance.request,
             task: None,
+            arrival: None,
         });
         let at_unix_ms = unix_ms();
         self.watch = Some((
@@ -1066,6 +1097,50 @@ impl Policy<'_> {
         });
     }
 
+    /// Take up a hello answer, or decide the next arrival, and publish and
+    /// write down a decision that comes of it.
+    fn hello_turn(&mut self, now: Instant) {
+        let room = self.room;
+        // Someone near, and whether such a face is turned to the lamp.
+        let seen = self.seen.and_then(|((_, near, facing), at)| {
+            (now.saturating_duration_since(at) <= SEEN_FOR)
+                .then_some((Some(near > 0), (near > 0).then_some(facing > 0)))
+        });
+        let Some(decided) = self
+            .hello
+            .as_mut()
+            .and_then(|hello| hello.turn(now, unix_ms(), room, seen.unwrap_or((None, None))))
+        else {
+            return;
+        };
+        // Published first: the voice is waiting for it.
+        self.publish(&decided.decision);
+        let line = &decided.line;
+        match self.record.write(line.at_unix_ms, line) {
+            Ok(()) => {
+                if let Some(missing) = self.log.right() {
+                    (self.say)(Note::LogWriting { missing });
+                }
+            }
+            Err(error) => {
+                self.totals.unlogged += 1;
+                if self.log.wrong(1) {
+                    (self.say)(Note::LogFailing { kind: error.kind() });
+                }
+            }
+        }
+        let number = self.hello.as_ref().map_or(0, |h| h.totals().decided);
+        (self.say)(Note::HelloDecided {
+            number,
+            arrival: line.context.arrival,
+            choice: line.judgement.choice,
+            probability: line.judgement.probability,
+            by_rule: line.judgement.from_rule,
+            took_ms: line.took_ms,
+            guard: line.guard,
+        });
+    }
+
     fn publish(&mut self, decision: &Decision) {
         let at_us = self.started.elapsed().as_micros() as u64;
         let sent = match self.out.as_mut() {
@@ -1145,7 +1220,7 @@ impl Policy<'_> {
             .with("by_rule", self.totals.by_rule)
             .with("shadow", self.attention_shadow);
         // Only with `--progress`: without it the report is as it was.
-        match self.progress.as_ref() {
+        let report = match self.progress.as_ref() {
             Some(progress) => {
                 let totals = progress.totals();
                 let report = report
@@ -1163,6 +1238,25 @@ impl Policy<'_> {
                 // Only with `--act progress`.
                 if progress.acts() {
                     report.with("progress_acts", true)
+                } else {
+                    report
+                }
+            }
+            None => report,
+        };
+        // Only with `--hello`, and `hello_acts` only with `--act hello`.
+        match self.hello.as_ref() {
+            Some(hello) => {
+                let totals = hello.totals();
+                let report = report
+                    .with("hello_decided", totals.decided)
+                    .with("hello_by_rule", totals.by_rule)
+                    .with("hello_said", totals.said)
+                    .with("hello_held_talking", totals.held_talking)
+                    .with("hello_held_recent", totals.held_recent)
+                    .with("hello_late", totals.late);
+                if hello.acts() {
+                    report.with("hello_acts", true)
                 } else {
                     report
                 }
@@ -1240,7 +1334,7 @@ pub fn run<D: Decider + Send + 'static>(
     stop: &AtomicBool,
     say: &mut dyn FnMut(Note),
 ) -> io::Result<Totals> {
-    run_inner(bus, decider, options, stop, say, None, None)
+    run_inner(bus, decider, options, stop, say, None, (None, None))
 }
 
 /// [`run`], and beside it the progress question ([`crate::progress`]):
@@ -1262,7 +1356,32 @@ where
     P: Decider + Send + 'static,
 {
     let progress = Progress::start(progress_decider, progress)?;
-    run_inner(bus, decider, options, stop, say, None, Some(progress))
+    run_inner(
+        bus,
+        decider,
+        options,
+        stop,
+        say,
+        None,
+        (Some(progress), None),
+    )
+}
+
+/// [`run`], and beside it whichever of the questions that may speak first
+/// are given, each started with its own judge ([`Progress::start`],
+/// [`Hello::start`]): progress listens to `tasks/status`, hello to
+/// `voice/arrival`. Each is shadow unless its own options say it acts;
+/// "is this said to the lamp?" is shadow always.
+pub fn run_with_questions<D: Decider + Send + 'static>(
+    bus: &Bus,
+    decider: D,
+    options: &Options,
+    stop: &AtomicBool,
+    say: &mut dyn FnMut(Note),
+    progress: Option<Progress>,
+    hello: Option<Hello>,
+) -> io::Result<Totals> {
+    run_inner(bus, decider, options, stop, say, None, (progress, hello))
 }
 
 /// The separate, explicitly enabled second-judge path. It is always shadow.
@@ -1275,7 +1394,7 @@ pub fn run_with_local<D: Decider + Send + 'static>(
     local: judges::Options,
 ) -> io::Result<Totals> {
     local.validate()?;
-    run_inner(bus, decider, options, stop, say, Some(local), None)
+    run_inner(bus, decider, options, stop, say, Some(local), (None, None))
 }
 
 fn run_inner<D: Decider + Send + 'static>(
@@ -1285,7 +1404,8 @@ fn run_inner<D: Decider + Send + 'static>(
     stop: &AtomicBool,
     say: &mut dyn FnMut(Note),
     local: Option<judges::Options>,
-    progress: Option<Progress>,
+    // The questions that may speak first, each if given.
+    (progress, hello): (Option<Progress>, Option<Hello>),
 ) -> io::Result<Totals> {
     let mut heard = Ear::new(bus, HEARD, Speech::TYPE)?;
     let mut said = Ear::new(bus, SAID, Speech::TYPE)?;
@@ -1302,6 +1422,11 @@ fn run_inner<D: Decider + Send + 'static>(
     let mut kept_rules = match progress.as_ref() {
         Some(progress) if progress.obeys_rules() => Some(Ear::new(bus, Rules::TOPIC, Rules::TYPE)?),
         _ => None,
+    };
+    // Without `--hello` the voice's arrivals are not listened to at all.
+    let mut arrivals = match hello {
+        Some(_) => Some(Ear::new(bus, VoiceArrival::TOPIC, VoiceArrival::TYPE)?),
+        None => None,
     };
     let judge_name = decider.name().to_owned();
     let (judges, judge_log) = match local {
@@ -1342,6 +1467,7 @@ fn run_inner<D: Decider + Send + 'static>(
         judge_log,
         progress,
         attention_shadow: SHADOW && !options.act_attention,
+        hello,
     };
     policy.second();
     if let Some(judges) = policy.judges.take() {
@@ -1364,6 +1490,9 @@ fn run_inner<D: Decider + Send + 'static>(
             }
             if let Some(progress) = policy.progress.as_mut() {
                 progress.voice(state.state, now);
+            }
+            if let Some(hello) = policy.hello.as_mut() {
+                hello.voice(state.state, now);
             }
             let speaking = state.state == Voice::Speaking;
             policy.lamp.state(speaking, now);
@@ -1403,10 +1532,16 @@ fn run_inner<D: Decider + Send + 'static>(
             if let Some(progress) = policy.progress.as_mut() {
                 progress.voice_gone();
             }
+            if let Some(hello) = policy.hello.as_mut() {
+                hello.voice_gone();
+            }
         }
         for piece in said.take::<Speech>(Duration::ZERO, unreadable, policy.say) {
             if let Some(progress) = policy.progress.as_mut() {
                 progress.talk(now);
+            }
+            if let Some(hello) = policy.hello.as_mut() {
+                hello.talk(now);
             }
             policy.lamp.said(&piece.text, piece.request, now);
             if policy.begun.said(piece.request, now)
@@ -1459,6 +1594,15 @@ fn run_inner<D: Decider + Send + 'static>(
             }
             kept_rules.source(policy.say);
         }
+        // A hello due, with `--hello` only.
+        if let Some(arrivals) = arrivals.as_mut() {
+            for arrival in arrivals.take::<VoiceArrival>(Duration::ZERO, unreadable, policy.say) {
+                if let Some(hello) = policy.hello.as_mut() {
+                    hello.arrival(arrival, now);
+                }
+            }
+            arrivals.source(policy.say);
+        }
         // How the work handed over is going, with `--progress` only.
         if let Some(tasks) = tasks.as_mut() {
             for status in tasks.take::<TaskStatus>(Duration::ZERO, unreadable, policy.say) {
@@ -1482,7 +1626,7 @@ fn run_inner<D: Decider + Send + 'static>(
         // The wait of the loop is here: for something to be heard.
         let wait = if let Some(judges) = policy.judges.as_ref() {
             judges.wait(Instant::now())
-        } else if policy.asking.is_some() {
+        } else if policy.asking.is_some() || policy.hello.as_ref().is_some_and(Hello::busy) {
             TICK_WHILE_ASKING
         } else {
             TICK
@@ -1490,10 +1634,13 @@ fn run_inner<D: Decider + Send + 'static>(
         let pieces = heard.take::<Speech>(wait, unreadable, policy.say);
         heard.source(policy.say);
         let now = Instant::now();
-        if !pieces.is_empty()
-            && let Some(progress) = policy.progress.as_mut()
-        {
-            progress.talk(now);
+        if !pieces.is_empty() {
+            if let Some(progress) = policy.progress.as_mut() {
+                progress.talk(now);
+            }
+            if let Some(hello) = policy.hello.as_mut() {
+                hello.talk(now);
+            }
         }
         for piece in pieces {
             policy.gather.piece(
@@ -1509,6 +1656,7 @@ fn run_inner<D: Decider + Send + 'static>(
             policy.heard(utterance);
         }
         policy.judge(now);
+        policy.hello_turn(now);
         policy.progress_turn(now);
         policy.after(now);
         if now.saturating_duration_since(shown) >= EVERY_SECOND {

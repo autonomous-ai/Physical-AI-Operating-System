@@ -1,0 +1,19 @@
+{
+  "boundaries": "from the first Arrival::hello call of a due, ready hello (which says it on voice/arrival) to the call that returns the answer, called every 2 ms; through a bus in /tmp, the policy's loop and its asking thread with a judge that answers at once, and the decision's log line; without asking the rule's answer is the first call's",
+  "hello_by_the_rule_alone_ms": {
+    "first": 0.0,
+    "max": 0.0,
+    "median": 0.0,
+    "samples": 30
+  },
+  "hello_waits_for_the_policy_ms": {
+    "first": 34.8,
+    "max": 36.3,
+    "median": 22.4,
+    "samples": 30
+  },
+  "platform": {
+    "arch": "aarch64",
+    "os": "macos"
+  }
+}

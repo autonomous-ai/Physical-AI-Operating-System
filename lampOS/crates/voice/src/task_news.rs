@@ -1357,6 +1357,7 @@ mod tests {
             shadow,
             request: None,
             task: Some(task.into()),
+            arrival: None,
         }
     }
     const STORE: &str = "0123456789abcdef0123456789abcdef";

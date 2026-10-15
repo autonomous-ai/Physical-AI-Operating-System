@@ -177,6 +177,7 @@ fn a_progress_decision_names_its_work_and_an_attention_one_is_written_as_before(
         shadow: true,
         request: None,
         task: None,
+        arrival: None,
     };
     // Without a task the bytes are the ones written before the field was.
     assert_eq!(
@@ -187,6 +188,7 @@ fn a_progress_decision_names_its_work_and_an_attention_one_is_written_as_before(
         about: "progress".into(),
         choice: "say_now".into(),
         task: Some("0123456789abcdef0123456789abcdef:3:4@1791964000000".into()),
+        arrival: None,
         ..attention
     };
     progress.check().unwrap();
@@ -207,6 +209,7 @@ fn a_progress_decision_names_its_work_and_an_attention_one_is_written_as_before(
     ] {
         let wrong = Decision {
             task: Some(task.into()),
+            arrival: None,
             ..progress.clone()
         };
         assert!(wrong.check().unwrap_err().0.contains("task"), "{task:?}");

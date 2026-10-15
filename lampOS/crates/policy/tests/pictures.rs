@@ -17,7 +17,7 @@ use std::{
     path::PathBuf,
     sync::mpsc,
     thread,
-    time::Duration,
+    time::{Duration, Instant},
 };
 
 fn request(stream: &mut TcpStream) -> Option<(String, String)> {
@@ -143,30 +143,37 @@ fn the_same_question_is_asked_without_the_picture_and_with_it_and_the_picture_is
         sight_file: sight.clone(),
         deadline: Duration::from_secs(5),
         log_dir: place.0.clone(),
+        presence: pictures::Presence::default(),
     };
+    let presence = options.presence.clone();
 
-    // Nobody in sight, or the eyes saying nothing: nothing is asked, frame
-    // or not (the first builder on #871).
+    // Nobody in sight now, the eyes saying nothing, or their word too old:
+    // nothing is asked, frame or not (the first builder on #871). It is what
+    // the eyes see now that counts, not the utterance's own snapshot
+    // (`job().seen`, a face): a question that waited in the queue while the
+    // person left sends nothing (the reviewer on #873).
     fs::write(&sight, frame()).unwrap();
-    for (seen, why) in [
-        (
-            Some(Seen {
-                faces: 0,
-                near: 0,
-                facing: 0,
-                age_ms: 40,
-            }),
-            "no_face",
-        ),
+    let stale = Instant::now()
+        .checked_sub(pictures::FACES_FRESH + Duration::from_millis(500))
+        .unwrap();
+    for (eyes, why) in [
+        (Some((0, Instant::now())), "no_face"),
         (None, "eyes_unknown"),
+        (Some((1, stale)), "eyes_unknown"),
     ] {
-        let nobody = Job { seen, ..job() };
-        let line = pictures::ask_both(&mut without, &mut with, &nobody, &options);
+        match eyes {
+            Some((faces, at)) => presence.saw(faces, at),
+            None => presence.gone(),
+        }
+        let line = pictures::ask_both(&mut without, &mut with, &job(), &options);
         assert_eq!(line["picture"], json!({"sent": false, "why_not": why}));
         assert!(line["without"].is_null() && line["with"].is_null());
+        // The utterance's snapshot is still written down, for the record.
+        assert_eq!(line["seen"]["faces"], 1);
     }
     assert!(requests.recv_timeout(Duration::from_millis(300)).is_err());
     fs::remove_file(&sight).unwrap();
+    presence.saw(1, Instant::now());
 
     // No frame: the camera is not permitted. Nothing is asked.
     let none = pictures::ask_both(&mut without, &mut with, &job(), &options);
@@ -242,6 +249,11 @@ fn the_thread_writes_its_lines_and_passes_over_what_comes_while_it_asks() {
             sight_file: place.0.join("sight.jpg"),
             deadline: Duration::from_secs(5),
             log_dir: place.0.clone(),
+            presence: {
+                let someone = pictures::Presence::default();
+                someone.saw(1, Instant::now());
+                someone
+            },
         },
     )
     .unwrap();

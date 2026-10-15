@@ -25,9 +25,9 @@ use std::{
     fs,
     io::{self, Read},
     path::{Path, PathBuf},
-    sync::mpsc,
+    sync::{Arc, Mutex, mpsc},
     thread,
-    time::{Duration, SystemTime},
+    time::{Duration, Instant, SystemTime},
 };
 
 /// Where the eyes keep their newest frame (`lamp-eyes --sight-file`).
@@ -210,6 +210,7 @@ pub fn line(job: &Job, picture: Value, without: Value, with: Value) -> Value {
 pub struct Pictures {
     jobs: mpsc::SyncSender<Job>,
     thread: thread::JoinHandle<()>,
+    presence: Presence,
 }
 
 /// How to ask.
@@ -218,6 +219,50 @@ pub struct Options {
     pub sight_file: PathBuf,
     pub deadline: Duration,
     pub log_dir: PathBuf,
+    /// Whether the eyes see someone now, as the policy's loop last read
+    /// them.
+    pub presence: Presence,
+}
+
+/// The eyes' newest count of faces lasts this long, as the policy's own
+/// reading of them.
+pub const FACES_FRESH: Duration = Duration::from_secs(2);
+
+/// Whether the eyes see someone now: their newest count of faces, as the
+/// policy's loop last read it (`humans/faces/tracked`), shared with the
+/// picture's thread. It is looked at when a picture's asking begins and
+/// again at the moment the picture would be taken, never only when the
+/// utterance ended (the reviewer on #873): a question that waited in the
+/// queue, or a person who left meanwhile, sends nothing.
+#[derive(Clone, Debug, Default)]
+pub struct Presence(Arc<Mutex<Option<(u8, Instant)>>>);
+
+impl Presence {
+    /// The eyes said they see `faces` faces, at `at`.
+    pub fn saw(&self, faces: u8, at: Instant) {
+        if let Ok(mut seen) = self.0.lock() {
+            *seen = Some((faces, at));
+        }
+    }
+
+    /// The eyes have gone: nothing is known.
+    pub fn gone(&self) {
+        if let Ok(mut seen) = self.0.lock() {
+            *seen = None;
+        }
+    }
+
+    /// Someone is in sight now, or why not: `no_face`, or `eyes_unknown`
+    /// when the eyes have said nothing in [`FACES_FRESH`].
+    pub fn now(&self) -> Result<(), &'static str> {
+        let seen = self.0.lock().ok().and_then(|seen| *seen);
+        match seen {
+            Some((_, at)) if at.elapsed() > FACES_FRESH => Err("eyes_unknown"),
+            Some((faces, _)) if faces > 0 => Ok(()),
+            Some(_) => Err("no_face"),
+            None => Err("eyes_unknown"),
+        }
+    }
 }
 
 impl Pictures {
@@ -225,6 +270,7 @@ impl Pictures {
     /// model, writing to `pictures-YYYY-MM-DD.jsonl` in the log folder.
     pub fn start(mut without: Jev, mut with: Jev, options: Options) -> io::Result<Self> {
         let (jobs, taken) = mpsc::sync_channel::<Job>(0);
+        let presence = options.presence.clone();
         let thread = thread::Builder::new()
             .name("pictures".into())
             .spawn(move || {
@@ -235,7 +281,16 @@ impl Pictures {
                     let _ = record.write(job.sent_at_unix_ms, &line);
                 }
             })?;
-        Ok(Self { jobs, thread })
+        Ok(Self {
+            jobs,
+            thread,
+            presence,
+        })
+    }
+
+    /// Where the policy's loop says what the eyes see.
+    pub fn presence(&self) -> &Presence {
+        &self.presence
     }
 
     /// Hand over `job` if the thread is free; an utterance that comes while
@@ -257,13 +312,10 @@ pub fn ask_both(without: &mut Jev, with: &mut Jev, job: &Job, options: &Options)
     // to say (the first builder on #871): on lamp-4ace on 2026-10-16 at
     // 03:47 to 03:53, with nobody at the desk, Jev 1.14 answered "is there
     // a person in the picture?" 0.26 to 0.51, 13 times, while the eyes saw
-    // no face each time. Nothing is asked then, and the line says why.
-    let nobody = match job.seen {
-        Some(seen) if seen.faces > 0 => None,
-        Some(_) => Some("no_face"),
-        None => Some("eyes_unknown"),
-    };
-    if let Some(why) = nobody {
+    // no face each time. Nothing is asked then, and the line says why. It is
+    // what the eyes see now, not when the utterance ended (`job.seen`, kept
+    // for the line): the question may have waited (the reviewer on #873).
+    if let Err(why) = options.presence.now() {
         return line(
             job,
             json!({"sent": false, "why_not": why}),
@@ -288,6 +340,8 @@ pub fn ask_both(without: &mut Jev, with: &mut Jev, job: &Job, options: &Options)
     // the moment of writing, then what became of the request.
     let tries: RefCell<Vec<(Taken, Option<Delivery>)>> = RefCell::new(Vec::new());
     let take = || -> Result<Vec<Picture>, Failed> {
+        // Someone still in sight at the moment the picture is taken.
+        options.presence.now().map_err(|_| Failed::Withdrawn)?;
         let taken = take_now(&options.sight_file).map_err(|_| Failed::Withdrawn)?;
         let picture = Picture {
             key: KEY.into(),

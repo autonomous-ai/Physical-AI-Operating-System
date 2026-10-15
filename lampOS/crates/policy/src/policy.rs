@@ -1712,12 +1712,19 @@ fn run_inner<D: Decider + Send + 'static>(
                 judges.faces(&faces, now);
             }
             policy.seen = Some((counted(&faces), now));
+            // What the picture's askings look at as they go (#871).
+            if let Some(pictures) = policy.pictures.as_ref() {
+                pictures.presence().saw(counted(&faces).0, now);
+            }
         }
         if eyes.source(policy.say) {
             if let Some(judges) = policy.judges.as_mut() {
                 judges.eyes_gone(now);
             }
             policy.seen = None;
+            if let Some(pictures) = policy.pictures.as_ref() {
+                pictures.presence().gone();
+            }
         }
         // Each hearing of the lamp's name, dated from when it began.
         for heard in names.take::<NameHeard>(Duration::ZERO, unreadable, policy.say) {

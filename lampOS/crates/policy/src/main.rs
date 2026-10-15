@@ -345,6 +345,7 @@ fn run(arguments: &Arguments) -> io::Result<()> {
                     .unwrap_or_else(|| pictures::SIGHT_FILE.into()),
                 deadline: arguments.deadline.max(Duration::from_secs(10)),
                 log_dir: arguments.log_dir.clone(),
+                presence: pictures::Presence::default(),
             },
         )?),
         None => None,

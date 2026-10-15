@@ -1146,8 +1146,12 @@ the day's, and none of what was heard in its output).
 `lamp-policy --images MODEL [--sight-file ABSOLUTE_PATH]`, off unless set,
 shadow. As the policy sends each attention question, it hands the same
 utterance to a thread of its own, if that thread is free. **Only when the
-eyes see someone** (`seen.faces` above 0, their list at most 2 s old) is
-anything asked: on lamp-4ace on 2026-10-16 at 03:47 to 03:53, with nobody
+eyes see someone** is anything asked: what they see now, their newest list
+at most 2 s old, looked at when the asking begins and again at the moment
+the picture would be taken, never only when the utterance ended (the
+reviewer on #873: a question that waited in the queue while the person
+left, or a list gone stale, sends nothing; the utterance's own `seen` is
+still written in the line). on lamp-4ace on 2026-10-16 at 03:47 to 03:53, with nobody
 at the desk, `picture_person` came back 0.26 to 0.51 thirteen times while
 the eyes saw no face each time, so whether anyone is there is the eyes' to
 say (the first builder on #871). Otherwise the line says `no_face`, or

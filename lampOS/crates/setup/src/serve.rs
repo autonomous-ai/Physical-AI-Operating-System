@@ -72,6 +72,13 @@ pub struct Config {
     pub web_start: Vec<String>,
     #[serde(default)]
     pub web_stop: Vec<String>,
+    /// Run once the hotspot is up, before answering, to free the port this
+    /// answers on. With `page`, `systemctl stop nginx`: the image's
+    /// `device-ap-mode` restarts nginx whether or not V1's page is used, and
+    /// nginx holds port 80. A failure is only logged, since a lamp without
+    /// nginx has nothing to stop; a port still held ends serving at once.
+    #[serde(default)]
+    pub free_port: Vec<String>,
 }
 
 impl Config {
@@ -92,12 +99,15 @@ impl Config {
         self.listen
             .parse::<std::net::SocketAddr>()
             .map_err(|_| "listen is an address and port")?;
-        for argv in [&self.web_start, &self.web_stop] {
+        for argv in [&self.web_start, &self.web_stop, &self.free_port] {
             if argv
                 .first()
                 .is_some_and(|program| !Path::new(program).is_absolute())
             {
-                return Err("web_start and web_stop are commands with an absolute program".into());
+                return Err(
+                    "web_start, web_stop and free_port are commands with an absolute program"
+                        .into(),
+                );
             }
         }
         Ok(())
@@ -305,6 +315,34 @@ impl Save for Files<'_> {
     fn marker(&mut self) -> io::Result<()> {
         write_private(&self.0.marker, b"")
     }
+}
+
+/// Bring the lamp up for setup, in this order: the hotspot, as V1's
+/// `os-server` raises it at a first boot; `free_port`; `web_start`; and only
+/// then the lamp's name, for `mac`. On a fresh image the hotspot script,
+/// `device-ap-mode`, is what names the host `lamp-xxxx`. A name read before
+/// it is the image's own, and a page that lost the hotspot before it learnt
+/// `lan_ip` would look for the wrong `<name>.local`.
+pub fn start(
+    config: &Config,
+    host: &mut impl Host,
+    mut run: impl FnMut(&[String]) -> io::Result<()>,
+    hostname: impl FnOnce() -> String,
+    mut log: impl FnMut(&str),
+) -> io::Result<Status> {
+    host.hotspot()?;
+    if !config.free_port.is_empty()
+        && let Err(error) = run(&config.free_port)
+    {
+        log(&format!(
+            "{} failed ({error}); answering goes on",
+            config.free_port.join(" ")
+        ));
+    }
+    if !config.web_start.is_empty() {
+        run(&config.web_start)?;
+    }
+    Ok(Status::new(hostname()))
 }
 
 /// One setup run, after V1's 2 s pause: join, then save, then the marker.

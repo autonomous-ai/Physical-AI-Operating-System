@@ -23,6 +23,9 @@ rustix = { version = "=1.1.5", features = ["fs", "process", "system"] }
 # The same HTTP stack as lamp-surround: one small server, one thread.
 axum = { version = "=0.8.9", default-features = false, features = ["http1", "json", "tokio"] }
 tokio = { version = "1", features = ["rt", "net", "time"] }
+# V1's TLS reach of the Internet when ping is blocked. The same features as
+# lamp-gemini and lamp-policy, so one rustls is built for all of them.
+rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12"] }
 
 [dev-dependencies]
 tower = { version = "0.5", features = ["util"] }

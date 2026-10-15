@@ -4,5 +4,10 @@
   "credential": "/etc/lampOS/voice/credential",
   "name": "/etc/lampOS/person/name",
   "country": "VN",
-  "page": true
+  "page": true,
+  "free_port": [
+    "/usr/bin/systemctl",
+    "stop",
+    "nginx"
+  ]
 }

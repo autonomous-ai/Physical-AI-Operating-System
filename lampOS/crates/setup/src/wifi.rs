@@ -6,7 +6,12 @@
 //! put on a command line, and a failed join puts the previous file back.
 
 use serde::Serialize;
-use std::time::Duration;
+use std::{
+    io,
+    net::{SocketAddr, TcpStream},
+    sync::{Arc, mpsc},
+    time::{Duration, Instant},
+};
 
 /// V1's `setupInternetWait`: the join, the address and the Internet.
 pub const JOIN_WAIT: Duration = Duration::from_secs(60);
@@ -205,7 +210,7 @@ pub trait Host {
     /// V1's `device-sta-mode` (the hotspot goes) and `device-ap-mode`.
     fn station(&mut self) -> std::io::Result<()>;
     fn hotspot(&mut self) -> std::io::Result<()>;
-    /// V1's `CheckInternet`: ping, else a TLS reach.
+    /// V1's `CheckInternet`: ping, else a TLS handshake ([`Reach`]).
     fn internet(&mut self) -> bool;
     /// The network joined now, its station address, wpa_supplicant's state.
     fn current_ssid(&mut self) -> Option<String>;
@@ -285,6 +290,212 @@ fn fail(host: &mut impl Host, previous: Option<&[u8]>, reason: Reason) -> Joined
     Joined::Failed { reason }
 }
 
+/// V1's `cloudProbeTimeout`: the name, the connection and the TLS handshake,
+/// all of it, so a dead network still fails fast inside the 60 s join.
+pub const REACH_TIMEOUT: Duration = Duration::from_secs(3);
+
+/// Looks up a `host:port` name. Injected for tests.
+pub type Resolve = fn(&str) -> io::Result<Vec<SocketAddr>>;
+
+fn system_lookup(address: &str) -> io::Result<Vec<SocketAddr>> {
+    std::net::ToSocketAddrs::to_socket_addrs(address).map(Iterator::collect)
+}
+
+/// V1's `tlsReach`, the Internet check when ping is blocked: a TLS handshake
+/// with the voice's service, completed and closed. A TCP connection alone is
+/// not enough: anything that accepts and then stays silent, or answers in
+/// plain text, would pass for the Internet.
+pub struct Reach {
+    /// `host:port`.
+    pub address: String,
+    pub timeout: Duration,
+    resolve: Resolve,
+    /// A lookup that has not come back yet. The system's lookup takes no
+    /// time limit and can take many seconds with no network, so it runs on a
+    /// thread of its own and is waited for only until the deadline. One left
+    /// behind is waited on by the next check, never started again: there is
+    /// never more than one.
+    pending: Option<mpsc::Receiver<io::Result<Vec<SocketAddr>>>>,
+    tls: Option<Arc<rustls::ClientConfig>>,
+}
+
+impl Reach {
+    pub fn new(address: impl Into<String>, timeout: Duration) -> Self {
+        Self::with_lookup(address, timeout, system_lookup)
+    }
+
+    pub fn with_lookup(address: impl Into<String>, timeout: Duration, resolve: Resolve) -> Self {
+        Self {
+            address: address.into(),
+            timeout,
+            resolve,
+            pending: None,
+            tls: None,
+        }
+    }
+
+    /// True once a TLS handshake with the address is done, within `timeout`.
+    pub fn check(&mut self) -> bool {
+        let until = Instant::now() + self.timeout;
+        let Some(tls) = self.tls() else {
+            return false;
+        };
+        let Some((host, _)) = self.address.rsplit_once(':') else {
+            return false;
+        };
+        let host = host.trim_start_matches('[').trim_end_matches(']');
+        let Ok(name) = rustls::pki_types::ServerName::try_from(host.to_owned()) else {
+            return false;
+        };
+        let Ok(addresses) = self.addresses(until) else {
+            return false;
+        };
+        for address in addresses {
+            let left = until.saturating_duration_since(Instant::now());
+            if left.is_zero() {
+                return false;
+            }
+            let Ok(socket) = TcpStream::connect_timeout(&address, left) else {
+                continue;
+            };
+            let mut wire = Timed { socket, until };
+            let Ok(mut session) = rustls::ClientConnection::new(Arc::clone(&tls), name.clone())
+            else {
+                return false;
+            };
+            while session.is_handshaking() {
+                if Instant::now() >= until || session.complete_io(&mut wire).is_err() {
+                    return false;
+                }
+            }
+            // Closed politely, as V1's `conn.Close()`; nothing else is sent.
+            session.send_close_notify();
+            let _ = session.write_tls(&mut wire);
+            return true;
+        }
+        false
+    }
+
+    fn addresses(&mut self, until: Instant) -> io::Result<Vec<SocketAddr>> {
+        let pending = match self.pending.take() {
+            Some(pending) => pending,
+            None => {
+                let (send, receive) = mpsc::channel();
+                let (address, resolve) = (self.address.clone(), self.resolve);
+                std::thread::Builder::new()
+                    .name("lamp-setup-lookup".into())
+                    .spawn(move || {
+                        let _ = send.send(resolve(&address));
+                    })?;
+                receive
+            }
+        };
+        match pending.recv_timeout(until.saturating_duration_since(Instant::now())) {
+            Ok(found) => found,
+            Err(mpsc::RecvTimeoutError::Timeout) => {
+                self.pending = Some(pending);
+                Err(io::ErrorKind::TimedOut.into())
+            }
+            Err(mpsc::RecvTimeoutError::Disconnected) => {
+                Err(io::Error::other("the lookup ended without an answer"))
+            }
+        }
+    }
+
+    fn tls(&mut self) -> Option<Arc<rustls::ClientConfig>> {
+        if self.tls.is_none() {
+            let provider = Arc::new(rustls::crypto::ring::default_provider());
+            let algorithms = provider.signature_verification_algorithms;
+            let config = rustls::ClientConfig::builder_with_provider(provider)
+                .with_safe_default_protocol_versions()
+                .ok()?
+                .dangerous()
+                .with_custom_certificate_verifier(Arc::new(AnyCertificate(algorithms)))
+                .with_no_client_auth();
+            self.tls = Some(Arc::new(config));
+        }
+        self.tls.clone()
+    }
+}
+
+/// V1's `InsecureSkipVerify`, on purpose: this proves only that the service
+/// answers, and sends it nothing. A lamp has no clock that runs with the power
+/// off, so right after the join, before the time is set, every certificate
+/// can look not yet valid. As in V1, the handshake's own signature is still
+/// checked: the other end must hold the key of the certificate it sent.
+#[derive(Debug)]
+struct AnyCertificate(rustls::crypto::WebPkiSupportedAlgorithms);
+
+impl rustls::client::danger::ServerCertVerifier for AnyCertificate {
+    fn verify_server_cert(
+        &self,
+        _: &rustls::pki_types::CertificateDer<'_>,
+        _: &[rustls::pki_types::CertificateDer<'_>],
+        _: &rustls::pki_types::ServerName<'_>,
+        _: &[u8],
+        _: rustls::pki_types::UnixTime,
+    ) -> Result<rustls::client::danger::ServerCertVerified, rustls::Error> {
+        Ok(rustls::client::danger::ServerCertVerified::assertion())
+    }
+
+    fn verify_tls12_signature(
+        &self,
+        message: &[u8],
+        certificate: &rustls::pki_types::CertificateDer<'_>,
+        signed: &rustls::DigitallySignedStruct,
+    ) -> Result<rustls::client::danger::HandshakeSignatureValid, rustls::Error> {
+        rustls::crypto::verify_tls12_signature(message, certificate, signed, &self.0)
+    }
+
+    fn verify_tls13_signature(
+        &self,
+        message: &[u8],
+        certificate: &rustls::pki_types::CertificateDer<'_>,
+        signed: &rustls::DigitallySignedStruct,
+    ) -> Result<rustls::client::danger::HandshakeSignatureValid, rustls::Error> {
+        rustls::crypto::verify_tls13_signature(message, certificate, signed, &self.0)
+    }
+
+    fn supported_verify_schemes(&self) -> Vec<rustls::SignatureScheme> {
+        self.0.supported_schemes()
+    }
+}
+
+/// A socket whose every read and write ends by one deadline, so a server that
+/// sends a byte now and then cannot stretch the handshake past it.
+struct Timed {
+    socket: TcpStream,
+    until: Instant,
+}
+
+impl Timed {
+    fn left(&self) -> io::Result<Duration> {
+        let left = self.until.saturating_duration_since(Instant::now());
+        if left.is_zero() {
+            Err(io::ErrorKind::TimedOut.into())
+        } else {
+            Ok(left)
+        }
+    }
+}
+
+impl io::Read for Timed {
+    fn read(&mut self, buffer: &mut [u8]) -> io::Result<usize> {
+        self.socket.set_read_timeout(Some(self.left()?))?;
+        io::Read::read(&mut self.socket, buffer)
+    }
+}
+
+impl io::Write for Timed {
+    fn write(&mut self, bytes: &[u8]) -> io::Result<usize> {
+        self.socket.set_write_timeout(Some(self.left()?))?;
+        io::Write::write(&mut self.socket, bytes)
+    }
+    fn flush(&mut self) -> io::Result<()> {
+        io::Write::flush(&mut self.socket)
+    }
+}
+
 /// The lamp as V1's image leaves it: wpa_supplicant on `wlan0`, its file in
 /// `/etc/wpa_supplicant`, and the image's two radio scripts.
 pub struct ImageHost {
@@ -292,8 +503,8 @@ pub struct ImageHost {
     pub station_script: std::path::PathBuf,
     pub hotspot_script: std::path::PathBuf,
     pub interface: String,
-    /// Reached over TCP when ping is blocked, as V1 falls back to TLS.
-    pub reach: String,
+    /// The voice's service, reached over TLS when ping is blocked, as V1 does.
+    pub reach: Reach,
     started: std::time::Instant,
     since_unix: u64,
 }
@@ -305,7 +516,7 @@ impl ImageHost {
             station_script: "/usr/local/bin/device-sta-mode".into(),
             hotspot_script: "/usr/local/bin/device-ap-mode".into(),
             interface: "wlan0".into(),
-            reach: "generativelanguage.googleapis.com:443".into(),
+            reach: Reach::new("generativelanguage.googleapis.com:443", REACH_TIMEOUT),
             started: std::time::Instant::now(),
             since_unix: std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
@@ -405,12 +616,7 @@ impl Host for ImageHost {
             .stderr(std::process::Stdio::null())
             .status()
             .is_ok_and(|status| status.success());
-        ping || std::net::ToSocketAddrs::to_socket_addrs(&self.reach.as_str())
-            .ok()
-            .and_then(|mut addresses| addresses.next())
-            .is_some_and(|address| {
-                std::net::TcpStream::connect_timeout(&address, Duration::from_secs(2)).is_ok()
-            })
+        ping || self.reach.check()
     }
 
     fn current_ssid(&mut self) -> Option<String> {

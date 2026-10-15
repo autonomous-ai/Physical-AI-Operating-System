@@ -249,6 +249,16 @@ fn serve_config(path: &Path) -> Result<lamp_setup::serve::Config, Box<dyn std::e
     Ok(config)
 }
 
+/// The lamp's name as the kernel has it, which is the name its `.local`
+/// address is announced under.
+fn host_name() -> String {
+    rustix::system::uname()
+        .nodename()
+        .to_string_lossy()
+        .trim()
+        .to_owned()
+}
+
 /// How long the page may still need the server after setup is done.
 const LINGER: Duration = Duration::from_secs(600);
 
@@ -259,8 +269,8 @@ fn serve(
 ) -> Result<bool, Box<dyn std::error::Error>> {
     use lamp_setup::{
         http::{Shared, router},
-        serve::{Files, Status},
-        wifi::{Host, ImageHost},
+        serve::Files,
+        wifi::ImageHost,
     };
     use std::sync::{Arc, Mutex};
     // A reset a power cut or a failed stop left unfinished comes first.
@@ -276,15 +286,15 @@ fn serve(
     for path in [&config.credential, &config.name, &config.marker] {
         let _ = std::fs::remove_file(path.with_extension("lamp-setup-tmp"));
     }
-    let mac = std::fs::read_to_string("/etc/hostname")
-        .map(|name| name.trim().to_owned())
-        .unwrap_or_default();
-    let status = Arc::new(Mutex::new(Status::new(mac)));
-    // The hotspot, as V1's os-server raises it at a first boot.
-    ImageHost::new().hotspot()?;
-    if !config.web_start.is_empty() {
-        System.run(&config.web_start)?;
-    }
+    // The hotspot first: on a fresh image it is what names the lamp.
+    let status = lamp_setup::serve::start(
+        &config,
+        &mut ImageHost::new(),
+        |argv| System.run(argv),
+        host_name,
+        |line| eprintln!("lamp-setup: {line}"),
+    )?;
+    let status = Arc::new(Mutex::new(status));
     eprintln!(
         "lamp-setup: the lamp's hotspot is up; answering on {}",
         config.listen

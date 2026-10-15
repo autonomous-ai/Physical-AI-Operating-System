@@ -33,6 +33,7 @@ struct Counters {
     dropped: AtomicU64,
     failed: AtomicBool,
     tail_gap: AtomicBool,
+    privacy: AtomicBool,
 }
 
 #[derive(Clone, Copy, Debug, Default, Serialize)]
@@ -84,14 +85,18 @@ fn write_records(
     // dropped sample was the final one in the clip. I/O failure may leave a
     // partial line; failed remains true even if the final write succeeds.
     if counters.tail_gap.load(Ordering::Acquire) || counters.failed.load(Ordering::Relaxed) {
-        let result = overflow(progress.previous_us.unwrap_or(0), progress.touch)
-            .map_err(io::Error::from)
-            .and_then(|mut line| {
-                line.push(b'\n');
-                writer.write_all(&line)?;
-                progress.bytes += line.len() as u64;
-                Ok(())
-            });
+        let result = overflow(
+            progress.previous_us.unwrap_or(0),
+            progress.touch,
+            counters.privacy.load(Ordering::Relaxed),
+        )
+        .map_err(io::Error::from)
+        .and_then(|mut line| {
+            line.push(b'\n');
+            writer.write_all(&line)?;
+            progress.bytes += line.len() as u64;
+            Ok(())
+        });
         if result.is_err() {
             counters.failed.store(true, Ordering::Relaxed);
         } else {
@@ -148,6 +153,9 @@ impl Recorder {
     /// A lost recording sample is represented by an overflow before any later
     /// sample. The real engine is unaffected; replay must not span that gap.
     pub fn submit(&mut self, record: &Record) {
+        if record.privacy.is_some() || record.privacy_fault.is_some() {
+            self.counters.privacy.store(true, Ordering::Relaxed);
+        }
         if self.touch {
             self.counters.failed.store(true, Ordering::Relaxed);
             return;
@@ -157,6 +165,12 @@ impl Recorder {
                 now_us: record.now_us,
                 observation: None,
                 fault: Some(ControlFault::Overflow),
+                privacy: None,
+                privacy_fault: self
+                    .counters
+                    .privacy
+                    .load(Ordering::Relaxed)
+                    .then_some(ControlFault::Overflow),
             };
             if !self.send(&gap) {
                 return;
@@ -179,7 +193,7 @@ impl Recorder {
             return;
         }
         if self.gap {
-            if !self.send_bytes(record.now_us, overflow(record.now_us, true)) {
+            if !self.send_bytes(record.now_us, overflow(record.now_us, true, true)) {
                 return;
             }
             self.gap = false;
@@ -193,7 +207,21 @@ impl Recorder {
 
     fn send(&self, record: &Record) -> bool {
         let refused;
-        let record = if record.observation.is_some() && record.fault.is_some()
+        let record = if record.privacy.as_ref().is_some_and(|sample| {
+            sample.check().is_err()
+                || record.privacy_fault.is_some()
+                || record.observation.is_some()
+                || record.fault.is_some()
+        }) {
+            refused = Record {
+                now_us: record.now_us,
+                observation: None,
+                fault: None,
+                privacy: None,
+                privacy_fault: Some(ControlFault::Invalid),
+            };
+            &refused
+        } else if record.observation.is_some() && record.fault.is_some()
             || record
                 .observation
                 .as_ref()
@@ -203,6 +231,9 @@ impl Recorder {
                 now_us: record.now_us,
                 observation: None,
                 fault: Some(ControlFault::Invalid),
+
+                privacy: None,
+                privacy_fault: None,
             };
             &refused
         } else {
@@ -266,7 +297,7 @@ impl Recorder {
     }
 }
 
-fn overflow(now_us: u64, touch: bool) -> Result<Vec<u8>, serde_json::Error> {
+fn overflow(now_us: u64, touch: bool, privacy: bool) -> Result<Vec<u8>, serde_json::Error> {
     if touch {
         serde_json::to_vec(&crate::touch_replay::Record {
             now_us,
@@ -279,6 +310,8 @@ fn overflow(now_us: u64, touch: bool) -> Result<Vec<u8>, serde_json::Error> {
             now_us,
             observation: None,
             fault: Some(ControlFault::Overflow),
+            privacy: None,
+            privacy_fault: privacy.then_some(ControlFault::Overflow),
         })
     }
 }
@@ -376,7 +409,8 @@ mod tests {
                 fault: ControlFault::Overflow
             }
         ));
-        assert!((overflow(u64::MAX, true).unwrap().len() as u64) < TERMINAL_BYTES);
+        assert!((overflow(u64::MAX, true, true).unwrap().len() as u64) < TERMINAL_BYTES);
+        assert!((overflow(u64::MAX, false, true).unwrap().len() as u64) < TERMINAL_BYTES);
     }
 
     #[test]
@@ -400,6 +434,9 @@ mod tests {
             now_us,
             observation: None,
             fault: None,
+
+            privacy: None,
+            privacy_fault: None,
         }
     }
 
@@ -426,6 +463,59 @@ mod tests {
         )
     }
 
+    #[test]
+    fn final_dropped_privacy_acquisition_records_unknown_instead_of_retaining_high() {
+        let (mut recorder, receiver) = recorder(1);
+        let sample = |at, sequence, muted| Record {
+            now_us: at,
+            observation: None,
+            fault: None,
+            privacy_fault: None,
+            privacy: Some(lamp_msgs::PrivacySwitch {
+                stamp: lamp_msgs::ClockStamp {
+                    clock_id: "boot".into(),
+                    at_us: at,
+                    sequence,
+                },
+                reader_session_id: "privacy-reader".into(),
+                muted: Some(muted),
+                fault: None,
+            }),
+        };
+        recorder.submit(&sample(100, 1, false));
+        recorder.submit(&sample(200, 2, true));
+        assert_eq!(recorder.stats().dropped, 1);
+        let lines: Vec<_> = receiver.try_iter().collect();
+        let mut bytes = vec![];
+        write_records(
+            &mut bytes,
+            lines,
+            &recorder.counters,
+            &mut WriteProgress::default(),
+        );
+        let records = crate::replay::read(bytes.as_slice()).unwrap();
+        assert_eq!(
+            records.last().unwrap().privacy_fault,
+            Some(ControlFault::Overflow)
+        );
+        let mut replayed = vec![];
+        crate::replay::run_with_privacy(
+            crate::engine::Config::default(),
+            "boot",
+            &records,
+            None,
+            &mut replayed,
+            true,
+        )
+        .unwrap();
+        for row in std::str::from_utf8(&replayed).unwrap().lines() {
+            let frame: crate::replay::Frame = serde_json::from_str(row).unwrap();
+            let privacy = frame.output.state.privacy.unwrap();
+            assert_eq!(privacy.muted, None);
+            assert_eq!(privacy.fault, Some(ControlFault::Overflow));
+        }
+    }
+
     fn head_sample(now_us: u64, sequence: u64, active: bool) -> Record {
         Record {
             now_us,
@@ -444,6 +534,9 @@ mod tests {
                 base_mask: None,
             }),
             fault: None,
+
+            privacy: None,
+            privacy_fault: None,
         }
     }
 
@@ -486,6 +579,9 @@ mod tests {
             now_us: 2_005_000,
             observation: None,
             fault: Some(ControlFault::Missing),
+
+            privacy: None,
+            privacy_fault: None,
         });
         assert_eq!(recorder.stats().dropped, 1);
         assert!(recorder.gap);
@@ -594,6 +690,9 @@ mod tests {
             now_us: u64::MAX,
             observation: None,
             fault: Some(ControlFault::Overflow),
+
+            privacy: None,
+            privacy_fault: None,
         });
         assert!(longest_fault.1.len() as u64 <= TERMINAL_BYTES);
     }

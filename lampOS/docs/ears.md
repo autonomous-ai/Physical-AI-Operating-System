@@ -58,6 +58,82 @@ Unit `lamp-ears.service` (in the first builder's deploy folder for
 lamp-4ace). `lamp-ears check FILE...` runs the same listening over
 recordings (16 kHz, one channel, 16 bits) and prints each sudden sound.
 
+## Optional microphone privacy boundary (#755)
+
+`LAMP_PRIVACY_CONTROLS=on` selects the new capture boundary. An absent value or
+`off` preserves the existing capture path, CLI and output; no privacy subscriber
+or new worker is created. Any other value, an empty one included, does the same,
+as in Controls and Voice, so a mistyped unit never stops Ears; a value other
+than empty or `off` is named in one journal line, since the room microphone then
+ignores the switch. `check FILE...` is unchanged.
+This is a repository implementation behind explicit enablement, not a claim that
+the installed service or hardware has been changed.
+
+When enabled, Ears starts with its microphone closed and consumes the declared
+`voice/privacy` topic (`lamp_msgs/MicrophonePrivacy`, version 1, latest, published
+every 10 ms, lifespan 50 ms). Only Voice grants this short lease. Controls switch
+observations and `voice/state` speaking metadata never grant microphone access.
+Voice must retain both its own microphone permission and a fresh physical
+observation; software mute or loss of Voice therefore closes Ears as well.
+
+The receiver checks the exact typed envelope and source, publisher boot, kernel
+boot clock, original switch acquisition, expiry, monotonic sequence/time and
+controller/microphone generation. Missing, invalid, expired, future, duplicate,
+reordered or gapped input closes capture. Publisher, controller or microphone
+generation changes close the old handle before another can open. Once a publisher
+session has reported the switch closed, Ears refuses any later permit from that
+same session, as Voice ends such a worker; only a new session can reopen. Up to 32 retired
+publisher sessions are remembered for 50 ms after their retirement, using the
+monotonic receipt time of the replacement. An entry is removed only at or after
+`retired_at_us + 50_000`: every lease published before retirement has then expired
+because its original publication cannot be in the future and its immutable
+lifetime is at most 50 ms. Forgotten IDs do not refresh old packets, and the
+global publication timestamp high-water is retained. This assumes the Voice
+supervisor has retired the previous live publisher before starting its replacement.
+A transition that would exceed 32 recent retired IDs closes capture and is
+rejected; a fresh transition can recover after entries expire. Clock regression
+and counter or retirement-time overflow remain closed until process restart.
+A valid contiguous heartbeat can recover after a gap. Neither recovery can reuse
+the old partial block, quiet history or pending sudden-sound observation.
+
+The microphone owner holds one ALSA handle and at most one 320-sample partial
+block. Reads are nonblocking. It checks permission before open, after open, after
+each read and on a 2 ms owner tick even while sound is absent. It discards driver
+buffers and drops the actual handle on closure, including when discard reports
+an error; it does not merely stop publishing levels. This closes software capture,
+not microphone electrical power. Device setup and driver calls still need native
+latency qualification; a late return is checked before any sound is used.
+
+One separate Bus pump performs filesystem/socket I/O. Input and metadata-output
+queues each hold at most 16 items, drained at most 16 per tick; no PCM leaves the
+capture thread. Input loss, queue overflow, source restart and failed pump work
+fence queued output. The original lease is checked again immediately before each
+level/sudden publication; later heartbeats cannot extend queued metadata's lease.
+A blocked Bus operation cannot prevent the independent capture owner expiring
+and closing its handle. A publication already inside a Bus syscall cannot be
+retracted and may arrive after the lease expires. Level/sudden metadata retains
+its original observation timestamp; these existing topic types do not carry a
+privacy lease or guarantee that capture remains open when a reader sees them.
+Capture errors use a nonblocking two-second retry deadline and never retry while
+permission is absent. Diagnostics carry `capture_open_observed`,
+`capture_observed_us`, `capture_clock_id` and the failure count. Their header uses
+the same original observation time, so a delayed report does not claim the handle
+is still open. Neither output carries sound samples.
+
+The intended boundaries are accepted denial to local discard/drop on the next
+2 ms owner tick, and expiry to discard/drop on the first owner tick at expiry.
+These are polling targets, not measured hardware maxima. Host fixtures cover
+missing/denied startup, malformed and stale leases, slow open/read results,
+discard failure, generation and session changes, duplicate/gap fences, held
+audio and queued metadata, 128 ordinary publisher cycles, recent and expired
+retired replays, and retirement-capacity recovery. Linux ALSA behavior, scheduler
+delay, physical-switch latency and electrical privacy are not established by
+those fixtures.
+
+## Earlier room-microphone observations
+
+These measurements predate the optional privacy boundary above.
+
 **First look, lamp-4ace, 2026-10-14, 16:13 (first builder, build
 `b81c2df7…` of `bb4ad51e4`).** It reads 50 blocks a second with no overrun,
 at 1.3 % of a core and 6 MB. The office's quiet on mic1 was -53 to -54

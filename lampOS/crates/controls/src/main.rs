@@ -35,6 +35,7 @@ sets touch at 40% and release at 20% of the way from each pad's noise to its own
 readings; --replay works from kept readings instead of the chip.\n\
 --touch selects the new independent head/strip path and its pins schema. It configures the selected I2C chip even in shadow.\n\
 Without --touch, no new reader, touch topic or gesture interpretation is selected.\n\
+Only LAMP_PRIVACY_CONTROLS=on selects an explicit privacy section in --pins; absent/off never opens chip 1.\n\
 Replay never opens a bus or hardware. Times are CLOCK_MONOTONIC microseconds.\n\
 Record/output files must not already exist. Acquisition records are capped at 32 MiB.\n\
 No controls message grants microphone/camera permission or reports a verified stop.";
@@ -225,7 +226,7 @@ fn parse(args: impl IntoIterator<Item = String>) -> Result<Option<Args>, String>
     if out.touch && out.pins.is_none() {
         return Err("--touch needs --pins with explicit per-unit wiring".into());
     }
-    if out.command == "replay" && out.pins.is_some() && !out.touch {
+    if out.command == "replay" && out.pins.is_some() && !out.touch && !privacy_selected() {
         return Err("replay accepts --pins only with --touch".into());
     }
     if out.command == "discover-head"
@@ -266,7 +267,6 @@ fn config(args: &Args) -> Result<Config, Box<dyn std::error::Error>> {
 }
 
 /// The board's wiring, from its file.
-#[cfg(target_os = "linux")]
 fn pins(
     path: &std::path::Path,
 ) -> Result<lamp_controls::pins::PinsConfig, Box<dyn std::error::Error>> {
@@ -275,8 +275,18 @@ fn pins(
     if bytes.len() > 16_384 {
         return Err("the pins file exceeds 16 KiB".into());
     }
-    Ok(serde_json::from_slice(&bytes)?)
+    let wiring: lamp_controls::pins::PinsConfig = serde_json::from_slice(&bytes)?;
+    if wiring.privacy.is_some() && !privacy_selected() {
+        return Err(UNSELECTED_PRIVACY.into());
+    }
+    Ok(wiring)
 }
+
+/// Before the switch existed a privacy section was an unknown field, and the
+/// file was refused. Without the switch it still is, so a profile installed
+/// without it fails loudly instead of running with no hand input.
+const UNSELECTED_PRIVACY: &str =
+    "the pins file has a privacy section, which needs LAMP_PRIVACY_CONTROLS=on";
 
 /// The reader serve uses: the board's lines if a pins file was given, and
 /// otherwise the stand-in that says no input is there.
@@ -292,6 +302,9 @@ fn reader(
     };
     let wiring = pins(path)?;
     wiring.check(config)?;
+    if wiring.buttons.is_empty() && wiring.head_pads.is_empty() {
+        return Ok(Box::new(lamp_controls::touch_pins::NoGpio));
+    }
     let lines = GpioLines::open(&wiring)?;
     let session = format!("pins-{}-{}", std::process::id(), lamp_ipc::monotonic_us());
     Ok(Box::new(LinePins::new(
@@ -382,6 +395,18 @@ fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
     }
     if args.command == "replay" {
         let records = replay::read(File::open(args.input.as_ref().unwrap())?)?;
+        let selected = if privacy_selected() {
+            match &args.pins {
+                Some(path) => {
+                    let pins = pins(path)?;
+                    pins.check(&config)?;
+                    pins.privacy.is_some()
+                }
+                None => false,
+            }
+        } else {
+            false
+        };
         let writer: Box<dyn Write> = if let Some(path) = args.output {
             Box::new(
                 OpenOptions::new()
@@ -393,19 +418,70 @@ fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
         } else {
             Box::new(io::stdout().lock())
         };
-        let result = replay::run(config, &clock, &records, args.until, writer)?;
+        let result =
+            replay::run_with_privacy(config, &clock, &records, args.until, writer, selected)?;
         eprintln!("{}", serde_json::to_string(&result)?);
         return Ok(());
     }
     let reader = reader(&args, &config, &clock)?;
+    let privacy = if privacy_selected() {
+        args.pins
+            .as_ref()
+            .map(|path| pins(path))
+            .transpose()?
+            .and_then(|pins| pins.privacy)
+    } else {
+        None
+    };
+    serve(args, config, &clock, reader, privacy)
+}
+
+fn privacy_selected() -> bool {
+    lamp_controls::privacy::selected(std::env::var_os(lamp_controls::privacy::ENV).as_deref())
+}
+
+fn privacy_source(
+    pins: &lamp_controls::privacy::Pins,
+    clock: &str,
+) -> Result<lamp_controls::privacy::Source, Box<dyn std::error::Error>> {
+    let session = format!(
+        "privacy-{}-{}",
+        std::process::id(),
+        lamp_ipc::monotonic_us()
+    );
+    Ok(lamp_controls::privacy::Source::new(
+        lamp_controls::privacy::open(pins, clock, &session)?,
+        clock,
+    ))
+}
+
+fn serve(
+    args: Args,
+    config: Config,
+    clock: &str,
+    reader: Box<dyn lamp_controls::input::PinReader>,
+    privacy: Option<lamp_controls::privacy::Pins>,
+) -> Result<(), Box<dyn std::error::Error>> {
     let bus = if let Some(root) = args.bus_root {
         Bus::new(root)?
     } else {
         Bus::from_environment()?
     };
-    let mut service = Service::new(&bus, config, reader, &clock)?;
+    let bus = if privacy.is_some() {
+        lamp_controls::privacy::selected_bus(bus)
+    } else {
+        bus
+    };
+    let mut service = Service::new(&bus, config, reader, clock)?;
+    if let Some(pins) = privacy {
+        service.attach_privacy(privacy_source(&pins, clock)?);
+    }
     if let Some(path) = args.record {
-        service.record_to(&path)?;
+        if args.touch {
+            service.record_privacy_touch_to(&path)?;
+        } else {
+            service.record_to(&path)?;
+        }
     }
     let stop = Arc::new(AtomicBool::new(false));
     let signal_ids = [signal_hook::consts::SIGINT, signal_hook::consts::SIGTERM]
@@ -423,8 +499,8 @@ fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
         let output = service.step(lamp_ipc::monotonic_us);
         hands.note(began, &output);
         let elapsed = lamp_ipc::monotonic_us().saturating_sub(began);
-        if elapsed < runtime::POLL_US {
-            thread::sleep(Duration::from_micros(runtime::POLL_US - elapsed));
+        if elapsed < service.poll_us() {
+            thread::sleep(Duration::from_micros(service.poll_us() - elapsed));
         }
     }
     for id in signal_ids {
@@ -478,6 +554,40 @@ fn touch_reader(
 fn run_touch(args: Args, config: Config, clock: &str) -> Result<(), Box<dyn std::error::Error>> {
     use lamp_controls::{strip_worker::Worker, touch_pins::TouchPinsConfig, touch_runtime};
     let wiring = TouchPinsConfig::load(args.pins.as_ref().expect("validated pins argument"))?;
+    if wiring.privacy.is_some() && !privacy_selected() {
+        return Err(UNSELECTED_PRIVACY.into());
+    }
+    let privacy = privacy_selected().then(|| wiring.privacy.clone()).flatten();
+    if privacy.is_some() && wiring.privacy_only(&config)? {
+        if args.command == "replay" {
+            let records =
+                lamp_controls::touch_replay::read(File::open(args.input.as_ref().unwrap())?)?;
+            let writer: Box<dyn Write> = if let Some(path) = args.output {
+                Box::new(BufWriter::with_capacity(
+                    8 * 1024,
+                    OpenOptions::new()
+                        .write(true)
+                        .create_new(true)
+                        .mode(0o600)
+                        .open(path)?,
+                ))
+            } else {
+                Box::new(io::stdout().lock())
+            };
+            let summary = lamp_controls::touch_replay::run_privacy_only(
+                config, clock, &records, args.until, writer,
+            )?;
+            eprintln!("{}", serde_json::to_string(&summary)?);
+            return Ok(());
+        }
+        return serve(
+            args,
+            config,
+            clock,
+            Box::new(lamp_controls::touch_pins::NoGpio),
+            privacy,
+        );
+    }
     let touch = wiring.check(&config)?;
     if args.command == "replay" {
         let records = lamp_controls::touch_replay::read(File::open(args.input.as_ref().unwrap())?)?;
@@ -493,7 +603,14 @@ fn run_touch(args: Args, config: Config, clock: &str) -> Result<(), Box<dyn std:
         } else {
             Box::new(io::stdout().lock())
         };
-        let summary = lamp_controls::touch_replay::run(touch, clock, &records, args.until, writer)?;
+        let summary = lamp_controls::touch_replay::run_with_privacy(
+            touch,
+            clock,
+            &records,
+            args.until,
+            writer,
+            privacy.is_some(),
+        )?;
         eprintln!("{}", serde_json::to_string(&summary)?);
         return Ok(());
     }
@@ -503,8 +620,16 @@ fn run_touch(args: Args, config: Config, clock: &str) -> Result<(), Box<dyn std:
     } else {
         Bus::from_environment()?
     };
+    let bus = if privacy.is_some() {
+        lamp_controls::privacy::selected_bus(bus)
+    } else {
+        bus
+    };
     let mut service =
         touch_runtime::Service::new(&bus, config, wiring.clone(), gpio, None::<Worker>, clock)?;
+    if let Some(pins) = privacy {
+        service.attach_privacy(&bus, privacy_source(&pins, clock)?)?;
+    }
     if let Some(path) = args.record {
         service.record_to(&path)?;
     }
@@ -540,8 +665,8 @@ fn run_touch(args: Args, config: Config, clock: &str) -> Result<(), Box<dyn std:
         let output = service.step(lamp_ipc::monotonic_us);
         hands.note_reset(began, &output);
         let elapsed = lamp_ipc::monotonic_us().saturating_sub(began);
-        if elapsed < runtime::POLL_US {
-            thread::sleep(Duration::from_micros(runtime::POLL_US - elapsed));
+        if elapsed < service.poll_us() {
+            thread::sleep(Duration::from_micros(service.poll_us() - elapsed));
         }
     }
     let worker = service.strip.as_mut().map(Worker::shutdown);

@@ -4,6 +4,8 @@
 //! It does not choose animations, privacy colors, listening cues, or readiness,
 //! with one exception: the asleep face ([`asleep`], #712), which needs no
 //! permit because it says only that the lamp cannot hear.
+//! Its separate physical-mute indication accepts only fresh denied authority and
+//! a matching physical observation; that path can render only a dim red breath.
 //! An owning worker must drain priority control messages before calling `show`
 //! and call `tick` while a cue is displayed so leases expire without new output.
 
@@ -11,6 +13,9 @@ use lamp_turn_owner::{BootId, BoundaryGuard, MonoTime, OutputKind, OutputPermit,
 use std::{fmt, io};
 
 pub mod asleep;
+mod privacy;
+pub use privacy::PrivacyObservation;
+
 #[cfg(target_os = "linux")]
 pub mod linux;
 
@@ -259,6 +264,9 @@ pub struct GuardedRing<S: FrameSink> {
     active: Option<OutputPermit>,
     /// A resting frame is on the strip: one that belongs to no turn.
     resting: bool,
+    /// The separate physical-mute indication, never a conversational permit.
+    privacy: Option<PrivacyObservation>,
+    privacy_painted_at: Option<MonoTime>,
     faulted: bool,
     stopped: bool,
     /// When the current run of late writes began.
@@ -286,6 +294,8 @@ impl<S: FrameSink> GuardedRing<S> {
             guard: BoundaryGuard::new(controller_boot, clock()),
             active: None,
             resting: false,
+            privacy: None,
+            privacy_painted_at: None,
             faulted: false,
             stopped: false,
             late_since: None,
@@ -332,6 +342,8 @@ impl<S: FrameSink> GuardedRing<S> {
         };
         self.active = Some(permit);
         self.resting = false;
+        self.privacy = None;
+        self.privacy_painted_at = None;
         // A lease may expire while the kernel write is in flight. Do not leave
         // that completed but now unauthorized cue latched on the strip.
         if let Err(reason) = self.guard.check((self.clock)(), permit, OutputKind::Light) {
@@ -361,6 +373,8 @@ impl<S: FrameSink> GuardedRing<S> {
         match self.transfer(&frame, started_at) {
             Ok(receipt) => {
                 self.resting = true;
+                self.privacy = None;
+                self.privacy_painted_at = None;
                 Ok(Some(receipt))
             }
             Err(failure) => Err(self.write_fault(failure)),
@@ -529,6 +543,8 @@ impl<S: FrameSink> GuardedRing<S> {
     fn blank(&mut self, reason: BlankReason) -> Result<BlankReceipt, WriteFailure> {
         self.active = None;
         self.resting = false;
+        self.privacy = None;
+        self.privacy_painted_at = None;
         // Copy a fixed 1,028-byte frame; no heap allocation or arbitrary retry.
         let frame = self.black.clone();
         let write = self.transfer(&frame, (self.clock)())?;
@@ -561,10 +577,14 @@ impl<S: FrameSink> GuardedRing<S> {
                 .err()
         } else if self.resting {
             self.resting_denial((self.clock)(), false)
+        } else if let Some(observation) = self.privacy {
+            self.privacy_denial(observation, (self.clock)())
         } else {
             None
         };
-        if self.guard.is_faulted() {
+        if reason == Some(lamp_turn_owner::Error::ClockRegression) {
+            self.latch_fault();
+        } else if self.guard.is_faulted() {
             self.faulted = true;
         }
         reason

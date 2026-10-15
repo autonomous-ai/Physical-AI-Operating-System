@@ -707,6 +707,7 @@ fn conversation_sends_hand_stop_before_a_provider_fault_queued_in_the_same_tick(
         latest_mute: None,
         event_sequence: 1,
         rejected_inputs: 0,
+        privacy: None,
     };
     state.check().unwrap();
     let mut controls =

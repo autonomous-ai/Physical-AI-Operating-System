@@ -1,0 +1,6 @@
+{"now_us":0,"privacy":{"stamp":{"clock_id":"privacy-test","at_us":0,"sequence":1},"reader_session_id":"privacy-reader","muted":true,"fault":null}}
+{"now_us":5000,"privacy":{"stamp":{"clock_id":"privacy-test","at_us":5000,"sequence":2},"reader_session_id":"privacy-reader","muted":false,"fault":null}}
+{"now_us":10000,"privacy":{"stamp":{"clock_id":"privacy-test","at_us":10000,"sequence":3},"reader_session_id":"privacy-reader","muted":false,"fault":null}}
+{"now_us":15000,"privacy":{"stamp":{"clock_id":"privacy-test","at_us":15000,"sequence":4},"reader_session_id":"privacy-reader","muted":null,"fault":"missing"}}
+{"now_us":20000,"privacy":{"stamp":{"clock_id":"privacy-test","at_us":20000,"sequence":5},"reader_session_id":"privacy-reader","muted":false,"fault":null}}
+{"now_us":70000}

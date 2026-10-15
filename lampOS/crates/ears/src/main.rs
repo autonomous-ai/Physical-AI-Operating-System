@@ -6,6 +6,9 @@ use std::{
     process::ExitCode,
 };
 
+#[cfg(target_os = "linux")]
+mod privacy_runtime;
+
 const USAGE: &str = "usage: lamp-ears [--device ALSA_NAME] [--rise-db DB] [--bus-root ABSOLUTE_DIR]\n       lamp-ears check [--rise-db DB] FILE...";
 const HELP: &str = "Listens to the room microphone and says how loud the room is. See docs/ears.md.
 
@@ -186,6 +189,15 @@ mod serve {
     }
 
     pub fn run(arguments: &Arguments) -> io::Result<()> {
+        let privacy = std::env::var("LAMP_PRIVACY_CONTROLS").ok();
+        if lamp_ears::privacy::enabled(privacy.as_deref()) {
+            return crate::privacy_runtime::run(arguments);
+        }
+        if let Some(value) = privacy.filter(|value| !value.is_empty() && value != "off") {
+            eprintln!(
+                "lamp-ears: LAMP_PRIVACY_CONTROLS={value:?} is not \"on\"; the room microphone ignores the privacy switch"
+            );
+        }
         let started = Instant::now();
         let at_us = |now: Instant| now.saturating_duration_since(started).as_micros() as u64;
         let bus = match &arguments.bus {

@@ -1,0 +1,232 @@
+{
+  "roots": [
+    "lamp-records",
+    "lamp-settings"
+  ],
+  "packages": [
+    {
+      "name": "lamp-bus",
+      "manifest": "lampOS/crates/bus/Cargo.toml",
+      "package_root": "lampOS/crates/bus"
+    },
+    {
+      "name": "lamp-msgs",
+      "manifest": "lampOS/crates/msgs/Cargo.toml",
+      "package_root": "lampOS/crates/msgs"
+    },
+    {
+      "name": "lamp-records",
+      "manifest": "lampOS/crates/records/Cargo.toml",
+      "package_root": "lampOS/crates/records"
+    },
+    {
+      "name": "lamp-settings",
+      "manifest": "lampOS/crates/settings/Cargo.toml",
+      "package_root": "lampOS/crates/settings"
+    }
+  ],
+  "local_edges": [
+    {
+      "from": "lampOS/crates/msgs/Cargo.toml",
+      "table": "dependencies",
+      "dependency": "lamp-bus",
+      "to": "lampOS/crates/bus/Cargo.toml",
+      "spec": {
+        "path": "../bus"
+      }
+    },
+    {
+      "from": "lampOS/crates/records/Cargo.toml",
+      "table": "dependencies",
+      "dependency": "lamp-bus",
+      "to": "lampOS/crates/bus/Cargo.toml",
+      "spec": {
+        "path": "../bus"
+      }
+    },
+    {
+      "from": "lampOS/crates/records/Cargo.toml",
+      "table": "dependencies",
+      "dependency": "lamp-msgs",
+      "to": "lampOS/crates/msgs/Cargo.toml",
+      "spec": {
+        "path": "../msgs"
+      }
+    },
+    {
+      "from": "lampOS/crates/settings/Cargo.toml",
+      "table": "dependencies",
+      "dependency": "lamp-bus",
+      "to": "lampOS/crates/bus/Cargo.toml",
+      "spec": {
+        "path": "../bus"
+      }
+    },
+    {
+      "from": "lampOS/crates/settings/Cargo.toml",
+      "table": "dependencies",
+      "dependency": "lamp-msgs",
+      "to": "lampOS/crates/msgs/Cargo.toml",
+      "spec": {
+        "path": "../msgs"
+      }
+    },
+    {
+      "from": "lampOS/crates/settings/Cargo.toml",
+      "table": "dependencies",
+      "dependency": "lamp-records",
+      "to": "lampOS/crates/records/Cargo.toml",
+      "spec": {
+        "path": "../records"
+      }
+    }
+  ],
+  "external_dependencies": [
+    {
+      "from": "lampOS/crates/bus/Cargo.toml",
+      "table": "dependencies",
+      "dependency": "serde",
+      "spec": {
+        "version": "1.0",
+        "features": [
+          "derive"
+        ]
+      }
+    },
+    {
+      "from": "lampOS/crates/bus/Cargo.toml",
+      "table": "dependencies",
+      "dependency": "serde_json",
+      "spec": {
+        "version": "1.0"
+      }
+    },
+    {
+      "from": "lampOS/crates/msgs/Cargo.toml",
+      "table": "dependencies",
+      "dependency": "serde",
+      "spec": {
+        "version": "1.0",
+        "features": [
+          "derive"
+        ]
+      }
+    },
+    {
+      "from": "lampOS/crates/msgs/Cargo.toml",
+      "table": "dependencies",
+      "dependency": "serde_json",
+      "spec": {
+        "version": "1.0"
+      }
+    },
+    {
+      "from": "lampOS/crates/records/Cargo.toml",
+      "table": "dependencies",
+      "dependency": "rustix",
+      "spec": {
+        "version": "=1.1.5",
+        "features": [
+          "fs",
+          "process",
+          "pipe",
+          "event"
+        ]
+      }
+    },
+    {
+      "from": "lampOS/crates/records/Cargo.toml",
+      "table": "dependencies",
+      "dependency": "serde",
+      "spec": {
+        "version": "1.0",
+        "features": [
+          "derive"
+        ]
+      }
+    },
+    {
+      "from": "lampOS/crates/records/Cargo.toml",
+      "table": "dependencies",
+      "dependency": "serde_json",
+      "spec": {
+        "version": "1.0"
+      }
+    },
+    {
+      "from": "lampOS/crates/records/Cargo.toml",
+      "table": "dependencies",
+      "dependency": "sha2",
+      "spec": {
+        "version": "0.10"
+      }
+    },
+    {
+      "from": "lampOS/crates/settings/Cargo.toml",
+      "table": "dependencies",
+      "dependency": "getrandom",
+      "spec": "0.4"
+    },
+    {
+      "from": "lampOS/crates/settings/Cargo.toml",
+      "table": "dependencies",
+      "dependency": "rustix",
+      "spec": {
+        "version": "=1.1.5",
+        "features": [
+          "fs",
+          "process",
+          "net",
+          "event"
+        ]
+      }
+    },
+    {
+      "from": "lampOS/crates/settings/Cargo.toml",
+      "table": "dependencies",
+      "dependency": "serde",
+      "spec": {
+        "version": "1.0",
+        "features": [
+          "derive"
+        ]
+      }
+    },
+    {
+      "from": "lampOS/crates/settings/Cargo.toml",
+      "table": "dependencies",
+      "dependency": "serde_json",
+      "spec": {
+        "version": "1.0",
+        "features": [
+          "raw_value"
+        ]
+      }
+    },
+    {
+      "from": "lampOS/crates/settings/Cargo.toml",
+      "table": "dependencies",
+      "dependency": "sha2",
+      "spec": {
+        "version": "0.10"
+      }
+    },
+    {
+      "from": "lampOS/crates/settings/Cargo.toml",
+      "table": "dependencies",
+      "dependency": "signal-hook",
+      "spec": "0.4"
+    },
+    {
+      "from": "lampOS/crates/settings/Cargo.toml",
+      "table": "dev-dependencies",
+      "dependency": "tempfile",
+      "spec": "3"
+    }
+  ],
+  "conservative_local_patch_roots": [
+    "lampOS/vendor/tough"
+  ],
+  "workspace_manifest": "lampOS/Cargo.toml",
+  "method": "Read TOML statically; traverse all normal/dev/build and target-specific local dependency tables, including optional paths. Include complete package directories and all local workspace patches conservatively. No Cargo command was invoked."
+}

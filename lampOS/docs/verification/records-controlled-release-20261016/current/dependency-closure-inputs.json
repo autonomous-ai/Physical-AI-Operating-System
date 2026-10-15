@@ -1,0 +1,1430 @@
+[
+  {
+    "path": "lampOS/.cargo/config.toml",
+    "old_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "b3515e952d3665dd4c6a26887a6812bc9c597dca"
+    },
+    "new_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "b3515e952d3665dd4c6a26887a6812bc9c597dca"
+    },
+    "same_blob_and_mode": true
+  },
+  {
+    "path": "lampOS/.config/nextest.toml",
+    "old_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "f83b3204b9c159d19c7bb90e003a28f05fd61268"
+    },
+    "new_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "f83b3204b9c159d19c7bb90e003a28f05fd61268"
+    },
+    "same_blob_and_mode": true
+  },
+  {
+    "path": "lampOS/Cargo.lock",
+    "old_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "8ee57433c188b5d395675352971e63b187e703e6"
+    },
+    "new_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "a8f411e0571e2c658a29f9a89f6c81ff4eb9d728"
+    },
+    "same_blob_and_mode": false
+  },
+  {
+    "path": "lampOS/Cargo.toml",
+    "old_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "0f7ce266fb6ddfda78bce959200026354d477a76"
+    },
+    "new_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "0f7ce266fb6ddfda78bce959200026354d477a76"
+    },
+    "same_blob_and_mode": true
+  },
+  {
+    "path": "lampOS/crates/bus/Cargo.toml",
+    "old_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "b0e6e0b65c67ca8ab5d286f63e06fca87d728c14"
+    },
+    "new_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "b0e6e0b65c67ca8ab5d286f63e06fca87d728c14"
+    },
+    "same_blob_and_mode": true
+  },
+  {
+    "path": "lampOS/crates/bus/src/declare.rs",
+    "old_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "27597f2bddc465db1459d97880ef180e2ac55999"
+    },
+    "new_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "27597f2bddc465db1459d97880ef180e2ac55999"
+    },
+    "same_blob_and_mode": true
+  },
+  {
+    "path": "lampOS/crates/bus/src/lib.rs",
+    "old_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "481c493ec637b959974d7810299727c321ca408e"
+    },
+    "new_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "481c493ec637b959974d7810299727c321ca408e"
+    },
+    "same_blob_and_mode": true
+  },
+  {
+    "path": "lampOS/crates/bus/src/live.rs",
+    "old_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "d0cdfbcccd2d232544310d51a42cba715b56c58f"
+    },
+    "new_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "d0cdfbcccd2d232544310d51a42cba715b56c58f"
+    },
+    "same_blob_and_mode": true
+  },
+  {
+    "path": "lampOS/crates/bus/src/logging.rs",
+    "old_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "67a78f076de9b4eebb001e6260af4d40fe5bc9c7"
+    },
+    "new_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "67a78f076de9b4eebb001e6260af4d40fe5bc9c7"
+    },
+    "same_blob_and_mode": true
+  },
+  {
+    "path": "lampOS/crates/bus/src/logging/tests.rs",
+    "old_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "a5350ac924deb201e0571c9741254b39c71403b8"
+    },
+    "new_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "a5350ac924deb201e0571c9741254b39c71403b8"
+    },
+    "same_blob_and_mode": true
+  },
+  {
+    "path": "lampOS/crates/bus/src/main.rs",
+    "old_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "74eedd96f8bf31b7d021d75a9cebd4cdaeedcb37"
+    },
+    "new_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "74eedd96f8bf31b7d021d75a9cebd4cdaeedcb37"
+    },
+    "same_blob_and_mode": true
+  },
+  {
+    "path": "lampOS/crates/bus/src/name.rs",
+    "old_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "2a07a21d2a4ec4557beba982bcd25d6e25b01f56"
+    },
+    "new_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "2a07a21d2a4ec4557beba982bcd25d6e25b01f56"
+    },
+    "same_blob_and_mode": true
+  },
+  {
+    "path": "lampOS/crates/bus/src/publish.rs",
+    "old_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "81752f404be7fe73289e032f147486c830d4433d"
+    },
+    "new_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "81752f404be7fe73289e032f147486c830d4433d"
+    },
+    "same_blob_and_mode": true
+  },
+  {
+    "path": "lampOS/crates/bus/src/publisher_clock_tests.rs",
+    "old_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "f003420152d724564f85d24648fb14f6e88c2c74"
+    },
+    "new_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "f003420152d724564f85d24648fb14f6e88c2c74"
+    },
+    "same_blob_and_mode": true
+  },
+  {
+    "path": "lampOS/crates/bus/src/subscribe.rs",
+    "old_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "a9f851bab8c1fb26a2cfc03d35b6e6d734115385"
+    },
+    "new_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "a9f851bab8c1fb26a2cfc03d35b6e6d734115385"
+    },
+    "same_blob_and_mode": true
+  },
+  {
+    "path": "lampOS/crates/bus/src/wire.rs",
+    "old_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "163e6a31afd997dd305de616954799df83dd1d17"
+    },
+    "new_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "163e6a31afd997dd305de616954799df83dd1d17"
+    },
+    "same_blob_and_mode": true
+  },
+  {
+    "path": "lampOS/crates/bus/tests/bus.rs",
+    "old_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "f7eda7431cf06877921b6b889a10b8957d2e6205"
+    },
+    "new_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "f7eda7431cf06877921b6b889a10b8957d2e6205"
+    },
+    "same_blob_and_mode": true
+  },
+  {
+    "path": "lampOS/crates/bus/tests/cli.rs",
+    "old_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "bbcad21f3a3817f8b422042eb00d834752516771"
+    },
+    "new_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "bbcad21f3a3817f8b422042eb00d834752516771"
+    },
+    "same_blob_and_mode": true
+  },
+  {
+    "path": "lampOS/crates/bus/tests/logs.rs",
+    "old_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "4c81011b792e7599ded313f7b86c938291474460"
+    },
+    "new_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "4c81011b792e7599ded313f7b86c938291474460"
+    },
+    "same_blob_and_mode": true
+  },
+  {
+    "path": "lampOS/crates/msgs/Cargo.toml",
+    "old_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "19c97c489db5f0f2f4aa2027af6d675aaeccfe27"
+    },
+    "new_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "19c97c489db5f0f2f4aa2027af6d675aaeccfe27"
+    },
+    "same_blob_and_mode": true
+  },
+  {
+    "path": "lampOS/crates/msgs/src/air.rs",
+    "old_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "882c24b348a54248afadbe7e4b1a58af6c9fd591"
+    },
+    "new_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "882c24b348a54248afadbe7e4b1a58af6c9fd591"
+    },
+    "same_blob_and_mode": true
+  },
+  {
+    "path": "lampOS/crates/msgs/src/attention.rs",
+    "old_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "6ddcc4730d9e9cec53863e1aff7fb4cd38b5e9e2"
+    },
+    "new_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "6ddcc4730d9e9cec53863e1aff7fb4cd38b5e9e2"
+    },
+    "same_blob_and_mode": true
+  },
+  {
+    "path": "lampOS/crates/msgs/src/controls.rs",
+    "old_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "c3b8648d347e02d769fc75e034b7761381516da7"
+    },
+    "new_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "c3b8648d347e02d769fc75e034b7761381516da7"
+    },
+    "same_blob_and_mode": true
+  },
+  {
+    "path": "lampOS/crates/msgs/src/ears.rs",
+    "old_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "59ecbbabfafaf3063bf59f32cbb7d830858c547c"
+    },
+    "new_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "59ecbbabfafaf3063bf59f32cbb7d830858c547c"
+    },
+    "same_blob_and_mode": true
+  },
+  {
+    "path": "lampOS/crates/msgs/src/expression.rs",
+    "old_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "006b5d41c43e40d1c19a839cf647f10d67f3b716"
+    },
+    "new_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "006b5d41c43e40d1c19a839cf647f10d67f3b716"
+    },
+    "same_blob_and_mode": true
+  },
+  {
+    "path": "lampOS/crates/msgs/src/lib.rs",
+    "old_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "aca48b47207f1d7b8ede0b44ef0c85a31ff711e8"
+    },
+    "new_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "aca48b47207f1d7b8ede0b44ef0c85a31ff711e8"
+    },
+    "same_blob_and_mode": true
+  },
+  {
+    "path": "lampOS/crates/msgs/src/mood.rs",
+    "old_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "c8603d09bff0a9f8c6b2d8a70793bd902cf5141b"
+    },
+    "new_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "c8603d09bff0a9f8c6b2d8a70793bd902cf5141b"
+    },
+    "same_blob_and_mode": true
+  },
+  {
+    "path": "lampOS/crates/msgs/src/schedule.rs",
+    "old_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "20108883b54950a77f7d465676afd83a7201e31b"
+    },
+    "new_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "20108883b54950a77f7d465676afd83a7201e31b"
+    },
+    "same_blob_and_mode": true
+  },
+  {
+    "path": "lampOS/crates/msgs/src/selftest.rs",
+    "old_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "68f6c4c80dfac385ae5e1b3914062662eb6f3502"
+    },
+    "new_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "68f6c4c80dfac385ae5e1b3914062662eb6f3502"
+    },
+    "same_blob_and_mode": true
+  },
+  {
+    "path": "lampOS/crates/msgs/src/speaker_check.rs",
+    "old_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "515bcdd9503e4991abd3d4aa32ed39351c6590d6"
+    },
+    "new_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "515bcdd9503e4991abd3d4aa32ed39351c6590d6"
+    },
+    "same_blob_and_mode": true
+  },
+  {
+    "path": "lampOS/crates/msgs/src/tasks.rs",
+    "old_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "33eaeeb4d5d7cf588f07edccab3503ef6b21d0e9"
+    },
+    "new_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "33eaeeb4d5d7cf588f07edccab3503ef6b21d0e9"
+    },
+    "same_blob_and_mode": true
+  },
+  {
+    "path": "lampOS/crates/msgs/tests/bus.rs",
+    "old_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "9e6218b10d3b675aba5d3ba20ace4eee0b2a535c"
+    },
+    "new_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "9e6218b10d3b675aba5d3ba20ace4eee0b2a535c"
+    },
+    "same_blob_and_mode": true
+  },
+  {
+    "path": "lampOS/crates/msgs/tests/controls.rs",
+    "old_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "26b6f0b93b821829a63d79b0f8a57cac3752de0c"
+    },
+    "new_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "26b6f0b93b821829a63d79b0f8a57cac3752de0c"
+    },
+    "same_blob_and_mode": true
+  },
+  {
+    "path": "lampOS/crates/msgs/tests/expression.rs",
+    "old_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "00077546ef6e9a664008e81521301b13b1495d3f"
+    },
+    "new_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "00077546ef6e9a664008e81521301b13b1495d3f"
+    },
+    "same_blob_and_mode": true
+  },
+  {
+    "path": "lampOS/crates/msgs/tests/expression_rest.rs",
+    "old_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "ef5000eefef9adcef44aab6d1964b7d8790390d3"
+    },
+    "new_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "ef5000eefef9adcef44aab6d1964b7d8790390d3"
+    },
+    "same_blob_and_mode": true
+  },
+  {
+    "path": "lampOS/crates/msgs/tests/logging.rs",
+    "old_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "c8635e119f97281eef63ef27ac1d6ec126c54ae5"
+    },
+    "new_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "c8635e119f97281eef63ef27ac1d6ec126c54ae5"
+    },
+    "same_blob_and_mode": true
+  },
+  {
+    "path": "lampOS/crates/msgs/tests/schedule.rs",
+    "old_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "af0d40128c81ed5e5375b81d3930dbdb9c151938"
+    },
+    "new_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "af0d40128c81ed5e5375b81d3930dbdb9c151938"
+    },
+    "same_blob_and_mode": true
+  },
+  {
+    "path": "lampOS/crates/msgs/tests/tasks.rs",
+    "old_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "290ddb4bf40a176643a0eb43c095b012cfa9a8b5"
+    },
+    "new_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "290ddb4bf40a176643a0eb43c095b012cfa9a8b5"
+    },
+    "same_blob_and_mode": true
+  },
+  {
+    "path": "lampOS/crates/msgs/tests/touch.rs",
+    "old_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "d7f52a9a8fac20193723d0d769dd39387e87733f"
+    },
+    "new_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "d7f52a9a8fac20193723d0d769dd39387e87733f"
+    },
+    "same_blob_and_mode": true
+  },
+  {
+    "path": "lampOS/crates/records/Cargo.toml",
+    "old_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "e0dc936aa97c2ffe9819057c97099cc6e916d93a"
+    },
+    "new_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "e0dc936aa97c2ffe9819057c97099cc6e916d93a"
+    },
+    "same_blob_and_mode": true
+  },
+  {
+    "path": "lampOS/crates/records/records.example.json",
+    "old_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "5ffd7795c6849ce3b56cf8ecb6917dbea0ae234e"
+    },
+    "new_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "5ffd7795c6849ce3b56cf8ecb6917dbea0ae234e"
+    },
+    "same_blob_and_mode": true
+  },
+  {
+    "path": "lampOS/crates/records/src/application.rs",
+    "old_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "33dfcafe45030fcc84ab96dd211b5bdf54af6162"
+    },
+    "new_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "33dfcafe45030fcc84ab96dd211b5bdf54af6162"
+    },
+    "same_blob_and_mode": true
+  },
+  {
+    "path": "lampOS/crates/records/src/application_schedule_tests.rs",
+    "old_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "acd8c88e0811575e5fed8ad663691703455f7eed"
+    },
+    "new_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "acd8c88e0811575e5fed8ad663691703455f7eed"
+    },
+    "same_blob_and_mode": true
+  },
+  {
+    "path": "lampOS/crates/records/src/config.rs",
+    "old_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "3a37e1b33ce072d29ae887bc66f2e0564a463959"
+    },
+    "new_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "3a37e1b33ce072d29ae887bc66f2e0564a463959"
+    },
+    "same_blob_and_mode": true
+  },
+  {
+    "path": "lampOS/crates/records/src/guard.rs",
+    "old_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "59d7898aa2baefce4b1bce399b65053ab067b7d3"
+    },
+    "new_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "59d7898aa2baefce4b1bce399b65053ab067b7d3"
+    },
+    "same_blob_and_mode": true
+  },
+  {
+    "path": "lampOS/crates/records/src/json_file.rs",
+    "old_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "f214c1ee2b8d55daf049f76858e79a0807f51040"
+    },
+    "new_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "f214c1ee2b8d55daf049f76858e79a0807f51040"
+    },
+    "same_blob_and_mode": true
+  },
+  {
+    "path": "lampOS/crates/records/src/lib.rs",
+    "old_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "0e3571fecee9317058c6987e10874259af848f0d"
+    },
+    "new_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "0e3571fecee9317058c6987e10874259af848f0d"
+    },
+    "same_blob_and_mode": true
+  },
+  {
+    "path": "lampOS/crates/records/src/main.rs",
+    "old_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "b78c3ca4dbf9e7e6cc2816b15e2ccf43dc1748ec"
+    },
+    "new_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "b78c3ca4dbf9e7e6cc2816b15e2ccf43dc1748ec"
+    },
+    "same_blob_and_mode": true
+  },
+  {
+    "path": "lampOS/crates/records/src/plan.rs",
+    "old_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "40f6e22e654e775616e45da5d96011ddaf8f0c94"
+    },
+    "new_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "40f6e22e654e775616e45da5d96011ddaf8f0c94"
+    },
+    "same_blob_and_mode": true
+  },
+  {
+    "path": "lampOS/crates/records/src/report.rs",
+    "old_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "402bb7f92ff2879c2159db8faff6931892c782d8"
+    },
+    "new_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "402bb7f92ff2879c2159db8faff6931892c782d8"
+    },
+    "same_blob_and_mode": true
+  },
+  {
+    "path": "lampOS/crates/records/src/reporter_clock_tests.rs",
+    "old_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "8e8e258c98cf1a788340ef990fb678a99f0ab136"
+    },
+    "new_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "8e8e258c98cf1a788340ef990fb678a99f0ab136"
+    },
+    "same_blob_and_mode": true
+  },
+  {
+    "path": "lampOS/crates/records/src/run.rs",
+    "old_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "f7fd46540689f5368381b537756f5968d8902007"
+    },
+    "new_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "f7fd46540689f5368381b537756f5968d8902007"
+    },
+    "same_blob_and_mode": true
+  },
+  {
+    "path": "lampOS/crates/records/src/store.rs",
+    "old_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "5c5e20be2265fc77c5ff431227e1e65fc89f089f"
+    },
+    "new_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "5c5e20be2265fc77c5ff431227e1e65fc89f089f"
+    },
+    "same_blob_and_mode": true
+  },
+  {
+    "path": "lampOS/crates/records/systemd/lamp-records-report.service",
+    "old_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "74a671f4604f258e34fb429cf13236e2bbc9844a"
+    },
+    "new_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "74a671f4604f258e34fb429cf13236e2bbc9844a"
+    },
+    "same_blob_and_mode": true
+  },
+  {
+    "path": "lampOS/crates/records/systemd/lamp-records.service",
+    "old_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "cf92b2f588307de892dddbb052a899f6df0f152a"
+    },
+    "new_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "cf92b2f588307de892dddbb052a899f6df0f152a"
+    },
+    "same_blob_and_mode": true
+  },
+  {
+    "path": "lampOS/crates/records/systemd/lamp-records.timer",
+    "old_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "c1c9c037b93d90e369519e41ae015cf85e674a08"
+    },
+    "new_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "c1c9c037b93d90e369519e41ae015cf85e674a08"
+    },
+    "same_blob_and_mode": true
+  },
+  {
+    "path": "lampOS/crates/records/tests/records.rs",
+    "old_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "76f0de9df31dd0eb012bfa12b4c13ff1ca6f8b7d"
+    },
+    "new_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "76f0de9df31dd0eb012bfa12b4c13ff1ca6f8b7d"
+    },
+    "same_blob_and_mode": true
+  },
+  {
+    "path": "lampOS/crates/settings/Cargo.toml",
+    "old_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "c4d5d36911c8707244bdd523f52123f9147513c7"
+    },
+    "new_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "c4d5d36911c8707244bdd523f52123f9147513c7"
+    },
+    "same_blob_and_mode": true
+  },
+  {
+    "path": "lampOS/crates/settings/src/client.rs",
+    "old_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "380b960abd014e92c295cc493a1141d24a62d87b"
+    },
+    "new_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "380b960abd014e92c295cc493a1141d24a62d87b"
+    },
+    "same_blob_and_mode": true
+  },
+  {
+    "path": "lampOS/crates/settings/src/engine.rs",
+    "old_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "8b70434f7f6491652002111361d3ff00b6095df2"
+    },
+    "new_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "8b70434f7f6491652002111361d3ff00b6095df2"
+    },
+    "same_blob_and_mode": true
+  },
+  {
+    "path": "lampOS/crates/settings/src/lib.rs",
+    "old_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "bd179cfe313d6697058086839bae80707229e157"
+    },
+    "new_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "bd179cfe313d6697058086839bae80707229e157"
+    },
+    "same_blob_and_mode": true
+  },
+  {
+    "path": "lampOS/crates/settings/src/main.rs",
+    "old_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "7c01ba07ec096fec4df16e990eb46c9977898fe7"
+    },
+    "new_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "7c01ba07ec096fec4df16e990eb46c9977898fe7"
+    },
+    "same_blob_and_mode": true
+  },
+  {
+    "path": "lampOS/crates/settings/src/model.rs",
+    "old_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "d735a17f1f943efa8b4b89d9609ce26c5aed9d0a"
+    },
+    "new_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "d735a17f1f943efa8b4b89d9609ce26c5aed9d0a"
+    },
+    "same_blob_and_mode": true
+  },
+  {
+    "path": "lampOS/crates/settings/src/protocol.rs",
+    "old_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "b2de55acd49f75b3af7f8299612561e9a730581a"
+    },
+    "new_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "b2de55acd49f75b3af7f8299612561e9a730581a"
+    },
+    "same_blob_and_mode": true
+  },
+  {
+    "path": "lampOS/crates/settings/src/runtime.rs",
+    "old_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "e5502e4906b59686507eb05d03f39c715655ab2f"
+    },
+    "new_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "e5502e4906b59686507eb05d03f39c715655ab2f"
+    },
+    "same_blob_and_mode": true
+  },
+  {
+    "path": "lampOS/crates/settings/src/store.rs",
+    "old_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "368802afe648e838bb860468193db872627b8a7e"
+    },
+    "new_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "368802afe648e838bb860468193db872627b8a7e"
+    },
+    "same_blob_and_mode": true
+  },
+  {
+    "path": "lampOS/crates/settings/tests/client.rs",
+    "old_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "de5527dbcb970775209e24e6af3bffa4139df97b"
+    },
+    "new_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "de5527dbcb970775209e24e6af3bffa4139df97b"
+    },
+    "same_blob_and_mode": true
+  },
+  {
+    "path": "lampOS/crates/settings/tests/runtime.rs",
+    "old_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "12c442f081684edab0147c2321381d84ced16e4b"
+    },
+    "new_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "12c442f081684edab0147c2321381d84ced16e4b"
+    },
+    "same_blob_and_mode": true
+  },
+  {
+    "path": "lampOS/rust-toolchain.toml",
+    "old_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "e3b40113e65befef4d5d198284b99c78c27136f0"
+    },
+    "new_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "e3b40113e65befef4d5d198284b99c78c27136f0"
+    },
+    "same_blob_and_mode": true
+  },
+  {
+    "path": "lampOS/vendor/tough/Cargo.toml",
+    "old_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "1f791517616542771d421e13dbea9e9055a0f2ca"
+    },
+    "new_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "1f791517616542771d421e13dbea9e9055a0f2ca"
+    },
+    "same_blob_and_mode": true
+  },
+  {
+    "path": "lampOS/vendor/tough/Cargo.toml.orig",
+    "old_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "0cc702df67b545db63af11ffb434fa8245931ba4"
+    },
+    "new_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "0cc702df67b545db63af11ffb434fa8245931ba4"
+    },
+    "same_blob_and_mode": true
+  },
+  {
+    "path": "lampOS/vendor/tough/LAMPOS.md",
+    "old_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "6cf9afe26fd20695584a6bfaa5c3e8ee2c5801b5"
+    },
+    "new_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "6cf9afe26fd20695584a6bfaa5c3e8ee2c5801b5"
+    },
+    "same_blob_and_mode": true
+  },
+  {
+    "path": "lampOS/vendor/tough/LICENSE-APACHE",
+    "old_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "d645695673349e3947e8e5ae42332d0ac3164cd7"
+    },
+    "new_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "d645695673349e3947e8e5ae42332d0ac3164cd7"
+    },
+    "same_blob_and_mode": true
+  },
+  {
+    "path": "lampOS/vendor/tough/LICENSE-MIT",
+    "old_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "503351e0d1ca145ca6c16520b3faaee3217c4559"
+    },
+    "new_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "503351e0d1ca145ca6c16520b3faaee3217c4559"
+    },
+    "same_blob_and_mode": true
+  },
+  {
+    "path": "lampOS/vendor/tough/PROVENANCE.json",
+    "old_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "96e76d6fc924021c8602bf6afdd56cffef539576"
+    },
+    "new_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "96e76d6fc924021c8602bf6afdd56cffef539576"
+    },
+    "same_blob_and_mode": true
+  },
+  {
+    "path": "lampOS/vendor/tough/README.md",
+    "old_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "5aa0ddacfc41cfad1be67d06c4f4dcb5f4eb3feb"
+    },
+    "new_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "5aa0ddacfc41cfad1be67d06c4f4dcb5f4eb3feb"
+    },
+    "same_blob_and_mode": true
+  },
+  {
+    "path": "lampOS/vendor/tough/src/cache.rs",
+    "old_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "e4d9f8b37bd5de699a1b9874df7a8d4912b8eee7"
+    },
+    "new_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "e4d9f8b37bd5de699a1b9874df7a8d4912b8eee7"
+    },
+    "same_blob_and_mode": true
+  },
+  {
+    "path": "lampOS/vendor/tough/src/datastore.rs",
+    "old_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "de166d301d5536cecdb37565c93cb881eca98803"
+    },
+    "new_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "de166d301d5536cecdb37565c93cb881eca98803"
+    },
+    "same_blob_and_mode": true
+  },
+  {
+    "path": "lampOS/vendor/tough/src/editor/keys.rs",
+    "old_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "652a93358ef77305f172a1cd705c2249cd0cd158"
+    },
+    "new_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "652a93358ef77305f172a1cd705c2249cd0cd158"
+    },
+    "same_blob_and_mode": true
+  },
+  {
+    "path": "lampOS/vendor/tough/src/editor/mod.rs",
+    "old_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "f2b9d41cc40e5e4021d14dcabb492111ae03ecdb"
+    },
+    "new_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "f2b9d41cc40e5e4021d14dcabb492111ae03ecdb"
+    },
+    "same_blob_and_mode": true
+  },
+  {
+    "path": "lampOS/vendor/tough/src/editor/signed.rs",
+    "old_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "f2af45fe8e9f9cd5daa9567a7cc3c7e038bc4ab9"
+    },
+    "new_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "f2af45fe8e9f9cd5daa9567a7cc3c7e038bc4ab9"
+    },
+    "same_blob_and_mode": true
+  },
+  {
+    "path": "lampOS/vendor/tough/src/editor/targets.rs",
+    "old_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "cd1ff05995db0429fa26d53a077215eeefab15ab"
+    },
+    "new_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "cd1ff05995db0429fa26d53a077215eeefab15ab"
+    },
+    "same_blob_and_mode": true
+  },
+  {
+    "path": "lampOS/vendor/tough/src/editor/test.rs",
+    "old_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "bef5fb5d924711b3e391807499413cf4030b26f4"
+    },
+    "new_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "bef5fb5d924711b3e391807499413cf4030b26f4"
+    },
+    "same_blob_and_mode": true
+  },
+  {
+    "path": "lampOS/vendor/tough/src/error.rs",
+    "old_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "46dae8bcd203ab93b5ee59feefdc6f94a24e9074"
+    },
+    "new_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "46dae8bcd203ab93b5ee59feefdc6f94a24e9074"
+    },
+    "same_blob_and_mode": true
+  },
+  {
+    "path": "lampOS/vendor/tough/src/fetch.rs",
+    "old_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "cdebf736f922c4603530e681110f3b58d347524f"
+    },
+    "new_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "cdebf736f922c4603530e681110f3b58d347524f"
+    },
+    "same_blob_and_mode": true
+  },
+  {
+    "path": "lampOS/vendor/tough/src/http.rs",
+    "old_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "12625188efed72f79704dbf9468e03f7bfda96ec"
+    },
+    "new_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "12625188efed72f79704dbf9468e03f7bfda96ec"
+    },
+    "same_blob_and_mode": true
+  },
+  {
+    "path": "lampOS/vendor/tough/src/io.rs",
+    "old_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "688df865d9bb8dcfb8c734c9079c41d25a1e3aff"
+    },
+    "new_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "688df865d9bb8dcfb8c734c9079c41d25a1e3aff"
+    },
+    "same_blob_and_mode": true
+  },
+  {
+    "path": "lampOS/vendor/tough/src/key_source.rs",
+    "old_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "b556f5fb722c4602b902410bd816e5320f1c2e80"
+    },
+    "new_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "b556f5fb722c4602b902410bd816e5320f1c2e80"
+    },
+    "same_blob_and_mode": true
+  },
+  {
+    "path": "lampOS/vendor/tough/src/lib.rs",
+    "old_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "e741cd1257978ed6a494ac7b8d3ab171a790a21b"
+    },
+    "new_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "e741cd1257978ed6a494ac7b8d3ab171a790a21b"
+    },
+    "same_blob_and_mode": true
+  },
+  {
+    "path": "lampOS/vendor/tough/src/schema/de.rs",
+    "old_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "1601838c1763a5de880d45c7315f488a4e07e4be"
+    },
+    "new_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "1601838c1763a5de880d45c7315f488a4e07e4be"
+    },
+    "same_blob_and_mode": true
+  },
+  {
+    "path": "lampOS/vendor/tough/src/schema/decoded.rs",
+    "old_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "88a5b0953d0d30557469fd64e2e09e8daf100ca4"
+    },
+    "new_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "88a5b0953d0d30557469fd64e2e09e8daf100ca4"
+    },
+    "same_blob_and_mode": true
+  },
+  {
+    "path": "lampOS/vendor/tough/src/schema/error.rs",
+    "old_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "eb61e603e849e21edd3a009f4dfef918a154665a"
+    },
+    "new_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "eb61e603e849e21edd3a009f4dfef918a154665a"
+    },
+    "same_blob_and_mode": true
+  },
+  {
+    "path": "lampOS/vendor/tough/src/schema/iter.rs",
+    "old_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "b3265ed53923a976784ac9d1981198e5fb0f5212"
+    },
+    "new_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "b3265ed53923a976784ac9d1981198e5fb0f5212"
+    },
+    "same_blob_and_mode": true
+  },
+  {
+    "path": "lampOS/vendor/tough/src/schema/key.rs",
+    "old_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "24f4c9fd9ed32b51b02772e2e7e54fdae122d753"
+    },
+    "new_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "24f4c9fd9ed32b51b02772e2e7e54fdae122d753"
+    },
+    "same_blob_and_mode": true
+  },
+  {
+    "path": "lampOS/vendor/tough/src/schema/mod.rs",
+    "old_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "0b2d377d6cede3f4e26f36bb99e7d09a30e9a755"
+    },
+    "new_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "0b2d377d6cede3f4e26f36bb99e7d09a30e9a755"
+    },
+    "same_blob_and_mode": true
+  },
+  {
+    "path": "lampOS/vendor/tough/src/schema/ser.rs",
+    "old_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "ef53cf8a57ed36257ffcecc186bdeca0497fe4d8"
+    },
+    "new_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "ef53cf8a57ed36257ffcecc186bdeca0497fe4d8"
+    },
+    "same_blob_and_mode": true
+  },
+  {
+    "path": "lampOS/vendor/tough/src/schema/spki.rs",
+    "old_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "22c86c03a083c8a7366085a0643ae70755dcb945"
+    },
+    "new_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "22c86c03a083c8a7366085a0643ae70755dcb945"
+    },
+    "same_blob_and_mode": true
+  },
+  {
+    "path": "lampOS/vendor/tough/src/schema/verify.rs",
+    "old_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "001ec2a274526b4a6a7ff23c112298a972a19057"
+    },
+    "new_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "001ec2a274526b4a6a7ff23c112298a972a19057"
+    },
+    "same_blob_and_mode": true
+  },
+  {
+    "path": "lampOS/vendor/tough/src/sign.rs",
+    "old_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "bb4222e881ba8ef9050ed2beea2f71b86631b47c"
+    },
+    "new_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "bb4222e881ba8ef9050ed2beea2f71b86631b47c"
+    },
+    "same_blob_and_mode": true
+  },
+  {
+    "path": "lampOS/vendor/tough/src/target_name.rs",
+    "old_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "5afc7259a4ccee45c916b3f65bf031c91d6e3678"
+    },
+    "new_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "5afc7259a4ccee45c916b3f65bf031c91d6e3678"
+    },
+    "same_blob_and_mode": true
+  },
+  {
+    "path": "lampOS/vendor/tough/src/transport.rs",
+    "old_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "18d1b5a7beabdbe60eb376a70b1b7757e7aa4cff"
+    },
+    "new_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "18d1b5a7beabdbe60eb376a70b1b7757e7aa4cff"
+    },
+    "same_blob_and_mode": true
+  },
+  {
+    "path": "lampOS/vendor/tough/src/urlpath.rs",
+    "old_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "eaec63954584af8a323d7055b38e88b74d94489d"
+    },
+    "new_base": {
+      "mode": "100644",
+      "kind": "blob",
+      "oid": "eaec63954584af8a323d7055b38e88b74d94489d"
+    },
+    "same_blob_and_mode": true
+  }
+]

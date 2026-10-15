@@ -1,0 +1,9 @@
+{
+  "date_from_date": "2026-10-16 06:02:57 +0700",
+  "head": "9b28324e2232d62ff905e705d16f53c7836599f9",
+  "branch": "tests/823-records-fixture",
+  "clean_git_status": true,
+  "all_tracked_blobs_and_modes_match_base": true,
+  "tracked_entries": 6861,
+  "git_index_sha256": "59cdd29a2598fe80c5f7d8e507e1bf16493019b4fc64b3e15dadaf6c7dd3de47"
+}

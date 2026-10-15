@@ -1,0 +1,39 @@
+{
+  "date_from_date": "2026-10-16 06:05:32 +0700",
+  "old_compiled_base": "e3d3366cad8113c3374b8e29faedb099b5e47d92",
+  "new_clean_base": "9b28324e2232d62ff905e705d16f53c7836599f9",
+  "graph_exact": true,
+  "conservative_source_closure_exact": false,
+  "baseline_reuse_allowed": true,
+  "baseline_identities": 172,
+  "baseline_source": "/private/tmp/tests-823-records-controlled-evidence/prior-preparation-compiled-list.log",
+  "baseline_sha256": "1b59a00fb52bd06d1c8bb5cf8f51269e008c27e72b56233e249cf1474f0ccf72",
+  "verified_input_paths": 102,
+  "closure_package_names": [
+    "lamp-bus",
+    "lamp-msgs",
+    "lamp-records",
+    "lamp-settings"
+  ],
+  "no_external_include_macros_found": true,
+  "include_scan_scope": "All Records, Settings, Bus and Msgs source files; application.rs and path-selected unit modules remain inside package roots. env! calls name Cargo-built local binaries. Entire local patch directories are included conservatively.",
+  "graph_files": [
+    "dependency-graph-old.json",
+    "dependency-graph-new.json"
+  ],
+  "closure_file": "dependency-closure-inputs.json",
+  "limitation": "This only supports reuse of the unchanged pre-controller compiled identity baseline. It does not qualify tests on the new release base, reuse native results, prove runtime determinism, or claim a speedup. Root will run the full fresh affected gate.",
+  "complete_Cargo_lock_byte_exact": false,
+  "relevant_source_and_locked_dependency_closure_exact": true,
+  "matching_non_lock_input_paths": 101,
+  "locked_dependency_nodes": 39,
+  "locked_dependency_graph_exact": true,
+  "lock_delta_outside_selected_closure_only": true,
+  "only_lock_delta_package": "lamp-memory 0.1.0 (workspace)",
+  "locked_graph_files": [
+    "locked-dependency-graph-old.json",
+    "locked-dependency-graph-new.json"
+  ],
+  "full_lock_delta": "Cargo-lock-delta.json",
+  "explanation": "The conservative first check rejected whole-lock byte identity. Static recursive Cargo.lock resolution from lamp-records/lamp-settings proves all 39 selected package records, checksums and dependency edges exact. The only changed lock entry is lamp-memory, absent from this closure. All local dependency manifests/features, workspace resolver/manifest, pinned toolchain/config and the other 101 conservative input paths are exact. Reuse is limited to compiled identity/ignore comparison for the same selected Records/Settings roots; fresh affected execution and workspace/native builds remain required."
+}

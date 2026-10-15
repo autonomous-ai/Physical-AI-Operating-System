@@ -1,3 +1,6 @@
+#[path = "support/records_control.rs"]
+mod records_control;
+
 use lamp_records::{
     Disk, RootReport, RunReport,
     config::Config,
@@ -12,7 +15,7 @@ use std::{
     io::Write,
     os::unix::fs::{MetadataExt, OpenOptionsExt, PermissionsExt, symlink},
     path::{Path, PathBuf},
-    process::{Child, Command, Stdio},
+    process::{Command, Stdio},
     sync::atomic::{AtomicU64, Ordering},
     time::{Duration, Instant, SystemTime, UNIX_EPOCH},
 };
@@ -212,18 +215,7 @@ fn diagnostic_is_delivered_over_the_real_local_bus_without_record_contents() {
 #[test]
 fn real_reporter_reloads_switch_and_policy_and_requires_a_matching_receipt() {
     use lamp_msgs::{Diagnostic, Level};
-
-    struct RunningReporter(Child);
-    impl Drop for RunningReporter {
-        fn drop(&mut self) {
-            // Reap this test's own child on success and during panic unwinding.
-            // Its independent 30-second lifetime also bounds a failed test run.
-            if !matches!(self.0.try_wait(), Ok(Some(_))) {
-                let _ = self.0.kill();
-                let _ = self.0.wait();
-            }
-        }
-    }
+    use records_control::{RunningReporter, Window};
 
     fn field<'a>(diagnostic: &'a Diagnostic, key: &str) -> Option<&'a str> {
         diagnostic
@@ -241,6 +233,8 @@ fn real_reporter_reloads_switch_and_policy_and_requires_a_matching_receipt() {
         before_bytes: u64,
     ) -> Diagnostic {
         let deadline = Instant::now() + Duration::from_secs(4);
+        let window = Window::new(deadline, reporter.elapsed_ns().unwrap()).unwrap();
+        reporter.settle_current(&window).unwrap();
         let enabled = enabled.to_string();
         let before_bytes = before_bytes.to_string();
         let mut last = None;
@@ -254,7 +248,9 @@ fn real_reporter_reloads_switch_and_policy_and_requires_a_matching_receipt() {
                 reporter.0.try_wait().unwrap().is_none(),
                 "reporter exited before the expected transition; last={last:?}"
             );
-            let Some(message) = listener.recv(remaining).unwrap() else {
+            window.receiving(reporter.elapsed_ns().unwrap()).unwrap();
+            let Some(message) = listener.recv(Duration::ZERO).unwrap() else {
+                reporter.step_due(&window).unwrap();
                 continue;
             };
             let diagnostic: Diagnostic = serde_json::from_value(message.json().unwrap()).unwrap();
@@ -321,18 +317,15 @@ fn real_reporter_reloads_switch_and_policy_and_requires_a_matching_receipt() {
     let mut listener = bus
         .subscribe_typed(Diagnostic::TOPIC, "reload", Diagnostic::TYPE)
         .unwrap();
-    let mut reporter = RunningReporter(
-        Command::new(env!("CARGO_BIN_EXE_lamp-records"))
+    let mut reporter = RunningReporter::spawn(
+        Command::new(env!("CARGO_BIN_EXE_lamp-records-fixture"))
             .arg("report")
             .arg(&config_path)
             .arg(&result_path)
             .args(["--seconds", "30"])
-            .stdin(Stdio::null())
-            .stdout(Stdio::null())
-            .stderr(Stdio::inherit())
-            .spawn()
-            .unwrap(),
-    );
+            .stderr(Stdio::inherit()),
+    )
+    .unwrap();
 
     let disabled = expect_status(&mut listener, &mut reporter, Level::Ok, false, 0);
     assert!(disabled.message.contains("disabled"));

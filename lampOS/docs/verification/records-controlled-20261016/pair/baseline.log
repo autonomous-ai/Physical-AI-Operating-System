@@ -1,0 +1,14 @@
+   Compiling libc v0.2.190
+   Compiling serde_json v1.0.151
+   Compiling rustix v1.1.5
+   Compiling errno v0.3.14
+   Compiling lamp-bus v0.1.0 (/private/tmp/lampos-tests-records-cadence/lampOS/crates/bus)
+   Compiling lamp-msgs v0.1.0 (/private/tmp/lampos-tests-records-cadence/lampOS/crates/msgs)
+   Compiling lamp-records v0.1.0 (/private/tmp/lampos-tests-records-cadence/lampOS/crates/records)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 14.11s
+────────────
+ Nextest run ID ddaa5833-cc4c-4f68-867a-539cfd82e4fa with nextest profile: realtime
+    Starting 1 test across 1 binary (4 tests skipped)
+        PASS [   5.614s] (1/1) lamp-records::records real_reporter_reloads_switch_and_policy_and_requires_a_matching_receipt
+────────────
+     Summary [   5.621s] 1 test run: 1 passed, 4 skipped

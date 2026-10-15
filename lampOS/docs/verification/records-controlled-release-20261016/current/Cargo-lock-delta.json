@@ -1,0 +1,43 @@
+[
+  {
+    "key": [
+      "lamp-memory",
+      "0.1.0",
+      "workspace"
+    ],
+    "old": {
+      "name": "lamp-memory",
+      "version": "0.1.0",
+      "dependencies": [
+        "lamp-bus",
+        "lamp-gemini",
+        "lamp-ipc",
+        "lamp-msgs",
+        "lamp-voice",
+        "rusqlite",
+        "serde",
+        "serde_json",
+        "sha2",
+        "unicode-normalization"
+      ]
+    },
+    "new": {
+      "name": "lamp-memory",
+      "version": "0.1.0",
+      "dependencies": [
+        "lamp-bus",
+        "lamp-gemini",
+        "lamp-ipc",
+        "lamp-msgs",
+        "lamp-voice",
+        "rusqlite",
+        "rustix",
+        "serde",
+        "serde_json",
+        "sha2",
+        "unicode-normalization"
+      ]
+    },
+    "in_records_settings_closure": false
+  }
+]

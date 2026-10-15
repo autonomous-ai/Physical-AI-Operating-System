@@ -1,0 +1,576 @@
+[
+  {
+    "path": "lampOS/docs/verification/records-controlled-20261016/README.md",
+    "source": "/private/tmp/lampos-tests-records-controlled/lampOS/docs/verification/records-controlled-20261016/README.md",
+    "sha256": "e29d65d5b319606f84cef0d9751860ae5002b76ab695aff6fcd7b786ae398ad1",
+    "bytes": 3642,
+    "mode": 420
+  },
+  {
+    "path": "lampOS/docs/verification/records-controlled-20261016/SHA256SUMS",
+    "source": "/private/tmp/lampos-tests-records-controlled/lampOS/docs/verification/records-controlled-20261016/SHA256SUMS",
+    "sha256": "7233d37ce620261b31ba5f702fc581cd4f55c89c84f5ae7b19dac7311435bfb8",
+    "bytes": 8715,
+    "mode": 420
+  },
+  {
+    "path": "lampOS/docs/verification/records-controlled-20261016/local/after/lampOS/crates/records/Cargo.toml",
+    "source": "/private/tmp/lampos-tests-records-controlled/lampOS/docs/verification/records-controlled-20261016/local/after/lampOS/crates/records/Cargo.toml",
+    "sha256": "d624cddfc993a78af2510a9fef47ef192221da0a49c00051aa2ab63da25dada1",
+    "bytes": 502,
+    "mode": 420
+  },
+  {
+    "path": "lampOS/docs/verification/records-controlled-20261016/local/after/lampOS/crates/records/src/bin/lamp-records-fixture.rs",
+    "source": "/private/tmp/lampos-tests-records-controlled/lampOS/docs/verification/records-controlled-20261016/local/after/lampOS/crates/records/src/bin/lamp-records-fixture.rs",
+    "sha256": "56ed3d6bd78679b9f93b911ba531487fc02507abd88f4903939920aa360604d7",
+    "bytes": 257,
+    "mode": 420
+  },
+  {
+    "path": "lampOS/docs/verification/records-controlled-20261016/local/after/lampOS/crates/records/src/fixture_protocol.rs",
+    "source": "/private/tmp/lampos-tests-records-controlled/lampOS/docs/verification/records-controlled-20261016/local/after/lampOS/crates/records/src/fixture_protocol.rs",
+    "sha256": "4d2bd95d5b273b7af70a408d513fa47a6ceb4e9d16fb81c68e604520dfdb48d3",
+    "bytes": 6536,
+    "mode": 420
+  },
+  {
+    "path": "lampOS/docs/verification/records-controlled-20261016/local/after/lampOS/crates/records/src/fixture_schedule.rs",
+    "source": "/private/tmp/lampos-tests-records-controlled/lampOS/docs/verification/records-controlled-20261016/local/after/lampOS/crates/records/src/fixture_schedule.rs",
+    "sha256": "54a8e0c9562ceada01ce3b0d26bdc2d92c0d5d8e954e880e011ddaef71a9a187",
+    "bytes": 7425,
+    "mode": 420
+  },
+  {
+    "path": "lampOS/docs/verification/records-controlled-20261016/local/after/lampOS/crates/records/src/fixture_schedule_tests.rs",
+    "source": "/private/tmp/lampos-tests-records-controlled/lampOS/docs/verification/records-controlled-20261016/local/after/lampOS/crates/records/src/fixture_schedule_tests.rs",
+    "sha256": "cb7ff4cf0928ef0dd539ce696f6036943e788f8fbe80482b7815205a9b1e46c1",
+    "bytes": 12743,
+    "mode": 420
+  },
+  {
+    "path": "lampOS/docs/verification/records-controlled-20261016/local/after/lampOS/crates/records/src/main.rs",
+    "source": "/private/tmp/lampos-tests-records-controlled/lampOS/docs/verification/records-controlled-20261016/local/after/lampOS/crates/records/src/main.rs",
+    "sha256": "40d8eba533e42937e71b2995ae022acb2d7e1994e8e162005c166726041a2400",
+    "bytes": 6953,
+    "mode": 420
+  },
+  {
+    "path": "lampOS/docs/verification/records-controlled-20261016/local/after/lampOS/crates/records/tests/records.rs",
+    "source": "/private/tmp/lampos-tests-records-controlled/lampOS/docs/verification/records-controlled-20261016/local/after/lampOS/crates/records/tests/records.rs",
+    "sha256": "ed3504349c3a48400f2db666a5653588eee25cc602d664b95bea5962a20535f9",
+    "bytes": 17837,
+    "mode": 420
+  },
+  {
+    "path": "lampOS/docs/verification/records-controlled-20261016/local/after/lampOS/crates/records/tests/records_control.rs",
+    "source": "/private/tmp/lampos-tests-records-controlled/lampOS/docs/verification/records-controlled-20261016/local/after/lampOS/crates/records/tests/records_control.rs",
+    "sha256": "04083e277b0d02d65ab4193afe7814218b60e287059a81e7cf7a46e2a7d51924",
+    "bytes": 23348,
+    "mode": 420
+  },
+  {
+    "path": "lampOS/docs/verification/records-controlled-20261016/local/after/lampOS/crates/records/tests/support/records_control.rs",
+    "source": "/private/tmp/lampos-tests-records-controlled/lampOS/docs/verification/records-controlled-20261016/local/after/lampOS/crates/records/tests/support/records_control.rs",
+    "sha256": "b769a36f1cf542c436704cbf90ca1a50bf3b6ab371d907be95c5c1f0f67e8234",
+    "bytes": 8599,
+    "mode": 420
+  },
+  {
+    "path": "lampOS/docs/verification/records-controlled-20261016/local/after/lampOS/docs/records.md",
+    "source": "/private/tmp/lampos-tests-records-controlled/lampOS/docs/verification/records-controlled-20261016/local/after/lampOS/docs/records.md",
+    "sha256": "940ea122d4b3328d5aac12a3cdf2cecf2eb2e262a75a8244e06d43c5c1014ce2",
+    "bytes": 37094,
+    "mode": 420
+  },
+  {
+    "path": "lampOS/docs/verification/records-controlled-20261016/local/before/lampOS/crates/bus/src/lib.rs",
+    "source": "/private/tmp/lampos-tests-records-controlled/lampOS/docs/verification/records-controlled-20261016/local/before/lampOS/crates/bus/src/lib.rs",
+    "sha256": "3ab858b5195382e190b4988415177c7cf0b567cae33ecdbf097167eb7978b919",
+    "bytes": 17782,
+    "mode": 420
+  },
+  {
+    "path": "lampOS/docs/verification/records-controlled-20261016/local/before/lampOS/crates/bus/src/publish.rs",
+    "source": "/private/tmp/lampos-tests-records-controlled/lampOS/docs/verification/records-controlled-20261016/local/before/lampOS/crates/bus/src/publish.rs",
+    "sha256": "53a43999a7035b31e06d29abfb4d0975f514ca0402f4e2614d46796894e1e563",
+    "bytes": 23425,
+    "mode": 420
+  },
+  {
+    "path": "lampOS/docs/verification/records-controlled-20261016/local/before/lampOS/crates/records/Cargo.toml",
+    "source": "/private/tmp/lampos-tests-records-controlled/lampOS/docs/verification/records-controlled-20261016/local/before/lampOS/crates/records/Cargo.toml",
+    "sha256": "92f90b54a3690be6cd6843a9cabb20c300468a9e716c09e58f874c0cdc7bdcfc",
+    "bytes": 395,
+    "mode": 420
+  },
+  {
+    "path": "lampOS/docs/verification/records-controlled-20261016/local/before/lampOS/crates/records/records.example.json",
+    "source": "/private/tmp/lampos-tests-records-controlled/lampOS/docs/verification/records-controlled-20261016/local/before/lampOS/crates/records/records.example.json",
+    "sha256": "173dc05e7da89ef5a49be5d832759b9e98fa62db92de4002d4d45be21493f003",
+    "bytes": 296,
+    "mode": 420
+  },
+  {
+    "path": "lampOS/docs/verification/records-controlled-20261016/local/before/lampOS/crates/records/src/application.rs",
+    "source": "/private/tmp/lampos-tests-records-controlled/lampOS/docs/verification/records-controlled-20261016/local/before/lampOS/crates/records/src/application.rs",
+    "sha256": "85af4d56754ff6e8b87180401bce78ebdfcbf5d7444d3b32a2dbcfc39ffc0320",
+    "bytes": 12360,
+    "mode": 420
+  },
+  {
+    "path": "lampOS/docs/verification/records-controlled-20261016/local/before/lampOS/crates/records/src/application_schedule_tests.rs",
+    "source": "/private/tmp/lampos-tests-records-controlled/lampOS/docs/verification/records-controlled-20261016/local/before/lampOS/crates/records/src/application_schedule_tests.rs",
+    "sha256": "8cf8e5cfbe5790e762f638d033e97294870bf94812570a78493f8fe7636714ac",
+    "bytes": 15880,
+    "mode": 420
+  },
+  {
+    "path": "lampOS/docs/verification/records-controlled-20261016/local/before/lampOS/crates/records/src/config.rs",
+    "source": "/private/tmp/lampos-tests-records-controlled/lampOS/docs/verification/records-controlled-20261016/local/before/lampOS/crates/records/src/config.rs",
+    "sha256": "b57c20226ed8898d1f7f43f6499d32dd623392db7871d3b1f3782b3afc916d80",
+    "bytes": 7397,
+    "mode": 420
+  },
+  {
+    "path": "lampOS/docs/verification/records-controlled-20261016/local/before/lampOS/crates/records/src/guard.rs",
+    "source": "/private/tmp/lampos-tests-records-controlled/lampOS/docs/verification/records-controlled-20261016/local/before/lampOS/crates/records/src/guard.rs",
+    "sha256": "6cb5cc66196be122e666deeddd84a15a03454127f502d0c0693e1b25717593f8",
+    "bytes": 85551,
+    "mode": 420
+  },
+  {
+    "path": "lampOS/docs/verification/records-controlled-20261016/local/before/lampOS/crates/records/src/json_file.rs",
+    "source": "/private/tmp/lampos-tests-records-controlled/lampOS/docs/verification/records-controlled-20261016/local/before/lampOS/crates/records/src/json_file.rs",
+    "sha256": "80d533545280f90a367e6e04e05f03e293d3244dacee8f5c7572849f180e520c",
+    "bytes": 11297,
+    "mode": 420
+  },
+  {
+    "path": "lampOS/docs/verification/records-controlled-20261016/local/before/lampOS/crates/records/src/lib.rs",
+    "source": "/private/tmp/lampos-tests-records-controlled/lampOS/docs/verification/records-controlled-20261016/local/before/lampOS/crates/records/src/lib.rs",
+    "sha256": "ede122aef027cc8010a25401d14b682542859d2ad8d94110f56f1f73a56f7471",
+    "bytes": 25169,
+    "mode": 420
+  },
+  {
+    "path": "lampOS/docs/verification/records-controlled-20261016/local/before/lampOS/crates/records/src/main.rs",
+    "source": "/private/tmp/lampos-tests-records-controlled/lampOS/docs/verification/records-controlled-20261016/local/before/lampOS/crates/records/src/main.rs",
+    "sha256": "33c9354f0d8de852e265002c3a56a8efa7b799bdb2fe5504ff5c326a2460e60f",
+    "bytes": 6841,
+    "mode": 420
+  },
+  {
+    "path": "lampOS/docs/verification/records-controlled-20261016/local/before/lampOS/crates/records/src/plan.rs",
+    "source": "/private/tmp/lampos-tests-records-controlled/lampOS/docs/verification/records-controlled-20261016/local/before/lampOS/crates/records/src/plan.rs",
+    "sha256": "5442c93db91cd27559be4f152e0bf58476699b3bde23c63dc424a8ed095b6801",
+    "bytes": 6055,
+    "mode": 420
+  },
+  {
+    "path": "lampOS/docs/verification/records-controlled-20261016/local/before/lampOS/crates/records/src/report.rs",
+    "source": "/private/tmp/lampos-tests-records-controlled/lampOS/docs/verification/records-controlled-20261016/local/before/lampOS/crates/records/src/report.rs",
+    "sha256": "0a3667e74d854c6b963e659dcb478d5eb8bf5b8faa68be3b6ed49c00d865ead2",
+    "bytes": 22388,
+    "mode": 420
+  },
+  {
+    "path": "lampOS/docs/verification/records-controlled-20261016/local/before/lampOS/crates/records/src/reporter_clock_tests.rs",
+    "source": "/private/tmp/lampos-tests-records-controlled/lampOS/docs/verification/records-controlled-20261016/local/before/lampOS/crates/records/src/reporter_clock_tests.rs",
+    "sha256": "9e2760715d599b4c36a0e075ae2f3188f6fd2924b2ea50db92cdff9dd104ae2f",
+    "bytes": 5032,
+    "mode": 420
+  },
+  {
+    "path": "lampOS/docs/verification/records-controlled-20261016/local/before/lampOS/crates/records/src/run.rs",
+    "source": "/private/tmp/lampos-tests-records-controlled/lampOS/docs/verification/records-controlled-20261016/local/before/lampOS/crates/records/src/run.rs",
+    "sha256": "4c0dd2b3c845ec31ad75d60a21c04ae823e02174bb214cfa503b9bbeaf732419",
+    "bytes": 13939,
+    "mode": 420
+  },
+  {
+    "path": "lampOS/docs/verification/records-controlled-20261016/local/before/lampOS/crates/records/src/store.rs",
+    "source": "/private/tmp/lampos-tests-records-controlled/lampOS/docs/verification/records-controlled-20261016/local/before/lampOS/crates/records/src/store.rs",
+    "sha256": "c20e2a9d3a3abac7e16756208cb98f4460ab84d285839122bd62dd89be9af693",
+    "bytes": 59696,
+    "mode": 420
+  },
+  {
+    "path": "lampOS/docs/verification/records-controlled-20261016/local/before/lampOS/crates/records/systemd/lamp-records-report.service",
+    "source": "/private/tmp/lampos-tests-records-controlled/lampOS/docs/verification/records-controlled-20261016/local/before/lampOS/crates/records/systemd/lamp-records-report.service",
+    "sha256": "1a6252cd3f1f92985238b7b3f6bc15db155b491b8623ebe04a76c612246575d0",
+    "bytes": 771,
+    "mode": 420
+  },
+  {
+    "path": "lampOS/docs/verification/records-controlled-20261016/local/before/lampOS/crates/records/systemd/lamp-records.service",
+    "source": "/private/tmp/lampos-tests-records-controlled/lampOS/docs/verification/records-controlled-20261016/local/before/lampOS/crates/records/systemd/lamp-records.service",
+    "sha256": "94a7bb3d84fa0fb48a893ab4e086f37f3b6ac26e8472aac23427a8cb7cc6a0aa",
+    "bytes": 959,
+    "mode": 420
+  },
+  {
+    "path": "lampOS/docs/verification/records-controlled-20261016/local/before/lampOS/crates/records/systemd/lamp-records.timer",
+    "source": "/private/tmp/lampos-tests-records-controlled/lampOS/docs/verification/records-controlled-20261016/local/before/lampOS/crates/records/systemd/lamp-records.timer",
+    "sha256": "5e0a975c32a5cb49b9da40750a5031a10e8abfbebbf20bc7b83c0d8df316cc1b",
+    "bytes": 200,
+    "mode": 420
+  },
+  {
+    "path": "lampOS/docs/verification/records-controlled-20261016/local/before/lampOS/crates/records/tests/records.rs",
+    "source": "/private/tmp/lampos-tests-records-controlled/lampOS/docs/verification/records-controlled-20261016/local/before/lampOS/crates/records/tests/records.rs",
+    "sha256": "b40cf09e6c77e4dfd5876e381a75d2878e2589b115345c2832ce6623f14370bd",
+    "bytes": 17979,
+    "mode": 420
+  },
+  {
+    "path": "lampOS/docs/verification/records-controlled-20261016/local/before/lampOS/docs/records.md",
+    "source": "/private/tmp/lampos-tests-records-controlled/lampOS/docs/verification/records-controlled-20261016/local/before/lampOS/docs/records.md",
+    "sha256": "5bf9effbd4b91af3f12bea9da7e4ea6892cb5f0183d172b94df57882b27bf8e8",
+    "bytes": 35363,
+    "mode": 420
+  },
+  {
+    "path": "lampOS/docs/verification/records-controlled-20261016/local/before-source.json",
+    "source": "/private/tmp/lampos-tests-records-controlled/lampOS/docs/verification/records-controlled-20261016/local/before-source.json",
+    "sha256": "7fd8e240eb4891a8aee131fd173125a0da931704fdb6d9ef7fd3e20f6986d1e7",
+    "bytes": 2525,
+    "mode": 420
+  },
+  {
+    "path": "lampOS/docs/verification/records-controlled-20261016/local/closed-peer-order-addition.rs.txt",
+    "source": "/private/tmp/lampos-tests-records-controlled/lampOS/docs/verification/records-controlled-20261016/local/closed-peer-order-addition.rs.txt",
+    "sha256": "0a8da558983923f06daf2a7e1e366b78372b10d614dcd4370e68a0a186192519",
+    "bytes": 601,
+    "mode": 420
+  },
+  {
+    "path": "lampOS/docs/verification/records-controlled-20261016/local/closed-peer-order-audit.stderr",
+    "source": "/private/tmp/lampos-tests-records-controlled/lampOS/docs/verification/records-controlled-20261016/local/closed-peer-order-audit.stderr",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "bytes": 0,
+    "mode": 420
+  },
+  {
+    "path": "lampOS/docs/verification/records-controlled-20261016/local/closed-peer-order-audit.stdout",
+    "source": "/private/tmp/lampos-tests-records-controlled/lampOS/docs/verification/records-controlled-20261016/local/closed-peer-order-audit.stdout",
+    "sha256": "4f061f36b6c26b489ba9eb3e7125f581bdc3a9fc05d8bc729631ab79fb459905",
+    "bytes": 6412,
+    "mode": 420
+  },
+  {
+    "path": "lampOS/docs/verification/records-controlled-20261016/local/closed-peer-order-before/format-result.json",
+    "source": "/private/tmp/lampos-tests-records-controlled/lampOS/docs/verification/records-controlled-20261016/local/closed-peer-order-before/format-result.json",
+    "sha256": "700f0d2c29b63c94f20b29d00b049238f280a3834353914331271396f6b9c69e",
+    "bytes": 743,
+    "mode": 420
+  },
+  {
+    "path": "lampOS/docs/verification/records-controlled-20261016/local/closed-peer-order-before/handoff.md",
+    "source": "/private/tmp/lampos-tests-records-controlled/lampOS/docs/verification/records-controlled-20261016/local/closed-peer-order-before/handoff.md",
+    "sha256": "a3567a175d47555908ec0766bed206b5430a008331845aaae8a484d3cc968ddc",
+    "bytes": 9612,
+    "mode": 420
+  },
+  {
+    "path": "lampOS/docs/verification/records-controlled-20261016/local/closed-peer-order-before/owned.diff",
+    "source": "/private/tmp/lampos-tests-records-controlled/lampOS/docs/verification/records-controlled-20261016/local/closed-peer-order-before/owned.diff",
+    "sha256": "4b69a91b901cd0ae4cdd49effe97b7c8fc41aea34a1c83050be71a171437d3ce",
+    "bytes": 67808,
+    "mode": 420
+  },
+  {
+    "path": "lampOS/docs/verification/records-controlled-20261016/local/closed-peer-order-before/records_control.rs",
+    "source": "/private/tmp/lampos-tests-records-controlled/lampOS/docs/verification/records-controlled-20261016/local/closed-peer-order-before/records_control.rs",
+    "sha256": "d2e2a7cfc165b966006c949859ddea8ace92989fde73c45218e3cd0be0fcf22f",
+    "bytes": 22747,
+    "mode": 420
+  },
+  {
+    "path": "lampOS/docs/verification/records-controlled-20261016/local/closed-peer-order-before/snapshot.json",
+    "source": "/private/tmp/lampos-tests-records-controlled/lampOS/docs/verification/records-controlled-20261016/local/closed-peer-order-before/snapshot.json",
+    "sha256": "a15e5d6f20866396e9035c4ede079a4689d31c072ab03d85665e31cb7a9c053f",
+    "bytes": 1981,
+    "mode": 420
+  },
+  {
+    "path": "lampOS/docs/verification/records-controlled-20261016/local/closed-peer-order-before/source-proof.json",
+    "source": "/private/tmp/lampos-tests-records-controlled/lampOS/docs/verification/records-controlled-20261016/local/closed-peer-order-before/source-proof.json",
+    "sha256": "a195789b55c0c4d50c56cd1be5c582e42026fb8c3638bad47337fcea4a7b1774",
+    "bytes": 6412,
+    "mode": 420
+  },
+  {
+    "path": "lampOS/docs/verification/records-controlled-20261016/local/closed-peer-order-before/tests-823-records-controlled-independent-review.json",
+    "source": "/private/tmp/lampos-tests-records-controlled/lampOS/docs/verification/records-controlled-20261016/local/closed-peer-order-before/tests-823-records-controlled-independent-review.json",
+    "sha256": "0e44d4588b9be949f74090a28b0d4498274252c3ccdac349836ef0a6809c702f",
+    "bytes": 1932,
+    "mode": 420
+  },
+  {
+    "path": "lampOS/docs/verification/records-controlled-20261016/local/closed-peer-order-before/tests-823-records-controlled-independent-review.md",
+    "source": "/private/tmp/lampos-tests-records-controlled/lampOS/docs/verification/records-controlled-20261016/local/closed-peer-order-before/tests-823-records-controlled-independent-review.md",
+    "sha256": "f0e71d0d9d94ea721c174ebb9da8fbe4723b35464a2db8a17166d5a0f123e432",
+    "bytes": 10814,
+    "mode": 420
+  },
+  {
+    "path": "lampOS/docs/verification/records-controlled-20261016/local/closed-peer-order-final-hashes.json",
+    "source": "/private/tmp/lampos-tests-records-controlled/lampOS/docs/verification/records-controlled-20261016/local/closed-peer-order-final-hashes.json",
+    "sha256": "4c11c8897e2a2d86c0b003b28276118d1d1deb2fa1aee9639c3a3185db5af626",
+    "bytes": 557,
+    "mode": 420
+  },
+  {
+    "path": "lampOS/docs/verification/records-controlled-20261016/local/closed-peer-order-format.json",
+    "source": "/private/tmp/lampos-tests-records-controlled/lampOS/docs/verification/records-controlled-20261016/local/closed-peer-order-format.json",
+    "sha256": "e074c003c08bcbf020f4176c71b4534b25c6025f9f6d222812222f8aa1219d01",
+    "bytes": 368,
+    "mode": 420
+  },
+  {
+    "path": "lampOS/docs/verification/records-controlled-20261016/local/closed-peer-order-proof.json",
+    "source": "/private/tmp/lampos-tests-records-controlled/lampOS/docs/verification/records-controlled-20261016/local/closed-peer-order-proof.json",
+    "sha256": "1a2aba9ccf7a85732bdd340250285e765d692b897d830ae8b2e194a0525dc982",
+    "bytes": 1151,
+    "mode": 420
+  },
+  {
+    "path": "lampOS/docs/verification/records-controlled-20261016/local/closed-peer-order-rustfmt.stderr",
+    "source": "/private/tmp/lampos-tests-records-controlled/lampOS/docs/verification/records-controlled-20261016/local/closed-peer-order-rustfmt.stderr",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "bytes": 0,
+    "mode": 420
+  },
+  {
+    "path": "lampOS/docs/verification/records-controlled-20261016/local/closed-peer-order-rustfmt.stdout",
+    "source": "/private/tmp/lampos-tests-records-controlled/lampOS/docs/verification/records-controlled-20261016/local/closed-peer-order-rustfmt.stdout",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "bytes": 0,
+    "mode": 420
+  },
+  {
+    "path": "lampOS/docs/verification/records-controlled-20261016/local/closed-peer-order.diff",
+    "source": "/private/tmp/lampos-tests-records-controlled/lampOS/docs/verification/records-controlled-20261016/local/closed-peer-order.diff",
+    "sha256": "9aca7740aa2dd2a8d5a8c7e6a6f9cb81f3308fbf9e8feb6ceaf5648090b6c990",
+    "bytes": 955,
+    "mode": 420
+  },
+  {
+    "path": "lampOS/docs/verification/records-controlled-20261016/local/format-result.json",
+    "source": "/private/tmp/lampos-tests-records-controlled/lampOS/docs/verification/records-controlled-20261016/local/format-result.json",
+    "sha256": "700f0d2c29b63c94f20b29d00b049238f280a3834353914331271396f6b9c69e",
+    "bytes": 743,
+    "mode": 420
+  },
+  {
+    "path": "lampOS/docs/verification/records-controlled-20261016/local/handoff.md",
+    "source": "/private/tmp/lampos-tests-records-controlled/lampOS/docs/verification/records-controlled-20261016/local/handoff.md",
+    "sha256": "cadfc54e60b712daeecd25b27a00413f0a6ba74412eea3ff9024012ea7f311f4",
+    "bytes": 11809,
+    "mode": 420
+  },
+  {
+    "path": "lampOS/docs/verification/records-controlled-20261016/local/owned.diff",
+    "source": "/private/tmp/lampos-tests-records-controlled/lampOS/docs/verification/records-controlled-20261016/local/owned.diff",
+    "sha256": "dbc150fb15d36528bd5c923a70fb9b0e4b7d09b9412d2b59b276205a778308c1",
+    "bytes": 68430,
+    "mode": 420
+  },
+  {
+    "path": "lampOS/docs/verification/records-controlled-20261016/local/prior-preparation-compiled-list.log",
+    "source": "/private/tmp/lampos-tests-records-controlled/lampOS/docs/verification/records-controlled-20261016/local/prior-preparation-compiled-list.log",
+    "sha256": "1b59a00fb52bd06d1c8bb5cf8f51269e008c27e72b56233e249cf1474f0ccf72",
+    "bytes": 29783,
+    "mode": 420
+  },
+  {
+    "path": "lampOS/docs/verification/records-controlled-20261016/local/prior-preparation-records-identities.json",
+    "source": "/private/tmp/lampos-tests-records-controlled/lampOS/docs/verification/records-controlled-20261016/local/prior-preparation-records-identities.json",
+    "sha256": "690120b97e4b0bef073219cdb64e4658aeeedd8df3d44725f3b30d50297ebbef",
+    "bytes": 16157,
+    "mode": 420
+  },
+  {
+    "path": "lampOS/docs/verification/records-controlled-20261016/local/restored/lampOS/crates/records/Cargo.toml",
+    "source": "/private/tmp/lampos-tests-records-controlled/lampOS/docs/verification/records-controlled-20261016/local/restored/lampOS/crates/records/Cargo.toml",
+    "sha256": "92f90b54a3690be6cd6843a9cabb20c300468a9e716c09e58f874c0cdc7bdcfc",
+    "bytes": 395,
+    "mode": 420
+  },
+  {
+    "path": "lampOS/docs/verification/records-controlled-20261016/local/restored/lampOS/crates/records/src/main.rs",
+    "source": "/private/tmp/lampos-tests-records-controlled/lampOS/docs/verification/records-controlled-20261016/local/restored/lampOS/crates/records/src/main.rs",
+    "sha256": "33c9354f0d8de852e265002c3a56a8efa7b799bdb2fe5504ff5c326a2460e60f",
+    "bytes": 6841,
+    "mode": 420
+  },
+  {
+    "path": "lampOS/docs/verification/records-controlled-20261016/local/restored/lampOS/crates/records/tests/records.rs",
+    "source": "/private/tmp/lampos-tests-records-controlled/lampOS/docs/verification/records-controlled-20261016/local/restored/lampOS/crates/records/tests/records.rs",
+    "sha256": "b40cf09e6c77e4dfd5876e381a75d2878e2589b115345c2832ce6623f14370bd",
+    "bytes": 17979,
+    "mode": 420
+  },
+  {
+    "path": "lampOS/docs/verification/records-controlled-20261016/local/restored/lampOS/docs/records.md",
+    "source": "/private/tmp/lampos-tests-records-controlled/lampOS/docs/verification/records-controlled-20261016/local/restored/lampOS/docs/records.md",
+    "sha256": "5bf9effbd4b91af3f12bea9da7e4ea6892cb5f0183d172b94df57882b27bf8e8",
+    "bytes": 35363,
+    "mode": 420
+  },
+  {
+    "path": "lampOS/docs/verification/records-controlled-20261016/local/root-build.log",
+    "source": "/private/tmp/lampos-tests-records-controlled/lampOS/docs/verification/records-controlled-20261016/local/root-build.log",
+    "sha256": "e5c9bbaae43ac84e3e40f369d85a07b4dbb3075b983fcdb77394ae95f574eeed",
+    "bytes": 4013,
+    "mode": 420
+  },
+  {
+    "path": "lampOS/docs/verification/records-controlled-20261016/local/root-clippy.log",
+    "source": "/private/tmp/lampos-tests-records-controlled/lampOS/docs/verification/records-controlled-20261016/local/root-clippy.log",
+    "sha256": "00c65e6d0beb311d710d49d688505f2111ee115c41106f6fbb68b230384c7374",
+    "bytes": 469,
+    "mode": 420
+  },
+  {
+    "path": "lampOS/docs/verification/records-controlled-20261016/local/root-closed-peer-review.json",
+    "source": "/private/tmp/lampos-tests-records-controlled/lampOS/docs/verification/records-controlled-20261016/local/root-closed-peer-review.json",
+    "sha256": "b6d3fd32bc3d75f0dec4018ec8af2408a4bea542960651fc83071a26345d5644",
+    "bytes": 548,
+    "mode": 420
+  },
+  {
+    "path": "lampOS/docs/verification/records-controlled-20261016/local/root-fmt.log",
+    "source": "/private/tmp/lampos-tests-records-controlled/lampOS/docs/verification/records-controlled-20261016/local/root-fmt.log",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "bytes": 0,
+    "mode": 420
+  },
+  {
+    "path": "lampOS/docs/verification/records-controlled-20261016/local/root-gates.json",
+    "source": "/private/tmp/lampos-tests-records-controlled/lampOS/docs/verification/records-controlled-20261016/local/root-gates.json",
+    "sha256": "b1b5249dfdbcc7350fb7d8c528c1af76e57229322baca0272f9b5e500894315f",
+    "bytes": 2290,
+    "mode": 420
+  },
+  {
+    "path": "lampOS/docs/verification/records-controlled-20261016/local/root-identity-proof.json",
+    "source": "/private/tmp/lampos-tests-records-controlled/lampOS/docs/verification/records-controlled-20261016/local/root-identity-proof.json",
+    "sha256": "54100a3e16f8d2b2938074974aa1342488ebaa206604a8bf6c67338585a1053c",
+    "bytes": 2865,
+    "mode": 420
+  },
+  {
+    "path": "lampOS/docs/verification/records-controlled-20261016/local/root-list.log",
+    "source": "/private/tmp/lampos-tests-records-controlled/lampOS/docs/verification/records-controlled-20261016/local/root-list.log",
+    "sha256": "a115af78d86db67bf1762ef66a642fe2d2150f0f70fb454e274057ff6d7ba4e0",
+    "bytes": 33643,
+    "mode": 420
+  },
+  {
+    "path": "lampOS/docs/verification/records-controlled-20261016/local/root-result.json",
+    "source": "/private/tmp/lampos-tests-records-controlled/lampOS/docs/verification/records-controlled-20261016/local/root-result.json",
+    "sha256": "1f1ad87d47f5907b6bea1db276fe5aa7735fb2049c31fb837f8b32e720034a5e",
+    "bytes": 162,
+    "mode": 420
+  },
+  {
+    "path": "lampOS/docs/verification/records-controlled-20261016/local/root-source-before.json",
+    "source": "/private/tmp/lampos-tests-records-controlled/lampOS/docs/verification/records-controlled-20261016/local/root-source-before.json",
+    "sha256": "610aa50b4d9b8b4d6d22b074c3133425ef8972506d39d183f6e009349ff3968e",
+    "bytes": 2340,
+    "mode": 420
+  },
+  {
+    "path": "lampOS/docs/verification/records-controlled-20261016/local/root-tests.log",
+    "source": "/private/tmp/lampos-tests-records-controlled/lampOS/docs/verification/records-controlled-20261016/local/root-tests.log",
+    "sha256": "75c522aba9239544933ae1e2487a68d29280251cab6a039f552f8e8474f02fc6",
+    "bytes": 19692,
+    "mode": 420
+  },
+  {
+    "path": "lampOS/docs/verification/records-controlled-20261016/local/rustfmt.stderr",
+    "source": "/private/tmp/lampos-tests-records-controlled/lampOS/docs/verification/records-controlled-20261016/local/rustfmt.stderr",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "bytes": 0,
+    "mode": 420
+  },
+  {
+    "path": "lampOS/docs/verification/records-controlled-20261016/local/rustfmt.stdout",
+    "source": "/private/tmp/lampos-tests-records-controlled/lampOS/docs/verification/records-controlled-20261016/local/rustfmt.stdout",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "bytes": 0,
+    "mode": 420
+  },
+  {
+    "path": "lampOS/docs/verification/records-controlled-20261016/local/source-proof.json",
+    "source": "/private/tmp/lampos-tests-records-controlled/lampOS/docs/verification/records-controlled-20261016/local/source-proof.json",
+    "sha256": "4f061f36b6c26b489ba9eb3e7125f581bdc3a9fc05d8bc729631ab79fb459905",
+    "bytes": 6412,
+    "mode": 420
+  },
+  {
+    "path": "lampOS/docs/verification/records-controlled-20261016/pair/baseline.json",
+    "source": "/private/tmp/lampos-tests-records-controlled/lampOS/docs/verification/records-controlled-20261016/pair/baseline.json",
+    "sha256": "d984a1a515edca37fddc51bc282acd05c967a9bed8820540b1c4496b59db146f",
+    "bytes": 1002,
+    "mode": 420
+  },
+  {
+    "path": "lampOS/docs/verification/records-controlled-20261016/pair/baseline.log",
+    "source": "/private/tmp/lampos-tests-records-controlled/lampOS/docs/verification/records-controlled-20261016/pair/baseline.log",
+    "sha256": "6355522aa29962604d79a7558927d0920eeef60341e3f0f080d6fc0254b2eb89",
+    "bytes": 865,
+    "mode": 420
+  },
+  {
+    "path": "lampOS/docs/verification/records-controlled-20261016/pair/comparison.json",
+    "source": "/private/tmp/lampos-tests-records-controlled/lampOS/docs/verification/records-controlled-20261016/pair/comparison.json",
+    "sha256": "c4a9b86f9a994bab230be6e7d6af3cdbcb1942a3481617ea17c3d8b048e10e81",
+    "bytes": 945,
+    "mode": 420
+  },
+  {
+    "path": "lampOS/docs/verification/records-controlled-20261016/pair/migrated.json",
+    "source": "/private/tmp/lampos-tests-records-controlled/lampOS/docs/verification/records-controlled-20261016/pair/migrated.json",
+    "sha256": "e2ea630654bbd5b4ddb0025a483b6483e13d75322d9d74d57f08679770da48c5",
+    "bytes": 2180,
+    "mode": 420
+  },
+  {
+    "path": "lampOS/docs/verification/records-controlled-20261016/pair/migrated.log",
+    "source": "/private/tmp/lampos-tests-records-controlled/lampOS/docs/verification/records-controlled-20261016/pair/migrated.log",
+    "sha256": "3ad856a7a68a7cb0650e3904d5b2518aa7e8a5b4ce0ca6e7b9a748bd1db4169d",
+    "bytes": 569,
+    "mode": 420
+  },
+  {
+    "path": "lampOS/docs/verification/records-controlled-20261016/provenance.json",
+    "source": "/private/tmp/lampos-tests-records-controlled/lampOS/docs/verification/records-controlled-20261016/provenance.json",
+    "sha256": "c80a78ecc00a588fde9e6a6fe33b273b293801b243596f91d523251db9636416",
+    "bytes": 22542,
+    "mode": 420
+  },
+  {
+    "path": "lampOS/docs/verification/records-controlled-20261016/review/independent-source-proof.json",
+    "source": "/private/tmp/lampos-tests-records-controlled/lampOS/docs/verification/records-controlled-20261016/review/independent-source-proof.json",
+    "sha256": "18b51dd812d1b3ae557138363788df0213f9633f540c3f7655839029cd89b0e2",
+    "bytes": 15719,
+    "mode": 420
+  },
+  {
+    "path": "lampOS/docs/verification/records-controlled-20261016/review/tests-823-records-controlled-independent-review.json",
+    "source": "/private/tmp/lampos-tests-records-controlled/lampOS/docs/verification/records-controlled-20261016/review/tests-823-records-controlled-independent-review.json",
+    "sha256": "040dda04efe561455d5fadae49d44b4b18d735c3f23a737c785d6bce349b4f33",
+    "bytes": 2666,
+    "mode": 420
+  },
+  {
+    "path": "lampOS/docs/verification/records-controlled-20261016/review/tests-823-records-controlled-independent-review.md",
+    "source": "/private/tmp/lampos-tests-records-controlled/lampOS/docs/verification/records-controlled-20261016/review/tests-823-records-controlled-independent-review.md",
+    "sha256": "b613afddc834126e5181b10d587b267c1e88f40a982c239dde6668295295fb18",
+    "bytes": 12697,
+    "mode": 420
+  }
+]

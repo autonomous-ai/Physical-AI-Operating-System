@@ -1,0 +1,21 @@
+    {
+        let (mut parent, mut peer) = channels();
+        let end = deadline();
+        let expected = reply(
+            &Step {
+                nonce: NONCE.into(),
+                round: 1,
+                at_ns: 0,
+            },
+            1,
+            0,
+        );
+        peer.write_until(&expected, end).unwrap();
+        peer.close();
+        let checked: Checked = parent.read_until(end).unwrap();
+        assert_eq!(checked, expected);
+        assert_eq!(
+            parent.read_until::<Checked>(end).unwrap_err().kind(),
+            io::ErrorKind::UnexpectedEof
+        );
+    }

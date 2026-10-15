@@ -1,0 +1,1923 @@
+--- before/lampOS/crates/records/Cargo.toml
++++ after/lampOS/crates/records/Cargo.toml
+@@ -4,6 +4,12 @@
+ edition.workspace = true
+ rust-version.workspace = true
+ publish.workspace = true
++
++[[bin]]
++name = "lamp-records-fixture"
++path = "src/bin/lamp-records-fixture.rs"
++test = false
++bench = false
+ 
+ [dependencies]
+ serde.workspace = true
+--- before/lampOS/crates/records/src/main.rs
++++ after/lampOS/crates/records/src/main.rs
+@@ -192,3 +192,10 @@
+ 
+ #[cfg(test)]
+ mod application_schedule_tests;
++
++#[cfg(test)]
++mod fixture_protocol;
++#[cfg(test)]
++mod fixture_schedule;
++#[cfg(test)]
++mod fixture_schedule_tests;
+--- before/lampOS/crates/records/src/bin/lamp-records-fixture.rs
++++ after/lampOS/crates/records/src/bin/lamp-records-fixture.rs
+@@ -0,0 +1,10 @@
++include!("../application.rs");
++
++#[path = "../fixture_protocol.rs"]
++mod fixture_protocol;
++#[path = "../fixture_schedule.rs"]
++mod fixture_schedule;
++
++fn main() -> ExitCode {
++    entrypoint(|command| command_with_reporting(command, fixture_schedule::report))
++}
+--- before/lampOS/crates/records/src/fixture_protocol.rs
++++ after/lampOS/crates/records/src/fixture_protocol.rs
+@@ -0,0 +1,191 @@
++//! Private inherited-pipe control for the explicit Records fixture.
++//! Checked means a completed reporting wait, never delivery or process exit.
++use rustix::{
++    event::{PollFd, PollFlags, Timespec, poll},
++    fs::{OFlags, fcntl_getfl, fcntl_setfl},
++};
++use serde::{Deserialize, Serialize, de::DeserializeOwned};
++use std::{
++    io::{self, Read, Write},
++    os::fd::AsFd,
++    time::{Duration, Instant},
++};
++
++pub const VERSION: u32 = 1;
++pub const MAX_FRAME_BYTES: usize = 4096;
++pub const HOST_WAIT: Duration = Duration::from_secs(4);
++pub const PERIOD_NS: u64 = 1_000_000_000;
++
++#[derive(Debug, Deserialize, Serialize)]
++#[serde(deny_unknown_fields)]
++pub struct Bootstrap {
++    pub version: u32,
++    pub nonce: String,
++}
++
++impl Bootstrap {
++    pub fn validate(&self) -> io::Result<()> {
++        if self.version != VERSION || !valid_nonce(&self.nonce) {
++            return Err(invalid("invalid records fixture bootstrap"));
++        }
++        Ok(())
++    }
++}
++
++#[derive(Clone, Debug, Deserialize, Serialize)]
++#[serde(deny_unknown_fields)]
++pub struct Step {
++    pub nonce: String,
++    pub round: u64,
++    pub at_ns: u64,
++}
++
++#[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq)]
++#[serde(rename_all = "snake_case")]
++pub enum Outcome {
++    ReturnedOk,
++    ReturnedErr,
++}
++
++#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
++#[serde(deny_unknown_fields)]
++pub struct Checked {
++    pub version: u32,
++    pub nonce: String,
++    pub round: u64,
++    pub at_ns: u64,
++    pub completed_cycles: u64,
++    pub cycle_started_ns: u64,
++    pub next_due_ns: u64,
++    pub construction_or_publish: Outcome,
++}
++
++pub fn valid_nonce(nonce: &str) -> bool {
++    !nonce.is_empty() && nonce.len() <= 32 && nonce.bytes().all(|byte| byte.is_ascii_alphanumeric())
++}
++
++pub fn invalid(message: &'static str) -> io::Error {
++    io::Error::new(io::ErrorKind::InvalidData, message)
++}
++
++pub fn remaining(deadline: Instant) -> io::Result<Duration> {
++    deadline
++        .checked_duration_since(Instant::now())
++        .filter(|left| !left.is_zero())
++        .ok_or_else(|| io::Error::new(io::ErrorKind::TimedOut, "records fixture host deadline"))
++}
++
++/// Exactly one caller owns each endpoint. Dropping/closing the channel drops
++/// both owned handles; no reader thread or buffered read-ahead outlives it.
++pub struct Channel<R, W> {
++    reader: Option<R>,
++    writer: Option<W>,
++}
++
++impl<R: Read + AsFd, W: Write + AsFd> Channel<R, W> {
++    pub fn new(reader: R, writer: W) -> io::Result<Self> {
++        for descriptor in [reader.as_fd(), writer.as_fd()] {
++            let flags = fcntl_getfl(descriptor)?;
++            fcntl_setfl(descriptor, flags | OFlags::NONBLOCK)?;
++        }
++        Ok(Self {
++            reader: Some(reader),
++            writer: Some(writer),
++        })
++    }
++
++    pub fn read_until<T: DeserializeOwned>(&mut self, deadline: Instant) -> io::Result<T> {
++        let reader = self
++            .reader
++            .as_mut()
++            .ok_or_else(|| invalid("records fixture channel is closed"))?;
++        let mut frame = Vec::with_capacity(256);
++        loop {
++            remaining(deadline)?;
++            let mut byte = [0];
++            match reader.read(&mut byte) {
++                Ok(0) => {
++                    return Err(io::Error::new(
++                        io::ErrorKind::UnexpectedEof,
++                        "records fixture frame ended before LF",
++                    ));
++                }
++                Ok(_) => {
++                    frame.push(byte[0]);
++                    if frame.len() > MAX_FRAME_BYTES {
++                        return Err(invalid("records fixture frame exceeds bound"));
++                    }
++                    if byte[0] == b'\n' {
++                        return serde_json::from_slice(&frame[..frame.len() - 1])
++                            .map_err(io::Error::from);
++                    }
++                }
++                Err(error) if error.kind() == io::ErrorKind::Interrupted => {}
++                Err(error) if error.kind() == io::ErrorKind::WouldBlock => {
++                    wait_ready(reader, PollFlags::IN, deadline)?;
++                }
++                Err(error) => return Err(error),
++            }
++        }
++    }
++
++    pub fn write_until<T: Serialize>(&mut self, value: &T, deadline: Instant) -> io::Result<()> {
++        let mut frame = serde_json::to_vec(value)?;
++        frame.push(b'\n');
++        if frame.len() > MAX_FRAME_BYTES {
++            return Err(invalid("records fixture frame exceeds bound"));
++        }
++        let writer = self
++            .writer
++            .as_mut()
++            .ok_or_else(|| invalid("records fixture channel is closed"))?;
++        let mut sent = 0;
++        while sent < frame.len() {
++            remaining(deadline)?;
++            match writer.write(&frame[sent..]) {
++                Ok(0) => return Err(io::ErrorKind::WriteZero.into()),
++                Ok(count) => sent += count,
++                Err(error) if error.kind() == io::ErrorKind::Interrupted => {}
++                Err(error) if error.kind() == io::ErrorKind::WouldBlock => {
++                    wait_ready(writer, PollFlags::OUT, deadline)?;
++                }
++                Err(error) => return Err(error),
++            }
++        }
++        // All users pass unbuffered File/ChildStdin endpoints. No hidden
++        // buffering or separate flush can escape the deadline above.
++        remaining(deadline)?;
++        Ok(())
++    }
++}
++
++impl<R, W> Channel<R, W> {
++    pub fn close(&mut self) {
++        self.reader.take();
++        self.writer.take();
++    }
++}
++
++fn wait_ready(fd: &impl AsFd, flags: PollFlags, deadline: Instant) -> io::Result<()> {
++    loop {
++        let left = remaining(deadline)?.min(Duration::from_millis(i32::MAX as u64));
++        let timeout = Timespec::try_from(left)
++            .map_err(|_| invalid("records fixture poll timeout overflow"))?;
++        let mut descriptors = [PollFd::new(fd, flags)];
++        match poll(&mut descriptors, Some(&timeout)) {
++            Ok(0) => {}
++            Ok(_) => {
++                let events = descriptors[0].revents();
++                if events.contains(PollFlags::NVAL) {
++                    return Err(invalid("records fixture invalid descriptor"));
++                }
++                // HUP is not EOF: try reading complete queued bytes first.
++                if events.intersects(flags | PollFlags::HUP | PollFlags::ERR) {
++                    return Ok(());
++                }
++            }
++            Err(error) if error == rustix::io::Errno::INTR => {}
++            Err(error) => return Err(error.into()),
++        }
++    }
++}
+--- before/lampOS/crates/records/src/fixture_schedule.rs
++++ after/lampOS/crates/records/src/fixture_schedule.rs
+@@ -0,0 +1,229 @@
++//! A single synchronous reporting loop owns all fixture clock advancement.
++use crate::fixture_protocol::{
++    Bootstrap, Channel, Checked, Outcome, PERIOD_NS, Step, VERSION, invalid,
++};
++use crate::{ReportCycle, ReportSchedule};
++use std::{
++    io::{self, Read, Write},
++    os::fd::AsFd,
++    sync::{
++        Arc,
++        atomic::{AtomicU64, Ordering},
++    },
++    time::{Duration, Instant},
++};
++
++#[derive(Clone)]
++pub struct Clock {
++    epoch: Instant,
++    elapsed_ns: Arc<AtomicU64>,
++}
++
++impl Clock {
++    pub fn now(&self) -> Instant {
++        // Only set() writes the offset, after checking this exact addition.
++        self.epoch
++            .checked_add(Duration::from_nanos(
++                self.elapsed_ns.load(Ordering::Acquire),
++            ))
++            .expect("validated records fixture clock")
++    }
++
++    fn elapsed(&self) -> u64 {
++        self.elapsed_ns.load(Ordering::Acquire)
++    }
++
++    fn set(&self, at_ns: u64) -> io::Result<()> {
++        if at_ns < self.elapsed()
++            || self
++                .epoch
++                .checked_add(Duration::from_nanos(at_ns))
++                .is_none()
++        {
++            return Err(invalid("records fixture clock regressed or overflowed"));
++        }
++        self.elapsed_ns.store(at_ns, Ordering::Release);
++        Ok(())
++    }
++}
++
++pub struct Schedule<R, W> {
++    channel: Channel<R, W>,
++    nonce: String,
++    clock: Clock,
++    round: u64,
++    cycles: u64,
++    pending: Option<Step>,
++    host_deadline: Option<Instant>,
++    failed: bool,
++}
++
++impl<R: Read + AsFd, W: Write + AsFd> Schedule<R, W> {
++    pub fn bootstrap(mut channel: Channel<R, W>, deadline: Instant) -> io::Result<Self> {
++        let bootstrap: Bootstrap = channel.read_until(deadline)?;
++        bootstrap.validate()?;
++        Ok(Self {
++            channel,
++            nonce: bootstrap.nonce,
++            clock: Clock {
++                epoch: Instant::now(),
++                elapsed_ns: Arc::new(AtomicU64::new(0)),
++            },
++            round: 0,
++            cycles: 0,
++            pending: None,
++            host_deadline: None,
++            failed: false,
++        })
++    }
++
++    pub fn clock(&self) -> Clock {
++        self.clock.clone()
++    }
++
++    fn wait_inner(&mut self, cycle: ReportCycle, remaining: Duration) -> io::Result<()> {
++        let seconds = cycle
++            .host_seconds
++            .filter(|seconds| (1..=86_400).contains(seconds))
++            .ok_or_else(|| invalid("records fixture requires an explicit host lifetime"))?;
++        let deadline = cycle
++            .host_started
++            .checked_add(Duration::from_secs(seconds))
++            .ok_or_else(|| invalid("records fixture lifetime overflow"))?;
++        if self
++            .host_deadline
++            .is_some_and(|previous| previous != deadline)
++        {
++            return Err(invalid("records fixture host lifetime changed"));
++        }
++        self.host_deadline = Some(deadline);
++        let started = cycle
++            .started
++            .checked_duration_since(self.clock.epoch)
++            .and_then(|elapsed| u64::try_from(elapsed.as_nanos()).ok())
++            .ok_or_else(|| invalid("records fixture cycle start is outside its clock"))?;
++        let due = started
++            .checked_add(PERIOD_NS)
++            .ok_or_else(|| invalid("records fixture due time overflow"))?;
++        let due_instant = cycle
++            .started
++            .checked_add(Duration::from_nanos(PERIOD_NS))
++            .ok_or_else(|| invalid("records fixture due Instant overflow"))?;
++        let after_wait = self
++            .clock
++            .now()
++            .checked_add(remaining)
++            .ok_or_else(|| invalid("records fixture wait Instant overflow"))?;
++        if remaining.is_zero()
++            || started != self.clock.elapsed()
++            || due_instant != after_wait
++            || (self.cycles == 0 && (started != 0 || self.pending.is_some()))
++            || (self.cycles != 0
++                && self
++                    .pending
++                    .as_ref()
++                    .is_none_or(|step| step.at_ns != started))
++        {
++            return Err(invalid(
++                "records fixture did not reach its positive due wait",
++            ));
++        }
++        self.cycles = self
++            .cycles
++            .checked_add(1)
++            .ok_or_else(|| invalid("records fixture cycle count overflow"))?;
++        let outcome = if cycle.construction_or_publish.is_ok() {
++            Outcome::ReturnedOk
++        } else {
++            Outcome::ReturnedErr
++        };
++        if let Some(step) = self.pending.take() {
++            self.reply(&step, started, due, outcome, deadline)?;
++        }
++        loop {
++            let step: Step = self.channel.read_until(deadline)?;
++            let next_round = self
++                .round
++                .checked_add(1)
++                .ok_or_else(|| invalid("records fixture round overflow"))?;
++            if step.nonce != self.nonce
++                || step.round != next_round
++                || step.at_ns < self.clock.elapsed()
++                || step.at_ns > due
++                || (self.round == 0 && step.at_ns != 0)
++            {
++                return Err(invalid("invalid records fixture step"));
++            }
++            self.clock.set(step.at_ns)?;
++            self.round = step.round;
++            if step.at_ns == due {
++                self.pending = Some(step);
++                return Ok(());
++            }
++            self.reply(&step, started, due, outcome, deadline)?;
++        }
++    }
++
++    fn reply(
++        &mut self,
++        step: &Step,
++        started: u64,
++        due: u64,
++        outcome: Outcome,
++        deadline: Instant,
++    ) -> io::Result<()> {
++        self.channel.write_until(
++            &Checked {
++                version: VERSION,
++                nonce: self.nonce.clone(),
++                round: step.round,
++                at_ns: step.at_ns,
++                completed_cycles: self.cycles,
++                cycle_started_ns: started,
++                next_due_ns: due,
++                construction_or_publish: outcome,
++            },
++            deadline,
++        )
++    }
++}
++
++impl<R: Read + AsFd, W: Write + AsFd> ReportSchedule for Schedule<R, W> {
++    fn now(&self) -> Instant {
++        self.clock.now()
++    }
++
++    fn wait(&mut self, cycle: ReportCycle, remaining: Duration) -> io::Result<()> {
++        if self.failed {
++            return Err(invalid("records fixture schedule already failed"));
++        }
++        let result = self.wait_inner(cycle, remaining);
++        if result.is_err() {
++            self.failed = true;
++            self.channel.close();
++        }
++        result
++    }
++}
++
++#[cfg(not(test))]
++pub fn report(
++    config: std::path::PathBuf,
++    result: std::path::PathBuf,
++    seconds: Option<u64>,
++) -> io::Result<()> {
++    use crate::{Reporter, fixture_protocol::HOST_WAIT, reporting_with};
++    use std::fs::File;
++    if seconds.is_none() {
++        return Err(invalid("records fixture requires --seconds"));
++    }
++    let reader = File::from(rustix::io::fcntl_dupfd_cloexec(io::stdin(), 0)?);
++    let writer = File::from(rustix::io::fcntl_dupfd_cloexec(io::stdout(), 0)?);
++    let mut schedule =
++        Schedule::bootstrap(Channel::new(reader, writer)?, Instant::now() + HOST_WAIT)?;
++    let clock = schedule.clock();
++    reporting_with(config, result, seconds, &mut schedule, |root| {
++        let clock = clock.clone();
++        Reporter::new_with_cadence_clock(root, move || clock.now())
++    })
++}
+--- before/lampOS/crates/records/src/fixture_schedule_tests.rs
++++ after/lampOS/crates/records/src/fixture_schedule_tests.rs
+@@ -0,0 +1,388 @@
++use super::*;
++use crate::{
++    fixture_protocol::{Bootstrap, Channel, Checked, HOST_WAIT, Outcome, PERIOD_NS, Step, VERSION},
++    fixture_schedule::Schedule,
++};
++use lamp_msgs::Diagnostic;
++use std::{
++    fs::{self, File},
++    io::Read,
++    os::unix::fs::PermissionsExt,
++    sync::{
++        atomic::{AtomicU64, Ordering},
++        mpsc,
++    },
++    thread,
++};
++
++const NONCE: &str = "recordsBoundary";
++type Pipes = Channel<File, File>;
++
++// Standard-library pipes coordinate close-on-exec setup with process spawning.
++fn private_pipe() -> io::Result<(std::os::fd::OwnedFd, std::os::fd::OwnedFd)> {
++    let (reader, writer) = std::io::pipe()?;
++    Ok((reader.into(), writer.into()))
++}
++
++fn channels() -> (Pipes, Pipes, File) {
++    let (requests, input) = private_pipe().unwrap();
++    let (output, replies) = private_pipe().unwrap();
++    let output = File::from(output);
++    let probe = output.try_clone().unwrap();
++    (
++        Channel::new(output, File::from(input)).unwrap(),
++        Channel::new(File::from(requests), File::from(replies)).unwrap(),
++        probe,
++    )
++}
++
++fn deadline() -> Instant {
++    Instant::now() + HOST_WAIT
++}
++
++fn begin(parent: &mut Pipes) {
++    parent
++        .write_until(
++            &Bootstrap {
++                version: VERSION,
++                nonce: NONCE.into(),
++            },
++            deadline(),
++        )
++        .unwrap();
++}
++
++fn request(parent: &mut Pipes, round: u64, at_ns: u64) {
++    parent
++        .write_until(
++            &Step {
++                nonce: NONCE.into(),
++                round,
++                at_ns,
++            },
++            deadline(),
++        )
++        .unwrap();
++}
++
++fn checked(parent: &mut Pipes) -> Checked {
++    parent.read_until(deadline()).unwrap()
++}
++
++fn no_reply(probe: &mut File) {
++    let error = probe.read(&mut [0]).unwrap_err();
++    assert_eq!(error.kind(), io::ErrorKind::WouldBlock);
++}
++
++fn cycle(schedule: &Schedule<File, File>, began: Instant) -> ReportCycle {
++    ReportCycle {
++        started: schedule.now(),
++        host_started: began,
++        host_seconds: Some(4),
++        construction_or_publish: Ok(()),
++    }
++}
++
++struct Scratch(PathBuf);
++
++impl Scratch {
++    fn new() -> Self {
++        static NEXT: AtomicU64 = AtomicU64::new(0);
++        let path = fs::canonicalize("/tmp").unwrap().join(format!(
++            "rcf-{}-{}",
++            std::process::id(),
++            NEXT.fetch_add(1, Ordering::Relaxed)
++        ));
++        fs::create_dir(&path).unwrap();
++        fs::set_permissions(&path, fs::Permissions::from_mode(0o700)).unwrap();
++        Self(path)
++    }
++
++    fn config(&self) -> (PathBuf, Config) {
++        let mut config = Config::customer_default();
++        config.bus_root = self.0.join("bus");
++        let path = self.0.join("config.json");
++        json_file::write(&path, &config).unwrap();
++        (path, config)
++    }
++}
++
++impl Drop for Scratch {
++    fn drop(&mut self) {
++        fs::remove_dir_all(&self.0).unwrap();
++    }
++}
++
++#[test]
++fn reads_and_pre_due_steps_are_pure_and_due_reply_waits_for_the_next_cycle() {
++    let (mut parent, child, mut probe) = channels();
++    begin(&mut parent);
++    let mut schedule = Schedule::bootstrap(child, deadline()).unwrap();
++    let first = schedule.now();
++    for _ in 0..32 {
++        assert_eq!(schedule.now(), first);
++    }
++    for (round, at) in [
++        (1, 0),
++        (2, 0),
++        (3, PERIOD_NS / 2),
++        (4, PERIOD_NS - 1),
++        (5, PERIOD_NS),
++    ] {
++        request(&mut parent, round, at);
++    }
++    let began = Instant::now();
++    schedule
++        .wait(cycle(&schedule, began), Duration::from_secs(1))
++        .unwrap();
++    for (round, at) in [(1, 0), (2, 0), (3, PERIOD_NS / 2), (4, PERIOD_NS - 1)] {
++        let reply = checked(&mut parent);
++        assert_eq!(
++            (reply.round, reply.at_ns, reply.completed_cycles),
++            (round, at, 1)
++        );
++        assert_eq!((reply.cycle_started_ns, reply.next_due_ns), (0, PERIOD_NS));
++    }
++    no_reply(&mut probe);
++    assert_eq!(schedule.now() - first, Duration::from_secs(1));
++    request(&mut parent, 6, 2 * PERIOD_NS);
++    schedule
++        .wait(cycle(&schedule, began), Duration::from_secs(1))
++        .unwrap();
++    let reply = checked(&mut parent);
++    assert_eq!((reply.round, reply.completed_cycles), (5, 2));
++    assert_eq!(
++        (reply.at_ns, reply.cycle_started_ns, reply.next_due_ns),
++        (PERIOD_NS, PERIOD_NS, 2 * PERIOD_NS)
++    );
++    no_reply(&mut probe);
++}
++
++#[test]
++fn invalid_initial_identity_round_or_time_never_advances_and_latches_failure() {
++    for (nonce, round, at_ns) in [
++        ("other", 1, 0),
++        (NONCE, 0, 0),
++        (NONCE, 2, 0),
++        (NONCE, 1, 1),
++        (NONCE, 1, PERIOD_NS + 1),
++        (NONCE, 1, u64::MAX),
++    ] {
++        let (mut parent, child, _) = channels();
++        begin(&mut parent);
++        let mut schedule = Schedule::bootstrap(child, deadline()).unwrap();
++        let original = schedule.now();
++        parent
++            .write_until(
++                &Step {
++                    nonce: nonce.into(),
++                    round,
++                    at_ns,
++                },
++                deadline(),
++            )
++            .unwrap();
++        let began = Instant::now();
++        assert!(
++            schedule
++                .wait(cycle(&schedule, began), Duration::from_secs(1))
++                .is_err()
++        );
++        assert_eq!(schedule.now(), original);
++        assert!(
++            schedule
++                .wait(cycle(&schedule, began), Duration::from_secs(1))
++                .unwrap_err()
++                .to_string()
++                .contains("already failed")
++        );
++        assert_eq!(
++            parent.read_until::<Checked>(deadline()).unwrap_err().kind(),
++            io::ErrorKind::UnexpectedEof
++        );
++    }
++}
++
++#[test]
++fn a_stale_round_backwards_time_or_future_jump_after_settling_is_terminal() {
++    for (round, at_ns) in [
++        (2, PERIOD_NS / 2),
++        (3, PERIOD_NS / 2 - 1),
++        (3, PERIOD_NS + 1),
++    ] {
++        let (mut parent, child, _) = channels();
++        begin(&mut parent);
++        let mut schedule = Schedule::bootstrap(child, deadline()).unwrap();
++        let original = schedule.now();
++        request(&mut parent, 1, 0);
++        request(&mut parent, 2, PERIOD_NS / 2);
++        request(&mut parent, round, at_ns);
++        let began = Instant::now();
++        assert!(
++            schedule
++                .wait(cycle(&schedule, began), Duration::from_secs(1))
++                .is_err()
++        );
++        assert_eq!(checked(&mut parent).at_ns, 0);
++        assert_eq!(checked(&mut parent).at_ns, PERIOD_NS / 2);
++        assert_eq!(
++            schedule.now() - original,
++            Duration::from_nanos(PERIOD_NS / 2)
++        );
++        assert_eq!(
++            parent.read_until::<Checked>(deadline()).unwrap_err().kind(),
++            io::ErrorKind::UnexpectedEof
++        );
++    }
++}
++
++#[test]
++fn zero_wait_and_changed_host_lifetime_cannot_acknowledge_a_cycle() {
++    let (mut parent, child, _) = channels();
++    begin(&mut parent);
++    let mut schedule = Schedule::bootstrap(child, deadline()).unwrap();
++    let began = Instant::now();
++    assert!(
++        schedule
++            .wait(cycle(&schedule, began), Duration::ZERO)
++            .is_err()
++    );
++    assert_eq!(
++        parent.read_until::<Checked>(deadline()).unwrap_err().kind(),
++        io::ErrorKind::UnexpectedEof
++    );
++
++    let (mut parent, child, _) = channels();
++    begin(&mut parent);
++    let mut schedule = Schedule::bootstrap(child, deadline()).unwrap();
++    request(&mut parent, 1, 0);
++    request(&mut parent, 2, PERIOD_NS);
++    schedule
++        .wait(cycle(&schedule, began), Duration::from_secs(1))
++        .unwrap();
++    assert_eq!(checked(&mut parent).completed_cycles, 1);
++    assert!(
++        schedule
++            .wait(
++                cycle(&schedule, began + Duration::from_nanos(1)),
++                Duration::from_secs(1)
++            )
++            .is_err()
++    );
++    assert_eq!(
++        parent.read_until::<Checked>(deadline()).unwrap_err().kind(),
++        io::ErrorKind::UnexpectedEof
++    );
++}
++
++#[test]
++fn actual_first_and_due_factories_must_finish_before_checked_or_event() {
++    let scratch = Scratch::new();
++    let (path, mut config) = scratch.config();
++    let bus = lamp_bus::Bus::new(&config.bus_root).unwrap();
++    let mut first = bus
++        .subscribe_typed(Diagnostic::TOPIC, "first", Diagnostic::TYPE)
++        .unwrap();
++    let second_root = scratch.0.join("other");
++    let second_bus = lamp_bus::Bus::new(&second_root).unwrap();
++    let mut second = second_bus
++        .subscribe_typed(Diagnostic::TOPIC, "next", Diagnostic::TYPE)
++        .unwrap();
++    thread::scope(|threads| {
++        let (mut parent, child, mut probe) = channels();
++        let (entered_tx, entered_rx) = mpsc::sync_channel(1);
++        let (release_tx, release_rx) = mpsc::sync_channel(1);
++        begin(&mut parent);
++        request(&mut parent, 1, 0);
++        let child_path = path.clone();
++        let result = scratch.0.join("last.json");
++        let worker = threads.spawn(move || {
++            let mut schedule = Schedule::bootstrap(child, deadline()).unwrap();
++            let clock = schedule.clock();
++            reporting_with(child_path, result, Some(4), &mut schedule, |root| {
++                entered_tx.send(()).unwrap();
++                release_rx.recv_timeout(HOST_WAIT).unwrap();
++                let clock = clock.clone();
++                Reporter::new_with_cadence_clock(root, move || clock.now())
++            })
++        });
++        entered_rx.recv_timeout(HOST_WAIT).unwrap();
++        no_reply(&mut probe);
++        assert!(first.recv(Duration::ZERO).unwrap().is_none());
++        release_tx.send(()).unwrap();
++        assert_eq!(checked(&mut parent).completed_cycles, 1);
++        assert!(first.recv(Duration::ZERO).unwrap().is_some());
++        config.bus_root = second_root.clone();
++        json_file::write(&path, &config).unwrap();
++        request(&mut parent, 2, PERIOD_NS - 1);
++        assert_eq!(checked(&mut parent).completed_cycles, 1);
++        assert_eq!(
++            entered_rx.try_recv().unwrap_err(),
++            mpsc::TryRecvError::Empty
++        );
++        assert!(second.recv(Duration::ZERO).unwrap().is_none());
++        request(&mut parent, 3, PERIOD_NS);
++        entered_rx.recv_timeout(HOST_WAIT).unwrap();
++        no_reply(&mut probe);
++        assert!(second.recv(Duration::ZERO).unwrap().is_none());
++        release_tx.send(()).unwrap();
++        let reply = checked(&mut parent);
++        assert_eq!(
++            (reply.round, reply.completed_cycles, reply.at_ns),
++            (3, 2, PERIOD_NS)
++        );
++        assert_eq!(reply.construction_or_publish, Outcome::ReturnedOk);
++        assert!(second.recv(Duration::ZERO).unwrap().is_some());
++        parent.close();
++        assert_eq!(
++            worker.join().unwrap().unwrap_err().kind(),
++            io::ErrorKind::UnexpectedEof
++        );
++    });
++}
++
++#[test]
++fn real_construction_failure_can_only_recover_on_the_original_next_due() {
++    let scratch = Scratch::new();
++    let (path, config) = scratch.config();
++    let bus = lamp_bus::Bus::new(&config.bus_root).unwrap();
++    let mut listener = bus
++        .subscribe_typed(Diagnostic::TOPIC, "recover", Diagnostic::TYPE)
++        .unwrap();
++    thread::scope(|threads| {
++        let (mut parent, child, _) = channels();
++        begin(&mut parent);
++        let result = scratch.0.join("last.json");
++        let worker = threads.spawn(move || {
++            let mut schedule = Schedule::bootstrap(child, deadline()).unwrap();
++            let clock = schedule.clock();
++            let mut first = true;
++            reporting_with(path, result, Some(4), &mut schedule, |root| {
++                if std::mem::take(&mut first) {
++                    return Err(io::Error::other("held construction failure"));
++                }
++                let clock = clock.clone();
++                Reporter::new_with_cadence_clock(root, move || clock.now())
++            })
++        });
++        request(&mut parent, 1, 0);
++        assert_eq!(
++            checked(&mut parent).construction_or_publish,
++            Outcome::ReturnedErr
++        );
++        assert!(listener.recv(Duration::ZERO).unwrap().is_none());
++        request(&mut parent, 2, PERIOD_NS - 1);
++        assert_eq!(
++            checked(&mut parent).construction_or_publish,
++            Outcome::ReturnedErr
++        );
++        assert!(listener.recv(Duration::ZERO).unwrap().is_none());
++        request(&mut parent, 3, PERIOD_NS);
++        let reply = checked(&mut parent);
++        assert_eq!(reply.completed_cycles, 2);
++        assert_eq!(reply.construction_or_publish, Outcome::ReturnedOk);
++        assert!(listener.recv(Duration::ZERO).unwrap().is_some());
++        parent.close();
++        assert!(worker.join().unwrap().is_err());
++    });
++}
+--- before/lampOS/crates/records/tests/support/records_control.rs
++++ after/lampOS/crates/records/tests/support/records_control.rs
+@@ -0,0 +1,268 @@
++//! Parent-side Records fixture control. Checked is not an Event or an exit.
++#[path = "../../src/fixture_protocol.rs"]
++pub mod protocol;
++
++use protocol::{
++    Bootstrap, Channel, Checked, HOST_WAIT, PERIOD_NS, Step, VERSION, invalid, remaining,
++};
++use std::{
++    io::{self, Read, Write},
++    os::fd::AsFd,
++    process::{Child, ChildStdin, ChildStdout, Command, Stdio},
++    sync::atomic::{AtomicU64, Ordering},
++    time::Instant,
++};
++
++#[derive(Clone, Copy)]
++pub struct Window {
++    deadline: Instant,
++    start_ns: u64,
++    end_ns: u64,
++}
++
++impl Window {
++    pub fn new(deadline: Instant, start_ns: u64) -> io::Result<Self> {
++        remaining(deadline)?;
++        let span = u64::try_from(HOST_WAIT.as_nanos())
++            .map_err(|_| invalid("records fixture window overflow"))?;
++        Ok(Self {
++            deadline,
++            start_ns,
++            end_ns: start_ns
++                .checked_add(span)
++                .ok_or_else(|| invalid("records fixture window overflow"))?,
++        })
++    }
++
++    fn contains(&self, at_ns: u64) -> io::Result<()> {
++        remaining(self.deadline)?;
++        if at_ns < self.start_ns || at_ns > self.end_ns {
++            return Err(invalid(
++                "records fixture step is outside its original window",
++            ));
++        }
++        Ok(())
++    }
++
++    pub fn receiving(&self, at_ns: u64) -> io::Result<()> {
++        self.contains(at_ns)?;
++        if at_ns == self.end_ns {
++            return Err(io::Error::new(
++                io::ErrorKind::TimedOut,
++                "records fixture logical status deadline",
++            ));
++        }
++        Ok(())
++    }
++}
++
++pub struct Controller<R, W> {
++    channel: Channel<R, W>,
++    nonce: String,
++    checked: Option<Checked>,
++    failure: Option<(io::ErrorKind, String)>,
++}
++
++impl<R: Read + AsFd, W: Write + AsFd> Controller<R, W> {
++    pub fn new(channel: Channel<R, W>, nonce: String) -> io::Result<Self> {
++        Bootstrap {
++            version: VERSION,
++            nonce: nonce.clone(),
++        }
++        .validate()?;
++        Ok(Self {
++            channel,
++            nonce,
++            checked: None,
++            failure: None,
++        })
++    }
++
++    pub fn elapsed_ns(&self) -> io::Result<u64> {
++        self.live()?;
++        Ok(self.checked.as_ref().map_or(0, |checked| checked.at_ns))
++    }
++
++    pub fn settle_current(&mut self, window: &Window) -> io::Result<Checked> {
++        self.step_to(self.elapsed_ns()?, window)
++    }
++
++    pub fn step_due(&mut self, window: &Window) -> io::Result<Checked> {
++        self.live()?;
++        let due = self
++            .checked
++            .as_ref()
++            .map_or(PERIOD_NS, |checked| checked.next_due_ns);
++        self.step_to(due, window)
++    }
++
++    pub fn step_to(&mut self, at_ns: u64, window: &Window) -> io::Result<Checked> {
++        self.live()?;
++        let result = self.exchange(at_ns, window);
++        if let Err(error) = &result {
++            self.failure = Some((error.kind(), error.to_string()));
++            self.channel.close();
++        }
++        result
++    }
++
++    fn exchange(&mut self, at_ns: u64, window: &Window) -> io::Result<Checked> {
++        window.contains(self.elapsed_ns()?)?;
++        window.contains(at_ns)?;
++        let round = match &self.checked {
++            None if at_ns == 0 => 1,
++            Some(previous) if previous.at_ns <= at_ns && at_ns <= previous.next_due_ns => previous
++                .round
++                .checked_add(1)
++                .ok_or_else(|| invalid("records fixture round overflow"))?,
++            _ => return Err(invalid("invalid parent records fixture step")),
++        };
++        if self.checked.is_none() {
++            self.channel.write_until(
++                &Bootstrap {
++                    version: VERSION,
++                    nonce: self.nonce.clone(),
++                },
++                window.deadline,
++            )?;
++        }
++        self.channel.write_until(
++            &Step {
++                nonce: self.nonce.clone(),
++                round,
++                at_ns,
++            },
++            window.deadline,
++        )?;
++        let checked: Checked = self.channel.read_until(window.deadline)?;
++        self.validate(&checked, round, at_ns)?;
++        remaining(window.deadline)?;
++        // Commit only after the entire actual response has been validated.
++        self.checked = Some(checked.clone());
++        Ok(checked)
++    }
++
++    fn validate(&self, checked: &Checked, round: u64, at_ns: u64) -> io::Result<()> {
++        if checked.version != VERSION
++            || checked.nonce != self.nonce
++            || checked.round != round
++            || checked.at_ns != at_ns
++        {
++            return Err(invalid("records fixture response identity mismatch"));
++        }
++        let valid = match &self.checked {
++            None => {
++                checked.completed_cycles == 1
++                    && checked.cycle_started_ns == 0
++                    && checked.next_due_ns == PERIOD_NS
++            }
++            Some(previous) if at_ns < previous.next_due_ns => {
++                checked.completed_cycles == previous.completed_cycles
++                    && checked.cycle_started_ns == previous.cycle_started_ns
++                    && checked.next_due_ns == previous.next_due_ns
++                    && checked.construction_or_publish == previous.construction_or_publish
++            }
++            Some(previous) => {
++                Some(checked.completed_cycles) == previous.completed_cycles.checked_add(1)
++                    && checked.cycle_started_ns == at_ns
++                    && Some(checked.next_due_ns) == at_ns.checked_add(PERIOD_NS)
++            }
++        };
++        if !valid {
++            return Err(invalid("records fixture response cycle mismatch"));
++        }
++        Ok(())
++    }
++
++    fn live(&self) -> io::Result<()> {
++        match &self.failure {
++            Some((kind, message)) => Err(io::Error::new(*kind, message.clone())),
++            None => Ok(()),
++        }
++    }
++
++    pub fn close(&mut self) {
++        if self.failure.is_none() {
++            self.failure = Some((
++                io::ErrorKind::BrokenPipe,
++                "records fixture controller closed".into(),
++            ));
++        }
++        self.channel.close();
++    }
++}
++
++pub struct RunningReporter(pub Child, Option<Controller<ChildStdout, ChildStdin>>);
++
++impl RunningReporter {
++    pub fn spawn(command: &mut Command) -> io::Result<Self> {
++        let child = command
++            .stdin(Stdio::piped())
++            .stdout(Stdio::piped())
++            .spawn()?;
++        Self::from_child(child)
++    }
++
++    pub fn from_child(child: Child) -> io::Result<Self> {
++        static NEXT: AtomicU64 = AtomicU64::new(0);
++        // Establish cleanup ownership before either descriptor or fcntl step.
++        let mut owned = Self(child, None);
++        let input = owned
++            .0
++            .stdin
++            .take()
++            .ok_or_else(|| invalid("missing fixture stdin"))?;
++        let output = owned
++            .0
++            .stdout
++            .take()
++            .ok_or_else(|| invalid("missing fixture stdout"))?;
++        let id = NEXT
++            .fetch_update(Ordering::Relaxed, Ordering::Relaxed, |old| {
++                old.checked_add(1)
++            })
++            .map_err(|_| invalid("records fixture nonce exhausted"))?;
++        let nonce = format!("r{:x}c{id:x}", std::process::id());
++        owned.1 = Some(Controller::new(Channel::new(output, input)?, nonce)?);
++        Ok(owned)
++    }
++
++    fn controller(&mut self) -> io::Result<&mut Controller<ChildStdout, ChildStdin>> {
++        self.1
++            .as_mut()
++            .ok_or_else(|| invalid("records fixture control is unavailable"))
++    }
++
++    pub fn elapsed_ns(&self) -> io::Result<u64> {
++        self.1
++            .as_ref()
++            .ok_or_else(|| invalid("records fixture control is unavailable"))?
++            .elapsed_ns()
++    }
++
++    pub fn settle_current(&mut self, window: &Window) -> io::Result<Checked> {
++        self.controller()?.settle_current(window)
++    }
++
++    pub fn step_due(&mut self, window: &Window) -> io::Result<Checked> {
++        self.controller()?.step_due(window)
++    }
++
++    pub fn close(&mut self) {
++        if let Some(controller) = &mut self.1 {
++            controller.close();
++        }
++    }
++}
++
++impl Drop for RunningReporter {
++    fn drop(&mut self) {
++        self.close();
++        // Reap this test's own child on success and during panic unwinding.
++        // Its independent 30-second lifetime also bounds a failed test run.
++        if !matches!(self.0.try_wait(), Ok(Some(_))) {
++            let _ = self.0.kill();
++            let _ = self.0.wait();
++        }
++    }
++}
+--- before/lampOS/crates/records/tests/records_control.rs
++++ after/lampOS/crates/records/tests/records_control.rs
+@@ -0,0 +1,659 @@
++#[path = "support/records_control.rs"]
++mod control;
++
++use control::{Controller, RunningReporter, Window, protocol::*};
++use lamp_msgs::Diagnostic;
++use lamp_records::{config::Config, json_file};
++use std::{
++    fs::{self, File},
++    io::{self, Read, Write},
++    os::unix::fs::PermissionsExt,
++    panic::{AssertUnwindSafe, catch_unwind},
++    path::PathBuf,
++    process::{Child, Command, Stdio},
++    sync::atomic::{AtomicU64, Ordering},
++    thread,
++    time::{Duration, Instant},
++};
++
++type Pipes = Channel<File, File>;
++
++// Standard-library pipes coordinate close-on-exec setup with process spawning.
++fn private_pipe() -> io::Result<(std::os::fd::OwnedFd, std::os::fd::OwnedFd)> {
++    let (reader, writer) = std::io::pipe()?;
++    Ok((reader.into(), writer.into()))
++}
++type ChildPipes = Channel<std::process::ChildStdout, std::process::ChildStdin>;
++const NONCE: &str = "recordsParentBoundary";
++
++fn deadline() -> Instant {
++    Instant::now() + HOST_WAIT
++}
++
++fn channels() -> (Pipes, Pipes) {
++    let (requests, input) = private_pipe().unwrap();
++    let (output, replies) = private_pipe().unwrap();
++    (
++        Channel::new(File::from(output), File::from(input)).unwrap(),
++        Channel::new(File::from(requests), File::from(replies)).unwrap(),
++    )
++}
++
++fn reply(step: &Step, cycles: u64, started: u64) -> Checked {
++    Checked {
++        version: VERSION,
++        nonce: step.nonce.clone(),
++        round: step.round,
++        at_ns: step.at_ns,
++        completed_cycles: cycles,
++        cycle_started_ns: started,
++        next_due_ns: started + PERIOD_NS,
++        construction_or_publish: Outcome::ReturnedOk,
++    }
++}
++
++struct Scratch(PathBuf);
++impl Scratch {
++    fn new() -> Self {
++        static NEXT: AtomicU64 = AtomicU64::new(0);
++        let path = fs::canonicalize("/tmp").unwrap().join(format!(
++            "rct-{}-{}",
++            std::process::id(),
++            NEXT.fetch_add(1, Ordering::Relaxed)
++        ));
++        fs::create_dir(&path).unwrap();
++        fs::set_permissions(&path, fs::Permissions::from_mode(0o700)).unwrap();
++        Self(path)
++    }
++    fn config(&self) -> (PathBuf, Config) {
++        let mut config = Config::customer_default();
++        config.bus_root = self.0.join("bus");
++        let path = self.0.join("config.json");
++        json_file::write(&path, &config).unwrap();
++        (path, config)
++    }
++    fn command(&self, seconds: &str) -> Command {
++        let mut command = Command::new(env!("CARGO_BIN_EXE_lamp-records-fixture"));
++        command
++            .arg("report")
++            .arg(self.0.join("config.json"))
++            .arg(self.0.join("last.json"))
++            .args(["--seconds", seconds])
++            .stderr(Stdio::inherit());
++        command
++    }
++}
++impl Drop for Scratch {
++    fn drop(&mut self) {
++        fs::remove_dir_all(&self.0).unwrap();
++    }
++}
++
++// This owner is used only for raw protocol fault tests which deliberately do
++// not construct the validated parent Controller. It still owns actual reap.
++struct RawChild(Child);
++impl Drop for RawChild {
++    fn drop(&mut self) {
++        if !matches!(self.0.try_wait(), Ok(Some(_))) {
++            let _ = self.0.kill();
++            let _ = self.0.wait();
++        }
++    }
++}
++
++fn raw_child(scratch: &Scratch, seconds: &str) -> (RawChild, ChildPipes, File) {
++    let child = scratch
++        .command(seconds)
++        .stdin(Stdio::piped())
++        .stdout(Stdio::piped())
++        .spawn()
++        .unwrap();
++    let mut owned = RawChild(child);
++    let input = owned.0.stdin.take().unwrap();
++    let output = owned.0.stdout.take().unwrap();
++    let probe = File::from(rustix::io::fcntl_dupfd_cloexec(&output, 0).unwrap());
++    let channel = Channel::new(output, input).unwrap();
++    (owned, channel, probe)
++}
++
++fn assert_reaped(pid: u32) {
++    let pid = rustix::process::Pid::from_raw(i32::try_from(pid).unwrap()).unwrap();
++    assert_eq!(
++        rustix::process::waitpid(Some(pid), rustix::process::WaitOptions::NOHANG).unwrap_err(),
++        rustix::io::Errno::CHILD
++    );
++}
++
++#[test]
++fn actual_child_returns_three_distinct_events_at_full_due_intervals() {
++    let scratch = Scratch::new();
++    let (_, config) = scratch.config();
++    let bus = lamp_bus::Bus::new(&config.bus_root).unwrap();
++    let mut listener = bus
++        .subscribe_typed(Diagnostic::TOPIC, "actual", Diagnostic::TYPE)
++        .unwrap();
++    let mut owned = RunningReporter::spawn(&mut scratch.command("30")).unwrap();
++    let pid = owned.0.id();
++    let window = Window::new(deadline(), owned.elapsed_ns().unwrap()).unwrap();
++    let first = owned.settle_current(&window).unwrap();
++    assert_eq!((first.at_ns, first.completed_cycles), (0, 1));
++    for count in 1..=3 {
++        if count > 1 {
++            let checked = owned.step_due(&window).unwrap();
++            assert_eq!(
++                (checked.at_ns, checked.completed_cycles),
++                ((count - 1) * PERIOD_NS, count)
++            );
++        }
++        window.receiving(owned.elapsed_ns().unwrap()).unwrap();
++        assert!(owned.0.try_wait().unwrap().is_none());
++        let message = listener
++            .recv(Duration::ZERO)
++            .unwrap()
++            .expect("actual Event");
++        let diagnostic: Diagnostic = serde_json::from_value(message.json().unwrap()).unwrap();
++        assert_eq!(diagnostic.name, "records");
++        assert_eq!(message.header.seq, count);
++        assert!(listener.recv(Duration::ZERO).unwrap().is_none());
++    }
++    drop(owned);
++    assert_reaped(pid);
++}
++
++#[test]
++fn returned_ok_without_a_subscriber_is_not_a_delivered_event() {
++    let scratch = Scratch::new();
++    let (_, config) = scratch.config();
++    let mut owned = RunningReporter::spawn(&mut scratch.command("30")).unwrap();
++    let window = Window::new(deadline(), 0).unwrap();
++    assert_eq!(
++        owned
++            .settle_current(&window)
++            .unwrap()
++            .construction_or_publish,
++        Outcome::ReturnedOk
++    );
++    let bus = lamp_bus::Bus::new(&config.bus_root).unwrap();
++    let mut listener = bus
++        .subscribe_typed(Diagnostic::TOPIC, "late", Diagnostic::TYPE)
++        .unwrap();
++    assert!(listener.recv(Duration::ZERO).unwrap().is_none());
++    let same = owned.settle_current(&window).unwrap();
++    assert_eq!(same.completed_cycles, 1);
++    assert!(listener.recv(Duration::ZERO).unwrap().is_none());
++    assert_eq!(owned.step_due(&window).unwrap().completed_cycles, 2);
++    assert!(listener.recv(Duration::ZERO).unwrap().is_some());
++}
++
++#[test]
++fn blocked_control_keeps_the_real_one_second_lifetime_and_exits_with_error_64() {
++    let scratch = Scratch::new();
++    scratch.config();
++    let began = Instant::now();
++    let (mut child, mut channel, _) = raw_child(&scratch, "1");
++    let end = deadline();
++    channel
++        .write_until(
++            &Bootstrap {
++                version: VERSION,
++                nonce: NONCE.into(),
++            },
++            end,
++        )
++        .unwrap();
++    channel
++        .write_until(
++            &Step {
++                nonce: NONCE.into(),
++                round: 1,
++                at_ns: 0,
++            },
++            end,
++        )
++        .unwrap();
++    let checked: Checked = channel.read_until(end).unwrap();
++    assert_eq!(checked.completed_cycles, 1);
++    assert!(child.0.try_wait().unwrap().is_none());
++    assert_eq!(
++        channel.read_until::<Checked>(end).unwrap_err().kind(),
++        io::ErrorKind::UnexpectedEof
++    );
++    // EOF is only a transport fact. The actual wait supplies the exit status.
++    let status = child.0.wait().unwrap();
++    assert_eq!(status.code(), Some(64));
++    assert!(began.elapsed() >= Duration::from_secs(1));
++    assert_eq!(child.0.try_wait().unwrap(), Some(status));
++}
++
++#[test]
++fn actual_control_close_requires_actual_error_exit_and_reap() {
++    let scratch = Scratch::new();
++    scratch.config();
++    let (mut child, mut channel, probe) = raw_child(&scratch, "30");
++    let end = deadline();
++    channel
++        .write_until(
++            &Bootstrap {
++                version: VERSION,
++                nonce: NONCE.into(),
++            },
++            end,
++        )
++        .unwrap();
++    channel
++        .write_until(
++            &Step {
++                nonce: NONCE.into(),
++                round: 1,
++                at_ns: 0,
++            },
++            end,
++        )
++        .unwrap();
++    assert_eq!(
++        channel.read_until::<Checked>(end).unwrap().completed_cycles,
++        1
++    );
++    assert!(child.0.try_wait().unwrap().is_none());
++    channel.close();
++    let (_unused, output) = private_pipe().unwrap();
++    let mut eof = Channel::new(probe, File::from(output)).unwrap();
++    assert_eq!(
++        eof.read_until::<Checked>(end).unwrap_err().kind(),
++        io::ErrorKind::UnexpectedEof
++    );
++    assert_eq!(child.0.wait().unwrap().code(), Some(64));
++    let pid = child.0.id();
++    drop(child);
++    assert_reaped(pid);
++}
++
++#[test]
++fn invalid_bootstrap_is_an_actual_child_error_before_any_reporting_event() {
++    for bootstrap in [
++        Bootstrap {
++            version: VERSION + 1,
++            nonce: NONCE.into(),
++        },
++        Bootstrap {
++            version: VERSION,
++            nonce: "bad nonce".into(),
++        },
++    ] {
++        let scratch = Scratch::new();
++        let (_, config) = scratch.config();
++        let bus = lamp_bus::Bus::new(&config.bus_root).unwrap();
++        let mut listener = bus
++            .subscribe_typed(Diagnostic::TOPIC, "invalid", Diagnostic::TYPE)
++            .unwrap();
++        let (mut child, mut channel, _) = raw_child(&scratch, "30");
++        let end = deadline();
++        channel.write_until(&bootstrap, end).unwrap();
++        assert_eq!(
++            channel.read_until::<Checked>(end).unwrap_err().kind(),
++            io::ErrorKind::UnexpectedEof
++        );
++        assert_eq!(child.0.wait().unwrap().code(), Some(64));
++        assert!(listener.recv(Duration::ZERO).unwrap().is_none());
++    }
++}
++
++#[test]
++fn partial_setup_and_parent_unwind_both_reap_the_owned_child() {
++    let scratch = Scratch::new();
++    scratch.config();
++    let child = scratch
++        .command("30")
++        .stdin(Stdio::piped())
++        .stdout(Stdio::null())
++        .spawn()
++        .unwrap();
++    let pid = child.id();
++    assert!(RunningReporter::from_child(child).is_err());
++    assert_reaped(pid);
++    let owned = RunningReporter::spawn(&mut scratch.command("30")).unwrap();
++    let pid = owned.0.id();
++    let failure = catch_unwind(AssertUnwindSafe(move || {
++        let _owned = owned;
++        panic!("injected parent failure");
++    }));
++    assert!(failure.is_err());
++    assert_reaped(pid);
++}
++
++#[test]
++fn a_complete_checked_queued_before_peer_close_is_consumed_and_committed() {
++    {
++        let (mut parent, mut peer) = channels();
++        let end = deadline();
++        let expected = reply(
++            &Step {
++                nonce: NONCE.into(),
++                round: 1,
++                at_ns: 0,
++            },
++            1,
++            0,
++        );
++        peer.write_until(&expected, end).unwrap();
++        peer.close();
++        let checked: Checked = parent.read_until(end).unwrap();
++        assert_eq!(checked, expected);
++        assert_eq!(
++            parent.read_until::<Checked>(end).unwrap_err().kind(),
++            io::ErrorKind::UnexpectedEof
++        );
++    }
++    thread::scope(|threads| {
++        let (parent, mut peer) = channels();
++        let end = deadline();
++        let server = threads.spawn(move || {
++            let bootstrap: Bootstrap = peer.read_until(end).unwrap();
++            bootstrap.validate().unwrap();
++            let step: Step = peer.read_until(end).unwrap();
++            peer.write_until(&reply(&step, 1, 0), end).unwrap();
++        });
++        let mut controller = Controller::new(parent, NONCE.into()).unwrap();
++        let window = Window::new(end, 0).unwrap();
++        let checked = controller.settle_current(&window).unwrap();
++        assert_eq!(checked.completed_cycles, 1);
++        assert_eq!(controller.elapsed_ns().unwrap(), 0);
++        server.join().unwrap();
++        assert!(controller.step_due(&window).is_err());
++        assert!(controller.elapsed_ns().is_err());
++    });
++}
++
++#[test]
++fn every_initial_response_identity_and_cycle_field_is_validated() {
++    for fault in 0..7 {
++        thread::scope(|threads| {
++            let (parent, mut peer) = channels();
++            let end = deadline();
++            let server = threads.spawn(move || {
++                let _: Bootstrap = peer.read_until(end).unwrap();
++                let step: Step = peer.read_until(end).unwrap();
++                let mut checked = reply(&step, 1, 0);
++                match fault {
++                    0 => checked.version += 1,
++                    1 => checked.nonce = "different".into(),
++                    2 => checked.round += 1,
++                    3 => checked.at_ns += 1,
++                    4 => checked.completed_cycles += 1,
++                    5 => checked.cycle_started_ns += 1,
++                    _ => checked.next_due_ns += 1,
++                }
++                peer.write_until(&checked, end).unwrap();
++            });
++            let mut controller = Controller::new(parent, NONCE.into()).unwrap();
++            let window = Window::new(end, 0).unwrap();
++            assert!(controller.settle_current(&window).is_err());
++            assert!(controller.elapsed_ns().is_err());
++            assert!(controller.settle_current(&window).is_err());
++            server.join().unwrap();
++        });
++    }
++}
++
++#[test]
++fn same_time_and_pre_due_replies_cannot_fabricate_new_work_or_change_outcome() {
++    for fault in 0..4 {
++        thread::scope(|threads| {
++            let (parent, mut peer) = channels();
++            let end = deadline();
++            let server = threads.spawn(move || {
++                let _: Bootstrap = peer.read_until(end).unwrap();
++                let first: Step = peer.read_until(end).unwrap();
++                peer.write_until(&reply(&first, 1, 0), end).unwrap();
++                let step: Step = peer.read_until(end).unwrap();
++                let mut checked = reply(&step, 1, 0);
++                match fault {
++                    0 => checked.completed_cycles += 1,
++                    1 => checked.cycle_started_ns += 1,
++                    2 => checked.next_due_ns += 1,
++                    _ => checked.construction_or_publish = Outcome::ReturnedErr,
++                }
++                peer.write_until(&checked, end).unwrap();
++            });
++            let mut controller = Controller::new(parent, NONCE.into()).unwrap();
++            let window = Window::new(end, 0).unwrap();
++            controller.settle_current(&window).unwrap();
++            assert!(
++                controller
++                    .step_to(if fault == 0 { 0 } else { PERIOD_NS - 1 }, &window)
++                    .is_err()
++            );
++            assert!(controller.elapsed_ns().is_err());
++            server.join().unwrap();
++        });
++    }
++}
++
++#[test]
++fn malformed_due_receipt_after_peer_advance_latches_without_parent_time_commit() {
++    for fault in 0..3 {
++        thread::scope(|threads| {
++            let (parent, mut peer) = channels();
++            let end = deadline();
++            let server = threads.spawn(move || {
++                let _: Bootstrap = peer.read_until(end).unwrap();
++                let first: Step = peer.read_until(end).unwrap();
++                peer.write_until(&reply(&first, 1, 0), end).unwrap();
++                let due: Step = peer.read_until(end).unwrap();
++                assert_eq!(due.at_ns, PERIOD_NS);
++                let mut checked = reply(&due, 2, PERIOD_NS);
++                match fault {
++                    0 => checked.completed_cycles = 1,
++                    1 => checked.cycle_started_ns = 0,
++                    _ => checked.next_due_ns += 1,
++                }
++                peer.write_until(&checked, end).unwrap();
++            });
++            let mut controller = Controller::new(parent, NONCE.into()).unwrap();
++            let window = Window::new(end, 0).unwrap();
++            controller.settle_current(&window).unwrap();
++            assert!(controller.step_due(&window).is_err());
++            assert!(controller.elapsed_ns().is_err());
++            assert!(controller.step_due(&window).is_err());
++            server.join().unwrap();
++        });
++    }
++}
++
++#[test]
++fn parent_rejects_future_steps_and_one_window_retains_full_periods_and_end() {
++    thread::scope(|threads| {
++        let (parent, mut peer) = channels();
++        let end = deadline();
++        let server = threads.spawn(move || {
++            let _: Bootstrap = peer.read_until(end).unwrap();
++            for cycle in 0..=4 {
++                let step: Step = peer.read_until(end).unwrap();
++                assert_eq!(step.at_ns, cycle * PERIOD_NS);
++                peer.write_until(&reply(&step, cycle + 1, step.at_ns), end)
++                    .unwrap();
++            }
++        });
++        let mut controller = Controller::new(parent, NONCE.into()).unwrap();
++        let window = Window::new(end, 0).unwrap();
++        controller.settle_current(&window).unwrap();
++        for at in 1..=4 {
++            assert_eq!(controller.step_due(&window).unwrap().at_ns, at * PERIOD_NS);
++            assert_eq!(
++                window.receiving(controller.elapsed_ns().unwrap()).is_ok(),
++                at < 4
++            );
++        }
++        assert!(controller.step_due(&window).is_err());
++        assert!(controller.elapsed_ns().is_err());
++        server.join().unwrap();
++    });
++    let (parent, _peer) = channels();
++    let mut controller = Controller::new(parent, NONCE.into()).unwrap();
++    let window = Window::new(deadline(), 0).unwrap();
++    assert!(controller.step_due(&window).is_err());
++    assert!(controller.elapsed_ns().is_err());
++    assert!(Window::new(deadline(), u64::MAX).is_err());
++    assert!(Window::new(Instant::now(), 0).is_err());
++}
++
++fn raw_channel(bytes: &[u8]) -> Pipes {
++    let (reader, writer) = private_pipe().unwrap();
++    let (unused, output) = private_pipe().unwrap();
++    // These malformed/truncated frames are much smaller than PIPE_BUF.
++    File::from(writer).write_all(bytes).unwrap();
++    drop(unused);
++    Channel::new(File::from(reader), File::from(output)).unwrap()
++}
++
++#[test]
++fn framing_rejects_truncation_unknown_fields_and_malformed_json() {
++    for bytes in [
++        b"{\"version\":1".as_slice(),
++        b"not-json\n",
++        b"{\"version\":1,\"nonce\":\"ok\",\"extra\":1}\n",
++    ] {
++        assert!(
++            raw_channel(bytes)
++                .read_until::<Bootstrap>(deadline())
++                .is_err()
++        );
++    }
++    let (mut parent, _peer) = channels();
++    assert_eq!(
++        parent
++            .write_until(&"x".repeat(MAX_FRAME_BYTES), deadline())
++            .unwrap_err()
++            .kind(),
++        io::ErrorKind::InvalidData
++    );
++    assert_eq!(
++        parent
++            .read_until::<Bootstrap>(Instant::now())
++            .unwrap_err()
++            .kind(),
++        io::ErrorKind::TimedOut
++    );
++}
++
++fn write_raw(file: &mut File, bytes: &[u8], end: Instant) {
++    let flags = rustix::fs::fcntl_getfl(&*file).unwrap();
++    rustix::fs::fcntl_setfl(&*file, flags | rustix::fs::OFlags::NONBLOCK).unwrap();
++    let mut sent = 0;
++    while sent < bytes.len() {
++        let left = remaining(end).unwrap();
++        match file.write(&bytes[sent..sent + 1]) {
++            Ok(1) => sent += 1,
++            Err(error) if error.kind() == io::ErrorKind::Interrupted => {}
++            Err(error) if error.kind() == io::ErrorKind::WouldBlock => {
++                let mut fds = [rustix::event::PollFd::new(
++                    &*file,
++                    rustix::event::PollFlags::OUT,
++                )];
++                let timeout = rustix::event::Timespec::try_from(left).unwrap();
++                match rustix::event::poll(&mut fds, Some(&timeout)) {
++                    Ok(_) => {}
++                    Err(error) if error == rustix::io::Errno::INTR => {}
++                    Err(error) => panic!("raw frame poll: {error}"),
++                }
++            }
++            other => panic!("raw frame write: {other:?}"),
++        }
++    }
++}
++
++#[test]
++fn fragmented_real_pipe_frames_work_and_oversized_reads_fail_at_the_byte_bound() {
++    for oversized in [false, true] {
++        thread::scope(|threads| {
++            let (read, write) = private_pipe().unwrap();
++            let (_unused, output) = private_pipe().unwrap();
++            let end = deadline();
++            let mut frame = if oversized {
++                vec![b' '; MAX_FRAME_BYTES]
++            } else {
++                serde_json::to_vec(&Bootstrap {
++                    version: VERSION,
++                    nonce: NONCE.into(),
++                })
++                .unwrap()
++            };
++            frame.push(b'\n');
++            let sender = threads.spawn(move || write_raw(&mut File::from(write), &frame, end));
++            let mut channel = Channel::new(File::from(read), File::from(output)).unwrap();
++            let result = channel.read_until::<Bootstrap>(end);
++            if oversized {
++                assert_eq!(result.unwrap_err().kind(), io::ErrorKind::InvalidData);
++            } else {
++                let bootstrap = result.unwrap();
++                bootstrap.validate().unwrap();
++                assert_eq!(bootstrap.nonce, NONCE);
++            }
++            sender.join().unwrap();
++        });
++    }
++}
++
++#[test]
++fn filled_real_pipe_write_uses_the_single_absolute_host_deadline() {
++    let (read, write) = private_pipe().unwrap();
++    let mut filler = File::from(write);
++    let duplicate = filler.try_clone().unwrap();
++    let flags = rustix::fs::fcntl_getfl(&filler).unwrap();
++    rustix::fs::fcntl_setfl(&filler, flags | rustix::fs::OFlags::NONBLOCK).unwrap();
++    let fill_end = deadline();
++    loop {
++        remaining(fill_end).unwrap();
++        match filler.write(&[0; 4096]) {
++            Ok(0) => panic!("pipe fill wrote zero"),
++            Ok(_) => {}
++            Err(error) if error.kind() == io::ErrorKind::WouldBlock => break,
++            Err(error) if error.kind() == io::ErrorKind::Interrupted => {}
++            Err(error) => panic!("pipe fill: {error}"),
++        }
++    }
++    // Fill any last sub-PIPE_BUF space, so even the short frame cannot fit.
++    loop {
++        remaining(fill_end).unwrap();
++        match filler.write(&[0]) {
++            Ok(1) => {}
++            Err(error) if error.kind() == io::ErrorKind::WouldBlock => break,
++            Err(error) if error.kind() == io::ErrorKind::Interrupted => {}
++            other => panic!("pipe tail fill: {other:?}"),
++        }
++    }
++    let (dummy_read, _dummy_write) = private_pipe().unwrap();
++    let mut channel = Channel::new(File::from(dummy_read), duplicate).unwrap();
++    let end = deadline();
++    assert_eq!(
++        channel
++            .write_until(
++                &Bootstrap {
++                    version: VERSION,
++                    nonce: NONCE.into()
++                },
++                end
++            )
++            .unwrap_err()
++            .kind(),
++        io::ErrorKind::TimedOut
++    );
++    assert!(Instant::now() >= end);
++    let mut drain = File::from(read);
++    let mut bytes = [0; 1];
++    drain.read_exact(&mut bytes).unwrap();
++    assert_eq!(bytes[0], 0);
++    assert_eq!(
++        channel
++            .write_until(
++                &Bootstrap {
++                    version: VERSION,
++                    nonce: NONCE.into()
++                },
++                end
++            )
++            .unwrap_err()
++            .kind(),
++        io::ErrorKind::TimedOut
++    );
++}
+--- before/lampOS/crates/records/tests/records.rs
++++ after/lampOS/crates/records/tests/records.rs
+@@ -1,3 +1,6 @@
++#[path = "support/records_control.rs"]
++mod records_control;
++
+ use lamp_records::{
+     Disk, RootReport, RunReport,
+     config::Config,
+@@ -12,7 +15,7 @@
+     io::Write,
+     os::unix::fs::{MetadataExt, OpenOptionsExt, PermissionsExt, symlink},
+     path::{Path, PathBuf},
+-    process::{Child, Command, Stdio},
++    process::{Command, Stdio},
+     sync::atomic::{AtomicU64, Ordering},
+     time::{Duration, Instant, SystemTime, UNIX_EPOCH},
+ };
+@@ -212,18 +215,7 @@
+ #[test]
+ fn real_reporter_reloads_switch_and_policy_and_requires_a_matching_receipt() {
+     use lamp_msgs::{Diagnostic, Level};
+-
+-    struct RunningReporter(Child);
+-    impl Drop for RunningReporter {
+-        fn drop(&mut self) {
+-            // Reap this test's own child on success and during panic unwinding.
+-            // Its independent 30-second lifetime also bounds a failed test run.
+-            if !matches!(self.0.try_wait(), Ok(Some(_))) {
+-                let _ = self.0.kill();
+-                let _ = self.0.wait();
+-            }
+-        }
+-    }
++    use records_control::{RunningReporter, Window};
+ 
+     fn field<'a>(diagnostic: &'a Diagnostic, key: &str) -> Option<&'a str> {
+         diagnostic
+@@ -241,6 +233,8 @@
+         before_bytes: u64,
+     ) -> Diagnostic {
+         let deadline = Instant::now() + Duration::from_secs(4);
++        let window = Window::new(deadline, reporter.elapsed_ns().unwrap()).unwrap();
++        reporter.settle_current(&window).unwrap();
+         let enabled = enabled.to_string();
+         let before_bytes = before_bytes.to_string();
+         let mut last = None;
+@@ -254,7 +248,9 @@
+                 reporter.0.try_wait().unwrap().is_none(),
+                 "reporter exited before the expected transition; last={last:?}"
+             );
+-            let Some(message) = listener.recv(remaining).unwrap() else {
++            window.receiving(reporter.elapsed_ns().unwrap()).unwrap();
++            let Some(message) = listener.recv(Duration::ZERO).unwrap() else {
++                reporter.step_due(&window).unwrap();
+                 continue;
+             };
+             let diagnostic: Diagnostic = serde_json::from_value(message.json().unwrap()).unwrap();
+@@ -321,18 +317,15 @@
+     let mut listener = bus
+         .subscribe_typed(Diagnostic::TOPIC, "reload", Diagnostic::TYPE)
+         .unwrap();
+-    let mut reporter = RunningReporter(
+-        Command::new(env!("CARGO_BIN_EXE_lamp-records"))
++    let mut reporter = RunningReporter::spawn(
++        Command::new(env!("CARGO_BIN_EXE_lamp-records-fixture"))
+             .arg("report")
+             .arg(&config_path)
+             .arg(&result_path)
+             .args(["--seconds", "30"])
+-            .stdin(Stdio::null())
+-            .stdout(Stdio::null())
+-            .stderr(Stdio::inherit())
+-            .spawn()
+-            .unwrap(),
+-    );
++            .stderr(Stdio::inherit()),
++    )
++    .unwrap();
+ 
+     let disabled = expect_status(&mut listener, &mut reporter, Level::Ok, false, 0);
+     assert!(disabled.message.contains("disabled"));
+--- before/lampOS/docs/records.md
++++ after/lampOS/docs/records.md
+@@ -325,12 +325,12 @@
+ 
+ ### Explicit reporter cadence for local fixtures
+ 
+-The ordinary executable and a future explicit fixture can share the private
++The ordinary executable and the explicit fixture share the private
+ application body. Ordinary startup still supplies the real reporting function;
+ the parser, initial config read/validation, cleanup commands, file reloads,
+ publication, error handling and exit codes retain their existing order. The
+-original main-binary tests remain at the same paths. This preparation adds no
+-fixture executable, control protocol, environment switch or migrated scenario.
++original main-binary tests remain at the same paths. Ordinary execution has no
++fixture environment switch or control protocol.
+ 
+ The reporting loop accepts an explicit schedule with pure, nondecreasing
+ `Instant` reads and a wait callback, plus a publisher factory selected only at
+@@ -355,6 +355,31 @@
+ a coordinated fixture must supply the same clock domain to both. Clock reads
+ never advance it. No clock replacement reaches retention guards, cleanup,
+ subscriber liveness or the operating system's child-status evidence.
++
++`lamp-records-fixture` is a separate local test executable. It accepts the same
++report arguments with an explicit bounded `--seconds`, and takes versioned,
++nonce/round-checked control frames only through private inherited stdin/stdout
++pipes. Frames are at most 4096 bytes; nonblocking reads and writes share an
++absolute host deadline. Its pure clock is shared with the Bus cadence source.
++The first settle at logical zero is acknowledged only after the real first
++iteration reaches a positive wait. Same-time and pre-due steps hold that wait;
++an exact due step releases it but receives no acknowledgement until the next
++actual reporting iteration reaches its positive wait. Periods remain one
++second. Invalid frames, time or receipts permanently fail the fixture.
++
++The reload integration case retains its six actual Event diagnostics, original
++file/fingerprint transitions and all original assertions. It drains the real
++subscriber queue before each due step and requires an actual matching datagram;
++the control reply reports the combined construction/publication outcome only.
++Each status search keeps its original four-second absolute host deadline and
++one four-second logical window. Its child keeps `--seconds 30` in real host
++time, including when blocked on control. A blocked-control lifetime timeout
++uses the existing error exit 64; it does not fabricate a normal successful
++exit. Real `try_wait`, kill and wait remain authoritative on success, setup
++failure and panic. Kernel filesystem operations, inherited stderr and actual
++reaping do not acquire a universal hard return guarantee from these deadlines.
++No background reader, observer worker, stderr marker or synthetic Event is
++involved, and no runtime speedup is claimed without paired execution evidence.
+ 
+ The saved result under `/run` is lost at reboot. With cleanup enabled, the
+ reporter can therefore show a missing-result error until the next hourly

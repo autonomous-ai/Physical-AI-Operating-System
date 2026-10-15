@@ -192,3 +192,10 @@ mod tests {
 
 #[cfg(test)]
 mod application_schedule_tests;
+
+#[cfg(test)]
+mod fixture_protocol;
+#[cfg(test)]
+mod fixture_schedule;
+#[cfg(test)]
+mod fixture_schedule_tests;

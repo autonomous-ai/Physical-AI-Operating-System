@@ -1,0 +1,24 @@
+{
+  "date": "2026-10-16 05:49:18 +0700",
+  "observations": [
+    {
+      "stage": "baseline",
+      "seconds": "5.614",
+      "binary": "lamp-records::records",
+      "name": "real_reporter_reloads_switch_and_policy_and_requires_a_matching_receipt",
+      "log_sha256": "6355522aa29962604d79a7558927d0920eeef60341e3f0f080d6fc0254b2eb89"
+    },
+    {
+      "stage": "migrated",
+      "seconds": "0.735",
+      "binary": "lamp-records::records",
+      "name": "real_reporter_reloads_switch_and_policy_and_requires_a_matching_receipt",
+      "log_sha256": "3ad856a7a68a7cb0650e3904d5b2518aa7e8a5b4ce0ca6e7b9a748bd1db4169d"
+    }
+  ],
+  "identical_command_except_worktree": true,
+  "test_threads": 1,
+  "retries": 0,
+  "all_original16_assertions_preserved": true,
+  "limits": "Shared Mac debug, different background load. Baseline 04:53 with other gates; migrated05:47 after those completed. Not an isolated/native/whole123 serial speedup claim."
+}

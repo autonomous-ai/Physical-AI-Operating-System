@@ -1,0 +1,135 @@
+{
+  "date_from_date": "2026-10-16 06:14:01 +0700",
+  "totals": [
+    190,
+    0,
+    2
+  ],
+  "summaries": 10,
+  "new_case_passes": [
+    {
+      "binary": "lamp-records::bin/lamp-records",
+      "name": "fixture_schedule_tests::a_stale_round_backwards_time_or_future_jump_after_settling_is_terminal",
+      "pass_occurrences": 1,
+      "interleaved_output_lines": 0
+    },
+    {
+      "binary": "lamp-records::bin/lamp-records",
+      "name": "fixture_schedule_tests::actual_first_and_due_factories_must_finish_before_checked_or_event",
+      "pass_occurrences": 1,
+      "interleaved_output_lines": 0
+    },
+    {
+      "binary": "lamp-records::bin/lamp-records",
+      "name": "fixture_schedule_tests::invalid_initial_identity_round_or_time_never_advances_and_latches_failure",
+      "pass_occurrences": 1,
+      "interleaved_output_lines": 0
+    },
+    {
+      "binary": "lamp-records::bin/lamp-records",
+      "name": "fixture_schedule_tests::reads_and_pre_due_steps_are_pure_and_due_reply_waits_for_the_next_cycle",
+      "pass_occurrences": 1,
+      "interleaved_output_lines": 0
+    },
+    {
+      "binary": "lamp-records::bin/lamp-records",
+      "name": "fixture_schedule_tests::real_construction_failure_can_only_recover_on_the_original_next_due",
+      "pass_occurrences": 1,
+      "interleaved_output_lines": 0
+    },
+    {
+      "binary": "lamp-records::bin/lamp-records",
+      "name": "fixture_schedule_tests::zero_wait_and_changed_host_lifetime_cannot_acknowledge_a_cycle",
+      "pass_occurrences": 1,
+      "interleaved_output_lines": 0
+    },
+    {
+      "binary": "lamp-records::records_control",
+      "name": "a_complete_checked_queued_before_peer_close_is_consumed_and_committed",
+      "pass_occurrences": 1,
+      "interleaved_output_lines": 0
+    },
+    {
+      "binary": "lamp-records::records_control",
+      "name": "actual_child_returns_three_distinct_events_at_full_due_intervals",
+      "pass_occurrences": 1,
+      "interleaved_output_lines": 0
+    },
+    {
+      "binary": "lamp-records::records_control",
+      "name": "actual_control_close_requires_actual_error_exit_and_reap",
+      "pass_occurrences": 1,
+      "interleaved_output_lines": 1
+    },
+    {
+      "binary": "lamp-records::records_control",
+      "name": "blocked_control_keeps_the_real_one_second_lifetime_and_exits_with_error_64",
+      "pass_occurrences": 1,
+      "interleaved_output_lines": 1
+    },
+    {
+      "binary": "lamp-records::records_control",
+      "name": "every_initial_response_identity_and_cycle_field_is_validated",
+      "pass_occurrences": 1,
+      "interleaved_output_lines": 0
+    },
+    {
+      "binary": "lamp-records::records_control",
+      "name": "filled_real_pipe_write_uses_the_single_absolute_host_deadline",
+      "pass_occurrences": 1,
+      "interleaved_output_lines": 0
+    },
+    {
+      "binary": "lamp-records::records_control",
+      "name": "fragmented_real_pipe_frames_work_and_oversized_reads_fail_at_the_byte_bound",
+      "pass_occurrences": 1,
+      "interleaved_output_lines": 0
+    },
+    {
+      "binary": "lamp-records::records_control",
+      "name": "framing_rejects_truncation_unknown_fields_and_malformed_json",
+      "pass_occurrences": 1,
+      "interleaved_output_lines": 0
+    },
+    {
+      "binary": "lamp-records::records_control",
+      "name": "invalid_bootstrap_is_an_actual_child_error_before_any_reporting_event",
+      "pass_occurrences": 1,
+      "interleaved_output_lines": 2
+    },
+    {
+      "binary": "lamp-records::records_control",
+      "name": "malformed_due_receipt_after_peer_advance_latches_without_parent_time_commit",
+      "pass_occurrences": 1,
+      "interleaved_output_lines": 0
+    },
+    {
+      "binary": "lamp-records::records_control",
+      "name": "parent_rejects_future_steps_and_one_window_retains_full_periods_and_end",
+      "pass_occurrences": 1,
+      "interleaved_output_lines": 0
+    },
+    {
+      "binary": "lamp-records::records_control",
+      "name": "partial_setup_and_parent_unwind_both_reap_the_owned_child",
+      "pass_occurrences": 1,
+      "interleaved_output_lines": 0
+    },
+    {
+      "binary": "lamp-records::records_control",
+      "name": "returned_ok_without_a_subscriber_is_not_a_delivered_event",
+      "pass_occurrences": 1,
+      "interleaved_output_lines": 0
+    },
+    {
+      "binary": "lamp-records::records_control",
+      "name": "same_time_and_pre_due_replies_cannot_fabricate_new_work_or_change_outcome",
+      "pass_occurrences": 1,
+      "interleaved_output_lines": 0
+    }
+  ],
+  "original_identity": "real_reporter_reloads_switch_and_policy_and_requires_a_matching_receipt",
+  "original_pass_occurrences": 1,
+  "method": "Serial libtest case blocks terminate at the next test/result boundary. Real child stderr may appear between the test name and final ok. A first single-line parser rejected those output shapes; the parser was corrected without running any test again.",
+  "workspace_build_pending_at_audit": true
+}

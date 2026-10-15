@@ -1,0 +1,212 @@
+{
+  "review_time_from_date": "2026-10-16 05:17:58 +0700",
+  "source_freeze_from_root": "2026-10-16 05:12:30 +0700",
+  "supplied_base": "e3d3366cad8113c3374b8e29faedb099b5e47d92",
+  "method": "Filesystem-only independent named-edit reversal and lexical old-case/assertion extraction; no author audit code or restored output reused; no Git/Cargo/executable tests.",
+  "frozen_hashes": {
+    "lampOS/crates/records/Cargo.toml": "d624cddfc993a78af2510a9fef47ef192221da0a49c00051aa2ab63da25dada1",
+    "lampOS/crates/records/src/main.rs": "40d8eba533e42937e71b2995ae022acb2d7e1994e8e162005c166726041a2400",
+    "lampOS/crates/records/src/bin/lamp-records-fixture.rs": "56ed3d6bd78679b9f93b911ba531487fc02507abd88f4903939920aa360604d7",
+    "lampOS/crates/records/src/fixture_protocol.rs": "4d2bd95d5b273b7af70a408d513fa47a6ceb4e9d16fb81c68e604520dfdb48d3",
+    "lampOS/crates/records/src/fixture_schedule.rs": "54a8e0c9562ceada01ce3b0d26bdc2d92c0d5d8e954e880e011ddaef71a9a187",
+    "lampOS/crates/records/src/fixture_schedule_tests.rs": "cb7ff4cf0928ef0dd539ce696f6036943e788f8fbe80482b7815205a9b1e46c1",
+    "lampOS/crates/records/tests/support/records_control.rs": "b769a36f1cf542c436704cbf90ca1a50bf3b6ab371d907be95c5c1f0f67e8234",
+    "lampOS/crates/records/tests/records_control.rs": "d2e2a7cfc165b966006c949859ddea8ace92989fde73c45218e3cd0be0fcf22f",
+    "lampOS/crates/records/tests/records.rs": "ed3504349c3a48400f2db666a5653588eee25cc602d664b95bea5962a20535f9",
+    "lampOS/docs/records.md": "940ea122d4b3328d5aac12a3cdf2cecf2eb2e262a75a8244e06d43c5c1014ce2"
+  },
+  "four_existing_file_reversals": {
+    "lampOS/crates/records/src/main.rs": "33c9354f0d8de852e265002c3a56a8efa7b799bdb2fe5504ff5c326a2460e60f",
+    "lampOS/crates/records/Cargo.toml": "92f90b54a3690be6cd6843a9cabb20c300468a9e716c09e58f874c0cdc7bdcfc",
+    "lampOS/crates/records/tests/records.rs": "b40cf09e6c77e4dfd5876e381a75d2878e2589b115345c2832ce6623f14370bd",
+    "lampOS/docs/records.md": "5bf9effbd4b91af3f12bea9da7e4ea6892cb5f0183d172b94df57882b27bf8e8"
+  },
+  "unchanged_captured_original_files": {
+    "lampOS/crates/bus/src/lib.rs": "3ab858b5195382e190b4988415177c7cf0b567cae33ecdbf097167eb7978b919",
+    "lampOS/crates/bus/src/publish.rs": "53a43999a7035b31e06d29abfb4d0975f514ca0402f4e2614d46796894e1e563",
+    "lampOS/crates/records/records.example.json": "173dc05e7da89ef5a49be5d832759b9e98fa62db92de4002d4d45be21493f003",
+    "lampOS/crates/records/src/application.rs": "85af4d56754ff6e8b87180401bce78ebdfcbf5d7444d3b32a2dbcfc39ffc0320",
+    "lampOS/crates/records/src/application_schedule_tests.rs": "8cf8e5cfbe5790e762f638d033e97294870bf94812570a78493f8fe7636714ac",
+    "lampOS/crates/records/src/config.rs": "b57c20226ed8898d1f7f43f6499d32dd623392db7871d3b1f3782b3afc916d80",
+    "lampOS/crates/records/src/guard.rs": "6cb5cc66196be122e666deeddd84a15a03454127f502d0c0693e1b25717593f8",
+    "lampOS/crates/records/src/json_file.rs": "80d533545280f90a367e6e04e05f03e293d3244dacee8f5c7572849f180e520c",
+    "lampOS/crates/records/src/lib.rs": "ede122aef027cc8010a25401d14b682542859d2ad8d94110f56f1f73a56f7471",
+    "lampOS/crates/records/src/plan.rs": "5442c93db91cd27559be4f152e0bf58476699b3bde23c63dc424a8ed095b6801",
+    "lampOS/crates/records/src/report.rs": "0a3667e74d854c6b963e659dcb478d5eb8bf5b8faa68be3b6ed49c00d865ead2",
+    "lampOS/crates/records/src/reporter_clock_tests.rs": "9e2760715d599b4c36a0e075ae2f3188f6fd2924b2ea50db92cdff9dd104ae2f",
+    "lampOS/crates/records/src/run.rs": "4c0dd2b3c845ec31ad75d60a21c04ae823e02174bb214cfa503b9bbeaf732419",
+    "lampOS/crates/records/src/store.rs": "c20e2a9d3a3abac7e16756208cb98f4460ab84d285839122bd62dd89be9af693",
+    "lampOS/crates/records/systemd/lamp-records-report.service": "1a6252cd3f1f92985238b7b3f6bc15db155b491b8623ebe04a76c612246575d0",
+    "lampOS/crates/records/systemd/lamp-records.service": "94a7bb3d84fa0fb48a893ab4e086f37f3b6ac26e8472aac23427a8cb7cc6a0aa",
+    "lampOS/crates/records/systemd/lamp-records.timer": "5e0a975c32a5cb49b9da40750a5031a10e8abfbebbf20bc7b83c0d8df316cc1b"
+  },
+  "all_original_crate_input_comparison_to_local_prep": {
+    "file_count": 18,
+    "changed_only": {
+      "lampOS/crates/records/Cargo.toml": {
+        "prep": "92f90b54a3690be6cd6843a9cabb20c300468a9e716c09e58f874c0cdc7bdcfc",
+        "current": "d624cddfc993a78af2510a9fef47ef192221da0a49c00051aa2ab63da25dada1"
+      },
+      "lampOS/crates/records/src/main.rs": {
+        "prep": "33c9354f0d8de852e265002c3a56a8efa7b799bdb2fe5504ff5c326a2460e60f",
+        "current": "40d8eba533e42937e71b2995ae022acb2d7e1994e8e162005c166726041a2400"
+      },
+      "lampOS/crates/records/tests/records.rs": {
+        "prep": "b40cf09e6c77e4dfd5876e381a75d2878e2589b115345c2832ce6623f14370bd",
+        "current": "ed3504349c3a48400f2db666a5653588eee25cc602d664b95bea5962a20535f9"
+      }
+    },
+    "six_added_files": [
+      "lampOS/crates/records/src/bin/lamp-records-fixture.rs",
+      "lampOS/crates/records/src/fixture_protocol.rs",
+      "lampOS/crates/records/src/fixture_schedule.rs",
+      "lampOS/crates/records/src/fixture_schedule_tests.rs",
+      "lampOS/crates/records/tests/records_control.rs",
+      "lampOS/crates/records/tests/support/records_control.rs"
+    ]
+  },
+  "unchanged_workspace_lock_and_bus_inputs": {
+    "lampOS/Cargo.lock": "8fdd63dc70bcda30d85a846558ef054902ed6ea33ddb26fcfe32a611bc9680bd",
+    "lampOS/Cargo.toml": "dafaa1133d09ab0137847973359e8d1c01e7dc306aa54e299ec1a6f611e24c2b",
+    "lampOS/crates/bus/Cargo.toml": "96afd70eaaaf81e64f8c104f0a4d536d4c6dfc32f6e80cc2cc21c49aa5814f34",
+    "lampOS/crates/bus/src/lib.rs": "3ab858b5195382e190b4988415177c7cf0b567cae33ecdbf097167eb7978b919",
+    "lampOS/crates/bus/src/publish.rs": "53a43999a7035b31e06d29abfb4d0975f514ca0402f4e2614d46796894e1e563",
+    "lampOS/crates/bus/src/subscribe.rs": "30f1ef9e2e5ddd732ccb89a746e290b53a52ac7a44ccef488eb43b70c96217c2"
+  },
+  "old_main_case_hashes_unchanged": {
+    "check_defaults_to_dry_and_never_accepts_a_live_override": "747450a92dea743bce0def16cffc2518813694dd21438961199cba576c4cfee0",
+    "reporter_has_explicit_bounded_test_lifetime": "897f4966ecbe9b3a4f20482ae53486a544b24a3cc200008eb0f120b40d0a699e",
+    "output_cannot_overwrite_config_or_an_unrelated_file": "cba6b0c3d39c069f9d8bf07e4dc28ce02df3e3153724e2955e093d5c0dd9c065",
+    "old_result_does_not_match_a_changed_age_policy_or_enable_switch": "2fd054be84101d102d9582c827ab347713efcdf6de6f2a0da305b1140c9b9d62",
+    "oversized_result_leaves_readable_failure_and_next_cleanup_can_replace_it": "92c35548bd2f656cd2cdb0cee0e72ff7d7155595dc68adabb7ac74ef078d930e"
+  },
+  "old_integration_case_hashes": {
+    "public_tree_pipeline_dry_then_apply_keeps_live_memory_and_outside_link": "ccb9e0eb1cc6bdb5193f645cdb9a86183b8393364056f8a16ea5c1a10734f041",
+    "real_cli_apply_with_unknown_service_cannot_delete_any_fixture_record": "e9a33fe40c2473d2ed5efef44e07c76bf64d28e8f10980d6c3dc6d571548c55f",
+    "diagnostic_is_delivered_over_the_real_local_bus_without_record_contents": "b2b2ab9258bbd49b35c83d0844233abb57e8dd8f16acf1bb3c1bc2e5a30a6fa5",
+    "real_reporter_reloads_switch_and_policy_and_requires_a_matching_receipt": "1644a3c402a7e29c6c9e241bcad5312b95d146a815a2325428fbb774db19323d",
+    "records_cost": "11a5b2985402d0c9cd38b7952d2628be0198bcc31548b1ccdbd170f661aa6583",
+    "bind_mounts_are_refused_even_on_the_same_filesystem": "b4deb555c913b9ae744ec6ba393f91cab3ebb076a9e1542af8fc5393b584eb14"
+  },
+  "current_integration_case_hashes": {
+    "public_tree_pipeline_dry_then_apply_keeps_live_memory_and_outside_link": "ccb9e0eb1cc6bdb5193f645cdb9a86183b8393364056f8a16ea5c1a10734f041",
+    "real_cli_apply_with_unknown_service_cannot_delete_any_fixture_record": "e9a33fe40c2473d2ed5efef44e07c76bf64d28e8f10980d6c3dc6d571548c55f",
+    "diagnostic_is_delivered_over_the_real_local_bus_without_record_contents": "b2b2ab9258bbd49b35c83d0844233abb57e8dd8f16acf1bb3c1bc2e5a30a6fa5",
+    "real_reporter_reloads_switch_and_policy_and_requires_a_matching_receipt": "60ef03db036bf8a1198f434d739d5710fa71bde8702f1fb3b581e75e2745b9b4",
+    "records_cost": "11a5b2985402d0c9cd38b7952d2628be0198bcc31548b1ccdbd170f661aa6583",
+    "bind_mounts_are_refused_even_on_the_same_filesystem": "b4deb555c913b9ae744ec6ba393f91cab3ebb076a9e1542af8fc5393b584eb14"
+  },
+  "selected_case_after_only_authorized_reversal": "1644a3c402a7e29c6c9e241bcad5312b95d146a815a2325428fbb774db19323d",
+  "selected_assertions_byte_exact_16": [
+    {
+      "sha256": "388dee31d83167e7bce6452ff8709ddd120f93f5fcf5b0960dc4f3e915f31cce",
+      "text": "assert!(\n                !remaining.is_zero(),\n                \"no {level:?} diagnostic with enabled={enabled}, before_bytes={before_bytes}; last={last:?}\"\n            )"
+    },
+    {
+      "sha256": "1e361152798bf2e2f0f37059450e17622ec4e56b6f643171202fcf45b5745637",
+      "text": "assert!(\n                reporter.0.try_wait().unwrap().is_none(),\n                \"reporter exited before the expected transition; last={last:?}\"\n            )"
+    },
+    {
+      "sha256": "29984591c04ff561672981d8c0170257701c1ad7229e28620abeedff6d6e7b5c",
+      "text": "assert!(disabled.message.contains(\"disabled\"))"
+    },
+    {
+      "sha256": "6212b6346284ea3ed7d4551cb3bbe59f613de38327f50fce2ea2fffb9f32c6de",
+      "text": "assert_eq!(field(&disabled, \"roots\"), Some(\"0\"))"
+    },
+    {
+      "sha256": "3d0f630dc1e6ac2932dc9a684d85e1c8fe749d3f2e57526db8830c32404471a6",
+      "text": "assert!(\n        !result_path.exists(),\n        \"disabled reporting must not need a receipt\"\n    )"
+    },
+    {
+      "sha256": "c68e3c273a3d05c6cadb018dae194bce7de5494bde924aa06255e705e2e21be5",
+      "text": "assert_eq!(field(&missing, \"roots\"), Some(\"0\"))"
+    },
+    {
+      "sha256": "4dffac2d4b2eb5098bc134b5130a97365ae549e73e13d06cd8d402f172d6acb1",
+      "text": "assert_eq!(field(&healthy, \"roots\"), Some(\"1\"))"
+    },
+    {
+      "sha256": "c0b537229cd678bc3152aca3fe4506ff364678c88d638e93f41349c492bad35c",
+      "text": "assert_eq!(field(&healthy, \"disk_free_at_cleanup_pct\"), Some(\"50.00\"))"
+    },
+    {
+      "sha256": "ced047d6363f66a6210f92fba9349114dc3ed4f180c551c939108b6c852b9cd0",
+      "text": "assert_eq!(field(&changed, \"roots\"), Some(\"0\"))"
+    },
+    {
+      "sha256": "c0b537229cd678bc3152aca3fe4506ff364678c88d638e93f41349c492bad35c",
+      "text": "assert_eq!(field(&healthy, \"disk_free_at_cleanup_pct\"), Some(\"50.00\"))"
+    },
+    {
+      "sha256": "29984591c04ff561672981d8c0170257701c1ad7229e28620abeedff6d6e7b5c",
+      "text": "assert!(disabled.message.contains(\"disabled\"))"
+    },
+    {
+      "sha256": "6212b6346284ea3ed7d4551cb3bbe59f613de38327f50fce2ea2fffb9f32c6de",
+      "text": "assert_eq!(field(&disabled, \"roots\"), Some(\"0\"))"
+    },
+    {
+      "sha256": "f286527be3757269f3fad6957d78eb51cced7a7a53841a49fa52328148474c1f",
+      "text": "assert_eq!(\n        field(&disabled, \"disk_free_at_cleanup_pct\"),\n        Some(\"unknown\")\n    )"
+    },
+    {
+      "sha256": "eb40bfa26a6f5fb321bb1d8babebb8f00a0a91102e8967b3698b0a20f25dba82",
+      "text": "assert!(unchanged.enabled)"
+    },
+    {
+      "sha256": "e923353de57c0528e521a1f6c040431601e97659741310a83cdc0bd9eec90f7d",
+      "text": "assert_eq!(unchanged.config_fingerprint, current.config_fingerprint)"
+    },
+    {
+      "sha256": "c3b22dbb9a19eb3612b162d9e05dce5ce1268e69a6b27ecb6ae63cda7f337290",
+      "text": "assert_eq!(unchanged.roots[0].before_bytes, 222)"
+    }
+  ],
+  "six_actual_status_calls_in_original_order": [
+    "let disabled = expect_status(&mut listener, &mut reporter, Level::Ok, false, 0);",
+    "let missing = expect_status(&mut listener, &mut reporter, Level::Error, true, 0);",
+    "let healthy = expect_status(&mut listener, &mut reporter, Level::Ok, true, 111);",
+    "let changed = expect_status(&mut listener, &mut reporter, Level::Error, true, 0);",
+    "let healthy = expect_status(&mut listener, &mut reporter, Level::Ok, true, 222);",
+    "let disabled = expect_status(&mut listener, &mut reporter, Level::Ok, false, 0);"
+  ],
+  "original_field_receipt_functions_exact": true,
+  "original_scenario_tail_reverses_by_spawn_only": true,
+  "original_cleanup_body_exact_after_control_close": true,
+  "old_deadline_expression": "let deadline = Instant::now() + Duration::from_secs(4);",
+  "new_test_source_inventory": {
+    "lampOS/crates/records/src/fixture_schedule_tests.rs": {
+      "ids_and_body_sha256": {
+        "reads_and_pre_due_steps_are_pure_and_due_reply_waits_for_the_next_cycle": "18c8b840eda28a4d9070ec3071d88614b63a1f32873cf060711b1bd1f0944b42",
+        "invalid_initial_identity_round_or_time_never_advances_and_latches_failure": "1e262f38a6c277b8083bc6c80e66be6a16e86d7d129cb93843b0c9ce08acd940",
+        "a_stale_round_backwards_time_or_future_jump_after_settling_is_terminal": "878f07b1689f1c96ff944a2f6181668cde8c033cf9420abb38ace3e08ff29858",
+        "zero_wait_and_changed_host_lifetime_cannot_acknowledge_a_cycle": "51bb405db50bacbf6dc0fae2ee1175ac664c07b401cb3c001d830c216168edfe",
+        "actual_first_and_due_factories_must_finish_before_checked_or_event": "af195421fc55dce75cfcc543b25ab471777499d3602b33e2cc93c04afe046237",
+        "real_construction_failure_can_only_recover_on_the_original_next_due": "0b65d455b0c176f7144a42a1c320344a91a9dfb347e3550149f5bf0c9401f6e6"
+      },
+      "assertion_macro_count": 40
+    },
+    "lampOS/crates/records/tests/records_control.rs": {
+      "ids_and_body_sha256": {
+        "actual_child_returns_three_distinct_events_at_full_due_intervals": "488938f711f25e9b2f480e629821e2d75ef53f01993b075bde54f6932da99c56",
+        "returned_ok_without_a_subscriber_is_not_a_delivered_event": "8cfad816a7ab60eca0caa69192eadf3f512ce099f9b2ad83892f5571b13e4ceb",
+        "blocked_control_keeps_the_real_one_second_lifetime_and_exits_with_error_64": "a2271826057a706b3ef6472ec3b682d3b4cec67bca39826ae267639157f40a5e",
+        "actual_control_close_requires_actual_error_exit_and_reap": "74d442b106ca64f233689ce4e6bc6f696e964e05924ee9e0e944c1e06a14a307",
+        "invalid_bootstrap_is_an_actual_child_error_before_any_reporting_event": "35c05ca6cf761e5803cf1ef6b27dae32a58499149652321b68148b49612a6fb5",
+        "partial_setup_and_parent_unwind_both_reap_the_owned_child": "6a9b6a8ccda443bc71d9e984f8676a570c247227a9b05c7abf0a5b1aa190c4fc",
+        "a_complete_checked_queued_before_peer_close_is_consumed_and_committed": "11050217ca59ce52138f70f6839cf7cfacf381744fac1db240502cf7820e5dee",
+        "every_initial_response_identity_and_cycle_field_is_validated": "c847e72539252c0cc9bb658570c5464c8372b2f1910df02063cb1a9efb3893f5",
+        "same_time_and_pre_due_replies_cannot_fabricate_new_work_or_change_outcome": "12477d69ee1ade46e8f8717436a896d2e41f96676a7ee75e3aea2af675d86694",
+        "malformed_due_receipt_after_peer_advance_latches_without_parent_time_commit": "211aaf52b5944c9c681cb09a5c26b95befa98bb2b28b87147394208b0454d2c0",
+        "parent_rejects_future_steps_and_one_window_retains_full_periods_and_end": "a7d769bbc94504cfe41dd8ea1237faed0b34f24aa66e5cc12187806843e3ffc1",
+        "framing_rejects_truncation_unknown_fields_and_malformed_json": "dfd6b85867957e0713d1ff8231d7efccdd0c64ffab85adb7ff0414337ed07244",
+        "fragmented_real_pipe_frames_work_and_oversized_reads_fail_at_the_byte_bound": "31640739b8a0b3e7f6b120f6d7c2aece0cd5f365bdd69cfa7cb2a2b71917c000",
+        "filled_real_pipe_write_uses_the_single_absolute_host_deadline": "60aaadefac66343f9d01436c5481da8cd3dcba664a018acfdbd32557a24c4fea"
+      },
+      "assertion_macro_count": 59
+    }
+  },
+  "runtime_qualification": false,
+  "known_review_limit": "All 17 captured originals and all local prep crate inputs are compared; this is not a Git-based entire repository cleanliness audit."
+}

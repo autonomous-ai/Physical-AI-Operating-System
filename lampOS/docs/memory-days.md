@@ -197,7 +197,10 @@ as evidence when an observation is forgotten, and a record's
 `source_ids` list only its own person's. A confirmed `forget_rule`
 inhibits journalling until a fresh worker, as `forget` does. Keeping a
 rule counts and writes under one lock, so concurrent calls cannot pass
-six. Without the switch the client sends
+six. `keep_rule` and `forget_rule` count as uncertain writes from before they
+are sent until a validated acknowledgement (and the kept rule linked), as
+`remember` and `forget` do: a lost or malformed reply leaves journalling
+stopped until a fresh worker. Without the switch the client sends
 exactly what it did (`remember::tests::without_the_rules_switch_nothing_changes`).
 
 ### Played scenes for First

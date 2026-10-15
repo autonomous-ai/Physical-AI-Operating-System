@@ -690,3 +690,74 @@ fn days_store_never_links_another_persons_rule() {
     });
     drop(fixture);
 }
+
+/// The real store, with the answer to the first rule kept held back past
+/// Voice's 1.5 s: the rule is committed, its acknowledgement lost.
+struct LateRuleAck<M> {
+    store: M,
+    held: bool,
+}
+
+impl<M: Memory> Memory for LateRuleAck<M> {
+    fn answer(&mut self, line: &[u8], now: u64) -> Answer {
+        let answer = self.store.answer(line, now);
+        let request: Value = serde_json::from_slice(line).unwrap();
+        if !self.held
+            && request["op"] == "remember"
+            && request["person"]
+                .as_str()
+                .is_some_and(|p| p.starts_with("r-"))
+        {
+            self.held = true;
+            std::thread::sleep(Duration::from_millis(1_700));
+        }
+        answer
+    }
+}
+
+/// A rule committed whose acknowledgement never came: the call says the
+/// memory is not answering, and nothing said afterwards is journalled
+/// unlinked, so forgetting the rule leaves nothing of it to recall.
+#[test]
+fn days_a_rule_kept_without_its_acknowledgement_lets_nothing_unlinked_be_journalled() {
+    let fixture = Fixture::new(|options, now| LateRuleAck {
+        store: Traced {
+            store: Days::open(options, now).unwrap(),
+            trace: mpsc::channel().0,
+        },
+        held: false,
+    });
+    let minh = person_id("Minh");
+    let client = DaysClient::new(fixture.socket.clone()).unwrap();
+    let (told, ok) = client.rule_for(
+        &call(
+            lamp_voice::rules::KEEP_RULE,
+            json!({"rule":"Address them as Orchid."}),
+        ),
+        BUDGET,
+        Some(&minh),
+    );
+    assert!(!ok, "{told}");
+    // Committed all the same.
+    let rules = listed(&client, &minh);
+    assert_eq!(rules.len(), 1, "{rules:?}");
+    // An answer under it is not journalled unlinked.
+    assert!(!client.finished_exchange_for(
+        fixture.now - 1_000,
+        "who am I",
+        "You are Orchid.",
+        Some(&minh)
+    ));
+    let (told, _) = client.rule_for(
+        &call(lamp_voice::rules::FORGET_RULE, json!({"number":rules[0].0})),
+        BUDGET,
+        Some(&minh),
+    );
+    assert_eq!(told["forgotten"], true, "{told}");
+    let (told, ok) = client.run_for(
+        &call(RECALL, json!({"about":"Orchid"})),
+        BUDGET,
+        Some(&minh),
+    );
+    assert!(ok && texts(&told).is_empty(), "{told}");
+}

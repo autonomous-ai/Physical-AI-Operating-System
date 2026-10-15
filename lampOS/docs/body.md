@@ -1201,8 +1201,14 @@ the one `--overload release` makes ("Letting go under overload"):
   limit) for 3 steps (60 ms), or over the joint's own bound for six steps
   as before, whichever comes first, and the joint stops where it is: its
   goal becomes its position, as above ("When it stops").
-- **Letting go.** Still pushed in the second after it stopped (50 steps
-  in a row): its load over the lower of the bound that stopped it and its
+- **Letting go.** Only a joint stopped by its contact floor, as only
+  V1's contact stop handed over to the cut-off; one that gave way by
+  `--give-way`'s lower bounds gives way and comes back (or stays) as
+  above, never slumps the lamp. On lamp-52e6 on 2026-10-15 a head lifting
+  itself after a slump, 37 counts short of its goal at a load of 144,
+  gave way by the lower bound, read as a degree off where it gave, and
+  made the lamp slump again every two minutes with nobody touching it.
+  Still pushed in the second after it stopped (50 steps in a row): its load over the lower of the bound that stopped it and its
   floor, or more than 11 counts (about a degree) from where it stopped.
   Then the lamp lets go as under overload: torque off on all five, the
   lamp slumps, nothing is written for 120 s, then every joint is held
@@ -1252,8 +1258,8 @@ option it has no stall rule and its goal never leaves where it rested;
 a light head lifted 40 counts at 120 and held a second and a half stays
 at 1,920 when told to stay, and is back at 1,960 when told to come back.
 
-Three tests for `--limp on`: a base turned 30 counts by a hand and held
-makes the lamp slump about a second after it stopped (torque off to all
+Four tests for `--limp on`: a base turned 30 counts by a hand at 600 and
+held makes the lamp slump about a second after it stopped (torque off to all
 five, byte for byte), nothing is written for two minutes, and each joint
 is then held where it lies; pushed again once up, or while it is brought
 up, it slumps again and the run goes on; without `--give-way` and
@@ -1261,8 +1267,9 @@ up, it slumps again and the run goes on; without `--give-way` and
 found 545 counts from home starts held where it lies with `--limp on`
 and is refused without it. A base pushed for 0.7 s gives way and comes
 back, its torque never written; 700 on the head's pitch for 80 ms gives
-way only with `--limp on`; and an elbow pushed at 900 for 2 s is never
-let go.
+way only with `--limp on`; an elbow pushed at 900 for 2 s is never
+let go; and after a slump a head that sank 60 counts and lifts itself
+home 37 counts short at 144 does not make the lamp slump again.
 
 **Not shown:** that any of it is right against a hand. Whether a real
 hand reads over the load bounds and the floors while it moves a joint

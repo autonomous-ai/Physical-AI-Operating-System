@@ -2628,6 +2628,14 @@ pub(crate) fn run_alive(
             .map_or(CONTACT_FLOOR[2], |force| force * CONTACT_YAW_SHARE / 100),
     ];
     let mut contact = [0u8; 3];
+    // Under `--limp on`, each commanded joint stopped by V1's contact floor
+    // (not by `--give-way`'s lower bounds) since it last gave way: only
+    // such a joint may make the lamp slump, as only V1's contact stop
+    // handed over to its cut-off. On lamp-52e6 on 2026-10-15 a head lifting
+    // itself after a slump (37 counts short at a load of 144) gave way by
+    // the lower bound, read as a degree off, and made the lamp slump again
+    // with nobody touching it, over and over.
+    let mut pinned = [false; 3];
     let mut misses = 0u8;
     let mut unsent = 0u8;
     let mut leaving: Option<Duration> = None;
@@ -3401,7 +3409,7 @@ pub(crate) fn run_alive(
             } else {
                 0
             };
-            if limping && held[index] {
+            if limping && held[index] && pinned[index] {
                 // It gave way, and a hand may be on it. As V1: still pushed
                 // a second on, by load over the lower of the bound that
                 // stopped it and its contact floor, or held a degree off
@@ -3509,6 +3517,7 @@ pub(crate) fn run_alive(
                     in_hand[index] = 0;
                     over_load[index] = 0;
                     contact[index] = 0;
+                    pinned[index] = touched;
                     eased_at.rotate_left(1);
                     eased_at[EASES_ALLOWED - 1] = report.steps;
                     report.eased[index] = report.eased[index].saturating_add(1);

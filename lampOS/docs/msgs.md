@@ -36,10 +36,11 @@ Each type has `TYPE`, the name the bus compares (`lamp_msgs/JointState`),
 hands to `Bus::publisher_declared`. `first_topics()` keeps the original
 seventeen topics; `expression_topics()` lists the optional Expression
 contracts separately, and `controls_topics()` lists the optional Controls
-contracts, `keeper_topics()` the keeper's pause, and `memory_topics()` the
-memory's typed rules. `logging_topics()` adds the optional operational log
-stream. `declaration_of()` recognizes every catalogue without changing
-`first_topics()`.
+contracts, `keeper_topics()` the keeper's pause, `memory_topics()` the
+memory's typed rules, and `name_topics()` the first sign of a hearing of the
+lamp's name (`name/rising`). `logging_topics()` adds the optional
+operational log stream. `declaration_of()` recognizes every catalogue
+without changing `first_topics()`.
 
 ## The types
 
@@ -58,6 +59,7 @@ stream. `declaration_of()` recognizes every catalogue without changing
 | `Health` | `lamp/health` | latest | 5 s, means nothing after 15 s | How the whole lamp is: the worst level, one sentence, every part that has reported with its level, message and age, worst first, and the parts that are expected and never reported |
 | `BoardState` | `board/state` | latest | 5 s, means nothing after 15 s | The computer's numbers: each temperature by sensor (°C), load per processor, memory in use and disk free as fractions, uptime, and the Wi-Fi signal and whether the clock is set if they could be asked |
 | `NameHeard` | `name/heard` | event | none | The lamp's name was heard in what its microphone hears: how sure the listener was, from 0 to 1, and how many milliseconds before this was sent the name began. A sign, never proof ([name.md](name.md)) |
+| `NameHeard` | `name/rising` | event | none | The same hearing's first sign, as soon as the score reaches the listener's bar and while the name is still being said: the score so far, and how long ago it reached the bar. Its final word, with the highest score, is on `name/heard`; a first sign with none was a near miss (#782, [name.md](name.md)) |
 | `Pause` | `lamp/pause` | latest | none | Whether the lamp is paused, as `lamp-keeper pause` or `resume` last said; kept until the next, read with `latest` by each part that honours it ([keeper.md](keeper.md), "Named states and the pause") |
 | `Hand` | `body/hand` | latest | 1 s | Whether a hand is pushing the lamp now, as the body feels it (`pushed`), and when that push began on the body's own clock (`since_us`, 0 when not pushed); said with every step lamp-body passes on the bus, every 80 ms ([body.md](body.md), "A hand on the bus") |
 | `Rules` | `memory/rules` | latest | none | What the people at the lamp asked it about speaking first, as typed facts for the policy (#813, [memory.md](memory.md#what-a-person-teaches-and-corrects-813)): `person` (the memory's id `p-<hex>` of the known person, or `everyone`), `quiet` (asked never to speak first, unprompted), `quiet_mornings` (asked not to speak first in the mornings, before noon local time, or never), and `rules`, how many rules of every kind the room's and theirs hold. Said by the voice with `LAMP_MEMORY_RULES=on` at each session open and each rule kept or forgotten; kept until the next. Never a rule's words |
@@ -75,7 +77,8 @@ the bus's lease needs its publisher to call `alive()`.
 added after that table was written and are not in it: this table is where
 they are listed. `lamp/pause` is not one of the first topics either:
 `keeper_topics()` lists it, and `declaration_of()` recognizes it. Nor is
-`memory/rules`: `memory_topics()` lists it.
+`memory/rules`: `memory_topics()` lists it; nor `name/rising`, which
+`name_topics()` lists.
 `first_topics()` has them with the others. The last two are the only
 topics with a lifespan: a kept report of how things are must not outlive
 whoever wrote it.

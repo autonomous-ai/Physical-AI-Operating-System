@@ -18,7 +18,8 @@ const HELP: &str = "Hears the lamp's name in what its microphone hears. See docs
   --least       the score from which the name counts as heard, 0.5 to 1 (0.9)
   --bus-root    the bus's directory (LAMP_BUS_ROOT, or /run/lampos-bus)
 
-It listens to MICROPHONE/audio and publishes name/heard, and how it is on diagnostics.
+It listens to MICROPHONE/audio and publishes name/rising as each hearing begins,
+name/heard when it is over, and how it is on diagnostics.
 It keeps no sound and writes none down.
 
 lamp-name check MODELS_DIR FILE... runs the same models over files of sound (16 kHz, one
@@ -148,6 +149,10 @@ fn run(arguments: &Arguments) -> io::Result<()> {
     let mut sound = bus.subscribe_typed(&topic, NAME, Audio::TYPE)?;
     let mut heard: Publisher =
         bus.publisher_declared(NameHeard::TOPIC, &NameHeard::declaration(), NAME)?;
+    // The first sign of each hearing, as soon as the score reaches the bar
+    // (#782): what looks up at the name, and a call's wait, read it.
+    let mut rising: Publisher =
+        bus.publisher_declared(NameHeard::RISING_TOPIC, &NameHeard::declaration(), NAME)?;
     let mut health: Publisher =
         bus.publisher_declared(Diagnostic::TOPIC, &Diagnostic::declaration(), NAME)?;
     log(&format!(
@@ -217,6 +222,9 @@ fn run(arguments: &Arguments) -> io::Result<()> {
                             total_steps += scores.len() as u64;
                             for score in scores {
                                 name_said = name_said.or(hearings.score(score, now));
+                                if let Some(first) = hearings.rising(now) {
+                                    let _ = rising.publish_json(at_us(now), &first);
+                                }
                             }
                         }
                         Err(why) => {

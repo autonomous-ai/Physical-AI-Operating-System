@@ -288,20 +288,28 @@ pub struct Tracker {
     /// When each machine was last asked, by the boot clock, answered or
     /// not: a failed read waits its turn like any other.
     asked: BTreeMap<String, u64>,
+    /// The watched tasks a `ps` has been asked for since they came into the
+    /// watch. A machine with one that has not is read at once.
+    asked_for: BTreeSet<u64>,
     reads: Reads,
     /// A value worth publishing has not been taken yet.
     fresh: bool,
 }
 
 impl Tracker {
-    /// A run that began at `run`, milliseconds since 1970 (never 0).
+    /// The tracker as the service starts, for a run that began at `run`,
+    /// milliseconds since 1970 (never 0): with a value to publish at once
+    /// and no task in it, so the kept topic has a value from the start and
+    /// a reader can tell "nothing being worked on" from "the tasks part is
+    /// not there".
     pub fn started(run: u64) -> Self {
         Self {
             run: run.max(1),
             tasks: BTreeMap::new(),
             asked: BTreeMap::new(),
+            asked_for: BTreeSet::new(),
             reads: Reads::default(),
-            fresh: false,
+            fresh: true,
         }
     }
 
@@ -313,56 +321,74 @@ impl Tracker {
         self.reads
     }
 
-    /// The machine whose `ps` is due, if any: the watch's schedule, every
-    /// half minute while any of its tasks is in its first ten minutes and
-    /// every two after, counted from the last time it was asked (from the
-    /// youngest task's handing over before the first). Tasks no longer
-    /// watched are let go here.
-    pub fn due(&mut self, watched: &[Watched], now_ms: u64) -> Option<String> {
+    /// Lets go of the tasks no longer watched (settled, or a day old); when
+    /// one that was on the bus goes, a value without it is published.
+    pub fn watching(&mut self, watched: &[Watched]) {
         let before = self.tasks.len();
         self.tasks
             .retain(|id, _| watched.iter().any(|w| w.task_id == *id));
+        self.asked_for
+            .retain(|id| watched.iter().any(|w| w.task_id == *id));
         if self.tasks.len() != before {
             self.fresh = true;
         }
-        let mut machines: BTreeMap<&str, (bool, Option<u64>)> = BTreeMap::new();
+    }
+
+    /// The machine whose `ps` is due, if any. At once for a machine with a
+    /// task new to the watch (just handed over, or there when the service
+    /// started), so it is on the bus within one read and its first line,
+    /// where counting begins, is read as early as it can be. Otherwise the
+    /// watch's schedule: every half minute while any of its tasks is in
+    /// its first ten minutes and every two after, counted from the last
+    /// time it was asked. Tasks no longer watched are let go here too.
+    pub fn due(&mut self, watched: &[Watched], now_ms: u64) -> Option<String> {
+        self.watching(watched);
+        // For each machine: any task in its first ten minutes, any task
+        // not yet asked for.
+        let mut machines: BTreeMap<&str, (bool, bool)> = BTreeMap::new();
         for task in watched {
             let entry = machines
                 .entry(task.machine_id.as_str())
-                .or_insert((false, None));
+                .or_insert((false, false));
             entry.0 |= task
                 .accepted_ago_ms
                 .is_some_and(|age| age < WATCH_EARLY_FOR_MS);
-            // The youngest handing over in this boot; one from before it
-            // counts as long ago.
-            let since = task.accepted_ago_ms.unwrap_or(u64::MAX);
-            entry.1 = Some(entry.1.map_or(since, |youngest: u64| youngest.min(since)));
+            entry.1 |= !self.asked_for.contains(&task.task_id);
         }
         machines
             .into_iter()
-            .filter_map(|(machine, (early, youngest))| {
+            .filter_map(|(machine, (early, new))| {
                 let every = if early {
                     WATCH_EARLY_MS
                 } else {
                     WATCH_LATER_MS
                 };
-                let ago = match self.asked.get(machine) {
-                    Some(at) => now_ms.saturating_sub(*at),
-                    None => youngest.unwrap_or(u64::MAX),
-                };
-                (ago >= every).then_some((ago, machine))
+                let ago = self
+                    .asked
+                    .get(machine)
+                    .map_or(u64::MAX, |at| now_ms.saturating_sub(*at));
+                (new || ago >= every).then_some((new, ago, machine))
             })
             .max()
-            .map(|(_, machine)| machine.to_owned())
+            .map(|(_, _, machine)| machine.to_owned())
     }
 
-    /// The read of `machine` is handed to the CLI worker now.
-    pub fn asked(&mut self, machine: &str, now_ms: u64) {
+    /// The read of `machine` is handed to the CLI worker now, for its
+    /// watched tasks.
+    pub fn asked(&mut self, machine: &str, watched: &[Watched], now_ms: u64) {
         self.asked.insert(machine.to_owned(), now_ms);
+        self.asked_for.extend(
+            watched
+                .iter()
+                .filter(|task| task.machine_id == machine)
+                .map(|task| task.task_id),
+        );
     }
 
     /// What one `ps` of `machine` came back with. `wall_ms` is the wall
-    /// clock as it came; `took_ms` how long it took.
+    /// clock as it came; `took_ms` how long it took. Gives the journal's
+    /// line for it: the machine, how long, and each of its watched tasks
+    /// as read, in typed words only (never an agent's line).
     pub fn read(
         &mut self,
         machine: &str,
@@ -370,12 +396,23 @@ impl Tracker {
         watched: &[Watched],
         wall_ms: u64,
         took_ms: u64,
-    ) {
+    ) -> String {
         self.reads.last_ms = took_ms;
         self.reads.most_ms = self.reads.most_ms.max(took_ms);
-        let Ok(listed) = listed else {
-            self.reads.failures = self.reads.failures.saturating_add(1);
-            return;
+        let ours: Vec<u64> = watched
+            .iter()
+            .filter(|task| task.machine_id == machine)
+            .map(|task| task.task_id)
+            .collect();
+        let listed = match listed {
+            Ok(listed) => listed,
+            Err(code) => {
+                self.reads.failures = self.reads.failures.saturating_add(1);
+                return format!(
+                    "progress read of {machine} failed after {took_ms} ms ({code}); {} as before",
+                    tasks_named(&ours)
+                );
+            }
         };
         self.reads.reads = self.reads.reads.saturating_add(1);
         // "Changed" says what this read found; another machine's tasks
@@ -383,6 +420,7 @@ impl Tracker {
         for tracked in self.tasks.values_mut() {
             tracked.changed = false;
         }
+        let mut first = Vec::new();
         for task in watched.iter().filter(|w| w.machine_id == machine) {
             let row = listed.iter().find(|row| row.agent_id == task.agent_id);
             let state = row.map_or(AgentState::Missing, |row| agent_state(&row.state));
@@ -391,6 +429,7 @@ impl Tracker {
             let last_active_unix_ms = row.and_then(|row| row.last_active_unix_ms);
             match self.tasks.get_mut(&task.task_id) {
                 None => {
+                    first.push(task.task_id);
                     // The first line read is where counting begins.
                     let signs_seen = about.as_deref().map(signs_in).unwrap_or_default();
                     self.tasks.insert(
@@ -435,6 +474,34 @@ impl Tracker {
             }
         }
         self.fresh = true;
+        let each: Vec<String> = ours
+            .iter()
+            .filter_map(|id| {
+                let tracked = self.tasks.get(id)?;
+                let how = if first.contains(id) {
+                    "first read".to_owned()
+                } else if tracked.changed {
+                    let signs: Vec<String> = tracked.signs.iter().map(named).collect();
+                    if signs.is_empty() {
+                        "new line".to_owned()
+                    } else {
+                        format!("new line, {}", signs.join(" "))
+                    }
+                } else {
+                    "same line".to_owned()
+                };
+                Some(format!("task {id} {}, {how}", named(&tracked.state)))
+            })
+            .collect();
+        format!(
+            "progress read of {machine} in {took_ms} ms: {} listed; {}",
+            listed.len(),
+            if each.is_empty() {
+                "no task watched there now".to_owned()
+            } else {
+                each.join("; ")
+            }
+        )
     }
 
     /// The status to publish, if there is a newer one than the last taken.
@@ -479,6 +546,24 @@ impl Tracker {
             "last_active_unix_ms": tracked.last_active_unix_ms,
             "read_unix_ms": tracked.read_unix_ms,
         }))
+    }
+}
+
+/// A state or a sign as the bus spells it (`needs_input`, `tests_pass`).
+fn named(value: &impl serde::Serialize) -> String {
+    serde_json::to_value(value)
+        .ok()
+        .and_then(|value| value.as_str().map(str::to_owned))
+        .unwrap_or_else(|| "unknown".into())
+}
+
+/// "task 7", "tasks 7, 8", or "no task".
+fn tasks_named(ids: &[u64]) -> String {
+    let list: Vec<String> = ids.iter().map(u64::to_string).collect();
+    match ids.len() {
+        0 => "no task".into(),
+        1 => format!("task {}", list[0]),
+        _ => format!("tasks {}", list.join(", ")),
     }
 }
 
@@ -566,42 +651,159 @@ mod tests {
     const HOME: &str = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
 
     #[test]
-    fn one_read_a_machine_on_the_watchs_schedule() {
+    fn a_task_new_to_the_watch_is_read_at_once_then_on_the_watchs_schedule() {
         let mut tracker = Tracker::started(RUN);
-        // Handed over just now: not before half a minute.
+        // Handed over just now: read at once.
         let young = vec![watched(1, OFFICE, A, Some(1_000))];
-        assert_eq!(tracker.due(&young, 0), None);
-        let young = vec![watched(1, OFFICE, A, Some(WATCH_EARLY_MS))];
-        assert_eq!(tracker.due(&young, 0).as_deref(), Some(OFFICE));
-        tracker.asked(OFFICE, 100);
-        assert_eq!(tracker.due(&young, 100 + WATCH_EARLY_MS - 1), None);
-        assert_eq!(
-            tracker.due(&young, 100 + WATCH_EARLY_MS).as_deref(),
-            Some(OFFICE)
-        );
-        // Two tasks on one machine are one read; after ten minutes, every two.
+        assert_eq!(tracker.due(&young, 1_000).as_deref(), Some(OFFICE));
+        tracker.asked(OFFICE, &young, 1_000);
+        // Then every half minute while it is in its first ten minutes,
+        // counted from when the machine was last asked.
+        assert_eq!(tracker.due(&young, 1_000 + WATCH_EARLY_MS - 1), None);
+        let asked = 1_000 + WATCH_EARLY_MS;
+        assert_eq!(tracker.due(&young, asked).as_deref(), Some(OFFICE));
+        tracker.asked(OFFICE, &young, asked);
+        // A second task on that machine is read at once, and the two are
+        // one read.
+        let two = vec![
+            watched(1, OFFICE, A, Some(WATCH_EARLY_MS + 6_000)),
+            watched(2, OFFICE, B, Some(1_000)),
+        ];
+        assert_eq!(tracker.due(&two, asked + 5_000).as_deref(), Some(OFFICE));
+        let asked = asked + 5_000;
+        tracker.asked(OFFICE, &two, asked);
+        assert_eq!(tracker.due(&two, asked + 1), None);
+        // After ten minutes, every two.
         let old = vec![
             watched(1, OFFICE, A, Some(WATCH_EARLY_FOR_MS)),
             watched(2, OFFICE, B, None),
         ];
-        assert_eq!(tracker.due(&old, 100 + WATCH_EARLY_MS), None);
+        assert_eq!(tracker.due(&old, asked + WATCH_EARLY_MS), None);
         assert_eq!(
-            tracker.due(&old, 100 + WATCH_LATER_MS).as_deref(),
+            tracker.due(&old, asked + WATCH_LATER_MS).as_deref(),
             Some(OFFICE)
         );
-        // Another machine is read on its own; the one asked longest ago first.
+        // A machine with a task new to the watch goes first; then the one
+        // asked longest ago.
         let both = vec![
             watched(1, OFFICE, A, None),
-            watched(2, HOME, B, Some(WATCH_EARLY_MS)),
+            watched(3, HOME, B, Some(1_000)),
         ];
-        assert_eq!(tracker.due(&both, 100).as_deref(), Some(HOME));
-        tracker.asked(HOME, 200);
-        assert_eq!(
-            tracker.due(&both, 100 + WATCH_LATER_MS).as_deref(),
-            Some(OFFICE)
-        );
+        let now = asked + WATCH_LATER_MS;
+        assert_eq!(tracker.due(&both, now).as_deref(), Some(HOME));
+        tracker.asked(HOME, &both, now);
+        assert_eq!(tracker.due(&both, now).as_deref(), Some(OFFICE));
         // Nothing watched: nothing read.
         assert_eq!(tracker.due(&[], u64::MAX), None);
+
+        // The tasks there when the service starts are read at once, even
+        // those handed over in an earlier boot.
+        let mut restarted = Tracker::started(RUN);
+        let earlier = vec![watched(5, OFFICE, A, None)];
+        assert_eq!(restarted.due(&earlier, 0).as_deref(), Some(OFFICE));
+        restarted.asked(OFFICE, &earlier, 0);
+        // A failed read waits its turn like any other.
+        let _ = restarted.read(OFFICE, Err("timeout".into()), &earlier, 1, 10_000);
+        assert_eq!(restarted.due(&earlier, 10_000), None);
+        assert_eq!(
+            restarted.due(&earlier, WATCH_LATER_MS).as_deref(),
+            Some(OFFICE)
+        );
+    }
+
+    #[test]
+    fn a_value_at_start_and_whenever_a_task_on_the_bus_leaves_the_watch() {
+        let store = "0".repeat(32);
+        let mut tracker = Tracker::started(RUN);
+        // At start, before anything is watched: a value with no task.
+        let start = tracker.take(&store).unwrap();
+        start.check().unwrap();
+        assert_eq!(
+            (start.store_id.as_str(), start.tasks.len()),
+            (store.as_str(), 0)
+        );
+        assert!(tracker.take(&store).is_none());
+        // A task that was never read was never on the bus: no value for it
+        // leaving.
+        tracker.watching(&[watched(1, OFFICE, A, Some(0))]);
+        tracker.watching(&[]);
+        assert!(tracker.take(&store).is_none());
+        // One that was read leaves the bus as it leaves the watch.
+        let one = vec![watched(2, OFFICE, A, Some(0))];
+        let _ = tracker.read(OFFICE, Ok(vec![listed(A, "working", None)]), &one, 1, 1);
+        assert_eq!(tracker.take(&store).unwrap().tasks.len(), 1);
+        tracker.watching(&one);
+        assert!(tracker.take(&store).is_none());
+        tracker.watching(&[]);
+        assert!(tracker.take(&store).unwrap().tasks.is_empty());
+        assert!(tracker.take(&store).is_none());
+    }
+
+    #[test]
+    fn each_read_is_one_journal_line_in_typed_words_only() {
+        let mut tracker = Tracker::started(RUN);
+        let watched = vec![
+            watched(1, OFFICE, A, Some(0)),
+            watched(2, OFFICE, B, Some(0)),
+            watched(3, HOME, A, Some(0)),
+        ];
+        let line = tracker.read(
+            OFFICE,
+            Ok(vec![
+                listed(A, "working", Some("Reading the brief")),
+                listed("33333333-3333-4333-8333-333333333333", "idle", None),
+            ]),
+            &watched,
+            1,
+            412,
+        );
+        assert_eq!(
+            line,
+            format!(
+                "progress read of {OFFICE} in 412 ms: 2 listed; task 1 working, first read; \
+                 task 2 missing, first read"
+            )
+        );
+        let line = tracker.read(
+            OFFICE,
+            Ok(vec![
+                listed(A, "working", Some("Fixed it; all tests pass")),
+                listed(B, "needs-input", None),
+            ]),
+            &watched,
+            2,
+            380,
+        );
+        assert_eq!(
+            line,
+            format!(
+                "progress read of {OFFICE} in 380 ms: 2 listed; task 1 working, new line, \
+                 tests_pass fixed; task 2 needs_input, same line"
+            )
+        );
+        let line = tracker.read(
+            OFFICE,
+            Ok(vec![listed(A, "working", Some("Now the docs"))]),
+            &watched,
+            3,
+            390,
+        );
+        assert!(
+            line.contains("task 1 working, new line; task 2 missing, same line"),
+            "{line}"
+        );
+        let line = tracker.read(HOME, Err("timeout".into()), &watched, 4, 10_000);
+        assert_eq!(
+            line,
+            format!("progress read of {HOME} failed after 10000 ms (timeout); task 3 as before")
+        );
+        let line = tracker.read(HOME, Ok(vec![]), &[], 5, 300);
+        assert_eq!(
+            line,
+            format!("progress read of {HOME} in 300 ms: 0 listed; no task watched there now")
+        );
+        let line = tracker.read(OFFICE, Err("busy".into()), &watched[..2], 6, 1);
+        assert!(line.ends_with("(busy); tasks 1, 2 as before"), "{line}");
     }
 
     #[test]
@@ -609,7 +811,7 @@ mod tests {
         let mut tracker = Tracker::started(RUN);
         let watched = vec![watched(3, OFFICE, A, Some(60_000))];
         // The first line read is where counting begins.
-        tracker.read(
+        let _ = tracker.read(
             OFFICE,
             Ok(vec![listed(
                 A,
@@ -634,7 +836,7 @@ mod tests {
         // Nothing newer to publish until the next read.
         assert!(tracker.take(&"0".repeat(32)).is_none());
         // The same line again: read, not changed.
-        tracker.read(
+        let _ = tracker.read(
             OFFICE,
             Ok(vec![listed(
                 A,
@@ -655,7 +857,7 @@ mod tests {
             (0, false, 2_000)
         );
         // A new line: counted, how much is new, and the signs new in it.
-        tracker.read(
+        let _ = tracker.read(
             OFFICE,
             Ok(vec![listed(A, "working", Some("Fixed it; all tests pass"))]),
             &watched,
@@ -685,7 +887,7 @@ mod tests {
         assert_eq!(words["state"], "working");
         assert!(tracker.words(4).is_none());
         // A failed read changes nothing and is counted.
-        tracker.read(OFFICE, Err("timeout".into()), &watched, 4_000, 10_000);
+        let _ = tracker.read(OFFICE, Err("timeout".into()), &watched, 4_000, 10_000);
         assert!(tracker.take(&"0".repeat(32)).is_none());
         assert_eq!(
             tracker.reads(),
@@ -697,7 +899,7 @@ mod tests {
             }
         );
         // Not listed any more: missing, and its last line is kept.
-        tracker.read(OFFICE, Ok(vec![]), &watched, 5_000, 600);
+        let _ = tracker.read(OFFICE, Ok(vec![]), &watched, 5_000, 600);
         let gone = tracker.take(&"0".repeat(32)).unwrap();
         assert_eq!(
             (
@@ -718,7 +920,7 @@ mod tests {
         let mut tracker = Tracker::started(RUN);
         let watched = vec![watched(1, OFFICE, A, None), watched(2, HOME, B, None)];
         for (machine, agent, about) in [(OFFICE, A, "one"), (HOME, B, "two")] {
-            tracker.read(
+            let _ = tracker.read(
                 machine,
                 Ok(vec![listed(agent, "working", Some(about))]),
                 &watched,
@@ -726,14 +928,14 @@ mod tests {
                 1,
             );
         }
-        tracker.read(
+        let _ = tracker.read(
             OFFICE,
             Ok(vec![listed(A, "working", Some("one more"))]),
             &watched,
             2,
             1,
         );
-        tracker.read(
+        let _ = tracker.read(
             HOME,
             Ok(vec![listed(B, "working", Some("two more"))]),
             &watched,

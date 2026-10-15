@@ -449,9 +449,26 @@ fn next_status(watch: &mut lamp_bus::Subscriber) -> TaskStatus {
 }
 
 #[test]
-fn with_progress_each_machine_is_listed_on_the_watchs_schedule_and_the_words_stay_here() {
+fn with_progress_a_value_from_the_start_each_task_read_at_once_then_on_schedule_and_the_words_stay_here()
+ {
     let mut s = Running::with(false, true);
     let bus = Bus::new(&s.config.bus_root).unwrap();
+    // A value from the start, before anything is handed over: no task, so
+    // "nothing being worked on" is told apart from "not there".
+    let begun = Instant::now();
+    let start = loop {
+        if let Some(message) = bus.latest(TaskStatus::TOPIC).unwrap() {
+            break message.parse::<TaskStatus>().unwrap();
+        }
+        assert!(
+            begun.elapsed() < Duration::from_secs(5),
+            "no value at start"
+        );
+        thread::sleep(Duration::from_millis(10));
+    };
+    assert!(start.tasks.is_empty());
+    assert_eq!(start.store_id, s.status()["store_id"]);
+    assert_eq!(s.counts.listings.load(Ordering::SeqCst), 0);
     let mut watch = bus
         .subscribe_typed(TaskStatus::TOPIC, "tasks_test", TaskStatus::TYPE)
         .unwrap();
@@ -461,13 +478,11 @@ fn with_progress_each_machine_is_listed_on_the_watchs_schedule_and_the_words_sta
     s.wait(&prepared["id"], |v| {
         v["task"]["dispatch"]["state"] == "accepted"
     });
-    // Not before half a minute after it was handed over.
-    thread::sleep(Duration::from_millis(100));
-    assert_eq!(s.counts.listings.load(Ordering::SeqCst), 0);
-    s.clock.0.lock().unwrap().monotonic_ms = 30_000;
+    // Read at once, with the clock where it was handed over.
     let first = next_status(&mut watch);
+    assert_eq!(s.counts.listings.load(Ordering::SeqCst), 1);
     let task = &first.tasks[0];
-    assert_eq!(first.store_id, s.status()["store_id"]);
+    assert_eq!(first.store_id, start.store_id);
     assert_eq!(
         (
             task.task,
@@ -484,14 +499,14 @@ fn with_progress_each_machine_is_listed_on_the_watchs_schedule_and_the_words_sta
             false
         )
     );
-    assert_eq!(task.working_s, Some(30));
+    assert_eq!(task.working_s, Some(0));
     assert_eq!(task.last_active_unix_ms, Some(1_792_022_712_345));
     // The line changes; the next read is half a minute later.
     *s.counts.about.lock().unwrap() = Some("Fixed it; all tests pass".into());
-    s.clock.0.lock().unwrap().monotonic_ms = 59_999;
+    s.clock.0.lock().unwrap().monotonic_ms = 29_999;
     thread::sleep(Duration::from_millis(100));
     assert_eq!(s.counts.listings.load(Ordering::SeqCst), 1);
-    s.clock.0.lock().unwrap().monotonic_ms = 60_000;
+    s.clock.0.lock().unwrap().monotonic_ms = 30_000;
     let changed = next_status(&mut watch);
     let task = &changed.tasks[0];
     assert_eq!((task.changes, task.changed), (1, true));
@@ -530,7 +545,13 @@ fn with_progress_each_machine_is_listed_on_the_watchs_schedule_and_the_words_sta
     *s.counts.about.lock().unwrap() = Some("Another line altogether".into());
     s.start();
     s.clock.0.lock().unwrap().monotonic_ms = 120_000;
-    let again = next_status(&mut watch);
+    // The restarted run's value at start has no task; its read at once does.
+    let again = loop {
+        let status = next_status(&mut watch);
+        if !status.tasks.is_empty() {
+            break status;
+        }
+    };
     assert_eq!(again.store_id, changed.store_id);
     assert_eq!(
         (again.tasks[0].task, again.tasks[0].changes),
@@ -544,6 +565,22 @@ fn with_progress_each_machine_is_listed_on_the_watchs_schedule_and_the_words_sta
     );
     let words = s.ask(json!({"op":"get_progress","id":prepared["id"]}));
     assert_eq!(words["progress"]["run"], again.run);
+    // Settled (the agent asks the person): it leaves the watch, and the
+    // bus, at once rather than at the next read, which with the clock held
+    // at 120 s is not due. A read already under way may come first.
+    assert_eq!(
+        s.ask(json!({"op":"observe","guard":s.guard(),"id":prepared["id"]}))["ok"],
+        true
+    );
+    let mut seen = 0;
+    let left = loop {
+        let status = next_status(&mut watch);
+        seen += 1;
+        if status.tasks.is_empty() || seen == 3 {
+            break status;
+        }
+    };
+    assert!(left.tasks.is_empty(), "{left:?}");
 }
 
 #[test]

@@ -521,8 +521,15 @@ office iMac's speaker about 60 cm away.
   spoke of the first answer: "That's strange, the work couldn't be prepared
   right now." That answer is now sent under `not_done`, not `error`, and
   says that nothing went wrong and to say nothing about it
-  ([gemini-session-reliability.md](gemini-session-reliability.md)). Not yet
-  played again with a cut at a comma.
+  ([gemini-session-reliability.md](gemini-session-reliability.md)). Played
+  at 20:43 on a build with both changes (voice `64c62377…`), the request
+  with a 600 ms pause after its comma: cut there both times. In the first
+  the call for the piece was answered `not_done`; the model called again
+  for the whole and said "Claude Code will write a two-line poem about the
+  sea and review it. Shall I start it?", nothing about a failure. In the
+  second it made no call for the piece. On the same build at 20:36 a
+  hand-over was prepared in 37 ms and confirmed in 42 ms, and its news was
+  told unasked 80 s later.
 - **Harness was not running after a power cut.** The tasks part hands work
   over through the Harness daemon on the lamp. Nothing started it after the
   power cut at 18:15, so a confirmed hand-over at 20:10 ended `new_failed`

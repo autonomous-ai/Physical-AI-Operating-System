@@ -121,7 +121,10 @@ giving the model one with everything said was switched off).
   `look_full_asked` in the record), taken once the head has settled
   ([eyes.md](eyes.md), "A full look"), while the lamp is still saying
   "Let me look". The eyes mark the still with the id (a JPEG comment,
-  `lamp-look ID`). The look then waits until the eyes' file holds the still
+  `lamp-look ID`) in their own file, `--full-look-file`, which the voice
+  reads from `LAMP_EYES_FULL_LOOK_FILE` (a full look needs both it and
+  `LAMP_LOOK_FULL=on`; the worker is given that path as `--eyes-look`). The
+  working frame stays in the sight file. The look then waits until that file holds the still
   with this ask's id, or at most 2.6 s after the lamp said it would look
   (`look_full_still` in the record, with how long after and whether the
   still was there). The worker is started with `--eyes-look-full` after
@@ -131,8 +134,8 @@ giving the model one with everything said was switched off).
   never guess what it might be." A full look without its own still goes
   with no picture and the note that the eye was shut (`NO_LOOK_NOTE`): no
   still, an earlier look's still the eyes still hold, a cancelled look's
-  still written after this ask, or the working frame of eyes started
-  without `--full-look`. A write time could not tell these apart; the id
+  still written after this ask, or eyes started
+  without `--full-look`, which write no still. A write time could not tell these apart; the id
   does.
   Without the variable nothing is asked, waited for or said differently.
 

@@ -163,12 +163,18 @@ what do you see?". The picture that went with the look was the working
 frame, 320 by 240: the office, the person side-on, and nothing to tell what
 was held up. The answer was wrong.
 
-With `--full-look WIDTHxHEIGHT` (it needs `--sight-file`) the eyes' stream is
+With `--full-look WIDTHxHEIGHT` and `--full-look-file PATH` (the two go
+together, and the path is not the sight file's) the eyes' stream is
 opened at that size instead of 320 by 240, and nothing else about the faces
 changes: the detector shrinks every frame to its own 320 by 256, as it
-always could, and every face size is a share of the picture. No working
-frame is kept. The sight file holds only a still taken when the voice
-service asks, `{"look_full":ID}` on `--permit-socket` (an id from 1):
+always could, and every face size is a share of the picture. The working
+frame is kept in `--sight-file` as before, at each look, 320 across: the
+full-size frame is shrunk by averaging and encoded again (decoded a second
+time after the detector's decode), so `lamp-policy --images` (#873) and
+anything else reading the sight file still finds a picture under a second
+old at any time; a stream fallen back to 320 by 240 is kept as it comes.
+The still never goes there. `--full-look-file` holds only a still taken
+when the voice service asks, `{"look_full":ID}` on `--permit-socket` (an id from 1):
 
 1. The head is the body's. It already turns to the face the eyes see
    (`--gaze-socket`) and to a call (`--look-at-name on`); nothing new is
@@ -194,7 +200,8 @@ service asks, `{"look_full":ID}` on `--permit-socket` (an id from 1):
    more. The voice service takes a still only with its own ask's id, so a
    still of an earlier ask that is written late, after a newer ask was
    sent, is never taken for the newer one.
-4. It is written to the sight file as frames were, and removed 3 s later,
+4. It is written to `--full-look-file` (mode 0600, replaced whole as the
+   sight file is), and removed 3 s later,
    or when the camera closes. One line in the journal: its size, its bytes,
    how long the head was waited for and how long it took to make. No
    picture is logged.
@@ -243,8 +250,7 @@ and lamp-52e6 and write the numbers here; if the full size is too slow,
 
 On the voice service's side, `LAMP_LOOK_FULL=on` ([speaking-first.md](speaking-first.md),
 "Taking a look"). The two are turned on together: eyes with `--full-look`
-and a voice service without it have no picture for a look, nor for
-`LAMP_EYES_SIGHT_FILE`. Privacy is as before: the still goes with the one look it
+and a voice service without it look with the working frame, as before. Privacy is as before: the still goes with the one look it
 was taken for, is on the lamp for at most 3 s, in memory, and is never kept
 or logged.
 
@@ -430,7 +436,7 @@ looking.
 lamp-eyes --device /dev/video0 --lock-directory /home/WORKER/private-camera-locks --usb 01da:5875@3-1.1.4 --model /opt/lampOS/eyes/face_detection_yunet_2023mar.onnx --permit-socket /run/lampos-eyes/permit.sock --body-socket /run/lampos-body/gaze.sock
 ```
 
-Every option shown is required; `--sight-file ABSOLUTE_PATH`, `--leave-still-faces on` and, with the sight file, `--full-look 1280x960` may be added.
+Every option shown is required; `--sight-file ABSOLUTE_PATH`, `--leave-still-faces on` and `--full-look 1280x960 --full-look-file /run/lampos-eyes/full-look.jpg` may be added.
 `--usb` is `VENDOR:PRODUCT@TOPOLOGY`, the two numbers as four hex digits; the
 lock directory must be private to the user it runs as. A camera that does not open, or fails, is tried again every five
 seconds while permission lasts. A start is given a 2 s budget (`OPEN_BUDGET_US`)

@@ -1642,6 +1642,14 @@ async fn serve_with_visual<C: Connect>(
                             {
                                 output.push_back(Outbound::Output(ProviderOutput::Unclear { request, why: why.to_owned() }));
                             }
+                            // The lamp's own news is news once its sound
+                            // goes out (#829, #918): not the sound of a turn
+                            // already retired, which is never played.
+                            if matches!(event, Event::Audio { .. })
+                                && request > intake.handoff.retired_through
+                            {
+                                attention.spoke(request, monotonic_us());
+                            }
                             // A request whose answer is held is not talk
                             // between people (#829).
                             if matches!(verdict, Some(crate::attention::Verdict::Hold(_)))

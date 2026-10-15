@@ -674,11 +674,14 @@ pub struct Attention {
     /// An answer is played only when the lamp was spoken to
     /// (`LAMP_SPOKEN_TO=on`, #829).
     spoken_to: bool,
-    /// When the lamp's own news last began, until something said after it
-    /// has been judged; and when it last did work of its own: its news, or
-    /// a task, a timer or a reminder it started. With `spoken_to` only.
+    /// When the lamp's own news was last heard to begin, until something
+    /// said after it has been judged; and when it last did work of its own:
+    /// its news, or a task, a timer or a reminder it started. With
+    /// `spoken_to` only.
     news_us: Option<u64>,
     worked_us: Option<u64>,
+    /// The own turn whose sound opened `news_us`.
+    news_of: Option<u64>,
     /// The request in hand follows, within [`ANOTHER_REPLY_US`], one that
     /// called someone other than the lamp by name. With `spoken_to` only.
     after_another: bool,
@@ -706,6 +709,22 @@ impl Attention {
         self.spoken_to
     }
 
+    /// The lamp's own turn `request` began to be heard at `at_us`: its sound
+    /// went out. Only then is it news someone can reply to (#918, the
+    /// reviewer at 05:11): an own turn that ends silent, or is cancelled
+    /// before it speaks, opens no window. Once per turn.
+    pub fn spoke(&mut self, request: u64, at_us: u64) {
+        if self.spoken_to
+            && request == self.request
+            && OWN_REQUEST.load(Ordering::Acquire) == request
+            && self.news_of != Some(request)
+        {
+            self.news_of = Some(request);
+            self.news_us = Some(at_us);
+            self.worked(at_us);
+        }
+    }
+
     /// The lamp started a task, a timer or a reminder at `at_us`, by this
     /// process's clock.
     pub fn worked(&mut self, at_us: u64) {
@@ -726,10 +745,6 @@ impl Attention {
         self.began(request, session);
         self.after_another = after_another;
         self.began_us = Some(now_us);
-        if self.spoken_to && OWN_REQUEST.load(Ordering::Acquire) == request {
-            self.news_us = Some(now_us);
-            self.worked(now_us);
-        }
         self.named = self
             .named_us
             .is_some_and(|named| named.saturating_add(NAME_BEFORE_US) >= now_us);
@@ -1734,6 +1749,7 @@ mod tests {
                 attention.first_output_busy(7_829, Room::Busy, false, true, None),
                 Some(Verdict::Play("the lamp began this turn itself"))
             );
+            attention.spoke(7_829, 100 * S);
             OWN_REQUEST.store(0, Ordering::Release);
             let mut judge = |request: u64, at: u64, heard: &str| {
                 attention.began_at(request, 4, at * S);
@@ -1781,6 +1797,45 @@ mod tests {
         );
         assert!(about_its_work("How is that TASK going?"));
         assert!(!about_its_work("I'll ask him about it."));
+    }
+
+    /// #918, the reviewer at 05:11: the lamp's own turn opens the reply
+    /// window only once its sound goes out. Ended silent, or cancelled
+    /// before it spoke, it opens none, and the talk after it is judged as
+    /// any other. Only the turn in hand, and only the lamp's own, opens one.
+    #[test]
+    fn an_own_turn_that_said_nothing_is_no_news_to_reply_to() {
+        const S: u64 = 1_000_000;
+        let after = |spoke: Option<u64>| {
+            let mut attention = Attention::default();
+            attention.speak_when_spoken_to(true);
+            OWN_REQUEST.store(8_918, Ordering::Release);
+            attention.began_at(8_918, 4, 100 * S);
+            attention.first_output(8_918, Room::Quiet, false);
+            if let Some(request) = spoke {
+                attention.spoke(request, 101 * S);
+            }
+            OWN_REQUEST.store(0, Ordering::Release);
+            attention.began_at(1, 4, 110 * S);
+            attention.heard("Did you get my message about the budget?");
+            attention.first_output(1, Room::Quiet, false).unwrap()
+        };
+        assert_eq!(after(Some(8_918)), Verdict::Play(AFTER_NEWS));
+        assert_eq!(after(None), Verdict::Hold(NOT_SPOKEN_TO));
+        assert_eq!(after(Some(8_917)), Verdict::Hold(NOT_SPOKEN_TO));
+        // A person's request that is answered is no news.
+        let mut attention = Attention::default();
+        attention.speak_when_spoken_to(true);
+        attention.began_at(2, 4, 100 * S);
+        attention.heard("Hey Lamp, what time is it?");
+        attention.first_output(2, Room::Quiet, false);
+        attention.spoke(2, 101 * S);
+        attention.began_at(3, 4, 110 * S);
+        attention.heard("Did you get my message about the budget?");
+        assert_eq!(
+            attention.first_output(3, Room::Quiet, false),
+            Some(Verdict::Hold(NOT_SPOKEN_TO))
+        );
     }
 
     /// #829, the first builder at 05:02, scene 4 on lamp-4ace: Samantha's

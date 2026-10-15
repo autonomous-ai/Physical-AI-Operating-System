@@ -236,3 +236,102 @@ fn both_workers_take_the_spoken_to_flag_in_its_place() {
     let (_, _, files, _) = parse_flags(dir, &flags[..3]).unwrap();
     assert!(!files.spoken_to);
 }
+
+/// How the lamp's own turn before the room's line ended.
+#[derive(Clone, Copy, Debug)]
+enum OwnTurn {
+    /// Its sound went out.
+    Spoke,
+    /// The service completed it with nothing to say.
+    Silent,
+    /// Its owner was cancelled before any sound.
+    Cancelled,
+}
+
+/// The reviewer on #918 at 05:11, through the worker's own loop: the lamp's
+/// own written turn, ended as `own`, then the two-person scene's unnamed
+/// opening line in a room not known to be busy. Whether that line's answer
+/// is played: only after news the lamp spoke is it a reply.
+async fn after_the_lamps_own_turn(own: OwnTurn) -> bool {
+    // The worker marks its own turn process-wide; each rig numbers its
+    // requests from one, so the mark is put back afterwards.
+    let marked = crate::attention::OWN_REQUEST.load(std::sync::atomic::Ordering::Acquire);
+    let mut rig = LiveRig::start_with(
+        quick_policy(),
+        options(true, quiet, crate::tools::Settings::default()),
+    );
+    let mut dial = rig.ready().await;
+    let owner = rig
+        .owner
+        .admit(real_time(), lamp_turn_owner::AdmittedInput::NewTurn)
+        .unwrap();
+    let news = owner.turn();
+    rig.publish();
+    rig.parent
+        .data
+        .send(ProviderInput::Written {
+            request: news,
+            session: dial.session.get(),
+            privacy_generation: rig.snapshot.microphone_generation(),
+            text: "Tell them the task they gave you is done.".to_owned(),
+            look: false,
+        })
+        .unwrap();
+    assert!(matches!(
+        rig.output().await,
+        ProviderOutput::Started { request, .. } if request == news
+    ));
+    let written = rig.service_message(&mut dial).await;
+    assert!(written.get("clientContent").is_some(), "{written}");
+    match own {
+        OwnTurn::Spoke => {
+            dial.service.send(provider_audio(5, 240)).await;
+            dial.service.send(idle_complete()).await;
+        }
+        OwnTurn::Silent => dial.service.send(idle_complete()).await,
+        OwnTurn::Cancelled => {
+            rig.owner.cancel_turn(real_time(), owner).unwrap();
+            rig.publish();
+            dial.service.send(idle_complete()).await;
+        }
+    }
+    // A cancelled turn's own output is never delivered; the others end.
+    if !matches!(own, OwnTurn::Cancelled) {
+        loop {
+            match rig.output().await {
+                ProviderOutput::TurnComplete { request, .. } if request == news => break,
+                _ => {}
+            }
+        }
+    }
+    let request = rig.speak(&mut dial, false, true).await;
+    dial.service.send(heard(NOT_TO_THE_LAMP[0])).await;
+    dial.service.send(provider_audio(7, 240)).await;
+    dial.service.send(idle_complete()).await;
+    let mut played = false;
+    loop {
+        match rig.output().await {
+            ProviderOutput::Audio { request: of, .. } if of == request => played = true,
+            ProviderOutput::TurnComplete { request: of, .. } if of == request => break,
+            _ => {}
+        }
+    }
+    rig.stop().await;
+    crate::attention::OWN_REQUEST.store(marked, std::sync::atomic::Ordering::Release);
+    played
+}
+
+#[tokio::test]
+async fn news_the_lamp_spoke_is_replied_to() {
+    assert!(after_the_lamps_own_turn(OwnTurn::Spoke).await);
+}
+
+#[tokio::test]
+async fn an_own_turn_completed_silent_is_no_news() {
+    assert!(!after_the_lamps_own_turn(OwnTurn::Silent).await);
+}
+
+#[tokio::test]
+async fn an_own_turn_cancelled_before_it_spoke_is_no_news() {
+    assert!(!after_the_lamps_own_turn(OwnTurn::Cancelled).await);
+}

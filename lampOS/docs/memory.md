@@ -328,6 +328,44 @@ then use that person's scope:
   (`remember::tests::with_nobody_known_every_line_to_the_memory_is_as_before`
   pins the bytes).
 
+### A session for each person (#764 follow-up)
+
+Scopes alone did not reach what the open provider session had already
+heard: on lamp-52e6 with a real face, after the known person had gone,
+"what is my locker code?" was answered "It's 417" without a recall, from the
+session in which they had kept it four minutes earlier
+([verification](verification/memory-per-person-real-face-lamp-52e6-20261015/README.md)).
+So, with the same switch (a memory and `LAMP_EYES_WHO_SOCKET`), each
+provider session is one person's:
+
+- **Who is at the lamp** is read from the known file every 500 ms
+  (`known_faces::Presence`). A different known name counts at once; nobody
+  counts only after 30 s without a fresh file (`GONE_AFTER`): the eyes
+  renew it within 3 s while they see the face, so looking away for a few
+  seconds is not a change.
+- **When that is not whom the session was opened for**, the worker asks for
+  a new session (`renew_when_idle`), only between turns: no request open
+  and nothing of an answer still to be handed on; a change during a turn
+  waits for its end, and the session itself still waits until nothing is
+  owed on it, so an answer is never cut off. The log says "the person at
+  the lamp has changed", never who.
+- **The new session** is told only that person's kept things (the room's,
+  then theirs) and their thread, or the room's when nobody is known
+  (`remember::told_for_session` for the person the thread says the session
+  is for). No resumption handle is presented after the first change, since
+  one could restore the earlier person's conversation.
+- **Each person's thread** is kept apart ([conversation-thread.md](conversation-thread.md#each-persons-own-thread)),
+  so someone who comes back within ten minutes is told theirs again.
+- **With nobody ever known** nothing of this acts: the thread is the room's,
+  no session is renewed, and the session note is what it was
+  (`thread::tests::with_nobody_ever_known_nothing_changes`).
+
+Cost: one session open per change, as for any renewal. Building its
+instruction takes about 5 µs on the development Mac (release build, four
+people's full threads, 8,000-byte character); the open itself is a network
+round trip not measured on the host. During it what is said is not heard,
+which is why it happens only between turns. Not shown: a lamp run.
+
 Not shown: anything on a lamp. The host test
 `crates/memory/tests/voice_people.rs` plays two known people and the room
 against the real store in both modes: each is answered from their own and

@@ -9,7 +9,7 @@ use lamp_gemini::{Tool, ToolCall};
 use serde_json::{Value, json};
 use std::{
     path::{Path, PathBuf},
-    time::{Duration, SystemTime},
+    time::{Duration, Instant, SystemTime},
 };
 
 /// The eyes' request socket, from the voice service's environment.
@@ -152,6 +152,41 @@ pub fn known_from_environment() -> Option<String> {
         .flatten()
 }
 
+/// A known person counts as gone only after this long without a fresh known
+/// file. The eyes renew it within 3 s while they see the face, so a person
+/// who looks away for a few seconds is still there; a new session for the
+/// room is opened only once they have been unseen this long (#764).
+pub const GONE_AFTER: Duration = Duration::from_secs(30);
+
+/// Who is at the lamp, as the voice counts it for whose session it is: a
+/// different known person counts at once, nobody only after [`GONE_AFTER`].
+#[derive(Default)]
+pub struct Presence {
+    who: Option<String>,
+    seen_at: Option<Instant>,
+}
+
+impl Presence {
+    /// What the known file said now (`None`: nobody fresh), and who is at
+    /// the lamp after it.
+    pub fn seen(&mut self, known: Option<String>, now: Instant) -> Option<&str> {
+        match known {
+            Some(who) => {
+                self.who = Some(who);
+                self.seen_at = Some(now);
+            }
+            None if self
+                .seen_at
+                .is_some_and(|at| now.saturating_duration_since(at) >= GONE_AFTER) =>
+            {
+                self.who = None;
+            }
+            None => {}
+        }
+        self.who.as_deref()
+    }
+}
+
 /// What a request is told when someone the lamp knows is at it.
 pub fn note(name: &str) -> String {
     format!("(The person at the lamp now is {name}: you know their face.)")
@@ -215,6 +250,24 @@ mod tests {
         let (words, answered) = run(nowhere, &call(REMEMBER, json!({"name":"Minh"})));
         assert!(words["error"].as_str().unwrap().contains("eye") && !answered);
         assert!(is_tool(REMEMBER) && is_tool(FORGET) && !is_tool("remember"));
+    }
+
+    #[test]
+    fn a_known_person_looking_away_is_still_there_and_another_counts_at_once() {
+        let start = Instant::now();
+        let at = |seconds: u64| start + Duration::from_secs(seconds);
+        let mut presence = Presence::default();
+        assert_eq!(presence.seen(None, at(0)), None);
+        assert_eq!(presence.seen(Some("a".into()), at(1)), Some("a"));
+        // Looking away: still there until 30 s unseen.
+        assert_eq!(presence.seen(None, at(5)), Some("a"));
+        assert_eq!(presence.seen(None, at(30)), Some("a"));
+        assert_eq!(presence.seen(Some("a".into()), at(31)), Some("a"));
+        assert_eq!(presence.seen(None, at(60)), Some("a"));
+        assert_eq!(presence.seen(None, at(61)), None);
+        // Someone else counts as soon as the eyes know them.
+        assert_eq!(presence.seen(Some("a".into()), at(62)), Some("a"));
+        assert_eq!(presence.seen(Some("b".into()), at(63)), Some("b"));
     }
 
     #[test]

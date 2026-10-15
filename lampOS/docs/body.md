@@ -827,7 +827,8 @@ four rows, "Without it" is what `off` leaves.
 | `--awake-seconds N` | how long it stays up after the last mood that was not rest | 90 | 5 to 3,600 |
 | `--arm-load S,E` | load that sends it back down | 950,950, or 40 under `--force-limit` when that is given | 50 to 1,000, and under `--force-limit` |
 | `--force-limit N` | the most force the base's turn and, for a lamp that may stand, the shoulder and the elbow may push with, of 1,000 | not written: each servo keeps what it holds | 300 to 1,000 |
-| `--give-way return\|stay` | what a joint does after it gave way, and a joint that pushes without moving told to stop (below, "Giving way to a hand") | as before the option: no stall rule, a joint that gave way always comes back | return or stay |
+| `--give-way return\|stay\|off` (default return) | what a joint does after it gave way, and a joint that pushes without moving told to stop (below, "Giving way to a hand") | `off`: as before the option: no stall rule, a joint that gave way always comes back | return, stay or off |
+| `--limp on\|off` (default on while giving way) | a hand forcing a joint past V1's contact floor slumps the lamp (below) | `off`: gives way without the slump | on or off; on needs `--give-way` |
 | `--torque on` | take hold of a joint found without torque: its goal written as where it is, then torque on, and refused if it then moves more than 12 counts | a joint without torque is refused, and torque is not written | on or off |
 | `--wake on` (default) | with `--home`, a joint found out of where it may start but within 400 counts of home is brought home slowly before anything else; a shoulder left up with its elbow folded is lowered first; in the run, a joint held 30 to 50 counts short of its goal, still, rests where it is (see "Waking") | such a joint is refused | on or off |
 | `--overload release` | any joint at a load of 800 (80% of `--force-limit` for a joint held to one) for 1.5 s: torque off on all five for 120 s, then held where they are and the head brought home slowly; a second time within ten minutes ends the run, torque off (see "Letting go under overload") | torque is never written off | release |
@@ -1091,8 +1092,10 @@ the lamp's weight (the shoulder, the elbow) must never go limp, since on
 V1 releasing them dropped the arm with nobody touching it; and a joint
 held still against its goal must not cook.
 
-`--give-way return|stay`, off unless given. Without it the body does
-exactly what it did before, write for write.
+`--give-way return|stay|off`, `return` unless given (since #703: shown by
+hand on lamp-52e6 on 2026-10-15, see
+`docs/verification/give-way-hand-lamp-52e6/`). With `--give-way off` the body
+does exactly what it did before the option, write for write.
 
 **Both modes: a joint that pushes without moving is told to stop.** Any
 of the five joints the body writes (the three it commands; the shoulder
@@ -1170,7 +1173,7 @@ it as often as they like.
   before the second sees the joint go back at the servo's own speed to
   where it gave way, and then to the pose its mood wants.
 
-**`--limp on` (with `--give-way`, off unless given): a hand makes the
+**`--limp on` (with `--give-way`; on unless given while it gives way, since #703, and off with `--give-way off`): a hand makes the
 lamp slump, as V1 did.** For the hardware team's wish that the lamp meets a
 hand hard enough to strain a servo as the old runtime did. Until 2026-10-14 a joint that gave way only had its
 goal set to where it was, its torque left on. On lamp-52e6 that day, run

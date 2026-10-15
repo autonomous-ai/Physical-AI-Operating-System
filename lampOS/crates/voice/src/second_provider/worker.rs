@@ -258,7 +258,7 @@ pub fn serve(
             file.as_deref(),
         )
     };
-    let runner: ToolRunner = Arc::new(move |request, name, args| {
+    let runner: ToolRunner = Arc::new(move |request, heard, name, args| {
         let settings = tools.clone();
         Box::pin(async move {
             let call = lamp_gemini::ToolCall {
@@ -266,10 +266,8 @@ pub fn serve(
                 name,
                 args,
             };
-            // A request this route answers was heard: it defers the
-            // lamp's own (reminders), the only ones not heard.
             tokio::task::spawn_blocking(move || {
-                crate::tools::answer(&settings, &call, request, true)
+                crate::tools::answer(&settings, &call, request, heard)
             })
             .await
             .unwrap_or_else(|_| crate::tools::unavailable())
@@ -566,7 +564,7 @@ mod tests {
         let mut engine = Engine::new(
             Arc::new(Silent),
             Told::default,
-            Arc::new(|_, _, _| Box::pin(async { serde_json::Value::Null })),
+            Arc::new(|_, _, _, _| Box::pin(async { serde_json::Value::Null })),
         );
         let mut gate = Gate::new(boot, now_us);
         let first = owner.admit(at, AdmittedInput::NewTurn).unwrap();

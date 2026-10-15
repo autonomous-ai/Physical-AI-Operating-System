@@ -110,15 +110,16 @@ fn call(id: &str, name: &str, args: Value) -> ToolCall {
     }
 }
 
-type Calls = Arc<Mutex<Vec<(String, Value)>>>;
+/// Each tool call: its name, its arguments, and whether it was heard.
+type Calls = Arc<Mutex<Vec<(String, Value, bool)>>>;
 
 /// An engine on `script` whose tools answer `{"ok": true}`, with a clock
 /// the test moves.
 fn scripted(script: Arc<Script>) -> (Engine, Calls, Arc<Mutex<Instant>>) {
     let calls: Calls = Arc::default();
     let seen = calls.clone();
-    let tools: ToolRunner = Arc::new(move |_, name, args| {
-        seen.lock().unwrap().push((name, args));
+    let tools: ToolRunner = Arc::new(move |_, heard, name, args| {
+        seen.lock().unwrap().push((name, args, heard));
         Box::pin(async { json!({"ok": true}) })
     });
     let now = Arc::new(Mutex::new(Instant::now()));
@@ -323,7 +324,7 @@ async fn a_tool_call_is_run_and_its_result_answered() {
     );
     assert_eq!(
         *calls.lock().unwrap(),
-        [("set_timer".to_owned(), json!({"minutes": 5}))]
+        [("set_timer".to_owned(), json!({"minutes": 5}), false)]
     );
     let asked_again = &script.asked.lock().unwrap()[1];
     assert_eq!(
@@ -504,7 +505,7 @@ async fn the_chat_is_given_the_exchanges_it_is_told_between_the_system_and_the_q
         ..Script::default()
     });
     let now = Instant::now();
-    let tools: ToolRunner = Arc::new(|_, _, _| Box::pin(async { json!({"ok": true}) }));
+    let tools: ToolRunner = Arc::new(|_, _, _, _| Box::pin(async { json!({"ok": true}) }));
     let mut engine = Engine::with_clock(
         script.clone(),
         Arc::new(|| Told {
@@ -528,4 +529,41 @@ async fn the_chat_is_given_the_exchanges_it_is_told_between_the_system_and_the_q
             Message::user("How many live there?"),
         ]
     );
+}
+
+/// First builder's reviewer on #778: a tool call in a turn the lamp wrote
+/// itself is not heard, so it cannot confirm a person's prepared work
+/// (`agent_tasks::may_confirm`); one in a spoken turn is.
+#[tokio::test]
+async fn a_tool_call_is_heard_only_in_a_spoken_turn() {
+    let confirm = || call("c1", "confirm_agent_task", json!({}));
+    let script = Arc::new(Script {
+        heard: Mutex::new([Ok("Yes, go ahead.".to_owned())].into()),
+        chats: Mutex::new(
+            [
+                vec![
+                    Ok(ChatEvent::ToolCalls(vec![confirm()])),
+                    Ok(ChatEvent::Done),
+                ],
+                vec![text("Not without a yes."), Ok(ChatEvent::Done)],
+                vec![
+                    Ok(ChatEvent::ToolCalls(vec![confirm()])),
+                    Ok(ChatEvent::Done),
+                ],
+                vec![text("Handing it over."), Ok(ChatEvent::Done)],
+            ]
+            .into(),
+        ),
+        ..Script::default()
+    });
+    let (mut engine, calls, _) = scripted(script);
+    engine.submit(written(8, "Ask whether to start the task."));
+    turn(&mut engine).await;
+    engine.retire_through(8);
+    engine.submit(start(9));
+    engine.submit(audio(9, 1));
+    engine.submit(end(9));
+    turn(&mut engine).await;
+    let heard: Vec<bool> = calls.lock().unwrap().iter().map(|c| c.2).collect();
+    assert_eq!(heard, [false, true]);
 }

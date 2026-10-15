@@ -156,6 +156,10 @@ order is kept. A written turn is the same from the chat on.
   under the same lock as its recall and after its forgetting and reload
   (`thread::current`), so they are only the person's at the lamp and never
   something forgotten. The route keeps no copy of its own.
+- **A tool call knows whether it was heard.** The engine passes `heard`
+  to the tool runner: true in a spoken turn, false in a written one, as the
+  Live route does, so a yes to prepared work cannot come in a turn the lamp
+  wrote itself (`agent_tasks::may_confirm`).
 - **A written request stays with its answer as a note.** When the lamp
   begins a turn itself, the request's text is kept on that exchange in the
   thread (`Thread::written`, a `written` field in the file) and given to the

@@ -335,6 +335,7 @@ of each, and its kind and period as a declaration, are in
 | `voice/link` | Whether the provider can be reached | latched | Voice | When it changes, and once a second |
 | `room/state` | Quiet or busy | latched | Voice, later the situation | When it changes, and once a second |
 | `light/command`, `light/state` | The light asked for, and the light shown | latched | The executive; the ring's owner | When it changes, and once a second |
+| `light/test`, `light/drawn` | A self-test's colour, shown for 2 s at most; the light the ring actually drew | latched | The self-test; the ring's owner | Asked once a colour; drawn when it changes, and once a second |
 | `diagnostics` | Each part's health: ok, warning, error or stale | stream | Every part | Once a second |
 | `policy/decisions` | What the policy decided, with the probability and each judgement behind it, and whether it is only watching ([policy.md](policy.md)) | stream | The policy | With each thing heard |
 
@@ -388,6 +389,8 @@ that owns it:
 | `body/joint_states` | the body ([body.md](body.md), "On the bus") | nothing yet; recorded to measure how the lamp moves |
 | `light/command` | the actions program ([actions.md](actions.md)) | the voice's ring worker |
 | `light/state` | the voice's ring worker ([ring-choreography.md](ring-choreography.md), "The lamp's own light") | the actions program |
+| `light/test` | the self-test (#812) | the voice's ring worker |
+| `light/drawn` | the voice's ring worker, from its own write receipts ([ring-choreography.md](ring-choreography.md), "The lamp's own light") | the self-test |
 | `diagnostics` | every part that says how it is: the voice, the eyes, the body, the policy, and the board through the health program | the health program |
 | `lamp/health`, `board/state` | the health program ([health.md](health.md)) | `lamp-health`, the command |
 

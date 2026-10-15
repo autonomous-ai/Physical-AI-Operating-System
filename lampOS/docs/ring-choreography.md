@@ -173,6 +173,18 @@ that takes the light (`src/ring_light.rs`). Started with
 - says what it shows on `light/state` when that changes and once a
   second, each good for three seconds, so that a ring that has stopped is
   not a light that can be asked for.
+- takes a self-test's colour on `light/test` (`lamp_msgs/Light`, asked
+  less than a second ago) and shows it for 2 s at most, then the light
+  asked for on `light/command` again. A `light/command` ends a test at
+  once, even one for the light already shown. A test never touches
+  `light/command`, and `light/state` goes on saying the person's light, so
+  a test cannot overwrite what the person asked for (#812);
+- says the light it drew on `light/drawn` (`lamp_msgs/Light`), from the
+  ring's own write receipt for each resting frame, timed by when the write
+  finished, when that changes and once a second, each good for three
+  seconds. A frame the ring refused (the privacy switch closed, a turn
+  owning the lamp) says nothing, so `light/drawn` is what was on the ring,
+  where `light/state` is what was taken.
 
 Whoever asks never writes the ring: the actions program publishes the
 light wanted and reads the state back ([actions.md](actions.md)). A bus

@@ -53,7 +53,7 @@ stream. `declaration_of()` recognizes every catalogue without changing
 | `VoiceState` | `voice/state` | latest | 1 s | Resting, listening, thinking or speaking |
 | `VoiceLink` | `voice/link` | latest | 1 s | Ready, or unavailable with one of seven kinds of reason |
 | `RoomState` | `room/state` | latest | none | Unknown, quiet or busy |
-| `Light` | `light/command`, `light/state` | latest | 1 s | On or off, one of ten colours by name, a level from 1 to 5 |
+| `Light` | `light/command`, `light/state`, `light/test`, `light/drawn` | latest | 1 s | On or off, one of ten colours by name, a level from 1 to 5 |
 | `Diagnostic` | `diagnostics` | event | 1 s | ROS's `DiagnosticStatus`: ok, warn, error or stale, a name, a message, a few keys and values |
 | `Health` | `lamp/health` | latest | 5 s, means nothing after 15 s | How the whole lamp is: the worst level, one sentence, every part that has reported with its level, message and age, worst first, and the parts that are expected and never reported |
 | `BoardState` | `board/state` | latest | 5 s, means nothing after 15 s | The computer's numbers: each temperature by sensor (°C), load per processor, memory in use and disk free as fractions, uptime, and the Wi-Fi signal and whether the clock is set if they could be asked |

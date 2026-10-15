@@ -5,6 +5,7 @@
 use lamp_update::{
     Config, Outcome, World,
     fetch::Web,
+    install::{self, Install, System},
     manifest, publish, round,
     world::{BusEars, Deaf, Ears, Monotonic, Statvfs, Systemctl},
 };
@@ -20,6 +21,7 @@ const USAGE: &str = "\
 lamp-update check|once|serve --channel-url URL [--channel NAME] [--key-file PATH] [--lamp NAME]
                              [--apply on|off] [--every-s N] [--quiet-wait-s N] [--watch-s N]
                              [--keep-free-mb N] [--root DIR] [--bus-root DIR]
+lamp-update install --channel-url URL [--channel NAME] [--key-file PATH]
 lamp-update manifest --binaries DIR --deploy DIR --channel NAME --sequence N --commit SHA --files-url URL
 lamp-update sign --key-file PRIVATE --manifest FILE --out FILE
 lamp-update public-key --key-file PRIVATE
@@ -32,6 +34,10 @@ once    one round: with --apply on, fetches what changed, installs it beside the
         each part for --watch-s (60) and puts the previous build back if one is not
         well. Without --apply on (the default) it is check.
 serve   a round every --every-s (900), until stopped.
+install lampOS on a blank lamp (docs/install.md): the newest build's binary of every
+        product part, in its folder with its current link; the product units, tmpfiles,
+        users and zone; enables the lamp and starts nothing. Run again, it changes
+        nothing. As root, on the lamp itself.
 
   --channel-url   the channel's folder, https://.../ or file:///.../, ending in /
   --channel       the channel followed (lamp-voice)
@@ -73,6 +79,7 @@ fn main() -> ExitCode {
             return ExitCode::SUCCESS;
         }
         "check" | "once" | "serve" => return on_the_lamp(command, &options),
+        "install" => install(&options),
         "manifest" => make_manifest(&options),
         "sign" => sign(&options),
         "public-key" => public_key(&options),
@@ -139,6 +146,46 @@ fn make_manifest(options: &BTreeMap<String, String>) -> Result<(), String> {
         made.files.len(),
         made.units.len()
     );
+    Ok(())
+}
+
+fn install(options: &BTreeMap<String, String>) -> Result<(), String> {
+    known(options, &["channel-url", "channel", "key-file"])?;
+    let channel_url = wanted(options, "channel-url")?.to_owned();
+    if !(channel_url.starts_with("https://") || channel_url.starts_with("file:///"))
+        || !channel_url.ends_with('/')
+    {
+        return Err("--channel-url is an https:// or file:/// folder, ending in /".into());
+    }
+    let channel = options.get("channel").map_or("lamp-voice", String::as_str);
+    if !manifest::is_token(channel) {
+        return Err("--channel is a plain name".into());
+    }
+    // The image's key: a trust root never comes from the channel (#806).
+    let key_file = options
+        .get("key-file")
+        .map_or("/etc/lampOS/update/key.pub", String::as_str);
+    let key = fs::read_to_string(key_file).map_err(|error| format!("{key_file}: {error}"))?;
+    let key = manifest::read_public_key(&key).map_err(|why| format!("{key_file}: {why}"))?;
+    let config = Install {
+        root: PathBuf::from("/"),
+        channel: channel.to_owned(),
+        channel_url,
+        key,
+        records: "/var/lib/lampos-update/".into(),
+    };
+    let mut channel = Web::new().map_err(|error| format!("TLS cannot be set up: {error}"))?;
+    let mut say = |line: &str| eprintln!("lamp-update: {line}");
+    let done = install::install(&config, &mut channel, &mut System, &mut say)?;
+    if done.changed.is_empty() {
+        println!("build {} is installed; nothing changed", done.sequence);
+    } else {
+        println!(
+            "build {} installed: {} changes; nothing started",
+            done.sequence,
+            done.changed.len()
+        );
+    }
     Ok(())
 }
 

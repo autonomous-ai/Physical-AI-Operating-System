@@ -30,7 +30,11 @@ use crate::{
     judge::{Before, UnitState, Watch, part_of},
     manifest::{self, Manifest},
     quiet::{BETWEEN_TURNS, QUIET, Quiet},
-    records::{Build, Journal, Records, State, Switching, sync_folder, sync_parent, write_whole},
+    records,
+    records::{
+        Build, Journal, LinkBack, Records, State, Switching, replace_link, sync_folder,
+        sync_parent, write_whole,
+    },
     unit::{self, Program},
     world::{Clock, Disk, Ears, Systemd},
 };
@@ -212,6 +216,18 @@ struct Change {
     /// The new folder is to be made, with these files.
     make: Option<Vec<Want>>,
     was_active: bool,
+    /// A part started through its `current` link: the link, and the build
+    /// it names before and after. Its unit is written only if it changes.
+    link: Option<Link>,
+}
+
+/// A `current` link a switch moves.
+#[derive(Clone, Debug)]
+struct Link {
+    /// As the lamp names it: `/opt/lampOS/voice/current`.
+    path: String,
+    old: String,
+    new: String,
 }
 
 /// The order of a switch: the voice first, at the quiet moment itself;
@@ -268,6 +284,8 @@ struct Back {
     /// restarted again on the old one. One never restarted is not.
     restarted: bool,
     before: Before,
+    /// The `current` link, and the build it named before the switch.
+    link: Option<LinkBack>,
 }
 
 impl Run<'_, '_> {
@@ -607,6 +625,33 @@ impl Run<'_, '_> {
         self.world.systemd.reload()
     }
 
+    /// Points each `current` link at its build, replaced whole.
+    fn set_links<'t>(
+        &mut self,
+        links: impl Iterator<Item = (&'t str, &'t str)>,
+    ) -> Result<(), String> {
+        for (path, build) in links {
+            replace_link(&self.config.on(path), build)
+                .map_err(|error| format!("{path} cannot be pointed at {build}: {error}"))?;
+        }
+        Ok(())
+    }
+
+    /// Every unit as it was, then every moved link back to the build it
+    /// named. A linked unit the switch did not change is written again with
+    /// the same bytes.
+    fn put_units_and_links_back(&mut self, backs: &[Back]) -> Result<(), String> {
+        self.write_units(
+            backs
+                .iter()
+                .map(|back| (back.unit.as_str(), back.text.as_str())),
+        )?;
+        self.set_links(backs.iter().filter_map(|back| {
+            let link = back.link.as_ref()?;
+            Some((link.path.as_str(), link.build.as_str()))
+        }))
+    }
+
     /// Steps 7 and 8.
     fn switch(&mut self, state: &mut State, build: Build, changes: Vec<Change>) -> Outcome {
         if let Err(why) = self.wait_quiet(QUIET, self.config.quiet_wait, false) {
@@ -623,12 +668,25 @@ impl Run<'_, '_> {
                 was_active: change.was_active,
                 restarted: false,
                 before: Before::of(&change.part, health.as_ref()),
+                link: change.link.as_ref().map(|link| LinkBack {
+                    path: link.path.clone(),
+                    build: link.old.clone(),
+                }),
             })
             .collect();
-        let previous: Vec<(String, String)> = backs
+        // The units as they were, and each moved link with the build it
+        // named: the way back by hand (docs/updates.md).
+        let mut previous: Vec<(String, String)> = backs
             .iter()
             .map(|back| (back.unit.clone(), back.text.clone()))
             .collect();
+        previous.extend(backs.iter().filter_map(|back| {
+            let link = back.link.as_ref()?;
+            Some((
+                format!("{}{}", back.unit, records::LINK_SUFFIX),
+                format!("{} {}\n", link.path, link.build),
+            ))
+        }));
         let journal = Journal {
             build: build.clone(),
             units: backs
@@ -636,6 +694,7 @@ impl Run<'_, '_> {
                 .map(|back| Switching {
                     unit: back.unit.clone(),
                     was_active: back.was_active,
+                    link: back.link.clone(),
                 })
                 .collect(),
         };
@@ -646,11 +705,21 @@ impl Run<'_, '_> {
         {
             return Outcome::Failed(format!("the journal cannot be written: {error}"));
         }
-        let written = self.write_units(
-            changes
-                .iter()
-                .map(|change| (change.unit.as_str(), change.after.as_str())),
-        );
+        // A linked part's unit is written only when the build changes it;
+        // its link is what moves.
+        let written = self
+            .write_units(
+                changes
+                    .iter()
+                    .filter(|change| change.link.is_none() || change.after != change.before)
+                    .map(|change| (change.unit.as_str(), change.after.as_str())),
+            )
+            .and_then(|()| {
+                self.set_links(changes.iter().filter_map(|change| {
+                    let link = change.link.as_ref()?;
+                    Some((link.path.as_str(), link.new.as_str()))
+                }))
+            });
         if let Err(why) = written {
             return self.put_back(state, &build, &backs, None, why);
         }
@@ -661,11 +730,7 @@ impl Run<'_, '_> {
         if self.voice_running()
             && let Err(why) = self.quiet.for_at_least(QUIET, now)
         {
-            let restored = self.write_units(
-                backs
-                    .iter()
-                    .map(|back| (back.unit.as_str(), back.text.as_str())),
-            );
+            let restored = self.put_units_and_links_back(&backs);
             if let Err(error) = restored.and_then(|()| {
                 self.records
                     .clear_journal()
@@ -780,11 +845,7 @@ impl Run<'_, '_> {
     /// and between two turns unless the voice itself is what failed. Then
     /// watched. Every unit is tried, whatever happens to one.
     fn restore(&mut self, backs: &[Back], failed: Option<&str>) -> Result<(), String> {
-        self.write_units(
-            backs
-                .iter()
-                .map(|back| (back.unit.as_str(), back.text.as_str())),
-        )?;
+        self.put_units_and_links_back(backs)?;
         let mut again: Vec<&Back> = backs.iter().filter(|back| back.restarted).collect();
         again.sort_by(|a, b| order(&b.unit).cmp(&order(&a.unit)));
         let mut watches = Vec::new();
@@ -831,9 +892,14 @@ impl Run<'_, '_> {
                     ));
                 }
             };
-            // A unit still as it was was never written, nor restarted.
+            // A unit still as it was, with its link as it was, was never
+            // switched, nor restarted.
             let now = fs::read_to_string(self.config.on(&self.config.units).join(&switching.unit));
-            if now.is_ok_and(|now| now == text) {
+            let link_as_was = switching.link.as_ref().is_none_or(|link| {
+                fs::read_link(self.config.on(&link.path))
+                    .is_ok_and(|now| now == Path::new(&link.build))
+            });
+            if now.is_ok_and(|now| now == text) && link_as_was {
                 continue;
             }
             backs.push(Back {
@@ -847,6 +913,7 @@ impl Run<'_, '_> {
                 was_active: switching.was_active,
                 restarted: switching.was_active,
                 before: Before::default(),
+                link: switching.link.clone(),
             });
         }
         let mut state = match self.records.state(self.world.say) {
@@ -860,17 +927,29 @@ impl Run<'_, '_> {
     /// any unit kept from before the last switch: the lamp keeps its build
     /// and the one before. A folder it did not make is never removed.
     fn prune(&mut self, state: &mut State) {
-        let mut texts: Vec<String> = installed_units(self.config)
+        // Named now: by a unit, or by a part's current link.
+        let mut named: BTreeSet<String> = installed_units(self.config)
             .unwrap_or_default()
             .into_iter()
-            .map(|part| part.text)
+            .map(|part| part.program.folder())
             .collect();
-        texts.extend(self.records.previous_units());
-        let named: BTreeSet<String> = texts
-            .iter()
-            .filter_map(|text| unit::program(text))
-            .map(|program| program.folder())
-            .collect();
+        // Named before the last switch: by a unit kept, or a link kept.
+        named.extend(
+            self.records
+                .previous_units()
+                .iter()
+                .filter_map(|text| unit::program(text))
+                .map(|program| program.folder()),
+        );
+        named.extend(
+            self.records
+                .previous_links()
+                .into_iter()
+                .filter_map(|link| {
+                    let builds = link.path.strip_suffix(unit::CURRENT)?;
+                    Some(unit::folder(builds, &link.build))
+                }),
+        );
         let mut left = Vec::new();
         for folder in std::mem::take(&mut state.made) {
             // Only a build's folder under /opt/lampOS, whatever the state
@@ -951,7 +1030,8 @@ fn installed_units(config: &Config) -> io::Result<Vec<Installed>> {
             continue;
         }
         let text = fs::read_to_string(entry.path())?;
-        if let Some(program) = unit::program(&text) {
+        let program = unit::program(&text).or_else(|| unit::linked_program(&text, &config.root));
+        if let Some(program) = program {
             found.push(Installed {
                 unit: name,
                 text,
@@ -964,7 +1044,7 @@ fn installed_units(config: &Config) -> io::Result<Vec<Installed>> {
 }
 
 /// The SHA-256 of a file on the lamp.
-fn file_sha256(path: &Path) -> io::Result<String> {
+pub(crate) fn file_sha256(path: &Path) -> io::Result<String> {
     let mut file = fs::File::open(path)?;
     let mut context = digest::Context::new(&digest::SHA256);
     let mut buffer = vec![0u8; 64 * 1024];
@@ -1071,12 +1151,30 @@ fn plan(
             continue;
         };
         let base = carried.get(&part.unit).unwrap_or(&part.text);
-        let target = unit::program(base).ok_or_else(|| {
-            format!(
-                "the build's {} does not start a part from /opt/lampOS/<folder>/<sha256>/",
-                part.unit
-            )
-        })?;
+        let target = if part.program.linked {
+            // A product part stays started through its link (docs/install.md).
+            match unit::linked(base) {
+                Some((builds, binary)) if builds == part.program.builds => Program {
+                    builds,
+                    build: part.program.build.clone(),
+                    binary,
+                    linked: true,
+                },
+                _ => {
+                    return Err(format!(
+                        "the build's {} does not start {} through its current link",
+                        part.unit, part.program.builds
+                    ));
+                }
+            }
+        } else {
+            unit::program(base).ok_or_else(|| {
+                format!(
+                    "the build's {} does not start a part from /opt/lampOS/<folder>/<sha256>/",
+                    part.unit
+                )
+            })?
+        };
         if target.binary != part.program.binary {
             return Err(format!(
                 "the build's {} starts {}, and the lamp's starts {}",
@@ -1099,7 +1197,17 @@ fn plan(
             }
         }
         let new_folder = unit::folder(&target.builds, &name);
-        let after = unit::with_build(base, &target, &name);
+        // A linked unit names no build: it is only ever the build's own text.
+        let after = if target.linked {
+            base.clone()
+        } else {
+            unit::with_build(base, &target, &name)
+        };
+        let link = target.linked.then(|| Link {
+            path: unit::current(&target.builds),
+            old: part.program.build.clone(),
+            new: name.clone(),
+        });
         let old_folder = part.program.folder();
         if new_folder == old_folder && unit::same(&after, &part.text) {
             continue;
@@ -1121,6 +1229,7 @@ fn plan(
             new_folder,
             make,
             was_active: false,
+            link,
         });
     }
     changes.sort_by(|a, b| order(&a.unit).cmp(&order(&b.unit)));
@@ -1128,9 +1237,9 @@ fn plan(
 }
 
 /// What is written into a file being fetched, hashed on the way.
-struct Hashing<'a> {
-    file: &'a mut fs::File,
-    context: digest::Context,
+pub(crate) struct Hashing<'a> {
+    pub(crate) file: &'a mut fs::File,
+    pub(crate) context: digest::Context,
 }
 
 impl Write for Hashing<'_> {
@@ -1146,7 +1255,7 @@ impl Write for Hashing<'_> {
 }
 
 /// The temporary name of a folder being filled.
-fn filling(final_path: &Path) -> PathBuf {
+pub(crate) fn filling(final_path: &Path) -> PathBuf {
     let name = final_path
         .file_name()
         .map(|name| name.to_string_lossy().into_owned())

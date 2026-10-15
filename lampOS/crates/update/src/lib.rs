@@ -7,6 +7,7 @@
 //! [`world`] is systemd, the bus, the disk and the clock behind traits; and
 //! [`round`] is one round of an update, with all of them.
 pub mod fetch;
+pub mod install;
 pub mod judge;
 pub mod manifest;
 pub mod publish;

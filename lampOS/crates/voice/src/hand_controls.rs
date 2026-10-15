@@ -6,17 +6,18 @@
 //! live preference. A crash/fault therefore restores muted; only verified clean
 //! cleanup may disarm that guard. An unacknowledged request before any durable
 //! write cannot be promised to survive arbitrary storage/power failure.
-use lamp_bus::{Bus, Kind, Message, Notice, Subscriber};
+use lamp_bus::{Bus, Kind, Message, Notice, Publisher, Subscriber};
 use lamp_controls::{mute::MuteRecord, receiver::Receiver, touch_receiver::TouchReceiver};
 use lamp_msgs::{
-    ControlGesture, ControlIntent, ControlsState, TouchEvent, TouchGesture, TouchSource, TouchState,
+    ControlGesture, ControlIntent, ControlsState, MuteReason, TouchEvent, TouchGesture,
+    TouchSource, TouchState, VoiceMute,
 };
 use std::{
     io,
     path::{Path, PathBuf},
     sync::{
         Arc,
-        atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering},
+        atomic::{AtomicBool, AtomicU8, AtomicU64, AtomicUsize, Ordering},
         mpsc::{self, Receiver as ChannelReceiver, SyncSender, TryRecvError, TrySendError},
     },
     thread::{self, JoinHandle},
@@ -28,6 +29,8 @@ const POLL_LIMIT: usize = 16;
 const PUMP_TICK: Duration = Duration::from_millis(2);
 const RECONNECT_AFTER: Duration = Duration::from_millis(250);
 const FINAL_JOIN_WAIT: Duration = Duration::from_millis(20);
+/// `voice/mute` is said when it changes and at least this often.
+const MUTE_SAID_EVERY: Duration = Duration::from_secs(1);
 const SUBSCRIBER: &str = "voice_hand";
 
 fn invalid(message: &str) -> io::Error {
@@ -42,7 +45,10 @@ pub struct ControlsOptions {
     /// Overrides `LAMP_BUS_ROOT`; neither setting alone enables consumption.
     pub bus_root: Option<PathBuf>,
     /// The head pads' requests on `controls/touch` (#711): a qualified touch
-    /// stops the lamp while it speaks. `LAMP_HEAD_TOUCH=on`; off unless set.
+    /// stops the lamp while it speaks. With `mute_record` too, a hand held on
+    /// the head puts it to sleep (the software mute, reason `sleep`), a tap
+    /// wakes it, and `voice/mute` says which. `LAMP_HEAD_TOUCH=on`; off
+    /// unless set.
     pub head_touch: bool,
 }
 
@@ -57,6 +63,11 @@ pub fn head_touch_from_environment() -> bool {
 impl ControlsOptions {
     pub fn enabled(&self) -> bool {
         self.stop || self.mute_record.is_some() || self.head_touch
+    }
+
+    /// Sleep from the head needs both its switch and the durable mute.
+    pub fn head_sleep(&self) -> bool {
+        self.head_touch && self.mute_record.is_some()
     }
 
     /// Shape checks only: disabled options never open a path or start a thread.
@@ -97,6 +108,11 @@ pub struct Observation {
     /// (#711). It asks a speaking lamp to stop and a quiet one nothing; the
     /// coordinator, which knows which it is, decides.
     pub head_touch_at_us: Option<u64>,
+    /// The acquisition of a head tap accepted in this poll (#711).
+    pub head_tap_at_us: Option<u64>,
+    /// The software mute is set because a hand held on the head put the lamp
+    /// to sleep (#711); always with `muted`.
+    pub asleep: bool,
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -120,6 +136,32 @@ struct Shared {
     queued: AtomicUsize,
     running: AtomicBool,
     stop: AtomicBool,
+    /// The live latch for `voice/mute` (#711): `LATCH_*`, set by the owner
+    /// and said by the pump.
+    latch: AtomicU8,
+}
+
+const LATCH_NONE: u8 = 0;
+const LATCH_OPEN: u8 = 1;
+const LATCH_MUTED: u8 = 2;
+const LATCH_ASLEEP: u8 = 3;
+
+fn latch_message(latch: u8) -> Option<VoiceMute> {
+    match latch {
+        LATCH_OPEN => Some(VoiceMute {
+            muted: false,
+            reason: None,
+        }),
+        LATCH_MUTED => Some(VoiceMute {
+            muted: true,
+            reason: None,
+        }),
+        LATCH_ASLEEP => Some(VoiceMute {
+            muted: true,
+            reason: Some(MuteReason::Sleep),
+        }),
+        _ => None,
+    }
 }
 
 fn add(counter: &AtomicU64, amount: u64) {
@@ -260,6 +302,31 @@ impl HandControls {
         Ok(owner)
     }
 
+    /// As [`Self::with_test_touch`], already put to sleep by a hand held on
+    /// the head (#711), its durable mute at `record` (never written here).
+    #[cfg(test)]
+    pub(crate) fn with_test_asleep(
+        clock_id: &str,
+        started_us: u64,
+        record: &Path,
+    ) -> io::Result<Self> {
+        let (_sender, input) = mpsc::sync_channel(QUEUE_CAPACITY);
+        let mut asleep = MuteRecord::new(clock_id)?;
+        assert!(asleep.request_sleep(started_us / 2));
+        Self::from_parts(
+            ControlsOptions {
+                head_touch: true,
+                mute_record: Some(record.to_path_buf()),
+                ..Default::default()
+            },
+            clock_id,
+            asleep,
+            input,
+            Arc::new(Shared::default()),
+            started_us,
+        )
+    }
+
     /// Restore and validate durability before any Voice worker is opened.
     /// The pump alone may open bus paths; an unavailable bus is optional input
     /// loss, not permission to unmute and not a failure of healthy audio.
@@ -291,6 +358,7 @@ impl HandControls {
             .unwrap_or_else(|| PathBuf::from(lamp_bus::DEFAULT_ROOT));
         let pump_shared = Arc::clone(&controls.shared);
         let head_touch = options.head_touch;
+        let say_mute = options.head_sleep();
         let (finished, completion) = mpsc::sync_channel(1);
         let worker = thread::Builder::new()
             .name("voice-hand-controls".into())
@@ -300,7 +368,7 @@ impl HandControls {
                     shared: Arc::clone(&pump_shared),
                     finished,
                 };
-                pump(root, head_touch, sender, &pump_shared);
+                pump(root, head_touch, say_mute, sender, &pump_shared);
             })?;
         controls._pump = Some(Pump {
             thread: Some(worker),
@@ -328,7 +396,7 @@ impl HandControls {
             .then(|| TouchReceiver::new(clock_id))
             .transpose()
             .map_err(|_| invalid("head touch needs a valid controls clock"))?;
-        Ok(Self {
+        let controls = Self {
             options,
             receiver,
             input,
@@ -339,7 +407,25 @@ impl HandControls {
             persistence_failed: false,
             touch,
             _pump: None,
-        })
+        };
+        controls.share_latch();
+        Ok(controls)
+    }
+
+    /// The live latch for the pump to say on `voice/mute`, only where sleep
+    /// from the head is on.
+    fn share_latch(&self) {
+        if !self.options.head_sleep() {
+            return;
+        }
+        let latch = if !self.muted() {
+            LATCH_OPEN
+        } else if self.asleep() {
+            LATCH_ASLEEP
+        } else {
+            LATCH_MUTED
+        };
+        self.shared.latch.store(latch, Ordering::Release);
     }
 
     pub fn health(&self) -> Health {
@@ -356,6 +442,10 @@ impl HandControls {
 
     fn muted(&self) -> bool {
         self.options.mute_record.is_some() && self.receiver.mute_record().muted
+    }
+
+    fn asleep(&self) -> bool {
+        self.options.mute_record.is_some() && self.receiver.mute_record().asleep()
     }
 
     fn fence_at(&mut self, now_us: u64) {
@@ -432,7 +522,7 @@ impl HandControls {
                     match accepted {
                         Some(Ok(events)) => events
                             .iter()
-                            .for_each(|event| head_request(&mut observation, event)),
+                            .for_each(|event| self.head_event(now_us, event, &mut observation)),
                         Some(Err(_)) => add(&self.shared.rejected, 1),
                         None => {}
                     }
@@ -440,7 +530,7 @@ impl HandControls {
                 Input::Touch(event) => {
                     let accepted = self.touch.as_mut().map(|touch| touch.event(now_us, &event));
                     match accepted {
-                        Some(Ok(Some(event))) => head_request(&mut observation, &event),
+                        Some(Ok(Some(event))) => self.head_event(now_us, &event, &mut observation),
                         Some(Ok(None)) | None => {}
                         Some(Err(_)) => add(&self.shared.rejected, 1),
                     }
@@ -457,10 +547,58 @@ impl HandControls {
             self.fence_at(now_us);
         }
         observation.muted = self.muted();
-        if observation.stop || observation.mute_changed || observation.head_touch_at_us.is_some() {
+        observation.asleep = self.asleep();
+        self.share_latch();
+        if observation.stop
+            || observation.mute_changed
+            || observation.head_touch_at_us.is_some()
+            || observation.head_tap_at_us.is_some()
+        {
             observation.observed_at_us = Some(now_us);
         }
         Ok(observation)
+    }
+
+    /// One accepted head request (#711): a touch for the coordinator to stop
+    /// on or note, a tap, and with the durable mute a hold's sleep and a
+    /// tap's wake. Sleep is the software mute with the reason `sleep`: it is
+    /// revoked and persisted as any mute. A wake only makes the clear
+    /// pending; the quiescent owner saves it before the latch opens.
+    fn head_event(&mut self, now_us: u64, event: &TouchEvent, observation: &mut Observation) {
+        if event.source != TouchSource::Head {
+            return;
+        }
+        let mute = self.options.mute_record.is_some();
+        match event.gesture {
+            TouchGesture::Touch => earlier(&mut observation.head_touch_at_us, event.observed_us),
+            TouchGesture::Hold if mute => {
+                match self
+                    .receiver
+                    .request_sleep(now_us, event.began_us, event.observed_us)
+                {
+                    Ok(true) => {
+                        self.dirty = true;
+                        observation.mute_changed = true;
+                        earlier(&mut observation.acquired_at_us, event.observed_us);
+                    }
+                    Ok(false) => {}
+                    Err(_) => add(&self.shared.rejected, 1),
+                }
+            }
+            TouchGesture::Tap => {
+                earlier(&mut observation.head_tap_at_us, event.observed_us);
+                if mute
+                    && let Some(released_us) = event.released_us
+                    && self
+                        .receiver
+                        .request_wake(now_us, event.began_us, released_us)
+                        .is_err()
+                {
+                    add(&self.shared.rejected, 1);
+                }
+            }
+            _ => {}
+        }
     }
 
     /// Discard any queued/previous clear before an active runtime transition.
@@ -520,6 +658,8 @@ impl HandControls {
         self.persist_muted()?;
         let allowed = self.after_persistence(now)?;
         observation.muted = self.muted();
+        observation.asleep = self.asleep();
+        self.share_latch();
         Ok((allowed, observation))
     }
 
@@ -605,14 +745,6 @@ impl HandControls {
 
 fn earlier(value: &mut Option<u64>, next: u64) {
     *value = Some(value.map_or(next, |previous| previous.min(next)));
-}
-
-/// One accepted head request: for now its touch (#711). Its tap, hand and
-/// sleep come with the voice acting on them.
-fn head_request(observation: &mut Observation, event: &TouchEvent) {
-    if event.source == TouchSource::Head && event.gesture == TouchGesture::Touch {
-        earlier(&mut observation.head_touch_at_us, event.observed_us);
-    }
 }
 
 fn wall_ms() -> u64 {
@@ -777,7 +909,9 @@ fn read_one(
     Ok(true)
 }
 
-fn subscriptions(root: &Path, head_touch: bool) -> io::Result<Vec<(Subscriber, Topic)>> {
+type Connected = (Vec<(Subscriber, Topic)>, Option<Publisher>);
+
+fn subscriptions(root: &Path, head_touch: bool, say_mute: bool) -> io::Result<Connected> {
     let bus = Bus::new(root)?;
     let mut subscribed = vec![
         (
@@ -800,14 +934,56 @@ fn subscriptions(root: &Path, head_touch: bool) -> io::Result<Vec<(Subscriber, T
             Topic::Touch,
         ));
     }
-    Ok(subscribed)
+    let mute = say_mute
+        .then(|| bus.publisher_declared(VoiceMute::TOPIC, &VoiceMute::declaration(), "voice"))
+        .transpose()?;
+    Ok((subscribed, mute))
 }
 
-fn pump(root: PathBuf, head_touch: bool, sender: SyncSender<Queued>, shared: &Shared) {
+/// Says the owner's live latch on `voice/mute` when it changes and every
+/// second, so a part started later learns it within one. A failed send
+/// reconnects, as a failed read does.
+struct SaidMute {
+    latch: u8,
+    at: Option<std::time::Instant>,
+}
+
+impl SaidMute {
+    fn say(&mut self, publisher: &mut Publisher, shared: &Shared) -> io::Result<()> {
+        let latch = shared.latch.load(Ordering::Acquire);
+        let Some(message) = latch_message(latch) else {
+            return Ok(());
+        };
+        if latch == self.latch && self.at.is_some_and(|at| at.elapsed() < MUTE_SAID_EVERY) {
+            return Ok(());
+        }
+        publisher.publish_json(lamp_ipc::monotonic_us(), &message)?;
+        self.latch = latch;
+        self.at = Some(std::time::Instant::now());
+        Ok(())
+    }
+}
+
+fn pump(
+    root: PathBuf,
+    head_touch: bool,
+    say_mute: bool,
+    sender: SyncSender<Queued>,
+    shared: &Shared,
+) {
     while !shared.stop.load(Ordering::Acquire) {
         shared.fence();
-        if let Ok(mut subscribed) = subscriptions(&root, head_touch) {
+        if let Ok((mut subscribed, mut mute)) = subscriptions(&root, head_touch, say_mute) {
+            let mut said = SaidMute {
+                latch: LATCH_NONE,
+                at: None,
+            };
             'connected: while !shared.stop.load(Ordering::Acquire) {
+                if let Some(publisher) = &mut mute
+                    && said.say(publisher, shared).is_err()
+                {
+                    break 'connected;
+                }
                 for _ in 0..POLL_LIMIT / 2 {
                     for (subscriber, topic) in &mut subscribed {
                         match read_one(subscriber, *topic, &sender, shared) {
@@ -833,39 +1009,74 @@ fn pump(root: PathBuf, head_touch: bool, sender: SyncSender<Queued>, shared: &Sh
 /// and events the touch runtime would publish at the end.
 #[cfg(test)]
 pub(crate) fn test_head_touch(clock_id: &str, touched_us: u64) -> (TouchState, Vec<TouchEvent>) {
-    use lamp_controls::{
-        input::Level,
-        touch::{GpioSample, TouchConfig, TouchEngine},
-    };
-    let config = TouchConfig {
-        enabled: true,
-        head_pads: vec!["head-1".into()],
-        ..TouchConfig::default()
-    };
-    let mut engine = TouchEngine::new(config, clock_id, "controls").unwrap();
-    let (mut events, mut state) = (Vec::new(), None);
-    let times = (touched_us - 600_000..=touched_us + 30_000).step_by(10_000);
-    for (sequence, at) in times.enumerate() {
-        let sample = GpioSample {
-            stamp: lamp_msgs::ClockStamp {
-                clock_id: clock_id.into(),
-                at_us: at,
-                sequence: sequence as u64 + 1,
-            },
-            session_id: "gpio".into(),
-            primary: None,
-            reset: None,
-            head_pads: vec![Level {
-                name: "head-1".into(),
-                active: at >= touched_us,
-            }],
+    let mut head = TestHead::new(clock_id, touched_us - 600_000);
+    let mut ticks = head.run(touched_us - 10_000, false);
+    ticks.extend(head.run(touched_us + 30_000, true));
+    let events = ticks
+        .iter()
+        .flat_map(|(_, _, events)| events.clone())
+        .collect();
+    (ticks.pop().unwrap().1, events)
+}
+
+/// Controls' own recognizer for the head, stepped every 10 ms with a hand on
+/// or off its pad, for tests (#711).
+#[cfg(test)]
+pub(crate) struct TestHead {
+    engine: lamp_controls::touch::TouchEngine,
+    clock_id: String,
+    next_us: u64,
+    sequence: u64,
+}
+
+#[cfg(test)]
+impl TestHead {
+    pub(crate) fn new(clock_id: &str, from_us: u64) -> Self {
+        let config = lamp_controls::touch::TouchConfig {
+            enabled: true,
+            head_pads: vec!["head-1".into()],
+            ..lamp_controls::touch::TouchConfig::default()
         };
-        engine.ingest_gpio(at, sample).unwrap();
-        let output = engine.tick(at);
-        events.extend(output.events);
-        state = Some(output.state);
+        Self {
+            engine: lamp_controls::touch::TouchEngine::new(config, clock_id, "controls").unwrap(),
+            clock_id: clock_id.into(),
+            next_us: from_us,
+            sequence: 0,
+        }
     }
-    (state.unwrap(), events)
+
+    /// Each 10 ms step through `until_us`: its time, the state the touch
+    /// runtime would publish then and the events it raised.
+    pub(crate) fn run(
+        &mut self,
+        until_us: u64,
+        on: bool,
+    ) -> Vec<(u64, TouchState, Vec<TouchEvent>)> {
+        let mut ticks = Vec::new();
+        while self.next_us <= until_us {
+            let at = self.next_us;
+            self.sequence += 1;
+            let sample = lamp_controls::touch::GpioSample {
+                stamp: lamp_msgs::ClockStamp {
+                    clock_id: self.clock_id.clone(),
+                    at_us: at,
+                    sequence: self.sequence,
+                },
+                session_id: "gpio".into(),
+                primary: None,
+                reset: None,
+                head_pads: vec![lamp_controls::input::Level {
+                    name: "head-1".into(),
+                    active: on,
+                }],
+            };
+            self.engine.ingest_gpio(at, sample).unwrap();
+            let output = self.engine.tick(at);
+            ticks.push((at, output.state, output.events));
+            self.next_us += 10_000;
+        }
+        ticks
+    }
 }
 
 #[cfg(test)]

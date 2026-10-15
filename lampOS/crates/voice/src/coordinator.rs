@@ -2272,10 +2272,12 @@ fn run_inner(
     termination.check()?;
     if let Some(controls) = controls.as_mut() {
         controls.fence_clear()?;
-        if controls.poll()?.muted {
+        let observation = controls.poll()?;
+        if observation.muted {
             controls.persist_muted()?;
             return Err(Box::new(SoftwareMute {
                 observed_at_us: monotonic_us(),
+                asleep: observation.asleep,
             }));
         }
         controls.arm_active()?;
@@ -3026,6 +3028,8 @@ fn conversation_with_gate(
             && !gap_cancelled;
         let cut_question = !admission.idle_for_reminder();
         let muted = observation.as_ref().is_some_and(|seen| seen.muted);
+        // Muted because a hand held on the head put it to sleep (#711).
+        let asleep = observation.as_ref().is_some_and(|seen| seen.asleep);
         let stop = observation.as_ref().is_some_and(|seen| seen.stop);
         // A head touch (#711) stops the lamp while it says its answer, as
         // the button does; while it is quiet it asks nothing.
@@ -3080,7 +3084,9 @@ fn conversation_with_gate(
                 floor_held_for = None;
                 asked_in_busy_room = None;
                 busy_answer_since = None;
-                let reason = if muted {
+                let reason = if asleep {
+                    "head_sleep"
+                } else if muted {
                     "software_muted"
                 } else if stop {
                     "hand_stop"
@@ -3108,7 +3114,10 @@ fn conversation_with_gate(
                 }
                 publish?;
                 if muted {
-                    return Err(Box::new(SoftwareMute { observed_at_us }));
+                    return Err(Box::new(SoftwareMute {
+                        observed_at_us,
+                        asleep,
+                    }));
                 }
             } else if let Some(acquired_at_us) = head_touch_at_us {
                 record(

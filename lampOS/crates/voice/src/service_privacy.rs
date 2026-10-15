@@ -20,6 +20,8 @@ impl std::error::Error for PhysicalMute {}
 #[derive(Debug)]
 pub(crate) struct SoftwareMute {
     pub(crate) observed_at_us: u64,
+    /// A hand held on the head put the lamp to sleep (#711).
+    pub(crate) asleep: bool,
 }
 impl fmt::Display for SoftwareMute {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -386,7 +388,10 @@ pub(crate) mod tests {
             || {
                 calls.set(calls.get() + 1);
                 if calls.get() == 4 {
-                    Err(Box::new(SoftwareMute { observed_at_us: 17 }))
+                    Err(Box::new(SoftwareMute {
+                        observed_at_us: 17,
+                        asleep: false,
+                    }))
                 } else {
                     Ok(false)
                 }
@@ -490,8 +495,14 @@ pub(crate) mod tests {
 
     #[test]
     fn software_mute_requires_successful_cleanup_to_remain_restartable() {
-        let clean =
-            finish::<()>(Err(Box::new(SoftwareMute { observed_at_us: 29 })), Ok(())).unwrap_err();
+        let clean = finish::<()>(
+            Err(Box::new(SoftwareMute {
+                observed_at_us: 29,
+                asleep: false,
+            })),
+            Ok(()),
+        )
+        .unwrap_err();
         assert!(clean.downcast_ref::<SoftwareMute>().is_some());
         assert!(clean.downcast_ref::<PhysicalMute>().is_none());
         let failed = finish::<()>(

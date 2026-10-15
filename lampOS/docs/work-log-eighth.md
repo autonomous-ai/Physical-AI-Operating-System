@@ -23,6 +23,24 @@ The eighth builder's log, newest first. Role file:
 
 None yet.
 
+## 2026-10-16 03:20 — #783 policy lines — ready; #739 part 2 — draft #900
+
+Ready for lamp-voice: yes (#905); #900 no (draft, waiting on the first builder)
+
+- #905, Part of #783, `eighth/policy-lines` at `780320202`, ARM64 run
+  38797666662 green. Kind: tests only. `Running::end` counts only whole
+  lines (the tests builder's boundary of 19:00). Gate: fmt, clippy
+  `-p lamp-policy`, 162 passed. Loaded, 20-core Linux laptop: the test
+  alone 60/60 before and 60/60 after, then 300/300 each 10 at a time; ten
+  full serial `lamp-policy` runs 10/10. #783's failure not reproduced here,
+  before or after: the runs show only that nothing breaks. Second asked to read.
+- #900, Part of #739, `eighth/motor-clock` at `a98fcef66`, ARM64 run
+  38794846152 green. Draft: asked the first builder on #739 whether
+  `native_head` 120/120 alone and 88/88 in eight full runs is enough, since
+  the full runs fail 3 to 22 other host-clock tests (#823, #893). Fifth
+  asked to read the body change.
+- #834 still waiting for the reviewer.
+
 ## 2026-10-16 02:05 — #833 the lamp lock — ready again; #739 part 2 — qualifying
 
 Ready for lamp-voice: yes (#834)

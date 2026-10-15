@@ -66,6 +66,12 @@ const REST_SLACK: u16 = 24;
 /// The most a joint it took hold of may have moved when its torque came on:
 /// a goal set where it is moves it by nothing a servo would notice.
 const TAKE_HOLD_SLACK: u16 = 12;
+/// A write to a joint it takes hold of is tried this many times, this far
+/// apart, before the run ends. Just after the power comes on a servo may not
+/// answer yet: on lamp-52e6 on 2026-10-15, 19 s after power, the head's tilt
+/// did not acknowledge its goal and the run ended; 15 s later it stood.
+const TAKE_HOLD_TRIES: u8 = 10;
+const TAKE_HOLD_RETRY: Duration = Duration::from_millis(300);
 /// A joint that has arrived is given its own position as its goal, in any
 /// mood, and is left there until the pose wanted of it is this many counts
 /// from where it is. Asked for less, a servo pushes and does not move: on
@@ -1162,6 +1168,32 @@ impl<P: PortIo, R: Runtime> Bus<'_, P, R> {
         }
     }
 
+    /// Wait `pause`, throwing away whatever a late reply leaves on the wire.
+    fn settle(&mut self, pause: Duration) {
+        let due = self.runtime.now() + pause;
+        let mut bytes = [0u8; 64];
+        while self.runtime.now() < due {
+            if !matches!(self.io.read(&mut bytes), Ok(count) if count > 0) {
+                let _ = self.io.wait(Interest::Read, POLL);
+            }
+        }
+    }
+
+    /// A write acknowledged as in `write_acknowledged`, tried again after
+    /// `TAKE_HOLD_RETRY` while it fails, `TAKE_HOLD_TRIES` times in all.
+    fn write_patiently(&mut self, joint: Joint, packet: &[u8]) -> Result<(), String> {
+        let mut tries = 1;
+        loop {
+            match self.write_acknowledged(joint, packet, true) {
+                Err(_) if tries < TAKE_HOLD_TRIES => {
+                    tries += 1;
+                    self.settle(TAKE_HOLD_RETRY);
+                }
+                done => return done,
+            }
+        }
+    }
+
     fn sleep_until(&mut self, due: Duration) {
         loop {
             let now = self.runtime.now();
@@ -1581,12 +1613,12 @@ fn take_hold<P: PortIo, R: Runtime>(
         let at = found[joint.index()].position;
         // A flag is read and judged with the rest afterwards.
         if outcome.is_ok() {
-            outcome = bus.write_acknowledged(*joint, &goal_write(*joint, at), true);
+            outcome = bus.write_patiently(*joint, &goal_write(*joint, at));
         }
         if outcome.is_ok() {
             report.torque_writes = report.torque_writes.saturating_add(1);
             report.torque_given.push(joint.name());
-            outcome = bus.write_acknowledged(*joint, &torque_write(*joint, 1), true);
+            outcome = bus.write_patiently(*joint, &torque_write(*joint, 1));
         }
     }
     // A few steps for a goal that was not taken to show.

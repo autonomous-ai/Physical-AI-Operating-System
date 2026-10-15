@@ -76,6 +76,9 @@ struct Lamp {
     /// One servo acknowledges the next goal written to it by itself and
     /// keeps the goal it had.
     drops_goal: Option<usize>,
+    /// One servo neither takes nor answers this many register writes, as
+    /// one just given power does.
+    deaf: Option<(usize, u8)>,
     /// A hand moves one servo toward a position at 100 counts a second,
     /// whatever its goal: from, until, servo, position. Its load is a
     /// strain of the same time.
@@ -143,6 +146,7 @@ fn folded(cancel_at: Duration) -> (Lamp, Clock) {
             overload_clears: 0,
             may_take_hold: false,
             drops_goal: None,
+            deaf: None,
             hand: None,
         },
         Clock { time, cancel_at },
@@ -326,6 +330,13 @@ impl Lamp {
                     self.goal_times.push(self.time.get());
                 }
                 0x03 => {
+                    if let Some((index, left)) = self.deaf
+                        && usize::from(id) - 1 == index
+                        && left > 0
+                    {
+                        self.deaf = Some((index, left - 1));
+                        continue;
+                    }
                     let (address, data) = (parameters[0], parameters[1..].to_vec());
                     let clears = self.overload_clears;
                     let arm_or_held = id == 2 || id == 3 || self.may_take_hold;
@@ -2623,6 +2634,50 @@ fn a_joint_found_without_torque_is_given_it_goal_first_and_does_not_move() {
     );
     assert!(lamp.servos.iter().all(|servo| servo.torque == 1));
     assert_eq!(lamp.servos.map(|servo| servo.position), found);
+}
+
+/// A servo just given power that does not answer its first writes is
+/// written again, a little later, and the lamp is taken hold of as if it
+/// had answered at once; one that never answers still ends the run.
+#[test]
+fn a_joint_that_does_not_answer_its_first_writes_is_taken_hold_of_a_little_later() {
+    let holding = Limits {
+        torque_on: true,
+        ..Limits::FOLDED
+    };
+    let ran = |deaf: u8| {
+        let (mut lamp, mut clock) = folded(Duration::from_secs(6));
+        lamp.may_take_hold = true;
+        lamp.servos[ROLL].torque = 0;
+        lamp.servos[ROLL].goal = 2_074;
+        lamp.deaf = Some((ROLL, deaf));
+        let report = run(
+            &mut lamp,
+            &mut clock,
+            holding,
+            None,
+            || Some((Mood::Resting, 0)),
+            |_| {},
+        );
+        (report, lamp)
+    };
+    let (report, lamp) = ran(3);
+    assert_eq!(report.stop, Stop::Cancelled, "{report:?}");
+    assert_eq!(report.torque_given, vec!["wrist_roll"]);
+    let goal = |value: u16| value.to_le_bytes().to_vec();
+    assert_eq!(
+        lamp.registers[..2],
+        [(4, 42, goal(2_044)), (4, 40, vec![1])]
+    );
+    assert_eq!(lamp.servos[ROLL].torque, 1);
+    let (report, _) = ran(u8::MAX);
+    assert_eq!(
+        report.stop,
+        Stop::Bus {
+            detail: "taking hold: wrist_roll did not acknowledge a write".into()
+        },
+        "{report:?}"
+    );
 }
 
 /// A goal that was not taken shows as a joint that moves when its torque

@@ -85,10 +85,7 @@ fn main() -> ExitCode {
     };
     let mut checks = listen::checks(&bus);
     checks.insert(0, Box::new(mic::VoiceMic { bus: &bus }));
-    checks.push(Box::new(ring::Ring {
-        bus: &bus,
-        active: arguments.occasion != Occasion::FirstBoot,
-    }));
+    checks.push(Box::new(ring::Ring { bus: &bus }));
     checks.push(Box::new(kernel::Kernel {
         path: kernel::KMSG.into(),
     }));

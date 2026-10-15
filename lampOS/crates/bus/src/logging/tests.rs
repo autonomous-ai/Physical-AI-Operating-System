@@ -473,21 +473,33 @@ fn a_slow_log_follower_does_not_hold_a_fast_one_and_loss_remains_visible() {
         let message = fast.recv(WAIT).unwrap().unwrap();
         assert_eq!((message.header.seq, message.gap), (sequence, 0));
     }
-    let mut last = 0;
+    let (mut last, mut delivered, mut lost) = (0, 0, 0);
     while let Some(message) = slow.recv(Duration::ZERO).unwrap() {
-        last = message.header.seq;
+        (last, delivered, lost) = (message.header.seq, delivered + 1, lost + message.gap);
     }
     assert!(last > 0 && last < 3_000, "the slow queue must have filled");
     assert_eq!(
         logger.try_log(LogLevel::Warn, "after_loss", ""),
         Admission::Queued
     );
-    let message = slow.recv(WAIT).unwrap().unwrap();
+    // A send to the slow follower already under way when the drain ended can
+    // still land before the new record (seen on the ARM64 runner): every
+    // loss is still said, as the gap before what came next.
+    let message = loop {
+        let message = slow.recv(WAIT).unwrap().unwrap();
+        lost += message.gap;
+        if message.header.seq == 3_001 {
+            break message;
+        }
+        (last, delivered) = (message.header.seq, delivered + 1);
+    };
     assert_eq!((message.header.seq, message.gap), (3_001, 3_000 - last));
     assert_eq!(Log::from_message(&message).unwrap().attempt, 3_001);
+    assert!(lost > 0, "the slow follower lost records, and was told so");
+    assert_eq!(lost, 3_000 - delivered);
     let report = logger.finish(FINISH_WAIT);
     assert!(report.confirmed);
-    assert_eq!(report.subscriber_drops, 3_000 - last);
+    assert_eq!(report.subscriber_drops, lost);
 }
 
 #[test]

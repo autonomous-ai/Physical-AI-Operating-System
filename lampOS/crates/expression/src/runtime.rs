@@ -301,6 +301,11 @@ pub struct Service {
     last_state: Option<u64>,
     utc_offset_minutes: Option<i32>,
     last_daytime: Option<u64>,
+    /// Asked before each time of day is given: only a clock it says is
+    /// set gives one (`--kernel-clock`, #830). None: every clock does.
+    clock_set: Option<fn() -> Option<bool>>,
+    /// The clock was last found not set: said once until it is.
+    clock_unset: bool,
     /// The keeper's pause (`lamp/pause`), read as the body reads it: paused,
     /// nothing is asked of the body or the light.
     pause: lamp_body::pause_in::PauseIn,
@@ -358,6 +363,8 @@ impl Service {
             last_state: None,
             utc_offset_minutes: None,
             last_daytime: None,
+            clock_set: None,
+            clock_unset: false,
             pause: lamp_body::pause_in::PauseIn::on(bus.clone()),
             paused: false,
             counts: Counts::default(),
@@ -373,14 +380,39 @@ impl Service {
         self
     }
 
+    /// Gives the time of day only while `set` says the clock is set. With
+    /// none given the lamp knows no night, so it does not fall asleep or
+    /// wake by a wrong clock (#830, `docs/offline.md`).
+    pub fn with_clock_check(mut self, set: fn() -> Option<bool>) -> Self {
+        self.clock_set = Some(set);
+        self
+    }
+
     /// The clock is injected here too: tests can use real sockets without
     /// sleeping through any behavior. Each valid topic has a bounded budget.
     pub fn step(&mut self, now: impl Fn() -> u64, wall_ms: u64) -> Output {
         let began = now();
-        if let Some(offset) = self.utc_offset_minutes
-            && self
-                .last_daytime
+        let due = self.utc_offset_minutes.filter(|_| {
+            self.last_daytime
                 .is_none_or(|last| began.saturating_sub(last) >= DAYTIME_EVERY_US)
+        });
+        if due.is_some() {
+            self.last_daytime = Some(began);
+            let set = self.clock_set.is_none_or(|set| set() == Some(true));
+            if set == self.clock_unset {
+                self.clock_unset = !set;
+                eprintln!(
+                    "lamp-expression: {}",
+                    if set {
+                        "the clock is set: the time of day is known again"
+                    } else {
+                        "the clock is not set: no time of day, so no night"
+                    }
+                );
+            }
+        }
+        if let Some(offset) = due
+            && !self.clock_unset
         {
             self.sequence = self.sequence.saturating_add(1);
             let daytime = Input::DayTime {
@@ -398,7 +430,6 @@ impl Service {
                     eprintln!("lamp-expression: refused the time of day: {why}");
                 }
             }
-            self.last_daytime = Some(began);
         }
         for input in &mut self.inputs {
             for _ in 0..DRAIN_LIMIT {

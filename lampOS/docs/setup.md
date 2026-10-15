@@ -263,6 +263,50 @@ private files and the zone link, V1's routes and shapes, one run at a time, no
 second setup, the page and the 204s only with `page`, and the scan with iw's
 escapes. No phone, router or radio was used.
 
+V1's page also asks `/api/network/check-internet`, `/api/network/current`,
+`/api/system/info`, `/api/device/config` and the voice lists. `lamp-setup` does
+not answer them (404); V1's page has a fallback for each failure (read in its
+source: not online, no current network, no capabilities so no voice or face
+step, an empty form), so its one Wi-Fi step still works. A lamp run must
+confirm it.
+
+## On a lamp
+
+For a builder with a lamp other than lamp-4ace (#806 asks for one), from #817's
+ARM64 run and the keeper's `--setup-marker` (#816):
+
+1. **Keep a way back.** Copy `/etc/wpa_supplicant/wpa_supplicant-wlan0.conf`,
+   `/etc/nginx/sites-enabled/default`, the voice's `provider.json` and
+   credential, and every path in the reset plan: a reset wipes them.
+2. **Install.** `lamp-setup` under `/opt/lampOS/setup/<sha256>/`; the two units
+   from `crates/setup/units/` with `BUILD` replaced; `/etc/lampOS/setup/serve.json`
+   from `serve-behind-v1-nginx.json` (the lamp's country; `credential` the file
+   `provider.json` names) and `/etc/lampOS/setup/reset-plan.json` from
+   `reset-plan-example.json` (the lamp's own stores); `nginx-setup.conf` as
+   nginx's default site, nginx left disabled; the keeper with
+   `--setup-marker /var/lib/lampos-setup/done`.
+3. **First boot.** With no marker, reboot. Expect the open hotspot `lamp-xxxx`
+   and no lampOS part running. Join it with a phone and open
+   `http://192.168.100.1/setup?llm_api_key=<key>&device_id=<lamp>` (or
+   `?debug=true`, whose AI step takes the key). Time, separately: phone joined
+   to page shown (target under 5 s); Setup pressed to the hotspot gone; to
+   `connected` or a named failure (at most 60 s); marker to the lamp's first
+   word.
+4. **Failures.** A wrong password (expect `wrong_password` in about 5 s and the
+   hotspot back), a network out of range (`ssid_not_found` at 60 s), a name with
+   an accent and one with a `"`. Each failure must leave the previous Wi-Fi file.
+5. **Reset.** Controls with `--touch` and a `reset` line in its pins file. Hold
+   the reset button 5 s and release: the lamp pauses, folds, reboots into the
+   hotspot, and every path in the plan is empty. Once, cut the power during the
+   wipe: setup must finish it at the next start.
+
+Most likely wrong on a lamp: what V1's image left of the radio (whether
+`device-ap-mode`, dhcpcd and the `wpa_supplicant@wlan0` override still work
+after V2 went on); `iw dev wlan0 scan` while the hotspot is up (V1 used it so,
+but some drivers refuse); V1's page meeting a 404 where this page reading says
+it falls back; `systemd-run` and the keeper's path on the image; and the time
+from the hotspot going to the page finding the lamp on the home network.
+
 ## Units
 
 `crates/setup/units/` holds the two units, for the image (#811) and the

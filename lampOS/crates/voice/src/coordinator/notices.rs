@@ -12,7 +12,9 @@ pub(super) struct FailureNotices {
     language: Option<String>,
 }
 pub(super) struct Recording {
-    info: NoticeInfo,
+    /// The provisioned notice; none for the self-test's tone, which is
+    /// made here and says nothing.
+    info: Option<NoticeInfo>,
     samples: Box<[i16]>,
 }
 impl FailureNotices {
@@ -28,7 +30,7 @@ impl FailureNotices {
             .get(NoticeKind::TurnLost, options.language())
             .map(|notice| {
                 Arc::new(Recording {
-                    info: notice.info.clone(),
+                    info: Some(notice.info.clone()),
                     samples: notice.samples().into(),
                 })
             });
@@ -60,6 +62,22 @@ impl FailureNotices {
 pub(super) enum SpeechOrigin {
     Provider,
     FailureNotice,
+    /// The self-test's tone (`crate::speaker_check`): local PCM, no answer.
+    SelfTest,
+}
+impl SpeechOrigin {
+    /// Played from a recording held here, not from the provider.
+    pub(super) fn local(self) -> bool {
+        self != Self::Provider
+    }
+    /// The trace's name for what plays.
+    pub(super) fn trace_name(self) -> &'static str {
+        match self {
+            Self::Provider => "speaker",
+            Self::FailureNotice => "failure_notice",
+            Self::SelfTest => "selftest_tone",
+        }
+    }
 }
 
 /// One attempt, retained independently of best-effort observation storage.
@@ -70,6 +88,8 @@ pub(super) enum NoticeDelivery {
     Unselected,
     Skipped(Missing),
     Selected {
+        /// `FailureNotice` or `SelfTest`.
+        origin: SpeechOrigin,
         recording: Arc<Recording>,
         cursor: usize,
         attempted_at_us: Option<u64>,
@@ -80,10 +100,33 @@ pub(super) enum NoticeDelivery {
 }
 impl NoticeDelivery {
     pub(super) fn origin(&self) -> SpeechOrigin {
-        if matches!(self, Self::Selected { .. }) {
-            SpeechOrigin::FailureNotice
-        } else {
-            SpeechOrigin::Provider
+        match self {
+            Self::Selected { origin, .. } => *origin,
+            _ => SpeechOrigin::Provider,
+        }
+    }
+    /// The self-test's tone, ready to play from its first sample.
+    pub(super) fn tone(samples: Vec<i16>) -> Self {
+        Self::Selected {
+            origin: SpeechOrigin::SelfTest,
+            recording: Arc::new(Recording {
+                info: None,
+                samples: samples.into_boxed_slice(),
+            }),
+            cursor: 0,
+            attempted_at_us: None,
+            retired_at_us: None,
+            final_acceptance: None,
+            gaps: 0,
+        }
+    }
+    /// When its first chunk was handed to the speaker.
+    pub(super) fn attempted_at_us(&self) -> Option<u64> {
+        match self {
+            Self::Selected {
+                attempted_at_us, ..
+            } => *attempted_at_us,
+            _ => None,
         }
     }
     pub(super) fn settled(&self) -> bool {
@@ -215,13 +258,30 @@ impl NoticeDelivery {
                 retired_at_us,
                 gaps,
                 ..
-            } => json!({
-                "state":if retired_at_us.is_some(){"retired"}else if attempted_at_us.is_some(){"attempted"}else{"selected"},
-                "kind":recording.info.kind,"wav_sha256":recording.info.wav_sha256,
-                "approval":recording.info.approval,"frames":recording.info.frames,
-                "reserved_frames":cursor,"attempted_at_us":attempted_at_us,
-                "retired_at_us":retired_at_us,"playback_gaps":gaps,
-                "answer":false,"acoustic_delivery_verified":false}),
+            } => {
+                let state = if retired_at_us.is_some() {
+                    "retired"
+                } else if attempted_at_us.is_some() {
+                    "attempted"
+                } else {
+                    "selected"
+                };
+                match &recording.info {
+                    Some(info) => json!({
+                        "state":state,
+                        "kind":info.kind,"wav_sha256":info.wav_sha256,
+                        "approval":info.approval,"frames":info.frames,
+                        "reserved_frames":cursor,"attempted_at_us":attempted_at_us,
+                        "retired_at_us":retired_at_us,"playback_gaps":gaps,
+                        "answer":false,"acoustic_delivery_verified":false}),
+                    None => json!({
+                        "state":state,"kind":"selftest_tone",
+                        "frames":recording.samples.len(),
+                        "reserved_frames":cursor,"attempted_at_us":attempted_at_us,
+                        "retired_at_us":retired_at_us,"playback_gaps":gaps,
+                        "answer":false,"acoustic_delivery_verified":false}),
+                }
+            }
         }
     }
 }
@@ -255,6 +315,7 @@ pub(super) fn select_failure_notice(
     }
     current.notice = match &catalog.selected {
         Ok(recording) => NoticeDelivery::Selected {
+            origin: SpeechOrigin::FailureNotice,
             recording: Arc::clone(recording),
             cursor: 0,
             attempted_at_us: None,
@@ -279,7 +340,7 @@ impl FailureNotices {
         let samples = vec![321_i16; 7_200].into_boxed_slice();
         Self {
             selected: Ok(Arc::new(Recording {
-                info: NoticeInfo {
+                info: Some(NoticeInfo {
                     kind: NoticeKind::TurnLost,
                     language: "en-US".into(),
                     transcript: "Synthetic PCM for tests; not a voice asset".into(),
@@ -290,7 +351,7 @@ impl FailureNotices {
                     pcm_sha256: "test-only".into(),
                     frames: 7_200,
                     duration_ms: 300,
-                },
+                }),
                 samples,
             })),
             language: Some("en-US".into()),

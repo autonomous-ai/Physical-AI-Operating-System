@@ -1,0 +1,15 @@
+2026-10-15T13:01:07+0700 lamp-52e6 lamp-voice[109697]: lamp-voice provider: told the new session that nobody is talking to the lamp
+2026-10-15T13:01:29+0700 lamp-52e6 lamp-voice[109697]: lamp-voice provider: the person at the lamp has changed; a new session is opened between turns
+2026-10-15T13:01:31+0700 lamp-52e6 lamp-voice[109697]: lamp-voice provider: told the new session that nobody is talking to the lamp
+2026-10-15T13:01:32+0700 lamp-52e6 lamp-voice[109697]: lamp-voice provider: request 1: told the session who is at the lamp
+2026-10-15T13:01:34+0700 lamp-52e6 lamp-voice[109697]: lamp-voice provider: request 2: the model is told the lamp's name was heard
+2026-10-15T13:01:38+0700 lamp-52e6 lamp-voice[109697]: lamp-voice provider: request 2 asked for remember; the memory answered in 26 ms; the answer was sent
+2026-10-15T13:02:27+0700 lamp-52e6 lamp-voice[109697]: lamp-voice provider: the person at the lamp has changed; a new session is opened between turns
+2026-10-15T13:02:29+0700 lamp-52e6 lamp-voice[109697]: lamp-voice provider: told the new session that nobody is talking to the lamp
+2026-10-15T13:02:40+0700 lamp-52e6 lamp-voice[109697]: lamp-voice provider: request 3: the model is told the lamp's name was heard
+2026-10-15T13:02:52+0700 lamp-52e6 lamp-voice[109697]: lamp-voice provider: request 4: the model said it was not for it
+2026-10-15T13:03:02+0700 lamp-52e6 lamp-voice[109697]: lamp-voice provider: the person at the lamp has changed; a new session is opened between turns
+2026-10-15T13:03:07+0700 lamp-52e6 lamp-voice[109697]: lamp-voice provider: request 5: told the session who is at the lamp
+2026-10-15T13:03:08+0700 lamp-52e6 lamp-voice[109697]: lamp-voice provider: request 5: the model is told the lamp's name was heard
+2026-10-15T13:03:10+0700 lamp-52e6 lamp-voice[109697]: lamp-voice provider: request 5 asked for recall; the memory answered in 6 ms; the answer was sent
+2026-10-15T13:03:47+0700 lamp-52e6 lamp-voice[109697]: lamp-voice provider: request 7: the model is told the lamp's name was heard

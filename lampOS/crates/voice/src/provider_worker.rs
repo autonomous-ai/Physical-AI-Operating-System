@@ -1925,12 +1925,14 @@ impl ToolDesk {
         }
         // One of the lamp's actions, with the Policy holding them: kept for
         // the turn's decision, and run, held or let go on a later tick
-        // ([`Self::release`], #800).
+        // ([`Self::release`], #800). Timers and reminders too: "Yes, give me
+        // five minutes", said to someone else, set a timer on lamp-4ace (the
+        // first builder on #908, 05:02).
         if let Some(turn) = turn
             && self.verdicts.is_some()
             && matches!(
                 crate::tools::route(&self.settings, &call.name),
-                Route::Executive(_)
+                Route::Executive(_) | Route::Schedule(_)
             )
             && self.parked.len() < lamp_gemini::MAX_TOOL_CALLS
         {

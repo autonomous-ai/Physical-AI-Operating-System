@@ -28,8 +28,9 @@
 //!   table.
 //!
 //! With `LAMP_SPOKEN_TO=on` (#829) only talk between people counts: a
-//! request whose answer the lamp's own rule held is not talk, and busy ends
-//! three minutes after the last talk, whatever one person says meanwhile.
+//! request whose answer the lamp's own rule held is not talk, busy ends
+//! three minutes after the last talk, whatever one person says meanwhile,
+//! and a room not yet known is quiet after five minutes with no talk.
 //! On lamp-4ace on 16 October at 02:30, one person alone, right after a
 //! two-person scene had left the room busy, had five requests held in a
 //! row; each counted as more talk, so the five quiet minutes never came
@@ -110,6 +111,8 @@ pub struct RoomTold {
     talk_only: bool,
     held: Option<u64>,
     last_talk_us: Option<u64>,
+    /// When watching began.
+    watching_since_us: Option<u64>,
     room: Room,
     /// The session last told, and what it was told.
     told: Option<(u64, Room)>,
@@ -131,6 +134,7 @@ impl RoomTold {
             talk_only: false,
             held: None,
             last_talk_us: None,
+            watching_since_us: None,
             room: Room::Unknown,
             told: None,
         }
@@ -244,6 +248,7 @@ impl RoomTold {
     /// How the room is now.
     pub fn at(&mut self, now_us: u64) -> Room {
         let since = *self.quiet_since_us.get_or_insert(now_us);
+        let watching = *self.watching_since_us.get_or_insert(now_us);
         let run = if self.room == Room::Quiet {
             QUIET_ENDS_RUN
         } else {
@@ -254,11 +259,20 @@ impl RoomTold {
             && self
                 .last_talk_us
                 .is_some_and(|talk| now_us.saturating_sub(talk) >= BUSY_ENDS_AFTER_US);
+        // With only talk counted: five minutes with no talk between people
+        // is a quiet room, whatever one person says to the lamp meanwhile.
+        // Without it a room where someone keeps talking to the lamp from
+        // the start is never known: on lamp-4ace on 16 October from 05:39
+        // the voice told the bus "unknown" all night (#829, 05:46).
+        let no_talk = self.talk_only
+            && self.room == Room::Unknown
+            && now_us.saturating_sub(self.last_talk_us.unwrap_or(watching).max(watching))
+                >= QUIET_AFTER_US;
         if self.run_of(run) {
             self.room = Room::Busy;
             // The run has been counted; the next three decide afresh.
             self.unanswered.clear();
-        } else if talk_over || now_us.saturating_sub(since) >= QUIET_AFTER_US {
+        } else if talk_over || no_talk || now_us.saturating_sub(since) >= QUIET_AFTER_US {
             self.room = Room::Quiet;
             self.unanswered.clear();
         }
@@ -425,6 +439,51 @@ mod tests {
             room.unanswered(request, (at + 6) * S);
         }
         assert_eq!(room.at(252 * S), Room::Busy);
+    }
+
+    /// #829, the first builder at 05:46: after the voice started, one person
+    /// talked with the lamp all night, every request answered or held, and
+    /// the room was "unknown" on the bus throughout. With only talk counted,
+    /// five minutes with no talk between people is quiet; without it, as
+    /// before, the room is not known while something is heard.
+    #[test]
+    fn with_the_switch_a_room_where_one_person_talks_with_the_lamp_is_quiet_in_five_minutes() {
+        let night = |talk_only: bool| {
+            let mut room = RoomTold::new();
+            room.count_only_talk(talk_only);
+            assert_eq!(room.at(0), Room::Unknown);
+            (1..=12u64)
+                .map(|n| {
+                    let at = n * 30;
+                    said(&mut room, n, at);
+                    if n % 2 == 0 {
+                        room.spoke(n, (at + 3) * S);
+                    } else {
+                        room.held(n);
+                    }
+                    (at, room.at((at + 4) * S))
+                })
+                .collect::<Vec<_>>()
+        };
+        for (at, room) in night(true) {
+            let expected = if at + 4 >= 300 {
+                Room::Quiet
+            } else {
+                Room::Unknown
+            };
+            assert_eq!(room, expected, "{at}");
+        }
+        assert!(night(false).iter().all(|(_, room)| *room == Room::Unknown));
+        // Talk between people puts the five minutes back.
+        let mut room = RoomTold::new();
+        room.count_only_talk(true);
+        assert_eq!(room.at(0), Room::Unknown);
+        for (request, at) in [(1, 200), (2, 230)] {
+            said(&mut room, request, at);
+            room.unanswered(request, (at + 6) * S);
+        }
+        assert_eq!(room.at(400 * S), Room::Unknown);
+        assert_eq!(room.at(537 * S), Room::Quiet);
     }
 
     #[test]

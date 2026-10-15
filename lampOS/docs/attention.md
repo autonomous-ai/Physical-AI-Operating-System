@@ -1070,8 +1070,11 @@ busy.
   request whose answer the rule held is not talk, as a sound is not. Busy
   ends 3 minutes after the last thing left unanswered that counts,
   whatever one person says meanwhile, instead of only after 5 minutes with
-  nothing heard. Whether two voices are speaking is not known: that needs
-  the same-voice part (#865) on the lamp.
+  nothing heard. A room not yet known, as after the voice starts, is quiet
+  after 5 minutes with no talk between people (the first builder at 05:46:
+  with one person talking to the lamp from the start, `room/state` said
+  "unknown" all night). Whether two voices are speaking is not known: that
+  needs the same-voice part (#865) on the lamp.
 - **The lamp's own news is replied to.** The first thing anyone says
   within 3 minutes of a turn the lamp began itself (a task's news, a
   reminder) is played, once, in every room. Its answers keep their 45 s.

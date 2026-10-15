@@ -162,3 +162,44 @@ fn a_change_that_cannot_be_read_keeps_the_last_zone_until_one_can() {
     point(root.path(), "Asia/Ho_Chi_Minh");
     assert_eq!(local.offset_minutes_at(at), 420);
 }
+
+/// What a package manager does: a new file renamed over the old one.
+fn replace(path: &Path, text: &str) {
+    let fresh = path.with_extension("new");
+    fs::write(&fresh, text).unwrap();
+    fs::rename(&fresh, path).unwrap();
+}
+
+#[test]
+fn with_no_zone_file_a_new_zone_name_is_taken_up_at_the_next_reading() {
+    // #844: the name file alone, changed while the reader runs.
+    let root = tempfile::tempdir().unwrap();
+    let (localtime, timezone) = (root.path().join("localtime"), root.path().join("timezone"));
+    fs::write(&timezone, "America/New_York\n").unwrap();
+    let local = LocalTime::System(SystemZone::open(&localtime, &timezone).unwrap());
+    let at = ms("2026-07-15T12:00:00Z");
+    assert_eq!(local.offset_minutes_at(at), -240);
+    replace(&timezone, "Asia/Ho_Chi_Minh\n");
+    assert_eq!(local.offset_minutes_at(at), 420);
+    // A name that is not a zone keeps the last one.
+    replace(&timezone, "Nowhere/City\n");
+    assert_eq!(local.offset_minutes_at(at), 420);
+}
+
+#[test]
+fn a_broken_link_moved_to_another_broken_one_with_a_new_name_is_taken_up() {
+    let root = tempfile::tempdir().unwrap();
+    let (localtime, timezone) = (root.path().join("localtime"), root.path().join("timezone"));
+    symlink(root.path().join("zoneinfo/Gone/One"), &localtime).unwrap();
+    fs::write(&timezone, "America/New_York\n").unwrap();
+    let local = LocalTime::System(SystemZone::open(&localtime, &timezone).unwrap());
+    let at = ms("2026-07-15T12:00:00Z");
+    assert_eq!(local.offset_minutes_at(at), -240);
+    // Setup's way: a new link renamed over the old, still pointing nowhere,
+    // and the name file written beside it.
+    let fresh = root.path().join("localtime.lamp-setup-tmp");
+    symlink(root.path().join("zoneinfo/Gone/Two"), &fresh).unwrap();
+    fs::rename(&fresh, &localtime).unwrap();
+    replace(&timezone, "Asia/Ho_Chi_Minh\n");
+    assert_eq!(local.offset_minutes_at(at), 420);
+}

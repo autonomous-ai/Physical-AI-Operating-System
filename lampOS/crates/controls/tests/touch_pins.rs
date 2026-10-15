@@ -51,6 +51,9 @@ fn wiring() -> TouchPinsConfig {
         every_ms: 10,
         reset: Some(pin("reset", 100)),
         base: Some(base()),
+        head_qualify_ms: None,
+        head_tap_min_ms: None,
+        head_gap_ms: None,
     }
 }
 
@@ -442,6 +445,9 @@ fn empty_configuration_does_not_claim_a_functional_touch_source() {
         every_ms: 10,
         reset: None,
         base: None,
+        head_qualify_ms: None,
+        head_tap_min_ms: None,
+        head_gap_ms: None,
     };
     assert!(wiring.check(&Config::default()).is_err());
 }

@@ -118,13 +118,23 @@ unbroken active acquisitions. **The head carries every touch action**
 (the owner, 2026-10-15; [creature.md](creature.md#touch), #711), so a hand
 that stays must stay one hand: V1 FastMode TTP223 pads can pulse for about
 50–100 ms while a hand remains there, so released acquisitions shorter than
-`HEAD_GAP_US` (150 ms, authored, to be set from a recording of lamp-4ace's
-pads under a resting hand) do not end a contact. Only an unbroken 20 ms run
-qualifies it, so short blips joined by gaps never do. The contact's time,
+the gap do not end a contact. Only an unbroken qualifying run starts the
+requests, so short blips joined by gaps never do. Three settings in the touch
+pins file, each optional, are to be sized from a recording of lamp-4ace's
+pads (First, #711):
+
+| Setting | Default | Bounds | What it does |
+|---|---|---|---|
+| `head_qualify_ms` | 20 | 20..200 | An unbroken active run this long qualifies a touch: the Stop |
+| `head_tap_min_ms` | 120 | qualify..499 | A tap is let go no sooner; just above the lone 117 ms edge lamp-4ace's journal showed at 19:25 with nobody known at the lamp |
+| `head_gap_ms` | 150 | 0..500 | Released acquisitions shorter than this do not end a hand |
+
+A lone short edge can therefore stop speech at 20 ms, as any touch does,
+but never asks the lamp to listen or wake. The contact's time,
 through such gaps, is `touch_state.held_us`, the countdown readers use;
 Stroke comes at 1 s and Hold (Sleep) at 3 s of it. A tap is confirmed only
 when the gap has passed with the head released, so Attend and Wake come
-`HEAD_GAP_US` after the hand leaves; Stop comes at qualification, not at
+one gap after the hand leaves; Stop comes at qualification, not at
 the release. After a Stroke the letting go asks nothing: it was affection.
 
 `TouchEngine::set_head_pushed` takes the body's "the head is being pushed by

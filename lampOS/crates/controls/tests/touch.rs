@@ -918,8 +918,8 @@ fn a_head_touch_stops_a_talking_lamp_and_only_a_short_tap_asks_it_to_listen_or_w
     assert_eq!(tap.intent(false, true), Some(TouchIntent::Wake));
     // A second tap after the gap is its own contact.
     rig.run(960_000, 1_200_000, 0);
-    assert_eq!(rig.run(1_200_000, 1_300_000, 2).len(), 1);
-    let second = rig.run(1_300_000, 1_450_000, 0).pop().unwrap();
+    assert_eq!(rig.run(1_200_000, 1_350_000, 2).len(), 1);
+    let second = rig.run(1_350_000, 1_500_000, 0).pop().unwrap();
     assert_eq!(second.gesture, TouchGesture::Tap);
     assert!(second.contact_id > tap.contact_id);
 }
@@ -965,6 +965,54 @@ fn a_hand_kept_three_seconds_asks_for_sleep_and_its_letting_go_asks_nothing() {
 }
 
 #[test]
+fn a_lone_short_edge_can_stop_speech_but_never_asks_to_listen() {
+    // #711: lamp-4ace's journal showed a lone 117 ms head edge with nobody
+    // known at the lamp. It may stop speech at 20 ms, as any touch does,
+    // but under the shortest tap it never asks the lamp to listen or wake.
+    let mut rig = Rig::new(head());
+    rig.head_ready();
+    let events = rig.run(550_000, 660_000, 1);
+    assert_eq!(
+        events.iter().map(|e| e.gesture).collect::<Vec<_>>(),
+        [TouchGesture::Touch]
+    );
+    assert!(rig.run(660_000, 1_000_000, 0).is_empty());
+}
+
+#[test]
+fn the_head_timing_is_a_setting_with_bounds() {
+    let mut config = head();
+    (config.head_tap_min_ms, config.head_gap_ms) = (Some(50), Some(0));
+    let mut rig = Rig::new(config);
+    rig.head_ready();
+    // A 110 ms tap counts with a 50 ms shortest tap.
+    rig.run(550_000, 660_000, 1);
+    let tap = rig.run(660_000, 700_000, 0).pop().unwrap();
+    assert_eq!(tap.gesture, TouchGesture::Tap);
+    // With no gap, a pulse's 30 ms gap ends the hand.
+    rig.run(700_000, 800_000, 0);
+    assert_eq!(rig.run(800_000, 830_000, 1).len(), 1);
+    rig.run(830_000, 860_000, 0);
+    assert_eq!(rig.run(860_000, 890_000, 1).len(), 1);
+    for (qualify, tap_min, gap) in [
+        (Some(10), None, None),
+        (Some(201), None, None),
+        (Some(100), Some(90), None),
+        (None, Some(500), None),
+        (None, None, Some(501)),
+    ] {
+        let mut config = head();
+        (
+            config.head_qualify_ms,
+            config.head_tap_min_ms,
+            config.head_gap_ms,
+        ) = (qualify, tap_min, gap);
+        assert!(TouchEngine::new(config, "boot", "controls").is_err());
+    }
+    assert_eq!(head().head_timing(), HeadTiming::default());
+}
+
+#[test]
 fn a_head_pushed_by_hand_asks_for_nothing() {
     // #711: the body feels the head being moved; a touch then means nothing.
     let mut rig = Rig::new(head());
@@ -982,8 +1030,8 @@ fn a_head_pushed_by_hand_asks_for_nothing() {
     assert!(rig.run(4_440_000, 8_500_000, 1).is_empty());
     assert!(rig.run(8_500_000, 8_900_000, 0).is_empty());
     // A short tap once the push is over is a tap again.
-    assert_eq!(rig.run(8_900_000, 8_930_000, 1).len(), 1);
-    let tap = rig.run(8_930_000, 9_100_000, 0).pop().unwrap();
+    assert_eq!(rig.run(8_900_000, 9_050_000, 1).len(), 1);
+    let tap = rig.run(9_050_000, 9_200_000, 0).pop().unwrap();
     assert_eq!(tap.gesture, TouchGesture::Tap);
 }
 

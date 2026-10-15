@@ -111,6 +111,9 @@ fn wiring() -> TouchPinsConfig {
         reset: Some(pin("reset", 100)),
         every_ms: 10,
         base: Some(base()),
+        head_qualify_ms: None,
+        head_tap_min_ms: None,
+        head_gap_ms: None,
     }
 }
 

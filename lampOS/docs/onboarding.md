@@ -27,7 +27,7 @@ ready, not paused) and a face is in front of it.
 | 4 | `touch` | placeholder | — | — |
 | 5 | `privacy` | placeholder | — | — |
 | 6 | `giving_way` | placeholder | — | — |
-| 7 | `preferences` | asks about quiet hours and whether it may say hello, one at a time; keeps each as a rule (`keep_rule`, #813, PR #822, not merged yet: until then the model has only `remember`, [memory.md](memory.md)) and says that is everything | the model calls `setup_step` | the rules, in memory |
+| 7 | `preferences` | asks about quiet hours and whether it may say hello, one at a time; keeps each as a rule with `keep_rule` (#813) when the provider worker has both `LAMP_MEMORY_DAYS=on` and `LAMP_MEMORY_RULES=on` ([memory.md](memory.md), "What a person teaches and corrects"); without either, or with the legacy memory, there is no `keep_rule` and the model keeps them with `remember` if it has a memory at all and says that is everything | the model calls `setup_step` | the rules, in memory |
 
 A placeholder is the step of a part another builder owns: hearing (fourth,
 #753), head touch (third, #711), the privacy switch (third, #795), and

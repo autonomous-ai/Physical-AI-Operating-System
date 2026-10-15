@@ -159,6 +159,50 @@ fn lines(path: &Path) -> Vec<Value> {
         .collect()
 }
 
+/// A live recorder may be observed partway through its current write. Count
+/// only a snapshot ending at a record boundary; the unchanged `lines` reader
+/// still parses every byte and rejects partial records after the child exits.
+fn written_lines(path: &Path) -> Option<usize> {
+    let recording = match fs::read(path) {
+        Ok(recording) => recording,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return None,
+        Err(error) => panic!("read live recording {}: {error}", path.display()),
+    };
+    if !recording.is_empty() && !recording.ends_with(b"\n") {
+        return None;
+    }
+    Some(recording.iter().filter(|byte| **byte == b'\n').count())
+}
+
+#[test]
+fn a_live_recording_waits_for_the_whole_snapshot_before_counting_lines() {
+    let root = Root::new();
+    fs::create_dir_all(&root.0).unwrap();
+    let file = root.0.join("live.jsonl");
+    assert_eq!(written_lines(&file), None);
+    fs::write(&file, b"").unwrap();
+    assert_eq!(written_lines(&file), Some(0));
+
+    // Even a complete JSON value is not a committed line without its LF.
+    fs::write(&file, b"{\"seq\":1}").unwrap();
+    assert_eq!(written_lines(&file), None);
+    fs::write(&file, b"{\"seq\":1}\n").unwrap();
+    assert_eq!(written_lines(&file), Some(1));
+
+    // Do not accept the expected first line while a later write is partial.
+    fs::write(&file, b"{\"seq\":1}\n{\"seq\":").unwrap();
+    assert_eq!(written_lines(&file), None);
+    assert!(std::panic::catch_unwind(|| lines(&file)).is_err());
+    fs::write(&file, b"{\"seq\":1}\n{\"seq\":2}\n").unwrap();
+    assert_eq!(written_lines(&file), Some(2));
+    assert_eq!(lines(&file), vec![json!({"seq": 1}), json!({"seq": 2})]);
+
+    // A boundary only gates observation: it never replaces JSON validation.
+    fs::write(&file, b"not JSON\n").unwrap();
+    assert_eq!(written_lines(&file), Some(1));
+    assert!(std::panic::catch_unwind(|| lines(&file)).is_err());
+}
+
 fn sound() -> Vec<u8> {
     (0..640u32).map(|index| (index * 7) as u8).collect()
 }
@@ -482,7 +526,7 @@ fn a_killed_recorder_leaves_whole_lines_and_its_socket_goes_with_the_next_publis
         let outcome = publisher.publish_bytes(n, "pcm_s16le_16000_mono", &sound());
         assert_eq!(outcome.unwrap().delivered, 1);
         // Each is on the disk before the next: nothing waits in the process.
-        until("the line", || lines(&file).len() as u64 == n + 1);
+        until("the line", || written_lines(&file) == Some(n as usize + 1));
     }
     recorder.kill();
     let recorded = lines(&file);
@@ -540,7 +584,7 @@ fn a_recording_stops_at_its_size_and_says_so() {
         assert_eq!(outcome.unwrap().delivered, 1);
         if n < 2 {
             until("the line", || {
-                lines(&kept.0.join("mic2.jsonl")).len() as u64 == n + 1
+                written_lines(&kept.0.join("mic2.jsonl")) == Some(n as usize + 1)
             });
         }
     }
@@ -908,7 +952,7 @@ fn a_recording_begins_with_what_its_topic_was_declared_to_carry_and_replay_decla
     let joints_file = kept.0.join("body_joint_states.jsonl");
     let speech_file = kept.0.join("voice_heard.jsonl");
     // Declared already: the file's first line, before any message.
-    until("the declaration", || lines(&joints_file).len() == 1);
+    until("the declaration", || written_lines(&joints_file) == Some(1));
     assert_eq!(
         lines(&joints_file)[0],
         json!({"topic": "body/joint_states", "declaration": {
@@ -936,7 +980,7 @@ fn a_recording_begins_with_what_its_topic_was_declared_to_carry_and_replay_decla
         );
     }
     until("the lines", || {
-        lines(&joints_file).len() == 4 && lines(&speech_file).len() == 4
+        written_lines(&joints_file) == Some(4) && written_lines(&speech_file) == Some(4)
     });
     recorder.kill();
     // Declared after the recorder began: written before its first message.

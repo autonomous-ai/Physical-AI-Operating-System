@@ -534,3 +534,12 @@ latency, and adds no test or benchmark result to those above.
 The Schedule topic adds a discovery contract, not a measured delivery path.
 No Voice integration, power-loss recovery, clock accuracy or due-to-speech
 latency on a lamp is established by this topic declaration.
+
+## CLI test recording observation
+
+The recording tests wait for a complete live snapshot before checking the
+original record counts. A partially written final record means observation
+is still pending; the post-exit reader still validates every byte as complete
+JSONL. The kill/reap, replay, size and stale-socket assertions are unchanged.
+[The #846 regression and gate evidence](verification/bus-live-lines-20261015/README.md)
+cover this test-only change; no recording or crash-recovery guarantee changes.

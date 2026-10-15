@@ -1,0 +1,159 @@
+{
+  "run_id": 38780759392,
+  "source": "/private/tmp/tests-823-native-20261016/889-full-original-123.json",
+  "full_outcome_source": "/private/tmp/tests-823-native-20261016/889-full-results.json",
+  "all_run_outcomes": {
+    "identities": 4951,
+    "PASS": 4949,
+    "LEAK": 2,
+    "duplicates": 0
+  },
+  "selected_63": {
+    "identities": 63,
+    "PASS": 61,
+    "LEAK": 2,
+    "missing": 0,
+    "duplicates": 0,
+    "sum_case_seconds": "137.499"
+  },
+  "group_totals": {
+    "early_end": {
+      "identities": 11,
+      "outcomes": {
+        "PASS": 11
+      },
+      "sum_case_seconds": "61.321",
+      "sum_frozen_baseline_max_seconds": "61.301"
+    },
+    "endpoint_session": {
+      "identities": 13,
+      "outcomes": {
+        "PASS": 11,
+        "LEAK": 2
+      },
+      "sum_case_seconds": "23.743",
+      "sum_frozen_baseline_max_seconds": "57.932"
+    },
+    "pilot_faults": {
+      "identities": 34,
+      "outcomes": {
+        "PASS": 34
+      },
+      "sum_case_seconds": "10.143",
+      "sum_frozen_baseline_max_seconds": "80.189"
+    },
+    "provider_worker": {
+      "identities": 5,
+      "outcomes": {
+        "PASS": 5
+      },
+      "sum_case_seconds": "42.292",
+      "sum_frozen_baseline_max_seconds": "42.295"
+    }
+  },
+  "route_totals": {
+    "early_end_host": {
+      "identities": 10,
+      "outcomes": {
+        "PASS": 10
+      },
+      "sum_case_seconds": "60.205",
+      "sum_frozen_baseline_max_seconds": "60.187"
+    },
+    "endpoint_mute_host": {
+      "identities": 3,
+      "outcomes": {
+        "PASS": 2,
+        "LEAK": 1
+      },
+      "sum_case_seconds": "1.645",
+      "sum_frozen_baseline_max_seconds": "1.649"
+    },
+    "endpoint_process_host": {
+      "identities": 4,
+      "outcomes": {
+        "LEAK": 1,
+        "PASS": 3
+      },
+      "sum_case_seconds": "20.014",
+      "sum_frozen_baseline_max_seconds": "20.015"
+    },
+    "endpoint_scenario_clock": {
+      "identities": 6,
+      "outcomes": {
+        "PASS": 6
+      },
+      "sum_case_seconds": "2.084",
+      "sum_frozen_baseline_max_seconds": "36.268"
+    },
+    "pilot_scenario_clock": {
+      "identities": 31,
+      "outcomes": {
+        "PASS": 31
+      },
+      "sum_case_seconds": "1.547",
+      "sum_frozen_baseline_max_seconds": "71.838"
+    },
+    "pilot_threaded": {
+      "identities": 1,
+      "outcomes": {
+        "PASS": 1
+      },
+      "sum_case_seconds": "8.586",
+      "sum_frozen_baseline_max_seconds": "8.341"
+    },
+    "provider_tokio_unpaused": {
+      "identities": 5,
+      "outcomes": {
+        "PASS": 5
+      },
+      "sum_case_seconds": "42.292",
+      "sum_frozen_baseline_max_seconds": "42.295"
+    },
+    "pure": {
+      "identities": 2,
+      "outcomes": {
+        "PASS": 2
+      },
+      "sum_case_seconds": "0.010",
+      "sum_frozen_baseline_max_seconds": "0.010"
+    },
+    "supervisor_tokio_unpaused": {
+      "identities": 1,
+      "outcomes": {
+        "PASS": 1
+      },
+      "sum_case_seconds": "1.116",
+      "sum_frozen_baseline_max_seconds": "1.114"
+    }
+  },
+  "timing_caveat": "Sums of reported case durations across four concurrently running ARM64 shards; not standalone serial elapsed time. Source clock routing is independent of runtime duration, and LEAK is not PASS. CI overall green does not mean leak-free. Frozen historical max sums use different earlier runs and source; no matched-pair speedup claim.",
+  "endpoint_leak_issue": 872,
+  "source_clock_rollup": {
+    "host_time": {
+      "identities": 24,
+      "outcomes": {
+        "PASS": 22,
+        "LEAK": 2
+      },
+      "sum_case_seconds": "133.858"
+    },
+    "pure": {
+      "identities": 2,
+      "outcomes": {
+        "PASS": 2
+      },
+      "sum_case_seconds": "0.010"
+    },
+    "scenario_clock": {
+      "identities": 37,
+      "outcomes": {
+        "PASS": 37
+      },
+      "sum_case_seconds": "3.631"
+    }
+  },
+  "original_123_sum_case_seconds": "619.655",
+  "full_run_ci_conclusion": "success, reported by parent; 2 LEAK outcomes retained",
+  "audit_executed_tests": false
+}

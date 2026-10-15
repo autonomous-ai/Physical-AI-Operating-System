@@ -1,0 +1,16 @@
+{
+  "date": "2026-10-16 01:30:04 +0700",
+  "old_base": "6b08a70d56e37b061e7a9a6b013072b13639a0b7",
+  "new_base": "587a361a373bd856bb790c8cf92b92f4f7211066",
+  "all_seven_owned_and_dependency_hashes_preserved": {
+    "lampOS/crates/memory/src/health.rs": "013c99487db64189c2ae78ca4588cb8449358e1496707311c3d79a7e0fd0632b",
+    "lampOS/crates/memory/src/reporter_schedule_tests.rs": "c324372847d39007cf5302890890947a844fdaa4e4b7853ec62ce13d278eaf28",
+    "lampOS/docs/memory.md": "2ce9d55196cc076a7133954a953786ac5b7b9638a859e7187bcee1118aa5a5d6",
+    "lampOS/crates/bus/src/publish.rs": "53a43999a7035b31e06d29abfb4d0975f514ca0402f4e2614d46796894e1e563",
+    "lampOS/crates/bus/src/lib.rs": "3ab858b5195382e190b4988415177c7cf0b567cae33ecdbf097167eb7978b919",
+    "lampOS/crates/bus/src/publisher_clock_tests.rs": "62ab586860f422f223017ab690dbf4897f8cb8c593cdca94e8f5253e8ebc3e54",
+    "lampOS/docs/bus.md": "d7785924ca711fb58d57480e37407eb6ec66dca6fb3aeda10cc7ae03c61839b0"
+  },
+  "Bus_Memory_upstream_bytes_unchanged": true,
+  "next_gate": "Full Memory qualification must use the actual #881 owner fix now merged in this base."
+}

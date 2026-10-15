@@ -1,0 +1,5 @@
+# Memory Reporter scheduler preliminary gate
+
+Recorded 2026-10-16 01:50 +0700, from `date`. This explicit scheduling preparation passes formatting, strict Bus/Memory all-target clippy, **116 library tests (39 Bus + 77 Memory), with two existing ignored measurements**, and workspace build. It does not migrate any original integration case. Exact commands and raw outputs are retained.
+
+This was a preliminary library gate, before the source was rebased on the actual merged log-relay/Tasks producer fix `587a361a3`. `rebase-after-relay-fix.json` preserves all seven owned/dependency source hashes across that rebase. A fresh complete Memory gate remains required; these library results are not labelled as integration qualification. The Bus cadence-clock dependency is separately in a complete workspace gate. Default cadence, real filesystem leases, handler latency clocks and bounded Reporter cleanup remain unchanged; a future explicit process fixture will reuse the shared actual Memory application body.

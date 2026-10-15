@@ -1,0 +1,146 @@
+   Compiling lamp-ipc v0.1.0 (/private/tmp/lampos-tests-memory-clock/lampOS/crates/ipc)
+   Compiling lamp-bus v0.1.0 (/private/tmp/lampos-tests-memory-clock/lampOS/crates/bus)
+   Compiling lamp-turn-owner v0.1.0 (/private/tmp/lampos-tests-memory-clock/lampOS/crates/turn-owner)
+   Compiling lamp-msgs v0.1.0 (/private/tmp/lampos-tests-memory-clock/lampOS/crates/msgs)
+   Compiling lamp-camera v0.1.0 (/private/tmp/lampos-tests-memory-clock/lampOS/crates/camera)
+   Compiling lamp-audio v0.1.0 (/private/tmp/lampos-tests-memory-clock/lampOS/crates/audio)
+   Compiling lamp-keeper v0.1.0 (/private/tmp/lampos-tests-memory-clock/lampOS/crates/keeper)
+   Compiling lamp-body v0.1.0 (/private/tmp/lampos-tests-memory-clock/lampOS/crates/body)
+   Compiling lamp-schedule v0.1.0 (/private/tmp/lampos-tests-memory-clock/lampOS/crates/schedule)
+   Compiling lamp-controls v0.1.0 (/private/tmp/lampos-tests-memory-clock/lampOS/crates/controls)
+   Compiling lamp-gemini v0.1.0 (/private/tmp/lampos-tests-memory-clock/lampOS/crates/gemini)
+   Compiling lamp-ring v0.1.0 (/private/tmp/lampos-tests-memory-clock/lampOS/crates/ring)
+   Compiling lamp-turn-end-wire v0.1.0 (/private/tmp/lampos-tests-memory-clock/lampOS/crates/turn-end-wire)
+   Compiling lamp-voice v0.1.0 (/private/tmp/lampos-tests-memory-clock/lampOS/crates/voice)
+   Compiling lamp-memory v0.1.0 (/private/tmp/lampos-tests-memory-clock/lampOS/crates/memory)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 34.94s
+     Running unittests src/lib.rs (/private/tmp/tests-823-rebase-target/debug/deps/lamp_bus-fb747d13a52e67c8)
+
+running 40 tests
+test declare::tests::a_declaration_is_one_line_of_json_and_says_only_what_is_promised ... ok
+test declare::tests::a_declaration_needs_a_type_name_and_a_period_that_promises_something ... ok
+test directory_tests::a_new_directory_keeps_its_parents_shared_group_bit_and_has_none_without_it ... ok
+test live::tests::an_entry_is_a_source_a_process_and_an_instance_and_nothing_else_is_one ... ok
+test logging::tests::a_slow_log_follower_does_not_hold_a_fast_one_and_loss_remains_visible ... ok
+test logging::tests::admission_cost_with_a_stalled_worker ... ignored, manual host admission timing; no device or end-to-end claim
+test logging::tests::bounded_encoder_refuses_a_write_before_growing ... ok
+test logging::tests::close_after_an_empty_observation_still_drains_the_final_accepted_record ... ok
+test logging::tests::default_is_disabled_and_never_validates_or_admits ... ok
+test logging::tests::drop_does_not_wait_for_a_stalled_worker ... ok
+test logging::tests::failed_publish_is_counted_without_retrying_or_losing_subscriber_drop_counts ... ok
+test logging::tests::real_bus_preserves_attempt_identity_separately_from_publication_sequence ... ok
+test logging::tests::schema_round_trip_bounds_and_forward_compatibility ... ok
+test logging::tests::stalled_worker_has_fixed_capacity_and_attempt_gaps ... ok
+test logging::tests::startup_refuses_bad_root_names_and_conflicting_declarations ... ok
+test logging::tests::strict_envelope_rejects_non_logs_and_identity_mismatch ... ok
+test name::tests::a_subscriber_and_a_publisher_have_one_plain_word_for_a_name ... ok
+test name::tests::a_topic_cannot_be_another_topics_own_directory_or_file ... ok
+test name::tests::a_topic_is_lower_case_tokens_joined_by_a_slash ... ok
+test name::tests::a_topic_that_could_leave_the_root_or_name_nothing_is_refused ... ok
+test name::tests::a_type_is_a_package_and_a_capitalised_name ... ok
+test name::tests::an_encoding_is_a_label_that_needs_no_escaping ... ok
+test name::tests::the_dot_the_hyphen_and_a_leading_digit_or_underscore_are_no_longer_a_topic ... ok
+test publish::clock_tests::a_presence_obstruction_waits_until_one_second_and_unlisted_recovery_keeps_its_time ... ok
+test publish::clock_tests::a_real_declaration_write_failure_precedes_the_first_cadence_sample ... ok
+test publish::clock_tests::a_root_obstruction_is_discovered_at_the_real_rescan_boundary_and_recovers ... ok
+test publish::clock_tests::declaration_and_first_delivery_take_separate_samples_and_send_the_real_header ... ok
+test publish::clock_tests::frozen_reads_hold_scans_and_presence_until_the_exact_default_boundaries ... ok
+test publish::clock_tests::invalid_messages_do_not_read_cadence_or_advance_accepted_counts ... ok
+test publish::clock_tests::ordinary_constructors_keep_host_samples_and_publishers_remain_send_and_sync ... ok
+test publish::clock_tests::the_real_mtime_lease_remains_independent_of_a_frozen_publisher_clock ... ok
+test publish::clock_tests::undeclared_construction_and_invalid_names_or_declarations_do_not_read_the_clock ... ok
+test publish::tests::every_publisher_instance_gets_its_own_sixteen_hex_characters ... ok
+test subscribe::tests::the_kept_value_is_not_taken_ahead_of_messages_still_in_the_queue ... ok
+test subscribe::tests::the_last_value_of_an_instance_that_began_again_is_not_news ... ok
+test wire::tests::a_datagram_splits_at_the_first_line_end_and_the_payload_is_untouched ... ok
+test wire::tests::a_json_payload_reads_as_a_value_or_as_a_type_and_other_payloads_do_not ... ok
+test wire::tests::a_message_has_expired_fifty_milliseconds_after_its_time_and_never_without_one ... ok
+test wire::tests::the_header_is_one_line_of_json_with_its_fields_in_a_fixed_order ... ok
+test wire::tests::what_is_not_a_message_of_the_topic_is_refused_with_the_reason ... ok
+
+test result: ok. 39 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.38s
+
+     Running unittests src/lib.rs (/private/tmp/tests-823-rebase-target/debug/deps/lamp_memory-10314ca856231d1d)
+
+running 78 tests
+test days::tests::the_live_connection_requests_durable_commits_and_private_deletion ... ok
+test days_protocol::tests::a_sqlite_write_failure_reports_storage_but_no_write_evidence ... ok
+test days_protocol::tests::caller_refusals_and_overlong_lines_do_not_report_storage_or_write_evidence ... ok
+test days_protocol::tests::every_opt_in_request_shape_in_the_document_parses ... ok
+test days_protocol::tests::only_successful_additions_report_write_evidence_without_changing_the_wire_or_log ... ok
+test health::schedule_tests::completion_waits_for_actual_publication_and_overrun_has_no_catchup_queue ... ok
+test health::schedule_tests::frozen_spurious_and_predeadline_wakes_do_not_publish_but_the_exact_deadline_does ... ok
+test health::schedule_tests::publication_outcomes_follow_the_actual_error_and_recovery_results ... ok
+test health::schedule_tests::schedule_reads_are_pure_and_the_default_source_uses_host_time ... ok
+test health::schedule_tests::stopping_a_frozen_wait_unparks_and_preserves_the_final_best_effort_report ... ok
+test health::schedule_tests::stopping_a_held_publication_keeps_the_host_bound_without_false_completion ... ok
+test health::schedule_tests::successful_publication_is_not_a_receipt_and_the_shared_bus_clock_rescans_real_sockets ... ok
+test health::schedule_tests::the_shared_worker_samples_once_at_cycle_start_and_once_at_the_wait_check ... ok
+test health::tests::a_hung_handler_is_visible_while_the_socket_owner_cannot_finish ... ok
+test health::tests::an_unblocked_reporter_says_open_failed_without_ever_claiming_readiness ... ok
+test health::tests::count_scans_overlapping_even_a_finished_request_are_discarded ... ok
+test health::tests::counts_and_storage_faults_are_independent_and_reads_do_not_prove_recovery ... ok
+test health::tests::exact_budgets_recent_window_and_in_flight_answers_have_distinct_meanings ... ok
+test health::tests::extra_thread_wakes_do_not_burst_reports ... ok
+test health::tests::held_publication_cannot_block_a_real_socket_or_bounded_shutdown ... ok
+test health::tests::held_publisher_cleanup_also_has_a_bounded_shutdown_wait ... ok
+test health::tests::measure_health_update_and_socket_with_a_held_publisher ... ignored, host timing measurement; run in release with --ignored --nocapture
+test health::tests::session_note_classification_retains_no_request_content ... ok
+test health_counts::tests::days_counts_exclude_observations_and_notes_and_follow_cascading_deletion ... ok
+test health_counts::tests::days_counts_follow_expiry_and_a_failed_delete_keeps_the_previous_counts ... ok
+test health_counts::tests::legacy_counts_readable_records_after_capped_replacement_and_forgetting ... ok
+test health_counts::tests::legacy_probe_bounds_lines_and_accepts_a_valid_final_line_without_newline ... ok
+test health_counts::tests::legacy_probe_refuses_nonregular_kept_files_and_does_not_follow_journal_links ... ok
+test health_counts::tests::sqlite_counts_are_temporary_idempotent_and_follow_commit_rollback_and_kind ... ok
+test protocol::tests::a_bad_person_id_is_refused_and_nothing_on_the_disk_is_touched ... ok
+test protocol::tests::a_line_that_is_no_request_is_refused_by_name_and_nothing_is_written ... ok
+test protocol::tests::a_recall_gives_eight_entries_unless_told_and_never_more_than_fifty_or_sixteen_kibibytes ... ok
+test protocol::tests::an_actual_store_write_failure_reports_storage_but_no_write_evidence ... ok
+test protocol::tests::caller_refusals_and_overlong_lines_do_not_report_storage_or_write_evidence ... ok
+test protocol::tests::each_person_has_a_memory_apart_and_null_means_every_person_only_where_that_is_safe ... ok
+test protocol::tests::each_request_reads_from_its_line ... ok
+test protocol::tests::every_default_request_written_in_the_document_is_read_and_done ... ok
+test protocol::tests::forgetting_can_be_asked_for_the_last_of_one_kind ... ok
+test protocol::tests::only_successful_additions_report_write_evidence_without_changing_the_wire_or_log ... ok
+test protocol::tests::the_first_request_of_a_new_day_deletes_the_days_too_old_whatever_it_asks ... ok
+test protocol::tests::the_log_line_names_the_request_the_person_and_the_counts_and_never_the_text ... ok
+test protocol::tests::what_is_added_is_recalled_kept_counted_and_forgotten_in_these_shapes ... ok
+test store::tests::a_cut_off_last_line_and_a_garbage_line_are_skipped_and_counted_and_the_rest_loads ... ok
+test store::tests::a_removal_leaves_no_copy_and_one_left_by_a_cut_off_removal_is_cleared_on_opening ... ok
+test store::tests::an_exchange_is_recalled_by_its_day_by_its_words_and_as_the_newest ... ok
+test store::tests::directories_and_files_are_their_owners_alone ... ok
+test store::tests::forgetting_everything_for_one_person_leaves_another_untouched ... ok
+test store::tests::forgetting_the_last_of_one_kind_leaves_the_other_kind_alone ... ok
+test store::tests::forgetting_the_last_thing_takes_the_highest_id_of_either_kind ... ok
+test store::tests::ids_go_on_rising_across_both_files_after_the_store_is_opened_again ... ok
+test store::tests::journal_days_too_old_to_keep_are_deleted_on_opening_and_on_a_new_day ... ok
+test store::tests::kept_gives_the_newest_that_fit_and_recall_stops_at_the_count_and_the_bytes ... ok
+test store::tests::more_of_the_words_rank_first_and_then_the_newer ... ok
+test store::tests::one_persons_memory_is_never_given_for_another ... ok
+test store::tests::only_a_day_the_calendar_has_is_a_day_and_it_is_written_back_the_same ... ok
+test store::tests::only_a_plain_short_lower_case_id_is_a_person ... ok
+test store::tests::status_counts_each_person_and_a_directory_is_one_stores_at_a_time ... ok
+test store::tests::text_is_cut_at_a_character_and_its_blanks_made_one ... ok
+test store::tests::the_kept_list_holds_two_hundred_and_drops_the_oldest ... ok
+test store::tests::the_local_day_turns_at_midnight_where_the_lamp_stands ... ok
+test tidy::tests::a_conforming_adapter_does_not_deliver_an_old_job_to_a_new_pass ... ok
+test tidy::tests::a_result_ready_at_or_after_the_deadline_is_never_accepted ... ok
+test tidy::tests::bad_input_is_rejected_before_the_model_is_started ... ok
+test tidy::tests::categories_and_records_have_strict_round_tripping_json_shapes ... ok
+test tidy::tests::clock_rollback_does_not_underflow_restore_spent_time_or_reach_the_adapter ... ok
+test tidy::tests::deadline_arithmetic_saturates_and_timeout_settings_are_bounded ... ok
+test tidy::tests::delayed_work_is_pending_and_a_second_start_is_refused_without_touching_it ... ok
+test tidy::tests::dropping_an_active_pass_cancels_it_once ... ok
+test tidy::tests::empty_and_malformed_results_end_the_pass_without_becoming_success ... ok
+test tidy::tests::errors_never_contain_the_invalid_text ... ok
+test tidy::tests::evidence_shape_text_and_dates_are_checked_before_model_work ... ok
+test tidy::tests::explicit_cancellation_ignores_late_completion_and_is_idempotent ... ok
+test tidy::tests::input_requires_exact_bounded_source_records_and_separate_previous_ids ... ok
+test tidy::tests::proposals_require_known_sources_valid_replacements_and_utf8_byte_caps ... ok
+test tidy::tests::ready_results_are_given_once_and_leave_no_active_pass ... ok
+test tidy::tests::stalled_work_is_cancelled_at_the_deadline_without_repeated_cancellation ... ok
+test tidy::tests::start_and_poll_failures_end_the_pass_without_retrying ... ok
+test tidy::tests::the_input_byte_limit_counts_json_escaping_not_just_plain_text ... ok
+
+test result: ok. 77 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 26.22s
+

@@ -1,0 +1,5 @@
+# Complete local Serve coordination gate
+
+Recorded 2026-10-16 01:50 +0700, from `date`. The complete local evaluator gate on `/private/tmp/lampos-tests-serve-progress` passes **407 tests: 205 library and 202 integration; zero failed, ignored, measured or filtered** across 25 suite summaries. Formatting, strict evaluator all-target clippy and workspace build pass. `full-gates.json` retains exact commands, workspace, cache invalidation and start/finish times from `date`. All 67 recorded evaluator Rust/Cargo source files retain their pre-gate hashes.
+
+This source is the Serve-only coordinated migration: ten of the original 14 identities use its clock; three recorder identities and one delayed-transport identity remain host-clock fixtures. The [original 14-test paired measurement](../serve-fixture-pair-20261016/README.md) is retained separately, as is the [later Recorder migration](../recorder-fixture-pair-20261016/README.md). This complete gate is not a new timing pair, native qualification or the full 123-test target. Dependencies are being merged before publication as a separate reviewable change.

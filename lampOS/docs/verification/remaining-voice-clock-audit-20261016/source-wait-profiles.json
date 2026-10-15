@@ -1,0 +1,179 @@
+{
+  "scenario_policy": {
+    "kind": "logical_required_duration",
+    "detail": "Scope reads are pure; pump every participant before exactly 2 ms advance. Capture 10 ms, privacy 5 ms for pilot / 10 ms for endpoint, PCM rate, 60 ms unmute, sample-count silence/result policies and finite session lengths remain in logical time. Scope is test-thread local; unscoped threads remain host-clock. Shutdown pumps do not advance logical time.",
+    "anchors": [
+      "lampOS/crates/voice/src/scenario_clock.rs:1",
+      "lampOS/crates/voice/src/scenario_clock.rs:161",
+      "lampOS/crates/voice/src/coordinator.rs:2789",
+      "lampOS/crates/voice/src/coordinator.rs:4776"
+    ]
+  },
+  "real_child_events": {
+    "kind": "event_driven_host_work_not_fixed_sleep",
+    "detail": "Actual process exec/start marker, close/kill, waitid(WNOWAIT) and supervisor wait/reap remain real. Stepped pilot peers observe each owned cat exit before the next logical step; real 300 ms per-stop/shared-shutdown deadline is a guard, not normally an elapsed 300 ms.",
+    "anchors": [
+      "lampOS/crates/voice/src/coordinator/tests/pilot_faults.rs:1354",
+      "lampOS/crates/voice/src/coordinator/tests/pilot_faults.rs:540",
+      "lampOS/crates/voice/src/scenario_clock.rs:248",
+      "lampOS/crates/voice/src/process.rs:138",
+      "lampOS/crates/voice/src/coordinator.rs:482"
+    ]
+  },
+  "sleeping_fixture_cleanup": {
+    "kind": "mandatory_host_deadline_in_current_fixture",
+    "detail": "Four sentinel workers execute sleep 60 and cannot obey the mocked Stop. They consume the one shared real 300 ms shutdown grace before forced kill/reap. The 60 seconds is keepalive, not normal elapsed test time. This remains in all six stepped endpoint cases and each finite early-end / real-process endpoint session.",
+    "anchors": [
+      "lampOS/crates/voice/src/process.rs:80",
+      "lampOS/crates/voice/src/coordinator/tests/endpoint_session.rs:819",
+      "lampOS/crates/voice/src/coordinator/tests/endpoint_session.rs:911",
+      "lampOS/crates/voice/src/coordinator/tests/early_end.rs:590",
+      "lampOS/crates/voice/src/coordinator.rs:686"
+    ]
+  },
+  "metadata_finish": {
+    "kind": "mandatory_host_deadline_under_test",
+    "detail": "Writer is proven blocked before the stepped run; real SIGTERM and real child reap remain. finish_logging consumes the unchanged real FINISH_WAIT=500 ms while the writer remains blocked, then the release token permits actual completion. The 2 s entry recv_timeout and FINISH_WAIT+250 ms upper assertion are guards.",
+    "anchors": [
+      "lampOS/crates/voice/src/coordinator/tests/pilot_faults.rs:2465",
+      "lampOS/crates/voice/src/coordinator/tests/pilot_faults.rs:2533",
+      "lampOS/crates/voice/src/service_trace.rs:24",
+      "lampOS/crates/voice/src/service_trace.rs:175"
+    ]
+  },
+  "rapid_privacy_cycles": {
+    "kind": "host_elapsed_scenario_and_policy",
+    "detail": "Four complete threaded answer/mute cycles; paced 10 ms capture and PCM, 5 ms privacy mock, real 60 ms stable unmute via wait_worker before each run. Service wait 2 ms, authority refresh 25 ms, independent privacy/peer threads. Child exit and next-cycle no-overlap remain actual. The 5 s privacy mock / 12 s scenario limits are guards.",
+    "anchors": [
+      "lampOS/crates/voice/src/coordinator/tests/pilot_faults.rs:2334",
+      "lampOS/crates/voice/src/coordinator/tests/pilot_faults.rs:2370",
+      "lampOS/crates/voice/src/service_privacy.rs:155",
+      "lampOS/crates/voice/src/service_privacy.rs:235",
+      "lampOS/crates/voice/src/service_privacy.rs:361"
+    ]
+  },
+  "early_end_finite": {
+    "kind": "host_elapsed_scenario",
+    "detail": "Finite 4/5/6 s sessions (the comparison case runs two 5 s sessions), capture/privacy paced 10 ms, scripted answer-after delay and 40 ms packet schedule, sample-count 200 ms early / 600 ms final silence. Provider and service use a separate current-thread unpaused Tokio runtime; three peripheral OS threads use host monotonic/std Instant. 350 ms playout setting is PCM buffer capacity, not a fixed timer.",
+    "anchors": [
+      "lampOS/crates/voice/src/coordinator/tests/early_end.rs:307",
+      "lampOS/crates/voice/src/coordinator/tests/early_end.rs:384",
+      "lampOS/crates/voice/src/coordinator/tests/early_end.rs:166",
+      "lampOS/crates/voice/src/coordinator/tests/early_end.rs:587",
+      "lampOS/crates/voice/src/coordinator/tests/early_end.rs:615",
+      "lampOS/crates/voice/src/coordinator/tests/early_end.rs:727"
+    ]
+  },
+  "early_end_host_guards": {
+    "kind": "host_guard_or_poll_not_added_nominal_duration",
+    "detail": "3 s Ready/task-publication guard; 12 s conversation watchdog; service 1 ms rest, 20 ms dial receive timeout, 5 ms stop checks and peripheral 1 ms polls. Startup must establish real Ready before sample producers. Cleanup aborts scripted sends before provider Stop, then joins tasks/threads and propagates unexpected panics.",
+    "anchors": [
+      "lampOS/crates/voice/src/coordinator/tests/early_end.rs:44",
+      "lampOS/crates/voice/src/coordinator/tests/early_end.rs:546",
+      "lampOS/crates/voice/src/coordinator/tests/early_end.rs:689",
+      "lampOS/crates/voice/src/coordinator/tests/early_end.rs:741"
+    ]
+  },
+  "endpoint_real_process": {
+    "kind": "host_policy_and_child_dependencies",
+    "detail": "ProcessClassifier owns writer/reader/supervisor threads, std Instant/Condvar deadlines and actual child try_wait/kill/wait. Defaults startup 10 s, hang 2 s, 2 restarts/backoff 1 s, grace/drain 300 ms; only scenario-selected paths consume them. Finite host sessions retain capture/privacy schedules; missing-model child exit is event-driven.",
+    "anchors": [
+      "lampOS/crates/voice/src/coordinator/tests/endpoint_session.rs:679",
+      "lampOS/crates/voice/src/coordinator/tests/endpoint_session.rs:721",
+      "lampOS/crates/voice/src/coordinator/tests/endpoint_session.rs:940",
+      "lampOS/crates/turn-end-wire/src/client.rs:97",
+      "lampOS/crates/turn-end-wire/src/client.rs:608",
+      "lampOS/crates/turn-end-wire/src/client.rs:748",
+      "lampOS/crates/turn-end-wire/src/client.rs:796"
+    ]
+  },
+  "endpoint_mute": {
+    "kind": "actual_host_teardown_deadline_test",
+    "detail": "Mute is event-triggered, not a finite session sleep. Cooperative peer cats stop on stdin close, but endpoint sleep 60 ignores EOF: default grace 300 ms is consumed before kill/reap. The unconfirmed case uses 1500 ms endpoint grace with coordinator max(remaining shared grace,500 ms) confirmation bound; that 500 ms must expire while exit remains unconfirmed. Two-cycle reopen checks actual previous PID absence.",
+    "anchors": [
+      "lampOS/crates/voice/src/coordinator/tests/endpoint_session.rs:1216",
+      "lampOS/crates/voice/src/coordinator/tests/endpoint_session.rs:1327",
+      "lampOS/crates/voice/src/coordinator/tests/endpoint_session.rs:1373",
+      "lampOS/crates/voice/src/coordinator/tests/endpoint_session.rs:1597",
+      "lampOS/crates/voice/src/coordinator.rs:740",
+      "lampOS/crates/turn-end-wire/src/client.rs:203"
+    ]
+  },
+  "provider_mixed_clocks": {
+    "kind": "clock_domain_dependency",
+    "detail": "LiveRig is one in-process Tokio task plus real local IPC sockets, no OS child. Controller/leases, stamps and worker intake read host monotonic_us; timing helpers and speaker read std Instant; worker 2 ms and Gemini 10 ms ticker/recovery/protocol deadlines use Tokio. 100000 us leases/retained input and Gemini capture age are real checks, not sleeps. LinkClock correlates Tokio and host samples and rejects independent clock stops/regression.",
+    "anchors": [
+      "lampOS/crates/voice/src/provider_worker.rs:20",
+      "lampOS/crates/voice/src/provider_worker.rs:887",
+      "lampOS/crates/voice/src/provider_worker.rs:5195",
+      "lampOS/crates/voice/src/provider_worker.rs:5336",
+      "lampOS/crates/voice/src/provider_worker.rs:2885",
+      "lampOS/crates/voice/src/provider_link.rs:222",
+      "lampOS/crates/voice/src/provider_link.rs:287",
+      "lampOS/crates/voice/src/transport.rs:82",
+      "lampOS/crates/gemini/src/session.rs:2399"
+    ]
+  },
+  "provider_guards": {
+    "kind": "host_guard_or_poll",
+    "detail": "LiveRig output/wire 5 s, dial/service-message/exit 3 s guards; 2 ms wire/dial loops, 5 ms heartbeat/receive polls, 1 ms exit loop. Keepalive/setup/response deadlines are safeguards unless explicitly exercised. Speaker completion has answer-seconds+120 s guard. Pausing only Tokio leaves std/monotonic loops running until real deadlines.",
+    "anchors": [
+      "lampOS/crates/voice/src/provider_worker.rs:5351",
+      "lampOS/crates/voice/src/provider_worker.rs:5374",
+      "lampOS/crates/voice/src/provider_worker.rs:5387",
+      "lampOS/crates/voice/src/provider_worker.rs:5399",
+      "lampOS/crates/voice/src/provider_worker.rs:7987"
+    ]
+  },
+  "capacity_answer": {
+    "kind": "mandatory_host_modeled_playback",
+    "detail": "20 s answer at 24000 samples/s plus full 4 s playback hold after 5 s; 5 s buffer. 3 s network stall, 200 ms non-burst service gaps, largest messages and five-message burst, idle withheld through answer duration. std Instant drives Speaker backlog/starvation/held counters and all original timing/capacity assertions. Intervals overlap, so do not sum every delay.",
+    "anchors": [
+      "lampOS/crates/voice/src/provider_worker.rs:7860",
+      "lampOS/crates/voice/src/provider_worker.rs:7926",
+      "lampOS/crates/voice/src/provider_worker.rs:7996",
+      "lampOS/crates/voice/src/provider_worker.rs:8034",
+      "lampOS/crates/voice/src/provider_worker.rs:8089"
+    ]
+  },
+  "kept_patience": {
+    "kind": "mandatory_host_protocol_wait",
+    "detail": "Twenty input blocks each paced 10 ms, 60 ms silence-drain windows, unchanged 2500 ms kept-start patience then strict 2000 ms barrier timeout; final 20 ms negative receive. 4 s loop limits are guards. The silence helper resets its std Instant at each actually received message.",
+    "anchors": [
+      "lampOS/crates/voice/src/provider_worker.rs:8703",
+      "lampOS/crates/voice/src/provider_worker.rs:8740",
+      "lampOS/crates/voice/src/provider_worker.rs:9058",
+      "lampOS/crates/gemini/src/config.rs:91"
+    ]
+  },
+  "assumed_barrier": {
+    "kind": "mandatory_host_protocol_wait",
+    "detail": "Two runs, Legacy and Typed; silent service must consume original 2000 ms AssumeAfterQuiet barrier, with original >=1900 ms assertion, then output and live worker assertions.",
+    "anchors": [
+      "lampOS/crates/voice/src/provider_worker.rs:8591",
+      "lampOS/crates/gemini/src/config.rs:91"
+    ]
+  },
+  "name_bus_window": {
+    "kind": "mandatory_host_window_and_real_IPC",
+    "detail": "Name is published only after began_us+4000000: selected offsets are +1000000 after end or +200000 after beginning; then 200 ms pump. Real bus publication/delivery, global BUS_ROOT isolation and serialized tests remain; NameIn polls supplied monotonic at 20000 us and drains at most 8. A delivered datagram is not proof worker consumed it.",
+    "anchors": [
+      "lampOS/crates/voice/src/provider_worker/tests/review_2026_10_14.rs:29",
+      "lampOS/crates/voice/src/provider_worker/tests/review_2026_10_14.rs:78",
+      "lampOS/crates/voice/src/provider_worker/tests/review_2026_10_14.rs:133",
+      "lampOS/crates/voice/src/provider_worker/tests/review_2026_10_14.rs:176",
+      "lampOS/crates/voice/src/bus_out.rs:216",
+      "lampOS/crates/voice/src/bus_out.rs:256"
+    ]
+  },
+  "direct_supervisor_quiet": {
+    "kind": "mandatory_unpaused_tokio_silence_windows",
+    "detail": "Two branches continued/abandoned each drain 150,100,150,150 ms silence windows; total configured quiet windows 1100 ms. Direct Supervisor plus in-memory Tokio duplex service; no LiveRig/leases/LinkClock/coordinator/OS child. 3 s timeout is guard; std Instant capture stamps remain host.",
+    "anchors": [
+      "lampOS/crates/voice/src/coordinator/tests/early_end.rs:1541",
+      "lampOS/crates/voice/src/coordinator/tests/early_end.rs:1603",
+      "lampOS/crates/gemini/src/testing.rs:1",
+      "lampOS/crates/gemini/src/testing.rs:37"
+    ]
+  }
+}

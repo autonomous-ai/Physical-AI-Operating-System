@@ -1,5 +1,19 @@
 # Tests work log
 
+## 2026-10-16 01:50 +0700 — finite and recorder preparations merged; remaining gates continue
+
+Ready for lamp-voice: yes (#875, #877); no (new local preparations still qualifying)
+
+- Reviewer merged #889 after independent 352/0/0 and exact-head normal/full ARM64 evidence; all 123 original identities remain present exactly once. #888's recorder preparation also merged. Latest fetched integration is `2bf2eaf76`.
+- #875's documentation correction passed native 38785246767: 4,757 passed / 126 profile exclusions; #877 passed 38783870443: 4,759 / 126. Every new boundary case passed. Both are ready. [Unedited native evidence](verification/clock-preparations-arm64-20261016-latest/README.md).
+- Serve coordination's complete local gate passes **407/0/0**, plus fmt, strict evaluator clippy and workspace build. [Full gate and source hashes](verification/serve-complete-gate-20261016/README.md). The separate Recorder combined gate remains 457/0/0; native migration publication follows dependency integration.
+- Memory scheduler's preliminary library gate passes 116 tests / two existing ignores, with fmt, strict clippy and workspace build. Its complete integration gate remains required after the actual relay fix. [Exact scope and evidence](verification/memory-schedule-preliminary-20261016/README.md).
+- #872 rebased to the actual merged relay/producer fix; three targeted real-child cases pass with no leaks or retries. Normal 38787251675 and full 38787351254 are in progress on `22d369ad4`. Full coverage is necessary because the normal profile excludes those cases.
+- Bus cadence preparation is in a complete workspace gate. The full-delay SlowTransport preparation is in its complete evaluator gate; its separately controlled transport must actually exec and register the real relay before logical time advances past startup. Shared Memory application extraction and bounded driver review continue.
+- [All 63 original Voice identities, current native timings and provider design](verification/remaining-voice-clock-audit-20261016/README.md) are retained. A frozen Tokio clock cannot consume Stop through a future tick. The provider migration remains dependent on truthful progress and reviewed shutdown scheduling, with original assertions and real child cleanup preserved.
+
+The complete 123-test serial under-two-minute target remains open. No workflow/profile/runner/settings/device change. #783's merged sweep remains with the eighth for qualification and close.
+
 ## 2026-10-16 01:16 +0700 — all 123 identities present in finite migration's full ARM64 run
 
 Ready for lamp-voice: yes (#889); no (#877 new head pending, Bus blocked)

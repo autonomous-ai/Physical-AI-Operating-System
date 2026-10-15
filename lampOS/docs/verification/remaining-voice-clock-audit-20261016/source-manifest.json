@@ -1,0 +1,55 @@
+{
+  "verified_at_from_date": "2026-10-16 01:19:35 +0700",
+  "source_worktree": "/private/tmp/lampos-tests-fixture-progress",
+  "source_head": "8a7521661cb06997a18eed32ead13d8d9ee81fd9",
+  "selected_identities": 63,
+  "source_route_counts": {
+    "scenario_clock": 37,
+    "host_time": 24,
+    "pure": 2,
+    "tokio_paused": 0
+  },
+  "native_outcomes": {
+    "identities": 63,
+    "PASS": 61,
+    "LEAK": 2,
+    "missing": 0,
+    "duplicates": 0,
+    "sum_case_seconds": "137.499"
+  },
+  "source_files_unchanged": 26,
+  "new_test_execution": false,
+  "source_edits": false,
+  "Git_mutations": false,
+  "network_or_devices": false,
+  "files": {
+    "/private/tmp/tests-823-voice-remaining-audit.md": {
+      "sha256": "ac39322e7121a06bb18f7c10f23211dad80dba38160932095c856bada88d4b01",
+      "bytes": 18737
+    },
+    "/private/tmp/tests-823-voice-remaining-evidence/merged-source-history.json": {
+      "sha256": "7ab509f627c30cb0f0edc261d09074c57a64ba44b5217baf3ed36a117dd67374",
+      "bytes": 4736
+    },
+    "/private/tmp/tests-823-voice-remaining-evidence/native-889-selected-63.tsv": {
+      "sha256": "996e1d18a483e94aacea576c13cb530015de24614439a7712b7174a1f3976828",
+      "bytes": 12994
+    },
+    "/private/tmp/tests-823-voice-remaining-evidence/native-889-totals.json": {
+      "sha256": "f45f4b12032860b23221548b4acea75ff1734a68cec2f5b89d271d36319e0d73",
+      "bytes": 4017
+    },
+    "/private/tmp/tests-823-voice-remaining-evidence/selected-63.json": {
+      "sha256": "1efff42ae0d66ad69cf0c0d1ba2c99a68a843e4b47d69a12b954572b92c1ff87",
+      "bytes": 213508
+    },
+    "/private/tmp/tests-823-voice-remaining-evidence/source-hashes.json": {
+      "sha256": "7aa4d3ffdfedcb4a9bcb733fd0cc229ef458fb4d0a48f1370c2b94c38863de5e",
+      "bytes": 10848
+    },
+    "/private/tmp/tests-823-voice-remaining-evidence/wait-profiles.json": {
+      "sha256": "0d28023e671536a3b2daa565825793ebb8b70cd99437e44f92952c71cbbe3d2d",
+      "bytes": 12119
+    }
+  }
+}

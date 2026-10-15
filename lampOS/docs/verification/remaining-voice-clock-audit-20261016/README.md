@@ -1,0 +1,7 @@
+# Remaining original Voice identities and provider clock design
+
+Recorded 2026-10-16 01:50 +0700, from `date`. This is a read-only source/native-result audit at finite migration head `8a7521661cb06997a18eed32ead13d8d9ee81fd9`, not a new execution or clock migration.
+
+All 63 original `lamp-voice` identities occur exactly once in full ARM64 run 38780759392: 61 PASS and two known endpoint LEAKs, sum **137.499 s**. Thirty-seven already use ScenarioClock (31 pilot, six endpoint), 24 retain host time and two are pure. Their native sums are 3.631 s, 133.858 s and 0.010 s respectively. Both missing-model endpoint cases are real-process host cases. The audit retains exact source identities and notes upstream test-body changes; it does not credit those changes to Tests or claim whole-group serial elapsed time.
+
+`provider-design.md` specifies the remaining provider path's coordinator/IPC, Tokio and capture-age clocks, real bounded processing receipts, original 2/10/40 ms cadences, and independent host cleanup. Freezing Tokio alone blocks the next worker tick from reading Stop. A separately reviewed fixture shutdown poll/cancellation contract is required before migration. Initial preparation is only an explicit test-thread Moment/Observer seam, leaving existing fixtures and default runtime unchanged. Gemini capture-age/progress and shutdown are later reviewable changes. No Supervisor/recovery, native-head or capture-hold change is included in this audit.

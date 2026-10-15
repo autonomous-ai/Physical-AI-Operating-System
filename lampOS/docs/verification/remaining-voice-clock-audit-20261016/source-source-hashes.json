@@ -1,0 +1,226 @@
+{
+  "audited_at_from_date": "2026-10-16 01:10:48 +0700",
+  "head": "8a7521661cb06997a18eed32ead13d8d9ee81fd9",
+  "base": "6b08a70d56e37b061e7a9a6b013072b13639a0b7",
+  "original_inventory_source": "8ddffb6290557fbfd28ea02c8982d16cd5d0743a",
+  "sources": {
+    "lampOS/crates/voice/src/coordinator/tests/pilot_faults.rs": {
+      "current_sha256": "e16afc3ef561636fef71f17cb7b80d042936b1ef23bae6dab6fab0d744dcba02",
+      "current_bytes": 109173,
+      "matches_head": true,
+      "matches_6b08_base": true,
+      "original_sha256": "2f2e08a6926aa6ff9a2a70cf9a8d809f718d7477c33bab14b2da7ccaf14475db",
+      "changed_since_original_inventory": true
+    },
+    "lampOS/crates/voice/src/coordinator/tests/early_end.rs": {
+      "current_sha256": "128632acb07813f234b72163a2c248ba9522bb29c58b0d66dbbac336acda4edf",
+      "current_bytes": 64576,
+      "matches_head": true,
+      "matches_6b08_base": true,
+      "original_sha256": "e145e2d3bcb62883e101808c132c35e9d272b9dc98415cc97c5df343a2fee89e",
+      "changed_since_original_inventory": true
+    },
+    "lampOS/crates/voice/src/coordinator/tests/endpoint_session.rs": {
+      "current_sha256": "51e4b49be6f736d18c3bdfe3bcf46bf726aca478f5a4bff040f597954f0ba570",
+      "current_bytes": 58482,
+      "matches_head": true,
+      "matches_6b08_base": true,
+      "original_sha256": "641c82c88bf9a0ebcbeb8685aeb5339fa77347030d65d956e920b25dd2d6cb28",
+      "changed_since_original_inventory": true
+    },
+    "lampOS/crates/voice/src/provider_worker.rs": {
+      "current_sha256": "9557efa06a257d0d193c838ced903bc5381a94208c96a9134ae95d58c145556c",
+      "current_bytes": 384862,
+      "matches_head": true,
+      "matches_6b08_base": true,
+      "original_sha256": "e08910b468d67d011a6cc9288335aa79afcd8c8e4399edf4209b2610e124c42a",
+      "changed_since_original_inventory": true
+    },
+    "lampOS/crates/voice/src/provider_worker/tests/review_2026_10_14.rs": {
+      "current_sha256": "ef6cb01a919477f2324f4fc52702b8eb8881e342b94944c420a47ccd1e24be90",
+      "current_bytes": 8647,
+      "matches_head": true,
+      "matches_6b08_base": true,
+      "original_sha256": "5ff1bc2fcbc8efa75d7833394efdbce21160c5eebaab6e23d52b8d701a1eff1e",
+      "changed_since_original_inventory": true
+    },
+    "lampOS/crates/voice/src/scenario_clock.rs": {
+      "current_sha256": "7eb0215c649311dd9303d3043c46d8c50af2d165ab677e6c1c37720a79fc7cef",
+      "current_bytes": 18539,
+      "matches_head": true,
+      "matches_6b08_base": true,
+      "original_sha256": null,
+      "changed_since_original_inventory": true
+    },
+    "lampOS/crates/voice/src/coordinator.rs": {
+      "current_sha256": "2eb5bf39b0536df3f978bc1d3581d2220acd227fd57f0336594d1f62861956b2",
+      "current_bytes": 343193,
+      "matches_head": true,
+      "matches_6b08_base": true,
+      "original_sha256": "e15c5cb3b1c7341fa93a8dd0e873e9d8590a86723495ae640e13c99b81a2fe22",
+      "changed_since_original_inventory": true
+    },
+    "lampOS/crates/voice/src/process.rs": {
+      "current_sha256": "f9f1173bd1d33ea9f5ebc9ed3ed6247b802dbf299d017dabef90f93eca074d54",
+      "current_bytes": 31643,
+      "matches_head": true,
+      "matches_6b08_base": true,
+      "original_sha256": "c5a495318f3444a013b6e7d03f69ea99613f688ba5707be06f466db1c3939a73",
+      "changed_since_original_inventory": true
+    },
+    "lampOS/crates/voice/src/service_privacy.rs": {
+      "current_sha256": "d5dfc04a5020242be4430f021044af27fffa8d7cca3d5eb7ff8136e3f52c2099",
+      "current_bytes": 23827,
+      "matches_head": true,
+      "matches_6b08_base": true,
+      "original_sha256": "634c93c9640f8230ee7c28eb8961f69cede59d85f14b00b28a2f93aaf41c281d",
+      "changed_since_original_inventory": true
+    },
+    "lampOS/crates/voice/src/service_trace.rs": {
+      "current_sha256": "1cef19a2633e493613a99a7d6765ff7fb55c92966a564755fcb62c828fc094be",
+      "current_bytes": 16355,
+      "matches_head": true,
+      "matches_6b08_base": true,
+      "original_sha256": "1cef19a2633e493613a99a7d6765ff7fb55c92966a564755fcb62c828fc094be",
+      "changed_since_original_inventory": false
+    },
+    "lampOS/crates/voice/src/session_state.rs": {
+      "current_sha256": "5720519e128804765043fbfbd26169b4ca533b891989f8be5b45ce639b685dcf",
+      "current_bytes": 15691,
+      "matches_head": true,
+      "matches_6b08_base": true,
+      "original_sha256": "5720519e128804765043fbfbd26169b4ca533b891989f8be5b45ce639b685dcf",
+      "changed_since_original_inventory": false
+    },
+    "lampOS/crates/voice/src/transport.rs": {
+      "current_sha256": "49308fd4a3e19ba1179a0410785e85912ed018757d79872497f40517529eae73",
+      "current_bytes": 13615,
+      "matches_head": true,
+      "matches_6b08_base": true,
+      "original_sha256": "8d353ee934c67e7540895746e8912681d1883d577857a08673cd4d2c15b1a5d2",
+      "changed_since_original_inventory": true
+    },
+    "lampOS/crates/voice/src/provider_link.rs": {
+      "current_sha256": "b44639b8cddeacd8432f0870dd69d4ff29028b4855ef711cd64a6002584b499b",
+      "current_bytes": 33894,
+      "matches_head": true,
+      "matches_6b08_base": true,
+      "original_sha256": "b44639b8cddeacd8432f0870dd69d4ff29028b4855ef711cd64a6002584b499b",
+      "changed_since_original_inventory": false
+    },
+    "lampOS/crates/voice/src/coordinator/endpoint.rs": {
+      "current_sha256": "a8636122c7f3f0a8184d09c4f5b3226138e687102db58dfa32875f5d6f724634",
+      "current_bytes": 11969,
+      "matches_head": true,
+      "matches_6b08_base": true,
+      "original_sha256": "16fb8b7f01b994f407916881b8e67ed0e42f3f33393d77af76cdac25c171cbb7",
+      "changed_since_original_inventory": true
+    },
+    "lampOS/crates/voice/src/privacy.rs": {
+      "current_sha256": "09db2bf98464fb1fcfd3486f7ed6a4150ef83bc819a11b50def4bf5b38541d65",
+      "current_bytes": 8510,
+      "matches_head": true,
+      "matches_6b08_base": true,
+      "original_sha256": "1bd9bbdbf9827f4d0f819d190c6bb0c4b3b1eff3a124a5b93fd311a448f0b157",
+      "changed_since_original_inventory": true
+    },
+    "lampOS/crates/voice/src/activity.rs": {
+      "current_sha256": "1390a24fd737360471a45b8c70b96c972396b4118ea7e9c2fac9b88d762bf51d",
+      "current_bytes": 25135,
+      "matches_head": true,
+      "matches_6b08_base": true,
+      "original_sha256": "f8c1d4776d1bc57f1f59c9a43c7f074d89f3b3fa0e144e44a2f0424f78f87e5a",
+      "changed_since_original_inventory": true
+    },
+    "lampOS/crates/voice/src/bus_out.rs": {
+      "current_sha256": "274f0a790f218e8e508c06255d6141814346d720bcc66ded6e982514f47917d6",
+      "current_bytes": 31907,
+      "matches_head": true,
+      "matches_6b08_base": true,
+      "original_sha256": "274f0a790f218e8e508c06255d6141814346d720bcc66ded6e982514f47917d6",
+      "changed_since_original_inventory": false
+    },
+    "lampOS/crates/voice/src/provider_flow.rs": {
+      "current_sha256": "d32f128506d1e5ab7dadaf422cdde9e308442c4409d14c1db35f22c443f74720",
+      "current_bytes": 4029,
+      "matches_head": true,
+      "matches_6b08_base": true,
+      "original_sha256": "d32f128506d1e5ab7dadaf422cdde9e308442c4409d14c1db35f22c443f74720",
+      "changed_since_original_inventory": false
+    },
+    "lampOS/crates/voice/src/lib.rs": {
+      "current_sha256": "7605ba6eac6ea3eb4c82b4a72f60f1158e4f16690360d7b20775f15a30be2b6c",
+      "current_bytes": 1854,
+      "matches_head": true,
+      "matches_6b08_base": true,
+      "original_sha256": "1d35c0c10d25cdbd6f2cf67e334ec871ac8402a715e512a446a8580a0e418f8e",
+      "changed_since_original_inventory": true
+    },
+    "lampOS/crates/voice/Cargo.toml": {
+      "current_sha256": "0764d2cb4d6c713bf08058420b9a6c9c84480951b4082e8ecce847b563dbcafc",
+      "current_bytes": 2028,
+      "matches_head": true,
+      "matches_6b08_base": true,
+      "original_sha256": "9ea5d4a2b79ae48ed74031abaa82d76c6ee33d396d21da8a66717f7a0932ee56",
+      "changed_since_original_inventory": true
+    },
+    "lampOS/crates/gemini/src/session.rs": {
+      "current_sha256": "2856a8d1910fb2b1d46930cc7db17e695543ddc9524f55c8f36a9250ffc0438b",
+      "current_bytes": 97731,
+      "matches_head": true,
+      "matches_6b08_base": true,
+      "original_sha256": "e3d06fc13acbf4fa50cd5eddae9c2edfd82ce133c70c115c81f5536ee2fc8514",
+      "changed_since_original_inventory": true
+    },
+    "lampOS/crates/gemini/src/testing.rs": {
+      "current_sha256": "0a13daf42afc0024e8ed7473b1f323b4409ef0ef8ccd35bb8be90c9b8fa5cb6f",
+      "current_bytes": 7949,
+      "matches_head": true,
+      "matches_6b08_base": true,
+      "original_sha256": "0a13daf42afc0024e8ed7473b1f323b4409ef0ef8ccd35bb8be90c9b8fa5cb6f",
+      "changed_since_original_inventory": false
+    },
+    "lampOS/crates/gemini/src/config.rs": {
+      "current_sha256": "c1f727b99cf61b81d6ad3ecde27d584c84178c390bc676c5ec2e05e76f6145e2",
+      "current_bytes": 22306,
+      "matches_head": true,
+      "matches_6b08_base": true,
+      "original_sha256": "c1f727b99cf61b81d6ad3ecde27d584c84178c390bc676c5ec2e05e76f6145e2",
+      "changed_since_original_inventory": false
+    },
+    "lampOS/crates/gemini/Cargo.toml": {
+      "current_sha256": "00336dabd32df739b068669cd5a861590192ae85fd7af824db90429593c86838",
+      "current_bytes": 1171,
+      "matches_head": true,
+      "matches_6b08_base": true,
+      "original_sha256": "00336dabd32df739b068669cd5a861590192ae85fd7af824db90429593c86838",
+      "changed_since_original_inventory": false
+    },
+    "lampOS/crates/turn-end-wire/src/client.rs": {
+      "current_sha256": "7066064fbe7e8ef9e21f286485661bb010095ac7b640510e7f7f59863bb589df",
+      "current_bytes": 27355,
+      "matches_head": true,
+      "matches_6b08_base": true,
+      "original_sha256": "7066064fbe7e8ef9e21f286485661bb010095ac7b640510e7f7f59863bb589df",
+      "changed_since_original_inventory": false
+    },
+    "lampOS/crates/bus/src/lib.rs": {
+      "current_sha256": "4d4b0f62282e7380907f7fa0e8a995c49d42f8db4e5285b0366a780a8d906a06",
+      "current_bytes": 16483,
+      "matches_head": true,
+      "matches_6b08_base": true,
+      "original_sha256": "ad8ab404224bbe1a8fc50b3879b7a5e345d3dce37e745ee5692e24a5b1a65f24",
+      "changed_since_original_inventory": true
+    }
+  },
+  "frozen_inputs": {
+    "/private/tmp/tests-823/verified-measurements.json": "047ee497dc848bb4197ec5b3815e9f7a6b9aa143aedf6b8c5c97e9a3d88ae256",
+    "/private/tmp/tests-823/voice-unit-inventory.json": "360a2ecbd718b57f8f14579b37e2498cf243aad93d313238a30e58fbcbd3e7aa",
+    "/private/tmp/tests-823/voice-unit-inventory.md": "de8b9c92e7b028a011b59900f2a6a8753a382328a586309ec8632caf33785167"
+  },
+  "native_input_sha256": {
+    "/private/tmp/tests-823-native-20261016/889-full-results.json": "5f1e2a75c297a6742ee8b4d04ded3b5f06a4d18e43c07e88dfef2bd2773c46fa",
+    "/private/tmp/tests-823-native-20261016/889-full-original-123.json": "696aaa135f2edc5f86b0feb5d62d9fcbb9b32ba35cd1ceb68b8058d1415cb5a0"
+  },
+  "verified_at_from_date": "2026-10-16 01:19:35 +0700"
+}

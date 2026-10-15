@@ -892,6 +892,7 @@ mod live_bus {
             stop: true,
             mute_record: Some(directory.file()),
             bus_root: Some(bus_root.clone()),
+            head_touch: false,
         };
         let clock_id = lamp_controls::runtime::clock_id(None).unwrap();
         let mut owner = HandControls::restore(&options).unwrap().unwrap();

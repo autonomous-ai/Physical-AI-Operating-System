@@ -2856,6 +2856,8 @@ pub(crate) fn run_alive(
         }
         // Asked to stop, it goes home: not to where a hand put it.
         let stay = limits.give_way == Some(GiveWay::Stay) && leaving.is_none();
+        // Either way it gives, a joint that gave way may have a hand on it.
+        let in_a_hand = limits.give_way.is_some() && leaving.is_none();
         if leaving.is_some() {
             kept = [0.0; 3];
             stalls.iter_mut().for_each(|stall| stall.hold = None);
@@ -3106,6 +3108,13 @@ pub(crate) fn run_alive(
         let mut stopped_pushing = [false; 5];
         if limits.give_way.is_some() && leaving.is_none() {
             for index in 0..3 {
+                // A joint that gave way and may be in a hand is not pushing
+                // at anything of its own: held where it is from then on, it
+                // would never come back once let go.
+                if held[index] {
+                    stalls[index].steps = 0;
+                    continue;
+                }
                 let is = samples[COMMANDED[index].index()];
                 if stalls[index].step(written[index], is, wanted_of[index].round() as u16) {
                     report.stalls[index] = report.stalls[index].saturating_add(1);
@@ -3251,36 +3260,35 @@ pub(crate) fn run_alive(
             } else {
                 0
             };
-            if stay && held[index] {
+            if in_a_hand && held[index] {
                 // It gave way, and a hand may be on it: a load and a
                 // tracking that would end the run are what a hand moving
-                // it looks like, so they are judged over a second instead.
+                // or holding it looks like, so they are judged over a
+                // second instead. On lamp-52e6 on 2026-10-15 a hand tilting
+                // the head took it 45 counts past where it had given way and
+                // the run ended on tracking.
                 over_load[index] = 0;
                 off_track[index] = 0;
-                match in_hand_after(&mut in_hand[index], is, strained, gave_at[index]) {
-                    Some(true) => {
+                if let Some(moved) =
+                    in_hand_after(&mut in_hand[index], is, strained, gave_at[index])
+                {
+                    // Still in the hand a second on: it gives way again
+                    // where it is, moved or held.
+                    commanded[index] = f32::from(is.position).clamp(
+                        low[index].min(commanded[index]),
+                        high[index].max(commanded[index]),
+                    );
+                    velocity[index] = 0.0;
+                    easing[index] = EASE_STEPS;
+                    gave_at[index] = is.position;
+                    if stay && moved {
                         // Left where it was put, inside the same reach and
                         // window as every goal, and later moods are laid
                         // from there.
-                        commanded[index] = f32::from(is.position).clamp(
-                            low[index].min(commanded[index]),
-                            high[index].max(commanded[index]),
-                        );
                         kept[index] = commanded[index] - home_now[index] - offsets[index];
-                        velocity[index] = 0.0;
-                        easing[index] = EASE_STEPS;
-                        gave_at[index] = is.position;
                         report.kept_where_put[index] =
                             report.kept_where_put[index].saturating_add(1);
                     }
-                    // Pushed for a second, and it did not move.
-                    Some(false) => {
-                        surprise.get_or_insert(Stop::Load {
-                            joint: joint.id(),
-                            load: is.load,
-                        });
-                    }
-                    None => {}
                 }
                 if hot[index] >= limits.temperature_steps.max(1) {
                     surprise.get_or_insert(Stop::Temperature {
@@ -3290,15 +3298,23 @@ pub(crate) fn run_alive(
                 }
                 continue;
             }
-            if over_load[index] >= limits.load_steps.max(1) {
+            // Under `--give-way`, a joint held off its goal by more than its
+            // tracking while it pushes is a hand too, under the load that
+            // ends a run: lamp-52e6's base turned 38 counts by a hand read
+            // 120.
+            let pushed =
+                in_a_hand && off_track[index] >= limits.load_steps.max(1) && is.load > STALL_LOAD;
+            if over_load[index] >= limits.load_steps.max(1) || pushed {
                 // Something resists. A living thing stops pushing; it does
                 // not faint. The joint's goal becomes where it is and it is
                 // left there for two seconds. Loaded still with nothing
                 // asked of it, or resisted for the fourth time in a minute,
-                // and the run ends as it always did.
-                let often = eased_at
-                    .iter()
-                    .all(|at| *at != 0 && report.steps - *at < EASE_MEMORY_STEPS);
+                // and the run ends as it always did; under `--give-way` a
+                // person may move it as often as they like.
+                let often = !in_a_hand
+                    && eased_at
+                        .iter()
+                        .all(|at| *at != 0 && report.steps - *at < EASE_MEMORY_STEPS);
                 if held[index] || often {
                     surprise.get_or_insert(Stop::Load {
                         joint: joint.id(),

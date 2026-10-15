@@ -58,7 +58,10 @@ fn identity_path_format_and_size_have_no_defaults_or_fallbacks() {
         ("source", json!("")),
         ("buffers", json!(1)),
         ("width", json!(1920)),
+        // The voice's own bounds, unchanged when the camera runtime's grew
+        // for the eyes' full look (#836).
         ("max_frame_bytes", json!(2_097_153)),
+        ("height", json!(721)),
         ("interval", json!({"numerator":0,"denominator":30})),
     ] {
         let mut v = value();

@@ -55,6 +55,11 @@ pub struct CameraConfig {
     pub buffers: u8,
 }
 
+/// The voice's camera: at most 1280x720 and 2 MiB a frame, as before the
+/// camera runtime's bounds grew for the eyes (#836).
+pub const VOICE_MAX_HEIGHT: u32 = 720;
+pub const VOICE_MAX_FRAME_BYTES: usize = 2 * 1024 * 1024;
+
 pub fn valid_absolute(path: &Path) -> bool {
     path.is_absolute()
         && path.as_os_str().len() <= 4096
@@ -95,6 +100,14 @@ impl CameraConfig {
             buffers: self.buffers,
         };
         config.validate().map_err(io::Error::other)?;
+        // The camera runtime's bounds grew for the eyes' full look (#836);
+        // the voice's own camera keeps the ones it was provisioned under.
+        if config.height > VOICE_MAX_HEIGHT || config.max_frame_bytes > VOICE_MAX_FRAME_BYTES {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                "camera bounds exceeded",
+            ));
+        }
         Ok(config)
     }
     /// The parent passes this exact digest to the child. A changed provisioning

@@ -219,7 +219,11 @@ The size is at most 1280 by 960, the camera runtime's bound
 lamp-52e6 on 2026-10-15 the first build asked for 1280 by 960 against the
 runtime's old bound of 1280 by 720: every open at the full size was refused
 before the device was touched ("camera did not open: InvalidData None"),
-and the eyes ran at 320 by 240. The bound is now 960 high; 1280 by 960 is
+and the eyes ran at 320 by 240. With the height raised, the second run was
+refused at SetFormat: the camera sizes a 1280 by 960 MJPG buffer at
+2,457,600 bytes (two a pixel; `v4l2-ctl` on lamp-52e6), over the runtime's
+2 MiB frame bound, now 4 MiB. The eyes' frame buffer is that size (4 MiB,
+was 2). The bound is now 960 high; 1280 by 960 is
 the whole 4:3 picture of this camera at 1280 across (it also lists
 1600x1200 up to 3264x2448, which the runtime does not take).
 

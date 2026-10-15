@@ -354,6 +354,52 @@ fn late_writes_lasting_the_late_run_are_an_observed_fault_not_a_claimed_timeout(
 }
 
 #[test]
+fn a_dark_gap_between_late_writes_is_not_a_late_run() {
+    // A late write, then five seconds of closed privacy with no writes, then
+    // one late write on reopening: two isolated late frames, not 5 s of them.
+    let (mut ring, mut controller) = idle();
+    ring.sink.delay_us = 15_000;
+    rest(&mut ring).unwrap();
+    controller
+        .set_microphone_permission(clock(), Permission::Denied)
+        .unwrap();
+    ring.install_authority(controller.snapshot(clock()).unwrap())
+        .unwrap()
+        .unwrap();
+    let count = ring.sink.frames.len();
+    for step in 1..=50u64 {
+        advance_to(100_000 * step);
+        assert!(
+            ring.install_authority(controller.snapshot(clock()).unwrap())
+                .unwrap()
+                .is_none()
+        );
+    }
+    assert_eq!(ring.sink.frames.len(), count);
+    let now = clock();
+    controller
+        .set_microphone_permission(now, Permission::Allowed)
+        .unwrap();
+    controller
+        .set_capture(
+            now,
+            CaptureState::RetainingUntil(at(now.as_micros() + 1_000_000)),
+        )
+        .unwrap();
+    controller
+        .set_admission(
+            now,
+            AdmissionState::OpenUntil(at(now.as_micros() + 1_000_000)),
+        )
+        .unwrap();
+    ring.install_authority(controller.snapshot(clock()).unwrap())
+        .unwrap();
+    rest(&mut ring).unwrap();
+    assert!(!ring.is_faulted());
+    assert_eq!(ring.late_writes(), 3);
+}
+
+#[test]
 fn monotonic_regression_faults_and_blanks_an_active_cue() {
     let (mut ring, _, _, light) = setup();
     paint(&mut ring, light).unwrap();

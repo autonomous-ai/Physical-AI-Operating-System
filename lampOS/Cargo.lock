@@ -1687,6 +1687,7 @@ name = "lamp-air"
 version = "0.1.0"
 dependencies = [
  "lamp-bus",
+ "lamp-ipc",
  "lamp-msgs",
  "rustix",
  "serde_json",
@@ -1765,6 +1766,7 @@ dependencies = [
  "alsa",
  "hound",
  "lamp-bus",
+ "lamp-ipc",
  "lamp-msgs",
  "serde_json",
 ]
@@ -1823,6 +1825,7 @@ name = "lamp-health"
 version = "0.1.0"
 dependencies = [
  "lamp-bus",
+ "lamp-ipc",
  "lamp-msgs",
  "rustix",
  "serde",
@@ -1902,6 +1905,7 @@ name = "lamp-name"
 version = "0.1.0"
 dependencies = [
  "lamp-bus",
+ "lamp-ipc",
  "lamp-msgs",
  "tract-onnx",
 ]
@@ -1930,6 +1934,7 @@ version = "0.1.0"
 dependencies = [
  "httparse",
  "lamp-bus",
+ "lamp-ipc",
  "lamp-msgs",
  "rustls",
  "serde",
@@ -1965,6 +1970,7 @@ dependencies = [
  "getrandom 0.4.3",
  "jiff",
  "lamp-bus",
+ "lamp-ipc",
  "lamp-msgs",
  "rusqlite",
  "rustix",
@@ -2021,6 +2027,7 @@ version = "0.1.0"
 dependencies = [
  "getrandom 0.4.3",
  "lamp-bus",
+ "lamp-ipc",
  "lamp-msgs",
  "rusqlite",
  "rustix",

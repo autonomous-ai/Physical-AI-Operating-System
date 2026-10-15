@@ -469,6 +469,9 @@ fn gesture_of(datagram: &[u8]) -> Option<&'static lamp_body::clips::Clip> {
 }
 
 fn main() -> std::process::ExitCode {
+    // Its log lines never block it or end it, and its last ones reach the
+    // journal (`lamp_ipc::log_relay`).
+    let _log = lamp_ipc::log_relay::guard();
     let arguments = match parse(std::env::args_os().skip(1)) {
         Ok(None) => {
             print!("{USAGE}");

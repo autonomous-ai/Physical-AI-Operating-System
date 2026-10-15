@@ -67,6 +67,9 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 fn main() {
+    // Its log lines never block it or end it, and its last ones reach the
+    // journal (`lamp_ipc::log_relay`).
+    let _log = lamp_ipc::log_relay::guard();
     if let Err(error) = run() {
         eprintln!("schedule: {error}");
         std::process::exit(1);

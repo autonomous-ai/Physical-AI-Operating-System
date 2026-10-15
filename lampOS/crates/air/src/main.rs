@@ -264,6 +264,9 @@ mod serve {
 }
 
 fn main() -> ExitCode {
+    // Its log lines never block it or end it, and its last ones reach the
+    // journal (`lamp_ipc::log_relay`).
+    let _log = lamp_ipc::log_relay::guard();
     let given: Vec<String> = std::env::args().skip(1).collect();
     let arguments = match parse(&given) {
         Ok(Some(arguments)) => arguments,

@@ -179,8 +179,11 @@ few hours.
 
 ## Log lines never block or end the voice
 
-Every process of the voice (`serve` and each `worker`) starts by putting a
-pipe of its own on stderr (`crates/voice/src/log_relay.rs`). A thread
+Every process of the voice (`serve` and each `worker`), and since the same
+day every lampOS part (actions, air, body, controls, ears, expression, eyes,
+health, memory, name, policy, schedule, tasks: `let _log =
+lamp_ipc::log_relay::guard();` as the first line of `main`), starts by
+putting a pipe of its own on stderr (`crates/ipc/src/log_relay.rs`). A thread
 drains that pipe at once and copies whole lines to the real stderr, the
 journal's stream, with non-blocking writes. When the journal does not take
 them, up to 64 KiB is held, the oldest whole lines are dropped, and the

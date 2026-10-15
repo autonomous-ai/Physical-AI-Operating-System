@@ -15,6 +15,7 @@ name = "lamp-name"
 path = "src/main.rs"
 
 [dependencies]
+lamp-ipc = { path = "../ipc" }
 lamp-bus = { path = "../bus" }
 lamp-msgs = { path = "../msgs" }
 # Pure Rust ONNX inference, pinned as in lamp-turn-end and lamp-eyes.

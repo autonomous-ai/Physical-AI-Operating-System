@@ -16,6 +16,7 @@ name = "lamp-policy"
 path = "src/main.rs"
 
 [dependencies]
+lamp-ipc = { path = "../ipc" }
 serde.workspace = true
 serde_json.workspace = true
 httparse = "1.10"

@@ -303,6 +303,9 @@ fn run(args: Arguments) -> Result<(), Box<dyn std::error::Error>> {
 }
 
 fn main() -> ExitCode {
+    // Its log lines never block it or end it, and its last ones reach the
+    // journal (`lamp_ipc::log_relay`).
+    let _log = lamp_ipc::log_relay::guard();
     let args = match parse(std::env::args().skip(1)) {
         Ok(Some(args)) => args,
         Ok(None) => {

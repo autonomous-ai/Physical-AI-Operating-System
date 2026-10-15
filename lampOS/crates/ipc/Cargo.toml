@@ -6,7 +6,7 @@ rust-version.workspace = true
 publish.workspace = true
 
 [dependencies]
-rustix = { version = "1.1", features = ["time", "process", "net", "event"] }
+rustix = { version = "1.1", features = ["time", "process", "net", "event", "pipe", "stdio"] }
 
 serde_json.workspace = true
 

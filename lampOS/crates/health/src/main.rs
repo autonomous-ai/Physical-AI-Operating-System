@@ -283,6 +283,9 @@ fn show(arguments: &ShowArguments) -> ExitCode {
 }
 
 fn main() -> ExitCode {
+    // Its log lines never block it or end it, and its last ones reach the
+    // journal (`lamp_ipc::log_relay`).
+    let _log = lamp_ipc::log_relay::guard();
     match parse(std::env::args().skip(1)) {
         Ok(Command::Help) => {
             println!("{USAGE}\n\n{HELP}");

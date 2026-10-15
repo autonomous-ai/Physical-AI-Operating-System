@@ -19,6 +19,8 @@
 //! # Ok::<(), std::io::Error>(())
 //! ```
 
+pub mod log_relay;
+
 use std::fs::{self, Permissions};
 use std::io;
 use std::os::fd::{AsFd, BorrowedFd};

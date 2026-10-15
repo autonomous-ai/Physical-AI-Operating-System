@@ -6,6 +6,7 @@ rust-version.workspace = true
 publish.workspace = true
 
 [dependencies]
+lamp-ipc = { path = "../ipc" }
 serde_json.workspace = true
 hound.workspace = true
 lamp-msgs = { path = "../msgs" }

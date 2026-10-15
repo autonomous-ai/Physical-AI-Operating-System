@@ -1,4 +1,4 @@
-//! A voice process's log lines never block it and never end it.
+//! A lampOS process's log lines never block it and never end it.
 //!
 //! Every lampOS part writes its log to stderr, which systemd connects to the
 //! journal. A write there blocks when the journal does not keep up, and
@@ -6,8 +6,9 @@
 //! On lamp-4ace on 2026-10-15 the failure ended the ring worker (journald
 //! restarted at 01:52, #744), and the block is the likeliest reason the
 //! capture worker overran its read budget at 09:00:01, when the RAM log was
-//! full and journald could not write. So each voice process puts a pipe of
-//! its own on stderr when it starts ([`install`]). One thread drains that
+//! full and journald could not write. So each lampOS process puts a pipe of
+//! its own on stderr when it starts ([`install`], or [`guard`] for one that
+//! also waits for its last lines when `main` returns). One thread drains that
 //! pipe at once and copies what it reads to the real stderr without ever
 //! waiting on it: what the journal will not take is dropped, counted, and
 //! the count said once the journal takes lines again. A writer only ever
@@ -66,6 +67,48 @@ pub fn install() -> io::Result<Arc<AtomicU64>> {
         finish(Duration::from_millis(300));
     }));
     Ok(dropped)
+}
+
+/// This process's name, for the line that says what was dropped.
+fn program() -> String {
+    std::env::args_os()
+        .next()
+        .and_then(|path| {
+            std::path::Path::new(&path)
+                .file_name()
+                .map(|name| name.to_string_lossy().into_owned())
+        })
+        .unwrap_or_else(|| "lamp".into())
+}
+
+/// Held for as long as `main` runs: the relay is installed when it is made,
+/// and when it goes the last lines are given half a second to reach the
+/// journal. `let _log = lamp_ipc::log_relay::guard();` as the first line of
+/// a part's `main`.
+pub struct Guard {
+    installed: bool,
+}
+
+impl Drop for Guard {
+    fn drop(&mut self) {
+        if self.installed {
+            finish(Duration::from_millis(500));
+        }
+    }
+}
+
+/// [`install`], held as a [`Guard`]. A relay that cannot be made leaves
+/// stderr as it was, and says so there.
+pub fn guard() -> Guard {
+    let installed = install()
+        .map_err(|error| {
+            eprintln!(
+                "{}: log lines go straight to the journal: {error}",
+                program()
+            )
+        })
+        .is_ok();
+    Guard { installed }
 }
 
 /// Wait, at most `longest`, until every line written so far has gone to
@@ -167,7 +210,8 @@ fn relay_holding(from: OwnedFd, to: OwnedFd, dropped: &AtomicU64, holding: &Atom
         let now = dropped.load(Ordering::Relaxed);
         if held.is_empty() && begun == 0 && now != told {
             let line = format!(
-                "lamp-voice: {} log lines dropped because the journal did not take them\n",
+                "{}: {} log lines dropped because the journal did not take them\n",
+                program(),
                 now - told
             );
             if matches!(rustix::io::write(&to, line.as_bytes()), Ok(n) if n == line.len()) {
@@ -245,7 +289,10 @@ mod tests {
         // Whole lines only: every line kept is a whole one.
         let broken: Vec<&str> = said
             .lines()
-            .filter(|text| text.len() != 99 && !text.starts_with("lamp-voice:"))
+            .filter(|text| {
+                text.len() != 99
+                    && !text.ends_with("log lines dropped because the journal did not take them")
+            })
             .collect();
         assert!(broken.is_empty(), "{} broken: {:?}", broken.len(), broken);
     }

@@ -179,6 +179,9 @@ fn permit_of(datagram: &[u8]) -> Option<bool> {
 }
 
 fn main() -> std::process::ExitCode {
+    // Its log lines never block it or end it, and its last ones reach the
+    // journal (`lamp_ipc::log_relay`).
+    let _log = lamp_ipc::log_relay::guard();
     let arguments = match parse(std::env::args_os().skip(1)) {
         Ok(None) => {
             print!("{USAGE}");

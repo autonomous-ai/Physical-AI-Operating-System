@@ -3140,6 +3140,88 @@ fn told_to_stay_a_head_pushed_past_its_reach_is_kept_at_the_edge() {
     assert!(rested.positions[0].abs_diff(1_900) <= 1, "{rested:?}");
 }
 
+/// Told to come back, a hand that tilts the head and holds it there for
+/// three seconds, past where it first gave way, does not end the run: it
+/// gives way again where the hand has it, and comes back once let go. As on
+/// lamp-52e6 on 2026-10-15, where the run ended on tracking 45 counts on.
+#[test]
+fn told_to_return_a_head_tilted_and_held_by_hand_gives_way_again_and_comes_back() {
+    let ms = Duration::from_millis;
+    let ran = |give_way: Option<GiveWay>| {
+        let (mut lamp, mut clock) = folded(Duration::from_secs(10));
+        lamp.hand = Some((ms(1_500), ms(4_500), ROLL, f32::from(HOME[1]) + 60.0));
+        lamp.strains = vec![(ms(1_500), ms(4_500), ROLL, 240)];
+        // Awake: a lamp at rest lies where it is whatever the option.
+        let news = || Some((Mood::Listening, 100));
+        let mut seen = Vec::new();
+        let limits = Limits {
+            give_way,
+            ..giving_way(GiveWay::Return)
+        };
+        let report = run(&mut lamp, &mut clock, limits, Some(HOME), news, |glimpse| {
+            seen.push(*glimpse)
+        });
+        (report, seen)
+    };
+    let (report, seen) = ran(Some(GiveWay::Return));
+    assert_eq!(report.stop, Stop::Cancelled, "{report:?}");
+    assert!(report.eased[1] >= 1, "{report:?}");
+    assert_eq!(report.kept_where_put, [0; 3]);
+    // Let go, it is back where it was before the hand, within what counts
+    // as arrived (it gave way a few counts into the push), and not where
+    // the hand had it, 35 counts on.
+    let before = seen.iter().rev().find(|g| clock_of(g) < ms(1_500)).unwrap();
+    let back = seen.iter().rev().find(|g| clock_of(g) < ms(9_900)).unwrap();
+    assert!(back.goals[1].abs_diff(before.goals[1]) <= 6, "{back:?}");
+    assert!(
+        back.positions[1].abs_diff(before.positions[1]) <= 6,
+        "{back:?}"
+    );
+    // Without the option it goes as before: the same hand ends the run.
+    let (report, _) = ran(None);
+    assert_ne!(report.stop, Stop::Cancelled, "{report:?}");
+}
+
+/// Told to come back, a base turned by a hand gives way though it reads
+/// under the load that ends a run (lamp-52e6's read 120 turned 38 counts),
+/// and comes back once let go; without the option the run ends on
+/// tracking, as before.
+#[test]
+fn told_to_return_a_base_turned_by_hand_under_its_load_gives_way_and_comes_back() {
+    let ms = Duration::from_millis;
+    let ran = |give_way: Option<GiveWay>| {
+        let (mut lamp, mut clock) = folded(Duration::from_secs(10));
+        lamp.hand = Some((ms(1_500), ms(4_500), YAW, f32::from(HOME[2]) + 40.0));
+        lamp.strains = vec![(ms(1_500), ms(4_500), YAW, 120)];
+        // Awake: a lamp at rest lies where it is whatever the option.
+        let news = || Some((Mood::Listening, 100));
+        let mut seen = Vec::new();
+        let limits = Limits {
+            give_way,
+            ..giving_way(GiveWay::Return)
+        };
+        let report = run(&mut lamp, &mut clock, limits, Some(HOME), news, |glimpse| {
+            seen.push(*glimpse)
+        });
+        (report, seen)
+    };
+    let (report, seen) = ran(Some(GiveWay::Return));
+    assert_eq!(report.stop, Stop::Cancelled, "{report:?}");
+    assert!(report.eased[2] >= 1, "{report:?}");
+    let before = seen.iter().rev().find(|g| clock_of(g) < ms(1_500)).unwrap();
+    let back = seen.iter().rev().find(|g| clock_of(g) < ms(9_900)).unwrap();
+    assert!(back.goals[2].abs_diff(before.goals[2]) <= 3, "{back:?}");
+    assert!(
+        back.positions[2].abs_diff(before.positions[2]) <= 6,
+        "{back:?}"
+    );
+    let (report, _) = ran(None);
+    assert!(
+        matches!(report.stop, Stop::Tracking { joint: 1, .. }),
+        "{report:?}"
+    );
+}
+
 /// A head that pushes at a goal it does not reach, without moving, is told
 /// to stop after a second and a half; without the option it goes on.
 #[test]

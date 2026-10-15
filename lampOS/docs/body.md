@@ -1089,7 +1089,9 @@ exactly what it did before, write for write.
 of the five joints the body writes (the three it commands; the shoulder
 and the elbow of a lamp given `--stand`) whose goal is more than 6 counts
 from where it is, whose load is over 100 and which moves no more than 6
-counts for 1.5 s, is given its own position as its goal. It is held there
+counts for 1.5 s, is given its own position as its goal (not one that gave
+way and may be in a hand: held where a hand left it, it would never come
+back). It is held there
 until what is wanted of it moves 20 counts or more from what was wanted
 when it stalled (a new mood, the arm rising or folding), and then follows
 again. Torque is never written off for it. Why these numbers:
@@ -1110,13 +1112,24 @@ The report counts each joint's (`stalls`: head pitch, head roll, base yaw,
 shoulder, elbow) and the log says each one with the joints' positions and
 loads.
 
-**`return`: a joint that gave way comes back,** as without the option
-("When it stops").
+**Both modes: a hand never ends the run.** For the three commanded
+joints. A joint held more than its tracking (30 counts) off its goal for
+120 ms while its load is over 100 gives way as one over its load bound
+does: lamp-52e6's base turned 38 counts by a hand on 2026-10-15 read 120,
+under the 220 that bound is. And while a joint that gave way is held, its
+load and tracking are judged over a second instead of 120 ms and half a
+second, since that is what a hand moving or holding it looks like: still
+in the hand a second on, it gives way again where it is. On lamp-52e6 the
+same morning, before this, a hand tilting the head took it 45 counts past
+where it had given way and the run ended on tracking, and the third such
+end in ten minutes left the lamp without a body. Under `--give-way` the
+fourth give in a minute does not end the run either: a person may move
+it as often as they like.
 
-**`stay`: moved by a hand, it stays where it was put.** For the three
-commanded joints. While a joint that gave way is held, its load and
-tracking are judged over a second instead of 120 ms and half a second,
-since that is what a hand moving it looks like:
+**`return`: a joint that gave way comes back,** as without the option
+("When it stops"), once the hand has let go.
+
+**`stay`: moved by a hand, it stays where it was put.** As above, and:
 
 - Its load over its bound for a second in a row, and it has been moved
   more than 15 counts from where it gave way: a hand moved it. Where it
@@ -1126,9 +1139,8 @@ since that is what a hand moving it looks like:
   is laid from there: later moods are relative to it. It is held two
   seconds more, so a hand still on it can go on moving it. The report
   counts each (`kept_where_put`) and the log says it.
-- The same second and it has not moved: something pushes it and it does
-  not give; the run ends as it does without the option, but after a
-  second rather than 120 ms.
+- The same second and it has not moved: something holds it; it gives
+  way again where it is, as with `return`.
 - A bump that does not move it, or a hand that moves it for under a
   second, gives way and comes back as with `return`. A hand that lets go
   before the second sees the joint go back at the servo's own speed to
@@ -1145,7 +1157,11 @@ a head stopping 27 counts short of its goal at a load of 130 is told to
 stop 75 to 78 steps after it stopped moving and is not pushed at again
 while the mood is the same, and without the option goes on pushing; a
 standing shoulder 30 counts short at 150 is held where it is, and no
-torque write is ever anything but on.
+torque write is ever anything but on; told to come back, a head tilted 60
+counts by a hand at a load of 240 and held for three seconds, and a base
+turned 40 counts at 120, give way, the run goes on, and each is back
+where it was once let go, while without the option the same hand ends the
+run.
 
 **Not shown:** that any of it is right against a hand. Whether a real
 hand reads over the load bounds while it moves a joint (a servo whose

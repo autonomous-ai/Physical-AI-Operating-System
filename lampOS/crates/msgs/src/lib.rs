@@ -66,6 +66,8 @@ mod attention;
 pub use attention::*;
 mod tasks;
 pub use tasks::*;
+mod selftest;
+pub use selftest::*;
 
 /// Why a message is not one its type allows, in words.
 #[derive(Clone, Debug, PartialEq, Eq)]

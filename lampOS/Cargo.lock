@@ -1992,6 +1992,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "lamp-selftest"
+version = "0.1.0"
+dependencies = [
+ "lamp-msgs",
+ "serde_json",
+]
+
+[[package]]
 name = "lamp-settings"
 version = "0.1.0"
 dependencies = [

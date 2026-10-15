@@ -59,6 +59,7 @@
 //! ```
 mod declare;
 mod live;
+pub mod logging;
 mod name;
 mod publish;
 mod subscribe;

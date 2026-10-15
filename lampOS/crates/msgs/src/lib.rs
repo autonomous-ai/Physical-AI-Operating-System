@@ -46,6 +46,10 @@ use lamp_bus::{Declaration, Kind};
 use serde::{Deserialize, Serialize};
 use std::{collections::BTreeMap, fmt, io, time::Duration};
 
+// Transport metadata is shared with the bus CLI, which cannot depend back on
+// this crate. The canonical schema is defined once in lamp_bus::logging.
+pub use lamp_bus::logging::{Log, LogLevel};
+
 mod expression;
 pub use expression::*;
 mod controls;
@@ -958,7 +962,13 @@ pub fn declaration_of(topic: &str) -> Option<Declaration> {
         .chain(schedule_topics())
         .chain(keeper_topics())
         .chain(tasks_topics())
+        .chain(logging_topics())
         .find_map(|(name, declaration)| (name == topic).then_some(declaration))
+}
+
+/// Optional operational logs; the original first-topic inventory stays intact.
+pub fn logging_topics() -> Vec<(&'static str, Declaration)> {
+    vec![(Log::TOPIC, Log::declaration())]
 }
 
 #[cfg(test)]

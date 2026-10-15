@@ -6,7 +6,7 @@
 
 use std::{ffi::OsString, path::PathBuf};
 
-const USAGE: &str = "lamp-eyes --device ABSOLUTE_PATH --lock-directory PRIVATE_ABSOLUTE_DIRECTORY --usb VENDOR:PRODUCT@TOPOLOGY --model ABSOLUTE_PATH --permit-socket ABSOLUTE_PATH --body-socket ABSOLUTE_PATH [--sight-file ABSOLUTE_PATH] [--presence-file ABSOLUTE_PATH] [--recogniser ABSOLUTE_PATH --people ABSOLUTE_PATH --who-socket ABSOLUTE_PATH [--known-file ABSOLUTE_PATH]] [--leave-still-faces on|off] [--full-look WIDTHxHEIGHT]\n\nOwns the camera at --device (checked against the USB identity given, hex vendor and\nproduct and the port topology, for example 01da:5875@3-1.1.4) and looks for a face in\nits frames four times a second while there is one and less than twice a second when\nthere is none, with the pinned YuNet model at --model. Each look\nsends one datagram to --body-socket: {\"face\":{\"x\":..,\"y\":..,\"size\":..,\"turned\":..}} or\n{\"face\":null}. The camera is open only while {\"camera\":true} keeps arriving on\n--permit-socket, at least every 1.5 s; {\"camera\":false} closes it at once. Without\n--sight-file no frame is written anywhere and none leaves this process. With it the\nnewest frame, and only that one, is kept in that file (mode 0600) while the camera is\nopen and removed when it closes: it is what the voice service shows the model. With\n--presence-file one line, the near face's height as a share of the picture's, is kept\nfresh in that file while there is a face: no picture, only that number. With\n--recogniser (the pinned SFace model), --people and --who-socket, the eyes remember\na face when the voice service asks ({\"remember\":\"NAME\"} on the socket), forget it\n({\"forget\":\"NAME\"}), list the names ({\"list\":true}) and say whose face is at the\nlamp ({\"who\":true}). Only the prints of people who asked are kept, in --people\n(mode 0600); no picture. With --known-file, the name of the one known at the lamp is\nkept fresh in that file while they are there. With --leave-still-faces on, a face at a place\nwhere faces have come from for half an hour, every one small (under 0.14 of the height)\nand faint (scored under 0.8), is not a person: it is left out of what the body is told,\nthe bus and recognition (off unless given). With --full-look (it needs --sight-file) the\ncamera runs at that size, the working frame is not kept, and {\"look_full\":true} on\n--permit-socket asks for one still: taken once the head has settled\n(body/joint_states on the bus, at most 2 s), at most 1024 across and 64 KiB, kept in\n--sight-file for 3 s and removed (off unless given).\n";
+const USAGE: &str = "lamp-eyes --device ABSOLUTE_PATH --lock-directory PRIVATE_ABSOLUTE_DIRECTORY --usb VENDOR:PRODUCT@TOPOLOGY --model ABSOLUTE_PATH --permit-socket ABSOLUTE_PATH --body-socket ABSOLUTE_PATH [--sight-file ABSOLUTE_PATH] [--presence-file ABSOLUTE_PATH] [--recogniser ABSOLUTE_PATH --people ABSOLUTE_PATH --who-socket ABSOLUTE_PATH [--known-file ABSOLUTE_PATH]] [--leave-still-faces on|off] [--full-look WIDTHxHEIGHT]\n\nOwns the camera at --device (checked against the USB identity given, hex vendor and\nproduct and the port topology, for example 01da:5875@3-1.1.4) and looks for a face in\nits frames four times a second while there is one and less than twice a second when\nthere is none, with the pinned YuNet model at --model. Each look\nsends one datagram to --body-socket: {\"face\":{\"x\":..,\"y\":..,\"size\":..,\"turned\":..}} or\n{\"face\":null}. The camera is open only while {\"camera\":true} keeps arriving on\n--permit-socket, at least every 1.5 s; {\"camera\":false} closes it at once. Without\n--sight-file no frame is written anywhere and none leaves this process. With it the\nnewest frame, and only that one, is kept in that file (mode 0600) while the camera is\nopen and removed when it closes: it is what the voice service shows the model. With\n--presence-file one line, the near face's height as a share of the picture's, is kept\nfresh in that file while there is a face: no picture, only that number. With\n--recogniser (the pinned SFace model), --people and --who-socket, the eyes remember\na face when the voice service asks ({\"remember\":\"NAME\"} on the socket), forget it\n({\"forget\":\"NAME\"}), list the names ({\"list\":true}) and say whose face is at the\nlamp ({\"who\":true}). Only the prints of people who asked are kept, in --people\n(mode 0600); no picture. With --known-file, the name of the one known at the lamp is\nkept fresh in that file while they are there. With --leave-still-faces on, a face at a place\nwhere faces have come from for half an hour, every one small (under 0.14 of the height)\nand faint (scored under 0.8), is not a person: it is left out of what the body is told,\nthe bus and recognition (off unless given). With --full-look (it needs --sight-file) the\ncamera runs at that size, the working frame is not kept, and {\"look_full\":ID} on\n--permit-socket asks for one still: taken once the head has settled\n(body/joint_states on the bus, at most 2 s), at most 1024 across and 64 KiB, marked\nwith the ID in a JPEG comment, kept in --sight-file for 3 s and removed (off unless given).\n";
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 struct Usb {
@@ -389,6 +389,8 @@ fn run(arguments: Arguments) -> Result<(), Box<dyn std::error::Error + Send + Sy
     // where the body says how its joints are. A camera that did not open at
     // the full size is opened at the working size the next time.
     let mut wanted: Option<lamp_eyes::full_look::Wanted> = None;
+    // The id of the ask that is wanted, written with its still.
+    let mut wanted_id = 0u64;
     let mut still_at: Option<Instant> = None;
     let mut full_failed = false;
     let joints_bus = arguments
@@ -516,9 +518,12 @@ fn run(arguments: Arguments) -> Result<(), Box<dyn std::error::Error + Send + Sy
             }
         }
         for datagram in permit.heard() {
-            if arguments.full_look.is_some() && lamp_eyes::full_look::asked(&datagram) {
+            if arguments.full_look.is_some()
+                && let Some(id) = lamp_eyes::full_look::asked(&datagram)
+            {
                 if port.is_some() {
                     wanted = Some(lamp_eyes::full_look::Wanted::new(lamp_ipc::monotonic_us()));
+                    wanted_id = id;
                     (head, joints_read_at) = (Head::Absent, None);
                 } else {
                     eprintln!("lamp-eyes: a full look asked for with the camera shut");
@@ -684,8 +689,14 @@ fn run(arguments: Arguments) -> Result<(), Box<dyn std::error::Error + Send + Sy
             if asked.take(frames_all) && newest > 0 {
                 let made = Instant::now();
                 let waited_ms = asked.waited_us().unwrap_or(0) / 1_000;
-                match lamp_eyes::full_look::fit(&frame[..newest], lamp_eyes::kept::MOST_BYTES) {
+                match lamp_eyes::full_look::fit(
+                    &frame[..newest],
+                    lamp_eyes::kept::MOST_BYTES - lamp_eyes::full_look::TAG_BYTES,
+                ) {
                     Ok((still, size)) => {
+                        // The ask's id goes with the picture, so that a
+                        // late still is never taken for a later ask.
+                        let still = lamp_eyes::full_look::tagged(&still, wanted_id);
                         let written = kept.as_mut().map(|kept| kept.keep(&still));
                         eprintln!(
                             "lamp-eyes: a full look: {} by {}, {} bytes, the head waited for {waited_ms} ms, made in {} ms{}",
@@ -1000,7 +1011,7 @@ mod tests {
         }
         assert!(parse(args(&[&full[..], &["--full-look", "640x480"]].concat())).is_err());
         // Its ask is not a permission, and says nothing to the camera.
-        assert_eq!(lamp_eyes::permit::of(br#"{"look_full":true}"#), None);
+        assert_eq!(lamp_eyes::permit::of(br#"{"look_full":7}"#), None);
     }
 
     #[test]

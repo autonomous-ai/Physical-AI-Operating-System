@@ -116,22 +116,24 @@ giving the model one with everything said was switched off).
 
 - With `LAMP_LOOK_FULL=on` (#836, off unless set) a look is a full look.
   As soon as the lamp's words ask for its eyes, the eyes are asked for one
-  larger still (`{"look_full":true}` on the eyes' permit socket,
+  larger still (`{"look_full":ID}` on the eyes' permit socket, a new id
+  for every ask, counted from the clock when the service began;
   `look_full_asked` in the record), taken once the head has settled
   ([eyes.md](eyes.md), "A full look"), while the lamp is still saying
-  "Let me look". The look then waits until the eyes' file has been written
-  since that ask, or at most 2.6 s after the lamp said it would look
+  "Let me look". The eyes mark the still with the id (a JPEG comment,
+  `lamp-look ID`). The look then waits until the eyes' file holds the still
+  with this ask's id, or at most 2.6 s after the lamp said it would look
   (`look_full_still` in the record, with how long after and whether the
   still was there). The worker is started with `--eyes-look-full` after
   `--eyes-look PATH` and takes a picture up to 3 s old instead of 1 s. The
   note (`LOOK_FULL_NOTE`) adds: "If you cannot make out what they are
   showing you, say so plainly and ask them to hold it a bit closer to you;
-  never guess what it might be." Eyes without `--full-look` take the ask
-  for nothing and keep writing their working frame, so the look goes at
-  once with that frame, as before but with the new note. A full look whose
-  file was not written since its own ask (no still, or only an earlier
-  look's still the eyes still hold) goes with no picture and the note that
-  the eye was shut (`NO_LOOK_NOTE`).
+  never guess what it might be." A full look without its own still goes
+  with no picture and the note that the eye was shut (`NO_LOOK_NOTE`): no
+  still, an earlier look's still the eyes still hold, a cancelled look's
+  still written after this ask, or the working frame of eyes started
+  without `--full-look`. A write time could not tell these apart; the id
+  does.
   Without the variable nothing is asked, waited for or said differently.
 
 A picture leaves the lamp only on such a look: when a person has asked the

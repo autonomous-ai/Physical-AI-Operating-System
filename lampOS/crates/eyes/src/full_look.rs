@@ -51,14 +51,38 @@ pub const LONGEST_SIDE: usize = 1_024;
 const QUALITIES: [u8; 4] = [85, 75, 65, 50];
 const MAX_SIDE: usize = 4_096;
 
-/// Exactly `{"look_full":true}`: anything else asks nothing.
-pub fn asked(datagram: &[u8]) -> bool {
+/// Exactly `{"look_full":ID}`, the ask's id from 1: anything else asks
+/// nothing.
+pub fn asked(datagram: &[u8]) -> Option<u64> {
     #[derive(serde::Deserialize)]
     #[serde(deny_unknown_fields)]
     struct Ask {
-        look_full: bool,
+        look_full: u64,
     }
-    serde_json::from_slice::<Ask>(datagram).is_ok_and(|ask| ask.look_full)
+    serde_json::from_slice::<Ask>(datagram)
+        .ok()
+        .map(|ask| ask.look_full)
+        .filter(|id| *id > 0)
+}
+
+/// Bytes a still's id takes: what [`tagged`] adds, at most.
+pub const TAG_BYTES: usize = 64;
+
+/// The still with the id of the ask it was taken for, as a JPEG comment
+/// right after the start of the image: `lamp-look ID`. The voice service
+/// takes a still only with its own ask's id (#842), so a still of an
+/// earlier ask written late is never taken for a later one. A number, no
+/// more.
+pub fn tagged(jpeg: &[u8], id: u64) -> Vec<u8> {
+    let text = format!("lamp-look {id}");
+    let length = (text.len() + 2) as u16;
+    let mut out = Vec::with_capacity(jpeg.len() + text.len() + 4);
+    out.extend_from_slice(&jpeg[..2.min(jpeg.len())]);
+    out.extend_from_slice(&[0xff, 0xfe]);
+    out.extend_from_slice(&length.to_be_bytes());
+    out.extend_from_slice(text.as_bytes());
+    out.extend_from_slice(jpeg.get(2..).unwrap_or_default());
+    out
 }
 
 /// What the body says of the head.
@@ -280,15 +304,31 @@ mod tests {
 
     #[test]
     fn only_the_exact_ask_is_one() {
-        assert!(asked(br#"{"look_full":true}"#));
+        assert_eq!(asked(br#"{"look_full":42}"#), Some(42));
         for not in [
-            &br#"{"look_full":false}"#[..],
+            &br#"{"look_full":true}"#[..],
+            br#"{"look_full":0}"#,
+            br#"{"look_full":-1}"#,
             br#"{"camera":true}"#,
-            br#"{"look_full":true,"keep":true}"#,
+            br#"{"look_full":4,"keep":true}"#,
             b"",
         ] {
-            assert!(!asked(not));
+            assert_eq!(asked(not), None);
         }
+    }
+
+    #[test]
+    fn a_still_carries_its_ask_s_id_and_stays_a_whole_jpeg() {
+        let (still, _) = fit(&camera_frame(320, 240, 80), 64 * 1024 - TAG_BYTES).unwrap();
+        let marked = tagged(&still, 42);
+        assert!(marked.len() <= still.len() + TAG_BYTES);
+        assert!(crate::kept::whole_jpeg(&marked));
+        // The exact bytes the voice service looks for after the start.
+        let mark = b"\xff\xd8\xff\xfe\x00\x0elamp-look 42";
+        assert_eq!(&marked[..mark.len()], &mark[..]);
+        assert_eq!(&marked[mark.len()..], &still[2..]);
+        assert!(crate::picture::Picture::from_jpeg(&marked).is_ok());
+        assert!(tagged(&still, u64::MAX).len() <= still.len() + TAG_BYTES);
     }
 
     #[test]

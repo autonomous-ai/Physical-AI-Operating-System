@@ -6,10 +6,11 @@ plain markdown in https://github.com/amzn/selling-partner-agentic-toolkit (Apach
 the Amazon MCP works without them. Only run `install` after the user said yes.
 
     python3 scripts/amazon_toolkit.py status
-    python3 scripts/amazon_toolkit.py install --confirmed [--commit <40-hex sha>]
+    python3 scripts/amazon_toolkit.py install --confirmed
     python3 scripts/amazon_toolkit.py remove
 
-Safety: downloads only from GitHub over https at a pinned commit, copies only .md/.json files, never executes
+Safety: downloads only from GitHub over https at the one commit pinned in this file (there is deliberately no
+option to choose another: GitHub serves commits from forks under the parent repo's address), copies only .md/.json files, never executes
 anything, skips links and path tricks, caps sizes, and writes only to the agent's skills folder under an
 `amazon-` prefix with a marker file so `remove` touches nothing else.
 """
@@ -171,12 +172,12 @@ def main(argv):
         if argv[:1] == ["install"]:
             if "--confirmed" not in argv:
                 raise Failure("install needs --confirmed, and only after the user agreed to install Amazon's skills")
-            commit = PINNED_COMMIT
-            if "--commit" in argv:
-                commit = argv[argv.index("--commit") + 1] if argv.index("--commit") + 1 < len(argv) else ""
-            if not COMMIT.match(commit):
-                raise Failure("--commit must be a full 40-character commit sha")
-            return cmd_install(commit)
+            extra = [a for a in argv[1:] if a != "--confirmed"]
+            if extra:
+                raise Failure(f"unknown option {extra[0]!r}: install only takes --confirmed and always uses the pinned commit")
+            if not COMMIT.match(PINNED_COMMIT):
+                raise Failure("the pinned commit in this helper is malformed")
+            return cmd_install(PINNED_COMMIT)
         print(__doc__)
         return 2
     except Failure as e:

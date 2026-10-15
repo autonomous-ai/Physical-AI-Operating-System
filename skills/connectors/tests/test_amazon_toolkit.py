@@ -144,7 +144,11 @@ class ToolkitTests(unittest.TestCase):
 
     def test_bad_commit_and_bad_archive(self):
         self.good()
-        self.assertEqual(self.run_main("install", "--confirmed", "--commit", "main")[0], 1)
+        for extra in (["--commit", "main"], ["--commit", "0" * 40], ["--source", "evil"], ["whatever"]):
+            code, _, err = self.run_main("install", "--confirmed", *extra)
+            self.assertEqual(code, 1, extra)
+            self.assertIn("unknown option", err)
+        self.assertFalse(self.dir.exists())
         self.tarball.write_bytes(b"not a tarball")
         self.assertEqual(self.run_main("install", "--confirmed")[0], 1)
         self.tarball.write_bytes(archive([(f"{TOP}/README.md", b"x")]))

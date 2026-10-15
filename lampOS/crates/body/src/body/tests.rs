@@ -2580,6 +2580,63 @@ fn it_stands_up_for_somebody_in_front_of_it_and_stays_up_while_they_are_there() 
     assert!(passed.iter().all(|step| step.1 == 0.0));
 }
 
+/// Paused while somebody is still in front of it, a standing lamp sees
+/// nobody from then on and folds once its awake time runs out.
+#[test]
+fn paused_with_somebody_still_in_front_of_it_a_standing_lamp_folds() {
+    let (mut lamp, mut clock) = folded(Duration::from_secs(34));
+    lamp.arm_moves = true;
+    lamp.overload_clears = 1;
+    let time = clock.time.clone();
+    let watched = clock.time.clone();
+    let mut last = Duration::ZERO;
+    let mut stood: Vec<(Duration, f32)> = Vec::new();
+    let report = run_alive(
+        &mut lamp,
+        &mut clock,
+        Limits::FOLDED,
+        Some(HOME),
+        Some(standing(100, 5)),
+        Some(Looking::new([342, 200], [250, 120]).unwrap()),
+        || Some((Mood::Resting, 0)),
+        move || {
+            let now = time.get();
+            if now.saturating_sub(last) < Duration::from_millis(150) {
+                return Asked::default();
+            }
+            last = now;
+            // A face from two seconds on, all the way; paused at twelve.
+            if now >= Duration::from_secs(12) {
+                return Asked::PAUSED;
+            }
+            Asked {
+                seen: Some(Seen {
+                    face: (now >= Duration::from_secs(2)).then_some(crate::gaze::Sight {
+                        x: 0.0,
+                        y: 0.0,
+                        size: 0.2,
+                        turned: 0.0,
+                    }),
+                }),
+                gesture: None,
+                expression: None,
+                called: false,
+            }
+        },
+        |glimpse| stood.push((watched.get(), glimpse.stand)),
+    );
+    assert_eq!(report.stop, Stop::Cancelled, "{report:?}");
+    let at = |seconds: u64| {
+        stood
+            .iter()
+            .rfind(|step| step.0 <= Duration::from_secs(seconds))
+            .unwrap()
+            .1
+    };
+    assert_eq!(at(11), 1.0);
+    assert_eq!(at(33), 0.0);
+}
+
 /// Told to take hold: what would refuse it for want of torque is given
 /// torque, each joint's goal first set to where it is. Without the switch
 /// such a lamp is refused as before (see the test of a lamp that is not as

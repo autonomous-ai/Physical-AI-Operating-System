@@ -27,10 +27,11 @@ log and nothing a lamp runs ([joining.md](joining.md),
 | 19 | The end sent early, the answer played only when sure | `second/early-end` | 2026-10-14 | on `lamp-voice`, behind `--early-end-ms`; played on lamp-4ace at 200 ms: worse; switched off |
 | 36 | Always alive: the idle layer, sleep and waking (issue #714) | `second/always-alive` | 2026-10-14 | on `lamp-voice` (#729, merged 23:03); on lamp-4ace since 23:07 |
 | second-P1 | The early end taken back (issue #723) | `second/early-end-back`, then `second/early-end-labelled` | 2026-10-14 | step 1 on `lamp-voice` (#731, merged 23:06); on lamp-4ace at 23:10 (a) did not hold and (b) did; step 2 as pull request #738 into `lamp-voice`, 2026-10-15 |
-| 45 | Updates: a lamp keeps its lampOS current by itself (issue #737, MVP) | `second/updates` | 2026-10-15 | on `lamp-voice` (#741, `78b984b69`); the publishing proposal agreed on #737; the CI job left to the first builder or the owner (it holds the signing secret) |
-| 44 | A yes said in two breaths still starts the task (issue #736, MVP) | `second/two-breath-yes` | 2026-10-15 | pull request #740 into `lamp-voice`, 2026-10-15 |
-| 40 | Progress news through the tasks part and Jev (issue #732, `second-P2`) | `second/progress-news` | 2026-10-15 | pull request #751 into `lamp-voice`, 2026-10-15; the voice's wiring proposed and three questions on #732 |
-| 41 | Codex and the others: the person names who gets the work (issue #733, `second-P3`) | `second/who-gets-the-work` | 2026-10-15 | being built |
+| 45 | Updates: a lamp keeps its lampOS current by itself (issue #737, MVP) | `second/updates` | 2026-10-15 | on `lamp-voice` (#741, `78b984b69`); lamp-4ace updated itself to build 188 from a signed test channel at 03:48; the publishing proposal agreed on #737; the CI `publish:` job not added by this session (it handles the signing secret and makes releases; this session's safety check refused the edit); left to the first builder or the owner |
+| 44 | A yes said in two breaths still starts the task (issue #736, MVP) | `second/two-breath-yes` | 2026-10-15 | #740 closed as not needed, 2026-10-15: `d128c458a` (the model told why a call was not done) started five of five on lamp-4ace; the branch kept at `0ebd994d5`; the news crash found in its minute fixed in #756 |
+| 40 | Progress news through the tasks part and Jev (issue #732, `second-P2`) | `second/progress-news` | 2026-10-15 | pull request #751 into `lamp-voice`; on lamp-4ace since 06:58; the answers and the voice's side are #752 |
+| 41 | Codex and the others: the person names who gets the work (issue #733, `second-P3`) | `second/who-gets-the-work` | 2026-10-15 | moved to the fourth builder at 07:07; the branch rebased on `e4922a3cb` with the tests the schedule tools needed, its state said on #733 |
+| 48 | The Policy decides when the lamp speaks first: progress news, then hello (issue #752) | `second/policy-speaks` | 2026-10-15 | being built |
 | 43 | The person's phone over Bluetooth (issue #735, `second-P4`) | none | 2026-10-15 | cancelled by the owner the same night before any work was kept; released on #735 |
 
 ## Proposed tasks
@@ -56,6 +57,37 @@ log and nothing a lamp runs ([joining.md](joining.md),
 ## Handed back
 
 Newest first.
+
+### Found in task 44's minute: news too long for one written turn (2026-10-15, for issue #736)
+
+Ready for lamp-voice: yes (#756)
+
+**What happened:** in #740's first minute on lamp-4ace the voice ended
+three times in three, 4 ms after committing news, with `Gemini Live
+InvalidConfiguration`. The news is one written turn, refused over 1,024
+bytes (`wire::MAX_NOTE_BYTES`) as `InvalidConfiguration`, which the
+provider worker ends on; the note's own words are 545 to 585 bytes and it
+quoted up to 300 characters of the task and 1,200 of the answer. It
+happened again at 07:26 without #740, and the first builder put the fix on
+lamp-4ace at 07:38.
+
+**Kind:** a fix, no switch: it changes only a note that would have been
+refused; one that fits is the same byte for byte (a test). One commit,
+`158968946`, on `lamp-voice` at `d128c458a`: `task_news::fitted` cuts the
+note to fit, the answer first, then the task, by whole characters, marked
+"…(it goes on)".
+
+**Tests** (M2 Max): one byte over is refused by `encode_written_turn`;
+every note, for long answers and tasks in English and Vietnamese, in every
+state and at both ages, fits and is taken. **Gate:** fmt; strict clippy on
+voice, voice-eval, memory; the `task_news` tests. Native ARM64 run
+38657718552 on `158968946`: green, 4,410 passed, 0 failed, 35 ignored.
+
+**What to run on the lamp:** the news of a task with a long answer, told
+whole with no `InvalidConfiguration` (the first builder's 300-word story).
+
+**Where it is most likely wrong on the lamp:** a long answer whose result
+is at its end, cut away before the model sees it.
 
 ### Task 40: progress news through the tasks part and Jev (2026-10-15, issue #732, `second-P2`)
 

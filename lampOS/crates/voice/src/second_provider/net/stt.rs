@@ -37,7 +37,10 @@ fn query(language: Option<&str>) -> [(&'static str, &str); 10] {
         ("language", language.unwrap_or("en")),
         ("smart_format", "true"),
         ("interim_results", "true"),
-        ("endpointing", "1500"),
+        // V1 waited for 1.5 s of silence; the coordinator ends a line
+        // after 0.4 to 1.5 s, so Deepgram's `speech_final` came after the
+        // End it could have spared (#779). At 300 ms it is usually there.
+        ("endpointing", "300"),
         ("vad_events", "true"),
         ("keyterm", "Lamp"),
     ]
@@ -336,7 +339,7 @@ mod tests {
     use super::*;
 
     const QUERY: &str = "model=nova-3-general&encoding=linear16&sample_rate=16000&channels=1\
-        &language=en&smart_format=true&interim_results=true&endpointing=1500&vad_events=true\
+        &language=en&smart_format=true&interim_results=true&endpointing=300&vad_events=true\
         &keyterm=Lamp";
 
     #[test]

@@ -317,3 +317,28 @@ the exact tick boundary, consumed room input before its next tick, production
 cue delivery and the unchanged stale-completion delay, serve refusal, and hook
 failure propagation. This preparatory seam does not migrate the loopback
 identities or establish a speedup.
+
+## Serve fixture clock source
+
+The offline `physical::fake_serve` runtime exposes
+`run_with_clock(FakeServe, Fn() -> MonoTime)`. Its existing `run` entry point
+still supplies the host monotonic clock. The caller owns time advancement;
+reading the supplied clock does not advance it. The nine existing logical
+clock reads use this same source, including separate fresh samples for cycle
+metadata and the runtime's origin. Retained startup readiness keeps its
+150 ms age and saturates at zero, as before.
+
+The 2 ms host sleep, SIGTERM/SIGINT handling, room and cue sockets, fault
+behavior, metadata flushes and final stdout receipt retain their existing
+behavior. The focused clock tests call cycle helpers directly, without
+registering process-wide signal handlers. They check repeated reads at the
+same instant, distinct startup samples, restart identity and retained-history
+timestamps. The 14 existing `serve_session` cases and their assertions remain
+unchanged.
+
+This is a clock-source seam for #823, not a serve-session speed measurement.
+The CLI still uses the system clock. A later controlled serve scheduler must
+coordinate prepared-player readiness and grants, recorder and delayed
+transport progress, signal observation, final metadata output and actual
+child exit before those cases can use logical time. A logical end marker is
+not evidence that the process has exited.

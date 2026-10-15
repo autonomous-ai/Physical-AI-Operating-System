@@ -1,0 +1,9 @@
+    Checking lamp-msgs v0.1.0 (/private/tmp/lampos-tests-serve-clock/lampOS/crates/msgs)
+   Compiling lamp-camera v0.1.0 (/private/tmp/lampos-tests-serve-clock/lampOS/crates/camera)
+    Checking lamp-keeper v0.1.0 (/private/tmp/lampos-tests-serve-clock/lampOS/crates/keeper)
+    Checking lamp-schedule v0.1.0 (/private/tmp/lampos-tests-serve-clock/lampOS/crates/schedule)
+    Checking lamp-body v0.1.0 (/private/tmp/lampos-tests-serve-clock/lampOS/crates/body)
+    Checking lamp-controls v0.1.0 (/private/tmp/lampos-tests-serve-clock/lampOS/crates/controls)
+    Checking lamp-voice v0.1.0 (/private/tmp/lampos-tests-serve-clock/lampOS/crates/voice)
+    Checking lamp-voice-eval v0.1.0 (/private/tmp/lampos-tests-serve-clock/lampOS/crates/voice-eval)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 24.81s

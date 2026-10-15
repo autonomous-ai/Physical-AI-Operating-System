@@ -18,7 +18,7 @@ use crate::{
     stimulus::SceneTiming,
 };
 use lamp_ipc::monotonic_us;
-use lamp_turn_owner::BootId;
+use lamp_turn_owner::{BootId, MonoTime};
 use lamp_voice::fixture_provider::CueSink;
 use serde_json::{Value, json};
 use std::{
@@ -212,7 +212,7 @@ struct Cycle {
 }
 
 impl Cycle {
-    fn new(number: u64, serve: &FakeServe) -> Self {
+    fn new(number: u64, serve: &FakeServe, clock: &impl Fn() -> MonoTime) -> Self {
         let mut scenario = serve.scenario.clone();
         // A service has no session length; the relay bounds and stops it.
         scenario.session_seconds = crate::plan::MAX_SESSION_SECONDS;
@@ -234,7 +234,7 @@ impl Cycle {
                 CYCLE_TWO_BOOT
             },
             runtime,
-            base_us: monotonic_us(),
+            base_us: clock().as_micros(),
             ready: false,
             completed: Default::default(),
         }
@@ -253,6 +253,13 @@ impl Cycle {
 /// Runs until SIGTERM (or a modelled fault ends the service); returns the
 /// process exit code: 0 after a stop, 1 after a failed run.
 pub fn run(serve: FakeServe) -> Result<i32> {
+    run_with_clock(serve, || MonoTime::from_micros(monotonic_us()))
+}
+
+/// Uses one read-only logical clock for service timestamps and cycle origins.
+/// The caller owns time advancement; reads must not advance the clock. Signal
+/// handling, socket I/O, metadata writes and the 2 ms host sleep are unchanged.
+pub fn run_with_clock(serve: FakeServe, clock: impl Fn() -> MonoTime) -> Result<i32> {
     let signal = Arc::new(AtomicUsize::new(0));
     for number in [signal_hook::consts::SIGTERM, signal_hook::consts::SIGINT] {
         signal_hook::flag::register_usize(number, Arc::clone(&signal), number as usize)?;
@@ -286,19 +293,19 @@ pub fn run(serve: FakeServe) -> Result<i32> {
         )?;
         lock.flush()?;
     }
-    let now = monotonic_us();
+    let now = clock().as_micros();
     metadata.record(
         json!({"kind":"run_start","at_us":now,"mode":"serve","seconds":null,
         "provider_kind":"fake_gemini_like","cue_requested":true,"acoustic_score":null}),
     )?;
-    let mut cycle = start_cycle(1, &serve, &mut metadata, &mut cues)?;
+    let mut cycle = start_cycle(1, &serve, &mut metadata, &mut cues, &clock)?;
     let mut buffer = [0_u8; ROOM_MAX_BYTES];
     let mut failed: Option<String> = None;
     let mut outage_ends: Option<u64> = None;
     let mut fired = std::collections::BTreeSet::new();
     let mut muted_until: Option<u64> = None;
     loop {
-        let now = monotonic_us();
+        let now = clock().as_micros();
         if signal.load(Ordering::SeqCst) != 0 && !serve.faults.ignore_sigterm {
             metadata
                 .record(json!({"kind":"service_stop_requested","at_us":now,"signal":"SIGTERM"}))?;
@@ -311,7 +318,7 @@ pub fn run(serve: FakeServe) -> Result<i32> {
                 muted_until = None;
                 metadata.record(json!({"kind":"service_privacy_state","at_us":now,
                     "state":"Allowed","audio_workers_open":false}))?;
-                cycle = start_cycle(cycle.number + 1, &serve, &mut metadata, &mut cues)?;
+                cycle = start_cycle(cycle.number + 1, &serve, &mut metadata, &mut cues, &clock)?;
             }
         } else {
             // Never stamp an event in the future: CueSink rejects such cues.
@@ -370,9 +377,9 @@ pub fn run(serve: FakeServe) -> Result<i32> {
                 break;
             }
         }
-        let _ = cues.scan(&metadata.records, monotonic_us());
+        let _ = cues.scan(&metadata.records, clock().as_micros());
         if let Some(relay) = fault_relay.as_mut() {
-            relay.tick(monotonic_us())?;
+            relay.tick(clock().as_micros())?;
         }
         if let Some(socket) = &room {
             while let Ok(count) = socket.recv(&mut buffer) {
@@ -386,14 +393,14 @@ pub fn run(serve: FakeServe) -> Result<i32> {
         metadata.segment.flush()?;
         thread::sleep(Duration::from_millis(2));
     }
-    let now = monotonic_us();
+    let now = clock().as_micros();
     let signal_name = (signal.load(Ordering::SeqCst) != 0).then_some("SIGTERM");
     metadata.record(json!({"kind":"run_end","at_us":now,
         "status":if failed.is_some(){"failed"}else{"stopped_unscored"},
         "error":failed,"termination_signal":signal_name,"complete_evidence":false}))?;
-    let _ = cues.scan(&metadata.records, monotonic_us());
+    let _ = cues.scan(&metadata.records, clock().as_micros());
     if let Some(relay) = fault_relay.as_mut() {
-        relay.tick(monotonic_us())?;
+        relay.tick(clock().as_micros())?;
     }
     let health = metadata.finish()?;
     let mut lock = stdout.lock();
@@ -427,8 +434,9 @@ fn start_cycle(
     serve: &FakeServe,
     metadata: &mut Metadata,
     cues: &mut CueSink,
+    clock: &impl Fn() -> MonoTime,
 ) -> Result<Cycle> {
-    let now = monotonic_us();
+    let now = clock().as_micros();
     if number == 1 {
         metadata.record(json!({"kind":"service_waiting_for_privacy","at_us":now,
             "next_cycle":1,"audio_workers_open":false}))?;
@@ -439,7 +447,7 @@ fn start_cycle(
         json!({"kind":"service_cycle_start","at_us":now,"cycle":number,
         "fresh_runtime_required":true,"context_continuity_claimed":false}),
     )?;
-    let cycle = Cycle::new(number, serve);
+    let cycle = Cycle::new(number, serve, clock);
     cues.set_boot(BootId::new(cycle.boot).map_err(|e| invalid(&format!("{e:?}")))?);
     let retained = now.saturating_sub(STARTUP_READY_AGE_US);
     metadata.record(json!({"kind":"provider_ready","at_us":retained,
@@ -503,3 +511,7 @@ fn trace_record(cycle: &mut Cycle, event: &RuntimeEvent) -> Value {
         _ => to_trace(event, owner),
     }
 }
+
+#[cfg(test)]
+#[path = "fake_serve_clock_tests.rs"]
+mod clock_tests;

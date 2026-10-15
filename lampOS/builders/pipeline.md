@@ -46,6 +46,12 @@ from the last ten runs (`gh run view <id> --log`). Then, for example:
 Show the before and after on three real pull requests, and that no test was
 dropped: compare the list of tests run.
 
+On 2026-10-15 the owner had the tests that wait on the real clock moved to
+nextest's `realtime` group and skipped on GitHub Actions for now
+([realtime-tests.md](../docs/realtime-tests.md)): 123 tests, 977 s of the
+1,191 s of test time. Bringing them back, each without a real-clock wait or
+in a job of their own, is part of this task.
+
 ## It may
 
 - Change the workflow and its scripts, and the test harnesses (not what a

@@ -12,6 +12,11 @@ name: lampOS on ARM64
 # still running one test at a time, as on a lamp's few cores: one serial run
 # took about 20 of the job's 30 minutes. Doc tests, the two tests with their
 # own harness and the binaries' artifact come from the first runner only.
+#
+# TEMPORARY: the realtime group (tests that wait on the real clock, 977 s of
+# the 1,191 s of test time on 2026-10-15) is skipped here by nextest's `ci`
+# profile (lampOS/.config/nextest.toml) and run by hand with
+# `--profile realtime`. See lampOS/docs/realtime-tests.md.
 
 # Not on every push to every builder's branch: with nine builders and four
 # runners a run, that queued eleven runs behind eight on 2026-10-15, lamp-voice's
@@ -66,11 +71,12 @@ jobs:
       - name: build (release, the lamps' binaries)
         working-directory: lampOS
         run: cargo build --locked --release --workspace --bins --examples
-      - name: test (one test at a time, as on a lamp's few cores; this runner's share)
+      - name: test (one test at a time, as on a lamp's few cores; this runner's share; realtime group skipped)
         working-directory: lampOS
         # The two tests with their own harness (harness = false) cannot be listed by nextest; the first runner runs them below.
+        # --profile ci skips the realtime group (lampOS/.config/nextest.toml); the -E below is intersected with it.
         run: >-
-          cargo nextest run --locked --release --workspace --no-tests=pass -j 1
+          cargo nextest run --locked --release --workspace --profile ci --no-tests=pass -j 1
           --partition hash:${{ matrix.shard }}/4
           -E 'not (binary_id(lamp-ipc::relay_signals) | binary_id(lamp-turn-end-wire::process))'
       - name: doc tests and the own-harness tests (nextest runs neither)

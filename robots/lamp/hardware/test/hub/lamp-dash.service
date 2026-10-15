@@ -1,0 +1,15 @@
+[Unit]
+Description=Lamp hub tmux session "lamprun" (live log / runs / MPR121 stats panes, shown on the LCD)
+After=network.target
+
+[Service]
+Type=oneshot
+User=orangepi
+Environment=HOME=/home/orangepi
+# panes are plain shells with their commands typed in (see lamp-hub-tmux)
+ExecStart=/usr/local/bin/lamp-hub-tmux
+ExecStop=/usr/bin/tmux kill-session -t lamprun
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target

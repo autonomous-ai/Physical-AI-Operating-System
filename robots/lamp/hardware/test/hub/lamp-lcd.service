@@ -1,0 +1,17 @@
+[Unit]
+Description=Lamp test dashboard on the HDMI/LCD (kmscon on tty1, read-only view of tmux "lamprun")
+After=lamp-dash.service systemd-user-sessions.service
+Wants=lamp-dash.service
+Conflicts=getty@tty1.service
+After=getty@tty1.service
+
+[Service]
+# kmscon draws straight to the DRM display (this kernel has no fbdev console).
+# The shell loop re-attaches if the tmux session is restarted.
+ExecStart=/usr/bin/kmscon --vt=tty1 --seats=seat0 --no-switchvt --font-size=12 --login -- \
+    /usr/sbin/runuser -u orangepi -- /bin/sh -c 'while true; do tmux attach -f read-only -t lamprun 2>/dev/null || sleep 2; done'
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

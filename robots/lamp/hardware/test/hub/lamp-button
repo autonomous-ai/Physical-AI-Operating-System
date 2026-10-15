@@ -1,0 +1,189 @@
+#!/usr/bin/env python3
+"""lamp-button - start / answer lamp tests from a push button on the hub (no Mac needed).
+
+Button between header pin 40 (PL13, gpiochip1 line 13) and pin 39 (GND); internal pull-up,
+so a press reads LOW.
+
+  idle (no test running)      single click -> lamp-remote-test -- --skip servo
+                              double click -> lamp-remote-test            (full test incl. servo)
+                              triple click -> lamp-remote-test --tune     (MPR121 factory calibration)
+  MPR121 calibration          "Save ...? [Y/n]": 1 click = n (redo), 2 clicks = y (save)
+                              while sliding over the pads: 3 clicks = done (Enter)
+  a Y/n question on screen    single click -> "n"      double click -> "y"
+  hal.calibrate running       single click -> ENTER    double click -> "c" + ENTER
+                              (ENTER = keep saved calibration / arm is in the middle / stop
+                               recording ranges;  c = recalibrate at its first question)
+  choosing between lamps      single click -> take the highlighted lamp, double -> next lamp
+                              (10 s countdown, restarts on every "next")
+  test running, no question   1-2 clicks are ignored (so they can't answer a later question early)
+                              triple click  -> skip the current step ("s" + Enter to the test)
+
+Button-started runs live in tmux session "lamprun" (128x42 = LCD size, so the camera preview
+fits): a plain shell the test command is typed into, so Ctrl-C / the end of a test leaves the
+prompt with the output in the scrollback (Up + Enter reruns it). lamp-remote-test also writes
+everything to ~/hwtest/fleet/live.log, which the LCD shows.
+Reports wait in ~/hwtest/fleet/outbox/ - `lamp-test fetch` on the Mac collects them.
+"""
+import argparse, os, subprocess, threading, time
+
+import lgpio
+
+PIN_TO_CHIPLINE = {40: (1, 13), 7: (1, 4), 12: (1, 8), 13: (1, 12), 16: (1, 5), 18: (1, 2),
+                   15: (0, 329), 22: (0, 119), 28: (0, 36), 32: (0, 101), 36: (0, 102), 38: (0, 103)}
+SESSION = "lamprun"
+LIVE = os.path.expanduser("~/hwtest/fleet/live.log")
+
+
+def log(msg):
+    line = f"[button {time.strftime('%H:%M:%S')}] {msg}"
+    print(line, flush=True)
+    try:
+        with open(LIVE, "a") as f:
+            f.write(line + "\n")
+    except OSError:
+        pass
+
+
+def tmux(*args, **kw):
+    return subprocess.run(["tmux", *args], capture_output=True, text=True, **kw)
+
+
+def main_pane():
+    """The runs pane of lamprun (@role main); keys and screen checks go there, not to
+    whichever pane happens to be active."""
+    out = tmux("list-panes", "-t", SESSION, "-F", "#{pane_id} #{@role}").stdout.split("\n")
+    for line in out:
+        parts = line.split()
+        if len(parts) == 2 and parts[1] == "main":
+            return parts[0]
+    return SESSION
+
+
+def running():
+    """A test is running = a lamp-remote-test process exists (the lamprun session itself stays open
+    after each run, so its existence says nothing)."""
+    return subprocess.run(["pgrep", "-f", "^bash /usr/local/bin/lamp-remote-test"],
+                          capture_output=True).returncode == 0
+
+
+def question_on_screen():
+    """True when the run is waiting on a Y/n / y/N countdown prompt."""
+    out = tmux("capture-pane", "-p", "-t", main_pane()).stdout
+    lines = [l.rstrip() for l in out.splitlines() if l.strip()]
+    last = lines[-1] if lines else ""
+    # still counting down = prompt on the last line and not yet answered ("... -> Y" / "-> N")
+    return ("[Y/n]" in last or "[y/N]" in last) and not last.endswith(("-> Y", "-> N"))
+
+
+def calibrating():
+    """True while hal.calibrate (started by lamp_fulltest) is running in the session. Uses the
+    scrollback: the live range table can push its prompt off the visible screen."""
+    out = tmux("capture-pane", "-p", "-S", "-1000", "-t", main_pane()).stdout
+    started = out.rfind("-m hal.calibrate")
+    return started >= 0 and started > out.rfind("hal.calibrate finished")
+
+
+def pick_on_screen():
+    """True while lamp-remote-test shows its "several lamps" choice with a running countdown."""
+    out = tmux("capture-pane", "-p", "-t", main_pane()).stdout
+    lines = [l.rstrip() for l in out.splitlines() if l.strip()]
+    return bool(lines) and "[pick]" in lines[-1] and "-> " not in lines[-1]
+
+
+def start(full=False, tune=False):
+    # 8 s per question: a double click needs time (and is only recognised 0.6 s after the 2nd press)
+    if tune:
+        cmd = "lamp-remote-test --tune"
+    else:
+        cmd = "lamp-remote-test -- --confirm-seconds 8" + ("" if full else " --skip servo")
+    # plain shell first, then type the command into it: Ctrl-C / the end of the test leaves the
+    # prompt with the output in the scrollback (Up + Enter reruns it) - the session never closes
+    if tmux("has-session", "-t", SESSION).returncode != 0:
+        subprocess.run(["/usr/local/bin/lamp-hub-tmux"])
+        time.sleep(1)
+    tmux("send-keys", "-t", main_pane(), cmd, "Enter")
+    time.sleep(2)                          # lamp-remote-test starts a fresh live.log first
+    log(f"{'triple' if tune else 'double' if full else 'single'} click -> started: {cmd}")
+
+
+def on_click(n):
+    if running() and pick_on_screen():                  # choosing between several lamps
+        if n == 2:
+            tmux("send-keys", "-t", main_pane(), "-l", "n")
+            log("double click -> next lamp (countdown restarts)")
+        elif n == 1:
+            tmux("send-keys", "-t", main_pane(), "Enter")
+            log("single click -> take the highlighted lamp")
+        return
+    if n >= 3:
+        if not running():
+            start(tune=True)
+        elif not calibrating() and not question_on_screen():
+            tmux("send-keys", "-t", main_pane(), "-l", "s"); tmux("send-keys", "-t", main_pane(), "Enter")
+            log("triple click -> skip current step")
+        else:
+            log("triple click ignored (a question / hal.calibrate is waiting - use 1 or 2 clicks)")
+        return
+    if not running():
+        start(full=(n >= 2))
+    elif calibrating():
+        if n >= 2:
+            tmux("send-keys", "-t", main_pane(), "-l", "c"); tmux("send-keys", "-t", main_pane(), "Enter")
+            log("double click -> hal.calibrate: 'c' + ENTER (recalibrate)")
+        else:
+            tmux("send-keys", "-t", main_pane(), "Enter")
+            log("single click -> hal.calibrate: ENTER")
+    elif question_on_screen():
+        key = "y" if n >= 2 else "n"
+        tmux("send-keys", "-t", main_pane(), "-l", key)
+        log(f"{'double' if n >= 2 else 'single'} click -> answered '{key}'")
+    else:
+        log(f"{n} click(s) ignored - test running, no question on screen")
+
+
+def main():
+    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("--pin", type=int, default=40, help="header pin (button to GND)")
+    ap.add_argument("--double-ms", type=int, default=600, help="max gap between the clicks of a double click")
+    ap.add_argument("--debounce-ms", type=int, default=30, help="press must be stable LOW this long")
+    args = ap.parse_args()
+
+    chip, line = PIN_TO_CHIPLINE[args.pin]
+    h = lgpio.gpiochip_open(chip)
+    lgpio.gpio_claim_alert(h, line, lgpio.FALLING_EDGE, lgpio.SET_PULL_UP)
+    # a press must hold LOW for --debounce-ms before it is reported: drops spikes induced on the
+    # wire (servo/motor switching produced bursts of 20 phantom "clicks")
+    lgpio.gpio_set_debounce_micros(h, line, args.debounce_ms * 1000)
+    lock = threading.Lock()
+    state = {"n": 0, "last": 0.0, "timer": None}
+
+    def fire():
+        with lock:
+            n, state["n"], state["timer"] = state["n"], 0, None
+        if n:
+            on_click(n)
+
+    def edge(c, l, level, tick):
+        now = time.monotonic()
+        if level != 0 or now - state["last"] < 0.08:      # 80 ms between counted presses
+            return
+        state["last"] = now
+        wall = time.time()
+        print(f"press at {time.strftime('%H:%M:%S', time.localtime(wall))}.{int(wall * 1000) % 1000:03d}", flush=True)
+        with lock:
+            state["n"] += 1
+            if state["timer"]:
+                state["timer"].cancel()
+            state["timer"] = threading.Timer(args.double_ms / 1000, fire)
+            state["timer"].start()
+
+    lgpio.callback(h, line, lgpio.FALLING_EDGE, edge)
+    log(f"ready on header pin {args.pin} (gpiochip{chip} line {line}): "
+        "1 click = test (skip servo), 2 clicks = full test, 3 clicks = MPR121 calibration; at a question 1 = no, 2 = yes; "
+        "in hal.calibrate 1 = ENTER, 2 = c+ENTER; 3 clicks = skip step")
+    while True:
+        time.sleep(3600)
+
+
+if __name__ == "__main__":
+    main()

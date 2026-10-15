@@ -18,5 +18,8 @@ This folder is owned by the hardware team. Upload here:
 - Wiring diagrams and pinouts
 - Enclosure and assembly photos
 
+Bench / factory hardware test (camera, mics, speaker, MPR121 + per-unit calibration, buttons,
+TTP223, servos), run from a test hub over each lamp's setup hotspot: [`test/`](test/README.md).
+
 Large binary CAD files are stored via **Git LFS** (see `.gitattributes`).
 File list and revision notes live in [`cad/README.md`](cad/README.md).

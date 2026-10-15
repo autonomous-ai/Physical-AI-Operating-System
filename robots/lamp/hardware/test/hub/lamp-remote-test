@@ -1,0 +1,557 @@
+#!/usr/bin/env bash
+# lamp-remote-test - run the lamp hardware test on a lamp through its setup hotspot.
+#
+# Runs on the test hub (opidev1). You reach the hub over an ETHERNET cable (Mac USB-LAN
+# adapter -> opidev1 end0, fixed 192.168.1.10 via dhcpcd fallback; Mac en6 = 192.168.1.233), so the hub's own Wi-Fi
+# (wlan0) is free to join each lamp's hotspot:
+#
+#   Mac (en6) ==cable==> opidev1 end0 --wlan0--> lamp-xxxx hotspot --> 192.168.100.1
+#
+# While a test runs the hub leaves its normal Wi-Fi, so tailscale/LAN to it drops;
+# only the cable stays up. That is why you must connect over the cable.
+#
+# Steps: refuse if your SSH session arrives over wlan0 (it would be cut off) -> park the hub's normal Wi-Fi -> join the lamp hotspot
+# -> copy the test files -> run lamp_fulltest.py interactively (it stops hal.service
+# first; it stays stopped until the lamp reboots) -> copy the log + report back -> rejoin normal Wi-Fi.
+#
+# Usage (from the Mac, -t so the Y/n prompts and camera preview work):
+#   ssh -t orangepi@192.168.1.10 lamp-remote-test                     # auto: find lamp-* hotspot
+#   ssh -t orangepi@192.168.1.10 lamp-remote-test 'lamp-0c*'          # wildcard (quote it)
+#   ssh -t orangepi@192.168.1.10 lamp-remote-test lamp-0c4e           # exact name
+#   ssh -t orangepi@192.168.1.10 lamp-remote-test --all               # every lamp hotspot in range
+#   ssh -t orangepi@192.168.1.10 lamp-remote-test --scan              # just list them
+#   ssh -t orangepi@192.168.1.10 lamp-remote-test -- --skip servo     # args after -- go to the test
+#   ssh -t orangepi@192.168.1.10 lamp-remote-test lamp-06c0 --exec 'journalctl -u hal -n 50'
+#                                         # run one command on the lamp instead of the test
+#   ssh -t orangepi@192.168.1.10 lamp-remote-test --tune              # MPR121 factory calibration
+#   ssh -t orangepi@192.168.1.10 lamp-remote-test lamp-06c0 --deploy-hal   # only push the HAL bundle
+# --tune: pushes the HAL bundle from ~/hwtest/hal-bundle first when the lamp does not run it yet
+# (`lamp-test hal-bundle` on the Mac fills it; --no-deploy skips that), then runs mpr121_tune.py.
+# The picker lists lamps without a PASS in ~/hwtest/fleet/mpr121-tune.csv first.
+# After a PASS a hands-off phantom-touch watch starts ON THE LAMP, detached (tmux "mpr121-watch",
+# hal running, --watch SECONDS, default 1800, 0 = off), so the hub moves on to the next lamp.
+#   lamp-remote-test lamp-d49a --watch-only [--watch 1800]  # start only a watch, no calibration
+#   lamp-remote-test lamp-d49a --watch-fetch                # collect the watch log/result
+#   lamp-remote-test --all --watch-fetch                    # ... from every lamp in range
+# A deploy that leaves hal unhealthy is rolled back from /opt/hal.prev automatically.
+# Auto-find: 1 match -> used directly; several -> list, the strongest is highlighted with a
+# 10 s countdown: n / space / hub button 2 clicks = next lamp (countdown restarts),
+# Enter / y / 1 click = take it now, a digit = that lamp; at 0 the highlighted one is used. Hotspot password defaults to "orangepi"
+# (-p to change); open hotspots are detected from the scan (or force with --open).
+# Everything after "--" goes to lamp_fulltest.py.
+# Logs land in ~/hwtest/fleet/<ssid>/ on the hub.
+
+set -uo pipefail
+export PATH="$PATH:/usr/sbin:/sbin"          # wpa_supplicant, wpa_cli, dhcpcd live here
+
+IFACE="${IFACE:-wlan0}"
+LAMP_IP="${LAMP_IP:-192.168.100.1}"
+LAMP_USER="${LAMP_USER:-orangepi}"
+LAMP_PASS="${LAMP_PASS:-orangepi}"
+SUDO_PASS="${SUDO_PASS:-orangepi}"                 # the hub's own sudo password
+FILES_DIR="${FILES_DIR:-$HOME}"
+FILES=(lamp_fulltest.py lamp-test servo_test.py mpr121_opi_test.py camera_capture_test.sh)
+OUT_ROOT="$HOME/hwtest/fleet"
+NORMAL_UNIT="wpa_supplicant@${IFACE}.service"
+PICK_SECONDS="${PICK_SECONDS:-10}"              # countdown on the "several lamps" choice
+RUN_DIR="/run/lamp-remote-test"
+BUNDLE="${BUNDLE:-$HOME/hwtest/hal-bundle}"     # hal/ + web/ + BUNDLE_ID, from `lamp-test hal-bundle`
+TUNE_CSV="$OUT_ROOT/mpr121-tune.csv"
+
+SSH_OPTS=(-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR
+          -o ConnectTimeout=8 -o ServerAliveInterval=5)
+
+say()  { printf '%s\n' "$*"; }
+die()  { say "ERROR: $*"; exit 1; }
+sud()  { echo "$SUDO_PASS" | sudo -S -p '' "$@"; }
+lssh() { sshpass -p "$LAMP_PASS" ssh "${SSH_OPTS[@]}" "$@"; }
+lscp() { sshpass -p "$LAMP_PASS" scp "${SSH_OPTS[@]}" "$@"; }
+
+usage() { sed -n '2,/^$/p' "$0" | sed 's/^# \{0,1\}//'; exit "${1:-0}"; }
+
+# ---------------------------------------------------------------- arguments
+SSID=""; PSK="${LAMP_PSK:-orangepi}"; SCAN=0; ALL=0; OPEN=0; SEC="${LRT_SEC:-}"; TEST_ARGS=(); EXEC=""
+TUNE=0; DEPLOY=0; NO_DEPLOY=0; WATCH_ONLY=0; WATCH_FETCH=0; WATCH_S="${WATCH_S:-1800}"; COLOR="${COLOR:-}"
+COLORS=(gray-charcoal green-matcha white-cloud sand-dune)     # shell colour = 3D print material
+while [ $# -gt 0 ]; do
+    case "$1" in
+        -h|--help) usage 0 ;;
+        --scan)    SCAN=1 ;;
+        --all)     ALL=1 ;;
+        --open)    OPEN=1 ;;
+        -p|--password) PSK="${2:-}"; shift ;;
+        --exec)    EXEC="${2:-}"; shift ;;
+        --tune)    TUNE=1 ;;
+        --deploy-hal) DEPLOY=1 ;;
+        --no-deploy)  NO_DEPLOY=1 ;;
+        --watch)   WATCH_S="${2:-600}"; shift ;;
+        --watch-only) WATCH_ONLY=1 ;;
+        --watch-fetch) WATCH_FETCH=1 ;;
+        --color)   COLOR="${2:-}"; shift ;;
+        --) shift; TEST_ARGS=("$@"); break ;;
+        -*) die "unknown option $1 (see --help)" ;;
+        *)  [ -z "$SSID" ] && SSID="$1" || die "give one name or pattern (use --all for several)" ;;
+    esac
+    shift
+done
+
+command -v sshpass >/dev/null || die "sshpass missing: sudo apt-get install -y sshpass"
+
+# ---------------------------------------------------------------- live log for the hub dashboard
+# Everything this run prints (incl. the lamp's own test output) also goes to live.log, which the
+# tmux session "dash" on the hub follows:  ssh -t orangepi@192.168.1.10 tmux attach -r -t dash
+LIVE="$OUT_ROOT/live.log"
+if [ -z "${LRT_SEC:-}" ] && [ "$SCAN" != 1 ]; then      # top-level run only (--all children inherit it)
+    mkdir -p "$OUT_ROOT"
+    printf '\n\n==================== %s  lamp-remote-test %s ====================\n' \
+        "$(date '+%Y-%m-%d %H:%M:%S')" "${SSID:-(auto)}" > "$LIVE"
+    exec > >(tee -a "$LIVE") 2>&1
+fi
+command -v wpa_supplicant >/dev/null || die "wpa_supplicant missing"
+
+# ---------------------------------------------------------------- self-heal the hub's own Wi-Fi
+# A run killed mid-way (closed SSH, Ctrl-C at a bad moment) could leave the hub's normal Wi-Fi
+# client stopped; then every scan comes back empty. Fix that first unless another run is active.
+if [ -z "${LRT_SEC:-}" ] && ! systemctl is-active --quiet "$NORMAL_UNIT"; then
+    if [ -d "$RUN_DIR" ] && [ -f "$RUN_DIR/wpa.pid" ] && sud kill -0 "$(cat "$RUN_DIR/wpa.pid")" 2>/dev/null; then
+        die "another lamp-remote-test run is using $IFACE right now"
+    fi
+    say "hub Wi-Fi ($NORMAL_UNIT) was stopped - a previous run did not clean up; starting it"
+    [ -f "$RUN_DIR/wpa.pid" ] && sud kill "$(cat "$RUN_DIR/wpa.pid")" 2>/dev/null
+    sud rm -rf "$RUN_DIR"
+    sud systemctl start "$NORMAL_UNIT" || die "could not start $NORMAL_UNIT"
+    for i in $(seq 1 20); do sud wpa_cli -i "$IFACE" ping 2>/dev/null | grep -q PONG && break; sleep 0.5; done
+fi
+
+# ---------------------------------------------------------------- scan / pick the hotspot
+# scan_lamps -> lines "ssid<TAB>signal<TAB>open|secured", strongest first, one per ssid
+scan_lamps() {
+    sud wpa_cli -i "$IFACE" scan >/dev/null 2>&1 || die "wpa_cli scan failed on $IFACE (is $NORMAL_UNIT running?)"
+    sleep 5
+    sud wpa_cli -i "$IFACE" scan_results |
+        awk -F'\t' 'NR>1 && $5 ~ /^lamp-/ {print $5 "\t" $3 "\t" ($4 ~ /WPA|WEP/ ? "secured" : "open")}' |
+        sort -t$'\t' -k1,1 -k2,2nr | awk -F'\t' '!seen[$1]++' | sort -t$'\t' -k2,2nr
+}
+show() { awk -F'\t' '{printf "  %2d) %-20s %4s dBm  %s %s\n", NR, $1, $2, $3, $4}'; }
+
+sud wpa_cli -i "$IFACE" ping 2>/dev/null | grep -q PONG \
+    || die "cannot talk to the Wi-Fi client on $IFACE ($NORMAL_UNIT: $(systemctl is-active "$NORMAL_UNIT")) - scan impossible"
+
+if [ "$SCAN" = 1 ]; then
+    say "lamp hotspots seen by $IFACE:"
+    scan_lamps | show
+    exit 0
+fi
+
+if [ -z "$SEC" ]; then                  # not a child run: work out which hotspot(s)
+    PATTERN="${SSID:-lamp-*}"
+    say "scanning for $PATTERN ..."
+    MATCHES=()
+    while IFS= read -r line; do
+        name="${line%%$'\t'*}"
+        # shellcheck disable=SC2053  # deliberate glob match
+        [[ "$name" == $PATTERN ]] && MATCHES+=("$line")
+    done < <(scan_lamps)
+
+    if [ "$TUNE" = 1 ] && [ ${#MATCHES[@]} -gt 0 ]; then
+        # lamps already calibrated (a PASS row in the CSV) go to the end of the list
+        declare -a FIRST=() LAST=()
+        for line in "${MATCHES[@]}"; do
+            if [ -f "$TUNE_CSV" ] && awk -F, -v n="${line%%$'\t'*}" '$2==n && $4=="PASS" {f=1} END {exit !f}' "$TUNE_CSV"; then
+                LAST+=("$line"$'\t'"(calibrated)")
+            else
+                FIRST+=("$line")
+            fi
+        done
+        MATCHES=("${FIRST[@]}" "${LAST[@]}")
+        say "calibrated so far: $( [ -f "$TUNE_CSV" ] && awk -F, 'NR>1 && $4=="PASS" {print $2}' "$TUNE_CSV" | sort -u | wc -l || echo 0)"
+    fi
+
+    if [ ${#MATCHES[@]} -eq 0 ]; then
+        case "$PATTERN" in
+            *[\*\?\[]*) die "no hotspot matching '$PATTERN' in range (lamp in setup/hotspot mode?)" ;;
+            *) say "'$PATTERN' not seen in the scan - trying it anyway (hidden or weak?)"
+               MATCHES=("$PATTERN"$'\t'"?"$'\t'"secured") ;;
+        esac
+    fi
+
+    if [ "$ALL" = 1 ] && [ ${#MATCHES[@]} -gt 1 ]; then
+        printf '%s\n' "${MATCHES[@]}" | show
+        say "testing all ${#MATCHES[@]} in turn"
+        declare -a SUMMARY=(); worst=0
+        for line in "${MATCHES[@]}"; do
+            IFS=$'\t' read -r name sig sec _note <<<"$line"
+            say ""; say "################ $name ################"
+            [ "$OPEN" = 1 ] && sec=open
+            CHILD=(); [ "$TUNE" = 1 ] && CHILD+=(--tune); [ "$DEPLOY" = 1 ] && CHILD+=(--deploy-hal)
+            [ "$NO_DEPLOY" = 1 ] && CHILD+=(--no-deploy)
+            [ "$WATCH_ONLY" = 1 ] && CHILD+=(--watch-only); [ "$WATCH_FETCH" = 1 ] && CHILD+=(--watch-fetch)
+            CHILD+=(--watch "$WATCH_S")
+            LRT_SEC="$sec" LAMP_PSK="$PSK" "$0" "$name" "${CHILD[@]}" -- "${TEST_ARGS[@]}"
+            rc=$?; [ $rc -gt $worst ] && worst=$rc
+            SUMMARY+=("$(printf '  %-20s %s' "$name" "$([ $rc = 0 ] && echo PASS || echo "FAIL (exit $rc)")")")
+        done
+        say ""; say "=== all lamps ==="; printf '%s\n' "${SUMMARY[@]}"
+        exit $worst
+    fi
+
+    PICK=0
+    if [ ${#MATCHES[@]} -gt 1 ]; then
+        printf '%s\n' "${MATCHES[@]}" | show
+        if [ -t 0 ]; then
+            # highlighted choice + 10 s countdown; next = n/space (hub button: 2 clicks) restarts it,
+            # take = Enter/y (1 click), or a number. "[pick]" is what lamp-button looks for.
+            N=${#MATCHES[@]}; left=$PICK_SECONDS; key=""
+            while [ "$left" -gt 0 ]; do
+                IFS=$'\t' read -r nm sg _ <<<"${MATCHES[$PICK]}"
+                printf '\r\033[K  [pick] %d/%d) %-16s %4s dBm   2 clicks/n = next, 1 click/Enter = take   auto in %2ds ' \
+                    $((PICK + 1)) "$N" "$nm" "$sg" "$left"
+                key=""
+                if IFS= read -rsn1 -t 1 key; then
+                    case "$key" in
+                        n|N|" ") PICK=$(( (PICK + 1) % N )); left=$PICK_SECONDS; continue ;;
+                        ""|y|Y)  break ;;                                  # Enter / y = take this one
+                        [1-9])   [ "$key" -le "$N" ] && { PICK=$((key - 1)); break; } ;;
+                    esac
+                else
+                    left=$((left - 1))
+                fi
+            done
+            printf -- '-> %s\n' "$(cut -f1 <<<"${MATCHES[$PICK]}")"
+        fi
+    fi
+    IFS=$'\t' read -r SSID _sig SEC _note <<<"${MATCHES[$PICK]}"
+    [ "$OPEN" = 1 ] && SEC=open
+    say "target : $SSID ($SEC)"
+fi
+[ -n "$SSID" ] || usage 1
+
+# ---------------------------------------------------------------- lamp colour (tune): material affects MPR121
+if [ "$TUNE" = 1 ] && [ -z "$COLOR" ]; then
+    LAST_COLOR_F="$OUT_ROOT/.last-color"
+    CI=0; last="$(cat "$LAST_COLOR_F" 2>/dev/null)"
+    for i in "${!COLORS[@]}"; do [ "${COLORS[$i]}" = "$last" ] && CI=$i; done
+    if [ -t 0 ]; then
+        # same keys as the lamp picker: "[pick]" lets the hub button answer (2 clicks next, 1 click take)
+        left=$PICK_SECONDS
+        while [ "$left" -gt 0 ]; do
+            printf '\r\033[K  [pick] colour of %s: %d) %-14s  2 clicks/n = next, 1 click/Enter = take, 1-4   auto in %2ds ' \
+                "$SSID" $((CI + 1)) "${COLORS[$CI]}" "$left"
+            key=""
+            if IFS= read -rsn1 -t 1 key; then
+                case "$key" in
+                    n|N|" ") CI=$(( (CI + 1) % ${#COLORS[@]} )); left=$PICK_SECONDS; continue ;;
+                    ""|y|Y)  break ;;
+                    [1-4])   CI=$((key - 1)); break ;;
+                esac
+            else
+                left=$((left - 1))
+            fi
+        done
+        printf -- '-> %s\n' "${COLORS[$CI]}"
+    fi
+    COLOR="${COLORS[$CI]}"; mkdir -p "$OUT_ROOT"; echo "$COLOR" > "$LAST_COLOR_F"
+fi
+[ "$TUNE" = 1 ] && say "colour : $COLOR"
+
+# ---------------------------------------------------------------- safety: your session must not ride on wlan0
+CLIENT="${SSH_CONNECTION:-}"; CLIENT="${CLIENT%% *}"     # empty when started locally (button)
+if [ -n "$CLIENT" ]; then
+    VIA="$(ip route get "$CLIENT" 2>/dev/null | awk '{for (i=1;i<NF;i++) if ($i=="dev") {print $(i+1); exit}}')"
+    case "$VIA" in
+        "$IFACE"|"")
+            die "your SSH session comes in via ${VIA:-unknown} ($CLIENT) - $IFACE is about to leave this network.
+       Connect over the ethernet cable instead:  ssh -t orangepi@$(ip -4 -br addr show end0 | awk "{print \$3}" | cut -d/ -f1) lamp-remote-test ..." ;;
+        tailscale*|lo)
+            die "your SSH session comes in over tailscale, which rides on $IFACE here.
+       Connect over the ethernet cable instead:  ssh -t orangepi@$(ip -4 -br addr show end0 | awk "{print \$3}" | cut -d/ -f1) lamp-remote-test ..." ;;
+    esac
+    say "session: $CLIENT via $VIA - $IFACE is free to borrow"
+else
+    say "session: local console - $IFACE is free to borrow"
+fi
+
+if [ "$WATCH_FETCH" = 1 ]; then
+    :
+elif [ "$TUNE" = 1 ] || [ "$WATCH_ONLY" = 1 ]; then
+    [ -f "$FILES_DIR/mpr121_tune.py" ] || die "missing $FILES_DIR/mpr121_tune.py"
+elif [ "$DEPLOY" = 1 ]; then
+    [ -f "$BUNDLE/BUNDLE_ID" ] || die "no HAL bundle in $BUNDLE - run 'lamp-test hal-bundle' on the Mac"
+else
+    for f in "${FILES[@]}"; do [ -f "$FILES_DIR/$f" ] || die "missing $FILES_DIR/$f"; done
+fi
+
+# ---------------------------------------------------------------- restore on any exit
+restore() {
+    # a closing SSH session sends SIGHUP; ignore it (and Ctrl-C) so cleanup always finishes
+    trap '' HUP INT TERM PIPE
+    [ -f "$RUN_DIR/wpa.pid" ] && sud kill "$(cat "$RUN_DIR/wpa.pid")" 2>/dev/null
+    sud rm -rf "$RUN_DIR"
+    sud systemctl start "$NORMAL_UNIT"                # the hub's normal Wi-Fi always comes back
+    { say ""; say "restore: left $SSID, $NORMAL_UNIT $(systemctl is-active "$NORMAL_UNIT")"; } 2>/dev/null
+}
+trap restore EXIT
+trap 'exit 130' INT TERM HUP
+
+# ---------------------------------------------------------------- join the lamp hotspot
+sud mkdir -p "$RUN_DIR"
+# build the config as this user, then install it - sud's stdin carries the sudo password,
+# so nothing may be piped into a sud command
+TMPCONF="$(mktemp)"
+{
+    echo "ctrl_interface=DIR=$RUN_DIR/ctrl"
+    echo "network={"
+    echo "  ssid=\"$SSID\""
+    echo "  scan_ssid=1"
+    if [ "$SEC" = open ] || [ -z "$PSK" ]; then echo "  key_mgmt=NONE"; else echo "  psk=\"$PSK\""; fi
+    echo "}"
+} > "$TMPCONF"
+sud install -m 600 "$TMPCONF" "$RUN_DIR/wpa.conf"; rm -f "$TMPCONF"
+
+sud systemctl stop "$NORMAL_UNIT"
+# the old supplicant must have fully let go of the interface, or the new one fails to bind
+for i in $(seq 1 20); do pgrep -f "wpa_supplicant.*-i ?$IFACE" >/dev/null || break; sleep 0.5; done
+pgrep -f "wpa_supplicant.*-i ?$IFACE" >/dev/null && die "another wpa_supplicant still owns $IFACE: $(pgrep -af "wpa_supplicant.*$IFACE")"
+sleep 1
+if ! out="$(sud wpa_supplicant -B -i "$IFACE" -c "$RUN_DIR/wpa.conf" -P "$RUN_DIR/wpa.pid" -D nl80211,wext 2>&1)"; then
+    die "wpa_supplicant failed to start on $IFACE: $(echo "$out" | tail -3)"
+fi
+
+say "joining $SSID ..."
+for i in $(seq 1 30); do
+    st="$(sud wpa_cli -p "$RUN_DIR/ctrl" -i "$IFACE" status 2>/dev/null | awk -F= '/^wpa_state=/{print $2}')"
+    [ "$st" = "COMPLETED" ] && break
+    sleep 1
+done
+[ "${st:-}" = "COMPLETED" ] || die "could not join $SSID (state ${st:-none}) - wrong password, or lamp not in hotspot mode?"
+
+# dhcpcd (already running for the hub) leases an address on the hotspot
+for i in $(seq 1 20); do
+    ip -4 addr show "$IFACE" | grep -q "inet 192.168.100." && break
+    sleep 1
+done
+ip -4 addr show "$IFACE" | grep -q "inet " || sud dhcpcd -n "$IFACE" >/dev/null 2>&1
+for i in $(seq 1 15); do ping -c1 -W1 -I "$IFACE" "$LAMP_IP" >/dev/null 2>&1 && break; sleep 1; done
+ping -c1 -W2 -I "$IFACE" "$LAMP_IP" >/dev/null 2>&1 || die "$LAMP_IP not answering on $SSID"
+say "joined : $SSID  $(ip -4 -br addr show "$IFACE" | awk '{print $3}') -> lamp $LAMP_IP"
+
+# ---------------------------------------------------------------- copy + run
+HOST="$(lssh "$LAMP_USER@$LAMP_IP" hostname 2>/dev/null)" || die "ssh $LAMP_USER@$LAMP_IP failed"
+say "lamp   : $HOST"
+
+# ---------------------------------------------------------------- HAL bundle deploy (tune / --deploy-hal)
+# lroot CMD: one root shell command on the lamp (no tty, so sudo is fed its password each time)
+lroot() { lssh "$LAMP_USER@$LAMP_IP" "echo '$LAMP_PASS' | sudo -S -p '' bash -c $(printf '%q' "$1")"; }
+
+deploy_hal() {
+    local id; id="$(cat "$BUNDLE/BUNDLE_ID")"
+    say "deploy : HAL bundle $id -> $HOST"
+    tar -C "$BUNDLE" -czf - hal $( [ -d "$BUNDLE/web" ] && echo web ) |
+        lssh "$LAMP_USER@$LAMP_IP" 'rm -rf ~/.hwtest-stage && mkdir -p ~/.hwtest-stage && tar -C ~/.hwtest-stage -mxzf -' \
+        || { say "deploy : copying the bundle failed"; return 1; }
+    lroot 'cmp -s ~orangepi/.hwtest-stage/hal/uv.lock /opt/hal/uv.lock || echo "deploy : NOTE uv.lock differs from the lamp - new python packages cannot be installed offline; rolled back if hal fails"'
+    lroot '
+        set -e
+        # tar, not rsync (not every image has it). Never touched: .venv .env calibration recordings
+        keep() { find "$1" -mindepth 1 -maxdepth 1 ! -name ".venv*" ! -name .env ! -name calibration ! -name recordings; }
+        T="--exclude=./.venv* --exclude=./.env --exclude=./calibration --exclude=./recordings --exclude=__pycache__"
+        rm -rf /opt/hal.prev && mkdir -p /opt/hal.prev                 # last good HAL, for rollback
+        tar -C /opt/hal $T -cf - . | tar -C /opt/hal.prev -mxf -
+        tar -C ~orangepi/.hwtest-stage/hal $T -cf - . | tar -C /opt/hal -mxf -
+        find /opt/hal -name __pycache__ -type d -prune -exec rm -rf {} +
+        echo "'"$id"'" > /opt/hal/.hwtest-bundle
+        W=/usr/share/nginx/html/setup
+        if [ -d ~orangepi/.hwtest-stage/web ] && [ -d $W ]; then
+            rm -rf $W.prev && cp -a $W $W.prev
+            find $W -mindepth 1 -delete && cp -a ~orangepi/.hwtest-stage/web/. $W/
+        fi
+        systemctl restart hal' || { say "deploy : install step failed"; return 1; }
+    say "deploy : hal restarted, waiting for it to answer (up to 150 s) ..."
+    if lroot 'for i in $(seq 1 75); do python3 -c "import urllib.request as u; u.urlopen(\"http://127.0.0.1:5001/device\", timeout=2)" 2>/dev/null && exit 0; sleep 2; done; exit 1'; then
+        say "deploy : hal up on $(lroot 'cat /opt/hal/VERSION_HAL') ($id)"
+        return 0
+    fi
+    say "deploy : hal did NOT come up - last log lines:"
+    lroot 'journalctl -u hal -n 25 --no-pager' | sed 's/^/         /'
+    say "deploy : rolling back to /opt/hal.prev"
+    lroot '
+        keep() { find "$1" -mindepth 1 -maxdepth 1 ! -name ".venv*" ! -name .env ! -name calibration ! -name recordings; }
+        keep /opt/hal | xargs -r rm -rf && tar -C /opt/hal.prev -cf - . | tar -C /opt/hal -mxf -
+        rm -f /opt/hal/.hwtest-bundle
+        W=/usr/share/nginx/html/setup
+        [ -d $W.prev ] && rm -rf $W && cp -a $W.prev $W
+        systemctl restart hal'
+    return 1
+}
+
+if [ "$DEPLOY" = 1 ] || { [ "$TUNE" = 1 ] && [ "$NO_DEPLOY" = 0 ] && [ -f "$BUNDLE/BUNDLE_ID" ]; }; then
+    have="$(lroot 'cat /opt/hal/.hwtest-bundle 2>/dev/null')"
+    if [ "$DEPLOY" = 1 ] || [ "$have" != "$(cat "$BUNDLE/BUNDLE_ID")" ]; then
+        deploy_hal; DRC=$?
+        [ "$DEPLOY" = 1 ] && exit $DRC
+        [ $DRC = 0 ] || say "deploy : failed - calibrating with the lamp's own HAL (direct I2C mode)"
+    else
+        say "deploy : lamp already runs bundle $have"
+    fi
+fi
+
+# tmux panes of the hub session "lamprun" (built by lamp-hub-tmux, shown on the LCD), by @role
+role_pane() { tmux list-panes -t lamprun -F '#{pane_id} #{@role}' 2>/dev/null | awk -v r="$1" '$2==r {print $1; exit}'; }
+
+# phantom_watch: start a hands-off watch ON THE LAMP, detached, and return at once, so the hub can
+# go on to the next lamp. It runs in a root tmux session "mpr121-watch" on the lamp (systemd-run
+# when the lamp has no tmux) and logs to ~/hwtest/mpr121/<lamp>-watch-<time>.log; hal keeps
+# running. Collect later with --watch-fetch. Sets WRES=started.
+phantom_watch() {
+    local log="/home/$LAMP_USER/hwtest/mpr121/$SSID-watch-$(date +%Y%m%d-%H%M%S).log"
+    local cmd="python3 /home/$LAMP_USER/mpr121_tune.py --name $SSID --watch $WATCH_S --poweroff-on-pass --out /home/$LAMP_USER/hwtest/mpr121 2>&1 | tee -a $log"
+    lroot "
+        mkdir -p /home/$LAMP_USER/hwtest/mpr121 && chown $LAMP_USER: /home/$LAMP_USER/hwtest/mpr121
+        rm -f /tmp/mpr121-watch.done /tmp/mpr121-watch.stop
+        if command -v tmux >/dev/null; then
+            tmux kill-session -t mpr121-watch 2>/dev/null
+            # plain shell first, then the command typed in: the session outlives the watch
+            tmux new-session -d -s mpr121-watch -x 120 -y 40
+            sleep 0.3
+            tmux send-keys -t mpr121-watch $(printf '%q' "SUDO_USER=$LAMP_USER $cmd") Enter
+            echo via tmux
+        else
+            systemctl stop mpr121-watch 2>/dev/null
+            systemd-run --quiet --collect --unit mpr121-watch --setenv=SUDO_USER=$LAMP_USER sh -c $(printf '%q' "$cmd")
+            echo via systemd-run
+        fi" | sed "s/^/watch  : started on $SSID for $((WATCH_S / 60)) min, /"
+    say "watch  : log on the lamp: $log   (on the lamp: sudo tmux attach -t mpr121-watch)"
+    say "watch  : PASS -> green 5 s then powers OFF (unplug it); FAIL -> stays on, red ring"
+    say "watch  : logs: lamp-remote-test $SSID --watch-fetch (a passed lamp: when powered again)"
+    WRES="started"
+}
+
+# watch_fetch: copy the newest watch log (+ result json when finished) from the joined lamp
+watch_fetch() {
+    OUT="$OUT_ROOT/$SSID"; OUTBOX="$OUT_ROOT/outbox"; mkdir -p "$OUT" "$OUTBOX"
+    local log json
+    log="$(lssh "$LAMP_USER@$LAMP_IP" 'ls -t ~/hwtest/mpr121/*-watch-*.log 2>/dev/null | head -1')"
+    [ -n "$log" ] || { say "watch  : no watch log on $SSID"; WRES="none"; return 1; }
+    json="$(lssh "$LAMP_USER@$LAMP_IP" "f=\$(ls -t ~/hwtest/mpr121/*-watch-*.json 2>/dev/null | head -1); [ -n \"\$f\" ] && [ \"\$f\" -nt $log ] && echo \$f")"
+    lscp "$LAMP_USER@$LAMP_IP:$log" "$OUT/" && cp "$OUT/$(basename "$log")" "$OUTBOX/"
+    if [ -n "$json" ]; then
+        lscp "$LAMP_USER@$LAMP_IP:$json" "$OUT/" && cp "$OUT/$(basename "$json")" "$OUTBOX/"
+        WRES="$(python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); print(d["result"], len(d["events"]), "phantom in", d["seconds"], "s")' "$OUT/$(basename "$json")")"
+    else
+        WRES="still running"
+    fi
+    say "watch  : $SSID -> $WRES"
+    grep -E "PHANTOM|watched|left ph" "$OUT/$(basename "$log")" | tail -6 | sed 's/^/         /'
+}
+
+if [ "$WATCH_ONLY" = 1 ]; then
+    lscp "$FILES_DIR/mpr121_tune.py" "$LAMP_USER@$LAMP_IP:" || die "copying mpr121_tune.py failed"
+    [ "$WATCH_S" -gt 0 ] || WATCH_S=1800
+    phantom_watch
+    [ -f "$TUNE_CSV" ] || echo "time,lamp,host,result,hal,touch_thresholds,report,watch,color" > "$TUNE_CSV"
+    last="$(awk -F, -v n="$SSID" '$2==n' "$TUNE_CSV" | tail -1)"
+    IFS=, read -r _t _l _h lres lhal lth lrep _w lcol <<<"$last"
+    echo "$(date '+%Y-%m-%d %H:%M'),$SSID,$HOST,${lres:-WATCH},${lhal:-},${lth:-},${lrep:-},started,${lcol:-$COLOR}" >> "$TUNE_CSV"
+    exit 0
+fi
+if [ "$WATCH_FETCH" = 1 ]; then
+    watch_fetch; exit $?
+fi
+
+if [ "$TUNE" = 1 ]; then
+    lscp "$FILES_DIR/mpr121_tune.py" "$LAMP_USER@$LAMP_IP:" || die "copying mpr121_tune.py failed"
+    say "running mpr121_tune.py on $HOST"
+    say "------------------------------------------------------------------"
+    lssh -tt "$LAMP_USER@$LAMP_IP" "echo '$LAMP_PASS' | sudo -S -p '' -v; sudo python3 ~/mpr121_tune.py --name $(printf '%q' "$SSID") --color $(printf '%q' "$COLOR")"
+    RC=$?
+    say "------------------------------------------------------------------"
+    OUT="$OUT_ROOT/$SSID"; OUTBOX="$OUT_ROOT/outbox"; mkdir -p "$OUT" "$OUTBOX"
+    REP="$(lssh "$LAMP_USER@$LAMP_IP" "ls -t ~/hwtest/mpr121/*-mpr121-*.md 2>/dev/null | head -1")"
+    RES="ABORTED"
+    if [ -n "$REP" ]; then
+        for ext in md json; do
+            lscp "$LAMP_USER@$LAMP_IP:${REP%.md}.$ext" "$OUT/" 2>/dev/null && cp "$OUT/$(basename "${REP%.md}.$ext")" "$OUTBOX/"
+        done
+        say "report : $OUT/$(basename "$REP")"
+        RES="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["result"])' "$OUT/$(basename "${REP%.md}.json")" 2>/dev/null || echo "?")"
+        TH="$(python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); print(" ".join(map(str, d.get("touch") or [])))' "$OUT/$(basename "${REP%.md}.json")" 2>/dev/null)"
+    fi
+    WRES="-"
+    if [ "$RES" = PASS ] && [ "$WATCH_S" -gt 0 ]; then
+        phantom_watch
+    fi
+    [ -f "$TUNE_CSV" ] || echo "time,lamp,host,result,hal,touch_thresholds,report,watch,color" > "$TUNE_CSV"
+    echo "$(date '+%Y-%m-%d %H:%M'),$SSID,$HOST,$RES,$(lroot 'cat /opt/hal/VERSION_HAL' 2>/dev/null),${TH:-},$(basename "${REP:-none}"),$WRES,$COLOR" >> "$TUNE_CSV"
+    say "result : $SSID ($HOST) -> MPR121 $RES   ($(awk -F, 'NR>1 && $4=="PASS" {print $2}' "$TUNE_CSV" | sort -u | wc -l) lamps calibrated so far)"
+    exit $RC
+fi
+
+if [ -n "$EXEC" ]; then                             # one-off command instead of the test
+    say "exec   : $EXEC"
+    say "------------------------------------------------------------------"
+    # as root (no tty here, so a cached sudo would not carry over between commands)
+    lssh "$LAMP_USER@$LAMP_IP" "echo '$LAMP_PASS' | sudo -S -p '' bash -c $(printf '%q' "$EXEC")"
+    RC=$?
+    say "------------------------------------------------------------------"
+    exit $RC
+fi
+( cd "$FILES_DIR" && lscp "${FILES[@]}" "$LAMP_USER@$LAMP_IP:" ) || die "copying test files failed"
+if [ -d "$FILES_DIR/lamp_voice" ]; then             # spoken step prompts (optional)
+    ( cd "$FILES_DIR" && lscp -r lamp_voice "$LAMP_USER@$LAMP_IP:" ) || say "WARN: could not copy lamp_voice/"
+fi
+lssh "$LAMP_USER@$LAMP_IP" "chmod +x lamp-test lamp_fulltest.py camera_capture_test.sh"
+
+POWEROFF_FLAG="/tmp/lamp-remote-test.poweroff"
+quoted=" --name $(printf '%q' "$SSID") --poweroff-flag $POWEROFF_FLAG"   # report = <ssid>-<datetime>.md
+for a in "${TEST_ARGS[@]}"; do quoted+=" $(printf '%q' "$a")"; done
+say "running lamp_fulltest.py${quoted} on $HOST"
+say "------------------------------------------------------------------"
+# one -tt session: cache sudo for this tty, then run (lamp_fulltest stops hal itself; it restarts on next boot)
+lssh -tt "$LAMP_USER@$LAMP_IP" "
+    echo '$LAMP_PASS' | sudo -S -p '' -v
+    sudo rm -f $POWEROFF_FLAG                 # may be root-owned (HAL lamps run the test as root)
+    ~/lamp-test${quoted}"
+RC=$?
+say "------------------------------------------------------------------"
+
+# ---------------------------------------------------------------- collect log + report
+# fleet/<ssid>/ keeps everything; fleet/outbox/ holds reports the Mac has not fetched yet
+OUT="$OUT_ROOT/$SSID"; OUTBOX="$OUT_ROOT/outbox"; mkdir -p "$OUT" "$OUTBOX"
+LOGF="$(lssh "$LAMP_USER@$LAMP_IP" 'ls -t ~/hwtest/fulltest/*.log 2>/dev/null | head -1')"
+if [ -n "$LOGF" ]; then
+    lscp "$LAMP_USER@$LAMP_IP:$LOGF" "$OUT/" && say "log    : $OUT/$(basename "$LOGF")"
+fi
+REP="$(lssh "$LAMP_USER@$LAMP_IP" "ls -t ~/hwtest/fulltest/$(printf '%q' "$SSID")-*.md 2>/dev/null | head -1")"
+# camera frame from this run -> saved as <report-name>.jpg next to the report
+IMG="$(lssh "$LAMP_USER@$LAMP_IP" 'readlink -f ~/hwtest/camera/latest.jpg 2>/dev/null')"
+if [ -n "$REP" ] && lscp "$LAMP_USER@$LAMP_IP:$REP" "$OUT/"; then
+    cp "$OUT/$(basename "$REP")" "$OUTBOX/"
+    say "report : $OUT/$(basename "$REP")"
+    if [ -n "$IMG" ] && lscp "$LAMP_USER@$LAMP_IP:$IMG" "$OUT/$(basename "$REP" .md).jpg" 2>/dev/null; then
+        cp "$OUT/$(basename "$REP" .md).jpg" "$OUTBOX/"
+        say "camera : $OUT/$(basename "$REP" .md).jpg"
+    fi
+    # this run's mic recordings (mic1 = C-Media, mic2 = Jieli) -> <report-name>_mic1.wav / _mic2.wav
+    for m in mic1 mic2; do
+        W="$(lssh "$LAMP_USER@$LAMP_IP" "ls -t ~/hwtest/fulltest/*_${m}.wav 2>/dev/null | head -1")"
+        [ -n "$W" ] || continue
+        if lscp "$LAMP_USER@$LAMP_IP:$W" "$OUT/$(basename "$REP" .md)_${m}.wav" 2>/dev/null; then
+            cp "$OUT/$(basename "$REP" .md)_${m}.wav" "$OUTBOX/"
+            say "$m   : $OUT/$(basename "$REP" .md)_${m}.wav"
+        fi
+    done
+else
+    say "report : none (test did not get far enough to write one)"
+fi
+say "result : $SSID ($HOST) -> $([ $RC = 0 ] && echo ALL PASS || echo "FAIL (exit $RC)")"
+
+# operator answered y to "Power off the lamp now?" - only now, after the report is safe.
+# The flag is root-owned when the test ran as root, so remove it and power off with sudo.
+PO="$(lssh "$LAMP_USER@$LAMP_IP" "test -e $POWEROFF_FLAG || exit 0
+    echo '$LAMP_PASS' | sudo -S -p '' sh -c 'rm -f $POWEROFF_FLAG && systemctl --no-block poweroff' && echo POWEROFF" 2>&1)"
+case "$PO" in
+    *POWEROFF*) say "power  : $SSID powering off" ;;
+    "")         ;;                                   # operator said no
+    *)          say "power  : poweroff FAILED on $SSID: $(echo "$PO" | tail -1)" ;;
+esac
+exit $RC

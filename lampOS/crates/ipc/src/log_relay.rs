@@ -54,9 +54,20 @@ pub fn install() -> io::Result<Arc<AtomicU64>> {
     let held = Arc::new(AtomicUsize::new(0));
     let holding = held.clone();
     let watched = rustix::io::fcntl_dupfd_cloexec(&read, 3)?;
-    std::thread::Builder::new()
+    // A signal is never the relay thread's. A part that blocks SIGTERM in
+    // `main` to read it from a signalfd blocks it only there and in threads
+    // made after; this one is made first, so the kernel gave it SIGTERM and
+    // its default ended the process: on lamp-52e6 on 2026-10-15 a standing
+    // body stopped 45 ms after "Stopping", without folding. Made with every
+    // signal blocked, it inherits that mask from its first instruction.
+    use nix::sys::signal::SigSet;
+    let before = SigSet::thread_get_mask().map_err(io::Error::from)?;
+    SigSet::all().thread_block().map_err(io::Error::from)?;
+    let spawned = std::thread::Builder::new()
         .name("lamp-log-relay".into())
-        .spawn(move || relay_holding(read, real, &counted, &holding))?;
+        .spawn(move || relay_holding(read, real, &counted, &holding));
+    before.thread_set_mask().map_err(io::Error::from)?;
+    spawned?;
     rustix::stdio::dup2_stderr(&write)?;
     let _ = RELAY.set((watched, held));
     // A panic's message is a process's last words: give the relay the

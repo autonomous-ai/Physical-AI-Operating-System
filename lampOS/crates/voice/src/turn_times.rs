@@ -105,6 +105,12 @@ impl Turn {
             .calls
             .iter()
             .find(|call| !SIGNALS.contains(&call.name.as_str()));
+        // Sound before the call: a lead-in, said before the function was
+        // asked for. The first audio is then not what came after our
+        // answer, and nothing in the records says when that came.
+        let lead_in = call
+            .zip(self.first_audio_us)
+            .is_some_and(|(call, audio)| audio < call.called_us);
         json!({
             "turn": self.turn,
             "kind": if self.with_function() { "function" } else { "plain" },
@@ -114,6 +120,7 @@ impl Turn {
             "call_ms": self.after(call.map(|call| call.called_us)),
             "answer_sent_ms": self.after(call.map(|call| call.sent_us)),
             "first_audio_ms": self.after(self.first_audio_us),
+            "lead_in": lead_in,
             "first_sound_ms": self.after(self.first_sound_us),
             "outcome": self.outcome,
         })
@@ -125,38 +132,41 @@ impl Turn {
 pub fn turns(events: &[(PathBuf, Value)], first: &[(PathBuf, Value)]) -> Vec<Turn> {
     let mut by_turn: BTreeMap<(PathBuf, u64), Turn> = BTreeMap::new();
     let number = |value: &Value, field: &str| value[field].as_u64();
+    // Two passes, so that the order the files are read in does not matter:
+    // the service writes its records into numbered files in turn, and a
+    // later file can be read before an earlier one (#810 review, 17:23).
+    // The turns from their ends of speech first, then what came of them,
+    // the earliest of each.
     for (folder, event) in events {
-        let Some(turn) = number(event, "turn") else {
+        if event["kind"] == "local_endpoint"
+            && let (Some(turn), Some(at)) = (number(event, "turn"), number(event, "at_us"))
+        {
+            let entry = by_turn
+                .entry((folder.clone(), turn))
+                .or_insert_with(|| Turn {
+                    run: folder.clone(),
+                    turn,
+                    endpoint_us: at,
+                    ..Turn::default()
+                });
+            entry.endpoint_us = entry.endpoint_us.min(at);
+        }
+    }
+    let earliest = |kept: &mut Option<u64>, at: u64| {
+        *kept = Some(kept.map_or(at, |kept| kept.min(at)));
+    };
+    for (folder, event) in events {
+        let (Some(turn), Some(at)) = (number(event, "turn"), number(event, "at_us")) else {
             continue;
         };
-        let at = number(event, "at_us");
-        let key = (folder.clone(), turn);
+        let Some(entry) = by_turn.get_mut(&(folder.clone(), turn)) else {
+            continue;
+        };
         match event["kind"].as_str() {
-            Some("local_endpoint") => {
-                if let Some(at) = at {
-                    let entry = by_turn.entry(key).or_insert_with(|| Turn {
-                        run: folder.clone(),
-                        turn,
-                        endpoint_us: at,
-                        ..Turn::default()
-                    });
-                    entry.endpoint_us = entry.endpoint_us.min(at);
-                }
-            }
-            Some("provider_first_audio") => {
-                if let (Some(entry), Some(at)) = (by_turn.get_mut(&key), at) {
-                    entry.first_audio_us.get_or_insert(at);
-                }
-            }
-            Some("speaker_first_write") => {
-                if let (Some(entry), Some(at)) = (by_turn.get_mut(&key), at) {
-                    entry.first_sound_us.get_or_insert(at);
-                }
-            }
+            Some("provider_first_audio") => earliest(&mut entry.first_audio_us, at),
+            Some("speaker_first_write") => earliest(&mut entry.first_sound_us, at),
             Some("turn_finished") => {
-                if let Some(entry) = by_turn.get_mut(&key) {
-                    entry.outcome = event["outcome"].as_str().map(str::to_owned);
-                }
+                entry.outcome = event["outcome"].as_str().map(str::to_owned);
             }
             _ => {}
         }
@@ -264,7 +274,19 @@ pub fn summary(turns: &[Turn]) -> Value {
             "n": count("function"),
             "call_ms": of("function", "call_ms"),
             "answer_sent_after_call_ms": between("call_ms", "answer_sent_ms"),
-            "first_audio_after_answer_ms": between("answer_sent_ms", "first_audio_ms"),
+            // Only for turns with no lead-in: with one, the first audio came
+            // before the call (#810 review, 17:23).
+            "first_audio_after_answer_ms": median(
+                rows.iter()
+                    .filter(|row| {
+                        row["kind"] == "function"
+                            && !row["first_sound_ms"].is_null()
+                            && row["lead_in"] != true
+                    })
+                    .filter_map(|row| Some(row["first_audio_ms"].as_f64()? - row["answer_sent_ms"].as_f64()?))
+                    .collect(),
+            ),
+            "with_lead_in": rows.iter().filter(|row| row["lead_in"] == true).count(),
             "first_audio_ms": of("function", "first_audio_ms"),
             "first_sound_ms": of("function", "first_sound_ms"),
         },
@@ -350,6 +372,60 @@ mod tests {
         // Numbers and names only: no words.
         let text = summary.to_string();
         assert!(!text.contains("said") && !text.contains("text"));
+    }
+
+    /// The reviewer on #810 (17:23): the service writes its records into
+    /// numbered files in turn, so a later file can be read first; read that
+    /// way, a turn lost its audio, its sound and how it ended. And a lead-in
+    /// said before the call was taken for the audio after our answer, at
+    /// -204 ms.
+    #[test]
+    fn the_order_records_are_read_in_does_not_matter_and_a_lead_in_is_not_the_answers_delay() {
+        let finished = |turn: u64, at: u64| {
+            (
+                PathBuf::from("/s/one/metadata"),
+                json!({"kind":"turn_finished","turn":turn,"at_us":at,"outcome":"completed"}),
+            )
+        };
+        // The later file first: what came of turn 4, then its end of speech.
+        let rotated = vec![
+            event("speaker_first_write", 4, 11_200_000),
+            event("provider_first_audio", 4, 11_000_000),
+            finished(4, 13_000_000),
+            event("local_endpoint", 4, 10_000_000),
+            // A lead-in at 0.9 s, the call at 1.1 s, our answer 4 ms after.
+            event("provider_first_audio", 5, 20_900_000),
+            event("speaker_first_write", 5, 21_250_000),
+            event("local_endpoint", 5, 20_000_000),
+        ];
+        let lines = vec![call(5, "confirm_agent_task", 21_100_000, 21_104_000)];
+        let turns = turns(&rotated, &lines);
+        let plain = turns[0].row();
+        assert_eq!(
+            (
+                plain["first_audio_ms"].clone(),
+                plain["first_sound_ms"].clone(),
+                plain["outcome"].clone()
+            ),
+            (json!(1_000.0), json!(1_200.0), json!("completed"))
+        );
+        let lead_in = turns[1].row();
+        assert_eq!(
+            (lead_in["kind"].clone(), lead_in["lead_in"].clone()),
+            (json!("function"), json!(true))
+        );
+        let summary = summary(&turns);
+        assert_eq!(summary["plain"]["n"], 1);
+        assert!(
+            summary["function"]["first_audio_after_answer_ms"].is_null(),
+            "{summary}"
+        );
+        assert_eq!(summary["function"]["with_lead_in"], 1);
+        assert_eq!(summary["function"]["first_sound_ms"], 1_250.0);
+        // Read in any order, the same.
+        let mut reversed = rotated.clone();
+        reversed.reverse();
+        assert_eq!(super::turns(&reversed, &lines), turns);
     }
 
     #[test]

@@ -189,6 +189,20 @@ room's ([memory.md](memory.md#each-persons-own-764)). A memory that does not ans
 is not answering right now, so I could not do that." An executive that
 lists a function of one of these names does not get it.
 
+With the Days memory and `LAMP_MEMORY_RULES=on` (#813, off unless set) a
+session is told of three more, for corrections and standing preferences
+about how the lamp behaves with the person, never tasks or things to
+remember ([memory.md](memory.md#what-a-person-teaches-and-corrects-813)):
+
+| Function | When the model calls it | What it is told |
+|---|---|---|
+| `keep_rule {rule, speaking_up?}` | The person corrects how it behaves or says how they want it to behave from now on. `speaking_up` is `never_first` or `not_first_in_mornings`, only for a rule about speaking first | `{"kept_rule":true,"note":"Follow it from now on, ..."}`; a rule over 200 bytes or with no words is refused |
+| `forget_rule {number?}` | The person takes a rule back ("you can tell me the weather again", "forget that rule"); no number for the last one | `{"forgotten":true}`, or `false` with "There was no such rule." |
+| `list_rules {}` | "What have I asked you not to do?" | `{"rules":[{"number":3,"rule":"...","when":"yesterday"}]}`, or an empty list |
+
+Without the switch none of these is declared and a call of one of these
+names is not the memory's.
+
 ## `the_time`, the voice's own
 
 With `LAMP_CLOCK=on` in the voice unit (the worker's `--clock`, after

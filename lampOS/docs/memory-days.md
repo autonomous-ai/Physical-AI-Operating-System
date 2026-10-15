@@ -171,6 +171,26 @@ and `conversation_end` and `session_close` in their scope. The source union
 keeps each ID with its person. With nobody known no request carries a
 `person` and nothing above changes.
 
+### Rules (#813)
+
+With `LAMP_MEMORY_RULES=on` as well (passed to the provider like
+`LAMP_MEMORY_DAYS`; ignored with the legacy memory), the Days client also
+keeps what a person teaches and corrects as rules
+([memory.md](memory.md#what-a-person-teaches-and-corrects-813)). They use
+existing requests only, in the scope `r-<hex>` beside the known person's
+`p-<hex>`, or `r-everyone` for the room: `remember` to keep one (the
+store's per-scope kept limit applies; a full list is told to the model as
+such), `kept` with `max_bytes` 600 to read them, `forget {id}` or
+`forget_last {kind:"kept"}` to take one back. No schema or store change.
+After the frozen note, a session's 300 ms also covers one `kept` for the
+room's rules and one for the known person's; rules that could not be read
+in what is left are not told, and the note is otherwise unchanged. A rule
+kept or forgotten re-reads both within the call's 1.5 s and publishes
+`lamp_msgs::Rules` on `memory/rules` for the policy. Rules are not journal
+sources, so keeping or forgetting one never inhibits journalling. Without
+the switch the client sends exactly what it did
+(`remember::tests::without_the_rules_switch_nothing_changes`).
+
 ### Played scenes for First
 
 After the host gate is complete, use First's

@@ -39,9 +39,13 @@ lamp say the hello. Without that the moment is recorded (`hello_due` in the
 session record, a line in the journal) and nothing is said.
 
 On lamp-4ace it was only recorded from 2026-10-13 to 15, and in 680 voice
-sessions it was never once due: nobody sat down squarely in front of the
-lamp after five minutes away (at that desk people face the computer beside
-it). It is on since 2026-10-15, 07:34. Its voice side was tried at 07:59
+sessions it was never once due. Fifteen hours of what the eyes published
+(a bus recording from 2026-10-14 18:23 to 10-15 08:46) say why: no face
+reached the 0.14 of the picture's height that counts as someone at the
+lamp (the largest were 0.11 to 0.14). At rest lamp-4ace's camera looks
+across the side of the desk, and the people at the computer were at the
+very edge of its view. Turning the lamp to face the seat is the fix. A
+false "face" that the eyes report all night in one spot is #763. It is on since 2026-10-15, 07:34. Its voice side was tried at 07:59
 the same day by writing a near face's size into the presence file by hand
 for eight seconds, 21 minutes after the last person was seen: the lamp
 said, unasked, "Oh, hey! Back again. It's good to have some company." The

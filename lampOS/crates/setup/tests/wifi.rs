@@ -456,6 +456,40 @@ fn never_answers(_: &str) -> io::Result<Vec<SocketAddr>> {
     Ok(vec![])
 }
 
+static SHARED_LOOKUPS: AtomicUsize = AtomicUsize::new(0);
+
+fn never_answers_shared(_: &str) -> io::Result<Vec<SocketAddr>> {
+    SHARED_LOOKUPS.fetch_add(1, Ordering::SeqCst);
+    thread::sleep(Duration::from_secs(30));
+    Ok(vec![])
+}
+
+#[test]
+fn a_lookup_left_by_one_setup_attempt_is_the_next_attempts_never_a_second() {
+    // #845: each attempt makes its own host and check; the slot is the
+    // service's, so a lookup that outlived a failed join is not doubled.
+    let slot = lamp_setup::wifi::LookupSlot::default();
+    for _ in 0..3 {
+        let mut attempt = lamp_setup::wifi::Reach::with_lookup_in(
+            "lamp-setup-shared.invalid:443",
+            Duration::from_millis(200),
+            never_answers_shared,
+            slot.clone(),
+        );
+        assert!(!attempt.check());
+    }
+    assert_eq!(SHARED_LOOKUPS.load(Ordering::SeqCst), 1);
+    // Nor for another name while that one is out.
+    let mut other = lamp_setup::wifi::Reach::with_lookup_in(
+        "lamp-setup-other.invalid:443",
+        Duration::from_millis(200),
+        never_answers_shared,
+        slot,
+    );
+    assert!(!other.check());
+    assert_eq!(SHARED_LOOKUPS.load(Ordering::SeqCst), 1);
+}
+
 #[test]
 fn a_name_that_is_not_found_in_time_is_waited_for_once_and_never_twice() {
     let mut reach = Reach::with_lookup(

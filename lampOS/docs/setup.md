@@ -207,14 +207,16 @@ with the join's timing against a fake lamp.
 accepts and stays silent, or answers in plain text, would pass. So, as V1, the
 handshake must complete, and the name's lookup, the connection and the
 handshake together take at most 3 s (V1's `cloudProbeTimeout`). The lookup
-runs on a thread of its own, since the system's has no time limit; one that
-has not come back is waited on by the next check, never started twice. As in
+runs on a thread of its own, since the system's has no time limit and cannot
+be stopped; one that has not come back is waited on by the next check, never
+started twice, and the whole service shares that one (`LookupSlot::process`),
+so a lookup that outlived a failed attempt is the next attempt's (#845). As in
 V1, the certificate is not checked: the probe sends nothing, and right after
 the join the lamp's clock can make every certificate look not yet valid. The
 handshake's own signature is still checked, as V1's Go does. Tests: a
 listener that never speaks TLS and one that answers in plain text are not the
-Internet, a real handshake on this machine is, and a lookup that never answers
-holds no check past its time.
+Internet, a real handshake on this machine is, a lookup that never answers
+holds no check past its time, and three attempts in a row start one lookup.
 
 ## The setup server (built, off unless set)
 

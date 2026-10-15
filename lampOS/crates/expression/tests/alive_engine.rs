@@ -3,10 +3,11 @@
 use lamp_expression::{Catalogue, Engine, Input, Output};
 use lamp_msgs::{
     BodyOffsets, ClockStamp, ControlGesture, ControlIntent, ControlSource, Face, Faces, Gesture,
-    JointState, Light, NameHeard, Room, RoomState, ScheduleDue, ScheduleNotice, SuddenSound, Voice,
-    VoiceEvent, VoiceProgress, VoiceTiming,
+    JointState, Light, NameHeard, PersonActivity, Room, RoomState, ScheduleDue, ScheduleNotice,
+    Speech, SuddenSound, Voice, VoiceEvent, VoiceProgress, VoiceTiming,
 };
 use std::f64::consts::PI;
+use std::time::Instant;
 
 const CLOCK: &str = "alive-test-boot";
 const TICK: u64 = 20_000;
@@ -34,6 +35,26 @@ fn drowsy() -> Catalogue {
     value
 }
 
+fn speech_gated() -> Catalogue {
+    let mut value = drowsy();
+    value
+        .alive
+        .as_mut()
+        .unwrap()
+        .sleep
+        .as_mut()
+        .unwrap()
+        .name_requires_speech = true;
+    value.check().unwrap();
+    value
+}
+
+fn sleeping_with(catalogue: Catalogue) -> Lamp {
+    let mut lamp = Lamp::new(catalogue).at_night();
+    assert!(lamp.sleep_within(2 * MINUTE));
+    lamp
+}
+
 /// The ring's resting breath at `now_us` (`crates/voice/src/ring_face.rs`).
 fn ring(now_us: u64) -> f64 {
     let seconds = (now_us % 3_600_000_000) as f64 / 1e6;
@@ -58,6 +79,8 @@ struct Lamp {
     sequence: u64,
     now: u64,
     state: Voice,
+    session: &'static str,
+    accepting_input: bool,
     turn: u64,
     started: u64,
     /// What the eyes report every 600 ms; `None` while they are silent.
@@ -79,6 +102,8 @@ impl Lamp {
             now,
             started: now,
             state: Voice::Resting,
+            session: "voice-one",
+            accepting_input: true,
             turn: 1,
             faces: Some(vec![]),
             minute: None,
@@ -118,14 +143,18 @@ impl Lamp {
     }
 
     fn say_voice(&mut self) {
+        self.say_voice_event(VoiceEvent::State);
+    }
+
+    fn say_voice_event(&mut self, event: VoiceEvent) {
         let timing = VoiceTiming {
             stamp: self.stamp(),
-            session_id: "voice-one".into(),
+            session_id: self.session.into(),
             turn: self.turn,
             request: self.turn * 10 + 1,
             state: self.state,
-            accepting_input: true,
-            event: VoiceEvent::State,
+            accepting_input: self.accepting_input,
+            event,
             first_audio_us: None,
         };
         self.send(Input::Progress(VoiceProgress {
@@ -209,6 +238,53 @@ impl Lamp {
                 ago_ms: 400,
             },
         });
+    }
+
+    fn name_input(&mut self, published_us: u64, ago_ms: u32) -> Input {
+        let mut stamp = self.stamp();
+        stamp.at_us = published_us;
+        Input::Name {
+            stamp,
+            value: NameHeard {
+                score: 0.97,
+                ago_ms,
+            },
+        }
+    }
+
+    fn name_at(&mut self, published_us: u64, ago_ms: u32) {
+        let input = self.name_input(published_us, ago_ms);
+        self.send(input);
+    }
+
+    fn activity_at(&mut self, observed_us: u64, speaking: bool) -> PersonActivity {
+        let mut stamp = self.stamp();
+        stamp.at_us = observed_us;
+        PersonActivity {
+            stamp,
+            session_id: self.session.into(),
+            turn: self.turn,
+            request: self.turn * 10 + 1,
+            speaking,
+        }
+    }
+
+    fn speech_at(&mut self, observed_us: u64) {
+        let activity = self.activity_at(observed_us, true);
+        self.send(Input::Activity(activity));
+    }
+
+    /// Advance source/arrival time exactly, retaining ordinary owner and joint
+    /// heartbeats. No host sleep or freshness override is involved.
+    fn stay_asleep_until(&mut self, until_us: u64) {
+        assert!(until_us >= self.now);
+        while self.now < until_us {
+            self.now = (self.now + 100_000).min(until_us);
+            self.say_parts();
+            let output = self.engine.tick(self.now);
+            assert!(named(&output, "asleep"), "{:?}", output.state);
+            assert!(!named(&output, "waking"));
+        }
     }
 
     fn touch(&mut self, source: ControlSource, gesture: Gesture, enabled: bool) {
@@ -778,4 +854,550 @@ fn the_catalogue_refuses_a_layer_that_could_twitch_or_reach_too_far() {
         let wake = v.alive.as_mut().unwrap().wake.as_mut().unwrap();
         wake.keyframes[2].offsets.elbow = 0.01;
     }));
+}
+
+#[test]
+fn the_name_speech_switch_defaults_off_in_old_json_and_preserves_outputs() {
+    let mut json = serde_json::to_value(drowsy()).unwrap();
+    json["alive"]["sleep"]
+        .as_object_mut()
+        .unwrap()
+        .remove("name_requires_speech");
+    let absent = Catalogue::from_json(&json.to_string()).unwrap();
+    assert!(
+        !absent
+            .alive
+            .as_ref()
+            .unwrap()
+            .sleep
+            .unwrap()
+            .name_requires_speech
+    );
+    json["alive"]["sleep"]["name_requires_speech"] = false.into();
+    let disabled = Catalogue::from_json(&json.to_string()).unwrap();
+    assert_eq!(absent, disabled);
+    json["alive"]["sleep"]["name_requires_speech"] = true.into();
+    let enabled = Catalogue::from_json(&json.to_string()).unwrap();
+    assert!(
+        enabled
+            .alive
+            .as_ref()
+            .unwrap()
+            .sleep
+            .unwrap()
+            .name_requires_speech
+    );
+
+    let mut implicit = sleeping_with(absent);
+    let mut explicit = sleeping_with(disabled);
+    implicit.name();
+    explicit.name();
+    implicit.voice(Voice::Listening);
+    explicit.voice(Voice::Listening);
+    for _ in 0..150 {
+        assert_eq!(
+            serde_json::to_value(implicit.step()).unwrap(),
+            serde_json::to_value(explicit.step()).unwrap()
+        );
+    }
+    assert!(implicit.engine.take_sleep_name_notices().is_empty());
+    assert!(explicit.engine.take_sleep_name_notices().is_empty());
+}
+
+#[test]
+fn a_gated_name_without_person_speech_stays_asleep_and_reports_once() {
+    let mut lamp = sleeping_with(speech_gated());
+    lamp.voice(Voice::Listening);
+    let onset = lamp.now;
+    lamp.name_at(onset, 0);
+    let paused = lamp.activity_at(lamp.now, false);
+    lamp.send(Input::Activity(paused));
+    let text = Speech {
+        text: "Lamp, are you there?".into(),
+        finished: true,
+        locale: Some("en_GB".into()),
+        request: Some(lamp.turn * 10 + 1),
+    };
+    let stamp = lamp.stamp();
+    lamp.send(Input::Heard {
+        stamp,
+        value: text.clone(),
+    });
+    let stamp = lamp.stamp();
+    lamp.send(Input::Said { stamp, value: text });
+    lamp.sudden();
+    lamp.stay_asleep_until(onset + 2 * SECOND + 300_000 - 1);
+    assert!(lamp.engine.take_sleep_name_notices().is_empty());
+    lamp.stay_asleep_until(onset + 2 * SECOND + 300_000);
+    let notices = lamp.engine.take_sleep_name_notices();
+    assert_eq!(notices.len(), 1, "{notices:?}");
+    assert!(notices[0].contains("no validated person speech"));
+    assert!(lamp.engine.take_sleep_name_notices().is_empty());
+    lamp.stay_asleep_until(lamp.now + SECOND);
+    assert!(lamp.engine.take_sleep_name_notices().is_empty());
+}
+
+#[test]
+fn a_pending_name_survives_ordinary_resting_until_the_next_listening_turn() {
+    let mut lamp = sleeping_with(speech_gated());
+    // Resting is normally not retaining input. Its heartbeats must not erase
+    // a name that is waiting for the next real input owner.
+    lamp.accepting_input = false;
+    lamp.say_voice();
+    lamp.name_at(lamp.now, 0);
+    lamp.stay_asleep_until(lamp.now + SECOND);
+    assert!(lamp.engine.take_sleep_name_notices().is_empty());
+    lamp.accepting_input = true;
+    lamp.voice(Voice::Listening);
+    lamp.speech_at(lamp.now);
+    assert!(named(&lamp.step(), "waking"));
+    assert!(lamp.engine.take_sleep_name_notices().is_empty());
+}
+
+#[test]
+fn a_repeated_finished_rest_heartbeat_does_not_erase_a_new_name() {
+    let mut lamp = sleeping_with(speech_gated());
+    lamp.accepting_input = false;
+    lamp.say_voice_event(VoiceEvent::Finished);
+    lamp.name_at(lamp.now, 0);
+    lamp.now += TICK;
+    lamp.say_voice_event(VoiceEvent::Finished);
+    assert!(lamp.engine.take_sleep_name_notices().is_empty());
+    lamp.accepting_input = true;
+    lamp.voice(Voice::Listening);
+    lamp.speech_at(lamp.now);
+    assert!(named(&lamp.step(), "waking"));
+    assert!(lamp.engine.take_sleep_name_notices().is_empty());
+}
+
+#[test]
+fn a_corroborated_name_keeps_the_same_stretch_and_has_no_leap() {
+    let mut lamp = sleeping_with(speech_gated());
+    lamp.voice(Voice::Listening);
+    lamp.speech_at(lamp.now);
+    lamp.stay_asleep_until(lamp.now + 400_000);
+    lamp.name_at(lamp.now, 400);
+    let accepted = lamp.now;
+    let mut waking = 0;
+    let mut highest = 0.0_f64;
+    let mut largest = 0.0_f64;
+    let mut last: Option<BodyOffsets> = None;
+    lamp.run(4 * SECOND, |output, now| {
+        if now == accepted + TICK {
+            assert!(named(output, "waking"));
+        }
+        waking += usize::from(named(output, "waking"));
+        let offsets = asked(output);
+        highest = highest.min(offsets.head_pitch);
+        if let Some(before) = last {
+            for (now, before) in offsets.values().iter().zip(before.values()) {
+                largest = largest.max((now - before).abs());
+            }
+        }
+        last = Some(offsets);
+    });
+    assert_eq!(waking, 136, "2.7 s at 20 ms, including the first frame");
+    assert!(highest < -0.05, "{highest}");
+    assert!(largest < 0.01, "{largest}");
+    let output = lamp.step();
+    assert!(!named(&output, "asleep") && !named(&output, "waking"));
+    assert_eq!(asked(&output), catalogue().postures.listening);
+    assert!(lamp.engine.take_sleep_name_notices().is_empty());
+}
+
+#[test]
+fn source_speech_matches_both_inclusive_two_second_boundaries_only() {
+    for offset in [-2_000_001_i64, -2_000_000, -1, 0, 1, 2_000_000, 2_000_001] {
+        let mut lamp = sleeping_with(speech_gated());
+        lamp.voice(Voice::Listening);
+        let start = lamp.now;
+        if offset < 0 {
+            lamp.speech_at(start);
+            lamp.stay_asleep_until(start + offset.unsigned_abs());
+            lamp.name_at(lamp.now, 0);
+        } else {
+            lamp.name_at(start, 0);
+            lamp.stay_asleep_until(start + offset as u64);
+            lamp.speech_at(lamp.now);
+        }
+        let output = lamp.step();
+        let matches = offset.unsigned_abs() <= 2 * SECOND;
+        assert_eq!(named(&output, "waking"), matches, "offset={offset}");
+        assert_eq!(named(&output, "asleep"), !matches, "offset={offset}");
+        assert!(lamp.engine.take_sleep_name_notices().is_empty());
+        if !matches {
+            lamp.stay_asleep_until(lamp.now + 2 * SECOND + 300_000);
+            let notices = lamp.engine.take_sleep_name_notices();
+            assert_eq!(notices.len(), 1, "offset={offset}: {notices:?}");
+            assert!(notices[0].contains("no validated person speech"));
+        }
+    }
+}
+
+#[test]
+fn a_boundary_sample_delivered_before_its_age_limit_wakes_without_an_expiry_notice() {
+    let mut lamp = sleeping_with(speech_gated());
+    lamp.voice(Voice::Listening);
+    let onset = lamp.now;
+    lamp.name_at(onset, 0);
+    lamp.stay_asleep_until(onset + 2 * SECOND + 300_000 - 1);
+    lamp.speech_at(onset + 2 * SECOND);
+    // This tick passes the pending deadline. The already matched name must
+    // neither be lost nor be reported as a name without speech.
+    assert!(named(&lamp.step(), "waking"));
+    assert!(lamp.engine.take_sleep_name_notices().is_empty());
+}
+
+#[test]
+fn the_delivery_grace_does_not_admit_a_sample_at_the_stale_boundary() {
+    let mut lamp = sleeping_with(speech_gated());
+    lamp.voice(Voice::Listening);
+    let onset = lamp.now;
+    lamp.name_at(onset, 0);
+    lamp.stay_asleep_until(onset + 2 * SECOND + 300_000);
+    let activity = lamp.activity_at(onset + 2 * SECOND, true);
+    assert!(
+        lamp.engine
+            .ingest(lamp.now, Input::Activity(activity))
+            .is_err()
+    );
+    assert!(named(&lamp.step(), "asleep"));
+    let notices = lamp.engine.take_sleep_name_notices();
+    assert_eq!(notices.len(), 1, "{notices:?}");
+    assert!(lamp.engine.take_sleep_name_notices().is_empty());
+}
+
+#[test]
+fn delayed_name_delivery_can_match_an_earlier_true_before_a_later_unrelated_true() {
+    let mut value = speech_gated();
+    value.timing.context_stale_us = 10 * SECOND;
+    let mut lamp = sleeping_with(value);
+    lamp.voice(Voice::Listening);
+    let first_speech = lamp.now;
+    lamp.speech_at(first_speech);
+    // Name onset is first_speech + 1 s. The newest observation is one
+    // millisecond beyond that name's upper bound, so latest-only memory fails.
+    lamp.stay_asleep_until(first_speech + 3 * SECOND + 1_000);
+    lamp.speech_at(lamp.now);
+    lamp.name_at(lamp.now, 2_001);
+    assert!(named(&lamp.step(), "waking"));
+    assert!(lamp.engine.take_sleep_name_notices().is_empty());
+}
+
+#[test]
+fn the_name_onset_not_its_publication_or_receipt_selects_the_speech_window() {
+    let mut lamp = sleeping_with(speech_gated());
+    lamp.voice(Voice::Listening);
+    lamp.speech_at(lamp.now);
+    // Receipt and publication coincide with speech, but onset is outside
+    // the allowed source interval. Restamping it would spuriously wake.
+    lamp.name_at(lamp.now, 2_001);
+    lamp.stay_asleep_until(lamp.now + 300_000);
+    let notices = lamp.engine.take_sleep_name_notices();
+    assert_eq!(notices.len(), 1, "{notices:?}");
+    assert!(notices[0].contains("no validated person speech"));
+}
+
+#[test]
+fn an_impossible_or_stale_name_onset_is_ignored_once_without_rejecting_the_message() {
+    for ago_ms in [u32::MAX, 5_000] {
+        let mut lamp = sleeping_with(speech_gated());
+        // The message publication is fresh; only its stated onset is invalid.
+        let input = lamp.name_input(lamp.now, ago_ms);
+        assert!(lamp.engine.ingest(lamp.now, input).is_ok());
+        assert!(named(&lamp.step(), "asleep"));
+        let notices = lamp.engine.take_sleep_name_notices();
+        assert_eq!(notices.len(), 1, "ago_ms={ago_ms}: {notices:?}");
+        assert!(notices[0].contains("invalid or stale name onset"));
+        assert!(lamp.engine.take_sleep_name_notices().is_empty());
+    }
+}
+
+#[test]
+fn a_pause_does_not_erase_recent_accepted_person_speech() {
+    let mut lamp = sleeping_with(speech_gated());
+    lamp.voice(Voice::Listening);
+    lamp.speech_at(lamp.now);
+    lamp.stay_asleep_until(lamp.now + 100_000);
+    let paused = lamp.activity_at(lamp.now, false);
+    lamp.send(Input::Activity(paused));
+    lamp.stay_asleep_until(lamp.now + 700_000);
+    lamp.name_at(lamp.now, 0);
+    assert!(named(&lamp.step(), "waking"));
+    assert!(lamp.engine.take_sleep_name_notices().is_empty());
+}
+
+#[test]
+fn rejected_activity_cannot_corroborate_a_sleeping_name() {
+    for refusal in [
+        "session",
+        "turn",
+        "request",
+        "boot",
+        "future",
+        "stale",
+        "before phase",
+        "duplicate",
+    ] {
+        let mut lamp = sleeping_with(speech_gated());
+        lamp.voice(Voice::Listening);
+        let onset = lamp.now;
+        lamp.name_at(onset, 0);
+        let paused = lamp.activity_at(lamp.now, false);
+        lamp.send(Input::Activity(paused.clone()));
+        let mut activity = lamp.activity_at(lamp.now, true);
+        match refusal {
+            "session" => activity.session_id = "other-voice".into(),
+            "turn" => activity.turn += 1,
+            "request" => activity.request += 1,
+            "boot" => activity.stamp.clock_id = "other-boot".into(),
+            "future" => activity.stamp.at_us += 1,
+            "stale" => activity.stamp.at_us -= 300_000,
+            "before phase" => activity.stamp.at_us -= 1,
+            "duplicate" => activity.stamp = paused.stamp,
+            _ => unreachable!(),
+        }
+        assert!(
+            lamp.engine
+                .ingest(lamp.now, Input::Activity(activity))
+                .is_err(),
+            "{refusal}"
+        );
+        lamp.stay_asleep_until(onset + 2 * SECOND + 300_000);
+        let notices = lamp.engine.take_sleep_name_notices();
+        assert_eq!(notices.len(), 1, "{refusal}: {notices:?}");
+        assert!(notices[0].contains("no validated person speech"));
+    }
+}
+
+#[test]
+fn owner_and_input_fences_remove_pending_names_and_unexecuted_name_wakes() {
+    for fence in ["session", "cancelled", "interrupted", "finished", "input"] {
+        for already_matched in [false, true] {
+            let mut lamp = sleeping_with(speech_gated());
+            lamp.voice(Voice::Listening);
+            lamp.name_at(lamp.now, 0);
+            if already_matched {
+                lamp.speech_at(lamp.now);
+            }
+            // Fence before the first planner tick can execute the name wake.
+            lamp.now += TICK;
+            match fence {
+                "session" => {
+                    lamp.session = "voice-two";
+                    lamp.say_voice();
+                }
+                "cancelled" => lamp.say_voice_event(VoiceEvent::Cancelled),
+                "interrupted" => lamp.say_voice_event(VoiceEvent::Interrupted),
+                "finished" => lamp.say_voice_event(VoiceEvent::Finished),
+                "input" => {
+                    lamp.accepting_input = false;
+                    lamp.say_voice();
+                }
+                _ => unreachable!(),
+            }
+            let notices = lamp.engine.take_sleep_name_notices();
+            if !already_matched {
+                assert_eq!(notices.len(), 1, "{fence}: {notices:?}");
+                assert!(notices[0].contains("was lost"));
+            }
+            assert!(lamp.engine.take_sleep_name_notices().is_empty());
+            lamp.accepting_input = true;
+            lamp.voice(Voice::Listening);
+            lamp.say_parts();
+            // This new valid speech cannot resurrect the fenced name.
+            lamp.speech_at(lamp.now);
+            let output = lamp.step();
+            assert!(
+                named(&output, "asleep"),
+                "{fence}, matched={already_matched}"
+            );
+            assert!(!named(&output, "waking"));
+        }
+    }
+}
+
+#[test]
+fn resumed_input_does_not_reuse_speech_acquired_before_readiness_was_lost() {
+    let mut lamp = sleeping_with(speech_gated());
+    lamp.voice(Voice::Listening);
+    let before_loss = lamp.now;
+    lamp.speech_at(before_loss);
+    lamp.now = before_loss + 50_000;
+    lamp.accepting_input = false;
+    lamp.say_voice();
+    lamp.now = before_loss + 60_000;
+    lamp.name_at(lamp.now, 0);
+    lamp.now = before_loss + 70_000;
+    lamp.accepting_input = true;
+    lamp.say_voice();
+    lamp.now = before_loss + 80_000;
+    // The ordinary Activity contract permits this same-turn, fresh packet.
+    // The sleep-name rule must still honor the later readiness boundary.
+    let delayed = lamp.activity_at(before_loss, true);
+    assert!(
+        lamp.engine
+            .ingest(lamp.now, Input::Activity(delayed))
+            .is_ok()
+    );
+    assert!(named(&lamp.engine.tick(lamp.now), "asleep"));
+    assert!(lamp.engine.take_sleep_name_notices().is_empty());
+    lamp.speech_at(lamp.now);
+    assert!(named(&lamp.step(), "waking"));
+    assert!(lamp.engine.take_sleep_name_notices().is_empty());
+}
+
+#[test]
+fn lost_voice_freshness_reports_once_even_when_the_tick_cannot_plan() {
+    let mut lamp = sleeping_with(speech_gated());
+    lamp.voice(Voice::Listening);
+    lamp.name_at(lamp.now, 0);
+    lamp.now += 500_000;
+    let output = lamp.engine.tick(lamp.now);
+    assert!(output.body.is_none());
+    assert!(
+        output
+            .state
+            .missing
+            .iter()
+            .any(|why| why == "fresh voice timing")
+    );
+    let notices = lamp.engine.take_sleep_name_notices();
+    assert_eq!(notices.len(), 1, "{notices:?}");
+    assert!(notices[0].contains("freshness was lost"));
+    lamp.now += 3 * SECOND;
+    assert!(lamp.engine.tick(lamp.now).body.is_none());
+    assert!(lamp.engine.take_sleep_name_notices().is_empty());
+    lamp.voice(Voice::Listening);
+    lamp.say_parts();
+    lamp.speech_at(lamp.now);
+    assert!(named(&lamp.step(), "asleep"));
+}
+
+#[test]
+fn a_clock_fault_clears_a_pending_name_and_keeps_the_notice_drainable() {
+    let mut lamp = sleeping_with(speech_gated());
+    lamp.name_at(lamp.now, 0);
+    let output = lamp.engine.tick(lamp.now - 1);
+    assert!(output.body.is_none());
+    assert!(
+        output
+            .state
+            .warnings
+            .iter()
+            .any(|why| why.contains("clock moved backwards"))
+    );
+    let notices = lamp.engine.take_sleep_name_notices();
+    assert_eq!(notices.len(), 1, "{notices:?}");
+    assert!(notices[0].contains("was lost"));
+    assert!(lamp.engine.tick(lamp.now + 3 * SECOND).body.is_none());
+    assert!(lamp.engine.take_sleep_name_notices().is_empty());
+}
+
+#[test]
+fn a_name_flood_is_bounded_and_cannot_extend_the_original_deadlines() {
+    let mut lamp = sleeping_with(speech_gated());
+    lamp.voice(Voice::Listening);
+    let onset = lamp.now;
+    for _ in 0..16 {
+        lamp.name_at(onset, 0);
+    }
+    lamp.stay_asleep_until(onset + 2 * SECOND + 200_000);
+    for _ in 0..1_000 {
+        lamp.name_at(lamp.now, 0);
+    }
+    let notices = lamp.engine.take_sleep_name_notices();
+    assert_eq!(notices.len(), 1, "{notices:?}");
+    assert!(notices[0].contains("(1000)") && notices[0].contains("pending name limit"));
+    assert!(lamp.engine.take_sleep_name_notices().is_empty());
+    lamp.stay_asleep_until(onset + 2 * SECOND + 300_000);
+    let expired = lamp.engine.take_sleep_name_notices();
+    assert_eq!(expired.len(), 1, "{expired:?}");
+    assert!(expired[0].contains("(16)") && expired[0].contains("no validated person speech"));
+    // This speech would match the overflow names if any had been retained.
+    lamp.speech_at(lamp.now);
+    assert!(named(&lamp.step(), "asleep"));
+    lamp.stay_asleep_until(lamp.now + 3 * SECOND);
+    assert!(lamp.engine.take_sleep_name_notices().is_empty());
+}
+
+#[test]
+fn speech_history_keeps_128_observations_and_discards_the_oldest_fail_closed() {
+    for later_observations in [127, 128] {
+        let mut lamp = sleeping_with(speech_gated());
+        lamp.voice(Voice::Listening);
+        let original = lamp.now;
+        lamp.speech_at(original);
+        lamp.stay_asleep_until(original + 3 * SECOND);
+        let publication = lamp.now;
+        for _ in 0..later_observations {
+            lamp.now += 1;
+            lamp.speech_at(lamp.now);
+        }
+        // Only the oldest timestamp lies in this name's source window.
+        lamp.name_at(publication, 3_000);
+        let output = lamp.step();
+        assert_eq!(named(&output, "waking"), later_observations == 127);
+        assert_eq!(named(&output, "asleep"), later_observations == 128);
+        let notices = lamp.engine.take_sleep_name_notices();
+        assert_eq!(notices.len(), usize::from(later_observations == 128));
+    }
+}
+
+#[test]
+fn fencing_a_name_does_not_cancel_a_touch_or_reminder_wake() {
+    for reminder in [false, true] {
+        let mut lamp = sleeping_with(speech_gated());
+        lamp.voice(Voice::Listening);
+        lamp.name_at(lamp.now, 0);
+        if reminder {
+            lamp.due(9);
+        } else {
+            lamp.touch(ControlSource::Base, Gesture::Tap, true);
+        }
+        lamp.accepting_input = false;
+        lamp.say_voice();
+        assert!(named(&lamp.step(), "waking"), "reminder={reminder}");
+        let notices = lamp.engine.take_sleep_name_notices();
+        assert_eq!(notices.len(), 1, "{notices:?}");
+        assert!(lamp.engine.take_sleep_name_notices().is_empty());
+    }
+}
+
+#[test]
+fn successful_first_and_repeated_name_wakes_need_only_the_next_planner_tick() {
+    for speech_first in [true, false] {
+        let mut lamp = sleeping_with(speech_gated());
+        for repetition in 0..2 {
+            if repetition != 0 {
+                lamp.last(3 * SECOND);
+                lamp.voice(Voice::Resting);
+                assert!(lamp.sleep_within(2 * MINUTE));
+            }
+            lamp.voice(Voice::Listening);
+            let second = if speech_first {
+                lamp.speech_at(lamp.now);
+                lamp.name_input(lamp.now, 0)
+            } else {
+                lamp.name_at(lamp.now, 0);
+                Input::Activity(lamp.activity_at(lamp.now, true))
+            };
+            let received_us = lamp.now;
+            let began = Instant::now();
+            lamp.send(second);
+            let output = lamp.step();
+            let wall = began.elapsed();
+            eprintln!(
+                "sleep-name development-host planner calls: speech_first={speech_first} \
+                 repetition={repetition} second_input_ingest_to_first_waking_tick_ns={} \
+                 injected_tick_us={}; excludes detectors, bus, service and hardware; \
+                 injected time is not host delay",
+                wall.as_nanos(),
+                lamp.now - received_us
+            );
+            assert!(named(&output, "waking"));
+            assert!(lamp.now - received_us <= TICK);
+            assert!(lamp.engine.take_sleep_name_notices().is_empty());
+        }
+    }
 }

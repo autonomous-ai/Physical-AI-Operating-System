@@ -449,6 +449,11 @@ impl Service {
         if let Some(body) = &output.body {
             account(&mut self.counts, self.body.publish_json(at_us, body));
         }
+        // Publish the current actuator requests before journal I/O. A slow
+        // journal must not hold an already-stamped command behind a notice.
+        for notice in self.engine.take_sleep_name_notices() {
+            eprintln!("lamp-expression: {notice}");
+        }
         if self
             .last_state
             .is_none_or(|last| at_us.saturating_sub(last) >= 200_000)

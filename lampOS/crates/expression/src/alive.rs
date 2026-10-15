@@ -13,6 +13,7 @@ use crate::Error;
 use crate::catalogue::{Keyframe, add, blend, ease};
 use lamp_msgs::{BodyOffsets, ControlGesture, Faces, Gesture, ScheduleDue, Voice};
 use serde::{Deserialize, Serialize};
+use std::collections::VecDeque;
 use std::f64::consts::PI;
 
 /// The ring's own resting breath (`crates/voice/src/ring_face.rs`): its
@@ -33,6 +34,14 @@ const IDLE_ACCELERATION: f64 = 0.12;
 /// A stretch is a deliberate move and may be quicker, never a snap.
 const WAKE_SPEED: f64 = 0.35;
 const WAKE_ACCELERATION: f64 = 2.0;
+/// Source observations, on either side of the beginning of the name.
+const NAME_SPEECH_US: u64 = 2_000_000;
+const MAX_PENDING_NAMES: usize = 16;
+const MAX_SPEECH_OBSERVATIONS: usize = 128;
+
+fn is_false(value: &bool) -> bool {
+    !value
+}
 
 /// More energy, the same move larger; less, smaller (creature.md: "mood
 /// changes the style of the same move, never adds randomness").
@@ -89,6 +98,10 @@ pub struct WorkLight {
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Sleep {
+    /// A sleeping name needs the voice owner's person-speech evidence.
+    /// Omission preserves the original immediate name wake.
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub name_requires_speech: bool,
     /// The local minutes of the day from which and until which it may fall
     /// asleep; `[1380, 360]` is 23:00 to 06:00, past midnight.
     pub night: [u16; 2],
@@ -406,6 +419,117 @@ enum Phase {
     },
 }
 
+/// A small history of already validated source observations. No transcript,
+/// audio, wall-clock wait or worker belongs to this layer. Counters coalesce
+/// notices between service ticks rather than allowing an unbounded log queue.
+struct NameWake {
+    speech: VecDeque<u64>,
+    pending: VecDeque<(u64, u64)>,
+    notices: [u64; 4],
+    name_age_us: u64,
+    delivery_us: u64,
+    speech_since: u64,
+}
+
+impl NameWake {
+    fn new(name_age_us: u64, delivery_us: u64) -> Self {
+        Self {
+            speech: VecDeque::new(),
+            pending: VecDeque::new(),
+            notices: [0; 4],
+            name_age_us,
+            delivery_us,
+            speech_since: 0,
+        }
+    }
+
+    fn notice(&mut self, kind: usize, count: u64) {
+        self.notices[kind] = self.notices[kind].saturating_add(count);
+    }
+
+    fn advance(&mut self, now_us: u64) {
+        self.speech.retain(|at| {
+            now_us.saturating_sub(*at) <= self.name_age_us.saturating_add(NAME_SPEECH_US)
+        });
+        let before = self.pending.len();
+        self.pending.retain(|(_, until)| now_us < *until);
+        self.notice(0, (before - self.pending.len()) as u64);
+    }
+
+    fn name(&mut self, now_us: u64, stamp_us: u64, ago_ms: u32) -> bool {
+        let Some(at) = stamp_us.checked_sub(u64::from(ago_ms) * 1_000) else {
+            self.notice(1, 1);
+            return false;
+        };
+        if at > now_us || now_us - at >= self.name_age_us {
+            self.notice(1, 1);
+            return false;
+        }
+        if self
+            .speech
+            .iter()
+            .any(|speech| speech.abs_diff(at) <= NAME_SPEECH_US)
+        {
+            self.pending.clear();
+            return true;
+        }
+        // An accepted activity can arrive just under its existing age limit
+        // after the source window closes. This grace never widens that window.
+        let until = at
+            .saturating_add(NAME_SPEECH_US)
+            .saturating_add(self.delivery_us);
+        if now_us >= until {
+            self.notice(0, 1);
+        } else if self.pending.len() == MAX_PENDING_NAMES {
+            self.notice(3, 1);
+        } else {
+            self.pending.push_back((at, until));
+        }
+        false
+    }
+
+    fn speech(&mut self, stamp_us: u64) -> bool {
+        if stamp_us < self.speech_since {
+            return false;
+        }
+        if self.speech.len() == MAX_SPEECH_OBSERVATIONS {
+            self.speech.pop_front();
+        }
+        self.speech.push_back(stamp_us);
+        let matched = self
+            .pending
+            .iter()
+            .any(|(at, _)| stamp_us.abs_diff(*at) <= NAME_SPEECH_US);
+        if matched {
+            self.pending.clear();
+        }
+        matched
+    }
+
+    fn clear(&mut self, report: bool) {
+        if report {
+            self.notice(2, self.pending.len() as u64);
+        }
+        self.pending.clear();
+        self.speech.clear();
+    }
+
+    fn take_notices(&mut self) -> Vec<String> {
+        let reasons = [
+            "no validated person speech within +/-2 s",
+            "invalid or stale name onset",
+            "voice ownership, input readiness or freshness was lost",
+            "pending name limit reached without person speech",
+        ];
+        std::mem::take(&mut self.notices)
+            .into_iter()
+            .zip(reasons)
+            .filter(|(count, _)| *count != 0)
+            .map(|(count, reason)| format!("ignored sleeping name ({count}): {reason}"))
+            .collect()
+    }
+}
+
 pub(crate) struct Life {
     alive: Alive,
     weight: f64,
@@ -423,6 +547,8 @@ pub(crate) struct Life {
     daytime: Option<(u64, u16)>,
     phase: Phase,
     called: bool,
+    name_called: bool,
+    name_wake: NameWake,
     last_due: Option<(u64, u64)>,
 }
 
@@ -439,7 +565,7 @@ fn fraction(count: u64, salt: u64) -> f64 {
 }
 
 impl Life {
-    pub(crate) fn new(alive: Alive) -> Self {
+    pub(crate) fn new(alive: Alive, name_age_us: u64, delivery_us: u64) -> Self {
         Self {
             alive,
             weight: 0.0,
@@ -457,6 +583,8 @@ impl Life {
             daytime: None,
             phase: Phase::Awake,
             called: false,
+            name_called: false,
+            name_wake: NameWake::new(name_age_us, delivery_us),
             last_due: None,
         }
     }
@@ -529,9 +657,50 @@ impl Life {
         }
     }
 
-    /// Its name was heard.
-    pub(crate) fn name(&mut self) {
-        self.called |= self.asleep();
+    fn name_requires_speech(&self) -> bool {
+        self.alive
+            .sleep
+            .is_some_and(|sleep| sleep.name_requires_speech)
+    }
+
+    /// Its name was heard. The source onset is not the bus receipt time.
+    pub(crate) fn name(&mut self, now_us: u64, stamp_us: u64, ago_ms: u32) {
+        if !self.asleep() {
+            return;
+        }
+        if self.name_requires_speech() {
+            self.name_called |= self.name_wake.name(now_us, stamp_us, ago_ms);
+        } else {
+            self.called = true;
+        }
+    }
+
+    /// Called only after Engine accepts the voice owner's speaking evidence.
+    pub(crate) fn person_speech(&mut self, stamp_us: u64) {
+        if self.asleep() && self.name_requires_speech() {
+            self.name_called |= self.name_wake.speech(stamp_us);
+        }
+    }
+
+    /// This runs even when a planner tick cannot issue an actuator request.
+    pub(crate) fn advance_name(&mut self, now_us: u64) {
+        self.name_wake.advance(now_us);
+    }
+
+    pub(crate) fn fence_name(&mut self, stamp_us: u64) {
+        self.name_called = false;
+        self.name_wake.clear(true);
+        self.name_speech_since(stamp_us);
+    }
+
+    /// A delayed detector heartbeat from before input was retained again
+    /// must not corroborate a new name in the same voice phase and turn.
+    pub(crate) fn name_speech_since(&mut self, stamp_us: u64) {
+        self.name_wake.speech_since = self.name_wake.speech_since.max(stamp_us);
+    }
+
+    pub(crate) fn take_name_notices(&mut self) -> Vec<String> {
+        self.name_wake.take_notices()
     }
 
     /// A touch: a tap or a stroke wakes it. A long hold of the base is the
@@ -620,7 +789,7 @@ impl Life {
         if self.asleep() && matches!(context.voice, Some(Voice::Thinking | Voice::Speaking)) {
             self.called = true;
         }
-        if let (Phase::Asleep { since }, true) = (self.phase, self.called) {
+        if let (Phase::Asleep { since }, true) = (self.phase, self.called || self.name_called) {
             // Woken, it sleeps again only after nobody again for as long.
             self.nobody_since = None;
             let (from, settled) = self.sleeping(now_us, since);
@@ -629,8 +798,10 @@ impl Life {
                 from,
                 kept: 1.0 - settled,
             };
+            self.name_wake.clear(false);
         }
         self.called = false;
+        self.name_called = false;
         if let (Phase::Awake, Some(sleep)) = (self.phase, &self.alive.sleep)
             && context.free
             && context.voice == Some(Voice::Resting)
@@ -640,6 +811,7 @@ impl Life {
                 .is_some_and(|since| now_us.saturating_sub(since) >= sleep.nobody_us)
         {
             self.phase = Phase::Asleep { since: now_us };
+            self.name_wake.clear(false);
         }
         match self.phase {
             Phase::Awake => {}

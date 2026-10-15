@@ -1,5 +1,23 @@
 # Reuse decisions: V1, ROS 2 and existing Rust systems
 
+## Speech-backed name wake, task 47 (#749, 2026-10-15)
+
+Reuse Expression's accepted `voice/activity` evidence and existing boot,
+source-age, ordering and owner checks; keep the name detector unchanged.
+The name's `ago_ms` dates its onset, so bus delay cannot make a name fresh.
+V1's wake helper restores sleep-owned audio state and respects the hardware
+mic mute (`hal/app_state.py:617`); its Harness capture refuses sleeping or
+muted input (`hal/drivers/voice/voice_service.py:539`), and ambient behavior
+treats unavailable sleep state as paused (`system/ambient/service.go:122`). This
+Expression-only rule does not reopen capture or change those owners. No
+V1 two-second name/speech rule was found in the inspected paths. The current
+Rust detector contract already supplies person-speech observations; another
+detector, transcript heuristic or room-level threshold is unnecessary.
+The added correlation uses bounded state and the injected clock, behind the
+default-false `alive.sleep.name_requires_speech` switch. See [alive.md](alive.md)
+for exact timing and limits. Acoustic false positives, delayed real bus
+delivery and physical waking remain for First's lamp minute and night watch.
+
 ## Touch strip and head, Task 33 (2026-10-14)
 
 Third read V1 `hal/drivers/mpr121.py`, its initialization/configuration/spatial

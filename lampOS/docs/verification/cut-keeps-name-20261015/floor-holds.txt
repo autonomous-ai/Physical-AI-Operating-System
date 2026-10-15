@@ -1,0 +1,4 @@
+record files 50, ends 932, floor holds 531 in 10 sessions
+holds after an end of the turn they held: 528 (others 3)
+  of them within 1000 ms of that end: 401, by the end's basis: {'silence_fallback': 130, 'model_uncertain': 192, 'model_complete': 77, 'model_incomplete': 2}
+next turns admitted after an end: 924; within 1000 ms: 46

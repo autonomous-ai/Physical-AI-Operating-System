@@ -44,26 +44,25 @@ Every ready pull request into `lamp-voice` (not a draft), oldest first.
    <time>`), and close the issue by hand if the pull request says it closes
    it: a merge into `lamp-voice` does not close issues.
 4. **Leave it to the first builder**, with a comment
-   `Reviewer: for the first builder: <why>`, only when one of these holds:
-   - it is **on by default**, so merging it changes what lamp-4ace does at
-     its next install (a fix that is on by default included);
+   `Reviewer: for the first builder: <why>`, only when one of these holds
+   (narrowed again 2026-10-15 19:03 at the owner's word, "we gotta move
+   fast": lamp-4ace is now the integration lamp, not a gate):
    - it touches the **privacy path**: what opens or closes a microphone or
      the camera, or the mute;
+   - it changes how the lamp behaves on real hardware and its builder has
+     **no lamp**, so nothing was shown on one;
+   - it can only be shown on **lamp-4ace** (its Codex targets, its touch
+     strip, its own settings), or its builder asks for lamp-4ace;
    - it **changes or removes** a field or meaning in `crates/msgs`,
-     `crates/bus` or `crates/ipc` that another part already reads;
-   - its builder asks for a minute on lamp-4ace.
+     `crates/bus` or `crates/ipc` that another part already reads.
 
-   **These are yours to merge** (first builder, 2026-10-15 15:22; the first
-   rule sent nearly everything back and made the first builder the
-   bottleneck again):
-   - a **new** message type, topic or optional field, when its readers are
-     behind the same switch or in the same pull request;
-   - a physical behaviour (sound, movement, light) behind a switch that its
-     builder has **shown on its own lamp**, with the verification in the
-     pull request. lamp-4ace's minute comes when the first builder switches
-     it on, not before the merge;
-   - a pull request that depends on another: merge the other first, then
-     this one.
+   **Everything else is yours to merge** on your review, a green ARM64 run
+   and, for behaviour on real hardware, the builder's evidence from its own
+   lamp, **on by default included**. A lamp-4ace minute an issue reserves
+   for switching a thing on is not a merge condition. Every evening the
+   first builder installs the latest `lamp-voice` on lamp-4ace and plays the
+   whole lamp; what misbehaves there is reverted or reopened within the
+   hour. A pull request that depends on another: merge the other first.
 
 Take a time from `date` for every comment. Keep a log of what was merged
 and left, newest first, in `lampOS/docs/work-log-reviewer.md` on a

@@ -884,7 +884,14 @@ How it knows it is a call:
   wait began ([name.md](name.md), "Said twice");
 - the utterance so far holds at most 1.2 s of speech
   (`CALL_SPEECH_BLOCKS`). "Hey Lamp," at the office's rate is about 0.7 s;
-- it waits once per utterance.
+- it waits once per utterance;
+- the first sign comes while the name is still being said, so the call's
+  own words go on for a moment after it: a gap under 0.2 s
+  (`CALL_PAUSE_BLOCKS`) keeps the wait. Speech after a quiet of 0.2 s or
+  more is the rest, and ends as any other utterance does, and so does an
+  utterance that grows past 1.2 s of speech, which is more than a call
+  (the reviewer's P2 on #891: a sign at 0.35 s into a 0.7 s call had let
+  the call's next word end the wait).
 
 The wait must be longer than the end-of-speech wait in force and 3 s at
 most, or the voice refuses to start. The `call_wait_policy` record says

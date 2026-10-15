@@ -4,7 +4,9 @@
 use lamp_body::calibration::UnitId;
 use std::{ffi::OsString, path::PathBuf};
 
-const USAGE: &str = "lamp-body --device ABSOLUTE_PATH --unit-id EXPLICIT_ID --lock-directory PRIVATE_ABSOLUTE_DIRECTORY --mood-socket ABSOLUTE_PATH [--home PITCH,ROLL,YAW] [--reach UP,DOWN,ROLL,YAW] [--speed COUNTS_PER_SECOND] [--servo-speed N] [--servo-acceleration N] [--stand PITCH,ROLL,YAW,SHOULDER,ELBOW --folded-arm SHOULDER,ELBOW [--stand-share PERCENT] [--stand-seconds N] [--awake-seconds N] [--arm-load SHOULDER,ELBOW] [--idle on|off]] [--gaze-socket ABSOLUTE_PATH --gaze YAW,PITCH [--gaze-reach YAW,PITCH]] [--stand-roll COUNTS] [--force-limit N] [--torque on|off] [--wake on|off] [--give-way return|stay [--limp on|off]] [--overload release] [--rest-glance on|off] [--pitch-window LOW,HIGH] [--look-at-name on|off]\n\nOwns the servo port and moves head pitch, head roll and base yaw a few degrees around\na home pose (the one given, in encoder counts, or else where they are found), for the mood\nit is told on the socket. Without --stand it never touches the shoulder or the elbow, and\nwithout --stand or --torque on it never touches torque. With --stand (which needs --home and --folded-arm) it also raises the shoulder and\nthe elbow to that pose when a mood other than rest arrives, folds them down again\n--awake-seconds after the last one, and writes torque once to a shoulder or elbow found\nwith an old overload latched. With --gaze-socket and --gaze it takes where a face is from\nlamp-eyes on that socket ({\"face\":{...}} or {\"face\":null}) and, while the lamp listens\nor speaks, turns the head to it in small corrections: --gaze is the counts of base yaw and of\nhead pitch, signed, that bring a face from the right and from the bottom edge of the picture\nto its middle. Refuses to start unless the three joints have torque on, a clear\nstatus and the head is inside its start window. With --torque on it first takes hold of a\njoint found without torque (the three always, the shoulder and the elbow with --stand):\nits goal is written as where it is, then torque on, and if it then moves more than 12 counts\nit does not start. With --wake on and --home, a joint found outside where it may start\n(the head out of its start window, or a joint farther from home than it may be found) but within\n400 counts of home is not refused: before anything else it is brought home slowly, a small stir,\na pause, then an eased rise at 20 counts a second at most, never away from home; an arm found off\nits way is not lowered, and the lamp runs folded. With --give-way, a joint that pushes at its goal without moving for\n1.5 s is told to stop (its goal becomes where it is; torque is never written off); with\n--give-way stay, a head or base joint that gave way and is moved more than 15 counts by\na hand for over a second stays where it was put. With --limp on as well, as the old runtime
+const USAGE: &str = "lamp-body --device ABSOLUTE_PATH --unit-id EXPLICIT_ID --lock-directory PRIVATE_ABSOLUTE_DIRECTORY --mood-socket ABSOLUTE_PATH [--home PITCH,ROLL,YAW] [--reach UP,DOWN,ROLL,YAW] [--speed COUNTS_PER_SECOND] [--servo-speed N] [--servo-acceleration N] [--stand PITCH,ROLL,YAW,SHOULDER,ELBOW --folded-arm SHOULDER,ELBOW [--stand-share PERCENT] [--stand-seconds N] [--awake-seconds N] [--arm-load SHOULDER,ELBOW] [--idle on|off]] [--gaze-socket ABSOLUTE_PATH --gaze YAW,PITCH [--gaze-reach YAW,PITCH]] [--stand-roll COUNTS] [--force-limit N] [--torque on|off] [--wake on|off] [--give-way return|stay|off] [--limp on|off] [--overload release] [--rest-glance on|off] [--pitch-window LOW,HIGH] [--look-at-name on|off]\n\nOwns the servo port and moves head pitch, head roll and base yaw a few degrees around\na home pose (the one given, in encoder counts, or else where they are found), for the mood\nit is told on the socket. Without --stand it never touches the shoulder or the elbow, and\nwithout --stand or --torque on it never touches torque. With --stand (which needs --home and --folded-arm) it also raises the shoulder and\nthe elbow to that pose when a mood other than rest arrives, folds them down again\n--awake-seconds after the last one, and writes torque once to a shoulder or elbow found\nwith an old overload latched. With --gaze-socket and --gaze it takes where a face is from\nlamp-eyes on that socket ({\"face\":{...}} or {\"face\":null}) and, while the lamp listens\nor speaks, turns the head to it in small corrections: --gaze is the counts of base yaw and of\nhead pitch, signed, that bring a face from the right and from the bottom edge of the picture\nto its middle. Refuses to start unless the three joints have torque on, a clear\nstatus and the head is inside its start window. With --torque on it first takes hold of a\njoint found without torque (the three always, the shoulder and the elbow with --stand):\nits goal is written as where it is, then torque on, and if it then moves more than 12 counts\nit does not start. With --wake on and --home, a joint found outside where it may start\n(the head out of its start window, or a joint farther from home than it may be found) but within\n400 counts of home is not refused: before anything else it is brought home slowly, a small stir,\na pause, then an eased rise at 20 counts a second at most, never away from home; an arm found off\nits way is not lowered, and the lamp runs folded. By default --give-way return and --limp on
+(--give-way off is the body as it was before them, and --limp off keeps giving way without the
+slump). With --give-way, a joint that pushes at its goal without moving for\n1.5 s is told to stop (its goal becomes where it is; torque is never written off); with\n--give-way stay, a head or base joint that gave way and is moved more than 15 counts by\na hand for over a second stays where it was put. With --limp on as well, as the old runtime
 did, a head or base joint that a hand stops and still pushes a second later makes the lamp
 slump (torque off on all five, held again 5 s later where it lies; after an overload, 120 s);
 a hand never ends the run, and a head roll or base found beyond 400 counts of home at start is
@@ -307,9 +309,10 @@ fn parse(args: impl IntoIterator<Item = OsString>) -> Result<Option<Arguments>, 
             }
             Some("--give-way") if give_way.is_none() => {
                 give_way = Some(match value.to_str() {
-                    Some("return") => GiveWay::Return,
-                    Some("stay") => GiveWay::Stay,
-                    _ => return Err("--give-way is return or stay"),
+                    Some("return") => Some(GiveWay::Return),
+                    Some("stay") => Some(GiveWay::Stay),
+                    Some("off") => None,
+                    _ => return Err("--give-way is return, stay or off"),
                 });
             }
             Some("--limp") if limp.is_none() => {
@@ -429,13 +432,19 @@ fn parse(args: impl IntoIterator<Item = OsString>) -> Result<Option<Arguments>, 
         force_limit,
         torque_on: torque.unwrap_or(false),
         wake: wake.unwrap_or(true),
-        give_way,
-        limp: limp.unwrap_or(false),
+        // On by default since #703 (shown by hand on lamp-52e6, 2026-10-15):
+        // a hand is given way to, and forced hard it slumps the lamp as V1
+        // did. `--give-way off` is the body as it was before.
+        give_way: give_way.unwrap_or(Some(GiveWay::Return)),
+        limp: limp.unwrap_or(give_way.is_none_or(|way| way.is_some())),
         overload_release: overload.unwrap_or(false),
         rest_glance: rest_glance.unwrap_or(true),
         pitch_window,
         look_at_name: look_at_name.unwrap_or(true),
     };
+    if result.limp && result.give_way.is_none() {
+        return Err("--limp on needs --give-way return or stay");
+    }
     if result.stand_roll.is_some() && result.standing.is_none() {
         return Err("--stand-roll needs --stand");
     }
@@ -1245,11 +1254,15 @@ mod tests {
         }
     }
 
-    /// Giving way is return or stay, and as before unless given.
+    /// Giving way is return, stay or off, and return unless given (#703).
     #[test]
-    fn give_way_is_return_or_stay_and_as_before_unless_given() {
+    fn give_way_is_return_stay_or_off_and_return_unless_given() {
         let with = |more: &[&'static str]| parse(args(&[&FULL[..], more].concat()));
-        assert_eq!(with(&[]).unwrap().unwrap().give_way, None);
+        assert_eq!(with(&[]).unwrap().unwrap().give_way, Some(GiveWay::Return));
+        assert_eq!(
+            with(&["--give-way", "off"]).unwrap().unwrap().give_way,
+            None
+        );
         assert_eq!(
             with(&["--give-way", "return"]).unwrap().unwrap().give_way,
             Some(GiveWay::Return)
@@ -1261,6 +1274,7 @@ mod tests {
         for refused in [
             &["--give-way", "STAY"][..],
             &["--give-way", "on"],
+            &["--give-way", "OFF"],
             &["--give-way", ""],
             &["--give-way"],
             &["--give-way", "stay", "--give-way", "return"],
@@ -1269,11 +1283,25 @@ mod tests {
         }
     }
 
-    /// Going limp under a hand is on or off, and off unless given.
+    /// Going limp under a hand is on or off, on unless given while the body
+    /// gives way, and off with `--give-way off`, which then is the body as it
+    /// was before both (#703).
     #[test]
-    fn limp_is_on_or_off_and_off_unless_given() {
+    fn limp_is_on_or_off_and_on_unless_given_while_giving_way() {
         let with = |more: &[&'static str]| parse(args(&[&FULL[..], more].concat()));
-        assert!(!with(&[]).unwrap().unwrap().limp);
+        assert!(with(&[]).unwrap().unwrap().limp);
+        let off = with(&["--give-way", "off"]).unwrap().unwrap();
+        assert!(!off.limp && off.give_way.is_none());
+        assert!(
+            with(&["--give-way", "off", "--limp", "on"]).is_err(),
+            "limp needs give-way"
+        );
+        assert!(
+            !with(&["--give-way", "off", "--limp", "off"])
+                .unwrap()
+                .unwrap()
+                .limp
+        );
         assert!(with(&["--limp", "on"]).unwrap().unwrap().limp);
         assert!(!with(&["--limp", "off"]).unwrap().unwrap().limp);
         for refused in [

@@ -49,6 +49,7 @@ pub mod ring_wire;
 pub mod ring_worker;
 pub mod room_floor;
 pub mod room_told;
+pub mod rules;
 pub mod second_config;
 pub mod second_look;
 pub mod second_provider;

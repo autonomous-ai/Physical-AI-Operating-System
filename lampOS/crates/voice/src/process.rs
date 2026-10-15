@@ -244,6 +244,10 @@ impl Worker {
                 role,
                 std::env::var_os("LAMP_MEMORY_DAYS").as_deref(),
             ))
+            .envs(memory_rules_worker_environment(
+                role,
+                std::env::var_os(crate::rules::ENVIRONMENT).as_deref(),
+            ))
             .stdin(Stdio::null())
             .stdout(Stdio::null())
             .stderr(Stdio::inherit())
@@ -671,6 +675,16 @@ fn memory_days_worker_environment(
         .then_some(("LAMP_MEMORY_DAYS", "on"))
 }
 
+// The rules' switch (#813), passed the same narrow way: the exact `on`, to
+// the provider only.
+fn memory_rules_worker_environment(
+    role: &str,
+    value: Option<&std::ffi::OsStr>,
+) -> Option<(&'static str, &'static str)> {
+    (role == "provider" && value == Some(std::ffi::OsStr::new("on")))
+        .then_some((crate::rules::ENVIRONMENT, "on"))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -694,23 +708,41 @@ mod tests {
             "provider", "second", "capture", "speaker", "denoise", "echo", "unknown",
         ] {
             for value in &values {
-                // Observe an actual child's environment without changing this
-                // test process's environment or exposing any inherited values.
-                let output = Command::new("/usr/bin/env")
-                    .env("LAMP_TEST_UNRELATED", "synthetic")
-                    .env_clear()
-                    .envs(memory_days_worker_environment(role, value.as_deref()))
-                    .output()
-                    .unwrap();
-                assert!(output.status.success());
-                let expected = if matches!(role, "provider" | "second")
-                    && value.as_deref() == Some(std::ffi::OsStr::new("on"))
-                {
-                    b"LAMP_MEMORY_DAYS=on\n".as_slice()
-                } else {
-                    b"".as_slice()
-                };
-                assert_eq!(output.stdout, expected, "role {role}, value {value:?}");
+                for (pass, name, roles) in [
+                    (
+                        memory_days_worker_environment as fn(_, _) -> _,
+                        "LAMP_MEMORY_DAYS",
+                        ["provider", "second"].as_slice(),
+                    ),
+                    // Rules reach the Live provider only.
+                    (
+                        memory_rules_worker_environment,
+                        "LAMP_MEMORY_RULES",
+                        ["provider"].as_slice(),
+                    ),
+                ] {
+                    // Observe an actual child's environment without changing this
+                    // test process's environment or exposing any inherited values.
+                    let output = Command::new("/usr/bin/env")
+                        .env("LAMP_TEST_UNRELATED", "synthetic")
+                        .env_clear()
+                        .envs(pass(role, value.as_deref()))
+                        .output()
+                        .unwrap();
+                    assert!(output.status.success());
+                    let expected = if roles.contains(&role)
+                        && value.as_deref() == Some(std::ffi::OsStr::new("on"))
+                    {
+                        format!("{name}=on\n")
+                    } else {
+                        String::new()
+                    };
+                    assert_eq!(
+                        output.stdout,
+                        expected.as_bytes(),
+                        "role {role}, value {value:?}"
+                    );
+                }
             }
         }
     }

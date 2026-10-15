@@ -828,13 +828,49 @@ fn config_source_interval_and_frame_bounds_are_validated_before_port_open() {
         match case {
             0 => cfg.width = 0,
             1 => cfg.width = 1281,
-            2 => cfg.height = 721,
+            2 => cfg.height = 961,
             3 => cfg.max_frame_bytes = MAX_FRAME_BYTES + 1,
             4 => cfg.max_frame_bytes = 3,
             5 => cfg.buffers = 1,
             _ => cfg.buffers = 5,
         }
         assert!(cfg.validate().is_err());
+    }
+}
+
+#[test]
+fn the_lamp_camera_s_modes_up_to_1280_by_960_are_accepted_and_larger_are_not() {
+    // MJPG sizes the ZVCAI 01da:5875 lists on lamp-52e6 (2026-10-15). With
+    // the height bound at 720, 1280x960 was refused before the device was
+    // touched ("camera did not open: InvalidData None"), and a full look
+    // (#836) never opened.
+    let listed = [
+        (3264, 2448),
+        (2592, 1944),
+        (2048, 1536),
+        (1920, 1080),
+        (1600, 1200),
+        (1280, 960),
+        (1280, 720),
+        (1024, 768),
+        (800, 600),
+        (640, 480),
+        (640, 400),
+        (352, 288),
+        (320, 240),
+        (176, 144),
+    ];
+    for (width, height) in listed {
+        let cfg = CaptureConfig {
+            width,
+            height,
+            ..config()
+        };
+        assert_eq!(
+            cfg.validate().is_ok(),
+            width <= 1280 && height <= 960,
+            "{width}x{height}"
+        );
     }
 }
 

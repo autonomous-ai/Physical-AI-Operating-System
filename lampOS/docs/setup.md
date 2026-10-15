@@ -102,7 +102,10 @@ From lamp-4ace's units: memory `/var/lib/lampos-memory`, faces
 targets), schedule `/var/lib/lampos-schedule/store`, voice sessions
 `/var/lib/lampOS/voice/sessions`, reminder delivery
 `/var/lib/lampOS/voice/schedule-delivery`, the conversation thread
-`/run/lampos-voice/thread.json`, the policy's log `/var/lib/lampos-policy`, the
+`/run/lampos-voice/thread.json`, the voice's first-output log
+`/var/lib/lampOS/voice/first-output`, what the voice has told of tasks
+`/var/lib/lampOS/voice/tasks-told` (its default, `LAMP_TASKS_TOLD`), the
+policy's log `/var/lib/lampos-policy`, the
 credential file, the name, the Wi-Fi configuration and the setup marker. Kept:
 the software, its releases, the update key, the touch calibration and other
 per-lamp facts, and physical privacy.
@@ -168,17 +171,19 @@ Host tests (`crates/setup/tests/reset.rs`): the order of the steps, a failed
 stop wiping nothing, a wipe that fails halfway keeping the journal and marker
 until `resume-reset` finishes, a start with no journal touching nothing,
 refused plans, every reason an event is not a reset, the watcher on a real bus
-acting once and only logging with the switch off, and the command line.
+acting once and only logging with the switch off, the command line, and the
+example plan covering every store of the person's listed above.
 
 ## Joining the home's Wi-Fi (built, not yet served)
 
 `lamp_setup::wifi` is V1's join (`system/network/service.go`, `SetupNetwork`;
 `setup_failure.go`) in Rust, with V1's numbers: up to 60 s for the named
-network **and** the Internet (ping `8.8.8.8`, else a TCP reach of the voice's
-service), checked every second; on every third check, two keys rejected by the
-router end it early as `wrong_password`. A failure is named as V1 names it
-(`wrong_password`, `association_rejected`, `ssid_not_found`, `no_dhcp`,
-`no_internet`, `ssid_too_long`, `wifi_connect_error`, `unknown`), from
+network **and** the Internet (ping `8.8.8.8`, else, as V1's `tlsReach`, a TLS
+handshake with the voice's service), checked every second; on every third
+check, two keys rejected by the router end it early as `wrong_password`. A
+failure is named as V1 names it (`wrong_password`, `association_rejected`,
+`ssid_not_found`, `no_dhcp`, `no_internet`, `ssid_too_long`,
+`wifi_connect_error`, `unknown`), from
 wpa_supplicant's journal since the join began and `wpa_cli status`, with key
 evidence first. The radio is switched by the image's own `device-sta-mode` and
 `device-ap-mode`.
@@ -198,6 +203,19 @@ compared with the name asked for. V1's eight failure cases, from its
 own captured wpa_supplicant lines, are tests here (`crates/setup/tests/wifi.rs`),
 with the join's timing against a fake lamp.
 
+**The TLS reach.** A TCP connection alone is not the Internet: anything that
+accepts and stays silent, or answers in plain text, would pass. So, as V1, the
+handshake must complete, and the name's lookup, the connection and the
+handshake together take at most 3 s (V1's `cloudProbeTimeout`). The lookup
+runs on a thread of its own, since the system's has no time limit; one that
+has not come back is waited on by the next check, never started twice. As in
+V1, the certificate is not checked: the probe sends nothing, and right after
+the join the lamp's clock can make every certificate look not yet valid. The
+handshake's own signature is still checked, as V1's Go does. Tests: a
+listener that never speaks TLS and one that answers in plain text are not the
+Internet, a real handshake on this machine is, and a lookup that never answers
+holds no check past its time.
+
 ## The setup server (built, off unless set)
 
 ```sh
@@ -207,12 +225,16 @@ lamp-setup serve --config SERVE.json --plan PLAN.json --enable
 The keeper starts it, as `lamp-setup.service`, only when the setup marker is
 missing (#702). In order, it finishes an interrupted reset, refuses to run on
 a lamp that is already set up, raises the hotspot with the image's
-`device-ap-mode` (as V1's `os-server` does at a first boot) and answers V1's
-setup API with V1's shapes and wrapper (`{"status","data","message"}`):
+`device-ap-mode` (as V1's `os-server` does at a first boot), runs the
+configuration's `free_port` and `web_start` commands, reads the lamp's name,
+and answers V1's setup API with V1's shapes and wrapper
+(`{"status","data","message"}`). The name is read only after the hotspot: on a
+fresh image `device-ap-mode` is what renames the host `lamp-xxxx`, and a name
+read before it would send the page to the wrong `.local` address:
 
 | Route | What it does |
 |---|---|
-| `GET /api/device/setup/status` | V1's `phase` (`idle`/`connecting`/`connected`/`failed`), `lan_ip`, `error`, `mac` (the host name, `lamp-xxxx`), `run`, `set_up_completed`, `runtime_phase`. |
+| `GET /api/device/setup/status` | V1's `phase` (`idle`/`connecting`/`connected`/`failed`), `lan_ip`, `error`, `mac` (the kernel's host name, `lamp-xxxx`, which avahi announces), `run`, `set_up_completed`, `runtime_phase`. |
 | `GET /api/network` | `iw dev wlan0 scan`, parsed as V1 does, in V1's `domain.Network` fields. |
 | `POST /api/device/setup` | V1's `SetupRequest`; its other fields are accepted and ignored. Checked before anything is touched: the network's name and password as for the join; `llm_api_key` (the voice's credential, 1–512 printable characters); V2's own `name` (up to 64 characters) and `timezone` (an IANA name whose file, links followed, is a `TZif` zone file inside the zone data; one the lamp lacks is skipped, not a reason to refuse setup). Replies at once, then, 2 s later as in V1, joins; one run at a time; refused once the lamp is set up. |
 
@@ -250,9 +272,15 @@ those two. `serve-own-page.json` answers on port 80 with
 `page: true`: this crate's own page (`src/page.html`, one step: network,
 password, the voice's key unless the account page passed one, the person's
 name; the time zone comes from the phone), and 204 to the phones' sign-in
-checks, as V1's nginx does. Its progress screen keeps V1's timings: status
-every 600 ms, the hotspot lost after 5 s of silence, then the new address
-first and `<name>.local` every 2 s, and a failure shown at 80 s. Each fetch
+checks, as V1's nginx does. `device-ap-mode` restarts nginx whether or not it
+is used, and nginx would hold port 80, so this configuration's `free_port`
+(`systemctl stop nginx`) runs after the hotspot is up and before answering; on
+a lamp without nginx it fails, is logged, and setup goes on. A hotspot raised
+again after a failed join restarts nginx once more, which then finds port 80
+taken by `lamp-setup` (read from the script, not run on a lamp). Its progress
+screen keeps V1's timings: status every 600 ms, the hotspot lost after 5 s of
+silence, then the new address first and `<name>.local` every 2 s, and a
+failure shown at 80 s. Each fetch
 gives up after 2 s, so a request to a hotspot that has just gone cannot hold
 those checks back.
 
@@ -260,8 +288,11 @@ Host tests (`crates/setup/tests/serve.rs`): every refused request, a run that
 joins and saves in order with the address published while joining, a wrong
 password that saves nothing, a save that fails and leaves no marker, the
 private files and the zone link, V1's routes and shapes, one run at a time, no
-second setup, the page and the 204s only with `page`, and the scan with iw's
-escapes. No phone, router or radio was used.
+second setup, the page and the 204s only with `page`, the scan with iw's
+escapes, the name read after a hotspot that renames the lamp, and the start's
+order with both configurations: own page, hotspot then nginx stopped (a failed
+stop only logged); behind V1's nginx, hotspot then nginx started, never
+stopped. No phone, router or radio was used.
 
 V1's page also asks `/api/network/check-internet`, `/api/network/current`,
 `/api/system/info`, `/api/device/config` and the voice lists. `lamp-setup` does

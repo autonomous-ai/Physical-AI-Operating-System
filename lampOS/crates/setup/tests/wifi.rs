@@ -1,8 +1,17 @@
 use lamp_setup::wifi::{
-    Host, Joined, Observation, Reason, Refused, WRONG_KEY_STOP, classify, decode_wpa, join,
+    Host, Joined, Observation, Reach, Reason, Refused, WRONG_KEY_STOP, classify, decode_wpa, join,
     wpa_conf, wrong_key_failures,
 };
-use std::{io, time::Duration};
+use std::{
+    io::{self, Write},
+    net::{SocketAddr, TcpListener, TcpStream},
+    sync::{
+        Arc,
+        atomic::{AtomicUsize, Ordering},
+    },
+    thread,
+    time::{Duration, Instant},
+};
 
 // V1's real wpa_supplicant lines (intern-v2-d94b, 2026-09-28,
 // `system/network/setup_failure_test.go`): a wrong password, then the right one.
@@ -339,4 +348,130 @@ fn a_refused_name_touches_nothing_and_a_radio_failure_restores_everything() {
     );
     assert_eq!(lamp.conf.as_deref(), Some(OLD));
     assert_eq!(lamp.calls, ["station", "hotspot"]);
+}
+
+/// A self-signed certificate for 127.0.0.1 and its P-256 key, DER in hex.
+/// Made on 2026-10-15 with `openssl` for these tests and nothing else, valid
+/// until 2126. The key is no secret: it protects nothing but a test.
+const CERTIFICATE: &str = "3082019c30820142a00302010202143ec3c21dd900ef70ff91028b69b3c76916 \
+     01aa0e300a06082a8648ce3d040302301a3118301606035504030c0f6c616d70 \
+     2d736574757020746573743020170d3236313031353132303131315a180f3231 \
+     3236303932313132303131315a301a3118301606035504030c0f6c616d702d73 \
+     6574757020746573743059301306072a8648ce3d020106082a8648ce3d030107 \
+     03420004f54b3789a0f796a96723cb64d50c796e52ee8c7adf46c161e2d271ed \
+     ac01ba0f82a0bf8559192b2e60270a151c40d1af632845b61bf85325ad39bc01 \
+     a4a1a3faa3643062301d0603551d0e04160414e7c77d693020a8e0276837a28b \
+     0c7d83ce2da0fa301f0603551d23041830168014e7c77d693020a8e0276837a2 \
+     8b0c7d83ce2da0fa300f0603551d130101ff040530030101ff300f0603551d11 \
+     0408300687047f000001300a06082a8648ce3d04030203480030450220497953 \
+     595b3f478d66b6aadb46f0ae889f16524dc327ce992df2ff18f831468c022100 \
+     a7c00924c52ffbb7021f37ce919961516a36db904604f1ad918259cfa42167c6";
+const KEY: &str = "308187020100301306072a8648ce3d020106082a8648ce3d030107046d306b02 \
+     01010420ddc3a363d8d33889f74ccf9d64cfab6c2a7a06f6476ed4b2b650b4a3 \
+     1655e297a14403420004f54b3789a0f796a96723cb64d50c796e52ee8c7adf46 \
+     c161e2d271edac01ba0f82a0bf8559192b2e60270a151c40d1af632845b61bf8 \
+     5325ad39bc01a4a1a3fa";
+
+fn bytes(text: &str) -> Vec<u8> {
+    let digits: Vec<u8> = text.bytes().filter(u8::is_ascii_hexdigit).collect();
+    digits
+        .chunks(2)
+        .map(|pair| u8::from_str_radix(std::str::from_utf8(pair).unwrap(), 16).unwrap())
+        .collect()
+}
+
+/// A listener on this machine that hands each connection to `serve`.
+fn listen(serve: impl Fn(TcpStream) + Send + 'static) -> String {
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let address = listener.local_addr().unwrap().to_string();
+    thread::spawn(move || {
+        for socket in listener.incoming().flatten() {
+            serve(socket);
+        }
+    });
+    address
+}
+
+/// One check, and how long it took.
+fn reach(address: &str, timeout: Duration) -> (bool, Duration) {
+    let began = Instant::now();
+    let reached = Reach::new(address, timeout).check();
+    (reached, began.elapsed())
+}
+
+#[test]
+fn a_listener_that_never_completes_tls_is_not_the_internet() {
+    // Reviewer, #817: with ping blocked, a TCP connection alone passed.
+    let silent = listen(|socket| {
+        thread::sleep(Duration::from_secs(10));
+        drop(socket);
+    });
+    let (reached, took) = reach(&silent, Duration::from_millis(500));
+    assert!(!reached, "accepted and said nothing");
+    assert!(took < Duration::from_secs(2), "{took:?}");
+
+    // Something that answers in plain text, as a captive page might.
+    let plain = listen(|mut socket| {
+        let _ = socket.write_all(b"HTTP/1.1 200 OK\r\nContent-Length: 0\r\n\r\n");
+    });
+    assert!(!reach(&plain, Duration::from_millis(500)).0, "plain text");
+}
+
+#[test]
+fn a_completed_tls_handshake_is_the_internet() {
+    use rustls::pki_types::{CertificateDer, PrivateKeyDer, PrivatePkcs8KeyDer};
+    let provider = Arc::new(rustls::crypto::ring::default_provider());
+    let config = Arc::new(
+        rustls::ServerConfig::builder_with_provider(provider)
+            .with_safe_default_protocol_versions()
+            .unwrap()
+            .with_no_client_auth()
+            .with_single_cert(
+                vec![CertificateDer::from(bytes(CERTIFICATE))],
+                PrivateKeyDer::Pkcs8(PrivatePkcs8KeyDer::from(bytes(KEY))),
+            )
+            .unwrap(),
+    );
+    let server = listen(move |mut socket| {
+        let _ = socket.set_read_timeout(Some(Duration::from_secs(5)));
+        let mut session = rustls::ServerConnection::new(Arc::clone(&config)).unwrap();
+        while session.is_handshaking() {
+            if session.complete_io(&mut socket).is_err() {
+                return;
+            }
+        }
+    });
+    // The certificate is checked by nothing, as in V1: a lamp's clock may be
+    // far off right after the join.
+    let (reached, took) = reach(&server, Duration::from_secs(3));
+    assert!(reached);
+    assert!(took < Duration::from_secs(3), "{took:?}");
+}
+
+static LOOKUPS: AtomicUsize = AtomicUsize::new(0);
+
+fn never_answers(_: &str) -> io::Result<Vec<SocketAddr>> {
+    LOOKUPS.fetch_add(1, Ordering::SeqCst);
+    thread::sleep(Duration::from_secs(30));
+    Ok(vec![])
+}
+
+#[test]
+fn a_name_that_is_not_found_in_time_is_waited_for_once_and_never_twice() {
+    let mut reach = Reach::with_lookup(
+        "lamp-setup.invalid:443",
+        Duration::from_millis(300),
+        never_answers,
+    );
+    for _ in 0..3 {
+        let began = Instant::now();
+        assert!(!reach.check());
+        assert!(
+            began.elapsed() < Duration::from_secs(2),
+            "{:?}",
+            began.elapsed()
+        );
+    }
+    // The first lookup is still out; the next checks wait on it.
+    assert_eq!(LOOKUPS.load(Ordering::SeqCst), 1);
 }

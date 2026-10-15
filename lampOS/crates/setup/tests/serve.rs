@@ -5,7 +5,9 @@ use axum::{
 use lamp_setup::{
     http::{Shared, router},
     scan,
-    serve::{Accepted, Config, Files, Phase, Save, SetupRequest, Status, check, run, zone_known},
+    serve::{
+        Accepted, Config, Files, Phase, Save, SetupRequest, Status, check, run, start, zone_known,
+    },
     wifi::Host,
 };
 use serde_json::{Value, json};
@@ -60,6 +62,7 @@ impl Root {
             timezone_file: self.0.join("etc/timezone"),
             web_start: vec![],
             web_stop: vec![],
+            free_port: vec![],
         }
     }
 }
@@ -143,10 +146,13 @@ fn a_request_is_checked_before_anything_is_touched() {
 }
 
 /// A lamp whose join ends after `seconds` of fake time as `connects` says.
+/// Its hotspot names it `lamp-4ace`, as the image's `device-ap-mode` names a
+/// fresh image that still has the image's own name.
 struct Lamp {
     connects: bool,
     conf: Option<Vec<u8>>,
-    calls: Vec<&'static str>,
+    calls: Arc<Mutex<Vec<String>>>,
+    name: Arc<Mutex<String>>,
     now_ms: u64,
 }
 impl Lamp {
@@ -154,9 +160,13 @@ impl Lamp {
         Self {
             connects,
             conf: None,
-            calls: vec![],
+            calls: Arc::default(),
+            name: Arc::new(Mutex::new("orangepizero2w".into())),
             now_ms: 0,
         }
+    }
+    fn calls(&self) -> Vec<String> {
+        self.calls.lock().unwrap().clone()
     }
 }
 impl Host for Lamp {
@@ -168,11 +178,12 @@ impl Host for Lamp {
         Ok(())
     }
     fn station(&mut self) -> io::Result<()> {
-        self.calls.push("station");
+        self.calls.lock().unwrap().push("station".into());
         Ok(())
     }
     fn hotspot(&mut self) -> io::Result<()> {
-        self.calls.push("hotspot");
+        self.calls.lock().unwrap().push("hotspot".into());
+        *self.name.lock().unwrap() = "lamp-4ace".into();
         Ok(())
     }
     fn internet(&mut self) -> bool {
@@ -284,7 +295,7 @@ fn a_wrong_password_saves_nothing_and_names_the_reason() {
         status.error
     );
     assert!(saved.calls.is_empty());
-    assert_eq!(lamp.calls, ["station", "hotspot"]);
+    assert_eq!(lamp.calls(), ["station", "hotspot"]);
 }
 
 #[test]
@@ -303,7 +314,96 @@ fn settings_that_cannot_be_saved_leave_no_marker_and_bring_the_hotspot_back() {
     assert_eq!(status.phase, Phase::Failed);
     assert!(!status.set_up_completed);
     assert!(!saved.calls.iter().any(|call| call.starts_with("marker")));
-    assert_eq!(lamp.calls, ["station", "hotspot"]);
+    assert_eq!(lamp.calls(), ["station", "hotspot"]);
+}
+
+/// `start` on `lamp`, its commands and its name read logged with the
+/// hotspot; a command whose program is `fail` fails.
+fn start_on(lamp: &mut Lamp, config: &Config, fail: &str) -> (io::Result<Status>, Vec<String>) {
+    let (calls, name) = (Arc::clone(&lamp.calls), Arc::clone(&lamp.name));
+    let named = Arc::clone(&calls);
+    let mut logged = Vec::new();
+    let started = start(
+        config,
+        lamp,
+        |argv| {
+            calls.lock().unwrap().push(argv.join(" "));
+            if argv[0] == fail {
+                return Err(io::Error::other("Unit nginx.service not loaded."));
+            }
+            Ok(())
+        },
+        move || {
+            named.lock().unwrap().push("name".into());
+            name.lock().unwrap().clone()
+        },
+        |line| logged.push(line.to_owned()),
+    );
+    (started, logged)
+}
+
+#[test]
+fn the_name_is_read_after_the_hotspot_which_names_a_fresh_lamp() {
+    // Reviewer, #817: on a fresh image `device-ap-mode` renames the host to
+    // `lamp-xxxx`; a name read before it sends the page to the wrong `.local`.
+    let root = Root::new();
+    let mut lamp = Lamp::new(true);
+    let (started, _) = start_on(&mut lamp, &root.config(false), "");
+    assert_eq!(started.unwrap().mac, "lamp-4ace");
+    assert_eq!(lamp.calls(), ["hotspot", "name"]);
+}
+
+fn fixture(text: &str) -> Config {
+    let config: Config = serde_json::from_str(text).unwrap();
+    config.check().unwrap();
+    config
+}
+
+#[test]
+fn the_own_page_stops_nginx_after_the_hotspot_restarts_it_and_before_answering() {
+    // Reviewer, #817: `device-ap-mode` restarts nginx, which holds port 80.
+    let own = fixture(include_str!("../fixtures/serve-own-page.json"));
+    assert!(own.page);
+    assert_eq!(own.listen, "0.0.0.0:80");
+    let mut lamp = Lamp::new(true);
+    let (started, logged) = start_on(&mut lamp, &own, "");
+    started.unwrap();
+    assert_eq!(
+        lamp.calls(),
+        ["hotspot", "/usr/bin/systemctl stop nginx", "name"]
+    );
+    assert!(logged.is_empty(), "{logged:?}");
+
+    // A lamp without nginx has nothing to stop: logged, and setup goes on.
+    let mut lamp = Lamp::new(true);
+    let (started, logged) = start_on(&mut lamp, &own, "/usr/bin/systemctl");
+    assert_eq!(started.unwrap().mac, "lamp-4ace");
+    assert_eq!(logged.len(), 1);
+    assert!(logged[0].contains("stop nginx"), "{logged:?}");
+
+    // Behind V1's nginx nothing changes: nginx is started, never stopped.
+    let behind = fixture(include_str!("../fixtures/serve-behind-v1-nginx.json"));
+    assert!(behind.free_port.is_empty() && !behind.page);
+    let mut lamp = Lamp::new(true);
+    let (started, _) = start_on(&mut lamp, &behind, "");
+    started.unwrap();
+    assert_eq!(
+        lamp.calls(),
+        ["hotspot", "/usr/bin/systemctl start nginx", "name"]
+    );
+    // There, nginx that cannot start is a failure to serve.
+    let mut lamp = Lamp::new(true);
+    assert!(
+        start_on(&mut lamp, &behind, "/usr/bin/systemctl")
+            .0
+            .is_err()
+    );
+
+    let relative = Config {
+        free_port: vec!["systemctl".into(), "stop".into(), "nginx".into()],
+        ..own
+    };
+    assert!(relative.check().is_err());
 }
 
 #[test]

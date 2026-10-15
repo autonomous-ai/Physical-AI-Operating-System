@@ -283,6 +283,45 @@ fn a_plan_never_wipes_software_system_or_shallow_paths() {
     assert!(root.path("people.json").exists());
 }
 
+/// Every store of the person's that a part keeps, as lamp-4ace's units set
+/// it or as the part's own default has it. A part that adds a store adds it
+/// here and to the plan.
+const PERSON_STORES: [&str; 15] = [
+    // lamp-4ace's units.
+    "/var/lib/lampos-memory",
+    "/var/lib/lampos-eyes/people.json",
+    "/var/lib/lampos-tasks/store",
+    "/var/lib/lampos-tasks/targets.json",
+    "/var/lib/lampos-schedule/store",
+    "/var/lib/lampos-policy",
+    "/var/lib/lampOS/voice/sessions",
+    "/var/lib/lampOS/voice/schedule-delivery",
+    "/var/lib/lampOS/voice/first-output",
+    "/run/lampos-voice/thread.json",
+    // The voice's default for the task news it has told (reviewer, #817):
+    // `DEFAULT_TOLD` in crates/voice/src/task_news.rs.
+    "/var/lib/lampOS/voice/tasks-told",
+    // What setup saves, and its marker.
+    "/etc/lampOS/voice/credential",
+    "/etc/lampOS/person/name",
+    "/etc/wpa_supplicant/wpa_supplicant-wlan0.conf",
+    "/var/lib/lampos-setup/done",
+];
+
+#[test]
+fn the_example_plan_wipes_every_store_of_the_person() {
+    let plan: Plan =
+        serde_json::from_str(include_str!("../fixtures/reset-plan-example.json")).unwrap();
+    plan.check().unwrap();
+    for store in PERSON_STORES.map(Path::new) {
+        assert!(
+            plan.marker == store || plan.wipe.iter().any(|wiped| store.starts_with(wiped)),
+            "{} is not in the reset plan",
+            store.display()
+        );
+    }
+}
+
 fn event(at_us: u64, held_us: u64) -> TouchEvent {
     TouchEvent {
         stamp: ClockStamp {

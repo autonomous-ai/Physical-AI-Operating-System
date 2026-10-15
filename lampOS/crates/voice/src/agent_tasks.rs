@@ -31,6 +31,16 @@
 //! the functions and everything sent to the tasks part are as without the
 //! switch.
 //!
+//! A lead-in (#799), off unless `LAMP_TOOL_LEAD_IN=on` (`--tasks-lead-in`):
+//! a turn with a function call is answered about a second later than a plain
+//! one, because the model makes the call in one generation and speaks in
+//! another, after the answer. With the switch the model is asked to say the
+//! start of its answer in the same breath, before the call: the read-back
+//! and its question before `start_agent_task`, "giving that to …" before
+//! `confirm_agent_task`, "let me see" before `check_agent_task`; and the
+//! answers' `next` tell it the person has heard that, so it is not said
+//! twice. Words that carry the answer, not fillers.
+//!
 //! Hearing back: the tasks part watches what it started (on unless `serve --no-watch`),
 //! [`crate::task_news`] tells the person unasked when the agent has
 //! finished or asks something, and [`CHECK`] answers "how's it going?" from
@@ -50,10 +60,14 @@ pub const ENVIRONMENT: &str = "LAMP_TASKS_DIR";
 pub const TARGET_ENVIRONMENT: &str = "LAMP_TASKS_TARGET";
 /// Where it reads whether the person may name who gets the work. `on` only.
 pub const WHO_ENVIRONMENT: &str = "LAMP_TASKS_WHO";
+/// Where it reads whether the model says the start of its answer before a
+/// call (#799). `on` only.
+pub const LEAD_IN_ENVIRONMENT: &str = "LAMP_TOOL_LEAD_IN";
 /// The provider worker's flags for them.
 pub const FLAG: &str = "--tasks-dir";
 pub const TARGET_FLAG: &str = "--tasks-target";
 pub const WHO_FLAG: &str = "--tasks-who";
+pub const LEAD_IN_FLAG: &str = "--tasks-lead-in";
 pub const DEFAULT_TARGET: &str = "office";
 /// The model's two functions.
 pub const START: &str = "start_agent_task";
@@ -152,6 +166,23 @@ fn choosing(place: &Place, staff: &[Member]) -> bool {
     place.who && staff.len() >= 2
 }
 
+/// What `start_agent_task`'s description asks to be said, and when: after
+/// the call, as always, or with the lead-in before it, in the same breath.
+fn read_back(lead_in: bool, with_who: &str) -> String {
+    if lead_in {
+        format!(
+            "Nothing starts yet. In the same breath, before you call it, say the task \
+             back in one short sentence{with_who} and ask whether to start it; then call \
+             it, and say nothing more unless it could not be prepared."
+        )
+    } else {
+        format!(
+            "Nothing starts yet: then say the task back in one short sentence{with_who} \
+             and ask whether to start it."
+        )
+    }
+}
+
 fn declared(place: &Place, staff: &[Member]) -> Vec<Tool> {
     let choosing = choosing(place, staff);
     // Who does it when nobody is named; without the switch, as always.
@@ -174,12 +205,11 @@ fn declared(place: &Place, staff: &[Member]) -> Vec<Tool> {
             format!(
                 "Prepare a piece of computer work for one of the person's agents on their office \
                  computer ({all}): writing or changing code, documents or files there. Call it \
-                 only when the person asks for such work to be done there. Nothing starts yet: \
-                 then say the task back in one short sentence, with who will do it, and ask \
-                 whether to start it. \
+                 only when the person asks for such work to be done there. {} \
                  You can do this: if they ask you to start one of them, open a session or \
                  give it something, without saying what it should do, never say you cannot; \
-                 ask in a few words what it should work on, and call this with their answer."
+                 ask in a few words what it should work on, and call this with their answer.",
+                read_back(place.lead_in, ", with who will do it,")
             ),
             json!({
                 "type": "object",
@@ -202,11 +232,11 @@ fn declared(place: &Place, staff: &[Member]) -> Vec<Tool> {
             format!(
                 "Prepare a piece of computer work for {default} on the person's office \
                  computer: writing or changing code, documents or files there. Call it only \
-                 when the person asks for such work to be done there. Nothing starts yet: \
-                 then say the task back in one short sentence and ask whether to start it. \
+                 when the person asks for such work to be done there. {} \
                  You can do this: if they ask you to start {default}, open a session or \
                  give it something, without saying what it should do, never say you cannot; \
-                 ask in a few words what it should work on, and call this with their answer."
+                 ask in a few words what it should work on, and call this with their answer.",
+                read_back(place.lead_in, "")
             ),
             json!({
                 "type": "object",
@@ -224,10 +254,21 @@ fn declared(place: &Place, staff: &[Member]) -> Vec<Tool> {
         },
         Tool {
             name: CONFIRM.into(),
-            description: "Start the task you prepared with start_agent_task. Call it only right \
-                          after the person has said yes to the task you read back; never on your \
-                          own, and not if they said no or something else."
-                .into(),
+            description: if place.lead_in {
+                format!(
+                    "Start the task you prepared with start_agent_task. Call it only right \
+                     after the person has said yes to the task you read back; never on your \
+                     own, and not if they said no or something else. In the same breath, \
+                     before you call it, say in a few natural words that you are giving it \
+                     to whoever will do it (\"Okay, giving that to {default}.\"), and nothing \
+                     more until it answers."
+                )
+            } else {
+                "Start the task you prepared with start_agent_task. Call it only right \
+                 after the person has said yes to the task you read back; never on your \
+                 own, and not if they said no or something else."
+                    .into()
+            },
             parameters: None,
             silent: false,
         },
@@ -237,7 +278,13 @@ fn declared(place: &Place, staff: &[Member]) -> Vec<Tool> {
                 "How the latest work you handed over is going, and what the agent came \
                  back with if it has finished. Call it only when the person asks about that \
                  work (\"how's it going?\", \"what did {default} say?\"), never on your own: \
-                 you are told by yourself when it finishes."
+                 you are told by yourself when it finishes.{}",
+                if place.lead_in {
+                    " In the same breath, before you call it, say in a few words that you are \
+                     looking (\"Let me see how it's going.\")."
+                } else {
+                    ""
+                }
             ),
             parameters: choosing.then(|| {
                 json!({
@@ -257,6 +304,30 @@ fn declared(place: &Place, staff: &[Member]) -> Vec<Tool> {
             silent: false,
         },
     ]
+}
+
+/// What the model is told after `start_agent_task` prepared the work.
+pub fn prepared_next(lead_in: bool, choosing: bool, who: &str) -> String {
+    match (lead_in, choosing) {
+        (true, _) => "If you already said the task back and asked whether to start it, say nothing more now. If you did not, say it back in one short sentence and ask. Start it only if the person says yes.".to_owned(),
+        (false, true) => format!(
+            "Say the task back in one short sentence, saying {who} will do it, and ask whether to start it. Start it only if the person says yes."
+        ),
+        (false, false) => "Say the task back in one short sentence and ask whether to start it. Start it only if the person says yes.".to_owned(),
+    }
+}
+
+/// What the model is told after `confirm_agent_task` handed the work over.
+pub fn handing_over_next(lead_in: bool, who: &str) -> String {
+    if lead_in {
+        format!(
+            "They have heard you say you are giving it to {who}. Add only, in a few words, that you will tell them when it is done, unless you said that already. It has not been taken up yet: do not say it has."
+        )
+    } else {
+        format!(
+            "Tell them in a few natural words that you are handing it to {who} now and will let them know when it is done, the way a chief of staff would (\"Sure, I'm giving that to {who}. I'll tell you when it's done.\"). It has not been taken up yet: do not say it has."
+        )
+    }
 }
 
 /// "Claude Code, Codex and OpenCode", or "or".
@@ -420,6 +491,9 @@ pub struct Place {
     pub target: String,
     /// The person may name who gets the work ([`WHO_FLAG`]).
     pub who: bool,
+    /// The model says the start of its answer before a call
+    /// ([`LEAD_IN_FLAG`]).
+    pub lead_in: bool,
 }
 
 /// The provider worker's arguments for what the environment says.
@@ -428,10 +502,16 @@ pub fn arguments_from_environment() -> Vec<String> {
         std::env::var(ENVIRONMENT).ok().as_deref(),
         std::env::var(TARGET_ENVIRONMENT).ok().as_deref(),
         std::env::var(WHO_ENVIRONMENT).ok().as_deref(),
+        std::env::var(LEAD_IN_ENVIRONMENT).ok().as_deref(),
     )
 }
 
-fn arguments(directory: Option<&str>, target: Option<&str>, who: Option<&str>) -> Vec<String> {
+fn arguments(
+    directory: Option<&str>,
+    target: Option<&str>,
+    who: Option<&str>,
+    lead_in: Option<&str>,
+) -> Vec<String> {
     let Some(directory) = directory.filter(|path| Path::new(path).is_absolute()) else {
         return Vec::new();
     };
@@ -443,6 +523,9 @@ fn arguments(directory: Option<&str>, target: Option<&str>, who: Option<&str>) -
     if who == Some("on") {
         arguments.push(WHO_FLAG.to_owned());
     }
+    if lead_in == Some("on") {
+        arguments.push(LEAD_IN_FLAG.to_owned());
+    }
     arguments
 }
 
@@ -453,8 +536,8 @@ fn alias(text: &str) -> bool {
             .all(|byte| byte.is_ascii_alphanumeric() || byte == b'-' || byte == b'_')
 }
 
-/// Take a leading `--tasks-dir DIR [--tasks-target ALIAS] [--tasks-who]` off
-/// the flags.
+/// Take a leading `--tasks-dir DIR [--tasks-target ALIAS] [--tasks-who]
+/// [--tasks-lead-in]` off the flags.
 pub fn take(flags: &[String]) -> std::io::Result<(Option<Place>, &[String])> {
     let [flag, rest @ ..] = flags else {
         return Ok((None, flags));
@@ -481,11 +564,16 @@ pub fn take(flags: &[String]) -> std::io::Result<(Option<Place>, &[String])> {
         [flag, rest @ ..] if flag == WHO_FLAG => (true, rest),
         _ => (false, rest),
     };
+    let (lead_in, rest) = match rest {
+        [flag, rest @ ..] if flag == LEAD_IN_FLAG => (true, rest),
+        _ => (false, rest),
+    };
     Ok((
         Some(Place {
             directory: PathBuf::from(directory),
             target,
             who,
+            lead_in,
         }),
         rest,
     ))
@@ -578,13 +666,7 @@ fn run_for(
                             who,
                         });
                     }
-                    let next = if choosing(place, staff) {
-                        format!(
-                            "Say the task back in one short sentence, saying {who} will do it, and ask whether to start it. Start it only if the person says yes."
-                        )
-                    } else {
-                        "Say the task back in one short sentence and ask whether to start it. Start it only if the person says yes.".to_owned()
-                    };
+                    let next = prepared_next(place.lead_in, choosing(place, staff), who);
                     (
                         json!({
                             "prepared": true,
@@ -647,7 +729,7 @@ fn run_for(
                         json!({
                             "handing_over": true,
                             "who": who,
-                            "next": format!("Tell them in a few natural words that you are handing it to {who} now and will let them know when it is done, the way a chief of staff would (\"Sure, I'm giving that to {who}. I'll tell you when it's done.\"). It has not been taken up yet: do not say it has.")
+                            "next": handing_over_next(place.lead_in, who)
                         }),
                         true,
                     )
@@ -840,15 +922,18 @@ mod tests {
 
     #[test]
     fn the_switch_is_an_absolute_directory_and_an_alias_and_is_taken_from_the_front() {
-        assert!(arguments(None, None, None).is_empty());
-        assert!(arguments(Some("relative"), None, None).is_empty());
-        assert_eq!(arguments(Some("/run/t"), None, None), [FLAG, "/run/t"]);
+        assert!(arguments(None, None, None, None).is_empty());
+        assert!(arguments(Some("relative"), None, None, None).is_empty());
         assert_eq!(
-            arguments(Some("/run/t"), Some("m2"), None),
+            arguments(Some("/run/t"), None, None, None),
+            [FLAG, "/run/t"]
+        );
+        assert_eq!(
+            arguments(Some("/run/t"), Some("m2"), None, None),
             [FLAG, "/run/t", TARGET_FLAG, "m2"]
         );
         assert_eq!(
-            arguments(Some("/run/t"), Some("no spaces"), None),
+            arguments(Some("/run/t"), Some("no spaces"), None, None),
             [FLAG, "/run/t"]
         );
         let flags: Vec<String> = ["--tasks-dir", "/run/t", "--other"]
@@ -861,6 +946,7 @@ mod tests {
                 directory: "/run/t".into(),
                 target: DEFAULT_TARGET.into(),
                 who: false,
+                lead_in: false,
             })
         );
         assert_eq!(rest, &flags[2..]);
@@ -925,6 +1011,7 @@ mod tests {
             directory: directory.clone(),
             target: "office".into(),
             who: false,
+            lead_in: false,
         };
         let call = |name: &str, args: Value| ToolCall {
             id: "c".into(),
@@ -971,6 +1058,7 @@ mod tests {
             directory: "/nonexistent".into(),
             target: "office".into(),
             who: false,
+            lead_in: false,
         };
         let call = |task: &str| ToolCall {
             id: "c".into(),
@@ -1018,6 +1106,7 @@ mod tests {
             directory: directory.clone(),
             target: DEFAULT_TARGET.into(),
             who: false,
+            lead_in: false,
         };
         let task = json!({"ok":true,"text":"Suggest three names","target":{"engine":"claude"},
             "observations":[{"id":4,"state":"idle"}]});
@@ -1122,6 +1211,7 @@ mod tests {
             directory: directory.into(),
             target: DEFAULT_TARGET.into(),
             who,
+            lead_in: false,
         }
     }
 
@@ -1193,6 +1283,108 @@ mod tests {
         let on = place(Path::new("/run/t"), true);
         assert_eq!(declared(&on, &[]), before());
         assert_eq!(declared(&on, &[member("office", "claude")]), before());
+    }
+
+    /// #799: off, the model hears what it always did after each call, to
+    /// the byte; `on` is the only word that turns the lead-in on, and it
+    /// comes after the other tasks flags.
+    #[test]
+    fn without_the_lead_in_what_the_model_is_told_after_a_call_is_as_before() {
+        assert_eq!(
+            prepared_next(false, false, "Claude Code"),
+            "Say the task back in one short sentence and ask whether to start it. Start it only if the person says yes."
+        );
+        assert_eq!(
+            prepared_next(false, true, "Codex"),
+            "Say the task back in one short sentence, saying Codex will do it, and ask whether to start it. Start it only if the person says yes."
+        );
+        assert_eq!(
+            handing_over_next(false, "Claude Code"),
+            "Tell them in a few natural words that you are handing it to Claude Code now and will let them know when it is done, the way a chief of staff would (\"Sure, I'm giving that to Claude Code. I'll tell you when it's done.\"). It has not been taken up yet: do not say it has."
+        );
+        assert_eq!(
+            arguments(Some("/run/t"), None, None, Some("on")),
+            [FLAG, "/run/t", LEAD_IN_FLAG]
+        );
+        assert_eq!(
+            arguments(Some("/run/t"), Some("m2"), Some("on"), Some("on")),
+            [FLAG, "/run/t", TARGET_FLAG, "m2", WHO_FLAG, LEAD_IN_FLAG]
+        );
+        for not_on in [None, Some("yes"), Some("ON"), Some("1")] {
+            assert_eq!(
+                arguments(Some("/run/t"), None, None, not_on),
+                [FLAG, "/run/t"]
+            );
+        }
+        assert!(arguments(None, None, None, Some("on")).is_empty());
+        let flags: Vec<String> = [FLAG, "/run/t", WHO_FLAG, LEAD_IN_FLAG, "--other"]
+            .map(String::from)
+            .into();
+        let (place, rest) = take(&flags).unwrap();
+        assert!(place.is_some_and(|place| place.who && place.lead_in));
+        assert_eq!(rest, ["--other"]);
+        let (place, _) = take(&flags[..3]).unwrap();
+        assert!(place.is_some_and(|place| !place.lead_in));
+    }
+
+    /// #799: with the lead-in, each function asks for the start of its
+    /// answer in the same breath, before the call, and its answer says that
+    /// was heard, so nothing is said twice.
+    #[test]
+    fn with_the_lead_in_the_start_of_the_answer_comes_before_the_call_and_is_not_said_again() {
+        let mut on = place(Path::new("/run/t"), false);
+        on.lead_in = true;
+        let declared = tools(&on);
+        let described = |name: &str| {
+            declared
+                .iter()
+                .find(|tool| tool.name == name)
+                .unwrap()
+                .description
+                .clone()
+        };
+        let start = described(START);
+        assert!(
+            start.contains("before you call it, say the task back in one short sentence and ask whether to start it; then call it, and say nothing more unless it could not be prepared"),
+            "{start}"
+        );
+        assert!(!start.contains("Nothing starts yet: then say the task back"));
+        assert!(
+            described(CONFIRM).contains("(\"Okay, giving that to Claude Code.\")"),
+            "{}",
+            described(CONFIRM)
+        );
+        assert!(described(CHECK).ends_with("(\"Let me see how it's going.\")."));
+        // The same functions, parameters and order as without it.
+        let off: Vec<(String, Option<Value>)> = before()
+            .into_iter()
+            .map(|tool| (tool.name, tool.parameters))
+            .collect();
+        let with: Vec<(String, Option<Value>)> = declared
+            .into_iter()
+            .map(|tool| (tool.name, tool.parameters))
+            .collect();
+        assert_eq!(with, off);
+        // Afterwards: nothing said twice.
+        assert!(prepared_next(true, false, "Claude Code").starts_with(
+            "If you already said the task back and asked whether to start it, say nothing more now."
+        ));
+        assert!(
+            handing_over_next(true, "Codex")
+                .starts_with("They have heard you say you are giving it to Codex.")
+        );
+        // With a choice of whom, the read-back says who.
+        let mut choosing = place(Path::new("/run/t"), true);
+        choosing.lead_in = true;
+        let start = super::declared(&choosing, &two())
+            .into_iter()
+            .find(|tool| tool.name == START)
+            .unwrap()
+            .description;
+        assert!(
+            start.contains("one short sentence, with who will do it, and ask"),
+            "{start}"
+        );
     }
 
     #[test]
@@ -1394,18 +1586,18 @@ mod tests {
     #[test]
     fn the_switch_to_name_who_is_on_only_and_follows_the_target() {
         assert_eq!(
-            arguments(Some("/run/t"), Some("office-claude"), Some("on")),
+            arguments(Some("/run/t"), Some("office-claude"), Some("on"), None),
             [FLAG, "/run/t", TARGET_FLAG, "office-claude", WHO_FLAG]
         );
         assert_eq!(
-            arguments(Some("/run/t"), None, Some("on")),
+            arguments(Some("/run/t"), None, Some("on"), None),
             [FLAG, "/run/t", WHO_FLAG]
         );
         assert_eq!(
-            arguments(Some("/run/t"), None, Some("yes")),
+            arguments(Some("/run/t"), None, Some("yes"), None),
             [FLAG, "/run/t"]
         );
-        assert!(arguments(None, None, Some("on")).is_empty());
+        assert!(arguments(None, None, Some("on"), None).is_empty());
         let flags: Vec<String> = [
             FLAG,
             "/run/t",
@@ -1423,6 +1615,7 @@ mod tests {
                 directory: "/run/t".into(),
                 target: "office-claude".into(),
                 who: true,
+                lead_in: false,
             })
         );
         assert_eq!(rest, ["--other"]);

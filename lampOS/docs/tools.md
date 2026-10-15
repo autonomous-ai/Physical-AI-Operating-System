@@ -321,6 +321,34 @@ A written request is not speech. These times leave out the lamp's end of
 speech, its 350 ms playout start and the speaker, and measure only what
 the model adds; the first sound in the room comes later by those.
 
+**The lead-in (`LAMP_TOOL_LEAD_IN=on`, off unless set).** The owner ruled
+out fillers ("uh huh", "Sure, one sec"); the first builder asked on #799
+(15:48) for words that carry the answer instead, said in the same turn
+before the call, what a person says while they reach for something. With
+`LAMP_TOOL_LEAD_IN=on` in the voice's unit (passed to the provider worker as
+`--tasks-lead-in`), the three agent-task functions ask for that
+(`crates/voice/src/agent_tasks.rs`):
+
+| Function | Said before the call | Told after its answer (`next`) |
+|---|---|---|
+| `start_agent_task` | the read-back and its question: the task in one short sentence (with who will do it, when there is a choice), and whether to start it | if that was said, nothing more; if not, the read-back |
+| `confirm_agent_task` | in a few words that it is giving it to whoever will do it ("Okay, giving that to Claude Code.") | they have heard that; add only, in a few words, that you will tell them when it is done, unless already said |
+| `check_agent_task` | in a few words that it is looking ("Let me see how it's going.") | as without the switch |
+
+For `start_agent_task` the lead-in is the read-back itself, not a word
+before it, so the turn does not say the task twice. The functions, their
+parameters and their order are the same either way (a test). Without the
+switch every description and every `next` is byte for byte as before
+(`without_the_switch_or_anyone_else_to_name_the_functions_are_exactly_as_before`,
+`without_the_lead_in_what_the_model_is_told_after_a_call_is_as_before`).
+
+`provider-check --tool-turns` declares and answers them the same way when
+`LAMP_TOOL_LEAD_IN=on` is set for it, and its summary says `lead_in`; so the
+two can be compared without a sound:
+
+    lamp-voice provider-check /etc/lampOS/voice/provider.json --tool-turns 5
+    LAMP_TOOL_LEAD_IN=on lamp-voice provider-check /etc/lampOS/voice/provider.json --tool-turns 5
+
 **From the lamp's own turns:**
 
     lamp-voice turn-times SESSIONS [FIRST_OUTPUT]

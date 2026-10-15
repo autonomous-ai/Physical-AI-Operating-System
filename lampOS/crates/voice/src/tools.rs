@@ -697,6 +697,7 @@ mod tests {
             directory: "/run/lampos-tasks".into(),
             target: "workstation".into(),
             who: false,
+            lead_in: false,
         };
         assert_eq!(
             settings,
@@ -1139,6 +1140,7 @@ mod tests {
             directory: "/run/lampos-tasks".into(),
             target: "office".into(),
             who: false,
+            lead_in: false,
         };
         let with = Settings {
             tasks: Some(place.clone()),

@@ -639,6 +639,19 @@ Vietnamese, in every state, fits and is taken by the transport (a test).
 The same bound holds for any written turn: a note made from other text
 (progress news, #732) has to fit in it too.
 
+### A lead-in before a call (#799, off unless `LAMP_TOOL_LEAD_IN=on`)
+
+A turn in which the model calls `start_agent_task` or `confirm_agent_task`
+began 1.8 to 2.9 s after the end of speech on lamp-4ace on 2026-10-15, against
+0.87 to 1.45 s for a plain answer: the model makes the call in one generation
+and speaks in another. With `LAMP_TOOL_LEAD_IN=on` the read-back and its
+question come before `start_agent_task`, "giving that to …" before
+`confirm_agent_task` and "let me see" before `check_agent_task`, in the same
+turn, and each answer's `next` says the person has heard it
+([tools.md](tools.md#where-a-turn-with-a-function-call-spends-its-time-799)).
+What a prepared or handed-over task is, and what reaches the tasks part, is
+unchanged.
+
 ## Who gets the work (task 41, #733, 2026-10-15)
 
 The owner: "you are a boss with many employees (claude code, codex, etc) and

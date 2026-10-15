@@ -78,7 +78,7 @@ fn run() -> Result<()> {
         // `--thinking TOKENS` sets the thinking budget for this run only, to
         // compare with the one in CONFIG.
         [command,path,flag,rounds,rest @ ..] if command=="provider-check" && flag=="--tool-turns" && matches!(rest.len(),0|2) => {
-            use lamp_voice::tool_turns::{SCRIPT,Timeline,stand_in,summary};
+            use lamp_voice::tool_turns::{PAUSE,SCRIPT,Timeline,failed,next_pause,stand_in,summary};
             let rounds:usize=rounds.parse().ok().filter(|rounds|(1..=20).contains(rounds)).ok_or("ROUNDS is a number from 1 to 20")?;
             let thinking:Option<u32>=match rest { [flag,tokens] if flag=="--thinking"=>Some(tokens.parse().map_err(|_|"--thinking takes a number of tokens")?), []=>None, _=>return Err("provider-check CONFIG --tool-turns ROUNDS [--thinking TOKENS]".into()) };
             // LAMP_TOOL_LEAD_IN=on: the functions and their answers as with the lead-in (#799).
@@ -89,17 +89,37 @@ fn run() -> Result<()> {
             let mut results=Vec::new();
             tokio::runtime::Builder::new_current_thread().enable_all().build()?.block_on(async {
                 use lamp_gemini::Event;
+                // One session after another, never two at once, with a pause
+                // between them that grows after each that could not be opened.
+                let mut pause=PAUSE;
+                let mut first=true;
                 for round in 0..rounds {
                     for scripted in SCRIPT {
+                        if !first { tokio::time::sleep(pause).await; }
+                        first=false;
                         let mut config=ProviderConfig::load(Path::new(path))?.into_session()?.tools(tools.clone())?;
                         if let Some(tokens)=thinking { config=config.thinking_budget(tokens)?; }
-                        let mut connection=lamp_gemini::connect(config,lamp_gemini::SessionId::new(1)?).await?;
+                        let mut connection=match lamp_gemini::connect(config,lamp_gemini::SessionId::new(1)?).await {
+                            Ok(connection)=>connection,
+                            Err(error)=>{
+                                let row=failed(scripted,round,"connect",&error.to_string());
+                                println!("{row}");
+                                results.push(row);
+                                pause=next_pause(pause,true);
+                                continue;
+                            }
+                        };
+                        pause=next_pause(pause,false);
                         let input=connection.input();
                         let mut timeline=Timeline::default();
+                        let mut broke=None;
                         for (index,line) in scripted.lines.iter().enumerate() {
                             // Only the last line is timed; those before it set the scene.
                             let timed=index+1==scripted.lines.len();
-                            input.try_written(lamp_gemini::RequestId::new(index as u64+1)?,line,None)?;
+                            if let Err(error)=input.try_written(lamp_gemini::RequestId::new(index as u64+1)?,line,None) {
+                                broke=Some(error.to_string());
+                                break;
+                            }
                             let asked=lamp_ipc::monotonic_us();
                             let since=||lamp_ipc::monotonic_us().saturating_sub(asked);
                             let deadline=tokio::time::Instant::now()+std::time::Duration::from_secs(14);
@@ -120,7 +140,10 @@ fn run() -> Result<()> {
                                 }
                             }
                         }
-                        let row=timeline.result(scripted,round);
+                        let row=match broke {
+                            Some(error)=>failed(scripted,round,"write",&error),
+                            None=>timeline.result(scripted,round),
+                        };
                         println!("{row}");
                         results.push(row);
                         connection.shutdown();

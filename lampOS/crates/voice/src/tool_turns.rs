@@ -19,7 +19,35 @@
 //! or played. A written request is not speech: these times leave out the
 //! lamp's end of speech, its playout start and the speaker, and measure
 //! only what the model adds.
+//!
+//! Sessions are opened one after another with a pause between them, longer
+//! after each that could not be opened: on lamp-4ace on 2026-10-15 at 16:20
+//! the company relay refused new connections that came too fast on one key
+//! (`ConnectTimeout` after three sessions) while the lamp's own stayed up.
+//! A session that fails is a line saying where, and the rest go on.
 use serde_json::{Value, json};
+use std::time::Duration;
+
+/// Between one session and the next.
+pub const PAUSE: Duration = Duration::from_secs(3);
+/// The longest pause, after failures in a row.
+pub const MOST_PAUSE: Duration = Duration::from_secs(30);
+
+/// The pause before the next session: [`PAUSE`] after one that was opened,
+/// twice the last after one that failed, at most [`MOST_PAUSE`].
+pub fn next_pause(last: Duration, failed: bool) -> Duration {
+    if failed {
+        (last * 2).clamp(PAUSE, MOST_PAUSE)
+    } else {
+        PAUSE
+    }
+}
+
+/// The line for a request whose session failed at `stage` (`connect`,
+/// `write`), with the error's own words, which name no person.
+pub fn failed(scripted: &Scripted, round: usize, stage: &str, error: &str) -> Value {
+    json!({"label": scripted.label, "round": round, "failed": stage, "error": error})
+}
 
 /// One scripted request: what it is called, the function it should make
 /// the model call, if any, and what is written to it. With more than one
@@ -199,7 +227,17 @@ fn median(mut values: Vec<f64>) -> Option<f64> {
 /// Medians over the rounds, for each request and for plain and function
 /// turns, of the times in `results` (as [`Timeline::result`] makes them).
 /// A function turn counts only when the function expected was called.
-pub fn summary(results: &[Value]) -> Value {
+pub fn summary(all: &[Value]) -> Value {
+    let results: Vec<Value> = all
+        .iter()
+        .filter(|row| row.get("failed").is_none())
+        .cloned()
+        .collect();
+    let mut failures = serde_json::Map::new();
+    for row in all.iter().filter_map(|row| row["failed"].as_str()) {
+        let count = failures.entry(row.to_owned()).or_insert(json!(0));
+        *count = json!(count.as_u64().unwrap_or(0) + 1);
+    }
     let of = |rows: &[&Value], field: &str| {
         median(rows.iter().filter_map(|row| row[field].as_f64()).collect())
     };
@@ -241,6 +279,9 @@ pub fn summary(results: &[Value]) -> Value {
         .collect();
     json!({
         "status": "tool_turns_summary",
+        "asked": all.len(),
+        "failed": all.len() - results.len(),
+        "failed_at": failures,
         "each": each,
         "plain": medians(&plain),
         "function": medians(&function),
@@ -316,6 +357,36 @@ mod tests {
         assert_eq!(summary["each"]["light"]["as_expected"], 1);
         assert_eq!(summary["each"]["check"]["n"], 0);
         assert!(summary["each"]["check"]["first_audio_ms"].is_null());
+    }
+
+    /// After the relay refused new connections at 16:20: a failed session
+    /// is a line of its own and counted, never a median, and the pause
+    /// grows after each failure in a row and is short again after a success.
+    #[test]
+    fn a_session_that_fails_is_counted_apart_and_the_pause_after_it_grows() {
+        let results = vec![
+            json!({"label":"plain_fact","expected":null,"called":null,"first_audio_ms":800.0}),
+            failed(&SCRIPT[0], 0, "connect", "Gemini Live ConnectTimeout"),
+            failed(&SCRIPT[2], 0, "connect", "Gemini Live ConnectTimeout"),
+            failed(&SCRIPT[3], 1, "write", "closed"),
+        ];
+        let summary = summary(&results);
+        assert_eq!(
+            (summary["asked"].clone(), summary["failed"].clone()),
+            (json!(4), json!(3))
+        );
+        assert_eq!(summary["failed_at"], json!({"connect": 2, "write": 1}));
+        assert_eq!(summary["plain"]["n"], 1);
+        assert_eq!(summary["plain"]["first_audio_ms"], 800.0);
+        assert_eq!(summary["each"]["plain_fact"]["n"], 1);
+        assert_eq!(summary["each"]["light"]["n"], 0);
+        assert_eq!(failed(&SCRIPT[0], 2, "connect", "x")["label"], "plain_fact");
+        let mut pause = PAUSE;
+        for expected in [6, 12, 24, 30, 30] {
+            pause = next_pause(pause, true);
+            assert_eq!(pause, Duration::from_secs(expected));
+        }
+        assert_eq!(next_pause(pause, false), PAUSE);
     }
 
     #[test]

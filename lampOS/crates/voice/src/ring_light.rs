@@ -8,6 +8,14 @@
 //! by the bus, so a ring that starts later, or again, takes up the light
 //! that was last asked for.
 //!
+//! The self-test asks for a colour on `light/test`, not `light/command`:
+//! it is shown for [`TEST_HOLDS_US`] at most, then the person's light
+//! again, and any `light/command` ends it at once. So a test never writes
+//! over the person's light, and `light/state` goes on saying the person's.
+//! What the ring actually drew is said on `light/drawn`, from the ring's
+//! own write receipts: a draw it refused (the privacy switch, a turn)
+//! says nothing (#812).
+//!
 //! Nothing here can stop the ring. A bus that cannot be used leaves the
 //! lamp with the light it has, and a request that is not a light there is
 //! (a colour that does not exist, a level outside 1 to 5) is passed over.
@@ -27,8 +35,21 @@ const LOOK_EVERY_US: u64 = 50_000;
 /// ring that has stopped is not a light that can be asked for.
 const SAY_EVERY_US: u64 = 1_000_000;
 const STATE_LASTS: Duration = Duration::from_secs(3);
+/// The topic a self-test asks for a colour on.
+pub const TEST_TOPIC: &str = "light/test";
+/// The topic what was drawn is said on.
+pub const DRAWN_TOPIC: &str = "light/drawn";
+/// A test colour is shown this long at most.
+pub const TEST_HOLDS_US: u64 = 2_000_000;
 /// At most this many requests are taken in one look.
 const MOST_AT_ONCE: usize = 8;
+
+fn unix_ms() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_millis() as u64)
+        .unwrap_or(0)
+}
 
 /// The light before anyone has asked for one, as the message.
 pub fn first() -> Light {
@@ -48,9 +69,15 @@ pub fn lit(light: &Light) -> Option<Lit> {
 pub struct RingLight {
     asked: Subscriber,
     shown: Publisher,
+    tests: Subscriber,
+    drawn: Publisher,
     now: Light,
+    /// A self-test's colour and until when it is shown.
+    testing: Option<(Light, u64)>,
     looked_at_us: u64,
     said_at_us: Option<u64>,
+    /// The light last said drawn, and when.
+    drew: Option<(Light, u64)>,
 }
 
 impl RingLight {
@@ -63,6 +90,9 @@ impl RingLight {
         let asked = bus.subscribe_typed(wanted, SOURCE, Light::TYPE)?;
         let mut shown = bus.publisher_declared(state, &Light::declaration(), SOURCE)?;
         shown.expires_after(Some(STATE_LASTS));
+        let tests = bus.subscribe_typed(TEST_TOPIC, SOURCE, Light::TYPE)?;
+        let mut drawn = bus.publisher_declared(DRAWN_TOPIC, &Light::declaration(), SOURCE)?;
+        drawn.expires_after(Some(STATE_LASTS));
         let kept = bus
             .latest(wanted)
             .ok()
@@ -75,9 +105,13 @@ impl RingLight {
             Self {
                 asked,
                 shown,
+                tests,
+                drawn,
                 now,
+                testing: None,
                 looked_at_us: 0,
                 said_at_us: None,
+                drew: None,
             },
             begins,
         ))
@@ -98,13 +132,38 @@ impl RingLight {
                     continue;
                 };
                 // The newest that is a light there is, is the one taken.
-                if let Some(face) = lit(&asked)
-                    && asked != self.now
-                {
+                // The person's request ends any test, even one for the
+                // light already shown.
+                if let Some(face) = lit(&asked) {
+                    if self.testing.take().is_some() || asked != self.now {
+                        changed = Some(face);
+                    }
                     self.now = asked;
+                }
+            }
+            for _ in 0..MOST_AT_ONCE {
+                let Ok(Some(message)) = self.tests.recv(Duration::ZERO) else {
+                    break;
+                };
+                // A test asked for more than a second ago, kept by the bus
+                // for a ring that started since, is not shown.
+                if message.expired || unix_ms().saturating_sub(message.header.at_unix_ms) > 1_000 {
+                    continue;
+                }
+                let Ok(test) = message.parse::<Light>() else {
+                    continue;
+                };
+                if let Some(face) = lit(&test) {
+                    self.testing = Some((test, now_us.saturating_add(TEST_HOLDS_US)));
                     changed = Some(face);
                 }
             }
+        }
+        if let Some((_, until)) = self.testing
+            && now_us >= until
+        {
+            self.testing = None;
+            changed = lit(&self.now);
         }
         let due = self
             .said_at_us
@@ -119,6 +178,24 @@ impl RingLight {
     /// The light the ring is showing, as it says it.
     pub fn now(&self) -> &Light {
         &self.now
+    }
+
+    /// The light given to the face now: a test's, or the person's.
+    pub fn face(&self) -> &Light {
+        self.testing.as_ref().map_or(&self.now, |(test, _)| test)
+    }
+
+    /// Call when the ring wrote a resting frame with the face's light, at
+    /// the write's own time. Said when it changes and once a second.
+    pub fn drew(&mut self, drawn_at_us: u64) {
+        let light = self.face().clone();
+        if self.drew.as_ref().is_some_and(|(last, at)| {
+            *last == light && drawn_at_us.saturating_sub(*at) < SAY_EVERY_US
+        }) {
+            return;
+        }
+        let _ = self.drawn.publish_json(drawn_at_us, &light);
+        self.drew = Some((light, drawn_at_us));
     }
 }
 
@@ -302,5 +379,97 @@ mod tests {
             said += 1;
         }
         assert_eq!(said, 3);
+    }
+
+    #[test]
+    fn a_test_colour_is_shown_for_a_while_and_never_touches_the_persons_light() {
+        let root = Root::new("light-test");
+        let (mut ring, _) = RingLight::on(&root.0).unwrap();
+        let bus = Bus::new(&root.0).unwrap();
+        let mut asks = bus
+            .publisher_declared(Light::TOPICS[0], &Light::declaration(), "actions")
+            .unwrap();
+        let mut tests = bus
+            .publisher_declared(TEST_TOPIC, &Light::declaration(), "selftest")
+            .unwrap();
+        let mut at = 0u64;
+        ring.tick(at);
+        asks.publish_json(1, &light(true, "blue", 2)).unwrap();
+        assert_eq!(taken(&mut ring, &mut at), Lit::of(true, "blue", 2));
+        tests.publish_json(1, &light(true, "red", 3)).unwrap();
+        assert_eq!(taken(&mut ring, &mut at), Lit::of(true, "red", 3));
+        assert_eq!(ring.face(), &light(true, "red", 3));
+        // The person's light is still what is said, and still what is asked.
+        assert_eq!(state(&bus), Some(light(true, "blue", 2)));
+        let asked: Light = bus
+            .latest(Light::TOPICS[0])
+            .unwrap()
+            .unwrap()
+            .parse()
+            .unwrap();
+        assert_eq!(asked, light(true, "blue", 2));
+        // After its hold, the person's light again.
+        at += TEST_HOLDS_US;
+        assert_eq!(ring.tick(at), Lit::of(true, "blue", 2));
+        assert_eq!(ring.face(), &light(true, "blue", 2));
+    }
+
+    #[test]
+    fn the_persons_request_ends_a_test_at_once_even_for_the_light_already_asked() {
+        let root = Root::new("light-test-ends");
+        let (mut ring, _) = RingLight::on(&root.0).unwrap();
+        let bus = Bus::new(&root.0).unwrap();
+        let mut asks = bus
+            .publisher_declared(Light::TOPICS[0], &Light::declaration(), "actions")
+            .unwrap();
+        let mut tests = bus
+            .publisher_declared(TEST_TOPIC, &Light::declaration(), "selftest")
+            .unwrap();
+        let mut at = 0u64;
+        ring.tick(at);
+        tests.publish_json(1, &light(true, "green", 3)).unwrap();
+        assert_eq!(taken(&mut ring, &mut at), Lit::of(true, "green", 3));
+        // The light the ring already had: it still ends the test.
+        asks.publish_json(1, &first()).unwrap();
+        assert_eq!(taken(&mut ring, &mut at), lit(&first()));
+        assert_eq!(ring.face(), &first());
+        asks.publish_json(2, &light(false, "pink", 5)).unwrap();
+        assert_eq!(taken(&mut ring, &mut at), Lit::of(false, "pink", 5));
+        assert_eq!(ring.face(), &light(false, "pink", 5));
+    }
+
+    #[test]
+    fn what_is_drawn_is_said_only_when_drawn_on_change_and_every_second() {
+        let root = Root::new("light-drawn");
+        let (mut ring, _) = RingLight::on(&root.0).unwrap();
+        let bus = Bus::new(&root.0).unwrap();
+        let mut hears = bus
+            .subscribe_typed(DRAWN_TOPIC, "test", Light::TYPE)
+            .unwrap();
+        // Ticks with no write: nothing drawn is said.
+        for tick in 0..100u64 {
+            ring.tick(tick * 2_000);
+        }
+        assert!(hears.recv(Duration::from_millis(50)).unwrap().is_none());
+        // Writes every 25 ms for two seconds: said twice, the same light.
+        for n in 0..80u64 {
+            ring.drew(1_000_000 + n * 25_000);
+        }
+        let mut said = Vec::new();
+        while let Some(message) = hears.recv(Duration::from_millis(50)).unwrap() {
+            said.push((message.header.at_us, message.parse::<Light>().unwrap()));
+        }
+        assert_eq!(said.len(), 2, "{said:?}");
+        assert_eq!(said[0], (1_000_000, first()));
+        // A changed light is said at its first write.
+        let mut tests = bus
+            .publisher_declared(TEST_TOPIC, &Light::declaration(), "selftest")
+            .unwrap();
+        tests.publish_json(1, &light(true, "cyan", 4)).unwrap();
+        let mut at = 3_000_000;
+        taken(&mut ring, &mut at).unwrap();
+        ring.drew(3_100_000);
+        let message = hears.recv(Duration::from_millis(200)).unwrap().unwrap();
+        assert_eq!(message.parse::<Light>().unwrap(), light(true, "cyan", 4));
     }
 }

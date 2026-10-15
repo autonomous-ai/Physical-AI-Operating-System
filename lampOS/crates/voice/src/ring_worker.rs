@@ -471,12 +471,100 @@ fn service(
         {
             rested_at = at;
             let pixels = face.render(Mood::Resting, 0, at, ceiling.get());
-            ring.show_resting(&pixels, ceiling)
-                .map_err(io::Error::other)?;
+            rest(ring, &pixels, ceiling, light.as_mut())?;
         }
         if let Some(wait) = TICK_US.checked_sub(monotonic_us().saturating_sub(tick)) {
             std::thread::sleep(Duration::from_micros(wait));
         }
+    }
+}
+
+/// Paints the resting frame and, only if the ring wrote it, says the light
+/// drawn: a frame it refused (the privacy switch, a turn) says nothing.
+fn rest<S: FrameSink>(
+    ring: &mut GuardedRing<S>,
+    pixels: &[lamp_ring::Rgb; PIXEL_COUNT],
+    ceiling: ChannelCeiling,
+    light: Option<&mut RingLight>,
+) -> io::Result<()> {
+    if let Some(receipt) = ring
+        .show_resting(pixels, ceiling)
+        .map_err(io::Error::other)?
+        && let Some(light) = light
+    {
+        light.drew(receipt.finished_at().as_micros());
+    }
+    Ok(())
+}
+
+#[cfg(test)]
+mod drawn_tests {
+    use super::*;
+    use crate::ring_light::DRAWN_TOPIC;
+    use lamp_bus::Bus;
+    use lamp_msgs::Light;
+    use lamp_turn_owner::{AdmissionState, CaptureState, Controller, Permission};
+
+    struct Sink(usize);
+    impl FrameSink for Sink {
+        fn write_frame(&mut self, _: &lamp_ring::EncodedFrame) -> io::Result<()> {
+            self.0 += 1;
+            Ok(())
+        }
+    }
+
+    fn ring_with(permission: Permission, turn: bool) -> GuardedRing<Sink> {
+        let boot = crate::process::new_boot().unwrap();
+        let mut controller = Controller::new(boot, now());
+        controller
+            .set_microphone_permission(now(), Permission::Allowed)
+            .unwrap();
+        let until = MonoTime::from_micros(now().as_micros() + 500_000);
+        controller
+            .set_capture(now(), CaptureState::RetainingUntil(until))
+            .unwrap();
+        controller
+            .set_admission(now(), AdmissionState::OpenUntil(until))
+            .unwrap();
+        if turn {
+            let owner = controller
+                .admit(now(), lamp_turn_owner::AdmittedInput::NewTurn)
+                .unwrap();
+            controller.input_ended(now(), owner).unwrap();
+        }
+        // Closed after the input was ready, as the switch closes it.
+        controller
+            .set_microphone_permission(now(), permission)
+            .unwrap();
+        let mut ring = GuardedRing::new(Sink(0), boot).unwrap();
+        ring.install_authority(controller.snapshot(now()).unwrap())
+            .unwrap();
+        ring
+    }
+
+    #[test]
+    fn a_draw_the_ring_refuses_says_nothing_and_one_it_makes_says_the_light() {
+        let root = std::path::PathBuf::from(format!("/tmp/lv-drawn-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        std::fs::create_dir_all(&root).unwrap();
+        let (mut light, _) = RingLight::on(&root).unwrap();
+        let bus = Bus::new(&root).unwrap();
+        let pixels = [lamp_ring::Rgb::new(6, 4, 2); PIXEL_COUNT];
+        let ceiling = ChannelCeiling::new(40).unwrap();
+        // The privacy switch closed: refused, nothing drawn is said.
+        let mut closed = ring_with(Permission::Denied, false);
+        rest(&mut closed, &pixels, ceiling, Some(&mut light)).unwrap();
+        assert!(bus.latest(DRAWN_TOPIC).unwrap().is_none());
+        // A turn owns the lamp: refused, nothing said either.
+        let mut owned = ring_with(Permission::Allowed, true);
+        rest(&mut owned, &pixels, ceiling, Some(&mut light)).unwrap();
+        assert!(bus.latest(DRAWN_TOPIC).unwrap().is_none());
+        // Allowed and nobody owns the lamp: drawn, and said.
+        let mut open = ring_with(Permission::Allowed, false);
+        rest(&mut open, &pixels, ceiling, Some(&mut light)).unwrap();
+        let drawn: Light = bus.latest(DRAWN_TOPIC).unwrap().unwrap().parse().unwrap();
+        assert_eq!(&drawn, light.face());
+        std::fs::remove_dir_all(root).unwrap();
     }
 }
 

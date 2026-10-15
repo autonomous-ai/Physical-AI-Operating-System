@@ -181,6 +181,9 @@ pub enum Replayed {
         choice: String,
         probability: f64,
         took_ms: u64,
+        /// Its seven answers, by the question's name: numbers only, for
+        /// fitting the weights to this model if they do not fit it.
+        answers: BTreeMap<String, f64>,
     },
     Failed(&'static str),
 }
@@ -202,6 +205,11 @@ pub fn ask(judge: &mut dyn Decider, logged: &Logged, deadline: Duration) -> Repl
                     choice: judgement.choice.as_str().to_owned(),
                     probability: f64::from(judgement.probability),
                     took_ms: u64::try_from(asked.took.as_millis()).unwrap_or(u64::MAX),
+                    answers: answers
+                        .by_name()
+                        .into_iter()
+                        .map(|(name, yes)| (name, round(f64::from(yes))))
+                        .collect(),
                 }
             }
             Err(_) => Replayed::Failed("missing"),
@@ -223,8 +231,10 @@ pub fn line(logged: &Logged, should: Option<Should>, replayed: &[(String, Replay
                 choice,
                 probability,
                 took_ms,
+                answers,
             } => json!({"asked": asked, "by": by, "choice": choice,
-                        "probability": round(*probability), "took_ms": took_ms}),
+                        "probability": round(*probability), "took_ms": took_ms,
+                        "answers": answers}),
             Replayed::Failed(kind) => json!({"asked": asked, "failed": kind}),
         })
         .collect();

@@ -622,7 +622,11 @@ nothing and the name was heard, and in this meeting it never came.
 ## Said to the lamp from close to it (#753)
 
 Off unless `LAMP_ADDRESSED=on`, and only with `LAMP_ATTENTION` set, since
-the rule is what follows each request (`crates/voice/src/addressed.rs`,
+the rule is what follows each request, and `LAMP_BUS=on`, since the ears,
+the eyes and the topic are reached through the bus's root, which the
+coordinator gives the worker only then (`--bus-root`, `crates/voice/src/bus_out.rs`).
+Without the bus every sign is unknown, nothing is addressed and nothing is
+published (`crates/voice/src/addressed.rs`,
 built by the fourth builder on 15 October 2026). For each request the
 provider worker judges two signs it already reads, over the request's own
 sound, from when it began until its sound ended:
@@ -748,7 +752,8 @@ to the lamp counts as a call (above). Needs the ears running. Off by
 default; not yet on lamp-4ace.
 
 `LAMP_ADDRESSED=on` (the worker's `--addressed`, right after the attention
-flags; nothing without `LAMP_ATTENTION`): each request is judged said to
+flags; nothing without `LAMP_ATTENTION`, and nothing heard, seen or
+published without `LAMP_BUS=on`, which lamp-4ace has): each request is judged said to
 the lamp from close to it, published on `attention/addressed`, and in a
 busy room lets out an answer the rule would hold (above). Off by default;
 not on any lamp.

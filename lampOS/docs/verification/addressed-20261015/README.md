@@ -9,7 +9,8 @@ run on a lamp. Every level, face and request in the tests is synthetic.
 
 `LAMP_ADDRESSED=on` in the voice's environment, the provider worker's
 `--addressed`, right after the attention flags, and only with
-`LAMP_ATTENTION` set. For each request the worker judges two signs over the
+`LAMP_ATTENTION` set and `LAMP_BUS=on` (the bus's root reaches the worker
+only then; without it every sign is unknown and nothing is published). For each request the worker judges two signs over the
 request's own sound: near (the room microphone's highest rise over its
 quiet, 18 dB or more) and a close face turned to the lamp (of the eyes'
 looks while the person spoke or in the 1.5 s before, at least two, 0.4 or
@@ -117,7 +118,7 @@ Not run by Fourth. For the first builder:
 1. The minute with the switch absent: the voice as now; no
    `attention/addressed` on the bus (`lamp-bus hz attention/addressed
    --seconds 60` sees nothing).
-2. With `LAMP_ADDRESSED=on` beside the `LAMP_ATTENTION` it has, a few
+2. With `LAMP_ADDRESSED=on` beside the `LAMP_ATTENTION` and `LAMP_BUS=on` it has, a few
    requests from the desk: one `attention/addressed` each
    (`lamp-bus tap attention/addressed`), `rise_db` near the 19.5 to
    26.5 dB measured for `busy-near`, `looks` above 1, and with

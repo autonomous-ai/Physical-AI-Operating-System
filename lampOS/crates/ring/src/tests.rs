@@ -400,6 +400,21 @@ fn a_dark_gap_between_late_writes_is_not_a_late_run() {
 }
 
 #[test]
+fn a_cue_held_without_writes_between_late_writes_is_not_a_late_run() {
+    // A late paint, the cue held 5 s with no write, then one late paint:
+    // two isolated late frames, not 5 s of late writes in a row.
+    // Writes are driven directly: the cue's own lease is not under test.
+    let (mut ring, _, _, _) = setup();
+    ring.sink.delay_us = 15_000;
+    let frame = EncodedFrame::black();
+    ring.transfer(&frame, clock()).unwrap();
+    advance_to(clock().as_micros() + 5_000_000);
+    ring.transfer(&frame, clock()).unwrap();
+    assert!(!ring.is_faulted());
+    assert_eq!(ring.late_writes(), 2);
+}
+
+#[test]
 fn monotonic_regression_faults_and_blanks_an_active_cue() {
     let (mut ring, _, _, light) = setup();
     paint(&mut ring, light).unwrap();

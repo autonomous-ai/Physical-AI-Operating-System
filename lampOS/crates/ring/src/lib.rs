@@ -19,11 +19,16 @@ pub const SPI_SPEED_HZ: u32 = 6_400_000;
 /// An observed-return budget, not a timeout capable of interrupting a kernel call.
 pub const WRITE_BUDGET_US: u64 = 10_000;
 /// Writes over the budget are a run of late frames, not a fault, until the
-/// run has lasted this long. A dark, idle ring between two late writes ends
-/// the run. The frame of a late write did go out. On
+/// run has lasted this long. A run is late writes in a row: an on-time
+/// write, or more than [`LATE_GAP_US`] with no write, ends it. The frame of a late write did go out. On
 /// lamp-4ace the SD/MMC host re-tunes about once an hour and holds the bus
 /// for 0.3 s; one write then returns after 11 to 15 ms (#911).
 pub const LATE_RUN_US: u64 = 2_000_000;
+/// The longest pause between two late writes that still keeps them in one run:
+/// one frame period of the slowest steady writer (a frame older than this is
+/// dropped by the voice's ring worker anyway). A held cue or a dark ring writes
+/// nothing, so a late write after it starts a new run.
+pub const LATE_GAP_US: u64 = 100_000;
 
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub struct Rgb {
@@ -255,6 +260,8 @@ pub struct GuardedRing<S: FrameSink> {
     stopped: bool,
     /// When the current run of late writes began.
     late_since: Option<MonoTime>,
+    /// When the previous write returned, if it was late.
+    late_last: Option<MonoTime>,
     /// Late writes so far that were kept as frames, for the owner to say.
     late_writes: u64,
     clock: fn() -> MonoTime,
@@ -279,6 +286,7 @@ impl<S: FrameSink> GuardedRing<S> {
             faulted: false,
             stopped: false,
             late_since: None,
+            late_last: None,
             late_writes: 0,
             clock,
             black: EncodedFrame::black(),
@@ -451,13 +459,21 @@ impl<S: FrameSink> GuardedRing<S> {
             .checked_sub(started_at.as_micros())
             .ok_or(WriteFailure::ClockRegression)?;
         if elapsed_us > WRITE_BUDGET_US {
-            let since = *self.late_since.get_or_insert(started_at);
+            let in_a_row = self.late_last.is_some_and(|last| {
+                started_at.as_micros().saturating_sub(last.as_micros()) <= LATE_GAP_US
+            });
+            if !in_a_row {
+                self.late_since = Some(started_at);
+            }
+            self.late_last = Some(finished_at);
+            let since = self.late_since.unwrap_or(started_at);
             if finished_at.as_micros().saturating_sub(since.as_micros()) >= LATE_RUN_US {
                 return Err(WriteFailure::OverBudget { elapsed_us });
             }
             self.late_writes += 1;
         } else {
             self.late_since = None;
+            self.late_last = None;
         }
         Ok(WriteReceipt {
             started_at,
@@ -516,11 +532,6 @@ impl<S: FrameSink> GuardedRing<S> {
     }
 
     fn reconcile(&mut self) -> Result<Option<BlankReceipt>, WriteFailure> {
-        // A dark, idle ring writes nothing, so it ends any run of late writes:
-        // a late write after the gap starts a new run, not a 5 s-long one.
-        if self.active.is_none() && !self.resting {
-            self.late_since = None;
-        }
         let reason = if self.guard.is_faulted() {
             self.faulted = true;
             Some(lamp_turn_owner::Error::Faulted)

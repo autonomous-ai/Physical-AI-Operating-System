@@ -61,17 +61,13 @@ selection), which must stay identical:
   `coordinator::tests::pilot_faults`, `coordinator::tests::early_end`,
   `coordinator::tests::endpoint_session`;
 - single tests that took 4 s or more outside those, named exactly;
-- tests with a real-clock bound that a loaded runner misses. Pull requests
-  run one test per core, and this failed twice on 2026-10-15/16, on changes
-  that did not touch it:
-  - `lamp-voice`'s module `coordinator::motor::tests::native_head`: a motor
-    packet older
-    than `MAX_AGE_US` (100 ms, `crates/body/src/runtime/channel.rs`) when it
-    is read is refused as "motor packet boot/order/freshness violation"
-    (runs 38797329569 on `lamp-voice`, 38776871505).
-
-  It runs one at a time in the nightly full run. The fix is to give the
-  test its own time, not to raise the bound the lamp runs with.
+- tests with a real-clock bound that a loaded runner misses: none now. A
+  test goes here only until it gets its own time; the bound the lamp runs
+  with is never raised for it. `lamp-voice`'s `coordinator::motor::tests::native_head`
+  was here (a motor packet refused as older than `MAX_AGE_US`, runs
+  38797329569 and 38776871505). It left once its tests ran parent and child
+  on one stepped clock and a packet's age was read after it arrives (#900,
+  #988, #1004), so pull requests run it again.
 
 Because whole binaries and modules are matched, a new test added to one of
 them is also skipped on pull requests and merges, and is first run by the

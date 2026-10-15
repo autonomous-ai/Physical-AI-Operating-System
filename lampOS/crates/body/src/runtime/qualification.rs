@@ -5,6 +5,7 @@ use super::{
     config::invalid,
     wire::{Command, Control, Event, Motion, Observation},
 };
+use crate::control::Clock;
 use crate::{
     Joint,
     calibration::UnitCalibration,
@@ -134,9 +135,9 @@ impl HeadQualification {
     }
     /// Uses the existing one-child Supervisor, never a second serial reader.
     /// A failed send is terminal; there is no retry or automatic return action.
-    pub fn send_inspection(
+    pub fn send_inspection<C: Clock + Copy>(
         &mut self,
-        supervisor: &mut super::supervisor::Supervisor,
+        supervisor: &mut super::supervisor::Supervisor<C>,
         now: MonoTime,
         e: OriginalEvidence,
     ) -> io::Result<()> {
@@ -150,9 +151,9 @@ impl HeadQualification {
         }
         result
     }
-    pub fn send_segment(
+    pub fn send_segment<C: Clock + Copy>(
         &mut self,
-        supervisor: &mut super::supervisor::Supervisor,
+        supervisor: &mut super::supervisor::Supervisor<C>,
         now: MonoTime,
         e: OriginalEvidence,
     ) -> io::Result<()> {
@@ -168,9 +169,9 @@ impl HeadQualification {
     }
     /// One priority authority update. Forward denial even when this controller
     /// inhibits; resource cleanup is still reported independently by Supervisor.
-    pub fn send_authority(
+    pub fn send_authority<C: Clock + Copy>(
         &mut self,
-        supervisor: &mut super::supervisor::Supervisor,
+        supervisor: &mut super::supervisor::Supervisor<C>,
         now: MonoTime,
         snapshot: Snapshot,
     ) -> io::Result<()> {
@@ -186,21 +187,21 @@ impl HeadQualification {
     }
     /// At most eight already-available messages, no wait. Continue Supervisor
     /// polling after an error/Stop until actual exit and cleanup are observed.
-    pub fn poll(
+    pub fn poll<C: Clock + Copy>(
         &mut self,
-        supervisor: &mut super::supervisor::Supervisor,
+        supervisor: &mut super::supervisor::Supervisor<C>,
         mut receipt: impl FnMut(&Event),
     ) -> io::Result<()> {
-        use crate::control::Clock;
         self.require_worker(supervisor)?;
         let result = (|| {
-            self.maintain(super::SystemClock.now())?;
+            self.maintain(supervisor.now())?;
             for _ in 0..8 {
                 let Some(event) = supervisor.poll()? else {
                     break;
                 };
                 receipt(&event);
-                self.observe(super::SystemClock.now(), &event)?;
+                let now = supervisor.now();
+                self.observe(now, &event)?;
             }
             Ok(())
         })();
@@ -212,7 +213,10 @@ impl HeadQualification {
     }
     /// Bind dispatch and observation to the original owned child before touching
     /// either channel. A wrong supplied Supervisor is not ours to Stop.
-    fn require_worker(&mut self, supervisor: &super::supervisor::Supervisor) -> io::Result<()> {
+    fn require_worker<C: Clock + Copy>(
+        &mut self,
+        supervisor: &super::supervisor::Supervisor<C>,
+    ) -> io::Result<()> {
         if supervisor.worker != self.worker {
             self.stop();
             return Err(invalid("qualification Supervisor worker changed"));

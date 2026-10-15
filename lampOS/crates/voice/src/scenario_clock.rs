@@ -147,6 +147,16 @@ pub(crate) fn host_deadline() -> Option<Instant> {
     ACTIVE.with(|active| active.borrow().as_ref().map(|state| state.host_deadline))
 }
 
+/// The scenario clock as a body `Clock`, for a Supervisor in a unit test.
+#[derive(Clone, Copy, Debug)]
+pub(crate) struct Clock;
+
+impl lamp_body::control::Clock for Clock {
+    fn now(&self) -> lamp_turn_owner::MonoTime {
+        lamp_turn_owner::MonoTime::from_micros(monotonic_us())
+    }
+}
+
 pub(crate) fn instant() -> Instant {
     ACTIVE.with(|active| {
         active
@@ -254,13 +264,9 @@ pub(crate) fn wait_child_exited(pid: u32, deadline: Instant) -> io::Result<()> {
         .ok()
         .and_then(Pid::from_raw)
         .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "invalid fixture child PID"))?;
+    // Probe before reading the deadline, so a deadline already passed (a
+    // one-shot probe) still sees a child that has exited.
     loop {
-        if Instant::now() >= deadline {
-            return Err(io::Error::new(
-                io::ErrorKind::TimedOut,
-                format!("fixture child {pid} exit observation timed out"),
-            ));
-        }
         match waitid(
             WaitId::Pid(child),
             WaitIdOptions::EXITED | WaitIdOptions::NOWAIT | WaitIdOptions::NOHANG,
@@ -270,6 +276,12 @@ pub(crate) fn wait_child_exited(pid: u32, deadline: Instant) -> io::Result<()> {
                 return Err(io::Error::other(format!(
                     "fixture child {pid} exited abnormally: {status:?}"
                 )));
+            }
+            Ok(None) if Instant::now() >= deadline => {
+                return Err(io::Error::new(
+                    io::ErrorKind::TimedOut,
+                    format!("fixture child {pid} exit observation timed out"),
+                ));
             }
             Ok(None) => std::thread::sleep(
                 Duration::from_millis(1).min(deadline.saturating_duration_since(Instant::now())),

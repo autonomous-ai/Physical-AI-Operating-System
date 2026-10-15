@@ -4,6 +4,8 @@
 //! slice, only from an original allowed snapshot. Subsequent operations are
 //! nonblocking; the unchanged motor supervisor owns bus deadlines and reaping.
 use crate::options::MotorOptions;
+#[cfg(test)]
+use crate::scenario_clock::monotonic_us;
 use lamp_body::command::JointSelection;
 use lamp_body::runtime::{
     config::Config,
@@ -11,6 +13,7 @@ use lamp_body::runtime::{
     supervisor::{Supervisor, new_boot},
     wire::{Command, Control, Event, Motion, Observation},
 };
+#[cfg(not(test))]
 use lamp_ipc::monotonic_us;
 use lamp_turn_owner::{
     BootId, BoundaryGuard, Error as AuthorityError, MonoTime, OutputKind, OutputPermit, Permission,
@@ -43,6 +46,14 @@ pub(super) fn bounded(value: impl ToString) -> String {
 fn invalid(message: impl ToString) -> io::Error {
     io::Error::other(message.to_string())
 }
+/// The clock the motor child's Supervisor measures its deadlines on. A unit
+/// test reads the stepped scenario clock, which is the real clock unless the
+/// test entered a scope.
+#[cfg(not(test))]
+type MotorClock = lamp_body::runtime::SystemClock;
+#[cfg(test)]
+type MotorClock = crate::scenario_clock::Clock;
+
 fn time() -> MonoTime {
     MonoTime::from_micros(monotonic_us())
 }
@@ -296,7 +307,7 @@ struct Active {
 /// There is intentionally no replacement/retry/restart method.
 pub struct OptionalMotor {
     prepared: Option<PreparedMotor>,
-    child: Option<Supervisor>,
+    child: Option<Supervisor<MotorClock>>,
     parent: BootId,
     guard: BoundaryGuard,
     last_sent_revision: Option<u64>,
@@ -515,13 +526,24 @@ impl OptionalMotor {
             self.disable("motor qualification expired before startup");
             return;
         }
-        match Supervisor::spawn(
+        #[cfg(not(test))]
+        let spawned = Supervisor::spawn(
             &prepared.executable.path,
             &prepared.config_file.path,
             &prepared.directory,
             self.parent,
             prepared.identity.worker,
-        ) {
+        );
+        #[cfg(test)]
+        let spawned = Supervisor::spawn_with_clock(
+            &prepared.executable.path,
+            &prepared.config_file.path,
+            &prepared.directory,
+            self.parent,
+            prepared.identity.worker,
+            crate::scenario_clock::Clock,
+        );
+        match spawned {
             Ok(child) => {
                 self.child = Some(child);
                 self.publish(snapshot);

@@ -711,6 +711,52 @@ turn, and each answer's `next` says the person has heard it
 What a prepared or handed-over task is, and what reaches the tasks part, is
 unchanged.
 
+### Asked of the staff, done by the lamp (#854, off unless `LAMP_TASKS_ASKED=on`)
+
+On lamp-4ace on 2026-10-15 at 20:15 and 20:16 (one session, synthetic
+voice), "Hey Lamp, can you ask Claude Code to write a short story about a lamp
+who learns to sing, in five chapters, and to read each chapter over before
+starting the next one?" was not handed over: the lamp told the story itself,
+and asked again plainly it went on to chapters three and four. In a fresh
+session the same words were read back as a hand-over. Once, with "your go"
+in the service's transcript, the work was prepared for Codex.
+
+What the model was given: the persona asks for stories to be told gladly
+and never mentions the staff; `start_agent_task` was for "computer work …
+code, documents or files there", to be called "only when the person asks for
+such work to be done there", which a story is easy to think is not; and with
+`LAMP_TASKS_WHO=on` its `who` was an enum of the staff's names, so a name not
+made out could only be left out or guessed: `chosen()` refuses a name that is
+none of the staff, but the enum never let the model send one.
+
+With `LAMP_TASKS_ASKED=on` (the provider worker's `--tasks-asked`, after
+`--tasks-lead-in`):
+
+- `start_agent_task` is to be called whenever the person asks to have one of
+  the staff do something ("ask Claude Code to …", "get Codex to …"),
+  whatever the work, a story, a poem or a plan as much as code, even one the
+  lamp could do itself, and even in the middle of a story it is telling;
+  never to do the work instead, begin it, or offer to. Work on the office
+  computer still counts, as before.
+- A new session is told the same after the persona, which asks for stories
+  to be told gladly (`agent_tasks::session_note`), on the Live route and on
+  the second voice alike.
+- With two or more staff, `who` may also be "not sure": nothing is prepared,
+  and the model is told to ask "Claude Code or Codex?" and call again with
+  the answer. A name that is none of the staff is refused as before.
+- What is prepared, confirmed and sent to the tasks part is unchanged.
+
+Without the switch every function and session is as before
+(`with_work_asked_of_the_staff_every_ask_is_a_hand_over_and_without_it_nothing_changes`,
+`a_name_not_made_out_is_asked_about_and_never_guessed`).
+
+**Measured without a sound:** `lamp-voice provider-check CONFIG --hand-overs
+ROUNDS` writes #854's requests to the model, each in a session of its own,
+and counts how often each is handed over (`as_expected`), with the switch
+(`LAMP_TASKS_ASKED=on`, the note included) or without it
+([tools.md](tools.md#where-a-turn-with-a-function-call-spends-its-time-799)).
+The model reads the words there; on the lamp it hears them.
+
 ### Told twice, and no gist (#757, 2026-10-15)
 
 In the day played on lamp-4ace on 2026-10-15 at 08:02 (review page, Brain

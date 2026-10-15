@@ -84,13 +84,19 @@ fn run() -> Result<()> {
         // nothing is captured or played. One line a request, then medians.
         // `--thinking TOKENS` sets the thinking budget for this run only, to
         // compare with the one in CONFIG.
-        [command,path,flag,rounds,rest @ ..] if command=="provider-check" && flag=="--tool-turns" && matches!(rest.len(),0|2) => {
-            use lamp_voice::tool_turns::{PAUSE,SCRIPT,Timeline,failed,next_pause,stand_in,summary};
+        [command,path,flag,rounds,rest @ ..] if command=="provider-check" && (flag=="--tool-turns" || flag=="--hand-overs") && matches!(rest.len(),0|2) => {
+            use lamp_voice::tool_turns::{HAND_OVERS,PAUSE,SCRIPT,Timeline,failed,next_pause,stand_in,summary_of};
+            // --hand-overs: the requests of #854 instead, asked of Claude Code or of the lamp.
+            let script=if flag=="--hand-overs" { HAND_OVERS } else { SCRIPT };
             let rounds:usize=rounds.parse().ok().filter(|rounds|(1..=20).contains(rounds)).ok_or("ROUNDS is a number from 1 to 20")?;
-            let thinking:Option<u32>=match rest { [flag,tokens] if flag=="--thinking"=>Some(tokens.parse().map_err(|_|"--thinking takes a number of tokens")?), []=>None, _=>return Err("provider-check CONFIG --tool-turns ROUNDS [--thinking TOKENS]".into()) };
+            let thinking:Option<u32>=match rest { [flag,tokens] if flag=="--thinking"=>Some(tokens.parse().map_err(|_|"--thinking takes a number of tokens")?), []=>None, _=>return Err("provider-check CONFIG --tool-turns|--hand-overs ROUNDS [--thinking TOKENS]".into()) };
             // LAMP_TOOL_LEAD_IN=on: the functions and their answers as with the lead-in (#799).
             let lead_in=std::env::var(lamp_voice::agent_tasks::LEAD_IN_ENVIRONMENT).as_deref()==Ok("on");
-            let place=lamp_voice::agent_tasks::Place{directory:"/nonexistent".into(),target:lamp_voice::agent_tasks::DEFAULT_TARGET.into(),who:false,lead_in};
+            // LAMP_TASKS_ASKED=on: the functions as with work asked of the staff handed over every time (#854).
+            let asked=std::env::var(lamp_voice::agent_tasks::ASKED_ENVIRONMENT).as_deref()==Ok("on");
+            let place=lamp_voice::agent_tasks::Place{directory:"/nonexistent".into(),target:lamp_voice::agent_tasks::DEFAULT_TARGET.into(),who:false,lead_in,asked};
+            // With the switch, each session is told after the persona what a lamp's would be (#854).
+            let note=lamp_voice::agent_tasks::session_note(&place).unwrap_or_default();
             let colour=lamp_gemini::Tool{name:"light_colour".into(),description:"Set the colour of your own light when you are asked to.".into(),parameters:Some(serde_json::json!({"type":"object","properties":{"colour":{"type":"string","enum":["white","warm","red","green","blue","purple"]}},"required":["colour"]})),silent:false};
             let tools:Vec<lamp_gemini::Tool>=lamp_voice::tools::declared(&lamp_voice::tools::Settings{decline:true,exec:None,memory:None,clock:false,..Default::default()}).into_iter().chain([colour]).chain(lamp_voice::agent_tasks::tools(&place)).collect();
             let mut results=Vec::new();
@@ -101,10 +107,11 @@ fn run() -> Result<()> {
                 let mut pause=PAUSE;
                 let mut first=true;
                 for round in 0..rounds {
-                    for scripted in SCRIPT {
+                    for scripted in script {
                         if !first { tokio::time::sleep(pause).await; }
                         first=false;
                         let mut config=ProviderConfig::load(Path::new(path))?.into_session()?.tools(tools.clone())?;
+                        if !note.is_empty() { let written=config.instruction_text().to_owned(); config=config.instruction(&format!("{written}{note}"))?; }
                         if let Some(tokens)=thinking { config=config.thinking_budget(tokens)?; }
                         let mut connection=match lamp_gemini::connect(config,lamp_gemini::SessionId::new(1)?).await {
                             Ok(connection)=>connection,
@@ -158,7 +165,8 @@ fn run() -> Result<()> {
                 }
                 Ok::<(),Box<dyn std::error::Error+Send+Sync>>(())
             })?;
-            let mut summary=summary(&results);
+            let mut summary=summary_of(&results,script);
+            summary["asked_switch"]=serde_json::json!(asked);
             summary["thinking_budget"]=serde_json::json!(thinking.map_or("as in CONFIG".to_owned(),|tokens|tokens.to_string()));
             summary["lead_in"]=serde_json::json!(lead_in);
             println!("{summary}");

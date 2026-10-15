@@ -237,7 +237,12 @@ default.
 ## Latency targets
 
 Agreed on the issue, from the end of the line to the lamp's first sound.
-**Not yet measured on a lamp.**
+**Not met on lamp-52e6** (2026-10-15, eight played questions,
+[verification](verification/754-lamp-52e6-20261015/README.md)): median 4.3 s
+to the first write to the speaker, 3.0 to 3.6 s for a plain question with no
+slow chat. The chat through the relay takes 1.2 s at best to its first
+event, with spikes to 7.7 s; speech to text gives its last words 0.6 to 0.9
+s after the line; speech starts 0.4 to 0.6 s after the chat's first event.
 
 - First turn after a switch: the sentence starts within 1.2 s, and the
   answer follows with no gap longer than 0.5 s.

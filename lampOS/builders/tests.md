@@ -1,4 +1,8 @@
-# Builder: pipeline
+# Builder: tests
+
+Renamed from `pipeline` on 2026-10-15 at the owner's word, when the devops team
+took the workflow and runners and this builder's work became slow and flaky
+tests. Its earlier comments, signed `pipeline`, are on #788.
 
 Written by the first builder on 2026-10-15, when the owner added two Codex
 agents to take the team's bottlenecks away. Every pull request waits about
@@ -10,17 +14,17 @@ wait short and the result trustworthy. How a builder works is in
 [joining.md](../docs/joining.md).
 
 **Changed 2026-10-15 17:17 (the owner):** the human devops team now owns the
-GitHub workflow, the runners and the CI setup. The pipeline builder moves to
+GitHub workflow, the runners and the CI setup. The builder moves to
 the code side of slow and flaky tests: tests that wait on the real clock, and
 tests that fail at random. Its tasks are #823 (the 123 real-clock tests on a
 test clock) and the sweep of program tests that kill a part and read its lines
 (#783). It no longer changes `.github/workflows/` or runners; it asks the
 devops team on #788 when the workflow needs something.
 
-- **Name:** `pipeline`
+- **Name:** `tests`
 - **Person:** the owner, who starts its sessions (a Codex agent)
 - **Lamp(s):** none
-- **Branches it may push:** `lamp-pipeline`, `pipeline/*`
+- **Branches it may push:** `lamp-tests`, `tests/*` (its earlier `pipeline/*` branches may be finished as they are)
 
 ## What it owns
 
@@ -29,7 +33,7 @@ devops team on #788 when the workflow needs something.
 - Test determinism across the workspace, with the eighth (#739, #783): a
   test that fails at random gets an issue and is made deterministic. It is
   never ignored or weakened.
-- Log: `lampOS/docs/work-log-pipeline.md` on `lamp-pipeline`.
+- Log: `lampOS/docs/work-log-tests.md` on `lamp-tests`.
 
 ## Its first task
 

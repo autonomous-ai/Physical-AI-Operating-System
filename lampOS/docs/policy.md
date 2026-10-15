@@ -987,7 +987,7 @@ through them as they are.
         --days 2026-10-14,2026-10-15 --models typesafe/jev-1.13,typesafe/jev-1.14 \
         [--labels ABSOLUTE_FILE] [--only-labelled] [--endpoint URL] \
         [--deadline-ms 10000] [--pace-ms 500] [--most N] > replay.jsonl
-    lamp-policy-replay --again replay.jsonl --labels ABSOLUTE_FILE [--refit]
+    lamp-policy-replay --again replay.jsonl --labels ABSOLUTE_FILE [--refit [--cost-ratio N]]
 
 - **Where:** on the lamp, where the logs are. They hold what was heard, so
   they stay there. What is heard is sent to the model's service again, as on
@@ -1028,7 +1028,14 @@ through them as they are.
   fewer than 20 labelled lines with answers, with those lines all of one
   label, or with no half that could be fitted. A half whose fitted part is
   all of one label is passed over; the counts are means over the halves
-  fitted (`halves_fitted`, beside `halves_unfitted`). The day's weights are two sums, with
+  fitted (`halves_fitted`, beside `halves_unfitted`).
+- **`--cost-ratio N`** (1 to 20, default 1), with `--refit`: an answer that
+  was not for the lamp costs N times an ignored request (#871, the first
+  builder: the product is "speaks when spoken to"). The fit counts each
+  example to be left alone N times, and each count says `cost`, N for each
+  answer not for the lamp and 1 for each request ignored, for the day's
+  weights and the refit alike; the summary says `cost_ratio`. The 1.13 and
+  1.14 comparison asked for uses 3. The day's weights are two sums, with
   and without something listening for the name; this is one sum, the name
   heard one more term, not heard and not known both counted as not heard.
   It changes nothing the lamp does.

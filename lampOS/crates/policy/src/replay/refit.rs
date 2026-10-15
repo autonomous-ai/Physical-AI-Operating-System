@@ -33,6 +33,9 @@ pub const SEED: u64 = 871;
 pub const PULL: f64 = 1.0;
 /// Fewer labelled lines with answers than this, and a model is not fitted.
 pub const FEWEST: usize = 20;
+/// The most a lamp answering what was not for it may be made to cost, as
+/// many times an ignored request (`--cost-ratio`).
+pub const MOST_COST: f64 = 20.0;
 
 /// What the sum is made from after where it starts, in order.
 pub fn terms() -> Vec<String> {
@@ -112,8 +115,10 @@ fn probability(weights: &Weights, terms: &[f64; TERMS]) -> f64 {
 /// The weights that make `examples` most likely, less [`PULL`] times half
 /// the weights' squares: Newton's steps, each solved exactly. `None` when
 /// the examples are all of one kind, which leaves where the sum starts with
-/// no end.
-fn fit(examples: &[&Example]) -> Option<Weights> {
+/// no end. Each example to be left alone counts `cost` times one to be
+/// answered (#871, the first builder: answering what was not for the lamp
+/// costs more than ignoring what was), 1 for none.
+fn fit(examples: &[&Example], cost: f64) -> Option<Weights> {
     let answers = examples
         .iter()
         .filter(|example| example.should == Should::Answer)
@@ -130,10 +135,15 @@ fn fit(examples: &[&Example]) -> Option<Weights> {
             x[1..].copy_from_slice(&example.terms);
             let p = probability(&weights, &example.terms);
             let y = f64::from(u8::from(example.should == Should::Answer));
+            let counts = if example.should == Should::StayQuiet {
+                cost
+            } else {
+                1.0
+            };
             for i in 0..=TERMS {
-                slope[i] += (p - y) * x[i];
+                slope[i] += counts * (p - y) * x[i];
                 for j in 0..=TERMS {
-                    curve[i][j] += p * (1.0 - p) * x[i] * x[j];
+                    curve[i][j] += counts * p * (1.0 - p) * x[i] * x[j];
                 }
             }
         }
@@ -237,8 +247,12 @@ impl Counts {
         }
     }
 
-    fn told(&self) -> Value {
-        let mean = |sum: usize| (sum as f64 / self.halves.max(1) as f64 * 10.0).round() / 10.0;
+    /// The means over the halves, and what the mistakes cost with `cost`
+    /// for each answer that was not for the lamp and 1 for each request
+    /// ignored.
+    fn told(&self, cost: f64) -> Value {
+        let mean_of = |sum: f64| (sum / self.halves.max(1) as f64 * 10.0).round() / 10.0;
+        let mean = |sum: usize| mean_of(sum as f64);
         let group = |index: usize| json!({"labelled": mean(self.labelled[index]), "right": mean(self.right[index])});
         json!({
             "right": group(0),
@@ -247,13 +261,20 @@ impl Counts {
             "right_other_language": group(3),
             "answered_not_for_the_lamp": mean(self.answered_not_for_it),
             "ignored_for_the_lamp": mean(self.ignored_for_it),
+            "cost": mean_of(cost * self.answered_not_for_it as f64 + self.ignored_for_it as f64),
         })
     }
 }
 
 /// The refit's counts for every model in `lines` (an `--again` run's,
-/// labelled): one JSON line, no words.
+/// labelled): one JSON line, no words. Every mistake costs the same.
 pub fn summary(lines: &[Value], models: &[String]) -> Value {
+    summary_costing(lines, models, 1.0)
+}
+
+/// The same with an answer that was not for the lamp costing `cost` times
+/// an ignored request, in the fit and in the counts' `cost` (#871).
+pub fn summary_costing(lines: &[Value], models: &[String], cost: f64) -> Value {
     let names = terms();
     let labelled: Vec<&Value> = lines
         .iter()
@@ -301,7 +322,7 @@ pub fn summary(lines: &[Value], models: &[String]) -> Value {
             let (on, back): (Vec<&Example>, Vec<&Example>) = examples
                 .iter()
                 .partition(|example| fitted_on[example.place]);
-            let Some(weights) = fit(&on) else {
+            let Some(weights) = fit(&on, cost) else {
                 unfitted += 1;
                 continue;
             };
@@ -314,7 +335,7 @@ pub fn summary(lines: &[Value], models: &[String]) -> Value {
             }
         }
         let all: Vec<&Example> = examples.iter().collect();
-        let Some(weights) = fit(&all) else {
+        let Some(weights) = fit(&all, cost) else {
             let why = "the weights could not be fitted on every label".to_owned();
             each.insert(model.clone(), unfitted_because(why));
             continue;
@@ -338,8 +359,8 @@ pub fn summary(lines: &[Value], models: &[String]) -> Value {
                 // The counts are means over the halves fitted only.
                 "halves_fitted": day.halves,
                 "halves_unfitted": unfitted,
-                "day_weights": day.told(),
-                "refitted": refitted.told(),
+                "day_weights": day.told(cost),
+                "refitted": refitted.told(cost),
                 "weights_on_every_label": Value::Object(named),
             }),
         );
@@ -350,7 +371,8 @@ pub fn summary(lines: &[Value], models: &[String]) -> Value {
         "halves": HALVES,
         "seed": SEED,
         "pull": PULL,
-        "counted": "mean over the halves kept back; `answer` and `look_up` both take the person up",
+        "cost_ratio": cost,
+        "counted": "mean over the halves kept back; `answer` and `look_up` both take the person up; `cost` is cost_ratio for each answer not for the lamp and 1 for each request ignored",
         "models": Value::Object(each),
         "words": "none: counts and weights only",
     })

@@ -14,7 +14,7 @@ use std::{
     time::Duration,
 };
 
-const USAGE: &str = "usage: lamp-policy-replay --key-file ABSOLUTE_PATH --log-dir ABSOLUTE_DIR --days YYYY-MM-DD[,YYYY-MM-DD...] --models NAME[,NAME...] [--labels ABSOLUTE_FILE] [--only-labelled] [--endpoint URL] [--deadline-ms 10000] [--pace-ms 500] [--most N]\n       lamp-policy-replay --again ABSOLUTE_FILE --labels ABSOLUTE_FILE [--refit]\n       lamp-policy-replay --pictures --log-dir ABSOLUTE_DIR --days YYYY-MM-DD[,...] [--labels ABSOLUTE_FILE]";
+const USAGE: &str = "usage: lamp-policy-replay --key-file ABSOLUTE_PATH --log-dir ABSOLUTE_DIR --days YYYY-MM-DD[,YYYY-MM-DD...] --models NAME[,NAME...] [--labels ABSOLUTE_FILE] [--only-labelled] [--endpoint URL] [--deadline-ms 10000] [--pace-ms 500] [--most N]\n       lamp-policy-replay --again ABSOLUTE_FILE --labels ABSOLUTE_FILE [--refit [--cost-ratio N]]\n       lamp-policy-replay --pictures --log-dir ABSOLUTE_DIR --days YYYY-MM-DD[,...] [--labels ABSOLUTE_FILE]";
 const HELP: &str = "Asks each attention decision in the decisions logs of the days given again, of each\n\
 model given in turn (at most four), as it was asked on the day, and prints one line per\n\
 decision and a summary: each model's choice, probability and time, and the kinds of what\n\
@@ -22,7 +22,9 @@ was heard (words, the lamp named, another language), never the words. --labels g
 should have happened, one JSON line each: {\"at_unix_ms\": N, \"should\": \"answer\"|\"stay_quiet\"}.\n\
 --again counts an earlier run's printed lines again with --labels, and asks nothing; with\n\
 --refit it also fits the weights again to each model's own answers, on half the labelled\n\
-lines, and counts on the other half, 200 times, beside the day's weights on the same halves.\n\
+lines, and counts on the other half, 200 times, beside the day's weights on the same halves;\n\
+--cost-ratio N (1 to 20, default 1) makes an answer that was not for the lamp cost N times\n\
+an ignored request, in the fit and in the counts' cost.\n\
 --pictures counts the lines lamp-policy --images wrote (pictures-YYYY-MM-DD.jsonl), a label\n\
 taken for the line nearest it within 3 s, and asks nothing.\n\
 What was heard is sent to the decision model's service again, as on the day.";
@@ -36,6 +38,8 @@ enum Run {
         lines: PathBuf,
         labels: PathBuf,
         refit: bool,
+        /// What an answer not for the lamp costs, in ignored requests.
+        cost: f64,
     },
     /// The picture lines of these days, counted (#871).
     Pictures {
@@ -92,6 +96,7 @@ fn parse(args: impl Iterator<Item = String>) -> Result<Option<Run>, String> {
     let mut pictures = false;
     let mut only_labelled = false;
     let mut refit = false;
+    let mut cost = None;
     let mut endpoint = DEFAULT_ENDPOINT.to_owned();
     let (mut deadline, mut pace, mut most) = (10_000, 500, None);
     let mut seen = BTreeSet::new();
@@ -142,6 +147,15 @@ fn parse(args: impl Iterator<Item = String>) -> Result<Option<Run>, String> {
             "--deadline-ms" => deadline = number(&value, 1, 60_000)?,
             "--pace-ms" => pace = number(&value, 0, 10_000)?,
             "--most" => most = Some(number(&value, 1, 100_000)? as usize),
+            "--cost-ratio" => {
+                cost = Some(
+                    value
+                        .parse::<f64>()
+                        .ok()
+                        .filter(|cost| (1.0..=replay::refit::MOST_COST).contains(cost))
+                        .ok_or("--cost-ratio is a number from 1 to 20")?,
+                );
+            }
             _ => return Err(format!("{option} is not an option")),
         }
     }
@@ -156,18 +170,22 @@ fn parse(args: impl Iterator<Item = String>) -> Result<Option<Run>, String> {
         }));
     }
     if let Some(lines) = again {
-        if seen.len() != 2 + usize::from(refit) {
-            return Err("--again takes --labels and --refit and nothing else".into());
+        if seen.len() != 2 + usize::from(refit) + usize::from(cost.is_some()) {
+            return Err("--again takes --labels, --refit and --cost-ratio and nothing else".into());
+        }
+        if cost.is_some() && !refit {
+            return Err("--cost-ratio is for --refit".into());
         }
         let labels = labels.ok_or("--again needs --labels")?;
         return Ok(Some(Run::Again {
             lines,
             labels,
             refit,
+            cost: cost.unwrap_or(1.0),
         }));
     }
-    if refit {
-        return Err("--refit is for --again".into());
+    if refit || cost.is_some() {
+        return Err("--refit and --cost-ratio are for --again".into());
     }
     if only_labelled && labels.is_none() {
         return Err("--only-labelled needs --labels".into());
@@ -196,13 +214,13 @@ fn pictures(log: &Path, days: &[String], labels: Option<&PathBuf>) -> io::Result
     Ok(())
 }
 
-fn again(lines: &PathBuf, labels: &PathBuf, refit: bool) -> io::Result<()> {
+fn again(lines: &PathBuf, labels: &PathBuf, refit: bool, cost: f64) -> io::Result<()> {
     let labels = replay::labels(&std::fs::read_to_string(labels)?).map_err(io::Error::other)?;
     let (lines, models) =
         replay::relabelled(&std::fs::read_to_string(lines)?, &labels).map_err(io::Error::other)?;
     println!("{}", replay::summary(&lines, &models));
     if refit {
-        println!("{}", replay::refit::summary(&lines, &models));
+        println!("{}", replay::refit::summary_costing(&lines, &models, cost));
     }
     Ok(())
 }
@@ -269,7 +287,8 @@ fn main() -> ExitCode {
                 lines,
                 labels,
                 refit,
-            } => again(lines, labels, *refit),
+                cost,
+            } => again(lines, labels, *refit, *cost),
             Run::Pictures { log, days, labels } => pictures(log, days, labels.as_ref()),
         } {
             Ok(()) => ExitCode::SUCCESS,
@@ -325,7 +344,8 @@ mod tests {
             Some(Run::Again {
                 lines: "/r".into(),
                 labels: "/l".into(),
-                refit: false
+                refit: false,
+                cost: 1.0
             })
         );
         assert_eq!(
@@ -338,7 +358,22 @@ mod tests {
             Some(Run::Again {
                 lines: "/r".into(),
                 labels: "/l".into(),
-                refit: true
+                refit: true,
+                cost: 1.0
+            })
+        );
+        assert_eq!(
+            parse(
+                "--again /r --refit --cost-ratio 3 --labels /l"
+                    .split_whitespace()
+                    .map(str::to_owned)
+            )
+            .unwrap(),
+            Some(Run::Again {
+                lines: "/r".into(),
+                labels: "/l".into(),
+                refit: true,
+                cost: 3.0
             })
         );
         assert_eq!(
@@ -361,6 +396,10 @@ mod tests {
             "--pictures --days 2026-10-15",
             "--pictures --log-dir /d --days 2026-10-15 --refit",
             "--again /r --labels /l --refit --refit",
+            "--again /r --labels /l --cost-ratio 3",
+            "--again /r --labels /l --refit --cost-ratio 0.5",
+            "--again /r --labels /l --refit --cost-ratio 21",
+            "--again /r --labels /l --refit --cost-ratio three",
             "--key-file /k --log-dir /d --days 2026-10-15 --models m --refit",
         ] {
             assert!(

@@ -39,6 +39,28 @@ pub const MAX_CALL_WAIT_BLOCKS: u16 = 300;
 /// call goes on for a moment after it (#891).
 pub const CALL_PAUSE_BLOCKS: u16 = 20;
 
+/// Where the coordinator reads whether a person who speaks over the lamp
+/// keeps their first words (#828). `kept` only.
+///
+/// Why: the duplex rule stops the lamp only once a run of blocks is plainly
+/// someone over it, and what was said before that, under the lamp's voice,
+/// was dropped with the 300 ms before the onset. On lamp-4ace on 16 October
+/// "Lamp, stop. What is two plus two?" was sent as its tail and heard as
+/// "vestido"; in the first builder's two recordings of 01:51 five requests
+/// said over a story began 1.2 to 2.5 s into what was said.
+pub const FIRST_WORDS_ENVIRONMENT: &str = "LAMP_FIRST_WORDS";
+
+/// Whether the voice's environment says `kept`.
+pub fn first_words_kept() -> bool {
+    std::env::var(FIRST_WORDS_ENVIRONMENT).ok().as_deref() == Some("kept")
+}
+
+/// With first words kept, how far back a yield's request may begin: 1.6 s,
+/// the duplex hold's longest retained age.
+pub const REACH_BACK_BLOCKS: usize = 160;
+/// And how much before its earliest speech-like block it begins.
+pub const REACH_LEAD_BLOCKS: usize = 20;
+
 pub struct SpeechProbability {
     vad: VoiceActivityDetectorWrapper,
     buffer: [f32; CAPTURE_SAMPLES],
@@ -88,6 +110,13 @@ pub enum Activity {
 
 pub struct TurnDetector {
     prefix: VecDeque<ObservedAudio>,
+    /// With first words kept: each prefix block's own score, before any
+    /// mask, or `None` for a block the duplex rule could not hear, which a
+    /// request may not reach back past. Empty otherwise.
+    scores: VecDeque<Option<f32>>,
+    first_words: bool,
+    /// The next start is a yield's, and may reach back.
+    reach_back: bool,
     start_count: u16,
     silence_count: u16,
     end_silence_blocks: u16,
@@ -116,6 +145,9 @@ impl Default for TurnDetector {
     fn default() -> Self {
         Self {
             prefix: VecDeque::with_capacity(PRE_ROLL_BLOCKS),
+            scores: VecDeque::new(),
+            first_words: false,
+            reach_back: false,
             start_count: 0,
             silence_count: 0,
             end_silence_blocks: END_SILENCE_BLOCKS,
@@ -169,6 +201,20 @@ impl TurnDetector {
         policy.validate()?;
         self.confirmation = Some(Confirmation::new(classifier, policy));
         Ok(self)
+    }
+
+    /// Keep [`REACH_BACK_BLOCKS`] of pre-roll, with each block's own score,
+    /// so that a yield's request can begin at the person's first words
+    /// (`LAMP_FIRST_WORDS=kept`, #828). Without it, as before, 300 ms.
+    pub fn keep_first_words(&mut self, on: bool) {
+        self.first_words = on;
+    }
+
+    /// The next utterance to start is a yield's, said over the lamp: with
+    /// first words kept, it begins at the earliest speech-like block of the
+    /// pre-roll. Only for the next block pushed.
+    pub fn reach_back(&mut self) {
+        self.reach_back = self.first_words;
     }
 
     /// Configured silence window; with confirmation it is the fallback.
@@ -237,6 +283,18 @@ impl TurnDetector {
     }
 
     pub fn push(&mut self, frame: ObservedAudio, probability: f32) -> Activity {
+        self.push_heard(frame, probability, Some(probability))
+    }
+
+    /// [`Self::push`], with the block's own score before any mask: `None`
+    /// when it was not heard with echo evidence. Only kept with first words.
+    pub fn push_heard(
+        &mut self,
+        frame: ObservedAudio,
+        probability: f32,
+        own: Option<f32>,
+    ) -> Activity {
+        let reach_back = std::mem::take(&mut self.reach_back);
         if let Err(reason) = self.validate(&frame, probability) {
             return Activity::Fault(reason);
         }
@@ -310,16 +368,28 @@ impl TurnDetector {
             }
             return Activity::Continue(frame);
         }
-        if self.prefix.len() == PRE_ROLL_BLOCKS {
+        let kept = if self.first_words {
+            REACH_BACK_BLOCKS
+        } else {
+            PRE_ROLL_BLOCKS
+        };
+        if self.prefix.len() == kept {
             self.prefix.pop_front();
+            self.scores.pop_front();
         }
         self.prefix.push_back(frame);
+        if self.first_words {
+            self.scores.push_back(own);
+        }
         self.start_count = if probability >= START_PROBABILITY {
             self.start_count + 1
         } else {
             0
         };
         if self.start_count >= START_BLOCKS {
+            let begin = self.begin(reach_back);
+            self.prefix.drain(..begin);
+            self.scores.clear();
             self.active = true;
             self.active_blocks = self.prefix.len() as u32;
             self.silence_count = 0;
@@ -354,6 +424,36 @@ impl TurnDetector {
         Ok(())
     }
 
+    /// Where an utterance starting now begins in the pre-roll: the last
+    /// [`PRE_ROLL_BLOCKS`], or for a yield with first words kept,
+    /// [`REACH_LEAD_BLOCKS`] before the earliest block scored
+    /// [`SILENCE_PROBABILITY`] or more, never past a block that was not heard.
+    fn begin(&self, reach_back: bool) -> usize {
+        let usual = self.prefix.len().saturating_sub(PRE_ROLL_BLOCKS);
+        if !reach_back || self.scores.len() != self.prefix.len() {
+            return usual;
+        }
+        // Never past a block heard without evidence, wherever it is: every
+        // block of a candidate is checked against what was heard.
+        let floor = self
+            .scores
+            .iter()
+            .rposition(Option::is_none)
+            .map_or(0, |at| at + 1);
+        self.scores
+            .iter()
+            .enumerate()
+            .take(usual)
+            .skip(floor)
+            .find(|(_, score)| score.is_some_and(|score| score >= SILENCE_PROBABILITY))
+            .map_or(usual, |(earliest, _)| {
+                earliest
+                    .saturating_sub(REACH_LEAD_BLOCKS)
+                    .max(floor)
+                    .min(usual)
+            })
+    }
+
     /// Discard prospective PCM without erasing capture continuity checks.
     pub fn suppress(
         &mut self,
@@ -367,6 +467,7 @@ impl TurnDetector {
     /// Caller must establish that no admitted input is still streaming.
     pub fn clear_prospective(&mut self) {
         self.prefix.clear();
+        self.scores.clear();
         self.start_count = 0;
         self.silence_count = 0;
         self.active_blocks = 0;
@@ -378,6 +479,7 @@ impl TurnDetector {
 
     pub fn reset(&mut self) {
         self.prefix.clear();
+        self.scores.clear();
         self.start_count = 0;
         self.silence_count = 0;
         self.active_blocks = 0;
@@ -409,6 +511,7 @@ impl TurnDetector {
     pub fn discard_inactive_prefix(&mut self) {
         if !self.active {
             self.prefix.clear();
+            self.scores.clear();
             self.start_count = 0;
         }
     }

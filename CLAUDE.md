@@ -2,6 +2,8 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+A session that opens with "you are <name>" is a lampOS builder's: read `lampOS/docs/joining.md` as it is on `origin/lamp-voice` and follow its "Starting a session".
+
 ## Multi-IDE Rules (Cursor + Claude Code)
 
 This repo is developed in both **Cursor** and **Claude Code**. The following rules (from `.cursor/rules/`) apply to all code changes:

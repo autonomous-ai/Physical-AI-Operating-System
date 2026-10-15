@@ -3,6 +3,8 @@
 Treat this directory as the root of a standalone repository. Follow the
 [V2 live interaction scope](docs/architecture.md).
 
+A session that opens with "you are <name>" is a builder's: read [joining.md](docs/joining.md) as it is on `origin/lamp-voice` and follow its "Starting a session".
+
 For the three-agent effort, follow [agent coordination](coordination/README.md).
 Read assignments and device reservations from the fetched integration branch.
 Use the built-in Harness Agent Messages (`harness send`) for communication

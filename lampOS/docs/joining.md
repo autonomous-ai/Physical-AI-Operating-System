@@ -53,10 +53,16 @@ The agent then, in this order:
 
 1. `git fetch origin`.
 2. Reads its role file, `lampOS/builders/<name>.md`, as it is on
-   `origin/lamp-voice`, where the first builder puts it before the builder's
-   first session (a new builder has no branch yet; it makes `lamp-<name>`
-   from `origin/lamp-voice` then). No role file means no work: it asks its
-   person to have the owner make one.
+   `origin/lamp-voice` (a new builder has no branch yet; it makes
+   `lamp-<name>` from `origin/lamp-voice` then). If there is none, it makes
+   its own, as the fifth builder did: it copies `builders/TEMPLATE.md` and
+   fills what it knows (the person is whoever started the session; no lamp
+   unless told; branches `lamp-<name>` and `<name>/*`; it owns nothing
+   yet), shows it to its person, pushes it as its first commit on
+   `lamp-<name>`, and comments on the Queue issue (#705): "new builder
+   <name>, role file at <link>, no tasks yet". It takes no task until the
+   first builder has taken the file onto `lamp-voice`, corrected where it
+   must be, and labelled issues `builder:<name>`.
 3. Reads this document, `lampOS/AGENTS.md`, and the repository's
    `CLAUDE.md`.
 4. Reads `lampOS/docs/work-split.md` as it is on `origin/lamp-voice`:

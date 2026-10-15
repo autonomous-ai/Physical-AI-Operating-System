@@ -28,7 +28,16 @@ not shown.
 - Each worker's lifecycle is a real child process (`cat`) with the
   production Unix-socket channels, and the production supervisor reaps it.
 - Each role's behaviour (capture, privacy, provider, speaker, ring, camera)
-  is simulated by test threads on those channels.
+  is simulated on those channels. The 32 single-cycle scenarios explicitly
+  use the stepped clock in [Voice fixtures](voice-test-fixtures.md).
+  Rapid mute/reopen keeps real-time peers. The stalled metadata writer stays
+  on a separate real thread, with an entered barrier before scenario work;
+  only its synthetic peers use stepped time.
+  Stepped scenario timestamps, including stall and revocation intervals,
+  are policy time, not wall-clock latency measurements. Printed overall
+  conversation/cleanup elapsed time remains real host time. The metadata
+  scenario separately measures actual SIGTERM-to-reap and logging finish
+  with host instants; its release guard also runs on assertion unwind.
 - This is real coordinator, channel and reaping evidence. It is not
   evidence about the production worker processes, their drivers or the
   hardware.
@@ -42,8 +51,12 @@ not shown.
     production Unix-socket channels.
   - Peers answer for capture (10 ms frames), the provider (credit-limited
     output), the speaker, and the optional ring and camera.
-  - Privacy runs on its own thread, as the privacy worker is its own process.
-    It sends a fresh observation every 5 ms.
+  - Capture begins on `StartCapture`. Delayed delivery retains each block's
+    original 10 ms acquisition timestamp, with at most 64 blocks per peer
+    step. Catch-up neither manufactures a source gap nor refreshes old audio.
+  - In threaded scenarios privacy runs on its own thread and sends a fresh
+    observation every 5 ms. Stepped scenarios run every peer before advancing
+    2 ms, giving this peer a 6 ms cadence; production freshness is unchanged.
 - **The speaker applies the production rule.**
   - It accepts PCM at the device rate (240 samples per 10 ms).
   - It installs every authority snapshot, and each chunk's own, in the
@@ -95,7 +108,7 @@ All scenarios use V1-baseline unless marked otherwise.
 | Rapid mute and reopen, 4 cycles | each cycle muted after 3 accepted chunks, privacy reopened at once | Each `privacy_muted`. Every chunk carries its own cycle's controller boot. The next cycle spawns only after every child of the previous one was reaped (about 110 ms later). No readiness while waiting | `rapid_mute_and_reopen_never_overlaps_workers_or_carries_speech_across` |
 | Real SIGTERM | while answer speech is pending | `service_stopped`, clean `Ok` | `sigterm_while_answer_speech_is_pending_stops_cleanly` |
 | Real SIGTERM | while the failure notice plays | Clean `Ok`; the notice is never retired | `sigterm_while_the_failure_notice_plays_stops_cleanly` |
-| Real SIGTERM with metadata storage stalled from the first event | after 10 accepted chunks | Audio flowed during the stall. Clean `Ok`; children reaped 4 ms after the signal. `finish_logging` gave up at its 500 ms bound (507 ms) and reported `acknowledged: false`, `degraded: true`, 63 unconfirmed events | `sigterm_while_metadata_storage_is_stalled_stops_cleanly_and_reports_the_loss` |
+| Real SIGTERM with metadata storage stalled from the first event | after 10 accepted chunks | Audio flows while the actual writer is blocked. Clean `Ok`; real SIGTERM-to-verified-reap stays below 1 s. `finish_logging` keeps its real 500 ms bound (250 ms host scheduling margin in the assertion) and reports unacknowledged loss. Checked release and a later writer-finish receipt clean up without changing that report | `sigterm_while_metadata_storage_is_stalled_stops_cleanly_and_reports_the_loss` |
 | Failure notice | provider fails before output, then the person speaks during the notice | `provider_failed`; one attempt. The next owner is admitted only after the notice retires (the V1 mask holds speech over it), then answered. The notice is never replayed | `failure_notice_plays_once_keeps_the_failure_and_yields_to_the_next_owner` |
 | Same, `vad-only` cross-check | as above | The notice yields mid-play. A notice chunk in flight is refused by the guard. The record keeps the provider failure (N1) | `failure_notice_yields_mid_play_to_a_new_owner_under_vad_only` |
 
@@ -103,6 +116,16 @@ Unit checks:
 
 - `distinct_rejects_an_item_that_returns_later`;
 - `speaker_progress_is_due_strictly_after_lease_plus_report_age` (F1).
+- `capture_schedule_tests::a_delivery_pause_keeps_contiguous_original_acquisition_times`;
+- `capture_schedule_tests::late_delivery_cannot_refresh_a_stale_admission_trigger`;
+- `capture_schedule_tests::a_dropped_block_or_real_source_gap_still_faults`.
+
+The capture checks use the real turn detector and input admission with
+controlled timestamps. They preserve the 100 ms stale-input boundary.
+Failure summaries report capture send-attempt gaps and source age at those
+attempts, including unsuccessful sends. Rapid-reopen cycles print a failed
+cycle's summary before the top-level service assertion; these producer
+diagnostics are not consumption-age or lamp measurements.
 
 ## Findings and proposals
 

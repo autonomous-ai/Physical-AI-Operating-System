@@ -144,6 +144,12 @@ that command boundary. Host tests measure local calls and exercise real Unix
 channels/subprocesses with an inert STS3215 emulator. Synthetic close receipts
 are explicitly test resources, never proof of actual serial or mechanical safety.
 
+The loaded-host fixture setup is described in
+[Voice fixtures](voice-test-fixtures.md): an inert preflight executes and reaps
+the exact frozen wrapper before protocol timing, and voice ownership begins
+after unrelated setup. Production deadlines, real Ready and cleanup checks
+remain unchanged; preflight is not runtime readiness or cold-start evidence.
+
 The selected-joint core keeps an explicit subset of IDs 1 BaseYaw, 2 BasePitch,
 3 ElbowPitch, 4 WristRoll and 5 WristPitch. Host receipts must match the original
 offered selection. An ID5-only connected inert test verifies body IDs never

@@ -127,6 +127,30 @@ impl Worker {
         directory: &Path,
         role: &str,
     ) -> (Self, WorkerChannels, std::process::ChildStdin) {
+        Self::cooperative_fixture_with_readiness(directory, role, false)
+    }
+
+    /// The stepped fixture cannot rely on the scheduler running cat before
+    /// logical time advances. Its echo proves exec/input readiness only.
+    #[cfg(test)]
+    pub(crate) fn cooperative_ready_fixture(
+        directory: &Path,
+        role: &str,
+    ) -> (Self, WorkerChannels, std::process::ChildStdin) {
+        Self::cooperative_fixture_with_readiness(directory, role, true)
+    }
+
+    #[cfg(test)]
+    pub(crate) fn fixture_pid(&self) -> u32 {
+        self.child.id()
+    }
+
+    #[cfg(test)]
+    fn cooperative_fixture_with_readiness(
+        directory: &Path,
+        role: &str,
+        ready: bool,
+    ) -> (Self, WorkerChannels, std::process::ChildStdin) {
         let parent = new_boot().unwrap();
         let boot = new_boot().unwrap();
         let mut channels = WorkerChannels::bind(directory, role, parent, boot, false).unwrap();
@@ -137,10 +161,20 @@ impl Worker {
         // ordinary child then exits zero, exercising actual supervisor reaping.
         let mut child = Command::new("cat")
             .stdin(Stdio::piped())
-            .stdout(Stdio::null())
+            .stdout(if ready { Stdio::piped() } else { Stdio::null() })
             .stderr(Stdio::null())
             .spawn()
             .unwrap();
+        if ready {
+            // The child remains owned and is killed/reaped on either write or
+            // read failure. No fixture process is leaked by a startup panic.
+            use std::io::Write;
+            let sent = child.stdin.as_mut().expect("piped input").write_all(b"R");
+            if let Err(error) = sent {
+                panic!("{}", failed_fixture(&mut child, error));
+            }
+            fixture_exec_barrier(&mut child, WORKER_STARTUP_TIMEOUT).unwrap();
+        }
         let input = child.stdin.take().unwrap();
         (
             Self {
@@ -421,19 +455,77 @@ fn fixture_exec_barrier(child: &mut Child, timeout: Duration) -> io::Result<()> 
     })();
     if let Err(error) = result {
         // A failed fixture must not leak a child just because no Worker was built.
-        let killed = child.kill();
-        let reaped = child.wait();
-        return Err(io::Error::new(
-            error.kind(),
-            format!("{error}; fixture kill={killed:?}, reap={reaped:?}"),
-        ));
+        return Err(failed_fixture(child, error));
     }
     Ok(())
 }
 
 #[cfg(test)]
+fn failed_fixture(child: &mut Child, error: io::Error) -> io::Error {
+    let killed = child.kill();
+    let reaped = child.wait();
+    io::Error::new(
+        error.kind(),
+        format!("{error}; fixture kill={killed:?}, reap={reaped:?}"),
+    )
+}
+
+#[cfg(test)]
 mod fixture_tests {
     use super::*;
+
+    #[test]
+    fn cooperative_ready_child_exit_observation_does_not_reap_or_hide_a_timeout() {
+        let directory = SessionDirectory::create().unwrap();
+        let (mut worker, _peer, input) =
+            Worker::cooperative_ready_fixture(&directory.path, "probe");
+        let pid = worker.fixture_pid();
+        worker.check_running().unwrap();
+        let error = crate::scenario_clock::wait_child_exited(
+            pid,
+            Instant::now() + Duration::from_millis(2),
+        )
+        .unwrap_err();
+        assert_eq!(error.kind(), io::ErrorKind::TimedOut);
+        drop(input);
+        let deadline = Instant::now() + WORKER_STARTUP_TIMEOUT;
+        crate::scenario_clock::wait_child_exited(pid, deadline).unwrap();
+        crate::scenario_clock::wait_child_exited(pid, deadline).unwrap();
+        let status = worker
+            .try_exit()
+            .unwrap()
+            .expect("supervisor still owns reap");
+        worker.exit_result(status).unwrap();
+        assert!(
+            crate::scenario_clock::wait_child_exited(pid, deadline).is_err(),
+            "a reaped child cannot provide a new exit receipt"
+        );
+    }
+
+    #[test]
+    fn child_exit_observation_rejects_nonzero_and_signal_death() {
+        let directory = SessionDirectory::create().unwrap();
+        let (mut failed, _failed_peer) =
+            Worker::command_fixture(&directory.path, "capture", "exit 7");
+        let error = crate::scenario_clock::wait_child_exited(
+            failed.fixture_pid(),
+            Instant::now() + WORKER_STARTUP_TIMEOUT,
+        )
+        .unwrap_err();
+        assert!(error.to_string().contains("exited abnormally"), "{error}");
+        assert_eq!(failed.child.wait().unwrap().code(), Some(7));
+        let (mut killed, _killed_peer, input) =
+            Worker::cooperative_ready_fixture(&directory.path, "speaker");
+        killed.child.kill().unwrap();
+        let error = crate::scenario_clock::wait_child_exited(
+            killed.fixture_pid(),
+            Instant::now() + WORKER_STARTUP_TIMEOUT,
+        )
+        .unwrap_err();
+        assert!(error.to_string().contains("exited abnormally"), "{error}");
+        assert!(!killed.child.wait().unwrap().success());
+        drop(input);
+    }
 
     #[test]
     fn exec_barrier_closes_earlier_peer_descriptors_without_exiting_workers() {

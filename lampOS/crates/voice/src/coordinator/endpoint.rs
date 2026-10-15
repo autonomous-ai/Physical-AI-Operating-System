@@ -5,10 +5,13 @@
 //! recovery and shutdown are observed states, and every pause without a usable
 //! verdict ends on the unchanged silence window. Nothing here waits for the
 //! worker; its process lifetime is supervised by the client, not by `Rig`.
+#[cfg(test)]
+use crate::scenario_clock::monotonic_us;
 use crate::{
     activity::{ConfirmPolicy, TurnDetector},
     options::{DirectedOptions, Endpoint, TurnTaking},
 };
+#[cfg(not(test))]
 use lamp_ipc::monotonic_us;
 use lamp_turn_end_wire::{
     Availability, Classifier, Limits, Monitor, ProcessClassifier, Report, SMART_TURN_MODEL_FILE,

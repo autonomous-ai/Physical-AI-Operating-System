@@ -7,6 +7,7 @@ it was read. See [README.md](README.md) for how.
 
 | Time | Cable | Reading 1 | Reading 2 | Reading 3 | Tare |
 |---|---|---|---|---|---|
+| 16:20 | unplugged, held off the scale (as asked) | 2686 | 2685 | 2687 | zeroed empty |
 
 ## 2. Base outline
 

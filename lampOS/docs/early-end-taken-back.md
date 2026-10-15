@@ -206,6 +206,25 @@ run it yet.
   as not cut off.
 - `the_cut_off_note_is_the_one_tried_on_the_service`: the voice's note is
   the probe's `REST_NOTE`, word for word.
+- `a_question_in_four_pieces_tells_each_successor_and_plays_only_the_last_answer`
+  (asked for by #723's step 2 and the reviewer on #738): speech in four
+  pieces with three pauses of 300 ms, the early end sent after each and
+  given up as each piece begins. The wire is the first request without a
+  note, then three successors each with the note once, just before its
+  end; four answers begun, only the last played, and one end of speech.
+- `the_link_dropping_after_a_continued_request_fails_it_unheard_and_the_next_has_no_note`:
+  the link drops 100 ms after a continued request's end. That request is
+  not answered aloud, nothing is sent again, and an unrelated question on
+  the new connection goes without the note and is answered.
+
+Seen while writing those two, not tested yet and not changed:
+- With the service answering after 900 ms (as at 13:45) rather than 50 ms,
+  a third piece given up before its own start had gone out went as the
+  opening of the fourth: two pieces in one request with one note, three
+  answers begun. It turns on about 50 ms, so the tests use a 50 ms service.
+- A piece spoken just after the link dropped (during the reconnect) was
+  never admitted or sent, and nothing recorded it; the next question was
+  sent cleanly.
 
 On this Mac some of these session tests fail when the machine is loaded
 by other work ("stale, reordered or wrong-boot runtime message"). They

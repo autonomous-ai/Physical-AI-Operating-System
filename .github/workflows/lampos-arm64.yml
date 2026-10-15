@@ -18,6 +18,13 @@ name: lampOS on ARM64
 # (nextest profile `pr`, lampOS/.config/nextest.toml). Every push to
 # lamp-voice runs every test, and a failure there opens an issue. See
 # lampOS/docs/realtime-tests.md.
+#
+# Without the realtime group a pull request's tests take about 4 minutes of
+# test time, mostly quick unit tests, so a pull request runs on one runner
+# with as many tests at once as it has cores. Each shard compiles every test
+# binary again (about 5 of its 10 minutes on 2026-10-15), so more shards
+# would only cost more. A push to lamp-voice keeps four shards, one test at
+# a time, for the realtime tests.
 
 # Not on every push to every builder's branch: with nine builders and four
 # runners a run, that queued eleven runs behind eight on 2026-10-15, lamp-voice's
@@ -40,13 +47,14 @@ concurrency:
 
 jobs:
   arm64:
-    name: lampOS — build and test on Linux ARM64 (${{ matrix.shard }}/4)
+    name: lampOS — build and test on Linux ARM64 (${{ matrix.shard }}/${{ strategy.job-total }})
     runs-on: ubuntu-22.04-arm
     timeout-minutes: 90
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2, 3, 4]
+        # Four on lamp-voice (every test, one at a time), one on a pull request or manual run.
+        shard: ${{ fromJSON(github.event_name == 'push' && '[1, 2, 3, 4]' || '[1]') }}
     steps:
       - name: system packages
         run: |
@@ -72,16 +80,17 @@ jobs:
       - name: build (release, the lamps' binaries)
         working-directory: lampOS
         run: cargo build --locked --release --workspace --bins --examples
-      - name: test (one test at a time, as on a lamp's few cores; this runner's share; a pull request skips the realtime group)
+      - name: test (lamp-voice, every test one at a time; a pull request, without the realtime group, in parallel)
         working-directory: lampOS
         # The two tests with their own harness (harness = false) cannot be listed by nextest; the first runner runs them below.
         # Profile `pr` skips the realtime group (lampOS/.config/nextest.toml); the -E below is intersected with it.
-        # A push to lamp-voice uses `default`: every test.
+        # A push to lamp-voice uses `default`: every test, one at a time.
         run: >-
+          echo "cores: $(nproc)" &&
           cargo nextest run --locked --release --workspace
           --profile ${{ github.event_name == 'push' && 'default' || 'pr' }}
-          --no-tests=pass -j 1
-          --partition hash:${{ matrix.shard }}/4
+          --no-tests=pass -j ${{ github.event_name == 'push' && '1' || 'num-cpus' }}
+          --partition hash:${{ matrix.shard }}/${{ strategy.job-total }}
           -E 'not (binary_id(lamp-ipc::relay_signals) | binary_id(lamp-turn-end-wire::process))'
       - name: doc tests and the own-harness tests (nextest runs neither)
         if: matrix.shard == 1

@@ -157,6 +157,7 @@ impl RingLight {
                 }
                 // The person's request is the newer wish: a test asked at
                 // or before it, in this look or a later one, is passed over.
+                // The bus stamps milliseconds, so a tie goes to the person.
                 if message.header.at_unix_ms <= self.asked_at_ms {
                     continue;
                 }
@@ -406,6 +407,9 @@ mod tests {
         ring.tick(at);
         asks.publish_json(1, &light(true, "blue", 2)).unwrap();
         assert_eq!(taken(&mut ring, &mut at), Lit::of(true, "blue", 2));
+        // Asked in a later millisecond: a test in the same one as the
+        // person's request ties, and the person wins a tie.
+        std::thread::sleep(Duration::from_millis(2));
         tests.publish_json(1, &light(true, "red", 3)).unwrap();
         assert_eq!(taken(&mut ring, &mut at), Lit::of(true, "red", 3));
         assert_eq!(ring.face(), &light(true, "red", 3));

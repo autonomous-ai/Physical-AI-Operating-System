@@ -23,14 +23,15 @@ const USAGE: &str = "lamp-controls serve [--config FILE] [--pins FILE] [--touch]
 lamp-controls replay --input FILE --config FILE --clock-id ID [--touch --pins FILE] [--enable] [--output FILE] [--until-us N]\n\
 lamp-controls probe --pins FILE\n\
 lamp-controls discover-head --seconds N\n\
-lamp-controls calibrate-touch --pins FILE --output FILE [--settle-seconds N] [--quiet-seconds N] [--swipe-seconds N]\n\
+lamp-controls calibrate-touch --pins FILE --output FILE [--settle-seconds N] [--quiet-seconds N] [--swipe-seconds N] [--touch-percent P] [--release-percent P]\n\
 lamp-controls clock [--clock-id ID]\n\n\
 Shadow is the default. A config file cannot enable the process without --enable.\n\
 Without --pins, serve reads nothing and reports Missing. With it, the board's GPIO lines named in FILE are read.\n\
 probe reads each line of FILE once with a pull-down and once with a pull-up, and serves nothing.\n\
 discover-head samples candidates 37/96/97/98 on chip 0 for 2..60 seconds; it installs no mapping.\n\
-calibrate-touch runs the hardware team's MPR121 steps with a person at the lamp (hands away 10+5 s, then swipe 30 s)\n\
-and writes FILE: --pins with new per-pad thresholds, only if every working pad gave a clear touch. It serves nothing.\n\
+calibrate-touch runs the hardware team's MPR121 steps with a person at the lamp (hands away 10+5 s, then swipe 30 s),\n\
+sets touch at 40% and release at 20% of the way from each pad's noise to its weakest swipe, and writes FILE:\n\
+--pins with those thresholds, only if every working pad gave a clear swipe. It serves nothing.\n\
 --touch selects the new independent head/strip path and its pins schema. It configures the selected I2C chip even in shadow.\n\
 Without --touch, no new reader, touch topic or gesture interpretation is selected.\n\
 Replay never opens a bus or hardware. Times are CLOCK_MONOTONIC microseconds.\n\
@@ -116,6 +117,8 @@ fn parse(args: impl IntoIterator<Item = String>) -> Result<Option<Args>, String>
                 "--settle-seconds",
                 "--quiet-seconds",
                 "--swipe-seconds",
+                "--touch-percent",
+                "--release-percent",
             ]
             .contains(&option.as_str()),
             "mpr-worker" => {
@@ -175,6 +178,18 @@ fn parse(args: impl IntoIterator<Item = String>) -> Result<Option<Args>, String>
                     _ => out.plan.swipe = seconds,
                 }
             }
+            "--touch-percent" | "--release-percent" => {
+                let percent = value
+                    .parse::<u8>()
+                    .ok()
+                    .filter(|n| *n <= 100)
+                    .ok_or_else(|| format!("{option} must be 0..100"))?;
+                if option == "--touch-percent" {
+                    out.plan.touch_percent = percent;
+                } else {
+                    out.plan.release_percent = percent;
+                }
+            }
             "--until-us" => {
                 out.until = Some(
                     value
@@ -190,8 +205,11 @@ fn parse(args: impl IntoIterator<Item = String>) -> Result<Option<Args>, String>
     {
         return Err("replay needs --input, --config and the input's --clock-id".into());
     }
-    if out.command == "calibrate-touch" && (out.pins.is_none() || out.output.is_none()) {
-        return Err("calibrate-touch needs --pins and --output".into());
+    if out.command == "calibrate-touch" {
+        if out.pins.is_none() || out.output.is_none() {
+            return Err("calibrate-touch needs --pins and --output".into());
+        }
+        out.plan.check()?;
     }
     if out.command == "probe" && out.pins.is_none() {
         return Err("probe needs --pins".into());

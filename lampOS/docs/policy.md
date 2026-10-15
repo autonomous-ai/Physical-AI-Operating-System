@@ -1151,7 +1151,21 @@ again. It goes as one of TypeSafe's `assets` with the
 `TypeSafe-Danger-Zone-Images: true` header, which only that request carries.
 The picture is written nowhere. The line says only whether one was sent,
 its size, the eyes' size and its age, or why not (`no_frame`, `stale`,
-`too_large`, `not_a_jpeg`, `unreadable`, `withdrawn`).
+`too_large`, `not_a_jpeg`, `unreadable`, `withdrawn`, `not_written`).
+
+**Sent** means some of a request with a frame in it left the lamp, in any
+try, whatever came after (the reviewer on #873). A request written whole
+on a kept connection that the service then closed with no answer was sent,
+even if the next try, on a new connection, was withdrawn because the
+camera had been closed meanwhile. So `picture` also has:
+- `delivery`: `answered` if the service answered a request with the frame
+  (it arrived), else `uncertain` (written, whole or in part, and whether it
+  arrived is not known);
+- `tries`: each try at writing it, `{"written": "whole", "answered": ...}`
+  or `{"written": "part", "request_bytes_written": N, ...}`;
+- `withdrawn`: true if the asking then ended because no frame might go.
+The size and age are those of the last frame that went. `not_written`
+means a frame was taken and not a byte of its request went.
 
 **The line:**
 - `at_unix_ms`: when the question was sent;
@@ -1167,9 +1181,15 @@ its size, the eyes' size and its age, or why not (`no_frame`, `stale`,
 
     lamp-policy-replay --pictures --log-dir /var/lib/lampos-policy --days 2026-10-16 [--labels ABSOLUTE_FILE]
 
-The summary says how often a frame was sent and why not. For each asking,
-without the picture and with it, it gives `took_ms` p50/p95 and how often
-it did what should have happened. For each picture question, it says how
+The summary says how often a frame was sent, its `delivery` (answered or
+uncertain), how often the asking was withdrawn after one went
+(`withdrawn_after_sending`), and why none was sent. For each asking,
+without the picture and with it, it gives how often it answered and
+failed (by kind), `took_ms` p50/p95, and how often it did what should have
+happened. Both are counted right on the same lines: a frame sent and both
+chose. A line where either made no choice is in neither's right, and why
+is in that asking's `failed`, so one is never counted on lines the other
+is not. For each picture question, it says how
 often its yes (0.5 or more) went with what should have happened, beside
 the eyes' own `facing`. Labels can be written by a scene's clock: each
 label is given once, to the line nearest it within 3 s, whether or not a
@@ -1193,7 +1213,15 @@ many were given, matched, unmatched, ambiguous and conflicting.
 Tests:
 - `crates/policy/src/pictures/tests.rs`: the voice's rule for a frame, the
   frame made as large as the service takes, the state and the twelve
-  questions.
+  questions; the picture told as sent if any try went; and the reviewer's
+  case on #873, a request with the picture written whole on a kept
+  connection the service closed unanswered, then withdrawn on a new one
+  where nothing was written, told as sent, `uncertain`, withdrawn.
+- `crates/policy/src/decide/tests.rs`,
+  `what_became_of_each_request_with_pictures_is_told`: written whole on a
+  closed kept connection and unanswered, then answered on a new one.
+- `crates/policy/src/replay/tests.rs`,
+  `a_picture_that_went_is_counted_and_both_askings_are_counted_on_the_same_lines`.
 - `crates/policy/tests/pictures.rs`: the two askings against a played
   service, only one with the picture and the header, the line without the
   picture, nothing asked with no frame, and the thread passing over what

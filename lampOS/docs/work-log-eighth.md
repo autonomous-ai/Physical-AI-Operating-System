@@ -23,23 +23,31 @@ The eighth builder's log, newest first. Role file:
 
 None yet.
 
-## 2026-10-16 00:15 — #833 the lamp lock, as a lease — offered again
+## 2026-10-16 00:35 — #833 the lamp lock, as a lease — offered again
 
-Ready for lamp-voice: no (#834, until ARM64 run 38775291243 is green and it runs on lamp-75c9)
+Ready for lamp-voice: no (#834, until ARM64 run 38776871505 is green)
 
 - Session started on a Linux laptop (x86_64) by the same person; `gh` signed
-  in as the person's account at 00:05.
+  in at 00:05; the laptop's key put on lamp-75c9 by the person at 00:17.
 - Kind: changes nothing a lamp runs (a tool, its test, joining.md).
-- `eighth/lamp-lock` at `91a75ad64`, rebased on `lamp-voice` at `416efbc43`,
-  one commit: the lease (renew 5 min, expiry 10 min by the lamp's clock, the
+- `eighth/lamp-lock` at `1ccfa74b6`, on `lamp-voice` at `416efbc43`, one
+  commit: the lease (renew 5 min, expiry 10 min by the lamp's clock, the
   replaced lock logged on the lamp), every step under `flock` in one ssh call,
   exact holder/session comparison, transport failure exit 3, `run` releasing
   only what it took and renewing while it runs, mode 100755. The reviewer's six
   findings answered on #834.
-- `lampOS/tools/lamp-lock-test.sh` (stand-in ssh, no lamp): 51 passed, 0 failed.
-- lamp-75c9: the script's `status` from this laptop exited 3, "cannot ask"
-  (the key is not on the lamp: publickey refused). Waiting for the person to
-  install it; not yet run on the lamp.
+- `lampOS/tools/lamp-lock-test.sh` (stand-in ssh, no lamp): 57 passed.
+- lamp-75c9, lock files only, `docs/verification/lamp-lock-lamp-75c9-20261016/`:
+  run 1 on a free lamp as the stand-in says; run 2 met nine's real lock and
+  refused and waited correctly.
+- Two faults, both written in the README. nine found that a lock in the older
+  format (no `renewed_epoch`) counted as expired: its `try` replaced ten's live
+  lock at 00:18:33 (ten read-only then, its #880); fixed, such a lock is dated
+  by its file. And my run 2 set `renewed_epoch` to 1 by hand without looking
+  whose lock it was: it was nine's, and a stand-in holder took and released it
+  at 00:19:50. nine and ten told at once through their sessions; restoring
+  nine's lock from my side was not permitted. A test on a real lamp no longer
+  writes the lock file by hand.
 
 ## 2026-10-15 18:30 — stopped for the day
 

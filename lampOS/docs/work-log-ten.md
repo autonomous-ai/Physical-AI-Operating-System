@@ -112,3 +112,24 @@ Ready for lamp-voice: yes (#827), yes (#895)
 - Asked the first builder (#812) for a "drawn" acknowledgement from the
   ring so the ring can pass. Not on a lamp: the tone, the self-test's
   request side (after #827).
+
+## 2026-10-16 — #812, the tone heard on lamp-4ace; ring and touch by hand
+
+Ready for lamp-voice: yes (#895), yes (#899), not yet (#907, ARM64 running)
+
+- #827 merged by the reviewer at 02:52 (`08d0c04b5`): the passive
+  self-test, the ring listened to only.
+- #895, the speaker tone: **played on lamp-4ace by the first builder at
+  03:46** (#895): pass, rise 61.05 dB, delay 133 ms, cancelled 14.8 dB; no
+  face, body move or speech; the voice went on. Not my lamp, not my run.
+  The reviewer's findings answered: the ring told before the tone's turn is
+  admitted; the check's own bus failures switch it off; only a tone played
+  to its end is judged, learned in the settle step; the delay from the
+  speaker's first acceptance. ARM64 38801121849 green on `772f5dcc7`.
+- #899, `light/drawn` and `light/test` in the ring owner, as the first
+  builder chose: a test asked no later than the person's newest light is
+  never shown. ARM64 38803204302 green on `ba57716a4`.
+- #907, touch by hand at the factory: the strip's electrodes from its mask,
+  the whole 20 s watched.
+- Next, once #895 and #899 are in: the self-test's side of the tone and
+  of the ring's colours.

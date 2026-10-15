@@ -94,6 +94,11 @@ Review points:
 Seconds per test on the ARM64 runner, 2026-10-15 (the longer of the two
 runs' times when both ran it). Binary, then test.
 
+The [123-test wait inventory](verification/realtime-inventory-20261015/README.md)
+traces each identity to its test sleeps, code deadlines and child-process
+timers, with source locations and exact times from both original runs.
+It is the baseline for #823; no clock migration is claimed by the inventory.
+
 | s | Binary | Test |
 |---|---|---|
 | 65.0 | `lamp-voice-eval::serve_session` | `normal_eight_turn_conversation_in_one_serve_session` |

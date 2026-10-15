@@ -1,0 +1,292 @@
+    Finished `release` profile [optimized] target(s) in 0.31s
+────────────
+ Nextest run ID 23f34529-c8ed-46ba-b32e-b6569d3a4b3f with nextest profile: realtime
+    Starting 119 tests across 11 binaries (1032 tests and 60 binaries skipped, including 1023 tests and 60 binaries via profile.realtime.default-filter)
+        PASS [   4.178s] (  1/119) lamp-actions::server the_light_is_offered_when_its_owner_appears_and_withdrawn_when_it_goes
+        PASS [   5.748s] (  2/119) lamp-health::program between_two_healths_five_seconds_apart_the_program_is_not_taken_for_gone
+        PASS [   7.631s] (  3/119) lamp-memory::health a_failed_legacy_write_stays_warn_through_reads_until_a_write_succeeds
+        PASS [   0.557s] (  4/119) lamp-memory::health a_store_that_cannot_open_never_claims_readiness_and_any_delivered_report_is_warn
+        PASS [   7.049s] (  5/119) lamp-memory::health a_working_bus_that_fails_stays_failed_until_publication_really_recovers
+        PASS [   3.033s] (  6/119) lamp-memory::health an_unusable_bus_does_not_prevent_serving_and_reports_recover_when_it_returns
+        PASS [   7.049s] (  7/119) lamp-memory::health legacy_reports_retained_counts_and_stays_well_after_caller_refusals
+        PASS [   7.051s] (  8/119) lamp-memory::health sqlite_reports_retained_counts_and_stays_well_after_caller_refusals
+        PASS [   5.512s] (  9/119) lamp-memory::health the_environment_alone_does_not_enable_reporting_or_create_bus_data
+        PASS [   5.761s] ( 10/119) lamp-records::records real_reporter_reloads_switch_and_policy_and_requires_a_matching_receipt
+        PASS [   5.417s] ( 11/119) lamp-voice coordinator::tests::early_end::a_lone_lamp_and_a_pause_and_the_question_go_as_one_request
+        PASS [   1.128s] ( 12/119) lamp-voice coordinator::tests::early_end::a_name_note_told_with_a_request_ended_early_does_not_survive_it
+        PASS [  10.814s] ( 13/119) lamp-voice coordinator::tests::early_end::an_answer_that_arrives_after_the_lamp_is_sure_begins_400_ms_sooner_than_without
+        PASS [   4.418s] ( 14/119) lamp-voice coordinator::tests::early_end::an_answer_that_arrives_before_the_lamp_is_sure_begins_at_that_moment
+        PASS [   4.410s] ( 15/119) lamp-voice coordinator::tests::early_end::an_answer_with_nothing_said_before_the_lamp_is_sure_is_never_played
+        PASS [   5.410s] ( 16/119) lamp-voice coordinator::tests::early_end::lamp_stop_over_an_answer_stops_it_and_only_the_answer_to_the_whole_is_played
+        PASS [   4.419s] ( 17/119) lamp-voice coordinator::tests::early_end::quiet_to_the_end_the_answer_starts_when_the_lamp_is_sure_and_not_before
+        PASS [   6.410s] ( 18/119) lamp-voice coordinator::tests::early_end::speech_resumed_at_three_tenths_nothing_of_the_first_answer_is_played_and_one_turn_is_heard
+        PASS [   6.416s] ( 19/119) lamp-voice coordinator::tests::early_end::speech_resumed_at_three_tenths_under_the_lamps_duplex_policy
+        PASS [   6.411s] ( 20/119) lamp-voice coordinator::tests::early_end::the_link_dropping_in_between_fails_the_request_unheard_and_the_next_is_answered
+        FAIL [   0.583s] ( 21/119) lamp-voice coordinator::tests::early_end::without_the_option_every_message_and_record_is_what_it_was
+  stdout ───
+
+    running 1 test
+    {"seconds":6,"status":"listening_ready"}
+    test coordinator::tests::early_end::without_the_option_every_message_and_record_is_what_it_was ... FAILED
+
+    failures:
+
+    failures:
+        coordinator::tests::early_end::without_the_option_every_message_and_record_is_what_it_was
+
+    test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 999 filtered out; finished in 0.57s
+
+  stderr ───
+
+    thread 'coordinator::tests::early_end::without_the_option_every_message_and_record_is_what_it_was' (571460673) panicked at crates/voice/src/coordinator/tests/early_end.rs:415:13:
+    the session ended: physical privacy closed or lost freshness; the provider worker: None; the last records, newest first: [
+        Object {
+            "at_us": Number(2590692210108),
+            "error": String("privacy worker did not stop within shared 300 ms deadline; forced termination required; reaped with signal: 9 (SIGKILL)"),
+            "kind": String("worker_forced_shutdown"),
+            "worker": String("privacy"),
+        },
+        Object {
+            "at_us": Number(2590692209967),
+            "error": String("provider worker did not stop within shared 300 ms deadline; forced termination required; reaped with signal: 9 (SIGKILL)"),
+            "kind": String("worker_forced_shutdown"),
+            "worker": String("provider"),
+        },
+        Object {
+            "at_us": Number(2590692209828),
+            "error": String("capture worker did not stop within shared 300 ms deadline; forced termination required; reaped with signal: 9 (SIGKILL)"),
+            "kind": String("worker_forced_shutdown"),
+            "worker": String("capture"),
+        },
+        Object {
+            "at_us": Number(2590692209670),
+            "error": String("speaker worker did not stop within shared 300 ms deadline; forced termination required; reaped with signal: 9 (SIGKILL)"),
+            "kind": String("worker_forced_shutdown"),
+            "worker": String("speaker"),
+        },
+        Object {
+            "at_us": Number(2590691737352),
+            "kind": String("listening_ready"),
+            "scope": String("explicit directed session; addressee inference absent"),
+        },
+        Object {
+            "at_us": Number(2590691737352),
+            "basis": String("coordinator link register at listening readiness"),
+            "kind": String("provider_link_current"),
+            "session": Number(1),
+            "state": String("ready"),
+        },
+        Object {
+            "at_us": Number(2590691737300),
+            "details": Object {
+                "buffer_frames": Number(640),
+                "capture_started_at_us": Number(2590691735374),
+                "channels": Number(1),
+                "dsp_epoch": Number(1),
+                "epoch": Number(1),
+                "kind": String("capture_started"),
+                "monotonic_status_timestamps": Bool(false),
+                "noise_suppression": String("on"),
+                "open_started_at_us": Number(2590691735374),
+                "period_frames": Number(160),
+                "prepared_at_us": Number(2590691735374),
+                "privacy_generation": Number(2),
+                "rate": Number(16000),
+                "start_completed_at_us": Number(2590691735374),
+            },
+            "kind": String("capture_started"),
+        },
+        Object {
+            "at_us": Number(2590691674532),
+            "at_us_role": String("source_interval_lower"),
+            "at_us_upper": Number(2590691675902),
+            "coordinator_observed_at_us": Number(2590691677960),
+            "kind": String("provider_ready"),
+            "link": Object {
+                "observed_at_us": Number(2590691674532),
+                "revision": Number(1),
+                "session": Number(1),
+                "source_clock": Object {
+                    "observed_upper_us": Number(2590691675902),
+                    "outage_started_upper_us": Null,
+                },
+                "state": Object {
+                    "after": Null,
+                    "attempts": Number(1),
+                    "context": String("initial"),
+                    "kind": String("ready"),
+                    "outage_started_at_us": Null,
+                    "setup_us": Number(265),
+                },
+            },
+            "setup_us": Number(265),
+        },
+        Object {
+            "at_us": Number(2590691675585),
+            "hard_capture_authority_unchanged": Bool(true),
+            "kind": String("turn_taking_availability"),
+            "policy": String("vad-only"),
+            "prospective_input_available": Bool(true),
+        },
+        Object {
+            "at_us": Number(2590691675455),
+            "basis": String("consecutive_low_vad_scores"),
+            "kind": String("endpoint_policy"),
+            "semantic_confirmation": Bool(false),
+            "silence_wait_ms": Number(600),
+            "turn_taking": String("vad-only"),
+        },
+    ]
+    note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+        PASS [   5.408s] ( 22/119) lamp-voice coordinator::tests::endpoint_session::a_complete_verdict_ends_at_one_second_and_its_answer_plays
+        FAIL [   3.495s] ( 23/119) lamp-voice coordinator::tests::endpoint_session::a_worker_failure_falls_back_through_recovery_and_then_resumes
+  stdout ───
+
+    running 1 test
+    {"seconds":9,"status":"listening_ready"}
+    test coordinator::tests::endpoint_session::a_worker_failure_falls_back_through_recovery_and_then_resumes ... FAILED
+
+    failures:
+
+    failures:
+        coordinator::tests::endpoint_session::a_worker_failure_falls_back_through_recovery_and_then_resumes
+
+    test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 999 filtered out; finished in 3.48s
+
+  stderr ───
+
+    thread 'coordinator::tests::endpoint_session::a_worker_failure_falls_back_through_recovery_and_then_resumes' (571461757) panicked at crates/voice/src/coordinator/tests/endpoint_session.rs:1117:29:
+    called `Result::unwrap()` on an `Err` value: Custom { kind: Other, error: "physical privacy closed or lost freshness" }
+    note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+        LEAK [   4.920s] ( 24/119) lamp-voice coordinator::tests::endpoint_session::a_worker_still_loading_leaves_the_baseline_window
+        PASS [   4.409s] ( 25/119) lamp-voice coordinator::tests::endpoint_session::complete_verdict_ends_early_but_resumed_speech_keeps_the_turn
+        PASS [   0.329s] ( 26/119) lamp-voice coordinator::tests::endpoint_session::confirmed_endpoint_exit_keeps_the_restartable_mute
+        PASS [   5.409s] ( 27/119) lamp-voice coordinator::tests::endpoint_session::duplex_complete_verdict_ends_at_one_second_and_its_answer_plays
+        PASS [   4.409s] ( 28/119) lamp-voice coordinator::tests::endpoint_session::duplex_missing_model_session_ends_on_the_unchanged_silence_fallback
+        PASS [   6.420s] ( 29/119) lamp-voice coordinator::tests::endpoint_session::hung_worker_never_delays_capture_endpoint_or_session_end
+        PASS [   4.405s] ( 30/119) lamp-voice coordinator::tests::endpoint_session::missing_model_session_ends_on_the_unchanged_silence_fallback
+        PASS [   0.655s] ( 31/119) lamp-voice coordinator::tests::endpoint_session::mute_then_reopen_never_overlaps_endpoint_workers
+        PASS [   5.406s] ( 32/119) lamp-voice coordinator::tests::endpoint_session::rapid_resumes_never_end_the_turn_early
+        LEAK [   0.736s] ( 33/119) lamp-voice coordinator::tests::endpoint_session::unconfirmed_endpoint_exit_fails_mute_cleanup_and_never_reopens_service
+        PASS [   6.408s] ( 34/119) lamp-voice coordinator::tests::endpoint_session::verdicts_after_the_result_timeout_fall_back_on_every_turn
+        PASS [   1.623s] ( 35/119) lamp-voice coordinator::tests::pilot_faults::a_paused_lamp_takes_no_question_and_says_why
+        PASS [   5.060s] ( 36/119) lamp-voice coordinator::tests::pilot_faults::a_turn_under_way_when_paused_is_finished_and_the_next_is_not_taken
+        PASS [   2.496s] ( 37/119) lamp-voice coordinator::tests::pilot_faults::camera_loss_during_an_answer_revokes_only_sight
+        PASS [   2.017s] ( 38/119) lamp-voice coordinator::tests::pilot_faults::capture_fault_during_output_cancels_the_answer_and_ends_the_run
+        PASS [   0.718s] ( 39/119) lamp-voice coordinator::tests::pilot_faults::capture_stall_during_a_question_ends_the_run_without_an_answer
+        PASS [   2.472s] ( 40/119) lamp-voice coordinator::tests::pilot_faults::control_one_question_is_answered_once_then_mute_ends_the_run
+        PASS [   2.230s] ( 41/119) lamp-voice coordinator::tests::pilot_faults::control_progress_without_settlement_is_bounded_under_v1_baseline
+        PASS [   1.617s] ( 42/119) lamp-voice coordinator::tests::pilot_faults::control_progress_without_settlement_is_bounded_under_vad_only
+        PASS [   0.015s] ( 43/119) lamp-voice coordinator::tests::pilot_faults::distinct_rejects_an_item_that_returns_later
+        PASS [   2.469s] ( 44/119) lamp-voice coordinator::tests::pilot_faults::duplex_control_answers_once
+        PASS [   2.217s] ( 45/119) lamp-voice coordinator::tests::pilot_faults::duplex_stalled_speaker_is_bounded
+        PASS [   4.259s] ( 46/119) lamp-voice coordinator::tests::pilot_faults::failure_notice_plays_once_keeps_the_failure_and_yields_to_the_next_owner
+        PASS [   3.057s] ( 47/119) lamp-voice coordinator::tests::pilot_faults::failure_notice_yields_mid_play_to_a_new_owner_under_vad_only
+        PASS [   2.018s] ( 48/119) lamp-voice coordinator::tests::pilot_faults::mute_while_answer_speech_is_queued_cuts_it_and_never_resumes
+        PASS [   2.022s] ( 49/119) lamp-voice coordinator::tests::pilot_faults::mute_while_the_failure_notice_plays_cuts_it_and_keeps_the_failure
+        PASS [   2.218s] ( 50/119) lamp-voice coordinator::tests::pilot_faults::partial_write_then_stall_is_bounded_under_v1_baseline
+        PASS [   1.619s] ( 51/119) lamp-voice coordinator::tests::pilot_faults::partial_write_then_stall_is_bounded_under_vad_only
+        PASS [   2.013s] ( 52/119) lamp-voice coordinator::tests::pilot_faults::provider_failure_before_output_settles_failed_without_speech
+        PASS [   2.466s] ( 53/119) lamp-voice coordinator::tests::pilot_faults::provider_failure_during_output_never_becomes_a_completed_answer
+        PASS [   2.019s] ( 54/119) lamp-voice coordinator::tests::pilot_faults::provider_process_lost_before_output_ends_the_run_without_speech
+        PASS [   2.023s] ( 55/119) lamp-voice coordinator::tests::pilot_faults::provider_process_lost_during_output_stops_speech_and_fails_the_turn
+        PASS [   2.019s] ( 56/119) lamp-voice coordinator::tests::pilot_faults::provider_worker_fault_during_output_fails_the_turn_and_ends_the_run
+        PASS [   8.430s] ( 57/119) lamp-voice coordinator::tests::pilot_faults::rapid_mute_and_reopen_never_overlaps_workers_or_carries_speech_across
+        PASS [   2.486s] ( 58/119) lamp-voice coordinator::tests::pilot_faults::readiness_publishes_the_link_state_it_was_validated_against
+        PASS [   3.568s] ( 59/119) lamp-voice coordinator::tests::pilot_faults::resumed_the_lamp_answers_again
+        PASS [   2.474s] ( 60/119) lamp-voice coordinator::tests::pilot_faults::ring_fault_during_an_answer_keeps_the_conversation_and_cleans_up
+        PASS [   2.471s] ( 61/119) lamp-voice coordinator::tests::pilot_faults::ring_lost_without_blanking_keeps_the_answer_but_cleanup_fails_truthfully
+        PASS [   2.019s] ( 62/119) lamp-voice coordinator::tests::pilot_faults::sigterm_while_answer_speech_is_pending_stops_cleanly
+        FAIL [   2.001s] ( 63/119) lamp-voice coordinator::tests::pilot_faults::sigterm_while_metadata_storage_is_stalled_stops_cleanly_and_reports_the_loss
+  stdout ───
+
+    running 1 test
+    {"seconds":null,"status":"listening_ready"}
+    test coordinator::tests::pilot_faults::sigterm_while_metadata_storage_is_stalled_stops_cleanly_and_reports_the_loss ... FAILED
+
+    failures:
+
+    failures:
+        coordinator::tests::pilot_faults::sigterm_while_metadata_storage_is_stalled_stops_cleanly_and_reports_the_loss
+
+    test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 999 filtered out; finished in 1.98s
+
+  stderr ───
+    result Err("invalid or stale service privacy observation")
+    kinds []
+    peer privacy gap 6258 us, refused writes 0, end-to-speaker revocation [] us
+    frames 192 starts [1] ends [] chunks 0 accepted 0 fired [] stopped ["speaker", "privacy", "capture", "provider"] abandoned []
+
+    thread 'coordinator::tests::pilot_faults::sigterm_while_metadata_storage_is_stalled_stops_cleanly_and_reports_the_loss' (571482657) panicked at crates/voice/src/coordinator/tests/pilot_faults.rs:1883:5:
+    Err(Custom { kind: Other, error: "invalid or stale service privacy observation" })
+    note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+    thread 'lamp-service-trace' (571482658) panicked at crates/voice/src/service_trace.rs:338:41:
+    called `Result::unwrap()` on an `Err` value: RecvError
+
+        PASS [   2.039s] ( 64/119) lamp-voice coordinator::tests::pilot_faults::sigterm_while_the_failure_notice_plays_stops_cleanly
+        PASS [   0.016s] ( 65/119) lamp-voice coordinator::tests::pilot_faults::speaker_progress_is_due_strictly_after_lease_plus_report_age
+        PASS [   2.218s] ( 66/119) lamp-voice coordinator::tests::pilot_faults::stalled_speaker_during_output_is_bounded_and_never_completes_the_answer
+        PASS [   1.620s] ( 67/119) lamp-voice coordinator::tests::pilot_faults::stalled_speaker_under_vad_only_is_bounded_too
+        PASS [   2.311s] ( 68/119) lamp-voice coordinator::tests::pilot_faults::terminal_provider_link_during_output_settles_failed_and_ends_service
+        PASS [   4.554s] ( 69/119) lamp-voice provider_worker::tests::kept_start::with_no_first_answer_the_patience_ends_in_the_strict_timeout_and_no_end
+        PASS [   4.086s] ( 70/119) lamp-voice provider_worker::tests::resumed_question_survives_a_silent_service_and_the_assumption_is_reported
+        PASS [   5.245s] ( 71/119) lamp-voice provider_worker::tests::review_2026_10_14::review_a_name_heard_after_a_requests_sound_ended_does_not_let_out_its_answer
+        PASS [   4.438s] ( 72/119) lamp-voice provider_worker::tests::review_2026_10_14::review_sound_a_name_heard_as_a_request_began_lets_out_the_answer_the_rule_would_hold
+        PASS [  24.043s] ( 73/119) lamp-voice provider_worker::tests::twenty_second_answer_through_a_five_second_reply_buffer_follows_capacity
+        PASS [   5.042s] ( 74/119) lamp-voice-eval physical::mac::audit_grant_tests::audit_transport_that_outlives_its_bound_is_killed_and_never_certified
+        PASS [   2.401s] ( 75/119) lamp-voice-eval::final_dispatch a_final_drain_that_exhausts_its_budget_requires_revalidation
+        PASS [   2.275s] ( 76/119) lamp-voice-eval::final_dispatch a_healthy_session_still_dispatches_once
+        PASS [   2.093s] ( 77/119) lamp-voice-eval::final_dispatch a_known_invalid_cue_withholds_dispatch_as_a_protocol_failure
+        PASS [   2.098s] ( 78/119) lamp-voice-eval::final_dispatch a_known_run_end_cue_withholds_dispatch
+        PASS [   2.089s] ( 79/119) lamp-voice-eval::final_dispatch a_known_session_end_withholds_dispatch
+        PASS [   2.875s] ( 80/119) lamp-voice-eval::final_dispatch a_relay_framing_error_first_seen_in_the_final_drain_withholds
+        PASS [   2.920s] ( 81/119) lamp-voice-eval::final_dispatch a_session_end_first_seen_in_the_final_drain_withholds_and_is_kept
+        PASS [   0.903s] ( 82/119) lamp-voice-eval::final_dispatch a_transport_closed_during_the_final_drain_withholds
+        PASS [   2.928s] ( 83/119) lamp-voice-eval::final_dispatch an_invalid_cue_first_seen_in_the_final_drain_withholds
+        PASS [   2.905s] ( 84/119) lamp-voice-eval::final_dispatch an_unobserved_event_in_the_final_drain_requires_revalidation
+        PASS [   2.148s] ( 85/119) lamp-voice-eval::final_dispatch audit_physical_boundary_does_not_dispatch_during_post_exit_trace_relay
+        PASS [   2.142s] ( 86/119) lamp-voice-eval::final_dispatch audit_physical_boundary_rejects_a_target_already_over_100ms_late
+        PASS [   2.117s] ( 87/119) lamp-voice-eval::final_dispatch the_first_terminal_cause_wins_and_a_provider_failure_stays_provider_unavailable
+        PASS [   0.170s] ( 88/119) lamp-voice-eval::physical_loopback a_transport_that_closes_mid_trace_invalidates_the_attempt
+        PASS [  15.027s] ( 89/119) lamp-voice-eval::physical_loopback cue_triggered_acknowledgment_is_injected_during_playback_and_scored
+        PASS [  24.285s] ( 90/119) lamp-voice-eval::physical_loopback directed_followup_waits_for_whole_reply_completion_then_admits_a_new_turn
+        PASS [  26.278s] ( 91/119) lamp-voice-eval::physical_loopback directed_interruption_during_second_occurrence_preserves_owner_and_yields
+        PASS [  34.523s] ( 92/119) lamp-voice-eval::physical_loopback directed_missing_or_stale_retirement_never_falls_back_to_a_timer_or_final_trace
+        PASS [   0.082s] ( 93/119) lamp-voice-eval::physical_loopback directed_mode_keeps_provider_fault_and_asset_restrictions
+        PASS [  26.299s] ( 94/119) lamp-voice-eval::physical_loopback directed_natural_interruption_runs_during_reply_with_original_cancel_reason
+        PASS [  25.295s] ( 95/119) lamp-voice-eval::physical_loopback directed_two_occurrences_wait_for_true_completion_before_followup
+        PASS [  14.220s] ( 96/119) lamp-voice-eval::physical_loopback echo_only_window_passes_through_the_relay_without_extra_admissions
+        PASS [  34.528s] ( 97/119) lamp-voice-eval::physical_loopback missing_or_stale_whole_completion_withholds_followup_after_valid_retirement
+        PASS [  24.291s] ( 98/119) lamp-voice-eval::physical_loopback physical_next_turn_ready_follows_lamp_voice_readiness_cues
+        PASS [  14.228s] ( 99/119) lamp-voice-eval::physical_loopback undelivered_stimuli_are_withheld_not_scored_as_silence
+        PASS [   3.056s] (100/119) lamp-voice-eval::serve_relay a_closed_runner_transport_stops_the_runtime_through_the_same_path
+        PASS [   3.048s] (101/119) lamp-voice-eval::serve_relay a_nonzero_runtime_exit_after_clean_metadata_is_a_relay_error
+        PASS [   3.073s] (102/119) lamp-voice-eval::serve_relay a_runner_stop_is_one_sigterm_and_a_clean_reaped_end
+        PASS [  13.029s] (103/119) lamp-voice-eval::serve_relay a_runtime_that_ignores_sigterm_is_force_killed_and_never_clean
+        PASS [   6.059s] (104/119) lamp-voice-eval::serve_relay the_hard_deadline_stops_the_runtime_and_is_an_error
+        PASS [   3.069s] (105/119) lamp-voice-eval::serve_relay the_pilot_runtime_settings_reach_the_serve_child_exactly
+        PASS [  23.311s] (106/119) lamp-voice-eval::serve_session a_declared_capture_end_before_the_next_prompt_and_its_window_withholds_it
+        PASS [  27.216s] (107/119) lamp-voice-eval::serve_session a_late_first_copy_or_failed_player_withholds_every_later_turn
+        PASS [  10.714s] (108/119) lamp-voice-eval::serve_session a_nonzero_runtime_exit_never_completes_a_serve_attempt
+        PASS [  35.182s] (109/119) lamp-voice-eval::serve_session a_provider_outage_is_waited_out_by_event_and_a_terminal_link_ends_it
+        PASS [   6.316s] (110/119) lamp-voice-eval::serve_session a_recorder_that_exits_zero_mid_conversation_withholds_the_rest_and_certifies_nothing
+        PASS [   6.341s] (111/119) lamp-voice-eval::serve_session a_room_recording_that_ends_early_withholds_the_rest
+        PASS [  48.874s] (112/119) lamp-voice-eval::serve_session a_runtime_stop_mute_or_ignored_sigterm_is_retained_and_reaped
+        PASS [  12.953s] (113/119) lamp-voice-eval::serve_session an_extra_candidate_during_the_wait_withholds_the_rest
+        PASS [  30.530s] (114/119) lamp-voice-eval::serve_session delayed_readiness_is_awaited_by_event_not_by_completion
+        SLOW [> 60.000s] (───────) lamp-voice-eval::serve_session normal_eight_turn_conversation_in_one_serve_session
+        PASS [  65.491s] (115/119) lamp-voice-eval::serve_session normal_eight_turn_conversation_in_one_serve_session
+        PASS [  10.718s] (116/119) lamp-voice-eval::serve_session serve_readiness_comes_only_from_the_fresh_cue_never_from_stdout
+        SLOW [> 60.000s] (───────) lamp-voice-eval::serve_session stale_duplicate_reordered_foreign_and_lost_cues_end_the_conversation
+        PASS [  64.706s] (117/119) lamp-voice-eval::serve_session stale_duplicate_reordered_foreign_and_lost_cues_end_the_conversation
+        PASS [  21.898s] (118/119) lamp-voice-eval::serve_session startup_cues_stay_fresh_through_a_slow_transport_and_a_slow_first_preparer
+        PASS [  10.713s] (119/119) lamp-voice-eval::serve_session the_runner_forwards_pilot_runtime_settings_through_the_relay
+────────────
+     Summary [ 964.984s] 119 tests run: 116 passed (2 slow, 2 leaky), 3 failed, 1032 skipped
+        FAIL [   0.583s] ( 21/119) lamp-voice coordinator::tests::early_end::without_the_option_every_message_and_record_is_what_it_was
+        FAIL [   3.495s] ( 23/119) lamp-voice coordinator::tests::endpoint_session::a_worker_failure_falls_back_through_recovery_and_then_resumes
+        FAIL [   2.001s] ( 63/119) lamp-voice coordinator::tests::pilot_faults::sigterm_while_metadata_storage_is_stalled_stops_cleanly_and_reports_the_loss
+error: test run failed

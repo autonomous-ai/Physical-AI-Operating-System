@@ -50,3 +50,29 @@ eases back or folds before it leaves, and it never prints its report.
 Every part that reads its signals from a blocked mask is affected the
 same way. The fix belongs in the relay thread: block every signal at its
 start, or have each part block the signals before `guard()`.
+
+## With #774 merged in, 13:00 to 13:06
+
+Built on the Mac (`cargo zigbuild`, the lampos sysroot) from `lamp-voice`
+with `fifth/keeper-pause` (`ba463443e`) and `fifth/relay-signals` (#774,
+`a9d298e88`) merged in, not pushed: lamp-body
+`36cd997fabf528b7f6046cc98394d1ce74dffdcc060fcc7160d6f57c519f4a4b`,
+lamp-keeper `49a000bf1ee6d309c3d143716a872866cc04036c469dade90e0e77e1d33041b7`.
+Only lamp-body was restarted (lamp-52e6's voice was lent to sixth).
+
+- **A paused lamp did not fold, before `ba463443e`.** Paused at 12:54:55
+  with someone in front of it, it was still standing six minutes later: a
+  paused body read no look at all, so the faces it had counted before the
+  pause kept it "in company" for good. `ba463443e` makes a paused body see
+  nobody.
+- **With it, a paused lamp folds.** Paused at 13:03:37 standing; its report
+  said `state` `paused`, `mood` `resting`, and it was folded
+  (`standing` 0.00) 98 s later: its 90 s awake time and the fold. `resume`
+  put `state` back to `ready`.
+- **A stopped standing body folds before it ends.** Standing at 13:05:58,
+  `systemctl stop lamp-body` at 13:05:58.8; the run ended with
+  `"stop":{"kind":"cancelled"}` at 13:06:08.9 and systemd said "Stopped"
+  6 ms later: ten seconds of folding, against 45 ms and no report without
+  #774.
+
+So #767 needs #774 merged first.

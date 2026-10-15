@@ -9,7 +9,8 @@ pub mod replay;
 pub mod runtime;
 
 pub use alive::{
-    Alive, Breath, DAYTIME_STALE_US, Drift, EYES_QUIET_US, RING_BREATH_US, Sleep, Wake, WorkLight,
+    Alive, Breath, DAYTIME_STALE_US, Drift, EYES_QUIET_US, HAND_FRESH_US, LEAN, LEAN_IN_US,
+    LEAN_OUT_US, RING_BREATH_US, Sleep, Wake, WorkLight,
 };
 pub use catalogue::*;
 pub use engine::*;

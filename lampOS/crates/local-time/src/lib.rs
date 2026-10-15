@@ -1,0 +1,192 @@
+//! The lamp's local time (#820): a fixed offset east of UTC, as the parts had
+//! it (`--utc-offset-minutes`), or a time zone whose offset is taken at each
+//! moment (`--zone`), so the hour of the day and the day's boundary stay right
+//! across a daylight-saving change in a home outside Vietnam.
+//!
+//! `--zone system` follows `/etc/localtime`. The lamp's setup points it at the
+//! phone's zone by renaming a new link over it (`crates/setup`), often after
+//! the parts have started with the image's zone. So the file is looked at again
+//! at every reading (two `stat` calls) and read again only when it changed: a
+//! new zone counts from the next reading, without a restart. `TZ` is not read;
+//! the lamp's units do not set it, and the file is what setup writes.
+
+use jiff::{Timestamp, tz::TimeZone};
+use std::{
+    fs::{self, File},
+    io::{self, Read},
+    os::unix::fs::MetadataExt,
+    path::{Path, PathBuf},
+    sync::{Mutex, PoisonError},
+};
+
+/// The system's zone file, or a link to one.
+pub const SYSTEM_LOCALTIME: &str = "/etc/localtime";
+/// The system's zone by name, read when the zone file cannot be.
+pub const SYSTEM_TIMEZONE: &str = "/etc/timezone";
+
+/// A zone file is a few kilobytes; nothing longer is read.
+const MOST_BYTES: u64 = 1 << 20;
+const DAY_MS: i128 = 86_400_000;
+
+/// Where the lamp is in time.
+#[derive(Debug)]
+pub enum LocalTime {
+    /// Minutes east of UTC, the same all year (`--utc-offset-minutes`).
+    Offset(i32),
+    /// A named zone (`--zone Asia/Ho_Chi_Minh`).
+    Zone(TimeZone),
+    /// The system's zone (`--zone system`), followed as it changes.
+    System(SystemZone),
+}
+
+impl LocalTime {
+    /// `system`, or an IANA zone name. The zone data is bundled, so a lamp
+    /// missing its own still knows the zones. No silent UTC: a zone that
+    /// cannot be found is an error.
+    pub fn zone(name: &str) -> io::Result<Self> {
+        if name == "system" {
+            return SystemZone::open(SYSTEM_LOCALTIME, SYSTEM_TIMEZONE).map(Self::System);
+        }
+        TimeZone::get(name)
+            .map(Self::Zone)
+            .map_err(|error| io::Error::other(format!("time zone {name} is unknown: {error}")))
+    }
+
+    /// Minutes east of UTC at the moment `unix_ms`.
+    pub fn offset_minutes_at(&self, unix_ms: u64) -> i32 {
+        let zoned = |zone: &TimeZone| {
+            i64::try_from(unix_ms)
+                .ok()
+                .and_then(|ms| Timestamp::from_millisecond(ms).ok())
+                .map_or(0, |at| zone.to_offset(at).seconds() / 60)
+        };
+        match self {
+            Self::Offset(minutes) => *minutes,
+            Self::Zone(zone) => zoned(zone),
+            Self::System(system) => zoned(&system.current()),
+        }
+    }
+
+    /// The local day of `unix_ms`, in days since 1970-01-01.
+    pub fn day(&self, unix_ms: u64) -> i64 {
+        self.local_ms(unix_ms).div_euclid(DAY_MS) as i64
+    }
+
+    /// The local minute of the day at `unix_ms`, 0 to 1439.
+    pub fn minute_of_day(&self, unix_ms: u64) -> u16 {
+        (self.local_ms(unix_ms).rem_euclid(DAY_MS) / 60_000) as u16
+    }
+
+    /// The local hour of the day at `unix_ms`, 0 to 23.
+    pub fn hour_of_day(&self, unix_ms: u64) -> u8 {
+        (self.minute_of_day(unix_ms) / 60) as u8
+    }
+
+    fn local_ms(&self, unix_ms: u64) -> i128 {
+        i128::from(unix_ms) + i128::from(self.offset_minutes_at(unix_ms)) * 60_000
+    }
+}
+
+/// The system's zone: the zone file at `localtime` (a link to one, as setup
+/// makes it, or a copy), and, when that cannot be read, the zone `timezone`
+/// names.
+#[derive(Debug)]
+pub struct SystemZone {
+    localtime: PathBuf,
+    timezone: PathBuf,
+    state: Mutex<State>,
+}
+
+#[derive(Debug)]
+struct State {
+    /// The files as they were when `zone` was read; `None` when missing.
+    seen: Option<Seen>,
+    zone: TimeZone,
+}
+
+/// Enough of the link and the file it leads to that renaming a new one over
+/// either, or writing it in place, shows as a change.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+struct Seen {
+    link: (u64, u64, i64, i64),
+    file: (u64, u64, u64, i64, i64),
+}
+
+fn look(localtime: &Path) -> Option<Seen> {
+    let link = fs::symlink_metadata(localtime).ok()?;
+    let file = fs::metadata(localtime).ok()?;
+    Some(Seen {
+        link: (link.dev(), link.ino(), link.mtime(), link.mtime_nsec()),
+        file: (
+            file.dev(),
+            file.ino(),
+            file.len(),
+            file.mtime(),
+            file.mtime_nsec(),
+        ),
+    })
+}
+
+/// `America/New_York` from a link to `/usr/share/zoneinfo/America/New_York`.
+fn name_of_link(localtime: &Path) -> Option<String> {
+    let target = fs::read_link(localtime).ok()?;
+    let target = target.to_str()?;
+    let (_, name) = target.rsplit_once("zoneinfo/")?;
+    (!name.is_empty()).then(|| name.to_owned())
+}
+
+fn read(localtime: &Path, timezone: &Path) -> io::Result<TimeZone> {
+    let from_file = (|| {
+        let mut data = Vec::new();
+        File::open(localtime)?
+            .take(MOST_BYTES)
+            .read_to_end(&mut data)?;
+        let name = name_of_link(localtime);
+        TimeZone::tzif(name.as_deref().unwrap_or("localtime"), &data).map_err(io::Error::other)
+    })();
+    from_file.or_else(|file_error| {
+        let named = fs::read_to_string(timezone).map_err(|error| {
+            io::Error::other(format!(
+                "the system's time zone is unknown: {}: {file_error}; {}: {error}",
+                localtime.display(),
+                timezone.display(),
+            ))
+        })?;
+        TimeZone::get(named.trim()).map_err(|error| {
+            io::Error::other(format!(
+                "the system's time zone is unknown: {}: {file_error}; {}: {error}",
+                localtime.display(),
+                timezone.display(),
+            ))
+        })
+    })
+}
+
+impl SystemZone {
+    /// Reads the zone now; a zone that cannot be read is an error.
+    pub fn open(localtime: impl Into<PathBuf>, timezone: impl Into<PathBuf>) -> io::Result<Self> {
+        let (localtime, timezone) = (localtime.into(), timezone.into());
+        let seen = look(&localtime);
+        let zone = read(&localtime, &timezone)?;
+        Ok(Self {
+            localtime,
+            timezone,
+            state: Mutex::new(State { seen, zone }),
+        })
+    }
+
+    /// The zone as the files are now. Read again only when they changed; a
+    /// change that cannot be read keeps the last zone and is tried again at
+    /// the next reading.
+    pub fn current(&self) -> TimeZone {
+        let mut state = self.state.lock().unwrap_or_else(PoisonError::into_inner);
+        let seen = look(&self.localtime);
+        if seen != state.seen
+            && let Ok(zone) = read(&self.localtime, &self.timezone)
+        {
+            state.zone = zone;
+            state.seen = seen;
+        }
+        state.zone.clone()
+    }
+}

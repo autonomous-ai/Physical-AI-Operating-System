@@ -147,6 +147,10 @@ not more life.
 each moment, so night stays at the same clock hours across a daylight-saving
 change (#820); `--utc-offset-minutes` is the same all year, as before. The two
 together are refused; an unknown zone ends the start (never a silent UTC).
+`--zone system` follows `/etc/localtime`: when setup points it at the home's
+zone while Expression runs, the next minute's reading takes the new zone, with
+no restart. A change that cannot be read keeps the last zone (`lamp-local-time`,
+shared with Memory and the policy).
 `lamp-expression import --zone NAME` or `--utc-offset-minutes N` adds the same
 time of day to an imported recording, from the recording's own wall clock, so
 that a replay can see night.

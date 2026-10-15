@@ -31,7 +31,8 @@ Live timestamps use lamp-ipc CLOCK_MONOTONIC microseconds; Linux defaults to its
 Output files are created new, never overwritten. Live --record is bounded to 64 MiB.\n\
 --long lets replay and import take an hour (docs/alive.md). --utc-offset-minutes is the\n\
 local time's minutes east of UTC (420 in Vietnam), the same all year; --zone system reads the\n\
-lamp's own time zone (or names one) and follows its daylight saving. A catalogue with sleep needs one.\n\
+lamp's own time zone (or names one), follows its daylight saving and takes up a zone setup\n\
+changes without a restart. A catalogue with sleep needs one.\n\
 --kernel-clock gives the time of day only while the kernel says the clock is set.\n\
 --head-touch reads the head's requests from --touch Controls: a hand kept on the head is leaned\n\
 into, a three-second hold puts it to sleep, a tap wakes it (docs/alive.md, #711).\n\

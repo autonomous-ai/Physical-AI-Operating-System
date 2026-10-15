@@ -14,8 +14,11 @@ lamp-ipc = { path = "../ipc" }
 # The keeper's pause, read as the body reads it (`lamp_body::pause_in`).
 lamp-body = { path = "../body" }
 base64 = "0.22"
-# Local time across daylight saving (#820), pinned as Schedule and Mood pin it.
-jiff = { version = "0.2", features = ["tzdb-bundle-always"] }
+# Local time across daylight saving (#820).
+lamp-local-time = { path = "../local-time" }
+
+[dev-dependencies]
+jiff = "0.2"
 
 [lints]
 workspace = true

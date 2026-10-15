@@ -48,6 +48,26 @@ asked again when someone is back. The keeper's pause
 ([keeper.md](keeper.md)) stops it the same way: nothing is begun while
 paused, and the step being led is asked again afterwards.
 
+## The body says it too
+
+A step that ends done asks the body for one move, by the path the answers'
+nods take (`LAMP_BODY_MOOD_SOCKET`, `{"gesture":…}`): a nod when it sees them
+well where they sit, a greeting when it knows their name and face, a nod
+for any later step. Skipped or failed: none. No body, or the keeper's
+pause: none, and none is kept for later (`body_gesture_asked` with
+`"why":"onboarding"` in the record). The body has no lean yet, so a
+greeting stands in for it.
+
+## A step that was not ready, offered later
+
+A step recorded `not_available` stays so in the file. When a later voice
+has it, the runner offers just that step once the walk is over, at a rest
+with someone there, never in the middle of another step. It is led like
+any step to its end. Offered and left unfinished (they walked off, the
+pause), it is offered again no sooner than a day later
+(`offered_at_unix_s`). Its note is its owner's to word, beginning "one more
+thing I can do now"; until then a placeholder note says so.
+
 ## Starting and redoing
 
 It starts the first time the voice runs with the switch on and no step kept

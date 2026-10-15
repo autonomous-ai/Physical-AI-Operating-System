@@ -21,6 +21,18 @@ pub enum Verdict {
     Fail,
 }
 
+impl Verdict {
+    /// The verdict as a person reads it.
+    pub fn words(self) -> &'static str {
+        match self {
+            Verdict::Pass => "pass",
+            Verdict::NotFitted => "not fitted",
+            Verdict::NotChecked => "not checked",
+            Verdict::Fail => "fail",
+        }
+    }
+}
+
 /// When the self-test ran.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -74,12 +86,7 @@ impl PartResult {
 
     /// The one line a person reads: `ring  fail  red did not light`.
     pub fn line(&self) -> String {
-        let verdict = match self.verdict {
-            Verdict::Pass => "pass",
-            Verdict::NotFitted => "not fitted",
-            Verdict::NotChecked => "not checked",
-            Verdict::Fail => "fail",
-        };
+        let verdict = self.verdict.words();
         if self.reason.is_empty() {
             format!("{:<10} {verdict}", self.part)
         } else {

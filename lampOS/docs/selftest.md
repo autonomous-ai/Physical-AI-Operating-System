@@ -42,15 +42,26 @@ owner already has.
 
 | Part | Owner | How | State |
 |------|-------|-----|-------|
-| voice microphone (Jieli) | lamp-voice | `mic2/audio` blocks arrive, level from the PCM | to do |
-| room microphone (C-Media) | lamp-ears | `ears/level` arrives, `ears` diagnostic not error | to do |
+| voice microphone (Jieli) | lamp-voice | `mic2/audio` blocks arrive, level from the PCM | to do (needs the tone) |
+| room microphone (C-Media) | lamp-ears | `ears/level` arrives, above digital silence (-90 dBFS) | listens: done |
 | speaker | lamp-voice | a played tone heard by both microphones | needs a tone request in lamp-voice; none exists |
-| servos 1 to 5 | lamp-body | `body/joint_states` fresh for all five joints; a small move through `expression/body` (±0.35 rad at most, lease-held) and back | to do; the move to be agreed with the fifth builder |
+| servos 1 to 5 | lamp-body | `body/joint_states` fresh for all five joints; a small move through `expression/body` (±0.35 rad at most, lease-held) and back | readback done; the move to be agreed with the fifth builder |
 | ring | lamp-voice | each colour on `light/command`, seen on `light/state`; the person's own setting restored after | to do |
 | camera | lamp-eyes | a permit on `/run/lampos-eyes/permit.sock`, a new `sight.jpg` | to do |
-| touch pads, button | lamp-controls | `controls/touch_state` ready and not held; a swipe only at the factory | to do |
-| air | lamp-air | `air/state` fresh and in range | to do |
-| board | (none) | temperature and free disk as `lamp-health` reads them; MMC errors since boot from the kernel log (#784) | to do; nothing reads the kernel log yet |
+| touch pads, button | lamp-controls | `controls/touch_state` ready, no fault, nothing held 10 s or more; a swipe only at the factory | idle done; swipe to do |
+| air | lamp-air | `air/state` fresh (15 s) and in range | done |
+| board | (none) | `board/state` from `lamp-health`: hottest under 85 °C, 3% of the disk free or more; MMC errors since boot from the kernel log (#784) | temperature and disk done; nothing reads the kernel log yet |
+
+A reading never given is `not_checked` (its owner may not run on this
+lamp); one older than its freshness, or unreadable, is `fail`. Each joint
+of the five is its own part. Run it with
+
+```sh
+lamp-selftest --occasion factory|first-boot|on-demand [--dir ABSOLUTE] [--bus-root ABSOLUTE]
+```
+
+Exit status: 0 every part passed or is not fitted, 1 a part failed, 3 a
+part could not be checked, 2 the arguments were wrong.
 
 ## Not shown yet
 

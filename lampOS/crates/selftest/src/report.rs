@@ -21,11 +21,11 @@ pub fn text(test: &SelfTest) -> String {
         out.push_str(&part.line());
         out.push('\n');
     }
-    let verdict = serde_json::to_value(test.verdict)
-        .ok()
-        .and_then(|v| v.as_str().map(str::to_owned))
-        .unwrap_or_default();
-    out.push_str(&format!("selftest   {verdict} in {:.0} s\n", test.took));
+    out.push_str(&format!(
+        "selftest   {} in {:.0} s\n",
+        test.verdict.words(),
+        test.took
+    ));
     out
 }
 

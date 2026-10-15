@@ -4,6 +4,7 @@
 //!   (the bus, its owner process, the system's files). A check never writes
 //!   to a device another process owns.
 //! - [`run`]: every check in turn, each timed, the whole inside a budget.
+//! - [`listen`]: the checks that only listen to a part on the bus.
 //! - [`report`]: where a run is kept, and what a person reads.
 
 // Nothing in this library prints; the program prints what it is given.
@@ -12,6 +13,7 @@
 use lamp_msgs::{Occasion, PartResult, SelfTest, Verdict};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
+pub mod listen;
 pub mod report;
 
 /// The whole self-test has two minutes (#812).
@@ -29,7 +31,7 @@ pub trait Check {
 
 /// Runs every check in order. A check that starts after the budget is spent
 /// is not run and says so; one that overruns its deadline keeps its result.
-pub fn run(occasion: Occasion, checks: &mut [Box<dyn Check>], budget: Duration) -> SelfTest {
+pub fn run(occasion: Occasion, checks: &mut [Box<dyn Check + '_>], budget: Duration) -> SelfTest {
     let started = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .map(|d| d.as_secs_f64())

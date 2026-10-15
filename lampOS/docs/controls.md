@@ -246,26 +246,38 @@ First's on-lamp sequence is:
       |baseline − filtered| the chip may have compared. The chip shows only
       the upper 8 of its 10 baseline bits, so the noise counts up to 3 more
       than the read difference (NXP AN3892).
-   3. **30 s: swipe each working pad a few times**, end to end. A swipe over
-      a pad is 3 or more readings in a row more than 2 above its noise; the
-      peak (baseline − filtered) of each is kept, and the weakest counts.
-   4. **Saved.** For each working pad, **touch at 40% and release at 20% of
-      the way from its noise to its weakest swipe**, rounded down
-      (`--touch-percent` 10..90, `--release-percent` below it), always with
-      noise < release < touch < weakest swipe: the chip counts a touch only
-      when its difference is strictly above the touch threshold, and a release
-      only when it is strictly below the release threshold. A pad with no swipe is `not_touched`; one whose weakest
-      swipe is less than 5 above its noise is `too_close_to_noise`. Only if
+   3. **30 s: swipe each working pad a few times**, end to end. At each
+      reading the touched pad is the one furthest above its own noise (more
+      than 2). A swipe on a pad is 3 or more readings in a row in which it is
+      that pad; a neighbour's touch reaching it is not. Each own swipe's peak
+      (baseline − filtered) is kept, and what each pad reads while another is
+      touched is its **coupling**.
+   4. **Saved.** Each pad's touch level is the lowest of its own swipes that
+      reached at least half its strongest, so a swipe that only grazed it does
+      not set it. **Touch at 40% and release at 20% of the way from its noise
+      to that level**, rounded down (`--touch-percent` 10..90,
+      `--release-percent` below it), always noise < release < touch < level:
+      the chip counts a touch only when its difference is strictly above the
+      touch threshold, and a release only when it is strictly below the
+      release threshold. A pad with no own swipe is `not_touched`; one whose
+      level is less than 5 above its noise is `too_close_to_noise`. Only if
       every working pad has thresholds is the output written: the same pins
       file with those pads' thresholds replaced and nothing else changed.
       Electrodes left out of the working set are reported as `not_working`
       (E4 and E8 on lamp-4ace) and keep their thresholds. The report on stdout
-      gives the rule in numbers and, per pad, the noise, the number of swipes,
-      the weakest and strongest, the verdict, the thresholds, the baseline at
-      the start of step 2 and the end of step 3, the charge current and time
-      the chip chose, and how often the old thresholds counted a touch in
-      step 3, for comparing with the hardware team's bench values.
+      gives the rule in numbers and, per pad, the noise, the coupling, the
+      number of its own swipes, their weakest and strongest, the level, the
+      verdict, the thresholds, the baseline at the start of step 2 and the end
+      of step 3, the charge current and time the chip chose, and how often the
+      old thresholds counted a touch in step 3. It also gives the **footprint**:
+      how many working pads were lit at once while a pad was touched, as the
+      chip said with the profile's thresholds and as the same readings stand
+      against the new ones. The base's Touch and Sleep need three pads at once,
+      so a new footprint of one or two means those gestures would not qualify.
 
+   `--record FILE` keeps the session's readings (a new private file);
+   `--replay FILE` computes the report and the pins file from kept readings,
+   with no chip, so a rule can be tried again on one person's swipes.
    `--settle-seconds`, `--quiet-seconds` and `--swipe-seconds` change the
    steps (1..600 s each). An existing output file is refused. A chip fault
    (overcurrent, out of range on a working pad, auto-configuration failure,

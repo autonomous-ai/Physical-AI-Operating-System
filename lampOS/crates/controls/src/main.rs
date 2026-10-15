@@ -23,15 +23,16 @@ const USAGE: &str = "lamp-controls serve [--config FILE] [--pins FILE] [--touch]
 lamp-controls replay --input FILE --config FILE --clock-id ID [--touch --pins FILE] [--enable] [--output FILE] [--until-us N]\n\
 lamp-controls probe --pins FILE\n\
 lamp-controls discover-head --seconds N\n\
-lamp-controls calibrate-touch --pins FILE --output FILE [--settle-seconds N] [--quiet-seconds N] [--swipe-seconds N] [--touch-percent P] [--release-percent P]\n\
+lamp-controls calibrate-touch --pins FILE --output FILE [--settle-seconds N] [--quiet-seconds N] [--swipe-seconds N] [--touch-percent P] [--release-percent P] [--record FILE | --replay FILE]\n\
 lamp-controls clock [--clock-id ID]\n\n\
 Shadow is the default. A config file cannot enable the process without --enable.\n\
 Without --pins, serve reads nothing and reports Missing. With it, the board's GPIO lines named in FILE are read.\n\
 probe reads each line of FILE once with a pull-down and once with a pull-up, and serves nothing.\n\
 discover-head samples candidates 37/96/97/98 on chip 0 for 2..60 seconds; it installs no mapping.\n\
 calibrate-touch runs the hardware team's MPR121 steps with a person at the lamp (hands away 10+5 s, then swipe 30 s),\n\
-sets touch at 40% and release at 20% of the way from each pad's noise to its weakest swipe, and writes FILE:\n\
---pins with those thresholds, only if every working pad gave a clear swipe. It serves nothing.\n\
+sets touch at 40% and release at 20% of the way from each pad's noise to its own touch level, and writes FILE:\n\
+--pins with those thresholds, only if every working pad gave a clear swipe. It serves nothing. --record keeps the\n\
+readings; --replay works from kept readings instead of the chip.\n\
 --touch selects the new independent head/strip path and its pins schema. It configures the selected I2C chip even in shadow.\n\
 Without --touch, no new reader, touch topic or gesture interpretation is selected.\n\
 Replay never opens a bus or hardware. Times are CLOCK_MONOTONIC microseconds.\n\
@@ -56,6 +57,7 @@ struct Args {
     sink: Option<PathBuf>,
     session: Option<String>,
     plan: lamp_controls::touch_calibrate::Plan,
+    replay: Option<PathBuf>,
 }
 
 fn parse(args: impl IntoIterator<Item = String>) -> Result<Option<Args>, String> {
@@ -119,6 +121,8 @@ fn parse(args: impl IntoIterator<Item = String>) -> Result<Option<Args>, String>
                 "--swipe-seconds",
                 "--touch-percent",
                 "--release-percent",
+                "--record",
+                "--replay",
             ]
             .contains(&option.as_str()),
             "mpr-worker" => {
@@ -149,6 +153,7 @@ fn parse(args: impl IntoIterator<Item = String>) -> Result<Option<Args>, String>
             "--input" => out.input = Some(value.into()),
             "--output" => out.output = Some(value.into()),
             "--record" => out.record = Some(value.into()),
+            "--replay" => out.replay = Some(value.into()),
             "--clock-id" => out.clock = Some(value),
             "--bus-root" => {
                 let path = PathBuf::from(value);
@@ -210,6 +215,9 @@ fn parse(args: impl IntoIterator<Item = String>) -> Result<Option<Args>, String>
             return Err("calibrate-touch needs --pins and --output".into());
         }
         out.plan.check()?;
+        if out.record.is_some() && out.replay.is_some() {
+            return Err("calibrate-touch takes --record or --replay, not both".into());
+        }
     }
     if out.command == "probe" && out.pins.is_none() {
         return Err("probe needs --pins".into());
@@ -563,9 +571,34 @@ fn calibrate_touch(args: &Args) -> Result<(), Box<dyn std::error::Error>> {
         .as_mut()
         .ok_or("the pins file has no base strip")?;
     base.check()?;
-    let report = touch_calibrate::run(base, args.plan, |step| {
-        eprintln!("lamp-controls: calibrate-touch: {step}");
-    })?;
+    if let Some(path) = &args.record
+        && path.exists()
+    {
+        return Err(format!("{} already exists", path.display()).into());
+    }
+    let session = match &args.replay {
+        Some(path) => {
+            let mut bytes = Vec::new();
+            File::open(path)?.take(64 << 20).read_to_end(&mut bytes)?;
+            serde_json::from_slice::<touch_calibrate::Session>(&bytes)?
+        }
+        None => touch_calibrate::run(base, args.plan, |step| {
+            eprintln!("lamp-controls: calibrate-touch: {step}");
+        })?,
+    };
+    if let Some(path) = &args.record {
+        OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .mode(0o600)
+            .open(path)?
+            .write_all(&serde_json::to_vec(&session)?)?;
+        eprintln!(
+            "lamp-controls: calibrate-touch: kept the readings in {}",
+            path.display()
+        );
+    }
+    let report = touch_calibrate::analyse(&session, &base.pads, &base.profile, args.plan);
     println!("{}", serde_json::to_string(&report)?);
     let Some(profile) = report.apply(&base.profile) else {
         let failed: Vec<String> = report

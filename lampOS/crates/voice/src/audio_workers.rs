@@ -662,7 +662,11 @@ fn capture_loop<D: CaptureDevice>(
                         .fault(ReferenceFaultKind::ReferenceBacklog, monotonic_us())
                         .into());
                 }
-                if !microphone.is_open() {
+                // A closed microphone is a privacy mismatch, unless a stall
+                // closed it: the speaker's reference goes on through the gap
+                // (#784, the third stall on lamp-52e6 ended on this), and the
+                // privacy generation is still checked on every packet.
+                if !microphone.is_open() && gap.is_none() {
                     return Err(reference
                         .fault(ReferenceFaultKind::PrivacyMismatch, monotonic_us())
                         .into());

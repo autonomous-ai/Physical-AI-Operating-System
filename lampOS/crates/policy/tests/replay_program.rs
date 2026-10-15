@@ -225,3 +225,114 @@ fn the_log_is_asked_again_of_each_model_and_nothing_heard_is_printed() {
     }
     assert_eq!(summary["pairs"][0]["both_answered"], 2);
 }
+
+/// An earlier run counted again with `--refit`: the summary, then the
+/// refit's line for each model, fitted where it has enough labelled lines
+/// with answers and said why not where it has none.
+#[test]
+fn an_earlier_run_is_fitted_again_to_each_models_answers() {
+    use lamp_policy::replay::{Logged, Replayed, line};
+    let dir = std::env::temp_dir().join(format!("policy-refit-program-{}", std::process::id()));
+    let _ = fs::remove_dir_all(&dir);
+    fs::create_dir_all(&dir).unwrap();
+    let names: Vec<String> = attention::questions()
+        .into_iter()
+        .map(|(name, _)| name)
+        .collect();
+    let (mut lines, mut labels) = (String::new(), String::new());
+    for index in 0..40_u64 {
+        // Every other line calls the lamp and is to be answered.
+        let call = index % 2 == 0;
+        let at = 1_760_541_000_000 + index * 1_000;
+        let context = Context {
+            heard: "Hey Lamp, what is the time?".into(),
+            room: Room::Busy,
+            lamp_is_speaking: false,
+            lamp_last_said: None,
+            seconds_since_lamp_spoke: None,
+            name_heard: None,
+        };
+        let yes = if call { 0.9 } else { 0.1 };
+        let new = Replayed::Chose {
+            by: "new-20261014".into(),
+            choice: if call { "answer" } else { "stay_quiet" }.into(),
+            probability: yes,
+            took_ms: 300,
+            answers: names.iter().map(|name| (name.clone(), yes)).collect(),
+        };
+        let logged = Logged {
+            id: format!("2026-10-15#{}", index + 1),
+            at_unix_ms: at,
+            context,
+            choice: "answer".into(),
+            probability: 0.9,
+            by: "typesafe/jev-1.13-20260917".into(),
+        };
+        // `old` is a run from before the answers were kept.
+        let old = Replayed::Chose {
+            by: "old-20260917".into(),
+            choice: "answer".into(),
+            probability: 0.9,
+            took_ms: 300,
+            answers: Default::default(),
+        };
+        let mut printed = line(&logged, None, &[("old".into(), old), ("new".into(), new)]);
+        printed["judges"][0]
+            .as_object_mut()
+            .unwrap()
+            .remove("answers");
+        lines.push_str(&format!("{printed}\n"));
+        let should = if call { "answer" } else { "stay_quiet" };
+        labels.push_str(&format!(
+            "{}\n",
+            json!({"at_unix_ms": at, "should": should})
+        ));
+    }
+    fs::write(dir.join("replay.jsonl"), lines).unwrap();
+    fs::write(dir.join("labels.jsonl"), labels).unwrap();
+    let path = |name: &str| dir.join(name).to_str().unwrap().to_owned();
+    let output = Command::new(PROGRAM)
+        .args([
+            "--again",
+            &path("replay.jsonl"),
+            "--labels",
+            &path("labels.jsonl"),
+            "--refit",
+        ])
+        .output()
+        .unwrap();
+    fs::remove_dir_all(&dir).unwrap();
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(!stdout.contains("Hey Lamp"));
+    let printed: Vec<Value> = stdout
+        .lines()
+        .map(|line| serde_json::from_str(line).unwrap())
+        .collect();
+    assert_eq!(printed.len(), 2);
+    assert_eq!(printed[0]["status"], "replay_summary");
+    let refit = &printed[1];
+    assert_eq!(refit["status"], "refit_summary");
+    assert_eq!(refit["models"]["old"]["fitted"], false);
+    assert_eq!(refit["models"]["old"]["without_answers"], 40);
+    let new = &refit["models"]["new"];
+    assert_eq!(new["fitted"], true);
+    assert_eq!(
+        new["refitted"]["right"],
+        json!({"labelled": 20.0, "right": 20.0})
+    );
+    assert_eq!(
+        new["day_weights"]["right"],
+        json!({"labelled": 20.0, "right": 20.0})
+    );
+    assert!(
+        new["weights_on_every_label"]["calls_lamp"]
+            .as_f64()
+            .unwrap()
+            > 0.0
+    );
+}

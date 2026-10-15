@@ -500,3 +500,24 @@ fn the_delay_starts_at_the_speakers_first_acceptance_not_at_dispatch() {
         first - sent_us
     );
 }
+
+#[test]
+fn a_tone_that_settles_in_the_pass_it_retires_is_judged_not_called_cut_short() {
+    // As the loop runs it: the final sample retires and the turn settles
+    // in one pass, and the tone is ticked only after the reply is gone.
+    let (bus, root) = bus("settled");
+    let mut tone = SpeakerTone::on(&bus).unwrap();
+    let (_, reply, turn, _) = play(30, Duration::ZERO, true);
+    tone.began("t".into(), turn);
+    // The settle block, before the reply is let go.
+    tone.finished(reply.as_ref().unwrap());
+    tone.tick(None, monotonic_us() + speaker_check::LISTEN_US + 1);
+    let judged = answer(&bus);
+    assert!(judged.reason.contains("evidence"), "{judged:?}");
+    // The control: let go without it, as a cancellation is, it is cut short.
+    let mut tone = SpeakerTone::on(&bus).unwrap();
+    tone.began("u".into(), turn);
+    tone.tick(None, monotonic_us() + speaker_check::LISTEN_US + 1);
+    assert!(answer(&bus).reason.contains("before the speaker took"));
+    std::fs::remove_dir_all(root).unwrap();
+}

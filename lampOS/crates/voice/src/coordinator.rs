@@ -4436,6 +4436,9 @@ fn conversation_with_gate(
             let said_nothing = current.delivery_outcome() == "no_audio_answer"
                 && matches!(current.cloud.outcome, Some(RequestOutcome::Complete));
             let tone_finished = current.notice.origin() == SpeechOrigin::SelfTest;
+            if let Some(tone) = speaker_tone.as_mut() {
+                tone.finished(current);
+            }
             if !tone_finished
                 && let Some(score) = second_look.finished(turn, said_nothing, monotonic_us())
             {

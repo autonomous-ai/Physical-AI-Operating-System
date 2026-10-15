@@ -163,6 +163,18 @@ impl SpeakerTone {
         });
     }
 
+    /// Call when a turn settles, before it is let go: the tone's own turn
+    /// is then known to have played to its end. A turn cancelled is let go
+    /// without this, and its tone is said cut short.
+    pub(super) fn finished(&mut self, current: &Reply) {
+        if let Some(playing) = self.playing.as_mut()
+            && playing.turn == current.owner
+        {
+            playing.started_us = current.notice.first_accepted_at_us();
+            playing.whole = current.notice.retired();
+        }
+    }
+
     /// Call each pass with the reply, if any. Notes when the tone's first
     /// chunk left, and when it is over; answers once the microphone has had
     /// its time to hear it.

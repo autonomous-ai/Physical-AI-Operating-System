@@ -57,6 +57,7 @@ pub mod speak_up;
 pub mod task_news;
 mod termination;
 pub mod thread;
+pub mod tool_turns;
 pub mod tools;
 pub mod transport;
 mod turn_taking;

@@ -275,6 +275,49 @@ sends the note as a written request, answers every call as done, and
 prints which functions were called with what, when, what was said and how
 the request ended. Nothing is captured, played or changed on the lamp.
 
+### Where a turn with a function call spends its time (#799)
+
+    lamp-voice provider-check /etc/lampOS/voice/provider.json --tool-turns 5
+
+On lamp-4ace on 2026-10-15 a plain answer began 0.87 to 1.45 s after the
+end of speech was decided, and a turn with a function call 1.8 to 2.9 s
+after, though the tasks part answered each call in 38 to 52 ms. The voice's
+own handling of a call is a few milliseconds: it is read on the provider
+worker's 2 ms tick, a tasks call runs on a thread of its own, and the
+answer is written as soon as it is picked up. Nothing waits for playout,
+for the model's `turnComplete` or for an ownership check. The model makes
+the call in one generation and speaks in another, after the answer; with
+`provider.json`'s thinking budget of 128 each may think first.
+
+This mode measures that against the model alone, with nothing on the lamp
+touched (`crates/voice/src/tool_turns.rs`). It asks six written requests,
+ROUNDS times (1 to 20), each on a connection of its own told of the
+voice's `not_for_me`, a sample `light_colour` and the agent tasks'
+three functions as on the lamp:
+
+| Request | Function expected |
+|---|---|
+| "What's the capital of Australia?" | none |
+| "Tell me one fun thing about octopuses." | none |
+| "Turn your light blue, please." | `light_colour` |
+| "Can you ask Claude Code on my office computer to write a short poem about a desk lamp?" | `start_agent_task` |
+| the same, then "Yes, go ahead." (only the second is timed) | `confirm_agent_task` |
+| "How is the work you gave Claude Code going?" | `check_agent_task` |
+
+Every call is answered at once by a stand-in of the real answer's shape
+(`tool_turns::stand_in`), so nothing reaches the tasks part or the
+executive, and nothing is captured or played. One JSON line a request,
+times in milliseconds from the request being written: `call_ms`,
+`answer_sent_after_call_ms`, `first_audio_ms`, `audio_after_answer_ms`
+(the model's second generation), `lead_in_ms` (audio said before the
+call), what was said and how it ended. Then a `tool_turns_summary` line
+with the medians for each request, for plain turns and for turns that
+called the function expected.
+
+A written request is not speech. These times leave out the lamp's end of
+speech, its 350 ms playout start and the speaker, and measure only what
+the model adds; the first sound in the room comes later by those.
+
 ## Not shown
 
 Task 31's new fixtures use synthetic provider events, real local Actions and

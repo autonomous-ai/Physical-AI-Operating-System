@@ -163,6 +163,12 @@ pub fn ask_colours(bus: &Bus, deadline: Instant) -> Result<Shown, String> {
             colour: colour.into(),
             level: LEVEL,
         };
+        // The person's request is looked for right before each colour, so
+        // that no test is asked after it.
+        if asked_by_person(bus, began_ms) {
+            shown.interrupted = true;
+            return Ok(shown);
+        }
         let asked_ms = unix_ms();
         asks.publish_json(n as u64 + 1, &light)
             .map_err(|e| e.to_string())?;
@@ -181,7 +187,16 @@ pub fn ask_colours(bus: &Bus, deadline: Instant) -> Result<Shown, String> {
         }
         if drawn {
             shown.drawn.push(colour);
-            std::thread::sleep(HOLD);
+            // Held for the person at the factory to see, watching all the
+            // while for their own request.
+            let until = Instant::now() + HOLD;
+            while Instant::now() < until {
+                if asked_by_person(bus, began_ms) {
+                    shown.interrupted = true;
+                    return Ok(shown);
+                }
+                std::thread::sleep(Duration::from_millis(20));
+            }
         } else {
             shown.missed.push(colour);
         }
@@ -388,6 +403,57 @@ mod tests {
             .parse()
             .unwrap();
         assert_eq!(asked, light("blue"));
+        std::fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn a_light_asked_during_a_hold_stops_the_check_before_another_colour_is_asked() {
+        let root = std::path::PathBuf::from(format!("/tmp/ls-ring-hold-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        std::fs::create_dir_all(&root).unwrap();
+        let bus = Bus::new(&root).unwrap();
+        let mut seen_tests = bus
+            .subscribe_typed(TEST_TOPIC, "witness", Light::TYPE)
+            .unwrap();
+        let stop = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let ring_owner = owner(&root, None, true, stop.clone());
+        // The person asks once the first colour is drawn, inside its hold.
+        let person_bus = Bus::new(&root).unwrap();
+        let person = std::thread::spawn(move || {
+            let mut asks = person_bus
+                .publisher_declared(Light::TOPICS[0], &Light::declaration(), "actions")
+                .unwrap();
+            while !matches!(person_bus.latest(DRAWN_TOPIC), Ok(Some(_))) {
+                std::thread::sleep(Duration::from_millis(5));
+            }
+            std::thread::sleep(Duration::from_millis(100));
+            asks.publish_json(1, &light("blue")).unwrap();
+            asks
+        });
+        let result = Ring {
+            bus: &bus,
+            active: true,
+        }
+        .run(Instant::now() + Duration::from_secs(60));
+        let _asks = person.join().unwrap();
+        stop.store(true, std::sync::atomic::Ordering::Relaxed);
+        ring_owner.join().unwrap();
+        assert_eq!(result.verdict, Verdict::NotChecked, "{result:?}");
+        let asked_ms = bus
+            .latest(Light::TOPICS[0])
+            .unwrap()
+            .unwrap()
+            .header
+            .at_unix_ms;
+        let mut tests = 0;
+        while let Some(message) = seen_tests.recv(Duration::from_millis(50)).unwrap() {
+            tests += 1;
+            assert!(
+                message.header.at_unix_ms <= asked_ms,
+                "a test colour was asked after the person's light"
+            );
+        }
+        assert_eq!(tests, 1, "only the first colour was asked");
         std::fs::remove_dir_all(root).unwrap();
     }
 }

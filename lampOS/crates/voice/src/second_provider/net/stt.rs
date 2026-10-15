@@ -18,6 +18,10 @@ const DEEPGRAM: &str = "wss://api.deepgram.com/v1/listen";
 const KEEP_ALIVE: Duration = Duration::from_secs(5);
 /// V1 waits as long for the final words after `CloseStream`.
 const FINISH: Duration = Duration::from_secs(15);
+/// How long the end of the line waits for `Finalize`'s final words before
+/// falling back to `CloseStream` (#779): on lamp-52e6 `CloseStream`'s took
+/// 0.56 to 0.66 s, so a proxy that passes `Finalize` answers well within.
+const FINALIZE: Duration = Duration::from_secs(1);
 /// About 6 s of 20 ms frames waiting to be written.
 const QUEUE: usize = 300;
 const MAX_MESSAGE: usize = 1 << 20;
@@ -76,6 +80,8 @@ pub(crate) struct Heard {
     pub transcript: String,
     pub is_final: bool,
     pub speech_final: bool,
+    /// The answer to a `Finalize`: the words it asked for are all here.
+    pub from_finalize: bool,
     pub end: f64,
 }
 
@@ -92,6 +98,8 @@ pub(crate) fn heard(text: &str) -> Option<Heard> {
         is_final: bool,
         #[serde(default)]
         speech_final: bool,
+        #[serde(default)]
+        from_finalize: bool,
         #[serde(default)]
         start: f64,
         #[serde(default)]
@@ -122,6 +130,7 @@ pub(crate) fn heard(text: &str) -> Option<Heard> {
         transcript,
         is_final: results.is_final,
         speech_final: results.speech_final,
+        from_finalize: results.from_finalize,
         end,
     })
 }
@@ -294,15 +303,19 @@ impl SttStream {
     /// The final segments, joined; empty when nothing was heard.
     /// Dropping the stream instead abandons it at once. Journals, for
     /// `request`, what the words' state was when the line ended.
-    pub async fn finish(mut self, request: u64) -> Result<String> {
+    pub async fn finish(self, request: u64) -> Result<String> {
+        let (words, at_end) = self.finish_told().await?;
+        if let Some(at_end) = at_end {
+            eprintln!("lamp-voice second: request {request} at the line's end: {at_end}");
+        }
+        Ok(words)
+    }
+
+    /// The words, and the journal's account of the end of the line.
+    async fn finish_told(mut self) -> Result<(String, Option<String>)> {
         self.audio = None;
         match tokio::time::timeout(FINISH, &mut self.task).await {
-            Ok(Ok(result)) => result.map(|(words, at_end)| {
-                if let Some(at_end) = at_end {
-                    eprintln!("lamp-voice second: request {request} at the line's end: {at_end}");
-                }
-                words
-            }),
+            Ok(Ok(result)) => result,
             Ok(Err(_)) => Err(Error::Transport("speech-to-text stream")),
             Err(_) => Err(Error::Timeout("speech-to-text final transcript")),
         }
@@ -326,58 +339,83 @@ where
     let mut transcript = Transcript::default();
     let mut last_sent = Instant::now();
     let mut samples_sent = 0usize;
+    // Set at the end of the line, when `Finalize` went: until when its
+    // final words are waited for.
+    let mut finalize_by: Option<Instant> = None;
+    // `CloseStream` went: its final words and close are waited for.
     let mut closing = false;
     let mut last_final: Option<Instant> = None;
-    let mut at_end = None;
+    let mut at_end = String::new();
+    let told = |at_end: &str, from: &str| Some(format!("{at_end}, words from={from}"));
+    let close_stream = || Message::text(r#"{"type":"CloseStream"}"#);
     loop {
+        let sent = samples_sent as f64 / 16_000.0;
         tokio::select! {
-            frame = queued.recv(), if !closing => {
-                let message = match frame {
-                    Some(bytes) => {
-                        samples_sent += bytes.len() / 2;
-                        Message::binary(bytes)
-                    }
-                    None => {
-                        closing = true;
-                        Message::text(r#"{"type":"CloseStream"}"#)
-                    }
-                };
-                write.send(message).await.map_err(|_| Error::Transport("speech-to-text send"))?;
-                last_sent = Instant::now();
-                // At the end of the line, words already settled are the
-                // answer: CloseStream's round trip is not waited for.
-                if closing {
-                    let sent = samples_sent as f64 / 16_000.0;
-                    let before = last_final.map_or("none".to_owned(), |at| {
-                        format!("{} ms before End", at.elapsed().as_millis())
-                    });
-                    at_end = Some(format!("{}, last final {before}", transcript.at_end(sent)));
-                    if transcript.settled(sent) {
-                        return Ok((transcript.text(), at_end));
-                    }
+            frame = queued.recv(), if finalize_by.is_none() && !closing => {
+                if let Some(bytes) = frame {
+                    samples_sent += bytes.len() / 2;
+                    write
+                        .send(Message::binary(bytes))
+                        .await
+                        .map_err(|_| Error::Transport("speech-to-text send"))?;
+                    last_sent = Instant::now();
+                    continue;
                 }
+                // The end of the line. Words already settled are the
+                // answer; otherwise `Finalize` asks for the final at once
+                // (#779), and `CloseStream` only if it does not come.
+                let before = last_final.map_or("none".to_owned(), |at| {
+                    format!("{} ms before End", at.elapsed().as_millis())
+                });
+                at_end = format!("{}, last final {before}", transcript.at_end(sent));
+                if transcript.settled(sent) {
+                    let _ = write.send(close_stream()).await;
+                    return Ok((transcript.text(), told(&at_end, "settled")));
+                }
+                write
+                    .send(Message::text(r#"{"type":"Finalize"}"#))
+                    .await
+                    .map_err(|_| Error::Transport("speech-to-text send"))?;
+                finalize_by = Some(Instant::now() + FINALIZE);
             }
-            _ = tokio::time::sleep_until(last_sent + KEEP_ALIVE), if !closing => {
+            _ = tokio::time::sleep_until(last_sent + KEEP_ALIVE), if finalize_by.is_none() && !closing => {
                 write
                     .send(Message::text(r#"{"type":"KeepAlive"}"#))
                     .await
                     .map_err(|_| Error::Transport("speech-to-text send"))?;
                 last_sent = Instant::now();
             }
+            _ = tokio::time::sleep_until(finalize_by.unwrap_or(last_sent)), if finalize_by.is_some() && !closing => {
+                // `Finalize` went unanswered: the proxy may not pass it.
+                closing = true;
+                write
+                    .send(close_stream())
+                    .await
+                    .map_err(|_| Error::Transport("speech-to-text send"))?;
+            }
             message = read.next() => match message {
                 Some(Ok(Message::Text(text))) => {
                     if let Some(words) = heard(&text) {
-                        if words.is_final && !closing {
+                        let finalized = words.from_finalize;
+                        if words.is_final && finalize_by.is_none() {
                             last_final = Some(Instant::now());
                         }
                         transcript.add(words);
+                        if finalize_by.is_some()
+                            && !closing
+                            && (finalized || transcript.settled(sent))
+                        {
+                            // Closes the socket; its answer is not waited for.
+                            let _ = write.send(close_stream()).await;
+                            return Ok((transcript.text(), told(&at_end, "finalize")));
+                        }
                     } else if let Some(at) = speech_started(&text) {
                         transcript.speech_started(at);
                     }
                 }
                 Some(Ok(Message::Close(_))) | None => {
-                    return if closing {
-                        Ok((transcript.text(), at_end))
+                    return if finalize_by.is_some() {
+                        Ok((transcript.text(), told(&at_end, "close_stream")))
                     } else {
                         Err(Error::Transport("speech-to-text stream"))
                     };
@@ -458,6 +496,7 @@ mod tests {
             transcript: text.to_owned(),
             is_final,
             speech_final,
+            from_finalize: false,
             end,
         };
         let mut transcript = Transcript::default();
@@ -488,6 +527,7 @@ mod tests {
             transcript: "secret words".to_owned(),
             is_final: true,
             speech_final: true,
+            from_finalize: false,
             end: 1.23,
         });
         assert_eq!(
@@ -505,10 +545,16 @@ mod tests {
     }
 
     /// Speech to text in memory, on the paused clock: the server reads
-    /// audio, sends `before` once some arrived, and answers `CloseStream`
-    /// `round_trip` later with a last final and its close. Returns the
-    /// words and how long `finish` took.
-    async fn finish_after(before: &'static str, round_trip: Duration) -> (String, Duration) {
+    /// audio, sends `before` once some arrived, answers `Finalize` at once
+    /// with `finalized` when given (else ignores it, as a proxy might), and
+    /// answers `CloseStream` `round_trip` later with a last final and its
+    /// close. Returns the words, the journal's account and how long
+    /// `finish` took.
+    async fn finish_after(
+        before: &'static str,
+        finalized: Option<&'static str>,
+        round_trip: Duration,
+    ) -> (String, String, Duration) {
         use tokio_tungstenite::{WebSocketStream, tungstenite::protocol::Role};
         let (near, far) = tokio::io::duplex(1 << 16);
         let server = tokio::spawn(async move {
@@ -519,6 +565,11 @@ mod tests {
                     Message::Binary(_) if !told => {
                         told = true;
                         socket.send(Message::text(before)).await.unwrap();
+                    }
+                    Message::Text(text) if text.contains("Finalize") => {
+                        if let Some(finalized) = finalized {
+                            socket.send(Message::text(finalized)).await.unwrap();
+                        }
                     }
                     Message::Text(text) if text.contains("CloseStream") => break,
                     _ => {}
@@ -537,26 +588,40 @@ mod tests {
         }
         tokio::time::sleep(Duration::from_millis(300)).await;
         let began = Instant::now();
-        let words = stream.finish(1).await.unwrap();
+        let (words, at_end) = stream.finish_told().await.unwrap();
         let took = began.elapsed();
         server.abort();
-        (words, took)
+        (words, at_end.unwrap(), took)
     }
+
+    const INTERIM: &str = r#"{"type":"Results","is_final":false,"speech_final":false,"start":0.0,"duration":0.6,"channel":{"alternatives":[{"transcript":"hello"}]}}"#;
 
     #[tokio::test(start_paused = true)]
     async fn an_utterance_ended_before_the_line_does_not_wait_for_close_stream() {
         let ended = r#"{"type":"Results","is_final":true,"speech_final":true,"start":0.0,"duration":0.6,"channel":{"alternatives":[{"transcript":"hello lamp"}]}}"#;
-        let (words, took) = finish_after(ended, Duration::from_millis(800)).await;
+        let (words, at_end, took) = finish_after(ended, None, Duration::from_millis(800)).await;
         assert_eq!(words, "hello lamp");
         assert_eq!(took, Duration::ZERO);
+        assert!(at_end.ends_with(", words from=settled"), "{at_end}");
     }
 
     #[tokio::test(start_paused = true)]
-    async fn words_still_coming_wait_for_close_stream_as_before() {
-        let interim = r#"{"type":"Results","is_final":false,"speech_final":false,"start":0.0,"duration":0.6,"channel":{"alternatives":[{"transcript":"hello"}]}}"#;
-        let (words, took) = finish_after(interim, Duration::from_millis(800)).await;
+    async fn words_still_coming_take_finalizes_answer_without_waiting_for_close_stream() {
+        let finalized = r#"{"type":"Results","is_final":true,"speech_final":true,"from_finalize":true,"start":0.0,"duration":1.0,"channel":{"alternatives":[{"transcript":"hello lamp"}]}}"#;
+        let (words, at_end, took) =
+            finish_after(INTERIM, Some(finalized), Duration::from_millis(800)).await;
+        assert_eq!(words, "hello lamp");
+        assert_eq!(took, Duration::ZERO);
+        assert!(at_end.ends_with(", words from=finalize"), "{at_end}");
+        assert!(!at_end.contains("hello"));
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn a_proxy_that_ignores_finalize_falls_back_to_close_stream() {
+        let (words, at_end, took) = finish_after(INTERIM, None, Duration::from_millis(800)).await;
         assert_eq!(words, "from close");
-        assert_eq!(took, Duration::from_millis(800));
+        assert_eq!(took, FINALIZE + Duration::from_millis(800));
+        assert!(at_end.ends_with(", words from=close_stream"), "{at_end}");
     }
 
     /// A local plain websocket server stands in for Deepgram.

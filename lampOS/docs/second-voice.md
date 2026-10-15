@@ -112,12 +112,16 @@ A base URL on `campaign-api.autonomous.ai` ending in `/ai` is given `/v1`
   `keyterm=Lamp`, as V1 boosts the lamp's name: without it, on lamp-52e6,
   "Hey Lamp" came back as "Palin", "Palan" and "Len", and the model took
   the question for other people's talk. A keep-alive
-  every 5 s; `CloseStream` at the end of the line. Only final segments are
-  kept. When the words are already settled at the end of the line (the
-  last final segment had `speech_final`, or final segments cover all the
-  audio sent, and no interim words or `SpeechStarted` came after it), they
-  are the transcript at once; otherwise up to 15 s for `CloseStream`'s
-  final words, as before (`Transcript::settled`).
+  every 5 s. Only final segments are kept. At the end of the line, when
+  the words are already settled (the last final segment had
+  `speech_final`, or final segments cover all the audio sent, and no
+  interim words or `SpeechStarted` came after it), they are the transcript
+  at once (`Transcript::settled`). Otherwise `{"type":"Finalize"}` asks for
+  the final words at once, keeping the socket: final segments are taken
+  until one marked `from_finalize`, or until the words settle, for up to
+  1 s (`FINALIZE`). Only if that passes with neither, `CloseStream` and up
+  to 15 s in all for its final words, as before. `CloseStream` is sent in
+  every case to close the socket, but waited on only in that fallback.
 - **Text model** (`net/chat.rs`): `POST <base>/chat/completions`,
   `Authorization: Bearer <key>`, `"stream": true`, with `tools` when any are
   declared. The answer is read as server-sent events and cut into
@@ -160,16 +164,20 @@ order is kept. A written turn is the same from the chat on.
   person still thinking. But when that end, or final segments covering all
   the audio, came before the line ended, the words held are the
   transcript, and the chat starts as soon as the end of the line does.
-  Otherwise the words wait for `CloseStream`'s answer, up to 15 s. Host
-  tests on the paused clock (`net/stt.rs`): 0 ms to the words with a
-  `speech_final` before the end, against the scripted 800 ms round trip
-  without one. Not yet measured on a lamp. Why a turn waited is
-  journaled once, without words, when the end of the line reaches speech
-  to text: "lamp-voice second: request N at the line's end:
+  Otherwise `Finalize` asks for the final words and they are taken as
+  soon as they come, up to 1 s; a proxy that does not answer it falls back
+  to `CloseStream`'s answer, up to 15 s in all. Host tests on the paused
+  clock (`net/stt.rs`), against a scripted 800 ms `CloseStream` round
+  trip: 0 ms to the words with a `speech_final` before the end, 0 ms with
+  an at-once answer to `Finalize`, and 1 s + 800 ms when `Finalize` is
+  ignored. Whether the company proxy passes `Finalize`, and the time it
+  saves, is not yet measured on a lamp. Why a turn waited is
+  journaled once, without words, when the words are in: "lamp-voice second: request N at the line's end:
   settled=<bool>, speech_final=<bool>, finals cover <ms|none> of <ms> ms
   sent, pending=<none|interim D ms after the last final|speech_started D
-  ms after the last final>, last final <T ms before End|none>". D is audio
-  time from the last final's end to the pending interim's end or
+  ms after the last final>, last final <T ms before End|none>, words
+  from=<settled|finalize|close_stream>", the last naming which path gave
+  the words. D is audio time from the last final's end to the pending interim's end or
   `SpeechStarted`'s timestamp (negative: inside audio a final already
   covers); T is wall time since that final arrived.
 

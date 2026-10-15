@@ -1404,3 +1404,41 @@ Nếu kích hoạt tự động lỗi sau khi bắt đầu chuyển, recovery kh
 và ghi nhận version bị từ chối để polling không thử lại liên tục. Nếu không ghi
 được thông tin từ chối, journal recovery vẫn được giữ lại. `ACTIVATE=0` giữ
 nguyên các ngưỡng version hiện có.
+
+### Build supervisor V2 từ main
+
+Từ checkout có công cụ release, chạy:
+
+```bash
+make upload-lamp-os
+```
+
+Lệnh fetch `refs/heads/lamp-voice` từ `origin` của checkout vào repository tạm
+riêng, cố định commit vừa lấy rồi chỉ giải nén `lampOS/`. Không đổi branch hiện
+tại và không lấy source chưa commit. Dùng Rust toolchain và lockfile của workspace
+đó để chạy
+`cargo zigbuild --locked --release --target aarch64-unknown-linux-gnu -p lamp-keeper`.
+Máy build cần Cargo/rustup, cargo-zigbuild, Zig, target
+`aarch64-unknown-linux-gnu` của toolchain được pin và `gsutil` đã đăng nhập.
+
+Binary quản lý được upload với tên `lamp-os`, kèm `build.json`, `VERSION` và `SHA256SUMS`,
+vào `gs://${GCS_BUCKET}/${BUCKET_PREFIX}/services/lamp-os/builds/<version>/<commit>/<sha256>/`.
+Mặc định vẫn là bucket `s3-autonomous-upgrade-3`, prefix `os`; có thể override qua
+biến môi trường như các lệnh release khác. Lệnh kiểm tra ELF ARM64 trước upload,
+sau đó tải lại binary đã lưu để đối chiếu SHA-256 trước khi báo thành công.
+Đây là kiểm tra build và nguồn gốc, chưa phải kiểm chứng trên hardware.
+
+Artifact bước đầu này là supervisor `lamp-keeper`, sau này đặt thành `bin/service`
+trong gói service `lamp-os`. **Chưa phải ZIP OTA V2 hoàn chỉnh**: phải đóng gói và
+kiểm chứng riêng các binary con, model, config/calibration của device và các unit
+đã render. Lệnh không sửa OTA metadata, ngưỡng version hay chỉ định kích hoạt.
+Chỉ dùng `upload-service` khi gói đầy đủ đã sẵn sàng; upload này không thay đổi V1
+hoặc các loại device khác.
+
+`system/VERSION_LAMP_OS` theo dõi version release riêng, độc lập HAL và bootstrap.
+File khởi tạo `0.0.0`; sau khi build binary hợp lệ, `upload-lamp-os` tự tăng patch
+(lần upload đầu là `0.0.1`). Version được ghi vào `build.json`, file `VERSION`
+upload kèm và đường dẫn GCS. Keeper đọc file `VERSION` của release để trả health
+cho OTA; lệnh không sửa version crate Rust. Giống các lệnh release hiện có, nếu
+upload lỗi sau bước tăng version thì file vẫn giữ số mới. Chạy release tuần tự,
+giữ lại version file đã cập nhật trong lịch sử release; không tự tăng bằng tay.

@@ -448,6 +448,10 @@ upload-os-server:
 upload-bootstrap:
 	bash scripts/release/upload-bootstrap.sh
 
+.PHONY: upload-lamp-os
+upload-lamp-os:
+	bash scripts/release/upload-lamp-os.sh
+
 upload-hal:
 	bash scripts/release/upload-hal.sh
 

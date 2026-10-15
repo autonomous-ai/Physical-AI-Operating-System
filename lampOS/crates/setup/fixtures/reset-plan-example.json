@@ -16,6 +16,6 @@
     "/etc/lampOS/person/name",
     "/etc/wpa_supplicant/wpa_supplicant-wlan0.conf"
   ],
-  "stop": ["/usr/bin/systemctl", "stop", "lampos.target"],
+  "stop": ["/usr/local/bin/lamp-keeper", "stop", "lamp"],
   "reboot": ["/usr/bin/systemctl", "reboot"]
 }

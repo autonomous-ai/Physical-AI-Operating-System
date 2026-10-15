@@ -2,9 +2,11 @@
 //! publishes it on `controls/touch`, stops the lamp, wipes the person's data,
 //! removes the setup marker and reboots into setup.
 //!
-//! A journal is written durably before the lamp is stopped and removed only
-//! after the wipe. A power cut in between leaves it in place, and the next
-//! start finishes the wipe before anything else runs (`resume`).
+//! A journal is written durably first, then the setup marker is removed, and
+//! only then is the lamp stopped and its data wiped. So a power cut, or a stop
+//! that fails, leaves a lamp with no marker and a journal: at the next start
+//! the keeper sees no marker and starts only setup, and setup finishes the
+//! wipe before anything else (`resume`), with nothing of the lamp running.
 
 use lamp_msgs::{TOUCH_EVENT_TTL_US, TouchEvent, TouchGesture, TouchIntent, TouchSource};
 use serde::{Deserialize, Serialize};
@@ -45,7 +47,9 @@ pub struct Plan {
     /// owner and mode, and loses everything in it (systemd units name some
     /// of these directories and would not start without them).
     pub wipe: Vec<PathBuf>,
-    /// Run before the wipe, and must succeed: the lamp's parts stopped.
+    /// Run before the wipe: the lamp's parts stopped (`lamp-keeper stop
+    /// lamp`). If it fails, the lamp reboots without wiping, into setup,
+    /// which finishes the wipe with nothing running.
     pub stop: Vec<String>,
     /// Run after the wipe.
     pub reboot: Vec<String>,
@@ -220,14 +224,23 @@ pub fn wipe(path: &Path) -> io::Result<()> {
     File::open(path)?.sync_all()
 }
 
-/// Begin a reset: journal, stop the lamp, then finish it and reboot. If the
-/// stop fails the journal stays and nothing is wiped; the next start finishes.
+/// Begin a reset: journal, remove the marker, stop the lamp, wipe, reboot.
+/// If the stop fails, reboot at once without wiping: setup finishes the wipe
+/// at the next start, before anything of the lamp can run again.
 pub fn reset(plan: &Plan, effects: &mut impl Effects) -> io::Result<Vec<Step>> {
     plan.check().map_err(io::Error::other)?;
     let mut steps = Vec::new();
     write_journal(&plan.journal)?;
     steps.push(Step::Journal);
-    effects.run(&plan.stop)?;
+    if remove_if_present(&plan.marker)? {
+        steps.push(Step::MarkerRemoved);
+    }
+    effects.sync();
+    if effects.run(&plan.stop).is_err() {
+        steps.push(Step::Rebooting);
+        effects.run(&plan.reboot)?;
+        return Ok(steps);
+    }
     steps.push(Step::Stopped);
     finish(plan, effects, true, &mut steps)?;
     Ok(steps)
@@ -257,6 +270,7 @@ fn finish(
         wipe(path)?;
         steps.push(Step::Wiped(path.clone()));
     }
+    // Already gone after `reset`; this covers a journal found without one.
     if remove_if_present(&plan.marker)? {
         steps.push(Step::MarkerRemoved);
     }

@@ -126,18 +126,21 @@ Controls never resets a lamp), is on this boot's clock and is less than 500 ms
 old. Then, in this order:
 
 1. it writes a journal, durably (temporary file, sync, rename, directory sync);
-2. it runs the plan's stop command (`systemctl stop lampos.target`), which must
-   succeed: the parts stop, the body folds the lamp first;
-3. it wipes each path in the plan: a file is removed, a directory keeps itself
+2. it removes the setup marker, so that from here any restart comes back into
+   setup, never into the lamp with half its data;
+3. it runs the plan's stop command, the keeper's `lamp-keeper stop lamp`
+   (#767): the voice pauses, `lampos.target` stops, the body folds the lamp;
+4. it wipes each path in the plan: a file is removed, a directory keeps itself
    (systemd units name some of them and would not start without them) and
    loses everything in it; links are removed, never followed;
-4. it removes the setup marker, syncs, removes the journal, syncs;
-5. it reboots.
+5. it removes the journal, syncs, and reboots.
 
-If the stop fails, nothing is wiped and the journal stays. If the power goes
-during the wipe, the journal stays. Either way `resume-reset`, run at the next
-start before anything of the lamp, finishes the wipe and removes the marker,
-without a second reboot. A plan is refused unless every path is absolute and
+With the keeper's `--setup-marker` (the fifth builder's, agreed on #702), a
+lamp with no marker starts only `lamp-setup.service`. So if the stop fails,
+`lamp-setup` reboots at once without wiping; if the power goes during the
+wipe, the lamp also comes back with no marker and a journal. Either way
+`resume-reset`, the first thing `lamp-setup.service` runs, finishes the wipe
+with nothing of the lamp running, without a second reboot. A plan is refused unless every path is absolute and
 plain (no `.` or `..`, read from the text itself), at least two levels below a
 top directory, and outside the software (`/opt/lampOS`), the update trust
 (`/etc/lampOS/update`) and the system (`/usr`, `/boot`, `/home`, …); the

@@ -1,5 +1,15 @@
 # Tests work log
 
+## 2026-10-16 06:42:41 +0700 — Serve ready; Records full run loses an unexecuted shard
+
+Ready for lamp-voice: yes (#909, #924, #925 and #927); no (#931)
+
+- Current Serve #909 `bce32d696fe4bb90db172bfab580619dbf5f11c8` passes first normal **38822580456: 5,122 unique PASS**, all 121 additions once, all 26 changed files exact in the tested merge. It is ready with the fresh **498/0/0** local gate and separately retained previous-head full coverage of every original 123 and all 14 Serve cases. [Raw native logs, exact source and membership proofs](verification/serve-records-native-20261016/README.md). The four-shard 269.137 s original-123 sum remains separate from standalone serial elapsed time.
+- Records #931 `42405bb318ddd91c4883e5a16183630c0282b675` passes normal **38822753449: 5,021 PASS**, all 20 additions once. First full **38822752215 attempt 1 failed** during shard 3's dependency download, curl 56 connection reset, before any tests in that shard. Other shards completed **3,950 PASS**, 83 original identities and 15 additions, including the original reporter in **0.010 s**. Only the unexecuted failed shard is being restarted; no failed test or successful shard is rerun. Its first failure stays retained, and the PR remains draft pending complete coverage.
+- The next silent-service case passed an untouched single baseline at **4.097 s**; its reviewed two-line paused-clock migration preserves five assertions and both reporting modes, with paired/final gates next. Provider observations retain their first new socket-test failure and separate original reminder AckConfirmed failure while the full first gate continues. No unchanged failed test is retried.
+
+#783 remains with Eighth for loaded qualification/close. The original 123 standalone serial under-two-minute target remains unproved.
+
 ## 2026-10-16 06:25:52 +0700 — full Serve membership proven; transport ready
 
 Ready for lamp-voice: yes (#924, #925 and #927); no (#909 current head and #931)

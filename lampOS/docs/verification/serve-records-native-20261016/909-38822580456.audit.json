@@ -1,0 +1,1289 @@
+{
+  "audited_from_date": "2026-10-16 06:34:01 +0700",
+  "pr": 909,
+  "run": 38822580456,
+  "head": "bce32d696fe4bb90db172bfab580619dbf5f11c8",
+  "checkout": "5ff93e018bc3217e0eedc84f8d67e8ff11a38210",
+  "parents": [
+    "28d581215bef141c7e137fc43b2d71d4a84c1f72",
+    "bce32d696fe4bb90db172bfab580619dbf5f11c8"
+  ],
+  "run_attempt": 1,
+  "conclusion": "success",
+  "unique_passes": 5122,
+  "duplicates": [],
+  "all_new_cases_once": true,
+  "new_count": 121,
+  "new_cases": [
+    {
+      "result": "PASS",
+      "seconds": "0.004",
+      "ordinal": 4702,
+      "total": 5122,
+      "binary": "lamp-voice-eval",
+      "name": "physical::fake_serve::progress_tests::completion_errors_propagate_once_and_poll_sequence_overflow_is_refused",
+      "line": 5246
+    },
+    {
+      "result": "PASS",
+      "seconds": "0.005",
+      "ordinal": 4703,
+      "total": 5122,
+      "binary": "lamp-voice-eval",
+      "name": "physical::fake_serve::progress_tests::completed_polls_keep_the_original_sample_and_cumulative_real_progress",
+      "line": 5247
+    },
+    {
+      "result": "PASS",
+      "seconds": "0.005",
+      "ordinal": 4704,
+      "total": 5122,
+      "binary": "lamp-voice-eval",
+      "name": "physical::fake_serve::progress_tests::room_counter_overflow_never_wraps_or_claims_injection",
+      "line": 5248
+    },
+    {
+      "result": "PASS",
+      "seconds": "0.004",
+      "ordinal": 4705,
+      "total": 5122,
+      "binary": "lamp-voice-eval",
+      "name": "physical::fake_serve::progress_tests::signal_barrier_never_fabricates_an_observation_or_accepts_another_signal",
+      "line": 5249
+    },
+    {
+      "result": "PASS",
+      "seconds": "0.006",
+      "ordinal": 4706,
+      "total": 5122,
+      "binary": "lamp-voice-eval",
+      "name": "physical::fake_serve::progress_tests::room_progress_distinguishes_decoding_injection_and_muted_consumption",
+      "line": 5250
+    },
+    {
+      "result": "PASS",
+      "seconds": "0.004",
+      "ordinal": 4707,
+      "total": 5122,
+      "binary": "lamp-voice-eval",
+      "name": "physical::fake_serve::progress_tests::stdout_counter_overflow_fails_before_emitting_an_unannounced_line",
+      "line": 5251
+    },
+    {
+      "result": "PASS",
+      "seconds": "0.006",
+      "ordinal": 4708,
+      "total": 5122,
+      "binary": "lamp-voice-eval",
+      "name": "physical::fake_serve::progress_tests::signal_barrier_waits_for_the_shared_atomic_under_a_host_deadline",
+      "line": 5252
+    },
+    {
+      "result": "PASS",
+      "seconds": "0.004",
+      "ordinal": 4709,
+      "total": 5122,
+      "binary": "lamp-voice-eval",
+      "name": "physical::fake_serve::progress_tests::stdout_counts_only_complete_lines_after_successful_flush",
+      "line": 5253
+    },
+    {
+      "result": "PASS",
+      "seconds": "0.006",
+      "ordinal": 4710,
+      "total": 5122,
+      "binary": "lamp-voice-eval",
+      "name": "physical::fixture_commands::recorder_tests::a_lost_parent_returns_a_control_error_without_completing_the_wait",
+      "line": 5254
+    },
+    {
+      "result": "PASS",
+      "seconds": "0.004",
+      "ordinal": 4711,
+      "total": 5122,
+      "binary": "lamp-voice-eval",
+      "name": "physical::fixture_commands::recorder_tests::explicit_timing_checks_both_nanosecond_boundaries_without_wrapping",
+      "line": 5255
+    },
+    {
+      "result": "PASS",
+      "seconds": "0.006",
+      "ordinal": 4712,
+      "total": 5122,
+      "binary": "lamp-voice-eval",
+      "name": "physical::fixture_commands::recorder_tests::declared_capture_end_does_not_shorten_the_twenty_three_second_wait",
+      "line": 5256
+    },
+    {
+      "result": "PASS",
+      "seconds": "0.004",
+      "ordinal": 4713,
+      "total": 5122,
+      "binary": "lamp-voice-eval",
+      "name": "physical::fixture_commands::recorder_tests::recorder_command_requires_the_explicit_leading_control_pair",
+      "line": 5257
+    },
+    {
+      "result": "PASS",
+      "seconds": "0.007",
+      "ordinal": 4714,
+      "total": 5122,
+      "binary": "lamp-voice-eval",
+      "name": "physical::fixture_commands::recorder_tests::first_matching_values_and_missing_optional_values_keep_original_meaning",
+      "line": 5258
+    },
+    {
+      "result": "PASS",
+      "seconds": "0.009",
+      "ordinal": 4715,
+      "total": 5122,
+      "binary": "lamp-voice-eval",
+      "name": "physical::fixture_commands::recorder_tests::invalid_shared_arguments_or_output_creation_never_acknowledge_ready",
+      "line": 5259
+    },
+    {
+      "result": "PASS",
+      "seconds": "0.006",
+      "ordinal": 4716,
+      "total": 5122,
+      "binary": "lamp-voice-eval",
+      "name": "physical::fixture_commands::recorder_tests::recorder_first_step_precedes_real_ready_write_and_the_entire_original_wait",
+      "line": 5260
+    },
+    {
+      "result": "PASS",
+      "seconds": "0.004",
+      "ordinal": 4717,
+      "total": 5122,
+      "binary": "lamp-voice-eval",
+      "name": "physical::fixture_commands::serve_tests::all_fake_entrypoints_share_original_option_errors",
+      "line": 5261
+    },
+    {
+      "result": "PASS",
+      "seconds": "0.010",
+      "ordinal": 4718,
+      "total": 5122,
+      "binary": "lamp-voice-eval",
+      "name": "physical::fixture_commands::recorder_tests::zero_and_limited_durations_keep_real_ready_and_configured_return_codes",
+      "line": 5262
+    },
+    {
+      "result": "PASS",
+      "seconds": "0.012",
+      "ordinal": 4719,
+      "total": 5122,
+      "binary": "lamp-voice-eval",
+      "name": "physical::fixture_commands::recorder_tests::time_arithmetic_overflows_fail_before_the_shared_body_creates_files",
+      "line": 5263
+    },
+    {
+      "result": "PASS",
+      "seconds": "0.004",
+      "ordinal": 4720,
+      "total": 5122,
+      "binary": "lamp-voice-eval",
+      "name": "physical::fixture_commands::serve_tests::argv_receipt_requires_the_original_complete_json_line_to_flush",
+      "line": 5264
+    },
+    {
+      "result": "PASS",
+      "seconds": "0.004",
+      "ordinal": 4721,
+      "total": 5122,
+      "binary": "lamp-voice-eval",
+      "name": "physical::fixture_commands::serve_tests::serve_relay_accepts_only_its_local_explicit_serve_command",
+      "line": 5265
+    },
+    {
+      "result": "PASS",
+      "seconds": "0.004",
+      "ordinal": 4722,
+      "total": 5122,
+      "binary": "lamp-voice-eval",
+      "name": "physical::fixture_commands::serve_tests::serve_relay_mapping_keeps_signal_receipt_separate_from_inputs_and_end",
+      "line": 5266
+    },
+    {
+      "result": "PASS",
+      "seconds": "0.005",
+      "ordinal": 4723,
+      "total": 5122,
+      "binary": "lamp-voice-eval",
+      "name": "physical::fixture_commands::serve_tests::controlled_runtime_modes_are_rejected_before_clock_reads_or_hooks",
+      "line": 5267
+    },
+    {
+      "result": "PASS",
+      "seconds": "0.005",
+      "ordinal": 4724,
+      "total": 5122,
+      "binary": "lamp-voice-eval",
+      "name": "physical::fixture_commands::serve_tests::serve_runtime_mapping_retains_consumption_injection_cycle_and_signal",
+      "line": 5268
+    },
+    {
+      "result": "PASS",
+      "seconds": "0.006",
+      "ordinal": 4725,
+      "total": 5122,
+      "binary": "lamp-voice-eval",
+      "name": "physical::fixture_commands::slow_transport_tests::a_lost_control_peer_prevents_the_real_command_from_reaching_exec",
+      "line": 5269
+    },
+    {
+      "result": "PASS",
+      "seconds": "0.007",
+      "ordinal": 4726,
+      "total": 5122,
+      "binary": "lamp-voice-eval",
+      "name": "physical::fixture_commands::slow_transport_tests::a_lost_parent_cancels_the_wait_without_completing_its_deadline",
+      "line": 5270
+    },
+    {
+      "result": "PASS",
+      "seconds": "0.004",
+      "ordinal": 4727,
+      "total": 5122,
+      "binary": "lamp-voice-eval",
+      "name": "physical::fixture_commands::slow_transport_tests::only_the_same_controlled_evaluator_relay_and_socket_are_accepted_without_rewriting",
+      "line": 5271
+    },
+    {
+      "result": "PASS",
+      "seconds": "0.008",
+      "ordinal": 4728,
+      "total": 5122,
+      "binary": "lamp-voice-eval",
+      "name": "physical::fixture_commands::slow_transport_tests::duration_and_domain_overflows_are_rejected_before_any_wait_ack",
+      "line": 5272
+    },
+    {
+      "result": "PASS",
+      "seconds": "0.006",
+      "ordinal": 4729,
+      "total": 5122,
+      "binary": "lamp-voice-eval",
+      "name": "physical::fixture_commands::slow_transport_tests::terminal_delay_ack_still_returns_the_real_exec_error_when_replacement_fails",
+      "line": 5273
+    },
+    {
+      "result": "PASS",
+      "seconds": "0.004",
+      "ordinal": 4730,
+      "total": 5122,
+      "binary": "lamp-voice-eval",
+      "name": "physical::fixture_commands::slow_transport_tests::the_explicit_handler_requires_a_leading_absolute_control_pair",
+      "line": 5274
+    },
+    {
+      "result": "PASS",
+      "seconds": "0.006",
+      "ordinal": 4731,
+      "total": 5122,
+      "binary": "lamp-voice-eval",
+      "name": "physical::fixture_commands::slow_transport_tests::the_wait_keeps_all_four_hundred_milliseconds_and_distinct_same_time_rounds",
+      "line": 5275
+    },
+    {
+      "result": "PASS",
+      "seconds": "0.026",
+      "ordinal": 4732,
+      "total": 5122,
+      "binary": "lamp-voice-eval",
+      "name": "physical::fixture_commands::slow_transport_tests::a_zero_delay_completes_at_its_first_step_without_a_synthetic_exec_receipt",
+      "line": 5276
+    },
+    {
+      "result": "PASS",
+      "seconds": "0.027",
+      "ordinal": 4737,
+      "total": 5122,
+      "binary": "lamp-voice-eval",
+      "name": "physical::fixture_commands::slow_transport_tests::real_exec_occurs_after_the_full_delay_and_preserves_the_same_pipe_pid_and_argv",
+      "line": 5281
+    },
+    {
+      "result": "PASS",
+      "seconds": "0.004",
+      "ordinal": 4750,
+      "total": 5122,
+      "binary": "lamp-voice-eval",
+      "name": "physical::fixture_control::recorder_tests::first_recorder_ack_requires_ready_and_the_held_post_write_start",
+      "line": 5294
+    },
+    {
+      "result": "PASS",
+      "seconds": "0.007",
+      "ordinal": 4751,
+      "total": 5122,
+      "binary": "lamp-voice-eval",
+      "name": "physical::fixture_control::recorder_tests::listener_accepts_recorder_once_without_consuming_another_roles_slot",
+      "line": 5295
+    },
+    {
+      "result": "PASS",
+      "seconds": "0.004",
+      "ordinal": 4752,
+      "total": 5122,
+      "binary": "lamp-voice-eval",
+      "name": "physical::fixture_control::recorder_tests::overflowing_recorder_steps_never_update_the_participant_clock",
+      "line": 5296
+    },
+    {
+      "result": "PASS",
+      "seconds": "0.004",
+      "ordinal": 4753,
+      "total": 5122,
+      "binary": "lamp-voice-eval",
+      "name": "physical::fixture_control::recorder_tests::recorder_and_other_participants_reject_each_others_outer_steps",
+      "line": 5297
+    },
+    {
+      "result": "PASS",
+      "seconds": "0.004",
+      "ordinal": 4755,
+      "total": 5122,
+      "binary": "lamp-voice-eval",
+      "name": "physical::fixture_control::recorder_tests::recorder_ready_start_and_due_never_change_after_the_first_write",
+      "line": 5299
+    },
+    {
+      "result": "PASS",
+      "seconds": "0.025",
+      "ordinal": 4756,
+      "total": 5122,
+      "binary": "lamp-voice-eval",
+      "name": "physical::fixture_control::recorder_tests::a_missing_recorder_ack_expires_and_closes_instead_of_claiming_exit",
+      "line": 5300
+    },
+    {
+      "result": "PASS",
+      "seconds": "0.004",
+      "ordinal": 4757,
+      "total": 5122,
+      "binary": "lamp-voice-eval",
+      "name": "physical::fixture_control::recorder_tests::recorder_requires_zero_input_and_signal_targets_and_representable_nanoseconds",
+      "line": 5301
+    },
+    {
+      "result": "PASS",
+      "seconds": "0.004",
+      "ordinal": 4758,
+      "total": 5122,
+      "binary": "lamp-voice-eval",
+      "name": "physical::fixture_control::recorder_tests::recorder_role_is_isolated_in_hello_and_nested_progress",
+      "line": 5302
+    },
+    {
+      "result": "PASS",
+      "seconds": "0.004",
+      "ordinal": 4759,
+      "total": 5122,
+      "binary": "lamp-voice-eval",
+      "name": "physical::fixture_control::recorder_tests::recorder_rounds_polls_and_time_cannot_skip_repeat_regress_or_wrap",
+      "line": 5303
+    },
+    {
+      "result": "PASS",
+      "seconds": "0.004",
+      "ordinal": 4760,
+      "total": 5122,
+      "binary": "lamp-voice-eval",
+      "name": "physical::fixture_control::recorder_tests::recorder_terminal_is_required_exactly_at_or_after_its_due_time",
+      "line": 5304
+    },
+    {
+      "result": "PASS",
+      "seconds": "0.004",
+      "ordinal": 4761,
+      "total": 5122,
+      "binary": "lamp-voice-eval",
+      "name": "physical::fixture_control::recorder_tests::recorder_wire_has_no_status_or_extra_step_fields",
+      "line": 5305
+    },
+    {
+      "result": "PASS",
+      "seconds": "0.004",
+      "ordinal": 4762,
+      "total": 5122,
+      "binary": "lamp-voice-eval",
+      "name": "physical::fixture_control::recorder_tests::same_time_recorder_rounds_do_not_advance_pure_clock_reads",
+      "line": 5306
+    },
+    {
+      "result": "PASS",
+      "seconds": "0.004",
+      "ordinal": 4763,
+      "total": 5122,
+      "binary": "lamp-voice-eval",
+      "name": "physical::fixture_control::serve_tests::a_signal_target_requires_the_reported_sigterm_observation",
+      "line": 5307
+    },
+    {
+      "result": "PASS",
+      "seconds": "0.004",
+      "ordinal": 4764,
+      "total": 5122,
+      "binary": "lamp-voice-eval",
+      "name": "physical::fixture_control::serve_tests::a_successful_send_receipt_is_not_an_exit_claim_and_never_changes",
+      "line": 5308
+    },
+    {
+      "result": "PASS",
+      "seconds": "0.004",
+      "ordinal": 4765,
+      "total": 5122,
+      "binary": "lamp-voice-eval",
+      "name": "physical::fixture_control::serve_tests::an_expired_accept_budget_does_not_consume_a_queued_hello_or_reset_itself",
+      "line": 5309
+    },
+    {
+      "result": "PASS",
+      "seconds": "0.004",
+      "ordinal": 4766,
+      "total": 5122,
+      "binary": "lamp-voice-eval",
+      "name": "physical::fixture_control::serve_tests::finite_frames_keep_their_wire_bytes_and_missing_signal_targets_default_to_false",
+      "line": 5310
+    },
+    {
+      "result": "PASS",
+      "seconds": "0.004",
+      "ordinal": 4767,
+      "total": 5122,
+      "binary": "lamp-voice-eval",
+      "name": "physical::fixture_control::serve_tests::forged_serve_progress_closes_the_endpoint_without_retrying",
+      "line": 5311
+    },
+    {
+      "result": "PASS",
+      "seconds": "0.004",
+      "ordinal": 4768,
+      "total": 5122,
+      "binary": "lamp-voice-eval",
+      "name": "physical::fixture_control::serve_tests::muted_consumption_is_valid_but_injection_cannot_exceed_consumption",
+      "line": 5312
+    },
+    {
+      "result": "PASS",
+      "seconds": "0.004",
+      "ordinal": 4770,
+      "total": 5122,
+      "binary": "lamp-voice-eval",
+      "name": "physical::fixture_control::serve_tests::only_serve_runtime_steps_can_request_the_signal_barrier",
+      "line": 5314
+    },
+    {
+      "result": "PASS",
+      "seconds": "0.005",
+      "ordinal": 4771,
+      "total": 5122,
+      "binary": "lamp-voice-eval",
+      "name": "physical::fixture_control::serve_tests::observed_signals_cannot_be_cleared_but_signal_numbers_are_not_counters",
+      "line": 5315
+    },
+    {
+      "result": "PASS",
+      "seconds": "0.004",
+      "ordinal": 4772,
+      "total": 5122,
+      "binary": "lamp-voice-eval",
+      "name": "physical::fixture_control::serve_tests::relay_input_targets_and_all_output_counters_are_preserved_for_serve",
+      "line": 5316
+    },
+    {
+      "result": "PASS",
+      "seconds": "0.004",
+      "ordinal": 4773,
+      "total": 5122,
+      "binary": "lamp-voice-eval",
+      "name": "physical::fixture_control::serve_tests::runtime_counters_never_regress_and_only_a_new_cycle_can_reset_runtime_time",
+      "line": 5317
+    },
+    {
+      "result": "PASS",
+      "seconds": "0.004",
+      "ordinal": 4774,
+      "total": 5122,
+      "binary": "lamp-voice-eval",
+      "name": "physical::fixture_control::serve_tests::same_instant_serve_rounds_preserve_pure_time_and_terminal_ack_still_requires_exit_tracking",
+      "line": 5318
+    },
+    {
+      "result": "PASS",
+      "seconds": "0.005",
+      "ordinal": 4775,
+      "total": 5122,
+      "binary": "lamp-voice-eval",
+      "name": "physical::fixture_control::serve_tests::serve_participants_reject_wrong_outer_step_roles_before_starting",
+      "line": 5319
+    },
+    {
+      "result": "PASS",
+      "seconds": "0.005",
+      "ordinal": 4776,
+      "total": 5122,
+      "binary": "lamp-voice-eval",
+      "name": "physical::fixture_control::serve_tests::serve_relay_receipts_cross_the_wire_without_changing_same_instant_time",
+      "line": 5320
+    },
+    {
+      "result": "PASS",
+      "seconds": "0.005",
+      "ordinal": 4777,
+      "total": 5122,
+      "binary": "lamp-voice-eval",
+      "name": "physical::fixture_control::serve_tests::the_listener_tracks_four_roles_independently_and_rejects_duplicates",
+      "line": 5321
+    },
+    {
+      "result": "PASS",
+      "seconds": "0.005",
+      "ordinal": 4778,
+      "total": 5122,
+      "binary": "lamp-voice-eval",
+      "name": "physical::fixture_control::serve_tests::serve_rounds_and_completed_poll_sequences_remain_exact",
+      "line": 5322
+    },
+    {
+      "result": "PASS",
+      "seconds": "0.006",
+      "ordinal": 4779,
+      "total": 5122,
+      "binary": "lamp-voice-eval",
+      "name": "physical::fixture_control::serve_tests::serve_roles_are_distinct_in_hello_and_nested_progress",
+      "line": 5323
+    },
+    {
+      "result": "PASS",
+      "seconds": "0.004",
+      "ordinal": 4780,
+      "total": 5122,
+      "binary": "lamp-voice-eval",
+      "name": "physical::fixture_control::slow_transport_tests::a_transport_listener_slot_never_substitutes_for_a_fresh_relay_hello",
+      "line": 5324
+    },
+    {
+      "result": "PASS",
+      "seconds": "0.004",
+      "ordinal": 4781,
+      "total": 5122,
+      "binary": "lamp-voice-eval",
+      "name": "physical::fixture_control::slow_transport_tests::first_transport_wait_starts_at_the_current_held_step",
+      "line": 5325
+    },
+    {
+      "result": "PASS",
+      "seconds": "0.004",
+      "ordinal": 4782,
+      "total": 5122,
+      "binary": "lamp-voice-eval",
+      "name": "physical::fixture_control::slow_transport_tests::an_invalid_transport_domain_step_never_changes_the_pure_clock",
+      "line": 5326
+    },
+    {
+      "result": "PASS",
+      "seconds": "0.005",
+      "ordinal": 4783,
+      "total": 5122,
+      "binary": "lamp-voice-eval",
+      "name": "physical::fixture_control::slow_transport_tests::repeated_transport_rounds_leave_clock_reads_pure_until_the_next_step",
+      "line": 5327
+    },
+    {
+      "result": "PASS",
+      "seconds": "0.004",
+      "ordinal": 4784,
+      "total": 5122,
+      "binary": "lamp-voice-eval",
+      "name": "physical::fixture_control::slow_transport_tests::terminal_transport_progress_is_required_if_and_only_if_the_full_delay_elapsed",
+      "line": 5328
+    },
+    {
+      "result": "PASS",
+      "seconds": "0.004",
+      "ordinal": 4785,
+      "total": 5122,
+      "binary": "lamp-voice-eval",
+      "name": "physical::fixture_control::slow_transport_tests::transport_and_other_roles_reject_each_others_outer_steps",
+      "line": 5329
+    },
+    {
+      "result": "PASS",
+      "seconds": "0.004",
+      "ordinal": 4786,
+      "total": 5122,
+      "binary": "lamp-voice-eval",
+      "name": "physical::fixture_control::slow_transport_tests::transport_frames_add_only_the_role_and_fixed_wait_boundary",
+      "line": 5330
+    },
+    {
+      "result": "PASS",
+      "seconds": "0.004",
+      "ordinal": 4787,
+      "total": 5122,
+      "binary": "lamp-voice-eval",
+      "name": "physical::fixture_control::slow_transport_tests::transport_rejects_input_signal_and_unrepresentable_domain_targets",
+      "line": 5331
+    },
+    {
+      "result": "PASS",
+      "seconds": "0.004",
+      "ordinal": 4788,
+      "total": 5122,
+      "binary": "lamp-voice-eval",
+      "name": "physical::fixture_control::slow_transport_tests::transport_role_is_isolated_from_every_existing_hello_and_progress",
+      "line": 5332
+    },
+    {
+      "result": "PASS",
+      "seconds": "0.004",
+      "ordinal": 4789,
+      "total": 5122,
+      "binary": "lamp-voice-eval",
+      "name": "physical::fixture_control::slow_transport_tests::transport_round_poll_and_time_validation_remain_exact",
+      "line": 5333
+    },
+    {
+      "result": "PASS",
+      "seconds": "0.004",
+      "ordinal": 4790,
+      "total": 5122,
+      "binary": "lamp-voice-eval",
+      "name": "physical::fixture_control::slow_transport_tests::transport_start_and_due_stay_fixed_in_both_directions",
+      "line": 5334
+    },
+    {
+      "result": "PASS",
+      "seconds": "0.024",
+      "ordinal": 4794,
+      "total": 5122,
+      "binary": "lamp-voice-eval",
+      "name": "physical::fixture_control::slow_transport_tests::missing_transport_progress_has_a_bounded_failure_without_an_exec_claim",
+      "line": 5338
+    },
+    {
+      "result": "PASS",
+      "seconds": "0.005",
+      "ordinal": 4866,
+      "total": 5122,
+      "binary": "lamp-voice-eval",
+      "name": "physical::mac::prepared_player_progress_tests::a_fixture_ready_pump_receives_the_original_host_deadline",
+      "line": 5410
+    },
+    {
+      "result": "PASS",
+      "seconds": "0.006",
+      "ordinal": 4867,
+      "total": 5122,
+      "binary": "lamp-voice-eval",
+      "name": "physical::mac::prepared_player_progress_tests::a_report_boundary_cannot_replace_observing_an_owned_thread_exit",
+      "line": 5411
+    },
+    {
+      "result": "PASS",
+      "seconds": "0.005",
+      "ordinal": 4868,
+      "total": 5122,
+      "binary": "lamp-voice-eval",
+      "name": "physical::mac::prepared_player_progress_tests::actual_failed_room_send_does_not_increment_the_delivery_counter",
+      "line": 5412
+    },
+    {
+      "result": "PASS",
+      "seconds": "0.006",
+      "ordinal": 4869,
+      "total": 5122,
+      "binary": "lamp-voice-eval",
+      "name": "physical::mac::prepared_player_progress_tests::closed_malformed_and_cancelled_inputs_preserve_the_original_decisions",
+      "line": 5413
+    },
+    {
+      "result": "PASS",
+      "seconds": "0.005",
+      "ordinal": 4870,
+      "total": 5122,
+      "binary": "lamp-voice-eval",
+      "name": "physical::mac::prepared_player_progress_tests::grant_wait_uses_the_original_logical_duration_and_no_synthetic_input",
+      "line": 5414
+    },
+    {
+      "result": "PASS",
+      "seconds": "0.006",
+      "ordinal": 4871,
+      "total": 5122,
+      "binary": "lamp-voice-eval",
+      "name": "physical::mac::prepared_player_progress_tests::last_controller_clone_drop_wakes_threads_even_if_the_player_factory_survives",
+      "line": 5415
+    },
+    {
+      "result": "PASS",
+      "seconds": "0.009",
+      "ordinal": 4872,
+      "total": 5122,
+      "binary": "lamp-voice-eval",
+      "name": "physical::mac::prepared_player_progress_tests::closing_control_wakes_resource_grant_and_delayed_copy_workers",
+      "line": 5416
+    },
+    {
+      "result": "PASS",
+      "seconds": "0.005",
+      "ordinal": 4873,
+      "total": 5122,
+      "binary": "lamp-voice-eval",
+      "name": "physical::mac::prepared_player_progress_tests::late_copy_keeps_the_original_delay_expiry_and_cancel_check_order",
+      "line": 5417
+    },
+    {
+      "result": "PASS",
+      "seconds": "0.005",
+      "ordinal": 4874,
+      "total": 5122,
+      "binary": "lamp-voice-eval",
+      "name": "physical::mac::prepared_player_progress_tests::prepare_failure_closes_the_real_ready_channel_and_keeps_its_report",
+      "line": 5418
+    },
+    {
+      "result": "PASS",
+      "seconds": "0.005",
+      "ordinal": 4875,
+      "total": 5122,
+      "binary": "lamp-voice-eval",
+      "name": "physical::mac::prepared_player_progress_tests::real_ready_grant_consumption_and_room_delivery_finish_at_one_parent_instant",
+      "line": 5419
+    },
+    {
+      "result": "PASS",
+      "seconds": "0.005",
+      "ordinal": 4876,
+      "total": 5122,
+      "binary": "lamp-voice-eval",
+      "name": "physical::mac::prepared_player_progress_tests::slow_prepare_starts_its_full_delay_only_when_the_room_really_exists",
+      "line": 5420
+    },
+    {
+      "result": "PASS",
+      "seconds": "0.005",
+      "ordinal": 4877,
+      "total": 5122,
+      "binary": "lamp-voice-eval",
+      "name": "physical::mac::recorder_backend_tests::a_finish_hook_without_actual_exit_cannot_certify_the_recorder",
+      "line": 5421
+    },
+    {
+      "result": "PASS",
+      "seconds": "0.026",
+      "ordinal": 4878,
+      "total": 5122,
+      "binary": "lamp-voice-eval",
+      "name": "physical::mac::recorder_backend_tests::a_failed_fixture_stays_nonblocking_and_finish_reuses_the_latched_error",
+      "line": 5422
+    },
+    {
+      "result": "PASS",
+      "seconds": "0.025",
+      "ordinal": 4879,
+      "total": 5122,
+      "binary": "lamp-voice-eval",
+      "name": "physical::mac::recorder_backend_tests::actual_zero_exit_is_retained_and_only_existing_coverage_logic_marks_it_early",
+      "line": 5423
+    },
+    {
+      "result": "PASS",
+      "seconds": "0.005",
+      "ordinal": 4880,
+      "total": 5122,
+      "binary": "lamp-voice-eval",
+      "name": "physical::mac::recorder_backend_tests::grant_control_failure_closes_once_and_repeated_notifications_queue_one_error",
+      "line": 5424
+    },
+    {
+      "result": "PASS",
+      "seconds": "0.004",
+      "ordinal": 4881,
+      "total": 5122,
+      "binary": "lamp-voice-eval",
+      "name": "physical::mac::recorder_backend_tests::recorder_configuration_requires_its_separate_explicit_capability",
+      "line": 5425
+    },
+    {
+      "result": "PASS",
+      "seconds": "0.005",
+      "ordinal": 4882,
+      "total": 5122,
+      "binary": "lamp-voice-eval",
+      "name": "physical::mac::recorder_backend_tests::startup_control_failure_closes_its_driver_before_any_session_is_started",
+      "line": 5426
+    },
+    {
+      "result": "PASS",
+      "seconds": "0.048",
+      "ordinal": 4883,
+      "total": 5122,
+      "binary": "lamp-voice-eval",
+      "name": "physical::mac::recorder_backend_tests::both_normal_and_preparation_pumps_wait_for_actual_recorder_exit",
+      "line": 5427
+    },
+    {
+      "result": "PASS",
+      "seconds": "0.026",
+      "ordinal": 4884,
+      "total": 5122,
+      "binary": "lamp-voice-eval",
+      "name": "physical::mac::recorder_backend_tests::recorder_settling_does_not_reorder_player_failure_evidence",
+      "line": 5428
+    },
+    {
+      "result": "PASS",
+      "seconds": "0.005",
+      "ordinal": 4885,
+      "total": 5122,
+      "binary": "lamp-voice-eval",
+      "name": "physical::mac::recorder_backend_tests::terminal_ack_alone_hits_the_host_bound_closes_peers_and_reaps_the_real_child",
+      "line": 5429
+    },
+    {
+      "result": "PASS",
+      "seconds": "0.025",
+      "ordinal": 4886,
+      "total": 5122,
+      "binary": "lamp-voice-eval",
+      "name": "physical::mac::recorder_backend_tests::terminal_recorder_drain_keeps_prior_declared_coverage_reason_and_real_status",
+      "line": 5430
+    },
+    {
+      "result": "PASS",
+      "seconds": "0.004",
+      "ordinal": 4889,
+      "total": 5122,
+      "binary": "lamp-voice-eval",
+      "name": "physical::serve_fixture_driver::recorder_tests::expired_recorder_startup_watchdog_closes_the_listener_without_advancing_time",
+      "line": 5433
+    },
+    {
+      "result": "PASS",
+      "seconds": "0.007",
+      "ordinal": 4890,
+      "total": 5122,
+      "binary": "lamp-voice-eval",
+      "name": "physical::serve_fixture_driver::recorder_tests::players_cannot_finish_before_the_recorder_exits_even_without_pending_players",
+      "line": 5434
+    },
+    {
+      "result": "PASS",
+      "seconds": "0.004",
+      "ordinal": 4891,
+      "total": 5122,
+      "binary": "lamp-voice-eval",
+      "name": "physical::serve_fixture_driver::recorder_tests::recorder_configuration_preserves_every_argument_and_placeholder",
+      "line": 5435
+    },
+    {
+      "result": "PASS",
+      "seconds": "0.077",
+      "ordinal": 4892,
+      "total": 5122,
+      "binary": "lamp-voice-eval",
+      "name": "physical::mac::recorder_backend_tests::startup_reads_the_real_receipt_and_shares_the_original_fifteen_second_bound",
+      "line": 5436
+    },
+    {
+      "result": "PASS",
+      "seconds": "0.009",
+      "ordinal": 4893,
+      "total": 5122,
+      "binary": "lamp-voice-eval",
+      "name": "physical::serve_fixture_driver::recorder_tests::recorder_drains_after_relay_completion_without_stepping_the_runtime_again",
+      "line": 5437
+    },
+    {
+      "result": "PASS",
+      "seconds": "0.010",
+      "ordinal": 4894,
+      "total": 5122,
+      "binary": "lamp-voice-eval",
+      "name": "physical::serve_fixture_driver::recorder_tests::recorder_due_before_or_on_a_poll_preserves_the_pending_runtime_deadline",
+      "line": 5438
+    },
+    {
+      "result": "PASS",
+      "seconds": "0.010",
+      "ordinal": 4895,
+      "total": 5122,
+      "binary": "lamp-voice-eval",
+      "name": "physical::serve_fixture_driver::recorder_tests::recorder_due_before_or_on_bootstrap_holds_registration_until_exit_notification",
+      "line": 5439
+    },
+    {
+      "result": "PASS",
+      "seconds": "0.005",
+      "ordinal": 4896,
+      "total": 5122,
+      "binary": "lamp-voice-eval",
+      "name": "physical::serve_fixture_driver::recorder_tests::recorder_starts_at_the_held_epoch_and_clock_reads_do_not_poll_it",
+      "line": 5440
+    },
+    {
+      "result": "PASS",
+      "seconds": "0.004",
+      "ordinal": 4897,
+      "total": 5122,
+      "binary": "lamp-voice-eval",
+      "name": "physical::serve_fixture_driver::recorder_tests::wrapper_other_runtime_and_invalid_recorder_options_fail_without_mutating_config",
+      "line": 5441
+    },
+    {
+      "result": "PASS",
+      "seconds": "0.006",
+      "ordinal": 4898,
+      "total": 5122,
+      "binary": "lamp-voice-eval",
+      "name": "physical::serve_fixture_driver::recorder_tests::terminal_recorder_ack_cannot_authorize_a_clock_advance",
+      "line": 5442
+    },
+    {
+      "result": "PASS",
+      "seconds": "0.006",
+      "ordinal": 4899,
+      "total": 5122,
+      "binary": "lamp-voice-eval",
+      "name": "physical::serve_fixture_driver::slow_transport_tests::a_wrapper_disconnect_before_its_first_ack_cannot_start_the_relay",
+      "line": 5443
+    },
+    {
+      "result": "PASS",
+      "seconds": "0.007",
+      "ordinal": 4900,
+      "total": 5122,
+      "binary": "lamp-voice-eval",
+      "name": "physical::serve_fixture_driver::slow_transport_tests::advancing_without_the_separate_recorder_exit_notification_fails_closed",
+      "line": 5444
+    },
+    {
+      "result": "PASS",
+      "seconds": "0.004",
+      "ordinal": 4901,
+      "total": 5122,
+      "binary": "lamp-voice-eval",
+      "name": "physical::serve_fixture_driver::slow_transport_tests::an_already_expired_first_call_never_registers_or_advances_the_wrapper",
+      "line": 5445
+    },
+    {
+      "result": "PASS",
+      "seconds": "0.006",
+      "ordinal": 4902,
+      "total": 5122,
+      "binary": "lamp-voice-eval",
+      "name": "physical::serve_fixture_driver::slow_transport_tests::an_expired_retained_startup_budget_cannot_be_renewed_by_the_next_call",
+      "line": 5446
+    },
+    {
+      "result": "PASS",
+      "seconds": "0.009",
+      "ordinal": 4903,
+      "total": 5122,
+      "binary": "lamp-voice-eval",
+      "name": "physical::serve_fixture_driver::slow_transport_tests::delay_completion_followed_by_the_wrong_role_fails_at_the_held_due_time",
+      "line": 5447
+    },
+    {
+      "result": "PASS",
+      "seconds": "0.007",
+      "ordinal": 4904,
+      "total": 5122,
+      "binary": "lamp-voice-eval",
+      "name": "physical::serve_fixture_driver::slow_transport_tests::direct_configuration_and_bootstrap_keep_their_original_path",
+      "line": 5448
+    },
+    {
+      "result": "PASS",
+      "seconds": "0.004",
+      "ordinal": 4905,
+      "total": 5122,
+      "binary": "lamp-voice-eval",
+      "name": "physical::serve_fixture_driver::slow_transport_tests::explicit_wrapper_preserves_the_full_delay_and_every_forwarded_argument",
+      "line": 5449
+    },
+    {
+      "result": "PASS",
+      "seconds": "0.008",
+      "ordinal": 4906,
+      "total": 5122,
+      "binary": "lamp-voice-eval",
+      "name": "physical::serve_fixture_driver::slow_transport_tests::explicit_close_releases_a_parked_wrapper_and_prevents_further_startup",
+      "line": 5450
+    },
+    {
+      "result": "PASS",
+      "seconds": "0.006",
+      "ordinal": 4907,
+      "total": 5122,
+      "binary": "lamp-voice-eval",
+      "name": "physical::serve_fixture_driver::slow_transport_tests::later_caller_deadlines_cannot_extend_the_cumulative_startup_budget",
+      "line": 5451
+    },
+    {
+      "result": "PASS",
+      "seconds": "0.011",
+      "ordinal": 4908,
+      "total": 5122,
+      "binary": "lamp-voice-eval",
+      "name": "physical::serve_fixture_driver::slow_transport_tests::four_hundred_ms_wait_uses_two_ms_rounds_and_retains_both_setup_inputs",
+      "line": 5452
+    },
+    {
+      "result": "PASS",
+      "seconds": "0.004",
+      "ordinal": 4909,
+      "total": 5122,
+      "binary": "lamp-voice-eval",
+      "name": "physical::serve_fixture_driver::slow_transport_tests::malformed_or_unbounded_wrappers_fail_before_mutating_configuration",
+      "line": 5453
+    },
+    {
+      "result": "PASS",
+      "seconds": "0.022",
+      "ordinal": 4910,
+      "total": 5122,
+      "binary": "lamp-voice-eval",
+      "name": "physical::serve_fixture_driver::slow_transport_tests::recorder_due_before_or_on_delay_completion_holds_time_until_exit_notification",
+      "line": 5454
+    },
+    {
+      "result": "PASS",
+      "seconds": "0.012",
+      "ordinal": 4911,
+      "total": 5122,
+      "binary": "lamp-voice-eval",
+      "name": "physical::serve_fixture_driver::slow_transport_tests::zero_and_sub_poll_delays_register_a_fresh_relay_before_bootstrap_time",
+      "line": 5455
+    },
+    {
+      "result": "PASS",
+      "seconds": "0.004",
+      "ordinal": 4912,
+      "total": 5122,
+      "binary": "lamp-voice-eval",
+      "name": "physical::serve_fixture_driver::tests::configuration_keeps_every_fake_argument_and_selects_only_explicit_commands",
+      "line": 5456
+    },
+    {
+      "result": "PASS",
+      "seconds": "0.004",
+      "ordinal": 4913,
+      "total": 5122,
+      "binary": "lamp-voice-eval",
+      "name": "physical::serve_fixture_driver::tests::positive_pure_epoch_preserves_retained_history_and_setup_ping_order",
+      "line": 5457
+    },
+    {
+      "result": "PASS",
+      "seconds": "0.004",
+      "ordinal": 4914,
+      "total": 5122,
+      "binary": "lamp-voice-eval",
+      "name": "physical::serve_fixture_driver::tests::shell_transports_real_runtimes_and_malformed_prefixes_cannot_opt_in",
+      "line": 5458
+    },
+    {
+      "result": "PASS",
+      "seconds": "0.007",
+      "ordinal": 4932,
+      "total": 5122,
+      "binary": "lamp-voice-eval",
+      "name": "physical::session::serve_relay_progress_tests::successful_signal_receipt_survives_repeated_stop_and_exact_grace_kill",
+      "line": 5476
+    },
+    {
+      "result": "PASS",
+      "seconds": "0.106",
+      "ordinal": 4935,
+      "total": 5122,
+      "binary": "lamp-voice-eval",
+      "name": "physical::serve_fixture_driver::slow_transport_tests::terminal_delay_without_a_fresh_relay_hello_cannot_start_or_advance",
+      "line": 5479
+    }
+  ],
+  "original123_observed": [],
+  "source_files": [
+    {
+      "path": "lampOS/crates/voice-eval/src/main.rs",
+      "sha256": "1751caa8d8246f8217674397c2c979bab40dc6eaa3d81834784e88cc29ef6607",
+      "git_blob": "31cdcbb226a8dd64362b74bfbf134a6310685084"
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/fake_lamp.rs",
+      "sha256": "7707b987700293a31096338ccd4364e34aa70bce59bca2dd3c1cdaef15c0c9a1",
+      "git_blob": "c62744c60c173ee27cec320b27e3f5f22128656e"
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/fake_serve.rs",
+      "sha256": "5168b08f121fc374972f9a1bb10f86e30396c83c17ee12c2ea9858cd74ef780d",
+      "git_blob": "0552e11ede2f9d2445f0ce7052a9968a92a28d5f"
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/fake_serve_progress_tests.rs",
+      "sha256": "43af2f78890ec502bc3d12cd95214bf2aaa65578eeac1e9abaa1a6c4d0611f7a",
+      "git_blob": "7e42d084b28fb4f4437fb77aec6af1df254a17e2"
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/fixture_commands.rs",
+      "sha256": "df424358eb99ab6982ef8cd3ea3d7484f55bf3c033aabcf29ca0b07c0df5ab0a",
+      "git_blob": "6ad2188d3ad7331509e5ca89dc70bf309304b83b"
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/fixture_control.rs",
+      "sha256": "ca68dec8488bc9e86f42c8801ba4185a901f02d71c2879691bdb8351899fb412",
+      "git_blob": "b490286eac17b89789f041c8a7cb764b26669c24"
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/fixture_control_tests.rs",
+      "sha256": "90dab0a1075f0fbb819d819f391aede2994363c3238e54445a5a73e5f12f604a",
+      "git_blob": "a4f498d17a7ca829ca14ed0c276a20aa111e00ed"
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/fixture_driver.rs",
+      "sha256": "3e4a99a9e5029b7c770b2420c4df70271c5702e30c6f97a3dcfc954fce1871d9",
+      "git_blob": "651371addfeb2f435f5d2cbe3f78b915f0a40b6b"
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/fixture_players.rs",
+      "sha256": "2378acf5a32c53b013cc90b96d827bdb82307dbb054d7c94e30ede8752dc5dab",
+      "git_blob": "abae84d648558e3aacd5a1bd721a31cb279d31ee"
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/mac.rs",
+      "sha256": "c14c40669ad423baf9c21672587bd6e97e47a64e102d6d22c2714e3e399d78e2",
+      "git_blob": "5f7073f991d1c1ea5ac56d5f5b390d9734d0faed"
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/mod.rs",
+      "sha256": "c55ab4bd4fad65b806f4e66f533d7334f947c25c87d8d072ce69ff848db2e582",
+      "git_blob": "2533d3ec5fec304bdfd8ba0ee53ccd76d8f2844f"
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/prepared_player_progress_tests.rs",
+      "sha256": "1ac1f3a24b267c0968fe291befbd65739c06a1baf4e2f5c9b24eca8f841055b7",
+      "git_blob": "7837c6cefb4d99d40e792c9d3aa6b061251ff225"
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/recorder_backend_tests.rs",
+      "sha256": "a9ed66168aea14d40b3ae28a17c46450ca8e966e6d6f46f550565daea2e7bbde",
+      "git_blob": "3d54e47ccb7e322ea94cf4b3d386527d0c47dd49"
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/recorder_fixture_commands_tests.rs",
+      "sha256": "500cd9e92ed12a7328f67d99c60d68105f5130f31d8db2ecd76265fd5fb01d37",
+      "git_blob": "09baee6367ec334b374ceef776ee86ada815accb"
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/recorder_fixture_control_tests.rs",
+      "sha256": "3e9c7eb09f574cbda46a06fb9ac452993df5a9b4417c5f0d9691f9deba27cf80",
+      "git_blob": "4c95588be7f3a6fc87c5699c075472c207e8a560"
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/recorder_fixture_driver_tests.rs",
+      "sha256": "da5c382c25fd8d63f7fac9e3ff17d6caff216df95ae2289af40da6c1225c3ff1",
+      "git_blob": "e39523e145946d8abbf9db35e7f09337ffecfda3"
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/serve_fixture_commands_tests.rs",
+      "sha256": "54f60e0f676d94989b5220f707f9c5c085cbec83de0aa0e0a3d4ba5f892642ea",
+      "git_blob": "7fe279f964078ea5230b825c2763aa55a771fc50"
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/serve_fixture_control_tests.rs",
+      "sha256": "fdb57e00dd9e3028ae6f5a5aa6df81d1147bee4fc582ad00b117368951b80bcf",
+      "git_blob": "d039b7223a3d2017736b274042cdc9beff79c69f"
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/serve_fixture_driver.rs",
+      "sha256": "3ba9b3405c82198e4c56e4baa3c982be74d8a2e0588766be11c34a2fa62e8014",
+      "git_blob": "a48027b45440280d42ac494460c7c84b47d2742f"
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/serve_relay_progress_tests.rs",
+      "sha256": "d7ccf7f0ddcd46a07d9d6cfc768d5126d507c133b0b708dc69881f124f238ed4",
+      "git_blob": "faf69d92eb7a1854fa1292e9379f3c2b8a17446f"
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/session.rs",
+      "sha256": "660cea49d4e1389ad23e5786a5efded083e7f6d98912dfc9ad9887dad85ccd24",
+      "git_blob": "60389096fc0dbcdaff83d02373ad1385068eb03c"
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/slow_transport_fixture_commands_tests.rs",
+      "sha256": "dee37c32bd463a6603ab0b2f1dc5f0b2a9ae4b62da98b26a9b9aea560b7ef7c1",
+      "git_blob": "a5183477681c04fb3e6e6074b8b471cac5a89a7d"
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/slow_transport_fixture_control_tests.rs",
+      "sha256": "1032118bfae8aec9a555f87ca6f3f334c16599c361a90b38768d5c1d454d3359",
+      "git_blob": "85c4462fea1f29ad07a9eb396d069715fc3a0193"
+    },
+    {
+      "path": "lampOS/crates/voice-eval/src/physical/slow_transport_fixture_driver_tests.rs",
+      "sha256": "0026046f596309aa8cc2698de1893825d0b4d006e5f7951a5af81d1158a85187",
+      "git_blob": "76ff530509d334ce232997e80253d7818af68e52"
+    },
+    {
+      "path": "lampOS/crates/voice-eval/tests/serve_session.rs",
+      "sha256": "1850248165b8c7d5022ec06f3267b5de1a829fa375135cdda26aa3bfe539b905",
+      "git_blob": "6f0366528b278b5f494e435e39062d4917ddbc78"
+    },
+    {
+      "path": "lampOS/docs/realtime-tests.md",
+      "sha256": "379e5b356b4e69322609ce87f44ab61fd3632b969f09afcde56f7cc8f73c4f68",
+      "git_blob": "747dddf670324205fc7f3b90544cc147ddb5128c"
+    }
+  ],
+  "raw_log_sha256": "cd55c004f8ffb82c55e3564bfb50936a930c1a4f3a93c1d21018d8f392a8898f",
+  "headers": [
+    "lampOS \u2014 build and test on Linux ARM64 (1/1)\tUNKNOWN STEP\t2026-10-15T23:27:13.6296430Z     Starting 5122 tests across 272 binaries (130 tests and 8 binaries skipped, including 93 tests and 6 binaries via profile.pr.default-filter)",
+    "lampOS \u2014 build and test on Linux ARM64 (1/1)\tUNKNOWN STEP\t2026-10-15T23:28:35.8794776Z      Summary [  82.250s] 5122 tests run: 5122 passed, 130 skipped"
+  ],
+  "job_steps": 14,
+  "doc_or_harness_result_lines": [
+    "lampOS \u2014 build and test on Linux ARM64 (1/1)\tUNKNOWN STEP\t2026-10-15T23:28:36.1870862Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+    "lampOS \u2014 build and test on Linux ARM64 (1/1)\tUNKNOWN STEP\t2026-10-15T23:28:36.2060767Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+    "lampOS \u2014 build and test on Linux ARM64 (1/1)\tUNKNOWN STEP\t2026-10-15T23:28:36.3698686Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+    "lampOS \u2014 build and test on Linux ARM64 (1/1)\tUNKNOWN STEP\t2026-10-15T23:28:36.6370960Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+    "lampOS \u2014 build and test on Linux ARM64 (1/1)\tUNKNOWN STEP\t2026-10-15T23:28:37.0671658Z test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+    "lampOS \u2014 build and test on Linux ARM64 (1/1)\tUNKNOWN STEP\t2026-10-15T23:28:37.1786851Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+    "lampOS \u2014 build and test on Linux ARM64 (1/1)\tUNKNOWN STEP\t2026-10-15T23:28:37.3587612Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+    "lampOS \u2014 build and test on Linux ARM64 (1/1)\tUNKNOWN STEP\t2026-10-15T23:28:37.3819299Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+    "lampOS \u2014 build and test on Linux ARM64 (1/1)\tUNKNOWN STEP\t2026-10-15T23:28:37.4105757Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+    "lampOS \u2014 build and test on Linux ARM64 (1/1)\tUNKNOWN STEP\t2026-10-15T23:28:37.5467454Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+    "lampOS \u2014 build and test on Linux ARM64 (1/1)\tUNKNOWN STEP\t2026-10-15T23:28:37.6022099Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+    "lampOS \u2014 build and test on Linux ARM64 (1/1)\tUNKNOWN STEP\t2026-10-15T23:28:37.7133041Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+    "lampOS \u2014 build and test on Linux ARM64 (1/1)\tUNKNOWN STEP\t2026-10-15T23:28:37.7507402Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+    "lampOS \u2014 build and test on Linux ARM64 (1/1)\tUNKNOWN STEP\t2026-10-15T23:28:38.1020221Z test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+    "lampOS \u2014 build and test on Linux ARM64 (1/1)\tUNKNOWN STEP\t2026-10-15T23:28:38.1374306Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+    "lampOS \u2014 build and test on Linux ARM64 (1/1)\tUNKNOWN STEP\t2026-10-15T23:28:38.1829615Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+    "lampOS \u2014 build and test on Linux ARM64 (1/1)\tUNKNOWN STEP\t2026-10-15T23:28:38.3073532Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+    "lampOS \u2014 build and test on Linux ARM64 (1/1)\tUNKNOWN STEP\t2026-10-15T23:28:38.3650112Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+    "lampOS \u2014 build and test on Linux ARM64 (1/1)\tUNKNOWN STEP\t2026-10-15T23:28:39.0265002Z test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+    "lampOS \u2014 build and test on Linux ARM64 (1/1)\tUNKNOWN STEP\t2026-10-15T23:28:39.0564215Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+    "lampOS \u2014 build and test on Linux ARM64 (1/1)\tUNKNOWN STEP\t2026-10-15T23:28:39.0985206Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+    "lampOS \u2014 build and test on Linux ARM64 (1/1)\tUNKNOWN STEP\t2026-10-15T23:28:39.2456974Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+    "lampOS \u2014 build and test on Linux ARM64 (1/1)\tUNKNOWN STEP\t2026-10-15T23:28:39.3270419Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+    "lampOS \u2014 build and test on Linux ARM64 (1/1)\tUNKNOWN STEP\t2026-10-15T23:28:39.3547441Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+    "lampOS \u2014 build and test on Linux ARM64 (1/1)\tUNKNOWN STEP\t2026-10-15T23:28:39.3828768Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+    "lampOS \u2014 build and test on Linux ARM64 (1/1)\tUNKNOWN STEP\t2026-10-15T23:28:39.5562669Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+    "lampOS \u2014 build and test on Linux ARM64 (1/1)\tUNKNOWN STEP\t2026-10-15T23:28:39.5924620Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+    "lampOS \u2014 build and test on Linux ARM64 (1/1)\tUNKNOWN STEP\t2026-10-15T23:28:39.6728522Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+    "lampOS \u2014 build and test on Linux ARM64 (1/1)\tUNKNOWN STEP\t2026-10-15T23:28:39.7300253Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+    "lampOS \u2014 build and test on Linux ARM64 (1/1)\tUNKNOWN STEP\t2026-10-15T23:28:39.7860303Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+    "lampOS \u2014 build and test on Linux ARM64 (1/1)\tUNKNOWN STEP\t2026-10-15T23:28:40.2288108Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+    "lampOS \u2014 build and test on Linux ARM64 (1/1)\tUNKNOWN STEP\t2026-10-15T23:28:40.3881620Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+    "lampOS \u2014 build and test on Linux ARM64 (1/1)\tUNKNOWN STEP\t2026-10-15T23:28:40.4279735Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+    "lampOS \u2014 build and test on Linux ARM64 (1/1)\tUNKNOWN STEP\t2026-10-15T23:28:40.4587808Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+    "lampOS \u2014 build and test on Linux ARM64 (1/1)\tUNKNOWN STEP\t2026-10-15T23:28:40.5194389Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+    "lampOS \u2014 build and test on Linux ARM64 (1/1)\tUNKNOWN STEP\t2026-10-15T23:28:40.6058337Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+    "lampOS \u2014 build and test on Linux ARM64 (1/1)\tUNKNOWN STEP\t2026-10-15T23:28:41.5576624Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+    "lampOS \u2014 build and test on Linux ARM64 (1/1)\tUNKNOWN STEP\t2026-10-15T23:28:42.0660514Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+    "lampOS \u2014 build and test on Linux ARM64 (1/1)\tUNKNOWN STEP\t2026-10-15T23:28:43.1017610Z relay_signals: ok",
+    "lampOS \u2014 build and test on Linux ARM64 (1/1)\tUNKNOWN STEP\t2026-10-15T23:28:48.9911053Z test result: 12 passed; 0 failed"
+  ]
+}

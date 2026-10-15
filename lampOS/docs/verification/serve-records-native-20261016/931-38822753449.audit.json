@@ -1,0 +1,300 @@
+{
+  "audited_from_date": "2026-10-16 06:33:44 +0700",
+  "pr": 931,
+  "run": 38822753449,
+  "head": "42405bb318ddd91c4883e5a16183630c0282b675",
+  "checkout": "70c34b63255262a5a7aa4fba687325de4961091c",
+  "parents": [
+    "28d581215bef141c7e137fc43b2d71d4a84c1f72",
+    "42405bb318ddd91c4883e5a16183630c0282b675"
+  ],
+  "run_attempt": 1,
+  "conclusion": "success",
+  "unique_passes": 5021,
+  "duplicates": [],
+  "all_new_cases_once": true,
+  "new_count": 20,
+  "new_cases": [
+    {
+      "result": "PASS",
+      "seconds": "0.004",
+      "ordinal": 2497,
+      "total": 5021,
+      "binary": "lamp-records::records_control",
+      "name": "a_complete_checked_queued_before_peer_close_is_consumed_and_committed",
+      "line": 3030
+    },
+    {
+      "result": "PASS",
+      "seconds": "0.007",
+      "ordinal": 2498,
+      "total": 5021,
+      "binary": "lamp-records::records_control",
+      "name": "actual_child_returns_three_distinct_events_at_full_due_intervals",
+      "line": 3031
+    },
+    {
+      "result": "PASS",
+      "seconds": "0.007",
+      "ordinal": 2499,
+      "total": 5021,
+      "binary": "lamp-records::records_control",
+      "name": "actual_control_close_requires_actual_error_exit_and_reap",
+      "line": 3032
+    },
+    {
+      "result": "PASS",
+      "seconds": "0.005",
+      "ordinal": 2501,
+      "total": 5021,
+      "binary": "lamp-records::records_control",
+      "name": "every_initial_response_identity_and_cycle_field_is_validated",
+      "line": 3034
+    },
+    {
+      "result": "PASS",
+      "seconds": "0.006",
+      "ordinal": 2504,
+      "total": 5021,
+      "binary": "lamp-records::records_control",
+      "name": "fragmented_real_pipe_frames_work_and_oversized_reads_fail_at_the_byte_bound",
+      "line": 3037
+    },
+    {
+      "result": "PASS",
+      "seconds": "0.004",
+      "ordinal": 2505,
+      "total": 5021,
+      "binary": "lamp-records::records_control",
+      "name": "framing_rejects_truncation_unknown_fields_and_malformed_json",
+      "line": 3038
+    },
+    {
+      "result": "PASS",
+      "seconds": "0.005",
+      "ordinal": 2506,
+      "total": 5021,
+      "binary": "lamp-records::records_control",
+      "name": "malformed_due_receipt_after_peer_advance_latches_without_parent_time_commit",
+      "line": 3039
+    },
+    {
+      "result": "PASS",
+      "seconds": "0.009",
+      "ordinal": 2507,
+      "total": 5021,
+      "binary": "lamp-records::records_control",
+      "name": "invalid_bootstrap_is_an_actual_child_error_before_any_reporting_event",
+      "line": 3040
+    },
+    {
+      "result": "PASS",
+      "seconds": "0.004",
+      "ordinal": 2508,
+      "total": 5021,
+      "binary": "lamp-records::records_control",
+      "name": "parent_rejects_future_steps_and_one_window_retains_full_periods_and_end",
+      "line": 3041
+    },
+    {
+      "result": "PASS",
+      "seconds": "0.005",
+      "ordinal": 2509,
+      "total": 5021,
+      "binary": "lamp-records::records_control",
+      "name": "partial_setup_and_parent_unwind_both_reap_the_owned_child",
+      "line": 3042
+    },
+    {
+      "result": "PASS",
+      "seconds": "0.007",
+      "ordinal": 2510,
+      "total": 5021,
+      "binary": "lamp-records::records_control",
+      "name": "returned_ok_without_a_subscriber_is_not_a_delivered_event",
+      "line": 3043
+    },
+    {
+      "result": "PASS",
+      "seconds": "0.005",
+      "ordinal": 2511,
+      "total": 5021,
+      "binary": "lamp-records::records_control",
+      "name": "same_time_and_pre_due_replies_cannot_fabricate_new_work_or_change_outcome",
+      "line": 3044
+    },
+    {
+      "result": "PASS",
+      "seconds": "0.004",
+      "ordinal": 2521,
+      "total": 5021,
+      "binary": "lamp-records::bin/lamp-records",
+      "name": "fixture_schedule_tests::a_stale_round_backwards_time_or_future_jump_after_settling_is_terminal",
+      "line": 3054
+    },
+    {
+      "result": "PASS",
+      "seconds": "0.004",
+      "ordinal": 2522,
+      "total": 5021,
+      "binary": "lamp-records::bin/lamp-records",
+      "name": "fixture_schedule_tests::invalid_initial_identity_round_or_time_never_advances_and_latches_failure",
+      "line": 3055
+    },
+    {
+      "result": "PASS",
+      "seconds": "0.008",
+      "ordinal": 2523,
+      "total": 5021,
+      "binary": "lamp-records::bin/lamp-records",
+      "name": "fixture_schedule_tests::actual_first_and_due_factories_must_finish_before_checked_or_event",
+      "line": 3056
+    },
+    {
+      "result": "PASS",
+      "seconds": "0.004",
+      "ordinal": 2524,
+      "total": 5021,
+      "binary": "lamp-records::bin/lamp-records",
+      "name": "fixture_schedule_tests::reads_and_pre_due_steps_are_pure_and_due_reply_waits_for_the_next_cycle",
+      "line": 3057
+    },
+    {
+      "result": "PASS",
+      "seconds": "0.004",
+      "ordinal": 2525,
+      "total": 5021,
+      "binary": "lamp-records::bin/lamp-records",
+      "name": "fixture_schedule_tests::zero_wait_and_changed_host_lifetime_cannot_acknowledge_a_cycle",
+      "line": 3058
+    },
+    {
+      "result": "PASS",
+      "seconds": "0.007",
+      "ordinal": 2526,
+      "total": 5021,
+      "binary": "lamp-records::bin/lamp-records",
+      "name": "fixture_schedule_tests::real_construction_failure_can_only_recover_on_the_original_next_due",
+      "line": 3059
+    },
+    {
+      "result": "PASS",
+      "seconds": "1.008",
+      "ordinal": 2597,
+      "total": 5021,
+      "binary": "lamp-records::records_control",
+      "name": "blocked_control_keeps_the_real_one_second_lifetime_and_exits_with_error_64",
+      "line": 3130
+    },
+    {
+      "result": "PASS",
+      "seconds": "4.008",
+      "ordinal": 2748,
+      "total": 5021,
+      "binary": "lamp-records::records_control",
+      "name": "filled_real_pipe_write_uses_the_single_absolute_host_deadline",
+      "line": 3281
+    }
+  ],
+  "original123_observed": [],
+  "source_files": [
+    {
+      "path": "lampOS/crates/records/Cargo.toml",
+      "sha256": "d624cddfc993a78af2510a9fef47ef192221da0a49c00051aa2ab63da25dada1",
+      "git_blob": "92e1ba07a5ad1c9e1f5c3f73c489d902ed5615c6"
+    },
+    {
+      "path": "lampOS/crates/records/src/main.rs",
+      "sha256": "40d8eba533e42937e71b2995ae022acb2d7e1994e8e162005c166726041a2400",
+      "git_blob": "f575299fe01d1cda45e875dcafcec89c7912cedb"
+    },
+    {
+      "path": "lampOS/crates/records/src/bin/lamp-records-fixture.rs",
+      "sha256": "56ed3d6bd78679b9f93b911ba531487fc02507abd88f4903939920aa360604d7",
+      "git_blob": "5e08bceef3d94a29e17c780fe5d41bbdada8df3d"
+    },
+    {
+      "path": "lampOS/crates/records/src/fixture_protocol.rs",
+      "sha256": "4d2bd95d5b273b7af70a408d513fa47a6ceb4e9d16fb81c68e604520dfdb48d3",
+      "git_blob": "0187413a187701b3d8bb82b37e4538305e50177f"
+    },
+    {
+      "path": "lampOS/crates/records/src/fixture_schedule.rs",
+      "sha256": "54a8e0c9562ceada01ce3b0d26bdc2d92c0d5d8e954e880e011ddaef71a9a187",
+      "git_blob": "b7deb2095024adce581a0bc4e2816013f8014054"
+    },
+    {
+      "path": "lampOS/crates/records/src/fixture_schedule_tests.rs",
+      "sha256": "cb7ff4cf0928ef0dd539ce696f6036943e788f8fbe80482b7815205a9b1e46c1",
+      "git_blob": "f838468fe9d292c10e0f38858e6c212b7493f69f"
+    },
+    {
+      "path": "lampOS/crates/records/tests/support/records_control.rs",
+      "sha256": "b769a36f1cf542c436704cbf90ca1a50bf3b6ab371d907be95c5c1f0f67e8234",
+      "git_blob": "ee125e2e6a4a49fcf47d5dcadb8732f236b94397"
+    },
+    {
+      "path": "lampOS/crates/records/tests/records_control.rs",
+      "sha256": "04083e277b0d02d65ab4193afe7814218b60e287059a81e7cf7a46e2a7d51924",
+      "git_blob": "829124e1e7c950ef33267feda863b0c220c31dee"
+    },
+    {
+      "path": "lampOS/crates/records/tests/records.rs",
+      "sha256": "ed3504349c3a48400f2db666a5653588eee25cc602d664b95bea5962a20535f9",
+      "git_blob": "485aadcb0abab2c956e0981edf61342256812227"
+    },
+    {
+      "path": "lampOS/docs/records.md",
+      "sha256": "940ea122d4b3328d5aac12a3cdf2cecf2eb2e262a75a8244e06d43c5c1014ce2",
+      "git_blob": "ecb268f6c78b098181c76a5f4f0787899ae2dd21"
+    }
+  ],
+  "raw_log_sha256": "494231ff36bce4e7707bb1a353eb914b832d98e187955c07c3245000eb79b4ee",
+  "headers": [
+    "lampOS \u2014 build and test on Linux ARM64 (1/1)\tUNKNOWN STEP\t2026-10-15T23:29:03.2847088Z     Starting 5021 tests across 273 binaries (130 tests and 8 binaries skipped, including 93 tests and 6 binaries via profile.pr.default-filter)",
+    "lampOS \u2014 build and test on Linux ARM64 (1/1)\tUNKNOWN STEP\t2026-10-15T23:30:29.3035802Z      Summary [  86.019s] 5021 tests run: 5021 passed, 130 skipped"
+  ],
+  "job_steps": 14,
+  "doc_or_harness_result_lines": [
+    "lampOS \u2014 build and test on Linux ARM64 (1/1)\tUNKNOWN STEP\t2026-10-15T23:30:29.6213841Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+    "lampOS \u2014 build and test on Linux ARM64 (1/1)\tUNKNOWN STEP\t2026-10-15T23:30:29.6436115Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+    "lampOS \u2014 build and test on Linux ARM64 (1/1)\tUNKNOWN STEP\t2026-10-15T23:30:29.8110152Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+    "lampOS \u2014 build and test on Linux ARM64 (1/1)\tUNKNOWN STEP\t2026-10-15T23:30:30.0819871Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+    "lampOS \u2014 build and test on Linux ARM64 (1/1)\tUNKNOWN STEP\t2026-10-15T23:30:30.5226946Z test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+    "lampOS \u2014 build and test on Linux ARM64 (1/1)\tUNKNOWN STEP\t2026-10-15T23:30:30.6376344Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+    "lampOS \u2014 build and test on Linux ARM64 (1/1)\tUNKNOWN STEP\t2026-10-15T23:30:30.8304727Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+    "lampOS \u2014 build and test on Linux ARM64 (1/1)\tUNKNOWN STEP\t2026-10-15T23:30:30.8543326Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+    "lampOS \u2014 build and test on Linux ARM64 (1/1)\tUNKNOWN STEP\t2026-10-15T23:30:30.8839261Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+    "lampOS \u2014 build and test on Linux ARM64 (1/1)\tUNKNOWN STEP\t2026-10-15T23:30:31.0260509Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+    "lampOS \u2014 build and test on Linux ARM64 (1/1)\tUNKNOWN STEP\t2026-10-15T23:30:31.0834444Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+    "lampOS \u2014 build and test on Linux ARM64 (1/1)\tUNKNOWN STEP\t2026-10-15T23:30:31.1986466Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+    "lampOS \u2014 build and test on Linux ARM64 (1/1)\tUNKNOWN STEP\t2026-10-15T23:30:31.2378915Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+    "lampOS \u2014 build and test on Linux ARM64 (1/1)\tUNKNOWN STEP\t2026-10-15T23:30:31.5963690Z test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+    "lampOS \u2014 build and test on Linux ARM64 (1/1)\tUNKNOWN STEP\t2026-10-15T23:30:31.6329692Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+    "lampOS \u2014 build and test on Linux ARM64 (1/1)\tUNKNOWN STEP\t2026-10-15T23:30:31.6798677Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+    "lampOS \u2014 build and test on Linux ARM64 (1/1)\tUNKNOWN STEP\t2026-10-15T23:30:31.8079567Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+    "lampOS \u2014 build and test on Linux ARM64 (1/1)\tUNKNOWN STEP\t2026-10-15T23:30:31.8673049Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+    "lampOS \u2014 build and test on Linux ARM64 (1/1)\tUNKNOWN STEP\t2026-10-15T23:30:32.5280394Z test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+    "lampOS \u2014 build and test on Linux ARM64 (1/1)\tUNKNOWN STEP\t2026-10-15T23:30:32.5589637Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+    "lampOS \u2014 build and test on Linux ARM64 (1/1)\tUNKNOWN STEP\t2026-10-15T23:30:32.6009991Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+    "lampOS \u2014 build and test on Linux ARM64 (1/1)\tUNKNOWN STEP\t2026-10-15T23:30:32.7502826Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+    "lampOS \u2014 build and test on Linux ARM64 (1/1)\tUNKNOWN STEP\t2026-10-15T23:30:32.8330646Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+    "lampOS \u2014 build and test on Linux ARM64 (1/1)\tUNKNOWN STEP\t2026-10-15T23:30:32.8610574Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+    "lampOS \u2014 build and test on Linux ARM64 (1/1)\tUNKNOWN STEP\t2026-10-15T23:30:32.8885465Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+    "lampOS \u2014 build and test on Linux ARM64 (1/1)\tUNKNOWN STEP\t2026-10-15T23:30:33.0584796Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+    "lampOS \u2014 build and test on Linux ARM64 (1/1)\tUNKNOWN STEP\t2026-10-15T23:30:33.0945700Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+    "lampOS \u2014 build and test on Linux ARM64 (1/1)\tUNKNOWN STEP\t2026-10-15T23:30:33.1725734Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+    "lampOS \u2014 build and test on Linux ARM64 (1/1)\tUNKNOWN STEP\t2026-10-15T23:30:33.2303345Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+    "lampOS \u2014 build and test on Linux ARM64 (1/1)\tUNKNOWN STEP\t2026-10-15T23:30:33.2863919Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+    "lampOS \u2014 build and test on Linux ARM64 (1/1)\tUNKNOWN STEP\t2026-10-15T23:30:33.7186145Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+    "lampOS \u2014 build and test on Linux ARM64 (1/1)\tUNKNOWN STEP\t2026-10-15T23:30:33.8814113Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+    "lampOS \u2014 build and test on Linux ARM64 (1/1)\tUNKNOWN STEP\t2026-10-15T23:30:33.9218869Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+    "lampOS \u2014 build and test on Linux ARM64 (1/1)\tUNKNOWN STEP\t2026-10-15T23:30:33.9537101Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+    "lampOS \u2014 build and test on Linux ARM64 (1/1)\tUNKNOWN STEP\t2026-10-15T23:30:34.0165395Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+    "lampOS \u2014 build and test on Linux ARM64 (1/1)\tUNKNOWN STEP\t2026-10-15T23:30:34.1069443Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+    "lampOS \u2014 build and test on Linux ARM64 (1/1)\tUNKNOWN STEP\t2026-10-15T23:30:35.0602886Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+    "lampOS \u2014 build and test on Linux ARM64 (1/1)\tUNKNOWN STEP\t2026-10-15T23:30:35.5385226Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+    "lampOS \u2014 build and test on Linux ARM64 (1/1)\tUNKNOWN STEP\t2026-10-15T23:30:36.5880319Z relay_signals: ok",
+    "lampOS \u2014 build and test on Linux ARM64 (1/1)\tUNKNOWN STEP\t2026-10-15T23:30:42.4643331Z test result: 12 passed; 0 failed"
+  ]
+}

@@ -1,0 +1,371 @@
+[
+  {
+    "command": [
+      "gh",
+      "run",
+      "view",
+      "38822580456",
+      "-R",
+      "autonomous-ai/lampOS",
+      "--json",
+      "databaseId,headSha,status,conclusion,event,jobs,url"
+    ],
+    "start": "2026-10-16 06:33:29 +0700",
+    "finish": "2026-10-16 06:33:30 +0700",
+    "exit_code": 0,
+    "path": "909-38822580456.run-final.json",
+    "sha256": "54c5a0311ff3df47c1f497a45c7d60bce4f0d3b7aeb82f1dcb0778d2628fe66a"
+  },
+  {
+    "command": [
+      "gh",
+      "api",
+      "repos/autonomous-ai/lampOS/actions/runs/38822580456"
+    ],
+    "start": "2026-10-16 06:33:30 +0700",
+    "finish": "2026-10-16 06:33:31 +0700",
+    "exit_code": 0,
+    "path": "909-38822580456.run-api.json",
+    "sha256": "10989e1eb30c0adc8c54ced13bf578b818a1372451f9d6ad8b332d40804787a7"
+  },
+  {
+    "command": [
+      "gh",
+      "run",
+      "view",
+      "38822580456",
+      "-R",
+      "autonomous-ai/lampOS",
+      "--log"
+    ],
+    "start": "2026-10-16 06:33:31 +0700",
+    "finish": "2026-10-16 06:33:38 +0700",
+    "exit_code": 0,
+    "path": "909-38822580456.log",
+    "sha256": "cd55c004f8ffb82c55e3564bfb50936a930c1a4f3a93c1d21018d8f392a8898f"
+  },
+  {
+    "command": [
+      "gh",
+      "api",
+      "repos/autonomous-ai/lampOS/git/commits/5ff93e018bc3217e0eedc84f8d67e8ff11a38210"
+    ],
+    "start": "2026-10-16 06:33:38 +0700",
+    "finish": "2026-10-16 06:33:39 +0700",
+    "exit_code": 0,
+    "path": "909-38822580456.checkout.response.json",
+    "sha256": "deecb56c597d88f90989751c70debeaeac9962319de6e0fa27fcae68e8bd7ca3"
+  },
+  {
+    "command": [
+      "gh",
+      "api",
+      "repos/autonomous-ai/lampOS/contents/lampOS/crates/voice-eval/src/main.rs?ref=5ff93e018bc3217e0eedc84f8d67e8ff11a38210"
+    ],
+    "start": "2026-10-16 06:33:39 +0700",
+    "finish": "2026-10-16 06:33:40 +0700",
+    "exit_code": 0,
+    "path": "909-38822580456.source-0.response.json",
+    "sha256": "d266c9e75e3e5210d6ef91feb41d578da207ef6b0b586e80de64653528a1421f"
+  },
+  {
+    "command": [
+      "gh",
+      "api",
+      "repos/autonomous-ai/lampOS/contents/lampOS/crates/voice-eval/src/physical/fake_lamp.rs?ref=5ff93e018bc3217e0eedc84f8d67e8ff11a38210"
+    ],
+    "start": "2026-10-16 06:33:40 +0700",
+    "finish": "2026-10-16 06:33:41 +0700",
+    "exit_code": 0,
+    "path": "909-38822580456.source-1.response.json",
+    "sha256": "0810c919ab94ecdc0ec8a743049b7d4020371c3fe0d22782fd2a3bd9b0076583"
+  },
+  {
+    "command": [
+      "gh",
+      "api",
+      "repos/autonomous-ai/lampOS/contents/lampOS/crates/voice-eval/src/physical/fake_serve.rs?ref=5ff93e018bc3217e0eedc84f8d67e8ff11a38210"
+    ],
+    "start": "2026-10-16 06:33:41 +0700",
+    "finish": "2026-10-16 06:33:41 +0700",
+    "exit_code": 0,
+    "path": "909-38822580456.source-2.response.json",
+    "sha256": "6bb43c8751e8b0195d644fe6b6d8949a30d2ffdfa3dae78c7099300baee6c5d8"
+  },
+  {
+    "command": [
+      "gh",
+      "api",
+      "repos/autonomous-ai/lampOS/contents/lampOS/crates/voice-eval/src/physical/fake_serve_progress_tests.rs?ref=5ff93e018bc3217e0eedc84f8d67e8ff11a38210"
+    ],
+    "start": "2026-10-16 06:33:42 +0700",
+    "finish": "2026-10-16 06:33:42 +0700",
+    "exit_code": 0,
+    "path": "909-38822580456.source-3.response.json",
+    "sha256": "58caea47082bfa7cc24e1fb98c5767dcfc58e2ab6b7365b1f0cc9387e292a60a"
+  },
+  {
+    "command": [
+      "gh",
+      "api",
+      "repos/autonomous-ai/lampOS/contents/lampOS/crates/voice-eval/src/physical/fixture_commands.rs?ref=5ff93e018bc3217e0eedc84f8d67e8ff11a38210"
+    ],
+    "start": "2026-10-16 06:33:42 +0700",
+    "finish": "2026-10-16 06:33:43 +0700",
+    "exit_code": 0,
+    "path": "909-38822580456.source-4.response.json",
+    "sha256": "bf94f41570d921ecdef4cdb94f9928690c5c57f6acad195fcd48ac551e511db9"
+  },
+  {
+    "command": [
+      "gh",
+      "api",
+      "repos/autonomous-ai/lampOS/contents/lampOS/crates/voice-eval/src/physical/fixture_control.rs?ref=5ff93e018bc3217e0eedc84f8d67e8ff11a38210"
+    ],
+    "start": "2026-10-16 06:33:43 +0700",
+    "finish": "2026-10-16 06:33:44 +0700",
+    "exit_code": 0,
+    "path": "909-38822580456.source-5.response.json",
+    "sha256": "2de711a9e5e5d4138e7018885d52c46e2efd7d4841e7189fbc45b6d9be9ac15f"
+  },
+  {
+    "command": [
+      "gh",
+      "api",
+      "repos/autonomous-ai/lampOS/contents/lampOS/crates/voice-eval/src/physical/fixture_control_tests.rs?ref=5ff93e018bc3217e0eedc84f8d67e8ff11a38210"
+    ],
+    "start": "2026-10-16 06:33:44 +0700",
+    "finish": "2026-10-16 06:33:44 +0700",
+    "exit_code": 0,
+    "path": "909-38822580456.source-6.response.json",
+    "sha256": "ca85c9736b163e938bc90cdf2e68d78fa7ceea8d77be956bb743b3a04b8dccc0"
+  },
+  {
+    "command": [
+      "gh",
+      "api",
+      "repos/autonomous-ai/lampOS/contents/lampOS/crates/voice-eval/src/physical/fixture_driver.rs?ref=5ff93e018bc3217e0eedc84f8d67e8ff11a38210"
+    ],
+    "start": "2026-10-16 06:33:44 +0700",
+    "finish": "2026-10-16 06:33:45 +0700",
+    "exit_code": 0,
+    "path": "909-38822580456.source-7.response.json",
+    "sha256": "784ebae9d5c33b9663a64bc2410f9de380dbda798623d912fab67e510890be40"
+  },
+  {
+    "command": [
+      "gh",
+      "api",
+      "repos/autonomous-ai/lampOS/contents/lampOS/crates/voice-eval/src/physical/fixture_players.rs?ref=5ff93e018bc3217e0eedc84f8d67e8ff11a38210"
+    ],
+    "start": "2026-10-16 06:33:45 +0700",
+    "finish": "2026-10-16 06:33:46 +0700",
+    "exit_code": 0,
+    "path": "909-38822580456.source-8.response.json",
+    "sha256": "3fe6f5a33ac9cc7845f7ff468707ea49d763480b9525c077f6b68582913cde8c"
+  },
+  {
+    "command": [
+      "gh",
+      "api",
+      "repos/autonomous-ai/lampOS/contents/lampOS/crates/voice-eval/src/physical/mac.rs?ref=5ff93e018bc3217e0eedc84f8d67e8ff11a38210"
+    ],
+    "start": "2026-10-16 06:33:46 +0700",
+    "finish": "2026-10-16 06:33:48 +0700",
+    "exit_code": 0,
+    "path": "909-38822580456.source-9.response.json",
+    "sha256": "1b4189f1c62313e8a41687ed46ad6bfed2819e35874c31a7136ebc299ece3655"
+  },
+  {
+    "command": [
+      "gh",
+      "api",
+      "repos/autonomous-ai/lampOS/contents/lampOS/crates/voice-eval/src/physical/mod.rs?ref=5ff93e018bc3217e0eedc84f8d67e8ff11a38210"
+    ],
+    "start": "2026-10-16 06:33:48 +0700",
+    "finish": "2026-10-16 06:33:48 +0700",
+    "exit_code": 0,
+    "path": "909-38822580456.source-10.response.json",
+    "sha256": "b7eac723f9a7ac9065443271dc6f24287b4a2551ab7f10b99e774884a813b188"
+  },
+  {
+    "command": [
+      "gh",
+      "api",
+      "repos/autonomous-ai/lampOS/contents/lampOS/crates/voice-eval/src/physical/prepared_player_progress_tests.rs?ref=5ff93e018bc3217e0eedc84f8d67e8ff11a38210"
+    ],
+    "start": "2026-10-16 06:33:48 +0700",
+    "finish": "2026-10-16 06:33:49 +0700",
+    "exit_code": 0,
+    "path": "909-38822580456.source-11.response.json",
+    "sha256": "9caeed9e8699707ffeb6b39ed0cb97475f972bb4ee681aaaa9eba900590e20c5"
+  },
+  {
+    "command": [
+      "gh",
+      "api",
+      "repos/autonomous-ai/lampOS/contents/lampOS/crates/voice-eval/src/physical/recorder_backend_tests.rs?ref=5ff93e018bc3217e0eedc84f8d67e8ff11a38210"
+    ],
+    "start": "2026-10-16 06:33:49 +0700",
+    "finish": "2026-10-16 06:33:50 +0700",
+    "exit_code": 0,
+    "path": "909-38822580456.source-12.response.json",
+    "sha256": "c1699e286cc05bba572dcd8a071d9a42f5b3f33b2ff7daebffd3275e38815a14"
+  },
+  {
+    "command": [
+      "gh",
+      "api",
+      "repos/autonomous-ai/lampOS/contents/lampOS/crates/voice-eval/src/physical/recorder_fixture_commands_tests.rs?ref=5ff93e018bc3217e0eedc84f8d67e8ff11a38210"
+    ],
+    "start": "2026-10-16 06:33:50 +0700",
+    "finish": "2026-10-16 06:33:50 +0700",
+    "exit_code": 0,
+    "path": "909-38822580456.source-13.response.json",
+    "sha256": "96ed7bea9756cddc67ebb152cec89e926aa814c9482c7472cddf16d7b57a6be4"
+  },
+  {
+    "command": [
+      "gh",
+      "api",
+      "repos/autonomous-ai/lampOS/contents/lampOS/crates/voice-eval/src/physical/recorder_fixture_control_tests.rs?ref=5ff93e018bc3217e0eedc84f8d67e8ff11a38210"
+    ],
+    "start": "2026-10-16 06:33:50 +0700",
+    "finish": "2026-10-16 06:33:51 +0700",
+    "exit_code": 0,
+    "path": "909-38822580456.source-14.response.json",
+    "sha256": "a948e92047a558a7eacfab40c3b88c414688ba0f925c17e55fd61472545e93af"
+  },
+  {
+    "command": [
+      "gh",
+      "api",
+      "repos/autonomous-ai/lampOS/contents/lampOS/crates/voice-eval/src/physical/recorder_fixture_driver_tests.rs?ref=5ff93e018bc3217e0eedc84f8d67e8ff11a38210"
+    ],
+    "start": "2026-10-16 06:33:51 +0700",
+    "finish": "2026-10-16 06:33:52 +0700",
+    "exit_code": 0,
+    "path": "909-38822580456.source-15.response.json",
+    "sha256": "e03098175ddd548575b37d4dff0d28eaf1d59f69a76ce7498b4b13cac1d8e47f"
+  },
+  {
+    "command": [
+      "gh",
+      "api",
+      "repos/autonomous-ai/lampOS/contents/lampOS/crates/voice-eval/src/physical/serve_fixture_commands_tests.rs?ref=5ff93e018bc3217e0eedc84f8d67e8ff11a38210"
+    ],
+    "start": "2026-10-16 06:33:52 +0700",
+    "finish": "2026-10-16 06:33:53 +0700",
+    "exit_code": 0,
+    "path": "909-38822580456.source-16.response.json",
+    "sha256": "77a0fb5ba5d61b2ca32e7a87df4eab30afd8c9476e7041942c9206eb32090f8b"
+  },
+  {
+    "command": [
+      "gh",
+      "api",
+      "repos/autonomous-ai/lampOS/contents/lampOS/crates/voice-eval/src/physical/serve_fixture_control_tests.rs?ref=5ff93e018bc3217e0eedc84f8d67e8ff11a38210"
+    ],
+    "start": "2026-10-16 06:33:53 +0700",
+    "finish": "2026-10-16 06:33:53 +0700",
+    "exit_code": 0,
+    "path": "909-38822580456.source-17.response.json",
+    "sha256": "7ff65b0567ed6fc38f4aa55b4bebe9f844bebbfb1acd754e40cae46ba8c3b991"
+  },
+  {
+    "command": [
+      "gh",
+      "api",
+      "repos/autonomous-ai/lampOS/contents/lampOS/crates/voice-eval/src/physical/serve_fixture_driver.rs?ref=5ff93e018bc3217e0eedc84f8d67e8ff11a38210"
+    ],
+    "start": "2026-10-16 06:33:53 +0700",
+    "finish": "2026-10-16 06:33:54 +0700",
+    "exit_code": 0,
+    "path": "909-38822580456.source-18.response.json",
+    "sha256": "8b1f39b8dee64c9342ba710287075fc5595d44a8e165ea40a1574ce6eaa03597"
+  },
+  {
+    "command": [
+      "gh",
+      "api",
+      "repos/autonomous-ai/lampOS/contents/lampOS/crates/voice-eval/src/physical/serve_relay_progress_tests.rs?ref=5ff93e018bc3217e0eedc84f8d67e8ff11a38210"
+    ],
+    "start": "2026-10-16 06:33:54 +0700",
+    "finish": "2026-10-16 06:33:55 +0700",
+    "exit_code": 0,
+    "path": "909-38822580456.source-19.response.json",
+    "sha256": "50dc406a144c9ac6a60e519300647ffde6dfcba712fd90f8bfea77d8fd6c8a9b"
+  },
+  {
+    "command": [
+      "gh",
+      "api",
+      "repos/autonomous-ai/lampOS/contents/lampOS/crates/voice-eval/src/physical/session.rs?ref=5ff93e018bc3217e0eedc84f8d67e8ff11a38210"
+    ],
+    "start": "2026-10-16 06:33:55 +0700",
+    "finish": "2026-10-16 06:33:56 +0700",
+    "exit_code": 0,
+    "path": "909-38822580456.source-20.response.json",
+    "sha256": "aa22ae238d79b41ca1b368fbbf9cef80562fcc3a1850f7e4b54c9df90751f5e6"
+  },
+  {
+    "command": [
+      "gh",
+      "api",
+      "repos/autonomous-ai/lampOS/contents/lampOS/crates/voice-eval/src/physical/slow_transport_fixture_commands_tests.rs?ref=5ff93e018bc3217e0eedc84f8d67e8ff11a38210"
+    ],
+    "start": "2026-10-16 06:33:56 +0700",
+    "finish": "2026-10-16 06:33:57 +0700",
+    "exit_code": 0,
+    "path": "909-38822580456.source-21.response.json",
+    "sha256": "df9c32982fc20b20aebdf397b05fcb94bc3a20dad8667be04af3cbd259b46512"
+  },
+  {
+    "command": [
+      "gh",
+      "api",
+      "repos/autonomous-ai/lampOS/contents/lampOS/crates/voice-eval/src/physical/slow_transport_fixture_control_tests.rs?ref=5ff93e018bc3217e0eedc84f8d67e8ff11a38210"
+    ],
+    "start": "2026-10-16 06:33:57 +0700",
+    "finish": "2026-10-16 06:33:58 +0700",
+    "exit_code": 0,
+    "path": "909-38822580456.source-22.response.json",
+    "sha256": "492974ac681e2f6e13f7204a04bb409c757454fff0a38e62531306a4dccdb993"
+  },
+  {
+    "command": [
+      "gh",
+      "api",
+      "repos/autonomous-ai/lampOS/contents/lampOS/crates/voice-eval/src/physical/slow_transport_fixture_driver_tests.rs?ref=5ff93e018bc3217e0eedc84f8d67e8ff11a38210"
+    ],
+    "start": "2026-10-16 06:33:58 +0700",
+    "finish": "2026-10-16 06:33:59 +0700",
+    "exit_code": 0,
+    "path": "909-38822580456.source-23.response.json",
+    "sha256": "e0bcdeeb4ac5a02114c49935737e3e9a7f13395bf7e4a72e9ad47c255cd87233"
+  },
+  {
+    "command": [
+      "gh",
+      "api",
+      "repos/autonomous-ai/lampOS/contents/lampOS/crates/voice-eval/tests/serve_session.rs?ref=5ff93e018bc3217e0eedc84f8d67e8ff11a38210"
+    ],
+    "start": "2026-10-16 06:33:59 +0700",
+    "finish": "2026-10-16 06:34:00 +0700",
+    "exit_code": 0,
+    "path": "909-38822580456.source-24.response.json",
+    "sha256": "fc7238f2632327b5004941eaadecae832049f4719aefbb674c44bd857b238931"
+  },
+  {
+    "command": [
+      "gh",
+      "api",
+      "repos/autonomous-ai/lampOS/contents/lampOS/docs/realtime-tests.md?ref=5ff93e018bc3217e0eedc84f8d67e8ff11a38210"
+    ],
+    "start": "2026-10-16 06:34:00 +0700",
+    "finish": "2026-10-16 06:34:01 +0700",
+    "exit_code": 0,
+    "path": "909-38822580456.source-25.response.json",
+    "sha256": "8b23d56a585600ed533d43b6a411cd69f9d8b48cc6b5d065eb9540a1907a0f57"
+  }
+]

@@ -1406,7 +1406,8 @@ fn successful_first_and_repeated_name_wakes_need_only_the_next_planner_tick() {
 mod head {
     use super::*;
     use lamp_msgs::{
-        TouchEvent, TouchGesture, TouchIntent, TouchSource, TouchSourceState, TouchState,
+        MuteReason, TouchEvent, TouchGesture, TouchIntent, TouchSource, TouchSourceState,
+        TouchState, VoiceMute,
     };
 
     impl Lamp {
@@ -1493,6 +1494,17 @@ mod head {
             self.send(Input::HeadHand { stamp, value });
         }
 
+        /// The voice's mute: open, muted, or muted because it was put to
+        /// sleep.
+        fn mute(&mut self, muted: bool, asleep: bool) {
+            let stamp = self.stamp();
+            let value = VoiceMute {
+                muted,
+                reason: asleep.then_some(MuteReason::Sleep),
+            };
+            self.send(Input::VoiceMute { stamp, value });
+        }
+
         /// Ticks for `micros`, saying the hand every 100 ms as Controls does
         /// at least every 20 ms; the last output.
         fn with_hand(&mut self, contact: Option<(u64, u64)>, micros: u64) -> Output {
@@ -1577,6 +1589,68 @@ mod head {
         lamp.head(TouchGesture::Tap, 11, 200_000);
         let woken = lamp.with_hand(None, 100_000);
         assert!(named(&woken, "waking"), "{:?}", woken.state);
+    }
+
+    #[test]
+    fn put_to_sleep_by_the_voice_it_sleeps_until_the_voice_opens_whatever_calls() {
+        let mut lamp = Lamp::new(catalogue());
+        lamp.run(10 * SECOND, |_, _| {});
+        lamp.mute(false, false);
+        // Held three seconds: the voice takes it as sleep, and so it sleeps.
+        lamp.hand(Some((9, 3_000_000)));
+        lamp.head(TouchGesture::Hold, 9, 3_000_000);
+        lamp.mute(true, true);
+        let asleep = lamp.with_hand(None, SECOND);
+        assert!(named(&asleep, "falling asleep"), "{:?}", asleep.state);
+        // A tap the voice did not take as a wake (its microphones are still
+        // off) does not wake it.
+        lamp.mute(true, true);
+        lamp.head(TouchGesture::Tap, 10, 200_000);
+        let still = lamp.with_hand(None, 100_000);
+        assert!(!named(&still, "waking"), "{:?}", still.state);
+        // The voice opens: it wakes.
+        lamp.mute(false, false);
+        let woken = lamp.with_hand(None, 100_000);
+        assert!(named(&woken, "waking"), "{:?}", woken.state);
+    }
+
+    #[test]
+    fn asleep_by_the_voice_with_no_hand_seen_as_after_a_restart() {
+        let mut lamp = Lamp::new(catalogue());
+        lamp.run(10 * SECOND, |_, _| {});
+        lamp.mute(true, true);
+        let asleep = lamp.with_hand(None, SECOND);
+        assert!(named(&asleep, "falling asleep"), "{:?}", asleep.state);
+    }
+
+    #[test]
+    fn a_hold_the_voice_did_not_take_as_sleep_is_not_one() {
+        // Open, or muted for a person's privacy: no sleep from the head.
+        for (muted, label) in [(false, "open"), (true, "muted")] {
+            let mut lamp = Lamp::new(catalogue());
+            lamp.run(10 * SECOND, |_, _| {});
+            lamp.mute(muted, false);
+            lamp.hand(Some((9, 3_000_000)));
+            lamp.head(TouchGesture::Hold, 9, 3_000_000);
+            let awake = lamp.with_hand(None, SECOND);
+            assert!(
+                !named(&awake, "falling asleep") && !named(&awake, "asleep"),
+                "{label}: {:?}",
+                awake.state
+            );
+        }
+    }
+
+    #[test]
+    fn when_the_voice_has_said_nothing_for_three_seconds_the_head_acts_as_before() {
+        let mut lamp = Lamp::new(catalogue());
+        lamp.run(10 * SECOND, |_, _| {});
+        lamp.mute(false, false);
+        lamp.run(3 * SECOND, |_, _| {});
+        lamp.hand(Some((9, 3_000_000)));
+        lamp.head(TouchGesture::Hold, 9, 3_000_000);
+        let asleep = lamp.with_hand(None, SECOND);
+        assert!(named(&asleep, "falling asleep"), "{:?}", asleep.state);
     }
 
     #[test]

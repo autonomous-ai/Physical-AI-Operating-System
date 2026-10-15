@@ -13,7 +13,7 @@ use crate::Error;
 use crate::catalogue::{Keyframe, add, blend, ease};
 use lamp_msgs::{
     BodyOffsets, ControlGesture, Faces, Gesture, ScheduleDue, TouchEvent, TouchGesture,
-    TouchSource, TouchState, Voice,
+    TouchSource, TouchState, Voice, VoiceMute,
 };
 use serde::{Deserialize, Serialize};
 use std::collections::VecDeque;
@@ -577,7 +577,16 @@ pub(crate) struct Life {
     hand_seen_us: Option<u64>,
     lean: f64,
     sleep_asked: bool,
+    /// The voice's last word on sleep (`voice/mute`, #711): when, and
+    /// whether its mute says the lamp was put to sleep; and the last it said
+    /// while that word was fresh.
+    voice_said: Option<(u64, bool)>,
+    voice_slept: bool,
 }
+
+/// How long the voice's word on its mute counts: it says it every second
+/// and keeps it three (#711).
+pub const VOICE_MUTE_KEPT_US: u64 = 3_000_000;
 
 /// A fraction in 0..1 from a counter and a salt: splitmix64, fixed, so that
 /// a drift's timing and size are the same in every replay.
@@ -617,6 +626,8 @@ impl Life {
             hand_seen_us: None,
             lean: 0.0,
             sleep_asked: false,
+            voice_said: None,
+            voice_slept: false,
         }
     }
 
@@ -764,6 +775,13 @@ impl Life {
         }
     }
 
+    /// The voice's mute (#711). Sleep from the head is the voice's mute with
+    /// the reason `sleep`: microphones off. While the voice says so, the lamp
+    /// sleeps, and nothing but the voice opening again wakes it.
+    pub(crate) fn voice_mute(&mut self, stamp_us: u64, mute: &VoiceMute) {
+        self.voice_said = Some((stamp_us, mute.asleep()));
+    }
+
     /// The head's state at `stamp_us`: the hand leaned into is there only
     /// while its contact lasts and counts (`held_us`; none once a push from
     /// the body spoiled it).
@@ -859,6 +877,30 @@ impl Life {
         if self.asleep() && matches!(context.voice, Some(Voice::Thinking | Voice::Speaking)) {
             self.called = true;
         }
+        // Where the voice says its mute (#711), sleep from the head is the
+        // voice's: asleep while it says so, whatever calls; awake when it
+        // opens. A hold it did not take as sleep is not one here either.
+        let voice_asleep = self
+            .voice_said
+            .filter(|(at, _)| now_us.saturating_sub(*at) < VOICE_MUTE_KEPT_US)
+            .map(|(_, asleep)| asleep);
+        match voice_asleep {
+            Some(true) => {
+                self.called = false;
+                self.name_called = false;
+                self.sleep_asked = false;
+            }
+            Some(false) => {
+                self.sleep_asked = false;
+                if self.voice_slept {
+                    self.called |= self.asleep();
+                }
+            }
+            None => {}
+        }
+        if let Some(asleep) = voice_asleep {
+            self.voice_slept = asleep;
+        }
         if let (Phase::Asleep { since }, true) = (self.phase, self.called || self.name_called) {
             // Woken, it sleeps again only after nobody again for as long.
             self.nobody_since = None;
@@ -873,9 +915,10 @@ impl Life {
         self.called = false;
         self.name_called = false;
         // A hand held three seconds on its head: it goes to sleep now,
-        // whatever the hour (#711).
-        if std::mem::take(&mut self.sleep_asked)
-            && self.phase == Phase::Awake
+        // whatever the hour (#711), and so it does when the voice says so,
+        // from waking too.
+        if ((std::mem::take(&mut self.sleep_asked) && self.phase == Phase::Awake)
+            || (voice_asleep == Some(true) && !self.asleep()))
             && self.alive.sleep.is_some()
         {
             self.phase = Phase::Asleep { since: now_us };

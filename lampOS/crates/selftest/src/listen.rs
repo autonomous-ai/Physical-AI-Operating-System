@@ -334,9 +334,9 @@ pub fn owner_says(part: &str, owner: &str, health: &Heard<Health>) -> Option<Par
     })
 }
 
-/// The touch pads when `controls/touch_state` was never given: Controls
-/// that runs without `--touch` reads no pad, which is a setting, not a
-/// missing part.
+/// The touch pads when `controls/touch_state` was never given but Controls
+/// runs: not a missing part, and not known to be switched off either (the
+/// touch runtime publishes `controls/state` too).
 pub fn touch_unread(controls: &Heard<ControlsState>) -> Option<PartResult> {
     let Ok(Some(seen)) = controls else {
         return None;
@@ -345,7 +345,7 @@ pub fn touch_unread(controls: &Heard<ControlsState>) -> Option<PartResult> {
         PartResult::new(
             "touch",
             Verdict::NotChecked,
-            "not enabled: lamp-controls runs without --touch, so no pad is read",
+            "no touch reading on controls/touch_state, though lamp-controls runs; whether it reads the pads is not known",
         )
     })
 }
@@ -703,7 +703,7 @@ mod tests {
     }
 
     #[test]
-    fn touch_not_read_by_controls_is_not_enabled_not_missing() {
+    fn touch_with_no_reading_while_controls_runs_is_not_checked_and_not_called_missing() {
         let controls: ControlsState = serde_json::from_value(serde_json::json!({
             "stamp": {"clock_id": "controls", "at_us": 1, "sequence": 1},
             "session_id": "s1",
@@ -719,11 +719,7 @@ mod tests {
         .unwrap();
         let result = touch_unread(&seen(50, controls.clone())).unwrap();
         assert_eq!(result.verdict, Verdict::NotChecked);
-        assert!(
-            result.reason.starts_with("not enabled"),
-            "{}",
-            result.reason
-        );
+        assert!(result.reason.contains("not known"), "{}", result.reason);
         assert!(touch_unread(&seen(5_000, controls)).is_none());
         assert!(touch_unread(&Ok(None)).is_none());
     }

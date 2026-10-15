@@ -46,7 +46,7 @@ owner already has.
 | room microphone (C-Media) | lamp-ears | `ears/level` arrives, above digital silence (-90 dBFS) | listens: done |
 | speaker | lamp-voice | a played tone heard by both microphones | needs a tone request in lamp-voice; none exists |
 | servos 1 to 5 | lamp-body | `body/joint_states` fresh for all five joints; a small move through `expression/body` (±0.35 rad at most, lease-held) and back | readback done; the move to be agreed with the fifth builder |
-| ring | lamp-voice | at the factory and on demand, each of the ten colours asked for on `light/command` (level 3) and seen on `light/state` within 1 s, held 0.4 s; then the light last asked for (the person's own, which the bus keeps) is asked for again and seen. At the first boot only `light/state` fresh (3 s): a new lamp does not run through ten colours in its new home | done |
+| ring | lamp-voice | at the factory and on demand, each of the ten colours asked for on `light/command` (level 3) and seen taken on `light/state` within 1 s, held 0.4 s; then the light last asked for (the person's own, which the bus keeps) is asked for again and seen. A light anyone else asks for during the check stops it and is left as asked. A colour not taken fails; every colour taken is still `not_checked`, because `light/state` says what the owner took, not what it drew (it refuses to draw under the privacy switch or a turn), until the owner says what it drew. At the first boot only `light/state` fresh (3 s), also `not_checked`: a new lamp does not run through ten colours in its new home | taken: done; drawn: needs lamp-voice |
 | camera | lamp-eyes | `humans/faces/tracked` published within 2 s (the eyes publish each look while the camera is open); otherwise the `eyes` item of `lamp/health`: a warning ("does not open", "stopped giving pictures") fails, ok means closed because seeing is not permitted now and is `not_checked`. The self-test never opens the camera itself, so the privacy switch stays authoritative | listens: done |
 | touch pads, button | lamp-controls | `controls/touch_state` ready, no fault, nothing held 10 s or more; a swipe only at the factory | idle done; swipe to do |
 | air | lamp-air | `air/state` fresh (15 s) and in range | done |
@@ -60,7 +60,7 @@ and the joints then ask their owner's item in `lamp/health` (`air`,
 `ears`, `body`), and the owner's own warning fails the part with its words
 (lamp-4ace, 2026-10-16: `lamp-air` alive since a power cut and no reading
 yet). Touch with no `controls/touch_state` but a fresh `controls/state` is
-`not_checked`, "not enabled": Controls runs without `--touch`. Each joint
+`not_checked`: Controls runs, and whether it reads the pads is not known. Each joint
 of the five is its own part. Run it with
 
 ```sh

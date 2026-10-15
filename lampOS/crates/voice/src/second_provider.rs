@@ -71,9 +71,12 @@ const SENTENCES_AHEAD: usize = 2;
 /// reply's worth, so a waiting download is never left unread for long.
 const SENTENCE_PACKETS: usize = crate::provider_flow::MAX_REPLY_SAMPLES / PACKET_SAMPLES;
 
-/// Runs one tool call: `(request, name, arguments)` to the result the
-/// model reads.
-pub type ToolRunner = Arc<dyn Fn(u64, String, Value) -> BoxFuture<'static, Value> + Send + Sync>;
+/// Runs one tool call: `(request, heard, name, arguments)` to the result the
+/// model reads. `heard` is false for a request the lamp wrote itself (a
+/// `Written` turn): nothing anyone said can confirm work in it, as on the
+/// Live route (`tools::run_call`).
+pub type ToolRunner =
+    Arc<dyn Fn(u64, bool, String, Value) -> BoxFuture<'static, Value> + Send + Sync>;
 /// The system message for a turn, built when the turn's chat begins, and
 /// whose turn it is.
 pub type System = Arc<dyn Fn() -> Told + Send + Sync>;
@@ -231,7 +234,7 @@ impl Engine {
                     return;
                 }
                 let shared = self.shared.clone();
-                let task = tokio::spawn(async move { answer(&shared, request, text).await });
+                let task = tokio::spawn(async move { answer(&shared, request, text, false).await });
                 self.turn = Some(Turn {
                     request,
                     audio: None,
@@ -413,7 +416,7 @@ async fn spoken(shared: Arc<Shared>, request: u64, mut heard: mpsc::Receiver<Vec
             .await;
         return;
     }
-    answer(&shared, request, text).await;
+    answer(&shared, request, text, true).await;
 }
 
 /// How an answer stopped short.
@@ -426,7 +429,7 @@ enum Stop {
 }
 
 /// Chat, speech and the turn's last events, for the person's `said`.
-async fn answer(shared: &Shared, request: u64, said: String) {
+async fn answer(shared: &Shared, request: u64, said: String, heard: bool) {
     // Started now, with the chat request, so it is ready first.
     let mut speech = JoinSet::new();
     let announcement = shared
@@ -505,7 +508,8 @@ async fn answer(shared: &Shared, request: u64, said: String) {
             }
             messages.push(Message::assistant_calls(Some(text), &calls));
             for call in &calls {
-                let result = (shared.tools)(request, call.name.clone(), call.args.clone()).await;
+                let result =
+                    (shared.tools)(request, heard, call.name.clone(), call.args.clone()).await;
                 messages.push(Message::tool(call.id.clone(), result.to_string()));
             }
         }

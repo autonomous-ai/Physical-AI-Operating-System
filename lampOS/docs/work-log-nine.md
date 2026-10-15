@@ -49,3 +49,23 @@ Ready for lamp-voice: no (draft #815, waiting on the second's answer on #811)
 - Found, not mine: `deploy/units/lamp-surround.service` names
   `/etc/lampos/surround.json` (lower case); `deploy/units/README.md` says
   `lamp-records` has no unit on any lamp, while `deploy/lamp-4ace/` has it.
+
+## 2026-10-15 — one install for a new lamp (#811) — rounds know the link
+
+Ready for lamp-voice: no (draft #815, until its ARM64 run on `73a1fffa8` is green)
+
+- Answers on #811: the first builder (17:37) and the second (17:46) said
+  yes to `current` links, with both paths kept and a test for each; the
+  third (17:07) gave setup's marker, `/var/lib/lampos-setup/done`.
+- `nine/install` is two commits on `lamp-voice`: `7a8323235` (product units,
+  install.md) and `73a1fffa8` (`install`, and rounds that switch a product
+  part by its link). Settings moved to `/etc/lampOS/<part>/` as decided.
+- Gate on the Mac: fmt clean, clippy `-p lamp-update` clean, tests 33 + 7 +
+  19 passed, 1 ignored; workspace builds. Linux ARM64 in Docker: clippy
+  clean, same counts. With the link never moved on purpose, the 4 new
+  rounds fail and the 15 old pass.
+- Not shown: anything on a lamp; a real `systemctl`; a power cut on a
+  lamp's storage during a link switch.
+- lamp-75c9 (17:52, the person's own command under the lock, read-only):
+  model `sun60iw2`, HAL active, no `HAL_BOARD`, `/dev/spidev3.0` and `3.1`.
+  For #639 in the parent repository, not a lampOS task.

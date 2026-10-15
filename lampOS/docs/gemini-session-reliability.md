@@ -172,6 +172,7 @@ is evidence of correct ownership.
 | Reconnect attempts per outage | 4; waits of 0.5, 1 and 2 s | `AttemptsExhausted` |
 | Connection loss to completed setup | 15 s | `BudgetExhausted` |
 | Recoveries per 60 s | 3 | `Unstable` |
+| An input or output transcript in one message | 8,192 bytes (`MAX_TEXT_BYTES`) | Cut there at a character's edge and passed on; never refused. Until 2026-10-15 it was `MessageTooLarge`, which ended the service: on lamp-4ace at 14:27 an input transcript of a busy room's long talk stopped the voice |
 
 The last three rows are the bounded policy, `RecoveryPolicy::default`. A
 bounded run (a probe, a directed session) still ends on them. A service

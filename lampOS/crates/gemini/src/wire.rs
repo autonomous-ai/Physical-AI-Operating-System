@@ -574,12 +574,21 @@ fn decode_content(raw: RawContent) -> Result<ServerContent> {
         waiting_for_input: raw.waiting_for_input,
     })
 }
+/// A transcript over [`MAX_TEXT_BYTES`] is cut there, at a character's
+/// edge, not refused: it only says what was heard or said, and refusing it
+/// ended the whole service. On lamp-4ace on 2026-10-15 at 14:27 an input
+/// transcript of a busy room's long talk did exactly that.
 fn transcript(raw: RawTranscript) -> Result<Transcript> {
-    if raw.text.len() > MAX_TEXT_BYTES {
-        return Err(Error::MessageTooLarge);
+    let mut text = raw.text;
+    if text.len() > MAX_TEXT_BYTES {
+        let mut end = MAX_TEXT_BYTES;
+        while !text.is_char_boundary(end) {
+            end -= 1;
+        }
+        text.truncate(end);
     }
     Ok(Transcript {
-        text: raw.text,
+        text,
         finished: raw.finished,
     })
 }

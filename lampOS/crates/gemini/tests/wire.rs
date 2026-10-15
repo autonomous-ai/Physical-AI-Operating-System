@@ -192,9 +192,24 @@ fn text_parts_and_audio_parts_have_aggregate_bounds() {
     assert!(wire::decode_server(frame.to_string().as_bytes()).is_err());
     let frame = json!({"serverContent":{"modelTurn":{"parts":vec![json!({"text":"a"});9]}}});
     assert!(wire::decode_server(frame.to_string().as_bytes()).is_err());
-    let frame =
-        json!({"serverContent":{"outputTranscription":{"text":"x".repeat(MAX_TEXT_BYTES+1)}}});
-    assert!(wire::decode_server(frame.to_string().as_bytes()).is_err());
+    // A transcript over the bound is cut at a character's edge, not refused:
+    // refusing an input transcript ended the service on lamp-4ace.
+    for field in ["inputTranscription", "outputTranscription"] {
+        let long = format!("{}é", "x".repeat(MAX_TEXT_BYTES - 1));
+        let frame = json!({"serverContent":{field:{"text":long,"finished":true}}});
+        let content = wire::decode_server(frame.to_string().as_bytes())
+            .unwrap()
+            .content
+            .unwrap();
+        let transcript = if field == "inputTranscription" {
+            content.input_transcript
+        } else {
+            content.output_transcript
+        }
+        .unwrap();
+        assert_eq!(transcript.text, "x".repeat(MAX_TEXT_BYTES - 1));
+        assert!(transcript.finished);
+    }
     let frame = json!({"serverContent":{"modelTurn":{"parts":[{"text":"private thought","thought":true}]}}});
     assert!(
         wire::decode_server(frame.to_string().as_bytes())

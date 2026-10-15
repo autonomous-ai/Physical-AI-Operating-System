@@ -11,7 +11,10 @@ pub const PACKET_SAMPLES: usize = 960;
 const OPENAI_MODEL: &str = "tts-1";
 /// V1's `TTS_VOICE`, used when `tts_voice` is unset.
 const OPENAI_VOICE: &str = "nova";
-const ELEVENLABS_MODEL: &str = "eleven_v4_turbo";
+/// The quickest to its first sound. Through the company relay from
+/// lamp-52e6 on 2026-10-15, two sentences each: `eleven_flash_v2_5` 0.60
+/// and 0.68 s to the first audio, `eleven_v4_turbo` (V1's) 0.81 and 1.30 s.
+const ELEVENLABS_MODEL: &str = "eleven_flash_v2_5";
 const ELEVENLABS_HOSTS: &[&str] = &[
     "api.elevenlabs.io",
     "api.us.elevenlabs.io",
@@ -214,14 +217,33 @@ impl TtsStream {
                 return Ok(None);
             };
             match chunk(response).await? {
-                Some(bytes) => self.ready.extend(self.packets.push(&bytes)),
+                Some(bytes) => self
+                    .ready
+                    .extend(self.packets.push(&bytes).into_iter().map(louder)),
                 None => {
                     self.response = None;
-                    self.ready.extend(self.packets.finish());
+                    self.ready.extend(self.packets.finish().map(louder));
                 }
             }
         }
     }
+}
+
+/// +6 dB. OpenAI's `tts-1` voice `nova` through the company relay, measured
+/// from lamp-52e6 on 2026-10-15: peak -7.3 dBFS, RMS -28.8 dBFS, so the
+/// second voice was heard much quieter than Gemini's. Twice the amplitude,
+/// clipped at full scale, puts that peak near -1.3 dBFS.
+// ponytail: one fixed gain for every provider and voice; a per-voice level
+// in `second.json` if another voice is too loud or still too quiet.
+const GAIN: i32 = 2;
+
+fn louder(packet: Vec<i16>) -> Vec<i16> {
+    packet
+        .into_iter()
+        .map(|sample| {
+            (i32::from(sample) * GAIN).clamp(i32::from(i16::MIN), i32::from(i16::MAX)) as i16
+        })
+        .collect()
 }
 
 /// Little-endian bytes cut anywhere, even mid-sample, to full packets.
@@ -301,7 +323,7 @@ mod tests {
         );
         assert_eq!(
             proxied.body,
-            json!({"text": "Hi.", "model_id": "eleven_v4_turbo", "voice_settings": {"speed": 1.0}})
+            json!({"text": "Hi.", "model_id": "eleven_flash_v2_5", "voice_settings": {"speed": 1.0}})
         );
         let direct = request(
             TtsProvider::ElevenLabs,

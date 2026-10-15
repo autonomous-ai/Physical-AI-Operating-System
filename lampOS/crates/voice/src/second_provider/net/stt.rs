@@ -22,8 +22,13 @@ const FINISH: Duration = Duration::from_secs(15);
 const QUEUE: usize = 300;
 const MAX_MESSAGE: usize = 1 << 20;
 
-/// V1's query for nova models, in its order.
-fn query(language: Option<&str>) -> [(&'static str, &str); 9] {
+/// V1's query for nova models, in its order, with the lamp's name as a
+/// key term as V1 boosts it: without it, on lamp-52e6 on 2026-10-15, "Hey
+/// Lamp" came back as "Palin", "Palan" and "Len", and the model took the
+/// question for other people's talk.
+// ponytail: the name is the character's own ("Lamp"); a lamp renamed
+// would pass its name here.
+fn query(language: Option<&str>) -> [(&'static str, &str); 10] {
     [
         ("model", MODEL),
         ("encoding", "linear16"),
@@ -34,6 +39,7 @@ fn query(language: Option<&str>) -> [(&'static str, &str); 9] {
         ("interim_results", "true"),
         ("endpointing", "1500"),
         ("vad_events", "true"),
+        ("keyterm", "Lamp"),
     ]
 }
 
@@ -260,7 +266,8 @@ mod tests {
     use super::*;
 
     const QUERY: &str = "model=nova-3-general&encoding=linear16&sample_rate=16000&channels=1\
-        &language=en&smart_format=true&interim_results=true&endpointing=1500&vad_events=true";
+        &language=en&smart_format=true&interim_results=true&endpointing=1500&vad_events=true\
+        &keyterm=Lamp";
 
     #[test]
     fn the_proxy_url_is_v1s() {

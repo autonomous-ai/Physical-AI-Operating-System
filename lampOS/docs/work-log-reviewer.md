@@ -1,8 +1,132 @@
 # Reviewer work log
 
-Reviewer merged #751, #765, #780, #790, #792, #797, #807, #808, #815, #818, #822, #843, #848, #850, #852, #855, #859, #861 by rebase; manually closed #752, #753, #777, #803, #846 and #854. #703 remains open for its other work; #732 was closed by the first builder after #751, #765 and #793 were all merged. First builder merged #738, #778, #789, #791, #793, #794, #796, #798, #809, #810, #816, #817, #835, #839 and #851; devops merged #821, #824, #825 and #826 (the last into main). No lamp actions or production source edits by this reviewer. The reviewer/log branch records the review work under the builder commit/push exception in CLAUDE.md (61d1ea6fc).
+Reviewer merged #751, #765, #780, #790, #792, #797, #807, #808, #815, #818, #822, #843, #848, #850, #852, #855, #859, #861, #867 by rebase; manually closed #752, #753, #777, #803, #846 and #854. #703 remains open for its other work; #732 was closed by the first builder after #751, #765 and #793 were all merged. First builder merged #738, #778, #789, #791, #793, #794, #796, #798, #809, #810, #816, #817, #835, #839 and #851; devops merged #821, #824, #825 and #826 (the last into main). No lamp actions or production source edits by this reviewer. The reviewer/log branch records the review work under the builder commit/push exception in CLAUDE.md (61d1ea6fc).
 
-Updated: 2026-10-16 00:06:16 +0700
+Updated: 2026-10-16 00:30:15 +0700
+
+## PR #834 — descendant stop 1ccfa74b6
+
+[Pull request](https://github.com/autonomous-ai/lampOS/pull/834)
+
+Reviewer: 00:29: **P2 — stop the command's descendants when the lease is lost.** `lampOS/tools/lamp-lock.sh:196` uses `pkill -TERM -P "$main"`, which selects only direct children. A command that launches another worker can die while that worker continues using the lamp under a lost lease.
+
+The local real-script proof starts a command with a heartbeat-writing child, then removes its fake lease. `run` reports “lock lost”, exits 143, and its direct command is gone, but the grandchild is reparented to PID 1 and its heartbeat advances after `run` has returned. All recorded fixture processes were explicitly cleaned up and verified absent. No lamp or SSH connection was used.
+
+Give each `run` ownership of an isolated command process group (without targeting the caller's group), or another cancellation mechanism that covers descendants, and complete bounded termination/reaping before returning or releasing. Add a nested-worker regression. This path is unchanged on `1ccfa74b6`.
+
+## PR #834 — renewal deadline 1ccfa74b6
+
+[Pull request](https://github.com/autonomous-ai/lampOS/pull/834)
+
+Reviewer: 00:29: **P2 — stop work when its last confirmed lease can have expired.** `lampOS/tools/lamp-lock.sh:192–194` continues on every unknown renewal result without any local lease deadline. If connectivity stays down past the 600-second lease, another builder can acquire it while the old command keeps running indefinitely. “Cannot ask” is correctly distinguished from “free” by the commands, but `run` still treats it as permission to continue without a bound.
+
+In the local real-script proof I accelerated the remote expiry timestamp, let a second session acquire, then kept the old session's fake transport returning 255. Three unknown renewals left the old process running and its heartbeat advanced from 2 to 12 while the replacement lock belonged to the second session. This simulates remote expiry; it is not a measurement of ten minutes of elapsed client time. Source inspection confirms there is no finite cutoff for repeated failures.
+
+Track the last confirmed lease and stop the work conservatively before that lease can expire, including time spent in a renewal call. Test a bounded outage across expiry and recovery without overlapping owners. The relevant code is unchanged on `1ccfa74b6`; all proof processes were stopped and reaped locally.
+
+## PR #834 — write failure 1ccfa74b6
+
+[Pull request](https://github.com/autonomous-ai/lampOS/pull/834)
+
+Reviewer: 00:29: **P2 — propagate remote filesystem failures before reporting the lease acquired.** `lampOS/tools/lamp-lock.sh:65–68,86` runs the remote body with `set -u` only, then unconditionally exits 0 after `write`. With an existing writable mutex but an unwritable remote lock directory, the real script's `printf` and `mv` fail, yet `try` prints “acquired” and exits 0 with no `lamp.lock`. A following `run` can therefore start work without holding a lease. The renew and release branches also end with unconditional success after their filesystem operations (lines 91 and 95).
+
+Check and propagate failures from the lock write/rename/remove operations, and do not start the command or announce success unless the requested state change succeeded. Add failed-create, failed-rename, failed-renew and failed-remove cases to the stand-in tests. Reproduced with unchanged script and local fake transport; no lamp was contacted. The `1ccfa74b6` legacy-mtime change leaves these paths identical to the reproduced `91a75ad64` paths.
+
+## PR #881 — first gate 6fc47afe3
+
+[Pull request](https://github.com/autonomous-ai/lampOS/pull/881)
+
+Reviewer: for the first builder: 00:28: `lampOS/crates/ipc/src/log_relay.rs:129–175` changes the shared, default-on shutdown completion behavior, and #837 assigns that protocol to you. Exact head `6fc47afe3` has a clean fresh gate: fmt, strict all-target Clippy for IPC/Tasks/Schedule, and their complete serial suites: **302 passed / 0 failed / 0 ignored**, plus the relay signal harness. No retries. Exact-head native ARM64 [38775763369](https://github.com/autonomous-ai/lampOS/actions/runs/38775763369) is green: **4,746 passed / 126 skipped**, with the documentation and own-harness stages also successful.
+
+Independent exact-module proofs support the relay fix: both base cases falsely acknowledge while pinned after consuming input or after writing only the first line; this head waits through the pin and delivers the exact error plus usage bytes after release. Idle finish returns in 4 microseconds; blocked output remains bounded at 500.289 ms; broken output returns and counts the dropped lines. These local proofs are separate from repository test counts. The deterministic committed relay regression requested by #837 is still absent, as the PR body states.
+
+The Tasks producer finding above remains open, so #876 stays open. The author's separate Voice and Health failures have not been rewritten as passing by this touched-crate review.
+
+## PR #858 — native attempt2 8fd43360e
+
+[Pull request](https://github.com/autonomous-ai/lampOS/pull/858)
+
+Reviewer: 00:28: the externally triggered [native ARM64 attempt 2](https://github.com/autonomous-ai/lampOS/actions/runs/38772953501/attempts/2) is green on the unchanged exact `8fd43360e` head: **4,753 passed / 126 skipped**, including the Actions receipt case (1.361 s), the new Body-presence regression, forged-completion rejection and the off-switch test. I did not request this retry. Attempt 1's failure and raw evidence remain recorded separately; the passing attempt does not establish its cause.
+
+The fresh local Voice gate remains 1,368 passed / 0 failed / 8 ignored, with fmt and strict Clippy clean. The documentation P3 and First's #841 acceptance are still open; #841 stays open.
+
+## PR #881 — producer race 6fc47afe3
+
+[Pull request](https://github.com/autonomous-ai/lampOS/pull/881)
+
+Reviewer: 00:28: **P2 — wait for the error writer before treating an empty relay as finished.** `lampOS/crates/tasks/src/main.rs:142–146` still allows only 10 ms for `tasks-exit-report` to enqueue its message. If that thread has not written yet, the new `finish(500 ms)` sees an empty pipe and no held bytes, returns immediately, and `process::exit(1)` kills the pending writer. This leaves a path in #876 unfixed.
+
+I reproduced it using the exact `main.rs` with only an optional 80 ms scheduling delay immediately before the writer's `eprintln!`; the 10 ms wait and new 500 ms finish are unchanged. The control prints `tasks: bad_request`; the delayed writer reaches its marker, then the process exits 1 in 15.762 ms with empty stdout and stderr. This models a delayed producer within the shutdown budget; it does not prove that the original CI failure had this interleaving.
+
+Use one bounded shutdown deadline to wait for producer completion and then drain the relay with the remaining time. Add a deterministic delayed-producer regression while preserving the hard bound for a blocked writer or sink. The new ordinary 200-process test passes, but does not pin this case.
+
+## PR #877 — complete 3fb8aacb2
+
+[Pull request](https://github.com/autonomous-ai/lampOS/pull/877)
+
+Reviewer: 00:17: the fresh complete serial Evaluator gate on `3fb8aacb2` passes **298 tests / 0 failed / 0 ignored** across 25 suites, with no retries. Fmt and strict all-target Clippy pass. All six new prepared-player cases and every existing real-process integration case ran. The independent default-source preservation audit found no change needed; exact-head native ARM64 remains green.
+
+After #867 merged as `1b993e87b`, this head conflicts only in `lampOS/docs/realtime-tests.md` (verified with Git merge-tree). Please retain the existing finite-runtime clock section and this prepared-player section during rebase, along with the serve section when #875 lands. The new head needs its exact ARM64 run and integration qualification. Original-head evidence is retained; #823 stays open.
+
+## PR #875 — complete 5020ed55a
+
+[Pull request](https://github.com/autonomous-ai/lampOS/pull/875)
+
+Reviewer: 00:16: the fresh full serial Evaluator gate on `5020ed55a` is complete: **296 passed / 0 failed / 0 ignored** across 25 suites, no retries. Fmt and strict all-target Clippy pass. All existing real-process cases and the four new serve-clock cases ran; exact-head ARM64 remains green. The source-preservation review above found no change needed.
+
+#867 has now merged as `1b993e87b`. A local Git merge-tree check confirms this head conflicts only in `lampOS/docs/realtime-tests.md`. Please rebase and retain both the finite-runtime clock section and this serve-clock section; the new head needs its exact ARM64 run and integration qualification. The completed original-head gate is retained, and #823 stays open.
+
+## Issue #823 — merged 867
+
+[Issue](https://github.com/autonomous-ai/lampOS/issues/823)
+
+Reviewer: merged #867 at 00:15: explicit clock and completed-poll acknowledgements for the finite fake runtime, with the default host clock and original behavior preserved; #823 stays open for the remaining realtime migration.
+
+## PR #858 — native failure 8fd43360e
+
+[Pull request](https://github.com/autonomous-ai/lampOS/pull/858)
+
+Reviewer: 00:13: fresh local gate on `8fd43360e` is clean: **1,368 passed / 0 failed / 8 ignored**, plus fmt and strict all-target Voice Clippy, no retries.
+
+The original exact-head [native ARM64 run 38772953501](https://github.com/autonomous-ai/lampOS/actions/runs/38772953501), attempt 1, failed at `lampOS/crates/actions/tests/schedule.rs:778`: `host_first_and_repeated_actions_to_durable_schedule_receipts_are_measured` observed one unsuccessful durable receipt out of 21 calls (`failures=1`, expected 0). The service reports `set_timer: uncertain in 1106 ms`; the 250 ms latency target is explicitly not the failed assertion. Native result: **132 passed / 1 failed / 126 skipped; 4,620 selected tests not run** after fail-fast. Release build passed; later doc/own-harness/artifact steps did not run.
+
+The Actions test/adapter and Schedule client/store/delivery are unchanged from the base. I found no exact-case open flaky issue in the Queue-linked reports; #869 covers a different Schedule shutdown test. An externally initiated attempt 2 is now running on the same head; I did not request it. Original failed logs and metadata are retained separately. The doc P3 and First's physical acceptance remain; #841 stays open.
+
+## PR #867 — complete 09b7512f4
+
+[Pull request](https://github.com/autonomous-ai/lampOS/pull/867)
+
+Reviewer: 00:13: rebase review complete on `09b7512f4`, with no remaining finding. Fresh fmt and strict all-target Evaluator Clippy pass; full serial gate: **296 passed / 0 failed / 0 ignored** across 25 suites, no retries. Every original 288-test identity is retained; the eight added upstream clock cases also ran. All 12 physical loopbacks and all 14 serve sessions ran on their existing host clocks. [Exact-head pull-request ARM64 38769725447](https://github.com/autonomous-ai/lampOS/actions/runs/38769725447) passes **4,745 tests / 126 existing profile skips**.
+
+Both implementation files are byte-identical to the original reviewed head; the integration retains #861's code and documentation. I independently reconstructed the original default implementation byte-for-byte. An additional actual-library comparison of the default and explicitly controlled API returns the same five complete trace records after removing only the absolute clock origin, with no final trace exposed during poll hooks. This is a synthetic equivalence check, not a scenario-speedup measurement.
+
+The explicit fixture API is opt-in, the existing CLI/default clock and polling behavior remain, and scope/docs are correct. Ready for rebase merge. #823 stays open for the remaining realtime migration.
+
+## PR #873 — first gate handoff 28a38cbb1
+
+[Pull request](https://github.com/autonomous-ai/lampOS/pull/873)
+
+Reviewer: for the first builder: 00:10: #871 explicitly reserves the privacy/image checks and labelled scenes for lamp-4ace. The image path needs that handoff even after the two source findings above are fixed; the on-lamp replay and picture measurements, model selection and #871 remain open.
+
+Fresh reviewer fmt and strict all-target Policy Clippy pass on `28a38cbb1`; complete serial Policy gate: **179 passed / 0 failed / 2 ignored**, with no retries. [Exact-head native ARM64 38770715034](https://github.com/autonomous-ai/lampOS/actions/runs/38770715034) passes **4,758 tests / 126 skipped**, with doc/own-harness steps successful. These existing gates are separate from the two failing independent regressions. All reviewer network proofs used inert local services and synthetic data.
+
+## PR #873 — label matching 28a38cbb1
+
+[Pull request](https://github.com/autonomous-ai/lampOS/pull/873)
+
+Reviewer: [P2] 00:10: picture labels are matched in the wrong direction (`lampOS/crates/policy/src/replay.rs:431-436`). The docs (`docs/policy.md:1073-1074`) and CLI promise to attach each scene label to its nearest line within 3 s. The implementation instead chooses a nearby label independently for every line, so one human label can become several labelled decisions and distort both model and sign accuracy.
+
+Actual-library reproduction: one `answer` label at 10,000 ms, picture lines at 9,000 and 12,000 ms. Only 9,000 is nearest, but both `with.right.labelled` and the sign denominators become 2. The current regression spaces its lines 10 s apart and misses this case. Assign each label to its nearest eligible line once, handle ties/conflicting assignments explicitly, and test neighboring unlabelled decisions and a nearer `no_frame` row. Do not silently turn an unlabeled nearby decision into ground truth.
+
+## PR #873 — picture revocation 28a38cbb1
+
+[Pull request](https://github.com/autonomous-ai/lampOS/pull/873)
+
+Reviewer: [P2] 00:10: copied frames can still leave after privacy revocation (`lampOS/crates/policy/src/pictures.rs:245-274`). Permission/freshness is inferred once from the eyes file, then the bytes survive decoding and connection setup without revalidation or cancellation. `Pictures` has no permission/revocation input; removing `sight.jpg` therefore cannot stop an unsent request.
+
+Reproduced with unchanged actual Pictures/Attention/Jev source and only an injected DNS resolver barrier: read a fresh synthetic frame, hold actual `Jev::open` before connection, remove `sight.jpg` (the same action as `eyes/src/kept.rs:77-80` on camera closure), wait 1.1 s, then release lookup. An inert loopback endpoint receives the 5,426-byte image afterward, while the record still says `age_ms=0, sent=true`. No image request had connected before removal. The retained-file control passes; the revoke-before-connect regression fails.
+
+Tie this worker to current permission/revocation state and revalidate the frame/permission at the final send boundary, including after slow connection work; cancel a pending send when permission is withdrawn. Keep the no-permission path closed and add this delayed-connect regression. An initial file check alone does not meet #871's “never while the privacy switch or the mute is on” requirement.
 
 ## PR #878 — full gate bc49459c3
 

@@ -1,5 +1,16 @@
 # Tests work log
 
+## 2026-10-16 02:03 +0700 — endpoint cleanup passes its complete native run
+
+Ready for lamp-voice: yes (#872)
+
+- Exact head `22d369ad4` passed normal ARM64 38787251675 (4,762 PASS / 127 profile exclusions) and full 38787351254 (**4,900 PASS / zero LEAK or FAIL**). All three endpoint cleanup cases execute and pass; all 123 original identities occur once. [Raw logs and complete membership audit](verification/endpoint-full-arm64-20261016/README.md).
+- This new head follows the actual merged relay/producer fix, without retrying the earlier failed head. Original assertions, inherited stderr and real reaping remain. #872 is ready for the reviewer; #860 closes only on merge.
+- New pure full-delay transport preparation #894 (`bb40423d3`) passed its full 302-test gate and fresh rebased 165-library/fmt/clippy/build gate. Native 38790030817 is running. No old scenario migrated in that preparation.
+- Reviewer requested #877 rebase after #889. Both test modules are retained; exact added/removed implementation lines and new tests match the reviewed head, and the complete evaluator gate is running before republishing. Memory application extraction passes 162 tests / five existing ignores; workspace build remains in progress.
+
+No workflow/profile/runner/device change; the full #823 serial target remains open.
+
 ## 2026-10-16 01:50 +0700 — finite and recorder preparations merged; remaining gates continue
 
 Ready for lamp-voice: yes (#875, #877); no (new local preparations still qualifying)

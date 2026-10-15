@@ -1,0 +1,41 @@
+{
+  "date": "2026-10-16 02:01:42 +0700",
+  "head": "22d369ad43b51c52f9293df5059c9769fbe2f1a9",
+  "run": 38787351254,
+  "result_count": 4900,
+  "unique_count": 4900,
+  "statuses": {
+    "PASS": 4900
+  },
+  "original_123_count": 123,
+  "original_123_missing_or_duplicated": [],
+  "original_123_sum_seconds": 848.976,
+  "endpoint_targets": [
+    {
+      "status": "PASS",
+      "seconds": 4.379,
+      "binary": "lamp-voice",
+      "test": "coordinator::tests::endpoint_session::a_worker_still_loading_leaves_the_baseline_window",
+      "shard": "lampOS \u2014 build and test on Linux ARM64 (3/4)"
+    },
+    {
+      "status": "PASS",
+      "seconds": 3.027,
+      "binary": "lamp-voice",
+      "test": "coordinator::tests::endpoint_session::endpoint_fixture_reaps_on_panic_before_and_after_handoff",
+      "shard": "lampOS \u2014 build and test on Linux ARM64 (2/4)"
+    },
+    {
+      "status": "PASS",
+      "seconds": 1.519,
+      "binary": "lamp-voice",
+      "test": "coordinator::tests::endpoint_session::unconfirmed_endpoint_exit_fails_mute_cleanup_and_never_reopens_service",
+      "shard": "lampOS \u2014 build and test on Linux ARM64 (1/4)"
+    }
+  ],
+  "limits": [
+    "Four concurrent shards; duration sum is not standalone serial elapsed time.",
+    "This endpoint branch predates the separately merged finite-loopback migration; its whole-group time is not that migration result.",
+    "No native retry; prior head failure is retained separately."
+  ]
+}

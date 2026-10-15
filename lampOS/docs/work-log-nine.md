@@ -88,3 +88,17 @@ Ready for lamp-voice: no
   and reminders and the night wait for it). Claimed 18:21.
 - Base: `origin/lamp-voice` at `4ad0ec5c3`. Branch: `nine/offline`.
 - First: each part offline, read in its code, then `docs/offline.md`.
+
+## 2026-10-15 — no internet at home (#830) — step 1, then paused
+
+Ready for lamp-voice: no
+
+- `docs/offline.md` on `nine/offline` (`44b1aed9c`): each part with no
+  internet and with a clock not set, read from the code (not run). Found:
+  the voice exits after 25 s when it starts with no internet, and lamp-4ace's
+  and lamp-52e6's units restart it every ~29 s without end; nothing is said
+  or shown; schedule's `--trust-clock` on both lamps uses a clock not set;
+  `clock_synced` is never known on a real board.
+- Paused at the person's request (end of the day). Next: steps 2 to 4 as
+  offline.md says. #815 (#811) waits for the second's review.
+- lamp-75c9: lock free, not held.

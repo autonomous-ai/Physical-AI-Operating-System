@@ -269,12 +269,25 @@ pub fn summary(lines: &[Value], models: &[String]) -> Value {
             .filter_map(|(place, line)| example(line, &line["judges"][index], place, &names))
             .collect();
         let without_answers = labelled.len() - examples.len();
+        // Not fitted, and why: no counts are given then, so that nothing
+        // measured is taken from a fit that was never made (the reviewer
+        // on #873).
+        let unfitted_because = |why: String| {
+            json!({"labelled": labelled.len(), "without_answers": without_answers,
+                   "fitted": false, "why_not": why})
+        };
         if examples.len() < FEWEST {
-            each.insert(
-                model.clone(),
-                json!({"labelled": labelled.len(), "without_answers": without_answers,
-                       "fitted": false, "why_not": format!("fewer than {FEWEST} labelled lines with answers")}),
-            );
+            let why = format!("fewer than {FEWEST} labelled lines with answers");
+            each.insert(model.clone(), unfitted_because(why));
+            continue;
+        }
+        let answers = examples
+            .iter()
+            .filter(|example| example.should == Should::Answer)
+            .count();
+        if answers == 0 || answers == examples.len() {
+            let why = "its labelled lines with answers are all of one kind".to_owned();
+            each.insert(model.clone(), unfitted_because(why));
             continue;
         }
         let (mut day, mut refitted) = (Counts::default(), Counts::default());
@@ -301,24 +314,33 @@ pub fn summary(lines: &[Value], models: &[String]) -> Value {
             }
         }
         let all: Vec<&Example> = examples.iter().collect();
-        let weights = fit(&all).map(|weights| {
-            let mut named = Map::new();
-            named.insert("start".into(), json!(round(weights[0])));
-            for (name, weight) in names.iter().zip(&weights[1..]) {
-                named.insert(name.clone(), json!(round(*weight)));
-            }
-            Value::Object(named)
-        });
+        let Some(weights) = fit(&all) else {
+            let why = "the weights could not be fitted on every label".to_owned();
+            each.insert(model.clone(), unfitted_because(why));
+            continue;
+        };
+        if day.halves == 0 {
+            let why = "no half could be fitted: each held labels of one kind only".to_owned();
+            each.insert(model.clone(), unfitted_because(why));
+            continue;
+        }
+        let mut named = Map::new();
+        named.insert("start".into(), json!(round(weights[0])));
+        for (name, weight) in names.iter().zip(&weights[1..]) {
+            named.insert(name.clone(), json!(round(*weight)));
+        }
         each.insert(
             model.clone(),
             json!({
                 "labelled": labelled.len(),
                 "without_answers": without_answers,
                 "fitted": true,
+                // The counts are means over the halves fitted only.
+                "halves_fitted": day.halves,
                 "halves_unfitted": unfitted,
                 "day_weights": day.told(),
                 "refitted": refitted.told(),
-                "weights_on_every_label": weights,
+                "weights_on_every_label": Value::Object(named),
             }),
         );
     }

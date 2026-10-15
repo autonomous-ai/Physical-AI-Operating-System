@@ -1023,8 +1023,12 @@ through them as they are.
   busy room and for another language, and how often each answered what was
   not for the lamp and ignored what was; and the weights fitted on every
   labelled line, to be read. It needs lines with answers (a run from
-  `28a38cbb1` on); with fewer than 20 labelled lines with answers a model is
-  not fitted, and the line says why. The day's weights are two sums, with
+  `28a38cbb1` on). A model is not fitted, and its entry says why
+  (`why_not`) and gives **no counts**, so none is taken for measured: with
+  fewer than 20 labelled lines with answers, with those lines all of one
+  label, or with no half that could be fitted. A half whose fitted part is
+  all of one label is passed over; the counts are means over the halves
+  fitted (`halves_fitted`, beside `halves_unfitted`). The day's weights are two sums, with
   and without something listening for the name; this is one sum, the name
   heard one more term, not heard and not known both counted as not heard.
   It changes nothing the lamp does.
@@ -1040,7 +1044,8 @@ same weights, no words in a line, the counts, labels, counting again),
 `crates/policy/src/replay/refit/tests.rs` (a model whose answers are on
 another scale done badly by the day's weights and as well as the other
 once fitted to its own, on the same halves; a run without answers not
-fitted; the weights found from examples drawn from known ones; the same
+fitted; labels of one kind, on every line or on a model's answered ones,
+not fitted and given no counts; the weights found from examples drawn from known ones; the same
 halves every time) and
 `crates/policy/tests/replay_program.rs` (the program against a service
 played on this machine: two models asked in turn, the state sent equal to

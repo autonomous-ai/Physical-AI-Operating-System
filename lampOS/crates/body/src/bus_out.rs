@@ -834,10 +834,17 @@ mod tests {
         );
         let hand: Hand = said.parse().unwrap();
         assert!(hand.pushed);
-        // A live step: said at once, for its whole second.
-        publishing.step(&seen, false, Instant::now());
+        // A live step: said at once, for its whole second less only what
+        // the step itself took (a loaded runner took over 10 ms).
+        let live = Instant::now();
+        publishing.step(&seen, false, live);
+        let took = live.elapsed().as_millis() as u64;
         let said = bus.latest(Hand::TOPIC).unwrap().unwrap();
-        assert!(said.header.expires_ms.unwrap() >= 990);
+        let lasts = said.header.expires_ms.unwrap();
+        assert!(
+            lasts + took + 1 >= 1_000,
+            "a live hand lasts its second less the step's {took} ms: {lasts} ms"
+        );
         drop(publishing);
         std::fs::remove_dir_all(root).unwrap();
     }

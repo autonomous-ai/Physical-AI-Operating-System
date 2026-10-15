@@ -360,3 +360,299 @@ fn a_note_about_one_turn_is_not_a_warning_and_a_fault_or_a_lacking_input_is() {
         Level::Warn
     );
 }
+
+mod sleep_name {
+    use super::*;
+    use lamp_bus::Publisher;
+    use lamp_expression::{Input, Output};
+    use lamp_msgs::{Faces, NameHeard, PersonActivity, Room, RoomState, VoiceProgress};
+    use std::{
+        process::{Child, Command, Stdio},
+        time::{Duration, Instant},
+    };
+
+    const TICK_US: u64 = 200_000;
+    const SECOND_US: u64 = 1_000_000;
+    const START_US: u64 = 1_000 * SECOND_US;
+
+    fn activity(at_us: u64, speaking: bool) -> PersonActivity {
+        PersonActivity {
+            stamp: ClockStamp {
+                clock_id: "test".into(),
+                at_us,
+                sequence: at_us + 1,
+            },
+            session_id: "voice_session".into(),
+            turn: 1,
+            request: 1,
+            speaking,
+        }
+    }
+
+    #[test]
+    fn name_adaptation_keeps_publication_delay_and_ago_ms() {
+        let value = NameHeard {
+            score: 0.99,
+            ago_ms: 700,
+        };
+        let mut item = message(
+            NameHeard::TOPIC,
+            NameHeard::TYPE,
+            serde_json::to_value(value).unwrap(),
+        );
+        item.header.kind = Kind::Event;
+        let Input::Name { stamp, value: got } =
+            runtime::input_from_message(&item, 10_000_000, 1_250, "test", 8).unwrap()
+        else {
+            panic!("name must retain its event variant");
+        };
+        // Receipt is 250 ms after publication; the sound began a further
+        // 700 ms earlier. The publisher's private header.at_us is irrelevant.
+        assert_eq!(stamp.at_us, 9_750_000);
+        assert_eq!(stamp.clock_id, "test");
+        assert_eq!(stamp.sequence, 8);
+        assert_eq!(got, value);
+        assert_eq!(stamp.at_us - u64::from(got.ago_ms) * 1_000, 9_050_000);
+    }
+
+    #[test]
+    fn activity_adaptation_keeps_the_source_clock_and_owner() {
+        let mut value = activity(9_900_000, true);
+        value.stamp.clock_id = "another-boot".into();
+        value.stamp.sequence = 42;
+        let item = message(
+            PersonActivity::TOPIC,
+            PersonActivity::TYPE,
+            serde_json::to_value(&value).unwrap(),
+        );
+        let Input::Activity(got) =
+            runtime::input_from_message(&item, 10_000_000, 1_250, "test", 8).unwrap()
+        else {
+            panic!("activity must retain its typed variant");
+        };
+        // The adapter must leave a foreign clock visible for Engine to reject,
+        // not replace it with this service's clock or its wall-age conversion.
+        assert_eq!(got, value);
+    }
+
+    struct SleepingService {
+        service: runtime::Service,
+        voice: Publisher,
+        joints: Publisher,
+        faces: Publisher,
+        room: Publisher,
+        name: Publisher,
+        activity: Publisher,
+        now_us: u64,
+        state: Voice,
+        _root: Root,
+    }
+
+    impl SleepingService {
+        fn new() -> Self {
+            let root = Root::new();
+            let bus = Bus::new(&root.0).unwrap();
+            let mut catalogue =
+                Catalogue::from_json(include_str!("../alive-behaviours.json")).unwrap();
+            let sleep = catalogue.alive.as_mut().unwrap().sleep.as_mut().unwrap();
+            sleep.nobody_us = 60 * SECOND_US;
+            sleep.name_requires_speech = true;
+            catalogue.check().unwrap();
+            // The bus still supplies real publication wall times. Select a
+            // night-time offset without changing those envelope timestamps.
+            let offset = 23 * 60 + 30 - i32::from(runtime::minute_of_day(runtime::unix_ms(), 0));
+            let service = runtime::Service::new(&bus, catalogue, true, "test")
+                .unwrap()
+                .with_local_time(offset);
+            bus.publisher_declared(Light::TOPICS[0], &Light::declaration(), "actions")
+                .unwrap()
+                .publish_json(987_654_321, &Light::new(true, "warm", 1).unwrap())
+                .unwrap();
+            Self {
+                service,
+                voice: bus
+                    .publisher_declared(
+                        VoiceProgress::TOPIC,
+                        &VoiceProgress::declaration(),
+                        "voice",
+                    )
+                    .unwrap(),
+                joints: bus
+                    .publisher_declared(JointState::TOPIC, &JointState::declaration(), "body")
+                    .unwrap(),
+                faces: bus
+                    .publisher_declared(Faces::TOPIC, &Faces::declaration(), "eyes")
+                    .unwrap(),
+                room: bus
+                    .publisher_declared(RoomState::TOPIC, &RoomState::declaration(), "ears")
+                    .unwrap(),
+                name: bus
+                    .publisher_declared(NameHeard::TOPIC, &NameHeard::declaration(), "name")
+                    .unwrap(),
+                activity: bus
+                    .publisher_declared(
+                        PersonActivity::TOPIC,
+                        &PersonActivity::declaration(),
+                        "voice",
+                    )
+                    .unwrap(),
+                now_us: START_US,
+                state: Voice::Resting,
+                _root: root,
+            }
+        }
+
+        fn step(&mut self) -> Output {
+            self.now_us += TICK_US;
+            let mut timing = voice(self.now_us);
+            timing.stamp.sequence = self.now_us + 1;
+            timing.state = self.state;
+            self.voice
+                .publish_json(
+                    987_654_321,
+                    &VoiceProgress {
+                        timing,
+                        audio_generation: 1,
+                        held: false,
+                    },
+                )
+                .unwrap();
+            self.joints
+                .publish_json(
+                    987_654_321,
+                    &JointState {
+                        name: ["base_yaw", "shoulder", "elbow", "head_roll", "head_pitch"]
+                            .map(str::to_owned)
+                            .to_vec(),
+                        position: vec![0.; 5],
+                        velocity: vec![],
+                        effort: vec![],
+                        commanded: vec![],
+                    },
+                )
+                .unwrap();
+            self.faces
+                .publish_json(987_654_321, &Faces { faces: vec![] })
+                .unwrap();
+            self.room
+                .publish_json(987_654_321, &RoomState { state: Room::Quiet })
+                .unwrap();
+            let output = self.service.step(|| self.now_us, runtime::unix_ms());
+            assert_eq!(self.service.counts.refused, 0);
+            assert_eq!(self.service.counts.input_errors, 0);
+            output
+        }
+
+        fn sleep(&mut self) {
+            // Only the injected clock advances: no real minute is spent here.
+            for _ in 0..350 {
+                if has(&self.step(), "asleep") {
+                    self.state = Voice::Listening;
+                    assert!(has(&self.step(), "asleep"));
+                    return;
+                }
+            }
+            panic!("service never reached sleep within 70 logical seconds");
+        }
+
+        fn name(&mut self) {
+            let sent = self
+                .name
+                .publish_json(
+                    987_654_321,
+                    &NameHeard {
+                        score: 0.99,
+                        ago_ms: 400,
+                    },
+                )
+                .unwrap();
+            assert_eq!(sent.delivered, 1);
+            assert_eq!(sent.dropped, 0);
+        }
+
+        fn speech(&mut self, speaking: bool) {
+            // The next step receives a 250 ms old typed observation, still
+            // within the unchanged 300 ms activity bound. Its envelope is new.
+            self.activity
+                .publish_json(987_654_321, &activity(self.now_us - 50_000, speaking))
+                .unwrap();
+        }
+    }
+
+    fn has(output: &Output, behaviour: &str) -> bool {
+        output.state.behaviours.iter().any(|name| name == behaviour)
+    }
+
+    #[test]
+    fn sleeping_name_requires_validated_speech_through_the_local_bus() {
+        let mut lamp = SleepingService::new();
+        lamp.sleep();
+        lamp.name();
+        assert!(has(&lamp.step(), "asleep"));
+        lamp.speech(false);
+        assert!(has(&lamp.step(), "asleep"));
+        lamp.speech(true);
+        let output = lamp.step();
+        assert!(has(&output, "waking"));
+        assert!(!has(&output, "asleep"));
+    }
+
+    struct JournalChild(Child);
+
+    impl Drop for JournalChild {
+        fn drop(&mut self) {
+            let _ = self.0.kill();
+            let _ = self.0.wait();
+        }
+    }
+
+    #[test]
+    fn an_expired_sleeping_name_is_journaled_once_by_the_service() {
+        const CHILD: &str = "LAMP_EXPRESSION_SLEEP_NAME_JOURNAL_CHILD";
+        if std::env::var_os(CHILD).is_some() {
+            let mut lamp = SleepingService::new();
+            lamp.sleep();
+            lamp.name();
+            // Beyond the two-second source window and 300 ms delivery grace,
+            // then several further ticks: one rejection must not repeat.
+            for _ in 0..25 {
+                assert!(has(&lamp.step(), "asleep"));
+            }
+            return;
+        }
+        // Capture the real Service stderr in a separate test process so the
+        // test harness and parallel cases keep their own descriptors intact.
+        let root = Root::new();
+        let journal = root.0.join("journal.txt");
+        let mut child = JournalChild(
+            Command::new(std::env::current_exe().unwrap())
+                .args([
+                    "--exact",
+                    "sleep_name::an_expired_sleeping_name_is_journaled_once_by_the_service",
+                    "--nocapture",
+                    "--test-threads=1",
+                ])
+                .env(CHILD, "1")
+                .stdout(Stdio::null())
+                .stderr(Stdio::from(fs::File::create(&journal).unwrap()))
+                .spawn()
+                .unwrap(),
+        );
+        let deadline = Instant::now() + Duration::from_secs(15);
+        let status = loop {
+            if let Some(status) = child.0.try_wait().unwrap() {
+                break status;
+            }
+            assert!(Instant::now() < deadline, "journal fixture host watchdog");
+            std::thread::sleep(Duration::from_millis(5));
+        };
+        let lines = fs::read_to_string(&journal).unwrap();
+        assert!(status.success(), "journal fixture failed: {lines}");
+        assert_eq!(
+            lines.lines().collect::<Vec<_>>(),
+            [
+                "lamp-expression: ignored sleeping name (1): no validated person speech within +/-2 s"
+            ]
+        );
+    }
+}

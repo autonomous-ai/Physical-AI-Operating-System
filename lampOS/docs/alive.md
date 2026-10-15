@@ -76,6 +76,29 @@ minutes. A long hold of the base is the mute today and will be Sleep when
 #711 makes it so; it does not wake the lamp. A face seen at night does not
 wake it either: only its name, a touch, a reminder or its own answer.
 
+With `alive.sleep.name_requires_speech: true` (#749), a sleeping name needs
+accepted `voice/activity` person speech within two seconds before or after
+the name's source onset. The switch defaults to false; existing catalogues
+and wake paths stay unchanged. The onset is publication time minus `ago_ms`,
+not receipt time, and must pass the existing context freshness limit (5 s in
+the supplied catalogue). Plain Listening, transcript text, room noise and
+the lamp's own audio are not speech evidence. Voice supplies an observation
+after its echo/attention policy, with an 80 ms heartbeat and 120 ms speech
+hold; this is not a raw microphone acquisition timestamp.
+
+The first matching pair requests the existing stretch on the next planner
+tick (20 ms target), without a deliberate wait. A name arriving first waits
+only until onset + 2 s + the existing Activity delivery limit (300 ms here).
+That delivery allowance does not enlarge the two-second source window.
+There are at most 16 pending names and 128 recent speech observations;
+overflow fails closed, and repeated names do not extend earlier deadlines.
+Voice cancellation, owner restart, lost retained input or stale Voice clears
+the evidence. A normal Resting-to-Listening turn preserves a pending name.
+Uncorroborated names produce a one-shot journal line beginning
+`lamp-expression: ignored sleeping name`, with a reason and count (bursts
+are coalesced between ticks). This does not change microphone privacy or the
+independent touch, reminder, morning-face and Thinking/Speaking wake paths.
+
 Nothing is random. A drift's wait and size come from a fixed hash of how
 many drifts came before, so a replay gives the same plan every time. All
 of it runs on the planner's injected clock and the inputs it was given.
@@ -95,6 +118,7 @@ catalogue is read (`crates/expression/src/alive.rs`):
 | `drift.low`, `drift.high` | pitch -0.035 to 0, roll -0.02 to 0.02 | the head only, zero between them, within 0.06 rad and the same speed and acceleration as the breath at the quickest energy |
 | `work.face_area`, `still`, `still_us`, `hold_us` | 0.04, 0.05, 5 s, 30 s | (0, 1], (0, 0.5], 1 to 60 s, at most 600 s |
 | `sleep.night` | `[1380, 360]`: 23:00 to 06:00 | minutes of the local day, past midnight allowed |
+| `sleep.name_requires_speech` | omitted (`false`) | `true` requires corroborating person speech for a sleeping name; First enables it after the compatibility minute |
 | `sleep.nobody_us`, `settle_us` | 15 minutes; 4 s | 1 minute to 2 hours; 1 to 10 s |
 | `sleep.pose`, `sleep.breath` | head pitch +0.023; 9 s, -0.015 | the head only, within 0.06 rad, reached slowly |
 | `wake.keyframes` | five, over 2.7 s | 1 to 5 s, from and back to nothing, the head and the base only, no light, within the catalogue's limits, at most 0.35 rad/s and 2 rad/s² |
@@ -112,6 +136,7 @@ not more life.
 | `attention/concentration` | Its owner | Explicit concentration stops it all, as before |
 | `humans/faces/tracked` | The eyes | Nobody there, someone working close and still, the first face of the morning |
 | `name/heard` | The name listener | Waking |
+| `voice/activity` | The voice's validated person-speech detector | Corroborates a sleeping name only with `sleep.name_requires_speech: true` |
 | `controls/gesture` | Controls | Waking, by an enabled tap or stroke. New to Expression |
 | `schedule/due` | Schedule | Waking, once for each notice that comes due. New to Expression |
 | The local time of day | The live service itself, from the wall clock and `--utc-offset-minutes` (420 in Vietnam), at start and every minute | Night. Not a bus topic. `serve` refuses a catalogue with sleep without it |

@@ -328,7 +328,13 @@ impl Engine {
         }
         .check()?;
         let clips = vec![ClipState::default(); catalogue.behaviours.len()];
-        let life = catalogue.alive.clone().map(Life::new);
+        let life = catalogue.alive.clone().map(|alive| {
+            Life::new(
+                alive,
+                catalogue.timing.context_stale_us,
+                catalogue.timing.activity_stale_us,
+            )
+        });
         Ok(Self {
             catalogue,
             enabled,
@@ -394,6 +400,20 @@ impl Engine {
         self.rejected
     }
 
+    /// One-shot, bounded notices for the journal. They are not persistent
+    /// planner warnings and never change the actuator or state messages.
+    pub fn take_sleep_name_notices(&mut self) -> Vec<String> {
+        self.life
+            .as_mut()
+            .map_or_else(Vec::new, Life::take_name_notices)
+    }
+
+    fn fence_sleep_name(&mut self, stamp_us: u64) {
+        if let Some(life) = &mut self.life {
+            life.fence_name(stamp_us);
+        }
+    }
+
     /// What has gone wrong with the planner itself, if anything has: a
     /// clock that moved backwards, a voice restarted too often. Until it is
     /// restarted it asks nothing of the body or the light.
@@ -415,14 +435,23 @@ impl Engine {
             self.clear_transients();
         }
         if let Some(fault) = self.fault {
+            self.fence_sleep_name(now_us);
             return Err(Error(fault.into()));
         }
         self.now = Some(now_us);
-        if self.voice.as_ref().is_some_and(|voice| {
-            now_us.saturating_sub(voice.stamp.at_us) >= self.catalogue.timing.voice_stale_us
+        if let Some(life) = &mut self.life {
+            life.advance_name(now_us);
+        }
+        if let Some(expired_at) = self.voice.as_ref().and_then(|voice| {
+            let expires = voice
+                .stamp
+                .at_us
+                .saturating_add(self.catalogue.timing.voice_stale_us);
+            (now_us >= expires).then_some(expires)
         }) {
             self.retired_turn = true;
             self.clear_transients();
+            self.fence_sleep_name(expired_at);
         }
         while self
             .playout
@@ -633,6 +662,9 @@ impl Engine {
                     ));
                 }
                 if activity.speaking {
+                    if let Some(life) = &mut self.life {
+                        life.person_speech(activity.stamp.at_us);
+                    }
                     self.has_speech = true;
                     self.pause_since = None;
                     // Speech stops what the lamp was doing for the voice; a
@@ -689,11 +721,12 @@ impl Engine {
             Input::Light { value, .. } => self.light = Some(value),
             // These are context only. No word is invented as a pause, readiness,
             // a timing cue or proof that anything has reached the loudspeaker.
-            // The name wakes a sleeping lamp, and that is all it does here.
+            // A name may wake the alive layer; its optional speech check uses
+            // accepted Activity, never transcript text or plain Listening.
             Input::Heard { .. } | Input::Said { .. } => {}
-            Input::Name { .. } => {
+            Input::Name { stamp, value } => {
                 if let Some(life) = &mut self.life {
-                    life.name();
+                    life.name(now_us, stamp.at_us, value.ago_ms);
                 }
             }
             Input::Touch { value, .. } => {
@@ -841,6 +874,7 @@ impl Engine {
                 "voice restarted over 32 times; restart expression to renew its session fence",
             );
             self.clear_transients();
+            self.fence_sleep_name(now_us);
             return Err(Error(self.fault.unwrap().into()));
         }
         if let Some(old) = &self.voice {
@@ -869,6 +903,29 @@ impl Engine {
             return Err(Error(
                 "scheduled first audio is already due or too far ahead at arrival".into(),
             ));
+        }
+        // A normal resting owner may say accepting_input=false until a new
+        // Listening turn. Keep a pending name through that edge. Actual loss
+        // of retained input, a new owner or a terminal edge invalidates its
+        // speech evidence; clear_transients alone is too broad (new turns).
+        let lost_input = !voice.accepting_input
+            && (voice.state == Voice::Listening
+                || self.voice.as_ref().is_some_and(|old| old.accepting_input));
+        if new_session
+            || lost_input
+            || (!repeated_terminal
+                && matches!(
+                    voice.event,
+                    VoiceEvent::Interrupted | VoiceEvent::Cancelled | VoiceEvent::Finished
+                ))
+        {
+            self.fence_sleep_name(voice.stamp.at_us);
+        }
+        if voice.accepting_input
+            && self.voice.as_ref().is_none_or(|old| !old.accepting_input)
+            && let Some(life) = &mut self.life
+        {
+            life.name_speech_since(voice.stamp.at_us);
         }
         if new_turn {
             if new_session {
@@ -1043,6 +1100,7 @@ impl Engine {
                 .push(format!("{} inputs rejected", self.rejected));
         }
         if let Some(fault) = self.fault {
+            self.fence_sleep_name(now_us);
             state.warnings.push(fault.into());
             return Output {
                 body: None,

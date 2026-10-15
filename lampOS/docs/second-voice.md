@@ -166,7 +166,10 @@ order is kept. A written turn is the same from the chat on.
   next chat as a system note ("A note you were given in writing, not words
   anyone said: ..."), never as a user message. A person who said nothing
   sends no empty user message. A Live session's recall is unchanged: it is
-  not read the note.
+  not read the note. While it waits for its answer the note is bound to its
+  request and to the person the turn is answered for: only that answer
+  takes it, an answer to a later request (the written one was retired or
+  failed) drops it, and a forgetting drops it too.
 - **Each turn is one person's**, as a Live session is since #775: before
   the chat, the thread is opened for whoever the eyes know at the lamp
   (`Sessions::open`), and that person's kept things are asked for. With

@@ -110,7 +110,7 @@ pub struct Thread {
     /// Whom the newest session was opened for: the only exchanges it is told.
     opened_for: Option<String>,
     /// A written request not yet answered ([`Self::written`]).
-    note: Option<String>,
+    note: Option<Pending>,
     /// How new a thread file this holds: the modification time of the file
     /// last read or written, or the moment of the last forgetting, whichever
     /// is later. A file no newer than this is not read again.
@@ -139,6 +139,15 @@ pub struct Recent {
     /// What the person said; empty for none.
     pub person: String,
     pub lamp: String,
+}
+
+/// A written request's note waiting for the answer to it.
+#[derive(Clone)]
+struct Pending {
+    request: u64,
+    /// The person it is answered for.
+    whose: Option<String>,
+    note: String,
 }
 
 /// This process's one thread. The provider worker is one process with one
@@ -224,6 +233,11 @@ impl Thread {
         let person = self.session_person(now);
         let changed = person != self.opened_for;
         self.opened_for = person;
+        // A written request waiting for its answer is answered for this
+        // session's person.
+        if let Some(pending) = self.note.as_mut() {
+            pending.whose = self.opened_for.clone();
+        }
         changed
     }
 
@@ -360,12 +374,33 @@ impl Thread {
         self.heard_done = finished;
     }
 
-    /// The note of a request the lamp was given in writing: kept with the
-    /// answer to it, apart from what anyone said.
-    pub fn written(&mut self, text: &str) {
+    /// The note of written request `request`: kept with the answer to that
+    /// request alone, for the person it is answered for, apart from what
+    /// anyone said. An answer to any later request drops it unused (the
+    /// request was retired or failed), and so does a forgetting.
+    pub fn written(&mut self, request: u64, text: &str) {
         let mut note = String::new();
         add(&mut note, text, PERSON_BYTES);
-        self.note = Some(note);
+        self.note = Some(Pending {
+            request,
+            whose: self.whose.clone().or_else(|| self.opened_for.clone()),
+            note,
+        });
+    }
+
+    /// The pending note, if it is `request`'s and `whose`'s; a note of an
+    /// earlier request is dropped, one of a later request is kept.
+    fn note_for(&mut self, request: u64, whose: &Option<String>) -> Option<String> {
+        match self.note.take() {
+            Some(pending) if pending.request > request => {
+                self.note = Some(pending);
+                None
+            }
+            Some(pending) if pending.request == request && &pending.whose == whose => {
+                Some(pending.note)
+            }
+            _ => None,
+        }
     }
 
     /// A piece of what the lamp said in answer `request`.
@@ -405,6 +440,7 @@ impl Thread {
             } else if self.exchanges.len() == EXCHANGES * PEOPLE {
                 self.exchanges.pop_front();
             }
+            let written = self.note_for(request, &whose);
             self.exchanges.push_back(Exchange {
                 request,
                 at: now,
@@ -412,7 +448,7 @@ impl Thread {
                 lamp: String::new(),
                 journalled: false,
                 whose,
-                written: self.note.take(),
+                written,
             });
         }
         if let Some(last) = self.exchanges.back_mut() {
@@ -482,6 +518,7 @@ impl Thread {
     /// said about it is not to be told to the next session.
     pub fn forget(&mut self) {
         self.exchanges.clear();
+        self.note = None;
         self.heard.clear();
         self.heard_at = None;
         self.heard_done = false;
@@ -1351,6 +1388,49 @@ mod tests {
         assert!(thread.recent(now, Duration::from_secs(300), 6).is_empty());
     }
 
+    /// First builder's reviewer on #778: a written request retired before
+    /// its answer leaves no note for the next request, whoever's it is; and
+    /// a forgetting drops a note still waiting.
+    #[test]
+    fn a_written_note_is_its_own_requests_and_goes_with_a_retirement_or_a_forgetting() {
+        let now = Instant::now();
+        let minh = Some(crate::remember::person_id("Minh"));
+        let sam = Some(crate::remember::person_id("Sam"));
+        let open = |thread: &mut Thread, whose: &Option<String>| {
+            thread.at_lamp(whose.clone());
+            thread.opening(now);
+        };
+        let notes = |thread: &Thread| {
+            thread
+                .exchanges
+                .iter()
+                .filter_map(|e| e.written.clone())
+                .collect::<Vec<_>>()
+        };
+        // Minh's written request 1 is retired before its chat; Sam's spoken
+        // request 2 is answered.
+        let mut thread = Thread::new();
+        open(&mut thread, &minh);
+        thread.written(1, "Tell them the code word is ORCHID.");
+        open(&mut thread, &sam);
+        thread.person("Hello.", true, now);
+        thread.lamp(2, "Hi Sam.", now);
+        assert!(notes(&thread).is_empty());
+        // A note waiting, then a forgetting, then an answer.
+        let mut thread = Thread::new();
+        open(&mut thread, &minh);
+        thread.written(3, "Tell them the code word is ORCHID.");
+        thread.forget();
+        thread.lamp(3, "Done.", now);
+        assert!(notes(&thread).is_empty());
+        // The note of a later request waits for its own answer.
+        let mut thread = Thread::new();
+        thread.written(5, "Say the time.");
+        thread.lamp(4, "Earlier answer.", now);
+        thread.lamp(5, "It is noon.", now);
+        assert_eq!(notes(&thread), ["Say the time."]);
+    }
+
     /// First builder's reviewer on #778: a request the lamp was given in
     /// writing stays with its answer, as a note and not as anyone's words,
     /// through the file too, so the next turn has it (ORCHID).
@@ -1359,7 +1439,7 @@ mod tests {
         let now = Instant::now();
         let wall = SystemTime::now();
         let mut thread = Thread::new();
-        thread.written("Tell them the code word is ORCHID.");
+        thread.written(1, "Tell them the code word is ORCHID.");
         thread.lamp(1, "The code word is ORCHID.", now);
         let recent = thread.recent(now, Duration::from_secs(300), 6);
         assert_eq!(

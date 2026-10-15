@@ -489,10 +489,10 @@ pub async fn run(
             if gate.admits(monotonic_us(), &command)? {
                 // A written request is kept for the thread as the note it
                 // is, with the answer to it (`Thread::written`).
-                if let ProviderInput::Written { text, .. } = &command
+                if let ProviderInput::Written { request, text, .. } = &command
                     && let Ok(mut thread) = crate::thread::THREAD.lock()
                 {
-                    thread.written(text);
+                    thread.written(*request, text);
                 }
                 engine.submit(command);
             }

@@ -214,7 +214,6 @@ impl Thread {
         self.opened_for.as_deref()
     }
 
-
     /// Take the thread from `path` if the file is newer than what this
     /// holds: another voice route wrote it while this one was away. Says
     /// whether it did. A file that cannot be read changes nothing.
@@ -1251,6 +1250,56 @@ mod tests {
         read.at_lamp(Some("../Minh".into()));
         read.opening(at(141));
         assert_eq!(read.recall(at(141), ROOM), None);
+    }
+
+    /// First builder on #778: a person's exchange made on the second route
+    /// comes back to the Live route under the same `whose`, and only to
+    /// that person's session; who is at the lamp and whom the Live session
+    /// was opened for are not taken from the file.
+    #[test]
+    fn an_exchange_on_the_second_route_comes_back_to_the_live_route_as_the_same_persons() {
+        let directory = std::env::temp_dir().join(format!(
+            "lamp-voice-thread-whose-{}-{:?}",
+            std::process::id(),
+            std::thread::current().id()
+        ));
+        std::fs::create_dir_all(&directory).unwrap();
+        let path = directory.join("thread.json");
+        let minh = crate::remember::person_id("Minh");
+        let sam = crate::remember::person_id("Sam");
+        let now = Instant::now();
+        let wall = SystemTime::now();
+        // The Live route, with Minh at the lamp, writes its file first.
+        let mut live = Thread::new();
+        live.at_lamp(Some(minh.clone()));
+        live.opening(now);
+        live.person("Hello.", true, now);
+        live.lamp(1, "Hi Minh.", now);
+        write_file(&path, &live.save(now, wall).unwrap()).unwrap();
+        live.wrote(&path);
+        std::thread::sleep(Duration::from_millis(30));
+        // The second route, its turn opened for Minh too, talks and writes.
+        let mut second = Thread::load(&std::fs::read_to_string(&path).unwrap(), now, wall);
+        second.at_lamp(Some(minh.clone()));
+        second.opening(now);
+        second.person("My locker is 417.", true, now);
+        second.lamp(7, "Kept: 417.", now);
+        write_file(&path, &second.save(now, wall).unwrap()).unwrap();
+        // Back on the Live route: Minh's session is told it, Sam's is not.
+        assert!(live.reload(&path, now, wall));
+        assert_eq!(live.opened_for(), Some(minh.as_str()));
+        let told = live.recall(now, ROOM).unwrap();
+        assert!(
+            told.contains("Kept: 417.") && told.contains("Hi Minh."),
+            "{told}"
+        );
+        live.at_lamp(Some(sam));
+        live.opening(now);
+        assert!(
+            live.recall(now, ROOM)
+                .is_none_or(|told| !told.contains("417"))
+        );
+        let _ = std::fs::remove_dir_all(directory);
     }
 
     /// First builder on #775: a known person who keeps talking while the

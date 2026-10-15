@@ -222,7 +222,16 @@ does not erase that talk when it comes back, and is told it:
   the wall clock stepped back can only miss a reload (`ponytail:` in
   `thread.rs`).
 
-Shown by `a_thread_another_route_wrote_while_this_one_was_away_is_told_again`.
+- Each exchange keeps its `whose` in the file, so one a person made on the
+  second route comes back to the Live route as that person's. Who is at the
+  lamp and whom the session was opened for are each process's own and are
+  not taken from the file. The second route opens the thread for the person
+  at the lamp before each turn (`Thread::at_lamp`, `Thread::opening`),
+  counted from the eyes' known file as the Live worker counts it, and asks
+  the memory for that person's kept things.
+
+Shown by `a_thread_another_route_wrote_while_this_one_was_away_is_told_again`
+and `an_exchange_on_the_second_route_comes_back_to_the_live_route_as_the_same_persons`.
 
 ## Verification
 

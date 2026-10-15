@@ -221,19 +221,36 @@ pub fn serve(
             tools.who.as_deref().map(crate::known_faces::known_file_of),
         );
     }
-    // A Days note is frozen for a session; this process is one. The older
-    // note is the memory writer's, read fresh for each turn.
-    let frozen = tools
-        .memory
-        .as_deref()
-        .filter(|_| crate::remember::days_from_environment())
-        .map(|socket| crate::remember::told_for_session(socket, 1, None));
     let net = Net::new(config, &crate::tools::declared(&tools)).map_err(io::Error::other)?;
     let thread = files.thread;
     let file = thread.clone();
     let clock = tools.clock;
+    // Each turn is one person's, as a Live session is (#764): whose it is,
+    // counted from the eyes' known file as the Live worker counts it, opens
+    // the thread for them and asks for their kept things. A Days note is
+    // frozen for a session; here a session is the run of turns for one
+    // person, so it is asked again only when the person changes.
+    let socket = tools.memory.clone();
+    let who = tools
+        .who
+        .as_deref()
+        .map(crate::known_faces::known_file_of)
+        .filter(|_| socket.is_some());
+    let days = crate::remember::days_from_environment();
+    let sessions = std::sync::Mutex::new(Sessions::default());
     let system = move || {
-        let memory = frozen.clone().unwrap_or_else(crate::remember::told);
+        let now = Instant::now();
+        let Ok(mut sessions) = sessions.lock() else {
+            return String::new();
+        };
+        let (changed, person) = sessions.open(who.as_deref(), now);
+        let memory = match &socket {
+            Some(socket) if days => sessions.frozen(changed, |session| {
+                crate::remember::told_for_session(socket, session, person.as_deref())
+            }),
+            Some(socket) => crate::remember::told_for_session(socket, 0, person.as_deref()),
+            None => crate::remember::told(),
+        };
         system_message(
             &character,
             crate::local_time::told_here(clock).as_deref(),
@@ -263,6 +280,45 @@ pub fn serve(
         .enable_all()
         .build()?
         .block_on(run(channels, boot, engine, thread))
+}
+
+/// Whose the second route's turns are, and the Days note of that person's
+/// run of turns.
+#[derive(Default)]
+struct Sessions {
+    presence: crate::known_faces::Presence,
+    /// Runs of turns opened so far: the Days session number.
+    opened: u64,
+    note: Option<String>,
+}
+impl Sessions {
+    /// Open the thread for whoever is at the lamp now ([`Thread::opening`]):
+    /// whether that is someone other than the last turn's, and whom.
+    ///
+    /// [`Thread::opening`]: crate::thread::Thread::opening
+    fn open(&mut self, who: Option<&Path>, now: Instant) -> (bool, Option<String>) {
+        let known = who
+            .and_then(crate::known_faces::known_now)
+            .map(|name| crate::remember::person_id(&name));
+        let whose = who.and(self.presence.seen(known, now).map(str::to_owned));
+        let Ok(mut thread) = crate::thread::THREAD.lock() else {
+            return (false, None);
+        };
+        if who.is_some() {
+            thread.at_lamp(whose);
+        }
+        let changed = thread.opening(now);
+        (changed, thread.opened_for().map(str::to_owned))
+    }
+
+    /// The Days note for this run of turns, asked anew when the person changed.
+    fn frozen(&mut self, changed: bool, ask: impl FnOnce(u64) -> String) -> String {
+        if changed || self.note.is_none() {
+            self.opened += 1;
+            self.note = Some(ask(self.opened));
+        }
+        self.note.clone().unwrap_or_default()
+    }
 }
 
 /// The system message for a turn begun now, as a Live session opened now

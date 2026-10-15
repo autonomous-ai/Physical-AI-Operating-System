@@ -153,6 +153,10 @@ order is kept. A written turn is the same from the chat on.
   Live session keeps its own, and "and how many people live there?" needs
   the one before (on lamp-52e6, without it, "there" became the lamp's own
   city).
+- **Each turn is one person's**, as a Live session is since #775: before
+  the chat, the thread is opened for whoever the eyes know at the lamp
+  (`Sessions::open`), and that person's kept things are asked for. With
+  Days memory, the note is asked once per run of turns for one person.
 - **Each turn is logged** as "lamp-voice second: request N ...": the words
   heard and how long after the line, each chat round's first event, the
   tools called, the first answer audio, and any failure.

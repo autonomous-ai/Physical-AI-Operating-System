@@ -36,7 +36,7 @@ log and nothing a lamp runs ([joining.md](joining.md),
 | 59 | A turn with a function call speaks 1.8 to 2.9 s after the person stops (issue #799) | `second/tool-turn-speed` | 2026-10-15 | pull request #810: `provider-check --tool-turns`, `turn-times`, call times in the first-output record, and the lead-in behind `LAMP_TOOL_LEAD_IN=on`; measured by the first builder with `turn-times` (plain 1.38 s, with a call 2.25 s, the second generation about 1 s); the reviewer's four findings fixed (`6cc4f2c09`); its fifth (audio between the call and our answer taken for the answer's delay) fixed at 19:05 (`1d06e35a0`) |
 | 60 | A short room sound heard as "¿Qué?" gets an answer (issue #800) | `second/short-sound` | 2026-10-15 | pull request #818: `short-turns` counts them from the records (kinds, no words), and `LAMP_SHORT_SOUNDS=quiet-room-checked` holds a let-through sound's answer unless it was a short word, said close, or someone faced the lamp; the count on today's lamp records asked for on #800; ARM64 green (4,436 passed), marked ready 18:4x, then rebased onto `e12a6cc83` (`1347823c3`, `lamp-voice` 1,244 passed) |
 | second-P1 | (kept mergeable) the note after an early end, #738 | `second/early-end-labelled` | 2026-10-14 | rebased onto `e12a6cc83` (`f84889c91`) beside #782's `continues`, each field behind its own switch; `lamp-voice` 1,241 passed, 1 timed motor test failed under load and passed alone 3 of 3; waits for the first builder's lamp judgment |
-| 45 | (for #811) the install's two blockers in `lamp-update`, on nine's #815 | `second/install-gates` | 2026-10-15 | `e13001625`, two commits on #815's `73a1fffa8` for nine to fast-forward: every part in `lampos.target` carries setup's marker condition itself (a target's condition holds back nothing it pulls in), and install writes a setting only where it is missing or still the default it wrote; `lamp-update` 63 passed on the M2 Max, nothing run against systemd |
+| 45 | (for #811) the install's two blockers in `lamp-update`, on nine's #815 | `second/install-gates` | 2026-10-15 | `e13001625`, two commits on #815's `73a1fffa8` for nine to fast-forward: every part in `lampos.target` carries setup's marker condition itself (a target's condition holds back nothing it pulls in), and install writes a setting only where it is missing or still the default it wrote; `lamp-update` 63 passed on the M2 Max; on a throwaway Ubuntu VM (systemd 255) with no marker, #815's units started all 14 parts at boot and the fixed ones none |
 | 43 | The person's phone over Bluetooth (issue #735, `second-P4`) | none | 2026-10-15 | cancelled by the owner the same night before any work was kept; released on #735 |
 
 ## Proposed tasks
@@ -96,8 +96,16 @@ reboot; `systemctl list-units 'lamp-*' --state=active` shows only
 `lamp-update`, and `systemctl status lamp-ears` says "start condition
 unmet". Then the marker and `systemctl start lampos.target`: every part.
 
-**Where it is most likely wrong on the lamp:** systemd itself, which no
-test here runs.
+**Against real systemd** (a throwaway Ubuntu 24.04 VM on the M2 Max,
+Colima, systemd 255; the lamp's bookworm has 252): #815's units with no
+marker started all 14 parts, by `systemctl start lampos.target` and by a
+real boot, while the target itself was skipped; the fixed units started
+none of them (only `lamp-update`, outside the target), and with the marker
+all 14. The table is on #815.
+
+**Where it is most likely wrong on the lamp:** systemd 252 behaving
+otherwise than 255 here (not expected: condition checks have worked so
+since long before both).
 
 ### Task 52: task news, polish (2026-10-15, issue #757)
 

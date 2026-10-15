@@ -81,7 +81,9 @@ fn run() -> Result<()> {
             use lamp_voice::tool_turns::{SCRIPT,Timeline,stand_in,summary};
             let rounds:usize=rounds.parse().ok().filter(|rounds|(1..=20).contains(rounds)).ok_or("ROUNDS is a number from 1 to 20")?;
             let thinking:Option<u32>=match rest { [flag,tokens] if flag=="--thinking"=>Some(tokens.parse().map_err(|_|"--thinking takes a number of tokens")?), []=>None, _=>return Err("provider-check CONFIG --tool-turns ROUNDS [--thinking TOKENS]".into()) };
-            let place=lamp_voice::agent_tasks::Place{directory:"/nonexistent".into(),target:lamp_voice::agent_tasks::DEFAULT_TARGET.into(),who:false};
+            // LAMP_TOOL_LEAD_IN=on: the functions and their answers as with the lead-in (#799).
+            let lead_in=std::env::var(lamp_voice::agent_tasks::LEAD_IN_ENVIRONMENT).as_deref()==Ok("on");
+            let place=lamp_voice::agent_tasks::Place{directory:"/nonexistent".into(),target:lamp_voice::agent_tasks::DEFAULT_TARGET.into(),who:false,lead_in};
             let colour=lamp_gemini::Tool{name:"light_colour".into(),description:"Set the colour of your own light when you are asked to.".into(),parameters:Some(serde_json::json!({"type":"object","properties":{"colour":{"type":"string","enum":["white","warm","red","green","blue","purple"]}},"required":["colour"]})),silent:false};
             let tools:Vec<lamp_gemini::Tool>=lamp_voice::tools::declared(&lamp_voice::tools::Settings{decline:true,exec:None,memory:None,clock:false,..Default::default()}).into_iter().chain([colour]).chain(lamp_voice::agent_tasks::tools(&place)).collect();
             let mut results=Vec::new();
@@ -105,7 +107,7 @@ fn run() -> Result<()> {
                                 match tokio::time::timeout_at(deadline,connection.next_event()).await {
                                     Ok(Some(Event::ToolCall{call,..})) => {
                                         if timed { timeline.call(&call.name,since()); }
-                                        let answer=stand_in(&call.name,&call.args);
+                                        let answer=stand_in(&call.name,&call.args,lead_in);
                                         if input.try_tool_response(&call.id,&call.name,&answer).is_ok() && timed { timeline.answered(since()); }
                                     }
                                     Ok(Some(Event::Audio{pcm,..})) => if timed { timeline.audio(pcm.len(),since()); },
@@ -128,6 +130,7 @@ fn run() -> Result<()> {
             })?;
             let mut summary=summary(&results);
             summary["thinking_budget"]=serde_json::json!(thinking.map_or("as in CONFIG".to_owned(),|tokens|tokens.to_string()));
+            summary["lead_in"]=serde_json::json!(lead_in);
             println!("{summary}");
         },
         // A written request to a session that was told of two functions:

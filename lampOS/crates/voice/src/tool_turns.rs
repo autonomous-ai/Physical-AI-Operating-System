@@ -71,21 +71,22 @@ pub const SCRIPT: &[Scripted] = &[
 ];
 
 /// The answer the voice would give to `name`, made up, of the same shape
-/// as the real one, so that what the model says after it costs what it
-/// would on the lamp.
-pub fn stand_in(name: &str, args: &Value) -> Value {
+/// as the real one and with the same `next` (with the lead-in or without,
+/// [`crate::agent_tasks::LEAD_IN_FLAG`]), so that what the model says after
+/// it costs what it would on the lamp.
+pub fn stand_in(name: &str, args: &Value, lead_in: bool) -> Value {
     match name {
         crate::tools::NOT_FOR_ME => crate::tools::declined(),
         crate::agent_tasks::START => json!({
             "prepared": true,
             "task": args.get("task").cloned().unwrap_or(Value::Null),
             "where": "Claude Code on the office computer",
-            "next": "Say the task back in one short sentence and ask whether to start it. Start it only if the person says yes."
+            "next": crate::agent_tasks::prepared_next(lead_in, false, "Claude Code")
         }),
         crate::agent_tasks::CONFIRM => json!({
             "handing_over": true,
             "who": "Claude Code",
-            "next": "Tell them in a few natural words that you are handing it to Claude Code now and will let them know when it is done, the way a chief of staff would (\"Sure, I'm giving that to Claude Code. I'll tell you when it's done.\"). It has not been taken up yet: do not say it has."
+            "next": crate::agent_tasks::handing_over_next(lead_in, "Claude Code")
         }),
         crate::agent_tasks::CHECK => json!({
             "who": "Claude Code",
@@ -319,7 +320,11 @@ mod tests {
 
     #[test]
     fn every_stand_in_answer_has_the_shape_of_the_real_one_and_reaches_nothing() {
-        let start = stand_in(crate::agent_tasks::START, &json!({"task":"Write a poem"}));
+        let start = stand_in(
+            crate::agent_tasks::START,
+            &json!({"task":"Write a poem"}),
+            false,
+        );
         assert_eq!(
             (start["prepared"].clone(), start["task"].clone()),
             (json!(true), json!("Write a poem"))
@@ -331,23 +336,38 @@ mod tests {
                 .starts_with("Say the task back")
         );
         assert_eq!(
-            stand_in(crate::agent_tasks::CONFIRM, &json!({}))["handing_over"],
+            stand_in(crate::agent_tasks::CONFIRM, &json!({}), false)["handing_over"],
             true
         );
         assert_eq!(
-            stand_in(crate::agent_tasks::CHECK, &json!({}))["state"],
+            stand_in(crate::agent_tasks::CHECK, &json!({}), false)["state"],
             "working"
         );
         assert_eq!(
-            stand_in(crate::tools::NOT_FOR_ME, &json!({})),
+            stand_in(crate::tools::NOT_FOR_ME, &json!({}), false),
             crate::tools::declined()
         );
-        assert_eq!(stand_in("light_colour", &json!({})), json!({"done": true}));
+        assert_eq!(
+            stand_in("light_colour", &json!({}), false),
+            json!({"done": true})
+        );
+        // With the lead-in, the `next` the voice itself gives.
+        assert_eq!(
+            stand_in(crate::agent_tasks::CONFIRM, &json!({}), true)["next"],
+            crate::agent_tasks::handing_over_next(true, "Claude Code")
+        );
+        assert!(
+            stand_in(crate::agent_tasks::START, &json!({}), true)["next"]
+                .as_str()
+                .unwrap()
+                .starts_with("If you already said the task back")
+        );
         // Every function the script expects is one the voice declares.
         let place = crate::agent_tasks::Place {
             directory: "/nonexistent".into(),
             target: crate::agent_tasks::DEFAULT_TARGET.into(),
             who: false,
+            lead_in: false,
         };
         let declared: Vec<String> = crate::agent_tasks::tools(&place)
             .into_iter()

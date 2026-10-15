@@ -207,8 +207,14 @@ when the voice service asks, `{"look_full":ID}` on `--permit-socket` (an id from
    still of an earlier ask that is written late, after a newer ask was
    sent, is never taken for the newer one.
 4. It is written to `--full-look-file` (mode 0600, replaced whole as the
-   sight file is), and removed 3 s later,
-   or when the camera closes. One line in the journal: its size, its bytes,
+   sight file is), and removed 15 s later, or when the camera closes. 15 s
+   is how long the voice service waits for a look to begin
+   (`sight::LOOK_BEGINS_WITHIN`): the look goes once the lamp has finished
+   saying it will look, and the still is made while it is saying so. The
+   first build removed it after 3 s, and on lamp-4ace at 03:57 on
+   2026-10-16 the first full-size still was made 2 s after the ask and the
+   look went without it, its answer 8.52 s after the end of speech against
+   4.63 s for the next look, which got its still (#842). One line in the journal: its size, its bytes,
    how long the head was waited for and how long it took to make. No
    picture is logged.
 
@@ -268,7 +274,7 @@ and lamp-52e6 and write the numbers here; if the full size is too slow,
 On the voice service's side, `LAMP_LOOK_FULL=on` ([speaking-first.md](speaking-first.md),
 "Taking a look"). The two are turned on together: eyes with `--full-look`
 and a voice service without it look with the working frame, as before. Privacy is as before: the still goes with the one look it
-was taken for, is on the lamp for at most 3 s, in memory, and is never kept
+was taken for, is on the lamp for at most 15 s, in memory, and is never kept
 or logged.
 
 ## Which face

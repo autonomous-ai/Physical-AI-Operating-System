@@ -2973,7 +2973,14 @@ impl InputHandoff {
                         } else {
                             std::time::Duration::from_secs(1)
                         };
-                        crate::sight::fresh_within(path, std::time::SystemTime::now(), within).ok()
+                        crate::sight::fresh_within(path, std::time::SystemTime::now(), within)
+                            .inspect_err(|why| {
+                                eprintln!(
+                                    "lamp-voice provider: the lamp looked: no picture with request {}: {why}",
+                                    request.get()
+                                )
+                            })
+                            .ok()
                     })
                     .map(|(jpeg, _)| jpeg);
                 let text = if look && picture.is_none() {

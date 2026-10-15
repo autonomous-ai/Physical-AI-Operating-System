@@ -201,6 +201,29 @@ impl ProviderConfig {
             ..RecoveryPolicy::default()
         }
     }
+    /// The character the model is given: the private instruction file's
+    /// text, or the built-in one (with or without a camera). The same for
+    /// every voice route.
+    pub fn instruction(&self, camera: bool) -> io::Result<String> {
+        let Some(path) = &self.instruction_file else {
+            return Ok(if camera {
+                CAMERA_CHAT_INSTRUCTION
+            } else {
+                CHAT_INSTRUCTION
+            }
+            .to_owned());
+        };
+        let bytes = read_private(Path::new(path), 16_384)?;
+        let text = String::from_utf8(bytes)
+            .map_err(|_| io::Error::new(io::ErrorKind::InvalidData, "instruction must be UTF-8"))?;
+        if text.trim().is_empty() {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidData,
+                "instruction file is empty",
+            ));
+        }
+        Ok(text.trim().to_owned())
+    }
     pub fn into_session(self) -> Result<SessionConfig, Box<dyn std::error::Error + Send + Sync>> {
         self.into_session_with_camera(false)
     }
@@ -214,32 +237,11 @@ impl ProviderConfig {
             Authentication::Bearer => Credential::bearer(&value)?,
             Authentication::Ephemeral => Credential::ephemeral(&value)?,
         };
-        let written = match &self.instruction_file {
-            Some(path) => {
-                let bytes = read_private(Path::new(path), 16_384)?;
-                let text = String::from_utf8(bytes).map_err(|_| {
-                    io::Error::new(io::ErrorKind::InvalidData, "instruction must be UTF-8")
-                })?;
-                if text.trim().is_empty() {
-                    return Err(io::Error::new(
-                        io::ErrorKind::InvalidData,
-                        "instruction file is empty",
-                    )
-                    .into());
-                }
-                Some(text)
-            }
-            None => None,
-        };
-        let instruction = match (&written, camera) {
-            (Some(text), _) => text.trim(),
-            (None, true) => CAMERA_CHAT_INSTRUCTION,
-            (None, false) => CHAT_INSTRUCTION,
-        };
+        let instruction = self.instruction(camera)?;
         let mut session = SessionConfig::new(&self.endpoint, credential)?
             .model(&self.model)?
             .voice(&self.voice)?
-            .instruction(instruction)?
+            .instruction(&instruction)?
             .resumption(self.resumption.into());
         if self.response_timeout_ms.is_some() || self.no_reply_after_ms.is_some() {
             let standard = Timeouts::default();

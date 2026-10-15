@@ -1,7 +1,13 @@
 //! The second route as a provider worker, on the ordinary provider IPC:
 //! the fixture's startup readiness, authority guard and credited output
 //! (`crate::fixture_provider`), around [`Engine`] instead of a recording.
-use super::{Engine, output_request};
+//!
+//! [`serve`] is the process (`lamp-voice worker second`): the character of
+//! the Live route's configuration, told the same time, memory note and
+//! conversation thread as a Live session is, with the same tools, and each
+//! turn kept in that thread and the memory's journal as the Live route
+//! keeps its own.
+use super::{ANNOUNCEMENT, Engine, Net, ToolRunner, output_request};
 use crate::{
     provider_flow::OutputSender,
     provider_link::{LinkContext, ProviderLink, ProviderLinkState},
@@ -11,7 +17,12 @@ use crate::{
 };
 use lamp_ipc::monotonic_us;
 use lamp_turn_owner::{BootId, BoundaryGuard, MonoTime, Snapshot};
-use std::{io, time::Duration};
+use std::{
+    io,
+    path::{Path, PathBuf},
+    sync::Arc,
+    time::{Duration, Instant, SystemTime},
+};
 
 /// The coordinator renews authority at least this often.
 const CONTROL_LEASE_US: u64 = 250_000;
@@ -174,12 +185,164 @@ impl Gate {
     }
 }
 
+/// The `worker second` flags: the Live provider worker's, as
+/// `coordinator::provider_arguments` passes them, parsed by the same code,
+/// but for `--keep-link`: this route has no link to keep.
+pub fn parse_flags(dir: &Path, flags: &[String]) -> io::Result<crate::provider_worker::Parsed> {
+    let parsed = crate::provider_worker::parse_flags(dir, flags)?;
+    if parsed.2.keep_link {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            "the second voice route has no link to keep",
+        ));
+    }
+    Ok(parsed)
+}
+
+/// The second route's worker process until Stop. `files` are the Live
+/// provider worker's flags; this route uses the thread's file and the
+/// tools (the memory among them), and has no use yet for the rest.
+pub fn serve(
+    channels: WorkerChannels,
+    boot: BootId,
+    provider_config: &Path,
+    second_config: &Path,
+    files: crate::provider_worker::Files,
+) -> io::Result<()> {
+    let character = crate::config::ProviderConfig::load(provider_config)?.instruction(false)?;
+    let config = crate::second_config::load_from_path(second_config)?;
+    let tools = files.tools;
+    if let Some(socket) = &tools.memory {
+        // As the Live route starts it: each known person's memory apart.
+        crate::remember::start(
+            socket.clone(),
+            tools.who.as_deref().map(crate::known_faces::known_file_of),
+        );
+    }
+    // A Days note is frozen for a session; this process is one. The older
+    // note is the memory writer's, read fresh for each turn.
+    let frozen = tools
+        .memory
+        .as_deref()
+        .filter(|_| crate::remember::days_from_environment())
+        .map(|socket| crate::remember::told_for_session(socket, 1, None));
+    let net = Net::new(config, &crate::tools::declared(&tools)).map_err(io::Error::other)?;
+    let thread = files.thread;
+    let file = thread.clone();
+    let clock = tools.clock;
+    let system = move || {
+        let memory = frozen.clone().unwrap_or_else(crate::remember::told);
+        system_message(
+            &character,
+            crate::local_time::told_here(clock).as_deref(),
+            &memory,
+            file.as_deref(),
+        )
+    };
+    let runner: ToolRunner = Arc::new(move |request, name, args| {
+        let settings = tools.clone();
+        Box::pin(async move {
+            let call = lamp_gemini::ToolCall {
+                id: String::new(),
+                name,
+                args,
+            };
+            // A request this route answers was heard: it defers the
+            // lamp's own (reminders), the only ones not heard.
+            tokio::task::spawn_blocking(move || {
+                crate::tools::answer(&settings, &call, request, true)
+            })
+            .await
+            .unwrap_or_else(|_| crate::tools::unavailable())
+        })
+    });
+    let engine = Engine::new(Arc::new(net), system, runner);
+    tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()?
+        .block_on(run(channels, boot, engine, thread))
+}
+
+/// The system message for a turn begun now, as a Live session opened now
+/// is told its instruction (`crate::thread::Recalling`): the character,
+/// the time and place, the memory note, and the thread in the room the
+/// rest leave it, taken first from `file` if the Live route wrote it since.
+pub(crate) fn system_message(
+    character: &str,
+    time: Option<&str>,
+    memory: &str,
+    file: Option<&Path>,
+) -> String {
+    let told = format!("{character}{}{memory}", time.unwrap_or_default());
+    let room = lamp_gemini::MAX_INSTRUCTION_BYTES.saturating_sub(told.len());
+    let thread = crate::thread::current(file, |thread| thread.recall(Instant::now(), room))
+        .flatten()
+        .unwrap_or_default();
+    told + &thread
+}
+
+/// Keep what a turn's output says in the thread, as the Live route keeps
+/// its transcripts: the person's words, the lamp's (not the announcement),
+/// and at the turn's end the exchange to the memory's journal and the
+/// thread to its file.
+pub(crate) fn keep(event: &ProviderOutput, file: Option<&Path>) {
+    let now = Instant::now();
+    match event {
+        ProviderOutput::Transcript {
+            request: None,
+            text,
+            finished,
+        } => {
+            if let Ok(mut thread) = crate::thread::THREAD.lock() {
+                thread.person(text, *finished, now);
+            }
+        }
+        ProviderOutput::Transcript {
+            request: Some(request),
+            text,
+            ..
+        } if text != ANNOUNCEMENT => {
+            // Sentences come trimmed; the thread joins its pieces as given.
+            if let Ok(mut thread) = crate::thread::THREAD.lock() {
+                thread.lamp(*request, &format!("{text} "), now);
+            }
+        }
+        ProviderOutput::TurnComplete { request, .. } => {
+            crate::remember::finished(*request);
+            save(file);
+        }
+        ProviderOutput::TurnFailed { .. } => save(file),
+        _ => {}
+    }
+}
+
+/// The thread to its file if it changed; one not written loses the thread
+/// at the next restart and nothing else.
+fn save(file: Option<&Path>) {
+    let Some(path) = file else { return };
+    let text = crate::thread::THREAD
+        .lock()
+        .ok()
+        .and_then(|mut thread| thread.save(Instant::now(), SystemTime::now()));
+    if let Some(text) = text
+        && crate::thread::write_file(path, &text).is_ok()
+        && let Ok(mut thread) = crate::thread::THREAD.lock()
+    {
+        thread.wrote(path);
+    }
+}
+
 /// Run the engine as a provider worker until Stop. Readiness is the
 /// fixture's: `Ready`, then one `ProviderLink` Ready on the control plane.
 /// ponytail: the services are not probed first; the link says Ready and a
 /// service that cannot be reached fails that turn. A probe at startup if a
 /// dead key should show as an unavailable link.
-pub async fn run(mut channels: WorkerChannels, boot: BootId, mut engine: Engine) -> io::Result<()> {
+pub async fn run(
+    mut channels: WorkerChannels,
+    boot: BootId,
+    mut engine: Engine,
+    thread: Option<PathBuf>,
+) -> io::Result<()> {
     let started_us = monotonic_us();
     channels.control.send(WorkerEvent::Ready)?;
     let ready = ProviderLink {
@@ -240,6 +403,9 @@ pub async fn run(mut channels: WorkerChannels, boot: BootId, mut engine: Engine)
         }
         if pending.is_none() {
             pending = engine.try_output();
+            if let Some(event) = &pending {
+                keep(event, thread.as_deref());
+            }
         }
         if let Some(event) = pending.take() {
             gate.may_send(monotonic_us(), &event)?;
@@ -294,7 +460,7 @@ mod tests {
         let mut engine = Engine::new(
             Arc::new(Silent),
             String::new,
-            Arc::new(|_, _| Box::pin(async { serde_json::Value::Null })),
+            Arc::new(|_, _, _| Box::pin(async { serde_json::Value::Null })),
         );
         let mut gate = Gate::new(boot, now_us);
         let first = owner.admit(at, AdmittedInput::NewTurn).unwrap();
@@ -322,5 +488,159 @@ mod tests {
             request: first.turn(),
         };
         assert!(gate.may_send(now_us, &late).is_err());
+    }
+
+    fn strings(flags: &[&str]) -> Vec<String> {
+        flags.iter().map(|flag| (*flag).to_owned()).collect()
+    }
+
+    #[test]
+    fn the_second_worker_takes_the_live_workers_flags_but_keep_link() {
+        let dir = Path::new("/run/lamp-voice");
+        let flags = strings(&[
+            "--provider-continuation",
+            "kept-start",
+            "--thread-file",
+            "/run/lamp-voice/thread.json",
+            "--session-fact",
+            "--room-facts",
+            "--air-facts",
+            "--tools",
+            "--actions-dir",
+            "/run/lamp-exec",
+            "--memory-socket",
+            "/run/lamp-memory/memory.sock",
+            "--clock",
+            "--attention",
+            "--attention-busy",
+            "--name-signal",
+            "--name-note",
+            "--bus-root",
+            "/run/lampos-bus",
+        ]);
+        let (_, _, files, visual) = parse_flags(dir, &flags).unwrap();
+        assert_eq!(
+            files.thread.as_deref(),
+            Some(Path::new("/run/lamp-voice/thread.json"))
+        );
+        assert!(files.tools.decline && files.tools.clock && files.attention);
+        assert_eq!(
+            files.tools.memory.as_deref(),
+            Some(Path::new("/run/lamp-memory/memory.sock"))
+        );
+        assert!(visual.is_none());
+        assert!(parse_flags(dir, &[]).is_ok());
+        for refused in [
+            strings(&["--keep-link"]),
+            strings(&["--tools", "--unknown"]),
+            strings(&["--clock", "--tools"]),
+        ] {
+            assert!(parse_flags(dir, &refused).is_err(), "{refused:?}");
+        }
+    }
+
+    /// A finished turn goes to the thread, its file and the journal, and
+    /// the next turn's system message carries the character, the memory's
+    /// note and that thread. In a child process: the thread and the
+    /// memory are this process's globals.
+    #[test]
+    fn a_turn_is_kept_and_told_to_the_next() {
+        use std::io::{BufRead, BufReader, Write};
+        const CHILD: &str = "LAMP_SECOND_KEEP_TEST_CHILD";
+        if std::env::var(CHILD).ok().as_deref() != Some("1") {
+            let output = std::process::Command::new(std::env::current_exe().unwrap())
+                .args([
+                    "--exact",
+                    "second_provider::worker::tests::a_turn_is_kept_and_told_to_the_next",
+                    "--nocapture",
+                ])
+                .env(CHILD, "1")
+                .env_remove(crate::remember::DAYS_ENVIRONMENT)
+                .output()
+                .unwrap();
+            let stdout = String::from_utf8_lossy(&output.stdout);
+            assert!(
+                output.status.success() && stdout.contains("1 passed"),
+                "{stdout}\n{}",
+                String::from_utf8_lossy(&output.stderr)
+            );
+            return;
+        }
+        let dir = std::env::temp_dir().join(format!("lv-second-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir(&dir).unwrap();
+        let socket = dir.join("memory.sock");
+        let file = dir.join("thread.json");
+        let listener = std::os::unix::net::UnixListener::bind(&socket).unwrap();
+        // The memory: the kept list, then the journal's first append.
+        let memory = std::thread::spawn(move || {
+            for stream in listener.incoming() {
+                let mut stream = stream.unwrap();
+                let mut line = String::new();
+                BufReader::new(&stream).read_line(&mut line).unwrap();
+                let request: serde_json::Value = serde_json::from_str(&line).unwrap();
+                let answer = match request["op"].as_str() {
+                    Some("kept") => {
+                        serde_json::json!({"ok":true,"entries":[{"text":"coffee black"}]})
+                    }
+                    _ => serde_json::json!({"ok":true}),
+                };
+                writeln!(stream, "{answer}").unwrap();
+                if request["op"] == "append" {
+                    return request;
+                }
+            }
+            unreachable!()
+        });
+        crate::remember::start(socket.clone(), None);
+        let request = 7;
+        for event in [
+            ProviderOutput::Transcript {
+                request: None,
+                text: "What should I drink?".into(),
+                finished: true,
+            },
+            ProviderOutput::Transcript {
+                request: Some(request),
+                text: super::ANNOUNCEMENT.into(),
+                finished: false,
+            },
+            ProviderOutput::Transcript {
+                request: Some(request),
+                text: "Try some tea.".into(),
+                finished: false,
+            },
+            ProviderOutput::Transcript {
+                request: Some(request),
+                text: "It is calm.".into(),
+                finished: false,
+            },
+            ProviderOutput::TurnComplete {
+                request,
+                idle: true,
+            },
+        ] {
+            keep(&event, Some(&file));
+        }
+        let written = std::fs::read_to_string(&file).unwrap();
+        assert!(
+            written.contains("What should I drink?")
+                && written.contains("Try some tea. It is calm.")
+        );
+        assert!(!written.contains(super::ANNOUNCEMENT));
+        let journalled = memory.join().unwrap();
+        assert_eq!(journalled["heard"], "What should I drink?");
+        assert_eq!(journalled["said"], "Try some tea. It is calm.");
+
+        let told = system_message(
+            "You are a lamp.",
+            Some(" It is noon."),
+            &crate::remember::told(),
+            Some(&file),
+        );
+        assert!(told.starts_with("You are a lamp. It is noon.\n\nYour memory\n"));
+        assert!(told.contains("- coffee black\n"));
+        assert!(told.contains("Person: What should I drink?\nYou: Try some tea. It is calm.\n"));
+        std::fs::remove_dir_all(&dir).unwrap();
     }
 }

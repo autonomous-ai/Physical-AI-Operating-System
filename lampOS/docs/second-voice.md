@@ -156,7 +156,7 @@ order is kept. A written turn is the same from the chat on.
 
 - **The chat starts without `CloseStream`'s round trip when it can.** It
   never starts before the coordinator's end of the line: speech to text's
-  own end of an utterance comes after 1.5 s of silence and would answer a
+  own end of an utterance comes after 300 ms of silence and would answer a
   person still thinking. But when that end, or final segments covering all
   the audio, came before the line ended, the words held are the
   transcript, and the chat starts as soon as the end of the line does.

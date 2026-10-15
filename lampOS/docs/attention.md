@@ -803,11 +803,13 @@ answer out, and so does "the lamp said it would rain". On lamp-4ace it was
 played twice (14 and 15 October). Both times the model declined it of its
 own accord, so the rule did not decide what happened.
 
-With the switch, the name counts only when it is said to the lamp: first,
-after a greeting, or set off by commas ("Hey Lamp, ...", "Lamp, ...",
-"..., Lamp?"). It does not count after "the", "a", "my", "that" and
-similar words (`called_by_name`). What the service writes in the name's
-place is read as before.
+With the switch, the name counts only when it is said to the lamp: opening
+a sentence, after any greeting ("Lamp, ...", "Hey Lamp, ...", "Okay.
+Lamp, ..."), or right after a comma ("Can you explain that, Lamp?",
+"Can you, lamp, ..."). After any other word it is a lamp spoken of: "I
+left the lamp on", "a new lamp", "her desk lamp" (`called_by_name`; the
+reviewer's cases on #864 are its tests). What the service writes in the
+name's place is read as before.
 
 In the played scenes of 14 and 15 October, the service's text held "lamp"
 14 times. Three spoke of a lamp, and two of those were inside a request

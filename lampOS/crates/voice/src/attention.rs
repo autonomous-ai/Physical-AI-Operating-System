@@ -257,27 +257,66 @@ pub fn called(heard: &str) -> bool {
     called_by_stand_in(&all)
 }
 
-/// Words after which "lamp" is a lamp spoken of, not spoken to: "the lamp
-/// said", "my lamp", "a lamp that learns to dance".
-const SPOKEN_OF: &[&str] = &[
-    "the", "a", "an", "this", "that", "these", "those", "my", "your", "our", "his", "her", "their",
-    "its", "every", "any", "no", "some",
-];
+/// Greetings that may come before the name of a call ("Hey Lamp,").
+const GREETINGS: &[&str] = &["hey", "hi", "ok", "okay", "oh", "hello"];
 
-/// [`called`], with the name counted only when it is said to the lamp
-/// (`LAMP_NAME_IN_PASSING=ignored`, #829): "Hey Lamp, ...", "Lamp, ...",
-/// "..., Lamp?" are calls; "the lamp said", "I left the lamp on" are not.
-/// What the service writes in the name's place is read as [`called`]
-/// reads it: first, or after a greeting.
+/// [`called`], with the name counted only where it is said to the lamp
+/// (`LAMP_NAME_IN_PASSING=ignored`, #829): opening a sentence, after any
+/// greeting ("Lamp, ...", "Hey Lamp, ...", "Okay. Lamp, ..."), or right
+/// after a comma ("..., Lamp?", "Can you, lamp, ..."). "I left the lamp
+/// on", "a new lamp", "her desk lamp" are not calls. What the service
+/// writes in the name's place is read as [`called`] reads it: first, or
+/// after a greeting.
 pub fn called_by_name(heard: &str) -> bool {
-    let words: Vec<&str> = heard
-        .split(|c: char| !c.is_alphanumeric())
-        .filter(|word| !word.is_empty())
-        .collect();
+    // Words, and the punctuation between them that marks a sentence's start
+    // or a comma.
+    #[derive(Clone, Copy, PartialEq)]
+    enum Token<'a> {
+        Word(&'a str),
+        Comma,
+        Stop,
+    }
+    let mut tokens = Vec::new();
+    let mut word_start = None;
+    for (at, c) in heard.char_indices() {
+        if c.is_alphanumeric() {
+            word_start.get_or_insert(at);
+            continue;
+        }
+        if let Some(start) = word_start.take() {
+            tokens.push(Token::Word(&heard[start..at]));
+        }
+        match c {
+            ',' | ';' | ':' => tokens.push(Token::Comma),
+            '.' | '?' | '!' => tokens.push(Token::Stop),
+            _ => {}
+        }
+    }
+    if let Some(start) = word_start {
+        tokens.push(Token::Word(&heard[start..]));
+    }
     let is = |word: &str, list: &[&str]| list.iter().any(|known| word.eq_ignore_ascii_case(known));
-    let said_to = words.iter().enumerate().any(|(at, word)| {
-        is(word, &["lamp", "lamb"]) && (at == 0 || !is(words[at - 1], SPOKEN_OF))
+    let said_to = tokens.iter().enumerate().any(|(at, token)| {
+        let Token::Word(word) = token else {
+            return false;
+        };
+        if !is(word, &["lamp", "lamb"]) {
+            return false;
+        }
+        // What came before it, greetings passed over.
+        let before = tokens[..at]
+            .iter()
+            .rev()
+            .find(|token| !matches!(token, Token::Word(word) if is(word, GREETINGS)));
+        matches!(before, None | Some(Token::Comma) | Some(Token::Stop))
     });
+    let words: Vec<&str> = tokens
+        .iter()
+        .filter_map(|token| match token {
+            Token::Word(word) => Some(*word),
+            _ => None,
+        })
+        .collect();
     said_to || called_by_stand_in(&words)
 }
 
@@ -287,7 +326,7 @@ fn called_by_stand_in(words: &[&str]) -> bool {
     let is = |word: &str, list: &[&str]| list.iter().any(|known| word.eq_ignore_ascii_case(known));
     words
         .iter()
-        .find(|word| !is(word, &["hey", "hi", "ok", "okay", "oh", "hello"]))
+        .find(|word| !is(word, GREETINGS))
         .is_some_and(|word| {
             is(
                 word,
@@ -1154,6 +1193,11 @@ mod tests {
             "Weiland, tell me a joke.",
             "Can you, lamp, turn the light down?",
             "Hey Lamp, write a short story about a lamp who learns to sing.",
+            // At the end, set off by a comma: the reviewer's on #864.
+            "Can you explain that, Lamp?",
+            "What is this, Lamp?",
+            "Thanks, Lamp.",
+            "Okay. Lamp, what time is it?",
         ] {
             assert!(called_by_name(shows), "{shows}");
             assert!(called(shows), "{shows}");
@@ -1166,6 +1210,11 @@ mod tests {
             "My lamp is broken again.",
             "Ask the lamp what time it is.",
             "That lamp's light is too bright.",
+            // A lamp spoken of with words before it: the reviewer's on #864.
+            "I bought a new lamp yesterday.",
+            "The old lamp stopped working.",
+            "Did you see her desk lamp?",
+            "The lamp, the chair and the table are new.",
         ] {
             assert!(!called_by_name(spoken_of), "{spoken_of}");
             assert!(called(spoken_of), "{spoken_of}");
@@ -1191,18 +1240,34 @@ mod tests {
             attention.heard(text);
             attention.first_output_busy(1, Room::Busy, false, true, Some(false))
         };
-        let passing = "I left the lamp on in the kitchen.";
-        assert_eq!(
-            decide(passing, false),
-            Some(Verdict::Play("the text shows it was called"))
-        );
-        assert!(matches!(decide(passing, true), Some(Verdict::Hold(_))));
-        let call = "Hey Lamp, what time is it?";
-        for ignored in [false, true] {
+        for passing in [
+            "I left the lamp on in the kitchen.",
+            "I bought a new lamp yesterday.",
+            "The old lamp stopped working.",
+            "Did you see her desk lamp?",
+        ] {
             assert_eq!(
-                decide(call, ignored),
-                Some(Verdict::Play("the text shows it was called"))
+                decide(passing, false),
+                Some(Verdict::Play("the text shows it was called")),
+                "{passing}"
             );
+            assert!(
+                matches!(decide(passing, true), Some(Verdict::Hold(_))),
+                "{passing}"
+            );
+        }
+        for call in [
+            "Hey Lamp, what time is it?",
+            "Can you explain that, Lamp?",
+            "What is this, Lamp?",
+        ] {
+            for ignored in [false, true] {
+                assert_eq!(
+                    decide(call, ignored),
+                    Some(Verdict::Play("the text shows it was called")),
+                    "{call}"
+                );
+            }
         }
     }
 

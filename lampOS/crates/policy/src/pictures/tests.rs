@@ -72,9 +72,10 @@ fn a_frame_is_made_as_large_as_the_service_takes() {
 }
 
 /// With a picture the state is the same text with `picture` last, holding
-/// the key, and the questions are the seven and the picture's five.
+/// the key, and the questions are the seven and the picture's six, whether
+/// anyone is in it first.
 #[test]
-fn the_state_with_a_picture_names_it_last_and_five_questions_are_added() {
+fn the_state_with_a_picture_names_it_last_and_six_questions_are_added() {
     let context = Context {
         heard: "Hey Lamp, what time is it?".into(),
         room: Room::Quiet,
@@ -92,7 +93,8 @@ fn the_state_with_a_picture_names_it_last_and_five_questions_are_added() {
     let value: Value = serde_json::from_str(&pictured).unwrap();
     assert_eq!(value["picture"], KEY);
     let asked = attention::questions_with_picture();
-    assert_eq!(asked.len(), 12);
+    assert_eq!(asked.len(), 13);
+    assert_eq!(asked[7].0, "picture_person");
     assert_eq!(asked[..7], attention::questions()[..]);
     let names: Vec<&str> = asked[7..].iter().map(|(name, _)| name.as_str()).collect();
     assert_eq!(names, attention::picture_questions().collect::<Vec<_>>());

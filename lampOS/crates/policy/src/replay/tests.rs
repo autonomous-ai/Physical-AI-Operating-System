@@ -381,6 +381,57 @@ fn the_picture_lines_are_counted_against_labels_by_the_nearest_moment() {
     );
 }
 
+/// The first builder on #871: on an empty desk the questions that take a
+/// person for granted are answered near chance, so they are counted again
+/// only where the picture had a person in it; and whether the picture's
+/// person and the eyes' faces agree is counted line by line.
+#[test]
+fn the_signs_of_a_person_are_counted_again_only_where_the_picture_had_one() {
+    let line = |at: u64, person: f64, faces_lamp: f64, talking: f64, faces: u64| {
+        json!({"at_unix_ms": at, "about": "attention_picture",
+               "picture": {"sent": true, "delivery": "answered", "withdrawn": false},
+               "seen": {"faces": faces, "near": faces, "facing": faces, "age_ms": 40},
+               "without": {"choice": "answer", "took_ms": 500},
+               "with": {"choice": "answer", "took_ms": 600,
+                        "answers": {"picture_person": person, "picture_faces_lamp": faces_lamp,
+                                    "picture_talking_to_another": talking}}})
+    };
+    let lines = [
+        // Someone at the lamp, turned to it.
+        line(10_000, 0.9, 0.9, 0.2, 1),
+        // The empty desk: "two people talking", near chance.
+        line(20_000, 0.1, 0.3, 0.69, 0),
+        // Two people talking, the eyes seeing no face.
+        line(30_000, 0.8, 0.2, 0.7, 0),
+    ];
+    let labels = labels(
+        "{\"at_unix_ms\": 10000, \"should\": \"answer\"}\n{\"at_unix_ms\": 20000, \"should\": \"stay_quiet\"}\n{\"at_unix_ms\": 30000, \"should\": \"stay_quiet\"}",
+    )
+    .unwrap();
+    let summary = pictures_summary(&lines, &labels);
+    assert_eq!(
+        summary["signs"]["picture_talking_to_another"],
+        json!({"labelled": 3, "right": 3, "yes": 2})
+    );
+    assert_eq!(
+        summary["signs_given_a_person"]["picture_talking_to_another"],
+        json!({"labelled": 2, "right": 2, "yes": 1})
+    );
+    assert_eq!(
+        summary["signs_given_a_person"]["picture_faces_lamp"],
+        json!({"labelled": 2, "right": 2, "yes": 1})
+    );
+    assert!(
+        summary["signs_given_a_person"]
+            .get("picture_away")
+            .is_none()
+    );
+    assert_eq!(
+        summary["picture_person"],
+        json!({"lines": 3, "yes": 2, "eyes_saw_a_face": 1, "agree": 2})
+    );
+}
+
 /// The reviewer on #873: a picture that went counts as sent whatever came
 /// after, with how it was delivered and whether the asking was withdrawn
 /// after; and the two askings are counted right on the same lines, a line

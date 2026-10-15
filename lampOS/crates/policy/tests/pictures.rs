@@ -162,14 +162,14 @@ fn the_same_question_is_asked_without_the_picture_and_with_it_and_the_picture_is
         serde_json::from_str::<Value>(&attention::state_text(&job().context)).unwrap()
     );
     assert_eq!(plain["questions"].as_object().unwrap().len(), 7);
-    // With: the header, the picture under its key, and twelve questions.
+    // With: the header, the picture under its key, and thirteen questions.
     assert!(
         pictured_head
             .split("\r\n")
             .any(|line| line == IMAGES_HEADER)
     );
     assert_eq!(pictured["state"]["picture"], KEY);
-    assert_eq!(pictured["questions"].as_object().unwrap().len(), 12);
+    assert_eq!(pictured["questions"].as_object().unwrap().len(), 13);
     assert_eq!(pictured["assets"][KEY]["format"], "jpg");
     let base64 = pictured["assets"][KEY]["data_base64"].as_str().unwrap();
 
@@ -182,7 +182,7 @@ fn the_same_question_is_asked_without_the_picture_and_with_it_and_the_picture_is
     );
     assert_eq!(line["picture"]["eyes_bytes"], kept.len());
     assert_eq!(line["without"]["answers"].as_object().unwrap().len(), 7);
-    assert_eq!(line["with"]["answers"].as_object().unwrap().len(), 12);
+    assert_eq!(line["with"]["answers"].as_object().unwrap().len(), 13);
     assert_eq!(line["with"]["answers"]["picture_faces_lamp"], 0.8);
     assert!(line["with"]["choice"].is_string() && line["without"]["choice"].is_string());
     assert!(line["with"].get("failed").is_none(), "{}", line["with"]);

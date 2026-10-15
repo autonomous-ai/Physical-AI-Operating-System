@@ -13,6 +13,8 @@ Ready for lamp-voice: yes (#850, #852)
   shards, not serial suite wall time or a controlled aggregate speedup.
   All 13 final-dispatch cases passed, totaling 5.226 s. The paired local
   release comparison remains 29.938 s to 6.487 s.
+- Full native evidence and all raw nextest status rows are now in
+  [dispatch-arm64-full-20261015](verification/dispatch-arm64-full-20261015/README.md).
 - The full run's two leak warnings are endpoint-session loading and
   unconfirmed-endpoint-exit cases; root is checking existing reports and
   recording the original warnings separately. Green does not erase them.

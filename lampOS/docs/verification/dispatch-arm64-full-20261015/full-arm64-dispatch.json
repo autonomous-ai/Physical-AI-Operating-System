@@ -1,0 +1,146 @@
+{
+  "run": 38737583302,
+  "head": "a25450bd742cca4108920d1dff5bc5fc9e7a6c4e",
+  "conclusion": "success",
+  "event": "workflow_dispatch",
+  "full_profile": true,
+  "total_unique_passes": 4633,
+  "final_dispatch_passes": 13,
+  "final_dispatch_summed_test_seconds": 5.226,
+  "selected_identities_match": true,
+  "tests": [
+    {
+      "binary": "lamp-voice-eval::final_dispatch",
+      "name": "a_final_drain_that_exhausts_its_budget_requires_revalidation",
+      "seconds": 0.35
+    },
+    {
+      "binary": "lamp-voice-eval::final_dispatch",
+      "name": "a_healthy_session_still_dispatches_once",
+      "seconds": 0.248
+    },
+    {
+      "binary": "lamp-voice-eval::final_dispatch",
+      "name": "a_known_invalid_cue_withholds_dispatch_as_a_protocol_failure",
+      "seconds": 0.049
+    },
+    {
+      "binary": "lamp-voice-eval::final_dispatch",
+      "name": "a_known_run_end_cue_withholds_dispatch",
+      "seconds": 0.05
+    },
+    {
+      "binary": "lamp-voice-eval::final_dispatch",
+      "name": "a_known_session_end_withholds_dispatch",
+      "seconds": 0.051
+    },
+    {
+      "binary": "lamp-voice-eval::final_dispatch",
+      "name": "a_relay_framing_error_first_seen_in_the_final_drain_withholds",
+      "seconds": 0.851
+    },
+    {
+      "binary": "lamp-voice-eval::final_dispatch",
+      "name": "a_session_end_first_seen_in_the_final_drain_withholds_and_is_kept",
+      "seconds": 0.851
+    },
+    {
+      "binary": "lamp-voice-eval::final_dispatch",
+      "name": "a_transport_closed_during_the_final_drain_withholds",
+      "seconds": 0.83
+    },
+    {
+      "binary": "lamp-voice-eval::final_dispatch",
+      "name": "an_invalid_cue_first_seen_in_the_final_drain_withholds",
+      "seconds": 0.848
+    },
+    {
+      "binary": "lamp-voice-eval::final_dispatch",
+      "name": "an_unobserved_event_in_the_final_drain_requires_revalidation",
+      "seconds": 0.85
+    },
+    {
+      "binary": "lamp-voice-eval::final_dispatch",
+      "name": "audit_physical_boundary_does_not_dispatch_during_post_exit_trace_relay",
+      "seconds": 0.098
+    },
+    {
+      "binary": "lamp-voice-eval::final_dispatch",
+      "name": "audit_physical_boundary_rejects_a_target_already_over_100ms_late",
+      "seconds": 0.099
+    },
+    {
+      "binary": "lamp-voice-eval::final_dispatch",
+      "name": "the_first_terminal_cause_wins_and_a_provider_failure_stays_provider_unavailable",
+      "seconds": 0.051
+    }
+  ],
+  "summaries": [
+    "lampOS \u2014 build and test on Linux ARM64 (1/4)\tUNKNOWN STEP\t2026-10-15T13:06:43.7769558Z      Summary [ 272.296s] 1154 tests run: 1154 passed (1 leaky), 3514 skipped",
+    "lampOS \u2014 build and test on Linux ARM64 (2/4)\tUNKNOWN STEP\t2026-10-15T13:06:32.1494819Z      Summary [ 232.662s] 1177 tests run: 1177 passed, 3491 skipped",
+    "lampOS \u2014 build and test on Linux ARM64 (4/4)\tUNKNOWN STEP\t2026-10-15T13:05:37.0455885Z      Summary [ 260.205s] 1208 tests run: 1208 passed, 3460 skipped",
+    "lampOS \u2014 build and test on Linux ARM64 (3/4)\tUNKNOWN STEP\t2026-10-15T13:06:53.1784055Z      Summary [ 321.676s] 1094 tests run: 1094 passed (2 slow, 1 leaky), 3574 skipped"
+  ],
+  "observed_at_from_date": "2026-10-15 21:44:44 +0700",
+  "total_unique_executed": 4633,
+  "pass_records_without_leak_warning": 4631,
+  "leaky_pass_records": 2,
+  "pass_definition": "PASS plus LEAK, matching nextest summaries; LEAK remains a warning requiring follow-up.",
+  "frozen_inventory_present": 123,
+  "frozen_inventory_missing": [],
+  "shards": [
+    {
+      "shard": 1,
+      "executed": 1154,
+      "pass_records": 1153,
+      "leaky_pass_records": 1
+    },
+    {
+      "shard": 2,
+      "executed": 1177,
+      "pass_records": 1177,
+      "leaky_pass_records": 0
+    },
+    {
+      "shard": 3,
+      "executed": 1094,
+      "pass_records": 1093,
+      "leaky_pass_records": 1
+    },
+    {
+      "shard": 4,
+      "executed": 1208,
+      "pass_records": 1208,
+      "leaky_pass_records": 0
+    }
+  ],
+  "leaks": [
+    {
+      "shard": 1,
+      "status": "LEAK",
+      "seconds": 0.717,
+      "index": 854,
+      "total": 1154,
+      "binary": "lamp-voice",
+      "name": "coordinator::tests::endpoint_session::unconfirmed_endpoint_exit_fails_mute_cleanup_and_never_reopens_service",
+      "log_line": 1977
+    },
+    {
+      "shard": 3,
+      "status": "LEAK",
+      "seconds": 4.881,
+      "index": 801,
+      "total": 1094,
+      "binary": "lamp-voice",
+      "name": "coordinator::tests::endpoint_session::a_worker_still_loading_leaves_the_baseline_window",
+      "log_line": 9263
+    }
+  ],
+  "warnings": [
+    "The successful nextest summaries include two LEAK statuses. Neither is a clean process-lifecycle pass.",
+    "The 4,633 total counts nextest identities only; doc tests and the two own-harness binaries run separately.",
+    "Per-shard skipped totals include the other hash partitions and explicit own-harness exclusions. They must not be summed or described as 35 ignored tests without an enumeration.",
+    "The 123 durations sum to 848.449 s across four serial shards; this is not one measured serial-group wall time and does not meet or prove the <120 s target.",
+    "Inventory comparison verifies exact binary/name coverage, not unchanged source for every test. Other upstream clock changes are present at this head; no overall speedup is attributed to PR #843."
+  ]
+}

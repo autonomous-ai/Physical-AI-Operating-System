@@ -202,8 +202,17 @@ fn typed_mark(args: &Value) -> Result<String, Value> {
             || json!({"error": format!("{name} must be a time of day as HH:MM in 24 hours, such as 09:00.")}),
         )
     };
-    let never = args.get("never") == Some(&Value::Bool(true));
-    let talking = args.get("not_while_talking") == Some(&Value::Bool(true));
+    // A limit of the wrong type is refused, never read as false: the
+    // provider does not hold the model to the declared schema.
+    let flag = |name: &str| -> Result<bool, Value> {
+        match args.get(name).filter(|value| !value.is_null()) {
+            None => Ok(false),
+            Some(value) => value
+                .as_bool()
+                .ok_or_else(|| json!({"error": format!("{name} must be true or false.")})),
+        }
+    };
+    let (never, talking) = (flag("never")?, flag("not_while_talking")?);
     let (before, from) = (time("not_before")?, time("not_from")?);
     if !never && !talking && before.is_none() && from.is_none() {
         return Ok(String::new());
@@ -776,6 +785,11 @@ mod tests {
             }
         );
         // A rule with no limit is told to sessions and enforces nothing.
+        // Explicit false or null is no limit, as before.
+        let unset = keep(
+            json!({"rule":"Call them Minh.","about":"news","never":false,"not_while_talking":null}),
+        );
+        assert_eq!(unset.unwrap()["text"], "Call them Minh.");
         let plain = keep(json!({"rule":"Call them Minh.","about":"greeting"})).unwrap();
         assert_eq!(plain["text"], "Call them Minh.");
         let fact = facts(None, &[rule(6, "Call them Minh.")], &[]);
@@ -793,6 +807,9 @@ mod tests {
             json!({"rule":"r","about":"news","not_before":"09: 00"}),
             json!({"rule":"r","about":"news","not_from":"23:60"}),
             json!({"rule":"r","about":"news","not_from":"123:00"}),
+            json!({"rule":"r","about":"greeting","never":"true"}),
+            json!({"rule":"r","about":"news","not_while_talking":1}),
+            json!({"rule":"r","about":"greeting","never":"true","not_before":"09:00"}),
             json!({"rule":"r","about":"news","not_before":540}),
             json!({"rule":"r","about":"news","not_before":"09:00","not_from":"09:00"}),
         ] {

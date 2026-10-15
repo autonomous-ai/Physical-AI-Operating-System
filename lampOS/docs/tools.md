@@ -375,7 +375,8 @@ two can be compared without a sound:
 a story asked of Claude Code, the comma version, the plain imperative, a
 poem, one asked in the middle of a story the lamp is telling, one asked of
 Claude Code after the lamp told a story itself, the two named poems as they
-were heard on 2026-10-16 ("Claude Co", "Claude"); and the lamp's own, which
+were heard on 2026-10-16 ("Claude Co", "Claude"), work on the office
+computer with nobody named; and the lamp's own, which
 it should not hand over (labels beginning `own_`): a short story, the
 eight-sentence story offered to Claude Code on 2026-10-16, the same after a
 hand-over and its yes in one session, and three stories in a row. Each

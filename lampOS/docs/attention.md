@@ -807,9 +807,15 @@ to its first chunk sent to the speaker took 2.3 ms median and 2.7 ms p95
 (`head_tap_cue_decision_to_speaker_dispatch_latency`, ignored by default);
 the bus to the voice's poll took 1.8–2.1 ms median before. Controls' tap to
 the speaker's write on a lamp is not measured yet (First's target: under
-150 ms). What it does not do yet: the eye looking up and opening bright, and
-the settling when nothing is said; the ring shows faces only within a turn,
-and the hum's turn shows none.
+150 ms).
+
+The same tap also gives the ring's listening face at rest for 2 s, settling
+back over half a second ([ring-choreography.md](ring-choreography.md)), and
+Expression's small look-up ([alive.md](alive.md)): one gesture from one tap
+event, as First asked on #711 at 05:05. The hum's own turn is drawn as that
+listening face in every frame (`RingFrame::listening`), from the pass that
+admits it, so the face comes with the hum; the ring keeps it at rest for the
+rest of the window.
 
 ## The record of whom it answered
 

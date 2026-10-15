@@ -67,12 +67,18 @@ pub struct RingFrame {
     /// and grants nothing.
     #[serde(default)]
     pub offline: bool,
+    /// The turn in hand is the head tap's "hm?" (#711): every frame of it is
+    /// drawn as the listening face, which the ring then keeps at rest for the
+    /// tap's window. It shapes the frame and grants nothing.
+    #[serde(default)]
+    pub listening: bool,
 }
 
 impl RingFrame {
     /// The face this frame is drawn with.
     pub const fn mood(&self) -> Mood {
         match self.phase {
+            _ if self.listening => Mood::Listening,
             RingPhase::Speaking if self.attending => Mood::Listening,
             RingPhase::Listening if self.offline => Mood::Offline,
             phase => phase.mood(),

@@ -62,7 +62,31 @@ itself, eased like every other change: a countdown the person can see, and
 can stop by letting go, when it brightens again. Under a second nothing
 changes; a hand a push from the body spoiled has no time and dims nothing.
 It never makes the ring dark: what is shown still says the lamp hears. The
-sleep that follows at three seconds is not drawn here yet (#711).
+sleep that follows at three seconds is not drawn here yet (#711): the ring
+worker is gone while the voice is muted.
+
+### A tap on the head at rest: the listening face (#711)
+
+Same switch and same worker. A tap on the head (Controls' `controls/touch`,
+a fresh, enabled head Tap from `controls`) is read on every ring tick.
+- **Shown:** at rest, the resting face becomes the listening face, the one a
+  turn shows while it listens, for `TAP_LISTENS_US` (2 s, as long as a call
+  waits for the rest on lamp-4ace, #891).
+- **Speech in the window** is a turn, whose own listening face goes on from
+  there.
+- **Afterwards:** if nothing comes, the face settles back to its own light,
+  most of the way in about half a second (`SETTLE_EASE_US` 170 ms, 600 ms in
+  all), slower than the ring's usual easing, so it does not snap.
+- **The hum's own turn** owns the lamp for its 0.3 s, when no resting frame
+  may be shown. Each of its frames is the listening face instead
+  (`RingFrame::listening`, stamped by the coordinator for a `HeadCue` turn,
+  from the pass that admits it), so the face does not wait for the hum to end.
+- **Not changed:** other turns' faces, and the ring's refusal of a resting
+  frame when nobody may listen.
+
+It is one gesture with the voice's "hm?" ([attention.md](attention.md#a-tap-on-its-head-is-a-call-711))
+and Expression's look-up ([alive.md](alive.md)), all from the one tap event
+(First, #711, 05:05).
 
 ### The eye (task 34, #712)
 

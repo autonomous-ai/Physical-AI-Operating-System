@@ -4739,6 +4739,12 @@ fn conversation_with_gate(
         let tone_now = reply
             .as_ref()
             .is_some_and(|current| current.notice.origin().unshown());
+        // The head tap's "hm?" (#711) is no turn for the head, the room or
+        // the voice's state either, but the ring shows it: the listening face,
+        // with the hum, which the ring keeps at rest for the tap's window.
+        let cue_now = reply
+            .as_ref()
+            .is_some_and(|current| current.notice.origin() == SpeechOrigin::HeadCue);
         if let Some(tone) = speaker_tone.as_mut() {
             tone.tick(reply.as_ref(), monotonic_us());
         }
@@ -4753,7 +4759,8 @@ fn conversation_with_gate(
         if let Some(choreography) = choreography.as_mut() {
             choreography.set_level(voice_level);
             choreography.set_attending(attending);
-            choreography.set_unshown(tone_now);
+            choreography.set_listening(cue_now);
+            choreography.set_unshown(tone_now && !cue_now);
             choreography.set_offline(offline);
         }
         if let Some(current) = reply
@@ -5389,8 +5396,11 @@ fn conversation_with_gate(
                     "boundary":"Controls' tap acquisition to this decision; the first sample is head_tap_cue_first_write"}),
             )?;
             if decided.is_ok() {
+                // The listening face from the pass that admits it: never a
+                // frame of thinking first.
                 if let Some(choreography) = choreography.as_mut() {
-                    choreography.set_unshown(true);
+                    choreography.set_unshown(false);
+                    choreography.set_listening(true);
                 }
                 let (now_state, _) = speaker_tone::commit_sound_turn(
                     owner,

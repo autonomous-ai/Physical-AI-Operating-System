@@ -121,9 +121,9 @@ struct Service {
     packets: usize,
     /// What the answer's words are.
     words: &'static str,
-    /// The first connection is closed this long after the first end it
-    /// receives, and that end is never answered: a link that drops.
-    drop_after_first_end: Option<Duration>,
+    /// The first connection is closed this long after the `n`th end (from
+    /// 1) it receives, and that end is never answered: a link that drops.
+    drop_after_end: Option<(usize, Duration)>,
 }
 
 impl Service {
@@ -132,7 +132,7 @@ impl Service {
             answer_after: Duration::from_millis(ms),
             packets: 12,
             words: "Here is an answer.",
-            drop_after_first_end: None,
+            drop_after_end: None,
         }
     }
 }
@@ -213,8 +213,10 @@ async fn one_connection(
             match what {
                 Wire::End => {
                     ends += 1;
-                    match service.drop_after_first_end {
-                        Some(after) if connection == 1 && ends == 1 => drop_at = Some(now + after),
+                    match service.drop_after_end {
+                        Some((nth, after)) if connection == 1 && ends == nth => {
+                            drop_at = Some(now + after)
+                        }
                         _ => {
                             *answers += 1;
                             due = Some((now + service.answer_after, FIRST_ANSWER - 1 + *answers));
@@ -883,6 +885,16 @@ fn request(from: u64, through: u64) -> Vec<Wire> {
     all.push(Wire::End);
     all
 }
+/// A successor's request: the same, with the note that it goes on from the
+/// request given up just before its end.
+fn continuation(from: u64, through: u64) -> Vec<Wire> {
+    let mut all = request(from, through);
+    all.insert(
+        all.len() - 1,
+        Wire::Note(crate::provider_worker::CUT_OFF_NOTE.to_owned()),
+    );
+    all
+}
 
 /// Quiet to the end. The end goes 200 ms after the last sound, the answer
 /// is in hand 150 ms later, and its first sound is handed to the speaker
@@ -1015,6 +1027,88 @@ fn speech_resumed_at_three_tenths_under_the_lamps_duplex_policy() {
     );
 }
 
+/// A question in four pieces, as lamp-4ace heard one at 13:45: three pauses
+/// of 300 ms (blocks 161 to 190, 241 to 270 and 321 to 350), each longer
+/// than the 200 ms of the early end and shorter than the lamp's own 600 ms.
+/// The end goes early 200 ms into each pause (after blocks 180, 260 and
+/// 340) and is given up at the sixth block of speech again (196, 276 and
+/// 356), the 16 blocks heard since the end the successor's opening: the
+/// requests carry 76 to 180, 181 to 260, 261 to 340 and 341 to 470. Each
+/// successor is told, just before its own end, that it goes on from the
+/// request cut off; the first is not. The service answers 50 ms after each
+/// end, so each piece's answer has begun, and its sound is held by the lamp,
+/// when the person goes on, as at 13:45. Of the four answers begun only the
+/// last is heard, once the lamp is sure of the whole.
+fn four_pieces(block: u64) -> f32 {
+    if (100..=160).contains(&block)
+        || (191..=240).contains(&block)
+        || (271..=320).contains(&block)
+        || (351..=450).contains(&block)
+    {
+        SPEECH
+    } else {
+        QUIET
+    }
+}
+
+#[test]
+fn a_question_in_four_pieces_tells_each_successor_and_plays_only_the_last_answer() {
+    let _one = one_session();
+    let session = Setup::lamp(Some(200), 7, four_pieces, Service::answering_after(50))
+        .run_with_privacy_tolerance();
+    session.ok();
+    session.summary("a question in four pieces", 450);
+    let seen = &session.seen;
+    assert_eq!(seen.connections, 1);
+    // The first piece alone, then each successor from the end before it:
+    // the note once in each, just before its end, and never in the first.
+    let mut expected = request(76, 180);
+    expected.extend(continuation(181, 260));
+    expected.extend(continuation(261, 340));
+    expected.extend(continuation(341, 450 + 20));
+    assert_eq!(seen.heard(1), expected, "{:?}", seen.heard(1));
+    let note = Wire::Note(crate::provider_worker::CUT_OFF_NOTE.to_owned());
+    assert_eq!(seen.count(&note), 3);
+    assert_eq!(seen.count(&Wire::Start), 4);
+    assert_eq!(seen.count(&Wire::End), 4);
+    // Four answers were begun; nothing of the three abandoned was played,
+    // and the last was, after the lamp was sure of the whole.
+    assert_eq!(seen.answers.len(), 4);
+    for abandoned in FIRST_ANSWER..FIRST_ANSWER + 3 {
+        assert_eq!(seen.played(abandoned), 0, "answer {abandoned}");
+    }
+    assert_eq!(seen.played(FIRST_ANSWER + 3), 12 * 4);
+    assert_eq!(seen.chunks.len(), 12 * 4);
+    assert!(
+        seen.chunks
+            .iter()
+            .all(|(_, at, _, _)| *at >= seen.block(450 + 60))
+    );
+    // Given up three times, each at the sixth block of speech again, with
+    // what was heard since its end (16 blocks) its successor's opening.
+    assert_eq!(session.given_up(), 3);
+    assert_eq!(session.events("early_end").len(), 4);
+    let admitted = session.events("input_admitted");
+    assert_eq!(admitted.len(), 4);
+    assert_ne!(admitted[0]["admission_basis"], "continued_after_early_end");
+    for (given_up, pair) in session
+        .events("early_end_given_up")
+        .iter()
+        .zip(admitted.windows(2))
+    {
+        assert_eq!(given_up["opening_blocks"], 16);
+        assert_eq!(given_up["turn"], pair[0]["turn"]);
+        assert_eq!(given_up["successor"], pair[1]["turn"]);
+        assert_eq!(pair[1]["admission_basis"], "continued_after_early_end");
+    }
+    // One turn heard: the lamp's own end of speech came once, after the
+    // whole, and the three pieces before it are turns given up.
+    assert_eq!(session.events("local_endpoint").len(), 1);
+    let outcomes = session.outcomes();
+    assert_eq!(outcomes[..3], ["user_interrupted"; 3], "{outcomes:?}");
+    assert!(session.events("provider_input_discarded").is_empty());
+}
+
 /// An answer that has all arrived, and completed, before the lamp is sure
 /// (four packets, 160 ms, sent at once after the end): held whole, and
 /// begun at that moment.
@@ -1134,7 +1228,7 @@ fn the_link_dropping_in_between_fails_the_request_unheard_and_the_next_is_answer
         6,
         two_questions,
         Service {
-            drop_after_first_end: Some(Duration::from_millis(100)),
+            drop_after_end: Some((1, Duration::from_millis(100))),
             ..Service::answering_after(150)
         },
     )
@@ -1156,6 +1250,71 @@ fn the_link_dropping_in_between_fails_the_request_unheard_and_the_next_is_answer
     let outcomes = session.outcomes();
     assert_eq!(outcomes[0], "provider_failed", "{outcomes:?}");
     assert_eq!(session.given_up(), 0);
+}
+
+/// The service fails in the middle of a question in pieces, as at 13:45:
+/// "Hey Lamp," (blocks 100 to 160), 300 ms of quiet, and the rest (191 to
+/// 240). The end of the first part goes after block 180, its answer begins
+/// 50 ms later, and it is given up at 196; the rest, told it goes on from
+/// the request cut off, ends early after 260, and the link drops 100 ms
+/// later, before the lamp is sure. That request fails unheard, nothing is
+/// sent again on the new connection, and a later question of its own (400
+/// to 500) is heard there as a plain request, with no note, and answered.
+fn pieces_then_another_question(block: u64) -> f32 {
+    if (100..=160).contains(&block) || (191..=240).contains(&block) || (400..=500).contains(&block)
+    {
+        SPEECH
+    } else {
+        QUIET
+    }
+}
+
+#[test]
+fn the_link_dropping_after_a_continued_request_fails_it_unheard_and_the_next_has_no_note() {
+    let _one = one_session();
+    let session = Setup::lamp(
+        Some(200),
+        7,
+        pieces_then_another_question,
+        Service {
+            drop_after_end: Some((2, Duration::from_millis(100))),
+            ..Service::answering_after(50)
+        },
+    )
+    .run_with_privacy_tolerance();
+    session.ok();
+    session.summary("the link dropping after a continued request", 500);
+    let seen = &session.seen;
+    assert_eq!(seen.connections, 2);
+    // The first part, then the rest with its note, on the link that drops.
+    let mut expected = request(76, 180);
+    expected.extend(continuation(181, 240 + 20));
+    assert_eq!(seen.heard(1), expected, "{:?}", seen.heard(1));
+    // Nothing of either sent again; the next question from its own
+    // pre-roll, with no note.
+    assert_eq!(seen.heard(2), request(376, 500 + 20), "{:?}", seen.heard(2));
+    // The first part's answer was begun and given up; the rest's never
+    // came; only the next question's was heard, once the lamp was sure.
+    assert_eq!(seen.answers.len(), 2);
+    assert_eq!(seen.played(FIRST_ANSWER), 0);
+    assert_eq!(seen.played(FIRST_ANSWER + 1), 12 * 4);
+    assert_eq!(seen.chunks.len(), 12 * 4);
+    assert!(
+        seen.chunks
+            .iter()
+            .all(|(_, at, _, _)| *at >= seen.block(500 + 60))
+    );
+    assert_eq!(session.given_up(), 1);
+    let admitted = session.events("input_admitted");
+    assert_eq!(admitted.len(), 3);
+    assert_eq!(admitted[1]["admission_basis"], "continued_after_early_end");
+    assert_ne!(admitted[2]["admission_basis"], "continued_after_early_end");
+    let outcomes = session.outcomes();
+    assert_eq!(
+        outcomes[..2],
+        ["user_interrupted", "provider_failed"],
+        "{outcomes:?}"
+    );
 }
 
 /// An interruption, the second case most likely to go wrong: "Lamp, stop."

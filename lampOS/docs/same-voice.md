@@ -8,7 +8,8 @@ the lamp answered, the busy-room rule now takes anyone who speaks within
 ([attention.md](attention.md)). A face turned to the lamp cannot stand in
 for it. On lamp-4ace on 15 October, 6 of the 9 answers let out because a
 conversation was going on had nobody facing, all in one live exchange
-([verification](verification/two-people-20261015/README.md)).
+([#829, 21:23](https://github.com/autonomous-ai/lampOS/issues/829); its
+evidence is with pull request #864, `docs/verification/two-people-20261015/`).
 
 ## What exists
 

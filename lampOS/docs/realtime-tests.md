@@ -249,6 +249,28 @@ runs' times when both ran it). Binary, then test.
 | 0.0 | `lamp-voice` | `coordinator::tests::pilot_faults::distinct_rejects_an_item_that_returns_later` |
 | 0.0 | `lamp-voice` | `coordinator::tests::pilot_faults::speaker_progress_is_due_strictly_after_lease_plus_report_age` |
 
+## Prepared fake-player clock source
+
+`FakePreparedRoomPlayer { room, faults, prepared }.with_clock(...)` accepts a
+pure, cloneable, thread-safe `Fn() -> MonoTime`. Each worker owns a clone; all
+clones must read the same clock domain without advancing it. Attempt identity,
+readiness, grant receipt and first copy retain four distinct clock samples.
+The first-copy sample still refuses a grant at equality with its expiry.
+
+Both paths share the original preparation implementation. Plain struct
+construction keeps the host clock's full nanosecond precision. The explicit
+clock uses checked microsecond-to-nanosecond conversion: overflow before
+thread creation returns an error; later overflow returns an invalid failed
+report identifying the sample stage, without sending the room datagram.
+Host resource polling, fault delays, grant waits, validation, cancellation,
+datagram sends and joins retain their existing behavior.
+
+Focused tests synchronize through the existing ready and grant channels and
+join the worker before checking delivery. Scripted read-order probes cover
+fresh first-copy expiry and overflow; these probes are instrumentation, not
+scheduler clocks. Existing tests are unchanged. This #823 seam does not
+migrate a serve session or establish a speedup.
+
 ## Dispatch fixture shutdown
 
 The 13 final-dispatch cases keep their assertions and timed evidence. The

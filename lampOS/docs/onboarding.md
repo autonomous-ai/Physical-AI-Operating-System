@@ -37,7 +37,11 @@ sound like a machine. Each is marked `PLACEHOLDER (#841)` in the code.
 
 A step the model leads ends with `setup_step {step, outcome}`, outcome
 `done`, `skipped` (they asked to skip it) or `failed` (it could not be
-done; the model then tells them what to try later). Never reported, it is
+done; the model then tells them what to try later). Only the step being
+led is taken; a report of any other is refused and recorded
+(`onboarding_report_refused`). `where_you_sit` is done only by what the
+eyes measure: the model may only skip it, and the worker refuses any other
+outcome with words it can say. Never reported, a step is
 failed after 90 s once the room has been quiet for 20 s, and the walk goes
 on. Nobody in front of the lamp for 30 s: the step being led is dropped and
 asked again when someone is back. The keeper's pause

@@ -103,6 +103,15 @@ impl Step {
         )
     }
 
+    /// What the model may report of this step: a measured step only that
+    /// it was skipped.
+    fn reportable(self, outcome: Outcome) -> bool {
+        match self {
+            Step::WhereYouSit => outcome == Outcome::Skipped,
+            _ => outcome != Outcome::NotAvailable,
+        }
+    }
+
     /// What the model is given to begin the step.
     fn note(self) -> &'static str {
         match self {
@@ -482,10 +491,22 @@ impl Onboarding {
                 .get("outcome")
                 .and_then(Value::as_str)
                 .and_then(Outcome::named);
-            if let (Some(step), Some(outcome)) = (step, outcome)
-                && !self.kept.steps.contains_key(step.name())
-            {
+            let (Some(step), Some(outcome)) = (step, outcome) else {
+                continue;
+            };
+            // Only the step being led, and a measured step only skipped:
+            // "where you sit" is done by what the eyes see, never by a word.
+            let led = self
+                .led
+                .as_ref()
+                .is_some_and(|led| led.step == step && led.asked_us.is_some());
+            if led && step.reportable(outcome) {
                 self.finish(step, outcome, None, now_us);
+            } else {
+                self.records.push(
+                    json!({"kind":"onboarding_report_refused","step":step.name(),
+                    "outcome":outcome,"at_us":now_us}),
+                );
             }
         }
     }
@@ -533,7 +554,8 @@ pub fn tools() -> Vec<Tool> {
             description: "Call this during your first meeting with someone, when a step you were asked \
                           to lead has ended: done, skipped because they asked to skip it, or failed. If \
                           they want to skip the rest, call it skipped for the step you are on. Then go on \
-                          talking as the step asked."
+                          talking as the step asked. Only for the step you are leading now; \
+                          where_you_sit can only be skipped, since you finish it by seeing them."
                 .into(),
             parameters: Some(json!({
                 "type": "object",
@@ -569,7 +591,15 @@ pub fn run(file: &Path, call: &ToolCall) -> (Value, bool) {
             let step = call.args.get("step").and_then(Value::as_str);
             let outcome = call.args.get("outcome").and_then(Value::as_str);
             match (step.and_then(Step::named), outcome.and_then(Outcome::named)) {
-                (Some(step), Some(_)) => json!({"step": step.name(), "outcome": outcome}),
+                (Some(step), Some(told)) if step.reportable(told) => {
+                    json!({"step": step.name(), "outcome": outcome})
+                }
+                (Some(Step::WhereYouSit), Some(_)) => {
+                    return (
+                        json!({"error": "Where they sit is done when you can see them well. You can only skip it, if they ask."}),
+                        true,
+                    );
+                }
                 _ => {
                     return (
                         json!({"error": "That is not a step and an outcome I know."}),
@@ -760,6 +790,40 @@ mod tests {
             args: json!({"step": "dance", "outcome": "done"}),
         };
         assert!(run(&room.walk.file, &wrong).0.get("error").is_some());
+    }
+
+    #[test]
+    fn where_you_sit_is_done_only_by_what_the_eyes_see() {
+        let mut room = Room::new("forged");
+        let done = ToolCall {
+            id: "c".into(),
+            name: STEP.into(),
+            args: json!({"step": "where_you_sit", "outcome": "done"}),
+        };
+        let forged = "{\"step\":\"where_you_sit\",\"outcome\":\"done\"}\n";
+        // Refused by the worker with words the model can say ...
+        assert!(run(&room.walk.file, &done).0.get("error").is_some());
+        // ... and, written into the mailbox all the same, by the runner:
+        // with no face and no step being led ...
+        std::fs::write(mailbox_of(&room.walk.file), forged).unwrap();
+        assert_eq!(room.wait(10 * S, None), NONE);
+        assert_eq!(room.outcome(Step::WhereYouSit), None);
+        // ... and while the step is being led.
+        assert_eq!(room.wait(4 * S, Some(SIDE)), [SIT_NOTE]);
+        std::fs::write(mailbox_of(&room.walk.file), forged).unwrap();
+        room.wait(S, Some(SIDE));
+        assert_eq!(room.outcome(Step::WhereYouSit), None);
+        // A step that is not being led is not taken either.
+        report(&room.walk, "preferences", "done");
+        room.wait(S, Some(SIDE));
+        assert_eq!(room.outcome(Step::Preferences), None);
+        assert!(
+            room.walk
+                .take_records()
+                .iter()
+                .any(|line| line["kind"] == "onboarding_report_refused")
+        );
+        assert!(room.walk.leading());
     }
 
     #[test]

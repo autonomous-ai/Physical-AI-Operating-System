@@ -2566,6 +2566,8 @@ fn conversation_with_gate(
     let mut gap_cut_utterance = false;
     // An utterance a gap cut was abandoned: its rest is dropped after it.
     let mut kept_through_gap = false;
+    // This gap has already cancelled what it cut: once per gap.
+    let mut gap_cancelled = false;
     let mut last_publish = 0;
     let mut last_health = 0;
     let mut last_hand_health = 0;
@@ -2903,11 +2905,15 @@ fn conversation_with_gate(
         // A stall that has lapsed the capture lease inside someone's
         // utterance (#784) abandons it here, as a hand Stop does, before
         // admission sees the lineage break further down this pass.
-        let gap_cut = std::mem::take(&mut gap_cut_utterance)
-            || (!admission.idle_for_reminder()
-                && last_capture.is_some_and(|at| {
-                    (INPUT_LEASE_US..CAPTURE_GAP_US).contains(&monotonic_us().saturating_sub(at))
-                }));
+        // A gap is a turn boundary, whether someone was speaking or the lamp
+        // was answering: what it cut is abandoned, never carried over it
+        // (#784). Once per gap: the explicit close, or the lease lapsing.
+        let gap_cut = (std::mem::take(&mut gap_cut_utterance)
+            || last_capture.is_some_and(|at| {
+                (INPUT_LEASE_US..CAPTURE_GAP_US).contains(&monotonic_us().saturating_sub(at))
+            }))
+            && !gap_cancelled;
+        let cut_question = !admission.idle_for_reminder();
         let muted = observation.as_ref().is_some_and(|seen| seen.muted);
         let stop = observation.as_ref().is_some_and(|seen| seen.stop);
         {
@@ -2931,7 +2937,8 @@ fn conversation_with_gate(
                     // ends with the gap. After the gap, what is still said
                     // of it is dropped until a pause, not a new question.
                     admission.reset();
-                    kept_through_gap = true;
+                    kept_through_gap = cut_question;
+                    gap_cancelled = true;
                 }
                 // A reply may already be complete while its independent text
                 // socket still holds a "let me look" tail. Idle Stop also
@@ -3061,6 +3068,10 @@ fn conversation_with_gate(
             trace,
         )? {
             closed_epoch = Some(gone);
+            capture_gap.closed = true;
+            // The worker closed the microphone: a turn boundary now, before
+            // the reopened epoch's frames or any more of a reply.
+            gap_cut_utterance = true;
         }
         let mut speaker_control_budget = 32;
         service_speaker_control(
@@ -3456,7 +3467,9 @@ fn conversation_with_gate(
             let Some(frame) = rig.capture.channels.data.receive::<MicrophoneFrame>()? else {
                 break;
             };
-            if closed_epoch == Some(frame.epoch) {
+            // A turn cut by a gap is cancelled on the next pass: until then
+            // nothing reaches admission or the provider across the cut.
+            if closed_epoch == Some(frame.epoch) || gap_cut_utterance {
                 capture_gap.dropped += 1;
                 continue;
             }
@@ -3468,11 +3481,13 @@ fn conversation_with_gate(
                 rig.noise_suppression,
                 trace,
             )? {
+                // Closed and maybe already reopened: either way this pass
+                // takes no frame across the cut.
                 closed_epoch = Some(gone);
-                if frame.epoch == gone {
-                    capture_gap.dropped += 1;
-                    continue;
-                }
+                capture_gap.closed = true;
+                gap_cut_utterance = true;
+                capture_gap.dropped += 1;
+                continue;
             }
             let at = monotonic_us();
             let Some(age) = at.checked_sub(frame.read_completed_at_us) else {
@@ -3491,7 +3506,8 @@ fn conversation_with_gate(
                 // An utterance the gap cut into is abandoned on the next
                 // pass, as a hand Stop abandons one: the model is never
                 // answered over a hole in what it heard.
-                gap_cut_utterance |= !admission.idle_for_reminder();
+                gap_cut_utterance |= !admission.idle_for_reminder() && !gap_cancelled;
+                gap_cancelled = false;
                 // Start listening afresh after it, unless an utterance it cut
                 // is still waiting for its end.
                 if std::mem::take(&mut kept_through_gap) {
@@ -5731,6 +5747,9 @@ fn drain_capture_control(
 #[derive(Default)]
 struct CaptureGap {
     dropped: u64,
+    /// The worker closed the microphone: the next frame on time, of a new
+    /// epoch that counts from 1 again, ends a gap however short it was.
+    closed: bool,
 }
 
 /// A capture gap that has just ended, for one journal line.
@@ -5757,9 +5776,10 @@ impl CaptureGap {
     /// gap has just ended.
     fn ended(&mut self, previous: Option<u64>, read_at: u64) -> Option<EndedGap> {
         let stalled_us = previous.map_or(0, |at| read_at.saturating_sub(at));
-        if stalled_us < INPUT_LEASE_US && self.dropped == 0 {
+        if stalled_us < INPUT_LEASE_US && self.dropped == 0 && !self.closed {
             return None;
         }
+        self.closed = false;
         let dropped = std::mem::take(&mut self.dropped);
         Some(EndedGap {
             stalled_us,
@@ -5779,8 +5799,10 @@ fn validate_capture_frame(
     // The worker sends its start report before its first frame, but the two
     // sockets may become readable between our control drain and data receive.
     // Re-read control after receiving the frame instead of discarding its words.
+    // The same holds after a stall: Gap(n), Started(n+1) and the first frame
+    // of n+1 can all arrive between two drains (#784).
     let mut closed = None;
-    if epoch.is_none() {
+    if epoch.is_none() || Some(frame.epoch) != *epoch {
         closed = drain_capture_control(channel, epoch, expected_noise_suppression, trace)?;
         if closed == Some(frame.epoch) {
             return Ok(closed);
@@ -6335,6 +6357,40 @@ mod tests {
             )
             .is_err()
         );
+        // A stall closed epoch 1 and the worker reopened it: Gap(1),
+        // Started(2) and the first frame of 2 all queued between drains.
+        capture
+            .control
+            .send(WorkerEvent::CaptureGap {
+                epoch: 1,
+                reason: "AuthorityExpired".to_owned(),
+                closed_at_us: monotonic_us(),
+            })
+            .unwrap();
+        let mut started = capture_started(NoiseSuppression::On);
+        if let WorkerEvent::CaptureStarted {
+            epoch: ref mut reopened,
+            ref mut privacy_generation,
+            ..
+        } = started
+        {
+            *reopened = 2;
+            *privacy_generation = 2;
+        }
+        capture.control.send(started).unwrap();
+        assert_eq!(
+            validate_capture_frame(
+                &mut parent.control,
+                &mut epoch,
+                2,
+                &frame,
+                NoiseSuppression::On,
+                &mut trace
+            )
+            .unwrap(),
+            Some(1)
+        );
+        assert_eq!(epoch, Some(2));
     }
 
     fn ready_link(revision: u64, session: u64) -> ProviderLink {

@@ -17,8 +17,8 @@ fn event() -> TouchEvent {
         contact_id: 1,
         gesture: TouchGesture::Touch,
         when_speaking: TouchIntent::Stop,
-        when_quiet: TouchIntent::Attend,
-        when_asleep: Some(TouchIntent::Wake),
+        when_quiet: TouchIntent::Notice,
+        when_asleep: None,
         began_us: 1_000_000,
         observed_us: 1_100_000,
         released_us: None,
@@ -71,6 +71,8 @@ fn strip_event() -> TouchEvent {
         active_mask: 7,
         active_names: Vec::new(),
         position: Some(1.0 / 11.0),
+        when_quiet: TouchIntent::Attend,
+        when_asleep: Some(TouchIntent::Wake),
         ..event()
     }
 }
@@ -114,9 +116,13 @@ fn roundtrip_new_contract_and_reject_unknown_actions_fields() {
 #[test]
 fn contextual_intent_is_chosen_by_owner_and_contains_no_readiness() {
     assert_eq!(event().intent(true, false), Some(TouchIntent::Stop));
-    assert_eq!(event().intent(false, false), Some(TouchIntent::Attend));
-    assert_eq!(event().intent(true, true), Some(TouchIntent::Wake));
-    assert_eq!(event().intent(false, true), Some(TouchIntent::Wake));
+    assert_eq!(event().intent(false, false), Some(TouchIntent::Notice));
+    assert_eq!(event().intent(true, true), None);
+    assert_eq!(event().intent(false, true), None);
+    let tap = head_tap(300_000);
+    assert_eq!(tap.intent(true, false), Some(TouchIntent::Attend));
+    assert_eq!(tap.intent(false, false), Some(TouchIntent::Attend));
+    assert_eq!(tap.intent(false, true), Some(TouchIntent::Wake));
     let wire = serde_json::to_string(&event()).unwrap();
     for forbidden in [
         "microphone",
@@ -215,10 +221,66 @@ fn head_qualifies_actual_continuous_observations_only() {
     e.when_speaking = TouchIntent::Stroke;
     e.when_quiet = TouchIntent::Stroke;
     e.when_asleep = None;
-    e.began_us = e.observed_us - 500_000;
+    e.began_us = e.observed_us - 1_000_000;
     e.check().unwrap();
     e.began_us += 1;
     assert!(e.check().is_err());
+}
+
+/// A head tap released `held` after it began, confirmed 150 ms later.
+fn head_tap(held: u64) -> TouchEvent {
+    let mut tap = event();
+    tap.gesture = TouchGesture::Tap;
+    tap.when_speaking = TouchIntent::Attend;
+    tap.when_quiet = TouchIntent::Attend;
+    tap.when_asleep = Some(TouchIntent::Wake);
+    tap.began_us = 0;
+    tap.released_us = Some(held);
+    tap.observed_us = held + 150_000;
+    tap.stamp.at_us = tap.observed_us;
+    tap.active_mask = 0;
+    tap.active_names = Vec::new();
+    tap
+}
+
+#[test]
+fn the_head_stops_at_a_touch_listens_at_a_short_tap_and_sleeps_at_three_seconds() {
+    // #711: only a short tap, let go, asks it to listen or wake.
+    for held in [20_000, 499_999] {
+        head_tap(held).check().unwrap();
+    }
+    for held in [19_999, 500_000] {
+        assert!(head_tap(held).check().is_err(), "{held}");
+    }
+    let mut held_tap = head_tap(300_000);
+    held_tap.released_us = None;
+    assert!(held_tap.check().is_err());
+    let mut lit_tap = head_tap(300_000);
+    lit_tap.active_mask = 1;
+    lit_tap.active_names = vec!["pad37".into()];
+    assert!(lit_tap.check().is_err());
+    let mut no_wake = head_tap(300_000);
+    no_wake.when_asleep = None;
+    assert!(no_wake.check().is_err());
+    // A touch asks nothing while quiet, and never wakes it.
+    let mut attend = event();
+    attend.when_quiet = TouchIntent::Attend;
+    assert!(attend.check().is_err());
+    let mut wake = event();
+    wake.when_asleep = Some(TouchIntent::Wake);
+    assert!(wake.check().is_err());
+    // A hand kept three seconds is sleep, never anything while asleep.
+    let mut hold = event();
+    hold.gesture = TouchGesture::Hold;
+    hold.when_speaking = TouchIntent::Sleep;
+    hold.when_quiet = TouchIntent::Sleep;
+    hold.began_us = 0;
+    hold.observed_us = 3_000_000;
+    hold.stamp.at_us = 3_000_000;
+    hold.check().unwrap();
+    assert_eq!(hold.intent(false, true), None);
+    hold.began_us = 1;
+    assert!(hold.check().is_err());
 }
 #[test]
 fn brief_qualified_strip_release_has_no_invented_current_position() {
@@ -311,7 +373,7 @@ fn retained_events_cannot_change_session_time_or_overwrite_motion() {
     let mut s = state();
     let e = &mut s.latest[0];
     e.gesture = TouchGesture::Stroke;
-    e.began_us = e.observed_us - 500_000;
+    e.began_us = e.observed_us - 1_000_000;
     e.when_speaking = TouchIntent::Stroke;
     e.when_quiet = TouchIntent::Stroke;
     e.when_asleep = None;

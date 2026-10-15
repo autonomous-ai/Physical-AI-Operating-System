@@ -37,6 +37,9 @@ pub mod physical_privacy;
 mod playback;
 pub mod policy_holds;
 pub mod privacy;
+pub mod privacy_bus;
+#[cfg(any(target_os = "linux", test))]
+pub mod privacy_indicator;
 pub mod process;
 pub(crate) mod provider_flow;
 pub mod provider_link;
@@ -83,3 +86,4 @@ mod session_state;
 #[cfg(test)]
 mod scenario_clock;
 mod service_privacy;
+mod service_privacy_controls;

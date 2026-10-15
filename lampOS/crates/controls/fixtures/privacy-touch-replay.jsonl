@@ -1,0 +1,4 @@
+{"now_us":0,"input":{"kind":"privacy","sample":{"stamp":{"clock_id":"privacy-test","at_us":0,"sequence":1},"reader_session_id":"privacy-reader","muted":true,"fault":null}}}
+{"now_us":5000,"input":{"kind":"privacy","sample":{"stamp":{"clock_id":"privacy-test","at_us":5000,"sequence":2},"reader_session_id":"privacy-reader","muted":false,"fault":null}}}
+{"now_us":10000,"input":{"kind":"privacy_fault","fault":"missing"}}
+{"now_us":60000,"input":{"kind":"tick"}}

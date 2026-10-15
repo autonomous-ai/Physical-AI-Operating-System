@@ -7,6 +7,7 @@ pub mod input;
 pub mod mpr121;
 pub mod mute;
 pub mod pins;
+pub mod privacy;
 pub mod receiver;
 pub mod record;
 pub mod replay;

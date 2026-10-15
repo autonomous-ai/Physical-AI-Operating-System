@@ -147,6 +147,9 @@ fn end_bounds_cannot_truncate_inputs_or_overflow_tick_time() {
         now_us: u64::MAX,
         observation: None,
         fault: None,
+
+        privacy: None,
+        privacy_fault: None,
     }];
     assert!(replay::run(config, "written-controls", &records, None, io::sink()).is_err());
 }
@@ -192,6 +195,9 @@ fn a_terminal_fault_cancels_a_pending_pet_instead_of_fabricating_it_in_the_tail(
         now_us: 5_940_000,
         observation: None,
         fault: Some(ControlFault::Overflow),
+
+        privacy: None,
+        privacy_fault: None,
     });
     let mut after = Vec::new();
     replay::run(config, "written-controls", &stopped, None, &mut after).unwrap();
@@ -227,11 +233,17 @@ fn a_full_ten_minute_clip_does_not_need_an_explicit_end_override() {
             now_us: 1_000_000,
             observation: None,
             fault: None,
+
+            privacy: None,
+            privacy_fault: None,
         },
         Record {
             now_us: 601_000_000,
             observation: None,
             fault: None,
+
+            privacy: None,
+            privacy_fault: None,
         },
     ];
     let summary = replay::run(config, "written-controls", &records, None, io::sink()).unwrap();

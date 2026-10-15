@@ -20,6 +20,10 @@ pub struct Record {
     pub observation: Option<Observation>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub fault: Option<ControlFault>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub privacy: Option<lamp_msgs::PrivacySwitch>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub privacy_fault: Option<ControlFault>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -87,6 +91,13 @@ fn validate(records: &[Record]) -> io::Result<()> {
                 "one record cannot be both an acquisition and an adapter fault",
             ));
         }
+        if record.privacy.is_some()
+            && (record.privacy_fault.is_some()
+                || record.observation.is_some()
+                || record.fault.is_some())
+        {
+            return Err(invalid("privacy acquisition must have its own record"));
+        }
         last = record.now_us;
     }
     if last - records[0].now_us > MAX_DURATION_US {
@@ -103,7 +114,18 @@ pub fn run(
     clock: &str,
     records: &[Record],
     until_us: Option<u64>,
+    writer: impl Write,
+) -> io::Result<Summary> {
+    run_with_privacy(config, clock, records, until_us, writer, false)
+}
+
+pub fn run_with_privacy(
+    config: Config,
+    clock: &str,
+    records: &[Record],
+    until_us: Option<u64>,
     mut writer: impl Write,
+    privacy_enabled: bool,
 ) -> io::Result<Summary> {
     validate(records)?;
     let start = records[0].now_us;
@@ -119,6 +141,7 @@ pub fn run(
     }
     let mut engine =
         Engine::new(config, clock, "controls-replay").map_err(|e| invalid(e.to_string()))?;
+    let mut privacy = privacy_enabled.then(|| crate::privacy::Monitor::new(clock));
     let mut summary = Summary {
         records: records.len(),
         start_us: start,
@@ -129,6 +152,7 @@ pub fn run(
     let mut now = start;
     let mut last_frame = None;
     let mut last_fault = None;
+    let mut last_privacy = None;
     loop {
         while next_record < records.len() && records[next_record].now_us <= now {
             let record = &records[next_record];
@@ -142,17 +166,44 @@ pub fn run(
                 summary.faults += 1;
                 engine.input_fault(record.now_us, fault);
             }
+            if let Some(privacy) = &mut privacy {
+                if let Some(sample) = &record.privacy
+                    && privacy.observe(record.now_us, sample.clone()).is_err()
+                {
+                    summary.rejected += 1;
+                }
+                if let Some(fault) = record.privacy_fault {
+                    privacy.fault(fault);
+                }
+            }
             next_record += 1;
         }
-        let output = engine.tick(now);
+        let mut output = engine.tick(now);
+        if let Some(privacy) = &mut privacy {
+            output.state.privacy = Some(privacy.snapshot(now));
+        }
+        let privacy_key = output
+            .state
+            .privacy
+            .as_ref()
+            .map(|sample| (sample.muted, sample.fault, sample.reader_session_id.clone()));
         summary.ticks += 1;
         summary.gestures += output.gestures.len() as u64;
         if !output.gestures.is_empty()
-            || last_frame.is_none_or(|at| now - at >= 100_000)
+            || last_frame.is_none_or(|at| {
+                now - at
+                    >= if privacy_enabled {
+                        crate::privacy::STATE_EVERY_US
+                    } else {
+                        100_000
+                    }
+            })
             || last_fault != output.state.fault
+            || last_privacy != privacy_key
             || now == end
         {
             last_fault = output.state.fault;
+            last_privacy = privacy_key;
             serde_json::to_writer(
                 &mut writer,
                 &Frame {

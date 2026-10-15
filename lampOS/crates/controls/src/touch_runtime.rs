@@ -35,6 +35,8 @@ pub struct Service<G: PinReader, S: StripReader> {
     last_strip_error: Option<String>,
     last_gpio_error: Option<String>,
     recorder: Option<crate::record::Recorder>,
+    privacy: Option<crate::privacy::Source>,
+    last_privacy: Option<(Option<bool>, Option<ControlFault>, String)>,
     _lock: File,
 }
 
@@ -42,7 +44,7 @@ struct Primary {
     engine: Engine,
     state: Publisher,
     gestures: Publisher,
-    name: String,
+    name: Option<String>,
 }
 
 impl<G: PinReader, S: StripReader> Service<G, S> {
@@ -85,7 +87,7 @@ impl<G: PinReader, S: StripReader> Service<G, S> {
                     &ControlGesture::declaration(),
                     "controls",
                 )?,
-                name: pin.name.clone(),
+                name: Some(pin.name.clone()),
             })
         } else {
             None
@@ -115,6 +117,8 @@ impl<G: PinReader, S: StripReader> Service<G, S> {
             last_strip_error: None,
             last_gpio_error: None,
             recorder: None,
+            privacy: None,
+            last_privacy: None,
             _lock: lock,
         })
     }
@@ -127,8 +131,46 @@ impl<G: PinReader, S: StripReader> Service<G, S> {
         Ok(())
     }
 
+    pub fn attach_privacy(&mut self, bus: &Bus, source: crate::privacy::Source) -> io::Result<()> {
+        if self.primary.is_none() {
+            let state = bus.publisher_declared(
+                ControlsState::TOPIC,
+                &ControlsState::declaration(),
+                "controls",
+            )?;
+            self.primary = Some(Primary {
+                engine: Engine::new(
+                    Config {
+                        enabled: self.engine.config().enabled,
+                        ..Config::default()
+                    },
+                    source.monitor.clock(),
+                    state.boot(),
+                )
+                .map_err(io::Error::other)?,
+                state,
+                gestures: bus.publisher_declared(
+                    ControlGesture::TOPIC,
+                    &ControlGesture::declaration(),
+                    "controls",
+                )?,
+                name: None,
+            });
+        }
+        self.privacy = Some(source);
+        Ok(())
+    }
+
     pub fn finish_recording(&mut self) -> Option<crate::record::RecordStats> {
         self.recorder.take().map(crate::record::Recorder::finish)
+    }
+
+    pub fn poll_us(&self) -> u64 {
+        if self.privacy.is_some() {
+            crate::privacy::STEP_US
+        } else {
+            crate::runtime::POLL_US
+        }
     }
 
     fn record(&mut self, now_us: u64, input: Input) {
@@ -140,7 +182,9 @@ impl<G: PinReader, S: StripReader> Service<G, S> {
     fn gpio_fault(&mut self, now_us: u64, fault: ControlFault) {
         self.record(now_us, Input::GpioFault { fault });
         self.engine.gpio_fault(now_us, fault);
-        if let Some(primary) = &mut self.primary {
+        if let Some(primary) = &mut self.primary
+            && primary.name.is_some()
+        {
             primary.engine.input_fault(now_us, fault);
         }
     }
@@ -167,9 +211,11 @@ impl<G: PinReader, S: StripReader> Service<G, S> {
             }
             return Err(error);
         }
-        if let Some(primary) = &mut self.primary {
+        if let Some(primary) = &mut self.primary
+            && let Some(name) = &primary.name
+        {
             let mut button = sample.clone();
-            button.buttons.retain(|level| level.name == primary.name);
+            button.buttons.retain(|level| &level.name == name);
             button.head_pads.clear();
             button.base_mask = None;
             if let Err(error) = primary.engine.ingest(now_us, button) {
@@ -196,6 +242,11 @@ impl<G: PinReader, S: StripReader> Service<G, S> {
 
     pub fn step(&mut self, now: impl Fn() -> u64) -> TouchOutput {
         let began = now();
+        if let Some(privacy) = &mut self.privacy
+            && let Some((received, sample)) = privacy.poll(&now)
+        {
+            self.record(received, Input::Privacy { sample });
+        }
         let mut drained = 0;
         for _ in 0..DRAIN_LIMIT {
             match self.gpio.read(now()) {
@@ -281,12 +332,21 @@ impl<G: PinReader, S: StripReader> Service<G, S> {
             account(&mut self.counts, self.events.publish_json(at_us, event));
         }
         if let Some(primary) = &mut self.primary {
-            let output = primary.engine.tick(at_us);
-            if publish_state || !output.gestures.is_empty() {
+            let mut output = primary.engine.tick(at_us);
+            if let Some(privacy) = &mut self.privacy {
+                output.state.privacy = Some(privacy.monitor.snapshot(at_us));
+            }
+            let privacy_key = output
+                .state
+                .privacy
+                .as_ref()
+                .map(|value| (value.muted, value.fault, value.reader_session_id.clone()));
+            if publish_state || !output.gestures.is_empty() || self.last_privacy != privacy_key {
                 account(
                     &mut self.counts,
                     primary.state.publish_json(at_us, &output.state),
                 );
+                self.last_privacy = privacy_key;
             }
             for gesture in &output.gestures {
                 account(
@@ -307,7 +367,14 @@ impl<G: PinReader, S: StripReader> Service<G, S> {
             {
                 self.counts.publish_errors += 1;
             }
-            let ready = output.state.sources.iter().all(|source| source.ready);
+            let privacy = self
+                .privacy
+                .as_mut()
+                .map(|source| source.monitor.snapshot(at_us));
+            let ready = output.state.sources.iter().all(|source| source.ready)
+                && privacy
+                    .as_ref()
+                    .is_none_or(|sample| sample.fresh_at(&output.state.stamp.clock_id, at_us));
             let recording = self
                 .recorder
                 .as_ref()
@@ -346,6 +413,13 @@ impl<G: PinReader, S: StripReader> Service<G, S> {
             .with("record_failed", recording.failed)
             .with("physical_stop_verified", false)
             .with("capture_permission", "not_owned");
+            let report = if let Some(privacy) = privacy {
+                report
+                    .with("privacy_muted", format!("{:?}", privacy.muted))
+                    .with("privacy_fault", format!("{:?}", privacy.fault))
+            } else {
+                report
+            };
             account(
                 &mut self.counts,
                 self.diagnostic.publish_json(at_us, &report),

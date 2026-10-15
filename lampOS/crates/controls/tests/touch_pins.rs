@@ -45,6 +45,7 @@ fn base() -> mpr121::Config {
 
 fn wiring() -> TouchPinsConfig {
     TouchPinsConfig {
+        privacy: None,
         chip: "/dev/gpiochip0".into(),
         buttons: vec![pin("primary", 99)],
         head_pads: vec![pin("head-one", 37), pin("head-two", 96)],
@@ -436,6 +437,7 @@ fn file_size_bound_accepts_exact_limit_and_refuses_over_limit_or_corrupt_input()
 #[test]
 fn empty_configuration_does_not_claim_a_functional_touch_source() {
     let wiring = TouchPinsConfig {
+        privacy: None,
         chip: "/dev/gpiochip0".into(),
         buttons: vec![],
         head_pads: vec![],

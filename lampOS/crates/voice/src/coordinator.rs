@@ -1135,7 +1135,7 @@ fn run_source(
                 termination,
                 |trace, cues| {
                     let trace = RefCell::new(trace);
-                    service_privacy::wait_with_gate(
+                    crate::service_privacy_controls::wait_selected(
                         &executable,
                         termination,
                         |state, boot, at_us| {
@@ -2163,6 +2163,9 @@ fn spawn_rig(
     } else {
         None
     };
+    let privacy_root = crate::privacy_bus::root_from_environment()?;
+    let privacy_arguments = crate::privacy_bus::worker_arguments(privacy_root.as_deref())?;
+    let privacy_arguments: Vec<&str> = privacy_arguments.iter().map(String::as_str).collect();
     let mut later_tick = |second: Option<&mut second::Route>| -> io::Result<()> {
         controls_startup(controls)?;
         let previous = last;
@@ -2203,9 +2206,14 @@ fn spawn_rig(
         second_arguments.as_deref(),
         || later_tick(None),
     )?;
-    let privacy = Worker::spawn_with_tick(&executable, directory, "privacy", boot, &[], || {
-        later_tick(second.as_mut())
-    })?;
+    let privacy = Worker::spawn_with_tick(
+        &executable,
+        directory,
+        "privacy",
+        boot,
+        &privacy_arguments,
+        || later_tick(second.as_mut()),
+    )?;
     for (worker, expected_stream) in [
         (&capture, DiagnosticStream::Capture),
         (&speaker, DiagnosticStream::Render),

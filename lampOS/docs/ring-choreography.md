@@ -13,6 +13,7 @@ qualification work.
 |---|---|
 | Startup, no admitted turn or completed turn, in a bounded `directed` run | Black. Worker readiness alone does not imply listening readiness. |
 | The same in `serve`, while the microphone is permitted and input is available | The resting face: a slow, dim, warm breath (5.2 s) with a faint brighter patch that wanders around the ring. Black as soon as privacy closes, input is unavailable or the authority goes stale. |
+| Fresh physical mute during the quiescent `serve` wait, with `LAMP_PRIVACY_CONTROLS=on` | A separate worker shows a slow dark-red breath, only after the active writer has closed. Unknown or stale switch state is black. The ordinary resting face remains denied. |
 | Fresh retained input admitted to the current turn | The listening face: cool, at once, brighter with the person's voice. |
 | Local input ended; the turn is unfinished without active playback | The thinking face: an amber point circling the ring once every 1.15 s with a fading tail. No spoken waiting filler. |
 | Matched speaker acceptance followed by `playback_started` | The speaking face: warm, as bright as the lamp's own voice is loud. Provider audio arrival alone does not start it. |
@@ -109,10 +110,51 @@ none that evening, because the screen was locked and showed only its clock
 (the eyes' own frame showed it), so the photograph never appeared. It needs
 the screen unlocked, or a person at the lamp. The blink at rest has not been watched on the lamp either.
 
-Not done, from the task: a muted or asleep look (a muted lamp shows no
-resting face at all, by the guard below, and sleep comes with the touch
-strip's Sleep and Wake, #711), and the mood's pace and warmth (from the inner
-state, #713, when it publishes).
+An asleep look remains unfinished; sleep comes with the touch strip's Sleep
+and Wake, #711. The mood's pace and warmth remain work for the inner state,
+#713, when it publishes. A muted lamp still has no resting face. The separate
+opt-in physical-mute indication below has no conversational authority and still
+needs physical brightness and latency qualification.
+
+### Physical mute indication (#755)
+
+`LAMP_PRIVACY_CONTROLS=on` selects the Controls-backed privacy path and enables
+an optional ring worker during the quiescent privacy wait. Unset leaves the
+existing GPIO and ring behavior unchanged. The supervisor passes
+`ring --privacy --bus-root PATH` explicitly because worker environments are
+cleared. It verifies the active ring's destruction before this writer starts,
+and verifies this writer's shutdown black receipt and successful process exit
+before starting the next active ring. The SPI advisory lock is retained until
+the old worker drops its device; a Stop request alone is not a handoff.
+
+This worker reads only the typed Voice-owned `voice/privacy` lease. Its shared
+reader validates the source, message type, publisher session, sequence and
+current kernel clock, with a bounded drain of 32 messages. The ring also checks
+the matching IPC controller boot and microphone generation, fresh denied
+microphone and camera snapshots, no turn owner, `permitted:false`, and
+`physical_muted:Some(true)`. Original switch evidence expires within 50 ms.
+Software mute alone, unknown state and normal Allowed authority cannot paint
+this indication or grant capture/readiness.
+
+`GuardedRing::show_privacy_muted` takes no pixels, ceiling or conversational
+permit. It renders a fixed four-second cosine breath on all 32 pixels, red
+2–10 and green/blue zero, at most 40 frames per second. The red ceiling reuses
+V1's dark-red mute preset; this is not a claim of an identical optical waveform.
+The worker checks every 2 ms, drains priority control before and after bus I/O,
+and blanks on missing, stale, open, wrong-boot or invalid evidence. Controller
+loss or reader failure blanks and ends that worker. An observation that expires
+during a write is checked again on return and blanked. The existing 10 ms
+observed write budget and bounded cleanup attempts remain in force; Linux SPI
+syscalls have no hard userspace deadline.
+
+SPI and bus work stay outside the physical sampler and Voice owner loop.
+Indicator failure cannot reopen a microphone, start audio or bypass privacy
+cleanup. Its optionality does not permit two writers: failed or unverified
+cleanup prevents a successor. A start that fails before any writer process
+exists leaves nothing to clean up; the muted wait goes on without the light. Fake-sink tests establish protocol and write
+behavior only. Lamp checks must measure switch acquisition, permission/handle
+closure, speaker silence and visible indication separately, including rapid
+flips, stale input, worker failure and repeated writer handoffs.
 
 ### The resting face and its authority
 

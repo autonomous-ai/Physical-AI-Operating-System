@@ -39,6 +39,32 @@ default-false `alive.sleep.name_requires_speech` switch. See [alive.md](alive.md
 for exact timing and limits. Acoustic false positives, delayed real bus
 delivery and physical waking remain for First's lamp minute and night watch.
 
+## Physical privacy, task #755 (2026-10-15)
+
+Source comparison, not a hardware measurement: V1's `privacy_button.json` and
+GPIO driver use chip 1/line 9, pull-up and LOW mute; its privacy policy closes
+capture before slow teardown, and its muted preset is dark red. Reuse the
+existing pinned `gpiocdev` 0.8.0 request/value semantics, ALSA 0.12.1 capture
+adapter and Rust Voice's 50 ms freshness / 60 ms stable-open gate. The pinned
+GPIO crate defaults to active-high values, so the adapter intentionally maps
+electrical `Inactive` to muted without also setting an active-low flag.
+
+Change ownership once: selected Controls reads the physical line and Voice
+consumes acquisition-stamped evidence; the old Voice GPIO reader is not opened
+in parallel. Keep microphone permission with Voice, including its durable
+software latch. Ears now obeys a short Voice lease and closes its own MIC1
+handle, which the existing Voice MIC2 worker could not do. Keep SPI in a
+separate supervised process and permit only a fixed dark-red mute indication
+under fresh denied authority; reuse the existing exclusive ring lock and
+verified black-write/exit handoff. Do not reuse V1's shared callback lifetime,
+or treat a red light as evidence that a microphone handle closed.
+
+Retained implementation references: [GPIO builder/value contract](https://docs.rs/gpiocdev/0.8.0/gpiocdev/request/struct.Builder.html),
+[privacy switch contract and qualification](privacy-switch.md),
+[service lifecycle](service-privacy.md). Host replay and fake handles cannot
+establish electrical cutoff, acoustic silence, optical appearance or lamp
+timing; the PR's native ARM64 run and First's lamp measurements remain separate.
+
 ## Touch strip and head, Task 33 (2026-10-14)
 
 Third read V1 `hal/drivers/mpr121.py`, its initialization/configuration/spatial

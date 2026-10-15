@@ -622,6 +622,7 @@ impl Engine {
             None
         };
         let state = ControlsState {
+            privacy: None,
             stamp: ClockStamp {
                 clock_id: self.clock_id.clone(),
                 at_us: self.now.unwrap_or(now_us),

@@ -1,0 +1,9 @@
+   Compiling proc-macro2 v1.0.107
+   Compiling quote v1.0.47
+   Compiling serde_core v1.0.229
+   Compiling syn v3.0.7
+   Compiling serde v1.0.229
+    Checking serde_json v1.0.151
+   Compiling serde_derive v1.0.229
+    Checking lamp-bus v0.1.0 (/private/tmp/lampos-tests-bus-lines/lampOS/crates/bus)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 10.16s

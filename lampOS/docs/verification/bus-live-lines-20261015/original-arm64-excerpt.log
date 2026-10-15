@@ -1,0 +1,27 @@
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T11:44:36.2913938Z         FAIL [   0.025s] ( 563/4579) lamp-bus::cli a_killed_recorder_leaves_whole_lines_and_its_socket_goes_with_the_next_publish
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T11:44:36.2914771Z   stdout ───
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T11:44:36.2914876Z 
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T11:44:36.2914952Z     running 1 test
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T11:44:36.2915316Z     test a_killed_recorder_leaves_whole_lines_and_its_socket_goes_with_the_next_publish ... FAILED
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T11:44:36.2915664Z 
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T11:44:36.2915737Z     failures:
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T11:44:36.2915837Z 
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T11:44:36.2915908Z     failures:
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T11:44:36.2916208Z         a_killed_recorder_leaves_whole_lines_and_its_socket_goes_with_the_next_publish
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T11:44:36.2916514Z 
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T11:44:36.2916761Z     test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 9 filtered out; finished in 0.02s
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T11:44:36.2917104Z 
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T11:44:36.2917204Z   stderr ───
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T11:44:36.2917304Z 
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T11:44:36.2917693Z     thread 'a_killed_recorder_leaves_whole_lines_and_its_socket_goes_with_the_next_publish' (16249) panicked at crates/bus/tests/cli.rs:152:5:
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T11:44:36.2918248Z     half a line
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T11:44:36.2918758Z     note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T11:44:36.2919069Z 
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T11:44:36.2919201Z   Cancelling due to test failure: 3 tests still running
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T11:44:36.3055100Z         PASS [   0.015s] ( 564/4579) lamp-bus::cli a_recording_begins_with_what_its_topic_was_declared_to_carry_and_replay_declares_it_again
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T11:44:36.4529565Z         PASS [   0.230s] ( 565/4579) lamp-bus::bus the_newest_value_reaches_a_subscriber_whose_queue_missed_it
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T11:44:36.6786524Z         PASS [   0.600s] ( 566/4579) lamp-bus::bus messages_alone_keep_a_source_and_a_publisher_from_another_language_needs_no_entry
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T11:44:36.6788951Z ────────────
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T11:44:36.6789297Z      Summary [   6.333s] 566/4579 tests run: 565 passed, 1 failed, 117 skipped
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T11:44:36.6789891Z         FAIL [   0.025s] ( 563/4579) lamp-bus::cli a_killed_recorder_leaves_whole_lines_and_its_socket_goes_with_the_next_publish
+lampOS — build and test on Linux ARM64 (1/1)	UNKNOWN STEP	2026-10-15T11:44:36.6791260Z warning: 4013/4579 tests were not run due to test failure (run with --no-fail-fast to run all tests, or run with --max-fail)

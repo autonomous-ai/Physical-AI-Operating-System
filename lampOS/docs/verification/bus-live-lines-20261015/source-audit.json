@@ -1,0 +1,19 @@
+{
+  "entire_original_restored_after_reversing_only_new_helper_and_four_wait_predicates": true,
+  "original_test_identities": [
+    "pub_then_latest_prints_what_was_published_and_a_topic_that_keeps_nothing_is_status_1",
+    "tap_prints_each_message_published_while_it_listens_and_ends_at_its_count",
+    "record_then_replay_gives_a_subscriber_the_messages_again_at_their_spacing",
+    "a_killed_recorder_leaves_whole_lines_and_its_socket_goes_with_the_next_publish",
+    "a_recording_stops_at_its_size_and_says_so",
+    "topics_lists_each_topic_with_who_listens_and_whether_a_value_is_kept",
+    "bad_input_prints_the_usage_and_is_status_2_with_nothing_touched",
+    "info_says_what_a_topic_carries_who_publishes_it_who_listens_and_how_old_its_value_is",
+    "hz_measures_a_topic_while_a_publisher_runs_and_is_status_1_when_nothing_comes",
+    "a_recording_begins_with_what_its_topic_was_declared_to_carry_and_replay_declares_it_again"
+  ],
+  "new_test_identities": [
+    "a_live_recording_waits_for_the_whole_snapshot_before_counting_lines"
+  ],
+  "existing_assertions": 190
+}

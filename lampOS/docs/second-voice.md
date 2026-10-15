@@ -170,8 +170,10 @@ order is kept. A written turn is the same from the chat on.
   clock (`net/stt.rs`), against a scripted 800 ms `CloseStream` round
   trip: 0 ms to the words with a `speech_final` before the end, 0 ms with
   an at-once answer to `Finalize`, and 1 s + 800 ms when `Finalize` is
-  ignored. Whether the company proxy passes `Finalize`, and the time it
-  saves, is not yet measured on a lamp. Why a turn waited is
+  ignored. On lamp-52e6 (2026-10-15 23:30, four played questions) the
+  company proxy passed `Finalize`: every turn took `words from=finalize`,
+  and the last words came 246 to 321 ms after the line's end, against 564
+  to 662 ms with `CloseStream` at 23:00. Why a turn waited is
   journaled once, without words, when the words are in: "lamp-voice second: request N at the line's end:
   settled=<bool>, speech_final=<bool>, finals cover <ms|none> of <ms> ms
   sent, pending=<none|interim D ms after the last final|speech_started D
@@ -302,19 +304,25 @@ to the first write to the speaker, 3.0 to 3.6 s for a plain question with no
 slow chat. The chat through the relay takes 1.2 s at best to its first
 event, with spikes to 7.7 s; speech to text gives its last words 0.6 to 0.9
 s after the line; speech starts 0.4 to 0.6 s after the chat's first event.
-Since then (#779, step 1) the chat no longer waits for that round trip when
-the words had settled before the line ended (see "A turn on the second
-route"); how often that is so on a lamp, and the time saved, is not yet
-measured. With V1's `endpointing=1500` an utterance's end needed 1.5 s of
-silence, and the coordinator ends a line after 0.4 to 1.5 s of it
-(`coordinator/endpoint.rs`), so a `speech_final` would seldom come first;
-it is now 300 ms, so that it usually does. Whether that ever splits one
-spoken line into two final segments in a way the chat reads badly is not
-yet seen on a lamp.
+Since then (#779) speech to text's last words are asked for with
+`Finalize` at the line's end. On lamp-52e6 at 23:00 the journal showed that
+no final segment had arrived by the end of any of four lines (`finals cover
+none`), even with `endpointing` at 300 ms, so the words always waited for
+`CloseStream`'s final; with `Finalize` at 23:30 they came 246 to 321 ms
+after the end, about 0.34 s sooner on every turn. End of the line to the
+first sound was then 3.4, 4.4, 6.0 (a tool round) and 2.8 s: the rest is the
+chat through the relay, 1.0 to 2.7 s to its first words, whose own spread is
+larger than anything left in this code. From the lamp, 20 requests each,
+the relay's `gpt-4.1-mini` took 1.1 to 1.2 s (p50) to its first words, with
+the 9.6 KB persona and tools no slower than one line.
 
-- First turn after a switch: the sentence starts within 1.2 s, and the
-  answer follows with no gap longer than 0.5 s.
-- Steady turns on the second route: p50 ≤ 1.5 s, p95 ≤ 2.5 s.
+The targets, as revised by the first builder on #779 for a voice used only
+while Gemini is down:
+
+- End of the line to the first sound: p50 ≤ 2.5 s, p95 ≤ 4 s.
+
+Not yet met on lamp-52e6 (median about 3.9 s at 23:30). The relay's speed
+and a direct provider key are the owner's and the relay team's.
 
 A switch on a response timeout cannot meet the first (above).
 

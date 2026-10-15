@@ -1,0 +1,43 @@
+{
+  "fmt": {
+    "command": "cargo fmt --all --check",
+    "started": "2026-10-15 19:32:51 +0700",
+    "finished": "2026-10-15 19:32:56 +0700",
+    "exit": "0"
+  },
+  "clippy": {
+    "command": "cargo clippy --locked --offline -p lamp-voice-eval --all-targets -- -D warnings",
+    "started": "2026-10-15 19:32:56 +0700",
+    "finished": "2026-10-15 19:32:57 +0700",
+    "exit": "0"
+  },
+  "tests": {
+    "command": "cargo test --locked --offline -p lamp-voice-eval --no-fail-fast -- --test-threads=1",
+    "started": "2026-10-15 19:32:57 +0700",
+    "finished": "2026-10-15 19:45:48 +0700",
+    "exit": "0"
+  },
+  "build": {
+    "command": "cargo build --locked --offline --workspace",
+    "started": "2026-10-15 19:45:48 +0700",
+    "finished": "2026-10-15 19:51:11 +0700",
+    "exit": "0"
+  },
+  "clock": {
+    "command": "cargo test --locked --offline -p lamp-voice-eval --test relay_clock -- --test-threads=1",
+    "started": "2026-10-15 19:26:32 +0700",
+    "finished": "2026-10-15 19:26:35 +0700",
+    "exit": "0"
+  },
+  "source_before": "bd37eb8087ff61148b48be889dfb640f6617831d",
+  "source_sha256": {
+    "crates/voice-eval/src/physical/session.rs": "b3415f943db3f778543e50c13f2c16b8a6d5430185f577d7279232d1cf9d27b9",
+    "crates/voice-eval/tests/relay_clock.rs": "7de3f59adc480869877fdb75109412f959745c13ba57b855e4aebf2bf56504b6"
+  },
+  "sandbox_initial": {
+    "exit_code": 101,
+    "passed": 0,
+    "failed_at_startup": 2,
+    "limitation": "AF_UNIX bind was forbidden in the initial delegated sandbox; primary socket-capable approval allowed concrete validation."
+  }
+}

@@ -32,6 +32,7 @@ use crate::{
     },
 };
 use lamp_ipc::monotonic_us;
+use lamp_turn_owner::MonoTime;
 use lamp_voice::{
     options::{
         DirectedOptions, Endpoint, Microphone, PlayoutStart, ReferenceClock, ReferenceRecovery,
@@ -625,8 +626,13 @@ struct StopRequest {
 /// goes only to the runtime this relay started (the leader of the process
 /// group it created). Workers are stopped by the coordinator itself; a
 /// group-wide SIGTERM would bypass its ordered cleanup.
-fn request_stop(child: &Child, cause: &'static str, reason: Option<String>) -> StopRequest {
-    let requested_us = monotonic_us();
+fn request_stop(
+    child: &Child,
+    cause: &'static str,
+    reason: Option<String>,
+    now: &impl Fn() -> MonoTime,
+) -> StopRequest {
+    let requested_us = now().as_micros();
     let signal = rustix::process::kill_process(
         rustix::process::Pid::from_child(child),
         rustix::process::Signal::TERM,
@@ -635,7 +641,7 @@ fn request_stop(child: &Child, cause: &'static str, reason: Option<String>) -> S
         cause,
         reason,
         requested_us,
-        signal_sent_us: signal.is_ok().then(monotonic_us),
+        signal_sent_us: signal.is_ok().then(|| now().as_micros()),
         signal_error: signal.err().map(|error| error.to_string()),
     }
 }
@@ -844,6 +850,28 @@ pub fn run<R: Read + Send + 'static>(
     input: R,
     out: &mut impl Write,
 ) -> Result<i32> {
+    run_with_clock(
+        options,
+        input,
+        out,
+        || MonoTime::from_micros(monotonic_us()),
+    )
+}
+
+/// Run with an explicit source for protocol timestamps and session/stop deadlines.
+/// The source must only read time, remain monotonic, and share the runtime's
+/// timestamp domain. A body `Clock` adapts as `|| clock.now()`.
+///
+/// Process-group cleanup and the late-stdout drain remain bounded on the host
+/// clock, and every polling sleep is unchanged. This seam does not drive a
+/// stepped clock or synchronize children; callers must provide that separately.
+/// The CLI continues to call `run` with the system clock.
+pub fn run_with_clock<R: Read + Send + 'static>(
+    options: &SessionOptions,
+    input: R,
+    out: &mut impl Write,
+    now: impl Fn() -> MonoTime,
+) -> Result<i32> {
     fs::DirBuilder::new().mode(0o700).create(&options.work)?;
     let mut cleanup = Cleanup {
         child: None,
@@ -858,7 +886,7 @@ pub fn run<R: Read + Send + 'static>(
         out,
         &SessionLine::SessionStart {
             schema: SCHEMA,
-            lamp_us: monotonic_us(),
+            lamp_us: now().as_micros(),
             mode: match options.mode {
                 SessionMode::Fixture { .. } => "fixture",
                 SessionMode::Directed { .. } => "directed",
@@ -894,7 +922,7 @@ pub fn run<R: Read + Send + 'static>(
         MAX_RUNNER_TOTAL_BYTES,
         "runner transport",
     );
-    let deadline = monotonic_us()
+    let deadline = now().as_micros()
         + (u64::from(options.seconds) + u64::from(options.allowance_seconds)) * 1_000_000;
     let mut buffer = [0_u8; 1024];
     let mut errors = RelayErrors::default();
@@ -907,7 +935,7 @@ pub fn run<R: Read + Send + 'static>(
                         errors: &mut RelayErrors,
                         finished_line: &mut Option<Value>|
      -> Result<()> {
-        let line = stdout_line(monotonic_us(), item, errors);
+        let line = stdout_line(now().as_micros(), item, errors);
         if serve
             && let SessionLine::Stdout { line, .. } = &line
             && let Ok(value) = serde_json::from_str::<Value>(line)
@@ -923,7 +951,7 @@ pub fn run<R: Read + Send + 'static>(
     let (status, exited_us) = loop {
         for _ in 0..64 {
             match socket.recv(&mut buffer) {
-                Ok(count) => emit(out, &cue_line(monotonic_us(), &buffer[..count])?)?,
+                Ok(count) => emit(out, &cue_line(now().as_micros(), &buffer[..count])?)?,
                 Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => break,
                 Err(error) => return Err(error.into()),
             }
@@ -939,13 +967,13 @@ pub fn run<R: Read + Send + 'static>(
                         out,
                         &SessionLine::Pong {
                             seq,
-                            lamp_us: monotonic_us(),
+                            lamp_us: now().as_micros(),
                         },
                     )?,
                     Ok(RunnerLine::Stop { reason }) if serve => {
                         // A repeated stop changes nothing: one signal, one grace.
                         if stop.is_none() {
-                            stop = Some(request_stop(child, "runner_stop", Some(reason)));
+                            stop = Some(request_stop(child, "runner_stop", Some(reason), &now));
                         }
                     }
                     Ok(RunnerLine::Stop { .. }) => {
@@ -962,7 +990,7 @@ pub fn run<R: Read + Send + 'static>(
             }
         }
         if let Some(status) = child.try_wait()? {
-            break (Some(status), Some(monotonic_us()));
+            break (Some(status), Some(now().as_micros()));
         }
         if runner_closed && stop.is_none() {
             errors.push(
@@ -974,19 +1002,19 @@ pub fn run<R: Read + Send + 'static>(
                 killed = true;
                 break (None, None);
             }
-            stop = Some(request_stop(child, "transport_closed", None));
+            stop = Some(request_stop(child, "transport_closed", None, &now));
         }
-        if monotonic_us() >= deadline && stop.is_none() {
+        if now().as_micros() >= deadline && stop.is_none() {
             if !serve {
                 kill(child);
                 killed = true;
                 break (None, None);
             }
             errors.push("the serve hard deadline passed; the relay stopped the runtime".into());
-            stop = Some(request_stop(child, "deadline", None));
+            stop = Some(request_stop(child, "deadline", None, &now));
         }
         if let Some(request) = &stop
-            && monotonic_us() >= request.requested_us + SERVE_STOP_GRACE_US
+            && now().as_micros() >= request.requested_us + SERVE_STOP_GRACE_US
         {
             // Only the group this relay created is killed.
             kill(child);
@@ -1045,7 +1073,7 @@ pub fn run<R: Read + Send + 'static>(
             Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => break,
             Err(error) => return Err(error.into()),
         };
-        emit(out, &cue_line(monotonic_us(), &buffer[..count])?)?;
+        emit(out, &cue_line(now().as_micros(), &buffer[..count])?)?;
     }
     let (trace, serve_end) = if serve {
         let metadata = stream_metadata(&options.runtime_output().join("metadata"), out)?;
@@ -1087,7 +1115,7 @@ pub fn run<R: Read + Send + 'static>(
     emit(
         out,
         &SessionLine::SessionEnd {
-            lamp_us: monotonic_us(),
+            lamp_us: now().as_micros(),
             exit_code,
             killed,
             events_sha256: trace.sha256,
@@ -1100,6 +1128,41 @@ pub fn run<R: Read + Send + 'static>(
     drop(socket);
     drop(cleanup);
     Ok(if killed { 3 } else { 0 })
+}
+
+#[cfg(test)]
+mod clock_tests {
+    use super::*;
+    use std::cell::Cell;
+
+    #[test]
+    fn successful_stop_samples_the_clock_again_after_sending_the_signal() {
+        let mut cleanup = Cleanup {
+            child: Some(
+                Command::new("/bin/sh")
+                    .args(["-c", "IFS= read -r line"])
+                    .stdin(Stdio::piped())
+                    .stdout(Stdio::null())
+                    .stderr(Stdio::null())
+                    .process_group(0)
+                    .spawn()
+                    .unwrap(),
+            ),
+            socket: None,
+        };
+        let reads = Cell::new(0);
+        let now = || {
+            reads.set(reads.get() + 1);
+            MonoTime::from_micros(123_456)
+        };
+        let stop = request_stop(cleanup.child.as_ref().unwrap(), "test", None, &now);
+        assert_eq!(stop.requested_us, 123_456);
+        assert_eq!(stop.signal_sent_us, Some(123_456));
+        assert_eq!(stop.signal_error, None);
+        assert_eq!(reads.get(), 2, "a successful signal needs a fresh sample");
+        let child = cleanup.child.as_mut().unwrap();
+        assert!(!child.wait().unwrap().success());
+    }
 }
 
 #[cfg(test)]

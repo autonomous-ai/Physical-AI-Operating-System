@@ -107,6 +107,57 @@ credential file, the name, the Wi-Fi configuration and the setup marker. Kept:
 the software, its releases, the update key, the touch calibration and other
 per-lamp facts, and physical privacy.
 
+## The reset (built, off unless set)
+
+`crates/setup` builds `lamp-setup`. Its first slice is the reset:
+
+```sh
+lamp-setup check --plan PLAN.json
+lamp-setup resume-reset --plan PLAN.json --enable      # at start, before the lamp
+lamp-setup watch-reset --plan PLAN.json --bus-root /run/lampos-bus --enable
+```
+
+Controls already turns the reset button (chip 0 line 100) held 5 s or more and
+then released into one `controls/touch` event, `source: reset`,
+`gesture: hold`, intent `factory_reset` (`docs/controls.md`; it needs the
+`--touch` path with a `reset` line in the pins file). `watch-reset` acts on the
+first such event that is valid, comes from an **enabled** Controls (a shadow
+Controls never resets a lamp), is on this boot's clock and is less than 500 ms
+old. Then, in this order:
+
+1. it writes a journal, durably (temporary file, sync, rename, directory sync);
+2. it runs the plan's stop command (`systemctl stop lampos.target`), which must
+   succeed: the parts stop, the body folds the lamp first;
+3. it wipes each path in the plan: a file is removed, a directory keeps itself
+   (systemd units name some of them and would not start without them) and
+   loses everything in it; links are removed, never followed;
+4. it removes the setup marker, syncs, removes the journal, syncs;
+5. it reboots.
+
+If the stop fails, nothing is wiped and the journal stays. If the power goes
+during the wipe, the journal stays. Either way `resume-reset`, run at the next
+start before anything of the lamp, finishes the wipe and removes the marker,
+without a second reboot. A plan is refused unless every path is absolute and
+plain (no `.` or `..`, read from the text itself), at least two levels below a
+top directory, and outside the software (`/opt/lampOS`), the update trust
+(`/etc/lampOS/update`) and the system (`/usr`, `/boot`, `/home`, …); the
+journal must not be inside a wiped path. Without `--enable`, `watch-reset`
+only logs a valid reset and `resume-reset` only says whether one is unfinished.
+`crates/setup/fixtures/reset-plan-example.json` is the plan for lamp-4ace's
+paths; the credential, name and Wi-Fi entries are where setup will write them.
+
+V1 says "Factory reset starting" before it reboots; V2 does not yet speak: the
+voice is among the parts stopped. What the person sees is the lamp folding and
+going dark, then the hotspot coming back. Where `resume-reset` and
+`watch-reset` run in the boot order, and with what rights, waits on the
+keeper's owner (the fifth builder, asked on #702).
+
+Host tests (`crates/setup/tests/reset.rs`): the order of the steps, a failed
+stop wiping nothing, a wipe that fails halfway keeping the journal and marker
+until `resume-reset` finishes, a start with no journal touching nothing,
+refused plans, every reason an event is not a reset, the watcher on a real bus
+acting once and only logging with the switch off, and the command line.
+
 ## Open questions (asked on #806)
 
 1. Where does a home lamp's voice credential come from: the autonomous.ai

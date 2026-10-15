@@ -1,0 +1,21 @@
+{
+  "marker": "/var/lib/lampos-setup/done",
+  "journal": "/var/lib/lampos-setup/reset.json",
+  "wipe": [
+    "/var/lib/lampos-memory",
+    "/var/lib/lampos-eyes/people.json",
+    "/var/lib/lampos-tasks/store",
+    "/var/lib/lampos-tasks/targets.json",
+    "/var/lib/lampos-schedule/store",
+    "/var/lib/lampos-policy",
+    "/var/lib/lampOS/voice/sessions",
+    "/var/lib/lampOS/voice/schedule-delivery",
+    "/var/lib/lampOS/voice/first-output",
+    "/run/lampos-voice/thread.json",
+    "/etc/lampOS/voice/credential",
+    "/etc/lampOS/person/name",
+    "/etc/wpa_supplicant/wpa_supplicant-wlan0.conf"
+  ],
+  "stop": ["/usr/bin/systemctl", "stop", "lampos.target"],
+  "reboot": ["/usr/bin/systemctl", "reboot"]
+}

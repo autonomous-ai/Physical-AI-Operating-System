@@ -497,6 +497,31 @@ fn pieces_become_one_utterance_and_one_decision_is_published_and_logged() {
     ));
 }
 
+/// The reviewer on #908 (06:40): turn 1's words, and 50 ms later turn 2's,
+/// neither marked finished, through the real Policy loop and bus. Two
+/// questions and two decisions, each carrying its own turn's number: never
+/// one decision about both carrying the later number, which would hold or
+/// release turn 2's action on turn 1's words.
+#[test]
+fn pieces_of_two_turns_are_judged_apart_each_with_its_own_number() {
+    let mut rig = Rig::new("two-turns", |_| {
+        Ok(asked([0.9, 0.0, 0.0, 0.9, 0.0, 0.0, 0.0]))
+    });
+    rig.hear_as("Hey Lamp, turn it up. ", false, Some(1));
+    thread::sleep(ms(50));
+    rig.hear_as("Thailand.", false, Some(2));
+    let (first, second) = (rig.decision(), rig.decision());
+    assert_eq!((first.request, second.request), (Some(1), Some(2)));
+    assert_eq!(rig.shown()["heard"], "Hey Lamp, turn it up.");
+    assert_eq!(rig.shown()["heard"], "Thailand.");
+    let log = rig.log(2);
+    assert_eq!(
+        (log[0]["request"].clone(), log[1]["request"].clone()),
+        (json!(1), json!(2))
+    );
+    rig.stop();
+}
+
 #[test]
 fn a_piece_marked_finished_is_judged_without_the_pause_and_carries_its_request() {
     let mut rig = Rig::new("finished", |_| {

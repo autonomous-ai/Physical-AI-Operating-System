@@ -114,8 +114,11 @@ Before it answers it has to judge whether what it heard was said to it.
 
 **What is judged.** The voice publishes what it hears in pieces, as the
 recogniser writes them. The pieces are put end to end into one utterance,
-which is over when a piece is marked `finished` or when 300 ms have passed
-with no further piece. Today the voice marks none, so the 300 ms end every
+which is over when a piece is marked `finished`, when 300 ms have passed
+with no further piece, or when a piece of another of the voice's turns
+comes (each piece carries the number of the turn it was heard in, #908): a
+decision is about one turn's words, and carries that turn's number, never
+a later one's. Today the voice marks none, so the 300 ms end every
 utterance. An utterance is judged once. One that reaches 2,000 bytes is
 judged at that length and the rest begins another, so that talk which
 never pauses is still judged, in parts.

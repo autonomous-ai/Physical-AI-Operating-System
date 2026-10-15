@@ -890,8 +890,10 @@ not held (the first builder, 05:57), nor is any other call:
   `voice/heard` with the number of the turn whose input began last before
   the piece came (`crates/voice/src/bus_out.rs`), the same turn the
   voice's own rule takes it for; the Policy's decision carries the number
-  of the newest piece it judged. So a decision is its own turn's however
-  late it comes, and never another's: a late decision about the turn
+  of the pieces it judged, and an utterance never holds pieces of two
+  turns: a piece of another turn ends the one open (the reviewer on #908,
+  06:40). So a decision is its own turn's however late it comes, and
+  never another's: a late decision about the turn
   before neither releases nor holds this turn's action (the reviewer on
   #908). A decision without a number is nobody's; of two about one turn
   (its words judged in two pieces), the newer counts. Where the number can
@@ -941,7 +943,11 @@ action, in both orders; one still owed to an earlier turn never settling a
 later one), `crates/voice/src/bus_out.rs` (what was heard told with the
 number of the turn whose input began last), `crates/policy/tests/policy.rs`
 (`a_piece_marked_finished_is_judged_without_the_pause_and_carries_its_request`:
-the decision carries the number of what it judged),
+the decision carries the number of what it judged;
+`pieces_of_two_turns_are_judged_apart_each_with_its_own_number`: turn 1's
+words and turn 2's 50 ms later, neither finished, two decisions with
+numbers 1 and 2, through the real Policy loop and bus),
+`crates/policy/src/gather.rs` (`a_piece_of_another_turn_begins_another_utterance`),
 `crates/gemini/src/session/tests/tools.rs` (a withdrawn call
 known before its event is taken) and `crates/voice/src/provider_worker/tests/policy_holds.rs`
 (the worker's own loop against the scripted service, an executive and a bus

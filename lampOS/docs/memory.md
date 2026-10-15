@@ -437,8 +437,19 @@ facts stay `remember`.
   memory needed no new kind or schema: a rule is never in a person's own
   scope, so a recall or a search never returns one, and a person's rules
   are reached only through their own `r-` scope. A rule about speaking
-  first is marked in its text (`[quiet] ` or `[quiet_mornings] `); the mark
-  is taken off before anything is told to the model.
+  first is marked in its text (`[quiet] ` or `[quiet_mornings] `), and one
+  about the greeting or the news said unprompted by a typed mark after it,
+  `[unprompted <greeting|news|both> never not_before=<minute>
+  not_from=<minute> not_while_talking] ` with only the limits asked; the
+  marks are taken off before anything is told to the model.
+- **Typed when kept (#813).** `keep_rule` takes, beside `rule`, the
+  optional `about` (`greeting`, `news` or `both`) with `never`,
+  `not_before` / `not_from` (`HH:MM`, 24 hours, local) and
+  `not_while_talking`, filled by the model. A limit without `about`, a time
+  that is not `HH:MM`, or `not_before` equal to `not_from` is refused with
+  words the model can say, so nothing is kept half-typed. A rule without
+  a limit stays text only: told to sessions, enforced by nothing. A word in
+  a mark this voice does not know is left out, not misread.
 - **Bounded when kept, never cut when told.** A scope keeps at most six
   rules (`rules::MOST_RULES`, so at most 1,200 bytes of rule text). A
   seventh is refused, with words for the model to say: ask which rule to
@@ -476,7 +487,12 @@ facts stay `remember`.
   kept or forgotten, the voice publishes `lamp_msgs::Rules` on the bus's
   kept topic `memory/rules` ([msgs.md](msgs.md)): the person id, `quiet`
   (asked never to speak first), `quiet_mornings` (asked not to speak first
-  in the mornings, or never) and the count of rules. Never a rule's words.
+  in the mornings, or never), the count of rules, and `hello` and `news`
+  (`lamp_msgs::Unprompted`: `never`, `not_before_minute`,
+  `not_from_minute`, `not_while_talking`), every typed rule of the room's
+  and theirs merged, the strictest winning: the latest `not_before`, the
+  earliest `not_from`. `quiet` and `quiet_mornings` are not copied into
+  them; they stand for both kinds. Never a rule's words.
   It is said from a thread of its own, newest fact only, so a bus that
   hangs never holds up a session's note or a call. The policy reads it
   with `latest`; reading and obeying it is the policy's own change (#752).

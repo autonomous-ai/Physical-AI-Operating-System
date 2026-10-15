@@ -52,6 +52,9 @@ const READ_BYTES: u64 = 16_384;
 /// What a rule about speaking first is marked with in the memory.
 const QUIET: &str = "[quiet] ";
 const QUIET_MORNINGS: &str = "[quiet_mornings] ";
+/// What a rule about one kind of thing said unprompted is marked with,
+/// after any of the two above: `[unprompted <about> <limit>...] `.
+const TYPED: &str = "[unprompted ";
 
 static ON: OnceLock<bool> = OnceLock::new();
 static BUS: OnceLock<PathBuf> = OnceLock::new();
@@ -96,7 +99,13 @@ pub fn tools() -> Vec<Tool> {
                 "properties": {
                     "rule": {"type": "string", "description": "The rule, in one short sentence."},
                     "speaking_up": {"type": "string", "enum": ["never_first", "not_first_in_mornings"],
-                        "description": "Only for a rule about you speaking first, unprompted: never_first if they asked you never to, not_first_in_mornings if only in the mornings. Leave out otherwise."}
+                        "description": "Only for a rule about you speaking first, unprompted: never_first if they asked you never to, not_first_in_mornings if only in the mornings. Leave out otherwise."},
+                    "about": {"type": "string", "enum": ["greeting", "news", "both"],
+                        "description": "Only for a rule about one kind of thing you say unprompted: greeting when they arrive, news of work you were doing for them, or both. Give with it what they asked: never, not_before, not_from or not_while_talking. Leave out otherwise."},
+                    "never": {"type": "boolean", "description": "With about: not at all."},
+                    "not_before": {"type": "string", "description": "With about: not before this local time, as HH:MM in 24 hours, such as 09:00 for 'don't greet me before nine'."},
+                    "not_from": {"type": "string", "description": "With about: not from this local time on, as HH:MM in 24 hours, such as 22:00 for 'no news after ten at night'."},
+                    "not_while_talking": {"type": "boolean", "description": "With about: not while they are talking, on a call or with someone."}
                 },
                 "required": ["rule"]
             })),
@@ -162,7 +171,8 @@ pub fn request(call: &ToolCall, now_unix_ms: u64, scope: &str) -> Result<Value, 
                 Some("not_first_in_mornings") => QUIET_MORNINGS,
                 _ => "",
             };
-            json!({"op":"remember","person":scope,"at_unix_ms":now_unix_ms,"text":format!("{mark}{rule}")})
+            let typed = typed_mark(&call.args)?;
+            json!({"op":"remember","person":scope,"at_unix_ms":now_unix_ms,"text":format!("{mark}{typed}{rule}")})
         }
         // Never a default: "forget that rule" once took back the last rule
         // kept instead of the one meant (lamp-52e6, PR #822).
@@ -179,6 +189,100 @@ pub fn request(call: &ToolCall, now_unix_ms: u64, scope: &str) -> Result<Value, 
     })
 }
 
+/// The mark of a rule about one kind of thing said unprompted, from the
+/// `about` arguments: empty when the rule has none, so it is told to
+/// sessions and enforced by nothing. A limit that cannot be read is
+/// refused with words the model can say, never kept half-typed.
+fn typed_mark(args: &Value) -> Result<String, Value> {
+    let time = |name: &str| -> Result<Option<u16>, Value> {
+        let Some(value) = args.get(name).filter(|value| !value.is_null()) else {
+            return Ok(None);
+        };
+        minute(value.as_str().unwrap_or_default()).map(Some).ok_or_else(
+            || json!({"error": format!("{name} must be a time of day as HH:MM in 24 hours, such as 09:00.")}),
+        )
+    };
+    let never = args.get("never") == Some(&Value::Bool(true));
+    let talking = args.get("not_while_talking") == Some(&Value::Bool(true));
+    let (before, from) = (time("not_before")?, time("not_from")?);
+    if !never && !talking && before.is_none() && from.is_none() {
+        return Ok(String::new());
+    }
+    let about = match args.get("about").and_then(Value::as_str) {
+        Some(about @ ("greeting" | "news" | "both")) => about,
+        _ => {
+            return Err(
+                json!({"error": "Say what that is about: about must be greeting, news or both."}),
+            );
+        }
+    };
+    if before.is_some() && before == from {
+        return Err(json!({"error": "not_before and not_from cannot be the same time."}));
+    }
+    let mut mark = format!("{TYPED}{about}");
+    if never {
+        mark.push_str(" never");
+    }
+    if let Some(minute) = before {
+        mark.push_str(&format!(" not_before={minute}"));
+    }
+    if let Some(minute) = from {
+        mark.push_str(&format!(" not_from={minute}"));
+    }
+    if talking {
+        mark.push_str(" not_while_talking");
+    }
+    mark.push_str("] ");
+    Ok(mark)
+}
+
+/// `HH:MM`, 24 hours, as the minute of the day.
+fn minute(time: &str) -> Option<u16> {
+    let (hours, minutes) = time.trim().split_once(':')?;
+    if !(1..=2).contains(&hours.len()) || minutes.len() != 2 {
+        return None;
+    }
+    let (hours, minutes) = (hours.parse::<u16>().ok()?, minutes.parse::<u16>().ok()?);
+    (hours < 24 && minutes < 60).then_some(hours * 60 + minutes)
+}
+
+/// The limits a typed mark's words give, for the kinds it is about. An
+/// unknown word is left out: a newer voice's limit is not enforced by this
+/// one, rather than misread.
+fn limits(mark: &str) -> (lamp_msgs::Unprompted, bool, bool) {
+    let mut words = mark.split(' ');
+    let about = words.next().unwrap_or_default();
+    let mut limits = lamp_msgs::Unprompted::default();
+    for word in words {
+        match word.split_once('=') {
+            None if word == "never" => limits.never = true,
+            None if word == "not_while_talking" => limits.not_while_talking = true,
+            Some(("not_before", minute)) => limits.not_before_minute = minute.parse().ok(),
+            Some(("not_from", minute)) => limits.not_from_minute = minute.parse().ok(),
+            _ => {}
+        }
+    }
+    (
+        limits,
+        matches!(about, "greeting" | "both"),
+        matches!(about, "news" | "both"),
+    )
+}
+
+/// Every limit of both, the strictest winning: the latest `not_before`,
+/// the earliest `not_from`.
+fn strictest(a: lamp_msgs::Unprompted, b: lamp_msgs::Unprompted) -> lamp_msgs::Unprompted {
+    lamp_msgs::Unprompted {
+        never: a.never || b.never,
+        not_before_minute: a.not_before_minute.max(b.not_before_minute),
+        not_from_minute: match (a.not_from_minute, b.not_from_minute) {
+            (Some(a), Some(b)) => Some(a.min(b)),
+            (a, b) => a.or(b),
+        },
+        not_while_talking: a.not_while_talking || b.not_while_talking,
+    }
+}
+
 /// What the model is told for a number not given or not one of theirs:
 /// nothing was removed.
 fn which() -> Value {
@@ -193,6 +297,9 @@ pub struct Rule {
     pub text: String,
     pub quiet: bool,
     pub quiet_mornings: bool,
+    /// Its limits on the greeting, and on news, said unprompted.
+    pub hello: lamp_msgs::Unprompted,
+    pub news: lamp_msgs::Unprompted,
 }
 
 /// A record ID as the store gives them, 1 to `i64::MAX`; anything else is
@@ -219,12 +326,26 @@ pub fn rules(answer: &Value) -> Option<Vec<Rule>> {
             } else {
                 (false, false, text)
             };
+            let none = lamp_msgs::Unprompted::default();
+            let (text, hello, news) = match text
+                .strip_prefix(TYPED)
+                .and_then(|text| text.split_once("] "))
+            {
+                Some((mark, text)) => {
+                    let (limits, hello, news) = limits(mark);
+                    let only = |about| if about { limits } else { none };
+                    (text, only(hello), only(news))
+                }
+                None => (text, none, none),
+            };
             Some(Rule {
                 id: entry.get("id").and_then(valid_id)?,
                 at_unix_ms: entry.get("at_unix_ms")?.as_u64()?,
                 text: text.to_owned(),
                 quiet,
                 quiet_mornings,
+                hello,
+                news,
             })
         })
         .collect()
@@ -375,6 +496,12 @@ pub fn facts(person: Option<&str>, room: &[Rule], theirs: &[Rule]) -> lamp_msgs:
         quiet: all().any(|rule| rule.quiet),
         quiet_mornings: all().any(|rule| rule.quiet || rule.quiet_mornings),
         rules: u32::try_from(all().count()).unwrap_or(u32::MAX),
+        hello: all()
+            .map(|rule| rule.hello)
+            .fold(Default::default(), strictest),
+        news: all()
+            .map(|rule| rule.news)
+            .fold(Default::default(), strictest),
     }
 }
 
@@ -563,7 +690,9 @@ mod tests {
                 person: "p-1".into(),
                 quiet: false,
                 quiet_mornings: true,
-                rules: 2
+                rules: 2,
+                hello: Default::default(),
+                news: Default::default(),
             }
         );
         let never = rule(3, "[quiet] Never speak first.");
@@ -580,6 +709,87 @@ mod tests {
             listed["rules"],
             json!([{"number":1,"rule":"Do not speak first in the morning.","when":"today"}])
         );
+    }
+
+    /// #813: "don't greet me before nine" and "no news while I'm on a call"
+    /// become the policy's hard rules, kept as a mark the model never sees.
+    #[test]
+    fn a_rule_about_greeting_or_news_becomes_typed_limits_for_the_policy() {
+        let keep = |args: Value| request(&call(KEEP_RULE, args), 7, "r-x");
+        let text = |request: Value| request["text"].as_str().unwrap().to_owned();
+        let greet = text(
+            keep(json!({"rule":"Do not greet them before nine.","about":"greeting","not_before":"09:00"}))
+                .unwrap(),
+        );
+        assert_eq!(
+            greet,
+            "[unprompted greeting not_before=540] Do not greet them before nine."
+        );
+        let call_news = text(
+            keep(json!({"rule":"No news while they are on a call.","about":"news","not_while_talking":true}))
+                .unwrap(),
+        );
+        let late = text(
+            keep(json!({"rule":"Nothing unasked after ten at night.","about":"both","not_from":"22:00","speaking_up":"not_first_in_mornings"}))
+                .unwrap(),
+        );
+        assert!(late.starts_with("[quiet_mornings] [unprompted both not_from=1320] "));
+        let (greet, call_news, late) = (rule(1, &greet), rule(2, &call_news), rule(3, &late));
+        assert_eq!(greet.text, "Do not greet them before nine.");
+        assert_eq!(late.text, "Nothing unasked after ten at night.");
+        assert!(late.quiet_mornings);
+        let fact = facts(Some("p-1"), &[late], &[greet, call_news]);
+        assert_eq!(
+            fact.hello,
+            lamp_msgs::Unprompted {
+                not_before_minute: Some(540),
+                not_from_minute: Some(1320),
+                ..Default::default()
+            }
+        );
+        assert_eq!(
+            fact.news,
+            lamp_msgs::Unprompted {
+                not_from_minute: Some(1320),
+                not_while_talking: true,
+                ..Default::default()
+            }
+        );
+        // The strictest of two windows; a word a newer voice wrote is left out.
+        let earlier = rule(
+            4,
+            "[unprompted greeting not_from=1260 louder] Quiet from nine at night.",
+        );
+        assert_eq!(
+            facts(
+                None,
+                &[earlier],
+                &[rule(5, "[unprompted greeting never] Never greet.")]
+            )
+            .hello,
+            lamp_msgs::Unprompted {
+                never: true,
+                not_from_minute: Some(1260),
+                ..Default::default()
+            }
+        );
+        // A rule with no limit is told to sessions and enforces nothing.
+        let plain = keep(json!({"rule":"Call them Minh.","about":"greeting"})).unwrap();
+        assert_eq!(plain["text"], "Call them Minh.");
+        let fact = facts(None, &[rule(6, "Call them Minh.")], &[]);
+        assert_eq!((fact.hello, fact.news), Default::default());
+        // A limit that cannot be read is refused, never kept half-typed.
+        for bad in [
+            json!({"rule":"r","not_before":"09:00"}),
+            json!({"rule":"r","about":"weather","never":true}),
+            json!({"rule":"r","about":"news","not_before":"9"}),
+            json!({"rule":"r","about":"news","not_before":"24:00"}),
+            json!({"rule":"r","about":"news","not_before":"09:5"}),
+            json!({"rule":"r","about":"news","not_before":540}),
+            json!({"rule":"r","about":"news","not_before":"09:00","not_from":"09:00"}),
+        ] {
+            assert!(keep(bad.clone()).unwrap_err()["error"].is_string(), "{bad}");
+        }
     }
 
     #[test]

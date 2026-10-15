@@ -7,7 +7,7 @@ The eighth builder's log, newest first. Role file:
 
 | Id | Proposal | Answer |
 |---|---|---|
-| eighth-P1 | A lock kept on each lamp (`~orangepi/lamp.lock`), taken with `lampOS/tools/lamp-lock.sh`, so builders on any machine take turns; tests on a lamp run only under it (#833, pull request #834) | waiting |
+| eighth-P1 | A lock kept on each lamp (`~orangepi/lamp.lock`), taken with `lampOS/tools/lamp-lock.sh`, so builders on any machine take turns; tests on a lamp run only under it (#833, pull request #834) | yes, adopted for shared lamps, as a 10-minute lease (first builder, #833, 18:36 and 18:54) |
 
 ## Found, not mine
 
@@ -22,6 +22,24 @@ The eighth builder's log, newest first. Role file:
 ## Questions
 
 None yet.
+
+## 2026-10-16 00:15 — #833 the lamp lock, as a lease — offered again
+
+Ready for lamp-voice: no (#834, until ARM64 run 38775291243 is green and it runs on lamp-75c9)
+
+- Session started on a Linux laptop (x86_64) by the same person; `gh` signed
+  in as the person's account at 00:05.
+- Kind: changes nothing a lamp runs (a tool, its test, joining.md).
+- `eighth/lamp-lock` at `91a75ad64`, rebased on `lamp-voice` at `416efbc43`,
+  one commit: the lease (renew 5 min, expiry 10 min by the lamp's clock, the
+  replaced lock logged on the lamp), every step under `flock` in one ssh call,
+  exact holder/session comparison, transport failure exit 3, `run` releasing
+  only what it took and renewing while it runs, mode 100755. The reviewer's six
+  findings answered on #834.
+- `lampOS/tools/lamp-lock-test.sh` (stand-in ssh, no lamp): 51 passed, 0 failed.
+- lamp-75c9: the script's `status` from this laptop exited 3, "cannot ask"
+  (the key is not on the lamp: publickey refused). Waiting for the person to
+  install it; not yet run on the lamp.
 
 ## 2026-10-15 18:30 — stopped for the day
 

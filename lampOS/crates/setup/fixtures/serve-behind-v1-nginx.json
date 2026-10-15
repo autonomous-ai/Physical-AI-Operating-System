@@ -3,5 +3,15 @@
   "marker": "/var/lib/lampos-setup/done",
   "credential": "/etc/lampOS/voice/credential",
   "name": "/etc/lampOS/person/name",
-  "country": "VN"
+  "country": "VN",
+  "web_start": [
+    "/usr/bin/systemctl",
+    "start",
+    "nginx"
+  ],
+  "web_stop": [
+    "/usr/bin/systemctl",
+    "stop",
+    "nginx"
+  ]
 }

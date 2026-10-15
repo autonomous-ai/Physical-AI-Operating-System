@@ -988,6 +988,9 @@ fn run_start_record(
     if let Some(blocks) = options.early_end_blocks {
         run_start["early_end_ms"] = json!(u64::from(blocks) * 10);
     }
+    if options.aec_suppressor != crate::options::AecSuppressor::Standard {
+        run_start["aec_suppressor"] = json!(options.aec_suppressor);
+    }
     run_start
 }
 

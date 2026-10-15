@@ -132,3 +132,98 @@ fn cold_report_starts_at_first_capture_and_keeps_reset_near_end_separate() {
     assert_eq!(first_near.output_rms_pcm, (near_energy / 4000.0).sqrt());
     assert_ne!(first_echo.output_rms_pcm, first_near.output_rms_pcm);
 }
+
+/// A person's voice-like tone over the lamp's echo, from block 150 on.
+fn double_talk_block(i: usize) -> ([i16; RENDER_SAMPLES], [i16; CAPTURE_SAMPLES]) {
+    let (render, mut capture) = synthetic_echo_block(i);
+    if i >= 150 {
+        for (n, sample) in capture.iter_mut().enumerate() {
+            let t = (i * CAPTURE_SAMPLES + n) as f32 / 16_000.0;
+            let near = 3_000.0 * (2.0 * std::f32::consts::PI * 210.0 * t).sin();
+            *sample = (f32::from(*sample) + near).clamp(-32_768.0, 32_767.0) as i16;
+        }
+    }
+    (render, capture)
+}
+
+#[test]
+fn the_standard_suppressor_is_the_canceller_as_it_was() {
+    use lamp_audio::{Reference, Suppression};
+    for noise_suppression in [false, true] {
+        let mut chosen = EchoProcessor::with_suppression(
+            noise_suppression,
+            Reference::AsGiven,
+            Suppression::Standard,
+        );
+        let mut before = EchoProcessor::new(noise_suppression);
+        for i in 0..300 {
+            if i == 220 {
+                chosen.reset();
+                before.reset();
+            }
+            let (render, capture) = double_talk_block(i);
+            chosen.render(&render).unwrap();
+            before.render(&render).unwrap();
+            assert_eq!(
+                chosen.capture(&capture, 18).unwrap(),
+                before.capture(&capture, 18).unwrap()
+            );
+        }
+    }
+    assert!(Suppression::Standard.echo_canceller3().is_none());
+    assert_eq!(Suppression::default(), Suppression::Standard);
+}
+
+#[test]
+fn a_chosen_suppressor_reaches_the_canceller_and_silence_stays_silent() {
+    use lamp_audio::{Reference, Suppression};
+    let energy = |suppression: Suppression| {
+        let mut processor = EchoProcessor::with_suppression(false, Reference::AsGiven, suppression);
+        let mut near = 0.0f64;
+        let mut outputs = Vec::new();
+        for i in 0..300 {
+            let (render, capture) = double_talk_block(i);
+            processor.render(&render).unwrap();
+            let out = processor.capture(&capture, 18).unwrap();
+            if i >= 150 {
+                near += out.iter().map(|s| f64::from(*s).powi(2)).sum::<f64>();
+            }
+            outputs.push(out);
+        }
+        (near, outputs)
+    };
+    let (standard, standard_out) = energy(Suppression::Standard);
+    for suppression in [Suppression::NearEnd, Suppression::Transparent] {
+        let (passed, out) = energy(suppression);
+        assert_ne!(out, standard_out, "{suppression:?} changed nothing");
+        if suppression == Suppression::Transparent {
+            assert!(passed >= standard, "{passed} < {standard}");
+        }
+        let mut quiet = EchoProcessor::with_suppression(true, Reference::AsGiven, suppression);
+        for _ in 0..100 {
+            quiet.render(&[0; RENDER_SAMPLES]).unwrap();
+            assert_eq!(
+                quiet.capture(&[0; CAPTURE_SAMPLES], 0).unwrap(),
+                [0; CAPTURE_SAMPLES]
+            );
+        }
+    }
+    for (text, choice) in [
+        ("standard", Suppression::Standard),
+        ("near-end", Suppression::NearEnd),
+        ("transparent", Suppression::Transparent),
+    ] {
+        assert_eq!(text.parse::<Suppression>().unwrap(), choice);
+    }
+    assert!("nearend".parse::<Suppression>().is_err());
+    let near_end = Suppression::NearEnd.echo_canceller3().unwrap();
+    let detect = &near_end.suppressor.dominant_nearend_detection;
+    assert_eq!(
+        (
+            detect.enr_threshold,
+            detect.snr_threshold,
+            detect.trigger_threshold
+        ),
+        (1.0, 10.0, 6)
+    );
+}

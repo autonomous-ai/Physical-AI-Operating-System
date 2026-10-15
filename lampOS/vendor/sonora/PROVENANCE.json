@@ -1,0 +1,20 @@
+{
+  "upstream": "https://crates.io/crates/sonora/0.2.0",
+  "crate_sha256": "2e1ce442ab5cb392c4067b8f2cced20be4cf12e479f6dfbf44acbe9b14ac9250",
+  "upstream_git": "https://github.com/dignifiedquire/sonora (a024d6ef8351add55be5e8b1d6cc35f555787660, crates/sonora)",
+  "changed": {
+    "src/config.rs": {
+      "upstream_sha256": "10d96c014fe3a6933392783f7548efb12743f394d8ba00eb64707eb70aaa440b",
+      "patched_sha256": "13ea39d015e1e896b8b4d98fcbba02e10e0077aa7e8f6f1e10c115a4988e3244"
+    },
+    "src/audio_processing_impl.rs": {
+      "upstream_sha256": "f354aa303c4df0405a9b16dd7cd5203df6abc5206c9f7a773cbcb4456c05f67a",
+      "patched_sha256": "bf2f9ccdcdf8e70f8182b33e4ffa9cc0410ff0a2c70811f8ee9fc9115989523f"
+    }
+  },
+  "unchanged_files": 34,
+  "unchanged_files_match_upstream": true,
+  "omitted": [
+    "Cargo.lock"
+  ]
+}

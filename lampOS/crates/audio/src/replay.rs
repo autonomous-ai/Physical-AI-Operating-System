@@ -2,7 +2,7 @@
 //! No audio device, provider connection, inferred silence, or acoustic verdict.
 use crate::{
     CAPTURE_RATE, CaptureBlock, EchoProcessor, RENDER_RATE, RENDER_SAMPLES, Reference as Given,
-    Result,
+    Result, Suppression,
     drift::{Controller, Resampler, TARGET_FRAMES},
 };
 use serde::{Deserialize, Serialize};
@@ -51,6 +51,10 @@ pub struct ReplayOptions {
     /// (`--steady-reference`, `--as-given-reference`;
     /// docs/steady-reference.md). `None` is as the recording was made.
     pub reference: Option<Given>,
+    /// How the replayed cancellers' suppressor treats a person over the
+    /// lamp's voice (`--suppressor`, #828). The default is AEC3 as sonora
+    /// sets it up, as the lamp runs it.
+    pub suppression: Suppression,
 }
 pub struct HistoricalProcessing {
     pub noise_suppression: bool,
@@ -282,6 +286,10 @@ pub struct ReplayReport {
     pub reference_clock_from: &'static str,
     /// The recorded voice's `echo_reference`, when its events say.
     pub echo_reference_recorded: Option<String>,
+    /// The replayed cancellers' suppressor, when it is not AEC3 as sonora
+    /// sets it up (`--suppressor`); absent for that, as before.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub suppressor: Option<&'static str>,
     /// `events.jsonl` ended in a line cut off part way, which was not read.
     pub events_cut_off: bool,
     /// `events.jsonl` lines longer than the replay reads, passed over.
@@ -363,6 +371,11 @@ pub fn replay(
         reference_clock: if clock { "capture" } else { "fixed" },
         reference_clock_from,
         echo_reference_recorded: echo_reference_recorded.clone(),
+        suppressor: match options.suppression {
+            Suppression::Standard => None,
+            Suppression::NearEnd => Some("near-end"),
+            Suppression::Transparent => Some("transparent"),
+        },
         events_cut_off: trace.cut_off,
         events_long_lines: trace.long_lines,
         limitations: vec![
@@ -394,6 +407,7 @@ pub fn replay(
         segments: Vec::new(),
         reference,
         clock,
+        suppression: options.suppression,
     };
     for step in steps {
         let result = apply_step(
@@ -886,6 +900,7 @@ struct Completed {
     segments: Vec<Segment>,
     reference: Given,
     clock: bool,
+    suppression: Suppression,
 }
 
 /// The voice's capture-clocked reference, rebuilt from what the recording
@@ -959,7 +974,13 @@ impl Sounding {
     }
 }
 impl Segment {
-    fn new(reset: Reset, next_sequence: u64, reference: Given, clock: bool) -> Self {
+    fn new(
+        reset: Reset,
+        next_sequence: u64,
+        reference: Given,
+        clock: bool,
+        suppression: Suppression,
+    ) -> Self {
         Self {
             reset,
             next_sequence,
@@ -977,8 +998,8 @@ impl Segment {
             post: Vec::new(),
             aec: Vec::new(),
             ns: Vec::new(),
-            aec_processor: EchoProcessor::with_reference(false, reference),
-            ns_processor: EchoProcessor::with_reference(true, reference),
+            aec_processor: EchoProcessor::with_suppression(false, reference, suppression),
+            ns_processor: EchoProcessor::with_suppression(true, reference, suppression),
             recorded_observer: crate::evidence::EchoObserver::new(),
             reference,
             sounding: Sounding::default(),
@@ -1063,6 +1084,7 @@ fn apply_step(
                 next_sequence,
                 completed.reference,
                 completed.clock,
+                completed.suppression,
             ));
         }
         CaptureStep::Boundary {

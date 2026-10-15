@@ -4,7 +4,7 @@
 //! Provider-generated but unplayed audio must never enter this reference path.
 //! Capture and render are independent 10 ms streams. Device discontinuities
 //! must be surfaced and the processor reset; they must not be hidden as silence.
-use sonora::config::{EchoCanceller, NoiseSuppression};
+use sonora::config::{EchoCanceller, EchoCanceller3Config, NoiseSuppression};
 use sonora::{AudioProcessing, Config, StreamConfig};
 use std::io;
 
@@ -51,12 +51,87 @@ pub enum Reference {
     Steady,
 }
 
+/// How the echo canceller's suppressor treats a person heard over the lamp's
+/// own voice (#828, docs/stop-word.md). AEC3 lets a person through only once
+/// its near-end detector finds them dominant: in the default configuration,
+/// residual echo under a quarter of them and they thirty times over the
+/// noise, in twelve bands, before it eases its masking. A short word under
+/// the lamp's voice rarely gets there, and on lamp-4ace most were taken out
+/// with the echo. These are the settings to try; none is the default.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum Suppression {
+    /// AEC3 as sonora sets it up. The default.
+    #[default]
+    Standard,
+    /// The near-end detector says a person dominates sooner: residual echo
+    /// up to as loud as the person, ten times over the noise, in six bands.
+    /// Once it does, the suppressor's own near-end masking applies.
+    NearEnd,
+    /// Less masking all the time: the normal masks moved halfway to the
+    /// near-end ones. More of a person passes, and more of the lamp's echo.
+    Transparent,
+}
+
+impl Suppression {
+    /// The AEC3 configuration for this choice; `None` is sonora's own.
+    pub fn echo_canceller3(self) -> Option<EchoCanceller3Config> {
+        let mut config = EchoCanceller3Config::default();
+        match self {
+            Self::Standard => return None,
+            Self::NearEnd => {
+                let detect = &mut config.suppressor.dominant_nearend_detection;
+                detect.enr_threshold = 1.0;
+                detect.snr_threshold = 10.0;
+                detect.trigger_threshold = 6;
+            }
+            Self::Transparent => {
+                let (normal, nearend) = (
+                    &config.suppressor.normal_tuning.clone(),
+                    &config.suppressor.nearend_tuning.clone(),
+                );
+                let half = |a: f32, b: f32| (a + b) / 2.0;
+                let tuning = &mut config.suppressor.normal_tuning;
+                tuning.mask_lf.enr_transparent = half(
+                    normal.mask_lf.enr_transparent,
+                    nearend.mask_lf.enr_transparent,
+                );
+                tuning.mask_lf.enr_suppress =
+                    half(normal.mask_lf.enr_suppress, nearend.mask_lf.enr_suppress);
+                tuning.mask_hf.enr_transparent = half(
+                    normal.mask_hf.enr_transparent,
+                    nearend.mask_hf.enr_transparent,
+                );
+                tuning.mask_hf.enr_suppress =
+                    half(normal.mask_hf.enr_suppress, nearend.mask_hf.enr_suppress);
+            }
+        }
+        Some(config)
+    }
+}
+
+impl std::str::FromStr for Suppression {
+    type Err = io::Error;
+
+    fn from_str(value: &str) -> io::Result<Self> {
+        match value {
+            "standard" => Ok(Self::Standard),
+            "near-end" => Ok(Self::NearEnd),
+            "transparent" => Ok(Self::Transparent),
+            _ => Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                "suppressor must be standard, near-end or transparent",
+            )),
+        }
+    }
+}
+
 /// A single microphone worker owns this processor; no shared mutex or network I/O.
 pub struct EchoProcessor {
     inner: AudioProcessing,
     observer: evidence::EchoObserver,
     steady: Option<Box<steady::SteadyReference>>,
     noise_suppression: bool,
+    suppression: Suppression,
     render_input: [f32; RENDER_SAMPLES],
     render_output: [f32; RENDER_SAMPLES],
     capture_input: [f32; CAPTURE_SAMPLES],
@@ -69,11 +144,22 @@ impl EchoProcessor {
     }
 
     pub fn with_reference(noise_suppression: bool, reference: Reference) -> Self {
+        Self::with_suppression(noise_suppression, reference, Suppression::Standard)
+    }
+
+    /// The same, with the suppressor chosen (`Suppression::Standard` is
+    /// [`Self::with_reference`] exactly).
+    pub fn with_suppression(
+        noise_suppression: bool,
+        reference: Reference,
+        suppression: Suppression,
+    ) -> Self {
         Self {
-            inner: Self::build(noise_suppression),
+            inner: Self::build(noise_suppression, suppression),
             observer: evidence::EchoObserver::new(),
             steady: (reference == Reference::Steady).then(Box::default),
             noise_suppression,
+            suppression,
             render_input: [0.0; RENDER_SAMPLES],
             render_output: [0.0; RENDER_SAMPLES],
             capture_input: [0.0; CAPTURE_SAMPLES],
@@ -81,10 +167,11 @@ impl EchoProcessor {
         }
     }
 
-    fn build(noise_suppression: bool) -> AudioProcessing {
+    fn build(noise_suppression: bool, suppression: Suppression) -> AudioProcessing {
         AudioProcessing::builder()
             .config(Config {
                 echo_canceller: Some(EchoCanceller::default()),
+                echo_canceller3: suppression.echo_canceller3(),
                 noise_suppression: noise_suppression.then(NoiseSuppression::default),
                 // Do not silently change mic gain or boost background speech.
                 ..Config::default()
@@ -97,7 +184,7 @@ impl EchoProcessor {
     /// Reinitialize after lost reference/capture samples, device reopen or privacy.
     /// Reset is a cold operation and must be recorded as a discontinuity.
     pub fn reset(&mut self) {
-        self.inner = Self::build(self.noise_suppression);
+        self.inner = Self::build(self.noise_suppression, self.suppression);
         self.observer.reset();
         if let Some(steady) = self.steady.as_mut() {
             steady.reset();

@@ -32,6 +32,14 @@ fn run() -> Result<()> {
                     "--as-given-reference" if options.reference.is_none() => {
                         options.reference = Some(lamp_audio::Reference::AsGiven)
                     }
+                    "--suppressor" => {
+                        options.suppression = args
+                            .next()
+                            .ok_or_else(|| {
+                                usage("--suppressor needs standard|near-end|transparent")
+                            })?
+                            .parse()?;
+                    }
                     "--exploratory-prefix" if !options.exploratory_prefix => {
                         options.exploratory_prefix = true
                     }
@@ -123,7 +131,7 @@ fn run() -> Result<()> {
         }
         _ => {
             return Err(usage(
-                "usage: lamp-audio replay-aec RUN NEW_OUT [--exploratory-prefix] [--historical-processing on|off SOURCE_EVIDENCE.json] [--steady-reference | --as-given-reference] | notices DIR [--accept-test] | bench-aec [500..60000 blocks] | export-aec-fixture NEW_DIR [blocks] | bench-aec-fixture FIXTURE_DIR NEW_REPORT.json",
+                "usage: lamp-audio replay-aec RUN NEW_OUT [--exploratory-prefix] [--historical-processing on|off SOURCE_EVIDENCE.json] [--steady-reference | --as-given-reference] [--suppressor standard|near-end|transparent] | notices DIR [--accept-test] | bench-aec [500..60000 blocks] | export-aec-fixture NEW_DIR [blocks] | bench-aec-fixture FIXTURE_DIR NEW_REPORT.json",
             ));
         }
     }

@@ -232,6 +232,7 @@ pub fn capture_with_options(
         options.reference_clock,
         options.reference_recovery,
         options.echo_reference.reference(),
+        options.aec_suppressor.suppression(),
     )
 }
 
@@ -250,6 +251,7 @@ pub fn capture_on<D: CaptureDevice>(
     reference_clock: ReferenceClock,
     reference_recovery: ReferenceRecovery,
     echo_reference: lamp_audio::Reference,
+    suppression: lamp_audio::Suppression,
 ) -> Result<()> {
     let mut recording = Recording::start(
         diagnostic_directory,
@@ -269,6 +271,7 @@ pub fn capture_on<D: CaptureDevice>(
         reference_clock,
         reference_recovery,
         echo_reference,
+        suppression,
         hold::blocks_for(device, reference_clock),
     );
     // Invalidate input authority and close hardware before any filesystem acknowledgement wait.
@@ -303,6 +306,7 @@ fn capture_loop<D: CaptureDevice>(
     reference_clock: ReferenceClock,
     reference_recovery: ReferenceRecovery,
     echo_reference: lamp_audio::Reference,
+    suppression: lamp_audio::Suppression,
     hold_blocks: usize,
 ) -> Result<EndReason> {
     // A frame waits this many capture blocks before it is cancelled, so that
@@ -332,7 +336,8 @@ fn capture_loop<D: CaptureDevice>(
             ReferenceAssembly::recovering(RecoveryPolicy::BOUNDED)
         }
     };
-    let mut echo = EchoProcessor::with_reference(noise_suppression.enabled(), echo_reference);
+    let mut echo =
+        EchoProcessor::with_suppression(noise_suppression.enabled(), echo_reference, suppression);
     let mut speech = SpeechProbability::default();
     let mut dsp_epoch = 1u64;
     let mut last_diagnostic = 0;

@@ -672,6 +672,49 @@ hearing and the highest score; `--scores` prints every score.
 `python from_bus.py` turns a `lamp-bus record` of `mic2/audio` into a WAV
 file for it.
 
+## Where the words were lost on lamp-4ace (#828, 2026-10-15)
+
+By the fourth builder, from the first builder's played scenes of 14 and 15
+October (`~/lamp-voice-data/scenarios/`, the duplex hearing trails beside
+them, on the lamp's own clock); off the lamp, counts only.
+
+Of 89 short stop words played while the lamp was speaking, it stopped for
+19, paused and went on for 7, and did nothing for 63; of 27 listening
+sounds ("Mm-hm.", "Yeah.") played the same way, 7 stopped it. In the second
+after each stop word, the trail shows:
+
+| What the trail shows | Stop words |
+|---|---|
+| speech score 0 and nothing left after the canceller above −28 dBFS | 51 of 88 |
+| speech score 0, something above −28 dBFS | 3 |
+| speech score 1 to 4 | 7 |
+| speech score 5 or more: 19 stopped, 7 paused and went on | 27 |
+
+So most are taken out with the echo, as the recordings of 14 October showed
+("Where it is most likely to be wrong on the lamp", and
+[duplex-listening.md](duplex-listening.md)). WebRTC's AEC3 eases its
+masking for a person only once its near-end detector finds them dominant:
+residual echo under a quarter of them, thirty times over the noise, in
+twelve bands, for twelve blocks on end. And `lamp-name` hears the sound after
+the canceller, so this model, on it, would not hear those words either.
+
+**The canceller's suppressor, made settable.** Sonora built AEC3 with its
+default configuration and gave no way to choose another, so
+`vendor/sonora` (its `LAMPOS.md`) adds one optional field, and
+`lamp_audio::Suppression` names the settings to try: `standard` (the
+default, AEC3 as sonora sets it up), `near-end` (the detector finds a person
+dominant sooner: residual echo up to as loud as them, ten times over the
+noise, in six bands) and `transparent` (the normal masks halfway to the
+near-end ones, all the time). `lamp-audio replay-aec RUN OUT --suppressor
+near-end` replays a recording with one; `lamp-voice … --aec-suppressor
+near-end` runs the voice's capture worker with it (an experiment, never a
+default; the record's `run_start` says it). With `standard`, a replay of the
+owner's recording of 12 October (`dual-121930-owner-voice-both-mics`) is the
+same, byte for byte, as with sonora from crates.io. Whether `near-end` or
+`transparent` keeps a short word without letting the lamp's own voice
+through is not yet measured: it needs the recordings of 14 October, the
+microphone with the speaker's sound and the words played at known times.
+
 ## Not shown
 
 - **The lamp.** No sound from the lamp's microphones went into training,

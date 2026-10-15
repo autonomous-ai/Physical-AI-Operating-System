@@ -310,6 +310,47 @@ impl FromStr for EchoReference {
     }
 }
 
+/// How the echo canceller's suppressor treats a person heard over the lamp's
+/// own voice (`--aec-suppressor`, #828, docs/stop-word.md): AEC3 as sonora
+/// sets it up, or one of the settings that let a short word through sooner
+/// (`lamp_audio::Suppression`). An experiment, and never a default.
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum AecSuppressor {
+    #[default]
+    Standard,
+    NearEnd,
+    Transparent,
+}
+impl AecSuppressor {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Standard => "standard",
+            Self::NearEnd => "near-end",
+            Self::Transparent => "transparent",
+        }
+    }
+    /// What the canceller is made with.
+    pub fn suppression(self) -> lamp_audio::Suppression {
+        match self {
+            Self::Standard => lamp_audio::Suppression::Standard,
+            Self::NearEnd => lamp_audio::Suppression::NearEnd,
+            Self::Transparent => lamp_audio::Suppression::Transparent,
+        }
+    }
+}
+impl FromStr for AecSuppressor {
+    type Err = io::Error;
+    fn from_str(value: &str) -> io::Result<Self> {
+        match value {
+            "standard" => Ok(Self::Standard),
+            "near-end" => Ok(Self::NearEnd),
+            "transparent" => Ok(Self::Transparent),
+            _ => Err(invalid_options()),
+        }
+    }
+}
+
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub struct DirectedOptions {
     pub microphone: Microphone,
@@ -318,6 +359,7 @@ pub struct DirectedOptions {
     pub reference_clock: ReferenceClock,
     pub reference_recovery: ReferenceRecovery,
     pub echo_reference: EchoReference,
+    pub aec_suppressor: AecSuppressor,
     /// Explicit opt-in for a person who goes on before the first answer has
     /// begun. Off leaves the provider worker's arguments as they were.
     pub provider_continuation: Continuation,
@@ -360,6 +402,7 @@ impl DirectedOptions {
             reference_clock: self.reference_clock,
             reference_recovery: self.reference_recovery,
             echo_reference: self.echo_reference,
+            aec_suppressor: self.aec_suppressor,
         }
         .child_arguments(self.microphone.device(), true)
     }
@@ -414,6 +457,13 @@ impl DirectedOptions {
                 "--echo-reference" if !echo_seen => {
                     options.echo_reference = required_value(&mut arguments)?.parse()?;
                     echo_seen = true;
+                }
+                "--aec-suppressor" if options.aec_suppressor == AecSuppressor::Standard => {
+                    options.aec_suppressor = required_value(&mut arguments)?.parse()?;
+                    if options.aec_suppressor == AecSuppressor::Standard {
+                        // The default is not a choice: it is never given.
+                        return Err(invalid_options());
+                    }
                 }
                 Continuation::FLAG if !continuation_seen => {
                     options.provider_continuation = required_value(&mut arguments)?
@@ -697,6 +747,7 @@ pub struct AudioWorkerOptions {
     pub reference_clock: ReferenceClock,
     pub reference_recovery: ReferenceRecovery,
     pub echo_reference: EchoReference,
+    pub aec_suppressor: AecSuppressor,
 }
 impl AudioWorkerOptions {
     /// The exact argv tail used by the supervisor. Values remain individual
@@ -730,9 +781,16 @@ impl AudioWorkerOptions {
                     self.echo_reference.as_str().to_owned(),
                 ]);
             }
+            if self.aec_suppressor != AecSuppressor::Standard {
+                arguments.extend([
+                    "--aec-suppressor".to_owned(),
+                    self.aec_suppressor.as_str().to_owned(),
+                ]);
+            }
         } else if self.reference_clock != ReferenceClock::Fixed
             || self.reference_recovery != ReferenceRecovery::Off
             || self.echo_reference != EchoReference::AsGiven
+            || self.aec_suppressor != AecSuppressor::Standard
         {
             return Err(invalid_options());
         }
@@ -784,6 +842,15 @@ impl AudioWorkerOptions {
                 {
                     options.echo_reference = required_value(&mut arguments)?.parse()?;
                     if options.echo_reference == EchoReference::AsGiven {
+                        // Never sent: the default argv has no such flag.
+                        return Err(invalid_options());
+                    }
+                }
+                "--aec-suppressor"
+                    if is_capture && options.aec_suppressor == AecSuppressor::Standard =>
+                {
+                    options.aec_suppressor = required_value(&mut arguments)?.parse()?;
+                    if options.aec_suppressor == AecSuppressor::Standard {
                         // Never sent: the default argv has no such flag.
                         return Err(invalid_options());
                     }
@@ -1429,6 +1496,73 @@ mod tests {
     }
 
     #[test]
+    fn an_aec_suppressor_is_explicit_and_reaches_only_the_capture_worker() {
+        assert_eq!(
+            SessionOptions::default().directed.aec_suppressor,
+            AecSuppressor::Standard
+        );
+        for (text, chosen, made) in [
+            (
+                "near-end",
+                AecSuppressor::NearEnd,
+                lamp_audio::Suppression::NearEnd,
+            ),
+            (
+                "transparent",
+                AecSuppressor::Transparent,
+                lamp_audio::Suppression::Transparent,
+            ),
+        ] {
+            let options = DirectedOptions::parse(&args(&["--aec-suppressor", text])).unwrap();
+            assert_eq!(options.aec_suppressor, chosen);
+            assert_eq!(options.aec_suppressor.suppression(), made);
+            assert_eq!(serde_json::to_value(chosen).unwrap(), text);
+            let capture = options.capture_arguments(None).unwrap();
+            assert!(
+                capture
+                    .windows(2)
+                    .any(|pair| pair == ["--aec-suppressor", text]),
+                "{capture:?}"
+            );
+            assert_eq!(
+                AudioWorkerOptions::parse(&capture[1..], true)
+                    .unwrap()
+                    .aec_suppressor,
+                chosen
+            );
+        }
+        // The default argv is what it was, and "standard" is never given.
+        let plain = DirectedOptions::default().capture_arguments(None).unwrap();
+        assert!(!plain.iter().any(|argument| argument == "--aec-suppressor"));
+        for wrong in [
+            vec!["--aec-suppressor"],
+            vec!["--aec-suppressor", "standard"],
+            vec!["--aec-suppressor", "Near-End"],
+            vec![
+                "--aec-suppressor",
+                "near-end",
+                "--aec-suppressor",
+                "near-end",
+            ],
+        ] {
+            assert!(DirectedOptions::parse(&args(&wrong)).is_err(), "{wrong:?}");
+        }
+        let to_owned = |values: &[&str]| values.iter().map(|v| (*v).to_owned()).collect::<Vec<_>>();
+        assert!(
+            AudioWorkerOptions::parse(&to_owned(&["--aec-suppressor", "standard"]), true).is_err()
+        );
+        assert!(
+            AudioWorkerOptions::parse(&to_owned(&["--aec-suppressor", "near-end"]), false).is_err()
+        );
+        let render = AudioWorkerOptions {
+            aec_suppressor: AecSuppressor::NearEnd,
+            noise_suppression: NoiseSuppression::On,
+            ..AudioWorkerOptions::default()
+        };
+        assert!(render.child_arguments("plug:speaker", false).is_err());
+    }
+
+    #[test]
     fn reference_recovery_reaches_only_the_capture_worker_and_only_when_chosen() {
         for clock in [ReferenceClock::Fixed, ReferenceClock::Capture] {
             let chosen = AudioWorkerOptions {
@@ -1603,6 +1737,7 @@ mod tests {
                         early_end_blocks: None,
                         endpoint_commit_blocks: None,
                         faint_level: None,
+                        aec_suppressor: AecSuppressor::Standard,
                         microphone: Microphone::Mic2,
                         playout_start: PlayoutStart::default(),
                         turn_taking: TurnTaking::VadOnly,
@@ -1695,6 +1830,7 @@ mod tests {
                     reference_clock: ReferenceClock::Fixed,
                     reference_recovery: ReferenceRecovery::Off,
                     echo_reference: EchoReference::AsGiven,
+                    aec_suppressor: AecSuppressor::Standard,
                 };
                 let arguments = requested
                     .child_arguments("plug:device_micro2", true)

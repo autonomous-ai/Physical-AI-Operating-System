@@ -64,7 +64,10 @@ pub fn tools() -> Vec<Tool> {
             description: "Prepare a piece of computer work for Claude Code on the person's office \
                           computer: writing or changing code, documents or files there. Call it only \
                           when the person asks for such work to be done there. Nothing starts yet: \
-                          then say the task back in one short sentence and ask whether to start it."
+                          then say the task back in one short sentence and ask whether to start it. \
+                          You can do this: if they ask you to start Claude Code, open a session or \
+                          give it something, without saying what it should do, never say you cannot; \
+                          ask in a few words what it should work on, and call this with their answer."
                 .into(),
             parameters: Some(json!({
                 "type": "object",

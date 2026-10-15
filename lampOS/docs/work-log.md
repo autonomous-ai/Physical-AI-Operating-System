@@ -31,7 +31,7 @@ log and nothing a lamp runs ([joining.md](joining.md),
 | 44 | A yes said in two breaths still starts the task (issue #736, MVP) | `second/two-breath-yes` | 2026-10-15 | #740 closed as not needed, 2026-10-15: `d128c458a` (the model told why a call was not done) started five of five on lamp-4ace; the branch kept at `0ebd994d5`; the news crash found in its minute fixed in #756 |
 | 40 | Progress news through the tasks part and Jev (issue #732, `second-P2`) | `second/progress-news` | 2026-10-15 | pull request #751 into `lamp-voice`; on lamp-4ace since 06:58; the answers and the voice's side are #752 |
 | 41 | Codex and the others: the person names who gets the work (issue #733, `second-P3`) | `second/who-gets-the-work` | 2026-10-15 | moved to the fourth builder at 07:07; the branch at `ec2fb2a4d` on `2176cd38a`, gated, with the tests the schedule tools needed; its state said on #733 and the claim released |
-| 48 | The Policy decides when the lamp speaks first: progress news, then hello (issue #752) | `second/policy-speaks` | 2026-10-15 | being built |
+| 48 | The Policy decides when the lamp speaks first: progress news, then hello (issue #752) | `second/policy-speaks` | 2026-10-15 | progress news as pull request #765 into `lamp-voice` (on #751); hello proposed on #752 with three questions |
 | 43 | The person's phone over Bluetooth (issue #735, `second-P4`) | none | 2026-10-15 | cancelled by the owner the same night before any work was kept; released on #735 |
 
 ## Proposed tasks
@@ -57,6 +57,47 @@ log and nothing a lamp runs ([joining.md](joining.md),
 ## Handed back
 
 Newest first.
+
+### Task 48: the Policy decides when the lamp speaks first, progress news (2026-10-15, issue #752)
+
+Ready for lamp-voice: yes (#765)
+
+**Kind: off unless set:** `LAMP_PROGRESS_NEWS=on` on the voice and
+`lamp-policy --progress --act progress`. Without the voice's switch no
+subscriber appears on either topic, the tasks part is asked nothing new,
+and no told file is written; without `--act` every progress decision and
+log line stays `shadow:true` (tests). One commit, `e06d676d8`, on #751's
+`8855a2507`; built by the sub-agent that built #751 and reviewed here
+(only `task_news.rs` in the voice; subscriptions only with the switch, on
+a thread of its own; each decision let go says why; the note through
+`fitted`; the told key `<store>:<task>:progress-<change>` so it cannot meet
+an observation's).
+
+**What it is:** the policy, acting, sends progress decisions with
+`shadow:false` while "is this said to me?" stays in shadow. The voice
+takes a fresh `say_now` (60 s, this store, this task still working, no
+newer change), fetches the progress line and the task, and offers one
+note under its own gates, let go if not told within 60 s.
+
+**Tests** (M2 Max): the chain from a change on `tasks/status` through the
+real acting policy loop (a stand-in judge) to one note offered, told once
+and kept; every kind of decision let go; long notes in English and
+Vietnamese fit. **Gate:** fmt, strict clippy and tests on the 22 crates
+that are or use `lamp-msgs`: 3,652 passed, 1 failed (`lamp-health`, the
+Mac's disk warning), 21 ignored; the workspace build. Native ARM64 run
+38667569523 on `e06d676d8`: green, 4,443 passed, 0 failed, 35 ignored.
+
+**What to run on the lamp** (`docs/tasks.md`, "Playing progress news on
+lamp-4ace"): both switches on after the minute; `act=progress` in the
+policy's start line and a `voice.` subscriber on both topics; a task of a
+few minutes handed over by voice while sitting in view; the change, the
+`say_now`, the offer, the telling and the one sentence, with the time
+from decision to sound.
+
+**Where it is most likely wrong on the lamp:** Jev answering `wait` to
+everything; the 60 s life and the voice's gates not meeting; a summary
+line that does not make a natural sentence; the presence gate rarely
+opening.
 
 ### Found in task 44's minute: news too long for one written turn (2026-10-15, for issue #736)
 

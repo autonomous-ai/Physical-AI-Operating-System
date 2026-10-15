@@ -69,7 +69,7 @@
 //! heads of #903 that changed [`START`] lost the hand-overs on lamp-4ace,
 //! one by beginning "call it only when …" ("I can't write code or use your
 //! office computer", 2 of 2), the other by giving it two more required
-//! arguments (no call at all, 0 of 3, and twice "I've passed that along"
+//! arguments (no call at all, 0 of 2 named ones, and twice "I've passed that along"
 //! said without one). [`START`] is as it was.
 //!
 //! Hearing back: the tasks part watches what it started (on unless `serve --no-watch`),

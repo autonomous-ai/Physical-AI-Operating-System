@@ -807,7 +807,8 @@ by the first builder, and both lost the hand-overs while telling the stories
   computer", 2 of 2 (02:43);
 - the next gave it two more required arguments, `named` and
   `on_the_computer`, and prepared nothing without either: the model then
-  never called it, 0 of 3, and twice said "I've passed that along to them"
+  never called it, 0 of 2 (a third, the Codex line, was misheard and does
+  not count), and twice said "I've passed that along to them"
   or "I've got that request handled for you" with no call (03:10). A lamp
   that says it handed work over when it did not is the worst of the three.
 So the function the hand-overs worked with is left alone, and the stories
@@ -822,8 +823,11 @@ nobody named (`computer_unnamed`, to be handed over), and three more of the
 lamp's own: the
 eight-sentence story (`own_story_long`), the same after a hand-over and its
 yes in one session (`own_story_after_hand_over`), and three stories in a row
-(`own_stories_in_a_row`); each request also counts `offered`, the times what
-the lamp said named Claude Code. **The acceptance is the first builder's
+(`own_stories_in_a_row`). Each request counts `offered`, the times what the
+lamp said named Claude Code. Only the last line of a request is recorded
+(the lines before it set the scene), so `own_stories_in_a_row` shows whether
+a third story is told after two in the same session, not that all three
+were; that is `handovers.sh`'s. **The acceptance is the first builder's
 `handovers.sh`** on lamp-4ace: one session, three stories and a poem asked
 of the lamp interleaved with two "ask Claude Code to …" and one "have Codex
 …", each declined; it passes at told 4 of 4, offered 0, handed over 3 of 3

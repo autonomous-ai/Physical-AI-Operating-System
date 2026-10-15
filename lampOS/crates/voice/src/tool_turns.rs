@@ -111,9 +111,10 @@ const STORY_ASKED: &str = "Hey Lamp, can you ask Claude Code to write a short st
 /// asked of the lamp itself, which should tell them: on 2026-10-16 a long
 /// one was offered to Claude Code instead, and a session that began
 /// offering went on offering every story (`own_story_long`,
-/// `own_story_after_hand_over`, `own_stories_in_a_row`). The words are the
-/// ones played there; the model reads them here, where on the lamp it heard
-/// them.
+/// `own_story_after_hand_over`, `own_stories_in_a_row`; only the last line
+/// of each is recorded, so the last shows the third story after two in one
+/// session, not all three). The words are the ones played there; the model
+/// reads them here, where on the lamp it heard them.
 pub const HAND_OVERS: &[Scripted] = &[
     Scripted {
         label: "story_asked",

@@ -158,6 +158,10 @@ session is told it does not know the time, never to guess
   `lookup_within`) is given the connect time, 10 s, on a thread of its own;
   one that runs over is said as "cannot be reached" and the round goes on.
   This changes every lamp's default, only for a lookup over 10 s.
+- **Tasks' health** (`crates/tasks/src/engine.rs`, `runtime.rs`) is a
+  warning, "Tasks could not hand the last task over", while the newest
+  hand-over in this run did not reach Harness, instead of well. Changes
+  every lamp's report, only after a failed hand-over.
 
 ## What steps 2 to 4 will build
 

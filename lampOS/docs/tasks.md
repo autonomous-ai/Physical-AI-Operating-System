@@ -320,6 +320,14 @@ It publishes no task text and no automatic result delivery topic. A stalled
 owner loses readiness even while its process still exists. Missing Tasks
 does not inhibit healthy Voice; First owns the “cannot reach agents” fallback.
 
+Since #830 the report also says whether the newest hand-over in this run
+reached Harness (`last_handover` in the summary: `handed` when created or
+pending there, `failed` when not sent or uncertain, absent before the
+first): with `failed`, `tasks` is a warning, "Tasks could not hand the last
+task over", where before it stayed well while every hand-over failed (with
+no internet, or with Harness not running: lamp-4ace after a power cut on
+2026-10-15). The next hand-over that reaches Harness clears it.
+
 The Store locks its private 0700 directory for the owner's lifetime and uses
 0600 single-link regular files owned by the effective UID. It rejects linked
 final directories/files, unexpected schema/versions, malformed snapshots,

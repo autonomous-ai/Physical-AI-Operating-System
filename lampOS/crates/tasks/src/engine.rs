@@ -680,6 +680,11 @@ pub struct Engine<P: Persistence> {
     state: State,
     last_clock: Clock,
     failed: bool,
+    /// Whether the newest hand-over in this run reached Harness: true when
+    /// it was created or pending there, false when it was not sent or its
+    /// fate is uncertain. None before the first (#830: with no internet
+    /// every hand-over fails while the store itself is well).
+    last_handover: Option<bool>,
 }
 impl<P: Persistence> Engine<P> {
     pub fn open(
@@ -798,6 +803,7 @@ impl<P: Persistence> Engine<P> {
             state,
             last_clock: now.clone(),
             failed: false,
+            last_handover: None,
         })
     }
 
@@ -892,7 +898,8 @@ impl<P: Persistence> Engine<P> {
             "retained":self.state.tasks.len(),"prepared":count(DispatchState::Prepared),"queued":count(DispatchState::Queued),
             "attempting":count(DispatchState::Attempting),"accepted":count(DispatchState::Accepted),"pending":count(DispatchState::Pending),
             "uncertain":count(DispatchState::Uncertain),"observations":self.state.tasks.iter().map(|t|t.observations.len()).sum::<usize>(),
-            "speech_claimed":speech(SpeechState::Claimed),"speech_spoken":speech(SpeechState::Spoken),"speech_uncertain":speech(SpeechState::Uncertain),"completion":"unverified"})
+            "speech_claimed":speech(SpeechState::Claimed),"speech_spoken":speech(SpeechState::Spoken),"speech_uncertain":speech(SpeechState::Uncertain),"completion":"unverified",
+            "last_handover":self.last_handover.map(|handed| if handed { "handed" } else { "failed" })})
     }
 
     pub fn handle(
@@ -1319,9 +1326,15 @@ impl<P: Persistence> Engine<P> {
                 task.dispatch.code = Some("invalid_reply".into());
             }
         }
+        let handed = matches!(
+            task.dispatch.state,
+            DispatchState::Accepted | DispatchState::Pending
+        );
         task.dispatch.finished = Some(at.clone());
         task.updated = at;
-        self.save(next)
+        self.save(next)?;
+        self.last_handover = Some(handed);
+        Ok(())
     }
 
     /// Ask, on the watch's own account, for a read of one task handed over
@@ -2162,6 +2175,46 @@ mod tests {
             let mut recovered = Engine::open(memory, targets(), STORE, RESTART, &clock(3)).unwrap();
             assert!(recovered.begin_launch(&clock(3)).unwrap().is_none());
             assert_eq!(recovered.summary()["completion"], "unverified");
+        }
+    }
+
+    #[test]
+    fn the_summary_says_whether_the_newest_hand_over_reached_harness() {
+        for (outcome, said) in [
+            (
+                LaunchOutcome::Created {
+                    agent_id: AGENT.into(),
+                },
+                "handed",
+            ),
+            (
+                LaunchOutcome::Pending {
+                    creation_id: "creation-key-00000001".into(),
+                },
+                "handed",
+            ),
+            (
+                LaunchOutcome::NotSent {
+                    code: "policy_refused".into(),
+                },
+                "failed",
+            ),
+            (
+                LaunchOutcome::Uncertain {
+                    code: "new_failed".into(),
+                },
+                "failed",
+            ),
+        ] {
+            let (mut engine, memory) = opened();
+            assert!(engine.summary()["last_handover"].is_null());
+            let id = queued(&mut engine, 0);
+            engine.begin_launch(&clock(0)).unwrap();
+            engine.finish_launch(id, outcome, &clock(1)).unwrap();
+            assert_eq!(engine.summary()["last_handover"], said);
+            // A new run has not handed anything over yet.
+            let recovered = Engine::open(memory, targets(), STORE, RESTART, &clock(3)).unwrap();
+            assert!(recovered.summary()["last_handover"].is_null());
         }
     }
 

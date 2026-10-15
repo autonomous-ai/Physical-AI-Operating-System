@@ -1,0 +1,278 @@
+{
+ "scenarios": 44,
+ "ends": 158,
+ "by_basis": {
+  "model_complete": {
+   "ends": 84,
+   "followed": 13,
+   "mid_line": 26,
+   "holds_ms": {
+    "400": 75,
+    "470": 5,
+    "460": 1,
+    "480": 3
+   },
+   "p_min_median_max": [
+    0.91,
+    0.98,
+    0.99
+   ]
+  },
+  "silence_fallback": {
+   "ends": 39,
+   "followed": 10,
+   "mid_line": 10,
+   "holds_ms": {
+    "600": 39
+   },
+   "p_min_median_max": null
+  },
+  "model_uncertain": {
+   "ends": 35,
+   "followed": 6,
+   "mid_line": 6,
+   "holds_ms": {
+    "600": 35
+   },
+   "p_min_median_max": [
+    0.01,
+    0.67,
+    0.9
+   ]
+  }
+ },
+ "followed_rows": [
+  {
+   "scenario": "20261015T000716Z-soak12-1014-named",
+   "at_s": 86.81,
+   "hold_ms": 600,
+   "basis": "silence_fallback",
+   "p": null,
+   "decided_while_the_played_line_went_on": true
+  },
+  {
+   "scenario": "20261015T000959Z-soak12-1014-two-people-1",
+   "at_s": 10.6,
+   "hold_ms": 600,
+   "basis": "model_uncertain",
+   "p": 0.87,
+   "decided_while_the_played_line_went_on": false
+  },
+  {
+   "scenario": "20261015T000959Z-soak12-1014-two-people-1",
+   "at_s": 15.22,
+   "hold_ms": 600,
+   "basis": "model_uncertain",
+   "p": 0.9,
+   "decided_while_the_played_line_went_on": false
+  },
+  {
+   "scenario": "20261015T000959Z-soak12-1014-two-people-1",
+   "at_s": 19.24,
+   "hold_ms": 400,
+   "basis": "model_complete",
+   "p": 0.97,
+   "decided_while_the_played_line_went_on": true
+  },
+  {
+   "scenario": "20261015T001114Z-soak12-1014-two-people-2",
+   "at_s": 15.89,
+   "hold_ms": 400,
+   "basis": "model_complete",
+   "p": 0.97,
+   "decided_while_the_played_line_went_on": false
+  },
+  {
+   "scenario": "20261015T001114Z-soak12-1014-two-people-2",
+   "at_s": 31.13,
+   "hold_ms": 400,
+   "basis": "model_complete",
+   "p": 0.98,
+   "decided_while_the_played_line_went_on": false
+  },
+  {
+   "scenario": "20261015T001140Z-cutin-soak12-1014-1",
+   "at_s": 1.89,
+   "hold_ms": 600,
+   "basis": "silence_fallback",
+   "p": null,
+   "decided_while_the_played_line_went_on": true
+  },
+  {
+   "scenario": "20261015T001140Z-cutin-soak12-1014-1",
+   "at_s": 4.05,
+   "hold_ms": 400,
+   "basis": "model_complete",
+   "p": 0.99,
+   "decided_while_the_played_line_went_on": true
+  },
+  {
+   "scenario": "20261015T001220Z-cutin-soak12-1014-2",
+   "at_s": 4.34,
+   "hold_ms": 400,
+   "basis": "model_complete",
+   "p": 0.98,
+   "decided_while_the_played_line_went_on": true
+  },
+  {
+   "scenario": "20261015T001723Z-short-soak12-1014-1",
+   "at_s": 4.12,
+   "hold_ms": 400,
+   "basis": "model_complete",
+   "p": 0.96,
+   "decided_while_the_played_line_went_on": true
+  },
+  {
+   "scenario": "20261015T001753Z-short-soak12-1014-2",
+   "at_s": 4.23,
+   "hold_ms": 400,
+   "basis": "model_complete",
+   "p": 0.99,
+   "decided_while_the_played_line_went_on": true
+  },
+  {
+   "scenario": "20261015T001854Z-short-soak12-1014-4",
+   "at_s": 4.68,
+   "hold_ms": 400,
+   "basis": "model_complete",
+   "p": 0.92,
+   "decided_while_the_played_line_went_on": true
+  },
+  {
+   "scenario": "20261015T002124Z-short-soak12-1014-9",
+   "at_s": 4.61,
+   "hold_ms": 400,
+   "basis": "model_complete",
+   "p": 0.98,
+   "decided_while_the_played_line_went_on": true
+  },
+  {
+   "scenario": "20261015T002328Z-twobreath4-1015-1",
+   "at_s": 26.22,
+   "hold_ms": 600,
+   "basis": "silence_fallback",
+   "p": null,
+   "decided_while_the_played_line_went_on": true
+  },
+  {
+   "scenario": "20261015T002547Z-twobreath4-1015-2",
+   "at_s": 26.14,
+   "hold_ms": 600,
+   "basis": "silence_fallback",
+   "p": null,
+   "decided_while_the_played_line_went_on": true
+  },
+  {
+   "scenario": "20261015T002805Z-twobreath4-1015-3",
+   "at_s": 26.13,
+   "hold_ms": 600,
+   "basis": "silence_fallback",
+   "p": null,
+   "decided_while_the_played_line_went_on": true
+  },
+  {
+   "scenario": "20261015T003024Z-twobreath4-1015-4",
+   "at_s": 26.37,
+   "hold_ms": 600,
+   "basis": "silence_fallback",
+   "p": null,
+   "decided_while_the_played_line_went_on": true
+  },
+  {
+   "scenario": "20261015T003242Z-twobreath4-1015-5",
+   "at_s": 26.08,
+   "hold_ms": 600,
+   "basis": "silence_fallback",
+   "p": null,
+   "decided_while_the_played_line_went_on": true
+  },
+  {
+   "scenario": "20261015T010812Z-day-1015-0805",
+   "at_s": 82.27,
+   "hold_ms": 400,
+   "basis": "model_complete",
+   "p": 0.91,
+   "decided_while_the_played_line_went_on": true
+  },
+  {
+   "scenario": "20261015T010812Z-day-1015-0805",
+   "at_s": 100.5,
+   "hold_ms": 600,
+   "basis": "silence_fallback",
+   "p": null,
+   "decided_while_the_played_line_went_on": true
+  },
+  {
+   "scenario": "20261015T043954Z-who769-1015",
+   "at_s": 2.19,
+   "hold_ms": 600,
+   "basis": "silence_fallback",
+   "p": null,
+   "decided_while_the_played_line_went_on": true
+  },
+  {
+   "scenario": "20261015T043954Z-who769-1015",
+   "at_s": 30.27,
+   "hold_ms": 600,
+   "basis": "model_uncertain",
+   "p": 0.73,
+   "decided_while_the_played_line_went_on": false
+  },
+  {
+   "scenario": "20261015T043954Z-who769-1015",
+   "at_s": 33.27,
+   "hold_ms": 400,
+   "basis": "model_complete",
+   "p": 0.98,
+   "decided_while_the_played_line_went_on": false
+  },
+  {
+   "scenario": "20261015T043954Z-who769-1015",
+   "at_s": 37.95,
+   "hold_ms": 600,
+   "basis": "model_uncertain",
+   "p": 0.43,
+   "decided_while_the_played_line_went_on": false
+  },
+  {
+   "scenario": "20261015T043954Z-who769-1015",
+   "at_s": 42.39,
+   "hold_ms": 600,
+   "basis": "model_uncertain",
+   "p": 0.67,
+   "decided_while_the_played_line_went_on": false
+  },
+  {
+   "scenario": "20261015T043954Z-who769-1015",
+   "at_s": 56.98,
+   "hold_ms": 600,
+   "basis": "model_uncertain",
+   "p": 0.35,
+   "decided_while_the_played_line_went_on": false
+  },
+  {
+   "scenario": "20261015T043954Z-who769-1015",
+   "at_s": 67.17,
+   "hold_ms": 600,
+   "basis": "silence_fallback",
+   "p": null,
+   "decided_while_the_played_line_went_on": false
+  },
+  {
+   "scenario": "20261015T063409Z-who769b-1015",
+   "at_s": 6.5,
+   "hold_ms": 400,
+   "basis": "model_complete",
+   "p": 0.99,
+   "decided_while_the_played_line_went_on": true
+  },
+  {
+   "scenario": "20261015T064527Z-who769c-1015",
+   "at_s": 6.97,
+   "hold_ms": 400,
+   "basis": "model_complete",
+   "p": 0.99,
+   "decided_while_the_played_line_went_on": true
+  }
+ ]
+}

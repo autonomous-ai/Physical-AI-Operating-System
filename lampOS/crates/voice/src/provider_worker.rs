@@ -254,6 +254,13 @@ pub enum ProviderInput {
         /// The connection selected at admission, never replaced at dequeue.
         session: u64,
         privacy_generation: u64,
+        /// The same utterance going on after the lamp ended it early
+        /// (`continue_after_early_end`), said only with
+        /// `LAMP_CUT_KEEPS_NAME=on` ([`crate::attention::cut_keeps_name`]):
+        /// the busy-room rule keeps what it knew of the request before.
+        /// Without the switch it is never sent, and the Start is as it was.
+        #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+        continues: bool,
     },
     Audio {
         request: u64,
@@ -1324,7 +1331,14 @@ async fn serve_with_visual<C: Connect>(
                 // answer's sound was held).
                 if let (Some(now), Ok(Notice::Event(event))) = (options.attention, &notice) {
                     match event {
-                        Event::InputStarted { lineage, .. } => attention.began_at(lineage.request.get(), lineage.session.get(), monotonic_us()),
+                        Event::InputStarted { lineage, .. } => {
+                            let request = lineage.request.get();
+                            if intake.handoff.continued == Some(request) {
+                                attention.continued_at(request, lineage.session.get(), monotonic_us());
+                            } else {
+                                attention.began_at(request, lineage.session.get(), monotonic_us());
+                            }
+                        }
                         Event::UncorrelatedInputTranscript { text, .. } => attention.heard(text),
                         Event::Audio { lineage, .. } | Event::OutputTranscript { lineage, .. } | Event::ToolCall { lineage, .. }
                             if !matches!(event, Event::ToolCall { call, .. } if !crate::attention::answers(&call.name)) => {
@@ -2292,6 +2306,9 @@ struct InputHandoff {
     /// The newest request whose sound was ended here, and when: a name
     /// heard after that was not said in it (`crate::attention`).
     ended: Option<(u64, u64)>,
+    /// The newest request that continues the one before it after an early
+    /// end, as its Start said (`ProviderInput::Start::continues`).
+    continued: Option<u64>,
     /// Requests the provider will not serve. Their remaining input is dropped
     /// here, exactly like retired input, until the coordinator retires them.
     failed_through: u64,
@@ -2558,13 +2575,18 @@ impl InputHandoff {
                     captured: None,
                 });
             }
-            ProviderInput::Start { session, .. } => {
+            ProviderInput::Start {
+                session, continues, ..
+            } => {
                 if self.submitted.is_some() {
                     return Err(io::Error::other("provider input already started").into());
                 }
                 let expected = SessionId::new(session)?;
                 if let Err(refusal) = input.start(expected, request) {
                     return self.refused_start(request, refusal);
+                }
+                if continues {
+                    self.continued = Some(request.get());
                 }
                 self.submitted = Some(SubmittedInput {
                     request,
@@ -3095,6 +3117,7 @@ mod tests {
             session: 1,
             request,
             privacy_generation: generation(handoff),
+            continues: false,
         }
     }
 
@@ -3108,7 +3131,8 @@ mod tests {
             ProviderInput::Start {
                 request: 1,
                 session: 7,
-                privacy_generation: 2
+                privacy_generation: 2,
+                continues: false
             }
         ));
         for field in ["request", "session", "privacy_generation"] {
@@ -3119,6 +3143,31 @@ mod tests {
         let mut unknown = command;
         unknown["current_session"] = serde_json::json!(8);
         assert!(serde_json::from_value::<ProviderInput>(unknown).is_err());
+    }
+
+    #[test]
+    fn a_start_that_continues_says_so_and_one_that_does_not_is_as_it_was() {
+        let start = |continues| ProviderInput::Start {
+            request: 4,
+            session: 7,
+            privacy_generation: 2,
+            continues,
+        };
+        // Without `LAMP_CUT_KEEPS_NAME` the coordinator never sets it, and
+        // the line on the worker's socket is the one it always was.
+        assert_eq!(
+            serde_json::to_string(&start(false)).unwrap(),
+            r#"{"kind":"start","request":4,"session":7,"privacy_generation":2}"#
+        );
+        let said = serde_json::to_value(start(true)).unwrap();
+        assert_eq!(said["continues"], serde_json::json!(true));
+        assert!(matches!(
+            serde_json::from_value::<ProviderInput>(said).unwrap(),
+            ProviderInput::Start {
+                continues: true,
+                ..
+            }
+        ));
     }
 
     /// A block's capture time is carried over to the transport's clock by
@@ -3288,6 +3337,7 @@ mod tests {
                         request,
                         session: 0,
                         privacy_generation: generation(&handoff),
+                        continues: false
                     },
                     NOW,
                     &sink
@@ -3402,6 +3452,7 @@ mod tests {
                                 session: 1,
                                 request: turn.turn(),
                                 privacy_generation: state.microphone_generation(),
+                                continues: false,
                             })?;
                         }
                         Ok(control)
@@ -3458,6 +3509,7 @@ mod tests {
                     session: 1,
                     request: 1,
                     privacy_generation: state.microphone_generation(),
+                    continues: false,
                 })
                 .unwrap();
             assert_eq!(rig.tick(NOW).unwrap(), ControlDrain::Empty);
@@ -3527,6 +3579,7 @@ mod tests {
                                     session: 1,
                                     request: new.turn(),
                                     privacy_generation: state.microphone_generation(),
+                                    continues: false,
                                 },
                                 ProviderInput::Audio {
                                     request: new.turn(),
@@ -3665,6 +3718,7 @@ mod tests {
                     session: 1,
                     request: 2,
                     privacy_generation: privacy,
+                    continues: false,
                 })
                 .unwrap();
             rig.parent
@@ -3764,6 +3818,7 @@ mod tests {
                 session: 1,
                 request: 2,
                 privacy_generation: generation(&rig.intake.handoff),
+                continues: false,
             })
             .unwrap();
         let error = rig.tick(NOW).unwrap_err();
@@ -3885,6 +3940,7 @@ mod tests {
                 request: next.turn(),
                 session: 2,
                 privacy_generation,
+                continues: false,
             },
             ProviderInput::Audio {
                 request: next.turn(),
@@ -4962,6 +5018,7 @@ mod tests {
                     session: dial.session.get(),
                     request,
                     privacy_generation,
+                    continues: false,
                 })
                 .unwrap();
             self.parent
@@ -5960,6 +6017,7 @@ mod tests {
             request,
             session: selected.session,
             privacy_generation: generation(&handoff),
+            continues: false,
         };
 
         first.service.send(resumable()).await;
@@ -6036,6 +6094,7 @@ mod tests {
                     request: fresh,
                     session: replacement.session,
                     privacy_generation: generation(&handoff),
+                    continues: false,
                 },
                 NOW,
                 &provider,
@@ -6508,6 +6567,7 @@ mod tests {
                 session: 1,
                 request: newer.turn(),
                 privacy_generation,
+                continues: false,
             })
             .unwrap();
         assert!(
@@ -6835,6 +6895,7 @@ mod tests {
                     request: next,
                     session: replacement.session.get(),
                     privacy_generation: generation(&handoff),
+                    continues: false,
                 },
                 NOW,
                 &provider,
@@ -6905,6 +6966,7 @@ mod tests {
                 session: 1,
                 request: next.turn(),
                 privacy_generation,
+                continues: false,
             })
             .unwrap();
         rig.parent
@@ -7102,6 +7164,7 @@ mod tests {
                 session: 1,
                 request: owner.turn(),
                 privacy_generation: rig.snapshot.microphone_generation(),
+                continues: false,
             })
             .unwrap();
         let message = rig.exit().await.0.unwrap_err().to_string();
@@ -7615,6 +7678,7 @@ mod tests {
                 session: 1,
                 request: new,
                 privacy_generation,
+                continues: false,
             })
             .unwrap();
         rig.parent
@@ -7957,6 +8021,7 @@ mod tests {
                 session: 1,
                 request,
                 privacy_generation,
+                continues: false,
             })
             .unwrap();
         assert!(matches!(
@@ -8117,6 +8182,16 @@ mod tests {
             /// A person speaks again: a newly admitted request and its
             /// Start. With the start kept the service sees nothing of it.
             async fn begin(&mut self, dial: &Dial, input: AdmittedInput) -> u64 {
+                self.begin_continuing(dial, input, false).await
+            }
+            /// The same, its Start saying whether it continues the request
+            /// the lamp ended early (`LAMP_CUT_KEEPS_NAME`).
+            async fn begin_continuing(
+                &mut self,
+                dial: &Dial,
+                input: AdmittedInput,
+                continues: bool,
+            ) -> u64 {
                 let owner = self.owner.admit(real_time(), input).unwrap();
                 let request = owner.turn();
                 self.publish();
@@ -8126,6 +8201,7 @@ mod tests {
                         session: dial.session.get(),
                         request,
                         privacy_generation: self.snapshot.microphone_generation(),
+                        continues,
                     })
                     .unwrap();
                 loop {
@@ -8268,6 +8344,79 @@ mod tests {
             ));
             assert!(!rig.worker.is_finished());
             rig.stop().await;
+        }
+
+        /// #782 through the worker's own loop, in a busy room, as lamp-4ace
+        /// runs it (kept start). "Hey Lamp, ... about lamps," is ended early
+        /// at the comma, and "just in its reply ..." goes on as a new
+        /// request. Only the first part's text shows the call. Without the
+        /// switch the rest is held as not said to the lamp; with it, the
+        /// rest keeps the first part's text and its answer is played.
+        async fn the_rest_after_a_cut(continues: bool) -> bool {
+            fn busy() -> (crate::room_told::Room, bool) {
+                (crate::room_told::Room::Busy, false)
+            }
+            let heard = |text: &str| json!({"serverContent":{"inputTranscription":{"text":text}}});
+            let mut rig = LiveRig::start_all(
+                quick_policy(),
+                Options {
+                    reporting: Reporting::Typed,
+                    tools: crate::tools::Settings::default(),
+                    attention: Some(busy),
+                    name_signal: false,
+                },
+                BARRIER,
+                false,
+                Continuation::KeptStart,
+            );
+            let mut dial = rig.kept_ready(Reporting::Typed).await;
+            let cut = rig.speak(&mut dial, false, true).await;
+            dial.service
+                .send(heard("Hey Lamp, can you ask Claude Code about lamps,"))
+                .await;
+            assert!(matches!(
+                rig.output().await,
+                ProviderOutput::Transcript { .. }
+            ));
+            let resumed = rig
+                .begin_continuing(&dial, AdmittedInput::Interruption, continues)
+                .await;
+            assert!(resumed > cut);
+            rig.say(resumed, 1..31, 0).await;
+            // The first answer begins: the kept question goes to the
+            // service, the first answer is interrupted, the rest is said.
+            dial.service.send(provider_audio(7, 240)).await;
+            rig.heard(&mut dial, QUIET).await;
+            dial.service.send(interrupted()).await;
+            dial.service.send(idle_complete()).await;
+            rig.say(resumed, 31..41, 0).await;
+            rig.finish(resumed);
+            rig.heard(&mut dial, QUIET).await;
+            dial.service
+                .send(heard("just in its reply, without making any files?"))
+                .await;
+            dial.service.send(provider_audio(8, 240)).await;
+            dial.service.send(idle_complete()).await;
+            let mut played = false;
+            loop {
+                match rig.output().await {
+                    ProviderOutput::Audio { request, .. } if request == resumed => played = true,
+                    ProviderOutput::TurnComplete { request, .. } if request == resumed => break,
+                    _ => {}
+                }
+            }
+            rig.stop().await;
+            played
+        }
+
+        #[tokio::test]
+        async fn the_rest_after_a_cut_is_held_in_a_busy_room_without_the_switch() {
+            assert!(!the_rest_after_a_cut(false).await);
+        }
+
+        #[tokio::test]
+        async fn the_rest_after_a_cut_keeps_the_call_and_is_played_with_the_switch() {
+            assert!(the_rest_after_a_cut(true).await);
         }
 
         #[tokio::test]

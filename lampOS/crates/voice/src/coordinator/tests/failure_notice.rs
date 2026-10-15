@@ -18,6 +18,7 @@ fn failed_reply(before_started: bool) -> (Controller, Option<Reply>, SessionStat
                 session: 1,
                 request: current.owner.turn(),
                 privacy_generation: 1,
+                continues: false,
             })
             .unwrap();
     }

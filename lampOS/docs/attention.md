@@ -694,6 +694,39 @@ its own lamps (green-lamp's frames for the size); recordings at the lamp and fro
 asked for on #753 to check them. The host tests use synthetic
 levels and looks, and a real bus in a temporary directory.
 
+## A cut keeps its name (#782)
+
+Off unless `LAMP_CUT_KEEPS_NAME=on` in the voice's environment (built by the
+fourth builder on 15 October 2026). The fast early end (`--endpoint
+smart-turn-fast`) ends a turn at a pause the person then goes on after, and
+the rest is admitted as a new request that continues the first
+(`continue_after_early_end`). With the switch, the coordinator says so in
+that request's Start (`ProviderInput::Start::continues`, sent only then),
+and the provider worker begins the request with what the rule knew of the
+first part: the name, heard surely or not and how surely, the text heard so
+far, whether it was close, whether it was said to the lamp from close to it
+(`LAMP_ADDRESSED`, above), and the window from where the first part began
+(`Attention::continued_at`). A request on another session keeps nothing.
+Without the switch the Start is the line it always was, and every request
+begins afresh, as before.
+
+Why: on lamp-4ace on 15 October, 9 of the 84 fast ends in the played scenes
+fell at a comma inside a line, and the 600 ms window ended two more just
+after "Hey Lamp," ([endpoint-pilot.md](endpoint-pilot.md), "Cut at a
+comma"). The name was then said 1.5 s or more before the new request began,
+so it did not count for it, and in a busy room the rest was held as not said
+to the lamp, as on 14 October at 13:32, four times. A test through the
+worker's own loop with the start kept shows it: in a busy room, "Hey Lamp,
+… about lamps," then "just in its reply …" is held without the switch and
+answered with it.
+
+What it does not change: when the turn ends, what the provider hears, or a
+request that begins afresh. A continuation is what the coordinator's own
+detector heard as the same utterance going on before its silence window
+ended. It cannot tell a second voice that begins within that pause from the
+first going on: such a voice would keep the first part's name too. That is
+the case to watch for when it is tried in a busy room.
+
 ## The record of whom it answered
 
 Off unless set: `LAMP_FIRST_OUTPUT=/absolute/private/directory` in the
@@ -757,6 +790,10 @@ published without `LAMP_BUS=on`, which lamp-4ace has): each request is judged sa
 the lamp from close to it, published on `attention/addressed`, and in a
 busy room lets out an answer the rule would hold (above). Off by default;
 not on any lamp.
+
+`LAMP_CUT_KEEPS_NAME=on` (in the coordinator's environment; no worker
+flag): a request that continues one the lamp ended early keeps what the
+rule knew of it (above). Off by default; not on any lamp.
 
 `LAMP_NAME_NOTE_BUSY=face` (the worker's `--name-note-busy-face`, right
 after `--name-note`; nothing without `LAMP_NAME_NOTE=on`): in a busy room

@@ -350,9 +350,14 @@ close always closes the file, but releases the buffers first only when the
 stream stopped cleanly; after a failed or late stop it skips the release and
 relies on the close. The eyes do not look at the stop's result. An open can
 outlast the 1.5 s permission, or the permission can be taken back while it
-blocks: so the permission is heard again as soon as the open returns, and a
+blocks: so the permission is checked again as soon as the open returns, and a
 camera opened without it is closed at once, before any frame is read, kept or
-published. A blocked open is not interrupted; it is closed when it returns. Each open and each failed one is logged
+published. A blocked open is not interrupted; it is closed when it returns.
+The permit socket is heard all the while by a thread of its own
+(`crates/eyes/src/permit.rs`), and each `{"camera":true}` counts from when it
+arrived, not from when the eyes read it: a renewal that came early in a long
+open and was the last one has run out by the time the open returns, and does
+not keep the camera open. Each open and each failed one is logged
 with how long it took: about 50 ms on lamp-52e6.
 
 To look at one JPEG file without a camera:

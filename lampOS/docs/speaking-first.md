@@ -38,6 +38,15 @@ eyes' file; without it none of this runs. `LAMP_SPEAK_FIRST=on` lets the
 lamp say the hello. Without that the moment is recorded (`hello_due` in the
 session record, a line in the journal) and nothing is said.
 
+On lamp-4ace it was only recorded from 2026-10-13 to 15, and in 680 voice
+sessions it was never once due: nobody sat down squarely in front of the
+lamp after five minutes away (at that desk people face the computer beside
+it). It is on since 2026-10-15, 07:34. Its voice side was tried at 07:59
+the same day by writing a near face's size into the presence file by hand
+for eight seconds, 21 minutes after the last person was seen: the lamp
+said, unasked, "Oh, hey! Back again. It's good to have some company." The
+eyes writing the file for a real person sitting down is still to be seen.
+
 ## How it is said
 
 The lamp cannot be handed words to speak: its voice is the model's. So the
@@ -104,9 +113,16 @@ Tried on lamp-4ace without a sound being played (`lamp-voice provider-check
 CONFIG --look PICTURE.jpg NOTE`): given a 21 KiB photograph of the office
 and a note like the one above, the model answered "I see a busy desk and a
 whole office full of chairs and computers.", the first of it 1.49 s after
-the request. The rest (the lamp saying "Let me look", the look following
-it, the renewal after) has host tests for its parts and has not run on a
-lamp.
+the request.
+
+Played on lamp-4ace on 2026-10-15 at 07:35, with the character's line in
+(`lampOS/deploy/character/lamp.txt`): "Hey Lamp, what do you see right
+now?" → "Let me look." (0.98 s after the end of speech), and 2.3 s later
+"I see your desk with the computer monitors, a keyboard, and that white
+water bottle." A picture of 13,048 bytes went with the look. The talk then
+paused, so the session was renewed without the picture, and the follow-up
+23 s later ("And what colour is the wall?") took a look of its own: "The
+wall behind your monitors looks white."
 
 ## Telling it something that needs no answer
 

@@ -787,10 +787,15 @@ the lamp could do itself", with no limit on who was asked.
 Changed (the second builder, pull request #903): **only the session note.**
 After its hand-over sentence, kept word for word, it says:
 "A name that comes to you garbled, such as "Claude Co" for Claude Code,
-still names them. But a story, a poem or anything else they ask of you
-without naming Claude Code, however long, is yours: tell it yourself,
-gladly, and never offer it to Claude Code or ask whether Claude Code should,
-even after you handed something over earlier in this conversation."
+still names them. Work on their office computer is theirs too, named or
+not. But a story, a poem or anything else they ask of you that names
+neither Claude Code nor work on their office computer, however long, is
+yours: tell it yourself, gladly, and never offer it to Claude Code or ask
+whether Claude Code should, even after you handed something over earlier in
+this conversation." (The exception for work on the office computer, named or
+not, is the reviewer's on #903, so that the note never contradicts
+`start_agent_task`'s own "call it too when they ask for work to be done on
+their office computer".)
 `start_agent_task`, its description and what it takes are as they were.
 
 Two heads of #903 that changed `start_agent_task` were played on lamp-4ace
@@ -812,7 +817,9 @@ Tests: `with_work_asked_of_the_staff_every_ask_is_a_hand_over_and_without_it_not
 (`crates/voice/src/agent_tasks.rs`: the function and what it takes as
 before, the note's hand-over sentence as before and the exception after it).
 `provider-check --hand-overs` has the two named poems as they were heard
-(`named_poem_sea`, `named_poem_rain`) and three more of the lamp's own: the
+(`named_poem_sea`, `named_poem_rain`), work on the office computer with
+nobody named (`computer_unnamed`, to be handed over), and three more of the
+lamp's own: the
 eight-sentence story (`own_story_long`), the same after a hand-over and its
 yes in one session (`own_story_after_hand_over`), and three stories in a row
 (`own_stories_in_a_row`); each request also counts `offered`, the times what

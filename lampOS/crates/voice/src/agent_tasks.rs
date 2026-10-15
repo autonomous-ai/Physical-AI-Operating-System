@@ -455,10 +455,11 @@ pub fn session_note(place: &Place) -> Option<String> {
          hand it over with start_agent_task every time, whatever it is, a story or a poem as \
          much as code, even one you could tell yourself, and even in the middle of a story you \
          are telling. Never do it yourself instead. A name that comes to you garbled, such as \
-         \"Claude Co\" for Claude Code, still names them. But a story, a poem or anything else \
-         they ask of you without naming {whom}, however long, is yours: tell it yourself, \
-         gladly, and never offer it to {whom} or ask whether {whom} should, even after you \
-         handed something over earlier in this conversation."
+         \"Claude Co\" for Claude Code, still names them. Work on their office computer is \
+         theirs too, named or not. But a story, a poem or anything else they ask of you that \
+         names neither {whom} nor work on their office computer, however long, is yours: tell \
+         it yourself, gladly, and never offer it to {whom} or ask whether {whom} should, even \
+         after you handed something over earlier in this conversation."
     ))
 }
 
@@ -2241,8 +2242,15 @@ mod tests {
         // After it, the lamp's own (2026-10-16): a story asked of it is
         // told, and a name heard garbled still names the staff.
         assert!(note.contains(
-            "Never do it yourself instead. A name that comes to you garbled, such as \"Claude Co\" for Claude Code, still names them. But a story, a poem or anything else they ask of you without naming Claude Code, however long, is yours: tell it yourself, gladly, and never offer it to Claude Code or ask whether Claude Code should, even after you handed something over earlier in this conversation."
+            "Never do it yourself instead. A name that comes to you garbled, such as \"Claude Co\" for Claude Code, still names them. Work on their office computer is theirs too, named or not. But a story, a poem or anything else they ask of you that names neither Claude Code nor work on their office computer, however long, is yours: tell it yourself, gladly, and never offer it to Claude Code or ask whether Claude Code should, even after you handed something over earlier in this conversation."
         ));
+        // The reviewer on #903: the note and the function agree that work on
+        // the office computer is handed over, named or not.
+        assert!(
+            told[0].description.contains(
+                "Call it too when they ask for work to be done on their office computer."
+            )
+        );
         assert_eq!(
             noted(Some("time".into()), Some(&on)),
             Some(format!("time{note}"))

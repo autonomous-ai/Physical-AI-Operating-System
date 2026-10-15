@@ -167,6 +167,15 @@ pub const HAND_OVERS: &[Scripted] = &[
         expects: Some(crate::agent_tasks::START),
         lines: &["Hey Lamp, ask Claude to write a haiku poem about the rain."],
     },
+    // Work on the office computer with nobody named: handed over as well
+    // (the reviewer on #903).
+    Scripted {
+        label: "computer_unnamed",
+        expects: Some(crate::agent_tasks::START),
+        lines: &[
+            "Create notes.txt on my office computer with this shopping list: milk, eggs and bread.",
+        ],
+    },
     Scripted {
         label: "own_story",
         expects: None,
@@ -630,8 +639,9 @@ mod tests {
                 "{}",
                 scripted.label
             );
+            let last = scripted.lines.last().unwrap();
             assert_eq!(
-                scripted.lines.last().unwrap().contains("Claude"),
+                last.contains("Claude") || last.contains("office computer"),
                 !lamps_own,
                 "{}",
                 scripted.label

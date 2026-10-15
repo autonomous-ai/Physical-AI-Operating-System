@@ -100,8 +100,11 @@ Task 33's [touch contract](controls.md#touch-and-slides-task-33) publishes
 qualified head/base touches, position, slide direction/travel/speed and
 conditional Stop/Attend/Stroke/Sleep/Wake requests. It changes no default
 service or actuator. Awake/asleep is bound at contact start: a waking hand
-held for two seconds cannot send the lamp back to sleep. Sleep is separate
-from one-way microphone mute; Voice owns capture and physical privacy.
+held for two seconds cannot send the lamp back to sleep. Sleep is the
+voice's software mute with the reason `sleep` (First, #711): the microphones
+are off while it sleeps, it stays asleep across a restart, and a tap on the
+head or the button's hold wakes it ([controls.md](controls.md)). Voice owns
+capture and physical privacy.
 The present TTP223 may pulse instead of staying active under a resting hand;
 that pulse is a touch, not proof of a sustained Stroke. These host-tested
 requests do not establish any of the physical responses in the table.

@@ -1,0 +1,12 @@
+cut-a: samples differing from standard: {'near-end': 208150, 'transparent': 306714} of 1387200
+  Stop.                  lamp_speaking=1 standard= -38.1 near-end= -36.6 transparent= -37.0
+  Lamp, stop.            lamp_speaking=1 standard= -67.8 near-end= -42.0 transparent= -52.5
+  Wait.                  lamp_speaking=1 standard= -31.9 near-end= -31.7 transparent= -31.8
+cut-b: samples differing from standard: {'near-end': 239144, 'transparent': 385945} of 1386240
+  Stop.                  lamp_speaking=1 standard= -29.6 near-end= -24.1 transparent= -24.8
+  Lamp, stop talking.    lamp_speaking=1 standard= -31.9 near-end= -29.2 transparent= -29.8
+  Okay, stop.            lamp_speaking=1 standard= -19.7 near-end= -19.4 transparent= -19.4
+cut-d: samples differing from standard: {'near-end': 238875, 'transparent': 386600} of 1390720
+  Hey Lamp.              lamp_speaking=1 standard= -24.9 near-end= -24.8 transparent= -24.9
+  Yeah.                  lamp_speaking=1 standard= -17.7 near-end= -17.6 transparent= -17.6
+  Uh-huh.                lamp_speaking=1 standard= -34.5 near-end= -29.3 transparent= -29.5

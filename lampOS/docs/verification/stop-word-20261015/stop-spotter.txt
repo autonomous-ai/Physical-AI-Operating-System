@@ -1,0 +1,56 @@
+standard: stop over the lamp: 0/11; stop lamp quiet: 4/9; other over the lamp: 0/3; other lamp quiet: 0/3; false: 1 of 29 3 s pieces
+near-end: stop over the lamp: 1/11; stop lamp quiet: 4/9; other over the lamp: 0/3; other lamp quiet: 0/3; false: 1 of 29 3 s pieces
+transparent: stop over the lamp: 0/11; stop lamp quiet: 4/9; other over the lamp: 0/3; other lamp quiet: 0/3; false: 0 of 29 3 s pieces
+
+near-end	both-a	Stop.	over the lamp	0.805	False
+near-end	both-a	Lamp, stop.	lamp quiet	0.958	True
+near-end	both-a	Wait.	over the lamp	0.46	False
+standard	both-a	Stop.	over the lamp	0.754	False
+standard	both-a	Lamp, stop.	lamp quiet	0.958	True
+standard	both-a	Wait.	over the lamp	0.319	False
+near-end	both-noagc	Stop.	over the lamp	0.65	False
+near-end	both-noagc	Lamp, stop.	over the lamp	0.938	True
+near-end	both-noagc	Wait.	over the lamp	0.528	False
+standard	both-noagc	Stop.	over the lamp	0.124	False
+standard	both-noagc	Lamp, stop.	over the lamp	0.403	False
+standard	both-noagc	Wait.	over the lamp	0.135	False
+near-end	cut-a	Stop.	over the lamp	0.525	False
+near-end	cut-a	Lamp, stop.	over the lamp	0.055	False
+near-end	cut-a	Wait.	over the lamp	0.898	False
+standard	cut-a	Stop.	over the lamp	0.622	False
+standard	cut-a	Lamp, stop.	over the lamp	0.191	False
+standard	cut-a	Wait.	over the lamp	0.323	False
+near-end	cut-b	Stop.	over the lamp	0.326	False
+near-end	cut-b	Lamp, stop talking.	over the lamp	0.276	False
+near-end	cut-b	Okay, stop.	over the lamp	0.133	False
+standard	cut-b	Stop.	over the lamp	0.507	False
+standard	cut-b	Lamp, stop talking.	over the lamp	0.038	False
+standard	cut-b	Okay, stop.	over the lamp	0.505	False
+near-end	cut-d	Hey Lamp.	over the lamp	0.667	False
+near-end	cut-d	Yeah.	over the lamp	0.108	False
+near-end	cut-d	Uh-huh.	over the lamp	0.294	False
+standard	cut-d	Hey Lamp.	over the lamp	0.808	False
+standard	cut-d	Yeah.	over the lamp	0.078	False
+standard	cut-d	Uh-huh.	over the lamp	0.116	False
+near-end	cut-q	Stop.	lamp quiet	0.99	True
+near-end	cut-q	Lamp, stop.	lamp quiet	0.984	True
+near-end	cut-q	Wait.	lamp quiet	0.116	False
+near-end	cut-q	Stop.	lamp quiet	0.964	True
+near-end	cut-q	Lamp, stop talking.	lamp quiet	0.811	False
+near-end	cut-q	Okay, stop.	lamp quiet	0.813	False
+near-end	cut-q	Stop!	lamp quiet	0.852	False
+near-end	cut-q	Hold on.	lamp quiet	0.491	False
+near-end	cut-q	Mm-hm.	lamp quiet	0.45	False
+near-end	cut-q	Hey Lamp.	lamp quiet	0.571	False
+near-end	cut-q	Yeah.	lamp quiet	0.097	False
+standard	cut-q	Stop.	lamp quiet	0.99	True
+standard	cut-q	Lamp, stop.	lamp quiet	0.984	True
+standard	cut-q	Wait.	lamp quiet	0.116	False
+standard	cut-q	Stop.	lamp quiet	0.964	True
+standard	cut-q	Lamp, stop talking.	lamp quiet	0.811	False
+standard	cut-q	Okay, stop.	lamp quiet	0.813	False
+standard	cut-q	Stop!	lamp quiet	0.852	False
+standard	cut-q	Hold on.	lamp quiet	0.491	False
+standard	cut-q	Mm-hm.	lamp quiet	0.45	False
+standard	cut-q	Hey Lamp.	lamp quiet	0.571	False
+standard	cut-q	Yeah.	lamp quiet	0.097	False

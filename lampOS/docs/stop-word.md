@@ -710,10 +710,55 @@ near-end` replays a recording with one; `lamp-voice … --aec-suppressor
 near-end` runs the voice's capture worker with it (an experiment, never a
 default; the record's `run_start` says it). With `standard`, a replay of the
 owner's recording of 12 October (`dual-121930-owner-voice-both-mics`) is the
-same, byte for byte, as with sonora from crates.io. Whether `near-end` or
-`transparent` keeps a short word without letting the lamp's own voice
-through is not yet measured: it needs the recordings of 14 October, the
-microphone with the speaker's sound and the words played at known times.
+same, byte for byte, as with sonora from crates.io.
+
+**Measured on the recordings of 14 October: neither keeps the word.** The
+first builder's copies of that morning's runs
+(`~/lamp-voice-data/sessions/duplex-20261014/`, local only) hold mic2
+before and after the canceller, what the speaker accepted, and when each
+word was played. Five held stop words played over the lamp: cut-a, cut-b,
+cut-d, both-a and both-noagc, 11 in all. cut-q holds the same words played
+to a quiet lamp. cut-c's recording was never finished and cannot be
+replayed.
+
+Each run was replayed under the three settings on the fourth builder's
+Intel Mac. The standard replay of cut-a differs from what lamp-4ace
+recorded in 26% of samples at a level within 0.7%, so the settings are
+compared with each other. Each output was scored block by block as the
+voice hears it (`crates/voice/examples/hearing_replay.rs`: the voice's own
+`SpeechProbability`, and `Hearing::EVALUATED` against the replayed
+canceller's echo evidence), and `stop.onnx` was run over each word with
+`lamp-name check`
+([verification](verification/stop-word-20261015/README.md)).
+
+| | standard | near-end | transparent |
+|---|---|---|---|
+| Speech-like blocks in the 11 stop words' windows | 178 | 287 | 217 |
+| …heard as a person over the lamp (`Over`) | 59 | 82 | 70 |
+| …taken for the lamp's own voice (`Own`) | 71 | 156 | 99 |
+| Stop words that would make it yield (7 `Over` in a row) | 3 of 11 | 4 of 11 | 3 of 11 |
+| False yields in 2.5 min of the lamp speaking to nobody | 2 | 3 | 3 |
+| `stop.onnx` at 0.9, stop words over the lamp | 0 of 11 | 1 of 11 | 0 of 11 |
+| `stop.onnx` at 0.9, stop words with the lamp quiet | 4 of 9 | 4 of 9 | 4 of 9 |
+| `stop.onnx` false hearings in 29 × 3 s of the lamp to nobody | 1 | 1 | 0 |
+
+The near-end suppressor does let more of the word through: up to 26 dB
+more in a word's window. But the duplex rule calls a speech-like block the
+lamp's own voice when the speaker explains more than 75% of the raw
+microphone, and in these windows it explains a median 93 to 97%.
+
+About half of a stop word's speech-like blocks are plainly the person
+(75% or less), and half lie under the lamp's voice (97% or more), where
+they look like its own leak. Moving the bar from 75 to 90 catches 9 points
+more of the word's blocks (45% to 55%) and doubles the lamp's own blocks
+taken for a person (4.2% to 8.6%). On both microphones a word over the lamp
+is −6.5 to +3.2 dB against the second before it.
+
+So no acoustic change tried here recovers the half of each word that lies
+under the lamp's own voice. What would change the input is less of the lamp
+at the microphone while it speaks, or a cue that is not sound (a face
+turned to the lamp, the hand). A played minute at the lamp's present volume
+and 6 dB lower was asked for on #828.
 
 ## Not shown
 

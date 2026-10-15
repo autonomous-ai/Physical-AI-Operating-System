@@ -1,0 +1,18 @@
+standard: speech-like blocks in stop-word windows 130, in the lamp's speech to nobody 1084
+  explained <= 75: words  45.4%  nobody   4.2% (45 blocks)
+  explained <= 80: words  46.9%  nobody   5.3% (57 blocks)
+  explained <= 85: words  49.2%  nobody   6.4% (69 blocks)
+  explained <= 90: words  54.6%  nobody   8.6% (93 blocks)
+  explained <= 93: words  54.6%  nobody  13.5% (146 blocks)
+  explained <= 95: words  57.7%  nobody  19.5% (211 blocks)
+  explained <= 97: words  66.9%  nobody  42.6% (462 blocks)
+  explained, words: median 86 [p25 37, p75 98]; nobody: median 98 [p25 96, p75 99]
+near-end: speech-like blocks in stop-word windows 238, in the lamp's speech to nobody 1730
+  explained <= 75: words  34.5%  nobody   4.5% (77 blocks)
+  explained <= 80: words  37.4%  nobody   5.5% (95 blocks)
+  explained <= 85: words  41.2%  nobody   6.6% (114 blocks)
+  explained <= 90: words  48.7%  nobody   9.1% (158 blocks)
+  explained <= 93: words  56.7%  nobody  15.4% (266 blocks)
+  explained <= 95: words  63.4%  nobody  22.4% (387 blocks)
+  explained <= 97: words  77.3%  nobody  46.5% (805 blocks)
+  explained, words: median 91 [p25 55, p75 97]; nobody: median 98 [p25 96, p75 99]

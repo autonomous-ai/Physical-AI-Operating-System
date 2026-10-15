@@ -1,0 +1,49 @@
+cut-a  standard    Stop.                blocks=195 speech= 21 over= 12 own=  9 unknown=  0 explained_median=96
+cut-a  standard    Lamp, stop.          blocks=244 speech=  1 over=  0 own=  1 unknown=  0 explained_median=95
+cut-a  standard    Wait.                blocks=194 speech= 28 over= 28 own=  0 unknown=  0 explained_median=94
+cut-a  near-end    Stop.                blocks=195 speech= 36 over= 12 own= 24 unknown=  0 explained_median=96
+cut-a  near-end    Lamp, stop.          blocks=244 speech= 12 over=  0 own= 12 unknown=  0 explained_median=95
+cut-a  near-end    Wait.                blocks=194 speech= 28 over= 28 own=  0 unknown=  0 explained_median=94
+cut-a  transparent Stop.                blocks=195 speech= 25 over= 12 own= 13 unknown=  0 explained_median=96
+cut-a  transparent Lamp, stop.          blocks=244 speech=  2 over=  0 own=  2 unknown=  0 explained_median=95
+cut-a  transparent Wait.                blocks=194 speech= 28 over= 28 own=  0 unknown=  0 explained_median=94
+cut-b  standard    Stop.                blocks=194 speech=  1 over=  0 own=  1 unknown=  0 explained_median=97
+cut-b  standard    Lamp, stop talking.  blocks=295 speech= 59 over= 10 own= 22 unknown= 27 explained_median=96
+cut-b  standard    Okay, stop.          blocks=270 speech= 53 over=  9 own= 23 unknown=  0 explained_median=93
+cut-b  near-end    Stop.                blocks=194 speech=  3 over=  0 own=  3 unknown=  0 explained_median=97
+cut-b  near-end    Lamp, stop talking.  blocks=295 speech= 69 over= 19 own= 22 unknown= 28 explained_median=96
+cut-b  near-end    Okay, stop.          blocks=270 speech= 72 over= 11 own= 40 unknown=  0 explained_median=93
+cut-b  transparent Stop.                blocks=194 speech=  2 over=  0 own=  2 unknown=  0 explained_median=97
+cut-b  transparent Lamp, stop talking.  blocks=295 speech= 60 over= 12 own= 21 unknown= 27 explained_median=96
+cut-b  transparent Okay, stop.          blocks=270 speech= 53 over= 10 own= 22 unknown=  0 explained_median=93
+cut-d  standard    Hey Lamp.            blocks=194 speech= 37 over= 15 own=  2 unknown= 20 explained_median=72
+cut-d  standard    Yeah.                blocks=169 speech= 40 over=  0 own= 40 unknown=  0 explained_median=97
+cut-d  standard    Uh-huh.              blocks=193 speech= 25 over=  8 own= 17 unknown=  0 explained_median=95
+cut-d  near-end    Hey Lamp.            blocks=194 speech= 37 over= 15 own=  2 unknown= 20 explained_median=72
+cut-d  near-end    Yeah.                blocks=169 speech= 46 over=  3 own= 43 unknown=  0 explained_median=97
+cut-d  near-end    Uh-huh.              blocks=193 speech= 55 over=  8 own= 47 unknown=  0 explained_median=95
+cut-d  transparent Hey Lamp.            blocks=194 speech= 37 over= 15 own=  2 unknown= 20 explained_median=72
+cut-d  transparent Yeah.                blocks=169 speech= 39 over=  0 own= 39 unknown=  0 explained_median=97
+cut-d  transparent Uh-huh.              blocks=193 speech= 39 over=  8 own= 31 unknown=  0 explained_median=95
+both-a standard    Stop.                blocks=195 speech=  6 over=  0 own=  6 unknown=  0 explained_median=96
+both-a standard    Wait.                blocks=194 speech=  2 over=  0 own=  2 unknown=  0 explained_median=86
+both-a near-end    Stop.                blocks=195 speech= 22 over=  0 own= 22 unknown=  0 explained_median=96
+both-a near-end    Wait.                blocks=194 speech= 14 over=  4 own= 10 unknown=  0 explained_median=86
+both-a transparent Stop.                blocks=195 speech= 12 over=  0 own= 12 unknown=  0 explained_median=96
+both-a transparent Wait.                blocks=194 speech= 21 over=  6 own= 15 unknown=  0 explained_median=86
+both-noagc standard    Stop.                blocks=193 speech=  0 over=  0 own=  0 unknown=  0 explained_median=96
+both-noagc standard    Lamp, stop.          blocks=245 speech=  0 over=  0 own=  0 unknown=  0 explained_median=95
+both-noagc standard    Wait.                blocks=194 speech=  7 over=  0 own=  7 unknown=  0 explained_median=94
+both-noagc near-end    Stop.                blocks=193 speech=  0 over=  0 own=  0 unknown=  0 explained_median=96
+both-noagc near-end    Lamp, stop.          blocks=245 speech=  6 over=  0 own=  6 unknown=  0 explained_median=95
+both-noagc near-end    Wait.                blocks=194 speech= 25 over=  8 own= 17 unknown=  0 explained_median=94
+both-noagc transparent Stop.                blocks=193 speech=  0 over=  0 own=  0 unknown=  0 explained_median=96
+both-noagc transparent Lamp, stop.          blocks=245 speech=  6 over=  0 own=  6 unknown=  0 explained_median=95
+both-noagc transparent Wait.                blocks=194 speech=  8 over=  2 own=  6 unknown=  0 explained_median=94
+
+standard    stop : 11 words, speech blocks 178: over 59, own 71, unknown 27
+standard    other: 3 words, speech blocks 102: over 23, own 59, unknown 20
+near-end    stop : 11 words, speech blocks 287: over 82, own 156, unknown 28
+near-end    other: 3 words, speech blocks 138: over 26, own 92, unknown 20
+transparent stop : 11 words, speech blocks 217: over 70, own 99, unknown 27
+transparent other: 3 words, speech blocks 115: over 23, own 72, unknown 20

@@ -1,0 +1,83 @@
+run	mode	kind	text	lamp_speaking	longest_over	plain	yields	commits_plain	lamp_did
+cut-a	standard	cut	Stop.	True	12	0	True	False	
+cut-a	standard	cut	Lamp, stop.	True	0	0	False	False	
+cut-a	standard	cut	Wait.	True	28	25	True	True	yield,commit,yield_end
+cut-a	near-end	cut	Stop.	True	12	0	True	False	
+cut-a	near-end	cut	Lamp, stop.	True	0	0	False	False	
+cut-a	near-end	cut	Wait.	True	28	25	True	True	yield,commit,yield_end
+cut-a	transparent	cut	Stop.	True	12	0	True	False	
+cut-a	transparent	cut	Lamp, stop.	True	0	0	False	False	
+cut-a	transparent	cut	Wait.	True	28	25	True	True	yield,commit,yield_end
+cut-b	standard	cut	Stop.	True	0	0	False	False	
+cut-b	standard	cut	Lamp, stop talking.	True	5	5	False	False	
+cut-b	standard	cut	Okay, stop.	True	9	0	True	False	yield,commit,yield_end
+cut-b	near-end	cut	Stop.	True	0	0	False	False	
+cut-b	near-end	cut	Lamp, stop talking.	True	10	6	True	False	
+cut-b	near-end	cut	Okay, stop.	True	11	1	True	False	yield,commit,yield_end
+cut-b	transparent	cut	Stop.	True	0	0	False	False	
+cut-b	transparent	cut	Lamp, stop talking.	True	5	6	False	False	
+cut-b	transparent	cut	Okay, stop.	True	10	0	True	False	yield,commit,yield_end
+cut-d	standard	cut	Hey Lamp.	True	11	3	True	False	yield,yield_end
+cut-d	standard	cut	Yeah.	True	0	0	False	False	
+cut-d	standard	cut	Uh-huh.	True	8	0	True	False	
+cut-d	near-end	cut	Hey Lamp.	True	11	3	True	False	yield,yield_end
+cut-d	near-end	cut	Yeah.	True	3	2	False	False	
+cut-d	near-end	cut	Uh-huh.	True	8	0	True	False	
+cut-d	transparent	cut	Hey Lamp.	True	11	3	True	False	yield,yield_end
+cut-d	transparent	cut	Yeah.	True	0	0	False	False	
+cut-d	transparent	cut	Uh-huh.	True	8	0	True	False	
+both-a	standard	cut	Stop.	True	0	0	False	False	
+both-a	standard	cut	Lamp, stop.	False	0	0	False	False	
+both-a	standard	cut	Wait.	True	0	0	False	False	
+both-a	near-end	cut	Stop.	True	0	0	False	False	
+both-a	near-end	cut	Lamp, stop.	False	0	0	False	False	
+both-a	near-end	cut	Wait.	True	1	1	False	False	
+both-a	transparent	cut	Stop.	True	0	0	False	False	
+both-a	transparent	cut	Lamp, stop.	False	0	0	False	False	
+both-a	transparent	cut	Wait.	True	4	1	False	False	
+both-noagc	standard	cut	Stop.	True	0	0	False	False	
+both-noagc	standard	cut	Lamp, stop.	True	0	0	False	False	
+both-noagc	standard	cut	Wait.	True	0	0	False	False	
+both-noagc	near-end	cut	Stop.	True	0	0	False	False	
+both-noagc	near-end	cut	Lamp, stop.	True	0	0	False	False	
+both-noagc	near-end	cut	Wait.	True	3	0	False	False	
+both-noagc	transparent	cut	Stop.	True	0	0	False	False	
+both-noagc	transparent	cut	Lamp, stop.	True	0	0	False	False	
+both-noagc	transparent	cut	Wait.	True	2	0	False	False	
+cut-q	standard	quiet	Stop.	False	0	0	False	False	
+cut-q	standard	quiet	Lamp, stop.	False	0	0	False	False	
+cut-q	standard	quiet	Wait.	False	0	0	False	False	
+cut-q	standard	quiet	Stop.	False	0	0	False	False	
+cut-q	standard	quiet	Lamp, stop talking.	False	0	0	False	False	
+cut-q	standard	quiet	Okay, stop.	False	0	0	False	False	
+cut-q	standard	quiet	Stop!	False	0	0	False	False	
+cut-q	standard	quiet	Hold on.	False	0	0	False	False	
+cut-q	standard	quiet	Mm-hm.	False	0	0	False	False	
+cut-q	standard	quiet	Hey Lamp.	False	0	0	False	False	
+cut-q	standard	quiet	Yeah.	False	0	0	False	False	
+cut-q	near-end	quiet	Stop.	False	0	0	False	False	
+cut-q	near-end	quiet	Lamp, stop.	False	0	0	False	False	
+cut-q	near-end	quiet	Wait.	False	0	0	False	False	
+cut-q	near-end	quiet	Stop.	False	0	0	False	False	
+cut-q	near-end	quiet	Lamp, stop talking.	False	0	0	False	False	
+cut-q	near-end	quiet	Okay, stop.	False	0	0	False	False	
+cut-q	near-end	quiet	Stop!	False	0	0	False	False	
+cut-q	near-end	quiet	Hold on.	False	0	0	False	False	
+cut-q	near-end	quiet	Mm-hm.	False	0	0	False	False	
+cut-q	near-end	quiet	Hey Lamp.	False	0	0	False	False	
+cut-q	near-end	quiet	Yeah.	False	0	0	False	False	
+cut-q	transparent	quiet	Stop.	False	0	0	False	False	
+cut-q	transparent	quiet	Lamp, stop.	False	0	0	False	False	
+cut-q	transparent	quiet	Wait.	False	0	0	False	False	
+cut-q	transparent	quiet	Stop.	False	0	0	False	False	
+cut-q	transparent	quiet	Lamp, stop talking.	False	0	0	False	False	
+cut-q	transparent	quiet	Okay, stop.	False	0	0	False	False	
+cut-q	transparent	quiet	Stop!	False	0	0	False	False	
+cut-q	transparent	quiet	Hold on.	False	0	0	False	False	
+cut-q	transparent	quiet	Mm-hm.	False	0	0	False	False	
+cut-q	transparent	quiet	Hey Lamp.	False	0	0	False	False	
+cut-q	transparent	quiet	Yeah.	False	0	0	False	False	
+
+standard: cut: 5/14 yield, 1 plain stop; false yields 2 in 2.5 min of the lamp speaking with nobody
+near-end: cut: 6/14 yield, 1 plain stop; false yields 3 in 2.5 min of the lamp speaking with nobody
+transparent: cut: 5/14 yield, 1 plain stop; false yields 3 in 2.5 min of the lamp speaking with nobody

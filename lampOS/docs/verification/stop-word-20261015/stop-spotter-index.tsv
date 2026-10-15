@@ -1,0 +1,165 @@
+cut-a	standard	word-01.wav	word	cut	1	Stop.
+cut-a	standard	word-03.wav	word	cut	1	Lamp, stop.
+cut-a	standard	word-05.wav	word	cut	1	Wait.
+cut-a	standard	nobody-00.wav	nobody	-	1	-
+cut-a	standard	nobody-01.wav	nobody	-	1	-
+cut-a	standard	nobody-02.wav	nobody	-	1	-
+cut-a	near-end	word-01.wav	word	cut	1	Stop.
+cut-a	near-end	word-03.wav	word	cut	1	Lamp, stop.
+cut-a	near-end	word-05.wav	word	cut	1	Wait.
+cut-a	near-end	nobody-00.wav	nobody	-	1	-
+cut-a	near-end	nobody-01.wav	nobody	-	1	-
+cut-a	near-end	nobody-02.wav	nobody	-	1	-
+cut-a	transparent	word-01.wav	word	cut	1	Stop.
+cut-a	transparent	word-03.wav	word	cut	1	Lamp, stop.
+cut-a	transparent	word-05.wav	word	cut	1	Wait.
+cut-a	transparent	nobody-00.wav	nobody	-	1	-
+cut-a	transparent	nobody-01.wav	nobody	-	1	-
+cut-a	transparent	nobody-02.wav	nobody	-	1	-
+cut-b	standard	word-01.wav	word	cut	1	Stop.
+cut-b	standard	word-03.wav	word	cut	1	Lamp, stop talking.
+cut-b	standard	word-05.wav	word	cut	1	Okay, stop.
+cut-b	standard	nobody-00.wav	nobody	-	1	-
+cut-b	standard	nobody-01.wav	nobody	-	1	-
+cut-b	standard	nobody-02.wav	nobody	-	1	-
+cut-b	standard	nobody-03.wav	nobody	-	1	-
+cut-b	near-end	word-01.wav	word	cut	1	Stop.
+cut-b	near-end	word-03.wav	word	cut	1	Lamp, stop talking.
+cut-b	near-end	word-05.wav	word	cut	1	Okay, stop.
+cut-b	near-end	nobody-00.wav	nobody	-	1	-
+cut-b	near-end	nobody-01.wav	nobody	-	1	-
+cut-b	near-end	nobody-02.wav	nobody	-	1	-
+cut-b	near-end	nobody-03.wav	nobody	-	1	-
+cut-b	transparent	word-01.wav	word	cut	1	Stop.
+cut-b	transparent	word-03.wav	word	cut	1	Lamp, stop talking.
+cut-b	transparent	word-05.wav	word	cut	1	Okay, stop.
+cut-b	transparent	nobody-00.wav	nobody	-	1	-
+cut-b	transparent	nobody-01.wav	nobody	-	1	-
+cut-b	transparent	nobody-02.wav	nobody	-	1	-
+cut-b	transparent	nobody-03.wav	nobody	-	1	-
+cut-d	standard	word-01.wav	word	cut	1	Hey Lamp.
+cut-d	standard	word-03.wav	word	cut	1	Yeah.
+cut-d	standard	word-05.wav	word	cut	1	Uh-huh.
+cut-d	standard	nobody-00.wav	nobody	-	1	-
+cut-d	standard	nobody-01.wav	nobody	-	1	-
+cut-d	standard	nobody-02.wav	nobody	-	1	-
+cut-d	standard	nobody-03.wav	nobody	-	1	-
+cut-d	standard	nobody-04.wav	nobody	-	1	-
+cut-d	standard	nobody-05.wav	nobody	-	1	-
+cut-d	standard	nobody-06.wav	nobody	-	1	-
+cut-d	near-end	word-01.wav	word	cut	1	Hey Lamp.
+cut-d	near-end	word-03.wav	word	cut	1	Yeah.
+cut-d	near-end	word-05.wav	word	cut	1	Uh-huh.
+cut-d	near-end	nobody-00.wav	nobody	-	1	-
+cut-d	near-end	nobody-01.wav	nobody	-	1	-
+cut-d	near-end	nobody-02.wav	nobody	-	1	-
+cut-d	near-end	nobody-03.wav	nobody	-	1	-
+cut-d	near-end	nobody-04.wav	nobody	-	1	-
+cut-d	near-end	nobody-05.wav	nobody	-	1	-
+cut-d	near-end	nobody-06.wav	nobody	-	1	-
+cut-d	transparent	word-01.wav	word	cut	1	Hey Lamp.
+cut-d	transparent	word-03.wav	word	cut	1	Yeah.
+cut-d	transparent	word-05.wav	word	cut	1	Uh-huh.
+cut-d	transparent	nobody-00.wav	nobody	-	1	-
+cut-d	transparent	nobody-01.wav	nobody	-	1	-
+cut-d	transparent	nobody-02.wav	nobody	-	1	-
+cut-d	transparent	nobody-03.wav	nobody	-	1	-
+cut-d	transparent	nobody-04.wav	nobody	-	1	-
+cut-d	transparent	nobody-05.wav	nobody	-	1	-
+cut-d	transparent	nobody-06.wav	nobody	-	1	-
+cut-q	standard	word-00.wav	word	quiet	0	Stop.
+cut-q	standard	word-01.wav	word	quiet	0	Lamp, stop.
+cut-q	standard	word-02.wav	word	quiet	0	Wait.
+cut-q	standard	word-03.wav	word	quiet	0	Stop.
+cut-q	standard	word-04.wav	word	quiet	0	Lamp, stop talking.
+cut-q	standard	word-05.wav	word	quiet	0	Okay, stop.
+cut-q	standard	word-06.wav	word	quiet	0	Stop!
+cut-q	standard	word-07.wav	word	quiet	0	Hold on.
+cut-q	standard	word-08.wav	word	quiet	0	Mm-hm.
+cut-q	standard	word-09.wav	word	quiet	0	Hey Lamp.
+cut-q	standard	word-10.wav	word	quiet	0	Yeah.
+cut-q	near-end	word-00.wav	word	quiet	0	Stop.
+cut-q	near-end	word-01.wav	word	quiet	0	Lamp, stop.
+cut-q	near-end	word-02.wav	word	quiet	0	Wait.
+cut-q	near-end	word-03.wav	word	quiet	0	Stop.
+cut-q	near-end	word-04.wav	word	quiet	0	Lamp, stop talking.
+cut-q	near-end	word-05.wav	word	quiet	0	Okay, stop.
+cut-q	near-end	word-06.wav	word	quiet	0	Stop!
+cut-q	near-end	word-07.wav	word	quiet	0	Hold on.
+cut-q	near-end	word-08.wav	word	quiet	0	Mm-hm.
+cut-q	near-end	word-09.wav	word	quiet	0	Hey Lamp.
+cut-q	near-end	word-10.wav	word	quiet	0	Yeah.
+cut-q	transparent	word-00.wav	word	quiet	0	Stop.
+cut-q	transparent	word-01.wav	word	quiet	0	Lamp, stop.
+cut-q	transparent	word-02.wav	word	quiet	0	Wait.
+cut-q	transparent	word-03.wav	word	quiet	0	Stop.
+cut-q	transparent	word-04.wav	word	quiet	0	Lamp, stop talking.
+cut-q	transparent	word-05.wav	word	quiet	0	Okay, stop.
+cut-q	transparent	word-06.wav	word	quiet	0	Stop!
+cut-q	transparent	word-07.wav	word	quiet	0	Hold on.
+cut-q	transparent	word-08.wav	word	quiet	0	Mm-hm.
+cut-q	transparent	word-09.wav	word	quiet	0	Hey Lamp.
+cut-q	transparent	word-10.wav	word	quiet	0	Yeah.
+both-a	standard	word-01.wav	word	cut	1	Stop.
+both-a	standard	word-03.wav	word	cut	0	Lamp, stop.
+both-a	standard	word-05.wav	word	cut	1	Wait.
+both-a	standard	nobody-00.wav	nobody	-	1	-
+both-a	standard	nobody-01.wav	nobody	-	1	-
+both-a	standard	nobody-02.wav	nobody	-	1	-
+both-a	standard	nobody-03.wav	nobody	-	1	-
+both-a	standard	nobody-04.wav	nobody	-	1	-
+both-a	standard	nobody-05.wav	nobody	-	1	-
+both-a	standard	nobody-06.wav	nobody	-	1	-
+both-a	near-end	word-01.wav	word	cut	1	Stop.
+both-a	near-end	word-03.wav	word	cut	0	Lamp, stop.
+both-a	near-end	word-05.wav	word	cut	1	Wait.
+both-a	near-end	nobody-00.wav	nobody	-	1	-
+both-a	near-end	nobody-01.wav	nobody	-	1	-
+both-a	near-end	nobody-02.wav	nobody	-	1	-
+both-a	near-end	nobody-03.wav	nobody	-	1	-
+both-a	near-end	nobody-04.wav	nobody	-	1	-
+both-a	near-end	nobody-05.wav	nobody	-	1	-
+both-a	near-end	nobody-06.wav	nobody	-	1	-
+both-a	transparent	word-01.wav	word	cut	1	Stop.
+both-a	transparent	word-03.wav	word	cut	0	Lamp, stop.
+both-a	transparent	word-05.wav	word	cut	1	Wait.
+both-a	transparent	nobody-00.wav	nobody	-	1	-
+both-a	transparent	nobody-01.wav	nobody	-	1	-
+both-a	transparent	nobody-02.wav	nobody	-	1	-
+both-a	transparent	nobody-03.wav	nobody	-	1	-
+both-a	transparent	nobody-04.wav	nobody	-	1	-
+both-a	transparent	nobody-05.wav	nobody	-	1	-
+both-a	transparent	nobody-06.wav	nobody	-	1	-
+both-noagc	standard	word-01.wav	word	cut	1	Stop.
+both-noagc	standard	word-03.wav	word	cut	1	Lamp, stop.
+both-noagc	standard	word-05.wav	word	cut	1	Wait.
+both-noagc	standard	nobody-00.wav	nobody	-	1	-
+both-noagc	standard	nobody-01.wav	nobody	-	1	-
+both-noagc	standard	nobody-02.wav	nobody	-	1	-
+both-noagc	standard	nobody-03.wav	nobody	-	1	-
+both-noagc	standard	nobody-04.wav	nobody	-	1	-
+both-noagc	standard	nobody-05.wav	nobody	-	1	-
+both-noagc	standard	nobody-06.wav	nobody	-	1	-
+both-noagc	standard	nobody-07.wav	nobody	-	1	-
+both-noagc	near-end	word-01.wav	word	cut	1	Stop.
+both-noagc	near-end	word-03.wav	word	cut	1	Lamp, stop.
+both-noagc	near-end	word-05.wav	word	cut	1	Wait.
+both-noagc	near-end	nobody-00.wav	nobody	-	1	-
+both-noagc	near-end	nobody-01.wav	nobody	-	1	-
+both-noagc	near-end	nobody-02.wav	nobody	-	1	-
+both-noagc	near-end	nobody-03.wav	nobody	-	1	-
+both-noagc	near-end	nobody-04.wav	nobody	-	1	-
+both-noagc	near-end	nobody-05.wav	nobody	-	1	-
+both-noagc	near-end	nobody-06.wav	nobody	-	1	-
+both-noagc	near-end	nobody-07.wav	nobody	-	1	-
+both-noagc	transparent	word-01.wav	word	cut	1	Stop.
+both-noagc	transparent	word-03.wav	word	cut	1	Lamp, stop.
+both-noagc	transparent	word-05.wav	word	cut	1	Wait.
+both-noagc	transparent	nobody-00.wav	nobody	-	1	-
+both-noagc	transparent	nobody-01.wav	nobody	-	1	-
+both-noagc	transparent	nobody-02.wav	nobody	-	1	-
+both-noagc	transparent	nobody-03.wav	nobody	-	1	-
+both-noagc	transparent	nobody-04.wav	nobody	-	1	-
+both-noagc	transparent	nobody-05.wav	nobody	-	1	-
+both-noagc	transparent	nobody-06.wav	nobody	-	1	-
+both-noagc	transparent	nobody-07.wav	nobody	-	1	-

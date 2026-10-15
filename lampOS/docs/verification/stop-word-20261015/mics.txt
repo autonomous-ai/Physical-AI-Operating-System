@@ -1,0 +1,6 @@
+both-a     Stop.        mic2 pre-AEC  -14.3 vs  -16.3 ( +2.0)   mic1  -16.1 vs  -19.2 ( +3.1)
+both-a     Lamp, stop.  mic2 pre-AEC  -34.2 vs  -82.2 (+48.0)   mic1  -53.0 vs  -56.2 ( +3.2)
+both-a     Wait.        mic2 pre-AEC  -18.1 vs  -11.6 ( -6.5)   mic1  -19.1 vs  -14.3 ( -4.8)
+both-noagc Stop.        mic2 pre-AEC  -15.3 vs  -11.7 ( -3.5)   mic1  -25.4 vs  -24.3 ( -1.1)
+both-noagc Lamp, stop.  mic2 pre-AEC  -13.5 vs  -15.1 ( +1.7)   mic1  -25.7 vs  -28.2 ( +2.5)
+both-noagc Wait.        mic2 pre-AEC  -13.6 vs  -12.2 ( -1.4)   mic1  -26.9 vs  -27.4 ( +0.5)

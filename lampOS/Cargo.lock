@@ -2103,6 +2103,7 @@ dependencies = [
  "lamp-gemini",
  "lamp-ipc",
  "lamp-msgs",
+ "lamp-policy",
  "lamp-ring",
  "lamp-schedule",
  "lamp-turn-end-wire",

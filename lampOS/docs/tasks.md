@@ -979,29 +979,9 @@ and, with it,
 `with_progress_each_machine_is_listed_on_the_watchs_schedule_and_the_words_stay_here`
 (`crates/tasks/tests/runtime.rs`).
 
-**For the voice (proposed, not wired; to agree on #732).** The first
-builder wires the voice. The proposal, so that `task_news` can take a
-progress note:
-
-- **Topic:** `policy/decisions`, `about` `progress`, `choice` `say_now`,
-  `shadow` false (it is `true` until the first builder makes it act), and
-  `task` = `<store>:<task>:<change>` ([policy.md](policy.md#progress-news-say-this-progress-now-732);
-  since the #765 review `<store>:<task>:<change>@<run>`).
-  A decision older than 60 s, of another store than `status` says, or whose
-  change is older than the newest `changes` on `tasks/status`, is let go.
-- **Words:** `get_progress` with that task, on the request socket, at once.
-  The key `<store>:<task>:<change>` goes into the told file as task news'
-  keys do, so each piece of progress is told once.
-- **Note fields** given to the model, in the style of `task_news::note`:
-  who (`Claude Code`/`Codex` from `engine`), the task's words (`get_task`
-  `text`, 300 characters), the progress line (`about`, 400 characters, its
-  ` / ` parts as separate sentences), the new signs in words (`the tests
-  pass`, …, from `signs_seen` less those already told), and how long it has
-  been at it (`working_s`). Asked for: one short natural sentence, "Oh,
-  Claude Code got the tests passing on …", nothing read out verbatim, no
-  question, and nothing said if the line is only routine.
-- **Gates** stay the voice's: someone at the lamp, 15 s quiet, nothing
-  owed, the room not busy; the policy's two hard rules hold before that.
+**For the voice.** Proposed here on 2026-10-15 and agreed by the first
+builder on #752; built as ["The voice's side of progress
+news"](#the-voices-side-of-progress-news-752) below.
 
 **Measured on the development Mac** (Apple M2 Max, macOS 26.6.2, Rust
 1.96.0 release build, other sessions running: load average 14 to 20), with
@@ -1074,6 +1054,137 @@ difference of two machines' wall clocks.
 the replies are made up. No lamp, no Harness account, no real agent's
 lines. The bus permissions between the tasks part (as `orangepi`) and the
 policy (a dynamic user) on lamp-4ace were not looked at.
+
+## The voice's side of progress news (#752)
+
+Built by the second builder on 2026-10-15, in `crates/voice/src/task_news.rs`
+(the voice is the first builder's; the change stays in that file). **Off
+unless the voice starts with `LAMP_PROGRESS_NEWS=on`** (and the tasks part
+is set, `LAMP_TASKS_DIR`, as for all task news).
+
+- **What is listened to.** `policy/decisions` and `tasks/status`, on the
+  lamp's bus (`LAMP_BUS_ROOT`, or `/run/lampos-bus`), by a thread of its own,
+  subscribed before the voice goes on. Nothing else in the voice changes.
+- **What is taken.** A decision about `progress`, `say_now`, acting
+  (`shadow: false`, [`lamp-policy --act progress`](policy.md#acting---act-progress-752)),
+  whose `task` names `<store>:<task>:<change>@<run>`. It is let go, with
+  one line in the journal saying why (`lamp-voice: progress to say let go
+  (stale)`), when it was made more than 60 s before (the bus header's
+  time); when `tasks/status` is of another store or another run of the
+  tasks part (`other_run`), does not hold the task, shows a later change
+  than the one decided about, or shows the agent no longer working.
+  The minute is counted from the decision: the time it may be told until
+  is fixed when the decision comes, before anything is fetched.
+- **The words, now.** `get_progress` and `get_task` on the request socket,
+  each within 1.5 s: the progress line, the signs seen, the task's words and
+  whom it went to. They are let go, and nothing is offered, when they are
+  of another store or another run, when the agent is no longer working,
+  when they are of
+  any change but exactly the one decided about (the task moved on, or the
+  tasks part began counting again), or when they come back at or past the
+  decision's minute (#765 review, 2026-10-15).
+- **The note**, one written turn, through `task_news::fitted` so it fits the
+  transport's 1,024 bytes (the progress line cut first, then the task's
+  words): who (Claude Code or Codex), the task (300 characters), the
+  progress line (400), the signs not yet put in a note for this task in
+  words ("the tests pass", "a pull request was opened"), and about how many
+  minutes it has been at it. Asked for: one short natural sentence, the way
+  a chief of staff mentions it in passing, starting like "Oh, Claude Code
+  has…", nothing read out word for word, no code, paths or links, no
+  question at the end.
+- **Telling.** It is offered with the other news and told under the same
+  gates (someone at the lamp, 15 s quiet, nothing owed, the room not busy),
+  and let go if not told within the 60 s of its decision. While it waits
+  for its moment it is checked against the newest `tasks/status` the
+  reader has, every tick the coordinator looks (`waiting`) and once more as
+  it is taken to be told (`tell`): once the task has left the watch,
+  finished, moved on to a later change, or the tasks part restarted as
+  another run, the note is withdrawn and never said. The coordinator never waits for this: the status is looked at only
+  when it is free that tick, and a `tell` that finds it being written tells
+  nothing and tries again on the next. Told, its key
+  `<store>:<task>:progress-<run>-<change>` goes into the file of what was
+  told, as every piece of news does. (`progress-` keeps it apart from an
+  observation's number; the proposal had `<store>:<task>:<change>`.) The
+  run is in it because a restart of the tasks part keeps the store and the
+  task numbers and counts changes from nothing: without it, the new run's
+  change 1, another line, was taken for the change 1 told before and let go
+  unfetched (#765 review, 2026-10-15, 16:02;
+  `after_a_restart_another_line_at_the_same_count_is_fetched_and_offered`).
+
+**Without the switch** no thread is made, neither topic is subscribed to
+(no socket of the voice's in either directory), the tasks part is asked
+nothing but what it was asked before, and nothing more is kept:
+`without_the_switch_nothing_is_subscribed_asked_or_kept`
+(`crates/voice/tests/progress_news.rs`), which also shows that only `on`
+turns it on.
+
+**Shown on the development Mac**, in `crates/voice/tests/progress_news.rs`
+on a bus of the test's own, with a stand-in for the tasks socket and the
+policy's own loop (`run_with_progress`, acting, with a stand-in judge that
+says yes): a change on `tasks/status`, then the policy's `say_now`, then one
+note offered to tell, which fits and is taken by the transport's encoder;
+told once, kept as told, nothing more offered. Decisions in shadow, a
+`wait`, another store, an older change and no task are let go, and the
+newest change is then taken; a stale one, one about a task not watched or
+not working, and one not told within 60 s are let go in the unit tests.
+After the review of #765: words that say the agent is idle, or are of an
+older change than the decision, are let go
+(`a_task_that_finished_before_its_words_came_is_not_told_as_working`,
+`words_of_an_older_change_are_not_told_under_a_newer_decision`); a queued
+note is withdrawn when its task leaves the watch, finishes or moves on
+(`queued_progress_is_withdrawn_when_its_task_goes_finishes_or_moves_on`)
+and when it finishes while the lamp waits for its moment, at `tell`
+(`work_that_finished_while_the_lamp_waited_for_its_moment_is_not_told`);
+with a tasks socket that takes 400 ms a read, the note's time still ends
+60 s after its decision (`the_minute_counts_from_the_decision_not_from_the_fetching`),
+and words that come back past it are let go
+(`task_news::tests::words_that_come_back_past_the_decisions_time_are_let_go`).
+"Told" here is offered and taken by `TaskNews::tell`, as the coordinator
+takes it: the coordinator, the model and the sound are not in these tests.
+
+### Playing progress news on lamp-4ace
+
+For the first builder; nothing here was run on a lamp.
+
+1. Install the ARM64 run's `lamp-tasks`, `lamp-policy` and `lamp-voice`
+   with the switches as they are, start them, and see the minute out:
+   `journalctl -u lamp-policy -n 5` says `progress=true` and no `act`.
+2. Turn it on: add `--act progress` to `lamp-policy`'s `ExecStart` (beside
+   `--progress --utc-offset-minutes 420`) and `Environment=LAMP_PROGRESS_NEWS=on`
+   to `lamp-voice.service`; `sudo systemctl daemon-reload`, restart both.
+   `journalctl -u lamp-policy -n 5` ends `progress=true act=progress`;
+   `lamp-bus info policy/decisions` and `lamp-bus info tasks/status` each
+   list a `voice.` subscriber.
+3. In three terminals:
+
+   ```sh
+   lamp-bus tap tasks/status --seconds 1200 > /var/tmp/progress-status.txt
+   lamp-bus tap policy/decisions --seconds 1200 | grep '"about":"progress"'
+   journalctl -u lamp-voice -f | grep -E 'progress to say|telling news'
+   ```
+
+4. Sit in front of the lamp and ask, in one breath: "Hey Lamp, can you ask
+   Claude Code on my office computer to write a small Python script that
+   prints the first twenty primes, with tests, and run the tests?", then
+   "Yes, go ahead." Stay in view and quiet.
+5. What should happen: within a few minutes, a change on `tasks/status`
+   with a sign (`"signs":["tests_pass"]` or the like); a decision with
+   `"choice":"say_now"` and `"shadow":false`; in the voice's journal
+   `progress to say offered (<store>:<task>:progress-<n>)` then `telling news
+   from the work handed over (…)`; and the lamp says one sentence about how
+   the work is going. Once the agent finishes, the finished news follows as
+   before.
+6. Hand back: the sentence the lamp said, the times of the decision and of
+   the first sound, any `let go (…)` line with its reason, and the
+   policy's `progress decision` lines (`journalctl -u lamp-policy | grep
+   'progress decision'`).
+
+**Most likely wrong on the lamp.** That Jev says `say_now` to a real
+step: with the hard rules and a product of three answers it may say `wait`
+to everything, and nothing is told. That the 60 s window and the voice's
+gates meet: someone talking, or nobody seen, for the whole minute after a
+decision lets the note go. That a progress line read out of context makes a
+natural sentence: the note gives the model the agent's own summary.
 
 ## Real Harness and Voice qualification still required
 

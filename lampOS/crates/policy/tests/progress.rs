@@ -109,6 +109,11 @@ struct Rig {
 
 impl Rig {
     fn new(name: &str, utc_offset_minutes: Option<i32>) -> Self {
+        Self::with(name, utc_offset_minutes, false)
+    }
+
+    /// With `act`, as `lamp-policy --act progress`.
+    fn with(name: &str, utc_offset_minutes: Option<i32>, act: bool) -> Self {
         let root = PathBuf::from(format!("/tmp/lpp-{name}-{}", std::process::id()));
         let log_dir = std::env::temp_dir().join(format!(
             "lamp-policy-progress-{name}-{}",
@@ -154,6 +159,7 @@ impl Rig {
             utc_offset_minutes,
             note_every: ms(1_500),
             quiet_for: ms(400),
+            act,
         };
         let judge = Judge {
             shown: shown_to,
@@ -361,6 +367,7 @@ fn a_change_is_asked_about_once_decided_in_shadow_and_written_down_with_its_stat
     assert_eq!(line["judgement"]["choice"], "say_now");
     assert_eq!(line["asked"], "progress-stand-in");
     assert!(line.get("guard").is_none());
+    assert_eq!(line["shadow"], true);
     // The same change again is not asked about.
     rig.work(AgentState::Working, 3, &[Sign::TestsPass, Sign::Found]);
     rig.not_asked_for(ms(400));
@@ -397,6 +404,8 @@ fn a_change_is_asked_about_once_decided_in_shadow_and_written_down_with_its_stat
     ] {
         assert!(report.contains(&(key.into(), value.into())), "{report:?}");
     }
+    // In shadow the report says nothing of acting.
+    assert!(report.iter().all(|(key, _)| key != "progress_acts"));
     let notes = rig.stop();
     assert!(notes.iter().any(|note| matches!(
         note,
@@ -459,6 +468,71 @@ fn never_while_anyone_is_talking_to_the_lamp() {
     let report = rig.report();
     assert!(
         report.contains(&("progress_held_talking".into(), "1".into())),
+        "{report:?}"
+    );
+    rig.stop();
+}
+
+#[test]
+fn acting_a_say_now_goes_out_for_real_while_the_attention_question_stays_shadow() {
+    let mut rig = Rig::with("act", None, true);
+    rig.work(AgentState::Working, 0, &[]);
+    rig.work(AgentState::Working, 1, &[Sign::TestsPass]);
+    let _ = rig.shown();
+    rig.answer([0.9, 0.9, 0.1]);
+    let decided = rig.decision();
+    assert_eq!(
+        (decided.choice.as_str(), decided.shadow),
+        ("say_now", false)
+    );
+    assert_eq!(
+        decided.task.as_deref(),
+        Some(&*format!("{STORE}:3:1@{RUN}"))
+    );
+    // The shadow log is kept, and says the decision acted.
+    let line = &rig.log(1)[0];
+    assert_eq!(line["shadow"], false);
+    assert_eq!(line["judgement"]["choice"], "say_now");
+    // What was heard is still only watched: its decision stays shadow.
+    rig.heard
+        .publish_json(
+            0,
+            &Speech {
+                text: "what time is it".into(),
+                finished: true,
+                locale: None,
+                request: None,
+            },
+        )
+        .unwrap();
+    let attention = loop {
+        let message = rig.decisions.recv(WAIT).unwrap().expect("a decision");
+        let decision: Decision = message.parse().unwrap();
+        if decision.about == "attention" {
+            break decision;
+        }
+    };
+    assert!(attention.shadow && attention.task.is_none());
+    // A note it chose is said by the voice and counted once, as a turn the
+    // lamp began itself, not again as a note: the next question shows none
+    // until the voice speaks.
+    rig.voice(Voice::Resting);
+    thread::sleep(ms(1_600));
+    rig.work(AgentState::Working, 2, &[Sign::TestsPass, Sign::Done]);
+    let state = rig.shown();
+    assert_eq!(
+        state["room"]["times_the_lamp_spoke_up_unasked_in_the_last_hour"],
+        0
+    );
+    rig.answer([0.1, 0.9, 0.1]);
+    assert_eq!(rig.decision().choice, "wait");
+    let report = rig.report();
+    assert!(
+        report.contains(&("progress_acts".into(), "true".into())),
+        "{report:?}"
+    );
+    assert!(
+        report.contains(&("shadow".into(), "true".into())),
         "{report:?}"
     );
     rig.stop();

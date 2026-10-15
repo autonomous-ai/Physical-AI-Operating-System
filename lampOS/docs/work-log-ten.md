@@ -44,3 +44,25 @@ Ready for lamp-voice: no
 - Asked on #812 whether ten may use lamp-75c9 (beside its person's Mac,
   shared with the eighth by a lock); no answer yet. Nothing was run on any
   lamp.
+
+## 2026-10-16 — #812, storage and camera; lamp-75c9 given
+
+Ready for lamp-voice: no
+
+- `ten/selftest` rebased on `origin/lamp-voice` (`416efbc43`), with
+  `4de686543`: the `storage` part reads `/dev/kmsg` to its end and fails on
+  any SD/MMC re-tune that timed out ("dma hold bit clear timeout", #784) or
+  `mmcblk` I/O error since boot; unreadable is `not_checked`. The `camera`
+  part passes on a look published by the eyes within 2 s, fails on the
+  eyes' own warning in `lamp/health`, and is `not_checked` when the camera
+  is closed. It never opens the camera, so the privacy switch stays
+  authoritative. Gate on a Linux x86_64 laptop: fmt clean, clippy
+  `-D warnings` clean, `lamp-selftest` 19 + 1 tests passed,
+  `cargo build --workspace` clean. ARM64 run 38775438906 started.
+- My person gave me lamp-75c9 for this task at 00:05 (beside their
+  laptop, taken in turns under the eighth's on-lamp lock, eighth-P1). Its
+  key is not yet installed; nothing has run on any lamp.
+- Found, not mine: `lamp-lock.sh status` says a lamp is free when ssh to
+  it fails (#880, eighth).
+- To do: ring, voice microphone; the speaker's tone and the servos' small
+  move as before.

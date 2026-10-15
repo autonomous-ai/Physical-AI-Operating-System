@@ -265,8 +265,8 @@ pub fn stopped(stop: &Stop) -> Diagnostic {
 
 /// What the thread is given.
 enum Out {
-    /// A step, and whether the lamp is paused.
-    Step(Glimpse, bool),
+    /// A step, whether the lamp is paused, and when the body saw it.
+    Step(Glimpse, bool, Instant),
     Stopped(Diagnostic),
 }
 
@@ -324,18 +324,27 @@ impl Publishing {
         u64::try_from(self.started.elapsed().as_micros()).unwrap_or(u64::MAX)
     }
 
-    fn step(&mut self, glimpse: &Glimpse, paused: bool) {
+    fn step(&mut self, glimpse: &Glimpse, paused: bool, seen: Instant) {
         let now = Instant::now();
         let state = joint_state(glimpse, self.before);
         self.before = Some((glimpse.step, in_order(glimpse).0));
         let at_us = self.at_us();
         let _ = self.joints.publish_json(at_us, &state);
-        self.pushed_since = glimpse.hand.then(|| self.pushed_since.unwrap_or(at_us));
-        let hand = Hand {
-            pushed: glimpse.hand,
-            since_us: self.pushed_since.unwrap_or(0),
-        };
-        let _ = self.hand.publish_json(at_us, &hand);
+        // The hand is said as of when the body saw it, and lasts a second
+        // from then: a step that waited in the queue is not fresh evidence,
+        // and one that waited a second or more is not said at all.
+        let seen_us = u64::try_from(seen.saturating_duration_since(self.started).as_micros())
+            .unwrap_or(u64::MAX);
+        self.pushed_since = glimpse.hand.then(|| self.pushed_since.unwrap_or(seen_us));
+        let age = now.saturating_duration_since(seen);
+        if let Some(left) = LASTS.checked_sub(age).filter(|left| !left.is_zero()) {
+            let hand = Hand {
+                pushed: glimpse.hand,
+                since_us: self.pushed_since.unwrap_or(0),
+            };
+            self.hand.expires_after(Some(left));
+            let _ = self.hand.publish_json(seen_us, &hand);
+        }
         let in_all: u32 = glimpse.eased.iter().map(|n| u32::from(*n)).sum();
         for _ in self.resisted_in_all..in_all {
             self.resisted.push(now);
@@ -383,7 +392,7 @@ impl BusOut {
         let thread = thread::Builder::new().name("bus".into()).spawn(move || {
             for out in offered {
                 match out {
-                    Out::Step(glimpse, paused) => publishing.step(&glimpse, paused),
+                    Out::Step(glimpse, paused, seen) => publishing.step(&glimpse, paused, seen),
                     Out::Stopped(report) => {
                         let at_us = publishing.at_us();
                         let _ = publishing.health.publish_json(at_us, &report);
@@ -407,7 +416,7 @@ impl BusOut {
         }
         if self
             .steps
-            .try_send(Out::Step(*glimpse, self.paused))
+            .try_send(Out::Step(*glimpse, self.paused, Instant::now()))
             .is_err()
         {
             self.let_go += 1;
@@ -789,6 +798,45 @@ mod tests {
         assert_eq!(said[2].since_us, said[1].since_us, "the push began once");
         assert_eq!((said[3].since_us, said[4].since_us), (0, 0));
         drop(out);
+        std::fs::remove_dir_all(root).unwrap();
+    }
+
+    /// A hand that waited in the queue is said as of when the body saw it:
+    /// a second or more old it is not said at all, and younger it lasts
+    /// only what is left of its second. The reviewer's case: a push seen
+    /// 1.2 s before the thread got to it, then the body stopped.
+    #[test]
+    fn a_hand_that_waited_in_the_queue_is_not_said_as_fresh() {
+        let root = std::path::PathBuf::from(format!("/tmp/lb-handq-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        std::fs::create_dir_all(&root).unwrap();
+        let bus = Bus::new(&root).unwrap();
+        let mut publishing = Publishing::on(&bus).unwrap();
+        let mut seen = glimpse(0);
+        seen.hand = true;
+        let now = Instant::now();
+        publishing.step(&seen, false, now - Duration::from_millis(1_200));
+        assert!(
+            bus.latest(Hand::TOPIC).unwrap().is_none(),
+            "a hand seen 1.2 s ago is not said"
+        );
+        publishing.step(&seen, false, Instant::now() - Duration::from_millis(600));
+        let said = bus
+            .latest(Hand::TOPIC)
+            .unwrap()
+            .expect("a hand seen 0.6 s ago");
+        let lasts = said.header.expires_ms.unwrap();
+        assert!(
+            lasts <= 400,
+            "it lasts only what is left of its second: {lasts} ms"
+        );
+        let hand: Hand = said.parse().unwrap();
+        assert!(hand.pushed);
+        // A live step: said at once, for its whole second.
+        publishing.step(&seen, false, Instant::now());
+        let said = bus.latest(Hand::TOPIC).unwrap().unwrap();
+        assert!(said.header.expires_ms.unwrap() >= 990);
+        drop(publishing);
         std::fs::remove_dir_all(root).unwrap();
     }
 

@@ -1359,12 +1359,18 @@ unmeasured.
 and `voice/state` counts each as a turn the lamp began itself. In shadow,
 the hellos chosen are counted as notes. But the voice may still say its own
 rule's hello for the same arrival (`LAMP_SPEAK_FIRST=on`), and that turn
-is counted too. So a turn the lamp begins within 5 s after a hello chosen
-in shadow is taken for that same greeting, and counted once
-(`ONE_GREETING_WITHIN`; the reviewer on #883). A greeting said before the
-decision came needs nothing: the lamp was talking, so the hard rule
-answered `wait` and no note was made. Test:
-`one_greeting_is_counted_once_in_shadow_or_acting`.
+is counted too. So a turn the lamp begins itself (its first `thinking` or
+`speaking` with nobody listened to lately) within 5 s after a hello chosen
+in shadow is taken for that same greeting (`ONE_GREETING_WITHIN`; the
+reviewer on #883), and followed to its end, however late its first sound
+comes: the coordinator says `thinking` while it waits for the model, which
+may take up to 30 s. Spoken, it is counted once, as a turn the lamp began;
+ended without a sound (cancelled), the hello chosen is counted once, as
+chosen. A greeting said before the decision came needs nothing: the lamp
+was talking, so the hard rule answered `wait` and no note was made. Tests:
+`one_greeting_is_counted_once_in_shadow_or_acting` and
+`a_greeting_whose_first_sound_comes_late_is_still_counted_once` (first
+sound 6 s and 30 s after the turn began, and a turn cancelled before it).
 
 **What is published and written.** On `policy/decisions`: `about` `hello`,
 `say_now` or `wait`, the probability, the two answers, `by`, `took_ms`,
@@ -1400,7 +1406,9 @@ Jev's own time (0.5 to 1 s, at most 1.5 s) comes on top.
 the way a person would. That the hour, the room and facing are what a
 person weighs before saying hello. That another turn the lamp begins
 itself within 5 s of a hello chosen in shadow (news, say) is taken for that
-greeting and counted once, not twice.
+greeting and counted once, not twice; and that the voice's own greeting
+begins its turn within those 5 s (it holds the hello up to 2 s for the
+decision, then begins).
 
 ## Not shown
 

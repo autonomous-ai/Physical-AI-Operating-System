@@ -1,0 +1,135 @@
+{
+  "recorded_at_from_date": "2026-10-16 05:21:15 +0700",
+  "all_queries_read_only": true,
+  "search_limit": 100,
+  "any_limit_reached": false,
+  "initial_four_default_sandbox_searches": "exit 1: error connecting to api.github.com; original stderr retained",
+  "network_enabled_reads": "succeeded via narrow read-only gh issue list/view authorization",
+  "queries": [
+    {
+      "command": [
+        "gh",
+        "issue",
+        "list",
+        "-R",
+        "autonomous-ai/lampOS",
+        "--state",
+        "all",
+        "--limit",
+        "100",
+        "--search",
+        "\"completed_playout_survives_both_real_store_reopens_then_acks_without_respeech\"",
+        "--json",
+        "number,title,state,url,labels,body"
+      ],
+      "exit": 0,
+      "response": "issues-exact-network.json",
+      "count": 1,
+      "numbers": [
+        739
+      ]
+    },
+    {
+      "command": [
+        "gh",
+        "issue",
+        "list",
+        "-R",
+        "autonomous-ai/lampOS",
+        "--state",
+        "all",
+        "--limit",
+        "100",
+        "--search",
+        "\"AckConfirmed\"",
+        "--json",
+        "number,title,state,url,labels,body"
+      ],
+      "exit": 0,
+      "response": "issues-stem-network.json",
+      "count": 1,
+      "numbers": [
+        739
+      ]
+    },
+    {
+      "command": [
+        "gh",
+        "issue",
+        "list",
+        "-R",
+        "autonomous-ai/lampOS",
+        "--state",
+        "all",
+        "--limit",
+        "100",
+        "--search",
+        "\"reminder\" \"flaky\"",
+        "--json",
+        "number,title,state,url,labels,body"
+      ],
+      "exit": 0,
+      "response": "issues-reminder-network.json",
+      "count": 3,
+      "numbers": [
+        830,
+        739,
+        705
+      ]
+    },
+    {
+      "command": [
+        "gh",
+        "issue",
+        "list",
+        "-R",
+        "autonomous-ai/lampOS",
+        "--state",
+        "all",
+        "--limit",
+        "100",
+        "--search",
+        "\"consumer\" \"reopen\"",
+        "--json",
+        "number,title,state,url,labels,body"
+      ],
+      "exit": 0,
+      "response": "issues-consumer-network.json",
+      "count": 4,
+      "numbers": [
+        739,
+        713,
+        199,
+        217
+      ]
+    },
+    {
+      "command": [
+        "gh",
+        "issue",
+        "list",
+        "-R",
+        "autonomous-ai/lampOS",
+        "--state",
+        "all",
+        "--limit",
+        "100",
+        "--search",
+        "\"reminders::consumer\"",
+        "--json",
+        "number,title,state,url,labels,body"
+      ],
+      "exit": 0,
+      "response": "issues-socket-network.json",
+      "count": 1,
+      "numbers": [
+        739
+      ]
+    }
+  ],
+  "issues_read_with_all_returned_comments": [
+    739,
+    893,
+    705
+  ]
+}

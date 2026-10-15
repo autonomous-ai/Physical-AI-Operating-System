@@ -1,0 +1,31 @@
+failures:
+
+---- coordinator::tests::pilot_faults::rapid_mute_and_reopen_never_overlaps_workers_or_carries_speech_across stdout ----
+{"seconds":null,"status":"listening_ready"}
+{"seconds":null,"status":"listening_ready"}
+{"seconds":null,"status":"listening_ready"}
+runtime cycle 4 did not end in physical mute:
+fixture Threaded, packet and policy clock host, real conversation and cleanup 122.741154ms
+result Err("service privacy freshness lost before next observation")
+kinds ["endpoint_policy", "turn_taking_availability", "worker_shutdown_event"]
+peer privacy gap 8114 us, refused writes 0, end-to-speaker revocation [] us
+capture send-attempt gap 0 us, oldest source age at send attempt 0 us (producer; consumption age unmeasured)
+frames 0 starts [] ends [] chunks 0 accepted 0 fired [] stopped ["speaker", "capture", "provider", "privacy"] abandoned []
+
+thread 'coordinator::tests::pilot_faults::rapid_mute_and_reopen_never_overlaps_workers_or_carries_speech_across' (578934928) panicked at crates/voice/src/coordinator/tests/pilot_faults.rs:2395:5:
+Err(Custom { kind: Other, error: "service privacy freshness lost before next observation" })
+
+---- reminders::consumer::tests::completed_playout_survives_both_real_store_reopens_then_acks_without_respeech stdout ----
+
+thread 'reminders::consumer::tests::completed_playout_survives_both_real_store_reopens_then_acks_without_respeech' (579003064) panicked at crates/voice/src/reminders/consumer/tests.rs:644:5:
+assertion failed: matches!(restored.ledger.view(&offered.token.key).unwrap().unwrap().resolution,
+    Some(Resolution::AckConfirmed { .. }))
+
+
+failures:
+    coordinator::tests::pilot_faults::rapid_mute_and_reopen_never_overlaps_workers_or_carries_speech_across
+    reminders::consumer::tests::completed_playout_survives_both_real_store_reopens_then_acks_without_respeech
+
+test result: FAILED. 1210 passed; 2 failed; 8 ignored; 0 measured; 0 filtered out; finished in 509.84s
+
+error: test failed, to rerun pass `-p lamp-voice --lib`

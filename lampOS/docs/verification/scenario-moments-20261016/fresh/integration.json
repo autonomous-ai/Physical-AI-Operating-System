@@ -1,0 +1,51 @@
+{
+  "started_from_date": "2026-10-16 04:41:09+0700",
+  "finished_from_date": "2026-10-16 04:41:14+0700",
+  "root": "/private/tmp/lampos-tests-scenario-moments",
+  "branch": "tests/823-scenario-moments",
+  "base": "7ae0eb647914e286817c29bff2abc2934fb19546",
+  "clean_base_before_edits": true,
+  "base_tracked_file_count": 6740,
+  "every_base_blob_and_mode_verified_before_edit": true,
+  "every_nonowned_base_file_unchanged": true,
+  "unchanged_nonowned_base_file_count": 6738,
+  "changed_tracked_paths": [
+    "lampOS/crates/voice/src/scenario_clock.rs",
+    "lampOS/docs/voice-test-fixtures.md"
+  ],
+  "new_paths": [
+    "lampOS/crates/voice/src/scenario_moment_between_tests.rs",
+    "lampOS/crates/voice/src/scenario_moment_tests.rs"
+  ],
+  "index_unchanged": true,
+  "git_mutations": false,
+  "old_2bf_clock_byte_identical_to_new_7ae_base": true,
+  "clock_composite_reversal_byte_exact_to_new_base": true,
+  "doc_insertion_exact_to_frozen_preparation": true,
+  "doc_removal_recreates_new_base_byte_exact": true,
+  "new_base_endpoint_cleanup_documentation_preserved": true,
+  "source_tree": "/private/tmp/lampos-tests-provider-moment",
+  "copied_rust_bytes_exact": true,
+  "owned_hashes": {
+    "lampOS/crates/voice/src/scenario_clock.rs": "7ebed538d61d20442e4fe3cc0e2a0b0987cf18a599b1283e511954f54de482d5",
+    "lampOS/crates/voice/src/scenario_moment_tests.rs": "c372eac927457059471d7a6bc3b56c8855f530aab1b7b81e11305fe2dddfe210",
+    "lampOS/crates/voice/src/scenario_moment_between_tests.rs": "ab7d7f015c077c6ee8bc43cc48bceaa8c723e85f922547f8ec2be4745134b0b4",
+    "lampOS/docs/voice-test-fixtures.md": "ff6708a212d0fc43ff5c9a0b49040a3ded7612f9055e85d48181dc672987798c"
+  },
+  "base_owned_hashes": {
+    "lampOS/crates/voice/src/scenario_clock.rs": "7eb0215c649311dd9303d3043c46d8c50af2d165ab677e6c1c37720a79fc7cef",
+    "lampOS/docs/voice-test-fixtures.md": "7e59fc75a29b795a9fc66380db8869194f760c418aea5b82306604bdda6bbb21"
+  },
+  "doc_insert_sha256": "16b6153383c6e3d4b1408367ca932932364b3f9e472cee76f28e36fa7f8ae051",
+  "old_root_test_module_sha256": "ef98675980c838fc13ad4632aa2ecdcb0aa04f2df9dd509c499063ed5f1add20",
+  "old_root_test_count": 7,
+  "old_root_assertion_macros": 43,
+  "moment_test_count": 13,
+  "moment_assertion_macros": 78,
+  "between_test_count": 12,
+  "between_assertion_macros": 67,
+  "earlier_evidence_file_count_preserved": 81,
+  "earlier_red_gate_preserved": true,
+  "cargo_builds_tests_run": false,
+  "source_review_sha256": "6ea62687903a11a54afd71999756420630cd5a94e46ca02efb9bd9b79bc4427d"
+}

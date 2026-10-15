@@ -1,0 +1,383 @@
+diff --git a/lampOS/crates/voice/src/scenario_clock.rs b/lampOS/crates/voice/src/scenario_clock.rs
+index 3b8d90dde..fb9f0ba27 100644
+--- a/lampOS/crates/voice/src/scenario_clock.rs
++++ b/lampOS/crates/voice/src/scenario_clock.rs
+@@ -12,6 +12,10 @@ use std::{
+     marker::PhantomData,
+     panic::{AssertUnwindSafe, catch_unwind, resume_unwind},
+     rc::Rc,
++    sync::{
++        Arc,
++        atomic::{AtomicBool, Ordering},
++    },
+     time::{Duration, Instant},
+ };
+ 
+@@ -30,6 +34,7 @@ type Pump = Box<dyn FnMut(Phase) -> io::Result<()>>;
+ 
+ struct State {
+     id: u64,
++    origin: Arc<Origin>,
+     epoch_us: u64,
+     epoch: Instant,
+     elapsed: Duration,
+@@ -38,9 +43,219 @@ struct State {
+     pumping: Option<Phase>,
+ }
+ 
++// The allocation identifies one root even when two threads have identical local
++// scope IDs and clock values. Moments keep that identity alive after invalidation.
++#[derive(Debug)]
++struct Origin {
++    epoch_us: u64,
++    epoch: Instant,
++    active: AtomicBool,
++}
++
++impl Origin {
++    fn new(epoch_us: u64, epoch: Instant) -> Self {
++        Self {
++            epoch_us,
++            epoch,
++            active: AtomicBool::new(true),
++        }
++    }
++
++    fn check_active(&self) -> io::Result<()> {
++        if self.active.load(Ordering::Acquire) {
++            Ok(())
++        } else {
++            Err(io::Error::other("scenario moment root is no longer active"))
++        }
++    }
++}
++
++impl Drop for State {
++    fn drop(&mut self) {
++        // Root removal, including callback unwind and TLS teardown, invalidates
++        // later adoption. It never changes an observer's last admitted reading.
++        self.origin.active.store(false, Ordering::Release);
++    }
++}
++
++/// An immutable snapshot from one root, safe to send to an observing thread.
++/// Microsecond timestamps truncate the same exact elapsed Duration used by
++/// Instant. Neither a getter nor cloning a moment samples or advances a clock.
++#[derive(Clone, Debug)]
++pub(crate) struct Moment {
++    origin: Arc<Origin>,
++    elapsed: Duration,
++    monotonic_us: u64,
++    instant: Instant,
++}
++
++impl Moment {
++    fn checked(origin: Arc<Origin>, elapsed: Duration) -> io::Result<Self> {
++        origin.check_active()?;
++        let offset = u64::try_from(elapsed.as_micros())
++            .map_err(|_| io::Error::other("scenario moment microseconds overflow"))?;
++        let monotonic_us = origin
++            .epoch_us
++            .checked_add(offset)
++            .ok_or_else(|| io::Error::other("scenario moment monotonic clock overflow"))?;
++        let instant = origin
++            .epoch
++            .checked_add(elapsed)
++            .ok_or_else(|| io::Error::other("scenario moment Instant overflow"))?;
++        Ok(Self {
++            origin,
++            elapsed,
++            monotonic_us,
++            instant,
++        })
++    }
++
++    fn validate(&self) -> io::Result<()> {
++        let checked = Self::checked(self.origin.clone(), self.elapsed)?;
++        if self.monotonic_us != checked.monotonic_us || self.instant != checked.instant {
++            return Err(io::Error::other("scenario moment does not match its epoch"));
++        }
++        Ok(())
++    }
++
++    /// Project an inclusive interval at an absolute offset from its root epoch.
++    /// Both endpoints must be valid, ordered snapshots of the same active root.
++    /// This creates only a value: it neither admits time nor runs or advances peers.
++    pub(crate) fn between(
++        &self,
++        later: &Moment,
++        elapsed_from_origin: Duration,
++    ) -> io::Result<Self> {
++        self.validate()?;
++        later.validate()?;
++        if !Arc::ptr_eq(&self.origin, &later.origin) {
++            return Err(io::Error::other(
++                "scenario moment interval belongs to different roots",
++            ));
++        }
++        if self.elapsed > later.elapsed {
++            return Err(io::Error::other("scenario moment interval is reversed"));
++        }
++        if elapsed_from_origin < self.elapsed || elapsed_from_origin > later.elapsed {
++            return Err(io::Error::other(
++                "scenario moment projection is outside its interval",
++            ));
++        }
++        Self::checked(self.origin.clone(), elapsed_from_origin)
++    }
++
++    pub(crate) fn elapsed(&self) -> Duration {
++        self.elapsed
++    }
++
++    pub(crate) fn monotonic_us(&self) -> u64 {
++        self.monotonic_us
++    }
++
++    pub(crate) fn instant(&self) -> Instant {
++        self.instant
++    }
++}
++
++struct ObserverState {
++    id: u64,
++    moment: Moment,
++}
++
+ thread_local! {
+     static ACTIVE: RefCell<Option<State>> = const { RefCell::new(None) };
+     static NEXT_ID: Cell<u64> = const { Cell::new(1) };
++    static OBSERVER: RefCell<Option<ObserverState>> = const { RefCell::new(None) };
++    static NEXT_OBSERVER_ID: Cell<u64> = const { Cell::new(1) };
++}
++
++fn has_observer() -> bool {
++    OBSERVER.with(|observer| observer.borrow().is_some())
++}
++
++fn observer_monotonic_us() -> u64 {
++    OBSERVER.with(|observer| {
++        observer
++            .borrow()
++            .as_ref()
++            .map_or_else(lamp_ipc::monotonic_us, |state| state.moment.monotonic_us())
++    })
++}
++
++fn observer_instant() -> Instant {
++    OBSERVER.with(|observer| {
++        observer
++            .borrow()
++            .as_ref()
++            .map_or_else(Instant::now, |state| state.moment.instant())
++    })
++}
++
++/// A thread-bound reader of explicitly admitted moments, never a root/pump.
++/// Root invalidation rejects further adoption but keeps the last reading frozen;
++/// the controller must cancel the observer. Drop alone restores the host clock.
++pub(crate) struct ObserverScope {
++    id: u64,
++    _thread: PhantomData<Rc<()>>,
++}
++
++impl ObserverScope {
++    pub(crate) fn enter(moment: Moment) -> io::Result<Self> {
++        if ACTIVE.with(|active| active.borrow().is_some()) || has_observer() {
++            return Err(io::Error::other("nested scenario observer scope"));
++        }
++        moment.validate()?;
++        let id = NEXT_OBSERVER_ID.with(|next| {
++            let id = next.get();
++            let successor = id
++                .checked_add(1)
++                .ok_or_else(|| io::Error::other("scenario observer identity exhausted"))?;
++            next.set(successor);
++            Ok::<_, io::Error>(id)
++        })?;
++        OBSERVER.with(|observer| {
++            *observer.borrow_mut() = Some(ObserverState { id, moment });
++        });
++        Ok(Self {
++            id,
++            _thread: PhantomData,
++        })
++    }
++
++    pub(crate) fn observe(&mut self, moment: Moment) -> io::Result<()> {
++        OBSERVER.with(|observer| {
++            let mut observer = observer.borrow_mut();
++            let state = observer
++                .as_mut()
++                .filter(|state| state.id == self.id)
++                .ok_or_else(|| io::Error::other("scenario observer is no longer active"))?;
++            moment.validate()?;
++            if !Arc::ptr_eq(&state.moment.origin, &moment.origin) {
++                return Err(io::Error::other("scenario moment belongs to another root"));
++            }
++            // Compare the full Duration: sub-microsecond regressions can have
++            // the same integer timestamp but a different Instant.
++            if moment.elapsed < state.moment.elapsed {
++                return Err(io::Error::other("scenario observer time regressed"));
++            }
++            state.moment = moment;
++            Ok(())
++        })
++    }
++}
++
++impl Drop for ObserverScope {
++    fn drop(&mut self) {
++        let removed = OBSERVER.try_with(|observer| {
++            let mut observer = observer.try_borrow_mut().ok()?;
++            if observer.as_ref().is_some_and(|state| state.id == self.id) {
++                observer.take()
++            } else {
++                None
++            }
++        });
++        drop(removed);
++    }
+ }
+ 
+ /// Dropping a scope restores the host clock and releases its fixture state.
+@@ -59,7 +274,7 @@ impl Scope {
+             .ok_or_else(|| io::Error::other("invalid scenario watchdog"))?;
+         ACTIVE.with(|active| {
+             let mut active = active.borrow_mut();
+-            if active.is_some() {
++            if active.is_some() || has_observer() {
+                 return Err(io::Error::other("nested scenario clock scope"));
+             }
+             let id = NEXT_ID.with(|next| {
+@@ -70,9 +285,11 @@ impl Scope {
+                 next.set(successor);
+                 Ok::<_, io::Error>(id)
+             })?;
++            let epoch_us = lamp_ipc::monotonic_us();
+             *active = Some(State {
+                 id,
+-                epoch_us: lamp_ipc::monotonic_us(),
++                origin: Arc::new(Origin::new(epoch_us, epoch)),
++                epoch_us,
+                 epoch,
+                 elapsed: Duration::ZERO,
+                 host_deadline,
+@@ -86,6 +303,21 @@ impl Scope {
+         })
+     }
+ 
++    /// Snapshot this active root without running its peers or reading host time.
++    pub(crate) fn moment(&self) -> io::Result<Moment> {
++        ACTIVE.with(|active| {
++            let active = active.borrow();
++            let state = active
++                .as_ref()
++                .filter(|state| state.id == self.id)
++                .ok_or_else(|| io::Error::other("scenario clock scope is no longer active"))?;
++            if state.epoch_us != state.origin.epoch_us || state.epoch != state.origin.epoch {
++                return Err(io::Error::other("scenario root epoch changed"));
++            }
++            Moment::checked(state.origin.clone(), state.elapsed)
++        })
++    }
++
+     pub(crate) fn set_pump(
+         &self,
+         pump: impl FnMut(Phase) -> io::Result<()> + 'static,
+@@ -126,7 +358,7 @@ impl Drop for Scope {
+ }
+ 
+ pub(crate) fn is_active() -> bool {
+-    ACTIVE.with(|active| active.borrow().is_some())
++    ACTIVE.with(|active| active.borrow().is_some()) || has_observer()
+ }
+ 
+ pub(crate) fn monotonic_us() -> u64 {
+@@ -134,7 +366,7 @@ pub(crate) fn monotonic_us() -> u64 {
+         active
+             .borrow()
+             .as_ref()
+-            .map_or_else(lamp_ipc::monotonic_us, |state| {
++            .map_or_else(observer_monotonic_us, |state| {
+                 state.epoch_us
+                     + u64::try_from(state.elapsed.as_micros()).expect("bounded scenario time")
+             })
+@@ -146,7 +378,7 @@ pub(crate) fn instant() -> Instant {
+         active
+             .borrow()
+             .as_ref()
+-            .map_or_else(Instant::now, |state| state.epoch + state.elapsed)
++            .map_or_else(observer_instant, |state| state.epoch + state.elapsed)
+     })
+ }
+ 
+@@ -178,6 +410,11 @@ pub(crate) fn elapse_for_fault(by: Duration) -> io::Result<()> {
+ /// Returns false for an ordinary unscoped test. A callback panic invalidates its
+ /// scope before resuming unwind, so catching that panic cannot keep a half-step.
+ pub(crate) fn step(phase: Phase) -> io::Result<bool> {
++    if has_observer() {
++        return Err(io::Error::other(
++            "scenario observers cannot pump or advance",
++        ));
++    }
+     let taken = ACTIVE.with(|active| {
+         let mut active = active.borrow_mut();
+         let Some(state) = active.as_mut() else {
+@@ -504,3 +741,11 @@ mod tests {
+         assert_eq!(calls.get(), 2);
+     }
+ }
++
++#[cfg(test)]
++#[path = "scenario_moment_tests.rs"]
++mod moment_tests;
++
++#[cfg(test)]
++#[path = "scenario_moment_between_tests.rs"]
++mod moment_between_tests;
+diff --git a/lampOS/docs/voice-test-fixtures.md b/lampOS/docs/voice-test-fixtures.md
+index afc736dd8..82db42d12 100644
+--- a/lampOS/docs/voice-test-fixtures.md
++++ b/lampOS/docs/voice-test-fixtures.md
+@@ -93,6 +93,40 @@ age at an attempt. These include failed send attempts; they do not measure
+ coordinator consumption. Its real privacy peer and 50 ms bound remain
+ unchanged.
+ 
++## Explicit snapshots for an observing test thread
++
++The test-only `Scope::moment()` returns an immutable, checked `Moment` from
++that active root. It carries the originating epoch and a distinct root identity;
++two independent scopes cannot share an identity even if their clock values
++coincide. `elapsed()` preserves nanoseconds, `instant()` uses that exact duration,
++and `monotonic_us()` truncates only at the existing microsecond boundary. Snapshot
++creation checks both clock ranges. Reading or cloning a snapshot does no work.
++
++`earlier.between(&later, elapsed_from_origin)` projects a checked value within
++two valid, ordered snapshots from the same active root. The offset is absolute
++from the root epoch, not an advance from `earlier`; both endpoints are included.
++Projection retains exact nanoseconds and the existing microsecond truncation.
++It rejects reversed or outside bounds, different roots, inconsistent endpoints,
++overflow and invalidated roots. It does not read a host clock, pump peers, advance
++the root or admit the projected value to an observer. Explicit observer admission
++still enforces the same root and nonregressing time.
++
++A thread explicitly enters `ObserverScope::enter(moment)` and adopts later
++snapshots with `observe(moment)`. It stays at the last admitted moment while its
++root advances. Adoption rejects a different root, inconsistent values, regression
++(including within one microsecond), and an invalidated root; equal live snapshots
++are allowed. The observer is thread-bound and cannot nest with another observer
++or root, run a peer pump, advance time, or inject a clock fault. Threads without
++an explicit scope retain the host clock.
++
++Removing a root normally or through callback panic invalidates future adoption,
++including an equal snapshot and entry into a new observer. An installed observer
++keeps its last admitted reading: reads are pure and infallible, and invalidation
++never fabricates progress or jumps to the host clock. Its controller must cancel
++it; dropping the observer restores host fallback. Root pump order, the 2 ms step,
++frozen shutdown, real watchdogs and all existing scenario selections are unchanged.
++This preparation adds no provider/Tokio controller and migrates no existing test.
++
+ ## Real-provider ordering scenarios
+ 
+ The EarlyEnd module runs the actual provider worker, Gemini supervisor and

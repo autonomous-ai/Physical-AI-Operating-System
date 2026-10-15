@@ -1,0 +1,124 @@
+[
+  {
+    "stage": "baseline-list",
+    "command": [
+      "cargo",
+      "nextest",
+      "list",
+      "--locked",
+      "--offline",
+      "-p",
+      "lamp-memory",
+      "-p",
+      "lamp-voice",
+      "-p",
+      "lamp-voice-eval",
+      "--message-format",
+      "json"
+    ],
+    "cwd": "/private/tmp/lampos-tests-records-cadence/lampOS",
+    "target": "/private/tmp/tests-823-rebase-target",
+    "start_from_date": "2026-10-16 04:43:48 +0700",
+    "finish_from_date": "2026-10-16 04:46:58 +0700",
+    "exit_code": 0
+  },
+  {
+    "stage": "fmt",
+    "command": [
+      "cargo",
+      "fmt",
+      "--all",
+      "--check"
+    ],
+    "cwd": "/private/tmp/lampos-tests-scenario-moments/lampOS",
+    "target": "/private/tmp/tests-823-rebase-target",
+    "start_from_date": "2026-10-16 04:46:58 +0700",
+    "finish_from_date": "2026-10-16 04:47:04 +0700",
+    "exit_code": 0
+  },
+  {
+    "stage": "clippy",
+    "command": [
+      "cargo",
+      "clippy",
+      "--locked",
+      "--offline",
+      "-p",
+      "lamp-memory",
+      "-p",
+      "lamp-voice",
+      "-p",
+      "lamp-voice-eval",
+      "--all-targets",
+      "--",
+      "-D",
+      "warnings"
+    ],
+    "cwd": "/private/tmp/lampos-tests-scenario-moments/lampOS",
+    "target": "/private/tmp/tests-823-rebase-target",
+    "start_from_date": "2026-10-16 04:47:04 +0700",
+    "finish_from_date": "2026-10-16 04:47:50 +0700",
+    "exit_code": 0
+  },
+  {
+    "stage": "list",
+    "command": [
+      "cargo",
+      "nextest",
+      "list",
+      "--locked",
+      "--offline",
+      "-p",
+      "lamp-memory",
+      "-p",
+      "lamp-voice",
+      "-p",
+      "lamp-voice-eval",
+      "--message-format",
+      "json"
+    ],
+    "cwd": "/private/tmp/lampos-tests-scenario-moments/lampOS",
+    "target": "/private/tmp/tests-823-rebase-target",
+    "start_from_date": "2026-10-16 04:47:50 +0700",
+    "finish_from_date": "2026-10-16 04:50:09 +0700",
+    "exit_code": 0
+  },
+  {
+    "stage": "tests",
+    "command": [
+      "cargo",
+      "test",
+      "--locked",
+      "--offline",
+      "-p",
+      "lamp-memory",
+      "-p",
+      "lamp-voice",
+      "-p",
+      "lamp-voice-eval",
+      "--no-fail-fast",
+      "--",
+      "--test-threads=1"
+    ],
+    "cwd": "/private/tmp/lampos-tests-scenario-moments/lampOS",
+    "target": "/private/tmp/tests-823-rebase-target",
+    "start_from_date": "2026-10-16 04:50:09 +0700",
+    "finish_from_date": "2026-10-16 05:10:29 +0700",
+    "exit_code": 101
+  },
+  {
+    "stage": "build",
+    "command": [
+      "cargo",
+      "build",
+      "--locked",
+      "--offline",
+      "--workspace"
+    ],
+    "cwd": "/private/tmp/lampos-tests-scenario-moments/lampOS",
+    "target": "/private/tmp/tests-823-rebase-target",
+    "start_from_date": "2026-10-16 05:10:29 +0700",
+    "finish_from_date": "2026-10-16 05:11:55 +0700",
+    "exit_code": 0
+  }
+]

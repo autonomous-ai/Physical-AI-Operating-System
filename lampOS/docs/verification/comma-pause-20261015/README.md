@@ -128,6 +128,43 @@ the busy-room rule knew of the first part; and `--endpoint-commit-ms MS`
 pause must last before a confident verdict ends the turn. The tests and the
 gate are in the pull request.
 
+## The gate (`gate/`, `arm64/`)
+
+On commit `0b3ebf2a4f97564345402f676d5ec08175e3dac1` (on `lamp-voice` at
+`663a1e5fe`; its code is the pull request's second commit, `7c82eccff`),
+Fourth's Mac, 10:29 to 10:54 UTC; the commands in `gate/commands.txt`, each
+stage's exit code in `gate/stages.txt`, the tree clean before and after:
+
+| Stage | Result |
+|---|---|
+| `rustfmt --edition 2024 --check` on the changed Rust files | passed |
+| `cargo clippy --workspace --all-targets --locked -- -D warnings` | passed |
+| `cargo test --locked -p lamp-voice -p lamp-voice-eval -p lamp-memory --no-fail-fast -- --test-threads=1` | 1,625 passed, **1 failed**, 13 ignored, 62 suites |
+| `cargo build --workspace --locked` | passed |
+
+The one failure is
+`coordinator::tests::endpoint_session::a_worker_still_loading_leaves_the_baseline_window`:
+"capture discontinuity", the session's capture blocks more than 50 ms apart
+on a loaded Mac, the voice's timed process tests that #739 is about, in a
+path this change does not touch (a worker that is still loading; no commit
+chosen). Run alone on the branch it then failed once and passed 14 times
+(`gate/loading-test-alone/`, the last ten); on `lamp-voice` itself, 5 of 5
+passed. It passed in the ARM64 run below.
+
+Before the rebase onto `663a1e5fe`, which merged #792's attention code
+into the same lines, the same gate had passed with no failure on
+`4b677c852` (1,604 passed, 13 ignored) and on the first commit alone,
+`a6bbc80ac` (1,601, 13): `gate/before-rebase-*`. The rebase kept both
+sides of three places both had added to, and made a request that
+continues one ended early keep #753's `addressed` too.
+
+ARM64: the pull request's run 38720597961 on `0b3ebf2a4`, GitHub's native
+Linux ARM64 runners, four shards: 1,183, 1,062, 1,155 and 1,129 tests run,
+all passed, the seven new tests among them; `arm64/run-38720597961.txt` and
+the SHA-256 of each binary in `arm64/sha256.txt` (`lamp-voice`
+`3fd76910362748519818ec8e67f59605745ec23cc6926d3958784e7e4868e50e`). A
+GitHub runner is not a lamp.
+
 ## Not shown
 
 No replay of what lamp-4ace's microphone heard (the first builder is

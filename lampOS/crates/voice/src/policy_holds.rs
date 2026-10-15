@@ -21,13 +21,15 @@
 //!   it heard each piece (`crate::bus_out`): the turn whose input began last
 //!   before the piece came, as the voice's own rule takes it
 //!   (`crate::attention`). The Policy's decision carries the number of the
-//!   newest piece it judged. So a decision is its own turn's however late it
-//!   comes, and never another's (the reviewer on #908: a late decision about
-//!   the turn before must never release or hold this turn's action). A
-//!   decision with no number is nobody's. Where the number can still be
-//!   wrong: a piece of a turn's words that the service writes only after the
-//!   next turn's input began is that next turn's, here as in the voice's own
-//!   rule.
+//!   pieces it judged: a piece of another turn ends the utterance open
+//!   (`lamp_policy::gather`, the reviewer on #908, 06:40), so one decision
+//!   is never about two turns' words. So a decision is its own turn's
+//!   however late it comes, and never another's (the reviewer on #908: a
+//!   late decision about the turn before must never release or hold this
+//!   turn's action). A decision with no number is nobody's. Where the
+//!   number can still be wrong: a piece of a turn's words that the service
+//!   writes only after the next turn's input began is that next turn's,
+//!   here as in the voice's own rule.
 //! - **Waited for** at most [`WAIT`] from the call; past it the action runs
 //!   as it did without the switch. While it waits nothing else waits: the
 //!   call is kept aside and looked at again on each tick of the worker.

@@ -122,6 +122,14 @@ impl Gather {
     ) {
         // A pause nobody noticed in time still ended what came before it.
         self.tick(now);
+        // A piece of another of the voice's turns ends what is open: a
+        // decision is about one turn's words, and carries that turn's
+        // number, never a later one's (the reviewer on #908, 06:40).
+        if let (Some(open), Some(request)) = (self.open.as_ref(), request)
+            && open.request.is_some_and(|of| of != request)
+        {
+            self.end(false);
+        }
         let mut rest = text;
         loop {
             let open = self.open.get_or_insert_with(|| Open {
@@ -322,6 +330,30 @@ mod tests {
         gather.tick(start + ms(1_400));
         assert_eq!(gather.over(), None);
         assert_eq!(gather.empty(), 2);
+    }
+
+    /// The reviewer on #908 (06:40): turn 1's words and, 50 ms later,
+    /// turn 2's, neither marked finished, are two utterances, each with its
+    /// own number. A piece with no number joins what is open.
+    #[test]
+    fn a_piece_of_another_turn_begins_another_utterance() {
+        let start = Instant::now();
+        let (mut gather, lamp) = (Gather::new(PAUSE), Lamp::default());
+        gather.piece("Hey Lamp, turn it up. ", false, Some(1), &lamp, start);
+        gather.piece("Thailand.", false, Some(2), &lamp, start + ms(50));
+        let first = gather.over().expect("turn 1's words are over");
+        assert_eq!(
+            (first.text.as_str(), first.request, first.pieces, first.cut),
+            ("Hey Lamp, turn it up.", Some(1), 1, false)
+        );
+        assert_eq!(gather.over(), None);
+        gather.piece(" Yes.", false, None, &lamp, start + ms(100));
+        gather.tick(start + ms(100) + PAUSE);
+        let second = gather.over().expect("turn 2's words are over");
+        assert_eq!(
+            (second.text.as_str(), second.request, second.pieces),
+            ("Thailand. Yes.", Some(2), 2)
+        );
     }
 
     #[test]

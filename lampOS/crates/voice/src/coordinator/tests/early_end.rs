@@ -541,6 +541,8 @@ struct Setup {
     seconds: u64,
     script: Script,
     service: Service,
+    /// `LAMP_CUT_KEEPS_NAME=on` (#782).
+    cut_keeps_name: bool,
 }
 
 fn require_real_fixture_clock() {
@@ -576,6 +578,7 @@ impl Setup {
             seconds,
             script,
             service,
+            cut_keeps_name: false,
         }
     }
 
@@ -683,6 +686,7 @@ impl Setup {
             // As lamp-4ace.
             playout_start: PlayoutStart::new(350).unwrap(),
             endpoint: None,
+            cut_keeps_name: self.cut_keeps_name,
             paused: Box::new(|| false),
         };
         // The worker says it is ready before anything else.
@@ -1023,6 +1027,7 @@ fn speech_resumed_at_three_tenths_under_the_lamps_duplex_policy() {
             seconds: 6,
             script: name_then_question,
             service: Service::answering_after(900),
+            cut_keeps_name: false,
         },
     );
 }
@@ -1649,4 +1654,64 @@ async fn a_name_note_told_with_a_request_ended_early_does_not_survive_it() {
         );
         assert!(supervisor.is_connected());
     }
+}
+
+/// "Hey Lamp," ended by the 600 ms window, the question begun 100 ms after
+/// that end, and "stop" over the answer to it once it is heard, 700 ms
+/// after the question's end.
+fn name_window_question_then_over_the_answer(block: u64) -> f32 {
+    if (100..=150).contains(&block) || (221..=320).contains(&block) || (450..=480).contains(&block)
+    {
+        SPEECH
+    } else {
+        QUIET
+    }
+}
+
+/// With `LAMP_CUT_KEEPS_NAME=on` and no end sent early, as lamp-4ace runs
+/// (the follow-up to #809): the question goes on with the name the window
+/// cut it from, and "stop" over the answer that is played is cutting in,
+/// and does not. Without the switch no admission says it goes on.
+#[test]
+fn a_question_after_the_window_ended_its_name_goes_on_and_cutting_in_does_not() {
+    let _one = one_session();
+    let run = |cut_keeps_name| {
+        Setup {
+            cut_keeps_name,
+            ..Setup::lamp(
+                None,
+                8,
+                name_window_question_then_over_the_answer,
+                Service::answering_after(300),
+            )
+        }
+        .run_with_privacy_tolerance()
+    };
+    let continues = |session: &Session| -> Vec<bool> {
+        session
+            .events("input_admitted")
+            .iter()
+            .map(|row| row.get("continues") == Some(&Value::Bool(true)))
+            .collect()
+    };
+    let on = run(true);
+    on.ok();
+    on.summary("with the switch: Hey Lamp, 0.7 s, the question, stop", 480);
+    assert_eq!(continues(&on), [false, true, false]);
+    // The answer to the question was being played when "stop" began.
+    let answered = on
+        .seen
+        .first_played(FIRST_ANSWER + 1)
+        .expect("the answer to the question");
+    assert!(answered < on.seen.block(450));
+    assert_eq!(on.outcomes()[..2], ["user_interrupted", "user_interrupted"]);
+
+    let off = run(false);
+    off.ok();
+    assert_eq!(continues(&off), [false, false, false]);
+    assert!(
+        off.events("input_admitted")
+            .iter()
+            .all(|row| row.get("continues").is_none())
+    );
 }

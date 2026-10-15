@@ -124,6 +124,8 @@ impl PrivacyDelivery {
 #[derive(Clone, Debug)]
 struct SeenRequest {
     request: u64,
+    /// Whether its Start said it goes on with the request before (#782).
+    continues: bool,
     audio_blocks: usize,
     ended_at: Option<Instant>,
 }
@@ -541,11 +543,15 @@ fn provider_peer(
             let mut seen = seen.lock().unwrap();
             match input {
                 ProviderInput::Start {
-                    request, session, ..
+                    request,
+                    session,
+                    continues,
+                    ..
                 } => {
                     seen.provider.push("start");
                     seen.requests.push(SeenRequest {
                         request,
+                        continues,
                         audio_blocks: 0,
                         ended_at: None,
                     });
@@ -699,6 +705,7 @@ fn run_process_policy_with_privacy_tolerance(
         None,
         None,
         PeerMode::RealProcessWithPrivacyTolerance,
+        Lamp::default(),
     )
 }
 
@@ -800,9 +807,19 @@ fn run_scenario_policy(
         reply,
         None,
         PeerMode::Stepped,
+        Lamp::default(),
     )
 }
 
+/// What the lamp is set to beyond its turn taking; the default is how
+/// these scenarios have always run.
+#[derive(Clone, Copy, Default)]
+struct Lamp {
+    end_silence_blocks: Option<u16>,
+    cut_keeps_name: bool,
+}
+
+#[allow(clippy::too_many_arguments)]
 fn run_policy_with_peers(
     turn_taking: TurnTaking,
     seconds: u64,
@@ -811,6 +828,7 @@ fn run_policy_with_peers(
     reply: Option<ProviderReply>,
     mute_at: Option<u64>,
     mode: PeerMode,
+    lamp: Lamp,
 ) -> Session {
     let fixture_privacy = mode.fixture_privacy();
     if fixture_privacy.is_some() {
@@ -860,7 +878,7 @@ fn run_policy_with_peers(
     let mut rig = Rig {
         second: None,
         microphone: crate::options::Microphone::Mic2,
-        end_silence_blocks: None,
+        end_silence_blocks: lamp.end_silence_blocks,
         early_end_blocks: None,
         faint_level: None,
         provider,
@@ -876,6 +894,7 @@ fn run_policy_with_peers(
         turn_taking,
         playout_start: PlayoutStart::default(),
         endpoint: Some(endpoint),
+        cut_keeps_name: lamp.cut_keeps_name,
         paused: Box::new(|| false),
     };
     let mut owner = Controller::new(new_boot().unwrap(), now());
@@ -1366,6 +1385,7 @@ fn mute_with_endpoint(endpoint: EndpointRig) -> (Result<()>, SessionState) {
         turn_taking: TurnTaking::V1Baseline,
         playout_start: PlayoutStart::default(),
         endpoint: Some(endpoint),
+        cut_keeps_name: false,
         paused: Box::new(|| false),
     };
     let (mut controller, current, _) = active_reply();
@@ -1766,4 +1786,91 @@ fn duplex_missing_model_session_ends_on_the_unchanged_silence_fallback() {
     assert_eq!(endpoints[0]["includes_silence_wait_ms"], 1_200);
     assert!(session.seen.provider.contains(&"start"));
     assert_eq!(session.events("endpoint_worker_final")[0]["reaped"], true);
+}
+
+/// lamp-4ace's path for #782 (`--endpoint smart-turn-fast`, its 600 ms
+/// window, no `--early-end-ms`), as the reviewer found it on #809: a
+/// confident verdict ends the turn 400 ms into a pause at a comma, and the
+/// person goes on 100 ms later. The rest is a new request. With
+/// `LAMP_CUT_KEEPS_NAME=on` its Start says it goes on with the first, so
+/// the busy-room rule keeps the first part's name; without the switch the
+/// Start and the record are as they were.
+#[test]
+fn a_turn_ended_at_a_comma_goes_on_in_the_next_request_only_with_the_switch() {
+    let _one = one_session();
+    // "Hey Lamp," and more (1 s), a 500 ms pause, the rest (0.8 s).
+    fn comma(block: u64) -> f32 {
+        if (50..150).contains(&block) || (200..280).contains(&block) {
+            SPEECH
+        } else {
+            QUIET
+        }
+    }
+    let run = |cut_keeps_name| {
+        let session = run_comma(comma, None, cut_keeps_name);
+        session.result.as_ref().unwrap();
+        let (basis, _, silence_ms) = &bases(&session)[0];
+        assert_eq!((basis.as_str(), *silence_ms), ("model_complete", 400));
+        assert_eq!(
+            session.seen.requests.len(),
+            2,
+            "{:?}",
+            session.seen.requests
+        );
+        session
+    };
+    let on = run(true);
+    let starts: Vec<_> = on.seen.requests.iter().map(|r| r.continues).collect();
+    assert_eq!(starts, [false, true]);
+    let admitted = on.events("input_admitted");
+    assert_eq!(admitted[1]["continues"], true, "{admitted:?}");
+    assert!(admitted[0].get("continues").is_none());
+
+    let off = run(false);
+    let starts: Vec<_> = off.seen.requests.iter().map(|r| r.continues).collect();
+    assert_eq!(starts, [false, false]);
+    assert!(
+        off.events("input_admitted")
+            .iter()
+            .all(|row| row.get("continues").is_none())
+    );
+}
+
+/// With the switch, speech is the same utterance going on only within a
+/// second of the end. (Speech over an answer that has begun is cutting in;
+/// `early_end`'s real provider, whose answers are played, covers that.)
+#[test]
+fn a_new_request_long_after_the_end_does_not_go_on() {
+    let _one = one_session();
+    // The pause is 1.8 s: the person spoke again 1.4 s after the end.
+    fn long_pause(block: u64) -> f32 {
+        if (50..150).contains(&block) || (330..410).contains(&block) {
+            SPEECH
+        } else {
+            QUIET
+        }
+    }
+    let late = run_comma(long_pause, None, true);
+    late.result.as_ref().unwrap();
+    let (basis, _, silence_ms) = &bases(&late)[0];
+    assert_eq!((basis.as_str(), *silence_ms), ("model_complete", 400));
+    let starts: Vec<_> = late.seen.requests.iter().map(|r| r.continues).collect();
+    assert_eq!(starts, [false, false], "{:?}", late.seen.requests);
+}
+
+/// lamp-4ace's turn taking: duplex, the 600 ms window, a confident model.
+fn run_comma(script: Script, reply: Option<ProviderReply>, cut_keeps_name: bool) -> Session {
+    run_policy_with_peers(
+        TurnTaking::Duplex,
+        6,
+        script,
+        EndpointRig::double(delayed(0.95, Duration::from_millis(60))),
+        reply,
+        None,
+        PeerMode::Stepped,
+        Lamp {
+            end_silence_blocks: Some(60),
+            cut_keeps_name,
+        },
+    )
 }

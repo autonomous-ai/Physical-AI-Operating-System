@@ -560,6 +560,7 @@ fn conversation_sends_hand_stop_before_a_provider_fault_queued_in_the_same_tick(
         turn_taking: TurnTaking::VadOnly,
         playout_start: PlayoutStart::default(),
         endpoint: None,
+        cut_keeps_name: false,
         paused: Box::new(|| false),
         early_end_blocks: None,
     };

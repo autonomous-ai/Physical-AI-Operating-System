@@ -699,10 +699,24 @@ levels and looks, and a real bus in a temporary directory.
 Off unless `LAMP_CUT_KEEPS_NAME=on` in the voice's environment (built by the
 fourth builder on 15 October 2026). The fast early end (`--endpoint
 smart-turn-fast`) ends a turn at a pause the person then goes on after, and
-the rest is admitted as a new request that continues the first
-(`continue_after_early_end`). With the switch, the coordinator says so in
-that request's Start (`ProviderInput::Start::continues`, sent only then),
-and the provider worker begins the request with what the rule knew of the
+the rest is admitted as a new request. It continues the first in two ways:
+
+- On lamp-4ace's path, with no end sent early: the turn was ended, by a
+  confident verdict at the commit (400 ms, `--endpoint-commit-ms`) or by the
+  600 ms window, and speech begins again within a second of the block that
+  ended it (`CONTINUES_WITHIN_US`, from the block that ended it to the block
+  that set the new speech off, by the capture clock), before anything of the
+  answer was heard, on the same connection and microphone
+  (`EndedTurn::goes_on_in`, checked as `commit_admitted_input` admits it).
+  The first form of the switch covered only the next way, and on this path
+  did nothing: found by the reviewer on #809 and mended the same evening.
+- With `--early-end-ms`: speech begins again after the end was sent early
+  and before the lamp was sure (`continue_after_early_end`).
+
+With the switch, the coordinator says so in that request's Start
+(`ProviderInput::Start::continues`, sent only then) and in its
+`input_admitted` record (`"continues":true`, only then), and the provider
+worker begins the request with what the rule knew of the
 first part: the name, heard surely or not and how surely, the text heard so
 far, whether it was close, whether it was said to the lamp from close to it
 (`LAMP_ADDRESSED`, above), and the window from where the first part began
@@ -721,11 +735,30 @@ worker's own loop with the start kept shows it: in a busy room, "Hey Lamp,
 answered with it.
 
 What it does not change: when the turn ends, what the provider hears, or a
-request that begins afresh. A continuation is what the coordinator's own
-detector heard as the same utterance going on before its silence window
-ended. It cannot tell a second voice that begins within that pause from the
-first going on: such a voice would keep the first part's name too. That is
-the case to watch for when it is tried in a busy room.
+request that begins afresh. Speech over an answer that has begun to be heard
+is cutting in, as it always was, and so is speech more than a second after
+the end. A continuation is speech the coordinator heard begin soon after it
+ended the turn, or, with an end sent early, before its silence window ended.
+It cannot tell a second voice that begins within that pause from the first
+going on: such a voice would keep the first part's name too. That is the
+case to watch for when it is tried in a busy room.
+
+What it cannot reach: once the last three things the lamp heard went
+unanswered (`body_link::Attention::busy`), a new sound within 1.8 s of an
+end, while the answer has not begun, takes no turn (`HOLD_FLOOR_US`, the
+`floor_held` record). The rest of a cut line is dropped there before it is
+admitted, with or without the switch. In lamp-4ace's records of 15 October
+(10 sessions, 932 ends, `~/lamp-voice-data/sessions/turn-times-20261015`,
+read on the Mac the fourth builder shares with the first), 401 holds came
+within a second of the end of the turn they held, and 47 next turns were
+admitted that soon. Which of the 401 were the same person going on, and
+which the played room's other voices, was not measured. Tests:
+`a_turn_ended_at_a_comma_goes_on_in_the_next_request_only_with_the_switch`
+and `a_new_request_long_after_the_end_does_not_go_on`
+(`coordinator/tests/endpoint_session.rs`, the model's end at the commit),
+and `a_question_after_the_window_ended_its_name_goes_on_and_cutting_in_does_not`
+(`coordinator/tests/early_end.rs`, the real provider worker, the window's
+end, and speech over a played answer).
 
 ## The record of whom it answered
 
@@ -849,8 +882,8 @@ busy room lets out an answer the rule would hold (above). Off by default;
 not on any lamp.
 
 `LAMP_CUT_KEEPS_NAME=on` (in the coordinator's environment; no worker
-flag): a request that continues one the lamp ended early keeps what the
-rule knew of it (above). Off by default; not on any lamp.
+flag): a request that goes on within a second of the turn the lamp just
+ended, or after an end sent early, keeps what the rule knew of it (above). Off by default; not on any lamp.
 
 `LAMP_NAME_NOTE_BUSY=face` (the worker's `--name-note-busy-face`, right
 after `--name-note`; nothing without `LAMP_NAME_NOTE=on`): in a busy room

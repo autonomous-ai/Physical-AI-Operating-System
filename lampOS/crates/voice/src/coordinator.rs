@@ -117,6 +117,50 @@ const HOLD_FLOOR_US: u64 = 1_800_000;
 /// was stopped by that same sentence 1.2 s later. Most answers are shorter
 /// than this; a story can still be stopped once it has passed.
 const KEEP_ANSWER_US: u64 = 4_000_000;
+/// How soon after the lamp ended a turn speech that begins again still goes
+/// on with it (`LAMP_CUT_KEEPS_NAME`, #782), from the block that ended it to
+/// the block that set the new speech off, both by the capture clock. The
+/// pauses at a comma that ended a turn on lamp-4ace on 2026-10-15 were heard
+/// as 400 to 560 ms of quiet, so the person went on within 160 ms of an end
+/// at 400 ms; a second also covers an end at the 600 ms window.
+const CONTINUES_WITHIN_US: u64 = 1_000_000;
+
+/// A turn the lamp ended, for speech that may go on with it (#782).
+#[derive(Clone, Copy, Debug)]
+struct EndedTurn {
+    turn: u64,
+    /// When the block that ended it was read.
+    at_us: u64,
+    session: u64,
+    microphone_generation: u64,
+}
+
+impl EndedTurn {
+    /// Whether speech set off at `trigger_read_at_us` and admitted over
+    /// `current` goes on with this turn: `current` is this turn's request,
+    /// its input ended and nothing of its answer heard, on the same
+    /// connection and microphone, and the speech began within
+    /// [`CONTINUES_WITHIN_US`] of the end. A second voice inside the pause
+    /// counts too, as it does after an end sent early.
+    fn goes_on_in(
+        self,
+        current: Option<&Reply>,
+        trigger_read_at_us: u64,
+        session: u64,
+        microphone_generation: u64,
+    ) -> bool {
+        current.is_some_and(|current| {
+            current.owner.turn() == self.turn
+                && current.local_input_ended
+                && !current.had_audio
+                && current.playback.is_none()
+                && current.cloud.session == self.session
+        }) && session == self.session
+            && microphone_generation == self.microphone_generation
+            && trigger_read_at_us.saturating_sub(self.at_us) <= CONTINUES_WITHIN_US
+    }
+}
+
 #[cfg(test)]
 const MAX_TRACE_EVENTS: usize = crate::session_state::MAX_FINITE_EVENTS;
 const PROVIDER_PACKETS_PER_SLICE: usize = 2;
@@ -367,6 +411,10 @@ struct Rig {
     microphone: crate::options::Microphone,
     /// Opt-in end-of-turn worker client; its process is not a `Rig` child.
     endpoint: Option<EndpointRig>,
+    /// `LAMP_CUT_KEEPS_NAME=on` ([`crate::attention::cut_keeps_name`]): a
+    /// request that goes on with the one the lamp just ended says so in its
+    /// Start (#782).
+    cut_keeps_name: bool,
     /// Whether the keeper has paused the lamp ([`keeper_pause`]).
     paused: KeeperPause,
     /// The standby voice route, when one is configured (`second.rs`).
@@ -2173,6 +2221,7 @@ fn spawn_rig(
         playout_start: options.playout_start,
         microphone: options.microphone,
         endpoint,
+        cut_keeps_name: crate::attention::cut_keeps_name(),
         paused: keeper_pause(lamp_bus::Bus::from_environment()),
         second,
     })
@@ -2613,6 +2662,9 @@ fn conversation_with_gate(
     // floor was last held, so that the record says so once.
     let mut speech_ended: Option<(u64, u64)> = None;
     let mut floor_held_for: Option<u64> = None;
+    // The turn the lamp last ended, for speech that goes on with it
+    // (`LAMP_CUT_KEEPS_NAME`, #782). Never kept without the switch.
+    let mut ended_turn: Option<EndedTurn> = None;
     // The turn that was asked while the room was busy, and when the lamp
     // began to be heard answering it.
     let mut asked_in_busy_room: Option<u64> = None;
@@ -2963,6 +3015,7 @@ fn conversation_with_gate(
                     crate::second_look::SecondLook::default().with_the_note(crate::called::on());
                 last_turn_us = monotonic_us();
                 speech_ended = None;
+                ended_turn = None;
                 floor_held_for = None;
                 asked_in_busy_room = None;
                 busy_answer_since = None;
@@ -3890,6 +3943,17 @@ fn conversation_with_gate(
                             said_turn == Some(current.owner.turn()),
                         )
                     });
+                    // Speech back soon after the lamp ended a turn, before
+                    // anything of its answer was heard: the same utterance
+                    // going on, its pause longer than the end waited (#782).
+                    let continues = ended_turn.take().is_some_and(|ended| {
+                        ended.goes_on_in(
+                            reply.as_ref(),
+                            accepted.candidate.trigger_read_at_us,
+                            provider_session,
+                            snapshot.microphone_generation(),
+                        )
+                    });
                     snapshot = commit_admitted_input(
                         owner,
                         reply,
@@ -3897,6 +3961,7 @@ fn conversation_with_gate(
                         &mut provider_queue,
                         accepted,
                         provider_session,
+                        continues,
                         rig.playout_start,
                         trace,
                         |state| rig.publish(state),
@@ -4019,6 +4084,7 @@ fn conversation_with_gate(
                                     &mut provider_queue,
                                     opening,
                                     provider_session,
+                                    rig.cut_keeps_name,
                                     rig.playout_start,
                                     trace,
                                     |state| rig.publish(state),
@@ -4116,6 +4182,14 @@ fn conversation_with_gate(
                         .as_mut()
                         .and_then(|early| early.confirm(current.owner.turn()));
                     current.local_input_ended = true;
+                    if rig.cut_keeps_name {
+                        ended_turn = Some(EndedTurn {
+                            turn: current.owner.turn(),
+                            at_us: input_end_us,
+                            session: current.cloud.session,
+                            microphone_generation: snapshot.microphone_generation(),
+                        });
+                    }
                     if sent.is_none() {
                         speech_ended = Some((current.owner.turn(), monotonic_us()));
                         second_look.speech_ended(current.owner.turn(), monotonic_us());
@@ -5288,6 +5362,7 @@ fn commit_admitted_input(
     provider_queue: &mut VecDeque<ProviderInput>,
     accepted: Accepted,
     provider_session: u64,
+    continues: bool,
     playout_start: PlayoutStart,
     trace: &mut SessionState,
     mut publish: impl FnMut(Snapshot) -> io::Result<()>,
@@ -5310,15 +5385,19 @@ fn commit_admitted_input(
     trace
         .receipts
         .admitted(turn, snapshot.issued_at().as_micros())?;
-    record(
-        trace,
-        json!({"kind":"input_admitted","owner":turn,"turn":turn.turn(),"at_us":admitted_at_us,"authority_issued_at_us":snapshot.issued_at().as_micros(),"prefix_first_host_read_us":prefix.first().map(|p|p.captured_at_us),"candidate":accepted.candidate.id,"admission_basis":accepted.basis,"provider_session":provider_session}),
-    )?;
+    let mut admitted = json!({"kind":"input_admitted","owner":turn,"turn":turn.turn(),"at_us":admitted_at_us,"authority_issued_at_us":snapshot.issued_at().as_micros(),"prefix_first_host_read_us":prefix.first().map(|p|p.captured_at_us),"candidate":accepted.candidate.id,"admission_basis":accepted.basis,"provider_session":provider_session});
+    // Said only when it is so, which only `LAMP_CUT_KEEPS_NAME=on` allows.
+    if continues {
+        admitted["continues"] = json!(true);
+    }
+    record(trace, admitted)?;
     provider_queue.push_back(ProviderInput::Start {
         session: provider_session,
         request: turn.turn(),
         privacy_generation: snapshot.microphone_generation(),
-        continues: false,
+        // The same utterance going on after the lamp ended it (#782). The
+        // model is told of a cut only after an end sent early.
+        continues,
         continues_cut_off: false,
     });
     let mut current = Reply {
@@ -5388,6 +5467,7 @@ fn continue_after_early_end(
     provider_queue: &mut VecDeque<ProviderInput>,
     opening: Vec<ObservedAudio>,
     provider_session: u64,
+    cut_keeps_name: bool,
     playout_start: PlayoutStart,
     trace: &mut SessionState,
     mut publish: impl FnMut(Snapshot) -> io::Result<()>,
@@ -5413,7 +5493,7 @@ fn continue_after_early_end(
         privacy_generation: snapshot.microphone_generation(),
         // The same utterance going on: with the switch, the busy-room rule
         // keeps what it knew of the first part (#782).
-        continues: crate::attention::cut_keeps_name(),
+        continues: cut_keeps_name,
         // The model is told this goes on from the request given up.
         continues_cut_off: true,
     });
@@ -6183,6 +6263,7 @@ mod tests {
             turn_taking: TurnTaking::VadOnly,
             playout_start: PlayoutStart::default(),
             endpoint: None,
+            cut_keeps_name: false,
             paused: Box::new(|| false),
         };
         let started = Instant::now();

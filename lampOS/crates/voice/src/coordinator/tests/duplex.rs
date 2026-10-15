@@ -244,6 +244,7 @@ impl Harness {
                 &mut self.provider_queue,
                 accepted,
                 1,
+                false,
                 PlayoutStart::default(),
                 &mut self.trace,
                 |_| Ok(()),

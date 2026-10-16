@@ -10,6 +10,7 @@ demo should do in them:
 |---|---|---|
 | `acts-after-a-minute` | the real `acts-after-50-minutes` | looks at the face and stretches once, at about a minute |
 | `once-while-they-stay` | the real `quiet-until-they-leave` (3 hours, never leaving) | once at about a minute, never again |
+| `across-the-room` | the real `across-the-room` (a face 0.04 of the picture tall, as lamp-4ace saw at 15:16) | nothing |
 | `quiet-when-paused` | not recorded, as in the real one: waits for the Policy's gate (#939) | not run |
 
 The real `quiet-when-short-sitting` (40 minutes) and `quiet-while-talking`

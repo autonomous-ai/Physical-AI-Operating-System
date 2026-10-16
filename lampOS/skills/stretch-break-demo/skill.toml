@@ -7,6 +7,7 @@ needs = ["eyes", "body"]
 [trigger]
 topic = "humans/faces/tracked"
 when = "present"          # a face there, continuously
+near = 0.14               # at the desk, not across the room: a face at least this share of the picture's height (Welcome back's, the voice's Arrival line)
 for = "60s"               # the demo: a minute, not fifty (the real one is ../stretch-break)
 gap = "2m"                # looking away or leaning out of view does not end the sitting
 rearm = "leaves"          # once per sitting; again only after they have left

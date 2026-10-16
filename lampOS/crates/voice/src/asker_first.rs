@@ -35,7 +35,8 @@
 //!   at 60 ms over the last half second cleared them.
 //! - **It ends** [`KEEPS_FOR_US`] after the asker stopped, played or not:
 //!   an answer held back never plays, and a person who took their question
-//!   back ("never mind") is heard again then.
+//!   back ("never mind") is heard again then. A line it kept is kept until
+//!   it pauses ([`LINE_PAUSE_US`]), so it never takes the turn halfway.
 //! - **Off, record or on** ([`Mode`]): `record` judges and writes the same
 //!   record but never keeps the turn, so the margin can be set from the
 //!   lamp's own levels before the rule acts (the first builder at 21:35).
@@ -63,6 +64,13 @@ pub const MARGIN: u8 = 45;
 /// stops at 1.8 s for the same reason this does: an answer that never
 /// plays must not leave the lamp deaf to the people at it.
 pub const KEEPS_FOR_US: u64 = 5_000_000;
+
+/// A line the rule kept goes on being kept until it pauses this long, past
+/// [`KEEPS_FOR_US`] too: someone who is ignoring a sentence doesn't start
+/// listening halfway through it. On the reviewer's probe on #1092 a line
+/// across the room begun 4.7 s after the asker was kept at its start, and
+/// its next candidate took the turn at 5 s, 0.29 s into it.
+pub const LINE_PAUSE_US: u64 = 300_000;
 
 /// Fewer speech blocks than this say nothing of a level: as many as begin
 /// an utterance.
@@ -116,6 +124,8 @@ pub struct AskerFirst {
     named: bool,
     /// The turn the rule last kept, so that it is said once.
     kept: Option<u64>,
+    /// The newest speech block of a line the rule kept, while it goes on.
+    line_us: Option<u64>,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -189,6 +199,7 @@ impl AskerFirst {
         });
         self.since.clear();
         self.named = false;
+        self.line_us = None;
         level
     }
 
@@ -202,6 +213,18 @@ impl AskerFirst {
             self.since.pop_front();
         }
         self.since.push_back((at_us, level));
+        if self
+            .line_us
+            .is_some_and(|last| at_us.saturating_sub(last) <= LINE_PAUSE_US)
+        {
+            self.line_us = Some(at_us);
+        }
+    }
+
+    /// The rule kept new speech at `now_us`: what follows it without a
+    /// pause is the same line, and is kept too ([`LINE_PAUSE_US`]).
+    pub fn kept_line(&mut self, now_us: u64) {
+        self.line_us = Some(now_us);
     }
 
     /// The lamp's name was heard beginning at `began_us`.
@@ -225,7 +248,10 @@ impl AskerFirst {
         let Some(asker) = self.asker.filter(|asker| asker.turn == turn) else {
             return Judgement::Take;
         };
-        if self.named || now_us.saturating_sub(asker.ended_at_us) > KEEPS_FOR_US {
+        let in_line = self
+            .line_us
+            .is_some_and(|last| now_us.saturating_sub(last) <= LINE_PAUSE_US);
+        if self.named || (now_us.saturating_sub(asker.ended_at_us) > KEEPS_FOR_US && !in_line) {
             return Judgement::Take;
         }
         let levels: Vec<u8> = self
@@ -442,6 +468,35 @@ mod tests {
         rule.named(2_000 * MS + 50 * MS);
         let now = speech(&mut rule, 2_300, 15, 60);
         assert_eq!(rule.judge(6, 2_000 * MS, now, false), Judgement::Take);
+    }
+
+    /// The reviewer on #1092: a line kept near the end of the 5 s is kept
+    /// until it pauses, and is never taken halfway through; after its
+    /// pause, later speech is heard again.
+    #[test]
+    fn a_kept_line_is_kept_until_it_pauses_past_the_five_seconds() {
+        let mut rule = AskerFirst::default();
+        asked(&mut rule, 9, 178, 1_000);
+        // Begun 4.7 s after the asker, kept at its last chance.
+        let begin = 1_000 + 4_700;
+        let now = speech(&mut rule, begin, 20, 54);
+        assert!(matches!(
+            rule.judge(9, begin * MS, now, true),
+            Judgement::Keep(_)
+        ));
+        rule.kept_line(now);
+        // Its next candidate, past the 5 s, in the same line: kept.
+        let next = begin + 210;
+        let now = speech(&mut rule, begin + 200, 30, 54);
+        assert!(now > 1_000 * MS + KEEPS_FOR_US);
+        assert!(matches!(
+            rule.judge(9, next * MS, now, true),
+            Judgement::Keep(_)
+        ));
+        // It pauses for half a second; what is said after is heard.
+        let after = begin + 1_000;
+        let now = speech(&mut rule, after, 20, 54);
+        assert_eq!(rule.judge(9, after * MS, now, true), Judgement::Take);
     }
 
     #[test]

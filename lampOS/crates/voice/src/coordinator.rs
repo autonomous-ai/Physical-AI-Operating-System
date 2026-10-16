@@ -3230,6 +3230,15 @@ fn conversation_with_gate(
     let mut asker_first = asker_mode
         .applies()
         .then(crate::asker_first::AskerFirst::default);
+    // The candidate the rule last kept waiting, as `(id, turn, own start)`:
+    // if the answer begins while it waits, what the rule would have done is
+    // still recorded (the reviewer on #1092).
+    let mut asker_waited: Option<(crate::admission::CandidateId, u64, u64)> = None;
+    // Recorded only: a candidate taken at once, followed as `on` would
+    // follow it, `(turn, own start, last chance)`, until `on` would have
+    // decided it, so that `record` gives `on`'s judgement (the reviewer on
+    // #1092).
+    let mut asker_shadow: Option<(u64, u64, u64)> = None;
     let mut asker_named = asker_first
         .is_some()
         .then(|| crate::bus_out::NameIn::from_environment_on(lamp_msgs::NameHeard::RISING_TOPIC))
@@ -4457,9 +4466,37 @@ fn conversation_with_gate(
                     } else if current.local_input_ended && current.playback.is_none() {
                         rule.heard(frame.read_completed_at_us, heard_level);
                     }
+                    // Recorded only, what `on` would still be judging.
+                    if asker_shadow.is_some() && !current.local_input_ended {
+                        rule.heard(frame.read_completed_at_us, heard_level);
+                    }
                 }
             } else if !keeping_answer && heard_level >= crate::not_speech::LOUD_LEVEL {
                 loud_blocks.push_back(frame.read_completed_at_us);
+            }
+            // Recorded only: the candidate taken at once, judged as `on`
+            // would judge it, at the point `on` would decide.
+            if let Some((turn, start, due)) = asker_shadow
+                && let Some(rule) = asker_first.as_mut()
+            {
+                let now = monotonic_us();
+                match rule.judge(turn, start, now, now >= due) {
+                    crate::asker_first::Judgement::Wait => {}
+                    crate::asker_first::Judgement::Take => asker_shadow = None,
+                    crate::asker_first::Judgement::Keep(kept) => {
+                        asker_shadow = None;
+                        rule.kept_line(now);
+                        record_asker_first(
+                            rule,
+                            trace,
+                            turn,
+                            now,
+                            kept,
+                            false,
+                            "at_its_last_chance",
+                        )?;
+                    }
+                }
             }
             while speech_levels
                 .front()
@@ -4700,27 +4737,29 @@ fn conversation_with_gate(
                     // the lamp keeps the answer (#829). It is judged on its
                     // own blocks, from its own start, and waits, kept as it
                     // is, until enough of them are heard.
+                    let own_start_us = candidate
+                        .trigger_read_at_us
+                        .saturating_sub(u64::from(crate::activity::START_BLOCKS - 1) * BLOCK_US);
+                    // Its last chance: before its deadline, or its oldest
+                    // block's read history, runs out.
+                    let last_chance_at_us = candidate
+                        .decision_deadline_us
+                        .min(
+                            candidate
+                                .first_read_at_us
+                                .saturating_add(crate::turn_taking::HISTORY_US),
+                        )
+                        .saturating_sub(ASKER_LAST_CHANCE_US);
                     let judged = reply
                         .as_ref()
                         .filter(|current| current.local_input_ended && current.playback.is_none())
                         .and_then(|current| {
                             let turn = current.owner.turn();
-                            let own_start_us = candidate.trigger_read_at_us.saturating_sub(
-                                u64::from(crate::activity::START_BLOCKS - 1) * BLOCK_US,
-                            );
-                            // Recorded only, it never waits: nothing the
-                            // lamp does changes.
                             // Nor does one whose utterance has ended, which
                             // would refuse the next one's Start while it
                             // waited (the first builder on #1092).
-                            let last_chance = asker_mode == crate::asker_first::Mode::Record
-                                || admission.pending_ended()
-                                || at_us.saturating_add(ASKER_LAST_CHANCE_US)
-                                    >= candidate.decision_deadline_us.min(
-                                        candidate
-                                            .first_read_at_us
-                                            .saturating_add(crate::turn_taking::HISTORY_US),
-                                    );
+                            let last_chance =
+                                admission.pending_ended() || at_us >= last_chance_at_us;
                             Some((
                                 turn,
                                 asker_first
@@ -4728,9 +4767,39 @@ fn conversation_with_gate(
                                     .judge(turn, own_start_us, at_us, last_chance),
                             ))
                         });
+                    // The answer began while the rule waited on this one:
+                    // the duplex rule judges it now, and what the asker rule
+                    // would have done is still recorded.
+                    if judged.is_none()
+                        && asker_waited.is_some_and(|(id, _, _)| id == candidate.id)
+                        && let Some((_, turn, start)) = asker_waited.take()
+                        && let Some(rule) = asker_first.as_mut()
+                        && let crate::asker_first::Judgement::Keep(kept) =
+                            rule.judge(turn, start, at_us, true)
+                    {
+                        record_asker_first(
+                            rule,
+                            trace,
+                            turn,
+                            at_us,
+                            kept,
+                            false,
+                            "as_its_answer_began",
+                        )?;
+                    }
                     match judged {
                         // Neither let go nor admitted: on a later block.
-                        Some((_, crate::asker_first::Judgement::Wait)) => continue,
+                        Some((turn, crate::asker_first::Judgement::Wait))
+                            if asker_mode == crate::asker_first::Mode::On =>
+                        {
+                            asker_waited = Some((candidate.id, turn, own_start_us));
+                            continue;
+                        }
+                        // Recorded only, it never waits: it is taken now,
+                        // and followed as `on` would follow it.
+                        Some((turn, crate::asker_first::Judgement::Wait)) => {
+                            asker_shadow = Some((turn, own_start_us, last_chance_at_us));
+                        }
                         Some((turn, crate::asker_first::Judgement::Keep(kept))) => {
                             let acts = asker_mode == crate::asker_first::Mode::On;
                             if acts {
@@ -4741,25 +4810,16 @@ fn conversation_with_gate(
                                 }
                                 detector.clear_prospective();
                             }
-                            if asker_first
-                                .as_mut()
-                                .is_some_and(|rule| rule.first_for(turn))
-                            {
-                                let under_db = f32::from(kept.asker - kept.heard) / 7.5;
-                                eprintln!(
-                                    "lamp-voice: asker first: speech {under_db:.1} dB under the asker's {} request {turn}'s answer",
-                                    if acts {
-                                        "took no turn from"
-                                    } else {
-                                        "would have taken no turn from"
-                                    }
-                                );
-                                record(
+                            if let Some(rule) = asker_first.as_mut() {
+                                rule.kept_line(at_us);
+                                record_asker_first(
+                                    rule,
                                     trace,
-                                    json!({"kind":"asker_first","turn":turn,"at_us":at_us,
-                                        "asker_level":kept.asker,"heard_level":kept.heard,"heard_upper_tenth":kept.upper,"blocks":kept.blocks,
-                                        "margin":crate::asker_first::MARGIN,"acted":acts,
-                                        "boundary":"speech well under the asker's, judged on its own blocks (its upper tenth under the asker's middle less the margin), while its answer was awaited; acted: it took no turn, else recorded only; levels on the face's scale, 7.5 to a decibel"}),
+                                    turn,
+                                    at_us,
+                                    kept,
+                                    acts,
+                                    "at_its_last_chance",
                                 )?;
                             }
                             if acts {
@@ -6575,6 +6635,40 @@ fn hear_capture_block(
         _ => {}
     }
     Ok((listened.score, listened.step == DuplexStep::Yield))
+}
+
+/// The asker-first rule's record, once for `turn` (`crate::asker_first`):
+/// speech it kept, or would have kept (`acted` false: recorded only, or the
+/// answer began first), with both levels and when it was judged.
+#[allow(clippy::too_many_arguments)]
+fn record_asker_first(
+    rule: &mut crate::asker_first::AskerFirst,
+    trace: &mut SessionState,
+    turn: u64,
+    at_us: u64,
+    kept: crate::asker_first::Kept,
+    acted: bool,
+    judged: &str,
+) -> Result<()> {
+    if !rule.first_for(turn) {
+        return Ok(());
+    }
+    let under_db = f32::from(kept.asker - kept.heard) / 7.5;
+    eprintln!(
+        "lamp-voice: asker first: speech {under_db:.1} dB under the asker's {} request {turn}'s answer",
+        if acted {
+            "took no turn from"
+        } else {
+            "would have taken no turn from"
+        }
+    );
+    record(
+        trace,
+        json!({"kind":"asker_first","turn":turn,"at_us":at_us,
+            "asker_level":kept.asker,"heard_level":kept.heard,"heard_upper_tenth":kept.upper,"blocks":kept.blocks,
+            "margin":crate::asker_first::MARGIN,"acted":acted,"judged":judged,
+            "boundary":"speech well under the asker's, judged on its own blocks (its upper tenth under the asker's middle less the margin), while its answer was awaited; acted: it took no turn, else recorded only or the answer began first; levels on the face's scale, 7.5 to a decibel"}),
+    )
 }
 
 /// One block for a yield's words (#828, `LAMP_STOP_WORDS=heard`): its held

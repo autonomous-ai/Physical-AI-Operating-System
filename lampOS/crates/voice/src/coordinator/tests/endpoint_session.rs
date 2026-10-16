@@ -2178,6 +2178,158 @@ fn with_asker_first_a_short_quiet_line_ended_while_waiting_ends_nothing() {
     }
 }
 
+/// The reviewer's P1 on #1092 at 00:00: a 0.2 s word at ±300, 4.0, 4.2 or
+/// 4.5 s after the asker's end (block 189). Waiting until the 5 s passed, it
+/// outlived the 0.8 s of reads kept for it: the voice ended, or it was
+/// refused with no turn and no record. It is decided while its reads last
+/// now: the session goes on, it takes no turn, and the rule says so.
+#[test]
+fn with_asker_first_a_late_short_word_is_decided_while_its_reads_last() {
+    use crate::asker_first::Mode;
+    let _one = one_session();
+    fn at_400(block: u64) -> f32 {
+        if (50..150).contains(&block) || (589..609).contains(&block) {
+            SPEECH
+        } else {
+            QUIET
+        }
+    }
+    fn at_420(block: u64) -> f32 {
+        if (50..150).contains(&block) || (609..629).contains(&block) {
+            SPEECH
+        } else {
+            QUIET
+        }
+    }
+    fn at_450(block: u64) -> f32 {
+        if (50..150).contains(&block) || (639..659).contains(&block) {
+            SPEECH
+        } else {
+            QUIET
+        }
+    }
+    fn levels(block: u64) -> i16 {
+        match block {
+            50..150 => 2_000,
+            589..660 => 300,
+            _ => 20,
+        }
+    }
+    for script in [at_400 as Script, at_420, at_450] {
+        let session = asker_then(Mode::On, script, levels);
+        assert_eq!(
+            session.seen.requests.len(),
+            1,
+            "{:?}",
+            session.seen.requests
+        );
+        let said = session.events("asker_first");
+        assert_eq!(said.len(), 1, "{said:?}");
+        assert_eq!(said[0]["acted"], true, "{said:?}");
+    }
+}
+
+/// The reviewer's first P2 on #1092 at 00:00: a 1 s line at ±300 begun
+/// 4.7 s after the asker's end was kept at its start, and its next
+/// candidate took the turn at 5 s, 0.29 s into it. A line kept is kept
+/// until it pauses now, and never taken halfway.
+#[test]
+fn with_asker_first_a_line_kept_near_the_five_seconds_is_kept_whole() {
+    use crate::asker_first::Mode;
+    let _one = one_session();
+    fn line(block: u64) -> f32 {
+        if (50..150).contains(&block) || (659..759).contains(&block) {
+            SPEECH
+        } else {
+            QUIET
+        }
+    }
+    fn levels(block: u64) -> i16 {
+        match block {
+            50..150 => 2_000,
+            659..760 => 300,
+            _ => 20,
+        }
+    }
+    let session = asker_then(Mode::On, line, levels);
+    assert_eq!(
+        session.seen.requests.len(),
+        1,
+        "{:?}",
+        session.seen.requests
+    );
+}
+
+/// The reviewer's second P2 on #1092 at 00:00: `record` gives `on`'s
+/// judgement, made where `on` makes it. The asker's follow-up opening with
+/// 0.2 s at ±300 is taken by `on`, so `record` writes nothing for it; the
+/// line across the room is recorded once, as kept at its last chance.
+#[test]
+fn with_asker_first_record_judges_where_on_does() {
+    use crate::asker_first::Mode;
+    let _one = one_session();
+    fn soft_start(block: u64) -> i16 {
+        match block {
+            50..150 => 2_000,
+            300..320 => 300,
+            320..400 => 2_000,
+            _ => 20,
+        }
+    }
+    fn across_the_room(block: u64) -> i16 {
+        match block {
+            50..150 => 2_000,
+            300..400 => 300,
+            _ => 20,
+        }
+    }
+    let follow_up = asker_then(Mode::Record, two_lines, soft_start);
+    assert!(follow_up.events("asker_first").is_empty());
+    let across = asker_then(Mode::Record, two_lines, across_the_room);
+    let said = across.events("asker_first");
+    assert_eq!(said.len(), 1, "{said:?}");
+    assert_eq!(
+        (said[0]["acted"].as_bool(), said[0]["judged"].as_str()),
+        (Some(false), Some("at_its_last_chance")),
+        "{said:?}"
+    );
+}
+
+/// The reviewer's P3 on #1092 at 00:00: new speech is judged on its own
+/// blocks, never on talk just before it. A loud burst of four blocks, at
+/// the asker's level, then soft speech 60 ms later: the soft speech is
+/// still well under the asker, and takes no turn. Judged on the half second
+/// before, the burst made it the asker's.
+#[test]
+fn with_asker_first_a_loud_burst_just_before_does_not_let_soft_speech_in() {
+    use crate::asker_first::Mode;
+    let _one = one_session();
+    fn burst_then_soft(block: u64) -> f32 {
+        if (50..150).contains(&block) || (300..304).contains(&block) || (310..340).contains(&block)
+        {
+            SPEECH
+        } else {
+            QUIET
+        }
+    }
+    fn levels(block: u64) -> i16 {
+        match block {
+            50..150 => 2_000,
+            300..304 => 2_000,
+            310..340 => 300,
+            _ => 20,
+        }
+    }
+    let session = asker_then(Mode::On, burst_then_soft, levels);
+    assert_eq!(
+        session.seen.requests.len(),
+        1,
+        "{:?}",
+        session.seen.requests
+    );
+    assert_eq!(session.events("asker_first").len(), 1);
+}
+
 /// The first builder's 21:35 on #1092: the rule ends 5 s after the asker
 /// stopped, whether or not the answer has begun. An answer that never
 /// plays (held back by the rule for whom it answers, or never sent) must

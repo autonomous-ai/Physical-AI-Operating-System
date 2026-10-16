@@ -404,14 +404,6 @@ impl InputAdmission {
         pending.audio.drain(..count);
         Ok(count)
     }
-    /// Whether a candidate is pending whose utterance has already ended: it
-    /// can wait for nothing more, and must be decided now. One kept waiting
-    /// past its end refuses the next utterance's Start (the first builder
-    /// on #1092).
-    pub fn pending_ended(&self) -> bool {
-        matches!(&self.phase, Phase::Pending(pending) if pending.ended)
-    }
-
     /// Original latest retained block, not a freshened trigger timestamp.
     pub fn pending_evidence(
         &self,

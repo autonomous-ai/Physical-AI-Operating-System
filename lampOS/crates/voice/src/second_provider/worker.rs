@@ -657,7 +657,7 @@ impl Sessions {
             return (false, None);
         };
         if who.is_some() {
-            thread.at_lamp(whose);
+            thread.at_lamp_since(whose, self.presence.arrived());
         }
         let changed = thread.opening(now);
         (changed, thread.opened_for().map(str::to_owned))

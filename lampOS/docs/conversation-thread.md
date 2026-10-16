@@ -165,14 +165,19 @@ lamp-4ace it has acted about a dozen times with no fault.
 
 With a memory and eyes that remember faces (#764), each exchange is kept
 as whose it was: the room's, or the memory id (never the name) of the known
-person at the lamp as the worker counts it (a different known person at
-once, nobody after 30 s unseen and two minutes with no exchange; until
-then what is said is still the known person's). Each keeps their own last eight, four
+person at the lamp as the worker counts it (someone known at once when
+nobody was, a different known person once known 10 s with the one before
+unseen, nobody after 30 s unseen and two minutes with no exchange; until
+then what is said is still the known person's). For up to those 10 s a
+newcomer is answered in the session of the one before; once they count,
+what they said since the eyes first knew them becomes theirs, so it is not
+told to the one before
+([memory.md](memory.md#a-session-for-each-person-764-follow-up)). Each keeps their own last eight, four
 threads at most with the room's (32 exchanges), the oldest going first past
 that. A session is told only the exchanges of the person it was opened for,
 and the worker opens a new session between turns when that person changes
-([memory.md](memory.md#a-session-for-each-person-764-follow-up)), so one
-person's conversation never reaches another's session, and someone who
+([memory.md](memory.md#a-session-for-each-person-764-follow-up)), so past
+those 10 s one person's conversation never reaches another's session, and someone who
 comes back within ten minutes is told theirs again. The file keeps whose
 each exchange is (`whose`, left out for the room's, so a thread with
 nobody known is written as before); an entry whose `whose` is not a memory

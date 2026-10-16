@@ -395,6 +395,24 @@ provider session is one person's:
   to them. Nobody counts only after 30 s without a fresh file
   (`GONE_AFTER`): the eyes renew it within 3 s while they see the face, so
   looking away for a few seconds is not a change.
+- **For up to those 10 s a newcomer** in a known person's place is answered
+  in that person's session, which holds their thread and kept things. Once
+  the newcomer counts, what they said since the eyes first knew them is
+  filed as theirs (`Presence::arrived`, `Thread::at_lamp_since`): it is in
+  their own recall and never told to the one before when they come back.
+  If the one before is seen again first, it stays theirs
+  (`thread::tests::what_a_newcomer_said_before_they_counted_is_theirs`).
+- **A face kept under two names still restarts the session**, far less
+  often, not never. In the reviewer's probe on #1100, with the eyes' one
+  recognition per 2 s naming either record at random: 14 restarts an hour
+  when they match equally (23 at worst), against about 900 before; 2 an
+  hour at 70/30. The full fix is one record per face (#1057). The session
+  is told the name of the one counted, so such a face is told one name.
+- **The second route** reads the file only when a turn opens, so "unseen"
+  there means not named at the last few turns' openings. With a face that
+  matches its two records equally and a turn every 5 s, it changes thread
+  about 50 times an hour. It opens no session, so the lamp is not deaf,
+  but a turn can be given the other record's thread.
 - **Nobody ends a person's session only when it has gone quiet**: after the
   30 s unseen, and also two minutes with no exchange in the thread
   (`QUIET_BEFORE_ROOM`) and no turn open. Recognition needs the face, and

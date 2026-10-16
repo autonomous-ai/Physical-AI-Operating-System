@@ -197,6 +197,28 @@ impl Thread {
 
     /// Who is at the lamp now: a memory id, or `None` for nobody known.
     pub fn at_lamp(&mut self, whose: Option<String>) {
+        self.at_lamp_since(whose, None);
+    }
+
+    /// As [`Self::at_lamp`], with when the eyes first knew them if they
+    /// took a known person's place ([`crate::known_faces::Presence::arrived`]).
+    /// Until they counted, what they said was answered as the one before's
+    /// and kept as theirs: those exchanges are now the newcomer's, so they
+    /// are never told to the one before when they come back (the reviewer
+    /// on #1100). If the one before is seen again first, nothing moves.
+    pub fn at_lamp_since(&mut self, whose: Option<String>, arrived: Option<Instant>) {
+        if let (Some(before), Some(_), Some(since)) = (&self.whose, &whose, arrived)
+            && self.whose != whose
+        {
+            for exchange in self
+                .exchanges
+                .iter_mut()
+                .filter(|e| e.whose.as_ref() == Some(before) && e.at >= since)
+            {
+                exchange.whose = whose.clone();
+                self.changed = true;
+            }
+        }
         self.whose = whose;
     }
 
@@ -1308,11 +1330,10 @@ mod tests {
         let mut presence = Presence::default();
         let mut thread = Thread::new();
         let mut seen = |thread: &mut Thread, known: Option<&str>, now: Instant| {
-            thread.at_lamp(
-                presence
-                    .seen(known.map(str::to_owned), now)
-                    .map(str::to_owned),
-            );
+            let whose = presence
+                .seen(known.map(str::to_owned), now)
+                .map(str::to_owned);
+            thread.at_lamp_since(whose, presence.arrived());
         };
         let opened = |thread: &mut Thread, now: Instant| {
             thread.opening(now);
@@ -1389,6 +1410,64 @@ mod tests {
         read.at_lamp(Some("../Minh".into()));
         read.opening(at(161));
         assert_eq!(read.recall(at(161), ROOM), None);
+    }
+
+    /// The reviewer on #1100: for up to `SOMEONE_ELSE_AFTER` a newcomer in a
+    /// known person's place is answered in that person's session. What they
+    /// said then is theirs once they count, never told to the one before
+    /// when they come back. What was said while the one before was still
+    /// seen stays the one before's.
+    #[test]
+    fn what_a_newcomer_said_before_they_counted_is_theirs() {
+        use crate::known_faces::Presence;
+        let start = Instant::now();
+        let at = |seconds: u64| start + Duration::from_secs(seconds);
+        let (a, b) = (
+            crate::remember::person_id("Minh"),
+            crate::remember::person_id("Sam"),
+        );
+        let mut presence = Presence::default();
+        let mut thread = Thread::new();
+        let mut seen = |thread: &mut Thread, known: &str, now: Instant| {
+            let whose = presence
+                .seen(Some(known.to_owned()), now)
+                .map(str::to_owned);
+            thread.at_lamp_since(whose, presence.arrived());
+        };
+        seen(&mut thread, &a, at(0));
+        thread.opening(at(0));
+        thread.person("Keep my locker code, 417.", true, at(1));
+        thread.lamp(1, "Kept: 417.", at(2));
+        // Sam is read once, then Minh again: what is said between is Minh's.
+        seen(&mut thread, &b, at(3));
+        thread.person("Thanks.", true, at(4));
+        thread.lamp(2, "You're welcome.", at(5));
+        seen(&mut thread, &a, at(6));
+        // Sam sits down in Minh's place at 10 s and speaks at 13 s, before
+        // they count: answered in Minh's session.
+        seen(&mut thread, &b, at(10));
+        thread.person("My bank PIN is 2468, keep it.", true, at(13));
+        thread.lamp(3, "Kept: 2468.", at(14));
+        assert!(!thread.switch_due(at(14)), "still Minh's session");
+        seen(&mut thread, &b, at(20));
+        assert!(thread.switch_due(at(20)));
+        thread.opening(at(20));
+        let sam = thread.recall(at(20), ROOM).unwrap();
+        assert!(sam.contains("2468"), "{sam}");
+        assert!(!sam.contains("417") && !sam.contains("welcome"), "{sam}");
+        // Minh comes back: their own exchanges, and not Sam's PIN.
+        seen(&mut thread, &a, at(30));
+        seen(&mut thread, &a, at(40));
+        thread.opening(at(40));
+        let minh = thread.recall(at(40), ROOM).unwrap();
+        assert!(minh.contains("417") && minh.contains("welcome"), "{minh}");
+        assert!(!minh.contains("2468"), "{minh}");
+        // The file keeps it so.
+        let text = thread.save(at(41), SystemTime::now()).unwrap();
+        let mut read = Thread::load(&text, at(41), SystemTime::now());
+        read.at_lamp(Some(a.clone()));
+        read.opening(at(41));
+        assert!(!read.recall(at(41), ROOM).unwrap().contains("2468"));
     }
 
     /// The exchanges a route gives a model as messages: the person's only,

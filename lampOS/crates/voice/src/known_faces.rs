@@ -177,6 +177,9 @@ pub struct Presence {
     /// Someone else known, and since when, while the one at the lamp has
     /// not been seen.
     other: Option<(String, Instant)>,
+    /// When the eyes first knew the one at the lamp, if they took a known
+    /// person's place: what was said since then was theirs.
+    arrived: Option<Instant>,
 }
 
 impl Presence {
@@ -189,6 +192,7 @@ impl Presence {
                     if *other == who
                         && now.saturating_duration_since(*since) >= SOMEONE_ELSE_AFTER =>
                 {
+                    self.arrived = Some(*since);
                     self.who = Some(who);
                     self.seen_at = Some(now);
                     self.other = None;
@@ -197,6 +201,9 @@ impl Presence {
                 _ => self.other = Some((who, now)),
             },
             Some(who) => {
+                if self.who.is_none() {
+                    self.arrived = None;
+                }
                 self.who = Some(who);
                 self.seen_at = Some(now);
                 self.other = None;
@@ -206,10 +213,19 @@ impl Presence {
                 .is_some_and(|at| now.saturating_duration_since(at) >= GONE_AFTER) =>
             {
                 self.who = None;
+                self.arrived = None;
             }
             None => {}
         }
         self.who.as_deref()
+    }
+
+    /// When the eyes first knew the one at the lamp, if they counted after
+    /// [`SOMEONE_ELSE_AFTER`] in a known person's place: for up to that
+    /// long a newcomer is answered as the one before, and what they said
+    /// then is theirs ([`crate::thread::Thread::at_lamp_since`]).
+    pub fn arrived(&self) -> Option<Instant> {
+        self.arrived
     }
 }
 
@@ -301,10 +317,19 @@ mod tests {
         assert_eq!(presence.seen(Some("a".into()), at(73)), Some("a"));
         assert_eq!(presence.seen(Some("b".into()), at(74)), Some("a"));
         assert_eq!(presence.seen(Some("b".into()), at(83)), Some("a"));
+        assert_eq!(presence.arrived(), None);
         assert_eq!(presence.seen(Some("b".into()), at(84)), Some("b"));
+        // Since its first reading after "a" was last seen.
+        assert_eq!(presence.arrived(), Some(at(74)));
         // And "a" again, as someone else, only after 10 s.
         assert_eq!(presence.seen(Some("a".into()), at(85)), Some("b"));
         assert_eq!(presence.seen(Some("a".into()), at(95)), Some("a"));
+        assert_eq!(presence.arrived(), Some(at(85)));
+        // Nobody, then someone: they took nobody's place.
+        assert_eq!(presence.seen(None, at(125)), None);
+        assert_eq!(presence.arrived(), None);
+        assert_eq!(presence.seen(Some("b".into()), at(126)), Some("b"));
+        assert_eq!(presence.arrived(), None);
     }
 
     #[test]

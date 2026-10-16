@@ -1110,6 +1110,10 @@ async fn serve_with_visual<C: Connect>(
         .filter(|_| options.tools.memory.is_some());
     let mut presence = crate::known_faces::Presence::default();
     let mut presence_read_at: Option<Instant> = None;
+    // The name of the one counted at the lamp, for the name note: a face
+    // kept under two names is told one, not each in turn (the reviewer on
+    // #1100).
+    let mut counted: Option<String> = None;
     let mut switch_asked: Option<SessionId> = None;
     // With a memory, the session is also told that what they say is theirs.
     let theirs = if options.tools.memory.is_some() {
@@ -1507,7 +1511,8 @@ async fn serve_with_visual<C: Connect>(
                     }
                 }
                 // The person at the lamp is someone it knows: what they say
-                // is told their name, once a session (`crate::known_faces`).
+                // is told their name, once a session (`crate::known_faces`);
+                // with a session for each person, the name of the one counted.
                 if let Some(path) = known_file.as_deref()
                     && known_read_at.is_none_or(|at| at.elapsed() >= Duration::from_millis(500))
                     && let Some(live) = provider.live_session()
@@ -1516,6 +1521,7 @@ async fn serve_with_visual<C: Connect>(
                 {
                     known_read_at = Some(Instant::now());
                     if let Some(name) = crate::known_faces::known_now(path)
+                            .map(|seen| counted.clone().filter(|_| switch_file.is_some()).unwrap_or(seen))
                         && known_told.as_ref() != Some(&(live, name.clone()))
                         && add_note(&provider, &mut intake.handoff.noted, open.request, &(crate::known_faces::note(&name) + theirs)).is_ok()
                     {
@@ -1535,12 +1541,13 @@ async fn serve_with_visual<C: Connect>(
                     && presence_read_at.is_none_or(|at| at.elapsed() >= Duration::from_millis(500))
                 {
                     presence_read_at = Some(Instant::now());
-                    let known = crate::known_faces::known_now(path)
-                        .map(|name| crate::remember::person_id(&name));
-                    let whose = presence.seen(known, Instant::now()).map(str::to_owned);
+                    counted = presence
+                        .seen(crate::known_faces::known_now(path), Instant::now())
+                        .map(str::to_owned);
+                    let whose = counted.as_deref().map(crate::remember::person_id);
                     let turn_open = intake.handoff.visual_turn().is_some();
                     let due = crate::thread::THREAD.lock().is_ok_and(|mut thread| {
-                        thread.at_lamp(whose);
+                        thread.at_lamp_since(whose, presence.arrived());
                         thread.switch_now(turn_open, !output.is_empty(), Instant::now())
                     });
                     let live = provider.live_session();

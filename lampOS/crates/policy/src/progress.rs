@@ -765,21 +765,21 @@ impl Progress {
             return match self.answers.try_recv() {
                 Ok((answer, took)) => {
                     let (context, _) = self.asking.take().expect("a question is out");
-                    Some(self.decide(context, Some(answer), took, now, unix_ms))
+                    Some(self.decide(context, Some(answer), took, now, unix_ms, room))
                 }
                 Err(mpsc::TryRecvError::Empty) => None,
                 Err(mpsc::TryRecvError::Disconnected) => {
                     self.asker_gone = true;
                     let (context, sent) = self.asking.take().expect("a question is out");
                     let took = now.saturating_duration_since(sent);
-                    Some(self.decide(context, None, took, now, unix_ms))
+                    Some(self.decide(context, None, took, now, unix_ms, room))
                 }
             };
         }
         let task = self.next(now, unix_ms, room)?;
         let context = self.context(task, now, unix_ms, room, someone_here);
         if self.asker_gone {
-            return Some(self.decide(context, None, Duration::ZERO, now, unix_ms));
+            return Some(self.decide(context, None, Duration::ZERO, now, unix_ms, room));
         }
         match self.states.try_send(state_text(&context)) {
             Ok(()) => {
@@ -789,7 +789,7 @@ impl Progress {
             Err(mpsc::TrySendError::Full(_)) => None,
             Err(mpsc::TrySendError::Disconnected(_)) => {
                 self.asker_gone = true;
-                Some(self.decide(context, None, Duration::ZERO, now, unix_ms))
+                Some(self.decide(context, None, Duration::ZERO, now, unix_ms, room))
             }
         }
     }
@@ -890,6 +890,9 @@ impl Progress {
 
     /// Decide from the model's answers, or by the rule when there are none
     /// to use (`answer` is none when the asking thread has gone).
+    /// `room` is the room as it is now, when the answer has come: a hard
+    /// rule holds by what is so now, and the question's own context stays
+    /// as it was asked, for its record (the reviewer on #937).
     fn decide(
         &mut self,
         context: Context,
@@ -897,6 +900,7 @@ impl Progress {
         took: Duration,
         now: Instant,
         unix_ms: u64,
+        room: Room,
     ) -> Decided {
         let connection = answer
             .as_ref()
@@ -945,7 +949,7 @@ impl Progress {
         } else {
             self.tasks
                 .get(&context.task)
-                .and_then(|tracked| self.hold(tracked, now, unix_ms, context.room))
+                .and_then(|tracked| self.hold(tracked, now, unix_ms, room))
         }
         .filter(|_| judgement.choice == Choice::SayNow);
         if guard.is_some() {
@@ -1310,6 +1314,15 @@ mod tests {
     /// the question is out, then let the yes come back and take what is
     /// decided at `then`.
     fn asked_then(meanwhile: impl FnOnce(&mut Progress), then: Instant) -> (Progress, Decided) {
+        asked_then_in(meanwhile, then, Room::Quiet)
+    }
+
+    /// As [`asked_then`], the answer taken up with the room as `room`.
+    fn asked_then_in(
+        meanwhile: impl FnOnce(&mut Progress),
+        then: Instant,
+        room: Room,
+    ) -> (Progress, Decided) {
         let (release, held) = mpsc::channel();
         let mut progress =
             Progress::start(Held(held), Options::new(Duration::from_secs(1), None)).unwrap();
@@ -1322,7 +1335,7 @@ mod tests {
         release.send(()).unwrap();
         let waited = Instant::now();
         loop {
-            if let Some(decided) = progress.turn(then, 0, Room::Quiet, Some(true)) {
+            if let Some(decided) = progress.turn(then, 0, room, Some(true)) {
                 return (progress, decided);
             }
             assert!(waited.elapsed() < Duration::from_secs(5), "no answer");
@@ -1694,5 +1707,36 @@ mod tests {
         );
         assert_eq!(decided.decision.choice, "wait");
         assert_eq!(Hold::KeptRule.as_str(), "kept_rule");
+    }
+
+    /// The reviewer on #937 (08:06): asked in a quiet room with news not
+    /// while they talk kept, the answer comes back once the room is busy, or
+    /// no longer known. The rule holds by the room as it is when the answer
+    /// comes: `wait`. In a room still quiet the yes is said, and the record
+    /// keeps the room the question was asked in.
+    #[test]
+    fn a_yes_that_comes_back_into_a_room_now_busy_is_held_by_not_while_talking() {
+        let not_while_talking = || Rules {
+            news: lamp_msgs::Unprompted {
+                not_while_talking: true,
+                ..lamp_msgs::Unprompted::default()
+            },
+            ..rules(false, false)
+        };
+        let then = Instant::now() + Duration::from_secs(120);
+        for (room, expected) in [
+            (Room::Busy, (Choice::Wait, Some(Hold::KeptRule))),
+            (Room::Unknown, (Choice::Wait, Some(Hold::KeptRule))),
+            (Room::Quiet, (Choice::SayNow, None)),
+        ] {
+            let (_, decided) =
+                asked_then_in(|progress| progress.rules(not_while_talking()), then, room);
+            assert_eq!(
+                (decided.line.judgement.choice, decided.line.guard),
+                expected,
+                "{room:?}"
+            );
+            assert_eq!(decided.line.context.room, Room::Quiet, "{room:?}");
+        }
     }
 }

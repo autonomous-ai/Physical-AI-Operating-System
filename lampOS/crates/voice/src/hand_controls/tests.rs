@@ -685,6 +685,47 @@ fn only_a_mute_left_by_the_restart_guard_reads_as_restored_after_a_fault() {
     assert!(chosen.muted() && !chosen.restored_after_fault());
 }
 
+/// The first builder on #997: after a reboot restore saves the record rebased
+/// to the new clock, and a second restart in that boot (an update's clean
+/// stop) must still know the mute is the guard's.
+#[test]
+fn a_guard_mute_is_still_known_as_the_guards_after_a_reboot_and_another_restart() {
+    let directory = Directory::new();
+    let marker = directory.0.join(format!("mute.json{GUARD_MARKER_SUFFIX}"));
+    // A restart as `restore` does it: the identity as stored, then the
+    // record loaded on this boot's clock and saved, then the marker read.
+    let restart = |clock: &str, now_us: u64| {
+        let stored = stored_identity(&directory.file());
+        let record = MuteRecord::load(&directory.file(), clock, now_us).unwrap();
+        record.save(&directory.file()).unwrap();
+        let (mut restarted, sender) =
+            from_record(options(false, Some(&directory.file())), record, now_us);
+        restarted.mark_guard = true;
+        restarted.restore_guard_marker(stored);
+        (restarted, sender)
+    };
+    let (mut owner, _sender) = fixture(options(false, Some(&directory.file())));
+    owner.mark_guard = true;
+    owner.arm_active().unwrap();
+    drop(owner);
+    // A power cut: the next boot has another clock, and the record is rebased.
+    let before = stored_identity(&directory.file()).unwrap();
+    let (rebooted, _sender) = restart("after-power-cut", 1_000);
+    assert!(rebooted.muted() && rebooted.restored_after_fault());
+    let rebased = stored_identity(&directory.file()).unwrap();
+    assert_ne!(rebased, before, "the reboot rebased the record");
+    // The marker now names the record as saved.
+    assert_eq!(
+        marker_identity(&fs::read_to_string(&marker).unwrap()),
+        Some(rebased)
+    );
+    drop(rebooted);
+    // An update stops it cleanly in the same boot: still the guard's.
+    let (updated, _sender) = restart("after-power-cut", 2_000);
+    assert!(updated.muted() && updated.restored_after_fault());
+    assert!(marker.is_file());
+}
+
 /// The marker never outlives its guard: a clean release removes it, and one
 /// left beside an unmuted record (a fault between the two writes) is dropped.
 #[test]

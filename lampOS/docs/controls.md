@@ -758,8 +758,21 @@ is a persistence fault for this run, and the person's mute is still saved.
 Across the restart that fault causes, a marker that could not be removed no
 longer counts: every person's mute moves `through_us` forward, so it never
 matches the guard record the marker names. A crash in teardown, between the
-removal and the save, or after a removal that failed, therefore never lets a
-tap open a person's mute (the reviewer's P1 and P2 on #997).
+removal and the save, or after a removal that failed while the save went
+through, therefore never lets a tap open a person's mute (the reviewer's P1
+and P2 on #997). One case is left, inherent to keeping the person's mute in
+the same record: if both the removal and the save fail, the record on disk is
+still the guard's and the marker still names it, so after the restart a tap
+can wake it, as a guard's mute. The person's mute never reached the disk in
+that case, which the persistence fault says.
+
+The marker is written with its folder synced before the guard is saved, so a
+power cut soon after arming cannot leave it empty. After a reboot, restore
+saves the record rebased to the new boot's clock, and when the marker matched
+it is rewritten to name that saved record: a second restart in the same boot,
+such as an update's clean stop, still knows the mute is the guard's (the first
+builder on #997). If that rewrite fails, the next restart no longer matches,
+and the mute reads as a chosen one.
 **A head tap wakes such a mute, as it wakes sleep** (`Receiver::request_wake_after_fault`):
 on lamp-4ace on 2026-10-16 a crash at 12:20 brought the voice up muted, and
 with no main button and the base strip off nothing at the lamp could open it.

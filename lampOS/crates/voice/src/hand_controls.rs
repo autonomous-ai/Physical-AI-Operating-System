@@ -549,6 +549,13 @@ impl HandControls {
     /// disk, as stored before any rebase, still is that one. Every person's
     /// mute moves `through_us` forward, so a person's saved mute never matches
     /// a marker left beside it, even one a failed removal could not take.
+    ///
+    /// After a reboot, restore saves the record rebased to the new clock, so
+    /// a match rewrites the marker to name that saved record: a second
+    /// restart in the same boot (an update's clean stop) still knows the
+    /// mute is the guard's (the first builder on #997). A rewrite that fails
+    /// leaves the old name, which the next restart no longer matches: it
+    /// fails closed, as a chosen mute.
     fn restore_guard_marker(&mut self, stored: Option<(String, u64)>) {
         let Some(marker) = self.guard_marker() else {
             return;
@@ -559,6 +566,14 @@ impl HandControls {
             .and_then(|text| marker_identity(&text));
         if self.mark_guard && present && self.muted() && names.is_some() && names == stored {
             self.restored_after_fault = true;
+            let saved = self
+                .options
+                .mute_record
+                .as_deref()
+                .and_then(stored_identity);
+            if let Some(saved) = saved.filter(|saved| Some(saved) != names.as_ref()) {
+                let _ = write_guard_marker(&marker, &saved);
+            }
         } else if present {
             let _ = std::fs::remove_file(&marker);
         }
@@ -582,14 +597,8 @@ impl HandControls {
             if self.mark_guard {
                 // The guard record's identity, written with it.
                 let record = self.receiver.mute_record();
-                let text = format!("{}\n{}\n", record.clock_id, record.through_us);
-                let _ = std::fs::OpenOptions::new()
-                    .write(true)
-                    .create(true)
-                    .truncate(true)
-                    .mode(0o600)
-                    .open(&marker)
-                    .and_then(|mut file| std::io::Write::write_all(&mut file, text.as_bytes()));
+                let identity = (record.clock_id.clone(), record.through_us);
+                let _ = write_guard_marker(&marker, &identity);
             }
         } else if marker.symlink_metadata().is_ok() {
             let _ = std::fs::remove_file(&marker);
@@ -956,6 +965,26 @@ impl HandControls {
 fn stored_identity(path: &Path) -> Option<(String, u64)> {
     let record: MuteRecord = serde_json::from_slice(&std::fs::read(path).ok()?).ok()?;
     Some((record.clock_id, record.through_us))
+}
+
+/// Writes the marker naming the guard record `identity`, synced with its
+/// folder before the guard is saved: a power cut soon after arming must not
+/// leave it empty on ext4, where it would no longer count as the guard's
+/// (the first builder on #997).
+fn write_guard_marker(marker: &Path, identity: &(String, u64)) -> io::Result<()> {
+    let text = format!("{}\n{}\n", identity.0, identity.1);
+    let mut file = std::fs::OpenOptions::new()
+        .write(true)
+        .create(true)
+        .truncate(true)
+        .mode(0o600)
+        .open(marker)?;
+    std::io::Write::write_all(&mut file, text.as_bytes())?;
+    file.sync_all()?;
+    if let Some(parent) = marker.parent() {
+        std::fs::File::open(parent)?.sync_all()?;
+    }
+    Ok(())
 }
 
 /// The guard record's identity a marker names: `clock_id`, then `through_us`.

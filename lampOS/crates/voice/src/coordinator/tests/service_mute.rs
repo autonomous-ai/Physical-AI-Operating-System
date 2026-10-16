@@ -347,10 +347,13 @@ fn unavailable_startup_or_failed_cleanup_never_calls_next_runtime() {
 /// One active rig's shutdown after the cycle ended as an unreadable switch,
 /// with the privacy worker having queued `fault` (if any) and ended by
 /// itself: cleanly, or killed.
+/// With `aged`, the queued fault has aged out before the cycle closes, as
+/// after a stall: its receive is an error, not the fault.
 fn shutdown_after_unreadable(
     privacy_controls: bool,
     fault: Option<&str>,
     killed: bool,
+    aged: bool,
 ) -> Result<()> {
     let directory = SessionDirectory::create().unwrap();
     let mut peers = Vec::new();
@@ -390,6 +393,9 @@ fn shutdown_after_unreadable(
     while privacy.try_exit().unwrap().is_none() {
         assert!(Instant::now() < deadline);
         thread::sleep(Duration::from_millis(1));
+    }
+    if aged {
+        thread::sleep(Duration::from_millis(1_700));
     }
     let mut rig = Rig {
         second: None,
@@ -447,19 +453,34 @@ fn a_queued_unreadable_fault_with_a_clean_exit_is_no_failed_shutdown() {
         crate::privacy_bus::UNREADABLE
     );
     let error = |result: Result<()>| result.unwrap_err();
-    let kept = error(shutdown_after_unreadable(true, Some(&unreadable), false));
+    let kept = error(shutdown_after_unreadable(
+        true,
+        Some(&unreadable),
+        false,
+        false,
+    ));
     assert!(
         crate::service_privacy::is_unavailable(&*kept),
         "expected an unreadable switch, got: {kept}"
     );
-    let kept = error(shutdown_after_unreadable(true, None, false));
+    let kept = error(shutdown_after_unreadable(true, None, false, false));
+    assert!(crate::service_privacy::is_unavailable(&*kept), "{kept}");
+    // The reviewer on #795 (01:45): the fault aged out before the cycle
+    // closed, so its receive is an error; with the worker's clean exit that
+    // is no failed shutdown either.
+    let kept = error(shutdown_after_unreadable(
+        true,
+        Some(&unreadable),
+        false,
+        true,
+    ));
     assert!(crate::service_privacy::is_unavailable(&*kept), "{kept}");
     for (controls, fault, killed) in [
         (true, Some(unreadable.as_str()), true),
         (true, Some("privacy controller lease expired"), false),
         (false, Some(unreadable.as_str()), false),
     ] {
-        let failed = error(shutdown_after_unreadable(controls, fault, killed));
+        let failed = error(shutdown_after_unreadable(controls, fault, killed, false));
         assert!(
             !crate::service_privacy::is_unavailable(&*failed),
             "{controls} {fault:?} {killed}: {failed}"

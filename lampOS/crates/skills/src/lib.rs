@@ -78,6 +78,9 @@ struct TestFile {
     topic: String,
     field: Option<String>,
     equals: Option<toml::Value>,
+    /// Holds while the field is anything else (#1140: the lamp not
+    /// speaking, whatever else the room's talk does).
+    not_equals: Option<toml::Value>,
     above: Option<f64>,
     below: Option<f64>,
     present: Option<bool>,
@@ -180,6 +183,7 @@ enum Test {
     /// the picture's height.
     Faces(f32),
     Equals(String, Value),
+    NotEquals(String, Value),
     Above(String, f64),
     Below(String, f64),
 }
@@ -193,13 +197,19 @@ impl Test {
                         >= f64::from(*near)
                 })
             }),
-            Self::Equals(field, wanted) => match (value[field].as_f64(), wanted.as_f64()) {
-                (Some(got), Some(wanted)) => got == wanted,
-                _ => &value[field] == wanted,
-            },
+            Self::Equals(field, wanted) => equal(&value[field], wanted),
+            Self::NotEquals(field, unwanted) => !equal(&value[field], unwanted),
             Self::Above(field, line) => value[field].as_f64().is_some_and(|got| got > *line),
             Self::Below(field, line) => value[field].as_f64().is_some_and(|got| got < *line),
         }
+    }
+}
+
+/// A number is compared as a number, anything else exactly.
+fn equal(got: &Value, wanted: &Value) -> bool {
+    match (got.as_f64(), wanted.as_f64()) {
+        (Some(got), Some(wanted)) => got == wanted,
+        _ => got == wanted,
     }
 }
 
@@ -527,18 +537,38 @@ pub fn load(dir: &Path) -> Result<Skill, String> {
     }
     let mut conditions = Vec::new();
     for condition in file.conditions {
-        let test = match condition.present {
-            None => test(
+        let test = match (condition.present, condition.not_equals) {
+            (None, Some(unwanted)) => match (
+                condition.field,
+                condition.equals,
+                condition.above,
+                condition.below,
+            ) {
+                (Some(field), None, None, None) => Test::NotEquals(
+                    field,
+                    serde_json::to_value(unwanted).map_err(|error| error.to_string())?,
+                ),
+                _ => {
+                    return Err(format!(
+                        "on {}: not_equals takes a field and nothing else of equals, above or below",
+                        condition.topic
+                    ));
+                }
+            },
+            (Some(_), Some(_)) => {
+                return Err("not_equals and present are one or the other".into());
+            }
+            (None, None) => test(
                 &condition.topic,
                 condition.field,
                 condition.equals,
                 condition.above,
                 condition.below,
             )?,
-            Some(true) if condition.topic == Faces::TOPIC && condition.field.is_none() => {
+            (Some(true), None) if condition.topic == Faces::TOPIC && condition.field.is_none() => {
                 Test::Faces(0.0)
             }
-            Some(_) => {
+            (Some(_), None) => {
                 return Err(format!(
                     "present = true is known only on {}, alone",
                     Faces::TOPIC

@@ -3,15 +3,23 @@ needs = ["eyes", "voice", "body", "light"]
 [[trigger]]
 topic = "humans/faces/tracked"
 when = "appears"            # a face where there was none
-near = 0.14                 # at the desk: a face at least this share of the picture's height (speak_up.rs)
+near = 0.14                 # at the desk: seated 0.17 to 0.30 of the picture's height, 1.5 m off at most 0.12 (lamp-06c1 and lamp-4ace, 2026-10-16)
 absent_for = "5m"           # after at least five minutes with nobody
 for = "3s"                  # there for three seconds without a break
+gap = "3s"                  # a look down at the keyboard does not end it
+wait = "60s"                # a room that talks: kept for a minute while they stay, taken once both conditions hold (#1140)
 cooldown = "20m"
 
-[[while]]                   # nothing said to the lamp or by it for half a minute
+[[while]]                   # nothing heard or said for 5 s: an office's own talk passes in 1 to 4 s (#1140)
 topic = "voice/state"
 field = "state"
 equals = "resting"
+for = "5s"
+
+[[while]]                   # the lamp itself has not spoken for 30 s: no "welcome back" to someone it has just talked with
+topic = "voice/state"
+field = "state"
+not_equals = "speaking"
 for = "30s"
 
 [ask]                       # anything the lamp starts itself asks the Policy first

@@ -1,0 +1,6 @@
+# Synthetic (lamp-bus pub --at-us on a private bus, #1140). Nobody for 400 s, the voice resting; someone sits down at
+# 400 s (0.25 of the picture's height) and stays to 520 s. The room talks from 400 to 470 s with never 5 s of rest
+# (listening 2 s, resting 2 s); the lamp itself never speaks. The chance comes at 403 s and waits its minute, to 463 s,
+# while the room is never quiet: nothing, not even once the room rests at 470 s. A hello more than a minute after
+# someone sat down would read as odd.
+none = true

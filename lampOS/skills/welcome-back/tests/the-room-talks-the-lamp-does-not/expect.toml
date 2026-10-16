@@ -1,0 +1,17 @@
+# Derived from back-at-the-desk-while-the-room-talks (lamp-06c1, 2026-10-16 17:50–17:58): the same faces and voice/state,
+# with the lamp's one reply (speaking at 406.2–408.4 s, 3 messages) turned into thinking, as for talk it let pass. The
+# person sits down at 399.3 s; the office's talk keeps the voice busy until 408.4 s; the chance waits (wait = "60s")
+# and is taken at the first 5 s of rest: a hello at 413.5 s (17:56:53.6). Without wait, nothing (#1140).
+[[expect]]
+at = "413500ms"
+within = "1s"
+call = "body.gaze"
+args = { look_at = "face" }
+
+[[expect]]
+call = "light"
+args = { colour = "warm" }
+
+[[expect]]
+call = "say"
+args = { note = "They are back at their desk. Greet them in one short line, by name if you know it." }

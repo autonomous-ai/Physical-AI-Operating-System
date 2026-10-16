@@ -1,0 +1,4 @@
+# Synthetic (lamp-bus pub --at-us on a private bus, #1140). Nobody for 400 s; someone sits down at 400 s while the room
+# talks (to 440 s, never 5 s of rest) and leaves at 431 s, away past the trigger's 3 s gap. Leaving ends the wait:
+# nothing, though the room rests from 440 s.
+none = true

@@ -1,4 +1,6 @@
-# Recorded on lamp-06c1, 2026-10-16 17:50–17:58 (#995): the person comes back to the desk at 17:56:39 (face 0.21 to 0.31
-# of the picture's height) while the office keeps talking (voice/state busy every 10 to 60 s). With no quiet half minute
-# at the arrival the chance is spent: nothing. This is what the skill does today; with a `wait` (#1089) it would greet.
+# Recorded on lamp-06c1, 2026-10-16 17:50:00–17:58:00 (#995): the person comes back to the desk at 17:56:39.4 (399.3 s
+# in; face 0.21 to 0.31 of the picture's height) while the office talks near the lamp (voice/state listening and
+# thinking for 1 to 4 s every 5 to 60 s), and the lamp itself speaks at 406.2–408.4 s, most likely to them. A "welcome
+# back" right after that would greet someone it has just talked with, so nothing: the lamp has not been 30 s without
+# speaking before their face leaves the picture, about 25 s after they sat down (#1140).
 none = true

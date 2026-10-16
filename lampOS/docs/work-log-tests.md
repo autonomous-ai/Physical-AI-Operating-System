@@ -16,7 +16,7 @@ Ready for lamp-voice: yes (#1109; with #1088, #1101 and #1104); no (#1113 and #1
 
 Ready for lamp-voice: yes (#1088, #1101, #1104); no (#1109, waiting for its ARM64 runs)
 
-**Full run 38880278170** on #1088's head passed all 5,786 tests, one at a time on four ARM64 runners. With the group's filterset as it was before these pull requests, the same 173 tests took **141.9 s** (256.6 s in 38849189990). `early_end` took 5.6 s (was 92.9 s) and `pilot_faults` 2.2 s (was 29.7 s, after #972 and #973). With #1101 (capacity, 0.171 s in its own ARM64 run) and #1104 (the barrier pair, 0.034 s and 0.027 s in its ARM64 run), the group comes to about 110 s, under the 2-minute goal (#823, comment of 16:56).
+**Full run 38880278170** on #1088's head passed all 5,786 tests, one at a time on four ARM64 runners. With the group's filterset as it was before these pull requests, the same 173 tests took **141.9 s** (256.6 s in 38849189990). `early_end` took 5.6 s (was 92.9 s) and `pilot_faults` 2.2 s (was 29.7 s, after #972 and #973). With #1101 (capacity, 0.171 s in its own ARM64 run) and #1104 (the barrier pair, 0.034 s and 0.027 s in its ARM64 run), the group comes to about 110 s, under the 2-minute goal (#823, comment of 16:44).
 
 **Ready:** #1088 (ARM64 38878999962 green), #1101 (38879889483) and #1104 (38881233618).
 

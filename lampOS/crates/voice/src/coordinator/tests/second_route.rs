@@ -52,6 +52,13 @@ enum Live {
     /// A skill's tool answered with a look (#941) in this session, then
     /// `packets` of audio.
     Look(usize, u64),
+    /// A skill's tool answered with a look, then the answer opens with "...".
+    LookSilent,
+    /// A skill's tool answered with a look, then the turn is unclear.
+    LookUnclear,
+    /// A skill's tool answered with a look, then as `FailThenLate`: the
+    /// second route takes the turn.
+    LookFail(Fault, usize),
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -649,6 +656,37 @@ impl Peers {
                             self.audio(index, request, packets, LIVE);
                             self.finish(index, request);
                         }
+                        Live::LookSilent | Live::LookUnclear | Live::LookFail(..) => {
+                            let queued = &mut self.peers[index].queued;
+                            queued.push_back(ProviderOutput::LookAsked {
+                                request,
+                                session: 1,
+                                dropped: None,
+                            });
+                            match answer {
+                                Live::LookSilent => {
+                                    queued.push_back(ProviderOutput::Transcript {
+                                        request: Some(request),
+                                        text: "...".into(),
+                                        finished: true,
+                                    });
+                                    self.finish(index, request);
+                                }
+                                Live::LookUnclear => {
+                                    queued.push_back(ProviderOutput::Unclear {
+                                        request,
+                                        why: "fixture".into(),
+                                    });
+                                    self.finish(index, request);
+                                }
+                                Live::LookFail(reason, packets) => {
+                                    queued.push_back(fail(reason));
+                                    self.audio(index, request, packets, LIVE);
+                                    self.finish(index, request);
+                                }
+                                _ => unreachable!(),
+                            }
+                        }
                     }
                 }
                 _ => {}
@@ -1029,6 +1067,52 @@ fn a_tool_s_look_asks_the_eyes_once_its_first_audio_plays_and_a_plain_call_asks_
             .iter()
             .any(|e| e["kind"] == "look_full_still")
     );
+    // The reviewer's 23:47 P2 on #1172: dropped before the eyes are asked.
+    assert_eq!(asks(&elsewhere), 0);
+}
+
+/// The reviewer's 23:47 P3 on #1172: a tool's look whose turn says nothing,
+/// is unclear, or is taken by the second route asks the eyes for nothing,
+/// and says why.
+#[test]
+fn a_tool_s_look_on_an_unsaid_unclear_or_handed_over_turn_asks_the_eyes_nothing() {
+    let _one = super::pilot_faults::one_session();
+    let still = std::env::temp_dir().join(format!(
+        "lamp-voice-loop-look-dropped-{}.jpg",
+        std::process::id()
+    ));
+    TEST_FULL_LOOK.with(|look| *look.borrow_mut() = Some(still));
+    let cases = [
+        (Live::LookSilent, false, "its answer said nothing"),
+        (Live::LookUnclear, false, "its turn is asked again"),
+        (
+            Live::LookFail(Fault::RateLimited, 6),
+            true,
+            "the session that made the call has gone",
+        ),
+    ];
+    let runs: Vec<_> = cases
+        .iter()
+        .map(|(live, second, _)| {
+            run(Script {
+                second: *second,
+                ..Script::question(*live)
+            })
+        })
+        .collect();
+    TEST_FULL_LOOK.with(|look| *look.borrow_mut() = None);
+    for ((live, _, why), run) in cases.iter().zip(&runs) {
+        let kinds = |kind: &str| run.trace.iter().filter(|e| e["kind"] == kind).count();
+        assert_eq!(kinds("look_asked"), 1, "{live:?}");
+        assert_eq!(kinds("look_full_asked"), 0, "{live:?}");
+        let dropped: Vec<_> = run
+            .trace
+            .iter()
+            .filter(|e| e["kind"] == "look_dropped")
+            .map(|e| e["why"].as_str().unwrap().to_owned())
+            .collect();
+        assert_eq!(dropped, [*why], "{live:?}");
+    }
 }
 
 #[test]

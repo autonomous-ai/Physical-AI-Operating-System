@@ -172,3 +172,14 @@ Ready for lamp-voice: no
 - The first builder merged #1035 at 15:25 (ARM64 38871955140 green on
   `c2d60f14c`, Sixth's re-look clean). Twelve's list is empty; the next
   task was asked for on #705 after the #993 review.
+
+## 2026-10-16 — due reminders never said on lamp-4ace, taken
+
+Ready for lamp-voice: no
+
+- The first builder's 15:30 list for twelve: (1) due reminders are never
+  said on lamp-4ace (ids 12 and 26 still `pending`, no consumer line at
+  15:00): find where a due item stops, journal every due item the consumer
+  gets and what it did, fix with a test; (2) what a reminder overdue by hours
+  does, to decide with the first builder; (3) the day's red voice tests.
+  (1) taken at 15:3x on `twelve/reminder-due`.

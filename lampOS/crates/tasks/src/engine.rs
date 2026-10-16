@@ -1448,6 +1448,21 @@ impl<P: Persistence> Engine<P> {
         Ok(true)
     }
 
+    /// The tasks whose latest read was asked for by a push ([`Engine::push`]),
+    /// whatever it found: one still watched after it was not settled by it,
+    /// and is left out of `wait` until the watch's own next read replaces
+    /// that read, so an agent Harness calls done while `show` finds it at
+    /// work costs one read a watch period, not one every few seconds (the
+    /// reviewer on #1157). Reads nothing and changes nothing.
+    pub fn pushed(&self) -> std::collections::BTreeSet<u64> {
+        self.state
+            .tasks
+            .iter()
+            .filter(|task| task.read.as_ref().is_some_and(|read| read.confirmed))
+            .map(|task| task.id)
+            .collect()
+    }
+
     fn watch_read(&mut self, index: usize, confirmed: bool, now: &Clock) -> Result<(), Error> {
         self.clock(now)?;
         let mut next = self.state.clone();
@@ -3247,6 +3262,7 @@ mod tests {
         let saved = stored(&memory);
         let index = find(&saved, id).unwrap();
         assert!(saved.tasks[index].read.as_ref().unwrap().confirmed);
+        assert_eq!(engine.pushed(), std::collections::BTreeSet::from([id]));
         let job = engine.begin_observation(&clock(40)).unwrap().unwrap();
         engine
             .finish_observation(&job, data("Lumi, Sunny and Archie."), &clock(41))

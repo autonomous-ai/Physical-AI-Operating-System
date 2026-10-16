@@ -703,6 +703,33 @@ mod tests {
         );
     }
 
+    /// The speaker's and the capture's loops end a pass with
+    /// `finish_tick(tick)`, its wait; every one of them, the speaker's six
+    /// lapse exits of #1214 among them (the midnight path, #1178), ends the
+    /// pass's work with `done()` first, so a long lapse tick is one `work`
+    /// line and its wait a `gap`. Those loops need a sound device, so no test
+    /// runs them; this holds their shape.
+    #[test]
+    fn every_audio_loop_wait_ends_its_pass_with_done_first() {
+        let source = include_str!("audio_workers.rs");
+        let lines: Vec<&str> = source.lines().collect();
+        let waits: Vec<usize> = lines
+            .iter()
+            .enumerate()
+            .filter(|(_, line)| line.trim() == "finish_tick(tick);")
+            .map(|(at, _)| at)
+            .collect();
+        assert!(waits.len() >= 10, "{} waits found", waits.len());
+        for at in waits {
+            assert_eq!(
+                lines[at - 1].trim(),
+                "stall_pass.done();",
+                "audio_workers.rs:{} waits without ending its pass",
+                at + 1
+            );
+        }
+    }
+
     #[test]
     fn a_full_file_starts_over_and_keeps_the_one_before() {
         let dir = folder("full");

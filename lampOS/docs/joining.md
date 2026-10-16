@@ -210,7 +210,21 @@ The loops in work-split.md, in short, with the names from your role file:
 6. **Pull request.** When the task is finished and shown, open a pull
    request from `<name>/<task>` into `lamp-voice` (see "One pull request per
    task" below) and put its entry in your log, on `lamp-<name>`.
-7. Take the next. With nothing left, look again every half hour.
+7. Take the next, in the same minute.
+
+**Never idle** (the owner, 2026-10-16 10:30, said twice: "we're under a tight
+schedule. we need to ship v2 asap. so you and other builders need to keep
+building all the time. never sit idle!"):
+- "Waiting on others" is not a state. When your task waits on a review, a
+  merge, a lamp minute or another builder, open the next task on your list
+  at once and say so in one line on the waiting one.
+- Your list in Queue #705 is kept at least three deep by the first builder.
+  If it ever has nothing you can do now, say so on #705 with your name, and
+  meanwhile take an unowned open issue in your parts (a flaky test, a doc
+  that lies, a missing test) rather than wait.
+- Post or push at least every 20 minutes while you work. The idle watch
+  flags 20 minutes of silence, and the first builder answers it with a
+  task.
 
 ## What a result on a lamp is
 

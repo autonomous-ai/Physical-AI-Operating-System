@@ -252,7 +252,8 @@ advances from that original anchor, to its next occurrence still ahead.
 of 2026-10-16 13:21: a person who was away does not hear "late" N times).
 A pending repeat whose later occurrences have also passed is shown as its
 newest missed one: `due_unix_ms` and `late_by_ms` are that occurrence's, and
-it is marked late. Its acknowledgement advances to the next occurrence still
+it is marked late, and it is ordered among the pending by that occurrence.
+Its acknowledgement advances to the next occurrence still
 ahead, so the ones missed in between are stepped over, not delivered. The
 stored deadline is not rewritten by a scan (its receipt names it); only an
 acknowledgement moves it. With an untrusted wall clock nothing is stepped.

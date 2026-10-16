@@ -98,6 +98,78 @@ async fn the_lamp_called_by_name_or_in_a_conversation_is_answered_with_the_switc
     );
 }
 
+/// #1108 through the worker's own loop: the lamp's name said alone (its
+/// call's wait run out: `ProviderInput::Called`, then its End), and then
+/// "Check my work." as a request of its own, with the switch, in a room not
+/// known to be busy and no conversation going on. After "Lamp." the call
+/// is the lamp's, and the request's answer plays; after "Hey Clamp?", a
+/// call whose own hearing shows nothing, it is held, as it would be with
+/// no call before it.
+#[tokio::test]
+async fn a_request_after_a_bare_call_is_answered_only_when_the_call_showed_the_lamp() {
+    assert!(after_a_bare_call("Lamp.").await);
+    assert!(!after_a_bare_call("Hey Clamp?").await);
+}
+
+/// A bare call heard as `call`, answered and complete, then "Check my
+/// work.": whether that request's answer came out of the worker.
+async fn after_a_bare_call(call: &str) -> bool {
+    let mut rig = LiveRig::start_with(
+        quick_policy(),
+        options(true, quiet, crate::tools::Settings::default()),
+    );
+    let mut dial = rig.ready().await;
+    let first = rig.speak(&mut dial, false, false).await;
+    dial.service.send(heard(call)).await;
+    rig.parent
+        .data
+        .send(ProviderInput::Called {
+            request: first,
+            privacy_generation: rig.snapshot.microphone_generation(),
+        })
+        .unwrap();
+    let owner = rig.snapshot.owner().unwrap();
+    rig.owner.input_ended(real_time(), owner).unwrap();
+    rig.publish();
+    rig.parent
+        .data
+        .send(ProviderInput::End {
+            request: first,
+            privacy_generation: rig.snapshot.microphone_generation(),
+            sound: false,
+            cut_in: false,
+        })
+        .unwrap();
+    // The service is told the call came alone, then its end.
+    let note = rig.service_message(&mut dial).await;
+    assert!(note["realtimeInput"]["text"].is_string(), "{note}");
+    let end = rig.service_message(&mut dial).await;
+    assert!(end["realtimeInput"].get("activityEnd").is_some(), "{end}");
+    dial.service.send(provider_audio(7, 240)).await;
+    dial.service.send(idle_complete()).await;
+    loop {
+        if let ProviderOutput::TurnComplete { request, .. } = rig.output().await
+            && request == first
+        {
+            break;
+        }
+    }
+    let second = rig.speak(&mut dial, false, true).await;
+    dial.service.send(heard("Check my work.")).await;
+    dial.service.send(provider_audio(7, 240)).await;
+    dial.service.send(idle_complete()).await;
+    let mut played = false;
+    loop {
+        match rig.output().await {
+            ProviderOutput::Audio { request, .. } if request == second => played = true,
+            ProviderOutput::TurnComplete { request, .. } if request == second => break,
+            _ => {}
+        }
+    }
+    rig.stop().await;
+    played
+}
+
 /// A request heard as `text` whose answer calls for the lamp action
 /// `action`: what the service was answered, and what the executive was
 /// asked, if it was asked at all.

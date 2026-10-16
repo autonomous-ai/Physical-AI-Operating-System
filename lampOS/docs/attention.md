@@ -837,6 +837,14 @@ The 3 s is not yet measured. The owner's two cases at 16:30:25 and
 16:31:21 are what it has to cover: the gap from the bare call's End to
 the next request's start, which the session's journal holds.
 
+Tests: `attention::tests::a_request_just_after_the_lamps_name_said_alone_is_called`
+and `a_bare_call_counts_only_when_its_own_hearing_shows_the_lamp_was_called`
+(the rule), and, through the worker's own loop from the call's
+`ProviderInput::Called` and End,
+`provider_worker::tests::spoken_to::a_request_after_a_bare_call_is_answered_only_when_the_call_showed_the_lamp`:
+after "Lamp." the next request's answer plays, after "Hey Clamp?" it is
+held.
+
 **The "hm?"** (`crates/voice/src/head_cue.rs`, First's design on #711): a tap
 on a quiet lamp's head plays a soft hum of its own, two short tones rising
 like a question (330 and 415 Hz with two soft overtones, 110 and 160 ms with

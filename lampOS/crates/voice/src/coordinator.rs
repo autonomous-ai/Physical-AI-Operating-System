@@ -5286,6 +5286,22 @@ fn decide_prospective_input(
             return Ok(None);
         }
     }
+    // A yield's first words go only as far back as the provider takes
+    // audio: those older than `FIRST_WORDS_AGE_US` are dropped from the
+    // front before the commit, never the usual pre-roll or the onset, and
+    // what is sent keeps its own capture times (#828, the reviewer on #936).
+    if let Some(through) = admission.lead_older_than(
+        candidate.id,
+        at_us.saturating_sub(crate::admission::FIRST_WORDS_AGE_US),
+    ) {
+        let removed = admission.discard_pending_prefix(candidate.id, through)?;
+        record(
+            trace,
+            json!({"kind":"input_prefix_sanitized","candidate":candidate.id,
+                "through_sequence":through,"removed_blocks":removed,
+                "reason":"first_words_too_old","at_us":at_us}),
+        )?;
+    }
     let basis = if mask.is_duplex() {
         AcceptanceBasis::DirectedSessionDuplex
     } else if mask.enabled() {

@@ -78,6 +78,10 @@ pub(super) struct Harness {
     pub(super) snapshot: Snapshot,
     pub(super) provider_queue: VecDeque<ProviderInput>,
     hold: Hold,
+    /// The least time between two blocks, for a paced run; and when each
+    /// block was read, by its sequence.
+    gap_us: u64,
+    reads: Vec<u64>,
 }
 
 impl Harness {
@@ -138,6 +142,8 @@ impl Harness {
             snapshot,
             provider_queue: VecDeque::new(),
             hold: if duplex { Hold::DUPLEX } else { Hold::STANDARD },
+            gap_us: 0,
+            reads: vec![0],
         }
     }
     pub(super) fn old(&self) -> TurnOwner {
@@ -151,13 +157,18 @@ impl Harness {
             .collect()
     }
     fn at(&self) -> u64 {
-        // Strictly after the previous block's read.
+        // Strictly after the previous block's read, and at least the
+        // paced gap after it.
         loop {
             let at = monotonic_us();
-            if at > self.last_read {
+            if at > self.last_read && at >= self.last_read + self.gap_us {
                 return at;
             }
-            std::hint::spin_loop();
+            if self.gap_us > 2_000 {
+                std::thread::sleep(std::time::Duration::from_micros(500));
+            } else {
+                std::hint::spin_loop();
+            }
         }
     }
     /// One pass of the session loop for one capture block: hear it, let
@@ -166,6 +177,19 @@ impl Harness {
     pub(super) fn block(&mut self, score: f32, echo: Option<EchoEvidence>) -> Tick {
         self.sequence += 1;
         let at = self.at();
+        if self.gap_us > 0 {
+            // A paced run outlasts the half second the reply's capture and
+            // admission were opened for: renewed each block, as the session
+            // loop renews them each tick.
+            let now = MonoTime::from_micros(at);
+            let until = MonoTime::from_micros(at + 500_000);
+            self.owner
+                .set_capture(now, lamp_turn_owner::CaptureState::RetainingUntil(until))
+                .unwrap();
+            self.owner
+                .set_admission(now, lamp_turn_owner::AdmissionState::OpenUntil(until))
+                .unwrap();
+        }
         let context = AdmissionContext {
             capture: self.lineage,
             // Issued no later than the block it judges.
@@ -188,6 +212,7 @@ impl Harness {
             captured_at_us: at,
             samples: [self.sequence as i16; 160],
         };
+        self.reads.push(at);
         if yielded {
             self.detector.reach_back();
         }
@@ -268,6 +293,11 @@ impl Harness {
                 |_| Ok(()),
             )
             .unwrap();
+        }
+        if self.gap_us > 0 {
+            // A paced run lasts longer than the snapshot taken at the start
+            // stays fresh: the speaker is offered the one of this block.
+            self.snapshot = self.owner.snapshot(MonoTime::from_micros(at)).unwrap();
         }
         tick.dispatched = self.offer_speaker();
         tick
@@ -427,6 +457,57 @@ fn a_person_over_the_lamp_stops_the_speaker_then_interrupts_with_their_opening_w
     assert!(h.provider_queue.len() < provider_queue_bound(Hold::DUPLEX));
     assert_eq!(provider_queue_bound(Hold::STANDARD), PROVIDER_QUEUE_BOUND);
     assert_eq!(h.events("turn_finished").len(), 1, "one interruption");
+}
+
+/// #936, the reviewer at 08:02, paced in real time: first words said 2.5 s
+/// before the commit are older than the provider takes (2.5 s). The commit
+/// drops the oldest of them from the front, keeps every block it sends
+/// within `FIRST_WORDS_AGE_US`, keeps the onset and what followed, and
+/// says what it dropped. Without first words kept, as before.
+#[test]
+fn first_words_older_than_the_provider_takes_are_dropped_before_the_commit() {
+    let mut h = Harness::keeping_first_words(true, 400);
+    h.blocks(30, 0.1, Some(evidence(0, OWN)));
+    // Blocks 31 to 92, 40 ms apart (the detector takes no gap over 50 ms):
+    // first words under the lamp, then a breath, 2.5 s in all.
+    h.gap_us = 40_000;
+    h.blocks(52, 0.9, Some(evidence(0, OWN)));
+    h.blocks(10, 0.1, Some(evidence(0, OWN)));
+    h.gap_us = 0;
+    while h.events("duplex_yield").is_empty() {
+        h.block(0.9, Some(evidence(0, OVER)));
+    }
+    h.blocks(3, 0.9, Some(evidence(0, OVER)));
+    for quiet in 1..=29 {
+        h.block(0.9, Some(evidence(quiet, OVER)));
+    }
+    let clear = h.blocks(6, 0.9, Some(evidence(30, None)));
+    let committed_at = h.last_read;
+    let accepted = clear[5]
+        .accepted
+        .as_ref()
+        .expect("the person was not let in");
+    let oldest = h.reads[accepted.audio[0] as usize];
+    assert!(
+        committed_at - oldest <= crate::admission::FIRST_WORDS_AGE_US,
+        "{} us old",
+        committed_at - oldest
+    );
+    // Some of the first words went; the rest, the onset and after did not.
+    assert!(accepted.audio[0] > 31 - crate::activity::REACH_LEAD_BLOCKS as u64);
+    assert!(accepted.audio[0] <= 92);
+    assert!(accepted.audio.windows(2).all(|pair| pair[1] == pair[0] + 1));
+    assert_eq!(*accepted.audio.last().unwrap(), committed_sequence(&h));
+    let dropped = h.events("input_prefix_sanitized");
+    assert_eq!(dropped.len(), 1);
+    assert_eq!(dropped[0]["reason"], "first_words_too_old");
+    assert_eq!(h.events("turn_finished")[0]["outcome"], "user_interrupted");
+}
+
+fn committed_sequence(h: &Harness) -> u64 {
+    h.events("duplex_commit")[0]["frame_sequence"]
+        .as_u64()
+        .unwrap()
 }
 
 /// #828, step 2: with `LAMP_FIRST_WORDS=kept`, a person who begins under

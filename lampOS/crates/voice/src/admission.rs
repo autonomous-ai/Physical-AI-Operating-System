@@ -12,6 +12,13 @@ pub const DECISION_BUDGET_US: u64 = 200_000;
 pub const MAX_RETAINED_AGE_US: u64 = 600_000;
 pub const MAX_EVIDENCE_AGE_US: u64 = 100_000;
 pub const MAX_DECISION_BLOCKS: usize = 20;
+/// The oldest a yield's first words may be when it is committed (#828):
+/// the provider refuses audio older than [`lamp_gemini::MAX_INPUT_AGE`]
+/// (2.5 s), and this leaves 0.5 s for the handoff. On a late but legal
+/// decision the reviewer on #936 saw a lead 2.52 s old, and the provider
+/// worker ended on it. Without first words kept nothing retained comes
+/// near it.
+pub const FIRST_WORDS_AGE_US: u64 = lamp_gemini::MAX_INPUT_AGE.as_micros() as u64 - 500_000;
 pub const MAX_CANDIDATE_BLOCKS: usize = PRE_ROLL_BLOCKS + MAX_DECISION_BLOCKS;
 
 /// How long a candidate may wait for its decision, and how much it may hold.
@@ -338,6 +345,26 @@ impl InputAdmission {
             Phase::Pending(p) if p.candidate.id == candidate => Some(&p.audio),
             _ => None,
         }
+    }
+    /// The last block of `candidate`'s lead of first words captured before
+    /// `oldest_us`, if any: never one of its usual pre-roll or onset. What
+    /// [`FIRST_WORDS_AGE_US`] drops before a commit (#828, #936).
+    pub(crate) fn lead_older_than(&self, candidate: CandidateId, oldest_us: u64) -> Option<u64> {
+        let Phase::Pending(pending) = &self.phase else {
+            return None;
+        };
+        if pending.candidate.id != candidate {
+            return None;
+        }
+        let lead = pending
+            .audio
+            .len()
+            .saturating_sub(PRE_ROLL_BLOCKS + pending.decision_blocks);
+        pending.audio[..lead]
+            .iter()
+            .take_while(|frame| frame.captured_at_us < oldest_us)
+            .last()
+            .map(|frame| frame.sequence)
     }
     /// Keep one contiguous safe suffix without renewing identity, deadline,
     /// retention age or decision-block budget. The entire triggering onset
@@ -1295,6 +1322,57 @@ mod outage_drain_tests {
             usual.decision_deadline_us,
             now + Hold::DUPLEX.decision_budget_us
         );
+    }
+
+    /// #936, the reviewer at 08:02: what may be dropped before a commit is
+    /// only the lead, the blocks before the usual 300 ms of pre-roll, and of
+    /// those only the ones captured before the cutoff. The pre-roll, the
+    /// onset and what was said after it are never named.
+    #[test]
+    fn only_a_lead_older_than_the_cutoff_may_be_dropped() {
+        let mut gate = InputAdmission::with_hold(Hold::DUPLEX.keeping_first_words());
+        let mut local = LocalInput::new();
+        let now = START + 160 * 10_000;
+        let prefix = (1..=160)
+            .map(|n| audio(n, START + n * 10_000))
+            .collect::<Vec<_>>();
+        let Step::Candidate(candidate) = gate
+            .observe(Activity::Start(prefix), local.context(now), now)
+            .unwrap()
+            .step
+        else {
+            panic!("no candidate");
+        };
+        // Ten more blocks said after the onset.
+        for n in 161..=170 {
+            let at = START + n * 10_000;
+            gate.observe(Activity::Continue(audio(n, at)), local.context(at), at)
+                .unwrap();
+        }
+        let block = |n: u64| START + n * 10_000;
+        assert_eq!(gate.lead_older_than(candidate.id, block(1)), None);
+        assert_eq!(gate.lead_older_than(candidate.id, block(41)), Some(40));
+        // The lead is blocks 1 to 130; the cutoff past it names its last.
+        assert_eq!(gate.lead_older_than(candidate.id, block(170)), Some(130));
+        assert_eq!(gate.discard_pending_prefix(candidate.id, 40).unwrap(), 40);
+        assert_eq!(gate.lead_older_than(candidate.id, block(41)), None);
+        assert_eq!(gate.lead_older_than(candidate.id, block(170)), Some(130));
+        // Without a lead nothing may be.
+        let mut local = LocalInput::new();
+        let mut usual = InputAdmission::with_hold(Hold::DUPLEX);
+        let prefix = (1..=30)
+            .map(|n| audio(n, START + n * 10_000))
+            .collect::<Vec<_>>();
+        let at = START + 30 * 10_000;
+        let Step::Candidate(candidate) = usual
+            .observe(Activity::Start(prefix), local.context(at), at)
+            .unwrap()
+            .step
+        else {
+            panic!("no candidate");
+        };
+        assert_eq!(usual.lead_older_than(candidate.id, at + 10_000_000), None);
+        assert!(FIRST_WORDS_AGE_US < lamp_gemini::MAX_INPUT_AGE.as_micros() as u64);
     }
 
     #[test]

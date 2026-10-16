@@ -979,6 +979,17 @@ impl Attention {
         // Only the lamp's name counts for it.
         let answering_another = self.spoken_to && self.after_another && !own;
         let going_on = going_on && !answering_another;
+        // The lamp's news has one reply: the first thing judged after it,
+        // whatever path judges it, takes it (the reviewer on #918 at 07:12:
+        // a short "Thanks" judged as a sound had left it for later talk).
+        let news_ago = match (self.spoken_to && !own, self.began_us) {
+            (true, Some(began)) => self
+                .news_us
+                .take()
+                .filter(|at| *at <= began)
+                .map(|at| began - at),
+            _ => None,
+        };
         // In a conversation held in English, a turn heard mostly in another
         // script, or as a number alone after no question, was misheard
         // (#926): on lamp-4ace on 2026-10-16 at 05:39 a cut-in heard as
@@ -1041,8 +1052,7 @@ impl Attention {
             && let Some(began) = self.began_us
         {
             let since = |at: Option<u64>| at.filter(|at| *at <= began).map(|at| began - at);
-            let news = since(self.news_us.take());
-            let why = if news.is_some_and(|ago| ago <= NEWS_REPLY_US) {
+            let why = if news_ago.is_some_and(|ago| ago <= NEWS_REPLY_US) {
                 Some(AFTER_NEWS)
             } else if since(self.worked_us).is_some_and(|ago| ago <= WORK_ASKED_US)
                 && about_its_work(&self.heard)
@@ -1830,6 +1840,36 @@ mod tests {
         assert_eq!(after(Some(8_918)), Verdict::Play(AFTER_NEWS));
         assert_eq!(after(None), Verdict::Hold(NOT_SPOKEN_TO));
         assert_eq!(after(Some(8_917)), Verdict::Hold(NOT_SPOKEN_TO));
+        // The news has one reply, however it is judged: a short "Thanks"
+        // let through as a sound takes it as the same words heard as
+        // speech do, and later talk is judged as any other (the reviewer on
+        // #918 at 07:12).
+        for sound in [true, false] {
+            let mut attention = Attention::default();
+            attention.speak_when_spoken_to(true);
+            attention.check_sounds(true);
+            OWN_REQUEST.store(8_919, Ordering::Release);
+            attention.began_at(8_919, 4, 100 * S);
+            attention.first_output(8_919, Room::Quiet, false);
+            attention.spoke(8_919, 101 * S);
+            OWN_REQUEST.store(0, Ordering::Release);
+            attention.began_at(1, 4, 110 * S);
+            if sound {
+                attention.ended_as_sound(1);
+            }
+            attention.heard("Thanks.");
+            assert!(matches!(
+                attention.first_output(1, Room::Quiet, false),
+                Some(Verdict::Play(_))
+            ));
+            attention.began_at(2, 4, 220 * S);
+            attention.heard("Did you get my message about the budget?");
+            assert_eq!(
+                attention.first_output(2, Room::Quiet, false),
+                Some(Verdict::Hold(NOT_SPOKEN_TO)),
+                "{sound}"
+            );
+        }
         // A person's request that is answered is no news.
         let mut attention = Attention::default();
         attention.speak_when_spoken_to(true);

@@ -77,14 +77,11 @@ fn inert_child() {
     let result = if mode == "hang_after_ready" {
         struct HangAfterReady(Channels);
         impl worker::Link for HangAfterReady {
-            fn control(&mut self, n: lamp_turn_owner::MonoTime) -> io::Result<Option<Control>> {
-                self.0.control.receive(n)
+            fn control(&mut self, clock: &impl Clock) -> io::Result<Option<Control>> {
+                self.0.control.receive(clock)
             }
-            fn command(
-                &mut self,
-                n: lamp_turn_owner::MonoTime,
-            ) -> io::Result<Option<MotorCommand>> {
-                self.0.data.receive(n)
+            fn command(&mut self, clock: &impl Clock) -> io::Result<Option<MotorCommand>> {
+                self.0.data.receive(clock)
             }
             fn publish(&mut self, event: &Event, n: lamp_turn_owner::MonoTime) -> io::Result<()> {
                 self.0.control.send(event, n)?;
@@ -120,7 +117,8 @@ fn fixture(mode: &str) -> (Supervisor, Controller) {
     .env("LAMP_MOTOR_TEST_PARENT", boot_text(parent))
     .env("LAMP_MOTOR_TEST_WORKER", boot_text(worker))
     .env("LAMP_MOTOR_TEST_MODE", mode);
-    let supervisor = Supervisor::spawn_command(cmd, &directory, parent, worker).unwrap();
+    let supervisor =
+        Supervisor::spawn_command(cmd, &directory, parent, worker, || SystemClock.now()).unwrap();
     let mut controller = Controller::new(parent, SystemClock.now());
     controller
         .set_microphone_permission(SystemClock.now(), Permission::Allowed)
@@ -268,11 +266,8 @@ fn qualification_rejects_wrong_supervisor_before_any_channel_dispatch() {
             "poll" => q.poll(&mut s, |_| {}),
             _ => unreachable!(),
         };
-        let command = peer
-            .data
-            .receive::<MotorCommand>(SystemClock.now())
-            .unwrap();
-        let control = peer.control.receive::<Control>(SystemClock.now()).unwrap();
+        let command = peer.data.receive::<MotorCommand>(&SystemClock).unwrap();
+        let control = peer.control.receive::<Control>(&SystemClock).unwrap();
         let unrelated_was_stopped = s.stop_at.is_some();
         // Explicit test cleanup remains independent from the operation result.
         s.fail(

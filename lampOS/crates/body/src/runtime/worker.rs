@@ -121,16 +121,17 @@ impl<P: BusPort, C: Clock> Backend for MotorControl<P, C> {
     }
 }
 pub trait Link {
-    fn control(&mut self, now: MonoTime) -> io::Result<Option<Control>>;
-    fn command(&mut self, now: MonoTime) -> io::Result<Option<Command>>;
+    /// Receive one packet; its age is measured on `clock` once it is read.
+    fn control(&mut self, clock: &impl Clock) -> io::Result<Option<Control>>;
+    fn command(&mut self, clock: &impl Clock) -> io::Result<Option<Command>>;
     fn publish(&mut self, event: &Event, now: MonoTime) -> io::Result<()>;
 }
 impl Link for Channels {
-    fn control(&mut self, n: MonoTime) -> io::Result<Option<Control>> {
-        self.control.receive(n)
+    fn control(&mut self, clock: &impl Clock) -> io::Result<Option<Control>> {
+        self.control.receive(clock)
     }
-    fn command(&mut self, n: MonoTime) -> io::Result<Option<Command>> {
-        self.data.receive(n)
+    fn command(&mut self, clock: &impl Clock) -> io::Result<Option<Command>> {
+        self.data.receive(clock)
     }
     fn publish(&mut self, e: &Event, n: MonoTime) -> io::Result<()> {
         self.control.send(e, n)
@@ -233,10 +234,11 @@ impl<B: Backend, C: Clock> Worker<B, C> {
     }
     fn controls(&mut self, link: &mut impl Link, budget: &mut usize) -> io::Result<bool> {
         while *budget > 0 {
-            let n = self.now()?;
-            let Some(c) = link.control(n)? else {
+            let Some(c) = link.control(&self.clock)? else {
                 return Ok(false);
             };
+            // After the read: the packet may be newer than any earlier sample.
+            let n = self.now()?;
             *budget -= 1;
             match c {
                 Control::Stop {} => {
@@ -451,8 +453,7 @@ impl<B: Backend, C: Clock> Worker<B, C> {
             self.ready = true;
         }
         if budget > 0 && self.pending.is_none() {
-            let n = self.now()?;
-            self.pending = link.command(n)?;
+            self.pending = link.command(&self.clock)?;
         }
         if self.controls(link, &mut budget)? {
             return Ok(true);

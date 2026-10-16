@@ -6,7 +6,7 @@ use super::{
     wire::{Command as MotorCommand, Control, Event},
 };
 use crate::control::Clock;
-use lamp_turn_owner::BootId;
+use lamp_turn_owner::{BootId, MonoTime};
 use std::{
     fs,
     io::{self, Read},
@@ -188,6 +188,7 @@ pub struct Supervisor {
     killed_at: Option<u64>,
     exit: Option<ExitStatus>,
     failure: Option<String>,
+    clock: fn() -> MonoTime,
 }
 impl Supervisor {
     /// Spawn a dedicated executable, no shell/config search. Setup may fork/open
@@ -199,6 +200,21 @@ impl Supervisor {
         new_directory: &Path,
         parent: BootId,
         worker: BootId,
+    ) -> io::Result<Self> {
+        Self::spawn_with_clock(executable, config, new_directory, parent, worker, || {
+            SystemClock.now()
+        })
+    }
+    /// `spawn` on the caller's monotonic clock, which must be the clock the
+    /// caller's controller and the worker read. Every deadline and packet age
+    /// here is measured on it.
+    pub fn spawn_with_clock(
+        executable: &Path,
+        config: &Path,
+        new_directory: &Path,
+        parent: BootId,
+        worker: BootId,
+        clock: fn() -> MonoTime,
     ) -> io::Result<Self> {
         bounded_path(executable)?;
         Config::read(config)?;
@@ -214,7 +230,7 @@ impl Supervisor {
             .arg(boot_text(worker))
             .arg("--parent-pid")
             .arg(std::process::id().to_string());
-        let mut supervisor = Self::spawn_command(command, new_directory, parent, worker)?;
+        let mut supervisor = Self::spawn_command(command, new_directory, parent, worker, clock)?;
         supervisor.expect_serial = true;
         Ok(supervisor)
     }
@@ -223,12 +239,13 @@ impl Supervisor {
         new_directory: &Path,
         parent: BootId,
         worker: BootId,
+        clock: fn() -> MonoTime,
     ) -> io::Result<Self> {
         bounded_path(new_directory)?;
         fs::DirBuilder::new().mode(0o700).create(new_directory)?;
         let mut directory = Directory::new(new_directory)?;
         let channels = Channels::bind(new_directory, parent, worker, false)?;
-        let started = SystemClock.now().as_micros();
+        let started = clock().as_micros();
         let child = command
             .stdin(Stdio::null())
             .stdout(Stdio::null())
@@ -258,6 +275,7 @@ impl Supervisor {
             killed_at: None,
             exit: None,
             failure: None,
+            clock,
         })
     }
     /// Explicit replacement only after the exact old child has been reaped.
@@ -334,6 +352,10 @@ impl Supervisor {
             && self.inhibited
             && self.killed_at.is_none()
     }
+    /// This supervisor's clock (see `spawn_with_clock`).
+    pub fn now(&self) -> MonoTime {
+        (self.clock)()
+    }
     pub fn send_control(&mut self, c: &Control) -> io::Result<()> {
         if matches!(c, Control::Stop {}) {
             return self.stop();
@@ -341,7 +363,7 @@ impl Supervisor {
         if self.exit.is_some() || self.killed_at.is_some() || self.stop_at.is_some() {
             return Err(invalid("motor worker is stopping"));
         }
-        let n = SystemClock.now();
+        let n = self.now();
         if let Err(e) = self.channels.control.send(c, n) {
             self.fail(
                 &format!("motor priority delivery failed: {e}"),
@@ -365,7 +387,7 @@ impl Supervisor {
         if !self.is_ready() {
             return Err(invalid("motor worker is not ready for commands"));
         }
-        self.channels.data.send(c, SystemClock.now())
+        self.channels.data.send(c, self.now())
     }
     /// One Stop send, no queue/retry. Congestion is a failure and signals only the
     /// owned child; an unproved receipt never becomes a successful cleanup.
@@ -373,7 +395,7 @@ impl Supervisor {
         if self.stop_at.is_some() {
             return Ok(());
         }
-        let n = SystemClock.now();
+        let n = self.now();
         self.stop_at = Some(n.as_micros());
         if self.exit.is_some() {
             return Ok(());
@@ -537,7 +559,7 @@ impl Supervisor {
     /// At most one receipt per call. Enforcement and try_wait run even after a
     /// malformed receipt; authenticated garbage cannot postpone kill/reaping.
     pub fn poll(&mut self) -> io::Result<Option<Event>> {
-        let n = SystemClock.now().as_micros();
+        let n = self.now().as_micros();
         self.enforce(n);
         let result: io::Result<Option<Event>> = (|| {
             if self.exit.is_none() {
@@ -549,14 +571,14 @@ impl Supervisor {
             if !self.connected || self.stopped {
                 return Ok(None);
             }
-            let event = self.channels.control.receive::<Event>(SystemClock.now())?;
+            let event = self.channels.control.receive::<Event>(&self.clock)?;
             if let Some(e) = &event {
-                self.event(e, SystemClock.now().as_micros())?;
+                self.event(e, self.now().as_micros())?;
             }
             Ok(event)
         })();
         if let Err(e) = &result {
-            self.fail(&e.to_string(), SystemClock.now().as_micros());
+            self.fail(&e.to_string(), self.now().as_micros());
         }
         match self.child.try_wait() {
             Ok(Some(s)) => {
@@ -567,20 +589,17 @@ impl Supervisor {
                 }
             }
             Ok(None) => {}
-            Err(e) => self.fail(
-                &format!("motor waitpid: {e}"),
-                SystemClock.now().as_micros(),
-            ),
+            Err(e) => self.fail(&format!("motor waitpid: {e}"), self.now().as_micros()),
         }
         if self.exit.is_some()
             && let Err(e) = self.directory.cleanup_reaped_peers()
         {
             self.fail(
                 &format!("motor IPC cleanup failed: {e}"),
-                SystemClock.now().as_micros(),
+                self.now().as_micros(),
             );
         }
-        self.enforce(SystemClock.now().as_micros());
+        self.enforce(self.now().as_micros());
         result
     }
 }

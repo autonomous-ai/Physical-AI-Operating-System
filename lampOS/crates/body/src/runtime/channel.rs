@@ -1,5 +1,6 @@
 //! Two private, finite datagram queues. Data never renews control authority.
 use super::config::invalid;
+use crate::control::Clock;
 use lamp_ipc::{Endpoint, MAX_DATAGRAM_BYTES};
 use lamp_turn_owner::{BootId, MonoTime};
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
@@ -59,13 +60,16 @@ impl Channel {
         self.sent = sequence;
         Ok(())
     }
-    pub fn receive<T: DeserializeOwned>(&mut self, now: MonoTime) -> io::Result<Option<T>> {
+    /// The packet's age is measured on `clock` after it is dequeued. A time read
+    /// before the read would refuse a packet sent in between as from the future.
+    pub fn receive<T: DeserializeOwned>(&mut self, clock: &impl Clock) -> io::Result<Option<T>> {
         let mut bytes = [0; MAX_DATAGRAM_BYTES];
         let n = match self.endpoint.try_recv(&mut bytes) {
             Ok(n) => n,
             Err(e) if e.kind() == io::ErrorKind::WouldBlock => return Ok(None),
             Err(e) => return Err(e),
         };
+        let now = clock.now();
         let p: Packet<T> = serde_json::from_slice(&bytes[..n]).map_err(invalid)?;
         if p.boot != self.peer
             || self.received.checked_add(1) != Some(p.sequence)

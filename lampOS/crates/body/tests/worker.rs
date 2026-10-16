@@ -70,11 +70,12 @@ fn cancellation_between_data_receive_and_bus_tick_never_writes_stale_segment() {
         close: Option<lamp_turn_owner::Snapshot>,
     }
     impl Link for Across {
-        fn control(&mut self, n: lamp_turn_owner::MonoTime) -> io::Result<Option<Control>> {
-            self.child.control.receive(n)
+        fn control(&mut self, clock: &impl Clock) -> io::Result<Option<Control>> {
+            self.child.control.receive(clock)
         }
-        fn command(&mut self, n: lamp_turn_owner::MonoTime) -> io::Result<Option<Command>> {
-            let c = self.child.data.receive(n)?;
+        fn command(&mut self, clock: &impl Clock) -> io::Result<Option<Command>> {
+            let n = clock.now();
+            let c = self.child.data.receive(clock)?;
             if let Some(snapshot) = self.close.take() {
                 self.parent
                     .control
@@ -372,11 +373,12 @@ fn data_held_behind_urgent_control_retains_original_age_and_cannot_renew() {
         once: bool,
     }
     impl Link for Flood {
-        fn control(&mut self, n: lamp_turn_owner::MonoTime) -> io::Result<Option<Control>> {
-            self.child.control.receive(n)
+        fn control(&mut self, clock: &impl Clock) -> io::Result<Option<Control>> {
+            self.child.control.receive(clock)
         }
-        fn command(&mut self, n: lamp_turn_owner::MonoTime) -> io::Result<Option<Command>> {
-            let c = self.child.data.receive(n)?;
+        fn command(&mut self, clock: &impl Clock) -> io::Result<Option<Command>> {
+            let n = clock.now();
+            let c = self.child.data.receive(clock)?;
             if self.once {
                 self.once = false;
                 for _ in 0..15 {
@@ -415,7 +417,7 @@ fn data_held_behind_urgent_control_retains_original_age_and_cannot_renew() {
         .unwrap();
     assert!(!r.worker.as_mut().unwrap().poll(&mut link).unwrap());
     let mut rejected = false;
-    while let Some(e) = link.parent.control.receive::<Event>(r.clock.now()).unwrap() {
+    while let Some(e) = link.parent.control.receive::<Event>(&r.clock).unwrap() {
         if matches!(e,Event::Rejected{reason,..} if reason.contains("expired")) {
             rejected = true
         }

@@ -124,14 +124,14 @@ struct NativeLink {
     signals: Signals,
 }
 impl Link for NativeLink {
-    fn control(&mut self, n: lamp_turn_owner::MonoTime) -> io::Result<Option<Control>> {
+    fn control(&mut self, clock: &impl crate::control::Clock) -> io::Result<Option<Control>> {
         if self.signals.fd.read_signal()?.is_some() {
             return Ok(Some(Control::Stop {}));
         }
-        self.channels.control(n)
+        self.channels.control(clock)
     }
-    fn command(&mut self, n: lamp_turn_owner::MonoTime) -> io::Result<Option<wire::Command>> {
-        self.channels.command(n)
+    fn command(&mut self, clock: &impl crate::control::Clock) -> io::Result<Option<wire::Command>> {
+        self.channels.command(clock)
     }
     fn publish(&mut self, e: &Event, n: lamp_turn_owner::MonoTime) -> io::Result<()> {
         self.channels.publish(e, n)
@@ -259,11 +259,12 @@ fn opening_controls(link: &mut impl Link, guard: &mut BoundaryGuard) -> io::Resu
     let clock = SystemClock;
     let mut drained = false;
     for _ in 0..worker::CONTROL_BUDGET {
-        let n = clock.now();
-        let Some(c) = link.control(n)? else {
+        let Some(c) = link.control(&clock)? else {
             drained = true;
             break;
         };
+        // After the read: the packet may be newer than any earlier sample.
+        let n = clock.now();
         match c {
             Control::Stop {} => return Ok(true),
             Control::Cancel { motion } => link.publish(

@@ -281,7 +281,7 @@ impl Rig {
         result
     }
     pub fn drain(&mut self) {
-        while let Some(e) = self.parent.control.receive(self.clock.now()).unwrap() {
+        while let Some(e) = self.parent.control.receive(&self.clock).unwrap() {
             self.events.push(e)
         }
     }

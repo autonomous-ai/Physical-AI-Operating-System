@@ -18,3 +18,14 @@ impl crate::control::Clock for SystemClock {
         lamp_turn_owner::MonoTime::from_micros(lamp_ipc::monotonic_us())
     }
 }
+/// A clock stopped at one instant.
+impl crate::control::Clock for lamp_turn_owner::MonoTime {
+    fn now(&self) -> lamp_turn_owner::MonoTime {
+        *self
+    }
+}
+impl crate::control::Clock for fn() -> lamp_turn_owner::MonoTime {
+    fn now(&self) -> lamp_turn_owner::MonoTime {
+        self()
+    }
+}

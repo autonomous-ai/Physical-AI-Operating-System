@@ -1717,7 +1717,7 @@ fn selected_profile_worker_uses_real_channels_original_evidence_and_readback_rec
         if first_write.is_none() && r.wire.borrow().packets.iter().any(|p| p[4] == 3) {
             first_write = Some(r.clock.now().as_micros());
         }
-        while let Some(event) = parent.control.receive::<Event>(r.clock.now()).unwrap() {
+        while let Some(event) = parent.control.receive::<Event>(&r.clock).unwrap() {
             events.push(event);
         }
         if events
@@ -1770,7 +1770,7 @@ fn selected_profile_worker_uses_real_channels_original_evidence_and_readback_rec
     assert!(worker.poll(&mut child).unwrap());
     worker.finish(&mut child).unwrap();
     let mut stopped = false;
-    while let Some(e) = parent.control.receive::<Event>(r.clock.now()).unwrap() {
+    while let Some(e) = parent.control.receive::<Event>(&r.clock).unwrap() {
         if let Event::Inhibited { report, .. } = e {
             assert!(
                 report

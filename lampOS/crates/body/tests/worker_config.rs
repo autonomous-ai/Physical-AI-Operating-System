@@ -144,7 +144,7 @@ fn transport_preserves_original_sequence_age_and_boot() {
         .unwrap();
     assert!(
         w.control
-            .receive::<Control>(MonoTime::from_micros(100_002))
+            .receive::<Control>(&MonoTime::from_micros(100_002))
             .is_err()
     );
     let (mut p, mut w) = Channels::pair(parent, worker).unwrap();
@@ -153,7 +153,7 @@ fn transport_preserves_original_sequence_age_and_boot() {
         .unwrap();
     assert!(
         w.control
-            .receive::<Control>(MonoTime::from_micros(1))
+            .receive::<Control>(&MonoTime::from_micros(1))
             .is_err()
     );
 }
@@ -170,7 +170,7 @@ fn oversized_serialization_does_not_consume_the_next_channel_sequence() {
     );
     assert!(
         w.control
-            .receive::<Control>(MonoTime::from_micros(1))
+            .receive::<Control>(&MonoTime::from_micros(1))
             .unwrap()
             .is_none()
     );
@@ -179,7 +179,7 @@ fn oversized_serialization_does_not_consume_the_next_channel_sequence() {
         .unwrap();
     assert!(matches!(
         w.control
-            .receive::<Control>(MonoTime::from_micros(2))
+            .receive::<Control>(&MonoTime::from_micros(2))
             .unwrap(),
         Some(Control::Stop {})
     ));

@@ -103,10 +103,12 @@ fn attached(
 }
 #[test]
 fn native_head_four_explicit_actions_use_original_owner_and_reap() {
+    let _clock = stepped();
     run_sequence("normal", false);
 }
 #[test]
 fn native_head_six_explicit_actions_prepare_profile_then_new_requests() {
+    let _clock = stepped();
     run_sequence("profile", true);
 }
 fn run_sequence(mode: &str, profile: bool) {
@@ -159,7 +161,7 @@ fn run_sequence(mode: &str, profile: bool) {
             Some(&f),
         );
         assert!(r.error.is_none(), "{:?}", r.error);
-        let until = Instant::now() + Duration::from_millis(400);
+        let until = crate::scenario_clock::instant() + Duration::from_millis(400);
         let target = match action {
             Action::InspectProfile => Stage::ProfileInspected,
             Action::PrepareProfile => Stage::New,
@@ -170,14 +172,14 @@ fn run_sequence(mode: &str, profile: bool) {
         };
         while m.qualification_stage() != target {
             assert!(
-                Instant::now() < until,
+                crate::scenario_clock::instant() < until,
                 "phase {:?}, failure {:?}",
                 m.qualification_stage(),
                 m.failure()
             );
             refresh(&mut m, &mut c);
             m.poll(|_| {});
-            std::thread::park_timeout(Duration::from_millis(1));
+            step(&m);
         }
     }
     wait(&mut m, &mut c, OptionalMotor::reaped);
@@ -193,6 +195,7 @@ fn run_sequence(mode: &str, profile: bool) {
 }
 #[test]
 fn native_head_no_owner_no_capture_or_no_frame_never_grants() {
+    let _clock = stepped();
     let (dir, mut m, mut c, mut d, peer) = attached("normal");
     let f = frame(&mut c, 1);
     let r = exchange(
@@ -237,6 +240,7 @@ fn native_head_no_owner_no_capture_or_no_frame_never_grants() {
 }
 #[test]
 fn native_head_owner_cancel_between_ticket_and_action_never_dispatches() {
+    let _clock = stepped();
     let (dir, mut m, mut c, mut d, peer) = attached("normal");
     refresh(&mut m, &mut c);
     let owner = c.admit(time(), AdmittedInput::NewTurn).unwrap();
@@ -280,6 +284,7 @@ fn native_head_owner_cancel_between_ticket_and_action_never_dispatches() {
 }
 #[test]
 fn native_head_privacy_at_dispatch_closes_optional_only() {
+    let _clock = stepped();
     let (dir, mut m, mut c, mut d, peer) = attached("normal");
     refresh(&mut m, &mut c);
     let owner = c.admit(time(), AdmittedInput::NewTurn).unwrap();
@@ -315,6 +320,7 @@ fn native_head_privacy_at_dispatch_closes_optional_only() {
 }
 #[test]
 fn native_head_stale_or_foreign_frame_cannot_grant() {
+    let _clock = stepped();
     let (dir, mut m, mut c, mut d, peer) = attached("normal");
     refresh(&mut m, &mut c);
     c.admit(time(), AdmittedInput::NewTurn).unwrap();
@@ -367,6 +373,7 @@ fn native_head_binding_changes_only_explicit_camera_boot() {
 
 #[test]
 fn native_head_replayed_receipt_and_changed_camera_grant_are_terminal() {
+    let _clock = stepped();
     for changed_grant in [false, true] {
         let (dir, mut m, mut c, mut d, peer) = attached("normal");
         refresh(&mut m, &mut c);
@@ -411,6 +418,7 @@ fn native_head_replayed_receipt_and_changed_camera_grant_are_terminal() {
 }
 #[test]
 fn native_head_absence_of_explicit_next_action_never_schedules_return() {
+    let _clock = stepped();
     let (dir, mut m, mut c, mut d, peer) = attached("normal");
     refresh(&mut m, &mut c);
     let owner = c.admit(time(), AdmittedInput::NewTurn).unwrap();
@@ -459,6 +467,7 @@ fn native_head_absence_of_explicit_next_action_never_schedules_return() {
 
 #[test]
 fn native_head_initial_privacy_acquisition_is_not_a_revoke_or_grant() {
+    let _clock = stepped();
     let (dir, mut m, mut c) = fixture("startup");
     let (runtime, peer) = Endpoint::pair().unwrap();
     let session = c.snapshot(time()).unwrap().boot();
@@ -509,6 +518,7 @@ fn native_head_initial_privacy_acquisition_is_not_a_revoke_or_grant() {
 
 #[test]
 fn native_head_startup_announcement_has_no_input_or_motion_authority() {
+    let _clock = stepped();
     let (dir, mut m, mut c) = fixture("startup");
     let (runtime, peer) = Endpoint::pair().unwrap();
     let session = c.snapshot(time()).unwrap().boot();

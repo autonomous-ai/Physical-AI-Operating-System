@@ -58,6 +58,9 @@ Two connected private Unix datagram channels have independent finite kernel
 queues and an 8192-byte payload limit. Serialization uses a fixed output buffer.
 Every envelope retains expected peer boot, checked sequence and original shared
 host-monotonic send time. Future, reordered and older-than-100-ms packets fault.
+A packet's age is measured on a clock read after the packet is dequeued, and
+the worker reads its time for an accepted control after that read; a time read
+before it would refuse a packet sent in between as from the future.
 There is no reconnect/rebind or unbounded application queue.
 
 Priority control accepts only `Authority { snapshot }`, `Cancel { motion }` and

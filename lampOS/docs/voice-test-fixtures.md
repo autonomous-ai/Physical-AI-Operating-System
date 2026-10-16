@@ -42,6 +42,22 @@ scope. Session lifetime, peer schedules, envelope timestamps and age checks
 share one clock. The 50 ms privacy, 60 ms reopening and 100 ms channel
 boundaries remain unchanged.
 
+## Stepped motor child
+
+`coordinator::motor::tests::native_head` (#1004) runs the production
+`OptionalMotor`, `Supervisor`, worker and motor core with a real child
+process on scenario time. The parent, the voice motor module, head
+qualification and the `Supervisor` (through `Supervisor::spawn_with_clock`,
+which in production is given the same host monotonic clock) read
+`scenario_clock`. The child reads the scenario time the parent writes to a
+file in the session directory after every step. A step advances 2 ms only
+once the child has drained its control queue at the current time or has
+exited (`waitid(WNOWAIT)`), so no packet, lease or progress deadline ages
+while either process waits for the host. The 100 ms channel age, 50 ms
+progress and every other motor bound are unchanged. Child startup and exit
+stay on the host clock under a 24 s watchdog. Other motor tests keep the
+host clock; with no scenario-time file, the child does too.
+
 Real `ProcessClassifier` workers retain real-time peers. Their finite ordering
 fixture explicitly selects the existing per-instance test privacy allowance
 of 100,000 us and a 12-second real conversation watchdog. This covers missing

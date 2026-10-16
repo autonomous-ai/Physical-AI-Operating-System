@@ -19,8 +19,93 @@ use std::{
     collections::VecDeque,
     os::unix::fs::PermissionsExt,
     rc::Rc,
+    sync::OnceLock,
     time::{Duration, Instant},
 };
+
+// A stepped fixture's files, in the session directory. The parent writes the
+// scenario time after every step; the child records the time at which it last
+// drained its control queue, and its process ID.
+const SCENARIO_TIME: &str = "scenario-time";
+const CHILD_DRAINED: &str = "child-drained";
+const CHILD_PID: &str = "child-pid";
+const STEPPED_WATCHDOG: Duration = Duration::from_secs(24);
+
+/// Replace a fixture file whole, so that the other process never reads half.
+fn put(directory: &Path, name: &str, value: u64) {
+    let staged = directory.join(format!("{name}.staged"));
+    fs::write(&staged, value.to_string()).unwrap();
+    fs::rename(staged, directory.join(name)).unwrap();
+}
+fn get(directory: &Path, name: &str) -> Option<u64> {
+    match fs::read_to_string(directory.join(name)) {
+        Ok(text) => Some(text.parse().unwrap()),
+        Err(error) if error.kind() == io::ErrorKind::NotFound => None,
+        Err(error) => panic!("fixture file {name}: {error}"),
+    }
+}
+
+/// The child's clock: the parent's scenario time in a stepped fixture, and
+/// the host clock when the fixture is not stepped (no scenario-time file).
+#[derive(Clone, Copy)]
+struct FixtureClock;
+static FIXTURE_SESSION: OnceLock<PathBuf> = OnceLock::new();
+impl control::Clock for FixtureClock {
+    fn now(&self) -> MonoTime {
+        let session = FIXTURE_SESSION.get().expect("fixture session directory");
+        get(session, SCENARIO_TIME).map_or_else(|| SystemClock.now(), MonoTime::from_micros)
+    }
+}
+
+/// Enter a stepped fixture: the parent, its Supervisor and the child all read
+/// scenario time, which advances only in `step`.
+fn stepped() -> crate::scenario_clock::Scope {
+    let scope = crate::scenario_clock::Scope::enter(STEPPED_WATCHDOG).unwrap();
+    scope.set_pump(|_| Ok(())).unwrap();
+    scope
+}
+
+/// Let the child run, then advance a stepped fixture by one step. Time moves
+/// only after the child has drained its control queue at the current time, or
+/// has exited, so a packet or deadline never ages while either process waits
+/// for the host. Without a stepped fixture this sleeps one host millisecond.
+fn step(motor: &OptionalMotor) {
+    let session = motor
+        .prepared
+        .as_ref()
+        .and_then(|prepared| prepared.directory.parent());
+    let Some(session) = session.filter(|_| crate::scenario_clock::is_active()) else {
+        std::thread::park_timeout(Duration::from_millis(1));
+        return;
+    };
+    if motor.child.as_ref().is_some_and(|child| !child.reaped()) {
+        let now = monotonic_us();
+        let until = Instant::now() + STEPPED_WATCHDOG;
+        while get(session, CHILD_DRAINED).is_none_or(|at| at < now) && !child_exited(session) {
+            assert!(
+                Instant::now() < until,
+                "stepped motor child stopped polling"
+            );
+            std::thread::park_timeout(Duration::from_micros(100));
+        }
+    }
+    assert!(crate::scenario_clock::step(crate::scenario_clock::Phase::Run).unwrap());
+    put(session, SCENARIO_TIME, monotonic_us());
+}
+/// The child has exited; its wait status is left for the Supervisor to reap.
+fn child_exited(session: &Path) -> bool {
+    use rustix::process::{Pid, WaitId, WaitIdOptions, waitid};
+    let Some(pid) = get(session, CHILD_PID) else {
+        return false;
+    };
+    let pid = Pid::from_raw(i32::try_from(pid).unwrap()).unwrap();
+    waitid(
+        WaitId::Pid(pid),
+        WaitIdOptions::EXITED | WaitIdOptions::NOWAIT | WaitIdOptions::NOHANG,
+    )
+    .unwrap()
+    .is_some()
+}
 
 fn config() -> Config {
     Config {
@@ -167,7 +252,7 @@ impl BusPort for Port {
     }
 }
 struct InertBackend {
-    core: MotorControl<Port, SystemClock>,
+    core: MotorControl<Port, FixtureClock>,
     bad_cleanup: bool,
     receipt: PathBuf,
     position_writes: Rc<Cell<usize>>,
@@ -261,11 +346,16 @@ struct TestLink {
     directory: PathBuf,
 }
 impl Link for TestLink {
-    fn control(&mut self, n: MonoTime) -> io::Result<Option<Control>> {
-        self.channels.control.receive(n)
+    fn control(&mut self, clock: &impl control::Clock) -> io::Result<Option<Control>> {
+        let control = self.channels.control.receive(clock)?;
+        if control.is_none() {
+            let drained = clock.now().as_micros();
+            put(FIXTURE_SESSION.get().unwrap(), CHILD_DRAINED, drained);
+        }
+        Ok(control)
     }
-    fn command(&mut self, n: MonoTime) -> io::Result<Option<Command>> {
-        self.channels.data.receive(n)
+    fn command(&mut self, clock: &impl control::Clock) -> io::Result<Option<Command>> {
+        self.channels.data.receive(clock)
     }
     fn publish(&mut self, e: &Event, n: MonoTime) -> io::Result<()> {
         if matches!(e, Event::Ready { .. }) {
@@ -313,6 +403,8 @@ fn inert_child() {
     };
     eprintln!("motor_fixture_phase=child_entry at_us={}", monotonic_us());
     let directory = PathBuf::from(directory);
+    let session = FIXTURE_SESSION.get_or_init(|| directory.parent().unwrap().into());
+    put(session, CHILD_PID, std::process::id().into());
     let mode = std::env::var("LAMP_LIVE_MOTOR_TEST_MODE").unwrap();
     let parent = parse_boot(&std::env::var("LAMP_LIVE_MOTOR_TEST_PARENT").unwrap()).unwrap();
     let own = parse_boot(&std::env::var("LAMP_LIVE_MOTOR_TEST_WORKER").unwrap()).unwrap();
@@ -348,7 +440,7 @@ fn inert_child() {
             emitted_mask: emitted_mask.clone(),
             fail_discard: mode == "discard",
         },
-        SystemClock,
+        FixtureClock,
         parent,
         own,
         &valid.unit,
@@ -367,7 +459,7 @@ fn inert_child() {
     };
     let worker = worker::Worker::new(
         backend,
-        SystemClock,
+        FixtureClock,
         parent,
         own,
         c.placement_source,
@@ -408,6 +500,9 @@ fn fixture(mode: &str) -> (crate::process::SessionDirectory, OptionalMotor, Cont
 }
 fn prepare_fixture(mode: &str) -> (crate::process::SessionDirectory, PreparedMotor) {
     let dir = crate::process::SessionDirectory::create().unwrap();
+    if crate::scenario_clock::is_active() {
+        put(&dir.path, SCENARIO_TIME, monotonic_us());
+    }
     let mut c = config();
     if mode == "profile" {
         c.qualification.selected_profiles = Some(SelectedProfiles {
@@ -592,14 +687,14 @@ fn wait(
     c: &mut Controller,
     mut predicate: impl FnMut(&OptionalMotor) -> bool,
 ) {
-    let until = Instant::now() + Duration::from_secs(2);
+    let until = crate::scenario_clock::instant() + Duration::from_secs(2);
     let mut last = 0;
     let mut last_poll = Instant::now();
     let mut largest_poll_gap = Duration::ZERO;
     while !predicate(motor) {
         largest_poll_gap = largest_poll_gap.max(last_poll.elapsed());
         assert!(
-            Instant::now() < until,
+            crate::scenario_clock::instant() < until,
             "owned child timed out: adapter={:?}; connected={}; ready={}; reaped={}; supervisor={:?}; largest_poll_gap_us={}; output={}",
             motor.failure(),
             motor.child.as_ref().is_some_and(Supervisor::connected),
@@ -624,7 +719,7 @@ fn wait(
         }
         motor.poll(|_| {});
         last_poll = Instant::now();
-        std::thread::park_timeout(Duration::from_millis(1));
+        step(motor);
     }
     // Read terminal packets that raced the observed child exit.
     for _ in 0..2 {

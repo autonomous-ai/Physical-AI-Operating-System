@@ -11,6 +11,10 @@ use lamp_body::runtime::{
     supervisor::{Supervisor, new_boot},
     wire::{Command, Control, Event, Motion, Observation},
 };
+// Stepped fixtures drive this module, its Supervisor and its worker on scenario time.
+#[cfg(test)]
+use crate::scenario_clock::monotonic_us;
+#[cfg(not(test))]
 use lamp_ipc::monotonic_us;
 use lamp_turn_owner::{
     BootId, BoundaryGuard, Error as AuthorityError, MonoTime, OutputKind, OutputPermit, Permission,
@@ -515,12 +519,13 @@ impl OptionalMotor {
             self.disable("motor qualification expired before startup");
             return;
         }
-        match Supervisor::spawn(
+        match Supervisor::spawn_with_clock(
             &prepared.executable.path,
             &prepared.config_file.path,
             &prepared.directory,
             self.parent,
             prepared.identity.worker,
+            time,
         ) {
             Ok(child) => {
                 self.child = Some(child);

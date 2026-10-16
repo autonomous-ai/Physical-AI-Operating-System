@@ -191,16 +191,15 @@ impl HeadQualification {
         supervisor: &mut super::supervisor::Supervisor,
         mut receipt: impl FnMut(&Event),
     ) -> io::Result<()> {
-        use crate::control::Clock;
         self.require_worker(supervisor)?;
         let result = (|| {
-            self.maintain(super::SystemClock.now())?;
+            self.maintain(supervisor.now())?;
             for _ in 0..8 {
                 let Some(event) = supervisor.poll()? else {
                     break;
                 };
                 receipt(&event);
-                self.observe(super::SystemClock.now(), &event)?;
+                self.observe(supervisor.now(), &event)?;
             }
             Ok(())
         })();

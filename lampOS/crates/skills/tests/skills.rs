@@ -455,6 +455,46 @@ light = { dim = 1, until = "ends" }
 }
 
 #[test]
+fn an_expired_face_is_not_looked_at_and_the_other_steps_still_run() {
+    let dir = tempfile::tempdir().unwrap();
+    let skill = skill_with(
+        dir.path(),
+        "stuffy-look",
+        r#"
+[trigger]
+topic = "air/state"
+field = "co2_ppm"
+above = 1200
+for = "10m"
+rearm = "ends"
+[ask]
+policy = "nudge"
+[[do]]
+body = { look_at = "face" }
+light = { dim = 1 }
+"#,
+    );
+    let high = r#"{"co2_ppm":1300,"feel":"stuffy"}"#;
+    let mut messages: Vec<_> = (0..=600)
+        .step_by(60)
+        .map(|at| (at, "air/state", high))
+        .collect();
+    // A face seen once, at the start: its two seconds are long over at 600 s.
+    messages.insert(0, (0, Faces::TOPIC, FACE));
+    let dim = Call::Dim {
+        steps: 1,
+        until_ends: false,
+    };
+    assert_eq!(runs_at(&skill, &messages), [(600, vec![dim.clone()])]);
+    // The same face seen at 600 s, just before the air: looked at.
+    messages.insert(messages.len() - 1, (600, Faces::TOPIC, FACE));
+    let gaze = Call::Gaze {
+        face: Some((0.0, -0.25, 0.25)),
+    };
+    assert_eq!(runs_at(&skill, &messages), [(600, vec![gaze, dim])]);
+}
+
+#[test]
 fn a_folder_beginning_with_a_dot_is_passed_over() {
     let dir = tempfile::tempdir().unwrap();
     skill_with(dir.path(), ".draft", "not toml at all");

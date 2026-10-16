@@ -8598,7 +8598,11 @@ mod tests {
 
     // ---- Speaking speed through the output capacity contract ------------
     //
-    // Real time: the IPC and authority clocks cannot be paused. The harness
+    // Playback, the pause and the scripted service run on Tokio's clock, the
+    // IPC and authority bounds on the scenario clock: one 2 ms step a
+    // coordinator tick. With the runtime paused (the 20 s answer) the two
+    // advance together, and an answer of seconds takes a fraction of that
+    // (#823). The harness
     // plays the coordinator exactly as `provider-flow-control.md` specifies:
     // every received packet is counted, and capacity is granted from the free
     // space of a reply buffer that drains at 24,000 samples per second.
@@ -8607,7 +8611,7 @@ mod tests {
     const REPLY_BUFFER: usize = crate::provider_flow::MAX_REPLY_SAMPLES;
 
     /// The coordinator's reply buffer and speaker, reduced to their arithmetic.
-    /// Playback advances by measured time only: time spent held or with
+    /// Playback advances by Tokio's time only: time spent held or with
     /// nothing to play is never made up afterwards.
     struct Speaker {
         /// Samples the buffer may hold. The real coordinator has 30 s; a test
@@ -8616,7 +8620,7 @@ mod tests {
         received: u64,
         played: u64,
         /// When playback was last advanced; set by the first audio.
-        at: Option<Instant>,
+        at: Option<tokio::time::Instant>,
         /// Microsecond-samples not yet amounting to a whole sample.
         fraction: u64,
         held: Duration,
@@ -8639,14 +8643,14 @@ mod tests {
             }
         }
         fn hear(&mut self, samples: usize) {
-            self.at.get_or_insert_with(Instant::now);
+            self.at.get_or_insert_with(tokio::time::Instant::now);
             self.received += samples as u64;
         }
         /// Advance playback to now, unless it is on `hold`, and return the
         /// backlog.
         fn backlog(&mut self, hold: bool) -> usize {
             if let Some(last) = self.at {
-                let now = Instant::now();
+                let now = tokio::time::Instant::now();
                 self.at = Some(now);
                 let elapsed = now - last;
                 if hold {
@@ -8718,7 +8722,7 @@ mod tests {
             pause: Duration,
         ) -> Playback {
             let mut speaker = Speaker::new(room);
-            let started = Instant::now();
+            let started = tokio::time::Instant::now();
             let (mut packets, mut frames) = (0u64, 0usize);
             let mut completed = None;
             // When the last sample left the speaker, and the playing time
@@ -8796,7 +8800,7 @@ mod tests {
         seconds: u64,
     ) -> JoinHandle<(Duration, lamp_gemini::testing::FakeService)> {
         tokio::spawn(async move {
-            let started = Instant::now();
+            let started = tokio::time::Instant::now();
             let messages = seconds / 2;
             let stall_at = messages / 3;
             for index in 0..messages {
@@ -8830,8 +8834,8 @@ mod tests {
     /// coordinator lost the turn, the worker retired the answer it was still
     /// receiving, and the session ended on BarrierTimeout or ReadTimeout. A
     /// coordinator is a process of its own on a lamp. Playback, the pause and
-    /// the service's pacing stay on the host clock, which is what this
-    /// measures.
+    /// the service's pacing are on Tokio's clock; on a paused runtime it moves
+    /// 2 ms a tick with the scenario clock (#823).
     async fn speaking_speed(seconds: u64, room: usize, pause: Duration) {
         let scope =
             crate::scenario_clock::Scope::enter(Duration::from_secs(seconds + 150)).unwrap();
@@ -8848,7 +8852,7 @@ mod tests {
         assert_eq!(played.frames as u64, total);
         assert_eq!(played.packets, seconds * 25);
         println!(
-            "MEASURED speaking_speed seconds={seconds} reply_buffer_s={:.1} hold_ms={} playback_finished_ms={} completion_received_ms={} starved_ms={} service_wrote_in_ms={} packets={} peak_backlog_s={:.2} (scripted service through output capacity to a local IPC reader and a modeled speaker, host)",
+            "MEASURED speaking_speed seconds={seconds} reply_buffer_s={:.1} hold_ms={} playback_finished_ms={} completion_received_ms={} starved_ms={} service_wrote_in_ms={} packets={} peak_backlog_s={:.2} (scripted service through output capacity to a local IPC reader and a modeled speaker, on Tokio's clock)",
             room as f64 / 24_000.0,
             played.held.as_millis(),
             played.finished.as_millis(),
@@ -8889,7 +8893,7 @@ mod tests {
         assert!(rig.exit().await.0.is_ok());
     }
 
-    #[tokio::test]
+    #[tokio::test(start_paused = true)]
     async fn twenty_second_answer_through_a_five_second_reply_buffer_follows_capacity() {
         // A small buffer so a short answer exhausts capacity for most of its
         // length. Playback also stops for four seconds with the buffer full.

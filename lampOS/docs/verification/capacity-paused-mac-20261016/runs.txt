@@ -1,0 +1,22 @@
+base-1: hold_ms=4000 playback_finished_ms=24026 completion_received_ms=20006 starved_ms=1 service_wrote_in_ms=4326 packets=500 peak_backlog_s=5.00 ok. 1 passed finished in 24.10s 
+base-2: hold_ms=4001 playback_finished_ms=24028 completion_received_ms=20003 starved_ms=0 service_wrote_in_ms=4340 packets=500 peak_backlog_s=5.00 ok. 1 passed finished in 24.04s 
+base-3: hold_ms=4000 playback_finished_ms=24024 completion_received_ms=20007 starved_ms=1 service_wrote_in_ms=4350 packets=500 peak_backlog_s=5.00 ok. 1 passed finished in 24.04s 
+load-r1-p1: hold_ms=4000 playback_finished_ms=24004 completion_received_ms=20004 starved_ms=0 service_wrote_in_ms=4200 packets=500 peak_backlog_s=5.00 ok. 1 passed finished in 5.57s 
+load-r1-p2: hold_ms=4000 playback_finished_ms=24004 completion_received_ms=20004 starved_ms=0 service_wrote_in_ms=4200 packets=500 peak_backlog_s=5.00 ok. 1 passed finished in 5.67s 
+load-r1-p3: hold_ms=4000 playback_finished_ms=24004 completion_received_ms=20004 starved_ms=0 service_wrote_in_ms=4200 packets=500 peak_backlog_s=5.00 ok. 1 passed finished in 5.63s 
+load-r1-p4: hold_ms=4000 playback_finished_ms=24004 completion_received_ms=20004 starved_ms=0 service_wrote_in_ms=4200 packets=500 peak_backlog_s=5.00 ok. 1 passed finished in 5.67s 
+load-r1-p5: hold_ms=4000 playback_finished_ms=24004 completion_received_ms=20004 starved_ms=0 service_wrote_in_ms=4200 packets=500 peak_backlog_s=5.00 ok. 1 passed finished in 5.67s 
+load-r1-p6: hold_ms=4000 playback_finished_ms=24004 completion_received_ms=20004 starved_ms=0 service_wrote_in_ms=4200 packets=500 peak_backlog_s=5.00 ok. 1 passed finished in 5.70s 
+load-r2-p1: hold_ms=4000 playback_finished_ms=24004 completion_received_ms=20004 starved_ms=0 service_wrote_in_ms=4200 packets=500 peak_backlog_s=5.00 ok. 1 passed finished in 7.01s 
+load-r2-p2: hold_ms=4000 playback_finished_ms=24004 completion_received_ms=20004 starved_ms=0 service_wrote_in_ms=4200 packets=500 peak_backlog_s=5.00 ok. 1 passed finished in 7.05s 
+load-r2-p3: hold_ms=4000 playback_finished_ms=24004 completion_received_ms=20004 starved_ms=0 service_wrote_in_ms=4200 packets=500 peak_backlog_s=5.00 ok. 1 passed finished in 7.12s 
+load-r2-p4: hold_ms=4000 playback_finished_ms=24004 completion_received_ms=20004 starved_ms=0 service_wrote_in_ms=4200 packets=500 peak_backlog_s=5.00 ok. 1 passed finished in 6.93s 
+load-r2-p5: hold_ms=4000 playback_finished_ms=24004 completion_received_ms=20004 starved_ms=0 service_wrote_in_ms=4200 packets=500 peak_backlog_s=5.00 ok. 1 passed finished in 6.99s 
+load-r2-p6: hold_ms=4000 playback_finished_ms=24004 completion_received_ms=20004 starved_ms=0 service_wrote_in_ms=4200 packets=500 peak_backlog_s=5.00 ok. 1 passed finished in 6.99s 
+paused-1: hold_ms=4000 playback_finished_ms=24004 completion_received_ms=20004 starved_ms=0 service_wrote_in_ms=4200 packets=500 peak_backlog_s=5.00 ok. 1 passed finished in 3.23s 
+paused-2: hold_ms=4000 playback_finished_ms=24004 completion_received_ms=20004 starved_ms=0 service_wrote_in_ms=4200 packets=500 peak_backlog_s=5.00 ok. 1 passed finished in 2.83s 
+paused-3: hold_ms=4000 playback_finished_ms=24004 completion_received_ms=20004 starved_ms=0 service_wrote_in_ms=4200 packets=500 peak_backlog_s=5.00 ok. 1 passed finished in 3.34s 
+paused-4: hold_ms=4000 playback_finished_ms=24004 completion_received_ms=20004 starved_ms=0 service_wrote_in_ms=4200 packets=500 peak_backlog_s=5.00 ok. 1 passed finished in 3.67s 
+paused-5: hold_ms=4000 playback_finished_ms=24004 completion_received_ms=20004 starved_ms=0 service_wrote_in_ms=4200 packets=500 peak_backlog_s=5.00 ok. 1 passed finished in 3.75s 
+
+[exited with code 0]

@@ -405,7 +405,19 @@ On a lamp the coordinator is a process of its own.
 `play_at_speaking_speed` is one 2 ms step. The provider worker reads
 `scenario_clock::monotonic_us` under `cfg(test)`, so its 250 ms heartbeat
 bound and the authority it installs are on the same steps as the
-coordinator's 100 ms leases. Playback, the four-second hold, the service's
-pacing and every assertion on them stay on the host clock. Under 24
-CPU-bound processes on the same Mac, the test passed 0 of 10 runs before
-(all BarrierTimeout) and 10 of 10 after.
+coordinator's 100 ms leases. Under 24 CPU-bound processes on the same Mac,
+the test passed 0 of 10 runs before (all BarrierTimeout) and 10 of 10 after.
+
+Since 2026-10-16 (#823) playback, the four-second hold and the service's
+pacing are on Tokio's clock (the modeled speaker and both elapsed times
+read `tokio::time::Instant`), and the twenty-second answer runs on a paused
+runtime (`#[tokio::test(start_paused = true)]`). Each coordinator tick is one
+scenario step and then a 2 ms Tokio sleep, so the two clocks move together
+and nothing waits on the host. Every assertion and bound is unchanged. On
+the Intel Mac the test took 24.04 to 24.10 s before and 2.8 to 3.8 s after
+(5.6 to 7.1 s with six copies at once), and its `MEASURED` line is the same
+on every run: hold 4,000 ms, playback finished at 24,004 ms, completion at
+20,004 ms, starved 0 ms, written in 4,200 ms, 500 packets, peak 5.00 s.
+Before, those were 4,000 to 4,001, 24,024 to 24,028, 20,003 to 20,007, 0 to
+1, and 4,326 to 4,350 ms. The ignored sixty-second and three-minute answers
+keep an ordinary runtime, so they still play in real time.

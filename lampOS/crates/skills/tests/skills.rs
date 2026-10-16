@@ -244,7 +244,8 @@ fn a_short_sound_loads_and_a_long_loud_or_other_one_is_refused_with_why() {
             ),
             "not 16-bit mono PCM at 24000 Hz",
         ),
-        ((MONO, 4_800, 10_000), "louder than -20 dBFS RMS over 10 ms"),
+        ((MONO, 4_800, 1_100), "louder than -30 dBFS RMS over 10 ms"),
+        ((MONO, 4_800, 9_000), "a peak past -12 dBFS"),
     ] {
         let ((spec, frames, level), path) = (made, &ding);
         fs::remove_file(path).unwrap();

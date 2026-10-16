@@ -16,14 +16,17 @@ path = "src/main.rs"
 [dependencies]
 serde.workspace = true
 serde_json.workspace = true
-hound.workspace = true
 lamp-bus = { path = "../bus" }
 lamp-msgs = { path = "../msgs" }
 lamp-ipc = { path = "../ipc" }
+# The voice's own check of a skill's sound (`lamp_voice::say::read_sound`),
+# so that what loads is what the voice plays.
+lamp-voice = { path = "../voice" }
 toml = { version = "1", default-features = false, features = ["parse", "serde", "std"] }
 
 [dev-dependencies]
 tempfile = "3"
+hound.workspace = true
 
 [lints]
 workspace = true

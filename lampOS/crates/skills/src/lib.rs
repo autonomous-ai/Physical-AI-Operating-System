@@ -673,58 +673,12 @@ pub fn load(dir: &Path) -> Result<Skill, String> {
     })
 }
 
-/// A sound's limits, the voice's (`lamp_voice::say::read_sound`, which
-/// checks them again when it plays it): 16-bit mono PCM at the speaker
-/// path's 24 kHz, at most 3 s, no 10 ms louder than -20 dBFS RMS (the
-/// lamp's speech), and a file of at most this many bytes.
-pub const SOUND_RATE: u32 = 24_000;
-pub const SOUND_MOST_FRAMES: u32 = SOUND_RATE * 3;
-pub const SOUND_MOST_BYTES: u64 = 44 + 2 * SOUND_MOST_FRAMES as u64 + 4_096;
-pub const SOUND_LOUDEST_DBFS: f64 = -20.0;
-
-/// Whether `path` is a sound the voice will play: a regular file, not a
-/// link, of at most [`SOUND_MOST_BYTES`] by its metadata before anything
-/// is read, then a WAV within the limits above.
+/// Whether `path` is a sound the voice will play, by the voice's own check
+/// (`lamp_voice::say::read_sound`: a regular file, not a link, of 16-bit
+/// mono PCM at 24 kHz, at most 3 s, no 10 ms louder than -30 dBFS RMS and
+/// no peak past -12 dBFS), so that the two never differ.
 pub fn check_sound(path: &Path) -> Result<(), String> {
-    let metadata = fs::symlink_metadata(path).map_err(|_| "not found".to_owned())?;
-    if !metadata.is_file() {
-        return Err("not a regular file".into());
-    }
-    if metadata.len() > SOUND_MOST_BYTES {
-        return Err(format!("more than {SOUND_MOST_BYTES} bytes"));
-    }
-    let reader = hound::WavReader::open(path).map_err(|_| "not a WAV file")?;
-    let spec = reader.spec();
-    if spec.channels != 1
-        || spec.bits_per_sample != 16
-        || spec.sample_format != hound::SampleFormat::Int
-        || spec.sample_rate != SOUND_RATE
-    {
-        return Err(format!("not 16-bit mono PCM at {SOUND_RATE} Hz"));
-    }
-    if !(1..=SOUND_MOST_FRAMES).contains(&reader.duration()) {
-        return Err(format!(
-            "not 1 to {SOUND_MOST_FRAMES} frames ({} s at most)",
-            SOUND_MOST_FRAMES / SOUND_RATE
-        ));
-    }
-    let samples = reader
-        .into_samples::<i16>()
-        .collect::<Result<Vec<_>, _>>()
-        .map_err(|_| "a WAV file cut short")?;
-    let loudest = samples
-        .chunks(240)
-        .map(|window| {
-            let power = window.iter().map(|&s| f64::from(s).powi(2)).sum::<f64>();
-            (power / window.len() as f64).sqrt()
-        })
-        .fold(0.0, f64::max);
-    if loudest > 32_767.0 * 10f64.powf(SOUND_LOUDEST_DBFS / 20.0) {
-        return Err(format!(
-            "louder than {SOUND_LOUDEST_DBFS} dBFS RMS over 10 ms"
-        ));
-    }
-    Ok(())
+    lamp_voice::say::read_sound(path).map(drop)
 }
 
 fn light_call(file: LightFile) -> Result<Call, String> {

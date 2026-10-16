@@ -340,6 +340,9 @@ pub struct Hello {
     /// When it started: the quiet a skill's ask is shown is counted from
     /// here if nothing has been said since.
     started: Instant,
+    /// The moment question beside it (`--gate`, #939), which takes the
+    /// skills' asks of news and of anything else unprompted.
+    moment: Option<crate::moment::Moment>,
     totals: Totals,
 }
 
@@ -382,6 +385,7 @@ impl Hello {
             greeted: None,
             skill_asks: VecDeque::new(),
             started: Instant::now(),
+            moment: None,
             totals: Totals::default(),
         })
     }
@@ -398,6 +402,64 @@ impl Hello {
     /// Whether it answers skills' asks ([`Options::gate`]).
     pub fn answers_skills(&self) -> bool {
         self.options.gate
+    }
+
+    /// With the moment question beside it (`--gate`, #939): skills' asks
+    /// of news and of anything else unprompted are put to it, with what
+    /// this question knows of who is talking and how often the lamp spoke
+    /// up unasked.
+    pub fn with_moment(mut self, moment: crate::moment::Moment) -> Self {
+        self.moment = Some(moment);
+        self
+    }
+
+    /// The moment question's counts, if it runs.
+    pub fn moment_totals(&self) -> Option<crate::moment::Totals> {
+        self.moment.as_ref().map(crate::moment::Moment::totals)
+    }
+
+    /// A skill's ask of news or of anything else unprompted, put to the
+    /// moment question. False when there is none to take it.
+    pub fn asked_moment(&mut self, ask: &lamp_msgs::SkillAsk, now: Instant) -> bool {
+        match self.moment.as_mut() {
+            Some(moment) => {
+                moment.asked(ask, now);
+                true
+            }
+            None => false,
+        }
+    }
+
+    /// Take up the moment question's answer, or decide its next ask, with
+    /// how things are now.
+    pub fn moment_turn(
+        &mut self,
+        now: Instant,
+        unix_ms: u64,
+        room: Room,
+        someone_here: Option<bool>,
+    ) -> Option<crate::moment::Decided> {
+        let quiet = now.saturating_duration_since(self.last_talk.unwrap_or(self.started));
+        let room_now = crate::moment::Now {
+            room,
+            someone_here,
+            quiet_s: u32::try_from(quiet.as_secs()).unwrap_or(u32::MAX),
+            talking: self.talking(now),
+            // Acting, the lamp's own turns are counted from `voice/state`.
+            spoke_up_last_hour: u32::try_from(self.unasked.len()).unwrap_or(u32::MAX),
+        };
+        self.moment.as_mut()?.turn(now, unix_ms, room_now)
+    }
+
+    /// Someone is talking to the lamp: the voice listening, thinking or
+    /// speaking, or anything heard or said in the last [`Options::quiet_for`].
+    fn talking(&self, now: Instant) -> bool {
+        matches!(
+            self.voice,
+            Some(Voice::Listening | Voice::Thinking | Voice::Speaking)
+        ) || self
+            .last_talk
+            .is_some_and(|at| now.saturating_duration_since(at) < self.options.quiet_for)
     }
 
     /// A skill asks to say hello (`skills/ask`, #939): put as an arrival,
@@ -543,12 +605,7 @@ impl Hello {
     }
 
     fn hold(&self, arrival: &VoiceArrival, now: Instant) -> Option<Hold> {
-        let talking = matches!(
-            self.voice,
-            Some(Voice::Listening | Voice::Thinking | Voice::Speaking)
-        ) || self
-            .last_talk
-            .is_some_and(|at| now.saturating_duration_since(at) < self.options.quiet_for);
+        let talking = self.talking(now);
         let every_min =
             u32::try_from(self.options.at_most_every.as_secs() / 60).unwrap_or(u32::MAX);
         let recent = arrival

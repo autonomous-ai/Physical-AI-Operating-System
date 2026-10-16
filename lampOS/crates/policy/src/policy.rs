@@ -1123,6 +1123,39 @@ impl Policy<'_> {
         }
     }
 
+    /// Take up the moment question's answer, or decide a skill's next ask
+    /// of news or of anything unprompted, and publish and write down a
+    /// decision that comes of it (`--gate`, #939).
+    fn moment_turn(&mut self, now: Instant) {
+        let room = self.room;
+        let someone_here = self.seen.and_then(|((_, near, _), at)| {
+            (now.saturating_duration_since(at) <= SEEN_FOR).then_some(near > 0)
+        });
+        let Some(decided) = self
+            .hello
+            .as_mut()
+            .and_then(|hello| hello.moment_turn(now, unix_ms(), room, someone_here))
+        else {
+            return;
+        };
+        // Published first: the skill is waiting for it.
+        self.publish(&decided.decision);
+        let line = &decided.line;
+        match self.record.write(line.at_unix_ms, line) {
+            Ok(()) => {
+                if let Some(missing) = self.log.right() {
+                    (self.say)(Note::LogWriting { missing });
+                }
+            }
+            Err(error) => {
+                self.totals.unlogged += 1;
+                if self.log.wrong(1) {
+                    (self.say)(Note::LogFailing { kind: error.kind() });
+                }
+            }
+        }
+    }
+
     /// Take up a hello answer, or decide the next arrival, and publish and
     /// write down a decision that comes of it.
     fn hello_turn(&mut self, now: Instant) {
@@ -1286,6 +1319,14 @@ impl Policy<'_> {
                     report.with("skill_asks", self.totals.skill_asks)
                 } else {
                     report
+                };
+                let report = match hello.moment_totals() {
+                    Some(moment) => report
+                        .with("moment_decided", moment.decided)
+                        .with("moment_said", moment.said)
+                        .with("moment_held_talking", moment.held_talking)
+                        .with("moment_late", moment.late),
+                    None => report,
                 };
                 if hello.acts() {
                     report.with("hello_acts", true)
@@ -1657,7 +1698,11 @@ fn run_inner<D: Decider + Send + 'static>(
                     if let Some(hello) = policy.hello.as_mut() {
                         hello.asked(&ask, now);
                     }
-                } else {
+                } else if !policy
+                    .hello
+                    .as_mut()
+                    .is_some_and(|hello| hello.asked_moment(&ask, now))
+                {
                     policy.not_judged.push(ask.ask);
                 }
             }
@@ -1717,6 +1762,7 @@ fn run_inner<D: Decider + Send + 'static>(
         }
         policy.judge(now);
         policy.hello_turn(now);
+        policy.moment_turn(now);
         policy.not_judged_turn();
         policy.progress_turn(now);
         policy.after(now);

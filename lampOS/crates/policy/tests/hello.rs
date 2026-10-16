@@ -10,6 +10,7 @@ use lamp_policy::{
     attention,
     decide::{Answer, Asked, Decider, Failed, Question},
     hello::{self, Hello},
+    moment::{self, Moment},
     policy::{self, Note, Options},
     progress::{self, Choice, Progress},
 };
@@ -57,10 +58,11 @@ impl Decider for Attention {
     }
 }
 
-/// The hello judge, played by the test.
+/// The hello judge, or the moment judge, played by the test.
 struct Judge {
     shown: mpsc::Sender<Value>,
     replies: mpsc::Receiver<Result<Asked, Failed>>,
+    moment: bool,
 }
 impl Decider for Judge {
     fn ask(
@@ -69,9 +71,14 @@ impl Decider for Judge {
         questions: &[(String, Question)],
         deadline: Duration,
     ) -> Result<Asked, Failed> {
-        assert_eq!(questions, hello::questions());
-        // Never longer than the voice can wait, whatever was given.
-        assert_eq!(deadline, hello::MOST_ASKING);
+        // Never longer than the asker can wait, whatever was given.
+        if self.moment {
+            assert_eq!(questions, moment::questions());
+            assert_eq!(deadline, moment::MOST_ASKING);
+        } else {
+            assert_eq!(questions, hello::questions());
+            assert_eq!(deadline, hello::MOST_ASKING);
+        }
         let _ = self
             .shown
             .send(serde_json::from_str(state).expect("the state is JSON"));
@@ -97,6 +104,9 @@ struct Rig {
     decisions: Subscriber,
     shown: mpsc::Receiver<Value>,
     replies: mpsc::Sender<Result<Asked, Failed>>,
+    /// The moment judge's, with `--gate`.
+    moment_shown: mpsc::Receiver<Value>,
+    moment_replies: mpsc::Sender<Result<Asked, Failed>>,
 }
 
 impl Rig {
@@ -118,6 +128,8 @@ impl Rig {
         };
         let (shown_to, shown) = mpsc::channel();
         let (replies, replied) = mpsc::channel();
+        let (moment_shown_to, moment_shown) = mpsc::channel();
+        let (moment_replies, moment_replied) = mpsc::channel();
         let (said_so, saying) = mpsc::channel();
         let mut eyes = declared(Faces::TOPIC, Faces::declaration(), "eyes");
         let mut room = declared(RoomState::TOPIC, RoomState::declaration(), "voice");
@@ -133,6 +145,8 @@ impl Rig {
             saying,
             shown,
             replies,
+            moment_shown,
+            moment_replies,
             root,
             log_dir,
             bus,
@@ -155,10 +169,24 @@ impl Rig {
         let judge = Judge {
             shown: shown_to,
             replies: replied,
+            moment: false,
         };
         let (bus, stop) = (rig.bus.clone(), Arc::clone(&rig.stop));
         rig.running = Some(thread::spawn(move || {
             let hello = Hello::start(judge, hello)?;
+            let hello = if gate {
+                let judge = Judge {
+                    shown: moment_shown_to,
+                    replies: moment_replied,
+                    moment: true,
+                };
+                hello.with_moment(Moment::start(
+                    judge,
+                    moment::Options::new(Duration::from_secs(3), None),
+                )?)
+            } else {
+                hello
+            };
             policy::run_with_questions(
                 &bus,
                 Attention,
@@ -463,14 +491,16 @@ fn a_failed_model_leaves_it_to_the_rule_in_time_for_the_voice() {
     rig.stop();
 }
 
-/// #939: with `--gate`, a skill that asks to say hello is answered as the
-/// voice's arrivals are. The hello question is asked with its minutes away
-/// and seconds there, and its decision acts and names the ask, not an
-/// arrival. The next is held by the hard rule, the lamp having just been
-/// told to greet, with no model asked. An act not judged here yet is `wait`
-/// by the rule at once.
+/// #939: with `--gate`, a skill's ask is answered by its question, and the
+/// decision acts and names the ask. A hello is put to the hello question,
+/// as the voice's arrivals are, with its minutes away and seconds there, and
+/// names the ask, not an arrival; the next is held by the hard rule, the
+/// lamp having just been told to greet, with no model asked. News is put to
+/// the moment question with how things are around the lamp; anything
+/// unprompted while someone talks to the lamp is `wait` by the rule, with
+/// no model asked.
 #[test]
-fn with_the_gate_a_skills_hello_is_decided_and_names_the_ask() {
+fn with_the_gate_a_skills_ask_is_decided_by_its_question_and_names_the_ask() {
     let mut rig = Rig::with("gate", true, true);
     rig.ask(3_000_001, "hello");
     let shown = rig.shown();
@@ -501,22 +531,52 @@ fn with_the_gate_a_skills_hello_is_decided_and_names_the_ask() {
     );
     rig.not_asked();
     assert_eq!(rig.log(2)[1]["guard"], "greeted_recently");
+    // News: put to the moment question, as it is now around the lamp.
     rig.ask(3_000_003, "news");
+    let shown = rig
+        .moment_shown
+        .recv_timeout(WAIT)
+        .expect("the moment question asked");
+    assert_eq!(shown["what"]["skill"], "welcome-back");
+    assert_eq!(shown["room"]["someone_at_the_lamp"], true);
+    // The hello just said is the lamp's turn only once the voice says it.
+    assert_eq!(
+        shown["room"]["times_the_lamp_spoke_up_unasked_in_the_last_hour"],
+        0
+    );
+    rig.moment_replies
+        .send(Ok(asked(moment::questions(), &[0.8])))
+        .unwrap();
     let moment = rig.answer_to(3_000_003);
     assert_eq!(
         (
             moment.about.as_str(),
             moment.choice.as_str(),
-            moment.by.as_str(),
-            moment.ask
+            moment.shadow,
+            moment.ask,
+            moment.answers.get("good_moment").copied()
         ),
-        ("moment", "wait", "rule", Some(3_000_003))
+        ("moment", "say_now", false, Some(3_000_003), Some(0.8))
     );
+    // Someone talking to the lamp: `wait` by the rule, no model asked.
+    rig.state(Voice::Listening);
+    thread::sleep(ms(50));
+    rig.ask(3_000_004, "unprompted");
+    let held = rig.answer_to(3_000_004);
+    assert_eq!(
+        (held.about.as_str(), held.choice.as_str(), held.by.as_str()),
+        ("moment", "wait", "rule")
+    );
+    assert!(rig.moment_shown.recv_timeout(ms(300)).is_err(), "asked");
     let report = rig.report();
-    assert!(
-        report.contains(&("skill_asks".into(), "3".into())),
-        "{report:?}"
-    );
+    for (key, value) in [
+        ("skill_asks", "4"),
+        ("moment_decided", "2"),
+        ("moment_said", "1"),
+        ("moment_held_talking", "1"),
+    ] {
+        assert!(report.contains(&(key.into(), value.into())), "{report:?}");
+    }
     rig.stop();
 }
 

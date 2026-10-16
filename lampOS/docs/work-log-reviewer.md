@@ -4,6 +4,26 @@
 
 Newest first. Times from `date` (+07).
 
+- 17:09 merged #1110 (Harness descendant proven killed by its lock; the tasks flake)
+- 17:03 merged #1085 (tools.json over 32 functions not refused; #1020's P3)
+- 16:59 #1105 sent back: P2 (throttled = scaling_max < cpuinfo_max is an error with no heat check; a boost OPP or a deliberate cap reads as heat)
+- 16:59 merged #1063 (tasks without Harness: unit, health, voice; my P2 fixed)
+- 16:51 #1039 sent back: P2 (policy = reminder reaches the Policy as unprompted, so a reminder the person asked for can be held by the rules for unasked speech; SKILL.md says otherwise)
+- 16:42 merged #1087 (docs: a from ask names its source; Thirteen's #1038 P3s)
+- 16:38 #1091 re-checked: P2 fixed; waits on #1072/#1080, then first builder
+- 16:34 merged #1098 (Desk tutor holds the reading pose 2 min)
+- 16:34 merged #1062 (room older than 3 s is unknown; #1032's P3s)
+- 16:30 #1091 sent back: P2 (moves/NAME.json read with no file check or size bound: a FIFO blocks every skill's reload, 300 MB read whole); waits on #1072 and #1080; then first builder (motion shown on no lamp)
+- 16:28 #1010 sent back again: 15:49 P2 fixed (probed); new P2: the fixed-count clamp does not follow a fold, so on a stop or retreat during a held answer the elbow jumps 134–156 counts in one step after 1.5 s
+- 16:26 #1094 sent back: two P1s (Python in the tools scripts; cleanup runs on every stop, so each reboot unmasks V1's LED units) and P2s (scope: crates/update and a second lamp-os package)
+- 16:26 merged #1077 (full look settle; P1 fixed)
+- 16:26 merged #1089 (skills wait for a talk to end)
+- 16:26 merged #991 (fifth-P8 in joining.md and role files)
+- 16:16 merged #1082 (#958's P3s: a dead asker while someone talks is held)
+- 16:08 merged #1065 and closed #1060 (Policy bus tests wait, not sleep)
+- 16:05 merged #1074 (empty scan answer kept 5 s; my #1064 P3)
+- 15:59 #1077 sent back: P1 (one Stopped reading takes the still; in a replay of lamp-52e6's joints a turning head got its still while moving in 240 of 525 asks, against 17 on lamp-voice)
+- 15:58 #900/#996/#1000 sent back: all three need a rebase (scenario_clock.rs conflict with #1009); #900 two P2s (eprintln inside the 20 ms ack deadline; native_head still in the realtime group so ARM64 ran none of its 11 tests); #1000 P2 (says Closes #906, but #906's third test is still on the host clock)
 - 15:53 #1030 sent back: two P2s (the voice check runs on every event, not once per request; a held other-voice line counts toward nothing)
 - 15:53 merged #1078 (Stretch break near 0.14)
 - 15:51 #795 sent back: P2 — losing Controls can still make lamp-voice exit (worker's unreadable Fault counted as a cleanup failure at shutdown); earlier findings fixed except the privacy-switch.md:117 P3

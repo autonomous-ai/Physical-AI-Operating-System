@@ -246,9 +246,14 @@ fn days_two_known_people_and_the_room_are_never_answered_from_each_other() {
         assert!(ok && told["remembered"] == true, "{told}");
     }
     // A session opened with Minh at the lamp is told the room's and Minh's.
-    let (room, theirs) = client
-        .open_session_for(1, Duration::from_millis(300), Some(&minh))
-        .unwrap();
+    let started = Instant::now();
+    let Some((room, theirs)) = client.open_session_within(1, SESSION, Some(&minh)) else {
+        let seen: Vec<_> = fixture.trace.try_iter().collect();
+        panic!(
+            "no session after {:?}; the store saw {seen:?}",
+            started.elapsed()
+        );
+    };
     let theirs = theirs.unwrap();
     assert!(room["note"].as_str().unwrap().contains("coffee machine"));
     assert!(theirs["note"].as_str().unwrap().contains("Minh takes"));

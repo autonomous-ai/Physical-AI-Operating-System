@@ -102,6 +102,11 @@ manager/process observations are checked for change. Ambiguity, missing
 visibility, a changed unit, unknown output arguments or an unavailable manager
 refuses the entire root. No producer or service process is signaled or frozen.
 The guard kills and reaps its own query child on a timeout or query failure.
+The voice's known processes are `serve` and its workers (`capture`, `speaker`,
+`provider`, `second`, `camera`, `ring`, `privacy`, `probe`), plus its
+reminders' `schedule-consumer`. A new worker role must be added to the guard
+when the voice gains one, or every pass refuses the root: the second voice's
+`second` worker did this on lamp-4ace for every hourly pass from 15 Oct 14:01.
 
 This relies on the **current trusted producer contract**:
 `crates/voice/src/coordinator.rs::run_source` exclusively creates `NEW_OUTPUT`

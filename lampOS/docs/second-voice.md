@@ -251,8 +251,11 @@ order is kept. A written turn is the same from the chat on.
   takes it, an answer to a later request (the written one was retired or
   failed) drops it, and a forgetting drops it too.
 - **Each turn is one person's**, as a Live session is since #775: before
-  the chat, the thread is opened for whoever the eyes know at the lamp
-  (`Sessions::open`), and that person's kept things are asked for. With
+  the chat, the thread is opened for whoever the eyes count at the lamp
+  (`Sessions::open`, read only as the turn opens: someone else known after
+  10 s with the one before unnamed, or at once when the one before was
+  last named 30 s ago or more), and that person's kept things are asked
+  for. With
   Days memory, the note is asked once per run of turns for one person.
 - **Each turn is logged** as "lamp-voice second: request N ...": the words
   heard and how long after the line, the state of the words at the line's

@@ -105,9 +105,12 @@ pub struct Thread {
     /// The answer that opened with a function's name, if the newest did.
     unsaid: Option<u64>,
     calls: crate::not_speech::CallsLeftOut,
-    /// Who is at the lamp now, as the worker counts it; whose a new
-    /// exchange is.
+    /// Who is at the lamp now, as the worker counts it: whose session it
+    /// is, and whose a new exchange is when the eyes name nobody.
     whose: Option<String>,
+    /// Whom the eyes name at the lamp at this moment, fresh: whose a new
+    /// exchange is ([`Self::seen_now`]).
+    named: Option<String>,
     /// Whom the newest session was opened for: the only exchanges it is told.
     opened_for: Option<String>,
     /// A written request not yet answered ([`Self::written`]).
@@ -189,37 +192,29 @@ impl Thread {
             unsaid: None,
             calls: crate::not_speech::CallsLeftOut::new(),
             whose: None,
+            named: None,
             opened_for: None,
             note: None,
             held: None,
         }
     }
 
-    /// Who is at the lamp now: a memory id, or `None` for nobody known.
+    /// Who is at the lamp now, as the worker counts it: a memory id, or
+    /// `None` for nobody known. It decides whose session it is.
     pub fn at_lamp(&mut self, whose: Option<String>) {
-        self.at_lamp_since(whose, None);
+        self.whose = whose;
     }
 
-    /// As [`Self::at_lamp`], with when the eyes first knew them if they
-    /// took a known person's place ([`crate::known_faces::Presence::arrived`]).
-    /// Until they counted, what they said was answered as the one before's
-    /// and kept as theirs: those exchanges are now the newcomer's, so they
-    /// are never told to the one before when they come back (the reviewer
-    /// on #1100). If the one before is seen again first, nothing moves.
-    pub fn at_lamp_since(&mut self, whose: Option<String>, arrived: Option<Instant>) {
-        if let (Some(before), Some(_), Some(since)) = (&self.whose, &whose, arrived)
-            && self.whose != whose
-        {
-            for exchange in self
-                .exchanges
-                .iter_mut()
-                .filter(|e| e.whose.as_ref() == Some(before) && e.at >= since)
-            {
-                exchange.whose = whose.clone();
-                self.changed = true;
-            }
-        }
-        self.whose = whose;
+    /// Whom the eyes name at the lamp at this moment, fresh: a memory id,
+    /// or `None`. A new exchange is theirs, as the memory files it; the
+    /// counted person's ([`Self::at_lamp`]) only when nobody is named. So
+    /// what someone says in another's place, before they count as the one
+    /// at the lamp ([`crate::known_faces::SOMEONE_ELSE_AFTER`]) or whether
+    /// they ever do, is theirs, and never told to the one before (the
+    /// reviewer on #1100). A face kept under two names splits its thread
+    /// between them, as its memory already is.
+    pub fn seen_now(&mut self, named: Option<String>) {
+        self.named = named;
     }
 
     /// Whom a session opened now would be for. Someone else known: them.
@@ -286,10 +281,15 @@ impl Thread {
         };
         // Who is at the lamp and whom the session was opened for are this
         // process's own; each exchange keeps its `whose` through the file.
-        let (whose, opened_for, note) =
-            (self.whose.take(), self.opened_for.take(), self.note.take());
+        let (whose, named, opened_for, note) = (
+            self.whose.take(),
+            self.named.take(),
+            self.opened_for.take(),
+            self.note.take(),
+        );
         *self = Self::load(&text, now, wall);
         self.whose = whose;
+        self.named = named;
         self.opened_for = opened_for;
         self.note = note;
         self.held = Some(at);
@@ -459,9 +459,14 @@ impl Thread {
             self.heard_at = None;
             self.heard_done = false;
             // Each person's last eight; with nobody ever known, the room's
-            // eight are all there is. Nobody known while a person's session
+            // eight are all there is. The person the eyes name now; nobody
+            // named, the one counted; nobody known while a person's session
             // goes on: theirs.
-            let whose = self.whose.clone().or_else(|| self.opened_for.clone());
+            let whose = self
+                .named
+                .clone()
+                .or_else(|| self.whose.clone())
+                .or_else(|| self.opened_for.clone());
             let theirs = self.exchanges.iter().filter(|e| e.whose == whose);
             if theirs.count() == EXCHANGES {
                 if let Some(oldest) = self.exchanges.iter().position(|e| e.whose == whose) {
@@ -1333,7 +1338,8 @@ mod tests {
             let whose = presence
                 .seen(known.map(str::to_owned), now)
                 .map(str::to_owned);
-            thread.at_lamp_since(whose, presence.arrived());
+            thread.at_lamp(whose);
+            thread.seen_now(known.map(str::to_owned));
         };
         let opened = |thread: &mut Thread, now: Instant| {
             thread.opening(now);
@@ -1412,13 +1418,15 @@ mod tests {
         assert_eq!(read.recall(at(161), ROOM), None);
     }
 
-    /// The reviewer on #1100: for up to `SOMEONE_ELSE_AFTER` a newcomer in a
-    /// known person's place is answered in that person's session. What they
-    /// said then is theirs once they count, never told to the one before
-    /// when they come back. What was said while the one before was still
-    /// seen stays the one before's.
+    /// The reviewer on #1100: each exchange is the person's the eyes name
+    /// as it is made, the counted person's only when nobody is named; the
+    /// counted person decides only whose session it is. So what a newcomer
+    /// says in a known person's place, B's "My bank PIN is 2468" at 13 s,
+    /// is B's whether or not B comes to count, and is never told to A: when
+    /// B stays, when A is read again first, and when B leaves and A comes
+    /// back much later. The file keeps it so.
     #[test]
-    fn what_a_newcomer_said_before_they_counted_is_theirs() {
+    fn what_a_newcomer_says_is_theirs_whether_or_not_they_count() {
         use crate::known_faces::Presence;
         let start = Instant::now();
         let at = |seconds: u64| start + Duration::from_secs(seconds);
@@ -1426,54 +1434,70 @@ mod tests {
             crate::remember::person_id("A"),
             crate::remember::person_id("B"),
         );
-        let mut presence = Presence::default();
-        let mut thread = Thread::new();
-        let mut seen = |thread: &mut Thread, known: &str, now: Instant| {
+        // The eyes' fresh reading at `now`, as the worker takes it.
+        let seen = |presence: &mut Presence, thread: &mut Thread, known: Option<&str>, now| {
             let whose = presence
-                .seen(Some(known.to_owned()), now)
+                .seen(known.map(str::to_owned), now)
                 .map(str::to_owned);
-            thread.at_lamp_since(whose, presence.arrived());
+            thread.at_lamp(whose);
+            thread.seen_now(known.map(str::to_owned));
         };
-        seen(&mut thread, &a, at(0));
-        thread.opening(at(0));
-        thread.person("Keep my locker code, 417.", true, at(1));
-        thread.lamp(1, "Kept: 417.", at(2));
-        // B is read once, then A again: what is said between is A's.
-        seen(&mut thread, &b, at(3));
-        thread.person("Thanks.", true, at(4));
-        thread.lamp(2, "You're welcome.", at(5));
-        seen(&mut thread, &a, at(6));
-        // B sits down in A's place at 10 s and speaks at 13 s, before they
-        // count: answered in A's session.
-        seen(&mut thread, &b, at(10));
-        thread.person("My bank PIN is 2468, keep it.", true, at(13));
-        thread.lamp(3, "Kept: 2468.", at(14));
-        assert!(!thread.switch_due(at(14)), "still A's session");
-        seen(&mut thread, &b, at(20));
-        assert!(thread.switch_due(at(20)));
-        thread.opening(at(20));
-        let b_told = thread.recall(at(20), ROOM).unwrap();
-        assert!(b_told.contains("2468"), "{b_told}");
-        assert!(
-            !b_told.contains("417") && !b_told.contains("welcome"),
-            "{b_told}"
-        );
-        // A comes back: their own exchanges, and not B's PIN.
-        seen(&mut thread, &a, at(30));
-        seen(&mut thread, &a, at(40));
-        thread.opening(at(40));
-        let a_told = thread.recall(at(40), ROOM).unwrap();
-        assert!(
-            a_told.contains("417") && a_told.contains("welcome"),
-            "{a_told}"
-        );
-        assert!(!a_told.contains("2468"), "{a_told}");
-        // The file keeps it so.
-        let text = thread.save(at(41), SystemTime::now()).unwrap();
-        let mut read = Thread::load(&text, at(41), SystemTime::now());
+        let recall = |thread: &mut Thread, now| {
+            thread.opening(now);
+            thread.recall(now, ROOM).unwrap_or_default()
+        };
+        // A keeps 417; B sits in A's place at 10 s and says the PIN at 13 s,
+        // answered in A's session. Then `after` runs.
+        let scene = |after: &dyn Fn(&mut Presence, &mut Thread)| {
+            let mut presence = Presence::default();
+            let mut thread = Thread::new();
+            seen(&mut presence, &mut thread, Some(&a), at(0));
+            thread.opening(at(0));
+            thread.person("Keep my locker code, 417.", true, at(1));
+            thread.lamp(1, "Kept: 417.", at(2));
+            seen(&mut presence, &mut thread, Some(&b), at(10));
+            seen(&mut presence, &mut thread, Some(&b), at(13));
+            thread.person("My bank PIN is 2468, keep it.", true, at(13));
+            thread.lamp(2, "Kept: 2468.", at(14));
+            assert!(!thread.switch_due(at(14)), "still A's session");
+            after(&mut presence, &mut thread);
+            thread
+        };
+        // B stays: B counts at 20 s, and B's session has the PIN.
+        let mut thread = scene(&|presence, thread| {
+            seen(presence, thread, Some(&b), at(20));
+            assert!(thread.switch_due(at(20)));
+            let told = recall(thread, at(20));
+            assert!(told.contains("2468") && !told.contains("417"), "{told}");
+            seen(presence, thread, Some(&a), at(30));
+            seen(presence, thread, Some(&a), at(40));
+        });
+        let told = recall(&mut thread, at(40));
+        assert!(told.contains("417") && !told.contains("2468"), "{told}");
+        // (a) A is read again first: B never counts. A's next session.
+        let mut thread = scene(&|presence, thread| {
+            seen(presence, thread, Some(&a), at(16));
+            assert!(!thread.switch_due(at(16)));
+        });
+        let told = recall(&mut thread, at(90));
+        assert!(told.contains("417") && !told.contains("2468"), "{told}");
+        // (b) B is read only at 10 to 14 s and leaves; A is back at 200 s.
+        let mut thread = scene(&|presence, thread| {
+            seen(presence, thread, None, at(15));
+            seen(presence, thread, None, at(60));
+            seen(presence, thread, Some(&a), at(200));
+        });
+        let told = recall(&mut thread, at(200));
+        assert!(told.contains("417") && !told.contains("2468"), "{told}");
+        // The file keeps the PIN as B's: read back, A is told none of it.
+        let text = thread.save(at(201), SystemTime::now()).unwrap();
+        let mut read = Thread::load(&text, at(201), SystemTime::now());
         read.at_lamp(Some(a.clone()));
-        read.opening(at(41));
-        assert!(!read.recall(at(41), ROOM).unwrap().contains("2468"));
+        read.opening(at(201));
+        assert!(!read.recall(at(201), ROOM).unwrap().contains("2468"));
+        read.at_lamp(Some(b.clone()));
+        read.opening(at(202));
+        assert!(read.recall(at(202), ROOM).unwrap().contains("2468"));
     }
 
     /// The exchanges a route gives a model as messages: the person's only,

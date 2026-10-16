@@ -164,14 +164,15 @@ lamp-4ace it has acted about a dozen times with no fault.
 ## Each person's own thread
 
 With a memory and eyes that remember faces (#764), each exchange is kept
-as whose it was: the room's, or the memory id (never the name) of the known
-person at the lamp as the worker counts it (someone known at once when
-nobody was, a different known person once known 10 s with the one before
-unseen, nobody after 30 s unseen and two minutes with no exchange; until
-then what is said is still the known person's). For up to those 10 s a
-newcomer is answered in the session of the one before; once they count,
-what they said since the eyes first knew them becomes theirs, so it is not
-told to the one before
+as whose it was: the room's, or the memory id (never the name) of the
+known person the eyes name at the lamp as it is made, or, with no name
+fresh, of the one the worker counts there (someone known at once when
+nobody was or the one before was last seen 30 s ago, a different known
+person once known 10 s with the one before unseen, nobody after 30 s
+unseen and two minutes with no exchange; until then what is said is
+still the known person's). The counted person decides whose session it
+is: for up to those 10 s a newcomer is answered in the session of the one
+before, but what they say is theirs, so it is not told to the one before
 ([memory.md](memory.md#a-session-for-each-person-764-follow-up)). Each keeps their own last eight, four
 threads at most with the room's (32 exchanges), the oldest going first past
 that. A session is told only the exchanges of the person it was opened for,

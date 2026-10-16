@@ -652,12 +652,13 @@ impl Sessions {
         let known = who
             .and_then(crate::known_faces::known_now)
             .map(|name| crate::remember::person_id(&name));
-        let whose = who.and(self.presence.seen(known, now).map(str::to_owned));
+        let whose = who.and(self.presence.seen(known.clone(), now).map(str::to_owned));
         let Ok(mut thread) = crate::thread::THREAD.lock() else {
             return (false, None);
         };
         if who.is_some() {
-            thread.at_lamp_since(whose, self.presence.arrived());
+            thread.at_lamp(whose);
+            thread.seen_now(known);
         }
         let changed = thread.opening(now);
         (changed, thread.opened_for().map(str::to_owned))
@@ -1301,5 +1302,44 @@ mod tests {
         assert!(told.history.is_empty(), "{:?}", told.history);
         assert!(!told.text.contains("Try some tea"), "{}", told.text);
         std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    /// The reviewer on #1100: this route reads the eyes' file only as a
+    /// turn opens, so it never sees the 30 s a person is unseen between
+    /// turns. B's last turn at 30 s, then A's turns an hour later: they are
+    /// A's at once, never B's thread and kept things.
+    #[test]
+    fn a_known_person_long_after_another_has_their_own_turns_at_once() {
+        use std::time::{Duration, Instant};
+        let dir =
+            std::env::temp_dir().join(format!("lamp-voice-second-sessions-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let file = dir.join("known");
+        // The process's one thread, set aside for the test and put back.
+        let kept = std::mem::take(
+            &mut *crate::thread::THREAD
+                .lock()
+                .unwrap_or_else(|poisoned| poisoned.into_inner()),
+        );
+        let start = Instant::now();
+        let mut sessions = Sessions::default();
+        std::fs::write(&file, "B\n").unwrap();
+        let (_, person) = sessions.open(Some(&file), start + Duration::from_secs(30));
+        assert_eq!(person, Some(crate::remember::person_id("B")));
+        std::fs::write(&file, "A\n").unwrap();
+        let mut opened = Vec::new();
+        for at in [3_600, 3_605] {
+            opened.push(
+                sessions
+                    .open(Some(&file), start + Duration::from_secs(at))
+                    .1,
+            );
+        }
+        *crate::thread::THREAD
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner()) = kept;
+        std::fs::remove_dir_all(&dir).unwrap();
+        let a = Some(crate::remember::person_id("A"));
+        assert_eq!(opened, [a.clone(), a]);
     }
 }

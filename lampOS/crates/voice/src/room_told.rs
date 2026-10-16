@@ -228,6 +228,18 @@ impl RoomTold {
         self.last_sound_us = now_us;
     }
 
+    /// The lamp answered `request` with a call and no words of its own (a
+    /// light, a timer). With [`Self::count_only_talk`] that is an answer
+    /// as speaking is: not talk past the lamp, and the count since it last
+    /// spoke begins afresh (the sixth on #1029: "lights off", then
+    /// "brighter", each done without a word, ended the conversation).
+    /// Without it, nothing changes.
+    pub fn answered_by_a_call(&mut self, request: u64, now_us: u64) {
+        if self.talk_only {
+            self.spoke(request, now_us);
+        }
+    }
+
     /// Whether people have gone on talking to each other since the lamp
     /// last spoke, with [`Self::count_only_talk`] (#829):
     /// [`TALK_ENDS_CONVERSATION`] things said since then and left
@@ -536,6 +548,32 @@ mod tests {
         assert!(room.talked_past_the_lamp());
         room.spoke(8, 50 * S);
         assert!(!room.talked_past_the_lamp());
+    }
+
+    /// The sixth on #1029: lines answered by a call and no words are
+    /// answers, with the switch, and leave nothing counted against the
+    /// conversation; without it, the room is as before.
+    #[test]
+    fn with_the_switch_a_line_answered_by_a_call_alone_is_no_talk_past_the_lamp() {
+        let room_after = |talk_only: bool| {
+            let mut room = RoomTold::new();
+            room.count_only_talk(talk_only);
+            said(&mut room, 1, 0);
+            room.spoke(1, 3 * S);
+            // "Lights off", then "brighter": each done, not a word said.
+            for (request, at) in [(2, 10), (3, 20)] {
+                said(&mut room, request, at);
+                room.answered_by_a_call(request, (at + 3) * S);
+            }
+            // "A bit more" begins.
+            room.heard(4, 30 * S);
+            room
+        };
+        assert!(!room_after(true).talked_past_the_lamp());
+        // Without the switch the calls are not counted as answers, as before.
+        let mut room = room_after(false);
+        room.count_only_talk(true);
+        assert!(room.talked_past_the_lamp());
     }
 
     /// #829, the first builder at 05:46: after the voice started, one person

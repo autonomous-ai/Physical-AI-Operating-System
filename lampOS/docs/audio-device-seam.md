@@ -147,6 +147,11 @@ prime's `zero_authority` ended it before; and after a lapse and a fresh
 authority, the late answer to the prime of the reset epoch is dropped.
 `coordinator::tests::speaker_lapse`: a lapse discard or a lapsed refusal of
 the current answer cuts it and goes on, and any other refusal still fails.
+`endpoint_session::a_speaker_lapse_mid_answer_cuts_it_and_the_next_question_is_answered`:
+through the coordinator's own loop, the speaker reports a lapse after the
+first answer's second chunk; that answer ends `speaker_lapsed`, nothing more
+of it is sent, and the next question is answered (with the cut taken out of
+the loop the session ends in an error).
 `null` plays every frame as it is written, so the clock never starts there
 (the prime needs 480 frames queued): the lapse with speech or silence
 queued on the device, and the prime again after it, are shown on a lamp

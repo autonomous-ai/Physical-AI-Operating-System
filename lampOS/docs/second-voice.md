@@ -348,7 +348,14 @@ When the coordinator switches (below):
   `LAMP_ATTENTION=busy-near` how far the room microphone rose over its
   quiet during the line (`room/sound`, sampled every 100 ms on a thread of
   its own, as the Live worker samples it). Words it holds end the turn
-  after them, unanswered. Each turn is judged as a session's first. On
+  after them, unanswered. Each turn is judged as a session's first, except
+  one going on from the request judged just before it (`continues`, the
+  same utterance after the lamp ended it early, with
+  `LAMP_CUT_KEEPS_NAME=on`): it keeps what the rule knew of that one, its
+  name, words so far and whether it was close, as on the Live route
+  (`Attention::continued_at`). `over_the_lamp` (a line begun over the
+  lamp's reply) is used by nothing here: this route runs no same-voice
+  check and no staff note, the two things it guards on the Live route. On
   lamp-4ace on 2026-10-16 this route answered "Me." and half a question
   between colleagues while Gemini's session was renewed; both are held now.
 - **Back to Gemini:** silently, at the next idle moment with Gemini Ready,

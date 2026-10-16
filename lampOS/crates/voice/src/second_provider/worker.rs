@@ -142,6 +142,10 @@ impl Gate {
                 privacy_generation,
                 ..
             }
+            | ProviderInput::Called {
+                request,
+                privacy_generation,
+            }
             | ProviderInput::Written {
                 request,
                 privacy_generation,

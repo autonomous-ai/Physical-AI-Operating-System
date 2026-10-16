@@ -1853,6 +1853,7 @@ fn flush_provider_input_with(
             ProviderInput::Start { request, .. }
             | ProviderInput::Audio { request, .. }
             | ProviderInput::End { request, .. }
+            | ProviderInput::Called { request, .. }
             | ProviderInput::Reminder { request, .. }
             | ProviderInput::Written { request, .. } => *request,
         };
@@ -4566,6 +4567,18 @@ fn conversation_with_gate(
                         local.speech = !as_sound && said_turn == Some(current.owner.turn());
                     }
                     if sent.is_none() {
+                        // Only the lamp's name, and nothing more in its
+                        // wait: the model is told so before the end (#782).
+                        if let Some(called) = call_note(
+                            detector.last_endpoint(),
+                            current.owner.turn(),
+                            current.local_only.is_some(),
+                            snapshot.microphone_generation(),
+                            provider_queue.len(),
+                            provider_queue_bound,
+                        ) {
+                            provider_queue.push_back(called);
+                        }
                         queue_input_end(
                             &mut provider_queue,
                             current,
@@ -6834,6 +6847,29 @@ fn queue_input(
         samples: audio.samples.to_vec(),
     });
     Ok(())
+}
+
+/// What tells the model that the request ending now was only the lamp's
+/// name, to go just before its end: when its end is a call's wait that ran
+/// out (`--call-wait-ms`, #782). Nothing for any other end, nor for a
+/// local-only turn (#830), whose request never went out. Nor when `queued`
+/// is already at `pcm_bound`: the end keeps the one slot past the bound it
+/// has always had, and the note is left out.
+fn call_note(
+    decision: Option<&crate::activity::EndpointDecision>,
+    request: u64,
+    local_only: bool,
+    privacy_generation: u64,
+    queued: usize,
+    pcm_bound: usize,
+) -> Option<ProviderInput> {
+    decision
+        .and_then(|decision| decision.call_wait_ms)
+        .filter(|_| !local_only && queued < pcm_bound)
+        .map(|_| ProviderInput::Called {
+            request,
+            privacy_generation,
+        })
 }
 
 /// The endpoint has one explicit slot after the PCM threshold. It cannot

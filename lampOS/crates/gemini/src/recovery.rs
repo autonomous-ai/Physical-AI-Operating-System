@@ -732,6 +732,12 @@ impl<C: Connect> Supervisor<C> {
         self.input().map_or(true, |(input, _)| input.has_room())
     }
 
+    /// The same, for `commands` free places.
+    pub fn input_has_room_for(&self, commands: usize) -> bool {
+        self.input()
+            .map_or(true, |(input, _)| input.has_room_for(commands))
+    }
+
     fn submitted_input(&self, request: RequestId) -> Result<&InputSender> {
         let (input, session) = self.input()?;
         if self.submitted.get() != Some(Lineage { session, request }) {

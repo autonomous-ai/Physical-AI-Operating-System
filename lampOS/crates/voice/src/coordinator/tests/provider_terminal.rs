@@ -334,7 +334,9 @@ fn run_with_notice_policy(
                                     panic!("reminders are disabled in this fixture")
                                 }
                                 Some(
-                                    ProviderInput::Audio { .. } | ProviderInput::Written { .. },
+                                    ProviderInput::Audio { .. }
+                                    | ProviderInput::Written { .. }
+                                    | ProviderInput::Called { .. },
                                 ) => {}
                                 None => break,
                             }
